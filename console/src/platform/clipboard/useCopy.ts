@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Status } from "@synnaxlabs/pluto";
+import { Status } from "@synnaxlabs/lyra/status";
 import { useCallback } from "react";
 
 /* The deprecated copy command, and the only copy an insecure (http) context allows.

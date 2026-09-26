@@ -7,20 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type Component,
-  Flex,
-  Form,
-  Icon,
-  List,
-  Menu,
-  Select,
-} from "@synnaxlabs/pluto";
+import { type Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Select } from "@synnaxlabs/lyra/select";
 import { array } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useCallback } from "react";
 
 import { ContextMenu as PlatformContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
+import { BindChannels, type BindChannelsProps } from "@/platform/task/BindChannels";
 import { useIsPreview } from "@/platform/task/Form";
 import { type Channel } from "@/platform/task/types";
 
@@ -126,6 +125,8 @@ export interface ChannelListProps<C extends Channel>
   extends
     Omit<ContextMenuProps<C>, "keys">,
     Pick<Flex.BoxProps, "onDragOver" | "onDrop" | "grow" | "style"> {
+  /** Null only for a list whose entries an outer BindChannels binds. */
+  resolve: BindChannelsProps<C>["resolve"] | null;
   emptyContent: ReactElement;
   header: ReactNode;
   /** Pinned below the list; a create action in the list's own idiom. */
@@ -146,6 +147,7 @@ export const ChannelList = <C extends Channel>({
   selected,
   grow,
   style,
+  resolve,
   ...rest
 }: ChannelListProps<C>) => {
   const { onSelect, path, data } = rest;
@@ -156,6 +158,7 @@ export const ChannelList = <C extends Channel>({
   const menuProps = Menu.useContextMenu();
   return (
     <Flex.Box className={CSS.B("channel-list")} empty grow={grow} style={style}>
+      {resolve != null && <BindChannels<C> path={path} resolve={resolve} />}
       {header}
       <Menu.ContextMenu
         {...menuProps}

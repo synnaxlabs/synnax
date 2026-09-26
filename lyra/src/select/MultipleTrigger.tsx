@@ -1,0 +1,231 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "@/select/MultipleTrigger.css";
+
+import { array, type color, primitive, type record, unique } from "@synnaxlabs/x";
+import { type ReactElement, type ReactNode, useCallback } from "react";
+
+import { Button } from "@/button";
+import { Caret } from "@/caret";
+import { type RenderProp, renderProp } from "@/component/renderProp";
+import { CSS } from "@/css";
+import { Dialog } from "@/dialog";
+import { Haul } from "@/haul";
+import { useSyncedRef } from "@/hooks";
+import { Icon } from "@/icon";
+import { List } from "@/list";
+import { useContext, useItemState, useSelected } from "@/select/Context";
+import { Tag } from "@/tag";
+import { Text } from "@/text";
+
+export interface MultipleEntry<K extends record.Key> extends record.KeyedNamed<K> {
+  icon?: Icon.ReactElement;
+  color?: color.Crude;
+  alias?: string;
+}
+
+export interface MultipleTagProps<K extends record.Key> extends Omit<
+  Tag.TagProps,
+  "onDragStart"
+> {
+  itemKey: K;
+  onDragStart: (key: K) => void;
+  renderIcon?: (entry: unknown) => Icon.ReactElement | undefined;
+}
+
+const MultipleTag = <K extends record.Key, E extends MultipleEntry<K>>({
+  itemKey,
+  icon,
+  onDragStart,
+  renderIcon,
+}: MultipleTagProps<K>): ReactElement | null => {
+  const item = List.useItem<K, E>(itemKey);
+  const { onSelect } = useItemState(itemKey);
+  let label: string = itemKey.toString();
+  if (primitive.isNonZero(item?.alias)) label = item.alias;
+  else if (primitive.isNonZero(item?.name)) label = item.name;
+  const resolvedIcon = renderIcon?.(item) ?? item?.icon ?? icon;
+  return (
+    <Tag.Tag
+      onClose={onSelect}
+      onDragStart={() => onDragStart(itemKey)}
+      draggable
+      size="small"
+      status={item == null ? "error" : undefined}
+      icon={resolvedIcon}
+      color={item?.color}
+    >
+      {label}
+    </Tag.Tag>
+  );
+};
+
+const multipleTag = renderProp(MultipleTag);
+
+/** Props for {@link MultipleTrigger}. */
+export interface MultipleTriggerProps<
+  K extends record.Key,
+  E extends record.Keyed<K> | undefined = MultipleEntry<K> | undefined,
+> extends Pick<Button.ButtonProps, "variant" | "disabled" | "preview"> {
+  /** Haul item type this trigger accepts as a drop. Empty accepts nothing. */
+  haulType?: string;
+  /** Builds the haul item for an entry dragged out of the trigger. */
+  createHaulItem?: (entry: NonNullable<E>) => Haul.Item;
+  placeholder?: ReactNode;
+  icon?: Icon.ReactElement;
+  /** Names the trigger. The tags alone never say what they are. */
+  "aria-label"?: string;
+  /** Whether to show only a count instead of one tag per entry. */
+  hideTags?: boolean;
+  children?: RenderProp<MultipleTagProps<K>>;
+  renderIcon?: (entry: unknown) => Icon.ReactElement | undefined;
+}
+
+/** @returns whether a drag carries at least one entry of the type not already selected. */
+export const staticCanDrop = <K extends record.Key>(
+  { items: entities }: Haul.DraggingState,
+  haulType: string,
+  value: K[] | readonly K[],
+  disabled?: boolean,
+): boolean => {
+  if (haulType === "" || disabled === true) return false;
+  const f = Haul.filterByType(haulType, entities);
+  return f.length > 0 && !f.every((h) => value.includes(h.key as K));
+};
+
+/** The button of a {@link Multiple} selection, showing one removable tag per entry. */
+export const MultipleTrigger = <
+  K extends record.Key,
+  E extends record.Keyed<K> | undefined = MultipleEntry<K> | undefined,
+>({
+  haulType = "",
+  createHaulItem,
+  disabled,
+  placeholder = "Select",
+  variant = "outlined",
+  preview,
+  icon,
+  "aria-label": ariaLabel,
+  hideTags = false,
+  children = multipleTag as unknown as RenderProp<MultipleTagProps<K>>,
+  renderIcon,
+}: MultipleTriggerProps<K, E>): ReactElement | null => {
+  const value = useSelected<K>();
+  const valueRef = useSyncedRef(value);
+  const { setSelected } = useContext<K>();
+  const { getItem } = List.useUtilContext<K, E>();
+  const { toggle, visible } = Dialog.useContext();
+  const canDrop = useCallback(
+    (hauled: Haul.DraggingState) =>
+      staticCanDrop(hauled, haulType, array.toArray(value), disabled),
+    [haulType, value, disabled],
+  );
+  const { startDrag, ...dropProps } = Haul.useDragAndDrop({
+    type: haulType,
+    canDrop,
+    onDrop: Haul.useFilterByTypeCallback(
+      haulType,
+      ({ items }) => {
+        const v = array.toArray(valueRef.current);
+        setSelected(
+          unique.unique([...array.toArray(v), ...(items.map((c) => c.key) as K[])]),
+        );
+        return items;
+      },
+      [setSelected],
+    ),
+  });
+
+  const handleSuccessfulDrop = useCallback(
+    ({ dropped }: Haul.OnSuccessfulDropProps) => {
+      const res = value.filter((key) => !dropped.some((h) => h.key === key));
+      setSelected(res);
+    },
+    [setSelected, value],
+  );
+
+  const onTagDragStart = useCallback(
+    (key: K) => {
+      if (createHaulItem != null && getItem != null) {
+        const entry = getItem(key);
+        if (entry == null) return;
+        startDrag([createHaulItem(entry)], handleSuccessfulDrop);
+        return;
+      }
+      startDrag([{ key, type: haulType }], handleSuccessfulDrop);
+    },
+    [startDrag, handleSuccessfulDrop, haulType, createHaulItem, getItem],
+  );
+  const dragging = Haul.useDraggingState();
+  const showAddButton = variant === "text" && value.length !== 0 && preview !== true;
+
+  if (hideTags) {
+    if (preview === true) return null;
+    return (
+      <Dialog.Trigger variant={variant} aria-label={ariaLabel} {...dropProps}>
+        {icon}
+        {placeholder}
+      </Dialog.Trigger>
+    );
+  }
+
+  return (
+    <Tag.Tags
+      full="x"
+      // The chassis is a div, so it needs a role and a tab stop to act as a button.
+      role="button"
+      tabIndex={showAddButton || preview === true ? undefined : 0}
+      aria-label={ariaLabel}
+      onClick={() => {
+        if (!showAddButton) toggle();
+      }}
+      {...dropProps}
+      className={CSS.cls(
+        CSS.dropRegion(canDrop(dragging)),
+        CSS.BE("dialog", "trigger"),
+        CSS.BM("variant", variant),
+      )}
+      variant={variant}
+      preview={preview}
+      preventClick={showAddButton}
+      grow
+    >
+      {value.length === 0 && (
+        <Text.Text className={CSS.B("select-multiple-trigger-placeholder")}>
+          {preview === true ? (
+            "None"
+          ) : (
+            <>
+              {icon}
+              {placeholder}
+            </>
+          )}
+        </Text.Text>
+      )}
+      {value.map((v) =>
+        children({ key: v, itemKey: v, onDragStart: onTagDragStart, icon, renderIcon }),
+      )}
+      {variant !== "text" && preview !== true && (
+        <Caret.Animated
+          className={CSS.level("p")}
+          enabled={visible}
+          enabledLoc="bottom"
+          disabledLoc="left"
+          color={9}
+        />
+      )}
+      {showAddButton && (
+        <Button.Button variant={variant} onClick={toggle}>
+          <Icon.Add color={9} />
+        </Button.Button>
+      )}
+    </Tag.Tags>
+  );
+};

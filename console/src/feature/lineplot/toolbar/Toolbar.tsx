@@ -10,15 +10,11 @@
 import "@/feature/lineplot/toolbar/Toolbar.css";
 
 import { lineplot } from "@synnaxlabs/client";
-import {
-  Access,
-  Button,
-  Flex,
-  Icon,
-  LinePlot,
-  Panel as PlutoPanel,
-  Tabs,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Tabs } from "@synnaxlabs/lyra/tabs";
+import { Access, LinePlot, Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
 import { Annotations } from "@/feature/lineplot/toolbar/Annotations";

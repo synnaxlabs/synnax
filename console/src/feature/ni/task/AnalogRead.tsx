@@ -8,10 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { channel, NotFoundError, QueryError, type rack } from "@synnaxlabs/client";
-import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { errors, id, primitive, strings, unique } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
+import { useByKeys } from "@/feature/ni/device/queries";
 import * as Device from "@/feature/ni/device/types";
 import { AIChannelForm } from "@/feature/ni/task/AIChannelForm";
 import { createNextAIChannel } from "@/feature/ni/task/createChannel";
@@ -100,6 +104,17 @@ const detailsTitle = Component.renderProp(DetailsTitle);
 
 const Form: FC = () => {
   const [tare, allowTare, handleTare] = Task.useTare<AIChannel>();
+  const devices = useByKeys(Task.useChannelDeviceKeys());
+  const resolve = useCallback(
+    (ch: AIChannel) => {
+      const dev = devices?.find(({ key }) => key === ch.device);
+      if (dev == null) return null;
+      return {
+        channel: dev.properties.analogInput.channels[getAIChannelDeviceKey(ch)] ?? 0,
+      };
+    },
+    [devices],
+  );
   const listItem = useCallback(
     ({ key, ...rest }: Task.ChannelListItemProps) => (
       <ChannelListItem key={key} {...rest} onTare={tare} />
@@ -115,6 +130,7 @@ const Form: FC = () => {
       onTare={handleTare}
       allowTare={allowTare}
       contextMenuItems={Task.readChannelContextMenuItem}
+      resolve={resolve}
     />
   );
 };

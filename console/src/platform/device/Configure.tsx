@@ -10,16 +10,13 @@
 import "@/platform/device/Configure.css";
 
 import { type device, status } from "@synnaxlabs/client";
-import {
-  Button,
-  Device as Base,
-  Device,
-  Flex,
-  Form,
-  Icon,
-  Nav,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Nav } from "@synnaxlabs/lyra/nav";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Device as Base, Device } from "@synnaxlabs/pluto";
 import { deep, type record, strings } from "@synnaxlabs/x";
 import { useCallback, useRef, useState } from "react";
 import { z } from "zod";

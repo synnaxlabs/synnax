@@ -27,6 +27,7 @@ var _ = Describe("Chain frozen codecs", func() {
 	It("Should emit codecs for a frozen version's defined types only", func() {
 		root := GinkgoT().TempDir()
 		write := func(rel, content string) {
+			GinkgoHelper()
 			full := filepath.Join(root, rel)
 			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
 			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
@@ -108,6 +109,7 @@ Channel struct {
 	It("Should keep frozen codecs generating for an ended chain", func() {
 		root := GinkgoT().TempDir()
 		write := func(rel, content string) {
+			GinkgoHelper()
 			full := filepath.Join(root, rel)
 			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
 			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())

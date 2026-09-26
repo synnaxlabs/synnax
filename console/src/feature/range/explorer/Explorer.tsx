@@ -10,7 +10,10 @@
 import "@/feature/range/explorer/Explorer.css";
 
 import { ranger } from "@synnaxlabs/client";
-import { Access, Button, Component, Icon, Ranger } from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Access, Ranger } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 import { useCallback } from "react";
 

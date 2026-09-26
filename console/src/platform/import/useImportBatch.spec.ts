@@ -9,7 +9,7 @@
 
 import { log, type ontology, type panel } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Status } from "@synnaxlabs/pluto";
+import { Status } from "@synnaxlabs/lyra/status";
 import { act, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 

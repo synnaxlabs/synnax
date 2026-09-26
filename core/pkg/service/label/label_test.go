@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -240,24 +241,49 @@ var _ = Describe("Label", Ordered, func() {
 			Expect(labels).To(BeEmpty())
 		})
 	})
-	Describe("Clear", func() {
-		It("Should remove all labels on an object", func(ctx SpecContext) {
-			l := &label.Label{
-				Name:  "Label",
-				Color: color.MustFromHex("#000000"),
-			}
-			Expect(w.Create(ctx, l)).To(Succeed())
+	Describe("Replace", func() {
+		It(
+			"Should make the given labels the complete set on an object",
+			func(ctx SpecContext) {
+				kept := &label.Label{Name: "Kept", Color: color.MustFromHex("#000000")}
+				removed := &label.Label{
+					Name:  "Removed",
+					Color: color.MustFromHex("#000000"),
+				}
+				added := &label.Label{
+					Name:  "Added",
+					Color: color.MustFromHex("#000000"),
+				}
+				labeled := &label.Label{
+					Name:  "Labeled",
+					Color: color.MustFromHex("#000000"),
+				}
+				for _, l := range []*label.Label{kept, removed, added, labeled} {
+					Expect(w.Create(ctx, l)).To(Succeed())
+				}
+				Expect(w.Label(
+					ctx, labeled.OntologyID(), []label.Key{kept.Key, removed.Key},
+				)).To(Succeed())
+				Expect(w.Replace(
+					ctx, labeled.OntologyID(), []label.Key{kept.Key, added.Key},
+				)).To(Succeed())
+				labels := MustSucceed(svc.RetrieveFor(ctx, labeled.OntologyID(), tx))
+				Expect(lo.Map(labels, func(l label.Label, _ int) label.Key {
+					return l.Key
+				})).To(ConsistOf(kept.Key, added.Key))
+			},
+		)
+		It("Should remove all labels when given none", func(ctx SpecContext) {
+			l := &label.Label{Name: "Label", Color: color.MustFromHex("#000000")}
 			labeled := &label.Label{
 				Name:  "Labeled",
 				Color: color.MustFromHex("#000000"),
 			}
+			Expect(w.Create(ctx, l)).To(Succeed())
 			Expect(w.Create(ctx, labeled)).To(Succeed())
 			Expect(w.Label(ctx, labeled.OntologyID(), []label.Key{l.Key})).To(Succeed())
+			Expect(w.Replace(ctx, labeled.OntologyID(), nil)).To(Succeed())
 			labels := MustSucceed(svc.RetrieveFor(ctx, labeled.OntologyID(), tx))
-			Expect(labels).To(HaveLen(1))
-			Expect(labels[0].Key).To(Equal(l.Key))
-			Expect(w.Clear(ctx, labeled.OntologyID())).To(Succeed())
-			labels = MustSucceed(svc.RetrieveFor(ctx, labeled.OntologyID(), tx))
 			Expect(labels).To(BeEmpty())
 		})
 	})

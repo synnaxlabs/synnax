@@ -9,7 +9,8 @@
 
 import "@/platform/view/FilterChip.css";
 
-import { type Generic, Text } from "@synnaxlabs/pluto";
+import { type Generic } from "@synnaxlabs/lyra/generic";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";

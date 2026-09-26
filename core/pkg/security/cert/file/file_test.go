@@ -26,10 +26,12 @@ import (
 )
 
 func leafOf(c *tls.Certificate) *x509.Certificate {
+	GinkgoHelper()
 	return MustSucceed(x509.ParseCertificate(c.Certificate[0]))
 }
 
 func copyFile(fs xfs.FS, from, to string) {
+	GinkgoHelper()
 	src := MustSucceed(fs.Open(from, os.O_RDONLY))
 	data := MustSucceed(io.ReadAll(src))
 	Expect(src.Close()).To(Succeed())
@@ -39,6 +41,7 @@ func copyFile(fs xfs.FS, from, to string) {
 }
 
 func createNodePairIn(fs xfs.FS, dir string, host address.Address) {
+	GinkgoHelper()
 	f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
 		FS:       fs,
 		CertsDir: dir,

@@ -10,20 +10,18 @@
 import "@/feature/modbus/task/Task.css";
 
 import { channel, NotFoundError } from "@synnaxlabs/client";
-import {
-  Access,
-  Component,
-  Flex,
-  Form as PForm,
-  Icon,
-  Menu,
-  Select,
-  Telem,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Access, Telem } from "@synnaxlabs/pluto";
 import { deep, errors, id, primitive } from "@synnaxlabs/x";
-import { type FC } from "react";
+import { type FC, useCallback } from "react";
 
+import { useFromConfig } from "@/feature/modbus/device/queries";
 import { Select as SelectDevice } from "@/feature/modbus/device/Select";
 import * as Device from "@/feature/modbus/device/types";
 import { SelectWriteChannelTypeField } from "@/feature/modbus/task/SelectWriteChannelTypeField";
@@ -145,13 +143,24 @@ const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => 
 
 const contextMenuItems = Component.renderProp(ContextMenuItem);
 
-const Form: FC = () => (
-  <Task.Views.List<WriteChannel>
-    createChannel={getOpenChannel}
-    listItem={listItem}
-    contextMenuItems={contextMenuItems}
-  />
-);
+const Form: FC = () => {
+  const dev = useFromConfig();
+  const resolve = useCallback(
+    (c: WriteChannel) =>
+      dev == null
+        ? null
+        : { channel: dev.properties.write.channels[writeMapKey(c)] ?? 0 },
+    [dev],
+  );
+  return (
+    <Task.Views.List<WriteChannel>
+      createChannel={getOpenChannel}
+      listItem={listItem}
+      contextMenuItems={contextMenuItems}
+      resolve={resolve}
+    />
+  );
+};
 
 // Auto-generated channel names and device map keys keep the released type
 // spellings, so channels created before the labels were renamed keep matching.

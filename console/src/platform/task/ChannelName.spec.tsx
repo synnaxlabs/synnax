@@ -9,7 +9,8 @@
 
 import { DataType } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Form, Text } from "@synnaxlabs/pluto";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Text } from "@synnaxlabs/lyra/text";
 import { TimeStamp } from "@synnaxlabs/x";
 import { screen, waitFor } from "@testing-library/react";
 import { act } from "react";

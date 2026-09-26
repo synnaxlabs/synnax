@@ -75,17 +75,17 @@ class Button(Symbol):
         self.page.get_by_text("Control").last.click()
 
         if channel_name is not None:
-            self.set_channel(input_field="Channel", channel_name=channel_name)
+            self.set_channel(section="Command", channel_name=channel_name)
             applied_properties["channel"] = channel_name
 
         if activation_delay is not None:
-            self.layout.fill_input_field("Activation delay", str(activation_delay))
+            self.layout.fill_input_field("Delay", str(activation_delay))
             self.page.keyboard.press("Enter")
             applied_properties["activation_delay"] = activation_delay
 
         if show_control_chip is not None:
             chip_toggle = (
-                self.page.locator("text=Show control chip")
+                self.page.locator("text=Control chip")
                 .locator("..")
                 .locator("input[type='checkbox']")
             )
@@ -112,23 +112,19 @@ class Button(Symbol):
         }
 
         # Channel name
-        channel_display = (
-            self.page.locator('text="Channel"').locator("..").locator("button")
-        )
+        channel_display = self.channel_trigger("Command")
         if channel_display.count() > 0:
             props["channel"] = channel_display.inner_text().strip()
 
         # Activation delay; the form hides the field for momentary mode, where
         # the hold is the actuation.
-        delay_field = self.page.locator("text=Activation delay")
+        delay_field = self.page.locator("text=Delay")
         if delay_field.count() > 0:
-            props["activation_delay"] = float(
-                self.layout.get_input_field("Activation delay")
-            )
+            props["activation_delay"] = float(self.layout.get_input_field("Delay"))
 
-        # Show control chip
+        # Control chip
         chip_toggle = (
-            self.page.locator("text=Show control chip")
+            self.page.locator("text=Control chip")
             .locator("..")
             .locator("input[type='checkbox']")
         )

@@ -10,7 +10,11 @@
 import "@/feature/theme/Modal.css";
 
 import { type Dispatch } from "@reduxjs/toolkit";
-import { Component, Icon, List, Select, Text } from "@synnaxlabs/pluto";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 

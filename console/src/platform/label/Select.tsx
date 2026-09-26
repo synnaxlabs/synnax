@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { label } from "@synnaxlabs/client";
-import { Access, Dialog, Label } from "@synnaxlabs/pluto";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
+import { Access, Label } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Button } from "@/platform/button";

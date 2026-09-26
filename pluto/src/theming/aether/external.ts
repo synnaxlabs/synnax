@@ -8,5 +8,3 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/theming/aether/provider";
-export * from "@/theming/base/fontString";
-export * from "@/theming/base/theme";

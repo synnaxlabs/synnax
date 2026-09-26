@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Dialog, Icon } from "@synnaxlabs/pluto";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";

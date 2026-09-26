@@ -8,21 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import {
-  Button,
-  Color,
-  Diagram,
-  Direction,
-  Divider,
-  Flex,
-  Form,
-  Icon,
-  Input,
-  Schematic,
-  Select,
-  Status,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Color, Diagram, Direction, Schematic } from "@synnaxlabs/pluto";
 import {
   box,
   color,
@@ -379,158 +374,163 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
     if (actions.length > 0) dispatch(actions);
   };
 
+  const colorEntries = Object.entries(colorGroups);
+
   return (
-    <Flex.Box
-      align="start"
-      x
-      className={CSS.BE("schematic", "properties", "multi")}
-      gap="large"
-    >
-      <Input.Item label="Selection colors" align="start">
-        <Flex.Box x>
-          {Object.entries(colorGroups).map(([hex, keys]) => (
-            <Color.Swatch
-              key={keys[0]}
-              value={hex}
-              onChange={(c: color.Color) => {
-                const actions = configActions(
-                  keys.map((key): [string, Partial<Schematic.ElementConfig>] => [
-                    key,
-                    { color: c },
-                  ]),
-                );
-                if (actions.length > 0) dispatch(actions);
-              }}
-            />
-          ))}
-        </Flex.Box>
-      </Input.Item>
-      <Input.Item label="Align">
-        <Flex.Box x>
-          <Button.Button
-            tooltip="Align symbols vertically"
-            onClick={() => handleAlignAlongDirection("x")}
-          >
-            <Icon.Align.YCenter />
-          </Button.Button>
-          <Button.Button
-            tooltip="Align symbols horizontally"
-            onClick={() => handleAlignAlongDirection("y")}
-          >
-            <Icon.Align.XCenter />
-          </Button.Button>
-          <Divider.Divider direction="y" />
-          <Button.Button
-            tooltip="Align symbols left"
-            onClick={() => handleAlignToLocation("left")}
-          >
-            <Icon.Align.Left />
-          </Button.Button>
-          <Button.Button
-            tooltip="Align symbols top"
-            onClick={() => handleAlignToLocation("top")}
-          >
-            <Icon.Align.Top />
-          </Button.Button>
-          <Button.Button
-            tooltip="Align symbols bottom"
-            onClick={() => handleAlignToLocation("bottom")}
-          >
-            <Icon.Align.Bottom />
-          </Button.Button>
-          <Button.Button
-            tooltip="Align symbols right"
-            onClick={() => handleAlignToLocation("right")}
-          >
-            <Icon.Align.Right />
-          </Button.Button>
-        </Flex.Box>
-      </Input.Item>
-      {selected.length >= 3 && (
-        <Input.Item label="Spacing">
+    <Form.Sections x className={CSS.BE("schematic", "properties", "multi")}>
+      <Form.Section title="Arrange">
+        <Input.Item label="Align">
           <Flex.Box x>
             <Button.Button
-              tooltip="Distribute symbol spacing horizontally"
-              onClick={() => handleDistribute("x")}
+              tooltip="Align symbols vertically"
+              onClick={() => handleAlignAlongDirection("x")}
             >
-              <Icon.Distribute.X />
+              <Icon.Align.YCenter />
             </Button.Button>
             <Button.Button
-              tooltip="Distribute symbol spacing vertically"
-              onClick={() => handleDistribute("y")}
+              tooltip="Align symbols horizontally"
+              onClick={() => handleAlignAlongDirection("y")}
             >
-              <Icon.Distribute.Y />
+              <Icon.Align.XCenter />
+            </Button.Button>
+            <Divider.Divider direction="y" />
+            <Button.Button
+              tooltip="Align symbols left"
+              onClick={() => handleAlignToLocation("left")}
+            >
+              <Icon.Align.Left />
+            </Button.Button>
+            <Button.Button
+              tooltip="Align symbols top"
+              onClick={() => handleAlignToLocation("top")}
+            >
+              <Icon.Align.Top />
+            </Button.Button>
+            <Button.Button
+              tooltip="Align symbols bottom"
+              onClick={() => handleAlignToLocation("bottom")}
+            >
+              <Icon.Align.Bottom />
+            </Button.Button>
+            <Button.Button
+              tooltip="Align symbols right"
+              onClick={() => handleAlignToLocation("right")}
+            >
+              <Icon.Align.Right />
             </Button.Button>
           </Flex.Box>
         </Input.Item>
+        {selected.length >= 3 && (
+          <Input.Item label="Spacing">
+            <Flex.Box x>
+              <Button.Button
+                tooltip="Distribute symbol spacing horizontally"
+                onClick={() => handleDistribute("x")}
+              >
+                <Icon.Distribute.X />
+              </Button.Button>
+              <Button.Button
+                tooltip="Distribute symbol spacing vertically"
+                onClick={() => handleDistribute("y")}
+              >
+                <Icon.Distribute.Y />
+              </Button.Button>
+            </Flex.Box>
+          </Input.Item>
+        )}
+        <Input.Item label="Rotate">
+          <Flex.Box x>
+            <Button.Button
+              tooltip="Rotate symbols clockwise"
+              onClick={() => handleRotateIndividual("clockwise")}
+            >
+              <Icon.RotateGroup.CW />
+            </Button.Button>
+            <Button.Button
+              tooltip="Rotate symbols counterclockwise"
+              onClick={() => handleRotateIndividual("counterclockwise")}
+            >
+              <Icon.RotateGroup.CCW />
+            </Button.Button>
+          </Flex.Box>
+        </Input.Item>
+        <Input.Item label="Rotate selection">
+          <Flex.Box x>
+            <Button.Button
+              tooltip="Rotate selection clockwise"
+              onClick={() => handleRotateGroup("clockwise")}
+            >
+              <Icon.RotateAroundCenter.CW />
+            </Button.Button>
+            <Button.Button
+              tooltip="Rotate selection counterclockwise"
+              onClick={() => handleRotateGroup("counterclockwise")}
+            >
+              <Icon.RotateAroundCenter.CCW />
+            </Button.Button>
+          </Flex.Box>
+        </Input.Item>
+      </Form.Section>
+      <Form.Section title="Label">
+        <Input.Item label="Wrap width">
+          <Input.Numeric
+            value={firstNodeLabel?.maxInlineSize ?? 150}
+            onChange={(v) => handleLabelProp("maxInlineSize", v)}
+            endContent="px"
+          />
+        </Input.Item>
+        <Input.Item label="Size">
+          <Select.Text.Level
+            value={firstNodeLabel?.level ?? "p"}
+            onChange={(v: text.Level) => handleLabelProp("level", v)}
+          />
+        </Input.Item>
+        <Input.Item label="Alignment">
+          <Select.Flex.Alignment
+            value={firstNodeLabel?.align ?? "center"}
+            onChange={(v: Flex.Alignment) => handleLabelProp("align", v)}
+          />
+        </Input.Item>
+        <Input.Item label="Direction">
+          <Direction.Select
+            value={firstNodeLabel?.direction ?? "x"}
+            onChange={(v: direction.Direction) => handleLabelProp("direction", v)}
+            yDirection="down"
+          />
+        </Input.Item>
+        <Input.Item label="Location">
+          <Schematic.Node.Orientation.Select
+            value={{ inner: "top", outer: firstNodeLabel?.orientation ?? "top" }}
+            onChange={(v) =>
+              v.outer !== "center" && handleLabelProp("orientation", v.outer)
+            }
+            hideInner
+          />
+        </Input.Item>
+      </Form.Section>
+      {colorEntries.length > 0 && (
+        <Form.Section title="Appearance">
+          <Input.Item label="Colors">
+            <Flex.Box x>
+              {colorEntries.map(([hex, keys]) => (
+                <Color.Swatch
+                  key={keys[0]}
+                  value={hex}
+                  onChange={(c: color.Color) => {
+                    const actions = configActions(
+                      keys.map((key): [string, Partial<Schematic.ElementConfig>] => [
+                        key,
+                        { color: c },
+                      ]),
+                    );
+                    if (actions.length > 0) dispatch(actions);
+                  }}
+                />
+              ))}
+            </Flex.Box>
+          </Input.Item>
+        </Form.Section>
       )}
-      <Input.Item label="Rotate">
-        <Flex.Box x>
-          <Button.Button
-            tooltip="Rotate symbols clockwise"
-            onClick={() => handleRotateIndividual("clockwise")}
-          >
-            <Icon.RotateGroup.CW />
-          </Button.Button>
-          <Button.Button
-            tooltip="Rotate symbols counterclockwise"
-            onClick={() => handleRotateIndividual("counterclockwise")}
-          >
-            <Icon.RotateGroup.CCW />
-          </Button.Button>
-        </Flex.Box>
-      </Input.Item>
-      <Input.Item label="Rotate selection">
-        <Flex.Box x>
-          <Button.Button
-            tooltip="Rotate selection clockwise"
-            onClick={() => handleRotateGroup("clockwise")}
-          >
-            <Icon.RotateAroundCenter.CW />
-          </Button.Button>
-          <Button.Button
-            tooltip="Rotate selection counterclockwise"
-            onClick={() => handleRotateGroup("counterclockwise")}
-          >
-            <Icon.RotateAroundCenter.CCW />
-          </Button.Button>
-        </Flex.Box>
-      </Input.Item>
-      <Input.Item label="Label wrap width" align="start">
-        <Input.Numeric
-          value={firstNodeLabel?.maxInlineSize ?? 150}
-          onChange={(v) => handleLabelProp("maxInlineSize", v)}
-          endContent="px"
-        />
-      </Input.Item>
-      <Input.Item label="Label size" align="start">
-        <Select.Text.Level
-          value={firstNodeLabel?.level ?? "p"}
-          onChange={(v: text.Level) => handleLabelProp("level", v)}
-        />
-      </Input.Item>
-      <Input.Item label="Label alignment" align="start">
-        <Select.Flex.Alignment
-          value={firstNodeLabel?.align ?? "center"}
-          onChange={(v: Flex.Alignment) => handleLabelProp("align", v)}
-        />
-      </Input.Item>
-      <Input.Item label="Label direction" align="start">
-        <Direction.Select
-          value={firstNodeLabel?.direction ?? "x"}
-          onChange={(v: direction.Direction) => handleLabelProp("direction", v)}
-          yDirection="down"
-        />
-      </Input.Item>
-      <Input.Item label="Label orientation" align="start">
-        <Schematic.Node.Orientation.Select
-          value={{ inner: "top", outer: firstNodeLabel?.orientation ?? "top" }}
-          onChange={(v) =>
-            v.outer !== "center" && handleLabelProp("orientation", v.outer)
-          }
-          hideInner
-        />
-      </Input.Item>
-    </Flex.Box>
+    </Form.Sections>
   );
 };

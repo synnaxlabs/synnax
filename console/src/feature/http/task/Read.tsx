@@ -15,24 +15,23 @@ import {
   NotFoundError,
   type Synnax as Client,
 } from "@synnaxlabs/client";
-import {
-  Button,
-  Component,
-  Divider,
-  Flex,
-  Form as PForm,
-  Header,
-  Icon,
-  Input,
-  List,
-  Menu,
-  Select,
-  Telem,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Header } from "@synnaxlabs/lyra/header";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { List } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Telem } from "@synnaxlabs/pluto";
 import { DataType, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback, useState } from "react";
 
+import { useFromConfig } from "@/feature/http/device/queries";
 import { Select as SelectDevice } from "@/feature/http/device/Select";
 import * as Device from "@/feature/http/device/types";
 import { ContextMenu } from "@/feature/http/task/ContextMenu";
@@ -197,6 +196,34 @@ interface FieldListProps {
   epKey: string;
 }
 
+/**
+ * Binds an endpoint's fields to the channels the device stores for its path. Mounted by
+ * the form for every endpoint, as the field list renders only for the selected one.
+ */
+const FieldBinder = ({ epKey }: FieldListProps) => {
+  const dev = useFromConfig();
+  const epPath = PForm.useFieldValue<string>(`config.endpoints.${epKey}.path`);
+  const indexKey = PForm.useFieldValue<string>(`config.endpoints.${epKey}.index`);
+  const resolve = useCallback(
+    (field: ReadField) => {
+      if (dev == null) return null;
+      const props = dev.properties.read[epPath];
+      if (props == null) return { channel: 0 };
+      return {
+        channel:
+          field.key === indexKey ? props.index : (props.channels[field.pointer] ?? 0),
+      };
+    },
+    [dev, epPath, indexKey],
+  );
+  return (
+    <Task.BindChannels<ReadField>
+      path={`config.endpoints.${epKey}.fields`}
+      resolve={resolve}
+    />
+  );
+};
+
 const FieldList = ({ epKey }: FieldListProps) => {
   const path = `config.endpoints.${epKey}.fields`;
   const { data: allData, push, remove } = PForm.useFieldList<string, ReadField>(path);
@@ -250,6 +277,7 @@ const FieldList = ({ epKey }: FieldListProps) => {
   return (
     <>
       <Task.ChannelList<ReadField>
+        resolve={null}
         data={data}
         remove={remove}
         onDuplicate={handleDuplicate}
@@ -545,6 +573,9 @@ const Form: FC = () => {
           </Flex.Box>
         )}
       </Flex.Box>
+      {data.map((epKey) => (
+        <FieldBinder key={epKey} epKey={epKey} />
+      ))}
     </Flex.Box>
   );
 };

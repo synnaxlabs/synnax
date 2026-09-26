@@ -31,6 +31,7 @@ var _ = Describe("Diagnostic Locations", func() {
 	}
 
 	runDiagnosticTest := func(bCtx SpecContext, tc diagnosticCase) {
+		GinkgoHelper()
 		prog := MustSucceed(parser.Parse(tc.source))
 		ctx := context.NewRoot(bCtx, prog, nil)
 		analyzer.AnalyzeProgram(ctx)

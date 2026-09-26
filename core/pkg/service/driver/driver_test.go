@@ -36,6 +36,7 @@ import (
 
 var _ = Describe("Driver", func() {
 	embeddedRackKey := func(ctx context.Context) rack.Key {
+		GinkgoHelper()
 		var r rack.Rack
 		Expect(rackService.NewRetrieve().
 			Where(rack.And(rack.MatchEmbedded(true), rack.MatchNames("Node 1"))).
@@ -45,6 +46,7 @@ var _ = Describe("Driver", func() {
 	}
 
 	openDriver := func(ctx context.Context, factory driver.Factory) *driver.Driver {
+		GinkgoHelper()
 		return MustOpen(driver.Open(ctx, driver.Config{
 			DB:        node.DB,
 			Rack:      rackService,
@@ -67,6 +69,7 @@ var _ = Describe("Driver", func() {
 	}
 
 	writeCommand := func(ctx context.Context, cmd task.Command) {
+		GinkgoHelper()
 		w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 			Keys:  channel.Keys{taskService.CommandChannelKey()},
 			Start: telem.Now(),

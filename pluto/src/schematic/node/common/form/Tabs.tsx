@@ -9,13 +9,13 @@
 
 import "@/schematic/node/common/form/form.css";
 
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Tabs as Base } from "@synnaxlabs/lyra/tabs";
 import { type ReactElement, type ReactNode } from "react";
 
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
-import { Icon } from "@/icon";
 import { type FormProps } from "@/schematic/node/spec";
-import { Tabs as Base } from "@/tabs";
 
 const TABS = {
   style: { name: "Style", icon: <Icon.FillColor /> },

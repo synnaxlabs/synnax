@@ -8,17 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { type rack } from "@synnaxlabs/client";
+import { Component } from "@synnaxlabs/lyra/component";
+import { type Dialog } from "@synnaxlabs/lyra/dialog";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
-import { Component } from "@/component";
-import { type Dialog } from "@/dialog";
 import { type Flux } from "@/flux";
-import { Icon } from "@/icon";
-import { List } from "@/list";
 import { type ListQuery, useList } from "@/rack/queries";
 import { StatusIndicator } from "@/rack/StatusIndicator";
-import { Select } from "@/select";
-import { Text } from "@/text";
 
 export interface SelectSingleProps
   extends

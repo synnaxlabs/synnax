@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { arc, type rack, status, task } from "@synnaxlabs/client";
+import { type List } from "@synnaxlabs/lyra/list";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { compare, type record, verbs, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import z from "zod";
@@ -15,9 +17,7 @@ import z from "zod";
 import { Node } from "@/arc/graph/node";
 import { Scope } from "@/arc/scope";
 import { Flux } from "@/flux";
-import { type List } from "@/list";
 import { Task } from "@/task";
-import { Theming } from "@/theming";
 import { type Diagram } from "@/vis/diagram";
 
 const RESOURCE_NAME = "Arc";

@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -77,6 +78,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 })
 
 func openGraph(ctx context.Context) *graph.Graph {
+	GinkgoHelper()
 	return MustOpen(graph.Open(ctx, graph.Config{
 		DB:      db,
 		Channel: channelSvc,
@@ -97,6 +99,7 @@ func fetchStatus(ctx context.Context, key channel.Key) (calculation.Status, bool
 }
 
 func expectStatus(ctx context.Context, key channel.Key) calculation.Status {
+	GinkgoHelper()
 	var result calculation.Status
 	Eventually(func() bool {
 		s, ok := fetchStatus(ctx, key)
@@ -118,6 +121,7 @@ func expectStatus(ctx context.Context, key channel.Key) calculation.Status {
 // clears it. The assertion therefore polls until the status has settled to absent
 // rather than reading it once; a status that never clears still fails the spec.
 func eventuallyExpectNoStatus(ctx context.Context, key channel.Key) {
+	GinkgoHelper()
 	Eventually(func() bool {
 		_, ok := fetchStatus(ctx, key)
 		return ok
@@ -126,6 +130,7 @@ func eventuallyExpectNoStatus(ctx context.Context, key channel.Key) {
 }
 
 func retrieveChannelDataType(ctx context.Context, key channel.Key) telem.DataType {
+	GinkgoHelper()
 	var ch channel.Channel
 	Expect(
 		channelSvc.NewRetrieve().
@@ -166,6 +171,17 @@ func createDep(ctx context.Context, depName string) channel.Channel {
 func deleteDep(ctx context.Context, depName string) {
 	GinkgoHelper()
 	Expect(channelWriter.DeleteManyByNames(ctx, []string{depName}, false)).To(Succeed())
+}
+
+// batchWrites reports whether the change batch creates or updates a channel with the
+// given name.
+func batchWrites(r graph.Changes, name string) bool {
+	for c := range r {
+		if c.Variant == change.VariantSet && c.Value.Name == name {
+			return true
+		}
+	}
+	return false
 }
 
 // makeStale overwrites the stored DataType of an existing channel with a wrong value,
@@ -1320,8 +1336,12 @@ var _ = Describe("Graph", func() {
 				calc := createBrokenCalc(ctx, "rt_keep", "rt_keep_dep")
 				expectStatus(ctx, calc.Key())
 				reports := make(chan error, 16)
+				// The graph observable lags the writer, so the batches that built the
+				// broken channel can still arrive here. Only the batch that restores
+				// the dependency carries the clear this spec must outlive.
 				g.Observe().OnChange(func(ctx context.Context, r graph.Changes) {
-					for range r {
+					if !batchWrites(r, "rt_keep_dep") {
+						return
 					}
 					reports <- g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
 						Name:    "rt_keep",
@@ -1334,7 +1354,7 @@ var _ = Describe("Graph", func() {
 				By("Restoring the dependency so the graph clears its own status")
 				createDep(ctx, "rt_keep_dep")
 
-				Eventually(reports).Should(Receive(BeNil()))
+				Eventually(reports, 2*time.Second).Should(Receive(BeNil()))
 				Consistently(func() bool {
 					st, ok := fetchStatus(ctx, calc.Key())
 					return ok && st.Variant == status.VariantInfo

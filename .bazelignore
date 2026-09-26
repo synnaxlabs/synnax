@@ -23,6 +23,7 @@ drift/node_modules
 freighter/ts/node_modules
 integration/node_modules
 integration/ts/node_modules
+lyra/node_modules
 pluto/examples/node_modules
 pluto/node_modules
 x/media/node_modules

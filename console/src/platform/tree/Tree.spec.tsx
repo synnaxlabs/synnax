@@ -9,7 +9,8 @@
 
 import { group, ontology, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
-import { Haul, Tree as PTree } from "@synnaxlabs/pluto";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import {
   type PropsWithChildren,

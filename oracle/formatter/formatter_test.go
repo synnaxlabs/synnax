@@ -20,6 +20,7 @@ import (
 
 var _ = Describe("Format", func() {
 	format := func(source string) string {
+		GinkgoHelper()
 		return MustSucceed(formatter.Format(source))
 	}
 

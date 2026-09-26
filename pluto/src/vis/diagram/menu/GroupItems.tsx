@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { type ReactElement } from "react";
-
-import { Icon } from "@/icon";
-import { Item } from "@/menu/Item";
-import { Triggers } from "@/triggers";
 
 /** Props for {@link GroupItems}. */
 export interface GroupItemsProps {
@@ -34,16 +33,20 @@ export const GroupItems = ({
 }: GroupItemsProps): ReactElement => (
   <>
     {canGroup && (
-      <Item itemKey="group" onClick={group} triggerIndicator={Triggers.GROUP}>
+      <Menu.Item itemKey="group" onClick={group} triggerIndicator={Triggers.GROUP}>
         <Icon.Group />
         Group
-      </Item>
+      </Menu.Item>
     )}
     {canUngroup && (
-      <Item itemKey="ungroup" onClick={ungroup} triggerIndicator={Triggers.UNGROUP}>
+      <Menu.Item
+        itemKey="ungroup"
+        onClick={ungroup}
+        triggerIndicator={Triggers.UNGROUP}
+      >
         <Icon.Ungroup />
         Ungroup
-      </Item>
+      </Menu.Item>
     )}
   </>
 );

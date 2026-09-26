@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Component } from "@synnaxlabs/pluto";
+import { Component } from "@synnaxlabs/lyra/component";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -28,6 +28,7 @@ const renderItem = (
   renderInTaskForm(
     <Task.Views.List<Channel>
       createChannel={() => null}
+      resolve={() => null}
       listItem={Component.renderProp((p) => (
         <Task.Views.ListAndDetailsChannelItem
           {...p}

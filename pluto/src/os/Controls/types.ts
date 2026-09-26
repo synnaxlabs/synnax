@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Flex } from "@synnaxlabs/lyra/flex";
 import { type runtime } from "@synnaxlabs/x";
-
-import { type Flex } from "@/flex";
 
 export type ControlsAction = "close" | "minimize" | "maximize";
 
