@@ -13,6 +13,6 @@ export type PortFieldProps = Form.NumericFieldProps;
 
 export const PortField = Form.buildNumericField({
   fieldKey: "port",
-  fieldProps: { label: "Port", style: { width: "7.5rem" } },
-  inputProps: { showDragHandle: false },
+  fieldProps: { label: "Port" },
+  inputProps: { showDragHandle: false, style: { width: "12rem" } },
 });

@@ -23,7 +23,6 @@ import {
   getAIChannelDeviceKey,
   getAIChannelSuffix,
 } from "@/feature/ni/task/getAIChannelDeviceKey";
-import { SelectAIChannelTypeField } from "@/feature/ni/task/SelectAIChannelTypeField";
 import {
   AI_CHANNEL_TYPE_ICONS,
   AI_CHANNEL_TYPE_NAMES,
@@ -86,15 +85,22 @@ const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
 
 const ChannelDetails = ({ path }: Task.Views.DetailsProps) => {
   const type = PForm.useFieldValue<AIChannelType>(`${path}.type`);
-  return (
-    <>
-      <SelectAIChannelTypeField path={path} inputProps={{ allowNone: false }} />
-      <AIChannelForm type={type} prefix={path} />
-    </>
-  );
+  return <AIChannelForm type={type} prefix={path} />;
 };
 
 const channelDetails = Component.renderProp(ChannelDetails);
+
+const DetailsTitle = ({ path }: Task.Views.DetailsProps) => {
+  const value = PForm.useFieldValue<AIChannel>(path);
+  const Icon = AI_CHANNEL_TYPE_ICONS[value.type];
+  return (
+    <Task.Views.ItemLabel kind={AI_CHANNEL_TYPE_NAMES[value.type]} icon={<Icon />}>
+      Port {channelPort(value) ?? NO_PORT}
+    </Task.Views.ItemLabel>
+  );
+};
+
+const detailsTitle = Component.renderProp(DetailsTitle);
 
 const Form: FC = () => {
   const [tare, allowTare, handleTare] = Task.useTare<AIChannel>();
@@ -119,6 +125,7 @@ const Form: FC = () => {
     <Task.Views.ListAndDetails<AIChannel>
       listItem={listItem}
       details={channelDetails}
+      detailsTitle={detailsTitle}
       createChannel={createNextAIChannel}
       onTare={handleTare}
       allowTare={allowTare}

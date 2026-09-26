@@ -65,7 +65,7 @@ const createConfig = (
 describe("AnalogWrite", () => {
   it("should render the detail form for every channel type as it is selected", async () => {
     const cases: [NI.Task.AOChannelType, string][] = [
-      ["ao_current", "Minimum value"],
+      ["ao_current", "Range"],
       ["ao_func_gen", "Frequency"],
       ["ao_voltage", "Custom scaling"],
     ];
@@ -83,6 +83,13 @@ describe("AnalogWrite", () => {
         { onTimeout: (e) => new Error(`${type}: ${e.message}`) },
       );
     }
+  });
+
+  it("should name each end of a range", async () => {
+    await renderAnalogWrite(createConfig([createChannel("ao_current", 0)]));
+    fireEvent.click(await screen.findByText("cmd_ao_current_0"));
+    expect(await screen.findByRole("textbox", { name: "Minimum value" })).toBeTruthy();
+    expect(screen.getByRole("textbox", { name: "Maximum value" })).toBeTruthy();
   });
 
   it("should switch the function generator wave type when a wave button is clicked", async () => {
