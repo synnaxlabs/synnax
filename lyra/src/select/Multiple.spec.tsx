@@ -251,6 +251,20 @@ describe("Select.Multiple", () => {
     expect(c.getByRole("button", { name: "Test Items" })).toBeTruthy();
   });
 
+  it("should give the trigger the class its caller passes", () => {
+    const { SelectMultiple } = createSelectMultiple();
+    const c = render(<SelectMultiple triggerProps={{ className: "custom" }} />);
+    expect(c.getByRole("button", { name: "Test Items" }).classList).toContain("custom");
+  });
+
+  it("should give a tagless trigger the class its caller passes", () => {
+    const { SelectMultiple } = createSelectMultiple();
+    const c = render(
+      <SelectMultiple triggerProps={{ className: "custom", hideTags: true }} />,
+    );
+    expect(c.getByRole("button", { name: "Test Items" }).classList).toContain("custom");
+  });
+
   it("should open the selection dialog from the keyboard", () => {
     const { SelectMultiple } = createSelectMultiple();
     const c = render(<SelectMultiple />);
