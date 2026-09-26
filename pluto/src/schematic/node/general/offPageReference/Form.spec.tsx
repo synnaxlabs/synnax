@@ -42,7 +42,7 @@ describe("OffPageReferenceForm", () => {
         <OffPageReferenceForm />
       </FormWrapper>,
     );
-    expect(getAllByText("Label").length).toBeGreaterThan(0);
+    expect(getAllByText("Label")).toHaveLength(2);
     expect(getByText("Page")).toBeDefined();
     expect(getByText("Click mode")).toBeDefined();
   });

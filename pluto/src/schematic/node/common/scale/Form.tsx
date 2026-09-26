@@ -80,7 +80,7 @@ export interface TelemFormProps extends FormProps {
   allowNone?: boolean;
 }
 
-/** TelemForm is the scale's source and format sections; the caller lays them out. */
+/** TelemForm renders telemetry sections; place it inside `Form.Sections`. */
 export const TelemForm = ({
   path,
   allowNone = false,
