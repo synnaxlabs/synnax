@@ -659,6 +659,26 @@ describe("connection", () => {
       await client.close();
     });
 
+    it("should compare the Core with the given client version", async () => {
+      const unary: UnaryClient = {
+        send: vi.fn().mockImplementation(async () => ({
+          clusterKey: "test-cluster",
+          nodeVersion: "1.4.0",
+          nodeTime: TimeStamp.now(),
+        })),
+        use: vi.fn(),
+      };
+      const own = createClient(unary, { clientVersion: "1.4.0" });
+      const ownStatus = await own.connect(TimeSpan.seconds(5));
+      expect(ownStatus.details.clientVersion).toEqual("1.4.0");
+      expect(ownStatus.details.clientServerCompatible).toBe(true);
+      await own.close();
+      const other = createClient(unary, { clientVersion: "0.59.0" });
+      const otherStatus = await other.connect(TimeSpan.seconds(5));
+      expect(otherStatus.details.clientServerCompatible).toBe(false);
+      await other.close();
+    });
+
     it("should escalate to error(unreachable) after the escalation budget", async () => {
       const client = createClient(failingUnary(), { escalateAfter: 2 });
       await expect(client.connect(TimeSpan.seconds(5))).rejects.toThrow();

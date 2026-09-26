@@ -14,6 +14,7 @@ import { useBottomActions } from "@/app/nav/bar/bottom";
 import { Toolbars } from "@/app/toolbars";
 import { Core } from "@/feature/core";
 import { Docs } from "@/feature/docs";
+import { Embedded } from "@/feature/embedded";
 import { Panel } from "@/feature/panel";
 import { CSS } from "@/platform/css";
 import { Nav as PlatformNav } from "@/platform/nav";
@@ -79,7 +80,7 @@ export const Top = ({ secondary = false }: TopProps): ReactElement => {
           <>
             <Version.Badge />
             <Docs.OpenButton />
-            <Core.Badge />
+            {DESKTOP ? <Embedded.Indicator /> : <Core.Badge />}
           </>
         )}
         <Window.Controls visibleIfOS="Windows" forceOS={os} />

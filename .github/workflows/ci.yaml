@@ -228,6 +228,29 @@ jobs:
       tag: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
     secrets: inherit
 
+  desktop-shell:
+    needs: changes
+    if: needs.changes.outputs.console == 'true'
+    # macOS compiles the Tauri shell with no extra system packages.
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v2
+        with:
+          cache-workspaces: console/src-tauri -> target
+          cache-shared-key: ${{ runner.os }}-desktop-test
+
+      - name: Create an empty frontend
+        # The Tauri context embeds the frontend directory, so it must exist.
+        run: mkdir -p console/dist && touch console/dist/index.html
+
+      - name: Test
+        working-directory: console/src-tauri
+        run: cargo test --features desktop
+
   docs:
     needs: changes
     if: needs.changes.outputs.docs == 'true'
@@ -482,6 +505,7 @@ jobs:
       - copyright
       - core
       - core-image
+      - desktop-shell
       - docs
       - docs-site
       - drift

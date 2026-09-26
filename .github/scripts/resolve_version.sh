@@ -17,7 +17,8 @@
 # release branch is never reissued. Candidates never set the base: a candidate counts up
 # from the candidates already tagged for the version, and promoting one repeats the same
 # bump. The train rule caps a product at one minor ahead of the Core's latest stable.
-# latest is true when no stable tag of the product outranks the result.
+# Desktop skips the train rule, takes a major bump, and bumps its first release from
+# 0.0.0. latest is true when no stable tag of the product outranks the result.
 
 set -euo pipefail
 
@@ -26,7 +27,7 @@ BUMP=${2:?usage: resolve_version.sh <product> <bump> [prerelease]}
 PRERELEASE=${3:-false}
 
 case "$PRODUCT" in
-    console | core | driver) ;;
+    console | core | driver | desktop) ;;
     *)
         echo "unknown product: $PRODUCT" >&2
         exit 1
@@ -39,14 +40,19 @@ highest() {
 }
 
 BASE=$(git tag --list "$PRODUCT/v*" --merged HEAD | highest "$PRODUCT")
-if [ -z "$BASE" ]; then
+PREVIOUS_TAG=""
+if [ -n "$BASE" ]; then
+    PREVIOUS_TAG="$PRODUCT/v$BASE"
+elif [ "$PRODUCT" = desktop ]; then
+    BASE=0.0.0
+else
     echo "no stable $PRODUCT tag is reachable from HEAD" >&2
     exit 1
 fi
 IFS=. read -r MAJOR MINOR _ <<< "$BASE"
 
 CURRENT=$(git tag --list "$PRODUCT/v$MAJOR.$MINOR.*" | highest "$PRODUCT")
-IFS=. read -r _ _ PATCH <<< "$CURRENT"
+IFS=. read -r _ _ PATCH <<< "${CURRENT:-$BASE}"
 
 case "$BUMP" in
     patch)
@@ -55,22 +61,33 @@ case "$BUMP" in
     minor)
         NEXT="$MAJOR.$((MINOR + 1)).0"
         ;;
+    major)
+        if [ "$PRODUCT" != desktop ]; then
+            echo "a major bump is for desktop only; $PRODUCT shares the train" >&2
+            exit 1
+        fi
+        NEXT="$((MAJOR + 1)).0.0"
+        ;;
     *)
-        echo "unknown bump: $BUMP (expected patch or minor)" >&2
+        echo "unknown bump: $BUMP (expected patch, minor, or major)" >&2
         exit 1
         ;;
 esac
 IFS=. read -r NEXT_MAJOR NEXT_MINOR _ <<< "$NEXT"
 
-CORE=$(git tag --list 'core/v*' | highest core)
-if [ -z "$CORE" ]; then
-    echo "no stable core tag exists; the train rule needs one" >&2
-    exit 1
-fi
-IFS=. read -r CORE_MAJOR CORE_MINOR _ <<< "$CORE"
-if [ "$NEXT_MAJOR" != "$CORE_MAJOR" ] || [ "$NEXT_MINOR" -gt "$((CORE_MINOR + 1))" ]; then
-    echo "train rule: $PRODUCT $NEXT is more than one minor ahead of core $CORE" >&2
-    exit 1
+CORE=""
+if [ "$PRODUCT" != desktop ]; then
+    CORE=$(git tag --list 'core/v*' | highest core)
+    if [ -z "$CORE" ]; then
+        echo "no stable core tag exists; the train rule needs one" >&2
+        exit 1
+    fi
+    IFS=. read -r CORE_MAJOR CORE_MINOR _ <<< "$CORE"
+    if [ "$NEXT_MAJOR" != "$CORE_MAJOR" ] ||
+        [ "$NEXT_MINOR" -gt "$((CORE_MINOR + 1))" ]; then
+        echo "train rule: $PRODUCT $NEXT is more than one minor ahead of core $CORE" >&2
+        exit 1
+    fi
 fi
 
 VERSION=$NEXT
@@ -86,9 +103,9 @@ HIGHEST=$(printf '%s\n' "$ALL" "$NEXT" | sort -t. -k1,1n -k2,2n -k3,3n | tail -1
 LATEST=false
 if [ "$HIGHEST" = "$NEXT" ]; then LATEST=true; fi
 
-echo "$PRODUCT $BASE -> $VERSION (bump $BUMP, core $CORE)" >&2
+echo "$PRODUCT $BASE -> $VERSION (bump $BUMP${CORE:+, core $CORE})" >&2
 echo "version=$VERSION"
 echo "tag=$PRODUCT/v$VERSION"
 echo "minor=$NEXT_MAJOR.$NEXT_MINOR"
-echo "previous_tag=$PRODUCT/v$BASE"
+echo "previous_tag=$PREVIOUS_TAG"
 echo "latest=$LATEST"

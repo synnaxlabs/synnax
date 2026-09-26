@@ -33,8 +33,16 @@ import { Empty } from "@/platform/empty";
 import { Project as PlatformProject } from "@/platform/project";
 import { Session } from "@/session";
 
+export interface SplashProps {
+  /**
+   * True when the session has one fixed Core. The splash then shows no connection
+   * island and no log out action.
+   */
+  standalone?: boolean;
+}
+
 /** Full-window project picker shown when the session has no active project. */
-export const Splash = (): ReactElement => {
+export const Splash = ({ standalone = false }: SplashProps): ReactElement => {
   const dispatch = Session.useDispatch();
   const logout = Session.useLogout();
   const activeCore = Session.Core.useSelectSelected();
@@ -78,7 +86,10 @@ export const Splash = (): ReactElement => {
   const awaitingProject = Session.Link.useSelectAwaitingProject();
 
   return (
-    <Shell.Frame className={CSS.B("project-splash")} connection={activeCore}>
+    <Shell.Frame
+      className={CSS.B("project-splash")}
+      connection={standalone ? null : activeCore}
+    >
       <Menu.ContextMenu menu={contextMenu} {...menuProps} />
       <Select.Frame
         data={data}
@@ -99,17 +110,19 @@ export const Splash = (): ReactElement => {
               <Icon.Project />
               Projects
             </Header.Title>
-            <Header.Actions>
-              <PButton.Button
-                variant="text"
-                textColor={9}
-                size="medium"
-                onClick={logout}
-              >
-                <Icon.Logout />
-                Log out
-              </PButton.Button>
-            </Header.Actions>
+            {!standalone && (
+              <Header.Actions>
+                <PButton.Button
+                  variant="text"
+                  textColor={9}
+                  size="medium"
+                  onClick={logout}
+                >
+                  <Icon.Logout />
+                  Log out
+                </PButton.Button>
+              </Header.Actions>
+            )}
           </Header.Header>
           {awaitingProject && (
             <Status.Summary

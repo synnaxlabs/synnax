@@ -13,6 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vite
 
 import { Core } from "@/platform/core";
 import { renderCoreUI } from "@/platform/core/testutil";
+import { Link } from "@/platform/link";
 import { createCore, createCoreState } from "@/session/core/testutil";
 import { stubClipboardWriteText } from "@/testutil";
 
@@ -43,5 +44,15 @@ describe("CopyLinkToolbarButton", () => {
     expect(writeText.mock.calls[0][0]).toBe(
       "synnax://cluster/cluster-9/range/range-key",
     );
+  });
+
+  it("should render nothing when links are disabled", async () => {
+    await renderCoreUI(
+      <Link.Disabled>
+        <Core.CopyLinkToolbarButton name="My Range" ontologyID={id} />
+      </Link.Disabled>,
+      createCoreState([CORE], CORE.key),
+    );
+    expect(screen.queryByRole("button")).toBeNull();
   });
 });
