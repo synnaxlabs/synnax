@@ -57,13 +57,6 @@
         flex-grow: 1;
         min-width: 0;
         overflow: hidden;
-
-        /* Percent heights inside a stretched flex item do not resolve in WebKit, so
-           the columns fill by growing instead. */
-        & > .pluto-form-sections {
-            flex-grow: 1;
-            height: auto;
-        }
     }
 
     /* The square widget would otherwise stretch to the column width. */
