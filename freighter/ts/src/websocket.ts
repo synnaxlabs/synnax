@@ -43,6 +43,7 @@ class WebSocketStream<
   private readonly ws: WebSocket;
   private serverClosed: Error | null;
   private sendClosed: boolean;
+  private closeTimer?: ReturnType<typeof setTimeout>;
   private readonly receiveDataQueue: WebsocketMessage[] = [];
   private readonly receiveCallbacksQueue: ReceiveCallbacksQueue = [];
   private readonly resLabel: string;
@@ -103,10 +104,30 @@ class WebSocketStream<
     const msg: WebsocketMessage = { type: "close" };
     try {
       this.ws.send(this.codec.encode(msg));
+      this.closeTimer = setTimeout(
+        () => this.abandon(),
+        CLOSE_ACK_TIMEOUT.milliseconds,
+      );
     } finally {
       this.sendClosed = true;
     }
     return undefined;
+  }
+
+  /**
+   * Fails the stream when the peer never acknowledges a closed send direction. Closing
+   * the socket only asks the peer to hang up, so a peer that stopped answering leaves
+   * every receive() parked forever.
+   */
+  private abandon(): void {
+    if (this.serverClosed != null) return;
+    const span = CLOSE_ACK_TIMEOUT.toString();
+    const err = new Unreachable({
+      message: `peer did not acknowledge stream closure within ${span}`,
+    });
+    this.serverClosed = err;
+    this.ws.close();
+    this.receiveCallbacksQueue.splice(0).forEach(({ reject }) => reject(err));
   }
 
   private async receiveMsg(): Promise<WebsocketMessage> {
@@ -133,6 +154,7 @@ class WebSocketStream<
   }
 
   private onClose(ev: CloseEvent): void {
+    clearTimeout(this.closeTimer);
     this.addMessage({
       type: "close",
       error: {
@@ -144,6 +166,12 @@ class WebSocketStream<
 }
 
 const CLOSE_NORMAL = 1000;
+
+/**
+ * Deadline for the peer to acknowledge a closed send direction. Generous because the
+ * Core may still be committing the last writes.
+ */
+const CLOSE_ACK_TIMEOUT = TimeSpan.seconds(30);
 
 /**
  * Generous by design: a handshake this slow is a dead connection, not a busy Core, so
