@@ -281,34 +281,33 @@ const MultiCellForm = ({ cellKeys }: MultiCellFormProps): ReactElement => {
   );
 
   return (
-    <Flex.Box
-      x
-      align="start"
-      gap="large"
-      className={CSS.BE("table", "multi-cell-form")}
-    >
-      <Input.Item label="Variant" padHelpText={false}>
-        <Table.Cell.SelectVariant
-          value={commonVariant ?? undefined}
-          onChange={handleVariantChange}
-        />
-      </Input.Item>
-      {colorGroups.size > 0 && (
-        <Input.Item label="Selection colors" align="start" padHelpText={false}>
-          <Flex.Box x>
-            {Array.from(colorGroups.entries()).map(([hex, keys]) => (
-              <Color.Swatch
-                key={keys[0]}
-                value={hex}
-                onChange={(c: color.Color) => handleColorChange(keys, c)}
-              />
-            ))}
-          </Flex.Box>
+    <Form.Sections x className={CSS.BE("table", "multi-cell-form")}>
+      <Form.Section title="Cell">
+        <Input.Item label="Variant" padHelpText={false}>
+          <Table.Cell.SelectVariant
+            value={commonVariant ?? undefined}
+            onChange={handleVariantChange}
+          />
         </Input.Item>
-      )}
-      <Input.Item label="Size" padHelpText={false}>
-        <Select.Text.Level value={commonLevel} onChange={handleLevelChange} />
-      </Input.Item>
-    </Flex.Box>
+      </Form.Section>
+      <Form.Section title="Appearance">
+        {colorGroups.size > 0 && (
+          <Input.Item label="Selection colors" padHelpText={false}>
+            <Flex.Box x>
+              {Array.from(colorGroups.entries()).map(([hex, keys]) => (
+                <Color.Swatch
+                  key={keys[0]}
+                  value={hex}
+                  onChange={(c: color.Color) => handleColorChange(keys, c)}
+                />
+              ))}
+            </Flex.Box>
+          </Input.Item>
+        )}
+        <Input.Item label="Size" padHelpText={false}>
+          <Select.Text.Level value={commonLevel} onChange={handleLevelChange} />
+        </Input.Item>
+      </Form.Section>
+    </Form.Sections>
   );
 };
