@@ -1413,6 +1413,9 @@ describe("queries", () => {
       expect(result.current.form.value().expression).toEqual(
         `return ${sourceChannel.name} + 1`,
       );
+      expect(result.current.form.value().operations).toEqual([
+        { type: "none", resetChannel: 0, duration: TimeSpan.ZERO },
+      ]);
 
       act(() => {
         result.current.form.set("expression", `return ${sourceChannel.name} * 3`);
