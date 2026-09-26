@@ -41,13 +41,11 @@ const ZERO_DRAFT: task.New<PagerDuty.Task.AlertSchemas> = {
   config: PagerDuty.Task.ALERT_SCHEMAS.config.parse({}),
 };
 
-// The create button and an unnamed alert both read "New alert", so each is
-// reached by its own role.
 const newAlertItem = (): HTMLElement =>
   screen.getByRole("option", { name: /New alert/ });
 
 const addAlert = async (): Promise<void> => {
-  fireEvent.click(await screen.findByRole("button", { name: "New alert" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Add alert" }));
   await waitFor(() => expect(newAlertItem()).toBeTruthy());
 };
 
