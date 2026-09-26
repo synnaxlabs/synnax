@@ -189,6 +189,29 @@ describe("Read", () => {
     await waitFor(() => expect(screen.getAllByText("FIO4").length).toBeGreaterThan(0));
   });
 
+  it("should drop the scale section when the channel swaps to an unscaled type", async () => {
+    const dev = await createLabJackDevice(client);
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [createAnalogReadChannel("AIN0")]),
+    );
+    await renderRead({ client, taskKey: draft.key });
+    fireEvent.click(await findChannelListItem("AIN0"));
+    await waitFor(() =>
+      expect(screen.getByText("Scale", { selector: "label" })).toBeTruthy(),
+    );
+    fireEvent.click(await findDialogTriggerByText("Analog input"));
+    fireEvent.click(await screen.findByText("Digital input"));
+    await waitFor(() =>
+      expect(screen.queryByText("Scale", { selector: "label" })).toBeNull(),
+    );
+    fireEvent.click(await findDialogTriggerByText("Digital input"));
+    fireEvent.click(await screen.findByText("Thermocouple"));
+    await waitFor(() =>
+      expect(screen.getByText("Scale", { selector: "label" })).toBeTruthy(),
+    );
+  });
+
   it("should create the index and data channels, update the device, and save the task", async () => {
     const dev = await createLabJackDevice(client);
     const namedChannel = uniqueName("lj_named");
