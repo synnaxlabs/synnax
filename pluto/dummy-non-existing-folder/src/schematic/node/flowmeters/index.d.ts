@@ -1,2 +1,0 @@
-export * as Flowmeters from "./external";
-//# sourceMappingURL=index.d.ts.map

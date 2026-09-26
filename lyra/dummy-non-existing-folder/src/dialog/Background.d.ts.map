@@ -1,1 +1,0 @@
-{"version":3,"file":"Background.d.ts","sourceRoot":"","sources":["../../../src/dialog/Background.tsx"],"names":[],"mappings":"AASA,OAAO,EAAE,KAAK,YAAY,EAAE,MAAM,OAAO,CAAC;AAG1C,OAAO,EAAE,IAAI,EAAE,MAAM,QAAQ,CAAC;AAE9B,MAAM,WAAW,eAAgB,SAAQ,IAAI,CAAC,QAAQ;IACpD,OAAO,EAAE,OAAO,CAAC;CAClB;AAED,eAAO,MAAM,gBAAgB,QAAyB,CAAC;AAEvD,qFAAqF;AACrF,eAAO,MAAM,UAAU,mCAIpB,eAAe,KAAG,YASpB,CAAC"}

@@ -58,6 +58,7 @@ export const declarations = (): Plugin => {
   let outDir = "";
   return {
     name: "vite-plugin-declarations",
+    apply: "build",
     configResolved: (config) => {
       root = config.root;
       outDir = path.resolve(root, config.build.outDir);

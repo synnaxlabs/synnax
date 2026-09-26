@@ -1,1 +1,0 @@
-{"version":3,"file":"FitView.d.ts","sourceRoot":"","sources":["../../../../../src/vis/diagram/controls/FitView.tsx"],"names":[],"mappings":"AASA,OAAO,EAAE,MAAM,EAAE,MAAM,yBAAyB,CAAC;AAIjD,OAAO,EAAE,KAAK,YAAY,EAAE,MAAM,OAAO,CAAC;AAS1C,MAAM,WAAW,YAAa,SAAQ,IAAI,CACxC,MAAM,CAAC,WAAW,EAClB,UAAU,GAAG,UAAU,GAAG,OAAO,CAClC;CAAG;AAEJ,eAAO,MAAM,OAAO,yBAA0B,YAAY,KAAG,YAmB5D,CAAC"}
