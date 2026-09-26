@@ -873,7 +873,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
         path={`${prefix}.currentExcitVal`}
         label="Current excitation value"
       />
-      <Form.NumericField path={`${prefix}.r0`} label="R0 Resistance" />
+      <Form.NumericField path={`${prefix}.r0`} label="R0 resistance" />
     </>
   ),
   ai_strain_gauge: ({ prefix }) => (
