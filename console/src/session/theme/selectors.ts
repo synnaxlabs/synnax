@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Theming, useAsyncEffect } from "@synnaxlabs/pluto";
+import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
+import { Theming as Base } from "@synnaxlabs/lyra/theming";
+import { type Theming } from "@synnaxlabs/pluto";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useMemo, useState } from "react";
 
@@ -20,15 +22,15 @@ const selectMode = (state: StoreState): Mode => state[SLICE_NAME].mode;
 export const useSelectMode = (): Mode => Select.useMemo(selectMode, []);
 
 const keyFor = (dark: boolean): string =>
-  dark ? Theming.SYNNAX_DARK.key : Theming.SYNNAX_LIGHT.key;
+  dark ? Base.SYNNAX_DARK.key : Base.SYNNAX_LIGHT.key;
 
 const prefersDark = (): boolean =>
   typeof window?.matchMedia !== "undefined" &&
   window.matchMedia("(prefers-color-scheme: dark)").matches;
 
 const FIXED_KEYS: Record<Exclude<Mode, "system">, string> = {
-  light: Theming.SYNNAX_LIGHT.key,
-  dark: Theming.SYNNAX_DARK.key,
+  light: Base.SYNNAX_LIGHT.key,
+  dark: Base.SYNNAX_DARK.key,
 };
 
 export const useProviderProps = (): Theming.ProviderProps => {

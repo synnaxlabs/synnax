@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, type Synnax as Client } from "@synnaxlabs/client";
+import { type List } from "@synnaxlabs/lyra/list";
 import { type verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 
 import { Flux } from "@/flux";
-import { type List } from "@/list";
 import { Synnax } from "@/synnax";
 
 const RESOURCE_RESOURCE_NAME = "resource";

@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, task } from "@synnaxlabs/client";
-import { Access, Icon, Menu, Mosaic, Task as Base } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Access, Mosaic, Task as Base } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
 
 import { useRangeSnapshot } from "@/feature/task/useRangeSnapshot";

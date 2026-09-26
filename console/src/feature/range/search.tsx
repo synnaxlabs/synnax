@@ -8,7 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology, ranger } from "@synnaxlabs/client";
-import { Icon, List, Status, Synnax, Telem, Text } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Telem } from "@synnaxlabs/lyra/telem";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Synnax } from "@synnaxlabs/pluto";
 import { type CrudeTimeRange } from "@synnaxlabs/x";
 
 import { Palette } from "@/platform/palette";

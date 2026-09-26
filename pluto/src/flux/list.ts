@@ -9,6 +9,12 @@
 
 import { query } from "@synnaxlabs/client";
 import {
+  useCombinedStateAndRef,
+  useDebouncedCallback,
+  useInitializerRef,
+  useSyncedRef,
+} from "@synnaxlabs/lyra/hooks";
+import {
   compare,
   type CrudeTimeSpan,
   type destructor,
@@ -27,12 +33,6 @@ import {
   successResult,
 } from "@/flux/result";
 import { type CreateRetrieveParams, type RetrieveParams } from "@/flux/retrieve";
-import {
-  useCombinedStateAndRef,
-  useDebouncedCallback,
-  useInitializerRef,
-  useSyncedRef,
-} from "@/hooks";
 import { Synnax } from "@/synnax";
 
 // Bound at module scope: hooks bind `query` to the caller's params object.

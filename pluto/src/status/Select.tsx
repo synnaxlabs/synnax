@@ -8,16 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { type status } from "@synnaxlabs/client";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select as Base } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
-import { Component } from "@/component";
 import { type Flux } from "@/flux";
-import { Icon } from "@/icon";
-import { List } from "@/list";
-import { Select as Base } from "@/select";
-import { Indicator } from "@/status/base/Indicator";
 import { type ListParams, useList } from "@/status/queries";
-import { Text } from "@/text";
 
 export interface SelectProps
   extends
@@ -69,7 +69,7 @@ const ListItem = (props: List.ItemProps<status.Key>): ReactElement | null => {
   return (
     <Base.ListItem {...props}>
       <Text.Text level="p">
-        <Indicator variant={variant} />
+        <Status.Indicator variant={variant} />
         {name}
       </Text.Text>
     </Base.ListItem>

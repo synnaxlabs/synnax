@@ -9,17 +9,18 @@
 
 import "@/ranger/Timeline.css";
 
+import { type Button } from "@synnaxlabs/lyra/button";
+import { type Component } from "@synnaxlabs/lyra/component";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type NumericTimeRange, type text, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useState } from "react";
 
-import { type Button } from "@/button";
-import { type Component } from "@/component";
-import { CSS } from "@/css";
-import { Dialog } from "@/dialog";
-import { Flex } from "@/flex";
-import { Icon } from "@/icon";
-import { Input } from "@/input";
-import { Menu } from "@/menu";
 import { moveEnd, moveStart, UNSET } from "@/ranger/move";
 import {
   getStage,
@@ -29,7 +30,6 @@ import {
   STAGE_NAMES,
 } from "@/ranger/stage";
 import { describeChanges, TimelineEffect } from "@/ranger/TimelineEffect";
-import { Text } from "@/text";
 
 /**
  * The finest unit the row's labels show, chosen by the span between the range's

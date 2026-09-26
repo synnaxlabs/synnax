@@ -10,20 +10,16 @@
 import "@/platform/view/View.css";
 
 import { type ontology, UnexpectedError, view } from "@synnaxlabs/client";
-import {
-  Access,
-  Button,
-  Component,
-  Flex,
-  type Flux,
-  Icon,
-  List,
-  Menu,
-  Select,
-  Tabs,
-  Text,
-  View as PView,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Tabs } from "@synnaxlabs/lyra/tabs";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Access, type Flux, View as PView } from "@synnaxlabs/pluto";
 import { caseconv, location, uuid } from "@synnaxlabs/x";
 import { plural } from "pluralize";
 import {

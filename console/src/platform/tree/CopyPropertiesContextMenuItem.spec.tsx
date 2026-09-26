@@ -9,7 +9,7 @@
 
 import { ontology } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Menu as PMenu } from "@synnaxlabs/pluto";
+import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, type Mock } from "vitest";
 

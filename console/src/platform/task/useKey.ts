@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type task } from "@synnaxlabs/client";
-import { Form } from "@synnaxlabs/pluto";
+import { Form } from "@synnaxlabs/lyra/form";
 import { primitive } from "@synnaxlabs/x";
 import { type z } from "zod";
 

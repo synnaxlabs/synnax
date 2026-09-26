@@ -10,21 +10,18 @@
 import "@/feature/range/Toolbar.css";
 
 import { ranger } from "@synnaxlabs/client";
-import {
-  Access,
-  Component,
-  Flex,
-  Haul,
-  Icon,
-  List as BaseList,
-  Menu,
-  Ranger,
-  Select,
-  Tag,
-  Telem,
-  Text,
-  Tooltip,
-} from "@synnaxlabs/pluto";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List as BaseList } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Tag } from "@synnaxlabs/lyra/tag";
+import { Telem } from "@synnaxlabs/lyra/telem";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
+import { Access, Ranger } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { ContextMenu } from "@/feature/range/ContextMenu";

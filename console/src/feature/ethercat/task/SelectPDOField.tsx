@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Form as PForm, Select } from "@synnaxlabs/pluto";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Select } from "@synnaxlabs/lyra/select";
 import { primitive } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
 

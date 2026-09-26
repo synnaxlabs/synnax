@@ -8,21 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import {
-  Button,
-  Color,
-  Diagram,
-  Direction,
-  Divider,
-  Flex,
-  Form,
-  Icon,
-  Input,
-  Schematic,
-  Select,
-  Status,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Color, Diagram, Direction, Schematic } from "@synnaxlabs/pluto";
 import {
   box,
   color,

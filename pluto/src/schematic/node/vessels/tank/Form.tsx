@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Form as Base } from "@synnaxlabs/lyra/form";
+import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { type ReactElement } from "react";
 
-import { Form as Base } from "@/form";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { Scale } from "@/schematic/node/common/scale";
 import { type FormProps as NodeFormProps } from "@/schematic/node/spec";
-import { Tabs } from "@/tabs";
 
 export interface TankFormProps extends NodeFormProps {
   showBorderRadius?: boolean;

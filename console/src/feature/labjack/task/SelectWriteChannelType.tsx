@@ -9,7 +9,7 @@
 
 import "@/feature/labjack/task/SelectWriteChannelType.css";
 
-import { Select } from "@synnaxlabs/pluto";
+import { Select } from "@synnaxlabs/lyra/select";
 import { type record } from "@synnaxlabs/x";
 
 import { type WriteChannelType } from "@/feature/labjack/task/types";

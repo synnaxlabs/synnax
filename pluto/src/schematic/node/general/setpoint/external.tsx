@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
+import { CSS } from "@synnaxlabs/lyra/css";
 import { type ReactElement } from "react";
 
-import { CSS } from "@/css";
 import { SetpointForm } from "@/schematic/node/general/setpoint/Form";
 import { Setpoint } from "@/schematic/node/general/setpoint/Primitive";
 import { Symbol } from "@/schematic/node/general/setpoint/Symbol";

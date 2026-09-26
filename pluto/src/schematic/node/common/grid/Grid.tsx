@@ -9,6 +9,13 @@
 
 import "@/schematic/node/common/grid/grid.css";
 
+import { Button } from "@synnaxlabs/lyra/button";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { triggerReflow } from "@synnaxlabs/lyra/util";
 import { type dimensions, location } from "@synnaxlabs/x";
 import {
   type ControlLinePosition,
@@ -35,13 +42,6 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
-import { Button } from "@/button";
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
-import { Haul } from "@/haul";
-import { useSyncedRef } from "@/hooks";
-import { Icon } from "@/icon";
-import { triggerReflow } from "@/util/reflow";
 import { selectNode } from "@/vis/diagram/util";
 
 type DraggableElement = ReactElement<{

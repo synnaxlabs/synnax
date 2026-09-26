@@ -9,17 +9,17 @@
 
 import "@/log/Log.css";
 
+import { CSS } from "@synnaxlabs/lyra/css";
+import { type Flex } from "@synnaxlabs/lyra/flex";
+import { useCombinedRefs } from "@synnaxlabs/lyra/hooks";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { box, strings } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useCallback, useRef } from "react";
 
-import { CSS } from "@/css";
-import { type Flex } from "@/flex";
-import { useCombinedRefs } from "@/hooks/ref";
-import { Icon } from "@/icon";
 import { use, type UseProps } from "@/log/use";
-import { Menu } from "@/menu";
-import { Status } from "@/status/base";
-import { Triggers } from "@/triggers";
 import { Canvas } from "@/vis/canvas";
 
 export const PAUSE_TRIGGER: Triggers.Trigger = ["H"];

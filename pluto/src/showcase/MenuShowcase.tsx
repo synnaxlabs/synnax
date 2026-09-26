@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Text } from "@synnaxlabs/lyra/text";
 import { useState } from "react";
-
-import { Flex } from "@/flex";
-import { Icon } from "@/icon";
-import { Menu } from "@/menu";
-import { Text } from "@/text";
 
 import { SubcategorySection } from "./SubcategorySection";
 

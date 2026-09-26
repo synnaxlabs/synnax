@@ -9,7 +9,8 @@
 
 import { access, NotFoundError } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
-import { type Haul, User } from "@synnaxlabs/pluto";
+import { type Haul } from "@synnaxlabs/lyra/haul";
+import { User } from "@synnaxlabs/pluto";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 

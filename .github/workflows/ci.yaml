@@ -62,6 +62,7 @@ jobs:
       freighter_ts: ${{ steps.filter.outputs.freighter_ts }}
       integration: ${{ steps.filter.outputs.integration }}
       lint_integration: ${{ steps.filter.outputs.lint_integration }}
+      lyra: ${{ steps.filter.outputs.lyra }}
       media: ${{ steps.filter.outputs.media }}
       oracle: ${{ steps.filter.outputs.oracle }}
       oracle_check: ${{ steps.filter.outputs.oracle_check }}
@@ -357,6 +358,16 @@ jobs:
       test: false
     secrets: inherit
 
+  lyra:
+    needs: changes
+    if: needs.changes.outputs.lyra == 'true'
+    uses: ./.github/workflows/test.ts.yaml
+    with:
+      coverage_flag: lyra
+      directory: lyra
+      package: lyra
+    secrets: inherit
+
   media:
     needs: changes
     if: needs.changes.outputs.media == 'true'
@@ -495,6 +506,7 @@ jobs:
       - freighter-ts
       - integration
       - lint-integration
+      - lyra
       - media
       - oracle
       - oracle-check

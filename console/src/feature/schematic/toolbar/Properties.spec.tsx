@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { Schematic as PSchematic, type Status } from "@synnaxlabs/pluto";
+import { type Status } from "@synnaxlabs/lyra/status";
+import { Schematic as PSchematic } from "@synnaxlabs/pluto";
 import { location, uuid } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";

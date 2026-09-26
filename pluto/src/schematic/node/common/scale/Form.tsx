@@ -8,6 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, schematic } from "@synnaxlabs/client";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Form as Base } from "@synnaxlabs/lyra/form";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Select } from "@synnaxlabs/lyra/select";
 import {
   caseconv,
   type direction,
@@ -19,13 +23,9 @@ import {
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
-import { Component } from "@/component";
-import { Form as Base } from "@/form";
-import { Input } from "@/input";
 import { Notation } from "@/notation";
 import { Form as NodeForm } from "@/schematic/node/common/form";
 import { type Config } from "@/schematic/node/common/scale/config";
-import { Select } from "@/select";
 import { Staleness } from "@/vis/staleness";
 
 const PRECISION_INPUT_PROPS: Partial<Input.NumericProps> = {

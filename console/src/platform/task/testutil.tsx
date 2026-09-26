@@ -21,7 +21,9 @@ import {
 } from "@synnaxlabs/client";
 import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
-import { Form as PForm, Panel as PlutoPanel, type Status } from "@synnaxlabs/pluto";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { type Status } from "@synnaxlabs/lyra/status";
+import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { id, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import {
   fireEvent,

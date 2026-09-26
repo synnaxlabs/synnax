@@ -8,7 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { status } from "@synnaxlabs/client";
-import { Access, Button, Component, Icon, Status } from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Access, Status } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 import { useCallback } from "react";
 

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type ranger } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import {
   type CrudeTimeRange,
   type NumericTimeRange,
@@ -15,8 +16,6 @@ import {
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-
-import { Icon } from "@/icon";
 
 export const STAGES = ["to_do", "in_progress", "completed"] as const;
 

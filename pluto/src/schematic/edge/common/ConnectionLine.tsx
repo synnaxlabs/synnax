@@ -9,11 +9,11 @@
 
 import "@/schematic/edge/common/ConnectionLine.css";
 
+import { CSS } from "@synnaxlabs/lyra/css";
 import { location } from "@synnaxlabs/x";
 import { useReactFlow } from "@xyflow/react";
 import { type ReactElement } from "react";
 
-import { CSS } from "@/css";
 import { Base } from "@/schematic/edge/common/base";
 import { Path } from "@/schematic/edge/common/path";
 import { Segmented } from "@/schematic/edge/common/segmented";

@@ -10,15 +10,15 @@
 import "@/schematic/node/general/select/select.css";
 
 import { type schematic } from "@synnaxlabs/client";
+import { Button as BaseButton } from "@synnaxlabs/lyra/button";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { type Dialog } from "@synnaxlabs/lyra/dialog";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Select as BaseSelect } from "@synnaxlabs/lyra/select";
 import { type ReactElement, useMemo } from "react";
 
-import { Button as BaseButton } from "@/button";
-import { CSS } from "@/css";
-import { type Dialog } from "@/dialog";
-import { Flex } from "@/flex";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
-import { Select as BaseSelect } from "@/select";
 
 interface RenderProps extends Partial<
   Pick<

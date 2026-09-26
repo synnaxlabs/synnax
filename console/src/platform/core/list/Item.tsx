@@ -10,17 +10,15 @@
 import "@/platform/core/list/List.css";
 
 import { type connection } from "@synnaxlabs/client";
-import {
-  Button,
-  Flex,
-  Icon,
-  List,
-  Select,
-  Status,
-  Synnax,
-  Text,
-  Tooltip,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
+import { Synnax } from "@synnaxlabs/pluto";
 import { memo, type ReactElement } from "react";
 
 import { Clipboard } from "@/platform/clipboard";

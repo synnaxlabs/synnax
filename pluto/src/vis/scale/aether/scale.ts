@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { theme as baseTheme } from "@synnaxlabs/lyra/theme";
 import {
   border,
   bounds,
@@ -25,7 +26,6 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import { telem } from "@/telem/aether";
 import { theming } from "@/theming/aether";
-import { fontString } from "@/theming/base/fontString";
 import { newTickFactory, type Tick, type TickFactory } from "@/vis/axis/ticks";
 import { type Element } from "@/vis/diagram/aether/Diagram";
 import { Draw2D } from "@/vis/draw2d";
@@ -100,7 +100,7 @@ const UNITS_GAP = 4;
 const EXTERNAL_GAP = 10;
 
 interface InternalState {
-  theme: theming.Theme;
+  theme: baseTheme.Theme;
   render: render.Context;
   telem: telem.NumberSource;
   staleness: staleness.Registration;
@@ -468,7 +468,7 @@ export class Scale
     const { theme, tickLevel, stale } = this.internal;
     const valueColor = this.valueColor;
     const ctx = draw.canvas;
-    ctx.font = fontString(theme, { level: tickLevel, code: true });
+    ctx.font = baseTheme.fontString(theme, { level: tickLevel, code: true });
     const value = ctx.textDimensions(valueText, { useAtlas: true });
     // The units are drawn separately so they sit tighter than a monospace space.
     const unitsWidth =

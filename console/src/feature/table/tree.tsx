@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, table } from "@synnaxlabs/client";
-import { Access, Icon, Menu, Mosaic, Table as Base } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Access, Mosaic, Table as Base } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 
 import { ContextMenu } from "@/platform/context-menu";
