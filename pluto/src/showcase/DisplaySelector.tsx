@@ -51,11 +51,11 @@ export const DisplaySelector = ({ display, setDisplay }: DisplaySelectorProps) =
         </Text.Text>
       </Flex.Box>
 
-      <Select.Buttons multiple keys={DISPLAY} value={display} onChange={setDisplay}>
+      <Select.Buttons multiple value={display} onChange={setDisplay}>
         {DISPLAY.map((d) => (
-          <Select.Button key={d} itemKey={d}>
+          <Select.Item key={d} itemKey={d}>
             {caseconv.capitalize(d)}
-          </Select.Button>
+          </Select.Item>
         ))}
       </Select.Buttons>
     </Flex.Box>

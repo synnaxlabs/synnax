@@ -43,8 +43,6 @@ const Row = ({ label, children }: RowProps): ReactElement => (
   </Flex.Box>
 );
 
-const TYPE_KEYS = ["analog", "digital"];
-
 const SelectType = ({
   preview,
   value: initial,
@@ -54,14 +52,9 @@ const SelectType = ({
 }) => {
   const [value, setValue] = useState<string | undefined>(initial);
   return (
-    <Select.Buttons
-      keys={TYPE_KEYS}
-      value={value}
-      onChange={setValue}
-      preview={preview}
-    >
-      <Select.Button itemKey="analog">Analog</Select.Button>
-      <Select.Button itemKey="digital">Digital</Select.Button>
+    <Select.Buttons value={value} onChange={setValue} preview={preview}>
+      <Select.Item itemKey="analog">Analog</Select.Item>
+      <Select.Item itemKey="digital">Digital</Select.Item>
     </Select.Buttons>
   );
 };
@@ -69,21 +62,16 @@ const SelectType = ({
 const SelectAlign = ({ preview }: { preview: boolean }) => {
   const [value, setValue] = useState<string>("x-center");
   return (
-    <Select.Buttons
-      keys={["x-center", "y-center", "x-left"]}
-      value={value}
-      onChange={setValue}
-      preview={preview}
-    >
-      <Select.Button itemKey="x-center">
+    <Select.Buttons value={value} onChange={setValue} preview={preview}>
+      <Select.Item itemKey="x-center">
         <Icon.Align.XCenter />
-      </Select.Button>
-      <Select.Button itemKey="y-center">
+      </Select.Item>
+      <Select.Item itemKey="y-center">
         <Icon.Align.YCenter />
-      </Select.Button>
-      <Select.Button itemKey="x-left">
+      </Select.Item>
+      <Select.Item itemKey="x-left">
         <Icon.Align.Left />
-      </Select.Button>
+      </Select.Item>
     </Select.Buttons>
   );
 };
@@ -173,14 +161,9 @@ const PreviewForm = ({ preview }: { preview: boolean }) => {
         <Form.SwitchField path="enabled" label="Data saving" />
         <Form.Field<string> path="type" label="Type">
           {({ value, onChange, preview: p }) => (
-            <Select.Buttons
-              keys={TYPE_KEYS}
-              value={value}
-              onChange={onChange}
-              preview={p}
-            >
-              <Select.Button itemKey="analog">Analog</Select.Button>
-              <Select.Button itemKey="digital">Digital</Select.Button>
+            <Select.Buttons value={value} onChange={onChange} preview={p}>
+              <Select.Item itemKey="analog">Analog</Select.Item>
+              <Select.Item itemKey="digital">Digital</Select.Item>
             </Select.Buttons>
           )}
         </Form.Field>

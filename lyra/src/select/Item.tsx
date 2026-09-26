@@ -13,11 +13,13 @@ import { type record } from "@synnaxlabs/x";
 import { type ReactNode, useLayoutEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { type Button } from "@/button";
+import { Button } from "@/button";
+import { CSS } from "@/css";
 import { List } from "@/list";
+import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/types";
 import { useItemState, useReselectNoop } from "@/select/Context";
 import { useRegistryContext, useSearchContext, useSlot } from "@/select/registry";
-import { useClosed } from "@/select/scope";
+import { type ButtonsContextValue, useButtonsContext, useClosed } from "@/select/scope";
 
 /** Props for {@link Item}. */
 export type ItemProps<
@@ -42,6 +44,63 @@ const BlockItem = <K extends record.Key, E extends Button.ElementType>(
   );
 };
 
+const useRegister = (
+  key: record.Key,
+  element: HTMLElement | null,
+  hidden: boolean,
+): void => {
+  const registry = useRegistryContext("Select.Item");
+  useLayoutEffect(
+    () => registry.setItem(key, { element, hidden }),
+    [registry, key, element, hidden],
+  );
+  useLayoutEffect(() => () => registry.removeItem(key), [registry, key]);
+};
+
+interface ButtonItemProps<K extends record.Key> extends Pick<
+  ItemProps<K>,
+  | "itemKey"
+  | "className"
+  | "children"
+  | "tooltip"
+  | "size"
+  | "justify"
+  | "disabled"
+  | "square"
+> {
+  buttons: ButtonsContextValue;
+}
+
+const ButtonItem = <K extends record.Key>({
+  itemKey,
+  className,
+  buttons: { preview, variant },
+  ...rest
+}: ButtonItemProps<K>): ReactNode => {
+  const { selected, onSelect } = useItemState(itemKey);
+  const [element, setElement] = useState<HTMLElement | null>(null);
+  useRegister(itemKey, element, false);
+  if (preview && !selected) return null;
+  return (
+    <Button.Toggle
+      preview={preview}
+      variant={variant}
+      {...rest}
+      ref={setElement}
+      id={itemKey.toString()}
+      onChange={onSelect}
+      value={selected}
+      className={CSS.cls(
+        className,
+        CSS.B("select-btn"),
+        CSS.selected(selected),
+        selected && CONTEXT_SELECTED,
+        CONTEXT_TARGET,
+      )}
+    />
+  );
+};
+
 const matches = (text: string, term: string): boolean =>
   term === "" || text.toLowerCase().includes(term.toLowerCase());
 
@@ -50,7 +109,6 @@ const FixedItem = <K extends record.Key, E extends Button.ElementType>(
 ): ReactNode => {
   const { itemKey, children } = props;
   const closed = useClosed();
-  const registry = useRegistryContext("Select.Item");
   const { term } = useSearchContext("Select.Item");
   const { selected, hovered, onSelect, sole } = useItemState(itemKey);
   const reselectNoop = useReselectNoop();
@@ -63,11 +121,7 @@ const FixedItem = <K extends record.Key, E extends Button.ElementType>(
     if (next !== text) setText(next);
   });
   const hidden = !matches(text, term);
-  useLayoutEffect(
-    () => registry.setItem(itemKey, { element, hidden }),
-    [registry, itemKey, element, hidden],
-  );
-  useLayoutEffect(() => () => registry.removeItem(itemKey), [registry, itemKey]);
+  useRegister(itemKey, element, hidden);
   const label = selected && slot != null ? createPortal(children, slot) : null;
   if (closed) return label;
   return (
@@ -89,7 +143,7 @@ const FixedItem = <K extends record.Key, E extends Button.ElementType>(
 
 /**
  * One option of a selection. Rendered by an {@link Items} block, it is a row of the
- * frame's data. Anywhere else it is a fixed option: the arrow keys reach it in page
+ * frame's data. Inside {@link Buttons} it is a toggle button. Anywhere else it is a fixed option: the arrow keys reach it in page
  * order, the search filters it by its text, and a trigger shows its children when it is
  * selected.
  */
@@ -99,6 +153,9 @@ export const Item = <
 >(
   props: ItemProps<K, E>,
 ): ReactNode => {
-  if (List.useInItems()) return <BlockItem<K, E> {...props} />;
+  const inItems = List.useInItems();
+  const buttons = useButtonsContext();
+  if (inItems) return <BlockItem<K, E> {...props} />;
+  if (buttons != null) return <ButtonItem<K> {...props} buttons={buttons} />;
   return <FixedItem<K, E> {...props} />;
 };

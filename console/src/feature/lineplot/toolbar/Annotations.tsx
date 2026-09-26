@@ -130,17 +130,13 @@ const List = ({
   );
 };
 
-const AXIS_DATA: lineplot.AxisKey[] = ["y1", "y2"];
-
 const LINE_WIDTH_BOUNDS: bounds.Bounds = { lower: 1, upper: 10 };
 const LINE_DASH_BOUNDS: bounds.Bounds = { lower: 0, upper: 50 };
 
-const SelectAxis = (
-  props: Omit<Select.ButtonsProps<lineplot.AxisKey>, "keys">,
-): ReactElement => (
-  <Select.Buttons {...props} keys={AXIS_DATA}>
-    <Select.Button itemKey="y1">Y1</Select.Button>
-    <Select.Button itemKey="y2">Y2</Select.Button>
+const SelectAxis = (props: Select.ButtonsProps<lineplot.AxisKey>): ReactElement => (
+  <Select.Buttons {...props}>
+    <Select.Item itemKey="y1">Y1</Select.Item>
+    <Select.Item itemKey="y2">Y2</Select.Item>
   </Select.Buttons>
 );
 

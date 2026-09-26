@@ -58,8 +58,6 @@ const Properties = () => (
   </>
 );
 
-const WRITE_METHOD_KEYS: WriteMethod[] = ["POST", "PUT", "PATCH"];
-
 const JSON_TYPE_DATA: Select.StaticEntry<json.PrimitiveType>[] = [
   { key: "number", name: "Number" },
   { key: "string", name: "String" },
@@ -82,11 +80,11 @@ const MethodSelect: FC<{ path: string }> = ({ path }) => (
 );
 
 const renderMethodSelect = Component.renderProp(
-  (p: Omit<Select.ButtonsProps<WriteMethod>, "keys">) => (
-    <Select.Buttons<WriteMethod> {...p} keys={WRITE_METHOD_KEYS}>
-      <Select.Button<WriteMethod> itemKey="POST">POST</Select.Button>
-      <Select.Button<WriteMethod> itemKey="PUT">PUT</Select.Button>
-      <Select.Button<WriteMethod> itemKey="PATCH">PATCH</Select.Button>
+  (p: Select.ButtonsProps<WriteMethod>) => (
+    <Select.Buttons<WriteMethod> {...p}>
+      <Select.Item<WriteMethod> itemKey="POST">POST</Select.Item>
+      <Select.Item<WriteMethod> itemKey="PUT">PUT</Select.Item>
+      <Select.Item<WriteMethod> itemKey="PATCH">PATCH</Select.Item>
     </Select.Buttons>
   ),
 );

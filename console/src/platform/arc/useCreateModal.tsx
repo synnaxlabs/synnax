@@ -34,8 +34,6 @@ export interface CreateModalParams {
   initialValues?: Partial<z.infer<typeof Arc.formSchema>>;
 }
 
-const MODE_KEYS: arc.Mode[] = ["text", "graph"];
-
 const NAME_INPUT_PROPS: Partial<Input.TextProps> = {
   autoFocus: true,
   placeholder: "Name",
@@ -44,7 +42,8 @@ const NAME_INPUT_PROPS: Partial<Input.TextProps> = {
   selectOnFocus: true,
 };
 
-export interface ArcModeSelectButtonProps extends Select.ButtonProps<arc.Mode> {
+export interface ArcModeSelectButtonProps extends Button.ButtonProps {
+  itemKey: arc.Mode;
   icon: Icon.ReactElement;
   title: string;
   description: string;
@@ -110,7 +109,6 @@ export const useCreateModal = Modals.createPrompt<CreateModalResult, CreateModal
                 <Select.Buttons
                   value={value}
                   onChange={onChange}
-                  keys={MODE_KEYS}
                   pack={false}
                   x
                   full="x"

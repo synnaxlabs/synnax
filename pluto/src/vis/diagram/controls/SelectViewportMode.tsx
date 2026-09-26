@@ -25,26 +25,25 @@ export const Base = (): ReactElement => {
   return (
     <Select.Buttons
       variant="outlined"
-      keys={VIEWPORT_MODES}
       value={viewportMode}
       onChange={onViewportModeChange}
     >
-      <Select.Button
+      <Select.Item
         itemKey="pan"
         size="small"
         tooltip={<BaseViewport.TooltipText mode="pan" triggers={PAN_TRIGGER} />}
         tooltipLocation={location.BOTTOM_LEFT}
       >
         <Icon.Pan />
-      </Select.Button>
-      <Select.Button
+      </Select.Item>
+      <Select.Item
         itemKey="select"
         size="small"
         tooltip={<BaseViewport.TooltipText mode="select" triggers={SELECT_TRIGGER} />}
         tooltipLocation={location.BOTTOM_LEFT}
       >
         <Icon.Selection />
-      </Select.Button>
+      </Select.Item>
     </Select.Buttons>
   );
 };

@@ -18,26 +18,24 @@ import { type Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { location, xy } from "@synnaxlabs/x";
+import { type location, xy } from "@synnaxlabs/x";
 
 import { CSS } from "@/platform/css";
 
-export const SelectHandleOrientation = (
-  props: Omit<Select.ButtonsProps<location.Outer>, "keys">,
-) => (
-  <Select.Buttons keys={location.OUTER_LOCATIONS} size="small" {...props}>
-    <Select.Button itemKey="left" size="small">
+export const SelectHandleOrientation = (props: Select.ButtonsProps<location.Outer>) => (
+  <Select.Buttons size="small" {...props}>
+    <Select.Item itemKey="left" size="small">
       <Icon.Arrow.Left />
-    </Select.Button>
-    <Select.Button itemKey="right" size="small">
+    </Select.Item>
+    <Select.Item itemKey="right" size="small">
       <Icon.Arrow.Right />
-    </Select.Button>
-    <Select.Button itemKey="top" size="small">
+    </Select.Item>
+    <Select.Item itemKey="top" size="small">
       <Icon.Arrow.Up />
-    </Select.Button>
-    <Select.Button itemKey="bottom" size="small">
+    </Select.Item>
+    <Select.Item itemKey="bottom" size="small">
       <Icon.Arrow.Down />
-    </Select.Button>
+    </Select.Item>
   </Select.Buttons>
 );
 

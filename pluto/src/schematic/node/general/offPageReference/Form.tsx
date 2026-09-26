@@ -25,7 +25,6 @@ import { Orientation } from "@/schematic/node/common/orientation";
 import { PAGE_ICONS } from "@/schematic/node/general/offPageReference/config";
 import { type FormProps } from "@/schematic/node/spec";
 import { Synnax } from "@/synnax";
-const CLICK_MODE_KEYS = ["single", "double"] as const;
 
 const ClickModeSelect = Component.renderProp(
   ({
@@ -40,13 +39,9 @@ const ClickModeSelect = Component.renderProp(
       [onChange],
     );
     return (
-      <Select.Buttons
-        value={value ? "single" : "double"}
-        onChange={handleChange}
-        keys={CLICK_MODE_KEYS}
-      >
-        <Select.Button itemKey="single">Single</Select.Button>
-        <Select.Button itemKey="double">Double</Select.Button>
+      <Select.Buttons value={value ? "single" : "double"} onChange={handleChange}>
+        <Select.Item itemKey="single">Single</Select.Item>
+        <Select.Item itemKey="double">Double</Select.Item>
       </Select.Buttons>
     );
   },

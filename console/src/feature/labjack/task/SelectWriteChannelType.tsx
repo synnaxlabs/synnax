@@ -17,18 +17,13 @@ import { CSS } from "@/platform/css";
 
 export interface WriteChannelTypeEntry extends record.KeyedNamed<WriteChannelType> {}
 
-const DATA: WriteChannelType[] = ["analog", "digital"];
-
-export interface SelectWriteChannelTypeProps extends Omit<
-  Select.ButtonsProps<WriteChannelType>,
-  "keys"
-> {}
+export interface SelectWriteChannelTypeProps extends Select.ButtonsProps<WriteChannelType> {}
 
 export const SelectWriteChannelType = (props: SelectWriteChannelTypeProps) => (
-  <Select.Buttons {...props} keys={DATA}>
-    <Select.Button itemKey="analog" className={CSS.BE("labjack-write-type", "ao")}>
+  <Select.Buttons {...props}>
+    <Select.Item itemKey="analog" className={CSS.BE("labjack-write-type", "ao")}>
       Analog
-    </Select.Button>
-    <Select.Button itemKey="digital">Digital</Select.Button>
+    </Select.Item>
+    <Select.Item itemKey="digital">Digital</Select.Item>
   </Select.Buttons>
 );

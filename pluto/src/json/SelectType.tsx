@@ -8,23 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { Select } from "@synnaxlabs/lyra/select";
-import { type optional } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { type PrimitiveTypeName } from "@/json/primitive";
 
-const KEYS: PrimitiveTypeName[] = ["string", "number", "boolean", "null"];
-
-export interface SelectTypeProps extends optional.Optional<
-  Select.ButtonsProps<PrimitiveTypeName>,
-  "keys"
-> {}
+export interface SelectTypeProps extends Select.ButtonsProps<PrimitiveTypeName> {}
 
 export const SelectType = (props: SelectTypeProps): ReactElement => (
-  <Select.Buttons<PrimitiveTypeName> keys={KEYS} {...props}>
-    <Select.Button itemKey="string">String</Select.Button>
-    <Select.Button itemKey="number">Number</Select.Button>
-    <Select.Button itemKey="boolean">Boolean</Select.Button>
-    <Select.Button itemKey="null">Null</Select.Button>
+  <Select.Buttons<PrimitiveTypeName> {...props}>
+    <Select.Item itemKey="string">String</Select.Item>
+    <Select.Item itemKey="number">Number</Select.Item>
+    <Select.Item itemKey="boolean">Boolean</Select.Item>
+    <Select.Item itemKey="null">Null</Select.Item>
   </Select.Buttons>
 );

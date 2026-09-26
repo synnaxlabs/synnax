@@ -37,23 +37,19 @@ const SelectSingle = () => {
 const SelectButton = () => {
   const [value, setValue] = useState<string>("");
   return (
-    <Select.Buttons
-      keys={["x-center", "y-center", "x-left", "y-left"]}
-      value={value}
-      onChange={setValue}
-    >
-      <Select.Button key="x-center" itemKey="x-center">
+    <Select.Buttons value={value} onChange={setValue}>
+      <Select.Item key="x-center" itemKey="x-center">
         <Icon.Align.XCenter />
-      </Select.Button>
-      <Select.Button key="y-center" itemKey="y-center">
+      </Select.Item>
+      <Select.Item key="y-center" itemKey="y-center">
         <Icon.Align.YCenter />
-      </Select.Button>
-      <Select.Button key="x-left" itemKey="x-left">
+      </Select.Item>
+      <Select.Item key="x-left" itemKey="x-left">
         <Icon.Align.Left />
-      </Select.Button>
-      <Select.Button key="y-left" itemKey="y-left">
+      </Select.Item>
+      <Select.Item key="y-left" itemKey="y-left">
         <Icon.Align.Top />
-      </Select.Button>
+      </Select.Item>
     </Select.Buttons>
   );
 };
