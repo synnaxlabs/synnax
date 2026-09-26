@@ -14,11 +14,7 @@ import { describe, expect, it, vi } from "vitest";
 import { Task } from "@/platform/task";
 import { renderInTaskForm } from "@/platform/task/testutil";
 import { type Channel } from "@/platform/task/types";
-import {
-  getIconButton,
-  queryIcon,
-  queryIconButton,
-} from "@/testutil";
+import { getIconButton, queryIcon, queryIconButton } from "@/testutil";
 
 // The channel item renders inside its real Select/List context by being handed to the
 // layouts List as its listItem render prop.
