@@ -8,9 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { Form } from "@synnaxlabs/lyra/form";
-import { Select } from "@synnaxlabs/lyra/select";
 
 import { type ReadChannelType } from "@/feature/modbus/task/types";
+import { Task } from "@/platform/task";
+
+const NAMES = {
+  coil: "Coil",
+  discrete_input: "Discrete",
+  holding_register: "Holding register",
+  input_register: "Register",
+} as const satisfies Record<ReadChannelType, string>;
 
 export type SelectReadChannelTypeFieldProps = Form.SelectFieldProps<ReadChannelType>;
 
@@ -26,13 +33,6 @@ export const SelectReadChannelTypeField = Form.buildSelectField<ReadChannelType>
     allowNone: false,
     resourceName: "channel type",
     style: { width: "25rem" },
-    children: (
-      <>
-        <Select.Item itemKey="coil">Coil</Select.Item>
-        <Select.Item itemKey="discrete_input">Discrete</Select.Item>
-        <Select.Item itemKey="holding_register">Holding register</Select.Item>
-        <Select.Item itemKey="input_register">Register</Select.Item>
-      </>
-    ),
+    children: Task.selectItems(NAMES),
   },
 });

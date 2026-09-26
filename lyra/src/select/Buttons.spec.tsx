@@ -81,6 +81,20 @@ describe("Select.Item", () => {
     );
   });
 
+  it("should forward layout and variant props to the button", () => {
+    const c = render(
+      <Select.Buttons value={1} onChange={vi.fn()}>
+        <Select.Item itemKey={1} variant="outlined" y grow>
+          Option 1
+        </Select.Item>
+      </Select.Buttons>,
+    );
+    const button = c.getByText("Option 1").closest("button");
+    expect(button?.classList).toContain("pluto-btn--outlined");
+    expect(button?.classList).toContain("pluto--direction-y");
+    expect(button?.classList).toContain("pluto--grow");
+  });
+
   it("should move the selection state when a button is clicked", () => {
     const C = () => {
       const [value, setValue] = useState(1);

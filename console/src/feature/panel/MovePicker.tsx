@@ -12,7 +12,7 @@ import "@/feature/panel/MovePicker.css";
 import { type panel } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { List } from "@synnaxlabs/lyra/list";
+import { type List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Errors, Panel } from "@synnaxlabs/pluto";
@@ -84,9 +84,9 @@ const Content = ({
       </Modals.Header>
       <Modals.Body>
         <Select.Frame<panel.Key> data={data} allowNone onChange={handleChange}>
-          <List.Scroll
+          <Select.List
             className={CSS.BE("panel-move-picker", "list")}
-            itemCount={data.length + 1}
+            animateHeight={false}
           >
             <Select.Items<panel.Key>>{listItem}</Select.Items>
             <Select.Item
@@ -98,7 +98,7 @@ const Content = ({
               <Icon.Add />
               <Text.Text>New panel</Text.Text>
             </Select.Item>
-          </List.Scroll>
+          </Select.List>
         </Select.Frame>
       </Modals.Body>
     </Modals.Frame>

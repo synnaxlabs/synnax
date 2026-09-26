@@ -24,7 +24,7 @@ export interface ItemsProps<
  * Renders the frame's data as options, in its place among the fixed {@link Item}s. It
  * renders nothing while the dialog is closed.
  *
- * @throws if no {@link List} encloses it.
+ * @throws if no `Select.List` of the same frame encloses it.
  */
 export const Items = <
   K extends record.Key = record.Key,

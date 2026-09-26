@@ -20,14 +20,13 @@ import { useContext, useFormContext } from "@/platform/view/context";
 export interface ItemsProps<K extends record.Key = record.Key>
   extends
     Omit<List.ScrollProps, "children" | "contextMenu">,
-    Pick<List.ItemsProps<K>, "children" | "emptyContent"> {
+    Pick<List.ItemsProps<K>, "children"> {
   contextMenu?: Menu.ContextMenuProps["menu"];
 }
 
 export const Items = <K extends record.Key>({
   contextMenu,
   children,
-  emptyContent,
   ...rest
 }: ItemsProps<K>): ReactElement => {
   const menuProps = Menu.useContextMenu();
@@ -35,7 +34,7 @@ export const Items = <K extends record.Key>({
   return (
     <Menu.ContextMenu menu={contextMenu} {...menuProps}>
       <List.Scroll grow onContextMenu={menuProps.open} {...rest}>
-        <List.Items<K> emptyContent={emptyContent ?? (answered && defaultEmptyContent)}>
+        <List.Items<K> emptyContent={answered && defaultEmptyContent}>
           {children}
         </List.Items>
       </List.Scroll>

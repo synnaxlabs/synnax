@@ -197,6 +197,9 @@ The shorthands assemble the parts. None of them takes a data prop for static opt
   data: search, loading and error content, virtualization, and paging. They keep their
   props, gain `fixedItems` for fixed options above the data, and are rebuilt on the
   parts. The Pluto domain selects, such as `Channel.SelectSingle`, keep using them.
+- **`Select.Body`**: The dialog contents of `Single` and `Multiple`: search, list, empty
+  and error content, and an optional footer. A select with its own trigger puts it
+  inside `Select.Dialog`.
 
 ```tsx
 <Select.Simple value={v} onChange={setV} resourceName="variant">

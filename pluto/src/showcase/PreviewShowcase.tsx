@@ -76,7 +76,7 @@ const SelectAlign = ({ preview }: { preview: boolean }) => {
   );
 };
 
-const SelectSingleStatic = ({
+const SelectSimple = ({
   preview,
   value: initial,
 }: {
@@ -110,7 +110,7 @@ const labelListItem = Component.renderProp((props: List.ItemProps<string>) => {
   return <Select.Item {...props}>{item?.name}</Select.Item>;
 });
 
-const SelectMultipleStatic = ({
+const SelectMultiple = ({
   preview,
   value: initial,
 }: {
@@ -252,16 +252,16 @@ export const PreviewShowcase = (): ReactElement => (
     </Row>
     <Row label="Select buttons icons">{(p) => <SelectAlign preview={p} />}</Row>
     <Row label="Select single selected">
-      {(p) => <SelectSingleStatic preview={p} value="ai1" />}
+      {(p) => <SelectSimple preview={p} value="ai1" />}
     </Row>
     <Row label="Select single none">
-      {(p) => <SelectSingleStatic preview={p} value={undefined} />}
+      {(p) => <SelectSimple preview={p} value={undefined} />}
     </Row>
     <Row label="Select multiple tags">
-      {(p) => <SelectMultipleStatic preview={p} value={["hotfire", "coldflow"]} />}
+      {(p) => <SelectMultiple preview={p} value={["hotfire", "coldflow"]} />}
     </Row>
     <Row label="Select multiple empty">
-      {(p) => <SelectMultipleStatic preview={p} value={[]} />}
+      {(p) => <SelectMultiple preview={p} value={[]} />}
     </Row>
     <Flex.Box x gap="huge" style={{ marginTop: "3rem" }}>
       <Flex.Box y grow>

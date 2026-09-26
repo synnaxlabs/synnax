@@ -10,12 +10,9 @@
 import "@/feature/labjack/task/SelectWriteChannelType.css";
 
 import { Select } from "@synnaxlabs/lyra/select";
-import { type record } from "@synnaxlabs/x";
 
 import { type WriteChannelType } from "@/feature/labjack/task/types";
 import { CSS } from "@/platform/css";
-
-export interface WriteChannelTypeEntry extends record.KeyedNamed<WriteChannelType> {}
 
 export interface SelectWriteChannelTypeProps extends Select.ButtonsProps<WriteChannelType> {}
 

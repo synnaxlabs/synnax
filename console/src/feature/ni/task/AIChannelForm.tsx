@@ -14,6 +14,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select as PSelect } from "@synnaxlabs/lyra/select";
+import { record } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { PortField } from "@/feature/ni/device/PortField";
@@ -47,56 +48,63 @@ import {
   type VelocityUnits,
 } from "@/feature/ni/task/types";
 import { CSS } from "@/platform/css";
+import { Task } from "@/platform/task";
 
 interface FormProps {
   prefix: string;
 }
+
+const TERMINAL_CONFIG_NAMES = {
+  RSE: "Referenced single ended",
+  NRSE: "Non-referenced single ended",
+  Diff: "Differential",
+  PseudoDiff: "Pseudo-Differential",
+  Cfg_Default: "Default",
+} as const satisfies Record<TerminalConfig, string>;
 
 const TerminalConfigField = Form.buildSelectField<TerminalConfig>({
   fieldKey: "terminalConfig",
   fieldProps: { label: "Terminal configuration" },
   inputProps: {
     resourceName: "terminal configuration",
-    children: (
-      <>
-        <PSelect.Item itemKey="RSE">Referenced single ended</PSelect.Item>
-        <PSelect.Item itemKey="NRSE">Non-referenced single ended</PSelect.Item>
-        <PSelect.Item itemKey="Diff">Differential</PSelect.Item>
-        <PSelect.Item itemKey="PseudoDiff">Pseudo-Differential</PSelect.Item>
-        <PSelect.Item itemKey="Cfg_Default">Default</PSelect.Item>
-      </>
-    ),
+    children: Task.selectItems(TERMINAL_CONFIG_NAMES),
   },
 });
+
+const ACCEL_UNITS_NAMES = {
+  g: "g",
+  MetersPerSecondSquared: "m/s²",
+  InchesPerSecondSquared: "in/s²",
+} as const satisfies Record<AccelUnits, string>;
 
 const AccelUnitsField = Form.buildSelectField<AccelUnits>({
   fieldKey: "units",
   fieldProps: { label: "Acceleration units" },
   inputProps: {
     resourceName: "acceleration units",
-    children: (
-      <>
-        <PSelect.Item itemKey="g">g</PSelect.Item>
-        <PSelect.Item itemKey="MetersPerSecondSquared">m/s²</PSelect.Item>
-        <PSelect.Item itemKey="InchesPerSecondSquared">in/s²</PSelect.Item>
-      </>
-    ),
+    children: Task.selectItems(ACCEL_UNITS_NAMES),
   },
 });
+
+const ACCEL_SENSITIVITY_UNITS_NAMES = {
+  mVoltsPerG: "mV/g",
+  VoltsPerG: "V/g",
+} as const satisfies Record<AccelSensitivityUnits, string>;
 
 const AccelSensitivityUnitsField = Form.buildSelectField<AccelSensitivityUnits>({
   fieldKey: "sensitivityUnits",
   fieldProps: { label: "Sensitivity units" },
   inputProps: {
     resourceName: "sensitivity units",
-    children: (
-      <>
-        <PSelect.Item itemKey="mVoltsPerG">mV/g</PSelect.Item>
-        <PSelect.Item itemKey="VoltsPerG">V/g</PSelect.Item>
-      </>
-    ),
+    children: Task.selectItems(ACCEL_SENSITIVITY_UNITS_NAMES),
   },
 });
+
+const ACCEL_CHARGE_SENSITIVITY_UNITS_NAMES = {
+  PicoCoulombsPerG: "pC/g",
+  PicoCoulombsPerMetersPerSecondSquared: "pC/(m/s²)",
+  PicoCoulombsPerInchesPerSecondSquared: "pC/(in/s²)",
+} as const satisfies Record<AccelChargeSensitivityUnits, string>;
 
 const AccelChargeSensitivityUnitsField =
   Form.buildSelectField<AccelChargeSensitivityUnits>({
@@ -104,96 +112,86 @@ const AccelChargeSensitivityUnitsField =
     fieldProps: { label: "Sensitivity units" },
     inputProps: {
       resourceName: "sensitivity units",
-      children: (
-        <>
-          <PSelect.Item itemKey="PicoCoulombsPerG">pC/g</PSelect.Item>
-          <PSelect.Item itemKey="PicoCoulombsPerMetersPerSecondSquared">
-            pC/(m/s²)
-          </PSelect.Item>
-          <PSelect.Item itemKey="PicoCoulombsPerInchesPerSecondSquared">
-            pC/(in/s²)
-          </PSelect.Item>
-        </>
-      ),
+      children: Task.selectItems(ACCEL_CHARGE_SENSITIVITY_UNITS_NAMES),
     },
   });
+
+const EXCIT_SOURCE_NAMES = {
+  Internal: "Internal",
+  External: "External",
+  None: "None",
+} as const satisfies Record<ExcitationSource, string>;
 
 const ExcitSourceField = Form.buildSelectField<ExcitationSource>({
   fieldKey: "excitSource",
   fieldProps: { label: "Excitation source" },
   inputProps: {
     resourceName: "excitation source",
-    children: (
-      <>
-        <PSelect.Item itemKey="Internal">Internal</PSelect.Item>
-        <PSelect.Item itemKey="External">External</PSelect.Item>
-        <PSelect.Item itemKey="None">None</PSelect.Item>
-      </>
-    ),
+    children: Task.selectItems(EXCIT_SOURCE_NAMES),
   },
 });
+
+const BRIDGE_CONFIG_NAMES = {
+  FullBridge: "Full bridge",
+  HalfBridge: "Half bridge",
+  QuarterBridge: "Quarter bridge",
+} as const satisfies Record<BridgeConfig, string>;
 
 const BridgeConfigField = Form.buildSelectField<BridgeConfig>({
   fieldKey: "bridgeConfig",
   fieldProps: { label: "Bridge configuration" },
   inputProps: {
     resourceName: "bridge configuration",
-    children: (
-      <>
-        <PSelect.Item itemKey="FullBridge">Full bridge</PSelect.Item>
-        <PSelect.Item itemKey="HalfBridge">Half bridge</PSelect.Item>
-        <PSelect.Item itemKey="QuarterBridge">Quarter bridge</PSelect.Item>
-      </>
-    ),
+    children: Task.selectItems(BRIDGE_CONFIG_NAMES),
   },
 });
+
+const SHUNT_RESISTOR_LOC_NAMES = {
+  Default: "Default",
+  Internal: "Internal",
+  External: "External",
+} as const satisfies Record<ShuntResistorLoc, string>;
 
 const ShuntResistorLocField = Form.buildSelectField<ShuntResistorLoc>({
   fieldKey: "shuntResistorLoc",
   fieldProps: { label: "Shunt resistor location" },
   inputProps: {
     resourceName: "shunt resistor location",
-    children: (
-      <>
-        <PSelect.Item itemKey="Default">Default</PSelect.Item>
-        <PSelect.Item itemKey="Internal">Internal</PSelect.Item>
-        <PSelect.Item itemKey="External">External</PSelect.Item>
-      </>
-    ),
+    children: Task.selectItems(SHUNT_RESISTOR_LOC_NAMES),
   },
 });
+
+const RESISTANCE_CONFIG_NAMES = {
+  "2Wire": "2-Wire",
+  "3Wire": "3-Wire",
+  "4Wire": "4-Wire",
+} as const satisfies Record<ResistanceConfig, string>;
 
 const ResistanceConfigField = Form.buildSelectField<ResistanceConfig>({
   fieldKey: "resistanceConfig",
   fieldProps: { label: "Resistance configuration" },
   inputProps: {
     resourceName: "resistance configuration",
-    children: (
-      <>
-        <PSelect.Item itemKey="2Wire">2-Wire</PSelect.Item>
-        <PSelect.Item itemKey="3Wire">3-Wire</PSelect.Item>
-        <PSelect.Item itemKey="4Wire">4-Wire</PSelect.Item>
-      </>
-    ),
+    children: Task.selectItems(RESISTANCE_CONFIG_NAMES),
   },
 });
+
+const STRAIN_CONFIG_NAMES = {
+  FullBridgeI: "Full bridge I",
+  FullBridgeII: "Full bridge II",
+  FullBridgeIII: "Full bridge III",
+  HalfBridgeI: "Half bridge I",
+  HalfBridgeII: "Half bridge II",
+  QuarterBridgeI: "Quarter bridge I",
+  QuarterBridgeII: "Quarter bridge II",
+} as const satisfies Record<StrainConfig, string>;
 
 const StrainConfigField = Form.buildSelectField<StrainConfig>({
   fieldKey: "strainConfig",
   fieldProps: { label: "Strain configuration" },
   inputProps: {
     resourceName: "strain configuration",
-    children: (
-      <>
-        <PSelect.Item itemKey="FullBridgeI">Full bridge I</PSelect.Item>
-        <PSelect.Item itemKey="FullBridgeII">Full bridge II</PSelect.Item>
-        <PSelect.Item itemKey="FullBridgeIII">Full bridge III</PSelect.Item>
-        <PSelect.Item itemKey="HalfBridgeI">Half bridge I</PSelect.Item>
-        <PSelect.Item itemKey="HalfBridgeII">Half bridge II</PSelect.Item>
-        <PSelect.Item itemKey="QuarterBridgeI">Quarter bridge I</PSelect.Item>
-        <PSelect.Item itemKey="QuarterBridgeII">Quarter bridge II</PSelect.Item>
-      </>
-    ),
+    children: Task.selectItems(STRAIN_CONFIG_NAMES),
   },
 });
 
@@ -203,145 +201,147 @@ const SensitivityField = Form.buildNumericField({
   inputProps: {},
 });
 
+const FORCE_UNITS_NAMES = {
+  Newtons: "Newtons",
+  Pounds: "Pounds",
+  KilogramForce: "Kilograms",
+} as const satisfies Record<ForceUnits, string>;
+
+const IEPE_FORCE_UNITS_NAMES = record.omit(FORCE_UNITS_NAMES, "KilogramForce");
+
 const ForceUnitsField = Form.buildSelectField<ForceUnits>({
   fieldKey: "units",
   fieldProps: { label: "Force units" },
   inputProps: {
     resourceName: "force units",
-    children: (
-      <>
-        <PSelect.Item itemKey="Newtons">Newtons</PSelect.Item>
-        <PSelect.Item itemKey="Pounds">Pounds</PSelect.Item>
-        <PSelect.Item itemKey="KilogramForce">Kilograms</PSelect.Item>
-      </>
-    ),
+    children: Task.selectItems(FORCE_UNITS_NAMES),
   },
 });
+
+const ELECTRICAL_UNITS_NAMES = {
+  VoltsPerVolt: "V/V",
+  mVoltsPerVolt: "mV/V",
+} as const satisfies Record<ElectricalUnits, string>;
 
 const ElectricalUnitsField = Form.buildSelectField<ElectricalUnits>({
   fieldKey: "electricalUnits",
   fieldProps: { label: "Electrical units" },
   inputProps: {
     resourceName: "electrical units",
-    children: (
-      <>
-        <PSelect.Item itemKey="VoltsPerVolt">V/V</PSelect.Item>
-        <PSelect.Item itemKey="mVoltsPerVolt">mV/V</PSelect.Item>
-      </>
-    ),
+    children: Task.selectItems(ELECTRICAL_UNITS_NAMES),
   },
 });
+
+const CHARGE_UNITS_NAMES = {
+  Coulombs: "Coulombs",
+  PicoCoulombs: "Picocoulombs",
+} as const satisfies Record<ChargeUnits, string>;
 
 const ChargeUnitsField = Form.buildSelectField<ChargeUnits>({
   fieldKey: "units",
   fieldProps: { label: "Charge units" },
   inputProps: {
     resourceName: "charge units",
-    children: (
-      <>
-        <PSelect.Item itemKey="Coulombs">Coulombs</PSelect.Item>
-        <PSelect.Item itemKey="PicoCoulombs">Picocoulombs</PSelect.Item>
-      </>
-    ),
+    children: Task.selectItems(CHARGE_UNITS_NAMES),
   },
 });
+
+const PRESSURE_UNITS_NAMES = {
+  Pascals: "Pascals",
+  PoundsPerSquareInch: "PSI",
+  Bar: "Bar",
+} as const satisfies Record<PressureUnits, string>;
 
 const PressureUnitsField = Form.buildSelectField<PressureUnits>({
   fieldKey: "units",
   fieldProps: { label: "Pressure units" },
   inputProps: {
     resourceName: "pressure units",
-    children: (
-      <>
-        <PSelect.Item itemKey="Pascals">Pascals</PSelect.Item>
-        <PSelect.Item itemKey="PoundsPerSquareInch">PSI</PSelect.Item>
-        <PSelect.Item itemKey="Bar">Bar</PSelect.Item>
-      </>
-    ),
+    children: Task.selectItems(PRESSURE_UNITS_NAMES),
   },
 });
+
+const TEMPERATURE_UNITS_NAMES = {
+  DegC: "Celsius",
+  DegF: "Fahrenheit",
+  Kelvins: "Kelvin",
+  DegR: "Rankine",
+} as const satisfies Record<TemperatureUnits, string>;
 
 const TemperatureUnitsField = Form.buildSelectField<TemperatureUnits>({
   fieldKey: "units",
   fieldProps: { label: "Temperature units" },
   inputProps: {
     resourceName: "temperature units",
-    children: (
-      <>
-        <PSelect.Item itemKey="DegC">Celsius</PSelect.Item>
-        <PSelect.Item itemKey="DegF">Fahrenheit</PSelect.Item>
-        <PSelect.Item itemKey="Kelvins">Kelvin</PSelect.Item>
-        <PSelect.Item itemKey="DegR">Rankine</PSelect.Item>
-      </>
-    ),
+    children: Task.selectItems(TEMPERATURE_UNITS_NAMES),
   },
 });
+
+const THERMOCOUPLE_TYPE_NAMES = {
+  B: "B",
+  E: "E",
+  J: "J",
+  K: "K",
+  N: "N",
+  R: "R",
+  S: "S",
+  T: "T",
+} as const satisfies Record<ThermocoupleType, string>;
 
 const ThermocoupleTypeField = Form.buildSelectField<ThermocoupleType>({
   fieldKey: "thermocoupleType",
   fieldProps: { label: "Thermocouple type" },
   inputProps: {
     resourceName: "thermocouple type",
-    children: (
-      <>
-        <PSelect.Item itemKey="B">B</PSelect.Item>
-        <PSelect.Item itemKey="E">E</PSelect.Item>
-        <PSelect.Item itemKey="J">J</PSelect.Item>
-        <PSelect.Item itemKey="K">K</PSelect.Item>
-        <PSelect.Item itemKey="N">N</PSelect.Item>
-        <PSelect.Item itemKey="R">R</PSelect.Item>
-        <PSelect.Item itemKey="S">S</PSelect.Item>
-        <PSelect.Item itemKey="T">T</PSelect.Item>
-      </>
-    ),
+    children: Task.selectItems(THERMOCOUPLE_TYPE_NAMES),
   },
 });
+
+const TORQUE_UNITS_NAMES = {
+  NewtonMeters: "Newton meters",
+  InchOunces: "Inch ounces",
+  InchPounds: "Inch pounds",
+  FootPounds: "Foot pounds",
+} as const satisfies Record<TorqueUnits, string>;
 
 const TorqueUnitsField = Form.buildSelectField<TorqueUnits>({
   fieldKey: "units",
   fieldProps: { label: "Torque units" },
   inputProps: {
     resourceName: "torque units",
-    children: (
-      <>
-        <PSelect.Item itemKey="NewtonMeters">Newton meters</PSelect.Item>
-        <PSelect.Item itemKey="InchOunces">Inch ounces</PSelect.Item>
-        <PSelect.Item itemKey="InchPounds">Inch pounds</PSelect.Item>
-        <PSelect.Item itemKey="FootPounds">Foot pounds</PSelect.Item>
-      </>
-    ),
+    children: Task.selectItems(TORQUE_UNITS_NAMES),
   },
 });
+
+const FORCE_SENSITIVITY_UNITS_NAMES = {
+  mVoltsPerNewton: "mV/N",
+  mVoltsPerPound: "mV/lb",
+} as const satisfies Record<ForceSensitivityUnits, string>;
 
 const ForceSensitivityUnitsField = Form.buildSelectField<ForceSensitivityUnits>({
   fieldKey: "sensitivityUnits",
   fieldProps: { label: "Sensitivity units" },
   inputProps: {
     resourceName: "sensitivity units",
-    children: (
-      <>
-        <PSelect.Item itemKey="mVoltsPerNewton">mV/N</PSelect.Item>
-        <PSelect.Item itemKey="mVoltsPerPound">mV/lb</PSelect.Item>
-      </>
-    ),
+    children: Task.selectItems(FORCE_SENSITIVITY_UNITS_NAMES),
   },
 });
+
+const R_T_D_TYPE_NAMES = {
+  Pt3750: "Pt3750",
+  Pt3851: "Pt3851",
+  Pt3911: "Pt3911",
+  Pt3916: "Pt3916",
+  Pt3920: "Pt3920",
+  Pt3928: "Pt3928",
+} as const satisfies Record<RTDType, string>;
 
 const RTDTypeField = Form.buildSelectField<RTDType>({
   fieldKey: "rtdType",
   fieldProps: { label: "RTD type" },
   inputProps: {
     resourceName: "RTD type",
-    children: (
-      <>
-        <PSelect.Item itemKey="Pt3750">Pt3750</PSelect.Item>
-        <PSelect.Item itemKey="Pt3851">Pt3851</PSelect.Item>
-        <PSelect.Item itemKey="Pt3911">Pt3911</PSelect.Item>
-        <PSelect.Item itemKey="Pt3916">Pt3916</PSelect.Item>
-        <PSelect.Item itemKey="Pt3920">Pt3920</PSelect.Item>
-        <PSelect.Item itemKey="Pt3928">Pt3928</PSelect.Item>
-      </>
-    ),
+    children: Task.selectItems(R_T_D_TYPE_NAMES),
   },
 });
 
@@ -381,31 +381,31 @@ const CJCSourceField = Form.buildSelectField<CJCType>({
   },
 });
 
+const VELOCITY_UNITS_NAMES = {
+  MetersPerSecond: "m/s",
+  InchesPerSecond: "in/s",
+} as const satisfies Record<VelocityUnits, string>;
+
 const VelocityUnitsField = Form.buildSelectField<VelocityUnits>({
   fieldKey: "units",
   fieldProps: { label: "Velocity units" },
   inputProps: {
     resourceName: "velocity units",
-    children: (
-      <>
-        <PSelect.Item itemKey="MetersPerSecond">m/s</PSelect.Item>
-        <PSelect.Item itemKey="InchesPerSecond">in/s</PSelect.Item>
-      </>
-    ),
+    children: Task.selectItems(VELOCITY_UNITS_NAMES),
   },
 });
+
+const VELOCITY_SENSITIVITY_UNITS_NAMES = {
+  MillivoltsPerMillimeterPerSecond: "mV/mm/s",
+  MilliVoltsPerInchPerSecond: "mV/in/s",
+} as const satisfies Record<VelocitySensitivityUnits, string>;
 
 const VelocitySensitivityUnitsField = Form.buildSelectField<VelocitySensitivityUnits>({
   fieldKey: "sensitivityUnits",
   fieldProps: { label: "Sensitivity units" },
   inputProps: {
     resourceName: "sensitivity units",
-    children: (
-      <>
-        <PSelect.Item itemKey="MillivoltsPerMillimeterPerSecond">mV/mm/s</PSelect.Item>
-        <PSelect.Item itemKey="MilliVoltsPerInchPerSecond">mV/in/s</PSelect.Item>
-      </>
-    ),
+    children: Task.selectItems(VELOCITY_SENSITIVITY_UNITS_NAMES),
   },
 });
 
@@ -749,15 +749,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
       <Divider.Divider x padded="bottom" />
       <ForceUnitsField
         path={prefix}
-        inputProps={{
-          resourceName: "force units",
-          children: (
-            <>
-              <PSelect.Item itemKey="Newtons">Newtons</PSelect.Item>
-              <PSelect.Item itemKey="Pounds">Pounds</PSelect.Item>
-            </>
-          ),
-        }}
+        inputProps={{ children: Task.selectItems(IEPE_FORCE_UNITS_NAMES) }}
       />
       <SensitivityField
         path={prefix}

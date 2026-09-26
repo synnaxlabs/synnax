@@ -41,9 +41,9 @@ const DOWNSAMPLE_BOUNDS: bounds.Bounds = { lower: 1, upper: 1000 };
 const STROKE_WIDTH_DRAG_SCALE: xy.XY = { x: 0.1, y: 0.1 };
 const DOWNSAMPLE_DRAG_SCALE: xy.XY = { x: 0.1, y: 0.1 };
 
-interface SelectDownsampleModeProps extends Select.ButtonsProps<telem.DownsampleMode> {}
-
-const SelectDownsampleMode = (props: SelectDownsampleModeProps): ReactElement => (
+const SelectDownsampleMode = (
+  props: Select.ButtonsProps<telem.DownsampleMode>,
+): ReactElement => (
   <Select.Buttons {...props}>
     <Select.Item itemKey="average" size="small">
       Average

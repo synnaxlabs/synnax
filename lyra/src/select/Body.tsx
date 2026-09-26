@@ -39,7 +39,10 @@ export const DefaultEmptyContent = ({ resourceName }: { resourceName: string }) 
   </Text.Text>
 );
 
-/** The search field, list, and empty and error content of a data-driven selection. */
+/**
+ * The search field, list, and empty and error content of a data-driven selection. Use
+ * it inside `Select.Dialog` when a select needs its own trigger.
+ */
 export const Body = <K extends record.Key>({
   onSearch,
   children,

@@ -8,9 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { Form } from "@synnaxlabs/lyra/form";
-import { Select } from "@synnaxlabs/lyra/select";
 
 import { type WriteChannelType } from "@/feature/modbus/task/types";
+import { Task } from "@/platform/task";
+
+const NAMES = {
+  coil: "Coil",
+  holding_register: "Holding register",
+} as const satisfies Record<WriteChannelType, string>;
 
 export type SelectWriteChannelTypeFieldProps = Form.SelectFieldProps<WriteChannelType>;
 
@@ -26,11 +31,6 @@ export const SelectWriteChannelTypeField = Form.buildSelectField<WriteChannelTyp
     allowNone: false,
     resourceName: "channel type",
     style: { width: "25rem" },
-    children: (
-      <>
-        <Select.Item itemKey="coil">Coil</Select.Item>
-        <Select.Item itemKey="holding_register">Holding register</Select.Item>
-      </>
-    ),
+    children: Task.selectItems(NAMES),
   },
 });

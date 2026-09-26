@@ -18,14 +18,11 @@ import { Frame, type FrameProps } from "@/select/Frame";
 import { ButtonsContext, type ButtonsVariant } from "@/select/scope";
 import { Text } from "@/text";
 
-export interface ButtonsProps<
-  K extends record.Key = record.Key,
-  E extends record.Keyed<K> | undefined = record.Keyed<K>,
->
+export interface ButtonsProps<K extends record.Key = record.Key>
   extends
     Omit<Flex.BoxProps, "onSelect" | "onChange">,
     Omit<
-      FrameProps<K, E>,
+      FrameProps<K, record.Keyed<K>>,
       | "getItem"
       | "subscribe"
       | "data"

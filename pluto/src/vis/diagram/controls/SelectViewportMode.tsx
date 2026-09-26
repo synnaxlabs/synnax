@@ -16,7 +16,6 @@ import { memo, type ReactElement } from "react";
 import { Viewport as BaseViewport } from "@/viewport";
 import { useContext } from "@/vis/diagram/Context";
 
-export const VIEWPORT_MODES = ["zoom", "pan", "select"] as const;
 const PAN_TRIGGER: Triggers.Trigger[] = [["MouseMiddle"]];
 const SELECT_TRIGGER: Triggers.Trigger[] = [["MouseLeft"]];
 

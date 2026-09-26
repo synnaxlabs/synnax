@@ -31,38 +31,36 @@ import {
   type CIPeriodUnits,
   type CIPulseWidthUnits,
   type CISemiPeriodUnits,
+  type CITimeUnits,
   type CITwoEdgeSepUnits,
 } from "@/feature/ni/task/types";
+import { Task } from "@/platform/task";
 
-const CI_TIME_UNITS_ITEMS = (
-  <>
-    <Select.Item itemKey="Seconds">Seconds</Select.Item>
-    <Select.Item itemKey="Ticks">Ticks</Select.Item>
-  </>
-);
+const CI_TIME_UNITS_NAMES = {
+  Seconds: "Seconds",
+  Ticks: "Ticks",
+} as const satisfies Record<CITimeUnits, string>;
 
-const CI_EDGE_ITEMS = (
-  <>
-    <Select.Item itemKey="Rising">Rising</Select.Item>
-    <Select.Item itemKey="Falling">Falling</Select.Item>
-  </>
-);
+const CI_EDGE_NAMES = {
+  Rising: "Rising",
+  Falling: "Falling",
+} as const satisfies Record<CIEdge, string>;
 
 interface FormProps {
   prefix: string;
 }
+
+const CI_FREQ_UNITS_NAMES = {
+  Hz: "Hz",
+  Ticks: "Ticks",
+} as const satisfies Record<CIFreqUnits, string>;
 
 const UnitsField = Form.buildSelectField<CIFreqUnits>({
   fieldKey: "units",
   fieldProps: { label: "Units" },
   inputProps: {
     resourceName: "units",
-    children: (
-      <>
-        <Select.Item itemKey="Hz">Hz</Select.Item>
-        <Select.Item itemKey="Ticks">Ticks</Select.Item>
-      </>
-    ),
+    children: Task.selectItems(CI_FREQ_UNITS_NAMES),
   },
 });
 
@@ -71,7 +69,7 @@ const PeriodUnitsField = Form.buildSelectField<CIPeriodUnits>({
   fieldProps: { label: "Units" },
   inputProps: {
     resourceName: "units",
-    children: CI_TIME_UNITS_ITEMS,
+    children: Task.selectItems(CI_TIME_UNITS_NAMES),
   },
 });
 
@@ -80,7 +78,7 @@ const PulseWidthUnitsField = Form.buildSelectField<CIPulseWidthUnits>({
   fieldProps: { label: "Scaled units" },
   inputProps: {
     resourceName: "scaled units",
-    children: CI_TIME_UNITS_ITEMS,
+    children: Task.selectItems(CI_TIME_UNITS_NAMES),
   },
 });
 
@@ -89,7 +87,7 @@ const SemiPeriodUnitsField = Form.buildSelectField<CISemiPeriodUnits>({
   fieldProps: { label: "Scaled units" },
   inputProps: {
     resourceName: "scaled units",
-    children: CI_TIME_UNITS_ITEMS,
+    children: Task.selectItems(CI_TIME_UNITS_NAMES),
   },
 });
 
@@ -98,7 +96,7 @@ const TwoEdgeSepUnitsField = Form.buildSelectField<CITwoEdgeSepUnits>({
   fieldProps: { label: "Scaled units" },
   inputProps: {
     resourceName: "scaled units",
-    children: CI_TIME_UNITS_ITEMS,
+    children: Task.selectItems(CI_TIME_UNITS_NAMES),
   },
 });
 
@@ -107,7 +105,7 @@ const EdgeField = Form.buildSelectField<CIEdge>({
   fieldProps: { label: "Starting edge" },
   inputProps: {
     resourceName: "starting edge",
-    children: CI_EDGE_ITEMS,
+    children: Task.selectItems(CI_EDGE_NAMES),
   },
 });
 
@@ -116,7 +114,7 @@ const StartingEdgeField = Form.buildSelectField<CIEdge>({
   fieldProps: { label: "Starting edge" },
   inputProps: {
     resourceName: "starting edge",
-    children: CI_EDGE_ITEMS,
+    children: Task.selectItems(CI_EDGE_NAMES),
   },
 });
 
@@ -125,22 +123,22 @@ const ActiveEdgeField = Form.buildSelectField<CIEdge>({
   fieldProps: { label: "Active edge" },
   inputProps: {
     resourceName: "active edge",
-    children: CI_EDGE_ITEMS,
+    children: Task.selectItems(CI_EDGE_NAMES),
   },
 });
+
+const CI_COUNT_DIRECTION_NAMES = {
+  CountUp: "Count up",
+  CountDown: "Count down",
+  ExternallyControlled: "Externally controlled",
+} as const satisfies Record<CICountDirection, string>;
 
 const CountDirectionField = Form.buildSelectField<CICountDirection>({
   fieldKey: "countDirection",
   fieldProps: { label: "Count direction" },
   inputProps: {
     resourceName: "count direction",
-    children: (
-      <>
-        <Select.Item itemKey="CountUp">Count up</Select.Item>
-        <Select.Item itemKey="CountDown">Count down</Select.Item>
-        <Select.Item itemKey="ExternallyControlled">Externally controlled</Select.Item>
-      </>
-    ),
+    children: Task.selectItems(CI_COUNT_DIRECTION_NAMES),
   },
 });
 
@@ -150,19 +148,19 @@ const InitialCountField = Form.buildNumericField({
   inputProps: {},
 });
 
+const CI_MEAS_METHOD_NAMES = {
+  LowFreq1Ctr: "One counter (low frequency)",
+  HighFreq2Ctr: "Two counters (high frequency)",
+  LargeRng2Ctr: "Two counters (large range)",
+  DynamicAvg: "Dynamic averaging",
+} as const satisfies Record<CIMeasMethod, string>;
+
 const MeasMethodField = Form.buildSelectField<CIMeasMethod>({
   fieldKey: "measMethod",
   fieldProps: { label: "Measurement method" },
   inputProps: {
     resourceName: "measurement method",
-    children: (
-      <>
-        <Select.Item itemKey="LowFreq1Ctr">One counter (low frequency)</Select.Item>
-        <Select.Item itemKey="HighFreq2Ctr">Two counters (high frequency)</Select.Item>
-        <Select.Item itemKey="LargeRng2Ctr">Two counters (large range)</Select.Item>
-        <Select.Item itemKey="DynamicAvg">Dynamic averaging</Select.Item>
-      </>
-    ),
+    children: Task.selectItems(CI_MEAS_METHOD_NAMES),
   },
 });
 
@@ -218,7 +216,7 @@ const FirstEdgeField = Form.buildSelectField<CIEdge>({
   fieldProps: { label: "Edge 1" },
   inputProps: {
     resourceName: "edge 1",
-    children: CI_EDGE_ITEMS,
+    children: Task.selectItems(CI_EDGE_NAMES),
   },
 });
 
@@ -227,7 +225,7 @@ const SecondEdgeField = Form.buildSelectField<CIEdge>({
   fieldProps: { label: "Edge 2" },
   inputProps: {
     resourceName: "edge 2",
-    children: CI_EDGE_ITEMS,
+    children: Task.selectItems(CI_EDGE_NAMES),
   },
 });
 
@@ -251,48 +249,48 @@ const TerminalBField = Form.buildSelectField<string>({
   },
 });
 
+const CI_DECODING_TYPE_NAMES = {
+  X1: "X1",
+  X2: "X2",
+  X4: "X4",
+  TwoPulse: "Two pulse",
+} as const satisfies Record<CIDecodingType, string>;
+
 const DecodingTypeField = Form.buildSelectField<CIDecodingType>({
   fieldKey: "decodingType",
   fieldProps: { label: "Decoding type" },
   inputProps: {
     resourceName: "decoding type",
-    children: (
-      <>
-        <Select.Item itemKey="X1">X1</Select.Item>
-        <Select.Item itemKey="X2">X2</Select.Item>
-        <Select.Item itemKey="X4">X4</Select.Item>
-        <Select.Item itemKey="TwoPulse">Two pulse</Select.Item>
-      </>
-    ),
+    children: Task.selectItems(CI_DECODING_TYPE_NAMES),
   },
 });
+
+const CI_LINEAR_VELOCITY_UNITS_NAMES = {
+  "m/s": "m/s",
+  "in/s": "in/s",
+} as const satisfies Record<CILinearVelocityUnits, string>;
 
 const LinearVelocityUnitsField = Form.buildSelectField<CILinearVelocityUnits>({
   fieldKey: "units",
   fieldProps: { label: "Scaled units" },
   inputProps: {
     resourceName: "scaled units",
-    children: (
-      <>
-        <Select.Item itemKey="m/s">m/s</Select.Item>
-        <Select.Item itemKey="in/s">in/s</Select.Item>
-      </>
-    ),
+    children: Task.selectItems(CI_LINEAR_VELOCITY_UNITS_NAMES),
   },
 });
+
+const CI_ANGULAR_VELOCITY_UNITS_NAMES = {
+  RPM: "RPM",
+  "Radians/s": "Radians/s",
+  "Degrees/s": "Degrees/s",
+} as const satisfies Record<CIAngularVelocityUnits, string>;
 
 const AngularVelocityUnitsField = Form.buildSelectField<CIAngularVelocityUnits>({
   fieldKey: "units",
   fieldProps: { label: "Scaled units" },
   inputProps: {
     resourceName: "scaled units",
-    children: (
-      <>
-        <Select.Item itemKey="RPM">RPM</Select.Item>
-        <Select.Item itemKey="Radians/s">Radians/s</Select.Item>
-        <Select.Item itemKey="Degrees/s">Degrees/s</Select.Item>
-      </>
-    ),
+    children: Task.selectItems(CI_ANGULAR_VELOCITY_UNITS_NAMES),
   },
 });
 
@@ -377,33 +375,33 @@ const TerminalZField: FC<{ path: string; grow?: boolean; disabled?: boolean }> =
   </Form.Field>
 );
 
+const CI_LINEAR_POSITION_UNITS_NAMES = {
+  Meters: "Meters",
+  Inches: "Inches",
+  Ticks: "Ticks",
+} as const satisfies Record<CILinearPositionUnits, string>;
+
 const LinearPositionUnitsField = Form.buildSelectField<CILinearPositionUnits>({
   fieldKey: "units",
   fieldProps: { label: "Units" },
   inputProps: {
     resourceName: "units",
-    children: (
-      <>
-        <Select.Item itemKey="Meters">Meters</Select.Item>
-        <Select.Item itemKey="Inches">Inches</Select.Item>
-        <Select.Item itemKey="Ticks">Ticks</Select.Item>
-      </>
-    ),
+    children: Task.selectItems(CI_LINEAR_POSITION_UNITS_NAMES),
   },
 });
+
+const CI_ANGULAR_POSITION_UNITS_NAMES = {
+  Degrees: "Degrees",
+  Radians: "Radians",
+  Ticks: "Ticks",
+} as const satisfies Record<CIAngularPositionUnits, string>;
 
 const AngularPositionUnitsField = Form.buildSelectField<CIAngularPositionUnits>({
   fieldKey: "units",
   fieldProps: { label: "Units" },
   inputProps: {
     resourceName: "units",
-    children: (
-      <>
-        <Select.Item itemKey="Degrees">Degrees</Select.Item>
-        <Select.Item itemKey="Radians">Radians</Select.Item>
-        <Select.Item itemKey="Ticks">Ticks</Select.Item>
-      </>
-    ),
+    children: Task.selectItems(CI_ANGULAR_POSITION_UNITS_NAMES),
   },
 });
 

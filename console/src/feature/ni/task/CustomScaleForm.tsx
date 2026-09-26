@@ -23,6 +23,7 @@ import {
   type ScaleType,
   type Units,
 } from "@/feature/ni/task/types";
+import { Task } from "@/platform/task";
 
 const SelectCustomScaleTypeField = Form.buildSelectField<ScaleType>({
   fieldKey: "type",
@@ -69,44 +70,44 @@ const SelectCustomScaleTypeField = Form.buildSelectField<ScaleType>({
   },
 });
 
+const UNIT_SYMBOLS = {
+  Volts: "V",
+  Amps: "A",
+  DegF: "°F",
+  DegC: "°C",
+  DegR: "R",
+  Kelvins: "K",
+  Strain: "strain",
+  Ohms: "Ω",
+  Hz: "Hz",
+  Seconds: "s",
+  Meters: "m",
+  Inches: "in",
+  Degrees: "°",
+  Radians: "rad",
+  g: "g",
+  MetersPerSecondSquared: "m/s^2",
+  Newtons: "N",
+  Pounds: "lb",
+  KilogramForce: "kgf",
+  PoundsPerSquareInch: "psi",
+  Bar: "bar",
+  Pascals: "Pa",
+  VoltsPerVolt: "V/V",
+  mVoltsPerVolt: "mV/V",
+  NewtonMeters: "N·m",
+  InchOunces: "in·oz",
+  InchPounds: "in·lb",
+  FootPounds: "ft·lb",
+} as const satisfies Record<Units, string>;
+
 const UnitsField = Form.buildSelectField<Units>({
   fieldKey: "units",
   fieldProps: { label: "Units", style: { width: "19rem" } },
   inputProps: {
     resourceName: "units",
     allowNone: false,
-    children: (
-      <>
-        <Select.Item itemKey="Volts">V</Select.Item>
-        <Select.Item itemKey="Amps">A</Select.Item>
-        <Select.Item itemKey="DegF">°F</Select.Item>
-        <Select.Item itemKey="DegC">°C</Select.Item>
-        <Select.Item itemKey="DegR">R</Select.Item>
-        <Select.Item itemKey="Kelvins">K</Select.Item>
-        <Select.Item itemKey="Strain">strain</Select.Item>
-        <Select.Item itemKey="Ohms">Ω</Select.Item>
-        <Select.Item itemKey="Hz">Hz</Select.Item>
-        <Select.Item itemKey="Seconds">s</Select.Item>
-        <Select.Item itemKey="Meters">m</Select.Item>
-        <Select.Item itemKey="Inches">in</Select.Item>
-        <Select.Item itemKey="Degrees">°</Select.Item>
-        <Select.Item itemKey="Radians">rad</Select.Item>
-        <Select.Item itemKey="g">g</Select.Item>
-        <Select.Item itemKey="MetersPerSecondSquared">m/s^2</Select.Item>
-        <Select.Item itemKey="Newtons">N</Select.Item>
-        <Select.Item itemKey="Pounds">lb</Select.Item>
-        <Select.Item itemKey="KilogramForce">kgf</Select.Item>
-        <Select.Item itemKey="PoundsPerSquareInch">psi</Select.Item>
-        <Select.Item itemKey="Bar">bar</Select.Item>
-        <Select.Item itemKey="Pascals">Pa</Select.Item>
-        <Select.Item itemKey="VoltsPerVolt">V/V</Select.Item>
-        <Select.Item itemKey="mVoltsPerVolt">mV/V</Select.Item>
-        <Select.Item itemKey="NewtonMeters">N·m</Select.Item>
-        <Select.Item itemKey="InchOunces">in·oz</Select.Item>
-        <Select.Item itemKey="InchPounds">in·lb</Select.Item>
-        <Select.Item itemKey="FootPounds">ft·lb</Select.Item>
-      </>
-    ),
+    children: Task.selectItems(UNIT_SYMBOLS),
   },
 });
 

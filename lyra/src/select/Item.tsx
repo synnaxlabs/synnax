@@ -57,17 +57,8 @@ const useRegister = (
   useLayoutEffect(() => () => registry.removeItem(key), [registry, key]);
 };
 
-interface ButtonItemProps<K extends record.Key> extends Pick<
-  ItemProps<K>,
-  | "itemKey"
-  | "className"
-  | "children"
-  | "tooltip"
-  | "size"
-  | "justify"
-  | "disabled"
-  | "square"
-> {
+interface ButtonItemProps<K extends record.Key>
+  extends Button.ExtensionProps, Pick<ItemProps<K>, "itemKey" | "className" | "style"> {
   buttons: ButtonsContextValue;
 }
 
@@ -143,9 +134,9 @@ const FixedItem = <K extends record.Key, E extends Button.ElementType>(
 
 /**
  * One option of a selection. Rendered by an {@link Items} block, it is a row of the
- * frame's data. Inside {@link Buttons} it is a toggle button. Anywhere else it is a fixed option: the arrow keys reach it in page
- * order, the search filters it by its text, and a trigger shows its children when it is
- * selected.
+ * frame's data. Inside {@link Buttons} it is a toggle button. Anywhere else it is a
+ * fixed option: the arrow keys reach it in page order, the search filters it by its
+ * text, and a trigger shows its children when it is selected.
  */
 export const Item = <
   K extends record.Key = record.Key,

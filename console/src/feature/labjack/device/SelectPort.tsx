@@ -90,23 +90,13 @@ export const SelectPort = ({
           {children}
         </Flex.Box>
         <Select.Dialog {...dialogProps}>
-          <Select.Search
-            placeholder="Search ports..."
+          <Select.Body<string>
+            resourceName="port"
             onSearch={(term) => retrieve({ searchTerm: term })}
-          />
-          <Select.List bordered borderColor={6} grow rounded full="x">
-            <Select.Items<string>
-              emptyContent={
-                emptyContent ?? (
-                  <Text.Text center status="disabled">
-                    No ports found
-                  </Text.Text>
-                )
-              }
-            >
-              {listItem}
-            </Select.Items>
-          </Select.List>
+            emptyContent={emptyContent}
+          >
+            {listItem}
+          </Select.Body>
         </Select.Dialog>
       </Select.Frame>
     </Dialog.Frame>
