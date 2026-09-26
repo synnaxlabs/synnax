@@ -36,6 +36,7 @@ func findNodeByKey(nodes ir.Nodes, key string) ir.Node {
 
 // findNodeByType finds the first node by type and asserts it exists
 func findNodeByType(nodes ir.Nodes, nodeType string) ir.Node {
+	GinkgoHelper()
 	for _, n := range nodes {
 		if n.Type == nodeType {
 			return n
@@ -47,6 +48,7 @@ func findNodeByType(nodes ir.Nodes, nodeType string) ir.Node {
 
 // findEdgeBySourceParam finds an edge by source parameter name
 func findEdgeBySourceParam(edges []ir.Edge, param string) ir.Edge {
+	GinkgoHelper()
 	for _, e := range edges {
 		if e.Source.Param == param {
 			return e
@@ -71,6 +73,7 @@ func countNodesByType(nodes ir.Nodes, nodeType string) int {
 // Fails the spec if no such member exists. Top-level scopes are always
 // members of the root scope's first stratum.
 func findTopLevelScope(prog ir.IR, key string) ir.Scope {
+	GinkgoHelper()
 	for _, stratum := range prog.Root.Strata {
 		for _, m := range stratum {
 			if m.Scope != nil && m.Scope.Key == key {
@@ -86,6 +89,7 @@ func findTopLevelScope(prog ir.IR, key string) ir.Scope {
 // Searches both Steps (sequential scopes) and Strata (parallel scopes).
 // Fails the spec if no such member exists.
 func findMember(scope ir.Scope, key string) ir.Member {
+	GinkgoHelper()
 	for _, m := range scope.Steps {
 		if m.Key() == key {
 			return m
@@ -289,7 +293,8 @@ var _ = Describe("Text", func() {
 				)
 				Expect(diagnostics.Ok()).To(BeFalse())
 				Expect(diagnostics.String()).To(ContainSubstring(
-					"stateful variables cannot be declared at the top level"))
+					"stateful variables cannot be declared at the top level",
+				))
 			},
 		)
 
@@ -309,7 +314,8 @@ var _ = Describe("Text", func() {
 			)
 			Expect(diagnostics.Ok()).To(BeFalse())
 			Expect(diagnostics.String()).To(
-				ContainSubstring("cannot write to top-level variable"))
+				ContainSubstring("cannot write to top-level variable"),
+			)
 		})
 
 		It(
@@ -510,7 +516,8 @@ var _ = Describe("Text", func() {
 				Expect(ref.Value).To(Equal("init"))
 				for _, e := range inter.Edges {
 					Expect(e.Target.Node == refNode && e.Target.Param == "tag").To(
-						BeFalse(), "a var-bound input must not be edge-fed")
+						BeFalse(), "a var-bound input must not be edge-fed",
+					)
 				}
 			},
 		)
@@ -963,6 +970,7 @@ var _ = Describe("Text", func() {
 				return out
 			}
 			noEmptyEdgeTargets := func(inter ir.IR) {
+				GinkgoHelper()
 				for _, e := range inter.Edges {
 					Expect(e.Target.Node).ToNot(BeEmpty(),
 						"an edge must never target an empty node key")
@@ -1263,6 +1271,7 @@ var _ = Describe("Text", func() {
 				return false
 			}
 			analyze := func(ctx SpecContext, source string) ir.IR {
+				GinkgoHelper()
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(
 					ctx,
@@ -2131,7 +2140,8 @@ var _ = Describe("Text", func() {
 			)
 			Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
 			Expect(diagnostics.String()).To(ContainSubstring(
-				"cannot write to channel-read variable r"))
+				"cannot write to channel-read variable r",
+			))
 		})
 
 		It(
@@ -2396,7 +2406,8 @@ var _ = Describe("Text", func() {
 				Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
 				Expect(diagnostics.String()).To(ContainSubstring(
 					"cannot reassign a top-level variable; assignment is only valid " +
-						"inside a sequence, stage, or function"))
+						"inside a sequence, stage, or function",
+				))
 			},
 		)
 
@@ -2414,7 +2425,8 @@ var _ = Describe("Text", func() {
 			)
 			Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
 			Expect(diagnostics.String()).To(ContainSubstring(
-				"compound and indexed assignment to a variable are not yet supported"))
+				"compound and indexed assignment to a variable are not yet supported",
+			))
 		})
 
 		It(
@@ -2433,7 +2445,8 @@ var _ = Describe("Text", func() {
 				)
 				Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
 				Expect(diagnostics.String()).To(ContainSubstring(
-					"name c conflicts with existing variable"))
+					"name c conflicts with existing variable",
+				))
 			},
 		)
 
@@ -2453,7 +2466,8 @@ var _ = Describe("Text", func() {
 				)
 				Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
 				Expect(diagnostics.String()).To(ContainSubstring(
-					"cannot assign str to 'c' (type i64)"))
+					"cannot assign str to 'c' (type i64)",
+				))
 			},
 		)
 
@@ -2535,7 +2549,8 @@ var _ = Describe("Text", func() {
 				)
 				Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
 				Expect(diagnostics.String()).To(ContainSubstring(
-					"stateful variable initializer must be a literal value"))
+					"stateful variable initializer must be a literal value",
+				))
 			},
 		)
 
@@ -2555,7 +2570,8 @@ var _ = Describe("Text", func() {
 				)
 				Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
 				Expect(diagnostics.String()).To(ContainSubstring(
-					"stateful variables cannot be assigned to ':=' variables"))
+					"stateful variables cannot be assigned to ':=' variables",
+				))
 			},
 		)
 
@@ -3096,8 +3112,7 @@ var _ = Describe("Text", func() {
 
 			It("Should handle negated time unit input value", func(ctx SpecContext) {
 				source := `
-				import time
-				time_trigger -> time.wait{duration=-3h} -> wait_out
+				time_trigger -> delay{span=-3h} -> wait_out
 				`
 				resolver := []symbol.Symbol{
 					{
@@ -3112,6 +3127,20 @@ var _ = Describe("Text", func() {
 						Type: types.Chan(types.U8()),
 						ID:   10043,
 					},
+					{
+						Name: "delay",
+						Kind: symbol.KindFunction,
+						Exec: symbol.ExecFlow,
+						Type: types.Function(types.FunctionProperties{
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.U8()},
+							},
+							Inputs: types.Params{
+								{Name: "span", Type: types.TimeSpan()},
+							},
+						}),
+						Trigger: symbol.TriggerOnly,
+					},
 				}
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(
@@ -3121,13 +3150,13 @@ var _ = Describe("Text", func() {
 				)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				waitNode := findNodeByType(inter.Nodes, "time.wait")
-				Expect(waitNode).ToNot(BeNil())
-				Expect(waitNode.Inputs).To(HaveLen(1))
-				Expect(waitNode.Inputs[0].Name).To(Equal("duration"))
+				delayNode := findNodeByType(inter.Nodes, "delay")
+				Expect(delayNode).ToNot(BeNil())
+				Expect(delayNode.Inputs).To(HaveLen(1))
+				Expect(delayNode.Inputs[0].Name).To(Equal("span"))
 				threeHoursNanos := int64(3*60*60) * int64(telem.Second)
 				Expect(
-					waitNode.Inputs[0].Value,
+					delayNode.Inputs[0].Value,
 				).To(Equal(telem.TimeSpan(-threeHoursNanos)))
 			})
 
@@ -4801,6 +4830,119 @@ time.wait{duration=500ms} -> output`
 					Expect(alarm.Activation.Param).To(Equal(ir.DefaultOutputParam))
 				},
 			)
+
+			DescribeTable(
+				"Should report a non-bool func feeding select at the select node",
+				func(ctx SpecContext, op, retType, retValue string) {
+					resolver := []symbol.Symbol{
+						{
+							Name: "log",
+							Kind: symbol.KindChannel,
+							Type: types.Chan(types.String()),
+							ID:   10110,
+						},
+					}
+					source := `
+				func is_ready() ` + retType + ` {
+				    return ` + retValue + `
+				}
+
+				is_ready{} ` + op + ` select{} -> {
+				    true: "ready" -> log,
+				    false: "not ready" -> log,
+				}`
+					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+					_, diagnostics := text.Analyze(
+						ctx,
+						parsedText,
+						NewRoot(nil, resolver...),
+					)
+					errs := diagnostics.Errors()
+					Expect(errs).To(HaveLen(1))
+					Expect(errs[0].Message).To(ContainSubstring(
+						"upstream value type " + retType +
+							" does not match func 'select'",
+					))
+					line := strings.Split(source, "\n")[errs[0].Range.Start.Line]
+					Expect(int(errs[0].Range.Start.Character)).To(
+						Equal(strings.Index(line, "select{}")),
+					)
+				},
+				Entry("u8 via ->", "->", "u8", "1"),
+				Entry("u16", "->", "u16", "1"),
+				Entry("u32", "->", "u32", "1"),
+				Entry("u64", "->", "u64", "1"),
+				Entry("i8", "->", "i8", "1"),
+				Entry("i16", "->", "i16", "1"),
+				Entry("i32", "->", "i32", "1"),
+				Entry("i64", "->", "i64", "1"),
+				Entry("str", "->", "str", `"yes"`),
+			)
+
+			It("Should accept a bool func feeding select", func(ctx SpecContext) {
+				resolver := []symbol.Symbol{
+					{
+						Name: "log",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.String()),
+						ID:   10110,
+					},
+				}
+				source := `
+				func is_ready() bool {
+				    return true
+				}
+
+				is_ready{} -> select{} -> {
+				    true: "ready" -> log,
+				    false: "not ready" -> log,
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diagnostics := text.Analyze(
+					ctx,
+					parsedText,
+					NewRoot(nil, resolver...),
+				)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			})
+
+			It(
+				"Should accept a matching func wire when the routing table is downstream",
+				func(ctx SpecContext) {
+					resolver := []symbol.Symbol{
+						{
+							Name: "log_f",
+							Kind: symbol.KindChannel,
+							Type: types.Chan(types.F64()),
+							ID:   10111,
+						},
+					}
+					source := `
+				func reading() f64 {
+				    return 1.0
+				}
+
+				func demux{threshold f64} (value f64) (high f64, low f64) {
+				    if (value > threshold) {
+				        high = value
+				    } else {
+				        low = value
+				    }
+				}
+
+				reading{} -> demux{threshold=100.0} -> {
+				    high: 1.0 -> log_f,
+				    low: 2.0 -> log_f
+				}`
+					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+					_, diagnostics := text.Analyze(
+						ctx,
+						parsedText,
+						NewRoot(nil, resolver...),
+					)
+					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				},
+			)
 		})
 
 		Context("Stratification", func() {
@@ -6098,7 +6240,8 @@ time.wait{duration=500ms} -> output`
 					Expect(diagnostics.Ok()).To(BeFalse(),
 						"`=> next` from an inline routing case body must be rejected")
 					Expect(diagnostics.String()).To(ContainSubstring(
-						"'next' is not valid inside an inline routing case body"))
+						"'next' is not valid inside an inline routing case body",
+					))
 				},
 			)
 
@@ -6141,7 +6284,8 @@ time.wait{duration=500ms} -> output`
 					Expect(diagnostics.Ok()).To(BeFalse(),
 						"`=> next` escaping an inline sequence body must be rejected")
 					Expect(diagnostics.String()).To(ContainSubstring(
-						"'next' is not valid inside an inline routing case body"))
+						"'next' is not valid inside an inline routing case body",
+					))
 				},
 			)
 
@@ -6182,7 +6326,8 @@ time.wait{duration=500ms} -> output`
 					Expect(diagnostics.Ok()).To(BeFalse(),
 						"`=> next` from an inline stage flow target must be rejected")
 					Expect(diagnostics.String()).To(ContainSubstring(
-						"'next' is not valid inside an inline routing case body"))
+						"'next' is not valid inside an inline routing case body",
+					))
 				},
 			)
 
@@ -6223,7 +6368,8 @@ time.wait{duration=500ms} -> output`
 					Expect(diagnostics.Ok()).To(BeFalse(),
 						"`=> next` escaping an inline sequence flow target must be rejected")
 					Expect(diagnostics.String()).To(ContainSubstring(
-						"'next' is not valid inside an inline routing case body"))
+						"'next' is not valid inside an inline routing case body",
+					))
 				},
 			)
 
@@ -7735,6 +7881,81 @@ time.wait{duration=500ms} -> output`
 				},
 			)
 		})
+
+		Context("Entry Node Classification", func() {
+			It(
+				"Should lower a config-only call in a stage to an entry node",
+				func(ctx SpecContext) {
+					resolver := []symbol.Symbol{
+						{
+							Name: "out",
+							Kind: symbol.KindChannel,
+							Type: types.Chan(types.String()),
+							ID:   10171,
+						},
+					}
+					source := `
+				func f{v str} () {
+				    out = v
+				}
+
+				sequence main {
+				    stage start {
+				        f{"x"}
+				    }
+				}`
+					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+					inter, diagnostics := text.Analyze(
+						ctx,
+						parsedText,
+						NewRoot(nil, resolver...),
+					)
+					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+					callNode := findNodeByType(inter.Nodes, "f")
+					for _, edge := range inter.Edges {
+						Expect(edge.Target.Node).ToNot(Equal(callNode.Key))
+					}
+					Expect(callNode.IsEntryNode(inter.Edges)).To(BeTrue())
+				},
+			)
+
+			It(
+				"Should keep a constant-triggered call off the entry set",
+				func(ctx SpecContext) {
+					resolver := []symbol.Symbol{
+						{
+							Name: "out",
+							Kind: symbol.KindChannel,
+							Type: types.Chan(types.String()),
+							ID:   10172,
+						},
+					}
+					source := `
+				func f{v str} () {
+				    out = v
+				}
+
+				true => f{"x"}`
+					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+					inter, diagnostics := text.Analyze(
+						ctx,
+						parsedText,
+						NewRoot(nil, resolver...),
+					)
+					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+					constNode := findNodeByType(inter.Nodes, "constant")
+					callNode := findNodeByType(inter.Nodes, "f")
+					Expect(inter.Edges).To(HaveLen(1))
+					edge := inter.Edges[0]
+					Expect(edge.Source.Node).To(Equal(constNode.Key))
+					Expect(edge.Target.Node).To(Equal(callNode.Key))
+					Expect(edge.Kind).To(Equal(ir.EdgeKindConditional))
+					Expect(callNode.IsEntryNode(inter.Edges)).To(BeFalse())
+				},
+			)
+		})
 	})
 
 	Describe("Synthesized Format-String Functions", func() {
@@ -8341,7 +8562,8 @@ time.wait{duration=500ms} -> output`
 				)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 				Expect(text.Compile(ctx, ir)).Error().To(MatchError(
-					ContainSubstring("not a compile-time constant")))
+					ContainSubstring("not a compile-time constant"),
+				))
 			},
 		)
 
@@ -8374,7 +8596,8 @@ time.wait{duration=500ms} -> output`
 				)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 				Expect(text.Compile(ctx, ir)).Error().To(MatchError(
-					ContainSubstring("not a compile-time constant")))
+					ContainSubstring("not a compile-time constant"),
+				))
 			},
 		)
 

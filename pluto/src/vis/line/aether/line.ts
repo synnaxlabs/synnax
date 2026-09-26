@@ -59,7 +59,7 @@ const safelyGetDataValue = (
 export type State = z.input<typeof stateZ>;
 export type ParsedState = z.infer<typeof stateZ>;
 
-const DEFAULT_OVERLAP_THRESHOLD = TimeSpan.milliseconds(2);
+export const DEFAULT_OVERLAP_THRESHOLD = TimeSpan.milliseconds(2);
 
 export interface FindResult {
   key: string;
@@ -307,13 +307,19 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     i.requestRender("layout");
   }
 
+  get loading(): boolean {
+    const { xTelem, yTelem } = this.internal;
+    return (xTelem.loading?.() ?? false) || (yTelem.loading?.() ?? false);
+  }
+
   xBounds(): bounds.Bounds {
     return this.internal.xTelem.value()[0];
   }
 
   /**
    * @param xWindow - the visible x range. Bounds cover only samples whose x value
-   * falls inside it; non-finite windows fall back to the source's full bounds.
+   * falls inside it; when the window is non-finite or clips out every sample, the
+   * source's full bounds are used instead.
    * @returns the y bounds of this line's samples inside the window.
    */
   yBounds(xWindow: bounds.Bounds): bounds.Bounds {
@@ -321,7 +327,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     const [b, yData] = yTelem.value();
     if (!bounds.isFinite(xWindow)) return b;
     const [, xData] = xTelem.value();
-    return windowBounds(xData, yData, xWindow, DEFAULT_OVERLAP_THRESHOLD);
+    return windowBounds(xData, yData, xWindow, DEFAULT_OVERLAP_THRESHOLD, b);
   }
 
   findByXValue(props: LineProps, target: number): FindResult {

@@ -14,8 +14,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -43,6 +43,7 @@ var _ = Describe("AlertTask", func() {
 		ctx context.Context,
 		cfg pd.TaskConfig,
 	) driver.Task {
+		GinkgoHelper()
 		t := task.Task{
 			Key:    uuid.New(),
 			Name:   "PagerDuty Test",
@@ -61,9 +62,10 @@ var _ = Describe("AlertTask", func() {
 		message string,
 		details any,
 	) {
+		GinkgoHelper()
 		tx := db.OpenTx()
 		defer func() { Expect(tx.Close()).To(Succeed()) }()
-		w := status.NewWriter[any](statusSvc, tx)
+		w := statusSvc.NewWriter(tx)
 		Expect(w.Set(ctx, &status.Status[any]{
 			Key:     key,
 			Name:    "Test Source",
@@ -78,6 +80,7 @@ var _ = Describe("AlertTask", func() {
 	BeforeEach(func() {
 		sender = newMockSender()
 		factory = MustSucceed(pd.NewFactory(pd.FactoryConfig{
+			DB:     db,
 			Status: statusSvc,
 			Sender: sender,
 		}))
@@ -121,7 +124,7 @@ var _ = Describe("AlertTask", func() {
 					Key:  "cmd-again",
 				})).To(Succeed())
 				var stat task.Status
-				Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				Expect(stat.Details.Cmd).To(Equal("cmd-again"))
@@ -320,7 +323,7 @@ var _ = Describe("AlertTask", func() {
 
 				tx := db.OpenTx()
 				defer func() { Expect(tx.Close()).To(Succeed()) }()
-				w := status.NewWriter[any](statusSvc, tx)
+				w := statusSvc.NewWriter(tx)
 				Expect(w.Set(ctx, &status.Status[any]{
 					Key:         "payload-test",
 					Name:        "Temperature Sensor",

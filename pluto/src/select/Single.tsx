@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type record } from "@synnaxlabs/x";
+import { caseconv, type record } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Dialog } from "@/dialog";
 import { type List } from "@/list";
 import { Dialog as SelectDialog, type DialogProps } from "@/select/Dialog";
 import { Frame, type SingleFrameProps } from "@/select/Frame";
+import { usePlaceholder } from "@/select/placeholder";
 import { SingleTrigger, type SingleTriggerProps } from "@/select/SingleTrigger";
 
 export interface SingleProps<
@@ -69,39 +70,43 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
   virtual = true,
   closeDialogOnSelect = true,
   ...rest
-}: SingleProps<K, E>): ReactElement => (
-  <Dialog.Frame {...rest} variant={variant}>
-    <Frame<K, E>
-      value={value}
-      onChange={onChange}
-      data={data}
-      getItem={getItem}
-      subscribe={subscribe}
-      allowNone={allowNone}
-      onFetchMore={onFetchMore}
-      itemHeight={itemHeight}
-      virtual={virtual}
-      closeDialogOnSelect={closeDialogOnSelect}
-    >
-      <SingleTrigger
-        haulType={haulType}
-        icon={icon}
-        placeholder={`Select ${resourceName}`}
-        disabled={disabled}
-        preview={preview}
-        {...triggerProps}
-      />
-      <SelectDialog<K>
-        onSearch={onSearch}
-        resourceName={resourceName}
-        emptyContent={emptyContent}
-        status={status}
-        actions={actions}
-        footer={footer}
-        {...dialogProps}
+}: SingleProps<K, E>): ReactElement => {
+  const placeholder = usePlaceholder(resourceName);
+  return (
+    <Dialog.Frame {...rest} variant={variant}>
+      <Frame<K, E>
+        value={value}
+        onChange={onChange}
+        data={data}
+        getItem={getItem}
+        subscribe={subscribe}
+        allowNone={allowNone}
+        onFetchMore={onFetchMore}
+        itemHeight={itemHeight}
+        virtual={virtual}
+        closeDialogOnSelect={closeDialogOnSelect}
       >
-        {children}
-      </SelectDialog>
-    </Frame>
-  </Dialog.Frame>
-);
+        <SingleTrigger
+          haulType={haulType}
+          icon={icon}
+          placeholder={placeholder}
+          aria-label={caseconv.capitalize(resourceName)}
+          disabled={disabled}
+          preview={preview}
+          {...triggerProps}
+        />
+        <SelectDialog<K>
+          onSearch={onSearch}
+          resourceName={resourceName}
+          emptyContent={emptyContent}
+          status={status}
+          actions={actions}
+          footer={footer}
+          {...dialogProps}
+        >
+          {children}
+        </SelectDialog>
+      </Frame>
+    </Dialog.Frame>
+  );
+};

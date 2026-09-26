@@ -19,15 +19,17 @@ import (
 
 var _ = Describe("format-string end-to-end runtime", func() {
 	lastString := func(fr telem.Frame[uint32], key uint32) string {
+		GinkgoHelper()
 		ch := fr.Get(key)
 		Expect(ch.Series).ToNot(BeEmpty(), "channel %d not written", key)
 		s := ch.Series[len(ch.Series)-1]
-		vals := telem.UnmarshalSeries[string](s)
+		vals := s.Unmarshal[string]()
 		Expect(vals).ToNot(BeEmpty())
 		return vals[len(vals)-1]
 	}
 
 	runFmtTrigger := func(ctx SpecContext, source string) string {
+		GinkgoHelper()
 		resolver := channelSymbols(map[string]channelDef{
 			"trig": {types.U8(), 100},
 			"log":  {types.String(), 101},
@@ -57,6 +59,7 @@ var _ = Describe("format-string end-to-end runtime", func() {
 		valueDT telem.DataType,
 		ingest func(*runtimeHarness),
 	) string {
+		GinkgoHelper()
 		resolver := channelSymbols(map[string]channelDef{
 			"v":   {valueType, 100},
 			"log": {types.String(), 101},
@@ -200,7 +203,9 @@ var _ = Describe("format-string end-to-end runtime", func() {
 				"f64",
 				types.F64(),
 				telem.Float64T,
-				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[float64](0.1234567890123456)) },
+				func(h *runtimeHarness) {
+					h.Ingest(100, telem.NewSeriesV(0.1234567890123456))
+				},
 				"x=0.1234567890123456",
 			),
 		)
@@ -252,6 +257,7 @@ var _ = Describe("format-string end-to-end runtime", func() {
 		// Runs a program that renders a bool placeholder into log, driven by a
 		// u8 trigger. Bool-channel placeholders wait on read_bool/write_bool.
 		runBoolProgram := func(ctx SpecContext, program string) string {
+			GinkgoHelper()
 			resolver := channelSymbols(map[string]channelDef{
 				"trig": {types.U8(), 100},
 				"log":  {types.String(), 101},
@@ -483,7 +489,7 @@ trig -> f{}`, "v=false"),
 				"f64",
 				types.F64(),
 				telem.Float64T,
-				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[float64](3.14159)) },
+				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV(3.14159)) },
 				"3.1416",
 			),
 			Entry(
@@ -492,7 +498,7 @@ trig -> f{}`, "v=false"),
 				"f64",
 				types.F64(),
 				telem.Float64T,
-				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[float64](0.000123)) },
+				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV(0.000123)) },
 				"0.000123",
 			),
 		)
@@ -500,6 +506,7 @@ trig -> f{}`, "v=false"),
 
 	Describe("Documented Examples table (syntax.mdx)", func() {
 		runFmtExample := func(ctx SpecContext, declarations, body string) string {
+			GinkgoHelper()
 			resolver := channelSymbols(map[string]channelDef{
 				"trig": {types.U8(), 100},
 				"log":  {types.String(), 101},
@@ -628,7 +635,7 @@ trig -> f{}`, "v=false"),
 					channels.Digest{Key: 101, DataType: telem.StringT},
 				)
 				defer h.Close(ctx)
-				h.Ingest(100, telem.NewSeriesV[float64](3.14159))
+				h.Ingest(100, telem.NewSeriesV(3.14159))
 				for range 5 {
 					h.Tick(ctx, telem.Millisecond)
 					h.channelState.ClearReads()

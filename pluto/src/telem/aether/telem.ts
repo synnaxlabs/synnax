@@ -14,6 +14,7 @@ import {
   type destructor,
   type MultiSeries,
   observe,
+  type TimeStamp,
   zod,
 } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -67,6 +68,9 @@ export interface Telem {
 
 export interface Source<V> extends Telem, observe.Observable<void> {
   value: (props?: ValueProps) => V;
+  /** @returns true while the source's initial read is in flight. */
+  loading?: () => boolean;
+  sampleTime?: () => TimeStamp | null;
 }
 
 export interface Sink<V> extends Telem {
@@ -155,7 +159,20 @@ export abstract class Base<P extends z.ZodType> extends observe.BaseObserver<voi
   cleanup(): void {}
 }
 
-export abstract class AbstractSource<P extends z.ZodType> extends Base<P> {}
+export abstract class AbstractSource<P extends z.ZodType> extends Base<P> {
+  protected loading_ = false;
+
+  loading(): boolean {
+    return this.loading_;
+  }
+
+  // Idempotent and notifies so a failure still wakes observers of the loading state.
+  protected declareLoaded(): void {
+    if (!this.loading_) return;
+    this.loading_ = false;
+    this.notify();
+  }
+}
 
 export abstract class AbstractSink<P extends z.ZodType> extends Base<P> {}
 
@@ -181,6 +198,10 @@ export abstract class UnarySourceTransformer<I, O, P extends z.ZodType>
     return this.source.onChange(() => {
       if (this.shouldNotify(this.source.value())) handler();
     });
+  }
+
+  sampleTime(): TimeStamp | null {
+    return this.source.sampleTime?.() ?? null;
   }
 
   setSources(sources: Record<string, Source<I>>): void {

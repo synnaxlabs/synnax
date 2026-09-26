@@ -24,10 +24,10 @@ import {
   Status,
   Tabs,
   Text,
-  Theming,
 } from "@synnaxlabs/pluto";
 import { id, uuid } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
+import { z } from "zod";
 
 import { Symbol } from "@/feature/schematic/symbol";
 import { ContextMenu } from "@/platform/context-menu";
@@ -44,12 +44,11 @@ const HAUL_DRAG_PROPS: Haul.UseDragProps = {
 
 const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
   const { itemKey } = props;
-  const theme = Theming.use();
   const addNode = Schematic.useAddNode();
   const { startDrag, onDragEnd } = Haul.useDrag(HAUL_DRAG_PROPS);
   const variant = itemKey as Schematic.Node.Variant;
   const createParams = useCallback(
-    (): Schematic.AddNodeProps => ({ key: id.create(), variant }),
+    (): Schematic.AddNodeProps => ({ key: id.create(), config: { variant } }),
     [variant],
   );
   const handleDragStart = useCallback(
@@ -61,8 +60,11 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
     [addNode, createParams],
   );
   const spec = List.useItem<string, Schematic.Node.Spec>(itemKey);
-  const defaultConfig = useMemo(() => spec?.defaultConfig(theme), [spec, theme]);
-  if (spec == null || defaultConfig == null) return null;
+  const config = useMemo(
+    () => (spec == null ? null : Schematic.Node.createConfig({ variant })),
+    [spec, variant],
+  );
+  if (spec == null || config == null) return null;
   const { name, Preview } = spec;
   return (
     <List.Item
@@ -78,7 +80,7 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
     >
       <Text.Text level="small">{name}</Text.Text>
       <Flex.Box align="center" justify="center" grow>
-        <Preview {...defaultConfig} scale={0.75} />
+        <Preview {...config} scale={0.75} />
       </Flex.Box>
     </List.Item>
   );
@@ -91,11 +93,9 @@ export interface SymbolListProps {
 }
 
 const StaticSymbolList = ({ groupKey }: SymbolListProps): ReactElement => {
-  const symbols = useMemo<Schematic.Node.Spec[]>(() => {
+  const symbols = useMemo(() => {
     const g = Schematic.Node.GROUPS.find((g) => g.key === groupKey);
-    return Object.values(Schematic.Node.REGISTRY).filter((s) =>
-      g?.symbols.includes(s.key),
-    ) as unknown as Schematic.Node.Spec[];
+    return Schematic.Node.STATIC_SPECS.filter((s) => g?.symbols.includes(s.key));
   }, [groupKey]);
   const { data, getItem } = List.useStaticData<string, Schematic.Node.Spec>({
     data: symbols,
@@ -116,7 +116,9 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
   const symbol = List.useItem<string, schematic.symbol.Symbol>(itemKey);
   const isStatic =
     symbol?.data?.variant === "static" || symbol?.data?.states?.length === 1;
-  const variant: Schematic.Node.Variant = isStatic ? "customStatic" : "customActuator";
+  const variant: Schematic.Node.CustomVariant = isStatic
+    ? "custom_static"
+    : "custom_actuator";
   const Preview = Schematic.Node.REGISTRY[variant].Preview as React.FC<{
     specKey: string;
     scale?: number;
@@ -125,7 +127,10 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
   const { startDrag, onDragEnd } = Haul.useDrag(HAUL_DRAG_PROPS);
 
   const createParams = useCallback(
-    (): Schematic.AddNodeProps => ({ key: id.create(), variant, specKey: itemKey }),
+    (): Schematic.AddNodeProps<Schematic.Node.CustomVariant> => ({
+      key: id.create(),
+      config: { variant, specKey: itemKey },
+    }),
     [variant, itemKey],
   );
   const handleDragStart = useCallback(
@@ -291,7 +296,7 @@ const GroupTab = ({ itemKey }: GroupTabProps): ReactElement | null => {
   if (item == null) return null;
   const { Icon: GroupIcon } = item;
   // Static groups ship with the Console under non-UUID keys and have no server record.
-  const isRemote = group.keyZ.safeParse(itemKey).success;
+  const isRemote = z.validate(group.keyZ, itemKey);
   return (
     <Tabs.Tab itemKey={itemKey}>
       {GroupIcon != null && <GroupIcon />}
@@ -356,7 +361,7 @@ const Actions = ({ symbolGroupID, selectedGroup }: ActionsProps): ReactElement =
     }, "Failed to create group");
   }, [updateAsync, rename, handleError, symbolGroupID]);
 
-  const isRemoteGroup = group.keyZ.safeParse(selectedGroup).success;
+  const isRemoteGroup = z.validate(group.keyZ, selectedGroup);
 
   const handleCreateSymbol = useCallback(() => {
     if (!isRemoteGroup) return;
@@ -419,7 +424,7 @@ const GroupListContextMenu = ({
   keys,
 }: Menu.ContextMenuMenuProps): ReactElement | null => {
   const firstKey = keys[0];
-  const isRemoteGroup = group.keyZ.safeParse(firstKey).success;
+  const isRemoteGroup = z.validate(group.keyZ, firstKey);
   const item = List.useItem<group.Key, group.Group>(firstKey);
   const canRename = Access.useUpdateGranted(group.ontologyID(firstKey));
   const canDelete = Access.useDeleteGranted(group.ontologyID(firstKey));
@@ -508,7 +513,7 @@ const SearchListItem = (props: List.ItemProps<string>): ReactElement | null => {
     itemKey,
   );
   if (item == null) return null;
-  const isRemote = schematic.symbol.keyZ.safeParse(itemKey).success;
+  const isRemote = z.validate(schematic.symbol.keyZ, itemKey);
   if (isRemote) return <RemoteListItem {...props} />;
   return <StaticListItem {...props} />;
 };
@@ -559,7 +564,7 @@ export const Symbols = (): ReactElement => {
       dispatch(Session.Schematic.setSelectedSymbolGroup({ key, group })),
     [dispatch, key],
   );
-  const isRemoteGroup = group.keyZ.safeParse(groupKey).success;
+  const isRemoteGroup = z.validate(group.keyZ, groupKey);
 
   const [searchTerm, setSearchTerm] = useState("");
   const { data: symbolGroup } = Schematic.Symbol.useResultGroup({});

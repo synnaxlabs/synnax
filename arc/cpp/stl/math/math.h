@@ -174,13 +174,12 @@ public:
                 break;
         }
 
-        const auto &primary_time = this->state.input_time(this->input_idx);
-        if (primary_time->size() > 0) {
-            auto last_ts = primary_time->at<int64_t>(-1);
+        if (this->state.has_time(this->input_idx))
             *this->state.output_time(0) = x::telem::Series(
-                std::vector<int64_t>{last_ts}
+                std::vector<int64_t>{input_time->at<int64_t>(-1)}
             );
-        }
+        else
+            this->state.stamp_cycle(ctx.cycle.now, 0);
 
         auto &output = this->state.output(0);
         auto &output_time = this->state.output_time(0);
@@ -200,11 +199,11 @@ public:
         output->time_range = time_range;
         output_time->alignment = alignment;
         output_time->time_range = time_range;
-        ctx.mark_changed(0);
+        this->state.emit(ctx.mark_changed, 0);
         return x::errors::NIL;
     }
 
-    void reset() override {
+    void reset(runtime::node::Context &) override {
         this->state.reset();
         this->sample_count = 0;
         this->start_time = x::telem::TimeStamp(0);
@@ -331,10 +330,12 @@ public:
             default:
                 break;
         }
+        if (this->state.time_source_idx() < 0)
+            this->state.stamp_cycle(ctx.cycle.now, 0);
         return x::errors::NIL;
     }
 
-    void reset() override {
+    void reset(runtime::node::Context &) override {
         this->state.reset();
         this->has_prev = false;
         this->prev_value = 0.0;
@@ -384,7 +385,7 @@ private:
         output->time_range = input_data->time_range;
         output_time->alignment = input_data->alignment;
         output_time->time_range = input_data->time_range;
-        ctx.mark_changed(0);
+        this->state.emit(ctx.mark_changed, 0);
     }
 };
 
@@ -455,7 +456,13 @@ public:
         }
         auto &output = this->state.output(0);
         auto &output_time = this->state.output_time(0);
-        output_time = this->state.input_time(this->lhs_idx);
+        // A literal input has no time, so it is never the time source.
+        if (const auto time_idx = this->state.time_source_idx(); time_idx < 0)
+            this->state.stamp_cycle(ctx.cycle.now, 0);
+        else
+            output_time->copy_from(
+                *this->state.input_time(static_cast<size_t>(time_idx))
+            );
         auto alignment = lhs->alignment + rhs->alignment;
         auto time_range = lhs->time_range;
         if (rhs->time_range.start != 0 &&
@@ -466,11 +473,11 @@ public:
         output->time_range = time_range;
         output_time->alignment = alignment;
         output_time->time_range = time_range;
-        ctx.mark_changed(0);
+        this->state.emit(ctx.mark_changed, 0);
         return x::errors::NIL;
     }
 
-    void reset() override { this->state.reset(); }
+    void reset(runtime::node::Context &) override { this->state.reset(); }
 
     [[nodiscard]] bool is_output_truthy(size_t) const override { return false; }
 
@@ -554,16 +561,20 @@ public:
         }
         auto &output = this->state.output(0);
         auto &output_time = this->state.output_time(0);
-        output_time = this->state.input_time(this->input_idx);
+        // A literal input has no time, so it is never the time source.
+        if (const auto time_idx = this->state.time_source_idx(); time_idx < 0)
+            this->state.stamp_cycle(ctx.cycle.now, 0);
+        else
+            output_time = this->state.input_time(static_cast<size_t>(time_idx));
         output->alignment = input->alignment;
         output->time_range = input->time_range;
         output_time->alignment = input->alignment;
         output_time->time_range = input->time_range;
-        ctx.mark_changed(0);
+        this->state.emit(ctx.mark_changed, 0);
         return x::errors::NIL;
     }
 
-    void reset() override { this->state.reset(); }
+    void reset(runtime::node::Context &) override { this->state.reset(); }
 
     [[nodiscard]] bool is_output_truthy(size_t) const override { return false; }
 

@@ -100,8 +100,8 @@ const setRackReqZ = z.object({ key: keyZ, rack: rack.keyZ });
 const setRackResZ = z.object({ task: task.payloadZ().nullish() });
 
 /**
- * Client-side matching for a request: key and name sets. Server-computed
- * shapes (search, pagination) never reach this filter; they refetch instead.
+ * Client-side matching for a request: key and name sets. Server-computed shapes
+ * (search, pagination) never reach this filter; they refetch instead.
  */
 const requestFilter = (req: RetrieveRequest): ((a: Arc) => boolean) => {
   const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
@@ -119,24 +119,6 @@ const isTaskChild = (rel: ontology.Relationship, arcKey: Key): boolean =>
     type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
     to: { type: "task" },
   });
-
-const taskStatusZ = z.object({ details: z.object({ task: task.keyZ }) });
-
-// Task statuses may arrive under any status key; the referenced task lives in
-// the details, with the "task:<key>" status key as a fallback.
-const affectedTaskKeys = (
-  event: query.TableEvent<status.Key, status.Status>,
-): task.Key[] | null => {
-  const keys: task.Key[] = [];
-  if (event.variant === "set") {
-    const parsed = taskStatusZ.safeParse(event.value);
-    if (parsed.success) keys.push(parsed.data.details.task);
-  }
-  const [type, key] = event.key.split(":");
-  if (type === "task" && primitive.isNonZero(key) && !keys.includes(key))
-    keys.push(key);
-  return keys.length === 0 ? null : keys;
-};
 
 export interface ClientConfig {
   unary: UnaryClient;
@@ -162,9 +144,9 @@ export class Client extends query.Retriever<
 
   constructor(cfg: ClientConfig) {
     const { cache } = cfg;
-    // Fetched copies never clobber a doc holding locally replayed edits: the
-    // table hydrates if-absent, and hydrate() decides when a fresh network
-    // doc replaces the cached one.
+    // Fetched copies never clobber a doc holding locally replayed edits: the table
+    // hydrates if-absent, and hydrate() decides when a fresh network doc replaces the
+    // cached one.
     const store = cache.createTable<Key, Arc>({
       name: "Arcs",
       hydrate: "if-absent",
@@ -210,7 +192,7 @@ export class Client extends query.Retriever<
       compose: (record) => this.composeTask(record),
       equal: (a, b) => deep.equal(a.payload, b.payload),
       watch: [
-        query.deriveWatch(this.cfg.statusStore, (event) => affectedTaskKeys(event)),
+        query.deriveWatch(this.cfg.statusStore, (event) => task.affectedKeys(event)),
       ],
     });
     this.taskAnswers = cache.queries<Key, task.Task | null, task.Key, task.Task>({
@@ -268,9 +250,9 @@ export class Client extends query.Retriever<
   }
 
   /**
-   * Binds the arc to the given rack, creating its task there or moving the
-   * existing one. A zero rack unbinds the arc, deleting its task. Returns the
-   * task, or null after an unbind.
+   * Binds the Arc to the given rack, creating its task there or moving the existing
+   * one. A zero rack unbinds the Arc, deleting its task. Returns the task, or null
+   * after an unbind.
    * @throws {ValidationError} when unbinding while the task is running.
    */
   async setRack(key: Key, rackKey: rack.Key): Promise<task.Task | null> {
@@ -290,8 +272,8 @@ export class Client extends query.Retriever<
     return tsk;
   }
 
-  // clearRack drops the deleted task from the cache so it is not served until
-  // the delete signal lands.
+  // Drops the deleted task from the cache so it is not served until the delete signal
+  // lands.
   private async clearRack(key: Key): Promise<void> {
     const tsk = await this.retrieveTask(key);
     await this.cfg.unary.send(
@@ -321,8 +303,8 @@ export class Client extends query.Retriever<
   }
 
   /**
-   * Cached queries for the task deployed for an arc, keyed by the arc's key.
-   * Resolves null when the arc has no task.
+   * Cached queries for the task deployed for an Arc, keyed by the Arc's key. Resolves
+   * null when the Arc has no task.
    */
   get task(): query.Retrieves<Key, task.Task | null> {
     return this.taskAnswers;
@@ -345,7 +327,7 @@ export class Client extends query.Retriever<
     drop();
   }
 
-  /** Subscribes to every arc delete delivered to the cache. */
+  /** Subscribes to every Arc delete delivered to the cache. */
   onDelete(handler: (key: Key) => void): destructor.Destructor {
     return this.store.subscribe((event) => {
       if (event.variant === "delete") handler(event.key);
@@ -357,8 +339,8 @@ export class Client extends query.Retriever<
   }
 
   /**
-   * Applies actions to the cached arc and sends them to the server, recording an
-   * undoable entry. Returns false without side effects when the arc isn't cached. Rolls
+   * Applies actions to the cached Arc and sends them to the server, recording an
+   * undoable entry. Returns false without side effects when the Arc isn't cached. Rolls
    * back the local apply and rethrows on send failure.
    */
   async dispatch(
@@ -375,34 +357,34 @@ export class Client extends query.Retriever<
   }
 
   /**
-   * Reverts the arc's most recent undoable entry. Returns false when
-   * nothing is undoable.
+   * Reverts the Arc's most recent undoable entry. Returns false when nothing is
+   * undoable.
    */
   async undo(key: Key): Promise<boolean> {
     return await this.dispatcher.undo(key, this.dispatchSender(key));
   }
 
   /**
-   * Re-applies the arc's most recently undone entry. Returns false when
-   * nothing is redoable.
+   * Re-applies the Arc's most recently undone entry. Returns false when nothing is
+   * redoable.
    */
   async redo(key: Key): Promise<boolean> {
     return await this.dispatcher.redo(key, this.dispatchSender(key));
   }
 
-  /** Whether the arc has a live undo entry. */
+  /** Whether the Arc has a live undo entry. */
   hasUndo(key: Key): boolean {
     return this.dispatcher.hasUndo(key);
   }
 
-  /** Whether the arc has a live redo entry. */
+  /** Whether the Arc has a live redo entry. */
   hasRedo(key: Key): boolean {
     return this.dispatcher.hasRedo(key);
   }
 
   /**
-   * Subscribes to changes in the arc's undo/redo stacks. Returns a
-   * destructor that unsubscribes.
+   * Subscribes to changes in the Arc's undo/redo stacks. Returns a destructor that
+   * unsubscribes.
    */
   onUndoStateChange(callback: () => void, key?: Key): destructor.Destructor {
     return this.dispatcher.onUndoStateChange(callback, key);
@@ -441,19 +423,19 @@ export class Client extends query.Retriever<
     return res.arcs;
   }
 
-  // Dispatch mutates documents server-side (including materialized text), so
-  // a cached copy is only as fresh as the streamer. Fetches always hit the
-  // network; only the server materializes text.
+  // Dispatch mutates documents server-side (including materialized text), so a cached
+  // copy is only as fresh as the streamer. Fetches always hit the network; only the
+  // server materializes text.
   private async fetchSingle(q: SingleRetrieveParams): Promise<Arc> {
     const arcs = await this.execRetrieve(q);
     checkForMultipleOrNoResults("Arc", q, arcs, true);
     return this.hydrate(arcs[0]);
   }
 
-  // Answers reuse the identical store doc so selector references stay
-  // stable; a fresher network doc replaces it and answers. While a locally
-  // replayed dispatch awaits its echo the replayed doc stays, but the
-  // network doc answers: it carries the server-materialized text.
+  // Answers reuse the identical store doc so selector references stay stable; a fresher
+  // network doc replaces it and answers. While a locally replayed dispatch awaits its
+  // echo the replayed doc stays, but the network doc answers: it carries the
+  // server-materialized text.
   private hydrate(a: Arc): Arc {
     if (this.dispatcher.hasOutstanding(a.key) === true) {
       this.store.ingest(a);
@@ -461,19 +443,17 @@ export class Client extends query.Retriever<
     }
     const prev = this.store.get(a.key);
     if (prev != null && deep.equal(prev, a)) return prev;
-    this.store.set(a);
+    this.store.ingest(a, { mode: "set" });
     return a;
   }
 
-  /**
-   * Rebuilds a cached task with its cached status attached. The status is
-   * parsed because the status table holds every domain's statuses generically.
-   */
+  // The status is parsed because the status table holds every domain's statuses
+  // generically.
   private composeTask(cached: Omit<task.Task, "status">): task.Task {
     const cachedStatus = this.cfg.statusStore.get(task.statusKey(cached.key));
     const payload = cached.payload;
     if (cachedStatus == null) return this.cfg.tasks.sugar(payload);
-    const parsed = task.statusZ().safeParse(cachedStatus);
+    const parsed = task.defaultStatusZ.safeParse(cachedStatus);
     if (!parsed.success) return this.cfg.tasks.sugar(payload);
     return this.cfg.tasks.sugar({ ...payload, status: parsed.data });
   }
@@ -486,7 +466,7 @@ export class Client extends query.Retriever<
         types: ["task"],
       });
     } catch (e) {
-      // An arc that does not exist cannot have a task.
+      // An Arc that does not exist cannot have a task.
       if (NotFoundError.matches(e)) return null;
       throw errors.fromUnknown(e);
     }

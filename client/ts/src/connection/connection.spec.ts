@@ -129,7 +129,7 @@ describe("connection", () => {
   describe("sendCheck", () => {
     it("should check the cluster", async () => {
       const info = await sendCheck(liveUnary());
-      expect(z.uuid().safeParse(info.clusterKey).success).toBe(true);
+      expect(z.validate(z.uuid(), info.clusterKey)).toBe(true);
       expect(info.nodeVersion).not.toEqual("");
     });
 
@@ -139,7 +139,7 @@ describe("connection", () => {
       const status = apply(config, { type: "check.success", info });
       expect(status.variant).toEqual("success");
       expect(status.details.authenticated).toBe(true);
-      expect(z.uuid().safeParse(status.details.clusterKey).success).toBe(true);
+      expect(z.validate(z.uuid(), status.details.clusterKey)).toBe(true);
     });
 
     it("should pull the server and client versions", async () => {
@@ -150,19 +150,37 @@ describe("connection", () => {
       expect(status.details.clientVersion).toBe(__VERSION__);
     });
 
-    it("should adjust status if the server is too old", async () => {
+    // A Core built without an injected version reports 0.0.0, which pairs with
+    // anything, so the mismatch cases carry their own node version.
+    it("should adjust status if the server is too old", () => {
       const config = createConfig({ clientVersion: "50000.0.0" });
-      const info = await sendCheck(liveUnary());
+      const info = { clusterKey: "k", nodeVersion: "1.0.0", clockSkew: TimeSpan.ZERO };
       const status = apply(config, { type: "check.success", info });
       expect(status.details.clientServerCompatible).toBe(false);
       expect(status.details.clientVersion).toBe("50000.0.0");
     });
 
-    it("should adjust status if the server is too new", async () => {
-      const config = createConfig({ clientVersion: "0.0.0" });
-      const info = await sendCheck(liveUnary());
+    it("should adjust status if the server is too new", () => {
+      const config = createConfig({ clientVersion: "0.1.0" });
+      const info = { clusterKey: "k", nodeVersion: "1.0.0", clockSkew: TimeSpan.ZERO };
       const status = apply(config, { type: "check.success", info });
       expect(status.details.clientServerCompatible).toBe(false);
+    });
+
+    it("should treat a 0.0 build on either side as compatible", () => {
+      const config = createConfig({ clientVersion: "0.0.0" });
+      const info = {
+        clusterKey: "k",
+        nodeVersion: "50000.0.0",
+        clockSkew: TimeSpan.ZERO,
+      };
+      let status = apply(config, { type: "check.success", info });
+      expect(status.details.clientServerCompatible).toBe(true);
+      status = apply(createConfig({ clientVersion: "50000.0.0" }), {
+        type: "check.success",
+        info: { ...info, nodeVersion: "0.0.0-abc1234" },
+      });
+      expect(status.details.clientServerCompatible).toBe(true);
     });
 
     it("should propagate transport failures", async () => {
@@ -179,7 +197,7 @@ describe("connection", () => {
       });
       expect(status.variant).toEqual("success");
       expect(status.details.authenticated).toBe(true);
-      expect(z.uuid().safeParse(status.details.clusterKey).success).toBe(true);
+      expect(z.validate(z.uuid(), status.details.clusterKey)).toBe(true);
     });
 
     it("should include the client version in the check", async () => {

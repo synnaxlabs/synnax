@@ -15,6 +15,7 @@ import { describe, expect, it } from "vitest";
 import { OPCUA } from "@/feature/opcua";
 import { createOPCDevice } from "@/feature/opcua/testutil";
 import {
+  awaitEditableForm,
   createChannelReadOnlyClient,
   deployAndAwaitTask,
   renderTaskFormTab,
@@ -25,8 +26,13 @@ import { awaitTextEditingElement, commitTextEdit, uniqueName } from "@/testutil"
 
 const client = createTestClient();
 
-const renderWrite = async (options: RenderTaskFormTabOptions = {}) =>
-  await renderTaskFormTab(OPCUA.Task.Write, options);
+// The form renders read-only until the update grant lands, and a preview field renders
+// no input, so wait for it to become editable before querying fields.
+const renderWrite = async (options: RenderTaskFormTabOptions = {}) => {
+  const rendered = await renderTaskFormTab(OPCUA.Task.Write, options);
+  await awaitEditableForm();
+  return rendered;
+};
 
 const createWriteChannel = (): OPCUA.Task.WriteChannel => {
   // Underscore-free so the device-properties record keys survive the server's
@@ -62,7 +68,7 @@ const ZERO_DRAFT: task.New<OPCUA.Task.WriteSchemas> = {
 const createDraft = async (client: Synnax, config: OPCUA.Task.WritePayload["config"]) =>
   await client.tasks.create({ ...ZERO_DRAFT, config }, OPCUA.Task.WRITE_SCHEMAS);
 
-describe("OPCUA.Write", () => {
+describe("Write", () => {
   it("should create command and index channels on deploy", async () => {
     const dev = await createOPCDevice(client);
     const chA = createWriteChannel();
@@ -97,6 +103,31 @@ describe("OPCUA.Write", () => {
     const index = await client.channels.retrieve(cmd.index);
     expect(index.name).toBe(`${chA.nodeName}_cmd_time`);
     expect(index.isIndex).toBe(true);
+  });
+
+  it("should bind a new entry to the channel the device already maps", async () => {
+    const dev = await createOPCDevice(client);
+    const ch = createWriteChannel();
+    const firstDraft = await createDraft(client, createWriteConfig(dev.key, [ch]));
+    const first = await renderWrite({ client, taskKey: firstDraft.key });
+    const firstTask = await deployAndAwaitTask(
+      client,
+      first.container,
+      firstDraft.key,
+      OPCUA.Task.WRITE_SCHEMAS,
+    );
+    first.unmount();
+    const cmd = await client.channels.retrieve(firstTask.config.channels[0].cmdChannel);
+    const secondDraft = await createDraft(client, createWriteConfig(dev.key, [ch]));
+    await renderWrite({ client, taskKey: secondDraft.key });
+    await screen.findByText(cmd.name);
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: secondDraft.key,
+        schemas: OPCUA.Task.WRITE_SCHEMAS,
+      });
+      expect(saved.config.channels[0].cmdChannel).toBe(cmd.key);
+    });
   });
 
   it("should reuse existing command channels when redeploying", async () => {

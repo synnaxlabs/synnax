@@ -186,6 +186,13 @@ func (p SetRangesPayload) Handle(state LinePlot) (LinePlot, error) {
 	return state, nil
 }
 
+// Handle sets the window the "custom" range key resolves to. A nil Custom
+// clears the window.
+func (p SetCustomRangePayload) Handle(state LinePlot) (LinePlot, error) {
+	state.Ranges.Custom = p.Custom
+	return state, nil
+}
+
 // Handle sets the label rendered along the axis named by key.
 func (p SetAxisLabelPayload) Handle(state LinePlot) (LinePlot, error) {
 	axis := axisPointer(&state.Axes, p.Key)

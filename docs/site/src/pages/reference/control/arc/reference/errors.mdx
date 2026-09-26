@@ -14,7 +14,7 @@ export const components = mdxOverrides;
 Arc errors fall into two categories: compile-time errors (caught before deployment) and
 runtime errors (occur during execution).
 
-## Error Code Format
+## Error code format
 
 Arc error codes follow the pattern:
 
@@ -30,11 +30,11 @@ ARC<category><number>
 
 <Divider.Divider x />
 
-## Compile-Time Errors
+## Compile-time errors
 
 The compiler catches these before deployment.
 
-### Type System Errors (ARC2xxx)
+### Type system errors (ARC2xxx)
 
 | Code    | Name                    | Description                                   |
 | ------- | ----------------------- | --------------------------------------------- |
@@ -56,7 +56,7 @@ x i32 := 42
 y f64 := f64(x) + 1.0
 ```
 
-### Function Errors (ARC3xxx)
+### Function errors (ARC3xxx)
 
 | Code    | Name         | Description                      |
 | ------- | ------------ | -------------------------------- |
@@ -73,7 +73,7 @@ func add(x f64, y f64) f64 {
 result := add(5.0)
 ```
 
-### Symbol Errors (ARC4xxx)
+### Symbol errors (ARC4xxx)
 
 | Code    | Name            | Description                                                  |
 | ------- | --------------- | ------------------------------------------------------------ |
@@ -105,7 +105,7 @@ func example() {
 
 <Divider.Divider x />
 
-## Common Error Messages
+## Common error messages
 
 | Message                                                | Meaning                                               |
 | ------------------------------------------------------ | ----------------------------------------------------- |
@@ -127,11 +127,11 @@ func example() {
 
 <Divider.Divider x />
 
-## Runtime Errors
+## Runtime errors
 
 These errors occur during execution and stop the Arc task (but not the driver).
 
-### Arithmetic Errors
+### Arithmetic errors
 
 | Error            | Cause                          |
 | ---------------- | ------------------------------ |
@@ -150,7 +150,7 @@ if b != 0 {
 }
 ```
 
-### Array/String Errors
+### Array/string errors
 
 | Error                | Cause                                         |
 | -------------------- | --------------------------------------------- |
@@ -172,7 +172,7 @@ if index < len(data) {
 
 <Divider.Divider x />
 
-## Error Isolation
+## Error isolation
 
 A runtime error in one Arc task only stops that task. Other tasks and the hardware
 driver continue running normally. The error status is reported to Console where you can
@@ -182,7 +182,7 @@ see what went wrong.
 
 ## Debugging
 
-### Check Task Status
+### Check task status
 
 When an Arc automation doesn't behave as expected:
 
@@ -190,7 +190,7 @@ When an Arc automation doesn't behave as expected:
 2. Runtime errors (division by zero, out-of-bounds) stop the task and report the error
 3. The error message indicates what went wrong
 
-### Use LSP Diagnostics
+### Use LSP diagnostics
 
 The text editor shows compile-time errors inline:
 
@@ -198,7 +198,7 @@ The text editor shows compile-time errors inline:
 - Yellow underline: Warning (compiles but suspicious)
 - Hover for error message and suggested fix
 
-### Write Intermediate Values
+### Write intermediate values
 
 Write intermediate values to channels for debugging:
 
@@ -216,7 +216,7 @@ Monitor these channels in Console to trace data flow.
 
 <Divider.Divider x />
 
-## Common Fixes
+## Common fixes
 
 | Problem              | Fix                                      |
 | -------------------- | ---------------------------------------- |

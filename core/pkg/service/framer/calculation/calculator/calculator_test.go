@@ -75,7 +75,9 @@ var _ = Describe("Calculator", Ordered, func() {
 		ctx context.Context,
 		indexes, bases *[]channel.Channel,
 		calc *channel.Channel,
+		cfgs ...calculator.Config,
 	) *calculator.Calculator {
+		GinkgoHelper()
 		if indexes != nil {
 			Expect(channelWriter.CreateMany(ctx, indexes)).To(Succeed())
 		}
@@ -98,7 +100,10 @@ var _ = Describe("Calculator", Ordered, func() {
 			ChannelService: channelSvc,
 			Channel:        *calc,
 		}))
-		return MustOpen(calculator.Open(ctx, calculator.Config{Module: mod}))
+		return MustOpen(calculator.Open(
+			ctx,
+			append([]calculator.Config{{Module: mod}}, cfgs...)...,
+		))
 	}
 
 	Describe("Alignment", func() {
@@ -355,6 +360,57 @@ var _ = Describe("Calculator", Ordered, func() {
 				of.Get(calc.Index()).Series[0].Alignment,
 			).To(Equal(telem.NewAlignment(10, 5)))
 		})
+
+		Specify(
+			"Clock resumes above stamps forwarded into an index",
+			func(ctx SpecContext) {
+				indexes := []channel.Channel{{
+					Name:     UniqueChannelName(),
+					DataType: telem.TimestampT,
+					IsIndex:  true,
+				}}
+				bases := []channel.Channel{
+					{Name: UniqueChannelName(), DataType: telem.Int64T},
+					{Name: UniqueChannelName(), DataType: telem.Int64T, Virtual: true},
+				}
+				calc := channel.Channel{
+					Name:     UniqueChannelName(),
+					DataType: telem.Int64T,
+					Virtual:  true,
+					Expression: fmt.Sprintf(
+						"return %s + %s",
+						bases[0].Name,
+						bases[1].Name,
+					),
+				}
+				stepped := 10 * telem.SecondTS
+				c := open(ctx, &indexes, &bases, &calc, calculator.Config{
+					Now: func() telem.TimeStamp { return stepped },
+				})
+				var stamps []telem.TimeStamp
+				for i := range 2 {
+					idxData := telem.NewSeriesSecondsTSV(telem.TimeStamp(i + 1))
+					idxData.Alignment = telem.NewAlignment(10, uint32(i))
+					valData := telem.NewSeriesV[int64](100)
+					valData.Alignment = telem.NewAlignment(10, uint32(i))
+					virtData := telem.NewSeriesV[int64](1, 2, 3)
+					virtData.Alignment = telem.NewAlignment(20, uint32(3*i))
+					fr := frame.NewMulti(
+						[]channel.Key{indexes[0].Key(), bases[0].Key(), bases[1].Key()},
+						[]telem.Series{idxData, valData, virtData},
+					)
+					of, changed := MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
+					Expect(changed).To(BeTrue())
+					for _, s := range of.Get(calc.Index()).Series {
+						stamps = append(stamps, s.Unmarshal[telem.TimeStamp]()...)
+					}
+				}
+				Expect(stamps).To(Equal([]telem.TimeStamp{
+					stepped, stepped + 1, stepped + 2,
+					stepped + 4, stepped + 5, stepped + 6,
+				}))
+			},
+		)
 
 		Specify("Two persisted channels shared index", func(ctx SpecContext) {
 			indexes := []channel.Channel{{
@@ -853,7 +909,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			o, changed := MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
 			Expect(changed).To(BeTrue())
 			Expect(o.Len()).To(BeEquivalentTo(3))
-			result := telem.UnmarshalSeries[float64](o.Get(calc.Key()).Series[0])
+			result := o.Get(calc.Key()).Series[0].Unmarshal[float64]()
 			Expect(result).To(HaveLen(3))
 			Expect(result[0]).To(BeNumerically("~", 0.0, 0.01))
 			Expect(result[1]).To(BeNumerically("~", 10.0, 0.01))
@@ -869,7 +925,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			)
 			o, changed = MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
 			Expect(changed).To(BeTrue())
-			result = telem.UnmarshalSeries[float64](o.Get(calc.Key()).Series[0])
+			result = o.Get(calc.Key()).Series[0].Unmarshal[float64]()
 			Expect(result).To(HaveLen(1))
 			Expect(result[0]).To(BeNumerically("~", 10.0, 0.01))
 		},
@@ -1084,6 +1140,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			bases *[]channel.Channel,
 			calc *channel.Channel,
 		) *calculator.Calculator {
+			GinkgoHelper()
 			Expect(channelWriter.CreateMany(ctx, bases)).To(Succeed())
 			res := MustSucceed(
 				channel.NewCalculationAnalyzer(channelSvc.NewArcSymbolResolver(nil)).

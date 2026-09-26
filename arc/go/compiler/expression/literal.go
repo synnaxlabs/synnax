@@ -22,13 +22,13 @@ func compileLiteral(
 	ctx context.Context[parser.ILiteralContext],
 ) (types.Type, error) {
 	if num := ctx.AST.NumericLiteral(); num != nil {
-		return compileNumericLiteral(context.Child(ctx, num))
+		return compileNumericLiteral(ctx.Child(num))
 	}
 	if strTerm := parser.StringTerminal(ctx.AST); strTerm != nil {
 		return compileStringLiteral(ctx, strTerm.GetText())
 	}
 	if series := ctx.AST.SeriesLiteral(); series != nil {
-		return compileSeriesLiteral(context.Child(ctx, series))
+		return compileSeriesLiteral(ctx.Child(series))
 	}
 	if boolLit := ctx.AST.BooleanLiteral(); boolLit != nil {
 		if boolLit.TRUE() != nil {
@@ -102,7 +102,7 @@ func compileSeriesLiteral(
 
 	for i, expr := range expressions {
 		ctx.Writer.WriteI32Const(int32(i))
-		if _, err := Compile(context.Child(ctx, expr).WithHint(*elemType)); err != nil {
+		if _, err := Compile(ctx.Child(expr).WithHint(*elemType)); err != nil {
 			return types.Type{}, err
 		}
 		ctx.Resolver.EmitSeriesSetElement(ctx.Writer, ctx.WriterID, *elemType)

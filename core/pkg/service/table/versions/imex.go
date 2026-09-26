@@ -11,12 +11,13 @@ package versions
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/table/versions/legacy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v1"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v2"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
@@ -37,11 +38,17 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Table, error) {
 		// Console states embed the structural model inline: ride the storage lift,
 		// which decodes the body through the legacy chain.
 		var body msgpack.EncodedJSON
-		if body, err = imex.Decode[msgpack.EncodedJSON](ctx, env); err == nil {
+		if body, err = env.Decode[msgpack.EncodedJSON](ctx); err == nil {
 			if err = imex.RequireFields(
 				body, "a table", "layout", "cells",
 			); err == nil {
-				t, err = v1.MigrateTable(ctx, v0.Table{Name: env.Name, Data: body})
+				var t1 v1.Table
+				if t1, err = v1.MigrateTable(
+					ctx,
+					v0.Table{Name: env.Name, Data: body},
+				); err == nil {
+					t, err = v2.MigrateTable(ctx, t1)
+				}
 			}
 		}
 	}
@@ -50,7 +57,7 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Table, error) {
 	}
 	// Importing always materializes a new resource, so any key on the wire is dropped
 	// and the importer mints a fresh one.
-	t.Key = uuid.Nil
+	t.Key = uuid.Nil()
 	// The header is the resolved name: the body's name when present, or the file-name
 	// fallback the imex service applies. Console-era decodes drop it, so it is stamped
 	// here for every path.

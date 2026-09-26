@@ -54,7 +54,6 @@ class On : public runtime::node::Node {
     /// alias-bound.
     size_t channel_idx;
     ::x::telem::Alignment high_water_mark{0};
-    ::x::telem::MonoClock clock;
 
     /// @brief re-points the source at key. A rebind is not a value:
     /// only values arriving afterward fire
@@ -111,11 +110,11 @@ public:
                                                : std::move(index_data.series[i]);
 
             if (generate_synthetic) {
-                const auto now = this->clock.now();
+                const auto first = ctx.reserve_stamps(ser.size());
                 for (size_t j = 0; j < ser.size(); j++)
                     time_series.write(
                         ::x::telem::TimeStamp(
-                            now.nanoseconds() + static_cast<int64_t>(j)
+                            first.nanoseconds() + static_cast<int64_t>(j)
                         )
                     );
                 time_series.alignment = ser.alignment;
@@ -129,7 +128,7 @@ public:
                 std::move(time_series)
             );
             this->high_water_mark = ::x::telem::Alignment(upper_val + 1);
-            ctx.mark_changed(0);
+            this->state.emit(ctx.mark_changed, 0);
             return x::errors::NIL;
         }
         return x::errors::NIL;
@@ -138,7 +137,7 @@ public:
     /// @brief advances the high water mark to the current channel alignment,
     /// ensuring that when a stage is (re-)activated it only responds to
     /// data that arrives after activation rather than stale pre-existing data.
-    void reset() override {
+    void reset(runtime::node::Context &ctx) override {
         this->state.reset();
         if (const auto k = bound_key(this->state, this->channel_idx, this->key);
             k != this->curr_key) {
@@ -161,7 +160,6 @@ class Write : public runtime::node::Node {
     /// @brief channel_idx is the channel ref input's index; NO_CHANNEL when not
     /// alias-bound.
     size_t channel_idx;
-    ::x::telem::MonoClock clock;
 
 public:
     Write(
@@ -179,19 +177,21 @@ public:
         if (!this->state.refresh_inputs()) return x::errors::NIL;
         const auto &data = this->state.input(this->input_idx);
         if (data->empty()) return x::errors::NIL;
-        const auto start = this->clock.now();
-        const auto time = x::mem::local_shared(
-            ::x::telem::Series::linspace(
-                start,
-                start + 100 * ::x::telem::MICROSECOND,
-                data->size()
-            )
-        );
-        this->state.write_series(
-            bound_key(this->state, this->channel_idx, this->key),
-            data,
-            time
-        );
+        const auto k = bound_key(this->state, this->channel_idx, this->key);
+        const auto &time = this->state.input_time(this->input_idx);
+        // A length disagreement is an upstream aligner bug. Refuse the write
+        // instead of persisting a corrupt index.
+        if (time->size() != data->size()) {
+            ctx.report_error(
+                x::errors::Error(
+                    "write to channel " + std::to_string(k) + ": sample count " +
+                    std::to_string(data->size()) + " does not match timestamp count " +
+                    std::to_string(time->size())
+                )
+            );
+            return x::errors::NIL;
+        }
+        this->state.write_series(k, data, time);
         auto &out = this->state.output(0);
         out->resize(1);
         out->set(0, static_cast<uint8_t>(1));
@@ -202,7 +202,7 @@ public:
         out_time->set(0, time->at<int64_t>(time->size() - 1));
         out_time->alignment = data->alignment;
         out_time->time_range = data->time_range;
-        ctx.mark_changed(0);
+        this->state.emit(ctx.mark_changed, 0);
         return x::errors::NIL;
     }
 
@@ -210,13 +210,12 @@ public:
         return this->state.is_output_truthy(output_idx);
     }
 
-    void reset() override { this->state.reset(); }
+    void reset(runtime::node::Context &) override { this->state.reset(); }
 };
 
 class Module : public stl::Module {
     std::shared_ptr<State> channel;
     std::shared_ptr<strings::State> str_state;
-    x::telem::MonoClock clock;
 
 public:
     Module(std::shared_ptr<State> channel, std::shared_ptr<strings::State> str_state):
@@ -376,19 +375,16 @@ private:
             .func_wrap(
                 MODULE_NAME,
                 "write_str",
-                [this, ch, ss](uint32_t channel_id, uint32_t str_handle) {
+                [ch, ss](uint32_t channel_id, uint32_t str_handle) {
                     std::string str_value = ss->get(str_handle);
                     if (str_value.empty()) return;
                     const auto data = x::mem::make_local_shared<x::telem::Series>(
                         str_value
                     );
-                    const auto time = x::mem::make_local_shared<x::telem::Series>(
-                        this->clock.now()
-                    );
                     ch->write_value(
                         static_cast<types::ChannelKey>(channel_id),
                         data,
-                        time
+                        Series()
                     );
                 }
             )

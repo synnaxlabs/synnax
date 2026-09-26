@@ -35,6 +35,7 @@ func expectExpression(
 	expectedType types.Type,
 	expectedOpcodes ...any,
 ) {
+	GinkgoHelper()
 	bytecode, exprType := compileExpression(bCtx, expression)
 	Expect(bytecode).To(MatchOpcodes(expectedOpcodes...))
 	Expect(exprType).To(Equal(expectedType))
@@ -47,6 +48,7 @@ func compileExpression(bCtx context.Context, source string) ([]byte, types.Type)
 // expectCompileError compiles source in a scope holding series "s" (i64), "b"
 // (bool), and "f" (f64), asserting the compile fails with a message containing substr.
 func expectCompileError(bCtx SpecContext, source, substr string) {
+	GinkgoHelper()
 	ctx := NewContext(bCtx)
 	MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
 		Name: "s",
@@ -64,7 +66,7 @@ func expectCompileError(bCtx SpecContext, source, substr string) {
 		Type: types.Series(types.F64()),
 	}))
 	expr := MustSucceed(parser.ParseExpression(source))
-	Expect(expression.Compile(ccontext.Child(ctx, expr))).Error().
+	Expect(expression.Compile(ctx.Child(expr))).Error().
 		To(MatchError(ContainSubstring(substr)))
 }
 
@@ -80,9 +82,7 @@ func compileWithCtx(
 		)
 		exprType = MustSucceedWithOffset[types.Type](
 			2,
-		)(
-			expression.Compile(ccontext.Child(ctx, expr)),
-		)
+		)(expression.Compile(ctx.Child(expr)))
 	)
 	return FinalizeContext(ctx), exprType
 }
@@ -104,9 +104,7 @@ func compileWithCtxAndHint(
 	}
 	exprType := MustSucceedWithOffset[types.Type](
 		2,
-	)(
-		expression.Compile(ccontext.Child(ctx, expr)),
-	)
+	)(expression.Compile(ctx.Child(expr)))
 	return FinalizeContext(ctx), exprType
 }
 
@@ -114,6 +112,7 @@ func compileWithCtxAndHint(
 // the ambient prelude, so expression-level tests can reference module
 // members like `time.now()` without an explicit import statement.
 func autoImportSTL(bCtx context.Context, root *symbol.Symbol) {
+	GinkgoHelper()
 	if root.Parent == nil || root.Parent.Kind != symbol.KindAmbient {
 		return
 	}
@@ -132,6 +131,7 @@ func compileWithAnalyzer(
 	exprSource string,
 	channels []symbol.Symbol,
 ) ([]byte, types.Type) {
+	GinkgoHelper()
 	expr := MustSucceed(parser.ParseExpression(exprSource))
 	root := symbol.NewRoot(nil, stl.NewSymbols())
 	for i := range channels {
@@ -154,7 +154,7 @@ func compileWithAnalyzer(
 		analyzerCtx.TypeMap,
 		resolve.NewResolver(),
 	)
-	exprType := MustSucceed(expression.Compile(ccontext.Child(compilerCtx, expr)))
+	exprType := MustSucceed(expression.Compile(compilerCtx.Child(expr)))
 	return FinalizeContext(compilerCtx), exprType
 }
 
@@ -167,6 +167,7 @@ func expectSeriesExpression(
 	expectedType types.Type,
 	expectedOpcodes ...any,
 ) {
+	GinkgoHelper()
 	bytecode, exprType := compileWithAnalyzer(bCtx, expr, extras)
 	Expect(exprType).To(Equal(expectedType))
 	Expect(bytecode).To(MatchOpcodes(expectedOpcodes...))
@@ -199,6 +200,7 @@ func expectSeriesWithFunctions(
 	hint types.Type,
 	expectedOpcodes ...any,
 ) {
+	GinkgoHelper()
 	ctx := NewContext(bCtx)
 	for name, idx := range funcIndices {
 		ctx.Resolver.RegisterLocal(name, idx)
@@ -218,6 +220,7 @@ func expectSeriesLiteralWithHint(
 	hint types.Type,
 	expectedOpcodes ...any,
 ) {
+	GinkgoHelper()
 	parsedExpr := MustSucceed(parser.ParseExpression(expr))
 	root := symbol.NewRoot(nil, stl.NewSymbols())
 	for i := range extras {
@@ -247,7 +250,7 @@ func expectSeriesLiteralWithHint(
 		analyzerCtx.TypeMap,
 		resolve.NewResolver(),
 	)
-	exprType := MustSucceed(expression.Compile(ccontext.Child(compilerCtx, parsedExpr)))
+	exprType := MustSucceed(expression.Compile(compilerCtx.Child(parsedExpr)))
 	Expect(FinalizeContext(compilerCtx)).To(MatchOpcodes(expectedOpcodes...))
 	Expect(exprType).To(Equal(hint))
 }

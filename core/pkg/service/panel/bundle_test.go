@@ -10,9 +10,9 @@
 package panel_test
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
@@ -174,10 +174,10 @@ var _ = Describe("DecodeBundle", func() {
 		env := MustSucceed(panel.EncodeBundle(p, encodeRefs))
 		minted := map[string]ontology.ID{
 			"chamber_pressure.json": {
-				Type: ontology.ResourceTypeLineplot, Key: uuid.NewString(),
+				Type: ontology.ResourceTypeLineplot, Key: uuid.New().String(),
 			},
 			"propulsion/pressurization.json": {
-				Type: ontology.ResourceTypeSchematic, Key: uuid.NewString(),
+				Type: ontology.ResourceTypeSchematic, Key: uuid.New().String(),
 			},
 		}
 		decoded := MustSucceed(panel.DecodeBundle(ctx, WireRoundTrip(env), minted))
@@ -229,7 +229,7 @@ var _ = Describe("DecodeBundle", func() {
 		env := imex.Envelope{
 			Version: versions.Latest + 1, Type: "panel", Name: "Controls",
 		}
-		Expect(imex.Encode(&env, map[string]any{
+		Expect(env.Encode(map[string]any{
 			"root": map[string]any{"variant": "leaf", "tabs": []any{}},
 		})).To(Succeed())
 		Expect(panel.DecodeBundle(ctx, WireRoundTrip(env), nil)).Error().To(SatisfyAll(
@@ -240,11 +240,11 @@ var _ = Describe("DecodeBundle", func() {
 
 	It("Should reject a resource tab without a path", func(ctx SpecContext) {
 		env := imex.Envelope{Version: 0, Type: "panel", Name: "Controls"}
-		Expect(imex.Encode(&env, map[string]any{
+		Expect(env.Encode(map[string]any{
 			"root": map[string]any{
 				"variant": "leaf",
 				"tabs": []any{map[string]any{
-					"key":      uuid.NewString(),
+					"key":      uuid.New().String(),
 					"variant":  "resource",
 					"resource": 42,
 				}},
@@ -259,13 +259,10 @@ var _ = Describe("DecodeBundle", func() {
 
 var _ = Describe("ResourceRefs", func() {
 	taskID := func() ontology.ID {
-		return ontology.ID{Type: ontology.ResourceTypeTask, Key: uuid.NewString()}
+		return ontology.ID{Type: ontology.ResourceTypeTask, Key: uuid.New().String()}
 	}
 	taskTab := func(id ontology.ID) panel.Tab {
-		return panel.Tab{Variant: panel.ResourceTab{
-			TabBase:  panel.TabBase{Key: uuid.New()},
-			Resource: id,
-		}}
+		return panel.Tab{Variant: panel.ResourceTab{Key: uuid.New(), Resource: id}}
 	}
 
 	It("Should collect every resource the tree's resource tabs reference", func() {

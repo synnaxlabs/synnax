@@ -10,8 +10,6 @@
 package op
 
 import (
-	"context"
-
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/x/query"
@@ -35,7 +33,7 @@ func resolveBinary(s *node.State) (lhs, rhs int, err error) {
 	return lhs, rhs, err
 }
 
-func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
+func (h *Host) Create(cfg node.Config) (node.Node, error) {
 	if cat, ok := typedOps[cfg.Node.Type]; ok {
 		lhsIdx, rhsIdx, err := resolveBinary(cfg.State)
 		if err != nil {
@@ -74,7 +72,11 @@ func (n *binary) Next(ctx node.Context) {
 	}
 	lhs, rhs := n.Input(n.lhsIdx), n.Input(n.rhsIdx)
 	n.op(lhs, rhs, n.Output(0))
-	*n.OutputTime(0) = n.InputTime(n.lhsIdx)
+	if timeIdx := n.TimeSourceIdx(); timeIdx >= 0 {
+		*n.OutputTime(0) = n.InputTime(timeIdx)
+	} else {
+		n.StampCycle(ctx, 0)
+	}
 	alignment := lhs.Alignment + rhs.Alignment
 	timeRange := telem.TimeRange{Start: lhs.TimeRange.Start, End: lhs.TimeRange.End}
 	if !rhs.TimeRange.Start.IsZero() &&
@@ -88,7 +90,7 @@ func (n *binary) Next(ctx node.Context) {
 	n.Output(0).TimeRange = timeRange
 	n.OutputTime(0).Alignment = alignment
 	n.OutputTime(0).TimeRange = timeRange
-	ctx.MarkChanged(0)
+	n.Emit(ctx, 0)
 }
 
 type unary struct {
@@ -105,10 +107,14 @@ func (n *unary) Next(ctx node.Context) {
 	}
 	input := n.Input(n.inputIdx)
 	n.op(input, n.Output(0))
-	*n.OutputTime(0) = n.InputTime(n.inputIdx)
+	if timeIdx := n.TimeSourceIdx(); timeIdx >= 0 {
+		*n.OutputTime(0) = n.InputTime(timeIdx)
+	} else {
+		n.StampCycle(ctx, 0)
+	}
 	n.Output(0).Alignment = input.Alignment
 	n.Output(0).TimeRange = input.TimeRange
 	n.OutputTime(0).Alignment = input.Alignment
 	n.OutputTime(0).TimeRange = input.TimeRange
-	ctx.MarkChanged(0)
+	n.Emit(ctx, 0)
 }

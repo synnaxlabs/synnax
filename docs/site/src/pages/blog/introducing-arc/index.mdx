@@ -1,6 +1,6 @@
 ---
 layout: "@/layouts/Blog.astro"
-title: "Introducing Arc: Why We Built a New Programming Language"
+title: "Introducing Arc: Why we built a new programming language"
 description:
   "From Excel sheets to Python to Lua, nothing quite worked. So we built our own
   language for hardware automation."
@@ -163,11 +163,11 @@ that drove us to implement Arc.
 
 <Divider.Divider x />
 
-## The Need for Automation
+## The need for automation
 
 If you don't already know, Synnax is a test and industrial control platform. It replaces
 tools like
-[LabVIEW](https://www.ni.com/en/support/downloads/software-products/download.labview.html#585712)
+[LabVIEW](https://www.ni.com/en/support/downloads/software-products/download.labview.html)
 and [Ignition](https://inductiveautomation.com/scada-software/).
 
 We hook up to sensors and actuators from data acquisition devices and industrial
@@ -186,7 +186,7 @@ paradigm: Excel was being stretched further than expected.
 
 <Divider.Divider x />
 
-## The Early SpaceX Way: Sequences in Excel Sheets
+## The early SpaceX way: Sequences in Excel sheets
 
 SpaceX did and still does use Excel to write automation sequences for their Falcon
 vehicles. I should note: I didn't work at SpaceX, and although some of our engineers
@@ -346,7 +346,7 @@ targets (like a cRIO) and get deterministic cycle times.
 You don't need to support extensive tooling for a custom programming language: the
 editor exists, parsing the sheet is easy, and you can rely on a trusted host runtime.
 
-## Writing Sequences at Firefly
+## Writing sequences at Firefly
 
 <figure>
   <Image
@@ -393,14 +393,14 @@ resolve conflicts?
 This became such a significant problem that Nico himself built an internal tool to diff
 Excel files.
 
-#### Downside 2 -> Readability Degrades with Complexity
+#### Downside 2 -> Readability degrades with complexity
 
 Large or complex sequences were hard to read: needless to say, there is a reason that
 go-to statements have largely been removed from modern, high level languages. You're on
 row 47, it says go-to 12. You scroll up, Row 12 has a conditional that jumps to row 83
 on a different tab. Now you're three levels deep and lost.
 
-#### Downside 3 -> Editing Experience
+#### Downside 3 -> Editing experience
 
 As a software engineer, this one hit me the hardest. You'd make an edit to a sequence on
 your work machine, upload it to a shared drive, walk to a different room with the
@@ -452,7 +452,7 @@ well received that we will
 [continue](https://docs.synnaxlabs.com/reference/control/python/get-started) to support
 it into the future.
 
-### Problems With Python
+### Problems with Python
 
 Unfortunately, no software survives prolonged contact with the outside world. As the use
 cases expanded, we started to build up a healthy list of problems with our Python-based
@@ -465,7 +465,7 @@ critical. Python is garbage collected, interpreted, and we were doing control vi
 connections. Existing users and potential customers were constantly asking for more
 performance and safety.
 
-#### Problem 2 -> Ease of use and Integration
+#### Problem 2 -> Ease of use and integration
 
 To run our Python-based sequences, you had to manually start scripts in a separate
 terminal. Managing multiple automations in various terminals alongside our operator
@@ -488,7 +488,7 @@ is hard and error prone.
 
 <Divider.Divider x />
 
-### Attempt 1.5 -> Embedding a Python Interpreter
+### Attempt 1.5 -> Embedding a Python interpreter
 
 In February of 2025, we tried to solve problem #2 by embedding a full blown Python
 interpreter directly into the main program that runs the Synnax core. This wasn't just
@@ -508,7 +508,7 @@ but that Python wasn't the right candidate.
 
 <Divider.Divider x />
 
-## Attempt 2 -> Lua Embedded in C++
+## Attempt 2 -> Lua embedded in C++
 
 During this time, a large potential customer had asked us to implement support for
 running high-performance sequences directly on NI Linux Real-Time. After the Python
@@ -568,7 +568,7 @@ Silence means no one cares enough to use it.
 
 We started to dig into why the Lua strategy fell flat.
 
-#### Problem 1 -> Engineers Think in Steps, not States
+#### Problem 1 -> Engineers think in steps, not states
 
 Although most programs are, under the hood, state machines, users like sequences. When
 an engineer writes a procedure on a whiteboard, they write a list of steps. _First, open
@@ -577,14 +577,14 @@ had to translate it into a sequence of states and transitions. Do this at the st
 became a hacky `if iteration == 1 then`. Even simple automations quickly became a soup
 of control flow.
 
-#### Problem 2 -> Manual Channel Declaration
+#### Problem 2 -> Manual channel declaration
 
 Lua didn't have a concept of the hardware domain. Users had to manually declare every
 channel they wanted to read from or write to in a separate configuration, then reference
 those same channels by a string inside their code. A typo in a channel name wouldn't
 surface until the sequence actually ran.
 
-#### Problem 3 -> It's Still programming, and Lua's Syntax Added Friction
+#### Problem 3 -> It's still programming, and Lua's syntax added friction
 
 Engineers already knew Python. They didn't want the state machine model, and on top of
 that, the syntax was obscure and unfamiliar. The `if ... then ... end` blocks and weird
@@ -610,13 +610,13 @@ extensive user interviews and research from the wider world of industrial automa
 
 We established the following requirements:
 
-#### Principle 1 -> The Language Has to Be Diffable in Plain Text
+#### Principle 1 -> The language has to be diffable in plain text
 
 The ability to version control and review the differences between automations as a
 formal release process is critical for modern engineering teams. Solely graphical and/or
 table based representations cannot be diffed by standard tools such as git.
 
-#### Principle 2 -> Progressive Introduction of Complexity and Power
+#### Principle 2 -> Progressive introduction of complexity and power
 
 Writing simple control sequences should be as simple as possible. Expressing a series of
 timed steps should be as straightforward as writing a list of items on a napkin.
@@ -632,7 +632,7 @@ We named this principle a 'progressive' language. One that requires a minor subs
 keywords and knowledge to run most simple tasks, but does not hold the user back as they
 grow.
 
-#### Principle 3 -> Simple Concurrency
+#### Principle 3 -> Simple concurrency
 
 Concurrency is one of the most challenging aspects of automations. Engineers often ask
 us: _How do I write that I simultaneously want to be controlling pressure in this tank
@@ -647,7 +647,7 @@ The first option is ugly, inflexible, and difficult to manage. The second requir
 talented software engineer to develop the system without accidentally introducing
 catastrophic bugs. There has to be a better way.
 
-#### Principle 4 -> Statically Prevent Dangerous Mistakes
+#### Principle 4 -> Statically prevent dangerous mistakes
 
 All automation (and even general purpose programming) languages have to make some degree
 of tradeoff between safety, performance, and power. We're constantly asking ourselves
@@ -662,7 +662,7 @@ By providing powerful tools, we can't completely eliminate safety risks, but we 
 least make sure the user is consciously aware of the dangerous actions they may be
 taking.
 
-#### Principle 5 -> Portable Execution
+#### Principle 5 -> Portable execution
 
 One of Synnax's most important strengths is its ability to integrate and operate
 heterogeneous hardware systems. A new automation engine should _not_ be architected for
@@ -670,7 +670,7 @@ a single hardware architecture (e.g. an NI cRIO or a Beckhoff PLC). Instead, its
 allows it to be deployed on a variety of different targets with as little difference in
 runtime implementation as possible.
 
-## A Taste of Arc's Design
+## A taste of Arc's design
 
 Here is a simple pressurization sequence expressed as an Arc program:
 
@@ -756,7 +756,7 @@ while making sure we didn't limit the syntax choices for more powerful use cases
 
 <Divider.Divider x />
 
-## What's Next
+## What's next
 
 For two years and two failed attempts we tried to avoid building a language by borrowing
 someone else's. Each lesson was learned through hard fought implementation and sitting

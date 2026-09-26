@@ -9,34 +9,36 @@
 
 import "@/schematic/node/general/offPageReference/offPageReference.css";
 
-import { direction } from "@synnaxlabs/x";
+import { type schematic } from "@synnaxlabs/client";
+import { color, direction, type text } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
-import { type Config } from "@/schematic/node/general/offPageReference/config";
-import { symbolColorVar } from "@/schematic/symbolColor";
+import { PAGE_ICONS } from "@/schematic/node/general/offPageReference/config";
 import { Text } from "@/text";
 
 export const offPageReferenceTooltip = (
-  page?: string,
-  dblClickNav?: boolean,
+  page?: schematic.Page,
+  dblClickNavDisabled?: boolean,
 ): string | undefined => {
-  if (page == null || page.length === 0) return undefined;
-  const mode = dblClickNav !== false ? "Double" : "Single";
+  if (page == null || page.key.length === 0) return undefined;
+  const mode = dblClickNavDisabled === true ? "Single" : "Double";
   return `${mode}-click to navigate`;
 };
 
-interface RenderProps extends Omit<
-  Config,
-  "label" | "page" | "dblClickNav" | "variant"
+interface RenderProps extends Partial<
+  Pick<schematic.OffPageReferenceNodeConfig, "orientation">
 > {
+  level?: text.Level;
+  color?: color.Crude;
   id?: string;
   label?: string;
   className?: string;
   title?: string;
   linked?: boolean;
+  pageType?: schematic.PageType;
   onLabelChange?: (label: string) => void;
 }
 
@@ -48,14 +50,16 @@ export const OffPageReference = ({
   color: colorVal,
   level = "p",
   linked = false,
+  pageType = "schematic",
   onLabelChange,
 }: RenderProps): ReactElement => {
+  const PageIcon = PAGE_ICONS[pageType];
   const element = document.querySelector(`[data-id="${id}"]`);
   if (element) element.classList.add(orientation);
 
   const swap = direction.construct(orientation) === "y";
   const style = useMemo<CSSProperties>(
-    () => ({ [CSS.variable("symbol-color")]: symbolColorVar(colorVal) }),
+    () => ({ [CSS.variable("symbol-color")]: color.rgbaString(colorVal) }),
     [colorVal],
   );
 
@@ -74,6 +78,8 @@ export const OffPageReference = ({
       <div className="wrapper">
         <div className="outline">
           <div className="bg">
+            {/* Size must track the level prop, which CSS cannot read. */}
+            {linked && <PageIcon style={{ fontSize: `var(--pluto-${level}-size)` }} />}
             <Text.MaybeEditable
               value={label}
               onChange={onLabelChange}

@@ -1,10 +1,10 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Modbus Read Task"
+title: "Modbus read task"
 description: "Learn how to acquire data from Modbus TCP devices with Synnax."
-next: "Write Task"
+next: "Write task"
 nextURL: "/reference/driver/modbus/write-task"
-prev: "Connect to a Server"
+prev: "Connect to a server"
 prevURL: "/reference/driver/modbus/connect-server"
 ---
 
@@ -18,11 +18,12 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lifecycle).
+This task follows the standard
+[task lifecycle](/reference/driver/task-basics#task-lifecycle).
 
 <Divider.Divider x />
 
-## Task Configuration Reference
+## Task configuration reference
 
 | Parameter     | Type   | Required | Default | Description                                                   |
 | ------------- | ------ | -------- | ------- | ------------------------------------------------------------- |
@@ -33,12 +34,12 @@ For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lif
 
 <Divider.Divider x />
 
-## Register Types Reference
+## Register types reference
 
 <DetailsGroup>
 
 <ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Holding Register Input ([`holding_register`](https://www.modbustools.com/modbus.html#function03))</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Holding Register Input ([`holding_register`](https://www.modbustools.com/modbus.html))</Text.Text>
 
 Reads from 16-bit read/write registers (Function Code 03). Typically used for
 configuration parameters and analog outputs that can also be read back.
@@ -61,7 +62,7 @@ configuration parameters and analog outputs that can also be read back.
 </ChannelType>
 
 <ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Input Register ([`input_register`](https://www.modbustools.com/modbus.html#function04))</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Input Register ([`input_register`](https://www.modbustools.com/modbus.html))</Text.Text>
 
 Reads from 16-bit read-only registers (Function Code 04). Typically used for analog
 sensor values like temperature, pressure, or flow.
@@ -84,7 +85,7 @@ sensor values like temperature, pressure, or flow.
 </ChannelType>
 
 <ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Wave.Square /> Coil Input ([`coil`](https://www.modbustools.com/modbus.html#function01))</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Wave.Square /> Coil Input ([`coil`](https://www.modbustools.com/modbus.html#Function01))</Text.Text>
 
 Reads from 1-bit read/write coils (Function Code 01). Typically used for discrete output
 states that can be read back (e.g., relay states, valve positions).
@@ -99,7 +100,7 @@ states that can be read back (e.g., relay states, valve positions).
 </ChannelType>
 
 <ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Wave.Square /> Discrete Input ([`discrete_input`](https://www.modbustools.com/modbus.html#function02))</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Wave.Square /> Discrete Input ([`discrete_input`](https://www.modbustools.com/modbus.html))</Text.Text>
 
 Reads from 1-bit read-only discrete inputs (Function Code 02). Typically used for binary
 sensor inputs (e.g., limit switches, proximity sensors).
@@ -117,7 +118,7 @@ sensor inputs (e.g., limit switches, proximity sensors).
 
 <Divider.Divider x />
 
-## Important Rules
+## Important rules
 
 - **Software timing** -> Samples are timestamped in software with ~100 µs precision,
   which degrades under heavy load.
@@ -128,7 +129,7 @@ sensor inputs (e.g., limit switches, proximity sensors).
 
 <Divider.Divider x />
 
-## How-To
+## How-to
 
 <Client.Tabs client:load exclude={["cpp"]}>
   <Fragment slot="console">

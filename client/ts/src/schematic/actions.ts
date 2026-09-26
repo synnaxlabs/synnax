@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, type record } from "@synnaxlabs/x";
-
 import { actions } from "@/actions";
 import {
   type Action,
@@ -83,16 +81,24 @@ const handlers: Handlers = {
       oldConfigRaw != null ? actions.snapshotDraft(oldConfigRaw) : undefined;
     state.nodes.splice(idx, 1);
     delete state.configs[payload.key];
-    return {
-      inverse: [
-        setNode(
-          oldConfig != null
-            ? { node: oldNode, config: oldConfig }
-            : { node: oldNode, config: undefined },
-        ),
-      ],
-      targets: [payload.key],
-    };
+    const inverse: Action[] = [
+      setNode(
+        oldConfig != null
+          ? { node: oldNode, config: oldConfig }
+          : { node: oldNode, config: undefined },
+      ),
+    ];
+    const targets = [payload.key];
+    for (const [key, config] of Object.entries(state.configs)) {
+      if (config?.variant !== "group_box") continue;
+      const { members } = config;
+      if (!members.includes(payload.key)) continue;
+      const oldConfig = actions.snapshotDraft(config);
+      config.members = members.filter((m) => m !== payload.key);
+      inverse.push(setConfig({ key, config: oldConfig }));
+      targets.push(key);
+    }
+    return { inverse, targets };
   },
   addEdge: (state, payload) => {
     if (state.edges.some((e) => e.key === payload.edge.key))
@@ -114,36 +120,14 @@ const handlers: Handlers = {
       targets: [payload.key],
     };
   },
-  // The inverse of SetConfig is imperfect for keys the action newly introduces:
-  // SetConfig only merges, so it cannot remove keys that did not previously exist. The
-  // inverse here restores values for keys that DID exist before the merge; keys added
-  // by the action remain on undo as phantom fields. A future ReplaceConfig action can
-  // close the gap by enabling wholesale replacement.
   setConfig: (state, payload) => {
-    const existingRaw = state.configs[payload.key];
-    if (existingRaw != null) {
-      const existing = actions.snapshotDraft(existingRaw);
-      const restoreFields: record.Unknown = {};
-      for (const k of Object.keys(payload.config))
-        if (existing[k] !== undefined) restoreFields[k] = existing[k];
-      state.configs[payload.key] = { ...existing, ...payload.config };
-      if (Object.keys(restoreFields).length === 0)
-        return { inverse: [], targets: [payload.key] };
-      return {
-        inverse: [setConfig({ key: payload.key, config: restoreFields })],
-        targets: [payload.key],
-      };
-    }
-    let cfg = payload.config;
-    const edge = state.edges.find((e) => e.key === payload.key);
-    if (edge != null) {
-      const srcCfg = state.configs[edge.source.node] as
-        { color?: color.Crude } | undefined;
-      if (srcCfg?.color != null && !color.isZero(srcCfg.color))
-        cfg = { ...cfg, color: srcCfg.color };
-    }
-    state.configs[payload.key] = cfg;
-    return { inverse: [], targets: [payload.key] };
+    const existing = state.configs[payload.key];
+    const prev = existing != null ? actions.snapshotDraft(existing) : undefined;
+    state.configs[payload.key] = payload.config;
+    return {
+      inverse: prev != null ? [setConfig({ key: payload.key, config: prev })] : [],
+      targets: [payload.key],
+    };
   },
 };
 

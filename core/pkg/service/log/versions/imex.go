@@ -11,8 +11,8 @@ package versions
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/log/versions/legacy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v0"
@@ -33,7 +33,7 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Log, error) {
 		// Console states embed the body inline: ride the storage lift, which decodes
 		// the body through the legacy chain.
 		var body msgpack.EncodedJSON
-		if body, err = imex.Decode[msgpack.EncodedJSON](ctx, env); err == nil {
+		if body, err = env.Decode[msgpack.EncodedJSON](ctx); err == nil {
 			if err = imex.RequireFields(body, "a log", "channels"); err == nil {
 				l, err = v2.MigrateLog(ctx, v0.Log{Name: env.Name, Data: body})
 			}
@@ -44,7 +44,7 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Log, error) {
 	}
 	// Importing always materializes a new resource, so any key on the wire is dropped
 	// and the importer mints a fresh one.
-	l.Key = uuid.Nil
+	l.Key = uuid.Nil()
 	// The header is the resolved name: the body's name when present, or the file-name
 	// fallback the imex service applies. Console-era decodes drop it, so it is stamped
 	// here for every path.

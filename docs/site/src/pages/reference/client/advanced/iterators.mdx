@@ -2,9 +2,9 @@
 layout: "@/layouts/Reference.astro"
 title: "Iterators"
 description: "Lazy evaluation for efficiently reading large datasets."
-next: "Delete Data"
+next: "Delete data"
 nextURL: "/reference/client/advanced/delete-data"
-prev: "Write Authorities"
+prev: "Write authorities"
 prevURL: "/reference/client/advanced/write-authorities"
 clients: ["python", "typescript"]
 ---
@@ -21,7 +21,7 @@ memory.
 
 <Divider.Divider x />
 
-## What are Iterators?
+## What are iterators?
 
 While standard read methods cover most use cases, there are situations where you need to
 process more data than can fit in memory. Iterators are processed server-side, reading
@@ -30,7 +30,7 @@ at once.
 
 <Divider.Divider x />
 
-## Opening an Iterator
+## Opening an iterator
 
 To open an iterator, use the <Client.Var client:load py="open_iterator"
 ts="openIterator" /> method with a time range and channel specification.
@@ -58,7 +58,7 @@ const iterator = await client.openIterator({ start, end }, ["temperature", "humi
   </Fragment>
 </Client.Tabs>
 
-### Chunk Size Option
+### Chunk size option
 
 By default, Synnax uses a chunk size of 100,000 samples. To configure a custom chunk
 size, use the <Client.Var client:load py="chunk_size" ts="chunkSize" /> parameter with
@@ -97,7 +97,7 @@ Larger chunk sizes can improve throughput but require more memory.
 
 <Divider.Divider x />
 
-## Iterating through Data
+## Iterating through data
 
 Use a <Client.Var client:load py="for" ts="for await" /> loop to iterate through data in
 chunks. Each iteration yields a frame containing a portion of the data.
@@ -126,7 +126,7 @@ for await (const frame of iterator) {
 
 <Divider.Divider x />
 
-## Closing the Iterator
+## Closing the iterator
 
 After you're done iterating, it's essential to close the iterator to release the network
 connection and other related resources.

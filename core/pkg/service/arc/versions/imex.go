@@ -11,8 +11,8 @@ package versions
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions/legacy"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -43,7 +43,7 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Arc, error) {
 	}
 	// Importing always materializes a new resource, so any key on the wire is dropped
 	// and the importer mints a fresh one.
-	a.Key = uuid.Nil
+	a.Key = uuid.Nil()
 	// The header is the resolved name: the body's name when present, or the file-name
 	// fallback the imex service applies. Console-era decodes drop it, so it is stamped
 	// here for every path.
@@ -54,7 +54,7 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Arc, error) {
 // decodeConsole lifts either Console-written file shape into a Document. Both shapes
 // carry the graph at the top level, so the structural guard runs ahead of the split.
 func decodeConsole(ctx context.Context, env imex.Envelope) (legacy.Document, error) {
-	body, err := imex.Decode[msgpack.EncodedJSON](ctx, env)
+	body, err := env.Decode[msgpack.EncodedJSON](ctx)
 	if err != nil {
 		return legacy.Document{}, err
 	}
@@ -64,7 +64,7 @@ func decodeConsole(ctx context.Context, env imex.Envelope) (legacy.Document, err
 	if !isConsoleState(body) {
 		// The export taken from an Arc that was not open: the typed Arc the Console
 		// retrieved from the Core, spread into the file.
-		e, err := imex.Decode[legacy.Export](ctx, env)
+		e, err := env.Decode[legacy.Export](ctx)
 		if err != nil {
 			return legacy.Document{}, err
 		}

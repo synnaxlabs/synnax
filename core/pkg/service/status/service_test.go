@@ -10,7 +10,8 @@
 package status_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -28,10 +29,17 @@ import (
 
 var _ = Describe("Dispatch", Ordered, func() {
 	var (
-		db     *gorp.DB
-		svc    *status.Service
-		writer status.Writer[any]
+		db  *gorp.DB
+		svc *status.Service
 	)
+	// setStatus writes st in its own transaction, the way a caller outside an existing
+	// operation does.
+	setStatus := func(ctx SpecContext, st *status.Status[any]) error {
+		GinkgoHelper()
+		return db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Set(ctx, st)
+		})
+	}
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
@@ -46,7 +54,6 @@ var _ = Describe("Dispatch", Ordered, func() {
 		svc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB: db, Ontology: otg, Group: g, Label: labelSvc, Search: searchIdx,
 		}))
-		writer = svc.NewWriter(nil)
 		Expect(searchIdx.Initialize(ctx)).To(Succeed())
 	})
 
@@ -94,7 +101,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 					Expect(svc.SetByKeyOrName(ctx, name, "msg", "bogus")).
 						Error().
 						To(SatisfyAll(MatchError(validate.ErrValidation), MatchError(ContainSubstring("invalid status variant"))))
-					Expect(svc.NewRetrieve().Where(status.MatchKeys[any](name)).
+					Expect(svc.NewRetrieve[any]().Where(status.MatchKeys[any](name)).
 						Entry(&status.Status[any]{}).
 						Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 				},
@@ -105,8 +112,8 @@ var _ = Describe("Dispatch", Ordered, func() {
 			It(
 				"Should update an existing row whose Key matches the input",
 				func(ctx SpecContext) {
-					key := uuid.NewString()
-					Expect(writer.Set(ctx, &status.Status[any]{
+					key := uuid.New().String()
+					Expect(setStatus(ctx, &status.Status[any]{
 						Key: key, Name: "by_key_orig", Variant: status.VariantInfo,
 						Message: "old", Time: telem.Now(),
 					})).To(Succeed())
@@ -124,7 +131,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 
 					var s status.Status[any]
 					Expect(
-						svc.NewRetrieve().
+						svc.NewRetrieve[any]().
 							Where(status.MatchKeys[any](key)).
 							Entry(&s).
 							Exec(ctx, nil),
@@ -137,7 +144,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 
 			It("Should match arbitrary (non-UUID) string keys", func(ctx SpecContext) {
 				key := "by_key_plain_string"
-				Expect(writer.Set(ctx, &status.Status[any]{
+				Expect(setStatus(ctx, &status.Status[any]{
 					Key: key, Name: "by_key_plain_orig", Variant: status.VariantInfo,
 					Message: "old", Time: telem.Now(),
 				})).To(Succeed())
@@ -153,12 +160,12 @@ var _ = Describe("Dispatch", Ordered, func() {
 				"Should prefer the by-key match over a by-name match for the same input",
 				func(ctx SpecContext) {
 					shared := "shared_token"
-					Expect(writer.Set(ctx, &status.Status[any]{
+					Expect(setStatus(ctx, &status.Status[any]{
 						Key: shared, Name: "by_key_winner", Variant: status.VariantInfo,
 						Message: "key", Time: telem.Now(),
 					})).To(Succeed())
-					Expect(writer.Set(ctx, &status.Status[any]{
-						Key:     uuid.NewString(),
+					Expect(setStatus(ctx, &status.Status[any]{
+						Key:     uuid.New().String(),
 						Name:    shared,
 						Variant: status.VariantInfo,
 						Message: "name",
@@ -184,8 +191,8 @@ var _ = Describe("Dispatch", Ordered, func() {
 				"Should update in place when there is a single name match",
 				func(ctx SpecContext) {
 					name := "by_name_single"
-					existingKey := uuid.NewString()
-					Expect(writer.Set(ctx, &status.Status[any]{
+					existingKey := uuid.New().String()
+					Expect(setStatus(ctx, &status.Status[any]{
 						Key: existingKey, Name: name, Variant: status.VariantSuccess,
 						Message: "ok", Time: telem.Now(),
 					})).To(Succeed())
@@ -203,7 +210,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 
 					var s status.Status[any]
 					Expect(
-						svc.NewRetrieve().
+						svc.NewRetrieve[any]().
 							Where(status.MatchKeys[any](existingKey)).
 							Entry(&s).
 							Exec(ctx, nil),
@@ -217,13 +224,13 @@ var _ = Describe("Dispatch", Ordered, func() {
 				"Should report multipleMatches and update only the first match",
 				func(ctx SpecContext) {
 					name := "by_name_multi"
-					firstKey := uuid.NewString()
-					secondKey := uuid.NewString()
-					Expect(writer.Set(ctx, &status.Status[any]{
+					firstKey := uuid.New().String()
+					secondKey := uuid.New().String()
+					Expect(setStatus(ctx, &status.Status[any]{
 						Key: firstKey, Name: name, Variant: status.VariantInfo,
 						Message: "first", Time: telem.Now(),
 					})).To(Succeed())
-					Expect(writer.Set(ctx, &status.Status[any]{
+					Expect(setStatus(ctx, &status.Status[any]{
 						Key: secondKey, Name: name, Variant: status.VariantInfo,
 						Message: "second", Time: telem.Now(),
 					})).To(Succeed())
@@ -241,7 +248,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 
 					var rows []status.Status[any]
 					Expect(
-						svc.NewRetrieve().
+						svc.NewRetrieve[any]().
 							Where(status.MatchKeys[any](firstKey, secondKey)).
 							Entries(&rows).
 							Exec(ctx, nil),
@@ -265,8 +272,8 @@ var _ = Describe("Dispatch", Ordered, func() {
 				"Should accept an empty message on the by-name path",
 				func(ctx SpecContext) {
 					name := "by_name_empty_msg"
-					existingKey := uuid.NewString()
-					Expect(writer.Set(ctx, &status.Status[any]{
+					existingKey := uuid.New().String()
+					Expect(setStatus(ctx, &status.Status[any]{
 						Key: existingKey, Name: name, Variant: status.VariantInfo,
 						Message: "old", Time: telem.Now(),
 					})).To(Succeed())
@@ -276,7 +283,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 					Expect(gotKey).To(Equal(existingKey))
 					var s status.Status[any]
 					Expect(
-						svc.NewRetrieve().
+						svc.NewRetrieve[any]().
 							Where(status.MatchKeys[any](gotKey)).
 							Entry(&s).
 							Exec(ctx, nil),
@@ -305,7 +312,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 
 					var s status.Status[any]
 					Expect(
-						svc.NewRetrieve().
+						svc.NewRetrieve[any]().
 							Where(status.MatchKeys[any](gotKey)).
 							Entry(&s).
 							Exec(ctx, nil),
@@ -342,7 +349,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 
 					var s status.Status[any]
 					Expect(
-						svc.NewRetrieve().
+						svc.NewRetrieve[any]().
 							Where(status.MatchKeys[any](gotKey)).
 							Entry(&s).
 							Exec(ctx, nil),

@@ -397,11 +397,9 @@ var _ = Describe("txn", func() {
 				req := kv.TxRequest{
 					Context: ctx,
 					Operations: []kv.Operation{{
-						Change: xkv.Change{
-							Variant: change.VariantSet,
-							Key:     []byte("dedup-test"),
-							Value:   []byte("v1"),
-						},
+						Variant:     change.VariantSet,
+						Key:         []byte("dedup-test"),
+						Value:       []byte("v1"),
 						Version:     version.Counter(1_000_000),
 						Leaseholder: node.Key(2),
 					}},
@@ -506,6 +504,7 @@ var _ = Describe("txn", func() {
 })
 
 func waitForClusterStateToConverge(builder *kvmock.Builder) {
+	GinkgoHelper()
 	Eventually(func(g Gomega) {
 		_, err := builder.ClusterAPIs[1].Resolve(2)
 		g.Expect(err).ToNot(HaveOccurred())

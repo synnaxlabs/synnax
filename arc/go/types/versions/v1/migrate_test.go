@@ -20,6 +20,7 @@ import (
 // migrateType lifts a v0 type through MigrateParam, the package's exported
 // migration surface.
 func migrateType(ctx SpecContext, old v0.Type) v1.Type {
+	GinkgoHelper()
 	migrated := MustSucceed(v1.MigrateParam(ctx, v0.Param{Name: "p", Type: old}))
 	return migrated.Type
 }
@@ -59,12 +60,10 @@ var _ = Describe("MigrateParam", func() {
 		"Should carry function inputs and outputs while dropping the removed config",
 		func(ctx SpecContext) {
 			migrated := migrateType(ctx, v0.Type{
-				FunctionProperties: v0.FunctionProperties{
-					Inputs:  v0.Params{{Name: "in"}},
-					Outputs: v0.Params{{Name: "out"}},
-					Config:  v0.Params{{Name: "cfg"}},
-				},
-				Kind: v0.KindFunction,
+				Inputs:  v0.Params{{Name: "in"}},
+				Outputs: v0.Params{{Name: "out"}},
+				Config:  v0.Params{{Name: "cfg"}},
+				Kind:    v0.KindFunction,
 			})
 			Expect(migrated.Inputs).To(HaveLen(1))
 			Expect(migrated.Inputs[0].Name).To(Equal("in"))

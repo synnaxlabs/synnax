@@ -30,6 +30,8 @@ linters:
     revive:
       rules:
         - name: error-naming
+        - name: marshal-receiver
+        - name: use-slices-concat
         - name: var-declaration
         - name: var-naming
           arguments:
@@ -81,7 +83,10 @@ formatters:
         - pattern: "!(a == b)"
           replacement: "a != b"
     gofumpt:
-      extra-rules: true
+      extra:
+        group-params: true
+        clothe-returns: true
+        balance-calls: true
     golines:
       max-len: 88
       shorten-comments: true

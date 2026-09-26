@@ -1,5 +1,5 @@
 ---
-title: "Version 0.40 Release Notes"
+title: "Version 0.40 release notes"
 ---
 
 import { Image, Video } from "@/components/media/Media";
@@ -13,7 +13,7 @@ export const components = mdxOverrides;
 <Release
     version="0.40.0"
     date="April 1, 2025"
-    title="Driver and Embedded Control Sequence Improvements"
+    title="Driver and embedded control sequence improvements"
 >
 
 Synnax v0.40.0 is a maintenance release that introduces no breaking changes, improves
@@ -22,7 +22,7 @@ sequences.
 
 <Divider.Divider x />
 
-### Driver Clock Skew Improvements
+### Driver clock skew improvements
 
 Our refactor of the Driver in Synnax v0.39 made several major improvements, and,
 unfortunately, introduced a few performance issues related to task timing. In this
@@ -32,7 +32,7 @@ for timing offsets in hardware timed tasks.
 
 <Divider.Divider x />
 
-### Warnings on Slow Data Acquisition Tasks
+### Warnings on slow data acquisition tasks
 
 In previous versions of Synnax, tasks that were set at too high of a stream rate would
 silently fall behind drop data samples. This release introduces a new warning mechanisms
@@ -41,14 +41,14 @@ when Synnax cannot keep up with the requested stream rate.
 
 <Divider.Divider x />
 
-### Improved Device Disconnection Retry
+### Improved device disconnection retry
 
 We've improved the device disconnection retry mechanisms for NI, LabJack, and OPC UA to
 better handle unexpected cable disconnections and loss of power.
 
 <Divider.Divider x />
 
-### Cleaner Transfer of Devices Across Drivers
+### Cleaner transfer of devices across drivers
 
 We've implemented a smoother mechanisms for moving data acquisition modules across
 Drivers, ensuring that existing tasks on a device are correctly transferred and started
@@ -56,19 +56,20 @@ on new Drivers.
 
 <Divider.Divider x />
 
-### Other Improvements
+### Other improvements
 
 - It's now possible to change the identifier of a device after configuring it.
 - Added the location of a device to the device drop-down list selectors.
 
 <Divider.Divider x />
 
-### Bug Fixes
+### Bug fixes
 
 - Fixed the location of the cursor in the embedded control sequence editor on Windows.
 - Fixed an issue where dragging and dropping windows outside of the Console would be
   slow to open.
-- Added the [`set_authority`](/reference/control/embedded/reference#control-authority)
+- Added the
+  [`control.set_authority`](/reference/control/arc/reference/standard-library/control#set_authority)
   method to the embedded control sequence editor code completion.
 
 </Release>

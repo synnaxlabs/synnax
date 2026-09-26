@@ -24,6 +24,7 @@ import { Core } from "@/session/core";
 import { Haul } from "@/session/haul";
 import { Legacy } from "@/session/legacy";
 import { LinePlot } from "@/session/lineplot";
+import { Link } from "@/session/link";
 import { Log } from "@/session/log";
 import { Nav } from "@/session/nav";
 import { Panel } from "@/session/panel";
@@ -72,7 +73,7 @@ const PERSIST_SCOPES: Persist.Scopes<State> = {
     [Schematic.SLICE_NAME]: Schematic.sliceStateZ,
     [Table.SLICE_NAME]: Table.sliceStateZ,
   },
-  transient: [Haul.SLICE_NAME, Persist.SLICE_NAME],
+  transient: [Haul.SLICE_NAME, Link.SLICE_NAME, Persist.SLICE_NAME],
 };
 
 // Drift keys its windows by label; the key each label maps to is what the window-keyed
@@ -101,6 +102,7 @@ export const ZERO_STATE: State = {
   [Panel.SLICE_NAME]: Panel.ZERO_SLICE_STATE,
   [Log.SLICE_NAME]: Log.ZERO_SLICE_STATE,
   [LinePlot.SLICE_NAME]: LinePlot.ZERO_SLICE_STATE,
+  [Link.SLICE_NAME]: Link.ZERO_SLICE_STATE,
   [Persist.SLICE_NAME]: Persist.ZERO_SLICE_STATE,
   [Project.SLICE_NAME]: Project.ZERO_SLICE_STATE,
   [Range.SLICE_NAME]: Range.ZERO_SLICE_STATE,
@@ -120,6 +122,7 @@ const combinedReducer = combineReducers({
   [Panel.SLICE_NAME]: Panel.reducer,
   [Log.SLICE_NAME]: Log.reducer,
   [LinePlot.SLICE_NAME]: LinePlot.reducer,
+  [Link.SLICE_NAME]: Link.reducer,
   [Persist.SLICE_NAME]: Persist.reducer,
   [Project.SLICE_NAME]: Project.reducer,
   [Range.SLICE_NAME]: Range.reducer,
@@ -150,6 +153,7 @@ export interface State {
   [Haul.SLICE_NAME]: Haul.SliceState;
   [Log.SLICE_NAME]: Log.SliceState;
   [LinePlot.SLICE_NAME]: LinePlot.SliceState;
+  [Link.SLICE_NAME]: Link.SliceState;
   [Persist.SLICE_NAME]: Persist.SliceState;
   [Project.SLICE_NAME]: Project.SliceState;
   [Nav.SLICE_NAME]: Nav.SliceState;
@@ -169,6 +173,7 @@ export type Action =
   | Haul.Action
   | Log.Action
   | LinePlot.Action
+  | Link.Action
   | Nav.Action
   | Panel.Action
   | Project.Action

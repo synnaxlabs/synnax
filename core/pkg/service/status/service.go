@@ -11,8 +11,8 @@ package status
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -72,11 +72,11 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements config.Config
 func (c ServiceConfig) Validate() error {
 	v := validate.New("service.status")
-	validate.NotNil(v, "db", c.DB)
-	validate.NotNil(v, "ontology", c.Ontology)
-	validate.NotNil(v, "group", c.Group)
-	validate.NotNil(v, "label", c.Label)
-	validate.NotNil(v, "search", c.Search)
+	v.NotNil("db", c.DB)
+	v.NotNil("ontology", c.Ontology)
+	v.NotNil("group", c.Group)
+	v.NotNil("label", c.Label)
+	v.NotNil("search", c.Search)
 	return v.Error()
 }
 
@@ -133,14 +133,6 @@ func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Status[any]]] 
 	return s.table.Observe()
 }
 
-// NewWriter opens a new Writer to create, update, and delete statuses. If tx is not
-// nil, the writer will use it to execute all operations. If tx is nil, the writer will
-// execute all operations directly against the underlying gorp.DB.
-func (s *Service) NewWriter(tx gorp.Tx) Writer[any] { return NewWriter[any](s, tx) }
-
-// NewRetrieve opens a new Retrieve query to fetch statuses from the database.
-func (s *Service) NewRetrieve() Retrieve[any] { return NewRetrieve[any](s) }
-
 // ResolveKeyOrName returns all statuses matching keyOrName, preferring an exact key
 // match over name matches. Read-only; callers enforce access on and write the result.
 func (s *Service) ResolveKeyOrName(
@@ -153,7 +145,9 @@ func (s *Service) ResolveKeyOrName(
 	}
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	var st Status[any]
-	err := s.NewRetrieve().Where(MatchKeys[any](keyOrName)).Entry(&st).Exec(ctx, tx)
+	err := s.NewRetrieve[any]().Where(MatchKeys[any](keyOrName)).
+		Entry(&st).
+		Exec(ctx, tx)
 	if err == nil {
 		return []Status[any]{st}, nil
 	}
@@ -161,7 +155,7 @@ func (s *Service) ResolveKeyOrName(
 		return nil, err
 	}
 	var matches []Status[any]
-	if err = s.NewRetrieve().
+	if err = s.NewRetrieve[any]().
 		Where(MatchNames[any](keyOrName)).
 		Entries(&matches).
 		Exec(ctx, tx); err != nil {
@@ -174,7 +168,7 @@ func (s *Service) ResolveKeyOrName(
 // new UUID-keyed status named keyOrName when nothing matched, with the new fields
 // applied.
 func SetTarget(matches []Status[any], keyOrName, message, variant string) Status[any] {
-	st := Status[any]{Key: uuid.NewString(), Name: keyOrName}
+	st := Status[any]{Key: uuid.New().String(), Name: keyOrName}
 	if len(matches) > 0 {
 		st = matches[0]
 	}
@@ -213,16 +207,22 @@ func (s *Service) SetByKeyOrName(
 	return key, multipleMatches, nil
 }
 
-func NewWriter[D any](s *Service, tx gorp.Tx) Writer[D] {
-	return Writer[D]{
-		tx:        gorp.OverrideTx(s.cfg.DB, tx),
-		otg:       s.cfg.Ontology,
+// NewWriter opens a Writer for statuses. Pass a nil tx to write directly against the
+// service's DB. A status write spans the entry and its ontology resource, so the two
+// land together only when tx does.
+func (s *Service) NewWriter(tx gorp.Tx) Writer {
+	tx = gorp.OverrideTx(s.cfg.DB, tx)
+	return Writer{
+		tx:        tx,
+		table:     s.table,
 		otgWriter: s.cfg.Ontology.NewWriter(tx),
+		otg:       s.cfg.Ontology,
 		group:     s.group,
 	}
 }
 
-func NewRetrieve[D any](s *Service) Retrieve[D] {
+// NewRetrieve opens a Retrieve query for statuses whose details are of type D.
+func (s *Service) NewRetrieve[D any]() Retrieve[D] {
 	return Retrieve[D]{
 		gorp:   gorp.NewRetrieve[Key, Status[D]](),
 		baseTX: s.cfg.DB,

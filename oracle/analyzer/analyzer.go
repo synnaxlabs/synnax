@@ -528,6 +528,7 @@ func finalizeEnumExtensions(c *analysisCtx) {
 		if !ok {
 			continue
 		}
+		form.Declared = form.Values
 		form.Values = merged
 		form.IsIntEnum = isInt
 		typ.Form = form
@@ -657,7 +658,8 @@ func effectiveEnumValues(
 // followed by the union's own declared variants. Extends targets that are structs keep
 // the shared-base-field semantics and are left untouched; mixing the two in one
 // declaration is an error. The table is mutated in place so downstream plugins read a
-// plain, fully populated union.
+// plain, fully populated union; the union bases move to Included, where a renderer
+// reading the table back finds the declared form.
 func finalizeUnionExtensions(c *analysisCtx) {
 	for _, typ := range c.table.TypesInNamespace(c.namespace) {
 		form, ok := typ.Form.(resolution.UnionForm)
@@ -671,8 +673,9 @@ func finalizeUnionExtensions(c *analysisCtx) {
 		if !ok {
 			continue
 		}
+		form.Declared = form.Variants
 		form.Variants = merged
-		form.Extends = nil
+		form.Included, form.Extends = form.Extends, nil
 		typ.Form = form
 		for i, t := range c.table.Types {
 			if t.QualifiedName == typ.QualifiedName {
@@ -972,8 +975,10 @@ func collectTypeParams(params parser.ITypeParamsContext) []resolution.TypeParam 
 	}
 	var result []resolution.TypeParam
 	for _, p := range params.AllTypeParam() {
-		tp := resolution.TypeParam{Name: p.IDENT().GetText()}
-		tp.Optional = p.QUESTION() != nil
+		tp := resolution.TypeParam{
+			Name:     p.IDENT().GetText(),
+			Optional: p.QUESTION() != nil,
+		}
 		typeRefs := p.AllTypeRef()
 		hasExtends := p.EXTENDS() != nil
 		hasEquals := p.EQUALS() != nil
@@ -1797,6 +1802,10 @@ func validateExtends(c *analysisCtx, typ resolution.Type) {
 		return
 	}
 
+	reportInheritedFieldConflicts(
+		c, "struct "+typ.Name, form.Extends, set.New(form.OmittedFields...),
+	)
+
 	// A synthetic union-variant payload may omit a field the union's bases
 	// contribute, and those bases are not visible here. validateUnion checks it.
 	if typ.Synthetic {
@@ -1818,6 +1827,48 @@ func validateExtends(c *analysisCtx, typ resolution.Type) {
 				"cannot omit field %q: not found in any parent struct",
 				omitted)
 			c.report(d)
+		}
+	}
+}
+
+// reportInheritedFieldConflicts reports every field name that two of the parents
+// contribute. Parents unify left to right, so a shared name silently takes the leftmost
+// parent's field and drops the other, even when both parents inherit the name from one
+// ancestor. Names in omitted never reach the child.
+func reportInheritedFieldConflicts(
+	c *analysisCtx,
+	subject string,
+	extends []resolution.TypeRef,
+	omitted set.Set[string],
+) {
+	if len(extends) < 2 {
+		return
+	}
+	inheritedFrom := make(map[string]string)
+	for _, ext := range extends {
+		parent, ok := ext.Resolve(c.table)
+		if !ok {
+			continue
+		}
+		if _, isStruct := parent.Form.(resolution.StructForm); !isStruct {
+			continue
+		}
+		for _, f := range resolution.UnifiedFields(parent, c.table) {
+			if omitted.Contains(f.Name) {
+				continue
+			}
+			if first, seen := inheritedFrom[f.Name]; seen {
+				c.report(diagnostics.Errorf(
+					nil,
+					"%s inherits field %q from both %s and %s",
+					subject,
+					f.Name,
+					first,
+					parent.Name,
+				))
+				continue
+			}
+			inheritedFrom[f.Name] = parent.Name
 		}
 	}
 }
@@ -1866,6 +1917,7 @@ func validateActionExtends(c *analysisCtx, typ resolution.Type) {
 				c.report(d)
 			}
 		}
+		reportInheritedFieldConflicts(c, "action "+action.Name, action.Extends, nil)
 	}
 }
 
@@ -1987,6 +2039,7 @@ func validateTypeParams(c *analysisCtx, typ resolution.Type) {
 //   - At least one variant is declared.
 //   - Variant names (the JSON discriminator string values) are unique.
 //   - Each Extends target resolves to a struct type.
+//   - No two base structs contribute the same field name.
 //   - Each variant references a struct type.
 //   - Neither the base structs nor the variant structs redeclare the
 //     discriminator field; the union declaration owns it exclusively.
@@ -2047,6 +2100,7 @@ func validateUnion(c *analysisCtx, typ resolution.Type) {
 			baseFields.Add(f.Name)
 		}
 	}
+	reportInheritedFieldConflicts(c, "union "+typ.Name, form.Extends, nil)
 
 	if baseFields.Contains(form.Discriminator) {
 		d := diagnostics.Errorf(

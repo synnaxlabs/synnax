@@ -10,7 +10,8 @@
 package versions_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
@@ -96,7 +97,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 	})
 
 	It("Should drop the key on the wire", func(ctx SpecContext) {
-		Expect(decode(ctx, "testdata/import_v5.json").Key).To(Equal(uuid.Nil))
+		Expect(decode(ctx, "testdata/import_v5.json").Key).To(Equal(uuid.Nil()))
 	})
 
 	It("Should take the name from the envelope header", func(ctx SpecContext) {
@@ -113,6 +114,12 @@ var _ = Describe("DecodeImExEnvelope", func() {
 			MatchError(ContainSubstring("lineplot version 99")),
 			MatchError(ContainSubstring("newer than this Core supports")),
 		))
+	})
+
+	It("Should reject a v5 envelope with a mistyped body", func(ctx SpecContext) {
+		Expect(versions.DecodeImExEnvelope(
+			ctx, LoadEnvelope("testdata/import_v5_bad_body.json"),
+		)).Error().To(MatchError(ContainSubstring("decode envelope body")))
 	})
 
 	It("Should reject a body carrying no line plot structure", func(ctx SpecContext) {

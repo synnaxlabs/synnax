@@ -486,6 +486,54 @@ describe("queries", () => {
     });
   });
 
+  // Other consumers write untyped tasks into the client cache. A typed hook must parse
+  // them, or a field the schema defaults and the Core does not store reads undefined.
+  describe("untyped tasks in the cache", () => {
+    const schemas = {
+      type: z.literal("pagerduty_alert"),
+      config: z.object({
+        routingKey: z.string(),
+        autoStart: z.boolean(),
+        severity: z.string().default("critical"),
+      }),
+      statusData: z.any().optional(),
+    };
+    const createUntyped = async () => {
+      const rack = await client.racks.create({ name: "untypedRack" });
+      const created = await rack.createTask({
+        name: "untyped_task",
+        type: "pagerduty_alert",
+        config: { routingKey: "rk-untyped", autoStart: true },
+      });
+      await client.tasks.retrieve(created.key);
+      return created;
+    };
+
+    it("should fill schema defaults on a task cached untyped", async () => {
+      const created = await createUntyped();
+      const { use } = Task.createRetrieve(schemas);
+      const { result } = await renderHookSuspended(() => use({ key: created.key }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current?.config.severity).toBe("critical"));
+      expect(result.current?.config.routingKey).toBe("rk-untyped");
+    });
+
+    it("should keep schema defaults across an untyped streamed update", async () => {
+      const created = await createUntyped();
+      const { use } = Task.createRetrieve(schemas);
+      const { result } = await renderHookSuspended(() => use({ key: created.key }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current?.config.severity).toBe("critical"));
+      await act(async () => {
+        await client.tasks.rename(created.key, "renamed_task");
+      });
+      await waitFor(() => expect(result.current?.name).toBe("renamed_task"));
+      expect(result.current?.config.severity).toBe("critical");
+    });
+  });
+
   describe("useCreateSnapshot", () => {
     it("should create a snapshot of a single task", async () => {
       const rack = await client.racks.create({
@@ -1261,6 +1309,68 @@ describe("queries", () => {
       });
       expect(result.current.form.get("status").touched).toBe(false);
       expect(result.current.form.get("name").touched).toBe(false);
+    });
+
+    it("should not write the status back to the core on save", async () => {
+      const testTask = await testRack.createTask({
+        name: "statusClobberTask",
+        type: "pagerduty_alert",
+        config: { routingKey: "initial" },
+      });
+      const stale = (
+        await client.tasks.retrieve({ key: testTask.key, includeStatus: true })
+      ).status;
+
+      const useForm = Task.createForm({
+        schemas: {
+          type: z.literal("pagerduty_alert"),
+          config: z.object({ routingKey: z.string() }),
+          statusData: z.any().optional(),
+        },
+        initialValues: {
+          key: testTask.key,
+          rack: testRack.key,
+          name: "statusClobberTask",
+          type: "pagerduty_alert",
+          config: { routingKey: "initial" },
+          status: stale,
+        },
+      });
+
+      // No query means no listener, so the form keeps the status it started with,
+      // the way a live form does while a newer status is still in flight to it.
+      const { result } = renderHook(() => useForm({ query: null }), { wrapper });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+
+      const reported: task.Status = status.create<task.StatusDetailsZodObject>({
+        key: task.statusKey(testTask.key),
+        variant: "success",
+        message: "Task started successfully",
+        details: {
+          task: testTask.key,
+          running: true,
+          cmd: "",
+          configHash: "",
+          rack: testRack.key,
+        },
+      });
+      await client.statuses.set(reported);
+
+      act(() => {
+        result.current.form.set("config.routingKey", "edited");
+      });
+      await act(async () => {
+        result.current.save();
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+
+      const saved = await client.tasks.retrieve({
+        key: testTask.key,
+        includeStatus: true,
+      });
+      expect(saved.config).toMatchObject({ routingKey: "edited" });
+      expect(saved.status?.message).toEqual("Task started successfully");
+      expect(saved.status?.details.running).toBe(true);
     });
 
     it("should not mark form as touched when task metadata updates from server listener", async () => {

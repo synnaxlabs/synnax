@@ -10,7 +10,8 @@
 package panel_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -28,18 +29,12 @@ func tabResource(key uuid.UUID) ontology.ID {
 // tab constructs a resource Tab with a fixed UUID and a key-derived resource. Tests
 // use the UUID directly to assert on tab identity.
 func tab(key uuid.UUID) panel.Tab {
-	return panel.Tab{Variant: panel.ResourceTab{
-		TabBase:  panel.TabBase{Key: key},
-		Resource: tabResource(key),
-	}}
+	return panel.Tab{Variant: panel.ResourceTab{Key: key, Resource: tabResource(key)}}
 }
 
 // viewTab constructs a view Tab with a fixed UUID and an inline view of the given type.
 func viewTab(key uuid.UUID, viewType string) panel.Tab {
-	return panel.Tab{Variant: panel.ViewTab{
-		TabBase: panel.TabBase{Key: key},
-		View:    panel.View{Type: viewType},
-	}}
+	return panel.Tab{Variant: panel.ViewTab{Key: key, Type: viewType}}
 }
 
 // leafNode wraps a tab list as a leaf node.
@@ -260,7 +255,7 @@ var _ = Describe("Actions", func() {
 				Expect(tabKeys(split.Last)).To(Equal([]uuid.UUID{tab2}))
 				refreshed := MustBeOk(tabByKey(next.Root, tab2))
 				Expect(refreshed.Variant).To(Equal(panel.ResourceTab{
-					TabBase:  panel.TabBase{Key: tab2},
+					Key:      tab2,
 					Resource: tabResource(tab2),
 				}))
 			},
@@ -277,7 +272,7 @@ var _ = Describe("Actions", func() {
 		It("Should be a no-op when the resource already backs a different tab", func() {
 			p := panel.Panel{Root: leafNode(tab(tab1), tab(tab2))}
 			duplicate := panel.Tab{Variant: panel.ResourceTab{
-				TabBase:  panel.TabBase{Key: tab3},
+				Key:      tab3,
 				Resource: tabResource(tab1),
 			}}
 			next := MustSucceed(panel.InsertTabsPayload{
@@ -291,7 +286,7 @@ var _ = Describe("Actions", func() {
 			func() {
 				p := panel.Panel{Root: leafNode(tab(tab1), tab(tab2))}
 				duplicate := panel.Tab{Variant: panel.ResourceTab{
-					TabBase:  panel.TabBase{Key: tab3},
+					Key:      tab3,
 					Resource: tabResource(tab1),
 				}}
 				next := MustSucceed(panel.InsertTabsPayload{
@@ -371,7 +366,7 @@ var _ = Describe("Actions", func() {
 				Expect(tabKeys(split.Last)).To(Equal([]uuid.UUID{tab2}))
 				refreshed := MustBeOk(tabByKey(next.Root, tab2))
 				Expect(refreshed.Variant).To(Equal(panel.ResourceTab{
-					TabBase:  panel.TabBase{Key: tab2},
+					Key:      tab2,
 					Resource: tabResource(tab2),
 				}))
 			},
@@ -528,7 +523,7 @@ var _ = Describe("Actions", func() {
 			It("Should skip a duplicate and still land the rest of the batch", func() {
 				p := panel.Panel{Root: leafNode(tab(tab1))}
 				duplicate := panel.Tab{Variant: panel.ResourceTab{
-					TabBase:  panel.TabBase{Key: tab3},
+					Key:      tab3,
 					Resource: tabResource(tab1),
 				}}
 				next := MustSucceed(panel.InsertTabsPayload{
@@ -542,7 +537,7 @@ var _ = Describe("Actions", func() {
 				func() {
 					p := panel.Panel{Root: leafNode()}
 					repeat := panel.Tab{Variant: panel.ResourceTab{
-						TabBase:  panel.TabBase{Key: tab3},
+						Key:      tab3,
 						Resource: tabResource(tab2),
 					}}
 					next := MustSucceed(panel.InsertTabsPayload{
@@ -571,11 +566,11 @@ var _ = Describe("Actions", func() {
 				func() {
 					p := panel.Panel{Root: leafNode(tab(tab1), tab(tab2))}
 					dup1 := panel.Tab{Variant: panel.ResourceTab{
-						TabBase:  panel.TabBase{Key: tab3},
+						Key:      tab3,
 						Resource: tabResource(tab1),
 					}}
 					dup2 := panel.Tab{Variant: panel.ResourceTab{
-						TabBase:  panel.TabBase{Key: uuid.New()},
+						Key:      uuid.New(),
 						Resource: tabResource(tab2),
 					}}
 					next := MustSucceed(panel.InsertTabsPayload{
@@ -592,7 +587,7 @@ var _ = Describe("Actions", func() {
 				func() {
 					p := panel.Panel{Root: leafNode(tab(tab1))}
 					duplicate := panel.Tab{Variant: panel.ResourceTab{
-						TabBase:  panel.TabBase{Key: tab3},
+						Key:      tab3,
 						Resource: tabResource(tab1),
 					}}
 					next := MustSucceed(panel.InsertTabsPayload{
@@ -959,7 +954,7 @@ var _ = Describe("Actions", func() {
 			)
 			leaf := MustBeOk(asLeaf(next.Root))
 			Expect(leaf.Tabs[0]).To(Equal(panel.Tab{Variant: panel.ResourceTab{
-				TabBase:  panel.TabBase{Key: tab1},
+				Key:      tab1,
 				Resource: tabResource(tab2),
 			}}))
 		})
@@ -979,7 +974,7 @@ var _ = Describe("Actions", func() {
 				Expect(tabKeys(next.Root)).To(Equal([]uuid.UUID{tab1}))
 				refreshed := MustBeOk(tabByKey(next.Root, tab1))
 				Expect(refreshed.Variant).To(Equal(panel.ResourceTab{
-					TabBase:  panel.TabBase{Key: tab1},
+					Key:      tab1,
 					Resource: tabResource(tab3),
 				}))
 			},
@@ -1020,8 +1015,8 @@ var _ = Describe("Actions", func() {
 			)
 			leaf := MustBeOk(asLeaf(next.Root))
 			Expect(leaf.Tabs[0]).To(Equal(panel.Tab{Variant: panel.ViewTab{
-				TabBase: panel.TabBase{Key: tab1},
-				View:    view,
+				Key:  tab1,
+				View: view,
 			}}))
 		})
 

@@ -52,23 +52,23 @@ type Device struct {
 	Configured bool `json:"configured" msgpack:"configured"`
 	// Properties contains device-specific configuration properties stored as JSON.
 	// Structure varies by device make and model.
-	Properties msgpack.EncodedJSON `json:"properties,omitzero" msgpack:"properties,omitzero"`
+	Properties msgpack.EncodedJSON `json:"properties" msgpack:"properties"`
 	// Status is the current operational status of the device.
-	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
+	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
 	// Parent is an optional parent resource ID for hierarchical device organization
 	// (e.g., NI chassis containing modules).
-	Parent *ontology.ID `json:"parent,omitempty" msgpack:"parent,omitempty"`
+	Parent *ontology.ID `json:"parent,omitzero" msgpack:"parent,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (d Device) Validate() error {
 	v := validate.New("Device")
-	validate.NonZero(v, "rack", d.Rack)
-	validate.NotEmptyString(v, "location", d.Location)
-	validate.NotEmptyString(v, "make", d.Make)
-	validate.NotEmptyString(v, "model", d.Model)
-	validate.NotEmptyString(v, "name", d.Name)
+	v.NonZero("rack", d.Rack)
+	v.NotEmptyString("location", d.Location)
+	v.NotEmptyString("make", d.Make)
+	v.NotEmptyString("model", d.Model)
+	v.NotEmptyString("name", d.Name)
 	if d.Parent != nil {
 		v.Exec(func() error { return validate.PathedError(d.Parent.Validate(), "parent") })
 	}

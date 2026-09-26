@@ -11,13 +11,14 @@ package versions
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v0"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v7"
 	v8 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v8"
+	v9 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v9"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
@@ -35,7 +36,7 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 		// The v0.56 Console export: the typed schematic it retrieved from the Core,
 		// written back out in camelCase under the Console's own version stamp.
 		var body msgpack.EncodedJSON
-		if body, err = imex.Decode[msgpack.EncodedJSON](ctx, env); err != nil {
+		if body, err = env.Decode[msgpack.EncodedJSON](ctx); err != nil {
 			break
 		}
 		if err = imex.RequireFields(
@@ -44,14 +45,14 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 			break
 		}
 		var doc legacy.Export
-		if doc, err = imex.Decode[legacy.Export](ctx, env); err == nil {
-			sch, err = v8.MigrateSchematic(ctx, v7.SchematicFromConsole(doc))
+		if doc, err = env.Decode[legacy.Export](ctx); err == nil {
+			sch, err = importFromV7(ctx, v7.SchematicFromConsole(doc))
 		}
 	default:
 		// Console states embed the document inline: ride the storage lift, which
 		// dispatches on the version stamped inside the body.
 		var body msgpack.EncodedJSON
-		if body, err = imex.Decode[msgpack.EncodedJSON](ctx, env); err != nil {
+		if body, err = env.Decode[msgpack.EncodedJSON](ctx); err != nil {
 			break
 		}
 		if err = imex.RequireFields(
@@ -66,17 +67,31 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 		}); err != nil {
 			break
 		}
-		sch, err = v8.MigrateSchematic(ctx, s7)
+		sch, err = importFromV7(ctx, s7)
 	}
 	if err != nil {
 		return Schematic{}, err
 	}
 	// Importing always materializes a new resource, so any key on the wire is dropped
 	// and the importer mints a fresh one.
-	sch.Key = uuid.Nil
+	sch.Key = uuid.Nil()
 	// The header is the resolved name: the body's name when present, or the file-name
 	// fallback the imex service applies. Console-era decodes drop it, so it is stamped
 	// here for every path.
 	sch.Name = env.Name
+	// The newest-format arm decodes straight into the current shape, so it is the one
+	// path that has not already filled defaults through a migration step.
+	sch.ApplyDefaults()
 	return sch, nil
+}
+
+// importFromV7 lifts a Console-era schematic through the storage chain into the current
+// shape. It rejects the whole schematic when the element config union does not accept
+// every config, so an import never silently drops one.
+func importFromV7(ctx context.Context, old v7.Schematic) (Schematic, error) {
+	s8, err := v8.MigrateSchematic(ctx, old)
+	if err != nil {
+		return Schematic{}, err
+	}
+	return v9.ImportSchematic(ctx, s8)
 }

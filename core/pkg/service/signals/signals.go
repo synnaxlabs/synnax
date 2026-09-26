@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -35,6 +36,10 @@ type Provider struct{ cfg Config }
 
 // Config is the configuration for opening the core Signals Provider.
 type Config struct {
+	// DB opens the transactions that channel writes run in.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
 	// Channel is the service used for retrieving and creating free channels.
 	//
 	// [REQUIRED]
@@ -55,13 +60,15 @@ var _ config.Config[Config] = Config{}
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("signals")
-	validate.NotNil(v, "channel", c.Channel)
-	validate.NotNil(v, "framer", c.Framer)
+	v.NotNil("db", c.DB)
+	v.NotNil("channel", c.Channel)
+	v.NotNil("framer", c.Framer)
 	return v.Error()
 }
 
 // Override implements config.Config.
 func (c Config) Override(other Config) Config {
+	c.DB = override.Nil(c.DB, other.DB)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)

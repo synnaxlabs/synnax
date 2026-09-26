@@ -10,8 +10,6 @@
 package plumber
 
 import (
-	"go/types"
-
 	"github.com/synnaxlabs/x/address"
 	cfs "github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
@@ -28,14 +26,14 @@ type Segment[I, O cfs.Value] struct {
 
 func (s *Segment[I, O]) constructEndpointRoutes() {
 	for _, addr := range s.RouteInletsTo {
-		sink, err := GetSink[I](s.Pipeline, addr)
+		sink, err := s.GetSink[I](addr)
 		if err != nil {
 			panic(err)
 		}
 		sink.InFrom(s.In)
 	}
 	for _, addr := range s.RouteOutletsFrom {
-		source, err := GetSource[O](s.Pipeline, addr)
+		source, err := s.GetSource[O](addr)
 		if err != nil {
 			panic(err)
 		}
@@ -46,7 +44,7 @@ func (s *Segment[I, O]) constructEndpointRoutes() {
 func (s *Segment[I, O]) RouteInletTo(targets ...address.Address) error {
 	s.RouteInletsTo = targets
 	for _, addr := range s.RouteInletsTo {
-		if _, err := GetSink[I](s.Pipeline, addr); err != nil {
+		if _, err := s.GetSink[I](addr); err != nil {
 			return err
 		}
 	}
@@ -56,7 +54,7 @@ func (s *Segment[I, O]) RouteInletTo(targets ...address.Address) error {
 func (s *Segment[I, O]) RouteOutletFrom(targets ...address.Address) error {
 	s.RouteOutletsFrom = targets
 	for _, addr := range targets {
-		if _, err := GetSource[O](s.Pipeline, addr); err != nil {
+		if _, err := s.GetSource[O](addr); err != nil {
 			return err
 		}
 	}
@@ -100,8 +98,7 @@ func New() *Pipeline {
 	}
 }
 
-func SetSource[V cfs.Value](
-	p *Pipeline,
+func (p *Pipeline) SetSource[V cfs.Value](
 	addr address.Address,
 	source cfs.Source[V],
 	opts ...cfs.Option,
@@ -109,18 +106,16 @@ func SetSource[V cfs.Value](
 	p.Sources[addr] = entry{flow: source, options: opts}
 }
 
-func SetSegment[I, O cfs.Value](
-	p *Pipeline,
+func (p *Pipeline) SetSegment[I, O cfs.Value](
 	addr address.Address,
 	segment cfs.Segment[I, O],
 	opts ...cfs.Option,
 ) {
-	SetSink(p, addr, segment, opts...)
-	SetSource(p, addr, segment, opts...)
+	p.SetSink(addr, segment, opts...)
+	p.SetSource(addr, segment, opts...)
 }
 
-func SetSink[V cfs.Value](
-	p *Pipeline,
+func (p *Pipeline) SetSink[V cfs.Value](
 	addr address.Address,
 	sink cfs.Sink[V],
 	opts ...cfs.Option,
@@ -128,26 +123,26 @@ func SetSink[V cfs.Value](
 	p.Sinks[addr] = entry{flow: sink, options: opts}
 }
 
-func GetSource[V cfs.Value](p *Pipeline, addr address.Address) (cfs.Source[V], error) {
+func (p *Pipeline) GetSource[V cfs.Value](addr address.Address) (cfs.Source[V], error) {
 	rs, ok := p.Sources[addr]
 	if !ok {
 		return nil, notFound(addr)
 	}
 	s, ok := rs.flow.(cfs.Source[V])
 	if !ok {
-		return nil, wrongType[types.Nil, V](addr, rs.flow)
+		return nil, wrongType[struct{}, V](addr, rs.flow)
 	}
 	return s, nil
 }
 
-func GetSink[V cfs.Value](p *Pipeline, addr address.Address) (cfs.Sink[V], error) {
+func (p *Pipeline) GetSink[V cfs.Value](addr address.Address) (cfs.Sink[V], error) {
 	rs, ok := p.Sinks[addr]
 	if !ok {
 		return nil, notFound(addr)
 	}
 	s, ok := rs.flow.(cfs.Sink[V])
 	if !ok {
-		return nil, wrongType[V, types.Nil](addr, rs.flow)
+		return nil, wrongType[V, struct{}](addr, rs.flow)
 	}
 	return s, nil
 }

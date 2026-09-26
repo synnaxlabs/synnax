@@ -1,10 +1,10 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Auto-Index"
+title: "Auto-index"
 description: "Let Synnax generate timestamps for you when writing data."
-next: "Write Authorities"
+next: "Write authorities"
 nextURL: "/reference/client/advanced/write-authorities"
-prev: "Auto-Commit"
+prev: "Auto-commit"
 prevURL: "/reference/client/advanced/auto-commit"
 clients: ["python", "typescript"]
 ---
@@ -22,7 +22,7 @@ is enabled, Synnax generates those timestamps for you. This is useful when the e
 time of each sample doesn't matter and you'd rather have Synnax stamp the data when it
 arrives.
 
-## How It Works
+## How it works
 
 When <Client.Var client:load py="auto_index" ts="autoIndex" /> is set to
 
@@ -43,7 +43,7 @@ adds the index channel to the writer for you so it can stamp the data.
 
 <Divider.Divider x />
 
-## Writing Without an Index Channel
+## Writing without an index channel
 
 The simplest case is opening a writer with only a data channel and letting Synnax stamp
 every sample. The Python client requires a `start` argument, but it's just a placeholder
@@ -88,7 +88,7 @@ try {
 
 <Divider.Divider x />
 
-## Mixing Generated and User-Provided Timestamps
+## Mixing generated and user-provided timestamps
 
 You can open a writer with both index and data channels and choose, per write call,
 whether to provide your own timestamps or let Synnax generate them. Any write that omits
@@ -141,7 +141,7 @@ try {
 
 <Divider.Divider x />
 
-## When to Use Auto-Index
+## When to use auto-index
 
 Auto-index is a good fit when:
 

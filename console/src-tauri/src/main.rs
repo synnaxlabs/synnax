@@ -26,7 +26,7 @@ use std::time::Duration;
 #[cfg(target_os = "macos")]
 use tauri::Emitter;
 
-use tauri::Window;
+use tauri::{Manager, Window};
 
 use tauri_plugin_prevent_default::KeyboardShortcut;
 use tauri_plugin_prevent_default::ModifierKey::MetaKey;
@@ -104,7 +104,13 @@ fn main() {
             _ => (),
         })
         .plugin(prevent)
-        .plugin(tauri_plugin_single_instance::init(|_app, _argv, _cwd| {}))
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            if let Some(win) = app.get_webview_window("main") {
+                let _ = win.unminimize();
+                let _ = win.show();
+                let _ = win.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_store::Builder::default().build())

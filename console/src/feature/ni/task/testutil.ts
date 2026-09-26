@@ -17,6 +17,7 @@ import { expect } from "vitest";
 import * as Device from "@/feature/ni/device/types";
 import { type Task } from "@/platform/task";
 import {
+  awaitEditableForm,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
   type RenderTaskFormTabResult,
@@ -66,7 +67,8 @@ export interface RenderNITaskFormResult extends RenderTaskFormTabResult {
 /**
  * Renders a wrapped NI task form the way the task panel does (via renderTaskFormTab)
  * with a status capture mounted alongside it, so specs can assert on notifications
- * raised by the deploy flow.
+ * raised by the deploy flow. Resolves once the form is editable, so field queries
+ * cannot land in the preview window.
  */
 export const renderNITaskForm = async (
   Form: FC<Task.FormTabProps>,
@@ -80,6 +82,7 @@ export const renderNITaskForm = async (
       statuses.push(...next);
     },
   });
+  await awaitEditableForm();
   return { ...result, statuses };
 };
 

@@ -11,8 +11,8 @@ package v1_test
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
@@ -27,6 +27,7 @@ import (
 
 var _ = Describe("v0 -> v1 Range migration", func() {
 	migrateColors := func(ctx SpecContext, seeds ...v0.Range) map[v1.Key]v1.Range {
+		GinkgoHelper()
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Range]{DB: db}))
 		for i := range seeds {

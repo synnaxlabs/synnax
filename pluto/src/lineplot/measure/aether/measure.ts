@@ -543,7 +543,7 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
       text: measureModeText(this.state.mode),
       position,
       level: "small",
-      align: "middle",
+      align: "center",
       justify: "center",
     });
   }

@@ -69,13 +69,13 @@ class AccessClient(ResourceClient):
         )
 
     def logout_via_badge(self) -> None:
-        """Log out via the user badge dropdown.
+        """Log out via the Core badge dropdown.
 
-        Clicks on the user badge, then clicks "Log out" in the dropdown.
+        Clicks the Core badge, then clicks "Log out" in the dropdown.
         After logout, the login screen will be displayed.
         """
         user_badge = self.layout.page.get_by_role(
-            "button", name="User menu", exact=True
+            "button", name="Core menu", exact=True
         )
         user_badge.click()
         sy.sleep(0.3)
@@ -164,14 +164,14 @@ class AccessClient(ResourceClient):
         :returns: The username, or None if not logged in.
         """
         user_badge = self.layout.page.get_by_role(
-            "button", name="User menu", exact=True
+            "button", name="Core menu", exact=True
         )
         if user_badge.count() > 0 and user_badge.is_visible():
             return user_badge.inner_text().strip()
         return None
 
     def get_current_role(self) -> str | None:
-        """Get the role name shown in the user badge dialog.
+        """Get the role name shown in the Core badge dialog.
 
         Opens the badge dialog, reads the role, and closes it again.
 
@@ -183,7 +183,7 @@ class AccessClient(ResourceClient):
         if badge.count() == 0 or not badge.is_visible():
             return None
         badge.click()
-        role = self.layout.page.locator(".console-user-badge__roles")
+        role = self.layout.page.locator(".console-user-info__roles")
         try:
             role.wait_for(state="visible", timeout=5000)
             return role.inner_text().strip()

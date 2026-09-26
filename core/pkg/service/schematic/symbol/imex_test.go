@@ -10,7 +10,8 @@
 package symbol_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -54,7 +55,7 @@ var _ = Describe("ImEx", func() {
 			Expect(env.Type).To(Equal("schematic_symbol"))
 			Expect(env.Name).To(Equal("exported"))
 
-			decoded := MustSucceed(imex.Decode[symbol.Symbol](ctx, WireRoundTrip(env)))
+			decoded := MustSucceed(WireRoundTrip(env).Decode[symbol.Symbol](ctx))
 			Expect(decoded.Name).To(Equal("exported"))
 			Expect(decoded.Data.SVG).To(Equal("<svg/>"))
 		})
@@ -62,7 +63,7 @@ var _ = Describe("ImEx", func() {
 		It("Should return not found for a missing key", func(ctx SpecContext) {
 			id := ontology.ID{
 				Type: ontology.ResourceTypeSchematicSymbol,
-				Key:  uuid.NewString(),
+				Key:  uuid.New().String(),
 			}
 			Expect(svc.Export(ctx, id)).Error().To(MatchError(query.ErrNotFound))
 		})
@@ -72,7 +73,7 @@ var _ = Describe("ImEx", func() {
 				Type: ontology.ResourceTypeSchematicSymbol,
 				Key:  "not-a-uuid",
 			}
-			Expect(svc.Export(ctx, id)).Error().To(MatchError(ContainSubstring("UUID")))
+			Expect(svc.Export(ctx, id)).Error().To(MatchError(ContainSubstring("uuid")))
 		})
 	})
 
@@ -242,7 +243,16 @@ var _ = Describe("ImEx", func() {
 					Entry(&res).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(res.Name).To(Equal("round-trip"))
-				Expect(res.Data).To(Equal(original.Data))
+				// A required collection always serializes, so states and handles come
+				// back allocated and empty rather than nil.
+				Expect(res.Data).To(Equal(symbol.Spec{
+					SVG:          "<svg/>",
+					Variant:      "valve",
+					StrokeScaled: true,
+					States:       []symbol.State{},
+					Handles:      []symbol.Handle{},
+					Scale:        original.Data.Scale,
+				}))
 			},
 		)
 	})

@@ -1,4 +1,4 @@
-# TypeScript Development
+# TypeScript development
 
 ## Packages
 
@@ -36,7 +36,7 @@ form shows placeholders but does NOT pre-fill — actually type the values.
 - `no-floating-promises`: await or `void` every promise. Unused vars must be
   underscore-prefixed.
 
-## Namespaces & Imports
+## Namespaces & imports
 
 Modules form namespaces via barrels; consumers use member access.
 
@@ -110,7 +110,7 @@ cross-references. Never put types in JSDoc; the signature carries them.
 `@testing-library/react` for components and hooks, native async/await support. Avoid
 testing implementation details.
 
-## Error Handling
+## Error handling
 
 Typed-error system lives in `x/ts/src/errors/errors.ts`; canonical usage in
 `freighter/ts/src/errors.ts` and `client/ts/src/errors.ts`. Domain errors are built with
@@ -156,11 +156,11 @@ exempt.
 
 ### Rule 5: Type-check via pnpm scripts only
 
-After error-handling changes run `pnpm check-types` and `pnpm lint`. Never raw `npx tsc`
+After error-handling changes run `pnpm check-types` and `pnpm lint`. Never raw `tsc`
 (wrong tsconfig). Mistyped errors silently round-trip as `errors.Unknown`, so type
 errors here are invisible at runtime.
 
-## Package Layout
+## Package layout
 
 `src/index.ts` entry, tests co-located, `dist/` output (ESM `index.js`, types at
 `dist/src/index.d.ts`). Standard scripts: `build` = `tsc --noEmit && vite build`, plus
@@ -229,10 +229,10 @@ file the tarball omits. Pluto is the only opt-out; its maps are 17MB gzipped.
 
 - pnpm catalog: shared versions in `pnpm-workspace.yaml`; use `catalog:` prefix in
   package.json.
-- Turbo build cache issues: `npx turbo clean`.
+- Turbo build cache issues: `pnpm exec turbo clean`.
 - React 19 (19.1.1) — check for React 18 breaking changes.
 
-## Visual Verification (Playwright MCP)
+## Visual verification (Playwright MCP)
 
 After console UI changes, verify against the Vite dev server at `localhost:5173` (ensure
 `pnpm dev:console-vite` is running or ask): `browser_navigate` → navigate to the

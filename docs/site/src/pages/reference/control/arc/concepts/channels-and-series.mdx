@@ -1,12 +1,12 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Channels and Series"
+title: "Channels and series"
 description:
   "How Arc connects to Synnax telemetry through channels and handles array data with
   series"
-prev: "Sequences and Stages"
+prev: "Sequences and stages"
 prevURL: "/reference/control/arc/concepts/sequences-and-stages"
-next: "Data Processing"
+next: "Data processing"
 nextURL: "/reference/control/arc/how-to/data-processing"
 ---
 
@@ -38,7 +38,7 @@ Channel names follow the same conventions as Synnax channels: start with a lette
 underscore, then letters, digits, or underscores. Examples: `tank_pressure`,
 `inlet_temp`, `start_btn`.
 
-### Channel Discovery
+### Channel discovery
 
 The Arc text editor provides autocomplete for channels in your cluster. As you type,
 matching channel names appear with their data types. You can also browse available
@@ -46,7 +46,7 @@ channels in the Console's resources panel before writing code.
 
 <Divider.Divider x />
 
-## Reading Channels
+## Reading channels
 
 Channels behave differently depending on whether you're in a **reactive context** (flow
 statements) or an **imperative context** (inside a function body).
@@ -90,7 +90,7 @@ You can also bind a channel, or an expression over channels, to a
 | Empty channel | Skips execution     | Returns zero                  |
 | Use case      | Main data pipelines | Side-channel reads, setpoints |
 
-### Channels as Inputs
+### Channels as inputs
 
 Channels can be passed to functions as input parameters:
 
@@ -106,7 +106,7 @@ This lets you write reusable functions that work with different channels.
 
 <Divider.Divider x />
 
-## Writing to Channels
+## Writing to channels
 
 Write to a channel by making it the final target of a flow statement, or with assignment
 syntax inside a function.
@@ -145,7 +145,7 @@ channel in a single cycle result in the last value being sent.
 Series are homogeneous arrays of values. They're useful for batch operations and working
 with buffered data.
 
-### Creating Series
+### Creating series
 
 ```arc
 // Literal
@@ -155,7 +155,7 @@ data := [1.0, 2.0, 3.0]
 buffer series f64 := []
 ```
 
-### Indexing and Slicing
+### Indexing and slicing
 
 ```arc
 data := [10.0, 20.0, 30.0, 40.0]
@@ -167,7 +167,7 @@ last := data[3]   // 40.0
 
 Out-of-bounds access causes a runtime error.
 
-### Series Length
+### Series length
 
 ```arc
 data := [1.0, 2.0, 3.0]
@@ -176,7 +176,7 @@ count := len(data) // 3 (i64)
 
 <Divider.Divider x />
 
-## Element-wise Operations
+## Element-wise operations
 
 Arithmetic and comparison operators work element-wise on series:
 
@@ -200,7 +200,7 @@ lengths cause a runtime error.
 
 <Divider.Divider x />
 
-## Channel Types
+## Channel types
 
 When passing channels as input parameters, you declare their type:
 

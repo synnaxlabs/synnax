@@ -10,8 +10,16 @@
 package security_test
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
+	"math/big"
 	"os"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -19,9 +27,79 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/synnax/pkg/security/cert/file"
 	"github.com/synnaxlabs/synnax/pkg/security/mock"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+// errSource is a cert.Source whose certificate load always fails.
+type errSource struct{}
+
+func (errSource) GetCertificate(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+	return nil, errors.New("source failed")
+}
+
+// staticSource is a cert.Source serving a fixed certificate.
+type staticSource struct{ c tls.Certificate }
+
+func (s staticSource) GetCertificate(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+	return &s.c, nil
+}
+
+// generateChain builds a three-tier chain: a self-signed root, an intermediate it
+// signs, and a leaf for host the intermediate signs. It returns the root PEM, the
+// leaf-plus-intermediate chain PEM, and the leaf key PEM.
+func generateChain(host string) (rootPEM, chainPEM, keyPEM []byte) {
+	GinkgoHelper()
+	template := func(serial int64, cn string, ca bool) *x509.Certificate {
+		return &x509.Certificate{
+			SerialNumber:          big.NewInt(serial),
+			Subject:               pkix.Name{CommonName: cn},
+			NotBefore:             time.Now().Add(-time.Hour),
+			NotAfter:              time.Now().Add(time.Hour),
+			IsCA:                  ca,
+			BasicConstraintsValid: true,
+			KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature,
+		}
+	}
+	rootKey := MustSucceed(rsa.GenerateKey(rand.Reader, mock.SmallKeySize))
+	rootT := template(1, "Test Root", true)
+	rootDER := MustSucceed(
+		x509.CreateCertificate(rand.Reader, rootT, rootT, &rootKey.PublicKey, rootKey),
+	)
+	root := MustSucceed(x509.ParseCertificate(rootDER))
+	interKey := MustSucceed(rsa.GenerateKey(rand.Reader, mock.SmallKeySize))
+	interT := template(2, "Test Intermediate", true)
+	interDER := MustSucceed(
+		x509.CreateCertificate(rand.Reader, interT, root, &interKey.PublicKey, rootKey),
+	)
+	inter := MustSucceed(x509.ParseCertificate(interDER))
+	leafKey := MustSucceed(rsa.GenerateKey(rand.Reader, mock.SmallKeySize))
+	leafT := template(3, "Test Leaf", false)
+	leafT.DNSNames = []string{host}
+	leafDER := MustSucceed(
+		x509.CreateCertificate(rand.Reader, leafT, inter, &leafKey.PublicKey, interKey),
+	)
+	encode := func(der []byte) []byte {
+		return pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+	}
+	rootPEM = encode(rootDER)
+	chainPEM = append(encode(leafDER), encode(interDER)...)
+	keyPEM = pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(leafKey),
+	})
+	return rootPEM, chainPEM, keyPEM
+}
+
+// writeFile writes data to path on fs, creating the file.
+func writeFile(fs xfs.FS, path string, data []byte) {
+	GinkgoHelper()
+	f := MustSucceed(fs.Open(path, os.O_CREATE|os.O_WRONLY))
+	MustSucceed(f.Write(data))
+	Expect(f.Close()).To(Succeed())
+}
 
 var _ = Describe("OtelProvider", func() {
 	Describe("Secure", func() {
@@ -30,9 +108,9 @@ var _ = Describe("OtelProvider", func() {
 				fs := xfs.NewMem()
 				mock.GenerateCerts(fs)
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
-					LoaderConfig: cert.LoaderConfig{FS: fs},
-					KeySize:      mock.SmallKeySize,
-					Insecure:     new(false),
+					FS:       fs,
+					KeySize:  mock.SmallKeySize,
+					Insecure: new(false),
 				}))
 				src := MustSucceed(file.NewSource(fs,
 					"/usr/local/synnax/certs/node.crt",
@@ -56,61 +134,99 @@ var _ = Describe("OtelProvider", func() {
 			It("Should return an error if the node certificate is not found", func() {
 				fs := xfs.NewMem()
 				_, err := security.NewProvider(security.ProviderConfig{
-					LoaderConfig: cert.LoaderConfig{FS: fs},
-					KeySize:      mock.SmallKeySize,
-					Insecure:     new(false),
+					FS:       fs,
+					KeySize:  mock.SmallKeySize,
+					Insecure: new(false),
 				})
 				Expect(err).To(MatchError(os.ErrNotExist))
 			})
 		})
-		Describe("Node Private", func() {
-			It("Should return the node private key", func() {
+		Describe("Token Private", func() {
+			It("Should reuse the node key when it can sign tokens", func() {
 				fs := xfs.NewMem()
 				mock.GenerateCerts(fs)
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
-					LoaderConfig: cert.LoaderConfig{FS: fs},
-					KeySize:      mock.SmallKeySize,
-					Insecure:     new(false),
+					FS:       fs,
+					KeySize:  mock.SmallKeySize,
+					Insecure: new(false),
 				}))
-				Expect(prov.NodePrivate()).ToNot(BeNil())
+				Expect(prov.TokenPrivate()).To(BeAssignableToTypeOf(&rsa.PrivateKey{}))
+			})
+			It("Should use the dedicated key when the node key is ML-DSA", func() {
+				fs := xfs.NewMem()
+				f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
+					FS:           fs,
+					Hosts:        []address.Address{"localhost:26260"},
+					KeySize:      mock.SmallKeySize,
+					KeyAlgorithm: cert.KeyAlgorithmMLDSA65,
+				}))
+				Expect(f.CreateCAPair()).To(Succeed())
+				Expect(f.CreateNodePair()).To(Succeed())
+				Expect(f.CreateTokenKeyIfMissing()).To(Succeed())
+				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
+					FS:       fs,
+					KeySize:  mock.SmallKeySize,
+					Insecure: new(false),
+				}))
+				Expect(prov.TokenPrivate()).
+					To(BeAssignableToTypeOf(ed25519.PrivateKey{}))
+			})
+			It("Should fail when an ML-DSA node key has no token key", func() {
+				fs := xfs.NewMem()
+				f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
+					FS:           fs,
+					Hosts:        []address.Address{"localhost:26260"},
+					KeySize:      mock.SmallKeySize,
+					KeyAlgorithm: cert.KeyAlgorithmMLDSA65,
+				}))
+				Expect(f.CreateCAPair()).To(Succeed())
+				Expect(f.CreateNodePair()).To(Succeed())
+				Expect(security.NewProvider(security.ProviderConfig{
+					FS:       fs,
+					KeySize:  mock.SmallKeySize,
+					Insecure: new(false),
+				})).Error().To(SatisfyAll(
+					MatchError(os.ErrNotExist),
+					MatchError(ContainSubstring("cannot sign authentication tokens")),
+				))
 			})
 		})
-		Describe("VerifyCoreCert", func() {
-			It("Should accept a certificate signed by the Core CA", func() {
+		Describe("VerifyCertHost", func() {
+			It("Should accept a certificate valid for the host", func() {
 				fs := xfs.NewMem()
 				mock.GenerateCerts(fs)
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
-					LoaderConfig: cert.LoaderConfig{FS: fs},
-					KeySize:      mock.SmallKeySize,
-					Insecure:     new(false),
+					FS:       fs,
+					KeySize:  mock.SmallKeySize,
+					Insecure: new(false),
 				}))
 				src := MustSucceed(file.NewSource(fs,
 					"/usr/local/synnax/certs/node.crt",
 					"/usr/local/synnax/certs/node.key",
 				))
-				Expect(prov.VerifyCoreCert(src, "localhost")).To(Succeed())
+				Expect(prov.VerifyCertHost(src, "localhost")).To(Succeed())
 			})
 			It("Should reject a certificate that is not valid for the host", func() {
 				fs := xfs.NewMem()
 				mock.GenerateCerts(fs)
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
-					LoaderConfig: cert.LoaderConfig{FS: fs},
-					KeySize:      mock.SmallKeySize,
-					Insecure:     new(false),
+					FS:       fs,
+					KeySize:  mock.SmallKeySize,
+					Insecure: new(false),
 				}))
 				src := MustSucceed(file.NewSource(fs,
 					"/usr/local/synnax/certs/node.crt",
 					"/usr/local/synnax/certs/node.key",
 				))
-				Expect(prov.VerifyCoreCert(src, "other-host")).ToNot(Succeed())
+				Expect(prov.VerifyCertHost(src, "other-host")).ToNot(Succeed())
 			})
-			It("Should reject a certificate signed by a foreign CA", func() {
+			It("Should accept a certificate an unrelated CA signed", func() {
 				fs := xfs.NewMem()
 				mock.GenerateCerts(fs)
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
-					LoaderConfig: cert.LoaderConfig{FS: fs},
-					KeySize:      mock.SmallKeySize,
-					Insecure:     new(false),
+					FS:       fs,
+					KeySize:  mock.SmallKeySize,
+					Insecure: new(false),
 				}))
 				foreignFS := xfs.NewMem()
 				mock.GenerateCerts(foreignFS)
@@ -118,7 +234,185 @@ var _ = Describe("OtelProvider", func() {
 					"/usr/local/synnax/certs/node.crt",
 					"/usr/local/synnax/certs/node.key",
 				))
-				Expect(prov.VerifyCoreCert(foreign, "localhost")).ToNot(Succeed())
+				Expect(prov.VerifyCertHost(foreign, "localhost")).To(Succeed())
+			})
+			It("Should surface a certificate source failure", func() {
+				fs := xfs.NewMem()
+				mock.GenerateCerts(fs)
+				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
+					FS:       fs,
+					KeySize:  mock.SmallKeySize,
+					Insecure: new(false),
+				}))
+				Expect(prov.VerifyCertHost(errSource{}, "localhost")).
+					To(MatchError(ContainSubstring("source failed")))
+			})
+			It("Should fail on a leaf certificate that does not parse", func() {
+				fs := xfs.NewMem()
+				mock.GenerateCerts(fs)
+				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
+					FS:       fs,
+					KeySize:  mock.SmallKeySize,
+					Insecure: new(false),
+				}))
+				src := staticSource{c: tls.Certificate{Certificate: [][]byte{{0x01}}}}
+				Expect(prov.VerifyCertHost(src, "localhost")).
+					To(MatchError(ContainSubstring("x509")))
+			})
+			It(
+				"Should fail on an intermediate certificate that does not parse",
+				func() {
+					fs := xfs.NewMem()
+					mock.GenerateCerts(fs)
+					prov := MustSucceed(security.NewProvider(security.ProviderConfig{
+						FS:       fs,
+						KeySize:  mock.SmallKeySize,
+						Insecure: new(false),
+					}))
+					rootPEM, _, _ := generateChain("localhost")
+					block, _ := pem.Decode(rootPEM)
+					src := staticSource{c: tls.Certificate{
+						Certificate: [][]byte{block.Bytes, {0x01}},
+					}}
+					Expect(prov.VerifyCertHost(src, "localhost")).
+						To(MatchError(ContainSubstring("x509")))
+				},
+			)
+		})
+		Describe("VerifyCertCoreCA", func() {
+			It("Should accept a certificate the Core CA signed", func() {
+				fs := xfs.NewMem()
+				mock.GenerateCerts(fs)
+				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
+					FS:       fs,
+					KeySize:  mock.SmallKeySize,
+					Insecure: new(false),
+				}))
+				src := MustSucceed(file.NewSource(fs,
+					"/usr/local/synnax/certs/node.crt",
+					"/usr/local/synnax/certs/node.key",
+				))
+				Expect(prov.VerifyCertCoreCA(src)).To(Succeed())
+			})
+			It("Should reject a certificate an unrelated CA signed", func() {
+				fs := xfs.NewMem()
+				mock.GenerateCerts(fs)
+				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
+					FS:       fs,
+					KeySize:  mock.SmallKeySize,
+					Insecure: new(false),
+				}))
+				foreignFS := xfs.NewMem()
+				mock.GenerateCerts(foreignFS)
+				foreign := MustSucceed(file.NewSource(foreignFS,
+					"/usr/local/synnax/certs/node.crt",
+					"/usr/local/synnax/certs/node.key",
+				))
+				Expect(prov.VerifyCertCoreCA(foreign)).ToNot(Succeed())
+			})
+			It("Should verify a chain through a presented intermediate", func() {
+				fs := xfs.NewMem()
+				mock.GenerateCerts(fs)
+				rootPEM, chainPEM, keyPEM := generateChain("localhost")
+				writeFile(fs, "/usr/local/synnax/certs/root.crt", rootPEM)
+				writeFile(fs, "/usr/local/synnax/certs/chain.crt", chainPEM)
+				writeFile(fs, "/usr/local/synnax/certs/chain.key", keyPEM)
+				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
+					FS: fs, CACertPath: "root.crt",
+					KeySize:  mock.SmallKeySize,
+					Insecure: new(false),
+				}))
+				src := MustSucceed(file.NewSource(fs,
+					"/usr/local/synnax/certs/chain.crt",
+					"/usr/local/synnax/certs/chain.key",
+				))
+				Expect(prov.VerifyCertCoreCA(src)).To(Succeed())
+			})
+			It("Should surface a certificate source failure", func() {
+				fs := xfs.NewMem()
+				mock.GenerateCerts(fs)
+				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
+					FS:       fs,
+					KeySize:  mock.SmallKeySize,
+					Insecure: new(false),
+				}))
+				Expect(prov.VerifyCertCoreCA(errSource{})).
+					To(MatchError(ContainSubstring("source failed")))
+			})
+		})
+		Describe("VerifyCertTrustAnchors", func() {
+			It("Should accept a certificate the Core CA signed", func() {
+				fs := xfs.NewMem()
+				mock.GenerateCerts(fs)
+				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
+					FS:       fs,
+					KeySize:  mock.SmallKeySize,
+					Insecure: new(false),
+				}))
+				src := MustSucceed(file.NewSource(fs,
+					"/usr/local/synnax/certs/node.crt",
+					"/usr/local/synnax/certs/node.key",
+				))
+				Expect(prov.VerifyCertTrustAnchors(src)).To(Succeed())
+			})
+			It("Should accept the node certificate when its CA is absent", func() {
+				fs := xfs.NewMem()
+				mock.GenerateCerts(fs)
+				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
+					FS: fs, CACertPath: "absent.crt",
+					KeySize:  mock.SmallKeySize,
+					Insecure: new(false),
+				}))
+				src := MustSucceed(file.NewSource(fs,
+					"/usr/local/synnax/certs/node.crt",
+					"/usr/local/synnax/certs/node.key",
+				))
+				Expect(prov.VerifyCertTrustAnchors(src)).To(Succeed())
+			})
+			It("Should reject a certificate outside the trust anchors", func() {
+				fs := xfs.NewMem()
+				mock.GenerateCerts(fs)
+				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
+					FS:       fs,
+					KeySize:  mock.SmallKeySize,
+					Insecure: new(false),
+				}))
+				foreignFS := xfs.NewMem()
+				mock.GenerateCerts(foreignFS)
+				foreign := MustSucceed(file.NewSource(foreignFS,
+					"/usr/local/synnax/certs/node.crt",
+					"/usr/local/synnax/certs/node.key",
+				))
+				Expect(prov.VerifyCertTrustAnchors(foreign)).ToNot(Succeed())
+			})
+			It("Should verify a chain through a presented intermediate", func() {
+				fs := xfs.NewMem()
+				mock.GenerateCerts(fs)
+				rootPEM, chainPEM, keyPEM := generateChain("localhost")
+				writeFile(fs, "/usr/local/synnax/certs/root.crt", rootPEM)
+				writeFile(fs, "/usr/local/synnax/certs/chain.crt", chainPEM)
+				writeFile(fs, "/usr/local/synnax/certs/chain.key", keyPEM)
+				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
+					FS: fs, CACertPath: "root.crt",
+					KeySize:  mock.SmallKeySize,
+					Insecure: new(false),
+				}))
+				src := MustSucceed(file.NewSource(fs,
+					"/usr/local/synnax/certs/chain.crt",
+					"/usr/local/synnax/certs/chain.key",
+				))
+				Expect(prov.VerifyCertTrustAnchors(src)).To(Succeed())
+			})
+			It("Should surface a certificate source failure", func() {
+				fs := xfs.NewMem()
+				mock.GenerateCerts(fs)
+				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
+					FS:       fs,
+					KeySize:  mock.SmallKeySize,
+					Insecure: new(false),
+				}))
+				Expect(prov.VerifyCertTrustAnchors(errSource{})).
+					To(MatchError(ContainSubstring("source failed")))
 			})
 		})
 	})
@@ -138,16 +432,18 @@ var _ = Describe("OtelProvider", func() {
 					Insecure: new(true),
 					KeySize:  mock.SmallKeySize,
 				}))
-				Expect(prov.NodePrivate()).ToNot(BeNil())
+				Expect(prov.TokenPrivate()).ToNot(BeNil())
 			})
 		})
-		Describe("VerifyCoreCert", func() {
+		Describe("Certificate Verification", func() {
 			It("Should be a no-op", func() {
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 					Insecure: new(true),
 					KeySize:  mock.SmallKeySize,
 				}))
-				Expect(prov.VerifyCoreCert(nil, "")).To(Succeed())
+				Expect(prov.VerifyCertHost(nil, "")).To(Succeed())
+				Expect(prov.VerifyCertCoreCA(nil)).To(Succeed())
+				Expect(prov.VerifyCertTrustAnchors(nil)).To(Succeed())
 			})
 		})
 	})

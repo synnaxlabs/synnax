@@ -74,36 +74,21 @@ describe("Schematic", () => {
   });
 
   describe("config case preservation", () => {
-    test("preserves arbitrary key casing within config values", async () => {
+    test("preserves element key casing and round-trips telem args", async () => {
       const proj = await client.projects.create({ name: "CaseTest", layout: {} });
       const schem = await client.schematics.create(proj.key, {
         name: "CaseTest",
         configs: {
-          n1: {
-            camelCaseKey: "value1",
-            PascalCaseKey: "value2",
-            snake_case_key: "value3",
-            nested: {
-              innerCamelCase: 123,
-              InnerPascalCase: { deepKey: true },
-            },
-          },
+          myNode_A1: { variant: "value", channel: 42, rollingAverage: 5 },
         },
       });
-      const retrieved = await client.schematics.retrieve(schem.key);
-      const config = retrieved.configs.n1 as Record<string, unknown>;
-      expect(config.camelCaseKey).toEqual("value1");
-      expect(config.PascalCaseKey).toEqual("value2");
-      expect(config.snake_case_key).toEqual("value3");
-      expect((config.nested as Record<string, unknown>).innerCamelCase).toEqual(123);
-      expect(
-        (
-          (config.nested as Record<string, unknown>).InnerPascalCase as Record<
-            string,
-            unknown
-          >
-        ).deepKey,
-      ).toEqual(true);
+      const retrieved = await client.schematics.retrieve({ key: schem.key });
+      expect(retrieved.configs).toHaveProperty("myNode_A1");
+      const config = retrieved.configs.myNode_A1;
+      expect(config.variant).toBe("value");
+      if (config.variant !== "value") return;
+      expect(config.channel).toBe(42);
+      expect(config.rollingAverage).toBe(5);
     });
   });
 
@@ -169,13 +154,16 @@ describe("Schematic", () => {
       await client.schematics.dispatch(schem.key, [
         schematic.setNode({
           node: { key: "n1", position: { x: 1, y: 2 } },
-          config: { label: "Pump" },
+          config: { variant: "tank", label: { label: "Pump" } },
         }),
       ]);
       const res = await client.schematics.retrieve(schem.key);
       expect(res.nodes).toHaveLength(1);
       expect(res.nodes[0]).toMatchObject({ key: "n1", position: { x: 1, y: 2 } });
-      expect(res.configs.n1.label).toBe("Pump");
+      expect(res.configs.n1).toMatchObject({
+        variant: "tank",
+        label: { label: "Pump" },
+      });
     });
 
     test("removeNode removes the node and drops its config", async () => {
@@ -183,11 +171,11 @@ describe("Schematic", () => {
       await client.schematics.dispatch(schem.key, [
         schematic.setNode({
           node: { key: "n1", position: { x: 0, y: 0 } },
-          config: { label: "Pump" },
+          config: { variant: "tank", label: { label: "Pump" } },
         }),
         schematic.setNode({
           node: { key: "n2", position: { x: 1, y: 1 } },
-          config: { label: "Tank" },
+          config: { variant: "tank", label: { label: "Tank" } },
         }),
       ]);
       await client.schematics.dispatch(schem.key, [
@@ -196,7 +184,130 @@ describe("Schematic", () => {
       const res = await client.schematics.retrieve(schem.key);
       expect(res.nodes).toHaveLength(1);
       expect(res.nodes[0]).toMatchObject({ key: "n2", position: { x: 1, y: 1 } });
-      expect(res.configs).toEqual({ n2: { label: "Tank" } });
+      expect(Object.keys(res.configs)).toEqual(["n2"]);
+      expect(res.configs.n2).toMatchObject({
+        variant: "tank",
+        label: { label: "Tank" },
+      });
+    });
+
+    test("removeNode splices the removed member from its group on the Core", async () => {
+      const { schem } = await newProjectSchematic(client);
+      await client.schematics.dispatch(schem.key, [
+        schematic.setNode({ node: { key: "n1", position: { x: 0, y: 0 } } }),
+        schematic.setNode({ node: { key: "n2", position: { x: 1, y: 1 } } }),
+        schematic.setNode({
+          node: { key: "g1", position: { x: -20, y: -20 } },
+          config: { variant: "group_box", members: ["n1", "n2"] },
+        }),
+      ]);
+      await client.schematics.dispatch(schem.key, [
+        schematic.removeNode({ key: "n1" }),
+      ]);
+      const res = await client.schematics.retrieve(schem.key);
+      expect(res.configs.g1).toMatchObject({ variant: "group_box", members: ["n2"] });
+    });
+
+    test("removeNode leaves former members intact when their group is removed", async () => {
+      const { schem } = await newProjectSchematic(client);
+      await client.schematics.dispatch(schem.key, [
+        schematic.setNode({
+          node: { key: "n1", position: { x: 0, y: 0 } },
+          config: { variant: "tank", label: { label: "Pump" } },
+        }),
+        schematic.setNode({
+          node: { key: "g1", position: { x: -20, y: -20 } },
+          config: { variant: "group_box", members: ["n1"] },
+        }),
+      ]);
+      await client.schematics.dispatch(schem.key, [
+        schematic.removeNode({ key: "g1" }),
+      ]);
+      const res = await client.schematics.retrieve(schem.key);
+      expect(Object.keys(res.configs)).toEqual(["n1"]);
+      expect(res.configs.n1).toMatchObject({
+        variant: "tank",
+        label: { label: "Pump" },
+      });
+      expect(res.nodes).toHaveLength(1);
+    });
+
+    test("a members write dispatched after the removal wins on the Core", async () => {
+      const { schem } = await newProjectSchematic(client);
+      await client.schematics.dispatch(schem.key, [
+        schematic.setNode({ node: { key: "n1", position: { x: 0, y: 0 } } }),
+        schematic.setNode({
+          node: { key: "g1", position: { x: -20, y: -20 } },
+          config: { variant: "group_box", members: ["n1"] },
+        }),
+      ]);
+      await client.schematics.dispatch(schem.key, [
+        schematic.removeNode({ key: "n1" }),
+      ]);
+      await client.schematics.dispatch(schem.key, [
+        schematic.setConfig({
+          key: "g1",
+          config: { variant: "group_box", members: ["n1", "n3"] },
+        }),
+      ]);
+      const res = await client.schematics.retrieve(schem.key);
+      expect(res.configs.g1).toMatchObject({
+        variant: "group_box",
+        members: ["n1", "n3"],
+      });
+    });
+
+    test("the client and Core reducers agree across a cascade storm", async () => {
+      const { schem } = await newProjectSchematic(client);
+      const n = (key: string) => ({ key, position: { x: 0, y: 0 } });
+      const group = (
+        members: string[],
+        extra: Partial<schematic.GroupBoxElementConfig> = {},
+      ): schematic.ElementConfig =>
+        schematic.elementConfigZ.parse({ variant: "group_box", members, ...extra });
+      const tank = (label: string): schematic.ElementConfig =>
+        schematic.elementConfigZ.parse({ variant: "tank", label: { label } });
+      await client.schematics.dispatch(schem.key, [
+        schematic.setNode({ node: n("n1"), config: tank("Pump") }),
+        schematic.setNode({ node: n("n2"), config: tank("Tank") }),
+        schematic.setNode({ node: n("n3") }),
+        schematic.setNode({ node: n("g1"), config: group(["n1", "n2", "n1"]) }),
+        schematic.setNode({ node: n("inner"), config: group(["n1"]) }),
+        schematic.setNode({ node: n("outer"), config: group(["inner"]) }),
+        schematic.setNode({
+          node: n("lockbox"),
+          config: group(["n2"], { locked: true }),
+        }),
+        schematic.setNode({ node: n("selfy"), config: group(["selfy", "n3"]) }),
+        schematic.setNode({ node: n("cycA"), config: group(["cycB"]) }),
+        schematic.setNode({ node: n("cycB"), config: group(["cycA"]) }),
+      ]);
+      let local = await client.schematics.retrieve(schem.key);
+      const batches: schematic.Action[][] = [
+        [schematic.removeNode({ key: "n1" })],
+        [
+          schematic.removeNode({ key: "inner" }),
+          schematic.removeNode({ key: "outer" }),
+        ],
+        [
+          schematic.setConfig({
+            key: "lockbox",
+            config: group(["n2", "late"], { locked: true }),
+          }),
+          schematic.removeNode({ key: "n2" }),
+        ],
+        [schematic.removeNode({ key: "selfy" })],
+        [schematic.removeNode({ key: "cycA" })],
+        [schematic.removeNode({ key: "ghost" })],
+      ];
+      for (const batch of batches) {
+        local = schematic.reduceAll(local, batch).next;
+        await client.schematics.dispatch(schem.key, batch);
+        const remote = await client.schematics.retrieve(schem.key);
+        expect(remote.configs).toEqual(local.configs);
+        expect(remote.nodes).toEqual(local.nodes);
+        expect(remote.edges).toEqual(local.edges);
+      }
     });
 
     test("addEdge appends new edges and is a no-op on duplicate keys", async () => {
@@ -246,14 +357,23 @@ describe("Schematic", () => {
       expect(res.edges).toEqual([]);
     });
 
-    test("setConfig upserts config under the given key", async () => {
+    test("setConfig replaces the config under the given key", async () => {
       const { schem } = await newProjectSchematic(client);
       await client.schematics.dispatch(schem.key, [
-        schematic.setConfig({ key: "n1", config: { label: "Original" } }),
-        schematic.setConfig({ key: "n1", config: { label: "Replaced" } }),
+        schematic.setConfig({
+          key: "n1",
+          config: { variant: "tank", label: { label: "Original" } },
+        }),
+        schematic.setConfig({
+          key: "n1",
+          config: { variant: "tank", label: { label: "Replaced" } },
+        }),
       ]);
-      const res = await client.schematics.retrieve(schem.key);
-      expect(res.configs.n1.label).toBe("Replaced");
+      const res = await client.schematics.retrieve({ key: schem.key });
+      expect(res.configs.n1).toMatchObject({
+        variant: "tank",
+        label: { label: "Replaced" },
+      });
     });
 
     test("applies a multi-action sequence atomically", async () => {
@@ -272,12 +392,18 @@ describe("Schematic", () => {
             target: { node: "valve", param: "in" },
           },
         }),
-        schematic.setConfig({ key: "pump", config: { label: "Main Pump" } }),
+        schematic.setConfig({
+          key: "pump",
+          config: { variant: "tank", label: { label: "Main Pump" } },
+        }),
       ]);
       const res = await client.schematics.retrieve(schem.key);
       expect(res.nodes).toHaveLength(2);
       expect(res.edges).toHaveLength(1);
-      expect(res.configs.pump.label).toBe("Main Pump");
+      expect(res.configs.pump).toMatchObject({
+        variant: "tank",
+        label: { label: "Main Pump" },
+      });
     });
 
     test("converges to the final position after a 30-action drag storm", async () => {
@@ -295,27 +421,21 @@ describe("Schematic", () => {
       expect(res.nodes[0].position).toEqual({ x: 29, y: 58 });
     });
 
-    test("preserves arbitrary key casing within config values through dispatch", async () => {
+    test("round-trips telem args through dispatch", async () => {
       const { schem } = await newProjectSchematic(client);
       await client.schematics.dispatch(schem.key, [
         schematic.setConfig({
-          key: "n1",
-          config: {
-            camelCaseKey: "v1",
-            PascalCaseKey: "v2",
-            snake_case_key: "v3",
-            nested: { innerCamelCase: 1, InnerPascalCase: { deepKey: true } },
-          },
+          key: "valveNode_B2",
+          config: { variant: "valve", stateChannel: 12, commandChannel: 13 },
         }),
       ]);
-      const res = await client.schematics.retrieve(schem.key);
-      const config = res.configs.n1;
-      expect(config.camelCaseKey).toBe("v1");
-      expect(config.PascalCaseKey).toBe("v2");
-      expect(config.snake_case_key).toBe("v3");
-      const nested = config.nested as Record<string, unknown>;
-      expect(nested.innerCamelCase).toBe(1);
-      expect((nested.InnerPascalCase as Record<string, unknown>).deepKey).toBe(true);
+      const res = await client.schematics.retrieve({ key: schem.key });
+      expect(res.configs).toHaveProperty("valveNode_B2");
+      const config = res.configs.valveNode_B2;
+      expect(config.variant).toBe("valve");
+      if (config.variant !== "valve") return;
+      expect(config.stateChannel).toBe(12);
+      expect(config.commandChannel).toBe(13);
     });
   });
 });

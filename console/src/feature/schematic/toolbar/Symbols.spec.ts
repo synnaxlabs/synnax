@@ -149,6 +149,15 @@ describe("Schematic toolbar Symbols", () => {
     });
   });
 
+  it("offers Reload Console from a remote symbol's context menu", async () => {
+    const name = uniqueName("reload_sym");
+    const { grp } = await createRemoteSymbolGroup([name]);
+    await renderSymbolsToolbar();
+    fireEvent.click(await screen.findByText(grp.name));
+    fireEvent.contextMenu(await screen.findByText(name));
+    expect(await screen.findByText("Reload Console")).toBeTruthy();
+  });
+
   it("exports a remote symbol as JSON through its context menu", async () => {
     const downloads = captureBrowserDownloads();
     const name = uniqueName("exp_sym");

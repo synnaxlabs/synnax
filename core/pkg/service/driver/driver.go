@@ -11,7 +11,7 @@ package driver
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
 	"fmt"
 	"sync"
 	"time"
@@ -87,14 +87,18 @@ func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 			Embedded:     true,
 			Integrations: integrations,
 		}
-		if err = cfg.Rack.NewWriter(nil).Create(ctx, &d.rack); !ok(err, nil) {
+		if err = cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return cfg.Rack.NewWriter(tx).Create(ctx, &d.rack)
+		}); !ok(err, nil) {
 			return nil, err
 		}
 	} else if !ok(err, nil) {
 		return nil, err
 	} else {
 		d.rack.Integrations = integrations
-		if err = cfg.Rack.NewWriter(nil).Create(ctx, &d.rack); !ok(err, nil) {
+		if err = cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return cfg.Rack.NewWriter(tx).Create(ctx, &d.rack)
+		}); !ok(err, nil) {
 			return nil, err
 		}
 	}
@@ -111,25 +115,27 @@ func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 }
 
 func (d *Driver) startHeartbeat() {
-	statusWriter := status.NewWriter[rack.StatusDetails](d.cfg.Status, nil)
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(d.cfg.Instrumentation))
 	d.closer = append(d.closer, signal.NewHardShutdown(sCtx, cancel))
 	signal.GoTick(
 		sCtx,
 		d.cfg.HeartbeatInterval,
 		func(ctx context.Context, _ time.Time) error {
-			if err := statusWriter.Set(ctx, &rack.Status{
-				Key:     rack.StatusKey(d.rack.Key),
-				Name:    d.rack.Name,
-				Time:    telem.Now(),
-				Variant: status.VariantSuccess,
-				Message: "Driver is running",
-				Details: rack.StatusDetails{Rack: d.rack.Key},
+			if err := d.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return d.cfg.Status.NewWriter(tx).Set(ctx, &rack.Status{
+					Key:     rack.StatusKey(d.rack.Key),
+					Name:    d.rack.Name,
+					Time:    telem.Now(),
+					Variant: status.VariantSuccess,
+					Message: "Driver is running",
+					Details: rack.StatusDetails{Rack: d.rack.Key},
+				})
 			}); err != nil {
 				d.cfg.L.Error("failed to update rack status", zap.Error(err))
 			}
 			return nil
-		})
+		},
+	)
 }
 
 // startCommandStreaming initializes the command channel streamer. This is optional and
@@ -144,13 +150,11 @@ func (d *Driver) startCommandStreaming(ctx context.Context) error {
 		return err
 	}
 	p := plumber.New()
-	plumber.SetSegment[framer.StreamerRequest, framer.StreamerResponse](
-		p, "streamer", streamer,
-	)
+	p.SetSegment[framer.StreamerRequest, framer.StreamerResponse]("streamer", streamer)
 	sink := &commandSink{driver: d}
 	sink.Sink = sink.process
-	plumber.SetSink[framer.StreamerResponse](p, "driver", sink)
-	plumber.MustConnect[framer.StreamerResponse](p, "streamer", "driver", 10)
+	p.SetSink[framer.StreamerResponse]("driver", sink)
+	p.MustConnect[framer.StreamerResponse]("streamer", "driver", 10)
 	streamerRequests := confluence.NewStream[framer.StreamerRequest]()
 	streamer.InFrom(streamerRequests)
 	d.streamerRequests = streamerRequests
@@ -278,15 +282,16 @@ func (d *Driver) ackFailure(
 ) {
 	details := task.NewStatusDetails(t, false)
 	details.Cmd = cmd.Key
-	if sErr := status.NewWriter[task.StatusDetails](d.cfg.Status, nil).
-		Set(ctx, &status.Status[task.StatusDetails]{
+	if sErr := d.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		return d.cfg.Status.NewWriter(tx).Set(ctx, &status.Status[task.StatusDetails]{
 			Key:     task.OntologyID(t.Key).String(),
 			Name:    t.Name,
 			Time:    telem.Now(),
 			Variant: status.VariantError,
 			Message: err.Error(),
 			Details: details,
-		}); sErr != nil {
+		})
+	}); sErr != nil {
 		d.cfg.L.Error("failed to write start failure status", zap.Error(sErr))
 	}
 }

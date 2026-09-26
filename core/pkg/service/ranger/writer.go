@@ -11,8 +11,8 @@ package ranger
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -44,7 +44,7 @@ type Writer struct {
 // range does not already have a key, a new key will be assigned. If the range already
 // exists and r.Parent is non-nil, the existing parent relationship will be replaced.
 func (w Writer) Create(ctx context.Context, r *Range) error {
-	if r.Key == uuid.Nil {
+	if r.Key == uuid.Nil() {
 		r.Key = uuid.New()
 	}
 	if err := r.Validate(); err != nil {
@@ -215,9 +215,9 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 
 func (w Writer) validate(r Range) error {
 	v := validate.New("ranger.range")
-	validate.NotNil(v, "key", r.Key)
-	validate.NonZero(v, "time_range.start", r.TimeRange.Start)
-	validate.NonZero(v, "time_range.end", r.TimeRange.End)
+	v.NotNil("key", r.Key)
+	v.NonZero("time_range.start", r.TimeRange.Start)
+	v.NonZero("time_range.end", r.TimeRange.End)
 	v.Ternary(
 		"time_range",
 		r.TimeRange.Start.After(r.TimeRange.End),

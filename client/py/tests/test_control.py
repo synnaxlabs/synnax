@@ -8,13 +8,16 @@
 #  included in the file licenses/APL.txt.
 
 import threading
-import time
 from typing import cast
 
 import pytest
 
 import synnax as sy
 from synnax.control.controller import Controller, RemainsTrueFor
+
+# Seconds to wait for a cross-thread handshake. Generous, so a slow Core cannot fail the
+# test, but bounded, so a broken run fails instead of hanging CI.
+HANDSHAKE_TIMEOUT = 5
 
 
 def create_valve_set(
@@ -45,6 +48,35 @@ def create_valve_set(
         retrieve_if_name_exists=True,
     )
     return press_end_cmd_time, press_en_cmd, press_en, daq_time
+
+
+def acknowledge_valve_cycle(
+    auto: Controller,
+    cmd: sy.Channel,
+    state: sy.Channel,
+    ready: threading.Event,
+) -> bool:
+    """Acknowledges one open-then-close command cycle as a simulated DAQ would.
+
+    Signals ready, then drives state high once the open command arrives and low once
+    it clears.
+
+    :param auto: A controller reading cmd and writing state.
+    :param cmd: The command channel the sequence under test writes.
+    :param state: The state channel this DAQ answers with.
+    :param ready: Set once the DAQ is listening, so sequences can start commanding.
+    :returns: False if either command failed to arrive within HANDSHAKE_TIMEOUT. The
+        caller must stop, because answering a command the Core never delivered would
+        acknowledge a command that was never seen.
+    """
+    ready.set()
+    if not auto.wait_until(lambda c: c[cmd.key], timeout=HANDSHAKE_TIMEOUT):
+        return False
+    auto[state.key] = True
+    if not auto.wait_until(lambda c: not c[cmd.key], timeout=HANDSHAKE_TIMEOUT):
+        return False
+    auto[state.key] = False
+    return True
 
 
 @pytest.mark.control
@@ -80,11 +112,7 @@ class TestController:
                 read=[press_en_cmd.key],
                 write=[press_en.key],
             ) as auto:
-                ev.set()
-                auto.wait_until(lambda c: c[press_en_cmd.key])
-                auto[press_en.key] = True
-                auto.wait_until(lambda c: not c[press_en_cmd.key])
-                auto[press_en.key] = False
+                acknowledge_valve_cycle(auto, press_en_cmd, press_en, ev)
 
         ev = threading.Event()
         t1 = threading.Thread(target=sequence, kwargs={"ev": ev})
@@ -140,14 +168,8 @@ class TestController:
                 read=[press_en_cmd.key],
                 write=[press_en.key],
             ) as auto:
-                ev.set()
-                auto.wait_until(
-                    lambda c: c[press_en_cmd.key], timeout=5 * sy.TimeSpan.SECOND
-                )
-                auto[press_en.key] = True
-                auto.wait_until(
-                    lambda c: not c[press_en_cmd.key], timeout=5 * sy.TimeSpan.SECOND
-                )
+                if not acknowledge_valve_cycle(auto, press_en_cmd, press_en, ev):
+                    return
                 # Keep publishing closed-valve samples until the sequence has observed
                 # the acknowledgment, so the second wait_until always fires, then keep
                 # publishing open-valve samples until the sequence finishes, so the
@@ -213,14 +235,8 @@ class TestController:
                 read=[press_en_cmd.key],
                 write=[press_en.key],
             ) as auto:
-                ev.set()
-                auto.wait_until(
-                    lambda c: c[press_en_cmd.key], timeout=5 * sy.TimeSpan.SECOND
-                )
-                auto[press_en.key] = True
-                auto.wait_until(
-                    lambda c: not c[press_en_cmd.key], timeout=5 * sy.TimeSpan.SECOND
-                )
+                if not acknowledge_valve_cycle(auto, press_en_cmd, press_en, ev):
+                    return
                 # Keep publishing closed-valve samples until the sequence finishes, so
                 # the observation window always contains samples no matter when it
                 # starts.
@@ -293,14 +309,8 @@ class TestController:
                 read=[press_en_cmd.key],
                 write=[press_en.key],
             ) as auto:
-                ev.set()
-                auto.wait_until(
-                    lambda c: c[press_en_cmd.key], timeout=5 * sy.TimeSpan.SECOND
-                )
-                auto[press_en.key] = True
-                auto.wait_until(
-                    lambda c: not c[press_en_cmd.key], timeout=5 * sy.TimeSpan.SECOND
-                )
+                if not acknowledge_valve_cycle(auto, press_en_cmd, press_en, ev):
+                    return
                 # Keep publishing closed-valve samples until the sequence has observed
                 # the acknowledgment, so the second wait_until always fires. Then keep
                 # the valve closed for three out of every four samples (75% closed,
@@ -361,9 +371,10 @@ class TestController:
                 def is_closed(auto):
                     nonlocal c
                     c += 1
+                    observing.set()
                     return not auto[press_en.key]
 
-                remained_true = auto.wait_while(is_closed)
+                remained_true = auto.wait_while(is_closed, timeout=HANDSHAKE_TIMEOUT)
                 assertions["remained_true"] = remained_true
                 assertions["remained_true_count"] = c
 
@@ -373,18 +384,20 @@ class TestController:
                 read=[press_en_cmd.key],
                 write=[press_en.key],
             ) as auto:
-                ev.set()
-                auto.wait_until(lambda c: c[press_en_cmd.key])
-                auto[press_en.key] = True
-                auto.wait_until(lambda c: not c[press_en_cmd.key])
-                auto[press_en.key] = False
-                auto.sleep(50 * sy.TimeSpan.MILLISECOND)
-                auto[press_en.key] = False
-                auto[press_en.key] = False
-                auto[press_en.key] = False
+                if not acknowledge_valve_cycle(auto, press_en_cmd, press_en, ev):
+                    return
+                # Publish closed samples until the sequence's callback answers one, so
+                # the opening sample can never arrive before wait_while registers.
+                timer = sy.Timer()
+                while not observing.is_set():
+                    if timer.elapsed() > HANDSHAKE_TIMEOUT * sy.TimeSpan.SECOND:
+                        return
+                    auto[press_en.key] = False
+                    auto.sleep(5 * sy.TimeSpan.MILLISECOND)
                 auto[press_en.key] = True
 
         ev = threading.Event()
+        observing = threading.Event()
         t1 = threading.Thread(target=sequence, kwargs={"ev": ev})
         t2 = threading.Thread(target=daq, kwargs={"ev": ev})
 
@@ -396,7 +409,7 @@ class TestController:
         assert assertions["seq_first_ack"]
         assert assertions["seq_second_ack"]
         assert assertions["remained_true"]
-        assert assertions["remained_true_count"] == 4
+        assert assertions["remained_true_count"] > 0
 
     def test_controller_channel_not_found(self, client: sy.Synnax):
         """Test that the controller raises a KeyError when a channel is not found"""
@@ -435,67 +448,65 @@ class TestController:
         press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
 
         assertions = dict()
+        daq_ready = threading.Event()
+        seq_two_acquired = threading.Event()
+        seq_one_blocked = threading.Event()
+        seq_two_lowered = threading.Event()
+        seq_one_done = threading.Event()
 
-        def sequence_one(daq_ev: threading.Event, seq_two_ev: threading.Event):
-            daq_ev.wait()
+        def sequence_one():
+            daq_ready.wait(HANDSHAKE_TIMEOUT)
             with client.control.acquire(
                 name="Basic Valve Toggle",
                 read=[press_en.key],
-                write_authorities=[100],
                 write=[press_en_cmd.key],
+                write_authorities=[100],
             ) as auto:
-                seq_two_ev.wait()
+                seq_two_acquired.wait(HANDSHAKE_TIMEOUT)
                 auto[press_en_cmd.key] = True
                 assertions["seq_one_first_ack"] = auto.wait_until(
                     lambda c: c[press_en.key],
-                    timeout=50 * sy.TimeSpan.MILLISECOND,
+                    timeout=250 * sy.TimeSpan.MILLISECOND,
                 )
-                time.sleep(0.15)
+                seq_one_blocked.set()
+                seq_two_lowered.wait(HANDSHAKE_TIMEOUT)
                 auto[press_en_cmd.key] = True
                 assertions["seq_one_second_ack"] = auto.wait_until(
                     lambda c: c[press_en.key],
-                    timeout=50 * sy.TimeSpan.MILLISECOND,
+                    timeout=5 * sy.TimeSpan.SECOND,
                 )
+                seq_one_done.set()
                 auto[press_en_cmd.key] = False
 
-        def sequence_two(daq_ev: threading.Event, seq_two_ev: threading.Event):
-            daq_ev.wait()
+        def sequence_two():
+            daq_ready.wait(HANDSHAKE_TIMEOUT)
             with client.control.acquire(
                 name="Basic Valve Toggle",
                 read=[press_en.key],
                 write=[press_en_cmd.key],
                 write_authorities=[255],
             ) as auto:
-                seq_two_ev.set()
-                # We use a sleep here instead of an auto.wait to ensure python has
-                # bandwidth to switch threads
-                auto.sleep(0.1)
+                seq_two_acquired.set()
+                seq_one_blocked.wait(HANDSHAKE_TIMEOUT)
+                # set_authority blocks until the Core acknowledges it, so sequence one
+                # commands only after the lower authority is in effect. Sequence two
+                # holds its writer open until sequence one is done, so the commands go
+                # through because of the authority change alone.
                 auto.set_authority({press_en_cmd.key: 50})
-                # We use a sleep here instead of an auto.wait to ensure python has
-                # bandwidth to switch threads
-                auto.sleep(0.2)
+                seq_two_lowered.set()
+                seq_one_done.wait(HANDSHAKE_TIMEOUT)
 
-        def daq(daq_ev: threading.Event):
+        def daq():
             with client.control.acquire(
                 name="Basic Valve Toggle",
                 read=[press_en_cmd.key],
                 write=[press_en.key],
             ) as auto:
-                daq_ev.set()
-                auto.wait_until(lambda c: c[press_en_cmd.key])
-                auto[press_en.key] = True
-                auto.wait_until(lambda c: not c[press_en_cmd.key])
-                auto[press_en.key] = False
+                acknowledge_valve_cycle(auto, press_en_cmd, press_en, daq_ready)
 
-        daq_ev = threading.Event()
-        seq_two_ev = threading.Event()
-        t1 = threading.Thread(
-            target=sequence_one, kwargs={"daq_ev": daq_ev, "seq_two_ev": seq_two_ev}
-        )
-        t2 = threading.Thread(
-            target=sequence_two, kwargs={"daq_ev": daq_ev, "seq_two_ev": seq_two_ev}
-        )
-        t3 = threading.Thread(target=daq, kwargs={"daq_ev": daq_ev})
+        t1 = threading.Thread(target=sequence_one)
+        t2 = threading.Thread(target=sequence_two)
+        t3 = threading.Thread(target=daq)
 
         t3.start()
         t1.start()

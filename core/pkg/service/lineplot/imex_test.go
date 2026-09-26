@@ -10,7 +10,8 @@
 package lineplot_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -45,7 +46,7 @@ var _ = Describe("ImEx", func() {
 			Expect(env.Name).To(Equal("exported"))
 
 			decoded := MustSucceed(
-				imex.Decode[lineplot.LinePlot](ctx, WireRoundTrip(env)),
+				WireRoundTrip(env).Decode[lineplot.LinePlot](ctx),
 			)
 			Expect(decoded.Name).To(Equal("exported"))
 		})
@@ -53,14 +54,14 @@ var _ = Describe("ImEx", func() {
 		It("Should return not found for a missing key", func(ctx SpecContext) {
 			id := ontology.ID{
 				Type: ontology.ResourceTypeLineplot,
-				Key:  uuid.NewString(),
+				Key:  uuid.New().String(),
 			}
 			Expect(svc.Export(ctx, id)).Error().To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should error on an invalid UUID key", func(ctx SpecContext) {
 			id := ontology.ID{Type: ontology.ResourceTypeLineplot, Key: "not-a-uuid"}
-			Expect(svc.Export(ctx, id)).Error().To(MatchError(ContainSubstring("UUID")))
+			Expect(svc.Export(ctx, id)).Error().To(MatchError(ContainSubstring("uuid")))
 		})
 	})
 
@@ -182,8 +183,18 @@ var _ = Describe("ImEx", func() {
 					Entry(&res).
 					Exec(ctx, db)).To(Succeed())
 				Expect(res.Name).To(Equal("round-trip"))
-				Expect(res.Channels).To(Equal(original.Channels))
-				Expect(res.Ranges).To(Equal(original.Ranges))
+				// A required collection always serializes, so an axis left nil comes
+				// back allocated and empty rather than nil.
+				Expect(res.Channels).To(Equal(lineplot.Channels{
+					Y1: []channel.Key{4, 5},
+					Y2: []channel.Key{},
+					Y3: []channel.Key{},
+					Y4: []channel.Key{},
+				}))
+				Expect(res.Ranges).To(Equal(lineplot.Ranges{
+					X1: []string{"recent"},
+					X2: []string{},
+				}))
 			},
 		)
 	})

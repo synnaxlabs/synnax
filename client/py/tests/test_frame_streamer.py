@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import time
+import asyncio
 
 import numpy as np
 import pandas as pd
@@ -15,6 +15,9 @@ import pytest
 
 import synnax as sy
 from tests.channel import assert_eventually_channels_are_found
+
+# Seconds to wait for a written sample to come back through the streamer.
+READ_TIMEOUT = 5
 
 
 @pytest.mark.framer
@@ -27,7 +30,8 @@ class TestStreamer:
                 for i in range(10):
                     data = np.random.rand(10).astype(np.float64)
                     w.write(pd.DataFrame({virtual_channel.key: data}))
-                    frame = s.read(timeout=1)
+                    frame = s.read(timeout=READ_TIMEOUT)
+                    assert frame is not None, f"read {i} timed out"
                     assert np.array_equal(frame[virtual_channel.key], data)
 
     def test_basic_stream_indexed_pair(
@@ -43,7 +47,8 @@ class TestStreamer:
                     ts = sy.TimeStamp.now()
                     value = np.random.rand(1)
                     w.write(pd.DataFrame({idx.name: ts, data.name: value}))
-                    frame = s.read(timeout=1)
+                    frame = s.read(timeout=READ_TIMEOUT)
+                    assert frame is not None, f"read {i} timed out"
                     assert frame[idx.name][0] == ts
                     assert frame[data.name][0] == value
 
@@ -72,7 +77,8 @@ class TestStreamer:
                             pd.DataFrame({virtual_channel.name: v_value})
                         )
                         for _ in range(2):
-                            frame = s.read(timeout=1)
+                            frame = s.read(timeout=READ_TIMEOUT)
+                            assert frame is not None, f"read {i} timed out"
                             if len(frame.channels) == 1:
                                 assert frame[virtual_channel.name] == v_value
                             else:
@@ -293,50 +299,37 @@ class TestStreamer:
 @pytest.mark.framer
 class TestAsyncStreamer:
     @pytest.mark.asyncio
-    async def test_basic_stream(self, virtual_channel: sy.Channel, client: sy.Synnax):
+    @pytest.mark.parametrize(
+        "downsample_factor, expected",
+        [
+            (1, [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]),
+            (2, [1.0, 3.0, 5.0, 7.0, 9.0]),
+            (10, [1.0]),
+            (20, [1.0]),
+        ],
+    )
+    async def test_basic_stream(
+        self,
+        downsample_factor: int,
+        expected: list[float],
+        virtual_channel: sy.Channel,
+        client: sy.Synnax,
+    ):
+        """Should downsample a streamed frame by the given factor."""
+        data = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
         with client.open_writer(sy.TimeStamp.now(), virtual_channel.key) as w:
-            async with await client.open_async_streamer(virtual_channel.key, 1) as s:
-                time.sleep(0.1)
-                data = np.random.rand(10).astype(np.float64)
+            async with await client.open_async_streamer(
+                virtual_channel.key, downsample_factor
+            ) as s:
                 w.write(pd.DataFrame({virtual_channel.key: data}))
-                frame = await s.read()
-                assert np.array_equal(frame[virtual_channel.key], data)
-        with client.open_writer(sy.TimeStamp.now(), virtual_channel.key) as w:
-            async with await client.open_async_streamer(virtual_channel.key, 2) as s:
-                time.sleep(0.1)
-                data = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
-                expect = [1.0, 3.0, 5.0, 7.0, 9.0]
-                w.write(pd.DataFrame({virtual_channel.key: data}))
-                frame = await s.read()
-                assert np.array_equal(frame[virtual_channel.key], expect)
-        with client.open_writer(sy.TimeStamp.now(), virtual_channel.key) as w:
-            async with await client.open_async_streamer(virtual_channel.key, 10) as s:
-                time.sleep(0.1)
-                data = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
-                expect = [1.0]
-                w.write(pd.DataFrame({virtual_channel.key: data}))
-                frame = await s.read()
-                assert np.array_equal(frame[virtual_channel.key], expect)
-        with client.open_writer(sy.TimeStamp.now(), virtual_channel.key) as w:
-            async with await client.open_async_streamer(virtual_channel.key, 20) as s:
-                time.sleep(0.1)
-                data = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
-                expect = [1.0]
-                w.write(pd.DataFrame({virtual_channel.key: data}))
-                frame = await s.read()
-                assert np.array_equal(frame[virtual_channel.key], expect)
+                async with asyncio.timeout(READ_TIMEOUT):
+                    frame = await s.read()
+                assert np.array_equal(frame[virtual_channel.key], expected)
 
     @pytest.mark.asyncio
     async def test_downsample_negative(
         self, virtual_channel: sy.Channel, client: sy.Synnax
     ):
+        """Should reject a negative downsample factor."""
         with pytest.raises(sy.ValidationError):
-            with client.open_writer(sy.TimeStamp.now(), virtual_channel.key) as w:
-                async with await client.open_async_streamer(
-                    virtual_channel.key, -1
-                ) as s:
-                    time.sleep(0.1)
-                    data = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
-                    w.write(pd.DataFrame({virtual_channel.key: data}))
-                    frame = await s.read()
-                    assert np.array_equal(frame[virtual_channel.key], data)
+            await client.open_async_streamer(virtual_channel.key, -1)

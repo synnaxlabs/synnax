@@ -11,7 +11,6 @@ package label
 
 import (
 	"context"
-	"go/types"
 
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
@@ -86,7 +85,7 @@ type RetrieveRequest struct {
 
 type RetrieveResponse struct {
 	// Labels are the labels that were retrieved.
-	Labels []Label `json:"labels,omitzero" msgpack:"labels,omitzero"`
+	Labels []Label `json:"labels" msgpack:"labels"`
 }
 
 func (s *Service) Retrieve(
@@ -147,20 +146,20 @@ func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
-) (types.Nil, error) {
+) (struct{}, error) {
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
 		Objects: label.OntologyIDs(req.Keys),
 	}); err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
-	return types.Nil{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
+	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }
 
 type AddRequest struct {
-	ID      ontology.ID `json:"id"      msgpack:"id"      validate:"required"`
-	Labels  []label.Key `json:"labels"  msgpack:"labels"  validate:"required"`
+	ID      ontology.ID `json:"id"      msgpack:"id"`
+	Labels  []label.Key `json:"labels"  msgpack:"labels"`
 	Replace bool        `json:"replace" msgpack:"replace"`
 }
 
@@ -168,39 +167,37 @@ func (s *Service) Add(
 	ctx context.Context,
 	tx gorp.Tx,
 	req AddRequest,
-) (types.Nil, error) {
+) (struct{}, error) {
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: append(label.OntologyIDs(req.Labels), req.ID),
 	}); err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
 	w := s.internal.NewWriter(tx)
 	if req.Replace {
-		if err := w.Clear(ctx, req.ID); err != nil {
-			return types.Nil{}, err
-		}
+		return struct{}{}, w.Replace(ctx, req.ID, req.Labels)
 	}
-	return types.Nil{}, w.Label(ctx, req.ID, req.Labels)
+	return struct{}{}, w.Label(ctx, req.ID, req.Labels)
 }
 
 type RemoveRequest struct {
-	ID     ontology.ID `json:"id"     msgpack:"id"     validate:"required"`
-	Labels []label.Key `json:"labels" msgpack:"labels" validate:"required"`
+	ID     ontology.ID `json:"id"     msgpack:"id"`
+	Labels []label.Key `json:"labels" msgpack:"labels"`
 }
 
 func (s *Service) Remove(
 	ctx context.Context,
 	tx gorp.Tx,
 	req RemoveRequest,
-) (types.Nil, error) {
+) (struct{}, error) {
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: append(label.OntologyIDs(req.Labels), req.ID),
 	}); err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
-	return types.Nil{}, s.internal.NewWriter(tx).RemoveLabel(ctx, req.ID, req.Labels)
+	return struct{}{}, s.internal.NewWriter(tx).RemoveLabel(ctx, req.ID, req.Labels)
 }

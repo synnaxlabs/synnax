@@ -134,8 +134,8 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 // Validate implements config.Config.
 func (c LayerConfig) Validate() error {
 	v := validate.New("service")
-	validate.NotNil(v, "distribution", c.Distribution)
-	validate.NotNil(v, "security", c.Security)
+	v.NotNil("distribution", c.Distribution)
+	v.NotNil("security", c.Security)
 	return v.Error()
 }
 
@@ -327,26 +327,29 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Channel) {
 		return nil, err
 	}
-	if closer, err := calcgraph.Open(ctx, calcgraph.Config{
+	channelGraph, err := calcgraph.Open(ctx, calcgraph.Config{
 		Instrumentation: cfg.Child("channel.calculation.graph"),
 		DB:              cfg.Distribution.DB,
 		Channel:         l.Channel,
 		Status:          l.Status,
-	}); !ok(err, closer) {
+	})
+	if !ok(err, channelGraph) {
 		return nil, err
 	}
 	if l.Framer, err = framer.OpenService(
 		ctx,
 		framer.ServiceConfig{
 			Instrumentation: cfg.Child("framer"),
+			DB:              cfg.Distribution.DB,
 			Framer:          cfg.Distribution.Framer,
 			Channel:         l.Channel,
-			Status:          l.Status,
+			ChannelGraph:    channelGraph,
 		},
 	); !ok(err, l.Framer) {
 		return nil, err
 	}
 	if l.Signals, err = signals.New(signals.Config{
+		DB:              cfg.Distribution.DB,
 		Channel:         l.Channel,
 		Framer:          l.Framer,
 		Instrumentation: cfg.Child("signals"),
@@ -360,9 +363,8 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, closer) {
 		return nil, err
 	}
-	if closer, err := signals.PublishFromGorp(
+	if closer, err := l.Signals.PublishFromGorp(
 		ctx,
-		l.Signals,
 		signals.GorpPublisherConfigUUID(l.Group.Observe()),
 	); !ok(err, closer) {
 		return nil, err
@@ -375,16 +377,14 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, closer) {
 		return nil, err
 	}
-	if closer, err := signals.PublishFromGorp(
+	if closer, err := l.Signals.PublishFromGorp(
 		ctx,
-		l.Signals,
 		signals.GorpPublisherConfigUUID(l.Label.Observe()),
 	); !ok(err, closer) {
 		return nil, err
 	}
-	if closer, err := signals.PublishFromGorp(
+	if closer, err := l.Signals.PublishFromGorp(
 		ctx,
-		l.Signals,
 		signals.GorpPublisherConfigString(l.Status.Observe()),
 	); !ok(err, closer) {
 		return nil, err
@@ -518,9 +518,8 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Rack) {
 		return nil, err
 	}
-	if closer, err := signals.PublishFromGorp(
+	if closer, err := l.Signals.PublishFromGorp(
 		ctx,
-		l.Signals,
 		signals.GorpPublisherConfigNumeric(l.Rack.Observe(), telem.Uint32T),
 	); !ok(err, closer) {
 		return nil, err
@@ -669,7 +668,8 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			Storage:         cfg.Storage,
 			Group:           l.Group,
 			Ontology:        l.Ontology,
-		}); !ok(err, l.Metrics) {
+		},
+	); !ok(err, l.Metrics) {
 		return nil, err
 	}
 	// Composition migrations move data across service boundaries, so they can only run
@@ -687,6 +687,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}
 	arcFactory, err := arctask.NewFactory(arctask.FactoryConfig{
 		Instrumentation: cfg.Child("arc.task"),
+		DB:              cfg.Distribution.DB,
 		Channel:         l.Channel,
 		Framer:          l.Framer,
 		Status:          l.Status,
@@ -698,6 +699,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}
 	pdFactory, err := pdruntime.NewFactory(pdruntime.FactoryConfig{
 		Instrumentation: cfg.Child("pagerduty"),
+		DB:              cfg.Distribution.DB,
 		Status:          l.Status,
 	})
 	if !ok(err, nil) {

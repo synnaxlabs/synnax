@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Icon } from "@synnaxlabs/pluto";
 import { Video as Base } from "@synnaxlabs/pluto/video";
 import {
   type DetailedHTMLProps,
@@ -16,6 +17,8 @@ import {
   useRef,
   useState,
 } from "react";
+
+import { mediaURL } from "@/components/media/url";
 
 interface MediaProps {
   id: string;
@@ -29,8 +32,6 @@ export interface VideoProps
       DetailedHTMLProps<React.VideoHTMLAttributes<HTMLVideoElement>, HTMLVideoElement>,
       "id"
     > {}
-
-const CDN_ROOT = "https://synnax.nyc3.cdn.digitaloceanspaces.com/docs";
 
 const useLiveTheme = (): string => {
   const [theme, setTheme] = useState(
@@ -56,9 +57,13 @@ const useLiveTheme = (): string => {
   return theme;
 };
 
+const TOUCH_QUERY = "(hover: none) and (pointer: coarse)";
+
 export const Video = ({ id, themed = true, ...rest }: VideoProps): ReactElement => {
   const theme = useLiveTheme();
-  const url = `${CDN_ROOT}/${id}${themed ? `-${theme}` : ""}.mp4`;
+  const [touch] = useState(() => window.matchMedia(TOUCH_QUERY).matches);
+  const [playing, setPlaying] = useState(false);
+  const url = mediaURL(id, "mp4", themed ? theme : undefined);
   const ref = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -69,8 +74,8 @@ export const Video = ({ id, themed = true, ...rest }: VideoProps): ReactElement 
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (ref.current == null) return;
-        if (entry.isIntersecting) ref.current.play().catch(console.error);
-        else ref.current.pause();
+        if (!entry.isIntersecting) ref.current.pause();
+        else if (!touch) ref.current.play().catch(console.error);
       },
       { threshold: 0.85 },
     );
@@ -80,7 +85,38 @@ export const Video = ({ id, themed = true, ...rest }: VideoProps): ReactElement 
     };
   }, []);
 
-  return <Base.Video ref={ref} href={url} loop muted {...rest} />;
+  const video = (
+    <Base.Video
+      ref={ref}
+      {...rest}
+      // The time fragment makes iOS Safari render the first frame before playback.
+      href={touch ? `${url}#t=0.001` : url}
+      loop
+      muted
+      playsInline
+      onPlay={() => setPlaying(true)}
+      onPause={() => setPlaying(false)}
+      onClick={
+        touch
+          ? ({ currentTarget: v }) => {
+              if (v.paused) v.play().catch(console.error);
+              else v.pause();
+            }
+          : undefined
+      }
+    />
+  );
+  if (!touch) return video;
+  return (
+    <div className="docs-video">
+      {video}
+      {!playing && (
+        <div className="docs-video__play" aria-hidden>
+          <Icon.Play />
+        </div>
+      )}
+    </div>
+  );
 };
 
 export interface ImageProps
@@ -103,9 +139,7 @@ export const Image = ({
   ...rest
 }: ImageProps): ReactElement => {
   const theme = useLiveTheme();
-  let url = `${CDN_ROOT}/${id}`;
-  if (themed) url += `-${theme}`;
-  url += `.${extension}`;
+  const url = mediaURL(id, extension, themed ? theme : undefined);
   return (
     <img
       src={url}

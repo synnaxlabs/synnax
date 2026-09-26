@@ -15,6 +15,7 @@ export {
 } from "@/query/cache";
 export { Deleted } from "@/query/deleted";
 export { type DeriveWatch, deriveWatch } from "@/query/derived";
+export { LookupIndex } from "@/query/indexes";
 export {
   type Cached,
   type ChangeHandler,
@@ -34,9 +35,11 @@ export {
   createSetListener,
   type EntryStatus,
   type HydrateMode,
+  type IngestOptions,
   type Keyed,
   type ListenerSpec,
   partialUpdate,
+  type Stamp,
   Table,
   type TableEvent,
   type TableParams,

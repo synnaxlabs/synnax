@@ -11,8 +11,8 @@ package versions
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/legacy"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
@@ -30,10 +30,10 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Symbol, error) 
 		sym, err = autoDecodeEnvelope(ctx, env)
 	} else {
 		var body msgpack.EncodedJSON
-		if body, err = imex.Decode[msgpack.EncodedJSON](ctx, env); err == nil {
+		if body, err = env.Decode[msgpack.EncodedJSON](ctx); err == nil {
 			if err = imex.RequireFields(body, "a symbol", "data.svg"); err == nil {
 				var d legacy.Data
-				if d, err = imex.Decode[legacy.Data](ctx, env); err == nil {
+				if d, err = env.Decode[legacy.Data](ctx); err == nil {
 					sym.Data = v2.SpecFromConsole(d.Spec)
 				}
 			}
@@ -44,7 +44,7 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Symbol, error) 
 	}
 	// Importing always materializes a new resource, so any key on the wire is dropped
 	// and the importer mints a fresh one.
-	sym.Key = uuid.Nil
+	sym.Key = uuid.Nil()
 	// The header is the resolved name: the body's name when present, or the file-name
 	// fallback the imex service applies. Console-era decodes drop it, so it is stamped
 	// here for every path.

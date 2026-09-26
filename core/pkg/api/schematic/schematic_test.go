@@ -11,8 +11,8 @@ package schematic_test
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apischematic "github.com/synnaxlabs/synnax/pkg/api/schematic"
@@ -34,6 +34,7 @@ type scopedAction = actions.Scoped[schematic.Key, schematic.Action]
 // returns it with its key populated. Writes commit immediately (nil tx) so
 // access-control reads can observe the new ontology resource.
 func createSchematic(ctx context.Context, name string) schematic.Schematic {
+	GinkgoHelper()
 	s := schematic.Schematic{Name: name}
 	Expect(schematicSvc.NewWriter(nil).Create(ctx, proj.Key, &s)).To(Succeed())
 	return s

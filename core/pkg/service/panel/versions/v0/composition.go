@@ -13,11 +13,12 @@ import (
 	"bytes"
 	"cmp"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"slices"
 	"strings"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v1"
@@ -76,7 +77,7 @@ type legacyLayout struct {
 	Name string `json:"name"`
 	// Args is the layout's renderer arguments, kept raw so one malformed record
 	// cannot fail the whole blob. Task layouts carry the task's key in args.
-	Args json.RawMessage `json:"args"`
+	Args jsontext.Value `json:"args"`
 }
 
 // legacyTab is a tab in a legacy mosaic leaf. TabKey is the key of the layout the tab
@@ -303,8 +304,8 @@ func convertNode(
 		if !ok {
 			if viewType, ok := viewLayoutTypes[layout.Type]; ok {
 				tabs = append(tabs, Tab{Variant: ViewTab{
-					TabBase: TabBase{Key: uuid.New()},
-					View:    View{Type: viewType},
+					Key:  uuid.New(),
+					Type: viewType,
 				}})
 				continue
 			}
@@ -327,10 +328,7 @@ func convertNode(
 		if !exists {
 			continue
 		}
-		tabs = append(tabs, Tab{Variant: ResourceTab{
-			TabBase:  TabBase{Key: uuid.New()},
-			Resource: id,
-		}})
+		tabs = append(tabs, Tab{Variant: ResourceTab{Key: uuid.New(), Resource: id}})
 	}
 	if len(tabs) == 0 {
 		return nil, nil
@@ -380,7 +378,7 @@ func convertTaskTab(
 			return nil, err
 		}
 		return &Tab{Variant: ResourceTab{
-			TabBase:  TabBase{Key: uuid.New()},
+			Key:      uuid.New(),
 			Resource: ontology.ID{Type: ontology.ResourceTypeTask, Key: key},
 		}}, nil
 	}

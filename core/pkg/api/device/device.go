@@ -11,7 +11,6 @@ package device
 
 import (
 	"context"
-	"go/types"
 
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
@@ -90,7 +89,7 @@ type RetrieveRequest struct {
 }
 
 type RetrieveResponse struct {
-	Devices []device.Device `json:"devices,omitzero" msgpack:"devices,omitzero"`
+	Devices []device.Device `json:"devices" msgpack:"devices"`
 }
 
 func (s *Service) Retrieve(
@@ -141,7 +140,7 @@ func (s *Service) Retrieve(
 
 	if req.IncludeStatus {
 		statuses := make([]device.Status, 0, len(res.Devices))
-		if err := status.NewRetrieve[device.StatusDetails](s.status).
+		if err := s.status.NewRetrieve[device.StatusDetails]().
 			Where(status.MatchKeys[device.StatusDetails](ontology.IDsToKeys(device.OntologyIDsFromDevices(res.Devices))...)).
 			Entries(&statuses).
 			Exec(ctx, nil); err != nil {
@@ -196,19 +195,19 @@ func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
-) (types.Nil, error) {
+) (struct{}, error) {
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
 		Objects: device.OntologyIDs(req.Keys),
 	}); err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
 	w := s.device.NewWriter(tx)
 	for _, k := range req.Keys {
 		if err := w.Delete(ctx, k); err != nil {
-			return types.Nil{}, err
+			return struct{}{}, err
 		}
 	}
-	return types.Nil{}, nil
+	return struct{}{}, nil
 }

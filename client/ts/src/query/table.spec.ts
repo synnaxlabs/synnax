@@ -10,6 +10,7 @@
 import { type record, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
+import { NotFoundError } from "@/errors";
 import { query } from "@/query";
 
 const noopError = (_: Error) => {};
@@ -1317,6 +1318,44 @@ describe("Table", () => {
       expect(results).toEqual([item("a", "a-fresh")]);
     });
 
+    it("should refetch per caller when a strict fetch rejects the shared batch", async () => {
+      const fetch = vi.fn(async (keys: string[]) => {
+        if (keys.includes("gone")) throw new NotFoundError("gone");
+        return keys.map((k) => item(k, k));
+      });
+      const table = fetchTable(fetch);
+      const [a, gone] = await Promise.allSettled([
+        table.retrieve(["a"]),
+        table.retrieve(["gone"]),
+      ]);
+      expect(a).toEqual({ status: "fulfilled", value: [item("a", "a")] });
+      expect(gone.status).toEqual("rejected");
+      if (gone.status === "rejected")
+        expect(NotFoundError.matches(gone.reason)).toBe(true);
+      expect(fetch).toHaveBeenCalledTimes(3);
+    });
+
+    it("should reject a lone strict retrieve with the fetch error", async () => {
+      const fetch = vi.fn(async (keys: string[]): Promise<Item[]> => {
+        throw new NotFoundError(keys.join(","));
+      });
+      const table = fetchTable(fetch);
+      await expect(table.retrieve(["a", "gone"])).rejects.toThrow(NotFoundError);
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("should tombstone a refreshed key the fetch omits", async () => {
+      const fetch = vi.fn(async (keys: string[]) =>
+        keys.filter((k) => k !== "gone").map((k) => item(k, `${k}-fresh`)),
+      );
+      const table = fetchTable(fetch);
+      table.set([item("a", "stale"), item("gone", "stale")]);
+      const results = await table.retrieve(["a", "gone"], { refresh: true });
+      expect(results).toEqual([item("a", "a-fresh")]);
+      expect(table.get("gone")).toBeUndefined();
+      expect(table.getTombstone("gone")).toBeDefined();
+    });
+
     it("should not clobber existing entries under if-absent hydration", async () => {
       const fetch = async (keys: string[]) => keys.map((k) => item(k, `${k}-fetched`));
       const table = fetchTable(fetch, "if-absent");
@@ -1419,6 +1458,72 @@ describe("Table", () => {
       expect(table.get("x")).toEqual(item("x", "x-fetched"));
       expect(table.get("y")).toEqual(item("y", "local-edit"));
     });
+
+    const pendingFetch = () => {
+      let release: (entries: Item[]) => void = () => {};
+      const fetch = vi.fn(
+        async () => await new Promise<Item[]>((resolve) => (release = resolve)),
+      );
+      return { fetch, release: (entries: Item[]) => release(entries) };
+    };
+
+    it("should keep a write that landed while the fetch was in flight", async () => {
+      const { fetch, release } = pendingFetch();
+      const table = fetchTable(fetch);
+      table.set([item("a", "old")]);
+      const pending = table.retrieve(["a"], { refresh: true });
+      await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+      table.set([item("a", "renamed")]);
+      release([item("a", "old")]);
+      await pending;
+      expect(table.get("a")).toEqual(item("a", "renamed"));
+    });
+
+    it("should overwrite a write that landed before the fetch began", async () => {
+      const { fetch, release } = pendingFetch();
+      const table = fetchTable(fetch);
+      table.set([item("a", "old")]);
+      const pending = table.retrieve(["a"], { refresh: true });
+      await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+      release([item("a", "fresh")]);
+      await pending;
+      expect(table.get("a")).toEqual(item("a", "fresh"));
+    });
+
+    it("should not tombstone a key written while a refresh was in flight", async () => {
+      const { fetch, release } = pendingFetch();
+      const table = fetchTable(fetch);
+      table.set([item("a", "old")]);
+      const pending = table.retrieve(["a"], { refresh: true });
+      await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+      table.set([item("a", "recreated")]);
+      release([]);
+      await pending;
+      expect(table.status("a")).toBe("present");
+      expect(table.get("a")).toEqual(item("a", "recreated"));
+    });
+
+    it("should keep a write restored by a rolled back delete", async () => {
+      const { fetch, release } = pendingFetch();
+      const table = fetchTable(fetch);
+      table.set([item("a", "old")]);
+      const pending = table.retrieve(["a"], { refresh: true });
+      await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+      table.set([item("a", "renamed")]);
+      table.delete("a")();
+      release([item("a", "old")]);
+      await pending;
+      expect(table.get("a")).toEqual(item("a", "renamed"));
+    });
+
+    it("should skip ingesting entries written after the given stamp", () => {
+      const table = fetchTable(async () => []);
+      const since = table.stamp();
+      table.set([item("a", "renamed")]);
+      table.ingest([item("a", "old"), item("b", "fetched")], { since });
+      expect(table.get("a")).toEqual(item("a", "renamed"));
+      expect(table.get("b")).toEqual(item("b", "fetched"));
+    });
   });
 });
 
@@ -1495,7 +1600,16 @@ describe("Tombstones", () => {
     expect(table.get("k1")).toEqual({ key: "k1", name: "b" });
   });
 
-  it("should clear the tombstone on an if-absent ingest", () => {
+  it("should keep the tombstone on an ingest", () => {
+    const table = newTable();
+    table.set("k1", { key: "k1", name: "a" });
+    table.delete("k1");
+    table.ingest({ key: "k1", name: "c" });
+    expect(table.status("k1")).toBe("tombstoned");
+    expect(table.get("k1")).toBeUndefined();
+  });
+
+  it("should keep the tombstone on an if-absent ingest", () => {
     const table = new query.Table<string, Doc>({
       onError: noopError,
       hydrate: "if-absent",
@@ -1503,8 +1617,59 @@ describe("Tombstones", () => {
     table.set("k1", { key: "k1", name: "a" });
     table.delete("k1");
     table.ingest({ key: "k1", name: "c" });
-    expect(table.status("k1")).toBe("present");
-    expect(table.getTombstone("k1")).toBeUndefined();
+    expect(table.status("k1")).toBe("tombstoned");
+    expect(table.get("k1")).toBeUndefined();
+  });
+
+  it("should keep the tombstone on an ingest with an explicit set mode", () => {
+    const table = new query.Table<string, Doc>({
+      onError: noopError,
+      hydrate: "if-absent",
+    });
+    table.set([
+      { key: "k1", name: "a" },
+      { key: "k2", name: "b" },
+    ]);
+    table.delete("k1");
+    table.ingest(
+      [
+        { key: "k1", name: "c" },
+        { key: "k2", name: "d" },
+      ],
+      { mode: "set" },
+    );
+    expect(table.status("k1")).toBe("tombstoned");
+    expect(table.get("k2")).toEqual({ key: "k2", name: "d" });
+  });
+
+  it("should keep a key deleted during its retrieve deleted", async () => {
+    let release: (docs: Doc[]) => void = () => {};
+    const fetch = vi.fn(
+      async () => await new Promise<Doc[]>((resolve) => (release = resolve)),
+    );
+    const table = new query.Table<string, Doc>({ onError: noopError, fetch });
+    const read = table.retrieve(["k1"]);
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalled());
+    table.set("k1", { key: "k1", name: "a" });
+    table.delete("k1");
+    release([{ key: "k1", name: "a" }]);
+    expect(await read).toEqual([]);
+    expect(table.status("k1")).toBe("tombstoned");
+  });
+
+  it("should keep a key deleted during its refresh deleted", async () => {
+    let release: (docs: Doc[]) => void = () => {};
+    const fetch = vi.fn(
+      async () => await new Promise<Doc[]>((resolve) => (release = resolve)),
+    );
+    const table = new query.Table<string, Doc>({ onError: noopError, fetch });
+    table.set("k1", { key: "k1", name: "a" });
+    const read = table.retrieve(["k1"], { refresh: true });
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalled());
+    table.delete("k1");
+    release([{ key: "k1", name: "a" }]);
+    expect(await read).toEqual([]);
+    expect(table.status("k1")).toBe("tombstoned");
   });
 
   it("should corpse entries deleted through a filter", () => {

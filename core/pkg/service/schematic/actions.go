@@ -10,9 +10,10 @@
 package schematic
 
 import (
-	"maps"
+	"slices"
 
-	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Handle replaces the document with its created state.
@@ -41,6 +42,9 @@ func (p SetNodePositionPayload) Handle(state Schematic) (Schematic, error) {
 // replaces the existing node in place. If Config is non-nil, it is stored
 // under the node's key.
 func (p SetNodePayload) Handle(state Schematic) (Schematic, error) {
+	if p.Config != nil && p.Config.Variant == nil {
+		return Schematic{}, noVariantError(p.Node.Key)
+	}
 	replaced := false
 	for i := range state.Nodes {
 		if state.Nodes[i].Key == p.Node.Key {
@@ -54,23 +58,43 @@ func (p SetNodePayload) Handle(state Schematic) (Schematic, error) {
 	}
 	if p.Config != nil {
 		if state.Configs == nil {
-			state.Configs = make(map[string]msgpack.EncodedJSON)
+			state.Configs = make(map[string]ElementConfig)
 		}
-		state.Configs[p.Node.Key] = p.Config
+		state.Configs[p.Node.Key] = *p.Config
 	}
 	return state, nil
 }
 
-// Handle removes the node with the matching key and discards any config entry
-// stored under that key.
+// Handle removes the node with the matching key, discards any config entry
+// stored under that key, and splices the key out of every group's members.
 func (p RemoveNodePayload) Handle(state Schematic) (Schematic, error) {
+	removed := false
 	for i := range state.Nodes {
 		if state.Nodes[i].Key == p.Key {
 			state.Nodes = append(state.Nodes[:i], state.Nodes[i+1:]...)
+			removed = true
 			break
 		}
 	}
 	delete(state.Configs, p.Key)
+	if !removed {
+		return state, nil
+	}
+	for key, cfg := range state.Configs {
+		group, ok := cfg.Variant.(GroupBoxElementConfig)
+		if !ok {
+			continue
+		}
+		members := slices.DeleteFunc(
+			slices.Clone(group.Members),
+			func(m string) bool { return m == p.Key },
+		)
+		if len(members) == len(group.Members) {
+			continue
+		}
+		group.Members = members
+		state.Configs[key] = ElementConfig{Variant: group}
+	}
 	return state, nil
 }
 
@@ -99,41 +123,23 @@ func (p RemoveEdgePayload) Handle(state Schematic) (Schematic, error) {
 	return state, nil
 }
 
-// Handle merges the payload config into the configs entry for the given key.
-// Top-level fields present in the payload overwrite existing fields; fields
-// absent from the payload are preserved. When no entry exists yet and the
-// key matches an edge whose source node carries a color, the source color
-// overrides whatever color (if any) was in the payload.
+// Handle replaces the configs entry stored under the given key. A config naming no
+// variant is rejected: stored, it would be a null entry no client can read back.
 func (p SetConfigPayload) Handle(state Schematic) (Schematic, error) {
+	if p.Config.Variant == nil {
+		return Schematic{}, noVariantError(p.Key)
+	}
 	if state.Configs == nil {
-		state.Configs = make(map[string]msgpack.EncodedJSON)
+		state.Configs = make(map[string]ElementConfig)
 	}
-	if existing := state.Configs[p.Key]; existing != nil {
-		merged := make(msgpack.EncodedJSON, len(existing)+len(p.Config))
-		maps.Copy(merged, existing)
-		maps.Copy(merged, p.Config)
-		state.Configs[p.Key] = merged
-		return state, nil
-	}
-	cfg := p.Config
-	for _, e := range state.Edges {
-		if e.Key != p.Key {
-			continue
-		}
-		srcCfg := state.Configs[e.Source.Node]
-		if srcCfg == nil {
-			break
-		}
-		c, ok := srcCfg["color"]
-		if !ok || c == nil {
-			break
-		}
-		next := make(msgpack.EncodedJSON, len(cfg)+1)
-		maps.Copy(next, cfg)
-		next["color"] = c
-		cfg = next
-		break
-	}
-	state.Configs[p.Key] = cfg
+	state.Configs[p.Key] = p.Config
 	return state, nil
+}
+
+func noVariantError(key string) error {
+	return errors.Wrapf(
+		validate.ErrValidation,
+		"[Schematic] - config for %q names no variant",
+		key,
+	)
 }

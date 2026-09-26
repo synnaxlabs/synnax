@@ -11,9 +11,9 @@ package v0_test
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -33,6 +33,7 @@ var _ = Describe("Composition migrations", func() {
 	openPanelTable := func(
 		ctx context.Context, db *gorp.DB,
 	) *gorp.Table[v0.Key, v0.Panel] {
+		GinkgoHelper()
 		return MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[v0.Key, v0.Panel]{
 				DB:         db,
@@ -118,12 +119,12 @@ var _ = Describe("Composition migrations", func() {
 			for i, t := range v.Tabs {
 				switch tv := t.Variant.(type) {
 				case v0.ResourceTab:
-					Expect(tv.Key).ToNot(Equal(uuid.Nil))
-					tv.Key = uuid.Nil
+					Expect(tv.Key).ToNot(Equal(uuid.Nil()))
+					tv.Key = uuid.Nil()
 					v.Tabs[i] = v0.Tab{Variant: tv}
 				case v0.ViewTab:
-					Expect(tv.Key).ToNot(Equal(uuid.Nil))
-					tv.Key = uuid.Nil
+					Expect(tv.Key).ToNot(Equal(uuid.Nil()))
+					tv.Key = uuid.Nil()
 					v.Tabs[i] = v0.Tab{Variant: tv}
 				default:
 					Fail("unexpected tab variant")
@@ -155,7 +156,10 @@ var _ = Describe("Composition migrations", func() {
 		}}
 	}
 	appViewTab := func(viewType string) v0.Tab {
-		return v0.Tab{Variant: v0.ViewTab{View: v0.View{Type: viewType}}}
+		return v0.Tab{Variant: v0.ViewTab{
+			Type: viewType,
+			Args: msgpack.EncodedJSON{},
+		}}
 	}
 	leaf := func(tabs ...v0.Tab) *v0.Node {
 		return &v0.Node{Variant: v0.LeafNode{Tabs: tabs}}
@@ -177,9 +181,9 @@ var _ = Describe("Composition migrations", func() {
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
 			projectKey := uuid.New()
-			lpKey, scKey, logKey, tblKey := uuid.NewString(), uuid.NewString(),
-				uuid.NewString(), uuid.NewString()
-			staleKey := uuid.NewString()
+			lpKey, scKey, logKey, tblKey := uuid.New().String(), uuid.New().String(),
+				uuid.New().String(), uuid.New().String()
+			staleKey := uuid.New().String()
 			seedResources(ctx, db,
 				ontology.ID{Type: ontology.ResourceTypeLineplot, Key: lpKey},
 				ontology.ID{Type: ontology.ResourceTypeSchematic, Key: scKey},
@@ -324,7 +328,7 @@ var _ = Describe("Composition migrations", func() {
 		"Should collapse splits whose sides lose all of their tabs",
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
-			lpKey, staleKey := uuid.NewString(), uuid.NewString()
+			lpKey, staleKey := uuid.New().String(), uuid.New().String()
 			seedResources(ctx, db, ontology.ID{
 				Type: ontology.ResourceTypeLineplot, Key: lpKey,
 			})
@@ -455,7 +459,7 @@ var _ = Describe("Composition migrations", func() {
 		Expect(lf.Tabs).To(HaveLen(1))
 		rt, ok := lf.Tabs[0].Variant.(v0.ResourceTab)
 		Expect(ok).To(BeTrue())
-		Expect(rt.Key).ToNot(Equal(uuid.Nil))
+		Expect(rt.Key).ToNot(Equal(uuid.Nil()))
 		Expect(rt.Resource).To(Equal(ontology.ID{
 			Type: ontology.ResourceTypeTask,
 			Key:  taskKey.String(),
@@ -473,7 +477,7 @@ var _ = Describe("Composition migrations", func() {
 		"Should resolve task tabs keyed by a placeholder layout key",
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
-			argsPlaceholder, altPlaceholder := uuid.NewString(), uuid.NewString()
+			argsPlaceholder, altPlaceholder := uuid.New().String(), uuid.New().String()
 			argsLegacy, altLegacy := "281479271677954", "281479271677955"
 			argsTaskKey, altTaskKey := uuid.New(), uuid.New()
 			stageTaskKey(ctx, db, argsLegacy, argsTaskKey)
@@ -540,7 +544,7 @@ var _ = Describe("Composition migrations", func() {
 		"Should convert range overview tabs into range resource tabs",
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
-			rngKey, staleKey := uuid.NewString(), uuid.NewString()
+			rngKey, staleKey := uuid.New().String(), uuid.New().String()
 			seedResources(ctx, db, ontology.ID{
 				Type: ontology.ResourceTypeRange, Key: rngKey,
 			})
@@ -669,7 +673,7 @@ var _ = Describe("Composition migrations", func() {
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
 			table := openPanelTable(ctx, db)
-			logKey, userKey := uuid.NewString(), uuid.NewString()
+			logKey, userKey := uuid.New().String(), uuid.New().String()
 			p := v0.Panel{
 				Key:  uuid.New(),
 				Name: "Ops",
@@ -713,8 +717,9 @@ var _ = Describe("Composition migrations", func() {
 			taskKey := uuid.New()
 			viewTab := func(viewType string, args msgpack.EncodedJSON) v0.Tab {
 				return v0.Tab{Variant: v0.ViewTab{
-					TabBase: v0.TabBase{Key: uuid.New()},
-					View:    v0.View{Type: viewType, Args: args},
+					Key:  uuid.New(),
+					Type: viewType,
+					Args: args,
 				}}
 			}
 			table := openPanelTable(ctx, db)
@@ -759,7 +764,7 @@ var _ = Describe("Composition migrations", func() {
 			Expect(ok).To(BeTrue())
 			explorer, ok := last.Tabs[0].Variant.(v0.ViewTab)
 			Expect(ok).To(BeTrue())
-			Expect(explorer.Args).To(BeNil())
+			Expect(explorer.Args).To(BeEmpty())
 			other, ok := last.Tabs[1].Variant.(v0.ViewTab)
 			Expect(ok).To(BeTrue())
 			Expect(other.Args).To(Equal(msgpack.EncodedJSON{"taskKey": "12345"}))

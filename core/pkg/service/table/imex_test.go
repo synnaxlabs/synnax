@@ -10,7 +10,8 @@
 package table_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
@@ -43,18 +44,21 @@ var _ = Describe("ImEx", func() {
 			Expect(env.Type).To(Equal("table"))
 			Expect(env.Name).To(Equal("exported"))
 
-			decoded := MustSucceed(imex.Decode[table.Table](ctx, WireRoundTrip(env)))
+			decoded := MustSucceed(WireRoundTrip(env).Decode[table.Table](ctx))
 			Expect(decoded.Name).To(Equal("exported"))
 		})
 
 		It("Should return not found for a missing key", func(ctx SpecContext) {
-			id := ontology.ID{Type: ontology.ResourceTypeTable, Key: uuid.NewString()}
+			id := ontology.ID{
+				Type: ontology.ResourceTypeTable,
+				Key:  uuid.New().String(),
+			}
 			Expect(svc.Export(ctx, id)).Error().To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should error on an invalid UUID key", func(ctx SpecContext) {
 			id := ontology.ID{Type: ontology.ResourceTypeTable, Key: "not-a-uuid"}
-			Expect(svc.Export(ctx, id)).Error().To(MatchError(ContainSubstring("UUID")))
+			Expect(svc.Export(ctx, id)).Error().To(MatchError(ContainSubstring("uuid")))
 		})
 	})
 
@@ -84,7 +88,7 @@ var _ = Describe("ImEx", func() {
 			Expect(res.Rows).To(Equal([]table.Row{{Size: 30, Cells: []string{"c1"}}}))
 			Expect(res.Columns).To(Equal([]table.Column{{Size: 100}}))
 			Expect(res.Cells).To(HaveKey("c1"))
-			Expect(res.Cells["c1"].Variant).To(Equal("text"))
+			Expect(asText(res.Cells["c1"]).Value).To(Equal("hi"))
 		})
 
 		It(
@@ -97,9 +101,7 @@ var _ = Describe("ImEx", func() {
 				)
 				Expect(res.Name).To(Equal("Console Typed"))
 				Expect(res.Rows).To(HaveLen(1))
-				var props map[string]any
-				Expect(res.Cells["c1"].Props.Unmarshal(&props)).To(Succeed())
-				Expect(props).To(HaveKeyWithValue("fooBar", 1.0))
+				Expect(asText(res.Cells["c1"]).Weight).To(Equal(700.0))
 			},
 		)
 
@@ -120,10 +122,9 @@ var _ = Describe("ImEx", func() {
 				)
 				Expect(res.Columns).To(Equal([]table.Column{{Size: 100}, {Size: 120}}))
 				Expect(res.Cells).To(HaveLen(2))
-				Expect(res.Cells["c2"].Variant).To(Equal("value"))
-				var props map[string]any
-				Expect(res.Cells["c1"].Props.Unmarshal(&props)).To(Succeed())
-				Expect(props).To(HaveKeyWithValue("fooBar", 3.0))
+				Expect(res.Cells["c2"].Variant).
+					To(BeAssignableToTypeOf(table.ValueCellConfig{}))
+				Expect(asText(res.Cells["c1"]).Weight).To(Equal(700.0))
 			},
 		)
 

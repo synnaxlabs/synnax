@@ -14,15 +14,16 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Writer is used to create and update statuses within the DB.
-type Writer[D any] struct {
+// Writer is used to create and update statuses within the DB. Every write touches both
+// the status entry and its ontology resource, and the two land together only when the
+// Writer holds a transaction spanning them.
+type Writer struct {
 	tx        gorp.Tx
+	table     *gorp.Table[Key, Status[any]]
 	otgWriter ontology.Writer
 	otg       *ontology.Ontology
 	group     group.Group
@@ -30,7 +31,7 @@ type Writer[D any] struct {
 
 // Set creates or updates a status within the DB. If the Status already has a key and
 // an existing Status already exists with that key, the existing status will be updated.
-func (w Writer[D]) Set(ctx context.Context, s *Status[D]) error {
+func (w Writer) Set[D any](ctx context.Context, s *Status[D]) error {
 	return w.SetWithParent(ctx, s, ontology.ID{})
 }
 
@@ -40,7 +41,7 @@ func (w Writer[D]) Set(ctx context.Context, s *Status[D]) error {
 // the status already exists and no parent is provided, the existing parent relationship
 // will be preserved. If an empty parent is provided, the status will be created under
 // the top level "Statuses" group.
-func (w Writer[D]) SetWithParent(
+func (w Writer) SetWithParent[D any](
 	ctx context.Context,
 	s *Status[D],
 	parent ontology.ID,
@@ -99,17 +100,8 @@ func (w Writer[D]) SetWithParent(
 
 // SetMany creates or updates multiple statuses within the DB. If any of the statuses
 // already exist, they will be updated.
-func (w Writer[D]) SetMany(
-	ctx context.Context,
-	statuses *[]Status[D],
-) error {
-	for i, s := range *statuses {
-		if err := w.Set(ctx, &s); err != nil {
-			return err
-		}
-		(*statuses)[i] = s
-	}
-	return nil
+func (w Writer) SetMany[D any](ctx context.Context, statuses *[]Status[D]) error {
+	return w.SetManyWithParent(ctx, statuses, ontology.ID{})
 }
 
 // SetManyWithParent creates or updates multiple statuses within the DB as child
@@ -119,7 +111,7 @@ func (w Writer[D]) SetMany(
 // be created. If the status already exists and no parent is provided, the existing
 // parent relationship will be preserved. If an empty parent is provided, the status
 // will be created under the top level "Statuses" group.
-func (w Writer[D]) SetManyWithParent(
+func (w Writer) SetManyWithParent[D any](
 	ctx context.Context,
 	statuses *[]Status[D],
 	parent ontology.ID,
@@ -137,19 +129,19 @@ func (w Writer[D]) SetManyWithParent(
 }
 
 // Delete deletes the statuses with the given keys. Delete is idempotent.
-func (w Writer[D]) Delete(ctx context.Context, keys ...Key) error {
-	if err := gorp.NewDelete[Key, Status[D]]().
-		Where(gorp.MatchKeys[Key, Status[D]](keys...)).
-		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.ErrNotFound) {
+func (w Writer) Delete(ctx context.Context, keys ...Key) error {
+	if err := w.table.NewDelete().
+		Where(gorp.MatchKeys[Key, Status[any]](keys...)).
+		Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	return w.otgWriter.DeleteResources(ctx, OntologyIDs(keys)...)
 }
 
-func (w Writer[D]) validate(s Status[D]) error {
+func (w Writer) validate[D any](s Status[D]) error {
 	v := validate.New("status.status")
-	validate.NotEmptyString(v, "key", s.Key)
-	validate.Positive(v, "time", s.Time)
-	validate.NotEmptyString(v, "variant", s.Variant)
+	v.NotEmptyString("key", s.Key)
+	v.Positive("time", s.Time)
+	v.NotEmptyString("variant", s.Variant)
 	return v.Error()
 }

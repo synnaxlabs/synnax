@@ -10,8 +10,8 @@
 package telem
 
 import (
-	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"fmt"
 	"iter"
 	"slices"
@@ -19,6 +19,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/bit"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/unsafe"
 	"github.com/vmihailenco/msgpack/v5"
@@ -47,11 +48,11 @@ type Frame[K types.SizedNumeric] struct {
 	}
 }
 
-// UnsafeReinterpretFrameKeysAs reinterprets the keys of the frame as a different type.
-// This method performs no static type checking and is unsafe. Caveat emptor.
-func UnsafeReinterpretFrameKeysAs[I, O types.SizedNumeric](f Frame[I]) Frame[O] {
+// UnsafeReinterpretKeysAs reinterprets the keys of the frame as a different type.
+// UnsafeReinterpretKeysAs does no static type checking and is unsafe. Caveat emptor.
+func (f Frame[K]) UnsafeReinterpretKeysAs[O types.SizedNumeric]() Frame[O] {
 	return Frame[O]{
-		keys:   unsafe.ReinterpretSlice[I, O](f.keys),
+		keys:   unsafe.ReinterpretSlice[K, O](f.keys),
 		series: f.series,
 		mask:   f.mask,
 	}
@@ -267,8 +268,8 @@ func (f Frame[K]) RawKeyAt(i int) K {
 }
 
 var (
-	_ json.Marshaler        = Frame[int8]{}
-	_ json.Unmarshaler      = &Frame[int8]{}
+	_ json.MarshalerTo      = Frame[int8]{}
+	_ json.UnmarshalerFrom  = &Frame[int8]{}
 	_ msgpack.CustomEncoder = Frame[int8]{}
 	_ msgpack.CustomDecoder = &Frame[int8]{}
 )
@@ -280,96 +281,42 @@ type serializableFrame[K comparable] struct {
 	Series []Series `json:"series" msgpack:"series"`
 }
 
-// MarshalJSON implements json.Marshaler to handle data masking.
-func (f Frame[K]) MarshalJSON() ([]byte, error) {
-	if !f.mask.enabled {
-		return json.Marshal(serializableFrame[K]{Keys: f.keys, Series: f.series})
-	}
-	var (
-		buf      bytes.Buffer
-		anyAdded bool
-	)
-	buf.WriteString(`{"keys":[`)
-	for k := range f.Keys() {
-		if anyAdded {
-			buf.WriteString(",")
-		}
-		keyBytes, err := json.Marshal(k)
-		if err != nil {
-			return nil, err
-		}
-		buf.Write(keyBytes)
-		anyAdded = true
-	}
-	buf.WriteString(`],"series":[`)
-	anyAdded = false
-	for s := range f.Series() {
-		if anyAdded {
-			buf.WriteString(",")
-		}
-		seriesBytes, err := json.Marshal(s)
-		if err != nil {
-			return nil, err
-		}
-		buf.Write(seriesBytes)
-		anyAdded = true
-	}
-	buf.WriteString(`]}`)
-	return buf.Bytes(), nil
+// MarshalJSONTo implements json.MarshalerTo to handle data masking.
+func (f Frame[K]) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, serializableFrame[K]{
+		Keys:   f.KeysSlice(),
+		Series: f.SeriesSlice(),
+	})
 }
 
-// UnmarshalJSON implements json.Marshaler to handle data masking.
-func (f *Frame[K]) UnmarshalJSON(data []byte) error {
+// UnmarshalJSONFrom implements json.UnmarshalerFrom. It replaces the receiver whole, so
+// a mask left over from an earlier value cannot filter the decoded entries.
+func (f *Frame[K]) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var frame serializableFrame[K]
-	if err := json.Unmarshal(data, &frame); err != nil {
+	if err := json.UnmarshalDecode(dec, &frame); err != nil {
 		return err
 	}
-	f.keys = frame.Keys
-	f.series = frame.Series
+	*f = Frame[K]{keys: frame.Keys, series: frame.Series}
 	return nil
 }
 
 // EncodeMsgpack implements msgpack.CustomEncoder to handle data masking.
 func (f Frame[K]) EncodeMsgpack(enc *msgpack.Encoder) error {
-	if !f.mask.enabled {
-		return enc.Encode(serializableFrame[K]{Keys: f.keys, Series: f.series})
-	}
-	count := f.Count()
-	if err := enc.EncodeMapLen(2); err != nil {
-		return err
-	}
-	if err := enc.EncodeString("keys"); err != nil {
-		return err
-	}
-	if err := enc.EncodeArrayLen(count); err != nil {
-		return err
-	}
-	for k := range f.Keys() {
-		if err := enc.Encode(k); err != nil {
-			return err
-		}
-	}
-	if err := enc.EncodeString("series"); err != nil {
-		return err
-	}
-	if err := enc.EncodeArrayLen(count); err != nil {
-		return err
-	}
-	for s := range f.Series() {
-		if err := enc.Encode(s); err != nil {
-			return err
-		}
-	}
-	return nil
+	return enc.Encode(serializableFrame[K]{
+		Keys:   f.KeysSlice(),
+		Series: f.SeriesSlice(),
+	})
 }
 
-// DecodeMsgpack can continue using serializableFrame
+// DecodeMsgpack implements msgpack.CustomDecoder. It replaces the receiver whole, so a
+// mask left over from an earlier value cannot filter the decoded entries.
 func (f *Frame[K]) DecodeMsgpack(dec *msgpack.Decoder) error {
 	var frame serializableFrame[K]
-	err := dec.Decode(&frame)
-	f.keys = frame.Keys
-	f.series = frame.Series
-	return err
+	if err := dec.Decode(&frame); err != nil {
+		return err
+	}
+	*f = Frame[K]{keys: frame.Keys, series: frame.Series}
+	return nil
 }
 
 // Get gets all series in the frame matching the given key.
@@ -480,10 +427,10 @@ func (f Frame[K]) ShallowCopy() Frame[K] {
 	return Frame[K]{keys: keys, series: series, mask: f.mask}
 }
 
-// KeepKeys filters the frame to only include the keys in the given slice, returning
-// a shallow copy of the filtered frame.
-func (f Frame[K]) KeepKeys(keys []K) Frame[K] {
-	return f.filter(keys, lo.Contains)
+// KeepKeys filters the frame to only include the keys in the given set, returning a
+// shallow copy of the filtered frame.
+func (f Frame[K]) KeepKeys(keys set.Set[K]) Frame[K] {
+	return f.filter(keys, len(keys), set.Set[K].Contains)
 }
 
 // notContain is defined statically so that it doesn't accidentally escape to the heap,
@@ -496,25 +443,25 @@ func (f Frame[K]) ExcludeKeys(keys []K) Frame[K] {
 	if len(keys) == 0 {
 		return f
 	}
-	return f.filter(keys, notContains)
+	return f.filter(keys, len(keys), notContains)
 }
 
-func (f Frame[K]) filter(keys []K, keep func([]K, K) bool) Frame[K] {
+func (f Frame[K]) filter[S any](src S, count int, keep func(S, K) bool) Frame[K] {
 	if len(f.keys) < f.mask.Cap() {
 		f.mask.enabled = true
 		for i, key := range f.keys {
-			if !keep(keys, key) {
+			if !keep(src, key) {
 				f.mask.Mask128 = f.mask.Set(i, true)
 			}
 		}
 		return f
 	}
 	var (
-		fKeys   = make([]K, 0, len(keys))
-		fSeries = make([]Series, 0, len(keys))
+		fKeys   = make([]K, 0, count)
+		fSeries = make([]Series, 0, count)
 	)
 	for k, s := range f.Entries() {
-		if keep(keys, k) {
+		if keep(src, k) {
 			fKeys = append(fKeys, k)
 			fSeries = append(fSeries, s)
 		}

@@ -12,8 +12,8 @@ package group
 import (
 	"context"
 	"io"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/group/versions"
@@ -49,9 +49,9 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements ServiceConfig.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("group")
-	validate.NotNil(v, "db", c.DB)
-	validate.NotNil(v, "ontology", c.Ontology)
-	validate.NotNil(v, "search", c.Search)
+	v.NotNil("db", c.DB)
+	v.NotNil("ontology", c.Ontology)
+	v.NotNil("search", c.Search)
 	return v.Error()
 }
 
@@ -85,16 +85,26 @@ func (s *Service) CreateOrRetrieve(
 	groupName string,
 	parent ontology.ID,
 ) (Group, error) {
-	var g Group
-	err := s.NewRetrieve().Entry(&g).Where(MatchNames(groupName)).Exec(ctx, nil)
-	if errors.Skip(err, query.ErrNotFound) != nil {
+	var res Group
+	if err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		var (
+			g   Group
+			err = s.NewRetrieve().Entry(&g).Where(MatchNames(groupName)).Exec(ctx, tx)
+		)
+		if errors.Skip(err, query.ErrNotFound) != nil {
+			return err
+		}
+		w := s.NewWriter(tx)
+		if errors.Is(err, query.ErrNotFound) {
+			res, err = w.Create(ctx, groupName, parent)
+		} else {
+			res, err = w.CreateWithKey(ctx, g.Key, groupName, parent)
+		}
+		return err
+	}); err != nil {
 		return Group{}, err
 	}
-	w := s.NewWriter(nil)
-	if errors.Is(err, query.ErrNotFound) {
-		return w.Create(ctx, groupName, parent)
-	}
-	return w.CreateWithKey(ctx, g.Key, groupName, parent)
+	return res, nil
 }
 
 // Observe returns an observable that notifies callers of changes to group entries.
@@ -161,7 +171,7 @@ func (w Writer) CreateWithKey(
 	parent ontology.ID,
 ) (Group, error) {
 	g := Group{Key: key, Name: name}
-	if g.Key == uuid.Nil {
+	if g.Key == uuid.Nil() {
 		g.Key = uuid.New()
 	}
 	id := g.OntologyID()

@@ -48,13 +48,19 @@ type Config struct {
 	//
 	// [OPTIONAL]
 	ChunkSize int64
+	// DownsampleFactor keeps every n-th sample of each series read from storage. The
+	// read is strided at the source, so the discarded samples are never read into
+	// memory. Values below 2 keep every sample.
+	//
+	// [OPTIONAL]
+	DownsampleFactor uint32
 }
 
 // Validate ensures that Keys is non-empty and contains no free channels, which cannot
 // be iterated over as they have no underlying storage.
 func (cfg Config) Validate() error {
 	v := validate.New("distribution.framer.iterator")
-	if validate.NotEmptySlice(v, "keys", cfg.Keys) {
+	if v.NotEmptySlice("keys", cfg.Keys) {
 		return v.Error()
 	}
 	for _, k := range cfg.Keys {
@@ -105,9 +111,9 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements Config.
 func (cfg ServiceConfig) Validate() error {
 	v := validate.New("distribution.framer.iterator")
-	validate.NotNil(v, "ts", cfg.TS)
-	validate.NotNil(v, "transport", cfg.Transport)
-	validate.NotNil(v, "resolver", cfg.HostResolver)
+	v.NotNil("ts", cfg.TS)
+	v.NotNil("transport", cfg.Transport)
+	v.NotNil("resolver", cfg.HostResolver)
 	return v.Error()
 }
 
@@ -184,39 +190,37 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 		routeInletTo = peerSenderAddr
 		sender, receivers, err := s.openManyPeers(
 			ctx,
-			cfg.Bounds,
-			cfg.ChunkSize,
+			cfg,
 			batch.Peers,
 			!needGatewayRouting,
 		)
 		if err != nil {
 			return nil, err
 		}
-		plumber.SetSink[Request](pipe, peerSenderAddr, sender)
+		pipe.SetSink[Request](peerSenderAddr, sender)
 		receiverAddresses = make([]address.Address, len(receivers))
 		for i, c := range receivers {
 			addr := address.Newf("client_%v", i+1)
 			receiverAddresses[i] = addr
-			plumber.SetSource[Response](pipe, addr, c)
+			pipe.SetSource[Response](addr, c)
 		}
 	}
 
 	if needGatewayRouting {
 		routeInletTo = gatewayIterAddr
-		gatewayIter, err := s.newGateway(
-			Config{Keys: batch.Gateway, Bounds: cfg.Bounds, ChunkSize: cfg.ChunkSize},
-			!needPeerRouting,
-		)
+		gatewayCfg := cfg
+		gatewayCfg.Keys = batch.Gateway
+		gatewayIter, err := s.newGateway(gatewayCfg, !needPeerRouting)
 		if err != nil {
 			return nil, err
 		}
-		plumber.SetSegment[Request, Response](pipe, gatewayIterAddr, gatewayIter)
+		pipe.SetSegment[Request, Response](gatewayIterAddr, gatewayIter)
 		receiverAddresses = append(receiverAddresses, gatewayIterAddr)
 	}
 
 	if needPeerRouting && needGatewayRouting {
 		routeInletTo = broadcasterAddr
-		plumber.SetSegment[Request, Request](pipe, broadcasterAddr, newBroadcaster())
+		pipe.SetSegment[Request, Request](broadcasterAddr, newBroadcaster())
 		plumber.MultiRouter[Request]{
 			SourceTargets: []address.Address{broadcasterAddr},
 			SinkTargets:   []address.Address{peerSenderAddr, gatewayIterAddr},
@@ -225,8 +229,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 		}.MustRoute(pipe)
 	}
 
-	plumber.SetSegment[Response, Response](
-		pipe,
+	pipe.SetSegment[Response, Response](
 		synchronizerAddr,
 		newSynchronizer(len(cfg.Keys.UniqueLeaseholders()), s.cfg.Instrumentation),
 	)

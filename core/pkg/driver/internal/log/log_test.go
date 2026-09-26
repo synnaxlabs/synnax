@@ -11,7 +11,7 @@ package log_test
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/v2"
 	"io"
 	"os"
 	"strings"
@@ -32,6 +32,7 @@ func (errClosedReader) Read([]byte) (int, error) { return 0, os.ErrClosed }
 func (errClosedReader) Close() error             { return nil }
 
 func parseLogEntries(buffer *bytes.Buffer) []map[string]any {
+	GinkgoHelper()
 	var entries []map[string]any
 	for line := range strings.SplitSeq(strings.TrimSpace(buffer.String()), "\n") {
 		if line == "" {
@@ -52,6 +53,7 @@ func pipeAndCollect(
 	startedOnce *sync.Once,
 	input string,
 ) []map[string]any {
+	GinkgoHelper()
 	r, w := io.Pipe()
 	buffer := &bytes.Buffer{}
 	core := zapcore.NewCore(
@@ -372,7 +374,8 @@ var _ = Describe("PipeToLogger", func() {
 			Expect(entries[1]).To(And(
 				HaveKeyWithValue("L", "ERROR"),
 				HaveKeyWithValue("M", ContainSubstring(
-					"*** synnax-driver crashed: SIGSEGV (segmentation fault) ***")),
+					"*** synnax-driver crashed: SIGSEGV (segmentation fault) ***",
+				)),
 			))
 		})
 
@@ -393,6 +396,7 @@ var _ = Describe("PipeToLogger", func() {
 		// every Error entry) so the suppression on forwarded content is observable.
 		// zap.NewDevelopmentEncoderConfig encodes that stacktrace under "S".
 		newProd := func() (*alamos.Logger, *bytes.Buffer) {
+			GinkgoHelper()
 			buf := &bytes.Buffer{}
 			l := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
 				ZapLogger: zap.New(
@@ -407,6 +411,7 @@ var _ = Describe("PipeToLogger", func() {
 			return l, buf
 		}
 		pipeProd := func(input string) []map[string]any {
+			GinkgoHelper()
 			l, buf := newProd()
 			r, w := io.Pipe()
 			done := make(chan struct{})

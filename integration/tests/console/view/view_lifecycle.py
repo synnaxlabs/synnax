@@ -120,9 +120,7 @@ class ViewLifecycle(ConsoleCase):
         """Wait for a range row to leave the list without the explorer's scroll
         sweep. Filtered views are small, fully mounted lists."""
         ranges = self.console.ranges.explorer
-        self.console.layout.wait_for_hidden(
-            self.console.layout.get_list_item(ranges.ITEM_SELECTOR, name)
-        )
+        self.console.layout.wait_for_hidden(ranges.get_mounted_item(name))
 
     def _relabel_range(self, name: str, label_name: str) -> None:
         """Add a label to a range via its overview, then return to the explorer."""
@@ -200,7 +198,7 @@ class ViewLifecycle(ConsoleCase):
         views = explorer.views
         views.create(view_a)
         assert views.is_selected(view_a), f"'{view_a}' should be selected on create"
-        views.select_filter("Select labels", self.label_a_name)
+        views.select_filter("Labels", self.label_a_name)
         self._assert_only(
             explorer,
             shown=[explorer.labeled_a],
@@ -212,7 +210,7 @@ class ViewLifecycle(ConsoleCase):
         assert explorer.exists(explorer.labeled_b), (
             f"New view '{view_b}' should start unfiltered"
         )
-        views.select_filter("Select labels", self.label_b_name)
+        views.select_filter("Labels", self.label_b_name)
         self._assert_only(
             explorer,
             shown=[explorer.labeled_b],

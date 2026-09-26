@@ -13,8 +13,8 @@ import (
 	"context"
 	"strings"
 	"sync"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/ir"
@@ -61,7 +61,9 @@ func (r *recordingReporter) get() []reportCall {
 
 // newModule builds a Module without WASM wiring (WASM is covered separately).
 func newModule(ctx context.Context, reporter *recordingReporter) node.Factory {
+	GinkgoHelper()
 	return MustSucceed(arcranges.NewModule(ctx, arcranges.ModuleConfig{
+		DB:       db,
 		Ranger:   rangeSvc,
 		Reporter: reporter.report,
 	}))
@@ -222,6 +224,7 @@ var _ = Describe("Module", func() {
 				)
 				DeferCleanup(rt.Close)
 				wired := MustSucceed(arcranges.NewModule(ctx, arcranges.ModuleConfig{
+					DB:       db,
 					Ranger:   rangeSvc,
 					Strings:  stlstrings.NewProgramState(),
 					Runtime:  rt,
@@ -240,12 +243,14 @@ var _ = Describe("Module", func() {
 				)
 				DeferCleanup(rt.Close)
 				MustSucceed(arcranges.NewModule(ctx, arcranges.ModuleConfig{
+					DB:       db,
 					Ranger:   rangeSvc,
 					Strings:  stlstrings.NewProgramState(),
 					Runtime:  rt,
 					Reporter: rep.report,
 				}))
 				Expect(arcranges.NewModule(ctx, arcranges.ModuleConfig{
+					DB:       db,
 					Ranger:   rangeSvc,
 					Strings:  stlstrings.NewProgramState(),
 					Runtime:  rt,
@@ -256,42 +261,40 @@ var _ = Describe("Module", func() {
 	})
 
 	Describe("Create", func() {
-		It("Should return ErrNotFound for an unrecognized type", func(ctx SpecContext) {
+		It("Should return ErrNotFound for an unrecognized type", func() {
 			cfg := node.Config{Node: ir.Node{Type: "wrong_type"}}
-			Expect(mod.Create(ctx, cfg)).Error().To(MatchError(query.ErrNotFound))
+			Expect(mod.Create(cfg)).Error().To(MatchError(query.ErrNotFound))
 		})
 
-		It("Should construct a create node from valid inputs", func(ctx SpecContext) {
-			n := MustSucceed(mod.Create(ctx, create.Config("rng", "", "")))
+		It("Should construct a create node from valid inputs", func() {
+			n := MustSucceed(mod.Create(create.Config("rng", "", "")))
 			Expect(n).ToNot(BeNil())
-			Expect(func() { n.Reset() }).ToNot(Panic())
+			Expect(func() { n.Reset(node.Context{}) }).ToNot(Panic())
 			Expect(n.IsOutputTruthy(0)).To(BeFalse())
 		})
 
-		It("Should construct an end node from valid inputs", func(ctx SpecContext) {
-			n := MustSucceed(mod.Create(ctx, end.Config(uuid.NewString())))
+		It("Should construct an end node from valid inputs", func() {
+			n := MustSucceed(mod.Create(end.Config(uuid.New().String())))
 			Expect(n).ToNot(BeNil())
 		})
 
 		It(
 			"Should return a clean error when create is missing name",
-			func(ctx SpecContext) {
+			func() {
 				cfg := node.Config{Node: ir.Node{Type: "create", Inputs: types.Params{
 					{Name: "parent", Type: types.String(), Value: ""},
 					{Name: "color", Type: types.String(), Value: ""},
 				}, Outputs: create.Outputs}}
 				state := node.New(ir.IR{Nodes: ir.Nodes{cfg.Node}})
 				cfg.State = state.Node("")
-				Expect(
-					mod.Create(ctx, cfg),
-				).Error().
+				Expect(mod.Create(cfg)).Error().
 					To(MatchError(ContainSubstring("ranges.create inputs")))
 			},
 		)
 
 		It(
 			"Should return a clean error when end is missing key",
-			func(ctx SpecContext) {
+			func() {
 				cfg := node.Config{
 					Node: ir.Node{
 						Type:    "end",
@@ -301,9 +304,7 @@ var _ = Describe("Module", func() {
 				}
 				state := node.New(ir.IR{Nodes: ir.Nodes{cfg.Node}})
 				cfg.State = state.Node("")
-				Expect(
-					mod.Create(ctx, cfg),
-				).Error().
+				Expect(mod.Create(cfg)).Error().
 					To(MatchError(ContainSubstring("ranges.end inputs")))
 			},
 		)
@@ -320,20 +321,21 @@ var _ = Describe("createNode.Next", func() {
 		mod = newModule(ctx, rep)
 	})
 
-	build := func(ctx context.Context, name, parent, colorHex string) (node.Node, *node.State) {
+	build := func(name, parent, colorHex string) (node.Node, *node.State) {
+		GinkgoHelper()
 		cfg := create.Config(name, parent, colorHex)
-		return MustSucceed(mod.Create(ctx, cfg)), cfg.State
+		return MustSucceed(mod.Create(cfg)), cfg.State
 	}
 
 	It(
 		"Should create an open range that starts now and ends at max",
 		func(ctx SpecContext) {
-			name := "create_open_" + uuid.NewString()
+			name := "create_open_" + uuid.New().String()
 			before := telem.Now()
-			n, state := build(ctx, name, "", "")
+			n, state := build(name, "", "")
 			n.Next(nodeCtx(ctx))
 
-			keys := telem.UnmarshalSeries[string](*state.Output(0))
+			keys := state.Output(0).Unmarshal[string]()
 			Expect(keys).To(HaveLen(1))
 			newKey := keys[0]
 			MustSucceed(uuid.Parse(newKey))
@@ -352,11 +354,11 @@ var _ = Describe("createNode.Next", func() {
 	It(
 		"Should store a parsed color when a valid hex is provided",
 		func(ctx SpecContext) {
-			name := "create_color_" + uuid.NewString()
-			n, state := build(ctx, name, "", "#DF6D38")
+			name := "create_color_" + uuid.New().String()
+			n, state := build(name, "", "#DF6D38")
 			n.Next(nodeCtx(ctx))
 
-			newKey := telem.UnmarshalSeries[string](*state.Output(0))[0]
+			newKey := state.Output(0).Unmarshal[string]()[0]
 			r := MustSucceed(retrieveRange(ctx, newKey))
 			Expect(*r.Color).To(Equal(MustSucceed(color.FromCSS("#DF6D38"))))
 			Expect(rep.get()).To(BeEmpty())
@@ -364,10 +366,10 @@ var _ = Describe("createNode.Next", func() {
 	)
 
 	It("Should accept an rgb() color", func(ctx SpecContext) {
-		name := "create_rgb_" + uuid.NewString()
-		n, state := build(ctx, name, "", "rgb(223, 109, 56)")
+		name := "create_rgb_" + uuid.New().String()
+		n, state := build(name, "", "rgb(223, 109, 56)")
 		n.Next(nodeCtx(ctx))
-		newKey := telem.UnmarshalSeries[string](*state.Output(0))[0]
+		newKey := state.Output(0).Unmarshal[string]()[0]
 		r := MustSucceed(retrieveRange(ctx, newKey))
 		Expect(*r.Color).To(Equal(MustSucceed(color.FromCSS("rgb(223, 109, 56)"))))
 		Expect(rep.get()).To(BeEmpty())
@@ -376,12 +378,12 @@ var _ = Describe("createNode.Next", func() {
 	It(
 		"Should warn and not create the range when the color is invalid",
 		func(ctx SpecContext) {
-			name := "create_badcolor_" + uuid.NewString()
-			n, state := build(ctx, name, "", "not-a-color")
+			name := "create_badcolor_" + uuid.New().String()
+			n, state := build(name, "", "not-a-color")
 			n.Next(nodeCtx(ctx))
 
 			Expect(
-				telem.UnmarshalSeries[string](*state.Output(0)),
+				state.Output(0).Unmarshal[string](),
 			).To(Equal([]string{""}))
 			Expect(rangeSvc.
 				NewRetrieve().
@@ -402,15 +404,15 @@ var _ = Describe("createNode.Next", func() {
 		"Should parent the new range under an existing parent range",
 		func(ctx SpecContext) {
 			parent := ranger.Range{
-				Name:      "parent_" + uuid.NewString(),
+				Name:      "parent_" + uuid.New().String(),
 				TimeRange: telem.TimeRange{Start: telem.Now(), End: telem.TimeStampMax},
 			}
 			Expect(rangeSvc.NewWriter(nil).Create(ctx, &parent)).To(Succeed())
 
-			n, state := build(ctx, "child_"+uuid.NewString(), parent.Key.String(), "")
+			n, state := build("child_"+uuid.New().String(), parent.Key.String(), "")
 			n.Next(nodeCtx(ctx))
 
-			newKey := telem.UnmarshalSeries[string](*state.Output(0))[0]
+			newKey := state.Output(0).Unmarshal[string]()[0]
 			Expect(newKey).ToNot(BeEmpty())
 			MustSucceed(retrieveRange(ctx, newKey))
 			Expect(rep.get()).To(BeEmpty())
@@ -420,11 +422,11 @@ var _ = Describe("createNode.Next", func() {
 	It(
 		"Should warn and emit an empty key when the parent key is not a UUID",
 		func(ctx SpecContext) {
-			n, state := build(ctx, "bad_parent_"+uuid.NewString(), "not-a-uuid", "")
+			n, state := build("bad_parent_"+uuid.New().String(), "not-a-uuid", "")
 			n.Next(nodeCtx(ctx))
 
 			Expect(
-				telem.UnmarshalSeries[string](*state.Output(0)),
+				state.Output(0).Unmarshal[string](),
 			).To(Equal([]string{""}))
 			calls := rep.get()
 			Expect(calls).To(HaveLen(1))
@@ -438,12 +440,12 @@ var _ = Describe("createNode.Next", func() {
 	It("Should read a var-bound parent at fire time", func(ctx SpecContext) {
 		// The configured "" would succeed parentless; only the live slot value
 		// can produce this warning.
-		cfg := create.Config("var_parent_"+uuid.NewString(), VarOf("not-a-uuid"), "")
-		n := MustSucceed(mod.Create(ctx, cfg))
+		cfg := create.Config("var_parent_"+uuid.New().String(), VarOf("not-a-uuid"), "")
+		n := MustSucceed(mod.Create(cfg))
 		n.Next(nodeCtx(ctx))
 
 		Expect(
-			telem.UnmarshalSeries[string](*cfg.State.Output(0)),
+			cfg.State.Output(0).Unmarshal[string](),
 		).To(Equal([]string{""}))
 		calls := rep.get()
 		Expect(calls).To(HaveLen(1))
@@ -463,14 +465,16 @@ var _ = Describe("endNode.Next", func() {
 		mod = newModule(ctx, rep)
 	})
 
-	build := func(ctx context.Context, key string) (node.Node, *node.State) {
+	build := func(key string) (node.Node, *node.State) {
+		GinkgoHelper()
 		cfg := end.Config(key)
-		return MustSucceed(mod.Create(ctx, cfg)), cfg.State
+		return MustSucceed(mod.Create(cfg)), cfg.State
 	}
 
 	openRange := func(ctx context.Context) ranger.Range {
+		GinkgoHelper()
 		r := ranger.Range{
-			Name:      "end_target_" + uuid.NewString(),
+			Name:      "end_target_" + uuid.New().String(),
 			TimeRange: telem.TimeRange{Start: telem.Now(), End: telem.TimeStampMax},
 		}
 		Expect(rangeSvc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
@@ -480,11 +484,11 @@ var _ = Describe("endNode.Next", func() {
 	It("Should set the end bound to now", func(ctx SpecContext) {
 		r := openRange(ctx)
 		before := telem.Now()
-		n, state := build(ctx, r.Key.String())
+		n, state := build(r.Key.String())
 		n.Next(nodeCtx(ctx))
 
 		Expect(
-			telem.UnmarshalSeries[string](*state.Output(0)),
+			state.Output(0).Unmarshal[string](),
 		).To(Equal([]string{r.Key.String()}))
 		updated := MustSucceed(retrieveRange(ctx, r.Key.String()))
 		Expect(updated.TimeRange.End).To(BeNumerically(">=", before))
@@ -496,11 +500,11 @@ var _ = Describe("endNode.Next", func() {
 	It(
 		"Should warn and emit an empty key when the key is not a UUID",
 		func(ctx SpecContext) {
-			n, state := build(ctx, "not-a-uuid")
+			n, state := build("not-a-uuid")
 			n.Next(nodeCtx(ctx))
 
 			Expect(
-				telem.UnmarshalSeries[string](*state.Output(0)),
+				state.Output(0).Unmarshal[string](),
 			).To(Equal([]string{""}))
 			calls := rep.get()
 			Expect(calls).To(HaveLen(1))
@@ -512,10 +516,10 @@ var _ = Describe("endNode.Next", func() {
 	)
 
 	It("Should warn when the range does not exist", func(ctx SpecContext) {
-		n, state := build(ctx, uuid.NewString())
+		n, state := build(uuid.New().String())
 		n.Next(nodeCtx(ctx))
 
-		Expect(telem.UnmarshalSeries[string](*state.Output(0))).To(Equal([]string{""}))
+		Expect(state.Output(0).Unmarshal[string]()).To(Equal([]string{""}))
 		calls := rep.get()
 		Expect(calls).To(HaveLen(1))
 		Expect(calls[0].variant).To(Equal(status.VariantWarning))
@@ -535,6 +539,7 @@ var _ = Describe("Analyzer hooks", func() {
 		return root
 	}
 	hasColorError := func(ctx context.Context, src string) bool {
+		GinkgoHelper()
 		parsed := MustSucceed(text.Parse(text.Text{Raw: src}))
 		_, diags := text.Analyze(ctx, parsed, buildRoot())
 		for _, e := range diags.Errors() {
@@ -615,6 +620,7 @@ var _ = Describe("WASM host functions", func() {
 		strs = stlstrings.NewProgramState()
 		rep = &recordingReporter{}
 		MustSucceed(arcranges.NewModule(ctx, arcranges.ModuleConfig{
+			DB:       db,
 			Ranger:   rangeSvc,
 			Strings:  strs,
 			Runtime:  rt.Underlying(),
@@ -631,7 +637,7 @@ var _ = Describe("WASM host functions", func() {
 		It(
 			"Should create a range and return a handle resolving to its key",
 			func(ctx SpecContext) {
-				name := "wasm_create_" + uuid.NewString()
+				name := "wasm_create_" + uuid.New().String()
 				nameH := strs.Create(name)
 				colorH := strs.Create("")
 				parentH := strs.Create("")
@@ -666,7 +672,7 @@ var _ = Describe("WASM host functions", func() {
 			"Should set the end bound to now and return a handle resolving to the key",
 			func(ctx SpecContext) {
 				r := ranger.Range{
-					Name: "wasm_end_" + uuid.NewString(),
+					Name: "wasm_end_" + uuid.New().String(),
 					TimeRange: telem.TimeRange{
 						Start: telem.Now(),
 						End:   telem.TimeStampMax,

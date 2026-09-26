@@ -32,12 +32,12 @@ describe("SelectTimestampFormat", () => {
 
   it("should render a selection trigger", () => {
     const c = render(<TestSelect />);
-    expect(c.getByText("Select timestamp format")).toBeTruthy();
+    expect(c.getByText("Timestamp format")).toBeTruthy();
   });
 
   it("should open and show all format options", () => {
     const c = render(<TestSelect />);
-    fireEvent.click(c.getByText("Select timestamp format"));
+    fireEvent.click(c.getByText("Timestamp format"));
     expect(c.getByText("ISO 8601")).toBeTruthy();
     expect(c.getByText("ISO date")).toBeTruthy();
     expect(c.getByText("Time")).toBeTruthy();
@@ -49,7 +49,7 @@ describe("SelectTimestampFormat", () => {
 
   it("should call onChange when a format is selected", () => {
     const c = render(<TestSelect />);
-    fireEvent.click(c.getByText("Select timestamp format"));
+    fireEvent.click(c.getByText("Timestamp format"));
     fireEvent.click(c.getByText("Precise date"));
     expect(onChange).toHaveBeenCalledWith("preciseDate");
   });

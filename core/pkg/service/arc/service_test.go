@@ -10,7 +10,8 @@
 package arc_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
@@ -82,10 +83,10 @@ var _ = Describe("CompileProgram", func() {
 					"src": {"type": "source"},
 				},
 				Edges: graph.Edges{
-					{Edge: ir.Edge{
+					{
 						Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "nonexistent", Param: "input"},
-					}},
+					},
 				},
 			},
 		}

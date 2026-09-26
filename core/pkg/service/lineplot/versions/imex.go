@@ -11,12 +11,13 @@ package versions
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v0"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v5"
+	v6 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v6"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
@@ -34,13 +35,17 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (LinePlot, error
 		// which embeds the body inline under a stamped version. Ride the storage lift,
 		// which dispatches on that version.
 		var body msgpack.EncodedJSON
-		if body, err = imex.Decode[msgpack.EncodedJSON](ctx, env); err == nil {
+		if body, err = env.Decode[msgpack.EncodedJSON](ctx); err == nil {
 			if err = imex.RequireFields(
 				body, "a line plot", "axes", "channels",
 			); err == nil {
-				lp, err = v5.MigrateLinePlot(
+				var lp5 v5.LinePlot
+				lp5, err = v5.MigrateLinePlot(
 					ctx, v0.LinePlot{Name: env.Name, Data: body},
 				)
+				if err == nil {
+					lp, err = v6.MigrateLinePlot(ctx, lp5)
+				}
 			}
 		}
 	}
@@ -49,7 +54,7 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (LinePlot, error
 	}
 	// Importing always materializes a new resource, so any key on the wire is dropped
 	// and the importer mints a fresh one.
-	lp.Key = uuid.Nil
+	lp.Key = uuid.Nil()
 	// The header is the resolved name: the body's name when present, or the file-name
 	// fallback the imex service applies. Console-era decodes drop it, so it is stamped
 	// here for every path.

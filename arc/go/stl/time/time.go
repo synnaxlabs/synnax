@@ -14,9 +14,12 @@ import (
 	"reflect"
 
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/literal"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/synnaxlabs/x/query"
@@ -76,8 +79,9 @@ func NewSymbols() []*symbol.Symbol {
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
 			Inputs:  types.Params{{Name: periodInputParam, Type: types.TimeSpan()}},
 		}),
-		Trigger: symbol.TriggerOnly,
-		Doc:     intervalDoc,
+		Trigger:          symbol.TriggerOnly,
+		Doc:              intervalDoc,
+		AnalyzeArguments: rejectNonPositiveSpan(periodInputParam),
 	}
 	wait := &symbol.Symbol{
 		Name: waitSymbolName,
@@ -87,8 +91,9 @@ func NewSymbols() []*symbol.Symbol {
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
 			Inputs:  types.Params{{Name: durationInputParam, Type: types.TimeSpan()}},
 		}),
-		Trigger: symbol.TriggerOnly,
-		Doc:     waitDoc,
+		Trigger:          symbol.TriggerOnly,
+		Doc:              waitDoc,
+		AnalyzeArguments: rejectNonPositiveSpan(durationInputParam),
 	}
 	now := &symbol.Symbol{
 		Name: nowSymbolName,
@@ -113,6 +118,48 @@ func NewSymbols() []*symbol.Symbol {
 	return []*symbol.Symbol{mod, &intervalBare, &waitBare, &nowBare}
 }
 
+// rejectNonPositiveSpan returns an AnalyzeArguments hook that rejects a
+// literal non-positive span bound to the named param. Non-literal arguments
+// pass through; the runtime guard covers their live values.
+func rejectNonPositiveSpan(param string) symbol.ArgumentsHook {
+	return func(diags *diagnostics.Diagnostics, args []symbol.Argument) {
+		for _, arg := range args {
+			if arg.Name != param && (arg.Name != "" || arg.Index != 0) {
+				continue
+			}
+			if arg.Expr == nil || !parser.IsLiteral(arg.Expr) {
+				continue
+			}
+			lit := parser.GetLiteral(arg.Expr)
+			if lit == nil || lit.NumericLiteral() == nil {
+				continue
+			}
+			// Type mismatches are the analyzer's to report, not the hook's.
+			parsed, err := literal.Parse(lit, types.TimeSpan())
+			if err != nil {
+				continue
+			}
+			var span telem.TimeSpan
+			switch v := parsed.Value.(type) {
+			case telem.TimeSpan:
+				span = v
+			case int64:
+				span = telem.TimeSpan(v)
+			default:
+				continue
+			}
+			if parser.IsNegatedLiteral(arg.Expr) {
+				span = -span
+			}
+			if span <= 0 {
+				diags.Add(diagnostics.Errorf(
+					arg.AST, "%s must be positive, got %s", param, span,
+				))
+			}
+		}
+	}
+}
+
 // Host is the runtime host-side support for the time module: it registers
 // the `now` WASM host function and acts as the node factory for interval
 // and wait.
@@ -120,10 +167,15 @@ type Host struct {
 	// BaseInterval is the GCD of known timer periods, declared and literal
 	// reassignments. Its only use is deriving the timing tolerance.
 	BaseInterval telem.TimeSpan
-	// clock provides monotonically increasing timestamps, avoiding
-	// duplicate values on platforms with coarse clock resolution.
-	clock telem.MonoClock
+	// now is the current cycle's stamp, set by the runtime loop before each pass.
+	// The `now` WASM binding is called from guest code, which has no node Context
+	// to read, so the value is pushed here instead.
+	now telem.TimeStamp
 }
+
+// SetNow binds the cycle stamp the `now` host function returns for the coming pass.
+// The runtime loop calls it before every Scheduler.Next.
+func (h *Host) SetNow(now telem.TimeStamp) { h.now = now }
 
 // NewHost registers the time module's `now` WASM host binding with rt and
 // returns a Host handle that acts as the node factory for interval / wait.
@@ -135,7 +187,7 @@ func NewHost(ctx context.Context, rt wazero.Runtime) (*Host, error) {
 	builder := rt.NewHostModuleBuilder(name)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context) uint64 {
-			return uint64(h.clock.Now())
+			return uint64(h.now)
 		}).Export("now")
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
@@ -143,7 +195,7 @@ func NewHost(ctx context.Context, rt wazero.Runtime) (*Host, error) {
 	return h, nil
 }
 
-func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
+func (h *Host) Create(cfg node.Config) (node.Node, error) {
 	switch cfg.Node.Type {
 	case intervalSymbolName:
 		periodParam, ok := cfg.Node.Inputs.Get(periodInputParam)
@@ -152,6 +204,9 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		}
 		period, err := parseTime(periodParam.Value, periodParam.Name)
 		if err != nil {
+			return nil, err
+		}
+		if err = validateStaticSpan(period, periodParam); err != nil {
 			return nil, err
 		}
 		h.updateBaseInterval(period)
@@ -170,6 +225,9 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		if err != nil {
 			return nil, err
 		}
+		if err = validateStaticSpan(duration, durationParam); err != nil {
+			return nil, err
+		}
 		h.updateBaseInterval(duration)
 		h.foldReassignedSpans(cfg, durationParam)
 		return &Wait{
@@ -179,7 +237,7 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		}, nil
 
 	case nowSymbolName:
-		return &Now{State: cfg.State, clock: &h.clock}, nil
+		return &Now{State: cfg.State}, nil
 
 	default:
 		return nil, query.ErrNotFound
@@ -223,6 +281,11 @@ func (h *Host) foldReassignedSpans(cfg node.Config, p types.Param) {
 }
 
 func (h *Host) updateBaseInterval(span telem.TimeSpan) {
+	// A non-positive span is not a real timer period. Folding it in would
+	// poison the GCD and drive the loop cadence off a parked timer.
+	if span <= 0 {
+		return
+	}
 	if h.BaseInterval == unsetBaseInterval {
 		h.BaseInterval = span
 	} else {
@@ -235,6 +298,18 @@ func gcd(a, b int64) int64 {
 		a, b = b, a%b
 	}
 	return a
+}
+
+// validateStaticSpan rejects a non-positive span stamped at compile time.
+// Var-bound params are exempt: the runtime guard covers their live values.
+func validateStaticSpan(span telem.TimeSpan, p types.Param) error {
+	if p.Type.Kind == types.KindVarRef || span > 0 {
+		return nil
+	}
+	return validate.PathedError(
+		errors.Wrapf(validate.ErrValidation, "must be positive, got %s", span),
+		p.Name,
+	)
 }
 
 func parseTime(v any, name string) (telem.TimeSpan, error) {
@@ -255,19 +330,48 @@ func parseTime(v any, name string) (telem.TimeSpan, error) {
 // liveSpan returns the named input's current span: the referenced variable's
 // latest value when var-bound, else the value stamped at compile time.
 func liveSpan(s *node.State, name string) telem.TimeSpan {
-	return telem.TimeSpan(node.NumericInput[int64](s, name))
+	return telem.TimeSpan(s.NumericInput[int64](name))
 }
+
+// spanGuard guards a live timer span against non-positive values. It reports
+// the first offense only, so a parked node does not re-report on every pass.
+type spanGuard struct{ reported bool }
+
+// usable reports whether span can drive a deadline. A non-positive span
+// reports a validation error naming label and returns false.
+func (g *spanGuard) usable(ctx node.Context, span telem.TimeSpan, label string) bool {
+	if span > 0 {
+		g.reported = false
+		return true
+	}
+	if !g.reported {
+		ctx.ReportError(errors.Wrapf(
+			validate.ErrValidation, "%s must be positive, got %s", label, span,
+		))
+		g.reported = true
+	}
+	return false
+}
+
+func (g *spanGuard) reset() { g.reported = false }
 
 // Interval is a node that fires repeatedly at a specified period.
 type Interval struct {
 	*node.State
 	lastFired telem.TimeSpan
+	guard     spanGuard
 }
 
 func (i *Interval) Init(_ node.Context) {}
 
 func (i *Interval) Next(ctx node.Context) {
 	period := liveSpan(i.State, periodInputParam)
+	// A non-positive period would keep the deadline permanently in the past,
+	// spinning the scheduler loop. Park without a deadline instead; a later
+	// reassignment to a positive value resumes the timer.
+	if !i.guard.usable(ctx, period, "interval period") {
+		return
+	}
 	if ctx.Reason != node.ReasonTimerTick {
 		ctx.MarkSelfChanged()
 		ctx.SetDeadline(i.lastFired + period)
@@ -281,19 +385,20 @@ func (i *Interval) Next(ctx node.Context) {
 	i.lastFired = ctx.Elapsed
 	ctx.MarkSelfChanged()
 	ctx.SetDeadline(i.lastFired + period)
-	ctx.MarkChanged(0)
+	i.Emit(ctx, 0)
 	output := i.Output(0)
 	outputTime := i.OutputTime(0)
 	output.Resize(1)
 	outputTime.Resize(1)
-	telem.SetValueAt[uint8](*output, 0, uint8(1))
-	telem.SetValueAt[telem.TimeStamp](*outputTime, 0, telem.TimeStamp(ctx.Elapsed))
+	output.SetValueAt(0, uint8(1))
+	outputTime.SetValueAt(0, ctx.Now)
 }
 
 // Reset resets the interval so it fires immediately on the next timer tick.
-func (i *Interval) Reset() {
-	i.State.Reset()
+func (i *Interval) Reset(ctx node.Context) {
+	i.State.Reset(ctx)
 	i.lastFired = -liveSpan(i.State, periodInputParam)
+	i.guard.reset()
 }
 
 // Wait is a one-shot timer that fires once after a specified duration.
@@ -301,6 +406,7 @@ type Wait struct {
 	*node.State
 	startTime telem.TimeSpan
 	fired     bool
+	guard     spanGuard
 }
 
 func (w *Wait) Init(_ node.Context) {}
@@ -309,10 +415,16 @@ func (w *Wait) Next(ctx node.Context) {
 	if w.fired {
 		return
 	}
+	duration := liveSpan(w.State, durationInputParam)
+	// A non-positive duration is a configuration error, not an instant fire:
+	// park instead. Timing stays anchored to startTime, so recovery re-checks
+	// the live duration against the original activation.
+	if !w.guard.usable(ctx, duration, "wait duration") {
+		return
+	}
 	if w.startTime < 0 {
 		w.startTime = ctx.Elapsed
 	}
-	duration := liveSpan(w.State, durationInputParam)
 	ctx.SetDeadline(w.startTime + duration)
 	if ctx.Reason != node.ReasonTimerTick {
 		ctx.MarkSelfChanged()
@@ -327,34 +439,34 @@ func (w *Wait) Next(ctx node.Context) {
 	outputTime := w.OutputTime(0)
 	output.Resize(1)
 	outputTime.Resize(1)
-	telem.SetValueAt[uint8](*output, 0, uint8(1))
-	telem.SetValueAt[telem.TimeStamp](*outputTime, 0, telem.TimeStamp(ctx.Elapsed))
-	ctx.MarkChanged(0)
+	output.SetValueAt(0, uint8(1))
+	outputTime.SetValueAt(0, ctx.Now)
+	w.Emit(ctx, 0)
 }
 
-func (w *Wait) Reset() {
-	w.State.Reset()
+func (w *Wait) Reset(ctx node.Context) {
+	w.State.Reset(ctx)
 	w.startTime = -1
 	w.fired = false
+	w.guard.reset()
 }
 
 // Now outputs the current wall-clock timestamp when triggered.
 type Now struct {
 	*node.State
-	clock *telem.MonoClock
 }
 
 func (n *Now) Init(_ node.Context) {}
 
 func (n *Now) Next(ctx node.Context) {
-	ts := n.clock.Now()
+	ts := ctx.Now
 	output := n.Output(0)
 	outputTime := n.OutputTime(0)
 	output.Resize(1)
 	outputTime.Resize(1)
-	telem.SetValueAt[telem.TimeStamp](*output, 0, ts)
-	telem.SetValueAt[telem.TimeStamp](*outputTime, 0, ts)
-	ctx.MarkChanged(0)
+	output.SetValueAt(0, ts)
+	outputTime.SetValueAt(0, ts)
+	n.Emit(ctx, 0)
 }
 
-func (n *Now) Reset() { n.State.Reset() }
+func (n *Now) Reset(ctx node.Context) { n.State.Reset(ctx) }

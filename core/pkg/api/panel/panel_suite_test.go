@@ -11,8 +11,8 @@ package panel_test
 
 import (
 	"testing"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
@@ -99,8 +99,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 // dedicated subject, or the grant would leak into specs asserting that permission is
 // absent.
 func newUser(ctx SpecContext) user.User {
+	GinkgoHelper()
 	return MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
-		Username: uuid.NewString(),
+		Username: uuid.New().String(),
 	}))
 }
 
@@ -114,6 +115,7 @@ func grant(
 	action access.Action,
 	objects ...ontology.ID,
 ) {
+	GinkgoHelper()
 	roleWriter := rbacSvc.Role.NewWriter(nil, true)
 	policyWriter := rbacSvc.Policy.NewWriter(nil, true)
 	r := &role.Role{

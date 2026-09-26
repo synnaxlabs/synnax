@@ -13,28 +13,74 @@ genrule(
     name = "build_wasmtime",
     srcs = glob(["wasmtime/**"]),
     outs = [
-        # Top-level C/C++ API headers
+        "lib/wasmtime.lib",
+        "lib/libwasmtime.a",
+        "include/doc-wasm.h",
+        "include/wasi.h",
         "include/wasm.h",
         "include/wasm.hh",
-        "include/wasi.h",
         "include/wasmtime.h",
         "include/wasmtime.hh",
-        "include/doc-wasm.h",
-        # wasmtime subdirectory headers (required by wasmtime.h)
+        "include/wasmtime/_anyref_class.hh",
+        "include/wasmtime/_arrayref_class.hh",
+        "include/wasmtime/_eqref_class.hh",
+        "include/wasmtime/_exnref_class.hh",
+        "include/wasmtime/_externref_class.hh",
+        "include/wasmtime/_func_class.hh",
+        "include/wasmtime/_store_class.hh",
+        "include/wasmtime/_structref_class.hh",
+        "include/wasmtime/_val_class.hh",
+        "include/wasmtime/anyref.h",
+        "include/wasmtime/anyref.hh",
+        "include/wasmtime/arrayref.h",
+        "include/wasmtime/arrayref.hh",
+        "include/wasmtime/async.h",
+        "include/wasmtime/component.h",
+        "include/wasmtime/component.hh",
+        "include/wasmtime/component/component.h",
+        "include/wasmtime/component/component.hh",
+        "include/wasmtime/component/func.h",
+        "include/wasmtime/component/func.hh",
+        "include/wasmtime/component/instance.h",
+        "include/wasmtime/component/instance.hh",
+        "include/wasmtime/component/linker.h",
+        "include/wasmtime/component/linker.hh",
+        "include/wasmtime/component/types.h",
+        "include/wasmtime/component/types.hh",
+        "include/wasmtime/component/types/component.h",
+        "include/wasmtime/component/types/component.hh",
+        "include/wasmtime/component/types/func.h",
+        "include/wasmtime/component/types/func.hh",
+        "include/wasmtime/component/types/instance.h",
+        "include/wasmtime/component/types/instance.hh",
+        "include/wasmtime/component/types/module.h",
+        "include/wasmtime/component/types/module.hh",
+        "include/wasmtime/component/types/resource.h",
+        "include/wasmtime/component/types/val.h",
+        "include/wasmtime/component/types/val.hh",
+        "include/wasmtime/component/val.h",
+        "include/wasmtime/component/val.hh",
         "include/wasmtime/conf.h",
         "include/wasmtime/config.h",
         "include/wasmtime/config.hh",
         "include/wasmtime/engine.h",
         "include/wasmtime/engine.hh",
+        "include/wasmtime/eqref.h",
+        "include/wasmtime/eqref.hh",
         "include/wasmtime/error.h",
         "include/wasmtime/error.hh",
+        "include/wasmtime/exnref.h",
+        "include/wasmtime/exnref.hh",
         "include/wasmtime/extern.h",
         "include/wasmtime/extern.hh",
         "include/wasmtime/extern_declare.hh",
+        "include/wasmtime/externref.h",
+        "include/wasmtime/externref.hh",
         "include/wasmtime/func.h",
         "include/wasmtime/func.hh",
         "include/wasmtime/global.h",
         "include/wasmtime/global.hh",
+        "include/wasmtime/helpers.hh",
         "include/wasmtime/instance.h",
         "include/wasmtime/instance.hh",
         "include/wasmtime/linker.h",
@@ -43,49 +89,50 @@ genrule(
         "include/wasmtime/memory.hh",
         "include/wasmtime/module.h",
         "include/wasmtime/module.hh",
+        "include/wasmtime/profiling.h",
+        "include/wasmtime/sharedmemory.h",
         "include/wasmtime/span.hh",
         "include/wasmtime/store.h",
         "include/wasmtime/store.hh",
+        "include/wasmtime/structref.h",
+        "include/wasmtime/structref.hh",
         "include/wasmtime/table.h",
         "include/wasmtime/table.hh",
+        "include/wasmtime/tag.h",
+        "include/wasmtime/tag.hh",
         "include/wasmtime/trap.h",
         "include/wasmtime/trap.hh",
-        "include/wasmtime/val.h",
-        "include/wasmtime/val.hh",
-        "include/wasmtime/wat.h",
-        "include/wasmtime/wat.hh",
-        "include/wasmtime/async.h",
-        "include/wasmtime/profiling.h",
-        "include/wasmtime/sharedmemory.h",
-        "include/wasmtime/component.h",
-        "include/wasmtime/wasi.hh",
-        "include/wasmtime/wasip2.h",
-        # wasmtime/component subdirectory headers
-        "include/wasmtime/component/component.h",
-        "include/wasmtime/component/func.h",
-        "include/wasmtime/component/instance.h",
-        "include/wasmtime/component/linker.h",
-        "include/wasmtime/component/val.h",
-        # wasmtime/types subdirectory headers
+        "include/wasmtime/types.h",
         "include/wasmtime/types.hh",
-        "include/wasmtime/types/extern.hh",
+        "include/wasmtime/types/_structref_class.hh",
+        "include/wasmtime/types/_val_class.hh",
+        "include/wasmtime/types/arrayref.h",
+        "include/wasmtime/types/arrayref.hh",
+        "include/wasmtime/types/exnref.h",
+        "include/wasmtime/types/exnref.hh",
         "include/wasmtime/types/export.hh",
+        "include/wasmtime/types/extern.hh",
         "include/wasmtime/types/func.hh",
         "include/wasmtime/types/global.hh",
         "include/wasmtime/types/import.hh",
         "include/wasmtime/types/memory.hh",
+        "include/wasmtime/types/structref.h",
+        "include/wasmtime/types/structref.hh",
         "include/wasmtime/types/table.hh",
+        "include/wasmtime/types/tag.hh",
+        "include/wasmtime/types/val.h",
         "include/wasmtime/types/val.hh",
-        # Static library outputs
-        "lib/libwasmtime.a",
-        "lib/wasmtime.lib",  # Windows (placeholder)
+        "include/wasmtime/val.h",
+        "include/wasmtime/val.hh",
+        "include/wasmtime/wasi.hh",
+        "include/wasmtime/wat.h",
+        "include/wasmtime/wat.hh",
     ],
     cmd_bash = select({
         "@platforms//os:windows": """
-            # Fix PATH: Use rustup's Rust instead of Chocolatey's
-            # Chocolatey installs Rust to /c/ProgramData/chocolatey/bin but rustup
-            # manages toolchains in ~/.cargo/bin. We need rustup's version.
-            # Resolve the user home from USERPROFILE, HOME, or whoami as fallback.
+            # Use rustup's Rust, not Chocolatey's. Chocolatey installs to
+            # /c/ProgramData/chocolatey/bin while rustup manages toolchains in
+            # ~/.cargo/bin. Resolve the home from USERPROFILE, HOME, then whoami.
             if [ -n "$${USERPROFILE:-}" ]; then
                 _HOME="$$(cygpath -u "$$USERPROFILE")"
             elif [ -n "$${HOME:-}" ]; then
@@ -109,14 +156,17 @@ genrule(
             # Help cargo build scripts find their source files when invoked via CMake
             export CARGO_BUILD_TARGET_DIR="$$(pwd)/target"
 
-            # Build wasmtime directly with cargo instead of CMake to avoid build script issues
-            # Disable profiling (ittapi-sys) and cache (zstd-sys) features that fail on Windows
-            # Use cargo rustc to explicitly build as staticlib
+            # Build with cargo rather than CMake, which trips over the build scripts
+            # here. Profiling (ittapi-sys) and cache (zstd-sys) fail on Windows, so both
+            # stay off, and cargo rustc forces the staticlib crate type.
             cd crates/c-api
-            # gc-null provides a null GC implementation (required since wasmtime v38+)
+            # gc carries the C API's GC surface and gc-null the implementation. Both are
+            # needed: wasmtime 49 defines StorageType's constructor outside the
+            # WASMTIME_FEATURE_GC guard that declares the class, so the headers do not
+            # compile with GC off.
             cargo rustc --release --target x86_64-pc-windows-msvc \
                 --no-default-features \
-                --features wat,wasi,async,cranelift,threads,gc-null \
+                --features wat,wasi,async,cranelift,threads,gc,gc-null \
                 --crate-type staticlib 2>&1
             CARGO_EXIT_CODE=$$?
             if [ $$CARGO_EXIT_CODE -ne 0 ]; then
@@ -133,7 +183,10 @@ genrule(
                 exit 1
             fi
 
-            # Install headers and library manually
+            # Purge the staging tree first. It persists across builds on a warm runner,
+            # so headers a previous wasmtime version shipped would otherwise be copied
+            # into the output and collide with it.
+            rm -rf artifacts
             mkdir -p artifacts/lib artifacts/include artifacts/include/wasmtime
 
             # Copy the library file (cargo produces wasmtime_c_api.lib for staticlib)
@@ -155,6 +208,8 @@ genrule(
 #define WASMTIME_FEATURE_ASYNC
 #define WASMTIME_FEATURE_CRANELIFT
 #define WASMTIME_FEATURE_THREADS
+#define WASMTIME_FEATURE_GC
+#define WASMTIME_FEATURE_GC_NULL
 #define WASMTIME_FEATURE_COMPILER
 #endif
 EOF
@@ -167,89 +222,31 @@ EOF
                 mkdir -p "$$(dirname $$out)"
             done
 
-            # Copy library (Windows uses wasmtime.lib)
-            # Verify wasmtime.lib exists and is not empty before copying
+            # An empty wasmtime.lib means cargo wrote no archive, so fail loudly here
+            # rather than at link time.
             if [ ! -s vendor/wasmtime/wasmtime/artifacts/lib/wasmtime.lib ]; then
                 echo "ERROR: wasmtime.lib not found or is empty at vendor/wasmtime/wasmtime/artifacts/lib/"
                 echo "Contents of artifacts/lib directory:"
                 ls -la vendor/wasmtime/wasmtime/artifacts/lib/ 2>&1 || echo "Directory does not exist"
                 exit 1
             fi
-            cp vendor/wasmtime/wasmtime/artifacts/lib/wasmtime.lib "$(location lib/wasmtime.lib)"
+            cp vendor/wasmtime/wasmtime/artifacts/lib/wasmtime.lib "$(execpath lib/wasmtime.lib)"
 
-            # Copy top-level headers
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasm.h "$(location include/wasm.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasm.hh "$(location include/wasm.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasi.h "$(location include/wasi.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime.h "$(location include/wasmtime.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime.hh "$(location include/wasmtime.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/doc-wasm.h "$(location include/doc-wasm.h)"
-
-            # Copy wasmtime subdirectory headers
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/conf.h "$(location include/wasmtime/conf.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/config.h "$(location include/wasmtime/config.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/config.hh "$(location include/wasmtime/config.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/engine.h "$(location include/wasmtime/engine.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/engine.hh "$(location include/wasmtime/engine.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/error.h "$(location include/wasmtime/error.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/error.hh "$(location include/wasmtime/error.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/extern.h "$(location include/wasmtime/extern.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/extern.hh "$(location include/wasmtime/extern.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/extern_declare.hh "$(location include/wasmtime/extern_declare.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/func.h "$(location include/wasmtime/func.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/func.hh "$(location include/wasmtime/func.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/global.h "$(location include/wasmtime/global.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/global.hh "$(location include/wasmtime/global.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/instance.h "$(location include/wasmtime/instance.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/instance.hh "$(location include/wasmtime/instance.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/linker.h "$(location include/wasmtime/linker.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/linker.hh "$(location include/wasmtime/linker.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/memory.h "$(location include/wasmtime/memory.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/memory.hh "$(location include/wasmtime/memory.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/module.h "$(location include/wasmtime/module.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/module.hh "$(location include/wasmtime/module.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/span.hh "$(location include/wasmtime/span.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/store.h "$(location include/wasmtime/store.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/store.hh "$(location include/wasmtime/store.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/table.h "$(location include/wasmtime/table.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/table.hh "$(location include/wasmtime/table.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/trap.h "$(location include/wasmtime/trap.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/trap.hh "$(location include/wasmtime/trap.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/val.h "$(location include/wasmtime/val.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/val.hh "$(location include/wasmtime/val.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/wat.h "$(location include/wasmtime/wat.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/wat.hh "$(location include/wasmtime/wat.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/async.h "$(location include/wasmtime/async.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/profiling.h "$(location include/wasmtime/profiling.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/sharedmemory.h "$(location include/wasmtime/sharedmemory.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/component.h "$(location include/wasmtime/component.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/wasi.hh "$(location include/wasmtime/wasi.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/wasip2.h "$(location include/wasmtime/wasip2.h)"
-
-            # Copy component subdirectory headers
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/component/component.h "$(location include/wasmtime/component/component.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/component/func.h "$(location include/wasmtime/component/func.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/component/instance.h "$(location include/wasmtime/component/instance.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/component/linker.h "$(location include/wasmtime/component/linker.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/component/val.h "$(location include/wasmtime/component/val.h)"
-
-            # Copy types subdirectory headers
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/types.hh "$(location include/wasmtime/types.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/types/extern.hh "$(location include/wasmtime/types/extern.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/types/export.hh "$(location include/wasmtime/types/export.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/types/func.hh "$(location include/wasmtime/types/func.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/types/global.hh "$(location include/wasmtime/types/global.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/types/import.hh "$(location include/wasmtime/types/import.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/types/memory.hh "$(location include/wasmtime/types/memory.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/types/table.hh "$(location include/wasmtime/types/table.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/types/val.hh "$(location include/wasmtime/types/val.hh)"
+            # Copy the staged header tree; wasmtime ships 100+ headers.
+            cp -R vendor/wasmtime/wasmtime/artifacts/include/. \
+                "$(RULEDIR)/include/"
 
             # Create empty Unix library to satisfy Bazel
-            touch "$(location lib/libwasmtime.a)"
+            touch "$(execpath lib/libwasmtime.a)"
         """,
         "@platforms//os:macos": """
             # Build wasmtime
             cd vendor/wasmtime/wasmtime
+            # Purge both staging trees first. They persist across builds on a warm
+            # runner, and cmake installs whatever sits in its binary include dir, so
+            # headers a previous wasmtime version shipped would reappear and collide
+            # with the read-only outputs of the current one.
+            rm -rf artifacts target/c-api/include
             cmake -S crates/c-api -B target/c-api --install-prefix="$$(pwd)/artifacts" -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF
             cmake --build target/c-api
             cmake --install target/c-api
@@ -263,81 +260,23 @@ EOF
             done
 
             # Copy library
-            cp vendor/wasmtime/wasmtime/artifacts/lib/libwasmtime.a "$(location lib/libwasmtime.a)"
+            cp vendor/wasmtime/wasmtime/artifacts/lib/libwasmtime.a "$(execpath lib/libwasmtime.a)"
 
-            # Copy top-level headers
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasm.h "$(location include/wasm.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasm.hh "$(location include/wasm.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasi.h "$(location include/wasi.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime.h "$(location include/wasmtime.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime.hh "$(location include/wasmtime.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/doc-wasm.h "$(location include/doc-wasm.h)"
-
-            # Copy wasmtime subdirectory headers individually
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/conf.h "$(location include/wasmtime/conf.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/config.h "$(location include/wasmtime/config.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/config.hh "$(location include/wasmtime/config.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/engine.h "$(location include/wasmtime/engine.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/engine.hh "$(location include/wasmtime/engine.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/error.h "$(location include/wasmtime/error.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/error.hh "$(location include/wasmtime/error.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/extern.h "$(location include/wasmtime/extern.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/extern.hh "$(location include/wasmtime/extern.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/extern_declare.hh "$(location include/wasmtime/extern_declare.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/func.h "$(location include/wasmtime/func.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/func.hh "$(location include/wasmtime/func.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/global.h "$(location include/wasmtime/global.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/global.hh "$(location include/wasmtime/global.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/instance.h "$(location include/wasmtime/instance.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/instance.hh "$(location include/wasmtime/instance.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/linker.h "$(location include/wasmtime/linker.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/linker.hh "$(location include/wasmtime/linker.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/memory.h "$(location include/wasmtime/memory.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/memory.hh "$(location include/wasmtime/memory.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/module.h "$(location include/wasmtime/module.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/module.hh "$(location include/wasmtime/module.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/span.hh "$(location include/wasmtime/span.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/store.h "$(location include/wasmtime/store.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/store.hh "$(location include/wasmtime/store.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/table.h "$(location include/wasmtime/table.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/table.hh "$(location include/wasmtime/table.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/trap.h "$(location include/wasmtime/trap.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/trap.hh "$(location include/wasmtime/trap.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/val.h "$(location include/wasmtime/val.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/val.hh "$(location include/wasmtime/val.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/wat.h "$(location include/wasmtime/wat.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/wat.hh "$(location include/wasmtime/wat.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/async.h "$(location include/wasmtime/async.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/profiling.h "$(location include/wasmtime/profiling.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/sharedmemory.h "$(location include/wasmtime/sharedmemory.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/component.h "$(location include/wasmtime/component.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/wasi.hh "$(location include/wasmtime/wasi.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/wasip2.h "$(location include/wasmtime/wasip2.h)"
-
-            # Copy component subdirectory headers
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/component/component.h "$(location include/wasmtime/component/component.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/component/func.h "$(location include/wasmtime/component/func.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/component/instance.h "$(location include/wasmtime/component/instance.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/component/linker.h "$(location include/wasmtime/component/linker.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/component/val.h "$(location include/wasmtime/component/val.h)"
-
-            # Copy types subdirectory headers
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/types.hh "$(location include/wasmtime/types.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/types/extern.hh "$(location include/wasmtime/types/extern.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/types/export.hh "$(location include/wasmtime/types/export.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/types/func.hh "$(location include/wasmtime/types/func.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/types/global.hh "$(location include/wasmtime/types/global.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/types/import.hh "$(location include/wasmtime/types/import.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/types/memory.hh "$(location include/wasmtime/types/memory.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/types/table.hh "$(location include/wasmtime/types/table.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/types/val.hh "$(location include/wasmtime/types/val.hh)"
+            # Copy the staged header tree; wasmtime ships 100+ headers.
+            cp -R vendor/wasmtime/wasmtime/artifacts/include/. \
+                "$(RULEDIR)/include/"
 
             # Create empty Windows library
-            touch "$(location lib/wasmtime.lib)"
+            touch "$(execpath lib/wasmtime.lib)"
         """,
         "//conditions:default": """
             # Build wasmtime
             cd vendor/wasmtime/wasmtime
+            # Purge both staging trees first. They persist across builds on a warm
+            # runner, and cmake installs whatever sits in its binary include dir, so
+            # headers a previous wasmtime version shipped would reappear and collide
+            # with the read-only outputs of the current one.
+            rm -rf artifacts target/c-api/include
             cmake -S crates/c-api -B target/c-api --install-prefix="$$(pwd)/artifacts" -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF
             cmake --build target/c-api
             cmake --install target/c-api
@@ -351,77 +290,14 @@ EOF
             done
 
             # Copy library
-            cp vendor/wasmtime/wasmtime/artifacts/lib/libwasmtime.a "$(location lib/libwasmtime.a)"
+            cp vendor/wasmtime/wasmtime/artifacts/lib/libwasmtime.a "$(execpath lib/libwasmtime.a)"
 
-            # Copy top-level headers
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasm.h "$(location include/wasm.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasm.hh "$(location include/wasm.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasi.h "$(location include/wasi.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime.h "$(location include/wasmtime.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime.hh "$(location include/wasmtime.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/doc-wasm.h "$(location include/doc-wasm.h)"
-
-            # Copy wasmtime subdirectory headers (same as macOS)
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/conf.h "$(location include/wasmtime/conf.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/config.h "$(location include/wasmtime/config.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/config.hh "$(location include/wasmtime/config.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/engine.h "$(location include/wasmtime/engine.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/engine.hh "$(location include/wasmtime/engine.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/error.h "$(location include/wasmtime/error.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/error.hh "$(location include/wasmtime/error.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/extern.h "$(location include/wasmtime/extern.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/extern.hh "$(location include/wasmtime/extern.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/extern_declare.hh "$(location include/wasmtime/extern_declare.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/func.h "$(location include/wasmtime/func.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/func.hh "$(location include/wasmtime/func.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/global.h "$(location include/wasmtime/global.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/global.hh "$(location include/wasmtime/global.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/instance.h "$(location include/wasmtime/instance.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/instance.hh "$(location include/wasmtime/instance.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/linker.h "$(location include/wasmtime/linker.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/linker.hh "$(location include/wasmtime/linker.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/memory.h "$(location include/wasmtime/memory.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/memory.hh "$(location include/wasmtime/memory.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/module.h "$(location include/wasmtime/module.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/module.hh "$(location include/wasmtime/module.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/span.hh "$(location include/wasmtime/span.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/store.h "$(location include/wasmtime/store.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/store.hh "$(location include/wasmtime/store.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/table.h "$(location include/wasmtime/table.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/table.hh "$(location include/wasmtime/table.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/trap.h "$(location include/wasmtime/trap.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/trap.hh "$(location include/wasmtime/trap.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/val.h "$(location include/wasmtime/val.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/val.hh "$(location include/wasmtime/val.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/wat.h "$(location include/wasmtime/wat.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/wat.hh "$(location include/wasmtime/wat.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/async.h "$(location include/wasmtime/async.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/profiling.h "$(location include/wasmtime/profiling.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/sharedmemory.h "$(location include/wasmtime/sharedmemory.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/component.h "$(location include/wasmtime/component.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/wasi.hh "$(location include/wasmtime/wasi.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/wasip2.h "$(location include/wasmtime/wasip2.h)"
-
-            # Copy component subdirectory headers
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/component/component.h "$(location include/wasmtime/component/component.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/component/func.h "$(location include/wasmtime/component/func.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/component/instance.h "$(location include/wasmtime/component/instance.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/component/linker.h "$(location include/wasmtime/component/linker.h)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/component/val.h "$(location include/wasmtime/component/val.h)"
-
-            # Copy types subdirectory headers
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/types.hh "$(location include/wasmtime/types.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/types/extern.hh "$(location include/wasmtime/types/extern.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/types/export.hh "$(location include/wasmtime/types/export.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/types/func.hh "$(location include/wasmtime/types/func.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/types/global.hh "$(location include/wasmtime/types/global.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/types/import.hh "$(location include/wasmtime/types/import.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/types/memory.hh "$(location include/wasmtime/types/memory.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/types/table.hh "$(location include/wasmtime/types/table.hh)"
-            cp vendor/wasmtime/wasmtime/artifacts/include/wasmtime/types/val.hh "$(location include/wasmtime/types/val.hh)"
+            # Copy the staged header tree; wasmtime ships 100+ headers.
+            cp -R vendor/wasmtime/wasmtime/artifacts/include/. \
+                "$(RULEDIR)/include/"
 
             # Create empty Windows library
-            touch "$(location lib/wasmtime.lib)"
+            touch "$(execpath lib/wasmtime.lib)"
         """,
     }),
     local = 1,  # Disable sandboxing for cargo build
@@ -435,11 +311,6 @@ cc_library(
         "//conditions:default": ["lib/libwasmtime.a"],
     }),
     hdrs = [":build_wasmtime"],
-    # On Windows, disable warning C4201 (nameless struct/union) which is used by wasmtime headers
-    copts = select({
-        "@platforms//os:windows": ["/wd4201"],
-        "//conditions:default": [],
-    }),
     # On Windows with static linking, disable dllimport declarations
     defines = select({
         "@platforms//os:windows": [

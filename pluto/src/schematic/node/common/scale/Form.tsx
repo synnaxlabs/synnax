@@ -7,8 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel } from "@synnaxlabs/client";
-import { location, type notation, primitive, type text } from "@synnaxlabs/x";
+import { type channel, schematic } from "@synnaxlabs/client";
+import {
+  caseconv,
+  type direction,
+  location,
+  type notation,
+  primitive,
+  type text,
+} from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
@@ -18,21 +25,16 @@ import { Form as Base } from "@/form";
 import { Input } from "@/input";
 import { Notation } from "@/notation";
 import { Form as NodeForm } from "@/schematic/node/common/form";
-import {
-  type Config,
-  createTelem,
-  defaultConfig,
-  parseTelem,
-  type TelemProps,
-} from "@/schematic/node/common/scale/config";
+import { type Config } from "@/schematic/node/common/scale/config";
 import { Select } from "@/select";
-import { type telem } from "@/telem/aether";
 import { Staleness } from "@/vis/staleness";
 
 const PRECISION_INPUT_PROPS: Partial<Input.NumericProps> = {
   bounds: { lower: 0, upper: 10 },
 };
-const WINDOW_SIZE_BOUNDS = { lower: 1, upper: 100 };
+const WINDOW_SIZE_INPUT_PROPS: Partial<Input.NumericProps> = {
+  bounds: { lower: 1, upper: 100 },
+};
 
 const NotationSelect = Component.renderProp(
   ({ value, onChange }: Input.Control<notation.Notation>): ReactElement => (
@@ -40,14 +42,10 @@ const NotationSelect = Component.renderProp(
   ),
 );
 
-const SideSelect = Component.renderProp(
-  ({ value, onChange }: Input.Control<location.X>): ReactElement => (
-    <Select.Buttons value={value} onChange={onChange} keys={location.X_LOCATIONS}>
-      <Select.Button itemKey="left">Left</Select.Button>
-      <Select.Button itemKey="right">Right</Select.Button>
-    </Select.Buttons>
-  ),
-);
+const SIDES: readonly location.Outer[] = [
+  ...location.Y_LOCATIONS,
+  ...location.X_LOCATIONS,
+];
 
 export interface FormProps {
   /** Path to the scale config within the symbol's config. */
@@ -56,37 +54,53 @@ export interface FormProps {
 
 const field = (path: string, name: string): string => `${path}.${name}`;
 
+interface SideFieldProps {
+  path: string;
+  label: string;
+  /** The sides to offer. A symbol with a fixed axis offers only the two it can use. */
+  sides: readonly location.Outer[];
+}
+
+// A field on the other axis takes the side facing the same way as the default.
+const SideField = ({ path, label, sides }: SideFieldProps): ReactElement => (
+  <Base.Field<location.Outer> path={path} label={label} padHelpText={false}>
+    {({ value, onChange }) => (
+      <Select.Buttons value={value} onChange={onChange} keys={sides}>
+        {sides.map((side) => (
+          <Select.Button key={side} itemKey={side}>
+            {caseconv.capitalize(side)}
+          </Select.Button>
+        ))}
+      </Select.Buttons>
+    )}
+  </Base.Field>
+);
+
 export interface TelemFormProps extends FormProps {
   /** When true, clearing the channel unbinds the scale instead of pinning it to 0. */
   allowNone?: boolean;
-  /** Applied when the symbol carries no scale config yet. */
-  defaults?: Partial<Config>;
 }
 
 export const TelemForm = ({
   path,
   allowNone = false,
-  defaults,
 }: TelemFormProps): ReactElement => {
   const { set } = Base.useContext();
   const config = Base.useField<Config | undefined>(path, { optional: true })?.value;
-  const props = parseTelem(config?.telem);
-  const setTelem = (telem?: telem.NumberSourceSpec): void => {
-    if (config != null) return set(field(path, "telem"), telem);
-    if (telem != null) set(path, defaultConfig({ ...defaults, telem }));
+  const setChannel = (channel?: channel.Key): void => {
+    if (config != null) return set(field(path, "channel"), channel);
+    if (channel != null) set(path, schematic.scaleIndicatorConfigZ.parse({ channel }));
   };
-  const handleChange = (next: Partial<TelemProps>): void =>
-    setTelem(createTelem({ ...props, ...next }));
   const handleChannelChange = (key: channel.Key | null): void => {
-    if (allowNone && !primitive.isNonZero(key)) return setTelem(undefined);
-    handleChange({ channel: key ?? 0 });
+    if (allowNone && !primitive.isNonZero(key)) return setChannel(undefined);
+    setChannel(key ?? 0);
   };
   return (
     <>
       <Flex.Box x>
         <Input.Item label="Channel" grow padHelpText={false}>
           <Channel.SelectSingle
-            value={props.channel}
+            value={config?.channel ?? 0}
             onChange={handleChannelChange}
             allowNone={allowNone}
           />
@@ -113,36 +127,51 @@ export const TelemForm = ({
           />
           <NodeForm.UnitsField path={field(path, "units")} />
           <Staleness.Fields path={path} />
-          <Input.Item label="Averaging window" align="start" grow>
-            <Input.Numeric
-              value={props.windowSize}
-              bounds={WINDOW_SIZE_BOUNDS}
-              onChange={(windowSize) => handleChange({ windowSize })}
-            />
-          </Input.Item>
+          <Base.NumericField
+            path={field(path, "rollingAverage")}
+            label="Averaging window"
+            align="start"
+            grow
+            inputProps={WINDOW_SIZE_INPUT_PROPS}
+          />
         </Flex.Box>
       )}
     </>
   );
 };
 
-/** Which parts of the scale are drawn, and which side its axis sits on. */
-export const DisplayFields = ({ path }: FormProps): ReactElement => (
+export interface DisplayFieldsProps extends FormProps {
+  /** The axis the bar fills along, which the ticks must sit clear of. */
+  axis?: direction.Direction;
+}
+
+/** Which parts of the scale are drawn, and the sides the ticks and readout sit on. */
+export const DisplayFields = ({
+  path,
+  axis = "y",
+}: DisplayFieldsProps): ReactElement => (
   <>
-    <Base.SwitchField path={field(path, "showFill")} label="Fill" padHelpText={false} />
-    <Base.SwitchField
-      path={field(path, "showCaret")}
+    <NodeForm.NegatedSwitchField
+      path={field(path, "fillHidden")}
+      label="Fill"
+      padHelpText={false}
+    />
+    <NodeForm.NegatedSwitchField
+      path={field(path, "caretHidden")}
       label="Value"
       padHelpText={false}
     />
-    <Base.SwitchField
-      path={field(path, "showScale")}
+    <NodeForm.NegatedSwitchField
+      path={field(path, "scaleHidden")}
       label="Scale"
       padHelpText={false}
     />
-    <Base.Field<location.X> path={field(path, "side")} label="Side" padHelpText={false}>
-      {SideSelect}
-    </Base.Field>
+    <SideField path={field(path, "caretSide")} label="Value side" sides={SIDES} />
+    <SideField
+      path={field(path, "side")}
+      label="Scale side"
+      sides={axis === "y" ? location.X_LOCATIONS : location.Y_LOCATIONS}
+    />
   </>
 );
 

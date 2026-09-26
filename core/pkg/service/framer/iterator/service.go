@@ -48,15 +48,21 @@ type Config struct {
 	//
 	// [OPTIONAL]
 	ChunkSize int64 `json:"chunk_size" msgpack:"chunk_size"`
-	// DownsampleFactor is the factor to downsample the data by If DownsampleFactor is
-	// less than or equal to 1, no downsampling will be performed.
+	// DownsampleFactor keeps every n-th sample of each series read from storage. The
+	// read is strided at the source, so the discarded samples are never read into
+	// memory. Values below 2 keep every sample.
 	//
 	// [OPTIONAL]
-	DownsampleFactor int `json:"downsample_factor" msgpack:"downsample_factor"`
+	DownsampleFactor uint32 `json:"downsample_factor" msgpack:"downsample_factor"`
 }
 
 func (c Config) distribution() framer.IteratorConfig {
-	return framer.IteratorConfig{Keys: c.Keys, Bounds: c.Bounds, ChunkSize: c.ChunkSize}
+	return framer.IteratorConfig{
+		Keys:             c.Keys,
+		Bounds:           c.Bounds,
+		ChunkSize:        c.ChunkSize,
+		DownsampleFactor: c.DownsampleFactor,
+	}
 }
 
 // ServiceConfig is the configuration for opening the service layer frame Service.
@@ -89,8 +95,8 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements config.Config.
 func (cfg ServiceConfig) Validate() error {
 	v := validate.New("iterator")
-	validate.NotNil(v, "framer", cfg.Framer)
-	validate.NotNil(v, "channel", cfg.Channel)
+	v.NotNil("framer", cfg.Framer)
+	v.NotNil("channel", cfg.Channel)
 	return v.Error()
 }
 
@@ -115,30 +121,32 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 	if err != nil {
 		return nil, err
 	}
-	dist, err := s.cfg.Framer.NewStreamIterator(ctx, cfg.distribution())
+	distCfg := cfg.distribution()
+	if calcTransform != nil {
+		// A calculation must see every sample its expression was written over. Fed a
+		// strided input, a stateful expression returns a different signal rather than
+		// a downsampled one, so the factor stays above the calculation.
+		distCfg.DownsampleFactor = 0
+	}
+	dist, err := s.cfg.Framer.NewStreamIterator(ctx, distCfg)
 	if err != nil {
 		return nil, err
 	}
-	plumber.SetSegment(p, "distribution", dist)
+	p.SetSegment("distribution", dist)
 	var routeOutletFrom address.Address = "distribution"
 	if calcTransform != nil {
-		plumber.SetSegment(
-			p,
+		p.SetSegment(
 			"calculation",
 			calcTransform,
 			confluence.DeferErr(calcTransform.close),
 		)
-		plumber.MustConnect[Response](p, routeOutletFrom, "calculation", 25)
+		p.MustConnect[Response](routeOutletFrom, "calculation", 25)
 		routeOutletFrom = "calculation"
-	}
-	if cfg.DownsampleFactor > 1 {
-		plumber.SetSegment(
-			p,
-			"downsampler",
-			newDownsampler(cfg),
-		)
-		plumber.MustConnect[Response](p, routeOutletFrom, "downsampler", 25)
-		routeOutletFrom = "downsampler"
+		if cfg.DownsampleFactor > 1 {
+			p.SetSegment("downsampler", newDownsampler(cfg))
+			p.MustConnect[Response](routeOutletFrom, "downsampler", 25)
+			routeOutletFrom = "downsampler"
+		}
 	}
 	return &plumber.Segment[Request, Response]{
 		Pipeline:         p,
@@ -236,7 +244,8 @@ func (s *Service) newCalculationTransform(
 		concreteBaseChannels,
 		func(item channel.Channel, index int) (channel.Key, bool) {
 			return item.Index(), !item.Virtual
-		})...,
+		},
+	)...,
 	))
 
 	// Remove ALL calculated keys (including nested ones) from cfg.Keys

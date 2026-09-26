@@ -11,8 +11,8 @@ package v1_test
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
@@ -31,6 +31,7 @@ import (
 
 var _ = Describe("MigrateDevice", func() {
 	migrateSeed := func(ctx SpecContext, seed v0.Device) v1.Device {
+		GinkgoHelper()
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Device]{DB: db}))
 		Expect(gorp.NewCreate[v0.Key, v0.Device]().

@@ -65,7 +65,7 @@ func (c Create[K, E]) Entry(entry *E) Create[K, E] {
 // encountered during execution.
 func (c Create[K, E]) Exec(ctx context.Context, tx Tx) error {
 	checkForNilTx("Create.Exec", tx)
-	w := wrapWriter[K, E](tx, c.keyPrefix, c.indexes)
+	w := wrapWriter(tx, c.keyPrefix, c.indexes)
 	if len(c.onUpdate) == 0 {
 		return w.Set(ctx, c.entries.All()...)
 	}

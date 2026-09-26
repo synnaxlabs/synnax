@@ -11,7 +11,7 @@ package signals
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
 	"io"
 
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -42,5 +42,5 @@ func Publish(
 			return telem.MarshalVariableSample(v), nil
 		},
 	}
-	return signals.PublishFromGorp(ctx, provider, cfg)
+	return provider.PublishFromGorp(ctx, cfg)
 }

@@ -11,7 +11,7 @@ package transport_test
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
 	"fmt"
 	"sync/atomic"
 	"time"
@@ -40,6 +40,7 @@ var _ = Describe("Freighter Transport", func() {
 	)
 
 	sendRequest := func(id int, method string, params any) {
+		GinkgoHelper()
 		req := map[string]any{
 			"jsonrpc": "2.0",
 			"id":      id,
@@ -55,6 +56,7 @@ var _ = Describe("Freighter Transport", func() {
 	}
 
 	sendNotification := func(method string, params any) {
+		GinkgoHelper()
 		req := map[string]any{
 			"jsonrpc": "2.0",
 			"method":  method,
@@ -69,6 +71,7 @@ var _ = Describe("Freighter Transport", func() {
 	}
 
 	receiveResponse := func(id int) map[string]any {
+		GinkgoHelper()
 		for {
 			msg := MustSucceed(clientStream.Receive())
 			var response map[string]any
@@ -304,18 +307,19 @@ var _ = Describe("Freighter Transport", func() {
 	})
 
 	Describe("JSONRPCMessage", func() {
-		Describe("UnmarshalJSON", func() {
+		Describe("Decoding", func() {
 			It("Should unmarshal valid JSON object", func(ctx SpecContext) {
 				var msg transport.JSONRPCMessage
 				input := `{"content":"test message"}`
 				Expect(json.Unmarshal([]byte(input), &msg)).To(Succeed())
 				Expect(msg.Content).To(Equal("test message"))
 			})
-			It("Should handle raw string as content", func(ctx SpecContext) {
+			It("Should reject a JSON value that is not an object", func(
+				ctx SpecContext,
+			) {
 				var msg transport.JSONRPCMessage
-				input := `"raw string content"`
-				Expect(json.Unmarshal([]byte(input), &msg)).To(Succeed())
-				Expect(msg.Content).To(Equal(input))
+				Expect(json.Unmarshal([]byte(`"raw string content"`), &msg)).
+					To(MatchError(ContainSubstring("unmarshal JSON string into Go")))
 			})
 			It("Should handle empty object", func(ctx SpecContext) {
 				var msg transport.JSONRPCMessage
@@ -503,6 +507,7 @@ var _ = Describe("Transport Failure Modes", func() {
 		*mock.ClientStream[transport.JSONRPCMessage, transport.JSONRPCMessage],
 		chan error,
 	) {
+		GinkgoHelper()
 		server := MustSucceed(lsp.New(lsp.Config{
 			Instrumentation: alamos.New("failure"),
 			NewRoot:         func() *symbol.Symbol { return NewRoot(nil) },
@@ -536,7 +541,8 @@ var _ = Describe("Transport Failure Modes", func() {
 				Content: `{"jsonrpc":"2.0","method":"initialized","params":{}}`,
 			})).To(Succeed())
 			Eventually(errs, 10*time.Second).Should(
-				Receive(MatchError(ContainSubstring("content length"))))
+				Receive(MatchError(ContainSubstring("content length"))),
+			)
 		},
 	)
 
@@ -546,7 +552,8 @@ var _ = Describe("Transport Failure Modes", func() {
 			client.Send(transport.JSONRPCMessage{Content: "{not json"}),
 		).To(Succeed())
 		Eventually(errs, 10*time.Second).Should(
-			Receive(MatchError(ContainSubstring("parse error"))))
+			Receive(MatchError(ContainSubstring("parse error"))),
+		)
 	})
 
 	It("Should fail the connection when a response exceeds the max length", func() {
@@ -561,6 +568,7 @@ var _ = Describe("Transport Failure Modes", func() {
 			client.Send(transport.JSONRPCMessage{Content: string(content)}),
 		).To(Succeed())
 		Eventually(errs, 10*time.Second).Should(
-			Receive(MatchError(ContainSubstring("content length"))))
+			Receive(MatchError(ContainSubstring("content length"))),
+		)
 	})
 })

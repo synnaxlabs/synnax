@@ -1,8 +1,8 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "PagerDuty Alert Task"
+title: "PagerDuty alert task"
 description: "Learn how to send PagerDuty alerts from Synnax when statuses change."
-prev: "OPC UA Write Task"
+prev: "OPC UA write task"
 prevURL: "/reference/driver/opc-ua/write-task"
 ---
 
@@ -22,7 +22,8 @@ repeated changes update the existing incident.
 The integration runs on the Synnax Core, not on the Driver, so the Core must reach
 `events.pagerduty.com` over HTTPS.
 
-For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lifecycle).
+This task follows the standard
+[task lifecycle](/reference/driver/task-basics#task-lifecycle).
 
 <Divider.Divider x />
 
@@ -36,9 +37,9 @@ For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lif
 
 <Divider.Divider x />
 
-## Severity Mapping
+## Severity mapping
 
-| Synnax Status Variant | PagerDuty Severity                                           |
+| Synnax status variant | PagerDuty severity                                           |
 | --------------------- | ------------------------------------------------------------ |
 | Error                 | `error`, or `critical` when the alert sets `errors_critical` |
 | Warning               | `warning`                                                    |
@@ -47,7 +48,7 @@ For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lif
 
 <Divider.Divider x />
 
-## Supported Operating Systems
+## Supported operating systems
 
 | Platform                      | Status      |
 | ----------------------------- | ----------- |
@@ -58,7 +59,7 @@ For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lif
 
 <Divider.Divider x />
 
-## Task Configuration Reference
+## Task configuration reference
 
 | Parameter     | Type   | Required | Default | Description                                                    |
 | ------------- | ------ | -------- | ------- | -------------------------------------------------------------- |
@@ -67,7 +68,7 @@ For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lif
 
 <Divider.Divider x />
 
-## Alert Configuration Reference
+## Alert configuration reference
 
 Each alert maps a Synnax status key to a PagerDuty event. The task needs at least one
 alert that is not disabled.
@@ -83,7 +84,7 @@ alert that is not disabled.
 
 <Divider.Divider x />
 
-## How-To
+## How-to
 
 <Client.Tabs client:load exclude={["cpp", "typescript"]}>
   <Fragment slot="console">

@@ -23,12 +23,11 @@
 #include "client/cpp/ranger/ranger.h"
 #include "client/cpp/status/status.h"
 #include "client/cpp/transport.h"
+#include "client/cpp/version/version.h"
 #include "client/cpp/view/view.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/log/log.h"
 #include "x/cpp/path/path.h"
-
-#include "core/pkg/version/version.h"
 
 namespace synnax {
 ///// @brief Internal namespace. Do not use.
@@ -107,14 +106,14 @@ struct Config {
            << "  " << x::log::SHALE() << "password" << x::log::RESET() << ": "
            << x::log::sensitive_string(cfg.password) << "\n"
            << "  " << x::log::SHALE() << "secure" << x::log::RESET() << ": "
-           << x::log::bool_to_str(cfg.secure) << "\n";
+           << x::log::bool_to_str(cfg.secure);
         if (!cfg.secure) return os;
-        os << "  " << x::log::SHALE() << "ca_cert_file" << x::log::RESET() << ": "
+        os << "\n  " << x::log::SHALE() << "ca_cert_file" << x::log::RESET() << ": "
            << x::path::resolve_relative(cfg.ca_cert_file) << "\n"
            << "  " << x::log::SHALE() << "client_cert_file" << x::log::RESET() << ": "
            << x::path::resolve_relative(cfg.client_cert_file) << "\n"
            << "  " << x::log::SHALE() << "client_key_file" << x::log::RESET() << ": "
-           << x::path::resolve_relative(cfg.client_key_file) << "\n";
+           << x::path::resolve_relative(cfg.client_key_file);
         return os;
     }
 
@@ -191,7 +190,7 @@ public:
             std::make_shared<connection::Checker>(
                 std::move(this->t.connectivity_check),
                 30 * x::telem::SECOND,
-                SYNNAX_VERSION,
+                SYNNAX_CLIENT_VERSION,
                 cfg.host,
                 cfg.clock_skew_threshold
             )

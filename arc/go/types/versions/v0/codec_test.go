@@ -50,12 +50,10 @@ var _ = Describe("Codec", func() {
 				Constraint: &v0.Type{Kind: v0.KindNumericConstant},
 			}),
 			Entry("function with properties", v0.Type{
-				FunctionProperties: v0.FunctionProperties{
-					Inputs:  v0.Params{{Name: "in", Type: v0.Type{Kind: v0.KindI32}}},
-					Outputs: v0.Params{{Name: "out", Type: v0.Type{Kind: v0.KindF64}}},
-					Config:  v0.Params{{Name: "rate", Type: v0.Type{Kind: v0.KindF32}}},
-				},
-				Kind: v0.KindFunction,
+				Inputs:  v0.Params{{Name: "in", Type: v0.Type{Kind: v0.KindI32}}},
+				Outputs: v0.Params{{Name: "out", Type: v0.Type{Kind: v0.KindF64}}},
+				Config:  v0.Params{{Name: "rate", Type: v0.Type{Kind: v0.KindF32}}},
+				Kind:    v0.KindFunction,
 			}),
 			Entry("zero value", v0.Type{}),
 		)

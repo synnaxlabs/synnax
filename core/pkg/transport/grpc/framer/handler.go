@@ -11,7 +11,6 @@ package framer
 
 import (
 	"context"
-	"go/types"
 
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
@@ -56,7 +55,7 @@ type (
 	frameDeleteServer = fgrpc.UnaryServer[
 		framer.DeleteRequest,
 		*DeleteRequest,
-		types.Nil,
+		struct{},
 		*emptypb.Empty,
 	]
 )
@@ -299,7 +298,7 @@ func (frameStreamerRequestTranslator) Forward(
 ) (*StreamerRequest, error) {
 	return &StreamerRequest{
 		Keys:             msg.Keys.Uint32(),
-		DownsampleFactor: int32(msg.DownsampleFactor),
+		DownsampleFactor: msg.DownsampleFactor,
 		ThrottleRateHz:   float64(msg.ThrottleRate),
 		ExcludeGroups:    msg.ExcludeGroups,
 	}, nil
@@ -311,7 +310,7 @@ func (t frameStreamerRequestTranslator) Backward(
 ) (framer.StreamerRequest, error) {
 	rq := framer.StreamerRequest{
 		Keys:             channel.KeysFromUint32(msg.Keys),
-		DownsampleFactor: int(msg.DownsampleFactor),
+		DownsampleFactor: msg.DownsampleFactor,
 		ThrottleRate:     telem.Rate(msg.ThrottleRateHz),
 		ExcludeGroups:    msg.ExcludeGroups,
 	}
@@ -427,9 +426,8 @@ func New(
 					fgrpc.Translator[framer.WriterResponse, *WriterResponse],
 				) {
 					codec := codec.NewDynamic(channelResolver)
-					return frameWriterRequestTranslator{
-						codec: codec,
-					}, frameWriterResponseTranslator{}
+					return frameWriterRequestTranslator{codec: codec},
+						frameWriterResponseTranslator{}
 				},
 				ServiceDesc: &FrameWriterService_ServiceDesc,
 			},
@@ -454,11 +452,8 @@ func New(
 					fgrpc.Translator[framer.StreamerResponse, *StreamerResponse],
 				) {
 					codec := codec.NewDynamic(channelResolver)
-					return frameStreamerRequestTranslator{
-							codec: codec,
-						}, frameStreamerResponseTranslator{
-							codec: codec,
-						}
+					return frameStreamerRequestTranslator{codec: codec},
+						frameStreamerResponseTranslator{codec: codec}
 				},
 				ServiceDesc: &FrameStreamerService_ServiceDesc,
 			},

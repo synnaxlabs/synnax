@@ -10,7 +10,7 @@
 package signals_test
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 	"io"
 	"math"
 	"time"
@@ -98,13 +98,13 @@ var _ = Describe("JSON", func() {
 		)
 		BeforeEach(func(ctx SpecContext) {
 			sigs := MustSucceed(signals.New(signals.Config{
+				DB:      db,
 				Channel: channelSvc,
 				Framer:  framerSvc,
 			}))
 			obs = observe.New[jsonPayload]()
-			closer = MustSucceed(signals.PublishJSON(
+			closer = MustSucceed(sigs.PublishJSON(
 				ctx,
-				sigs,
 				signals.JSONPublisherConfig[jsonPayload]{
 					Observable: obs,
 					SetName:    jsonSetChannelName,

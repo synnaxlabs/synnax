@@ -452,13 +452,13 @@ class LayoutClient:
         raise RuntimeError(f"No selected button found from options: {button_options}")
 
     def select_labels(self, labels: list[str], scope: Locator | None = None) -> None:
-        """Pick labels from a "Select labels" dropdown.
+        """Pick labels from a "Labels" dropdown.
 
         :param labels: The label names to select.
         :param scope: Where the trigger lives. Defaults to the whole page.
         """
         parent = self.page if scope is None else scope
-        parent.get_by_text("Select labels", exact=True).click(timeout=5000)
+        parent.get_by_role("button", name="Labels", exact=True).click(timeout=5000)
         for name in labels:
             self.select_from_dropdown(name, exact=True)
         self.press_escape()
@@ -1065,12 +1065,13 @@ class LayoutClient:
             f"{item_selector}:has(input.pluto-input__checkbox-input:checked"
             ":not([aria-label='Favorite']))"
         )
-        for _ in range(10):
-            if checked.count() == 0:
-                break
+        # Wait out each unchecking before the next. Clicking again while the row is
+        # still checked re-selects the box that was just cleared.
+        while (remaining := checked.count()) > 0:
             checked.first.locator(
                 ".pluto-input__checkbox:not(:has(input[aria-label='Favorite']))"
             ).dispatch_event("click")
+            expect(checked).to_have_count(remaining - 1, timeout=5000)
 
     def select_items(
         self, names: list[str], get_item_fn: Callable[[str], Locator]

@@ -78,6 +78,9 @@ class Scheduler {
         std::string key;
         /// @brief position in changed_flags / self_changed_flags.
         size_t idx = 0;
+        /// @brief marks a node with no incoming edges and no channel reads.
+        /// Entry nodes fire once per activation.
+        bool entry = false;
         /// @brief propagation table indexed by output ordinal.
         std::vector<OutputResolved> outputs;
     };
@@ -159,6 +162,10 @@ class Scheduler {
     /// to request replay on the next cycle. Cleared when the replay runs
     /// or when the owning member is deactivated.
     std::vector<uint8_t> self_changed_flags;
+    /// @brief fired_flags[i] is set when node i runs and cleared on
+    /// (re)activation. An entry node with the flag set skips the unconditional
+    /// stratum-0 dispatch.
+    std::vector<uint8_t> fired_flags;
     /// @brief marked_flags[i] is set when the (node, output) pair behind
     /// transition handle i fired truthy this cycle. Cleared at end of
     /// cycle so transitions fire on fresh marks, not stale truthiness.
@@ -180,6 +187,10 @@ class Scheduler {
     /// cycle. Reset to TimeSpan::max at the start of every next();
     /// exposed via next_deadline().
     x::telem::TimeSpan min_deadline = x::telem::TimeSpan::max();
+    /// @brief the stamp the current cycle began at.
+    x::telem::TimeStamp cycle_now = x::telem::TimeStamp(0);
+    /// @brief the first stamp reserve_stamps has not handed out this cycle.
+    x::telem::TimeStamp next_stamp = x::telem::TimeStamp(0);
     /// @brief index into nodes of the node whose next is currently
     /// executing, cached so mark_changed / mark_self_changed callbacks
     /// know whom they came from. NO_INDEX between cycles.
@@ -207,6 +218,7 @@ public:
     void reset() {
         std::ranges::fill(this->changed_flags, 0);
         std::ranges::fill(this->self_changed_flags, 0);
+        std::ranges::fill(this->fired_flags, 0);
         std::ranges::fill(this->marked_flags, 0);
         this->curr_node = NO_INDEX;
         for (auto &sc: this->scopes) {
@@ -214,7 +226,7 @@ public:
             sc.active_step = NO_INDEX;
         }
         for (auto &n: this->nodes)
-            n.node->reset();
+            n.node->reset(this->ctx);
         this->activate_scope(this->scopes[0]);
     }
 
@@ -222,11 +234,14 @@ public:
     /// until changes settle. Nodes with pending changes execute in stratum
     /// order; sequential scopes advance via their transitions; gated scopes
     /// activate when their handle fires.
-    void next(const x::telem::TimeSpan elapsed, const node::RunReason reason) {
+    /// @returns the highest stamp nodes reserved during the cycle, or zero when they
+    /// reserved none. The caller's clock must resume above it.
+    x::telem::TimeStamp next(const node::Cycle &cycle) {
         this->min_deadline = x::telem::TimeSpan::max();
-        this->ctx.elapsed = elapsed;
+        this->cycle_now = cycle.now;
+        this->next_stamp = cycle.now;
+        this->ctx.cycle = cycle;
         this->ctx.tolerance = this->tolerance;
-        this->ctx.reason = reason;
 
         // Re-pass until no change lands on an already-run node, bounded
         // against cycles.
@@ -239,6 +254,8 @@ public:
 
         std::ranges::fill(this->changed_flags, 0);
         std::ranges::fill(this->marked_flags, 0);
+        if (this->next_stamp == this->cycle_now) return x::telem::TimeStamp(0);
+        return this->next_stamp - int64_t{1};
     }
 
     /// @brief earliest deadline reported by any node during the previous
@@ -287,9 +304,9 @@ private:
         }
     }
 
-    /// @brief walks a nested-scope member or runs a leaf-node member.
-    /// A leaf runs when stratum_idx==0, when changed_flags is set, or when
-    /// the node was self-changed on a prior cycle. Running consumes the flag.
+    /// @brief walks a nested-scope member or runs a leaf-node member. A leaf
+    /// runs when stratum_idx==0 (entry nodes: once per activation), on
+    /// changed_flags, or on a prior-cycle self-change. Running consumes the flag.
     void execute_member(const size_t stratum_idx, MemberState &m) {
         if (m.scope != NO_INDEX) {
             this->walk(this->scopes[m.scope]);
@@ -300,19 +317,23 @@ private:
         this->visited_flags[idx] = 1;
         const bool was_self_changed = this->self_changed_flags[idx] != 0;
         if (was_self_changed) this->self_changed_flags[idx] = 0;
-        if (stratum_idx == 0 || this->changed_flags[idx] || was_self_changed) {
+        const bool forced = stratum_idx == 0 &&
+                            (!this->nodes[idx].entry || this->fired_flags[idx] == 0);
+        if (forced || this->changed_flags[idx] || was_self_changed) {
             this->changed_flags[idx] = 0;
+            this->fired_flags[idx] = 1;
             this->curr_node = m.node;
             this->nodes[this->curr_node].node->next(this->ctx);
         }
     }
 
-    /// @brief clears self-changed and calls reset on m's node. No-op if m is
-    /// a scope member or an unresolved node-key.
+    /// @brief clears self-changed and fired and calls reset on m's node. No-op
+    /// if m is a scope member or an unresolved node-key.
     void reset_leaf_node(MemberState &m) {
         if (m.is_node() && m.node != NO_INDEX) {
             this->self_changed_flags[m.node] = 0;
-            this->nodes[m.node].node->reset();
+            this->fired_flags[m.node] = 0;
+            this->nodes[m.node].node->reset(this->ctx);
         }
     }
 
@@ -416,6 +437,12 @@ private:
         state.active = false;
     }
 
+    x::telem::TimeStamp reserve_stamps(const size_t n) {
+        const auto first = this->next_stamp;
+        this->next_stamp = this->next_stamp + static_cast<int64_t>(n);
+        return first;
+    }
+
     void report_error(const x::errors::Error &e) const {
         LOG(ERROR) << "[arc.scheduler] node encountered error: " << e;
         this->error_handler(e);
@@ -506,6 +533,7 @@ private:
         this->s->nodes.resize(n);
         this->s->changed_flags.assign(n, 0);
         this->s->self_changed_flags.assign(n, 0);
+        this->s->fired_flags.assign(n, 0);
         this->s->visited_flags.assign(n, 0);
         this->nodes_by_key.reserve(n);
         this->output_by_param.resize(n);
@@ -515,6 +543,7 @@ private:
             auto &wrapper = this->s->nodes[idx];
             wrapper.key = ir_node.key;
             wrapper.idx = idx;
+            wrapper.entry = ir::is_entry_node(this->s->prog, ir_node);
             const auto impl_it = node_impls.find(ir_node.key);
             if (impl_it != node_impls.end()) wrapper.node = std::move(impl_it->second);
             // Pre-seed outputs in the IR's declared order. Node impls
@@ -763,6 +792,7 @@ inline Scheduler::Scheduler(
         if (d < this->min_deadline) this->min_deadline = d;
     };
     this->ctx.report_error = std::bind_front(&Scheduler::report_error, this);
+    this->ctx.reserve_stamps = std::bind_front(&Scheduler::reserve_stamps, this);
     detail::Builder().build(*this, node_impls);
 }
 

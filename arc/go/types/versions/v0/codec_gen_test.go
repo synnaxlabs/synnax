@@ -14,12 +14,11 @@ package v0_test
 import (
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/types/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Codec", func() {
@@ -38,7 +37,7 @@ var _ = Describe("Codec", func() {
 				Read:  map[uint32]string{2: "test_1"},
 				Write: map[uint32]string{3: "test_2"},
 			}),
-			Entry("zero values", v0.Channels{Read: nil, Write: nil}),
+			Entry("zero values", v0.Channels{Read: map[uint32]string{}, Write: map[uint32]string{}}),
 			Entry("empty collections", v0.Channels{Read: map[uint32]string{}, Write: map[uint32]string{}}),
 		)
 	})
@@ -91,37 +90,33 @@ var _ = Describe("Codec", func() {
 					{
 						Name: "test_2",
 						Type: v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs: []v0.Param{
-									{
-										Name:  "test_5",
-										Type:  v0.Type{},
-										Value: any(map[string]any{"key_7": "value_7"}),
-									},
+							Inputs: []v0.Param{
+								{
+									Name:  "test_5",
+									Type:  v0.Type{},
+									Value: any(map[string]any{"key_7": "value_7"}),
 								},
-								Outputs: []v0.Param{
-									{
-										Name:  "test_9",
-										Type:  v0.Type{},
-										Value: any(map[string]any{"key_11": "value_11"}),
-									},
+							},
+							Outputs: []v0.Param{
+								{
+									Name:  "test_9",
+									Type:  v0.Type{},
+									Value: any(map[string]any{"key_11": "value_11"}),
 								},
-								Config: []v0.Param{
-									{
-										Name:  "test_13",
-										Type:  v0.Type{},
-										Value: any(map[string]any{"key_15": "value_15"}),
-									},
+							},
+							Config: []v0.Param{
+								{
+									Name:  "test_13",
+									Type:  v0.Type{},
+									Value: any(map[string]any{"key_15": "value_15"}),
 								},
 							},
 							Kind: v0.Kind(0),
 							Name: "test_17",
 							Elem: new(v0.Type{
-								FunctionProperties: v0.FunctionProperties{
-									Inputs:  []v0.Param{{}},
-									Outputs: []v0.Param{{}},
-									Config:  []v0.Param{{}},
-								},
+								Inputs:        []v0.Param{{}},
+								Outputs:       []v0.Param{{}},
+								Config:        []v0.Param{{}},
 								Kind:          v0.Kind(0),
 								Name:          "test_23",
 								Elem:          new(v0.Type{}),
@@ -135,11 +130,9 @@ var _ = Describe("Codec", func() {
 								Name:       "test_31",
 							}),
 							Constraint: new(v0.Type{
-								FunctionProperties: v0.FunctionProperties{
-									Inputs:  []v0.Param{{}},
-									Outputs: []v0.Param{{}},
-									Config:  []v0.Param{{}},
-								},
+								Inputs:        []v0.Param{{}},
+								Outputs:       []v0.Param{{}},
+								Config:        []v0.Param{{}},
 								Kind:          v0.Kind(0),
 								Name:          "test_37",
 								Elem:          new(v0.Type{}),
@@ -156,37 +149,33 @@ var _ = Describe("Codec", func() {
 					{
 						Name: "test_45",
 						Type: v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs: []v0.Param{
-									{
-										Name:  "test_48",
-										Type:  v0.Type{},
-										Value: any(map[string]any{"key_50": "value_50"}),
-									},
+							Inputs: []v0.Param{
+								{
+									Name:  "test_48",
+									Type:  v0.Type{},
+									Value: any(map[string]any{"key_50": "value_50"}),
 								},
-								Outputs: []v0.Param{
-									{
-										Name:  "test_52",
-										Type:  v0.Type{},
-										Value: any(map[string]any{"key_54": "value_54"}),
-									},
+							},
+							Outputs: []v0.Param{
+								{
+									Name:  "test_52",
+									Type:  v0.Type{},
+									Value: any(map[string]any{"key_54": "value_54"}),
 								},
-								Config: []v0.Param{
-									{
-										Name:  "test_56",
-										Type:  v0.Type{},
-										Value: any(map[string]any{"key_58": "value_58"}),
-									},
+							},
+							Config: []v0.Param{
+								{
+									Name:  "test_56",
+									Type:  v0.Type{},
+									Value: any(map[string]any{"key_58": "value_58"}),
 								},
 							},
 							Kind: v0.Kind(0),
 							Name: "test_60",
 							Elem: new(v0.Type{
-								FunctionProperties: v0.FunctionProperties{
-									Inputs:  []v0.Param{{}},
-									Outputs: []v0.Param{{}},
-									Config:  []v0.Param{{}},
-								},
+								Inputs:        []v0.Param{{}},
+								Outputs:       []v0.Param{{}},
+								Config:        []v0.Param{{}},
 								Kind:          v0.Kind(0),
 								Name:          "test_66",
 								Elem:          new(v0.Type{}),
@@ -200,11 +189,9 @@ var _ = Describe("Codec", func() {
 								Name:       "test_74",
 							}),
 							Constraint: new(v0.Type{
-								FunctionProperties: v0.FunctionProperties{
-									Inputs:  []v0.Param{{}},
-									Outputs: []v0.Param{{}},
-									Config:  []v0.Param{{}},
-								},
+								Inputs:        []v0.Param{{}},
+								Outputs:       []v0.Param{{}},
+								Config:        []v0.Param{{}},
 								Kind:          v0.Kind(0),
 								Name:          "test_80",
 								Elem:          new(v0.Type{}),
@@ -221,37 +208,33 @@ var _ = Describe("Codec", func() {
 					{
 						Name: "test_88",
 						Type: v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs: []v0.Param{
-									{
-										Name:  "test_91",
-										Type:  v0.Type{},
-										Value: any(map[string]any{"key_93": "value_93"}),
-									},
+							Inputs: []v0.Param{
+								{
+									Name:  "test_91",
+									Type:  v0.Type{},
+									Value: any(map[string]any{"key_93": "value_93"}),
 								},
-								Outputs: []v0.Param{
-									{
-										Name:  "test_95",
-										Type:  v0.Type{},
-										Value: any(map[string]any{"key_97": "value_97"}),
-									},
+							},
+							Outputs: []v0.Param{
+								{
+									Name:  "test_95",
+									Type:  v0.Type{},
+									Value: any(map[string]any{"key_97": "value_97"}),
 								},
-								Config: []v0.Param{
-									{
-										Name:  "test_99",
-										Type:  v0.Type{},
-										Value: any(map[string]any{"key_101": "value_101"}),
-									},
+							},
+							Config: []v0.Param{
+								{
+									Name:  "test_99",
+									Type:  v0.Type{},
+									Value: any(map[string]any{"key_101": "value_101"}),
 								},
 							},
 							Kind: v0.Kind(0),
 							Name: "test_103",
 							Elem: new(v0.Type{
-								FunctionProperties: v0.FunctionProperties{
-									Inputs:  []v0.Param{{}},
-									Outputs: []v0.Param{{}},
-									Config:  []v0.Param{{}},
-								},
+								Inputs:        []v0.Param{{}},
+								Outputs:       []v0.Param{{}},
+								Config:        []v0.Param{{}},
 								Kind:          v0.Kind(0),
 								Name:          "test_109",
 								Elem:          new(v0.Type{}),
@@ -265,11 +248,9 @@ var _ = Describe("Codec", func() {
 								Name:       "test_117",
 							}),
 							Constraint: new(v0.Type{
-								FunctionProperties: v0.FunctionProperties{
-									Inputs:  []v0.Param{{}},
-									Outputs: []v0.Param{{}},
-									Config:  []v0.Param{{}},
-								},
+								Inputs:        []v0.Param{{}},
+								Outputs:       []v0.Param{{}},
+								Config:        []v0.Param{{}},
 								Kind:          v0.Kind(0),
 								Name:          "test_123",
 								Elem:          new(v0.Type{}),
@@ -284,9 +265,9 @@ var _ = Describe("Codec", func() {
 				},
 			}),
 			Entry("zero values", v0.FunctionProperties{
-				Inputs:  nil,
-				Outputs: nil,
-				Config:  nil,
+				Inputs:  []v0.Param{},
+				Outputs: []v0.Param{},
+				Config:  []v0.Param{},
 			}),
 			Entry("empty collections", v0.FunctionProperties{
 				Inputs:  []v0.Param{},
@@ -309,99 +290,87 @@ var _ = Describe("Codec", func() {
 			Entry("fully populated", v0.Param{
 				Name: "test_1",
 				Type: v0.Type{
-					FunctionProperties: v0.FunctionProperties{
-						Inputs: []v0.Param{
-							{
-								Name: "test_4",
-								Type: v0.Type{
-									FunctionProperties: v0.FunctionProperties{
-										Inputs:  []v0.Param{{}},
-										Outputs: []v0.Param{{}},
-										Config:  []v0.Param{{}},
-									},
-									Kind:          v0.Kind(0),
-									Name:          "test_10",
-									Elem:          new(v0.Type{}),
-									Unit:          new(v0.Unit{}),
-									Constraint:    new(v0.Type{}),
-									ChanDirection: v0.ChanDirection(0),
-								},
-								Value: any(map[string]any{"key_15": "value_15"}),
+					Inputs: []v0.Param{
+						{
+							Name: "test_4",
+							Type: v0.Type{
+								Inputs:        []v0.Param{{}},
+								Outputs:       []v0.Param{{}},
+								Config:        []v0.Param{{}},
+								Kind:          v0.Kind(0),
+								Name:          "test_10",
+								Elem:          new(v0.Type{}),
+								Unit:          new(v0.Unit{}),
+								Constraint:    new(v0.Type{}),
+								ChanDirection: v0.ChanDirection(0),
 							},
+							Value: any(map[string]any{"key_15": "value_15"}),
 						},
-						Outputs: []v0.Param{
-							{
-								Name: "test_17",
-								Type: v0.Type{
-									FunctionProperties: v0.FunctionProperties{
-										Inputs:  []v0.Param{{}},
-										Outputs: []v0.Param{{}},
-										Config:  []v0.Param{{}},
-									},
-									Kind:          v0.Kind(0),
-									Name:          "test_23",
-									Elem:          new(v0.Type{}),
-									Unit:          new(v0.Unit{}),
-									Constraint:    new(v0.Type{}),
-									ChanDirection: v0.ChanDirection(0),
-								},
-								Value: any(map[string]any{"key_28": "value_28"}),
+					},
+					Outputs: []v0.Param{
+						{
+							Name: "test_17",
+							Type: v0.Type{
+								Inputs:        []v0.Param{{}},
+								Outputs:       []v0.Param{{}},
+								Config:        []v0.Param{{}},
+								Kind:          v0.Kind(0),
+								Name:          "test_23",
+								Elem:          new(v0.Type{}),
+								Unit:          new(v0.Unit{}),
+								Constraint:    new(v0.Type{}),
+								ChanDirection: v0.ChanDirection(0),
 							},
+							Value: any(map[string]any{"key_28": "value_28"}),
 						},
-						Config: []v0.Param{
-							{
-								Name: "test_30",
-								Type: v0.Type{
-									FunctionProperties: v0.FunctionProperties{
-										Inputs:  []v0.Param{{}},
-										Outputs: []v0.Param{{}},
-										Config:  []v0.Param{{}},
-									},
-									Kind:          v0.Kind(0),
-									Name:          "test_36",
-									Elem:          new(v0.Type{}),
-									Unit:          new(v0.Unit{}),
-									Constraint:    new(v0.Type{}),
-									ChanDirection: v0.ChanDirection(0),
-								},
-								Value: any(map[string]any{"key_41": "value_41"}),
+					},
+					Config: []v0.Param{
+						{
+							Name: "test_30",
+							Type: v0.Type{
+								Inputs:        []v0.Param{{}},
+								Outputs:       []v0.Param{{}},
+								Config:        []v0.Param{{}},
+								Kind:          v0.Kind(0),
+								Name:          "test_36",
+								Elem:          new(v0.Type{}),
+								Unit:          new(v0.Unit{}),
+								Constraint:    new(v0.Type{}),
+								ChanDirection: v0.ChanDirection(0),
 							},
+							Value: any(map[string]any{"key_41": "value_41"}),
 						},
 					},
 					Kind: v0.Kind(0),
 					Name: "test_43",
 					Elem: new(v0.Type{
-						FunctionProperties: v0.FunctionProperties{
-							Inputs: []v0.Param{
-								{
-									Name:  "test_46",
-									Type:  v0.Type{},
-									Value: any(map[string]any{"key_48": "value_48"}),
-								},
+						Inputs: []v0.Param{
+							{
+								Name:  "test_46",
+								Type:  v0.Type{},
+								Value: any(map[string]any{"key_48": "value_48"}),
 							},
-							Outputs: []v0.Param{
-								{
-									Name:  "test_50",
-									Type:  v0.Type{},
-									Value: any(map[string]any{"key_52": "value_52"}),
-								},
+						},
+						Outputs: []v0.Param{
+							{
+								Name:  "test_50",
+								Type:  v0.Type{},
+								Value: any(map[string]any{"key_52": "value_52"}),
 							},
-							Config: []v0.Param{
-								{
-									Name:  "test_54",
-									Type:  v0.Type{},
-									Value: any(map[string]any{"key_56": "value_56"}),
-								},
+						},
+						Config: []v0.Param{
+							{
+								Name:  "test_54",
+								Type:  v0.Type{},
+								Value: any(map[string]any{"key_56": "value_56"}),
 							},
 						},
 						Kind: v0.Kind(0),
 						Name: "test_58",
 						Elem: new(v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs:  []v0.Param{{}},
-								Outputs: []v0.Param{{}},
-								Config:  []v0.Param{{}},
-							},
+							Inputs:        []v0.Param{{}},
+							Outputs:       []v0.Param{{}},
+							Config:        []v0.Param{{}},
 							Kind:          v0.Kind(0),
 							Name:          "test_64",
 							Elem:          new(v0.Type{}),
@@ -415,11 +384,9 @@ var _ = Describe("Codec", func() {
 							Name:       "test_72",
 						}),
 						Constraint: new(v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs:  []v0.Param{{}},
-								Outputs: []v0.Param{{}},
-								Config:  []v0.Param{{}},
-							},
+							Inputs:        []v0.Param{{}},
+							Outputs:       []v0.Param{{}},
+							Config:        []v0.Param{{}},
 							Kind:          v0.Kind(0),
 							Name:          "test_78",
 							Elem:          new(v0.Type{}),
@@ -444,37 +411,33 @@ var _ = Describe("Codec", func() {
 						Name:  "test_95",
 					}),
 					Constraint: new(v0.Type{
-						FunctionProperties: v0.FunctionProperties{
-							Inputs: []v0.Param{
-								{
-									Name:  "test_98",
-									Type:  v0.Type{},
-									Value: any(map[string]any{"key_100": "value_100"}),
-								},
+						Inputs: []v0.Param{
+							{
+								Name:  "test_98",
+								Type:  v0.Type{},
+								Value: any(map[string]any{"key_100": "value_100"}),
 							},
-							Outputs: []v0.Param{
-								{
-									Name:  "test_102",
-									Type:  v0.Type{},
-									Value: any(map[string]any{"key_104": "value_104"}),
-								},
+						},
+						Outputs: []v0.Param{
+							{
+								Name:  "test_102",
+								Type:  v0.Type{},
+								Value: any(map[string]any{"key_104": "value_104"}),
 							},
-							Config: []v0.Param{
-								{
-									Name:  "test_106",
-									Type:  v0.Type{},
-									Value: any(map[string]any{"key_108": "value_108"}),
-								},
+						},
+						Config: []v0.Param{
+							{
+								Name:  "test_106",
+								Type:  v0.Type{},
+								Value: any(map[string]any{"key_108": "value_108"}),
 							},
 						},
 						Kind: v0.Kind(0),
 						Name: "test_110",
 						Elem: new(v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs:  []v0.Param{{}},
-								Outputs: []v0.Param{{}},
-								Config:  []v0.Param{{}},
-							},
+							Inputs:        []v0.Param{{}},
+							Outputs:       []v0.Param{{}},
+							Config:        []v0.Param{{}},
 							Kind:          v0.Kind(0),
 							Name:          "test_116",
 							Elem:          new(v0.Type{}),
@@ -488,11 +451,9 @@ var _ = Describe("Codec", func() {
 							Name:       "test_124",
 						}),
 						Constraint: new(v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs:  []v0.Param{{}},
-								Outputs: []v0.Param{{}},
-								Config:  []v0.Param{{}},
-							},
+							Inputs:        []v0.Param{{}},
+							Outputs:       []v0.Param{{}},
+							Config:        []v0.Param{{}},
 							Kind:          v0.Kind(0),
 							Name:          "test_130",
 							Elem:          new(v0.Type{}),
@@ -509,11 +470,9 @@ var _ = Describe("Codec", func() {
 			Entry("zero values", v0.Param{
 				Name: "",
 				Type: v0.Type{
-					FunctionProperties: v0.FunctionProperties{
-						Inputs:  nil,
-						Outputs: nil,
-						Config:  nil,
-					},
+					Inputs:        []v0.Param{},
+					Outputs:       []v0.Param{},
+					Config:        []v0.Param{},
 					Kind:          v0.Kind(0),
 					Name:          "",
 					Elem:          nil,
@@ -537,299 +496,267 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v0.Type{
-				FunctionProperties: v0.FunctionProperties{
-					Inputs: []v0.Param{
-						{
-							Name: "test_2",
-							Type: v0.Type{
-								FunctionProperties: v0.FunctionProperties{
-									Inputs: []v0.Param{
-										{
-											Name:  "test_5",
-											Type:  v0.Type{},
-											Value: any(map[string]any{"key_7": "value_7"}),
-										},
-									},
-									Outputs: []v0.Param{
-										{
-											Name:  "test_9",
-											Type:  v0.Type{},
-											Value: any(map[string]any{"key_11": "value_11"}),
-										},
-									},
-									Config: []v0.Param{
-										{
-											Name:  "test_13",
-											Type:  v0.Type{},
-											Value: any(map[string]any{"key_15": "value_15"}),
-										},
-									},
+				Inputs: []v0.Param{
+					{
+						Name: "test_2",
+						Type: v0.Type{
+							Inputs: []v0.Param{
+								{
+									Name:  "test_5",
+									Type:  v0.Type{},
+									Value: any(map[string]any{"key_7": "value_7"}),
 								},
-								Kind: v0.Kind(0),
-								Name: "test_17",
-								Elem: new(v0.Type{
-									FunctionProperties: v0.FunctionProperties{
-										Inputs:  []v0.Param{{}},
-										Outputs: []v0.Param{{}},
-										Config:  []v0.Param{{}},
-									},
-									Kind:          v0.Kind(0),
-									Name:          "test_23",
-									Elem:          new(v0.Type{}),
-									Unit:          new(v0.Unit{}),
-									Constraint:    new(v0.Type{}),
-									ChanDirection: v0.ChanDirection(0),
-								}),
-								Unit: new(v0.Unit{
-									Dimensions: v0.Dimensions{},
-									Scale:      30.5,
-									Name:       "test_31",
-								}),
-								Constraint: new(v0.Type{
-									FunctionProperties: v0.FunctionProperties{
-										Inputs:  []v0.Param{{}},
-										Outputs: []v0.Param{{}},
-										Config:  []v0.Param{{}},
-									},
-									Kind:          v0.Kind(0),
-									Name:          "test_37",
-									Elem:          new(v0.Type{}),
-									Unit:          new(v0.Unit{}),
-									Constraint:    new(v0.Type{}),
-									ChanDirection: v0.ChanDirection(0),
-								}),
-								ChanDirection: v0.ChanDirection(0),
 							},
-							Value: any(map[string]any{"key_43": "value_43"}),
+							Outputs: []v0.Param{
+								{
+									Name:  "test_9",
+									Type:  v0.Type{},
+									Value: any(map[string]any{"key_11": "value_11"}),
+								},
+							},
+							Config: []v0.Param{
+								{
+									Name:  "test_13",
+									Type:  v0.Type{},
+									Value: any(map[string]any{"key_15": "value_15"}),
+								},
+							},
+							Kind: v0.Kind(0),
+							Name: "test_17",
+							Elem: new(v0.Type{
+								Inputs:        []v0.Param{{}},
+								Outputs:       []v0.Param{{}},
+								Config:        []v0.Param{{}},
+								Kind:          v0.Kind(0),
+								Name:          "test_23",
+								Elem:          new(v0.Type{}),
+								Unit:          new(v0.Unit{}),
+								Constraint:    new(v0.Type{}),
+								ChanDirection: v0.ChanDirection(0),
+							}),
+							Unit: new(v0.Unit{
+								Dimensions: v0.Dimensions{},
+								Scale:      30.5,
+								Name:       "test_31",
+							}),
+							Constraint: new(v0.Type{
+								Inputs:        []v0.Param{{}},
+								Outputs:       []v0.Param{{}},
+								Config:        []v0.Param{{}},
+								Kind:          v0.Kind(0),
+								Name:          "test_37",
+								Elem:          new(v0.Type{}),
+								Unit:          new(v0.Unit{}),
+								Constraint:    new(v0.Type{}),
+								ChanDirection: v0.ChanDirection(0),
+							}),
+							ChanDirection: v0.ChanDirection(0),
 						},
+						Value: any(map[string]any{"key_43": "value_43"}),
 					},
-					Outputs: []v0.Param{
-						{
-							Name: "test_45",
-							Type: v0.Type{
-								FunctionProperties: v0.FunctionProperties{
-									Inputs: []v0.Param{
-										{
-											Name:  "test_48",
-											Type:  v0.Type{},
-											Value: any(map[string]any{"key_50": "value_50"}),
-										},
-									},
-									Outputs: []v0.Param{
-										{
-											Name:  "test_52",
-											Type:  v0.Type{},
-											Value: any(map[string]any{"key_54": "value_54"}),
-										},
-									},
-									Config: []v0.Param{
-										{
-											Name:  "test_56",
-											Type:  v0.Type{},
-											Value: any(map[string]any{"key_58": "value_58"}),
-										},
-									},
+				},
+				Outputs: []v0.Param{
+					{
+						Name: "test_45",
+						Type: v0.Type{
+							Inputs: []v0.Param{
+								{
+									Name:  "test_48",
+									Type:  v0.Type{},
+									Value: any(map[string]any{"key_50": "value_50"}),
 								},
-								Kind: v0.Kind(0),
-								Name: "test_60",
-								Elem: new(v0.Type{
-									FunctionProperties: v0.FunctionProperties{
-										Inputs:  []v0.Param{{}},
-										Outputs: []v0.Param{{}},
-										Config:  []v0.Param{{}},
-									},
-									Kind:          v0.Kind(0),
-									Name:          "test_66",
-									Elem:          new(v0.Type{}),
-									Unit:          new(v0.Unit{}),
-									Constraint:    new(v0.Type{}),
-									ChanDirection: v0.ChanDirection(0),
-								}),
-								Unit: new(v0.Unit{
-									Dimensions: v0.Dimensions{},
-									Scale:      73.5,
-									Name:       "test_74",
-								}),
-								Constraint: new(v0.Type{
-									FunctionProperties: v0.FunctionProperties{
-										Inputs:  []v0.Param{{}},
-										Outputs: []v0.Param{{}},
-										Config:  []v0.Param{{}},
-									},
-									Kind:          v0.Kind(0),
-									Name:          "test_80",
-									Elem:          new(v0.Type{}),
-									Unit:          new(v0.Unit{}),
-									Constraint:    new(v0.Type{}),
-									ChanDirection: v0.ChanDirection(0),
-								}),
-								ChanDirection: v0.ChanDirection(0),
 							},
-							Value: any(map[string]any{"key_86": "value_86"}),
+							Outputs: []v0.Param{
+								{
+									Name:  "test_52",
+									Type:  v0.Type{},
+									Value: any(map[string]any{"key_54": "value_54"}),
+								},
+							},
+							Config: []v0.Param{
+								{
+									Name:  "test_56",
+									Type:  v0.Type{},
+									Value: any(map[string]any{"key_58": "value_58"}),
+								},
+							},
+							Kind: v0.Kind(0),
+							Name: "test_60",
+							Elem: new(v0.Type{
+								Inputs:        []v0.Param{{}},
+								Outputs:       []v0.Param{{}},
+								Config:        []v0.Param{{}},
+								Kind:          v0.Kind(0),
+								Name:          "test_66",
+								Elem:          new(v0.Type{}),
+								Unit:          new(v0.Unit{}),
+								Constraint:    new(v0.Type{}),
+								ChanDirection: v0.ChanDirection(0),
+							}),
+							Unit: new(v0.Unit{
+								Dimensions: v0.Dimensions{},
+								Scale:      73.5,
+								Name:       "test_74",
+							}),
+							Constraint: new(v0.Type{
+								Inputs:        []v0.Param{{}},
+								Outputs:       []v0.Param{{}},
+								Config:        []v0.Param{{}},
+								Kind:          v0.Kind(0),
+								Name:          "test_80",
+								Elem:          new(v0.Type{}),
+								Unit:          new(v0.Unit{}),
+								Constraint:    new(v0.Type{}),
+								ChanDirection: v0.ChanDirection(0),
+							}),
+							ChanDirection: v0.ChanDirection(0),
 						},
+						Value: any(map[string]any{"key_86": "value_86"}),
 					},
-					Config: []v0.Param{
-						{
-							Name: "test_88",
-							Type: v0.Type{
-								FunctionProperties: v0.FunctionProperties{
-									Inputs: []v0.Param{
-										{
-											Name:  "test_91",
-											Type:  v0.Type{},
-											Value: any(map[string]any{"key_93": "value_93"}),
-										},
-									},
-									Outputs: []v0.Param{
-										{
-											Name:  "test_95",
-											Type:  v0.Type{},
-											Value: any(map[string]any{"key_97": "value_97"}),
-										},
-									},
-									Config: []v0.Param{
-										{
-											Name:  "test_99",
-											Type:  v0.Type{},
-											Value: any(map[string]any{"key_101": "value_101"}),
-										},
-									},
+				},
+				Config: []v0.Param{
+					{
+						Name: "test_88",
+						Type: v0.Type{
+							Inputs: []v0.Param{
+								{
+									Name:  "test_91",
+									Type:  v0.Type{},
+									Value: any(map[string]any{"key_93": "value_93"}),
 								},
-								Kind: v0.Kind(0),
-								Name: "test_103",
-								Elem: new(v0.Type{
-									FunctionProperties: v0.FunctionProperties{
-										Inputs:  []v0.Param{{}},
-										Outputs: []v0.Param{{}},
-										Config:  []v0.Param{{}},
-									},
-									Kind:          v0.Kind(0),
-									Name:          "test_109",
-									Elem:          new(v0.Type{}),
-									Unit:          new(v0.Unit{}),
-									Constraint:    new(v0.Type{}),
-									ChanDirection: v0.ChanDirection(0),
-								}),
-								Unit: new(v0.Unit{
-									Dimensions: v0.Dimensions{},
-									Scale:      116.5,
-									Name:       "test_117",
-								}),
-								Constraint: new(v0.Type{
-									FunctionProperties: v0.FunctionProperties{
-										Inputs:  []v0.Param{{}},
-										Outputs: []v0.Param{{}},
-										Config:  []v0.Param{{}},
-									},
-									Kind:          v0.Kind(0),
-									Name:          "test_123",
-									Elem:          new(v0.Type{}),
-									Unit:          new(v0.Unit{}),
-									Constraint:    new(v0.Type{}),
-									ChanDirection: v0.ChanDirection(0),
-								}),
-								ChanDirection: v0.ChanDirection(0),
 							},
-							Value: any(map[string]any{"key_129": "value_129"}),
+							Outputs: []v0.Param{
+								{
+									Name:  "test_95",
+									Type:  v0.Type{},
+									Value: any(map[string]any{"key_97": "value_97"}),
+								},
+							},
+							Config: []v0.Param{
+								{
+									Name:  "test_99",
+									Type:  v0.Type{},
+									Value: any(map[string]any{"key_101": "value_101"}),
+								},
+							},
+							Kind: v0.Kind(0),
+							Name: "test_103",
+							Elem: new(v0.Type{
+								Inputs:        []v0.Param{{}},
+								Outputs:       []v0.Param{{}},
+								Config:        []v0.Param{{}},
+								Kind:          v0.Kind(0),
+								Name:          "test_109",
+								Elem:          new(v0.Type{}),
+								Unit:          new(v0.Unit{}),
+								Constraint:    new(v0.Type{}),
+								ChanDirection: v0.ChanDirection(0),
+							}),
+							Unit: new(v0.Unit{
+								Dimensions: v0.Dimensions{},
+								Scale:      116.5,
+								Name:       "test_117",
+							}),
+							Constraint: new(v0.Type{
+								Inputs:        []v0.Param{{}},
+								Outputs:       []v0.Param{{}},
+								Config:        []v0.Param{{}},
+								Kind:          v0.Kind(0),
+								Name:          "test_123",
+								Elem:          new(v0.Type{}),
+								Unit:          new(v0.Unit{}),
+								Constraint:    new(v0.Type{}),
+								ChanDirection: v0.ChanDirection(0),
+							}),
+							ChanDirection: v0.ChanDirection(0),
 						},
+						Value: any(map[string]any{"key_129": "value_129"}),
 					},
 				},
 				Kind: v0.Kind(0),
 				Name: "test_131",
 				Elem: new(v0.Type{
-					FunctionProperties: v0.FunctionProperties{
-						Inputs: []v0.Param{
-							{
-								Name: "test_134",
-								Type: v0.Type{
-									FunctionProperties: v0.FunctionProperties{
-										Inputs:  []v0.Param{{}},
-										Outputs: []v0.Param{{}},
-										Config:  []v0.Param{{}},
-									},
-									Kind:          v0.Kind(0),
-									Name:          "test_140",
-									Elem:          new(v0.Type{}),
-									Unit:          new(v0.Unit{}),
-									Constraint:    new(v0.Type{}),
-									ChanDirection: v0.ChanDirection(0),
-								},
-								Value: any(map[string]any{"key_145": "value_145"}),
+					Inputs: []v0.Param{
+						{
+							Name: "test_134",
+							Type: v0.Type{
+								Inputs:        []v0.Param{{}},
+								Outputs:       []v0.Param{{}},
+								Config:        []v0.Param{{}},
+								Kind:          v0.Kind(0),
+								Name:          "test_140",
+								Elem:          new(v0.Type{}),
+								Unit:          new(v0.Unit{}),
+								Constraint:    new(v0.Type{}),
+								ChanDirection: v0.ChanDirection(0),
 							},
+							Value: any(map[string]any{"key_145": "value_145"}),
 						},
-						Outputs: []v0.Param{
-							{
-								Name: "test_147",
-								Type: v0.Type{
-									FunctionProperties: v0.FunctionProperties{
-										Inputs:  []v0.Param{{}},
-										Outputs: []v0.Param{{}},
-										Config:  []v0.Param{{}},
-									},
-									Kind:          v0.Kind(0),
-									Name:          "test_153",
-									Elem:          new(v0.Type{}),
-									Unit:          new(v0.Unit{}),
-									Constraint:    new(v0.Type{}),
-									ChanDirection: v0.ChanDirection(0),
-								},
-								Value: any(map[string]any{"key_158": "value_158"}),
+					},
+					Outputs: []v0.Param{
+						{
+							Name: "test_147",
+							Type: v0.Type{
+								Inputs:        []v0.Param{{}},
+								Outputs:       []v0.Param{{}},
+								Config:        []v0.Param{{}},
+								Kind:          v0.Kind(0),
+								Name:          "test_153",
+								Elem:          new(v0.Type{}),
+								Unit:          new(v0.Unit{}),
+								Constraint:    new(v0.Type{}),
+								ChanDirection: v0.ChanDirection(0),
 							},
+							Value: any(map[string]any{"key_158": "value_158"}),
 						},
-						Config: []v0.Param{
-							{
-								Name: "test_160",
-								Type: v0.Type{
-									FunctionProperties: v0.FunctionProperties{
-										Inputs:  []v0.Param{{}},
-										Outputs: []v0.Param{{}},
-										Config:  []v0.Param{{}},
-									},
-									Kind:          v0.Kind(0),
-									Name:          "test_166",
-									Elem:          new(v0.Type{}),
-									Unit:          new(v0.Unit{}),
-									Constraint:    new(v0.Type{}),
-									ChanDirection: v0.ChanDirection(0),
-								},
-								Value: any(map[string]any{"key_171": "value_171"}),
+					},
+					Config: []v0.Param{
+						{
+							Name: "test_160",
+							Type: v0.Type{
+								Inputs:        []v0.Param{{}},
+								Outputs:       []v0.Param{{}},
+								Config:        []v0.Param{{}},
+								Kind:          v0.Kind(0),
+								Name:          "test_166",
+								Elem:          new(v0.Type{}),
+								Unit:          new(v0.Unit{}),
+								Constraint:    new(v0.Type{}),
+								ChanDirection: v0.ChanDirection(0),
 							},
+							Value: any(map[string]any{"key_171": "value_171"}),
 						},
 					},
 					Kind: v0.Kind(0),
 					Name: "test_173",
 					Elem: new(v0.Type{
-						FunctionProperties: v0.FunctionProperties{
-							Inputs: []v0.Param{
-								{
-									Name:  "test_176",
-									Type:  v0.Type{},
-									Value: any(map[string]any{"key_178": "value_178"}),
-								},
+						Inputs: []v0.Param{
+							{
+								Name:  "test_176",
+								Type:  v0.Type{},
+								Value: any(map[string]any{"key_178": "value_178"}),
 							},
-							Outputs: []v0.Param{
-								{
-									Name:  "test_180",
-									Type:  v0.Type{},
-									Value: any(map[string]any{"key_182": "value_182"}),
-								},
+						},
+						Outputs: []v0.Param{
+							{
+								Name:  "test_180",
+								Type:  v0.Type{},
+								Value: any(map[string]any{"key_182": "value_182"}),
 							},
-							Config: []v0.Param{
-								{
-									Name:  "test_184",
-									Type:  v0.Type{},
-									Value: any(map[string]any{"key_186": "value_186"}),
-								},
+						},
+						Config: []v0.Param{
+							{
+								Name:  "test_184",
+								Type:  v0.Type{},
+								Value: any(map[string]any{"key_186": "value_186"}),
 							},
 						},
 						Kind: v0.Kind(0),
 						Name: "test_188",
 						Elem: new(v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs:  []v0.Param{{}},
-								Outputs: []v0.Param{{}},
-								Config:  []v0.Param{{}},
-							},
+							Inputs:        []v0.Param{{}},
+							Outputs:       []v0.Param{{}},
+							Config:        []v0.Param{{}},
 							Kind:          v0.Kind(0),
 							Name:          "test_194",
 							Elem:          new(v0.Type{}),
@@ -843,11 +770,9 @@ var _ = Describe("Codec", func() {
 							Name:       "test_202",
 						}),
 						Constraint: new(v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs:  []v0.Param{{}},
-								Outputs: []v0.Param{{}},
-								Config:  []v0.Param{{}},
-							},
+							Inputs:        []v0.Param{{}},
+							Outputs:       []v0.Param{{}},
+							Config:        []v0.Param{{}},
 							Kind:          v0.Kind(0),
 							Name:          "test_208",
 							Elem:          new(v0.Type{}),
@@ -872,37 +797,33 @@ var _ = Describe("Codec", func() {
 						Name:  "test_225",
 					}),
 					Constraint: new(v0.Type{
-						FunctionProperties: v0.FunctionProperties{
-							Inputs: []v0.Param{
-								{
-									Name:  "test_228",
-									Type:  v0.Type{},
-									Value: any(map[string]any{"key_230": "value_230"}),
-								},
+						Inputs: []v0.Param{
+							{
+								Name:  "test_228",
+								Type:  v0.Type{},
+								Value: any(map[string]any{"key_230": "value_230"}),
 							},
-							Outputs: []v0.Param{
-								{
-									Name:  "test_232",
-									Type:  v0.Type{},
-									Value: any(map[string]any{"key_234": "value_234"}),
-								},
+						},
+						Outputs: []v0.Param{
+							{
+								Name:  "test_232",
+								Type:  v0.Type{},
+								Value: any(map[string]any{"key_234": "value_234"}),
 							},
-							Config: []v0.Param{
-								{
-									Name:  "test_236",
-									Type:  v0.Type{},
-									Value: any(map[string]any{"key_238": "value_238"}),
-								},
+						},
+						Config: []v0.Param{
+							{
+								Name:  "test_236",
+								Type:  v0.Type{},
+								Value: any(map[string]any{"key_238": "value_238"}),
 							},
 						},
 						Kind: v0.Kind(0),
 						Name: "test_240",
 						Elem: new(v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs:  []v0.Param{{}},
-								Outputs: []v0.Param{{}},
-								Config:  []v0.Param{{}},
-							},
+							Inputs:        []v0.Param{{}},
+							Outputs:       []v0.Param{{}},
+							Config:        []v0.Param{{}},
 							Kind:          v0.Kind(0),
 							Name:          "test_246",
 							Elem:          new(v0.Type{}),
@@ -916,11 +837,9 @@ var _ = Describe("Codec", func() {
 							Name:       "test_254",
 						}),
 						Constraint: new(v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs:  []v0.Param{{}},
-								Outputs: []v0.Param{{}},
-								Config:  []v0.Param{{}},
-							},
+							Inputs:        []v0.Param{{}},
+							Outputs:       []v0.Param{{}},
+							Config:        []v0.Param{{}},
 							Kind:          v0.Kind(0),
 							Name:          "test_260",
 							Elem:          new(v0.Type{}),
@@ -947,99 +866,87 @@ var _ = Describe("Codec", func() {
 					Name:  "test_278",
 				}),
 				Constraint: new(v0.Type{
-					FunctionProperties: v0.FunctionProperties{
-						Inputs: []v0.Param{
-							{
-								Name: "test_281",
-								Type: v0.Type{
-									FunctionProperties: v0.FunctionProperties{
-										Inputs:  []v0.Param{{}},
-										Outputs: []v0.Param{{}},
-										Config:  []v0.Param{{}},
-									},
-									Kind:          v0.Kind(0),
-									Name:          "test_287",
-									Elem:          new(v0.Type{}),
-									Unit:          new(v0.Unit{}),
-									Constraint:    new(v0.Type{}),
-									ChanDirection: v0.ChanDirection(0),
-								},
-								Value: any(map[string]any{"key_292": "value_292"}),
+					Inputs: []v0.Param{
+						{
+							Name: "test_281",
+							Type: v0.Type{
+								Inputs:        []v0.Param{{}},
+								Outputs:       []v0.Param{{}},
+								Config:        []v0.Param{{}},
+								Kind:          v0.Kind(0),
+								Name:          "test_287",
+								Elem:          new(v0.Type{}),
+								Unit:          new(v0.Unit{}),
+								Constraint:    new(v0.Type{}),
+								ChanDirection: v0.ChanDirection(0),
 							},
+							Value: any(map[string]any{"key_292": "value_292"}),
 						},
-						Outputs: []v0.Param{
-							{
-								Name: "test_294",
-								Type: v0.Type{
-									FunctionProperties: v0.FunctionProperties{
-										Inputs:  []v0.Param{{}},
-										Outputs: []v0.Param{{}},
-										Config:  []v0.Param{{}},
-									},
-									Kind:          v0.Kind(0),
-									Name:          "test_300",
-									Elem:          new(v0.Type{}),
-									Unit:          new(v0.Unit{}),
-									Constraint:    new(v0.Type{}),
-									ChanDirection: v0.ChanDirection(0),
-								},
-								Value: any(map[string]any{"key_305": "value_305"}),
+					},
+					Outputs: []v0.Param{
+						{
+							Name: "test_294",
+							Type: v0.Type{
+								Inputs:        []v0.Param{{}},
+								Outputs:       []v0.Param{{}},
+								Config:        []v0.Param{{}},
+								Kind:          v0.Kind(0),
+								Name:          "test_300",
+								Elem:          new(v0.Type{}),
+								Unit:          new(v0.Unit{}),
+								Constraint:    new(v0.Type{}),
+								ChanDirection: v0.ChanDirection(0),
 							},
+							Value: any(map[string]any{"key_305": "value_305"}),
 						},
-						Config: []v0.Param{
-							{
-								Name: "test_307",
-								Type: v0.Type{
-									FunctionProperties: v0.FunctionProperties{
-										Inputs:  []v0.Param{{}},
-										Outputs: []v0.Param{{}},
-										Config:  []v0.Param{{}},
-									},
-									Kind:          v0.Kind(0),
-									Name:          "test_313",
-									Elem:          new(v0.Type{}),
-									Unit:          new(v0.Unit{}),
-									Constraint:    new(v0.Type{}),
-									ChanDirection: v0.ChanDirection(0),
-								},
-								Value: any(map[string]any{"key_318": "value_318"}),
+					},
+					Config: []v0.Param{
+						{
+							Name: "test_307",
+							Type: v0.Type{
+								Inputs:        []v0.Param{{}},
+								Outputs:       []v0.Param{{}},
+								Config:        []v0.Param{{}},
+								Kind:          v0.Kind(0),
+								Name:          "test_313",
+								Elem:          new(v0.Type{}),
+								Unit:          new(v0.Unit{}),
+								Constraint:    new(v0.Type{}),
+								ChanDirection: v0.ChanDirection(0),
 							},
+							Value: any(map[string]any{"key_318": "value_318"}),
 						},
 					},
 					Kind: v0.Kind(0),
 					Name: "test_320",
 					Elem: new(v0.Type{
-						FunctionProperties: v0.FunctionProperties{
-							Inputs: []v0.Param{
-								{
-									Name:  "test_323",
-									Type:  v0.Type{},
-									Value: any(map[string]any{"key_325": "value_325"}),
-								},
+						Inputs: []v0.Param{
+							{
+								Name:  "test_323",
+								Type:  v0.Type{},
+								Value: any(map[string]any{"key_325": "value_325"}),
 							},
-							Outputs: []v0.Param{
-								{
-									Name:  "test_327",
-									Type:  v0.Type{},
-									Value: any(map[string]any{"key_329": "value_329"}),
-								},
+						},
+						Outputs: []v0.Param{
+							{
+								Name:  "test_327",
+								Type:  v0.Type{},
+								Value: any(map[string]any{"key_329": "value_329"}),
 							},
-							Config: []v0.Param{
-								{
-									Name:  "test_331",
-									Type:  v0.Type{},
-									Value: any(map[string]any{"key_333": "value_333"}),
-								},
+						},
+						Config: []v0.Param{
+							{
+								Name:  "test_331",
+								Type:  v0.Type{},
+								Value: any(map[string]any{"key_333": "value_333"}),
 							},
 						},
 						Kind: v0.Kind(0),
 						Name: "test_335",
 						Elem: new(v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs:  []v0.Param{{}},
-								Outputs: []v0.Param{{}},
-								Config:  []v0.Param{{}},
-							},
+							Inputs:        []v0.Param{{}},
+							Outputs:       []v0.Param{{}},
+							Config:        []v0.Param{{}},
 							Kind:          v0.Kind(0),
 							Name:          "test_341",
 							Elem:          new(v0.Type{}),
@@ -1053,11 +960,9 @@ var _ = Describe("Codec", func() {
 							Name:       "test_349",
 						}),
 						Constraint: new(v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs:  []v0.Param{{}},
-								Outputs: []v0.Param{{}},
-								Config:  []v0.Param{{}},
-							},
+							Inputs:        []v0.Param{{}},
+							Outputs:       []v0.Param{{}},
+							Config:        []v0.Param{{}},
 							Kind:          v0.Kind(0),
 							Name:          "test_355",
 							Elem:          new(v0.Type{}),
@@ -1082,37 +987,33 @@ var _ = Describe("Codec", func() {
 						Name:  "test_372",
 					}),
 					Constraint: new(v0.Type{
-						FunctionProperties: v0.FunctionProperties{
-							Inputs: []v0.Param{
-								{
-									Name:  "test_375",
-									Type:  v0.Type{},
-									Value: any(map[string]any{"key_377": "value_377"}),
-								},
+						Inputs: []v0.Param{
+							{
+								Name:  "test_375",
+								Type:  v0.Type{},
+								Value: any(map[string]any{"key_377": "value_377"}),
 							},
-							Outputs: []v0.Param{
-								{
-									Name:  "test_379",
-									Type:  v0.Type{},
-									Value: any(map[string]any{"key_381": "value_381"}),
-								},
+						},
+						Outputs: []v0.Param{
+							{
+								Name:  "test_379",
+								Type:  v0.Type{},
+								Value: any(map[string]any{"key_381": "value_381"}),
 							},
-							Config: []v0.Param{
-								{
-									Name:  "test_383",
-									Type:  v0.Type{},
-									Value: any(map[string]any{"key_385": "value_385"}),
-								},
+						},
+						Config: []v0.Param{
+							{
+								Name:  "test_383",
+								Type:  v0.Type{},
+								Value: any(map[string]any{"key_385": "value_385"}),
 							},
 						},
 						Kind: v0.Kind(0),
 						Name: "test_387",
 						Elem: new(v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs:  []v0.Param{{}},
-								Outputs: []v0.Param{{}},
-								Config:  []v0.Param{{}},
-							},
+							Inputs:        []v0.Param{{}},
+							Outputs:       []v0.Param{{}},
+							Config:        []v0.Param{{}},
 							Kind:          v0.Kind(0),
 							Name:          "test_393",
 							Elem:          new(v0.Type{}),
@@ -1126,11 +1027,9 @@ var _ = Describe("Codec", func() {
 							Name:       "test_401",
 						}),
 						Constraint: new(v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs:  []v0.Param{{}},
-								Outputs: []v0.Param{{}},
-								Config:  []v0.Param{{}},
-							},
+							Inputs:        []v0.Param{{}},
+							Outputs:       []v0.Param{{}},
+							Config:        []v0.Param{{}},
 							Kind:          v0.Kind(0),
 							Name:          "test_407",
 							Elem:          new(v0.Type{}),
@@ -1145,11 +1044,9 @@ var _ = Describe("Codec", func() {
 				ChanDirection: v0.ChanDirection(0),
 			}),
 			Entry("zero values", v0.Type{
-				FunctionProperties: v0.FunctionProperties{
-					Inputs:  nil,
-					Outputs: nil,
-					Config:  nil,
-				},
+				Inputs:        []v0.Param{},
+				Outputs:       []v0.Param{},
+				Config:        []v0.Param{},
 				Kind:          v0.Kind(0),
 				Name:          "",
 				Elem:          nil,
@@ -1158,35 +1055,27 @@ var _ = Describe("Codec", func() {
 				ChanDirection: v0.ChanDirection(0),
 			}),
 			Entry("empty collections", v0.Type{
-				FunctionProperties: v0.FunctionProperties{
+				Inputs:  []v0.Param{},
+				Outputs: []v0.Param{},
+				Config:  []v0.Param{},
+				Kind:    v0.Kind(0),
+				Name:    "test_5",
+				Elem: new(v0.Type{
 					Inputs:  []v0.Param{},
 					Outputs: []v0.Param{},
 					Config:  []v0.Param{},
-				},
-				Kind: v0.Kind(0),
-				Name: "test_5",
-				Elem: new(v0.Type{
-					FunctionProperties: v0.FunctionProperties{
+					Kind:    v0.Kind(0),
+					Name:    "test_11",
+					Elem: new(v0.Type{
 						Inputs:  []v0.Param{},
 						Outputs: []v0.Param{},
 						Config:  []v0.Param{},
-					},
-					Kind: v0.Kind(0),
-					Name: "test_11",
-					Elem: new(v0.Type{
-						FunctionProperties: v0.FunctionProperties{
-							Inputs:  []v0.Param{},
-							Outputs: []v0.Param{},
-							Config:  []v0.Param{},
-						},
-						Kind: v0.Kind(0),
-						Name: "test_17",
+						Kind:    v0.Kind(0),
+						Name:    "test_17",
 						Elem: new(v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs:  []v0.Param{},
-								Outputs: []v0.Param{},
-								Config:  []v0.Param{},
-							},
+							Inputs:        []v0.Param{},
+							Outputs:       []v0.Param{},
+							Config:        []v0.Param{},
 							Kind:          v0.Kind(0),
 							Name:          "test_23",
 							Elem:          new(v0.Type{}),
@@ -1200,11 +1089,9 @@ var _ = Describe("Codec", func() {
 							Name:       "test_31",
 						}),
 						Constraint: new(v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs:  []v0.Param{},
-								Outputs: []v0.Param{},
-								Config:  []v0.Param{},
-							},
+							Inputs:        []v0.Param{},
+							Outputs:       []v0.Param{},
+							Config:        []v0.Param{},
 							Kind:          v0.Kind(0),
 							Name:          "test_37",
 							Elem:          new(v0.Type{}),
@@ -1229,19 +1116,15 @@ var _ = Describe("Codec", func() {
 						Name:  "test_54",
 					}),
 					Constraint: new(v0.Type{
-						FunctionProperties: v0.FunctionProperties{
-							Inputs:  []v0.Param{},
-							Outputs: []v0.Param{},
-							Config:  []v0.Param{},
-						},
-						Kind: v0.Kind(0),
-						Name: "test_60",
+						Inputs:  []v0.Param{},
+						Outputs: []v0.Param{},
+						Config:  []v0.Param{},
+						Kind:    v0.Kind(0),
+						Name:    "test_60",
 						Elem: new(v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs:  []v0.Param{},
-								Outputs: []v0.Param{},
-								Config:  []v0.Param{},
-							},
+							Inputs:        []v0.Param{},
+							Outputs:       []v0.Param{},
+							Config:        []v0.Param{},
 							Kind:          v0.Kind(0),
 							Name:          "test_66",
 							Elem:          new(v0.Type{}),
@@ -1255,11 +1138,9 @@ var _ = Describe("Codec", func() {
 							Name:       "test_74",
 						}),
 						Constraint: new(v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs:  []v0.Param{},
-								Outputs: []v0.Param{},
-								Config:  []v0.Param{},
-							},
+							Inputs:        []v0.Param{},
+							Outputs:       []v0.Param{},
+							Config:        []v0.Param{},
 							Kind:          v0.Kind(0),
 							Name:          "test_80",
 							Elem:          new(v0.Type{}),
@@ -1286,27 +1167,21 @@ var _ = Describe("Codec", func() {
 					Name:  "test_98",
 				}),
 				Constraint: new(v0.Type{
-					FunctionProperties: v0.FunctionProperties{
+					Inputs:  []v0.Param{},
+					Outputs: []v0.Param{},
+					Config:  []v0.Param{},
+					Kind:    v0.Kind(0),
+					Name:    "test_104",
+					Elem: new(v0.Type{
 						Inputs:  []v0.Param{},
 						Outputs: []v0.Param{},
 						Config:  []v0.Param{},
-					},
-					Kind: v0.Kind(0),
-					Name: "test_104",
-					Elem: new(v0.Type{
-						FunctionProperties: v0.FunctionProperties{
-							Inputs:  []v0.Param{},
-							Outputs: []v0.Param{},
-							Config:  []v0.Param{},
-						},
-						Kind: v0.Kind(0),
-						Name: "test_110",
+						Kind:    v0.Kind(0),
+						Name:    "test_110",
 						Elem: new(v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs:  []v0.Param{},
-								Outputs: []v0.Param{},
-								Config:  []v0.Param{},
-							},
+							Inputs:        []v0.Param{},
+							Outputs:       []v0.Param{},
+							Config:        []v0.Param{},
 							Kind:          v0.Kind(0),
 							Name:          "test_116",
 							Elem:          new(v0.Type{}),
@@ -1320,11 +1195,9 @@ var _ = Describe("Codec", func() {
 							Name:       "test_124",
 						}),
 						Constraint: new(v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs:  []v0.Param{},
-								Outputs: []v0.Param{},
-								Config:  []v0.Param{},
-							},
+							Inputs:        []v0.Param{},
+							Outputs:       []v0.Param{},
+							Config:        []v0.Param{},
 							Kind:          v0.Kind(0),
 							Name:          "test_130",
 							Elem:          new(v0.Type{}),
@@ -1349,19 +1222,15 @@ var _ = Describe("Codec", func() {
 						Name:  "test_147",
 					}),
 					Constraint: new(v0.Type{
-						FunctionProperties: v0.FunctionProperties{
-							Inputs:  []v0.Param{},
-							Outputs: []v0.Param{},
-							Config:  []v0.Param{},
-						},
-						Kind: v0.Kind(0),
-						Name: "test_153",
+						Inputs:  []v0.Param{},
+						Outputs: []v0.Param{},
+						Config:  []v0.Param{},
+						Kind:    v0.Kind(0),
+						Name:    "test_153",
 						Elem: new(v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs:  []v0.Param{},
-								Outputs: []v0.Param{},
-								Config:  []v0.Param{},
-							},
+							Inputs:        []v0.Param{},
+							Outputs:       []v0.Param{},
+							Config:        []v0.Param{},
 							Kind:          v0.Kind(0),
 							Name:          "test_159",
 							Elem:          new(v0.Type{}),
@@ -1375,11 +1244,9 @@ var _ = Describe("Codec", func() {
 							Name:       "test_167",
 						}),
 						Constraint: new(v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs:  []v0.Param{},
-								Outputs: []v0.Param{},
-								Config:  []v0.Param{},
-							},
+							Inputs:        []v0.Param{},
+							Outputs:       []v0.Param{},
+							Config:        []v0.Param{},
 							Kind:          v0.Kind(0),
 							Name:          "test_173",
 							Elem:          new(v0.Type{}),
@@ -1490,37 +1357,33 @@ func BenchmarkEncodeDecodeFunctionProperties(b *testing.B) {
 			{
 				Name: "test_2",
 				Type: v0.Type{
-					FunctionProperties: v0.FunctionProperties{
-						Inputs: []v0.Param{
-							{
-								Name:  "test_5",
-								Type:  v0.Type{},
-								Value: any(map[string]any{"key_7": "value_7"}),
-							},
+					Inputs: []v0.Param{
+						{
+							Name:  "test_5",
+							Type:  v0.Type{},
+							Value: any(map[string]any{"key_7": "value_7"}),
 						},
-						Outputs: []v0.Param{
-							{
-								Name:  "test_9",
-								Type:  v0.Type{},
-								Value: any(map[string]any{"key_11": "value_11"}),
-							},
+					},
+					Outputs: []v0.Param{
+						{
+							Name:  "test_9",
+							Type:  v0.Type{},
+							Value: any(map[string]any{"key_11": "value_11"}),
 						},
-						Config: []v0.Param{
-							{
-								Name:  "test_13",
-								Type:  v0.Type{},
-								Value: any(map[string]any{"key_15": "value_15"}),
-							},
+					},
+					Config: []v0.Param{
+						{
+							Name:  "test_13",
+							Type:  v0.Type{},
+							Value: any(map[string]any{"key_15": "value_15"}),
 						},
 					},
 					Kind: v0.Kind(0),
 					Name: "test_17",
 					Elem: new(v0.Type{
-						FunctionProperties: v0.FunctionProperties{
-							Inputs:  []v0.Param{{}},
-							Outputs: []v0.Param{{}},
-							Config:  []v0.Param{{}},
-						},
+						Inputs:        []v0.Param{{}},
+						Outputs:       []v0.Param{{}},
+						Config:        []v0.Param{{}},
 						Kind:          v0.Kind(0),
 						Name:          "test_23",
 						Elem:          new(v0.Type{}),
@@ -1534,11 +1397,9 @@ func BenchmarkEncodeDecodeFunctionProperties(b *testing.B) {
 						Name:       "test_31",
 					}),
 					Constraint: new(v0.Type{
-						FunctionProperties: v0.FunctionProperties{
-							Inputs:  []v0.Param{{}},
-							Outputs: []v0.Param{{}},
-							Config:  []v0.Param{{}},
-						},
+						Inputs:        []v0.Param{{}},
+						Outputs:       []v0.Param{{}},
+						Config:        []v0.Param{{}},
 						Kind:          v0.Kind(0),
 						Name:          "test_37",
 						Elem:          new(v0.Type{}),
@@ -1555,37 +1416,33 @@ func BenchmarkEncodeDecodeFunctionProperties(b *testing.B) {
 			{
 				Name: "test_45",
 				Type: v0.Type{
-					FunctionProperties: v0.FunctionProperties{
-						Inputs: []v0.Param{
-							{
-								Name:  "test_48",
-								Type:  v0.Type{},
-								Value: any(map[string]any{"key_50": "value_50"}),
-							},
+					Inputs: []v0.Param{
+						{
+							Name:  "test_48",
+							Type:  v0.Type{},
+							Value: any(map[string]any{"key_50": "value_50"}),
 						},
-						Outputs: []v0.Param{
-							{
-								Name:  "test_52",
-								Type:  v0.Type{},
-								Value: any(map[string]any{"key_54": "value_54"}),
-							},
+					},
+					Outputs: []v0.Param{
+						{
+							Name:  "test_52",
+							Type:  v0.Type{},
+							Value: any(map[string]any{"key_54": "value_54"}),
 						},
-						Config: []v0.Param{
-							{
-								Name:  "test_56",
-								Type:  v0.Type{},
-								Value: any(map[string]any{"key_58": "value_58"}),
-							},
+					},
+					Config: []v0.Param{
+						{
+							Name:  "test_56",
+							Type:  v0.Type{},
+							Value: any(map[string]any{"key_58": "value_58"}),
 						},
 					},
 					Kind: v0.Kind(0),
 					Name: "test_60",
 					Elem: new(v0.Type{
-						FunctionProperties: v0.FunctionProperties{
-							Inputs:  []v0.Param{{}},
-							Outputs: []v0.Param{{}},
-							Config:  []v0.Param{{}},
-						},
+						Inputs:        []v0.Param{{}},
+						Outputs:       []v0.Param{{}},
+						Config:        []v0.Param{{}},
 						Kind:          v0.Kind(0),
 						Name:          "test_66",
 						Elem:          new(v0.Type{}),
@@ -1599,11 +1456,9 @@ func BenchmarkEncodeDecodeFunctionProperties(b *testing.B) {
 						Name:       "test_74",
 					}),
 					Constraint: new(v0.Type{
-						FunctionProperties: v0.FunctionProperties{
-							Inputs:  []v0.Param{{}},
-							Outputs: []v0.Param{{}},
-							Config:  []v0.Param{{}},
-						},
+						Inputs:        []v0.Param{{}},
+						Outputs:       []v0.Param{{}},
+						Config:        []v0.Param{{}},
 						Kind:          v0.Kind(0),
 						Name:          "test_80",
 						Elem:          new(v0.Type{}),
@@ -1620,37 +1475,33 @@ func BenchmarkEncodeDecodeFunctionProperties(b *testing.B) {
 			{
 				Name: "test_88",
 				Type: v0.Type{
-					FunctionProperties: v0.FunctionProperties{
-						Inputs: []v0.Param{
-							{
-								Name:  "test_91",
-								Type:  v0.Type{},
-								Value: any(map[string]any{"key_93": "value_93"}),
-							},
+					Inputs: []v0.Param{
+						{
+							Name:  "test_91",
+							Type:  v0.Type{},
+							Value: any(map[string]any{"key_93": "value_93"}),
 						},
-						Outputs: []v0.Param{
-							{
-								Name:  "test_95",
-								Type:  v0.Type{},
-								Value: any(map[string]any{"key_97": "value_97"}),
-							},
+					},
+					Outputs: []v0.Param{
+						{
+							Name:  "test_95",
+							Type:  v0.Type{},
+							Value: any(map[string]any{"key_97": "value_97"}),
 						},
-						Config: []v0.Param{
-							{
-								Name:  "test_99",
-								Type:  v0.Type{},
-								Value: any(map[string]any{"key_101": "value_101"}),
-							},
+					},
+					Config: []v0.Param{
+						{
+							Name:  "test_99",
+							Type:  v0.Type{},
+							Value: any(map[string]any{"key_101": "value_101"}),
 						},
 					},
 					Kind: v0.Kind(0),
 					Name: "test_103",
 					Elem: new(v0.Type{
-						FunctionProperties: v0.FunctionProperties{
-							Inputs:  []v0.Param{{}},
-							Outputs: []v0.Param{{}},
-							Config:  []v0.Param{{}},
-						},
+						Inputs:        []v0.Param{{}},
+						Outputs:       []v0.Param{{}},
+						Config:        []v0.Param{{}},
 						Kind:          v0.Kind(0),
 						Name:          "test_109",
 						Elem:          new(v0.Type{}),
@@ -1664,11 +1515,9 @@ func BenchmarkEncodeDecodeFunctionProperties(b *testing.B) {
 						Name:       "test_117",
 					}),
 					Constraint: new(v0.Type{
-						FunctionProperties: v0.FunctionProperties{
-							Inputs:  []v0.Param{{}},
-							Outputs: []v0.Param{{}},
-							Config:  []v0.Param{{}},
-						},
+						Inputs:        []v0.Param{{}},
+						Outputs:       []v0.Param{{}},
+						Config:        []v0.Param{{}},
 						Kind:          v0.Kind(0),
 						Name:          "test_123",
 						Elem:          new(v0.Type{}),
@@ -1701,99 +1550,87 @@ func BenchmarkEncodeDecodeParam(b *testing.B) {
 	seed := v0.Param{
 		Name: "test_1",
 		Type: v0.Type{
-			FunctionProperties: v0.FunctionProperties{
-				Inputs: []v0.Param{
-					{
-						Name: "test_4",
-						Type: v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs:  []v0.Param{{}},
-								Outputs: []v0.Param{{}},
-								Config:  []v0.Param{{}},
-							},
-							Kind:          v0.Kind(0),
-							Name:          "test_10",
-							Elem:          new(v0.Type{}),
-							Unit:          new(v0.Unit{}),
-							Constraint:    new(v0.Type{}),
-							ChanDirection: v0.ChanDirection(0),
-						},
-						Value: any(map[string]any{"key_15": "value_15"}),
+			Inputs: []v0.Param{
+				{
+					Name: "test_4",
+					Type: v0.Type{
+						Inputs:        []v0.Param{{}},
+						Outputs:       []v0.Param{{}},
+						Config:        []v0.Param{{}},
+						Kind:          v0.Kind(0),
+						Name:          "test_10",
+						Elem:          new(v0.Type{}),
+						Unit:          new(v0.Unit{}),
+						Constraint:    new(v0.Type{}),
+						ChanDirection: v0.ChanDirection(0),
 					},
+					Value: any(map[string]any{"key_15": "value_15"}),
 				},
-				Outputs: []v0.Param{
-					{
-						Name: "test_17",
-						Type: v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs:  []v0.Param{{}},
-								Outputs: []v0.Param{{}},
-								Config:  []v0.Param{{}},
-							},
-							Kind:          v0.Kind(0),
-							Name:          "test_23",
-							Elem:          new(v0.Type{}),
-							Unit:          new(v0.Unit{}),
-							Constraint:    new(v0.Type{}),
-							ChanDirection: v0.ChanDirection(0),
-						},
-						Value: any(map[string]any{"key_28": "value_28"}),
+			},
+			Outputs: []v0.Param{
+				{
+					Name: "test_17",
+					Type: v0.Type{
+						Inputs:        []v0.Param{{}},
+						Outputs:       []v0.Param{{}},
+						Config:        []v0.Param{{}},
+						Kind:          v0.Kind(0),
+						Name:          "test_23",
+						Elem:          new(v0.Type{}),
+						Unit:          new(v0.Unit{}),
+						Constraint:    new(v0.Type{}),
+						ChanDirection: v0.ChanDirection(0),
 					},
+					Value: any(map[string]any{"key_28": "value_28"}),
 				},
-				Config: []v0.Param{
-					{
-						Name: "test_30",
-						Type: v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs:  []v0.Param{{}},
-								Outputs: []v0.Param{{}},
-								Config:  []v0.Param{{}},
-							},
-							Kind:          v0.Kind(0),
-							Name:          "test_36",
-							Elem:          new(v0.Type{}),
-							Unit:          new(v0.Unit{}),
-							Constraint:    new(v0.Type{}),
-							ChanDirection: v0.ChanDirection(0),
-						},
-						Value: any(map[string]any{"key_41": "value_41"}),
+			},
+			Config: []v0.Param{
+				{
+					Name: "test_30",
+					Type: v0.Type{
+						Inputs:        []v0.Param{{}},
+						Outputs:       []v0.Param{{}},
+						Config:        []v0.Param{{}},
+						Kind:          v0.Kind(0),
+						Name:          "test_36",
+						Elem:          new(v0.Type{}),
+						Unit:          new(v0.Unit{}),
+						Constraint:    new(v0.Type{}),
+						ChanDirection: v0.ChanDirection(0),
 					},
+					Value: any(map[string]any{"key_41": "value_41"}),
 				},
 			},
 			Kind: v0.Kind(0),
 			Name: "test_43",
 			Elem: new(v0.Type{
-				FunctionProperties: v0.FunctionProperties{
-					Inputs: []v0.Param{
-						{
-							Name:  "test_46",
-							Type:  v0.Type{},
-							Value: any(map[string]any{"key_48": "value_48"}),
-						},
+				Inputs: []v0.Param{
+					{
+						Name:  "test_46",
+						Type:  v0.Type{},
+						Value: any(map[string]any{"key_48": "value_48"}),
 					},
-					Outputs: []v0.Param{
-						{
-							Name:  "test_50",
-							Type:  v0.Type{},
-							Value: any(map[string]any{"key_52": "value_52"}),
-						},
+				},
+				Outputs: []v0.Param{
+					{
+						Name:  "test_50",
+						Type:  v0.Type{},
+						Value: any(map[string]any{"key_52": "value_52"}),
 					},
-					Config: []v0.Param{
-						{
-							Name:  "test_54",
-							Type:  v0.Type{},
-							Value: any(map[string]any{"key_56": "value_56"}),
-						},
+				},
+				Config: []v0.Param{
+					{
+						Name:  "test_54",
+						Type:  v0.Type{},
+						Value: any(map[string]any{"key_56": "value_56"}),
 					},
 				},
 				Kind: v0.Kind(0),
 				Name: "test_58",
 				Elem: new(v0.Type{
-					FunctionProperties: v0.FunctionProperties{
-						Inputs:  []v0.Param{{}},
-						Outputs: []v0.Param{{}},
-						Config:  []v0.Param{{}},
-					},
+					Inputs:        []v0.Param{{}},
+					Outputs:       []v0.Param{{}},
+					Config:        []v0.Param{{}},
 					Kind:          v0.Kind(0),
 					Name:          "test_64",
 					Elem:          new(v0.Type{}),
@@ -1807,11 +1644,9 @@ func BenchmarkEncodeDecodeParam(b *testing.B) {
 					Name:       "test_72",
 				}),
 				Constraint: new(v0.Type{
-					FunctionProperties: v0.FunctionProperties{
-						Inputs:  []v0.Param{{}},
-						Outputs: []v0.Param{{}},
-						Config:  []v0.Param{{}},
-					},
+					Inputs:        []v0.Param{{}},
+					Outputs:       []v0.Param{{}},
+					Config:        []v0.Param{{}},
 					Kind:          v0.Kind(0),
 					Name:          "test_78",
 					Elem:          new(v0.Type{}),
@@ -1836,37 +1671,33 @@ func BenchmarkEncodeDecodeParam(b *testing.B) {
 				Name:  "test_95",
 			}),
 			Constraint: new(v0.Type{
-				FunctionProperties: v0.FunctionProperties{
-					Inputs: []v0.Param{
-						{
-							Name:  "test_98",
-							Type:  v0.Type{},
-							Value: any(map[string]any{"key_100": "value_100"}),
-						},
+				Inputs: []v0.Param{
+					{
+						Name:  "test_98",
+						Type:  v0.Type{},
+						Value: any(map[string]any{"key_100": "value_100"}),
 					},
-					Outputs: []v0.Param{
-						{
-							Name:  "test_102",
-							Type:  v0.Type{},
-							Value: any(map[string]any{"key_104": "value_104"}),
-						},
+				},
+				Outputs: []v0.Param{
+					{
+						Name:  "test_102",
+						Type:  v0.Type{},
+						Value: any(map[string]any{"key_104": "value_104"}),
 					},
-					Config: []v0.Param{
-						{
-							Name:  "test_106",
-							Type:  v0.Type{},
-							Value: any(map[string]any{"key_108": "value_108"}),
-						},
+				},
+				Config: []v0.Param{
+					{
+						Name:  "test_106",
+						Type:  v0.Type{},
+						Value: any(map[string]any{"key_108": "value_108"}),
 					},
 				},
 				Kind: v0.Kind(0),
 				Name: "test_110",
 				Elem: new(v0.Type{
-					FunctionProperties: v0.FunctionProperties{
-						Inputs:  []v0.Param{{}},
-						Outputs: []v0.Param{{}},
-						Config:  []v0.Param{{}},
-					},
+					Inputs:        []v0.Param{{}},
+					Outputs:       []v0.Param{{}},
+					Config:        []v0.Param{{}},
 					Kind:          v0.Kind(0),
 					Name:          "test_116",
 					Elem:          new(v0.Type{}),
@@ -1880,11 +1711,9 @@ func BenchmarkEncodeDecodeParam(b *testing.B) {
 					Name:       "test_124",
 				}),
 				Constraint: new(v0.Type{
-					FunctionProperties: v0.FunctionProperties{
-						Inputs:  []v0.Param{{}},
-						Outputs: []v0.Param{{}},
-						Config:  []v0.Param{{}},
-					},
+					Inputs:        []v0.Param{{}},
+					Outputs:       []v0.Param{{}},
+					Config:        []v0.Param{{}},
 					Kind:          v0.Kind(0),
 					Name:          "test_130",
 					Elem:          new(v0.Type{}),
@@ -1915,299 +1744,267 @@ func BenchmarkEncodeDecodeParam(b *testing.B) {
 
 func BenchmarkEncodeDecodeType(b *testing.B) {
 	seed := v0.Type{
-		FunctionProperties: v0.FunctionProperties{
-			Inputs: []v0.Param{
-				{
-					Name: "test_2",
-					Type: v0.Type{
-						FunctionProperties: v0.FunctionProperties{
-							Inputs: []v0.Param{
-								{
-									Name:  "test_5",
-									Type:  v0.Type{},
-									Value: any(map[string]any{"key_7": "value_7"}),
-								},
-							},
-							Outputs: []v0.Param{
-								{
-									Name:  "test_9",
-									Type:  v0.Type{},
-									Value: any(map[string]any{"key_11": "value_11"}),
-								},
-							},
-							Config: []v0.Param{
-								{
-									Name:  "test_13",
-									Type:  v0.Type{},
-									Value: any(map[string]any{"key_15": "value_15"}),
-								},
-							},
+		Inputs: []v0.Param{
+			{
+				Name: "test_2",
+				Type: v0.Type{
+					Inputs: []v0.Param{
+						{
+							Name:  "test_5",
+							Type:  v0.Type{},
+							Value: any(map[string]any{"key_7": "value_7"}),
 						},
-						Kind: v0.Kind(0),
-						Name: "test_17",
-						Elem: new(v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs:  []v0.Param{{}},
-								Outputs: []v0.Param{{}},
-								Config:  []v0.Param{{}},
-							},
-							Kind:          v0.Kind(0),
-							Name:          "test_23",
-							Elem:          new(v0.Type{}),
-							Unit:          new(v0.Unit{}),
-							Constraint:    new(v0.Type{}),
-							ChanDirection: v0.ChanDirection(0),
-						}),
-						Unit: new(v0.Unit{
-							Dimensions: v0.Dimensions{},
-							Scale:      30.5,
-							Name:       "test_31",
-						}),
-						Constraint: new(v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs:  []v0.Param{{}},
-								Outputs: []v0.Param{{}},
-								Config:  []v0.Param{{}},
-							},
-							Kind:          v0.Kind(0),
-							Name:          "test_37",
-							Elem:          new(v0.Type{}),
-							Unit:          new(v0.Unit{}),
-							Constraint:    new(v0.Type{}),
-							ChanDirection: v0.ChanDirection(0),
-						}),
-						ChanDirection: v0.ChanDirection(0),
 					},
-					Value: any(map[string]any{"key_43": "value_43"}),
+					Outputs: []v0.Param{
+						{
+							Name:  "test_9",
+							Type:  v0.Type{},
+							Value: any(map[string]any{"key_11": "value_11"}),
+						},
+					},
+					Config: []v0.Param{
+						{
+							Name:  "test_13",
+							Type:  v0.Type{},
+							Value: any(map[string]any{"key_15": "value_15"}),
+						},
+					},
+					Kind: v0.Kind(0),
+					Name: "test_17",
+					Elem: new(v0.Type{
+						Inputs:        []v0.Param{{}},
+						Outputs:       []v0.Param{{}},
+						Config:        []v0.Param{{}},
+						Kind:          v0.Kind(0),
+						Name:          "test_23",
+						Elem:          new(v0.Type{}),
+						Unit:          new(v0.Unit{}),
+						Constraint:    new(v0.Type{}),
+						ChanDirection: v0.ChanDirection(0),
+					}),
+					Unit: new(v0.Unit{
+						Dimensions: v0.Dimensions{},
+						Scale:      30.5,
+						Name:       "test_31",
+					}),
+					Constraint: new(v0.Type{
+						Inputs:        []v0.Param{{}},
+						Outputs:       []v0.Param{{}},
+						Config:        []v0.Param{{}},
+						Kind:          v0.Kind(0),
+						Name:          "test_37",
+						Elem:          new(v0.Type{}),
+						Unit:          new(v0.Unit{}),
+						Constraint:    new(v0.Type{}),
+						ChanDirection: v0.ChanDirection(0),
+					}),
+					ChanDirection: v0.ChanDirection(0),
 				},
+				Value: any(map[string]any{"key_43": "value_43"}),
 			},
-			Outputs: []v0.Param{
-				{
-					Name: "test_45",
-					Type: v0.Type{
-						FunctionProperties: v0.FunctionProperties{
-							Inputs: []v0.Param{
-								{
-									Name:  "test_48",
-									Type:  v0.Type{},
-									Value: any(map[string]any{"key_50": "value_50"}),
-								},
-							},
-							Outputs: []v0.Param{
-								{
-									Name:  "test_52",
-									Type:  v0.Type{},
-									Value: any(map[string]any{"key_54": "value_54"}),
-								},
-							},
-							Config: []v0.Param{
-								{
-									Name:  "test_56",
-									Type:  v0.Type{},
-									Value: any(map[string]any{"key_58": "value_58"}),
-								},
-							},
+		},
+		Outputs: []v0.Param{
+			{
+				Name: "test_45",
+				Type: v0.Type{
+					Inputs: []v0.Param{
+						{
+							Name:  "test_48",
+							Type:  v0.Type{},
+							Value: any(map[string]any{"key_50": "value_50"}),
 						},
-						Kind: v0.Kind(0),
-						Name: "test_60",
-						Elem: new(v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs:  []v0.Param{{}},
-								Outputs: []v0.Param{{}},
-								Config:  []v0.Param{{}},
-							},
-							Kind:          v0.Kind(0),
-							Name:          "test_66",
-							Elem:          new(v0.Type{}),
-							Unit:          new(v0.Unit{}),
-							Constraint:    new(v0.Type{}),
-							ChanDirection: v0.ChanDirection(0),
-						}),
-						Unit: new(v0.Unit{
-							Dimensions: v0.Dimensions{},
-							Scale:      73.5,
-							Name:       "test_74",
-						}),
-						Constraint: new(v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs:  []v0.Param{{}},
-								Outputs: []v0.Param{{}},
-								Config:  []v0.Param{{}},
-							},
-							Kind:          v0.Kind(0),
-							Name:          "test_80",
-							Elem:          new(v0.Type{}),
-							Unit:          new(v0.Unit{}),
-							Constraint:    new(v0.Type{}),
-							ChanDirection: v0.ChanDirection(0),
-						}),
-						ChanDirection: v0.ChanDirection(0),
 					},
-					Value: any(map[string]any{"key_86": "value_86"}),
+					Outputs: []v0.Param{
+						{
+							Name:  "test_52",
+							Type:  v0.Type{},
+							Value: any(map[string]any{"key_54": "value_54"}),
+						},
+					},
+					Config: []v0.Param{
+						{
+							Name:  "test_56",
+							Type:  v0.Type{},
+							Value: any(map[string]any{"key_58": "value_58"}),
+						},
+					},
+					Kind: v0.Kind(0),
+					Name: "test_60",
+					Elem: new(v0.Type{
+						Inputs:        []v0.Param{{}},
+						Outputs:       []v0.Param{{}},
+						Config:        []v0.Param{{}},
+						Kind:          v0.Kind(0),
+						Name:          "test_66",
+						Elem:          new(v0.Type{}),
+						Unit:          new(v0.Unit{}),
+						Constraint:    new(v0.Type{}),
+						ChanDirection: v0.ChanDirection(0),
+					}),
+					Unit: new(v0.Unit{
+						Dimensions: v0.Dimensions{},
+						Scale:      73.5,
+						Name:       "test_74",
+					}),
+					Constraint: new(v0.Type{
+						Inputs:        []v0.Param{{}},
+						Outputs:       []v0.Param{{}},
+						Config:        []v0.Param{{}},
+						Kind:          v0.Kind(0),
+						Name:          "test_80",
+						Elem:          new(v0.Type{}),
+						Unit:          new(v0.Unit{}),
+						Constraint:    new(v0.Type{}),
+						ChanDirection: v0.ChanDirection(0),
+					}),
+					ChanDirection: v0.ChanDirection(0),
 				},
+				Value: any(map[string]any{"key_86": "value_86"}),
 			},
-			Config: []v0.Param{
-				{
-					Name: "test_88",
-					Type: v0.Type{
-						FunctionProperties: v0.FunctionProperties{
-							Inputs: []v0.Param{
-								{
-									Name:  "test_91",
-									Type:  v0.Type{},
-									Value: any(map[string]any{"key_93": "value_93"}),
-								},
-							},
-							Outputs: []v0.Param{
-								{
-									Name:  "test_95",
-									Type:  v0.Type{},
-									Value: any(map[string]any{"key_97": "value_97"}),
-								},
-							},
-							Config: []v0.Param{
-								{
-									Name:  "test_99",
-									Type:  v0.Type{},
-									Value: any(map[string]any{"key_101": "value_101"}),
-								},
-							},
+		},
+		Config: []v0.Param{
+			{
+				Name: "test_88",
+				Type: v0.Type{
+					Inputs: []v0.Param{
+						{
+							Name:  "test_91",
+							Type:  v0.Type{},
+							Value: any(map[string]any{"key_93": "value_93"}),
 						},
-						Kind: v0.Kind(0),
-						Name: "test_103",
-						Elem: new(v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs:  []v0.Param{{}},
-								Outputs: []v0.Param{{}},
-								Config:  []v0.Param{{}},
-							},
-							Kind:          v0.Kind(0),
-							Name:          "test_109",
-							Elem:          new(v0.Type{}),
-							Unit:          new(v0.Unit{}),
-							Constraint:    new(v0.Type{}),
-							ChanDirection: v0.ChanDirection(0),
-						}),
-						Unit: new(v0.Unit{
-							Dimensions: v0.Dimensions{},
-							Scale:      116.5,
-							Name:       "test_117",
-						}),
-						Constraint: new(v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs:  []v0.Param{{}},
-								Outputs: []v0.Param{{}},
-								Config:  []v0.Param{{}},
-							},
-							Kind:          v0.Kind(0),
-							Name:          "test_123",
-							Elem:          new(v0.Type{}),
-							Unit:          new(v0.Unit{}),
-							Constraint:    new(v0.Type{}),
-							ChanDirection: v0.ChanDirection(0),
-						}),
-						ChanDirection: v0.ChanDirection(0),
 					},
-					Value: any(map[string]any{"key_129": "value_129"}),
+					Outputs: []v0.Param{
+						{
+							Name:  "test_95",
+							Type:  v0.Type{},
+							Value: any(map[string]any{"key_97": "value_97"}),
+						},
+					},
+					Config: []v0.Param{
+						{
+							Name:  "test_99",
+							Type:  v0.Type{},
+							Value: any(map[string]any{"key_101": "value_101"}),
+						},
+					},
+					Kind: v0.Kind(0),
+					Name: "test_103",
+					Elem: new(v0.Type{
+						Inputs:        []v0.Param{{}},
+						Outputs:       []v0.Param{{}},
+						Config:        []v0.Param{{}},
+						Kind:          v0.Kind(0),
+						Name:          "test_109",
+						Elem:          new(v0.Type{}),
+						Unit:          new(v0.Unit{}),
+						Constraint:    new(v0.Type{}),
+						ChanDirection: v0.ChanDirection(0),
+					}),
+					Unit: new(v0.Unit{
+						Dimensions: v0.Dimensions{},
+						Scale:      116.5,
+						Name:       "test_117",
+					}),
+					Constraint: new(v0.Type{
+						Inputs:        []v0.Param{{}},
+						Outputs:       []v0.Param{{}},
+						Config:        []v0.Param{{}},
+						Kind:          v0.Kind(0),
+						Name:          "test_123",
+						Elem:          new(v0.Type{}),
+						Unit:          new(v0.Unit{}),
+						Constraint:    new(v0.Type{}),
+						ChanDirection: v0.ChanDirection(0),
+					}),
+					ChanDirection: v0.ChanDirection(0),
 				},
+				Value: any(map[string]any{"key_129": "value_129"}),
 			},
 		},
 		Kind: v0.Kind(0),
 		Name: "test_131",
 		Elem: new(v0.Type{
-			FunctionProperties: v0.FunctionProperties{
-				Inputs: []v0.Param{
-					{
-						Name: "test_134",
-						Type: v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs:  []v0.Param{{}},
-								Outputs: []v0.Param{{}},
-								Config:  []v0.Param{{}},
-							},
-							Kind:          v0.Kind(0),
-							Name:          "test_140",
-							Elem:          new(v0.Type{}),
-							Unit:          new(v0.Unit{}),
-							Constraint:    new(v0.Type{}),
-							ChanDirection: v0.ChanDirection(0),
-						},
-						Value: any(map[string]any{"key_145": "value_145"}),
+			Inputs: []v0.Param{
+				{
+					Name: "test_134",
+					Type: v0.Type{
+						Inputs:        []v0.Param{{}},
+						Outputs:       []v0.Param{{}},
+						Config:        []v0.Param{{}},
+						Kind:          v0.Kind(0),
+						Name:          "test_140",
+						Elem:          new(v0.Type{}),
+						Unit:          new(v0.Unit{}),
+						Constraint:    new(v0.Type{}),
+						ChanDirection: v0.ChanDirection(0),
 					},
+					Value: any(map[string]any{"key_145": "value_145"}),
 				},
-				Outputs: []v0.Param{
-					{
-						Name: "test_147",
-						Type: v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs:  []v0.Param{{}},
-								Outputs: []v0.Param{{}},
-								Config:  []v0.Param{{}},
-							},
-							Kind:          v0.Kind(0),
-							Name:          "test_153",
-							Elem:          new(v0.Type{}),
-							Unit:          new(v0.Unit{}),
-							Constraint:    new(v0.Type{}),
-							ChanDirection: v0.ChanDirection(0),
-						},
-						Value: any(map[string]any{"key_158": "value_158"}),
+			},
+			Outputs: []v0.Param{
+				{
+					Name: "test_147",
+					Type: v0.Type{
+						Inputs:        []v0.Param{{}},
+						Outputs:       []v0.Param{{}},
+						Config:        []v0.Param{{}},
+						Kind:          v0.Kind(0),
+						Name:          "test_153",
+						Elem:          new(v0.Type{}),
+						Unit:          new(v0.Unit{}),
+						Constraint:    new(v0.Type{}),
+						ChanDirection: v0.ChanDirection(0),
 					},
+					Value: any(map[string]any{"key_158": "value_158"}),
 				},
-				Config: []v0.Param{
-					{
-						Name: "test_160",
-						Type: v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs:  []v0.Param{{}},
-								Outputs: []v0.Param{{}},
-								Config:  []v0.Param{{}},
-							},
-							Kind:          v0.Kind(0),
-							Name:          "test_166",
-							Elem:          new(v0.Type{}),
-							Unit:          new(v0.Unit{}),
-							Constraint:    new(v0.Type{}),
-							ChanDirection: v0.ChanDirection(0),
-						},
-						Value: any(map[string]any{"key_171": "value_171"}),
+			},
+			Config: []v0.Param{
+				{
+					Name: "test_160",
+					Type: v0.Type{
+						Inputs:        []v0.Param{{}},
+						Outputs:       []v0.Param{{}},
+						Config:        []v0.Param{{}},
+						Kind:          v0.Kind(0),
+						Name:          "test_166",
+						Elem:          new(v0.Type{}),
+						Unit:          new(v0.Unit{}),
+						Constraint:    new(v0.Type{}),
+						ChanDirection: v0.ChanDirection(0),
 					},
+					Value: any(map[string]any{"key_171": "value_171"}),
 				},
 			},
 			Kind: v0.Kind(0),
 			Name: "test_173",
 			Elem: new(v0.Type{
-				FunctionProperties: v0.FunctionProperties{
-					Inputs: []v0.Param{
-						{
-							Name:  "test_176",
-							Type:  v0.Type{},
-							Value: any(map[string]any{"key_178": "value_178"}),
-						},
+				Inputs: []v0.Param{
+					{
+						Name:  "test_176",
+						Type:  v0.Type{},
+						Value: any(map[string]any{"key_178": "value_178"}),
 					},
-					Outputs: []v0.Param{
-						{
-							Name:  "test_180",
-							Type:  v0.Type{},
-							Value: any(map[string]any{"key_182": "value_182"}),
-						},
+				},
+				Outputs: []v0.Param{
+					{
+						Name:  "test_180",
+						Type:  v0.Type{},
+						Value: any(map[string]any{"key_182": "value_182"}),
 					},
-					Config: []v0.Param{
-						{
-							Name:  "test_184",
-							Type:  v0.Type{},
-							Value: any(map[string]any{"key_186": "value_186"}),
-						},
+				},
+				Config: []v0.Param{
+					{
+						Name:  "test_184",
+						Type:  v0.Type{},
+						Value: any(map[string]any{"key_186": "value_186"}),
 					},
 				},
 				Kind: v0.Kind(0),
 				Name: "test_188",
 				Elem: new(v0.Type{
-					FunctionProperties: v0.FunctionProperties{
-						Inputs:  []v0.Param{{}},
-						Outputs: []v0.Param{{}},
-						Config:  []v0.Param{{}},
-					},
+					Inputs:        []v0.Param{{}},
+					Outputs:       []v0.Param{{}},
+					Config:        []v0.Param{{}},
 					Kind:          v0.Kind(0),
 					Name:          "test_194",
 					Elem:          new(v0.Type{}),
@@ -2221,11 +2018,9 @@ func BenchmarkEncodeDecodeType(b *testing.B) {
 					Name:       "test_202",
 				}),
 				Constraint: new(v0.Type{
-					FunctionProperties: v0.FunctionProperties{
-						Inputs:  []v0.Param{{}},
-						Outputs: []v0.Param{{}},
-						Config:  []v0.Param{{}},
-					},
+					Inputs:        []v0.Param{{}},
+					Outputs:       []v0.Param{{}},
+					Config:        []v0.Param{{}},
 					Kind:          v0.Kind(0),
 					Name:          "test_208",
 					Elem:          new(v0.Type{}),
@@ -2250,37 +2045,33 @@ func BenchmarkEncodeDecodeType(b *testing.B) {
 				Name:  "test_225",
 			}),
 			Constraint: new(v0.Type{
-				FunctionProperties: v0.FunctionProperties{
-					Inputs: []v0.Param{
-						{
-							Name:  "test_228",
-							Type:  v0.Type{},
-							Value: any(map[string]any{"key_230": "value_230"}),
-						},
+				Inputs: []v0.Param{
+					{
+						Name:  "test_228",
+						Type:  v0.Type{},
+						Value: any(map[string]any{"key_230": "value_230"}),
 					},
-					Outputs: []v0.Param{
-						{
-							Name:  "test_232",
-							Type:  v0.Type{},
-							Value: any(map[string]any{"key_234": "value_234"}),
-						},
+				},
+				Outputs: []v0.Param{
+					{
+						Name:  "test_232",
+						Type:  v0.Type{},
+						Value: any(map[string]any{"key_234": "value_234"}),
 					},
-					Config: []v0.Param{
-						{
-							Name:  "test_236",
-							Type:  v0.Type{},
-							Value: any(map[string]any{"key_238": "value_238"}),
-						},
+				},
+				Config: []v0.Param{
+					{
+						Name:  "test_236",
+						Type:  v0.Type{},
+						Value: any(map[string]any{"key_238": "value_238"}),
 					},
 				},
 				Kind: v0.Kind(0),
 				Name: "test_240",
 				Elem: new(v0.Type{
-					FunctionProperties: v0.FunctionProperties{
-						Inputs:  []v0.Param{{}},
-						Outputs: []v0.Param{{}},
-						Config:  []v0.Param{{}},
-					},
+					Inputs:        []v0.Param{{}},
+					Outputs:       []v0.Param{{}},
+					Config:        []v0.Param{{}},
 					Kind:          v0.Kind(0),
 					Name:          "test_246",
 					Elem:          new(v0.Type{}),
@@ -2294,11 +2085,9 @@ func BenchmarkEncodeDecodeType(b *testing.B) {
 					Name:       "test_254",
 				}),
 				Constraint: new(v0.Type{
-					FunctionProperties: v0.FunctionProperties{
-						Inputs:  []v0.Param{{}},
-						Outputs: []v0.Param{{}},
-						Config:  []v0.Param{{}},
-					},
+					Inputs:        []v0.Param{{}},
+					Outputs:       []v0.Param{{}},
+					Config:        []v0.Param{{}},
 					Kind:          v0.Kind(0),
 					Name:          "test_260",
 					Elem:          new(v0.Type{}),
@@ -2325,99 +2114,87 @@ func BenchmarkEncodeDecodeType(b *testing.B) {
 			Name:  "test_278",
 		}),
 		Constraint: new(v0.Type{
-			FunctionProperties: v0.FunctionProperties{
-				Inputs: []v0.Param{
-					{
-						Name: "test_281",
-						Type: v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs:  []v0.Param{{}},
-								Outputs: []v0.Param{{}},
-								Config:  []v0.Param{{}},
-							},
-							Kind:          v0.Kind(0),
-							Name:          "test_287",
-							Elem:          new(v0.Type{}),
-							Unit:          new(v0.Unit{}),
-							Constraint:    new(v0.Type{}),
-							ChanDirection: v0.ChanDirection(0),
-						},
-						Value: any(map[string]any{"key_292": "value_292"}),
+			Inputs: []v0.Param{
+				{
+					Name: "test_281",
+					Type: v0.Type{
+						Inputs:        []v0.Param{{}},
+						Outputs:       []v0.Param{{}},
+						Config:        []v0.Param{{}},
+						Kind:          v0.Kind(0),
+						Name:          "test_287",
+						Elem:          new(v0.Type{}),
+						Unit:          new(v0.Unit{}),
+						Constraint:    new(v0.Type{}),
+						ChanDirection: v0.ChanDirection(0),
 					},
+					Value: any(map[string]any{"key_292": "value_292"}),
 				},
-				Outputs: []v0.Param{
-					{
-						Name: "test_294",
-						Type: v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs:  []v0.Param{{}},
-								Outputs: []v0.Param{{}},
-								Config:  []v0.Param{{}},
-							},
-							Kind:          v0.Kind(0),
-							Name:          "test_300",
-							Elem:          new(v0.Type{}),
-							Unit:          new(v0.Unit{}),
-							Constraint:    new(v0.Type{}),
-							ChanDirection: v0.ChanDirection(0),
-						},
-						Value: any(map[string]any{"key_305": "value_305"}),
+			},
+			Outputs: []v0.Param{
+				{
+					Name: "test_294",
+					Type: v0.Type{
+						Inputs:        []v0.Param{{}},
+						Outputs:       []v0.Param{{}},
+						Config:        []v0.Param{{}},
+						Kind:          v0.Kind(0),
+						Name:          "test_300",
+						Elem:          new(v0.Type{}),
+						Unit:          new(v0.Unit{}),
+						Constraint:    new(v0.Type{}),
+						ChanDirection: v0.ChanDirection(0),
 					},
+					Value: any(map[string]any{"key_305": "value_305"}),
 				},
-				Config: []v0.Param{
-					{
-						Name: "test_307",
-						Type: v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs:  []v0.Param{{}},
-								Outputs: []v0.Param{{}},
-								Config:  []v0.Param{{}},
-							},
-							Kind:          v0.Kind(0),
-							Name:          "test_313",
-							Elem:          new(v0.Type{}),
-							Unit:          new(v0.Unit{}),
-							Constraint:    new(v0.Type{}),
-							ChanDirection: v0.ChanDirection(0),
-						},
-						Value: any(map[string]any{"key_318": "value_318"}),
+			},
+			Config: []v0.Param{
+				{
+					Name: "test_307",
+					Type: v0.Type{
+						Inputs:        []v0.Param{{}},
+						Outputs:       []v0.Param{{}},
+						Config:        []v0.Param{{}},
+						Kind:          v0.Kind(0),
+						Name:          "test_313",
+						Elem:          new(v0.Type{}),
+						Unit:          new(v0.Unit{}),
+						Constraint:    new(v0.Type{}),
+						ChanDirection: v0.ChanDirection(0),
 					},
+					Value: any(map[string]any{"key_318": "value_318"}),
 				},
 			},
 			Kind: v0.Kind(0),
 			Name: "test_320",
 			Elem: new(v0.Type{
-				FunctionProperties: v0.FunctionProperties{
-					Inputs: []v0.Param{
-						{
-							Name:  "test_323",
-							Type:  v0.Type{},
-							Value: any(map[string]any{"key_325": "value_325"}),
-						},
+				Inputs: []v0.Param{
+					{
+						Name:  "test_323",
+						Type:  v0.Type{},
+						Value: any(map[string]any{"key_325": "value_325"}),
 					},
-					Outputs: []v0.Param{
-						{
-							Name:  "test_327",
-							Type:  v0.Type{},
-							Value: any(map[string]any{"key_329": "value_329"}),
-						},
+				},
+				Outputs: []v0.Param{
+					{
+						Name:  "test_327",
+						Type:  v0.Type{},
+						Value: any(map[string]any{"key_329": "value_329"}),
 					},
-					Config: []v0.Param{
-						{
-							Name:  "test_331",
-							Type:  v0.Type{},
-							Value: any(map[string]any{"key_333": "value_333"}),
-						},
+				},
+				Config: []v0.Param{
+					{
+						Name:  "test_331",
+						Type:  v0.Type{},
+						Value: any(map[string]any{"key_333": "value_333"}),
 					},
 				},
 				Kind: v0.Kind(0),
 				Name: "test_335",
 				Elem: new(v0.Type{
-					FunctionProperties: v0.FunctionProperties{
-						Inputs:  []v0.Param{{}},
-						Outputs: []v0.Param{{}},
-						Config:  []v0.Param{{}},
-					},
+					Inputs:        []v0.Param{{}},
+					Outputs:       []v0.Param{{}},
+					Config:        []v0.Param{{}},
 					Kind:          v0.Kind(0),
 					Name:          "test_341",
 					Elem:          new(v0.Type{}),
@@ -2431,11 +2208,9 @@ func BenchmarkEncodeDecodeType(b *testing.B) {
 					Name:       "test_349",
 				}),
 				Constraint: new(v0.Type{
-					FunctionProperties: v0.FunctionProperties{
-						Inputs:  []v0.Param{{}},
-						Outputs: []v0.Param{{}},
-						Config:  []v0.Param{{}},
-					},
+					Inputs:        []v0.Param{{}},
+					Outputs:       []v0.Param{{}},
+					Config:        []v0.Param{{}},
 					Kind:          v0.Kind(0),
 					Name:          "test_355",
 					Elem:          new(v0.Type{}),
@@ -2460,37 +2235,33 @@ func BenchmarkEncodeDecodeType(b *testing.B) {
 				Name:  "test_372",
 			}),
 			Constraint: new(v0.Type{
-				FunctionProperties: v0.FunctionProperties{
-					Inputs: []v0.Param{
-						{
-							Name:  "test_375",
-							Type:  v0.Type{},
-							Value: any(map[string]any{"key_377": "value_377"}),
-						},
+				Inputs: []v0.Param{
+					{
+						Name:  "test_375",
+						Type:  v0.Type{},
+						Value: any(map[string]any{"key_377": "value_377"}),
 					},
-					Outputs: []v0.Param{
-						{
-							Name:  "test_379",
-							Type:  v0.Type{},
-							Value: any(map[string]any{"key_381": "value_381"}),
-						},
+				},
+				Outputs: []v0.Param{
+					{
+						Name:  "test_379",
+						Type:  v0.Type{},
+						Value: any(map[string]any{"key_381": "value_381"}),
 					},
-					Config: []v0.Param{
-						{
-							Name:  "test_383",
-							Type:  v0.Type{},
-							Value: any(map[string]any{"key_385": "value_385"}),
-						},
+				},
+				Config: []v0.Param{
+					{
+						Name:  "test_383",
+						Type:  v0.Type{},
+						Value: any(map[string]any{"key_385": "value_385"}),
 					},
 				},
 				Kind: v0.Kind(0),
 				Name: "test_387",
 				Elem: new(v0.Type{
-					FunctionProperties: v0.FunctionProperties{
-						Inputs:  []v0.Param{{}},
-						Outputs: []v0.Param{{}},
-						Config:  []v0.Param{{}},
-					},
+					Inputs:        []v0.Param{{}},
+					Outputs:       []v0.Param{{}},
+					Config:        []v0.Param{{}},
 					Kind:          v0.Kind(0),
 					Name:          "test_393",
 					Elem:          new(v0.Type{}),
@@ -2504,11 +2275,9 @@ func BenchmarkEncodeDecodeType(b *testing.B) {
 					Name:       "test_401",
 				}),
 				Constraint: new(v0.Type{
-					FunctionProperties: v0.FunctionProperties{
-						Inputs:  []v0.Param{{}},
-						Outputs: []v0.Param{{}},
-						Config:  []v0.Param{{}},
-					},
+					Inputs:        []v0.Param{{}},
+					Outputs:       []v0.Param{{}},
+					Config:        []v0.Param{{}},
 					Kind:          v0.Kind(0),
 					Name:          "test_407",
 					Elem:          new(v0.Type{}),
@@ -2580,7 +2349,7 @@ func FuzzDecodeChannels(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.Channels{Read: nil, Write: nil}
+		seed := v0.Channels{Read: map[uint32]string{}, Write: map[uint32]string{}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -2611,7 +2380,7 @@ func FuzzDecodeChannels(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -2668,7 +2437,7 @@ func FuzzDecodeDimensions(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -2681,37 +2450,33 @@ func FuzzDecodeFunctionProperties(f *testing.F) {
 				{
 					Name: "test_2",
 					Type: v0.Type{
-						FunctionProperties: v0.FunctionProperties{
-							Inputs: []v0.Param{
-								{
-									Name:  "test_5",
-									Type:  v0.Type{},
-									Value: any(map[string]any{"key_7": "value_7"}),
-								},
+						Inputs: []v0.Param{
+							{
+								Name:  "test_5",
+								Type:  v0.Type{},
+								Value: any(map[string]any{"key_7": "value_7"}),
 							},
-							Outputs: []v0.Param{
-								{
-									Name:  "test_9",
-									Type:  v0.Type{},
-									Value: any(map[string]any{"key_11": "value_11"}),
-								},
+						},
+						Outputs: []v0.Param{
+							{
+								Name:  "test_9",
+								Type:  v0.Type{},
+								Value: any(map[string]any{"key_11": "value_11"}),
 							},
-							Config: []v0.Param{
-								{
-									Name:  "test_13",
-									Type:  v0.Type{},
-									Value: any(map[string]any{"key_15": "value_15"}),
-								},
+						},
+						Config: []v0.Param{
+							{
+								Name:  "test_13",
+								Type:  v0.Type{},
+								Value: any(map[string]any{"key_15": "value_15"}),
 							},
 						},
 						Kind: v0.Kind(0),
 						Name: "test_17",
 						Elem: new(v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs:  []v0.Param{{}},
-								Outputs: []v0.Param{{}},
-								Config:  []v0.Param{{}},
-							},
+							Inputs:        []v0.Param{{}},
+							Outputs:       []v0.Param{{}},
+							Config:        []v0.Param{{}},
 							Kind:          v0.Kind(0),
 							Name:          "test_23",
 							Elem:          new(v0.Type{}),
@@ -2725,11 +2490,9 @@ func FuzzDecodeFunctionProperties(f *testing.F) {
 							Name:       "test_31",
 						}),
 						Constraint: new(v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs:  []v0.Param{{}},
-								Outputs: []v0.Param{{}},
-								Config:  []v0.Param{{}},
-							},
+							Inputs:        []v0.Param{{}},
+							Outputs:       []v0.Param{{}},
+							Config:        []v0.Param{{}},
 							Kind:          v0.Kind(0),
 							Name:          "test_37",
 							Elem:          new(v0.Type{}),
@@ -2746,37 +2509,33 @@ func FuzzDecodeFunctionProperties(f *testing.F) {
 				{
 					Name: "test_45",
 					Type: v0.Type{
-						FunctionProperties: v0.FunctionProperties{
-							Inputs: []v0.Param{
-								{
-									Name:  "test_48",
-									Type:  v0.Type{},
-									Value: any(map[string]any{"key_50": "value_50"}),
-								},
+						Inputs: []v0.Param{
+							{
+								Name:  "test_48",
+								Type:  v0.Type{},
+								Value: any(map[string]any{"key_50": "value_50"}),
 							},
-							Outputs: []v0.Param{
-								{
-									Name:  "test_52",
-									Type:  v0.Type{},
-									Value: any(map[string]any{"key_54": "value_54"}),
-								},
+						},
+						Outputs: []v0.Param{
+							{
+								Name:  "test_52",
+								Type:  v0.Type{},
+								Value: any(map[string]any{"key_54": "value_54"}),
 							},
-							Config: []v0.Param{
-								{
-									Name:  "test_56",
-									Type:  v0.Type{},
-									Value: any(map[string]any{"key_58": "value_58"}),
-								},
+						},
+						Config: []v0.Param{
+							{
+								Name:  "test_56",
+								Type:  v0.Type{},
+								Value: any(map[string]any{"key_58": "value_58"}),
 							},
 						},
 						Kind: v0.Kind(0),
 						Name: "test_60",
 						Elem: new(v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs:  []v0.Param{{}},
-								Outputs: []v0.Param{{}},
-								Config:  []v0.Param{{}},
-							},
+							Inputs:        []v0.Param{{}},
+							Outputs:       []v0.Param{{}},
+							Config:        []v0.Param{{}},
 							Kind:          v0.Kind(0),
 							Name:          "test_66",
 							Elem:          new(v0.Type{}),
@@ -2790,11 +2549,9 @@ func FuzzDecodeFunctionProperties(f *testing.F) {
 							Name:       "test_74",
 						}),
 						Constraint: new(v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs:  []v0.Param{{}},
-								Outputs: []v0.Param{{}},
-								Config:  []v0.Param{{}},
-							},
+							Inputs:        []v0.Param{{}},
+							Outputs:       []v0.Param{{}},
+							Config:        []v0.Param{{}},
 							Kind:          v0.Kind(0),
 							Name:          "test_80",
 							Elem:          new(v0.Type{}),
@@ -2811,37 +2568,33 @@ func FuzzDecodeFunctionProperties(f *testing.F) {
 				{
 					Name: "test_88",
 					Type: v0.Type{
-						FunctionProperties: v0.FunctionProperties{
-							Inputs: []v0.Param{
-								{
-									Name:  "test_91",
-									Type:  v0.Type{},
-									Value: any(map[string]any{"key_93": "value_93"}),
-								},
+						Inputs: []v0.Param{
+							{
+								Name:  "test_91",
+								Type:  v0.Type{},
+								Value: any(map[string]any{"key_93": "value_93"}),
 							},
-							Outputs: []v0.Param{
-								{
-									Name:  "test_95",
-									Type:  v0.Type{},
-									Value: any(map[string]any{"key_97": "value_97"}),
-								},
+						},
+						Outputs: []v0.Param{
+							{
+								Name:  "test_95",
+								Type:  v0.Type{},
+								Value: any(map[string]any{"key_97": "value_97"}),
 							},
-							Config: []v0.Param{
-								{
-									Name:  "test_99",
-									Type:  v0.Type{},
-									Value: any(map[string]any{"key_101": "value_101"}),
-								},
+						},
+						Config: []v0.Param{
+							{
+								Name:  "test_99",
+								Type:  v0.Type{},
+								Value: any(map[string]any{"key_101": "value_101"}),
 							},
 						},
 						Kind: v0.Kind(0),
 						Name: "test_103",
 						Elem: new(v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs:  []v0.Param{{}},
-								Outputs: []v0.Param{{}},
-								Config:  []v0.Param{{}},
-							},
+							Inputs:        []v0.Param{{}},
+							Outputs:       []v0.Param{{}},
+							Config:        []v0.Param{{}},
 							Kind:          v0.Kind(0),
 							Name:          "test_109",
 							Elem:          new(v0.Type{}),
@@ -2855,11 +2608,9 @@ func FuzzDecodeFunctionProperties(f *testing.F) {
 							Name:       "test_117",
 						}),
 						Constraint: new(v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs:  []v0.Param{{}},
-								Outputs: []v0.Param{{}},
-								Config:  []v0.Param{{}},
-							},
+							Inputs:        []v0.Param{{}},
+							Outputs:       []v0.Param{{}},
+							Config:        []v0.Param{{}},
 							Kind:          v0.Kind(0),
 							Name:          "test_123",
 							Elem:          new(v0.Type{}),
@@ -2881,9 +2632,9 @@ func FuzzDecodeFunctionProperties(f *testing.F) {
 	}
 	{
 		seed := v0.FunctionProperties{
-			Inputs:  nil,
-			Outputs: nil,
-			Config:  nil,
+			Inputs:  []v0.Param{},
+			Outputs: []v0.Param{},
+			Config:  []v0.Param{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2919,7 +2670,7 @@ func FuzzDecodeFunctionProperties(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -2930,99 +2681,87 @@ func FuzzDecodeParam(f *testing.F) {
 		seed := v0.Param{
 			Name: "test_1",
 			Type: v0.Type{
-				FunctionProperties: v0.FunctionProperties{
-					Inputs: []v0.Param{
-						{
-							Name: "test_4",
-							Type: v0.Type{
-								FunctionProperties: v0.FunctionProperties{
-									Inputs:  []v0.Param{{}},
-									Outputs: []v0.Param{{}},
-									Config:  []v0.Param{{}},
-								},
-								Kind:          v0.Kind(0),
-								Name:          "test_10",
-								Elem:          new(v0.Type{}),
-								Unit:          new(v0.Unit{}),
-								Constraint:    new(v0.Type{}),
-								ChanDirection: v0.ChanDirection(0),
-							},
-							Value: any(map[string]any{"key_15": "value_15"}),
+				Inputs: []v0.Param{
+					{
+						Name: "test_4",
+						Type: v0.Type{
+							Inputs:        []v0.Param{{}},
+							Outputs:       []v0.Param{{}},
+							Config:        []v0.Param{{}},
+							Kind:          v0.Kind(0),
+							Name:          "test_10",
+							Elem:          new(v0.Type{}),
+							Unit:          new(v0.Unit{}),
+							Constraint:    new(v0.Type{}),
+							ChanDirection: v0.ChanDirection(0),
 						},
+						Value: any(map[string]any{"key_15": "value_15"}),
 					},
-					Outputs: []v0.Param{
-						{
-							Name: "test_17",
-							Type: v0.Type{
-								FunctionProperties: v0.FunctionProperties{
-									Inputs:  []v0.Param{{}},
-									Outputs: []v0.Param{{}},
-									Config:  []v0.Param{{}},
-								},
-								Kind:          v0.Kind(0),
-								Name:          "test_23",
-								Elem:          new(v0.Type{}),
-								Unit:          new(v0.Unit{}),
-								Constraint:    new(v0.Type{}),
-								ChanDirection: v0.ChanDirection(0),
-							},
-							Value: any(map[string]any{"key_28": "value_28"}),
+				},
+				Outputs: []v0.Param{
+					{
+						Name: "test_17",
+						Type: v0.Type{
+							Inputs:        []v0.Param{{}},
+							Outputs:       []v0.Param{{}},
+							Config:        []v0.Param{{}},
+							Kind:          v0.Kind(0),
+							Name:          "test_23",
+							Elem:          new(v0.Type{}),
+							Unit:          new(v0.Unit{}),
+							Constraint:    new(v0.Type{}),
+							ChanDirection: v0.ChanDirection(0),
 						},
+						Value: any(map[string]any{"key_28": "value_28"}),
 					},
-					Config: []v0.Param{
-						{
-							Name: "test_30",
-							Type: v0.Type{
-								FunctionProperties: v0.FunctionProperties{
-									Inputs:  []v0.Param{{}},
-									Outputs: []v0.Param{{}},
-									Config:  []v0.Param{{}},
-								},
-								Kind:          v0.Kind(0),
-								Name:          "test_36",
-								Elem:          new(v0.Type{}),
-								Unit:          new(v0.Unit{}),
-								Constraint:    new(v0.Type{}),
-								ChanDirection: v0.ChanDirection(0),
-							},
-							Value: any(map[string]any{"key_41": "value_41"}),
+				},
+				Config: []v0.Param{
+					{
+						Name: "test_30",
+						Type: v0.Type{
+							Inputs:        []v0.Param{{}},
+							Outputs:       []v0.Param{{}},
+							Config:        []v0.Param{{}},
+							Kind:          v0.Kind(0),
+							Name:          "test_36",
+							Elem:          new(v0.Type{}),
+							Unit:          new(v0.Unit{}),
+							Constraint:    new(v0.Type{}),
+							ChanDirection: v0.ChanDirection(0),
 						},
+						Value: any(map[string]any{"key_41": "value_41"}),
 					},
 				},
 				Kind: v0.Kind(0),
 				Name: "test_43",
 				Elem: new(v0.Type{
-					FunctionProperties: v0.FunctionProperties{
-						Inputs: []v0.Param{
-							{
-								Name:  "test_46",
-								Type:  v0.Type{},
-								Value: any(map[string]any{"key_48": "value_48"}),
-							},
+					Inputs: []v0.Param{
+						{
+							Name:  "test_46",
+							Type:  v0.Type{},
+							Value: any(map[string]any{"key_48": "value_48"}),
 						},
-						Outputs: []v0.Param{
-							{
-								Name:  "test_50",
-								Type:  v0.Type{},
-								Value: any(map[string]any{"key_52": "value_52"}),
-							},
+					},
+					Outputs: []v0.Param{
+						{
+							Name:  "test_50",
+							Type:  v0.Type{},
+							Value: any(map[string]any{"key_52": "value_52"}),
 						},
-						Config: []v0.Param{
-							{
-								Name:  "test_54",
-								Type:  v0.Type{},
-								Value: any(map[string]any{"key_56": "value_56"}),
-							},
+					},
+					Config: []v0.Param{
+						{
+							Name:  "test_54",
+							Type:  v0.Type{},
+							Value: any(map[string]any{"key_56": "value_56"}),
 						},
 					},
 					Kind: v0.Kind(0),
 					Name: "test_58",
 					Elem: new(v0.Type{
-						FunctionProperties: v0.FunctionProperties{
-							Inputs:  []v0.Param{{}},
-							Outputs: []v0.Param{{}},
-							Config:  []v0.Param{{}},
-						},
+						Inputs:        []v0.Param{{}},
+						Outputs:       []v0.Param{{}},
+						Config:        []v0.Param{{}},
 						Kind:          v0.Kind(0),
 						Name:          "test_64",
 						Elem:          new(v0.Type{}),
@@ -3036,11 +2775,9 @@ func FuzzDecodeParam(f *testing.F) {
 						Name:       "test_72",
 					}),
 					Constraint: new(v0.Type{
-						FunctionProperties: v0.FunctionProperties{
-							Inputs:  []v0.Param{{}},
-							Outputs: []v0.Param{{}},
-							Config:  []v0.Param{{}},
-						},
+						Inputs:        []v0.Param{{}},
+						Outputs:       []v0.Param{{}},
+						Config:        []v0.Param{{}},
 						Kind:          v0.Kind(0),
 						Name:          "test_78",
 						Elem:          new(v0.Type{}),
@@ -3065,37 +2802,33 @@ func FuzzDecodeParam(f *testing.F) {
 					Name:  "test_95",
 				}),
 				Constraint: new(v0.Type{
-					FunctionProperties: v0.FunctionProperties{
-						Inputs: []v0.Param{
-							{
-								Name:  "test_98",
-								Type:  v0.Type{},
-								Value: any(map[string]any{"key_100": "value_100"}),
-							},
+					Inputs: []v0.Param{
+						{
+							Name:  "test_98",
+							Type:  v0.Type{},
+							Value: any(map[string]any{"key_100": "value_100"}),
 						},
-						Outputs: []v0.Param{
-							{
-								Name:  "test_102",
-								Type:  v0.Type{},
-								Value: any(map[string]any{"key_104": "value_104"}),
-							},
+					},
+					Outputs: []v0.Param{
+						{
+							Name:  "test_102",
+							Type:  v0.Type{},
+							Value: any(map[string]any{"key_104": "value_104"}),
 						},
-						Config: []v0.Param{
-							{
-								Name:  "test_106",
-								Type:  v0.Type{},
-								Value: any(map[string]any{"key_108": "value_108"}),
-							},
+					},
+					Config: []v0.Param{
+						{
+							Name:  "test_106",
+							Type:  v0.Type{},
+							Value: any(map[string]any{"key_108": "value_108"}),
 						},
 					},
 					Kind: v0.Kind(0),
 					Name: "test_110",
 					Elem: new(v0.Type{
-						FunctionProperties: v0.FunctionProperties{
-							Inputs:  []v0.Param{{}},
-							Outputs: []v0.Param{{}},
-							Config:  []v0.Param{{}},
-						},
+						Inputs:        []v0.Param{{}},
+						Outputs:       []v0.Param{{}},
+						Config:        []v0.Param{{}},
 						Kind:          v0.Kind(0),
 						Name:          "test_116",
 						Elem:          new(v0.Type{}),
@@ -3109,11 +2842,9 @@ func FuzzDecodeParam(f *testing.F) {
 						Name:       "test_124",
 					}),
 					Constraint: new(v0.Type{
-						FunctionProperties: v0.FunctionProperties{
-							Inputs:  []v0.Param{{}},
-							Outputs: []v0.Param{{}},
-							Config:  []v0.Param{{}},
-						},
+						Inputs:        []v0.Param{{}},
+						Outputs:       []v0.Param{{}},
+						Config:        []v0.Param{{}},
 						Kind:          v0.Kind(0),
 						Name:          "test_130",
 						Elem:          new(v0.Type{}),
@@ -3137,11 +2868,9 @@ func FuzzDecodeParam(f *testing.F) {
 		seed := v0.Param{
 			Name: "",
 			Type: v0.Type{
-				FunctionProperties: v0.FunctionProperties{
-					Inputs:  nil,
-					Outputs: nil,
-					Config:  nil,
-				},
+				Inputs:        []v0.Param{},
+				Outputs:       []v0.Param{},
+				Config:        []v0.Param{},
 				Kind:          v0.Kind(0),
 				Name:          "",
 				Elem:          nil,
@@ -3173,7 +2902,7 @@ func FuzzDecodeParam(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -3182,299 +2911,267 @@ func FuzzDecodeParam(f *testing.F) {
 func FuzzDecodeType(f *testing.F) {
 	{
 		seed := v0.Type{
-			FunctionProperties: v0.FunctionProperties{
-				Inputs: []v0.Param{
-					{
-						Name: "test_2",
-						Type: v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs: []v0.Param{
-									{
-										Name:  "test_5",
-										Type:  v0.Type{},
-										Value: any(map[string]any{"key_7": "value_7"}),
-									},
-								},
-								Outputs: []v0.Param{
-									{
-										Name:  "test_9",
-										Type:  v0.Type{},
-										Value: any(map[string]any{"key_11": "value_11"}),
-									},
-								},
-								Config: []v0.Param{
-									{
-										Name:  "test_13",
-										Type:  v0.Type{},
-										Value: any(map[string]any{"key_15": "value_15"}),
-									},
-								},
+			Inputs: []v0.Param{
+				{
+					Name: "test_2",
+					Type: v0.Type{
+						Inputs: []v0.Param{
+							{
+								Name:  "test_5",
+								Type:  v0.Type{},
+								Value: any(map[string]any{"key_7": "value_7"}),
 							},
-							Kind: v0.Kind(0),
-							Name: "test_17",
-							Elem: new(v0.Type{
-								FunctionProperties: v0.FunctionProperties{
-									Inputs:  []v0.Param{{}},
-									Outputs: []v0.Param{{}},
-									Config:  []v0.Param{{}},
-								},
-								Kind:          v0.Kind(0),
-								Name:          "test_23",
-								Elem:          new(v0.Type{}),
-								Unit:          new(v0.Unit{}),
-								Constraint:    new(v0.Type{}),
-								ChanDirection: v0.ChanDirection(0),
-							}),
-							Unit: new(v0.Unit{
-								Dimensions: v0.Dimensions{},
-								Scale:      30.5,
-								Name:       "test_31",
-							}),
-							Constraint: new(v0.Type{
-								FunctionProperties: v0.FunctionProperties{
-									Inputs:  []v0.Param{{}},
-									Outputs: []v0.Param{{}},
-									Config:  []v0.Param{{}},
-								},
-								Kind:          v0.Kind(0),
-								Name:          "test_37",
-								Elem:          new(v0.Type{}),
-								Unit:          new(v0.Unit{}),
-								Constraint:    new(v0.Type{}),
-								ChanDirection: v0.ChanDirection(0),
-							}),
-							ChanDirection: v0.ChanDirection(0),
 						},
-						Value: any(map[string]any{"key_43": "value_43"}),
+						Outputs: []v0.Param{
+							{
+								Name:  "test_9",
+								Type:  v0.Type{},
+								Value: any(map[string]any{"key_11": "value_11"}),
+							},
+						},
+						Config: []v0.Param{
+							{
+								Name:  "test_13",
+								Type:  v0.Type{},
+								Value: any(map[string]any{"key_15": "value_15"}),
+							},
+						},
+						Kind: v0.Kind(0),
+						Name: "test_17",
+						Elem: new(v0.Type{
+							Inputs:        []v0.Param{{}},
+							Outputs:       []v0.Param{{}},
+							Config:        []v0.Param{{}},
+							Kind:          v0.Kind(0),
+							Name:          "test_23",
+							Elem:          new(v0.Type{}),
+							Unit:          new(v0.Unit{}),
+							Constraint:    new(v0.Type{}),
+							ChanDirection: v0.ChanDirection(0),
+						}),
+						Unit: new(v0.Unit{
+							Dimensions: v0.Dimensions{},
+							Scale:      30.5,
+							Name:       "test_31",
+						}),
+						Constraint: new(v0.Type{
+							Inputs:        []v0.Param{{}},
+							Outputs:       []v0.Param{{}},
+							Config:        []v0.Param{{}},
+							Kind:          v0.Kind(0),
+							Name:          "test_37",
+							Elem:          new(v0.Type{}),
+							Unit:          new(v0.Unit{}),
+							Constraint:    new(v0.Type{}),
+							ChanDirection: v0.ChanDirection(0),
+						}),
+						ChanDirection: v0.ChanDirection(0),
 					},
+					Value: any(map[string]any{"key_43": "value_43"}),
 				},
-				Outputs: []v0.Param{
-					{
-						Name: "test_45",
-						Type: v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs: []v0.Param{
-									{
-										Name:  "test_48",
-										Type:  v0.Type{},
-										Value: any(map[string]any{"key_50": "value_50"}),
-									},
-								},
-								Outputs: []v0.Param{
-									{
-										Name:  "test_52",
-										Type:  v0.Type{},
-										Value: any(map[string]any{"key_54": "value_54"}),
-									},
-								},
-								Config: []v0.Param{
-									{
-										Name:  "test_56",
-										Type:  v0.Type{},
-										Value: any(map[string]any{"key_58": "value_58"}),
-									},
-								},
+			},
+			Outputs: []v0.Param{
+				{
+					Name: "test_45",
+					Type: v0.Type{
+						Inputs: []v0.Param{
+							{
+								Name:  "test_48",
+								Type:  v0.Type{},
+								Value: any(map[string]any{"key_50": "value_50"}),
 							},
-							Kind: v0.Kind(0),
-							Name: "test_60",
-							Elem: new(v0.Type{
-								FunctionProperties: v0.FunctionProperties{
-									Inputs:  []v0.Param{{}},
-									Outputs: []v0.Param{{}},
-									Config:  []v0.Param{{}},
-								},
-								Kind:          v0.Kind(0),
-								Name:          "test_66",
-								Elem:          new(v0.Type{}),
-								Unit:          new(v0.Unit{}),
-								Constraint:    new(v0.Type{}),
-								ChanDirection: v0.ChanDirection(0),
-							}),
-							Unit: new(v0.Unit{
-								Dimensions: v0.Dimensions{},
-								Scale:      73.5,
-								Name:       "test_74",
-							}),
-							Constraint: new(v0.Type{
-								FunctionProperties: v0.FunctionProperties{
-									Inputs:  []v0.Param{{}},
-									Outputs: []v0.Param{{}},
-									Config:  []v0.Param{{}},
-								},
-								Kind:          v0.Kind(0),
-								Name:          "test_80",
-								Elem:          new(v0.Type{}),
-								Unit:          new(v0.Unit{}),
-								Constraint:    new(v0.Type{}),
-								ChanDirection: v0.ChanDirection(0),
-							}),
-							ChanDirection: v0.ChanDirection(0),
 						},
-						Value: any(map[string]any{"key_86": "value_86"}),
+						Outputs: []v0.Param{
+							{
+								Name:  "test_52",
+								Type:  v0.Type{},
+								Value: any(map[string]any{"key_54": "value_54"}),
+							},
+						},
+						Config: []v0.Param{
+							{
+								Name:  "test_56",
+								Type:  v0.Type{},
+								Value: any(map[string]any{"key_58": "value_58"}),
+							},
+						},
+						Kind: v0.Kind(0),
+						Name: "test_60",
+						Elem: new(v0.Type{
+							Inputs:        []v0.Param{{}},
+							Outputs:       []v0.Param{{}},
+							Config:        []v0.Param{{}},
+							Kind:          v0.Kind(0),
+							Name:          "test_66",
+							Elem:          new(v0.Type{}),
+							Unit:          new(v0.Unit{}),
+							Constraint:    new(v0.Type{}),
+							ChanDirection: v0.ChanDirection(0),
+						}),
+						Unit: new(v0.Unit{
+							Dimensions: v0.Dimensions{},
+							Scale:      73.5,
+							Name:       "test_74",
+						}),
+						Constraint: new(v0.Type{
+							Inputs:        []v0.Param{{}},
+							Outputs:       []v0.Param{{}},
+							Config:        []v0.Param{{}},
+							Kind:          v0.Kind(0),
+							Name:          "test_80",
+							Elem:          new(v0.Type{}),
+							Unit:          new(v0.Unit{}),
+							Constraint:    new(v0.Type{}),
+							ChanDirection: v0.ChanDirection(0),
+						}),
+						ChanDirection: v0.ChanDirection(0),
 					},
+					Value: any(map[string]any{"key_86": "value_86"}),
 				},
-				Config: []v0.Param{
-					{
-						Name: "test_88",
-						Type: v0.Type{
-							FunctionProperties: v0.FunctionProperties{
-								Inputs: []v0.Param{
-									{
-										Name:  "test_91",
-										Type:  v0.Type{},
-										Value: any(map[string]any{"key_93": "value_93"}),
-									},
-								},
-								Outputs: []v0.Param{
-									{
-										Name:  "test_95",
-										Type:  v0.Type{},
-										Value: any(map[string]any{"key_97": "value_97"}),
-									},
-								},
-								Config: []v0.Param{
-									{
-										Name:  "test_99",
-										Type:  v0.Type{},
-										Value: any(map[string]any{"key_101": "value_101"}),
-									},
-								},
+			},
+			Config: []v0.Param{
+				{
+					Name: "test_88",
+					Type: v0.Type{
+						Inputs: []v0.Param{
+							{
+								Name:  "test_91",
+								Type:  v0.Type{},
+								Value: any(map[string]any{"key_93": "value_93"}),
 							},
-							Kind: v0.Kind(0),
-							Name: "test_103",
-							Elem: new(v0.Type{
-								FunctionProperties: v0.FunctionProperties{
-									Inputs:  []v0.Param{{}},
-									Outputs: []v0.Param{{}},
-									Config:  []v0.Param{{}},
-								},
-								Kind:          v0.Kind(0),
-								Name:          "test_109",
-								Elem:          new(v0.Type{}),
-								Unit:          new(v0.Unit{}),
-								Constraint:    new(v0.Type{}),
-								ChanDirection: v0.ChanDirection(0),
-							}),
-							Unit: new(v0.Unit{
-								Dimensions: v0.Dimensions{},
-								Scale:      116.5,
-								Name:       "test_117",
-							}),
-							Constraint: new(v0.Type{
-								FunctionProperties: v0.FunctionProperties{
-									Inputs:  []v0.Param{{}},
-									Outputs: []v0.Param{{}},
-									Config:  []v0.Param{{}},
-								},
-								Kind:          v0.Kind(0),
-								Name:          "test_123",
-								Elem:          new(v0.Type{}),
-								Unit:          new(v0.Unit{}),
-								Constraint:    new(v0.Type{}),
-								ChanDirection: v0.ChanDirection(0),
-							}),
-							ChanDirection: v0.ChanDirection(0),
 						},
-						Value: any(map[string]any{"key_129": "value_129"}),
+						Outputs: []v0.Param{
+							{
+								Name:  "test_95",
+								Type:  v0.Type{},
+								Value: any(map[string]any{"key_97": "value_97"}),
+							},
+						},
+						Config: []v0.Param{
+							{
+								Name:  "test_99",
+								Type:  v0.Type{},
+								Value: any(map[string]any{"key_101": "value_101"}),
+							},
+						},
+						Kind: v0.Kind(0),
+						Name: "test_103",
+						Elem: new(v0.Type{
+							Inputs:        []v0.Param{{}},
+							Outputs:       []v0.Param{{}},
+							Config:        []v0.Param{{}},
+							Kind:          v0.Kind(0),
+							Name:          "test_109",
+							Elem:          new(v0.Type{}),
+							Unit:          new(v0.Unit{}),
+							Constraint:    new(v0.Type{}),
+							ChanDirection: v0.ChanDirection(0),
+						}),
+						Unit: new(v0.Unit{
+							Dimensions: v0.Dimensions{},
+							Scale:      116.5,
+							Name:       "test_117",
+						}),
+						Constraint: new(v0.Type{
+							Inputs:        []v0.Param{{}},
+							Outputs:       []v0.Param{{}},
+							Config:        []v0.Param{{}},
+							Kind:          v0.Kind(0),
+							Name:          "test_123",
+							Elem:          new(v0.Type{}),
+							Unit:          new(v0.Unit{}),
+							Constraint:    new(v0.Type{}),
+							ChanDirection: v0.ChanDirection(0),
+						}),
+						ChanDirection: v0.ChanDirection(0),
 					},
+					Value: any(map[string]any{"key_129": "value_129"}),
 				},
 			},
 			Kind: v0.Kind(0),
 			Name: "test_131",
 			Elem: new(v0.Type{
-				FunctionProperties: v0.FunctionProperties{
-					Inputs: []v0.Param{
-						{
-							Name: "test_134",
-							Type: v0.Type{
-								FunctionProperties: v0.FunctionProperties{
-									Inputs:  []v0.Param{{}},
-									Outputs: []v0.Param{{}},
-									Config:  []v0.Param{{}},
-								},
-								Kind:          v0.Kind(0),
-								Name:          "test_140",
-								Elem:          new(v0.Type{}),
-								Unit:          new(v0.Unit{}),
-								Constraint:    new(v0.Type{}),
-								ChanDirection: v0.ChanDirection(0),
-							},
-							Value: any(map[string]any{"key_145": "value_145"}),
+				Inputs: []v0.Param{
+					{
+						Name: "test_134",
+						Type: v0.Type{
+							Inputs:        []v0.Param{{}},
+							Outputs:       []v0.Param{{}},
+							Config:        []v0.Param{{}},
+							Kind:          v0.Kind(0),
+							Name:          "test_140",
+							Elem:          new(v0.Type{}),
+							Unit:          new(v0.Unit{}),
+							Constraint:    new(v0.Type{}),
+							ChanDirection: v0.ChanDirection(0),
 						},
+						Value: any(map[string]any{"key_145": "value_145"}),
 					},
-					Outputs: []v0.Param{
-						{
-							Name: "test_147",
-							Type: v0.Type{
-								FunctionProperties: v0.FunctionProperties{
-									Inputs:  []v0.Param{{}},
-									Outputs: []v0.Param{{}},
-									Config:  []v0.Param{{}},
-								},
-								Kind:          v0.Kind(0),
-								Name:          "test_153",
-								Elem:          new(v0.Type{}),
-								Unit:          new(v0.Unit{}),
-								Constraint:    new(v0.Type{}),
-								ChanDirection: v0.ChanDirection(0),
-							},
-							Value: any(map[string]any{"key_158": "value_158"}),
+				},
+				Outputs: []v0.Param{
+					{
+						Name: "test_147",
+						Type: v0.Type{
+							Inputs:        []v0.Param{{}},
+							Outputs:       []v0.Param{{}},
+							Config:        []v0.Param{{}},
+							Kind:          v0.Kind(0),
+							Name:          "test_153",
+							Elem:          new(v0.Type{}),
+							Unit:          new(v0.Unit{}),
+							Constraint:    new(v0.Type{}),
+							ChanDirection: v0.ChanDirection(0),
 						},
+						Value: any(map[string]any{"key_158": "value_158"}),
 					},
-					Config: []v0.Param{
-						{
-							Name: "test_160",
-							Type: v0.Type{
-								FunctionProperties: v0.FunctionProperties{
-									Inputs:  []v0.Param{{}},
-									Outputs: []v0.Param{{}},
-									Config:  []v0.Param{{}},
-								},
-								Kind:          v0.Kind(0),
-								Name:          "test_166",
-								Elem:          new(v0.Type{}),
-								Unit:          new(v0.Unit{}),
-								Constraint:    new(v0.Type{}),
-								ChanDirection: v0.ChanDirection(0),
-							},
-							Value: any(map[string]any{"key_171": "value_171"}),
+				},
+				Config: []v0.Param{
+					{
+						Name: "test_160",
+						Type: v0.Type{
+							Inputs:        []v0.Param{{}},
+							Outputs:       []v0.Param{{}},
+							Config:        []v0.Param{{}},
+							Kind:          v0.Kind(0),
+							Name:          "test_166",
+							Elem:          new(v0.Type{}),
+							Unit:          new(v0.Unit{}),
+							Constraint:    new(v0.Type{}),
+							ChanDirection: v0.ChanDirection(0),
 						},
+						Value: any(map[string]any{"key_171": "value_171"}),
 					},
 				},
 				Kind: v0.Kind(0),
 				Name: "test_173",
 				Elem: new(v0.Type{
-					FunctionProperties: v0.FunctionProperties{
-						Inputs: []v0.Param{
-							{
-								Name:  "test_176",
-								Type:  v0.Type{},
-								Value: any(map[string]any{"key_178": "value_178"}),
-							},
+					Inputs: []v0.Param{
+						{
+							Name:  "test_176",
+							Type:  v0.Type{},
+							Value: any(map[string]any{"key_178": "value_178"}),
 						},
-						Outputs: []v0.Param{
-							{
-								Name:  "test_180",
-								Type:  v0.Type{},
-								Value: any(map[string]any{"key_182": "value_182"}),
-							},
+					},
+					Outputs: []v0.Param{
+						{
+							Name:  "test_180",
+							Type:  v0.Type{},
+							Value: any(map[string]any{"key_182": "value_182"}),
 						},
-						Config: []v0.Param{
-							{
-								Name:  "test_184",
-								Type:  v0.Type{},
-								Value: any(map[string]any{"key_186": "value_186"}),
-							},
+					},
+					Config: []v0.Param{
+						{
+							Name:  "test_184",
+							Type:  v0.Type{},
+							Value: any(map[string]any{"key_186": "value_186"}),
 						},
 					},
 					Kind: v0.Kind(0),
 					Name: "test_188",
 					Elem: new(v0.Type{
-						FunctionProperties: v0.FunctionProperties{
-							Inputs:  []v0.Param{{}},
-							Outputs: []v0.Param{{}},
-							Config:  []v0.Param{{}},
-						},
+						Inputs:        []v0.Param{{}},
+						Outputs:       []v0.Param{{}},
+						Config:        []v0.Param{{}},
 						Kind:          v0.Kind(0),
 						Name:          "test_194",
 						Elem:          new(v0.Type{}),
@@ -3488,11 +3185,9 @@ func FuzzDecodeType(f *testing.F) {
 						Name:       "test_202",
 					}),
 					Constraint: new(v0.Type{
-						FunctionProperties: v0.FunctionProperties{
-							Inputs:  []v0.Param{{}},
-							Outputs: []v0.Param{{}},
-							Config:  []v0.Param{{}},
-						},
+						Inputs:        []v0.Param{{}},
+						Outputs:       []v0.Param{{}},
+						Config:        []v0.Param{{}},
 						Kind:          v0.Kind(0),
 						Name:          "test_208",
 						Elem:          new(v0.Type{}),
@@ -3517,37 +3212,33 @@ func FuzzDecodeType(f *testing.F) {
 					Name:  "test_225",
 				}),
 				Constraint: new(v0.Type{
-					FunctionProperties: v0.FunctionProperties{
-						Inputs: []v0.Param{
-							{
-								Name:  "test_228",
-								Type:  v0.Type{},
-								Value: any(map[string]any{"key_230": "value_230"}),
-							},
+					Inputs: []v0.Param{
+						{
+							Name:  "test_228",
+							Type:  v0.Type{},
+							Value: any(map[string]any{"key_230": "value_230"}),
 						},
-						Outputs: []v0.Param{
-							{
-								Name:  "test_232",
-								Type:  v0.Type{},
-								Value: any(map[string]any{"key_234": "value_234"}),
-							},
+					},
+					Outputs: []v0.Param{
+						{
+							Name:  "test_232",
+							Type:  v0.Type{},
+							Value: any(map[string]any{"key_234": "value_234"}),
 						},
-						Config: []v0.Param{
-							{
-								Name:  "test_236",
-								Type:  v0.Type{},
-								Value: any(map[string]any{"key_238": "value_238"}),
-							},
+					},
+					Config: []v0.Param{
+						{
+							Name:  "test_236",
+							Type:  v0.Type{},
+							Value: any(map[string]any{"key_238": "value_238"}),
 						},
 					},
 					Kind: v0.Kind(0),
 					Name: "test_240",
 					Elem: new(v0.Type{
-						FunctionProperties: v0.FunctionProperties{
-							Inputs:  []v0.Param{{}},
-							Outputs: []v0.Param{{}},
-							Config:  []v0.Param{{}},
-						},
+						Inputs:        []v0.Param{{}},
+						Outputs:       []v0.Param{{}},
+						Config:        []v0.Param{{}},
 						Kind:          v0.Kind(0),
 						Name:          "test_246",
 						Elem:          new(v0.Type{}),
@@ -3561,11 +3252,9 @@ func FuzzDecodeType(f *testing.F) {
 						Name:       "test_254",
 					}),
 					Constraint: new(v0.Type{
-						FunctionProperties: v0.FunctionProperties{
-							Inputs:  []v0.Param{{}},
-							Outputs: []v0.Param{{}},
-							Config:  []v0.Param{{}},
-						},
+						Inputs:        []v0.Param{{}},
+						Outputs:       []v0.Param{{}},
+						Config:        []v0.Param{{}},
 						Kind:          v0.Kind(0),
 						Name:          "test_260",
 						Elem:          new(v0.Type{}),
@@ -3592,99 +3281,87 @@ func FuzzDecodeType(f *testing.F) {
 				Name:  "test_278",
 			}),
 			Constraint: new(v0.Type{
-				FunctionProperties: v0.FunctionProperties{
-					Inputs: []v0.Param{
-						{
-							Name: "test_281",
-							Type: v0.Type{
-								FunctionProperties: v0.FunctionProperties{
-									Inputs:  []v0.Param{{}},
-									Outputs: []v0.Param{{}},
-									Config:  []v0.Param{{}},
-								},
-								Kind:          v0.Kind(0),
-								Name:          "test_287",
-								Elem:          new(v0.Type{}),
-								Unit:          new(v0.Unit{}),
-								Constraint:    new(v0.Type{}),
-								ChanDirection: v0.ChanDirection(0),
-							},
-							Value: any(map[string]any{"key_292": "value_292"}),
+				Inputs: []v0.Param{
+					{
+						Name: "test_281",
+						Type: v0.Type{
+							Inputs:        []v0.Param{{}},
+							Outputs:       []v0.Param{{}},
+							Config:        []v0.Param{{}},
+							Kind:          v0.Kind(0),
+							Name:          "test_287",
+							Elem:          new(v0.Type{}),
+							Unit:          new(v0.Unit{}),
+							Constraint:    new(v0.Type{}),
+							ChanDirection: v0.ChanDirection(0),
 						},
+						Value: any(map[string]any{"key_292": "value_292"}),
 					},
-					Outputs: []v0.Param{
-						{
-							Name: "test_294",
-							Type: v0.Type{
-								FunctionProperties: v0.FunctionProperties{
-									Inputs:  []v0.Param{{}},
-									Outputs: []v0.Param{{}},
-									Config:  []v0.Param{{}},
-								},
-								Kind:          v0.Kind(0),
-								Name:          "test_300",
-								Elem:          new(v0.Type{}),
-								Unit:          new(v0.Unit{}),
-								Constraint:    new(v0.Type{}),
-								ChanDirection: v0.ChanDirection(0),
-							},
-							Value: any(map[string]any{"key_305": "value_305"}),
+				},
+				Outputs: []v0.Param{
+					{
+						Name: "test_294",
+						Type: v0.Type{
+							Inputs:        []v0.Param{{}},
+							Outputs:       []v0.Param{{}},
+							Config:        []v0.Param{{}},
+							Kind:          v0.Kind(0),
+							Name:          "test_300",
+							Elem:          new(v0.Type{}),
+							Unit:          new(v0.Unit{}),
+							Constraint:    new(v0.Type{}),
+							ChanDirection: v0.ChanDirection(0),
 						},
+						Value: any(map[string]any{"key_305": "value_305"}),
 					},
-					Config: []v0.Param{
-						{
-							Name: "test_307",
-							Type: v0.Type{
-								FunctionProperties: v0.FunctionProperties{
-									Inputs:  []v0.Param{{}},
-									Outputs: []v0.Param{{}},
-									Config:  []v0.Param{{}},
-								},
-								Kind:          v0.Kind(0),
-								Name:          "test_313",
-								Elem:          new(v0.Type{}),
-								Unit:          new(v0.Unit{}),
-								Constraint:    new(v0.Type{}),
-								ChanDirection: v0.ChanDirection(0),
-							},
-							Value: any(map[string]any{"key_318": "value_318"}),
+				},
+				Config: []v0.Param{
+					{
+						Name: "test_307",
+						Type: v0.Type{
+							Inputs:        []v0.Param{{}},
+							Outputs:       []v0.Param{{}},
+							Config:        []v0.Param{{}},
+							Kind:          v0.Kind(0),
+							Name:          "test_313",
+							Elem:          new(v0.Type{}),
+							Unit:          new(v0.Unit{}),
+							Constraint:    new(v0.Type{}),
+							ChanDirection: v0.ChanDirection(0),
 						},
+						Value: any(map[string]any{"key_318": "value_318"}),
 					},
 				},
 				Kind: v0.Kind(0),
 				Name: "test_320",
 				Elem: new(v0.Type{
-					FunctionProperties: v0.FunctionProperties{
-						Inputs: []v0.Param{
-							{
-								Name:  "test_323",
-								Type:  v0.Type{},
-								Value: any(map[string]any{"key_325": "value_325"}),
-							},
+					Inputs: []v0.Param{
+						{
+							Name:  "test_323",
+							Type:  v0.Type{},
+							Value: any(map[string]any{"key_325": "value_325"}),
 						},
-						Outputs: []v0.Param{
-							{
-								Name:  "test_327",
-								Type:  v0.Type{},
-								Value: any(map[string]any{"key_329": "value_329"}),
-							},
+					},
+					Outputs: []v0.Param{
+						{
+							Name:  "test_327",
+							Type:  v0.Type{},
+							Value: any(map[string]any{"key_329": "value_329"}),
 						},
-						Config: []v0.Param{
-							{
-								Name:  "test_331",
-								Type:  v0.Type{},
-								Value: any(map[string]any{"key_333": "value_333"}),
-							},
+					},
+					Config: []v0.Param{
+						{
+							Name:  "test_331",
+							Type:  v0.Type{},
+							Value: any(map[string]any{"key_333": "value_333"}),
 						},
 					},
 					Kind: v0.Kind(0),
 					Name: "test_335",
 					Elem: new(v0.Type{
-						FunctionProperties: v0.FunctionProperties{
-							Inputs:  []v0.Param{{}},
-							Outputs: []v0.Param{{}},
-							Config:  []v0.Param{{}},
-						},
+						Inputs:        []v0.Param{{}},
+						Outputs:       []v0.Param{{}},
+						Config:        []v0.Param{{}},
 						Kind:          v0.Kind(0),
 						Name:          "test_341",
 						Elem:          new(v0.Type{}),
@@ -3698,11 +3375,9 @@ func FuzzDecodeType(f *testing.F) {
 						Name:       "test_349",
 					}),
 					Constraint: new(v0.Type{
-						FunctionProperties: v0.FunctionProperties{
-							Inputs:  []v0.Param{{}},
-							Outputs: []v0.Param{{}},
-							Config:  []v0.Param{{}},
-						},
+						Inputs:        []v0.Param{{}},
+						Outputs:       []v0.Param{{}},
+						Config:        []v0.Param{{}},
 						Kind:          v0.Kind(0),
 						Name:          "test_355",
 						Elem:          new(v0.Type{}),
@@ -3727,37 +3402,33 @@ func FuzzDecodeType(f *testing.F) {
 					Name:  "test_372",
 				}),
 				Constraint: new(v0.Type{
-					FunctionProperties: v0.FunctionProperties{
-						Inputs: []v0.Param{
-							{
-								Name:  "test_375",
-								Type:  v0.Type{},
-								Value: any(map[string]any{"key_377": "value_377"}),
-							},
+					Inputs: []v0.Param{
+						{
+							Name:  "test_375",
+							Type:  v0.Type{},
+							Value: any(map[string]any{"key_377": "value_377"}),
 						},
-						Outputs: []v0.Param{
-							{
-								Name:  "test_379",
-								Type:  v0.Type{},
-								Value: any(map[string]any{"key_381": "value_381"}),
-							},
+					},
+					Outputs: []v0.Param{
+						{
+							Name:  "test_379",
+							Type:  v0.Type{},
+							Value: any(map[string]any{"key_381": "value_381"}),
 						},
-						Config: []v0.Param{
-							{
-								Name:  "test_383",
-								Type:  v0.Type{},
-								Value: any(map[string]any{"key_385": "value_385"}),
-							},
+					},
+					Config: []v0.Param{
+						{
+							Name:  "test_383",
+							Type:  v0.Type{},
+							Value: any(map[string]any{"key_385": "value_385"}),
 						},
 					},
 					Kind: v0.Kind(0),
 					Name: "test_387",
 					Elem: new(v0.Type{
-						FunctionProperties: v0.FunctionProperties{
-							Inputs:  []v0.Param{{}},
-							Outputs: []v0.Param{{}},
-							Config:  []v0.Param{{}},
-						},
+						Inputs:        []v0.Param{{}},
+						Outputs:       []v0.Param{{}},
+						Config:        []v0.Param{{}},
 						Kind:          v0.Kind(0),
 						Name:          "test_393",
 						Elem:          new(v0.Type{}),
@@ -3771,11 +3442,9 @@ func FuzzDecodeType(f *testing.F) {
 						Name:       "test_401",
 					}),
 					Constraint: new(v0.Type{
-						FunctionProperties: v0.FunctionProperties{
-							Inputs:  []v0.Param{{}},
-							Outputs: []v0.Param{{}},
-							Config:  []v0.Param{{}},
-						},
+						Inputs:        []v0.Param{{}},
+						Outputs:       []v0.Param{{}},
+						Config:        []v0.Param{{}},
 						Kind:          v0.Kind(0),
 						Name:          "test_407",
 						Elem:          new(v0.Type{}),
@@ -3797,11 +3466,9 @@ func FuzzDecodeType(f *testing.F) {
 	}
 	{
 		seed := v0.Type{
-			FunctionProperties: v0.FunctionProperties{
-				Inputs:  nil,
-				Outputs: nil,
-				Config:  nil,
-			},
+			Inputs:        []v0.Param{},
+			Outputs:       []v0.Param{},
+			Config:        []v0.Param{},
 			Kind:          v0.Kind(0),
 			Name:          "",
 			Elem:          nil,
@@ -3817,35 +3484,27 @@ func FuzzDecodeType(f *testing.F) {
 	}
 	{
 		seed := v0.Type{
-			FunctionProperties: v0.FunctionProperties{
+			Inputs:  []v0.Param{},
+			Outputs: []v0.Param{},
+			Config:  []v0.Param{},
+			Kind:    v0.Kind(0),
+			Name:    "test_5",
+			Elem: new(v0.Type{
 				Inputs:  []v0.Param{},
 				Outputs: []v0.Param{},
 				Config:  []v0.Param{},
-			},
-			Kind: v0.Kind(0),
-			Name: "test_5",
-			Elem: new(v0.Type{
-				FunctionProperties: v0.FunctionProperties{
+				Kind:    v0.Kind(0),
+				Name:    "test_11",
+				Elem: new(v0.Type{
 					Inputs:  []v0.Param{},
 					Outputs: []v0.Param{},
 					Config:  []v0.Param{},
-				},
-				Kind: v0.Kind(0),
-				Name: "test_11",
-				Elem: new(v0.Type{
-					FunctionProperties: v0.FunctionProperties{
-						Inputs:  []v0.Param{},
-						Outputs: []v0.Param{},
-						Config:  []v0.Param{},
-					},
-					Kind: v0.Kind(0),
-					Name: "test_17",
+					Kind:    v0.Kind(0),
+					Name:    "test_17",
 					Elem: new(v0.Type{
-						FunctionProperties: v0.FunctionProperties{
-							Inputs:  []v0.Param{},
-							Outputs: []v0.Param{},
-							Config:  []v0.Param{},
-						},
+						Inputs:        []v0.Param{},
+						Outputs:       []v0.Param{},
+						Config:        []v0.Param{},
 						Kind:          v0.Kind(0),
 						Name:          "test_23",
 						Elem:          new(v0.Type{}),
@@ -3859,11 +3518,9 @@ func FuzzDecodeType(f *testing.F) {
 						Name:       "test_31",
 					}),
 					Constraint: new(v0.Type{
-						FunctionProperties: v0.FunctionProperties{
-							Inputs:  []v0.Param{},
-							Outputs: []v0.Param{},
-							Config:  []v0.Param{},
-						},
+						Inputs:        []v0.Param{},
+						Outputs:       []v0.Param{},
+						Config:        []v0.Param{},
 						Kind:          v0.Kind(0),
 						Name:          "test_37",
 						Elem:          new(v0.Type{}),
@@ -3888,19 +3545,15 @@ func FuzzDecodeType(f *testing.F) {
 					Name:  "test_54",
 				}),
 				Constraint: new(v0.Type{
-					FunctionProperties: v0.FunctionProperties{
-						Inputs:  []v0.Param{},
-						Outputs: []v0.Param{},
-						Config:  []v0.Param{},
-					},
-					Kind: v0.Kind(0),
-					Name: "test_60",
+					Inputs:  []v0.Param{},
+					Outputs: []v0.Param{},
+					Config:  []v0.Param{},
+					Kind:    v0.Kind(0),
+					Name:    "test_60",
 					Elem: new(v0.Type{
-						FunctionProperties: v0.FunctionProperties{
-							Inputs:  []v0.Param{},
-							Outputs: []v0.Param{},
-							Config:  []v0.Param{},
-						},
+						Inputs:        []v0.Param{},
+						Outputs:       []v0.Param{},
+						Config:        []v0.Param{},
 						Kind:          v0.Kind(0),
 						Name:          "test_66",
 						Elem:          new(v0.Type{}),
@@ -3914,11 +3567,9 @@ func FuzzDecodeType(f *testing.F) {
 						Name:       "test_74",
 					}),
 					Constraint: new(v0.Type{
-						FunctionProperties: v0.FunctionProperties{
-							Inputs:  []v0.Param{},
-							Outputs: []v0.Param{},
-							Config:  []v0.Param{},
-						},
+						Inputs:        []v0.Param{},
+						Outputs:       []v0.Param{},
+						Config:        []v0.Param{},
 						Kind:          v0.Kind(0),
 						Name:          "test_80",
 						Elem:          new(v0.Type{}),
@@ -3945,27 +3596,21 @@ func FuzzDecodeType(f *testing.F) {
 				Name:  "test_98",
 			}),
 			Constraint: new(v0.Type{
-				FunctionProperties: v0.FunctionProperties{
+				Inputs:  []v0.Param{},
+				Outputs: []v0.Param{},
+				Config:  []v0.Param{},
+				Kind:    v0.Kind(0),
+				Name:    "test_104",
+				Elem: new(v0.Type{
 					Inputs:  []v0.Param{},
 					Outputs: []v0.Param{},
 					Config:  []v0.Param{},
-				},
-				Kind: v0.Kind(0),
-				Name: "test_104",
-				Elem: new(v0.Type{
-					FunctionProperties: v0.FunctionProperties{
-						Inputs:  []v0.Param{},
-						Outputs: []v0.Param{},
-						Config:  []v0.Param{},
-					},
-					Kind: v0.Kind(0),
-					Name: "test_110",
+					Kind:    v0.Kind(0),
+					Name:    "test_110",
 					Elem: new(v0.Type{
-						FunctionProperties: v0.FunctionProperties{
-							Inputs:  []v0.Param{},
-							Outputs: []v0.Param{},
-							Config:  []v0.Param{},
-						},
+						Inputs:        []v0.Param{},
+						Outputs:       []v0.Param{},
+						Config:        []v0.Param{},
 						Kind:          v0.Kind(0),
 						Name:          "test_116",
 						Elem:          new(v0.Type{}),
@@ -3979,11 +3624,9 @@ func FuzzDecodeType(f *testing.F) {
 						Name:       "test_124",
 					}),
 					Constraint: new(v0.Type{
-						FunctionProperties: v0.FunctionProperties{
-							Inputs:  []v0.Param{},
-							Outputs: []v0.Param{},
-							Config:  []v0.Param{},
-						},
+						Inputs:        []v0.Param{},
+						Outputs:       []v0.Param{},
+						Config:        []v0.Param{},
 						Kind:          v0.Kind(0),
 						Name:          "test_130",
 						Elem:          new(v0.Type{}),
@@ -4008,19 +3651,15 @@ func FuzzDecodeType(f *testing.F) {
 					Name:  "test_147",
 				}),
 				Constraint: new(v0.Type{
-					FunctionProperties: v0.FunctionProperties{
-						Inputs:  []v0.Param{},
-						Outputs: []v0.Param{},
-						Config:  []v0.Param{},
-					},
-					Kind: v0.Kind(0),
-					Name: "test_153",
+					Inputs:  []v0.Param{},
+					Outputs: []v0.Param{},
+					Config:  []v0.Param{},
+					Kind:    v0.Kind(0),
+					Name:    "test_153",
 					Elem: new(v0.Type{
-						FunctionProperties: v0.FunctionProperties{
-							Inputs:  []v0.Param{},
-							Outputs: []v0.Param{},
-							Config:  []v0.Param{},
-						},
+						Inputs:        []v0.Param{},
+						Outputs:       []v0.Param{},
+						Config:        []v0.Param{},
 						Kind:          v0.Kind(0),
 						Name:          "test_159",
 						Elem:          new(v0.Type{}),
@@ -4034,11 +3673,9 @@ func FuzzDecodeType(f *testing.F) {
 						Name:       "test_167",
 					}),
 					Constraint: new(v0.Type{
-						FunctionProperties: v0.FunctionProperties{
-							Inputs:  []v0.Param{},
-							Outputs: []v0.Param{},
-							Config:  []v0.Param{},
-						},
+						Inputs:        []v0.Param{},
+						Outputs:       []v0.Param{},
+						Config:        []v0.Param{},
 						Kind:          v0.Kind(0),
 						Name:          "test_173",
 						Elem:          new(v0.Type{}),
@@ -4074,7 +3711,7 @@ func FuzzDecodeType(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -4139,7 +3776,7 @@ func FuzzDecodeUnit(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})

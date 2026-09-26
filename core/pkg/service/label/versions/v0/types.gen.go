@@ -12,7 +12,8 @@
 package v0
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	color "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -35,6 +36,6 @@ type Label struct {
 // schema constraints.
 func (l Label) Validate() error {
 	v := validate.New("Label")
-	validate.NotEmptyString(v, "name", l.Name)
+	v.NotEmptyString("name", l.Name)
 	return v.Error()
 }

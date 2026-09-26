@@ -32,7 +32,7 @@ type Writer struct {
 	// newKey returns a new key for a rack.
 	newKey func(context.Context) (Key, error)
 	// status is used to write status updates.
-	status status.Writer[StatusDetails]
+	status status.Writer
 	// table is the gorp table for rack entries.
 	table *gorp.Table[Key, Rack]
 }
@@ -133,6 +133,9 @@ func (w Writer) DeleteGuard(
 		Where(gorp.MatchKeys[Key, Rack](key)).
 		Guard(guard).
 		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	if err := w.otg.DeleteResources(ctx, key.OntologyID()); err != nil {
 		return err
 	}
 	return w.status.Delete(ctx, key.OntologyID().String())

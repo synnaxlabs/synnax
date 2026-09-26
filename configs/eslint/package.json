@@ -9,16 +9,16 @@
     "fix": "eslint --fix"
   },
   "dependencies": {
-    "@eslint-react/eslint-plugin": "^5.18.1",
-    "@eslint/compat": "^2.1.0",
-    "@eslint/js": "^10.0.1",
-    "eslint-plugin-react": "^7.37.5",
-    "eslint-plugin-simple-import-sort": "^14.0.0",
-    "globals": "^17.9.0",
-    "typescript-eslint": "^8.66.0"
+    "@eslint-react/eslint-plugin": "catalog:",
+    "@eslint/compat": "catalog:",
+    "@eslint/js": "catalog:",
+    "eslint-plugin-react": "catalog:",
+    "eslint-plugin-simple-import-sort": "catalog:",
+    "globals": "catalog:",
+    "typescript-eslint": "catalog:"
   },
   "devDependencies": {
-    "@synnaxlabs/tsconfig": "workspace:^",
+    "@synnaxlabs/tsconfig": "catalog:",
     "@types/node": "catalog:",
     "eslint": "catalog:",
     "typescript": "catalog:ts6"

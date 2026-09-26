@@ -10,10 +10,10 @@
 package log_test
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 	"os"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -69,7 +69,7 @@ var _ = Describe("ImEx", func() {
 				Expect(env.Type).To(Equal("log"))
 				Expect(env.Name).To(Equal("exported"))
 
-				decoded := MustSucceed(imex.Decode[log.Log](ctx, WireRoundTrip(env)))
+				decoded := MustSucceed(WireRoundTrip(env).Decode[log.Log](ctx))
 				Expect(decoded.Name).To(Equal("exported"))
 				Expect(decoded.TimestampPrecision).To(Equal(int32(2)))
 				Expect(decoded.ChannelNamesHidden).To(BeTrue())
@@ -81,7 +81,10 @@ var _ = Describe("ImEx", func() {
 		It(
 			"Should return not found when the log does not exist",
 			func(ctx SpecContext) {
-				id := ontology.ID{Type: ontology.ResourceTypeLog, Key: uuid.NewString()}
+				id := ontology.ID{
+					Type: ontology.ResourceTypeLog,
+					Key:  uuid.New().String(),
+				}
 				Expect(
 					imexSvc.Export(ctx, id),
 				).Error().
@@ -96,7 +99,7 @@ var _ = Describe("ImEx", func() {
 				Expect(
 					imexSvc.Export(ctx, id),
 				).Error().
-					To(MatchError(ContainSubstring("UUID")))
+					To(MatchError(ContainSubstring("uuid")))
 			},
 		)
 	})

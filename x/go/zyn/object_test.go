@@ -10,7 +10,8 @@
 package zyn_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/x/testutil"
@@ -98,12 +99,14 @@ var _ = Describe("Object", func() {
 				"Role": zyn.String(),
 			})
 			Expect(schema.Validate(map[string]any{"Name": "John"})).To(
-				MatchError(ContainSubstring("role: required")))
+				MatchError(ContainSubstring("role: required")),
+			)
 		})
 		It("Should error when a field has an incompatible type", func() {
 			schema := zyn.Object(map[string]zyn.Schema{"Name": zyn.String()})
 			Expect(schema.Validate(map[string]any{"Name": map[string]any{}})).To(
-				MatchError(ContainSubstring("name")))
+				MatchError(ContainSubstring("name")),
+			)
 		})
 	})
 	Describe("Invalid Inputs", func() {

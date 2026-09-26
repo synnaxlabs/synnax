@@ -20,6 +20,13 @@
     flex-shrink: 0;
 }
 
+.console-project-splash__link-notice {
+    justify-content: center;
+    padding: 2rem 1.5rem;
+    border-bottom: var(--pluto-border-width) solid var(--pluto-gray-l4);
+    flex-shrink: 0;
+}
+
 .console-project-splash__items .pluto-list__virtualizer {
     display: flex;
     flex-direction: column;

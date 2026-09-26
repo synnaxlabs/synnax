@@ -12,7 +12,7 @@ package http_test
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
 	"io"
 	"net/http"
 
@@ -78,7 +78,7 @@ var _ = Describe("BindTo", func() {
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 
 			var msg ihttp.Message
-			Expect(json.NewDecoder(resp.Body).Decode(&msg)).To(Succeed())
+			Expect(json.UnmarshalRead(resp.Body, &msg)).To(Succeed())
 			Expect(msg).To(Equal(ihttp.Message{Message: "hello", ID: 2}))
 		},
 	)
@@ -126,7 +126,7 @@ var _ = Describe("BindTo", func() {
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 
 			var msg ihttp.Message
-			Expect(json.NewDecoder(resp.Body).Decode(&msg)).To(Succeed())
+			Expect(json.UnmarshalRead(resp.Body, &msg)).To(Succeed())
 			Expect(msg.ID).To(Equal(8))
 		},
 	)
@@ -134,6 +134,7 @@ var _ = Describe("BindTo", func() {
 
 var _ = Describe("unaryParamEcho", func() {
 	postParamEcho := func(query, message string) ihttp.Message {
+		GinkgoHelper()
 		app := fiber.New(fiber.Config{})
 		Expect(ihttp.BindTo(app)).To(Succeed())
 
@@ -153,7 +154,7 @@ var _ = Describe("unaryParamEcho", func() {
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 
 		var msg ihttp.Message
-		Expect(json.NewDecoder(resp.Body).Decode(&msg)).To(Succeed())
+		Expect(json.UnmarshalRead(resp.Body, &msg)).To(Succeed())
 		return msg
 	}
 
@@ -190,6 +191,7 @@ var _ = Describe("unaryParamEcho", func() {
 
 var _ = Describe("flakyUnavailable", func() {
 	post := func(app *fiber.App, msg ihttp.Message) *http.Response {
+		GinkgoHelper()
 		body := MustSucceed(json.Marshal(msg))
 		req := MustSucceed(
 			http.NewRequest(
@@ -213,7 +215,7 @@ var _ = Describe("flakyUnavailable", func() {
 		Expect(resp.StatusCode).To(Equal(http.StatusServiceUnavailable))
 
 		var pld errors.Payload
-		Expect(json.NewDecoder(resp.Body).Decode(&pld)).To(Succeed())
+		Expect(json.UnmarshalRead(resp.Body, &pld)).To(Succeed())
 		Expect(pld.Type).To(Equal("integration.error"))
 	})
 
@@ -229,7 +231,7 @@ var _ = Describe("flakyUnavailable", func() {
 			second := post(app, ihttp.Message{Message: "flaky-recovers", ID: 1})
 			Expect(second.StatusCode).To(Equal(http.StatusOK))
 			var msg ihttp.Message
-			Expect(json.NewDecoder(second.Body).Decode(&msg)).To(Succeed())
+			Expect(json.UnmarshalRead(second.Body, &msg)).To(Succeed())
 			Expect(msg).To(Equal(ihttp.Message{Message: "flaky-recovers", ID: 2}))
 		},
 	)

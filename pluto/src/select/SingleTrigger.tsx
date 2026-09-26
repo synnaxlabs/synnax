@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/select/SingleTrigger.css";
+
 import { type record } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
@@ -44,6 +46,7 @@ export const SingleTrigger = <K extends record.Key>({
   hideCaret = false,
   renderIcon,
   preview,
+  className,
   ...rest
 }: SingleTriggerProps) => {
   const allSelected = useSelected<K>();
@@ -74,13 +77,16 @@ export const SingleTrigger = <K extends record.Key>({
     <Dialog.Trigger
       variant="outlined"
       gap="small"
-      className={CSS.cls(CSS.dropRegion(canDrop(dragging)))}
+      className={CSS.cls(
+        CSS.dropRegion(canDrop(dragging)),
+        name == null ? CSS.BM("select-single-trigger", "empty") : null,
+        className,
+      )}
       disabled={disabled}
       {...dropProps}
       {...rest}
       preview={preview}
       hideCaret={hideCaret || iconOnly}
-      textColor={name == null ? 8 : undefined}
     >
       {resolvedIcon}
       {!iconOnly && (name ?? (preview === true ? "None" : placeholder))}

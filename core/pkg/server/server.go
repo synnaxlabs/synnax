@@ -105,9 +105,9 @@ func (c Config) Override(other Config) Config {
 // Validate implements the config.Properties interface.
 func (c Config) Validate() error {
 	v := validate.New("server")
-	validate.NotEmptySlice(v, "listeners", c.Listeners)
+	v.NotEmptySlice("listeners", c.Listeners)
 	for i, l := range c.Listeners {
-		validate.NotEmptyString(v, fmt.Sprintf("listeners[%d].address", i), l.Address)
+		v.NotEmptyString(fmt.Sprintf("listeners[%d].address", i), l.Address)
 	}
 	return v.Error()
 }
@@ -117,6 +117,10 @@ func (c Config) Validate() error {
 // It can also serve secure branches behind a TLS listener.
 type Server struct {
 	shutdown io.Closer
+	// listeners holds the bound listener of each Listener, in configuration order.
+	listeners []net.Listener
+	// addresses holds the resolved address of each Listener, in configuration order.
+	addresses []address.Address
 	Config
 }
 
@@ -140,19 +144,21 @@ func (s *Server) start() (err error) {
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.Instrumentation))
 	s.shutdown = signal.NewGracefulShutdown(sCtx, cancel)
 	s.initBranches()
-	opened := make([]net.Listener, 0, len(s.Listeners))
+	s.listeners = make([]net.Listener, 0, len(s.Listeners))
+	s.addresses = make([]address.Address, 0, len(s.Listeners))
 	for _, l := range s.Listeners {
 		lis, err := net.Listen("tcp", l.Address.PortString())
 		if err != nil {
 			// Closing the opened listeners unblocks their serve goroutines; cancel then
 			// tears down the signal context so a partial bind leaves nothing running.
-			for _, o := range opened {
-				err = errors.Combine(err, o.Close())
-			}
+			err = errors.Combine(err, s.closeListeners())
 			cancel()
 			return err
 		}
-		opened = append(opened, lis)
+		s.listeners = append(s.listeners, lis)
+		s.addresses = append(s.addresses, address.Newf(
+			"%s:%d", l.Address.Host(), lis.Addr().(*net.TCPAddr).Port,
+		))
 		sCtx.Go(func(ctx context.Context) error {
 			mux := cmux.New(lis)
 			if *s.Security.Insecure {
@@ -164,6 +170,11 @@ func (s *Server) start() (err error) {
 	return nil
 }
 
+// Addresses returns the address each Listener bound to, in configuration order. A
+// Listener configured with port 0 binds to a port the operating system chooses, so its
+// resolved address is only available here.
+func (s *Server) Addresses() []address.Address { return s.addresses }
+
 // Close stops the server gracefully, waiting for all branches to stop serving requests.
 // If the server exits abnormally, the error can be discovered through the return value
 // if the Serve method.
@@ -171,7 +182,19 @@ func (s *Server) Close() error {
 	for _, b := range s.Branches {
 		b.Stop()
 	}
-	return s.shutdown.Close()
+	// A Branch registers its listener only once it reaches Serve, so Stop does nothing
+	// to a Branch that has not started yet. Closing the listeners unblocks the
+	// multiplexers unconditionally, which closes every branch listener in turn.
+	return errors.Combine(s.closeListeners(), s.shutdown.Close())
+}
+
+// closeListeners closes every bound listener. A Branch that shut down already closed
+// its own listener, so an already-closed listener is not an error.
+func (s *Server) closeListeners() (err error) {
+	for _, l := range s.listeners {
+		err = errors.Combine(err, filterCloserError(l.Close()))
+	}
+	return err
 }
 
 func (s *Server) serveSecure(sCtx signal.Context, l Listener, root cmux.CMux) error {

@@ -21,9 +21,10 @@ func (s *Service) newGateway(
 	generateSeqNums bool,
 ) (confluence.Segment[Request, Response], error) {
 	iter, err := s.cfg.TS.NewStreamIterator(ts.IteratorConfig{
-		Bounds:        cfg.Bounds,
-		Channels:      cfg.Keys.Storage(),
-		AutoChunkSize: cfg.ChunkSize,
+		Bounds:           cfg.Bounds,
+		Channels:         cfg.Keys.Storage(),
+		AutoChunkSize:    cfg.ChunkSize,
+		DownsampleFactor: cfg.DownsampleFactor,
 	})
 	if err != nil {
 		return nil, err
@@ -33,11 +34,11 @@ func (s *Service) newGateway(
 	reqT.Transform = newStorageRequestTranslator(generateSeqNums)
 	resT := &confluence.LinearTransform[ts.IteratorResponse, Response]{}
 	resT.Transform = newStorageResponseTranslator(s.cfg.HostResolver.HostKey())
-	plumber.SetSegment[ts.IteratorRequest, ts.IteratorResponse](pipe, "storage", iter)
-	plumber.SetSegment[Request, ts.IteratorRequest](pipe, "requests", reqT)
-	plumber.SetSegment[ts.IteratorResponse, Response](pipe, "responses", resT)
-	plumber.MustConnect[ts.IteratorRequest](pipe, "requests", "storage", 1)
-	plumber.MustConnect[ts.IteratorResponse](pipe, "storage", "responses", 1)
+	pipe.SetSegment[ts.IteratorRequest, ts.IteratorResponse]("storage", iter)
+	pipe.SetSegment[Request, ts.IteratorRequest]("requests", reqT)
+	pipe.SetSegment[ts.IteratorResponse, Response]("responses", resT)
+	pipe.MustConnect[ts.IteratorRequest]("requests", "storage", 1)
+	pipe.MustConnect[ts.IteratorResponse]("storage", "responses", 1)
 	seg := &plumber.Segment[Request, Response]{Pipeline: pipe}
 	lo.Must0(seg.RouteInletTo("requests"))
 	lo.Must0(seg.RouteOutletFrom("responses"))

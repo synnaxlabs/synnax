@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <mutex>
+
 #include "gtest/gtest.h"
 
 #include "x/cpp/telem/frame.h"
@@ -38,6 +40,7 @@ std::shared_ptr<Runtime> create_test_runtime(
         nullptr,
         nullptr,
         nullptr,
+        std::make_shared<stl::time::Module>(),
         std::vector<arc::types::ChannelKey>{},
         std::vector<arc::types::ChannelKey>{},
         std::move(error_handler)
@@ -76,6 +79,7 @@ create_lifecycle_runtime(std::unique_ptr<testutil::MockLoop> loop) {
         state,
         std::move(scheduler),
         std::move(loop),
+        std::make_shared<stl::time::Module>(),
         std::vector<arc::types::ChannelKey>{},
         std::vector<arc::types::ChannelKey>{},
         arc::runtime::errors::noop_handler
@@ -320,6 +324,7 @@ TEST(RuntimeLifecycleTest, LoopStartFailureCallsErrorHandler) {
         state,
         std::move(scheduler),
         std::move(mock),
+        std::make_shared<stl::time::Module>(),
         std::vector<arc::types::ChannelKey>{},
         std::vector<arc::types::ChannelKey>{},
         [&](const x::errors::Error &err) {
@@ -377,7 +382,7 @@ TEST(BuildAuthoritiesTest, NoDefaultUsesAbsolute) {
     EXPECT_EQ(result[1], x::control::AUTHORITY_ABSOLUTE);
 }
 
-/// @brief Mock node that sets a configurable deadline on each execution.
+/// @brief Mock node that, like a real timer, self-marks and sets a deadline each run.
 struct DeadlineNode final : public node::Node {
     std::atomic<int64_t> deadline_ns;
 
@@ -385,12 +390,13 @@ struct DeadlineNode final : public node::Node {
         deadline_ns(deadline.nanoseconds()) {}
 
     x::errors::Error next(node::Context &ctx) override {
+        ctx.mark_self_changed();
         const auto d = x::telem::TimeSpan(this->deadline_ns.load());
         if (d != x::telem::TimeSpan::max()) ctx.set_deadline(d);
         return x::errors::NIL;
     }
 
-    void reset() override {}
+    void reset(node::Context &) override {}
 
     [[nodiscard]] bool is_output_truthy(size_t) const override { return false; }
 };
@@ -440,6 +446,7 @@ struct DeadlineRuntimeFixture {
             state,
             std::move(scheduler),
             std::move(mock_loop),
+            std::make_shared<stl::time::Module>(),
             std::vector<arc::types::ChannelKey>{},
             std::vector<arc::types::ChannelKey>{},
             arc::runtime::errors::noop_handler
@@ -448,6 +455,77 @@ struct DeadlineRuntimeFixture {
         return {rt, loop_ptr, node_ptr};
     }
 };
+
+/// @brief Mock node that reserves three stamps and records its cycle stamp each run.
+struct ReserveNode final : public node::Node {
+    std::mutex mu;
+    std::vector<x::telem::TimeStamp> cycle_stamps;
+
+    x::errors::Error next(node::Context &ctx) override {
+        ctx.mark_self_changed();
+        ctx.reserve_stamps(3);
+        std::lock_guard lock(this->mu);
+        this->cycle_stamps.push_back(ctx.cycle.now);
+        return x::errors::NIL;
+    }
+
+    void reset(node::Context &) override {}
+
+    [[nodiscard]] bool is_output_truthy(size_t) const override { return false; }
+
+    size_t cycles() {
+        std::lock_guard lock(this->mu);
+        return this->cycle_stamps.size();
+    }
+};
+
+/// @brief The next cycle's stamp must land above every stamp a node reserved.
+TEST(RuntimeClockTest, ResumesAboveReservedStamps) {
+    auto mock_loop = std::make_unique<testutil::MockLoop>();
+    auto reserve_node = std::make_unique<ReserveNode>();
+    auto *node_ptr = reserve_node.get();
+    auto prog = arc::ir::testutil::Builder()
+                    .node("reserve")
+                    .strata({{"reserve"}})
+                    .build();
+    auto state = std::make_shared<state::State>(
+        state::Config{.ir = prog, .channels = {}}
+    );
+    std::unordered_map<std::string, std::unique_ptr<node::Node>> node_impls;
+    node_impls["reserve"] = std::move(reserve_node);
+    auto scheduler = std::make_unique<scheduler::Scheduler>(
+        prog,
+        node_impls,
+        x::telem::TimeSpan(0)
+    );
+    const auto start = x::telem::TimeStamp(10 * x::telem::SECOND);
+    Config cfg{
+        .program = {},
+        .breaker = x::breaker::Config{},
+        .retrieve_channels = nullptr,
+        .input_queue_capacity = 256,
+        .output_queue_capacity = 256,
+        .loop = {},
+        .now = [start] { return start; },
+    };
+    auto runtime = std::make_shared<Runtime>(
+        cfg,
+        nullptr,
+        state,
+        std::move(scheduler),
+        std::move(mock_loop),
+        std::make_shared<stl::time::Module>(),
+        std::vector<arc::types::ChannelKey>{},
+        std::vector<arc::types::ChannelKey>{},
+        arc::runtime::errors::noop_handler
+    );
+    ASSERT_TRUE(runtime->start());
+    ASSERT_EVENTUALLY_GE(node_ptr->cycles(), 2);
+    ASSERT_TRUE(runtime->stop());
+    std::lock_guard lock(node_ptr->mu);
+    EXPECT_EQ(node_ptr->cycle_stamps[0], start);
+    EXPECT_EQ(node_ptr->cycle_stamps[1], start + int64_t{3});
+}
 
 /// @brief When no deadline is set, runtime should pass max_timeout=0 (no constraint)
 /// on every cycle.

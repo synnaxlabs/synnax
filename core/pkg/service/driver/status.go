@@ -15,6 +15,7 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -22,6 +23,7 @@ import (
 // last status the instance sent so a command that needs no work can be answered by
 // re-sending it, without reading the server. Safe for concurrent use.
 type StatusHandler struct {
+	db  *gorp.DB
 	svc *status.Service
 	mu  sync.Mutex
 	// stat is the last status sent, seeded at construction before any send.
@@ -30,8 +32,8 @@ type StatusHandler struct {
 
 // NewStatusHandler seeds a handler for a fresh instance of t: success variant, not
 // running, "Task configured" message.
-func NewStatusHandler(svc *status.Service, t task.Task) *StatusHandler {
-	return &StatusHandler{svc: svc, stat: task.Status{
+func NewStatusHandler(db *gorp.DB, svc *status.Service, t task.Task) *StatusHandler {
+	return &StatusHandler{db: db, svc: svc, stat: task.Status{
 		Key:     t.OntologyID().String(),
 		Name:    t.Name,
 		Variant: status.VariantSuccess,
@@ -91,5 +93,7 @@ func (h *StatusHandler) stamp() task.Status {
 }
 
 func (h *StatusHandler) write(ctx context.Context, stat task.Status) error {
-	return status.NewWriter[task.StatusDetails](h.svc, nil).Set(ctx, &stat)
+	return h.db.WithTx(ctx, func(tx gorp.Tx) error {
+		return h.svc.NewWriter(tx).Set(ctx, &stat)
+	})
 }

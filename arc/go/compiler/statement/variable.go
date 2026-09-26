@@ -40,10 +40,10 @@ func compileVariableDeclaration(
 	ctx context.Context[parser.IVariableDeclarationContext],
 ) error {
 	if localVar := ctx.AST.LocalVariable(); localVar != nil {
-		return compileLocalVariable(context.Child(ctx, localVar))
+		return compileLocalVariable(ctx.Child(localVar))
 	}
 	if statefulVar := ctx.AST.StatefulVariable(); statefulVar != nil {
-		return compileStatefulVariable(context.Child(ctx, statefulVar))
+		return compileStatefulVariable(ctx.Child(statefulVar))
 	}
 	return errors.New("unknown variable declaration type")
 }
@@ -85,7 +85,7 @@ func compileLocalVariable(ctx context.Context[parser.ILocalVariableContext]) err
 		}
 	}
 
-	exprCtx := context.Child(ctx, ctx.AST.Expression()).WithHint(varType)
+	exprCtx := ctx.Child(ctx.AST.Expression()).WithHint(varType)
 	exprType, err := expression.Compile(exprCtx)
 	if err != nil {
 		return errors.Wrapf(
@@ -155,7 +155,7 @@ func compileStatefulVariable(
 	ctx.Writer.WriteI32Const(int32(scope.ID))
 
 	// Compile the initialization expression (analyzer guarantees type correctness)
-	exprCtx := context.Child(ctx, ctx.AST.Expression()).WithHint(varType)
+	exprCtx := ctx.Child(ctx.AST.Expression()).WithHint(varType)
 	_, err = expression.Compile(exprCtx)
 	if err != nil {
 		return errors.Wrapf(
@@ -193,14 +193,14 @@ func compileIndexedAssignment(
 	// Step 2: Compile and push index expression
 	indexExpressions := indexOrSlice.AllExpression()
 	if _, err := expression.Compile(
-		context.Child(ctx, indexExpressions[0]).WithHint(types.I32()),
+		ctx.Child(indexExpressions[0]).WithHint(types.I32()),
 	); err != nil {
 		return errors.Wrap(err, "failed to compile index expression")
 	}
 
 	// Step 3: Compile and push value expression
 	if _, err := expression.Compile(
-		context.Child(ctx, ctx.AST.Expression()).WithHint(elemType),
+		ctx.Child(ctx.AST.Expression()).WithHint(elemType),
 	); err != nil {
 		return errors.Wrap(err, "failed to compile value expression")
 	}
@@ -231,7 +231,7 @@ func compileIndexedCompoundAssignment(
 	// Step 1: Push handle and index for eventual set_element call
 	ctx.Writer.WriteLocalGet(scope.ID)
 	if _, err := expression.Compile(
-		context.Child(ctx, indexExprs[0]).WithHint(types.I32()),
+		ctx.Child(indexExprs[0]).WithHint(types.I32()),
 	); err != nil {
 		return errors.Wrap(err, "failed to compile index expression")
 	}
@@ -241,7 +241,7 @@ func compileIndexedCompoundAssignment(
 	// We compile the index expression again (safe since index expressions are pure)
 	ctx.Writer.WriteLocalGet(scope.ID)
 	if _, err := expression.Compile(
-		context.Child(ctx, indexExprs[0]).WithHint(types.I32()),
+		ctx.Child(indexExprs[0]).WithHint(types.I32()),
 	); err != nil {
 		return errors.Wrap(err, "failed to compile index expression")
 	}
@@ -250,7 +250,7 @@ func compileIndexedCompoundAssignment(
 
 	// Step 3: Compile RHS expression
 	exprType, err := expression.Compile(
-		context.Child(ctx, ctx.AST.Expression()).WithHint(elemType),
+		ctx.Child(ctx.AST.Expression()).WithHint(elemType),
 	)
 	if err != nil {
 		return errors.Wrap(err, "failed to compile value expression")
@@ -296,7 +296,7 @@ func compileSeriesCompoundAssignment(
 	ctx.Writer.WriteLocalGet(scope.ID)
 
 	exprType, err := expression.Compile(
-		context.Child(ctx, ctx.AST.Expression()).WithHint(elemType),
+		ctx.Child(ctx.AST.Expression()).WithHint(elemType),
 	)
 	if err != nil {
 		return errors.Wrap(err, "failed to compile value expression")
@@ -350,7 +350,7 @@ func compileCompoundAssignment(
 	ctx.Writer.WriteLocalGet(scope.ID)
 
 	exprType, err := expression.Compile(
-		context.Child(ctx, ctx.AST.Expression()).WithHint(varType),
+		ctx.Child(ctx.AST.Expression()).WithHint(varType),
 	)
 	if err != nil {
 		return err
@@ -436,7 +436,7 @@ func compileAssignment(
 
 	targetType := varType.UnwrapChan()
 	exprType, err := expression.Compile(
-		context.Child(ctx, ctx.AST.Expression()).WithHint(targetType),
+		ctx.Child(ctx.AST.Expression()).WithHint(targetType),
 	)
 	if err != nil {
 		return errors.Wrapf(

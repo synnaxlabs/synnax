@@ -1,4 +1,4 @@
-# Pressurization Control Sequence
+# Pressurization control sequence
 
 This directory contains a control sequence that:
 
@@ -18,7 +18,7 @@ This directory contains:
 
 The simulator for this example is located in `examples/simulators/press.py`.
 
-## Running the Example
+## Running the example
 
 To run the example, make sure you have:
 

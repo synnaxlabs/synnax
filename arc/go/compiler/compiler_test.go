@@ -41,6 +41,7 @@ func compile(
 	source string,
 	resolver []symbol.Symbol,
 ) (compiler.Output, error) {
+	GinkgoHelper()
 	prog := MustSucceed(text.Parse(text.Text{Raw: source}))
 	inter, diag := text.Analyze(ctx, prog, NewRoot(nil, resolver...))
 	Expect(diag.Ok()).To(BeTrue(), diag.String())
@@ -52,6 +53,7 @@ func compileWithHostImports(
 	source string,
 	resolver []symbol.Symbol,
 ) (compiler.Output, error) {
+	GinkgoHelper()
 	prog := MustSucceed(text.Parse(text.Text{Raw: source}))
 	inter, diag := text.Analyze(ctx, prog, NewRoot(nil, resolver...))
 	Expect(diag.Ok()).To(BeTrue(), diag.String())
@@ -88,6 +90,7 @@ func inferReturnType(expected any) string {
 }
 
 func assertResult(result uint64, expected any) {
+	GinkgoHelper()
 	switch v := expected.(type) {
 	case float64:
 		Expect(math.Float64frombits(result)).To(Equal(v))
@@ -118,6 +121,10 @@ func assertResult(result uint64, expected any) {
 	}
 }
 
+// cycleNow is the stamp bound to the time host, standing in for the one a runtime
+// loop pushes before each cycle. Guest calls to now() return it.
+const cycleNow = 1750 * telem.SecondTS
+
 // bindDefaultModules creates a state.ProgramState and binds all default STL modules
 // to the given wazero.Runtime. Returns the state, string module, string state, and
 // channel state for post-instantiation setup.
@@ -125,6 +132,7 @@ func bindDefaultModules(
 	ctx context.Context,
 	r wazero.Runtime,
 ) (*node.ProgramState, *stlstrings.Host, *stlstrings.ProgramState, *stlchannels.ProgramState) {
+	GinkgoHelper()
 	s := node.New(ir.IR{Nodes: []ir.Node{{Key: "test"}}})
 	stringsState := stlstrings.NewProgramState()
 	seriesState := series.NewProgramState()
@@ -134,7 +142,7 @@ func bindDefaultModules(
 	stringsMod := MustSucceed(stlstrings.NewHost(ctx, r, stringsState, nil))
 	MustSucceed(stlmath.NewHost(ctx, r))
 	MustSucceed(stlerrors.NewHost(ctx, r, nil))
-	MustSucceed(stltime.NewHost(ctx, r))
+	MustSucceed(stltime.NewHost(ctx, r)).SetNow(cycleNow)
 	MustSucceed(stlchannels.NewHost(ctx, r, channelState, stringsState))
 	return s, stringsMod, stringsState, channelState
 }
@@ -146,6 +154,7 @@ func bindMockChannelModule(
 	r wazero.Runtime,
 	exports map[string]any,
 ) {
+	GinkgoHelper()
 	builder := r.NewHostModuleBuilder("channels")
 	for name, impl := range exports {
 		builder = builder.NewFunctionBuilder().WithFunc(impl).Export(name)
@@ -4412,7 +4421,7 @@ var _ = Describe("Compiler", func() {
 			Expect(compute).ToNot(BeNil())
 
 			results := MustSucceed(compute.Call(ctx))
-			Expect(results[0]).To(BeNumerically(">", 0))
+			Expect(telem.TimeStamp(results[0])).To(Equal(cycleNow))
 		})
 
 		It(
@@ -4487,7 +4496,7 @@ var _ = Describe("Compiler", func() {
 			Expect(compute).ToNot(BeNil())
 
 			results := MustSucceed(compute.Call(ctx))
-			Expect(results[0]).To(BeNumerically(">", 0))
+			Expect(telem.TimeStamp(results[0])).To(Equal(cycleNow))
 		})
 	})
 })

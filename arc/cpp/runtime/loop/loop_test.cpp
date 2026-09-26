@@ -32,18 +32,13 @@ std::pair<std::unique_ptr<Loop>, x::errors::Error> create_and_start(const Config
 namespace test_timing {
 /// @brief Time to wait for a thread to start waiting before signaling.
 const auto THREAD_STARTUP = 50 * x::telem::MILLISECOND;
-/// @brief Small delay before wake to ensure thread is ready.
-const auto SMALL_DELAY = 100 * x::telem::MICROSECOND;
 /// @brief Expected timer bounds (lower).
 const auto TIMER_LOWER_BOUND = 5 * x::telem::MILLISECOND;
 /// @brief Expected timer bounds (upper, accounts for system jitter).
 const auto TIMER_UPPER_BOUND = 50 * x::telem::MILLISECOND;
-/// @brief Maximum wake latency (Windows ~15ms scheduler time slice, POSIX ~1ms).
-#ifdef _WIN32
+/// @brief Maximum latency from wake() to wait() returning. Covers the scheduler putting
+/// both threads back on a core, which takes a time slice or two on a loaded machine.
 const auto WAKE_LATENCY = 50 * x::telem::MILLISECOND;
-#else
-const auto WAKE_LATENCY = x::telem::MILLISECOND;
-#endif
 /// @brief Maximum time for breaker stop to take effect.
 const auto BREAKER_STOP_LATENCY = 10 * x::telem::MILLISECOND;
 /// @brief Maximum time for event-driven timeout (100ms + margin).
@@ -118,22 +113,35 @@ TEST(LoopTest, BusyWaitMode) {
 
     const auto loop = ASSERT_NIL_P(create_and_start(config));
 
-    std::atomic<bool> woke_up{false};
+    // Both threads read the same stopwatch to time the wake, so the window covers
+    // wake() to wait() returning and leaves out thread startup and join scheduling.
+    const auto sw = x::telem::Stopwatch();
+    std::atomic<bool> waiting{false};
+    std::atomic<int64_t> returned_at{0};
     x::breaker::Breaker breaker;
+    breaker.start();
 
     std::thread waiter([&]() {
+        waiting.store(true);
         loop->wait(breaker);
-        woke_up.store(true);
+        returned_at.store(sw.elapsed().nanoseconds());
     });
 
-    std::this_thread::sleep_for(test_timing::SMALL_DELAY.chrono());
+    // wake() latches, so a signal landing just before the spin loop starts still ends
+    // its first iteration.
+    while (!waiting.load())
+        std::this_thread::yield();
 
-    const auto sw = x::telem::Stopwatch();
+    const auto woke_at = sw.elapsed();
     loop->wake();
     waiter.join();
+    breaker.stop();
 
-    EXPECT_LE(sw.elapsed(), test_timing::WAKE_LATENCY);
-    ASSERT_TRUE(woke_up.load());
+    ASSERT_NE(returned_at.load(), 0);
+    EXPECT_LE(
+        x::telem::TimeSpan(returned_at.load()) - woke_at,
+        test_timing::WAKE_LATENCY
+    );
 }
 
 /// @brief Test HIGH_RATE mode with timer.

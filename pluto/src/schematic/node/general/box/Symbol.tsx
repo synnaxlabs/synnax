@@ -7,11 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/schematic/node/general/box/box.css";
+
+import { type schematic } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
+import { CSS } from "@/css";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
-import { type Config } from "@/schematic/node/general/box/config";
 import { type NodeProps } from "@/schematic/node/spec";
 import { Tank as TankPrimitive } from "@/schematic/node/vessels/tank/Primitive";
 
@@ -19,16 +22,8 @@ export const Symbol = ({
   nodeKey,
   onConfigChange,
   selected,
-  config: {
-    label,
-    orientation = "left",
-    backgroundColor,
-    borderRadius,
-    color,
-    dimensions,
-    strokeWidth,
-  },
-}: NodeProps<Config>): ReactElement => (
+  config: { label, backgroundColor, borderRadius, color, dimensions, strokeWidth },
+}: NodeProps<schematic.BoxNodeConfig>): ReactElement => (
   <Grid.Grid
     allowCenter
     allowRotate={false}
@@ -38,12 +33,15 @@ export const Symbol = ({
   >
     <Label.Label config={label} onChange={onConfigChange} />
     <TankPrimitive
-      orientation={orientation}
+      className={CSS.B("box")}
       color={color}
       dimensions={dimensions}
       boxBorderRadius={borderRadius}
       backgroundColor={backgroundColor}
       strokeWidth={strokeWidth}
     />
+    <svg className={CSS.B("box-frame")}>
+      <rect width="100%" height="100%" rx={borderRadius} />
+    </svg>
   </Grid.Grid>
 );

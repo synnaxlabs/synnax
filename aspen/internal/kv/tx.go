@@ -51,14 +51,16 @@ func (t *tx) Set(ctx context.Context, key, value []byte, options ...any) error {
 		return err
 	}
 	return t.applyOp(ctx, Operation{
-		Change:      kv.Change{Key: key, Value: value, Variant: change.VariantSet},
+		Key:         key,
+		Value:       value,
+		Variant:     change.VariantSet,
 		Leaseholder: lease,
 	})
 }
 
 // Delete implements xkv.Tx.
 func (t *tx) Delete(ctx context.Context, key []byte, _ ...any) error {
-	op := Operation{Change: kv.Change{Key: key, Variant: change.VariantDelete}}
+	op := Operation{Key: key, Variant: change.VariantDelete}
 	return t.applyOp(ctx, op)
 }
 

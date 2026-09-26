@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -40,6 +41,10 @@ type GetProgramFunc func(context.Context, arc.Key) (arc.Arc, error)
 
 // FactoryConfig is the configuration for creating an Arc factory.
 type FactoryConfig struct {
+	// DB opens the transactions that status writes run in.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
 	// Channel is used for retrieving channel information.
 	//
 	// [REQUIRED]
@@ -60,31 +65,38 @@ type FactoryConfig struct {
 	//
 	// [REQUIRED]
 	Ranger *ranger.Service
+	// Now returns the wall clock each task's runtime stamps its cycles from.
+	//
+	// [OPTIONAL] - Defaults to telem.Now.
+	Now func() telem.TimeStamp
 	alamos.Instrumentation
 }
 
 var (
 	_                    config.Config[FactoryConfig] = FactoryConfig{}
-	DefaultFactoryConfig                              = FactoryConfig{}
+	DefaultFactoryConfig                              = FactoryConfig{Now: telem.Now}
 )
 
 func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
+	c.DB = override.Nil(c.DB, other.DB)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.GetProgram = override.Nil(c.GetProgram, other.GetProgram)
 	c.Ranger = override.Nil(c.Ranger, other.Ranger)
+	c.Now = override.Nil(c.Now, other.Now)
 	return c
 }
 
 func (c FactoryConfig) Validate() error {
 	v := validate.New("arc.task.factory")
-	validate.NotNil(v, "channel", c.Channel)
-	validate.NotNil(v, "framer", c.Framer)
-	validate.NotNil(v, "status", c.Status)
-	validate.NotNil(v, "get_program", c.GetProgram)
-	validate.NotNil(v, "ranger", c.Ranger)
+	v.NotNil("db", c.DB)
+	v.NotNil("channel", c.Channel)
+	v.NotNil("framer", c.Framer)
+	v.NotNil("status", c.Status)
+	v.NotNil("get_program", c.GetProgram)
+	v.NotNil("ranger", c.Ranger)
 	return v.Error()
 }
 
@@ -138,7 +150,7 @@ func (f *factory) ConfigureTask(
 		task:       t,
 		cfg:        cfg,
 		prog:       prog,
-		status:     driver.NewStatusHandler(f.cfg.Status, t),
+		status:     driver.NewStatusHandler(f.cfg.DB, f.cfg.Status, t),
 	}
 	// A successful configure writes no status: the start that follows it answers the
 	// command, and a "configured" status would answer it first with running false.
@@ -167,9 +179,9 @@ func (f *factory) setConfigStatus(
 		Time:    telem.Now(),
 		Details: details,
 	}
-	if err := status.
-		NewWriter[task.StatusDetails](f.cfg.Status, nil).
-		Set(ctx, &stat); err != nil {
+	if err := f.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		return f.cfg.Status.NewWriter(tx).Set(ctx, &stat)
+	}); err != nil {
 		f.cfg.L.Error(
 			"failed to set configuration status for task",
 			zap.Stringer("key", t.Key),

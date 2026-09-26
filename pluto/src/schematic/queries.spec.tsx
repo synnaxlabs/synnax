@@ -284,6 +284,34 @@ describe("schematic queries", () => {
       expect(result.current.size).toBe(0);
     });
 
+    it("useParentOf maps members to their group", async () => {
+      const isolated = await createTestSchematic(proj.key);
+      await loadSchematic(Wrapper, isolated.key);
+      const { result } = renderHook(
+        () => ({
+          parentOf: Schematic.useParentOf({ key: isolated.key }),
+          dispatch: Schematic.useDispatch(),
+        }),
+        { wrapper: Wrapper },
+      );
+      expect(result.current.parentOf.size).toBe(0);
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: isolated.key,
+          actions: [
+            schematic.setNode({
+              node: { key: "g1", position: { x: 0, y: 0 } },
+              config: { variant: "group_box", members: ["n1", "n2"] },
+            }),
+          ],
+        });
+      });
+      await waitFor(() => {
+        expect(result.current.parentOf.get("n1")).toBe("g1");
+        expect(result.current.parentOf.get("n2")).toBe("g1");
+      });
+    });
+
     it("useNodes keeps its reference when an unrelated node changes", async () => {
       const isolated = await createTestSchematic(proj.key);
       await loadSchematic(Wrapper, isolated.key);
@@ -506,6 +534,85 @@ describe("schematic queries", () => {
     });
   });
 
+  describe("useDispatch — edge color preprocess", () => {
+    const EDGE: schematic.Edge = {
+      key: "e2",
+      source: { node: "n1", param: "out" },
+      target: { node: "n2", param: "in" },
+    };
+
+    let schem: schematic.Schematic;
+    let getEdgeCfg: () => schematic.ElementConfig | undefined;
+    let dispatch: (...actions: schematic.Action[]) => Promise<void>;
+    let cleanup: () => void;
+
+    beforeEach(async () => {
+      schem = await createTestSchematic(proj.key);
+      const loadUtils = await loadSchematic(Wrapper, schem.key);
+      const edge = renderHook(
+        () => Schematic.useElementConfig({ key: schem.key, elKey: EDGE.key }),
+        { wrapper: Wrapper },
+      );
+      const disp = renderHook(() => Schematic.useDispatch(), { wrapper: Wrapper });
+      getEdgeCfg = () => edge.result.current;
+      dispatch = async (...actions) =>
+        await act(async () => {
+          await disp.result.current.dispatchAsync({ key: schem.key, actions });
+        });
+      cleanup = () => {
+        edge.unmount();
+        disp.unmount();
+        loadUtils.unmount();
+      };
+    });
+
+    afterEach(() => cleanup());
+
+    it("fills a new edge's color from its source symbol", async () => {
+      await dispatch(
+        schematic.setConfig({
+          key: "n1",
+          config: { variant: "tank", color: "#00ff00" },
+        }),
+      );
+      await dispatch(
+        schematic.addEdge({ edge: EDGE }),
+        schematic.setConfig({ key: EDGE.key, config: { variant: "pipe" } }),
+      );
+      await waitFor(() =>
+        expect(getEdgeCfg()).toMatchObject({ variant: "pipe", color: [0, 255, 0, 1] }),
+      );
+    });
+
+    it("keeps the color a new edge's config chose", async () => {
+      await dispatch(
+        schematic.setConfig({
+          key: "n1",
+          config: { variant: "tank", color: "#00ff00" },
+        }),
+      );
+      await dispatch(
+        schematic.addEdge({ edge: EDGE }),
+        schematic.setConfig({
+          key: EDGE.key,
+          config: { variant: "pipe", color: "#0000ff" },
+        }),
+      );
+      await waitFor(() =>
+        expect(getEdgeCfg()).toMatchObject({ variant: "pipe", color: [0, 0, 255, 1] }),
+      );
+    });
+
+    it("leaves a new edge alone when its source symbol has no color", async () => {
+      await dispatch(
+        schematic.addEdge({ edge: EDGE }),
+        schematic.setConfig({ key: EDGE.key, config: { variant: "pipe" } }),
+      );
+      await waitFor(() => expect(getEdgeCfg()).toMatchObject({ variant: "pipe" }));
+      expect(getEdgeCfg()).not.toHaveProperty("color");
+    });
+  });
+
   describe("useDispatch — edge segment preprocess", () => {
     const SEGMENTS: Schematic.Edge.Segmented.Segment[] = [
       { direction: "x", length: 50 },
@@ -568,7 +675,10 @@ describe("schematic queries", () => {
 
     it("adjusts a connected edge's stored segments when its source node moves", async () => {
       await dispatch(
-        schematic.setConfig({ key: "e1", config: { segments: SEGMENTS } }),
+        schematic.setConfig({
+          key: "e1",
+          config: { variant: "pipe", segments: SEGMENTS },
+        }),
       );
       await waitFor(() => expect(getEdgeCfg()?.segments).toEqual(SEGMENTS));
 
@@ -596,7 +706,10 @@ describe("schematic queries", () => {
 
     it("leaves edge segments alone when source and target move by equal deltas", async () => {
       await dispatch(
-        schematic.setConfig({ key: "e1", config: { segments: SEGMENTS } }),
+        schematic.setConfig({
+          key: "e1",
+          config: { variant: "pipe", segments: SEGMENTS },
+        }),
       );
       await waitFor(() => expect(getEdgeCfg()?.segments).toEqual(SEGMENTS));
 
@@ -622,7 +735,7 @@ describe("schematic queries", () => {
       await waitFor(() =>
         expect(getEdgeCfg()).toMatchObject({
           variant: "pipe",
-          color: "#ff00ff",
+          color: [255, 0, 255, 1],
           segments: SEGMENTS,
         }),
       );
@@ -633,7 +746,7 @@ describe("schematic queries", () => {
       await waitFor(() => {
         const cfg = getEdgeCfg();
         expect(cfg?.variant).toBe("pipe");
-        expect(cfg?.color).toBe("#ff00ff");
+        expect(cfg?.color).toEqual([255, 0, 255, 1]);
         expect(cfg?.segments?.[0]).toEqual({ direction: "x", length: 30 });
       });
     });
@@ -693,7 +806,10 @@ describe("schematic queries", () => {
       ];
 
       await dispatch(
-        schematic.setConfig({ key: "e1", config: { segments: longSegments } }),
+        schematic.setConfig({
+          key: "e1",
+          config: { variant: "pipe", segments: longSegments },
+        }),
       );
       await waitFor(() => expect(getEdgeCfg()?.segments).toEqual(longSegments));
 
@@ -710,6 +826,118 @@ describe("schematic queries", () => {
         expect(getNode("n1")?.position).toEqual({ x: 0, y: 0 });
         expect(getEdgeCfg()?.segments).toEqual(longSegments);
       });
+    });
+  });
+
+  describe("useGroup / useUngroup", () => {
+    const call = async (fn: () => string[] | null): Promise<string[] | null> => {
+      let out: string[] | null = null;
+      await act(async () => {
+        out = fn();
+      });
+      return out;
+    };
+
+    interface GroupCfg {
+      variant?: string;
+      members?: string[];
+    }
+
+    let schem: schematic.Schematic;
+    let ScopedWrapper: FC<PropsWithChildren>;
+
+    beforeEach(async () => {
+      schem = await createTestSchematic(proj.key);
+      await loadSchematic(Wrapper, schem.key);
+      const Scoped: FC<PropsWithChildren> = ({ children }) => (
+        <Wrapper>
+          <Schematic.Scope.Provider value={schem.key}>
+            {children}
+          </Schematic.Scope.Provider>
+        </Wrapper>
+      );
+      Scoped.displayName = "ScopedWrapper";
+      ScopedWrapper = Scoped;
+    });
+
+    it("should insert a group and return the keys to select, group first", async () => {
+      const { result } = renderHook(
+        () => ({
+          group: Schematic.useGroup(),
+          nodes: Schematic.useAllNodes(),
+          configs: Schematic.useAllConfigs(),
+        }),
+        { wrapper: ScopedWrapper },
+      );
+      const selection = await call(() => result.current.group(["n1", "n2"]));
+      assert(selection != null);
+      expect(selection.slice(1)).toEqual(["n1", "n2"]);
+      const groupKey = selection[0];
+      await waitFor(() => {
+        const cfg = result.current.configs[groupKey] as GroupCfg | undefined;
+        expect(cfg?.variant).toEqual("group_box");
+        expect(cfg?.members).toEqual(["n1", "n2"]);
+        const groupNode = result.current.nodes.find((n) => n.key === groupKey);
+        expect(groupNode?.zIndex).toEqual(-1);
+        expect(groupNode?.position).toEqual({ x: -20, y: -40 });
+      });
+    });
+
+    it("should group as one undoable step", async () => {
+      const { result } = renderHook(
+        () => ({
+          group: Schematic.useGroup(),
+          configs: Schematic.useAllConfigs(),
+          undo: Schematic.useUndo(),
+        }),
+        { wrapper: ScopedWrapper },
+      );
+      const selection = await call(() => result.current.group(["n1", "n2"]));
+      assert(selection != null);
+      const groupKey = selection[0];
+      await waitFor(() => expect(result.current.configs[groupKey]).toBeDefined());
+      await act(async () => {
+        result.current.undo.undo();
+      });
+      await waitFor(() => expect(result.current.configs[groupKey]).toBeUndefined());
+    });
+
+    it("should remove the group on ungroup and return the freed members", async () => {
+      const { result } = renderHook(
+        () => ({
+          group: Schematic.useGroup(),
+          ungroup: Schematic.useUngroup(),
+          nodes: Schematic.useAllNodes(),
+          configs: Schematic.useAllConfigs(),
+        }),
+        { wrapper: ScopedWrapper },
+      );
+      const selection = await call(() => result.current.group(["n1", "n2"]));
+      assert(selection != null);
+      const groupKey = selection[0];
+      await waitFor(() => expect(result.current.configs[groupKey]).toBeDefined());
+      const freed = await call(() => result.current.ungroup([groupKey]));
+      expect(freed).toEqual(["n1", "n2"]);
+      await waitFor(() => {
+        expect(result.current.configs[groupKey]).toBeUndefined();
+        expect(result.current.nodes.some((n) => n.key === groupKey)).toEqual(false);
+      });
+    });
+
+    it("should return null when the selection cannot be grouped", async () => {
+      const { result } = renderHook(() => Schematic.useGroup(), {
+        wrapper: ScopedWrapper,
+      });
+      const selection = await call(() => result.current(["n1"]));
+      expect(selection).toBeNull();
+    });
+
+    it("should return null when ungrouping a selection with no group", async () => {
+      const { result } = renderHook(() => Schematic.useUngroup(), {
+        wrapper: ScopedWrapper,
+      });
+      const freed = await call(() => result.current(["n1"]));
+      expect(freed).toBeNull();
     });
   });
 });

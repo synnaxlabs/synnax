@@ -49,30 +49,30 @@ type nodeImpl struct {
 	outputValues  []result
 	memBase       uint32
 	params        []uint64
+	stack         []uint64
 	offsets       []int
-	initialized   bool
-	isEntryNode   bool
 	selIdx        int
-	clock         telem.MonoClock
 	nodeKeySetter NodeKeySetter
 	stringInputs  []bool
 	chanInputs    []bool
 	varInputs     []bool
 	stringOutputs []bool
 	strings       *stlstrings.ProgramState
+	// batch is nil when the node's signature does not admit vectorization.
+	batch *batchCall
 }
 
-func (n *nodeImpl) call(ctx context.Context, params ...uint64) ([]result, error) {
+func (n *nodeImpl) call(ctx context.Context) ([]result, error) {
 	for i := range n.outputValues {
 		n.outputValues[i].Changed = false
 	}
-	results, err := n.fn.Call(ctx, params...)
-	if err != nil {
+	copy(n.stack, n.params)
+	if err := n.fn.CallWithStack(ctx, n.stack); err != nil {
 		return nil, err
 	}
 	if n.memBase == 0 {
 		if len(n.outputValues) > 0 {
-			n.outputValues[0] = result{Value: results[0], Changed: true}
+			n.outputValues[0] = result{Value: n.stack[0], Changed: true}
 		}
 		return n.outputValues, nil
 	}
@@ -111,13 +111,6 @@ func (n *nodeImpl) Next(ctx node.Context) {
 		}
 	}()
 
-	if n.isEntryNode {
-		if n.initialized {
-			return
-		}
-		n.initialized = true
-	}
-
 	// A $sel-only change re-points without emitting; the value fires on the next input.
 	if n.selIdx >= 0 && !n.dataFresh() {
 		n.RefreshInputs()
@@ -138,7 +131,7 @@ func (n *nodeImpl) Next(ctx node.Context) {
 		if t.Len() == 0 {
 			return
 		}
-		n.params[i] = uint64(telem.ValueAt[uint32](t, -1))
+		n.params[i] = uint64(t.ValueAt[uint32](-1))
 	}
 
 	// A var input references a variable's node; re-read the latest each pass.
@@ -224,10 +217,16 @@ func (n *nodeImpl) Next(ctx node.Context) {
 	}
 	// Dispatcher drivers alternate; no input's time is honest, so stamp the clock.
 	clockStamp := longestInputIdx < 0 || n.selIdx >= 0
+	var clockStart telem.TimeStamp
+	if clockStamp {
+		clockStart = ctx.ReserveStamps(int(maxLength))
+	}
 	if n.nodeKeySetter != nil {
 		n.nodeKeySetter.SetNodeKey(n.ir.Key)
 	}
-	for i := int64(0); i < maxLength; i++ {
+	batched := n.batch != nil && maxLength > 1 &&
+		n.runBatch(ctx, maxLength, longestInputTime, clockStamp, clockStart)
+	for i := int64(0); !batched && i < maxLength; i++ {
 		for j := range n.ir.Inputs {
 			if n.ir.Inputs[j].Value != nil || n.chanInputs[j] || n.varInputs[j] {
 				continue
@@ -244,8 +243,10 @@ func (n *nodeImpl) Next(ctx node.Context) {
 				n.params[j] = uint64(n.strings.Create(string(data)))
 			}
 		}
-		res, err := n.call(ctx.Context, n.params...)
+		res, err := n.call(ctx.Context)
 		if err != nil {
+			// A trap ends the cycle. Emitting the samples that already succeeded
+			// would make the output depend on where in the series the trap landed.
 			ctx.ReportError(errors.Wrapf(
 				err,
 				"WASM execution failed in node %s at sample %d/%d",
@@ -253,11 +254,17 @@ func (n *nodeImpl) Next(ctx node.Context) {
 				i,
 				maxLength,
 			))
-			continue
+			for j := range n.offsets {
+				n.offsets[j] = 0
+			}
+			for j := range stringResults {
+				stringResults[j] = stringResults[j][:0]
+			}
+			break
 		}
 		var ts uint64
 		if clockStamp {
-			ts = uint64(n.clock.Now())
+			ts = uint64(clockStart) + uint64(i)
 		} else {
 			ts = valueAt(longestInputTime, int(i))
 		}
@@ -293,20 +300,19 @@ func (n *nodeImpl) Next(ctx node.Context) {
 	for j := range n.ir.Outputs {
 		if n.stringOutputs[j] {
 			out := n.Output(j)
-			out.Data = telem.NewSeriesV[string](stringResults[j]...).Data
+			out.Data = telem.NewSeriesV(stringResults[j]...).Data
 		} else {
 			n.Output(j).Resize(int64(n.offsets[j]))
 		}
 		n.OutputTime(j).Resize(int64(n.offsets[j]))
 		if n.offsets[j] > 0 {
-			ctx.MarkChanged(j)
+			n.Emit(ctx, j)
 		}
 	}
 }
 
-func (n *nodeImpl) Reset() {
-	n.State.Reset()
-	n.initialized = false
+func (n *nodeImpl) Reset(ctx node.Context) {
+	n.State.Reset(ctx)
 	if n.nodeKeySetter != nil {
 		n.nodeKeySetter.ClearNode(n.ir.Key)
 	}
@@ -327,13 +333,21 @@ func setValueAt(s telem.Series, i int, v uint64) {
 	}
 }
 
+// valueAt marshals one sample for the guest call stack. Narrow signed integers
+// sign-extend: the guest operates on them as signed i32.
 func valueAt(s telem.Series, i int) uint64 {
 	data := s.At(i)
 	density := s.DataType.Density()
 	switch density {
 	case telem.Bit8:
+		if s.DataType == telem.Int8T {
+			return uint64(int8(data[0]))
+		}
 		return uint64(data[0])
 	case telem.Bit16:
+		if s.DataType == telem.Int16T {
+			return uint64(int16(telem.ByteOrder.Uint16(data)))
+		}
 		return uint64(telem.ByteOrder.Uint16(data))
 	case telem.Bit32:
 		return uint64(telem.ByteOrder.Uint32(data))

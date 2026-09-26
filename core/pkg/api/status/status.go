@@ -11,7 +11,6 @@ package status
 
 import (
 	"context"
-	"go/types"
 
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
@@ -169,14 +168,14 @@ type RetrieveRequest struct {
 
 type RetrieveResponse struct {
 	// Statuses are the statuses that were retrieved.
-	Statuses []status.Status[any] `json:"statuses,omitzero" msgpack:"statuses,omitzero"`
+	Statuses []status.Status[any] `json:"statuses" msgpack:"statuses"`
 }
 
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	q := s.internal.NewRetrieve()
+	q := s.internal.NewRetrieve[any]()
 	resStatuses := make([]status.Status[any], 0, len(req.Keys))
 
 	if req.SearchTerm != "" {
@@ -234,13 +233,13 @@ func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
-) (types.Nil, error) {
+) (struct{}, error) {
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
 		Objects: status.OntologyIDs(req.Keys),
 	}); err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
-	return types.Nil{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
+	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }

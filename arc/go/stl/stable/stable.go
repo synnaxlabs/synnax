@@ -11,7 +11,6 @@ package stable
 
 import (
 	"bytes"
-	"context"
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
@@ -79,27 +78,12 @@ func NewSymbols() []*symbol.Symbol {
 
 // Host is the runtime host-side support for the stable module: a node
 // factory for stable.for. Stable has no WASM host bindings.
-type Host struct {
-	now func() telem.TimeStamp
-}
+type Host struct{}
 
-// NewHost constructs a stable Host. By default uses telem.Now; pass
-// WithNow(fn) to override (used by tests for deterministic timestamps).
-func NewHost(opts ...func(*Host)) *Host {
-	h := &Host{now: telem.Now}
-	for _, opt := range opts {
-		opt(h)
-	}
-	return h
-}
+// NewHost constructs a stable Host.
+func NewHost() *Host { return &Host{} }
 
-// WithNow overrides the clock used by stable nodes. Tests pass a
-// deterministic clock here.
-func WithNow(fn func() telem.TimeStamp) func(*Host) {
-	return func(h *Host) { h.now = fn }
-}
-
-func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
+func (h *Host) Create(cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != bareSymbolName && cfg.Node.Type != qualifiedMemberName {
 		return nil, query.ErrNotFound
 	}
@@ -115,7 +99,6 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		State:    cfg.State,
 		inputIdx: inputIdx,
 		duration: inputs.Duration,
-		now:      h.now,
 	}, nil
 }
 
@@ -131,7 +114,6 @@ type forNode struct {
 	*node.State
 	value       []byte
 	lastSent    []byte
-	now         func() telem.TimeStamp
 	inputIdx    int
 	duration    telem.TimeSpan
 	lastChanged telem.TimeStamp
@@ -145,11 +127,11 @@ func (s *forNode) refreshDuration() {
 		return
 	}
 	if v := s.RefInput(i); v.Len() > 0 {
-		s.duration = telem.TimeSpan(telem.ValueAt[int64](v, -1))
+		s.duration = telem.TimeSpan(v.ValueAt[int64](-1))
 	}
 }
 
-func (s *forNode) Reset() {
+func (s *forNode) Reset(node.Context) {
 	s.AbsorbInputs()
 	s.value = nil
 	s.lastSent = nil
@@ -165,7 +147,7 @@ func (s *forNode) Next(ctx node.Context) {
 		if inputData.Len() > 0 {
 			for i := int64(0); i < inputData.Len(); i++ {
 				currentValue := inputData.At(int(i))
-				currentTime := telem.ValueAt[telem.TimeStamp](inputTime, int(i))
+				currentTime := inputTime.ValueAt[telem.TimeStamp](int(i))
 				if s.value == nil || !bytes.Equal(s.value, currentValue) {
 					s.value = bytes.Clone(currentValue)
 					s.lastChanged = currentTime
@@ -178,14 +160,14 @@ func (s *forNode) Next(ctx node.Context) {
 	if s.value == nil {
 		return
 	}
-	if telem.TimeSpan(s.now()-s.lastChanged) >= s.duration {
+	if telem.TimeSpan(ctx.Now-s.lastChanged) >= s.duration {
 		if s.lastSent == nil || !bytes.Equal(s.lastSent, s.value) {
 			out := s.Output(0)
 			out.Resize(1)
 			copy(out.Data, s.value)
-			*s.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](s.now())
+			*s.OutputTime(0) = telem.NewSeriesV(ctx.Now)
 			s.lastSent = bytes.Clone(s.value)
-			ctx.MarkChanged(0)
+			s.Emit(ctx, 0)
 		}
 	}
 }

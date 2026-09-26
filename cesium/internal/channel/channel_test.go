@@ -47,7 +47,8 @@ var _ = Describe("Channel", func() {
 							),
 						),
 						MatchError(validate.ErrValidation),
-					))
+					),
+				)
 			},
 		)
 		It("Should allow int64 series to pass as timestamps", func() {
@@ -102,6 +103,17 @@ var _ = Describe("Channel", func() {
 				Virtual:  true,
 				Index:    123,
 				DataType: telem.Float32T,
+			},
+		),
+		Entry(
+			"Virtual channel is an index",
+			"is_index: virtual channel cannot be an index",
+			cesium.Channel{
+				Name:     "Steinbeck",
+				Key:      9998,
+				Virtual:  true,
+				IsIndex:  true,
+				DataType: telem.TimestampT,
 			},
 		),
 	)

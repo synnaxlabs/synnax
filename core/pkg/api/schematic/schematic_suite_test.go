@@ -11,8 +11,8 @@ package schematic_test
 
 import (
 	"testing"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
@@ -121,6 +121,7 @@ func grantOn(
 	action access.Action,
 	objects ...ontology.ID,
 ) {
+	GinkgoHelper()
 	roleWriter := rbacSvc.Role.NewWriter(nil, true)
 	policyWriter := rbacSvc.Policy.NewWriter(nil, true)
 	r := &role.Role{
@@ -139,5 +140,6 @@ func grantOn(
 }
 
 func grantUpdateOn(ctx SpecContext, subject ontology.ID, objects ...ontology.ID) {
+	GinkgoHelper()
 	grantOn(ctx, subject, access.ActionUpdate, objects...)
 }

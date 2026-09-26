@@ -15,7 +15,7 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
 
-## Stage Declaration
+## Stage declaration
 
 ```arc
 stage name {
@@ -28,7 +28,7 @@ stage name {
 Stage bodies contain flow statements. All flow statements in a stage run concurrently
 while the stage is active.
 
-### Stage Body Syntax
+### Stage body syntax
 
 ```arc channels="press_vlv_cmd, sensor, pressure, abort_btn", bodies="abort"
 stage pressurize {
@@ -36,9 +36,9 @@ stage pressurize {
     pressure > 500 => next
     abort_btn => abort
 
-    // Continuous flows (run every cycle)
-    true -> press_vlv_cmd
-    sensor -> controller{}
+    // Continuous flows
+    true -> press_vlv_cmd    // once on entry
+    sensor -> controller{}   // every sample
 }
 ```
 
@@ -48,7 +48,7 @@ named-stage jumps, or cross-sequence jumps.
 
 <Divider.Divider x />
 
-## Stage Entry Semantics
+## Stage entry semantics
 
 When entering a stage:
 
@@ -62,7 +62,7 @@ When entering a stage:
 
 Aside from stateful variables (`$=`), a stage holds no state between entries.
 
-### Resumable Controllers
+### Resumable controllers
 
 Stage entry semantics enable a common pattern: a controller that parks in a `yield`
 stage and waits for a fresh command to re-enter:
@@ -91,7 +91,7 @@ Because channel triggers only react to new writes after stage entry, a held-trut
 
 <Divider.Divider x />
 
-## Parallel Monitoring
+## Parallel monitoring
 
 All flow statements in a stage run concurrently:
 
@@ -107,7 +107,7 @@ stage pressurize {
 }
 ```
 
-### Line Order and Priority
+### Line order and priority
 
 When multiple conditional transitions (`=>`) are truthy in the same cycle, the first one
 listed wins:
@@ -129,7 +129,7 @@ wins based on line order.
 
 <Divider.Divider x />
 
-## Inline Sequences in a Stage
+## Inline sequences in a stage
 
 An anonymous `sequence { ... }` inside a stage runs its items in order while the stage's
 parallel flows continue. The inline sequence restarts from its first item every time the

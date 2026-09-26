@@ -36,6 +36,7 @@ func openStreamer(ctx context.Context, db *cesium.DB, cfg cesium.StreamerConfig)
 	confluence.Outlet[cesium.StreamerResponse],
 	io.Closer,
 ) {
+	GinkgoHelper()
 	streamer := MustSucceed(db.NewStreamer(ctx, cfg))
 	requests := confluence.NewStream[cesium.StreamerRequest](1)
 	responses := confluence.NewStream[cesium.StreamerResponse](2)
@@ -299,8 +300,8 @@ var _ = Describe("Streamer Behavior", func() {
 						Eventually(o.Outlet()).Should(Receive(&res))
 						idxSeries := res.Frame.Get(idx).Series[0]
 						expected := telem.TimeRange{
-							Start: telem.ValueAt[telem.TimeStamp](idxSeries, 0),
-							End:   telem.ValueAt[telem.TimeStamp](idxSeries, -1) + 1,
+							Start: idxSeries.ValueAt[telem.TimeStamp](0),
+							End:   idxSeries.ValueAt[telem.TimeStamp](-1) + 1,
 						}
 						Expect(expected.Start).ToNot(Equal(telem.TimeStamp(0)))
 						Expect(idxSeries.TimeRange).To(Equal(expected))

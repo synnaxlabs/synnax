@@ -12,6 +12,7 @@ from uuid import uuid4
 
 import pytest
 from pydantic import BaseModel
+from websockets.protocol import State
 
 import freighter.exceptions
 from freighter.context import Context
@@ -210,25 +211,23 @@ class TestSyncWebsocket:
                 break
 
     def test_timeout_0(self, sync_client: WebsocketClient) -> None:
-        """Should correctly return a frame if and when available"""
+        """Should return immediately when empty, and the frame once it is available"""
         stream = sync_client.stream("/eventuallyResponseWithMessage", Message, Message)
         stream.send(Message(id=1, message="hello"))
-        cycle_count = 0
-        sleep = 0.05
-        dur = 0.25
-        max_cycles = (dur / sleep) + 1
-        while True:
-            if cycle_count > max_cycles:
-                break
+        msg: Message | None = None
+        # The server holds the answer back, so the early polls must come back empty
+        # instead of blocking.
+        empty_polls = 0
+        for _ in range(100):
             try:
-                time.sleep(sleep)
                 msg = stream.receive(timeout=0)
-                assert msg.id == 1
                 break
             except TimeoutError:
-                cycle_count += 1
-                pass
-        assert cycle_count < max_cycles, "test timed out"
+                empty_polls += 1
+                time.sleep(0.05)
+        assert msg is not None, "the server never answered"
+        assert msg.id == 1
+        assert empty_polls > 0, "receive(timeout=0) blocked until the answer arrived"
 
     def test_receive_error(self, sync_client: WebsocketClient) -> None:
         """Should correctly decode a custom error from the server."""
@@ -263,3 +262,16 @@ class TestSyncWebsocket:
             msg = stream.receive()
             assert msg.id == 4201
             assert msg.message == "the key to the universe"
+
+    def test_connection_closed_after_server_close(
+        self, sync_client: WebsocketClient
+    ) -> None:
+        """Should open the connection on stream and close it once the server closes."""
+        stream = sync_client.stream("/echo", Message, Message)
+        state = stream._internal.state
+        assert state is State.OPEN
+        stream.close_send()
+        with pytest.raises(freighter.EOF):
+            stream.receive()
+        state = stream._internal.state
+        assert state is State.CLOSED

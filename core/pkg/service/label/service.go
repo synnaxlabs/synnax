@@ -58,10 +58,10 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("label")
-	validate.NotNil(v, "db", c.DB)
-	validate.NotNil(v, "ontology", c.Ontology)
-	validate.NotNil(v, "group", c.Group)
-	validate.NotNil(v, "search", c.Search)
+	v.NotNil("db", c.DB)
+	v.NotNil("ontology", c.Ontology)
+	v.NotNil("group", c.Group)
+	v.NotNil("search", c.Search)
 	return v.Error()
 }
 
@@ -128,5 +128,6 @@ func (s *Service) NewRetrieve() Retrieve {
 // the writer will use it, otherwise it will execute operations directly against the
 // underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
+	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{tx: tx, otg: s.cfg.Ontology.NewWriter(tx), table: s.table}
 }

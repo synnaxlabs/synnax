@@ -12,16 +12,14 @@
 package v1_test
 
 import (
-	"github.com/google/uuid"
 	"testing"
+	"uuid"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions/v1"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Codec", func() {
@@ -68,10 +66,8 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v1.TaskConfig{
-				StartConfig: task.StartConfig{
-					KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-					AutoStart:   false,
-				},
+				Key:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart:  false,
 				RoutingKey: "test_3",
 				Alerts: []v1.Alert{
 					{
@@ -86,15 +82,14 @@ var _ = Describe("Codec", func() {
 				},
 			}),
 			Entry("zero values", v1.TaskConfig{
-				StartConfig: task.StartConfig{KeyedConfig: task.KeyedConfig{Key: uuid.Nil}, AutoStart: false},
-				RoutingKey:  "",
-				Alerts:      nil,
+				Key:        uuid.Nil(),
+				AutoStart:  false,
+				RoutingKey: "",
+				Alerts:     []v1.Alert{},
 			}),
 			Entry("empty collections", v1.TaskConfig{
-				StartConfig: task.StartConfig{
-					KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-					AutoStart:   false,
-				},
+				Key:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart:  false,
 				RoutingKey: "test_3",
 				Alerts:     []v1.Alert{},
 			}),
@@ -129,10 +124,8 @@ func BenchmarkEncodeDecodeAlert(b *testing.B) {
 
 func BenchmarkEncodeDecodeTaskConfig(b *testing.B) {
 	seed := v1.TaskConfig{
-		StartConfig: task.StartConfig{
-			KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-			AutoStart:   false,
-		},
+		Key:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		AutoStart:  false,
 		RoutingKey: "test_3",
 		Alerts: []v1.Alert{
 			{
@@ -210,7 +203,7 @@ func FuzzDecodeAlert(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -219,10 +212,8 @@ func FuzzDecodeAlert(f *testing.F) {
 func FuzzDecodeTaskConfig(f *testing.F) {
 	{
 		seed := v1.TaskConfig{
-			StartConfig: task.StartConfig{
-				KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-				AutoStart:   false,
-			},
+			Key:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart:  false,
 			RoutingKey: "test_3",
 			Alerts: []v1.Alert{
 				{
@@ -244,9 +235,10 @@ func FuzzDecodeTaskConfig(f *testing.F) {
 	}
 	{
 		seed := v1.TaskConfig{
-			StartConfig: task.StartConfig{KeyedConfig: task.KeyedConfig{Key: uuid.Nil}, AutoStart: false},
-			RoutingKey:  "",
-			Alerts:      nil,
+			Key:        uuid.Nil(),
+			AutoStart:  false,
+			RoutingKey: "",
+			Alerts:     []v1.Alert{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -256,10 +248,8 @@ func FuzzDecodeTaskConfig(f *testing.F) {
 	}
 	{
 		seed := v1.TaskConfig{
-			StartConfig: task.StartConfig{
-				KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-				AutoStart:   false,
-			},
+			Key:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart:  false,
 			RoutingKey: "test_3",
 			Alerts:     []v1.Alert{},
 		}
@@ -285,7 +275,7 @@ func FuzzDecodeTaskConfig(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})

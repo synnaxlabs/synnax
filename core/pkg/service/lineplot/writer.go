@@ -11,8 +11,8 @@ package lineplot
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
@@ -35,7 +35,7 @@ func (w Writer) Create(
 		exists bool
 		err    error
 	)
-	if lp.Key == uuid.Nil {
+	if lp.Key == uuid.Nil() {
 		lp.Key = uuid.New()
 	} else {
 		exists, err = w.table.NewRetrieve().
@@ -60,7 +60,7 @@ func (w Writer) Create(
 		if err := w.otg.DefineResources(ctx, otgID); err != nil {
 			return err
 		}
-		if projectKey != uuid.Nil {
+		if projectKey != uuid.Nil() {
 			if err := w.otg.DefineRelationships(
 				ctx,
 				project.OntologyID(projectKey),
@@ -90,28 +90,6 @@ func (w Writer) CreateMany(
 			return err
 		}
 	}
-	return nil
-}
-
-// Dispatch applies a sequence of actions atomically to the line plot with the given
-// key. After a successful update the actions are notified to the service-level observer
-// so subscribers (cluster signals) can broadcast them. dispatchKey is a
-// client-generated identifier carried verbatim onto the broadcast so the originating
-// client can match its own echo against the set of outstanding local replays and skip a
-// redundant reduce when no foreign action interleaved.
-func (w Writer) Dispatch(
-	ctx context.Context,
-	key Key,
-	dispatchKey string,
-	actions []Action,
-) error {
-	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, LinePlot](key)).
-		ChangeErr(func(_ gorp.Context, p LinePlot) (LinePlot, error) {
-			return Reduce(p, actions...)
-		}).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	w.dispatcher.Notify(ctx, key, dispatchKey, actions)
 	return nil
 }
 

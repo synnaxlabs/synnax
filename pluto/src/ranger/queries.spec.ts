@@ -17,7 +17,7 @@ import {
   type ReactElement,
   Suspense,
 } from "react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Ranger } from "@/ranger";
 import { renderHookSuspended } from "@/testutil/render";
@@ -424,6 +424,37 @@ describe("queries", () => {
       expect(result.current.data.length).toBeGreaterThanOrEqual(2);
       expect(result.current.data).toContain(child1.key);
       expect(result.current.data).toContain(child2.key);
+    });
+
+    it("should forward the page bounds to the client", async () => {
+      const parentRange = await client.ranges.create({
+        name: "pagedParent",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(10)),
+      });
+      await Promise.all(
+        Array.from({ length: 3 }, (_, i) =>
+          client.ranges.create({
+            name: `pagedChild${i}`,
+            timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+            parent: parentRange,
+          }),
+        ),
+      );
+      const spy = vi.spyOn(client.ranges.children, "retrieve");
+      try {
+        const { result } = renderHook(() => Ranger.useListChildren(), { wrapper });
+        act(() => {
+          result.current.retrieve(
+            { key: parentRange.key, limit: 2, offset: 0 },
+            { signal: controller.signal },
+          );
+        });
+        await waitFor(() => expect(result.current.variant).toEqual("success"));
+        expect(result.current.data).toHaveLength(2);
+        expect(spy).toHaveBeenCalledWith({ key: parentRange.key, limit: 2, offset: 0 });
+      } finally {
+        spy.mockRestore();
+      }
     });
 
     it("should get individual child ranges using getItem", async () => {
@@ -878,6 +909,38 @@ describe("queries", () => {
         expect(result.current.form.value().name).toEqual("editedRange");
         expect(result.current.form.value().color).toEqual(color.construct("#00FFFF"));
       });
+    });
+
+    it("should keep the form's label order after a save", async () => {
+      const [lo, hi] = (
+        await Promise.all(
+          ["orderLabel1", "orderLabel2"].map((name) =>
+            client.labels.create({ name, color: "#FF00FF" }),
+          ),
+        )
+      )
+        .map((l) => l.key)
+        .sort();
+      const rng = await client.ranges.create({
+        name: "labelOrderRange",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.minutes(5)),
+      });
+      const { result } = renderHook(() => Ranger.useForm({ query: { key: rng.key } }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      for (const labels of [[hi], [hi, lo]])
+        await act(async () => {
+          result.current.form.set("labels", labels);
+          await result.current.saveAsync({ signal: controller.signal });
+        });
+      await act(async () => {
+        await client.ranges.rename(rng.key, "renamedLabelOrderRange");
+      });
+      await waitFor(() =>
+        expect(result.current.form.value().name).toEqual("renamedLabelOrderRange"),
+      );
+      expect(result.current.form.value().labels).toEqual([hi, lo]);
     });
 
     it("should retrieve range with existing labels", async () => {

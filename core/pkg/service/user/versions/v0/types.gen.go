@@ -12,7 +12,8 @@
 package v0
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -39,6 +40,6 @@ type User struct {
 // schema constraints.
 func (u User) Validate() error {
 	v := validate.New("User")
-	validate.NotEmptyString(v, "username", u.Username)
+	v.NotEmptyString("username", u.Username)
 	return v.Error()
 }

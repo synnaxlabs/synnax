@@ -28,6 +28,7 @@ import (
 
 var _ = Describe("Service", func() {
 	createIndexed := func(ctx SpecContext) (channel.Channel, channel.Channel) {
+		GinkgoHelper()
 		idxCh := channel.Channel{
 			Name:     UniqueChannelName(),
 			DataType: telem.TimestampT,
@@ -44,6 +45,7 @@ var _ = Describe("Service", func() {
 	}
 
 	write := func(ctx SpecContext, idxCh, dataCh channel.Channel) {
+		GinkgoHelper()
 		w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 			Start: telem.SecondTS,
 			Keys:  []channel.Key{idxCh.Key(), dataCh.Key()},
@@ -73,27 +75,32 @@ var _ = Describe("Service", func() {
 				Entry("framer", func(c *framer.ServiceConfig) {
 					c.Framer = nil
 				}, "framer"),
+				Entry("db", func(c *framer.ServiceConfig) {
+					c.DB = nil
+				}, "db"),
 				Entry("channel", func(c *framer.ServiceConfig) {
 					c.Channel = nil
 				}, "channel"),
-				Entry("status", func(c *framer.ServiceConfig) {
-					c.Status = nil
-				}, "status"),
+				Entry("channel graph", func(c *framer.ServiceConfig) {
+					c.ChannelGraph = nil
+				}, "channel_graph"),
 			)
 		})
 
 		Describe("Override", func() {
 			It("Should retain base values when the override is empty", func() {
 				res := validCfg.Override(framer.ServiceConfig{})
+				Expect(res.DB).To(Equal(node.DB))
 				Expect(res.Framer).To(Equal(node.Framer))
 				Expect(res.Channel).To(Equal(channelSvc))
-				Expect(res.Status).To(Equal(statusSvc))
+				Expect(res.ChannelGraph).To(Equal(channelGraph))
 			})
 			It("Should replace base values with non-nil overrides", func() {
 				res := framer.ServiceConfig{}.Override(validCfg)
+				Expect(res.DB).To(Equal(node.DB))
 				Expect(res.Framer).To(Equal(node.Framer))
 				Expect(res.Channel).To(Equal(channelSvc))
-				Expect(res.Status).To(Equal(statusSvc))
+				Expect(res.ChannelGraph).To(Equal(channelGraph))
 			})
 			It("Should override zero-value instrumentation", func() {
 				res := framer.ServiceConfig{}.Override(framer.ServiceConfig{

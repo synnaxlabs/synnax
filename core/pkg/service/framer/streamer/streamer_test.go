@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
@@ -78,11 +79,17 @@ var _ = Describe("Streamer", Ordered, func() {
 			Framer:  node.Framer,
 			Channel: channelSvc,
 		}))
-		calc := MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
-			Framer:  node.Framer,
-			Writer:  writerSvc,
+		channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
+			DB:      node.DB,
 			Channel: channelSvc,
 			Status:  statusSvc,
+		}))
+		calc := MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
+			DB:           node.DB,
+			Framer:       node.Framer,
+			Writer:       writerSvc,
+			Channel:      channelSvc,
+			ChannelGraph: channelGraph,
 		}))
 		streamerSvc = MustSucceed(streamer.NewService(streamer.ServiceConfig{
 			Framer:      node.Framer,
@@ -92,22 +99,22 @@ var _ = Describe("Streamer", Ordered, func() {
 	})
 
 	Describe("Config Validation", func() {
-		DescribeTable("Keepalive",
-			func(ctx SpecContext, keepalive telem.TimeSpan, valid bool) {
-				cfg := streamer.Config{Keepalive: keepalive}
+		DescribeTable("KeepAlive",
+			func(ctx SpecContext, keepAlive telem.TimeSpan, valid bool) {
+				cfg := streamer.Config{KeepAlive: keepAlive}
 				if valid {
 					MustSucceed(streamerSvc.New(ctx, cfg))
 					return
 				}
 				Expect(streamerSvc.New(ctx, cfg)).Error().To(
-					MatchError("keepalive: must be greater than or equal to 10ms"),
+					MatchError("keep_alive: must be greater than or equal to 2s"),
 				)
 			},
-			Entry("zero disables keepalives", telem.TimeSpan(0), true),
-			Entry("the minimum interval is accepted", streamer.MinKeepalive, true),
+			Entry("zero disables keep-alives", telem.TimeSpan(0), true),
+			Entry("the minimum interval is accepted", streamer.MinKeepAlive, true),
 			Entry(
 				"a nonzero interval below the minimum is rejected",
-				streamer.MinKeepalive-1,
+				streamer.MinKeepAlive-1,
 				false,
 			),
 		)
@@ -135,7 +142,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			Eventually(outlet.Outlet()).Should(Receive())
 			writtenFr := frame.NewUnary(ch.Key(), telem.NewSeriesV[float32](1, 2, 3))
-			MustSucceed(w.Write(writtenFr))
+			Expect(w.Write(writtenFr)).To(BeTrue())
 			var res streamer.Response
 			Eventually(outlet.Outlet()).Should(Receive(&res))
 			Expect(res.Frame.Frame).To(telem.MatchWrittenFrame(writtenFr.Frame))
@@ -201,7 +208,7 @@ var _ = Describe("Streamer", Ordered, func() {
 					telem.NewSeriesV[float32](-1, -2, -3, -4, -5),
 				},
 			)
-			MustSucceed(w.Write(writtenFr))
+			Expect(w.Write(writtenFr)).To(BeTrue())
 			var res streamer.Response
 			Eventually(outlet.Outlet()).Should(Receive(&res))
 			inlet.Close()
@@ -249,7 +256,7 @@ var _ = Describe("Streamer", Ordered, func() {
 						telem.NewSeriesV[float32](-1, -2, -3, -4, -5),
 					},
 				)
-				MustSucceed(w.Write(writtenFr))
+				Expect(w.Write(writtenFr)).To(BeTrue())
 				var res streamer.Response
 				Eventually(outlet.Outlet()).Should(Receive(&res))
 				inlet.Close()
@@ -317,22 +324,22 @@ var _ = Describe("Streamer", Ordered, func() {
 				Eventually(outlet.Outlet()).Should(Receive())
 
 				// Writer A sends [idxA, dataA] — not enough inputs to compute
-				MustSucceed(wA.Write(frame.NewMulti(
+				Expect(wA.Write(frame.NewMulti(
 					keysA,
 					[]telem.Series{
 						telem.NewSeriesSecondsTSV(1, 2, 3),
 						telem.NewSeriesV[float32](10, 20, 30),
 					},
-				)))
+				))).To(BeTrue())
 
 				// Writer B sends [idxB, dataB] — now both inputs available
-				MustSucceed(wB.Write(frame.NewMulti(
+				Expect(wB.Write(frame.NewMulti(
 					keysB,
 					[]telem.Series{
 						telem.NewSeriesSecondsTSV(1, 2, 3),
 						telem.NewSeriesV[float32](1, 2, 3),
 					},
-				)))
+				))).To(BeTrue())
 
 				var res streamer.Response
 				Eventually(outlet.Outlet()).Should(Receive(&res))
@@ -370,7 +377,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			Eventually(outlet.Outlet()).Should(Receive())
 			writtenFr := frame.NewUnary(ch.Key(), telem.NewSeriesV[float32](1, 2, 3, 4))
-			MustSucceed(w.Write(writtenFr))
+			Expect(w.Write(writtenFr)).To(BeTrue())
 			var res streamer.Response
 			Eventually(outlet.Outlet()).Should(Receive(&res))
 			Expect(
@@ -378,25 +385,6 @@ var _ = Describe("Streamer", Ordered, func() {
 			).To(telem.MatchSeriesData(writtenFr.Get(ch.Key()).Series[0].Downsample(2)))
 			inlet.Close()
 			Eventually(outlet.Outlet()).Should(BeClosed())
-		})
-
-		It("Should handle invalid downsampling factors", func(ctx SpecContext) {
-			ch := &channel.Channel{
-				Name:     UniqueChannelName(),
-				DataType: telem.Float32T,
-				Virtual:  true,
-			}
-			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
-			keys := []channel.Key{ch.Key()}
-
-			_, err := streamerSvc.New(ctx, streamer.Config{
-				Keys:             keys,
-				SendOpenAck:      true,
-				DownsampleFactor: -2,
-			})
-			Expect(
-				err,
-			).To(MatchError(ContainSubstring("downsample_factor: must be greater than or equal to 0")))
 		})
 
 		It(
@@ -460,7 +448,7 @@ var _ = Describe("Streamer", Ordered, func() {
 						telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6, 7, 8),
 					},
 				)
-				MustSucceed(w.Write(writtenFr))
+				Expect(w.Write(writtenFr)).To(BeTrue())
 
 				var res streamer.Response
 				Eventually(outlet.Outlet()).Should(Receive(&res))
@@ -475,6 +463,115 @@ var _ = Describe("Streamer", Ordered, func() {
 			},
 		)
 	})
+	Describe("Stateful Calculations", func() {
+		// openStateful creates an index, a data channel, and a calculated channel
+		// holding a running sum of the data channel, then opens a writer over the
+		// concrete channels and a streamer over the calculation.
+		type statefulStream struct {
+			writer *framer.Writer
+			inlet  confluence.Inlet[streamer.Request]
+			outlet confluence.Outlet[streamer.Response]
+			keys   []channel.Key
+			total  channel.Key
+		}
+
+		openStateful := func(ctx SpecContext, factor uint32) statefulStream {
+			GinkgoHelper()
+			indexCh := &channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.TimestampT,
+				IsIndex:  true,
+			}
+			Expect(channelWriter.Create(ctx, indexCh)).To(Succeed())
+			dataCh := &channel.Channel{
+				Name:       UniqueChannelName(),
+				DataType:   telem.Float32T,
+				LocalIndex: indexCh.LocalKey,
+			}
+			Expect(channelWriter.Create(ctx, dataCh)).To(Succeed())
+			total := &channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.Float32T,
+				Expression: fmt.Sprintf(
+					"total f32 $= 0\ntotal = total + %s\nreturn total",
+					dataCh.Name,
+				),
+			}
+			Expect(channelWriter.Create(ctx, total)).To(Succeed())
+			keys := []channel.Key{indexCh.Key(), dataCh.Key()}
+			w := MustOpen(node.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Start: telem.SecondTS,
+				Keys:  keys,
+			}))
+			s := MustSucceed(streamerSvc.New(ctx, streamer.Config{
+				Keys:             []channel.Key{total.Key()},
+				SendOpenAck:      true,
+				DownsampleFactor: factor,
+			}))
+			sCtx, cancel := signal.Isolated()
+			DeferCleanup(cancel)
+			inlet, outlet := confluence.Attach(s)
+			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+			Eventually(outlet.Outlet()).Should(Receive())
+			return statefulStream{
+				writer: w,
+				inlet:  inlet,
+				outlet: outlet,
+				keys:   keys,
+				total:  total.Key(),
+			}
+		}
+
+		writeAt := func(
+			st statefulStream,
+			start telem.TimeStamp,
+			values ...float32,
+		) {
+			GinkgoHelper()
+			stamps := make([]telem.TimeStamp, len(values))
+			for i := range values {
+				stamps[i] = start + telem.TimeStamp(i)*telem.SecondTS
+			}
+			Expect(st.writer.Write(frame.NewMulti(
+				st.keys,
+				[]telem.Series{
+					telem.NewSeries(stamps),
+					telem.NewSeries(values),
+				},
+			))).To(BeTrue())
+		}
+
+		It("Should carry calculation state across frames", func(ctx SpecContext) {
+			st := openStateful(ctx, 0)
+			var res streamer.Response
+			writeAt(st, telem.SecondTS, 1, 2, 3)
+			Eventually(st.outlet.Outlet()).Should(Receive(&res))
+			Expect(res.Frame.Get(st.total).Series[0]).
+				To(telem.MatchSeriesDataV[float32](1, 3, 6))
+			writeAt(st, 4*telem.SecondTS, 4, 5)
+			Eventually(st.outlet.Outlet()).Should(Receive(&res))
+			Expect(res.Frame.Get(st.total).Series[0]).
+				To(telem.MatchSeriesDataV[float32](10, 15))
+			Expect(st.writer.Close()).To(Succeed())
+			st.inlet.Close()
+			Eventually(st.outlet.Outlet()).Should(BeClosed())
+		})
+
+		It("Should downsample a calculation after it runs", func(ctx SpecContext) {
+			st := openStateful(ctx, 2)
+			writeAt(st, telem.SecondTS, 1, 2, 3, 4, 5, 6, 7, 8)
+			var res streamer.Response
+			Eventually(st.outlet.Outlet()).Should(Receive(&res))
+			// The running sum over every sample is 1, 3, 6, 10, 15, 21, 28, 36. Summing
+			// a strided input would instead give 1, 4, 9, 16.
+			Expect(res.Frame.Get(st.total).Series[0]).
+				To(telem.MatchSeriesDataV[float32](1, 6, 15, 28))
+			Expect(st.writer.Close()).To(Succeed())
+			st.inlet.Close()
+			Eventually(st.outlet.Outlet()).Should(BeClosed())
+		})
+	})
+
 	Describe("Throttling", func() {
 		It("Should accumulate and throttle frames", func(ctx SpecContext) {
 			ch := &channel.Channel{
@@ -504,7 +601,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Eventually(outlet.Outlet()).Should(Receive())
 
 			writtenFr := frame.NewUnary(ch.Key(), telem.NewSeriesV[float32](1, 2, 3))
-			MustSucceed(w.Write(writtenFr))
+			Expect(w.Write(writtenFr)).To(BeTrue())
 
 			var res streamer.Response
 			Eventually(outlet.Outlet(), 500*time.Millisecond).Should(Receive(&res))
@@ -541,7 +638,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Eventually(outlet.Outlet()).Should(Receive())
 
 			writtenFr := frame.NewUnary(ch.Key(), telem.NewSeriesV[float32](1, 2, 3))
-			MustSucceed(w.Write(writtenFr))
+			Expect(w.Write(writtenFr)).To(BeTrue())
 
 			var res streamer.Response
 			Eventually(outlet.Outlet()).Should(Receive(&res))
@@ -582,7 +679,7 @@ var _ = Describe("Streamer", Ordered, func() {
 				ch.Key(),
 				telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6),
 			)
-			MustSucceed(w.Write(writtenFr))
+			Expect(w.Write(writtenFr)).To(BeTrue())
 
 			var res streamer.Response
 			Eventually(outlet.Outlet(), 500*time.Millisecond).Should(Receive(&res))
@@ -622,7 +719,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Eventually(outlet.Outlet()).Should(Receive())
 
 			writtenFr := frame.NewUnary(ch.Key(), telem.NewSeriesV[float32](1, 2, 3))
-			MustSucceed(w.Write(writtenFr))
+			Expect(w.Write(writtenFr)).To(BeTrue())
 
 			var res streamer.Response
 			Eventually(outlet.Outlet(), 500*time.Millisecond).Should(Receive(&res))
@@ -659,7 +756,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Eventually(outlet.Outlet()).Should(Receive())
 
 			writtenFr := frame.NewUnary(ch.Key(), telem.NewSeriesV[float32](1, 2, 3))
-			MustSucceed(w.Write(writtenFr))
+			Expect(w.Write(writtenFr)).To(BeTrue())
 
 			var res streamer.Response
 			Eventually(outlet.Outlet()).Should(Receive(&res))
@@ -700,7 +797,7 @@ var _ = Describe("Streamer", Ordered, func() {
 				ch.Key(),
 				telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6),
 			)
-			MustSucceed(w.Write(writtenFr))
+			Expect(w.Write(writtenFr)).To(BeTrue())
 
 			var res streamer.Response
 			Eventually(outlet.Outlet(), 500*time.Millisecond).Should(Receive(&res))

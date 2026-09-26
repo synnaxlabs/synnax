@@ -12,8 +12,8 @@ package zyn
 import (
 	"reflect"
 	"strconv"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
@@ -27,7 +27,7 @@ type StringZ struct{ baseZ }
 // validation schemas.
 func String() StringZ {
 	s := StringZ{
-		baseZ: baseZ{dataType: StringT, expectedType: reflect.TypeFor[string]()},
+		dataType: StringT, expectedType: reflect.TypeFor[string](),
 	}
 	s.wrapper = s
 	return s

@@ -10,27 +10,18 @@
 name: Test - Format
 
 on:
-  pull_request:
-  push:
-    branches:
-      - main
-      - rc
+  workflow_call:
   workflow_dispatch:
 
 jobs:
   test:
-    name: Check Formatting
+    name: Check formatting
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
+      - uses: pnpm/setup@v3
         with:
-          node-version-file: package.json
-          cache: pnpm
+          cache: true
 
-      - name: Install Dependencies
-        run: pnpm install
-
-      - name: Check Formatting
+      - name: Check formatting
         run: pnpm check-format

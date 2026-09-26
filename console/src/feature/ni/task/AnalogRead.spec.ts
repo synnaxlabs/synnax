@@ -23,11 +23,15 @@ import {
   clickDeploy,
   commitFieldInput,
   deployAndAwaitTask,
-  findDialogTriggerByText,
-  getLabeledInput,
   selectFromDropdown,
 } from "@/platform/task/testutil";
-import { getIconButton, getInputTable, uniqueName } from "@/testutil";
+import {
+  findDialogTriggerByText,
+  getIconButton,
+  getInputTable,
+  getLabeledInput,
+  uniqueName,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -217,138 +221,161 @@ describe("AnalogRead", () => {
     expect(port).toBeTruthy();
   });
 
-  describe("deploying against a live Core", () => {
-    it("should create index and data channels, update the device, and save the task", async () => {
-      const dev = await createNIDevice(client);
-      const namedChannel = uniqueName("ai_named");
-      const { container, draft } = await renderAnalogRead({
-        ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
-        channels: [
-          createChannel("ai_voltage", 0, { device: dev.key }),
-          createChannel("ai_current", 1, { device: dev.key, name: namedChannel }),
-        ],
-      });
-      await deployAndAwaitTask(client, container, draft.key);
-      const created = await client.tasks.retrieve({
-        key: draft.key,
-        schemas: NI.Task.ANALOG_READ_SCHEMAS,
-      });
-      expect(created.type).toBe(NI.Task.ANALOG_READ_TYPE);
-      expect(created.rack).toBe(dev.rack);
-      const [c0, c1] = created.config.channels;
-      expect(c0.channel).not.toBe(0);
-      expect(c1.channel).not.toBe(0);
-
-      const identifier = dev.properties.identifier;
-      const dataChannel = await client.channels.retrieve(c0.channel);
-      expect(dataChannel.name).toBe(`${identifier}_ai_0`);
-      const named = await client.channels.retrieve(c1.channel);
-      expect(named.name).toBe(namedChannel);
-
-      const updated = await client.devices.retrieve({
-        key: dev.key,
-        schemas: NI.Device.SCHEMAS,
-      });
-      expect(updated.properties.analogInput.index).not.toBe(0);
-      expect(updated.properties.analogInput.channels["0"]).toBe(c0.channel);
-      expect(updated.properties.analogInput.channels["1"]).toBe(c1.channel);
-      const index = await client.channels.retrieve(
-        updated.properties.analogInput.index,
-      );
-      expect(index.name).toBe(`${identifier}_ai_time`);
-      expect(index.isIndex).toBe(true);
+  it("should create index and data channels, update the device, and save the task", async () => {
+    const dev = await createNIDevice(client);
+    const namedChannel = uniqueName("ai_named");
+    const { container, draft } = await renderAnalogRead({
+      ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+      channels: [
+        createChannel("ai_voltage", 0, { device: dev.key }),
+        createChannel("ai_current", 1, { device: dev.key, name: namedChannel }),
+      ],
     });
-
-    it("should persist coefficients added and removed through the polynomial editor", async () => {
-      const dev = await createNIDevice(client);
-      const { container, draft } = await renderAnalogRead({
-        ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
-        channels: [
-          createChannel("ai_force_bridge_polynomial", 0, {
-            device: dev.key,
-            forwardCoeffs: [1, 2, 3],
-          }),
-        ],
-      });
-      await screen.findByText("Forward coefficients");
-      const forward = getInputTable("Forward coefficients");
-      expect(forward.rows).toHaveLength(3);
-      fireEvent.click(getIconButton(forward.rows[1], "close"));
-      await waitFor(() =>
-        expect(getInputTable("Forward coefficients").rows).toHaveLength(2),
-      );
-      fireEvent.click(getInputTable("Reverse coefficients").add);
-      await waitFor(() =>
-        expect(getInputTable("Reverse coefficients").rows).toHaveLength(1),
-      );
-      commitFieldInput(getInputTable("Reverse coefficients").cell(0), "7.5");
-
-      await deployAndAwaitTask(client, container, draft.key);
-      const created = await client.tasks.retrieve({
-        key: draft.key,
-        schemas: NI.Task.ANALOG_READ_SCHEMAS,
-      });
-      const [channel] = created.config.channels;
-      assert(channel.type === "ai_force_bridge_polynomial");
-      // The middle coefficient goes, not the last one.
-      expect(channel.forwardCoeffs).toEqual([1, 3]);
-      expect(channel.reverseCoeffs).toEqual([7.5]);
+    await deployAndAwaitTask(client, container, draft.key);
+    const created = await client.tasks.retrieve({
+      key: draft.key,
+      schemas: NI.Task.ANALOG_READ_SCHEMAS,
     });
+    expect(created.type).toBe(NI.Task.ANALOG_READ_TYPE);
+    expect(created.rack).toBe(dev.rack);
+    const [c0, c1] = created.config.channels;
+    expect(c0.channel).not.toBe(0);
+    expect(c1.channel).not.toBe(0);
 
-    it("should reuse existing channels when redeployed", async () => {
-      const dev = await createNIDevice(client);
-      const config = {
-        ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
-        channels: [createChannel("ai_voltage", 0, { device: dev.key })],
-      };
-      const first = await renderAnalogRead(config);
-      await deployAndAwaitTask(client, first.container, first.draft.key);
-      const firstTask = await client.tasks.retrieve({
-        key: first.draft.key,
+    const identifier = dev.properties.identifier;
+    const dataChannel = await client.channels.retrieve(c0.channel);
+    expect(dataChannel.name).toBe(`${identifier}_ai_0`);
+    const named = await client.channels.retrieve(c1.channel);
+    expect(named.name).toBe(namedChannel);
+
+    const updated = await client.devices.retrieve({
+      key: dev.key,
+      schemas: NI.Device.SCHEMAS,
+    });
+    expect(updated.properties.analogInput.index).not.toBe(0);
+    expect(updated.properties.analogInput.channels["0"]).toBe(c0.channel);
+    expect(updated.properties.analogInput.channels["1"]).toBe(c1.channel);
+    const index = await client.channels.retrieve(updated.properties.analogInput.index);
+    expect(index.name).toBe(`${identifier}_ai_time`);
+    expect(index.isIndex).toBe(true);
+  });
+
+  it("should persist coefficients added and removed through the polynomial editor", async () => {
+    const dev = await createNIDevice(client);
+    const { container, draft } = await renderAnalogRead({
+      ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+      channels: [
+        createChannel("ai_force_bridge_polynomial", 0, {
+          device: dev.key,
+          forwardCoeffs: [1, 2, 3],
+        }),
+      ],
+    });
+    await screen.findByText("Forward coefficients");
+    const forward = getInputTable("Forward coefficients");
+    expect(forward.rows).toHaveLength(3);
+    fireEvent.click(getIconButton(forward.rows[1], "close"));
+    await waitFor(() =>
+      expect(getInputTable("Forward coefficients").rows).toHaveLength(2),
+    );
+    fireEvent.click(getInputTable("Reverse coefficients").add);
+    await waitFor(() =>
+      expect(getInputTable("Reverse coefficients").rows).toHaveLength(1),
+    );
+    commitFieldInput(getInputTable("Reverse coefficients").cell(0), "7.5");
+
+    await deployAndAwaitTask(client, container, draft.key);
+    const created = await client.tasks.retrieve({
+      key: draft.key,
+      schemas: NI.Task.ANALOG_READ_SCHEMAS,
+    });
+    const [channel] = created.config.channels;
+    assert(channel.type === "ai_force_bridge_polynomial");
+    // The middle coefficient goes, not the last one.
+    expect(channel.forwardCoeffs).toEqual([1, 3]);
+    expect(channel.reverseCoeffs).toEqual([7.5]);
+  });
+
+  it("should bind a new entry to the channel the device already maps", async () => {
+    const dev = await createNIDevice(client);
+    const config = {
+      ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+      channels: [createChannel("ai_voltage", 0, { device: dev.key })],
+    };
+    const first = await renderAnalogRead(config);
+    await deployAndAwaitTask(client, first.container, first.draft.key);
+    const firstTask = await client.tasks.retrieve({
+      key: first.draft.key,
+      schemas: NI.Task.ANALOG_READ_SCHEMAS,
+    });
+    first.unmount();
+    const existing = await client.channels.retrieve(
+      firstTask.config.channels[0].channel,
+    );
+    const second = await renderAnalogRead(config);
+    await screen.findByText(existing.name);
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: second.draft.key,
         schemas: NI.Task.ANALOG_READ_SCHEMAS,
       });
-      first.unmount();
-      const second = await renderAnalogRead(config);
-      await deployAndAwaitTask(client, second.container, second.draft.key);
-      await waitFor(async () => {
-        const again = await client.tasks.retrieve({
-          key: second.draft.key,
-          schemas: NI.Task.ANALOG_READ_SCHEMAS,
-        });
-        expect(again.config.channels[0].channel).toBe(
-          firstTask.config.channels[0].channel,
-        );
+      expect(saved.config.channels[0].channel).toBe(existing.key);
+    });
+  });
+
+  it("should reuse existing channels when redeployed", async () => {
+    const dev = await createNIDevice(client);
+    const config = {
+      ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+      channels: [createChannel("ai_voltage", 0, { device: dev.key })],
+    };
+    const first = await renderAnalogRead(config);
+    await deployAndAwaitTask(client, first.container, first.draft.key);
+    const firstTask = await client.tasks.retrieve({
+      key: first.draft.key,
+      schemas: NI.Task.ANALOG_READ_SCHEMAS,
+    });
+    first.unmount();
+    const second = await renderAnalogRead(config);
+    await deployAndAwaitTask(client, second.container, second.draft.key);
+    await waitFor(async () => {
+      const again = await client.tasks.retrieve({
+        key: second.draft.key,
+        schemas: NI.Task.ANALOG_READ_SCHEMAS,
       });
-      const dvc = await client.devices.retrieve({
-        key: dev.key,
-        schemas: NI.Device.SCHEMAS,
-      });
-      expect(dvc.properties.analogInput.channels["0"]).toBe(
+      expect(again.config.channels[0].channel).toBe(
         firstTask.config.channels[0].channel,
       );
     });
-
-    it("should surface an error when channels span devices on different racks", async () => {
-      const devA = await createNIDevice(client);
-      const devB = await createNIDevice(client);
-      const { statuses, container } = await renderAnalogRead({
-        ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
-        channels: [
-          createChannel("ai_voltage", 0, { device: devA.key }),
-          createChannel("ai_voltage", 1, { device: devB.key }),
-        ],
-      });
-      await clickDeploy(container);
-      await awaitStatusDescription(statuses, /are on different racks/);
+    const dvc = await client.devices.retrieve({
+      key: dev.key,
+      schemas: NI.Device.SCHEMAS,
     });
+    expect(dvc.properties.analogInput.channels["0"]).toBe(
+      firstTask.config.channels[0].channel,
+    );
+  });
 
-    it("should surface an error when the task has no channels", async () => {
-      const { statuses, container } = await renderAnalogRead({
-        ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
-        channels: [],
-      });
-      await clickDeploy(container);
-      await awaitStatusDescription(statuses, /No devices selected/);
+  it("should surface an error when channels span devices on different racks", async () => {
+    const devA = await createNIDevice(client);
+    const devB = await createNIDevice(client);
+    const { statuses, container } = await renderAnalogRead({
+      ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+      channels: [
+        createChannel("ai_voltage", 0, { device: devA.key }),
+        createChannel("ai_voltage", 1, { device: devB.key }),
+      ],
     });
+    await clickDeploy(container);
+    await awaitStatusDescription(statuses, /are on different racks/);
+  });
+
+  it("should surface an error when the task has no channels", async () => {
+    const { statuses, container } = await renderAnalogRead({
+      ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+      channels: [],
+    });
+    await clickDeploy(container);
+    await awaitStatusDescription(statuses, /No devices selected/);
   });
 });

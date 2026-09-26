@@ -17,20 +17,16 @@ import (
 	"time"
 )
 
-const (
-	validFrom    = -time.Hour * 24
-	validFor     = time.Hour * 24 * 365
-	caCommonName = "Synnax CA"
-)
-
 func newBasex509() (*x509.Certificate, error) {
 	sn, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
-	cert := &x509.Certificate{
-		SerialNumber: sn,
-		Subject:      pkix.Name{CommonName: caCommonName},
-		NotBefore:    time.Now().Add(validFrom),
-		NotAfter:     time.Now().Add(validFor),
-		KeyUsage:     x509.KeyUsageKeyAgreement | x509.KeyUsageDigitalSignature,
+	if err != nil {
+		return nil, err
 	}
-	return cert, err
+	return &x509.Certificate{
+		SerialNumber: sn,
+		Subject:      pkix.Name{CommonName: "Synnax CA"},
+		NotBefore:    time.Now().Add(-time.Hour * 24),
+		NotAfter:     time.Now().Add(time.Hour * 24 * 365),
+		KeyUsage:     x509.KeyUsageKeyAgreement | x509.KeyUsageDigitalSignature,
+	}, nil
 }

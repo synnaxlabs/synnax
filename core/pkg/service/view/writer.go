@@ -11,13 +11,11 @@ package view
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -36,7 +34,7 @@ func (w Writer) Create(ctx context.Context, view *View) error {
 	if err := w.validate(*view); err != nil {
 		return err
 	}
-	if view.Key == uuid.Nil {
+	if view.Key == uuid.Nil() {
 		view.Key = uuid.New()
 	}
 	if err := w.table.NewCreate().
@@ -70,7 +68,7 @@ func (w Writer) CreateMany(ctx context.Context, views *[]View) error {
 // Delete deletes the views with the given keys. Delete is idempotent.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	if err := w.table.NewDelete().Where(gorp.MatchKeys[Key, View](keys...)).
-		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.ErrNotFound) {
+		Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	return w.otgWriter.DeleteResources(ctx, OntologyIDs(keys)...)
@@ -78,7 +76,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 
 func (w Writer) validate(v View) error {
 	vld := validate.New("view.view")
-	validate.NotEmptyString(vld, "name", v.Name)
-	validate.NotEmptyString(vld, "type", v.Type)
+	vld.NotEmptyString("name", v.Name)
+	vld.NotEmptyString("type", v.Type)
 	return vld.Error()
 }

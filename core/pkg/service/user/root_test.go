@@ -11,8 +11,8 @@ package user_test
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
@@ -24,6 +24,7 @@ import (
 // openRootUser opens a [user.Service] against the suite-level db using the given root
 // credentials. Pass an empty username to open without root credentials.
 func openRootUser(ctx context.Context, username, pwd string) *user.Service {
+	GinkgoHelper()
 	cfg := user.ServiceConfig{
 		DB: db, Ontology: otg, Group: groupSvc, Search: searchIdx, Auth: authSvc,
 	}
@@ -43,6 +44,7 @@ func createUser(
 	username, password string,
 	root bool,
 ) user.User {
+	GinkgoHelper()
 	var u user.User
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 		if err := authSvc.NewWriter(tx).Register(ctx, auth.Credentials{
@@ -71,6 +73,7 @@ func createUser(
 func createUserRecordOnly(
 	ctx context.Context, svc *user.Service, username string, root bool,
 ) user.User {
+	GinkgoHelper()
 	if !root {
 		return MustSucceed(
 			svc.NewWriter(nil).Create(ctx, user.User{Username: username}),
@@ -90,6 +93,7 @@ func createUserRecordOnly(
 // orphan auth row that the reconciler must heal by creating the corresponding user
 // record.
 func createAuthRowOnly(ctx context.Context, username, password string) {
+	GinkgoHelper()
 	Expect(authSvc.NewWriter(nil).Register(ctx, auth.Credentials{
 		Username: username, Password: password,
 	})).To(Succeed())
@@ -98,6 +102,7 @@ func createAuthRowOnly(ctx context.Context, username, password string) {
 // findUser retrieves the user with the given username and fails the spec if no such
 // user exists.
 func findUser(ctx context.Context, svc *user.Service, username string) user.User {
+	GinkgoHelper()
 	var u user.User
 	Expect(svc.NewRetrieve().Where(user.MatchUsernames(username)).Entry(&u).
 		Exec(ctx, nil)).To(Succeed())
@@ -105,6 +110,7 @@ func findUser(ctx context.Context, svc *user.Service, username string) user.User
 }
 
 func rootUsers(ctx context.Context, svc *user.Service) []user.User {
+	GinkgoHelper()
 	var roots []user.User
 	Expect(svc.NewRetrieve().
 		Where(user.MatchRootUser(true)).
@@ -118,6 +124,7 @@ func rootUsers(ctx context.Context, svc *user.Service) []user.User {
 // the ontology writer directly so it can delete root users — the public
 // [user.Writer.Delete] rejects them by design.
 func purgeUsersAndAuth(ctx context.Context) {
+	GinkgoHelper()
 	var users []user.User
 	Expect(svc.NewRetrieve().Entries(&users).Exec(ctx, nil)).To(Succeed())
 	if len(users) == 0 {

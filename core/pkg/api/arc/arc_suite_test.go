@@ -11,8 +11,8 @@ package arc_test
 
 import (
 	"testing"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"
@@ -186,5 +186,6 @@ func grantOn(
 }
 
 func grantUpdateOn(ctx SpecContext, subject ontology.ID, objects ...ontology.ID) {
+	GinkgoHelper()
 	grantOn(ctx, subject, access.ActionUpdate, objects...)
 }

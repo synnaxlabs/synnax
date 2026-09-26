@@ -15,9 +15,10 @@ import { describe, expect, it } from "vitest";
 import { HTTP } from "@/feature/http";
 import { createHTTPDevice } from "@/feature/http/testutil";
 import {
+  awaitEditableForm,
+  commitFieldInput,
   createChannelReadOnlyClient,
   deployAndAwaitTask,
-  findDialogTriggerByText,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
   selectFromDropdown,
@@ -25,12 +26,21 @@ import {
 import {
   awaitTextEditingElement,
   commitTextEdit,
+  findDialogTriggerByText,
   getHeaderIconButton,
   uniqueName,
 } from "@/testutil";
 
-const renderWrite = async (options: RenderTaskFormTabOptions = {}) =>
-  await renderTaskFormTab(HTTP.Task.Write, { task: ZERO_DRAFT, ...options });
+// The form renders read-only until the update grant lands, and a preview field renders
+// no input, so wait for it to become editable before querying fields.
+const renderWrite = async (options: RenderTaskFormTabOptions = {}) => {
+  const rendered = await renderTaskFormTab(HTTP.Task.Write, {
+    task: ZERO_DRAFT,
+    ...options,
+  });
+  await awaitEditableForm();
+  return rendered;
+};
 
 // Drafts carry no key; the created row mints its own.
 const ZERO_DRAFT: task.New<HTTP.Task.WriteSchemas> = {
@@ -67,7 +77,7 @@ const createWriteConfig = (
   endpoints,
 });
 
-describe("HTTP Write form", () => {
+describe("Write", () => {
   it("should show the empty state and add + select an endpoint", async () => {
     await renderWrite();
     await screen.findByText("Select an endpoint to configure");
@@ -183,79 +193,146 @@ describe("HTTP Write form", () => {
     expect(screen.queryByText("Time format")).toBeNull();
   });
 
-  describe("deploying against a live Core", () => {
-    const client = createTestClient();
+  const client = createTestClient();
 
-    it("should create command channels, virtual when variable, and persist them to the device", async () => {
-      const dev = await createHTTPDevice(client);
-      const virtualName = uniqueName("http_cmd");
-      const config = createWriteConfig(dev.key, [
-        createWriteEndpoint("ep1", "/cmd", { dataType: "uint8" }),
-        createWriteEndpoint("ep2", "/msg", { dataType: "string", name: virtualName }),
-      ]);
-      const draft = await createDraft(client, config);
-      const { container } = await renderWrite({ client, taskKey: draft.key });
-      const created = await deployAndAwaitTask(
-        client,
-        container,
-        draft.key,
-        HTTP.Task.WRITE_SCHEMAS,
-      );
+  it("should create command channels, virtual when variable, and persist them to the device", async () => {
+    const dev = await createHTTPDevice(client);
+    const virtualName = uniqueName("http_cmd");
+    const config = createWriteConfig(dev.key, [
+      createWriteEndpoint("ep1", "/cmd", { dataType: "uint8" }),
+      createWriteEndpoint("ep2", "/msg", { dataType: "string", name: virtualName }),
+    ]);
+    const draft = await createDraft(client, config);
+    const { container } = await renderWrite({ client, taskKey: draft.key });
+    const created = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      HTTP.Task.WRITE_SCHEMAS,
+    );
 
-      const updated = await client.devices.retrieve({
-        key: dev.key,
-        schemas: HTTP.Device.SCHEMAS,
-      });
-      const cmdKey = updated.properties.write["/cmd"];
-      const cmdCh = await client.channels.retrieve(cmdKey);
-      expect(cmdCh.dataType.toString()).toBe("uint8");
-      expect(cmdCh.index).toBeGreaterThan(0);
-      expect(created.config.endpoints[0].channel.channel).toBe(cmdKey);
-
-      const virtualKey = updated.properties.write["/msg"];
-      const virtualCh = await client.channels.retrieve(virtualKey);
-      expect(virtualCh.virtual).toBe(true);
-      expect(virtualCh.name).toBe(virtualName);
-      expect(created.config.endpoints[1].channel.channel).toBe(virtualKey);
+    const updated = await client.devices.retrieve({
+      key: dev.key,
+      schemas: HTTP.Device.SCHEMAS,
     });
+    const cmdKey = updated.properties.write["/cmd"];
+    const cmdCh = await client.channels.retrieve(cmdKey);
+    expect(cmdCh.dataType.toString()).toBe("uint8");
+    expect(cmdCh.index).toBeGreaterThan(0);
+    expect(created.config.endpoints[0].channel.channel).toBe(cmdKey);
 
-    it("should adopt existing channels from the config and the device instead of creating new ones", async () => {
-      const dev = await createHTTPDevice(client);
-      const configuredCh = await client.channels.create({
-        name: uniqueName("http_cmd"),
-        dataType: "string",
-        virtual: true,
-      });
-      const storedCh = await client.channels.create({
-        name: uniqueName("http_cmd"),
-        dataType: "string",
-        virtual: true,
-      });
-      dev.properties = {
-        ...HTTP.Device.ZERO_PROPERTIES,
-        write: { "/stored": storedCh.key },
-      };
-      await client.devices.create(dev);
-      const config = createWriteConfig(dev.key, [
-        createWriteEndpoint("ep1", "/cmd", { channel: configuredCh.key }),
-        createWriteEndpoint("ep2", "/stored"),
-      ]);
-      const draft = await createDraft(client, config);
-      const { container } = await renderWrite({ client, taskKey: draft.key });
-      const created = await deployAndAwaitTask(
-        client,
-        container,
-        draft.key,
-        HTTP.Task.WRITE_SCHEMAS,
-      );
-      expect(created.config.endpoints[0].channel.channel).toBe(configuredCh.key);
-      expect(created.config.endpoints[1].channel.channel).toBe(storedCh.key);
-      const updated = await client.devices.retrieve({
-        key: dev.key,
-        schemas: HTTP.Device.SCHEMAS,
-      });
-      expect(updated.properties.write["/cmd"]).toBe(configuredCh.key);
-      expect(updated.properties.write["/stored"]).toBe(storedCh.key);
+    const virtualKey = updated.properties.write["/msg"];
+    const virtualCh = await client.channels.retrieve(virtualKey);
+    expect(virtualCh.virtual).toBe(true);
+    expect(virtualCh.name).toBe(virtualName);
+    expect(created.config.endpoints[1].channel.channel).toBe(virtualKey);
+  });
+
+  it("should follow a path edit to the channel the new path maps, or to none", async () => {
+    const dev = await createHTTPDevice(client);
+    const [cmdCh, otherCh] = await Promise.all(
+      ["http_cmd", "http_other"].map(
+        async (prefix) =>
+          await client.channels.create({
+            name: uniqueName(prefix),
+            dataType: "string",
+            virtual: true,
+          }),
+      ),
+    );
+    dev.properties = {
+      ...HTTP.Device.ZERO_PROPERTIES,
+      write: { "/cmd": cmdCh.key, "/other": otherCh.key },
+    };
+    await client.devices.create(dev);
+    const draft = await createDraft(
+      client,
+      createWriteConfig(dev.key, [
+        createWriteEndpoint("ep1", "/cmd", { dataType: "string" }),
+      ]),
+    );
+    await renderWrite({ client, taskKey: draft.key });
+    await screen.findByText(cmdCh.name);
+    const savedChannel = async () =>
+      (
+        await client.tasks.retrieve({
+          key: draft.key,
+          schemas: HTTP.Task.WRITE_SCHEMAS,
+        })
+      ).config.endpoints[0].channel.channel;
+    commitFieldInput(screen.getByDisplayValue("/cmd"), "/other");
+    await screen.findByText(otherCh.name);
+    await waitFor(async () => expect(await savedChannel()).toBe(otherCh.key));
+    commitFieldInput(screen.getByDisplayValue("/other"), "/none");
+    await waitFor(async () => expect(await savedChannel()).toBe(0));
+    expect(screen.queryByText(otherCh.name)).toBeNull();
+  });
+
+  it("should bind a new endpoint to the command channel the device already stores", async () => {
+    const dev = await createHTTPDevice(client);
+    const storedCh = await client.channels.create({
+      name: uniqueName("http_cmd"),
+      dataType: "string",
+      virtual: true,
     });
+    dev.properties = {
+      ...HTTP.Device.ZERO_PROPERTIES,
+      write: { "/cmd": storedCh.key },
+    };
+    await client.devices.create(dev);
+    const draft = await createDraft(
+      client,
+      createWriteConfig(dev.key, [
+        createWriteEndpoint("ep1", "/cmd", { dataType: "string" }),
+      ]),
+    );
+    await renderWrite({ client, taskKey: draft.key });
+    await screen.findByText(storedCh.name);
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: HTTP.Task.WRITE_SCHEMAS,
+      });
+      expect(saved.config.endpoints[0].channel.channel).toBe(storedCh.key);
+    });
+  });
+
+  it("should adopt existing channels from the config and the device instead of creating new ones", async () => {
+    const dev = await createHTTPDevice(client);
+    const configuredCh = await client.channels.create({
+      name: uniqueName("http_cmd"),
+      dataType: "string",
+      virtual: true,
+    });
+    const storedCh = await client.channels.create({
+      name: uniqueName("http_cmd"),
+      dataType: "string",
+      virtual: true,
+    });
+    dev.properties = {
+      ...HTTP.Device.ZERO_PROPERTIES,
+      write: { "/stored": storedCh.key },
+    };
+    await client.devices.create(dev);
+    const config = createWriteConfig(dev.key, [
+      createWriteEndpoint("ep1", "/cmd", { channel: configuredCh.key }),
+      createWriteEndpoint("ep2", "/stored"),
+    ]);
+    const draft = await createDraft(client, config);
+    const { container } = await renderWrite({ client, taskKey: draft.key });
+    const created = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      HTTP.Task.WRITE_SCHEMAS,
+    );
+    expect(created.config.endpoints[0].channel.channel).toBe(configuredCh.key);
+    expect(created.config.endpoints[1].channel.channel).toBe(storedCh.key);
+    const updated = await client.devices.retrieve({
+      key: dev.key,
+      schemas: HTTP.Device.SCHEMAS,
+    });
+    expect(updated.properties.write["/cmd"]).toBe(configuredCh.key);
+    expect(updated.properties.write["/stored"]).toBe(storedCh.key);
   });
 });

@@ -97,6 +97,12 @@ describe("table/ontology", () => {
       expect(screen.getByText("Copy properties")).toBeDefined();
     });
 
+    it("should offer Reload Console", async () => {
+      const t = await createTable();
+      await renderMenu({ tables: [t] });
+      expect(await screen.findByText("Reload Console")).toBeTruthy();
+    });
+
     it("hides single-selection items for multi-selections", async () => {
       const [a, b] = [await createTable(), await createTable()];
       await renderMenu({ tables: [a, b] });

@@ -11,7 +11,6 @@ package http
 
 import (
 	"context"
-	"go/types"
 	"net/http"
 
 	ws "github.com/fasthttp/websocket"
@@ -27,9 +26,9 @@ import (
 )
 
 var (
-	_ freighter.StreamClient[any, types.Nil] = (*streamClient[any, types.Nil])(nil)
-	_ freighter.ClientStream[any, types.Nil] = (*clientStream[any, types.Nil])(nil)
-	_ config.Config[StreamClientConfig]      = StreamClientConfig{}
+	_ freighter.StreamClient[any, struct{}] = (*streamClient[any, struct{}])(nil)
+	_ freighter.ClientStream[any, struct{}] = (*clientStream[any, struct{}])(nil)
+	_ config.Config[StreamClientConfig]     = StreamClientConfig{}
 )
 
 // StreamClientConfig configures a streaming HTTP client built by NewStreamClient.
@@ -45,7 +44,7 @@ type StreamClientConfig struct {
 // Validate implements config.Config.
 func (c StreamClientConfig) Validate() error {
 	v := validate.New("http.stream_client")
-	validate.NotNil(v, "codec", c.Codec)
+	v.NotNil("codec", c.Codec)
 	return v.Error()
 }
 

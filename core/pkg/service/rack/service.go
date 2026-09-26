@@ -112,13 +112,13 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("rack")
-	validate.NotNil(v, "db", c.DB)
-	validate.NotNil(v, "ontology", c.Ontology)
-	validate.NotNil(v, "group", c.Group)
-	validate.NotNil(v, "host", c.HostProvider)
-	validate.NotNil(v, "status", c.Status)
-	validate.NotNil(v, "search", c.Search)
-	validate.Positive(v, "health", c.HealthCheckInterval)
+	v.NotNil("db", c.DB)
+	v.NotNil("ontology", c.Ontology)
+	v.NotNil("group", c.Group)
+	v.NotNil("host", c.HostProvider)
+	v.NotNil("status", c.Status)
+	v.NotNil("search", c.Search)
+	v.Positive("health", c.HealthCheckInterval)
 	return v.Error()
 }
 
@@ -204,16 +204,20 @@ func (s *Service) loadEmbeddedRack(ctx context.Context) error {
 	}
 	embeddedRack.Name = name
 	embeddedRack.Embedded = true
-	err = s.NewWriter(nil).Create(ctx, &embeddedRack)
+	if err = s.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		return s.NewWriter(tx).Create(ctx, &embeddedRack)
+	}); err != nil {
+		return err
+	}
 	s.EmbeddedKey = embeddedRack.Key
-	return err
+	return nil
 }
 
 func (s *Service) Close() error { return s.closer.Close() }
 
 func (s *Service) RetrieveStatus(ctx context.Context, key Key) (Status, error) {
 	var stat Status
-	if err := status.NewRetrieve[StatusDetails](s.Status).
+	if err := s.Status.NewRetrieve[StatusDetails]().
 		Where(status.MatchKeys[StatusDetails](key.OntologyID().String())).
 		Entry(&stat).
 		Exec(ctx, nil); err != nil {
@@ -229,7 +233,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		otg:    s.Ontology.NewWriter(tx),
 		newKey: s.newKey,
 		group:  s.group,
-		status: status.NewWriter[StatusDetails](s.Status, tx),
+		status: s.Status.NewWriter(tx),
 		table:  s.table,
 	}
 }

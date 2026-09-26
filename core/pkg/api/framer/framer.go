@@ -11,7 +11,6 @@ package framer
 
 import (
 	"context"
-	"go/types"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
@@ -65,16 +64,16 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 }
 
 type DeleteRequest struct {
-	Keys   channel.Keys    `json:"keys"   msgpack:"keys"   validate:"required"`
-	Names  []string        `json:"names"  msgpack:"names"  validate:"names"`
-	Bounds telem.TimeRange `json:"bounds" msgpack:"bounds" validate:"bounds"`
+	Keys   channel.Keys    `json:"keys"   msgpack:"keys"`
+	Names  []string        `json:"names"  msgpack:"names"`
+	Bounds telem.TimeRange `json:"bounds" msgpack:"bounds"`
 }
 
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
-) (types.Nil, error) {
+) (struct{}, error) {
 	var (
 		resChannels []channel.Channel
 		q           = s.channel.NewRetrieve().Entries(&resChannels)
@@ -84,7 +83,7 @@ func (s *Service) Delete(
 	// Early return for safety if a caller passes nothing, that way there is no
 	// accidental deletion of all data.
 	if !hasKeys && !hasNames {
-		return types.Nil{}, nil
+		return struct{}{}, nil
 	}
 	if hasKeys {
 		q = q.Where(channel.MatchKeys(req.Keys...))
@@ -93,7 +92,7 @@ func (s *Service) Delete(
 		q = q.Where(channel.MatchNames(req.Names...))
 	}
 	if err := q.Exec(ctx, tx); err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
 	keys := channel.KeysFromChannels(resChannels)
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
@@ -101,9 +100,9 @@ func (s *Service) Delete(
 		Action:  access.ActionDelete,
 		Objects: framer.OntologyIDs(keys),
 	}); err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
-	return types.Nil{}, s.internal.DeleteTimeRange(ctx, keys, req.Bounds)
+	return struct{}{}, s.internal.DeleteTimeRange(ctx, keys, req.Bounds)
 }
 
 type (
@@ -163,17 +162,15 @@ func (s *Service) Iterate(ctx context.Context, stream IteratorStream) error {
 		},
 	}
 	pipe := plumber.New()
-	plumber.SetSegment(pipe, frameIteratorAddr, iter)
-	plumber.SetSink(pipe, frameSenderAddr, sender)
-	plumber.SetSource(pipe, frameReceiverAddr, receiver)
-	plumber.MustConnect[IteratorResponse](
-		pipe,
+	pipe.SetSegment(frameIteratorAddr, iter)
+	pipe.SetSink(frameSenderAddr, sender)
+	pipe.SetSource(frameReceiverAddr, receiver)
+	pipe.MustConnect[IteratorResponse](
 		frameIteratorAddr,
 		frameSenderAddr,
 		iteratorResponseBufferSize,
 	)
-	plumber.MustConnect[IteratorRequest](
-		pipe,
+	pipe.MustConnect[IteratorRequest](
 		frameReceiverAddr,
 		frameIteratorAddr,
 		iteratorRequestBufferSize,
@@ -242,22 +239,26 @@ func (s *Service) Stream(ctx context.Context, stream StreamerStream) error {
 			Sender: freighter.SenderNopCloser[StreamerResponse]{
 				StreamSender: stream,
 			},
-			KeepaliveInterval: req.Keepalive.Duration(),
-			NewKeepalive: func() StreamerResponse {
-				return StreamerResponse{Keepalive: true}
+			KeepAliveInterval: req.KeepAlive.Duration(),
+			NewKeepAlive: func() StreamerResponse {
+				return StreamerResponse{KeepAlive: true}
 			},
 		}
 		pipe = plumber.New()
 	)
 
-	plumber.SetSegment(pipe, framerStreamerAddr, streamer)
-	plumber.SetSink(pipe, frameSenderAddr, sender)
-	plumber.SetSource(pipe, frameReceiverAddr, receiver)
-	plumber.MustConnect[StreamerRequest](
-		pipe, frameReceiverAddr, framerStreamerAddr, streamingRequestBufferSize,
+	pipe.SetSegment(framerStreamerAddr, streamer)
+	pipe.SetSink(frameSenderAddr, sender)
+	pipe.SetSource(frameReceiverAddr, receiver)
+	pipe.MustConnect[StreamerRequest](
+		frameReceiverAddr,
+		framerStreamerAddr,
+		streamingRequestBufferSize,
 	)
-	plumber.MustConnect[StreamerResponse](
-		pipe, framerStreamerAddr, frameSenderAddr, streamingResponseBufferSize,
+	pipe.MustConnect[StreamerResponse](
+		framerStreamerAddr,
+		frameSenderAddr,
+		streamingResponseBufferSize,
 	)
 	pipe.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.CancelOnFail())
 	return sCtx.Wait()
@@ -442,14 +443,18 @@ func (s *Service) Write(ctx context.Context, stream WriterStream) error {
 
 	pipe := plumber.New()
 
-	plumber.SetSegment(pipe, "writer", w)
-	plumber.SetSource(pipe, frameReceiverAddr, receiver)
-	plumber.SetSink(pipe, frameSenderAddr, sender)
-	plumber.MustConnect[framer.WriterRequest](
-		pipe, frameReceiverAddr, frameWriterAddr, writerRequestBufferSize,
+	pipe.SetSegment("writer", w)
+	pipe.SetSource(frameReceiverAddr, receiver)
+	pipe.SetSink(frameSenderAddr, sender)
+	pipe.MustConnect[framer.WriterRequest](
+		frameReceiverAddr,
+		frameWriterAddr,
+		writerRequestBufferSize,
 	)
-	plumber.MustConnect[framer.WriterResponse](
-		pipe, frameWriterAddr, frameSenderAddr, writerResponseBufferSize,
+	pipe.MustConnect[framer.WriterResponse](
+		frameWriterAddr,
+		frameSenderAddr,
+		writerResponseBufferSize,
 	)
 
 	pipe.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.CancelOnFail())

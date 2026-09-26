@@ -72,6 +72,13 @@ type importEntry struct {
 	Path  string
 }
 
+// NeedsAlias reports whether the import renders with an explicit alias. The alias
+// always qualifies references in the body; it reaches the import line only when it
+// differs from the name the path is already assumed to bind.
+func (i importEntry) NeedsAlias() bool {
+	return i.Alias != naming.AssumedImportName(i.Path)
+}
+
 type funcData struct {
 	GoName         string
 	TypeParamsDecl string // "" for non-generic, "[Details any]" for generic
@@ -128,7 +135,7 @@ import (
 {{- if .Imports}}
 {{end}}
 {{- range .Imports}}
-	{{if .Alias}}{{.Alias}} {{end}}"{{.Path}}"
+	{{if .NeedsAlias}}{{.Alias}} {{end}}"{{.Path}}"
 {{- end}}
 )
 {{range $fn := .Funcs}}
@@ -289,7 +296,8 @@ func (c *collector) aliasFunc(typ resolution.Type, form resolution.AliasForm) fu
 	newName := c.resolveNewTypeName(typ)
 	if isArr, elemRef := isArrayAlias(form, c.oldTable); isArr {
 		return decorateWithTypeParams(
-			c.sliceFunc(typ, goName, oldName, newName, elemRef), form.TypeParams)
+			c.sliceFunc(typ, goName, oldName, newName, elemRef), form.TypeParams,
+		)
 	}
 	targetResolved, ok := form.Target.Resolve(c.oldTable)
 	if !ok {
@@ -307,7 +315,8 @@ func (c *collector) aliasFunc(typ resolution.Type, form resolution.AliasForm) fu
 			}
 			return decorateWithTypeParams(
 				c.structFuncFromForms(goName, oldName, newName, oldSF, newSF),
-				form.TypeParams)
+				form.TypeParams,
+			)
 		}
 	}
 	return decorateWithTypeParams(c.castFunc(typ), form.TypeParams)
@@ -323,7 +332,8 @@ func (c *collector) distinctFunc(
 	if form.Base.Name == "Array" && len(form.Base.TypeArgs) > 0 {
 		return decorateWithTypeParams(
 			c.sliceFunc(typ, goName, oldName, newName, form.Base.TypeArgs[0]),
-			form.TypeParams)
+			form.TypeParams,
+		)
 	}
 	return decorateWithTypeParams(c.castFunc(typ), form.TypeParams)
 }

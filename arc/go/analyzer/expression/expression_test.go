@@ -33,6 +33,7 @@ func expectOperatorTypeError(
 	typeName,
 	operator string,
 ) {
+	GinkgoHelper()
 	ast := MustSucceed(parser.Parse(code))
 	ctx := context.NewRoot(specCtx, ast, NewRoot(nil))
 	analyzer.AnalyzeProgram(ctx)
@@ -1127,7 +1128,8 @@ var _ = Describe("Expressions", func() {
 					arr series i32 := [1, 2, 3]
 					x := arr[undefinedIdx]
 				}
-			`, nil, "undefined symbol")
+			`, nil, "undefined symbol",
+			)
 		})
 	})
 
@@ -1275,6 +1277,7 @@ var _ = Describe("Expressions", func() {
 
 	Describe("IsLiteral", func() {
 		getExpr := func(code string) parser.IExpressionContext {
+			GinkgoHelper()
 			ast := MustSucceed(parser.Parse(code))
 			return ast.AllTopLevelItem()[0].FlowStatement().AllFlowNode()[0].Expression()
 		}
@@ -1321,6 +1324,7 @@ var _ = Describe("Expressions", func() {
 
 	Describe("GetLiteral", func() {
 		getExpr := func(code string) parser.IExpressionContext {
+			GinkgoHelper()
 			ast := MustSucceed(parser.Parse(code))
 			return ast.AllTopLevelItem()[0].FlowStatement().AllFlowNode()[0].Expression()
 		}

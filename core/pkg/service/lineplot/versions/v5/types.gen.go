@@ -14,7 +14,7 @@ package v5
 import (
 	"strconv"
 
-	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v0"
 	color "github.com/synnaxlabs/x/color/versions/v0"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
@@ -197,13 +197,13 @@ type Channels struct {
 	// X2 is the channel rendered on the x2 axis.
 	X2 channel.Key `json:"x2" msgpack:"x2"`
 	// Y1 are the channels rendered on the y1 axis.
-	Y1 []channel.Key `json:"y1,omitzero" msgpack:"y1,omitzero"`
+	Y1 []channel.Key `json:"y1" msgpack:"y1"`
 	// Y2 are the channels rendered on the y2 axis.
-	Y2 []channel.Key `json:"y2,omitzero" msgpack:"y2,omitzero"`
+	Y2 []channel.Key `json:"y2" msgpack:"y2"`
 	// Y3 are the channels rendered on the y3 axis.
-	Y3 []channel.Key `json:"y3,omitzero" msgpack:"y3,omitzero"`
+	Y3 []channel.Key `json:"y3" msgpack:"y3"`
 	// Y4 are the channels rendered on the y4 axis.
-	Y4 []channel.Key `json:"y4,omitzero" msgpack:"y4,omitzero"`
+	Y4 []channel.Key `json:"y4" msgpack:"y4"`
 }
 
 // Ranges binds range keys to each x-axis.
@@ -212,9 +212,9 @@ type Ranges struct {
 	// rather than UUIDs because the console layers synthetic rolling-window ranges
 	// (e.g. "recent", "rolling1m") alongside persisted ranges; the server stores
 	// whatever the client sends.
-	X1 []string `json:"x1,omitzero" msgpack:"x1,omitzero"`
+	X1 []string `json:"x1" msgpack:"x1"`
 	// X2 are the range keys plotted against the x2 axis.
-	X2 []string `json:"x2,omitzero" msgpack:"x2,omitzero"`
+	X2 []string `json:"x2" msgpack:"x2"`
 }
 
 // ManualBounds controls whether an axis uses a manually-set bound on each side
@@ -248,7 +248,7 @@ type Axis struct {
 	TickSpacing float64 `json:"tick_spacing" msgpack:"tick_spacing"`
 	// Type selects the tick label style. Null means default (linear). X-axes typically
 	// carry "time" when bound to a timestamp channel.
-	Type *TickType `json:"type,omitempty" msgpack:"type,omitempty"`
+	Type *TickType `json:"type,omitzero" msgpack:"type,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -351,10 +351,10 @@ type Line struct {
 	Key string `json:"key" msgpack:"key"`
 	// Label is the user-specified line label. Null means derive from the channel name
 	// at render time; non-null is an override.
-	Label *string `json:"label,omitempty" msgpack:"label,omitempty"`
+	Label *string `json:"label,omitzero" msgpack:"label,omitempty"`
 	// Color is the line color. When null, the Console assigns one from the
 	// visualization palette at render time.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// StrokeWidth is the line stroke width in pixels.
 	StrokeWidth float64 `json:"stroke_width" msgpack:"stroke_width"`
 	// Downsample is the downsample factor applied before rendering. 1 means render
@@ -393,7 +393,7 @@ type Rule struct {
 	Label string `json:"label" msgpack:"label"`
 	// Color is the display color of the rule. When null, the Console assigns a default
 	// at render time.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// Axis is the axis the rule is anchored to.
 	Axis AxisKey `json:"axis" msgpack:"axis"`
 	// LineWidth is the rule line width in pixels.
@@ -442,9 +442,9 @@ type LinePlot struct {
 	// Lines holds per-line styling and downsampling configuration. Each entry
 	// corresponds to one channel and range combination produced by the channels and
 	// ranges bindings.
-	Lines []Line `json:"lines,omitzero" msgpack:"lines,omitzero"`
+	Lines []Line `json:"lines" msgpack:"lines"`
 	// Rules holds annotation rules drawn over the plot.
-	Rules []Rule `json:"rules,omitzero" msgpack:"rules,omitzero"`
+	Rules []Rule `json:"rules" msgpack:"rules"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -464,7 +464,6 @@ func (l *LinePlot) ApplyDefaults() {
 // schema constraints.
 func (l LinePlot) Validate() error {
 	v := validate.New("LinePlot")
-	validate.NotEmptyString(v, "name", l.Name)
 	v.Exec(func() error { return validate.PathedError(l.Title.Validate(), "title") })
 	v.Exec(func() error { return validate.PathedError(l.Legend.Validate(), "legend") })
 	v.Exec(func() error { return validate.PathedError(l.Axes.Validate(), "axes") })

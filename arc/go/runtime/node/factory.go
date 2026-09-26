@@ -10,7 +10,6 @@
 package node
 
 import (
-	"context"
 	"strings"
 
 	"github.com/synnaxlabs/alamos"
@@ -27,40 +26,36 @@ type Config struct {
 	Node ir.Node
 	// State provides access to input/output data and channel I/O.
 	State *State
-	// Program contains the arc program for accessing global state and functions.
+	// Program contains the Arc program for accessing global state and functions.
 	Program program.Program
 }
 
-// Factory creates node instances from IR definitions.
-// Implementations check the node type and return query.NotFound if they cannot
-// handle the given type.
+// Factory creates node instances from IR definitions. Implementations check the node
+// type and return query.NotFound if they cannot handle the given type.
 type Factory interface {
-	// Create constructs a node from the given configuration.
-	// Returns query.ErrNotFound if this factory cannot handle cfg.Node.Type.
-	Create(ctx context.Context, cfg Config) (Node, error)
+	// Create constructs a node from the given configuration. Returns query.ErrNotFound
+	// if this factory cannot handle cfg.Node.Type.
+	Create(Config) (Node, error)
 }
 
-// ModuleNamer is an optional interface that factories can implement to declare
-// which module they belong to (e.g. "control", "time"). When the
-// CompoundFactory encounters a qualified node type like "time.interval", it skips
-// factories whose module name doesn't match the prefix. Factories that don't
-// implement this interface are always considered.
-type ModuleNamer interface {
-	ModuleName() string
-}
+// ModuleNamer is an optional interface that factories can implement to declare which
+// module they belong to (e.g. "control", "time"). When the CompoundFactory encounters a
+// qualified node type like "time.interval", it skips factories whose module name
+// doesn't match the prefix. Factories that don't implement this interface are always
+// considered.
+type ModuleNamer interface{ ModuleName() string }
 
 // CompoundFactory tries each factory in order until one succeeds. A factory that
 // returns query.ErrNotFound is skipped; any other error is returned immediately.
 type CompoundFactory []Factory
 
-func (f CompoundFactory) Create(ctx context.Context, cfg Config) (Node, error) {
+func (f CompoundFactory) Create(cfg Config) (Node, error) {
 	// Strip module prefix from the node type so factories only match bare names. The
 	// compiler emits qualified names (e.g. "time.interval", "control.set_authority")
 	// into the IR; normalizing here keeps prefix awareness out of individual factories.
 	var modulePrefix string
-	if i := strings.LastIndex(cfg.Node.Type, "."); i >= 0 {
-		modulePrefix = cfg.Node.Type[:i]
-		cfg.Node.Type = cfg.Node.Type[i+1:]
+	if prefix, bare, ok := strings.CutLast(cfg.Node.Type, "."); ok {
+		modulePrefix, cfg.Node.Type = prefix, bare
 	}
 	for _, factory := range f {
 		// When the IR node has a module prefix (e.g. "control" from
@@ -73,7 +68,7 @@ func (f CompoundFactory) Create(ctx context.Context, cfg Config) (Node, error) {
 				}
 			}
 		}
-		n, err := factory.Create(ctx, cfg)
+		n, err := factory.Create(cfg)
 		if err == nil {
 			return n, nil
 		}

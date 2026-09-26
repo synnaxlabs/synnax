@@ -73,12 +73,12 @@ var _ = Describe("Convergence", func() {
 				)
 				for range values.clusterSize {
 					gossipT := gossipNet.UnaryServer("")
-					pledgeT := pledgeNet.UnaryServer(gossipT.Address)
+					pledgeT := pledgeNet.UnaryServer(gossipT.Address())
 					peerAddresses := rand.SubSlice(addresses, values.peerAddrCount)
 					cluster := MustOpen(cluster.Open(
 						ctx,
 						cluster.Config{
-							HostAddress: gossipT.Address,
+							HostAddress: gossipT.Address(),
 							Pledge: pledge.Config{
 								Peers:           peerAddresses,
 								TransportServer: pledgeT,
@@ -94,18 +94,22 @@ var _ = Describe("Convergence", func() {
 							Storage: DeferClose(memkv.New()),
 						},
 					))
-					addresses = append(addresses, gossipT.Address)
+					addresses = append(addresses, gossipT.Address())
 					clusters = append(clusters, cluster)
+					// A responsible node proposes the highest key it knows plus one, so
+					// the cluster has to agree on its membership before the next node
+					// pledges. Joining faster than gossip converges leaves keys the
+					// algorithm never promised, and can hand one key to two nodes.
+					for _, c := range clusters {
+						Eventually(
+							c.Nodes,
+							values.convergenceThreshold,
+						).Should(HaveLen(len(clusters)))
+					}
 				}
 				Expect(clusters).To(HaveLen(values.clusterSize))
 				for j, c := range clusters {
 					Expect(c.HostKey()).To(Equal(node.Key(j + 1)))
-				}
-				for _, c := range clusters {
-					Eventually(
-						c.Nodes,
-						values.convergenceThreshold,
-					).Should(HaveLen(values.clusterSize))
 				}
 			})
 		})

@@ -11,7 +11,7 @@ import { type record } from "@synnaxlabs/x";
 
 import { type Button } from "@/button";
 import { List } from "@/list";
-import { useItemState } from "@/select/Context";
+import { useItemState, useReselectNoop } from "@/select/Context";
 
 /** Props for {@link ListItem}. */
 export type ListItemProps<
@@ -20,8 +20,8 @@ export type ListItemProps<
 > = List.ItemProps<K, E>;
 
 /**
- * A {@link List.Item} wired to the enclosing selection, so clicking it selects and its
- * selected and hovered states come from the selection rather than the caller.
+ * A {@link List.Item} wired to the enclosing selection. The sole selected item renders
+ * click-inert when clicking it changes nothing; pass `preventClick={false}` to opt out.
  */
 export const ListItem = <
   K extends record.Key = record.Key,
@@ -30,13 +30,15 @@ export const ListItem = <
   props: ListItemProps<K, E>,
 ) => {
   const { itemKey } = props;
-  const { selected, hovered, onSelect } = useItemState(itemKey);
+  const { selected, hovered, onSelect, sole } = useItemState(itemKey);
+  const reselectNoop = useReselectNoop();
   return (
     <List.Item<K, E>
       role="option"
       selected={selected}
       hovered={hovered}
       onSelect={onSelect}
+      preventClick={reselectNoop && sole ? true : undefined}
       {...props}
     />
   );

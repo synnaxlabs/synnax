@@ -16,6 +16,7 @@ import { actions } from "@/actions";
 import { channel } from "@/channel";
 import {
   axisKeyZ,
+  customRangeZ,
   downsampleModeZ,
   keyZ,
   type LinePlot,
@@ -153,6 +154,16 @@ export const setRangesPayloadZ = z.object({
 });
 
 export type SetRangesPayload = z.infer<typeof setRangesPayloadZ>;
+
+/**
+ * SetCustomRange sets the window the "custom" range key resolves to. A null custom
+ * clears the window.
+ */
+export const setCustomRangePayloadZ = z.object({
+  custom: zod.nullToUndefined(customRangeZ),
+});
+
+export type SetCustomRangePayload = z.infer<typeof setCustomRangePayloadZ>;
 
 /** SetAxisLabel sets the label rendered along the axis identified by key. */
 export const setAxisLabelPayloadZ = z.object({
@@ -354,7 +365,50 @@ export const removeRulePayloadZ = z.object({
 
 export type RemoveRulePayload = z.infer<typeof removeRulePayloadZ>;
 
-export const actionZ = z.discriminatedUnion("type", [
+export type Action =
+  | { type: "create"; create: CreatePayload }
+  | { type: "rename"; rename: RenamePayload }
+  | { type: "set_title_visible"; setTitleVisible: SetTitleVisiblePayload }
+  | { type: "set_title_level"; setTitleLevel: SetTitleLevelPayload }
+  | { type: "set_legend_hidden"; setLegendHidden: SetLegendHiddenPayload }
+  | { type: "set_legend_position"; setLegendPosition: SetLegendPositionPayload }
+  | { type: "add_channel"; addChannel: AddChannelPayload }
+  | { type: "remove_channel"; removeChannel: RemoveChannelPayload }
+  | { type: "set_channels"; setChannels: SetChannelsPayload }
+  | { type: "set_x_channel"; setXChannel: SetXChannelPayload }
+  | { type: "add_range"; addRange: AddRangePayload }
+  | { type: "remove_range"; removeRange: RemoveRangePayload }
+  | { type: "set_ranges"; setRanges: SetRangesPayload }
+  | { type: "set_custom_range"; setCustomRange: SetCustomRangePayload }
+  | { type: "set_axis_label"; setAxisLabel: SetAxisLabelPayload }
+  | {
+      type: "set_axis_label_direction";
+      setAxisLabelDirection: SetAxisLabelDirectionPayload;
+    }
+  | { type: "set_axis_label_level"; setAxisLabelLevel: SetAxisLabelLevelPayload }
+  | { type: "set_axis_bounds"; setAxisBounds: SetAxisBoundsPayload }
+  | { type: "set_axis_tick_spacing"; setAxisTickSpacing: SetAxisTickSpacingPayload }
+  | { type: "set_axis_type"; setAxisType: SetAxisTypePayload }
+  | { type: "set_line_label"; setLineLabel: SetLineLabelPayload }
+  | { type: "set_line_color"; setLineColor: SetLineColorPayload }
+  | { type: "set_line_stroke_width"; setLineStrokeWidth: SetLineStrokeWidthPayload }
+  | { type: "set_line_downsample"; setLineDownsample: SetLineDownsamplePayload }
+  | {
+      type: "set_line_downsample_mode";
+      setLineDownsampleMode: SetLineDownsampleModePayload;
+    }
+  | { type: "set_line"; setLine: SetLinePayload }
+  | { type: "set_rule"; setRule: SetRulePayload }
+  | { type: "set_rule_label"; setRuleLabel: SetRuleLabelPayload }
+  | { type: "set_rule_color"; setRuleColor: SetRuleColorPayload }
+  | { type: "set_rule_axis"; setRuleAxis: SetRuleAxisPayload }
+  | { type: "set_rule_line_width"; setRuleLineWidth: SetRuleLineWidthPayload }
+  | { type: "set_rule_line_dash"; setRuleLineDash: SetRuleLineDashPayload }
+  | { type: "set_rule_units"; setRuleUnits: SetRuleUnitsPayload }
+  | { type: "set_rule_position"; setRulePosition: SetRulePositionPayload }
+  | { type: "remove_rule"; removeRule: RemoveRulePayload };
+
+export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
   z.object({ type: z.literal("create"), create: createPayloadZ }),
   z.object({ type: z.literal("rename"), rename: renamePayloadZ }),
   z.object({
@@ -380,6 +434,10 @@ export const actionZ = z.discriminatedUnion("type", [
   z.object({ type: z.literal("add_range"), addRange: addRangePayloadZ }),
   z.object({ type: z.literal("remove_range"), removeRange: removeRangePayloadZ }),
   z.object({ type: z.literal("set_ranges"), setRanges: setRangesPayloadZ }),
+  z.object({
+    type: z.literal("set_custom_range"),
+    setCustomRange: setCustomRangePayloadZ,
+  }),
   z.object({ type: z.literal("set_axis_label"), setAxisLabel: setAxisLabelPayloadZ }),
   z.object({
     type: z.literal("set_axis_label_direction"),
@@ -432,8 +490,6 @@ export const actionZ = z.discriminatedUnion("type", [
   }),
   z.object({ type: z.literal("remove_rule"), removeRule: removeRulePayloadZ }),
 ]);
-
-export type Action = z.infer<typeof actionZ>;
 
 export const create = (payload: z.input<typeof createPayloadZ>): Action => ({
   type: "create",
@@ -533,6 +589,15 @@ export const setRanges = (payload: z.input<typeof setRangesPayloadZ>): Action =>
   type: "set_ranges",
   setRanges: zod.parse(setRangesPayloadZ, payload, {
     label: "line plot set_ranges action payload",
+  }),
+});
+
+export const setCustomRange = (
+  payload: z.input<typeof setCustomRangePayloadZ>,
+): Action => ({
+  type: "set_custom_range",
+  setCustomRange: zod.parse(setCustomRangePayloadZ, payload, {
+    label: "line plot set_custom_range action payload",
   }),
 });
 
@@ -748,6 +813,10 @@ export interface Handlers {
   addRange: (state: Draft<LinePlot>, payload: AddRangePayload) => HandlerResult;
   removeRange: (state: Draft<LinePlot>, payload: RemoveRangePayload) => HandlerResult;
   setRanges: (state: Draft<LinePlot>, payload: SetRangesPayload) => HandlerResult;
+  setCustomRange: (
+    state: Draft<LinePlot>,
+    payload: SetCustomRangePayload,
+  ) => HandlerResult;
   setAxisLabel: (state: Draft<LinePlot>, payload: SetAxisLabelPayload) => HandlerResult;
   setAxisLabelDirection: (
     state: Draft<LinePlot>,
@@ -830,6 +899,8 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.removeRange(state, action.removeRange);
       case "set_ranges":
         return handlers.setRanges(state, action.setRanges);
+      case "set_custom_range":
+        return handlers.setCustomRange(state, action.setCustomRange);
       case "set_axis_label":
         return handlers.setAxisLabel(state, action.setAxisLabel);
       case "set_axis_label_direction":

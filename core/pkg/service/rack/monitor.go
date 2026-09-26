@@ -114,8 +114,9 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 	if len(statuses) == 0 {
 		return nil
 	}
-	if err := status.NewWriter[StatusDetails](m.svc.Status, nil).
-		SetMany(ctx, &statuses); err != nil {
+	if err := m.svc.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		return m.svc.Status.NewWriter(tx).SetMany(ctx, &statuses)
+	}); err != nil {
 		return err
 	}
 	for _, stat := range statuses {

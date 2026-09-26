@@ -36,9 +36,7 @@ var _ = Describe("StableFor", func() {
 		currentTime telem.TimeStamp
 	)
 	BeforeEach(func(ctx SpecContext) {
-		module = stable.NewHost(stable.WithNow(func() telem.TimeStamp {
-			return currentTime
-		}))
+		module = stable.NewHost()
 		irNode = ir.Node{
 			Key:  "stable",
 			Type: "stable_for",
@@ -60,10 +58,10 @@ var _ = Describe("StableFor", func() {
 				"stable": {"type": "stable_for"},
 			},
 			Edges: graph.Edges{
-				{Edge: ir.Edge{
+				{
 					Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
 					Target: ir.Handle{Node: "stable", Param: ir.DefaultInputParam},
-				}},
+				},
 			},
 			Functions: []ir.Function{
 				{
@@ -89,19 +87,19 @@ var _ = Describe("StableFor", func() {
 	})
 
 	Describe("Factory.Create", func() {
-		It("Should create node for stable_for type", func(ctx SpecContext) {
-			n := MustSucceed(module.Create(ctx, node.Config{
+		It("Should create node for stable_for type", func() {
+			n := MustSucceed(module.Create(node.Config{
 				Node: irNode, State: s.Node(irNode.Key),
 			}))
 			Expect(n).ToNot(BeNil())
 		})
 
-		It("Should return NotFound for unknown type", func(ctx SpecContext) {
+		It("Should return NotFound for unknown type", func() {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "unknown"},
 				State: s.Node("stable"),
 			}
-			Expect(module.Create(ctx, cfg)).Error().To(MatchError(query.ErrNotFound))
+			Expect(module.Create(cfg)).Error().To(MatchError(query.ErrNotFound))
 		})
 	})
 
@@ -111,10 +109,15 @@ var _ = Describe("StableFor", func() {
 			source := s.Node("source")
 			*source.Output(0) = telem.NewSeriesV[uint8]()
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV()
-			n, _ := module.Create(ctx, cfg)
+			source.MarkFresh(0)
+			n, _ := module.Create(cfg)
 			outputs := make(set.Set[int])
 			n.Next(
-				node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }},
+				node.Context{
+					Context:     ctx,
+					Now:         currentTime,
+					MarkChanged: func(i int) { outputs.Add(i) },
+				},
 			)
 			Expect(outputs.Contains(0)).To(BeFalse())
 		})
@@ -127,11 +130,13 @@ var _ = Describe("StableFor", func() {
 				currentTime = 0
 				*source.Output(0) = telem.NewSeriesV[uint8](5)
 				*source.OutputTime(0) = telem.NewSeriesSecondsTSV(0)
-				n, _ := module.Create(ctx, cfg)
+				source.MarkFresh(0)
+				n, _ := module.Create(cfg)
 				outputs := make(set.Set[int])
 				n.Next(
 					node.Context{
 						Context:     ctx,
+						Now:         currentTime,
 						MarkChanged: func(i int) { outputs.Add(i) },
 					},
 				)
@@ -141,6 +146,7 @@ var _ = Describe("StableFor", func() {
 				n.Next(
 					node.Context{
 						Context:     ctx,
+						Now:         currentTime,
 						MarkChanged: func(i int) { outputs.Add(i) },
 					},
 				)
@@ -167,10 +173,15 @@ var _ = Describe("StableFor", func() {
 			// Send value 5 at time 1s
 			*source.Output(0) = telem.NewSeriesV[uint8](5)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
-			n, _ := module.Create(ctx, cfg)
+			source.MarkFresh(0)
+			n, _ := module.Create(cfg)
 			outputs := make(set.Set[int])
 			n.Next(
-				node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }},
+				node.Context{
+					Context:     ctx,
+					Now:         currentTime,
+					MarkChanged: func(i int) { outputs.Add(i) },
+				},
 			)
 			Expect(outputs.Contains(0)).To(BeFalse())
 
@@ -178,16 +189,21 @@ var _ = Describe("StableFor", func() {
 			currentTime = telem.SecondTS * 2
 			*source.Output(0) = telem.NewSeriesV[uint8]()
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV()
+			source.MarkFresh(0)
 			outputs = make(set.Set[int])
 			n.Next(
-				node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }},
+				node.Context{
+					Context:     ctx,
+					Now:         currentTime,
+					MarkChanged: func(i int) { outputs.Add(i) },
+				},
 			)
 			Expect(outputs.Contains(0)).To(BeTrue())
 
 			stableNode := s.Node("stable")
 			output := stableNode.Output(0)
 			Expect(output.Len()).To(Equal(int64(1)))
-			outputVals := telem.UnmarshalSeries[uint8](*output)
+			outputVals := output.Unmarshal[uint8]()
 			Expect(outputVals).To(Equal([]uint8{5}))
 		})
 
@@ -210,8 +226,15 @@ var _ = Describe("StableFor", func() {
 			// Send value 5 at time 0
 			*source.Output(0) = telem.NewSeriesV[uint8](5)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(0)
-			n, _ := module.Create(ctx, cfg)
-			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
+			source.MarkFresh(0)
+			n, _ := module.Create(cfg)
+			n.Next(
+				node.Context{
+					Context:     ctx,
+					Now:         currentTime,
+					MarkChanged: func(int) {},
+				},
+			)
 
 			// Advance time partway
 			currentTime = telem.SecondTS / 2
@@ -219,9 +242,14 @@ var _ = Describe("StableFor", func() {
 			// Send different value 10 at time 1s
 			*source.Output(0) = telem.NewSeriesV[uint8](10)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+			source.MarkFresh(0)
 			outputs := make(set.Set[int])
 			n.Next(
-				node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }},
+				node.Context{
+					Context:     ctx,
+					Now:         currentTime,
+					MarkChanged: func(i int) { outputs.Add(i) },
+				},
 			)
 			Expect(outputs.Contains(0)).To(BeFalse())
 
@@ -229,7 +257,11 @@ var _ = Describe("StableFor", func() {
 			currentTime = telem.SecondTS + telem.SecondTS/2
 			outputs = make(set.Set[int])
 			n.Next(
-				node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }},
+				node.Context{
+					Context:     ctx,
+					Now:         currentTime,
+					MarkChanged: func(i int) { outputs.Add(i) },
+				},
 			)
 			// Should not emit yet - value changed at 1s, only 0.5s elapsed
 			Expect(outputs.Contains(0)).To(BeFalse())
@@ -238,7 +270,11 @@ var _ = Describe("StableFor", func() {
 			currentTime = telem.SecondTS * 2
 			outputs = make(set.Set[int])
 			n.Next(
-				node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }},
+				node.Context{
+					Context:     ctx,
+					Now:         currentTime,
+					MarkChanged: func(i int) { outputs.Add(i) },
+				},
 			)
 			Expect(outputs.Contains(0)).To(BeTrue())
 		})
@@ -262,15 +298,27 @@ var _ = Describe("StableFor", func() {
 			// Send value 5 at time 1
 			*source.Output(0) = telem.NewSeriesV[uint8](5)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
-			n, _ := module.Create(ctx, cfg)
-			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
+			source.MarkFresh(0)
+			n, _ := module.Create(cfg)
+			n.Next(
+				node.Context{
+					Context:     ctx,
+					Now:         currentTime,
+					MarkChanged: func(int) {},
+				},
+			)
 
 			currentTime = telem.SecondTS * 2
 			*source.Output(0) = telem.NewSeriesV[uint8]()
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV()
+			source.MarkFresh(0)
 			outputs := make(set.Set[int])
 			n.Next(
-				node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }},
+				node.Context{
+					Context:     ctx,
+					Now:         currentTime,
+					MarkChanged: func(i int) { outputs.Add(i) },
+				},
 			)
 			Expect(outputs.Contains(0)).To(BeTrue())
 
@@ -278,9 +326,14 @@ var _ = Describe("StableFor", func() {
 			currentTime = telem.SecondTS * 3
 			*source.Output(0) = telem.NewSeriesV[uint8]()
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV()
+			source.MarkFresh(0)
 			outputs = make(set.Set[int])
 			n.Next(
-				node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }},
+				node.Context{
+					Context:     ctx,
+					Now:         currentTime,
+					MarkChanged: func(i int) { outputs.Add(i) },
+				},
 			)
 			Expect(outputs.Contains(0)).To(BeFalse())
 		})
@@ -304,30 +357,54 @@ var _ = Describe("StableFor", func() {
 			// Send value 5
 			*source.Output(0) = telem.NewSeriesV[uint8](5)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(0)
-			n, _ := module.Create(ctx, cfg)
-			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
+			source.MarkFresh(0)
+			n, _ := module.Create(cfg)
+			n.Next(
+				node.Context{
+					Context:     ctx,
+					Now:         currentTime,
+					MarkChanged: func(int) {},
+				},
+			)
 
 			// Emit first value
 			currentTime = telem.SecondTS
-			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
+			n.Next(
+				node.Context{
+					Context:     ctx,
+					Now:         currentTime,
+					MarkChanged: func(int) {},
+				},
+			)
 
 			// Change to value 10
 			currentTime = telem.SecondTS * 2
 			*source.Output(0) = telem.NewSeriesV[uint8](10)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(2)
-			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
+			source.MarkFresh(0)
+			n.Next(
+				node.Context{
+					Context:     ctx,
+					Now:         currentTime,
+					MarkChanged: func(int) {},
+				},
+			)
 
 			// Wait for stability
 			currentTime = telem.SecondTS * 3
 			outputs := make(set.Set[int])
 			n.Next(
-				node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }},
+				node.Context{
+					Context:     ctx,
+					Now:         currentTime,
+					MarkChanged: func(i int) { outputs.Add(i) },
+				},
 			)
 			Expect(outputs.Contains(0)).To(BeTrue())
 
 			stableNode := s.Node("stable")
 			output := stableNode.Output(0)
-			outputVals := telem.UnmarshalSeries[uint8](*output)
+			outputVals := output.Unmarshal[uint8]()
 			Expect(outputVals).To(Equal([]uint8{10}))
 		})
 
@@ -356,20 +433,31 @@ var _ = Describe("StableFor", func() {
 				telem.SecondTS*3/10, // 0.3s = 300ms
 				telem.SecondTS*2/5,  // 0.4s = 400ms
 			)
-			n, _ := module.Create(ctx, cfg)
-			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
+			source.MarkFresh(0)
+			n, _ := module.Create(cfg)
+			n.Next(
+				node.Context{
+					Context:     ctx,
+					Now:         currentTime,
+					MarkChanged: func(int) {},
+				},
+			)
 
 			// Should track last value (7) with time 0.4s, so wait until 1.4s elapsed
 			currentTime = telem.SecondTS + telem.SecondTS*2/5 // 1.4s
 			outputs := make(set.Set[int])
 			n.Next(
-				node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }},
+				node.Context{
+					Context:     ctx,
+					Now:         currentTime,
+					MarkChanged: func(i int) { outputs.Add(i) },
+				},
 			)
 			Expect(outputs.Contains(0)).To(BeTrue())
 
 			stableNode := s.Node("stable")
 			output := stableNode.Output(0)
-			outputVals := telem.UnmarshalSeries[uint8](*output)
+			outputVals := output.Unmarshal[uint8]()
 			Expect(outputVals).To(Equal([]uint8{7}))
 		})
 
@@ -393,16 +481,25 @@ var _ = Describe("StableFor", func() {
 				currentTime = 0
 				*source.Output(0) = telem.NewSeriesV[uint8](5)
 				*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
-				n, _ := module.Create(ctx, cfg)
-				n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
+				source.MarkFresh(0)
+				n, _ := module.Create(cfg)
+				n.Next(
+					node.Context{
+						Context:     ctx,
+						Now:         currentTime,
+						MarkChanged: func(int) {},
+					},
+				)
 
 				currentTime = telem.SecondTS * 100 // Set current time far in future
 				*source.Output(0) = telem.NewSeriesV[uint8]()
 				*source.OutputTime(0) = telem.NewSeriesSecondsTSV()
+				source.MarkFresh(0)
 				outputs := make(set.Set[int])
 				n.Next(
 					node.Context{
 						Context:     ctx,
+						Now:         currentTime,
 						MarkChanged: func(i int) { outputs.Add(i) },
 					},
 				)
@@ -410,7 +507,7 @@ var _ = Describe("StableFor", func() {
 
 				stableNode := s.Node("stable")
 				outputTime := stableNode.OutputTime(0)
-				outputTimes := telem.UnmarshalSeries[telem.TimeStamp](*outputTime)
+				outputTimes := outputTime.Unmarshal[telem.TimeStamp]()
 				Expect(outputTimes).To(Equal([]telem.TimeStamp{telem.SecondTS * 100}))
 			},
 		)
@@ -439,14 +536,25 @@ var _ = Describe("StableFor", func() {
 				telem.SecondTS/5,    // 0.2s = 200ms
 				telem.SecondTS*3/10, // 0.3s = 300ms
 			)
-			n, _ := module.Create(ctx, cfg)
-			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
+			source.MarkFresh(0)
+			n, _ := module.Create(cfg)
+			n.Next(
+				node.Context{
+					Context:     ctx,
+					Now:         currentTime,
+					MarkChanged: func(int) {},
+				},
+			)
 
 			// Should use time from first occurrence (0)
 			currentTime = telem.SecondTS
 			outputs := make(set.Set[int])
 			n.Next(
-				node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }},
+				node.Context{
+					Context:     ctx,
+					Now:         currentTime,
+					MarkChanged: func(i int) { outputs.Add(i) },
+				},
 			)
 			Expect(outputs.Contains(0)).To(BeTrue())
 		})
@@ -484,7 +592,7 @@ var _ = Describe("StableFor", func() {
 						},
 					},
 					Edges: graph.Edges{
-						{Edge: ir.Edge{
+						{
 							Source: ir.Handle{
 								Node:  "source",
 								Param: ir.DefaultOutputParam,
@@ -493,7 +601,7 @@ var _ = Describe("StableFor", func() {
 								Node:  "stable",
 								Param: ir.DefaultInputParam,
 							},
-						}},
+						},
 					},
 					Functions: []ir.Function{
 						{
@@ -520,7 +628,7 @@ var _ = Describe("StableFor", func() {
 				compound := node.CompoundFactory{stable.NewHost()}
 				irNode := analyzed.Nodes[1]
 				irNode.Type = "stable.for"
-				n := MustSucceed(compound.Create(ctx, node.Config{
+				n := MustSucceed(compound.Create(node.Config{
 					Node:  irNode,
 					State: s.Node("stable"),
 				}))
@@ -538,11 +646,13 @@ var _ = Describe("StableFor", func() {
 				currentTime = 0
 				*source.Output(0) = telem.NewSeriesV[uint8](5)
 				*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
-				n := MustSucceed(module.Create(ctx, cfg))
+				source.MarkFresh(0)
+				n := MustSucceed(module.Create(cfg))
 				outputs := make(set.Set[int])
 				n.Next(
 					node.Context{
 						Context:     ctx,
+						Now:         currentTime,
 						MarkChanged: func(i int) { outputs.Add(i) },
 					},
 				)
@@ -553,17 +663,19 @@ var _ = Describe("StableFor", func() {
 				n.Next(
 					node.Context{
 						Context:     ctx,
+						Now:         currentTime,
 						MarkChanged: func(i int) { outputs.Add(i) },
 					},
 				)
 				Expect(outputs.Contains(0)).To(BeTrue())
 
-				n.Reset()
+				n.Reset(node.Context{})
 				currentTime = telem.SecondTS * 5
 				outputs = make(set.Set[int])
 				n.Next(
 					node.Context{
 						Context:     ctx,
+						Now:         currentTime,
 						MarkChanged: func(i int) { outputs.Add(i) },
 					},
 				)
@@ -579,18 +691,27 @@ var _ = Describe("StableFor", func() {
 				currentTime = 0
 				*source.Output(0) = telem.NewSeriesV[uint8](5)
 				*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
-				n := MustSucceed(module.Create(ctx, cfg))
-				n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
+				source.MarkFresh(0)
+				n := MustSucceed(module.Create(cfg))
+				n.Next(
+					node.Context{
+						Context:     ctx,
+						Now:         currentTime,
+						MarkChanged: func(int) {},
+					},
+				)
 
 				*source.Output(0) = telem.NewSeriesV[uint8](9)
 				*source.OutputTime(0) = telem.NewSeriesSecondsTSV(2)
-				n.Reset()
+				source.MarkFresh(0)
+				n.Reset(node.Context{})
 
 				currentTime = telem.SecondTS * 10
 				outputs := make(set.Set[int])
 				n.Next(
 					node.Context{
 						Context:     ctx,
+						Now:         currentTime,
 						MarkChanged: func(i int) { outputs.Add(i) },
 					},
 				)
@@ -603,7 +724,7 @@ var _ = Describe("StableFor", func() {
 var _ = Describe("Construction validation", func() {
 	It(
 		"Should error at construction when the input param is missing",
-		func(ctx SpecContext) {
+		func() {
 			prog := ir.IR{Nodes: ir.Nodes{{
 				Key:  "stable",
 				Type: "stable_for",
@@ -618,13 +739,13 @@ var _ = Describe("Construction validation", func() {
 			}}}
 			s := node.New(prog)
 			cfg := node.Config{Node: prog.Nodes[0], State: s.Node("stable")}
-			Expect(stable.NewHost().Create(ctx, cfg)).Error().
+			Expect(stable.NewHost().Create(cfg)).Error().
 				To(MatchError(node.ErrInputNotFound))
 		},
 	)
 	It(
 		"Should error at construction when the duration input value is invalid",
-		func(ctx SpecContext) {
+		func() {
 			prog := ir.IR{Nodes: ir.Nodes{{
 				Key:  "stable",
 				Type: "stable_for",
@@ -637,7 +758,7 @@ var _ = Describe("Construction validation", func() {
 			s := node.New(prog)
 			cfg := node.Config{Node: prog.Nodes[0], State: s.Node("stable")}
 			Expect(
-				stable.NewHost().Create(ctx, cfg),
+				stable.NewHost().Create(cfg),
 			).Error().
 				To(BeAValidationPathError())
 		},
@@ -654,9 +775,7 @@ var _ = Describe("Variable duration", func() {
 	)
 	BeforeEach(func() {
 		currentTime = 0
-		module = stable.NewHost(stable.WithNow(func() telem.TimeStamp {
-			return currentTime
-		}))
+		module = stable.NewHost()
 	})
 	// build wires source -> stable with a var-bound duration: Value holds the
 	// declared initial and setDuration writes the variable's live slot.
@@ -707,16 +826,23 @@ var _ = Describe("Variable duration", func() {
 	ingest := func(v uint8, at telem.TimeStamp) {
 		*s.Node("source").Output(0) = telem.NewSeriesV(v)
 		*s.Node("source").OutputTime(0) = telem.NewSeriesV(at)
+		s.Node("source").MarkFresh(0)
 	}
 	next := func(ctx SpecContext, n node.Node) bool {
 		fired := false
-		n.Next(node.Context{Context: ctx, MarkChanged: func(int) { fired = true }})
+		n.Next(
+			node.Context{
+				Context:     ctx,
+				Now:         currentTime,
+				MarkChanged: func(int) { fired = true },
+			},
+		)
 		return fired
 	}
 
 	It("Should honor the declared initial before any write", func(ctx SpecContext) {
 		build(telem.Second)
-		n := MustSucceed(module.Create(ctx, cfg))
+		n := MustSucceed(module.Create(cfg))
 		ingest(5, telem.SecondTS)
 		currentTime = telem.SecondTS
 		Expect(next(ctx, n)).To(BeFalse())
@@ -730,7 +856,7 @@ var _ = Describe("Variable duration", func() {
 		"Should adopt a shortening write at the next window, not mid-window",
 		func(ctx SpecContext) {
 			build(10 * telem.Second)
-			n := MustSucceed(module.Create(ctx, cfg))
+			n := MustSucceed(module.Create(cfg))
 			ingest(5, telem.SecondTS)
 			currentTime = telem.SecondTS
 			Expect(next(ctx, n)).To(BeFalse())
@@ -753,7 +879,7 @@ var _ = Describe("Variable duration", func() {
 		"Should adopt a lengthening write at the next window, not mid-window",
 		func(ctx SpecContext) {
 			build(telem.Second)
-			n := MustSucceed(module.Create(ctx, cfg))
+			n := MustSucceed(module.Create(cfg))
 			ingest(5, telem.SecondTS)
 			currentTime = telem.SecondTS
 			Expect(next(ctx, n)).To(BeFalse())
@@ -770,7 +896,7 @@ var _ = Describe("Variable duration", func() {
 			currentTime = 13 * telem.SecondTS
 			Expect(next(ctx, n)).To(BeTrue())
 			output := s.Node("stable").Output(0)
-			Expect(telem.UnmarshalSeries[uint8](*output)).To(Equal([]uint8{7}))
+			Expect(output.Unmarshal[uint8]()).To(Equal([]uint8{7}))
 		},
 	)
 })
@@ -778,16 +904,17 @@ var _ = Describe("Variable duration", func() {
 // newTypedState builds a source -> stable_for graph where every param is t,
 // so the emitted output must preserve t's full-width value.
 func newTypedState(ctx context.Context, t types.Type) *node.ProgramState {
+	GinkgoHelper()
 	g := graph.Graph{
 		Nodes: []graph.Node{{Key: "source"}, {Key: "stable"}},
 		Inputs: map[string]msgpack.EncodedJSON{
 			"source": {"type": "source"},
 			"stable": {"type": "stable_for"},
 		},
-		Edges: graph.Edges{{Edge: ir.Edge{
+		Edges: graph.Edges{{
 			Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
 			Target: ir.Handle{Node: "stable", Param: ir.DefaultInputParam},
-		}}},
+		}},
 		Functions: []ir.Function{
 			{Key: "source", Outputs: types.Params{
 				{Name: ir.DefaultOutputParam, Type: t},
@@ -808,10 +935,8 @@ var _ = Describe("StableFor type preservation", func() {
 	DescribeTable(
 		"Should debounce and emit the full-width value for any input type",
 		func(ctx SpecContext, t types.Type, input telem.Series) {
-			var clock telem.TimeStamp
-			module := stable.NewHost(stable.WithNow(
-				func() telem.TimeStamp { return clock },
-			))
+			var now telem.TimeStamp
+			module := stable.NewHost()
 			state := newTypedState(ctx, t)
 			cfg := node.Config{
 				Node: ir.Node{
@@ -827,23 +952,33 @@ var _ = Describe("StableFor type preservation", func() {
 				State: state.Node("stable"),
 			}
 			source := state.Node("source")
-			n := MustSucceed(module.Create(ctx, cfg))
+			n := MustSucceed(module.Create(cfg))
 
-			clock = 0
+			now = 0
 			*source.Output(0) = input
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+			source.MarkFresh(0)
 			fired := make(set.Set[int])
 			n.Next(
-				node.Context{Context: ctx, MarkChanged: func(i int) { fired.Add(i) }},
+				node.Context{
+					Context:     ctx,
+					Now:         now,
+					MarkChanged: func(i int) { fired.Add(i) },
+				},
 			)
 			Expect(fired.Contains(0)).To(BeFalse())
 
-			clock = telem.SecondTS * 2
+			now = telem.SecondTS * 2
 			*source.Output(0) = telem.Series{DataType: input.DataType}
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV()
+			source.MarkFresh(0)
 			fired = make(set.Set[int])
 			n.Next(
-				node.Context{Context: ctx, MarkChanged: func(i int) { fired.Add(i) }},
+				node.Context{
+					Context:     ctx,
+					Now:         now,
+					MarkChanged: func(i int) { fired.Add(i) },
+				},
 			)
 			Expect(fired.Contains(0)).To(BeTrue())
 
@@ -860,7 +995,7 @@ var _ = Describe("StableFor type preservation", func() {
 		Entry("i32", types.I32(), telem.NewSeriesV[int32](-100_000)),
 		Entry("i64", types.I64(), telem.NewSeriesV[int64](-5_000_000_000)),
 		Entry("f32", types.F32(), telem.NewSeriesV[float32](4.321)),
-		Entry("f64", types.F64(), telem.NewSeriesV[float64](4.321)),
-		Entry("bool", types.Bool(), telem.NewSeriesV[bool](true)),
+		Entry("f64", types.F64(), telem.NewSeriesV(4.321)),
+		Entry("bool", types.Bool(), telem.NewSeriesV(true)),
 	)
 })

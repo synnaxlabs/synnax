@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -96,10 +97,16 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Search:       searchIdx,
 		Status:       statusSvc,
 	}))
-	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
-		Framer:  node.Framer,
+	channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
+		DB:      node.DB,
 		Channel: channelSvc,
 		Status:  statusSvc,
+	}))
+	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
+		DB:           node.DB,
+		Framer:       node.Framer,
+		Channel:      channelSvc,
+		ChannelGraph: channelGraph,
 	}))
 	pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: node.DB}))
 	configs := MustSucceed(taskconfig.NewRegistry(pd.Stores()...))
@@ -130,6 +137,7 @@ func (f *mockFactory) ConfigureTask(
 	t task.Task,
 	cmdKey string,
 ) (driver.Task, error) {
+	GinkgoHelper()
 	f.cmdKey.Store(t.Key, cmdKey)
 	if f.configureFunc == nil {
 		return nil, driver.ErrTaskNotHandled
@@ -153,15 +161,16 @@ func writeConfigFailure(ctx context.Context, t task.Task, cmdKey string, err err
 	}
 	details := task.NewStatusDetails(t, false)
 	details.Cmd = cmdKey
-	Expect(status.NewWriter[task.StatusDetails](statusSvc, nil).
-		Set(ctx, &task.Status{
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return statusSvc.NewWriter(tx).Set(ctx, &task.Status{
 			Key:     t.OntologyID().String(),
 			Name:    t.Name,
 			Time:    telem.Now(),
 			Variant: status.VariantError,
 			Message: err.Error(),
 			Details: details,
-		})).To(Succeed())
+		})
+	})).To(Succeed())
 }
 
 func (f *mockFactory) Name() string { return f.name }

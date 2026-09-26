@@ -12,14 +12,29 @@ package channel
 import (
 	"fmt"
 
-	"github.com/synnaxlabs/cesium/internal/version"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
+// Key identifies a channel within a Cesium database. The caller assigns it; creating a
+// second channel under a key already in use is an error.
 type Key = uint32
+
+// Version is the format of the files stored in a channel. A channel opened at a lower
+// version is migrated up and its metadata rewritten.
+type Version = uint8
+
+const (
+	Version1 Version = 1
+	Version2 Version = 2
+	// Version3 renames the metadata's is_index member, which earlier versions stored
+	// under the Go field name. Opening at this version rewrites the file, so the stored
+	// form catches up with the tag.
+	Version3       Version = 3
+	VersionCurrent         = Version3
+)
 
 // Channel is a logical collection of telemetry samples across a time-range. The data
 // within a channel typically arrives from a single source. This can be a physical
@@ -50,7 +65,7 @@ type Channel struct {
 	// existing, valid index channel.
 	//
 	// [OPTIONAL]
-	IsIndex bool
+	IsIndex bool `json:"is_index" msgpack:"is_index"`
 	// Virtual specifies whether the channel is virtual. Virtual channels do not store
 	// any data and do not require an index.
 	//
@@ -64,7 +79,7 @@ type Channel struct {
 	// Version specifies the format of files stored in this channel.
 	//
 	// [OPTIONAL]
-	Version version.Version `json:"version" msgpack:"version"`
+	Version Version `json:"version" msgpack:"version"`
 }
 
 // String implements fmt.Stringer to return nicely formatted channel info.
@@ -98,11 +113,12 @@ func (c Channel) ValidateSeries(series telem.Series) error {
 // not.
 func (c Channel) Validate() error {
 	v := validate.New("meta")
-	validate.Positive(v, "key", c.Key)
-	validate.NotEmptyString(v, "data_type", c.DataType)
-	validate.NotEmptyString(v, "name", c.Name)
+	v.Positive("key", c.Key)
+	v.NotEmptyString("data_type", c.DataType)
+	v.NotEmptyString("name", c.Name)
 	if c.Virtual {
 		v.Ternaryf("index", c.Index != 0, "virtual channel cannot be indexed")
+		v.Ternaryf("is_index", c.IsIndex, "virtual channel cannot be an index")
 	} else {
 		if c.IsIndex {
 			v.Ternary(

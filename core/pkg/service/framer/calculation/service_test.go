@@ -12,7 +12,6 @@ package calculation_test
 import (
 	"context"
 	"fmt"
-	"go/types"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -22,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
@@ -53,6 +53,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		calculations *[]channel.Channel,
 		streamKeys func([]channel.Channel) channel.Keys,
 	) (*framer.Writer, confluence.Outlet[streamer.Response], context.CancelFunc) {
+		GinkgoHelper()
 		if indexChannels != nil {
 			Expect(channelWriter.CreateMany(ctx, indexChannels)).To(Succeed())
 		}
@@ -144,11 +145,17 @@ var _ = Describe("Calculation", Ordered, func() {
 			Framer:  dist.Framer,
 			Channel: channelSvc,
 		}))
-		c = MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
-			Framer:  dist.Framer,
-			Writer:  writerSvc,
+		channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
+			DB:      dist.DB,
 			Channel: channelSvc,
 			Status:  statusSvc,
+		}))
+		c = MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
+			DB:           dist.DB,
+			Framer:       dist.Framer,
+			Writer:       writerSvc,
+			Channel:      channelSvc,
+			ChannelGraph: channelGraph,
 		}))
 	})
 
@@ -176,9 +183,9 @@ var _ = Describe("Calculation", Ordered, func() {
 			defer cancel()
 			baseCh := bases[0]
 			calcCh := calcs[0]
-			MustSucceed(
+			Expect(
 				w.Write(frame.NewUnary(baseCh.Key(), telem.NewSeriesV[int64](1, 2))),
-			)
+			).To(BeTrue())
 			var res framer.StreamerResponse
 			Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
 			Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
@@ -232,13 +239,13 @@ var _ = Describe("Calculation", Ordered, func() {
 				baseCh1 := bases[0]
 				baseCh2 := bases[1]
 				calcCh := calcs[0]
-				MustSucceed(w.Write(frame.NewMulti(
+				Expect(w.Write(frame.NewMulti(
 					[]channel.Key{baseCh1.Key(), baseCh2.Key()},
 					[]telem.Series{
 						telem.NewSeriesV[int64](1, 2),
 						telem.NewSeriesV[int64](2, 4),
 					},
-				)))
+				))).To(BeTrue())
 				var res framer.StreamerResponse
 				Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
 				Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
@@ -262,22 +269,22 @@ var _ = Describe("Calculation", Ordered, func() {
 					baseCh1 := bases[0]
 					baseCh2 := bases[1]
 					calcCh := calcs[0]
-					MustSucceed(
+					Expect(
 						w.Write(
 							frame.NewUnary(
 								baseCh1.Key(),
 								telem.NewSeriesV[int64](1, 2),
 							),
 						),
-					)
-					MustSucceed(
+					).To(BeTrue())
+					Expect(
 						w.Write(
 							frame.NewUnary(
 								baseCh2.Key(),
 								telem.NewSeriesV[int64](2, 4),
 							),
 						),
-					)
+					).To(BeTrue())
 					var res framer.StreamerResponse
 					Eventually(sOutlet.Outlet()).Should(Receive(&res))
 					Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
@@ -322,13 +329,13 @@ var _ = Describe("Calculation", Ordered, func() {
 			idxCh := indexes[0]
 			baseCh := bases[0]
 			calcCh := calcs[0]
-			MustSucceed(w.Write(frame.NewMulti(
+			Expect(w.Write(frame.NewMulti(
 				[]channel.Key{idxCh.Key(), baseCh.Key()},
 				[]telem.Series{
 					telem.NewSeriesSecondsTSV(1, 2),
 					telem.NewSeriesV[int64](1, 2),
 				},
-			)))
+			))).To(BeTrue())
 			var res framer.StreamerResponse
 			Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
 			Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
@@ -382,14 +389,14 @@ var _ = Describe("Calculation", Ordered, func() {
 				baseCh1 := bases[0]
 				baseCh2 := bases[1]
 				calcCh := calcs[0]
-				MustSucceed(w.Write(frame.NewMulti(
+				Expect(w.Write(frame.NewMulti(
 					[]channel.Key{idxCh.Key(), baseCh1.Key(), baseCh2.Key()},
 					[]telem.Series{
 						telem.NewSeriesSecondsTSV(1, 2),
 						telem.NewSeriesV[float32](1, 2),
 						telem.NewSeriesV[float32](2, 4),
 					},
-				)))
+				))).To(BeTrue())
 				var res framer.StreamerResponse
 				Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
 				Expect(
@@ -450,7 +457,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					baseCh2 = bases[1]
 					calcCh  = calcs[0]
 				)
-				MustSucceed(w.Write(frame.NewMulti(
+				Expect(w.Write(frame.NewMulti(
 					[]channel.Key{
 						idxCh1.Key(),
 						idxCh2.Key(),
@@ -463,7 +470,7 @@ var _ = Describe("Calculation", Ordered, func() {
 						telem.NewSeriesV[float32](1, 2),
 						telem.NewSeriesV[float32](2, 4),
 					},
-				)))
+				))).To(BeTrue())
 				var res framer.StreamerResponse
 				Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
 				Expect(
@@ -524,20 +531,20 @@ var _ = Describe("Calculation", Ordered, func() {
 					baseCh2 = bases[1]
 					calcCh  = calcs[0]
 				)
-				MustSucceed(w.Write(frame.NewMulti(
+				Expect(w.Write(frame.NewMulti(
 					[]channel.Key{idxCh1.Key(), baseCh1.Key()},
 					[]telem.Series{
 						telem.NewSeriesSecondsTSV(3, 4),
 						telem.NewSeriesV[float32](2, 4),
 					},
-				)))
-				MustSucceed(w.Write(frame.NewMulti(
+				))).To(BeTrue())
+				Expect(w.Write(frame.NewMulti(
 					[]channel.Key{idxCh2.Key(), baseCh2.Key()},
 					[]telem.Series{
 						telem.NewSeriesSecondsTSV(1, 2),
 						telem.NewSeriesV[float32](2, 4),
 					},
-				)))
+				))).To(BeTrue())
 				var res framer.StreamerResponse
 				Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
 				Expect(
@@ -584,11 +591,11 @@ var _ = Describe("Calculation", Ordered, func() {
 				baseCh := bases[0]
 				calcCh := calcs[0]
 				calc2Ch := calcs[1]
-				MustSucceed(
+				Expect(
 					w.Write(
 						frame.NewUnary(baseCh.Key(), telem.NewSeriesV[int64](1, 2)),
 					),
-				)
+				).To(BeTrue())
 
 				var res framer.StreamerResponse
 				Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
@@ -618,11 +625,11 @@ var _ = Describe("Calculation", Ordered, func() {
 					defer cancel()
 					baseCh := bases[0]
 					calc2Ch := calcs[1]
-					MustSucceed(
+					Expect(
 						w.Write(
 							frame.NewUnary(baseCh.Key(), telem.NewSeriesV[int64](1, 2)),
 						),
-					)
+					).To(BeTrue())
 
 					var res framer.StreamerResponse
 					Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
@@ -645,6 +652,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				calc channel.Channel,
 				off, on telem.Series,
 			) {
+				GinkgoHelper()
 				rm := c.OpenRequestManager()
 				Expect(rm.Set(ctx, channel.Keys{calc.Key()})).To(Succeed())
 				sCtx, cancel := signal.Isolated()
@@ -666,19 +674,19 @@ var _ = Describe("Calculation", Ordered, func() {
 				Eventually(sOutlet.Outlet()).Should(Receive())
 
 				keys := []channel.Key{base.Key(), sig.Key()}
-				MustSucceed(w.Write(frame.NewMulti(
+				Expect(w.Write(frame.NewMulti(
 					keys,
 					[]telem.Series{telem.NewSeriesV[int64](10, 20, 30), off},
-				)))
+				))).To(BeTrue())
 				var res framer.StreamerResponse
 				Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
 				Expect(res.Frame.Get(calc.Key()).Series[0]).
 					To(telem.MatchSeriesDataV[int64](30))
 
-				MustSucceed(w.Write(frame.NewMulti(
+				Expect(w.Write(frame.NewMulti(
 					keys,
 					[]telem.Series{telem.NewSeriesV[int64](5, 7), on},
-				)))
+				))).To(BeTrue())
 				Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
 				Expect(res.Frame.Get(calc.Key()).Series[0]).
 					To(telem.MatchSeriesDataV[int64](7))
@@ -715,8 +723,8 @@ var _ = Describe("Calculation", Ordered, func() {
 				expectReset(
 					ctx,
 					calc,
-					telem.NewSeriesV[bool](false, false, false),
-					telem.NewSeriesV[bool](true, false),
+					telem.NewSeriesV(false, false, false),
+					telem.NewSeriesV(true, false),
 				)
 			})
 
@@ -777,7 +785,8 @@ var _ = Describe("Calculation", Ordered, func() {
 				}
 				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
 				Expect(channelWriter.Delete(
-					ctx, base.Key(), false),
+					ctx, base.Key(), false,
+				),
 				).To(Succeed())
 				rm := c.OpenRequestManager()
 				Expect(
@@ -785,8 +794,8 @@ var _ = Describe("Calculation", Ordered, func() {
 				).To(Succeed())
 				var st calculation.Status
 				statusKey := calc.OntologyID().String()
-				Expect(status.NewRetrieve[types.Nil](statusSvc).
-					Where(status.MatchKeys[types.Nil](statusKey)).
+				Expect(statusSvc.NewRetrieve[struct{}]().
+					Where(status.MatchKeys[struct{}](statusKey)).
 					Entry(&st).
 					Exec(ctx, nil)).To(Succeed())
 				Expect(st.Variant).To(Equal(status.VariantError))
@@ -820,13 +829,14 @@ var _ = Describe("Calculation", Ordered, func() {
 				// as an error status rather than synchronously.
 				Expect(channelWriter.Delete(ctx, base.Key(), false)).To(Succeed())
 				Expect(channelWriter.Rename(
-					ctx, calc.Key(), UniqueChannelName(), false),
+					ctx, calc.Key(), UniqueChannelName(), false,
+				),
 				).To(Succeed())
 				var st calculation.Status
 				statusKey := calc.OntologyID().String()
 				Eventually(func(g Gomega) {
-					g.Expect(status.NewRetrieve[types.Nil](statusSvc).
-						Where(status.MatchKeys[types.Nil](statusKey)).
+					g.Expect(statusSvc.NewRetrieve[struct{}]().
+						Where(status.MatchKeys[struct{}](statusKey)).
 						Entry(&st).
 						Exec(ctx, nil)).To(Succeed())
 					g.Expect(st.Variant).To(Equal(status.VariantError))
@@ -855,8 +865,8 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(rm.Set(ctx, channel.Keys{calc.Key()})).To(Succeed())
 			var st calculation.Status
 			expectedKey := calc.OntologyID().String()
-			Expect(status.NewRetrieve[types.Nil](statusSvc).
-				Where(status.MatchKeys[types.Nil](expectedKey)).
+			Expect(statusSvc.NewRetrieve[struct{}]().
+				Where(status.MatchKeys[struct{}](expectedKey)).
 				Entry(&st).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(st.Key).To(Equal(expectedKey))
@@ -888,9 +898,9 @@ var _ = Describe("Calculation", Ordered, func() {
 			defer cancel()
 			baseCh := bases[0]
 			calcCh := calcs[0]
-			MustSucceed(
+			Expect(
 				w.Write(frame.NewUnary(baseCh.Key(), telem.NewSeriesV[int64](1, 2))),
-			)
+			).To(BeTrue())
 			var res framer.StreamerResponse
 			Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
 			Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
@@ -902,11 +912,11 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(channelWriter.Create(ctx, &calcs[0])).To(Succeed())
 
 			Eventually(func(g Gomega) {
-				MustSucceed(
+				Expect(
 					w.Write(
 						frame.NewUnary(baseCh.Key(), telem.NewSeriesV[int64](1, 2)),
 					),
-				)
+				).To(BeTrue())
 				g.Eventually(sOutlet.Outlet(), 200*time.Millisecond).
 					Should(Receive(&res))
 				g.Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
@@ -945,9 +955,9 @@ var _ = Describe("Calculation", Ordered, func() {
 			baseCh := bases[0]
 			baseCh2 := bases[1]
 			calcCh := calcs[0]
-			MustSucceed(
+			Expect(
 				w.Write(frame.NewUnary(baseCh.Key(), telem.NewSeriesV[int64](1, 2))),
-			)
+			).To(BeTrue())
 			var res framer.StreamerResponse
 			Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
 			Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
@@ -959,11 +969,11 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(channelWriter.Create(ctx, &calcs[0])).To(Succeed())
 
 			Eventually(func(g Gomega) {
-				MustSucceed(
+				Expect(
 					w.Write(
 						frame.NewUnary(baseCh2.Key(), telem.NewSeriesV[int64](1, 2)),
 					),
-				)
+				).To(BeTrue())
 				g.Eventually(sOutlet.Outlet(), 200*time.Millisecond).
 					Should(Receive(&res))
 				g.Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))

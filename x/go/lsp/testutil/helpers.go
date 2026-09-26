@@ -12,6 +12,7 @@ package testutil
 import (
 	"context"
 
+	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/testutil"
@@ -27,6 +28,7 @@ func OpenDocument(
 	content,
 	languageID string,
 ) {
+	ginkgo.GinkgoHelper()
 	gomega.Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
 		TextDocument: protocol.TextDocumentItem{
 			URI:        uri,
@@ -45,10 +47,11 @@ func ChangeDocument(
 	content string,
 	version int32,
 ) {
+	ginkgo.GinkgoHelper()
 	gomega.Expect(server.DidChange(ctx, &protocol.DidChangeTextDocumentParams{
 		TextDocument: protocol.VersionedTextDocumentIdentifier{
-			TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: uri},
-			Version:                version,
+			URI:     uri,
+			Version: version,
 		},
 		ContentChanges: []protocol.TextDocumentContentChangeEvent{
 			&protocol.TextDocumentContentChangeWholeDocument{Text: content},
@@ -63,11 +66,10 @@ func Hover(
 	uri uri.URI,
 	line, char uint32,
 ) *protocol.Hover {
+	ginkgo.GinkgoHelper()
 	return testutil.MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-			Position:     protocol.Position{Line: line, Character: char},
-		},
+		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+		Position:     protocol.Position{Line: line, Character: char},
 	}))
 }
 
@@ -75,6 +77,7 @@ func Hover(
 // HoverContents union. Returns the empty string when hover is nil or the contents are
 // unset; fails the test on an unhandled union variant.
 func HoverContents(hover *protocol.Hover) string {
+	ginkgo.GinkgoHelper()
 	if hover == nil {
 		return ""
 	}
@@ -84,7 +87,7 @@ func HoverContents(hover *protocol.Hover) string {
 	case protocol.String:
 		return string(c)
 	default:
-		gomega.ExpectWithOffset(1, c).To(gomega.BeNil(),
+		gomega.Expect(c).To(gomega.BeNil(),
 			"unhandled HoverContents variant %T", c)
 		return ""
 	}
@@ -99,11 +102,10 @@ func Definition(
 	uri uri.URI,
 	line, char uint32,
 ) []protocol.Location {
+	ginkgo.GinkgoHelper()
 	result := testutil.MustSucceed(server.Definition(ctx, &protocol.DefinitionParams{
-		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-			Position:     protocol.Position{Line: line, Character: char},
-		},
+		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+		Position:     protocol.Position{Line: line, Character: char},
 	}))
 	switch r := result.(type) {
 	case protocol.LocationSlice:
@@ -111,7 +113,7 @@ func Definition(
 	case *protocol.Location:
 		return []protocol.Location{*r}
 	default:
-		gomega.ExpectWithOffset(1, r).To(gomega.BeNil(),
+		gomega.Expect(r).To(gomega.BeNil(),
 			"unhandled DefinitionResult variant %T", r)
 		return nil
 	}
@@ -126,11 +128,10 @@ func Completion(
 	uri uri.URI,
 	line, char uint32,
 ) *protocol.CompletionList {
+	ginkgo.GinkgoHelper()
 	result := testutil.MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
-		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-			Position:     protocol.Position{Line: line, Character: char},
-		},
+		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+		Position:     protocol.Position{Line: line, Character: char},
 	}))
 	switch r := result.(type) {
 	case *protocol.CompletionList:
@@ -138,7 +139,7 @@ func Completion(
 	case protocol.CompletionItemSlice:
 		return &protocol.CompletionList{Items: r}
 	default:
-		gomega.ExpectWithOffset(1, r).To(gomega.BeNil(),
+		gomega.Expect(r).To(gomega.BeNil(),
 			"unhandled CompletionResult variant %T", r)
 		return nil
 	}
@@ -150,6 +151,7 @@ func SemanticTokens(
 	ctx context.Context,
 	uri uri.URI,
 ) *protocol.SemanticTokens {
+	ginkgo.GinkgoHelper()
 	return testutil.MustSucceed(
 		server.SemanticTokensFull(ctx, &protocol.SemanticTokensParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
@@ -205,13 +207,14 @@ func DiagnosticCode(d protocol.Diagnostic) string {
 // between plain strings and markup content. Returns the empty string when the message
 // is unset; fails the test on an unhandled union variant.
 func DiagnosticMessage(d protocol.Diagnostic) string {
+	ginkgo.GinkgoHelper()
 	switch m := d.Message.(type) {
 	case protocol.String:
 		return string(m)
 	case *protocol.MarkupContent:
 		return m.Value
 	default:
-		gomega.ExpectWithOffset(1, m).To(gomega.BeNil(),
+		gomega.Expect(m).To(gomega.BeNil(),
 			"unhandled DiagnosticMessage variant %T", m)
 		return ""
 	}

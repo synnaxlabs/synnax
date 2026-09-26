@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -25,6 +26,10 @@ import (
 
 // FactoryConfig is the configuration for the PagerDuty factory.
 type FactoryConfig struct {
+	// DB opens the transactions that status writes run in.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
 	// Status is the status service for observing status changes.
 	//
 	// [REQUIRED]
@@ -41,6 +46,7 @@ var _ config.Config[FactoryConfig] = FactoryConfig{}
 // Override overrides the factory configuration with the given other configuration.
 func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
+	c.DB = override.Nil(c.DB, other.DB)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Sender = override.Nil(c.Sender, other.Sender)
 	return c
@@ -49,8 +55,9 @@ func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 // Validate validates the factory configuration.
 func (c FactoryConfig) Validate() error {
 	v := validate.New("pagerduty.factory")
-	validate.NotNil(v, "status", c.Status)
-	validate.NotNil(v, "sender", c.Sender)
+	v.NotNil("db", c.DB)
+	v.NotNil("status", c.Status)
+	v.NotNil("sender", c.Sender)
 	return v.Error()
 }
 
@@ -102,7 +109,7 @@ func (f *factory) ConfigureTask(
 		factoryCfg: f.cfg,
 		task:       t,
 		cfg:        cfg,
-		status:     driver.NewStatusHandler(f.cfg.Status, t),
+		status:     driver.NewStatusHandler(f.cfg.DB, f.cfg.Status, t),
 	}
 	// A successful configure writes no status: the start that follows it answers the
 	// command, and a "configured" status would answer it first with running false.
@@ -131,8 +138,9 @@ func (f *factory) setConfigStatus(
 		Time:    telem.Now(),
 		Details: details,
 	}
-	if err := status.NewWriter[task.StatusDetails](f.cfg.Status, nil).
-		Set(ctx, &stat); err != nil {
+	if err := f.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		return f.cfg.Status.NewWriter(tx).Set(ctx, &stat)
+	}); err != nil {
 		f.cfg.L.Error(
 			"failed to set configuration status",
 			zap.Stringer("task", t),

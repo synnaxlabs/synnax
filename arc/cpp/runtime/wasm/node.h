@@ -35,12 +35,9 @@ class Node : public node::Node {
     std::vector<bool> var_inputs;
     std::vector<bool> string_outputs;
     std::shared_ptr<stl::strings::State> str_state;
-    bool initialized = false;
-    bool is_entry_node = false;
     /// @brief marks a node with no $sel input.
     static constexpr size_t NO_SEL = ~size_t{0};
     size_t sel_idx = NO_SEL;
-    x::telem::MonoClock clock;
 
     /// @brief reports whether any input other than $sel has unconsumed data.
     [[nodiscard]] bool data_fresh() const {
@@ -61,11 +58,7 @@ public:
         const Module::Function &func,
         std::shared_ptr<stl::strings::State> str_state
     ):
-        ir(node),
-        state(std::move(state)),
-        func(func),
-        str_state(std::move(str_state)),
-        is_entry_node(arc::ir::is_entry_node(prog, node)) {
+        ir(node), state(std::move(state)), func(func), str_state(std::move(str_state)) {
         const auto &func_ir = prog.function(node.type);
         this->inputs.resize(node.inputs.size());
         this->offsets.resize(node.outputs.size());
@@ -87,11 +80,6 @@ public:
     }
 
     x::errors::Error next(node::Context &ctx) override {
-        if (this->is_entry_node) {
-            if (this->initialized) return x::errors::NIL;
-            this->initialized = true;
-        }
-
         // A $sel-only change re-points without emitting; the value fires on the
         // next input.
         if (this->sel_idx != NO_SEL && !this->data_fresh()) {
@@ -190,6 +178,9 @@ public:
         // Dispatcher drivers alternate; no input's time is honest, so stamp the
         // clock.
         const bool clock_stamp = longest_input_idx < 0 || this->sel_idx != NO_SEL;
+        auto clock_first = x::telem::TimeStamp(0);
+        if (clock_stamp)
+            clock_first = ctx.reserve_stamps(static_cast<size_t>(max_length));
 
         this->state.set_current_node_key(this->ir.key);
 
@@ -225,7 +216,7 @@ public:
 
             x::telem::TimeStamp ts;
             if (clock_stamp)
-                ts = this->clock.now();
+                ts = clock_first + static_cast<int64_t>(i);
             else
                 ts = longest_input_time->at<x::telem::TimeStamp>(i);
 
@@ -254,14 +245,13 @@ public:
             else
                 out->resize(off);
             this->state.output_time(j)->resize(off);
-            if (off > 0) ctx.mark_changed(j);
+            if (off > 0) this->state.emit(ctx.mark_changed, j);
         }
 
         return x::errors::NIL;
     }
 
-    void reset() override {
-        this->initialized = false;
+    void reset(node::Context &) override {
         this->state.reset();
         this->state.clear_node(this->ir.key);
     }

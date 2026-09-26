@@ -23,10 +23,11 @@ import (
 // up in compiler unit tests.
 var _ = Describe("For loops", func() {
 	lastI64 := func(fr telem.Frame[uint32], key uint32) int64 {
+		GinkgoHelper()
 		ch := fr.Get(key)
 		Expect(ch.Series).ToNot(BeEmpty(), "channel %d not written", key)
 		s := ch.Series[len(ch.Series)-1]
-		vals := telem.UnmarshalSeries[int64](s)
+		vals := s.Unmarshal[int64]()
 		Expect(vals).ToNot(BeEmpty())
 		return vals[len(vals)-1]
 	}

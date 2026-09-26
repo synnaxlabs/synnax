@@ -11,9 +11,9 @@ package v1_test
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -30,6 +30,7 @@ import (
 
 // runMigrations runs the full project migration chain against db.
 func runMigrations(ctx context.Context, db *gorp.DB) {
+	GinkgoHelper()
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 		DB:        db,
@@ -43,6 +44,7 @@ func runMigrations(ctx context.Context, db *gorp.DB) {
 
 var _ = Describe("Workspace to project migration", func() {
 	openProjectTable := func(ctx context.Context, db *gorp.DB) *gorp.Table[v1.Key, v1.Project] {
+		GinkgoHelper()
 		return MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[v1.Key, v1.Project]{DB: db},
 		))
@@ -101,7 +103,7 @@ var _ = Describe("Workspace to project migration", func() {
 			}
 			lpID := ontology.ID{
 				Type: ontology.ResourceTypeLineplot,
-				Key:  uuid.NewString(),
+				Key:  uuid.New().String(),
 			}
 			resTable := MustOpen(gorp.OpenTable(
 				ctx, gorp.TableConfig[string, ontology.Resource]{DB: db},
@@ -234,16 +236,16 @@ var _ = Describe("Remove author relationships migration", func() {
 			))
 			projectID := ontology.ID{
 				Type: ontology.ResourceTypeProject,
-				Key:  uuid.NewString(),
+				Key:  uuid.New().String(),
 			}
 			userID := ontology.ID{
 				Type: ontology.ResourceTypeUser,
-				Key:  uuid.NewString(),
+				Key:  uuid.New().String(),
 			}
 			groupID := group.OntologyID(uuid.New())
 			lpID := ontology.ID{
 				Type: ontology.ResourceTypeLineplot,
-				Key:  uuid.NewString(),
+				Key:  uuid.New().String(),
 			}
 
 			authorToProject := parentOf(userID, projectID)

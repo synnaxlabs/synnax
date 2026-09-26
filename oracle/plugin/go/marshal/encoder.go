@@ -63,6 +63,7 @@ type encoderFileOutput struct {
 	Package        string
 	ExtraImports   map[string]string
 	NeedsJSON      bool
+	NeedsJSONText  bool
 	HasFlex        bool
 	ConcreteCodecs []concreteCodec
 	GenericCodecs  []genericCodec
@@ -97,7 +98,8 @@ func generateEncoderCodecFile(
 		}
 		fo.FlexMethods = flexBuf.String()
 		fo.HasFlex = true
-		fo.ExtraImports["github.com/vmihailenco/msgpack/v5"] = "msgpack"
+		fo.NeedsJSONText = true
+		fo.ExtraImports["github.com/vmihailenco/msgpack/v5"] = ""
 		fo.ExtraImports["github.com/synnaxlabs/x/encoding/msgpack"] = "xmsgpack"
 		fo.ExtraImports["github.com/synnaxlabs/x/encoding/json"] = "xjson"
 	}
@@ -146,8 +148,8 @@ func generateEncoderCodecFile(
 
 		recv := ReceiverName(e.GoName)
 		if len(typeParams) > 0 {
-			// Generic type with non-defaulted params: generate method with
-			// type assertion + JSON fallback for type parameter fields.
+			// Generic type with non-defaulted params: generate method with type
+			// assertion + JSON fallback for type parameter fields.
 			b.hasTypeParams = true
 			fields := resolution.UnifiedFields(e.Type, b.table)
 			if err := b.processFields(fields, recv, recv); err != nil {
@@ -205,8 +207,8 @@ func generateEncoderCodecFile(
 	return buf.Bytes(), nil
 }
 
-// reservedNames contains single-letter variable names used in generated method
-// bodies (parameters, loop vars, temporaries) that would conflict with a receiver.
+// reservedNames contains single-letter variable names used in generated method bodies
+// (parameters, loop vars, temporaries) that would conflict with a receiver.
 var reservedNames = set.New(
 	"w", "r", // method parameters
 	"n", "b", "v", "m", // temporaries
@@ -214,10 +216,10 @@ var reservedNames = set.New(
 	"err", "ok", // error/bool variables in method bodies
 )
 
-// ReceiverName derives a Go-idiomatic short receiver name from a type name.
-// It takes the lowercase initials of each word in the PascalCase name
-// (e.g., "TimeRange" -> "tr", "XY" -> "xy", "Status" -> "s").
-// Names that conflict with generated local variables get a "v" suffix.
+// ReceiverName derives a Go-idiomatic short receiver name from a type name. It takes
+// the lowercase initials of each word in the PascalCase name (e.g., "TimeRange" ->
+// "tr", "XY" -> "xy", "Status" -> "s"). Names that conflict with generated local
+// variables get a "v" suffix.
 func ReceiverName(goName string) string {
 	var initials []byte
 	for i, c := range goName {
@@ -298,10 +300,9 @@ func (b *encoderBuilder) processFields(
 		getPath := getPrefix + "." + goName
 		setPath := setPrefix + "." + goName
 
-		// Type parameter fields use a type assertion with JSON fallback,
-		// but only when the type param has no default. Defaulted type params
-		// (e.g. V extends Variant = Variant) are substituted with their
-		// default and encoded concretely.
+		// Type parameter fields use a type assertion with JSON fallback, but only when
+		// the type param has no default. Defaulted type params (e.g. V extends Variant
+		// = Variant) are substituted with their default and encoded concretely.
 		if f.Type.IsTypeParam() && b.hasTypeParams {
 			if f.Type.TypeParam.HasDefault() {
 				f.Type = *f.Type.TypeParam.Default
@@ -359,9 +360,9 @@ func (b *encoderBuilder) processValueByType(
 	case resolution.StructForm:
 		return b.processStruct(actual, form, effectiveTypeArgs, getPath, setPath)
 	case resolution.UnionForm:
-		// Union wrappers carry their own generated EncodeOrc/DecodeOrc (a
-		// binary discriminator tag plus the variant's struct codecs), so
-		// union fields dispatch like struct fields.
+		// Union wrappers carry their own generated EncodeOrc/DecodeOrc (a binary
+		// discriminator tag plus the variant's struct codecs), so union fields dispatch
+		// like struct fields.
 		ind := b.indent()
 		b.encodeLines = append(
 			b.encodeLines,
@@ -498,8 +499,8 @@ func (b *encoderBuilder) processStruct(
 	return nil
 }
 
-// callPath strips the parenthesized deref an optional field's path carries:
-// method calls auto-dereference pointers, so (*d.Status).EncodeOrc reads as
+// callPath strips the parenthesized deref an optional field's path carries: method
+// calls auto-dereference pointers, so (*d.Status).EncodeOrc reads as
 // d.Status.EncodeOrc.
 func callPath(getPath string) string {
 	if strings.HasPrefix(getPath, "(*") && strings.HasSuffix(getPath, ")") {
@@ -518,9 +519,9 @@ func valuePath(getPath string) string {
 	return getPath
 }
 
-// typeIsRecursive reports whether decoding typ can re-enter its own codec,
-// through struct fields (including inherited ones) or through a union's bases
-// and variant payloads. Recursive codecs guard DecodeOrc with a depth limit.
+// typeIsRecursive reports whether decoding typ can re-enter its own codec, through
+// struct fields (including inherited ones) or through a union's bases and variant
+// payloads. Recursive codecs guard DecodeOrc with a depth limit.
 func typeIsRecursive(typ resolution.Type, table *resolution.Table) bool {
 	switch form := typ.Form.(type) {
 	case resolution.UnionForm:
@@ -544,14 +545,13 @@ func typeIsRecursive(typ resolution.Type, table *resolution.Table) bool {
 	return false
 }
 
-// buildUnionCodec generates the EncodeOrc/DecodeOrc bodies for a discriminated
-// union wrapper. The encoding is fully binary: a length-prefixed discriminator
-// string followed by the active variant's base and payload structs encoded
-// positionally through their own codecs. The discriminator string keeps stored
-// bytes stable under variant addition and reordering; variant field changes
-// version through frozen codecs like any struct change.
-// indentLines shifts builder-emitted method-body statements one tab deeper so
-// they sit inside a union codec's switch case.
+// buildUnionCodec generates the EncodeOrc/DecodeOrc bodies for a discriminated union
+// wrapper. The encoding is fully binary: a length-prefixed discriminator string
+// followed by the active variant's base and payload structs encoded positionally
+// through their own codecs. The discriminator string keeps stored bytes stable under
+// variant addition and reordering; variant field changes version through frozen codecs
+// like any struct change. indentLines shifts builder-emitted method-body statements one
+// tab deeper so they sit inside a union codec's switch case.
 func indentLines(lines []string) []string {
 	out := make([]string, 0, len(lines))
 	for _, l := range lines {
@@ -580,7 +580,8 @@ func buildUnionCodec(
 		parent, ok := ext.Resolve(table)
 		if !ok {
 			return concreteCodec{}, errors.Newf(
-				"union %s: unresolved base %s", entry.Name, ext.Name)
+				"union %s: unresolved base %s", entry.Name, ext.Name,
+			)
 		}
 		baseEmbeds = append(baseEmbeds, naming.GetGoName(parent))
 	}
@@ -596,7 +597,8 @@ func buildUnionCodec(
 		if !ok {
 			return concreteCodec{}, errors.Newf(
 				"union %s variant %q: unresolved payload %s",
-				entry.Name, v.Name, v.Type.Name)
+				entry.Name, v.Name, v.Type.Name,
+			)
 		}
 		variantType := casing.VariantTypeName(goName, v.Name)
 		var embeds []string
@@ -609,7 +611,8 @@ func buildUnionCodec(
 				if !ok {
 					return concreteCodec{}, errors.Newf(
 						"union %s variant %q: unresolved base %s",
-						entry.Name, v.Name, ext.Name)
+						entry.Name, v.Name, ext.Name,
+					)
 				}
 				embeds = append(embeds, naming.GetGoName(parent))
 			}
@@ -630,9 +633,11 @@ func buildUnionCodec(
 		)
 		for _, embed := range embeds {
 			enc = append(enc, fmt.Sprintf(
-				"\t\tif err := v.%s.EncodeOrc(w); err != nil { return err }", embed))
+				"\t\tif err := v.%s.EncodeOrc(w); err != nil { return err }", embed,
+			))
 			dec = append(dec, fmt.Sprintf(
-				"\t\tif err := v.%s.DecodeOrc(r); err != nil { return err }", embed))
+				"\t\tif err := v.%s.DecodeOrc(r); err != nil { return err }", embed,
+			))
 		}
 		if len(inlineFields) > 0 {
 			fb := &encoderBuilder{
@@ -657,7 +662,8 @@ func buildUnionCodec(
 		"\tdefault:",
 		fmt.Sprintf(
 			"\t\treturn errors.Newf(\"%s: nil or unknown variant %%T\", %s.Variant)",
-			goName, recv),
+			goName, recv,
+		),
 		"\t}",
 	)
 	dec = append(dec,
@@ -906,8 +912,8 @@ func (b *encoderBuilder) processMap(
 		return err
 	}
 
-	// Write a presence bit to distinguish nil from empty maps.
-	// When inside a optional guard, the map is already known non-nil.
+	// Write a presence bit to distinguish nil from empty maps. When inside a optional
+	// guard, the map is already known non-nil.
 	if !b.skipNilCheck {
 		b.encodeLines = append(b.encodeLines,
 			ind+fmt.Sprintf("w.Bool(%s != nil)", getPath),
@@ -1188,14 +1194,13 @@ func (b *encoderBuilder) resolveLeaf(
 
 func (b *encoderBuilder) goTypeName(typ resolution.Type) (string, error) {
 	if prim, ok := typ.Form.(resolution.PrimitiveForm); ok {
-		// `record` resolves to msgpack.EncodedJSON (a typed map[string]any) at
-		// the field level so it round-trips cleanly through msgpack and JSON.
-		// Use the same Go type when the value appears as a map element or
-		// other generic container, otherwise the codec emits map[string]any
-		// which cannot be assigned to the declared field type. Reuse the
-		// existing alias if the file already imports the package (flex method
-		// generation registers it as "xmsgpack") so the codec does not double-
-		// import under conflicting names.
+		// `record` resolves to msgpack.EncodedJSON (a typed map[string]any) at the
+		// field level so it round-trips cleanly through msgpack and JSON. Use the same
+		// Go type when the value appears as a map element or other generic container,
+		// otherwise the codec emits map[string]any which cannot be assigned to the
+		// declared field type. Reuse the existing alias if the file already imports the
+		// package (flex method generation registers it as "xmsgpack") so the codec does
+		// not double-import under conflicting names.
 		if prim.Name == "record" {
 			const importPath = "github.com/synnaxlabs/x/encoding/msgpack"
 			alias, registered := b.imports[importPath]
@@ -1213,7 +1218,7 @@ func (b *encoderBuilder) goTypeName(typ resolution.Type) (string, error) {
 			return "", errors.Newf("unsupported primitive type: %s", prim.Name)
 		}
 		if typemap.IsUUID(prim.Name) {
-			b.imports["github.com/google/uuid"] = "uuid"
+			b.imports["uuid"] = ""
 		}
 		return goType, nil
 	}
@@ -1281,7 +1286,10 @@ package {{.Package}}
 
 import (
 {{- if .NeedsJSON}}
-	"encoding/json"
+	"encoding/json/v2"
+{{- end}}
+{{- if .NeedsJSONText}}
+	"encoding/json/jsontext"
 {{- end}}
 {{- if or .ConcreteCodecs .GenericCodecs}}
 

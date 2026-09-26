@@ -10,7 +10,8 @@
 package rbac_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -173,6 +174,49 @@ var _ = Describe("Service", func() {
 				).To(MatchError(access.ErrDenied))
 			})
 
+			It("Should name the subject, action, and denied object", func(
+				ctx SpecContext,
+			) {
+				req := access.Request{
+					Subject: subject,
+					Objects: []ontology.ID{obj1},
+					Action:  access.ActionRetrieve,
+				}
+				Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, req)).To(MatchError(
+					ContainSubstring(
+						"%s cannot retrieve %s",
+						subject.String(),
+						obj1.String(),
+					),
+				))
+			})
+
+			It("Should name the object that stopped a multi-object request", func(
+				ctx SpecContext,
+			) {
+				r := &role.Role{Name: "test-role", Description: "Test role"}
+				Expect(roleWriter.Create(ctx, r)).To(Succeed())
+				p := &policy.Policy{
+					Name:    "allow-read-obj1",
+					Objects: []ontology.ID{obj1},
+					Actions: []access.Action{access.ActionRetrieve},
+				}
+				Expect(policyWriter.Create(ctx, p)).To(Succeed())
+				Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
+				Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
+
+				req := access.Request{
+					Subject: subject,
+					Objects: []ontology.ID{obj1, obj2},
+					Action:  access.ActionRetrieve,
+				}
+				Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, req)).To(SatisfyAll(
+					MatchError(access.ErrDenied),
+					MatchError(ContainSubstring(obj2.String())),
+					Not(MatchError(ContainSubstring(obj1.String()))),
+				))
+			})
+
 			It("Should allow access with ActionAll wildcard", func(ctx SpecContext) {
 				r := &role.Role{Name: "test-role", Description: "Test role"}
 				Expect(roleWriter.Create(ctx, r)).To(Succeed())
@@ -328,10 +372,10 @@ var _ = Describe("Service", func() {
 		It(
 			"Should deny when the matching policy's actions do not contain the requested action",
 			func(ctx SpecContext) {
-				r := &role.Role{Name: "read-only-" + uuid.NewString()}
+				r := &role.Role{Name: "read-only-" + uuid.New().String()}
 				Expect(roleWriter.Create(ctx, r)).To(Succeed())
 				p := &policy.Policy{
-					Name:    "read-only-policy-" + uuid.NewString(),
+					Name:    "read-only-policy-" + uuid.New().String(),
 					Objects: []ontology.ID{obj},
 					Actions: []access.Action{access.ActionRetrieve},
 				}
@@ -350,15 +394,15 @@ var _ = Describe("Service", func() {
 		It(
 			"Should fall through a non-matching-action policy to a matching-action policy",
 			func(ctx SpecContext) {
-				r := &role.Role{Name: "split-actions-" + uuid.NewString()}
+				r := &role.Role{Name: "split-actions-" + uuid.New().String()}
 				Expect(roleWriter.Create(ctx, r)).To(Succeed())
 				retrievePolicy := &policy.Policy{
-					Name:    "retrieve-only-" + uuid.NewString(),
+					Name:    "retrieve-only-" + uuid.New().String(),
 					Objects: []ontology.ID{obj},
 					Actions: []access.Action{access.ActionRetrieve},
 				}
 				updatePolicy := &policy.Policy{
-					Name:    "update-only-" + uuid.NewString(),
+					Name:    "update-only-" + uuid.New().String(),
 					Objects: []ontology.ID{obj},
 					Actions: []access.Action{access.ActionUpdate},
 				}

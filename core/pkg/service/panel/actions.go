@@ -316,10 +316,7 @@ func (p SetTabResourcePayload) Handle(state Panel) (Panel, error) {
 	}
 	if err := updateLeafAt(&state.Root, path, func(leaf LeafNode) (LeafNode, error) {
 		tabs := append([]Tab{}, leaf.Tabs...)
-		tabs[idx] = Tab{Variant: ResourceTab{
-			TabBase:  TabBase{Key: p.Key},
-			Resource: p.Resource,
-		}}
+		tabs[idx] = Tab{Variant: ResourceTab{Key: p.Key, Resource: p.Resource}}
 		leaf.Tabs = tabs
 		return leaf, nil
 	}); err != nil {
@@ -337,10 +334,7 @@ func (p SetTabViewPayload) Handle(state Panel) (Panel, error) {
 	}
 	if err := updateLeafAt(&state.Root, path, func(leaf LeafNode) (LeafNode, error) {
 		tabs := append([]Tab{}, leaf.Tabs...)
-		tabs[idx] = Tab{Variant: ViewTab{
-			TabBase: TabBase{Key: p.Key},
-			View:    p.View,
-		}}
+		tabs[idx] = Tab{Variant: ViewTab{Key: p.Key, View: p.View}}
 		leaf.Tabs = tabs
 		return leaf, nil
 	}); err != nil {

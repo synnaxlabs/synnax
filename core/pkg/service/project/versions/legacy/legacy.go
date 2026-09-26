@@ -18,8 +18,8 @@ import (
 	"maps"
 	"slices"
 	"strings"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
@@ -272,7 +272,7 @@ func convertNode(n *mosaicNode, refs map[string]ontology.ID) *panel.Node {
 			continue
 		}
 		tabs = append(tabs, panel.Tab{Variant: panel.ResourceTab{
-			TabBase:  panel.TabBase{Key: uuid.New()},
+			Key:      uuid.New(),
 			Resource: id,
 		}})
 	}

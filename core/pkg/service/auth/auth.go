@@ -29,10 +29,10 @@ import (
 // persistent storage of credentials is the responsibility of [Service].
 type Credentials struct {
 	// Username is the username of the credential entry.
-	Username string `json:"username" msgpack:"username" validate:"required"`
+	Username string `json:"username" msgpack:"username"`
 	// Password is the plaintext password of the credential entry. Hashing and
 	// validation are the responsibility of [Service].
-	Password string `json:"password" msgpack:"password" validate:"required"`
+	Password string `json:"password" msgpack:"password"`
 }
 
 var _ override.Zeroable = Credentials{}
@@ -43,7 +43,7 @@ func (c Credentials) IsZero() bool { return c == Credentials{} }
 // Validate validates the Credentials.
 func (c Credentials) Validate() error {
 	v := validate.New("auth.credentials")
-	validate.NotEmptyString(v, "username", c.Username)
-	validate.NotEmptyString(v, "password", c.Password)
+	v.NotEmptyString("username", c.Username)
+	v.NotEmptyString("password", c.Password)
 	return v.Error()
 }

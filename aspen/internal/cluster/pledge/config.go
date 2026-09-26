@@ -11,8 +11,8 @@ package pledge
 
 import (
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter"
@@ -104,7 +104,7 @@ func (cfg Config) Override(other Config) Config {
 	cfg.ClusterKey = override.If(
 		cfg.ClusterKey,
 		other.ClusterKey,
-		other.ClusterKey != uuid.Nil,
+		other.ClusterKey != uuid.Nil(),
 	)
 	cfg.RequestTimeout = override.Numeric(cfg.RequestTimeout, other.RequestTimeout)
 	cfg.RetryInterval = override.Numeric(cfg.RetryInterval, other.RetryInterval)
@@ -119,13 +119,13 @@ func (cfg Config) Override(other Config) Config {
 // Validate implements the config.Config interface.
 func (cfg Config) Validate() error {
 	v := validate.New("pledge")
-	validate.NotNil(v, "transport_client", cfg.TransportClient)
-	validate.NotNil(v, "transport_server", cfg.TransportServer)
-	validate.Positive(v, "request_timeout", cfg.RequestTimeout)
-	validate.Positive(v, "retry_interval", cfg.RetryInterval)
-	validate.GreaterThanEq(v, "retry_scale", cfg.RetryScale, 1)
-	validate.Positive(v, "max_proposals", cfg.MaxProposals)
-	validate.NotNil(v, "candidates", cfg.Candidates)
+	v.NotNil("transport_client", cfg.TransportClient)
+	v.NotNil("transport_server", cfg.TransportServer)
+	v.Positive("request_timeout", cfg.RequestTimeout)
+	v.Positive("retry_interval", cfg.RetryInterval)
+	v.GreaterThanEq("retry_scale", cfg.RetryScale, 1)
+	v.Positive("max_proposals", cfg.MaxProposals)
+	v.NotNil("candidates", cfg.Candidates)
 	return v.Error()
 }
 
@@ -133,7 +133,7 @@ func (cfg Config) Validate() error {
 // same Config and need no peers.
 func (cfg Config) validatePeers() error {
 	v := validate.New("pledge")
-	validate.NotEmptySlice(v, "peers", cfg.Peers)
+	v.NotEmptySlice("peers", cfg.Peers)
 	return v.Error()
 }
 

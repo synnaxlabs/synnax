@@ -10,35 +10,8 @@
 name: Lint - Buildifier
 
 on:
-  pull_request:
-    paths:
-      - "**/BUILD"
-      - "**/BUILD.bazel"
-      - "**/*.bzl"
-      - .bazelrc
-      - .bazeliskrc
-      - .github/workflows/lint.buildifier.yaml
-      - MODULE.bazel
-      - MODULE.bazel.lock
-      - WORKSPACE
-      - WORKSPACE.bazel
-  push:
-    branches:
-      - main
-      - rc
-    paths:
-      - "**/BUILD"
-      - "**/BUILD.bazel"
-      - "**/*.bzl"
-      - .bazelrc
-      - .bazeliskrc
-      - .github/workflows/lint.buildifier.yaml
-      - MODULE.bazel
-      - MODULE.bazel.lock
-      - WORKSPACE
-      - WORKSPACE.bazel
+  workflow_call:
   workflow_dispatch:
-
 jobs:
   lint:
     name: Lint

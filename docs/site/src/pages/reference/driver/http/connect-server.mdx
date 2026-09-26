@@ -1,11 +1,11 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "HTTP | Connect Server"
-heading: "Connect an HTTP Server"
+title: "HTTP | Connect server"
+heading: "Connect an HTTP server"
 description: "Connect to an HTTP server using Synnax."
-prev: "EtherCAT Write Task"
+prev: "EtherCAT write task"
 prevURL: "/reference/driver/ethercat/write-task"
-next: "Read Task"
+next: "Read task"
 nextURL: "/reference/driver/http/read-task"
 ---
 
@@ -36,7 +36,7 @@ following:
 
 <Divider.Divider x />
 
-## Supported Operating Systems
+## Supported operating systems
 
 | Platform                            | Status      |
 | ----------------------------------- | ----------- |
@@ -54,7 +54,7 @@ following:
 
 <Divider.Divider x />
 
-## Configuration Parameters Reference
+## Configuration parameters reference
 
 | Parameter      | Type    | Required | Default | Description                                                                                             |
 | -------------- | ------- | -------- | ------- | ------------------------------------------------------------------------------------------------------- |
@@ -75,7 +75,7 @@ following:
 
 <Divider.Divider x />
 
-## Authentication Reference
+## Authentication reference
 
 The HTTP driver supports four authentication methods. Authentication is configured at
 the device level and applied to every request.
@@ -147,7 +147,7 @@ Sends an API key as either a custom header or a query parameter.
 
 <Divider.Divider x />
 
-## Health Check Configuration
+## Health check configuration
 
 The driver periodically checks whether the HTTP server is reachable. We recommend
 choosing a path that sends a very small response body if the server does not have a
@@ -168,7 +168,7 @@ dedicated `/health`, `/status`, or `/ping` endpoint.
 </Details>
 
 <Details>
-<Text.Text slot="summary" level="p"><Icon.Details /> Response Validation Parameters</Text.Text>
+<Text.Text slot="summary" level="p" id="response-validation-parameters"><Icon.Details /> Response Validation Parameters</Text.Text>
 
 When a `response` object is provided, the driver validates the response body against an
 expected value:
@@ -183,7 +183,7 @@ expected value:
 
 <Divider.Divider x />
 
-## How-To
+## How-to
 
 <Client.Tabs client:load exclude={["typescript", "cpp"]}>
   <Fragment slot="console">

@@ -1,7 +1,5 @@
-# Disable Bzlmod (Bazel Modules) We need the last flag to avoid issues with
-# rules_proto_grpc See https://github.com/rules-proto-grpc/rules_proto_grpc/issues/390
-# for info
-common --define=protobuf_allow_msvc=true
+# The version stamped into the Driver; release builds override it.
+build --define=SYNNAX_DRIVER_VERSION=0.0.0
 
 # Bazel 9 enables --incompatible_strict_action_env by default, which restricts PATH to
 # /bin:/usr/bin:/usr/local/bin. Pass through the host PATH so tools like cmake
@@ -20,11 +18,9 @@ common --repo_contents_cache_gc_max_age=0
 
 # The remote cache can return an action-cache hit whose output blobs have been evicted
 # from the CAS, so a later action fails to fetch them ("Failed to fetch blobs because of
-# a remote cache error"). Retry the build when that happens, and download all outputs
-# locally so downstream actions read inputs from disk instead of re-fetching evicted
-# blobs.
-build --experimental_remote_cache_eviction_retries=10
-build --remote_download_all
+# a remote cache error"). Rewinding re-runs the actions that produced the lost blobs
+# instead of failing, which keeps Build without the Bytes on.
+build --rewind_lost_inputs
 
 # Use OpenSSl instead of BoringSSL for grpc
 build --@grpc//third_party:grpc_use_openssl=true
@@ -35,11 +31,9 @@ build --dynamic_mode=off
 # ===== Platform-Specific Compiler Settings =====
 
 # macOS (Apple Silicon)
-build:macos --cpu=darwin_arm64
 build:macos --cxxopt=-std=c++23
 build:macos --host_cxxopt=-std=c++23
 build:macos --copt=-Werror
-build:macos --copt=-Wreorder-init-list
 # Hide symbols to prevent collisions with libraries loaded dynamically at runtime
 # (LabJack bundles an incompatible legacy gRPC version).
 build:macos --copt=-fvisibility=hidden
@@ -47,11 +41,6 @@ build:macos --cxxopt=-fvisibility-inlines-hidden
 
 # Allow protobuf deprecation warnings without treating them as errors
 build:macos --copt=-Wno-error=deprecated-declarations
-# GoogleTest 1.17 headers trigger char8_t → char32_t conversion warning in
-# gtest-printers.h -Wno-unknown-warning-option prevents older Clang from erroring on
-# unrecognized -W flags
-build:macos --copt=-Wno-unknown-warning-option
-build:macos --copt=-Wno-error=character-conversion
 
 # Linux
 build:linux --cxxopt=-std=c++23
@@ -64,12 +53,20 @@ build:linux --cxxopt=-fvisibility-inlines-hidden
 
 # Allow protobuf deprecation warnings without treating them as errors
 build:linux --copt=-Wno-error=deprecated-declarations
-# GoogleTest 1.17 headers trigger sign-compare in test compilation units
+
+# GoogleTest triggers sign-compare inside gtest.h when a test compares a signed to an
+# unsigned integer. GCC reports it against the header, so it cannot be suppressed at the
+# call site.
 build:linux --copt=-Wno-sign-compare
 
 # Allow sequence-point warnings without treating them as errors (wasmtime headers use
 # storage++ in pack expansion which triggers this)
 build:linux --copt=-Wno-error=sequence-point
+
+# wasmtime 49 leaves results unread in types/memory.hh and the GC ref classes. GCC
+# reports those against the workspace file that includes them, so the warning cannot be
+# suppressed at the call site. It stays visible, it just does not fail the build.
+build:linux --copt=-Wno-error=unused-variable
 
 # Windows (MSVC)
 # Note: MSVC uses /std:c++latest for C++23 features (not /std:c++23)
@@ -80,9 +77,11 @@ build:windows --host_cxxopt=/std:c++latest
 # GetUserObjectInformationW, MessageBoxW) that must be linked explicitly on Windows.
 build:windows --linkopt=user32.lib
 build:windows --copt=/Zc:preprocessor      # Enable C++20 conformant preprocessor (for __VA_OPT__)
-build:windows --copt=/W3     # Use warning level 3 instead of -Wall (which is /W4 + extras on MSVC)
-build:windows --cxxopt=/W3   # Same for C++
-build:windows --copt=/WX     # Treat warnings as errors
+build:windows --copt=/W3  # warning level 3; -Wall on MSVC is /W4 plus extras
+# Warnings are errors for C and C++ only. MASM would apply /WX to the option warnings it
+# emits for every cl flag it does not recognise, failing on assembly with no diagnostic.
+build:windows --cxxopt=/WX
+build:windows --conlyopt=/WX
 build:windows --copt=/wd4514  # 'function': unreferenced inline function has been removed (common in headers)
 build:windows --copt=/wd5039  # pointer/reference to potentially throwing function passed to extern C (Windows SDK headers)
 build:windows --copt=/wd4710  # 'function': function not inlined (informational)
@@ -126,8 +125,17 @@ build:windows --copt=/wd4589  # constructor ignores initializer for virtual base
 build:windows --copt=/wd4201  # nonstandard extension used: nameless struct/union (wasmtime headers)
 build:windows --copt=/wd4324  # structure was padded due to alignment specifier (queue/spsc.h)
 build:windows --copt=/wd4005  # macro redefinition (SOEM wpcap headers vs Windows SDK)
-build:windows --per_file_copt=external/.*@/WX-,/w
-build:windows --per_file_copt=vendor/.*@/WX-,/w
+# MASM reads /WX- as /W followed by X- and rejects it as a non-numeric level (A1013), so
+# assembly gets neither of these flags, nor the /WX above. It still receives the /wd
+# flags, but only warns about the ones it does not know.
+build:windows --per_file_copt=external/.*,-.*\\.[sS]$,-.*\\.asm$@/WX-,/w
+build:windows --per_file_copt=vendor/.*,-.*\\.[sS]$,-.*\\.asm$@/WX-,/w
+
+# Bazel hands the full cl.exe flag set to ml64 for OpenSSL's generated assembly, and
+# MASM mangles the ones it does not know until it writes no object at all. /bigobj,
+# /Zm500 and /showIncludes come from the toolchain itself, so no copt scoping fixes it.
+# Build the C implementations on Windows instead.
+build:windows --@openssl//:use-no-asm-fallback=true
 
 # Allow protobuf deprecation warnings without treating them as errors
 build:windows --copt=/wd4996  # disables warning C4996 (deprecated declarations) for MSVC
@@ -135,7 +143,6 @@ build:windows --copt=/wd4996  # disables warning C4996 (deprecated declarations)
 # Static CRT linking — eliminates dependency on VC++ Redistributable DLLs (MSVCP140.dll,
 # VCRUNTIME140.dll) which cause 0xc0000005 crashes when outdated
 build:windows --copt=/MT
-build:windows --cxxopt=/MT
 
 # ===== Warning Suppression for External Dependencies =====
 
@@ -143,14 +150,15 @@ build:windows --cxxopt=/MT
 build --output_filter=^//
 
 # Suppress warnings from external dependencies (Bazel modules and vendor/)
-build --per_file_copt=external/.*@-w
-build --per_file_copt=.*\\.cache/bazel/.*@-w
-build --per_file_copt=vendor/.*@-w
+build:macos --per_file_copt=external/.*@-w
+build:macos --per_file_copt=vendor/.*@-w
+build:linux --per_file_copt=external/.*@-w
+build:linux --per_file_copt=vendor/.*@-w
 
-# Keep strict warnings for workspace code (but not on Windows where -Wall is too
-# verbose)
-build --copt=-Wall
-build --cxxopt=-Wall
+# Keep strict warnings for workspace code. Windows is deliberately excluded: it uses /W3
+# above, and MASM reads -Wall as /W followed by a non-numeric level (A1013).
+build:macos --copt=-Wall
+build:linux --copt=-Wall
 
 # ===== Optimization Flags (used with --config=opt) =====
 #

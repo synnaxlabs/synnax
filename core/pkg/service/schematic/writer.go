@@ -11,14 +11,12 @@ package schematic
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // Writer is used to create, update, and delete schematics within Synnax. The writer
@@ -41,7 +39,7 @@ func (w Writer) Create(
 	s *Schematic,
 ) (err error) {
 	var exists bool
-	if s.Key == uuid.Nil {
+	if s.Key == uuid.Nil() {
 		s.Key = uuid.New()
 	} else {
 		exists, err = w.table.NewRetrieve().
@@ -51,6 +49,7 @@ func (w Writer) Create(
 			return err
 		}
 	}
+	s.ApplyDefaults()
 	if err = s.Validate(); err != nil {
 		return err
 	}
@@ -62,7 +61,7 @@ func (w Writer) Create(
 		if err := w.otgWriter.DefineResources(ctx, otgID); err != nil {
 			return err
 		}
-		if projectKey != uuid.Nil {
+		if projectKey != uuid.Nil() {
 			if err := w.otgWriter.DefineRelationships(
 				ctx,
 				project.OntologyID(projectKey),
@@ -106,10 +105,10 @@ func (w Writer) findParentProject(
 		WhereTypes(ontology.ResourceTypeProject).
 		Entries(&res).
 		Exec(ctx, w.tx); err != nil {
-		return uuid.Nil, false, err
+		return uuid.Nil(), false, err
 	}
 	if len(res) == 0 {
-		return uuid.Nil, false, nil
+		return uuid.Nil(), false, nil
 	}
 	k, err := uuid.Parse(res[0].ID.Key)
 	return k, true, err
@@ -155,44 +154,6 @@ func (w Writer) Copy(
 		ontology.RelationshipTypeParentOf,
 		OntologyID(newKey),
 	)
-}
-
-// Dispatch applies a sequence of actions atomically to the schematic with the
-// given key. After a successful update the actions are notified to the
-// service-level observer so subscribers (cluster signals) can broadcast them.
-// dispatchKey is a client-generated identifier carried verbatim onto the
-// broadcast so the originating client can match its own echo against the set
-// of outstanding local replays and skip a redundant reduce when no foreign
-// action interleaved. Snapshots are immutable except for Rename: returns
-// validate.ErrValidation if the target is a snapshot and any action other
-// than Rename is included.
-func (w Writer) Dispatch(
-	ctx context.Context,
-	key Key,
-	dispatchKey string,
-	actions []Action,
-) error {
-	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Schematic](key)).
-		ChangeErr(func(_ gorp.Context, s Schematic) (Schematic, error) {
-			if s.Snapshot {
-				for _, a := range actions {
-					if a.Type != ActionTypeRename {
-						return s, errors.Wrapf(
-							validate.ErrValidation,
-							"[Schematic] - cannot dispatch %s on snapshot %s:%s",
-							a.Type,
-							key,
-							s.Name,
-						)
-					}
-				}
-			}
-			return Reduce(s, actions...)
-		}).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	w.dispatcher.Notify(ctx, key, dispatchKey, actions)
-	return nil
 }
 
 // Delete deletes the schematics with the given keys.

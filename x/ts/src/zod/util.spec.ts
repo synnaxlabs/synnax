@@ -139,7 +139,7 @@ describe("zod", () => {
           });
         const v = zod.getFieldSchema(schema, "name");
         expect(v).toBeInstanceOf(z.ZodString);
-        expect(v.safeParse(undefined).success).toBe(false);
+        expect(z.validate(v, undefined)).toBe(false);
       });
     });
   });

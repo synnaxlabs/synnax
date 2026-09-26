@@ -12,9 +12,8 @@ import { Logo } from "@synnaxlabs/media";
 import { Icon, Button, Flex } from "@synnaxlabs/pluto";
 import Search from "@/components/search/Search.astro";
 import { PageMobile } from "@/components/nav/Page";
-import { fetchVersion } from "@/util/fetchVersion";
 const url = Astro.url.pathname;
-const version = await fetchVersion().catch(() => null);
+const version = await Astro.locals.releases.latest("core").catch(() => null);
 const label = version?.split(".").slice(0, -1).join(".");
 ---
 
@@ -61,7 +60,7 @@ const label = version?.split(".").slice(0, -1).join(".");
                     variant="filled"
                     href="https://synnaxlabs.com/#contact"
                 >
-                    Book a Demo
+                    Book a demo
                 </Button.Button>
                 <Button.Button
                     className="version-button"
@@ -83,8 +82,8 @@ const label = version?.split(".").slice(0, -1).join(".");
         position: sticky;
         top: 0;
         background: var(--pluto-gray-l2-30);
-        backdrop-filter: blur(3rem);
         -webkit-backdrop-filter: blur(3rem);
+        backdrop-filter: blur(3rem);
 
         .header-row {
             height: var(--nav-height);
@@ -346,12 +345,13 @@ const label = version?.split(".").slice(0, -1).join(".");
     @media (max-width: 800px) and (hover: none) {
         .main-header {
             z-index: 100;
-            flex-direction: column-reverse !important;
             position: fixed;
-            bottom: 0px;
-            top: unset;
+            top: 0;
             width: 100%;
-            border-top: var(--pluto-border);
+        }
+
+        body {
+            padding-top: var(--nav-height);
         }
     }
 </style>

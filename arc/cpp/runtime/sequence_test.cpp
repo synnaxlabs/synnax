@@ -96,7 +96,7 @@ public:
         this->settle();
     }
 
-    [[nodiscard]] x::telem::Frame flush() const { return this->harness.flush(); }
+    [[nodiscard]] x::telem::Frame flush() { return this->harness.flush(); }
 };
 
 /// @brief returns every sample in a series as T.
@@ -134,7 +134,7 @@ int count_of(
 
 /// @brief appends every sample a flushed frame wrote to the given channel.
 template<typename T>
-void drain(const Sequence &h, const std::string &name, std::vector<T> &got) {
+void drain(Sequence &h, const std::string &name, std::vector<T> &got) {
     auto vals = collect<T>(h.flush(), h.key(name));
     got.insert(
         got.end(),
@@ -2099,7 +2099,7 @@ TEST(TriggeredExpressionVariableReadsTest, FiresPerIntervalTickWithTheLiveValue)
     h.advance(x::telem::TimeSpan(0));
     h.advance(60 * x::telem::MILLISECOND);
     auto out = h.flush();
-    EXPECT_EQ(count_of(out, h.key("out"), "v=3"), 1);
+    EXPECT_EQ(count_of(out, h.key("out"), "v=3"), 2);
     h.ingest("set_ch", x::telem::Series(std::uint8_t(9)));
     h.advance(65 * x::telem::MILLISECOND);
     h.advance(115 * x::telem::MILLISECOND);

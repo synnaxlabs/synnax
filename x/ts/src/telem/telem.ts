@@ -20,6 +20,16 @@ const SIMPLE_DAYS_IN_MONTH = 30;
 /** Different string formats for time spans. */
 export type TimeSpanStringFormat = "full" | "semantic";
 
+const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+const TIME_OF_DAY_RE = /^(\d{1,2}):(\d{2})(?::(\d{2})(?:\.(\d{1,9}))?)?\s*(am|pm)?$/i;
+const ISO_ZONE_RE = /^\d{4}-\d{2}-\d{2}T.*(Z|[+-]\d{2}:?\d{2})$/;
+// toPreciseString separates the fraction's digit groups with spaces.
+const FRACTION_GROUP_GAP_RE = /(?<=\.\d{3}(?: \d{3})?) (?=\d{3})/g;
+const LONG_FRACTION_RE = /\.(\d{4,9})/;
+
+const fractionToNanoseconds = (fraction: string | undefined): bigint =>
+  fraction == null ? 0n : BigInt(fraction.padEnd(9, "0").slice(0, 9));
+
 const dateComponentsZ = z.union([
   z.tuple([z.int()]),
   z.tuple([z.int(), z.int().min(1).max(12)]),
@@ -314,14 +324,14 @@ export class TimeStamp
   setYear(year: number): TimeStamp {
     const d = this.date();
     d.setUTCFullYear(year);
-    return new TimeStamp(d);
+    return this.withSubMillisecond(d);
   }
 
   /** @returns a copy of the timestamp with the year changed in local time. */
   setLocalYear(year: number): TimeStamp {
     const d = this.date();
     d.setFullYear(year);
-    return new TimeStamp(d);
+    return this.withSubMillisecond(d);
   }
 
   /** @returns the integer month that the timestamp corresponds to within its year in
@@ -340,14 +350,14 @@ export class TimeStamp
   setMonth(month: number): TimeStamp {
     const d = this.date();
     d.setUTCMonth(month);
-    return new TimeStamp(d);
+    return this.withSubMillisecond(d);
   }
 
   /** @returns a copy of the timestamp with the month changed in local time. */
   setLocalMonth(month: number): TimeStamp {
     const d = this.date();
     d.setMonth(month);
-    return new TimeStamp(d);
+    return this.withSubMillisecond(d);
   }
 
   /** @returns the integer day that the timestamp corresponds to within its month in
@@ -366,14 +376,14 @@ export class TimeStamp
   setDay(day: number): TimeStamp {
     const d = this.date();
     d.setUTCDate(day);
-    return new TimeStamp(d);
+    return this.withSubMillisecond(d);
   }
 
   /** @returns a copy of the timestamp with the day changed in local time. */
   setLocalDay(day: number): TimeStamp {
     const d = this.date();
     d.setDate(day);
-    return new TimeStamp(d);
+    return this.withSubMillisecond(d);
   }
 
   /** @returns the integer hour that the timestamp corresponds to within its day. */
@@ -390,14 +400,14 @@ export class TimeStamp
   setLocalHour(hour: number): TimeStamp {
     const d = this.date();
     d.setHours(hour);
-    return new TimeStamp(d);
+    return this.withSubMillisecond(d);
   }
 
   /** @returns a copy of the timestamp with the hour changed. */
   setHour(hour: number): TimeStamp {
     const d = this.date();
     d.setUTCHours(hour);
-    return new TimeStamp(d);
+    return this.withSubMillisecond(d);
   }
 
   /** @returns the integer minute that the timestamp corresponds to within its hour in
@@ -416,14 +426,14 @@ export class TimeStamp
   setMinute(minute: number): TimeStamp {
     const d = this.date();
     d.setUTCMinutes(minute);
-    return new TimeStamp(d);
+    return this.withSubMillisecond(d);
   }
 
   /** @returns a copy of the timestamp with the minute changed in local time. */
   setLocalMinute(minute: number): TimeStamp {
     const d = this.date();
     d.setMinutes(minute);
-    return new TimeStamp(d);
+    return this.withSubMillisecond(d);
   }
 
   /** @returns the integer second within the timestamp's minute, in UTC. */
@@ -440,14 +450,14 @@ export class TimeStamp
   setSecond(second: number): TimeStamp {
     const d = this.date();
     d.setUTCSeconds(second);
-    return new TimeStamp(d);
+    return this.withSubMillisecond(d);
   }
 
   /** @returns a copy of the timestamp with the second changed in local time. */
   setLocalSecond(second: number): TimeStamp {
     const d = this.date();
     d.setSeconds(second);
-    return new TimeStamp(d);
+    return this.withSubMillisecond(d);
   }
 
   /** @returns the integer millisecond within the timestamp's second, in UTC. */
@@ -464,14 +474,14 @@ export class TimeStamp
   setMillisecond(millisecond: number): TimeStamp {
     const d = this.date();
     d.setUTCMilliseconds(millisecond);
-    return new TimeStamp(d);
+    return this.withSubMillisecond(d);
   }
 
   /** @returns a copy of the timestamp with the milliseconds changed in local time. */
   setLocalMillisecond(millisecond: number): TimeStamp {
     const d = this.date();
     d.setMilliseconds(millisecond);
-    return new TimeStamp(d);
+    return this.withSubMillisecond(d);
   }
 
   /** @returns the timestamp formatted per format, defaulting to ISO in UTC. */
@@ -504,9 +514,36 @@ export class TimeStamp
     return remainder(this, divisor);
   }
 
-  /** @returns true if the day portion TimeStamp is today, false otherwise. */
-  get isToday(): boolean {
-    return this.truncate(TimeSpan.DAY).equals(TimeStamp.now().truncate(TimeSpan.DAY));
+  /** @returns true if both timestamps fall on the same calendar day in timeZone. */
+  isSameDay(other: CrudeTimeStamp, timeZone: TimeZone = "UTC"): boolean {
+    return (
+      this.toString("ISODate", timeZone) ===
+      new TimeStamp(other).toString("ISODate", timeZone)
+    );
+  }
+
+  /**
+   * @returns the timestamp as `YYYY-MM-DD HH:MM:SS`, followed by the fractional second
+   * in three-digit groups (`.250 137 004`) with trailing zero groups dropped. The
+   * layout is fixed, and {@link TimeStamp.parse} reads it back without loss.
+   */
+  toPreciseString(timeZone: TimeZone = "UTC"): string {
+    const second = TimeStamp.SECOND.valueOf();
+    const fraction = ((this.valueOf() % second) + second) % second;
+    const whole = new TimeStamp(this.valueOf() - fraction);
+    const base = whole.toISOString(timeZone).slice(0, 19).replace("T", " ");
+    if (fraction === 0n) return base;
+    const digits = fraction.toString().padStart(9, "0");
+    const groups = [digits.slice(0, 3), digits.slice(3, 6), digits.slice(6, 9)];
+    while (groups[groups.length - 1] === "000") groups.pop();
+    return `${base}.${groups.join(" ")}`;
+  }
+
+  /** @returns a timestamp at date that keeps this one's digits below a millisecond. */
+  private withSubMillisecond(date: Date): TimeStamp {
+    return new TimeStamp(date).add(
+      new TimeSpan(this.valueOf() % TimeStamp.MILLISECOND.valueOf()),
+    );
   }
 
   /** @returns a copy truncated down to a multiple of span. */
@@ -523,6 +560,58 @@ export class TimeStamp
     if (span.greaterThanOrEqual(TimeSpan.DAY)) return "dateTime";
     if (span.greaterThanOrEqual(TimeSpan.HOUR)) return "time";
     return "preciseTime";
+  }
+
+  /**
+   * Parses a date (`2026-08-23`), a date-time with a `T` or a space, a 24-hour or
+   * `am`/`pm` time, and a fraction of up to nine digits (`2026-08-23 14:05:00.250
+   * 137`), or an ISO string with a zone. Reads every {@link toPreciseString} back.
+   * @param timeZone - the zone of a string that names none. Ignored for an ISO string
+   * with a zone.
+   * @returns the timestamp, or null when the text is not an instant that exists.
+   */
+  static parse(text: string, timeZone: TimeZone = "UTC"): TimeStamp | null {
+    const trimmed = text.trim().replace(FRACTION_GROUP_GAP_RE, "");
+    if (ISO_ZONE_RE.test(trimmed)) {
+      // Date reads a fraction to the millisecond only.
+      const fraction = LONG_FRACTION_RE.exec(trimmed)?.[1];
+      const ms = Date.parse(
+        trimmed.replace(LONG_FRACTION_RE, (_, f: string) => `.${f.slice(0, 3)}`),
+      );
+      if (Number.isNaN(ms)) return null;
+      const sub = fractionToNanoseconds(fraction) % TimeStamp.MILLISECOND.valueOf();
+      return new TimeStamp(new Date(ms)).add(new TimeSpan(sub));
+    }
+    const [datePart, ...timeParts] = trimmed.split(/[T ]/);
+    const date = DATE_RE.exec(datePart);
+    if (date == null) return null;
+    const [year, month, day] = date.slice(1).map(Number);
+    let [hour, minute, second, fraction] = [0, 0, 0, 0n];
+    if (timeParts.length > 0) {
+      const time = TIME_OF_DAY_RE.exec(timeParts.join(" "));
+      if (time == null) return null;
+      const meridiem = time[5]?.toLowerCase();
+      hour = Number(time[1]);
+      if (meridiem != null) {
+        if (hour < 1 || hour > 12) return null;
+        hour = (hour % 12) + (meridiem === "pm" ? 12 : 0);
+      }
+      minute = Number(time[2]);
+      second = Number(time[3] ?? 0);
+      fraction = fractionToNanoseconds(time[4]);
+      if (hour > 23 || minute > 59 || second > 59) return null;
+    }
+    const local = timeZone === "local";
+    const d = local
+      ? new Date(year, month - 1, day, hour, minute, second)
+      : new Date(Date.UTC(year, month - 1, day, hour, minute, second));
+    // Date rolls a day that does not exist into the next month.
+    const resolved = local
+      ? [d.getFullYear(), d.getMonth() + 1, d.getDate()]
+      : [d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate()];
+    if (resolved[0] !== year || resolved[1] !== month || resolved[2] !== day)
+      return null;
+    return new TimeStamp(d).add(new TimeSpan(fraction));
   }
 
   /** @returns the current UTC time, accurate only to the millisecond. */
@@ -642,6 +731,26 @@ export class TimeSpan
     if (typeof value === "number") value = Math.trunc(value.valueOf());
     if (primitive.isCrudeValueExtension<bigint>(value)) value = value.value;
     super(BigInt(value.valueOf()));
+  }
+
+  /**
+   * Parses a run of amounts and units, the form {@link toString} prints: `30s`,
+   * `2h 30m`, `1.5h`, `500ms`. Units are `d`, `h`, `m` or `min`, `s`, `ms`, `us` or
+   * `µs`, and `ns`, in any case.
+   * @returns the span, or null when the text is not a unit run.
+   */
+  static parse(text: string): TimeSpan | null {
+    let rest = text.trim();
+    if (rest.length === 0) return null;
+    let total = TimeSpan.ZERO;
+    while (rest.length > 0) {
+      const match = UNIT_RUN_RE.exec(rest);
+      if (match == null) return null;
+      const [whole, amount, unit] = match;
+      total = total.add(SPAN_UNITS[unit.toLowerCase()].mult(Number(amount)));
+      rest = rest.slice(whole.length);
+    }
+    return total;
   }
 
   /** @returns A TimeSpan representing the given number of seconds. */
@@ -984,6 +1093,26 @@ export class TimeSpan
   ]);
 }
 
+const SPAN_UNITS: Record<string, TimeSpan> = {
+  d: TimeSpan.DAY,
+  h: TimeSpan.HOUR,
+  m: TimeSpan.MINUTE,
+  min: TimeSpan.MINUTE,
+  s: TimeSpan.SECOND,
+  ms: TimeSpan.MILLISECOND,
+  us: TimeSpan.MICROSECOND,
+  µs: TimeSpan.MICROSECOND,
+  ns: TimeSpan.NANOSECOND,
+};
+
+// Longest first, so `ms` and `min` win over `m`.
+const UNIT_RUN_RE = new RegExp(
+  `^(\\d+(?:\\.\\d+)?)\\s*(${Object.keys(SPAN_UNITS)
+    .sort((a, b) => b.length - a.length)
+    .join("|")})\\s*`,
+  "i",
+);
+
 /** Rate represents a data rate in Hz. */
 export class Rate
   extends primitive.ValueExtension<number>
@@ -1314,14 +1443,6 @@ export class TimeRange implements primitive.Stringer, primitive.Hashable {
    * TimeRange.
    * @returns True if the TimeRange contains the given TimeRange or TimeStamp.
    */
-  contains(other: TimeRange): boolean;
-
-  /**
-   * @param ts - The TimeStamp to check if it is contained in the TimeRange.
-   * @returns True if the TimeRange contains the given TimeStamp.
-   */
-  contains(ts: CrudeTimeStamp): boolean;
-
   contains(other: TimeRange | CrudeTimeStamp): boolean {
     if (other instanceof TimeRange)
       return this.contains(other.start) && this.contains(other.end);
@@ -1935,6 +2056,28 @@ export const numericTimeRangeZ = z.object({
  * Involves a loss of precision, but can be useful for serialization.
  */
 export interface NumericTimeRange extends z.infer<typeof numericTimeRangeZ> {}
+
+// Go marshals telem int64s as decimal strings in JSON, so both forms decode.
+const wireInt64Z = z.union([z.number(), z.string().transform(Number)]);
+
+export const numericTimeSpanZ = wireInt64Z;
+
+/**
+ * A time span backed by a number instead of a TimeSpan/BigInt.
+ * Involves a loss of precision, but can be useful for serialization.
+ */
+export type NumericTimeSpan = z.infer<typeof numericTimeSpanZ>;
+
+export const stringTimeStampZ = z.preprocess(
+  (v) => (typeof v === "number" || typeof v === "bigint" ? String(v) : v),
+  z.string(),
+);
+
+/**
+ * A timestamp backed by a decimal string instead of a TimeStamp/BigInt.
+ * Keeps int64 precision in plain-data document state.
+ */
+export type StringTimeStamp = z.infer<typeof stringTimeStampZ>;
 
 export const typedArrayZ = z.union([
   z.instanceof(Uint8Array),

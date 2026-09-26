@@ -53,23 +53,23 @@ var _ = Describe("Writer", func() {
 					Start: 10 * telem.SecondTS,
 					Sync:  new(true),
 				}))
-				MustSucceed(writer.Write(frame.NewMulti(
+				Expect(writer.Write(frame.NewMulti(
 					s.keys,
 					[]telem.Series{
 						telem.NewSeriesV[int64](1, 2, 3),
 						telem.NewSeriesV[int64](3, 4, 5),
 						telem.NewSeriesV[int64](5, 6, 7),
 					},
-				)))
+				))).To(BeTrue())
 				MustSucceed(writer.Commit())
-				MustSucceed(writer.Write(frame.NewMulti(
+				Expect(writer.Write(frame.NewMulti(
 					s.keys,
 					[]telem.Series{
 						telem.NewSeriesV[int64](1, 2, 3),
 						telem.NewSeriesV[int64](3, 4, 5),
 						telem.NewSeriesV[int64](5, 6, 7),
 					},
-				)))
+				))).To(BeTrue())
 				MustSucceed(writer.Commit())
 			})
 		}
@@ -109,13 +109,13 @@ var _ = Describe("Writer", func() {
 				Start: 10 * telem.SecondTS,
 				Sync:  new(true),
 			}))
-			MustSucceed(w.Write(frame.NewMulti(
+			Expect(w.Write(frame.NewMulti(
 				s.keys,
 				[]telem.Series{
 					telem.NewSeriesSecondsTSV(10, 11, 12),
 					telem.NewSeriesV("hello", "world", "foo"),
 				},
-			)))
+			))).To(BeTrue())
 			MustSucceed(w.Commit())
 			iter := MustOpen(s.dist.Framer.OpenIterator(ctx, iterator.Config{
 				Keys:   []channel.Key{strCh.Key()},
@@ -124,7 +124,7 @@ var _ = Describe("Writer", func() {
 			Expect(iter.SeekFirst()).To(BeTrue())
 			Expect(iter.Next(telem.TimeSpanMax)).To(BeTrue())
 			Expect(
-				telem.UnmarshalSeries[string](iter.Value().SeriesAt(0)),
+				iter.Value().SeriesAt(0).Unmarshal[string](),
 			).To(Equal([]string{"hello", "world", "foo"}))
 		})
 		It("Should write mixed fixed and variable channels", func(ctx SpecContext) {
@@ -142,14 +142,14 @@ var _ = Describe("Writer", func() {
 				Start: 20 * telem.SecondTS,
 				Sync:  new(true),
 			}))
-			MustSucceed(w.Write(frame.NewMulti(
+			Expect(w.Write(frame.NewMulti(
 				keys,
 				[]telem.Series{
 					telem.NewSeriesSecondsTSV(20, 21, 22),
 					telem.NewSeriesV(1.1, 2.2, 3.3),
 					telem.NewSeriesV("a", "b", "c"),
 				},
-			)))
+			))).To(BeTrue())
 			MustSucceed(w.Commit())
 			iter := MustOpen(s.dist.Framer.OpenIterator(ctx, iterator.Config{
 				Keys:   []channel.Key{strCh.Key()},
@@ -158,7 +158,7 @@ var _ = Describe("Writer", func() {
 			Expect(iter.SeekFirst()).To(BeTrue())
 			Expect(iter.Next(telem.TimeSpanMax)).To(BeTrue())
 			Expect(
-				telem.UnmarshalSeries[string](iter.Value().SeriesAt(0)),
+				iter.Value().SeriesAt(0).Unmarshal[string](),
 			).To(Equal([]string{"a", "b", "c"}))
 		})
 	})
@@ -401,10 +401,10 @@ var _ = Describe("Writer", func() {
 					AutoIndex: new(true),
 					Start:     1 * telem.SecondTS,
 				}))
-				Expect((w.Write(frame.NewUnary(
+				Expect(w.Write(frame.NewUnary(
 					data.Key(),
 					telem.NewSeriesV(1.1, 2.2, 3.3),
-				)))).To(BeTrue())
+				))).To(BeTrue())
 				MustSucceed(w.Commit())
 				Expect(w.Close()).To(Succeed())
 				after := telem.Now()
@@ -415,7 +415,7 @@ var _ = Describe("Writer", func() {
 				}))
 				Expect(iter.SeekFirst()).To(BeTrue())
 				Expect(iter.Next(telem.TimeSpanMax)).To(BeTrue())
-				ts := telem.UnmarshalSeries[telem.TimeStamp](iter.Value().SeriesAt(0))
+				ts := iter.Value().SeriesAt(0).Unmarshal[telem.TimeStamp]()
 				Expect(iter.Close()).To(Succeed())
 
 				Expect(ts).To(HaveLen(3))
@@ -477,10 +477,10 @@ var _ = Describe("Writer", func() {
 				}))
 				data := telem.NewSeriesV[float32](1, 2)
 				idx := telem.NewSeriesSecondsTSV(10*telem.SecondTS, 11*telem.SecondTS)
-				MustSucceed(writer.Write(frame.NewMulti(
+				Expect(writer.Write(frame.NewMulti(
 					keys,
 					[]telem.Series{idx, data},
-				)))
+				))).To(BeTrue())
 				Eventually(out.Outlet()).Should(Receive(&res))
 				Expect(res.Frame.KeysSlice()).To(Equal(keys))
 				writtenData := res.Frame.Get(dataCh.Key()).Series[0]
@@ -493,10 +493,10 @@ var _ = Describe("Writer", func() {
 				Expect(writtenIdx.Alignment).To(Equal(writtenData.Alignment))
 				data = telem.NewSeriesV[float32](3, 4)
 				idx = telem.NewSeriesSecondsTSV(12*telem.SecondTS, 13*telem.SecondTS)
-				MustSucceed(writer.Write(frame.NewMulti(
+				Expect(writer.Write(frame.NewMulti(
 					keys,
 					[]telem.Series{idx, data},
-				)))
+				))).To(BeTrue())
 				Eventually(out.Outlet()).Should(Receive(&res))
 				Expect(res.Frame.KeysSlice()).To(Equal(keys))
 				writtenData = res.Frame.Get(dataCh.Key()).Series[0]
@@ -578,6 +578,7 @@ func newChannelSet() []channel.Channel {
 }
 
 func gatewayOnlyScenario(ctx context.Context) scenario {
+	GinkgoHelper()
 	channels := newChannelSet()
 	node := mock.OpenNode(ctx)
 	channels = MustSucceed(node.Channel.Create(ctx, channels))
@@ -591,6 +592,7 @@ func gatewayOnlyScenario(ctx context.Context) scenario {
 }
 
 func peerOnlyScenario(ctx context.Context) scenario {
+	GinkgoHelper()
 	channels := newChannelSet()
 	cluster := mock.OpenCluster(ctx, 4)
 	dist := cluster.Nodes[1]
@@ -604,6 +606,7 @@ func peerOnlyScenario(ctx context.Context) scenario {
 }
 
 func mixedScenario(ctx context.Context) scenario {
+	GinkgoHelper()
 	channels := newChannelSet()
 	cluster := mock.OpenCluster(ctx, 3)
 	dist := cluster.Nodes[1]
@@ -622,6 +625,7 @@ func mixedScenario(ctx context.Context) scenario {
 }
 
 func freeWriterScenario(ctx context.Context) scenario {
+	GinkgoHelper()
 	channels := newChannelSet()
 	cluster := mock.OpenCluster(ctx, 3)
 	dist := cluster.Nodes[1]

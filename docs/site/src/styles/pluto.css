@@ -37,7 +37,7 @@
 }
 
 article .pluto-tabs__selector {
-    margin: 1rem 1rem 1rem;
+    margin: 1rem 1rem 2.5rem;
     --pluto-height-medium: 6.5rem;
     --pluto-tabs-tab-height: 5.5rem;
 
@@ -247,8 +247,8 @@ article table th p {
 
 /* Dialog component */
 .pluto-dialog__bg.pluto--visible {
-    backdrop-filter: blur(2px);
     -webkit-backdrop-filter: blur(2px);
+    backdrop-filter: blur(2px);
 }
 
 @media (max-width: 600px) and (hover: none) {

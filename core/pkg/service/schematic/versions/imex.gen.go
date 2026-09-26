@@ -17,11 +17,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v7"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v8"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v9"
 )
 
 // Latest is the portable schema version stamped on exported Schematic envelopes and the
 // highest version import accepts. It equals the resource's current schema version.
-const Latest = v8.Version
+const Latest = v9.Version
 
 // autoDecodeEnvelope decodes a server-exported envelope as its version's Schematic
 // shape and lifts it through the per-version migration chain to the current shape. A
@@ -29,7 +30,7 @@ const Latest = v8.Version
 func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Schematic, error) {
 	switch env.Version {
 	case v7.Version:
-		t7, err := imex.Decode[v7.Schematic](ctx, env)
+		t7, err := env.Decode[v7.Schematic](ctx)
 		if err != nil {
 			return Schematic{}, err
 		}
@@ -37,9 +38,23 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 		if err != nil {
 			return Schematic{}, err
 		}
-		return t8, nil
+		t9, err := v9.MigrateSchematic(ctx, t8)
+		if err != nil {
+			return Schematic{}, err
+		}
+		return t9, nil
 	case v8.Version:
-		return imex.Decode[Schematic](ctx, env)
+		t8, err := env.Decode[v8.Schematic](ctx)
+		if err != nil {
+			return Schematic{}, err
+		}
+		t9, err := v9.MigrateSchematic(ctx, t8)
+		if err != nil {
+			return Schematic{}, err
+		}
+		return t9, nil
+	case v9.Version:
+		return env.Decode[Schematic](ctx)
 	}
 	return Schematic{}, imex.NewErrUnsupportedVersion(env.Type, env.Version, Latest)
 }

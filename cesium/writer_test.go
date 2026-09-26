@@ -12,7 +12,7 @@ package cesium_test
 import (
 	"encoding/binary"
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"os"
 	"strconv"
 	"sync"
@@ -84,7 +84,8 @@ var _ = Describe("Writer Behavior", func() {
 							[]telem.Series{
 								telem.NewSeriesSecondsTSV(10, 11, 12, 13),
 								telem.NewSeriesV[int64](1, 2, 3, 4),
-							}),
+							},
+						),
 						))
 						end := MustSucceed(w.Commit())
 						Expect(end).To(Equal(13*telem.SecondTS + 1))
@@ -881,7 +882,7 @@ var _ = Describe("Writer Behavior", func() {
 								)
 								defer shutdown()
 
-								rng := rand.New(rand.NewSource(alignmentSeed))
+								rng := rand.New(rand.NewPCG(alignmentSeed, 0))
 								ts := 10 * telem.SecondTS
 								for range 8 {
 									w := MustSucceed(
@@ -897,8 +898,8 @@ var _ = Describe("Writer Behavior", func() {
 											},
 										}),
 									)
-									for range rng.Intn(4) + 1 {
-										n := rng.Intn(5) + 1
+									for range rng.IntN(4) + 1 {
+										n := rng.IntN(5) + 1
 										stamps := make([]telem.TimeStamp, n)
 										ints := make([]int64, n)
 										floats := make([]float32, n)
@@ -996,6 +997,7 @@ var _ = Describe("Writer Behavior", func() {
 
 								ts := 10 * telem.SecondTS
 								write := func(w *cesium.Writer, data cesium.ChannelKey, n int) {
+									GinkgoHelper()
 									stamps := make([]telem.TimeStamp, n)
 									ints := make([]int64, n)
 									for j := range n {
@@ -1432,7 +1434,7 @@ var _ = Describe("Writer Behavior", func() {
 							),
 						)
 						Expect(
-							telem.UnmarshalSeries[string](f.Get(strChan).Series[0]),
+							f.Get(strChan).Series[0].Unmarshal[string](),
 						).To(Equal([]string{"hello", "world", "foo"}))
 					})
 					Specify(
@@ -1481,12 +1483,10 @@ var _ = Describe("Writer Behavior", func() {
 								),
 							)
 							Expect(
-								telem.UnmarshalSeries[float64](f.Get(fixed).Series[0]),
+								f.Get(fixed).Series[0].Unmarshal[float64](),
 							).To(Equal([]float64{1.1, 2.2, 3.3, 4.4}))
 							Expect(
-								telem.UnmarshalSeries[string](
-									f.Get(variable).Series[0],
-								),
+								f.Get(variable).Series[0].Unmarshal[string](),
 							).To(Equal([]string{"a", "b", "c", "d"}))
 						},
 					)
@@ -1540,7 +1540,7 @@ var _ = Describe("Writer Behavior", func() {
 								),
 							)
 							Expect(
-								telem.UnmarshalSeries[string](f.Get(strCh).Series[0]),
+								f.Get(strCh).Series[0].Unmarshal[string](),
 							).To(Equal([]string{"alpha", "beta"}))
 							Expect(f.Get(jsonCh).Series[0].Len()).To(Equal(int64(2)))
 						},
@@ -1580,7 +1580,7 @@ var _ = Describe("Writer Behavior", func() {
 							),
 						)
 						Expect(
-							telem.UnmarshalSeries[string](f.Get(data).Series[0]),
+							f.Get(data).Series[0].Unmarshal[string](),
 						).To(Equal(
 							[]string{"line1\nline2\nline3", "no newline"},
 						))
@@ -1627,7 +1627,7 @@ var _ = Describe("Writer Behavior", func() {
 								),
 							)
 							Expect(
-								telem.UnmarshalSeries[string](f.Get(data).Series[0]),
+								f.Get(data).Series[0].Unmarshal[string](),
 							).To(Equal([]string{"p1", "p2", "p3"}))
 							Expect(subDB.Close()).To(Succeed())
 						},
@@ -1679,7 +1679,7 @@ var _ = Describe("Writer Behavior", func() {
 								),
 							)
 							Expect(
-								telem.UnmarshalSeries[string](f.Get(data).Series[0]),
+								f.Get(data).Series[0].Unmarshal[string](),
 							).To(Equal([]string{"x", "y"}))
 						},
 					)
@@ -2595,6 +2595,7 @@ var _ = Describe("Writer Behavior", func() {
 
 							ts := 10 * telem.SecondTS
 							write := func(w *cesium.Writer, n int) {
+								GinkgoHelper()
 								stamps := make([]telem.TimeStamp, n)
 								ints := make([]int64, n)
 								for j := range n {
@@ -3275,7 +3276,8 @@ var _ = Describe("Writer Behavior", func() {
 							[]cesium.ChannelKey{key},
 							[]telem.Series{
 								telem.NewSeriesSecondsTSV(10, 11, 12, 13),
-							}),
+							},
+						),
 						))
 						Expect(authorized).To(BeFalse())
 
@@ -3350,7 +3352,8 @@ var _ = Describe("Writer Behavior", func() {
 						[]telem.Series{
 							telem.NewSeriesSecondsTSV(10, 11, 12, 13),
 							telem.NewSeriesV[int64](1, 2, 3, 4),
-						}),
+						},
+					),
 					))
 					end := MustSucceed(w.Commit())
 					Expect(end).To(Equal(13*telem.SecondTS + 1))
@@ -3373,7 +3376,8 @@ var _ = Describe("Writer Behavior", func() {
 						cesium.WriterConfig{
 							Channels: []cesium.ChannelKey{55000},
 							Start:    10 * telem.SecondTS,
-						})
+						},
+					)
 					Expect(err).To(MatchError(channel.ErrNotFound))
 				})
 				Specify(
@@ -3447,7 +3451,8 @@ var _ = Describe("Writer Behavior", func() {
 						[]telem.Series{
 							telem.NewSeriesSecondsTSV(10, 11, 12, 13),
 							telem.NewSeriesV[float32](10, 11, 12),
-						}),
+						},
+					),
 					))
 					_, err := w.Commit()
 					Expect(err).To(MatchError(validate.ErrValidation))
@@ -3465,7 +3470,8 @@ var _ = Describe("Writer Behavior", func() {
 								cesium.WriterConfig{
 									Channels: []cesium.ChannelKey{idx, data},
 									Start:    10 * telem.SecondTS,
-								}))
+								},
+							))
 							MustSucceed(w.Write(telem.MultiFrame(
 								[]cesium.ChannelKey{idx},
 								[]telem.Series{
@@ -3481,7 +3487,8 @@ var _ = Describe("Writer Behavior", func() {
 									"frame must have exactly one series for each data channel associated with index [uneven 1]<%d>, but is missing a series for channel [uneven 2]<%d>",
 									idx,
 									data,
-								))))
+								)),
+							))
 						},
 					)
 
@@ -3493,7 +3500,8 @@ var _ = Describe("Writer Behavior", func() {
 								cesium.WriterConfig{
 									Channels: []cesium.ChannelKey{idx, data},
 									Start:    10 * telem.SecondTS,
-								}))
+								},
+							))
 							MustSucceed(w.Write(telem.MultiFrame(
 								[]cesium.ChannelKey{data},
 								[]telem.Series{
@@ -3509,7 +3517,8 @@ var _ = Describe("Writer Behavior", func() {
 									"received no data for index channel [uneven 1]<%v> that must be provided when writing to related data channels [[uneven 2]<%v>]",
 									idx,
 									data,
-								))))
+								)),
+							))
 						},
 					)
 				})
@@ -3520,7 +3529,8 @@ var _ = Describe("Writer Behavior", func() {
 						cesium.WriterConfig{
 							Channels: []cesium.ChannelKey{idx, data},
 							Start:    10 * telem.SecondTS,
-						}))
+						},
+					))
 					MustSucceed(w.Write(telem.MultiFrame(
 						[]cesium.ChannelKey{idx, idx},
 						[]telem.Series{
@@ -3574,14 +3584,16 @@ var _ = Describe("Writer Behavior", func() {
 							cesium.WriterConfig{
 								Channels: []cesium.ChannelKey{disc1Index},
 								Start:    10 * telem.SecondTS,
-							}))
+							},
+						))
 
 						By("Writing data to the index correctly")
 						MustSucceed(w.Write(telem.MultiFrame(
 							[]cesium.ChannelKey{disc1Index},
 							[]telem.Series{
 								telem.NewSeriesSecondsTSV(10, 11, 12, 13),
-							}),
+							},
+						),
 						))
 						MustSucceed(w.Commit())
 						Expect(w.Close()).To(Succeed())
@@ -3594,7 +3606,8 @@ var _ = Describe("Writer Behavior", func() {
 							cesium.WriterConfig{
 								Channels: []cesium.ChannelKey{disc1},
 								Start:    10 * telem.SecondTS,
-							}))
+							},
+						))
 						MustSucceed(w.Write(telem.MultiFrame(
 							[]cesium.ChannelKey{disc1},
 							[]telem.Series{
@@ -3626,7 +3639,8 @@ var _ = Describe("Writer Behavior", func() {
 							cesium.WriterConfig{
 								Channels: []cesium.ChannelKey{disc2},
 								Start:    10 * telem.SecondTS,
-							}))
+							},
+						))
 						MustSucceed(w.Write(telem.MultiFrame(
 							[]cesium.ChannelKey{disc2},
 							[]telem.Series{
@@ -3652,14 +3666,16 @@ var _ = Describe("Writer Behavior", func() {
 							Key:      dtErrKey,
 							DataType: telem.TimestampT,
 							IsIndex:  true,
-						})).To(Succeed())
+						},
+					)).To(Succeed())
 					w := MustSucceed(db.OpenWriter(
 						ctx,
 						cesium.WriterConfig{
 							Channels: []cesium.ChannelKey{dtErrKey},
 							Start:    10 * telem.SecondTS,
 							Sync:     new(true),
-						}))
+						},
+					))
 					authorized, err := w.Write(telem.MultiFrame(
 						[]cesium.ChannelKey{dtErrKey},
 						[]telem.Series{
@@ -4315,6 +4331,7 @@ func newAlignmentObserver() *alignmentObserver {
 // observe asserts that every channel in fr carries the same alignment and that no
 // channel regressed below what has already been streamed for it.
 func (o *alignmentObserver) observe(fr cesium.Frame) {
+	GinkgoHelper()
 	var (
 		shared    telem.Alignment
 		sharedSet bool
@@ -4329,10 +4346,10 @@ func (o *alignmentObserver) observe(fr cesium.Frame) {
 		} else {
 			shared, sharedSet = ser.Alignment, true
 		}
-		ExpectWithOffset(1, ser.Alignment).To(Equal(shared),
+		Expect(ser.Alignment).To(Equal(shared),
 			"channel %d streamed a different alignment than its frame siblings", key)
 		if prev, ok := o.upper[key]; ok {
-			ExpectWithOffset(1, ser.Alignment).To(BeNumerically(">=", prev),
+			Expect(ser.Alignment).To(BeNumerically(">=", prev),
 				"channel %d regressed from %v to %v", key, prev, ser.Alignment)
 		}
 		o.upper[key] = ser.AlignmentBounds().Upper
@@ -4341,8 +4358,9 @@ func (o *alignmentObserver) observe(fr cesium.Frame) {
 
 // drain reads exactly one relayed frame and hands it to observe.
 func (o *alignmentObserver) drain(out confluence.Outlet[cesium.StreamerResponse]) {
+	GinkgoHelper()
 	var res cesium.StreamerResponse
-	EventuallyWithOffset(1, out.Outlet()).Should(Receive(&res))
+	Eventually(out.Outlet()).Should(Receive(&res))
 	o.observe(res.Frame)
 }
 
@@ -4353,6 +4371,7 @@ func openObservedStreamer(
 	db *cesium.DB,
 	keys ...cesium.ChannelKey,
 ) (*alignmentObserver, confluence.Outlet[cesium.StreamerResponse], func()) {
+	GinkgoHelper()
 	s := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{Channels: keys}))
 	in, out := confluence.Attach(s, len(keys)*64)
 	sCtx, cancel := signal.WithCancel(ctx)

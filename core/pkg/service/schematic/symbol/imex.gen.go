@@ -13,8 +13,8 @@ package symbol
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions"
@@ -37,7 +37,7 @@ func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, er
 	env := imex.Envelope{
 		Version: versions.Latest, Type: string(s.Type()), Name: v.Name,
 	}
-	if err = imex.Encode(&env, v); err != nil {
+	if err = env.Encode(v); err != nil {
 		return imex.Envelope{}, err
 	}
 	return env, nil

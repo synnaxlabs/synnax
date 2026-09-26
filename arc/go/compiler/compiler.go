@@ -95,8 +95,14 @@ func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error)
 	outputMemoryCounter := uint32(0x1000)
 	outputMemoryBases := make(map[string]uint32)
 
-	var compiled []compiledFunction
+	var (
+		compiled     []compiledFunction
+		batchTargets []batchTarget
+	)
 	for _, i := range program.Functions {
+		if t, ok := batchTargetFor(i); ok {
+			batchTargets = append(batchTargets, t)
+		}
 		if strings.HasPrefix(i.Key, FmtStrSyntheticPrefix) {
 			cf, err := compileFmtStrSynthetic(compCtx, i)
 			if err != nil {
@@ -158,6 +164,10 @@ func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error)
 		compiled = append(compiled, cf)
 	}
 
+	for _, t := range batchTargets {
+		compiled = append(compiled, compileBatchWrapper(compCtx, t))
+	}
+
 	resolver.FinalizeAndPatch(compCtx.Module)
 
 	for _, cf := range compiled {
@@ -195,7 +205,7 @@ func compileItem(
 	if results.IsValid() {
 		wasmResults = append(wasmResults, wasm.ConvertType(results))
 	}
-	ctx := ccontext.Child(rootCtx, body).WithScope(scope).WithNewWriter()
+	ctx := rootCtx.Child(body).WithScope(scope).WithNewWriter()
 	ctx.Outputs = outputs
 	ctx.OutputMemoryBase = outputMemoryBase
 
@@ -209,7 +219,7 @@ func compileItem(
 	}
 
 	if blockCtx, ok := body.(parser.IBlockContext); ok {
-		_, err = statement.CompileBlock(ccontext.Child(ctx, blockCtx))
+		_, err = statement.CompileBlock(ctx.Child(blockCtx))
 		if err != nil {
 			return compiledFunction{}, errors.Wrapf(
 				err,
@@ -218,7 +228,7 @@ func compileItem(
 			)
 		}
 	} else if exprCtx, ok := body.(parser.IExpressionContext); ok {
-		if err = compileExpression(ccontext.Child(ctx, exprCtx)); err != nil {
+		if err = compileExpression(ctx.Child(exprCtx)); err != nil {
 			return compiledFunction{}, errors.Wrapf(
 				err,
 				"failed to compile expression '%s'",

@@ -7,20 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
 import { box, scale, text, xy } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
+import { HEIGHTS } from "@/component/size";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
-import { type Config } from "@/schematic/node/general/value/config";
+import { LEVEL_SIZES } from "@/schematic/node/common/size";
 import { Value } from "@/schematic/node/general/value/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
-import { Theming } from "@/theming";
 import { Value as BaseValue } from "@/vis/value";
 
-const VALUE_BACKGROUND_OVERSCAN = xy.construct(10, -3);
-const VALUE_BACKGROUND_SHIFT = xy.construct(1, 1);
+const VALUE_BACKGROUND_OVERSCAN = xy.construct(1, -4);
+const VALUE_BACKGROUND_SHIFT = xy.construct(2, 2);
 
 export const Symbol = ({
   nodeKey,
@@ -32,19 +33,25 @@ export const Symbol = ({
     level = "p",
     textColor,
     color,
-    telem: t,
+    channel,
+    rollingAverage,
+    precision,
     units,
     inlineSize = 70,
+    orientation,
     notation,
     stalenessColor,
     stalenessTimeout,
     redline,
   },
-}: NodeProps<Config>): ReactElement => {
-  const font = Theming.useTypography(level);
-  const valueBoxHeight = (font.lineHeight + 0.5) * font.baseSize + 2;
+}: NodeProps<schematic.ValueNodeConfig>): ReactElement => {
+  const valueBoxHeight = HEIGHTS[LEVEL_SIZES[level]];
+  const t = useMemo(
+    () => BaseValue.stringSource({ channel, rollingAverage, precision, notation }),
+    [channel, rollingAverage, precision, notation],
+  );
   const backgroundTelem = useMemo(() => {
-    if (t == null || redline == null) return undefined;
+    if (redline == null) return undefined;
     const { bounds, gradient } = redline;
     return telem.sourcePipeline("color", {
       connections: [
@@ -85,6 +92,7 @@ export const Symbol = ({
       <Label.Label config={label} onChange={onConfigChange} />
       <Value
         color={color}
+        orientation={orientation}
         dimensions={{ height: valueBoxHeight, width: oWidth }}
         inlineSize={inlineSize}
         units={units}

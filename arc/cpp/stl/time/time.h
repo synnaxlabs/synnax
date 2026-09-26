@@ -56,6 +56,50 @@ live_span(const runtime::state::Node &s, const std::string &name) {
     return x::telem::TimeSpan(s.numeric_input<int64_t>(name));
 }
 
+/// @brief rejects a non-positive span stamped at compile time. Var-bound
+/// params are exempt: the runtime guard covers their live values.
+inline x::errors::Error
+validate_static_span(const x::telem::TimeSpan span, const types::Param &p) {
+    if (p.type.kind == types::Kind::VarRef || span.nanoseconds() > 0)
+        return x::errors::NIL;
+    return x::errors::Error(
+        x::errors::VALIDATION,
+        p.name + " must be positive, got " + span.to_string()
+    );
+}
+
+/// @brief guards a live timer span against non-positive values. Reports the
+/// first offense only, so a parked node does not re-report on every pass.
+class SpanGuard {
+    bool reported = false;
+
+public:
+    /// @brief returns true when span can drive a deadline. A non-positive span
+    /// reports a validation error naming label and returns false.
+    bool usable(
+        runtime::node::Context &ctx,
+        const x::telem::TimeSpan span,
+        const std::string &label
+    ) {
+        if (span.nanoseconds() > 0) {
+            this->reported = false;
+            return true;
+        }
+        if (!this->reported) {
+            ctx.report_error(
+                x::errors::Error(
+                    x::errors::VALIDATION,
+                    label + " must be positive, got " + span.to_string()
+                )
+            );
+            this->reported = true;
+        }
+        return false;
+    }
+
+    void reset() { this->reported = false; }
+};
+
 struct IntervalInputs {
     x::telem::TimeSpan interval;
 
@@ -71,16 +115,16 @@ struct IntervalInputs {
                     "interval node missing required period parameter"
                 )
             };
-        return {
-            {.interval = x::telem::TimeSpan(x::telem::cast<std::int64_t>(*sv))},
-            x::errors::NIL
-        };
+        const auto period = x::telem::TimeSpan(x::telem::cast<std::int64_t>(*sv));
+        if (auto err = validate_static_span(period, param)) return {{}, err};
+        return {{.interval = period}, x::errors::NIL};
     }
 };
 
 class Interval : public runtime::node::Node {
     runtime::state::Node state;
     x::telem::TimeSpan last_fired;
+    SpanGuard guard;
 
 public:
     explicit Interval(runtime::state::Node &&state, const x::telem::TimeSpan period):
@@ -88,17 +132,21 @@ public:
 
     x::errors::Error next(runtime::node::Context &ctx) override {
         const auto period = live_span(this->state, "period");
-        if (ctx.reason != runtime::node::RunReason::TimerTick) {
+        // A non-positive period would keep the deadline permanently in the
+        // past, spinning the scheduler loop. Park without a deadline instead;
+        // a later reassignment to a positive value resumes the timer.
+        if (!this->guard.usable(ctx, period, "interval period")) return x::errors::NIL;
+        if (ctx.cycle.reason != runtime::node::RunReason::TimerTick) {
             ctx.mark_self_changed();
             ctx.set_deadline(this->last_fired + period);
             return x::errors::NIL;
         }
-        if (ctx.elapsed - this->last_fired < period - ctx.tolerance) {
+        if (ctx.cycle.elapsed - this->last_fired < period - ctx.tolerance) {
             ctx.mark_self_changed();
             ctx.set_deadline(this->last_fired + period);
             return x::errors::NIL;
         }
-        this->last_fired = ctx.elapsed;
+        this->last_fired = ctx.cycle.elapsed;
         ctx.mark_self_changed();
         ctx.set_deadline(this->last_fired + period);
         const auto &o = this->state.output(0);
@@ -106,15 +154,16 @@ public:
         o->resize(1);
         o_time->resize(1);
         o->set(0, static_cast<std::uint8_t>(1));
-        o_time->set(0, ctx.elapsed.nanoseconds());
-        ctx.mark_changed(0);
+        o_time->set(0, ctx.cycle.now);
+        this->state.emit(ctx.mark_changed, 0);
         return x::errors::NIL;
     }
 
     /// @brief resets the interval so it fires immediately on the next timer tick.
-    void reset() override {
+    void reset(runtime::node::Context &) override {
         this->state.reset();
         this->last_fired = -1 * live_span(this->state, "period");
+        this->guard.reset();
     }
 
     [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
@@ -136,10 +185,9 @@ struct WaitInputs {
                     "wait node missing required duration parameter"
                 )
             };
-        return {
-            {.duration = x::telem::TimeSpan(x::telem::cast<std::int64_t>(*sv))},
-            x::errors::NIL
-        };
+        const auto duration = x::telem::TimeSpan(x::telem::cast<std::int64_t>(*sv));
+        if (auto err = validate_static_span(duration, param)) return {{}, err};
+        return {{.duration = duration}, x::errors::NIL};
     }
 };
 
@@ -148,20 +196,25 @@ class Wait : public runtime::node::Node {
     runtime::state::Node state;
     x::telem::TimeSpan start_time = x::telem::TimeSpan(-1);
     bool fired = false;
+    SpanGuard guard;
 
 public:
     explicit Wait(runtime::state::Node &&state): state(std::move(state)) {}
 
     x::errors::Error next(runtime::node::Context &ctx) override {
         if (this->fired) return x::errors::NIL;
-        if (this->start_time.nanoseconds() < 0) this->start_time = ctx.elapsed;
         const auto duration = live_span(this->state, "duration");
+        // A non-positive duration is a configuration error, not an instant
+        // fire: park instead. Timing stays anchored to start_time, so recovery
+        // re-checks the live duration against the original activation.
+        if (!this->guard.usable(ctx, duration, "wait duration")) return x::errors::NIL;
+        if (this->start_time.nanoseconds() < 0) this->start_time = ctx.cycle.elapsed;
         ctx.set_deadline(this->start_time + duration);
-        if (ctx.reason != runtime::node::RunReason::TimerTick) {
+        if (ctx.cycle.reason != runtime::node::RunReason::TimerTick) {
             ctx.mark_self_changed();
             return x::errors::NIL;
         }
-        if (ctx.elapsed - this->start_time < duration - ctx.tolerance) {
+        if (ctx.cycle.elapsed - this->start_time < duration - ctx.tolerance) {
             ctx.mark_self_changed();
             return x::errors::NIL;
         }
@@ -171,15 +224,16 @@ public:
         o->resize(1);
         o_time->resize(1);
         o->set(0, static_cast<std::uint8_t>(1));
-        o_time->set(0, ctx.elapsed.nanoseconds());
-        ctx.mark_changed(0);
+        o_time->set(0, ctx.cycle.now);
+        this->state.emit(ctx.mark_changed, 0);
         return x::errors::NIL;
     }
 
-    void reset() override {
+    void reset(runtime::node::Context &) override {
         this->state.reset();
         this->start_time = x::telem::TimeSpan(-1);
         this->fired = false;
+        this->guard.reset();
     }
 
     [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
@@ -196,29 +250,24 @@ struct NowInputs {
 /// @brief Outputs the current wall-clock timestamp when triggered.
 class Now : public runtime::node::Node {
     runtime::state::Node state;
-    x::telem::MonoClock *clock;
 
 public:
-    explicit Now(
-        const NowInputs &,
-        runtime::state::Node &&state,
-        x::telem::MonoClock *clock
-    ):
-        state(std::move(state)), clock(clock) {}
+    explicit Now(const NowInputs &, runtime::state::Node &&state):
+        state(std::move(state)) {}
 
     x::errors::Error next(runtime::node::Context &ctx) override {
-        const auto ts = this->clock->now();
+        const auto ts = ctx.cycle.now;
         const auto &o = this->state.output(0);
         const auto &o_time = this->state.output_time(0);
         o->resize(1);
         o_time->resize(1);
         o->set(0, ts);
         o_time->set(0, ts);
-        ctx.mark_changed(0);
+        this->state.emit(ctx.mark_changed, 0);
         return x::errors::NIL;
     }
 
-    void reset() override { this->state.reset(); }
+    void reset(runtime::node::Context &) override { this->state.reset(); }
 
     [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
         return state.is_output_truthy(output_idx);
@@ -227,9 +276,16 @@ public:
 
 class Module : public stl::Module {
     x::telem::TimeSpan base = UNSET_BASE_INTERVAL;
-    x::telem::MonoClock clock;
+    /// @brief the current cycle's stamp, set by the runtime loop before each
+    /// pass. The `now` WASM binding is called from guest code, which has no node
+    /// Context to read, so the value is pushed here instead.
+    x::telem::TimeStamp now;
 
 public:
+    /// @brief binds the cycle stamp the `now` host function returns for the
+    /// coming pass. The runtime loop calls it before every Scheduler::next.
+    void set_now(const x::telem::TimeStamp now) { this->now = now; }
+
     /// @brief Returns the GCD of all interval/wait durations seen during node
     /// creation. Returns UNSET_BASE_INTERVAL if no time nodes were created.
     [[nodiscard]] x::telem::TimeSpan base_interval() const { return this->base; }
@@ -261,7 +317,7 @@ public:
             auto [inputs, err] = NowInputs::create(cfg.node.inputs);
             if (err) return {nullptr, err};
             return {
-                std::make_unique<Now>(inputs, std::move(cfg.state), &this->clock),
+                std::make_unique<Now>(inputs, std::move(cfg.state)),
                 x::errors::NIL
             };
         }
@@ -273,7 +329,7 @@ public:
             .func_wrap(
                 MODULE_NAME,
                 "now",
-                [this]() -> int64_t { return this->clock.now().nanoseconds(); }
+                [this]() -> int64_t { return this->now.nanoseconds(); }
             )
             .unwrap();
     }
@@ -299,6 +355,9 @@ private:
     }
 
     void update_base_interval(const x::telem::TimeSpan span) {
+        // A non-positive span is not a real timer period. Folding it in would
+        // poison the GCD and drive the loop cadence off a parked timer.
+        if (span.nanoseconds() <= 0) return;
         if (this->base == UNSET_BASE_INTERVAL)
             this->base = span;
         else

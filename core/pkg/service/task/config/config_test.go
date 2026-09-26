@@ -10,7 +10,8 @@
 package config_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"

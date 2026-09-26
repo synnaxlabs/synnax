@@ -51,9 +51,9 @@ type Arc struct {
 	// Text is the text-based Arc source code.
 	Text text.Text `json:"text" msgpack:"text"`
 	// Program is the compiled module output including IR and WebAssembly bytecode.
-	Program *program.Program `json:"program,omitempty" msgpack:"program,omitempty"`
+	Program *program.Program `json:"program,omitzero" msgpack:"program,omitempty"`
 	// Status is the current execution status of the module.
-	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
+	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -61,7 +61,7 @@ type Arc struct {
 func (a Arc) Validate() error {
 	v := validate.New("Arc")
 	v.Ternaryf("mode", !a.Mode.IsValid(), "invalid mode: %v", a.Mode)
-	validate.NotEmptyString(v, "name", a.Name)
+	v.NotEmptyString("name", a.Name)
 	v.Exec(func() error { return validate.PathedError(a.Text.Validate(), "text") })
 	return v.Error()
 }

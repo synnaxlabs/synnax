@@ -12,18 +12,16 @@
 package v2_test
 
 import (
-	"github.com/google/uuid"
 	"testing"
+	"uuid"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/versions/v2"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
+	"github.com/synnaxlabs/x/testutil"
 )
 
 var (
@@ -428,17 +426,11 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v2.AnalogReadConfig{
-				ReadConfig: task.ReadConfig{
-					PersistConfig: task.PersistConfig{
-						StartConfig: task.StartConfig{
-							KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-							AutoStart:   false,
-						},
-						DataSavingDisabled: true,
-					},
-					SampleRate: telem.Rate(4.5),
-					StreamRate: telem.Rate(5.5),
-				},
+				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart:          false,
+				DataSavingDisabled: true,
+				SampleRate:         telem.Rate(4.5),
+				StreamRate:         telem.Rate(5.5),
 				Channels: []v2.AIChannel{
 					{Variant: v2.AIVoltageChannel{
 						BaseAIChannel: fullyPopulatedBaseAIChannel,
@@ -449,29 +441,20 @@ var _ = Describe("Codec", func() {
 				},
 			}),
 			Entry("zero values", v2.AnalogReadConfig{
-				ReadConfig: task.ReadConfig{
-					PersistConfig: task.PersistConfig{
-						StartConfig:        task.StartConfig{KeyedConfig: task.KeyedConfig{Key: uuid.Nil}, AutoStart: false},
-						DataSavingDisabled: false,
-					},
-					SampleRate: telem.Rate(0),
-					StreamRate: telem.Rate(0),
-				},
-				Channels: nil,
+				Key:                uuid.Nil(),
+				AutoStart:          false,
+				DataSavingDisabled: false,
+				SampleRate:         telem.Rate(0),
+				StreamRate:         telem.Rate(0),
+				Channels:           []v2.AIChannel{},
 			}),
 			Entry("empty collections", v2.AnalogReadConfig{
-				ReadConfig: task.ReadConfig{
-					PersistConfig: task.PersistConfig{
-						StartConfig: task.StartConfig{
-							KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-							AutoStart:   false,
-						},
-						DataSavingDisabled: true,
-					},
-					SampleRate: telem.Rate(4.5),
-					StreamRate: telem.Rate(5.5),
-				},
-				Channels: []v2.AIChannel{},
+				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart:          false,
+				DataSavingDisabled: true,
+				SampleRate:         telem.Rate(4.5),
+				StreamRate:         telem.Rate(5.5),
+				Channels:           []v2.AIChannel{},
 			}),
 		)
 	})
@@ -487,19 +470,11 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v2.AnalogWriteConfig{
-				WriteConfig: v2.WriteConfig{
-					WriteConfig: task.WriteConfig{
-						PersistConfig: task.PersistConfig{
-							StartConfig: task.StartConfig{
-								KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-								AutoStart:   false,
-							},
-							DataSavingDisabled: true,
-						},
-						Device: "test_4",
-					},
-					StateRate: telem.Rate(5.5),
-				},
+				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart:          false,
+				DataSavingDisabled: true,
+				Device:             "test_4",
+				StateRate:          telem.Rate(5.5),
 				Channels: []v2.AOChannel{
 					{Variant: v2.AOCurrentChannel{
 						BaseAOChannel: fullyPopulatedBaseAOChannel,
@@ -509,33 +484,20 @@ var _ = Describe("Codec", func() {
 				},
 			}),
 			Entry("zero values", v2.AnalogWriteConfig{
-				WriteConfig: v2.WriteConfig{
-					WriteConfig: task.WriteConfig{
-						PersistConfig: task.PersistConfig{
-							StartConfig:        task.StartConfig{KeyedConfig: task.KeyedConfig{Key: uuid.Nil}, AutoStart: false},
-							DataSavingDisabled: false,
-						},
-						Device: "",
-					},
-					StateRate: telem.Rate(0),
-				},
-				Channels: nil,
+				Key:                uuid.Nil(),
+				AutoStart:          false,
+				DataSavingDisabled: false,
+				Device:             "",
+				StateRate:          telem.Rate(0),
+				Channels:           []v2.AOChannel{},
 			}),
 			Entry("empty collections", v2.AnalogWriteConfig{
-				WriteConfig: v2.WriteConfig{
-					WriteConfig: task.WriteConfig{
-						PersistConfig: task.PersistConfig{
-							StartConfig: task.StartConfig{
-								KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-								AutoStart:   false,
-							},
-							DataSavingDisabled: true,
-						},
-						Device: "test_4",
-					},
-					StateRate: telem.Rate(5.5),
-				},
-				Channels: []v2.AOChannel{},
+				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart:          false,
+				DataSavingDisabled: true,
+				Device:             "test_4",
+				StateRate:          telem.Rate(5.5),
+				Channels:           []v2.AOChannel{},
 			}),
 		)
 	})
@@ -634,8 +596,8 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", fullyPopulatedBridgePolynomial),
 			Entry("zero values", v2.BridgePolynomial{
-				ForwardCoeffs:   nil,
-				ReverseCoeffs:   nil,
+				ForwardCoeffs:   []float64{},
+				ReverseCoeffs:   []float64{},
 				ElectricalUnits: v2.ElectricalUnits(""),
 			}),
 			Entry("empty collections", v2.BridgePolynomial{
@@ -789,17 +751,11 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v2.CounterReadConfig{
-				ReadConfig: task.ReadConfig{
-					PersistConfig: task.PersistConfig{
-						StartConfig: task.StartConfig{
-							KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-							AutoStart:   false,
-						},
-						DataSavingDisabled: true,
-					},
-					SampleRate: telem.Rate(4.5),
-					StreamRate: telem.Rate(5.5),
-				},
+				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart:          false,
+				DataSavingDisabled: true,
+				SampleRate:         telem.Rate(4.5),
+				StreamRate:         telem.Rate(5.5),
 				Channels: []v2.CIChannel{
 					{Variant: v2.CIFrequencyChannel{
 						BaseCIChannel: fullyPopulatedBaseCIChannel,
@@ -815,29 +771,20 @@ var _ = Describe("Codec", func() {
 				},
 			}),
 			Entry("zero values", v2.CounterReadConfig{
-				ReadConfig: task.ReadConfig{
-					PersistConfig: task.PersistConfig{
-						StartConfig:        task.StartConfig{KeyedConfig: task.KeyedConfig{Key: uuid.Nil}, AutoStart: false},
-						DataSavingDisabled: false,
-					},
-					SampleRate: telem.Rate(0),
-					StreamRate: telem.Rate(0),
-				},
-				Channels: nil,
+				Key:                uuid.Nil(),
+				AutoStart:          false,
+				DataSavingDisabled: false,
+				SampleRate:         telem.Rate(0),
+				StreamRate:         telem.Rate(0),
+				Channels:           []v2.CIChannel{},
 			}),
 			Entry("empty collections", v2.CounterReadConfig{
-				ReadConfig: task.ReadConfig{
-					PersistConfig: task.PersistConfig{
-						StartConfig: task.StartConfig{
-							KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-							AutoStart:   false,
-						},
-						DataSavingDisabled: true,
-					},
-					SampleRate: telem.Rate(4.5),
-					StreamRate: telem.Rate(5.5),
-				},
-				Channels: []v2.CIChannel{},
+				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart:          false,
+				DataSavingDisabled: true,
+				SampleRate:         telem.Rate(4.5),
+				StreamRate:         telem.Rate(5.5),
+				Channels:           []v2.CIChannel{},
 			}),
 		)
 	})
@@ -955,18 +902,12 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v2.DigitalReadConfig{
-				ReadConfig: task.ReadConfig{
-					PersistConfig: task.PersistConfig{
-						StartConfig: task.StartConfig{
-							KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-							AutoStart:   false,
-						},
-						DataSavingDisabled: true,
-					},
-					SampleRate: telem.Rate(4.5),
-					StreamRate: telem.Rate(5.5),
-				},
-				Device: "test_6",
+				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart:          false,
+				DataSavingDisabled: true,
+				SampleRate:         telem.Rate(4.5),
+				StreamRate:         telem.Rate(5.5),
+				Device:             "test_6",
 				Channels: []v2.DIChannel{
 					{
 						Key:      "test_8",
@@ -979,31 +920,22 @@ var _ = Describe("Codec", func() {
 				},
 			}),
 			Entry("zero values", v2.DigitalReadConfig{
-				ReadConfig: task.ReadConfig{
-					PersistConfig: task.PersistConfig{
-						StartConfig:        task.StartConfig{KeyedConfig: task.KeyedConfig{Key: uuid.Nil}, AutoStart: false},
-						DataSavingDisabled: false,
-					},
-					SampleRate: telem.Rate(0),
-					StreamRate: telem.Rate(0),
-				},
-				Device:   "",
-				Channels: nil,
+				Key:                uuid.Nil(),
+				AutoStart:          false,
+				DataSavingDisabled: false,
+				SampleRate:         telem.Rate(0),
+				StreamRate:         telem.Rate(0),
+				Device:             "",
+				Channels:           []v2.DIChannel{},
 			}),
 			Entry("empty collections", v2.DigitalReadConfig{
-				ReadConfig: task.ReadConfig{
-					PersistConfig: task.PersistConfig{
-						StartConfig: task.StartConfig{
-							KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-							AutoStart:   false,
-						},
-						DataSavingDisabled: true,
-					},
-					SampleRate: telem.Rate(4.5),
-					StreamRate: telem.Rate(5.5),
-				},
-				Device:   "test_6",
-				Channels: []v2.DIChannel{},
+				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart:          false,
+				DataSavingDisabled: true,
+				SampleRate:         telem.Rate(4.5),
+				StreamRate:         telem.Rate(5.5),
+				Device:             "test_6",
+				Channels:           []v2.DIChannel{},
 			}),
 		)
 	})
@@ -1019,19 +951,11 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v2.DigitalWriteConfig{
-				WriteConfig: v2.WriteConfig{
-					WriteConfig: task.WriteConfig{
-						PersistConfig: task.PersistConfig{
-							StartConfig: task.StartConfig{
-								KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-								AutoStart:   false,
-							},
-							DataSavingDisabled: true,
-						},
-						Device: "test_4",
-					},
-					StateRate: telem.Rate(5.5),
-				},
+				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart:          false,
+				DataSavingDisabled: true,
+				Device:             "test_4",
+				StateRate:          telem.Rate(5.5),
 				Channels: []v2.DOChannel{
 					{
 						Key:              "test_7",
@@ -1046,33 +970,20 @@ var _ = Describe("Codec", func() {
 				},
 			}),
 			Entry("zero values", v2.DigitalWriteConfig{
-				WriteConfig: v2.WriteConfig{
-					WriteConfig: task.WriteConfig{
-						PersistConfig: task.PersistConfig{
-							StartConfig:        task.StartConfig{KeyedConfig: task.KeyedConfig{Key: uuid.Nil}, AutoStart: false},
-							DataSavingDisabled: false,
-						},
-						Device: "",
-					},
-					StateRate: telem.Rate(0),
-				},
-				Channels: nil,
+				Key:                uuid.Nil(),
+				AutoStart:          false,
+				DataSavingDisabled: false,
+				Device:             "",
+				StateRate:          telem.Rate(0),
+				Channels:           []v2.DOChannel{},
 			}),
 			Entry("empty collections", v2.DigitalWriteConfig{
-				WriteConfig: v2.WriteConfig{
-					WriteConfig: task.WriteConfig{
-						PersistConfig: task.PersistConfig{
-							StartConfig: task.StartConfig{
-								KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-								AutoStart:   false,
-							},
-							DataSavingDisabled: true,
-						},
-						Device: "test_4",
-					},
-					StateRate: telem.Rate(5.5),
-				},
-				Channels: []v2.DOChannel{},
+				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart:          false,
+				DataSavingDisabled: true,
+				Device:             "test_4",
+				StateRate:          telem.Rate(5.5),
+				Channels:           []v2.DOChannel{},
 			}),
 		)
 	})
@@ -1158,27 +1069,21 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v2.ScanConfig{
-				ScanConfig: task.ScanConfig{
-					KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-					Rate:        telem.Rate(2.5),
-					Disabled:    true,
-				},
+				Key:           uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Rate:          telem.Rate(2.5),
+				Disabled:      true,
 				IgnoredModels: []string{"test_4"},
 			}),
 			Entry("zero values", v2.ScanConfig{
-				ScanConfig: task.ScanConfig{
-					KeyedConfig: task.KeyedConfig{Key: uuid.Nil},
-					Rate:        telem.Rate(0),
-					Disabled:    false,
-				},
-				IgnoredModels: nil,
+				Key:           uuid.Nil(),
+				Rate:          telem.Rate(0),
+				Disabled:      false,
+				IgnoredModels: []string{},
 			}),
 			Entry("empty collections", v2.ScanConfig{
-				ScanConfig: task.ScanConfig{
-					KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-					Rate:        telem.Rate(2.5),
-					Disabled:    true,
-				},
+				Key:           uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Rate:          telem.Rate(2.5),
+				Disabled:      true,
 				IgnoredModels: []string{},
 			}),
 		)
@@ -1211,9 +1116,9 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", fullyPopulatedTable),
 			Entry("zero values", v2.Table{
-				ElectricalVals:  nil,
+				ElectricalVals:  []float64{},
 				ElectricalUnits: v2.ElectricalUnits(""),
-				PhysicalVals:    nil,
+				PhysicalVals:    []float64{},
 			}),
 			Entry("empty collections", v2.Table{
 				ElectricalVals:  []float64{},
@@ -1288,27 +1193,18 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v2.WriteConfig{
-				WriteConfig: task.WriteConfig{
-					PersistConfig: task.PersistConfig{
-						StartConfig: task.StartConfig{
-							KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-							AutoStart:   false,
-						},
-						DataSavingDisabled: true,
-					},
-					Device: "test_4",
-				},
-				StateRate: telem.Rate(5.5),
+				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart:          false,
+				DataSavingDisabled: true,
+				Device:             "test_4",
+				StateRate:          telem.Rate(5.5),
 			}),
 			Entry("zero values", v2.WriteConfig{
-				WriteConfig: task.WriteConfig{
-					PersistConfig: task.PersistConfig{
-						StartConfig:        task.StartConfig{KeyedConfig: task.KeyedConfig{Key: uuid.Nil}, AutoStart: false},
-						DataSavingDisabled: false,
-					},
-					Device: "",
-				},
-				StateRate: telem.Rate(0),
+				Key:                uuid.Nil(),
+				AutoStart:          false,
+				DataSavingDisabled: false,
+				Device:             "",
+				StateRate:          telem.Rate(0),
 			}),
 		)
 	})
@@ -1379,17 +1275,11 @@ func BenchmarkEncodeDecodeAOChannel(b *testing.B) {
 
 func BenchmarkEncodeDecodeAnalogReadConfig(b *testing.B) {
 	seed := v2.AnalogReadConfig{
-		ReadConfig: task.ReadConfig{
-			PersistConfig: task.PersistConfig{
-				StartConfig: task.StartConfig{
-					KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-					AutoStart:   false,
-				},
-				DataSavingDisabled: true,
-			},
-			SampleRate: telem.Rate(4.5),
-			StreamRate: telem.Rate(5.5),
-		},
+		Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		AutoStart:          false,
+		DataSavingDisabled: true,
+		SampleRate:         telem.Rate(4.5),
+		StreamRate:         telem.Rate(5.5),
 		Channels: []v2.AIChannel{
 			{Variant: v2.AIVoltageChannel{
 				BaseAIChannel: fullyPopulatedBaseAIChannel,
@@ -1416,19 +1306,11 @@ func BenchmarkEncodeDecodeAnalogReadConfig(b *testing.B) {
 
 func BenchmarkEncodeDecodeAnalogWriteConfig(b *testing.B) {
 	seed := v2.AnalogWriteConfig{
-		WriteConfig: v2.WriteConfig{
-			WriteConfig: task.WriteConfig{
-				PersistConfig: task.PersistConfig{
-					StartConfig: task.StartConfig{
-						KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-						AutoStart:   false,
-					},
-					DataSavingDisabled: true,
-				},
-				Device: "test_4",
-			},
-			StateRate: telem.Rate(5.5),
-		},
+		Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		AutoStart:          false,
+		DataSavingDisabled: true,
+		Device:             "test_4",
+		StateRate:          telem.Rate(5.5),
 		Channels: []v2.AOChannel{
 			{Variant: v2.AOCurrentChannel{
 				BaseAOChannel: fullyPopulatedBaseAOChannel,
@@ -1583,17 +1465,11 @@ func BenchmarkEncodeDecodeCJC(b *testing.B) {
 
 func BenchmarkEncodeDecodeCounterReadConfig(b *testing.B) {
 	seed := v2.CounterReadConfig{
-		ReadConfig: task.ReadConfig{
-			PersistConfig: task.PersistConfig{
-				StartConfig: task.StartConfig{
-					KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-					AutoStart:   false,
-				},
-				DataSavingDisabled: true,
-			},
-			SampleRate: telem.Rate(4.5),
-			StreamRate: telem.Rate(5.5),
-		},
+		Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		AutoStart:          false,
+		DataSavingDisabled: true,
+		SampleRate:         telem.Rate(4.5),
+		StreamRate:         telem.Rate(5.5),
 		Channels: []v2.CIChannel{
 			{Variant: v2.CIFrequencyChannel{
 				BaseCIChannel: fullyPopulatedBaseCIChannel,
@@ -1709,18 +1585,12 @@ func BenchmarkEncodeDecodeDOChannel(b *testing.B) {
 
 func BenchmarkEncodeDecodeDigitalReadConfig(b *testing.B) {
 	seed := v2.DigitalReadConfig{
-		ReadConfig: task.ReadConfig{
-			PersistConfig: task.PersistConfig{
-				StartConfig: task.StartConfig{
-					KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-					AutoStart:   false,
-				},
-				DataSavingDisabled: true,
-			},
-			SampleRate: telem.Rate(4.5),
-			StreamRate: telem.Rate(5.5),
-		},
-		Device: "test_6",
+		Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		AutoStart:          false,
+		DataSavingDisabled: true,
+		SampleRate:         telem.Rate(4.5),
+		StreamRate:         telem.Rate(5.5),
+		Device:             "test_6",
 		Channels: []v2.DIChannel{
 			{
 				Key:      "test_8",
@@ -1749,19 +1619,11 @@ func BenchmarkEncodeDecodeDigitalReadConfig(b *testing.B) {
 
 func BenchmarkEncodeDecodeDigitalWriteConfig(b *testing.B) {
 	seed := v2.DigitalWriteConfig{
-		WriteConfig: v2.WriteConfig{
-			WriteConfig: task.WriteConfig{
-				PersistConfig: task.PersistConfig{
-					StartConfig: task.StartConfig{
-						KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-						AutoStart:   false,
-					},
-					DataSavingDisabled: true,
-				},
-				Device: "test_4",
-			},
-			StateRate: telem.Rate(5.5),
-		},
+		Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		AutoStart:          false,
+		DataSavingDisabled: true,
+		Device:             "test_4",
+		StateRate:          telem.Rate(5.5),
 		Channels: []v2.DOChannel{
 			{
 				Key:              "test_7",
@@ -1848,11 +1710,9 @@ func BenchmarkEncodeDecodeScale(b *testing.B) {
 
 func BenchmarkEncodeDecodeScanConfig(b *testing.B) {
 	seed := v2.ScanConfig{
-		ScanConfig: task.ScanConfig{
-			KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-			Rate:        telem.Rate(2.5),
-			Disabled:    true,
-		},
+		Key:           uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		Rate:          telem.Rate(2.5),
+		Disabled:      true,
 		IgnoredModels: []string{"test_4"},
 	}
 	w := orc.NewWriter(0)
@@ -1957,17 +1817,11 @@ func BenchmarkEncodeDecodeVoltageExcitation(b *testing.B) {
 
 func BenchmarkEncodeDecodeWriteConfig(b *testing.B) {
 	seed := v2.WriteConfig{
-		WriteConfig: task.WriteConfig{
-			PersistConfig: task.PersistConfig{
-				StartConfig: task.StartConfig{
-					KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-					AutoStart:   false,
-				},
-				DataSavingDisabled: true,
-			},
-			Device: "test_4",
-		},
-		StateRate: telem.Rate(5.5),
+		Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		AutoStart:          false,
+		DataSavingDisabled: true,
+		Device:             "test_4",
+		StateRate:          telem.Rate(5.5),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -2499,7 +2353,7 @@ func FuzzDecodeAIChannel(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -2560,7 +2414,7 @@ func FuzzDecodeAOChannel(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -2569,17 +2423,11 @@ func FuzzDecodeAOChannel(f *testing.F) {
 func FuzzDecodeAnalogReadConfig(f *testing.F) {
 	{
 		seed := v2.AnalogReadConfig{
-			ReadConfig: task.ReadConfig{
-				PersistConfig: task.PersistConfig{
-					StartConfig: task.StartConfig{
-						KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-						AutoStart:   false,
-					},
-					DataSavingDisabled: true,
-				},
-				SampleRate: telem.Rate(4.5),
-				StreamRate: telem.Rate(5.5),
-			},
+			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart:          false,
+			DataSavingDisabled: true,
+			SampleRate:         telem.Rate(4.5),
+			StreamRate:         telem.Rate(5.5),
 			Channels: []v2.AIChannel{
 				{Variant: v2.AIVoltageChannel{
 					BaseAIChannel: fullyPopulatedBaseAIChannel,
@@ -2597,15 +2445,12 @@ func FuzzDecodeAnalogReadConfig(f *testing.F) {
 	}
 	{
 		seed := v2.AnalogReadConfig{
-			ReadConfig: task.ReadConfig{
-				PersistConfig: task.PersistConfig{
-					StartConfig:        task.StartConfig{KeyedConfig: task.KeyedConfig{Key: uuid.Nil}, AutoStart: false},
-					DataSavingDisabled: false,
-				},
-				SampleRate: telem.Rate(0),
-				StreamRate: telem.Rate(0),
-			},
-			Channels: nil,
+			Key:                uuid.Nil(),
+			AutoStart:          false,
+			DataSavingDisabled: false,
+			SampleRate:         telem.Rate(0),
+			StreamRate:         telem.Rate(0),
+			Channels:           []v2.AIChannel{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2615,18 +2460,12 @@ func FuzzDecodeAnalogReadConfig(f *testing.F) {
 	}
 	{
 		seed := v2.AnalogReadConfig{
-			ReadConfig: task.ReadConfig{
-				PersistConfig: task.PersistConfig{
-					StartConfig: task.StartConfig{
-						KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-						AutoStart:   false,
-					},
-					DataSavingDisabled: true,
-				},
-				SampleRate: telem.Rate(4.5),
-				StreamRate: telem.Rate(5.5),
-			},
-			Channels: []v2.AIChannel{},
+			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart:          false,
+			DataSavingDisabled: true,
+			SampleRate:         telem.Rate(4.5),
+			StreamRate:         telem.Rate(5.5),
+			Channels:           []v2.AIChannel{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2650,7 +2489,7 @@ func FuzzDecodeAnalogReadConfig(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -2659,19 +2498,11 @@ func FuzzDecodeAnalogReadConfig(f *testing.F) {
 func FuzzDecodeAnalogWriteConfig(f *testing.F) {
 	{
 		seed := v2.AnalogWriteConfig{
-			WriteConfig: v2.WriteConfig{
-				WriteConfig: task.WriteConfig{
-					PersistConfig: task.PersistConfig{
-						StartConfig: task.StartConfig{
-							KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-							AutoStart:   false,
-						},
-						DataSavingDisabled: true,
-					},
-					Device: "test_4",
-				},
-				StateRate: telem.Rate(5.5),
-			},
+			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart:          false,
+			DataSavingDisabled: true,
+			Device:             "test_4",
+			StateRate:          telem.Rate(5.5),
 			Channels: []v2.AOChannel{
 				{Variant: v2.AOCurrentChannel{
 					BaseAOChannel: fullyPopulatedBaseAOChannel,
@@ -2688,17 +2519,12 @@ func FuzzDecodeAnalogWriteConfig(f *testing.F) {
 	}
 	{
 		seed := v2.AnalogWriteConfig{
-			WriteConfig: v2.WriteConfig{
-				WriteConfig: task.WriteConfig{
-					PersistConfig: task.PersistConfig{
-						StartConfig:        task.StartConfig{KeyedConfig: task.KeyedConfig{Key: uuid.Nil}, AutoStart: false},
-						DataSavingDisabled: false,
-					},
-					Device: "",
-				},
-				StateRate: telem.Rate(0),
-			},
-			Channels: nil,
+			Key:                uuid.Nil(),
+			AutoStart:          false,
+			DataSavingDisabled: false,
+			Device:             "",
+			StateRate:          telem.Rate(0),
+			Channels:           []v2.AOChannel{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2708,20 +2534,12 @@ func FuzzDecodeAnalogWriteConfig(f *testing.F) {
 	}
 	{
 		seed := v2.AnalogWriteConfig{
-			WriteConfig: v2.WriteConfig{
-				WriteConfig: task.WriteConfig{
-					PersistConfig: task.PersistConfig{
-						StartConfig: task.StartConfig{
-							KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-							AutoStart:   false,
-						},
-						DataSavingDisabled: true,
-					},
-					Device: "test_4",
-				},
-				StateRate: telem.Rate(5.5),
-			},
-			Channels: []v2.AOChannel{},
+			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart:          false,
+			DataSavingDisabled: true,
+			Device:             "test_4",
+			StateRate:          telem.Rate(5.5),
+			Channels:           []v2.AOChannel{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2745,7 +2563,7 @@ func FuzzDecodeAnalogWriteConfig(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -2791,7 +2609,7 @@ func FuzzDecodeBaseAIChannel(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -2838,7 +2656,7 @@ func FuzzDecodeBaseAOChannel(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -2884,7 +2702,7 @@ func FuzzDecodeBaseCIChannel(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -2923,7 +2741,7 @@ func FuzzDecodeBridge(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -2940,8 +2758,8 @@ func FuzzDecodeBridgePolynomial(f *testing.F) {
 	}
 	{
 		seed := v2.BridgePolynomial{
-			ForwardCoeffs:   nil,
-			ReverseCoeffs:   nil,
+			ForwardCoeffs:   []float64{},
+			ReverseCoeffs:   []float64{},
 			ElectricalUnits: v2.ElectricalUnits(""),
 		}
 		w := orc.NewWriter(0)
@@ -2978,7 +2796,7 @@ func FuzzDecodeBridgePolynomial(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -3181,7 +2999,7 @@ func FuzzDecodeCIChannel(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -3228,7 +3046,7 @@ func FuzzDecodeCJC(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -3237,17 +3055,11 @@ func FuzzDecodeCJC(f *testing.F) {
 func FuzzDecodeCounterReadConfig(f *testing.F) {
 	{
 		seed := v2.CounterReadConfig{
-			ReadConfig: task.ReadConfig{
-				PersistConfig: task.PersistConfig{
-					StartConfig: task.StartConfig{
-						KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-						AutoStart:   false,
-					},
-					DataSavingDisabled: true,
-				},
-				SampleRate: telem.Rate(4.5),
-				StreamRate: telem.Rate(5.5),
-			},
+			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart:          false,
+			DataSavingDisabled: true,
+			SampleRate:         telem.Rate(4.5),
+			StreamRate:         telem.Rate(5.5),
 			Channels: []v2.CIChannel{
 				{Variant: v2.CIFrequencyChannel{
 					BaseCIChannel: fullyPopulatedBaseCIChannel,
@@ -3270,15 +3082,12 @@ func FuzzDecodeCounterReadConfig(f *testing.F) {
 	}
 	{
 		seed := v2.CounterReadConfig{
-			ReadConfig: task.ReadConfig{
-				PersistConfig: task.PersistConfig{
-					StartConfig:        task.StartConfig{KeyedConfig: task.KeyedConfig{Key: uuid.Nil}, AutoStart: false},
-					DataSavingDisabled: false,
-				},
-				SampleRate: telem.Rate(0),
-				StreamRate: telem.Rate(0),
-			},
-			Channels: nil,
+			Key:                uuid.Nil(),
+			AutoStart:          false,
+			DataSavingDisabled: false,
+			SampleRate:         telem.Rate(0),
+			StreamRate:         telem.Rate(0),
+			Channels:           []v2.CIChannel{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3288,18 +3097,12 @@ func FuzzDecodeCounterReadConfig(f *testing.F) {
 	}
 	{
 		seed := v2.CounterReadConfig{
-			ReadConfig: task.ReadConfig{
-				PersistConfig: task.PersistConfig{
-					StartConfig: task.StartConfig{
-						KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-						AutoStart:   false,
-					},
-					DataSavingDisabled: true,
-				},
-				SampleRate: telem.Rate(4.5),
-				StreamRate: telem.Rate(5.5),
-			},
-			Channels: []v2.CIChannel{},
+			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart:          false,
+			DataSavingDisabled: true,
+			SampleRate:         telem.Rate(4.5),
+			StreamRate:         telem.Rate(5.5),
+			Channels:           []v2.CIChannel{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3323,7 +3126,7 @@ func FuzzDecodeCounterReadConfig(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -3365,7 +3168,7 @@ func FuzzDecodeCurrentExcitation(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -3411,7 +3214,7 @@ func FuzzDecodeCustomScale(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -3464,7 +3267,7 @@ func FuzzDecodeDIChannel(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -3521,7 +3324,7 @@ func FuzzDecodeDOChannel(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -3530,18 +3333,12 @@ func FuzzDecodeDOChannel(f *testing.F) {
 func FuzzDecodeDigitalReadConfig(f *testing.F) {
 	{
 		seed := v2.DigitalReadConfig{
-			ReadConfig: task.ReadConfig{
-				PersistConfig: task.PersistConfig{
-					StartConfig: task.StartConfig{
-						KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-						AutoStart:   false,
-					},
-					DataSavingDisabled: true,
-				},
-				SampleRate: telem.Rate(4.5),
-				StreamRate: telem.Rate(5.5),
-			},
-			Device: "test_6",
+			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart:          false,
+			DataSavingDisabled: true,
+			SampleRate:         telem.Rate(4.5),
+			StreamRate:         telem.Rate(5.5),
+			Device:             "test_6",
 			Channels: []v2.DIChannel{
 				{
 					Key:      "test_8",
@@ -3561,16 +3358,13 @@ func FuzzDecodeDigitalReadConfig(f *testing.F) {
 	}
 	{
 		seed := v2.DigitalReadConfig{
-			ReadConfig: task.ReadConfig{
-				PersistConfig: task.PersistConfig{
-					StartConfig:        task.StartConfig{KeyedConfig: task.KeyedConfig{Key: uuid.Nil}, AutoStart: false},
-					DataSavingDisabled: false,
-				},
-				SampleRate: telem.Rate(0),
-				StreamRate: telem.Rate(0),
-			},
-			Device:   "",
-			Channels: nil,
+			Key:                uuid.Nil(),
+			AutoStart:          false,
+			DataSavingDisabled: false,
+			SampleRate:         telem.Rate(0),
+			StreamRate:         telem.Rate(0),
+			Device:             "",
+			Channels:           []v2.DIChannel{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3580,19 +3374,13 @@ func FuzzDecodeDigitalReadConfig(f *testing.F) {
 	}
 	{
 		seed := v2.DigitalReadConfig{
-			ReadConfig: task.ReadConfig{
-				PersistConfig: task.PersistConfig{
-					StartConfig: task.StartConfig{
-						KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-						AutoStart:   false,
-					},
-					DataSavingDisabled: true,
-				},
-				SampleRate: telem.Rate(4.5),
-				StreamRate: telem.Rate(5.5),
-			},
-			Device:   "test_6",
-			Channels: []v2.DIChannel{},
+			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart:          false,
+			DataSavingDisabled: true,
+			SampleRate:         telem.Rate(4.5),
+			StreamRate:         telem.Rate(5.5),
+			Device:             "test_6",
+			Channels:           []v2.DIChannel{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3616,7 +3404,7 @@ func FuzzDecodeDigitalReadConfig(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -3625,19 +3413,11 @@ func FuzzDecodeDigitalReadConfig(f *testing.F) {
 func FuzzDecodeDigitalWriteConfig(f *testing.F) {
 	{
 		seed := v2.DigitalWriteConfig{
-			WriteConfig: v2.WriteConfig{
-				WriteConfig: task.WriteConfig{
-					PersistConfig: task.PersistConfig{
-						StartConfig: task.StartConfig{
-							KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-							AutoStart:   false,
-						},
-						DataSavingDisabled: true,
-					},
-					Device: "test_4",
-				},
-				StateRate: telem.Rate(5.5),
-			},
+			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart:          false,
+			DataSavingDisabled: true,
+			Device:             "test_4",
+			StateRate:          telem.Rate(5.5),
 			Channels: []v2.DOChannel{
 				{
 					Key:              "test_7",
@@ -3659,17 +3439,12 @@ func FuzzDecodeDigitalWriteConfig(f *testing.F) {
 	}
 	{
 		seed := v2.DigitalWriteConfig{
-			WriteConfig: v2.WriteConfig{
-				WriteConfig: task.WriteConfig{
-					PersistConfig: task.PersistConfig{
-						StartConfig:        task.StartConfig{KeyedConfig: task.KeyedConfig{Key: uuid.Nil}, AutoStart: false},
-						DataSavingDisabled: false,
-					},
-					Device: "",
-				},
-				StateRate: telem.Rate(0),
-			},
-			Channels: nil,
+			Key:                uuid.Nil(),
+			AutoStart:          false,
+			DataSavingDisabled: false,
+			Device:             "",
+			StateRate:          telem.Rate(0),
+			Channels:           []v2.DOChannel{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3679,20 +3454,12 @@ func FuzzDecodeDigitalWriteConfig(f *testing.F) {
 	}
 	{
 		seed := v2.DigitalWriteConfig{
-			WriteConfig: v2.WriteConfig{
-				WriteConfig: task.WriteConfig{
-					PersistConfig: task.PersistConfig{
-						StartConfig: task.StartConfig{
-							KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-							AutoStart:   false,
-						},
-						DataSavingDisabled: true,
-					},
-					Device: "test_4",
-				},
-				StateRate: telem.Rate(5.5),
-			},
-			Channels: []v2.DOChannel{},
+			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart:          false,
+			DataSavingDisabled: true,
+			Device:             "test_4",
+			StateRate:          telem.Rate(5.5),
+			Channels:           []v2.DOChannel{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3716,7 +3483,7 @@ func FuzzDecodeDigitalWriteConfig(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -3755,7 +3522,7 @@ func FuzzDecodeMinMaxVal(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -3794,7 +3561,7 @@ func FuzzDecodeResistance(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -3879,7 +3646,7 @@ func FuzzDecodeScale(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -3888,11 +3655,9 @@ func FuzzDecodeScale(f *testing.F) {
 func FuzzDecodeScanConfig(f *testing.F) {
 	{
 		seed := v2.ScanConfig{
-			ScanConfig: task.ScanConfig{
-				KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-				Rate:        telem.Rate(2.5),
-				Disabled:    true,
-			},
+			Key:           uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Rate:          telem.Rate(2.5),
+			Disabled:      true,
 			IgnoredModels: []string{"test_4"},
 		}
 		w := orc.NewWriter(0)
@@ -3903,12 +3668,10 @@ func FuzzDecodeScanConfig(f *testing.F) {
 	}
 	{
 		seed := v2.ScanConfig{
-			ScanConfig: task.ScanConfig{
-				KeyedConfig: task.KeyedConfig{Key: uuid.Nil},
-				Rate:        telem.Rate(0),
-				Disabled:    false,
-			},
-			IgnoredModels: nil,
+			Key:           uuid.Nil(),
+			Rate:          telem.Rate(0),
+			Disabled:      false,
+			IgnoredModels: []string{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3918,11 +3681,9 @@ func FuzzDecodeScanConfig(f *testing.F) {
 	}
 	{
 		seed := v2.ScanConfig{
-			ScanConfig: task.ScanConfig{
-				KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-				Rate:        telem.Rate(2.5),
-				Disabled:    true,
-			},
+			Key:           uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Rate:          telem.Rate(2.5),
+			Disabled:      true,
 			IgnoredModels: []string{},
 		}
 		w := orc.NewWriter(0)
@@ -3947,7 +3708,7 @@ func FuzzDecodeScanConfig(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -3986,7 +3747,7 @@ func FuzzDecodeSensitivity(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -4003,9 +3764,9 @@ func FuzzDecodeTable(f *testing.F) {
 	}
 	{
 		seed := v2.Table{
-			ElectricalVals:  nil,
+			ElectricalVals:  []float64{},
 			ElectricalUnits: v2.ElectricalUnits(""),
-			PhysicalVals:    nil,
+			PhysicalVals:    []float64{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -4041,7 +3802,7 @@ func FuzzDecodeTable(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -4080,7 +3841,7 @@ func FuzzDecodeTerminal(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -4125,7 +3886,7 @@ func FuzzDecodeTwoPointLin(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -4167,7 +3928,7 @@ func FuzzDecodeVoltageExcitation(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -4176,17 +3937,11 @@ func FuzzDecodeVoltageExcitation(f *testing.F) {
 func FuzzDecodeWriteConfig(f *testing.F) {
 	{
 		seed := v2.WriteConfig{
-			WriteConfig: task.WriteConfig{
-				PersistConfig: task.PersistConfig{
-					StartConfig: task.StartConfig{
-						KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-						AutoStart:   false,
-					},
-					DataSavingDisabled: true,
-				},
-				Device: "test_4",
-			},
-			StateRate: telem.Rate(5.5),
+			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart:          false,
+			DataSavingDisabled: true,
+			Device:             "test_4",
+			StateRate:          telem.Rate(5.5),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -4196,14 +3951,11 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 	}
 	{
 		seed := v2.WriteConfig{
-			WriteConfig: task.WriteConfig{
-				PersistConfig: task.PersistConfig{
-					StartConfig:        task.StartConfig{KeyedConfig: task.KeyedConfig{Key: uuid.Nil}, AutoStart: false},
-					DataSavingDisabled: false,
-				},
-				Device: "",
-			},
-			StateRate: telem.Rate(0),
+			Key:                uuid.Nil(),
+			AutoStart:          false,
+			DataSavingDisabled: false,
+			Device:             "",
+			StateRate:          telem.Rate(0),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -4227,7 +3979,7 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -4271,7 +4023,7 @@ func FuzzDecodeZIndex(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})

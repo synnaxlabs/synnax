@@ -13,6 +13,7 @@ import (
 	"context"
 	"slices"
 
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/runtime/node"
@@ -46,6 +47,9 @@ type runtimeHarness struct {
 	channelState   *channels.ProgramState
 	authorityState *control.ProgramState
 	nodeState      *node.ProgramState
+	timeMod        *time.Host
+	clock          telem.MonoClock
+	cycleNow       telem.TimeStamp
 	wasmRT         wazero.Runtime
 	closers        []func(context.Context) error
 	alignment      telem.Alignment
@@ -57,6 +61,7 @@ func newRuntimeHarness(
 	channelSyms []symbol.Symbol,
 	channelDigests ...channels.Digest,
 ) *runtimeHarness {
+	GinkgoHelper()
 	stlSyms := stl.NewSymbols()
 	ambient := make([]*symbol.Symbol, 0, len(stlSyms)+len(channelSyms))
 	ambient = append(ambient, stlSyms...)
@@ -120,7 +125,7 @@ func newRuntimeHarness(
 
 	nodes := make(map[string]node.Node)
 	for _, irNode := range prog.Nodes {
-		n := MustSucceed(factory.Create(ctx, node.Config{
+		n := MustSucceed(factory.Create(node.Config{
 			Node:    irNode,
 			Program: prog,
 			State:   nodeState.Node(irNode.Key),
@@ -130,6 +135,7 @@ func newRuntimeHarness(
 
 	tolerance := time.CalculateTolerance(timeMod.BaseInterval)
 	h.scheduler = scheduler.New(prog.IR, nodes, tolerance)
+	h.timeMod = timeMod
 
 	h.closers = append(h.closers, func(ctx context.Context) error {
 		return wasmRT.Close(ctx)
@@ -139,13 +145,21 @@ func newRuntimeHarness(
 }
 
 func (h *runtimeHarness) Close(ctx context.Context) {
+	GinkgoHelper()
 	for _, v := range slices.Backward(h.closers) {
 		Expect(v(ctx)).To(Succeed())
 	}
 }
 
 func (h *runtimeHarness) Tick(ctx context.Context, elapsed telem.TimeSpan) {
-	h.scheduler.Next(ctx, elapsed, node.ReasonTimerTick)
+	cycle := node.Cycle{
+		Now:     h.clock.Now(),
+		Elapsed: elapsed,
+		Reason:  node.ReasonTimerTick,
+	}
+	h.cycleNow = cycle.Now
+	h.timeMod.SetNow(cycle.Now)
+	h.clock.Advance(h.scheduler.Next(ctx, cycle))
 }
 
 func (h *runtimeHarness) Ingest(channelKey uint32, data telem.Series) {
@@ -172,7 +186,9 @@ func (h *runtimeHarness) IngestIndexed(
 }
 
 func (h *runtimeHarness) Flush() (telem.Frame[uint32], bool) {
-	return h.channelState.Flush(telem.Frame[uint32]{})
+	fr, highest, changed := h.channelState.Flush(telem.Frame[uint32]{}, h.cycleNow)
+	h.clock.Advance(highest)
+	return fr, changed
 }
 
 func (h *runtimeHarness) Output(nodeKey string, paramIdx int) telem.Series {

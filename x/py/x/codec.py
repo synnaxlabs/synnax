@@ -68,7 +68,7 @@ class JSONCodec(Codec):
         return "application/json"
 
     def encode(self, payload: BaseModel) -> bytes:
-        return payload.model_dump_json(by_alias=True).encode()
+        return payload.model_dump_json(by_alias=True, exclude_none=True).encode()
 
     def decode(self, data: bytes, pld_t: type[P]) -> P:
         return pld_t.model_validate(json.loads(data.decode()))

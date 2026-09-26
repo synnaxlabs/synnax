@@ -10,7 +10,8 @@
 package schematic_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
@@ -18,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions"
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -44,7 +46,7 @@ var _ = Describe("ImEx", func() {
 			Expect(env.Name).To(Equal("exported"))
 
 			decoded := MustSucceed(
-				imex.Decode[schematic.Schematic](ctx, WireRoundTrip(env)),
+				WireRoundTrip(env).Decode[schematic.Schematic](ctx),
 			)
 			Expect(decoded.Name).To(Equal("exported"))
 			Expect(decoded.Snapshot).To(BeTrue())
@@ -53,14 +55,14 @@ var _ = Describe("ImEx", func() {
 		It("Should return not found for a missing key", func(ctx SpecContext) {
 			id := ontology.ID{
 				Type: ontology.ResourceTypeSchematic,
-				Key:  uuid.NewString(),
+				Key:  uuid.New().String(),
 			}
 			Expect(svc.Export(ctx, id)).Error().To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should error on an invalid UUID key", func(ctx SpecContext) {
 			id := ontology.ID{Type: ontology.ResourceTypeSchematic, Key: "not-a-uuid"}
-			Expect(svc.Export(ctx, id)).Error().To(MatchError(ContainSubstring("UUID")))
+			Expect(svc.Export(ctx, id)).Error().To(MatchError(ContainSubstring("uuid")))
 		})
 	})
 
@@ -106,10 +108,9 @@ var _ = Describe("ImEx", func() {
 				)
 				Expect(res.Name).To(Equal("Console Typed"))
 				Expect(res.Nodes[0].ZIndex).To(Equal(int16(4)))
-				var cfg map[string]any
-				Expect(res.Configs["n1"].Unmarshal(&cfg)).To(Succeed())
-				Expect(cfg).To(HaveKeyWithValue("variant", "valve"))
-				Expect(cfg).To(HaveKey("strokeWidth"))
+				cfg, ok := res.Configs["n1"].Variant.(schematic.ValveElementConfig)
+				Expect(ok).To(BeTrue())
+				Expect(cfg.OnClickDelay).To(HaveValue(Equal(2.0)))
 			},
 		)
 
@@ -132,10 +133,10 @@ var _ = Describe("ImEx", func() {
 				Expect(res.Edges[0].Target).To(
 					Equal(schematic.Handle{Node: "n2", Param: "b"}),
 				)
-				var cfg map[string]any
-				Expect(res.Configs["n1"].Unmarshal(&cfg)).To(Succeed())
-				Expect(cfg).To(HaveKeyWithValue("variant", "valve"))
-				Expect(cfg).To(HaveKeyWithValue("color", "#ff0000"))
+				cfg, ok := res.Configs["n1"].Variant.(schematic.ValveElementConfig)
+				Expect(ok).To(BeTrue())
+				Expect(cfg.Color).
+					To(HaveValue(Equal(MustSucceed(color.FromHex("#ff0000")))))
 			},
 		)
 

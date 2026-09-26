@@ -10,98 +10,60 @@
 package version
 
 import (
-	"embed"
 	"fmt"
-	"io"
-	"strings"
 	"time"
 
 	"go.uber.org/zap"
 )
 
-//go:embed VERSION
-var fs embed.FS
+const unknown = "unknown"
 
-const (
-	unknown  = "unknown"
-	errorMsg = "unexpected failure to resolve version"
-)
-
-// These variables can be set at build time using -ldflags:
-// -X github.com/synnaxlabs/synnax/pkg/version.Version=1.0.0
-// -X github.com/synnaxlabs/synnax/pkg/version.GitCommit=abc123
-// -X github.com/synnaxlabs/synnax/pkg/version.BuildDate=2025-01-01T00:00:00Z
 var (
-	Version   string
-	GitCommit string
-	BuildDate string
+	version   string
+	gitCommit string
+	buildDate string
 )
 
-// Prod returns the production version of Synnax.
-func Prod() string {
-	// If version was injected at build time, use it
-	if Version != "" {
-		return Version
+// Get returns the version injected at build time, or 0.0.0 when none was.
+func Get() string {
+	if version != "" {
+		return version
 	}
-
-	// Otherwise fall back to embedded VERSION file
-	f, err := fs.Open("VERSION")
-	if err != nil {
-		zap.S().Errorw(errorMsg, "error", err)
-		return unknown
-	}
-	v, err := io.ReadAll(f)
-	if err != nil {
-		zap.S().Errorw(errorMsg, "error", err)
-		return unknown
-	}
-	vString := string(v)
-	vString = strings.TrimSpace(vString)
-	vString = strings.ReplaceAll(vString, "\n", "")
-	return vString
+	return "0.0.0"
 }
 
-// Get returns the production version of Synnax.
-func Get() string { return Prod() }
-
-// Commit returns the git commit hash.
+// Commit returns the Git commit injected at build time, or "unknown".
 func Commit() string {
-	if GitCommit != "" {
-		return GitCommit
+	if gitCommit != "" {
+		return gitCommit
 	}
 	return unknown
 }
 
-// Date returns the build date.
-func Date() string {
-	if BuildDate != "" {
-		return BuildDate
-	}
-	return unknown
-}
-
-// Time returns the build date as a time.Time.
-// Returns zero time if BuildDate is not set or cannot be parsed.
+// Time returns the build date as a time.Time, or the zero time when it was not injected
+// or does not parse.
 func Time() time.Time {
-	if BuildDate == "" || BuildDate == unknown {
+	if buildDate == "" {
 		return time.Time{}
 	}
-	t, err := time.Parse(time.RFC3339, BuildDate)
+	t, err := time.Parse(time.RFC3339, buildDate)
 	if err != nil {
-		zap.S().Errorw("failed to parse build date", "error", err, "date", BuildDate)
+		zap.S().Errorw("failed to parse build date", "error", err, "date", buildDate)
 		return time.Time{}
 	}
 	return t
 }
 
-// Full returns the full version string with commit and build date.
+// Full returns the version with the commit and build date when they are known.
 func Full() string {
 	v := Get()
 	commit := Commit()
-	date := Date()
-
-	if commit != unknown && date != unknown {
-		return fmt.Sprintf("%s (commit: %s, built: %s)", v, commit[:7], date)
+	d := buildDate
+	if d == "" {
+		d = unknown
+	}
+	if commit != unknown && d != unknown {
+		return fmt.Sprintf("%s (commit: %s, built: %s)", v, commit[:7], d)
 	} else if commit != unknown {
 		return fmt.Sprintf("%s (commit: %s)", v, commit[:7])
 	}

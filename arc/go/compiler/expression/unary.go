@@ -21,7 +21,7 @@ func compileUnary(
 	ctx context.Context[parser.IUnaryExpressionContext],
 ) (types.Type, error) {
 	if ctx.AST.MINUS() != nil {
-		innerType, err := compileUnary(context.Child(ctx, ctx.AST.UnaryExpression()))
+		innerType, err := compileUnary(ctx.Child(ctx.AST.UnaryExpression()))
 		if err != nil {
 			return types.Type{}, err
 		}
@@ -58,7 +58,7 @@ func compileUnary(
 	}
 
 	if ctx.AST.NOT() != nil {
-		innerType, err := compileUnary(context.Child(ctx, ctx.AST.UnaryExpression()))
+		innerType, err := compileUnary(ctx.Child(ctx.AST.UnaryExpression()))
 		if err != nil {
 			return types.Type{}, err
 		}
@@ -79,7 +79,7 @@ func compileUnary(
 	}
 
 	if power := ctx.AST.PowerExpression(); power != nil {
-		return compilePower(context.Child(ctx, power))
+		return compilePower(ctx.Child(power))
 	}
 	return types.Type{}, errors.New("unknown unary expression")
 }

@@ -20,6 +20,7 @@ import (
 
 var _ = Describe("Format", func() {
 	format := func(source string) string {
+		GinkgoHelper()
 		return MustSucceed(formatter.Format(source))
 	}
 
@@ -663,7 +664,8 @@ var _ = Describe("Format", func() {
 				Expect(result).To(ContainSubstring(
 					"    @doc value \"\"\"\n" +
 						"        is a typography level. Order is descending.\n" +
-						"    \"\"\"\n"))
+						"    \"\"\"\n",
+				))
 				Expect(format(result)).To(Equal(result))
 			})
 
@@ -683,7 +685,8 @@ var _ = Describe("Format", func() {
 					"        id := ID{\n" +
 					"            Key: \"a\",\n" +
 					"        }\n" +
-					"    \"\"\"\n"))
+					"    \"\"\"\n",
+			))
 			Expect(format(result)).To(Equal(result))
 		})
 
@@ -700,7 +703,8 @@ var _ = Describe("Format", func() {
 			Expect(result).To(ContainSubstring(
 				"        @doc value \"\"\"\n" +
 					"            is the handle identifier used when linking symbols.\n" +
-					"        \"\"\"\n"))
+					"        \"\"\"\n",
+			))
 			Expect(format(result)).To(Equal(result))
 		})
 
@@ -714,7 +718,8 @@ var _ = Describe("Format", func() {
 					"        @doc value \"\"\"\n" +
 					"            is short.\n" +
 					"        \"\"\"\n" +
-					"    }\n"))
+					"    }\n",
+			))
 			Expect(format(result)).To(Equal(result))
 		})
 	})

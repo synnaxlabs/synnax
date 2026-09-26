@@ -4,7 +4,7 @@ title: "Authentication"
 description: "Comprehensive guide for authenticating Synnax clients."
 next: "Channels"
 nextURL: "/reference/client/channels"
-prev: "Quick Start"
+prev: "Quick start"
 prevURL: "/reference/client/quick-start"
 clients: ["python", "typescript"]
 platforms: ["Linux", "Windows", "macOS"]
@@ -19,11 +19,11 @@ export const components = mdxOverrides;
 
 This guide covers all authentication methods and connection parameters for the Synnax
 clients. If you're looking for a quick start, check out the
-[Quick Start](/reference/client/quick-start) guide instead.
+[Quick start](/reference/client/quick-start) guide instead.
 
 <Divider.Divider x />
 
-## Authentication Methods
+## Authentication methods
 
 There are three ways to authenticate with a Synnax Core: using the CLI to permanently
 store your credentials, passing your credentials directly to the client, or configuring
@@ -41,7 +41,7 @@ environment variables.
 | `password` | The password to authenticate with. |
 | `secure`   | Whether to use TLS encryption.     |
 
-### CLI Authentication (Python Only)
+### CLI authentication (Python only)
 
 The easiest way to authenticate with a Core is with the `login` command. This will
 permanently store your credentials in the operating system's keychain.
@@ -83,7 +83,7 @@ client = Synnax()
 
 <Divider.Divider x />
 
-### Environment Variables
+### Environment variables
 
 You can store your connection parameters as environment variables to keep them out of
 your code. This is useful for production deployments or when working with multiple
@@ -93,7 +93,7 @@ environments.
 
 Select your operating system below to see how to set environment variables:
 
-<Platform.Tabs client:only="react" exclude={["Docker"]}>
+<Platform.Tabs client:load exclude={["Docker"]}>
 
   <Fragment slot="Linux">
 

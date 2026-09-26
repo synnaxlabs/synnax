@@ -38,6 +38,7 @@ func buildExpressionRoot(extras []symbol.Symbol) *symbol.Symbol {
 }
 
 func expectSuccess(specCtx context.Context, code string, extras []symbol.Symbol) {
+	GinkgoHelper()
 	ast := MustSucceed(parser.Parse(code))
 	ctx := acontext.NewRoot(specCtx, ast, buildExpressionRoot(extras))
 	analyzer.AnalyzeProgram(ctx)
@@ -50,6 +51,7 @@ func expectFailure(
 	extras []symbol.Symbol,
 	expectedMsg string,
 ) {
+	GinkgoHelper()
 	ast := MustSucceed(parser.Parse(code))
 	ctx := acontext.NewRoot(specCtx, ast, buildExpressionRoot(extras))
 	analyzer.AnalyzeProgram(ctx)

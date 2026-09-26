@@ -138,7 +138,7 @@ func (t *impl) ackCurrent(ctx context.Context, cmdKey string, running bool) {
 
 // open builds and flows the Arc runtime. It writes no statuses: start owns them.
 func (t *impl) open(ctx context.Context) (err error) {
-	drt := dataRuntime{}
+	drt := dataRuntime{clock: telem.MonoClock{Source: t.factoryCfg.Now}}
 	deps, err := runtime.NewDependencies(ctx, t.factoryCfg.Channel, *t.prog.Program)
 	if err != nil {
 		return err
@@ -212,6 +212,7 @@ func (t *impl) open(ctx context.Context) (err error) {
 		return err
 	}
 	rangesMod, err := ranges.NewModule(ctx, ranges.ModuleConfig{
+		DB:       t.factoryCfg.DB,
 		Ranger:   t.factoryCfg.Ranger,
 		Strings:  drt.state.strings,
 		Runtime:  wasmRT,
@@ -256,7 +257,7 @@ func (t *impl) open(ctx context.Context) (err error) {
 
 	nodes := make(map[string]node.Node)
 	for _, irNode := range t.prog.Program.Nodes {
-		n, nodeErr := f.Create(ctx, node.Config{
+		n, nodeErr := f.Create(node.Config{
 			Node:    irNode,
 			Program: *t.prog.Program,
 			State:   drt.state.nodes.Node(irNode.Key),
@@ -269,6 +270,7 @@ func (t *impl) open(ctx context.Context) (err error) {
 
 	tolerance := time.CalculateTolerance(timeMod.BaseInterval)
 	drt.scheduler = scheduler.New(t.prog.Program.IR, nodes, tolerance)
+	drt.timeMod = timeMod
 
 	drt.scheduler.SetErrorHandler(
 		scheduler.ErrorHandlerFunc(
@@ -291,7 +293,7 @@ func (t *impl) open(ctx context.Context) (err error) {
 	// The ticker's t=0 startup tick fires entry nodes; an input-driven program
 	// would otherwise not fire them until the first input is received.
 	ticker := &tickerRuntime{dataRuntime: drt}
-	plumber.SetSegment(pipeline, runtimeAddr, ticker)
+	pipeline.SetSegment(runtimeAddr, ticker)
 
 	var (
 		streamerRequests    = confluence.NewStream[framer.StreamerRequest]()
@@ -306,13 +308,8 @@ func (t *impl) open(ctx context.Context) (err error) {
 		if err != nil {
 			return err
 		}
-		plumber.SetSegment(pipeline, streamerAddr, streamer)
-		plumber.MustConnect[framer.StreamerResponse](
-			pipeline,
-			streamerAddr,
-			runtimeAddr,
-			10,
-		)
+		pipeline.SetSegment(streamerAddr, streamer)
+		pipeline.MustConnect[framer.StreamerResponse](streamerAddr, runtimeAddr, 10)
 		streamer.InFrom(streamerRequests)
 		streamerCloseSignal = xio.NoFailCloserFunc(streamerRequests.Close)
 	} else {
@@ -344,8 +341,8 @@ func (t *impl) open(ctx context.Context) (err error) {
 		if err != nil {
 			return err
 		}
-		plumber.SetSegment(pipeline, writerAddr, wrt)
-		plumber.MustConnect[framer.WriterRequest](pipeline, runtimeAddr, writerAddr, 10)
+		pipeline.SetSegment(writerAddr, wrt)
+		pipeline.MustConnect[framer.WriterRequest](runtimeAddr, writerAddr, 10)
 		writerResponses := &confluence.UnarySink[framer.WriterResponse]{
 			Sink: func(ctx context.Context, res framer.WriterResponse) error {
 				if res.Err != nil {
@@ -373,13 +370,8 @@ func (t *impl) open(ctx context.Context) (err error) {
 				return nil
 			},
 		}
-		plumber.SetSink(pipeline, writerResponsesAddr, writerResponses)
-		plumber.MustConnect[framer.WriterResponse](
-			pipeline,
-			writerAddr,
-			writerResponsesAddr,
-			10,
-		)
+		pipeline.SetSink(writerResponsesAddr, writerResponses)
+		pipeline.MustConnect[framer.WriterResponse](writerAddr, writerResponsesAddr, 10)
 	}
 	sCtx, cancel := signal.Isolated(
 		signal.WithInstrumentation(t.factoryCfg.Instrumentation),
@@ -488,7 +480,13 @@ type state struct {
 type dataRuntime struct {
 	confluence.AbstractLinear[framer.StreamerResponse, framer.WriterRequest]
 	startTime telem.TimeStamp
+	// clock stamps every cycle. It is the runtime's only clock: nodes and host
+	// functions read the stamp it produces instead of sampling their own.
+	clock     telem.MonoClock
 	scheduler *scheduler.Scheduler
+	// timeMod receives each cycle's stamp so the `now` WASM binding, which guest
+	// code calls without a node Context, returns the same value as everything else.
+	timeMod   *time.Host
 	writeKeys channel.Keys
 	state     state
 }
@@ -499,7 +497,13 @@ func (d *dataRuntime) next(
 	reason node.RunReason,
 ) error {
 	d.state.channel.Ingest(res.Frame.ToStorage())
-	d.scheduler.Next(ctx, telem.Since(d.startTime), reason)
+	cycle := node.Cycle{
+		Now:     d.clock.Now(),
+		Elapsed: telem.Since(d.startTime),
+		Reason:  reason,
+	}
+	d.timeMod.SetNow(cycle.Now)
+	d.clock.Advance(d.scheduler.Next(ctx, cycle))
 	d.state.channel.ClearReads()
 	if d.Out != nil {
 		if err := d.flushAuthorityChanges(ctx); err != nil {
@@ -508,10 +512,9 @@ func (d *dataRuntime) next(
 	}
 	d.state.series.Clear()
 	d.state.strings.Clear()
-	if fr, changed := d.state.channel.Flush(
-		telem.Frame[uint32]{},
-	); changed &&
-		d.Out != nil {
+	fr, highest, changed := d.state.channel.Flush(telem.Frame[uint32]{}, cycle.Now)
+	d.clock.Advance(highest)
+	if changed && d.Out != nil {
 		req := framer.WriterRequest{
 			Frame:   frame.NewFromStorage(fr),
 			Command: framer.WriterCommandWrite,
@@ -582,19 +585,12 @@ func (r *tickerRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
 			if err := r.next(ctx, res, runReason); err != nil {
 				return err
 			}
-			// Drain the timer channel before resetting to avoid stale
-			// values from a simultaneous fire during the select.
-			if !timer.Stop() {
-				select {
-				case <-timer.C:
-				default:
-				}
-			}
+			timer.Stop()
 			deadline := r.scheduler.NextDeadline()
 			elapsed := telem.Since(r.startTime)
 			if deadline == telem.TimeSpanMax {
-				// No active timers. Timer stays stopped (from the
-				// drain above). We'll only wake on channel input.
+				// No active timers. Timer stays stopped, so we only wake on channel
+				// input.
 			} else if deadline > elapsed {
 				timer.Reset((deadline - elapsed).Duration())
 			} else {

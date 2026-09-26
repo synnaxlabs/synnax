@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
@@ -291,7 +292,7 @@ var _ = Describe("Device", func() {
 				Expect(w.Create(ctx, &d2)).To(Succeed())
 
 				var deviceStatus device.Status
-				Expect(status.NewRetrieve[device.StatusDetails](stat).
+				Expect(stat.NewRetrieve[device.StatusDetails]().
 					Where(status.MatchKeys[device.StatusDetails](d.OntologyID().String())).
 					Entry(&deviceStatus).
 					Exec(ctx, tx)).To(Succeed())
@@ -321,7 +322,7 @@ var _ = Describe("Device", func() {
 				Expect(w.Create(ctx, &d)).To(Succeed())
 
 				var deviceStatus device.Status
-				Expect(status.NewRetrieve[device.StatusDetails](stat).
+				Expect(stat.NewRetrieve[device.StatusDetails]().
 					Where(status.MatchKeys[device.StatusDetails](d.OntologyID().String())).
 					Entry(&deviceStatus).
 					Exec(ctx, tx)).To(Succeed())
@@ -392,9 +393,9 @@ var _ = Describe("Device", func() {
 				}
 				Expect(w.Create(ctx, &d)).To(Succeed())
 
-				Expect(status.NewWriter[device.StatusDetails](stat, tx).
+				Expect(stat.NewWriter(tx).
 					Delete(ctx, d.OntologyID().String())).To(Succeed())
-				Expect(status.NewRetrieve[device.StatusDetails](stat).
+				Expect(stat.NewRetrieve[device.StatusDetails]().
 					Where(status.MatchKeys[device.StatusDetails](d.OntologyID().String())).
 					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 
@@ -409,7 +410,7 @@ var _ = Describe("Device", func() {
 				Expect(w.Create(ctx, &reconfigured)).To(Succeed())
 
 				var healed device.Status
-				Expect(status.NewRetrieve[device.StatusDetails](stat).
+				Expect(stat.NewRetrieve[device.StatusDetails]().
 					Where(status.MatchKeys[device.StatusDetails](d.OntologyID().String())).
 					Entry(&healed).
 					Exec(ctx, tx)).To(Succeed())
@@ -446,7 +447,7 @@ var _ = Describe("Device", func() {
 				Expect(w.Create(ctx, &reconfigured)).To(Succeed())
 
 				var preserved device.Status
-				Expect(status.NewRetrieve[device.StatusDetails](stat).
+				Expect(stat.NewRetrieve[device.StatusDetails]().
 					Where(status.MatchKeys[device.StatusDetails](d.OntologyID().String())).
 					Entry(&preserved).
 					Exec(ctx, tx)).To(Succeed())
@@ -775,6 +776,9 @@ var _ = Describe("Device", func() {
 			// Clear fields populated by Create that aren't stored in gorp.
 			d2a.Status, d2a.Parent = nil, nil
 			d2b.Status, d2b.Parent = nil, nil
+			// A stored device reads back with an allocated, empty Properties.
+			d2a.Properties = msgpack.EncodedJSON{}
+			d2b.Properties = msgpack.EncodedJSON{}
 			var res []device.Device
 			Expect(
 				svc.NewRetrieve().
@@ -815,6 +819,9 @@ var _ = Describe("Device", func() {
 			Expect(w.Create(ctx, &d2b)).To(Succeed())
 			d2a.Status, d2a.Parent = nil, nil
 			d2b.Status, d2b.Parent = nil, nil
+			// A stored device reads back with an allocated, empty Properties.
+			d2a.Properties = msgpack.EncodedJSON{}
+			d2b.Properties = msgpack.EncodedJSON{}
 			var res []device.Device
 			Expect(
 				svc.NewRetrieve().
@@ -854,6 +861,8 @@ var _ = Describe("Device", func() {
 			Expect(w.Create(ctx, &d2a)).To(Succeed())
 			Expect(w.Create(ctx, &d2b)).To(Succeed())
 			d2a.Status, d2a.Parent = nil, nil
+			// A stored device reads back with an allocated, empty Properties.
+			d2a.Properties = msgpack.EncodedJSON{}
 			var res []device.Device
 			Expect(
 				svc.NewRetrieve().
@@ -887,7 +896,7 @@ var _ = Describe("Device", func() {
 				).
 					To(MatchError(query.ErrNotFound))
 				var deletedStatus device.Status
-				Expect(status.NewRetrieve[device.StatusDetails](stat).
+				Expect(stat.NewRetrieve[device.StatusDetails]().
 					Where(status.MatchKeys[device.StatusDetails](d.OntologyID().String())).
 					Entry(&deletedStatus).
 					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
@@ -974,7 +983,7 @@ var _ = Describe("Device", func() {
 
 				Eventually(func(g Gomega) {
 					var deviceStatus device.Status
-					g.Expect(status.NewRetrieve[device.StatusDetails](stat).
+					g.Expect(stat.NewRetrieve[device.StatusDetails]().
 						Where(status.MatchKeys[device.StatusDetails](d.OntologyID().String())).
 						Entry(&deviceStatus).
 						Exec(ctx, nil)).To(Succeed())

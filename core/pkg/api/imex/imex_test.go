@@ -11,10 +11,10 @@ package imex_test
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
 	"fmt"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apiimex "github.com/synnaxlabs/synnax/pkg/api/imex"
@@ -178,6 +178,17 @@ var _ = Describe("Import", func() {
 	})
 })
 
+var _ = Describe("JSONCodec", func() {
+	It("Should write the same bytes for the same value", func(ctx SpecContext) {
+		v := map[string]int{"z": 1, "a": 2, "m": 3, "b": 4, "q": 5}
+		first := MustSucceed(apiimex.JSONCodec.Encode(ctx, v))
+		for range 20 {
+			Expect(apiimex.JSONCodec.Encode(ctx, v)).To(Equal(first))
+		}
+		Expect(string(first)).To(ContainSubstring("\"a\": 2,\n  \"b\": 4"))
+	})
+})
+
 var _ = Describe("ResolveEncoding", func() {
 	It("Should return a pretty JSON encoder for the JSON encoding", func(
 		ctx SpecContext,
@@ -198,7 +209,7 @@ var _ = Describe("ResolveEncoding", func() {
 			SVG string `json:"svg"`
 		}
 		env := imex.Envelope{Version: 1, Type: "symbol", Name: "valve"}
-		Expect(imex.Encode(&env, symbol{SVG: `<svg id="a"/>`})).To(Succeed())
+		Expect(env.Encode(symbol{SVG: `<svg id="a"/>`})).To(Succeed())
 		Expect(string(MustSucceed(enc.Encode(ctx, env)))).
 			To(ContainSubstring(`"<svg id=\"a\"/>"`))
 	})

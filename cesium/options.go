@@ -10,6 +10,7 @@
 package cesium
 
 import (
+	jsonv2 "encoding/json/v2"
 	"time"
 
 	"github.com/synnaxlabs/alamos"
@@ -22,6 +23,11 @@ import (
 )
 
 type Option func(*options)
+
+// defaultMetaCodec reads and writes each channel's meta.json. It matches object names
+// case-insensitively because databases written before Channel.Virtual and
+// Channel.Concurrency carried json tags stored them under their Go field names.
+var defaultMetaCodec = json.NewCodec(jsonv2.MatchCaseInsensitiveNames(true))
 
 type options struct {
 	alamos.Instrumentation
@@ -56,7 +62,7 @@ func newOptions(dirname string, opts ...Option) (*options, error) {
 }
 
 func mergeAndValidateOptions(o *options) error {
-	o.metaCodec = override.Nil[encoding.Codec](json.Codec, o.metaCodec)
+	o.metaCodec = override.Nil[encoding.Codec](defaultMetaCodec, o.metaCodec)
 	o.fs = override.Nil(xfs.Default, o.fs)
 	gcCfg := GCConfig{
 		MaxGoroutine: 10,
@@ -69,9 +75,9 @@ func mergeAndValidateOptions(o *options) error {
 	o.gcCfg = gcCfg
 	o.fileSize = override.Numeric(1*telem.Gigabyte, o.fileSize)
 	v := validate.New("cesium.options")
-	validate.Positive(v, "relay_buffer_size", o.relayBufferSize)
-	validate.Positive(v, "stream_buffer_size", o.streamBufferSize)
-	validate.Positive(v, "slow_consumer_timeout", o.slowConsumerTimeout)
+	v.Positive("relay_buffer_size", o.relayBufferSize)
+	v.Positive("stream_buffer_size", o.streamBufferSize)
+	v.Positive("slow_consumer_timeout", o.slowConsumerTimeout)
 	return v.Error()
 }
 

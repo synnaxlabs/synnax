@@ -13,8 +13,8 @@ import (
 	"context"
 	"regexp"
 	"sync"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/ir"
@@ -59,6 +59,7 @@ func (r *recordingReporter) get() []reportCall {
 
 // newModule builds a Module without WASM wiring (covered C++-side).
 func newModule(ctx context.Context, reporter *recordingReporter) node.Factory {
+	GinkgoHelper()
 	return MustSucceed(arcstatus.NewModule(ctx, arcstatus.ModuleConfig{
 		Status:   statSvc,
 		Reporter: reporter.report,
@@ -165,7 +166,7 @@ var _ = Describe("Module", func() {
 	Describe("Construction", func() {
 		It(
 			"Should construct without WASM wiring when rat is nil",
-			func(ctx SpecContext) {
+			func() {
 				Expect(mod).ToNot(BeNil())
 			},
 		)
@@ -213,15 +214,15 @@ var _ = Describe("Module", func() {
 	})
 
 	Describe("Create", func() {
-		It("Should return ErrNotFound for an unrecognized type", func(ctx SpecContext) {
+		It("Should return ErrNotFound for an unrecognized type", func() {
 			cfg := node.Config{Node: ir.Node{Type: "wrong_type"}}
-			Expect(mod.Create(ctx, cfg)).Error().To(MatchError(query.ErrNotFound))
+			Expect(mod.Create(cfg)).Error().To(MatchError(query.ErrNotFound))
 		})
 
-		It("Should construct a set node from valid inputs", func(ctx SpecContext) {
-			n := MustSucceed(mod.Create(ctx, set.Config("alarm", "msg", "info")))
+		It("Should construct a set node from valid inputs", func() {
+			n := MustSucceed(mod.Create(set.Config("alarm", "msg", "info")))
 			Expect(n).ToNot(BeNil())
-			Expect(func() { n.Reset() }).ToNot(Panic())
+			Expect(func() { n.Reset(node.Context{}) }).ToNot(Panic())
 			// Output(0) hasn't been written yet; truthiness reads the empty cache.
 			Expect(n.IsOutputTruthy(0)).To(BeFalse())
 		})
@@ -229,32 +230,28 @@ var _ = Describe("Module", func() {
 		// Missing input returns an error instead of panicking on unchecked assertion.
 		It(
 			"Should return a clean error when set inputs are missing key_or_name",
-			func(ctx SpecContext) {
+			func() {
 				cfg := node.Config{
 					Node: ir.Node{Type: "set", Inputs: types.Params{
 						{Name: "message", Type: types.String(), Value: "x"},
 						{Name: "variant", Type: types.String(), Value: "info"},
 					}},
 				}
-				Expect(
-					mod.Create(ctx, cfg),
-				).Error().
+				Expect(mod.Create(cfg)).Error().
 					To(MatchError(ContainSubstring("status.set inputs")))
 			},
 		)
 
 		It(
 			"Should return a clean error when set inputs are missing variant",
-			func(ctx SpecContext) {
+			func() {
 				cfg := node.Config{
 					Node: ir.Node{Type: "set", Inputs: types.Params{
 						{Name: "key_or_name", Type: types.String(), Value: "x"},
 						{Name: "message", Type: types.String(), Value: "y"},
 					}},
 				}
-				Expect(
-					mod.Create(ctx, cfg),
-				).Error().
+				Expect(mod.Create(cfg)).Error().
 					To(MatchError(ContainSubstring("status.set inputs")))
 			},
 		)
@@ -271,9 +268,10 @@ var _ = Describe("setNode.Next", func() {
 		mod = newModule(ctx, rep)
 	})
 
-	build := func(ctx context.Context, keyOrName, message, variant string) (node.Node, *node.State) {
+	build := func(keyOrName, message, variant string) (node.Node, *node.State) {
+		GinkgoHelper()
 		cfg := set.Config(keyOrName, message, variant)
-		n := MustSucceed(mod.Create(ctx, cfg))
+		n := MustSucceed(mod.Create(cfg))
 		return n, cfg.State
 	}
 
@@ -282,14 +280,14 @@ var _ = Describe("setNode.Next", func() {
 	}
 
 	It("Should read a var-bound message at fire time", func(ctx SpecContext) {
-		name := "var_msg_" + uuid.NewString()
+		name := "var_msg_" + uuid.New().String()
 		cfg := set.Config(name, VarOf("live message"), "info")
-		n := MustSucceed(mod.Create(ctx, cfg))
+		n := MustSucceed(mod.Create(cfg))
 		n.Next(nodeCtx(ctx))
 
-		newKey := telem.UnmarshalSeries[string](*cfg.State.Output(0))[0]
+		newKey := cfg.State.Output(0).Unmarshal[string]()[0]
 		var st status.Status[any]
-		Expect(statSvc.NewRetrieve().Where(status.MatchKeys[any](newKey)).
+		Expect(statSvc.NewRetrieve[any]().Where(status.MatchKeys[any](newKey)).
 			Entry(&st).Exec(ctx, nil)).To(Succeed())
 		Expect(st.Message).To(Equal("live message"))
 		Expect(rep.get()).To(BeEmpty())
@@ -298,12 +296,12 @@ var _ = Describe("setNode.Next", func() {
 	It(
 		"Should upsert a new UUID-keyed row by name when none exists",
 		func(ctx SpecContext) {
-			name := "next_new_" + uuid.NewString()
-			n, state := build(ctx, name, "All good", "success")
+			name := "next_new_" + uuid.New().String()
+			n, state := build(name, "All good", "success")
 			n.Next(nodeCtx(ctx))
 
 			out := *state.Output(0)
-			keys := telem.UnmarshalSeries[string](out)
+			keys := out.Unmarshal[string]()
 			Expect(keys).To(HaveLen(1))
 			newKey := keys[0]
 			MustSucceed(uuid.Parse(newKey))
@@ -311,7 +309,7 @@ var _ = Describe("setNode.Next", func() {
 
 			var s status.Status[any]
 			Expect(
-				statSvc.NewRetrieve().
+				statSvc.NewRetrieve[any]().
 					Where(status.MatchKeys[any](newKey)).
 					Entry(&s).
 					Exec(ctx, nil),
@@ -330,21 +328,21 @@ var _ = Describe("setNode.Next", func() {
 	It(
 		"Should report a truthy output on success so a sequence step advances",
 		func(ctx SpecContext) {
-			name := "next_truthy_" + uuid.NewString()
-			ok, _ := build(ctx, name, "msg", "info")
+			name := "next_truthy_" + uuid.New().String()
+			ok, _ := build(name, "msg", "info")
 			ok.Next(nodeCtx(ctx))
 			Expect(ok.IsOutputTruthy(0)).To(BeTrue())
 
-			failed, _ := build(ctx, "", "msg", "info")
+			failed, _ := build("", "msg", "info")
 			failed.Next(nodeCtx(ctx))
 			Expect(failed.IsOutputTruthy(0)).To(BeFalse())
 		},
 	)
 
 	It("Should update an existing row by name (single match)", func(ctx SpecContext) {
-		name := "next_single_" + uuid.NewString()
-		existingKey := uuid.NewString()
-		Expect(writer.Set(ctx, &status.Status[any]{
+		name := "next_single_" + uuid.New().String()
+		existingKey := uuid.New().String()
+		Expect(setStatus(ctx, &status.Status[any]{
 			Key:     existingKey,
 			Name:    name,
 			Variant: status.VariantInfo,
@@ -352,12 +350,12 @@ var _ = Describe("setNode.Next", func() {
 			Time:    telem.Now(),
 		})).To(Succeed())
 
-		n, _ := build(ctx, name, "updated", "warning")
+		n, _ := build(name, "updated", "warning")
 		n.Next(nodeCtx(ctx))
 
 		var s status.Status[any]
 		Expect(
-			statSvc.NewRetrieve().
+			statSvc.NewRetrieve[any]().
 				Where(status.MatchKeys[any](existingKey)).
 				Entry(&s).
 				Exec(ctx, nil),
@@ -367,8 +365,8 @@ var _ = Describe("setNode.Next", func() {
 	})
 
 	It("Should update an existing row by UUID key", func(ctx SpecContext) {
-		key := uuid.NewString()
-		Expect(writer.Set(ctx, &status.Status[any]{
+		key := uuid.New().String()
+		Expect(setStatus(ctx, &status.Status[any]{
 			Key:     key,
 			Name:    "by_uuid",
 			Variant: status.VariantInfo,
@@ -376,14 +374,14 @@ var _ = Describe("setNode.Next", func() {
 			Time:    telem.Now(),
 		})).To(Succeed())
 
-		n, state := build(ctx, key, "via uuid", "error")
+		n, state := build(key, "via uuid", "error")
 		n.Next(nodeCtx(ctx))
 
-		Expect(telem.UnmarshalSeries[string](*state.Output(0))).To(Equal([]string{key}))
+		Expect(state.Output(0).Unmarshal[string]()).To(Equal([]string{key}))
 
 		var s status.Status[any]
 		Expect(
-			statSvc.NewRetrieve().
+			statSvc.NewRetrieve[any]().
 				Where(status.MatchKeys[any](key)).
 				Entry(&s).
 				Exec(ctx, nil),
@@ -395,20 +393,20 @@ var _ = Describe("setNode.Next", func() {
 	It(
 		"Should produce non-decreasing timestamps on successive Next calls",
 		func(ctx SpecContext) {
-			name := "next_time_" + uuid.NewString()
-			n, state := build(ctx, name, "msg", "info")
+			name := "next_time_" + uuid.New().String()
+			n, state := build(name, "msg", "info")
 			nctx := nodeCtx(ctx)
 			n.Next(nctx)
-			first := telem.ValueAt[telem.TimeStamp](*state.OutputTime(0), 0)
+			first := state.OutputTime(0).ValueAt[telem.TimeStamp](0)
 			n.Next(nctx)
-			second := telem.ValueAt[telem.TimeStamp](*state.OutputTime(0), 0)
+			second := state.OutputTime(0).ValueAt[telem.TimeStamp](0)
 			Expect(second).To(BeNumerically(">=", first))
 		},
 	)
 
 	It("Should warn and not write when the variant is unknown", func(ctx SpecContext) {
-		name := "next_iv_" + uuid.NewString()
-		n, state := build(ctx, name, "msg", "not_a_real_variant")
+		name := "next_iv_" + uuid.New().String()
+		n, state := build(name, "msg", "not_a_real_variant")
 		n.Next(nodeCtx(ctx))
 
 		calls := rep.get()
@@ -417,17 +415,17 @@ var _ = Describe("setNode.Next", func() {
 		Expect(calls[0].message).To(HavePrefix("status.set:"))
 		Expect(calls[0].message).To(ContainSubstring("invalid status variant"))
 
-		Expect(statSvc.NewRetrieve().Where(status.MatchKeys[any](name)).
+		Expect(statSvc.NewRetrieve[any]().Where(status.MatchKeys[any](name)).
 			Entry(&status.Status[any]{}).
 			Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 
 		// On invalid variant, Output(0) carries a single empty-string sample.
-		Expect(telem.UnmarshalSeries[string](*state.Output(0))).To(Equal([]string{""}))
+		Expect(state.Output(0).Unmarshal[string]()).To(Equal([]string{""}))
 	})
 
 	It("Should reject upper-cased variants as case-sensitive", func(ctx SpecContext) {
-		name := "next_iv_case_" + uuid.NewString()
-		n, _ := build(ctx, name, "msg", "SUCCESS")
+		name := "next_iv_case_" + uuid.New().String()
+		n, _ := build(name, "msg", "SUCCESS")
 		n.Next(nodeCtx(ctx))
 		calls := rep.get()
 		Expect(calls).To(HaveLen(1))
@@ -437,16 +435,16 @@ var _ = Describe("setNode.Next", func() {
 	It(
 		"Should warn on multi-match, update the first match, and report the resolved key",
 		func(ctx SpecContext) {
-			name := "next_multi_" + uuid.NewString()
-			k1, k2 := uuid.NewString(), uuid.NewString()
-			Expect(writer.Set(ctx, &status.Status[any]{
+			name := "next_multi_" + uuid.New().String()
+			k1, k2 := uuid.New().String(), uuid.New().String()
+			Expect(setStatus(ctx, &status.Status[any]{
 				Key:     k1,
 				Name:    name,
 				Variant: status.VariantInfo,
 				Message: "first",
 				Time:    telem.Now(),
 			})).To(Succeed())
-			Expect(writer.Set(ctx, &status.Status[any]{
+			Expect(setStatus(ctx, &status.Status[any]{
 				Key:     k2,
 				Name:    name,
 				Variant: status.VariantInfo,
@@ -454,7 +452,7 @@ var _ = Describe("setNode.Next", func() {
 				Time:    telem.Now(),
 			})).To(Succeed())
 
-			n, state := build(ctx, name, "now updated", "warning")
+			n, state := build(name, "now updated", "warning")
 			n.Next(nodeCtx(ctx))
 
 			calls := rep.get()
@@ -469,14 +467,14 @@ var _ = Describe("setNode.Next", func() {
 				re.MatchString(calls[0].message),
 			).To(BeTrue(), "got: %q", calls[0].message)
 
-			resolvedRows := telem.UnmarshalSeries[string](*state.Output(0))
+			resolvedRows := state.Output(0).Unmarshal[string]()
 			Expect(resolvedRows).To(HaveLen(1))
 			Expect(resolvedRows[0]).To(SatisfyAny(Equal(k1), Equal(k2)))
 
 			// Only one row picked up the new variant.
 			var rows []status.Status[any]
 			Expect(
-				statSvc.NewRetrieve().
+				statSvc.NewRetrieve[any]().
 					Where(status.MatchKeys[any](k1, k2)).
 					Entries(&rows).
 					Exec(ctx, nil),
@@ -499,7 +497,7 @@ var _ = Describe("setNode.Next", func() {
 		"Should warn with a 'status.set:' prefix when the service returns an error",
 		func(ctx SpecContext) {
 			// Empty keyOrName trips the service-side required-input validation guard.
-			n, state := build(ctx, "", "msg", "info")
+			n, state := build("", "msg", "info")
 			n.Next(nodeCtx(ctx))
 
 			calls := rep.get()
@@ -508,7 +506,7 @@ var _ = Describe("setNode.Next", func() {
 			Expect(calls[0].message).To(HavePrefix("status.set:"))
 
 			Expect(
-				telem.UnmarshalSeries[string](*state.Output(0)),
+				state.Output(0).Unmarshal[string](),
 			).To(Equal([]string{""}))
 		},
 	)
@@ -534,12 +532,14 @@ var _ = Describe("Analyzer hooks", func() {
 	}
 
 	analyzeOK := func(ctx context.Context, src string) bool {
+		GinkgoHelper()
 		parsed := MustSucceed(text.Parse(text.Text{Raw: src}))
 		_, diags := text.Analyze(ctx, parsed, buildRoot())
 		return diags.Ok()
 	}
 
 	expectInvalidVariantError := func(ctx context.Context, src, badVariant string) {
+		GinkgoHelper()
 		parsed := MustSucceed(text.Parse(text.Text{Raw: src}))
 		_, diags := text.Analyze(ctx, parsed, buildRoot())
 		Expect(diags.Ok()).To(BeFalse())
@@ -736,7 +736,7 @@ var _ = Describe("WASM host functions", func() {
 		It(
 			"Should upsert a status and return a non-zero handle resolving to the key",
 			func(ctx SpecContext) {
-				name := "wasm_set_" + uuid.NewString()
+				name := "wasm_set_" + uuid.New().String()
 				keyH := strs.Create(name)
 				msgH := strs.Create("from wasm")
 				varH := strs.Create("info")
@@ -751,7 +751,7 @@ var _ = Describe("WASM host functions", func() {
 
 				var s status.Status[any]
 				Expect(
-					statSvc.NewRetrieve().
+					statSvc.NewRetrieve[any]().
 						Where(status.MatchKeys[any](newKey)).
 						Entry(&s).
 						Exec(ctx, nil),
@@ -781,7 +781,7 @@ var _ = Describe("WASM host functions", func() {
 		It(
 			"Should warn and return 0 on an invalid message handle",
 			func(ctx SpecContext) {
-				keyH := strs.Create("wasm_msg_h_" + uuid.NewString())
+				keyH := strs.Create("wasm_msg_h_" + uuid.New().String())
 				varH := strs.Create("info")
 				res := rt.Call(ctx, "status", "set",
 					U32(keyH), U32(9999), U32(varH))
@@ -793,7 +793,7 @@ var _ = Describe("WASM host functions", func() {
 		It(
 			"Should warn and return 0 on an invalid variant handle",
 			func(ctx SpecContext) {
-				keyH := strs.Create("wasm_var_h_" + uuid.NewString())
+				keyH := strs.Create("wasm_var_h_" + uuid.New().String())
 				msgH := strs.Create("m")
 				res := rt.Call(ctx, "status", "set",
 					U32(keyH), U32(msgH), U32(9999))

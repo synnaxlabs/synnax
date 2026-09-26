@@ -1,4 +1,4 @@
-# Go Development
+# Go development
 
 ## Modules
 
@@ -25,7 +25,7 @@ check with `golangci-lint fmt --diff`. `golangci-lint run` (CI) also fails on
 unformatted files. CI lints each module for both `GOOS=linux` and `GOOS=windows`, so
 reproduce a Windows-only failure with `GOOS=windows CGO_ENABLED=0 golangci-lint run`.
 
-## Packages & Naming
+## Packages & naming
 
 - Package names: lowercase, one word, singular (`channel`, `framer`, `writer`). When the
   natural name collides with a keyword, extend it (`ranger`, not `range`).
@@ -37,7 +37,7 @@ reproduce a Windows-only failure with `GOOS=windows CGO_ENABLED=0 golangci-lint 
 - `internal/` hides implementation packages consumers must not import
   (`cesium/internal`, `aspen/internal`).
 
-## General Rules
+## General rules
 
 ### Rule 1: Never ignore errors
 
@@ -79,14 +79,14 @@ period, doc comment says when it's returned.
 
 Any error for caller-provided data failing a rule, format, or completeness check wraps
 `validate.ErrValidation` (`github.com/synnaxlabs/x/validate`), never a bare
-`errors.New`. Prefer its helpers: `validate.New(scope)` plus `Ternary`/`Ternaryf` join
-multiple field failures; `NotNil`, `Positive`, `InBounds`, `NonZero`, `NotEmptySlice`,
-`NotEmptyString` cover common checks; `PathedError` prefixes a field path for nested
-structs.
+`errors.New`. Prefer its helpers: `validate.New(scope)` returns a `*Validator` whose
+methods join multiple field failures. `Ternary`/`Ternaryf` take an arbitrary condition;
+`NotNil`, `Positive`, `InBounds`, `NonZero`, `NotEmptySlice`, `NotEmptyString` cover
+common checks; `PathedError` prefixes a field path for nested structs.
 
 ```go
 v := validate.New("cert.SourceConfig")
-validate.NotEmptyString(v, "address", cfg.Address)
+v.NotEmptyString("address", cfg.Address)
 return v.Error()
 ```
 

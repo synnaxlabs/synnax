@@ -10,8 +10,6 @@
 package deleter
 
 import (
-	"go/types"
-
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/telem"
@@ -29,10 +27,10 @@ type Request struct {
 type (
 	// Client is the client-side interface for sending a delete request to a remote
 	// Core.
-	Client = freighter.UnaryClient[Request, types.Nil]
+	Client = freighter.UnaryClient[Request, struct{}]
 	// Server is the server-side interface for receiving and processing a delete request
 	// from a remote Core.
-	Server = freighter.UnaryServer[Request, types.Nil]
+	Server = freighter.UnaryServer[Request, struct{}]
 )
 
 // Transport is the interface for the deleter transport.

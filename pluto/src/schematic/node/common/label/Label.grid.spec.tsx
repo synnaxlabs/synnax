@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { schematic } from "@synnaxlabs/client";
 import { type location } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
+import { ReactFlowProvider } from "@xyflow/react";
 import { type ReactElement, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -16,16 +18,22 @@ import { Haul } from "@/haul";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 
+/** cfg fills a partial label config with the schema defaults the spec does not pin. */
+const cfg = (overrides: Partial<schematic.LabelConfig> = {}): schematic.LabelConfig =>
+  schematic.labelConfigZ.parse(overrides);
+
 const NODE_KEY = "n1";
 
 const Wrap = ({ children }: { children: ReactNode }): ReactElement => (
-  <Haul.Provider>
-    <div data-id={NODE_KEY}>
-      <Grid.Grid editable nodeKey={NODE_KEY}>
-        {children}
-      </Grid.Grid>
-    </div>
-  </Haul.Provider>
+  <ReactFlowProvider>
+    <Haul.Provider>
+      <div data-id={NODE_KEY}>
+        <Grid.Grid editable nodeKey={NODE_KEY}>
+          {children}
+        </Grid.Grid>
+      </div>
+    </Haul.Provider>
+  </ReactFlowProvider>
 );
 
 const slot = (container: HTMLElement, loc: location.Location): HTMLElement | null =>
@@ -48,7 +56,7 @@ describe("Label.Label as GridItem", () => {
     it("should render nothing when label is undefined", () => {
       const { container } = render(
         <Wrap>
-          <Label.Label config={{ orientation: "top" }} />
+          <Label.Label config={cfg({ orientation: "top" })} />
         </Wrap>,
       );
       expect(labelEl(container)).toBeNull();
@@ -57,7 +65,7 @@ describe("Label.Label as GridItem", () => {
     it("should render nothing when label is the empty string", () => {
       const { container } = render(
         <Wrap>
-          <Label.Label config={{ label: "" }} />
+          <Label.Label config={cfg({ label: "" })} />
         </Wrap>,
       );
       expect(labelEl(container)).toBeNull();
@@ -66,7 +74,7 @@ describe("Label.Label as GridItem", () => {
     it("should render the label text when a non-empty label is provided", () => {
       const { container } = render(
         <Wrap>
-          <Label.Label config={{ label: "Hello", orientation: "top" }} />
+          <Label.Label config={cfg({ label: "Hello", orientation: "top" })} />
         </Wrap>,
       );
       const el = labelEl(container);
@@ -79,7 +87,7 @@ describe("Label.Label as GridItem", () => {
     it("should default to the top slot when orientation is unset", () => {
       const { container } = render(
         <Wrap>
-          <Label.Label config={{ label: "X" }} />
+          <Label.Label config={cfg({ label: "X" })} />
         </Wrap>,
       );
       expect(slot(container, "top")?.contains(labelEl(container))).toBe(true);
@@ -90,7 +98,7 @@ describe("Label.Label as GridItem", () => {
       (orientation) => {
         const { container } = render(
           <Wrap>
-            <Label.Label config={{ label: "X", orientation }} />
+            <Label.Label config={cfg({ label: "X", orientation })} />
           </Wrap>,
         );
         expect(slot(container, orientation)?.contains(labelEl(container))).toBe(true);
@@ -102,7 +110,9 @@ describe("Label.Label as GridItem", () => {
     it("should apply align as textAlign and forward maxInlineSize", () => {
       const { container } = render(
         <Wrap>
-          <Label.Label config={{ label: "X", align: "start", maxInlineSize: 200 }} />
+          <Label.Label
+            config={cfg({ label: "X", align: "start", maxInlineSize: 200 })}
+          />
         </Wrap>,
       );
       const el = labelEl(container) as HTMLElement;
@@ -113,7 +123,7 @@ describe("Label.Label as GridItem", () => {
     it("should apply the direction modifier class when direction is set", () => {
       const { container } = render(
         <Wrap>
-          <Label.Label config={{ label: "X", direction: "y" }} />
+          <Label.Label config={cfg({ label: "X", direction: "y" })} />
         </Wrap>,
       );
       expect(labelEl(container)?.className).toContain("pluto--direction-y");
@@ -126,7 +136,7 @@ describe("Label.Label as GridItem", () => {
       const { container } = render(
         <Wrap>
           <Label.Label
-            config={{ label: "X", orientation: "top" }}
+            config={cfg({ label: "X", orientation: "top" })}
             onChange={onChange}
           />
         </Wrap>,
@@ -139,7 +149,7 @@ describe("Label.Label as GridItem", () => {
       });
       expect(onChange).toHaveBeenCalledTimes(1);
       expect(onChange).toHaveBeenCalledWith({
-        label: { label: "X", orientation: "right" },
+        label: cfg({ label: "X", orientation: "right" }),
       });
     });
   });

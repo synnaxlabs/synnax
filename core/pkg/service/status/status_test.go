@@ -30,7 +30,7 @@ var _ = Describe("Status", Ordered, func() {
 	var (
 		db       *gorp.DB
 		svc      *status.Service
-		w        status.Writer[any]
+		w        status.Writer
 		labelSvc *label.Service
 		otg      *ontology.Ontology
 		tx       gorp.Tx
@@ -99,7 +99,7 @@ var _ = Describe("Status", Ordered, func() {
 
 				var retrieved status.Status[any]
 				Expect(
-					svc.NewRetrieve().
+					svc.NewRetrieve[any]().
 						Where(status.MatchKeys[any]("update-key")).
 						Entry(&retrieved).
 						Exec(ctx, tx),
@@ -162,7 +162,7 @@ var _ = Describe("Status", Ordered, func() {
 
 				var retrieved []status.Status[any]
 				Expect(
-					svc.NewRetrieve().
+					svc.NewRetrieve[any]().
 						Where(status.MatchKeys[any]("key1", "key2")).
 						Entries(&retrieved).
 						Exec(ctx, tx),
@@ -183,7 +183,7 @@ var _ = Describe("Status", Ordered, func() {
 				Expect(w.Set(ctx, s)).To(Succeed())
 				Expect(w.Delete(ctx, "delete-key")).To(Succeed())
 
-				err := svc.NewRetrieve().
+				err := svc.NewRetrieve[any]().
 					Where(status.MatchKeys[any]("delete-key")).
 					Entry(&status.Status[any]{}).
 					Exec(ctx, tx)
@@ -213,7 +213,7 @@ var _ = Describe("Status", Ordered, func() {
 				Expect(w.Delete(ctx, "del1", "del2")).To(Succeed())
 
 				Expect(
-					svc.NewRetrieve().
+					svc.NewRetrieve[any]().
 						Where(status.MatchKeys[any]("del1", "del2")).
 						Exec(ctx, tx),
 				).To(MatchError(query.ErrNotFound))
@@ -277,7 +277,7 @@ var _ = Describe("Status", Ordered, func() {
 			It("Should retrieve status by key", func(ctx SpecContext) {
 				var s status.Status[any]
 				Expect(
-					svc.NewRetrieve().
+					svc.NewRetrieve[any]().
 						Where(status.MatchKeys[any]("retrieve-a")).
 						Entry(&s).
 						Exec(ctx, tx),
@@ -289,7 +289,7 @@ var _ = Describe("Status", Ordered, func() {
 			It("Should retrieve multiple statuses by keys", func(ctx SpecContext) {
 				var statuses []status.Status[any]
 				Expect(
-					svc.NewRetrieve().
+					svc.NewRetrieve[any]().
 						Where(status.MatchKeys[any]("retrieve-a", "retrieve-b")).
 						Entries(&statuses).
 						Exec(ctx, tx),
@@ -302,7 +302,7 @@ var _ = Describe("Status", Ordered, func() {
 			It("Should limit results", func(ctx SpecContext) {
 				var statuses []status.Status[any]
 				Expect(
-					svc.NewRetrieve().Limit(2).Entries(&statuses).Exec(ctx, tx),
+					svc.NewRetrieve[any]().Limit(2).Entries(&statuses).Exec(ctx, tx),
 				).To(Succeed())
 				Expect(statuses).To(HaveLen(2))
 			})
@@ -310,7 +310,7 @@ var _ = Describe("Status", Ordered, func() {
 			It("Should offset results", func(ctx SpecContext) {
 				var statuses []status.Status[any]
 				Expect(
-					svc.NewRetrieve().
+					svc.NewRetrieve[any]().
 						Offset(1).
 						Limit(2).
 						Entries(&statuses).
@@ -324,7 +324,7 @@ var _ = Describe("Status", Ordered, func() {
 			It("Should search for statuses", func(ctx SpecContext) {
 				var statuses []status.Status[any]
 				Expect(
-					svc.NewRetrieve().
+					svc.NewRetrieve[any]().
 						Search("Status A").
 						Entries(&statuses).
 						Exec(ctx, tx),
@@ -340,7 +340,7 @@ var _ = Describe("Status", Ordered, func() {
 				func(ctx SpecContext) {
 					var statuses []status.Status[any]
 					Expect(
-						svc.NewRetrieve().
+						svc.NewRetrieve[any]().
 							Where(status.MatchKeyPrefix[any]("device-")).
 							Entries(&statuses).
 							Exec(ctx, tx),
@@ -355,7 +355,7 @@ var _ = Describe("Status", Ordered, func() {
 			It("Should retrieve statuses with different prefix", func(ctx SpecContext) {
 				var statuses []status.Status[any]
 				Expect(
-					svc.NewRetrieve().
+					svc.NewRetrieve[any]().
 						Where(status.MatchKeyPrefix[any]("sensor-")).
 						Entries(&statuses).
 						Exec(ctx, tx),
@@ -369,7 +369,7 @@ var _ = Describe("Status", Ordered, func() {
 				func(ctx SpecContext) {
 					var statuses []status.Status[any]
 					Expect(
-						svc.NewRetrieve().
+						svc.NewRetrieve[any]().
 							Where(status.MatchKeyPrefix[any]("nonexistent-")).
 							Entries(&statuses).
 							Exec(ctx, tx),
@@ -381,7 +381,7 @@ var _ = Describe("Status", Ordered, func() {
 			It("Should retrieve statuses with retrieve- prefix", func(ctx SpecContext) {
 				var statuses []status.Status[any]
 				Expect(
-					svc.NewRetrieve().
+					svc.NewRetrieve[any]().
 						Where(status.MatchKeyPrefix[any]("retrieve-")).
 						Entries(&statuses).
 						Exec(ctx, tx),
@@ -394,7 +394,7 @@ var _ = Describe("Status", Ordered, func() {
 			It("Should retrieve statuses with a single variant", func(ctx SpecContext) {
 				var statuses []status.Status[any]
 				Expect(
-					svc.NewRetrieve().
+					svc.NewRetrieve[any]().
 						Where(status.MatchVariants[any](status.VariantInfo)).
 						Entries(&statuses).
 						Exec(ctx, tx),
@@ -410,7 +410,7 @@ var _ = Describe("Status", Ordered, func() {
 				func(ctx SpecContext) {
 					var statuses []status.Status[any]
 					Expect(
-						svc.NewRetrieve().
+						svc.NewRetrieve[any]().
 							Where(status.MatchVariants[any](status.VariantInfo, status.VariantWarning)).
 							Entries(&statuses).
 							Exec(ctx, tx),
@@ -429,7 +429,7 @@ var _ = Describe("Status", Ordered, func() {
 				func(ctx SpecContext) {
 					var statuses []status.Status[any]
 					Expect(
-						svc.NewRetrieve().
+						svc.NewRetrieve[any]().
 							Where(status.MatchVariants[any](status.VariantSuccess)).
 							Entries(&statuses).
 							Exec(ctx, tx),
@@ -441,7 +441,7 @@ var _ = Describe("Status", Ordered, func() {
 			It("Should retrieve only error variant statuses", func(ctx SpecContext) {
 				var statuses []status.Status[any]
 				Expect(
-					svc.NewRetrieve().
+					svc.NewRetrieve[any]().
 						Where(status.MatchVariants[any](status.VariantError)).
 						Entries(&statuses).
 						Exec(ctx, tx),
@@ -455,7 +455,7 @@ var _ = Describe("Status", Ordered, func() {
 			It("Should retrieve a status with a single name", func(ctx SpecContext) {
 				var statuses []status.Status[any]
 				Expect(
-					svc.NewRetrieve().
+					svc.NewRetrieve[any]().
 						Where(status.MatchNames[any]("Status A")).
 						Entries(&statuses).
 						Exec(ctx, tx),
@@ -467,7 +467,7 @@ var _ = Describe("Status", Ordered, func() {
 			It("Should retrieve statuses with multiple names", func(ctx SpecContext) {
 				var statuses []status.Status[any]
 				Expect(
-					svc.NewRetrieve().
+					svc.NewRetrieve[any]().
 						Where(status.MatchNames[any]("Status A", "Status B")).
 						Entries(&statuses).
 						Exec(ctx, tx),
@@ -483,7 +483,7 @@ var _ = Describe("Status", Ordered, func() {
 				func(ctx SpecContext) {
 					var statuses []status.Status[any]
 					Expect(
-						svc.NewRetrieve().
+						svc.NewRetrieve[any]().
 							Where(status.MatchNames[any]("Nonexistent")).
 							Entries(&statuses).
 							Exec(ctx, tx),
@@ -511,7 +511,7 @@ var _ = Describe("Status", Ordered, func() {
 							Label(ctx, s.OntologyID(), []label.Key{l.Key}),
 					).To(Succeed())
 					var statuses []status.Status[any]
-					Expect(svc.NewRetrieve().
+					Expect(svc.NewRetrieve[any]().
 						Where(status.MatchLabels[any](l.Key)).
 						Entries(&statuses).
 						Exec(ctx, tx)).To(Succeed())
@@ -528,7 +528,7 @@ var _ = Describe("Status", Ordered, func() {
 					l := &label.Label{Name: "status-unused-label"}
 					Expect(labelSvc.NewWriter(tx).Create(ctx, l)).To(Succeed())
 					var statuses []status.Status[any]
-					Expect(svc.NewRetrieve().
+					Expect(svc.NewRetrieve[any]().
 						Where(status.MatchLabels[any](l.Key)).
 						Entries(&statuses).
 						Exec(ctx, tx)).To(Succeed())
@@ -540,7 +540,7 @@ var _ = Describe("Status", Ordered, func() {
 		Describe("Combinators", func() {
 			It("Should compose filters with And", func(ctx SpecContext) {
 				var statuses []status.Status[any]
-				Expect(svc.NewRetrieve().Where(status.And(
+				Expect(svc.NewRetrieve[any]().Where(status.And(
 					status.MatchKeyPrefix[any]("retrieve-"),
 					status.MatchVariants[any](status.VariantInfo),
 				)).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
@@ -552,7 +552,7 @@ var _ = Describe("Status", Ordered, func() {
 			})
 			It("Should compose filters with Or", func(ctx SpecContext) {
 				var statuses []status.Status[any]
-				Expect(svc.NewRetrieve().Where(status.Or(
+				Expect(svc.NewRetrieve[any]().Where(status.Or(
 					status.MatchVariants[any](status.VariantError),
 					status.MatchVariants[any](status.VariantWarning),
 				)).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
@@ -566,7 +566,7 @@ var _ = Describe("Status", Ordered, func() {
 			})
 			It("Should invert a filter with Not", func(ctx SpecContext) {
 				var statuses []status.Status[any]
-				Expect(svc.NewRetrieve().Where(status.And(
+				Expect(svc.NewRetrieve[any]().Where(status.And(
 					status.MatchKeyPrefix[any]("retrieve-"),
 					status.Not(status.MatchVariants[any](status.VariantError)),
 				)).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
@@ -578,7 +578,7 @@ var _ = Describe("Status", Ordered, func() {
 			})
 			It("Should wrap a closure via Match", func(ctx SpecContext) {
 				var statuses []status.Status[any]
-				Expect(svc.NewRetrieve().Where(
+				Expect(svc.NewRetrieve[any]().Where(
 					status.Match(func(_ gorp.Context, _ status.Retrieve[any], s *status.Status[any]) (bool, error) {
 						return s.Key == "retrieve-a", nil
 					}),
@@ -604,7 +604,7 @@ var _ = Describe("Status", Ordered, func() {
 				type IntDetails struct {
 					Count int
 				}
-				intWriter := status.NewWriter[IntDetails](svc, tx)
+				intWriter := svc.NewWriter(tx)
 				s := &status.Status[IntDetails]{
 					Key:     "typed-int-status",
 					Name:    "Typed Int Status",
@@ -615,7 +615,7 @@ var _ = Describe("Status", Ordered, func() {
 				Expect(intWriter.Set(ctx, s)).To(Succeed())
 
 				var retrieved status.Status[IntDetails]
-				intRetrieve := status.NewRetrieve[IntDetails](svc)
+				intRetrieve := svc.NewRetrieve[IntDetails]()
 				Expect(
 					intRetrieve.Where(status.MatchKeys[IntDetails]("typed-int-status")).
 						Entry(&retrieved).
@@ -632,7 +632,7 @@ var _ = Describe("Status", Ordered, func() {
 				type StringDetails struct {
 					Message string
 				}
-				typedWriter := status.NewWriter[StringDetails](svc, tx)
+				typedWriter := svc.NewWriter(tx)
 				s := &status.Status[StringDetails]{
 					Key:     "typed-string-status",
 					Name:    "Typed String Status",
@@ -646,7 +646,7 @@ var _ = Describe("Status", Ordered, func() {
 				// the same gorp namespace
 				var retrieved status.Status[any]
 				Expect(
-					svc.NewRetrieve().
+					svc.NewRetrieve[any]().
 						Where(status.MatchKeys[any]("typed-string-status")).
 						Entry(&retrieved).
 						Exec(ctx, tx),
@@ -666,8 +666,8 @@ var _ = Describe("Status", Ordered, func() {
 				type TypeA struct{ ValueA int }
 				type TypeB struct{ ValueB string }
 
-				writerA := status.NewWriter[TypeA](svc, tx)
-				writerB := status.NewWriter[TypeB](svc, tx)
+				writerA := svc.NewWriter(tx)
+				writerB := svc.NewWriter(tx)
 
 				Expect(writerA.Set(ctx, &status.Status[TypeA]{
 					Key: "generic-type-a", Name: "Type A", Variant: "info",
@@ -683,7 +683,7 @@ var _ = Describe("Status", Ordered, func() {
 				// generic type parameter
 				var statuses []status.Status[any]
 				Expect(
-					svc.NewRetrieve().
+					svc.NewRetrieve[any]().
 						Where(status.MatchKeys[any]("generic-type-a", "generic-type-b")).
 						Entries(&statuses).
 						Exec(ctx, tx),
@@ -700,7 +700,7 @@ var _ = Describe("Status", Ordered, func() {
 					FieldB string
 					FieldA int
 				}
-				writerA := status.NewWriter[TypeA](svc, tx)
+				writerA := svc.NewWriter(tx)
 				Expect(writerA.Set(ctx, &status.Status[TypeA]{
 					Key: "mismatch-test", Name: "Mismatch Test", Variant: "info",
 					Details: TypeA{FieldA: 42, FieldB: "hello"}, Time: telem.Now(),
@@ -713,7 +713,7 @@ var _ = Describe("Status", Ordered, func() {
 					FieldD bool
 				}
 				var retrieved status.Status[TypeC]
-				retrieveC := status.NewRetrieve[TypeC](svc)
+				retrieveC := svc.NewRetrieve[TypeC]()
 				Expect(
 					retrieveC.Where(status.MatchKeys[TypeC]("mismatch-test")).
 						Entry(&retrieved).
@@ -731,13 +731,13 @@ var _ = Describe("Status", Ordered, func() {
 		It("should not work when details are not a struct", func(ctx SpecContext) {
 			type DetailsA int
 			type DetailsB string
-			writerB := status.NewWriter[DetailsB](svc, tx)
+			writerB := svc.NewWriter(tx)
 			Expect(writerB.Set(ctx, &status.Status[DetailsB]{
 				Key: "details-b", Name: "Details B", Variant: "info",
 				Details: DetailsB("hello"), Time: telem.Now(),
 			})).To(Succeed())
 			var retrieved status.Status[DetailsA]
-			retrieveA := status.NewRetrieve[DetailsA](svc)
+			retrieveA := svc.NewRetrieve[DetailsA]()
 			Expect(retrieveA.Entry(&retrieved).Exec(ctx, tx)).ToNot(Succeed())
 		})
 	})
@@ -746,7 +746,7 @@ var _ = Describe("Status", Ordered, func() {
 		It("Should notify when a status is created", func(ctx SpecContext) {
 			tx := db.OpenTx()
 			defer func() { Expect(tx.Close()).To(Succeed()) }()
-			w := status.NewWriter[any](svc, tx)
+			w := svc.NewWriter(tx)
 			s := &status.Status[any]{
 				Key: "observe-test", Name: "Observe Test",
 				Variant: status.VariantSuccess, Time: telem.Now(),

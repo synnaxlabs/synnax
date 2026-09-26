@@ -19,7 +19,7 @@ libraries.
 
 <Divider.Divider x />
 
-## Installing the Language
+## Installing the language
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 
@@ -29,7 +29,7 @@ Synnax doesn't enforce a specific way to work with Python, although our developm
 recommends using the latest version of the official
 [Python installer](https://www.python.org/downloads/).
 
-<Platform.Tabs client:only="react" exclude={["Docker"]}>
+<Platform.Tabs client:load exclude={["Docker"]}>
 
 <Fragment slot="Windows">
 
@@ -40,8 +40,6 @@ Alternatively, if you plan to use Synnax inside
 [WSL](https://docs.microsoft.com/en-us/windows/wsl/install-win10), follow the
 instructions for Linux instead.
 
-<div style={{ margin: "14rem 0" }}>
-</div>
 </Fragment>
 
 <Fragment slot="macOS">
@@ -95,7 +93,7 @@ is recommended.
   @synnaxlabs/client`.
 </Note.Note>
 
-<Platform.Tabs client:only="react" exclude={["Docker"]}>
+<Platform.Tabs client:load exclude={["Docker"]}>
 
 <Fragment slot="Windows">
 
@@ -148,7 +146,7 @@ sudo yum install -y nodejs
 
 <Divider.Divider x />
 
-## Incorrect Version
+## Incorrect version
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 
@@ -163,14 +161,12 @@ python --version # or try: python3 --version, python3.12 --version
 If the output shows `Python 3.12.x` or higher, the version is compatible. If older,
 update Python:
 
-<Platform.Tabs client:only="react" exclude={["Docker"]}>
+<Platform.Tabs client:load exclude={["Docker"]}>
 
 <Fragment slot="Windows">
 
 Reinstall from [python.org](https://www.python.org/downloads/) - make sure to check "Add
 Python to PATH".
-
-<div style={{ margin: "14rem 0" }}></div>
 
 </Fragment>
 
@@ -187,8 +183,6 @@ brew upgrade python
 See the [Installing the Language](#installing-the-language) section above for
 distribution-specific instructions.
 
-<div style={{ margin: "14rem 0" }}>
-</div>
 </Fragment>
 
 </Platform.Tabs>
@@ -211,7 +205,7 @@ section above.
 
 <Divider.Divider x />
 
-## Command Not Found
+## Command not found
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 
@@ -224,7 +218,7 @@ If `python --version` returns `command not found`, the executable isn't on your 
   in your PATH. Check your PATH order and remove or reorder conflicting entries.
 </Note.Note>
 
-<Platform.Tabs client:only="react" exclude={["Docker"]}>
+<Platform.Tabs client:load exclude={["Docker"]}>
 
 <Fragment slot="Windows">
 
@@ -236,8 +230,6 @@ If `python --version` returns `command not found`, the executable isn't on your 
 **To fix:** Search "environment variables" in Start Menu → Edit system environment
 variables → Environment Variables → Edit `Path` → Add your Python directory → Log out
 and back in.
-
-<div style={{ margin: "14rem 0" }}></div>
 
 </Fragment>
 
@@ -279,15 +271,11 @@ source ~/.bashrc
 
 If `node --version` returns `command not found`, Node.js isn't on your PATH.
 
-<Platform.Tabs client:only="react" exclude={["Docker"]}>
+<Platform.Tabs client:load exclude={["Docker"]}>
 
 <Fragment slot="Windows">
-<div style={{ margin: "4rem 0" }}>
-</div>
 Reinstall from [nodejs.org](https://nodejs.org/) - the installer automatically adds
 Node.js to PATH.
-
-<div style={{ margin: "28rem 0" }}></div>
 
 </Fragment>
 
@@ -324,7 +312,7 @@ source ~/.bashrc
 
 <Divider.Divider x />
 
-## Synnax Command Not Found
+## Synnax command not found
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 
@@ -339,7 +327,7 @@ pip --version # Should show (python 3.12) or higher
 ```
 
 If it shows an older version, your PATH may point to the wrong pip. See
-[Command Not Found](#command-not-found) for PATH troubleshooting.
+[Command not found](#command-not-found) for PATH troubleshooting.
 
 **2. If using a virtual environment, run commands within it.** Use the command for your
 environment manager:
@@ -371,7 +359,7 @@ import Synnax from "@synnaxlabs/client";
 
 <Divider.Divider x />
 
-## Old Core Version
+## Old Core version
 
 ```
 Synnax Core version is too old for client version x.x.x. This may cause compatibility
@@ -402,7 +390,7 @@ npm install @synnaxlabs/client@x.x.x
 
 <Divider.Divider x />
 
-## Old Client Version
+## Old client version
 
 ```
 Synnax Core version is too new for client version x.x.x. This may cause

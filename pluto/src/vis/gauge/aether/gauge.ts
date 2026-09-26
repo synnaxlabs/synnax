@@ -33,7 +33,7 @@ const gaugeState = staleness.configZ.extend({
   telem: telem.stringSourceSpecZ.default(telem.noopStringSourceSpec),
   level: text.levelZ.default("p"),
   color: color.colorZ.default(color.ZERO),
-  stalenessColor: color.colorZ.default(color.ZERO),
+  stalenessColor: color.colorZ.optional(),
   precision: z.number().default(2),
   minWidth: z.number().default(60),
   width: z.number().optional(),
@@ -163,7 +163,7 @@ export class Gauge
   private requestRender(): void {
     const { requestRender } = this.internal;
     if (requestRender != null) requestRender("layout");
-    else void this.render({});
+    else this.render({});
   }
 
   render({ viewportScale = scale.XY.IDENTITY }): void {
@@ -183,45 +183,45 @@ export class Gauge
       : undefined;
 
     draw2d.text({
+      align: "center",
       text: value,
       position: i.valueTextPos,
       shade: 10,
       color: staleColor,
       level: i.textLevel,
-      align: "middle",
       justify: "center",
       weight: 450,
       code: true,
       useAtlas: true,
     });
     draw2d.text({
+      align: "center",
       text: this.state.units,
       position: i.unitsTextPos,
       shade: 8,
       level: text.downLevel(i.textLevel),
-      align: "middle",
       justify: "center",
       code: true,
       useAtlas: true,
     });
 
     draw2d.text({
+      align: "center",
       text: lower.toString(),
       position: i.minLabelPos,
       shade: 7,
       level: i.labelLevel,
-      align: "middle",
       justify: "center",
       code: true,
       useAtlas: true,
     });
 
     draw2d.text({
+      align: "center",
       text: upper.toString(),
       position: i.maxLabelPos,
       shade: 7,
       level: i.labelLevel,
-      align: "middle",
       justify: "center",
       code: true,
       useAtlas: true,

@@ -26,8 +26,6 @@ import {
   type ReactFlowProps,
   ReactFlowProvider,
   SelectionMode,
-  useOnViewportChange as useRFOnViewportChange,
-  useReactFlow,
   type Viewport as RFViewport,
 } from "@xyflow/react";
 import {
@@ -35,6 +33,7 @@ import {
   type ComponentPropsWithRef,
   type FC,
   Fragment,
+  type KeyboardEvent,
   memo,
   type MouseEvent as ReactMouseEvent,
   type PropsWithChildren,
@@ -53,6 +52,7 @@ import { CSS } from "@/css";
 import { useCombinedRefs, useDebouncedCallback, useSyncedRef } from "@/hooks";
 import { useMemoCompare } from "@/memo";
 import { Triggers } from "@/triggers";
+import { blockActivation, isInputOrContentEditable } from "@/util/event";
 import { Viewport as BaseViewport } from "@/viewport";
 import { Canvas } from "@/vis/canvas";
 import { diagram } from "@/vis/diagram/aether";
@@ -70,6 +70,8 @@ import {
   type Viewport,
 } from "@/vis/diagram/aether/types";
 import { Context } from "@/vis/diagram/Context";
+import { useFitView, useInitialFitView } from "@/vis/diagram/useFitView";
+import { useOnViewportChange } from "@/vis/diagram/useOnViewportChange";
 import {
   calculateCursorPosition,
   internalNodeBox,
@@ -132,6 +134,14 @@ const PRO_OPTIONS: ProOptions = {
   hideAttribution: true,
 };
 
+// Holding one of these turns a click into a toggle of that element in the selection.
+// Meta covers macOS, Control covers Windows and Linux, and Shift covers both.
+const MULTI_SELECT_KEY_CODES = ["Meta", "Control", "Shift"];
+
+// A modified click on a node or edge belongs to the selection, so only a click on the
+// empty canvas resets the zoom.
+const ELEMENT_SELECTOR = ".react-flow__node, .react-flow__edge";
+
 export type ClipboardHandler = (
   this: void,
   e: ReactClipboardEvent<HTMLDivElement>,
@@ -140,7 +150,7 @@ export type ClipboardHandler = (
 
 export interface DiagramProps
   extends
-    Omit<ComponentPropsWithRef<"div">, "onError" | "onCopy" | "onPaste">,
+    Omit<ComponentPropsWithRef<"div">, "onError" | "onCopy" | "onCut" | "onPaste">,
     Pick<z.infer<typeof diagram.Diagram.stateZ>, "visible" | "autoRenderInterval">,
     Aether.ComponentProps,
     Pick<
@@ -176,6 +186,12 @@ export interface DiagramProps
    * the most recent mousemove over the diagram.
    */
   onCopy?: ClipboardHandler;
+  /**
+   * Called when a cut event fires on the diagram. The second argument is the
+   * cursor position in diagram space at the moment of the cut, derived from
+   * the most recent mousemove over the diagram. Ignored when not editable.
+   */
+  onCut?: ClipboardHandler;
   /**
    * Called when a paste event fires on the diagram. The second argument is the
    * cursor position in diagram space at the moment of the paste, derived from
@@ -287,6 +303,7 @@ export const create = ({
     autoRenderInterval,
     onDoubleClick,
     onCopy,
+    onCut,
     onPaste,
     onMouseMove,
     onContextMenu,
@@ -309,9 +326,9 @@ export const create = ({
       [visible, autoRenderInterval],
     );
 
-    const { fitView } = useReactFlow();
+    const fitView = useFitView();
     const debouncedFitView = useDebouncedCallback(
-      (args: diagram.FitViewOptions) => void fitView(args),
+      (args: diagram.FitViewOptions) => fitView(args),
       FIT_VIEW_DEBOUNCE,
       [fitView],
     );
@@ -331,40 +348,34 @@ export const create = ({
       ),
     );
 
+    useInitialFitView(visible && isSized, fitViewOptions);
+
     const triggers = useMemoCompare(
       () => pTriggers ?? BaseViewport.DEFAULT_TRIGGERS.zoom,
       Triggers.compareModeConfigs,
       [pTriggers],
     );
 
-    const zoomRef = useRef<number>(viewport.zoom);
-    const syncZoomCSSVar = useCallback((zoom: number): void => {
-      if (zoomRef.current === zoom) return;
-      zoomRef.current = zoom;
-      triggerRef.current?.style.setProperty(CSS.variable("diagram-zoom"), `${zoom}`);
-    }, []);
-    syncZoomCSSVar(viewport.zoom);
-
     const viewportRef = useRef<RFViewport | null>(null);
     const handleViewportChange = useCallback(
       (vp: RFViewport): void => {
+        // Set before the dedupe: a remounted React Flow reports an unchanged viewport
+        // on a fresh element that has no variable yet.
+        triggerRef.current?.style.setProperty(
+          CSS.variable("diagram-zoom"),
+          `${vp.zoom}`,
+        );
         const prev = viewportRef.current;
         if (prev != null && prev.x === vp.x && prev.y === vp.y && prev.zoom === vp.zoom)
           return;
         viewportRef.current = vp;
         if (isNaN(vp.x) || isNaN(vp.y) || isNaN(vp.zoom)) return;
-        syncZoomCSSVar(vp.zoom);
         setState((prev) => ({ ...prev, position: vp, zoom: vp.zoom }));
         onViewportChange(translateViewportBackward(vp));
       },
-      [setState, onViewportChange, syncZoomCSSVar],
+      [setState, onViewportChange],
     );
-
-    useRFOnViewportChange({
-      onStart: handleViewportChange,
-      onChange: handleViewportChange,
-      onEnd: handleViewportChange,
-    });
+    useOnViewportChange(handleViewportChange);
 
     const selectedSet = useMemo(() => new Set(selected), [selected]);
     const selectedRef = useSyncedRef(selectedSet);
@@ -458,10 +469,11 @@ export const create = ({
     Triggers.use({
       triggers: triggers.modes.zoomReset,
       callback: useCallback(
-        ({ stage, cursor }: Triggers.UseEvent) => {
+        ({ stage, cursor, target }: Triggers.UseEvent) => {
           const reg = triggerRef.current;
           if (reg == null || stage !== "start" || !box.contains(reg, cursor)) return;
-          void fitView();
+          if (target.closest(ELEMENT_SELECTOR) != null) return;
+          fitView();
         },
         [fitView],
       ),
@@ -538,11 +550,31 @@ export const create = ({
       [onCopy, cursorInDiagramSpace],
     );
 
+    const handleCut = useCallback(
+      (e: ReactClipboardEvent<HTMLDivElement>): void => {
+        if (!editable) return;
+        onCut?.(e, cursorInDiagramSpace(e.currentTarget));
+      },
+      [onCut, editable, cursorInDiagramSpace],
+    );
+
     const handlePaste = useCallback(
       (e: ReactClipboardEvent<HTMLDivElement>): void => {
         onPaste?.(e, cursorInDiagramSpace(e.currentTarget));
       },
       [onPaste, cursorInDiagramSpace],
+    );
+
+    // Space and Enter would click whichever control holds focus. Triggers and React
+    // Flow ignore defaultPrevented, so shortcuts and selection still fire. A dialog
+    // opened from a node portals out of this element, hence the contains check.
+    const handleActivationKey = useCallback(
+      (e: KeyboardEvent<HTMLDivElement>): void => {
+        if (!(e.target instanceof Node) || !e.currentTarget.contains(e.target)) return;
+        if (isInputOrContentEditable(e)) return;
+        blockActivation(e);
+      },
+      [],
     );
 
     return (
@@ -551,9 +583,12 @@ export const create = ({
         ref={containerRefs}
         onDoubleClick={onDoubleClick}
         onCopy={handleCopy}
+        onCut={handleCut}
         onPaste={handlePaste}
         onMouseMove={handleMouseMove}
         onContextMenu={onContextMenu}
+        onKeyDownCapture={handleActivationKey}
+        onKeyUpCapture={handleActivationKey}
         tabIndex={-1}
       >
         <Context value={ctxValue}>
@@ -572,7 +607,6 @@ export const create = ({
                 nodeTypes={nodeTypes}
                 edgeTypes={edgeTypes}
                 ref={triggerRef}
-                fitView
                 onNodesChange={handleNodesChange}
                 onEdgesChange={handleEdgesChange}
                 onConnect={handleConnect}
@@ -585,8 +619,8 @@ export const create = ({
                 maxZoom={fitViewOptions.maxZoom}
                 isValidConnection={isValidConnection}
                 connectionMode={ConnectionMode.Loose}
-                fitViewOptions={fitViewOptions}
                 selectionMode={SelectionMode.Partial}
+                multiSelectionKeyCode={MULTI_SELECT_KEY_CODES}
                 proOptions={PRO_OPTIONS}
                 deleteKeyCode={DELETE_KEY_CODES}
                 snapToGrid={snapToGrid}

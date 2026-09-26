@@ -128,20 +128,24 @@ export type RetrieveChildrenQuery = {
   types: ontology.ResourceType[];
 };
 
+export interface Child extends record.KeyedNamed {
+  type: ontology.ResourceType;
+}
+
 const collectChildren = async (
   client: Flux.RetrieveParams<RetrieveChildrenQuery>["client"],
   parentID: ontology.ID,
   types: ontology.ResourceType[],
   exclude?: string,
-): Promise<record.KeyedNamed[]> => {
+): Promise<Child[]> => {
   const children = await client.ontology.children.retrieve({
     ids: parentID,
     types: [...types, "group"],
   });
   const results = await Promise.all(
-    children.map(async (child): Promise<record.KeyedNamed[]> => {
+    children.map(async (child): Promise<Child[]> => {
       if (types.includes(child.id.type) && child.id.key !== exclude)
-        return [{ key: child.id.key, name: child.name }];
+        return [{ key: child.id.key, name: child.name, type: child.id.type }];
       if (child.id.type === "group")
         return await collectChildren(client, child.id, types, exclude);
       return [];
@@ -169,7 +173,7 @@ const findProjectAncestor = async (
 export const retrieveChildren = async (
   client: Synnax,
   { resourceID, types }: RetrieveChildrenQuery,
-): Promise<record.KeyedNamed[]> => {
+): Promise<Child[]> => {
   if (resourceID == null) return [];
   const projectID = await findProjectAncestor(client, resourceID);
   if (projectID == null) return [];

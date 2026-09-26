@@ -81,17 +81,17 @@ var _ = Describe("Sender", func() {
 				Expect(ok).To(BeFalse())
 			})
 		})
-		Describe("Sender Keepalive", func() {
+		Describe("Sender KeepAlive", func() {
 			It(
-				"Should emit keepalives on the configured cadence",
+				"Should emit keep-alives on the configured cadence",
 				func(ctx SpecContext) {
 					sCtx, cancel := signal.WithCancel(ctx)
 					defer cancel()
 					stream := MustSucceed(client.Stream(sCtx, "localhost:0"))
 					sender := &freightfluence.Sender[int]{
 						Sender:            stream,
-						KeepaliveInterval: 5 * time.Millisecond,
-						NewKeepalive:      func() int { return -1 },
+						KeepAliveInterval: 5 * time.Millisecond,
+						NewKeepAlive:      func() int { return -1 },
 					}
 					sender.InFrom(senderStream)
 					sender.Flow(sCtx)
@@ -99,21 +99,24 @@ var _ = Describe("Sender", func() {
 					Eventually(receiverStream.Outlet()).Should(Receive(Equal(-1)))
 				},
 			)
-			It("Should keep delivering data between keepalives", func(ctx SpecContext) {
-				sCtx, cancel := signal.WithCancel(ctx)
-				defer cancel()
-				stream := MustSucceed(client.Stream(sCtx, "localhost:0"))
-				sender := &freightfluence.Sender[int]{
-					Sender:            stream,
-					KeepaliveInterval: 5 * time.Millisecond,
-					NewKeepalive:      func() int { return -1 },
-				}
-				sender.InFrom(senderStream)
-				sender.Flow(sCtx)
-				senderStream.Inlet() <- 1
-				Eventually(receiverStream.Outlet()).Should(Receive(Equal(1)))
-			})
-			It("Should not emit keepalives when disabled", func(ctx SpecContext) {
+			It(
+				"Should keep delivering data between keep-alives",
+				func(ctx SpecContext) {
+					sCtx, cancel := signal.WithCancel(ctx)
+					defer cancel()
+					stream := MustSucceed(client.Stream(sCtx, "localhost:0"))
+					sender := &freightfluence.Sender[int]{
+						Sender:            stream,
+						KeepAliveInterval: 5 * time.Millisecond,
+						NewKeepAlive:      func() int { return -1 },
+					}
+					sender.InFrom(senderStream)
+					sender.Flow(sCtx)
+					senderStream.Inlet() <- 1
+					Eventually(receiverStream.Outlet()).Should(Receive(Equal(1)))
+				},
+			)
+			It("Should not emit keep-alives when disabled", func(ctx SpecContext) {
 				sCtx, cancel := signal.WithCancel(ctx)
 				defer cancel()
 				stream := MustSucceed(client.Stream(sCtx, "localhost:0"))
@@ -130,17 +133,17 @@ var _ = Describe("Sender", func() {
 					stream := MustSucceed(client.Stream(sCtx, "localhost:0"))
 					sender := &freightfluence.Sender[int]{
 						Sender:            stream,
-						KeepaliveInterval: 5 * time.Millisecond,
+						KeepAliveInterval: 5 * time.Millisecond,
 					}
 					sender.InFrom(senderStream)
 					sender.Flow(sCtx)
 					Expect(sCtx.Wait()).To(MatchError(ContainSubstring(
-						"keepalive interval set without a message constructor",
+						"keep-alive interval set without a message constructor",
 					)))
 				},
 			)
 			It(
-				"Should not treat ErrStreamClosed on a keepalive as a routine failure",
+				"Should not treat ErrStreamClosed on a keep-alive as a routine failure",
 				func(ctx SpecContext) {
 					sCtx, cancel := signal.WithCancel(ctx)
 					defer cancel()
@@ -148,8 +151,8 @@ var _ = Describe("Sender", func() {
 						Sender: &errSenderCloser{
 							sendErr: freighter.ErrStreamClosed,
 						},
-						KeepaliveInterval: 5 * time.Millisecond,
-						NewKeepalive:      func() int { return -1 },
+						KeepAliveInterval: 5 * time.Millisecond,
+						NewKeepAlive:      func() int { return -1 },
 					}
 					sender.InFrom(confluence.NewStream[int](1))
 					sender.Flow(sCtx, confluence.CancelOnFail())
@@ -268,10 +271,10 @@ var _ = Describe("Sender", func() {
 						return serverCtx.Wait()
 					},
 				)
-				clientSender[stream.Address] = MustSucceed(
-					clientTransport.Stream(sCtx, stream.Address),
+				clientSender[stream.Address()] = MustSucceed(
+					clientTransport.Stream(sCtx, stream.Address()),
 				)
-				receiverStreams[stream.Address] = receiverStream
+				receiverStreams[stream.Address()] = receiverStream
 			}
 		})
 		AfterEach(func() { cancel() })

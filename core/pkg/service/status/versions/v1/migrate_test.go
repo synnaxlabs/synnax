@@ -10,7 +10,8 @@
 package v1_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	label "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
@@ -30,7 +31,7 @@ var _ = Describe("v0 -> v1 Status migration", func() {
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
 
-			key := "status-" + uuid.NewString()
+			key := "status-" + uuid.New().String()
 			seed := v0.Status[any]{
 				Key:         key,
 				Name:        "running",

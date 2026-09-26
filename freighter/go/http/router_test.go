@@ -20,10 +20,8 @@ import (
 	"github.com/synnaxlabs/freighter"
 	fhttp "github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/freighter/test"
-	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/encoding/json"
 	xhttp "github.com/synnaxlabs/x/http"
-	"github.com/synnaxlabs/x/net"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -134,26 +132,16 @@ var _ = Describe("Router", func() {
 		It(
 			"should register a unary route on the bound fiber app",
 			func(specCtx SpecContext) {
-				addr := address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
 				app := newFiberApp(fiber.Config{DisableKeepalive: true})
 				router := MustSucceed(fhttp.NewRouter())
-				server := fhttp.NewUnaryServer[test.Request, test.Response](
-					router,
-					"/echo",
-				)
+				server := router.NewUnaryServer[test.Request, test.Response]("/echo")
 				server.BindHandler(
 					func(_ context.Context, req test.Request) (test.Response, error) {
 						return test.Response(req), nil
 					},
 				)
 				router.BindTo(app)
-				go func() {
-					defer GinkgoRecover()
-					Expect(app.Listen(addr.PortString(), fiber.ListenConfig{
-						DisableStartupMessage: true,
-					})).To(Succeed())
-				}()
-				DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
+				addr := serveApp(app)
 
 				Eventually(func(g Gomega) {
 					g.Expect(pollHealth("http://" + addr.String() + "/echo")).
@@ -180,16 +168,12 @@ var _ = Describe("Router", func() {
 		It(
 			"should cancel in-flight streams when the bound fiber app shuts down",
 			func(specCtx SpecContext) {
-				addr := address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
 				app := newFiberApp(fiber.Config{})
 				router := MustSucceed(fhttp.NewRouter())
 
 				handlerEntered := make(chan struct{})
 				handlerCtxDone := make(chan struct{})
-				server := fhttp.NewStreamServer[test.Request, test.Response](
-					router,
-					"/stream",
-				)
+				server := router.NewStreamServer[test.Request, test.Response]("/stream")
 				server.BindHandler(func(
 					ctx context.Context,
 					_ freighter.ServerStream[test.Request, test.Response],
@@ -201,12 +185,7 @@ var _ = Describe("Router", func() {
 				})
 				router.BindTo(app)
 
-				go func() {
-					defer GinkgoRecover()
-					Expect(app.Listen(addr.PortString(), fiber.ListenConfig{
-						DisableStartupMessage: true,
-					})).To(Succeed())
-				}()
+				addr := serveApp(app)
 
 				Eventually(func(g Gomega) {
 					g.Expect(
@@ -233,15 +212,11 @@ var _ = Describe("Router", func() {
 		It(
 			"should install middleware on every server registered before the call",
 			func(specCtx SpecContext) {
-				addr := address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
 				app := newFiberApp(fiber.Config{DisableKeepalive: true})
 				router := MustSucceed(fhttp.NewRouter())
 
 				var calls int
-				server := fhttp.NewUnaryServer[test.Request, test.Response](
-					router,
-					"/echo",
-				)
+				server := router.NewUnaryServer[test.Request, test.Response]("/echo")
 				server.BindHandler(
 					func(_ context.Context, req test.Request) (test.Response, error) {
 						return test.Response(req), nil
@@ -256,13 +231,7 @@ var _ = Describe("Router", func() {
 				}))
 				router.BindTo(app)
 
-				go func() {
-					defer GinkgoRecover()
-					Expect(app.Listen(addr.PortString(), fiber.ListenConfig{
-						DisableStartupMessage: true,
-					})).To(Succeed())
-				}()
-				DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
+				addr := serveApp(app)
 				Eventually(func(g Gomega) {
 					g.Expect(
 						pollHealth("http://" + addr.String() + "/anything"),
@@ -289,7 +258,6 @@ var _ = Describe("Router", func() {
 		It(
 			"should not install middleware on servers registered after the call",
 			func(specCtx SpecContext) {
-				addr := address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
 				app := newFiberApp(fiber.Config{DisableKeepalive: true})
 				router := MustSucceed(fhttp.NewRouter())
 
@@ -301,10 +269,7 @@ var _ = Describe("Router", func() {
 					calls++
 					return next(ctx)
 				}))
-				server := fhttp.NewUnaryServer[test.Request, test.Response](
-					router,
-					"/echo",
-				)
+				server := router.NewUnaryServer[test.Request, test.Response]("/echo")
 				server.BindHandler(
 					func(_ context.Context, req test.Request) (test.Response, error) {
 						return test.Response(req), nil
@@ -312,13 +277,7 @@ var _ = Describe("Router", func() {
 				)
 				router.BindTo(app)
 
-				go func() {
-					defer GinkgoRecover()
-					Expect(app.Listen(addr.PortString(), fiber.ListenConfig{
-						DisableStartupMessage: true,
-					})).To(Succeed())
-				}()
-				DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
+				addr := serveApp(app)
 				Eventually(func(g Gomega) {
 					g.Expect(
 						pollHealth("http://" + addr.String() + "/anything"),
@@ -348,15 +307,11 @@ var _ = Describe("Router", func() {
 		It(
 			"should chain multiple middlewares in registration order",
 			func(specCtx SpecContext) {
-				addr := address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
 				app := newFiberApp(fiber.Config{DisableKeepalive: true})
 				router := MustSucceed(fhttp.NewRouter())
 
 				var order []string
-				server := fhttp.NewUnaryServer[test.Request, test.Response](
-					router,
-					"/echo",
-				)
+				server := router.NewUnaryServer[test.Request, test.Response]("/echo")
 				server.BindHandler(
 					func(_ context.Context, req test.Request) (test.Response, error) {
 						order = append(order, "handler")
@@ -381,13 +336,7 @@ var _ = Describe("Router", func() {
 				)
 				router.BindTo(app)
 
-				go func() {
-					defer GinkgoRecover()
-					Expect(app.Listen(addr.PortString(), fiber.ListenConfig{
-						DisableStartupMessage: true,
-					})).To(Succeed())
-				}()
-				DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
+				addr := serveApp(app)
 				Eventually(func(g Gomega) {
 					g.Expect(
 						pollHealth("http://" + addr.String() + "/anything"),

@@ -14,6 +14,7 @@ import ipaddress
 import math
 import os
 import tempfile
+import threading
 import time
 
 from flask import Flask, Response, jsonify, request
@@ -61,8 +62,15 @@ AUTH_CHECKERS = {
 }
 
 
-def create_app(auth_type: str = "none") -> Flask:
-    """Create the Flask app with multiple health check endpoints."""
+STATS_PATH = "/api/v1/stats"
+
+
+def create_app(auth_type: str = "none", delay_ms: int = 0) -> Flask:
+    """Create the Flask app with multiple health check endpoints.
+
+    :param auth_type: Auth middleware to enforce on all routes.
+    :param delay_ms: Sleep before answering each request, so concurrency is visible.
+    """
     app = Flask(__name__)
     start_time = time.time()
 
@@ -73,6 +81,31 @@ def create_app(auth_type: str = "none") -> Flask:
         "mode": "AUTO",
         "config": {},
     }
+    stats = {"in_flight": 0, "peak_in_flight": 0}
+    stats_lock = threading.Lock()
+
+    @app.before_request
+    def track_in_flight() -> None:
+        if request.path == STATS_PATH:
+            return
+        with stats_lock:
+            stats["in_flight"] += 1
+            stats["peak_in_flight"] = max(stats["peak_in_flight"], stats["in_flight"])
+        if delay_ms > 0:
+            time.sleep(delay_ms / 1000)
+
+    @app.teardown_request
+    def release_in_flight(_: BaseException | None) -> None:
+        if request.path == STATS_PATH:
+            return
+        with stats_lock:
+            stats["in_flight"] -= 1
+
+    @app.route(STATS_PATH, methods=["GET"])
+    def api_stats() -> tuple[Response, int]:
+        """Reports how many requests the server is handling and the peak so far."""
+        with stats_lock:
+            return jsonify(dict(stats)), 200
 
     if auth_type != "none":
         checker = AUTH_CHECKERS[auth_type]
@@ -427,14 +460,44 @@ class HTTPSim(DeviceSim):
         )
 
 
+class HTTPSlowSim(HTTPSim):
+    """HTTP simulator that answers slowly and allows few requests in flight."""
+
+    description = "Slow HTTP mock server on port 8082"
+    host = "127.0.0.1"
+    port = 8082
+    device_name = "HTTP Slow Server"
+    delay_ms = 20
+    max_concurrent_requests = 3
+
+    async def _run_server(self) -> None:
+        await asyncio.to_thread(
+            run_server, self.host, self.port, delay_ms=self.delay_ms
+        )
+
+    @staticmethod
+    def create_device(rack_key: int) -> http.Device:
+        return http.Device(
+            host=f"{HTTPSlowSim.host}:{HTTPSlowSim.port}",
+            secure=False,
+            verify_ssl=False,
+            timeout_ms=5000,
+            max_concurrent_requests=HTTPSlowSim.max_concurrent_requests,
+            name=HTTPSlowSim.device_name,
+            rack=rack_key,
+            health_check=http.HealthCheck(path="/health"),
+        )
+
+
 def run_server(
     host: str = "127.0.0.1",
     port: int = 8081,
     https: bool = False,
     auth: str = "none",
+    delay_ms: int = 0,
 ) -> None:
     """Run the HTTP mock server directly."""
-    app = create_app(auth_type=auth)
+    app = create_app(auth_type=auth, delay_ms=delay_ms)
     scheme = "https" if https else "http"
 
     print(f"Starting {'HTTPS' if https else 'HTTP'} mock server on {host}:{port}")
@@ -449,6 +512,8 @@ def run_server(
             print(f"  Token: {AUTH_CREDENTIALS['token']}")
         elif auth == "api-key":
             print(f"  API Key: {AUTH_CREDENTIALS['api_key']}")
+    if delay_ms > 0:
+        print(f"Response delay: {delay_ms} ms")
     print()
     print("Available endpoints:")
     print(f"  GET  {scheme}://{host}:{port}/health              - Simple health check")
@@ -474,6 +539,7 @@ def run_server(
     print(
         f"  GET  {scheme}://{host}:{port}/api/v1/query        - Echo query parameters"
     )
+    print(f"  GET  {scheme}://{host}:{port}/api/v1/stats        - In-flight and peak")
     print(
         f"  POST {scheme}://{host}:{port}/api/v1/control     - Accept control commands"
     )
@@ -535,6 +601,12 @@ def _parse_args() -> argparse.Namespace:
         default="test-api-key",
         help="API key for api-key auth (default: test-api-key)",
     )
+    parser.add_argument(
+        "--delay-ms",
+        type=int,
+        default=0,
+        help="Sleep before answering each request (default: 0)",
+    )
     return parser.parse_args()
 
 
@@ -544,4 +616,10 @@ if __name__ == "__main__":
     AUTH_CREDENTIALS["password"] = args.password
     AUTH_CREDENTIALS["token"] = args.token
     AUTH_CREDENTIALS["api_key"] = args.api_key
-    run_server(host=args.host, port=args.port, https=args.https, auth=args.auth)
+    run_server(
+        host=args.host,
+        port=args.port,
+        https=args.https,
+        auth=args.auth,
+        delay_ms=args.delay_ms,
+    )
