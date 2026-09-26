@@ -3013,7 +3013,7 @@ var _ = Describe("TS Union Generation", func() {
 				"@ts output \"out\"\nParams struct { value float64 }\nShape union on variant {\n",
 			)
 			for i := range count {
-				b.WriteString(fmt.Sprintf("v%d Params\n", i))
+				fmt.Fprintf(&b, "v%d Params\n", i)
 			}
 			b.WriteString("}\n")
 			return b.String()
