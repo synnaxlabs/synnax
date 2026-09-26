@@ -85,7 +85,7 @@ export const Scroll = ({
       direction={parsedDirection}
       {...rest}
     >
-      <ScrollContext value>{children}</ScrollContext>
+      <ScrollContext value={ref}>{children}</ScrollContext>
     </Flex.Box>
   );
 };

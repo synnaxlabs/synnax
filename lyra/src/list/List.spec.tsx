@@ -9,7 +9,7 @@
 
 import { observe, type record } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
-import { act, useState } from "react";
+import { act, type ReactElement, useState } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Button } from "@/button";
@@ -321,6 +321,54 @@ describe("List", () => {
       } finally {
         offsetTop.mockRestore();
       }
+    });
+
+    it("should remeasure the offset when content above the items mounts", async () => {
+      const offsetTop = vi
+        .spyOn(HTMLElement.prototype, "offsetTop", "get")
+        .mockImplementation(function (this: HTMLElement) {
+          if (!this.classList.contains("pluto-list__virtualizer")) return 0;
+          return this.previousElementSibling == null ? 0 : 50;
+        });
+      let show: (visible: boolean) => void = () => {};
+      const Above = (): ReactElement | null => {
+        const [visible, setVisible] = useState(false);
+        show = setVisible;
+        return visible ? <div>fixed</div> : null;
+      };
+      try {
+        const result = render(
+          <List.Frame data={DATA} virtual itemHeight={ITEM_HEIGHT} overscan={0}>
+            <List.Scroll>
+              <Above />
+              <List.Items>{item}</List.Items>
+            </List.Scroll>
+          </List.Frame>,
+        );
+        const rows = () => result.container.querySelectorAll(".pluto-list__item");
+        // A 100px window fits four 27px rows, and two once 50px sits above them.
+        expect(rows()).toHaveLength(4);
+        await act(async () => show(true));
+        expect(rows()).toHaveLength(2);
+      } finally {
+        offsetTop.mockRestore();
+      }
+    });
+
+    it("should throw when the enclosing Scroll belongs to another frame", () => {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      expect(() =>
+        render(
+          <List.Frame data={["1"]}>
+            <List.Scroll>
+              <List.Frame data={["2"]}>
+                <List.Items>{item}</List.Items>
+              </List.Frame>
+            </List.Scroll>
+          </List.Frame>,
+        ),
+      ).toThrow("List.Items must be inside the List.Scroll of its own List.Frame");
+      vi.restoreAllMocks();
     });
 
     it("should scroll to an item, not to content above the items", () => {

@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type RefCallback } from "react";
+
 import { context } from "@/context";
 
 /** True under an Items render function, for the rows of the nearest Frame. */
@@ -15,8 +17,10 @@ export const [ItemsContext, useInItems] = context.create<boolean>({
   displayName: "List.ItemsContext",
 });
 
-/** Marks the subtree of a Scroll, so an Items element can require one. */
-export const [ScrollContext, useScrollContext] = context.create<true>({
+/** Holds the scroll ref of the Frame whose Scroll encloses the subtree. */
+export const [ScrollContext, useScrollContext] = context.create<
+  RefCallback<HTMLDivElement | null>
+>({
   displayName: "List.ScrollContext",
   providerName: "List.Scroll",
 });

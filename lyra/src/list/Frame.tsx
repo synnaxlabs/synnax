@@ -15,7 +15,6 @@ import {
   type RefCallback,
   type RefObject,
   useCallback,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -308,13 +307,34 @@ const VirtualFrame = <
   itemHeight = 33,
 }: FrameProps<K, E>): ReactElement => {
   const ref = useRef<HTMLDivElement>(null);
-  const itemsElRef = useRef<HTMLDivElement | null>(null);
+  const [scrollMargin, setScrollMargin] = useState(0);
+  // Content above the items in the scroll container shifts them down. The container is
+  // positioned (Scroll.css), so offsetTop measures that shift and ignores scrolling. It
+  // changes when that content resizes, hides, mounts, or unmounts.
   const itemsRef = useCallback((el: HTMLDivElement | null) => {
-    itemsElRef.current = el;
+    if (el == null) return;
+    const measure = () => setScrollMargin(el.offsetTop);
+    const resize = new ResizeObserver(measure);
+    const observeAbove = () => {
+      resize.disconnect();
+      for (let s = el.previousElementSibling; s != null; s = s.previousElementSibling)
+        resize.observe(s);
+    };
+    const mutation = new MutationObserver(() => {
+      observeAbove();
+      measure();
+    });
+    if (el.parentElement != null)
+      mutation.observe(el.parentElement, { childList: true });
+    observeAbove();
+    measure();
+    return () => {
+      resize.disconnect();
+      mutation.disconnect();
+    };
   }, []);
   const hasData = data.length > 0;
   const refCallback = useFetchMoreRefCallback(ref, hasData, onFetchMore);
-  const [scrollMargin, setScrollMargin] = useState(0);
   const virtualizer = useVirtualizer({
     count: data.length,
     getScrollElement: () => ref.current,
@@ -333,13 +353,6 @@ const VirtualFrame = <
       },
       [data.length, onFetchMore],
     ),
-  });
-
-  // Content above the items in the scroll container shifts them down. The container is
-  // positioned (Scroll.css), so offsetTop measures that shift and ignores scrolling.
-  useLayoutEffect(() => {
-    const next = itemsElRef.current?.offsetTop ?? 0;
-    if (next !== scrollMargin) setScrollMargin(next);
   });
 
   const items = virtualizer.getVirtualItems();

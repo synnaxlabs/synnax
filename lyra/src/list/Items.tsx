@@ -33,8 +33,10 @@ const BaseItems = <
   children,
   emptyContent,
 }: ItemsProps<K>): ReactNode => {
-  useScrollContext("List.Items");
-  const { itemsRef, getItems, getTotalSize, data, sentinelRef } = useData<K, E>();
+  const scrollRef = useScrollContext("List.Items");
+  const { ref, itemsRef, getItems, getTotalSize, data, sentinelRef } = useData<K, E>();
+  if (scrollRef !== ref)
+    throw new Error("List.Items must be inside the List.Scroll of its own List.Frame");
   const totalSize = getTotalSize();
   const virtualizerStyle = useMemo(() => ({ minHeight: totalSize }), [totalSize]);
   if (data.length === 0) return emptyContent;
@@ -64,6 +66,6 @@ const BaseItems = <
  * Renders the visible items of a {@link Frame} inside the enclosing {@link Scroll},
  * handling virtualization, and shows `emptyContent` when there are none.
  *
- * @throws if no {@link Scroll} encloses it.
+ * @throws if no {@link Scroll} of the same {@link Frame} encloses it.
  */
 export const Items = memo(BaseItems);
