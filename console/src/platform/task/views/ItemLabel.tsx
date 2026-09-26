@@ -15,10 +15,15 @@ import { type ReactNode } from "react";
 export interface ItemLabelProps extends Pick<Text.TextProps, "color" | "variant"> {
   /** What sort of item it is: a channel type, an HTTP method. Shown as a tag. */
   kind: string;
+  /** Renders the kind as colored text instead of a tag, e.g. for HTTP methods. */
+  kindColor?: Text.TextProps["color"];
   icon?: Icon.ReactElement;
   /** The item's identity: a port, a path. */
   children: ReactNode;
 }
+
+/* Colored kinds share a fixed column so every identity starts flush. */
+const KIND_STYLE = { width: "5ch" };
 
 /**
  * Names a task item in a list row or a details header: a tag for its kind, then its
@@ -26,15 +31,23 @@ export interface ItemLabelProps extends Pick<Text.TextProps, "color" | "variant"
  */
 export const ItemLabel = ({
   kind,
+  kindColor,
   icon,
   color = 10,
   variant,
   children,
 }: ItemLabelProps) => (
   <>
-    <Tag.Tag size="small" icon={icon}>
-      {kind}
-    </Tag.Tag>
+    {kindColor == null ? (
+      <Tag.Tag size="small" icon={icon}>
+        {kind}
+      </Tag.Tag>
+    ) : (
+      <Text.Text level="small" weight={600} color={kindColor} style={KIND_STYLE}>
+        {icon}
+        {kind}
+      </Text.Text>
+    )}
     <Text.Text
       level="p"
       weight={500}

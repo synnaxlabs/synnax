@@ -274,7 +274,6 @@ const FieldListItem = (props: List.ItemProps<string> & { epKey: string }) => {
           onChange={handleJSONTypeChange}
           data={JSON_TYPE_DATA}
           resourceName="type"
-          className={CSS.B("field-data-type")}
         />
       )}
       {fieldType === "static" && jsonType === "string" && (

@@ -26,12 +26,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tree } from "@synnaxlabs/lyra/tree";
-import {
-  Access,
-  Channel as PChannel,
-  Device as PDevice,
-  Telem,
-} from "@synnaxlabs/pluto";
+import { Access, Channel as PChannel, Telem } from "@synnaxlabs/pluto";
 import { DataType, errors, id, primitive, type record } from "@synnaxlabs/x";
 import { type FC, type MouseEvent, useCallback, useMemo, useState } from "react";
 
@@ -115,14 +110,13 @@ const entryPath = (entry: TreeEntry): string =>
     : `config.endpoints.${entry.epKey}.fields.${entry.fieldKey}`;
 
 /** The name configure gives a field's channel when the field carries none. */
+const defaultChannelName = (devName: string, epPath: string, pointer: string): string =>
+  channel.escapeInvalidName(devName) + channel.escapeInvalidName(epPath + pointer);
+
 const useDefaultChannelName = (epKey: string, pointer: string): string => {
-  const deviceKey = PForm.useFieldValue<string>("config.device");
   const epPath = PForm.useFieldValue<string>(`config.endpoints.${epKey}.path`);
-  const dev = PDevice.useResult({ key: deviceKey }).data;
-  if (dev == null) return "";
-  return (
-    channel.escapeInvalidName(dev.name) + channel.escapeInvalidName(epPath + pointer)
-  );
+  const dev = useFromConfig();
+  return dev == null ? "" : defaultChannelName(dev.name, epPath, pointer);
 };
 
 const isCaretTarget = (target: EventTarget | null): boolean =>
@@ -170,6 +164,7 @@ const EndpointTreeItem = ({
           variant="text"
           size="tiny"
           tooltip="Add field"
+          aria-label="Add field"
           tooltipLocation="right"
           className={CSS.BE("endpoint-item", "add")}
         >
@@ -179,6 +174,23 @@ const EndpointTreeItem = ({
     </Tree.Item>
   );
 };
+
+interface FieldLabelProps extends Pick<Text.TextProps, "level"> {
+  pointer: string;
+}
+
+/** Names a field by its pointer; an empty pointer reads as a new field. */
+const FieldLabel = ({ pointer, level }: FieldLabelProps) => (
+  <Text.Text
+    level={level}
+    weight={500}
+    color={pointer === "" ? 8 : 10}
+    overflow="ellipsis"
+    className={CSS.B("field-pointer")}
+  >
+    {pointer === "" ? "New field" : pointer}
+  </Text.Text>
+);
 
 interface FieldTreeItemProps extends Tree.ItemRenderProps<string> {
   epKey: string;
@@ -193,15 +205,7 @@ const FieldTreeItem = ({ epKey, ...props }: FieldTreeItemProps) => {
       {...props}
       className={CSS.cls(CSS.B("field-item"), disabled && CSS.M("off"))}
     >
-      <Text.Text
-        level="small"
-        weight={500}
-        color={pointer === "" ? 8 : 10}
-        overflow="ellipsis"
-        className={CSS.B("field-pointer")}
-      >
-        {pointer === "" ? "New field" : pointer}
-      </Text.Text>
+      <FieldLabel pointer={pointer} level="small" />
       <Task.EnabledCheckbox path={`${path}.disabled`} />
     </Tree.Item>
   );
@@ -329,46 +333,6 @@ const ExistingChannelNameField = ({ channel: key }: { channel: channel.Key }) =>
   );
 };
 
-const FieldDetails: FC<{ epKey: string; fieldKey: string }> = ({ epKey, fieldKey }) => {
-  const path = `config.endpoints.${epKey}.fields.${fieldKey}`;
-  const { channel: fieldChannel, pointer } = PForm.useFieldValue<ReadField>(path);
-  const defaultName = useDefaultChannelName(epKey, pointer);
-  const bound = fieldChannel !== 0;
-  return (
-    <>
-      <PForm.Section title="Field">
-        <PForm.TextField
-          path={`${path}.pointer`}
-          label="Pointer"
-          padHelpText={false}
-          inputProps={POINTER_INPUT_PROPS}
-        />
-        <PForm.Field<string>
-          path={`${path}.dataType`}
-          label="Data type"
-          padHelpText={false}
-          helpText={bound ? "Set on the channel" : undefined}
-        >
-          {(p) => renderTelemSelectDataType({ ...p, disabled: bound })}
-        </PForm.Field>
-        <ChannelNameField
-          path={path}
-          channel={fieldChannel}
-          defaultName={defaultName}
-        />
-      </PForm.Section>
-      <PForm.Section title="Enum mapping">
-        <PlatformForm.KeyValueEditor
-          path={`${path}.enumValues`}
-          keyField="label"
-          keyPlaceholder="String (e.g. ON)"
-          valueType="number"
-        />
-      </PForm.Section>
-    </>
-  );
-};
-
 type TimingMode = "software" | "value";
 const TIMING_MODE_KEYS: TimingMode[] = ["software", "value"];
 
@@ -476,30 +440,56 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
   );
 };
 
-const FieldTitle: FC<{ epKey: string; fieldKey: string }> = ({ epKey, fieldKey }) => {
-  const pointer = PForm.useFieldValue<string>(
-    `config.endpoints.${epKey}.fields.${fieldKey}.pointer`,
-  );
+const FieldTitle: FC<{ epKey: string; fieldKey: string }> = ({ epKey, fieldKey }) => (
+  <FieldLabel
+    pointer={PForm.useFieldValue<string>(
+      `config.endpoints.${epKey}.fields.${fieldKey}.pointer`,
+    )}
+    level="p"
+  />
+);
+
+const FieldPane: FC<{ epKey: string; fieldKey: string }> = ({ epKey, fieldKey }) => {
+  const path = `config.endpoints.${epKey}.fields.${fieldKey}`;
+  const { channel: fieldChannel, pointer } = PForm.useFieldValue<ReadField>(path);
+  const defaultName = useDefaultChannelName(epKey, pointer);
+  const bound = fieldChannel !== 0;
   return (
-    <Text.Text
-      level="p"
-      weight={500}
-      color={pointer === "" ? 8 : 10}
-      overflow="ellipsis"
-      className={CSS.B("field-pointer")}
-    >
-      {pointer === "" ? "New field" : pointer}
-    </Text.Text>
+    <Flex.Box y grow empty className={CSS.B("endpoint-details")}>
+      <PForm.Sections className={CSS.B("endpoint-form")}>
+        <PForm.Section title="Field">
+          <PForm.TextField
+            path={`${path}.pointer`}
+            label="Pointer"
+            padHelpText={false}
+            inputProps={POINTER_INPUT_PROPS}
+          />
+          <PForm.Field<string>
+            path={`${path}.dataType`}
+            label="Data type"
+            padHelpText={false}
+            helpText={bound ? "Set on the channel" : undefined}
+          >
+            {(p) => renderTelemSelectDataType({ ...p, disabled: bound })}
+          </PForm.Field>
+          <ChannelNameField
+            path={path}
+            channel={fieldChannel}
+            defaultName={defaultName}
+          />
+        </PForm.Section>
+        <PForm.Section title="Enum mapping">
+          <PlatformForm.KeyValueEditor
+            path={`${path}.enumValues`}
+            keyField="label"
+            keyPlaceholder="String (e.g. ON)"
+            valueType="number"
+          />
+        </PForm.Section>
+      </PForm.Sections>
+    </Flex.Box>
   );
 };
-
-const FieldPane: FC<{ epKey: string; fieldKey: string }> = ({ epKey, fieldKey }) => (
-  <Flex.Box y grow empty className={CSS.B("endpoint-details")}>
-    <PForm.Sections className={CSS.B("endpoint-form")}>
-      <FieldDetails epKey={epKey} fieldKey={fieldKey} />
-    </PForm.Sections>
-  </Flex.Box>
-);
 
 const PATH_INPUT_PROPS = { placeholder: "/api/data" } as const;
 
@@ -546,10 +536,16 @@ const Form: FC = () => {
 
   const handleToggle = useCallback(
     (epKey: string) => {
-      if (expanded.includes(epKey)) contract(epKey);
-      else expand(epKey);
+      if (!expanded.includes(epKey)) return expand(epKey);
+      // A fold that hides the selected field moves the selection up to its endpoint.
+      const hidesSelection = selected.some((k) => {
+        const entry = entries.get(k);
+        return entry?.kind === "field" && entry.epKey === epKey;
+      });
+      if (hidesSelection) setSelected([epKey]);
+      contract(epKey);
     },
-    [expanded, expand, contract],
+    [expanded, expand, contract, selected, entries],
   );
 
   const handleAddEndpoint = useCallback(() => {
@@ -848,7 +844,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
         const dt = new DataType(field.dataType);
         const chName = primitive.isNonZero(field.name)
           ? field.name
-          : `${safeDevName}${channel.escapeInvalidName(ep.path + field.pointer)}`;
+          : defaultChannelName(dev.name, ep.path, field.pointer);
         const newCh = await client.channels.create({
           name: chName,
           dataType: field.dataType,

@@ -19,8 +19,8 @@
         padding-right: 1.25rem;
     }
 
-    /* The tree paints every icon in its rows one gray; the toggle's own color must
-       win so an enabled field still reads as on. */
+    /* The tree paints every icon in its rows one gray; the toggle's own color must win
+       so an enabled field still reads as on. */
     .pluto-tree__item .pluto-btn .pluto-icon {
         color: inherit;
     }

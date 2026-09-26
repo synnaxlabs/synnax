@@ -34,11 +34,8 @@ const renderRead = async (options: RenderTaskFormTabOptions = {}) => {
   return rendered;
 };
 
-// A field is added from its endpoint entry now, not from a list header.
 const addField = (): void => {
-  const button = document.querySelector<HTMLElement>(".console-endpoint-item__add");
-  if (button == null) throw new Error("no add field button");
-  fireEvent.click(button);
+  fireEvent.click(screen.getAllByRole("button", { name: "Add field" })[0]);
 };
 
 const addEndpoint = async (): Promise<void> => {
@@ -134,6 +131,89 @@ describe("Read", () => {
     // assertion reads the tree alone.
     await waitFor(() =>
       expect(within(screen.getByRole("tree")).getAllByText("/a")).toHaveLength(2),
+    );
+  });
+
+  describe("folding an endpoint from its caret", () => {
+    const fold = (): void => {
+      const endpoint = screen.getByRole("treeitem", { name: /New endpoint/ });
+      const caret = endpoint.querySelector(".pluto-tree__expansion-indicator");
+      if (caret == null) throw new Error("no caret");
+      fireEvent.click(caret);
+    };
+
+    it("should hide the fields and keep a selected endpoint", async () => {
+      await renderRead();
+      await addEndpoint();
+      addField();
+      await screen.findByPlaceholderText("/temperature");
+      fireEvent.click(screen.getByRole("treeitem", { name: /New endpoint/ }));
+      await screen.findByPlaceholderText("/api/data");
+      fold();
+      await waitFor(() =>
+        expect(screen.queryByRole("treeitem", { name: /New field/ })).toBeNull(),
+      );
+      expect(screen.getByPlaceholderText("/api/data")).toBeTruthy();
+    });
+
+    it("should move the selection from a hidden field up to its endpoint", async () => {
+      await renderRead();
+      await addEndpoint();
+      addField();
+      await screen.findByPlaceholderText("/temperature");
+      fold();
+      await waitFor(() =>
+        expect(screen.queryByRole("treeitem", { name: /New field/ })).toBeNull(),
+      );
+      await screen.findByPlaceholderText("/api/data");
+      expect(screen.queryByPlaceholderText("/temperature")).toBeNull();
+    });
+  });
+
+  it("should disable and enable a field through its checkbox and context menu", async () => {
+    await renderRead();
+    await addEndpoint();
+    addField();
+    const field = await screen.findByRole("treeitem", { name: /New field/ });
+    const checkbox = within(field).getByRole("checkbox", { name: "Enabled" });
+    fireEvent.click(checkbox);
+    await waitFor(() => expect(checkbox).toHaveProperty("checked", false));
+    fireEvent.contextMenu(field);
+    fireEvent.click(await screen.findByText("Enable"));
+    await waitFor(() => expect(checkbox).toHaveProperty("checked", true));
+    fireEvent.contextMenu(field);
+    fireEvent.click(await screen.findByText("Disable"));
+    await waitFor(() => expect(checkbox).toHaveProperty("checked", false));
+  });
+
+  it("should add a field from the endpoint context menu", async () => {
+    await renderRead();
+    await addEndpoint();
+    fireEvent.contextMenu(screen.getByRole("treeitem", { name: /New endpoint/ }));
+    fireEvent.click(await screen.findByText("Add field"));
+    await screen.findByRole("treeitem", { name: /New field/ });
+    expect(screen.getByPlaceholderText("/temperature")).toBeTruthy();
+  });
+
+  it("should select the entry below a removed field", async () => {
+    await renderRead();
+    await addEndpoint();
+    addField();
+    commitFieldInput(await screen.findByPlaceholderText("/temperature"), "/a");
+    addField();
+    await waitFor(() =>
+      expect(within(screen.getByRole("tree")).getAllByText("/a")).toHaveLength(2),
+    );
+    commitFieldInput(screen.getByPlaceholderText("/temperature"), "/b");
+    const tree = within(screen.getByRole("tree"));
+    fireEvent.click(await tree.findByText("/a"));
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText("/temperature")).toHaveProperty("value", "/a"),
+    );
+    fireEvent.contextMenu(tree.getByRole("treeitem", { name: /\/a/ }));
+    fireEvent.click(await screen.findByText("Remove"));
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText("/temperature")).toHaveProperty("value", "/b"),
     );
   });
 
@@ -333,6 +413,41 @@ describe("Read", () => {
       });
       expect(saved.config.endpoints[0].fields[0].channel).toBe(dataCh.key);
     });
+  });
+
+  it("should lock the data type of a field bound to a channel", async () => {
+    const dev = await createHTTPDevice(client);
+    const idxCh = await client.channels.create({
+      name: uniqueName("http_idx"),
+      dataType: "timestamp",
+      isIndex: true,
+    });
+    const dataCh = await client.channels.create({
+      name: uniqueName("http_data"),
+      dataType: "float64",
+      index: idxCh.key,
+    });
+    dev.properties = {
+      ...HTTP.Device.ZERO_PROPERTIES,
+      read: {
+        "/data": { index: idxCh.key, channels: { "/temperature": dataCh.key } },
+      },
+    };
+    await client.devices.create(dev);
+    const draft = await createDraft(
+      client,
+      createReadConfig(dev.key, [
+        {
+          ...http.readEndpointZ.parse({}),
+          key: "ep1",
+          path: "/data",
+          fields: [createReadField("f1", "/temperature")],
+        },
+      ]),
+    );
+    await renderRead({ client, taskKey: draft.key });
+    fireEvent.click(await screen.findByRole("treeitem", { name: /\/temperature/ }));
+    await screen.findByText("Set on the channel");
   });
 
   it("should bind the fields of every endpoint on open, not only the selected one", async () => {

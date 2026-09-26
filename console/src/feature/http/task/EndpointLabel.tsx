@@ -9,22 +9,25 @@
 
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 
+import { type ReadMethod, type WriteMethod } from "@/feature/http/task/types";
 import { Task } from "@/platform/task";
 
 export interface EndpointLabelProps {
   epKey: string;
 }
 
-/* The API-docs convention: each method gets its own hue. */
-const METHOD_COLORS: Record<string, string> = {
+// The API-docs convention: each method gets its own hue.
+const METHOD_COLORS: Record<ReadMethod | WriteMethod, string> = {
   GET: "var(--pluto-secondary-z)",
   POST: "var(--pluto-warning-z)",
+  PUT: "var(--pluto-primary-z)",
+  PATCH: "var(--pluto-success-z)",
 };
 
 /** Names an endpoint by its method and path; an empty path reads as a new endpoint. */
 export const EndpointLabel = ({ epKey }: EndpointLabelProps) => {
   const path = `config.endpoints.${epKey}`;
-  const method = PForm.useFieldValue<string>(`${path}.method`);
+  const method = PForm.useFieldValue<ReadMethod | WriteMethod>(`${path}.method`);
   const epPath = PForm.useFieldValue<string>(`${path}.path`);
   return (
     <Task.Views.ItemLabel
