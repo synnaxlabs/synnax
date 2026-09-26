@@ -1054,6 +1054,15 @@ importers:
       clsx:
         specifier: 'catalog:'
         version: 2.1.1
+      compromise:
+        specifier: 'catalog:'
+        version: 14.16.0
+      compromise-dates:
+        specifier: 'catalog:'
+        version: 3.8.1(compromise@14.16.0)
+      mathjs:
+        specifier: 'catalog:'
+        version: 15.2.0
       react-icons:
         specifier: 'catalog:'
         version: 5.7.0(react@19.2.8)
@@ -1106,12 +1115,6 @@ importers:
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 4.1.11(vitest@4.1.11)
-      compromise:
-        specifier: 'catalog:'
-        version: 14.16.0
-      compromise-dates:
-        specifier: 'catalog:'
-        version: 3.8.1(compromise@14.16.0)
       eslint:
         specifier: 'catalog:'
         version: 10.9.1(jiti@2.7.0)(supports-color@10.2.2)
@@ -1121,9 +1124,6 @@ importers:
       jsdom:
         specifier: 'catalog:'
         version: 30.0.1
-      mathjs:
-        specifier: 'catalog:'
-        version: 15.2.0
       pluralize:
         specifier: 'catalog:'
         version: 8.0.0

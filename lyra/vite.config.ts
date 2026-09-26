@@ -43,6 +43,8 @@ export default defineConfig({
         /^react-icons(\/.*)?$/,
         /^@fontsource(-variable)?\//,
         "clsx",
+        /^compromise(-dates)?$/,
+        "mathjs",
         "zod",
         "@synnaxlabs/x",
       ],
