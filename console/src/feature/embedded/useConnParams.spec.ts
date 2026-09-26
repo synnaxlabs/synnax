@@ -18,6 +18,7 @@ const PARAMS = {
   port: 49152,
   username: "synnax",
   password: "launch-secret",
+  clientVersion: "1.4.0",
   name: "Synnax",
   secure: false,
 };

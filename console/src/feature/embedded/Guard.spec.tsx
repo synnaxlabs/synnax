@@ -24,7 +24,7 @@ const { host, port, username, password } = TEST_CLIENT_PARAMS;
 // The Core that the specs run against stands in for the embedded one.
 const LIVE: Embedded.Status = {
   state: "running",
-  connection: { host, port: Number(port), username, password },
+  connection: { host, port: Number(port), username, password, version: "0.0.0" },
 };
 
 const renderGuard = async (): ReturnType<typeof createDesktopWrapper> => {

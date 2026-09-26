@@ -169,6 +169,7 @@ mod tests {
                 port: 1,
                 username: "synnax".to_string(),
                 password: "launch-secret".to_string(),
+                version: "0.58.0".to_string(),
             },
         };
         let history = History {

@@ -27,7 +27,7 @@ describe("Embedded.Indicator", () => {
     // Nothing listens on the port, as in the gap while the Core restarts.
     mockSupervisor(() => ({
       state: "running",
-      connection: { host: "127.0.0.1", port: 1, username, password },
+      connection: { host: "127.0.0.1", port: 1, username, password, version: "0.0.0" },
     }));
     const { wrapper } = await createDesktopWrapper();
     render(<Embedded.Indicator />, { wrapper });
@@ -37,7 +37,7 @@ describe("Embedded.Indicator", () => {
   it("should stay hidden while the Core is healthy", async () => {
     mockSupervisor(() => ({
       state: "running",
-      connection: { host, port: Number(port), username, password },
+      connection: { host, port: Number(port), username, password, version: "0.0.0" },
     }));
     const { wrapper } = await createDesktopWrapper();
     render(

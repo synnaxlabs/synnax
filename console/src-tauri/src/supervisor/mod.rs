@@ -97,6 +97,8 @@ pub struct Connection {
     pub port: u16,
     pub username: String,
     pub password: String,
+    /// The version of the Core, which is the version of the app.
+    pub version: String,
 }
 
 /// The state of the embedded Core.
@@ -418,6 +420,7 @@ impl Task {
                                 port,
                                 username: launch::USERNAME.to_string(),
                                 password: self.password.clone(),
+                                version: self.cfg.version.clone(),
                             },
                         });
                     }
@@ -646,6 +649,7 @@ while true; do sleep 1; done
         assert_eq!(connection.host, "127.0.0.1");
         assert_eq!(connection.username, "synnax");
         assert_eq!(connection.password.len(), 64);
+        assert_eq!(connection.version, "0.0.0");
         assert_ne!(connection.port, 0);
         sup.stop().await;
     }

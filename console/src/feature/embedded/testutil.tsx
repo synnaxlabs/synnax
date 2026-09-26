@@ -26,6 +26,7 @@ export const RUNNING: Embedded.Status = {
     port: 49152,
     username: "synnax",
     password: "launch-secret",
+    version: "1.4.0",
   },
 };
 
