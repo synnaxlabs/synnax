@@ -9,13 +9,12 @@
 
 import "@/schematic/node/common/orientation/select.css";
 
+import { Button as BaseButton } from "@synnaxlabs/lyra/button";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { type Input } from "@synnaxlabs/lyra/input";
 import { type location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
-
-import { Button as BaseButton } from "@/button";
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
-import { type Input } from "@/input";
 
 export interface Value {
   inner: location.Outer;

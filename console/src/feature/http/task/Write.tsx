@@ -10,21 +10,18 @@
 import "@/feature/http/task/Form.css";
 
 import { channel, type Synnax as Client } from "@synnaxlabs/client";
-import {
-  Button,
-  Channel as PChannel,
-  Component,
-  Divider,
-  Flex,
-  Form as PForm,
-  Header,
-  Icon,
-  List,
-  Menu,
-  Select,
-  Telem,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Header } from "@synnaxlabs/lyra/header";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Channel as PChannel, Telem } from "@synnaxlabs/pluto";
 import { DataType, id, json, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback, useMemo, useState } from "react";
 

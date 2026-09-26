@@ -13,11 +13,11 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import {
   type Adder,
+  type AsyncErrorHandler,
   createAsyncErrorHandler,
   createErrorHandler,
   type ErrorHandler,
 } from "@/status/aether/errorHandler";
-import { type AsyncErrorHandler } from "@/status/base/Aggregator";
 
 export const aggregatorStateZ = z.object({ statuses: status.statusZ().array() });
 export interface AggregatorState extends z.infer<typeof aggregatorStateZ> {}

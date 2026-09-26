@@ -8,7 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { group, ontology } from "@synnaxlabs/client";
-import { type Flux, Group, List, Text, Tree as PTree } from "@synnaxlabs/pluto";
+import { List } from "@synnaxlabs/lyra/list";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Tree as PTree } from "@synnaxlabs/lyra/tree";
+import { type Flux, Group } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { useCallback } from "react";
 

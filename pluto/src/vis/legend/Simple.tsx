@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Theming } from "@synnaxlabs/lyra/theming";
 import { type optional } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
-import { type Theming } from "@/theming";
 import { Container, type ContainerProps } from "@/vis/legend/Container";
 import { Entries, type EntriesProps, type EntryData } from "@/vis/legend/Entries";
 

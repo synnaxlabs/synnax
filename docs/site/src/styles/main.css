@@ -19,9 +19,10 @@
 /* Declare layer order - later layers win */
 @layer pluto, base, overrides;
 
-/* Import Pluto CSS into its layer */
-@import url("@synnaxlabs/pluto/dist/pluto.css") layer(pluto);
-@import url("@synnaxlabs/pluto/dist/theme.css") layer(pluto);
+/* Lyra's component CSS arrives through each module's own import and lands in the
+ * same layer through the PostCSS plugin in astro.config.ts. */
+@import url("@synnaxlabs/lyra/dist/base.css") layer(pluto);
+@import url("@synnaxlabs/lyra/dist/theme.css") layer(pluto);
 @import url("@synnaxlabs/media/dist/media.css") layer(pluto);
 
 /* Import our CSS into higher priority layers */

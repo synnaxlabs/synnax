@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type Synnax as Client } from "@synnaxlabs/client";
-import { Synnax, useSyncedRef } from "@synnaxlabs/pluto";
+import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
+import { Synnax } from "@synnaxlabs/pluto";
 import { breaker, TimeSpan } from "@synnaxlabs/x";
 import { useCallback } from "react";
 

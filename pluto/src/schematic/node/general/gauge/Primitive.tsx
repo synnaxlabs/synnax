@@ -10,11 +10,10 @@
 import "@/schematic/node/general/gauge/gauge.css";
 
 import { type schematic } from "@synnaxlabs/client";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Text } from "@synnaxlabs/lyra/text";
 import { color } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useMemo } from "react";
-
-import { CSS } from "@/css";
-import { Text } from "@/text";
 
 interface RenderProps extends Omit<
   schematic.GaugeNodeConfig,

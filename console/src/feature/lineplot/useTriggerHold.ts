@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type lineplot } from "@synnaxlabs/client";
-import { Triggers } from "@synnaxlabs/pluto";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { useCallback } from "react";
 
 import { HOLD_TRIGGER } from "@/feature/lineplot/Controls";

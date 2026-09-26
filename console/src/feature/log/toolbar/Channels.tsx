@@ -8,21 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, log } from "@synnaxlabs/client";
-import {
-  Access,
-  Button,
-  Channel,
-  Color,
-  Flex,
-  Icon,
-  Input,
-  List,
-  Log,
-  Notation,
-  type Select,
-  Telem,
-  Theming,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { List } from "@synnaxlabs/lyra/list";
+import { type Select } from "@synnaxlabs/lyra/select";
+import { Theming } from "@synnaxlabs/lyra/theming";
+import { Access, Channel, Color, Log, Notation, Telem } from "@synnaxlabs/pluto";
 import {
   color,
   DataType,

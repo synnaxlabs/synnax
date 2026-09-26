@@ -10,6 +10,14 @@
 import "@/code/Editor.css";
 
 import { type ILanguageFeaturesService } from "@codingame/monaco-vscode-api/services";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Theming } from "@synnaxlabs/lyra/theming";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { debounce, TimeSpan, url } from "@synnaxlabs/x";
 import {
   type ReactNode,
@@ -26,15 +34,7 @@ import {
 import { BASE_THEMES, type EditorExtension } from "@/code/language";
 import { type Monaco, useLanguage, useMonaco } from "@/code/Provider";
 import { diff, utf16Offset } from "@/code/text";
-import { CSS } from "@/css";
 import { Errors } from "@/errors";
-import { Flex } from "@/flex";
-import { useSyncedRef } from "@/hooks";
-import { Icon } from "@/icon";
-import { Menu } from "@/menu";
-import { Status } from "@/status/base";
-import { Theming } from "@/theming";
-import { Triggers } from "@/triggers";
 
 const ESCAPE_TRIGGERS: Triggers.Trigger[] = [Triggers.ESCAPE];
 const RENAME_TRIGGER: Triggers.Trigger = ["F2"];

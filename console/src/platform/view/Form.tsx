@@ -8,13 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type view } from "@synnaxlabs/client";
-import {
-  type Flux,
-  Form as PForm,
-  List,
-  Select,
-  View as PView,
-} from "@synnaxlabs/pluto";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
+import { type Flux, View as PView } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,

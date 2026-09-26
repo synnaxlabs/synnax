@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Resize } from "@synnaxlabs/lyra/resize";
 import { type ReactElement, useCallback } from "react";
 
 import { useContext } from "@/mosaic/Frame";
-import { Resize } from "@/resize";
 
 export interface SplitProps extends Omit<Resize.SplitProps, "onResizeEnd"> {
   /** The key identifying this split, passed to the Frame's onResize handler. */

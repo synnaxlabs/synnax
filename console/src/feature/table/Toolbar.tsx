@@ -10,20 +10,15 @@
 import "@/feature/table/Table.css";
 
 import { table } from "@synnaxlabs/client";
-import {
-  Access,
-  Breadcrumb,
-  Color,
-  Flex,
-  Form,
-  Icon,
-  Input,
-  Panel as PPanel,
-  Select,
-  Table,
-  Text,
-  Theming,
-} from "@synnaxlabs/pluto";
+import { Breadcrumb } from "@synnaxlabs/lyra/breadcrumb";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Theming } from "@synnaxlabs/lyra/theming";
+import { Access, Color, Panel as PPanel, Table } from "@synnaxlabs/pluto";
 import { color, deep, type text } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { type z } from "zod";

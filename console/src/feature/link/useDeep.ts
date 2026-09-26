@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { Drift } from "@synnaxlabs/drift";
-import { Status, Synnax, useAsyncEffect, useSyncedRef } from "@synnaxlabs/pluto";
+import { useAsyncEffect, useSyncedRef } from "@synnaxlabs/lyra/hooks";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Synnax } from "@synnaxlabs/pluto";
 import { strings, TimeSpan } from "@synnaxlabs/x";
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrent, onOpenUrl } from "@tauri-apps/plugin-deep-link";

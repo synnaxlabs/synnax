@@ -9,7 +9,7 @@
 
 import { type label, view } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Form } from "@synnaxlabs/pluto";
+import { Form } from "@synnaxlabs/lyra/form";
 import { uuid } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";

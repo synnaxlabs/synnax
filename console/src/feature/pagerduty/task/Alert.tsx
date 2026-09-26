@@ -15,21 +15,19 @@ import {
   type status,
   type Synnax as Client,
 } from "@synnaxlabs/client";
-import {
-  Button,
-  Component,
-  Divider,
-  Flex,
-  Form as PForm,
-  Header,
-  Icon,
-  List,
-  Menu as PMenu,
-  Rack,
-  Select,
-  Status,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Header } from "@synnaxlabs/lyra/header";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Status as Base } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Rack, Status } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
 import { type FC, useCallback, useState } from "react";
 
@@ -149,7 +147,7 @@ const AlertListItem = (props: List.ItemProps<string>) => {
   return (
     <Select.ListItem {...props} justify="between" align="center" x>
       <Flex.Box x align="center" gap={1}>
-        <Status.Indicator variant={isNotDefined ? "disabled" : status.variant} />
+        <Base.Indicator variant={isNotDefined ? "disabled" : status.variant} />
         <Text.Text
           level="p"
           weight={500}

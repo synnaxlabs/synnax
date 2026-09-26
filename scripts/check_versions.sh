@@ -115,6 +115,7 @@ main() {
         "$ROOT_DIR/client/ts"
         "$ROOT_DIR/drift"
         "$ROOT_DIR/freighter/ts"
+        "$ROOT_DIR/lyra"
         "$ROOT_DIR/pluto"
         "$ROOT_DIR/x/media"
         "$ROOT_DIR/x/ts"

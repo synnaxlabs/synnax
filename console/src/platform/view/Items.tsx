@@ -7,7 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex, List, Menu, Text } from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { List } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type record } from "@synnaxlabs/x";
 import { plural } from "pluralize";
 import { type ReactElement } from "react";

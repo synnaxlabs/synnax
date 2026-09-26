@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { arc, type panel } from "@synnaxlabs/client";
-import { Status } from "@synnaxlabs/pluto";
+import { Status } from "@synnaxlabs/lyra/status";
 import { useCallback } from "react";
 
 import { useCreateModal } from "@/platform/arc/useCreateModal";

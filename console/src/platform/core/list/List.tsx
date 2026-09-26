@@ -10,16 +10,14 @@
 import "@/platform/core/list/List.css";
 
 import { connection } from "@synnaxlabs/client";
-import {
-  Flex,
-  Header,
-  Icon,
-  type Input,
-  Menu,
-  Select,
-  Status,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Header } from "@synnaxlabs/lyra/header";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { type Input } from "@synnaxlabs/lyra/input";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useCallback, useMemo, useState } from "react";
 
 import { Button } from "@/platform/button";

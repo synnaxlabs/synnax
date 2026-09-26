@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type connection, type Synnax as Client } from "@synnaxlabs/client";
+import { theme } from "@synnaxlabs/lyra/theme";
 import { type FC, type PropsWithChildren, type ReactElement, Suspense } from "react";
 
 import { Aether } from "@/aether";
@@ -15,8 +16,8 @@ import { type aether } from "@/aether/aether";
 import { aetherTest } from "@/aether/test";
 import { Alamos } from "@/alamos";
 import { alamos } from "@/alamos/aether";
+import { Status } from "@/status";
 import { status } from "@/status/aether";
-import { Status } from "@/status/base";
 import { Synnax } from "@/synnax";
 import { synnax } from "@/synnax/aether";
 import { Telem } from "@/telem";
@@ -42,7 +43,7 @@ const RenderContextSeed = ({
   return <Aether.Composite path={path}>{children}</Aether.Composite>;
 };
 
-const TEST_THEME = theming.themeZ.parse(theming.SYNNAX_THEMES.synnaxLight);
+const TEST_THEME = theme.themeZ.parse(theme.SYNNAX_THEMES.synnaxLight);
 
 // Mounts the production aether theming provider without the React provider's
 // font loading, which jsdom cannot perform (no FontFace).

@@ -8,15 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { type group } from "@synnaxlabs/client";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
-import { Component } from "@/component";
 import { type Flux } from "@/flux";
 import { type ListQuery, useList } from "@/group/queries";
-import { Icon } from "@/icon";
-import { List } from "@/list";
-import { Select } from "@/select";
-import { Text } from "@/text";
 
 const ListItem = ({
   itemKey,

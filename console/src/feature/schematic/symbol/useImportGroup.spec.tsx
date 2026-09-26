@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { group, type ontology } from "@synnaxlabs/client";
-import { Haul, Status } from "@synnaxlabs/pluto";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { Status } from "@synnaxlabs/lyra/status";
 import {
   act,
   fireEvent,

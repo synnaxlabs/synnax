@@ -10,13 +10,9 @@
 import "@/feature/table/Table.css";
 
 import { table } from "@synnaxlabs/client";
-import {
-  Access,
-  Button,
-  Icon,
-  Panel as PPanel,
-  Table as Base,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Access, Panel as PPanel, Table as Base } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 

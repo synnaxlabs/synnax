@@ -7,16 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { theme } from "@synnaxlabs/lyra/theme";
 import { box, color, xy } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { telemTest } from "@/telem/aether/test";
 import { renderAether } from "@/testutil/renderAether";
-import { SYNNAX_DARK, type Theme, themeZ } from "@/theming/base/theme";
 import { canvasTest } from "@/vis/render/test";
 import { scale } from "@/vis/scale/aether";
 
-const THEME: Theme = themeZ.parse(SYNNAX_DARK);
+const THEME: theme.Theme = theme.themeZ.parse(theme.SYNNAX_DARK);
 
 const BOX = box.construct({ x: 0, y: 0 }, { width: 60, height: 200 });
 

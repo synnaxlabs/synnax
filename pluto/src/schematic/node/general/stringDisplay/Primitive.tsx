@@ -10,16 +10,16 @@
 import "@/schematic/node/general/stringDisplay/stringDisplay.css";
 
 import { type schematic } from "@synnaxlabs/client";
+import { Component } from "@synnaxlabs/lyra/component";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { color } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useMemo } from "react";
 
-import { HEIGHTS } from "@/component/size";
-import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { LEVEL_SIZES } from "@/schematic/node/common/size";
-import { Text } from "@/text";
-import { Theming } from "@/theming";
 import { Staleness } from "@/vis/staleness";
 
 interface RenderProps extends Partial<
@@ -48,7 +48,7 @@ export const StringDisplay = ({
     () => ({
       [CSS.variable("symbol-color")]: color.rgbaString(colorVal),
       width: inlineSize,
-      height: HEIGHTS[LEVEL_SIZES[level]],
+      height: Component.HEIGHTS[LEVEL_SIZES[level]],
     }),
     [colorVal, inlineSize, level],
   );

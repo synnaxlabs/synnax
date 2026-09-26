@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type user } from "@synnaxlabs/client";
+import { type Haul } from "@synnaxlabs/lyra/haul";
 import { describe, expect, it } from "vitest";
 
-import { type Haul } from "@/haul";
 import {
   canDropHaulItem,
   createHaulItem,

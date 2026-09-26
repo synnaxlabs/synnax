@@ -10,20 +10,17 @@
 import "@/platform/range/overview/MetaData.css";
 
 import { type query, type ranger } from "@synnaxlabs/client";
-import {
-  Button,
-  CSS as PCSS,
-  Divider,
-  Flex,
-  type Flux,
-  Form,
-  Header,
-  Icon,
-  Input,
-  List,
-  Ranger,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { CSS as PCSS } from "@synnaxlabs/lyra/css";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Header } from "@synnaxlabs/lyra/header";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { List } from "@synnaxlabs/lyra/list";
+import { Text } from "@synnaxlabs/lyra/text";
+import { type Flux, Ranger } from "@synnaxlabs/pluto";
 import { type kv, link } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useRef, useState } from "react";
 

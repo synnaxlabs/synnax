@@ -8,14 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, type schematic } from "@synnaxlabs/client";
+import { Form as Base } from "@synnaxlabs/lyra/form";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
-import { Form as Base } from "@/form";
-import { Input } from "@/input";
 import { Form } from "@/schematic/node/common/form";
 import { Telem } from "@/schematic/node/common/telem";
-import { Tabs } from "@/tabs";
 import { Staleness } from "@/vis/staleness";
 
 type LightTelemFormT = Pick<schematic.LightNodeConfig, "channel" | "threshold">;

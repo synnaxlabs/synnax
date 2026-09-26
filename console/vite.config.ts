@@ -131,6 +131,8 @@ export default defineConfig({
       ? {
           "@synnaxlabs/pluto/dist": path.resolve(repoRoot, "pluto/dist"),
           "@synnaxlabs/pluto": path.resolve(repoRoot, "pluto/src"),
+          "@synnaxlabs/lyra/dist": path.resolve(repoRoot, "lyra/dist"),
+          "@synnaxlabs/lyra": path.resolve(repoRoot, "lyra/src"),
           "@synnaxlabs/x/dist": path.resolve(repoRoot, "x/ts/dist"),
           "@synnaxlabs/x": path.resolve(repoRoot, "x/ts/src"),
           "@synnaxlabs/drift/dist": path.resolve(repoRoot, "drift/dist"),
