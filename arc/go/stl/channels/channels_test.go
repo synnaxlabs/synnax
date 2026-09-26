@@ -879,6 +879,7 @@ var _ = Describe("Channel", func() {
 		keys := []string{"s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7"}
 
 		newSource := func(nodeKey string, ch uint32) rnode.Node {
+			GinkgoHelper()
 			return MustSucceed(factory.Create(rnode.Config{
 				Node: ir.Node{
 					Type: "on",

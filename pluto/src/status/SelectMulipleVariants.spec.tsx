@@ -41,13 +41,13 @@ describe("SelectMultipleVariants", () => {
   it("should render a selection trigger", () => {
     const { TestSelect } = createTestComponent();
     const c = render(<TestSelect />);
-    expect(c.getByText("Select variants")).toBeTruthy();
+    expect(c.getByText("Variants")).toBeTruthy();
   });
 
   it("should open and show all variant options", () => {
     const { TestSelect } = createTestComponent();
     const c = render(<TestSelect />);
-    fireEvent.click(c.getByText("Select variants"));
+    fireEvent.click(c.getByText("Variants"));
     expect(c.getByText("Success")).toBeTruthy();
     expect(c.getByText("Error")).toBeTruthy();
     expect(c.getByText("Warning")).toBeTruthy();
@@ -59,7 +59,7 @@ describe("SelectMultipleVariants", () => {
   it("should call onChange when a variant is selected", () => {
     const { TestSelect, onChange } = createTestComponent();
     const c = render(<TestSelect />);
-    fireEvent.click(c.getByText("Select variants"));
+    fireEvent.click(c.getByText("Variants"));
     fireEvent.click(c.getByText("Error"));
     expect(onChange).toHaveBeenCalledWith(["error"]);
   });
@@ -67,7 +67,7 @@ describe("SelectMultipleVariants", () => {
   it("should allow selecting multiple variants", () => {
     const { TestSelect, onChange } = createTestComponent();
     const c = render(<TestSelect />);
-    fireEvent.click(c.getByText("Select variants"));
+    fireEvent.click(c.getByText("Variants"));
     fireEvent.click(c.getByText("Error"));
     fireEvent.click(c.getByText("Warning"));
     expect(onChange).toHaveBeenCalledWith(["error", "warning"]);
@@ -76,7 +76,7 @@ describe("SelectMultipleVariants", () => {
   it("should filter options when searching", () => {
     const { TestSelect } = createTestComponent();
     const c = render(<TestSelect />);
-    fireEvent.click(c.getByText("Select variants"));
+    fireEvent.click(c.getByText("Variants"));
     fireEvent.change(c.getByPlaceholderText("Search variants..."), {
       target: { value: "Err" },
     });

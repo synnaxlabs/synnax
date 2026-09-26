@@ -27,6 +27,8 @@ export interface RemoteReader {
   (tr: TimeRange, keys: channel.Key[]): Promise<Frame>;
 }
 
+export const DEFAULT_BATCH_DEBOUNCE = TimeSpan.milliseconds(50);
+
 interface ReadRequest {
   channel: channel.Key;
   gaps: TimeRange[];
@@ -86,7 +88,7 @@ export class Reader {
     const {
       readRemote,
       cache,
-      batchDebounce = TimeSpan.milliseconds(50),
+      batchDebounce = DEFAULT_BATCH_DEBOUNCE,
       overlapThreshold = TimeSpan.milliseconds(5),
       fetchTimeout = TimeSpan.seconds(30),
     } = props;

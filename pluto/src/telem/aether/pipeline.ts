@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ValidationError } from "@synnaxlabs/client";
-import { type destructor } from "@synnaxlabs/x";
+import { type destructor, type TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Factory } from "@/telem/aether/factory";
@@ -104,6 +104,10 @@ export class SourcePipeline<V>
 
   onChange(handler: () => void): destructor.Destructor {
     return this.outlet.onChange(handler);
+  }
+
+  sampleTime(): TimeStamp | null {
+    return this.outlet.sampleTime?.() ?? null;
   }
 
   cleanup(): void {

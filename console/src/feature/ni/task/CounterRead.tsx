@@ -15,6 +15,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { errors, id, primitive, unique } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
+import { useByKeys } from "@/feature/ni/device/queries";
 import * as Device from "@/feature/ni/device/types";
 import { CIChannelForm } from "@/feature/ni/task/CIChannelForm";
 import { createNextCIChannel } from "@/feature/ni/task/createChannel";
@@ -87,6 +88,15 @@ const channelDetails = Component.renderProp(ChannelDetails);
 
 const Form: FC = () => {
   const [tare, allowTare, handleTare] = Task.useTare<CIChannel>();
+  const devices = useByKeys(Task.useChannelDeviceKeys());
+  const resolve = useCallback(
+    (ch: CIChannel) => {
+      const dev = devices?.find(({ key }) => key === ch.device);
+      if (dev == null) return null;
+      return { channel: dev.properties.counterInput.channels[ch.port.toString()] ?? 0 };
+    },
+    [devices],
+  );
   const listItem = useCallback(
     ({ key, itemKey, ...rest }: Task.ChannelListItemProps) => (
       <ChannelListItem key={key} itemKey={itemKey} {...rest} onTare={tare} />
@@ -101,6 +111,7 @@ const Form: FC = () => {
       onTare={handleTare}
       allowTare={allowTare}
       contextMenuItems={Task.readChannelContextMenuItem}
+      resolve={resolve}
     />
   );
 };

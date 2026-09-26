@@ -37,52 +37,14 @@ FULL_ARTIFACTS=("${CORE_ARTIFACTS[@]}" "${DRIVER_ARTIFACTS[@]}")
 
 # A component's artifacts are reusable from a run that matches on its path set.
 # build.synnax.yaml is in every set because a build definition change rebuilds all.
-DRIVER_PATHS=(
-    ".bazelignore"
-    ".bazeliskrc"
-    ".bazelrc"
-    ".github/workflows/build.synnax.yaml"
-    ".gitmodules"
-    "arc/cpp/**"
-    "client/cpp/**"
-    "driver/**"
-    "freighter/cpp/**"
-    "MODULE.bazel"
-    "MODULE.bazel.lock"
-    "vendor/**"
-    "x/cpp/**"
-)
-
-CONSOLE_PATHS=(
-    ".github/workflows/build.synnax.yaml"
-    "alamos/ts/**"
-    "arc/ts/**"
-    "client/ts/**"
-    "configs/ts/**"
-    "configs/vite/**"
-    "console/**"
-    "drift/**"
-    "freighter/ts/**"
-    "lyra/**"
-    "package.json"
-    "pluto/**"
-    "pnpm-lock.yaml"
-    "pnpm-workspace.yaml"
-    "turbo.json"
-    "x/media/**"
-    "x/ts/**"
-)
-
-CORE_PATHS=(
-    ".github/workflows/build.synnax.yaml"
-    "alamos/go/**"
-    "arc/go/**"
-    "aspen/**"
-    "cesium/**"
-    "core/**"
-    "freighter/go/**"
-    "x/go/**"
-)
+FILTERS=.github/filters.yaml
+# Reads one *_build list from the change map, aliases expanded.
+build_paths() {
+    yq "explode(.) | .$1 | flatten | .[]" "${FILTERS}"
+}
+mapfile -t DRIVER_PATHS < <(build_paths driver_build)
+mapfile -t CONSOLE_PATHS < <(build_paths console_build)
+mapfile -t CORE_PATHS < <(build_paths core_build)
 
 UNION_PATHS=("${DRIVER_PATHS[@]}" "${CONSOLE_PATHS[@]}" "${CORE_PATHS[@]}")
 

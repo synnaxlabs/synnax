@@ -8,7 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { UnexpectedError } from "@synnaxlabs/client";
-import { array, deep, type destructor, id, type observe } from "@synnaxlabs/x";
+import {
+  array,
+  deep,
+  type destructor,
+  id,
+  type observe,
+  type TimeStamp,
+} from "@synnaxlabs/x";
 
 import { type aether } from "@/aether/aether";
 import {
@@ -93,6 +100,10 @@ export class MemoizedSource<V, S extends Source<V> = Source<V>> extends Memoized
 
   loading(): boolean {
     return this.wrapped.loading?.() ?? false;
+  }
+
+  sampleTime(): TimeStamp | null {
+    return this.wrapped.sampleTime?.() ?? null;
   }
 
   cleanup(): void {

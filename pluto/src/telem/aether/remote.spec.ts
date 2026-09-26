@@ -76,6 +76,7 @@ describe("remote", () => {
       channels = { retrieve: async (): Promise<channel.Channel> => this.channel };
 
       feed = {
+        readLatest: async (): Promise<MultiSeries> => new MultiSeries([]),
         read: async (): Promise<MultiSeries> => this.response,
         stream: (
           handler: framer.StreamHandler,
@@ -235,6 +236,204 @@ describe("remote", () => {
       await new Promise((resolve) => setTimeout(resolve, 5));
       expect(c.streamF).not.toHaveBeenCalled();
     });
+
+    describe("initializing", () => {
+      const SAMPLE_TIME = TimeStamp.seconds(100);
+      const stored = (): Series =>
+        new Series({
+          data: new Float32Array([7]),
+          timeRange: new TimeRange(TimeStamp.seconds(90), SAMPLE_TIME),
+        });
+
+      it("should initialize the leading buffer from the latest stored sample", async () => {
+        c.feed.readLatest = vi.fn(async () => new MultiSeries([stored()]));
+        const scv = new StreamChannelValue(c, { channel: c.channel.key });
+        expect(await waitForResolve(scv)).toBe(7);
+        expect(c.feed.readLatest).toHaveBeenCalledWith(c.channel.key);
+      });
+
+      it("should notify once when the initial sample lands", async () => {
+        c.feed.readLatest = async () => new MultiSeries([stored()]);
+        const scv = new StreamChannelValue(c, { channel: c.channel.key });
+        const handleChange = vi.fn();
+        scv.onChange(handleChange);
+        await waitForResolve(scv);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        expect(handleChange).toHaveBeenCalledTimes(1);
+      });
+
+      it("should not notify when nothing is stored", async () => {
+        const scv = new StreamChannelValue(c, { channel: c.channel.key });
+        const handleChange = vi.fn();
+        scv.onChange(handleChange);
+        await waitForStream(scv, c);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        expect(handleChange).not.toHaveBeenCalled();
+        expect(scv.value()).toBe(NaN);
+      });
+
+      it("should not read the latest sample when the stream opens with data", async () => {
+        c.feed.readLatest = vi.fn(async () => new MultiSeries([stored()]));
+        const live = new Series({ data: new Float32Array([5]) });
+        c.feed.stream = (handler, keys) => {
+          handler(new Map([[c.channel.key, new MultiSeries([live])]]));
+          c.streamF(handler, keys);
+          return telemTest.mockSubscription(c.streamDestructorF);
+        };
+        const scv = new StreamChannelValue(c, { channel: c.channel.key });
+        expect(await waitForResolve(scv)).toBe(5);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        expect(c.feed.readLatest).not.toHaveBeenCalled();
+      });
+
+      it("should keep a live buffer that arrives while the read is in flight", async () => {
+        let release = (): void => {};
+        const gate = new Promise<void>((resolve) => (release = resolve));
+        c.feed.readLatest = async () => {
+          await gate;
+          return new MultiSeries([stored()]);
+        };
+        const scv = new StreamChannelValue(c, { channel: c.channel.key });
+        const handleChange = vi.fn();
+        scv.onChange(handleChange);
+        await waitForStream(scv, c);
+        const live = new Series({ data: new Float32Array([5]) });
+        c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([live])]]));
+        release();
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        expect(scv.value()).toBe(5);
+        expect(scv.testingOnlyLeadingBuffer).toBe(live);
+        expect(handleChange).toHaveBeenCalledTimes(1);
+      });
+
+      it("should replace the initial buffer when a live buffer arrives", async () => {
+        c.feed.readLatest = async () => new MultiSeries([stored()]);
+        const scv = new StreamChannelValue(c, { channel: c.channel.key });
+        await waitForResolve(scv);
+        const initial = scv.testingOnlyLeadingBuffer;
+        const live = new Series({ data: new Float32Array([5]) });
+        c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([live])]]));
+        expect(scv.value()).toBe(5);
+        expect(initial?.refCount).toBe(0);
+        expect(live.refCount).toBe(1);
+      });
+
+      it("should skip the read for a virtual channel", async () => {
+        c.channel = new channel.Channel({ ...c.channel, virtual: true });
+        c.feed.readLatest = vi.fn(async () => new MultiSeries([stored()]));
+        const scv = new StreamChannelValue(c, { channel: c.channel.key });
+        await waitForStream(scv, c);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        expect(c.feed.readLatest).not.toHaveBeenCalled();
+        expect(scv.value()).toBe(NaN);
+      });
+
+      it("should read the latest sample for a calculated channel", async () => {
+        c.channel = new channel.Channel({
+          ...c.channel,
+          virtual: true,
+          expression: "return 1",
+        });
+        c.feed.readLatest = vi.fn(async () => new MultiSeries([stored()]));
+        const scv = new StreamChannelValue(c, { channel: c.channel.key });
+        expect(await waitForResolve(scv)).toBe(7);
+      });
+
+      it("should release the initial buffer on cleanup", async () => {
+        c.feed.readLatest = async () => new MultiSeries([stored()]);
+        const scv = new StreamChannelValue(c, { channel: c.channel.key });
+        await waitForResolve(scv);
+        const initial = scv.testingOnlyLeadingBuffer;
+        expect(initial?.refCount).toBe(1);
+        scv.cleanup();
+        expect(initial?.refCount).toBe(0);
+        expect(scv.testingOnlyLeadingBuffer).toBeNull();
+      });
+
+      it("should not adopt the initial buffer after cleanup", async () => {
+        let release = (): void => {};
+        const gate = new Promise<void>((resolve) => (release = resolve));
+        const initial = stored();
+        c.feed.readLatest = async () => {
+          await gate;
+          return new MultiSeries([initial]);
+        };
+        const scv = new StreamChannelValue(c, { channel: c.channel.key });
+        const handleChange = vi.fn();
+        scv.onChange(handleChange);
+        await waitForStream(scv, c);
+        scv.cleanup();
+        release();
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        expect(scv.testingOnlyLeadingBuffer).toBeNull();
+        expect(initial.refCount).toBe(0);
+        expect(handleChange).not.toHaveBeenCalled();
+      });
+
+      it("should post a status and keep streaming when the read fails", async () => {
+        const statuses: cstatus.Crude[] = [];
+        c.feed.readLatest = async () => {
+          throw new Error("read exploded");
+        };
+        const scv = new StreamChannelValue(
+          c,
+          { channel: c.channel.key },
+          { onStatusChange: (s) => statuses.push(s) },
+        );
+        await waitForStream(scv, c);
+        await expect.poll(() => statuses.length > 0).toBe(true);
+        expect(statuses[0].variant).toEqual("error");
+        expect(statuses[0].message).toEqual("Failed to read latest value");
+        expect(statuses[0].description).toEqual("read exploded");
+        expect(c.streamDestructorF).not.toHaveBeenCalled();
+        expect(scv.testingOnlyValid).toBe(true);
+        const live = new Series({ data: new Float32Array([5]) });
+        c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([live])]]));
+        expect(scv.value()).toBe(5);
+      });
+
+      describe("sampleTime", () => {
+        it("should be null before an initial sample lands", () => {
+          const scv = new StreamChannelValue(c, { channel: c.channel.key });
+          expect(scv.sampleTime()).toBeNull();
+        });
+
+        it("should be the end of the initial series", async () => {
+          c.feed.readLatest = async () => new MultiSeries([stored()]);
+          const scv = new StreamChannelValue(c, { channel: c.channel.key });
+          await waitForResolve(scv);
+          expect(scv.sampleTime()?.equals(SAMPLE_TIME)).toBe(true);
+        });
+
+        it("should be null when the initial series has no time range", async () => {
+          c.feed.readLatest = async () =>
+            new MultiSeries([new Series({ data: new Float32Array([7]) })]);
+          const scv = new StreamChannelValue(c, { channel: c.channel.key });
+          await waitForResolve(scv);
+          expect(scv.sampleTime()).toBeNull();
+        });
+
+        it("should be null once a live buffer replaces the initial buffer", async () => {
+          c.feed.readLatest = async () => new MultiSeries([stored()]);
+          const scv = new StreamChannelValue(c, { channel: c.channel.key });
+          await waitForResolve(scv);
+          const live = new Series({
+            data: new Float32Array([5]),
+            timeRange: new TimeRange(SAMPLE_TIME, TimeStamp.MAX),
+          });
+          c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([live])]]));
+          expect(scv.sampleTime()).toBeNull();
+        });
+
+        it("should be null after cleanup", async () => {
+          c.feed.readLatest = async () => new MultiSeries([stored()]);
+          const scv = new StreamChannelValue(c, { channel: c.channel.key });
+          await waitForResolve(scv);
+          scv.cleanup();
+          expect(scv.sampleTime()).toBeNull();
+        });
+      });
+    });
   });
 
   describe("StreamChannelStringValue", () => {
@@ -258,6 +457,7 @@ describe("remote", () => {
       channels = { retrieve: async (): Promise<channel.Channel> => this.channel };
 
       feed = {
+        readLatest: async (): Promise<MultiSeries> => new MultiSeries([]),
         read: async (): Promise<MultiSeries> => this.response,
         stream: (
           handler: framer.StreamHandler,
@@ -464,6 +664,119 @@ describe("remote", () => {
         expect(fresh.refCount).toBe(1);
       });
     });
+
+    describe("initializing", () => {
+      const SAMPLE_TIME = TimeStamp.seconds(100);
+      const stored = (): Series =>
+        new Series({
+          data: ["IDLE", "ARMED"],
+          timeRange: new TimeRange(TimeStamp.seconds(90), SAMPLE_TIME),
+        });
+
+      it("should initialize the value from the latest stored sample", async () => {
+        c.feed.readLatest = vi.fn(async () => new MultiSeries([stored()]));
+        const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
+        expect(await waitForResolve(scsv)).toBe("ARMED");
+        expect(c.feed.readLatest).toHaveBeenCalledWith(c.channel.key);
+      });
+
+      it("should not notify when nothing is stored", async () => {
+        const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
+        const handleChange = vi.fn();
+        scsv.onChange(handleChange);
+        await waitForStream(scsv, c);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        expect(handleChange).not.toHaveBeenCalled();
+        expect(scsv.value()).toBe("");
+      });
+
+      it("should keep a live buffer that arrives while the read is in flight", async () => {
+        let release = (): void => {};
+        const gate = new Promise<void>((resolve) => (release = resolve));
+        c.feed.readLatest = async () => {
+          await gate;
+          return new MultiSeries([stored()]);
+        };
+        const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
+        await waitForStream(scsv, c);
+        const live = new Series(["LIVE"]);
+        c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([live])]]));
+        release();
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        expect(scsv.value()).toBe("LIVE");
+        expect(live.refCount).toBe(1);
+      });
+
+      it("should replace the initial buffer and release it when a live buffer arrives", async () => {
+        const initial = stored();
+        c.feed.readLatest = async () => new MultiSeries([initial]);
+        const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
+        await waitForResolve(scsv);
+        expect(initial.refCount).toBe(1);
+        const live = new Series(["LIVE"]);
+        c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([live])]]));
+        expect(scsv.value()).toBe("LIVE");
+        expect(initial.refCount).toBe(0);
+      });
+
+      it("should skip the read for a virtual channel", async () => {
+        c.channel = new channel.Channel({ ...c.channel, virtual: true });
+        c.feed.readLatest = vi.fn(async () => new MultiSeries([stored()]));
+        const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
+        await waitForStream(scsv, c);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        expect(c.feed.readLatest).not.toHaveBeenCalled();
+        expect(scsv.value()).toBe("");
+      });
+
+      it("should post a status and keep streaming when the read fails", async () => {
+        const statuses: cstatus.Crude[] = [];
+        c.feed.readLatest = async () => {
+          throw new Error("read exploded");
+        };
+        const scsv = new StreamChannelStringValue(
+          c,
+          { channel: c.channel.key },
+          { onStatusChange: (s) => statuses.push(s) },
+        );
+        await waitForStream(scsv, c);
+        await expect.poll(() => statuses.length > 0).toBe(true);
+        expect(statuses[0].message).toEqual("Failed to read latest value");
+        expect(c.streamDestructorF).not.toHaveBeenCalled();
+        c.streamHandler?.(
+          new Map([[c.channel.key, new MultiSeries([new Series(["LIVE"])])]]),
+        );
+        expect(scsv.value()).toBe("LIVE");
+      });
+
+      describe("sampleTime", () => {
+        it("should be the end of the initial series", async () => {
+          c.feed.readLatest = async () => new MultiSeries([stored()]);
+          const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
+          expect(scsv.sampleTime()).toBeNull();
+          await waitForResolve(scsv);
+          expect(scsv.sampleTime()?.equals(SAMPLE_TIME)).toBe(true);
+        });
+
+        it("should be null once a live buffer replaces the initial buffer", async () => {
+          c.feed.readLatest = async () => new MultiSeries([stored()]);
+          const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
+          await waitForResolve(scsv);
+          c.streamHandler?.(
+            new Map([[c.channel.key, new MultiSeries([new Series(["LIVE"])])]]),
+          );
+          expect(scsv.sampleTime()).toBeNull();
+        });
+
+        it("should be null after cleanup", async () => {
+          c.feed.readLatest = async () => new MultiSeries([stored()]);
+          const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
+          await waitForResolve(scsv);
+          scsv.cleanup();
+          expect(scsv.sampleTime()).toBeNull();
+        });
+      });
+    });
   });
 
   describe("ChannelData", () => {
@@ -502,6 +815,7 @@ describe("remote", () => {
       };
 
       feed = {
+        readLatest: async (): Promise<MultiSeries> => new MultiSeries([]),
         read: async (tr: TimeRange, key: channel.Key): Promise<MultiSeries> => {
           this.readMock(tr, key);
           return this.response[key];
@@ -833,6 +1147,7 @@ describe("remote", () => {
       };
 
       feed = {
+        readLatest: async (): Promise<MultiSeries> => new MultiSeries([]),
         read: async (tr: TimeRange, key: channel.Key): Promise<MultiSeries> => {
           this.readMock(tr, key);
           return this.response;

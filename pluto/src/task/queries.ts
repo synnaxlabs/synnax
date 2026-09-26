@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, query, rack, task } from "@synnaxlabs/client";
+import { type ontology, query, rack, type Synnax, task } from "@synnaxlabs/client";
 import { type Form } from "@synnaxlabs/lyra/form";
 import { array, type optional, verbs, zod } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -21,19 +21,60 @@ export type RetrieveQuery = task.RetrieveSingleParams;
 
 const BASE_QUERY = { includeStatus: true };
 
-// Cached answers are untyped; schemas only validate the fetch, so schema-typed
-// reads cast the shared cache entries.
-export const createRetrieve = <S extends task.Schemas = task.Schemas>(schemas?: S) =>
-  Flux.createRetrieve<RetrieveQuery, task.Task<S>>({
+/**
+ * Parses cached and streamed tasks through the schemas, so a typed hook never hands on
+ * the untyped tasks other consumers write into the client cache. A task that fails to
+ * parse reads as not cached. Results are memoized per task, as the cache interns its
+ * tasks and Flux compares snapshots by identity.
+ */
+const createCachedParser = <S extends task.Schemas>(schemas: S) => {
+  const schema = task.payloadZ(schemas);
+  const tasks = new WeakMap<task.Task, task.Task<S> | undefined>();
+  const deleted = new WeakMap<query.Deleted<task.Task>, query.Deleted<task.Task<S>>>();
+  const parse = (client: Synnax, cached: task.Task): task.Task<S> | undefined => {
+    if (tasks.has(cached)) return tasks.get(cached);
+    const result = schema.safeParse(cached.payload);
+    // payloadZ types each optional schema as a union with its default, so the parsed
+    // payload narrows to the typed one here.
+    const typed = result.success
+      ? client.tasks.sugar(result.data as task.Payload<S>, schemas)
+      : undefined;
+    tasks.set(cached, typed);
+    return typed;
+  };
+  return (
+    client: Synnax,
+    cached: query.Cached<task.Task> | undefined,
+  ): query.Cached<task.Task<S>> | undefined => {
+    if (cached === undefined) return undefined;
+    if (!query.Deleted.matches(cached)) return parse(client, cached);
+    const held = deleted.get(cached);
+    if (held != null) return held;
+    const corpse = parse(client, cached.corpse);
+    if (corpse === undefined) return undefined;
+    const next = new query.Deleted(corpse, cached.deletedAt);
+    deleted.set(cached, next);
+    return next;
+  };
+};
+
+export const createRetrieve = <S extends task.Schemas = task.Schemas>(schemas?: S) => {
+  const parse = schemas == null ? null : createCachedParser(schemas);
+  return Flux.createRetrieve<RetrieveQuery, task.Task<S>>({
     name: RESOURCE_NAME,
     normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
     retrieve: async ({ client, query }) =>
       await client.tasks.retrieve({ ...query, schemas }),
     onChange: ({ client, query }, handler) =>
-      client.tasks.onChange(query, handler as query.ChangeHandler<task.Task>),
+      parse == null
+        ? client.tasks.onChange(query, handler as query.ChangeHandler<task.Task>)
+        : client.tasks.onChange(query, (cached) => handler(parse(client, cached))),
     getCached: ({ client, query }) =>
-      client.tasks.getCached(query) as query.Cached<task.Task<S>> | undefined,
+      parse == null
+        ? (client.tasks.getCached(query) as query.Cached<task.Task<S>> | undefined)
+        : parse(client, client.tasks.getCached(query)),
   });
+};
 
 export const { use, useEnsure, useResult, useTombstone, createSelector } =
   createRetrieve();
@@ -129,7 +170,9 @@ export const createForm = <S extends task.Schemas = task.Schemas>({
     getCached: ({ client, query: q }) => {
       const cached = client.tasks.getCached(q);
       if (!query.isLive(cached) || cached.status == null) return undefined;
-      return toFormValues(cached.payload as task.Payload<S>);
+      const parsed = task.payloadZ(schemas).safeParse(cached.payload);
+      if (!parsed.success) return undefined;
+      return toFormValues(parsed.data as task.Payload<S>);
     },
     update: async ({ client, ...form }) => {
       const value = form.value();

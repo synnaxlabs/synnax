@@ -78,6 +78,7 @@ func StartServer(
 	bind func(grpc.ServiceRegistrar, *fgrpc.Pool),
 	opts ...grpc.ServerOption,
 ) address.Address {
+	ginkgo.GinkgoHelper()
 	lis := testutil.MustSucceed(net.Listen("tcp", "localhost:0"))
 	addr := address.Address(lis.Addr().String())
 	var began atomic.Bool

@@ -27,7 +27,7 @@ export interface DetailsProps {
 
 export interface ListAndDetailsProps<C extends Channel> extends Pick<
   ChannelListProps<C>,
-  "onTare" | "allowTare" | "listItem" | "contextMenuItems"
+  "onTare" | "allowTare" | "listItem" | "contextMenuItems" | "resolve"
 > {
   details: Component.RenderProp<DetailsProps>;
   createChannel: CreateChannel<C>;

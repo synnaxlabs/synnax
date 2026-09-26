@@ -1345,9 +1345,11 @@ var _ = Describe("Time", func() {
 		var root *symbol.Symbol
 		BeforeEach(func() { root = symbol.NewRoot(nil, time.NewSymbols()) })
 		bare := func(ctx context.Context, name string) *symbol.Symbol {
+			GinkgoHelper()
 			return MustSucceed(root.Resolve(ctx, name, symbol.IncludeInternal))
 		}
 		timeM := func(ctx context.Context, member string) *symbol.Symbol {
+			GinkgoHelper()
 			mod := MustSucceed(root.Resolve(ctx, "time", symbol.IncludeInternal))
 			return MustSucceed(mod.Resolve(ctx, member, symbol.IncludeInternal))
 		}
@@ -2376,6 +2378,7 @@ var _ = Describe("TimingBase GCD matrix", func() {
 	// compileBase compiles source and creates every timer node through a fresh
 	// time Host, returning the resulting BaseInterval.
 	compileBase := func(ctx context.Context, source string) telem.TimeSpan {
+		GinkgoHelper()
 		root := NewRoot(
 			nil,
 			symbol.Symbol{

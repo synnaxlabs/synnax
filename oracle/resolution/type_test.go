@@ -25,6 +25,7 @@ var _ = Describe("CollectionKind", func() {
 	BeforeEach(func() {
 		table = resolution.NewTable()
 		add := func(name string, form resolution.TypeForm) {
+			GinkgoHelper()
 			Expect(table.Add(resolution.Type{
 				Name:          name,
 				QualifiedName: "t." + name,

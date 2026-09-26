@@ -14,6 +14,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { useCallback, useEffect } from "react";
 
 import { Empty } from "@/platform/empty";
+import { type BindChannelsProps } from "@/platform/task/BindChannels";
 import {
   ChannelList as Base,
   type ChannelListProps as BaseProps,
@@ -63,8 +64,9 @@ const EmptyContent = ({ onAdd }: EmptyContentProps) => {
 
 export interface ChannelListProps<C extends Channel> extends Omit<
   BaseProps<C>,
-  "data" | "header" | "emptyContent" | "path" | "remove" | "onDuplicate"
+  "data" | "header" | "emptyContent" | "path" | "remove" | "onDuplicate" | "resolve"
 > {
+  resolve: BindChannelsProps<C>["resolve"];
   createChannel: (channels: C[]) => C | null;
   createChannels?: (channels: C[], keys: string[]) => C[];
   path?: string;

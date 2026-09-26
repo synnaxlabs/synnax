@@ -26,6 +26,7 @@ import (
 
 var _ = Describe("MigrateRack", func() {
 	migrateSeed := func(ctx SpecContext, seed v0.Rack) v2.Rack {
+		GinkgoHelper()
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Rack]{DB: db}))
 		Expect(gorp.NewCreate[v0.Key, v0.Rack]().

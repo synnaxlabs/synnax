@@ -34,6 +34,7 @@ func openStreamer(ctx context.Context, name string) (
 	confluence.Inlet[framer.StreamerRequest],
 	confluence.Outlet[framer.StreamerResponse], io.Closer,
 ) {
+	GinkgoHelper()
 	var sigCh channel.Channel
 	Expect(channelSvc.NewRetrieve().
 		Where(channel.MatchNames(name)).

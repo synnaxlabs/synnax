@@ -12,8 +12,9 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { errors, primitive } from "@synnaxlabs/x";
-import { type FC } from "react";
+import { type FC, useCallback } from "react";
 
+import { useFromConfig } from "@/feature/ni/device/queries";
 import { Select } from "@/feature/ni/device/Select";
 import * as Device from "@/feature/ni/device/types";
 import { createNextDIChannel } from "@/feature/ni/task/createChannel";
@@ -59,13 +60,27 @@ const NameComponent = ({ channel, itemKey, path }: NameComponentProps) => (
 
 const name = Component.renderProp(NameComponent);
 
-const Form: FC = () => (
-  <DigitalChannelList<DIChannel>
-    createChannel={createNextDIChannel}
-    name={name}
-    contextMenuItems={Task.readChannelContextMenuItem}
-  />
-);
+const Form: FC = () => {
+  const dev = useFromConfig();
+  const resolve = useCallback(
+    (ch: DIChannel) =>
+      dev == null
+        ? null
+        : {
+            channel:
+              dev.properties.digitalInput.channels[getDigitalChannelDeviceKey(ch)] ?? 0,
+          },
+    [dev],
+  );
+  return (
+    <DigitalChannelList<DIChannel>
+      createChannel={createNextDIChannel}
+      name={name}
+      contextMenuItems={Task.readChannelContextMenuItem}
+      resolve={resolve}
+    />
+  );
+};
 
 const getInitialValues: Task.GetInitialValues<DigitalReadSchemas> = ({
   deviceKey,

@@ -41,6 +41,12 @@ export const useLabelledBy = (props: {
   );
 };
 
+/**
+ * @returns whether an enclosing {@link Item} shows a visible label for the control.
+ * A control that carries its own name must say what it is when it has no value.
+ */
+export const useLabelled = (): boolean => useContext(LabelIDContext) != null;
+
 export interface ItemProps extends Flex.BoxProps {
   label?: string;
   required?: boolean;

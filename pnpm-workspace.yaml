@@ -80,14 +80,14 @@ catalog:
   '@synnaxlabs/x': workspace:^
   '@tanstack/react-virtual': ^3.14.10
   '@tauri-apps/api': ^2.11.1
-  '@tauri-apps/cli': ^2.11.4
+  '@tauri-apps/cli': ^2.11.5
   '@tauri-apps/plugin-deep-link': ^2.4.10
   '@tauri-apps/plugin-dialog': ^2.7.3
   '@tauri-apps/plugin-fs': ^2.5.2
   '@tauri-apps/plugin-process': ^2.3.1
   '@tauri-apps/plugin-shell': ^2.3.6
-  '@tauri-apps/plugin-store': ^2.4.4
-  '@tauri-apps/plugin-updater': ^2.11.0
+  '@tauri-apps/plugin-store': ^2.4.5
+  '@tauri-apps/plugin-updater': ^2.12.0
   '@testing-library/react': ^16.3.2
   '@testing-library/user-event': ^14.6.7
   '@types/d3-scale': ^4.0.9
