@@ -198,7 +198,7 @@ class ViewLifecycle(ConsoleCase):
         views = explorer.views
         views.create(view_a)
         assert views.is_selected(view_a), f"'{view_a}' should be selected on create"
-        views.select_filter("Select labels", self.label_a_name)
+        views.select_filter("Labels", self.label_a_name)
         self._assert_only(
             explorer,
             shown=[explorer.labeled_a],
@@ -210,7 +210,7 @@ class ViewLifecycle(ConsoleCase):
         assert explorer.exists(explorer.labeled_b), (
             f"New view '{view_b}' should start unfiltered"
         )
-        views.select_filter("Select labels", self.label_b_name)
+        views.select_filter("Labels", self.label_b_name)
         self._assert_only(
             explorer,
             shown=[explorer.labeled_b],

@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/select/Button.css";
+
 import { type record } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type ReactElement, useMemo } from "react";
 
 import { Button as Base } from "@/button";
 import { context } from "@/context";
@@ -20,9 +22,17 @@ import { useItemState } from "@/select/Context";
 import { Frame, type FrameProps } from "@/select/Frame";
 import { Text } from "@/text";
 
-const [PreviewContext, usePreview] = context.create<boolean>({
-  defaultValue: false,
-  displayName: "Select.Buttons.Preview",
+/** How the group draws its buttons. */
+export type Variant = "outlined" | "text";
+
+interface ContextValue {
+  preview: boolean;
+  variant: Variant;
+}
+
+const [Context, useContext] = context.create<ContextValue>({
+  defaultValue: { preview: false, variant: "text" },
+  displayName: "Select.Buttons",
 });
 
 export interface ButtonsProps<
@@ -36,6 +46,12 @@ export interface ButtonsProps<
   keys: K[] | readonly K[];
   /** Whether to render the buttons flat and inert, for use inside a preview. */
   preview?: boolean;
+  /**
+   * "text" (the default) spaces the buttons like tabs: the unselected ones are plain
+   * text and only the selected one carries a chassis. "outlined" packs bordered
+   * buttons into one control, for controls that float over a canvas.
+   */
+  variant?: Variant;
 }
 
 /**
@@ -54,6 +70,8 @@ export const Buttons = <K extends record.Key = record.Key>({
   allowNone,
   multiple,
   preview = false,
+  variant = "text",
+  className,
   children,
   ...rest
 }: ButtonsProps<K>): ReactElement => {
@@ -67,17 +85,29 @@ export const Buttons = <K extends record.Key = record.Key>({
     onChange,
   } as FrameProps<K, record.Keyed<K>>;
   const isEmpty = value == null || (Array.isArray(value) && value.length === 0);
+  const ctx = useMemo(() => ({ preview, variant }), [preview, variant]);
+  const text = variant === "text";
   return (
     <Frame<K, record.Keyed<K>>
       closeDialogOnSelect={false}
       {...listProps}
       {...selectionProps}
     >
-      <PreviewContext value={preview}>
-        <Flex.Box pack {...rest}>
+      <Context value={ctx}>
+        <Flex.Box
+          x
+          pack={!text}
+          gap={text ? "tiny" : undefined}
+          className={CSS.cls(
+            className,
+            CSS.B("select-btns"),
+            CSS.BM("select-btns", variant),
+          )}
+          {...rest}
+        >
           {preview && isEmpty ? <Text.Text color={8}>None</Text.Text> : children}
         </Flex.Box>
-      </PreviewContext>
+      </Context>
     </Frame>
   );
 };
@@ -98,11 +128,12 @@ export const Button = <K extends record.Key = record.Key>({
   ...rest
 }: ButtonProps<K>): ReactElement | null => {
   const { selected, onSelect } = useItemState<K>(itemKey);
-  const preview = usePreview();
+  const { preview, variant } = useContext();
   if (preview && !selected) return null;
   return (
     <Base.Toggle
       preview={preview}
+      variant={variant}
       {...rest}
       id={itemKey.toString()}
       onChange={onSelect}
