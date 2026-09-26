@@ -36,16 +36,19 @@ export const canDropHaulItem = Haul.canDropOfType<HaulItem>(HAUL_TYPE);
 
 export interface BaseSwatchProps extends Omit<
   Button.ButtonProps,
-  "onChange" | "value" | "size"
+  "onChange" | "value" | "size" | "placeholder"
 > {
   /** The color shown. Absent renders the swatch unset. */
   value?: color.Crude;
+  /** The color shown dimmed while the swatch is unset. */
+  placeholder?: color.Crude;
   onChange?: (c: color.Color) => void;
   size?: Button.ButtonProps["size"] | "tiny";
 }
 
 export const BaseSwatch = ({
   value,
+  placeholder,
   onChange,
   className,
   size = "medium",
@@ -80,12 +83,13 @@ export const BaseSwatch = ({
   const handleDragStart = useCallback(() => {
     startDrag([createHaulItem(color.hex(clr))]);
   }, [startDrag, clr]);
+  const shown = value ?? placeholder;
   const swatchStyle = useMemo(
     () =>
-      unset
+      shown == null
         ? style
-        : { ...style, [CSS.variable("swatch", "color")]: color.cssString(value) },
-    [style, value, unset],
+        : { ...style, [CSS.variable("swatch", "color")]: color.cssString(shown) },
+    [style, shown],
   );
   return (
     <Button.Button

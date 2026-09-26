@@ -9,7 +9,7 @@
 
 import "@/color/Swatch.css";
 
-import { color, state as xstate } from "@synnaxlabs/x";
+import { type color, state as xstate } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo, useState } from "react";
 
 import { Button } from "@/button";
@@ -21,6 +21,7 @@ import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { state } from "@/state";
 import { Text } from "@/text";
+import { Theming } from "@/theming";
 
 export interface SwatchProps
   extends
@@ -43,7 +44,9 @@ export interface SwatchProps
  * worth a change per pixel of drag through the gradient. A change pending when the
  * swatch unmounts is dropped.
  * @param props.onClear - A function to call to return the color to unset. An unset
- * swatch shows no color and takes no drag.
+ * swatch takes no drag.
+ * @param props.placeholder - The color an unset swatch shows dimmed and the picker opens
+ * on. Defaults to the theme's `gray.l11`, the fallback of an unset symbol color.
  */
 export const Swatch = ({
   onChange,
@@ -55,6 +58,7 @@ export const Swatch = ({
   onClick,
   value,
   onClear,
+  placeholder,
   visible: propsVisible,
   ...rest
 }: SwatchProps): ReactElement => {
@@ -63,6 +67,8 @@ export const Swatch = ({
     value: propsVisible,
     onChange: onVisibleChange,
   });
+  const theme = Theming.use();
+  const shownPlaceholder = placeholder ?? theme.colors.gray.l11;
   const [pending, setPending] = useState<color.Color | null>(null);
   const handleVisibleChange = useCallback<xstate.Setter<boolean>>(
     (arg) => {
@@ -111,6 +117,7 @@ export const Swatch = ({
       onClick={handleClick}
       onChange={handleSwatchChange}
       value={shownValue}
+      placeholder={shownPlaceholder}
       style={style}
       tooltip={tooltip}
       {...rest}
@@ -128,7 +135,10 @@ export const Swatch = ({
       {swatch}
       <Dialog.Dialog rounded="small">
         <Flex.Box y>
-          <Picker value={shownValue ?? color.ZERO} onChange={handlePickerChange} />
+          <Picker
+            value={shownValue ?? shownPlaceholder}
+            onChange={handlePickerChange}
+          />
           {onClear != null && value != null && (
             <Button.Button size="small" variant="text" onClick={handleClear}>
               <Icon.Close />

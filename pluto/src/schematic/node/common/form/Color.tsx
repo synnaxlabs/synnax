@@ -13,15 +13,25 @@ import { type ReactElement } from "react";
 import { Color } from "@/color";
 import { Form } from "@/form";
 
-export const ColorField: Form.FieldT<color.Crude | undefined> = (
-  props,
-): ReactElement => (
+export interface ColorFieldProps extends Omit<
+  Form.FieldProps<color.Crude | undefined>,
+  "placeholder"
+> {
+  /** The color the symbol renders with while the field is unset. */
+  placeholder?: color.Crude;
+}
+
+export const ColorField = ({
+  placeholder,
+  ...props
+}: ColorFieldProps): ReactElement => (
   <Form.Field label="Color" align="start" padHelpText={false} {...props}>
     {({ value, onChange, ...rest }) => (
       <Color.Swatch
         value={value}
         onChange={onChange}
         onClear={() => onChange(undefined)}
+        placeholder={placeholder}
         {...rest}
         bordered
       />

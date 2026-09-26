@@ -24,7 +24,9 @@
     }
 
     &.pluto--unset {
-        background: transparent;
+        background: rgb(
+            from var(--pluto-swatch-color, transparent) r g b / calc(alpha * 0.35)
+        );
         border-style: dashed;
     }
 

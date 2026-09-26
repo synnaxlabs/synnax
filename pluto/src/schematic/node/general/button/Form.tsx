@@ -18,6 +18,7 @@ import { Control } from "@/schematic/node/common/control";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Tabs } from "@/tabs";
+import { Theming } from "@/theming";
 import { Button as BaseButton } from "@/vis/button";
 
 type ButtonTelemFormT = Pick<
@@ -57,28 +58,31 @@ export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
   );
 };
 
-export const ButtonForm = (): ReactElement => (
-  <Tabs.Frame initialValue="style">
-    <Tabs.Selector>
-      <Tabs.Tab itemKey="style">Style</Tabs.Tab>
-      <Tabs.Tab itemKey="control">Control</Tabs.Tab>
-    </Tabs.Selector>
-    <Tabs.Content itemKey="style">
-      <Form.Wrapper x>
-        <Flex.Box y align="stretch" grow gap="small">
-          <Label.Form
-            path="label"
-            omit={["align", "maxInlineSize", "level", "direction"]}
-          />
-          <Flex.Box x>
-            <Form.ColorField path="color" />
-            <Form.SizeField />
+export const ButtonForm = (): ReactElement => {
+  const theme = Theming.use();
+  return (
+    <Tabs.Frame initialValue="style">
+      <Tabs.Selector>
+        <Tabs.Tab itemKey="style">Style</Tabs.Tab>
+        <Tabs.Tab itemKey="control">Control</Tabs.Tab>
+      </Tabs.Selector>
+      <Tabs.Content itemKey="style">
+        <Form.Wrapper x>
+          <Flex.Box y align="stretch" grow gap="small">
+            <Label.Form
+              path="label"
+              omit={["align", "maxInlineSize", "level", "direction"]}
+            />
+            <Flex.Box x>
+              <Form.ColorField path="color" placeholder={theme.colors.primary.z} />
+              <Form.SizeField />
+            </Flex.Box>
           </Flex.Box>
-        </Flex.Box>
-      </Form.Wrapper>
-    </Tabs.Content>
-    <Tabs.Content itemKey="control">
-      <ButtonTelemForm path="" />
-    </Tabs.Content>
-  </Tabs.Frame>
-);
+        </Form.Wrapper>
+      </Tabs.Content>
+      <Tabs.Content itemKey="control">
+        <ButtonTelemForm path="" />
+      </Tabs.Content>
+    </Tabs.Frame>
+  );
+};
