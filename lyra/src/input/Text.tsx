@@ -139,7 +139,8 @@ export const Text = ({
   // itself, so a press on the frame focuses the input. Preventing the default keeps
   // the press from first moving focus to the body.
   const handleFrameMouseDown = (e: React.MouseEvent<HTMLDivElement>): void => {
-    if (disabled || e.target === internalRef.current) return;
+    if (disabled || internalRef.current == null || e.target === internalRef.current)
+      return;
     e.preventDefault();
     internalRef.current?.focus();
   };

@@ -29,16 +29,14 @@ export const Sections = ({
   x,
   y,
   ...rest
-}: SectionsProps): ReactElement => {
-  const dir = Flex.parseDirection(direction, x, y) ?? "y";
-  return (
-    <Flex.Box
-      className={CSS.cls(CSS.B("form-sections"), CSS.dir(dir), className)}
-      empty
-      {...rest}
-    />
-  );
-};
+}: SectionsProps): ReactElement => (
+  <Flex.Box
+    className={CSS.cls(CSS.B("form-sections"), className)}
+    direction={Flex.parseDirection(direction, x, y) ?? "y"}
+    empty
+    {...rest}
+  />
+);
 
 export interface SectionProps extends Omit<Flex.BoxProps, "title"> {
   title: string;
