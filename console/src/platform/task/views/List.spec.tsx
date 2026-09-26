@@ -74,7 +74,7 @@ describe("layouts.List", () => {
       { values: { config: { channels: [] } } },
     );
     await waitFor(() => expect(screen.getByText("No channels in task")).toBeTruthy());
-    fireEvent.click(screen.getByRole("button", { name: "New channel" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add channel" }));
     await waitFor(() =>
       expect(form.current?.get("config.channels").value).toHaveLength(1),
     );
