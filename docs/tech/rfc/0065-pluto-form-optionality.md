@@ -81,9 +81,9 @@ off, and selects highlight nothing.
 
 `Color.Swatch` gains an unset state that shows a placeholder color dimmed, plus a clear
 action that returns the field to unset. The picker opens on the placeholder, so the
-first pick starts from the color the symbol renders with. A fallback color per call site
-cannot express a role, which is why the resolver lives in the theme (RFC 0061 §3.1) and
-not in the form.
+first pick starts from the color the symbol renders with. The placeholder is never
+stored. A stored fallback color cannot express a role, which is why the resolver lives
+in the theme (RFC 0061 §3.1) and not in the form.
 
 `Input.Numeric` keeps `emptyValue`. Its one use maps a stored sentinel the schema gives
 a meaning (`-1` for a log channel's precision), not absence.

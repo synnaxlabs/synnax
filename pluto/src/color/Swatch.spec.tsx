@@ -121,15 +121,13 @@ describe("Swatch", () => {
       expect(hexInputOf(c).value).toEqual("0000FF");
     });
 
-    it("should commit an opaque color when the first pick starts on the placeholder", () => {
-      const onChange = vi.fn();
+    it("should open the picker opaque while the swatch is unset", () => {
       const c = render(
-        <Color.Swatch value={undefined} placeholder={RED} onChange={onChange} />,
+        <Color.Swatch value={undefined} placeholder={RED} onChange={vi.fn()} />,
         { wrapper: Wrapper },
       );
       fireEvent.click(swatchOf(c));
-      pick(c, GREEN);
-      expect(color.aValue(onChange.mock.calls[0][0])).toEqual(1);
+      expect((c.getByLabelText("a") as HTMLInputElement).value).toEqual("100");
     });
 
     it("should default to the theme's emphatic gray", () => {

@@ -45,8 +45,8 @@ export interface SwatchProps
  * swatch unmounts is dropped.
  * @param props.onClear - A function to call to return the color to unset. An unset
  * swatch takes no drag.
- * @param props.placeholder - The color an unset swatch shows dimmed and the picker opens
- * on. Defaults to the theme's `gray.l11`, the fallback of an unset symbol color.
+ * @param props.placeholder - The color an unset swatch shows dimmed and the picker
+ * opens on. Defaults to the theme's `gray.l11`, the fallback of an unset symbol color.
  */
 export const Swatch = ({
   onChange,
