@@ -10,7 +10,7 @@
 import "@/schematic/Schematic.css";
 
 import { box, TimeSpan, xy } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useMemo, useRef } from "react";
+import { type ReactElement, useCallback, useMemo, useRef, useState } from "react";
 
 import { type Component } from "@/component";
 import { CSS } from "@/css";
@@ -40,6 +40,7 @@ import {
   useUngroup,
 } from "@/schematic/queries";
 import { useKey } from "@/schematic/Suspended";
+import { Tooltip } from "@/schematic/Tooltip";
 import { type Triggers } from "@/triggers";
 import { Diagram as BaseDiagram } from "@/vis/diagram";
 
@@ -57,8 +58,14 @@ export interface SchematicProps extends Omit<
   /** Rendered as a centered overlay when the schematic has no nodes. */
   emptyContent?: ReactElement;
 }
+interface Hovered {
+  nodeKey: string;
+  anchor: HTMLElement;
+}
+
 const AUTO_RENDER_INTERVAL = TimeSpan.seconds(1).milliseconds;
 const DRAG_HANDLE_SELECTOR = `.${Node.DRAG_HANDLE_CLASS}`;
+const CONTROL_STATE_SELECTOR = `.${Node.Control.STATE_CLASS}`;
 
 export const Schematic = ({
   className,
@@ -190,6 +197,23 @@ export const Schematic = ({
     [editable, onSelectionChange, onNodeDoubleClick],
   );
 
+  const [hovered, setHovered] = useState<Hovered | null>(null);
+  // The control chip is inside the node, so moves over it close the tooltip instead.
+  const handleNodeMouseMove = useCallback<
+    NonNullable<BaseDiagram.DiagramProps["onNodeMouseMove"]>
+  >((e, node) => {
+    const { target, currentTarget: anchor } = e;
+    const overControl =
+      target instanceof Element && target.closest(CONTROL_STATE_SELECTOR) != null;
+    setHovered((prev) => {
+      if (overControl || !(anchor instanceof HTMLElement)) return null;
+      if (prev?.nodeKey === node.id) return prev;
+      return { nodeKey: node.id, anchor };
+    });
+  }, []);
+  const clearHovered = useCallback(() => setHovered(null), []);
+  const hoveredConfig = hovered == null ? undefined : configs[hovered.nodeKey];
+
   BaseDiagram.useTriggers({
     onSelectAll: handleSelectAll,
     onClearSelection: handleClearSelection,
@@ -269,6 +293,9 @@ export const Schematic = ({
       editable={editable}
       onDoubleClick={onDoubleClick}
       onNodeDoubleClick={handleNodeDoubleClick}
+      onNodeMouseMove={handleNodeMouseMove}
+      onNodeMouseLeave={clearHovered}
+      onNodeDragStart={clearHovered}
       onContextMenu={contextMenu.open}
       onCopy={onCopy}
       onCut={onCut}
@@ -280,6 +307,9 @@ export const Schematic = ({
       {...props}
     >
       {children}
+      {hovered != null && hoveredConfig != null && Node.isConfig(hoveredConfig) && (
+        <Tooltip key={hovered.nodeKey} anchor={hovered.anchor} config={hoveredConfig} />
+      )}
       {nodes.length === 0 && emptyContent != null && (
         <Flex.Box center className={CSS.BE("schematic", "empty")}>
           {emptyContent}

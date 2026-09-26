@@ -162,6 +162,9 @@ export interface DiagramProps
       | "snapToGrid"
       | "onNodeClick"
       | "onNodeDoubleClick"
+      | "onNodeMouseMove"
+      | "onNodeMouseLeave"
+      | "onNodeDragStart"
       | "edgesReconnectable"
     > {
   edges: Edge[];

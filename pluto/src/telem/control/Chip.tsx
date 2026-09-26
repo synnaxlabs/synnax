@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { control as clientControl, type status } from "@synnaxlabs/client";
-import { TimeStamp } from "@synnaxlabs/x";
+import { location, TimeStamp } from "@synnaxlabs/x";
 import {
   type CSSProperties,
   type ReactElement,
@@ -129,6 +129,7 @@ export const Chip = ({ source, sink, className, ...rest }: ChipProps): ReactElem
       disabled={disabled}
       onClick={handleToggle}
       tooltip={<Text.Text level="small">{message}</Text.Text>}
+      tooltipLocation={location.BOTTOM_CENTER}
       style={buttonStyle}
       {...rest}
     >
