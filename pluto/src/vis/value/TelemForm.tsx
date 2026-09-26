@@ -30,7 +30,7 @@ export interface TelemFormProps {
   path: string;
 }
 
-/** TelemForm is a value's source and format sections; the caller lays them out. */
+/** TelemForm renders telemetry sections; place it inside `Form.Sections`. */
 export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
   const { set } = Form.useContext();
   const { value, onChange } = Form.useField<ValueTelemFormT>(path);

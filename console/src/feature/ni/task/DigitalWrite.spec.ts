@@ -135,10 +135,7 @@ describe("DigitalWrite", () => {
     );
     const cmd = await client.channels.retrieve(deployed.config.channels[0].cmdChannel);
     await screen.findByText(cmd.name);
-    const [, line] = rendered.container.querySelectorAll<HTMLInputElement>(
-      ".port-line-input input",
-    );
-    commitFieldInput(line, "7");
+    commitFieldInput(screen.getByLabelText<HTMLInputElement>("Line"), "7");
     await waitFor(async () => {
       const saved = await client.tasks.retrieve({
         key: rendered.draft.key,

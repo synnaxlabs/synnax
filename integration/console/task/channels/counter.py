@@ -90,7 +90,7 @@ class Counter:
             if isinstance(expected_value, bool):
                 actual_value = self.layout.get_toggle(key)
             elif is_numeric_string(expected_value):
-                # Range inputs have no visible label, so match the accessible name.
+                # Match by accessible name: range inputs have no visible label.
                 actual_value = self.layout.page.get_by_label(
                     key, exact=True
                 ).input_value()

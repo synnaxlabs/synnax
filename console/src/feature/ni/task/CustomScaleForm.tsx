@@ -112,7 +112,7 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
     <>
       <CustomScaleUnitsFields prefix={prefix} />
       <Form.NumericField fieldKey="slope" label="Slope" path={prefix} />
-      <Form.NumericField fieldKey="yIntercept" label="Y-Intercept" path={prefix} />
+      <Form.NumericField fieldKey="yIntercept" label="Y-intercept" path={prefix} />
     </>
   ),
   map: ({ prefix }) => (

@@ -124,16 +124,13 @@ const selectStatusRenderProp = Component.renderProp(
 
 const EMPTY_CONTENT = <Empty.Action message="No alerts" />;
 
-const useAlertName = (itemKey: string): string | null => {
+const useAlertStatus = (itemKey: string): status.Status | undefined => {
   const statusKey = PForm.useFieldValue<status.Key>(`config.alerts.${itemKey}.status`);
-  const { data: status } = Status.useResult(
-    statusKey.length > 0 ? { key: statusKey } : null,
-  );
-  return status?.name ?? null;
+  return Status.useResult(statusKey.length > 0 ? { key: statusKey } : null).data;
 };
 
 const AlertTitle = ({ itemKey }: { itemKey: string }) => {
-  const name = useAlertName(itemKey);
+  const name = useAlertStatus(itemKey)?.name;
   return (
     <Text.Text level="p" weight={500} color={name == null ? 8 : 10} overflow="ellipsis">
       {name ?? "New alert"}
@@ -143,10 +140,7 @@ const AlertTitle = ({ itemKey }: { itemKey: string }) => {
 
 const AlertListItem = (props: List.ItemProps<string>) => {
   const { itemKey } = props;
-  const statusKey = PForm.useFieldValue<status.Key>(`config.alerts.${itemKey}.status`);
-  const { data: status } = Status.useResult(
-    statusKey.length > 0 ? { key: statusKey } : null,
-  );
+  const status = useAlertStatus(itemKey);
   const isNotDefined = status == null;
   return (
     <Select.ListItem {...props} justify="between" align="center" x>

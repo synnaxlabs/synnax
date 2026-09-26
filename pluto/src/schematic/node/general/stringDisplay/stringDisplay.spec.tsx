@@ -113,10 +113,10 @@ describe("StringDisplay", () => {
 
     it("should render the style controls", () => {
       const { getAllByText, getByText } = renderForm();
-      expect(getAllByText("Label").length).toBeGreaterThan(0);
+      expect(getAllByText("Label")).toHaveLength(2);
       expect(getByText("Color")).toBeDefined();
       expect(getByText("Width")).toBeDefined();
-      expect(getAllByText("Size").length).toBeGreaterThan(0);
+      expect(getAllByText("Size")).toHaveLength(2);
     });
 
     it("should render the telemetry controls", () => {

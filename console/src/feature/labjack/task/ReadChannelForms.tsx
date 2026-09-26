@@ -166,9 +166,10 @@ interface FormProps {
   deviceModel: Device.Model;
 }
 
-export const FORMS: Record<ReadChannelType, FC<FormProps>> = {
+/** The signal fields for each channel type, or null for a type that has none. */
+export const FORMS: Record<ReadChannelType, FC<FormProps> | null> = {
   analog: ({ path }) => <MaxVoltageField path={path} />,
-  digital: () => null,
+  digital: null,
   thermocouple: ({ path, deviceModel }) => (
     <>
       <ThermocoupleTypeField path={path} />

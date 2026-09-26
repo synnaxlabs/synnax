@@ -157,6 +157,21 @@ describe("AnalogRead", () => {
     }
   });
 
+  it("should hide the scale section for unscaled channel types", async () => {
+    await renderAnalogRead({
+      ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+      channels: [
+        createChannel("ai_thermocouple", 0, { name: "chan_unscaled" }),
+        createChannel("ai_voltage", 1, { name: "chan_scaled" }),
+      ],
+    });
+    fireEvent.click(await screen.findByText("chan_scaled"));
+    await waitFor(() => expect(screen.getByText("Custom scaling")).toBeTruthy());
+    fireEvent.click(screen.getByText("chan_unscaled"));
+    await waitFor(() => expect(screen.getByText("Thermocouple type")).toBeTruthy());
+    expect(screen.queryByText("Custom scaling")).toBeNull();
+  });
+
   it("should render the scale form matching each channel's custom scale", async () => {
     const cases = [
       ["linear", "Slope"],

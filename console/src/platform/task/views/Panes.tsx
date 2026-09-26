@@ -102,8 +102,8 @@ export const Panes = ({
     setOpenedAt(undefined);
   }, []);
   const backdrop = narrow && drawerOpen;
-  // One button in one corner: beside the list's title while it shows, beside the
-  // details title once it is hidden.
+  // Beside the list's title while the list shows, beside the details title once it
+  // hides. A hidden list is inert, so only one of the two is reachable.
   const toggle = (
     <Button.Button
       variant="text"
@@ -128,7 +128,7 @@ export const Panes = ({
         CSS.M(visible ? "list-open" : "list-closed"),
       )}
     >
-      <Flex.Box y empty className={CSS.BE("panes", "list")}>
+      <Flex.Box y empty inert={!visible} className={CSS.BE("panes", "list")}>
         <Header.Header>
           <Flex.Box x align="center" gap="small" className={CSS.BE("panes", "title")}>
             {toggle}

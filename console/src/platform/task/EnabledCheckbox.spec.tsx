@@ -43,4 +43,12 @@ describe("EnabledCheckbox", () => {
     fireEvent.click(screen.getByRole("checkbox"));
     expect(form.current?.get<boolean>("disabled").value).toBe(true);
   });
+
+  it("should be disabled when the form is in preview", async () => {
+    await renderInTaskForm(<Task.EnabledCheckbox path="disabled" />, {
+      values: { disabled: false },
+      mode: "preview",
+    });
+    expect(screen.getByRole("checkbox")).toHaveProperty("disabled", true);
+  });
 });
