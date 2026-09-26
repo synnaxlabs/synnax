@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { type ReactElement } from "react";
 
@@ -15,26 +14,26 @@ import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
 export const CylinderForm = (): ReactElement => (
-  <Form.Wrapper x align="stretch">
-    <Flex.Box y grow>
+  <Base.Sections x>
+    <Base.Section title="Label">
       <Label.Form path="label" />
-      <Flex.Box x>
-        <Form.ColorField path="color" />
-        <Form.ColorField path="backgroundColor" label="Background color" />
-        <Base.NumericField
-          path="dimensions.width"
-          label="Width"
-          grow
-          inputProps={Form.DIMENSIONS_INPUT_PROPS}
-        />
-        <Base.NumericField
-          path="dimensions.height"
-          label="Height"
-          grow
-          inputProps={Form.DIMENSIONS_INPUT_PROPS}
-        />
-      </Flex.Box>
-    </Flex.Box>
-    <Orientation.Field path="" />
-  </Form.Wrapper>
+    </Base.Section>
+    <Base.Section title="Appearance">
+      <Form.ColorField path="color" />
+      <Form.ColorField path="backgroundColor" label="Background color" />
+    </Base.Section>
+    <Base.Section title="Dimensions">
+      <Base.NumericField
+        path="dimensions.width"
+        label="Width"
+        inputProps={Form.DIMENSIONS_INPUT_PROPS}
+      />
+      <Base.NumericField
+        path="dimensions.height"
+        label="Height"
+        inputProps={Form.DIMENSIONS_INPUT_PROPS}
+      />
+    </Base.Section>
+    <Orientation.Section path="" />
+  </Base.Sections>
 );

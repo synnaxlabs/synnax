@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, type schematic } from "@synnaxlabs/client";
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { type ReactElement } from "react";
@@ -17,7 +16,6 @@ import { Channel } from "@/channel";
 import { Control } from "@/schematic/node/common/control";
 import { ActivationDelayField } from "@/schematic/node/common/form/ActivationDelay";
 import { ControlChipField } from "@/schematic/node/common/form/Control";
-import { Wrapper } from "@/schematic/node/common/form/Wrapper";
 import { Staleness } from "@/vis/staleness";
 
 interface ChannelFormProps {
@@ -42,26 +40,28 @@ export const ChannelForm = ({ path, omit = [] }: ChannelFormProps): ReactElement
     });
 
   return (
-    <Wrapper y empty>
-      <Flex.Box x grow>
-        <Input.Item label="State channel" grow padHelpText={false}>
+    <Form.Sections x>
+      <Form.Section title="State">
+        <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle
             value={value.stateChannel ?? 0}
             onChange={handleSourceChange}
           />
         </Input.Item>
-        <Input.Item label="Command channel" grow padHelpText={false}>
+      </Form.Section>
+      <Form.Section title="Command">
+        <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle
             value={value.commandChannel ?? 0}
             onChange={handleSinkChange}
           />
         </Input.Item>
-      </Flex.Box>
-      <Flex.Box x grow>
-        {!omit.includes("onClickDelay") && <ActivationDelayField grow />}
+        {!omit.includes("onClickDelay") && <ActivationDelayField />}
         <ControlChipField />
+      </Form.Section>
+      <Form.Section title="Staleness">
         <Staleness.Fields />
-      </Flex.Box>
-    </Wrapper>
+      </Form.Section>
+    </Form.Sections>
   );
 };

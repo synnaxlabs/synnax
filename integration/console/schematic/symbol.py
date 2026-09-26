@@ -171,9 +171,13 @@ class Symbol(ABC):
         """
         pass
 
-    def set_channel(self, *, input_field: str, channel_name: str) -> None:
+    def channel_trigger(self, section: str) -> Locator:
+        """The channel select in the form section with the given title."""
+        return self.layout.form_section(section).locator(".pluto-channel__trigger")
+
+    def set_channel(self, *, section: str, channel_name: str) -> None:
         if channel_name is not None:
-            self.layout.click_btn(input_field)
+            self.layout.click(self.channel_trigger(section))
             self.layout.select_from_dropdown(channel_name, "Search", exact=True)
 
     def set_value(self, value: float) -> None:

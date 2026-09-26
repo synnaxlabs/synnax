@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
@@ -31,6 +30,7 @@ export interface TelemFormProps {
   path: string;
 }
 
+/** TelemForm is a value's source and format sections; the caller lays them out. */
 export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
   const { set } = Form.useContext();
   const { value, onChange } = Form.useField<ValueTelemFormT>(path);
@@ -59,32 +59,36 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
 
   return (
     <>
-      <Input.Item label="Channel" grow>
-        <Channel.SelectSingle value={channelKey} onChange={handleSourceChange} />
-      </Input.Item>
-      <Flex.Box x>
-        <Input.Item label="Notation">
-          <Notation.Select
-            value={value.notation ?? "standard"}
-            onChange={handleNotationChange}
-          />
+      <Form.Section title="Source">
+        <Input.Item label="Channel" padHelpText={false}>
+          <Channel.SelectSingle value={channelKey} onChange={handleSourceChange} />
         </Input.Item>
-        <Input.Item label="Precision" align="start">
-          <Input.Numeric
-            value={value.precision ?? 2}
-            bounds={{ lower: 0, upper: 10 }}
-            onChange={handlePrecisionChange}
-          />
-        </Input.Item>
-        <Input.Item label="Averaging window" align="start">
+        <Input.Item label="Averaging window" padHelpText={false}>
           <Input.Numeric
             value={value.rollingAverage ?? 1}
             bounds={{ lower: 1, upper: 100 }}
             onChange={handleRollingAverageChange}
           />
         </Input.Item>
+      </Form.Section>
+      <Form.Section title="Format">
+        <Input.Item label="Notation" padHelpText={false}>
+          <Notation.Select
+            value={value.notation ?? "standard"}
+            onChange={handleNotationChange}
+          />
+        </Input.Item>
+        <Input.Item label="Precision" padHelpText={false}>
+          <Input.Numeric
+            value={value.precision ?? 2}
+            bounds={{ lower: 0, upper: 10 }}
+            onChange={handlePrecisionChange}
+          />
+        </Input.Item>
+      </Form.Section>
+      <Form.Section title="Staleness">
         <Staleness.Fields />
-      </Flex.Box>
+      </Form.Section>
     </>
   );
 };

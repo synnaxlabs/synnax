@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { type ReactElement } from "react";
@@ -29,16 +28,20 @@ const FillForm = (): ReactElement => {
     optional: true,
   });
   return (
-    <Form.Wrapper y empty>
+    <Base.Sections x>
       <Scale.TelemForm path="fill" allowNone />
       {channel != null && (
-        <Flex.Box x>
-          <Scale.DisplayFields path="fill" />
-          <Form.ColorField path="fill.color" label="Fill color" />
-          <Scale.StyleFields path="fill" />
-        </Flex.Box>
+        <>
+          <Base.Section title="Display">
+            <Scale.DisplayFields path="fill" />
+          </Base.Section>
+          <Base.Section title="Appearance">
+            <Form.ColorField path="fill.color" label="Fill color" />
+            <Scale.StyleFields path="fill" />
+          </Base.Section>
+        </>
       )}
-    </Form.Wrapper>
+    </Base.Sections>
   );
 };
 
@@ -47,62 +50,56 @@ export const TankForm = ({
   showStrokeWidth = false,
   showFillTab = false,
 }: TankFormProps): ReactElement => {
-  const properties = (
-    <Form.Wrapper x align="stretch">
-      <Flex.Box y grow>
+  const style = (
+    <Base.Sections x>
+      <Base.Section title="Label">
         <Label.Form path="label" />
-        <Flex.Box x>
-          <Form.ColorField path="color" />
-          <Form.ColorField path="backgroundColor" label="Background color" />
-          <Form.RadiusFields path="borderRadius" />
-          {showBorderRadius && (
-            <Base.NumericField
-              path="borderRadius"
-              hideIfNull
-              optional
-              label="Border radius"
-              grow
-              inputProps={Form.DIMENSIONS_INPUT_PROPS}
-            />
-          )}
-          {showStrokeWidth && (
-            <Base.NumericField
-              path="strokeWidth"
-              hideIfNull
-              optional
-              label="Border width"
-              grow
-              inputProps={Form.STROKE_WIDTH_INPUT_PROPS}
-            />
-          )}
+        <Orientation.Field path="" hideInner showOuterCenter label="Location" />
+      </Base.Section>
+      <Base.Section title="Appearance">
+        <Form.ColorField path="color" />
+        <Form.ColorField path="backgroundColor" label="Background color" />
+        <Form.RadiusFields path="borderRadius" />
+        {showBorderRadius && (
           <Base.NumericField
-            path="dimensions.width"
-            label="Width"
-            grow
+            path="borderRadius"
+            hideIfNull
+            optional
+            label="Border radius"
             inputProps={Form.DIMENSIONS_INPUT_PROPS}
           />
+        )}
+        {showStrokeWidth && (
           <Base.NumericField
-            path="dimensions.height"
-            label="Height"
-            grow
-            inputProps={Form.DIMENSIONS_INPUT_PROPS}
+            path="strokeWidth"
+            hideIfNull
+            optional
+            label="Border width"
+            inputProps={Form.STROKE_WIDTH_INPUT_PROPS}
           />
-        </Flex.Box>
-      </Flex.Box>
-      <Orientation.Field path="" hideInner showOuterCenter label="Label location" />
-    </Form.Wrapper>
+        )}
+      </Base.Section>
+      <Base.Section title="Dimensions">
+        <Base.NumericField
+          path="dimensions.width"
+          label="Width"
+          inputProps={Form.DIMENSIONS_INPUT_PROPS}
+        />
+        <Base.NumericField
+          path="dimensions.height"
+          label="Height"
+          inputProps={Form.DIMENSIONS_INPUT_PROPS}
+        />
+      </Base.Section>
+    </Base.Sections>
   );
-  if (!showFillTab) return properties;
+  if (!showFillTab) return style;
   return (
-    <Tabs.Frame initialValue="properties">
-      <Tabs.Selector>
-        <Tabs.Tab itemKey="properties">Properties</Tabs.Tab>
-        <Tabs.Tab itemKey="fill">Fill</Tabs.Tab>
-      </Tabs.Selector>
-      <Tabs.Content itemKey="properties">{properties}</Tabs.Content>
+    <Form.Tabs tabs={["style", "fill"]}>
+      <Tabs.Content itemKey="style">{style}</Tabs.Content>
       <Tabs.Content itemKey="fill">
         <FillForm />
       </Tabs.Content>
-    </Tabs.Frame>
+    </Form.Tabs>
   );
 };

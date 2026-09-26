@@ -9,8 +9,6 @@
 
 import { ontology, schematic } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
-import { CSS } from "@synnaxlabs/lyra/css";
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
@@ -106,15 +104,20 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
     optional: true,
   });
   return (
-    <Form.Wrapper x align="stretch">
-      <Flex.Box x grow align="stretch">
-        <Base.TextField path="label.label" label="Label" padHelpText={false} grow />
-        <Input.Item
-          label="Page"
+    <Base.Sections x>
+      <Base.Section title="Label">
+        <Base.TextField path="label.label" label="Label" padHelpText={false} />
+        <Base.Field<text.Level>
+          hideIfNull
+          path="label.level"
+          label="Size"
           padHelpText={false}
-          grow
-          className={CSS.BE("symbol-form", "page-field")}
         >
+          {Form.SelectTextLevel}
+        </Base.Field>
+      </Base.Section>
+      <Base.Section title="Navigation">
+        <Input.Item label="Page" padHelpText={false}>
           <Select.Static
             value={selectKey(page)}
             onChange={handlePageChange}
@@ -132,17 +135,11 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
         >
           {ClickModeSelect}
         </Base.Field>
-        <Base.Field<text.Level>
-          hideIfNull
-          path="label.level"
-          label="Label size"
-          padHelpText={false}
-        >
-          {Form.SelectTextLevel}
-        </Base.Field>
+      </Base.Section>
+      <Base.Section title="Appearance">
         <Form.ColorField path="color" />
-      </Flex.Box>
-      <Orientation.Field path="" hideOuter />
-    </Form.Wrapper>
+      </Base.Section>
+      <Orientation.Section path="" hideOuter />
+    </Base.Sections>
   );
 };

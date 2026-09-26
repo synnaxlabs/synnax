@@ -74,23 +74,21 @@ class Valve(Symbol):
         self.page.get_by_text("Control").last.click()
 
         if state_channel is not None:
-            self.set_channel(input_field="State Channel", channel_name=state_channel)
+            self.set_channel(section="State", channel_name=state_channel)
             applied_properties["state_channel"] = state_channel
 
         if command_channel is not None:
-            self.set_channel(
-                input_field="Command Channel", channel_name=command_channel
-            )
+            self.set_channel(section="Command", channel_name=command_channel)
             applied_properties["command_channel"] = command_channel
 
         if activation_delay is not None:
-            self.layout.fill_input_field("Activation delay", str(activation_delay))
+            self.layout.fill_input_field("Delay", str(activation_delay))
             self.page.keyboard.press("Enter")
             applied_properties["activation_delay"] = activation_delay
 
         if show_control_chip is not None:
             chip_toggle = (
-                self.page.locator("text=Show control chip")
+                self.page.locator("text=Control chip")
                 .locator("..")
                 .locator("input[type='checkbox']")
             )
@@ -113,23 +111,17 @@ class Valve(Symbol):
             "mode": "",
         }
 
-        # State Channel
-        state_channel = (
-            self.page.locator("text=State channel").locator("..").locator("button")
-        )
+        state_channel = self.channel_trigger("State")
         if state_channel.count() > 0:
             props["state_channel"] = state_channel.inner_text().strip()
 
-        # Command channel
-        command_channel = (
-            self.page.locator("text=Command channel").locator("..").locator("button")
-        )
+        command_channel = self.channel_trigger("Command")
         if command_channel.count() > 0:
             props["command_channel"] = command_channel.inner_text().strip()
 
-        # Show control chip
+        # Control chip
         chip_toggle = (
-            self.page.locator("text=Show control chip")
+            self.page.locator("text=Control chip")
             .locator("..")
             .locator("input[type='checkbox']")
         )

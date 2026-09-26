@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, type schematic } from "@synnaxlabs/client";
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
@@ -35,50 +34,48 @@ export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
     });
 
   return (
-    <Form.Wrapper y empty>
-      <Flex.Box x>
-        <Input.Item label="Channel" grow padHelpText={false}>
+    <Base.Sections x>
+      <Base.Section title="Command">
+        <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle
             value={value.commandChannel ?? 0}
             onChange={handleSinkChange}
           />
         </Input.Item>
+        <Form.ControlChipField />
+      </Base.Section>
+      <Base.Section title="Actuation">
+        <Base.Field<BaseButton.Mode> path="mode" label="Mode" optional>
+          {({ value, onChange }) => (
+            <BaseButton.SelectMode value={value} onChange={onChange} />
+          )}
+        </Base.Field>
         {/* The delay gates single-shot actuation (fire, pulse). Momentary's
             hold is the actuation, so the field is hidden there. */}
         {value.mode !== "momentary" && <Form.ActivationDelayField />}
-        <Form.ControlChipField />
-      </Flex.Box>
-      <Base.Field<BaseButton.Mode> path="mode" label="Mode" optional>
-        {({ value, onChange }) => (
-          <BaseButton.SelectMode value={value} onChange={onChange} />
-        )}
-      </Base.Field>
-    </Form.Wrapper>
+      </Base.Section>
+    </Base.Sections>
   );
 };
 
 export const ButtonForm = (): ReactElement => (
-  <Tabs.Frame initialValue="style">
-    <Tabs.Selector>
-      <Tabs.Tab itemKey="style">Style</Tabs.Tab>
-      <Tabs.Tab itemKey="control">Control</Tabs.Tab>
-    </Tabs.Selector>
+  <Form.Tabs tabs={["style", "control"]}>
     <Tabs.Content itemKey="style">
-      <Form.Wrapper x>
-        <Flex.Box y align="stretch" grow gap="small">
+      <Base.Sections x>
+        <Base.Section title="Label">
           <Label.Form
             path="label"
             omit={["align", "maxInlineSize", "level", "direction"]}
           />
-          <Flex.Box x>
-            <Form.ColorField path="color" />
-            <Form.SizeField />
-          </Flex.Box>
-        </Flex.Box>
-      </Form.Wrapper>
+        </Base.Section>
+        <Base.Section title="Appearance">
+          <Form.ColorField path="color" />
+          <Form.SizeField />
+        </Base.Section>
+      </Base.Sections>
     </Tabs.Content>
     <Tabs.Content itemKey="control">
       <ButtonTelemForm path="" />
     </Tabs.Content>
-  </Tabs.Frame>
+  </Form.Tabs>
 );

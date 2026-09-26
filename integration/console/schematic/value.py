@@ -86,7 +86,7 @@ class Value(Symbol):
         self.page.get_by_text("Telemetry").click()
 
         if channel_name is not None:
-            self.set_channel(input_field="Channel", channel_name=channel_name)
+            self.set_channel(section="Source", channel_name=channel_name)
             applied_properties["channel"] = channel_name
 
         if notation is not None:
@@ -117,7 +117,7 @@ class Value(Symbol):
             applied_properties["stale_color"] = stale_color
 
         if stale_timeout is not None:
-            self.layout.fill_input_field("Stale timeout", str(stale_timeout))
+            self.layout.fill_input_field("Timeout", str(stale_timeout))
             self.page.keyboard.press("Enter")
 
             applied_properties["stale_timeout"] = stale_timeout
@@ -151,7 +151,7 @@ class Value(Symbol):
         props["averaging_window"] = int(self.layout.get_input_field("Averaging window"))
 
         # Staleness Timeout
-        props["stale_timeout"] = int(self.layout.get_input_field("Stale timeout"))
+        props["stale_timeout"] = int(self.layout.get_input_field("Timeout"))
 
         # Notation
         notation_options = ["Scientific", "Engineering", "Standard"]

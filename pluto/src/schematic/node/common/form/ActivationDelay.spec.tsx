@@ -29,11 +29,11 @@ const Host = ({ values }: { values: z.infer<typeof schema> }): ReactElement => {
 describe("ActivationDelayField", () => {
   it("should show the saved delay", () => {
     const c = render(<Host values={{ onClickDelay: 250 }} />);
-    expect(c.getByLabelText(/Activation delay/)).toHaveProperty("value", "250");
+    expect(c.getByLabelText(/Delay/)).toHaveProperty("value", "250");
   });
 
   it("should show a zero delay when the config has no key", () => {
     const c = render(<Host values={{}} />);
-    expect(c.getByLabelText(/Activation delay/)).toHaveProperty("value", "0");
+    expect(c.getByLabelText(/Delay/)).toHaveProperty("value", "0");
   });
 });

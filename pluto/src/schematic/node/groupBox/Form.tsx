@@ -7,15 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
-import { Form } from "@/schematic/node/common/form";
-
 export const GroupBoxForm = (): ReactElement => (
-  <Form.Wrapper x>
+  <Base.Sections x>
     <Text.Text status="disabled" center>
       Groups have no editable properties.
     </Text.Text>
-  </Form.Wrapper>
+  </Base.Sections>
 );

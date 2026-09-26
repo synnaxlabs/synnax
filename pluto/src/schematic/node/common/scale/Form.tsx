@@ -9,7 +9,6 @@
 
 import { type channel, schematic } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
@@ -81,6 +80,7 @@ export interface TelemFormProps extends FormProps {
   allowNone?: boolean;
 }
 
+/** TelemForm is the scale's source and format sections; the caller lays them out. */
 export const TelemForm = ({
   path,
   allowNone = false,
@@ -97,8 +97,8 @@ export const TelemForm = ({
   };
   return (
     <>
-      <Flex.Box x>
-        <Input.Item label="Channel" grow padHelpText={false}>
+      <Base.Section title="Source">
+        <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle
             value={config?.channel ?? 0}
             onChange={handleChannelChange}
@@ -106,35 +106,39 @@ export const TelemForm = ({
           />
         </Input.Item>
         {config != null && (
-          <NodeForm.BoundsFields path={field(path, "bounds")} padHelpText={false} />
-        )}
-      </Flex.Box>
-      {config != null && (
-        <Flex.Box x>
-          <Base.Field<notation.Notation>
-            path={field(path, "notation")}
-            label="Notation"
-            padHelpText={false}
-          >
-            {NotationSelect}
-          </Base.Field>
-          <Base.NumericField
-            path={field(path, "precision")}
-            label="Precision"
-            align="start"
-            padHelpText={false}
-            inputProps={PRECISION_INPUT_PROPS}
-          />
-          <NodeForm.UnitsField path={field(path, "units")} />
-          <Staleness.Fields path={path} />
           <Base.NumericField
             path={field(path, "rollingAverage")}
             label="Averaging window"
-            align="start"
-            grow
+            padHelpText={false}
             inputProps={WINDOW_SIZE_INPUT_PROPS}
           />
-        </Flex.Box>
+        )}
+      </Base.Section>
+      {config != null && (
+        <>
+          <Base.Section title="Range">
+            <NodeForm.BoundsFields path={field(path, "bounds")} padHelpText={false} />
+          </Base.Section>
+          <Base.Section title="Format">
+            <Base.Field<notation.Notation>
+              path={field(path, "notation")}
+              label="Notation"
+              padHelpText={false}
+            >
+              {NotationSelect}
+            </Base.Field>
+            <Base.NumericField
+              path={field(path, "precision")}
+              label="Precision"
+              padHelpText={false}
+              inputProps={PRECISION_INPUT_PROPS}
+            />
+            <NodeForm.UnitsField path={field(path, "units")} />
+          </Base.Section>
+          <Base.Section title="Staleness">
+            <Staleness.Fields path={path} />
+          </Base.Section>
+        </>
       )}
     </>
   );

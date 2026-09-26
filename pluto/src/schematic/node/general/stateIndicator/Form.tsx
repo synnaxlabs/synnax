@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, type schematic } from "@synnaxlabs/client";
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
@@ -27,49 +26,47 @@ const StateIndicatorTelemForm = ({ path }: { path: string }): ReactElement => {
     onChange({ ...value, channel: v ?? undefined });
 
   return (
-    <Form.Wrapper x grow align="stretch">
-      <Input.Item label="Channel" grow>
-        <Channel.SelectSingle
-          value={value.channel ?? 0}
-          onChange={handleSourceChange}
-        />
-      </Input.Item>
-      <Staleness.Fields />
-    </Form.Wrapper>
+    <Base.Sections x>
+      <Base.Section title="State">
+        <Input.Item label="Channel" padHelpText={false}>
+          <Channel.SelectSingle
+            value={value.channel ?? 0}
+            onChange={handleSourceChange}
+          />
+        </Input.Item>
+      </Base.Section>
+      <Base.Section title="Staleness">
+        <Staleness.Fields />
+      </Base.Section>
+    </Base.Sections>
   );
 };
 
 export const StateIndicatorForm = (): ReactElement => (
-  <Tabs.Frame initialValue="style" grow>
-    <Tabs.Selector>
-      <Tabs.Tab itemKey="style">Style</Tabs.Tab>
-      <Tabs.Tab itemKey="telemetry">Telemetry</Tabs.Tab>
-      <Tabs.Tab itemKey="options">Options</Tabs.Tab>
-    </Tabs.Selector>
+  <Form.Tabs tabs={["style", "telemetry", "options"]}>
     <Tabs.Content itemKey="style">
-      <Form.Wrapper y align="stretch">
-        <Flex.Box y align="stretch" grow gap="small">
+      <Base.Sections x>
+        <Base.Section title="Label">
           <Label.Form path="label" />
-          <Flex.Box x>
-            <Form.ColorField path="color" />
-            <Form.SizeField />
-            <Base.NumericField
-              path="inlineSize"
-              label="Width"
-              hideIfNull
-              inputProps={Form.VALUE_WIDTH_INPUT_PROPS}
-            />
-          </Flex.Box>
-        </Flex.Box>
-      </Form.Wrapper>
-    </Tabs.Content>
-    <Tabs.Content itemKey="options">
-      <Form.Wrapper y align="stretch">
-        <Form.StateMappingForm path="options" showColor />
-      </Form.Wrapper>
+        </Base.Section>
+        <Base.Section title="Appearance">
+          <Form.ColorField path="color" />
+          <Form.SizeField />
+          <Base.NumericField
+            path="inlineSize"
+            label="Width"
+            hideIfNull
+            padHelpText={false}
+            inputProps={Form.VALUE_WIDTH_INPUT_PROPS}
+          />
+        </Base.Section>
+      </Base.Sections>
     </Tabs.Content>
     <Tabs.Content itemKey="telemetry">
       <StateIndicatorTelemForm path="" />
     </Tabs.Content>
-  </Tabs.Frame>
+    <Tabs.Content itemKey="options">
+      <Form.StateMappingForm path="options" showColor />
+    </Tabs.Content>
+  </Form.Tabs>
 );

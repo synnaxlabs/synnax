@@ -71,16 +71,25 @@ const TelemForm = () => {
   const { value, onChange } = Form.useField<TelemFormT>("");
   return (
     <>
-      <Input.Item label="Channel" grow>
-        <Channel.SelectSingle
-          value={value.channel}
-          onChange={(key: channel.Key | null) =>
-            onChange({ ...value, channel: key ?? 0 })
-          }
-        />
-      </Input.Item>
-      <Flex.Box x>
-        <Input.Item label="Notation">
+      <Form.Section title="Source">
+        <Input.Item label="Channel" padHelpText={false}>
+          <Channel.SelectSingle
+            value={value.channel}
+            onChange={(key: channel.Key | null) =>
+              onChange({ ...value, channel: key ?? 0 })
+            }
+          />
+        </Input.Item>
+        <Input.Item label="Averaging window" padHelpText={false}>
+          <Input.Numeric
+            value={value.rollingAverage}
+            bounds={{ lower: 1, upper: 100 }}
+            onChange={(rollingAverage) => onChange({ ...value, rollingAverage })}
+          />
+        </Input.Item>
+      </Form.Section>
+      <Form.Section title="Format">
+        <Input.Item label="Notation" padHelpText={false}>
           <Notation.Select
             value={value.notation}
             onChange={(next: notation.Notation) =>
@@ -88,22 +97,17 @@ const TelemForm = () => {
             }
           />
         </Input.Item>
-        <Input.Item label="Precision" align="start">
+        <Input.Item label="Precision" padHelpText={false}>
           <Input.Numeric
             value={value.precision ?? 2}
             bounds={{ lower: 0, upper: 10 }}
             onChange={(precision) => onChange({ ...value, precision })}
           />
         </Input.Item>
-        <Input.Item label="Averaging window" align="start">
-          <Input.Numeric
-            value={value.rollingAverage}
-            bounds={{ lower: 1, upper: 100 }}
-            onChange={(rollingAverage) => onChange({ ...value, rollingAverage })}
-          />
-        </Input.Item>
+      </Form.Section>
+      <Form.Section title="Staleness">
         <Staleness.Fields />
-      </Flex.Box>
+      </Form.Section>
     </>
   );
 };
@@ -124,7 +128,7 @@ const RedlineForm = () => {
 export const ValueForm = ({ onVariantChange }: FormProps) => {
   const theme = Theming.use();
   return (
-    <Tabs.Frame initialValue="style">
+    <Tabs.Frame initialValue="style" className={CSS.B("table-cell-value-form-tabs")}>
       <Tabs.Selector>
         <Tabs.Tab itemKey="style">Style</Tabs.Tab>
         <Tabs.Tab itemKey="telem">Telemetry</Tabs.Tab>
@@ -149,9 +153,9 @@ export const ValueForm = ({ onVariantChange }: FormProps) => {
         </ValueFormWrapper>
       </Tabs.Content>
       <Tabs.Content itemKey="telem">
-        <ValueFormWrapper>
+        <Form.Sections x>
           <TelemForm />
-        </ValueFormWrapper>
+        </Form.Sections>
       </Tabs.Content>
       <Tabs.Content itemKey="redline">
         <ValueFormWrapper>
