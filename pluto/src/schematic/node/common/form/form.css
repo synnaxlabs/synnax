@@ -30,21 +30,12 @@
 .pluto-symbol-form-tabs {
     height: 100%;
 
-    & > .pluto-tabs__selector.pluto-tabs__selector--default {
+    & > .pluto-tabs__selector.pluto--direction-y {
         width: 20rem;
-        height: 100% !important;
         padding: 1.5rem;
-        flex-shrink: 0;
-        overflow-y: auto;
         border-right: var(--pluto-border-l6);
-        --pluto-tabs-tab-width: 100%;
 
         .pluto-tabs__tab {
-            flex: none;
-            width: 100%;
-            max-width: none;
-            height: var(--pluto-height-small);
-            justify-content: flex-start;
             padding: 0 2rem;
 
             & > .pluto-icon {
