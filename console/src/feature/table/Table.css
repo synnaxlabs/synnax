@@ -23,10 +23,3 @@
 .console-table__toolbar-content {
     padding: 1rem 0.75rem;
 }
-
-/* Percent heights inside a stretched flex item do not resolve in WebKit, so the
-   sections fill the pane by growing instead. */
-.console-table__multi-cell-form.pluto-form-sections {
-    flex-grow: 1;
-    height: auto;
-}

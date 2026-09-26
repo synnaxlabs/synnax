@@ -167,7 +167,7 @@ export const ValueForm = ({ onVariantChange }: FormProps) => {
 };
 
 export const TextForm = ({ onVariantChange }: FormProps) => (
-  <Form.Sections x className={CSS.B("table-cell-text-form")}>
+  <Form.Sections x>
     <Form.Section title="Cell">
       <Input.Item label="Variant" padHelpText={false}>
         <SelectVariant onChange={onVariantChange} value="text" />

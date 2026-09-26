@@ -281,7 +281,7 @@ const MultiCellForm = ({ cellKeys }: MultiCellFormProps): ReactElement => {
   );
 
   return (
-    <Form.Sections x className={CSS.BE("table", "multi-cell-form")}>
+    <Form.Sections x>
       <Form.Section title="Cell">
         <Input.Item label="Variant" padHelpText={false}>
           <Table.Cell.SelectVariant

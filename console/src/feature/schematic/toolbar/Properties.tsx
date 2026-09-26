@@ -377,7 +377,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
   const colorEntries = Object.entries(colorGroups);
 
   return (
-    <Form.Sections x className={CSS.BE("schematic", "properties", "multi")}>
+    <Form.Sections x>
       <Form.Section title="Arrange">
         <Input.Item label="Align">
           <Flex.Box x>
