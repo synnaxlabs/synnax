@@ -90,9 +90,9 @@ const Content = ({
       </Modals.Header>
       <Modals.Body>
         <Select.Frame<panel.Key> data={data} allowNone onChange={handleChange}>
-          <List.Items<panel.Key> className={CSS.BE("panel-move-picker", "list")}>
-            {listItem}
-          </List.Items>
+          <List.Scroll className={CSS.BE("panel-move-picker", "list")}>
+            <List.Items<panel.Key>>{listItem}</List.Items>
+          </List.Scroll>
         </Select.Frame>
       </Modals.Body>
     </Modals.Frame>

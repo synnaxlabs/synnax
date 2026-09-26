@@ -151,7 +151,8 @@ export interface TreeProps<K extends record.Key, E extends record.Keyed<K>>
       Select.FrameProps<K, E>,
       "children" | "ref" | "virtualizer" | "data" | "onChange"
     >,
-    Omit<List.ItemsProps<K>, "children" | "onSelect">,
+    Omit<List.ScrollProps, "children" | "onSelect">,
+    Pick<List.ItemsProps<K>, "emptyContent">,
     UseReturn<K> {
   children: Component.RenderProp<ItemRenderProps<K>>;
   showRules?: boolean;
@@ -180,6 +181,7 @@ export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
   onFetchMore,
   allowNone,
   autoSelectOnNone,
+  emptyContent,
   ...rest
 }: TreeProps<K, E>): ReactElement => {
   const { keys } = shape;
@@ -200,7 +202,7 @@ export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
         allowNone={allowNone}
         autoSelectOnNone={autoSelectOnNone}
       >
-        <List.Items<K, E>
+        <List.Scroll
           full="y"
           role="tree"
           className={CSS.cls(
@@ -210,8 +212,8 @@ export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
           )}
           {...rest}
         >
-          {children}
-        </List.Items>
+          <List.Items<K, E> emptyContent={emptyContent}>{children}</List.Items>
+        </List.Scroll>
       </Select.Frame>
     </Context>
   );

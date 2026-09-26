@@ -412,14 +412,15 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
           replaceOnSingle
           allowNone
         >
-          <List.Items<string, WriteField>
+          <List.Scroll
             full="y"
             className={CSS.cls(menuProps.className, CSS.B("field-list-items"))}
             onContextMenu={menuProps.open}
-            emptyContent={EMPTY_CONTENT}
           >
-            {listItem}
-          </List.Items>
+            <List.Items<string, WriteField> emptyContent={EMPTY_CONTENT}>
+              {listItem}
+            </List.Items>
+          </List.Scroll>
         </Select.Frame>
       </Menu.ContextMenu>
     </Flex.Box>
@@ -566,20 +567,23 @@ const Form: FC = () => {
             allowNone={false}
             autoSelectOnNone
           >
-            <List.Items<string, WriteEndpoint>
+            <List.Scroll
               full="y"
               className={menuProps.className}
               onContextMenu={menuProps.open}
-              emptyContent={
-                <Empty.Action
-                  message="No endpoints"
-                  action={isPreview ? undefined : "Add endpoint"}
-                  onClick={handleAddEndpoint}
-                />
-              }
             >
-              {writeEndpointListItem}
-            </List.Items>
+              <List.Items<string, WriteEndpoint>
+                emptyContent={
+                  <Empty.Action
+                    message="No endpoints"
+                    action={isPreview ? undefined : "Add endpoint"}
+                    onClick={handleAddEndpoint}
+                  />
+                }
+              >
+                {writeEndpointListItem}
+              </List.Items>
+            </List.Scroll>
           </Select.Frame>
         </Menu.ContextMenu>
       </Flex.Box>

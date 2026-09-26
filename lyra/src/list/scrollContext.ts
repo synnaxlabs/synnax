@@ -9,8 +9,8 @@
 
 import { context } from "@/context";
 
-/** Tells an Items element whether a Scroll encloses it. */
-export const [ScrollContext, useInScroll] = context.create<boolean>({
-  defaultValue: false,
+/** Marks the subtree of a Scroll, so an Items element can require one. */
+export const [ScrollContext, useScrollContext] = context.create<true>({
   displayName: "List.ScrollContext",
+  providerName: "List.Scroll",
 });

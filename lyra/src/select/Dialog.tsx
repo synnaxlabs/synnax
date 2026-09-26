@@ -115,8 +115,7 @@ const Base = <K extends record.Key>({
         />
       )}
       {footer == null || footer === false ? (
-        <List.Items
-          emptyContent={emptyContent}
+        <List.Scroll
           bordered
           borderColor={6}
           grow
@@ -125,8 +124,8 @@ const Base = <K extends record.Key>({
           displayItems={displayItems}
           animateHeight
         >
-          {children}
-        </List.Items>
+          <List.Items emptyContent={emptyContent}>{children}</List.Items>
+        </List.Scroll>
       ) : (
         <Flex.Box
           y
@@ -138,15 +137,9 @@ const Base = <K extends record.Key>({
           rounded
           full="x"
         >
-          <List.Items
-            emptyContent={emptyContent}
-            grow
-            full="x"
-            displayItems={displayItems}
-            animateHeight
-          >
-            {children}
-          </List.Items>
+          <List.Scroll grow full="x" displayItems={displayItems} animateHeight>
+            <List.Items emptyContent={emptyContent}>{children}</List.Items>
+          </List.Scroll>
           {footer}
         </Flex.Box>
       )}

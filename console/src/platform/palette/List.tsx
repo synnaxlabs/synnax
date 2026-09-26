@@ -119,16 +119,15 @@ export const BaseList = <E extends record.Keyed<string>>({
         onKeyDown={Triggers.matchCallback(ESCAPE_TRIGGERS, close)}
         full="x"
       />
-      <Base.Items
+      <Base.Scroll
         className={CSS.BE("palette", "list")}
-        emptyContent={emptyContent}
         bordered
         borderColor={8}
         displayItems={10}
         animateHeight
       >
-        {listItem}
-      </Base.Items>
+        <Base.Items emptyContent={emptyContent}>{listItem}</Base.Items>
+      </Base.Scroll>
     </Select.Frame>
   );
 };

@@ -33,13 +33,15 @@ describe("List", () => {
         it("should render a list of items", () => {
           const result = render(
             <List.Frame data={["1", "2", "3"]} virtual={context.virtual}>
-              <List.Items>
-                {({ key, ...rest }: List.ItemProps<string>) => (
-                  <List.Item key={key} {...rest}>
-                    {key}
-                  </List.Item>
-                )}
-              </List.Items>
+              <List.Scroll>
+                <List.Items>
+                  {({ key, ...rest }: List.ItemProps<string>) => (
+                    <List.Item key={key} {...rest}>
+                      {key}
+                    </List.Item>
+                  )}
+                </List.Items>
+              </List.Scroll>
             </List.Frame>,
           );
           expect(result.getByText("1")).toBeTruthy();
@@ -51,13 +53,15 @@ describe("List", () => {
           const onSelect = vi.fn();
           const result = render(
             <List.Frame data={["1"]} virtual={context.virtual}>
-              <List.Items>
-                {({ key, ...rest }: List.ItemProps<string>) => (
-                  <List.Item key={key} onSelect={onSelect} {...rest}>
-                    {key}
-                  </List.Item>
-                )}
-              </List.Items>
+              <List.Scroll>
+                <List.Items>
+                  {({ key, ...rest }: List.ItemProps<string>) => (
+                    <List.Item key={key} onSelect={onSelect} {...rest}>
+                      {key}
+                    </List.Item>
+                  )}
+                </List.Items>
+              </List.Scroll>
             </List.Frame>,
           );
           fireEvent.click(result.getByText("1"), { shiftKey: true });
@@ -86,9 +90,11 @@ describe("List", () => {
               getItem={getItem}
               virtual={context.virtual}
             >
-              <List.Items<string>>
-                {({ itemKey }) => <div key={itemKey}>{getItem(itemKey)?.name}</div>}
-              </List.Items>
+              <List.Scroll>
+                <List.Items<string>>
+                  {({ itemKey }) => <div key={itemKey}>{getItem(itemKey)?.name}</div>}
+                </List.Items>
+              </List.Scroll>
             </List.Frame>,
           );
           expect(result.getByText("one")).toBeTruthy();
@@ -123,7 +129,9 @@ describe("List", () => {
               subscribe={(callback) => obs.onChange(callback)}
               virtual={context.virtual}
             >
-              <List.Items<string>>{itemProp}</List.Items>
+              <List.Scroll>
+                <List.Items<string>>{itemProp}</List.Items>
+              </List.Scroll>
             </List.Frame>,
           );
           expect(result.getByText("one")).toBeTruthy();
@@ -152,7 +160,9 @@ describe("List", () => {
               virtual={context.virtual}
               onFetchMore={fetchMore}
             >
-              <List.Items>{({ key }) => <div key={key}>{key}</div>}</List.Items>
+              <List.Scroll>
+                <List.Items>{({ key }) => <div key={key}>{key}</div>}</List.Items>
+              </List.Scroll>
             </List.Frame>,
           );
           expect(fetchMore).toHaveBeenCalled();
@@ -172,7 +182,9 @@ describe("List", () => {
                   Toggle
                 </Button.Button>
                 {listItemsVisible && (
-                  <List.Items>{({ key }) => <div key={key}>{key}</div>}</List.Items>
+                  <List.Scroll>
+                    <List.Items>{({ key }) => <div key={key}>{key}</div>}</List.Items>
+                  </List.Scroll>
                 )}
               </List.Frame>
             );
@@ -197,13 +209,15 @@ describe("List", () => {
     const renderWindowed = (overscan?: number) =>
       render(
         <List.Frame data={DATA} virtual itemHeight={ITEM_HEIGHT} overscan={overscan}>
-          <List.Items>
-            {({ key, ...rest }: List.ItemProps<string>) => (
-              <List.Item key={key} {...rest}>
-                {key}
-              </List.Item>
-            )}
-          </List.Items>
+          <List.Scroll>
+            <List.Items>
+              {({ key, ...rest }: List.ItemProps<string>) => (
+                <List.Item key={key} {...rest}>
+                  {key}
+                </List.Item>
+              )}
+            </List.Items>
+          </List.Scroll>
         </List.Frame>,
       );
 
@@ -264,14 +278,16 @@ describe("List", () => {
       expect(scrolls[0].textContent).toBe("fixed12");
     });
 
-    it("should give bare Items a Scroll of its own", () => {
-      const result = render(
-        <List.Frame data={["1"]}>
-          <List.Items>{item}</List.Items>
-        </List.Frame>,
-      );
-      const scroll = result.container.querySelector(".pluto-list__scroll");
-      expect(scroll?.textContent).toBe("1");
+    it("should throw when no Scroll encloses the items", () => {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      expect(() =>
+        render(
+          <List.Frame data={["1"]}>
+            <List.Items>{item}</List.Items>
+          </List.Frame>,
+        ),
+      ).toThrow("List.Items");
+      vi.restoreAllMocks();
     });
 
     it("should offset virtual rows from the items, not from content above them", () => {
@@ -335,13 +351,15 @@ describe("List", () => {
     const hasAnimateClass = (animateHeight?: boolean) =>
       render(
         <List.Frame data={["1"]}>
-          <List.Items animateHeight={animateHeight}>
-            {({ key, ...rest }: List.ItemProps<string>) => (
-              <List.Item key={key} {...rest}>
-                {key}
-              </List.Item>
-            )}
-          </List.Items>
+          <List.Scroll animateHeight={animateHeight}>
+            <List.Items>
+              {({ key, ...rest }: List.ItemProps<string>) => (
+                <List.Item key={key} {...rest}>
+                  {key}
+                </List.Item>
+              )}
+            </List.Items>
+          </List.Scroll>
         </List.Frame>,
       )
         .container.querySelector(".pluto-list__scroll")
@@ -385,7 +403,9 @@ describe("List", () => {
       const fetchMore = vi.fn();
       render(
         <List.Frame data={["1", "2", "3"]} virtual={false} onFetchMore={fetchMore}>
-          <List.Items>{({ key }) => <div key={key}>{key}</div>}</List.Items>
+          <List.Scroll>
+            <List.Items>{({ key }) => <div key={key}>{key}</div>}</List.Items>
+          </List.Scroll>
         </List.Frame>,
       );
       expect(mockObserve).toHaveBeenCalled();
@@ -395,7 +415,9 @@ describe("List", () => {
       const fetchMore = vi.fn();
       render(
         <List.Frame data={["1", "2", "3"]} virtual={false} onFetchMore={fetchMore}>
-          <List.Items>{({ key }) => <div key={key}>{key}</div>}</List.Items>
+          <List.Scroll>
+            <List.Items>{({ key }) => <div key={key}>{key}</div>}</List.Items>
+          </List.Scroll>
         </List.Frame>,
       );
       expect(fetchMore).toHaveBeenCalledTimes(1);
@@ -414,7 +436,9 @@ describe("List", () => {
       const fetchMore = vi.fn();
       render(
         <List.Frame data={["1", "2", "3"]} virtual={false} onFetchMore={fetchMore}>
-          <List.Items>{({ key }) => <div key={key}>{key}</div>}</List.Items>
+          <List.Scroll>
+            <List.Items>{({ key }) => <div key={key}>{key}</div>}</List.Items>
+          </List.Scroll>
         </List.Frame>,
       );
       expect(fetchMore).toHaveBeenCalledTimes(1);
@@ -440,7 +464,9 @@ describe("List", () => {
       const fetchMore = vi.fn();
       const Component = ({ data }: { data: string[] }) => (
         <List.Frame data={data} virtual={false} onFetchMore={fetchMore}>
-          <List.Items>{({ key }) => <div key={key}>{key}</div>}</List.Items>
+          <List.Scroll>
+            <List.Items>{({ key }) => <div key={key}>{key}</div>}</List.Items>
+          </List.Scroll>
         </List.Frame>
       );
 
@@ -478,7 +504,9 @@ describe("List", () => {
       const fetchMore = vi.fn();
       render(
         <List.Frame data={["1", "2", "3"]} virtual={false} onFetchMore={fetchMore}>
-          <List.Items>{({ key }) => <div key={key}>{key}</div>}</List.Items>
+          <List.Scroll>
+            <List.Items>{({ key }) => <div key={key}>{key}</div>}</List.Items>
+          </List.Scroll>
         </List.Frame>,
       );
       expect(fetchMore).toHaveBeenCalledTimes(1);
@@ -496,7 +524,9 @@ describe("List", () => {
       const fetchMore = vi.fn();
       const { unmount } = render(
         <List.Frame data={["1", "2", "3"]} virtual={false} onFetchMore={fetchMore}>
-          <List.Items>{({ key }) => <div key={key}>{key}</div>}</List.Items>
+          <List.Scroll>
+            <List.Items>{({ key }) => <div key={key}>{key}</div>}</List.Items>
+          </List.Scroll>
         </List.Frame>,
       );
 

@@ -65,13 +65,11 @@ const List = (): ReactElement => {
       onChange={setSelected}
     >
       <Menu.ContextMenu menu={contextMenu} {...menuProps} />
-      <BaseList.Items<status.Key>
-        full="y"
-        emptyContent={<NoStatuses />}
-        onContextMenu={menuProps.open}
-      >
-        {listItem}
-      </BaseList.Items>
+      <BaseList.Scroll full="y" onContextMenu={menuProps.open}>
+        <BaseList.Items<status.Key> emptyContent={<NoStatuses />}>
+          {listItem}
+        </BaseList.Items>
+      </BaseList.Scroll>
     </Select.Frame>
   );
 };

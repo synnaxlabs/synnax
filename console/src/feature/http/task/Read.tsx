@@ -538,20 +538,23 @@ const Form: FC = () => {
             allowNone={false}
             autoSelectOnNone
           >
-            <List.Items<string, ReadEndpoint>
+            <List.Scroll
               full="y"
               className={menuProps.className}
               onContextMenu={menuProps.open}
-              emptyContent={
-                <Empty.Action
-                  message="No endpoints"
-                  action={isPreview ? undefined : "Add endpoint"}
-                  onClick={handleAddEndpoint}
-                />
-              }
             >
-              {readEndpointListItem}
-            </List.Items>
+              <List.Items<string, ReadEndpoint>
+                emptyContent={
+                  <Empty.Action
+                    message="No endpoints"
+                    action={isPreview ? undefined : "Add endpoint"}
+                    onClick={handleAddEndpoint}
+                  />
+                }
+              >
+                {readEndpointListItem}
+              </List.Items>
+            </List.Scroll>
           </Select.Frame>
         </Menu.ContextMenu>
       </Flex.Box>

@@ -119,9 +119,11 @@ const List = ({
           )}
           {...menuProps}
         >
-          <PList.Items<string, lineplot.Rule> onContextMenu={menuProps.open} grow>
-            {({ key, ...rest }) => <ListItem key={key} {...rest} />}
-          </PList.Items>
+          <PList.Scroll onContextMenu={menuProps.open} grow>
+            <PList.Items<string, lineplot.Rule>>
+              {({ key, ...rest }) => <ListItem key={key} {...rest} />}
+            </PList.Items>
+          </PList.Scroll>
         </Menu.ContextMenu>
       </Select.Frame>
     </Flex.Box>

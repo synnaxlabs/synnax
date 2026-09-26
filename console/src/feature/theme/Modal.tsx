@@ -77,7 +77,9 @@ const Content = ({
           onChange={handleChange}
           initialHover={data.indexOf(mode)}
         >
-          <List.Items<Theme.Mode>>{listItem}</List.Items>
+          <List.Scroll>
+            <List.Items<Theme.Mode>>{listItem}</List.Items>
+          </List.Scroll>
         </Select.Frame>
       </Body>
     </Frame>

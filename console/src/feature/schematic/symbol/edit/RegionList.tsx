@@ -128,11 +128,13 @@ export const RegionList = ({
         data={data}
         closeDialogOnSelect={false}
       >
-        <List.Items<string> y gap={1}>
-          {({ key, ...rest }) => (
-            <RegionListItem selectedState={selectedState} key={key} {...rest} />
-          )}
-        </List.Items>
+        <List.Scroll y gap={1}>
+          <List.Items<string>>
+            {({ key, ...rest }) => (
+              <RegionListItem selectedState={selectedState} key={key} {...rest} />
+            )}
+          </List.Items>
+        </List.Scroll>
       </Select.Frame>
     </Flex.Box>
   );

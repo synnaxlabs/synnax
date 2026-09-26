@@ -90,15 +90,15 @@ export const StaticStageList = ({
       allowNone
       onChange={onSelect}
     >
-      <List.Items
+      <List.Scroll
         x
         className={CSS.BE("arc", "stages", "group")}
         wrap
         role="listbox"
         aria-label={STAGES_LABEL}
       >
-        {staticListItem}
-      </List.Items>
+        <List.Items>{staticListItem}</List.Items>
+      </List.Scroll>
     </Select.Frame>
   );
 };
@@ -137,9 +137,9 @@ const GroupList = ({ value, onChange }: GroupListProps) => {
       value={value}
       onChange={onChange}
     >
-      <List.Items<string, Arc.Graph.Node.Group> x gap="small">
-        {groupListItem}
-      </List.Items>
+      <List.Scroll x gap="small">
+        <List.Items<string, Arc.Graph.Node.Group>>{groupListItem}</List.Items>
+      </List.Scroll>
     </Select.Frame>
   );
 };

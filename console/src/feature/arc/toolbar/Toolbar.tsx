@@ -89,20 +89,20 @@ const Content = () => {
             onFetchMore={fetchMore}
             replaceOnSingle
           >
-            <List.Items<arc.Key, arc.Arc>
-              full="y"
-              emptyContent={answered && <EmptyContent onCreate={create} />}
-              onContextMenu={menuProps.open}
-            >
-              {({ key, ...p }) => (
-                <ArcListItem
-                  key={key}
-                  {...p}
-                  onRename={handleRename}
-                  onEdit={handleEdit}
-                />
-              )}
-            </List.Items>
+            <List.Scroll full="y" onContextMenu={menuProps.open}>
+              <List.Items<arc.Key, arc.Arc>
+                emptyContent={answered && <EmptyContent onCreate={create} />}
+              >
+                {({ key, ...p }) => (
+                  <ArcListItem
+                    key={key}
+                    {...p}
+                    onRename={handleRename}
+                    onEdit={handleEdit}
+                  />
+                )}
+              </List.Items>
+            </List.Scroll>
           </Select.Frame>
         </Toolbar.Body>
       </Toolbar.Content>

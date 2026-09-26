@@ -273,13 +273,13 @@ const Form: FC = () => {
             allowNone={false}
             autoSelectOnNone
           >
-            <List.Items<string, AlertConfig>
-              full="y"
-              onContextMenu={menuProps.open}
-              emptyContent={<EmptyActionContent onAdd={handleAdd} />}
-            >
-              {alertListItem}
-            </List.Items>
+            <List.Scroll full="y" onContextMenu={menuProps.open}>
+              <List.Items<string, AlertConfig>
+                emptyContent={<EmptyActionContent onAdd={handleAdd} />}
+              >
+                {alertListItem}
+              </List.Items>
+            </List.Scroll>
           </Select.Frame>
         </PMenu.ContextMenu>
       </Flex.Box>

@@ -265,19 +265,17 @@ const SearchDialogContent = () => {
         size="huge"
         full="x"
       />
-      <List.Items<string, SearchResult>
-        className="styled-scrollbar"
-        background={0}
-        bordered
-        borderColor={6}
-        emptyContent={
-          <Text.Text center status="disabled">
-            No results
-          </Text.Text>
-        }
-      >
-        {searchListItem}
-      </List.Items>
+      <List.Scroll className="styled-scrollbar" background={0} bordered borderColor={6}>
+        <List.Items<string, SearchResult>
+          emptyContent={
+            <Text.Text center status="disabled">
+              No results
+            </Text.Text>
+          }
+        >
+          {searchListItem}
+        </List.Items>
+      </List.Scroll>
     </Select.Frame>
   );
 };

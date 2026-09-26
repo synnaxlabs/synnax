@@ -134,13 +134,11 @@ export const Lines = (): ReactElement => {
   const lineKeys = LinePlot.useLineKeys();
   return (
     <List.Frame data={lineKeys}>
-      <List.Items<string, lineplot.Line>
-        full="y"
-        className={CSS.BE("line-plot", "toolbar", "lines")}
-        emptyContent={<EmptyContent />}
-      >
-        {line}
-      </List.Items>
+      <List.Scroll full="y" className={CSS.BE("line-plot", "toolbar", "lines")}>
+        <List.Items<string, lineplot.Line> emptyContent={<EmptyContent />}>
+          {line}
+        </List.Items>
+      </List.Scroll>
     </List.Frame>
   );
 };

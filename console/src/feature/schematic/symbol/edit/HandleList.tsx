@@ -115,9 +115,13 @@ export const HandleList = ({ value, onChange, onAddHandle }: HandleListProps) =>
         data={data}
         closeDialogOnSelect={false}
       >
-        <List.Items<string> y gap={1}>
-          {({ key, index }) => <HandleListItem key={key} itemKey={key} index={index} />}
-        </List.Items>
+        <List.Scroll y gap={1}>
+          <List.Items<string>>
+            {({ key, index }) => (
+              <HandleListItem key={key} itemKey={key} index={index} />
+            )}
+          </List.Items>
+        </List.Scroll>
       </Select.Frame>
     </Flex.Box>
   );

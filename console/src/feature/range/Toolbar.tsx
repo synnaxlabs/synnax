@@ -80,14 +80,9 @@ const List = (): ReactElement => {
       onChange={handleSelect}
     >
       <Menu.ContextMenu menu={(p) => <ContextMenu {...p} />} {...menuProps} />
-      <BaseList.Items
-        full="y"
-        emptyContent={<NoRanges />}
-        {...dropProps}
-        onContextMenu={menuProps.open}
-      >
-        {listItem}
-      </BaseList.Items>
+      <BaseList.Scroll full="y" {...dropProps} onContextMenu={menuProps.open}>
+        <BaseList.Items emptyContent={<NoRanges />}>{listItem}</BaseList.Items>
+      </BaseList.Scroll>
     </Select.Frame>
   );
 };
