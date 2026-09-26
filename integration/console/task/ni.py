@@ -94,7 +94,7 @@ class NITask(TaskPage):
         layout = self.layout
 
         idx = len(self.channels)
-        self.add_channel_row(idx)
+        self.add_channel_row()
         layout.page.locator(".pluto-list__item").nth(idx).click()
 
         # Configure device
