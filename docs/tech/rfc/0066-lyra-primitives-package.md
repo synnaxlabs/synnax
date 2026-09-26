@@ -171,10 +171,10 @@ use both.
   `chunk.viteMetadata.importedCss` (the metadata is empty in `renderChunk` and populated
   in `generateBundle` on Vite 8). `"sideEffects": ["**/*.css"]` keeps them alive under
   tree-shaking. There is no `lyra.css`. CSS for the whole page ships as files an app
-  imports once: `base.css` holds the root font size, shared utility classes and the font
-  imports, and the generated static `theme.css` holds the theme variables for an app
-  without `Theming.Provider`. No JavaScript module imports them, so tree-shaking cannot
-  drop them.
+  imports once: `base.css` holds the root font size, element typography, shared utility
+  classes and the font imports, and the generated static `theme.css` holds the theme
+  variables for an app without `Theming.Provider`. No JavaScript module imports them, so
+  tree-shaking cannot drop them.
 - **Fonts**: `@fontsource/*` is external and imported by `base.css`, so the consumer's
   bundler emits the woff2 files as cacheable assets. The woff2 URL imports for the
   worker's canvas text (`pluto/src/theming/Provider.tsx:12-20`) stay in Pluto's bridge.
