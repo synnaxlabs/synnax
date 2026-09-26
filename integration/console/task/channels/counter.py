@@ -103,16 +103,7 @@ class Counter:
 
     def has_min_max(self) -> bool:
         """Check if this channel type has min/max value fields."""
-        try:
-            count: int = (
-                self.layout.page.locator("text=Minimum Value")
-                .locator("..")
-                .locator("input")
-                .first.count()
-            )
-            return count > 0
-        except Exception:
-            return False
+        return self.layout.page.get_by_label("Minimum value", exact=True).count() > 0
 
     def _configure_dropdown(
         self,
