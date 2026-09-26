@@ -234,7 +234,7 @@ describe("Select.Multiple", () => {
     fireEvent.click(c.getByText("Rows"));
     fireEvent.click(c.getByText("Row 0"));
     // Far enough down that the anchor row has unmounted by the time the range closes.
-    const scroller = document.querySelector<HTMLElement>(".pluto-list__items");
+    const scroller = document.querySelector<HTMLElement>(".pluto-list__scroll");
     scroller!.scrollTop = 200 * 33;
     fireEvent.scroll(scroller!);
     fireEvent.keyDown(c.container, { code: "Shift" });

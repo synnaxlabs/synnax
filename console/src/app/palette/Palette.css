@@ -17,7 +17,7 @@
     max-height: 500px;
     width: 95vw;
 
-    & .pluto-list__items--empty {
+    & .pluto-list__scroll--empty {
         min-height: 20rem;
     }
 }

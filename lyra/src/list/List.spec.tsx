@@ -239,6 +239,98 @@ describe("List", () => {
     });
   });
 
+  describe("scroll container", () => {
+    const ITEM_HEIGHT = 27;
+    const DATA = Array.from({ length: 500 }, (_, i) => `${i}`);
+    const item = ({ key, ...rest }: List.ItemProps<string>) => (
+      <List.Item key={key} {...rest}>
+        {key}
+      </List.Item>
+    );
+
+    beforeAll(() => mockGeometry(100, 100));
+
+    it("should render the items inside the enclosing Scroll", () => {
+      const result = render(
+        <List.Frame data={["1", "2"]}>
+          <List.Scroll>
+            <div>fixed</div>
+            <List.Items>{item}</List.Items>
+          </List.Scroll>
+        </List.Frame>,
+      );
+      const scrolls = result.container.querySelectorAll(".pluto-list__scroll");
+      expect(scrolls).toHaveLength(1);
+      expect(scrolls[0].textContent).toBe("fixed12");
+    });
+
+    it("should give bare Items a Scroll of its own", () => {
+      const result = render(
+        <List.Frame data={["1"]}>
+          <List.Items>{item}</List.Items>
+        </List.Frame>,
+      );
+      const scroll = result.container.querySelector(".pluto-list__scroll");
+      expect(scroll?.textContent).toBe("1");
+    });
+
+    it("should offset virtual rows from the items, not from content above them", () => {
+      const margin = 50;
+      const offsetTop = vi
+        .spyOn(HTMLElement.prototype, "offsetTop", "get")
+        .mockImplementation(function (this: HTMLElement) {
+          return this.classList.contains("pluto-list__virtualizer") ? margin : 0;
+        });
+      try {
+        const result = render(
+          <List.Frame data={DATA} virtual itemHeight={ITEM_HEIGHT} overscan={0}>
+            <List.Scroll>
+              <div>fixed</div>
+              <List.Items>{item}</List.Items>
+            </List.Scroll>
+          </List.Frame>,
+        );
+        const rows = Array.from(
+          result.container.querySelectorAll<HTMLElement>(".pluto-list__item"),
+        );
+        // A 100px window with 50px of content above the items fits two 27px rows.
+        expect(rows).toHaveLength(2);
+        rows.forEach((row, index) =>
+          expect(row.style.top).toBe(`${index * ITEM_HEIGHT}px`),
+        );
+        const virtualizer = result.container.querySelector<HTMLElement>(
+          ".pluto-list__virtualizer",
+        );
+        expect(virtualizer?.style.minHeight).toBe(`${DATA.length * ITEM_HEIGHT}px`);
+      } finally {
+        offsetTop.mockRestore();
+      }
+    });
+
+    it("should scroll to an item, not to content above the items", () => {
+      const scrolled: string[] = [];
+      Element.prototype.scrollIntoView = vi.fn(function (this: Element) {
+        scrolled.push(this.textContent);
+      });
+      let scrollToIndex: ((index: number) => void) | undefined;
+      const Capture = () => {
+        ({ scrollToIndex } = List.useScroller());
+        return null;
+      };
+      render(
+        <List.Frame data={["1", "2", "3"]}>
+          <Capture />
+          <List.Scroll>
+            <div>fixed</div>
+            <List.Items>{item}</List.Items>
+          </List.Scroll>
+        </List.Frame>,
+      );
+      act(() => scrollToIndex?.(2));
+      expect(scrolled).toEqual(["2"]);
+    });
+  });
+
   describe("height animation", () => {
     const hasAnimateClass = (animateHeight?: boolean) =>
       render(
@@ -252,8 +344,8 @@ describe("List", () => {
           </List.Items>
         </List.Frame>,
       )
-        .container.querySelector(".pluto-list__items")
-        ?.classList.contains("pluto-list__items--animate-height");
+        .container.querySelector(".pluto-list__scroll")
+        ?.classList.contains("pluto-list__scroll--animate-height");
 
     it("should not animate height unless the caller opts in", () => {
       expect(hasAnimateClass()).toBe(false);

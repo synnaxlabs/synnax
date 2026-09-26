@@ -7,12 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/list/Frame";
-export * from "@/list/Item";
-export * from "@/list/Items";
-export * from "@/list/pager";
-export * from "@/list/Scroll";
-export * from "@/list/useCombinedData";
-export * from "@/list/useKeysData";
-export * from "@/list/useMapData";
-export * from "@/list/useStaticData";
+import { context } from "@/context";
+
+/** Tells an Items element whether a Scroll encloses it. */
+export const [ScrollContext, useInScroll] = context.create<boolean>({
+  defaultValue: false,
+  displayName: "List.ScrollContext",
+});

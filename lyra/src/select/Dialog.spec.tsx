@@ -85,7 +85,7 @@ describe("Select.Dialog", () => {
         </Dialog.Frame>,
       );
     const heightOf = (c: RenderResult) =>
-      c.baseElement.querySelector<HTMLElement>(".pluto-list__items")?.style.height;
+      c.baseElement.querySelector<HTMLElement>(".pluto-list__scroll")?.style.height;
 
     it("should size the list from the rows that fit the dialog", () => {
       // 220px of room at 40px a row leaves 5 whole rows.
@@ -103,8 +103,8 @@ describe("Select.Dialog", () => {
 
     it("should animate the height so the dialog grows smoothly", () => {
       const c = renderDialog(["a", "b"], 40);
-      expect(c.baseElement.querySelector(".pluto-list__items")?.className).toContain(
-        "pluto-list__items--animate-height",
+      expect(c.baseElement.querySelector(".pluto-list__scroll")?.className).toContain(
+        "pluto-list__scroll--animate-height",
       );
     });
   });
@@ -128,7 +128,7 @@ describe("Select.Dialog", () => {
 
     it("should keep the footer outside the scrolling list", () => {
       const c = renderDialog(<button type="button">Create</button>);
-      const items = c.baseElement.querySelector(".pluto-list__items");
+      const items = c.baseElement.querySelector(".pluto-list__scroll");
       expect(items).not.toBeNull();
       expect(items?.contains(c.getByText("Create"))).toBe(false);
     });
@@ -140,14 +140,14 @@ describe("Select.Dialog", () => {
       expect(body?.contains(c.getByText("Create"))).toBe(true);
       expect(body?.className).toContain("pluto--bordered");
       expect(
-        c.baseElement.querySelector(".pluto-list__items")?.className,
+        c.baseElement.querySelector(".pluto-list__scroll")?.className,
       ).not.toContain("pluto--bordered");
     });
 
     it("should leave the border on the list when there is no footer", () => {
       const c = renderDialog();
       expect(c.baseElement.querySelector(".pluto-select__body")).toBeNull();
-      expect(c.baseElement.querySelector(".pluto-list__items")?.className).toContain(
+      expect(c.baseElement.querySelector(".pluto-list__scroll")?.className).toContain(
         "pluto--bordered",
       );
     });

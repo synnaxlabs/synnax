@@ -40,7 +40,7 @@
         .console-channel-list {
             overflow: hidden;
 
-            & .pluto-list__items {
+            & .pluto-list__scroll {
                 overflow-x: hidden;
             }
         }
