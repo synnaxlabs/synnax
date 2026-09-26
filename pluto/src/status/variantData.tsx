@@ -7,17 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type status } from "@synnaxlabs/client";
-
-import { type Select } from "@/select";
-import { Indicator } from "@/status/base/Indicator";
+import { type Select } from "@synnaxlabs/lyra/select";
+import { Status as Base } from "@synnaxlabs/lyra/status";
 
 /** The status variants as selectable entries, each with its name and icon. */
-export const VARIANT_DATA: Select.StaticEntry<status.Variant>[] = [
-  { key: "success", name: "Success", icon: <Indicator variant="success" /> },
-  { key: "error", name: "Error", icon: <Indicator variant="error" /> },
-  { key: "warning", name: "Warning", icon: <Indicator variant="warning" /> },
-  { key: "info", name: "Info", icon: <Indicator variant="info" /> },
-  { key: "loading", name: "Loading", icon: <Indicator variant="loading" /> },
-  { key: "disabled", name: "Disabled", icon: <Indicator variant="disabled" /> },
+export const VARIANT_DATA: Select.StaticEntry<Base.Variant>[] = [
+  { key: "success", name: "Success", icon: <Base.Indicator variant="success" /> },
+  { key: "error", name: "Error", icon: <Base.Indicator variant="error" /> },
+  { key: "warning", name: "Warning", icon: <Base.Indicator variant="warning" /> },
+  { key: "info", name: "Info", icon: <Base.Indicator variant="info" /> },
+  { key: "loading", name: "Loading", icon: <Base.Indicator variant="loading" /> },
+  { key: "disabled", name: "Disabled", icon: <Base.Indicator variant="disabled" /> },
 ];

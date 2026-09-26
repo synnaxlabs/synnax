@@ -8,10 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { channel, NotFoundError } from "@synnaxlabs/client";
-import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { errors, primitive } from "@synnaxlabs/x";
-import { type FC } from "react";
+import { type FC, useCallback } from "react";
 
+import { useFromConfig } from "@/feature/ni/device/queries";
 import { Select } from "@/feature/ni/device/Select";
 import * as Device from "@/feature/ni/device/types";
 import { AOChannelForm } from "@/feature/ni/task/AOChannelForm";
@@ -78,14 +82,28 @@ const ChannelDetails = ({ path }: Task.Views.DetailsProps) => {
 const channelDetails = Component.renderProp(ChannelDetails);
 const channelListItem = Component.renderProp(ChannelListItem);
 
-const Form: FC = () => (
-  <Task.Views.ListAndDetails
-    listItem={channelListItem}
-    details={channelDetails}
-    createChannel={createNextAOChannel}
-    contextMenuItems={Task.writeChannelContextMenuItems}
-  />
-);
+const Form: FC = () => {
+  const dev = useFromConfig();
+  const resolve = useCallback(
+    (ch: AOChannel) => {
+      if (dev == null) return null;
+      const pair =
+        dev.properties.analogOutput.channels[ch.port.toString()] ??
+        PlatformDevice.ZERO_COMMAND_STATE_PAIR;
+      return { cmdChannel: pair.command, stateChannel: pair.state };
+    },
+    [dev],
+  );
+  return (
+    <Task.Views.ListAndDetails<AOChannel>
+      listItem={channelListItem}
+      details={channelDetails}
+      createChannel={createNextAOChannel}
+      contextMenuItems={Task.writeChannelContextMenuItems}
+      resolve={resolve}
+    />
+  );
+};
 
 const getInitialValues: Task.GetInitialValues<AnalogWriteSchemas> = ({
   deviceKey,

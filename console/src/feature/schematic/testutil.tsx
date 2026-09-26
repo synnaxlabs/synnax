@@ -15,12 +15,9 @@ import {
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
-import {
-  Haul,
-  Panel as PlutoPanel,
-  Schematic as PSchematic,
-  Triggers,
-} from "@synnaxlabs/pluto";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
+import { Panel as PlutoPanel, Schematic as PSchematic } from "@synnaxlabs/pluto";
 import { type aether } from "@synnaxlabs/pluto/ether";
 import { id } from "@synnaxlabs/x";
 import { act, render, screen, within } from "@testing-library/react";

@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Component, Flex } from "@synnaxlabs/pluto";
+import { type Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { useCallback, useState } from "react";
 
 import { CSS } from "@/platform/css";
@@ -25,7 +26,7 @@ export interface DetailsProps {
 
 export interface ListAndDetailsProps<C extends Channel> extends Pick<
   ChannelListProps<C>,
-  "onTare" | "allowTare" | "listItem" | "contextMenuItems"
+  "onTare" | "allowTare" | "listItem" | "contextMenuItems" | "resolve"
 > {
   details: Component.RenderProp<DetailsProps>;
   /** Names the selected channel in the details header, typically by its port. */

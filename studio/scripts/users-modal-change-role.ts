@@ -71,5 +71,5 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     zoom: false,
   });
   await session.waitFor(capture.treeItem(page, "user:", "grace"));
-  await session.hold(2200);
+  await session.hold(500);
 };

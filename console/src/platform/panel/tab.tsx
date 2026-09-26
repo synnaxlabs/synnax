@@ -13,15 +13,11 @@ import {
   type project,
   type Synnax,
 } from "@synnaxlabs/client";
-import {
-  Access,
-  context,
-  type Flux,
-  type Icon,
-  Panel,
-  Text,
-  type Triggers,
-} from "@synnaxlabs/pluto";
+import { context } from "@synnaxlabs/lyra/context";
+import { type Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
+import { type Triggers } from "@synnaxlabs/lyra/triggers";
+import { Access, type Flux, Panel } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 

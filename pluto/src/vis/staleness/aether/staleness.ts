@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, type destructor, TimeSpan } from "@synnaxlabs/x";
+import { type theme } from "@synnaxlabs/lyra/theme";
+import { color, type destructor, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { type theming } from "@/theming/aether";
+import { type telem } from "@/telem/aether";
 
 const CONTEXT_KEY = "pluto-vis-staleness";
 
@@ -54,7 +55,7 @@ export interface Registration {
   cleanup: destructor.Destructor;
   /** The source this registration counts arrivals for. Arrival state belongs to one
    * source, so a caller holding a registration for a different one must replace it. */
-  readonly source: unknown;
+  readonly source: telem.Source<unknown>;
 }
 
 interface Entry {
@@ -116,7 +117,7 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
   }
 
   /** @returns a registration for `source`. Cleanup releases it. */
-  register(props: EntryProps, source: unknown): Registration {
+  register(props: EntryProps, source: telem.Source<unknown>): Registration {
     const entry: Entry = { props, lastReceived: null };
     this.entries.add(entry);
     this.start();
@@ -126,8 +127,11 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
     return {
       source,
       received: () => {
-        entry.lastReceived = performance.now();
-        setStale(entry, false);
+        const at = source.sampleTime?.();
+        const elapsed = at == null ? 0n : TimeStamp.now().valueOf() - at.valueOf();
+        const age = Math.max(0, new TimeSpan(elapsed).milliseconds);
+        entry.lastReceived = performance.now() - age;
+        setStale(entry, age >= props.timeout() * 1000);
       },
       cleanup: () => this.release(entry),
     };
@@ -186,7 +190,7 @@ export const useRegistration = (
   ctx: aether.Context,
   prev: Registration | undefined,
   props: EntryProps,
-  source: unknown,
+  source: telem.Source<unknown>,
 ): Registration => {
   if (prev != null && prev.source === source) return prev;
   const next = use(ctx).register(props, source);
@@ -208,7 +212,7 @@ export const useStateRegistration = <S extends z.infer<typeof stateZ>>(
   ctx: aether.Context,
   prev: Registration | undefined,
   leaf: StatefulLeaf<S>,
-  source: unknown,
+  source: telem.Source<unknown>,
 ): Registration =>
   useRegistration(
     ctx,
@@ -238,7 +242,7 @@ export const useInternalRegistration = (
   ctx: aether.Context,
   prev: Registration | undefined,
   leaf: InternalLeaf,
-  source: unknown,
+  source: telem.Source<unknown>,
   onTransition: () => void,
 ): Registration => {
   leaf.internal.stale ??= false;
@@ -264,7 +268,7 @@ export const useInternalRegistration = (
  */
 export const resolveColor = (
   c: color.Crude | undefined,
-  theme: theming.Theme,
+  theme: theme.Theme,
 ): color.Color => (c == null ? theme.colors.warning.m1 : color.construct(c));
 
 export const REGISTRY: aether.ComponentRegistry = { [Provider.TYPE]: Provider };

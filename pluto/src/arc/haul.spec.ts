@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Haul } from "@synnaxlabs/lyra/haul";
 import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/arc";
-import { type Haul } from "@/haul";
 
 const KEY = "stage-key";
 const OTHER: Haul.Item = { type: "other_type", key: "other" };

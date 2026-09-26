@@ -10,6 +10,10 @@
 import "@/table/Table.css";
 
 import { table } from "@synnaxlabs/client";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { box, id, math, xy } from "@synnaxlabs/x";
 import {
   type ComponentPropsWithRef,
@@ -24,9 +28,6 @@ import {
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { CSS } from "@/css";
-import { useSyncedRef } from "@/hooks";
-import { Menu } from "@/menu";
 import { AddCountControl } from "@/table/AddCountControl";
 import { table as aetherTable } from "@/table/aether";
 import { Cell } from "@/table/cells";
@@ -46,7 +47,6 @@ import {
 import { Row } from "@/table/Row";
 import { Selection } from "@/table/selection";
 import { useKey } from "@/table/Suspended";
-import { Triggers } from "@/triggers";
 import { Canvas } from "@/vis/canvas";
 
 export { getCellColumn } from "@/table/Indicator";

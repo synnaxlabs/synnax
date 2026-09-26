@@ -7,11 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Form, Header as PHeader } from "@synnaxlabs/pluto";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Header as PHeader } from "@synnaxlabs/lyra/header";
 import { type ReactNode, useCallback, useEffect } from "react";
 
 import { Button } from "@/platform/button";
 import { Empty } from "@/platform/empty";
+import { type BindChannelsProps } from "@/platform/task/BindChannels";
 import {
   ChannelList as Base,
   type ChannelListProps as BaseProps,
@@ -45,10 +47,11 @@ const Footer = ({ onAdd }: FooterProps) => {
 
 export interface ChannelListProps<C extends Channel> extends Omit<
   BaseProps<C>,
-  "data" | "header" | "emptyContent" | "path" | "remove" | "onDuplicate"
+  "data" | "header" | "emptyContent" | "path" | "remove" | "onDuplicate" | "resolve"
 > {
   /** Defaults to a "Channels" title; null when the enclosing frame titles the list. */
   header?: ReactNode;
+  resolve: BindChannelsProps<C>["resolve"];
   createChannel: (channels: C[]) => C | null;
   createChannels?: (channels: C[], keys: string[]) => C[];
   path?: string;

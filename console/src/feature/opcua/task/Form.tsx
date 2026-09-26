@@ -10,16 +10,14 @@
 import "@/feature/opcua/task/Task.css";
 
 import { type channel } from "@synnaxlabs/client";
-import {
-  type Component,
-  Flex,
-  Form as PForm,
-  Haul,
-  Header as PHeader,
-  Icon,
-  Select,
-  Text,
-} from "@synnaxlabs/pluto";
+import { type Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { Header as PHeader } from "@synnaxlabs/lyra/header";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type FC, useCallback, useState } from "react";
 
 import {
@@ -132,7 +130,7 @@ const canDrop = ({ items }: Haul.DraggingState): boolean =>
 
 interface ChannelListProps<C extends Channel> extends Pick<
   Task.ChannelListProps<C>,
-  "contextMenuItems"
+  "contextMenuItems" | "resolve"
 > {
   children: Component.RenderProp<ExtraItemProps>;
   device: Device.Device;
@@ -205,6 +203,8 @@ export interface FormProps<C extends Channel> extends Required<
 > {
   children?: Component.RenderProp<ExtraItemProps>;
   getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
+  /** Returns the bindings the device holds for a channel's node. */
+  resolve: (device: Device.Device, channel: C) => Partial<C>;
 }
 
 interface BodyProps<C extends Channel>
@@ -216,8 +216,13 @@ const Body = <C extends Channel>({
   children = () => null,
   getChannelKeyAndID,
   contextMenuItems,
+  resolve,
 }: BodyProps<C>) => {
   const isPreview = Task.useIsPreview();
+  const resolveOnDevice = useCallback(
+    (channel: C) => resolve(device, channel),
+    [device, resolve],
+  );
   return (
     <>
       {!isPreview && <Browser device={device} />}
@@ -226,6 +231,7 @@ const Body = <C extends Channel>({
         convertHaulItemToChannel={convertHaulItemToChannel}
         getChannelKeyAndID={getChannelKeyAndID}
         contextMenuItems={contextMenuItems}
+        resolve={resolveOnDevice}
       >
         {children}
       </ChannelList>

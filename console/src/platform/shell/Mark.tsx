@@ -9,8 +9,8 @@
 
 import "@/platform/shell/Shell.css";
 
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { Logo } from "@synnaxlabs/media";
-import { Flex } from "@synnaxlabs/pluto";
 import { type PropsWithChildren, type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";

@@ -10,7 +10,11 @@
 import "@/platform/modals/useConfirm.css";
 
 import { type status } from "@synnaxlabs/client";
-import { Button, type Icon, Nav, Text, Triggers as PTriggers } from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { type Icon } from "@synnaxlabs/lyra/icon";
+import { Nav } from "@synnaxlabs/lyra/nav";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Triggers as PTriggers } from "@synnaxlabs/lyra/triggers";
 
 import { CSS } from "@/platform/css";
 import { Body } from "@/platform/modals/Body";

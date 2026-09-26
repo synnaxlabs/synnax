@@ -66,6 +66,7 @@ var _ = Describe("Format String Analyzer Diagnostics", func() {
 	}
 
 	analyze := func(specCtx SpecContext, code string) diagnostics.Diagnostics {
+		GinkgoHelper()
 		ast := MustSucceed(parser.Parse(code))
 		ctx := acontext.NewRoot(specCtx, ast, fmtResolver())
 		analyzer.AnalyzeProgram(ctx)
@@ -95,6 +96,7 @@ var _ = Describe("Format String Analyzer Diagnostics", func() {
 	}
 
 	expectError := func(specCtx SpecContext, code, substr string) diagnostics.Diagnostic {
+		GinkgoHelper()
 		diags := analyze(specCtx, code)
 		Expect(diags.Ok()).To(BeFalse(),
 			fmt.Sprintf("expected an error matching %q but analysis succeeded", substr))
@@ -105,6 +107,7 @@ var _ = Describe("Format String Analyzer Diagnostics", func() {
 	}
 
 	expectSuccess := func(specCtx SpecContext, code string) {
+		GinkgoHelper()
 		diags := analyze(specCtx, code)
 		Expect(diags.Ok()).To(BeTrue(), diags.String())
 	}

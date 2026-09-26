@@ -9,7 +9,12 @@
 
 import "@/platform/modals/Header.css";
 
-import { Breadcrumb, Button, Dialog, Icon, Nav, Triggers } from "@synnaxlabs/pluto";
+import { Breadcrumb } from "@synnaxlabs/lyra/breadcrumb";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Nav } from "@synnaxlabs/lyra/nav";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";

@@ -9,13 +9,13 @@
 
 import { group, ontology, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { Form } from "@synnaxlabs/lyra/form";
 import { color } from "@synnaxlabs/x";
 import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { Form } from "@/form";
 import { Custom } from "@/schematic/node/common/custom";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 

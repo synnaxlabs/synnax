@@ -10,10 +10,16 @@
 import "@/feature/modbus/task/Task.css";
 
 import { channel, NotFoundError } from "@synnaxlabs/client";
-import { Component, Flex, Form as PForm, Icon, Select, Telem } from "@synnaxlabs/pluto";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Telem } from "@synnaxlabs/pluto";
 import { DataType, deep, errors, id, primitive } from "@synnaxlabs/x";
-import { type FC } from "react";
+import { type FC, useCallback } from "react";
 
+import { useFromConfig } from "@/feature/modbus/device/queries";
 import { Select as SelectDevice } from "@/feature/modbus/device/Select";
 import * as Device from "@/feature/modbus/device/types";
 import { SelectReadChannelTypeField } from "@/feature/modbus/task/SelectReadChannelTypeField";
@@ -125,13 +131,24 @@ const getOpenChannel = (channels: ReadChannel[]): ReadChannel => {
 
 const listItem = Component.renderProp(ChannelListItem);
 
-const Form: FC = () => (
-  <Task.Views.List<ReadChannel>
-    createChannel={getOpenChannel}
-    contextMenuItems={Task.readChannelContextMenuItem}
-    listItem={listItem}
-  />
-);
+const Form: FC = () => {
+  const dev = useFromConfig();
+  const resolve = useCallback(
+    (c: ReadChannel) =>
+      dev == null
+        ? null
+        : { channel: dev.properties.read.channels[readMapKey(c)] ?? 0 },
+    [dev],
+  );
+  return (
+    <Task.Views.List<ReadChannel>
+      createChannel={getOpenChannel}
+      contextMenuItems={Task.readChannelContextMenuItem}
+      listItem={listItem}
+      resolve={resolve}
+    />
+  );
+};
 
 // Auto-generated channel names and device map keys keep the released type
 // spellings, so channels created before the labels were renamed keep matching.

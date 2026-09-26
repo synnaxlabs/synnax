@@ -19,6 +19,7 @@ import {
   ValidationError,
 } from "@synnaxlabs/client";
 import { StreamClosed, Unreachable } from "@synnaxlabs/freighter";
+import { type theme } from "@synnaxlabs/lyra/theme";
 import {
   color,
   compare,
@@ -30,7 +31,6 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
-import { type theming } from "@/ether";
 import { flux } from "@/flux/aether";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
@@ -76,7 +76,7 @@ interface InternalState {
   colors: Colors;
   addStatus: status.Adder;
   runAsync: status.ErrorHandler;
-  theme: theming.Theme;
+  theme: theme.Theme;
   telemCtx: telem.Context;
 }
 

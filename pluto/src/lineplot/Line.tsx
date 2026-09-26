@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { useUniqueKey } from "@synnaxlabs/lyra/hooks";
 import { type ReactElement, useEffect } from "react";
 
 import { type Aether } from "@/aether";
-import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { useContext } from "@/lineplot/Frame";
 import { Line as Base } from "@/vis/line";
 

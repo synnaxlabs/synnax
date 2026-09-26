@@ -8,15 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { type status } from "@synnaxlabs/client";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as Base } from "@synnaxlabs/lyra/form";
 import { type CSSProperties, type ReactElement } from "react";
 
-import { renderProp } from "@/component/renderProp";
-import { Flex } from "@/flex";
-import { Form as Base } from "@/form";
 import { Status } from "@/status";
 
-const selectStatus = renderProp(Status.Select);
-const selectVariant = renderProp(Status.SelectVariant);
+const selectStatus = Component.renderProp(Status.Select);
+const selectVariant = Component.renderProp(Status.SelectVariant);
 
 const VARIANT_STYLE: CSSProperties = { width: "30rem" };
 

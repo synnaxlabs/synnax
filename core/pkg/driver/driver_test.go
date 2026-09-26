@@ -26,6 +26,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/driver"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	. "github.com/synnaxlabs/x/testutil"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -53,6 +54,7 @@ func (b *syncBuffer) String() string {
 }
 
 func newTestLogger() (*alamos.Logger, *syncBuffer) {
+	GinkgoHelper()
 	buffer := &syncBuffer{}
 	core := zapcore.NewCore(
 		zapcore.NewJSONEncoder(zap.NewDevelopmentEncoderConfig()),
@@ -70,6 +72,7 @@ func openMockDriver(
 	logger *alamos.Logger,
 	overrides ...driver.Config,
 ) *driver.Driver {
+	GinkgoHelper()
 	base := driver.Config{
 		Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
 		FS:              mockFS,
@@ -266,6 +269,21 @@ var _ = Describe("Open", func() {
 			conn := readDriverConnection(dir)
 			Expect(conn).To(HaveKeyWithValue("ca_cert_file", Not(BeEmpty())))
 			Expect(os.ReadFile(conn["ca_cert_file"].(string))).To(Equal(anchors))
+			Expect(d.Close()).To(Succeed())
+		})
+
+		It("Should give the Driver its credentials under the keys it reads", func(
+			ctx SpecContext,
+		) {
+			logger, _ := newTestLogger()
+			dir := GinkgoT().TempDir()
+			d := openMockDriver(ctx, logger, driver.Config{
+				ParentDirname: dir,
+				Credentials:   auth.Credentials{Username: "root", Password: "secret"},
+			})
+			conn := readDriverConnection(dir)
+			Expect(conn).To(HaveKeyWithValue("username", "root"))
+			Expect(conn).To(HaveKeyWithValue("password", "secret"))
 			Expect(d.Close()).To(Succeed())
 		})
 

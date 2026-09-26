@@ -30,6 +30,7 @@ var _ = Describe("FieldProcessor", func() {
 	})
 
 	processorFor := func(ctx SpecContext, source string) (*types.FieldProcessor, resolution.Type, resolution.Field) {
+		GinkgoHelper()
 		req := MustGenerateRequest(ctx, source, "schema", loader)
 		fp := &types.FieldProcessor{
 			Imports:    mgr,

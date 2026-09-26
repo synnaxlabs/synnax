@@ -30,10 +30,6 @@ cc_library(
     hdrs = [
         "compile.h",
     ],
-    copts = select({
-        "@platforms//os:windows": ["/wd4201"],
-        "//conditions:default": [],
-    }),
     visibility = ["//visibility:public"],
     deps = [
         "//arc/cpp/program",
@@ -48,10 +44,6 @@ cc_library(
     hdrs = [
         "harness.h",
     ],
-    copts = select({
-        "@platforms//os:windows": ["/wd4201"],
-        "//conditions:default": [],
-    }),
     visibility = ["//visibility:public"],
     deps = [
         ":compile",

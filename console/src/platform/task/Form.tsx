@@ -17,15 +17,11 @@ import {
   type Synnax,
   task,
 } from "@synnaxlabs/client";
-import {
-  Access,
-  Flex,
-  Form as PForm,
-  Input,
-  Status,
-  Synnax as PSynnax,
-  Task as PTask,
-} from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Access, Synnax as PSynnax, Task as PTask } from "@synnaxlabs/pluto";
 import { primitive, TimeSpan } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 import { type z } from "zod";

@@ -9,7 +9,11 @@
 
 import "@/feature/ni/task/AIChannelForm.css";
 
-import { Divider, Flex, Form, Icon, type Select as PSelect } from "@synnaxlabs/pluto";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { type Select as PSelect } from "@synnaxlabs/lyra/select";
 import { type record } from "@synnaxlabs/x";
 import { type FC } from "react";
 

@@ -9,7 +9,8 @@
 
 import "@/platform/fs/PickerRow.css";
 
-import { Button, Icon } from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { primitive } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 

@@ -8,6 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { control as clientControl, type status } from "@synnaxlabs/client";
+import { Button } from "@synnaxlabs/lyra/button";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
+import { Text } from "@synnaxlabs/lyra/text";
 import { TimeStamp } from "@synnaxlabs/x";
 import {
   type CSSProperties,
@@ -19,12 +24,7 @@ import {
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { Button } from "@/button";
-import { CSS } from "@/css";
-import { Icon } from "@/icon";
-import { useMemoDeepEqual } from "@/memo";
 import { control } from "@/telem/control/aether";
-import { Text } from "@/text";
 
 export interface ChipProps
   extends

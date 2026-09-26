@@ -7,22 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
+import { type Tooltip } from "@synnaxlabs/lyra/tooltip";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { caseconv } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
-import { Icon } from "@/icon";
-import { Select } from "@/select";
-import { Text } from "@/text";
-import { type Tooltip } from "@/tooltip";
-import { Triggers } from "@/triggers";
-import { type Trigger } from "@/triggers/triggers";
 import { type Mode, MODES, type UseTriggers } from "@/viewport/use";
 
 export type FilteredMode = Exclude<Mode, "cancel">;
 
 interface TooltipProps {
   mode: FilteredMode;
-  triggers: Trigger[];
+  triggers: Triggers.Trigger[];
 }
 
 export const TooltipText = ({ mode, triggers }: TooltipProps): ReactElement => (
@@ -56,7 +55,13 @@ export const SelectMode = ({
     size: "small",
   };
   return (
-    <Select.Buttons {...rest} keys={data} value={value} onChange={onChange}>
+    <Select.Buttons
+      variant="outlined"
+      {...rest}
+      keys={data}
+      value={value}
+      onChange={onChange}
+    >
       <Select.Button
         itemKey="zoom"
         tooltip={<TooltipText mode="zoom" triggers={triggers.modes.zoom} />}

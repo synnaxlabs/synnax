@@ -96,6 +96,7 @@ func newHarness(
 	chans []symbol.Symbol,
 	channelDigests ...channels.Digest,
 ) *testHarness {
+	GinkgoHelper()
 	prog := MustSucceed(arc.CompileGraph(ctx, g, NewRoot(nil, chans...)))
 	analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil, chans...))
 	Expect(diagnostics.Ok()).To(BeTrue())
@@ -141,6 +142,7 @@ func newHarness(
 }
 
 func (h *testHarness) Close(ctx context.Context) {
+	GinkgoHelper()
 	Expect(h.guest.Close(ctx)).To(Succeed())
 	Expect(h.wasmRT.Close(ctx)).To(Succeed())
 }
@@ -153,6 +155,7 @@ func (h *testHarness) SetInput(nodeKey string, idx int, data, time telem.Series)
 }
 
 func (h *testHarness) CreateNode(ctx context.Context, nodeKey string) node.Node {
+	GinkgoHelper()
 	return MustSucceed(h.factory.Create(node.Config{
 		Node:    h.analyzed.Nodes.Get(nodeKey),
 		State:   h.state.Node(nodeKey),
@@ -163,6 +166,7 @@ func (h *testHarness) CreateNode(ctx context.Context, nodeKey string) node.Node 
 // Execute creates and runs the named node, returning the set of output
 // names marked changed.
 func (h *testHarness) Execute(ctx context.Context, nodeKey string) set.Set[string] {
+	GinkgoHelper()
 	return h.NextChanged(ctx, h.CreateNode(ctx, nodeKey), nodeKey)
 }
 
@@ -212,6 +216,7 @@ func newTextHarness(
 	chans []symbol.Symbol,
 	channelDigests ...channels.Digest,
 ) *testHarness {
+	GinkgoHelper()
 	parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 	root := symbol.NewRoot(nil, stl.NewSymbols())
 	for i := range chans {
@@ -358,6 +363,7 @@ func expectOutput[T telem.Sample](
 	chans []symbol.Symbol,
 	expected T,
 ) {
+	GinkgoHelper()
 	g := singleFunctionGraph(key, outType, body)
 	h := newHarness(ctx, g, chans)
 	DeferCleanup(h.Close)

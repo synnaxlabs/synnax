@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Form as Base } from "@synnaxlabs/lyra/form";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
-
-import { Form as Base } from "@/form";
-import { Text } from "@/text";
 
 export const GroupBoxForm = (): ReactElement => (
   <Base.Sections x>

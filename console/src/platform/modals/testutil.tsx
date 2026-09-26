@@ -9,7 +9,7 @@
 
 import { configureStore } from "@reduxjs/toolkit";
 import { type connection, type Synnax as Client } from "@synnaxlabs/client";
-import { Triggers } from "@synnaxlabs/pluto";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { type aether } from "@synnaxlabs/pluto/ether";
 import { deep } from "@synnaxlabs/x";
 import {

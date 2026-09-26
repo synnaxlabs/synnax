@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type status } from "@synnaxlabs/client";
+import { Select } from "@synnaxlabs/lyra/select";
+import { type Status as Base } from "@synnaxlabs/lyra/status";
 import { type ReactElement } from "react";
 
-import { Select } from "@/select";
 import { VARIANT_DATA } from "@/status/variantData";
 
 export interface SelectVariantProps extends Omit<
-  Select.StaticProps<status.Variant>,
+  Select.StaticProps<Base.Variant>,
   "data" | "resourceName"
 > {}
 
