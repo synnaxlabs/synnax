@@ -110,6 +110,8 @@ describe("AnalogWrite", () => {
     await selectFromDropdown("Voltage", "Function generator");
     await waitFor(() => expect(screen.getByText("Frequency")).toBeTruthy());
     expect(screen.queryByText("Custom scaling")).toBeNull();
+    await selectFromDropdown("Function generator", "Voltage");
+    await screen.findByText("Custom scaling");
   });
 
   it("should create command and state channels and update the device", async () => {

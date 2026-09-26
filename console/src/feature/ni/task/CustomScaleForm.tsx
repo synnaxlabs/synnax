@@ -157,3 +157,14 @@ export const CustomScaleForm = ({ prefix }: CustomScaleFormProps) => {
     </>
   );
 };
+
+/** The Scale section, or nothing for a channel type without a custom scale. */
+export const CustomScaleSection = ({ prefix }: CustomScaleFormProps) => {
+  const scale = Form.useFieldValue<Scale>(`${prefix}.customScale`, { optional: true });
+  if (scale == null) return null;
+  return (
+    <Form.Section title="Scale">
+      <CustomScaleForm prefix={prefix} />
+    </Form.Section>
+  );
+};

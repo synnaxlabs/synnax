@@ -14,7 +14,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { type FC } from "react";
 
 import { PortField } from "@/feature/ni/device/PortField";
-import { CustomScaleForm } from "@/feature/ni/task/CustomScaleForm";
+import { CustomScaleSection } from "@/feature/ni/task/CustomScaleForm";
 import { MinMaxValueFields } from "@/feature/ni/task/MinMaxValueFields";
 import { SelectAOChannelTypeField } from "@/feature/ni/task/SelectAOChannelTypeField";
 import {
@@ -102,11 +102,7 @@ export const AOChannelForm = ({ type, path }: AOChannelFormProps) => {
         <SelectAOChannelTypeField path={path} />
         <TypeForm path={path} />
       </Form.Section>
-      {type !== AO_FUNC_GEN_CHAN_TYPE && (
-        <Form.Section title="Scale">
-          <CustomScaleForm prefix={path} />
-        </Form.Section>
-      )}
+      <CustomScaleSection prefix={path} />
     </Form.Sections>
   );
 };

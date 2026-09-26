@@ -190,6 +190,3 @@ export const FORMS: Record<ReadChannelType, FC<FormProps> | null> = {
     </>
   ),
 };
-
-/** Channel types whose values bypass the scale. */
-export const UNSCALED_TYPES = new Set<ReadChannelType>(["digital"]);

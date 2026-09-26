@@ -16,7 +16,7 @@ import { type FC } from "react";
 import { PortField } from "@/feature/ni/device/PortField";
 import { Select } from "@/feature/ni/device/Select";
 import { CoefficientsField } from "@/feature/ni/task/CoefficientsField";
-import { CustomScaleForm } from "@/feature/ni/task/CustomScaleForm";
+import { CustomScaleSection } from "@/feature/ni/task/CustomScaleForm";
 import { MinMaxValueFields } from "@/feature/ni/task/MinMaxValueFields";
 import { SelectAIChannelTypeField } from "@/feature/ni/task/SelectAIChannelTypeField";
 import { selectData } from "@/feature/ni/task/selectData";
@@ -1137,14 +1137,6 @@ export interface AIChannelFormProps {
   prefix: string;
 }
 
-const UNSCALED_TYPES = new Set<AIChannelType>([
-  "ai_rtd",
-  "ai_temp_builtin",
-  "ai_thermistor_iex",
-  "ai_thermistor_vex",
-  "ai_thermocouple",
-]);
-
 export const AIChannelForm = ({ type, prefix }: AIChannelFormProps) => {
   const TypeForm = CHANNEL_FORMS[type];
   return (
@@ -1157,11 +1149,7 @@ export const AIChannelForm = ({ type, prefix }: AIChannelFormProps) => {
         <SelectAIChannelTypeField path={prefix} inputProps={{ allowNone: false }} />
         <TypeForm prefix={prefix} />
       </Form.Section>
-      {!UNSCALED_TYPES.has(type) && (
-        <Form.Section title="Scale">
-          <CustomScaleForm prefix={prefix} />
-        </Form.Section>
-      )}
+      <CustomScaleSection prefix={prefix} />
     </Form.Sections>
   );
 };
