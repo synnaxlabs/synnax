@@ -158,6 +158,37 @@ class TestTrainRule:
         assert repo.resolve("core", "minor")["version"] == "0.59.0"
 
 
+class TestDesktop:
+    """Tests for Desktop, which versions apart from the train."""
+
+    def test_should_bump_the_first_release_from_zero(self, repo: Repo) -> None:
+        out = repo.resolve("desktop", "major")
+        assert out["version"] == "1.0.0"
+        assert out["tag"] == "desktop/v1.0.0"
+        assert out["previous_tag"] == ""
+        assert out["latest"] == "true"
+        assert repo.resolve("desktop", "minor")["version"] == "0.1.0"
+
+    def test_should_bump_from_the_reachable_desktop_tag(self, repo: Repo) -> None:
+        repo.tag("desktop/v1.2.0")
+        repo.commit("more")
+        out = repo.resolve("desktop", "patch")
+        assert out["version"] == "1.2.1"
+        assert out["previous_tag"] == "desktop/v1.2.0"
+        assert repo.resolve("desktop", "major")["version"] == "2.0.0"
+
+    def test_should_skip_the_train_rule(self, repo: Repo) -> None:
+        repo.tag("desktop/v1.4.0")
+        repo.commit("more")
+        assert repo.resolve("desktop", "minor")["version"] == "1.5.0"
+
+    def test_should_count_up_desktop_candidates(self, repo: Repo) -> None:
+        repo.tag("desktop/v1.0.0-rc.1")
+        out = repo.resolve("desktop", "major", prerelease=True)
+        assert out["version"] == "1.0.0-rc.2"
+        assert out["previous_tag"] == ""
+
+
 class TestErrors:
     """Tests for unusable inputs."""
 
@@ -167,7 +198,10 @@ class TestErrors:
         assert "no stable console tag" in repo.resolve_error("console", "patch")
 
     def test_should_reject_an_unknown_bump(self, repo: Repo) -> None:
-        assert "unknown bump" in repo.resolve_error("core", "major")
+        assert "unknown bump" in repo.resolve_error("core", "huge")
+
+    def test_should_reject_a_major_bump_on_the_train(self, repo: Repo) -> None:
+        assert "desktop only" in repo.resolve_error("core", "major")
 
     def test_should_reject_an_unknown_product(self, repo: Repo) -> None:
         assert "unknown product" in repo.resolve_error("python", "patch")

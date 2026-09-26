@@ -1121,13 +1121,13 @@ jobs:
 
       # The whole Desktop config is merged into the release config, so one --config
       # carries the product name, the sidecar, the icons, and the resolved version. A
-      # dev build falls back to the Cargo.toml version, as the Console build does.
+      # build without a version falls back to the Cargo.toml version.
       - name: Write Tauri release config
         id: config
         working-directory: console
         run: |
           ENDPOINT="https://docs.synnaxlabs.com/releases/desktop/${{ inputs.updater_channel == 'next' && 'next' || 'latest' }}.json"
-          if [ -n "$RELEASE_TAG" ]; then
+          if [ -n "${{ inputs.version }}" ]; then
             APP_VERSION="${{ needs.setup.outputs.VERSION }}"
             APP_VERSION="${APP_VERSION/-rc./-}"
           else
@@ -1231,12 +1231,3 @@ jobs:
           path: desktop-bundles
           retention-days: 7
           if-no-files-found: error
-
-      - name: Upload release assets
-        if: inputs.release_tag != ''
-        uses: nick-fields/retry@v4
-        with:
-          timeout_minutes: 10
-          max_attempts: 3
-          shell: bash
-          command: gh release upload --clobber "$RELEASE_TAG" desktop-bundles/*

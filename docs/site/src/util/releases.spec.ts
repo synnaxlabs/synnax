@@ -46,8 +46,11 @@ describe("releases", () => {
       expect(assetURL("driver", "0.59.1", "install-driver-nilinuxrt.sh")).toEqual(
         "https://github.com/synnaxlabs/synnax/releases/download/driver/v0.59.1/install-driver-nilinuxrt.sh",
       );
-      expect(manifestURL("0.59.0")).toEqual(
+      expect(manifestURL("console", "0.59.0")).toEqual(
         "https://github.com/synnaxlabs/synnax/releases/download/console/v0.59.0/latest.json",
+      );
+      expect(manifestURL("desktop", "1.2.0")).toEqual(
+        "https://github.com/synnaxlabs/synnax/releases/download/desktop/v1.2.0/latest.json",
       );
     });
   });
@@ -70,6 +73,12 @@ describe("releases", () => {
       const releases = [release("core/v0.58.5"), release("core/v0.59.0")];
       expect(highest(releases, "core", "stable")).toEqual("0.59.0");
       expect(highest([...releases].reverse(), "core", "stable")).toEqual("0.59.0");
+    });
+
+    it("should rank Desktop apart from the train products", () => {
+      const releases = [release("desktop/v1.2.0"), ...RELEASES];
+      expect(highest(releases, "desktop", "stable")).toEqual("1.2.0");
+      expect(highest(releases, "console", "stable")).toEqual("0.58.3");
     });
 
     it("should treat the API pre-release flag like a candidate tag", () => {

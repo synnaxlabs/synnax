@@ -1,0 +1,166 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Synnax Desktop versions apart from the train, so it releases apart from release.yaml.
+
+name: Release Desktop
+
+run-name:
+  ${{ format('Release Desktop {0}{1}', inputs.bump, inputs.prerelease && ' candidate' ||
+  '') }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Version bump
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: patch
+      prerelease:
+        description: Tag a release candidate (-rc.N)
+        type: boolean
+        default: false
+
+concurrency:
+  group: release-desktop
+  cancel-in-progress: false
+
+permissions:
+  actions: read
+  contents: write
+  packages: write
+
+env:
+  GH_REPO: ${{ github.repository }}
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  verify:
+    name: Verify checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Verify checks
+        uses: ./.github/actions/verify-checks
+        with:
+          sha: ${{ github.sha }}
+
+  resolve:
+    name: Resolve version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.desktop.outputs.version }}
+      tag: ${{ steps.desktop.outputs.tag }}
+      previous_tag: ${{ steps.desktop.outputs.previous_tag }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Resolve Desktop version
+        id: desktop
+        uses: ./.github/actions/resolve-version
+        with:
+          product: desktop
+          bump: ${{ inputs.bump }}
+          prerelease: ${{ inputs.prerelease }}
+
+  draft:
+    name: Draft Desktop
+    needs: [resolve, verify]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Draft release
+        uses: ./.github/actions/draft-release
+        with:
+          tag: ${{ needs.resolve.outputs.tag }}
+          title: Synnax Desktop v${{ needs.resolve.outputs.version }}
+          previous_tag: ${{ needs.resolve.outputs.previous_tag }}
+          prerelease: ${{ inputs.prerelease }}
+
+  # The Core and Driver of this run exist only inside Desktop and carry its version.
+  # No release_tag reaches the build, so neither lands on the release as an asset.
+  build:
+    name: Build Desktop
+    needs: [resolve, draft]
+    uses: ./.github/workflows/build.synnax.yaml
+    permissions:
+      actions: read
+      contents: write
+      packages: write
+    with:
+      windows: true
+      macos: true
+      driver: true
+      core: true
+      desktop: true
+      sign_binaries: true
+      use_simple_artifact_names: true
+      version: ${{ needs.resolve.outputs.version }}
+      updater_channel: ${{ inputs.prerelease && 'next' || 'stable' }}
+    secrets: inherit
+
+  publish:
+    name: Publish Desktop
+    needs: [resolve, build]
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ needs.resolve.outputs.tag }}
+      VERSION: ${{ needs.resolve.outputs.version }}
+    steps:
+      - name: Download bundles
+        uses: actions/download-artifact@v8
+        with:
+          pattern: synnax-desktop-*
+          merge-multiple: true
+          path: desktop-bundles
+
+      - name: Upload bundles
+        run: gh release upload --clobber "$TAG" desktop-bundles/*
+
+      # The manifest carries the app version the build stamped (X.Y.Z-N for a
+      # candidate), so the updater compares like with like.
+      - name: Write updater manifest
+        working-directory: desktop-bundles
+        run: |
+          APP_VERSION="${VERSION/-rc./-}"
+          BASE="https://github.com/${GH_REPO}/releases/download/${TAG}"
+          MSI="Synnax-Desktop_${APP_VERSION}_x64_en-US.msi"
+          jq -n --arg version "v${APP_VERSION}" --arg base "$BASE" --arg msi "$MSI" \
+            --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --rawfile darwin Synnax-Desktop.app.tar.gz.sig \
+            --rawfile windows "$MSI.sig" \
+            '($base + "/Synnax-Desktop.app.tar.gz") as $mac | {
+              version: $version,
+              notes: "Synnax Desktop Update",
+              pub_date: $date,
+              platforms: {
+                "darwin-x86_64": {signature: $darwin, url: $mac},
+                "darwin-aarch64": {signature: $darwin, url: $mac},
+                "linux-x86_64": {
+                  signature: "not_supported_and_tauri_requires_an_entry",
+                  url: $mac
+                },
+                "windows-x86_64": {signature: $windows, url: ($base + "/" + $msi)}
+              }
+            }' > latest.json
+          gh release upload --clobber "$TAG" latest.json
+
+      - name: Publish release
+        run: gh release edit "$TAG" --draft=false
