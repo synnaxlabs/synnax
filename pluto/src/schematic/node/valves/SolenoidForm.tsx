@@ -14,5 +14,5 @@ import { type FormProps } from "@/schematic/node/spec";
 
 /** The toggle form with the solenoid's `normallyOpen` switch. */
 export const SolenoidForm = (props: FormProps): ReactElement => (
-  <Form.ToggleForm {...props} normallyOpenShown />
+  <Form.ToggleForm {...props} showNormallyOpen />
 );

@@ -22,7 +22,7 @@ import { type FormProps } from "@/schematic/node/spec";
 import { Tabs } from "@/tabs";
 
 export interface ToggleFormProps
-  extends FormProps, Pick<StyleFormProps, "normallyOpenShown"> {
+  extends FormProps, Pick<StyleFormProps, "showNormallyOpen"> {
   hideInnerOrientation?: boolean;
   omit?: string[];
 }
@@ -30,7 +30,7 @@ export interface ToggleFormProps
 export const ToggleForm = ({
   actions,
   hideInnerOrientation,
-  normallyOpenShown,
+  showNormallyOpen,
   omit,
 }: ToggleFormProps): ReactElement => (
   <Tabs.Frame initialValue="style">
@@ -49,7 +49,7 @@ export const ToggleForm = ({
     <Tabs.Content itemKey="style">
       <StyleForm
         hideInnerOrientation={hideInnerOrientation}
-        normallyOpenShown={normallyOpenShown}
+        showNormallyOpen={showNormallyOpen}
       />
     </Tabs.Content>
     <Tabs.Content itemKey="control">

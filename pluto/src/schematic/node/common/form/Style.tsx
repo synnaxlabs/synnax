@@ -26,14 +26,14 @@ export interface StyleFormProps extends FormProps {
   hideOuterOrientation?: boolean;
   showStateOverrides?: boolean;
   /** Whether the config carries `normallyOpen`. Only the solenoid valve does. */
-  normallyOpenShown?: boolean;
+  showNormallyOpen?: boolean;
 }
 
 export const StyleForm = ({
   omit,
   hideInnerOrientation,
   hideOuterOrientation,
-  normallyOpenShown = false,
+  showNormallyOpen = false,
 }: StyleFormProps): ReactElement => {
   const hasStateOverrides =
     Form.useFieldValue<string>("stateOverrides", { optional: true }) != null;
@@ -47,7 +47,7 @@ export const StyleForm = ({
             path="normallyOpen"
             label="Normally open"
             padHelpText={false}
-            visible={normallyOpenShown}
+            visible={showNormallyOpen}
           />
           <ScaleField path="scale" />
         </Flex.Box>
