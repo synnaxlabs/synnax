@@ -562,7 +562,7 @@ const Form: FC = () => {
             </Menu.ContextMenu>
             {!isPreview && (
               <PlatformButton.CreateListItem size="small" onClick={handleAddEndpoint}>
-                New endpoint
+                Add endpoint
               </PlatformButton.CreateListItem>
             )}
           </>

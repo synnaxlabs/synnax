@@ -42,7 +42,7 @@ const addField = (): void => {
 };
 
 const addEndpoint = async (): Promise<void> => {
-  fireEvent.click(await screen.findByRole("button", { name: "New endpoint" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Add endpoint" }));
   await screen.findByText("Request");
 };
 

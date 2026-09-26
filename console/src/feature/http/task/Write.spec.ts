@@ -53,7 +53,7 @@ const createDraft = async (client: Synnax, config: HTTP.Task.WritePayload["confi
   await client.tasks.create({ ...ZERO_DRAFT, config }, HTTP.Task.WRITE_SCHEMAS);
 
 const addEndpoint = async (): Promise<void> => {
-  fireEvent.click(await screen.findByRole("button", { name: "New endpoint" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Add endpoint" }));
   await screen.findByText("Request");
 };
 
