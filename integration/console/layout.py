@@ -452,13 +452,13 @@ class LayoutClient:
         raise RuntimeError(f"No selected button found from options: {button_options}")
 
     def select_labels(self, labels: list[str], scope: Locator | None = None) -> None:
-        """Pick labels from a "Select labels" dropdown.
+        """Pick labels from a "Labels" dropdown.
 
         :param labels: The label names to select.
         :param scope: Where the trigger lives. Defaults to the whole page.
         """
         parent = self.page if scope is None else scope
-        parent.get_by_text("Select labels", exact=True).click(timeout=5000)
+        parent.get_by_role("button", name="Labels", exact=True).click(timeout=5000)
         for name in labels:
             self.select_from_dropdown(name, exact=True)
         self.press_escape()
