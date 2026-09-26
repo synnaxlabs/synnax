@@ -152,7 +152,7 @@ const ChannelDetails = ({ path, deviceModel }: ChannelDetailsProps) => {
           )}
         </PForm.Field>
       </PForm.Section>
-      {channel.type !== "digital" && (
+      {TypeForm != null && (
         <PForm.Section title="Signal">
           <TypeForm deviceModel={deviceModel} path={path} />
         </PForm.Section>

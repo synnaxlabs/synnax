@@ -16,12 +16,9 @@ export type Entry<K extends string, V extends string | number> = {
   [k in K]: string;
 } & { value: V };
 
-export interface KeyValueEditorProps<
-  K extends string,
-  V extends string | number,
-> extends Omit<Input.ItemProps, "label"> {
+export interface KeyValueEditorProps<K extends string, V extends string | number>
+  extends Input.ItemProps {
   path: string;
-  label?: string;
   keyField: K;
   keyPlaceholder?: string;
   valuePlaceholder?: string;
@@ -31,7 +28,6 @@ export interface KeyValueEditorProps<
 
 export const KeyValueEditor = <K extends string, V extends string | number>({
   path,
-  label,
   keyField,
   keyPlaceholder = "Key",
   valuePlaceholder = "Value",
@@ -102,7 +98,7 @@ export const KeyValueEditor = <K extends string, V extends string | number>({
   columns[valueIndex] = valueColumn;
 
   return (
-    <Input.Item label={label} padHelpText={false} {...rest}>
+    <Input.Item padHelpText={false} {...rest}>
       <Input.Table value={rows} onChange={handleRowsChange} preview={preview}>
         {columns}
       </Input.Table>

@@ -193,6 +193,14 @@ describe("Input.Table", () => {
       expect(document.activeElement).toBe(cell("Raw", "1"));
     });
 
+    it("should skip the row header column when rows have labels", () => {
+      renderTable({ value: VALUE, rowLabel: (i) => `c${i}` });
+      const from = cell("Raw", "c0");
+      from.focus();
+      fireEvent.keyDown(from, { key: "ArrowDown" });
+      expect(document.activeElement).toBe(cell("Raw", "c1"));
+    });
+
     it("should leave a key pressed outside a cell alone", () => {
       renderTable({ value: VALUE });
       expect(fireEvent.keyDown(addButton(), { key: "Enter" })).toBe(true);
