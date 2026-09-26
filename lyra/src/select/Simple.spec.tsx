@@ -15,23 +15,10 @@ import { Icon } from "@/icon";
 import { Select } from "@/select";
 import { mockBoundingClientRect } from "@/testutil/dom";
 
-interface TestEntry {
-  key: string;
-  name: string;
-  icon?: Icon.ReactElement;
-}
-
-describe("Select.Static", () => {
+describe("Select.Simple", () => {
   beforeAll(() => {
     Element.prototype.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 100);
   });
-  const testData: TestEntry[] = [
-    { key: "1", name: "First Item" },
-    { key: "2", name: "Second Item", icon: <Icon.Add /> },
-    { key: "3", name: "Third Item" },
-    { key: "4", name: "Another Item" },
-  ];
-
   const onChange = vi.fn();
   const SelectSimple = () => {
     const [value, setValue] = useState("");
@@ -40,12 +27,19 @@ describe("Select.Static", () => {
       onChange(key);
     };
     return (
-      <Select.Static<string, TestEntry>
+      <Select.Simple<string>
         value={value}
-        data={testData}
         onChange={handleChange}
         resourceName="Test Item"
-      />
+      >
+        <Select.Item itemKey="1">First Item</Select.Item>
+        <Select.Item itemKey="2">
+          <Icon.Add />
+          Second Item
+        </Select.Item>
+        <Select.Item itemKey="3">Third Item</Select.Item>
+        <Select.Item itemKey="4">Another Item</Select.Item>
+      </Select.Simple>
     );
   };
 
@@ -80,8 +74,37 @@ describe("Select.Static", () => {
     fireEvent.change(c.getByPlaceholderText("Search Test Items..."), {
       target: { value: "Second" },
     });
-    expect(c.getByText("Second Item")).toBeTruthy();
-    expect(c.queryByText("First Item")).toBeNull();
-    expect(c.queryByText("Third Item")).toBeNull();
+    const hidden = (text: string) => c.getByText(text).closest("[hidden]") != null;
+    expect(hidden("Second Item")).toBe(false);
+    expect(hidden("First Item")).toBe(true);
+    expect(hidden("Third Item")).toBe(true);
+  });
+
+  it("should show the selected item's label in the trigger once closed", () => {
+    const c = render(<SelectSimple />);
+    fireEvent.click(c.getByText("Test Item"));
+    fireEvent.click(c.getByText("Third Item"));
+    expect(c.queryByPlaceholderText("Search Test Items...")).toBeNull();
+    expect(c.getByRole("button", { name: "Test Item" }).textContent).toBe("Third Item");
+  });
+
+  it("should show empty content when the search hides every item", () => {
+    const c = render(<SelectSimple />);
+    fireEvent.click(c.getByText("Test Item"));
+    fireEvent.change(c.getByPlaceholderText("Search Test Items..."), {
+      target: { value: "zzz" },
+    });
+    expect(c.getByText("No Test Items found")).toBeTruthy();
+  });
+
+  it("should clear the search when the dialog closes", () => {
+    const c = render(<SelectSimple />);
+    fireEvent.click(c.getByText("Test Item"));
+    fireEvent.change(c.getByPlaceholderText("Search Test Items..."), {
+      target: { value: "Second" },
+    });
+    fireEvent.click(c.getByText("Second Item"));
+    fireEvent.click(c.getByRole("button", { name: "Test Item" }));
+    expect(c.getByText("First Item").closest("[hidden]")).toBeNull();
   });
 });

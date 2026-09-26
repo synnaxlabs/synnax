@@ -31,7 +31,7 @@ export interface BodyProps<K extends record.Key>
   footer?: ReactNode;
 }
 
-const DefaultEmptyContent = ({ resourceName }: { resourceName: string }) => (
+export const DefaultEmptyContent = ({ resourceName }: { resourceName: string }) => (
   <Text.Text center status="disabled">
     No {plural(resourceName)} found
   </Text.Text>

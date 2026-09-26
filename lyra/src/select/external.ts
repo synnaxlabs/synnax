@@ -18,6 +18,7 @@ export * from "@/select/List";
 export * from "@/select/Multiple";
 export * from "@/select/MultipleTrigger";
 export * from "@/select/Search";
+export * from "@/select/Simple";
 export * from "@/select/Single";
 export * from "@/select/SingleTrigger";
 export * from "@/select/Static";

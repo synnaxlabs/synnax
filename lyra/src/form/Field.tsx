@@ -176,13 +176,15 @@ export const buildDateTimeField = fieldBuilder<number, number, Input.DateTimePro
 );
 export const DateTimeField = buildDateTimeField({ inputProps: {} });
 
-export type SelectFieldProps<
-  K extends record.Key,
-  E extends record.KeyedNamed<K>,
-> = BuiltFieldProps<K, K, Select.StaticProps<K, E>, "data" | "resourceName">;
-export const buildSelectField = <K extends record.Key, E extends record.KeyedNamed<K>>(
-  props: FieldBuilderProps<K, K, Select.StaticProps<K, E>>,
+export type SelectFieldProps<K extends record.Key> = BuiltFieldProps<
+  K,
+  K,
+  Select.SimpleProps<K>,
+  "children" | "resourceName"
+>;
+export const buildSelectField = <K extends record.Key>(
+  props: FieldBuilderProps<K, K, Select.SimpleProps<K>>,
 ) =>
-  fieldBuilder<K, K, Select.StaticProps<K, E>, "data" | "resourceName">(
-    Select.Static<K, E>,
+  fieldBuilder<K, K, Select.SimpleProps<K>, "children" | "resourceName">(
+    Select.Simple<K>,
   )(props);
