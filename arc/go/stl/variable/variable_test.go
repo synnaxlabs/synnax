@@ -28,6 +28,7 @@ import (
 // registerState builds a variable node "v" with a value-carrying param and a
 // feeder node "f" edged into its second param.
 func registerState(ctx SpecContext) *node.ProgramState {
+	GinkgoHelper()
 	g := graph.Graph{
 		Functions: []ir.Function{
 			{
@@ -61,6 +62,7 @@ func registerState(ctx SpecContext) *node.ProgramState {
 // exprReadState builds a variable node "v" fed by a dispatcher stand-in "d" on
 // value, with sel fed from a register stand-in "selsrc".
 func exprReadState(ctx SpecContext) *node.ProgramState {
+	GinkgoHelper()
 	g := graph.Graph{
 		Functions: []ir.Function{
 			{
@@ -232,6 +234,7 @@ var _ = Describe("Variable", func() {
 			f *node.State
 		)
 		mk := func(nodeType string) node.Node {
+			GinkgoHelper()
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: nodeType,

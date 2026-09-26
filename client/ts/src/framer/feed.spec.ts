@@ -18,9 +18,10 @@ import {
 } from "@synnaxlabs/x";
 import { afterAll, describe, expect, it } from "vitest";
 
+import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
 import { type Transform } from "@/framer/cache/transform";
-import { Feed } from "@/framer/feed";
+import { Feed, type LatestReader } from "@/framer/feed";
 import { Frame } from "@/framer/frame";
 import { createTestClient } from "@/testutil";
 
@@ -448,6 +449,7 @@ describe("feed", () => {
       openStreamer: async () => {
         throw new UnexpectedError("streamer unused");
       },
+      readLatest: async () => new Frame([], []),
     });
     const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
     await direct.read(tr, 1);
@@ -457,5 +459,139 @@ describe("feed", () => {
     await direct.read(tr, 1);
     expect(calls).toBe(2);
     await direct.close();
+  });
+
+  describe("readLatest", () => {
+    const createFeed = (readLatest: LatestReader, transform?: Transform): Feed =>
+      new Feed({
+        transform,
+        readLatest,
+        readRemote: async () => {
+          throw new UnexpectedError("reader unused");
+        },
+        openStreamer: async () => {
+          throw new UnexpectedError("streamer unused");
+        },
+      });
+
+    const latestFrame = (keys: channel.Key[]): Frame =>
+      new Frame(
+        keys,
+        keys.map((k) => new Series({ data: new Float32Array([k]) })),
+      );
+
+    it("should return the latest stored sample", async () => {
+      const { time, data } = await createChannels();
+      const start = TimeStamp.now();
+      await client.write(start, {
+        [time.key]: [start, start.add(TimeSpan.milliseconds(1))],
+        [data.key]: [1, 2],
+      });
+      expect(Array.from(await feed.readLatest(data.key))).toEqual([2]);
+    });
+
+    it("should coalesce concurrent reads into one request", async () => {
+      const calls: channel.Key[][] = [];
+      const direct = createFeed(async (keys) => {
+        calls.push(keys);
+        return latestFrame(keys);
+      });
+      const [a, b, c] = await Promise.all([
+        direct.readLatest(1),
+        direct.readLatest(2),
+        direct.readLatest(1),
+      ]);
+      expect(calls).toEqual([[1, 2]]);
+      expect(Array.from(a)).toEqual([1]);
+      expect(Array.from(b)).toEqual([2]);
+      expect(Array.from(c)).toEqual([1]);
+      await direct.close();
+    });
+
+    it("should open a new window once the first has fired", async () => {
+      let calls = 0;
+      const direct = createFeed(async (keys) => {
+        calls++;
+        return latestFrame(keys);
+      });
+      await direct.readLatest(1);
+      await direct.readLatest(1);
+      expect(calls).toBe(2);
+      await direct.close();
+    });
+
+    it("should apply the configured transform", async () => {
+      const transform: Transform = {
+        resolveDataType: () => DataType.FLOAT32,
+        convert: (series) => series.convert(DataType.FLOAT32),
+      };
+      const direct = createFeed(
+        async (keys) =>
+          new Frame(
+            keys,
+            keys.map(() => new Series({ data: new Int32Array([9]) })),
+          ),
+        transform,
+      );
+      const res = await direct.readLatest(1);
+      expect(res.series[0].dataType.equals(DataType.FLOAT32)).toBe(true);
+      expect(Array.from(res)).toEqual([9]);
+      await direct.close();
+    });
+
+    it("should return an empty result for a channel with no samples", async () => {
+      const direct = createFeed(async () => new Frame([], []));
+      expect((await direct.readLatest(1)).length).toBe(0);
+      await direct.close();
+    });
+
+    it("should reject every read in a failed batch", async () => {
+      const direct = createFeed(async () => {
+        throw new Error("iterator exploded");
+      });
+      const results = await Promise.allSettled([
+        direct.readLatest(1),
+        direct.readLatest(2),
+      ]);
+      expect(results.map((r) => r.status)).toEqual(["rejected", "rejected"]);
+      await direct.close();
+    });
+
+    it("should reject pending and later reads once the feed closes", async () => {
+      const direct = createFeed(async (keys) => latestFrame(keys));
+      const pending = direct.readLatest(1);
+      await direct.close();
+      await expect(pending).rejects.toThrow(UnexpectedError);
+      await expect(direct.readLatest(1)).rejects.toThrow(UnexpectedError);
+    });
+
+    it("should reject in-flight reads as soon as the feed closes", async () => {
+      let release = (): void => {};
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      const direct = createFeed(async (keys) => {
+        await gate;
+        return latestFrame(keys);
+      });
+      const reads = [direct.readLatest(1), direct.readLatest(2)];
+      await sleep.sleep(TimeSpan.milliseconds(60));
+      await direct.close();
+      const results = await Promise.allSettled(reads);
+      expect(results.map((r) => r.status)).toEqual(["rejected", "rejected"]);
+      release();
+    });
+
+    it("should report the close rather than a later request failure", async () => {
+      let release = (): void => {};
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      const direct = createFeed(async () => {
+        await gate;
+        throw new Error("iterator exploded");
+      });
+      const read = direct.readLatest(1);
+      await sleep.sleep(TimeSpan.milliseconds(60));
+      await direct.close();
+      release();
+      await expect(read).rejects.toThrow(UnexpectedError);
+    });
   });
 });

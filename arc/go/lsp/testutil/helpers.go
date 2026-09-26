@@ -12,6 +12,7 @@ package testutil
 import (
 	"context"
 
+	"github.com/onsi/ginkgo/v2"
 	"github.com/synnaxlabs/arc/lsp"
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
@@ -31,6 +32,7 @@ func defaultNewRoot() *symbol.Symbol {
 // testing. If the supplied configs do not provide a NewRoot, a default
 // is applied that builds an STL-populated root with no dynamic resolver.
 func SetupTestServer(cfgs ...lsp.Config) (*lsp.Server, uri.URI) {
+	ginkgo.GinkgoHelper()
 	cfgs = withDefaultNewRoot(cfgs)
 	server := xutil.MustSucceed(lsp.New(cfgs...))
 	docURI := uri.URI("file:///test.arc")
@@ -44,6 +46,7 @@ func SetupTestServer(cfgs ...lsp.Config) (*lsp.Server, uri.URI) {
 func SetupTestServerWithClient(
 	cfgs ...lsp.Config,
 ) (*lsp.Server, uri.URI, *testutil.MockClient) {
+	ginkgo.GinkgoHelper()
 	cfgs = withDefaultNewRoot(cfgs)
 	server := xutil.MustSucceed(lsp.New(cfgs...))
 	docURI := uri.URI("file:///test.arc")
@@ -68,5 +71,6 @@ func OpenArcDocument(
 	docURI uri.URI,
 	content string,
 ) {
+	ginkgo.GinkgoHelper()
 	testutil.OpenDocument(server, ctx, docURI, content, "arc")
 }
