@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
 import { useState } from "react";
 
 import { Channel } from "@/channel";
-import { Flex } from "@/flex";
-import { Icon } from "@/icon";
-import { Select } from "@/select";
-import { Text } from "@/text";
 
 import { SubcategorySection } from "./SubcategorySection";
 

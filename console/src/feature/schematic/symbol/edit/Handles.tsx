@@ -10,7 +10,8 @@
 import "@/feature/schematic/symbol/edit/Edit.css";
 
 import { type schematic } from "@synnaxlabs/client";
-import { Cursor, Icon } from "@synnaxlabs/pluto";
+import { Cursor } from "@synnaxlabs/lyra/cursor";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { box, location, scale, xy } from "@synnaxlabs/x";
 import { useMemo, useRef } from "react";
 

@@ -61,6 +61,8 @@ monorepo. The following is a summary of each:
   integration and stress testing across the Synnax server and its clients.
 - [Oracle](oracle) - A schema definition language, code generator, and migration CLI
   used to keep Synnax's data models consistent across Go, TypeScript, Python, and C++.
+- [Lyra](lyra) - The React UI primitives (buttons, inputs, forms, menus, theming) shared
+  by Pluto, the Console, and the documentation site.
 - [Pluto](pluto) - A React component library for building modular user interfaces on top
   of the Synnax telemetry engine.
 - [Core](core) - The core Synnax server, which integrates Aspen and Cesium to provide a

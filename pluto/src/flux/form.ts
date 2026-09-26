@@ -8,6 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { type query, type Synnax as Client } from "@synnaxlabs/client";
+import { Form } from "@synnaxlabs/lyra/form";
+import {
+  useDebouncedCallback,
+  useDestructors,
+  useSyncedRef,
+} from "@synnaxlabs/lyra/hooks";
+import { Status } from "@synnaxlabs/lyra/status";
 import { type CrudeTimeSpan, type destructor, state, TimeSpan } from "@synnaxlabs/x";
 import {
   useCallback,
@@ -36,9 +43,6 @@ import {
   usePendingFetch,
 } from "@/flux/suspend";
 import { type UpdateParams } from "@/flux/update";
-import { Form } from "@/form";
-import { useDebouncedCallback, useDestructors, useSyncedRef } from "@/hooks";
-import { Status } from "@/status/base";
 import { Synnax } from "@/synnax";
 
 export interface FormUpdateParams<Schema extends z.ZodType<query.Data>>

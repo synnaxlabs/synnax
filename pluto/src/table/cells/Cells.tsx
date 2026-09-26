@@ -10,14 +10,14 @@
 import "@/table/cells/Cells.css";
 
 import { table } from "@synnaxlabs/client";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Text as BaseText } from "@synnaxlabs/lyra/text";
 import { type border, box, color, scale } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
-import { CSS } from "@/css";
-import { Menu } from "@/menu";
 import { Cell as Base } from "@/table/cells/Cell";
 import { telem } from "@/telem/aether";
-import { Text as BaseText } from "@/text";
 import { Value as BaseValue } from "@/vis/value";
 
 export const textConfigZ = table.textCellConfigZ;

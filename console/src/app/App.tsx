@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "@/app/App.css";
+import "@synnaxlabs/lyra/dist/base.css";
 import "@synnaxlabs/media/dist/media.css";
 import "@synnaxlabs/pluto/dist/pluto.css";
 

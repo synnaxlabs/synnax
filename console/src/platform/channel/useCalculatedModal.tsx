@@ -10,20 +10,16 @@
 import "@/platform/channel/CalculatedModal.css";
 
 import { channel, DataType, status, TimeSpan } from "@synnaxlabs/client";
-import {
-  Arc,
-  Button,
-  Channel,
-  Code,
-  Flex,
-  Form,
-  Icon,
-  Input,
-  Nav,
-  Select,
-  Status,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Nav } from "@synnaxlabs/lyra/nav";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Arc, Channel, Code } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { useState } from "react";
 

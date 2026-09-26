@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Select as BaseSelect } from "@synnaxlabs/lyra/select";
 import { direction } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
-
-import { Icon } from "@/icon";
-import { Select as BaseSelect } from "@/select";
 
 export interface SelectProps extends Omit<
   BaseSelect.ButtonsProps<direction.Direction>,

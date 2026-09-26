@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Text } from "@synnaxlabs/lyra/text";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Ranger } from "@/ranger";
-import { Text } from "@/text";
 
 const STAGE_ICONS =
   ".pluto-icon--to-do, .pluto-icon--in-progress, .pluto-icon--completed";

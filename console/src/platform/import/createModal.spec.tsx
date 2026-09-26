@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type UploadBody } from "@synnaxlabs/freighter";
-import { Haul, type Status } from "@synnaxlabs/pluto";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { type Status } from "@synnaxlabs/lyra/status";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { unzipSync, zipSync } from "fflate";
 import { type ReactElement } from "react";

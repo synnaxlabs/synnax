@@ -10,19 +10,19 @@
 import "@/feature/channel/tree.css";
 
 import { channel, isCalculated, ontology, ranger, status } from "@synnaxlabs/client";
+import { type Haul } from "@synnaxlabs/lyra/haul";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
+import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import {
   Access,
   Channel as PChannel,
   type Flux,
-  type Haul,
-  Icon,
-  List,
-  Menu,
   Schematic as PSchematic,
-  Status,
-  Text,
-  Tooltip,
-  Tree as PTree,
 } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";

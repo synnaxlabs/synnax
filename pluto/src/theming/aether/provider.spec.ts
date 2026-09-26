@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { theme } from "@synnaxlabs/lyra/theme";
 import { sleep, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
 import { aetherTest } from "@/aether/test";
 import { renderAether } from "@/testutil/renderAether";
-import { SYNNAX_LIGHT } from "@/theming/base/theme";
 
 const { Leaf } = aetherTest;
 
@@ -23,7 +23,7 @@ describe("theming.Provider", () => {
     vi.stubGlobal("FontFace", undefined);
     const h = renderAether(Leaf, {
       state: {},
-      theming: { theme: SYNNAX_LIGHT, fontURLs: FONT_URLS },
+      theming: { theme: theme.SYNNAX_LIGHT, fontURLs: FONT_URLS },
     });
     await sleep.sleep(TimeSpan.milliseconds(20));
     expect(h.providers.status?.state.statuses).toHaveLength(0);

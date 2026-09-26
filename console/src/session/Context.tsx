@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { Provider } from "@synnaxlabs/drift/react";
-import { Synnax, useInitializerRef } from "@synnaxlabs/pluto";
+import { useInitializerRef } from "@synnaxlabs/lyra/hooks";
+import { Synnax } from "@synnaxlabs/pluto";
 import {
   createContext,
   type PropsWithChildren,

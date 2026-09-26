@@ -10,18 +10,14 @@
 import "@/feature/modbus/device/Connect.css";
 
 import { type device, type rack, status, TimeSpan } from "@synnaxlabs/client";
-import {
-  Button,
-  Component,
-  Device as PDevice,
-  Flex,
-  type Flux,
-  Form,
-  Icon,
-  Nav,
-  Rack,
-  Status,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Nav } from "@synnaxlabs/lyra/nav";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Device as PDevice, type Flux, Rack } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { type Device, SCHEMAS, ZERO_PROPERTIES } from "@/feature/modbus/device/types";

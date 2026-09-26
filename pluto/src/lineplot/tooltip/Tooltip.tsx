@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { useUniqueKey } from "@synnaxlabs/lyra/hooks";
 import { box, xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useRef } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { tooltip } from "@/lineplot/tooltip/aether";
 
 export interface TooltipProps

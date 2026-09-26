@@ -21,6 +21,7 @@ NODE_DIRS = [
     "client/ts",
     "drift",
     "freighter/ts",
+    "lyra",
     "pluto",
     "x/media",
     "x/ts",

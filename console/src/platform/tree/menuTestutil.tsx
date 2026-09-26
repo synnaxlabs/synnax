@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology, type Synnax as Client } from "@synnaxlabs/client";
-import { Haul } from "@synnaxlabs/pluto";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import { fireEvent, screen, within } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement, type ReactNode } from "react";
 

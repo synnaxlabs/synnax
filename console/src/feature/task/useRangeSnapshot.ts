@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { ranger } from "@synnaxlabs/client";
-import { type Flux, Status, Task } from "@synnaxlabs/pluto";
+import { Status } from "@synnaxlabs/lyra/status";
+import { type Flux, Task } from "@synnaxlabs/pluto";
 import { array, strings } from "@synnaxlabs/x";
 import { useCallback } from "react";
 

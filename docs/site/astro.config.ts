@@ -13,6 +13,7 @@ import vercel from "@astrojs/vercel";
 import { grammar as arcGrammar } from "@synnaxlabs/arc";
 import { defineConfig, envField } from "astro/config";
 
+import { layer } from "./src/util/layer";
 import { symbols, theme } from "./src/util/shiki";
 
 // https://astro.build/config
@@ -30,6 +31,11 @@ export default defineConfig({
     },
   },
   adapter: vercel(),
+  vite: {
+    // Lyra is ESM with CSS imports, which Node cannot load; Vite bundles it for SSR.
+    ssr: { noExternal: ["@synnaxlabs/lyra"] },
+    css: { postcss: { plugins: [layer(/[\\/]lyra[\\/]/, "pluto")] } },
+  },
   markdown: {
     shikiConfig: {
       theme,

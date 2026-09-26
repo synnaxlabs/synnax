@@ -9,7 +9,7 @@
 
 import { type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Text } from "@synnaxlabs/pluto";
+import { Text } from "@synnaxlabs/lyra/text";
 import { id } from "@synnaxlabs/x";
 import { screen, waitFor } from "@testing-library/react";
 import { act } from "react";

@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Form as Base } from "@synnaxlabs/lyra/form";
+import { Input } from "@synnaxlabs/lyra/input";
 import { TimeSpan } from "@synnaxlabs/x";
-
-import { Form as Base } from "@/form";
-import { Input } from "@/input";
 
 export const Form = () => (
   <Base.Field<number> path="duration">

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { record } from "@synnaxlabs/x";
 import z from "zod/v4";
 
@@ -19,7 +20,6 @@ import { Source } from "@/arc/graph/node/source";
 import { StableFor } from "@/arc/graph/node/stable";
 import { Status } from "@/arc/graph/node/status";
 import { type Spec } from "@/arc/graph/node/types/spec";
-import { Icon } from "@/icon";
 
 // REGISTRY maps each Arc function type to its Spec. The key is the node config's "type"
 // discriminant, matched against the Arc compiler's function templates.

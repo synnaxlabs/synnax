@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { modbus } from "@synnaxlabs/client";
-import { Form } from "@synnaxlabs/pluto";
+import { Form } from "@synnaxlabs/lyra/form";
 import { type record } from "@synnaxlabs/x";
 
 import { type WriteChannelType } from "@/feature/modbus/task/types";

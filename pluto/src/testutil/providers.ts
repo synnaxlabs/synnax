@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
+import { theme } from "@synnaxlabs/lyra/theme";
 import { TimeSpan } from "@synnaxlabs/x";
 import { type z } from "zod";
 
@@ -19,7 +20,6 @@ import { synnax } from "@/synnax/aether";
 import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/test";
 import { theming } from "@/theming/aether";
-import { SYNNAX_LIGHT } from "@/theming/base/theme";
 import { type render } from "@/vis/render";
 import { canvasTest } from "@/vis/render/test";
 import { staleness } from "@/vis/staleness/aether";
@@ -48,7 +48,7 @@ export interface ProviderOptions {
   status?: false | z.input<typeof status.aggregatorStateZ>;
   /** Synnax client provider. Defaults on with no client. */
   synnax?: false | z.input<typeof synnax.Provider.stateZ>;
-  /** Theming provider. Defaults on with `SYNNAX_LIGHT`. */
+  /** Theming provider. Defaults on with `theme.SYNNAX_LIGHT`. */
   theming?: false | z.input<typeof theming.Provider.z>;
   /** Telemetry provider. Defaults on with `TestFactory` + `NoopFactory`. */
   telem?: false | { factories?: telem.Factory[] };
@@ -186,7 +186,7 @@ export const buildStack = (options: ProviderOptions = {}): BuiltStack => {
       path,
       theming.Provider.TYPE,
       theming.Provider.z.parse(
-        stateOf(options.theming, { theme: SYNNAX_LIGHT, fontURLs: [] }),
+        stateOf(options.theming, { theme: theme.SYNNAX_LIGHT, fontURLs: [] }),
       ),
     );
     providers.theming = driver.find<theming.Provider>([...path]);

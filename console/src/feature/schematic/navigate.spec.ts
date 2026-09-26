@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { panel, schematic } from "@synnaxlabs/client";
-import { Status } from "@synnaxlabs/pluto";
+import { Status } from "@synnaxlabs/lyra/status";
 import { uuid } from "@synnaxlabs/x";
 import { act, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";

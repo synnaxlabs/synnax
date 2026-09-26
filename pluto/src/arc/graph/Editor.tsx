@@ -9,6 +9,12 @@
 
 import "@/arc/graph/Editor.css";
 
+import { type Component } from "@synnaxlabs/lyra/component";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { type Triggers } from "@synnaxlabs/lyra/triggers";
 import { box, id, xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useRef } from "react";
 
@@ -29,12 +35,6 @@ import {
 } from "@/arc/queries";
 import { Scope } from "@/arc/scope";
 import { useKey } from "@/arc/Suspended";
-import { type Component } from "@/component";
-import { CSS } from "@/css";
-import { Haul } from "@/haul";
-import { useSyncedRef } from "@/hooks";
-import { Menu } from "@/menu";
-import { type Triggers } from "@/triggers";
 import { Diagram as BaseDiagram } from "@/vis/diagram";
 
 const FIT_VIEW_OPTIONS: BaseDiagram.FitViewOptions = {

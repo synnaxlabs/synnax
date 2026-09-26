@@ -8,17 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { type label } from "@synnaxlabs/client";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Tag } from "@synnaxlabs/lyra/tag";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
-import { Component } from "@/component";
 import { type Flux } from "@/flux";
-import { Icon } from "@/icon";
 import { type ListQuery, useList } from "@/label/queries";
 import { HAUL_TYPE } from "@/label/types";
-import { List } from "@/list";
-import { Select } from "@/select";
-import { Tag } from "@/tag";
-import { Text } from "@/text";
 
 const ListItem = ({
   itemKey,

@@ -13,7 +13,11 @@ import {
   NotFoundError,
   type status,
 } from "@synnaxlabs/client";
-import { Access, Channel, Flex, Flux, Form, Text, Tooltip } from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
+import { Access, Channel, Flux } from "@synnaxlabs/pluto";
 import { type optional, primitive } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 

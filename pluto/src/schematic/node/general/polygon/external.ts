@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
+import { Component } from "@synnaxlabs/lyra/component";
 
-import { removeProps } from "@/component/removeProps";
 import { CommonPolygonForm } from "@/schematic/node/general/polygon/Form";
 import { Polygon } from "@/schematic/node/general/polygon/Primitive";
 import { Symbol } from "@/schematic/node/general/polygon/Symbol";
@@ -20,6 +20,6 @@ export const spec: Spec<"polygon", schematic.PolygonNodeConfig> = {
   name: "Polygon",
   Form: CommonPolygonForm,
   Node: Symbol,
-  Preview: removeProps(Polygon, ["clickable"]),
+  Preview: Component.removeProps(Polygon, ["clickable"]),
   zIndex: 2,
 };

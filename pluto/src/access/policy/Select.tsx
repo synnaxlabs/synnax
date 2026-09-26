@@ -8,16 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { type access } from "@synnaxlabs/client";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
 import { type ListParams, useList } from "@/access/policy/queries";
 import { HAUL_TYPE } from "@/access/policy/types";
-import { Component } from "@/component";
 import { type Flux } from "@/flux";
-import { Icon } from "@/icon";
-import { List } from "@/list";
-import { Select } from "@/select";
-import { Text } from "@/text";
 
 const listItemRenderProp = Component.renderProp(
   ({

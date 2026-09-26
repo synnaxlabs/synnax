@@ -10,7 +10,10 @@
 import "@/platform/import/createModal.css";
 
 import { type UploadBody } from "@synnaxlabs/freighter";
-import { Button, Icon, Status, Text } from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useCallback } from "react";
 
 import { CSS } from "@/platform/css";

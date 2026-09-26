@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { CSS } from "@synnaxlabs/lyra/css";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { CSS } from "@/css";
 
 /** Mirrors the private context key set by `render.Context`. Kept in sync with that
  * module's `CSS.B("render-context")` so the recorder lands under the key

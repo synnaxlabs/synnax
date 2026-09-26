@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type status } from "@synnaxlabs/client";
+import { type Status as Base } from "@synnaxlabs/lyra/status";
+import { mockBoundingClientRect } from "@synnaxlabs/lyra/testutil";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { fireEvent, render } from "@testing-library/react";
 import { useState } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Status } from "@/status";
-import { mockBoundingClientRect } from "@/testutil/dom";
-import { Triggers } from "@/triggers";
 
 describe("SelectMultipleVariants", () => {
   beforeAll(() => {
@@ -24,8 +24,8 @@ describe("SelectMultipleVariants", () => {
   const createTestComponent = () => {
     const onChange = vi.fn();
     const TestSelect = () => {
-      const [value, setValue] = useState<status.Variant[]>([]);
-      const handleChange = (keys: status.Variant[]) => {
+      const [value, setValue] = useState<Base.Variant[]>([]);
+      const handleChange = (keys: Base.Variant[]) => {
         setValue(keys);
         onChange(keys);
       };

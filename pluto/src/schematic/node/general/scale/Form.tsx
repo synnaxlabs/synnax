@@ -7,16 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as Base } from "@synnaxlabs/lyra/form";
+import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Flex } from "@/flex";
-import { Form as Base } from "@/form";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { Scale } from "@/schematic/node/common/scale";
-import { Tabs } from "@/tabs";
 
 export const ScaleForm = (): ReactElement => {
   const { value: orientation } = Base.useField<location.Outer>("orientation");

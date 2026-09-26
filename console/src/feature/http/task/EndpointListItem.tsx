@@ -9,7 +9,11 @@
 
 import "@/feature/http/task/EndpointListItem.css";
 
-import { Component, Form as PForm, type List, Select, Text } from "@synnaxlabs/pluto";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { type List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactNode } from "react";
 
 import { CSS } from "@/platform/css";
