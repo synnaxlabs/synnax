@@ -56,7 +56,6 @@ export const StateIndicatorForm = (): ReactElement => (
             <Base.NumericField
               path="inlineSize"
               label="Width"
-              hideIfNull
               inputProps={Form.VALUE_WIDTH_INPUT_PROPS}
             />
           </Flex.Box>

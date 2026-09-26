@@ -199,12 +199,7 @@ export const FORMS: Record<ReadChannelType, FC<FormProps>> = {
         />
       </Flex.Box>
       <Flex.Box x>
-        <PForm.Field<string>
-          path={`${path}.cjcSource`}
-          grow
-          hideIfNull
-          label="CJC source"
-        >
+        <PForm.Field<string> path={`${path}.cjcSource`} grow label="CJC source">
           {({ value, onChange, preview }) => (
             <SelectCJCSourceField
               value={value}

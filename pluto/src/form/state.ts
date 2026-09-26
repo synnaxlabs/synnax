@@ -9,7 +9,7 @@
 
 import { type status } from "@synnaxlabs/client";
 import { deep, map, observe, zod } from "@synnaxlabs/x";
-import { z } from "zod";
+import { type z } from "zod";
 
 export interface FieldState<V = unknown> {
   value: V;
@@ -20,30 +20,12 @@ export interface FieldState<V = unknown> {
 
 export interface RequiredGetOptions {
   optional?: false;
-  defaultValue?: undefined;
 }
 
-export interface DefaultGetOptions<V> {
+export interface GetOptions {
+  /** Whether a path the form cannot serve returns null instead of throwing. */
   optional?: boolean;
-  /** The value returned while the path holds none. Only a change writes it. */
-  defaultValue: V;
 }
-
-export interface OptionalGetOptions {
-  optional: true;
-  defaultValue?: undefined;
-}
-
-export interface ExtensionGetOptions<V> {
-  optional?: boolean;
-  defaultValue?: V;
-}
-
-export type GetOptions<V> =
-  | RequiredGetOptions
-  | OptionalGetOptions
-  | DefaultGetOptions<V>
-  | ExtensionGetOptions<V>;
 
 const getVariant = (issue: z.core.$ZodIssue): status.Variant => {
   if (issue.code === "custom" && issue.params != null && "variant" in issue.params)
@@ -76,9 +58,59 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
 
   setValue(path: string, value: unknown, options?: SetValueOptions) {
     if (path == "") this.values = deep.copy(value) as z.infer<Z>;
-    else deep.set(this.values, path, value);
+    else {
+      this.materialize(path);
+      deep.set(this.values, path, value);
+    }
     this.checkTouched(path, value, options);
     this.updateCachedRefs(path);
+  }
+
+  /** @returns the value the schema supplies for an absent path, or undefined. */
+  private schemaDefault(path: string): unknown {
+    if (this.schema == null) return undefined;
+    const schema = zod.getFieldSchema(this.schema, path, {
+      optional: true,
+      values: this.values,
+    });
+    if (schema == null) return undefined;
+    const parsed = schema.safeParse(undefined);
+    if (parsed.success && parsed.data != null) return parsed.data;
+    // An optional object counts as defaulted when its own fields can complete it.
+    const inner = zod.unwrap(schema);
+    if (inner._zod.def.type !== "object") return undefined;
+    const built = (inner as z.ZodObject).safeParse({});
+    return built.success ? built.data : undefined;
+  }
+
+  /** @returns the first absent ancestor of the path together with its default. */
+  private absentAncestor(path: string): [prefix: string, value: unknown] | null {
+    const parts = path.split(".");
+    for (let i = 1; i < parts.length; i++) {
+      const prefix = parts.slice(0, i).join(".");
+      if (deep.get(this.values, prefix, { optional: true }) != null) continue;
+      const value = this.schemaDefault(prefix);
+      return value == null ? null : [prefix, value];
+    }
+    return null;
+  }
+
+  /**
+   * Builds the absent ancestor of the path from its schema default, so a write to a
+   * leaf never leaves a parent the schema would reject.
+   */
+  private materialize(path: string) {
+    const ancestor = this.absentAncestor(path);
+    if (ancestor != null) deep.set(this.values, ...ancestor);
+  }
+
+  /** Reads an absent path out of the default a write would materialize. */
+  private readAbsent(path: string): unknown {
+    const ancestor = this.absentAncestor(path);
+    if (ancestor == null) return undefined;
+    const [prefix, value] = ancestor;
+    const rest = path.slice(prefix.length + 1);
+    return deep.get(value, rest, { optional: true }) ?? undefined;
   }
 
   private checkTouched(path: string, value: unknown, options: SetValueOptions = {}) {
@@ -125,13 +157,7 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     const nextValues = deep.copy(this.initialValues);
     this.statuses.clear();
     this.touched.clear();
-    const cachedRefsToClear = new Set<string>();
-    this.cachedRefs.forEach((_, path) => {
-      const prev = deep.get(this.values, path, { optional: true });
-      const next = deep.get(nextValues, path, { optional: true });
-      if (!deep.equal(prev, next)) cachedRefsToClear.add(path);
-    });
-    cachedRefsToClear.forEach((path) => this.cachedRefs.delete(path));
+    this.cachedRefs.clear();
     this.values = nextValues;
   }
 
@@ -246,31 +272,47 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     );
   }
 
-  getState<V>(
-    path: string,
-    opts?: RequiredGetOptions | DefaultGetOptions<V>,
-  ): FieldState<V>;
-  getState<V>(
-    path: string,
-    opts?: OptionalGetOptions | ExtensionGetOptions<V>,
-  ): FieldState<V> | null;
+  getState<V>(path: string, opts?: RequiredGetOptions): FieldState<V>;
+  getState<V>(path: string, opts?: GetOptions): FieldState<V> | null;
 
-  getState<V>(path: string, opts: GetOptions<V> = {}): FieldState<V> | null {
-    const { optional = false, defaultValue = undefined } = opts;
+  /**
+   * Reads the state at a path. An absent value takes the schema's verdict: a default
+   * is shown without being written, an optional field reads as `undefined`, and a
+   * required one throws.
+   *
+   * @throws {Error} if the path holds no value, the schema does not supply one, and
+   * `optional` is not set.
+   */
+  getState<V>(path: string, opts: GetOptions = {}): FieldState<V> | null {
+    const { optional = false } = opts;
     const cachedRef = map.getOrSetDefault(this.cachedRefs, path, {}) as FieldState<V>;
-    let value = deep.get<V, z.infer<Z>>(this.values, path, {
-      optional: optional || defaultValue != null,
-    });
-    if (value == null) {
-      if (defaultValue == null) return null;
-      value = defaultValue;
+    if (cachedRef.status != null) return cachedRef;
+    let value = deep.get<V, z.infer<Z>>(this.values, path, { optional: true });
+    value ??= this.readAbsent(path) as V | null;
+    let required = false;
+    const fieldSchema =
+      this.schema == null
+        ? null
+        : zod.getFieldSchema(this.schema, path, {
+            optional: true,
+            values: this.values,
+          });
+    if (fieldSchema != null) {
+      const verdict = fieldSchema.safeParse(undefined);
+      required = !verdict.success;
+      if (value == null) {
+        if (!verdict.success) {
+          if (optional) return null;
+          throw new Error(`Field ${path} is required and holds no value`);
+        }
+        value = verdict.data as V;
+      }
+    } else if (value == null) {
+      if (optional) return null;
+      throw new Error(`Field ${path} is not in the form`);
     }
     cachedRef.value = value;
-    cachedRef.required = false;
-    if (this.schema != null) {
-      const fieldSchema = zod.getFieldSchema(this.schema, path, { optional: true });
-      if (fieldSchema != null) cachedRef.required = !z.validate(fieldSchema, undefined);
-    }
+    cachedRef.required = required;
     cachedRef.status = map.getOrSetDefault(this.statuses, path, {
       key: path,
       variant: "success",
@@ -280,9 +322,14 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     return cachedRef;
   }
 
+  /**
+   * Drops the cached state of the path, its ancestors, and everything under its
+   * parent. A sibling can be the discriminator that decides the path's schema.
+   */
   private updateCachedRefs(fieldPath: string) {
+    const parent = fieldPath.slice(0, Math.max(fieldPath.lastIndexOf("."), 0));
     this.cachedRefs.forEach((_, refPath) => {
-      if (deep.pathsMatch(refPath, fieldPath) || deep.pathsMatch(fieldPath, refPath))
+      if (deep.pathsMatch(refPath, parent) || deep.pathsMatch(fieldPath, refPath))
         this.cachedRefs.set(refPath, {});
     });
   }

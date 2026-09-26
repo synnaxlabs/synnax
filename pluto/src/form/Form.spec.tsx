@@ -54,6 +54,23 @@ const wrapper = ({ children }: PropsWithChildren): ReactElement => (
   <FormContainer>{children}</FormContainer>
 );
 
+const verdictSchema = z.object({
+  optionalField: z.string().optional(),
+  defaulted: z.string().default("cat"),
+});
+
+const VerdictFormContainer = (props: PropsWithChildren): ReactElement => {
+  const methods = Form.use<typeof verdictSchema>({
+    values: {} as z.infer<typeof verdictSchema>,
+    schema: verdictSchema,
+  });
+  return <Form.Form<typeof verdictSchema> {...methods}>{props.children}</Form.Form>;
+};
+
+const verdictWrapper = ({ children }: PropsWithChildren): ReactElement => (
+  <VerdictFormContainer>{children}</VerdictFormContainer>
+);
+
 describe("Form", () => {
   describe("use", () => {
     describe("get", () => {
@@ -214,25 +231,25 @@ describe("Form", () => {
       expect(result.current.required).toBe(true);
     });
 
-    it("should return the default value for a null field without writing it", () => {
+    it("should show the schema default for an absent field without writing it", () => {
       const { result } = renderHook(
         () => {
-          const field = Form.useField<string>("optionalField", { defaultValue: "cat" });
-          const { get } = Form.useContext();
-          return { field, stored: get<string>("optionalField", { optional: true }) };
+          const field = Form.useField<string>("defaulted");
+          const { value } = Form.useContext();
+          return { field, stored: "defaulted" in (value() as object) };
         },
-        { wrapper },
+        { wrapper: verdictWrapper },
       );
       expect(result.current.field.value).toBe("cat");
-      expect(result.current.stored).toBeNull();
+      expect(result.current.stored).toBe(false);
     });
 
-    it("should respect the initial value if it is provided", () => {
-      const { result } = renderHook(
-        () => Form.useField<string>("name", { defaultValue: "Federico" }),
-        { wrapper },
-      );
-      expect(result.current.value).toBe("John Doe");
+    it("should read an absent optional field as undefined", () => {
+      const { result } = renderHook(() => Form.useField<string>("optionalField"), {
+        wrapper: verdictWrapper,
+      });
+      expect(result.current.value).toBeUndefined();
+      expect(result.current.required).toBe(false);
     });
   });
 
@@ -264,12 +281,11 @@ describe("Form", () => {
       expect(result.current).toBeNull();
     });
 
-    it("should use default value when field is null", () => {
-      const { result } = renderHook(
-        () => Form.useFieldState<string>("optionalField", { defaultValue: "default" }),
-        { wrapper },
-      );
-      expect(result.current?.value).toBe("default");
+    it("should use the schema default when the field is absent", () => {
+      const { result } = renderHook(() => Form.useFieldState<string>("defaulted"), {
+        wrapper: verdictWrapper,
+      });
+      expect(result.current?.value).toBe("cat");
     });
 
     it("should correctly identify required vs optional fields", () => {
@@ -283,7 +299,7 @@ describe("Form", () => {
       );
 
       expect(requiredResult.current?.required).toBe(true);
-      expect(optionalResult.current?.required).toBeUndefined();
+      expect(optionalResult.current?.required).toBe(false);
     });
   });
 
@@ -310,12 +326,11 @@ describe("Form", () => {
       expect(result.current).toBeNull();
     });
 
-    it("should use default value when field is null", () => {
-      const { result } = renderHook(
-        () => Form.useFieldValue<string>("optionalField", { defaultValue: "default" }),
-        { wrapper },
-      );
-      expect(result.current).toBe("default");
+    it("should use the schema default when the field is absent", () => {
+      const { result } = renderHook(() => Form.useFieldValue<string>("defaulted"), {
+        wrapper: verdictWrapper,
+      });
+      expect(result.current).toBe("cat");
     });
 
     it("should return array values correctly", () => {

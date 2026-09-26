@@ -64,7 +64,6 @@ const StyleForm = (): ReactElement => (
         <Base.NumericField
           path="inlineSize"
           label="Display width"
-          hideIfNull
           inputProps={Form.VALUE_WIDTH_INPUT_PROPS}
         />
       </Flex.Box>

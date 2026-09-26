@@ -62,6 +62,89 @@ describe("Swatch", () => {
     });
   });
 
+  describe("onClear", () => {
+    it("should render an unset swatch", () => {
+      const c = render(<Color.Swatch value={undefined} onChange={vi.fn()} />, {
+        wrapper: Wrapper,
+      });
+      expect(swatchOf(c).classList.contains(CSS.M("unset"))).toBe(true);
+    });
+
+    it("should not show the clear button while the swatch is unset", () => {
+      const c = render(
+        <Color.Swatch value={undefined} onChange={vi.fn()} onClear={vi.fn()} />,
+        { wrapper: Wrapper },
+      );
+      fireEvent.click(swatchOf(c));
+      expect(c.queryByText("Clear")).toBeNull();
+    });
+
+    it("should call onClear and close the picker", () => {
+      const onClear = vi.fn();
+      const c = render(
+        <Color.Swatch value={RED} onChange={vi.fn()} onClear={onClear} />,
+        { wrapper: Wrapper },
+      );
+      fireEvent.click(swatchOf(c));
+      fireEvent.click(c.getByText("Clear"));
+      expect(onClear).toHaveBeenCalledOnce();
+      expect(c.queryByLabelText("hex")).toBeNull();
+    });
+  });
+
+  describe("placeholder", () => {
+    it("should show the placeholder while the swatch is unset", () => {
+      const c = render(
+        <Color.Swatch value={undefined} placeholder={RED} onChange={vi.fn()} />,
+        { wrapper: Wrapper },
+      );
+      expect(swatchOf(c).style.getPropertyValue(SWATCH_VAR)).toEqual(
+        color.cssString(RED),
+      );
+    });
+
+    it("should open the picker on the placeholder while the swatch is unset", () => {
+      const c = render(
+        <Color.Swatch value={undefined} placeholder={RED} onChange={vi.fn()} />,
+        { wrapper: Wrapper },
+      );
+      fireEvent.click(swatchOf(c));
+      expect(hexInputOf(c).value).toEqual("FF0000");
+    });
+
+    it("should open the picker on the value when the swatch is set", () => {
+      const c = render(
+        <Color.Swatch value={`#${BLUE}`} placeholder={RED} onChange={vi.fn()} />,
+        { wrapper: Wrapper },
+      );
+      fireEvent.click(swatchOf(c));
+      expect(hexInputOf(c).value).toEqual("0000FF");
+    });
+
+    it("should open the picker opaque while the swatch is unset", () => {
+      const c = render(
+        <Color.Swatch value={undefined} placeholder={RED} onChange={vi.fn()} />,
+        { wrapper: Wrapper },
+      );
+      fireEvent.click(swatchOf(c));
+      expect((c.getByLabelText("a") as HTMLInputElement).value).toEqual("100");
+    });
+
+    it("should default to the theme's emphatic gray", () => {
+      const c = render(
+        <Triggers.Provider>
+          <Theming.Provider theme={{ key: "synnaxLight" }}>
+            <Color.Swatch value={undefined} onChange={vi.fn()} />
+          </Theming.Provider>
+        </Triggers.Provider>,
+      );
+      const gray = Theming.themeZ.parse(Theming.SYNNAX_LIGHT).colors.gray.l11;
+      expect(swatchOf(c).style.getPropertyValue(SWATCH_VAR)).toEqual(
+        color.cssString(gray),
+      );
+    });
+  });
+
   describe("onlyChangeOnBlur", () => {
     it("should not call onChange while the picker is open", () => {
       const onChange = vi.fn();

@@ -43,7 +43,7 @@ export interface DateTimeAnchors {
   parent?: NumericTimeRange;
 }
 
-export interface DateTimeProps extends Control<number>, BaseProps {
+export interface DateTimeProps extends Control<number | undefined, number>, BaseProps {
   anchors?: DateTimeAnchors;
   /**
    * An instant whose day is already shown beside this input; the label drops its own
@@ -122,7 +122,7 @@ export const DateTime = ({
   tooltip,
   ...rest
 }: DateTimeProps): ReactElement => {
-  const isEmpty = emptyValue != null && value === emptyValue;
+  const isEmpty = value == null || (emptyValue != null && value === emptyValue);
   const stamp = isEmpty ? null : fromNumeric(value);
   const formatted = stamp?.toPreciseString("local") ?? "";
   const parentStart = parent?.start;
@@ -151,7 +151,7 @@ export const DateTime = ({
     // The empty value is a sentinel, not an instant to round.
     const round = (v: number): number =>
       v === emptyValue ? v : Number(roundNumeric(v));
-    if (round(next) !== round(value)) onChange(round(next));
+    if (value == null || round(next) !== round(value)) onChange(round(next));
   };
 
   const actions: Action<TimeStamp>[] = [

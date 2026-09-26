@@ -15,7 +15,7 @@ import { z } from "zod";
 import { Form as Base } from "@/form";
 import { Form } from "@/schematic/node/common/form";
 
-const schema = z.object({ onClickDelay: z.number().optional() });
+const schema = z.object({ onClickDelay: z.number().default(0) });
 
 const Host = ({ values }: { values: z.infer<typeof schema> }): ReactElement => {
   const methods = Base.use({ values, schema });
@@ -32,8 +32,8 @@ describe("ActivationDelayField", () => {
     expect(c.getByLabelText(/Activation delay/)).toHaveProperty("value", "250");
   });
 
-  it("should show a zero delay when the config has no key", () => {
-    const c = render(<Host values={{}} />);
+  it("should show the schema default when the config has no key", () => {
+    const c = render(<Host values={{} as z.infer<typeof schema>} />);
     expect(c.getByLabelText(/Activation delay/)).toHaveProperty("value", "0");
   });
 });

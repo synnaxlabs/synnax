@@ -38,7 +38,6 @@ const ListItem = <C extends DigitalChannel>({ name, ...rest }: ListItemProps<C>)
         <Flex.Box pack align="center" className="port-line-input" x>
           <Form.NumericField
             inputProps={{ showDragHandle: false }}
-            hideIfNull
             showLabel={false}
             showHelpText={false}
             path={`${path}.port`}
@@ -48,7 +47,6 @@ const ListItem = <C extends DigitalChannel>({ name, ...rest }: ListItemProps<C>)
           </Text.Text>
           <Form.NumericField
             inputProps={{ showDragHandle: false }}
-            hideIfNull
             showLabel={false}
             showHelpText={false}
             path={`${path}.line`}

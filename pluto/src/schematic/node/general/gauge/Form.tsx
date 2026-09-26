@@ -47,17 +47,15 @@ export const GaugeForm = (): ReactElement => (
           <Flex.Box x>
             <Form.ColorField path="color" />
             <Form.UnitsField />
-            <Form.BoundsFields path="bounds" hideIfNull />
+            <Form.BoundsFields path="bounds" />
             <Base.NumericField
               path="barWidth"
               label="Bar width"
-              hideIfNull
               inputProps={GAUGE_BAR_WIDTH_INPUT_PROPS}
             />
             <Base.Field<text.Level>
               path="level"
               label="Size"
-              hideIfNull
               padHelpText={false}
               onChange={handleLevelChange}
             >

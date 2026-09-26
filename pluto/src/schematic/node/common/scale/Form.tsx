@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, schematic } from "@synnaxlabs/client";
+import { type channel } from "@synnaxlabs/client";
 import {
   caseconv,
   type direction,
@@ -86,14 +86,11 @@ export const TelemForm = ({
   allowNone = false,
 }: TelemFormProps): ReactElement => {
   const { set } = Base.useContext();
-  const config = Base.useField<Config | undefined>(path, { optional: true })?.value;
-  const setChannel = (channel?: channel.Key): void => {
-    if (config != null) return set(field(path, "channel"), channel);
-    if (channel != null) set(path, schematic.scaleIndicatorConfigZ.parse({ channel }));
-  };
+  const config = Base.useFieldValue<Config | undefined>(path);
+  // Unbinding drops the whole config; binding a channel builds it from its defaults.
   const handleChannelChange = (key: channel.Key | null): void => {
-    if (allowNone && !primitive.isNonZero(key)) return setChannel(undefined);
-    setChannel(key ?? 0);
+    if (allowNone && !primitive.isNonZero(key)) return set(path, undefined);
+    set(field(path, "channel"), key ?? 0);
   };
   return (
     <>

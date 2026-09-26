@@ -23,6 +23,13 @@
         border-color: transparent;
     }
 
+    &.pluto--unset {
+        background: rgb(
+            from var(--pluto-swatch-color, transparent) r g b / calc(alpha * 0.35)
+        );
+        border-style: dashed;
+    }
+
     &.pluto-haul-drop-region {
         border: var(--pluto-border-l6) !important;
         border-color: var(--haul-border-color) !important;

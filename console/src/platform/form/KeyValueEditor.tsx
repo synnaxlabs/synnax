@@ -39,7 +39,7 @@ export const KeyValueEditor = <K extends string, V extends string | number>({
   const vt = valueType ?? "string";
   const { set, mode } = Form.useContext();
   const preview = mode === "preview" ? true : undefined;
-  const value = Form.useFieldValue<Entry<K, V>[]>(path, { defaultValue: [] });
+  const value = Form.useFieldValue<Entry<K, V>[]>(path);
 
   useEffect(() => {
     // weird stuff we have to do to deal with migrations where the previous value is an

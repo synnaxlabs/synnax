@@ -36,15 +36,19 @@ export const canDropHaulItem = Haul.canDropOfType<HaulItem>(HAUL_TYPE);
 
 export interface BaseSwatchProps extends Omit<
   Button.ButtonProps,
-  "onChange" | "value" | "size"
+  "onChange" | "value" | "size" | "placeholder"
 > {
-  value: color.Crude;
+  /** The color shown. Absent renders the swatch unset. */
+  value?: color.Crude;
+  /** The color shown dimmed while the swatch is unset. */
+  placeholder?: color.Crude;
   onChange?: (c: color.Color) => void;
   size?: Button.ButtonProps["size"] | "tiny";
 }
 
 export const BaseSwatch = ({
   value,
+  placeholder,
   onChange,
   className,
   size = "medium",
@@ -53,7 +57,8 @@ export const BaseSwatch = ({
   ...rest
 }: BaseSwatchProps): ReactElement => {
   const background = Theming.use().colors.gray.l0;
-  const clr = color.construct(value);
+  const unset = value == null;
+  const clr = color.construct(value ?? color.ZERO);
   const dragging = Haul.useDraggingState();
   const canDrop: Haul.CanDrop = useCallback(
     ({ items }) => {
@@ -78,23 +83,29 @@ export const BaseSwatch = ({
   const handleDragStart = useCallback(() => {
     startDrag([createHaulItem(color.hex(clr))]);
   }, [startDrag, clr]);
+  const shown = value ?? placeholder;
   const swatchStyle = useMemo(
-    () => ({ ...style, [CSS.variable("swatch", "color")]: color.cssString(value) }),
-    [style, value],
+    () =>
+      shown == null
+        ? style
+        : { ...style, [CSS.variable("swatch", "color")]: color.cssString(shown) },
+    [style, shown],
   );
   return (
     <Button.Button
       className={CSS.cls(
         CSS.B("color-swatch"),
         CSS.M(size),
-        color.contrast(background, clr) > 1.5 &&
+        unset && CSS.M("unset"),
+        !unset &&
+          color.contrast(background, clr) > 1.5 &&
           color.aValue(clr) > 0.5 &&
           CSS.M("no-border"),
         CSS.dropRegion(canDrop(dragging)),
         className,
       )}
       size={size}
-      draggable={draggable}
+      draggable={draggable && !unset}
       onDragStart={handleDragStart}
       style={swatchStyle}
       variant="outlined"

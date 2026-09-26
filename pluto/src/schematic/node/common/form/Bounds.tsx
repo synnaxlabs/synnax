@@ -17,7 +17,7 @@ const STEP = 10;
 
 export interface BoundsFieldsProps extends Pick<
   Partial<Form.NumericFieldProps>,
-  "hideIfNull" | "padHelpText"
+  "padHelpText"
 > {
   /** Path to the bounds within the symbol's config. */
   path: string;

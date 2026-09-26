@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Component, Form as PForm, Select } from "@synnaxlabs/pluto";
-import { type FC, useEffect } from "react";
+import { type FC } from "react";
 
 import { type TimeFormat } from "@/feature/http/task/types";
 import { CSS } from "@/platform/css";
@@ -43,22 +43,11 @@ export interface TimeFormatFieldProps {
 
 /**
  * Selects the encoding of a timestamp carried as a JSON value. The caller decides when
- * a timestamp format applies; mounting writes ISO 8601 to `path` so the choice is
- * stored instead of silently absent.
+ * a timestamp format applies. An unset format is left absent, and the Driver reads it
+ * as ISO 8601.
  */
-export const TimeFormatField: FC<TimeFormatFieldProps> = ({ path, label }) => {
-  const { get, set } = PForm.useContext();
-  useEffect(() => {
-    if (get<TimeFormat>(path, { optional: true }) == null) set(path, "iso8601");
-  }, [path, get, set]);
-  return (
-    <PForm.Field<TimeFormat>
-      path={path}
-      label={label}
-      defaultValue="iso8601"
-      className={CSS.B("time-format")}
-    >
-      {renderSelect}
-    </PForm.Field>
-  );
-};
+export const TimeFormatField: FC<TimeFormatFieldProps> = ({ path, label }) => (
+  <PForm.Field<TimeFormat> path={path} label={label} className={CSS.B("time-format")}>
+    {renderSelect}
+  </PForm.Field>
+);

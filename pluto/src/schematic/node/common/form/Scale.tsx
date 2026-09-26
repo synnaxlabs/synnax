@@ -17,7 +17,7 @@ const SCALE_BOUNDS: bounds.Bounds = { lower: 5, upper: 1000 };
 const SCALE_DRAG_SCALE: xy.Crude = { x: 0.75, y: 0.5 };
 
 export const ScaleField: Form.FieldT<number> = (props): ReactElement => (
-  <Form.Field hideIfNull label="Scale" align="start" padHelpText={false} {...props}>
+  <Form.Field label="Scale" align="start" padHelpText={false} {...props}>
     {({ value, onChange }) => (
       <Input.Numeric
         dragScale={SCALE_DRAG_SCALE}

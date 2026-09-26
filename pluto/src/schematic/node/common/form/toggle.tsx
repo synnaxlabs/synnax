@@ -13,7 +13,7 @@ import { Flex } from "@/flex";
 import { Form } from "@/form";
 import { ColorField } from "@/schematic/node/common/form/Color";
 import { ScaleField } from "@/schematic/node/common/form/Scale";
-import { StyleForm } from "@/schematic/node/common/form/Style";
+import { StyleForm, type StyleFormProps } from "@/schematic/node/common/form/Style";
 import { Wrapper } from "@/schematic/node/common/form/Wrapper";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
@@ -21,7 +21,8 @@ import { Toggle } from "@/schematic/node/common/toggle";
 import { type FormProps } from "@/schematic/node/spec";
 import { Tabs } from "@/tabs";
 
-interface ToggleFormProps extends FormProps {
+export interface ToggleFormProps
+  extends FormProps, Pick<StyleFormProps, "showNormallyOpen"> {
   hideInnerOrientation?: boolean;
   omit?: string[];
 }
@@ -29,6 +30,7 @@ interface ToggleFormProps extends FormProps {
 export const ToggleForm = ({
   actions,
   hideInnerOrientation,
+  showNormallyOpen,
   omit,
 }: ToggleFormProps): ReactElement => (
   <Tabs.Frame initialValue="style">
@@ -45,7 +47,10 @@ export const ToggleForm = ({
       )}
     </Tabs.Selector>
     <Tabs.Content itemKey="style">
-      <StyleForm hideInnerOrientation={hideInnerOrientation} />
+      <StyleForm
+        hideInnerOrientation={hideInnerOrientation}
+        showNormallyOpen={showNormallyOpen}
+      />
     </Tabs.Content>
     <Tabs.Content itemKey="control">
       <Toggle.ChannelForm path="" omit={omit} />
@@ -60,7 +65,7 @@ export const DummyToggleForm = (): ReactElement => (
       <Flex.Box x grow>
         <ColorField path="color" />
         <ScaleField path="scale" />
-        <Form.SwitchField path="clickable" label="Clickable" hideIfNull optional />
+        <Form.SwitchField path="clickable" label="Clickable" />
       </Flex.Box>
     </Flex.Box>
     <Orientation.Field path="" />

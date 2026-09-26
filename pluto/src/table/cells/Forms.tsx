@@ -10,8 +10,8 @@
 import "@/table/cells/Forms.css";
 
 import { type channel } from "@synnaxlabs/client";
-import { color, type notation, type text } from "@synnaxlabs/x";
-import { type PropsWithChildren, useEffect } from "react";
+import { type color, type notation, type text } from "@synnaxlabs/x";
+import { type PropsWithChildren } from "react";
 
 import { Channel } from "@/channel";
 import { Color } from "@/color";
@@ -24,7 +24,6 @@ import { Notation } from "@/notation";
 import { Select } from "@/select";
 import { type Variant } from "@/table/cells/registry";
 import { Tabs } from "@/tabs";
-import { Theming } from "@/theming";
 import { Staleness } from "@/vis/staleness";
 import { Value } from "@/vis/value";
 
@@ -36,29 +35,18 @@ const ValueFormWrapper = (props: PropsWithChildren) => (
   <Flex.Box {...props} className={CSS.B("table-cell-value-form")} y />
 );
 
-interface ColorFieldProps {
-  path: string;
-  label: string;
-  /** Color shown while the field is unset. */
-  fallback: color.Crude;
-}
-
-// The cell colors are optional: an unset color renders from the theme. Form.Field
-// hides an absent path, which would leave the user no way to set one, so the swatch
-// reads the value directly and writes only what the user picks.
-const ColorField = ({ path, label, fallback }: ColorFieldProps) => {
-  const { set } = Form.useContext();
-  const value = Form.useFieldValue<color.Crude>(path, { optional: true });
-  return (
-    <Input.Item label={label} align="start" padHelpText={false}>
+const ColorField: Form.FieldT<color.Crude | undefined> = (props) => (
+  <Form.Field align="start" padHelpText={false} {...props}>
+    {({ value, onChange }) => (
       <Color.Swatch
-        value={value ?? fallback}
-        onChange={(next: color.Color) => set(path, next)}
+        value={value}
+        onChange={onChange}
+        onClear={() => onChange(undefined)}
         bordered
       />
-    </Input.Item>
-  );
-};
+    )}
+  </Form.Field>
+);
 
 interface TelemFormT {
   channel: channel.Key;
@@ -108,59 +96,57 @@ const TelemForm = () => {
   );
 };
 
-// A cell carries no redline until one is edited, and the bound and gradient fields
-// need the subtree to exist. Opening the tab materializes it.
+// A cell paints no redline until one is added, and the schema cannot build one on its
+// own, so a switch adds or removes the subtree as a unit.
 const RedlineForm = () => {
   const { set } = Form.useContext();
-  const redline = Form.useFieldValue<Value.Redline>("redline", { optional: true });
-  const absent = redline == null;
-  useEffect(() => {
-    if (absent) set("redline", Value.ZERO_READLINE);
-  }, [absent, set]);
-  if (absent) return null;
-  return <Value.RedlineForm path="redline" />;
-};
-
-export const ValueForm = ({ onVariantChange }: FormProps) => {
-  const theme = Theming.use();
+  const redline = Form.useFieldValue<Value.Redline | undefined>("redline");
+  const enabled = redline != null;
   return (
-    <Tabs.Frame initialValue="style">
-      <Tabs.Selector>
-        <Tabs.Tab itemKey="style">Style</Tabs.Tab>
-        <Tabs.Tab itemKey="telem">Telemetry</Tabs.Tab>
-        <Tabs.Tab itemKey="redline">Redline</Tabs.Tab>
-      </Tabs.Selector>
-      <Tabs.Content itemKey="style">
-        <ValueFormWrapper>
-          <Flex.Box x>
-            <Input.Item label="Variant" padHelpText={false}>
-              <SelectVariant onChange={onVariantChange} value="value" />
-            </Input.Item>
-            <ColorField path="color" label="Color" fallback={theme.colors.gray.l11} />
-            <Form.Field<text.Level>
-              path="level"
-              label="Size"
-              hideIfNull
-              padHelpText={false}
-            >
-              {(p) => <Select.Text.Level {...p} />}
-            </Form.Field>
-          </Flex.Box>
-        </ValueFormWrapper>
-      </Tabs.Content>
-      <Tabs.Content itemKey="telem">
-        <ValueFormWrapper>
-          <TelemForm />
-        </ValueFormWrapper>
-      </Tabs.Content>
-      <Tabs.Content itemKey="redline">
-        <ValueFormWrapper>
-          <RedlineForm />
-        </ValueFormWrapper>
-      </Tabs.Content>
-    </Tabs.Frame>
+    <>
+      <Input.Item label="Redline" padHelpText={false}>
+        <Input.Switch
+          value={enabled}
+          onChange={(on) => set("redline", on ? Value.ZERO_READLINE : undefined)}
+        />
+      </Input.Item>
+      {enabled && <Value.RedlineForm path="redline" />}
+    </>
   );
 };
+
+export const ValueForm = ({ onVariantChange }: FormProps) => (
+  <Tabs.Frame initialValue="style">
+    <Tabs.Selector>
+      <Tabs.Tab itemKey="style">Style</Tabs.Tab>
+      <Tabs.Tab itemKey="telem">Telemetry</Tabs.Tab>
+      <Tabs.Tab itemKey="redline">Redline</Tabs.Tab>
+    </Tabs.Selector>
+    <Tabs.Content itemKey="style">
+      <ValueFormWrapper>
+        <Flex.Box x>
+          <Input.Item label="Variant" padHelpText={false}>
+            <SelectVariant onChange={onVariantChange} value="value" />
+          </Input.Item>
+          <ColorField path="color" label="Color" />
+          <Form.Field<text.Level> path="level" label="Size" padHelpText={false}>
+            {(p) => <Select.Text.Level {...p} />}
+          </Form.Field>
+        </Flex.Box>
+      </ValueFormWrapper>
+    </Tabs.Content>
+    <Tabs.Content itemKey="telem">
+      <ValueFormWrapper>
+        <TelemForm />
+      </ValueFormWrapper>
+    </Tabs.Content>
+    <Tabs.Content itemKey="redline">
+      <ValueFormWrapper>
+        <RedlineForm />
+      </ValueFormWrapper>
+    </Tabs.Content>
+  </Tabs.Frame>
+);
 
 export const TextForm = ({ onVariantChange }: FormProps) => (
   <Flex.Box x grow className={CSS.B("table-cell-text-form")}>
@@ -168,16 +154,16 @@ export const TextForm = ({ onVariantChange }: FormProps) => (
       <SelectVariant onChange={onVariantChange} value="text" />
     </Input.Item>
     <Form.TextField path="value" label="Text" />
-    <Form.Field<text.Level> path="level" label="Size" hideIfNull padHelpText={false}>
+    <Form.Field<text.Level> path="level" label="Size" padHelpText={false}>
       {(p) => <Select.Text.Level {...p} />}
     </Form.Field>
     <Form.Field<text.Weight> path="weight" label="Weight" padHelpText={false}>
       {(p) => <Select.Text.Weight {...p} />}
     </Form.Field>
-    <Form.Field<Flex.Alignment> path="align" label="Alignment" hideIfNull>
+    <Form.Field<Flex.Alignment> path="align" label="Alignment">
       {(p) => <Select.Flex.Alignment {...p} />}
     </Form.Field>
-    <ColorField path="backgroundColor" label="Background" fallback={color.ZERO} />
+    <ColorField path="backgroundColor" label="Background" />
   </Flex.Box>
 );
 

@@ -7,8 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Form } from "@synnaxlabs/pluto";
+import { type ReactElement } from "react";
 
-export const AutoStart = () => (
-  <Form.SwitchField label="Auto start" path="config.autoStart" />
+import { Form } from "@/schematic/node/common/form";
+import { type FormProps } from "@/schematic/node/spec";
+
+/** The toggle form with the solenoid's `normallyOpen` switch. */
+export const SolenoidForm = (props: FormProps): ReactElement => (
+  <Form.ToggleForm {...props} showNormallyOpen />
 );

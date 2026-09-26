@@ -353,7 +353,7 @@ describe("useIsRunning", () => {
   it("should throw when the form carries no status", async () => {
     await expect(
       renderTaskFormHook({}, (ctx) => Task.useIsRunning(ctx)),
-    ).rejects.toThrow("Path status does not exist");
+    ).rejects.toThrow("Field status is not in the form");
   });
 });
 

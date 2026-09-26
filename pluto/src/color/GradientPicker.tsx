@@ -59,7 +59,9 @@ export const GradientPicker = ({
   onChange,
   scale: scl = scale.Scale.IDENTITY,
 }: GradientProps): ReactElement => {
-  const sortedStops = switchStops(value.sort((a, b) => a.position - b.position));
+  const sortedStops = switchStops(
+    (value ?? []).sort((a, b) => a.position - b.position),
+  );
   const grad = buildGradient(sortedStops);
   const barStyle = useMemo(
     () => ({ background: `linear-gradient(to right, ${grad})` }),
