@@ -45,7 +45,6 @@ var _ = Describe("Recovery (wire)", func() {
 		)
 		router.BindTo(app)
 		addr := serveApp(app)
-		DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
 		Eventually(func(g Gomega) {
 			g.Expect(pollHealth("http://" + addr.String() + "/health")).To(Succeed())
 		}).WithPolling(time.Millisecond).Should(Succeed())

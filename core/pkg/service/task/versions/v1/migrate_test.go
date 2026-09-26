@@ -30,6 +30,7 @@ import (
 
 var _ = Describe("MigrateTask", func() {
 	migrateSeed := func(ctx SpecContext, seed v0.Task) v1.Task {
+		GinkgoHelper()
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Task]{DB: db}))
 		Expect(gorp.NewCreate[v0.Key, v0.Task]().

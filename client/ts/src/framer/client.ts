@@ -107,6 +107,7 @@ export class Client {
       ...options,
       readRemote: async (tr, keys) => await this.read(tr, keys),
       openStreamer: async (config) => await this.openStreamer(config),
+      readLatest: async (keys) => await this.readLatest(keys, 1),
     });
   }
 

@@ -24,6 +24,7 @@ export const Base = (): ReactElement => {
   const { viewportMode, onViewportModeChange } = useContext();
   return (
     <Select.Buttons
+      variant="outlined"
       keys={VIEWPORT_MODES}
       value={viewportMode}
       onChange={onViewportModeChange}

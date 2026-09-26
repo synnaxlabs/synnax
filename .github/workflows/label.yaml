@@ -7,7 +7,7 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-name: Label - Pull Request
+name: Label - Pull request
 
 on:
   pull_request_target:
@@ -21,5 +21,5 @@ jobs:
     name: Label
     runs-on: ubuntu-latest
     steps:
-      - name: Label From Changed Paths
+      - name: Label from changed paths
         uses: actions/labeler@v7

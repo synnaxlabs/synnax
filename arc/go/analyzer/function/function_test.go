@@ -31,6 +31,7 @@ func analyzeProgram(
 	src string,
 	resolver []symbol.Symbol,
 ) context.Context[parser.IProgramContext] {
+	GinkgoHelper()
 	prog := MustSucceed(parser.Parse(src))
 	ctx := context.NewRoot(bCtx, prog, NewRoot(nil, resolver...))
 	analyzer.AnalyzeProgram(ctx)
@@ -1217,6 +1218,7 @@ var _ = Describe("Function Analyzer", func() {
 
 	Describe("BlockAlwaysReturns", func() {
 		parseBlock := func(src string) parser.IBlockContext {
+			GinkgoHelper()
 			prog := MustSucceed(parser.Parse(src))
 			return prog.TopLevelItem(0).FunctionDeclaration().Block()
 		}

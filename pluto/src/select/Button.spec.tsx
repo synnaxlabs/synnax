@@ -48,6 +48,39 @@ describe("Select.Button", () => {
     );
   });
 
+  it("should render spaced text buttons by default", () => {
+    const c = render(
+      <Select.Buttons keys={[1, 2]} value={1} onChange={vi.fn()}>
+        <Select.Button itemKey={1}>Option 1</Select.Button>
+        <Select.Button itemKey={2}>Option 2</Select.Button>
+      </Select.Buttons>,
+    );
+    const group = c.getByText("Option 1").closest(".pluto-select-btns");
+    expect(group?.classList).toContain("pluto-select-btns--text");
+    expect(group?.classList).not.toContain("pluto--pack");
+    expect(c.getByText("Option 1").closest("button")?.classList).toContain(
+      "pluto-btn--text",
+    );
+    expect(c.getByText("Option 2").closest("button")?.classList).toContain(
+      "pluto-btn--text",
+    );
+  });
+
+  it("should pack outlined buttons for the outlined variant", () => {
+    const c = render(
+      <Select.Buttons keys={[1, 2]} value={1} onChange={vi.fn()} variant="outlined">
+        <Select.Button itemKey={1}>Option 1</Select.Button>
+        <Select.Button itemKey={2}>Option 2</Select.Button>
+      </Select.Buttons>,
+    );
+    const group = c.getByText("Option 1").closest(".pluto-select-btns");
+    expect(group?.classList).toContain("pluto-select-btns--outlined");
+    expect(group?.classList).toContain("pluto--pack");
+    expect(c.getByText("Option 1").closest("button")?.classList).toContain(
+      "pluto-btn--outlined",
+    );
+  });
+
   it("should move the selection state when a button is clicked", () => {
     const C = () => {
       const [value, setValue] = useState(1);

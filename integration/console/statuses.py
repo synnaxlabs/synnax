@@ -156,7 +156,7 @@ class StatusesClient(ResourceClient):
         Args:
             variant_name: The display name of the variant (e.g. "Error", "Success").
         """
-        self.views.select_filter("Select variants", variant_name)
+        self.views.select_filter("Variants", variant_name)
 
     def clear_explorer_variant_filter(self, variant_name: str) -> None:
         """Remove a variant from the active filter by clicking its chip close button.
@@ -172,7 +172,7 @@ class StatusesClient(ResourceClient):
         Args:
             label_name: The name of the label to filter by.
         """
-        self.views.select_filter("Select labels", label_name)
+        self.views.select_filter("Labels", label_name)
 
     def clear_explorer_label_filter(self, label_name: str) -> None:
         """Remove a label from the active filter by clicking its chip close button."""

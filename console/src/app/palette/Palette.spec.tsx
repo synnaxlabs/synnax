@@ -31,17 +31,24 @@ const renderAppPalette = async () => {
   return { store, client };
 };
 
-const openPalette = async (): Promise<HTMLInputElement> => {
-  const btn = document.querySelector<HTMLElement>(".console-palette__btn");
-  if (btn == null) throw new Error("palette open button not found");
-  fireEvent.click(btn);
-  return await waitFor(() => {
+/**
+ * Waits for the palette input. The prefix swaps the search list for the command list,
+ * which mounts a fresh input, so every keystroke needs the current one.
+ */
+const paletteInput = async (): Promise<HTMLInputElement> =>
+  await waitFor(() => {
     const input = document.querySelector<HTMLInputElement>(
       ".console-palette__input input",
     );
     if (input == null) throw new Error("palette input not found");
     return input;
   });
+
+const openPalette = async (): Promise<HTMLInputElement> => {
+  const btn = document.querySelector<HTMLElement>(".console-palette__btn");
+  if (btn == null) throw new Error("palette open button not found");
+  fireEvent.click(btn);
+  return await paletteInput();
 };
 
 /** Presses the codes as a chord, holding every key down before releasing them. */
@@ -52,13 +59,7 @@ const pressChord = async (...codes: string[]): Promise<HTMLInputElement> => {
   await act(async () => {
     codes.forEach((code) => fireEvent.keyUp(window, { code }));
   });
-  return await waitFor(() => {
-    const input = document.querySelector<HTMLInputElement>(
-      ".console-palette__input input",
-    );
-    if (input == null) throw new Error("palette input not found");
-    return input;
-  });
+  return await paletteInput();
 };
 
 describe("Palette", () => {
@@ -93,9 +94,16 @@ describe("Palette", () => {
   it("should run a command selected through the command palette", async () => {
     const open = vi.spyOn(window, "open").mockReturnValue(null);
     await renderAppPalette();
-    const input = await openPalette();
-    fireEvent.change(input, { target: { value: ">Read the documentation" } });
-    const item = await screen.findByText("Read documentation");
+    fireEvent.change(await openPalette(), { target: { value: FeatureCommand.PREFIX } });
+    // The query has to narrow the list to the command. Commands appear as their
+    // permission queries answer, and the list is virtual, so a row read off the
+    // unfiltered list is recycled out of view before the click reaches it.
+    fireEvent.change(await paletteInput(), {
+      target: { value: `${FeatureCommand.PREFIX}${Docs.ReadCommand.commandName}` },
+    });
+    const item = await screen.findByRole("option", {
+      name: Docs.ReadCommand.commandName,
+    });
     await act(async () => {
       fireEvent.click(item, { detail: 1 });
     });

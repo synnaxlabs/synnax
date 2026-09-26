@@ -24,6 +24,7 @@ import (
 )
 
 func openDBOnFS(ctx context.Context, fs fs.FS, opts ...cesium.Option) *cesium.DB {
+	GinkgoHelper()
 	return MustSucceed(cesium.Open(ctx,
 		"",
 		append([]cesium.Option{
@@ -34,6 +35,7 @@ func openDBOnFS(ctx context.Context, fs fs.FS, opts ...cesium.Option) *cesium.DB
 }
 
 func mustOpenDBOnFS(ctx context.Context, fs fs.FS, opts ...cesium.Option) *cesium.DB {
+	GinkgoHelper()
 	return DeferClose(openDBOnFS(ctx, fs, opts...))
 }
 
