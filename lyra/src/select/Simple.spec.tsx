@@ -8,8 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { fireEvent, render } from "@testing-library/react";
-import { useState } from "react";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { type ReactElement, useState } from "react";
+import { createRoot } from "react-dom/client";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Icon } from "@/icon";
 import { List } from "@/list";
@@ -178,5 +179,63 @@ describe("Select.Simple multiple", () => {
     const tag = c.getByRole("button", { name: "Modes" }).querySelector(".pluto-tag");
     expect(tag?.textContent).toBe("Fast");
     expect(tag?.querySelector("[aria-label='trigger icon']")).toBeNull();
+  });
+
+  describe("first paint", () => {
+    // act runs every effect before returning, which hides what a browser would paint.
+    // These specs mount outside it and read the page after each task, where a browser
+    // may paint.
+    beforeEach(() => {
+      (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT =
+        false;
+    });
+    afterEach(() => {
+      (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT =
+        true;
+    });
+
+    const paints = async (element: ReactElement): Promise<string[]> => {
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      const seen: string[] = [];
+      const read = (): string => {
+        const trigger = container.querySelector("[aria-label='Test Item']");
+        const empty = document.body.textContent?.includes("No Test Items found");
+        return `${trigger?.textContent}${empty === true ? " + empty" : ""}`;
+      };
+      const observer = new MutationObserver(() => seen.push(read()));
+      observer.observe(document.body, {
+        subtree: true,
+        childList: true,
+        characterData: true,
+      });
+      const root = createRoot(container);
+      root.render(element);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      observer.disconnect();
+      root.unmount();
+      container.remove();
+      return seen;
+    };
+
+    const Fixed = ({ initialVisible }: { initialVisible?: boolean }) => (
+      <Select.Simple<string>
+        value="1"
+        onChange={vi.fn()}
+        resourceName="Test Item"
+        initialVisible={initialVisible}
+      >
+        <Select.Item itemKey="1">First Item</Select.Item>
+        <Select.Item itemKey="2">Second Item</Select.Item>
+      </Select.Simple>
+    );
+
+    it("should paint the selected fixed item in the trigger at once", async () => {
+      expect(await paints(<Fixed />)).toEqual(["First Item"]);
+    });
+
+    it("should not paint the empty content when mounted open", async () => {
+      expect(await paints(<Fixed initialVisible />)).toEqual(["First Item"]);
+    });
   });
 });

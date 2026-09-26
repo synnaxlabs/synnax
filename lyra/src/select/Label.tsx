@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type record } from "@synnaxlabs/x";
-import { type ReactNode } from "react";
+import { type ReactNode, useCallback } from "react";
 
 import { CSS } from "@/css";
-import { useIsFixed, useSlotRef } from "@/select/registry";
+import { useIsFixed, useRegistryContext } from "@/select/registry";
 
 /** Props for {@link Label}. */
 export interface LabelProps<K extends record.Key = record.Key> {
@@ -29,7 +29,16 @@ export const Label = <K extends record.Key>({
   children,
 }: LabelProps<K>): ReactNode => {
   const fixed = useIsFixed(itemKey);
-  const ref = useSlotRef(itemKey);
+  const registry = useRegistryContext("Select.Label");
+  const ref = useCallback(
+    (host: HTMLElement | null) => {
+      if (host == null || itemKey == null) return;
+      const label = registry.getLabel(itemKey);
+      host.appendChild(label);
+      return () => label.remove();
+    },
+    [registry, itemKey],
+  );
   if (!fixed) return children;
   return <span ref={ref} className={CSS.BE("select", "label")} />;
 };

@@ -71,15 +71,16 @@ export interface MultipleSimpleProps<K extends record.Key>
 export type SimpleProps<K extends record.Key> =
   SingleSimpleProps<K> | MultipleSimpleProps<K>;
 
-const Empty = ({
-  resourceName,
-  emptyContent,
-}: Pick<BaseSimpleProps, "resourceName" | "emptyContent">): ReactNode => {
-  const closed = useClosed();
+type EmptyProps = Pick<BaseSimpleProps, "resourceName" | "emptyContent">;
+
+const OpenEmpty = ({ resourceName, emptyContent }: EmptyProps): ReactNode => {
   const count = useVisibleCount();
-  if (closed || count > 0) return null;
+  if (count > 0) return null;
   return emptyContent ?? <DefaultEmptyContent resourceName={resourceName} />;
 };
+
+const Empty = (props: EmptyProps): ReactNode =>
+  useClosed() ? null : <OpenEmpty {...props} />;
 
 /**
  * A dropdown that selects one of a few fixed options, given as {@link Item} children.

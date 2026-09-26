@@ -9,12 +9,13 @@
 
 import {
   array,
+  type destructor,
   type location,
   type optional,
   type record,
   unique,
 } from "@synnaxlabs/x";
-import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 import { Dialog } from "@/dialog";
 import { useSyncedRef } from "@/hooks/ref";
@@ -102,37 +103,28 @@ export interface UseReturn<K extends record.Key> extends UseHoverReturn<K> {
 }
 
 interface Order<K extends record.Key> {
-  data: K[];
-  /** Changes whenever the fixed items or the data block change. */
-  version: number;
+  /** Changes identity whenever the data changes. */
   getOrder: () => K[];
   scrollTo: (key: K, direction: location.Y) => void;
+  /** Calls the listener whenever the fixed items change. */
+  subscribe: (listener: () => void) => destructor.Destructor;
 }
 
-// The registry holds keys of every selection's type, so the order is narrowed to K here.
+// The registry holds keys of every selection's type, so the order narrows them to K.
 const useOrder = <K extends record.Key>(): Order<K> => {
   const registry = useRegistryContext("Select.Frame");
   const { data } = List.useData<K>();
   const { scrollToIndex } = List.useScroller();
-  const version = useSyncExternalStore(
-    registry.subscribe,
-    registry.getVersion,
-    registry.getVersion,
-  );
-  const dataRef = useSyncedRef(data);
-  const getOrder = useCallback(
-    () => registry.getOrder(dataRef.current) as K[],
-    [registry, dataRef],
-  );
+  const getOrder = useCallback(() => registry.getOrder(data) as K[], [registry, data]);
   const scrollTo = useCallback(
     (key: K, direction: location.Y) => {
       const element = registry.getElement(key);
       if (element != null) element.scrollIntoView({ block: "nearest" });
-      else scrollToIndex(dataRef.current.indexOf(key), direction);
+      else scrollToIndex(data.indexOf(key), direction);
     },
-    [registry, dataRef, scrollToIndex],
+    [registry, data, scrollToIndex],
   );
-  return { data, version, getOrder, scrollTo };
+  return { getOrder, scrollTo, subscribe: registry.subscribe };
 };
 
 /**
@@ -150,13 +142,17 @@ export const useSingle = <K extends record.Key>({
 }: UseSingleProps<K>): UseReturn<K> => {
   const valueRef = useSyncedRef(value);
   const { close } = Dialog.useContext();
-  const { data, version, getOrder, scrollTo } = useOrder<K>();
+  const { getOrder, scrollTo, subscribe } = useOrder<K>();
   useEffect(() => {
     if (!autoSelectOnNone) return;
-    const order = getOrder();
-    if (order.length > 0 && (value == null || !order.includes(value)))
-      onChange(order[0], { clicked: order[0] });
-  }, [autoSelectOnNone, onChange, value, data, version, getOrder]);
+    const select = (): void => {
+      const order = getOrder();
+      if (order.length > 0 && (value == null || !order.includes(value)))
+        onChange(order[0], { clicked: order[0] });
+    };
+    select();
+    return subscribe(select);
+  }, [autoSelectOnNone, onChange, value, getOrder, subscribe]);
   const handleSelect = useCallback(
     (key: K): void => {
       if (valueRef.current === key) {
@@ -180,6 +176,7 @@ export const useSingle = <K extends record.Key>({
 
   const hover = useHover({
     getOrder,
+    subscribe,
     scrollTo,
     onSelect: handleSelect,
     initialHover,
@@ -208,13 +205,17 @@ export const useMultiple = <K extends record.Key>({
   const ctrl = Triggers.useHeldRef({ triggers: [["Control"]], loose: true });
   const { close } = Dialog.useContext();
   const valueRef = useSyncedRef(value);
-  const { data, version, getOrder, scrollTo } = useOrder<K>();
+  const { getOrder, scrollTo, subscribe } = useOrder<K>();
   useEffect(() => {
     if (!autoSelectOnNone) return;
-    const order = getOrder();
-    if (order.length > 0 && !order.some((k) => value.includes(k)))
-      onChange([order[0]], { clicked: order[0] });
-  }, [autoSelectOnNone, onChange, value, data, version, getOrder]);
+    const select = (): void => {
+      const order = getOrder();
+      if (order.length > 0 && !order.some((k) => value.includes(k)))
+        onChange([order[0]], { clicked: order[0] });
+    };
+    select();
+    return subscribe(select);
+  }, [autoSelectOnNone, onChange, value, getOrder, subscribe]);
   const onSelect = useCallback(
     (key: K): void => {
       const shiftValue = shiftValueRef.current;
@@ -264,6 +265,7 @@ export const useMultiple = <K extends record.Key>({
   );
   const hover = useHover({
     getOrder,
+    subscribe,
     scrollTo,
     onSelect,
     initialHover,

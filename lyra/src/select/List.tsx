@@ -38,17 +38,18 @@ export interface ListProps extends Omit<BaseList.ScrollProps, "itemCount"> {}
  * block inside it scroll together; anything outside it stays pinned. By default it
  * sizes itself to the whole rows that fit the dialog, so its growth animates.
  */
-export const List = ({
+export const List = (props: ListProps): ReactNode =>
+  useClosed() ? props.children : <OpenList {...props} />;
+
+const OpenList = ({
   children,
   displayItems,
   animateHeight = true,
   ...rest
 }: ListProps): ReactNode => {
-  const closed = useClosed();
   const fixed = useVisibleCount();
   const { data } = BaseList.useData();
   const defaultDisplayItems = useDisplayItems();
-  if (closed) return children;
   return (
     <BaseList.Scroll
       role="listbox"

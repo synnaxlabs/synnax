@@ -11,14 +11,15 @@ import { type destructor, type record } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
   type ReactElement,
-  type RefCallback,
-  useCallback,
+  useLayoutEffect,
   useMemo,
+  useReducer,
+  useRef,
   useState,
-  useSyncExternalStore,
 } from "react";
 
 import { context } from "@/context";
+import { CSS } from "@/css";
 import { useInitializerRef } from "@/hooks";
 import { Store } from "@/store";
 
@@ -29,7 +30,7 @@ interface FixedItem {
 
 /**
  * Registry tracks the parts of a select that live outside its data: fixed items, the
- * position of the data block among them, and the label slots triggers render.
+ * position of the data block among them, and the label elements triggers show.
  */
 export interface Registry {
   setItem: (key: record.Key, item: FixedItem) => void;
@@ -42,11 +43,9 @@ export interface Registry {
   getOrder: (data: record.Key[]) => record.Key[];
   getElement: (key: record.Key) => HTMLElement | null;
   hasItem: (key: record.Key) => boolean;
-  /** @returns a number that changes whenever the order may have changed. */
-  getVersion: () => number;
   countVisible: () => number;
-  setSlot: (key: record.Key, element: HTMLElement | null) => void;
-  getSlot: (key: record.Key) => HTMLElement | undefined;
+  /** @returns the element a fixed item's label renders into, created on first use. */
+  getLabel: (key: record.Key) => HTMLElement;
   /** Subscribes to changes for one key, or to every change when key is omitted. */
   subscribe: (listener: () => void, key?: record.Key) => destructor.Destructor;
 }
@@ -59,27 +58,22 @@ const compareDocument = (a: HTMLElement, b: HTMLElement): number =>
 const useRegistry = (): Registry => {
   const { notifyListeners, subscribe } = Store.useKeyedListeners<record.Key>();
   const itemsRef = useInitializerRef(() => new Map<record.Key, FixedItem>());
-  const slotsRef = useInitializerRef(() => new Map<record.Key, HTMLElement>());
-  const stateRef = useInitializerRef<{ block: HTMLElement | null; version: number }>(
-    () => ({ block: null, version: 0 }),
-  );
+  const labelsRef = useInitializerRef(() => new Map<record.Key, HTMLElement>());
+  const blockRef = useRef<HTMLElement | null>(null);
   return useMemo<Registry>(
     () => ({
       setItem: (key, item) => {
         const prev = itemsRef.current.get(key);
         if (prev?.element === item.element && prev?.hidden === item.hidden) return;
         itemsRef.current.set(key, item);
-        stateRef.current.version++;
         notifyListeners(key);
       },
       removeItem: (key) => {
         if (!itemsRef.current.delete(key)) return;
-        stateRef.current.version++;
         notifyListeners(key);
       },
       setBlock: (element) => {
-        stateRef.current.block = element;
-        stateRef.current.version++;
+        blockRef.current = element;
         notifyListeners([]);
       },
       getOrder: (data) => {
@@ -90,7 +84,7 @@ const useRegistry = (): Registry => {
           if (element == null) unmounted.push(key);
           else mounted.push([element, key]);
         });
-        const { block } = stateRef.current;
+        const block = blockRef.current;
         if (block != null) mounted.push([block, BLOCK]);
         mounted.sort(([a], [b]) => compareDocument(a, b));
         const order: record.Key[] = [...unmounted];
@@ -103,7 +97,6 @@ const useRegistry = (): Registry => {
       },
       getElement: (key) => itemsRef.current.get(key)?.element ?? null,
       hasItem: (key) => itemsRef.current.has(key),
-      getVersion: () => stateRef.current.version,
       countVisible: () => {
         let count = 0;
         itemsRef.current.forEach(({ hidden }) => {
@@ -111,12 +104,15 @@ const useRegistry = (): Registry => {
         });
         return count;
       },
-      setSlot: (key, element) => {
-        if (element == null) slotsRef.current.delete(key);
-        else slotsRef.current.set(key, element);
-        notifyListeners(key);
+      getLabel: (key) => {
+        let label = labelsRef.current.get(key);
+        if (label == null) {
+          label = document.createElement("span");
+          label.className = CSS.BE("select", "label");
+          labelsRef.current.set(key, label);
+        }
+        return label;
       },
-      getSlot: (key) => slotsRef.current.get(key),
       subscribe,
     }),
     [notifyListeners, subscribe],
@@ -147,51 +143,42 @@ export const SearchProvider = ({ children }: PropsWithChildren): ReactElement =>
   return <SearchContext value={value}>{children}</SearchContext>;
 };
 
+// Items register in layout effects, after their readers render. useSyncExternalStore
+// subscribes after paint, so a reader would paint its stale value for one frame.
+const useRegistryValue = <T,>(
+  name: string,
+  get: (registry: Registry, key?: record.Key) => T,
+  key?: record.Key,
+): T => {
+  const registry = useRegistryContext(name);
+  const [, rerender] = useReducer((n: number) => n + 1, 0);
+  const value = get(registry, key);
+  const renderedRef = useRef(value);
+  useLayoutEffect(() => {
+    renderedRef.current = value;
+  });
+  useLayoutEffect(() => {
+    const check = (): void => {
+      if (get(registry, key) !== renderedRef.current) rerender();
+    };
+    check();
+    return registry.subscribe(check, key);
+  }, [registry, get, key]);
+  return value;
+};
+
+const isFixed = (registry: Registry, key?: record.Key): boolean =>
+  key != null && registry.hasItem(key);
+
+const countVisible = (registry: Registry): number => registry.countVisible();
+
 /** @returns whether a fixed item with the given key is registered in the frame. */
-export const useIsFixed = (key: record.Key | undefined): boolean => {
-  const registry = useRegistryContext("Select.useIsFixed");
-  return useSyncExternalStore(
-    useCallback(
-      (listener) => (key == null ? () => {} : registry.subscribe(listener, key)),
-      [registry, key],
-    ),
-    () => key != null && registry.hasItem(key),
-    () => false,
-  );
-};
-
-/** @returns the label slot a trigger registered for the given key. */
-export const useSlot = (key: record.Key): HTMLElement | undefined => {
-  const registry = useRegistryContext("Select.useSlot");
-  return useSyncExternalStore(
-    useCallback((listener) => registry.subscribe(listener, key), [registry, key]),
-    () => registry.getSlot(key),
-    () => undefined,
-  );
-};
-
-/** @returns a ref that registers its element as the label slot for the given key. */
-export const useSlotRef = (key: record.Key | undefined): RefCallback<HTMLElement> => {
-  const registry = useRegistryContext("Select.useSlotRef");
-  return useCallback(
-    (element: HTMLElement | null) => {
-      if (key == null) return;
-      registry.setSlot(key, element);
-      return () => registry.setSlot(key, null);
-    },
-    [registry, key],
-  );
-};
+export const useIsFixed = (key: record.Key | undefined): boolean =>
+  useRegistryValue("Select.useIsFixed", isFixed, key);
 
 /**
  * @returns the number of fixed items the search has not hidden. It re-renders the
  * caller whenever an item registers, unregisters, or changes visibility.
  */
-export const useVisibleCount = (): number => {
-  const registry = useRegistryContext("Select.useVisibleCount");
-  return useSyncExternalStore(
-    useCallback((listener) => registry.subscribe(listener), [registry]),
-    () => registry.countVisible(),
-    () => 0,
-  );
-};
+export const useVisibleCount = (): number =>
+  useRegistryValue("Select.useVisibleCount", countVisible);

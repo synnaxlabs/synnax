@@ -10,15 +10,22 @@
 import "@/select/Item.css";
 
 import { type record } from "@synnaxlabs/x";
-import { type ReactNode, useLayoutEffect, useState } from "react";
+import {
+  type ReactNode,
+  type RefObject,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { List } from "@/list";
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/types";
-import { useItemState, useReselectNoop } from "@/select/Context";
-import { useRegistryContext, useSearchContext, useSlot } from "@/select/registry";
+import { useItemState, useReselectNoop, useSelectedAmong } from "@/select/Context";
+import { useRegistryContext, useSearchContext } from "@/select/registry";
 import { type ButtonsContextValue, useButtonsContext, useClosed } from "@/select/scope";
 
 /** Props for {@link Item}. */
@@ -44,15 +51,15 @@ const BlockItem = <K extends record.Key, E extends Button.ElementType>(
   );
 };
 
+// The element is read after every commit, so the registry follows it without a render.
 const useRegister = (
   key: record.Key,
-  element: HTMLElement | null,
+  ref: RefObject<HTMLElement | null> | null,
   hidden: boolean,
 ): void => {
   const registry = useRegistryContext("Select.Item");
-  useLayoutEffect(
-    () => registry.setItem(key, { element, hidden }),
-    [registry, key, element, hidden],
+  useLayoutEffect(() =>
+    registry.setItem(key, { element: ref?.current ?? null, hidden }),
   );
   useLayoutEffect(() => () => registry.removeItem(key), [registry, key]);
 };
@@ -69,15 +76,15 @@ const ButtonItem = <K extends record.Key>({
   ...rest
 }: ButtonItemProps<K>): ReactNode => {
   const { selected, onSelect } = useItemState(itemKey);
-  const [element, setElement] = useState<HTMLElement | null>(null);
-  useRegister(itemKey, element, false);
+  const ref = useRef<HTMLButtonElement>(null);
+  useRegister(itemKey, ref, false);
   if (preview && !selected) return null;
   return (
     <Button.Toggle
       preview={preview}
       variant={variant}
       {...rest}
-      ref={setElement}
+      ref={ref}
       id={itemKey.toString()}
       onChange={onSelect}
       value={selected}
@@ -95,26 +102,39 @@ const ButtonItem = <K extends record.Key>({
 const matches = (text: string, term: string): boolean =>
   term === "" || text.toLowerCase().includes(term.toLowerCase());
 
-const FixedItem = <K extends record.Key, E extends Button.ElementType>(
+// A closed item draws nothing but its label, so it skips the hooks an open item needs.
+const ClosedFixedItem = <K extends record.Key>({
+  itemKey,
+  children,
+}: Pick<ItemProps<K>, "itemKey" | "children">): ReactNode => {
+  const keys = useMemo(() => [itemKey], [itemKey]);
+  const selected = useSelectedAmong(keys) != null;
+  const registry = useRegistryContext("Select.Item");
+  useRegister(itemKey, null, false);
+  if (!selected) return null;
+  return createPortal(children, registry.getLabel(itemKey));
+};
+
+const OpenFixedItem = <K extends record.Key, E extends Button.ElementType>(
   props: ItemProps<K, E>,
 ): ReactNode => {
   const { itemKey, children } = props;
-  const closed = useClosed();
   const { term } = useSearchContext("Select.Item");
   const { selected, hovered, onSelect, sole } = useItemState(itemKey);
   const reselectNoop = useReselectNoop();
-  const slot = useSlot(itemKey);
-  const [element, setElement] = useState<HTMLElement | null>(null);
-  const [text, setText] = useState("");
-  // The search matches the rendered text, which is only known after mount.
+  const registry = useRegistryContext("Select.Item");
+  const ref = useRef<HTMLElement>(null);
+  // The search matches the rendered text, which is only known after a commit. Null
+  // until a term needs it, so opening the dialog measures nothing.
+  const [text, setText] = useState<string | null>(null);
   useLayoutEffect(() => {
-    const next = element?.textContent ?? "";
+    if (term === "") return;
+    const next = ref.current?.textContent ?? "";
     if (next !== text) setText(next);
   });
-  const hidden = !matches(text, term);
-  useRegister(itemKey, element, hidden);
-  const label = selected && slot != null ? createPortal(children, slot) : null;
-  if (closed) return label;
+  const hidden = text != null && !matches(text, term);
+  useRegister(itemKey, ref, hidden);
+  const label = selected ? createPortal(children, registry.getLabel(itemKey)) : null;
   return (
     <>
       <List.Item<K, E>
@@ -125,12 +145,21 @@ const FixedItem = <K extends record.Key, E extends Button.ElementType>(
         preventClick={reselectNoop && sole ? true : undefined}
         hidden={hidden}
         {...props}
-        ref={setElement}
+        ref={ref}
       />
       {label}
     </>
   );
 };
+
+const FixedItem = <K extends record.Key, E extends Button.ElementType>(
+  props: ItemProps<K, E>,
+): ReactNode =>
+  useClosed() ? (
+    <ClosedFixedItem<K> itemKey={props.itemKey}>{props.children}</ClosedFixedItem>
+  ) : (
+    <OpenFixedItem<K, E> {...props} />
+  );
 
 /**
  * One option of a selection. Rendered by an {@link Items} block, it is a row of the

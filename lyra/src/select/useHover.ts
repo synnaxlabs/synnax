@@ -7,19 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type location, type record, TimeSpan } from "@synnaxlabs/x";
-import { useCallback, useRef } from "react";
+import { type destructor, type location, type record, TimeSpan } from "@synnaxlabs/x";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Dialog } from "@/dialog";
-import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
+import { useSyncedRef } from "@/hooks";
 import { Triggers } from "@/triggers";
 
 /** Props for {@link useHover}. */
 export interface UseHoverProps<K extends record.Key> {
   /** Position in the order hovered when the dialog opens. Defaults to none. */
   initialHover?: number;
-  /** Returns every option in the order the arrow keys walk. */
+  /**
+   * Returns every option in the order the arrow keys walk. A new function means the
+   * order may have changed.
+   */
   getOrder: () => K[];
+  /** Calls the listener when the order changes but getOrder does not. */
+  subscribe: (listener: () => void) => destructor.Destructor;
   onSelect: (key: K) => void;
   /** Brings the given option into view after the hover moves onto it. */
   scrollTo?: (key: K, direction: location.Y) => void;
@@ -60,13 +65,24 @@ const resolveHover = <K extends record.Key>(
  */
 export const useHover = <K extends record.Key>({
   getOrder,
+  subscribe,
   initialHover = -1,
   onSelect,
   scrollTo,
   enableTriggers,
 }: UseHoverProps<K>): UseHoverReturn<K> => {
-  const [hover, setHover, hoverRef] = useCombinedStateAndRef<K | undefined>(undefined);
+  // The key the arrow keys last moved to, which may since have left the order.
+  const movedRef = useRef<K | undefined>(undefined);
+  const [hover, setHover] = useState<K | undefined>(undefined);
   const getOrderRef = useSyncedRef(getOrder);
+  const resolve = useCallback(
+    () => setHover(resolveHover(getOrder(), movedRef.current, initialHover)),
+    [getOrder, initialHover],
+  );
+  useEffect(() => {
+    resolve();
+    return subscribe(resolve);
+  }, [subscribe, resolve]);
   const scrollToRef = useSyncedRef(scrollTo);
   const { visible } = Dialog.useContext();
   const enabledRef = useSyncedRef<Triggers.Condition>(enableTriggers ?? visible);
@@ -84,7 +100,7 @@ export const useHover = <K extends record.Key>({
       if (Triggers.match(triggers, [SELECT_TRIGGER])) {
         const current = resolveHover(
           getOrderRef.current(),
-          hoverRef.current,
+          movedRef.current,
           initialHover,
         );
         if (current != null) onSelect(current);
@@ -93,7 +109,7 @@ export const useHover = <K extends record.Key>({
       const move = () => {
         const order = getOrderRef.current();
         if (order.length === 0) return;
-        const current = resolveHover(order, hoverRef.current, initialHover);
+        const current = resolveHover(order, movedRef.current, initialHover);
         const pos = current == null ? -1 : order.indexOf(current);
         let next: number;
         if (Triggers.match(triggers, [UP_TRIGGER], { loose: true }))
@@ -101,6 +117,7 @@ export const useHover = <K extends record.Key>({
         else if (Triggers.match(triggers, [DOWN_TRIGGER], { loose: true }))
           next = pos >= order.length - 1 ? 0 : pos + 1;
         else return;
+        movedRef.current = order[next];
         setHover(order[next]);
         scrollToRef.current?.(order[next], pos > next ? "bottom" : "top");
       };
@@ -116,5 +133,5 @@ export const useHover = <K extends record.Key>({
     callback: handleTrigger,
     loose: true,
   });
-  return { hover: resolveHover(getOrder(), hover, initialHover) };
+  return { hover };
 };
