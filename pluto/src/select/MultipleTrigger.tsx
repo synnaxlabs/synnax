@@ -80,6 +80,8 @@ export interface MultipleTriggerProps<
   createHaulItem?: (entry: NonNullable<E>) => Haul.Item;
   placeholder?: ReactNode;
   icon?: Icon.ReactElement;
+  /** Names the trigger. The tags alone never say what they are. */
+  "aria-label"?: string;
   /** Whether to show only a count instead of one tag per entry. */
   hideTags?: boolean;
   children?: RenderProp<MultipleTagProps<K>>;
@@ -110,6 +112,7 @@ export const MultipleTrigger = <
   variant = "outlined",
   preview,
   icon,
+  "aria-label": ariaLabel,
   hideTags = false,
   children = multipleTag as unknown as RenderProp<MultipleTagProps<K>>,
   renderIcon,
@@ -166,7 +169,7 @@ export const MultipleTrigger = <
   if (hideTags) {
     if (preview === true) return null;
     return (
-      <Dialog.Trigger variant={variant} {...dropProps}>
+      <Dialog.Trigger variant={variant} aria-label={ariaLabel} {...dropProps}>
         {icon}
         {placeholder}
       </Dialog.Trigger>
@@ -176,6 +179,10 @@ export const MultipleTrigger = <
   return (
     <Tag.Tags
       full="x"
+      // The chassis is a div, so it needs a role and a tab stop to act as a button.
+      role="button"
+      tabIndex={showAddButton || preview === true ? undefined : 0}
+      aria-label={ariaLabel}
       onClick={() => {
         if (!showAddButton) toggle();
       }}

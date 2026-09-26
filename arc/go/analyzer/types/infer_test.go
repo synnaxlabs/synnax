@@ -30,6 +30,7 @@ func inferExprType(
 	resolver []symbol.Symbol,
 	expr string,
 ) types.Type {
+	GinkgoHelper()
 	parsed := MustSucceed(parser.ParseExpression(expr))
 	ctx := acontext.NewRoot(bCtx, parsed, NewRoot(nil, resolver...))
 	return atypes.InferFromExpression(ctx)
@@ -37,12 +38,14 @@ func inferExprType(
 
 // parseTypeFromDecl is a helper that parses a type from a variable declaration.
 func parseTypeFromDecl(decl string) parser.ITypeContext {
+	GinkgoHelper()
 	stmt := MustSucceed(parser.ParseStatement(decl))
 	return stmt.VariableDeclaration().LocalVariable().Type_()
 }
 
 var _ = Describe("Binary minus spacing", func() {
 	hasSpacingErr := func(expr string, cfg parser.Config) bool {
+		GinkgoHelper()
 		parsed := MustSucceed(parser.ParseExpression(expr, cfg))
 		ctx := acontext.NewRoot(context.Background(), parsed, NewRoot(nil)).
 			WithConfig(cfg)

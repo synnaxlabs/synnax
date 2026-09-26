@@ -7,7 +7,7 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-name: Draft Release
+name: Draft release
 description: Creates a draft release under a tag with generated notes
 
 inputs:
@@ -34,7 +34,7 @@ runs:
   steps:
     # A failed earlier run can leave a draft under the same tag; the tag itself only
     # exists once a release is published.
-    - name: Draft Release
+    - name: Draft release
       shell: bash
       env:
         GH_TOKEN: ${{ github.token }}

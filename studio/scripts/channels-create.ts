@@ -58,7 +58,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       .getByText("pressure_pt_01", { exact: true })
       .first();
     await session.waitFor(created);
-    await session.hold(2200);
+    await session.hold(500);
   } finally {
     await fixture.stop();
   }

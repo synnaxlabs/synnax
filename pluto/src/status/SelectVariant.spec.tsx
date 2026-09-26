@@ -32,12 +32,12 @@ describe("SelectVariant", () => {
 
   it("should render a selection trigger", () => {
     const c = render(<TestSelect />);
-    expect(c.getByText("Select variant")).toBeTruthy();
+    expect(c.getByText("Variant")).toBeTruthy();
   });
 
   it("should open and show all variant options", () => {
     const c = render(<TestSelect />);
-    fireEvent.click(c.getByText("Select variant"));
+    fireEvent.click(c.getByText("Variant"));
     expect(c.getByText("Success")).toBeTruthy();
     expect(c.getByText("Error")).toBeTruthy();
     expect(c.getByText("Warning")).toBeTruthy();
@@ -48,7 +48,7 @@ describe("SelectVariant", () => {
 
   it("should call onChange when a variant is selected", () => {
     const c = render(<TestSelect />);
-    fireEvent.click(c.getByText("Select variant"));
+    fireEvent.click(c.getByText("Variant"));
     fireEvent.click(c.getByText("Error"));
     expect(onChange).toHaveBeenCalledWith("error");
   });

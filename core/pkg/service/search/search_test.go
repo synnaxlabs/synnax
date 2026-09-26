@@ -59,6 +59,7 @@ func (m *observableMockService) OpenNexter(
 func (m *observableMockService) SearchableFields() []string { return m.fields }
 
 func newIndex(svcs ...*mockService) *search.Index {
+	GinkgoHelper()
 	idx := MustSucceed(search.OpenIndex())
 	for _, svc := range svcs {
 		idx.RegisterService(svc)

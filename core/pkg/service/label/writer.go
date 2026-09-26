@@ -70,12 +70,11 @@ func (w Writer) Label(ctx context.Context, target ontology.ID, labels []Key) err
 	)
 }
 
-// Clear removes all labels from the target resource.
-func (w Writer) Clear(ctx context.Context, target ontology.ID) error {
-	return w.otg.DeleteOutgoingRelationshipsOfType(
-		ctx,
-		target,
-		OntologyRelationshipTypeLabeledBy,
+// Replace makes the given labels the complete set of labels on the target resource.
+// Labels the target already has are left untouched.
+func (w Writer) Replace(ctx context.Context, target ontology.ID, labels []Key) error {
+	return w.otg.ReplaceOutgoingRelationshipsOfType(
+		ctx, target, OntologyRelationshipTypeLabeledBy, OntologyIDs(labels)...,
 	)
 }
 

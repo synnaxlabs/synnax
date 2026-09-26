@@ -10,8 +10,9 @@
 import { channel } from "@synnaxlabs/client";
 import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
-import { type FC } from "react";
+import { type FC, useCallback } from "react";
 
+import { useSlavesByKeys } from "@/feature/ethercat/device/queries";
 import { ReadChannelDetails } from "@/feature/ethercat/task/ChannelDetails";
 import {
   checkOrCreateIndex,
@@ -65,14 +66,28 @@ const channelDetails = Component.renderProp(ReadChannelDetails);
 
 const listItem = Component.renderProp(ChannelListItem);
 
-const Form: FC = () => (
-  <Task.Views.ListAndDetails<ReadChannel>
-    listItem={listItem}
-    details={channelDetails}
-    createChannel={createReadChannel}
-    contextMenuItems={Task.readChannelContextMenuItem}
-  />
-);
+const Form: FC = () => {
+  const slaves = useSlavesByKeys(Task.useChannelDeviceKeys());
+  const resolve = useCallback(
+    (ch: ReadChannel) => {
+      const slave = slaves?.find(({ key }) => key === ch.device);
+      if (slave == null) return null;
+      return {
+        channel: getChannelByMapKey(slave.properties.read.channels, channelMapKey(ch)),
+      };
+    },
+    [slaves],
+  );
+  return (
+    <Task.Views.ListAndDetails<ReadChannel>
+      listItem={listItem}
+      details={channelDetails}
+      createChannel={createReadChannel}
+      contextMenuItems={Task.readChannelContextMenuItem}
+      resolve={resolve}
+    />
+  );
+};
 
 const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({ config }) => ({
   name: "EtherCAT read task",

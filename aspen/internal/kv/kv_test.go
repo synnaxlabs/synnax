@@ -504,6 +504,7 @@ var _ = Describe("txn", func() {
 })
 
 func waitForClusterStateToConverge(builder *kvmock.Builder) {
+	GinkgoHelper()
 	Eventually(func(g Gomega) {
 		_, err := builder.ClusterAPIs[1].Resolve(2)
 		g.Expect(err).ToNot(HaveOccurred())

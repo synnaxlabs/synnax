@@ -105,4 +105,6 @@ class TestTiming:
                     break
                 sleep(TimeSpan.MILLISECOND * 5, precise=True)
         median = TimeSpan(int(np.median(periods)))
-        assert TimeSpan.MILLISECOND * 8 < median < TimeSpan.MILLISECOND * 11
+        # A loop that did not compensate for the 5ms body would settle at 15ms, so the
+        # upper bound sits between the two rather than tight against the 10ms period.
+        assert TimeSpan.MILLISECOND * 8 < median < TimeSpan.MILLISECOND * 13
