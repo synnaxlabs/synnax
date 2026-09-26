@@ -10,21 +10,21 @@
 import "@/table/cells/Forms.css";
 
 import { type channel } from "@synnaxlabs/client";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Tabs } from "@synnaxlabs/lyra/tabs";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { color, type notation, type text } from "@synnaxlabs/x";
 import { type PropsWithChildren, useEffect } from "react";
 
 import { Channel } from "@/channel";
 import { Color } from "@/color";
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
-import { Form } from "@/form";
-import { Icon } from "@/icon";
-import { Input } from "@/input";
 import { Notation } from "@/notation";
-import { Select } from "@/select";
 import { type Variant } from "@/table/cells/registry";
-import { Tabs } from "@/tabs";
-import { Theming } from "@/theming";
 import { Staleness } from "@/vis/staleness";
 import { Value } from "@/vis/value";
 
@@ -128,7 +128,7 @@ const RedlineForm = () => {
 export const ValueForm = ({ onVariantChange }: FormProps) => {
   const theme = Theming.use();
   return (
-    <Tabs.Frame initialValue="style">
+    <Tabs.Frame initialValue="style" className={CSS.B("table-cell-value-form-tabs")}>
       <Tabs.Selector>
         <Tabs.Tab itemKey="style">Style</Tabs.Tab>
         <Tabs.Tab itemKey="telem">Telemetry</Tabs.Tab>

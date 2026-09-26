@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Select } from "@synnaxlabs/lyra/select";
 import { TIME_ZONES, type TimeZone } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
-
-import { Select } from "@/select";
 
 export interface SelectTimeZoneProps extends Omit<
   Select.ButtonsProps<TimeZone>,

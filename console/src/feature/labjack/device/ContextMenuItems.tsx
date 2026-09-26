@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type device } from "@synnaxlabs/client";
-import { Menu } from "@synnaxlabs/pluto";
+import { Menu } from "@synnaxlabs/lyra/menu";
 
 import { useConfigureModal } from "@/feature/labjack/device/useConfigureModal";
 import { Task } from "@/feature/labjack/task";

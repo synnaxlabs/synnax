@@ -12,7 +12,7 @@ import {
   createTestClient,
   createTestClientWithRole,
 } from "@synnaxlabs/client/testutil";
-import { Form as PForm } from "@synnaxlabs/pluto";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { type FC } from "react";

@@ -15,7 +15,8 @@ import {
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { type UploadBody } from "@synnaxlabs/freighter";
-import { Access, Status, Synnax } from "@synnaxlabs/pluto";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Access, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { useImportBatch } from "@/platform/import/useImportBatch";

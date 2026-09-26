@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, type schematic } from "@synnaxlabs/client";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Input } from "@synnaxlabs/lyra/input";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
-import { Form } from "@/form";
-import { Input } from "@/input";
 import { Control } from "@/schematic/node/common/control";
 import { ActivationDelayField } from "@/schematic/node/common/form/ActivationDelay";
 import { ControlChipField } from "@/schematic/node/common/form/Control";

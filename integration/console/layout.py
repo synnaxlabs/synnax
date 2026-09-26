@@ -144,6 +144,13 @@ class LayoutClient:
         """
         return self.page.locator("[role='dialog'].pluto--visible")
 
+    def form_section(self, title: str) -> Locator:
+        """The form section with the given title."""
+        header = self.page.locator(".pluto-form-section__header").get_by_text(
+            title, exact=True
+        )
+        return self.page.locator(".pluto-form-section").filter(has=header)
+
     def command_palette(self, command: str, retries: int = 3) -> None:
         """Execute a command via the command palette."""
         self._palette(
@@ -452,13 +459,13 @@ class LayoutClient:
         raise RuntimeError(f"No selected button found from options: {button_options}")
 
     def select_labels(self, labels: list[str], scope: Locator | None = None) -> None:
-        """Pick labels from a "Select labels" dropdown.
+        """Pick labels from a "Labels" dropdown.
 
         :param labels: The label names to select.
         :param scope: Where the trigger lives. Defaults to the whole page.
         """
         parent = self.page if scope is None else scope
-        parent.get_by_text("Select labels", exact=True).click(timeout=5000)
+        parent.get_by_role("button", name="Labels", exact=True).click(timeout=5000)
         for name in labels:
             self.select_from_dropdown(name, exact=True)
         self.press_escape()

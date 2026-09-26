@@ -10,6 +10,9 @@
 import "@/schematic/edge/common/segmented/Segmented.css";
 
 import { type schematic } from "@synnaxlabs/client";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Cursor } from "@synnaxlabs/lyra/cursor";
+import { type Triggers } from "@synnaxlabs/lyra/triggers";
 import { box, direction, xy } from "@synnaxlabs/x";
 import { useReactFlow } from "@xyflow/react";
 import {
@@ -22,8 +25,6 @@ import {
   useState,
 } from "react";
 
-import { CSS } from "@/css";
-import { Cursor } from "@/cursor";
 import { type Base } from "@/schematic/edge/common/base";
 import { Jumps } from "@/schematic/edge/common/jumps";
 import {
@@ -40,7 +41,6 @@ import {
 } from "@/schematic/edge/common/segmented/connector";
 import { Form } from "@/schematic/edge/common/segmented/Form";
 import { type Edge, type Spec } from "@/schematic/edge/spec";
-import { type Key } from "@/triggers/triggers";
 import { selectNodeBox } from "@/vis/diagram/util";
 
 interface CurrentlyDragging {
@@ -114,7 +114,7 @@ const create = (Path: FC<PathProps>): Edge => {
 
     const dragStart = Cursor.useDrag({
       onStart: useCallback(
-        (_: xy.XY, __: Key, el: HTMLElement) => {
+        (_: xy.XY, __: Triggers.Key, el: HTMLElement) => {
           dragRef.current = {
             index: Number(el.id.split("-")[1]),
             segments: [...segments],

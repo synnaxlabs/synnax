@@ -10,19 +10,17 @@
 import "@/feature/status/Toolbar.css";
 
 import { status } from "@synnaxlabs/client";
-import {
-  Access,
-  Component,
-  Flex,
-  Icon,
-  List as BaseList,
-  Menu,
-  Select,
-  Status,
-  Tag,
-  Telem,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List as BaseList } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Status as Base } from "@synnaxlabs/lyra/status";
+import { Tag } from "@synnaxlabs/lyra/tag";
+import { Telem } from "@synnaxlabs/lyra/telem";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Access, Status } from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
 
 import { Explorer } from "@/feature/status/explorer";
@@ -89,7 +87,7 @@ const ListItem = (props: BaseList.ItemProps<status.Key>) => {
     <Select.ListItem className={CSS.B("status-list-item")} gap="small" y {...props}>
       <Flex.Box x justify="between">
         <Flex.Box x align="center" gap="small">
-          <Status.Indicator variant={variant} />
+          <Base.Indicator variant={variant} />
           <Text.MaybeEditable
             id={favoriteNameID(itemKey)}
             level="p"

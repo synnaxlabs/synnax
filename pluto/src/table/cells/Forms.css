@@ -17,6 +17,18 @@
     padding: 2rem;
 }
 
+/* Side-by-side sections size to their container, so the tabs must fill the pane.
+   Percent heights inside a stretched flex item do not resolve in WebKit, so the
+   sections fill by growing instead. */
+.pluto-table-cell-value-form-tabs {
+    flex-grow: 1;
+
+    & > .pluto-tabs__content > .pluto-form-sections {
+        flex-grow: 1;
+        height: auto;
+    }
+}
+
 .pluto-table-cell-text-form {
     padding: 2rem;
 }

@@ -9,12 +9,12 @@
 
 import { schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { Form } from "@synnaxlabs/lyra/form";
 import { uuid } from "@synnaxlabs/x";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
-import { Form } from "@/form";
 import { Node } from "@/schematic/node";
 import { OffPageReferenceForm } from "@/schematic/node/general/offPageReference/Form";
 import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";

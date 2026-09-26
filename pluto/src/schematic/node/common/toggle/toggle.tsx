@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { TimeSpan } from "@synnaxlabs/x";
 import { type FC, memo, type ReactElement, useMemo } from "react";
 
@@ -17,7 +18,6 @@ import { Label } from "@/schematic/node/common/label";
 import { Telem } from "@/schematic/node/common/telem";
 import { type ButtonProps } from "@/schematic/node/common/toggle/Button";
 import { type NodeProps } from "@/schematic/node/spec";
-import { Theming } from "@/theming";
 import { Staleness } from "@/vis/staleness";
 import { Toggle as Base } from "@/vis/toggle";
 

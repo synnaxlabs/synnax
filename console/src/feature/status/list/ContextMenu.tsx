@@ -8,7 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { status } from "@synnaxlabs/client";
-import { Access, Component, List, Menu, Status, Text } from "@synnaxlabs/pluto";
+import { Component } from "@synnaxlabs/lyra/component";
+import { List } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Status as LyraStatus } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Access, Status } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
 
 import { ContextMenu as Base } from "@/platform/context-menu";
@@ -32,7 +37,7 @@ const Internal = ({ keys, nameID = List.itemNameID }: ContextMenuProps) => {
 
   const confirm = Modals.useConfirmDelete({ type: "Status" });
   const { update: del } = Status.useDelete();
-  const handleError = Status.useErrorHandler();
+  const handleError = LyraStatus.useErrorHandler();
 
   const anyFavorited = useMemo(
     () => keys.some((k) => favoriteSet.has(k)),

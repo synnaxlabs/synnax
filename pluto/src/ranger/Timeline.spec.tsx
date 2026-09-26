@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { mockBoundingClientRect } from "@synnaxlabs/lyra/testutil";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Ranger } from "@/ranger";
-import { mockBoundingClientRect } from "@/testutil/dom";
 
 const DAY = Number(TimeSpan.DAY.valueOf());
 const HOUR = Number(TimeSpan.HOUR.valueOf());
@@ -165,7 +165,10 @@ describe("Ranger.Timeline", () => {
         onChange={() => {}}
       />,
     );
-    expect(screen.getByRole("button", { name: /^Start, Today \d/ })).toBeTruthy();
+    // Within an hour of midnight the start reads "Yesterday" instead of "Today".
+    expect(
+      screen.getByRole("button", { name: /^Start, (?:Today|Yesterday) \d{2}:\d{2}/ }),
+    ).toBeTruthy();
     expect(screen.getByRole("button", { name: "End, not set" })).toBeTruthy();
   });
 

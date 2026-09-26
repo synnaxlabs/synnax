@@ -156,6 +156,7 @@ var _ = Describe("Writer", func() {
 	})
 	Describe("Dispatch", func() {
 		retrieve := func(ctx context.Context, key log.Key) log.Log {
+			GinkgoHelper()
 			var res log.Log
 			Expect(
 				svc.NewRetrieve().Where(log.MatchKeys(key)).Entry(&res).Exec(ctx, tx),

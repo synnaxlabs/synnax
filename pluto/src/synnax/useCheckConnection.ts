@@ -8,11 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { connection } from "@synnaxlabs/client";
+import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
+import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import { type CrudeTimeSpan, sleep, TimeSpan } from "@synnaxlabs/x";
 import { useState } from "react";
-
-import { useAsyncEffect } from "@/hooks";
-import { useMemoDeepEqual } from "@/memo";
 
 const DEFAULT_INTERVAL = TimeSpan.seconds(5);
 

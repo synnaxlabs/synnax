@@ -1,0 +1,112 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { caseconv, type record } from "@synnaxlabs/x";
+import { type ReactElement } from "react";
+
+import { Dialog } from "@/dialog";
+import { type List } from "@/list";
+import { Dialog as SelectDialog, type DialogProps } from "@/select/Dialog";
+import { Frame, type SingleFrameProps } from "@/select/Frame";
+import { usePlaceholder } from "@/select/placeholder";
+import { SingleTrigger, type SingleTriggerProps } from "@/select/SingleTrigger";
+
+export interface SingleProps<
+  K extends record.Key,
+  E extends record.Keyed<K> | undefined,
+>
+  extends
+    Omit<SingleFrameProps<K, E>, "multiple" | "children">,
+    Pick<DialogProps<K>, "emptyContent" | "status" | "onSearch" | "actions" | "footer">,
+    Omit<Dialog.FrameProps, "onChange" | "children" | "variant">,
+    Pick<SingleTriggerProps, "disabled" | "icon" | "haulType">,
+    Pick<List.ItemsProps<K>, "children"> {
+  /** Singular name of the thing being selected. It builds the placeholder and the
+   * empty and error content. */
+  resourceName: string;
+  variant?: Dialog.FrameProps["variant"];
+  /** Whether to render the trigger flat and inert, for use inside a preview. */
+  preview?: boolean;
+  triggerProps?: SingleTriggerProps;
+  dialogProps?: Dialog.FrameProps;
+}
+
+/**
+ * A dropdown that selects one entry. Pass `data` and `getItem` from a list data hook,
+ * and a `children` render prop for the item.
+ *
+ * @example
+ * <Select.Single resourceName="Channel" value={key} onChange={setKey} {...listProps} />
+ */
+export const Single = <K extends record.Key, E extends record.Keyed<K> | undefined>({
+  resourceName,
+  onChange,
+  value,
+  allowNone,
+  emptyContent,
+  haulType,
+  data,
+  getItem,
+  subscribe,
+  itemHeight,
+  onFetchMore,
+  disabled,
+  onSearch,
+  status,
+  icon,
+  children,
+  variant = "connected",
+  preview,
+  actions,
+  footer,
+  dialogProps,
+  triggerProps,
+  virtual = true,
+  closeDialogOnSelect = true,
+  ...rest
+}: SingleProps<K, E>): ReactElement => {
+  const placeholder = usePlaceholder(resourceName);
+  return (
+    <Dialog.Frame {...rest} variant={variant}>
+      <Frame<K, E>
+        value={value}
+        onChange={onChange}
+        data={data}
+        getItem={getItem}
+        subscribe={subscribe}
+        allowNone={allowNone}
+        onFetchMore={onFetchMore}
+        itemHeight={itemHeight}
+        virtual={virtual}
+        closeDialogOnSelect={closeDialogOnSelect}
+      >
+        <SingleTrigger
+          haulType={haulType}
+          icon={icon}
+          placeholder={placeholder}
+          aria-label={caseconv.capitalize(resourceName)}
+          disabled={disabled}
+          preview={preview}
+          {...triggerProps}
+        />
+        <SelectDialog<K>
+          onSearch={onSearch}
+          resourceName={resourceName}
+          emptyContent={emptyContent}
+          status={status}
+          actions={actions}
+          footer={footer}
+          {...dialogProps}
+        >
+          {children}
+        </SelectDialog>
+      </Frame>
+    </Dialog.Frame>
+  );
+};

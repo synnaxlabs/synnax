@@ -9,12 +9,11 @@
 
 import "@/notation/Select.css";
 
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Select as BaseSelect } from "@synnaxlabs/lyra/select";
 import { notation } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
-
-import { CSS } from "@/css";
-import { Icon } from "@/icon";
-import { Select as BaseSelect } from "@/select";
 
 export interface SelectNotationProps extends Omit<
   BaseSelect.ButtonsProps<notation.Notation>,

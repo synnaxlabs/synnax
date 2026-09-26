@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Form } from "@synnaxlabs/lyra/form";
 import { color } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
-import { CSS } from "@/css";
-import { Form } from "@/form";
 import { Node } from "@/schematic/node";
 import { GROUP } from "@/schematic/node/general/group";
 import { StringDisplayForm } from "@/schematic/node/general/stringDisplay/Form";

@@ -8,19 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { lineplot } from "@synnaxlabs/client";
-import {
-  Button,
-  Color,
-  Divider,
-  Flex,
-  Icon,
-  Input,
-  LinePlot,
-  List as PList,
-  Menu,
-  Select,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { List as PList } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Color, LinePlot } from "@synnaxlabs/pluto";
 import { bounds, type color, id } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";

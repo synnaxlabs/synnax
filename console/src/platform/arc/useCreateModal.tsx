@@ -10,18 +10,15 @@
 import "@/platform/arc/CreateModal.css";
 
 import { type arc, status, UnexpectedError } from "@synnaxlabs/client";
-import {
-  Arc,
-  Button,
-  CSS as PCSS,
-  type Flux,
-  Form,
-  Icon,
-  type Input,
-  Nav,
-  Select,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { CSS as PCSS } from "@synnaxlabs/lyra/css";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { type Input } from "@synnaxlabs/lyra/input";
+import { Nav } from "@synnaxlabs/lyra/nav";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Arc, type Flux } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
 import { type z } from "zod";
 

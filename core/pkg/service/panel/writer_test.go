@@ -25,6 +25,7 @@ import (
 
 var _ = Describe("Writer", func() {
 	retrieve := func(ctx context.Context, key panel.Key) panel.Panel {
+		GinkgoHelper()
 		var res panel.Panel
 		Expect(svc.NewRetrieve().Where(panel.MatchKeys(key)).Entry(&res).Exec(ctx, tx)).
 			To(Succeed())
@@ -251,6 +252,7 @@ var _ = Describe("Writer", func() {
 
 	Describe("Dispatch", func() {
 		create := func(ctx context.Context, root panel.Node) panel.Key {
+			GinkgoHelper()
 			p := panel.Panel{Name: "test", Root: root, Parent: &parentID}
 			Expect(svc.NewWriter(nil).Create(ctx, &p)).To(Succeed())
 			return p.Key

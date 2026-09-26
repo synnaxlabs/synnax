@@ -8,7 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type status } from "@synnaxlabs/client";
-import { Button, Form, Icon, Nav, Status } from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Nav } from "@synnaxlabs/lyra/nav";
+import { Status } from "@synnaxlabs/pluto";
 import { TimeStamp } from "@synnaxlabs/x";
 
 import { Label } from "@/platform/label";

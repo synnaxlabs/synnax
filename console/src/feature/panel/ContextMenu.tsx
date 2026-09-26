@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { panel, query } from "@synnaxlabs/client";
-import { Access, Icon, Menu, Panel, Synnax } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Access, Panel, Synnax } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
 import { useMovePicker } from "@/feature/panel/MovePicker";

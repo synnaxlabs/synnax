@@ -9,18 +9,18 @@
 
 import "@/color/GradientPicker.css";
 
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Cursor } from "@synnaxlabs/lyra/cursor";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { useCombinedStateAndRef, useSyncedRef } from "@synnaxlabs/lyra/hooks";
+import { type Input } from "@synnaxlabs/lyra/input";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
+import { stopPropagation } from "@synnaxlabs/lyra/util";
 import { bounds, box, color, id, scale } from "@synnaxlabs/x";
 import { type ReactElement, useMemo, useRef } from "react";
 
 import { Swatch } from "@/color/Swatch";
-import { CSS } from "@/css";
-import { Cursor } from "@/cursor";
-import { Flex } from "@/flex";
-import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
-import { type Input } from "@/input";
-import { Text } from "@/text";
-import { Triggers } from "@/triggers";
-import { stopPropagation } from "@/util/event";
 
 interface GradientProps extends Input.Control<color.Stop[]> {
   scale?: scale.Scale<number>;

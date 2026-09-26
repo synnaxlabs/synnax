@@ -8,23 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import { group, imex, type ontology, schematic } from "@synnaxlabs/client";
-import {
-  Access,
-  Button,
-  Component,
-  Flex,
-  Group,
-  Haul,
-  Icon,
-  Input,
-  List,
-  Menu,
-  Schematic,
-  Select,
-  Status,
-  Tabs,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { List } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Tabs } from "@synnaxlabs/lyra/tabs";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Access, Group, Schematic } from "@synnaxlabs/pluto";
 import { id, uuid } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
 import { z } from "zod";

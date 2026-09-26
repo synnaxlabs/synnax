@@ -10,22 +10,20 @@
 import "@/feature/http/task/Form.css";
 
 import { channel, type Synnax as Client } from "@synnaxlabs/client";
-import {
-  Button,
-  Channel as PChannel,
-  Component,
-  Flex,
-  Form as PForm,
-  Icon,
-  List,
-  Menu,
-  Select,
-  Telem,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Channel as PChannel, Telem } from "@synnaxlabs/pluto";
 import { DataType, id, json, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback, useMemo, useState } from "react";
 
+import { useFromConfig } from "@/feature/http/device/queries";
 import { Select as SelectDevice } from "@/feature/http/device/Select";
 import * as Device from "@/feature/http/device/types";
 import { ContextMenu } from "@/feature/http/task/ContextMenu";
@@ -475,6 +473,14 @@ const Form: FC = () => {
   const { data, push, remove } = PForm.useFieldList<string, WriteEndpoint>(
     "config.endpoints",
   );
+  const dev = useFromConfig();
+  const resolve = useCallback(
+    (ep: WriteEndpoint) =>
+      dev == null
+        ? null
+        : { channel: { ...ep.channel, channel: dev.properties.write[ep.path] ?? 0 } },
+    [dev],
+  );
   const ctx = PForm.useContext();
   const isPreview = Task.useIsPreview();
 
@@ -529,48 +535,51 @@ const Form: FC = () => {
 
   const selected = selectedEndpoints.length > 0 ? selectedEndpoints[0] : null;
   return (
-    <Task.Views.Panes
-      listTitle="Endpoints"
-      list={
-        <>
-          <Menu.ContextMenu {...menuProps} menu={menuRenderProp}>
-            <Select.Frame<string, WriteEndpoint>
-              multiple
-              data={data}
-              value={selectedEndpoints}
-              onChange={setSelectedEndpoints}
-              replaceOnSingle
-              allowNone={false}
-              autoSelectOnNone
-            >
-              <List.Items<string, WriteEndpoint>
-                full="y"
-                className={menuProps.className}
-                onContextMenu={menuProps.open}
-                emptyContent={EMPTY_ENDPOINTS}
+    <>
+      <Task.Views.Panes
+        listTitle="Endpoints"
+        list={
+          <>
+            <Menu.ContextMenu {...menuProps} menu={menuRenderProp}>
+              <Select.Frame<string, WriteEndpoint>
+                multiple
+                data={data}
+                value={selectedEndpoints}
+                onChange={setSelectedEndpoints}
+                replaceOnSingle
+                allowNone={false}
+                autoSelectOnNone
               >
-                {endpointItem}
-              </List.Items>
-            </Select.Frame>
-          </Menu.ContextMenu>
-          {!isPreview && (
-            <PlatformButton.CreateListItem size="small" onClick={handleAddEndpoint}>
-              New endpoint
-            </PlatformButton.CreateListItem>
-          )}
-        </>
-      }
-      detailsPath={selected != null ? `config.endpoints.${selected}` : null}
-      title={selected != null && <EndpointLabel epKey={selected} />}
-    >
-      {selected != null ? (
-        <EndpointDetails epKey={selected} />
-      ) : (
-        <Flex.Box y grow align="center" justify="center">
-          <Text.Text status="disabled">Select an endpoint to configure</Text.Text>
-        </Flex.Box>
-      )}
-    </Task.Views.Panes>
+                <List.Items<string, WriteEndpoint>
+                  full="y"
+                  className={menuProps.className}
+                  onContextMenu={menuProps.open}
+                  emptyContent={EMPTY_ENDPOINTS}
+                >
+                  {endpointItem}
+                </List.Items>
+              </Select.Frame>
+            </Menu.ContextMenu>
+            {!isPreview && (
+              <PlatformButton.CreateListItem size="small" onClick={handleAddEndpoint}>
+                New endpoint
+              </PlatformButton.CreateListItem>
+            )}
+          </>
+        }
+        detailsPath={selected != null ? `config.endpoints.${selected}` : null}
+        title={selected != null && <EndpointLabel epKey={selected} />}
+      >
+        {selected != null ? (
+          <EndpointDetails epKey={selected} />
+        ) : (
+          <Flex.Box y grow align="center" justify="center">
+            <Text.Text status="disabled">Select an endpoint to configure</Text.Text>
+          </Flex.Box>
+        )}
+      </Task.Views.Panes>
+      <Task.BindChannels<WriteEndpoint> path="config.endpoints" resolve={resolve} />
+    </>
   );
 };
 

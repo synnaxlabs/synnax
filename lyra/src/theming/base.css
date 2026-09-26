@@ -1,0 +1,362 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+@import url("@fontsource-variable/inter");
+@import url("@fontsource/geist-mono");
+
+h1,
+h2,
+h3,
+h4,
+h5,
+small,
+p,
+label,
+li,
+th,
+td,
+text,
+input,
+textarea,
+.pluto-text {
+    font-family: var(--pluto-font-family);
+    color: var(--pluto-text-color);
+    fill: var(--pluto-text-color);
+    --webkit-font-smoothing: antialiased;
+    margin: 0;
+}
+
+h1,
+.pluto-text--h1 {
+    font-size: var(--pluto-h1-size);
+    line-height: var(--pluto-h1-line-height);
+    font-weight: var(--pluto-h1-weight);
+}
+
+h2,
+.pluto-text--h2 {
+    font-size: var(--pluto-h2-size);
+    line-height: var(--pluto-h2-line-height);
+    font-weight: var(--pluto-h2-weight);
+}
+
+h3,
+.pluto-text--h3 {
+    font-size: var(--pluto-h3-size);
+    line-height: var(--pluto-h3-line-height);
+    font-weight: var(--pluto-h3-weight);
+}
+
+h4,
+.pluto-text--h4 {
+    font-size: var(--pluto-h4-size);
+    line-height: var(--pluto-h4-line-height);
+    font-weight: var(--pluto-h4-weight);
+}
+
+h5,
+.pluto-text--h5 {
+    font-size: var(--pluto-h5-size);
+    line-height: var(--pluto-h5-line-height);
+    font-weight: var(--pluto-h5-weight);
+    text-transform: var(--pluto-h5-text-transform);
+}
+
+small,
+text,
+.pluto-text--small {
+    font-size: var(--pluto-small-size);
+    line-height: var(--pluto-small-line-height);
+    font-weight: var(--pluto-small-weight);
+}
+
+p,
+label,
+code,
+li,
+td,
+th,
+.pluto-text--p {
+    font-size: var(--pluto-p-size);
+    line-height: var(--pluto-p-line-height);
+    font-weight: var(--pluto-p-weight);
+}
+
+.pluto--pack .pluto-btn:is(:focus, :focus-within, :active, :hover) {
+    z-index: 3;
+}
+
+/* Wins the negative-margin border collapse against unselected neighbors. */
+.pluto--pack .pluto-btn.pluto--selected {
+    z-index: 2;
+}
+
+/* A pluto--reveals container hides marked child actions until hovered. Keyboard
+   focus always shows one, so reveal never hides the only keyboard path. */
+.pluto--reveals .pluto--reveal {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.1s ease-out;
+}
+
+.pluto--reveals:hover .pluto--reveal {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Reveal comes from the nearest container: an un-hovered inner one (a tag in a
+   hovered row) keeps its own actions hidden. */
+.pluto--reveals:not(:hover) .pluto--reveal {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.pluto--reveals .pluto--reveal:focus-visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.pluto-input {
+    z-index: 4;
+}
+
+@keyframes fade-in-zoom {
+    0% {
+        opacity: 0;
+        transform: scale(0.98) translateY(-4px);
+    }
+
+    100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+/* Everything derived from the theme's own colors. A scoped Theming.Provider re-points
+   the color ramps on its container and stamps the theme class there, so these have to
+   resolve against that element. Left on :root alone they would compute once against
+   the root theme and inherit into the subtree frozen. */
+:root,
+[class*="pluto-theme-"] {
+    /* The interactive fill band. Elevated chrome re-points these to step toward the
+       canvas (l0-l2) so its controls recess instead of lighten. */
+    --pluto-fill-rest: var(--pluto-gray-l3);
+    --pluto-fill-hover: var(--pluto-gray-l4);
+    --pluto-fill-press: var(--pluto-gray-l5);
+
+    /* The three selection tiers. Every selected state speaks exactly one; never
+       hand-roll a selection fill. */
+    --pluto-selected-bg: color-mix(
+        in srgb,
+        var(--pluto-primary-z) 15%,
+        var(--pluto-gray-l1)
+    );
+    --pluto-selected-hover-bg: var(--pluto-selected-bg);
+    --pluto-selected-active-bg: color-mix(
+        in srgb,
+        var(--pluto-primary-z) 20%,
+        var(--pluto-gray-l1)
+    );
+    --pluto-selected-border-color: color-mix(
+        in srgb,
+        var(--pluto-primary-z) 65%,
+        var(--pluto-gray-l1)
+    );
+    --pluto-selected-color: var(--pluto-primary-z);
+    --pluto-selected-subtle-bg: var(--pluto-fill-hover);
+    --pluto-selected-subtle-hover-bg: var(--pluto-fill-press);
+    --pluto-selected-subtle-active-bg: var(--pluto-gray-l6);
+    --pluto-selected-subtle-border-color: var(--pluto-gray-l7);
+    --pluto-selected-subtle-color: var(--pluto-gray-l11);
+
+    /* List tier: rows (list, menu, tree). Text color is deliberately untouched,
+       since rows carry multi-color content. */
+    --pluto-selected-list-bg: oklch(from var(--pluto-gray-l5-70) l calc(c + 0.025) h);
+    --pluto-selected-list-hover-bg: oklch(
+        from var(--pluto-gray-l5-85) l calc(c + 0.025) h
+    );
+    --pluto-selected-list-active-bg: oklch(
+        from var(--pluto-gray-l6) l calc(c + 0.025) h
+    );
+    --pluto-selected-list-border-color: transparent;
+    --pluto-border: var(--pluto-border-width) solid var(--pluto-border-color);
+    --pluto-border-l6: var(--pluto-border-width) solid var(--pluto-gray-l6);
+}
+
+:root {
+    --pluto-border-width: 1px;
+    --pluto-height-large: 6rem;
+    --pluto-height-medium: round(4.6667rem, 1px);
+    --pluto-height-small: 4rem;
+    --pluto-height-huge: 8rem;
+    --pluto-height-tiny: 3.5rem;
+    --pluto-btn-transition:
+        background 0.15s ease-in-out, border-color 0.15s ease-in-out,
+        color 0.15s ease-in-out, fill 0.15s ease-in-out, opacity 0.15s ease-in-out,
+        box-shadow 0.15s ease-in-out;
+    --pluto-modal-animation: fade-in-zoom 0.15s ease-in-out;
+    --pluto-dialog-animation: fade-in-zoom 0.1s ease-in-out;
+    --pluto-frost: blur(3.5rem) saturate(140%);
+    --pluto-focus-ring-offset: 2px;
+    --pluto-focus-ring-inset: -2px;
+}
+
+@media (resolution >= 2dppx) {
+    :root {
+        --pluto-border-width: 0.5px;
+    }
+}
+
+.pluto-theme-synnax-light {
+    /* achromatic (grey/black/white) symbols snap to pure black, legible on the light bg */
+    --pluto-symbol-l-extreme: 0;
+
+    /* no floor: dark colors already read fine on the light bg */
+    --pluto-symbol-l-min: 0;
+
+    /* cap lightness so pale colors darken enough to read on the light bg */
+    --pluto-symbol-l-max: 0.8;
+
+    /* low cutoff: only near-pure greys snap; muddy darks already read as near-black */
+    --pluto-symbol-c-thresh: 0.05;
+
+    /* The elevation ladder: lift sits in the layout, overlay floats above it, modal
+       covers it behind a scrim. Every rung is defined in both themes, since an
+       undefined one computes to no shadow. Rings, inset fills, and glows are not
+       elevation and stay off the ladder. */
+    --pluto-shadow-lift:
+        lch(0% 0 0% / 4.4%) 0px 3px 9px, lch(0% 0 0% / 4.4%) 0px 1px 1px;
+    --pluto-shadow-overlay:
+        lch(0% 0 0% / 2%) 0px 1px 1px, lch(0% 0 0% / 10%) 0px 4px 8px -4px,
+        lch(0% 0 0% / 12%) 0px 16px 24px -8px;
+    --pluto-shadow-modal:
+        lch(0% 0 0% / 8.8%) 0px 9px 48px, lch(0% 0 0% / 11%) 0px 6px 24px,
+        lch(0% 0 0% / 4.4%) 0px 1px 1px;
+}
+
+.pluto-theme-synnax-dark {
+    /* achromatic (grey/black/white) symbols snap to pure white, legible on the dark bg */
+    --pluto-symbol-l-extreme: 1;
+
+    /* floor lightness so dark colors lift enough to read on the dark bg */
+    --pluto-symbol-l-min: 0.4;
+
+    /* no ceiling: light colors already read fine on the dark bg */
+    --pluto-symbol-l-max: 1;
+
+    /* higher than light so muddy darks (invisible on the dark bg) also snap to white */
+    --pluto-symbol-c-thresh: 0.09;
+
+    /* Restated at higher density: a shadow needs more weight to read against a dark
+       surface. */
+    --pluto-shadow-lift:
+        lch(0% 0 0% / 18.8%) 0px 2px 5px, lch(0% 0 0% / 18.8%) 0px 1px 1px;
+    --pluto-shadow-overlay:
+        lch(0% 0 0% / 18.8%) 0px 3px 8px, lch(0% 0 0% / 18.8%) 0px 2px 5px,
+        lch(0% 0 0% / 18.8%) 0px 1px 1px;
+    --pluto-shadow-modal:
+        lch(0% 0 0% / 32%) 0px 9px 48px, lch(0% 0 0% / 28%) 0px 6px 24px,
+        lch(0% 0 0% / 18.8%) 0px 1px 1px;
+}
+
+/* Theme-correct display color: achromatic colors snap to the theme's hard extreme,
+   chromatic colors keep their hue and clamp lightness into a gentle band (blended by
+   chroma). Any element that sets --pluto-symbol-color carries this class to derive it. */
+.pluto-symbol-colored {
+    --pluto-symbol-display: oklch(
+        from
+            rgb(
+                var(
+                    --pluto-symbol-color,
+                    var(--pluto-symbol-seed, var(--pluto-gray-l11-rgb))
+                )
+            )
+            calc(
+                clamp(var(--pluto-symbol-l-min, 0), l, var(--pluto-symbol-l-max, 1)) *
+                    (
+                        1 -
+                            clamp(
+                                0,
+                                (var(--pluto-symbol-c-thresh, 0.045) - c) /
+                                    var(--pluto-symbol-c-thresh, 0.045),
+                                1
+                            )
+                    ) +
+                    var(--pluto-symbol-l-extreme, 0) *
+                    clamp(
+                        0,
+                        (var(--pluto-symbol-c-thresh, 0.045) - c) /
+                            var(--pluto-symbol-c-thresh, 0.045),
+                        1
+                    )
+            )
+            c h
+    );
+
+    /* Pinned fully opaque so transparent symbols still get legible text and pills. */
+    --pluto-symbol-contrast: oklch(
+        from var(--pluto-symbol-display) clamp(0, (0.6 - l) * 100, 1) 0 0deg / 100%
+    );
+
+    /* Inherited, so descendants pick up the display color per shape. */
+    stroke: var(--pluto-symbol-display);
+}
+
+html {
+    font-size: var(--pluto-base-size);
+}
+
+.pluto--no-wrap {
+    white-space: nowrap;
+}
+
+.pluto--bordered-right {
+    border-right: var(--pluto-border);
+}
+
+.pluto--bordered-left {
+    border-left: var(--pluto-border);
+}
+
+.pluto--bordered-top {
+    border-top: var(--pluto-border);
+}
+
+.pluto--bordered-bottom {
+    border-bottom: var(--pluto-border);
+}
+
+.pluto--direction-x > .pluto--bordered-start {
+    border-right: var(--pluto-border);
+}
+
+.pluto--direction-x > .pluto--bordered-end {
+    border-left: var(--pluto-border);
+}
+
+.pluto--direction-y > .pluto--bordered-start {
+    border-bottom: var(--pluto-border);
+}
+
+.pluto--direction-y > .pluto--bordered-end {
+    border-top: var(--pluto-border);
+}
+
+.pluto--no-select {
+    -webkit-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+.pluto--inherit-dims {
+    height: inherit;
+    width: inherit;
+}

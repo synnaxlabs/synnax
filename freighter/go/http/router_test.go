@@ -142,7 +142,6 @@ var _ = Describe("Router", func() {
 				)
 				router.BindTo(app)
 				addr := serveApp(app)
-				DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
 
 				Eventually(func(g Gomega) {
 					g.Expect(pollHealth("http://" + addr.String() + "/echo")).
@@ -233,7 +232,6 @@ var _ = Describe("Router", func() {
 				router.BindTo(app)
 
 				addr := serveApp(app)
-				DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
 				Eventually(func(g Gomega) {
 					g.Expect(
 						pollHealth("http://" + addr.String() + "/anything"),
@@ -280,7 +278,6 @@ var _ = Describe("Router", func() {
 				router.BindTo(app)
 
 				addr := serveApp(app)
-				DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
 				Eventually(func(g Gomega) {
 					g.Expect(
 						pollHealth("http://" + addr.String() + "/anything"),
@@ -340,7 +337,6 @@ var _ = Describe("Router", func() {
 				router.BindTo(app)
 
 				addr := serveApp(app)
-				DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
 				Eventually(func(g Gomega) {
 					g.Expect(
 						pollHealth("http://" + addr.String() + "/anything"),

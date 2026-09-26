@@ -29,12 +29,14 @@ import (
 // with its key populated. Writes commit immediately (nil tx) so the api enforcer
 // can observe the new ontology resource.
 func createPanel(ctx context.Context, name string) panel.Panel {
+	GinkgoHelper()
 	p := panel.Panel{Name: name, Parent: &parentID}
 	Expect(panelSvc.NewWriter(nil).Create(ctx, &p)).To(Succeed())
 	return p
 }
 
 func hasParent(ctx context.Context, parent ontology.ID, key panel.Key) bool {
+	GinkgoHelper()
 	return MustSucceed(otg.RelationshipExists(ctx, nil, ontology.Relationship{
 		From: parent,
 		Type: ontology.RelationshipTypeParentOf,

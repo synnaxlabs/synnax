@@ -16,6 +16,7 @@ packages:
   - docs/site
   - drift
   - freighter/ts
+  - lyra
   - pluto
   - studio
   - x/media
@@ -69,6 +70,7 @@ catalog:
   '@synnaxlabs/drift': workspace:^
   '@synnaxlabs/eslint-config': workspace:^
   '@synnaxlabs/freighter': workspace:^
+  '@synnaxlabs/lyra': workspace:^
   '@synnaxlabs/madge': workspace:^
   '@synnaxlabs/media': workspace:^
   '@synnaxlabs/pluto': workspace:^
@@ -78,14 +80,14 @@ catalog:
   '@synnaxlabs/x': workspace:^
   '@tanstack/react-virtual': ^3.14.10
   '@tauri-apps/api': ^2.11.1
-  '@tauri-apps/cli': ^2.11.4
+  '@tauri-apps/cli': ^2.11.5
   '@tauri-apps/plugin-deep-link': ^2.4.10
   '@tauri-apps/plugin-dialog': ^2.7.3
   '@tauri-apps/plugin-fs': ^2.5.2
   '@tauri-apps/plugin-process': ^2.3.1
   '@tauri-apps/plugin-shell': ^2.3.6
-  '@tauri-apps/plugin-store': ^2.4.4
-  '@tauri-apps/plugin-updater': ^2.11.0
+  '@tauri-apps/plugin-store': ^2.4.5
+  '@tauri-apps/plugin-updater': ^2.12.0
   '@testing-library/react': ^16.3.2
   '@testing-library/user-event': ^14.6.7
   '@types/d3-scale': ^4.0.9
@@ -127,6 +129,7 @@ catalog:
   mathjs: ^15.2.0
   nanoid: ^6.0.1
   pluralize: ^8.0.0
+  postcss: ^8.5.26
   prettier: ^3.9.6
   prettier-plugin-astro: ^0.14.1
   prettier-plugin-sh: ^0.19.0
@@ -153,7 +156,6 @@ catalog:
   turbo: ^2.10.12
   typescript: ^7.0.2
   typescript-eslint: ^8.69.0
-  unplugin-dts: ^1.1.0
   use-sync-external-store: ^1.6.0
   uuid: ^14.0.2
   vite: ^8.2.0
@@ -164,7 +166,7 @@ catalog:
   zod: ^4.5.4
 
 # TypeScript 6 pins for tooling that needs the JS Compiler API, which TS 7 no longer
-# ships (madge, typescript-eslint, astro check, unplugin-dts).
+# ships (madge, typescript-eslint, astro check).
 catalogs:
   ts6:
     '@typescript/typescript6': ^6.0.2

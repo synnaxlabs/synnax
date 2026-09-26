@@ -8,21 +8,21 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, schematic } from "@synnaxlabs/client";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Form as Base } from "@synnaxlabs/lyra/form";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { color, type text } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
-import { Component } from "@/component";
-import { Form as Base } from "@/form";
-import { Input } from "@/input";
 import { Project } from "@/project";
 import { Form } from "@/schematic/node/common/form";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { PAGE_ICONS } from "@/schematic/node/general/offPageReference/config";
 import { type FormProps } from "@/schematic/node/spec";
-import { Select } from "@/select";
-import { Status } from "@/status/base";
 import { Synnax } from "@/synnax";
-import { Theming } from "@/theming";
 const CLICK_MODE_KEYS = ["single", "double"] as const;
 
 const ClickModeSelect = Component.renderProp(

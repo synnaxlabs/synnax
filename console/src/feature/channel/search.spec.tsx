@@ -16,7 +16,8 @@ import {
   project,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { List, Select } from "@synnaxlabs/pluto";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
 import { uuid } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";

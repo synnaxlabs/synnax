@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Form } from "@synnaxlabs/lyra/form";
+import { type Input } from "@synnaxlabs/lyra/input";
 import { type ReactElement } from "react";
-
-import { Form } from "@/form";
-import { type Input } from "@/input";
 
 const ACTIVATION_DELAY_INPUT_PROPS: Partial<Input.NumericProps> = {
   endContent: "ms",
@@ -21,7 +20,7 @@ export const ActivationDelayField = (
   props: Partial<Form.NumericFieldProps>,
 ): ReactElement => (
   <Form.NumericField
-    label="Activation delay"
+    label="Delay"
     path="onClickDelay"
     inputProps={ACTIVATION_DELAY_INPUT_PROPS}
     defaultValue={0}

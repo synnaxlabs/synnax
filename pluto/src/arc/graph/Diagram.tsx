@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { arc } from "@synnaxlabs/client";
+import { Component } from "@synnaxlabs/lyra/component";
 import { type record } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
 import { Node } from "@/arc/graph/node";
 import { useNodeConfig, useSingleDispatch } from "@/arc/queries";
-import { Component } from "@/component";
 import { Diagram as Base } from "@/vis/diagram";
 
 // nodeChangesToActions converts diagram node gestures into Arc actions. Dimension

@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
+import { Form } from "@synnaxlabs/lyra/form";
 import { color, type location } from "@synnaxlabs/x";
 import { act, render, renderHook } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { Form } from "@/form";
 import { Custom } from "@/schematic/node/common/custom";
 
 const renderAttached = (

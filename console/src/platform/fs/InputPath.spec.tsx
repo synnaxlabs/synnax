@@ -26,7 +26,7 @@ vi.mock("@tauri-apps/plugin-fs", () => ({
   readTextFile: vi.fn(),
 }));
 
-import { type Status } from "@synnaxlabs/pluto";
+import { type Status } from "@synnaxlabs/lyra/status";
 import { open } from "@tauri-apps/plugin-dialog";
 
 import { FS } from "@/platform/fs";

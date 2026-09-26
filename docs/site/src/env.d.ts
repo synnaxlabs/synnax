@@ -10,8 +10,6 @@
 /// <reference types="astro/client" />
 /// <reference path="../.astro/types.d.ts" />
 
-declare module "@fontsource/geist-mono";
-
 declare namespace App {
   interface Locals {
     releases: import("@/util/releases").Releases;

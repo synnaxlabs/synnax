@@ -9,14 +9,12 @@
 
 import "@/platform/palette/List.css";
 
-import {
-  type Component,
-  Dialog,
-  Input,
-  List as Base,
-  Select,
-  Triggers,
-} from "@synnaxlabs/pluto";
+import { type Component } from "@synnaxlabs/lyra/component";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
+import { Input } from "@synnaxlabs/lyra/input";
+import { List as Base } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { type record, type state } from "@synnaxlabs/x";
 import { type FC, type ReactElement, useCallback } from "react";
 

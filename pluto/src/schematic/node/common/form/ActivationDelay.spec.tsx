@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Form as Base } from "@synnaxlabs/lyra/form";
 import { render } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { Form as Base } from "@/form";
 import { Form } from "@/schematic/node/common/form";
 
 const schema = z.object({ onClickDelay: z.number().optional() });
@@ -29,11 +29,11 @@ const Host = ({ values }: { values: z.infer<typeof schema> }): ReactElement => {
 describe("ActivationDelayField", () => {
   it("should show the saved delay", () => {
     const c = render(<Host values={{ onClickDelay: 250 }} />);
-    expect(c.getByLabelText(/Activation delay/)).toHaveProperty("value", "250");
+    expect(c.getByLabelText(/Delay/)).toHaveProperty("value", "250");
   });
 
   it("should show a zero delay when the config has no key", () => {
     const c = render(<Host values={{}} />);
-    expect(c.getByLabelText(/Activation delay/)).toHaveProperty("value", "0");
+    expect(c.getByLabelText(/Delay/)).toHaveProperty("value", "0");
   });
 });

@@ -17,6 +17,7 @@ console:
       - any-glob-to-any-file:
           - console/**
           - drift/**
+          - lyra/**
           - pluto/**
 
 driver:

@@ -8,7 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { Form, Icon, type Input, Select } from "@synnaxlabs/pluto";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { type Input } from "@synnaxlabs/lyra/input";
+import { Select } from "@synnaxlabs/lyra/select";
 import { deep } from "@synnaxlabs/x";
 
 export interface SelectVariantProps extends Input.Control<string> {}

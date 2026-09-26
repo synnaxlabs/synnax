@@ -10,7 +10,8 @@
 import { type panel } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
-import { Text, Triggers as PTriggers } from "@synnaxlabs/pluto";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Triggers as PTriggers } from "@synnaxlabs/lyra/triggers";
 import { uuid } from "@synnaxlabs/x";
 import {
   act,

@@ -9,7 +9,9 @@
 
 import { type ontology, type panel, project } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Haul, Icon, Text } from "@synnaxlabs/pluto";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
 import { uuid } from "@synnaxlabs/x";
 import { screen, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";

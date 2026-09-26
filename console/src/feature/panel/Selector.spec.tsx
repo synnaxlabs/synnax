@@ -12,8 +12,10 @@ import {
   createTestClient,
   createTestClientWithPolicy,
 } from "@synnaxlabs/client/testutil";
-import { CSS as PCSS, Haul, Mosaic, Panel as PPanel } from "@synnaxlabs/pluto";
-import { fireDragEvent } from "@synnaxlabs/pluto/testutil";
+import { CSS as PCSS } from "@synnaxlabs/lyra/css";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { fireDragEvent } from "@synnaxlabs/lyra/testutil";
+import { Mosaic, Panel as PPanel } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";

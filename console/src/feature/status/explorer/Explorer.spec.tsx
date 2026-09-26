@@ -16,7 +16,7 @@ import {
   view,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { List } from "@synnaxlabs/pluto";
+import { List } from "@synnaxlabs/lyra/list";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 

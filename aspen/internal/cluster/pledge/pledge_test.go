@@ -52,6 +52,7 @@ func provisionCandidates(
 	candidates func(int) func() node.Group,
 	nodeState func(int) node.State,
 ) node.Group {
+	GinkgoHelper()
 	if candidates == nil {
 		candidates = func(int) func() node.Group {
 			return func() node.Group { return nodes }

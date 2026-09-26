@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { labjack } from "@synnaxlabs/client";
-import { Form } from "@synnaxlabs/pluto";
+import { Form } from "@synnaxlabs/lyra/form";
 import { type record } from "@synnaxlabs/x";
 
 import { type ReadChannelType } from "@/feature/labjack/task/types";

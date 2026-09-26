@@ -9,7 +9,7 @@
 
 import { ontology, table } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { type Status } from "@synnaxlabs/pluto";
+import { type Status } from "@synnaxlabs/lyra/status";
 import { uuid } from "@synnaxlabs/x";
 import { act, renderHook } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";

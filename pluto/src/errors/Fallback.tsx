@@ -9,6 +9,14 @@
 
 import "@/errors/Fallback.css";
 
+import { Breadcrumb } from "@synnaxlabs/lyra/breadcrumb";
+import { Button } from "@synnaxlabs/lyra/button";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Nav } from "@synnaxlabs/lyra/nav";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Logo } from "@synnaxlabs/media";
 import { errors, primitive, type record } from "@synnaxlabs/x";
 import {
@@ -21,15 +29,7 @@ import {
 } from "react";
 import { z } from "zod";
 
-import { Breadcrumb } from "@/breadcrumb";
-import { Button } from "@/button";
-import { CSS } from "@/css";
-import { Divider } from "@/divider";
 import { type ResolvedStack, resolveStack } from "@/errors/resolveStack";
-import { Flex } from "@/flex";
-import { Icon } from "@/icon";
-import { Bar } from "@/nav/Bar";
-import { Text } from "@/text";
 
 /** Props for the error fallback component. */
 export interface FallbackProps extends PropsWithChildren {
@@ -138,8 +138,8 @@ export const Fallback = ({
         rounded="large"
         empty
       >
-        <Bar location="top" bordered size="6rem">
-          <Bar.Start className={CSS.BE("error-fallback", "nav-start")}>
+        <Nav.Bar location="top" bordered size="6rem">
+          <Nav.Bar.Start className={CSS.BE("error-fallback", "nav-start")}>
             <Breadcrumb.Breadcrumb gap="tiny">
               <Breadcrumb.Segment color={9}>
                 <Icon.Err />
@@ -151,11 +151,11 @@ export const Fallback = ({
                 Something went wrong
               </Breadcrumb.Segment>
             </Breadcrumb.Breadcrumb>
-          </Bar.Start>
-          <Bar.End className={CSS.BE("error-fallback", "nav-end")}>
+          </Nav.Bar.Start>
+          <Nav.Bar.End className={CSS.BE("error-fallback", "nav-end")}>
             <Logo variant="icon" />
-          </Bar.End>
-        </Bar>
+          </Nav.Bar.End>
+        </Nav.Bar>
         <Flex.Box className={CSS.BE("error-fallback", "body")}>
           <Flex.Box>
             <Text.Text

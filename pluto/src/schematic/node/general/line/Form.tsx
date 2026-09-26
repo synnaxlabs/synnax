@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Form as Base } from "@synnaxlabs/lyra/form";
+import { type Input } from "@synnaxlabs/lyra/input";
 import { type ReactElement } from "react";
 
-import { Form as Base } from "@/form";
-import { type Input } from "@/input";
 import { Form } from "@/schematic/node/common/form";
 
 const WIDTH_INPUT_PROPS: Partial<Input.NumericProps> = {

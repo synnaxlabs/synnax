@@ -10,7 +10,12 @@
 import "@/feature/panel/MovePicker.css";
 
 import { type panel } from "@synnaxlabs/client";
-import { Component, Errors, Icon, List, Panel, Select, Text } from "@synnaxlabs/pluto";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Errors, Panel } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 
 import {

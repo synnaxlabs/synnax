@@ -8,17 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, DataType } from "@synnaxlabs/client";
-import {
-  Button,
-  Channel,
-  Flex,
-  Form,
-  Icon,
-  Input,
-  Nav,
-  Telem,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Nav } from "@synnaxlabs/lyra/nav";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Channel, Telem } from "@synnaxlabs/pluto";
 import { useState } from "react";
 
 import { Modals } from "@/platform/modals";

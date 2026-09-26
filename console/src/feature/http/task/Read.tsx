@@ -15,26 +15,27 @@ import {
   NotFoundError,
   type Synnax as Client,
 } from "@synnaxlabs/client";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Component } from "@synnaxlabs/lyra/component";
+import { CSS as PCSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Tree } from "@synnaxlabs/lyra/tree";
 import {
   Access,
-  Button,
   Channel as PChannel,
-  Component,
-  CSS as PCSS,
   Device as PDevice,
-  Flex,
-  Form as PForm,
-  Icon,
-  Input,
-  Menu,
-  Select,
   Telem,
-  Text,
-  Tree,
 } from "@synnaxlabs/pluto";
 import { DataType, errors, id, primitive, type record } from "@synnaxlabs/x";
 import { type FC, type MouseEvent, useCallback, useMemo, useState } from "react";
 
+import { useFromConfig } from "@/feature/http/device/queries";
 import { Select as SelectDevice } from "@/feature/http/device/Select";
 import * as Device from "@/feature/http/device/types";
 import { ContextMenu } from "@/feature/http/task/ContextMenu";
@@ -248,6 +249,34 @@ const MethodSelect: FC<{ path: string; epPath: string }> = ({ path, epPath }) =>
     <PForm.Field<ReadMethod> path={path} label="Method">
       {renderMethod}
     </PForm.Field>
+  );
+};
+
+/**
+ * Binds an endpoint's fields to the channels the device stores for its path. Mounted by
+ * the form for every endpoint, as the details pane renders only the selected one.
+ */
+const FieldBinder = ({ epKey }: { epKey: string }) => {
+  const dev = useFromConfig();
+  const epPath = PForm.useFieldValue<string>(`config.endpoints.${epKey}.path`);
+  const indexKey = PForm.useFieldValue<string>(`config.endpoints.${epKey}.index`);
+  const resolve = useCallback(
+    (field: ReadField) => {
+      if (dev == null) return null;
+      const props = dev.properties.read[epPath];
+      if (props == null) return { channel: 0 };
+      return {
+        channel:
+          field.key === indexKey ? props.index : (props.channels[field.pointer] ?? 0),
+      };
+    },
+    [dev, epPath, indexKey],
+  );
+  return (
+    <Task.BindChannels<ReadField>
+      path={`config.endpoints.${epKey}.fields`}
+      resolve={resolve}
+    />
   );
 };
 
@@ -671,52 +700,57 @@ const Form: FC = () => {
   const current = selected.length > 0 ? entries.get(selected[0]) : undefined;
 
   return (
-    <Task.Views.Panes
-      listTitle="Endpoints"
-      list={
-        <>
-          <Menu.ContextMenu {...menuProps} menu={menuRenderProp}>
-            <Tree.Tree<string, record.Keyed<string>>
-              {...treeProps}
-              onSelect={handleSelect}
-              itemHeight={TREE_ITEM_HEIGHT}
-              className={menuProps.className}
-              onContextMenu={menuProps.open}
-              emptyContent={EMPTY_CONTENT}
-              allowNone={false}
-              autoSelectOnNone
-            >
-              {renderItem}
-            </Tree.Tree>
-          </Menu.ContextMenu>
-          {!isPreview && (
-            <PlatformButton.CreateListItem size="small" onClick={handleAddEndpoint}>
-              New endpoint
-            </PlatformButton.CreateListItem>
-          )}
-        </>
-      }
-      detailsPath={current != null ? entryPath(current) : null}
-      title={
-        current?.kind === "endpoint" ? (
-          <EndpointLabel epKey={current.epKey} />
-        ) : current?.kind === "field" ? (
-          <FieldTitle epKey={current.epKey} fieldKey={current.fieldKey} />
-        ) : undefined
-      }
-    >
-      {current == null ? (
-        <Flex.Box y grow align="center" justify="center">
-          <Text.Text status="disabled">
-            Select an endpoint or field to configure
-          </Text.Text>
-        </Flex.Box>
-      ) : current.kind === "endpoint" ? (
-        <EndpointDetails epKey={current.epKey} />
-      ) : (
-        <FieldPane epKey={current.epKey} fieldKey={current.fieldKey} />
-      )}
-    </Task.Views.Panes>
+    <>
+      <Task.Views.Panes
+        listTitle="Endpoints"
+        list={
+          <>
+            <Menu.ContextMenu {...menuProps} menu={menuRenderProp}>
+              <Tree.Tree<string, record.Keyed<string>>
+                {...treeProps}
+                onSelect={handleSelect}
+                itemHeight={TREE_ITEM_HEIGHT}
+                className={menuProps.className}
+                onContextMenu={menuProps.open}
+                emptyContent={EMPTY_CONTENT}
+                allowNone={false}
+                autoSelectOnNone
+              >
+                {renderItem}
+              </Tree.Tree>
+            </Menu.ContextMenu>
+            {!isPreview && (
+              <PlatformButton.CreateListItem size="small" onClick={handleAddEndpoint}>
+                New endpoint
+              </PlatformButton.CreateListItem>
+            )}
+          </>
+        }
+        detailsPath={current != null ? entryPath(current) : null}
+        title={
+          current?.kind === "endpoint" ? (
+            <EndpointLabel epKey={current.epKey} />
+          ) : current?.kind === "field" ? (
+            <FieldTitle epKey={current.epKey} fieldKey={current.fieldKey} />
+          ) : undefined
+        }
+      >
+        {current == null ? (
+          <Flex.Box y grow align="center" justify="center">
+            <Text.Text status="disabled">
+              Select an endpoint or field to configure
+            </Text.Text>
+          </Flex.Box>
+        ) : current.kind === "endpoint" ? (
+          <EndpointDetails epKey={current.epKey} />
+        ) : (
+          <FieldPane epKey={current.epKey} fieldKey={current.fieldKey} />
+        )}
+      </Task.Views.Panes>
+      {nodes.map(({ key }) => (
+        <FieldBinder key={key} epKey={key} />
+      ))}
+    </>
   );
 };
 

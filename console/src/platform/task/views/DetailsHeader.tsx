@@ -7,7 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, Flex, Form, Header, Icon } from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Header } from "@synnaxlabs/lyra/header";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { binary } from "@synnaxlabs/x";
 import { type ReactNode, useCallback } from "react";
 

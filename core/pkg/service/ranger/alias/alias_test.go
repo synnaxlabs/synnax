@@ -95,6 +95,7 @@ var _ = Describe("Alias", Ordered, func() {
 
 	channelCount := 0
 	createChannel := func(ctx context.Context) channel.Channel {
+		GinkgoHelper()
 		channelCount++
 		ch := channel.Channel{
 			DataType: telem.Float32T,

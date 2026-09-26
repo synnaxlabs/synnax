@@ -1,0 +1,95 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "@/select/SingleTrigger.css";
+
+import { type record } from "@synnaxlabs/x";
+import { useCallback } from "react";
+
+import { CSS } from "@/css";
+import { Dialog } from "@/dialog";
+import { Haul } from "@/haul";
+import { type Icon } from "@/icon";
+import { List } from "@/list";
+import { useContext, useSelected } from "@/select/Context";
+import { staticCanDrop } from "@/select/MultipleTrigger";
+
+export interface SingleTriggerEntry<K extends record.Key> extends record.KeyedNamed<K> {
+  icon?: Icon.ReactElement;
+}
+
+/** Props for {@link SingleTrigger}. */
+export interface SingleTriggerProps extends Dialog.TriggerProps {
+  /** Haul item type this trigger accepts as a drop. Empty accepts nothing. */
+  haulType?: string;
+  placeholder?: string;
+  icon?: Icon.ReactElement;
+  /** Whether to render the icon alone, with no name and no caret. */
+  iconOnly?: boolean;
+  /** Chooses an icon from the selected entry, overriding `icon`. */
+  renderIcon?: (entry: unknown) => Icon.ReactElement | undefined;
+}
+
+/** The button of a {@link Single} selection, showing the selected entry's name. */
+export const SingleTrigger = <K extends record.Key>({
+  haulType = "",
+  placeholder,
+  icon: baseIcon,
+  disabled,
+  iconOnly = false,
+  hideCaret = false,
+  renderIcon,
+  preview,
+  className,
+  ...rest
+}: SingleTriggerProps) => {
+  const allSelected = useSelected<K>();
+  const { setSelected } = useContext<K>();
+  const [selected] = allSelected;
+  const item = List.useItem<K, SingleTriggerEntry<K>>(selected);
+  const { name, icon } = item ?? {};
+  const resolvedIcon = renderIcon?.(item) ?? icon ?? baseIcon;
+  const canDrop = useCallback(
+    (hauled: Haul.DraggingState) =>
+      staticCanDrop(hauled, haulType, allSelected, disabled),
+    [haulType, allSelected, disabled],
+  );
+  const dropProps = Haul.useDrop({
+    type: haulType,
+    canDrop,
+    onDrop: Haul.useFilterByTypeCallback(
+      haulType,
+      ({ items }) => {
+        if (items.length !== 0) setSelected([items[0].key as K]);
+        return items;
+      },
+      [setSelected],
+    ),
+  });
+  const dragging = Haul.useDraggingState();
+  return (
+    <Dialog.Trigger
+      variant="outlined"
+      gap="small"
+      className={CSS.cls(
+        CSS.dropRegion(canDrop(dragging)),
+        name == null ? CSS.BM("select-single-trigger", "empty") : null,
+        className,
+      )}
+      disabled={disabled}
+      {...dropProps}
+      {...rest}
+      preview={preview}
+      hideCaret={hideCaret || iconOnly}
+    >
+      {resolvedIcon}
+      {!iconOnly && (name ?? (preview === true ? "None" : placeholder))}
+    </Dialog.Trigger>
+  );
+};

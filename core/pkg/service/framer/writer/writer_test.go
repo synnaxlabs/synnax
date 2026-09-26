@@ -37,6 +37,7 @@ var _ = Describe("Writer", func() {
 	createIndexed := func(
 		ctx SpecContext, dataType telem.DataType,
 	) (channel.Channel, channel.Channel) {
+		GinkgoHelper()
 		idxCh := channel.Channel{
 			Name:     UniqueChannelName(),
 			DataType: telem.TimestampT,
@@ -53,6 +54,7 @@ var _ = Describe("Writer", func() {
 	}
 
 	createVirtual := func(ctx SpecContext) channel.Channel {
+		GinkgoHelper()
 		ch := channel.Channel{
 			Name:     UniqueChannelName(),
 			DataType: telem.Int64T,

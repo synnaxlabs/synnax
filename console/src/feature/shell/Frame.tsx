@@ -9,7 +9,7 @@
 
 import "@/feature/shell/Shell.css";
 
-import { Flex } from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { type ReactElement, type ReactNode } from "react";
 
 import { Nav } from "@/feature/shell/Nav";

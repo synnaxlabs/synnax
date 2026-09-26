@@ -9,7 +9,12 @@
 
 import "@/platform/task/views/Panes.css";
 
-import { Button, Divider, Flex, Header, Icon, useResize } from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Header } from "@synnaxlabs/lyra/header";
+import { useResize } from "@synnaxlabs/lyra/hooks";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { box } from "@synnaxlabs/x";
 import {
   type MouseEvent,

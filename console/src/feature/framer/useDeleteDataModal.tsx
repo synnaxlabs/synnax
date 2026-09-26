@@ -10,20 +10,17 @@
 import "@/feature/framer/DeleteModal.css";
 
 import { channel, DisconnectedError } from "@synnaxlabs/client";
-import {
-  Button,
-  Channel,
-  Component,
-  Flex,
-  Form,
-  Icon,
-  Input,
-  Nav,
-  type Select,
-  Status,
-  Synnax,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Nav } from "@synnaxlabs/lyra/nav";
+import { type Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Channel, Synnax } from "@synnaxlabs/pluto";
 import {
   type NumericTimeRange,
   numericTimeRangeZ,

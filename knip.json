@@ -25,25 +25,16 @@
       "entry": ["src/index.ts"],
       "project": ["src/**/*.ts"]
     },
+    "lyra": {
+      "entry": ["src/*/index.ts"],
+      "project": ["src/**/*.{ts,tsx}"]
+    },
     "pluto": {
       "entry": [
         "src/index.ts",
         "src/ether.ts",
-        "src/flex/index.ts",
-        "src/button/index.ts",
-        "src/tabs/index.ts",
-        "src/theming/index.ts",
-        "src/menu/index.ts",
-        "src/header/index.ts",
-        "src/tree/index.ts",
-        "src/dropdown/index.ts",
-        "src/video/index.ts",
-        "src/text/index.ts",
-        "src/input/index.ts",
-        "src/triggers/index.ts",
-        "src/list/index.ts",
-        "src/color/index.ts",
-        "src/css/index.ts"
+        "src/testutil/index.ts",
+        "src/color/index.ts"
       ],
       "project": ["src/**/*.{ts,tsx}"]
     },

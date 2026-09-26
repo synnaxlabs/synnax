@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Form as PForm, Icon, Select } from "@synnaxlabs/pluto";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Select } from "@synnaxlabs/lyra/select";
 import { deep, type optional, type record } from "@synnaxlabs/x";
 import { type FC, useMemo } from "react";
 

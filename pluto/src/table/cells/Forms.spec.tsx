@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { table } from "@synnaxlabs/client";
+import { Form } from "@synnaxlabs/lyra/form";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { Form } from "@/form";
 import { ValueForm } from "@/table/cells/Forms";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 

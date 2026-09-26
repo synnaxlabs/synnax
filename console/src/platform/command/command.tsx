@@ -7,7 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex, type Icon, type List, Text, Triggers } from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { type Icon } from "@synnaxlabs/lyra/icon";
+import { type List } from "@synnaxlabs/lyra/list";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { type FC, type ReactElement, useCallback } from "react";
 
 import { Palette } from "@/platform/palette";

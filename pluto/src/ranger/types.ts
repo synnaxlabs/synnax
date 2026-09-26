@@ -8,9 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type ranger } from "@synnaxlabs/client";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import { type NumericTimeRange } from "@synnaxlabs/x";
-
-import { Haul } from "@/haul";
 
 export const HAUL_TYPE = "range";
 

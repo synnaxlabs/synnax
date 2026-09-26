@@ -7,9 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Component } from "@synnaxlabs/lyra/component";
+import { type CSS } from "@synnaxlabs/lyra/css";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Tree } from "@synnaxlabs/lyra/tree";
 import { Logo } from "@synnaxlabs/media";
-import { Component, type CSS, Icon, List, Text } from "@synnaxlabs/pluto";
-import { Tree } from "@synnaxlabs/pluto/tree";
 import { type ReactElement, useEffect, useState } from "react";
 
 import { InlineCode } from "@/components/text/InlineCode";
