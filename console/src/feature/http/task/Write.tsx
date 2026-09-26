@@ -58,20 +58,13 @@ const Properties = () => (
   </>
 );
 
-const JSON_TYPE_DATA: Select.StaticEntry<json.PrimitiveType>[] = [
-  { key: "number", name: "Number" },
-  { key: "string", name: "String" },
-  { key: "boolean", name: "Boolean" },
-];
-
-const GENERATOR_DATA: Select.StaticEntry<GeneratorType | TimeFormat>[] = [
-  { key: "uuid", name: "UUID" },
-  { key: "iso8601", name: "Timestamp (ISO 8601)" },
-  { key: "unix_sec", name: "Timestamp (s)" },
-  { key: "unix_ms", name: "Timestamp (ms)" },
-  { key: "unix_us", name: "Timestamp (µs)" },
-  { key: "unix_ns", name: "Timestamp (ns)" },
-];
+const JSON_TYPE_ITEMS = (
+  <>
+    <Select.Item itemKey="number">Number</Select.Item>
+    <Select.Item itemKey="string">String</Select.Item>
+    <Select.Item itemKey="boolean">Boolean</Select.Item>
+  </>
+);
 
 const MethodSelect: FC<{ path: string }> = ({ path }) => (
   <PForm.Field<WriteMethod> path={path} label="Method">
@@ -179,17 +172,10 @@ const ChannelFieldSection: FC<{ epPath: string }> = ({ epPath }) => {
 };
 
 const renderSelectJSONType = Component.renderProp(
-  (
-    p: Omit<
-      Select.StaticProps<string, Select.StaticEntry<json.PrimitiveType>>,
-      "data" | "resourceName"
-    >,
-  ) => (
-    <Select.Static<string, Select.StaticEntry<json.PrimitiveType>>
-      {...p}
-      data={JSON_TYPE_DATA}
-      resourceName="JSON type"
-    />
+  (p: Omit<Select.SimpleProps<string>, "children" | "resourceName">) => (
+    <Select.Simple<string> {...p} resourceName="JSON type">
+      {JSON_TYPE_ITEMS}
+    </Select.Simple>
   ),
 );
 
@@ -267,13 +253,14 @@ const FieldListItem = (props: List.ItemProps<string> & { epKey: string }) => {
         grow
       />
       {fieldType === "static" && (
-        <Select.Static<json.PrimitiveType, Select.StaticEntry<json.PrimitiveType>>
+        <Select.Simple<json.PrimitiveType>
           value={jsonType ?? "string"}
           onChange={handleJSONTypeChange}
-          data={JSON_TYPE_DATA}
           resourceName="type"
           className={CSS.B("field-data-type")}
-        />
+        >
+          {JSON_TYPE_ITEMS}
+        </Select.Simple>
       )}
       {fieldType === "static" && jsonType === "string" && (
         <PForm.TextField
@@ -300,16 +287,19 @@ const FieldListItem = (props: List.ItemProps<string> & { epKey: string }) => {
         />
       )}
       {fieldType === "generated" && (
-        <Select.Static<
-          GeneratorType | TimeFormat,
-          Select.StaticEntry<GeneratorType | TimeFormat>
-        >
+        <Select.Simple<GeneratorType | TimeFormat>
           value={generatorDisplayKey(generator, timeFormat)}
           onChange={handleGeneratorChange}
-          data={GENERATOR_DATA}
           resourceName="generator"
           variant="floating"
-        />
+        >
+          <Select.Item itemKey="uuid">UUID</Select.Item>
+          <Select.Item itemKey="iso8601">Timestamp (ISO 8601)</Select.Item>
+          <Select.Item itemKey="unix_sec">Timestamp (s)</Select.Item>
+          <Select.Item itemKey="unix_ms">Timestamp (ms)</Select.Item>
+          <Select.Item itemKey="unix_us">Timestamp (µs)</Select.Item>
+          <Select.Item itemKey="unix_ns">Timestamp (ns)</Select.Item>
+        </Select.Simple>
       )}
       <Text.Text level="small" color={9}>
         {fieldType}

@@ -27,7 +27,7 @@ import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
 
-// The row that mints a panel, listed last. Panel keys are UUIDs, so nothing collides.
+// The row that mints a panel. Panel keys are UUIDs, so nothing collides.
 const NEW_PANEL_KEY = "new";
 
 const ROW_CLASS = CSS.BE("panel-move-picker", "row");
@@ -46,17 +46,11 @@ const Row = (props: List.ItemProps<panel.Key>): ReactElement => {
 };
 
 const listItem = Component.renderProp(
-  (props: List.ItemProps<panel.Key>): ReactElement =>
-    props.itemKey === NEW_PANEL_KEY ? (
-      <Select.Item {...props} align="center" gap="medium" className={ROW_CLASS}>
-        <Icon.Add />
-        <Text.Text>New panel</Text.Text>
-      </Select.Item>
-    ) : (
-      <Errors.SuspenseBoundary loading={null} FallbackComponent={RowFallback}>
-        <Row {...props} />
-      </Errors.SuspenseBoundary>
-    ),
+  (props: List.ItemProps<panel.Key>): ReactElement => (
+    <Errors.SuspenseBoundary loading={null} FallbackComponent={RowFallback}>
+      <Row {...props} />
+    </Errors.SuspenseBoundary>
+  ),
 );
 
 export interface MovePickerParams {
@@ -72,7 +66,7 @@ const Content = ({
   const moveTab = useMoveTab();
   const moveToNewPanel = useMoveTabToNewPanel();
   const data = useMemo(
-    () => [...keys.filter((key) => key !== origin.panel), NEW_PANEL_KEY],
+    () => keys.filter((key) => key !== origin.panel),
     [keys, origin.panel],
   );
   const handleChange = useCallback(
@@ -90,8 +84,20 @@ const Content = ({
       </Modals.Header>
       <Modals.Body>
         <Select.Frame<panel.Key> data={data} allowNone onChange={handleChange}>
-          <List.Scroll className={CSS.BE("panel-move-picker", "list")}>
-            <List.Items<panel.Key>>{listItem}</List.Items>
+          <List.Scroll
+            className={CSS.BE("panel-move-picker", "list")}
+            itemCount={data.length + 1}
+          >
+            <Select.Items<panel.Key>>{listItem}</Select.Items>
+            <Select.Item
+              itemKey={NEW_PANEL_KEY}
+              align="center"
+              gap="medium"
+              className={ROW_CLASS}
+            >
+              <Icon.Add />
+              <Text.Text>New panel</Text.Text>
+            </Select.Item>
           </List.Scroll>
         </Select.Frame>
       </Modals.Body>

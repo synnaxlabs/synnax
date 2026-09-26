@@ -76,12 +76,6 @@ const SelectAlign = ({ preview }: { preview: boolean }) => {
   );
 };
 
-const PORTS = [
-  { key: "ai0", name: "AI0" },
-  { key: "ai1", name: "AI1" },
-  { key: "ai2", name: "AI2" },
-];
-
 const SelectSingleStatic = ({
   preview,
   value: initial,
@@ -91,14 +85,17 @@ const SelectSingleStatic = ({
 }) => {
   const [value, setValue] = useState<string | undefined>(initial);
   return (
-    <Select.Static
+    <Select.Simple<string>
       resourceName="port"
-      data={PORTS}
       value={value ?? ""}
       onChange={setValue}
       allowNone
       preview={preview}
-    />
+    >
+      <Select.Item itemKey="ai0">AI0</Select.Item>
+      <Select.Item itemKey="ai1">AI1</Select.Item>
+      <Select.Item itemKey="ai2">AI2</Select.Item>
+    </Select.Simple>
   );
 };
 

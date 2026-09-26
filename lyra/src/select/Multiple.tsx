@@ -25,7 +25,10 @@ export interface MultipleProps<
 >
   extends
     Omit<MultipleFrameProps<K, E>, "multiple" | "children">,
-    Pick<BodyProps<K>, "emptyContent" | "status" | "onSearch" | "actions" | "footer">,
+    Pick<
+      BodyProps<K>,
+      "emptyContent" | "status" | "onSearch" | "actions" | "footer" | "fixedItems"
+    >,
     Omit<BaseDialog.FrameProps, "onChange" | "children" | "variant">,
     Pick<
       MultipleTriggerProps<K, E>,
@@ -65,6 +68,7 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
   renderTag,
   actions,
   footer,
+  fixedItems,
   allowNone,
   replaceOnSingle,
   triggerProps,
@@ -108,6 +112,7 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
             status={status}
             actions={actions}
             footer={footer}
+            fixedItems={fixedItems}
             resourceName={resourceName}
           >
             {children}

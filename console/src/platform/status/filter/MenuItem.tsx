@@ -39,12 +39,7 @@ export const MenuItem = (): ReactElement => (
 const DEFAULT_VALUE: status.Variant[] = [];
 
 const selectVariantRenderProp = Component.renderProp(
-  (
-    props: Pick<
-      Select.MultipleProps<status.Variant, Select.StaticEntry<status.Variant>>,
-      "value" | "onChange"
-    >,
-  ) => (
+  (props: Pick<Status.SelectMultipleVariantProps, "value" | "onChange">) => (
     <Status.SelectMultipleVariants
       {...props}
       location={DIALOG_LOCATION}

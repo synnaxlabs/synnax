@@ -14,7 +14,7 @@ import { type ReactElement, useMemo } from "react";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { useData } from "@/list/Frame";
-import { ScrollContext } from "@/list/scrollContext";
+import { ScrollContext } from "@/list/scope";
 
 /** Props for {@link Scroll}. */
 export interface ScrollProps extends Omit<Flex.BoxProps, "ref"> {

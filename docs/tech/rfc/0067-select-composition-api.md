@@ -27,11 +27,9 @@ same move and is the precedent throughout.
   `pluto/src/telem/SelectTimeZone.tsx` passes `keys={TIME_ZONES}` and then writes the
   two buttons again.
 - **Fixed options hide in the data array**: "Custom" in the range select
-  (`console/src/platform/range/Select.tsx:81`), "New panel" in the panel picker
-  (`console/src/feature/panel/MovePicker.tsx:50`), the "All" view
-  (`console/src/platform/view/Frame.tsx:68`), and the built-in symbol groups
-  (`console/src/feature/schematic/toolbar/Symbols.tsx:477`) are pushed into the key
-  array, and each render function checks for the special key to draw it differently.
+  (`console/src/platform/range/Select.tsx:81`) and "New panel" in the panel picker
+  (`console/src/feature/panel/MovePicker.tsx:50`) are pushed into the key array, and
+  each render function checks for the special key to draw it differently.
 
 ## 2 Vocabulary
 
@@ -85,7 +83,8 @@ same move and is the precedent throughout.
 | `Select.Search`          | Search field                                       | `SearchInput`                   |
 | `Select.List`            | The dialog's scroll area                           | inside `Select.Dialog`          |
 | `Select.Items`           | Data block: render function over the frame's keys  | `List.Items`                    |
-| `Select.Item`            | One option, fixed or rendered by a data block      | `Select.Item`               |
+| `Select.Item`            | One option, fixed or rendered by a data block      | `Select.ListItem`               |
+| `Select.Label`           | A fixed item's label, or its children otherwise    | none                            |
 
 The data props on `Select.Frame` are the ones it passes to `List.Frame` today: `data`,
 `getItem`, `subscribe`, `virtual`, `itemHeight`, `overscan`, `onFetchMore`. They stay on
@@ -109,10 +108,12 @@ parts in page order. A fixed item is one step. The data block is its whole key a
 order, whether or not its rows are mounted. A frame has one data source, so a dialog has
 at most one data block. Movement wraps at both ends, and hidden items are skipped.
 
-`Select.List` owns the walk. It finds the fixed items and the data block with a `data-*`
-attribute, in DOM order, the way `Tabs.Selector` finds tabs
-(`lyra/src/tabs/Selector.tsx:99`). Hover is stored as a key, not an index. Moving onto a
-fixed item scrolls it into view; moving inside a data block calls its virtualizer's
+Each fixed item registers its key and element with the frame when it mounts.
+`Select.Items` registers a hidden marker for the data block. The frame sorts the
+registered elements in document order and puts the data keys at the marker. A row that
+`List.Items` renders is a data row, so Tree and the plain Console lists keep their rows
+without a `Select.Items`. Hover is stored as a key, not an index. Moving onto a fixed
+item scrolls it into view; moving inside a data block calls its virtualizer's
 `scrollToIndex`. The same ordered key list drives the shift-click range in a multiple
 select and `autoSelectOnNone`.
 
@@ -194,8 +195,8 @@ The shorthands assemble the parts. None of them takes a data prop for static opt
   in, so switching a dropdown to a button row changes one word.
 - **`Select.Single`** and **`Select.Multiple`**: The enhanced shorthands for loaded
   data: search, loading and error content, virtualization, and paging. They keep their
-  props and are rebuilt on the parts. The Pluto domain selects, such as
-  `Channel.SelectSingle`, keep using them.
+  props, gain `fixedItems` for fixed options above the data, and are rebuilt on the
+  parts. The Pluto domain selects, such as `Channel.SelectSingle`, keep using them.
 
 ```tsx
 <Select.Simple value={v} onChange={setV} resourceName="variant">
@@ -240,9 +241,10 @@ data block, which none of the third group supports.
 
 ## 5 Implementation phases
 
-Each phase is one PR into `main`. No phase needs a flag: each one moves every caller of
-what it changes. Every phase with new behavior lands with specs that pin it, and a phase
-that renames a class updates the Playwright selectors in `integration/console`.
+The phases land as commits on one branch and one PR. No phase needs a flag: each one
+moves every caller of what it changes. Every phase with new behavior lands with specs
+that pin it, and a phase that renames a class updates the Playwright selectors in
+`integration/console`.
 
 - **Phase 1: `List.Scroll`.** Add the part, the scroll context, and `scrollMargin`
   virtualization. `List.Items` uses the nearest `List.Scroll` and scrolls itself when
@@ -253,7 +255,7 @@ that renames a class updates the Playwright selectors in `integration/console`.
 - **Phase 4: Page-order navigation.** Replace the index model in `useHover` and `use.ts`
   with the key walk of §4.1. Existing selects have one data block and behave the same;
   the existing `useHover` and `use` specs must pass unchanged.
-- **Phase 5: Rename `Select.Item` to `Select.Item`.** Mechanical, `review/bot`: 42
+- **Phase 5: Rename `Select.ListItem` to `Select.Item`.** Mechanical, `review/bot`: 42
   call sites.
 - **Phase 6: The parts.** `Select.Dialog` becomes the surface; add `Select.Search`,
   `Select.List`, `Select.Items`. Rebuild `Single` and `Multiple` on the parts; their
@@ -268,8 +270,7 @@ that renames a class updates the Playwright selectors in `integration/console`.
   and `Select.StaticEntry`.
 - **Phase 10: `Select.Buttons` children.** `Select.Item` children, delete `keys` and
   `Select.Button`; move 31 callers and the text and flex presets.
-- **Phase 11: Remove sentinel keys.** Range "Custom", "New panel", the "All" view, and
-  the built-in symbol groups become fixed items.
+- **Phase 11: Remove sentinel keys.** Range "Custom" and "New panel" become fixed items.
 
 **Compatibility**: No stored or wire format changes. Every phase is a source change
 inside the TypeScript packages.
@@ -290,10 +291,8 @@ inside the TypeScript packages.
 6. **Text search in `Select.Simple`**: Rejected dropping search, which removes the
    search box from every static select for keyboard users.
 7. **`List.Scroll` split**: See §4.4.
-
-## 7 Open questions
-
-1. Whether `Select.Items` shows its `emptyContent` when fixed items exist but the data
-   block is empty. Current lean: yes, in place of the block.
-2. Whether `List.useCombinedData` survives Phase 11. The schematic symbol search list
-   (`Symbols.tsx:526`) is a plain list, not a select, and still joins two sources.
+8. **Empty data beside fixed items**: `Select.Items` shows its `emptyContent` in place
+   of the block, so "Custom" sits above "No ranges found".
+9. **`List.useCombinedData` stays**: The "All" view (`console/src/platform/view`) and
+   the built-in symbol groups are real entries with queries and names, shown in tab
+   strips, not select options. They stay in the data array.

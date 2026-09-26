@@ -13,9 +13,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Status as Base } from "@synnaxlabs/lyra/status";
 import { type ReactElement } from "react";
 
-import { VARIANT_DATA } from "@/status/variantData";
-
-type Entry = Select.StaticEntry<Base.Variant>;
+import { type Entry, VARIANT_DATA } from "@/status/variantData";
 
 const listItem = Component.renderProp((p: List.ItemProps<string>) => {
   const { itemKey } = p;

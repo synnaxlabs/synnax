@@ -50,10 +50,6 @@ export const Select = ({
   inlineSize,
   onClickDelay,
 }: RenderProps): ReactElement => {
-  const data = useMemo(
-    () => options.map((o) => ({ key: o.key, name: o.name || `Option ${o.value}` })),
-    [options],
-  );
   const matched = options.find((o) => o.key === value);
   const triggerStyle = useMemo(() => ({ minWidth: inlineSize }), [inlineSize]);
   return (
@@ -92,8 +88,7 @@ export const Select = ({
         />
       </Handle.Boundary>
       <Flex.Box x pack size={size}>
-        <BaseSelect.Static
-          data={data}
+        <BaseSelect.Simple<string>
           value={value}
           onChange={(key: string | null) => onChange(key)}
           disabled={disabled}
@@ -101,7 +96,13 @@ export const Select = ({
           triggerProps={{ color, size }}
           dialogProps={DIALOG_PROPS}
           style={triggerStyle}
-        />
+        >
+          {options.map((o) => (
+            <BaseSelect.Item key={o.key} itemKey={o.key}>
+              {o.name || `Option ${o.value}`}
+            </BaseSelect.Item>
+          ))}
+        </BaseSelect.Simple>
         {onSend != null && (
           <BaseButton.Button
             variant="filled"

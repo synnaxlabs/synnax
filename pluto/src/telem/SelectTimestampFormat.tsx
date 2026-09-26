@@ -14,26 +14,16 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { type TimestampFormat } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-const DATA: Select.StaticEntry<TimestampFormat>[] = [
-  { key: "ISO", name: "ISO 8601" },
-  { key: "ISODate", name: "ISO date" },
-  { key: "time", name: "Time" },
-  { key: "preciseTime", name: "Precise time" },
-  { key: "date", name: "Date" },
-  { key: "dateTime", name: "Date + Time" },
-  { key: "preciseDate", name: "Precise date" },
-];
-
 export interface SelectTimestampFormatProps extends Omit<
-  Select.StaticProps<TimestampFormat>,
-  "data" | "resourceName"
+  Select.SimpleProps<TimestampFormat>,
+  "children" | "resourceName"
 > {}
 
 export const SelectTimestampFormat = ({
   dialogProps,
   ...rest
 }: SelectTimestampFormatProps): ReactElement => (
-  <Select.Static
+  <Select.Simple<TimestampFormat>
     {...rest}
     dialogProps={{
       ...dialogProps,
@@ -42,7 +32,14 @@ export const SelectTimestampFormat = ({
         dialogProps?.className,
       ),
     }}
-    data={DATA}
     resourceName="timestamp format"
-  />
+  >
+    <Select.Item itemKey="ISO">ISO 8601</Select.Item>
+    <Select.Item itemKey="ISODate">ISO date</Select.Item>
+    <Select.Item itemKey="time">Time</Select.Item>
+    <Select.Item itemKey="preciseTime">Precise time</Select.Item>
+    <Select.Item itemKey="date">Date</Select.Item>
+    <Select.Item itemKey="dateTime">Date + Time</Select.Item>
+    <Select.Item itemKey="preciseDate">Precise date</Select.Item>
+  </Select.Simple>
 );

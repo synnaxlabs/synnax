@@ -102,20 +102,27 @@ export const SelectShowcase = () => (
 export const SelectIconShowcase = () => {
   const [value, setValue] = useState<string>("");
   return (
-    <Select.Static
+    <Select.Simple<string>
       resourceName="alignment"
-      data={[
-        { key: "x-center", icon: <Icon.Align.XCenter />, name: "X Center" },
-        { key: "y-center", icon: <Icon.Align.YCenter />, name: "Y Center" },
-        { key: "x-left", icon: <Icon.Align.Left />, name: "X Left" },
-        { key: "y-left", icon: <Icon.Align.Top />, name: "Y Left" },
-      ]}
       value={value}
       allowNone
       variant="floating"
       onChange={setValue}
       icon={<Icon.Align.XCenter />}
       triggerProps={{ iconOnly: true }}
-    />
+    >
+      <Select.Item itemKey="x-center">
+        <Icon.Align.XCenter />X Center
+      </Select.Item>
+      <Select.Item itemKey="y-center">
+        <Icon.Align.YCenter />Y Center
+      </Select.Item>
+      <Select.Item itemKey="x-left">
+        <Icon.Align.Left />X Left
+      </Select.Item>
+      <Select.Item itemKey="y-left">
+        <Icon.Align.Top />Y Left
+      </Select.Item>
+    </Select.Simple>
   );
 };

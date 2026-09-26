@@ -12,6 +12,7 @@ import { useState } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Icon } from "@/icon";
+import { List } from "@/list";
 import { Select } from "@/select";
 import { mockBoundingClientRect } from "@/testutil/dom";
 
@@ -106,5 +107,28 @@ describe("Select.Simple", () => {
     fireEvent.click(c.getByText("Second Item"));
     fireEvent.click(c.getByRole("button", { name: "Test Item" }));
     expect(c.getByText("First Item").closest("[hidden]")).toBeNull();
+  });
+
+  it("should show a fixed label when nested in another list's row", () => {
+    const c = render(
+      <List.Frame data={["row"]}>
+        <List.Scroll>
+          <List.Items>
+            {({ key }) => (
+              <Select.Simple<string>
+                key={key}
+                value="b"
+                onChange={vi.fn()}
+                resourceName="Nested"
+              >
+                <Select.Item itemKey="a">Alpha</Select.Item>
+                <Select.Item itemKey="b">Bravo</Select.Item>
+              </Select.Simple>
+            )}
+          </List.Items>
+        </List.Scroll>
+      </List.Frame>,
+    );
+    expect(c.getByRole("button", { name: "Nested" }).textContent).toBe("Bravo");
   });
 });

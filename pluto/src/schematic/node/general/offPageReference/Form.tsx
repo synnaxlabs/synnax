@@ -12,11 +12,12 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as Base } from "@synnaxlabs/lyra/form";
+import { type Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { color, type text } from "@synnaxlabs/x";
+import { color, type record, type text } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { Project } from "@/project";
@@ -47,6 +48,10 @@ const ClickModeSelect = Component.renderProp(
   },
 );
 
+interface Sibling extends record.KeyedNamed {
+  icon: Icon.ReactElement;
+}
+
 const selectKey = (page?: schematic.Page | null): string =>
   page == null || page.key.length === 0 ? "" : ontology.idToString(page);
 
@@ -73,7 +78,7 @@ const useHandlePageChange = (): ((v: string | null) => void) => {
 export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
-  const [siblings, setSiblings] = useState<Select.StaticEntry<string>[]>([]);
+  const [siblings, setSiblings] = useState<Sibling[]>([]);
   useEffect(() => {
     setSiblings([]);
     if (client == null || schematicKey == null) return;
@@ -110,14 +115,20 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
           grow
           className={CSS.BE("symbol-form", "page-field")}
         >
-          <Select.Static
+          <Select.Simple<string>
             value={selectKey(page)}
             onChange={handlePageChange}
-            data={siblings}
             resourceName="page"
             emptyContent="No other pages in this project"
             allowNone
-          />
+          >
+            {siblings.map(({ key, name, icon }) => (
+              <Select.Item key={key} itemKey={key}>
+                {icon}
+                {name}
+              </Select.Item>
+            ))}
+          </Select.Simple>
         </Input.Item>
         <Base.Field<boolean>
           path="dblClickNavDisabled"

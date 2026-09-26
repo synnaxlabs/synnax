@@ -7,33 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { modbus } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
-import { type record } from "@synnaxlabs/x";
+import { Select } from "@synnaxlabs/lyra/select";
 
 import { type WriteChannelType } from "@/feature/modbus/task/types";
 
-export interface WriteChannelTypeEntry extends record.KeyedNamed<WriteChannelType> {}
+export type SelectWriteChannelTypeFieldProps = Form.SelectFieldProps<WriteChannelType>;
 
-const NAMES: Record<WriteChannelType, string> = {
-  coil: "Coil",
-  holding_register: "Holding register",
-};
-
-const DATA: WriteChannelTypeEntry[] = modbus.WRITE_CHANNEL_TYPES.map((key) => ({
-  key,
-  name: NAMES[key],
-}));
-
-export interface SelectWriteChannelTypeFieldProps extends Omit<
-  Form.SelectFieldProps<WriteChannelType, WriteChannelTypeEntry>,
-  "data" | "entryRenderKey" | "columns"
-> {}
-
-export const SelectWriteChannelTypeField = Form.buildSelectField<
-  WriteChannelType,
-  WriteChannelTypeEntry
->({
+export const SelectWriteChannelTypeField = Form.buildSelectField<WriteChannelType>({
   fieldKey: "type",
   fieldProps: {
     label: "Channel type",
@@ -44,7 +25,12 @@ export const SelectWriteChannelTypeField = Form.buildSelectField<
   inputProps: {
     allowNone: false,
     resourceName: "channel type",
-    data: DATA,
     style: { width: "25rem" },
+    children: (
+      <>
+        <Select.Item itemKey="coil">Coil</Select.Item>
+        <Select.Item itemKey="holding_register">Holding register</Select.Item>
+      </>
+    ),
   },
 });

@@ -7,11 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Select } from "@synnaxlabs/lyra/select";
+import { type Icon } from "@synnaxlabs/lyra/icon";
 import { Status as Base } from "@synnaxlabs/lyra/status";
+import { type record } from "@synnaxlabs/x";
+
+export interface Entry extends record.KeyedNamed<Base.Variant> {
+  icon: Icon.ReactElement;
+}
 
 /** The status variants as selectable entries, each with its name and icon. */
-export const VARIANT_DATA: Select.StaticEntry<Base.Variant>[] = [
+export const VARIANT_DATA: Entry[] = [
   { key: "success", name: "Success", icon: <Base.Indicator variant="success" /> },
   { key: "error", name: "Error", icon: <Base.Indicator variant="error" /> },
   { key: "warning", name: "Warning", icon: <Base.Indicator variant="warning" /> },

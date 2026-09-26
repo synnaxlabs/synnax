@@ -29,6 +29,8 @@ export interface BodyProps<K extends record.Key>
   resourceName: string;
   /** Pinned below the scrollable list; stays visible regardless of list length. */
   footer?: ReactNode;
+  /** Fixed {@link Item}s listed above the data. */
+  fixedItems?: ReactNode;
 }
 
 export const DefaultEmptyContent = ({ resourceName }: { resourceName: string }) => (
@@ -46,6 +48,7 @@ export const Body = <K extends record.Key>({
   resourceName,
   actions,
   footer,
+  fixedItems,
 }: BodyProps<K>): ReactElement => {
   const loading = status?.variant === "loading";
   const hasSearch = onSearch != null;
@@ -83,6 +86,7 @@ export const Body = <K extends record.Key>({
       )}
       {footer == null || footer === false ? (
         <SelectList bordered borderColor={6} grow rounded full="x">
+          {fixedItems}
           <Items<K> emptyContent={emptyContent}>{children}</Items>
         </SelectList>
       ) : (
@@ -97,6 +101,7 @@ export const Body = <K extends record.Key>({
           full="x"
         >
           <SelectList grow full="x">
+            {fixedItems}
             <Items<K> emptyContent={emptyContent}>{children}</Items>
           </SelectList>
           {footer}

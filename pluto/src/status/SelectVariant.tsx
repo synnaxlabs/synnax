@@ -14,10 +14,17 @@ import { type ReactElement } from "react";
 import { VARIANT_DATA } from "@/status/variantData";
 
 export interface SelectVariantProps extends Omit<
-  Select.StaticProps<Base.Variant>,
-  "data" | "resourceName"
+  Select.SimpleProps<Base.Variant>,
+  "children" | "resourceName"
 > {}
 
 export const SelectVariant = (props: SelectVariantProps): ReactElement => (
-  <Select.Static {...props} data={VARIANT_DATA} resourceName="variant" />
+  <Select.Simple<Base.Variant> {...props} resourceName="variant">
+    {VARIANT_DATA.map(({ key, name, icon }) => (
+      <Select.Item key={key} itemKey={key}>
+        {icon}
+        {name}
+      </Select.Item>
+    ))}
+  </Select.Simple>
 );

@@ -22,7 +22,8 @@ import { useSyncedRef } from "@/hooks";
 import { Icon } from "@/icon";
 import { List } from "@/list";
 import { useContext, useItemState, useSelected } from "@/select/Context";
-import { useIsFixed, useSlotRef } from "@/select/registry";
+import { Label } from "@/select/Label";
+import { useIsFixed } from "@/select/registry";
 import { Tag } from "@/tag";
 import { Text } from "@/text";
 
@@ -48,7 +49,6 @@ const MultipleTag = <K extends record.Key, E extends MultipleEntry<K>>({
   renderIcon,
 }: MultipleTagProps<K>): ReactElement | null => {
   const fixed = useIsFixed(itemKey);
-  const slotRef = useSlotRef(itemKey);
   const item = List.useItem<K, E>(itemKey);
   const { onSelect } = useItemState(itemKey);
   let label: string = itemKey.toString();
@@ -65,7 +65,7 @@ const MultipleTag = <K extends record.Key, E extends MultipleEntry<K>>({
       icon={resolvedIcon}
       color={item?.color}
     >
-      {fixed ? <span ref={slotRef} className={CSS.BE("select", "label")} /> : label}
+      {fixed ? <Label itemKey={itemKey} /> : label}
     </Tag.Tag>
   );
 };

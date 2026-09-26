@@ -10,12 +10,11 @@
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type Select } from "@synnaxlabs/lyra/select";
-import { deep, type record } from "@synnaxlabs/x";
+import { Select } from "@synnaxlabs/lyra/select";
+import { deep } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { CoefficientsField } from "@/feature/ni/task/CoefficientsField";
-import { selectData } from "@/feature/ni/task/selectData";
 import { TableScaleForm } from "@/feature/ni/task/TableScaleForm";
 import {
   createScale,
@@ -25,10 +24,7 @@ import {
   type Units,
 } from "@/feature/ni/task/types";
 
-const SelectCustomScaleTypeField = Form.buildSelectField<
-  ScaleType,
-  Select.StaticEntry<ScaleType>
->({
+const SelectCustomScaleTypeField = Form.buildSelectField<ScaleType>({
   fieldKey: "type",
   fieldProps: {
     label: "Custom scaling",
@@ -46,54 +42,71 @@ const SelectCustomScaleTypeField = Form.buildSelectField<
   },
   inputProps: {
     resourceName: "scale type",
-    data: [
-      { key: "linear", name: "Linear", icon: <Icon.Linear /> },
-      { key: "map", name: "Map", icon: <Icon.Map /> },
-      { key: "polynomial", name: "Polynomial", icon: <Icon.Function /> },
-      { key: "table", name: "Table", icon: <Icon.Table /> },
-      { key: "none", name: "None", icon: <Icon.None /> },
-    ],
+    children: (
+      <>
+        <Select.Item itemKey="linear">
+          <Icon.Linear />
+          Linear
+        </Select.Item>
+        <Select.Item itemKey="map">
+          <Icon.Map />
+          Map
+        </Select.Item>
+        <Select.Item itemKey="polynomial">
+          <Icon.Function />
+          Polynomial
+        </Select.Item>
+        <Select.Item itemKey="table">
+          <Icon.Table />
+          Table
+        </Select.Item>
+        <Select.Item itemKey="none">
+          <Icon.None />
+          None
+        </Select.Item>
+      </>
+    ),
   },
 });
 
-const UNIT_SYMBOLS = {
-  Volts: "V",
-  Amps: "A",
-  DegF: "°F",
-  DegC: "°C",
-  DegR: "R",
-  Kelvins: "K",
-  Strain: "strain",
-  Ohms: "Ω",
-  Hz: "Hz",
-  Seconds: "s",
-  Meters: "m",
-  Inches: "in",
-  Degrees: "°",
-  Radians: "rad",
-  g: "g",
-  MetersPerSecondSquared: "m/s^2",
-  Newtons: "N",
-  Pounds: "lb",
-  KilogramForce: "kgf",
-  PoundsPerSquareInch: "psi",
-  Bar: "bar",
-  Pascals: "Pa",
-  VoltsPerVolt: "V/V",
-  mVoltsPerVolt: "mV/V",
-  NewtonMeters: "N·m",
-  InchOunces: "in·oz",
-  InchPounds: "in·lb",
-  FootPounds: "ft·lb",
-} as const satisfies Record<Units, string>;
-
-const UnitsField = Form.buildSelectField<Units, record.KeyedNamed<Units>>({
+const UnitsField = Form.buildSelectField<Units>({
   fieldKey: "units",
   fieldProps: { label: "Units", style: { width: "19rem" } },
   inputProps: {
     resourceName: "units",
     allowNone: false,
-    data: selectData(UNIT_SYMBOLS),
+    children: (
+      <>
+        <Select.Item itemKey="Volts">V</Select.Item>
+        <Select.Item itemKey="Amps">A</Select.Item>
+        <Select.Item itemKey="DegF">°F</Select.Item>
+        <Select.Item itemKey="DegC">°C</Select.Item>
+        <Select.Item itemKey="DegR">R</Select.Item>
+        <Select.Item itemKey="Kelvins">K</Select.Item>
+        <Select.Item itemKey="Strain">strain</Select.Item>
+        <Select.Item itemKey="Ohms">Ω</Select.Item>
+        <Select.Item itemKey="Hz">Hz</Select.Item>
+        <Select.Item itemKey="Seconds">s</Select.Item>
+        <Select.Item itemKey="Meters">m</Select.Item>
+        <Select.Item itemKey="Inches">in</Select.Item>
+        <Select.Item itemKey="Degrees">°</Select.Item>
+        <Select.Item itemKey="Radians">rad</Select.Item>
+        <Select.Item itemKey="g">g</Select.Item>
+        <Select.Item itemKey="MetersPerSecondSquared">m/s^2</Select.Item>
+        <Select.Item itemKey="Newtons">N</Select.Item>
+        <Select.Item itemKey="Pounds">lb</Select.Item>
+        <Select.Item itemKey="KilogramForce">kgf</Select.Item>
+        <Select.Item itemKey="PoundsPerSquareInch">psi</Select.Item>
+        <Select.Item itemKey="Bar">bar</Select.Item>
+        <Select.Item itemKey="Pascals">Pa</Select.Item>
+        <Select.Item itemKey="VoltsPerVolt">V/V</Select.Item>
+        <Select.Item itemKey="mVoltsPerVolt">mV/V</Select.Item>
+        <Select.Item itemKey="NewtonMeters">N·m</Select.Item>
+        <Select.Item itemKey="InchOunces">in·oz</Select.Item>
+        <Select.Item itemKey="InchPounds">in·lb</Select.Item>
+        <Select.Item itemKey="FootPounds">ft·lb</Select.Item>
+      </>
+    ),
   },
 });
 

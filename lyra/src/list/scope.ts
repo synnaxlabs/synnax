@@ -9,6 +9,12 @@
 
 import { context } from "@/context";
 
+/** True under an Items render function, for the rows of the nearest Frame. */
+export const [ItemsContext, useInItems] = context.create<boolean>({
+  defaultValue: false,
+  displayName: "List.ItemsContext",
+});
+
 /** Marks the subtree of a Scroll, so an Items element can require one. */
 export const [ScrollContext, useScrollContext] = context.create<true>({
   displayName: "List.ScrollContext",

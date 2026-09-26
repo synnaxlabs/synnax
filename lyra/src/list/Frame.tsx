@@ -26,6 +26,7 @@ import { memo } from "@/component/memo";
 import { context } from "@/context";
 import { Dialog } from "@/dialog";
 import { useCombinedRefs, usePrevious, useSyncedRef } from "@/hooks";
+import { ItemsContext } from "@/list/scope";
 
 /** Function interface for getting items from a list by key(s). */
 export interface GetItem<K extends record.Key, E extends record.Keyed<K> | undefined>
@@ -454,8 +455,12 @@ export const BaseFrame = <
 >({
   virtual = false,
   ...rest
-}: FrameProps<K, E>): ReactElement =>
-  virtual ? <VirtualFrame {...rest} /> : <StaticFrame {...rest} />;
+}: FrameProps<K, E>): ReactElement => (
+  // A nested frame starts a new list, so its content is not a row of the outer one.
+  <ItemsContext value={false}>
+    {virtual ? <VirtualFrame {...rest} /> : <StaticFrame {...rest} />}
+  </ItemsContext>
+);
 
 /**
  * Holds the data for a list and hands it to its children through context. It renders no
