@@ -63,7 +63,7 @@ describe("layouts.List", () => {
     await waitFor(() => expect(screen.getByText("item-new")).toBeTruthy());
   });
 
-  it("should create a channel from the empty-state action", async () => {
+  it("should create a channel from the footer action", async () => {
     const createChannel = vi.fn((): Channel => ({ key: "new", disabled: false }));
     const { form } = await renderInTaskForm(
       <Task.Views.List<Channel>
@@ -74,7 +74,7 @@ describe("layouts.List", () => {
       { values: { config: { channels: [] } } },
     );
     await waitFor(() => expect(screen.getByText("No channels in task")).toBeTruthy());
-    fireEvent.click(screen.getByText("Add channel"));
+    fireEvent.click(screen.getByRole("button", { name: "New channel" }));
     await waitFor(() =>
       expect(form.current?.get("config.channels").value).toHaveLength(1),
     );

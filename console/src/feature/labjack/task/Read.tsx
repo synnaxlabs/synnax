@@ -24,8 +24,15 @@ import {
   convertReadChannelTypeToPortType,
 } from "@/feature/labjack/task/convertChannelTypeToPortType";
 import { getOpenPort } from "@/feature/labjack/task/getOpenPort";
-import { FORMS } from "@/feature/labjack/task/ReadChannelForms";
-import { SelectReadChannelTypeField } from "@/feature/labjack/task/SelectReadChannelTypeField";
+import {
+  CustomScaleForm,
+  FORMS,
+  UNSCALED_TYPES,
+} from "@/feature/labjack/task/ReadChannelForms";
+import {
+  READ_CHANNEL_TYPE_NAMES,
+  SelectReadChannelTypeField,
+} from "@/feature/labjack/task/SelectReadChannelTypeField";
 import {
   createReadChannel,
   deployReadConfigZ,
@@ -96,15 +103,24 @@ interface ChannelDetailsProps extends Task.Views.DetailsProps {
   deviceModel: Device.Model;
 }
 
+const DetailsTitle = ({ path, deviceModel }: ChannelDetailsProps) => {
+  const port = PForm.useFieldValue<string>(`${path}.port`);
+  const type = PForm.useFieldValue<ReadChannelType>(`${path}.type`);
+  return (
+    <Task.Views.ItemLabel kind={READ_CHANNEL_TYPE_NAMES[type]}>
+      Port {getRenderedPort(port, deviceModel, type)}
+    </Task.Views.ItemLabel>
+  );
+};
+
 const ChannelDetails = ({ path, deviceModel }: ChannelDetailsProps) => {
   const channel = PForm.useFieldValue<ReadChannel>(path);
-  const Form = FORMS[channel.type];
+  const TypeForm = FORMS[channel.type];
   return (
-    <>
-      <Flex.Box x>
+    <PForm.Sections>
+      <PForm.Section title="Source">
         <SelectReadChannelTypeField
           path={path}
-          grow
           onChange={(value, { get, path, set }) => {
             if (value == null) return;
             const prevType = get<ReadChannelType>(path).value;
@@ -124,7 +140,7 @@ const ChannelDetails = ({ path, deviceModel }: ChannelDetailsProps) => {
             set(`${parentPath}.port`, nextPort);
           }}
         />
-        <PForm.Field<string> path={`${path}.port`}>
+        <PForm.Field<string> path={`${path}.port`} label="Port">
           {({ value, onChange, preview }) => (
             <SelectPort
               value={value}
@@ -135,9 +151,18 @@ const ChannelDetails = ({ path, deviceModel }: ChannelDetailsProps) => {
             />
           )}
         </PForm.Field>
-      </Flex.Box>
-      <Form deviceModel={deviceModel} path={path} />
-    </>
+      </PForm.Section>
+      {channel.type !== "digital" && (
+        <PForm.Section title="Signal">
+          <TypeForm deviceModel={deviceModel} path={path} />
+        </PForm.Section>
+      )}
+      {!UNSCALED_TYPES.has(channel.type) && (
+        <PForm.Section title="Scale">
+          <CustomScaleForm prefix={path} />
+        </PForm.Section>
+      )}
+    </PForm.Sections>
   );
 };
 
@@ -209,10 +234,15 @@ const ChannelsForm = ({ device }: ChannelsFormProps) => {
     }),
     [device],
   );
+  const detailsTitle = useCallback(
+    (p: Task.Views.DetailsProps) => <DetailsTitle {...p} deviceModel={device.model} />,
+    [device.model],
+  );
   return (
     <Task.Views.ListAndDetails<ReadChannel>
       listItem={listItem}
       details={details}
+      detailsTitle={detailsTitle}
       createChannel={createChannel}
       onTare={handleTare}
       allowTare={allowTare}

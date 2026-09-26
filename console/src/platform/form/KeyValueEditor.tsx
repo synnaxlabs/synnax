@@ -7,10 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
-import { Text } from "@synnaxlabs/lyra/text";
 import { caseconv } from "@synnaxlabs/x";
 import { useEffect, useMemo } from "react";
 
@@ -18,10 +16,12 @@ export type Entry<K extends string, V extends string | number> = {
   [k in K]: string;
 } & { value: V };
 
-export interface KeyValueEditorProps<K extends string, V extends string | number>
-  extends Flex.BoxProps {
+export interface KeyValueEditorProps<
+  K extends string,
+  V extends string | number,
+> extends Omit<Input.ItemProps, "label"> {
   path: string;
-  label: string;
+  label?: string;
   keyField: K;
   keyPlaceholder?: string;
   valuePlaceholder?: string;
@@ -102,13 +102,10 @@ export const KeyValueEditor = <K extends string, V extends string | number>({
   columns[valueIndex] = valueColumn;
 
   return (
-    <Flex.Box y gap="small" {...rest}>
-      <Text.Text level="small" size="small" color={9}>
-        {label}
-      </Text.Text>
+    <Input.Item label={label} padHelpText={false} {...rest}>
       <Input.Table value={rows} onChange={handleRowsChange} preview={preview}>
         {columns}
       </Input.Table>
-    </Flex.Box>
+    </Input.Item>
   );
 };

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { labjack } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { type record } from "@synnaxlabs/x";
 
@@ -14,11 +15,15 @@ import { type ReadChannelType } from "@/feature/labjack/task/types";
 
 export interface ReadChannelTypeEntry extends record.KeyedNamed<ReadChannelType> {}
 
-const READ_CHANNEL_TYPES: ReadChannelTypeEntry[] = [
-  { key: "analog", name: "Analog input" },
-  { key: "digital", name: "Digital input" },
-  { key: "thermocouple", name: "Thermocouple" },
-];
+export const READ_CHANNEL_TYPE_NAMES: Record<ReadChannelType, string> = {
+  analog: "Analog input",
+  digital: "Digital input",
+  thermocouple: "Thermocouple",
+};
+
+const READ_CHANNEL_TYPES: ReadChannelTypeEntry[] = labjack.readChannelTypeZ.options.map(
+  (key) => ({ key, name: READ_CHANNEL_TYPE_NAMES[key] }),
+);
 
 export type SelectReadChannelTypeFieldProps = Form.SelectFieldProps<
   ReadChannelType,

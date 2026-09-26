@@ -15,12 +15,9 @@ import {
   type status,
   type Synnax as Client,
 } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
-import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { Header } from "@synnaxlabs/lyra/header";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
@@ -38,6 +35,7 @@ import {
   type AlertSchemas,
   deployAlertTaskConfigZ,
 } from "@/feature/pagerduty/task/types";
+import { Button as PlatformButton } from "@/platform/button";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
@@ -80,35 +78,37 @@ interface AlertDetailsProps {
 const AlertDetails = ({ itemKey }: AlertDetailsProps) => {
   const path = `config.alerts.${itemKey}`;
   return (
-    <Flex.Box grow className={CSS.B("pagerduty-alert-details")} gap="small">
-      <Flex.Box x>
-        <PForm.Field<string> path={`${path}.status`} label="Status" grow required>
+    <PForm.Sections className={CSS.B("pagerduty-alert-details")}>
+      <PForm.Section title="Trigger">
+        <PForm.Field<string> path={`${path}.status`} label="Status" required>
           {selectStatusRenderProp}
         </PForm.Field>
         <PForm.SwitchField
           path={`${path}.errorsCritical`}
           label="Treat error as critical"
         />
-      </Flex.Box>
-      <PForm.TextField
-        path={`${path}.component`}
-        label="Component"
-        optional
-        inputProps={COMPONENT_INPUT_PROPS}
-      />
-      <PForm.TextField
-        path={`${path}.group`}
-        label="Group"
-        optional
-        inputProps={GROUP_INPUT_PROPS}
-      />
-      <PForm.TextField
-        path={`${path}.class`}
-        label="Class"
-        optional
-        inputProps={CLASS_INPUT_PROPS}
-      />
-    </Flex.Box>
+      </PForm.Section>
+      <PForm.Section title="Incident">
+        <PForm.TextField
+          path={`${path}.component`}
+          label="Component"
+          optional
+          inputProps={COMPONENT_INPUT_PROPS}
+        />
+        <PForm.TextField
+          path={`${path}.group`}
+          label="Group"
+          optional
+          inputProps={GROUP_INPUT_PROPS}
+        />
+        <PForm.TextField
+          path={`${path}.class`}
+          label="Class"
+          optional
+          inputProps={CLASS_INPUT_PROPS}
+        />
+      </PForm.Section>
+    </PForm.Sections>
   );
 };
 
@@ -122,18 +122,22 @@ const selectStatusRenderProp = Component.renderProp(
   (p: Omit<Status.SelectProps, "variant">) => <Status.Select {...p} />,
 );
 
-interface EmptyActionContentProps {
-  onAdd: () => void;
-}
+const EMPTY_CONTENT = <Empty.Action message="No alerts" />;
 
-const EmptyActionContent = ({ onAdd }: EmptyActionContentProps) => {
-  const isPreview = Task.useIsPreview();
+const useAlertName = (itemKey: string): string | null => {
+  const statusKey = PForm.useFieldValue<status.Key>(`config.alerts.${itemKey}.status`);
+  const { data: status } = Status.useResult(
+    statusKey.length > 0 ? { key: statusKey } : null,
+  );
+  return status?.name ?? null;
+};
+
+const AlertTitle = ({ itemKey }: { itemKey: string }) => {
+  const name = useAlertName(itemKey);
   return (
-    <Empty.Action
-      message="No alerts"
-      action={isPreview ? undefined : "Add alert"}
-      onClick={onAdd}
-    />
+    <Text.Text level="p" weight={500} color={name == null ? 8 : 10} overflow="ellipsis">
+      {name ?? "New alert"}
+    </Text.Text>
   );
 };
 
@@ -156,7 +160,7 @@ const AlertListItem = (props: List.ItemProps<string>) => {
           {isNotDefined ? "New alert" : status.name}
         </Text.Text>
       </Flex.Box>
-      <Task.EnableDisableButton path={`config.alerts.${itemKey}.disabled`} />
+      <Task.EnabledCheckbox path={`config.alerts.${itemKey}.disabled`} />
     </Select.ListItem>
   );
 };
@@ -243,59 +247,47 @@ const Form: FC = () => {
     [handleRemove, handleSetEnabled],
   );
 
+  const current = selected.length > 0 ? selected[0] : null;
   return (
-    <Flex.Box x grow empty>
-      <Flex.Box direction="y" className={CSS.B("pagerduty-alert-list")} empty>
-        <Header.Header>
-          <Header.Title weight={500} color={10}>
-            Alerts
-          </Header.Title>
-          {!isPreview && (
-            <Header.Actions>
-              <Button.Button
-                onClick={handleAdd}
-                variant="filled"
-                tooltip="Add alert"
-                size="small"
-              >
-                <Icon.Add />
-              </Button.Button>
-            </Header.Actions>
-          )}
-        </Header.Header>
-        <PMenu.ContextMenu {...menuProps} menu={alertContextMenu}>
-          <Select.Frame<string, AlertConfig>
-            multiple
-            data={data}
-            value={selected}
-            onChange={setSelected}
-            replaceOnSingle
-            allowNone={false}
-            autoSelectOnNone
-          >
-            <List.Items<string, AlertConfig>
-              full="y"
-              onContextMenu={menuProps.open}
-              emptyContent={<EmptyActionContent onAdd={handleAdd} />}
+    <Task.Views.Panes
+      listTitle="Alerts"
+      list={
+        <>
+          <PMenu.ContextMenu {...menuProps} menu={alertContextMenu}>
+            <Select.Frame<string, AlertConfig>
+              multiple
+              data={data}
+              value={selected}
+              onChange={setSelected}
+              replaceOnSingle
+              allowNone={false}
+              autoSelectOnNone
             >
-              {alertListItem}
-            </List.Items>
-          </Select.Frame>
-        </PMenu.ContextMenu>
-      </Flex.Box>
-      <Divider.Divider direction="y" />
-      <Flex.Box y grow empty>
-        <Task.Views.DetailsHeader
-          path={selected.length > 0 ? `config.alerts.${selected[0]}` : ""}
-          disabled={selected.length === 0}
-        />
-        {selected.length > 0 ? (
-          <AlertDetails itemKey={selected[0]} />
-        ) : (
-          <Empty.Action message="No alert selected" grow />
-        )}
-      </Flex.Box>
-    </Flex.Box>
+              <List.Items<string, AlertConfig>
+                full="y"
+                onContextMenu={menuProps.open}
+                emptyContent={EMPTY_CONTENT}
+              >
+                {alertListItem}
+              </List.Items>
+            </Select.Frame>
+          </PMenu.ContextMenu>
+          {!isPreview && (
+            <PlatformButton.CreateListItem size="small" onClick={handleAdd}>
+              New alert
+            </PlatformButton.CreateListItem>
+          )}
+        </>
+      }
+      detailsPath={current != null ? `config.alerts.${current}` : null}
+      title={current != null && <AlertTitle itemKey={current} />}
+    >
+      {current != null ? (
+        <AlertDetails itemKey={current} />
+      ) : (
+        <Empty.Action message="No alert selected" grow />
+      )}
+    </Task.Views.Panes>
   );
 };
 

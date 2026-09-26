@@ -8,14 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { type Component } from "@synnaxlabs/lyra/component";
-import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { useCallback, useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { type Channel } from "@/platform/task/types";
 import { ChannelList, type ChannelListProps } from "@/platform/task/views/ChannelList";
-import { DetailsHeader } from "@/platform/task/views/DetailsHeader";
+import { Panes } from "@/platform/task/views/Panes";
 
 export interface CreateChannel<C extends Channel> {
   (channels: C[], channelKeyToCopy?: string): C | null;
@@ -30,11 +29,14 @@ export interface ListAndDetailsProps<C extends Channel> extends Pick<
   "onTare" | "allowTare" | "listItem" | "contextMenuItems" | "resolve"
 > {
   details: Component.RenderProp<DetailsProps>;
+  /** Names the selected channel in the details header, typically by its port. */
+  detailsTitle?: Component.RenderProp<DetailsProps>;
   createChannel: CreateChannel<C>;
 }
 
 export const ListAndDetails = <C extends Channel>({
   details,
+  detailsTitle,
   createChannel,
   ...rest
 }: ListAndDetailsProps<C>) => {
@@ -56,23 +58,27 @@ export const ListAndDetails = <C extends Channel>({
   );
   const detailsPath = selected.length > 0 ? `config.channels.${selected[0]}` : null;
   return (
-    <>
-      <ChannelList<C>
-        {...rest}
-        selected={selected}
-        onSelect={setSelected}
-        createChannel={handleCreateChannel}
-        createChannels={handleDuplicateChannels}
-      />
-      <Divider.Divider y />
-      <Flex.Box y grow empty className={CSS.B("details")}>
-        <DetailsHeader path={detailsPath ?? ""} disabled={detailsPath == null} />
-        {detailsPath != null && (
-          <Flex.Box y className={CSS.BE("details", "form")} empty grow>
-            {details({ path: detailsPath })}
-          </Flex.Box>
-        )}
-      </Flex.Box>
-    </>
+    <Panes
+      listTitle="Channels"
+      list={
+        <ChannelList<C>
+          {...rest}
+          grow
+          header={null}
+          selected={selected}
+          onSelect={setSelected}
+          createChannel={handleCreateChannel}
+          createChannels={handleDuplicateChannels}
+        />
+      }
+      detailsPath={detailsPath}
+      title={detailsPath != null && detailsTitle?.({ path: detailsPath })}
+    >
+      {detailsPath != null && (
+        <Flex.Box y className={CSS.BE("details", "form")} empty grow>
+          {details({ path: detailsPath })}
+        </Flex.Box>
+      )}
+    </Panes>
   );
 };

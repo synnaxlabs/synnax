@@ -123,7 +123,7 @@ describe("Read", () => {
     await renderRead({ client, taskKey: draft.key });
     fireEvent.click(await findChannelListItem("AIN0"));
     await waitFor(() => expect(screen.getByText("Max voltage")).toBeTruthy());
-    expect(screen.getByText("Scale")).toBeTruthy();
+    expect(screen.getByText("Scale", { selector: "label" })).toBeTruthy();
     expect(screen.queryByText("Slope")).toBeNull();
   });
 

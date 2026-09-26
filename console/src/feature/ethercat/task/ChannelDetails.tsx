@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { Component } from "@synnaxlabs/lyra/component";
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Telem } from "@synnaxlabs/pluto";
 import { type FC } from "react";
@@ -28,31 +27,24 @@ const INPUT_PROPS = { showDragHandle: false };
 
 const ManualChannelFields: FC<{ path: string }> = ({ path }) => (
   <>
-    <Flex.Box x gap="small">
-      <PForm.NumericField
-        path={`${path}.index`}
-        label="Index (hex)"
-        inputProps={INPUT_PROPS}
-        grow
-      />
-      <PForm.NumericField
-        path={`${path}.subIndex`}
-        label="Subindex"
-        inputProps={INPUT_PROPS}
-        grow
-      />
-    </Flex.Box>
-    <Flex.Box x gap="small">
-      <PForm.NumericField
-        path={`${path}.bitLength`}
-        label="Bit length"
-        inputProps={INPUT_PROPS}
-        grow
-      />
-      <PForm.Field<string> path={`${path}.dataType`} label="Data type" grow>
-        {renderSelectDataType}
-      </PForm.Field>
-    </Flex.Box>
+    <PForm.NumericField
+      path={`${path}.index`}
+      label="Index (hex)"
+      inputProps={INPUT_PROPS}
+    />
+    <PForm.NumericField
+      path={`${path}.subIndex`}
+      label="Subindex"
+      inputProps={INPUT_PROPS}
+    />
+    <PForm.NumericField
+      path={`${path}.bitLength`}
+      label="Bit length"
+      inputProps={INPUT_PROPS}
+    />
+    <PForm.Field<string> path={`${path}.dataType`} label="Data type">
+      {renderSelectDataType}
+    </PForm.Field>
   </>
 );
 
@@ -70,19 +62,21 @@ export interface ChannelDetailsProps extends Task.Views.DetailsProps {
 const ChannelDetails: FC<ChannelDetailsProps> = ({ path, pdoType, schemas }) => {
   const channelMode = PForm.useFieldValue<ChannelMode>(`${path}.type`);
   return (
-    <Flex.Box y gap="medium" style={CHANNEL_DETAILS_STYLE}>
-      <SelectSlave path={`${path}.device`} />
-      <SelectChannelModeField path={path} schemas={schemas} />
-      {channelMode === "automatic" ? (
-        <SelectPDOField path={path} pdoType={pdoType} />
-      ) : (
-        <ManualChannelFields path={path} />
-      )}
-    </Flex.Box>
+    <PForm.Sections>
+      <PForm.Section title="Source">
+        <SelectSlave path={`${path}.device`} />
+        <SelectChannelModeField path={path} schemas={schemas} />
+      </PForm.Section>
+      <PForm.Section title="Entry">
+        {channelMode === "automatic" ? (
+          <SelectPDOField path={path} pdoType={pdoType} />
+        ) : (
+          <ManualChannelFields path={path} />
+        )}
+      </PForm.Section>
+    </PForm.Sections>
   );
 };
-
-const CHANNEL_DETAILS_STYLE = { padding: "1rem" } as const;
 
 export const ReadChannelDetails: FC<Task.Views.DetailsProps> = (props) => (
   <ChannelDetails {...props} pdoType="inputs" schemas={READ_CHANNEL_SCHEMAS} />

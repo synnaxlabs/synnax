@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button } from "@synnaxlabs/lyra/button";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Header as PHeader } from "@synnaxlabs/lyra/header";
-import { Icon } from "@synnaxlabs/lyra/icon";
-import { useCallback, useEffect } from "react";
+import { type ReactNode, useCallback, useEffect } from "react";
 
+import { Button } from "@/platform/button";
 import { Empty } from "@/platform/empty";
 import { type BindChannelsProps } from "@/platform/task/BindChannels";
 import {
@@ -22,43 +21,27 @@ import {
 import { useIsPreview } from "@/platform/task/Form";
 import { type Channel } from "@/platform/task/types";
 
-interface HeaderProps {
+const Header = () => (
+  <PHeader.Header>
+    <PHeader.Title weight={500} color={10}>
+      Channels
+    </PHeader.Title>
+  </PHeader.Header>
+);
+
+const EMPTY_CONTENT = <Empty.Action message="No channels in task" />;
+
+interface FooterProps {
   onAdd: () => void;
 }
 
-const Header = ({ onAdd }: HeaderProps) => {
+const Footer = ({ onAdd }: FooterProps) => {
   const isPreview = useIsPreview();
+  if (isPreview) return null;
   return (
-    <PHeader.Header>
-      <PHeader.Title weight={500} color={10}>
-        Channels
-      </PHeader.Title>
-      {!isPreview && (
-        <PHeader.Actions>
-          <Button.Button
-            onClick={onAdd}
-            variant="filled"
-            tooltip="Add channel"
-            size="small"
-          >
-            <Icon.Add />
-          </Button.Button>
-        </PHeader.Actions>
-      )}
-    </PHeader.Header>
-  );
-};
-
-interface EmptyContentProps extends HeaderProps {}
-
-const EmptyContent = ({ onAdd }: EmptyContentProps) => {
-  const isPreview = useIsPreview();
-  return (
-    <Empty.Action
-      message="No channels in task"
-      action={isPreview ? undefined : "Add channel"}
-      onClick={onAdd}
-    />
+    <Button.CreateListItem size="small" onClick={onAdd}>
+      New channel
+    </Button.CreateListItem>
   );
 };
 
@@ -66,6 +49,8 @@ export interface ChannelListProps<C extends Channel> extends Omit<
   BaseProps<C>,
   "data" | "header" | "emptyContent" | "path" | "remove" | "onDuplicate" | "resolve"
 > {
+  /** Defaults to a "Channels" title; null when the enclosing frame titles the list. */
+  header?: ReactNode;
   resolve: BindChannelsProps<C>["resolve"];
   createChannel: (channels: C[]) => C | null;
   createChannels?: (channels: C[], keys: string[]) => C[];
@@ -76,6 +61,7 @@ export const ChannelList = <C extends Channel>({
   createChannel,
   createChannels,
   path = "config.channels",
+  header = <Header />,
   ...rest
 }: ChannelListProps<C>) => {
   const ctx = Form.useContext();
@@ -119,8 +105,9 @@ export const ChannelList = <C extends Channel>({
     <Base
       {...rest}
       data={data}
-      header={<Header onAdd={handleAdd} />}
-      emptyContent={<EmptyContent onAdd={handleAdd} />}
+      header={header}
+      emptyContent={EMPTY_CONTENT}
+      footer={<Footer onAdd={handleAdd} />}
       path={path}
       remove={remove}
       onDuplicate={handleDuplicate}
