@@ -9,6 +9,9 @@
  * included in the file licenses/APL.txt.
  */
 
+@import url("@fontsource-variable/inter");
+@import url("@fontsource/geist-mono");
+
 .pluto--pack .pluto-btn:is(:focus, :focus-within, :active, :hover) {
     z-index: 3;
 }

@@ -21,6 +21,7 @@
 
 /* Lyra's component CSS arrives through each module's own import and lands in the
  * same layer through the PostCSS plugin in astro.config.ts. */
+@import url("@synnaxlabs/lyra/dist/base.css") layer(pluto);
 @import url("@synnaxlabs/lyra/dist/theme.css") layer(pluto);
 @import url("@synnaxlabs/media/dist/media.css") layer(pluto);
 

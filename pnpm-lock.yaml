@@ -811,9 +811,6 @@ importers:
       '@astrojs/vercel':
         specifier: 'catalog:'
         version: 11.0.9(@aws-sdk/credential-provider-web-identity@3.972.77)(astro@7.2.10(@astrojs/markdown-remark@7.3.0(supports-color@10.2.2))(@emnapi/core@2.0.0-alpha.3)(@emnapi/runtime@2.0.0-alpha.3)(@types/node@26.1.2)(@vercel/functions@3.7.6(@aws-sdk/credential-provider-web-identity@3.972.77)(ws@8.21.2))(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.0))(react@19.2.8)(rollup@4.62.2)(supports-color@10.2.2)(ws@8.21.2)
-      '@fontsource/geist-mono':
-        specifier: 'catalog:'
-        version: 5.3.0
       '@synnaxlabs/arc':
         specifier: 'catalog:'
         version: link:../../arc/ts

@@ -25,7 +25,6 @@
     "@astrojs/mdx": "catalog:",
     "@astrojs/react": "catalog:",
     "@astrojs/vercel": "catalog:",
-    "@fontsource/geist-mono": "catalog:",
     "@synnaxlabs/arc": "catalog:",
     "@synnaxlabs/client": "catalog:",
     "@synnaxlabs/lyra": "catalog:",

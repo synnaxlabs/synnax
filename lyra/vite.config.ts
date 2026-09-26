@@ -22,13 +22,18 @@ export default defineConfig({
     react(),
     lib({ name: "lyra", modules: true }),
     {
-      name: "copy-theme-css",
+      name: "copy-app-css",
       closeBundle() {
         mkdirSync("dist", { recursive: true });
-        for (const file of ["theme.css", "theme-dark.css", "theme-light.css"])
+        for (const file of [
+          "base.css",
+          "static/theme.css",
+          "static/theme-dark.css",
+          "static/theme-light.css",
+        ])
           copyFileSync(
-            path.resolve(`src/theming/static/${file}`),
-            path.resolve(`dist/${file}`),
+            path.resolve(`src/theming/${file}`),
+            path.resolve(`dist/${path.basename(file)}`),
           );
       },
     },
