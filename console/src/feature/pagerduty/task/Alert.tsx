@@ -274,7 +274,7 @@ const Form: FC = () => {
           </PMenu.ContextMenu>
           {!isPreview && (
             <PlatformButton.CreateListItem size="small" onClick={handleAdd}>
-              New alert
+              Add alert
             </PlatformButton.CreateListItem>
           )}
         </>

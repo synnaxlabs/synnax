@@ -40,7 +40,7 @@ const Footer = ({ onAdd }: FooterProps) => {
   if (isPreview) return null;
   return (
     <Button.CreateListItem size="small" onClick={onAdd}>
-      New channel
+      Add channel
     </Button.CreateListItem>
   );
 };
