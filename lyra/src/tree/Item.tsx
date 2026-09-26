@@ -10,7 +10,7 @@
 import "@/tree/Item.css";
 
 import { type record } from "@synnaxlabs/x";
-import { useMemo } from "react";
+import { type MouseEvent, useMemo } from "react";
 
 import { type Button } from "@/button";
 import { Caret } from "@/caret";
@@ -38,7 +38,8 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
   ...rest
 }: ItemProps<K, E>) => {
   const { index } = rest;
-  const { expanded, depth, hasChildren } = useContext("Tree.Item")[index];
+  const { nodes, toggle } = useContext("Tree.Item");
+  const { expanded, depth, hasChildren } = nodes[index];
   const itemStyle = useMemo(
     () => ({
       [CSS.variable("tree-item-offset")]: `${depth * offsetMultiplier + 1.5}rem`,
@@ -69,6 +70,14 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
           enabled={expanded}
           enabledLoc="bottom"
           disabledLoc="right"
+          onClick={
+            toggle == null
+              ? undefined
+              : (e: MouseEvent) => {
+                  e.stopPropagation();
+                  toggle(index);
+                }
+          }
         />
       )}
       {children}

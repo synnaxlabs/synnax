@@ -17,7 +17,6 @@ import {
 } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
-import { CSS as PCSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -119,20 +118,11 @@ const useDefaultChannelName = (epKey: string, pointer: string): string => {
   return dev == null ? "" : defaultChannelName(dev.name, epPath, pointer);
 };
 
-const isCaretTarget = (target: EventTarget | null): boolean =>
-  target instanceof Element &&
-  target.closest(`.${PCSS.BE("tree", "expansion-indicator")}`) != null;
-
 interface EndpointTreeItemProps extends Tree.ItemRenderProps<string> {
   onAddField: (epKey: string) => void;
-  onToggle: (epKey: string) => void;
 }
 
-const EndpointTreeItem = ({
-  onAddField,
-  onToggle,
-  ...props
-}: EndpointTreeItemProps) => {
+const EndpointTreeItem = ({ onAddField, ...props }: EndpointTreeItemProps) => {
   const { itemKey } = props;
   const isPreview = Task.useIsPreview();
   const handleAdd = useCallback(
@@ -142,21 +132,8 @@ const EndpointTreeItem = ({
     },
     [onAddField, itemKey],
   );
-  // The caret folds the fields; the rest of the row opens the endpoint to edit it.
-  const handleClickCapture = useCallback(
-    (e: MouseEvent) => {
-      if (!isCaretTarget(e.target)) return;
-      e.stopPropagation();
-      onToggle(itemKey);
-    },
-    [onToggle, itemKey],
-  );
   return (
-    <Tree.Item
-      {...props}
-      onClickCapture={handleClickCapture}
-      className={CSS.B("endpoint-item")}
-    >
+    <Tree.Item {...props} className={CSS.B("endpoint-item")}>
       <EndpointLabel epKey={itemKey} />
       {!isPreview && (
         <Button.Button
@@ -516,13 +493,27 @@ const Form: FC = () => {
   const ctx = PForm.useContext();
   const isPreview = Task.useIsPreview();
   const [initialExpanded] = useState(() => nodes.map(({ key }) => key));
+  // A fold that hides the selected field moves the selection up to its endpoint.
+  const handleExpand = useCallback(
+    ({ action, clicked }: Tree.HandleExpandProps<string>) => {
+      if (action !== "contract") return;
+      const hidesSelection = selected.some((k) => {
+        const entry = entries.get(k);
+        return entry?.kind === "field" && entry.epKey === clicked;
+      });
+      if (hidesSelection) setSelected([clicked]);
+    },
+    [selected, entries],
+  );
   const treeProps = Tree.use({
     nodes,
     selected,
     onSelectedChange: setSelected,
     initialExpanded,
+    onExpand: handleExpand,
+    toggleOn: "caret",
   });
-  const { expand, contract, expanded, shape } = treeProps;
+  const { expand, shape } = treeProps;
 
   const handleSelect = useCallback<
     Tree.TreeProps<string, record.Keyed<string>>["onSelect"]
@@ -532,20 +523,6 @@ const Form: FC = () => {
       if (clicked != null && entries.get(clicked)?.kind === "endpoint") expand(clicked);
     },
     [entries, expand],
-  );
-
-  const handleToggle = useCallback(
-    (epKey: string) => {
-      if (!expanded.includes(epKey)) return expand(epKey);
-      // A fold that hides the selected field moves the selection up to its endpoint.
-      const hidesSelection = selected.some((k) => {
-        const entry = entries.get(k);
-        return entry?.kind === "field" && entry.epKey === epKey;
-      });
-      if (hidesSelection) setSelected([epKey]);
-      contract(epKey);
-    },
-    [expanded, expand, contract, selected, entries],
   );
 
   const handleAddEndpoint = useCallback(() => {
@@ -681,16 +658,9 @@ const Form: FC = () => {
       const entry = entries.get(p.itemKey);
       if (entry?.kind === "field")
         return <FieldTreeItem key={key} {...p} epKey={entry.epKey} />;
-      return (
-        <EndpointTreeItem
-          key={key}
-          {...p}
-          onAddField={handleAddField}
-          onToggle={handleToggle}
-        />
-      );
+      return <EndpointTreeItem key={key} {...p} onAddField={handleAddField} />;
     },
-    [entries, handleAddField, handleToggle],
+    [entries, handleAddField],
   );
 
   const current = selected.length > 0 ? entries.get(selected[0]) : undefined;
