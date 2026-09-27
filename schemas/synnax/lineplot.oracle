@@ -27,13 +27,6 @@ TickType enum {
     @doc value "selects how an axis renders its tick labels."
 }
 
-DownsampleMode enum {
-    average  = "average"
-    decimate = "decimate"
-
-    @doc value "selects how a line condenses samples that map to the same pixel."
-}
-
 XAxisKey enum {
     x1 = "x1"
     x2 = "x2"
@@ -242,39 +235,36 @@ Axes struct {
 }
 
 Line struct {
-    key             string         {
+    key          string       {
         @doc value """
             is the line identifier derived from its channel and range assignment. Format
             is internal to the client and stable across re-renders so styling overrides
             persist.
         """
     }
-    label           string?        {
+    label        string?      {
         @doc value """
             is the user-specified line label. Null means derive from the channel name at
             render time; non-null is an override.
         """
     }
-    color           color.Color?   {
+    color        color.Color? {
         @doc value """
             is the line color. When null, the Console assigns one from the visualization
             palette at render time.
         """
     }
-    stroke_width    float64 = 2 {
+    stroke_width float64 = 2 {
         @doc value "is the line stroke width in pixels."
     }
-    downsample      uint32 = 1 {
-        @doc value """
-            is the downsample factor applied before rendering. 1 means render every
-            sample; higher values render every Nth sample.
-        """
+    aggregation  Aggregation = min_max {
+        @doc value "selects how the line reduces the samples of one pixel group."
     }
-    downsample_mode DownsampleMode = DownsampleModeDecimate {
-        @doc value "selects how the downsample factor is applied."
+    detail       Detail = medium {
+        @doc value "selects how many sample groups the line draws per pixel column."
     }
 
-    @doc value  "is the per-line styling and downsampling configuration."
+    @doc value  "is the per-line styling and reduction configuration."
     @go marshal
 }
 
@@ -337,9 +327,9 @@ LinePlot struct {
     }
     lines    Line[]   {
         @doc value """
-            holds per-line styling and downsampling configuration. Each entry
-            corresponds to one channel and range combination produced by the channels
-            and ranges bindings.
+            holds per-line styling and reduction configuration. Each entry corresponds
+            to one channel and range combination produced by the channels and ranges
+            bindings.
         """
     }
     rules    Rule[]   {
@@ -543,20 +533,18 @@ LinePlot struct {
         @doc value "sets the stroke width, in pixels, of the line identified by key."
     }
 
-    action SetLineDownsample {
-        key        string
-        downsample uint32
+    action SetLineAggregation {
+        key         string
+        aggregation Aggregation
 
-        @doc value "sets the downsample factor of the line identified by key."
+        @doc value "sets how the line identified by key reduces a pixel group."
     }
 
-    action SetLineDownsampleMode {
-        key             string
-        downsample_mode DownsampleMode
+    action SetLineDetail {
+        key    string
+        detail Detail
 
-        @doc value """
-            sets how the downsample factor is applied for the line identified by key.
-        """
+        @doc value "sets the number of sample groups per pixel column of the line."
     }
 
     action SetLine {
@@ -649,4 +637,25 @@ LinePlot struct {
     @go migrate
     @ontology type "lineplot"
     @retrieve
+}
+
+Aggregation enum {
+    min_max = "min_max"
+    average = "average"
+
+    @doc value """
+        selects how a line reduces the samples of one pixel group. min_max draws the
+        lowest and highest sample, and average draws the mean.
+    """
+}
+
+Detail enum {
+    low    = "low"
+    medium = "medium"
+    high   = "high"
+
+    @doc value """
+        selects how many sample groups a line draws per pixel column: one per four, two,
+        or one pixel columns.
+    """
 }
