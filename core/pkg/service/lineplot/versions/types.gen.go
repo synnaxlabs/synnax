@@ -11,107 +11,113 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v6"
+import "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v7"
 
 // Key is a unique identifier for a line plot, represented as a UUID.
-type Key = v6.Key
+type Key = v7.Key
 
 // TickType selects how an axis renders its tick labels.
-type TickType = v6.TickType
+type TickType = v7.TickType
 
 const (
-	TickTypeLinear TickType = v6.TickTypeLinear
-	TickTypeTime   TickType = v6.TickTypeTime
+	TickTypeLinear TickType = v7.TickTypeLinear
+	TickTypeTime   TickType = v7.TickTypeTime
 )
 
 // DownsampleMode selects how a line condenses samples that map to the same pixel.
-type DownsampleMode = v6.DownsampleMode
+type DownsampleMode = v7.DownsampleMode
 
 const (
-	DownsampleModeAverage  DownsampleMode = v6.DownsampleModeAverage
-	DownsampleModeDecimate DownsampleMode = v6.DownsampleModeDecimate
+	DownsampleModeAverage  DownsampleMode = v7.DownsampleModeAverage
+	DownsampleModeDecimate DownsampleMode = v7.DownsampleModeDecimate
 )
 
 // XAxisKey names one of the two x-axes. X-axes carry a single channel each.
-type XAxisKey = v6.XAxisKey
+type XAxisKey = v7.XAxisKey
 
 const (
-	XAxisKeyX1 XAxisKey = v6.XAxisKeyX1
-	XAxisKeyX2 XAxisKey = v6.XAxisKeyX2
+	XAxisKeyX1 XAxisKey = v7.XAxisKeyX1
+	XAxisKeyX2 XAxisKey = v7.XAxisKeyX2
 )
 
 // YAxisKey names one of the four y-axes. Y-axes carry zero or more channels each.
-type YAxisKey = v6.YAxisKey
+type YAxisKey = v7.YAxisKey
 
 const (
-	YAxisKeyY1 YAxisKey = v6.YAxisKeyY1
-	YAxisKeyY2 YAxisKey = v6.YAxisKeyY2
-	YAxisKeyY3 YAxisKey = v6.YAxisKeyY3
-	YAxisKeyY4 YAxisKey = v6.YAxisKeyY4
+	YAxisKeyY1 YAxisKey = v7.YAxisKeyY1
+	YAxisKeyY2 YAxisKey = v7.YAxisKeyY2
+	YAxisKeyY3 YAxisKey = v7.YAxisKeyY3
+	YAxisKeyY4 YAxisKey = v7.YAxisKeyY4
 )
 
 // AxisKey names one of the six fixed plot axes.
-type AxisKey = v6.AxisKey
+type AxisKey = v7.AxisKey
 
 const (
-	AxisKeyX1 AxisKey = v6.AxisKeyX1
-	AxisKeyX2 AxisKey = v6.AxisKeyX2
-	AxisKeyY1 AxisKey = v6.AxisKeyY1
-	AxisKeyY2 AxisKey = v6.AxisKeyY2
-	AxisKeyY3 AxisKey = v6.AxisKeyY3
-	AxisKeyY4 AxisKey = v6.AxisKeyY4
+	AxisKeyX1 AxisKey = v7.AxisKeyX1
+	AxisKeyX2 AxisKey = v7.AxisKeyX2
+	AxisKeyY1 AxisKey = v7.AxisKeyY1
+	AxisKeyY2 AxisKey = v7.AxisKeyY2
+	AxisKeyY3 AxisKey = v7.AxisKeyY3
+	AxisKeyY4 AxisKey = v7.AxisKeyY4
 )
 
 // Title is the plot title configuration.
-type Title = v6.Title
+type Title = v7.Title
 
 // Legend is the plot legend configuration.
-type Legend = v6.Legend
+type Legend = v7.Legend
 
 // Channels binds channel keys to each axis. x1 and x2 are single-channel; y1 through y4
 // carry zero or more channels each.
-type Channels = v6.Channels
-
-// CustomRange is the window a plot's synthetic "custom" range key resolves to.
-type CustomRange = v6.CustomRange
-type CustomRangeVariant = v6.CustomRangeVariant
-type CustomRangeType = v6.CustomRangeType
-
-const (
-	// DynamicCustomRangeType is a rolling window.
-	DynamicCustomRangeType CustomRangeType = v6.DynamicCustomRangeType
-	// StaticCustomRangeType is a fixed window.
-	StaticCustomRangeType CustomRangeType = v6.StaticCustomRangeType
-)
-
-// DynamicCustomRange is a rolling window.
-type DynamicCustomRange = v6.DynamicCustomRange
-
-// StaticCustomRange is a fixed window.
-type StaticCustomRange = v6.StaticCustomRange
-
-// Ranges binds range keys to each x-axis.
-type Ranges = v6.Ranges
+type Channels = v7.Channels
 
 // ManualBounds controls whether an axis uses a manually-set bound on each side
 // independently. When a side is false (the default), the corresponding entry in
 // Axis.bounds is recomputed locally from the rendered data window and never broadcast
 // to the server; when true, Axis.bounds holds the user-set value.
-type ManualBounds = v6.ManualBounds
+type ManualBounds = v7.ManualBounds
 
 // Axis is the configuration for a single plot axis.
-type Axis = v6.Axis
+type Axis = v7.Axis
 
 // Axes bundles configuration for all six fixed plot axes.
-type Axes = v6.Axes
+type Axes = v7.Axes
 
 // Line is the per-line styling and downsampling configuration.
-type Line = v6.Line
+type Line = v7.Line
 
 // Rule is a horizontal or vertical annotation line drawn over the plot.
-type Rule = v6.Rule
+type Rule = v7.Rule
 
 // LinePlot is a time-series visualization component for plotting telemetry data. Line
 // plots support multiple channels, real-time streaming, and historical data display
 // with zoom and pan capabilities.
-type LinePlot = v6.LinePlot
+type LinePlot = v7.LinePlot
+
+// BaseRange holds the fields every plotted range carries.
+type BaseRange = v7.BaseRange
+
+// Range is a range plotted against an x-axis.
+type Range = v7.Range
+type RangeVariant = v7.RangeVariant
+type RangeType = v7.RangeType
+
+const (
+	// PersistedRangeType is a range the Core holds, plotted by reference.
+	PersistedRangeType RangeType = v7.PersistedRangeType
+	// StaticRangeType is a fixed window the plot owns.
+	StaticRangeType RangeType = v7.StaticRangeType
+)
+
+// PersistedRange is a range the Core holds, plotted by reference.
+type PersistedRange = v7.PersistedRange
+
+// StaticRange is a fixed window the plot owns.
+type StaticRange = v7.StaticRange
+
+// XAxisRanges binds a rolling window and a set of ranges to an x-axis.
+type XAxisRanges = v7.XAxisRanges
+
+// Ranges binds ranges to each x-axis.
+type Ranges = v7.Ranges

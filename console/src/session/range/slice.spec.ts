@@ -20,11 +20,11 @@ const STATIC: Range.StaticState = {
 
 const PERSISTED: Range.PersistedState = { variant: "persisted", key: "persisted-1" };
 
-const DYNAMIC: Range.DynamicState = {
-  variant: "dynamic",
-  key: "dynamic-1",
-  name: "Dynamic 1",
-  span: 1000,
+const OTHER: Range.StaticState = {
+  variant: "static",
+  key: "static-2",
+  name: "Static 2",
+  timeRange: { start: 1000, end: 2000 },
 };
 
 const emptyState = (): Range.SliceState => Range.sliceStateZ.parse({ ranges: [] });
@@ -41,24 +41,6 @@ describe("range slice", () => {
       const state = Range.reducer(undefined, { type: "@@INIT" });
       expect(state.ranges).toEqual([]);
       expect(state.selected).toBeUndefined();
-    });
-
-    // Callers fall back to the recent range when nothing is selected, so it has to be
-    // there whatever the session has stored.
-    it("should offer the rolling ranges whatever it holds", () => {
-      const keys = Range.selectKeys({ [Range.SLICE_NAME]: emptyState() });
-      expect(keys).toContain(Range.RECENT_KEY);
-      expect(Range.BUILT_IN.every(({ key }) => keys.includes(key))).toBe(true);
-    });
-
-    it("should keep a built-in through a remove", () => {
-      const next = Range.reducer(
-        emptyState(),
-        Range.remove({ keys: [Range.RECENT_KEY] }),
-      );
-      expect(Range.selectKeys({ [Range.SLICE_NAME]: next })).toContain(
-        Range.RECENT_KEY,
-      );
     });
   });
 
@@ -79,10 +61,10 @@ describe("range slice", () => {
   describe("remove", () => {
     it("should remove the matching ranges", () => {
       const next = Range.reducer(
-        stateWith([STATIC, DYNAMIC]),
+        stateWith([STATIC, OTHER]),
         Range.remove({ keys: [STATIC.key] }),
       );
-      expect(next.ranges).toEqual([DYNAMIC]);
+      expect(next.ranges).toEqual([OTHER]);
     });
 
     it("should clear the selection when the selected range is removed", () => {
@@ -95,20 +77,20 @@ describe("range slice", () => {
 
     it("should keep the selection when a different range is removed", () => {
       const next = Range.reducer(
-        stateWith([STATIC, DYNAMIC], DYNAMIC.key),
+        stateWith([STATIC, OTHER], OTHER.key),
         Range.remove({ keys: [STATIC.key] }),
       );
-      expect(next.selected).toEqual(DYNAMIC.key);
+      expect(next.selected).toEqual(OTHER.key);
     });
   });
 
   describe("restore", () => {
     it("should put a range back at the index it was removed from", () => {
       const next = Range.reducer(
-        stateWith([DYNAMIC]),
+        stateWith([OTHER]),
         Range.restore({ ranges: [{ index: 0, range: STATIC }] }),
       );
-      expect(next.ranges).toEqual([STATIC, DYNAMIC]);
+      expect(next.ranges).toEqual([STATIC, OTHER]);
     });
 
     it("should put the selection back", () => {
@@ -121,10 +103,10 @@ describe("range slice", () => {
 
     it("should keep a selection made while the delete was in flight", () => {
       const next = Range.reducer(
-        stateWith([DYNAMIC], DYNAMIC.key),
+        stateWith([OTHER], OTHER.key),
         Range.restore({ ranges: [{ index: 0, range: STATIC }] }),
       );
-      expect(next.selected).toEqual(DYNAMIC.key);
+      expect(next.selected).toEqual(OTHER.key);
     });
 
     it("should skip a range the slice already holds", () => {

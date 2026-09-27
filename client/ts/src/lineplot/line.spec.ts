@@ -14,8 +14,15 @@ import {
   type LineKeyParts,
   parseLineKey,
   reconcileLines,
+  ROLLING_LINE_RANGE,
 } from "@/lineplot/line";
-import { type Channels, type Line, type Ranges } from "@/lineplot/types.gen";
+import {
+  type Channels,
+  type Line,
+  type Range,
+  type Ranges,
+  type XAxisRanges,
+} from "@/lineplot/types.gen";
 
 const emptyChannels = (overrides: Partial<Channels> = {}): Channels => ({
   x1: 0,
@@ -27,9 +34,13 @@ const emptyChannels = (overrides: Partial<Channels> = {}): Channels => ({
   ...overrides,
 });
 
+const persisted = (key: string): Range => ({ variant: "persisted", key });
+
+const axis = (ranges: Range[], rolling?: number): XAxisRanges => ({ rolling, ranges });
+
 const emptyRanges = (overrides: Partial<Ranges> = {}): Ranges => ({
-  x1: [],
-  x2: [],
+  x1: axis([]),
+  x2: axis([]),
   ...overrides,
 });
 
@@ -86,7 +97,7 @@ describe("line", () => {
   describe("reconcileLines", () => {
     it("should create one line per (xAxis, range, yAxis, yChannel) combination", () => {
       const channels = emptyChannels({ x1: 10, y1: [1, 2] });
-      const ranges = emptyRanges({ x1: ["r1"] });
+      const ranges = emptyRanges({ x1: axis([persisted("r1")]) });
       const { lines, dropped } = reconcileLines(channels, ranges, []);
       expect(lines.map((l) => l.key)).toEqual([
         lineKey({ yAxis: "y1", xAxis: "x1", range: "r1", xChannel: 10, yChannel: 1 }),
@@ -97,7 +108,7 @@ describe("line", () => {
 
     it("should expand the combination across axes, ranges, and channels", () => {
       const channels = emptyChannels({ x1: 10, y1: [1], y2: [2] });
-      const ranges = emptyRanges({ x1: ["r1", "r2"] });
+      const ranges = emptyRanges({ x1: axis([persisted("r1"), persisted("r2")]) });
       const { lines } = reconcileLines(channels, ranges, []);
       expect(lines).toHaveLength(4);
       expect(new Set(lines.map((l) => l.key)).size).toEqual(4);
@@ -105,7 +116,7 @@ describe("line", () => {
 
     it("should apply Oracle defaults to new lines and leave label and color unset", () => {
       const channels = emptyChannels({ x1: 10, y1: [1] });
-      const ranges = emptyRanges({ x1: ["r1"] });
+      const ranges = emptyRanges({ x1: axis([persisted("r1")]) });
       const { lines } = reconcileLines(channels, ranges, []);
       expect(lines).toHaveLength(1);
       const [line] = lines;
@@ -118,7 +129,7 @@ describe("line", () => {
 
     it("should preserve existing lines by key so user styling survives", () => {
       const channels = emptyChannels({ x1: 10, y1: [1] });
-      const ranges = emptyRanges({ x1: ["r1"] });
+      const ranges = emptyRanges({ x1: axis([persisted("r1")]) });
       const key = lineKey({
         yAxis: "y1",
         xAxis: "x1",
@@ -153,7 +164,7 @@ describe("line", () => {
         downsampleMode: "decimate",
       };
       const channels = emptyChannels({ x1: 10, y1: [1] });
-      const ranges = emptyRanges({ x1: ["r1"] });
+      const ranges = emptyRanges({ x1: axis([persisted("r1")]) });
       const { lines, dropped } = reconcileLines(channels, ranges, [stale]);
       expect(dropped).toEqual([stale]);
       expect(lines.map((l) => l.key)).not.toContain(stale.key);
@@ -167,14 +178,45 @@ describe("line", () => {
 
     it("should produce no lines when there are no y-channels", () => {
       const channels = emptyChannels({ x1: 10 });
-      const ranges = emptyRanges({ x1: ["r1"] });
+      const ranges = emptyRanges({ x1: axis([persisted("r1")]) });
       const { lines } = reconcileLines(channels, ranges, []);
       expect(lines).toHaveLength(0);
     });
 
+    it("should list the rolling window's lines before the ranges' lines", () => {
+      const channels = emptyChannels({ x1: 10, y1: [1] });
+      const ranges = emptyRanges({ x1: axis([persisted("r1")], 60e9) });
+      const { lines } = reconcileLines(channels, ranges, []);
+      expect(lines.map((l) => l.key)).toEqual([
+        lineKey({
+          yAxis: "y1",
+          xAxis: "x1",
+          range: ROLLING_LINE_RANGE,
+          xChannel: 10,
+          yChannel: 1,
+        }),
+        lineKey({ yAxis: "y1", xAxis: "x1", range: "r1", xChannel: 10, yChannel: 1 }),
+      ]);
+    });
+
+    it("should create lines for a rolling window on an axis with no ranges", () => {
+      const channels = emptyChannels({ x2: 20, y1: [1] });
+      const ranges = emptyRanges({ x2: axis([], 60e9) });
+      const { lines } = reconcileLines(channels, ranges, []);
+      expect(lines.map((l) => l.key)).toEqual([
+        lineKey({
+          yAxis: "y1",
+          xAxis: "x2",
+          range: ROLLING_LINE_RANGE,
+          xChannel: 20,
+          yChannel: 1,
+        }),
+      ]);
+    });
+
     it("should not duplicate a line when the same combination is implied twice", () => {
       const channels = emptyChannels({ x1: 10, y1: [1, 1] });
-      const ranges = emptyRanges({ x1: ["r1"] });
+      const ranges = emptyRanges({ x1: axis([persisted("r1")]) });
       const { lines } = reconcileLines(channels, ranges, []);
       expect(lines).toHaveLength(1);
     });

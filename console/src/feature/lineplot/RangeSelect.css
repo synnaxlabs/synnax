@@ -9,22 +9,30 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-range-select__dynamic-icon {
+.console-range-select__live-icon,
+.console-range-select__live-label {
     color: var(--pluto-error-p1);
     filter: opacity(0.8);
 }
 
+/* The left inset lines the label's icon up with the icon of the typed window below. */
 .console-range-select__live {
-    padding: 0.5rem 0;
+    padding: 0.5rem 1rem 0.5rem 3rem;
+    border: 0 solid var(--pluto-gray-l6);
+    border-width: 0 var(--pluto-border-width);
 }
 
-/* The span reads like the text of other range tags, and its trigger takes the tag's
-   right padding so everything past the close button opens the editor. */
-.pluto-btn.pluto-tag.console-range-select__custom {
+/* Each window reads like the text of other range tags, and the last trigger takes the
+   tag's right padding so everything past the close button opens an editor. */
+.pluto-btn.pluto-tag.console-range-select__editable {
     padding-right: 0;
 
     .pluto-btn.pluto-time-editor__trigger {
-        padding: 0 1.5rem 0 0;
+        padding: 0;
+
+        &:last-child {
+            padding-right: 1.5rem;
+        }
     }
 
     .pluto-timespan__label {

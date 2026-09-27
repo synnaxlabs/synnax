@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, DataType, lineplot } from "@synnaxlabs/client";
+import { TimeSpan } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -18,8 +19,9 @@ import {
   renderLinePlot,
 } from "@/feature/lineplot/testutil";
 import { findButton } from "@/platform/modals/testutil";
-import { Session } from "@/session";
 import { getIconButton, isPlutoDisabled, uniqueName } from "@/testutil";
+
+const ROLLING = Number(TimeSpan.seconds(30));
 
 const createChannel = async (): Promise<channel.Channel> =>
   await client.channels.create({
@@ -34,7 +36,7 @@ const renderLinesTab = async () => {
   const lineKey = lineplot.lineKey({
     yAxis: "y1",
     xAxis: "x1",
-    range: Session.Range.RECENT_KEY,
+    range: lineplot.ROLLING_LINE_RANGE,
     xChannel: 0,
     yChannel: ch.key,
   });
@@ -42,7 +44,7 @@ const renderLinesTab = async () => {
     linePlot: {
       name,
       channels: { y1: [ch.key] },
-      ranges: { x1: [Session.Range.RECENT_KEY] },
+      ranges: { x1: { rolling: ROLLING } },
       lines: [{ key: lineKey }],
     },
     preloadedState: (key) => createPreloadedState(key),
@@ -52,10 +54,10 @@ const renderLinesTab = async () => {
 };
 
 describe("lineplot download CSV with plotted lines", () => {
-  it("resolves static and dynamic ranges and opens the modal with the line channels", async () => {
+  it("resolves rolling and static ranges and opens the modal with the line channels", async () => {
     const ch = await createChannel();
     const name = uniqueName("plot");
-    const staticKey = "static_range";
+    const staticKey = "7c1d2e3f-4a5b-4c6d-8e9f-0a1b2c3d4e5f";
     const lineKeyOf = (range: string) =>
       lineplot.lineKey({
         yAxis: "y1",
@@ -68,28 +70,20 @@ describe("lineplot download CSV with plotted lines", () => {
       linePlot: {
         name,
         channels: { y1: [ch.key] },
-        ranges: { x1: [Session.Range.RECENT_KEY, staticKey] },
+        ranges: {
+          x1: {
+            rolling: ROLLING,
+            ranges: [
+              { variant: "static", key: staticKey, start: "0", end: "1000000000" },
+            ],
+          },
+        },
         lines: [
-          { key: lineKeyOf(Session.Range.RECENT_KEY) },
+          { key: lineKeyOf(lineplot.ROLLING_LINE_RANGE) },
           { key: lineKeyOf(staticKey) },
         ],
       },
-      preloadedState: (key) => ({
-        ...createPreloadedState(key),
-        [Session.Range.SLICE_NAME]: {
-          ...Session.Range.ZERO_SLICE_STATE,
-          ranges: [
-            ...Session.Range.ZERO_SLICE_STATE.ranges,
-            {
-              key: staticKey,
-              variant: "static",
-              name: "Static Range",
-              persisted: false,
-              timeRange: { start: 0, end: 1_000_000_000 },
-            },
-          ],
-        },
-      }),
+      preloadedState: (key) => createPreloadedState(key),
     });
     await screen.findByText("Data");
     fireEvent.click(getIconButton(result.container, "csv"));

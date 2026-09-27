@@ -18,8 +18,6 @@ import {
   type direction,
   type location,
   primitive,
-  type TimeRange,
-  type TimeSpan,
 } from "@synnaxlabs/x";
 import {
   type ReactElement,
@@ -41,6 +39,8 @@ import { Line as BaseLine } from "@/lineplot/Line";
 import { Measure } from "@/lineplot/measure";
 import { type measure } from "@/lineplot/measure/aether";
 import {
+  type ResolvedRange,
+  type ResolvedRanges,
   useAxisRuleKeys,
   useDispatch,
   useLegend,
@@ -49,6 +49,7 @@ import {
   useName,
   useRedo,
   useRename,
+  useResolvedRanges,
   useRule,
   useTitle,
   useUndo,
@@ -65,12 +66,6 @@ import { Tooltip } from "@/lineplot/tooltip";
 import { Viewport as BaseViewport } from "@/lineplot/Viewport";
 import { telem } from "@/telem/aether";
 import { type Viewport } from "@/viewport";
-
-// A resolved range descriptor supplied by the consumer. Range resolution lives
-// in the consumer (Console's range slice), so the connected component receives
-// the static/dynamic time window per range key rather than reading it itself.
-export type ResolvedRange =
-  { variant: "static"; timeRange: TimeRange } | { variant: "dynamic"; span: TimeSpan };
 
 export const axisLabel = (key: lineplot.AxisKey): string => key.toUpperCase();
 
@@ -241,7 +236,7 @@ const Legend = ({
 interface AxisChildrenProps {
   pKey: lineplot.Key;
   editable: boolean;
-  resolvedRanges?: Map<string, ResolvedRange>;
+  resolvedRanges: ResolvedRanges;
   hiddenLines?: Set<string>;
   onSelectRule?: (key: string) => void;
 }
@@ -358,15 +353,18 @@ const YAxis = ({
       className={CSS.cls(CSS.dropRegion(canDropHaulItem(dragging)))}
       onLabelChange={handleLabelChange}
     >
-      {lineKeys.map((lineKey) => (
-        <Line
-          key={lineKey}
-          pKey={key}
-          lineKey={lineKey}
-          resolved={resolvedRanges?.get(lineplot.parseLineKey(lineKey).range)}
-          visible={hiddenLines == null || !hiddenLines.has(lineKey)}
-        />
-      ))}
+      {lineKeys.map((lineKey) => {
+        const { xAxis, range } = lineplot.parseLineKey(lineKey);
+        return (
+          <Line
+            key={lineKey}
+            pKey={key}
+            lineKey={lineKey}
+            resolved={resolvedRanges[xAxis].get(range)}
+            visible={hiddenLines == null || !hiddenLines.has(lineKey)}
+          />
+        );
+      })}
       <Rules pKey={key} axisKey={axisKey} onSelectRule={onSelectRule} />
     </BaseYAxis>
   );
@@ -462,7 +460,6 @@ const useViewportReset = ({
 export interface LinePlotProps extends FrameProps {
   editable?: boolean;
   enableTriggers?: Triggers.Condition;
-  resolvedRanges?: Map<string, ResolvedRange>;
   legendVariant?: BaseLegendProps["variant"];
   enableTooltip?: boolean;
   enableMeasure?: boolean;
@@ -480,7 +477,6 @@ export interface LinePlotProps extends FrameProps {
 export const LinePlot = ({
   editable = true,
   enableTriggers = true,
-  resolvedRanges,
   legendVariant,
   enableTooltip = true,
   enableMeasure = false,
@@ -501,9 +497,11 @@ export const LinePlot = ({
   useUndoRedoTriggers({ key, enabled: enableTriggers });
   const xAxisKeys = useXAxisKeys({ key });
   const viewportRef = useViewportReset({ key, hold: rest.hold });
+  const resolvedRanges = useResolvedRanges({ key });
   const loadingMessage = useMemo(() => {
-    if (resolvedRanges == null || resolvedRanges.size === 0) return undefined;
-    const spans = [...resolvedRanges.values()].map((r) =>
+    const resolved = [...resolvedRanges.x1.values(), ...resolvedRanges.x2.values()];
+    if (resolved.length === 0) return undefined;
+    const spans = resolved.map((r) =>
       r.variant === "dynamic" ? r.span : r.timeRange.span,
     );
     const longest = spans.reduce((a, b) => (b.greaterThan(a) ? b : a));

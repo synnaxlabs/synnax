@@ -17,9 +17,16 @@ import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/text"
 )
+
+// recent is the axis a stored "recent" range key migrates to.
+var recent = versions.XAxisRanges{
+	Rolling: new(30 * telem.Second),
+	Ranges:  []versions.Range{},
+}
 
 var _ = Describe("DecodeImExEnvelope", func() {
 	decode := func(ctx SpecContext, path string) versions.LinePlot {
@@ -30,9 +37,10 @@ var _ = Describe("DecodeImExEnvelope", func() {
 	It("Should decode a server-exported envelope", func(ctx SpecContext) {
 		lp := decode(ctx, "testdata/import_v5.json")
 		Expect(lp.Channels.Y1).To(Equal([]channel.Key{1, 2}))
-		Expect(lp.Ranges.X1).To(Equal([]string{"recent"}))
+		Expect(lp.Ranges.X1).To(Equal(recent))
 		Expect(lp.Title.Level).To(Equal(text.Level("h4")))
 		Expect(lp.Lines).To(HaveLen(1))
+		Expect(lp.Lines[0].Key).To(Equal("y1---x1---rolling---0---1"))
 		Expect(lp.Lines[0].StrokeWidth).To(Equal(2.5))
 		Expect(
 			lp.Lines[0].DownsampleMode,
@@ -56,7 +64,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 	It("Should lift a version 3 Console export", func(ctx SpecContext) {
 		lp := decode(ctx, "testdata/import_console_v3.json")
 		Expect(lp.Channels.Y1).To(Equal([]channel.Key{1048586, 1048587}))
-		Expect(lp.Ranges.X1).To(Equal([]string{"recent"}))
+		Expect(lp.Ranges.X1).To(Equal(recent))
 		Expect(lp.Lines).To(HaveLen(2))
 		Expect(lp.Lines[0].Label).To(HaveValue(Equal("stream_write_data_1")))
 		Expect(lp.Lines[0].StrokeWidth).To(Equal(2.0))
@@ -84,7 +92,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		lp := decode(ctx, "testdata/import_v1_state.json")
 		Expect(lp.Channels.X1).To(Equal(channel.Key(65540)))
 		Expect(lp.Channels.Y1).To(Equal([]channel.Key{65541, 65542}))
-		Expect(lp.Ranges.X1).To(Equal([]string{"recent"}))
+		Expect(lp.Ranges.X1).To(Equal(recent))
 		Expect(lp.Axes.Y1.Label).To(Equal("Pressure (psi)"))
 		// autoBounds inverts: a bound the Console computed is not a manual one.
 		Expect(lp.Axes.Y1.ManualBounds).To(Equal(versions.ManualBounds{}))

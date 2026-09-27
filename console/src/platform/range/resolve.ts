@@ -24,8 +24,7 @@ export interface ResolvedPersisted extends Session.Range.PersistedState {
  * A session range every consumer can render. `variant` still says where the range
  * lives, so a caller that only cares about the Core's own ranges can still tell.
  */
-export type Resolved =
-  ResolvedPersisted | Session.Range.StaticState | Session.Range.DynamicState;
+export type Resolved = ResolvedPersisted | Session.Range.StaticState;
 
 const fold = (
   state: Session.Range.State,

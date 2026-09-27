@@ -11,7 +11,6 @@ import { useCallback } from "react";
 import { useStore } from "react-redux";
 
 import {
-  BUILT_IN,
   SLICE_NAME,
   type SliceState,
   type State,
@@ -21,11 +20,7 @@ import { Select } from "@/session/select";
 
 const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
 
-// The built-ins lead so they hold a stable spot at the top of every list.
-const selectAll = (state: StoreState): State[] => [
-  ...BUILT_IN,
-  ...selectSliceState(state).ranges,
-];
+const selectAll = (state: StoreState): State[] => selectSliceState(state).ranges;
 
 export const useSelectSliceState = (): SliceState =>
   Select.useMemo((state: StoreState) => selectSliceState(state), []);
@@ -73,12 +68,3 @@ export const selectKeys = (state: StoreState): string[] =>
 
 export const useSelectKeys = (): string[] =>
   Select.useMemo((state: StoreState) => selectKeys(state), []);
-
-// Ranges covering a fixed window, which is every one the Core could hold.
-const selectStaticKeys = (state: StoreState): string[] =>
-  selectAll(state)
-    .filter((r) => r.variant !== "dynamic")
-    .map((r) => r.key);
-
-export const useSelectStaticKeys = (): string[] =>
-  Select.useMemo((state: StoreState) => selectStaticKeys(state), []);

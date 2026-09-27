@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import { array, numericTimeRangeZ, TimeSpan } from "@synnaxlabs/x";
+import { array, numericTimeRangeZ } from "@synnaxlabs/x";
 import { z } from "zod";
 
 /**
@@ -32,105 +32,14 @@ export const staticStateZ = z.object({
 
 export interface StaticState extends z.infer<typeof staticStateZ> {}
 
-/** A window of the given span ending now. The Core has no notion of one. */
-export const dynamicStateZ = z.object({
-  variant: z.literal("dynamic"),
-  key: z.string(),
-  name: z.string(),
-  span: z.number(),
-});
-
-export interface DynamicState extends z.infer<typeof dynamicStateZ> {}
-
-export const stateZ = z.discriminatedUnion("variant", [
-  persistedStateZ,
-  staticStateZ,
-  dynamicStateZ,
-]);
+export const stateZ = z.discriminatedUnion("variant", [persistedStateZ, staticStateZ]);
 
 export type State = z.infer<typeof stateZ>;
-
-export const RECENT_KEY = "recent";
-
-/**
- * The rolling windows every session offers. Held in code rather than written into
- * stored state, so a release can revise them and no session can lose one. The list
- * always leads with {@link RECENT_KEY}, which callers fall back to when nothing is
- * selected.
- */
-export const BUILT_IN: DynamicState[] = [
-  {
-    variant: "dynamic",
-    key: RECENT_KEY,
-    name: "Rolling 30s",
-    span: Number(TimeSpan.seconds(30)),
-  },
-  {
-    variant: "dynamic",
-    key: "rolling1m",
-    name: "Rolling 1m",
-    span: Number(TimeSpan.minutes(1)),
-  },
-  {
-    variant: "dynamic",
-    key: "rolling5m",
-    name: "Rolling 5m",
-    span: Number(TimeSpan.minutes(5)),
-  },
-  {
-    variant: "dynamic",
-    key: "rolling15m",
-    name: "Rolling 15m",
-    span: Number(TimeSpan.minutes(15)),
-  },
-  {
-    variant: "dynamic",
-    key: "rolling30m",
-    name: "Rolling 30m",
-    span: Number(TimeSpan.minutes(30)),
-  },
-  {
-    variant: "dynamic",
-    key: "rolling1h",
-    name: "Rolling 1h",
-    span: Number(TimeSpan.hours(1)),
-  },
-  {
-    variant: "dynamic",
-    key: "rolling6h",
-    name: "Rolling 6h",
-    span: Number(TimeSpan.hours(6)),
-  },
-  {
-    variant: "dynamic",
-    key: "rolling12h",
-    name: "Rolling 12h",
-    span: Number(TimeSpan.hours(12)),
-  },
-  {
-    variant: "dynamic",
-    key: "rolling1d",
-    name: "Rolling 1d",
-    span: Number(TimeSpan.days(1)),
-  },
-  {
-    variant: "dynamic",
-    key: "rolling7d",
-    name: "Rolling 7d",
-    span: Number(TimeSpan.days(7)),
-  },
-  {
-    variant: "dynamic",
-    key: "rolling30d",
-    name: "Rolling 30d",
-    span: Number(TimeSpan.days(30)),
-  },
-];
 
 export const sliceStateZ = z.object({
   version: z.literal(0).default(0),
   selected: z.string().optional(),
-  /** The ranges the session added. The built-ins are not among them. */
+  /** The ranges the session added. */
   ranges: z.array(stateZ).default([]),
 });
 

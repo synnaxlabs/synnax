@@ -10,11 +10,8 @@
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { type ReactElement } from "react";
 
-import {
-  XAxisChannelSelect,
-  XAxisRangeSelect,
-  YAxisChannelSelect,
-} from "@/feature/lineplot/SelectAxis";
+import { XAxisRangeSelect } from "@/feature/lineplot/RangeSelect";
+import { XAxisChannelSelect, YAxisChannelSelect } from "@/feature/lineplot/SelectAxis";
 import { CSS } from "@/platform/css";
 
 export const Data = (): ReactElement => (

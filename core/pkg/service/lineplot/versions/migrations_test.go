@@ -30,6 +30,7 @@ var _ = Describe("Migrations", func() {
 			"msgpack_to_orc",
 			"v55_lift_typed_lineplot",
 			"v58_custom_range",
+			"v59_range_entries",
 		}))
 	})
 })

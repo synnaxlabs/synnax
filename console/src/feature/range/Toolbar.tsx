@@ -48,7 +48,7 @@ const NoRanges = (): ReactElement => {
 const List = (): ReactElement => {
   const dispatch = Session.useDispatch();
   const activeRange = Session.Range.useSelectState();
-  const data = Session.Range.useSelectStaticKeys();
+  const data = Session.Range.useSelectKeys();
 
   const handleSelect = (key: string): void => {
     dispatch(Session.Range.select(key));
@@ -94,7 +94,7 @@ const listItem = Component.renderProp((props: BaseList.ItemProps<string>) => {
   const labels = Ranger.useLabels(isLocal ? null : itemKey) ?? [];
   const onRename = Session.Range.useRename();
   const hasUpdatePermission = Access.useUpdateGranted(ranger.ontologyID(itemKey));
-  if (entry == null || entry.variant === "dynamic") return null;
+  if (entry == null) return null;
   const { key, name, timeRange } = entry;
   return (
     <Select.Item className={CSS.B("range-list-item")} {...props} gap="small" y>

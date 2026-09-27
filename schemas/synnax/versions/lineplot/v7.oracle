@@ -1,0 +1,135 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/x/versions/telem/v0"
+
+Key = v0.Key
+
+TickType = v5.TickType
+
+DownsampleMode = v5.DownsampleMode
+
+XAxisKey = v5.XAxisKey
+
+YAxisKey = v5.YAxisKey
+
+AxisKey = v5.AxisKey
+
+Title = v5.Title
+
+Legend = v5.Legend
+
+Channels = v5.Channels
+
+BaseRange struct {
+    key uuid {
+        @doc value """
+            identifies the range within its axis. A persisted range uses the Core
+            range's key.
+        """
+    }
+
+    @doc value  "holds the fields every plotted range carries."
+    @go marshal
+}
+
+Range union on variant extends BaseRange {
+    persisted {
+        @doc value "is a range the Core holds, plotted by reference."
+    }
+    static {
+        name  string?         {
+            @doc value "is the label shown for the window. Absent shows its bounds."
+        }
+        start telem.TimeStamp {
+            @doc value "is the inclusive start of the window."
+        }
+        end   telem.TimeStamp {
+            @doc value "is the exclusive end of the window."
+        }
+
+        @doc value "is a fixed window the plot owns."
+    }
+
+    @doc value  "is a range plotted against an x-axis."
+    @go marshal
+}
+
+XAxisRanges struct {
+    rolling telem.TimeSpan? {
+        @doc value "is the span of the window ending now, when the axis has one."
+    }
+    ranges  Range[]         {
+        @doc value "are the ranges plotted against the axis."
+    }
+
+    @doc value  "binds a rolling window and a set of ranges to an x-axis."
+    @go marshal
+}
+
+Ranges struct {
+    x1 XAxisRanges = {} {
+        @doc value "are the ranges plotted against the x1 axis."
+    }
+    x2 XAxisRanges = {} {
+        @doc value "are the ranges plotted against the x2 axis."
+    }
+
+    @doc value  "binds ranges to each x-axis."
+    @go marshal
+}
+
+ManualBounds = v5.ManualBounds
+
+Axis = v5.Axis
+
+Axes = v5.Axes
+
+Line = v5.Line
+
+Rule = v5.Rule
+
+LinePlot struct {
+    key      Key = create {
+        @doc value "is the unique identifier for this line plot."
+        @key
+    }
+    name     string   {
+        @doc value "is a human-readable name for the line plot."
+    }
+    title    Title = {} {
+        @doc value "is the plot title configuration."
+    }
+    legend   Legend = {} {
+        @doc value "is the plot legend configuration."
+    }
+    channels Channels = {} {
+        @doc value "binds channel keys to each axis."
+    }
+    ranges   Ranges = {} {
+        @doc value "binds ranges to each x-axis."
+    }
+    axes     Axes = {} {
+        @doc value "bundles per-axis configuration."
+    }
+    lines    Line[]   {
+        @doc value """
+            holds per-line styling and downsampling configuration. Each entry
+            corresponds to one channel and range combination produced by the channels
+            and ranges bindings.
+        """
+    }
+    rules    Rule[]   {
+        @doc value "holds annotation rules drawn over the plot."
+    }
+
+    @go imex
+    @go marshal
+    @go migrate
+}

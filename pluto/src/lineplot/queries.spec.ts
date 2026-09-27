@@ -13,7 +13,7 @@ import {
   NotFoundError,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { color, uuid } from "@synnaxlabs/x";
+import { color, TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -552,15 +552,15 @@ describe("lineplot queries", () => {
         ranges: LinePlot.useRanges({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
-      expect(result.current.ranges.x1).toEqual([]);
-      const rangeKey = uuid.create();
+      expect(result.current.ranges.x1.ranges).toEqual([]);
+      const range: lineplotClient.Range = { variant: "persisted", key: uuid.create() };
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [lineplotClient.addRange({ axisKey: "x1", range: rangeKey })],
+          actions: [lineplotClient.addRange({ axisKey: "x1", range })],
         });
       });
-      await waitFor(() => expect(result.current.ranges.x1).toEqual([rangeKey]));
+      await waitFor(() => expect(result.current.ranges.x1.ranges).toEqual([range]));
     });
 
     it("useYAxisChannels returns one axis's channels and updates after setChannels", async () => {
@@ -601,15 +601,82 @@ describe("lineplot queries", () => {
         ranges: LinePlot.useXAxisRanges({ key: created.key, axisKey: "x1" }),
         dispatch: LinePlot.useDispatch(),
       }));
-      expect(result.current.ranges).toEqual([]);
-      const rangeKey = uuid.create();
+      expect(result.current.ranges.ranges).toEqual([]);
+      const range: lineplotClient.Range = { variant: "persisted", key: uuid.create() };
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [lineplotClient.setRanges({ axisKey: "x1", ranges: [rangeKey] })],
+          actions: [lineplotClient.setRanges({ axisKey: "x1", ranges: [range] })],
         });
       });
-      await waitFor(() => expect(result.current.ranges).toEqual([rangeKey]));
+      await waitFor(() => expect(result.current.ranges.ranges).toEqual([range]));
+    });
+
+    it("useResolvedRanges resolves each axis's rolling window and static ranges", async () => {
+      const created = await createPlot();
+      const { result } = await loadAndUse(created.key, () => ({
+        resolved: LinePlot.useResolvedRanges({ key: created.key }),
+        dispatch: LinePlot.useDispatch(),
+      }));
+      expect(result.current.resolved.x1.size).toEqual(0);
+      const range: lineplotClient.Range = {
+        variant: "static",
+        key: uuid.create(),
+        start: "1000",
+        end: "2000",
+      };
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: created.key,
+          actions: [
+            lineplotClient.setRolling({
+              axisKey: "x1",
+              span: Number(TimeSpan.minutes(5)),
+            }),
+            lineplotClient.addRange({ axisKey: "x2", range }),
+          ],
+        });
+      });
+      await waitFor(() => {
+        const { x1, x2 } = result.current.resolved;
+        expect(x1.get(lineplotClient.ROLLING_LINE_RANGE)).toEqual({
+          variant: "dynamic",
+          span: TimeSpan.minutes(5),
+        });
+        expect(x2.get(range.key)).toEqual({
+          variant: "static",
+          timeRange: new TimeRange(1000n, 2000n),
+        });
+      });
+    });
+
+    it("useResolvedRanges resolves a persisted range from the Core", async () => {
+      const created = await createPlot();
+      const coreRange = await client.ranges.create({
+        name: "resolved",
+        timeRange: new TimeRange(TimeStamp.seconds(1), TimeStamp.seconds(2)),
+      });
+      const { result } = await loadAndUse(created.key, () => ({
+        resolved: LinePlot.useResolvedRanges({ key: created.key }),
+        dispatch: LinePlot.useDispatch(),
+      }));
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: created.key,
+          actions: [
+            lineplotClient.addRange({
+              axisKey: "x1",
+              range: { variant: "persisted", key: coreRange.key },
+            }),
+          ],
+        });
+      });
+      await waitFor(() =>
+        expect(result.current.resolved.x1.get(coreRange.key)).toEqual({
+          variant: "static",
+          timeRange: coreRange.timeRange,
+        }),
+      );
     });
 
     it("useAxisKeys returns displayed axes and updates as channels appear", async () => {

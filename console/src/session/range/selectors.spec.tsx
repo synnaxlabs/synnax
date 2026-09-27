@@ -22,11 +22,11 @@ const STATIC: Range.StaticState = {
   timeRange: { start: 0, end: 1000 },
 };
 
-const DYNAMIC: Range.DynamicState = {
-  variant: "dynamic",
-  key: "dynamic-1",
-  name: "Dynamic 1",
-  span: 1000,
+const OTHER: Range.StaticState = {
+  variant: "static",
+  key: "static-2",
+  name: "Static 2",
+  timeRange: { start: 1000, end: 2000 },
 };
 
 const EMPTY_STATE: Range.SliceState = { version: 0, selected: undefined, ranges: [] };
@@ -73,13 +73,13 @@ describe("range selectors", () => {
 
     describe("selectState", () => {
       it("should resolve a range by explicit key", () => {
-        expect(Range.selectState(storeWith([STATIC, DYNAMIC]), STATIC.key)).toEqual(
+        expect(Range.selectState(storeWith([STATIC, OTHER]), STATIC.key)).toEqual(
           STATIC,
         );
       });
 
       it("should fall back to the selected range when no key is given", () => {
-        expect(Range.selectState(storeWith([STATIC, DYNAMIC], STATIC.key))).toEqual(
+        expect(Range.selectState(storeWith([STATIC, OTHER], STATIC.key))).toEqual(
           STATIC,
         );
       });
@@ -105,7 +105,7 @@ describe("range selectors", () => {
     });
 
     it("should read the current selected key on demand across dispatches", () => {
-      const store = createStore(stateWith([STATIC, DYNAMIC]));
+      const store = createStore(stateWith([STATIC, OTHER]));
       const { result } = renderHook(() => Range.useGetSelectedKey(), {
         wrapper: createWrapper(store),
       });
@@ -116,9 +116,9 @@ describe("range selectors", () => {
       });
       expect(get()).toEqual(STATIC.key);
       act(() => {
-        store.dispatch(Range.select(DYNAMIC.key));
+        store.dispatch(Range.select(OTHER.key));
       });
-      expect(get()).toEqual(DYNAMIC.key);
+      expect(get()).toEqual(OTHER.key);
     });
 
     it("should resolve a range by key and fall back to the selection on demand", () => {
@@ -129,13 +129,13 @@ describe("range selectors", () => {
       const get = result.current;
       expect(get(STATIC.key)).toBeUndefined();
       act(() => {
-        store.dispatch(Range.add([STATIC, DYNAMIC]));
+        store.dispatch(Range.add([STATIC, OTHER]));
       });
       expect(get(STATIC.key)).toEqual(STATIC);
       act(() => {
-        store.dispatch(Range.select(DYNAMIC.key));
+        store.dispatch(Range.select(OTHER.key));
       });
-      expect(get()).toEqual(DYNAMIC);
+      expect(get()).toEqual(OTHER);
     });
   });
 });

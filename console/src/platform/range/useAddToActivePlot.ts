@@ -28,7 +28,9 @@ export const useAddToActivePlot = (): ((keys: string[]) => void) => {
         dispatch(Session.Range.add(Session.Range.fromClient(ranges)));
         await client.lineplots.dispatch(
           active,
-          ranges.map((range) => lineplot.addRange({ axisKey: "x1", range: range.key })),
+          ranges.map(({ key }) =>
+            lineplot.addRange({ axisKey: "x1", range: { variant: "persisted", key } }),
+          ),
         );
       }, "Failed to add ranges to plot");
     },

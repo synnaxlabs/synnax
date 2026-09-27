@@ -7,6 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/platform/lineplot/addChannelsToActivePlot";
-export * from "@/platform/lineplot/ranges";
-export * from "@/platform/lineplot/useCreate";
+package v7_test
+
+import (
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
+)
+
+func TestLinePlotV7(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Service Line Plot v7 Suite")
+}
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

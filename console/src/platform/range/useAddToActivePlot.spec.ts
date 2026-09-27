@@ -91,7 +91,10 @@ describe("Range.useAddToActivePlot", () => {
     );
     await waitFor(async () => {
       const { ranges } = await client.lineplots.retrieve(plot.key);
-      expect(ranges.x1).toContain(range.key);
+      expect(ranges.x1.ranges).toContainEqual({
+        variant: "persisted",
+        key: range.key,
+      });
     });
   });
 
@@ -123,13 +126,16 @@ describe("Range.useAddToActivePlot", () => {
     );
     await waitFor(async () => {
       const { ranges } = await client.lineplots.retrieve(plot.key);
-      expect(ranges.x1).toContain(added.key);
+      expect(ranges.x1.ranges).toContainEqual({
+        variant: "persisted",
+        key: added.key,
+      });
     });
 
     expect(Session.Range.selectKeys(inactive.store.getState())).not.toContain(
       skipped.key,
     );
     const { ranges } = await client.lineplots.retrieve(otherPlot.key);
-    expect(ranges.x1).not.toContain(skipped.key);
+    expect(ranges.x1.ranges).toEqual([]);
   });
 });
