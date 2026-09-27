@@ -210,8 +210,8 @@ func (r *reducer) flush() framer.Frame {
 }
 
 // splitLastGroup splits m before the group of size groupSize that holds its last
-// sample, unless that group is complete. A split series keeps its time range in the
-// head, and the tail's time range starts and ends at the series' end.
+// sample, unless that group is complete. Both parts of a split series keep its time
+// range.
 func splitLastGroup(
 	m telem.MultiSeries,
 	groupSize uint32,
@@ -237,7 +237,6 @@ func splitLastGroup(
 			h.Data = s.Data[:at]
 			t.Data = s.Data[at:]
 			t.Alignment = cut
-			t.TimeRange = telem.TimeRange{Start: s.TimeRange.End, End: s.TimeRange.End}
 			head.Series = append(head.Series, h)
 			tail.Series = append(tail.Series, t)
 		}
