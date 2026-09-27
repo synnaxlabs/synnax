@@ -47,7 +47,7 @@ export const listItem = Component.renderProp(
     );
     if (proj == null) return null;
     return (
-      <Select.ListItem
+      <Select.Item
         {...props}
         className={Menu.CONTEXT_TARGET}
         data-menu-key={itemKey}
@@ -62,7 +62,7 @@ export const listItem = Component.renderProp(
           className={CSS.BE("project", "name")}
           overflow="ellipsis"
         />
-      </Select.ListItem>
+      </Select.Item>
     );
   },
 );
@@ -175,20 +175,23 @@ export const Selector = (): ReactElement | null => {
           >
             <TriggerAvatar itemKey={activeKey} />
           </Dialog.Trigger>
-          <Select.Dialog<project.Key>
+          <Select.Dialog
             className={CSS.B("project-selector-dialog")}
-            resourceName="project"
-            onSearch={search}
             onContextMenu={menuProps.open}
-            footer={
-              hasCreatePermission && (
-                <Button.CreateListItem size="small" onClick={handleCreate}>
-                  New project
-                </Button.CreateListItem>
-              )
-            }
           >
-            {listItem}
+            <Select.Body<project.Key>
+              resourceName="project"
+              onSearch={search}
+              footer={
+                hasCreatePermission && (
+                  <Button.CreateListItem size="small" onClick={handleCreate}>
+                    New project
+                  </Button.CreateListItem>
+                )
+              }
+            >
+              {listItem}
+            </Select.Body>
           </Select.Dialog>
         </Select.Frame>
       </Dialog.Frame>

@@ -54,7 +54,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const path = `config.channels.${itemKey}`;
   const { type, channel } = PForm.useFieldValue<WriteChannel>(path);
   return (
-    <Select.ListItem {...props} justify="between" align="center" x full="x">
+    <Select.Item {...props} justify="between" align="center" x full="x">
       <Flex.Box x pack className={CSS.B("channel-item")}>
         <SelectWriteChannelTypeField
           path={path}
@@ -97,7 +97,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
         />
         <Task.EnabledCheckbox path={`${path}.disabled`} />
       </Flex.Box>
-    </Select.ListItem>
+    </Select.Item>
   );
 };
 

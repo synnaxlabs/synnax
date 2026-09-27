@@ -7,14 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Select } from "@synnaxlabs/lyra/select";
 import { record } from "@synnaxlabs/x";
+import { type ReactElement } from "react";
 
 /**
- * Turns a name lookup into the entries a select renders, in declaration order. Declare
+ * Renders one select item per entry of a name lookup, in declaration order. Declare
  * the lookup as `satisfies Record<Enum, string>` so a new enum value fails the build
  * until it has a name.
  */
-export const selectData = <K extends record.Key>(
+export const selectItems = <K extends record.Key>(
   names: Record<K, string>,
-): record.KeyedNamed<K>[] =>
-  record.entries(names).map(([key, name]) => ({ key, name }));
+): ReactElement[] =>
+  record.entries(names).map(([key, name]) => (
+    <Select.Item<K> key={key} itemKey={key}>
+      {name}
+    </Select.Item>
+  ));

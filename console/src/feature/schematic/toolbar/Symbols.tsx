@@ -98,9 +98,9 @@ const StaticSymbolList = ({ groupKey }: SymbolListProps): ReactElement => {
   });
   return (
     <List.Frame<string, Schematic.Node.Spec> data={data} getItem={getItem}>
-      <List.Items x className={CSS.BE("schematic", "symbols", "group")} wrap>
-        {staticListItem}
-      </List.Items>
+      <List.Scroll x className={CSS.BE("schematic", "symbols", "group")} wrap>
+        <List.Items>{staticListItem}</List.Items>
+      </List.Scroll>
     </List.Frame>
   );
 };
@@ -147,7 +147,7 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
   if (symbol == null) return null;
 
   return (
-    <Select.ListItem
+    <Select.Item
       className={CSS.cls(CSS.BE("schematic-symbols", "button"))}
       align="center"
       gap="tiny"
@@ -168,7 +168,7 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
       <Flex.Box align="center" justify="center" grow>
         <Preview specKey={itemKey} scale={0.75} />
       </Flex.Box>
-    </Select.ListItem>
+    </Select.Item>
   );
 };
 
@@ -260,17 +260,20 @@ const RemoteSymbolList = ({ groupKey }: SymbolListProps): ReactElement => {
         {...menuProps}
         menu={(props) => <RemoteSymbolListContextMenu {...props} groupKey={groupKey} />}
       >
-        <List.Items
+        <List.Scroll
           x
           className={CSS.BE("schematic", "symbols", "group")}
           onContextMenu={menuProps.open}
-          emptyContent={
-            listData.answered && <RemoteListEmptyContent groupKey={groupKey} />
-          }
           wrap
         >
-          {remoteListItem}
-        </List.Items>
+          <List.Items
+            emptyContent={
+              listData.answered && <RemoteListEmptyContent groupKey={groupKey} />
+            }
+          >
+            {remoteListItem}
+          </List.Items>
+        </List.Scroll>
       </Menu.ContextMenu>
     </List.Frame>
   );
@@ -544,9 +547,9 @@ const SearchSymbolList = ({ searchTerm }: SearchSymbolListProps): ReactElement =
       getItem={getItem}
       subscribe={subscribe}
     >
-      <List.Items x className={CSS.BE("schematic", "symbols", "group")} wrap>
-        {searchListItem}
-      </List.Items>
+      <List.Scroll x className={CSS.BE("schematic", "symbols", "group")} wrap>
+        <List.Items>{searchListItem}</List.Items>
+      </List.Scroll>
     </List.Frame>
   );
 };

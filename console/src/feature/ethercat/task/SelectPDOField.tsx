@@ -20,11 +20,6 @@ export interface SelectPDOFieldProps {
   pdoType: "inputs" | "outputs";
 }
 
-interface PDOOption {
-  key: string;
-  name: string;
-}
-
 export const SelectPDOField = ({
   path,
   pdoType,
@@ -34,26 +29,27 @@ export const SelectPDOField = ({
     primitive.isZero(slaveKey) ? null : { key: slaveKey },
   );
 
-  const pdoOptions = useMemo((): PDOOption[] => {
-    if (slave == null) return [];
-    const pdos = slave.properties?.pdos?.[pdoType] ?? [];
-    return pdos.map((pdo: PDOEntry) => ({
-      key: pdo.name,
-      name: pdo.name,
-    }));
-  }, [slave, pdoType]);
+  const pdos = useMemo(
+    (): PDOEntry[] => slave?.properties?.pdos?.[pdoType] ?? [],
+    [slave, pdoType],
+  );
 
   const selectRenderProp = useCallback(
-    (props: Pick<Select.StaticProps<string, PDOOption>, "value" | "onChange">) => (
-      <Select.Static<string, PDOOption>
+    (props: Pick<Select.SingleSimpleProps<string>, "value" | "onChange">) => (
+      <Select.Simple<string>
         {...props}
-        data={pdoOptions}
         resourceName="PDO"
         allowNone={false}
         emptyContent="No PDOs available. Select a slave device first."
-      />
+      >
+        {pdos.map(({ name }) => (
+          <Select.Item key={name} itemKey={name}>
+            {name}
+          </Select.Item>
+        ))}
+      </Select.Simple>
     ),
-    [pdoOptions],
+    [pdos],
   );
 
   return (

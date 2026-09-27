@@ -12,7 +12,6 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
-import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
 import { type ListParams, useList } from "@/access/policy/queries";
@@ -28,9 +27,9 @@ const listItemRenderProp = Component.renderProp(
     if (item == null) return null;
     const { name } = item;
     return (
-      <Select.ListItem itemKey={itemKey} y gap="small" {...rest}>
-        <Text.Text level="p">{name}</Text.Text>
-      </Select.ListItem>
+      <Select.Item itemKey={itemKey} y gap="small" {...rest}>
+        {name}
+      </Select.Item>
     );
   },
 );

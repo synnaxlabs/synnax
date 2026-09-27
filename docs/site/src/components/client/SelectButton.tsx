@@ -23,8 +23,8 @@ export const SelectButton = ({ clients }: SelectButtonProps) => {
   const [client, setClient] = useState<Client>(clients[0]);
 
   // Map the clients so the order of the clients is consistent between the props and
-  // the data passed to the select button.
-  const data = clients.map((c) => CLIENTS[indexMap.get(c) as number]);
+  // the options of the select button.
+  const options = clients.map((c) => CLIENTS[indexMap.get(c) as number]);
 
   useEffect(() => {
     const updateFromURL = () => {
@@ -46,15 +46,20 @@ export const SelectButton = ({ clients }: SelectButtonProps) => {
   };
 
   return (
-    <Select.Static
+    <Select.Simple<Client>
       className="styled-scrollbar"
       location="bottom"
       resourceName="client"
-      data={data}
       value={client}
       allowNone={false}
       onChange={handleChange}
-      virtual={false}
-    />
+    >
+      {options.map(({ key, name, icon }) => (
+        <Select.Item key={key} itemKey={key}>
+          {icon}
+          {name}
+        </Select.Item>
+      ))}
+    </Select.Simple>
   );
 };

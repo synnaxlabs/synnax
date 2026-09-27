@@ -96,7 +96,9 @@ export const Snapshots: FC<SnapshotsProps> = ({ rangeKey }) => {
         subscribe={subscribe}
         onFetchMore={fetchMore}
       >
-        <List.Items>{snapshotsListItem}</List.Items>
+        <List.Scroll>
+          <List.Items>{snapshotsListItem}</List.Items>
+        </List.Scroll>
       </List.Frame>
     </Flex.Box>
   );

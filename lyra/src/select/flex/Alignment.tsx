@@ -12,26 +12,21 @@ import { type ReactElement } from "react";
 import { type Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { type Select } from "@/select";
-import { Button, Buttons } from "@/select/Button";
+import { Buttons } from "@/select/Buttons";
+import { Item } from "@/select/Item";
 
-export interface AlignmentProps extends Omit<
-  Select.ButtonsProps<Flex.Alignment>,
-  "keys"
-> {}
-
-/** The alignments the picker offers, in render order. */
-const KEYS: Flex.Alignment[] = ["start", "center", "end"];
+export interface AlignmentProps extends Select.ButtonsProps<Flex.Alignment> {}
 
 export const Alignment = ({ value, ...rest }: AlignmentProps): ReactElement => (
-  <Buttons {...rest} value={value} keys={KEYS}>
-    <Button itemKey="start">
+  <Buttons {...rest} value={value}>
+    <Item itemKey="start">
       <Icon.TextAlign.Left />
-    </Button>
-    <Button itemKey="center">
+    </Item>
+    <Item itemKey="center">
       <Icon.TextAlign.Center />
-    </Button>
-    <Button itemKey="end">
+    </Item>
+    <Item itemKey="end">
       <Icon.TextAlign.Right />
-    </Button>
+    </Item>
   </Buttons>
 );

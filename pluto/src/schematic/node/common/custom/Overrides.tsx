@@ -213,16 +213,11 @@ export const StateOverrideForm = (): ReactElement => {
   return (
     <Flex.Box y align="stretch">
       {states.length > 1 && (
-        <Select.Buttons
-          keys={states}
-          value={shownState}
-          onChange={setSelectedState}
-          full="x"
-        >
+        <Select.Buttons value={shownState} onChange={setSelectedState} full="x">
           {states.map((state) => (
-            <Select.Button key={state} itemKey={state} justify="center">
+            <Select.Item key={state} itemKey={state} justify="center">
               {caseconv.capitalize(state)}
-            </Select.Button>
+            </Select.Item>
           ))}
         </Select.Buttons>
       )}

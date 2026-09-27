@@ -17,6 +17,7 @@ import {
   useCallback,
   useMemo,
   useRef,
+  useState,
   useSyncExternalStore,
 } from "react";
 
@@ -24,6 +25,7 @@ import { memo } from "@/component/memo";
 import { context } from "@/context";
 import { Dialog } from "@/dialog";
 import { useCombinedRefs, usePrevious, useSyncedRef } from "@/hooks";
+import { ItemsContext } from "@/list/scope";
 
 /** Function interface for getting items from a list by key(s). */
 export interface GetItem<K extends record.Key, E extends record.Keyed<K> | undefined>
@@ -77,7 +79,10 @@ export interface UtilContextValue<
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
 > {
+  /** Attaches the scroll container. */
   ref: RefCallback<HTMLDivElement | null>;
+  /** Attaches the element that holds the rendered items. */
+  itemsRef: RefCallback<HTMLDivElement | null>;
   getItem?: GetItem<K, E>;
   subscribe?: (callback: () => void, key: K) => () => void;
   scrollToIndex: (index: number, direction?: location.Y) => void;
@@ -173,7 +178,7 @@ export const useData = <
   const { data, getItems, getTotalSize, sentinelRef } = useDataContext(
     "List.useData",
   ) as DataContextValue<K>;
-  const { ref, getItem, scrollToIndex, subscribe, itemHeight } = useUtilCtx(
+  const { ref, itemsRef, getItem, scrollToIndex, subscribe, itemHeight } = useUtilCtx(
     "List.useData",
   ) as unknown as UtilContextValue<K, E>;
   return useMemo(
@@ -182,6 +187,7 @@ export const useData = <
       getItems,
       getTotalSize,
       ref,
+      itemsRef,
       getItem,
       scrollToIndex,
       subscribe,
@@ -193,6 +199,7 @@ export const useData = <
       getItems,
       getTotalSize,
       ref,
+      itemsRef,
       getItem,
       scrollToIndex,
       subscribe,
@@ -300,6 +307,32 @@ const VirtualFrame = <
   itemHeight = 33,
 }: FrameProps<K, E>): ReactElement => {
   const ref = useRef<HTMLDivElement>(null);
+  const [scrollMargin, setScrollMargin] = useState(0);
+  // Content above the items in the scroll container shifts them down. The container is
+  // positioned (Scroll.css), so offsetTop measures that shift and ignores scrolling. It
+  // changes when that content resizes, hides, mounts, or unmounts.
+  const itemsRef = useCallback((el: HTMLDivElement | null) => {
+    if (el == null) return;
+    const measure = () => setScrollMargin(el.offsetTop);
+    const resize = new ResizeObserver(measure);
+    const observeAbove = () => {
+      resize.disconnect();
+      for (let s = el.previousElementSibling; s != null; s = s.previousElementSibling)
+        resize.observe(s);
+    };
+    const mutation = new MutationObserver(() => {
+      observeAbove();
+      measure();
+    });
+    if (el.parentElement != null)
+      mutation.observe(el.parentElement, { childList: true });
+    observeAbove();
+    measure();
+    return () => {
+      resize.disconnect();
+      mutation.disconnect();
+    };
+  }, []);
   const hasData = data.length > 0;
   const refCallback = useFetchMoreRefCallback(ref, hasData, onFetchMore);
   const virtualizer = useVirtualizer({
@@ -311,6 +344,7 @@ const VirtualFrame = <
     // window renders nothing. Assuming one keeps the mount commit from painting empty.
     initialRect: { width: 0, height: INITIAL_WINDOW_HEIGHT },
     overscan,
+    scrollMargin,
     onChange: useCallback(
       (v: Virtualizer<HTMLDivElement, HTMLDivElement>) => {
         const items = v.getVirtualItems();
@@ -324,7 +358,6 @@ const VirtualFrame = <
   const items = virtualizer.getVirtualItems();
   const dataCtxValue = useMemo<DataContextValue<K>>(
     () => ({
-      ref: refCallback,
       getItem,
       data,
       subscribe,
@@ -333,21 +366,22 @@ const VirtualFrame = <
         items.map(({ index, start }) => ({
           key: data[index],
           index,
-          translate: start,
+          translate: start - scrollMargin,
         })),
     }),
-    [refCallback, virtualizer, data, getItem, items],
+    [virtualizer, data, getItem, subscribe, items, scrollMargin],
   );
 
   const utilCtxValue = useMemo<UtilContextValue<K, E>>(
     () => ({
       ref: refCallback,
+      itemsRef,
       getItem,
       scrollToIndex: (index) => virtualizer.scrollToIndex(index),
       subscribe,
       itemHeight,
     }),
-    [refCallback, virtualizer, getItem, subscribe, itemHeight],
+    [refCallback, itemsRef, virtualizer, getItem, subscribe, itemHeight],
   );
 
   return (
@@ -371,9 +405,13 @@ const StaticFrame = <
   itemHeight,
 }: FrameProps<K, E>): ReactElement => {
   const ref = useRef<HTMLDivElement>(null);
+  const itemsElRef = useRef<HTMLDivElement | null>(null);
+  const itemsRef = useCallback((el: HTMLDivElement | null) => {
+    itemsElRef.current = el;
+  }, []);
   const hasData = data.length > 0;
   const scrollToIndex = useCallback((index: number, direction?: location.Y) => {
-    const container = ref.current?.children[0];
+    const container = itemsElRef.current;
     if (container == null) return;
     const dirMultiplier = direction === "top" ? 1 : -1;
     let scrollTo: number;
@@ -394,7 +432,6 @@ const StaticFrame = <
   const items = useMemo(() => data.map((key, index) => ({ key, index })), [data]);
   const dataCtxValue = useMemo<DataContextValue<K>>(
     () => ({
-      ref: refCallback,
       getItem,
       data,
       subscribe,
@@ -402,17 +439,18 @@ const StaticFrame = <
       getItems: () => items,
       sentinelRef,
     }),
-    [refCallback, data, getItem, subscribe, sentinelRef, items],
+    [data, getItem, subscribe, sentinelRef, items],
   );
   const utilCtxValue = useMemo<UtilContextValue<K, E>>(
     () => ({
       ref: refCallback,
+      itemsRef,
       getItem,
       scrollToIndex,
       subscribe,
       itemHeight,
     }),
-    [refCallback, getItem, subscribe, scrollToIndex, itemHeight],
+    [refCallback, itemsRef, getItem, subscribe, scrollToIndex, itemHeight],
   );
   return (
     <DataContext value={dataCtxValue}>
@@ -430,16 +468,22 @@ export const BaseFrame = <
 >({
   virtual = false,
   ...rest
-}: FrameProps<K, E>): ReactElement =>
-  virtual ? <VirtualFrame {...rest} /> : <StaticFrame {...rest} />;
+}: FrameProps<K, E>): ReactElement => (
+  // A nested frame starts a new list, so its content is not a row of the outer one.
+  <ItemsContext value={false}>
+    {virtual ? <VirtualFrame {...rest} /> : <StaticFrame {...rest} />}
+  </ItemsContext>
+);
 
 /**
  * Holds the data for a list and hands it to its children through context. It renders no
- * element of its own: pair it with {@link Items} for the scroll container.
+ * element of its own: pair it with {@link Scroll} and {@link Items}.
  *
  * @example
  * <List.Frame {...List.useStaticData({ data })}>
- *   <List.Items>{(p) => <List.Item {...p} />}</List.Items>
+ *   <List.Scroll>
+ *     <List.Items>{(p) => <List.Item {...p} />}</List.Items>
+ *   </List.Scroll>
  * </List.Frame>
  */
 export const Frame = memo(BaseFrame);

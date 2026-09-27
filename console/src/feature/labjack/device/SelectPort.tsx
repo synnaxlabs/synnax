@@ -42,7 +42,7 @@ const listItem = Component.renderProp((props: List.ItemProps<string>) => {
   if (port == null) return null;
   const { alias, key } = port;
   return (
-    <Select.ListItem {...props} align="center">
+    <Select.Item {...props} align="center">
       <Text.Text className={CSS.BE("labjack-port-item", "label")}>
         {alias ?? key}
       </Text.Text>
@@ -51,7 +51,7 @@ const listItem = Component.renderProp((props: List.ItemProps<string>) => {
           {key}
         </Text.Text>
       )}
-    </Select.ListItem>
+    </Select.Item>
   );
 });
 
@@ -89,13 +89,14 @@ export const SelectPort = ({
           </Dialog.Trigger>
           {children}
         </Flex.Box>
-        <Select.Dialog<string>
-          onSearch={(term) => retrieve({ searchTerm: term })}
-          emptyContent={emptyContent}
-          resourceName="port"
-          {...dialogProps}
-        >
-          {listItem}
+        <Select.Dialog {...dialogProps}>
+          <Select.Body<string>
+            resourceName="port"
+            onSearch={(term) => retrieve({ searchTerm: term })}
+            emptyContent={emptyContent}
+          >
+            {listItem}
+          </Select.Body>
         </Select.Dialog>
       </Select.Frame>
     </Dialog.Frame>
