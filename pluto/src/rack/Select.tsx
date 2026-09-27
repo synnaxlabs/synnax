@@ -13,7 +13,6 @@ import { type Dialog } from "@synnaxlabs/lyra/dialog";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
-import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
 import { type Flux } from "@/flux";
@@ -37,7 +36,7 @@ const listItemRenderProp = Component.renderProp(
     const item = List.useItem<rack.Key, rack.Rack>(itemKey);
     return (
       <Select.Item {...props} align="center" justify="between">
-        <Text.Text>{item?.name}</Text.Text>
+        {item?.name}
         <StatusIndicator status={item?.status} tooltipLocation="left" />
       </Select.Item>
     );

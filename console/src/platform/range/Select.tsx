@@ -82,10 +82,8 @@ export const CUSTOM_KEY = "custom";
 
 const customItem = (
   <Select.Item itemKey={CUSTOM_KEY}>
-    <Text.Text>
-      <Icon.Add />
-      Custom
-    </Text.Text>
+    <Icon.Add />
+    Custom
   </Select.Item>
 );
 

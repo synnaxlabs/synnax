@@ -13,7 +13,6 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tag } from "@synnaxlabs/lyra/tag";
-import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
 import { type Flux } from "@/flux";
@@ -28,10 +27,8 @@ const ListItem = ({
   if (item == null) return null;
   return (
     <Select.Item itemKey={itemKey} {...rest}>
-      <Text.Text align="center">
-        <Icon.Circle color={item?.color} size="2.5em" />
-        {item?.name}
-      </Text.Text>
+      <Icon.Circle color={item?.color} size="2.5em" />
+      {item?.name}
     </Select.Item>
   );
 };

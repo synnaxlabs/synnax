@@ -14,7 +14,6 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
-import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
@@ -45,7 +44,7 @@ const listItem = Component.renderProp(
     return (
       <Select.Item {...props} align="center" gap="medium">
         {entry.icon}
-        <Text.Text>{entry.name}</Text.Text>
+        {entry.name}
       </Select.Item>
     );
   },
