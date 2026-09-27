@@ -245,11 +245,6 @@ export const redlineZ = z.object({
    * threshold and below the next higher threshold.
    */
   bands: bandZ.array().default(() => []),
-  /**
-   * base is the fill for values below the lowest threshold. When absent those values
-   * paint nothing.
-   */
-  base: color.colorZ.optional(),
   /** smooth is true when the fill interpolates between band colors. */
   smooth: z.boolean().default(false),
 });
@@ -820,10 +815,15 @@ export const valueNodeConfigZ = labeledConfigZ
     variant: z.literal("value"),
     /** position is the offset of the value contents within the symbol. */
     position: spatial.xyZ.optional(),
-    /** color is the background color of the value. */
+    /** color is the color of the value's border and units. */
     color: color.colorZ.optional(),
     /** textColor is the color of the displayed text. */
     textColor: color.colorZ.optional(),
+    /**
+     * backgroundColor is the fill behind the value where no redline band paints. When
+     * absent the value paints no fill.
+     */
+    backgroundColor: color.colorZ.optional(),
     /** tooltip is the list of tooltip lines shown on hover. */
     tooltip: z
       .string()
@@ -2201,10 +2201,15 @@ export const valueElementConfigZ = labeledConfigZ
     variant: z.literal("value"),
     /** position is the offset of the value contents within the symbol. */
     position: spatial.xyZ.optional(),
-    /** color is the background color of the value. */
+    /** color is the color of the value's border and units. */
     color: color.colorZ.optional(),
     /** textColor is the color of the displayed text. */
     textColor: color.colorZ.optional(),
+    /**
+     * backgroundColor is the fill behind the value where no redline band paints. When
+     * absent the value paints no fill.
+     */
+    backgroundColor: color.colorZ.optional(),
     /** tooltip is the list of tooltip lines shown on hover. */
     tooltip: z
       .string()

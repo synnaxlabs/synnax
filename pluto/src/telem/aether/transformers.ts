@@ -239,7 +239,7 @@ export const bandColorProps = z.object({
       flashing: z.boolean().default(false),
     })
     .array(),
-  base: color.colorZ.optional(),
+  background: color.colorZ.optional(),
   smooth: z.boolean().default(false),
 });
 
@@ -249,9 +249,9 @@ export type BandColorProps = z.input<typeof bandColorProps>;
  * Maps a number onto the color of its threshold band. Reads the number from the
  * `source` input and, when a band flashes, a {@link clock} from the `phase` input. A
  * band owns values at or above its threshold and below the next higher threshold.
- * Values below every threshold take the base, or no color when the base is absent.
- * While the owning band flashes, odd clock ticks paint the base instead. Listeners
- * hear only changes of color.
+ * Values below every threshold take the background, or no color when it is absent.
+ * While the owning band flashes, odd clock ticks paint the background instead.
+ * Listeners hear only changes of color.
  */
 export class BandColor extends MultiSourceTransformer<
   math.Numeric | string,
@@ -274,11 +274,11 @@ export class BandColor extends MultiSourceTransformer<
     phase = 0,
   }: Record<string, math.Numeric | string>): color.Color {
     const value = source === "" ? NaN : Number(source);
-    const base = this.props.base ?? color.ZERO;
+    const background = this.props.background ?? color.ZERO;
     const i = this.bands.findLastIndex(({ threshold }) => threshold <= value);
-    if (i === -1) return base;
+    if (i === -1) return background;
     const owner = this.bands[i];
-    if (owner.flashing && Number(phase) % 2 === 1) return base;
+    if (owner.flashing && Number(phase) % 2 === 1) return background;
     const next = this.bands.at(i + 1);
     if (!this.props.smooth || next == null) return owner.color;
     return color.fromGradient(

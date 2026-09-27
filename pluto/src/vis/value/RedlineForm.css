@@ -9,38 +9,46 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-redline-form {
-    height: 100%;
-    padding: 1rem 0;
-}
-
 .pluto-redline-form__bands {
-    width: 64rem;
-    min-height: 0;
+    width: 44rem;
 
-    .pluto-list__item {
+    /* The floor sits outside the list, so the list's own inset would misalign it. */
+    .pluto-list__scroll {
+        padding: 0;
+    }
+
+    .pluto-list__item,
+    .pluto-redline-form__floor {
         min-height: unset;
-        padding: 0.5rem 2rem;
+        padding: 0.5rem 0;
+    }
+
+    .pluto-color-swatch,
+    .pluto-color-swatch__dropdown {
+        flex-shrink: 0;
     }
 }
 
-.pluto-redline-form__footer {
-    padding: 0.5rem 2rem;
+/* Lyra's flex gap rules tie on specificity and load later, so they win over a two-class
+   rule. The extra class keeps band items and the floor on the same gap. */
+.pluto-redline-form .pluto-redline-form__bands {
+    .pluto-list__item.pluto-flex,
+    .pluto-redline-form__floor.pluto-flex {
+        gap: 1rem;
+    }
 }
 
-.pluto-redline-form__display {
-    max-width: 50rem;
-    padding-right: 2rem;
-}
-
-.pluto-redline-form__preview {
-    height: 1rem;
+/* Segments stretch through the row padding so adjacent rows join into one bar. */
+.pluto-redline-form__bar {
+    flex-shrink: 0;
+    align-self: stretch;
+    width: 0.75rem;
+    margin-block: -0.5rem;
+    margin-right: 0.5rem;
     background: var(--pluto-redline-on);
-    border: var(--pluto-border);
-    border-radius: var(--pluto-border-radius);
 }
 
-.pluto-redline-form__preview.pluto--flashing {
+.pluto-redline-form__bar.pluto--flashing {
     animation: pluto-redline-flash 1s steps(1) infinite;
 }
 
@@ -48,4 +56,21 @@
     50% {
         background: var(--pluto-redline-off);
     }
+}
+
+.pluto-redline-form .pluto-redline-form__relation {
+    flex: none;
+    width: 2rem;
+    text-align: center;
+}
+
+.pluto-redline-form__add {
+    align-self: flex-start;
+    margin-top: 0.5rem;
+}
+
+/* A fixed width keeps the threshold inputs of bands and the floor the same width. */
+.pluto-redline-form__actions {
+    flex-shrink: 0;
+    width: 11rem;
 }

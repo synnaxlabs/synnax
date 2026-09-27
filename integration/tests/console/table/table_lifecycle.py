@@ -169,8 +169,8 @@ class TableLifecycle(ConsoleCase):
         table.add_redline_band(row=1, col=0, threshold=10.0)
         table.add_redline_band(row=1, col=0, threshold=90.0)
         thresholds = table.get_redline_thresholds(row=1, col=0)
-        assert thresholds == ["90", "10"], (
-            f"Thresholds should be ['90', '10'], got {thresholds}"
+        assert thresholds == ["10", "90"], (
+            f"Thresholds should be ['10', '90'], got {thresholds}"
         )
 
     def test_open_table_from_resources(self) -> None:

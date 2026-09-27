@@ -344,12 +344,6 @@ Redline struct {
             threshold and below the next higher threshold.
         """
     }
-    base   color.Color? {
-        @doc value """
-            is the fill for values below the lowest threshold. When absent those values
-            paint nothing.
-        """
-    }
     smooth bool = false {
         @doc value "is true when the fill interpolates between band colors."
     }
@@ -744,32 +738,38 @@ NodeConfig union on variant {
         @doc value "is the configuration for text box annotation symbols."
     }
     value extends LabeledConfig, NumericTelemConfig, StalenessConfig {
-        position    spatial.XY?        {
+        position         spatial.XY?        {
             @doc value "is the offset of the value contents within the symbol."
         }
-        color       color.Color?       {
-            @doc value "is the background color of the value."
+        color            color.Color?       {
+            @doc value "is the color of the value's border and units."
         }
-        text_color  color.Color?       {
+        text_color       color.Color?       {
             @doc value "is the color of the displayed text."
         }
-        tooltip     string[] = [] {
+        background_color color.Color?       {
+            @doc value """
+                is the fill behind the value where no redline band paints. When absent
+                the value paints no fill.
+            """
+        }
+        tooltip          string[] = [] {
             @doc value "is the list of tooltip lines shown on hover."
         }
-        redline     Redline = {} {
+        redline          Redline = {} {
             @doc value "is the threshold band mapping applied to the background."
         }
-        units       string = "psi" {
+        units            string = "psi" {
             @doc value "is the unit suffix displayed after the value."
         }
-        inline_size float64 = 70 {
+        inline_size      float64 = 70 {
             @doc value    "is the inline size of the value in pixels."
             @validate min 1
         }
-        level       text.Level = text.LevelH4 {
+        level            text.Level = text.LevelH4 {
             @doc value "is the typography level of the displayed value."
         }
-        location    spatial.LocationXY = {
+        location         spatial.LocationXY = {
             x = spatial.XCenterLocationLeft,
             y = spatial.YCenterLocationCenter
         } {

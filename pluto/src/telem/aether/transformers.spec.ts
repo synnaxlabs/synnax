@@ -639,31 +639,31 @@ describe("BandColor", () => {
       expect(create({ bands: BANDS }, 100)[0].value()).toEqual(red);
     });
 
-    it("should paint the base below every threshold", () => {
-      expect(create({ bands: BANDS, base: green }, 10)[0].value()).toEqual(green);
+    it("should paint the background below every threshold", () => {
+      expect(create({ bands: BANDS, background: green }, 10)[0].value()).toEqual(green);
     });
 
-    it("should paint no color below every threshold without a base", () => {
+    it("should paint no color below every threshold without a background", () => {
       expect(create({ bands: BANDS }, 10)[0].value()).toEqual(color.ZERO);
     });
 
-    it("should paint the base for a value that is not a number", () => {
+    it("should paint the background for a value that is not a number", () => {
       const bands = [{ threshold: 0, color: red }];
-      expect(create({ bands, base: green }, "abc")[0].value()).toEqual(green);
+      expect(create({ bands, background: green }, "abc")[0].value()).toEqual(green);
     });
 
     // The display stringifier renders a missing sample as an empty string.
-    it("should paint the base for a missing value", () => {
+    it("should paint the background for a missing value", () => {
       const bands = [{ threshold: 0, color: red }];
-      expect(create({ bands, base: green }, "")[0].value()).toEqual(green);
+      expect(create({ bands, background: green }, "")[0].value()).toEqual(green);
     });
 
     it("should read a stringified value", () => {
       expect(create({ bands: BANDS }, "1.2e2")[0].value()).toEqual(red);
     });
 
-    it("should paint the base with no bands", () => {
-      expect(create({ bands: [], base: blue }, 10)[0].value()).toEqual(blue);
+    it("should paint the background with no bands", () => {
+      expect(create({ bands: [], background: blue }, 10)[0].value()).toEqual(blue);
     });
   });
 
@@ -695,17 +695,17 @@ describe("BandColor", () => {
       expect(create({ bands }, 50)[0].value()).toEqual(red);
     });
 
-    it("should paint the base below every threshold", () => {
-      expect(create({ bands: BANDS, base: green, smooth: true }, 0)[0].value()).toEqual(
-        green,
-      );
+    it("should paint the background below every threshold", () => {
+      expect(
+        create({ bands: BANDS, background: green, smooth: true }, 0)[0].value(),
+      ).toEqual(green);
     });
   });
 
   describe("flashing", () => {
-    it("should alternate between the band color and the base on each tick", () => {
+    it("should alternate between the band color and the background on each tick", () => {
       const [t] = create(
-        { bands: [{ threshold: 0, color: red, flashing: true }], base: green },
+        { bands: [{ threshold: 0, color: red, flashing: true }], background: green },
         10,
       );
       const phase = new TestSource(0);
@@ -718,7 +718,7 @@ describe("BandColor", () => {
     });
 
     it("should hold the color of a band that does not flash", () => {
-      const [t] = create({ bands: BANDS, base: green }, 75);
+      const [t] = create({ bands: BANDS, background: green }, 75);
       const phase = new TestSource(1);
       t.setSources({ phase });
       expect(t.value()).toEqual(yellow);
@@ -739,7 +739,7 @@ describe("BandColor", () => {
 
     it("should notify on every tick of a flashing band", () => {
       const [t] = create(
-        { bands: [{ threshold: 0, color: red, flashing: true }], base: green },
+        { bands: [{ threshold: 0, color: red, flashing: true }], background: green },
         10,
       );
       const phase = new TestSource(0);

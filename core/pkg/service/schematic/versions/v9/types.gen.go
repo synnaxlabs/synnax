@@ -617,9 +617,6 @@ type Redline struct {
 	// Bands is the list of threshold bands. A band paints values at or above its
 	// threshold and below the next higher threshold.
 	Bands []Band `json:"bands" msgpack:"bands"`
-	// Base is the fill for values below the lowest threshold. When absent those values
-	// paint nothing.
-	Base *color.Color `json:"base,omitzero" msgpack:"base,omitempty"`
 	// Smooth is true when the fill interpolates between band colors.
 	Smooth bool `json:"smooth" msgpack:"smooth"`
 }
@@ -1862,10 +1859,13 @@ type ValueNodeConfig struct {
 	StalenessConfig
 	// Position is the offset of the value contents within the symbol.
 	Position *spatial.XY `json:"position,omitzero" msgpack:"position,omitempty"`
-	// Color is the background color of the value.
+	// Color is the color of the value's border and units.
 	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// TextColor is the color of the displayed text.
 	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
+	// BackgroundColor is the fill behind the value where no redline band paints. When
+	// absent the value paints no fill.
+	BackgroundColor *color.Color `json:"background_color,omitzero" msgpack:"background_color,omitempty"`
 	// Tooltip is the list of tooltip lines shown on hover.
 	Tooltip []string `json:"tooltip" msgpack:"tooltip"`
 	// Redline is the threshold band mapping applied to the background.
@@ -6125,10 +6125,13 @@ type ValueElementConfig struct {
 	StalenessConfig
 	// Position is the offset of the value contents within the symbol.
 	Position *spatial.XY `json:"position,omitzero" msgpack:"position,omitempty"`
-	// Color is the background color of the value.
+	// Color is the color of the value's border and units.
 	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// TextColor is the color of the displayed text.
 	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
+	// BackgroundColor is the fill behind the value where no redline band paints. When
+	// absent the value paints no fill.
+	BackgroundColor *color.Color `json:"background_color,omitzero" msgpack:"background_color,omitempty"`
 	// Tooltip is the list of tooltip lines shown on hover.
 	Tooltip []string `json:"tooltip" msgpack:"tooltip"`
 	// Redline is the threshold band mapping applied to the background.

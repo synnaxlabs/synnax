@@ -125,6 +125,11 @@ export const ValueForm = ({ onVariantChange }: FormProps) => {
           </Form.Section>
           <Form.Section title="Appearance">
             <ColorField path="color" label="Color" fallback={theme.colors.gray.l11} />
+            <ColorField
+              path="backgroundColor"
+              label="Background"
+              fallback={color.ZERO}
+            />
             <Form.Field<text.Level>
               path="level"
               label="Size"

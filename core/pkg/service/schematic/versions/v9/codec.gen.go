@@ -876,6 +876,14 @@ func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {
 		} else {
 			w.Bool(false)
 		}
+		if v.BackgroundColor != nil {
+			w.Bool(true)
+			if err := v.BackgroundColor.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
 		w.Bool(v.Tooltip != nil)
 		if v.Tooltip != nil {
 			w.Uint32(uint32(len(v.Tooltip)))
@@ -2418,6 +2426,19 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
+				var hv color.Color
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.BackgroundColor = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
 				n, err := r.CollectionLen()
 				if err != nil {
 					return err
@@ -3741,6 +3762,14 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 		if v.TextColor != nil {
 			w.Bool(true)
 			if err := v.TextColor.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		if v.BackgroundColor != nil {
+			w.Bool(true)
+			if err := v.BackgroundColor.EncodeOrc(w); err != nil {
 				return err
 			}
 		} else {
@@ -5253,6 +5282,19 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
+				var hv color.Color
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.BackgroundColor = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
 				n, err := r.CollectionLen()
 				if err != nil {
 					return err
@@ -5941,14 +5983,6 @@ func (rv Redline) EncodeOrc(w *orc.Writer) error {
 			}
 		}
 	}
-	if rv.Base != nil {
-		w.Bool(true)
-		if err := rv.Base.EncodeOrc(w); err != nil {
-			return err
-		}
-	} else {
-		w.Bool(false)
-	}
 	w.Bool(rv.Smooth)
 	return nil
 }
@@ -5972,19 +6006,6 @@ func (rv *Redline) DecodeOrc(r *orc.Reader) error {
 					return err
 				}
 			}
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var hv color.Color
-			if err = hv.DecodeOrc(r); err != nil {
-				return err
-			}
-			rv.Base = &hv
 		}
 	}
 	if rv.Smooth, err = r.Bool(); err != nil {

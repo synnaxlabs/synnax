@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { TimeSpan } from "@synnaxlabs/x";
+import { type color, TimeSpan } from "@synnaxlabs/x";
 
 import { telem } from "@/telem/aether";
 
@@ -22,13 +22,16 @@ const FLASH_PERIOD = TimeSpan.milliseconds(500);
  * Builds the background color telemetry for a value painted through the given
  * redline.
  * @param source - The value's display telemetry. Its text is read as a number.
- * @returns The color telemetry, or undefined when the redline paints nothing.
+ * @param background - The fill where no band paints. Absent paints nothing.
+ * @returns The color telemetry, or undefined when nothing paints.
  */
 export const backgroundTelem = (
   source: telem.StringSourceSpec,
-  { bands, base, smooth }: Redline,
+  { bands, smooth }: Redline,
+  background?: color.Color,
 ): telem.ColorSourceSpec | undefined => {
-  if (bands.length === 0 && base == null) return undefined;
+  if (bands.length === 0)
+    return background == null ? undefined : telem.fixedColor(background);
   const flashing = bands.some((band) => band.flashing);
   return telem.sourcePipeline("color", {
     connections: [
@@ -37,7 +40,7 @@ export const backgroundTelem = (
     ],
     segments: {
       source,
-      band: telem.bandColor({ bands, base, smooth }),
+      band: telem.bandColor({ bands, background, smooth }),
       ...(flashing ? { phase: telem.clock({ period: FLASH_PERIOD }) } : {}),
     },
     outlet: "band",

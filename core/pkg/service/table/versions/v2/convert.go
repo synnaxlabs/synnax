@@ -100,8 +100,8 @@ type legacyRedline struct {
 
 // bandRedline rewrites a value cell's legacy redline into threshold bands, in place on
 // the normalized wire map. Each stop becomes a band at its position scaled across the
-// bounds. The lowest stop's color becomes the base and the bands interpolate, so every
-// value keeps the fill the legacy renderer painted.
+// bounds. The bands interpolate and the lowest stop's color becomes the background, so
+// every value keeps the fill the legacy renderer painted.
 func bandRedline(cfg map[string]any) error {
 	if cfg["variant"] != "value" {
 		return nil
@@ -138,7 +138,7 @@ func bandRedline(cfg map[string]any) error {
 			return cmp.Compare(a.Position, b.Position)
 		})
 		if !isZeroColor(lowest.Color) {
-			redline["base"] = lowest.Color
+			cfg["background_color"] = lowest.Color
 		}
 	}
 	cfg["redline"] = redline

@@ -80,6 +80,14 @@ func (cc CellConfig) EncodeOrc(w *orc.Writer) error {
 		if err := v.Redline.EncodeOrc(w); err != nil {
 			return err
 		}
+		if v.BackgroundColor != nil {
+			w.Bool(true)
+			if err := v.BackgroundColor.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
 		w.String(string(v.Level))
 		if v.Color != nil {
 			w.Bool(true)
@@ -184,6 +192,19 @@ func (cc *CellConfig) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv color.Color
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.BackgroundColor = &hv
+			}
+		}
+		{
 			rawV, err := r.String()
 			if err != nil {
 				return err
@@ -255,14 +276,6 @@ func (rv Redline) EncodeOrc(w *orc.Writer) error {
 			}
 		}
 	}
-	if rv.Base != nil {
-		w.Bool(true)
-		if err := rv.Base.EncodeOrc(w); err != nil {
-			return err
-		}
-	} else {
-		w.Bool(false)
-	}
 	w.Bool(rv.Smooth)
 	return nil
 }
@@ -286,19 +299,6 @@ func (rv *Redline) DecodeOrc(r *orc.Reader) error {
 					return err
 				}
 			}
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var hv color.Color
-			if err = hv.DecodeOrc(r); err != nil {
-				return err
-			}
-			rv.Base = &hv
 		}
 	}
 	if rv.Smooth, err = r.Bool(); err != nil {

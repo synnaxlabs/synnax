@@ -35,12 +35,6 @@ Redline struct {
             threshold and below the next higher threshold.
         """
     }
-    base   color.Color? {
-        @doc value """
-            is the fill for values below the lowest threshold. When absent those values
-            paint nothing.
-        """
-    }
     smooth bool = false {
         @doc value "is true when the fill interpolates between band colors."
     }
@@ -93,6 +87,12 @@ CellConfig union on variant {
         }
         redline           Redline = {} {
             @doc value "is the threshold band mapping applied to the background."
+        }
+        background_color  color.Color?      {
+            @doc value """
+                is the fill behind the value where no redline band paints. When absent
+                the cell paints no fill.
+            """
         }
         level             text.Level = text.LevelH5 {
             @doc value "is the typography level of the displayed value."

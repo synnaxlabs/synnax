@@ -9,6 +9,7 @@
 
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
+import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Form } from "@/schematic/node/common/form";
@@ -25,6 +26,11 @@ export const ValueForm = (): ReactElement => (
         </Base.Section>
         <Base.Section title="Appearance">
           <Form.ColorField path="color" />
+          <Form.ColorField
+            path="backgroundColor"
+            label="Background"
+            defaultValue={color.ZERO}
+          />
           <Form.LevelSizeField />
           <Form.UnitsField />
           <Base.NumericField

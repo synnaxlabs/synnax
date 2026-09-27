@@ -24,14 +24,19 @@ const band = (flashing: boolean): Band => ({
 });
 
 describe("backgroundTelem", () => {
-  it("should paint nothing for a redline with no bands and no base", () => {
+  it("should paint nothing with no bands and no background", () => {
     expect(backgroundTelem(SOURCE, { bands: [], smooth: false })).toBeUndefined();
   });
 
-  it("should paint a base with no bands", () => {
-    expect(
-      backgroundTelem(SOURCE, { bands: [], base: RED, smooth: false }),
-    ).toBeDefined();
+  it("should paint the background alone when there are no bands", () => {
+    expect(backgroundTelem(SOURCE, { bands: [], smooth: false }, RED)).toEqual(
+      telem.fixedColor(RED),
+    );
+  });
+
+  it("should fall back to the background below every band", () => {
+    const spec = backgroundTelem(SOURCE, { bands: [band(false)], smooth: false }, RED);
+    expect(spec?.props.segments.band.props).toMatchObject({ background: RED });
   });
 
   it("should wire a clock into the bands when one flashes", () => {

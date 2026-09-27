@@ -148,16 +148,18 @@ class Table(ConsolePage):
             row: Row index (0-based)
             col: Column index (0-based)
             threshold: Lowest value the band paints. It must exceed every existing
-                threshold, since a new band is added at the top of the list.
+                threshold, since a new band is added at the bottom of the list.
         """
         bands = self._open_redline_bands(row, col)
-        bands.get_by_text(re.compile(r"^Add (a )?band$")).first.click()
-        threshold_input = bands.locator(".pluto-list__item input").first
+        self.page.locator(".pluto-redline-form").get_by_text(
+            "Add band", exact=True
+        ).click()
+        threshold_input = bands.locator(".pluto-list__item input").last
         threshold_input.fill(str(threshold))
         threshold_input.press("Enter")
 
     def get_redline_thresholds(self, row: int, col: int) -> list[str]:
-        """Get the band thresholds of a value cell's redline, highest first.
+        """Get the band thresholds of a value cell's redline, lowest first.
 
         Args:
             row: Row index (0-based)

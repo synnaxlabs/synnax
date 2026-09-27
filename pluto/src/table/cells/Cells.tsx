@@ -98,6 +98,7 @@ export const Value = ({
   level = "h5",
   color: textColor,
   redline,
+  backgroundColor,
   selected,
   box: b,
   onSelect,
@@ -109,8 +110,8 @@ export const Value = ({
     [channel, rollingAverage, precision, notation],
   );
   const backgroundTelem = useMemo(
-    () => BaseValue.backgroundTelem(t, redline),
-    [t, redline],
+    () => BaseValue.backgroundTelem(t, redline, backgroundColor),
+    [t, redline, backgroundColor],
   );
   BaseValue.use({
     aetherKey: cellKey,

@@ -54,9 +54,6 @@ type Redline struct {
 	// Bands is the list of threshold bands. A band paints values at or above its
 	// threshold and below the next higher threshold.
 	Bands []Band `json:"bands" msgpack:"bands"`
-	// Base is the fill for values below the lowest threshold. When absent those values
-	// paint nothing.
-	Base *color.Color `json:"base,omitzero" msgpack:"base,omitempty"`
 	// Smooth is true when the fill interpolates between band colors.
 	Smooth bool `json:"smooth" msgpack:"smooth"`
 }
@@ -126,6 +123,9 @@ type ValueCellConfig struct {
 	Notation notation.Notation `json:"notation" msgpack:"notation"`
 	// Redline is the threshold band mapping applied to the background.
 	Redline Redline `json:"redline" msgpack:"redline"`
+	// BackgroundColor is the fill behind the value where no redline band paints. When
+	// absent the cell paints no fill.
+	BackgroundColor *color.Color `json:"background_color,omitzero" msgpack:"background_color,omitempty"`
 	// Level is the typography level of the displayed value.
 	Level text.Level `json:"level" msgpack:"level"`
 	// Color is the color of the displayed text. When absent the value renders with a

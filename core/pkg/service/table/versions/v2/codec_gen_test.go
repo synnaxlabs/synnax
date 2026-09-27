@@ -99,14 +99,14 @@ var _ = Describe("Codec", func() {
 							Flashing:  false,
 						},
 					},
-					Base: new(color.Color{
-						R: 13,
-						G: 14,
-						B: 15,
-						A: 15.5,
-					}),
-					Smooth: false,
+					Smooth: true,
 				},
+				BackgroundColor: new(color.Color{
+					R: 14,
+					G: 15,
+					B: 16,
+					A: 16.5,
+				}),
 				Level: text.Level("h1"),
 				Color: new(color.Color{
 					R: 20,
@@ -165,29 +165,10 @@ var _ = Describe("Codec", func() {
 						Flashing: true,
 					},
 				},
-				Base: new(color.Color{
-					R: 12,
-					G: 13,
-					B: 14,
-					A: 14.5,
-				}),
-				Smooth: true,
-			}),
-			Entry("zero values", v2.Redline{
-				Bands:  []v2.Band{},
-				Base:   nil,
 				Smooth: false,
 			}),
-			Entry("empty collections", v2.Redline{
-				Bands: []v2.Band{},
-				Base: new(color.Color{
-					R: 4,
-					G: 5,
-					B: 6,
-					A: 6.5,
-				}),
-				Smooth: true,
-			}),
+			Entry("zero values", v2.Redline{Bands: []v2.Band{}, Smooth: false}),
+			Entry("empty collections", v2.Redline{Bands: []v2.Band{}, Smooth: false}),
 		)
 	})
 	Describe("Row", func() {
@@ -342,13 +323,7 @@ func BenchmarkEncodeDecodeRedline(b *testing.B) {
 				Flashing: true,
 			},
 		},
-		Base: new(color.Color{
-			R: 12,
-			G: 13,
-			B: 14,
-			A: 14.5,
-		}),
-		Smooth: true,
+		Smooth: false,
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -512,14 +487,14 @@ func FuzzDecodeCellConfig(f *testing.F) {
 						Flashing:  false,
 					},
 				},
-				Base: new(color.Color{
-					R: 13,
-					G: 14,
-					B: 15,
-					A: 15.5,
-				}),
-				Smooth: false,
+				Smooth: true,
 			},
+			BackgroundColor: new(color.Color{
+				R: 14,
+				G: 15,
+				B: 16,
+				A: 16.5,
+			}),
 			Level: text.Level("h1"),
 			Color: new(color.Color{
 				R: 20,
@@ -619,24 +594,6 @@ func FuzzDecodeRedline(f *testing.F) {
 					Flashing: true,
 				},
 			},
-			Base: new(color.Color{
-				R: 12,
-				G: 13,
-				B: 14,
-				A: 14.5,
-			}),
-			Smooth: true,
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v2.Redline{
-			Bands:  []v2.Band{},
-			Base:   nil,
 			Smooth: false,
 		}
 		w := orc.NewWriter(0)
@@ -646,16 +603,15 @@ func FuzzDecodeRedline(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v2.Redline{
-			Bands: []v2.Band{},
-			Base: new(color.Color{
-				R: 4,
-				G: 5,
-				B: 6,
-				A: 6.5,
-			}),
-			Smooth: true,
+		seed := v2.Redline{Bands: []v2.Band{}, Smooth: false}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
 		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v2.Redline{Bands: []v2.Band{}, Smooth: false}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)

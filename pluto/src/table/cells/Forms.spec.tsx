@@ -9,7 +9,7 @@
 
 import { table } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
-import { fireEvent, render } from "@testing-library/react";
+import { act, fireEvent, render } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -67,9 +67,12 @@ describe("ValueForm", () => {
   });
 
   describe("redline tab", () => {
+    const bars = (container: HTMLElement) =>
+      Array.from(container.querySelectorAll<HTMLElement>(".pluto-redline-form__bar"));
+
     it("should add a band above the highest threshold", () => {
       const { getByText } = renderTab("Redline");
-      fireEvent.click(getByText("Add a band"));
+      fireEvent.click(getByText("Add band"));
       fireEvent.click(getByText("Add band"));
       expect(methods.value().redline.bands.map(({ threshold }) => threshold)).toEqual([
         0, 1,
@@ -78,41 +81,55 @@ describe("ValueForm", () => {
 
     it("should remove a band", () => {
       const { getByText, getByLabelText } = renderTab("Redline");
-      fireEvent.click(getByText("Add a band"));
+      fireEvent.click(getByText("Add band"));
       fireEvent.click(getByLabelText("Remove band"));
       expect(methods.value().redline.bands).toEqual([]);
     });
 
     it("should toggle whether a band flashes", () => {
       const { getByText, container } = renderTab("Redline");
-      fireEvent.click(getByText("Add a band"));
-      const toggle = container.querySelector("[aria-pressed]");
+      fireEvent.click(getByText("Add band"));
+      const toggle = container.querySelector(
+        ".pluto-redline-form__bands [aria-pressed]",
+      );
       expect(toggle).not.toBeNull();
       fireEvent.click(toggle!);
       expect(methods.value().redline.bands[0].flashing).toBe(true);
     });
 
-    it("should flash a flashing band in the preview", () => {
+    it("should flash the bar of a flashing band", () => {
       const { getByText, container } = renderTab("Redline");
-      fireEvent.click(getByText("Add a band"));
-      const preview = container.querySelector<HTMLElement>(
-        ".pluto-redline-form__preview",
+      fireEvent.click(getByText("Add band"));
+      const bar = bars(container)[1];
+      expect(bar.classList).not.toContain("pluto--flashing");
+      fireEvent.click(
+        container.querySelector(".pluto-redline-form__bands [aria-pressed]")!,
       );
-      expect(preview).not.toBeNull();
-      expect(preview!.classList).not.toContain("pluto--flashing");
-      fireEvent.click(container.querySelector("[aria-pressed]")!);
-      expect(preview!.classList).toContain("pluto--flashing");
-      const on = preview!.style.getPropertyValue("--pluto-redline-on");
-      const off = preview!.style.getPropertyValue("--pluto-redline-off");
-      expect(on).toContain("linear-gradient");
+      expect(bar.classList).toContain("pluto--flashing");
+      const on = bar.style.getPropertyValue("--pluto-redline-on");
+      const off = bar.style.getPropertyValue("--pluto-redline-off");
       expect(off).not.toEqual(on);
+    });
+
+    it("should blend a band's bar into the band above in smooth mode", () => {
+      const { getByText, container } = renderTab("Redline");
+      fireEvent.click(getByText("Add band"));
+      fireEvent.click(getByText("Add band"));
+      expect(
+        bars(container)[1].style.getPropertyValue("--pluto-redline-on"),
+      ).not.toContain("gradient");
+      fireEvent.click(getByText("Smooth"));
+      expect(methods.value().redline.smooth).toBe(true);
+      expect(bars(container)[1].style.getPropertyValue("--pluto-redline-on")).toContain(
+        "linear-gradient",
+      );
     });
 
     it("should write a committed threshold", () => {
       const { getByText, container } = renderTab("Redline");
-      fireEvent.click(getByText("Add a band"));
+      fireEvent.click(getByText("Add band"));
       const input = container.querySelector<HTMLInputElement>(
-        ".pluto-redline-form__bands input",
+        ".pluto-redline-form__bands .pluto-list__item input",
       );
       expect(input).not.toBeNull();
       fireEvent.change(input!, { target: { value: "850" } });
@@ -125,25 +142,35 @@ describe("ValueForm", () => {
       const inputs = () =>
         Array.from(
           container.querySelectorAll<HTMLInputElement>(
-            ".pluto-redline-form__bands input",
+            ".pluto-redline-form__bands .pluto-list__item input",
           ),
         );
       const commit = (input: HTMLInputElement, value: string) => {
         fireEvent.change(input, { target: { value } });
         fireEvent.blur(input);
       };
-      fireEvent.click(getByText("Add a band"));
       fireEvent.click(getByText("Add band"));
-      expect(inputs().map((i) => i.value)).toEqual(["1", "0"]);
-      commit(inputs()[1], "5");
-      expect(inputs().map((i) => i.value)).toEqual(["5", "1"]);
+      fireEvent.click(getByText("Add band"));
+      expect(inputs().map((i) => i.value)).toEqual(["0", "1"]);
+      commit(inputs()[0], "5");
+      expect(inputs().map((i) => i.value)).toEqual(["1", "5"]);
     });
 
-    it("should leave the base absent until one is picked", () => {
+    it("should show that values below the lowest band paint no fill", () => {
+      const { getByText, container } = renderTab("Redline");
+      expect(getByText("All values")).toBeDefined();
+      fireEvent.click(getByText("Add band"));
+      const floor = container.querySelector(".pluto-redline-form__floor input");
+      expect(floor).toHaveProperty("disabled", true);
+      expect(floor).toHaveProperty("value", "0");
+      expect(getByText("No fill")).toBeDefined();
+    });
+
+    it("should show the background below the lowest band once one is set", () => {
       const { getByText } = renderTab("Redline");
-      fireEvent.click(getByText("Add a band"));
-      expect(getByText("Base: no fill")).toBeDefined();
-      expect(methods.value().redline.base).toBeUndefined();
+      fireEvent.click(getByText("Add band"));
+      act(() => methods.set("backgroundColor", [0, 255, 0, 1]));
+      expect(getByText("Background")).toBeDefined();
     });
   });
 });

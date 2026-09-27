@@ -64,11 +64,6 @@ export const redlineZ = z.object({
    * threshold and below the next higher threshold.
    */
   bands: bandZ.array().default(() => []),
-  /**
-   * base is the fill for values below the lowest threshold. When absent those values
-   * paint nothing.
-   */
-  base: color.colorZ.optional(),
   /** smooth is true when the fill interpolates between band colors. */
   smooth: z.boolean().default(false),
 });
@@ -109,6 +104,11 @@ export const valueCellConfigZ = z.object({
   notation: notation.notationZ.default("standard"),
   /** redline is the threshold band mapping applied to the background. */
   redline: redlineZ.prefault({}),
+  /**
+   * backgroundColor is the fill behind the value where no redline band paints. When
+   * absent the cell paints no fill.
+   */
+  backgroundColor: color.colorZ.optional(),
   /** level is the typography level of the displayed value. */
   level: text.levelZ.default("h5"),
   /**

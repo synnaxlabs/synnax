@@ -693,22 +693,22 @@ var _ = Describe("Codec", func() {
 					B: 13,
 					A: 13.5,
 				}),
-				Tooltip: []string{"test_14"},
+				BackgroundColor: new(color.Color{
+					R: 16,
+					G: 17,
+					B: 18,
+					A: 18.5,
+				}),
+				Tooltip: []string{"test_19"},
 				Redline: v9.Redline{
 					Bands: []v9.Band{
 						{
-							Key:       "test_17",
-							Threshold: 18.5,
+							Key:       "test_22",
+							Threshold: 23.5,
 							Color:     color.Color{},
-							Flashing:  false,
+							Flashing:  true,
 						},
 					},
-					Base: new(color.Color{
-						R: 23,
-						G: 24,
-						B: 25,
-						A: 25.5,
-					}),
 					Smooth: false,
 				},
 				Units:      "test_27",
@@ -1473,22 +1473,22 @@ var _ = Describe("Codec", func() {
 					B: 13,
 					A: 13.5,
 				}),
-				Tooltip: []string{"test_14"},
+				BackgroundColor: new(color.Color{
+					R: 16,
+					G: 17,
+					B: 18,
+					A: 18.5,
+				}),
+				Tooltip: []string{"test_19"},
 				Redline: v9.Redline{
 					Bands: []v9.Band{
 						{
-							Key:       "test_17",
-							Threshold: 18.5,
+							Key:       "test_22",
+							Threshold: 23.5,
 							Color:     color.Color{},
-							Flashing:  false,
+							Flashing:  true,
 						},
 					},
-					Base: new(color.Color{
-						R: 23,
-						G: 24,
-						B: 25,
-						A: 25.5,
-					}),
 					Smooth: false,
 				},
 				Units:      "test_27",
@@ -1818,29 +1818,10 @@ var _ = Describe("Codec", func() {
 						Flashing: true,
 					},
 				},
-				Base: new(color.Color{
-					R: 12,
-					G: 13,
-					B: 14,
-					A: 14.5,
-				}),
-				Smooth: true,
-			}),
-			Entry("zero values", v9.Redline{
-				Bands:  []v9.Band{},
-				Base:   nil,
 				Smooth: false,
 			}),
-			Entry("empty collections", v9.Redline{
-				Bands: []v9.Band{},
-				Base: new(color.Color{
-					R: 4,
-					G: 5,
-					B: 6,
-					A: 6.5,
-				}),
-				Smooth: true,
-			}),
+			Entry("zero values", v9.Redline{Bands: []v9.Band{}, Smooth: false}),
+			Entry("empty collections", v9.Redline{Bands: []v9.Band{}, Smooth: false}),
 		)
 	})
 	Describe("ScaleIndicatorConfig", func() {
@@ -2349,13 +2330,7 @@ func BenchmarkEncodeDecodeRedline(b *testing.B) {
 				Flashing: true,
 			},
 		},
-		Base: new(color.Color{
-			R: 12,
-			G: 13,
-			B: 14,
-			A: 14.5,
-		}),
-		Smooth: true,
+		Smooth: false,
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -3523,22 +3498,22 @@ func FuzzDecodeElementConfig(f *testing.F) {
 				B: 13,
 				A: 13.5,
 			}),
-			Tooltip: []string{"test_14"},
+			BackgroundColor: new(color.Color{
+				R: 16,
+				G: 17,
+				B: 18,
+				A: 18.5,
+			}),
+			Tooltip: []string{"test_19"},
 			Redline: v9.Redline{
 				Bands: []v9.Band{
 					{
-						Key:       "test_17",
-						Threshold: 18.5,
+						Key:       "test_22",
+						Threshold: 23.5,
 						Color:     color.Color{},
-						Flashing:  false,
+						Flashing:  true,
 					},
 				},
-				Base: new(color.Color{
-					R: 23,
-					G: 24,
-					B: 25,
-					A: 25.5,
-				}),
 				Smooth: false,
 			},
 			Units:      "test_27",
@@ -5138,22 +5113,22 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 				B: 13,
 				A: 13.5,
 			}),
-			Tooltip: []string{"test_14"},
+			BackgroundColor: new(color.Color{
+				R: 16,
+				G: 17,
+				B: 18,
+				A: 18.5,
+			}),
+			Tooltip: []string{"test_19"},
 			Redline: v9.Redline{
 				Bands: []v9.Band{
 					{
-						Key:       "test_17",
-						Threshold: 18.5,
+						Key:       "test_22",
+						Threshold: 23.5,
 						Color:     color.Color{},
-						Flashing:  false,
+						Flashing:  true,
 					},
 				},
-				Base: new(color.Color{
-					R: 23,
-					G: 24,
-					B: 25,
-					A: 25.5,
-				}),
 				Smooth: false,
 			},
 			Units:      "test_27",
@@ -5982,24 +5957,6 @@ func FuzzDecodeRedline(f *testing.F) {
 					Flashing: true,
 				},
 			},
-			Base: new(color.Color{
-				R: 12,
-				G: 13,
-				B: 14,
-				A: 14.5,
-			}),
-			Smooth: true,
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v9.Redline{
-			Bands:  []v9.Band{},
-			Base:   nil,
 			Smooth: false,
 		}
 		w := orc.NewWriter(0)
@@ -6009,16 +5966,15 @@ func FuzzDecodeRedline(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v9.Redline{
-			Bands: []v9.Band{},
-			Base: new(color.Color{
-				R: 4,
-				G: 5,
-				B: 6,
-				A: 6.5,
-			}),
-			Smooth: true,
+		seed := v9.Redline{Bands: []v9.Band{}, Smooth: false}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
 		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v9.Redline{Bands: []v9.Band{}, Smooth: false}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)

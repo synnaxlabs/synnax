@@ -10,8 +10,8 @@ A redline maps a live value to a background fill on the schematic value symbol a
 table value cell. Until now a redline was a lower and upper bound plus gradient stops at
 normalized 0 to 1 positions, edited on a click-to-add gradient bar. This RFC replaces
 that model with threshold bands: a list of threshold and color pairs in the value's
-units, discrete by default, with a smooth toggle for interpolation, a flashing flag per
-band, and an optional base fill for values below every threshold.
+units, discrete by default, with a smooth toggle for interpolation and a flashing flag
+per band. Values below every threshold show a new background color on the value itself.
 
 ## 1 Motivation
 
@@ -29,7 +29,7 @@ The gradient editor (`Color.GradientPicker`) failed its users in four ways:
 
 Grafana, Datadog, Dynatrace, New Relic, Excel conditional formatting, and Ignition all
 configure value-to-color mappings as rows of a value in real units plus a color. Each
-has an explicit add button, a delete per row, a base slot, and no manual reorder: the
+has an explicit add button, a delete per row, a base color, and no manual reorder: the
 list sorts by value. Where discrete and gradient rendering both exist (Grafana color
 schemes, Mapbox `step` and `interpolate`, QGIS discrete ramps), one toggle selects the
 mode. Flashing is a state of a band or an alarm priority (Ignition style classes, ISA
@@ -37,8 +37,8 @@ mode. Flashing is a state of a band or an alarm priority (Ignition style classes
 editor during its 2019 thresholds redesign and removed it because users could not find
 where to click.
 
-We align with all of it except one point: our base defaults to no fill. A value without
-a redline paints nothing, and operators expect a nominal value to stay quiet.
+We differ on the base. It is a style of the value, not part of the redline, and it
+defaults to no fill: operators expect a nominal value to stay quiet.
 
 ## 3 Design
 
@@ -49,35 +49,37 @@ a redline paints nothing, and operators expect a nominal value to stay quiet.
 
 - **`bands`** (`Band[]`, default empty): A band paints the values at or above its
   `threshold` and below the next higher threshold. Thresholds are in the value's units.
-- **`base`** (`color.Color?`): The fill below the lowest threshold. Absent paints
-  nothing. Following RFC 0061, a present value is a deliberate choice.
 - **`smooth`** (`bool`, default `false`): Band colors interpolate linearly between
-  thresholds. Below the lowest threshold the base still applies, and above the highest
-  threshold the highest band's color holds.
+  thresholds. Above the highest threshold the highest band's color holds.
 
-A `Band` holds a `key`, a `threshold`, a required `color`, and `flashing`. A flashing
-band alternates between its color and the base, 500 ms each, while the value is in the
-band. The value config's `redline` field defaults to an empty redline in both resources,
-so the table cell no longer needs an optional field that its editor materializes on
-open.
+A `Band` holds a `key`, a `threshold`, a required `color`, and `flashing`. The value
+config's `redline` field defaults to an empty redline in both resources, so the table
+cell no longer needs an optional field that its editor materializes on open.
+
+The value config in both resources gains `background_color` (`color.Color?`), set in the
+style tab like a text cell's background. It paints where no band does: below the lowest
+threshold, and during the off half of a flash. A flashing band alternates between its
+color and the background, 500 ms each. Absent paints nothing. Following RFC 0061, a
+present value is a deliberate choice.
 
 ### 3.1 Editor
 
-`Value.RedlineForm` (`pluto/src/vis/value/RedlineForm.tsx`) follows the row-list anatomy
-of the schematic state mapping form:
+`Value.RedlineForm` (`pluto/src/vis/value/RedlineForm.tsx`) has two form sections, like
+the other symbol forms:
 
-- **Band rows**: The highest threshold is at the top. Each row has a color swatch, a
-  threshold input that shows the value's units, a flash toggle, and a delete button that
-  shows on hover. Rows sort again when a threshold commits. There is no drag reorder,
-  because the threshold defines the order.
-- **Base row**: Always last and not deletable. It shows "no fill" while absent, and a
-  clear button returns a chosen base to absent.
-- **Add**: The first band takes the theme warning color, the second the error color, and
-  the next ones the visualization palette. A new threshold sits one step above the
-  highest band, where the step is the gap between the two highest bands.
-- **Smooth**: One switch for the redline.
-- **Preview**: A strip that paints the same fill the canvas paints, in the active mode.
-  Flashing bands flash in the strip too.
+- **Bands**: The list reads from the lowest threshold down to the highest. Its first
+  entry is read-only: "Below" the lowest threshold, it shows the background or "No
+  fill". Each band has a color swatch, a threshold input that reads "≥" and shows the
+  value's units, a flash toggle, and a delete button that shows on hover. The list sorts
+  again when a threshold commits. There is no drag reorder, because the threshold
+  defines the order.
+- **Color bar**: A bar down the left edge of the list paints, beside each band, the fill
+  the canvas paints for it, in the active mode. Flashing bands flash in the bar too.
+- **Add**: The add button sits below the highest band, where a new band lands. The first
+  band takes the theme warning color, the second the error color, and the next ones the
+  visualization palette. A new threshold sits one step above the highest band, where the
+  step is the gap between the two highest bands.
+- **Options**: A `Transition` field selects `Steps` or `Smooth`.
 - **Swatch presets**: `Color.Picker` takes `presets`. The redline offers the theme's
   secondary, warning, error, and primary colors ahead of the full picker.
 
@@ -94,7 +96,7 @@ of the schematic state mapping form:
   changes.
 - **`telem.clock`**: A number source that counts up and notifies once every period. It
   connects to the band stage as `phase` only when some band flashes. Odd ticks paint the
-  base for a flashing band. The value renderer already repaints on each background
+  background for a flashing band. The value renderer already repaints on each background
   notification, so it needs no change.
 
 `MultiSourceTransformer` now forwards its sources' notifications. Before this change a
@@ -113,8 +115,8 @@ lifts rewrite each legacy value config's redline before they decode it:
   released renderer did.
 - `smooth` is true when the legacy gradient has stops, because the released renderer
   always interpolated.
-- `base` is the color of the lowest stop, which keeps the released fill below the range.
-  A transparent lowest stop leaves the base absent.
+- `background_color` is the color of the lowest stop, which keeps the released fill
+  below the range. A transparent lowest stop leaves the background absent.
 - An empty gradient becomes an empty redline.
 
 A redline the lift cannot read counts as a rejected config: the schematic lift resets
@@ -133,7 +135,9 @@ same lifts.
 1. **Threshold bands over gradient stops**: The gradient survives only as the smooth
    toggle. Users with elaborate multi-stop gradients lose direct manipulation on a bar,
    but every surveyed tool that tried the bar removed it.
-2. **Base defaults to no fill**: Quiet nominal values are the operator expectation.
+2. **The base is the value's background**: A default fill is a style of the value, not a
+   threshold rule, and a table text cell already sets it in its style tab. It defaults
+   to no fill, because quiet nominal values are the operator expectation.
 3. **Flashing is a band flag**: Alarm emphasis belongs to the band a value is in.
 4. **No preset band sets**: Redlines hold two to five bands. Seeded severity colors and
    suggested thresholds give the benefit of presets without a new surface.
