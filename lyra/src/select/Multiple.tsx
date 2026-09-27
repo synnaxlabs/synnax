@@ -71,6 +71,7 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
   fixedItems,
   allowNone,
   replaceOnSingle,
+  initialHover,
   triggerProps,
   virtual = true,
   dialogProps,
@@ -91,6 +92,7 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
         onFetchMore={onFetchMore}
         allowNone={allowNone}
         replaceOnSingle={replaceOnSingle}
+        initialHover={initialHover}
         virtual={virtual}
       >
         <MultipleTrigger<K, E>
