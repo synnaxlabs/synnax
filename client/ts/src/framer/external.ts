@@ -14,6 +14,12 @@ export {
   type StreamHandler,
   type Subscription,
 } from "@/framer/cache/streamer";
+export {
+  tileRange,
+  type TileRemoteReader,
+  tileSpan,
+  type TileSpec,
+} from "@/framer/cache/tile";
 export { IDENTITY_TRANSFORM, type Transform } from "@/framer/cache/transform";
 export * from "@/framer/client";
 export * from "@/framer/feed";
