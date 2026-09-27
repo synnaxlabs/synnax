@@ -26,6 +26,12 @@ export interface ItemsProps<K extends record.Key = record.Key> {
   emptyContent?: ReactNode;
 }
 
+interface CachedItem {
+  index: number;
+  translate?: number;
+  element: ReactNode;
+}
+
 const BaseItems = <
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K>,
@@ -39,18 +45,31 @@ const BaseItems = <
     throw new Error("List.Items must be inside the List.Scroll of its own List.Frame");
   const totalSize = getTotalSize();
   const virtualizerStyle = useMemo(() => ({ minHeight: totalSize }), [totalSize]);
+  // Returning the same element for an unchanged item lets React skip it, so a scroll or
+  // a data change renders only the items that moved or appeared. A new render function
+  // clears the cache.
+  const cache = useMemo(() => new Map<K, CachedItem>(), [children]);
   if (data.length === 0) return emptyContent;
+  const items = getItems();
+  const keys = new Set(items.map(({ key }) => key));
+  cache.forEach((_, key) => {
+    if (!keys.has(key)) cache.delete(key);
+  });
+  const elements = items.map(({ key, index, translate }) => {
+    const cached = cache.get(key);
+    if (cached?.index === index && cached.translate === translate)
+      return cached.element;
+    const element = children({ key, index, itemKey: key, translate });
+    cache.set(key, { index, translate, element });
+    return element;
+  });
   return (
     <div
       ref={itemsRef}
       className={CSS.BE("list", "virtualizer")}
       style={virtualizerStyle}
     >
-      <ItemsContext value>
-        {getItems().map(({ key, index, translate }) =>
-          children({ key, index, itemKey: key, translate }),
-        )}
-      </ItemsContext>
+      <ItemsContext value>{elements}</ItemsContext>
       {sentinelRef != null && (
         <div
           ref={sentinelRef}

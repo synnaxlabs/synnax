@@ -9,7 +9,7 @@
 
 import { observe, type record } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
-import { act, type ReactElement, useState } from "react";
+import { act, Profiler, type ReactElement, useState } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Button } from "@/button";
@@ -242,6 +242,40 @@ describe("List", () => {
       const tight = rows(renderWindowed(0)).length;
       const loose = rows(renderWindowed(40)).length;
       expect(loose).toBeGreaterThan(tight);
+    });
+
+    it("should not re-render the rows that stay in view when the list scrolls", () => {
+      const updated = new Set<string>();
+      const result = render(
+        <List.Frame data={DATA} virtual itemHeight={ITEM_HEIGHT} overscan={0}>
+          <List.Scroll>
+            <List.Items>
+              {({ key, ...rest }: List.ItemProps<string>) => (
+                <Profiler
+                  key={key}
+                  id={rest.itemKey}
+                  onRender={(id, phase) => {
+                    if (phase !== "mount") updated.add(id);
+                  }}
+                >
+                  <List.Item {...rest}>{key}</List.Item>
+                </Profiler>
+              )}
+            </List.Items>
+          </List.Scroll>
+        </List.Frame>,
+      );
+      const scroller =
+        result.container.querySelector<HTMLElement>(".pluto-list__scroll");
+      if (scroller == null) throw new Error("scroll container not found");
+      const before = rows(result).map((row) => row.id);
+      act(() => {
+        scroller.scrollTop = ITEM_HEIGHT;
+        fireEvent.scroll(scroller);
+      });
+      const after = rows(result).map((row) => row.id);
+      expect(after).not.toEqual(before);
+      expect([...updated]).toEqual([]);
     });
 
     it("should keep the container tall enough to scroll the whole data set", () => {

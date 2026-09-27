@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { act, fireEvent, render, type RenderResult } from "@testing-library/react";
-import { type ReactElement } from "react";
+import { Profiler, type ReactElement, type ReactNode, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Dialog } from "@/dialog";
@@ -194,5 +194,109 @@ describe("Select.MultipleTrigger", () => {
     const tag = c.baseElement.querySelector(".pluto-tag");
     expect(tag?.textContent).toContain("All");
     expect(tag?.className).not.toContain("error");
+  });
+});
+
+describe("Select render isolation", () => {
+  const KEYS = Array.from({ length: 100 }, (_, i) => `key-${i}`);
+
+  interface Renders {
+    counts: Map<string, number>;
+    total: () => number;
+    reset: () => void;
+  }
+
+  const createRenders = (): Renders => {
+    const counts = new Map<string, number>();
+    return {
+      counts,
+      total: () => Array.from(counts.values()).reduce((a, b) => a + b, 0),
+      reset: () => counts.clear(),
+    };
+  };
+
+  // Counts every commit that re-renders anything inside one option.
+  const Counted = ({
+    id,
+    renders,
+    children,
+  }: {
+    id: string;
+    renders: Renders;
+    children: ReactNode;
+  }): ReactElement => (
+    <Profiler
+      id={id}
+      onRender={(_, phase) => {
+        if (phase === "mount") return;
+        renders.counts.set(id, (renders.counts.get(id) ?? 0) + 1);
+      }}
+    >
+      {children}
+    </Profiler>
+  );
+
+  it("should re-render only the changed rows when an inline onChange selects", () => {
+    const renders = createRenders();
+    const item = ({ key, ...p }: Select.ItemProps<string>): ReactElement => (
+      <Counted key={key} id={p.itemKey} renders={renders}>
+        <Select.Item {...p}>{p.itemKey}</Select.Item>
+      </Counted>
+    );
+    const Harness = (): ReactElement => {
+      const [value, setValue] = useState<string | null>(null);
+      return (
+        <Triggers.Provider>
+          <Dialog.Frame visible>
+            <Select.Frame<string, undefined>
+              data={KEYS}
+              value={value ?? undefined}
+              onChange={(next: string | null) => setValue(next)}
+              allowNone
+            >
+              <Select.List>
+                <Select.Items<string>>{item}</Select.Items>
+              </Select.List>
+            </Select.Frame>
+          </Dialog.Frame>
+        </Triggers.Provider>
+      );
+    };
+    const c = render(<Harness />);
+    fireEvent.click(c.getByText("key-3"));
+    renders.reset();
+    fireEvent.click(c.getByText("key-7"));
+    expect([...renders.counts.keys()].sort()).toEqual(["key-3", "key-7"]);
+  });
+
+  it("should render only the fixed items whose visibility changes on a search", () => {
+    const renders = createRenders();
+    const c = render(
+      <Triggers.Provider>
+        <Dialog.Frame visible>
+          <Select.Frame<string, undefined> onChange={vi.fn()} allowNone>
+            <Select.Dialog>
+              <Select.Search />
+              <Select.List>
+                {KEYS.map((key) => (
+                  <Counted key={key} id={key} renders={renders}>
+                    <Select.Item itemKey={key}>{key}</Select.Item>
+                  </Counted>
+                ))}
+              </Select.List>
+            </Select.Dialog>
+          </Select.Frame>
+        </Dialog.Frame>
+      </Triggers.Provider>,
+    );
+    const input = c.getByPlaceholderText("Search...");
+    fireEvent.change(input, { target: { value: "key-1" } });
+    renders.reset();
+    // key-1 and key-10 to key-19 hide. key-2 and key-20 to key-29 show.
+    fireEvent.change(input, { target: { value: "key-2" } });
+    const changed = ["key-1", ...Array.from({ length: 10 }, (_, i) => `key-1${i}`)];
+    changed.push("key-2", ...Array.from({ length: 10 }, (_, i) => `key-2${i}`));
+    expect([...renders.counts.keys()].sort()).toEqual(changed.sort());
+    renders.counts.forEach((count) => expect(count).toBe(1));
   });
 });
