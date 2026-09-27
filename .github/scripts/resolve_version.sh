@@ -83,8 +83,8 @@ if [ "$PRODUCT" != desktop ]; then
         exit 1
     fi
     IFS=. read -r CORE_MAJOR CORE_MINOR _ <<< "$CORE"
-    if [ "$NEXT_MAJOR" != "$CORE_MAJOR" ] ||
-        [ "$NEXT_MINOR" -gt "$((CORE_MINOR + 1))" ]; then
+    if [ "$NEXT_MAJOR" != "$CORE_MAJOR" ] \
+        || [ "$NEXT_MINOR" -gt "$((CORE_MINOR + 1))" ]; then
         echo "train rule: $PRODUCT $NEXT is more than one minor ahead of core $CORE" >&2
         exit 1
     fi
