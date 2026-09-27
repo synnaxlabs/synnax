@@ -8,7 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { bounds, type location, type record } from "@synnaxlabs/x";
-import { useVirtualizer, type Virtualizer } from "@tanstack/react-virtual";
+import {
+  defaultRangeExtractor,
+  type Range,
+  useVirtualizer,
+  type Virtualizer,
+} from "@tanstack/react-virtual";
 import {
   type PropsWithChildren,
   type ReactElement,
@@ -24,8 +29,8 @@ import {
 import { memo } from "@/component/memo";
 import { context } from "@/context";
 import { Dialog } from "@/dialog";
-import { useCombinedRefs, usePrevious, useSyncedRef } from "@/hooks";
-import { ItemsContext } from "@/list/scope";
+import { useCombinedRefs, useInitializerRef, usePrevious, useSyncedRef } from "@/hooks";
+import { type Elements, ElementsContext, ItemsContext } from "@/list/scope";
 
 /** Function interface for getting items from a list by key(s). */
 export interface GetItem<K extends record.Key, E extends record.Keyed<K> | undefined>
@@ -292,6 +297,22 @@ const useIntersectionFetchMore = (
   return { containerRef, sentinelRef };
 };
 
+const useElements = (pin: Elements["pin"]): Elements => {
+  const elementsRef = useInitializerRef(() => new Map<record.Key, HTMLElement>());
+  const setElement = useCallback((key: record.Key, element: HTMLElement | null) => {
+    if (element == null) elementsRef.current.delete(key);
+    else elementsRef.current.set(key, element);
+  }, []);
+  const click = useCallback(
+    (key: record.Key) => elementsRef.current.get(key)?.click(),
+    [],
+  );
+  return useMemo(() => ({ setElement, click, pin }), [setElement, click, pin]);
+};
+
+// A static frame mounts every item, so nothing needs pinning.
+const NO_PIN = (): void => {};
+
 const INITIAL_WINDOW_HEIGHT = 800;
 
 const VirtualFrame = <
@@ -335,6 +356,38 @@ const VirtualFrame = <
   }, []);
   const hasData = data.length > 0;
   const refCallback = useFetchMoreRefCallback(ref, hasData, onFetchMore);
+  const dataRef = useSyncedRef(data);
+  const pinnedRef = useRef<record.Key | null>(null);
+  // The index of the pinned row when it is mounted only because it is pinned.
+  const pinnedOutsideRef = useRef<number | null>(null);
+  const indexesRef = useRef<number[]>([]);
+  const extract = useCallback((range: Range) => {
+    let indexes = defaultRangeExtractor(range);
+    pinnedOutsideRef.current = null;
+    const pinned = pinnedRef.current;
+    const keys: readonly record.Key[] = dataRef.current;
+    const index = pinned == null ? -1 : keys.indexOf(pinned);
+    if (index !== -1 && !indexes.includes(index)) {
+      pinnedOutsideRef.current = index;
+      indexes = [...indexes, index].sort((a, b) => a - b);
+    }
+    indexesRef.current = indexes;
+    return indexes;
+  }, []);
+  // The virtualizer extracts the range again only when an input changes, so a new
+  // extractor mounts a pinned row that is out of view.
+  const [rangeExtractor, setRangeExtractor] = useState(() => extract);
+  const pin = useCallback(
+    (key: record.Key | null) => {
+      pinnedRef.current = key;
+      if (key == null) return;
+      const keys: readonly record.Key[] = dataRef.current;
+      const index = keys.indexOf(key);
+      if (index !== -1 && !indexesRef.current.includes(index))
+        setRangeExtractor(() => (range: Range) => extract(range));
+    },
+    [extract],
+  );
   const virtualizer = useVirtualizer({
     count: data.length,
     getScrollElement: () => ref.current,
@@ -345,16 +398,23 @@ const VirtualFrame = <
     initialRect: { width: 0, height: INITIAL_WINDOW_HEIGHT },
     overscan,
     scrollMargin,
+    rangeExtractor,
     onChange: useCallback(
       (v: Virtualizer<HTMLDivElement, HTMLDivElement>) => {
-        const items = v.getVirtualItems();
-        if (items.length > 0 && items[items.length - 1].index === data.length - 1)
-          onFetchMore?.();
+        const last = v
+          .getVirtualItems()
+          .findLast(({ index }) => index !== pinnedOutsideRef.current);
+        if (last?.index === data.length - 1) onFetchMore?.();
       },
       [data.length, onFetchMore],
     ),
   });
 
+  const scrollToIndex = useCallback(
+    (index: number) => virtualizer.scrollToIndex(index),
+    [virtualizer],
+  );
+  const elements = useElements(pin);
   const items = virtualizer.getVirtualItems();
   const dataCtxValue = useMemo<DataContextValue<K>>(
     () => ({
@@ -377,17 +437,17 @@ const VirtualFrame = <
       ref: refCallback,
       itemsRef,
       getItem,
-      scrollToIndex: (index) => virtualizer.scrollToIndex(index),
+      scrollToIndex,
       subscribe,
       itemHeight,
     }),
-    [refCallback, itemsRef, virtualizer, getItem, subscribe, itemHeight],
+    [refCallback, itemsRef, scrollToIndex, getItem, subscribe, itemHeight],
   );
 
   return (
     <DataContext value={dataCtxValue}>
       <UtilContext value={utilCtxValue as unknown as UtilContextValue}>
-        {children}
+        <ElementsContext value={elements}>{children}</ElementsContext>
       </UtilContext>
     </DataContext>
   );
@@ -423,6 +483,7 @@ const StaticFrame = <
     if (child != null)
       child.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
   }, []);
+  const elements = useElements(NO_PIN);
 
   const initialFetchCallback = useFetchMoreRefCallback(ref, hasData, onFetchMore);
   const { containerRef: intersectionContainerRef, sentinelRef } =
@@ -455,7 +516,7 @@ const StaticFrame = <
   return (
     <DataContext value={dataCtxValue}>
       <UtilContext value={utilCtxValue as unknown as UtilContextValue}>
-        {children}
+        <ElementsContext value={elements}>{children}</ElementsContext>
       </UtilContext>
     </DataContext>
   );
@@ -470,7 +531,7 @@ export const BaseFrame = <
   ...rest
 }: FrameProps<K, E>): ReactElement => (
   // A nested frame starts a new list, so its content is not a row of the outer one.
-  <ItemsContext value={false}>
+  <ItemsContext value={null}>
     {virtual ? <VirtualFrame {...rest} /> : <StaticFrame {...rest} />}
   </ItemsContext>
 );

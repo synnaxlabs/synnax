@@ -15,12 +15,16 @@ import {
   type MouseEventHandler,
   type ReactElement,
   useCallback,
+  useLayoutEffect,
   useMemo,
+  useRef,
 } from "react";
 
 import { Button } from "@/button";
 import { type RenderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
+import { useCombinedRefs } from "@/hooks";
+import { useItemsContext } from "@/list/scope";
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/types";
 
 // aria-selected is only valid on these roles. A generic row, or a plain listitem,
@@ -80,6 +84,7 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
   hovered,
   style,
   role,
+  ref,
   ...rest
 }: ItemProps<K, E>): ReactElement => {
   // Offset with `top`, not a transform. A transform leaves the row's real box at the
@@ -94,9 +99,18 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
     },
     [onSelect, onClick, itemKey],
   );
+  const elementRef = useRef<HTMLElement>(null);
+  const combinedRef = useCombinedRefs<HTMLElement>(ref, elementRef);
+  const setElement = useItemsContext();
+  useLayoutEffect(() => {
+    if (setElement == null) return;
+    setElement(itemKey, elementRef.current);
+    return () => setElement(itemKey, null);
+  }, [setElement, itemKey]);
   return (
     <Button.Button
       el={el}
+      ref={combinedRef}
       defaultEl="div"
       id={itemKey.toString()}
       variant="text"
