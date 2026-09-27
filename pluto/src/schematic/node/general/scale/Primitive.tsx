@@ -8,10 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
+import { CSS } from "@synnaxlabs/lyra/css";
 import { color } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useMemo } from "react";
-
-import { CSS } from "@/css";
 
 interface RenderProps extends Pick<schematic.ScaleNodeConfig, "indicator"> {
   className?: string;

@@ -144,6 +144,13 @@ class LayoutClient:
         """
         return self.page.locator("[role='dialog'].pluto--visible")
 
+    def form_section(self, title: str) -> Locator:
+        """The form section with the given title."""
+        header = self.page.locator(".pluto-form-section__header").get_by_text(
+            title, exact=True
+        )
+        return self.page.locator(".pluto-form-section").filter(has=header)
+
     def command_palette(self, command: str, retries: int = 3) -> None:
         """Execute a command via the command palette."""
         self._palette(
@@ -486,7 +493,7 @@ class LayoutClient:
             else generic
         )
         loaded = self.dialog.get_by_role("option").or_(
-            self.dialog.locator(".pluto-list__items--empty")
+            self.dialog.locator(".pluto-list__scroll--empty")
         )
         loading = self.dialog.locator(".pluto-icon--loading")
 

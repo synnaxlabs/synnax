@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Form } from "@synnaxlabs/pluto";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Select } from "@synnaxlabs/lyra/select";
 import { deep, record } from "@synnaxlabs/x";
 
 import {
@@ -19,11 +20,9 @@ import {
   createAIChannel,
 } from "@/feature/ni/task/types";
 
-export interface Entry extends record.KeyedNamed<AIChannelType> {}
+export type SelectAIChannelTypeFieldProps = Form.SelectFieldProps<AIChannelType>;
 
-export type SelectAIChannelTypeFieldProps = Form.SelectFieldProps<AIChannelType, Entry>;
-
-export const SelectAIChannelTypeField = Form.buildSelectField<AIChannelType, Entry>({
+export const SelectAIChannelTypeField = Form.buildSelectField<AIChannelType>({
   fieldKey: "type",
   fieldProps: {
     label: "Channel type",
@@ -43,13 +42,14 @@ export const SelectAIChannelTypeField = Form.buildSelectField<AIChannelType, Ent
   },
   inputProps: {
     resourceName: "channel type",
-    data: record.keys(AI_CHANNEL_TYPE_NAMES).map((type) => {
+    children: record.keys(AI_CHANNEL_TYPE_NAMES).map((type) => {
       const Icon = AI_CHANNEL_TYPE_ICONS[type];
-      return {
-        key: type,
-        name: AI_CHANNEL_TYPE_NAMES[type],
-        icon: <Icon color={9} />,
-      };
+      return (
+        <Select.Item key={type} itemKey={type}>
+          <Icon color={9} />
+          {AI_CHANNEL_TYPE_NAMES[type]}
+        </Select.Item>
+      );
     }),
   },
 });

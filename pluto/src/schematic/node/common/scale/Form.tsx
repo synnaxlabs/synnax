@@ -8,6 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, schematic } from "@synnaxlabs/client";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Form as Base } from "@synnaxlabs/lyra/form";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Select } from "@synnaxlabs/lyra/select";
 import {
   caseconv,
   type direction,
@@ -19,14 +23,9 @@ import {
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
-import { Component } from "@/component";
-import { Flex } from "@/flex";
-import { Form as Base } from "@/form";
-import { Input } from "@/input";
 import { Notation } from "@/notation";
 import { Form as NodeForm } from "@/schematic/node/common/form";
 import { type Config } from "@/schematic/node/common/scale/config";
-import { Select } from "@/select";
 import { Staleness } from "@/vis/staleness";
 
 const PRECISION_INPUT_PROPS: Partial<Input.NumericProps> = {
@@ -65,11 +64,11 @@ interface SideFieldProps {
 const SideField = ({ path, label, sides }: SideFieldProps): ReactElement => (
   <Base.Field<location.Outer> path={path} label={label} padHelpText={false}>
     {({ value, onChange }) => (
-      <Select.Buttons value={value} onChange={onChange} keys={sides}>
+      <Select.Buttons value={value} onChange={onChange}>
         {sides.map((side) => (
-          <Select.Button key={side} itemKey={side}>
+          <Select.Item key={side} itemKey={side}>
             {caseconv.capitalize(side)}
-          </Select.Button>
+          </Select.Item>
         ))}
       </Select.Buttons>
     )}
@@ -81,6 +80,7 @@ export interface TelemFormProps extends FormProps {
   allowNone?: boolean;
 }
 
+/** TelemForm renders telemetry sections; place it inside `Form.Sections`. */
 export const TelemForm = ({
   path,
   allowNone = false,
@@ -97,8 +97,8 @@ export const TelemForm = ({
   };
   return (
     <>
-      <Flex.Box x>
-        <Input.Item label="Channel" grow padHelpText={false}>
+      <Base.Section title="Source">
+        <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle
             value={config?.channel ?? 0}
             onChange={handleChannelChange}
@@ -106,35 +106,39 @@ export const TelemForm = ({
           />
         </Input.Item>
         {config != null && (
-          <NodeForm.BoundsFields path={field(path, "bounds")} padHelpText={false} />
-        )}
-      </Flex.Box>
-      {config != null && (
-        <Flex.Box x>
-          <Base.Field<notation.Notation>
-            path={field(path, "notation")}
-            label="Notation"
-            padHelpText={false}
-          >
-            {NotationSelect}
-          </Base.Field>
-          <Base.NumericField
-            path={field(path, "precision")}
-            label="Precision"
-            align="start"
-            padHelpText={false}
-            inputProps={PRECISION_INPUT_PROPS}
-          />
-          <NodeForm.UnitsField path={field(path, "units")} />
-          <Staleness.Fields path={path} />
           <Base.NumericField
             path={field(path, "rollingAverage")}
             label="Averaging window"
-            align="start"
-            grow
+            padHelpText={false}
             inputProps={WINDOW_SIZE_INPUT_PROPS}
           />
-        </Flex.Box>
+        )}
+      </Base.Section>
+      {config != null && (
+        <>
+          <Base.Section title="Range">
+            <NodeForm.BoundsFields path={field(path, "bounds")} padHelpText={false} />
+          </Base.Section>
+          <Base.Section title="Format">
+            <Base.Field<notation.Notation>
+              path={field(path, "notation")}
+              label="Notation"
+              padHelpText={false}
+            >
+              {NotationSelect}
+            </Base.Field>
+            <Base.NumericField
+              path={field(path, "precision")}
+              label="Precision"
+              padHelpText={false}
+              inputProps={PRECISION_INPUT_PROPS}
+            />
+            <NodeForm.UnitsField path={field(path, "units")} />
+          </Base.Section>
+          <Base.Section title="Staleness">
+            <Staleness.Fields path={path} />
+          </Base.Section>
+        </>
       )}
     </>
   );

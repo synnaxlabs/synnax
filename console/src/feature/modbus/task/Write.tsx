@@ -10,17 +10,14 @@
 import "@/feature/modbus/task/Task.css";
 
 import { channel, NotFoundError } from "@synnaxlabs/client";
-import {
-  Access,
-  Component,
-  Flex,
-  Form as PForm,
-  Icon,
-  Menu,
-  Select,
-  Telem,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Access, Telem } from "@synnaxlabs/pluto";
 import { deep, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
@@ -57,7 +54,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const path = `config.channels.${itemKey}`;
   const { type, channel } = PForm.useFieldValue<WriteChannel>(path);
   return (
-    <Select.ListItem {...props} justify="between" align="center" x full="x">
+    <Select.Item {...props} justify="between" align="center" x full="x">
       <Flex.Box x pack className={CSS.B("channel-item")}>
         <SelectWriteChannelTypeField
           path={path}
@@ -98,9 +95,9 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
           namePath={`${path}.name`}
           id={Task.getChannelNameID(itemKey)}
         />
-        <Task.EnableDisableButton path={`${path}.disabled`} />
+        <Task.EnabledCheckbox path={`${path}.disabled`} />
       </Flex.Box>
-    </Select.ListItem>
+    </Select.Item>
   );
 };
 

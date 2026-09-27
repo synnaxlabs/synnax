@@ -8,7 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type label } from "@synnaxlabs/client";
-import { Flex, Form, Icon, Label, Tag } from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Tag } from "@synnaxlabs/lyra/tag";
+import { Label } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Errors } from "@/platform/errors";

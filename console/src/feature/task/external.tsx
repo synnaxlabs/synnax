@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { DisconnectedError, task } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/lyra/icon";
 
 import { EtherCAT } from "@/feature/ethercat";
 import { HTTP } from "@/feature/http";

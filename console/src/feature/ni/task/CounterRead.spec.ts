@@ -103,6 +103,20 @@ describe("CounterRead", () => {
     }
   });
 
+  it("should hide the scale section for unscaled channel types", async () => {
+    await renderCounterRead(
+      createConfig([
+        createChannel("ci_edge_count", 0, { name: "chan_unscaled" }),
+        createChannel("ci_frequency", 1, { name: "chan_scaled" }),
+      ]),
+    );
+    fireEvent.click(await screen.findByText("chan_scaled"));
+    await waitFor(() => expect(screen.getByText("Custom scaling")).toBeTruthy());
+    fireEvent.click(screen.getByText("chan_unscaled"));
+    await waitFor(() => expect(screen.getByText("Count direction")).toBeTruthy());
+    expect(screen.queryByText("Custom scaling")).toBeNull();
+  });
+
   it("should reveal the measurement time field for two-counter high-frequency measurement", async () => {
     await renderCounterRead(
       createConfig([createChannel("ci_frequency", 0, { measMethod: "HighFreq2Ctr" })]),
@@ -125,6 +139,15 @@ describe("CounterRead", () => {
     await selectFromDropdown("Frequency", "Edge count");
     await waitFor(() => expect(screen.getByText("Count direction")).toBeTruthy());
     expect(screen.queryByText("Measurement method")).toBeNull();
+  });
+
+  it("should drop the scale section on a swap to an unscaled type and restore it", async () => {
+    await renderCounterRead(createConfig([createChannel("ci_frequency", 0)]));
+    await screen.findByText("Custom scaling");
+    await selectFromDropdown("Frequency", "Edge count");
+    await waitFor(() => expect(screen.queryByText("Custom scaling")).toBeNull());
+    await selectFromDropdown("Edge count", "Frequency");
+    await screen.findByText("Custom scaling");
   });
 
   it("should create counter channels and update the device", async () => {

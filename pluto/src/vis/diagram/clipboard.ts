@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { type record, uuid, xy } from "@synnaxlabs/x";
 import { type ClipboardEvent, type RefObject, useCallback, useRef } from "react";
 
-import { useSyncedRef } from "@/hooks";
 import { type ClipboardHandler } from "@/vis/diagram/Diagram";
 
 const VERSION = 1;

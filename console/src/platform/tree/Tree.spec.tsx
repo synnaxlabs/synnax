@@ -9,7 +9,8 @@
 
 import { group, ontology, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
-import { Haul, Tree as PTree } from "@synnaxlabs/pluto";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import {
   type PropsWithChildren,
@@ -377,7 +378,7 @@ describe("Tree.Tree", () => {
       await screen.findByText(names[0]);
       const last = names[CHILD_COUNT - 1];
       expect(screen.queryByText(last)).toBeNull();
-      const scroller = container.querySelector<HTMLElement>(".pluto-list__items");
+      const scroller = container.querySelector<HTMLElement>(".pluto-list__scroll");
       if (scroller == null) throw new Error("list scroll container not found");
       scroller.scrollTop = CHILD_COUNT * ITEM_HEIGHT;
       fireEvent.scroll(scroller);

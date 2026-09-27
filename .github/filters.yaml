@@ -15,6 +15,7 @@
 # the *_build keys free of server dependencies.
 
 ci: &ci
+  - .github/filters.yaml
   - .github/workflows/ci.yaml
 
 bazel: &bazel
@@ -144,6 +145,11 @@ drift: &drift
   - *x_ts
   - drift/**
 
+lyra: &lyra
+  - *ts
+  - *x_ts
+  - lyra/**
+
 freighter_ts: &freighter_ts
   - *alamos_ts
   - *ts
@@ -162,6 +168,7 @@ pluto: &pluto
   - *arc_ts
   - *client_ts
   - *freighter_ts
+  - *lyra
   - *media
   - *ts
   - *x_ts
@@ -171,6 +178,7 @@ console: &console
   - *client_ts
   - *drift
   - *freighter_ts
+  - *lyra
   - *media
   - *pluto
   - *ts
@@ -180,8 +188,8 @@ console: &console
 docs:
   - *arc_ts
   - *client_ts
+  - *lyra
   - *media
-  - *pluto
   - *ts
   - *x_ts
   - .github/workflows/test.docs.yaml

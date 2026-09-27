@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/lyra/icon";
 
 import { useCreateAnalogRead } from "@/feature/ni/task/AnalogRead";
 import { useCreateAnalogWrite } from "@/feature/ni/task/AnalogWrite";

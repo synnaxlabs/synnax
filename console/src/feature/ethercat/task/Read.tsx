@@ -8,7 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { channel } from "@synnaxlabs/client";
-import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
@@ -64,6 +67,17 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
 
 const channelDetails = Component.renderProp(ReadChannelDetails);
 
+const DetailsTitle = ({ path }: Task.Views.DetailsProps) => {
+  const ch = PForm.useFieldValue<ReadChannel>(path);
+  return (
+    <Task.Views.ItemLabel kind={ch.type === "automatic" ? "PDO" : "Manual"}>
+      {getPortLabel(ch)}
+    </Task.Views.ItemLabel>
+  );
+};
+
+const detailsTitle = Component.renderProp(DetailsTitle);
+
 const listItem = Component.renderProp(ChannelListItem);
 
 const Form: FC = () => {
@@ -82,6 +96,7 @@ const Form: FC = () => {
     <Task.Views.ListAndDetails<ReadChannel>
       listItem={listItem}
       details={channelDetails}
+      detailsTitle={detailsTitle}
       createChannel={createReadChannel}
       contextMenuItems={Task.readChannelContextMenuItem}
       resolve={resolve}

@@ -9,13 +9,13 @@
 
 import "@/vis/value/RedlineForm.css";
 
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
 import { type bounds, color, deep, scale } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Color } from "@/color";
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
-import { Form } from "@/form";
 import { type Redline } from "@/vis/value/redline";
 
 const boundsInputProps = { size: "small", showDragHandle: false } as const;

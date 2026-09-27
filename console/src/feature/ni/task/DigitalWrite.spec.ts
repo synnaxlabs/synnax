@@ -9,7 +9,7 @@
 
 import { type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Text } from "@synnaxlabs/pluto";
+import { Text } from "@synnaxlabs/lyra/text";
 import { id } from "@synnaxlabs/x";
 import { screen, waitFor } from "@testing-library/react";
 import { act } from "react";
@@ -135,8 +135,7 @@ describe("DigitalWrite", () => {
     );
     const cmd = await client.channels.retrieve(deployed.config.channels[0].cmdChannel);
     await screen.findByText(cmd.name);
-    const inputs = rendered.container.querySelectorAll("input");
-    commitFieldInput(inputs[inputs.length - 1], "7");
+    commitFieldInput(screen.getByLabelText<HTMLInputElement>("Line"), "7");
     await waitFor(async () => {
       const saved = await client.tasks.retrieve({
         key: rendered.draft.key,

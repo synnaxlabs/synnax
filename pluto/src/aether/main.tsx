@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { context } from "@synnaxlabs/lyra/context";
+import { useSyncedRef, useUniqueKey } from "@synnaxlabs/lyra/hooks";
 import { type CrudeTimeSpan, deep, type destructor, type state } from "@synnaxlabs/x";
 import {
   memo,
@@ -27,9 +29,6 @@ import {
 } from "@/aether/aether/aether";
 import { type MainComms } from "@/aether/aether/message";
 import { type Handle, type RawSetArg, Store } from "@/aether/store";
-import { context } from "@/context";
-import { useSyncedRef } from "@/hooks";
-import { useUniqueKey } from "@/hooks/useUniqueKey";
 
 /** Value supplied by the Aether context to descendants of {@link Provider}. */
 export interface ContextValue {
