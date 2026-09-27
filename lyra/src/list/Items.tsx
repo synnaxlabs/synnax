@@ -20,10 +20,19 @@ import { ItemsContext, useElementsContext, useScrollContext } from "@/list/scope
 
 /** Props for {@link Items}. */
 export interface ItemsProps<K extends record.Key = record.Key> {
-  /** Renders one item. It is called once per visible key. */
+  /**
+   * Renders one item. Its element is reused while the item's key, index, and offset stay
+   * the same, so read item data through a hook such as `useItem`.
+   */
   children: ItemRenderProp<K>;
   /** Rendered in place of the items when the list is empty. */
   emptyContent?: ReactNode;
+}
+
+interface CachedItem {
+  index: number;
+  translate?: number;
+  element: ReactNode;
 }
 
 const BaseItems = <
@@ -40,18 +49,31 @@ const BaseItems = <
     throw new Error("List.Items must be inside the List.Scroll of its own List.Frame");
   const totalSize = getTotalSize();
   const virtualizerStyle = useMemo(() => ({ minHeight: totalSize }), [totalSize]);
+  // Returning the same element for an unchanged item lets React skip it, so a scroll or
+  // a data change renders only the items that moved or appeared. A new render function
+  // clears the cache.
+  const cache = useMemo(() => new Map<K, CachedItem>(), [children]);
   if (data.length === 0) return emptyContent;
+  const items = getItems();
+  const keys = new Set(items.map(({ key }) => key));
+  cache.forEach((_, key) => {
+    if (!keys.has(key)) cache.delete(key);
+  });
+  const elements = items.map(({ key, index, translate }) => {
+    const cached = cache.get(key);
+    if (cached?.index === index && cached.translate === translate)
+      return cached.element;
+    const element = children({ key, index, itemKey: key, translate });
+    cache.set(key, { index, translate, element });
+    return element;
+  });
   return (
     <div
       ref={itemsRef}
       className={CSS.BE("list", "virtualizer")}
       style={virtualizerStyle}
     >
-      <ItemsContext value={setElement}>
-        {getItems().map(({ key, index, translate }) =>
-          children({ key, index, itemKey: key, translate }),
-        )}
-      </ItemsContext>
+      <ItemsContext value={setElement}>{elements}</ItemsContext>
       {sentinelRef != null && (
         <div
           ref={sentinelRef}
