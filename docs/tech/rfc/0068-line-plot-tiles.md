@@ -78,7 +78,7 @@ It was abandoned for four reasons, and this design answers each:
 - **Level**: A tile size. Level `L` tiles span `BASE * 2^L`, where `BASE` is 1 ms.
 - **Grid**: The tile boundaries of one level. Tile `k` at level `L` spans
   `[k * size(L), (k + 1) * size(L))`, measured from the Unix epoch.
-- **Point limit**: The maximum number of points the Core returns for one tile.
+- **Point limit**: The target number of points the Core returns for one tile.
 - **Group**: A run of consecutive samples that the Core reduces to one or two points.
 - **Group size**: The number of samples in a group. `1` means the data is raw.
 - **Aggregation**: How the Core reduces a group. `min_max` keeps the lowest and highest
