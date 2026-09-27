@@ -9,13 +9,14 @@
 
 import { observe, type record } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
-import { act, Profiler, type ReactElement, useState } from "react";
+import { act, type ReactElement, useState } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Button } from "@/button";
 import { renderProp } from "@/component/renderProp";
 import { List } from "@/list";
 import { mockGeometry } from "@/testutil/dom";
+import { createRenderCounter } from "@/testutil/renders";
 
 describe("List", () => {
   interface Context {
@@ -245,21 +246,15 @@ describe("List", () => {
     });
 
     it("should not re-render the rows that stay in view when the list scrolls", () => {
-      const updated = new Set<string>();
+      const { Counted, counts } = createRenderCounter();
       const result = render(
         <List.Frame data={DATA} virtual itemHeight={ITEM_HEIGHT} overscan={0}>
           <List.Scroll>
             <List.Items>
               {({ key, ...rest }: List.ItemProps<string>) => (
-                <Profiler
-                  key={key}
-                  id={rest.itemKey}
-                  onRender={(id, phase) => {
-                    if (phase !== "mount") updated.add(id);
-                  }}
-                >
+                <Counted key={key} id={rest.itemKey}>
                   <List.Item {...rest}>{key}</List.Item>
-                </Profiler>
+                </Counted>
               )}
             </List.Items>
           </List.Scroll>
@@ -275,7 +270,7 @@ describe("List", () => {
       });
       const after = rows(result).map((row) => row.id);
       expect(after).not.toEqual(before);
-      expect([...updated]).toEqual([]);
+      expect([...counts.keys()]).toEqual([]);
     });
 
     it("should keep the container tall enough to scroll the whole data set", () => {
