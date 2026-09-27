@@ -144,7 +144,13 @@ interface CustomTagProps extends Pick<CustomProps, "onCustomChange"> {
 const CustomTag = ({ span, onCustomChange }: CustomTagProps): ReactElement => {
   const { onSelect } = Select.useItemState(CUSTOM_KEY);
   return (
-    <Tag.Tag icon={dynamicIcon} onClose={onSelect} level="small" size="small">
+    <Tag.Tag
+      icon={dynamicIcon}
+      onClose={onSelect}
+      level="small"
+      size="small"
+      className={CSS.BE("range-select", "custom")}
+    >
       <Input.TimeSpan
         value={span}
         onChange={onCustomChange}
@@ -184,6 +190,7 @@ const SelectMultipleRanges = ({
   return (
     <Select.Multiple<string, Session.Range.State>
       icon={<Icon.Range />}
+      initialHover={0}
       renderTag={renderTag}
       onFetchMore={fetchMore}
       onSearch={search}

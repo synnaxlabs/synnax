@@ -9,7 +9,7 @@
 
 import { type lineplot } from "@synnaxlabs/client";
 import { TimeSpan } from "@synnaxlabs/x";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { LinePlot } from "@/feature/lineplot";
@@ -72,6 +72,21 @@ describe("lineplot/toolbar/Data", () => {
       expect(plot.ranges.custom).toEqual({
         variant: "dynamic",
         span: Number(TimeSpan.minutes(90)),
+      });
+    });
+  });
+
+  it("selects the custom window with Enter", async () => {
+    const { key } = await renderData();
+    search("2w");
+    act(() => {
+      fireEvent.keyDown(window, { code: "Enter" });
+    });
+    await waitFor(async () => {
+      const plot = await client.lineplots.retrieve(key);
+      expect(plot.ranges.custom).toEqual({
+        variant: "dynamic",
+        span: Number(TimeSpan.days(14)),
       });
     });
   });

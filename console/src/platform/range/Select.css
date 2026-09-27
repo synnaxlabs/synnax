@@ -17,3 +17,17 @@
 .console-range-select__dynamic-name {
     width: 100px;
 }
+
+/* The span reads like the text of other range tags, and its trigger takes the tag's
+   right padding so everything past the close button opens the editor. */
+.pluto-btn.pluto-tag.console-range-select__custom {
+    padding-right: 0;
+
+    .pluto-btn.pluto-time-editor__trigger {
+        padding: 0 1.5rem 0 0;
+    }
+
+    .pluto-timespan__label {
+        color: inherit;
+    }
+}
