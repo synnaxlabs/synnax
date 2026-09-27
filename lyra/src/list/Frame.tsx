@@ -357,21 +357,37 @@ const VirtualFrame = <
   const hasData = data.length > 0;
   const refCallback = useFetchMoreRefCallback(ref, hasData, onFetchMore);
   const dataRef = useSyncedRef(data);
-  // Read by the range extractor, which runs whenever the visible range moves. Scrolling
-  // is the only way a pinned row can leave the range, so no re-render is needed here.
   const pinnedRef = useRef<record.Key | null>(null);
-  const pin = useCallback((key: record.Key | null) => {
-    pinnedRef.current = key;
-  }, []);
-  const rangeExtractor = useCallback((range: Range) => {
-    const indexes = defaultRangeExtractor(range);
+  // The index of the pinned row when it is mounted only because it is pinned.
+  const pinnedOutsideRef = useRef<number | null>(null);
+  const indexesRef = useRef<number[]>([]);
+  const extract = useCallback((range: Range) => {
+    let indexes = defaultRangeExtractor(range);
+    pinnedOutsideRef.current = null;
     const pinned = pinnedRef.current;
-    if (pinned == null) return indexes;
     const keys: readonly record.Key[] = dataRef.current;
-    const index = keys.indexOf(pinned);
-    if (index === -1 || indexes.includes(index)) return indexes;
-    return [...indexes, index].sort((a, b) => a - b);
+    const index = pinned == null ? -1 : keys.indexOf(pinned);
+    if (index !== -1 && !indexes.includes(index)) {
+      pinnedOutsideRef.current = index;
+      indexes = [...indexes, index].sort((a, b) => a - b);
+    }
+    indexesRef.current = indexes;
+    return indexes;
   }, []);
+  // The virtualizer extracts the range again only when an input changes, so a new
+  // extractor mounts a pinned row that is out of view.
+  const [rangeExtractor, setRangeExtractor] = useState(() => extract);
+  const pin = useCallback(
+    (key: record.Key | null) => {
+      pinnedRef.current = key;
+      if (key == null) return;
+      const keys: readonly record.Key[] = dataRef.current;
+      const index = keys.indexOf(key);
+      if (index !== -1 && !indexesRef.current.includes(index))
+        setRangeExtractor(() => (range: Range) => extract(range));
+    },
+    [extract],
+  );
   const virtualizer = useVirtualizer({
     count: data.length,
     getScrollElement: () => ref.current,
@@ -387,7 +403,7 @@ const VirtualFrame = <
       (v: Virtualizer<HTMLDivElement, HTMLDivElement>) => {
         const last = v
           .getVirtualItems()
-          .findLast(({ key }) => key !== pinnedRef.current);
+          .findLast(({ index }) => index !== pinnedOutsideRef.current);
         if (last?.index === data.length - 1) onFetchMore?.();
       },
       [data.length, onFetchMore],

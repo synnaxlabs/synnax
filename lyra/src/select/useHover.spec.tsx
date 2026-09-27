@@ -237,6 +237,63 @@ describe("Select keyboard hover", () => {
       expect(onFetchMore).toHaveBeenCalledTimes(calls);
     });
 
+    it("should fetch more when the hovered last item scrolls into view", () => {
+      const onFetchMore = vi.fn();
+      const data = Array.from({ length: 300 }, (_, i) => `${i}`);
+      const c = render(
+        <Triggers.Provider>
+          <Dialog.Frame visible>
+            <Select.Frame
+              data={data}
+              onChange={vi.fn()}
+              onFetchMore={onFetchMore}
+              initialHover={data.length - 1}
+              itemHeight={33}
+              virtual
+            >
+              <List.Scroll>
+                <Select.Items<string>>{row}</Select.Items>
+              </List.Scroll>
+            </Select.Frame>
+          </Dialog.Frame>
+        </Triggers.Provider>,
+      );
+      const scroller = c.container.querySelector<HTMLElement>(".pluto-list__scroll");
+      if (scroller == null) throw new Error("scroll container not found");
+      const calls = onFetchMore.mock.calls.length;
+      act(() => {
+        scroller.scrollTop = data.length * 33 - 100;
+        fireEvent.scroll(scroller);
+      });
+      expect(onFetchMore.mock.calls.length).toBeGreaterThan(calls);
+    });
+
+    it("should click an initial hover that starts out of view", () => {
+      const onChange = vi.fn();
+      const data = Array.from({ length: 300 }, (_, i) => `${i}`);
+      const c = render(
+        <Triggers.Provider>
+          <Dialog.Frame visible>
+            <Select.Frame
+              data={data}
+              onChange={(key: string) => onChange(key)}
+              initialHover={200}
+              itemHeight={33}
+              virtual
+            >
+              <List.Scroll>
+                <Select.Items<string>>{row}</Select.Items>
+              </List.Scroll>
+            </Select.Frame>
+          </Dialog.Frame>
+        </Triggers.Provider>,
+      );
+      expect(c.queryByText("199", { exact: true })).toBeNull();
+      pressEnter();
+      expect(onChange).toHaveBeenCalledTimes(1);
+      expect(onChange).toHaveBeenCalledWith("200");
+    });
+
     it("should keep the hovered row mounted and click it after it scrolls out of view", () => {
       const onChange = vi.fn();
       const data = Array.from({ length: 300 }, (_, i) => `${i}`);
