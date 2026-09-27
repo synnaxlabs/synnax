@@ -20,13 +20,13 @@ const SynnaxWrapper = createSynnaxWrapper({ client: null });
 
 const createFormWrapper = (variant: Variant) => {
   const FormWrapper = ({ children }: PropsWithChildren): ReactElement => {
-    const methods = Form.use({
+    const methods = Form.use<typeof schematic.nodeConfigZ>({
       values: createConfig({ variant }),
       schema: schematic.nodeConfigZ,
     });
     return (
       <SynnaxWrapper>
-        <Form.Form {...methods}>{children}</Form.Form>
+        <Form.Form<typeof schematic.nodeConfigZ> {...methods}>{children}</Form.Form>
       </SynnaxWrapper>
     );
   };
