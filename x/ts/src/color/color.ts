@@ -438,7 +438,8 @@ const parseCSSHue = (arg: string): number | undefined => {
   if (match == null) return undefined;
   const factor = DEGREES_PER_HUE_UNIT[match[2]];
   if (factor == null) return undefined;
-  return parseFloat(match[1]) * factor;
+  const hue = parseFloat(match[1]) * factor;
+  return Number.isFinite(hue) ? hue : undefined;
 };
 
 /** Parses a CSS number, reading a percentage as a fraction of `scale`. */

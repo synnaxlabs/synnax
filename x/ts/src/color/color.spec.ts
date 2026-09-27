@@ -907,6 +907,10 @@ describe("color.Color", () => {
       expect(color.fromCSS("hsl(180px 100% 50%)")).toBeUndefined();
     });
 
+    test("rejects an hsl hue that overflows", () => {
+      expect(color.fromCSS("hsl(1e999deg 100% 50%)")).toBeUndefined();
+    });
+
     test("clamps out of range channels", () => {
       expect(color.fromCSS("rgb(300, -5, 0, 2)")).toEqual([255, 0, 0, 1]);
     });
