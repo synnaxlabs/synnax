@@ -14,8 +14,8 @@
     filter: opacity(0.8);
 }
 
-.console-range-select__dynamic-name {
-    width: 100px;
+.console-range-select__live {
+    padding: 0.5rem 0;
 }
 
 /* The span reads like the text of other range tags, and its trigger takes the tag's

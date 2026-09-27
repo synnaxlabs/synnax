@@ -27,7 +27,7 @@ const renderData = async (ranges?: lineplot.New["ranges"]) => {
 
 const openSearch = (): HTMLElement => {
   fireEvent.click(screen.getByRole("button", { name: "Ranges" }));
-  return screen.getByPlaceholderText("Search ranges...");
+  return screen.getByPlaceholderText("Search favorites or type a duration");
 };
 
 const search = (term: string): void => {
@@ -45,6 +45,23 @@ const CUSTOM_45M: lineplot.New["ranges"] = {
 };
 
 describe("lineplot/toolbar/Data", () => {
+  it("lists the rolling windows as a row, apart from the favorites", async () => {
+    await renderData();
+    openSearch();
+    expect(screen.getByRole("button", { name: "5m" })).toBeDefined();
+    expect(screen.queryAllByRole("option")).toHaveLength(0);
+  });
+
+  it("selects a rolling window from the row", async () => {
+    const { key } = await renderData({ x1: [], x2: [] });
+    openSearch();
+    fireEvent.click(screen.getByRole("button", { name: "5m" }));
+    await waitFor(async () => {
+      const plot = await client.lineplots.retrieve(key);
+      expect(plot.ranges.x1).toHaveLength(1);
+    });
+  });
+
   it("offers a custom window when the search is a duration", async () => {
     await renderData();
     search("45m");
