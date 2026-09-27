@@ -19,6 +19,7 @@ import {
 } from "react";
 
 import { context } from "@/context";
+import { useSyncedRef } from "@/hooks";
 import { useKeyedListeners, type UseKeyedListenersReturn } from "@/store/store";
 
 export type MembershipValue<K extends record.Key = record.Key> = K | K[] | undefined;
@@ -113,9 +114,17 @@ export const createMembership = (name: string): Membership => {
     const valueRef = useRef(value);
     const { notifyListeners, subscribe } = useKeyedListeners();
     const getValue = useCallback(() => valueRef.current, []);
+    // Read through a ref so a caller's new callbacks do not re-render every item.
+    const actionsRef = useSyncedRef({ onItem, setValue, clear });
     const ctx = useMemo<ContextValue>(
-      () => ({ onItem, setValue, clear, subscribe, getValue }),
-      [getValue, onItem, setValue, clear, subscribe],
+      () => ({
+        onItem: (key) => actionsRef.current.onItem(key),
+        setValue: (keys) => actionsRef.current.setValue(keys),
+        clear: () => actionsRef.current.clear(),
+        subscribe,
+        getValue,
+      }),
+      [getValue, subscribe],
     );
     useLayoutEffect(() => {
       const changed = new Set(array.toArray(valueRef.current)).symmetricDifference(

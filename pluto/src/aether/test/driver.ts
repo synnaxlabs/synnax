@@ -9,7 +9,7 @@
 
 import { alamos as alamosLib, type Instrumentation } from "@synnaxlabs/alamos";
 import { UnexpectedError } from "@synnaxlabs/client";
-import { type state } from "@synnaxlabs/x";
+import { type record } from "@synnaxlabs/x";
 
 import { aether } from "@/aether/aether";
 
@@ -30,7 +30,7 @@ export interface Driver {
   mainSide: aether.MainComms;
   /** Create or replace the component at `path`, constructing it from the registry if it
    * does not yet exist. `path` is absolute and begins with {@link ROOT_KEY}. */
-  update(path: readonly string[], type: string, state: state.State): void;
+  update(path: readonly string[], type: string, state: record.Unknown): void;
   /** Delete the component at `path` and its descendants. */
   delete(path: readonly string[]): void;
   /** Look up a mounted component by absolute path. Throws if no component exists there. */
@@ -58,7 +58,7 @@ export const createDriver = (
   const update = (
     path: readonly string[],
     type: string,
-    stateValue: state.State,
+    stateValue: record.Unknown,
   ): void => {
     // A component retains the array it is constructed with as its `path`, and derives its
     // `key` from the last element. Snapshot so a caller mutating its own path array (e.g.
