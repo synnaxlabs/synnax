@@ -17,27 +17,27 @@ import { type ReactElement } from "react";
 
 import { useContext, useFormContext } from "@/platform/view/context";
 
-export interface ItemsProps<K extends record.Key = record.Key> extends Omit<
-  List.ItemsProps<K>,
-  "contextMenu"
-> {
+export interface ItemsProps<K extends record.Key = record.Key>
+  extends
+    Omit<List.ScrollProps, "children" | "contextMenu">,
+    Pick<List.ItemsProps<K>, "children"> {
   contextMenu?: Menu.ContextMenuProps["menu"];
 }
 
 export const Items = <K extends record.Key>({
   contextMenu,
-  ...props
+  children,
+  ...rest
 }: ItemsProps<K>): ReactElement => {
   const menuProps = Menu.useContextMenu();
   const { answered } = useFormContext("View.Items");
   return (
     <Menu.ContextMenu menu={contextMenu} {...menuProps}>
-      <List.Items<K>
-        emptyContent={answered && defaultEmptyContent}
-        grow
-        onContextMenu={menuProps.open}
-        {...props}
-      />
+      <List.Scroll grow onContextMenu={menuProps.open} {...rest}>
+        <List.Items<K> emptyContent={answered && defaultEmptyContent}>
+          {children}
+        </List.Items>
+      </List.Scroll>
     </Menu.ContextMenu>
   );
 };

@@ -12,8 +12,8 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
-import { deep, type optional, type record } from "@synnaxlabs/x";
-import { type FC, useMemo } from "react";
+import { deep, type record } from "@synnaxlabs/x";
+import { type FC } from "react";
 
 import * as Device from "@/feature/labjack/device/types";
 import {
@@ -33,10 +33,7 @@ const MaxVoltageField = PForm.buildNumericField({
   inputProps: { endContent: "V" },
 });
 
-const SelectScaleTypeField = PForm.buildSelectField<
-  ScaleType,
-  Select.StaticEntry<ScaleType>
->({
+const SelectScaleTypeField = PForm.buildSelectField<ScaleType>({
   fieldKey: "type",
   fieldProps: {
     label: "Scale",
@@ -54,11 +51,22 @@ const SelectScaleTypeField = PForm.buildSelectField<
   },
   inputProps: {
     resourceName: "scale type",
-    data: [
-      { key: "none", name: "None", icon: <Icon.None /> },
-      { key: "linear", name: "Linear", icon: <Icon.Linear /> },
-      { key: "map", name: "Map", icon: <Icon.Map /> },
-    ],
+    children: (
+      <>
+        <Select.Item itemKey="none">
+          <Icon.None />
+          None
+        </Select.Item>
+        <Select.Item itemKey="linear">
+          <Icon.Linear />
+          Linear
+        </Select.Item>
+        <Select.Item itemKey="map">
+          <Icon.Map />
+          Map
+        </Select.Item>
+      </>
+    ),
   },
 });
 
@@ -108,70 +116,61 @@ const CustomScaleForm = ({ prefix }: CustomScaleFormProps) => {
   );
 };
 
-const ThermocoupleTypeField = PForm.buildSelectField<
-  ThermocoupleType,
-  record.KeyedNamed<ThermocoupleType>
->({
+const ThermocoupleTypeField = PForm.buildSelectField<ThermocoupleType>({
   fieldKey: "thermocoupleType",
   fieldProps: { label: "Thermocouple type" },
   inputProps: {
     resourceName: "thermocouple type",
-    data: [
-      { key: "B", name: "B" },
-      { key: "E", name: "E" },
-      { key: "J", name: "J" },
-      { key: "K", name: "K" },
-      { key: "N", name: "N" },
-      { key: "R", name: "R" },
-      { key: "S", name: "S" },
-      { key: "T", name: "T" },
-      { key: "C", name: "C" },
-    ],
+    children: (
+      <>
+        <Select.Item itemKey="B">B</Select.Item>
+        <Select.Item itemKey="E">E</Select.Item>
+        <Select.Item itemKey="J">J</Select.Item>
+        <Select.Item itemKey="K">K</Select.Item>
+        <Select.Item itemKey="N">N</Select.Item>
+        <Select.Item itemKey="R">R</Select.Item>
+        <Select.Item itemKey="S">S</Select.Item>
+        <Select.Item itemKey="T">T</Select.Item>
+        <Select.Item itemKey="C">C</Select.Item>
+      </>
+    ),
   },
 });
 
-const TemperatureUnitsField = PForm.buildSelectField<
-  TemperatureUnits,
-  record.KeyedNamed<TemperatureUnits>
->({
+const TemperatureUnitsField = PForm.buildSelectField<TemperatureUnits>({
   fieldKey: "units",
   fieldProps: { label: "Temperature units" },
   inputProps: {
     resourceName: "temperature units",
-    data: [
-      { key: "C", name: "Celsius" },
-      { key: "F", name: "Fahrenheit" },
-      { key: "K", name: "Kelvin" },
-    ],
+    children: (
+      <>
+        <Select.Item itemKey="C">Celsius</Select.Item>
+        <Select.Item itemKey="F">Fahrenheit</Select.Item>
+        <Select.Item itemKey="K">Kelvin</Select.Item>
+      </>
+    ),
   },
 });
 
-interface CJCSourceEntry extends record.KeyedNamed<string> {}
-
-interface SelectCJCSourceFieldProps extends optional.Optional<
-  Select.StaticProps<string, CJCSourceEntry>,
-  "data" | "resourceName"
+interface SelectCJCSourceFieldProps extends Omit<
+  Select.SingleSimpleProps<string>,
+  "children" | "resourceName"
 > {
   model: Device.Model;
 }
 
-const DEFAULT_CJC_SOURCE_ENTRIES: CJCSourceEntry[] = [
-  { key: DEVICE_CJC_SOURCE, name: "Device" },
-  { key: AIR_CJC_SOURCE, name: "Air" },
-];
-
 const SelectCJCSourceField = ({ model, ...rest }: SelectCJCSourceFieldProps) => {
-  const data = useMemo(() => {
-    const ports: CJCSourceEntry[] = Device.PORTS[model][Device.AI_PORT_TYPE];
-    return [...DEFAULT_CJC_SOURCE_ENTRIES, ...ports];
-  }, [model]);
+  const ports: record.KeyedNamed[] = Device.PORTS[model][Device.AI_PORT_TYPE];
   return (
-    <Select.Static<string, CJCSourceEntry>
-      data={data}
-      allowNone={false}
-      {...rest}
-      resourceName="CJC source"
-    />
+    <Select.Simple<string> allowNone={false} {...rest} resourceName="CJC source">
+      <Select.Item itemKey={DEVICE_CJC_SOURCE}>Device</Select.Item>
+      <Select.Item itemKey={AIR_CJC_SOURCE}>Air</Select.Item>
+      {ports.map(({ key, name }) => (
+        <Select.Item key={key} itemKey={key}>
+          {name}
+        </Select.Item>
+      ))}
+    </Select.Simple>
   );
 };
 

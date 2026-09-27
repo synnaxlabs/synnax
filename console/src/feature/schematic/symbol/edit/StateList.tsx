@@ -51,9 +51,9 @@ export const StateList = ({ value, onChange }: StateListProps) => {
       data={data}
       closeDialogOnSelect={false}
     >
-      <List.Items x gap={1}>
-        {stateListItem}
-      </List.Items>
+      <List.Scroll x gap={1}>
+        <List.Items>{stateListItem}</List.Items>
+      </List.Scroll>
     </Select.Frame>
   );
 };

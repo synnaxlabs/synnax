@@ -12,7 +12,6 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
-import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
 import { type Flux } from "@/flux";
@@ -25,12 +24,10 @@ const ListItem = ({
   const item = List.useItem<group.Key, group.Group>(itemKey);
   if (item == null) return null;
   return (
-    <Select.ListItem itemKey={itemKey} {...rest}>
-      <Text.Text align="center">
-        <Icon.Group />
-        {item.name}
-      </Text.Text>
-    </Select.ListItem>
+    <Select.Item itemKey={itemKey} {...rest}>
+      <Icon.Group />
+      {item.name}
+    </Select.Item>
   );
 };
 

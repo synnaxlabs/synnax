@@ -8,32 +8,24 @@
 // included in the file licenses/APL.txt.
 
 import { Form } from "@synnaxlabs/lyra/form";
-import { type record } from "@synnaxlabs/x";
+import { Select } from "@synnaxlabs/lyra/select";
 
 import { type ReadChannelType } from "@/feature/labjack/task/types";
 
-export interface ReadChannelTypeEntry extends record.KeyedNamed<ReadChannelType> {}
+export type SelectReadChannelTypeFieldProps = Form.SelectFieldProps<ReadChannelType>;
 
-const READ_CHANNEL_TYPES: ReadChannelTypeEntry[] = [
-  { key: "analog", name: "Analog input" },
-  { key: "digital", name: "Digital input" },
-  { key: "thermocouple", name: "Thermocouple" },
-];
-
-export type SelectReadChannelTypeFieldProps = Form.SelectFieldProps<
-  ReadChannelType,
-  ReadChannelTypeEntry
->;
-
-export const SelectReadChannelTypeField = Form.buildSelectField<
-  ReadChannelType,
-  ReadChannelTypeEntry
->({
+export const SelectReadChannelTypeField = Form.buildSelectField<ReadChannelType>({
   fieldKey: "type",
   fieldProps: { label: "Channel type" },
   inputProps: {
     allowNone: false,
     resourceName: "channel type",
-    data: READ_CHANNEL_TYPES,
+    children: (
+      <>
+        <Select.Item itemKey="analog">Analog input</Select.Item>
+        <Select.Item itemKey="digital">Digital input</Select.Item>
+        <Select.Item itemKey="thermocouple">Thermocouple</Select.Item>
+      </>
+    ),
   },
 });

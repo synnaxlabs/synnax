@@ -149,22 +149,20 @@ export const List = ({
           </Flex.Box>
         )}
         <Menu.ContextMenu menu={contextMenu} {...menuProps} />
-        <PList.Items<string>
-          emptyContent={answered && emptyContent}
-          grow
-          onContextMenu={menuProps.open}
-        >
-          {({ key, ...rest }) => (
-            <Item
-              key={key}
-              {...rest}
-              showParent={showParent}
-              showLabels={showLabels}
-              showTimeRange={showTimeRange}
-              showFavorite={showFavorite}
-            />
-          )}
-        </PList.Items>
+        <PList.Scroll grow onContextMenu={menuProps.open}>
+          <PList.Items<string> emptyContent={answered && emptyContent}>
+            {({ key, ...rest }) => (
+              <Item
+                key={key}
+                {...rest}
+                showParent={showParent}
+                showLabels={showLabels}
+                showTimeRange={showTimeRange}
+                showFavorite={showFavorite}
+              />
+            )}
+          </PList.Items>
+        </PList.Scroll>
       </Select.Frame>
     </Flex.Box>
   );

@@ -11,17 +11,16 @@ import { type text } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { type Select } from "@/select";
-import { Button, Buttons } from "@/select/Button";
+import { Buttons } from "@/select/Buttons";
+import { Item } from "@/select/Item";
 
-const DATA = [250, 400, 500, 600];
-
-export interface WeightProps extends Omit<Select.ButtonsProps<text.Weight>, "keys"> {}
+export interface WeightProps extends Select.ButtonsProps<text.Weight> {}
 
 export const Weight = (props: WeightProps): ReactElement => (
-  <Buttons {...props} keys={DATA}>
-    <Button itemKey={250}>Light</Button>
-    <Button itemKey={400}>Normal</Button>
-    <Button itemKey={500}>Medium</Button>
-    <Button itemKey={600}>Bold</Button>
+  <Buttons {...props}>
+    <Item itemKey={250}>Light</Item>
+    <Item itemKey={400}>Normal</Item>
+    <Item itemKey={500}>Medium</Item>
+    <Item itemKey={600}>Bold</Item>
   </Buttons>
 );

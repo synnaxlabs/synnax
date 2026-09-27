@@ -10,12 +10,11 @@
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type Select } from "@synnaxlabs/lyra/select";
-import { deep, type record } from "@synnaxlabs/x";
+import { Select } from "@synnaxlabs/lyra/select";
+import { deep } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { CoefficientsField } from "@/feature/ni/task/CoefficientsField";
-import { selectData } from "@/feature/ni/task/selectData";
 import { TableScaleForm } from "@/feature/ni/task/TableScaleForm";
 import {
   createScale,
@@ -24,11 +23,9 @@ import {
   type ScaleType,
   type Units,
 } from "@/feature/ni/task/types";
+import { Task } from "@/platform/task";
 
-const SelectCustomScaleTypeField = Form.buildSelectField<
-  ScaleType,
-  Select.StaticEntry<ScaleType>
->({
+const SelectCustomScaleTypeField = Form.buildSelectField<ScaleType>({
   fieldKey: "type",
   fieldProps: {
     label: "Custom scaling",
@@ -46,13 +43,30 @@ const SelectCustomScaleTypeField = Form.buildSelectField<
   },
   inputProps: {
     resourceName: "scale type",
-    data: [
-      { key: "linear", name: "Linear", icon: <Icon.Linear /> },
-      { key: "map", name: "Map", icon: <Icon.Map /> },
-      { key: "polynomial", name: "Polynomial", icon: <Icon.Function /> },
-      { key: "table", name: "Table", icon: <Icon.Table /> },
-      { key: "none", name: "None", icon: <Icon.None /> },
-    ],
+    children: (
+      <>
+        <Select.Item itemKey="linear">
+          <Icon.Linear />
+          Linear
+        </Select.Item>
+        <Select.Item itemKey="map">
+          <Icon.Map />
+          Map
+        </Select.Item>
+        <Select.Item itemKey="polynomial">
+          <Icon.Function />
+          Polynomial
+        </Select.Item>
+        <Select.Item itemKey="table">
+          <Icon.Table />
+          Table
+        </Select.Item>
+        <Select.Item itemKey="none">
+          <Icon.None />
+          None
+        </Select.Item>
+      </>
+    ),
   },
 });
 
@@ -87,13 +101,13 @@ const UNIT_SYMBOLS = {
   FootPounds: "ft·lb",
 } as const satisfies Record<Units, string>;
 
-const UnitsField = Form.buildSelectField<Units, record.KeyedNamed<Units>>({
+const UnitsField = Form.buildSelectField<Units>({
   fieldKey: "units",
   fieldProps: { label: "Units", style: { width: "19rem" } },
   inputProps: {
     resourceName: "units",
     allowNone: false,
-    data: selectData(UNIT_SYMBOLS),
+    children: Task.selectItems(UNIT_SYMBOLS),
   },
 });
 

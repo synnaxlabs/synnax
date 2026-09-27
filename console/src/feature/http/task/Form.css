@@ -53,14 +53,14 @@
         }
 
         .console-field-list-items,
-        .console-channel-list .pluto-list__items {
+        .console-channel-list .pluto-list__scroll {
             overflow: visible;
             contain: layout;
             height: auto;
         }
 
         /* Content height alone puts the placeholder right under the header. */
-        .pluto-list__items--empty {
+        .pluto-list__scroll--empty {
             min-height: 15rem;
         }
 

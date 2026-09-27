@@ -204,11 +204,13 @@ export const MetaData = ({ rangeKey }: MetaDataProps): ReactElement | null => {
           visible={newFormVisible}
           onClose={() => setNewFormVisible(false)}
         />
-        <List.Items<string, kv.Pair>>
-          {({ key, ...rest }) => (
-            <MetaDataListItem key={key} rangeKey={rangeKey} {...rest} />
-          )}
-        </List.Items>
+        <List.Scroll>
+          <List.Items<string, kv.Pair>>
+            {({ key, ...rest }) => (
+              <MetaDataListItem key={key} rangeKey={rangeKey} {...rest} />
+            )}
+          </List.Items>
+        </List.Scroll>
       </List.Frame>
     </Flex.Box>
   );

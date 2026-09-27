@@ -9,7 +9,7 @@
 
 import "@/list/Item.css";
 
-import { type record } from "@synnaxlabs/x";
+import { type optional, type record } from "@synnaxlabs/x";
 import {
   type MouseEvent,
   type MouseEventHandler,
@@ -47,7 +47,7 @@ export type ItemProps<
   K extends record.Key,
   E extends Button.ElementType = "div",
 > = Omit<Button.ButtonProps<E>, "key" | "onSelect" | "translate" | "onClick"> &
-  ItemRenderProps<K> & {
+  optional.Optional<ItemRenderProps<K>, "index" | "key"> & {
     draggingOver?: boolean;
     rightAligned?: boolean;
     onClick?: MouseEventHandler<HTMLElement>;
