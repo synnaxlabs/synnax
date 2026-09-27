@@ -129,7 +129,7 @@ export const Splash = (): ReactElement => {
             />
           )}
           {hasRetrievePermission && data.length > 0 ? (
-            <List.Items
+            <List.Scroll
               grow
               className={CSS.cls(
                 CSS.BE("shell", "items"),
@@ -137,8 +137,8 @@ export const Splash = (): ReactElement => {
               )}
               onContextMenu={menuProps.open}
             >
-              {listItem}
-            </List.Items>
+              <List.Items>{listItem}</List.Items>
+            </List.Scroll>
           ) : answered ? (
             <Empty.Action
               grow

@@ -11,19 +11,16 @@ import { render, type RenderResult } from "@testing-library/react";
 import { type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { Dialog } from "@/dialog";
 import { Select } from "@/select";
 import { Status } from "@/status";
 
-describe("Select.Dialog", () => {
+describe("Select.Single dialog body", () => {
   it("should render the default empty content when the list has no data", () => {
     const onChange = vi.fn();
     const c = render(
-      <Dialog.Frame visible>
-        <Select.Frame data={[]} onChange={onChange}>
-          <Select.Dialog resourceName="result">{() => <div>Hello</div>}</Select.Dialog>
-        </Select.Frame>
-      </Dialog.Frame>,
+      <Select.Single visible data={[]} onChange={onChange} resourceName="result">
+        {() => <div>Hello</div>}
+      </Select.Single>,
     );
     expect(c.getByText("No results found")).toBeTruthy();
   });
@@ -31,16 +28,15 @@ describe("Select.Dialog", () => {
   it("should render status content when the status is not success", () => {
     const onChange = vi.fn();
     const c = render(
-      <Dialog.Frame visible>
-        <Select.Frame data={[]} onChange={onChange}>
-          <Select.Dialog
-            resourceName="result"
-            status={Status.create({ variant: "error", message: "Error" })}
-          >
-            {() => <div>Hello</div>}
-          </Select.Dialog>
-        </Select.Frame>
-      </Dialog.Frame>,
+      <Select.Single
+        visible
+        data={[]}
+        onChange={onChange}
+        resourceName="result"
+        status={Status.create({ variant: "error", message: "Error" })}
+      >
+        {() => <div>Hello</div>}
+      </Select.Single>,
     );
     expect(c.getByText("Error")).toBeTruthy();
   });
@@ -48,13 +44,15 @@ describe("Select.Dialog", () => {
   it("should accept a custom empty content", () => {
     const onChange = vi.fn();
     const c = render(
-      <Dialog.Frame visible>
-        <Select.Frame data={[]} onChange={onChange}>
-          <Select.Dialog resourceName="result" emptyContent={<div>Hello</div>}>
-            {() => <div>Hello</div>}
-          </Select.Dialog>
-        </Select.Frame>
-      </Dialog.Frame>,
+      <Select.Single
+        visible
+        data={[]}
+        onChange={onChange}
+        resourceName="result"
+        emptyContent={<div>Hello</div>}
+      >
+        {() => <div>Hello</div>}
+      </Select.Single>,
     );
     expect(c.getByText("Hello")).toBeTruthy();
   });
@@ -62,13 +60,15 @@ describe("Select.Dialog", () => {
   it("should accept a string as empty content", () => {
     const onChange = vi.fn();
     const c = render(
-      <Dialog.Frame visible>
-        <Select.Frame data={[]} onChange={onChange}>
-          <Select.Dialog resourceName="result" emptyContent="Hello">
-            {() => <div>Hello</div>}
-          </Select.Dialog>
-        </Select.Frame>
-      </Dialog.Frame>,
+      <Select.Single
+        visible
+        data={[]}
+        onChange={onChange}
+        resourceName="result"
+        emptyContent="Hello"
+      >
+        {() => <div>Hello</div>}
+      </Select.Single>,
     );
     expect(c.getByText("Hello")).toBeTruthy();
   });
@@ -76,16 +76,18 @@ describe("Select.Dialog", () => {
   describe("list height", () => {
     const renderDialog = (data: string[], itemHeight: number) =>
       render(
-        <Dialog.Frame visible>
-          <Select.Frame data={data} onChange={vi.fn()} itemHeight={itemHeight}>
-            <Select.Dialog resourceName="result">
-              {({ key }) => <div key={key}>{key}</div>}
-            </Select.Dialog>
-          </Select.Frame>
-        </Dialog.Frame>,
+        <Select.Single
+          visible
+          data={data}
+          onChange={vi.fn()}
+          itemHeight={itemHeight}
+          resourceName="result"
+        >
+          {({ key }) => <div key={key}>{key}</div>}
+        </Select.Single>,
       );
     const heightOf = (c: RenderResult) =>
-      c.baseElement.querySelector<HTMLElement>(".pluto-list__items")?.style.height;
+      c.baseElement.querySelector<HTMLElement>(".pluto-list__scroll")?.style.height;
 
     it("should size the list from the rows that fit the dialog", () => {
       // 220px of room at 40px a row leaves 5 whole rows.
@@ -103,8 +105,8 @@ describe("Select.Dialog", () => {
 
     it("should animate the height so the dialog grows smoothly", () => {
       const c = renderDialog(["a", "b"], 40);
-      expect(c.baseElement.querySelector(".pluto-list__items")?.className).toContain(
-        "pluto-list__items--animate-height",
+      expect(c.baseElement.querySelector(".pluto-list__scroll")?.className).toContain(
+        "pluto-list__scroll--animate-height",
       );
     });
   });
@@ -112,13 +114,15 @@ describe("Select.Dialog", () => {
   describe("footer", () => {
     const renderDialog = (footer?: ReactNode) =>
       render(
-        <Dialog.Frame visible>
-          <Select.Frame data={[]} onChange={vi.fn()}>
-            <Select.Dialog resourceName="result" footer={footer}>
-              {() => <div>Hello</div>}
-            </Select.Dialog>
-          </Select.Frame>
-        </Dialog.Frame>,
+        <Select.Single
+          visible
+          data={[]}
+          onChange={vi.fn()}
+          resourceName="result"
+          footer={footer}
+        >
+          {() => <div>Hello</div>}
+        </Select.Single>,
       );
 
     it("should render the footer", () => {
@@ -128,7 +132,7 @@ describe("Select.Dialog", () => {
 
     it("should keep the footer outside the scrolling list", () => {
       const c = renderDialog(<button type="button">Create</button>);
-      const items = c.baseElement.querySelector(".pluto-list__items");
+      const items = c.baseElement.querySelector(".pluto-list__scroll");
       expect(items).not.toBeNull();
       expect(items?.contains(c.getByText("Create"))).toBe(false);
     });
@@ -140,14 +144,14 @@ describe("Select.Dialog", () => {
       expect(body?.contains(c.getByText("Create"))).toBe(true);
       expect(body?.className).toContain("pluto--bordered");
       expect(
-        c.baseElement.querySelector(".pluto-list__items")?.className,
+        c.baseElement.querySelector(".pluto-list__scroll")?.className,
       ).not.toContain("pluto--bordered");
     });
 
     it("should leave the border on the list when there is no footer", () => {
       const c = renderDialog();
       expect(c.baseElement.querySelector(".pluto-select__body")).toBeNull();
-      expect(c.baseElement.querySelector(".pluto-list__items")?.className).toContain(
+      expect(c.baseElement.querySelector(".pluto-list__scroll")?.className).toContain(
         "pluto--bordered",
       );
     });

@@ -9,7 +9,7 @@
 
 import "@/platform/channel/CalculatedModal.css";
 
-import { channel, DataType, status, TimeSpan } from "@synnaxlabs/client";
+import { type channel, DataType, status, TimeSpan } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -103,12 +103,12 @@ export const useCalculatedModal = Modals.create<CalculatedModalParams>(
                 label="Operation"
               >
                 {(p) => (
-                  <Select.Buttons keys={channel.OPERATION_TYPES} {...p}>
-                    <Select.Button itemKey="none">None</Select.Button>
-                    <Select.Button itemKey="min">Min</Select.Button>
-                    <Select.Button itemKey="max">Max</Select.Button>
-                    <Select.Button itemKey="avg">Average</Select.Button>
-                    <Select.Button itemKey="derivative">Derivative</Select.Button>
+                  <Select.Buttons {...p}>
+                    <Select.Item itemKey="none">None</Select.Item>
+                    <Select.Item itemKey="min">Min</Select.Item>
+                    <Select.Item itemKey="max">Max</Select.Item>
+                    <Select.Item itemKey="avg">Average</Select.Item>
+                    <Select.Item itemKey="derivative">Derivative</Select.Item>
                   </Select.Buttons>
                 )}
               </Form.Field>

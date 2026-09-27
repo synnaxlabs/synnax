@@ -22,30 +22,29 @@ import {
   AO_FUNC_GEN_CHAN_TYPE,
   AO_VOLTAGE_CHAN_TYPE,
   type AOChannelType,
-  WAVE_TYPES,
   type WaveType,
 } from "@/feature/ni/task/types";
 
-interface SelectWaveTypeProps extends Omit<Select.ButtonsProps<WaveType>, "keys"> {}
+interface SelectWaveTypeProps extends Select.ButtonsProps<WaveType> {}
 
 const SelectWaveType = (props: SelectWaveTypeProps) => (
-  <Select.Buttons<WaveType> {...props} keys={WAVE_TYPES}>
-    <Select.Button<WaveType> itemKey="Sine">
+  <Select.Buttons<WaveType> {...props}>
+    <Select.Item<WaveType> itemKey="Sine">
       <Icon.Wave.Sine />
       Sine
-    </Select.Button>
-    <Select.Button<WaveType> itemKey="Triangle">
+    </Select.Item>
+    <Select.Item<WaveType> itemKey="Triangle">
       <Icon.Wave.Triangle />
       Triangle
-    </Select.Button>
-    <Select.Button<WaveType> itemKey="Square">
+    </Select.Item>
+    <Select.Item<WaveType> itemKey="Square">
       <Icon.Wave.Square />
       Square
-    </Select.Button>
-    <Select.Button<WaveType> itemKey="Sawtooth">
+    </Select.Item>
+    <Select.Item<WaveType> itemKey="Sawtooth">
       <Icon.Wave.Sawtooth />
       Sawtooth
-    </Select.Button>
+    </Select.Item>
   </Select.Buttons>
 );
 

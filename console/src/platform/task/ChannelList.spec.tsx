@@ -20,9 +20,9 @@ const resolve = () => null;
 
 const listItem = Component.renderProp(
   ({ itemKey, ...p }: Task.ChannelListItemProps) => (
-    <Select.ListItem itemKey={itemKey} {...p}>
+    <Select.Item itemKey={itemKey} {...p}>
       item-{itemKey}
-    </Select.ListItem>
+    </Select.Item>
   ),
 );
 

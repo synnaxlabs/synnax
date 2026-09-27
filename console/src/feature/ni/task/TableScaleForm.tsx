@@ -121,6 +121,11 @@ export const TableScaleForm = ({ prefix }: TableScaleFormProps): ReactElement =>
     scaled.onChange(next.map(([, value]) => Number(value)));
   };
 
+  const colItems = colOptions.map(({ key, name }) => (
+    <Select.Item key={key} itemKey={key}>
+      {name}
+    </Select.Item>
+  ));
   const { preview } = preScaled;
   const status =
     preScaled.status.variant !== "success" ? preScaled.status : scaled.status;
@@ -144,20 +149,22 @@ export const TableScaleForm = ({ prefix }: TableScaleFormProps): ReactElement =>
           {colOptions.length > 0 && (
             <>
               <Input.Item label="Raw column" padHelpText>
-                <Select.Static
+                <Select.Simple<string>
                   resourceName="raw column"
                   value={rawCol}
                   onChange={handleRawColChange}
-                  data={colOptions}
-                />
+                >
+                  {colItems}
+                </Select.Simple>
               </Input.Item>
               <Input.Item label="Scaled column" padHelpText>
-                <Select.Static
+                <Select.Simple<string>
                   resourceName="scaled column"
                   value={scaledCol}
                   onChange={handleScaledColChange}
-                  data={colOptions}
-                />
+                >
+                  {colItems}
+                </Select.Simple>
               </Input.Item>
             </>
           )}

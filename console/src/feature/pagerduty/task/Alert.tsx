@@ -143,7 +143,7 @@ const AlertListItem = (props: List.ItemProps<string>) => {
   const status = useAlertStatus(itemKey);
   const isNotDefined = status == null;
   return (
-    <Select.ListItem {...props} justify="between" align="center" x>
+    <Select.Item {...props} justify="between" align="center" x>
       <Flex.Box x align="center" gap={1}>
         <Base.Indicator variant={isNotDefined ? "disabled" : status.variant} />
         <Text.Text
@@ -155,7 +155,7 @@ const AlertListItem = (props: List.ItemProps<string>) => {
         </Text.Text>
       </Flex.Box>
       <Task.EnabledCheckbox path={`config.alerts.${itemKey}.disabled`} />
-    </Select.ListItem>
+    </Select.Item>
   );
 };
 
@@ -257,13 +257,11 @@ const Form: FC = () => {
               allowNone={false}
               autoSelectOnNone
             >
-              <List.Items<string, AlertConfig>
-                full="y"
-                onContextMenu={menuProps.open}
-                emptyContent={EMPTY_CONTENT}
-              >
-                {alertListItem}
-              </List.Items>
+              <List.Scroll full="y" onContextMenu={menuProps.open}>
+                <List.Items<string, AlertConfig> emptyContent={EMPTY_CONTENT}>
+                  {alertListItem}
+                </List.Items>
+              </List.Scroll>
             </Select.Frame>
           </PMenu.ContextMenu>
           {!isPreview && (

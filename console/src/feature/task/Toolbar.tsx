@@ -175,21 +175,21 @@ const Content = () => {
             onFetchMore={fetchMore}
             replaceOnSingle
           >
-            <List.Items<task.Key, task.Task>
-              full="y"
-              emptyContent={answered && <EmptyContent />}
-              onContextMenu={menuProps.open}
-            >
-              {({ key, ...p }) => (
-                <TaskListItem
-                  key={key}
-                  {...p}
-                  onStopStart={handleListItemStopStart}
-                  onRename={rename}
-                  onEdit={handleEdit}
-                />
-              )}
-            </List.Items>
+            <List.Scroll full="y" onContextMenu={menuProps.open}>
+              <List.Items<task.Key, task.Task>
+                emptyContent={answered && <EmptyContent />}
+              >
+                {({ key, ...p }) => (
+                  <TaskListItem
+                    key={key}
+                    {...p}
+                    onStopStart={handleListItemStopStart}
+                    onRename={rename}
+                    onEdit={handleEdit}
+                  />
+                )}
+              </List.Items>
+            </List.Scroll>
           </Select.Frame>
         </Toolbar.Body>
       </Toolbar.Content>
@@ -242,7 +242,7 @@ const TaskListItem = ({
   );
   const handleDoubleClick = useCallback(() => onEdit(itemKey), [onEdit, itemKey]);
   return (
-    <Select.ListItem
+    <Select.Item
       {...rest}
       onDoubleClick={handleDoubleClick}
       justify="between"
@@ -290,7 +290,7 @@ const TaskListItem = ({
           {isRunning ? <Icon.Stop /> : <Icon.Play />}
         </Button.Button>
       )}
-    </Select.ListItem>
+    </Select.Item>
   );
 };
 

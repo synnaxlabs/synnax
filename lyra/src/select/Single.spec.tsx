@@ -46,9 +46,9 @@ describe("Select.Single", () => {
     const { itemKey } = props;
     const item = testData.find((i) => i.key === itemKey);
     return (
-      <Select.ListItem {...props}>
+      <Select.Item {...props}>
         <Text.Text>{item?.name} Option</Text.Text>
-      </Select.ListItem>
+      </Select.Item>
     );
   });
 

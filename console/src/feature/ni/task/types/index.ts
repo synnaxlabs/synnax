@@ -38,7 +38,6 @@ export type StrainConfig = ni.StrainConfig;
 export type TerminalConfig = ni.TerminalConfig;
 export type ThermocoupleType = ni.ThermocoupleType;
 
-export const WAVE_TYPES = ni.WAVE_TYPES;
 export type WaveType = ni.WaveType;
 
 export type Scale = ni.Scale;

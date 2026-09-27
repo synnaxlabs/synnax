@@ -12,7 +12,8 @@ import { type ReactElement } from "react";
 
 import { Dialog } from "@/dialog";
 import { type List } from "@/list";
-import { Dialog as SelectDialog, type DialogProps } from "@/select/Dialog";
+import { Body, type BodyProps } from "@/select/Body";
+import { Dialog as SelectDialog } from "@/select/Dialog";
 import { Frame, type SingleFrameProps } from "@/select/Frame";
 import { usePlaceholder } from "@/select/placeholder";
 import { SingleTrigger, type SingleTriggerProps } from "@/select/SingleTrigger";
@@ -23,7 +24,10 @@ export interface SingleProps<
 >
   extends
     Omit<SingleFrameProps<K, E>, "multiple" | "children">,
-    Pick<DialogProps<K>, "emptyContent" | "status" | "onSearch" | "actions" | "footer">,
+    Pick<
+      BodyProps<K>,
+      "emptyContent" | "status" | "onSearch" | "actions" | "footer" | "fixedItems"
+    >,
     Omit<Dialog.FrameProps, "onChange" | "children" | "variant">,
     Pick<SingleTriggerProps, "disabled" | "icon" | "haulType">,
     Pick<List.ItemsProps<K>, "children"> {
@@ -65,6 +69,7 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
   preview,
   actions,
   footer,
+  fixedItems,
   dialogProps,
   triggerProps,
   virtual = true,
@@ -95,16 +100,18 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
           preview={preview}
           {...triggerProps}
         />
-        <SelectDialog<K>
-          onSearch={onSearch}
-          resourceName={resourceName}
-          emptyContent={emptyContent}
-          status={status}
-          actions={actions}
-          footer={footer}
-          {...dialogProps}
-        >
-          {children}
+        <SelectDialog {...dialogProps}>
+          <Body<K>
+            onSearch={onSearch}
+            resourceName={resourceName}
+            emptyContent={emptyContent}
+            status={status}
+            actions={actions}
+            footer={footer}
+            fixedItems={fixedItems}
+          >
+            {children}
+          </Body>
         </SelectDialog>
       </Frame>
     </Dialog.Frame>

@@ -7,53 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Component } from "@synnaxlabs/lyra/component";
-import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status as Base } from "@synnaxlabs/lyra/status";
 import { type ReactElement } from "react";
 
-import { VARIANT_DATA } from "@/status/variantData";
-
-type Entry = Select.StaticEntry<Base.Variant>;
-
-const listItem = Component.renderProp((p: List.ItemProps<string>) => {
-  const { itemKey } = p;
-  const item = List.useItem<string, Entry>(itemKey);
-  if (item == null) return null;
-  const { name, icon } = item;
-  return (
-    <Select.ListItem {...p}>
-      {icon}
-      {name}
-    </Select.ListItem>
-  );
-});
+import { VARIANT_ITEMS } from "@/status/variantItems";
 
 export interface SelectMultipleVariantProps extends Omit<
-  Select.MultipleProps<Base.Variant, Entry>,
-  "data" | "getItem" | "subscribe" | "children" | "resourceName" | "onSearch"
+  Select.MultipleSimpleProps<Base.Variant>,
+  "children" | "resourceName" | "multiple"
 > {}
 
 export const SelectMultipleVariants = (
   props: SelectMultipleVariantProps,
-): ReactElement => {
-  const { retrieve, ...listProps } = List.useStaticData<Base.Variant, Entry>({
-    data: VARIANT_DATA,
-  });
-  const { search } = List.usePager({ retrieve });
-  return (
-    <Select.Multiple<Base.Variant, Entry>
-      {...props}
-      {...listProps}
-      onSearch={search}
-      virtual={false}
-      resourceName="variant"
-      icon={icon}
-    >
-      {listItem}
-    </Select.Multiple>
-  );
-};
+): ReactElement => (
+  <Select.Simple<Base.Variant> icon={icon} {...props} multiple resourceName="variant">
+    {VARIANT_ITEMS}
+  </Select.Simple>
+);
 
 const icon = <Base.Indicator variant="success" />;

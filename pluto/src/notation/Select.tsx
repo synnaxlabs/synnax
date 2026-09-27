@@ -12,13 +12,10 @@ import "@/notation/Select.css";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select as BaseSelect } from "@synnaxlabs/lyra/select";
-import { notation } from "@synnaxlabs/x";
+import { type notation } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-export interface SelectNotationProps extends Omit<
-  BaseSelect.ButtonsProps<notation.Notation>,
-  "keys"
-> {}
+export interface SelectNotationProps extends BaseSelect.ButtonsProps<notation.Notation> {}
 
 const LABEL_CLASS = CSS.BE("notation-select", "label");
 const ICON_CLASS = CSS.BE("notation-select", "icon");
@@ -26,20 +23,19 @@ const ICON_CLASS = CSS.BE("notation-select", "icon");
 export const Select = ({ className, ...rest }: SelectNotationProps): ReactElement => (
   <BaseSelect.Buttons
     {...rest}
-    keys={notation.NOTATIONS}
     className={CSS.cls(className, CSS.B("notation-select"))}
   >
-    <BaseSelect.Button itemKey="standard" tooltip="Standard">
+    <BaseSelect.Item itemKey="standard" tooltip="Standard">
       <Icon.Decimal className={ICON_CLASS} />
       <span className={LABEL_CLASS}>Standard</span>
-    </BaseSelect.Button>
-    <BaseSelect.Button itemKey="scientific" tooltip="Scientific">
+    </BaseSelect.Item>
+    <BaseSelect.Item itemKey="scientific" tooltip="Scientific">
       <Icon.Scientific className={ICON_CLASS} />
       <span className={LABEL_CLASS}>Scientific</span>
-    </BaseSelect.Button>
-    <BaseSelect.Button itemKey="engineering" tooltip="Engineering">
+    </BaseSelect.Item>
+    <BaseSelect.Item itemKey="engineering" tooltip="Engineering">
       <Icon.Engineering className={ICON_CLASS} />
       <span className={LABEL_CLASS}>Engineering</span>
-    </BaseSelect.Button>
+    </BaseSelect.Item>
   </BaseSelect.Buttons>
 );

@@ -13,9 +13,9 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { type Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { caseconv } from "@synnaxlabs/x";
-import { type ReactElement, useMemo } from "react";
+import { type ReactElement } from "react";
 
-import { type Mode, MODES, type UseTriggers } from "@/viewport/use";
+import { type Mode, type UseTriggers } from "@/viewport/use";
 
 export type FilteredMode = Exclude<Mode, "cancel">;
 
@@ -32,57 +32,46 @@ export const TooltipText = ({ mode, triggers }: TooltipProps): ReactElement => (
 );
 
 export interface SelectModeProps
-  extends
-    Omit<Select.ButtonsProps<Mode>, "keys">,
-    Omit<Tooltip.ExtensionProps, "tooltip"> {
+  extends Select.ButtonsProps<Mode>, Omit<Tooltip.ExtensionProps, "tooltip"> {
   triggers: UseTriggers;
-  disable?: Mode[];
 }
 
 export const SelectMode = ({
   triggers,
   value,
   onChange,
-  disable = ["zoomReset", "click", "cancel"],
   tooltipLocation,
   hideTooltip,
   ...rest
 }: SelectModeProps): ReactElement => {
-  const data = useMemo(() => MODES.filter((m) => !disable.includes(m)), [disable]);
-  const commonProps: Partial<Select.ButtonProps<Mode>> = {
+  const commonProps: Partial<Select.ItemProps<Mode>> = {
     tooltipLocation,
     hideTooltip,
     size: "small",
   };
   return (
-    <Select.Buttons
-      variant="outlined"
-      {...rest}
-      keys={data}
-      value={value}
-      onChange={onChange}
-    >
-      <Select.Button
+    <Select.Buttons variant="outlined" {...rest} value={value} onChange={onChange}>
+      <Select.Item
         itemKey="zoom"
         tooltip={<TooltipText mode="zoom" triggers={triggers.modes.zoom} />}
         {...commonProps}
       >
         <Icon.Zoom />
-      </Select.Button>
-      <Select.Button
+      </Select.Item>
+      <Select.Item
         itemKey="pan"
         tooltip={<TooltipText mode="pan" triggers={triggers.modes.pan} />}
         {...commonProps}
       >
         <Icon.Pan />
-      </Select.Button>
-      <Select.Button
+      </Select.Item>
+      <Select.Item
         itemKey="select"
         tooltip={<TooltipText mode="select" triggers={triggers.modes.select} />}
         {...commonProps}
       >
         <Icon.Selection />
-      </Select.Button>
+      </Select.Item>
     </Select.Buttons>
   );
 };

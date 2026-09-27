@@ -93,16 +93,18 @@ export const List = ({
               />
             </Flex.Box>
           )}
-          <PList.Items<arc.Key> grow onContextMenu={menuProps.open}>
-            {({ key, ...rest }) => (
-              <Item
-                key={key}
-                {...rest}
-                textIdPrefix={textIdPrefix}
-                onRename={(name) => handleRename({ key, name })}
-              />
-            )}
-          </PList.Items>
+          <PList.Scroll grow onContextMenu={menuProps.open}>
+            <PList.Items<arc.Key>>
+              {({ key, ...rest }) => (
+                <Item
+                  key={key}
+                  {...rest}
+                  textIdPrefix={textIdPrefix}
+                  onRename={(name) => handleRename({ key, name })}
+                />
+              )}
+            </PList.Items>
+          </PList.Scroll>
         </Flex.Box>
       </Select.Frame>
     </Menu.ContextMenu>

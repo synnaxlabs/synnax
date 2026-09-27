@@ -21,6 +21,7 @@ export * from "@/platform/task/ParentRangeButton";
 export * from "@/platform/task/Rack";
 export * from "@/platform/task/ReadChannelContextMenuItem";
 export * from "@/platform/task/registry";
+export * from "@/platform/task/selectItems";
 export * from "@/platform/task/TareButton";
 export * from "@/platform/task/types";
 export * from "@/platform/task/useChannelDeviceKeys";

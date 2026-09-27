@@ -89,20 +89,20 @@ const Content = () => {
             onFetchMore={fetchMore}
             replaceOnSingle
           >
-            <List.Items<arc.Key, arc.Arc>
-              full="y"
-              emptyContent={answered && <EmptyContent onCreate={create} />}
-              onContextMenu={menuProps.open}
-            >
-              {({ key, ...p }) => (
-                <ArcListItem
-                  key={key}
-                  {...p}
-                  onRename={handleRename}
-                  onEdit={handleEdit}
-                />
-              )}
-            </List.Items>
+            <List.Scroll full="y" onContextMenu={menuProps.open}>
+              <List.Items<arc.Key, arc.Arc>
+                emptyContent={answered && <EmptyContent onCreate={create} />}
+              >
+                {({ key, ...p }) => (
+                  <ArcListItem
+                    key={key}
+                    {...p}
+                    onRename={handleRename}
+                    onEdit={handleEdit}
+                  />
+                )}
+              </List.Items>
+            </List.Scroll>
           </Select.Frame>
         </Toolbar.Body>
       </Toolbar.Content>
@@ -175,7 +175,7 @@ const ArcListItem = ({ onRename, onEdit, ...rest }: ArcListItemProps) => {
   if (status.variant === "success" && running) statusMessage = "Running";
   else if (status.variant === "error") statusMessage = "Error";
   return (
-    <Select.ListItem
+    <Select.Item
       {...rest}
       onDoubleClick={handleDoubleClick}
       justify="between"
@@ -220,6 +220,6 @@ const ArcListItem = ({ onRename, onEdit, ...rest }: ArcListItemProps) => {
           {running ? <Icon.Stop /> : <Icon.Play />}
         </Button.Button>
       )}
-    </Select.ListItem>
+    </Select.Item>
   );
 };

@@ -10,20 +10,20 @@
 import { Select } from "@synnaxlabs/lyra/select";
 import { type ReactElement } from "react";
 
-import { type Mode, MODES } from "@/vis/button/use";
+import { type Mode } from "@/vis/button/use";
 
-interface SelectButtonModeProps extends Omit<Select.ButtonsProps<Mode>, "keys"> {}
+interface SelectButtonModeProps extends Select.ButtonsProps<Mode> {}
 
 export const SelectMode = (props: SelectButtonModeProps): ReactElement => (
-  <Select.Buttons {...props} keys={MODES}>
-    <Select.Button itemKey="fire" tooltip="Output true when clicked">
+  <Select.Buttons {...props}>
+    <Select.Item itemKey="fire" tooltip="Output true when clicked">
       Fire
-    </Select.Button>
-    <Select.Button itemKey="momentary" tooltip="Output true on press, false on release">
+    </Select.Item>
+    <Select.Item itemKey="momentary" tooltip="Output true on press, false on release">
       Momentary
-    </Select.Button>
-    <Select.Button itemKey="pulse" tooltip="Output true, then false, on click">
+    </Select.Item>
+    <Select.Item itemKey="pulse" tooltip="Output true, then false, on click">
       Pulse
-    </Select.Button>
+    </Select.Item>
   </Select.Buttons>
 );

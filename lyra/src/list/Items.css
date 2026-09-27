@@ -9,54 +9,14 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-list__items {
+.pluto-list__virtualizer {
+    width: 100%;
+    position: relative;
     user-select: none;
-    overflow: auto;
     -webkit-user-select: none;
 
-    /* Rows mount and unmount on every scroll frame. Never `size`: the select dialog
-       sizes this box from its contents. */
-    contain: layout paint;
-
-    /* Opt-in: a list sized by its container would lag behind every pane drag. */
-    &.pluto-list__items--animate-height {
-        transition: height 0.1s ease;
-    }
-
-    &:not(.pluto--direction-x) {
-        padding: 1rem;
-    }
-
-    &.pluto-list__items--empty {
-        justify-content: center;
-        align-items: center;
-    }
-
-    & > .pluto-list__virtualizer {
+    & > .pluto-list__sentinel {
+        height: 1px;
         width: 100%;
-        position: relative;
-        user-select: none;
-        -webkit-user-select: none;
-
-        & > .pluto-list__sentinel {
-            height: 1px;
-            width: 100%;
-        }
-    }
-
-    &.pluto--direction-x {
-        &::-webkit-scrollbar {
-            height: 3px;
-        }
-
-        &::-webkit-scrollbar-thumb:hover {
-            background: var(--pluto-gray-l7);
-        }
-        & > .pluto-list__virtualizer {
-            display: flex;
-            flex-direction: inherit;
-            flex-wrap: inherit;
-            gap: inherit;
-        }
     }
 }
