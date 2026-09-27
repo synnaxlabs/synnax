@@ -1459,6 +1459,13 @@ describe("TimeSpan", () => {
         ["250µs", TimeSpan.microseconds(250)],
         ["10ns", TimeSpan.nanoseconds(10)],
         ["2D 3H", TimeSpan.days(2).add(TimeSpan.hours(3))],
+        ["2w", TimeSpan.days(14)],
+        ["3mo", TimeSpan.days(90)],
+        ["1y 2mo", TimeSpan.days(425)],
+        [
+          "5mo 5m 5ms",
+          TimeSpan.days(150).add(TimeSpan.minutes(5)).add(TimeSpan.milliseconds(5)),
+        ],
       ];
       for (const [text, expected] of cases)
         expect(TimeSpan.parse(text)?.equals(expected), text).toBe(true);
