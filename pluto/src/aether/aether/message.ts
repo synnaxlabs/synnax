@@ -15,8 +15,6 @@ export interface MainUpdateRequest {
   path: readonly string[];
   type: string;
   state: state.State;
-  /** Orders the update among every update the store sends. */
-  seq: number;
 }
 
 /** Main → worker: delete the component at `path`. */
@@ -47,14 +45,6 @@ export interface WorkerUpdateRequest {
   variant: "update";
   path: readonly string[];
   state: state.State;
-  /** The seq of the last main update the component applied. */
-  seq: number;
-}
-
-/** Worker → main: the worker has applied every main update up to `seq`. */
-export interface WorkerAckRequest {
-  variant: "ack";
-  seq: number;
 }
 
 /** Worker → main: a worker-side error to surface on the main thread. */
@@ -74,10 +64,7 @@ export interface WorkerInvokeResponse {
 
 /** Any message sent from the worker thread to the main thread. */
 export type WorkerMessage =
-  | WorkerUpdateRequest
-  | WorkerAckRequest
-  | WorkerNotifyErrorRequest
-  | WorkerInvokeResponse;
+  WorkerUpdateRequest | WorkerNotifyErrorRequest | WorkerInvokeResponse;
 
 /** Any message sent from the main thread to the worker thread. */
 export type MainMessage =

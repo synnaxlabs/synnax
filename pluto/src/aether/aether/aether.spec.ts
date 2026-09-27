@@ -248,7 +248,7 @@ const update = (
   path: string[],
   x: number,
   create: (parent: aether.Node) => aether.Component = shouldNotCallCreate,
-): void => c._updateState({ path, state: { x }, type: "example", seq: 0, create });
+): void => c._updateState({ path, state: { x }, type: "example", create });
 
 describe("Aether Worker", () => {
   describe("AetherLeaf", () => {
@@ -300,7 +300,6 @@ describe("Aether Worker", () => {
           variant: "update",
           path: ["test"],
           state: { x: 2 },
-          seq: 0,
         });
       });
     });
@@ -548,7 +547,6 @@ describe("Aether Worker", () => {
       MockSender.send.mockClear();
       leaf = createInvokeLeaf("invoke-test");
       leaf._updateState({
-        seq: 0,
         path: ["invoke-test"],
         state: { x: 1 },
         type: "invoke-leaf",
@@ -700,14 +698,12 @@ describe("Aether Worker", () => {
         MockSender.send.mockClear();
         composite = createInvokeComposite("parent");
         composite._updateState({
-          seq: 0,
           path: ["parent"],
           state: { x: 1 },
           type: "invoke-composite",
           create: shouldNotCallCreate,
         });
         composite._updateState({
-          seq: 0,
           path: ["parent", "child"],
           state: { x: 2 },
           type: "invoke-leaf",
@@ -752,7 +748,6 @@ describe("message", () => {
       const comms = aether.wrapWorker(worker);
       const msg: aether.MainMessage = {
         variant: "update",
-        seq: 0,
         path: ["a"],
         type: "t",
         state: { x: 1 },
@@ -781,7 +776,6 @@ describe("message", () => {
       comms.handle(handler);
       const msg: aether.WorkerMessage = {
         variant: "update",
-        seq: 0,
         path: ["k"],
         state: { x: 1 },
       };
@@ -798,7 +792,6 @@ describe("message", () => {
         const comms = aether.wrapWorkerScope();
         const msg: aether.WorkerMessage = {
           variant: "update",
-          seq: 0,
           path: ["k"],
           state: { x: 1 },
         };
@@ -818,7 +811,6 @@ describe("message", () => {
         comms.handle(handler);
         const msg: aether.MainMessage = {
           variant: "update",
-          seq: 0,
           path: ["a"],
           type: "t",
           state: { x: 1 },
@@ -838,7 +830,6 @@ describe("message", () => {
       workerSide.handle(workerHandler);
       const msg: aether.MainMessage = {
         variant: "update",
-        seq: 0,
         path: ["a"],
         type: "t",
         state: { x: 1 },
@@ -853,7 +844,6 @@ describe("message", () => {
       mainSide.handle(mainHandler);
       const msg: aether.WorkerMessage = {
         variant: "update",
-        seq: 0,
         path: ["k"],
         state: { x: 1 },
       };
@@ -867,7 +857,6 @@ describe("message", () => {
         mainSide.send([
           {
             variant: "update",
-            seq: 0,
             path: ["a"],
             type: "t",
             state: { x: 1 },
@@ -899,16 +888,9 @@ describe("message", () => {
         registry: { composite: ExampleComposite, leaf: ExampleLeaf },
       });
       mainSide.send([
+        { variant: "update", path: ["root", "a"], type: "composite", state: { x: 1 } },
         {
           variant: "update",
-          seq: 0,
-          path: ["root", "a"],
-          type: "composite",
-          state: { x: 1 },
-        },
-        {
-          variant: "update",
-          seq: 0,
           path: ["root", "a", "b"],
           type: "leaf",
           state: { x: 2 },
@@ -921,101 +903,9 @@ describe("message", () => {
       expect(comp.deletef).toHaveBeenCalledTimes(1);
       expect(root.children).toHaveLength(0);
       mainSide.send([
-        {
-          variant: "update",
-          seq: 0,
-          path: ["root", "c"],
-          type: "leaf",
-          state: { x: 3 },
-        },
+        { variant: "update", path: ["root", "c"], type: "leaf", state: { x: 3 } },
       ]);
       expect(root.children).toHaveLength(1);
-    });
-  });
-
-  describe("seq", () => {
-    const renderCapturing = (): {
-      root: aether.Root;
-      mainSide: aether.MainComms;
-      received: aether.WorkerMessage[];
-    } => {
-      const [workerSide, mainSide] = aether.createMockPair();
-      const received: aether.WorkerMessage[] = [];
-      mainSide.handle((messages) => received.push(...messages));
-      const root = aether.render({
-        worker: workerSide,
-        registry: { leaf: ExampleLeaf },
-      });
-      return { root, mainSide, received };
-    };
-
-    it("should acknowledge a batch with the seq of its last update", async () => {
-      const { mainSide, received } = renderCapturing();
-      mainSide.send([
-        {
-          variant: "update",
-          seq: 3,
-          path: ["root", "a"],
-          type: "leaf",
-          state: { x: 1 },
-        },
-        {
-          variant: "update",
-          seq: 4,
-          path: ["root", "b"],
-          type: "leaf",
-          state: { x: 2 },
-        },
-      ]);
-      await vi.waitFor(() => expect(received).toEqual([{ variant: "ack", seq: 4 }]));
-    });
-
-    it("should not acknowledge a batch without updates", async () => {
-      const { mainSide, received } = renderCapturing();
-      mainSide.send([
-        {
-          variant: "update",
-          seq: 1,
-          path: ["root", "a"],
-          type: "leaf",
-          state: { x: 1 },
-        },
-      ]);
-      await vi.waitFor(() => expect(received).toHaveLength(1));
-      mainSide.send([{ variant: "delete", path: ["root", "a"] }]);
-      await new Promise((resolve) => setTimeout(resolve, 0));
-      expect(received).toEqual([{ variant: "ack", seq: 1 }]);
-    });
-
-    it("should stamp a push with the seq of the last update the component applied", async () => {
-      const { root, mainSide, received } = renderCapturing();
-      mainSide.send([
-        {
-          variant: "update",
-          seq: 5,
-          path: ["root", "a"],
-          type: "leaf",
-          state: { x: 1 },
-        },
-      ]);
-      mainSide.send([
-        {
-          variant: "update",
-          seq: 6,
-          path: ["root", "b"],
-          type: "leaf",
-          state: { x: 1 },
-        },
-      ]);
-      (root.children[0] as ExampleLeaf).setState({ x: 2 });
-      await vi.waitFor(() =>
-        expect(received).toContainEqual({
-          variant: "update",
-          path: ["root", "a"],
-          state: { x: 2 },
-          seq: 5,
-        }),
-      );
     });
   });
 });
@@ -1218,7 +1108,6 @@ describe("aether context propagation (property/oracle)", () => {
       ): void => {
         states.set(node.id, x);
         root._updateState({
-          seq: 0,
           path: node.fullPath,
           state: { x, id: node.id },
           type: node.isLeaf ? "leaf" : "node",

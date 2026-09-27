@@ -65,7 +65,6 @@ export const createDriver = (
     // pushing the next provider key) cannot rewrite an already-mounted component's key.
     const snapshot = [...path];
     root._updateState({
-      seq: 0,
       path: snapshot,
       type,
       state: stateValue,

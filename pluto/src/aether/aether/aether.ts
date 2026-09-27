@@ -53,7 +53,7 @@ interface CreateComponent {
 
 export interface UpdateStateParams extends Pick<
   MainUpdateRequest,
-  "path" | "type" | "state" | "seq"
+  "path" | "type" | "state"
 > {
   create: CreateComponent;
 }
@@ -453,8 +453,6 @@ export abstract class Leaf<
   private readonly _internalState: InternalState;
   private _state: z.infer<StateSchema> | undefined;
   private _prevState: z.infer<StateSchema> | undefined;
-  /** The seq of the last main update applied to this component. */
-  private seq = 0;
 
   /** Zod schema for the component's state. Must be defined by every subclass. */
   schema: StateSchema | undefined = undefined;
@@ -501,12 +499,7 @@ export abstract class Leaf<
     const nextState = state.executeSetter(next, this.state);
     this._prevState = shallow.copy(this._state);
     this._state = zod.parse(this._schema, nextState, { label: this.toString() });
-    this.sender.send({
-      variant: "update",
-      path: this.path,
-      state: this._state,
-      seq: this.seq,
-    });
+    this.sender.send({ variant: "update", path: this.path, state: this._state });
   }
 
   /** The component's current parsed state. Throws if read before the first update has
@@ -534,7 +527,7 @@ export abstract class Leaf<
 
   /** Internal: routes state updates from the tree. Subclasses other than
    * {@link Composite} must not call this. */
-  _updateState({ path, state, seq }: UpdateStateParams): void {
+  _updateState({ path, state }: UpdateStateParams): void {
     if (this.deleted) return;
     try {
       this.initializeMethods();
@@ -548,7 +541,6 @@ export abstract class Leaf<
       else this.instrumentation.L.debug("setting initial state", { state, path });
       this._prevState = this._state ?? state_;
       this._state = state_;
-      this.seq = seq;
       this.runAfterUpdate();
       endSpan();
     } catch (e) {
@@ -795,23 +787,18 @@ export class Root extends Composite<typeof aetherRootState> {
       path: [Root.KEY],
       type: "",
       state: {},
-      seq: 0,
       create: shouldNotCallCreate,
     });
     // Messages are handled sequentially: concurrent component updates lead to races, so
     // the tree is implicitly serialized via the message queue. Each message is caught
     // on its own so one failure reports and the rest of the batch still applies.
     root.comms.handle((messages) => {
-      let seq: number | null = null;
-      for (const msg of messages) {
-        if (msg.variant === "update") seq = msg.seq;
+      for (const msg of messages)
         try {
           root.handle(msg);
         } catch (e) {
           root.sender.send({ variant: "error", error: errors.encode(e) });
         }
-      }
-      if (seq != null) root.sender.send({ variant: "ack", seq });
     });
     return root;
   }
@@ -834,12 +821,11 @@ export class Root extends Composite<typeof aetherRootState> {
       return;
     }
 
-    const { path, type, state, seq } = msg;
+    const { path, type, state } = msg;
     this._updateState({
       path,
       type,
       state,
-      seq,
       create: (parent) => this.create({ path, type, parent }),
     });
   }

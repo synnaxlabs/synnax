@@ -104,7 +104,6 @@ function createBenchmarkTree() {
   });
 
   root._updateState({
-    seq: 0,
     path: ["root"],
     type: "bench",
     state: {
@@ -124,7 +123,6 @@ function createBenchmarkTree() {
   for (let i = 0; i < 15; i++) {
     const l1Key = `l1-${i}`;
     root._updateState({
-      seq: 0,
       path: ["root", l1Key],
       type: "bench",
       state: {
@@ -150,7 +148,6 @@ function createBenchmarkTree() {
     for (let j = 0; j < 15; j++) {
       const l2Key = `l2-${i}-${j}`;
       root._updateState({
-        seq: 0,
         path: ["root", l1Key, l2Key],
         type: "bench",
         state: {
@@ -176,7 +173,6 @@ function createBenchmarkTree() {
       for (let k = 0; k < 15; k++) {
         const l3Key = `l3-${i}-${j}-${k}`;
         root._updateState({
-          seq: 0,
           path: ["root", l1Key, l2Key, l3Key],
           type: "bench",
           state: {
@@ -220,7 +216,6 @@ function createSparseTree(): SparseRoot {
     parent: null,
   });
   root._updateState({
-    seq: 0,
     path: ["root"],
     type: "bench",
     state: sparseState("root", 100),
@@ -229,7 +224,6 @@ function createSparseTree(): SparseRoot {
   for (let i = 0; i < 15; i++) {
     const l1Key = `l1-${i}`;
     root._updateState({
-      seq: 0,
       path: ["root", l1Key],
       type: "bench",
       state: sparseState(l1Key, i),
@@ -245,7 +239,6 @@ function createSparseTree(): SparseRoot {
     for (let j = 0; j < 15; j++) {
       const l2Key = `l2-${i}-${j}`;
       root._updateState({
-        seq: 0,
         path: ["root", l1Key, l2Key],
         type: "bench",
         state: sparseState(l2Key, j),
@@ -261,7 +254,6 @@ function createSparseTree(): SparseRoot {
       for (let k = 0; k < 15; k++) {
         const l3Key = `l3-${i}-${j}-${k}`;
         root._updateState({
-          seq: 0,
           path: ["root", l1Key, l2Key, l3Key],
           type: "bench",
           state: sparseState(l3Key, k),
@@ -289,7 +281,6 @@ describe("deep tree updates (full subscription)", () => {
     "should update the entire tree",
     () => {
       root._updateState({
-        seq: 0,
         path: ["root"],
         type: "bench",
         state: {
@@ -323,7 +314,6 @@ describe("deep tree updates (sparse subscription)", () => {
     "should update only the subscribed leaves",
     () => {
       root._updateState({
-        seq: 0,
         path: ["root"],
         type: "bench",
         state: sparseState("root", 200),
