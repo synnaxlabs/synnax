@@ -135,8 +135,8 @@ describe("DigitalWrite", () => {
     );
     const cmd = await client.channels.retrieve(deployed.config.channels[0].cmdChannel);
     await screen.findByText(cmd.name);
-    const inputs = rendered.container.querySelectorAll("input");
-    commitFieldInput(inputs[inputs.length - 1], "7");
+    const inputs = rendered.container.querySelectorAll('input:not([type="checkbox"])');
+    commitFieldInput(inputs[inputs.length - 1] as HTMLInputElement, "7");
     await waitFor(async () => {
       const saved = await client.tasks.retrieve({
         key: rendered.draft.key,
