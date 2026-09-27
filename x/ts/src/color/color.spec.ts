@@ -900,6 +900,7 @@ describe("color.Color", () => {
       expect(color.fromCSS("hsl(0.5turn 100% 50%)")).toEqual(cyan);
       expect(color.fromCSS(`hsl(${Math.PI}rad 100% 50%)`)).toEqual(cyan);
       expect(color.fromCSS("hsl(200grad 100% 50%)")).toEqual(cyan);
+      expect(color.fromCSS("hsl(1.8e2deg 100% 50%)")).toEqual(cyan);
     });
 
     test("rejects an hsl hue with an unknown unit", () => {

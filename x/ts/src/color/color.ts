@@ -434,7 +434,7 @@ const DEGREES_PER_HUE_UNIT: Record<string, number> = {
 
 /** Parses a CSS hue angle into degrees. A bare number is in degrees. */
 const parseCSSHue = (arg: string): number | undefined => {
-  const match = arg.match(/^([+-]?(?:\d+\.?\d*|\.\d+))([a-z]*)$/);
+  const match = arg.match(/^([+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?)([a-z]*)$/);
   if (match == null) return undefined;
   const factor = DEGREES_PER_HUE_UNIT[match[2]];
   if (factor == null) return undefined;
