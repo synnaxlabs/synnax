@@ -2149,11 +2149,13 @@ describe("remote", () => {
       expect(c.tiles.length).toBe(before);
     });
 
-    it("should report a failed tile read once and retry it", async () => {
+    it("should report a failed tile read once, clear loading, and retry", async () => {
       const statuses: cstatus.Crude[] = [];
       const source = create({}, undefined, {
         onStatusChange: (s) => statuses.push(s),
       });
+      const handleChange = vi.fn();
+      source.onChange(handleChange);
       c.feed.readTile = async (spec) => {
         c.tiles.push(spec);
         throw new ValidationError("tile read failed");
@@ -2172,7 +2174,9 @@ describe("remote", () => {
         })
         .toBeGreaterThan(failed);
       expect(statuses).toHaveLength(1);
-      expect(source.loading()).toBe(true);
+      expect(source.loading()).toBe(false);
+      // Once when the channel resolves, and once when the tile read fails.
+      expect(handleChange).toHaveBeenCalledTimes(2);
     });
 
     it("should release every tile on cleanup", async () => {
@@ -2211,6 +2215,15 @@ describe("remote", () => {
         );
         expect(c.tiles).toHaveLength(0);
         expect(positions(source.value()[1])).toEqual([[82, 100]]);
+      });
+
+      it("should stream a live xy line's home view without tiles", async () => {
+        c.response = new MultiSeries([raw(90, 100)]);
+        const source = createLive({ xChannel: XY_KEY, channel: XY_KEY });
+        await settle(source);
+        expect(c.tiles).toHaveLength(0);
+        expect(c.reads[0].start.valueOf()).toBe(TimeStamp.seconds(90).valueOf());
+        expect(positions(source.value()[1])).toEqual([[90, 100]]);
       });
 
       it("should stream new samples into the live window", async () => {

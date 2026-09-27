@@ -676,7 +676,7 @@ const viewRange = ({ lower, upper }: bounds.Bounds): TimeRange =>
  * data that cover the view the line passes to value(), and its home view when the line
  * passes none. A live line streams the recent part of its home view at full
  * resolution. A line whose x channel is not an index reads its home view once, reduced
- * with decimate.
+ * with decimate, or streams it at full resolution when live.
  */
 export class TiledChannelData
   extends AbstractSource<typeof tiledChannelDataPropsZ>
@@ -774,8 +774,10 @@ export class TiledChannelData
     let start: TimeStamp | undefined;
     let end: TimeStamp | undefined;
     let tiled = view;
-    if (this.xy) [start, end] = [this.home().start, this.home().end];
-    else if (this.live) {
+    if (this.xy) {
+      if (this.live) return [];
+      [start, end] = [this.home().start, this.home().end];
+    } else if (this.live) {
       end = this.rawFrom();
       if (!end.after(view.start)) return [];
       if (view.end.after(end)) tiled = new TimeRange(view.start, end);
@@ -896,7 +898,7 @@ export class TiledChannelData
       .catch((e: unknown) => {
         if (generation !== this.generation) return;
         this.pending.delete(key);
-        this.reportFailure(e, "Failed to read channel data");
+        this.fail(e);
       });
   }
 
@@ -924,7 +926,7 @@ export class TiledChannelData
     } catch (e) {
       if (generation !== this.generation) return;
       this.valid = false;
-      this.reportFailure(e, "Failed to read channel data");
+      this.fail(e);
     }
   }
 
@@ -976,12 +978,18 @@ export class TiledChannelData
     this.raw.series.splice(0, this.raw.series.length, ...keep);
   }
 
-  private reportFailure(e: unknown, message: string): void {
-    const failure = cstatus.fromException(e, message);
+  // Declares the home view loaded on the first failure, so retries never hold loading
+  // forever.
+  private fail(e: unknown): void {
+    const failure = cstatus.fromException(e, "Failed to read channel data");
     const key = `${failure.message}: ${failure.description}`;
-    if (this.lastFailure === key) return;
-    this.lastFailure = key;
-    this.onStatusChange?.(failure);
+    if (this.lastFailure !== key) {
+      this.lastFailure = key;
+      this.onStatusChange?.(failure);
+    }
+    if (this.homeLoaded) return;
+    this.homeLoaded = true;
+    this.notify();
   }
 
   cleanup(): void {

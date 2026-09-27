@@ -253,6 +253,7 @@ export class TileReader {
     reduction: Reduction,
   ): Promise<Frame> {
     const { readRemote, fetchTimeout } = this.props;
+    const fetched = readRemote(tr, keys, reduction);
     let timer: ReturnType<typeof setTimeout> | undefined;
     const deadline = new Promise<never>((_, reject) => {
       timer = setTimeout(() => {
@@ -260,7 +261,6 @@ export class TileReader {
         reject(new Unreachable({ message }));
       }, fetchTimeout.milliseconds);
     });
-    const fetched = readRemote(tr, keys, reduction);
     try {
       return await Promise.race([fetched, deadline]);
     } catch (err) {
