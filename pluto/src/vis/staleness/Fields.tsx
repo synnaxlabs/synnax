@@ -33,7 +33,7 @@ export const Fields = ({ path = "" }: FieldsProps = {}): ReactElement => {
   return (
     <>
       <Form.Field<color.Crude>
-        label="Stale color"
+        label="Color"
         align="start"
         padHelpText={false}
         path={field("stalenessColor")}
@@ -45,7 +45,7 @@ export const Fields = ({ path = "" }: FieldsProps = {}): ReactElement => {
       </Form.Field>
       <Form.NumericField
         path={field("stalenessTimeout")}
-        label="Stale timeout"
+        label="Timeout"
         padHelpText={false}
         inputProps={INPUT_PROPS}
       />

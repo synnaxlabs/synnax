@@ -9,10 +9,11 @@
  * included in the file licenses/APL.txt.
  */
 
+/* Help text shares the label's size, so weight tells them apart. */
 .pluto-input-label {
     color: var(--pluto-gray-l9);
     font-size: var(--pluto-small-size);
-    font-weight: var(--pluto-small-font-weight);
+    font-weight: 500;
     line-height: var(--pluto-small-line-height);
     width: fit-content;
     white-space: nowrap;

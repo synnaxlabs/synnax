@@ -41,8 +41,15 @@ export interface HandleExpandProps<K extends record.Key = string> {
   clicked: K;
 }
 
+/**
+ * What folds and unfolds a node: a click anywhere on its row, which also selects it,
+ * or a click on its caret alone, which leaves the selection as it is.
+ */
+export type ToggleOn = "row" | "caret";
+
 export interface UseProps<K extends record.Key = string> {
   onExpand?: (props: HandleExpandProps<K>) => void;
+  toggleOn?: ToggleOn;
   selected?: K[];
   sort?: compare.Comparator<Node<K>>;
   onSelectedChange?: xstate.Setter<K[]>;
@@ -57,6 +64,9 @@ export interface UseReturn<K extends record.Key = string> {
   expand: (key: K) => void;
   contract: (...keys: K[]) => void;
   clearExpanded: () => void;
+  /** Folds an expanded node or unfolds a collapsed one. */
+  toggle: (key: K) => void;
+  toggleOn: ToggleOn;
   shape: Shape<K>;
 }
 
@@ -69,6 +79,7 @@ export const use = <K extends record.Key = string>({
   selected: propsSelected,
   onSelectedChange,
   sort,
+  toggleOn = "row",
 }: UseProps<K>): UseReturn<K> => {
   const [expanded, setExpanded, expandedRef] =
     useCombinedStateAndRef<K[]>(initialExpanded);
@@ -81,10 +92,25 @@ export const use = <K extends record.Key = string>({
     () => flatten<K>({ nodes, expanded, sort }),
     [nodes, expanded, sort],
   );
-  const nodesRef = useSyncedRef(nodes);
   const shapeRef = useSyncedRef(shape);
 
   const shiftRef = Triggers.useHeldRef({ triggers: SHIFT_TRIGGERS });
+
+  const handleToggle = useCallback(
+    (key: K): void => {
+      const n = getNodeShape(shapeRef.current, key);
+      if (n == null || !n.hasChildren) return;
+      const currentlyExpanded = expandedRef.current;
+      const action = currentlyExpanded.includes(key) ? "contract" : "expand";
+      const nextExpanded =
+        action === "contract"
+          ? currentlyExpanded.filter((k) => k !== key)
+          : [...currentlyExpanded, key];
+      setExpanded(nextExpanded);
+      onExpand?.({ current: nextExpanded, action, clicked: key });
+    },
+    [onExpand, setExpanded],
+  );
 
   const handleSelect: Select.UseMultipleProps<K>["onChange"] = useCallback(
     (keys: K[], { clicked }: Select.UseOnChangeExtra<K>): void => {
@@ -92,21 +118,10 @@ export const use = <K extends record.Key = string>({
         if (keys.length === 0 && p.length > 0) return p.slice(0, 1);
         return keys;
       });
-      if (clicked == null || shiftRef.current.held) return;
-      const n = getNodeShape(shapeRef.current, clicked);
-      if (n == null || !n.hasChildren) return;
-      const currentlyExpanded = expandedRef.current;
-      const action = currentlyExpanded.some((key) => key === clicked)
-        ? "contract"
-        : "expand";
-      let nextExpanded: K[];
-      if (action === "contract")
-        nextExpanded = currentlyExpanded.filter((key) => key !== clicked);
-      else nextExpanded = [...currentlyExpanded, clicked];
-      setExpanded(nextExpanded);
-      onExpand?.({ current: nextExpanded, action, clicked });
+      if (toggleOn === "caret" || clicked == null || shiftRef.current.held) return;
+      handleToggle(clicked);
     },
-    [onExpand, nodesRef, setExpanded, setSelected],
+    [toggleOn, handleToggle, setSelected],
   );
 
   const handleExpand = useCallback(
@@ -136,6 +151,8 @@ export const use = <K extends record.Key = string>({
     contract: handleContract,
     expand: handleExpand,
     clearExpanded,
+    toggle: handleToggle,
+    toggleOn,
     shape,
     onSelect: handleSelect,
   };
@@ -174,6 +191,8 @@ export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
   expanded: ___,
   className: ____,
   clearExpanded: _____,
+  toggle,
+  toggleOn,
   showRules = false,
   virtual = true,
   itemHeight = ITEM_HEIGHT,
@@ -184,9 +203,16 @@ export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
   emptyContent,
   ...rest
 }: TreeProps<K, E>): ReactElement => {
-  const { keys } = shape;
+  const { keys, nodes } = shape;
+  const contextValue = useMemo(
+    () => ({
+      nodes,
+      toggle: toggleOn === "caret" ? (i: number) => toggle(keys[i]) : undefined,
+    }),
+    [nodes, keys, toggle, toggleOn],
+  );
   return (
-    <Context value={shape.nodes}>
+    <Context value={contextValue}>
       <Select.Frame
         multiple
         value={selected}

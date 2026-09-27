@@ -42,6 +42,11 @@ const release = (el: HTMLElement, x: number): void => {
 };
 
 describe("Input.Numeric", () => {
+  it("should mark its input as numeric so forms can narrow it", () => {
+    const c = render(<Input.Numeric value={0} onChange={vi.fn()} />);
+    expect(c.container.querySelector(`.${CSS.BM("input", "numeric")}`)).not.toBeNull();
+  });
+
   describe("drag handle", () => {
     it("should emit a change per drag frame by default", () => {
       const onChange = vi.fn();

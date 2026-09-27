@@ -8,18 +8,30 @@
 // included in the file licenses/APL.txt.
 
 import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Header } from "@synnaxlabs/lyra/header";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { binary } from "@synnaxlabs/x";
-import { useCallback } from "react";
+import { type ReactNode, useCallback } from "react";
+
+import { CSS } from "@/platform/css";
 
 export interface DetailsHeaderProps {
   path: string;
   disabled?: boolean;
+  /** Names the selected item; shown in place of "Details" while one is selected. */
+  children?: ReactNode;
+  /** Rendered before the title. */
+  start?: ReactNode;
 }
 
-export const DetailsHeader = ({ path, disabled = false }: DetailsHeaderProps) => {
+export const DetailsHeader = ({
+  path,
+  disabled = false,
+  children,
+  start,
+}: DetailsHeaderProps) => {
   const { get } = Form.useContext();
   const getText = useCallback(
     () => binary.JSON_CODEC.encodeString(get(path).value),
@@ -27,9 +39,24 @@ export const DetailsHeader = ({ path, disabled = false }: DetailsHeaderProps) =>
   );
   return (
     <Header.Header>
-      <Header.Title weight={500} wrap={false} color={10}>
-        Details
-      </Header.Title>
+      <Flex.Box x align="center" gap="small" className={CSS.BE("panes", "title")}>
+        {start}
+        {disabled || children == null ? (
+          <Header.Title weight={500} wrap={false} color={10}>
+            Details
+          </Header.Title>
+        ) : (
+          // A rich title holds tags and paragraphs, which a Title's paragraph cannot.
+          <Flex.Box
+            x
+            align="center"
+            gap={1.5}
+            className={CSS.BE("panes", "item-title")}
+          >
+            {children}
+          </Flex.Box>
+        )}
+      </Flex.Box>
       <Header.Actions>
         <Button.Copy
           disabled={disabled}
