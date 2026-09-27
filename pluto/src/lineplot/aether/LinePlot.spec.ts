@@ -21,7 +21,10 @@ import { Line } from "@/vis/line/aether/line";
 import { type render } from "@/vis/render";
 import { canvasTest } from "@/vis/render/test";
 
-const stubLineStateZ = z.object({ loading: z.boolean() });
+const stubLineStateZ = z.object({
+  loading: z.boolean(),
+  fetching: z.boolean().default(false),
+});
 
 // Line needs a live GL context, so a stub with its TYPE stands in for the walk.
 class StubLine extends aether.Leaf<typeof stubLineStateZ> {
@@ -30,6 +33,10 @@ class StubLine extends aether.Leaf<typeof stubLineStateZ> {
 
   get loading(): boolean {
     return this.state.loading;
+  }
+
+  get fetching(): boolean {
+    return this.state.fetching;
   }
 }
 
@@ -42,6 +49,7 @@ interface Mount {
   plot: LinePlot;
   recorder: canvasTest.Recorder;
   setLineLoading: (loading: boolean) => void;
+  setLineFetching: (fetching: boolean) => void;
   pump: () => void;
 }
 
@@ -88,6 +96,11 @@ describe("LinePlot", () => {
       recorder,
       setLineLoading: (loading) =>
         stack.driver.update([...base, "x1", "y1", "l1"], StubLine.TYPE, { loading }),
+      setLineFetching: (fetching) =>
+        stack.driver.update([...base, "x1", "y1", "l1"], StubLine.TYPE, {
+          loading: false,
+          fetching,
+        }),
       pump,
     };
   };
@@ -113,6 +126,26 @@ describe("LinePlot", () => {
       const m = mount(null);
       m.pump();
       expect(m.plot.state.loading).toBe(false);
+    });
+  });
+
+  describe("fetching", () => {
+    it("should keep drawing and sync state while a line fetches", () => {
+      const m = mount(false);
+      m.setLineFetching(true);
+      m.pump();
+      expect(m.plot.state.fetching).toBe(true);
+      expect(m.plot.state.loading).toBe(false);
+      expect(m.recorder.scissorCalls.length).toBeGreaterThan(0);
+    });
+
+    it("should clear the state once the line settles", () => {
+      const m = mount(false);
+      m.setLineFetching(true);
+      m.pump();
+      m.setLineFetching(false);
+      m.pump();
+      expect(m.plot.state.fetching).toBe(false);
     });
   });
 });

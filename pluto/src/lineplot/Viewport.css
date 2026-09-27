@@ -31,3 +31,10 @@
     font-size: var(--pluto-p-size);
     top: calc(50% + min(var(--pluto-orbital-size, 18rem), 100cqw, 100cqh) / 2 + 2rem);
 }
+
+.pluto-line-plot__fetching {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    pointer-events: none;
+}

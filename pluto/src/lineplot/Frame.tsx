@@ -59,6 +59,7 @@ export interface ContextValue {
   addViewportHandler: (handler: Viewport.UseHandler) => destructor.Destructor;
   setHold: (hold: boolean) => void;
   loading: boolean;
+  fetching: boolean;
   loadingMessage?: string;
 }
 
@@ -145,7 +146,7 @@ export const Frame = ({
 
   const memoProps = useMemoDeepEqual({ clearOverScan, hold, visible });
 
-  const [{ path }, { grid, loading }, setState, methods] = Aether.use({
+  const [{ path }, { grid, loading, fetching }, setState, methods] = Aether.use({
     aetherKey,
     type: lineplot.LinePlot.TYPE,
     schema: lineplot.linePlotStateZ,
@@ -257,6 +258,7 @@ export const Frame = ({
       setHold,
       id,
       loading,
+      fetching,
       loadingMessage,
     }),
     [
@@ -270,6 +272,7 @@ export const Frame = ({
       addViewportHandler,
       setHold,
       loading,
+      fetching,
       loadingMessage,
     ],
   );
