@@ -256,7 +256,9 @@ export const getHeaderIconButton = (
   title: string,
   icon: string = "add",
 ): HTMLButtonElement => {
-  const header = screen.getByText(title).closest(".pluto-header");
+  const header = screen
+    .getByText(title)
+    .closest(".pluto-header, .pluto-form-section__header");
   if (header == null) throw new Error(`no header titled ${title}`);
   return getIconButton(header, icon);
 };
