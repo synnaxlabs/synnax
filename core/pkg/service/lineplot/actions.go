@@ -519,10 +519,18 @@ func lineRanges(axis XAxisRanges) []string {
 	return parts
 }
 
-// validateRange returns the key of r, or a validation error when r has no variant.
+// validateRange returns the key of r, or a validation error when r has no variant or
+// is a static range that ends before it starts.
 func validateRange(r Range) (uuid.UUID, error) {
 	if r.Variant == nil {
 		return uuid.UUID{}, errors.Wrap(validate.ErrValidation, "range has no variant")
+	}
+	if v, ok := r.Variant.(StaticRange); ok && v.End < v.Start {
+		return uuid.UUID{}, errors.Wrapf(
+			validate.ErrValidation,
+			"static range %s ends before it starts",
+			v.Key,
+		)
 	}
 	return rangeKey(r), nil
 }

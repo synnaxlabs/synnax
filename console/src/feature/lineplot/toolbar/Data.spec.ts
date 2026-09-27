@@ -213,6 +213,17 @@ describe("lineplot/toolbar/Data", () => {
     });
   });
 
+  it("marks a range the Core deleted and removes it when its tag is closed", async () => {
+    const created = await createTestRange(client);
+    await client.ranges.delete(created.key);
+    const { key } = await renderData({
+      x1: { ranges: [{ variant: "persisted", key: created.key }] },
+    });
+    await screen.findByText("Deleted range");
+    fireEvent.click(findTagCloseButton("Deleted range"));
+    await waitFor(async () => expect((await retrieveX1(key)).ranges).toEqual([]));
+  });
+
   it("removes a static range when its tag is closed", async () => {
     const { key, result } = await renderData({ x1: { ranges: [STATIC] } });
     const close = await waitFor(() => {

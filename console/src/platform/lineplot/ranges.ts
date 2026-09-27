@@ -14,7 +14,7 @@ import { useCallback } from "react";
 import { Session } from "@/session";
 
 /** The rolling window a new plot shows when the session has no range selected. */
-export const DEFAULT_ROLLING = Number(TimeSpan.seconds(30));
+const DEFAULT_ROLLING = Number(TimeSpan.seconds(30));
 
 /**
  * @returns the plot range that shows the session's range. A static range is copied in,

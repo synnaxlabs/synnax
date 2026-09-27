@@ -9,7 +9,7 @@
 
 import "@/feature/lineplot/RangeSelect.css";
 
-import { lineplot, ranger } from "@synnaxlabs/client";
+import { lineplot, NotFoundError, ranger } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -21,7 +21,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Tag } from "@synnaxlabs/lyra/tag";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
-import { LinePlot, Ranger } from "@synnaxlabs/pluto";
+import { Flux, LinePlot, Ranger } from "@synnaxlabs/pluto";
 import { TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
 
@@ -121,10 +121,27 @@ interface PersistedTagProps {
 
 const PersistedTag = ({ range: { key } }: PersistedTagProps): ReactElement => {
   const { onSelect } = Select.useItemState(key);
-  const { data } = Ranger.useResult({ key });
+  const result = Ranger.useResult({ key });
+  let name = "";
+  let tooltip: string | undefined;
+  if (result.variant === "success") name = result.data.name;
+  else if (result.variant === "error") {
+    const { error } = result.status.details;
+    const deleted =
+      Flux.DeletedError.matches(error) || NotFoundError.matches(error.cause);
+    name = deleted ? "Deleted range" : "Unavailable range";
+    tooltip = result.status.message;
+  }
   return (
-    <Tag.Tag icon={<Icon.Range />} onClose={onSelect} level="small" size="small">
-      {data?.name ?? key}
+    <Tag.Tag
+      icon={result.variant === "loading" ? <Icon.Loading /> : <Icon.Range />}
+      onClose={onSelect}
+      level="small"
+      size="small"
+      textColor={result.variant === "error" ? 8 : undefined}
+      tooltip={tooltip}
+    >
+      {name}
     </Tag.Tag>
   );
 };

@@ -22,16 +22,36 @@
     border-width: 0 var(--pluto-border-width);
 }
 
-/* Each window reads like the text of other range tags, and the last trigger takes the
-   tag's right padding so everything past the close button opens an editor. */
+/* A tag edits in place, so while the pointer is on one the field behind it stays at
+   rest, and a click reads as an edit rather than as opening the list. */
+.pluto-btn.pluto-dialog__trigger:has(.console-range-select__editable:hover) {
+    --pluto-hover-bg: var(--pluto-fill-rest);
+    --pluto-hover-border-color: var(--pluto-gray-l7);
+}
+
+/* The whole tag lifts on hover, and the field under the pointer underlines to show
+   which value a click edits. */
 .pluto-btn.pluto-tag.console-range-select__editable {
-    padding-right: 0;
+    &:hover {
+        border-color: var(--pluto-gray-l8);
+        background: var(--pluto-gray-l1);
+
+        .pluto-btn.pluto-tag__close {
+            --pluto-bg: var(--pluto-gray-l1);
+            --pluto-hover-bg: var(--pluto-gray-l1);
+            --pluto-active-bg: var(--pluto-gray-l1);
+        }
+    }
 
     .pluto-btn.pluto-time-editor__trigger {
-        padding: 0;
+        --pluto-hover-bg: transparent;
+        --pluto-active-bg: transparent;
 
-        &:last-child {
-            padding-right: 1.5rem;
+        padding: 0;
+        text-underline-offset: 0.25em;
+
+        &:hover {
+            text-decoration: underline;
         }
     }
 

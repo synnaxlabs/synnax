@@ -720,6 +720,39 @@ var _ = Describe("Writer", func() {
 			})
 
 			DescribeTable(
+				"Should reject a static range that ends before it starts",
+				func(ctx SpecContext, action lineplot.Action) {
+					plot := lineplot.LinePlot{Name: "test"}
+					Expect(
+						svc.NewWriter(nil).Create(ctx, proj.Key, &plot),
+					).To(Succeed())
+					Expect(
+						svc.Dispatch(ctx, plot.Key, "d1", []lineplot.Action{action}),
+					).To(SatisfyAll(
+						MatchError(validate.ErrValidation),
+						MatchError(ContainSubstring(
+							"static range "+keyR1.String()+" ends before it starts",
+						)),
+					))
+				},
+				Entry("AddRange", lineplot.NewAddRangeAction(lineplot.AddRangePayload{
+					AxisKey: lineplot.XAxisKeyX1,
+					Range:   staticRange(keyR1, 20, 10),
+				})),
+				Entry("SetRange", lineplot.NewSetRangeAction(lineplot.SetRangePayload{
+					AxisKey: lineplot.XAxisKeyX1,
+					Range:   staticRange(keyR1, 20, 10),
+				})),
+				Entry(
+					"SetRanges",
+					lineplot.NewSetRangesAction(lineplot.SetRangesPayload{
+						AxisKey: lineplot.XAxisKeyX1,
+						Ranges:  []lineplot.Range{staticRange(keyR1, 20, 10)},
+					}),
+				),
+			)
+
+			DescribeTable(
 				"Should reject range actions targeting a y-axis",
 				func(ctx SpecContext, action lineplot.Action) {
 					plot := lineplot.LinePlot{Name: "test"}
