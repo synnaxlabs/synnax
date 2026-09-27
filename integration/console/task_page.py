@@ -14,7 +14,6 @@ from console.layout import LayoutClient
 from console.page import ConsolePage
 
 CHANNEL_LIST_SELECTOR = ".console-channel-list"
-ADD_CHANNEL_BUTTON = "header:has-text('Channels') .pluto-icon--add"
 
 
 class TaskPage(ConsolePage):
@@ -60,13 +59,13 @@ class TaskPage(ConsolePage):
         self.layout.click_btn(label)
         self.layout.select_from_dropdown(name)
 
-    def add_channel_row(self, index: int) -> None:
-        """Append a channel row. The first one comes from the empty-state action, the
-        rest from the list header."""
-        if index == 0:
-            self.layout.click("Add channel")
-        else:
-            self._pane().locator(ADD_CHANNEL_BUTTON).click()
+    def add_channel_row(self) -> None:
+        """Append a channel row from the button under the channel list."""
+        self._pane().get_by_role("button", name="Add channel", exact=True).click()
+
+    def name_input(self) -> Locator:
+        """The task name input in the form header, which shows no visible label."""
+        return self._pane().get_by_role("textbox", name="Name", exact=True).first
 
     def deploy(self, expect: str | None = STARTED_MESSAGE) -> None:
         """Deploy the task from the controls bar.
@@ -210,7 +209,7 @@ class TaskPage(ConsolePage):
         layout = self.layout
 
         if task_name is not None:
-            layout.fill_input_field("Name", task_name)
+            self.name_input().fill(task_name)
             layout.press_enter()
 
         if data_saving is not None:

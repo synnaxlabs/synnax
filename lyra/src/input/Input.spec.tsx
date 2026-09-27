@@ -201,6 +201,12 @@ describe("Input", () => {
         const c = render(<Input.Text value="" onChange={vi.fn()} endContent="units" />);
         expect(c.getByText("units")).toBeTruthy();
       });
+
+      it("should focus the input when the end content is pressed", () => {
+        const c = render(<Input.Text value="" onChange={vi.fn()} endContent="units" />);
+        fireEvent.mouseDown(c.getByText("units"));
+        expect(document.activeElement).toBe(c.getByRole("textbox"));
+      });
     });
 
     describe("status", () => {

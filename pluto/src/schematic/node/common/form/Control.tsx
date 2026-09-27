@@ -19,7 +19,7 @@ export const ControlChipField = (
 ): ReactElement => (
   <NegatedSwitchField
     path="control.hidden"
-    label="Show control chip"
+    label="Control chip"
     hideIfNull
     optional
     padHelpText={false}

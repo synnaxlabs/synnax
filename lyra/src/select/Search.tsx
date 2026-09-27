@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactNode, useEffect } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 
 import { Dialog } from "@/dialog";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { type Input } from "@/input";
 import { Text as InputText } from "@/input/Text";
-import { useSearchContext } from "@/select/registry";
+import { useRegistryContext } from "@/select/registry";
 import { useClosed } from "@/select/scope";
 
 /** Props for {@link Search}. */
@@ -43,9 +43,10 @@ export const Search = ({
   loading = false,
 }: SearchProps): ReactNode => {
   const closed = useClosed();
-  const { term, setTerm } = useSearchContext("Select.Search");
+  const registry = useRegistryContext("Select.Search");
+  const [term, setTerm] = useState("");
   const { variant } = Dialog.useContext();
-  useEffect(() => () => setTerm(""), [setTerm]);
+  useEffect(() => () => registry.setTerm(""), [registry]);
   if (closed) return null;
   const input = (
     <InputText
@@ -60,6 +61,7 @@ export const Search = ({
       full="x"
       onChange={(v) => {
         setTerm(v);
+        registry.setTerm(v);
         onSearch?.(v);
       }}
     />

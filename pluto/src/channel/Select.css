@@ -9,10 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-ni-field--narrow {
-    max-width: 200px;
-}
-
-.console-ni-field--half {
-    width: 50%;
+/* Channel names run long. */
+.pluto-dialog__frame:has(> .pluto-dialog__trigger.pluto-channel__trigger) {
+    --pluto-control-width: 64rem;
 }

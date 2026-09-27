@@ -8,11 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { act, fireEvent, render, type RenderResult } from "@testing-library/react";
-import { type ReactElement } from "react";
+import { type ReactElement, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Dialog } from "@/dialog";
 import { Select } from "@/select";
+import { createRenderCounter } from "@/testutil/renders";
 import { Triggers } from "@/triggers";
 
 interface RenderOptions {
@@ -194,5 +195,73 @@ describe("Select.MultipleTrigger", () => {
     const tag = c.baseElement.querySelector(".pluto-tag");
     expect(tag?.textContent).toContain("All");
     expect(tag?.className).not.toContain("error");
+  });
+});
+
+describe("Select render isolation", () => {
+  const KEYS = Array.from({ length: 100 }, (_, i) => `key-${i}`);
+
+  it("should re-render only the changed rows when an inline onChange selects", () => {
+    const { Counted, counts, reset } = createRenderCounter();
+    const item = ({ key, ...p }: Select.ItemProps<string>): ReactElement => (
+      <Counted key={key} id={p.itemKey}>
+        <Select.Item {...p}>{p.itemKey}</Select.Item>
+      </Counted>
+    );
+    const Harness = (): ReactElement => {
+      const [value, setValue] = useState<string | null>(null);
+      return (
+        <Triggers.Provider>
+          <Dialog.Frame visible>
+            <Select.Frame<string, undefined>
+              data={KEYS}
+              value={value ?? undefined}
+              onChange={(next: string | null) => setValue(next)}
+              allowNone
+            >
+              <Select.List>
+                <Select.Items<string>>{item}</Select.Items>
+              </Select.List>
+            </Select.Frame>
+          </Dialog.Frame>
+        </Triggers.Provider>
+      );
+    };
+    const c = render(<Harness />);
+    fireEvent.click(c.getByText("key-3"));
+    reset();
+    fireEvent.click(c.getByText("key-7"));
+    expect([...counts.keys()].sort()).toEqual(["key-3", "key-7"]);
+  });
+
+  it("should render only the fixed items whose visibility changes on a search", () => {
+    const { Counted, counts, reset } = createRenderCounter();
+    const c = render(
+      <Triggers.Provider>
+        <Dialog.Frame visible>
+          <Select.Frame<string, undefined> onChange={vi.fn()} allowNone>
+            <Select.Dialog>
+              <Select.Search />
+              <Select.List>
+                {KEYS.map((key) => (
+                  <Counted key={key} id={key}>
+                    <Select.Item itemKey={key}>{key}</Select.Item>
+                  </Counted>
+                ))}
+              </Select.List>
+            </Select.Dialog>
+          </Select.Frame>
+        </Dialog.Frame>
+      </Triggers.Provider>,
+    );
+    const input = c.getByPlaceholderText("Search...");
+    fireEvent.change(input, { target: { value: "key-1" } });
+    reset();
+    // key-1 and key-10 to key-19 hide. key-2 and key-20 to key-29 show.
+    fireEvent.change(input, { target: { value: "key-2" } });
+    const changed = ["key-1", ...Array.from({ length: 10 }, (_, i) => `key-1${i}`)];
+    changed.push("key-2", ...Array.from({ length: 10 }, (_, i) => `key-2${i}`));
+    expect([...counts.keys()].sort()).toEqual(changed.sort());
+    counts.forEach((count) => expect(count).toBe(1));
   });
 });

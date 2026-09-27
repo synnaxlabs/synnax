@@ -111,7 +111,7 @@ describe("Read", () => {
     fireEvent.click((await screen.findAllByText("Status"))[0]);
     await waitFor(() => expect(screen.getByText("Slave device")).toBeTruthy());
     expect(screen.getByText("Mode")).toBeTruthy();
-    expect(screen.getByText("PDO")).toBeTruthy();
+    expect(screen.getByText("PDO", { selector: "label" })).toBeTruthy();
     expect(screen.queryByText("Index (hex)")).toBeNull();
   });
 
@@ -124,13 +124,13 @@ describe("Read", () => {
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [createManualReadChannel(slave.key, 0x6000, 7)],
     });
-    fireEvent.click(await screen.findByText("0x6000:7"));
+    fireEvent.click(await screen.findByRole("option", { name: /0x6000:7/ }));
     await waitFor(() => expect(screen.getByText("Index (hex)")).toBeTruthy());
     expect(screen.getByText("Subindex")).toBeTruthy();
     expect(screen.getByDisplayValue("7")).toBeTruthy();
     expect(screen.getByText("Bit length")).toBeTruthy();
     expect(screen.getByText("Data type")).toBeTruthy();
-    expect(screen.queryByText("PDO")).toBeNull();
+    expect(screen.queryByText("PDO", { selector: "label" })).toBeNull();
   });
 
   it("should swap a channel between automatic and manual modes preserving its slave", async () => {
