@@ -7,15 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
-import { Tabs } from "@synnaxlabs/lyra/tabs";
+import { Tabs as BaseTabs } from "@synnaxlabs/lyra/tabs";
 import { type ReactElement } from "react";
 
 import { ColorField } from "@/schematic/node/common/form/Color";
 import { ScaleField } from "@/schematic/node/common/form/Scale";
 import { StyleForm } from "@/schematic/node/common/form/Style";
-import { Wrapper } from "@/schematic/node/common/form/Wrapper";
+import { Tabs } from "@/schematic/node/common/form/Tabs";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { Toggle } from "@/schematic/node/common/toggle";
@@ -31,38 +30,26 @@ export const ToggleForm = ({
   hideInnerOrientation,
   omit,
 }: ToggleFormProps): ReactElement => (
-  <Tabs.Frame initialValue="style">
-    <Tabs.Selector>
-      <Tabs.Tab itemKey="style">Style</Tabs.Tab>
-      <Tabs.Tab itemKey="control">Control</Tabs.Tab>
-      {actions != null && (
-        <>
-          <Flex.Box grow />
-          <Flex.Box x align="center" empty>
-            {actions}
-          </Flex.Box>
-        </>
-      )}
-    </Tabs.Selector>
-    <Tabs.Content itemKey="style">
+  <Tabs tabs={["style", "control"]} actions={actions}>
+    <BaseTabs.Content itemKey="style">
       <StyleForm hideInnerOrientation={hideInnerOrientation} />
-    </Tabs.Content>
-    <Tabs.Content itemKey="control">
+    </BaseTabs.Content>
+    <BaseTabs.Content itemKey="control">
       <Toggle.ChannelForm path="" omit={omit} />
-    </Tabs.Content>
-  </Tabs.Frame>
+    </BaseTabs.Content>
+  </Tabs>
 );
 
 export const DummyToggleForm = (): ReactElement => (
-  <Wrapper x align="stretch">
-    <Flex.Box y grow>
+  <Form.Sections x>
+    <Form.Section title="Label">
       <Label.Form path="label" />
-      <Flex.Box x grow>
-        <ColorField path="color" />
-        <ScaleField path="scale" />
-        <Form.SwitchField path="clickable" label="Clickable" hideIfNull optional />
-      </Flex.Box>
-    </Flex.Box>
-    <Orientation.Field path="" />
-  </Wrapper>
+    </Form.Section>
+    <Form.Section title="Appearance">
+      <ColorField path="color" />
+      <ScaleField path="scale" />
+      <Form.SwitchField path="clickable" label="Clickable" hideIfNull optional />
+    </Form.Section>
+    <Orientation.Section path="" />
+  </Form.Sections>
 );

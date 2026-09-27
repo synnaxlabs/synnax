@@ -69,7 +69,7 @@ const useCurrentPage = (initialPage?: string): string => {
 const Item = ({ translate: _, ...props }: Tree.ItemRenderProps<string>) => {
   const { itemKey, index } = props;
   const item = List.useItem<string, PageNavNode>(itemKey);
-  const { depth, hasChildren } = Tree.useContext("Item")[index];
+  const { depth, hasChildren } = Tree.useContext("Item").nodes[index];
   if (item == null) return null;
 
   const isSection = depth === 0 && hasChildren;

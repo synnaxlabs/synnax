@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { type Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
@@ -35,44 +34,43 @@ const handleLevelChange = (v: text.Level, { set }: Base.ContextValue): void => {
 };
 
 export const GaugeForm = (): ReactElement => (
-  <Tabs.Frame initialValue="properties">
-    <Tabs.Selector>
-      <Tabs.Tab itemKey="properties">Properties</Tabs.Tab>
-      <Tabs.Tab itemKey="telemetry">Telemetry</Tabs.Tab>
-    </Tabs.Selector>
-    <Tabs.Content itemKey="properties">
-      <Form.Wrapper x>
-        <Flex.Box y grow>
+  <Form.Tabs tabs={["style", "telemetry"]}>
+    <Tabs.Content itemKey="style">
+      <Base.Sections x>
+        <Base.Section title="Label">
           <Label.Form path="label" />
-          <Flex.Box x>
-            <Form.ColorField path="color" />
-            <Form.UnitsField />
-            <Form.BoundsFields path="bounds" hideIfNull />
-            <Base.NumericField
-              path="barWidth"
-              label="Bar width"
-              hideIfNull
-              inputProps={GAUGE_BAR_WIDTH_INPUT_PROPS}
-            />
-            <Base.Field<text.Level>
-              path="level"
-              label="Size"
-              hideIfNull
-              padHelpText={false}
-              onChange={handleLevelChange}
-            >
-              {({ value, onChange }) => (
-                <Select.Text.Level value={value} onChange={onChange} />
-              )}
-            </Base.Field>
-          </Flex.Box>
-        </Flex.Box>
-      </Form.Wrapper>
+        </Base.Section>
+        <Base.Section title="Appearance">
+          <Form.ColorField path="color" />
+          <Base.Field<text.Level>
+            path="level"
+            label="Size"
+            hideIfNull
+            padHelpText={false}
+            onChange={handleLevelChange}
+          >
+            {({ value, onChange }) => (
+              <Select.Text.Level value={value} onChange={onChange} />
+            )}
+          </Base.Field>
+          <Base.NumericField
+            path="barWidth"
+            label="Bar width"
+            hideIfNull
+            padHelpText={false}
+            inputProps={GAUGE_BAR_WIDTH_INPUT_PROPS}
+          />
+        </Base.Section>
+        <Base.Section title="Range">
+          <Form.UnitsField />
+          <Form.BoundsFields path="bounds" hideIfNull padHelpText={false} />
+        </Base.Section>
+      </Base.Sections>
     </Tabs.Content>
     <Tabs.Content itemKey="telemetry">
-      <Form.Wrapper y empty>
+      <Base.Sections x>
         <Value.TelemForm path="" />
-      </Form.Wrapper>
+      </Base.Sections>
     </Tabs.Content>
-  </Tabs.Frame>
+  </Form.Tabs>
 );

@@ -112,7 +112,7 @@ const ChannelListItem = ({ deviceModel, ...rest }: ChannelListItemProps) => {
           cmdNamePath={`${path}.cmdChannelName`}
           stateNamePath={`${path}.stateChannelName`}
         />
-        <Task.EnableDisableButton path={`${path}.disabled`} />
+        <Task.EnabledCheckbox path={`${path}.disabled`} />
       </Flex.Box>
     </List.Item>
   );

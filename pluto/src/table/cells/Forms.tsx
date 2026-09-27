@@ -11,7 +11,7 @@ import "@/table/cells/Forms.css";
 
 import { type channel } from "@synnaxlabs/client";
 import { CSS } from "@synnaxlabs/lyra/css";
-import { Flex } from "@synnaxlabs/lyra/flex";
+import { type Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
@@ -19,7 +19,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { color, type notation, type text } from "@synnaxlabs/x";
-import { type PropsWithChildren, useEffect } from "react";
+import { useEffect } from "react";
 
 import { Channel } from "@/channel";
 import { Color } from "@/color";
@@ -31,10 +31,6 @@ import { Value } from "@/vis/value";
 export interface FormProps {
   onVariantChange: (variant: Variant) => void;
 }
-
-const ValueFormWrapper = (props: PropsWithChildren) => (
-  <Flex.Box {...props} className={CSS.B("table-cell-value-form")} y />
-);
 
 interface ColorFieldProps {
   path: string;
@@ -50,7 +46,7 @@ const ColorField = ({ path, label, fallback }: ColorFieldProps) => {
   const { set } = Form.useContext();
   const value = Form.useFieldValue<color.Crude>(path, { optional: true });
   return (
-    <Input.Item label={label} align="start" padHelpText={false}>
+    <Input.Item label={label} padHelpText={false}>
       <Color.Swatch
         value={value ?? fallback}
         onChange={(next: color.Color) => set(path, next)}
@@ -71,16 +67,25 @@ const TelemForm = () => {
   const { value, onChange } = Form.useField<TelemFormT>("");
   return (
     <>
-      <Input.Item label="Channel" grow>
-        <Channel.SelectSingle
-          value={value.channel}
-          onChange={(key: channel.Key | null) =>
-            onChange({ ...value, channel: key ?? 0 })
-          }
-        />
-      </Input.Item>
-      <Flex.Box x>
-        <Input.Item label="Notation">
+      <Form.Section title="Source">
+        <Input.Item label="Channel" padHelpText={false}>
+          <Channel.SelectSingle
+            value={value.channel}
+            onChange={(key: channel.Key | null) =>
+              onChange({ ...value, channel: key ?? 0 })
+            }
+          />
+        </Input.Item>
+        <Input.Item label="Averaging window" padHelpText={false}>
+          <Input.Numeric
+            value={value.rollingAverage}
+            bounds={{ lower: 1, upper: 100 }}
+            onChange={(rollingAverage) => onChange({ ...value, rollingAverage })}
+          />
+        </Input.Item>
+      </Form.Section>
+      <Form.Section title="Format">
+        <Input.Item label="Notation" padHelpText={false}>
           <Notation.Select
             value={value.notation}
             onChange={(next: notation.Notation) =>
@@ -88,22 +93,17 @@ const TelemForm = () => {
             }
           />
         </Input.Item>
-        <Input.Item label="Precision" align="start">
+        <Input.Item label="Precision" padHelpText={false}>
           <Input.Numeric
             value={value.precision ?? 2}
             bounds={{ lower: 0, upper: 10 }}
             onChange={(precision) => onChange({ ...value, precision })}
           />
         </Input.Item>
-        <Input.Item label="Averaging window" align="start">
-          <Input.Numeric
-            value={value.rollingAverage}
-            bounds={{ lower: 1, upper: 100 }}
-            onChange={(rollingAverage) => onChange({ ...value, rollingAverage })}
-          />
-        </Input.Item>
+      </Form.Section>
+      <Form.Section title="Staleness">
         <Staleness.Fields />
-      </Flex.Box>
+      </Form.Section>
     </>
   );
 };
@@ -124,18 +124,20 @@ const RedlineForm = () => {
 export const ValueForm = ({ onVariantChange }: FormProps) => {
   const theme = Theming.use();
   return (
-    <Tabs.Frame initialValue="style">
+    <Tabs.Frame initialValue="style" className={CSS.B("table-cell-value-form-tabs")}>
       <Tabs.Selector>
         <Tabs.Tab itemKey="style">Style</Tabs.Tab>
         <Tabs.Tab itemKey="telem">Telemetry</Tabs.Tab>
         <Tabs.Tab itemKey="redline">Redline</Tabs.Tab>
       </Tabs.Selector>
       <Tabs.Content itemKey="style">
-        <ValueFormWrapper>
-          <Flex.Box x>
+        <Form.Sections x>
+          <Form.Section title="Cell">
             <Input.Item label="Variant" padHelpText={false}>
               <SelectVariant onChange={onVariantChange} value="value" />
             </Input.Item>
+          </Form.Section>
+          <Form.Section title="Appearance">
             <ColorField path="color" label="Color" fallback={theme.colors.gray.l11} />
             <Form.Field<text.Level>
               path="level"
@@ -145,40 +147,53 @@ export const ValueForm = ({ onVariantChange }: FormProps) => {
             >
               {(p) => <Select.Text.Level {...p} />}
             </Form.Field>
-          </Flex.Box>
-        </ValueFormWrapper>
+          </Form.Section>
+        </Form.Sections>
       </Tabs.Content>
       <Tabs.Content itemKey="telem">
-        <ValueFormWrapper>
+        <Form.Sections x>
           <TelemForm />
-        </ValueFormWrapper>
+        </Form.Sections>
       </Tabs.Content>
       <Tabs.Content itemKey="redline">
-        <ValueFormWrapper>
-          <RedlineForm />
-        </ValueFormWrapper>
+        <Form.Sections x>
+          <Form.Section title="Redline">
+            <RedlineForm />
+          </Form.Section>
+        </Form.Sections>
       </Tabs.Content>
     </Tabs.Frame>
   );
 };
 
 export const TextForm = ({ onVariantChange }: FormProps) => (
-  <Flex.Box x grow className={CSS.B("table-cell-text-form")}>
-    <Input.Item label="Variant" padHelpText={false}>
-      <SelectVariant onChange={onVariantChange} value="text" />
-    </Input.Item>
-    <Form.TextField path="value" label="Text" />
-    <Form.Field<text.Level> path="level" label="Size" hideIfNull padHelpText={false}>
-      {(p) => <Select.Text.Level {...p} />}
-    </Form.Field>
-    <Form.Field<text.Weight> path="weight" label="Weight" padHelpText={false}>
-      {(p) => <Select.Text.Weight {...p} />}
-    </Form.Field>
-    <Form.Field<Flex.Alignment> path="align" label="Alignment" hideIfNull>
-      {(p) => <Select.Flex.Alignment {...p} />}
-    </Form.Field>
-    <ColorField path="backgroundColor" label="Background" fallback={color.ZERO} />
-  </Flex.Box>
+  <Form.Sections x>
+    <Form.Section title="Cell">
+      <Input.Item label="Variant" padHelpText={false}>
+        <SelectVariant onChange={onVariantChange} value="text" />
+      </Input.Item>
+    </Form.Section>
+    <Form.Section title="Text">
+      <Form.TextField path="value" label="Text" padHelpText={false} />
+      <Form.Field<text.Level> path="level" label="Size" hideIfNull padHelpText={false}>
+        {(p) => <Select.Text.Level {...p} />}
+      </Form.Field>
+      <Form.Field<text.Weight> path="weight" label="Weight" padHelpText={false}>
+        {(p) => <Select.Text.Weight {...p} />}
+      </Form.Field>
+      <Form.Field<Flex.Alignment>
+        path="align"
+        label="Alignment"
+        hideIfNull
+        padHelpText={false}
+      >
+        {(p) => <Select.Flex.Alignment {...p} />}
+      </Form.Field>
+    </Form.Section>
+    <Form.Section title="Appearance">
+      <ColorField path="backgroundColor" label="Background" fallback={color.ZERO} />
+    </Form.Section>
+  </Form.Sections>
 );
 
 export interface SelectVariantProps extends Omit<
