@@ -47,6 +47,8 @@ export interface Registry {
   countVisible: () => number;
   /** Hides the fixed items whose text does not contain the term. */
   setTerm: (term: string) => void;
+  /** @returns the term typed into the frame's search field. */
+  getTerm: () => string;
   /** @returns the element a fixed item's label renders into, created on first use. */
   getLabel: (key: record.Key) => HTMLElement;
   /** Subscribes to changes for one key, or to every change when key is omitted. */
@@ -104,6 +106,7 @@ const useRegistry = (): Registry => {
       hasItem: (key) => itemsRef.current.has(key),
       isHidden: (key) => itemsRef.current.get(key)?.hidden ?? false,
       setTerm: (term) => {
+        if (term === termRef.current) return;
         termRef.current = term;
         const changed: record.Key[] = [];
         itemsRef.current.forEach((item, key) => {
@@ -112,8 +115,9 @@ const useRegistry = (): Registry => {
           item.hidden = hidden;
           changed.push(key);
         });
-        if (changed.length > 0) notifyListeners(changed);
+        notifyListeners(changed);
       },
+      getTerm: () => termRef.current,
       countVisible: () => {
         let count = 0;
         itemsRef.current.forEach(({ hidden }) => {
@@ -185,6 +189,12 @@ export const useIsFixed = (key: record.Key | undefined): boolean =>
  */
 export const useVisibleCount = (): number =>
   useRegistryValue("Select.useVisibleCount", countVisible);
+
+const getTerm = (registry: Registry): string => registry.getTerm();
+
+/** @returns the term typed into the enclosing frame's search field. */
+export const useSearchTerm = (): string =>
+  useRegistryValue("Select.useSearchTerm", getTerm);
 
 /** @returns whether the search term hides the fixed item with the given key. */
 export const useIsHidden = (key: record.Key): boolean =>

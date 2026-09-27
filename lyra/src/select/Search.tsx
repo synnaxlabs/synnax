@@ -27,10 +27,6 @@ export interface SearchProps {
   loading?: boolean;
 }
 
-/** @returns the term typed into the enclosing frame's search field. */
-export const useSearchTerm = (): string =>
-  useSearchContext("Select.useSearchTerm").term;
-
 /**
  * The search field of a selection dialog. It hides the fixed {@link Item}s whose text
  * does not match, and passes the term to `onSearch` for the frame's data. The term

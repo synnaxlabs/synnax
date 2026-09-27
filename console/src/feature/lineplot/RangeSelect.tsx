@@ -47,28 +47,29 @@ const ROLLING_PRESETS = [
 // The rolling window's tag is keyed like the window's lines.
 const ROLLING_KEY = lineplot.ROLLING_LINE_RANGE;
 
-// A selection reports only keys, so a typed window's option key carries its span.
-const DRAFT_PREFIX = `${ROLLING_KEY}:`;
+const TYPED_KEY = "typed-rolling";
 
 const liveIcon = <Icon.Dynamic className={CSS.BE("range-select", "live-icon")} />;
 
 interface RollingOptionProps {
   /** The axis's rolling window, in nanoseconds. */
   span?: number;
+  onChange: (span?: number) => void;
 }
 
-const RollingOption = ({ span }: RollingOptionProps): ReactElement | null => {
+const RollingOption = ({ span, onChange }: RollingOptionProps): ReactElement | null => {
   const term = Select.useSearchTerm();
   const typed = TimeSpan.parse(term);
   if (typed == null || typed.isZero) return null;
   // Typing the held window offers the window itself, so the option can deselect it.
-  const itemKey =
-    span != null && typed.equals(span)
-      ? ROLLING_KEY
-      : `${DRAFT_PREFIX}${typed.valueOf()}`;
+  const held = span != null && typed.equals(span);
   // The search hides fixed items whose text lacks the term, so the option echoes it.
   return (
-    <Select.Item itemKey={itemKey}>
+    <Select.Item
+      itemKey={TYPED_KEY}
+      selected={held}
+      onSelect={() => onChange(held ? undefined : Number(typed))}
+    >
       <Text.Text>
         {liveIcon}
         {term.trim()}
@@ -264,15 +265,7 @@ export const XAxisRangeSelect = ({
   const handleChange = useCallback(
     (keys: string[]) => {
       const actions: lineplot.Action[] = [];
-      const draft = keys.find((k) => k.startsWith(DRAFT_PREFIX));
-      if (draft != null)
-        actions.push(
-          lineplot.setRolling({
-            axisKey,
-            span: Number(draft.slice(DRAFT_PREFIX.length)),
-          }),
-        );
-      else if (rolling != null && !keys.includes(ROLLING_KEY))
+      if (rolling != null && !keys.includes(ROLLING_KEY))
         actions.push(lineplot.setRolling({ axisKey, span: undefined }));
       const held = new Map(ranges.map((r) => [r.key, r]));
       const next = keys.flatMap((key): lineplot.Range[] => {
@@ -327,7 +320,7 @@ export const XAxisRangeSelect = ({
             />
             <RollingRow span={rolling} onChange={setRolling} />
             <Select.List bordered borderColor={6} grow rounded full="x">
-              <RollingOption span={rolling} />
+              <RollingOption span={rolling} onChange={setRolling} />
               <Select.Items<string> emptyContent={emptyContent}>
                 {FavoriteItem}
               </Select.Items>
