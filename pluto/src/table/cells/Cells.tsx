@@ -13,11 +13,10 @@ import { table } from "@synnaxlabs/client";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text as BaseText } from "@synnaxlabs/lyra/text";
-import { type border, box, color, scale } from "@synnaxlabs/x";
+import { type border, box, color } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
 import { Cell as Base } from "@/table/cells/Cell";
-import { telem } from "@/telem/aether";
 import { Value as BaseValue } from "@/vis/value";
 
 export const textConfigZ = table.textCellConfigZ;
@@ -109,24 +108,10 @@ export const Value = ({
     () => BaseValue.stringSource({ channel, rollingAverage, precision, notation }),
     [channel, rollingAverage, precision, notation],
   );
-  const backgroundTelem = useMemo(() => {
-    if (redline == null) return undefined;
-    const { bounds, gradient } = redline;
-    return telem.sourcePipeline("color", {
-      connections: [
-        { from: "source", to: "scale" },
-        { from: "scale", to: "gradient" },
-      ],
-      segments: {
-        source: t,
-        scale: telem.scaleNumber({
-          scale: scale.Scale.scale<number>(bounds).scale(0, 1).transform,
-        }),
-        gradient: telem.colorGradient({ gradient }),
-      },
-      outlet: "gradient",
-    });
-  }, [t, redline]);
+  const backgroundTelem = useMemo(
+    () => BaseValue.backgroundTelem(t, redline),
+    [t, redline],
+  );
   BaseValue.use({
     aetherKey: cellKey,
     box: b,

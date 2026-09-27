@@ -171,6 +171,41 @@ var (
 )
 
 var _ = Describe("Codec", func() {
+	Describe("Band", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v9.Band) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v9.Band
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v9.Band{
+				Key:       "test_1",
+				Threshold: 2.5,
+				Color: color.Color{
+					R: 5,
+					G: 6,
+					B: 7,
+					A: 7.5,
+				},
+				Flashing: false,
+			}),
+			Entry("zero values", v9.Band{
+				Key:       "",
+				Threshold: 0,
+				Color: color.Color{
+					R: 0,
+					G: 0,
+					B: 0,
+					A: 0,
+				},
+				Flashing: false,
+			}),
+		)
+	})
 	Describe("ControlStateConfig", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v9.ControlStateConfig) {
@@ -660,18 +695,24 @@ var _ = Describe("Codec", func() {
 				}),
 				Tooltip: []string{"test_14"},
 				Redline: v9.Redline{
-					Bounds: spatial.Bounds{Lower: 17.5, Upper: 18.5},
-					Gradient: []color.Stop{
+					Bands: []v9.Band{
 						{
-							Key:      "test_20",
-							Color:    color.Color{},
-							Position: 22.5,
-							Switched: new(bool(true)),
+							Key:       "test_17",
+							Threshold: 18.5,
+							Color:     color.Color{},
+							Flashing:  false,
 						},
 					},
+					Base: new(color.Color{
+						R: 23,
+						G: 24,
+						B: 25,
+						A: 25.5,
+					}),
+					Smooth: false,
 				},
-				Units:      "test_24",
-				InlineSize: 25.5,
+				Units:      "test_27",
+				InlineSize: 28.5,
 				Level:      text.Level("h1"),
 				Location: spatial.LocationXY{
 					X: spatial.XCenterLocation("left"),
@@ -1434,18 +1475,24 @@ var _ = Describe("Codec", func() {
 				}),
 				Tooltip: []string{"test_14"},
 				Redline: v9.Redline{
-					Bounds: spatial.Bounds{Lower: 17.5, Upper: 18.5},
-					Gradient: []color.Stop{
+					Bands: []v9.Band{
 						{
-							Key:      "test_20",
-							Color:    color.Color{},
-							Position: 22.5,
-							Switched: new(bool(true)),
+							Key:       "test_17",
+							Threshold: 18.5,
+							Color:     color.Color{},
+							Flashing:  false,
 						},
 					},
+					Base: new(color.Color{
+						R: 23,
+						G: 24,
+						B: 25,
+						A: 25.5,
+					}),
+					Smooth: false,
 				},
-				Units:      "test_24",
-				InlineSize: 25.5,
+				Units:      "test_27",
+				InlineSize: 28.5,
 				Level:      text.Level("h1"),
 				Location: spatial.LocationXY{
 					X: spatial.XCenterLocation("left"),
@@ -1758,25 +1805,41 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v9.Redline{
-				Bounds: spatial.Bounds{Lower: 2.5, Upper: 3.5},
-				Gradient: []color.Stop{
+				Bands: []v9.Band{
 					{
-						Key: "test_5",
+						Key:       "test_2",
+						Threshold: 3.5,
 						Color: color.Color{
-							R: 8,
-							G: 9,
-							B: 10,
-							A: 10.5,
+							R: 6,
+							G: 7,
+							B: 8,
+							A: 8.5,
 						},
-						Position: 11.5,
-						Switched: new(bool(false)),
+						Flashing: true,
 					},
 				},
+				Base: new(color.Color{
+					R: 12,
+					G: 13,
+					B: 14,
+					A: 14.5,
+				}),
+				Smooth: true,
 			}),
-			Entry("zero values", v9.Redline{Bounds: spatial.Bounds{Lower: 0, Upper: 0}, Gradient: []color.Stop{}}),
+			Entry("zero values", v9.Redline{
+				Bands:  []v9.Band{},
+				Base:   nil,
+				Smooth: false,
+			}),
 			Entry("empty collections", v9.Redline{
-				Bounds:   spatial.Bounds{Lower: 2.5, Upper: 3.5},
-				Gradient: []color.Stop{},
+				Bands: []v9.Band{},
+				Base: new(color.Color{
+					R: 4,
+					G: 5,
+					B: 6,
+					A: 6.5,
+				}),
+				Smooth: true,
 			}),
 		)
 	})
@@ -2078,6 +2141,33 @@ var _ = Describe("Codec", func() {
 	})
 })
 
+func BenchmarkEncodeDecodeBand(b *testing.B) {
+	seed := v9.Band{
+		Key:       "test_1",
+		Threshold: 2.5,
+		Color: color.Color{
+			R: 5,
+			G: 6,
+			B: 7,
+			A: 7.5,
+		},
+		Flashing: false,
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v9.Band
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkEncodeDecodeControlStateConfig(b *testing.B) {
 	seed := v9.ControlStateConfig{
 		Authority:       new(uint8(2)),
@@ -2246,20 +2336,26 @@ func BenchmarkEncodeDecodePage(b *testing.B) {
 
 func BenchmarkEncodeDecodeRedline(b *testing.B) {
 	seed := v9.Redline{
-		Bounds: spatial.Bounds{Lower: 2.5, Upper: 3.5},
-		Gradient: []color.Stop{
+		Bands: []v9.Band{
 			{
-				Key: "test_5",
+				Key:       "test_2",
+				Threshold: 3.5,
 				Color: color.Color{
-					R: 8,
-					G: 9,
-					B: 10,
-					A: 10.5,
+					R: 6,
+					G: 7,
+					B: 8,
+					A: 8.5,
 				},
-				Position: 11.5,
-				Switched: new(bool(false)),
+				Flashing: true,
 			},
 		},
+		Base: new(color.Color{
+			R: 12,
+			G: 13,
+			B: 14,
+			A: 14.5,
+		}),
+		Smooth: true,
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -2494,6 +2590,65 @@ func BenchmarkEncodeDecodeToggleSymbolConfig(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+}
+
+func FuzzDecodeBand(f *testing.F) {
+	{
+		seed := v9.Band{
+			Key:       "test_1",
+			Threshold: 2.5,
+			Color: color.Color{
+				R: 5,
+				G: 6,
+				B: 7,
+				A: 7.5,
+			},
+			Flashing: false,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v9.Band{
+			Key:       "",
+			Threshold: 0,
+			Color: color.Color{
+				R: 0,
+				G: 0,
+				B: 0,
+				A: 0,
+			},
+			Flashing: false,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v9.Band
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v9.Band
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
 }
 
 func FuzzDecodeControlStateConfig(f *testing.F) {
@@ -3370,18 +3525,24 @@ func FuzzDecodeElementConfig(f *testing.F) {
 			}),
 			Tooltip: []string{"test_14"},
 			Redline: v9.Redline{
-				Bounds: spatial.Bounds{Lower: 17.5, Upper: 18.5},
-				Gradient: []color.Stop{
+				Bands: []v9.Band{
 					{
-						Key:      "test_20",
-						Color:    color.Color{},
-						Position: 22.5,
-						Switched: new(bool(true)),
+						Key:       "test_17",
+						Threshold: 18.5,
+						Color:     color.Color{},
+						Flashing:  false,
 					},
 				},
+				Base: new(color.Color{
+					R: 23,
+					G: 24,
+					B: 25,
+					A: 25.5,
+				}),
+				Smooth: false,
 			},
-			Units:      "test_24",
-			InlineSize: 25.5,
+			Units:      "test_27",
+			InlineSize: 28.5,
 			Level:      text.Level("h1"),
 			Location: spatial.LocationXY{
 				X: spatial.XCenterLocation("left"),
@@ -4979,18 +5140,24 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			}),
 			Tooltip: []string{"test_14"},
 			Redline: v9.Redline{
-				Bounds: spatial.Bounds{Lower: 17.5, Upper: 18.5},
-				Gradient: []color.Stop{
+				Bands: []v9.Band{
 					{
-						Key:      "test_20",
-						Color:    color.Color{},
-						Position: 22.5,
-						Switched: new(bool(true)),
+						Key:       "test_17",
+						Threshold: 18.5,
+						Color:     color.Color{},
+						Flashing:  false,
 					},
 				},
+				Base: new(color.Color{
+					R: 23,
+					G: 24,
+					B: 25,
+					A: 25.5,
+				}),
+				Smooth: false,
 			},
-			Units:      "test_24",
-			InlineSize: 25.5,
+			Units:      "test_27",
+			InlineSize: 28.5,
 			Level:      text.Level("h1"),
 			Location: spatial.LocationXY{
 				X: spatial.XCenterLocation("left"),
@@ -5802,29 +5969,27 @@ func FuzzDecodePage(f *testing.F) {
 func FuzzDecodeRedline(f *testing.F) {
 	{
 		seed := v9.Redline{
-			Bounds: spatial.Bounds{Lower: 2.5, Upper: 3.5},
-			Gradient: []color.Stop{
+			Bands: []v9.Band{
 				{
-					Key: "test_5",
+					Key:       "test_2",
+					Threshold: 3.5,
 					Color: color.Color{
-						R: 8,
-						G: 9,
-						B: 10,
-						A: 10.5,
+						R: 6,
+						G: 7,
+						B: 8,
+						A: 8.5,
 					},
-					Position: 11.5,
-					Switched: new(bool(false)),
+					Flashing: true,
 				},
 			},
+			Base: new(color.Color{
+				R: 12,
+				G: 13,
+				B: 14,
+				A: 14.5,
+			}),
+			Smooth: true,
 		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v9.Redline{Bounds: spatial.Bounds{Lower: 0, Upper: 0}, Gradient: []color.Stop{}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -5833,8 +5998,26 @@ func FuzzDecodeRedline(f *testing.F) {
 	}
 	{
 		seed := v9.Redline{
-			Bounds:   spatial.Bounds{Lower: 2.5, Upper: 3.5},
-			Gradient: []color.Stop{},
+			Bands:  []v9.Band{},
+			Base:   nil,
+			Smooth: false,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v9.Redline{
+			Bands: []v9.Band{},
+			Base: new(color.Color{
+				R: 4,
+				G: 5,
+				B: 6,
+				A: 6.5,
+			}),
+			Smooth: true,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

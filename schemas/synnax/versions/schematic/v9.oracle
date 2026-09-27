@@ -319,15 +319,42 @@ StateMapping struct {
     @go marshal
 }
 
-Redline struct {
-    bounds   spatial.Bounds {
-        @doc value "is the numeric range mapped onto the gradient."
+Band struct {
+    key       string      {
+        @doc value "is the unique identifier for the band."
     }
-    gradient color.Stop[]   {
-        @doc value "is the color gradient applied across the bounds."
+    threshold float64     {
+        @doc value "is the lowest value, in the value's units, that the band paints."
+    }
+    color     color.Color {
+        @doc value "is the fill painted while the value is in the band."
+    }
+    flashing  bool = false {
+        @doc value "is true when the fill blinks while the value is in the band."
     }
 
-    @doc value  "maps a numeric range to a color gradient for limit visualization."
+    @doc value  "is a colored range of values starting at a threshold."
+    @go marshal
+}
+
+Redline struct {
+    bands  Band[] = [] {
+        @doc value """
+            is the list of threshold bands. A band paints values at or above its
+            threshold and below the next higher threshold.
+        """
+    }
+    base   color.Color? {
+        @doc value """
+            is the fill for values below the lowest threshold. When absent those values
+            paint nothing.
+        """
+    }
+    smooth bool = false {
+        @doc value "is true when the fill interpolates between band colors."
+    }
+
+    @doc value  "maps a value to a background fill through threshold bands."
     @go marshal
 }
 
@@ -729,8 +756,8 @@ NodeConfig union on variant {
         tooltip     string[] = [] {
             @doc value "is the list of tooltip lines shown on hover."
         }
-        redline     Redline = { bounds = { lower = 0, upper = 1 }, gradient = [] } {
-            @doc value "is the bounds-to-gradient mapping applied to the background."
+        redline     Redline = {} {
+            @doc value "is the threshold band mapping applied to the background."
         }
         units       string = "psi" {
             @doc value "is the unit suffix displayed after the value."

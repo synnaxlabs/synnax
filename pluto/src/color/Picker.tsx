@@ -29,6 +29,8 @@ export interface PickerProps
     Omit<ComponentPropsWithoutRef<"div">, "onChange"> {
   onDelete?: () => void;
   position?: number;
+  /** Colors offered ahead of the picker, such as the theme's status colors. */
+  presets?: color.Crude[];
 }
 
 export const Picker = ({
@@ -36,8 +38,10 @@ export const Picker = ({
   onChange,
   position,
   onDelete,
+  presets,
   ...rest
 }: PickerProps): ReactElement => {
+  const frequent = useFrequent();
   const updateFreq = useFrequentUpdater();
   const updateFreqDebounced = useDebouncedCallback(updateFreq, TimeSpan.SECOND, [
     updateFreq,
@@ -78,6 +82,7 @@ export const Picker = ({
             )}
           </Flex.Box>
         ))}
+      {presets != null && <Swatches colors={presets} onChange={baseHandleChange} />}
       <SketchPicker
         className={CSS.B("color-picker")}
         color={color.hex(value)}
@@ -85,22 +90,25 @@ export const Picker = ({
         presetColors={[]}
         {...rest}
       />
-      <Frequent onChange={baseHandleChange} />
+      <Swatches colors={frequent} onChange={baseHandleChange} />
     </Flex.Box>
   );
 };
 
-interface FrequentProps extends Omit<ComponentPropsWithoutRef<"div">, "onChange"> {
-  onChange?: (value: color.Color) => void;
+interface SwatchesProps {
+  colors: color.Crude[];
+  onChange: (value: color.Color) => void;
 }
 
-const Frequent = ({ onChange }: FrequentProps) => {
-  const frequent = useFrequent();
-  return (
-    <Flex.Box x wrap gap="tiny">
-      {frequent.map((c, i) => (
-        <BaseSwatch key={i} value={c} size="tiny" onClick={() => onChange?.(c)} />
-      ))}
-    </Flex.Box>
-  );
-};
+const Swatches = ({ colors, onChange }: SwatchesProps): ReactElement => (
+  <Flex.Box x wrap gap="tiny">
+    {colors.map((c, i) => (
+      <BaseSwatch
+        key={i}
+        value={c}
+        size="tiny"
+        onClick={() => onChange(color.construct(c))}
+      />
+    ))}
+  </Flex.Box>
+);

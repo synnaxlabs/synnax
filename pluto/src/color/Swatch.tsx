@@ -23,7 +23,7 @@ export interface SwatchProps
   extends
     BaseSwatchProps,
     Pick<Dialog.FrameProps, "visible" | "onVisibleChange" | "initialVisible">,
-    Pick<PickerProps, "onDelete" | "position"> {
+    Pick<PickerProps, "onDelete" | "position" | "presets"> {
   allowChange?: boolean;
   onlyChangeOnBlur?: boolean;
 }
@@ -48,6 +48,7 @@ export const Swatch = ({
   onClick,
   value,
   visible: propsVisible,
+  presets,
   ...rest
 }: SwatchProps): ReactElement => {
   const [visible, setVisible] = state.usePassthrough({
@@ -113,7 +114,7 @@ export const Swatch = ({
     >
       {swatch}
       <Dialog.Dialog rounded="small">
-        <Picker value={shownValue} onChange={handlePickerChange} />
+        <Picker value={shownValue} onChange={handlePickerChange} presets={presets} />
       </Dialog.Dialog>
     </Dialog.Frame>
   );

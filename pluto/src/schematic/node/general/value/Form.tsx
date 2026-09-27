@@ -44,11 +44,7 @@ export const ValueForm = (): ReactElement => (
       </Base.Sections>
     </Tabs.Content>
     <Tabs.Content itemKey="redline">
-      <Base.Sections x>
-        <Base.Section title="Redline">
-          <Value.RedlineForm path="redline" />
-        </Base.Section>
-      </Base.Sections>
+      <Value.RedlineForm path="redline" />
     </Tabs.Content>
   </Form.Tabs>
 );

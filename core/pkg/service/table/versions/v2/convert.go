@@ -10,13 +10,16 @@
 package v2
 
 import (
+	"cmp"
 	"encoding/json/v2"
 	"math"
+	"slices"
 	"strings"
 	"unicode"
 
 	color "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -78,13 +81,76 @@ func camelToSnakeKey(s string) string {
 	return b.String()
 }
 
+// legacyStop is a gradient stop of a legacy redline, positioned in [0, 1] across the
+// redline's bounds.
+type legacyStop struct {
+	Key      string  `json:"key"`
+	Color    any     `json:"color"`
+	Position float64 `json:"position"`
+}
+
+// legacyRedline is the redline Consoles before v2 stored.
+type legacyRedline struct {
+	Bounds *struct {
+		Lower float64 `json:"lower"`
+		Upper float64 `json:"upper"`
+	} `json:"bounds"`
+	Gradient []legacyStop `json:"gradient"`
+}
+
+// bandRedline rewrites a value cell's legacy redline into threshold bands, in place on
+// the normalized wire map. Each stop becomes a band at its position scaled across the
+// bounds. The lowest stop's color becomes the base and the bands interpolate, so every
+// value keeps the fill the legacy renderer painted.
+func bandRedline(cfg map[string]any) error {
+	if cfg["variant"] != "value" {
+		return nil
+	}
+	raw, ok := cfg["redline"]
+	if !ok {
+		return nil
+	}
+	b, err := json.Marshal(raw)
+	if err != nil {
+		return err
+	}
+	var old legacyRedline
+	if err = json.Unmarshal(b, &old); err != nil {
+		return errors.Wrap(err, "invalid redline")
+	}
+	lower, upper := 0.0, 1.0
+	if old.Bounds != nil {
+		lower, upper = old.Bounds.Lower, old.Bounds.Upper
+	}
+	bands := make([]any, len(old.Gradient))
+	for i, stop := range old.Gradient {
+		bands[i] = map[string]any{
+			"key":       stop.Key,
+			"threshold": lower + stop.Position*(upper-lower),
+			"color":     stop.Color,
+		}
+	}
+	redline := map[string]any{"bands": bands}
+	if len(old.Gradient) > 0 {
+		redline["smooth"] = true
+		lowest := slices.MinFunc(old.Gradient, func(a, b legacyStop) int {
+			return cmp.Compare(a.Position, b.Position)
+		})
+		if !isZeroColor(lowest.Color) {
+			redline["base"] = lowest.Color
+		}
+	}
+	cfg["redline"] = redline
+	return nil
+}
+
 // zeroColorOpaqueFields names fields whose colors are required and so must keep a zero
 // value, alongside the fields already excluded from normalization.
-var zeroColorOpaqueFields = set.New("gradient")
+var zeroColorOpaqueFields = set.New("bands")
 
 // stripZeroColors deletes every color-valued field holding the zero color. Consoles
 // before v2 stored transparent black for an unchosen color; v2 stores nothing, so the
-// theme picks the color instead. Gradient stops and opaque fields are left alone.
+// theme picks the color instead. Redline bands and opaque fields are left alone.
 func stripZeroColors(v any) {
 	switch t := v.(type) {
 	case map[string]any:

@@ -9,6 +9,32 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-redline-form-bound {
-    width: 60px;
+.pluto-redline-form {
+    height: 100%;
+    padding: 1rem 0;
+}
+
+.pluto-redline-form__bands {
+    width: 64rem;
+    min-height: 0;
+
+    .pluto-list__item {
+        min-height: unset;
+        padding: 0.5rem 2rem;
+    }
+}
+
+.pluto-redline-form__footer {
+    padding: 0.5rem 2rem;
+}
+
+.pluto-redline-form__display {
+    max-width: 50rem;
+    padding-right: 2rem;
+}
+
+.pluto-redline-form__preview {
+    height: 1rem;
+    border: var(--pluto-border);
+    border-radius: var(--pluto-border-radius);
 }

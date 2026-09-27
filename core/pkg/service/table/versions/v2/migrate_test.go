@@ -114,16 +114,81 @@ var _ = Describe("MigrateTable", func() {
 		Expect(cfg.StalenessColor).To(BeNil())
 	})
 
-	It("Should keep a transparent gradient stop color", func(ctx SpecContext) {
-		cfg, ok := migrateCell(ctx, "value", `{
-			"redline": {
+	Describe("Legacy redlines", func() {
+		// redline lifts a value cell carrying the given legacy redline and returns its
+		// typed redline.
+		redline := func(ctx SpecContext, legacy string) v2.Redline {
+			GinkgoHelper()
+			cfg, ok := migrateCell(
+				ctx, "value", `{"redline": `+legacy+`}`,
+			).Variant.(v2.ValueCellConfig)
+			return MustBeOk(cfg, ok).Redline
+		}
+		var (
+			green  = color.Color{G: 255, A: 1}
+			yellow = color.Color{R: 255, G: 255, A: 1}
+			red    = color.Color{R: 255, A: 1}
+		)
+
+		It("Should scale each stop across the bounds into a band", func(
+			ctx SpecContext,
+		) {
+			Expect(redline(ctx, `{
+				"bounds": {"lower": 100, "upper": 200},
+				"gradient": [
+					{"key": "a", "color": "#00ff00", "position": 0},
+					{"key": "b", "color": "#ffff00", "position": 0.5},
+					{"key": "c", "color": "#ff0000", "position": 1}
+				]
+			}`)).To(Equal(v2.Redline{
+				Bands: []v2.Band{
+					{Key: "a", Threshold: 100, Color: green},
+					{Key: "b", Threshold: 150, Color: yellow},
+					{Key: "c", Threshold: 200, Color: red},
+				},
+				Base:   new(green),
+				Smooth: true,
+			}))
+		})
+
+		It("Should take the base from the lowest stop in any stored order", func(
+			ctx SpecContext,
+		) {
+			Expect(redline(ctx, `{
+				"bounds": {"lower": 0, "upper": 10},
+				"gradient": [
+					{"key": "b", "color": "#ff0000", "position": 0.8},
+					{"key": "a", "color": "#ffff00", "position": 0.2}
+				]
+			}`).Base).To(HaveValue(Equal(yellow)))
+		})
+
+		It("Should keep a transparent band and leave the base absent", func(
+			ctx SpecContext,
+		) {
+			r := redline(ctx, `{
 				"bounds": {"lower": 0, "upper": 1},
 				"gradient": [{"key": "s", "color": "#00000000", "position": 0}]
-			}
-		}`).Variant.(v2.ValueCellConfig)
-		Expect(MustBeOk(cfg, ok).Redline).NotTo(BeNil())
-		Expect(cfg.Redline.Gradient).To(HaveLen(1))
-		Expect(cfg.Redline.Gradient[0].Key).To(Equal("s"))
+			}`)
+			Expect(r.Bands).To(Equal([]v2.Band{{Key: "s"}}))
+			Expect(r.Base).To(BeNil())
+		})
+
+		It("Should convert an empty gradient into an empty redline", func(
+			ctx SpecContext,
+		) {
+			Expect(
+				redline(ctx, `{"bounds": {"lower": 0, "upper": 1}, "gradient": []}`),
+			).
+				To(Equal(v2.Redline{Bands: []v2.Band{}}))
+		})
+
+		It("Should degrade a value cell whose redline cannot be read", func(
+			ctx SpecContext,
+		) {
+			Expect(migrateCell(ctx, "value", `{"redline": {"gradient": "wide"}}`)).
+				To(Equal(migrateCell(ctx, "hologram", `{}`)))
+		})
 	})
 
 	It("Should fill absent fields with their schema defaults", func(ctx SpecContext) {

@@ -9,7 +9,7 @@
 
 import { table } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
-import { fireEvent, render, waitFor } from "@testing-library/react";
+import { fireEvent, render } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -67,13 +67,67 @@ describe("ValueForm", () => {
   });
 
   describe("redline tab", () => {
-    it("should materialize the redline for a cell that carries none", async () => {
+    it("should add a band above the highest threshold", () => {
       const { getByText } = renderTab("Redline");
-      await waitFor(() => expect(getByText("Lower")).toBeDefined());
-      expect(methods.value().redline).toEqual({
-        bounds: { lower: 0, upper: 1 },
-        gradient: [],
-      });
+      fireEvent.click(getByText("Add a band"));
+      fireEvent.click(getByText("Add band"));
+      expect(methods.value().redline.bands.map(({ threshold }) => threshold)).toEqual([
+        0, 1,
+      ]);
+    });
+
+    it("should remove a band", () => {
+      const { getByText, getByLabelText } = renderTab("Redline");
+      fireEvent.click(getByText("Add a band"));
+      fireEvent.click(getByLabelText("Remove band"));
+      expect(methods.value().redline.bands).toEqual([]);
+    });
+
+    it("should toggle whether a band flashes", () => {
+      const { getByText, container } = renderTab("Redline");
+      fireEvent.click(getByText("Add a band"));
+      const toggle = container.querySelector("[aria-pressed]");
+      expect(toggle).not.toBeNull();
+      fireEvent.click(toggle!);
+      expect(methods.value().redline.bands[0].flashing).toBe(true);
+    });
+
+    it("should write a committed threshold", () => {
+      const { getByText, container } = renderTab("Redline");
+      fireEvent.click(getByText("Add a band"));
+      const input = container.querySelector<HTMLInputElement>(
+        ".pluto-redline-form__bands input",
+      );
+      expect(input).not.toBeNull();
+      fireEvent.change(input!, { target: { value: "850" } });
+      fireEvent.blur(input!);
+      expect(methods.value().redline.bands[0].threshold).toBe(850);
+    });
+
+    it("should sort the rows again when a threshold commits", () => {
+      const { getByText, container } = renderTab("Redline");
+      const inputs = () =>
+        Array.from(
+          container.querySelectorAll<HTMLInputElement>(
+            ".pluto-redline-form__bands input",
+          ),
+        );
+      const commit = (input: HTMLInputElement, value: string) => {
+        fireEvent.change(input, { target: { value } });
+        fireEvent.blur(input);
+      };
+      fireEvent.click(getByText("Add a band"));
+      fireEvent.click(getByText("Add band"));
+      expect(inputs().map((i) => i.value)).toEqual(["1", "0"]);
+      commit(inputs()[1], "5");
+      expect(inputs().map((i) => i.value)).toEqual(["5", "1"]);
+    });
+
+    it("should leave the base absent until one is picked", () => {
+      const { getByText } = renderTab("Redline");
+      fireEvent.click(getByText("Add a band"));
+      expect(getByText("Base: no fill")).toBeDefined();
+      expect(methods.value().redline.base).toBeUndefined();
     });
   });
 });

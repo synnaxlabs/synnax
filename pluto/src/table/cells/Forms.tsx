@@ -19,7 +19,6 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { color, type notation, type text } from "@synnaxlabs/x";
-import { useEffect } from "react";
 
 import { Channel } from "@/channel";
 import { Color } from "@/color";
@@ -108,19 +107,6 @@ const TelemForm = () => {
   );
 };
 
-// A cell carries no redline until one is edited, and the bound and gradient fields
-// need the subtree to exist. Opening the tab materializes it.
-const RedlineForm = () => {
-  const { set } = Form.useContext();
-  const redline = Form.useFieldValue<Value.Redline>("redline", { optional: true });
-  const absent = redline == null;
-  useEffect(() => {
-    if (absent) set("redline", Value.ZERO_READLINE);
-  }, [absent, set]);
-  if (absent) return null;
-  return <Value.RedlineForm path="redline" />;
-};
-
 export const ValueForm = ({ onVariantChange }: FormProps) => {
   const theme = Theming.use();
   return (
@@ -156,11 +142,7 @@ export const ValueForm = ({ onVariantChange }: FormProps) => {
         </Form.Sections>
       </Tabs.Content>
       <Tabs.Content itemKey="redline">
-        <Form.Sections x>
-          <Form.Section title="Redline">
-            <RedlineForm />
-          </Form.Section>
-        </Form.Sections>
+        <Value.RedlineForm path="redline" />
       </Tabs.Content>
     </Tabs.Frame>
   );

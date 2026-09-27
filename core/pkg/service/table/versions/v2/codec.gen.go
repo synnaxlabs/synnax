@@ -21,6 +21,35 @@ import (
 )
 
 // EncodeOrc writes the value to w in the Orc binary format.
+func (bv Band) EncodeOrc(w *orc.Writer) error {
+	w.String(bv.Key)
+	w.Float64(float64(bv.Threshold))
+	if err := bv.Color.EncodeOrc(w); err != nil {
+		return err
+	}
+	w.Bool(bv.Flashing)
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (bv *Band) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if bv.Key, err = r.String(); err != nil {
+		return err
+	}
+	if bv.Threshold, err = r.Float64(); err != nil {
+		return err
+	}
+	if err = bv.Color.DecodeOrc(r); err != nil {
+		return err
+	}
+	if bv.Flashing, err = r.Bool(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
 func (cc CellConfig) EncodeOrc(w *orc.Writer) error {
 	switch v := cc.Variant.(type) {
 	case TextCellConfig:
@@ -48,13 +77,8 @@ func (cc CellConfig) EncodeOrc(w *orc.Writer) error {
 			w.Bool(false)
 		}
 		w.String(string(v.Notation))
-		if v.Redline != nil {
-			w.Bool(true)
-			if err := v.Redline.EncodeOrc(w); err != nil {
-				return err
-			}
-		} else {
-			w.Bool(false)
+		if err := v.Redline.EncodeOrc(w); err != nil {
+			return err
 		}
 		w.String(string(v.Level))
 		if v.Color != nil {
@@ -156,18 +180,8 @@ func (cc *CellConfig) DecodeOrc(r *orc.Reader) error {
 			}
 			v.Notation = notation.Notation(rawV)
 		}
-		{
-			present, err := r.Bool()
-			if err != nil {
-				return err
-			}
-			if present {
-				var hv Redline
-				if err = hv.DecodeOrc(r); err != nil {
-					return err
-				}
-				v.Redline = &hv
-			}
+		if err = v.Redline.DecodeOrc(r); err != nil {
+			return err
 		}
 		{
 			rawV, err := r.String()
@@ -232,29 +246,30 @@ func (c *Column) DecodeOrc(r *orc.Reader) error {
 
 // EncodeOrc writes the value to w in the Orc binary format.
 func (rv Redline) EncodeOrc(w *orc.Writer) error {
-	w.Float64(float64(rv.Bounds.Lower))
-	w.Float64(float64(rv.Bounds.Upper))
-	w.Bool(rv.Gradient != nil)
-	if rv.Gradient != nil {
-		w.Uint32(uint32(len(rv.Gradient)))
-		for i := range rv.Gradient {
-			if err := rv.Gradient[i].EncodeOrc(w); err != nil {
+	w.Bool(rv.Bands != nil)
+	if rv.Bands != nil {
+		w.Uint32(uint32(len(rv.Bands)))
+		for i := range rv.Bands {
+			if err := rv.Bands[i].EncodeOrc(w); err != nil {
 				return err
 			}
 		}
 	}
+	if rv.Base != nil {
+		w.Bool(true)
+		if err := rv.Base.EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	w.Bool(rv.Smooth)
 	return nil
 }
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (rv *Redline) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if rv.Bounds.Lower, err = r.Float64(); err != nil {
-		return err
-	}
-	if rv.Bounds.Upper, err = r.Float64(); err != nil {
-		return err
-	}
 	{
 		present, err := r.Bool()
 		if err != nil {
@@ -265,13 +280,29 @@ func (rv *Redline) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			rv.Gradient = make([]color.Stop, n)
-			for i := range rv.Gradient {
-				if err = rv.Gradient[i].DecodeOrc(r); err != nil {
+			rv.Bands = make([]Band, n)
+			for i := range rv.Bands {
+				if err = rv.Bands[i].DecodeOrc(r); err != nil {
 					return err
 				}
 			}
 		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv color.Color
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			rv.Base = &hv
+		}
+	}
+	if rv.Smooth, err = r.Bool(); err != nil {
+		return err
 	}
 	return nil
 }

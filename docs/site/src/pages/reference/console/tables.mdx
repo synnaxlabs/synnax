@@ -61,9 +61,17 @@ new data arrives.
 
 ### Redlining a value
 
-Redline a value to change its color when it passes a threshold. In the cell's `Redline`
-tab, set the lower and upper bounds and the color that appears when the value passes
-them.
+Redline a value to change its background color when it passes a threshold. In the cell's
+`Redline` tab, click `Add band`, then set the threshold and the color of the band.
+
+Each band has a threshold and a color. A band paints the values at or above its
+threshold and below the next higher threshold. The base paints the values below every
+threshold. By default, the base paints nothing.
+
+- **Smooth** -> Blends the colors between thresholds instead of changing the color at
+  each threshold.
+- **Flash** (lightning icon) -> Makes the band blink between its color and the base
+  while the value is in the band.
 
 <Image client:only="react" id="console/tables/redline" />
 

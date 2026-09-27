@@ -26,7 +26,7 @@ const (
 	FlexAlignmentStretch FlexAlignment = v2.FlexAlignmentStretch
 )
 
-// Redline maps a numeric range to a color gradient for limit visualization.
+// Redline maps a value to a background fill through threshold bands.
 type Redline = v2.Redline
 
 // CellConfig is the per-cell configuration stored in the table cells map. The variant
@@ -58,3 +58,6 @@ type Column = v2.Column
 // Tables support multiple columns, channel data sources, and customizable formatting
 // options.
 type Table = v2.Table
+
+// Band is a colored range of values starting at a threshold.
+type Band = v2.Band

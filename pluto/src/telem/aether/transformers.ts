@@ -15,7 +15,6 @@ import {
   type math,
   MultiSeries,
   notation,
-  scale,
   Series,
 } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -53,10 +52,8 @@ export class TransformerFactory implements Factory {
         return new StringifyNumber(spec.props);
       case RollingAverage.TYPE:
         return new RollingAverage(spec.props);
-      case ColorGradient.TYPE:
-        return new ColorGradient(spec.props);
-      case ScaleNumber.TYPE:
-        return new ScaleNumber(spec.props);
+      case BandColor.TYPE:
+        return new BandColor(spec.props);
     }
     return null;
   }
@@ -234,61 +231,75 @@ export const rollingAverage = (
   valueType: "number",
 });
 
-export const colorGradientProps = z.object({
-  gradient: color.gradientZ,
+export const bandColorProps = z.object({
+  bands: z
+    .object({
+      threshold: z.number(),
+      color: color.colorZ,
+      flashing: z.boolean().default(false),
+    })
+    .array(),
+  base: color.colorZ.optional(),
+  smooth: z.boolean().default(false),
 });
 
-export class ColorGradient extends UnarySourceTransformer<
-  number,
-  color.Color,
-  typeof colorGradientProps
-> {
-  static readonly TYPE = "color-gradient";
-  static readonly propsZ = colorGradientProps;
-  schema = ColorGradient.propsZ;
+export type BandColorProps = z.input<typeof bandColorProps>;
 
-  protected transform(value: number): color.Color {
-    return color.fromGradient(this.props.gradient, value);
+/**
+ * Maps a number onto the color of its threshold band. Reads the number from the
+ * `source` input and, when a band flashes, a {@link clock} from the `phase` input. A
+ * band owns values at or above its threshold and below the next higher threshold.
+ * Values below every threshold take the base, or no color when the base is absent.
+ * While the owning band flashes, odd clock ticks paint the base instead. Listeners
+ * hear only changes of color.
+ */
+export class BandColor extends MultiSourceTransformer<
+  math.Numeric | string,
+  color.Color,
+  typeof bandColorProps
+> {
+  static readonly TYPE = "band-color";
+  static readonly propsZ = bandColorProps;
+  schema = BandColor.propsZ;
+  private sorted?: z.infer<typeof bandColorProps>["bands"];
+  private notified: color.Color | null = null;
+
+  private get bands(): z.infer<typeof bandColorProps>["bands"] {
+    this.sorted ??= [...this.props.bands].sort((a, b) => a.threshold - b.threshold);
+    return this.sorted;
+  }
+
+  protected transform({
+    source,
+    phase = 0,
+  }: Record<string, math.Numeric | string>): color.Color {
+    const value = Number(source);
+    const base = this.props.base ?? color.ZERO;
+    const owner = this.bands.findLast(({ threshold }) => threshold <= value);
+    if (owner == null) return base;
+    if (owner.flashing && Number(phase) % 2 === 1) return base;
+    if (!this.props.smooth) return owner.color;
+    const stops = this.bands.map(({ threshold, color }, i) => ({
+      key: i.toString(),
+      position: threshold,
+      color,
+    }));
+    return color.fromGradient(stops, value);
+  }
+
+  protected shouldNotify(): boolean {
+    const next = this.value();
+    if (this.notified != null && color.equals(this.notified, next)) return false;
+    this.notified = next;
+    return true;
   }
 }
 
-export const colorGradient = (
-  props: z.input<typeof colorGradientProps>,
-): ColorSourceSpec => ({
+export const bandColor = (props: BandColorProps): ColorSourceSpec => ({
   props,
-  type: ColorGradient.TYPE,
+  type: BandColor.TYPE,
   variant: "source",
   valueType: "color",
-});
-
-export const scaleNumberProps = z.object({
-  scale: scale.transform,
-});
-
-export class ScaleNumber extends UnarySourceTransformer<
-  math.Numeric,
-  number,
-  typeof scaleNumberProps
-> {
-  static readonly TYPE = "scale-number";
-  static readonly propsZ = scaleNumberProps;
-  schema = ScaleNumber.propsZ;
-
-  protected transform(value: math.Numeric): number {
-    const num = Number(value);
-    if (isNaN(num)) return num;
-    const { offset, scale } = this.props.scale;
-    return num * scale + offset;
-  }
-}
-
-export const scaleNumber = (
-  props: z.input<typeof scaleNumberProps>,
-): NumberSourceSpec => ({
-  props,
-  type: ScaleNumber.TYPE,
-  variant: "source",
-  valueType: "number",
 });
 
 export const downsampleModeZ = z.enum(["average", "decimate"]);

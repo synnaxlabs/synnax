@@ -294,19 +294,98 @@ var _ = Describe("Config typing", func() {
 		Expect(cfg.Fill.AxisColor).To(HaveValue(Equal(green)))
 	})
 
-	It("Should keep a zero color on a gradient stop", func(ctx SpecContext) {
-		cfg, ok := typed(ctx, msgpack.EncodedJSON{
-			"variant": "value",
-			"redline": map[string]any{
+	Describe("Legacy redlines", func() {
+		// redline lifts a value config carrying the given legacy redline and returns
+		// its typed redline.
+		redline := func(ctx SpecContext, legacy map[string]any) v9.Redline {
+			GinkgoHelper()
+			cfg, ok := typed(ctx, msgpack.EncodedJSON{
+				"variant": "value",
+				"redline": legacy,
+			}).(v9.ValueElementConfig)
+			Expect(ok).To(BeTrue())
+			return cfg.Redline
+		}
+		var (
+			green  = MustSucceed(color.FromHex("#00ff00"))
+			yellow = MustSucceed(color.FromHex("#ffff00"))
+			red    = MustSucceed(color.FromHex("#ff0000"))
+		)
+
+		It("Should scale each stop across the bounds into a band", func(
+			ctx SpecContext,
+		) {
+			Expect(redline(ctx, map[string]any{
+				"bounds": map[string]any{"lower": 100.0, "upper": 200.0},
+				"gradient": []any{
+					map[string]any{"key": "a", "color": "#00ff00", "position": 0.0},
+					map[string]any{"key": "b", "color": "#ffff00", "position": 0.5},
+					map[string]any{"key": "c", "color": "#ff0000", "position": 1.0},
+				},
+			})).To(Equal(v9.Redline{
+				Bands: []v9.Band{
+					{Key: "a", Threshold: 100, Color: green},
+					{Key: "b", Threshold: 150, Color: yellow},
+					{Key: "c", Threshold: 200, Color: red},
+				},
+				Base:   new(green),
+				Smooth: true,
+			}))
+		})
+
+		It("Should take the base from the lowest stop in any stored order", func(
+			ctx SpecContext,
+		) {
+			Expect(redline(ctx, map[string]any{
+				"bounds": map[string]any{"lower": 0.0, "upper": 10.0},
+				"gradient": []any{
+					map[string]any{"key": "b", "color": "#ff0000", "position": 0.8},
+					map[string]any{"key": "a", "color": "#ffff00", "position": 0.2},
+				},
+			}).Base).To(HaveValue(Equal(yellow)))
+		})
+
+		It("Should scale across the unit range when the bounds are absent", func(
+			ctx SpecContext,
+		) {
+			Expect(redline(ctx, map[string]any{
+				"gradient": []any{
+					map[string]any{"key": "a", "color": "#ff0000", "position": 0.25},
+				},
+			}).Bands).To(Equal([]v9.Band{{Key: "a", Threshold: 0.25, Color: red}}))
+		})
+
+		It("Should keep a transparent band and leave the base absent", func(
+			ctx SpecContext,
+		) {
+			r := redline(ctx, map[string]any{
 				"bounds": map[string]any{"lower": 0.0, "upper": 1.0},
 				"gradient": []any{
 					map[string]any{"key": "a", "color": "#00000000", "position": 0.0},
 				},
-			},
-		}).(v9.ValueElementConfig)
-		Expect(ok).To(BeTrue())
-		Expect(cfg.Redline.Gradient).To(HaveLen(1))
-		Expect(cfg.Redline.Gradient[0].Color).To(Equal(color.Color{}))
+			})
+			Expect(r.Bands).To(Equal([]v9.Band{{Key: "a"}}))
+			Expect(r.Base).To(BeNil())
+		})
+
+		It("Should convert an empty gradient into an empty redline", func(
+			ctx SpecContext,
+		) {
+			Expect(redline(ctx, map[string]any{
+				"bounds":   map[string]any{"lower": 0.0, "upper": 1.0},
+				"gradient": []any{},
+			})).To(Equal(v9.Redline{Bands: []v9.Band{}}))
+		})
+
+		It("Should reset a value config whose redline cannot be read", func(
+			ctx SpecContext,
+		) {
+			Expect(typed(ctx, msgpack.EncodedJSON{
+				"variant": "value",
+				"units":   "bar",
+				"redline": map[string]any{"gradient": "wide"},
+			})).To(Equal(typed(ctx, msgpack.EncodedJSON{"variant": "value"})))
+		})
 	})
 
 	It("Should drop a stored zero color on an edge", func(ctx SpecContext) {
@@ -333,10 +412,7 @@ var _ = Describe("Config typing", func() {
 				Notation:         "standard",
 				Precision:        2,
 				Units:            "psi",
-				Redline: v9.Redline{
-					Bounds: spatial.Bounds{Lower: 0, Upper: 1},
-				},
-				Location: spatial.LocationXY{X: "left", Y: "center"},
+				Location:         spatial.LocationXY{X: "left", Y: "center"},
 			}),
 		)
 	})

@@ -612,12 +612,16 @@ type StateMapping struct {
 	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 }
 
-// Redline maps a numeric range to a color gradient for limit visualization.
+// Redline maps a value to a background fill through threshold bands.
 type Redline struct {
-	// Bounds is the numeric range mapped onto the gradient.
-	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
-	// Gradient is the color gradient applied across the bounds.
-	Gradient []color.Stop `json:"gradient" msgpack:"gradient"`
+	// Bands is the list of threshold bands. A band paints values at or above its
+	// threshold and below the next higher threshold.
+	Bands []Band `json:"bands" msgpack:"bands"`
+	// Base is the fill for values below the lowest threshold. When absent those values
+	// paint nothing.
+	Base *color.Color `json:"base,omitzero" msgpack:"base,omitempty"`
+	// Smooth is true when the fill interpolates between band colors.
+	Smooth bool `json:"smooth" msgpack:"smooth"`
 }
 
 type NodeConfigType string
@@ -1864,7 +1868,7 @@ type ValueNodeConfig struct {
 	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
 	// Tooltip is the list of tooltip lines shown on hover.
 	Tooltip []string `json:"tooltip" msgpack:"tooltip"`
-	// Redline is the bounds-to-gradient mapping applied to the background.
+	// Redline is the threshold band mapping applied to the background.
 	Redline Redline `json:"redline" msgpack:"redline"`
 	// Units is the unit suffix displayed after the value.
 	Units string `json:"units" msgpack:"units"`
@@ -1880,9 +1884,6 @@ func (ValueNodeConfig) isNodeConfigVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (va *ValueNodeConfig) ApplyDefaults() {
-	if va.Redline.Bounds.Upper == 0 {
-		va.Redline.Bounds.Upper = 1
-	}
 	if va.Units == "" {
 		va.Units = "psi"
 	}
@@ -6130,7 +6131,7 @@ type ValueElementConfig struct {
 	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
 	// Tooltip is the list of tooltip lines shown on hover.
 	Tooltip []string `json:"tooltip" msgpack:"tooltip"`
-	// Redline is the bounds-to-gradient mapping applied to the background.
+	// Redline is the threshold band mapping applied to the background.
 	Redline Redline `json:"redline" msgpack:"redline"`
 	// Units is the unit suffix displayed after the value.
 	Units string `json:"units" msgpack:"units"`
@@ -6146,9 +6147,6 @@ func (ValueElementConfig) isElementConfigVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (va *ValueElementConfig) ApplyDefaults() {
-	if va.Redline.Bounds.Upper == 0 {
-		va.Redline.Bounds.Upper = 1
-	}
 	if va.Units == "" {
 		va.Units = "psi"
 	}
@@ -9513,4 +9511,16 @@ func (n NumericTelemConfig) Validate() error {
 	v := validate.New("NumericTelemConfig")
 	v.Ternaryf("notation", !n.Notation.IsValid(), "invalid notation: %v", n.Notation)
 	return v.Error()
+}
+
+// Band is a colored range of values starting at a threshold.
+type Band struct {
+	// Key is the unique identifier for the band.
+	Key string `json:"key" msgpack:"key"`
+	// Threshold is the lowest value, in the value's units, that the band paints.
+	Threshold float64 `json:"threshold" msgpack:"threshold"`
+	// Color is the fill painted while the value is in the band.
+	Color color.Color `json:"color" msgpack:"color"`
+	// Flashing is true when the fill blinks while the value is in the band.
+	Flashing bool `json:"flashing" msgpack:"flashing"`
 }

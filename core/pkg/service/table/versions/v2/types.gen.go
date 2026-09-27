@@ -21,7 +21,6 @@ import (
 	color "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/errors"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
-	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	text "github.com/synnaxlabs/x/text/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -50,12 +49,16 @@ func (f FlexAlignment) IsValid() bool {
 	}
 }
 
-// Redline maps a numeric range to a color gradient for limit visualization.
+// Redline maps a value to a background fill through threshold bands.
 type Redline struct {
-	// Bounds is the numeric range mapped onto the gradient.
-	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
-	// Gradient is the color gradient applied across the bounds.
-	Gradient []color.Stop `json:"gradient" msgpack:"gradient"`
+	// Bands is the list of threshold bands. A band paints values at or above its
+	// threshold and below the next higher threshold.
+	Bands []Band `json:"bands" msgpack:"bands"`
+	// Base is the fill for values below the lowest threshold. When absent those values
+	// paint nothing.
+	Base *color.Color `json:"base,omitzero" msgpack:"base,omitempty"`
+	// Smooth is true when the fill interpolates between band colors.
+	Smooth bool `json:"smooth" msgpack:"smooth"`
 }
 
 type CellConfigType string
@@ -121,9 +124,8 @@ type ValueCellConfig struct {
 	Precision *int32 `json:"precision,omitzero" msgpack:"precision,omitempty"`
 	// Notation is the numeric notation used to format the value.
 	Notation notation.Notation `json:"notation" msgpack:"notation"`
-	// Redline is the bounds-to-gradient mapping applied to the background. When absent
-	// the cell paints no redline.
-	Redline *Redline `json:"redline,omitzero" msgpack:"redline,omitempty"`
+	// Redline is the threshold band mapping applied to the background.
+	Redline Redline `json:"redline" msgpack:"redline"`
 	// Level is the typography level of the displayed value.
 	Level text.Level `json:"level" msgpack:"level"`
 	// Color is the color of the displayed text. When absent the value renders with a
@@ -347,4 +349,16 @@ func (t Table) Validate() error {
 		v.Exec(func() error { return validate.PathedError(value.Validate(), "cells", key) })
 	}
 	return v.Error()
+}
+
+// Band is a colored range of values starting at a threshold.
+type Band struct {
+	// Key is the unique identifier for the band.
+	Key string `json:"key" msgpack:"key"`
+	// Threshold is the lowest value, in the value's units, that the band paints.
+	Threshold float64 `json:"threshold" msgpack:"threshold"`
+	// Color is the fill painted while the value is in the band.
+	Color color.Color `json:"color" msgpack:"color"`
+	// Flashing is true when the fill blinks while the value is in the band.
+	Flashing bool `json:"flashing" msgpack:"flashing"`
 }

@@ -114,7 +114,7 @@ type DummyToggleSymbolConfig = versions.DummyToggleSymbolConfig
 // StateMapping maps a numeric channel value to a named, colored state.
 type StateMapping = versions.StateMapping
 
-// Redline maps a numeric range to a color gradient for limit visualization.
+// Redline maps a value to a background fill through threshold bands.
 type Redline = versions.Redline
 
 // NodeConfig is the per-node configuration stored in the schematic configs map. The
@@ -740,3 +740,6 @@ type StalenessConfig = versions.StalenessConfig
 // NumericTelemConfig is the numeric read and formatting shared by symbols that display
 // a channel's value as a number.
 type NumericTelemConfig = versions.NumericTelemConfig
+
+// Band is a colored range of values starting at a threshold.
+type Band = versions.Band

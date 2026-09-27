@@ -15,6 +15,7 @@ import {
   Rate,
   Series,
   TimeRange,
+  TimeSpan,
   typedArrayZ,
 } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -47,6 +48,8 @@ export class StaticFactory implements Factory {
         return new FixedString(spec.props);
       case FixedColorSource.TYPE:
         return new FixedColorSource(spec.props);
+      case Clock.TYPE:
+        return new Clock(spec.props);
       default:
         return null;
     }
@@ -182,6 +185,36 @@ export class FixedString extends AbstractSource<typeof fixedStringPropsZ> {
   }
 }
 
+export const clockPropsZ = z.object({ period: TimeSpan.z });
+
+export type ClockProps = z.input<typeof clockPropsZ>;
+
+/** A number source that counts up by one and notifies once every period. */
+export class Clock extends AbstractSource<typeof clockPropsZ> implements NumberSource {
+  static readonly TYPE = "clock";
+  schema = clockPropsZ;
+
+  private ticks = 0;
+  private interval?: ReturnType<typeof setInterval>;
+
+  constructor(props: unknown) {
+    super(props);
+    this.interval = setInterval(() => {
+      this.ticks++;
+      this.notify();
+    }, this.props.period.milliseconds);
+  }
+
+  value(): number {
+    return this.ticks;
+  }
+
+  cleanup(): void {
+    clearInterval(this.interval);
+    this.interval = undefined;
+  }
+}
+
 export const fixedColorSourcePropsZ = color.crudeZ;
 
 export type FixedColorSourceProps = z.infer<typeof fixedColorSourcePropsZ>;
@@ -231,4 +264,11 @@ export const fixedColor = (color: color.Crude): ColorSourceSpec => ({
   props: color,
   variant: "source",
   valueType: "color",
+});
+
+export const clock = (props: ClockProps): NumberSourceSpec => ({
+  type: Clock.TYPE,
+  props,
+  variant: "source",
+  valueType: "number",
 });
