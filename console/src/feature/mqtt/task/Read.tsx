@@ -12,18 +12,17 @@ import "@/feature/mqtt/task/Form.css";
 import { channel, mqtt, type Synnax as Client } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
-import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { Header } from "@synnaxlabs/lyra/header";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
-import { type List } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
+import { Tree } from "@synnaxlabs/lyra/tree";
 import { Telem } from "@synnaxlabs/pluto";
-import { DataType, id, primitive } from "@synnaxlabs/x";
-import { type FC, useCallback, useState } from "react";
+import { DataType, id, primitive, type record } from "@synnaxlabs/x";
+import { type FC, type MouseEvent, useCallback, useMemo, useState } from "react";
 
 import { Browser } from "@/feature/mqtt/device/Browser";
 import { use } from "@/feature/mqtt/device/queries";
@@ -32,6 +31,8 @@ import { type SparkplugHaulTag } from "@/feature/mqtt/device/SparkplugBrowser";
 import { type Device, SCHEMAS } from "@/feature/mqtt/device/types";
 import { useConnectModal } from "@/feature/mqtt/device/useConnectModal";
 import { createReadFields } from "@/feature/mqtt/task/createReadFields";
+import { EntryLabel } from "@/feature/mqtt/task/EntryLabel";
+import { AddEntryButtons, useEntryDrop } from "@/feature/mqtt/task/EntryList";
 import { QoSField } from "@/feature/mqtt/task/QoSField";
 import {
   fromSparkplugDataType,
@@ -41,8 +42,6 @@ import {
 } from "@/feature/mqtt/task/sparkplug";
 import { SparkplugTagFields } from "@/feature/mqtt/task/SparkplugTagFields";
 import { TimeFormatField } from "@/feature/mqtt/task/TimeFormatField";
-import { TopicList } from "@/feature/mqtt/task/TopicList";
-import { SparkplugListItem, TopicListItem } from "@/feature/mqtt/task/TopicListItem";
 import {
   type BrowsedTopic,
   deployReadConfigZ,
@@ -74,81 +73,127 @@ const Properties = () => (
 
 const ENTRIES_PATH = "config.entries";
 
-const PlainEntryListItem = (props: List.ItemProps<string>) => {
-  const fields = PForm.useFieldValue<ReadField[]>(
-    `${ENTRIES_PATH}.${props.itemKey}.fields`,
+type TreeEntry =
+  | { kind: "entry"; entryKey: string; type: ReadEntry["type"] }
+  | { kind: "field"; entryKey: string; fieldKey: string };
+
+interface TreeIndex {
+  nodes: Tree.Node[];
+  entries: Map<string, TreeEntry>;
+}
+
+/**
+ * Entries as tree nodes. A plain entry holds its fields beneath it, less the timestamp
+ * field; a Sparkplug B entry is a leaf.
+ */
+const useTreeIndex = (): TreeIndex => {
+  // The form writes child paths into the same array, so the array's identity never
+  // changes; the field state's does on every write beneath it.
+  const state = PForm.useFieldState<ReadEntry[]>(ENTRIES_PATH);
+  return useMemo(() => {
+    const entries = new Map<string, TreeEntry>();
+    const nodes = state.value.map((entry): Tree.Node => {
+      entries.set(entry.key, { kind: "entry", entryKey: entry.key, type: entry.type });
+      if (entry.type === "sparkplug") return { key: entry.key };
+      const children = entry.fields
+        .filter((f) => f.key !== entry.index)
+        .map((f) => {
+          entries.set(f.key, { kind: "field", entryKey: entry.key, fieldKey: f.key });
+          return { key: f.key };
+        });
+      return { key: entry.key, children };
+    });
+    return { nodes, entries };
+  }, [state]);
+};
+
+const entryPath = (entry: TreeEntry): string =>
+  entry.kind === "entry"
+    ? `${ENTRIES_PATH}.${entry.entryKey}`
+    : `${ENTRIES_PATH}.${entry.entryKey}.fields.${entry.fieldKey}`;
+
+/** The prefix configure gives the channels of a topic's fields. */
+const namePrefix = (devName: string, topic: string): string =>
+  `${channel.escapeInvalidName(devName)}_${channel.escapeInvalidName(topic)}`;
+
+interface EntryTreeItemProps extends Tree.ItemRenderProps<string> {
+  onAddField: (entryKey: string) => void;
+}
+
+const EntryTreeItem = ({ onAddField, ...props }: EntryTreeItemProps) => {
+  const { itemKey } = props;
+  const path = `${ENTRIES_PATH}.${itemKey}`;
+  const type = PForm.useFieldValue<ReadEntry["type"]>(`${path}.type`);
+  const disabled = PForm.useFieldValue<boolean>(`${path}.disabled`);
+  const isPreview = Task.useIsPreview();
+  const handleAdd = useCallback(
+    (e: MouseEvent) => {
+      e.stopPropagation();
+      onAddField(itemKey);
+    },
+    [onAddField, itemKey],
   );
   return (
-    <TopicListItem
+    <Tree.Item
       {...props}
-      path={ENTRIES_PATH}
-      extra={
-        <Text.Text level="small" color={9}>
-          {fields.length} field{fields.length === 1 ? "" : "s"}
-        </Text.Text>
-      }
-    />
+      className={CSS.cls(
+        CSS.B("entry-item"),
+        type === "sparkplug" && CSS.M("leaf"),
+        disabled && CSS.M("off"),
+      )}
+    >
+      <EntryLabel path={path} />
+      {type === "plain" && !isPreview && (
+        <Button.Button
+          onClick={handleAdd}
+          variant="text"
+          size="tiny"
+          tooltip="Add field"
+          aria-label="Add field"
+          tooltipLocation="right"
+          className={CSS.BE("entry-item", "add")}
+        >
+          <Icon.Add />
+        </Button.Button>
+      )}
+      <Task.EnabledCheckbox path={`${path}.disabled`} />
+    </Tree.Item>
   );
 };
 
-const EntryListItem = (props: List.ItemProps<string>) => {
-  const type = PForm.useFieldValue<ReadEntry["type"]>(
-    `${ENTRIES_PATH}.${props.itemKey}.type`,
-  );
-  if (type === "plain") return <PlainEntryListItem {...props} />;
-  return <SparkplugListItem {...props} path={ENTRIES_PATH} />;
-};
+interface FieldLabelProps extends Pick<Text.TextProps, "level"> {
+  pointer: string;
+}
 
-const entryListItem = Component.renderProp(EntryListItem);
+/** Names a field by its pointer. An empty pointer takes the whole payload. */
+const FieldLabel = ({ pointer, level }: FieldLabelProps) => (
+  <Text.Text
+    level={level}
+    weight={500}
+    color={pointer === "" ? 8 : 10}
+    overflow="ellipsis"
+    className={CSS.B("field-pointer")}
+  >
+    {pointer === "" ? "Whole payload" : pointer}
+  </Text.Text>
+);
 
-interface FieldListItemProps extends Task.ChannelListItemProps {
+interface FieldTreeItemProps extends Tree.ItemRenderProps<string> {
   entryKey: string;
 }
 
-const FieldListItem = ({ entryKey, ...props }: FieldListItemProps) => {
+const FieldTreeItem = ({ entryKey, ...props }: FieldTreeItemProps) => {
   const { itemKey } = props;
   const path = `${ENTRIES_PATH}.${entryKey}.fields.${itemKey}`;
-  const fieldChannel = PForm.useFieldValue<number>(`${path}.channel`);
-  const enumValues = PForm.useFieldValue<Record<string, number>[]>(
-    `${path}.enumValues`,
-    { defaultValue: [] },
-  );
-  const enumCount = enumValues.length;
-  const enumCountText =
-    enumCount === 0 ? "" : `${enumCount} enum${enumCount === 1 ? "" : "s"}`;
+  const { disabled, pointer } = PForm.useFieldValue<ReadField>(path);
   return (
-    <Select.Item {...props} justify="between" align="center" x>
-      <PForm.TextField
-        path={`${path}.pointer`}
-        showLabel={false}
-        showHelpText={false}
-        inputProps={POINTER_INPUT_PROPS}
-        grow
-      />
-      {fieldChannel === 0 && (
-        <PForm.Field<string>
-          path={`${path}.dataType`}
-          showLabel={false}
-          showHelpText={false}
-          hideIfNull
-        >
-          {renderTelemSelectDataType}
-        </PForm.Field>
-      )}
-      {enumCountText !== "" && (
-        <Text.Text level="small" color={9}>
-          {enumCountText}
-        </Text.Text>
-      )}
-      <Flex.Box x align="center" grow justify="end">
-        <Task.ChannelName
-          channel={fieldChannel}
-          namePath={`${path}.name`}
-          id={Task.getChannelNameID(itemKey)}
-        />
-        <Task.EnabledCheckbox path={`${path}.disabled`} />
-      </Flex.Box>
-    </Select.Item>
+    <Tree.Item
+      {...props}
+      className={CSS.cls(CSS.B("field-item"), disabled && CSS.M("off"))}
+    >
+      <FieldLabel pointer={pointer} level="small" />
+      <Task.EnabledCheckbox path={`${path}.disabled`} />
+    </Tree.Item>
   );
 };
 
@@ -156,18 +201,9 @@ const POINTER_INPUT_PROPS = { placeholder: "/temperature" } as const;
 
 const renderTelemSelectDataType = Component.renderProp(
   (p: Telem.SelectDataTypeProps) => (
-    <Telem.SelectDataType
-      {...p}
-      className={CSS.B("field-data-type")}
-      hideDataTypes={HIDDEN_DATA_TYPES}
-      location="bottom"
-    />
+    <Telem.SelectDataType {...p} hideDataTypes={HIDDEN_DATA_TYPES} location="bottom" />
   ),
 );
-
-interface FieldListProps {
-  entryKey: string;
-}
 
 interface BinderProps {
   device: Device;
@@ -176,12 +212,12 @@ interface BinderProps {
 
 /**
  * Binds a plain entry's fields to the channels the device stores for its topic.
- * Mounted for every entry, as the field list renders only for the selected one.
+ * Mounted for every entry, as the details pane renders only the selected one.
  */
 const FieldBinder = ({ device, entryKey }: BinderProps) => {
-  const entryPath = `${ENTRIES_PATH}.${entryKey}`;
-  const topic = PForm.useFieldValue<string>(`${entryPath}.topic`);
-  const indexKey = PForm.useFieldValue<string>(`${entryPath}.index`);
+  const path = `${ENTRIES_PATH}.${entryKey}`;
+  const topic = PForm.useFieldValue<string>(`${path}.topic`);
+  const indexKey = PForm.useFieldValue<string>(`${path}.index`);
   const resolve = useCallback(
     (field: ReadField) => {
       const props = device.properties.read[topic];
@@ -193,133 +229,12 @@ const FieldBinder = ({ device, entryKey }: BinderProps) => {
     },
     [device, topic, indexKey],
   );
-  return (
-    <Task.BindChannels<ReadField> path={`${entryPath}.fields`} resolve={resolve} />
-  );
+  return <Task.BindChannels<ReadField> path={`${path}.fields`} resolve={resolve} />;
 };
-
-const EntryBinder = ({ device, entryKey }: BinderProps) => {
-  const type = PForm.useFieldValue<ReadEntry["type"]>(
-    `${ENTRIES_PATH}.${entryKey}.type`,
-  );
-  if (type !== "plain") return null;
-  return <FieldBinder device={device} entryKey={entryKey} />;
-};
-
-const FieldList = ({ entryKey }: FieldListProps) => {
-  const entryPath = `${ENTRIES_PATH}.${entryKey}`;
-  const path = `${entryPath}.fields`;
-  const { data: allData, push, remove } = PForm.useFieldList<string, ReadField>(path);
-  const [selected, setSelected] = useState<string[]>([]);
-  const ctx = PForm.useContext();
-  const isPreview = Task.useIsPreview();
-
-  const index = PForm.useFieldValue<string>(`${entryPath}.index`);
-  const data = allData.filter((key) => key !== index);
-
-  const handleAdd = useCallback(() => {
-    const { fields, index } = ctx.get<PlainReadEntry>(entryPath).value;
-    const last = fields.findLast((f) => f.key !== index);
-    const field: ReadField = {
-      ...(last != null
-        ? { ...last, ...Task.READ_CHANNEL_OVERRIDE }
-        : mqtt.readFieldZ.parse({})),
-      key: id.create(),
-    };
-    push(field);
-    setSelected([field.key]);
-  }, [push, ctx, entryPath]);
-
-  const handleDuplicate = useCallback(
-    (channels: ReadField[], keys: string[]) => {
-      const duplicated = channels
-        .filter(({ key }) => keys.includes(key))
-        .map((ch) => ({
-          ...ch,
-          ...Task.READ_CHANNEL_OVERRIDE,
-          key: id.create(),
-        }));
-      push(duplicated);
-    },
-    [push],
-  );
-
-  const listItem = useCallback(
-    ({ key, ...p }: Task.ChannelListItemProps) => (
-      <FieldListItem {...p} key={key} entryKey={entryKey} />
-    ),
-    [entryKey],
-  );
-
-  const selectedFieldKey = selected.length === 1 ? selected[0] : null;
-  const selectedFieldPath =
-    selectedFieldKey != null ? `${path}.${selectedFieldKey}.enumValues` : null;
-
-  return (
-    <>
-      <Task.ChannelList<ReadField>
-        resolve={null}
-        data={data}
-        remove={remove}
-        onDuplicate={handleDuplicate}
-        onSelect={setSelected}
-        selected={selected}
-        path={path}
-        style={FIELD_LIST_STYLE}
-        header={
-          <Header.Header>
-            <Header.Title weight={500} color={9}>
-              Fields
-            </Header.Title>
-            {!isPreview && (
-              <Header.Actions empty align="end">
-                <Button.Button
-                  onClick={handleAdd}
-                  variant="filled"
-                  tooltip="Add field"
-                  size="small"
-                >
-                  <Icon.Add />
-                </Button.Button>
-              </Header.Actions>
-            )}
-          </Header.Header>
-        }
-        emptyContent={
-          <Empty.Action
-            message="No fields"
-            action={isPreview ? undefined : "Add field"}
-            onClick={handleAdd}
-          />
-        }
-        listItem={listItem}
-        contextMenuItems={Task.readChannelContextMenuItem}
-      />
-      {selectedFieldPath != null && (
-        <Flex.Box y empty className={CSS.B("enum-mapping")}>
-          <Divider.Divider x padded />
-          <PlatformForm.KeyValueEditor
-            path={selectedFieldPath}
-            label="Enum mapping"
-            keyField="label"
-            keyPlaceholder="String (e.g. ON)"
-            valueType="number"
-          />
-        </Flex.Box>
-      )}
-    </>
-  );
-};
-
-const FIELD_LIST_STYLE = {
-  paddingBottom: "1rem",
-  maxWidth: "100%",
-  overflow: "visible",
-} as const;
 
 type TimingMode = "arrival" | "payload";
 
-const TimingToggle: FC<{ path: string }> = ({ path }) => {
+const TimestampFields: FC<{ path: string }> = ({ path }) => {
   const index = PForm.useFieldValue<string>(`${path}.index`);
   const { get, set } = PForm.useContext();
   const isPayloadTiming = index !== "";
@@ -347,32 +262,56 @@ const TimingToggle: FC<{ path: string }> = ({ path }) => {
   );
 
   return (
-    <Flex.Box x align="end" wrap>
-      <Input.Item label="Timestamp source" padHelpText>
+    <>
+      <Input.Item label="Source" padHelpText={false}>
         <Select.Buttons<TimingMode>
           value={isPayloadTiming ? "payload" : "arrival"}
           onChange={handleChange}
         >
           <Select.Item<TimingMode> itemKey="arrival">Arrival time</Select.Item>
-          <Select.Item<TimingMode> itemKey="payload">Payload</Select.Item>
+          <Select.Item<TimingMode> itemKey="payload">Payload value</Select.Item>
         </Select.Buttons>
       </Input.Item>
       {isPayloadTiming && (
         <>
           <PForm.TextField
             path={`${path}.fields.${index}.pointer`}
-            label="Timestamp pointer"
+            label="Pointer"
+            padHelpText={false}
             inputProps={TIMESTAMP_POINTER_INPUT_PROPS}
-            grow
           />
           <TimeFormatField path={`${path}.fields.${index}.timeFormat`} label="Format" />
         </>
       )}
-    </Flex.Box>
+    </>
   );
 };
 
 const TIMESTAMP_POINTER_INPUT_PROPS = { placeholder: "/timestamp" } as const;
+
+const TOPIC_INPUT_PROPS = { placeholder: "plant/line1/temperature" } as const;
+
+const PlainEntryPane: FC<{ path: string }> = ({ path }) => (
+  <PForm.Sections>
+    <PForm.Section title="Subscription">
+      <PForm.TextField
+        path={`${path}.topic`}
+        label="Topic"
+        padHelpText={false}
+        inputProps={TOPIC_INPUT_PROPS}
+      />
+      <QoSField path={`${path}.qos`} />
+      <PForm.SwitchField
+        path={`${path}.retainedIgnored`}
+        label="Ignore retained"
+        padHelpText={false}
+      />
+    </PForm.Section>
+    <PForm.Section title="Timestamp">
+      <TimestampFields path={path} />
+    </PForm.Section>
+  </PForm.Sections>
+);
 
 const SPARKPLUG_HIDDEN_DATA_TYPES = [DataType.UUID, DataType.JSON, DataType.BYTES];
 
@@ -386,58 +325,108 @@ const renderSparkplugSelectDataType = Component.renderProp(
   ),
 );
 
-const SparkplugEntryDetails: FC<{ path: string }> = ({ path }) => {
-  const entryChannel = PForm.useFieldValue<number>(`${path}.channel`);
+interface PaneProps {
+  path: string;
+  deviceName: string;
+}
+
+const SparkplugEntryPane: FC<PaneProps> = ({ path, deviceName }) => {
+  const entry = PForm.useFieldValue<SparkplugReadEntry>(path);
+  const bound = entry.channel !== 0;
   return (
-    <Flex.Box y grow empty className={CSS.B("topic-details")}>
-      <Flex.Box gap="small" empty className={CSS.B("topic-details-form")}>
+    <PForm.Sections>
+      <PForm.Section title="Tag">
         <SparkplugTagFields path={path} />
-        <Flex.Box x align="center" justify="between">
-          <Task.ChannelName channel={entryChannel} namePath={`${path}.name`} />
-          {entryChannel === 0 && (
-            <PForm.Field<string>
-              path={`${path}.dataType`}
-              label="Data type"
-              showHelpText={false}
-              className={CSS.B("data-type-select")}
-            >
-              {renderSparkplugSelectDataType}
-            </PForm.Field>
-          )}
-        </Flex.Box>
-      </Flex.Box>
-    </Flex.Box>
-  );
-};
-
-const EntryDetails: FC<{ entryKey: string }> = ({ entryKey }) => {
-  const path = `${ENTRIES_PATH}.${entryKey}`;
-  const type = PForm.useFieldValue<ReadEntry["type"]>(`${path}.type`);
-  if (type === "sparkplug") return <SparkplugEntryDetails path={path} />;
-  return (
-    <Flex.Box y grow empty className={CSS.B("topic-details")}>
-      <Flex.Box gap="small" empty className={CSS.B("topic-details-form")}>
-        <PForm.TextField
-          path={`${path}.topic`}
-          label="Topic"
-          inputProps={TOPIC_INPUT_PROPS}
+      </PForm.Section>
+      <PForm.Section title="Channel">
+        <Task.ChannelNameField
+          channel={entry.channel}
+          namePath={`${path}.name`}
+          defaultName={sparkplugChannelName(deviceName, entry)}
         />
-        <Flex.Box x align="end" gap="large">
-          <QoSField path={`${path}.qos`} />
-          <PForm.SwitchField
-            path={`${path}.retainedIgnored`}
-            label="Ignore retained messages"
-          />
-        </Flex.Box>
-        <TimingToggle path={path} />
-      </Flex.Box>
-      <Divider.Divider x />
-      <FieldList key={entryKey} entryKey={entryKey} />
+        <PForm.Field<string>
+          path={`${path}.dataType`}
+          label="Data type"
+          padHelpText={false}
+          helpText={bound ? "Set on the channel" : undefined}
+        >
+          {(p) => renderSparkplugSelectDataType({ ...p, disabled: bound })}
+        </PForm.Field>
+      </PForm.Section>
+    </PForm.Sections>
+  );
+};
+
+const EntryPane: FC<PaneProps> = ({ path, deviceName }) => {
+  const type = PForm.useFieldValue<ReadEntry["type"]>(`${path}.type`);
+  return (
+    <Flex.Box y grow empty className={CSS.BE("details", "form")}>
+      {type === "plain" ? (
+        <PlainEntryPane path={path} />
+      ) : (
+        <SparkplugEntryPane path={path} deviceName={deviceName} />
+      )}
     </Flex.Box>
   );
 };
 
-const TOPIC_INPUT_PROPS = { placeholder: "plant/line1/temperature" } as const;
+interface FieldPaneProps extends Pick<PaneProps, "deviceName"> {
+  entryKey: string;
+  fieldKey: string;
+}
+
+const FieldTitle: FC<Omit<FieldPaneProps, "deviceName">> = ({ entryKey, fieldKey }) => (
+  <FieldLabel
+    pointer={PForm.useFieldValue<string>(
+      `${ENTRIES_PATH}.${entryKey}.fields.${fieldKey}.pointer`,
+    )}
+    level="p"
+  />
+);
+
+const FieldPane: FC<FieldPaneProps> = ({ entryKey, fieldKey, deviceName }) => {
+  const path = `${ENTRIES_PATH}.${entryKey}.fields.${fieldKey}`;
+  const { channel: fieldChannel, pointer } = PForm.useFieldValue<ReadField>(path);
+  const topic = PForm.useFieldValue<string>(`${ENTRIES_PATH}.${entryKey}.topic`);
+  const bound = fieldChannel !== 0;
+  return (
+    <Flex.Box y grow empty className={CSS.BE("details", "form")}>
+      <PForm.Sections>
+        <PForm.Section title="Field">
+          <PForm.TextField
+            path={`${path}.pointer`}
+            label="Pointer"
+            padHelpText={false}
+            inputProps={POINTER_INPUT_PROPS}
+          />
+          <PForm.Field<string>
+            path={`${path}.dataType`}
+            label="Data type"
+            padHelpText={false}
+            helpText={bound ? "Set on the channel" : undefined}
+          >
+            {(p) => renderTelemSelectDataType({ ...p, disabled: bound })}
+          </PForm.Field>
+          <Task.ChannelNameField
+            channel={fieldChannel}
+            namePath={`${path}.name`}
+            defaultName={
+              namePrefix(deviceName, topic) + channel.escapeInvalidName(pointer)
+            }
+          />
+        </PForm.Section>
+        <PForm.Section title="Enum mapping">
+          <PlatformForm.KeyValueEditor
+            path={`${path}.enumValues`}
+            keyField="label"
+            keyPlaceholder="String (e.g. ON)"
+            valueType="number"
+          />
+        </PForm.Section>
+      </PForm.Sections>
+    </Flex.Box>
+  );
+};
 
 const createEntry = (topic?: BrowsedTopic): PlainReadEntry => ({
   ...mqtt.plainReadEntryZ.parse({ type: "plain" }),
@@ -475,10 +464,199 @@ const duplicateEntry = (entry: ReadEntry): ReadEntry => {
   };
 };
 
+const newField = (last?: ReadField): ReadField => ({
+  ...(last != null
+    ? { ...last, ...Task.READ_CHANNEL_OVERRIDE }
+    : mqtt.readFieldZ.parse({})),
+  key: id.create(),
+});
+
+const TREE_ITEM_HEIGHT = 36;
+
+const EMPTY_CONTENT = <Empty.Action message="No entries" />;
+
 const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
   const [selected, setSelected] = useState<string[]>([]);
+  const { nodes, entries } = useTreeIndex();
+  const ctx = PForm.useContext();
   const isPreview = Task.useIsPreview();
-  const { data } = PForm.useFieldList<string, ReadEntry>(ENTRIES_PATH);
+  const [initialExpanded] = useState(() => nodes.map(({ key }) => key));
+  // A fold that hides the selected field moves the selection up to its entry.
+  const handleExpand = useCallback(
+    ({ action, clicked }: Tree.HandleExpandProps<string>) => {
+      if (action !== "contract") return;
+      const hidesSelection = selected.some((k) => {
+        const entry = entries.get(k);
+        return entry?.kind === "field" && entry.entryKey === clicked;
+      });
+      if (hidesSelection) setSelected([clicked]);
+    },
+    [selected, entries],
+  );
+  const treeProps = Tree.use({
+    nodes,
+    selected,
+    onSelectedChange: setSelected,
+    initialExpanded,
+    onExpand: handleExpand,
+    toggleOn: "caret",
+  });
+  const { expand, shape } = treeProps;
+
+  const handleSelect = useCallback<
+    Tree.TreeProps<string, record.Keyed<string>>["onSelect"]
+  >(
+    (keys, { clicked }) => {
+      setSelected(keys);
+      if (clicked != null && entries.get(clicked)?.kind === "entry") expand(clicked);
+    },
+    [entries, expand],
+  );
+
+  const handleAddEntries = useCallback(
+    (added: ReadEntry[]) => {
+      const current = ctx.get<ReadEntry[]>(ENTRIES_PATH).value;
+      ctx.set(ENTRIES_PATH, [...current, ...added]);
+      setSelected([added[0].key]);
+      for (const { key, type } of added) if (type === "plain") expand(key);
+    },
+    [ctx, expand],
+  );
+  const handleAddEntry = useCallback(
+    () => handleAddEntries([createEntry()]),
+    [handleAddEntries],
+  );
+  const handleAddSparkplugEntry = useCallback(
+    () => handleAddEntries([createSparkplugEntry()]),
+    [handleAddEntries],
+  );
+  const dropProps = useEntryDrop<ReadEntry>({
+    path: ENTRIES_PATH,
+    create: createEntry,
+    createSparkplug: createSparkplugEntry,
+    onAdd: handleAddEntries,
+  });
+
+  const handleAddField = useCallback(
+    (entryKey: string) => {
+      const path = `${ENTRIES_PATH}.${entryKey}`;
+      const { fields, index } = ctx.get<PlainReadEntry>(path).value;
+      const field = newField(fields.findLast((f) => f.key !== index));
+      ctx.set(`${path}.fields`, [...fields, field]);
+      setSelected([field.key]);
+      expand(entryKey);
+    },
+    [ctx, expand],
+  );
+
+  const handleRemove = useCallback(
+    (keys: string[]) => {
+      const removed = new Set(keys);
+      const current = ctx.get<ReadEntry[]>(ENTRIES_PATH).value;
+      ctx.set(
+        ENTRIES_PATH,
+        current
+          .filter((entry) => !removed.has(entry.key))
+          .map((entry) =>
+            entry.type === "plain"
+              ? { ...entry, fields: entry.fields.filter((f) => !removed.has(f.key)) }
+              : entry,
+          ),
+      );
+      // Selection moves to the nearest survivor in the visible list, below first.
+      const visible = shape.keys;
+      const first = visible.findIndex((k) => removed.has(k));
+      const after = visible.slice(first).find((k) => !removed.has(k));
+      const before = visible
+        .slice(0, Math.max(first, 0))
+        .reverse()
+        .find((k) => !removed.has(k));
+      const next = after ?? before;
+      setSelected(next == null ? [] : [next]);
+    },
+    [ctx, shape],
+  );
+
+  const handleDuplicate = useCallback(
+    (keys: string[]) => {
+      const chosen = new Set(keys);
+      const current = ctx.get<ReadEntry[]>(ENTRIES_PATH).value;
+      const next: ReadEntry[] = [];
+      let first: string | null = null;
+      for (const entry of current) {
+        if (entry.type === "plain") {
+          const fields: ReadField[] = [];
+          for (const f of entry.fields) {
+            fields.push(f);
+            if (!chosen.has(f.key)) continue;
+            const copy = newField(f);
+            first ??= copy.key;
+            fields.push(copy);
+          }
+          next.push({ ...entry, fields });
+        } else next.push(entry);
+        if (!chosen.has(entry.key)) continue;
+        const copy = duplicateEntry(entry);
+        first ??= copy.key;
+        next.push(copy);
+        if (copy.type === "plain") expand(copy.key);
+      }
+      ctx.set(ENTRIES_PATH, next);
+      if (first != null) setSelected([first]);
+    },
+    [ctx, expand],
+  );
+
+  const handleSetEnabled = useCallback(
+    (keys: string[], enabled: boolean) => {
+      for (const key of keys) {
+        const entry = entries.get(key);
+        if (entry != null) ctx.set(`${entryPath(entry)}.disabled`, !enabled);
+      }
+    },
+    [ctx, entries],
+  );
+
+  const menuProps = Menu.useContextMenu();
+  const menuRenderProp = useCallback(
+    ({ keys }: Menu.ContextMenuMenuProps) => {
+      const entry = keys.length === 1 ? entries.get(keys[0]) : undefined;
+      const disabled = keys
+        .map((key) => entries.get(key))
+        .filter((e) => e != null)
+        .map((e) => ctx.get<boolean>(`${entryPath(e)}.disabled`).value);
+      return (
+        <Task.Views.ContextMenu
+          keys={keys}
+          onRemove={handleRemove}
+          onDuplicate={handleDuplicate}
+          onAddField={
+            entry?.kind === "entry" && entry.type === "plain"
+              ? () => handleAddField(entry.entryKey)
+              : undefined
+          }
+          onEnable={
+            disabled.includes(true) ? () => handleSetEnabled(keys, true) : undefined
+          }
+          onDisable={
+            disabled.includes(false) ? () => handleSetEnabled(keys, false) : undefined
+          }
+        />
+      );
+    },
+    [ctx, entries, handleRemove, handleDuplicate, handleAddField, handleSetEnabled],
+  );
+
+  const renderItem = useCallback(
+    ({ key, ...p }: Tree.ItemRenderProps<string>) => {
+      const entry = entries.get(p.itemKey);
+      if (entry?.kind === "field")
+        return <FieldTreeItem key={key} {...p} entryKey={entry.entryKey} />;
+      return <EntryTreeItem key={key} {...p} onAddField={handleAddField} />;
+    },
+    [entries, handleAddField],
+  );
+
   const resolve = useCallback(
     (entry: ReadEntry) => {
       if (entry.type !== "sparkplug") return {};
@@ -487,39 +665,67 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
     },
     [device],
   );
+
+  const current = selected.length > 0 ? entries.get(selected[0]) : undefined;
+
   return (
     <Flex.Box x grow empty>
       {!isPreview && <Browser device={device} />}
-      <TopicList<ReadEntry>
-        path={ENTRIES_PATH}
-        title="Entries"
-        noun="entry"
-        selected={selected}
-        onSelect={setSelected}
-        create={createEntry}
-        createSparkplug={createSparkplugEntry}
-        duplicate={duplicateEntry}
+      <Task.Views.Panes
+        listTitle="Entries"
+        list={
+          <>
+            <Menu.ContextMenu {...menuProps} menu={menuRenderProp}>
+              <Tree.Tree<string, record.Keyed<string>>
+                {...treeProps}
+                {...dropProps}
+                onSelect={handleSelect}
+                itemHeight={TREE_ITEM_HEIGHT}
+                className={menuProps.className}
+                onContextMenu={menuProps.open}
+                emptyContent={EMPTY_CONTENT}
+                allowNone={false}
+                autoSelectOnNone
+              >
+                {renderItem}
+              </Tree.Tree>
+            </Menu.ContextMenu>
+            <AddEntryButtons
+              onAdd={handleAddEntry}
+              onAddSparkplug={handleAddSparkplugEntry}
+            />
+          </>
+        }
+        detailsPath={current != null ? entryPath(current) : null}
+        title={
+          current?.kind === "entry" ? (
+            <EntryLabel path={entryPath(current)} />
+          ) : current?.kind === "field" ? (
+            <FieldTitle entryKey={current.entryKey} fieldKey={current.fieldKey} />
+          ) : undefined
+        }
       >
-        {entryListItem}
-      </TopicList>
-      <Divider.Divider y />
-      <Flex.Box y grow empty className={CSS.B("topic-details-pane")}>
-        <Task.Views.DetailsHeader
-          path={selected.length > 0 ? `${ENTRIES_PATH}.${selected[0]}` : ""}
-          disabled={selected.length === 0}
-        />
-        {selected.length > 0 ? (
-          <EntryDetails entryKey={selected[0]} />
-        ) : (
+        {current == null ? (
           <Flex.Box y grow align="center" justify="center">
-            <Text.Text status="disabled">Select an entry to configure</Text.Text>
+            <Text.Text status="disabled">
+              Select an entry or field to configure
+            </Text.Text>
           </Flex.Box>
+        ) : current.kind === "entry" ? (
+          <EntryPane path={entryPath(current)} deviceName={device.name} />
+        ) : (
+          <FieldPane
+            entryKey={current.entryKey}
+            fieldKey={current.fieldKey}
+            deviceName={device.name}
+          />
         )}
-      </Flex.Box>
+      </Task.Views.Panes>
       <Task.BindChannels<ReadEntry> path={ENTRIES_PATH} resolve={resolve} />
-      {data.map((entryKey) => (
-        <EntryBinder key={entryKey} device={device} entryKey={entryKey} />
-      ))}
+      {nodes.map(
+        ({ key, children }) =>
+          children != null && <FieldBinder key={key} device={device} entryKey={key} />,
+      )}
     </Flex.Box>
   );
 };
@@ -566,7 +772,6 @@ const configureSparkplugEntry = async (
 
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
   const dev = await client.devices.retrieve({ key: config.device, schemas: SCHEMAS });
-  const safeDevName = channel.escapeInvalidName(dev.name);
   let modified = false;
   try {
     for (const entry of config.entries) {
@@ -580,7 +785,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
         client,
         props: dev.properties.read[entry.topic],
         fields: entry.fields,
-        namePrefix: `${safeDevName}_${channel.escapeInvalidName(entry.topic)}`,
+        namePrefix: namePrefix(dev.name, entry.topic),
         indexKey: entry.index,
       });
       modified ||= changed;

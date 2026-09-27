@@ -16,10 +16,14 @@ from console.task_page import TaskPage
 BROKER_FIELD_LABEL = "MQTT broker"
 BROWSER_SELECTOR = ".console-mqtt-browser"
 BROWSER_LOADING_SELECTOR = ".console-mqtt-browser__loading-icon"
-ENTRY_LIST_SELECTOR = ".console-topic-list"
-ENTRY_TITLE_SELECTOR = ".console-mqtt-topic-list-item__topic"
-DETAILS_SELECTOR = ".console-topic-details"
-ADD_BUTTON = "header button:has(.pluto-icon--add)"
+ENTRY_LIST_SELECTOR = ".console-panes__list"
+ENTRY_TITLE_SELECTOR = ".console-mqtt-entry-label > .pluto-text--overflow-ellipsis"
+DETAILS_SELECTOR = ".console-details__form"
+TREE_ROWS_JS = """els => els.map((e) => [
+    Number(e.getAttribute("aria-level")),
+    e.classList.contains("pluto--selected"),
+    e.querySelector(".console-field-pointer")?.textContent ?? "",
+])"""
 # The list wraps a title in bidi isolates so a topic reads left to right.
 LRI = "\N{LEFT-TO-RIGHT ISOLATE}"
 PDI = "\N{POP DIRECTIONAL ISOLATE}"
@@ -27,9 +31,9 @@ PDI = "\N{POP DIRECTIONAL ISOLATE}"
 
 class MQTTTask(TaskPage):
     """Shared MQTT read and write page. Entries come from the Browser by drag, or
-    from the list header and the details pane."""
+    from the buttons under the list and the details pane."""
 
-    noun: str
+    row_selector: str
 
     def _browser(self) -> Locator:
         return self._pane().locator(BROWSER_SELECTOR).first
@@ -38,7 +42,7 @@ class MQTTTask(TaskPage):
         return self._pane().locator(ENTRY_LIST_SELECTOR).first
 
     def _rows(self) -> Locator:
-        return self._entry_list().get_by_role("option")
+        return self._entry_list().locator(self.row_selector)
 
     def _row(self, title: str) -> Locator:
         title_text = self.page.get_by_text(f"{LRI}{title}{PDI}", exact=True)
@@ -141,13 +145,10 @@ class MQTTTask(TaskPage):
             self._row(tag).first.wait_for(state="visible", timeout=5000)
 
     def add_entry(self) -> None:
-        """Append an empty entry and select it. The first one comes from the
-        empty-state action, the rest from the list header."""
+        """Append an empty topic entry from the button under the list and select
+        it."""
         index = self._rows().count()
-        if index == 0:
-            self.layout.click(f"Add {self.noun}")
-        else:
-            self._entry_list().locator(ADD_BUTTON).first.click()
+        self._entry_list().get_by_role("button", name="Add topic", exact=True).click()
         self._rows().nth(index).wait_for(state="visible", timeout=5000)
 
     def select_entry(self, title: str) -> None:
@@ -174,42 +175,56 @@ class MQTTTask(TaskPage):
 
 
 class MQTTRead(MQTTTask):
-    """MQTT read task page. A plain entry holds the fields of a JSON payload."""
+    """MQTT read task page. The list is a tree: a plain entry holds the fields of a
+    JSON payload beneath it."""
 
     page_type = "MQTT read task"
     pluto_label: str = ".console-task-configure--mqtt_read"
-    noun = "entry"
+    row_selector = ".console-entry-item"
 
-    def _fields(self) -> Locator:
-        return self._channel_list().get_by_role("option")
+    def _tree(self) -> list[tuple[int, bool, str]]:
+        """Return the level, selection, and field pointer of each tree row."""
+        rows = self._entry_list().get_by_role("treeitem").evaluate_all(TREE_ROWS_JS)
+        return [(int(level), bool(sel), str(pointer)) for level, sel, pointer in rows]
+
+    def _active_entry(self) -> int:
+        """Return the tree index of the selected entry, or of the entry that holds
+        the selected field."""
+        entry = -1
+        for i, (level, selected, _) in enumerate(self._tree()):
+            if level == 1:
+                entry = i
+            if selected:
+                return entry
+        raise RuntimeError("no entry or field is selected")
 
     def add_field(self, pointer: str, data_type: str | None = None) -> None:
-        """Append a field to the selected entry.
+        """Append a field to the selected entry and select it.
 
         :param pointer: JSON pointer of the field in the payload.
         :param data_type: Synnax data type, e.g. "float64". Keeps the default when
             None.
         """
-        index = self._fields().count()
-        if index == 0:
-            self.layout.click("Add field")
-        else:
-            self._channel_list().locator(ADD_BUTTON).first.click()
-        row = self._fields().nth(index)
-        row.wait_for(state="visible", timeout=5000)
-        row.locator("input").first.fill(pointer)
-        self.page.keyboard.press("Tab")
+        rows = self._entry_list().get_by_role("treeitem")
+        count = rows.count()
+        entry = rows.nth(self._active_entry())
+        entry.get_by_role("button", name="Add field", exact=True).click()
+        rows.nth(count).wait_for(state="visible", timeout=5000)
+        self._fill("Pointer", pointer)
         if data_type is not None:
-            row.get_by_role("button").first.click()
-            self.layout.select_from_dropdown(data_type, exact=True)
+            self._select("Data type", data_type)
 
     def fields(self) -> list[str]:
-        """Return the pointer of each field of the selected entry, in order."""
-        rows = self._fields()
-        return [
-            rows.nth(i).locator("input").first.input_value()
-            for i in range(rows.count())
-        ]
+        """Return the pointer of each field of the selected entry, in order. An
+        empty pointer takes the whole payload."""
+        tree = self._tree()
+        entry = self._active_entry()
+        pointers: list[str] = []
+        for level, _, pointer in tree[entry + 1 :]:
+            if level == 1:
+                break
+            pointers.append("" if pointer == "Whole payload" else pointer)
+        return pointers
 
 
 class MQTTWrite(MQTTTask):
@@ -217,7 +232,7 @@ class MQTTWrite(MQTTTask):
 
     page_type = "MQTT write task"
     pluto_label: str = ".console-task-configure--mqtt_write"
-    noun = "target"
+    row_selector = ".console-target-item"
 
     def configure_channel(self, pointer: str, json_type: str, data_type: str) -> None:
         """Set the command channel of the selected plain target.
@@ -226,9 +241,9 @@ class MQTTWrite(MQTTTask):
         :param json_type: JSON type as listed, e.g. "Number".
         :param data_type: Synnax data type of the channel, e.g. "float64".
         """
-        self._fill("JSON pointer", pointer)
+        self._fill("Pointer", pointer)
         self._select("JSON type", json_type)
-        self._select("Synnax data type", data_type)
+        self._select("Data type", data_type)
 
 
 class MQTTEdge(TaskPage):
@@ -254,7 +269,7 @@ class MQTTEdge(TaskPage):
         """Append a tag that publishes ``channel_name``. The tag takes the name of
         the channel unless ``name`` is given."""
         index = self._rows().count()
-        self.add_channel_row(index)
+        self.add_channel_row()
         row = self._rows().nth(index)
         row.wait_for(state="visible", timeout=5000)
         row.get_by_role("button").first.click()

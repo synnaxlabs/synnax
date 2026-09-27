@@ -9,16 +9,13 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-mqtt-topic-list-item__text {
-    overflow: hidden;
+.console-mqtt-entry-label {
+    flex-grow: 1;
     min-width: 0;
-}
 
-/* A long topic keeps its last levels, which tell topics apart. */
-.console-mqtt-topic-list-item__topic {
-    direction: rtl;
-    text-align: left;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    /* A long topic keeps its last levels, which tell topics apart. */
+    & > .pluto-text--overflow-ellipsis {
+        direction: rtl;
+        text-align: left;
+    }
 }

@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { mqtt, type Synnax, type task } from "@synnaxlabs/client";
+import { channel, mqtt, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { MQTT } from "@/feature/mqtt";
@@ -26,7 +26,6 @@ import {
   awaitTextEditingElement,
   commitTextEdit,
   findDialogTriggerByText,
-  getHeaderIconButton,
   getSwitchInput,
   uniqueName,
 } from "@/testutil";
@@ -96,8 +95,8 @@ const renderWrite = async (
 };
 
 const addTarget = async (): Promise<void> => {
-  fireEvent.click(await screen.findByText("Add target"));
-  await screen.findByText("JSON pointer");
+  fireEvent.click(await screen.findByRole("button", { name: "Add topic" }));
+  await screen.findByText("Publish");
 };
 
 describe("MQTT Write form", () => {
@@ -107,17 +106,18 @@ describe("MQTT Write form", () => {
     await addTarget();
     expect(screen.getByPlaceholderText("plant/line1/valve/set")).toBeTruthy();
     expect(screen.getByText("At least once (1)")).toBeTruthy();
-    expect(getSwitchInput("Retain message").checked).toBe(false);
-    expect(screen.getByText("Synnax data type")).toBeTruthy();
+    expect(getSwitchInput("Retain").checked).toBe(false);
+    expect(screen.getByText("Data type")).toBeTruthy();
+    expect(screen.getAllByText("New topic")).toHaveLength(2);
     expect(screen.getByText("No additional fields")).toBeTruthy();
   });
 
   it("should show the enum mapping editor when the channel JSON type is string", async () => {
     await renderWrite();
     await addTarget();
-    expect(screen.queryByText("Enum mappings")).toBeNull();
+    expect(screen.queryByText("Enum mapping")).toBeNull();
     await selectFromDropdown("Number", "String");
-    await screen.findByText("Enum mappings");
+    await screen.findByText("Enum mapping");
   });
 
   it("should drop the enum values when the JSON type leaves string", async () => {
@@ -143,7 +143,7 @@ describe("MQTT Write form", () => {
   it("should add a static field and reset its value when the JSON type changes", async () => {
     await renderWrite();
     await addTarget();
-    fireEvent.click(getHeaderIconButton("Additional fields", "add"));
+    fireEvent.click(screen.getByRole("button", { name: "Static" }));
     await screen.findByText("static");
     const value = screen.getByPlaceholderText<HTMLInputElement>("value");
     fireEvent.change(value, { target: { value: "on" } });
@@ -156,7 +156,7 @@ describe("MQTT Write form", () => {
   it("should add a generated field and switch its generator to a timestamp", async () => {
     await renderWrite();
     await addTarget();
-    fireEvent.click(getHeaderIconButton("Additional fields", "time"));
+    fireEvent.click(screen.getByRole("button", { name: "Generated" }));
     await screen.findByText("generated");
     await selectFromDropdown("UUID", "Timestamp (s)");
     await findDialogTriggerByText("Timestamp (s)");
@@ -165,7 +165,7 @@ describe("MQTT Write form", () => {
   it("should remove additional fields through a context menu without a duplicate option", async () => {
     await renderWrite();
     await addTarget();
-    fireEvent.click(getHeaderIconButton("Additional fields", "add"));
+    fireEvent.click(screen.getByRole("button", { name: "Static" }));
     const pointer = await screen.findByPlaceholderText("/field");
     fireEvent.contextMenu(pointer);
     await screen.findByText("Remove");
@@ -208,7 +208,7 @@ describe("MQTT Write form", () => {
       virtual: true,
     });
     await renderWrite([createWriteTarget("t1", "plant/cmd", { channel: ch.key })]);
-    await screen.findByText("JSON pointer");
+    await screen.findByText("JSON type");
     await screen.findByText(ch.name);
   };
 
@@ -272,6 +272,23 @@ describe("MQTT Write form", () => {
     expect(screen.queryByText("Time format")).toBeNull();
   });
 
+  it("should name the command channel after the broker and topic", async () => {
+    const { dev } = await renderWrite([createWriteTarget("t1", "plant/valve/set")]);
+    const escape = channel.escapeInvalidName;
+    await screen.findByPlaceholderText(
+      `${escape(dev.name)}_${escape("plant/valve/set")}_cmd`,
+    );
+  });
+
+  it("should disable a target through its checkbox", async () => {
+    const { draft } = await renderWrite([createWriteTarget("t1", "plant/valve/set")]);
+    const item = await screen.findByRole("option", { name: /plant\/valve\/set/ });
+    fireEvent.click(within(item).getByRole("checkbox", { name: "Enabled" }));
+    await waitFor(async () =>
+      expect(await retrieveTargets(draft.key)).toMatchObject([{ disabled: true }]),
+    );
+  });
+
   describe("Sparkplug B targets", () => {
     it("should list a tag with its edge node and its command channel", async () => {
       const ch = await client.channels.create({
@@ -283,19 +300,20 @@ describe("MQTT Write form", () => {
         createWriteTarget("t1", "plant/valve/set"),
         createTagTarget("s1", "setpoint", { device: "ovenA", channel: ch.key }),
       ]);
-      await screen.findByText(/plant\/valve\/set/);
-      expect(screen.getByText(/setpoint/)).toBeTruthy();
-      expect(screen.getByText("plant/line1/ovenA")).toBeTruthy();
+      await screen.findByRole("option", { name: /JSON.*plant\/valve\/set/ });
+      expect(
+        screen.getByRole("option", { name: /SpB.*plant\/line1\/ovenA\/setpoint/ }),
+      ).toBeTruthy();
       await screen.findByText(ch.name);
     });
 
-    it("should add a tag from the header and select its Sparkplug B type", async () => {
+    it("should add a tag from the list footer and select its Sparkplug B type", async () => {
       const { draft } = await renderWrite();
       await screen.findByText("No targets");
-      fireEvent.click(getHeaderIconButton("Targets", "variable"));
+      fireEvent.click(screen.getByRole("button", { name: "Add Sparkplug B tag" }));
       await screen.findByText("Edge node");
       expect(screen.getByPlaceholderText("Optional")).toBeTruthy();
-      expect(screen.queryByText("JSON pointer")).toBeNull();
+      expect(screen.queryByText("JSON type")).toBeNull();
       await selectFromDropdown("Double", "DateTime");
       await waitFor(async () =>
         expect(await retrieveTargets(draft.key)).toMatchObject([
@@ -308,7 +326,7 @@ describe("MQTT Write form", () => {
       const { draft } = await renderWrite([
         createTagTarget("s1", "setpoint", { channel: 12, sparkplugType: "float" }),
       ]);
-      fireEvent.contextMenu(await screen.findByText(/setpoint/));
+      fireEvent.contextMenu(await screen.findByRole("option", { name: /setpoint/ }));
       fireEvent.click(await screen.findByText("Duplicate"));
       await waitFor(async () => {
         const targets = await retrieveTargets(draft.key);
@@ -423,7 +441,7 @@ describe("MQTT Write form", () => {
 
     it("should put the deploy errors on the fields they belong to", async () => {
       const { container } = await renderWrite([createWriteTarget("t1", "plant/#")]);
-      await screen.findByText("JSON pointer");
+      await screen.findByText("JSON type");
       await clickDeploy(container);
       await screen.findByText("Topic must not hold the wildcards + or #");
     });

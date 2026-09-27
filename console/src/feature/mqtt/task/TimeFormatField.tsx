@@ -13,7 +13,6 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { type FC, useEffect } from "react";
 
 import { type TimeFormat } from "@/feature/mqtt/task/types";
-import { CSS } from "@/platform/css";
 
 const renderSelect = Component.renderProp(
   (p: Omit<Select.SingleSimpleProps<TimeFormat>, "children" | "resourceName">) => (
@@ -47,7 +46,7 @@ export const TimeFormatField: FC<TimeFormatFieldProps> = ({ path, label }) => {
       path={path}
       label={label}
       defaultValue="iso8601"
-      className={CSS.B("time-format")}
+      padHelpText={false}
     >
       {renderSelect}
     </PForm.Field>

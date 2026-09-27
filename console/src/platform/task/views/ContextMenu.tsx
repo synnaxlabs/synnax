@@ -13,7 +13,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access } from "@synnaxlabs/pluto";
 
 import { ContextMenu as Base } from "@/platform/context-menu";
-import { Task } from "@/platform/task";
+import { useIsPreview } from "@/platform/task/Form";
 
 export interface ContextMenuProps {
   keys: string[];
@@ -25,6 +25,7 @@ export interface ContextMenuProps {
   onDisable?: () => void;
 }
 
+/** The context menu of a task form's list. Each action shows when its handler is set. */
 export const ContextMenu = ({
   keys,
   onDuplicate,
@@ -34,7 +35,7 @@ export const ContextMenu = ({
   onEnable,
   onDisable,
 }: ContextMenuProps) => {
-  const isPreview = Task.useIsPreview();
+  const isPreview = useIsPreview();
   const canRenameChannel = Access.useUpdateGranted(channel.TYPE_ONTOLOGY_ID);
   const canAct = keys.length > 0;
   const canDuplicate = onDuplicate != null;

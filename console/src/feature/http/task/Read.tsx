@@ -20,14 +20,13 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tree } from "@synnaxlabs/lyra/tree";
-import { Access, Channel as PChannel, Telem } from "@synnaxlabs/pluto";
+import { Telem } from "@synnaxlabs/pluto";
 import { DataType, id, type record } from "@synnaxlabs/x";
 import { type FC, type MouseEvent, useCallback, useMemo, useState } from "react";
 
 import { useFromConfig } from "@/feature/http/device/queries";
 import { Select as SelectDevice } from "@/feature/http/device/Select";
 import * as Device from "@/feature/http/device/types";
-import { ContextMenu } from "@/feature/http/task/ContextMenu";
 import { EndpointLabel } from "@/feature/http/task/EndpointLabel";
 import { TimeFormatField } from "@/feature/http/task/TimeFormatField";
 import {
@@ -254,55 +253,6 @@ const FieldBinder = ({ epKey }: { epKey: string }) => {
   );
 };
 
-interface ChannelNameFieldProps {
-  path: string;
-  channel: channel.Key;
-  defaultName: string;
-}
-
-/**
- * Names a field's channel. Until configure creates the channel, the name lives on the
- * field; after, an edit renames the channel itself.
- */
-const ChannelNameField = ({
-  path,
-  channel: key,
-  defaultName,
-}: ChannelNameFieldProps) =>
-  key === 0 ? (
-    <PForm.TextField
-      path={`${path}.name`}
-      label="Channel"
-      padHelpText={false}
-      inputProps={{ placeholder: defaultName === "" ? "Channel name" : defaultName }}
-    />
-  ) : (
-    <ExistingChannelNameField channel={key} />
-  );
-
-const ExistingChannelNameField = ({ channel: key }: { channel: channel.Key }) => {
-  const { data: name = "" } = PChannel.useResultName({ key });
-  const { update } = PChannel.useRename();
-  const canRename = Access.useUpdateGranted(channel.TYPE_ONTOLOGY_ID);
-  const isPreview = Task.useIsPreview();
-  const handleChange = useCallback(
-    (next: string) => {
-      if (next.length > 0 && next !== name) update({ key, name: next });
-    },
-    [key, name, update],
-  );
-  return (
-    <Input.Item label="Channel" padHelpText={false}>
-      <Input.Text
-        value={name}
-        onChange={handleChange}
-        onlyChangeOnBlur
-        disabled={isPreview || !canRename}
-      />
-    </Input.Item>
-  );
-};
-
 type TimingMode = "software" | "value";
 
 const TimestampFields: FC<{ path: string }> = ({ path }) => {
@@ -440,9 +390,9 @@ const FieldPane: FC<{ epKey: string; fieldKey: string }> = ({ epKey, fieldKey })
           >
             {(p) => renderTelemSelectDataType({ ...p, disabled: bound })}
           </PForm.Field>
-          <ChannelNameField
-            path={path}
+          <Task.ChannelNameField
             channel={fieldChannel}
+            namePath={`${path}.name`}
             defaultName={defaultName}
           />
         </PForm.Section>
@@ -623,7 +573,7 @@ const Form: FC = () => {
       const disabledOf = (e: TreeEntry) =>
         ctx.get<boolean>(`${entryPath(e)}.disabled`).value;
       return (
-        <ContextMenu
+        <Task.Views.ContextMenu
           keys={keys}
           onRemove={handleRemove}
           onDuplicate={handleDuplicate}

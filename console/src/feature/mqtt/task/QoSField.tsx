@@ -13,7 +13,6 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { type FC } from "react";
 
 import { type QoS } from "@/feature/mqtt/task/types";
-import { CSS } from "@/platform/css";
 
 const renderSelect = Component.renderProp(
   (p: Omit<Select.SingleSimpleProps<QoS>, "children" | "resourceName">) => (
@@ -30,7 +29,7 @@ export interface QoSFieldProps {
 }
 
 export const QoSField: FC<QoSFieldProps> = ({ path }) => (
-  <PForm.Field<QoS> path={path} label="Quality of service" className={CSS.B("qos")}>
+  <PForm.Field<QoS> path={path} label="Quality of service" padHelpText={false}>
     {renderSelect}
   </PForm.Field>
 );

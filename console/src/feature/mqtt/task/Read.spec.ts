@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { mqtt, type Synnax, type task } from "@synnaxlabs/client";
+import { channel, mqtt, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -20,7 +20,7 @@ import {
   renderTaskFormTab,
   selectFromDropdown,
 } from "@/platform/task/testutil";
-import { getHeaderIconButton, getSwitchInput, uniqueName } from "@/testutil";
+import { getSwitchInput, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -94,8 +94,13 @@ const renderRead = async (entries: MQTT.Task.ReadEntry[] = []) => {
 };
 
 const addEntry = async (): Promise<void> => {
-  fireEvent.click(await screen.findByText("Add entry"));
-  await screen.findByText("Timestamp source");
+  fireEvent.click(await screen.findByRole("button", { name: "Add topic" }));
+  await screen.findByText("Subscription");
+};
+
+const addField = async (): Promise<void> => {
+  fireEvent.click(screen.getAllByRole("button", { name: "Add field" })[0]);
+  await screen.findByRole("treeitem", { name: /Whole payload/ });
 };
 
 describe("MQTT Read form", () => {
@@ -107,14 +112,15 @@ describe("MQTT Read form", () => {
 
   it("should show the empty state and add + select an entry", async () => {
     await renderRead();
-    await screen.findByText("Select an entry to configure");
+    await screen.findByText("Select an entry or field to configure");
     await screen.findByText("No entries");
     await addEntry();
     expect(screen.getByPlaceholderText("plant/line1/temperature")).toBeTruthy();
     expect(screen.getByText("At most once (0)")).toBeTruthy();
-    expect(getSwitchInput("Ignore retained messages").checked).toBe(false);
-    expect(screen.getByText("No fields")).toBeTruthy();
-    expect(screen.queryByText("Select an entry to configure")).toBeNull();
+    expect(getSwitchInput("Ignore retained").checked).toBe(false);
+    expect(screen.getByRole("button", { name: "Arrival time" })).toBeTruthy();
+    expect(screen.getAllByText("New topic")).toHaveLength(2);
+    expect(screen.queryByText("Select an entry or field to configure")).toBeNull();
   });
 
   it("should show the browser beside the entries", async () => {
@@ -130,58 +136,100 @@ describe("MQTT Read form", () => {
     await screen.findByText("Exactly once (2)");
   });
 
-  it("should add a timestamp field on payload timing that stays out of the fields list", async () => {
+  it("should add a timestamp field on payload timing that stays out of the tree", async () => {
     await renderRead();
     await addEntry();
-    fireEvent.click(screen.getByRole("button", { name: "Payload" }));
-    await screen.findByText("Timestamp pointer");
+    fireEvent.click(screen.getByRole("button", { name: "Payload value" }));
+    await screen.findByPlaceholderText("/timestamp");
     expect(screen.getByText("Format")).toBeTruthy();
-    expect(screen.getByText("No fields")).toBeTruthy();
+    expect(screen.getAllByRole("treeitem")).toHaveLength(1);
     fireEvent.click(screen.getByRole("button", { name: "Arrival time" }));
-    await waitFor(() => expect(screen.queryByText("Timestamp pointer")).toBeNull());
+    await waitFor(() => expect(screen.queryByText("Format")).toBeNull());
   });
 
-  it("should add a field, select it, and show the enum mapping editor", async () => {
+  it("should add a field beneath its entry and show its details", async () => {
     await renderRead();
     await addEntry();
-    fireEvent.click(screen.getByText("Add field"));
-    await screen.findByPlaceholderText("/temperature");
-    await screen.findByText("Enum mapping");
+    await addField();
+    expect(screen.getByPlaceholderText("/temperature")).toBeTruthy();
+    expect(screen.getByText("Data type")).toBeTruthy();
+    expect(screen.getByText("Enum mapping")).toBeTruthy();
+  });
+
+  it("should name a new field's channel after the broker, topic, and pointer", async () => {
+    const { dev } = await renderRead([createReadEntry("e1", "plant/oven")]);
+    fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /plant\/oven/ }));
+    fireEvent.click(await screen.findByText("Add field"));
+    const pointer = await screen.findByPlaceholderText("/temperature");
+    fireEvent.change(pointer, { target: { value: "/temp" } });
+    fireEvent.blur(pointer);
+    const escape = channel.escapeInvalidName;
+    await screen.findByPlaceholderText(
+      `${escape(dev.name)}_${escape("plant/oven")}${escape("/temp")}`,
+    );
   });
 
   it("should copy the previous field's settings when adding another field", async () => {
     await renderRead();
     await addEntry();
-    fireEvent.click(screen.getByText("Add field"));
-    const pointer = await screen.findByPlaceholderText("/temperature");
+    await addField();
+    const pointer = screen.getByPlaceholderText("/temperature");
     fireEvent.change(pointer, { target: { value: "/a" } });
     fireEvent.blur(pointer);
-    fireEvent.click(getHeaderIconButton("Fields"));
-    await waitFor(() => expect(screen.getAllByDisplayValue("/a")).toHaveLength(2));
+    await screen.findByRole("treeitem", { name: /\/a/ });
+    fireEvent.click(screen.getAllByRole("button", { name: "Add field" })[0]);
+    await waitFor(() =>
+      expect(within(screen.getByRole("tree")).getAllByText("/a")).toHaveLength(2),
+    );
+  });
+
+  it("should disable and enable a field through its checkbox and context menu", async () => {
+    const { draft } = await renderRead([
+      createReadEntry("e1", "plant/oven", { fields: [createReadField("f1", "/t")] }),
+    ]);
+    const field = await screen.findByRole("treeitem", { name: /\/t/ });
+    fireEvent.click(within(field).getByRole("checkbox", { name: "Enabled" }));
+    await waitFor(async () =>
+      expect(await retrieveEntries(draft.key)).toMatchObject([
+        { fields: [{ key: "f1", disabled: true }] },
+      ]),
+    );
+    fireEvent.contextMenu(field);
+    expect(screen.queryByText("Disable")).toBeNull();
+    fireEvent.click(await screen.findByText("Enable"));
+    await waitFor(async () =>
+      expect(await retrieveEntries(draft.key)).toMatchObject([
+        { fields: [{ key: "f1", disabled: false }] },
+      ]),
+    );
   });
 
   it("should duplicate, disable, and remove entries through the context menu", async () => {
     const { draft } = await renderRead([createReadEntry("e1", "plant/oven")]);
-    const item = await screen.findByText(/plant\/oven/);
-    fireEvent.contextMenu(item);
+    const entryItems = () => screen.getAllByRole("treeitem", { name: /plant\/oven/ });
+    fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /plant\/oven/ }));
     fireEvent.click(await screen.findByText("Duplicate"));
-    await waitFor(() => expect(screen.getAllByText(/plant\/oven/)).toHaveLength(2));
-    fireEvent.contextMenu(screen.getAllByText(/plant\/oven/)[0]);
+    await waitFor(() => expect(entryItems()).toHaveLength(2));
+    fireEvent.contextMenu(entryItems()[0]);
     expect(screen.queryByText("Enable")).toBeNull();
     fireEvent.click(await screen.findByText("Disable"));
-    await waitFor(async () => {
-      const saved = await client.tasks.retrieve({
-        key: draft.key,
-        schemas: MQTT.Task.READ_SCHEMAS,
-      });
-      expect(saved.config.entries.map(({ disabled }) => disabled)).toEqual([
-        true,
-        false,
-      ]);
-    });
-    fireEvent.contextMenu(screen.getAllByText(/plant\/oven/)[0]);
+    await waitFor(async () =>
+      expect(
+        (await retrieveEntries(draft.key)).map(({ disabled }) => disabled),
+      ).toEqual([true, false]),
+    );
+    fireEvent.contextMenu(entryItems()[0]);
     fireEvent.click(await screen.findByText("Remove"));
-    await waitFor(() => expect(screen.getAllByText(/plant\/oven/)).toHaveLength(1));
+    await waitFor(() => expect(entryItems()).toHaveLength(1));
+  });
+
+  it("should offer no add field action on a Sparkplug B entry", async () => {
+    await renderRead([createTagEntry("s1", "flow")]);
+    const item = await screen.findByRole("treeitem", { name: /flow/ });
+    expect(within(item).queryByRole("button", { name: "Add field" })).toBeNull();
+    fireEvent.contextMenu(item);
+    await screen.findByText("Duplicate");
+    expect(screen.queryByText("Add field")).toBeNull();
   });
 
   describe("dropping browsed items on the entries", () => {
@@ -201,7 +249,7 @@ describe("MQTT Read form", () => {
         dev,
         draft,
         browser: scoped(container, ".console-mqtt-browser"),
-        entries: scoped(container, ".console-topic-list"),
+        entries: scoped(container, ".console-panes__list"),
       };
     };
 
@@ -220,7 +268,7 @@ describe("MQTT Read form", () => {
       scanner.close();
       fireEvent.dragStart(await browser.findByText(TOPIC));
       fireEvent.drop(entries.getByText("No entries"));
-      await screen.findByText("Timestamp source");
+      await screen.findByText("Subscription");
       await waitFor(async () =>
         expect(await retrieveEntries(draft.key)).toMatchObject([
           {
@@ -233,8 +281,9 @@ describe("MQTT Read form", () => {
           },
         ]),
       );
+      await entries.findByRole("treeitem", { name: /\/label/ });
       fireEvent.dragStart(browser.getByText(TOPIC));
-      fireEvent.drop(entries.getByText("2 fields"));
+      fireEvent.drop(entries.getByRole("treeitem", { name: /^\/temperature/ }));
       await waitFor(async () =>
         expect(await retrieveEntries(draft.key)).toHaveLength(1),
       );
@@ -273,7 +322,7 @@ describe("MQTT Read form", () => {
         ]),
       );
       fireEvent.dragStart(browser.getByText("flow"));
-      fireEvent.drop(entries.getByText("plant/line1"));
+      fireEvent.drop(entries.getByRole("treeitem", { name: /plant\/line1\/flow/ }));
       await waitFor(async () =>
         expect(await retrieveEntries(draft.key)).toHaveLength(1),
       );
@@ -281,28 +330,33 @@ describe("MQTT Read form", () => {
   });
 
   describe("Sparkplug B entries", () => {
-    it("should list a tag with its edge node beside a plain entry", async () => {
+    it("should list a tag by its full path beside a plain entry", async () => {
       await renderRead([
         createReadEntry("e1", "plant/oven"),
         createTagEntry("s1", "flow", { device: "pumpA" }),
         createTagEntry("s2", "Node Control/Rebirth"),
       ]);
-      await screen.findByText(/plant\/oven/);
-      expect(screen.getByText(/flow/)).toBeTruthy();
-      expect(screen.getByText("plant/line1/pumpA")).toBeTruthy();
-      expect(screen.getByText("plant/line1")).toBeTruthy();
+      await screen.findByRole("treeitem", { name: /JSON.*plant\/oven/ });
+      expect(
+        screen.getByRole("treeitem", { name: /SpB.*plant\/line1\/pumpA\/flow/ }),
+      ).toBeTruthy();
+      expect(
+        screen.getByRole("treeitem", {
+          name: /SpB.*plant\/line1\/Node Control\/Rebirth/,
+        }),
+      ).toBeTruthy();
     });
 
-    it("should add a tag from the header and show its fields", async () => {
+    it("should add a tag from the list footer and show its fields", async () => {
       const { draft } = await renderRead();
       await screen.findByText("No entries");
-      fireEvent.click(getHeaderIconButton("Entries", "variable"));
+      fireEvent.click(screen.getByRole("button", { name: "Add Sparkplug B tag" }));
       await screen.findByText("Edge node");
       expect(screen.getByText("Group")).toBeTruthy();
       expect(screen.getByPlaceholderText("Optional")).toBeTruthy();
-      expect(screen.getByText("No tag")).toBeTruthy();
+      expect(screen.getAllByText("New tag")).toHaveLength(2);
       expect(screen.getByText("Data type")).toBeTruthy();
-      expect(screen.queryByText("Timestamp source")).toBeNull();
+      expect(screen.queryByText("Timestamp")).toBeNull();
       const tag = screen.getByPlaceholderText("oven/temperature");
       fireEvent.change(tag, { target: { value: "zone 1/temperature" } });
       await waitFor(async () =>
@@ -312,22 +366,23 @@ describe("MQTT Read form", () => {
       );
     });
 
-    it("should hide the data type of a tag that has a channel", async () => {
+    it("should lock the data type of a tag that has a channel", async () => {
       const ch = await client.channels.create({
         name: uniqueName("mqtt_tag"),
         dataType: "string",
         virtual: true,
       });
       await renderRead([createTagEntry("s1", "mode", { channel: ch.key })]);
-      await screen.findByText(ch.name);
-      expect(screen.queryByText("Data type")).toBeNull();
+      fireEvent.click(await screen.findByRole("treeitem", { name: /mode/ }));
+      await screen.findByDisplayValue(ch.name);
+      expect(screen.getByText("Set on the channel")).toBeTruthy();
     });
 
     it("should duplicate a tag with no channels", async () => {
       const { draft } = await renderRead([
         createTagEntry("s1", "flow", { channel: 12, index: 11 }),
       ]);
-      fireEvent.contextMenu(await screen.findByText(/flow/));
+      fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /flow/ }));
       fireEvent.click(await screen.findByText("Duplicate"));
       await waitFor(async () => {
         const entries = await retrieveEntries(draft.key);
@@ -418,7 +473,7 @@ describe("MQTT Read form", () => {
           { channel: data.key, index: index.key },
         ]),
       );
-      fireEvent.click(await screen.findByText(/flow/));
+      fireEvent.click(await screen.findByRole("treeitem", { name: /flow/ }));
       fireEvent.change(await screen.findByPlaceholderText("oven/temperature"), {
         target: { value: "level" },
       });
@@ -433,7 +488,7 @@ describe("MQTT Read form", () => {
   describe("deploying against a live Core", () => {
     it("should put the deploy errors on the fields they belong to", async () => {
       const { container } = await renderRead([createReadEntry("e1", "plant/+/oven")]);
-      await screen.findByText(/plant\/\+\/oven/);
+      await screen.findByRole("treeitem", { name: /plant\/\+\/oven/ });
       await clickDeploy(container);
       await screen.findByText("Topic must not hold the wildcards + or #");
     });
@@ -632,7 +687,7 @@ describe("MQTT Read form", () => {
           fields: [createReadField("f1", "/temperature")],
         }),
       ]);
-      fireEvent.click(await screen.findByRole("button", { name: "Payload" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Payload value" }));
       const pointer = await screen.findByPlaceholderText("/timestamp");
       fireEvent.change(pointer, { target: { value: "/ts" } });
       fireEvent.blur(pointer);
