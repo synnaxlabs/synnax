@@ -10,7 +10,9 @@
 import "@/platform/license/Details.css";
 
 import { type license } from "@synnaxlabs/client";
-import { Flex, Status, Text } from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";

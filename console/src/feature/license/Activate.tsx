@@ -10,7 +10,13 @@
 import "@/feature/license/Activate.css";
 
 import { status } from "@synnaxlabs/client";
-import { Button, Flex, Icon, Input, Status, Synnax, Text } from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Synnax } from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
 
 import { Shell } from "@/feature/shell";
