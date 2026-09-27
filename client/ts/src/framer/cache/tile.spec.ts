@@ -315,6 +315,18 @@ describe("tile", () => {
       reader.close();
     });
 
+    it("should reject a read whose fetch throws synchronously", async () => {
+      const { reader } = createReader({
+        fetchTimeout: TimeSpan.milliseconds(20),
+        readRemote: () => {
+          throw new UnexpectedError("sync failure");
+        },
+      });
+      await expect(reader.read(spec())).rejects.toThrow("sync failure");
+      await sleep.sleep(TimeSpan.milliseconds(40));
+      reader.close();
+    });
+
     it("should reject pending reads when it closes", async () => {
       const { reader } = createReader({
         readRemote: async () => await new Promise<Frame>(() => {}),
