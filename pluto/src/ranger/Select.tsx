@@ -8,21 +8,21 @@
 // included in the file licenses/APL.txt.
 
 import { type ranger } from "@synnaxlabs/client";
+import { Component } from "@synnaxlabs/lyra/component";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { type Dialog } from "@synnaxlabs/lyra/dialog";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select as Base } from "@synnaxlabs/lyra/select";
+import { Tag } from "@synnaxlabs/lyra/tag";
+import { Telem } from "@synnaxlabs/lyra/telem";
 import { type ReactElement } from "react";
 
-import { Component } from "@/component";
-import { CSS } from "@/css";
-import { type Dialog } from "@/dialog";
-import { Flex } from "@/flex";
 import { type Flux } from "@/flux";
-import { Icon } from "@/icon";
-import { List } from "@/list";
 import { Breadcrumb } from "@/ranger/Breadcrumb";
 import { type ListQuery, useList } from "@/ranger/queries";
 import { HAUL_TYPE } from "@/ranger/types";
-import { Select as Base } from "@/select";
-import { Tag } from "@/tag";
-import { Telem } from "@/telem";
 
 export interface SelectProps
   extends
@@ -88,7 +88,7 @@ const ListItem = ({
   if (item == null) return null;
   const { name, timeRange, parent, labels } = item;
   return (
-    <Base.ListItem
+    <Base.Item
       className={CSS.cls(CSS.BE("range", "list-item"), className)}
       itemKey={itemKey}
       justify="between"
@@ -112,7 +112,7 @@ const ListItem = ({
         )}
         <Telem.Text.TimeRange level="small">{timeRange}</Telem.Text.TimeRange>
       </Flex.Box>
-    </Base.ListItem>
+    </Base.Item>
   );
 };
 

@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type ranger } from "@synnaxlabs/client";
+import { type Haul } from "@synnaxlabs/lyra/haul";
 import { TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { type Haul } from "@/haul";
 import {
   canDropHaulItem,
   createHaulItem,

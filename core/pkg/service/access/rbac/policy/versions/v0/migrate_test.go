@@ -39,6 +39,7 @@ var _ = Describe("Migration", func() {
 	})
 
 	run := func(ctx SpecContext) {
+		GinkgoHelper()
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:         db,
 			Namespace:  "Policy",
@@ -129,6 +130,7 @@ var _ = Describe("Legacy mappings", func() {
 	BeforeEach(func() { db = DeferClose(gorp.Wrap(memkv.New())) })
 
 	writeMapping := func(ctx SpecContext, mappings []v0.LegacyUserMapping) {
+		GinkgoHelper()
 		raw := MustSucceed(json.Marshal(mappings))
 		Expect(
 			db.Set(ctx, []byte("sy_rbac_legacy_permission_mapping"), raw),

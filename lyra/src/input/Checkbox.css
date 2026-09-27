@@ -1,0 +1,212 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.pluto-input__checkbox {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    cursor: pointer !important;
+    background: none !important;
+
+    /* Outranks the button's sized padding. */
+    &.pluto-btn {
+        padding: 0;
+    }
+
+    &:not(.pluto--disabled).pluto-btn--prevent-click input {
+        cursor: pointer;
+    }
+
+    &:has(:focus-visible) {
+        .pluto-input__checkbox-indicator {
+            outline: 1px solid var(--pluto-primary-z);
+            outline-offset: var(--pluto-focus-ring-offset);
+        }
+    }
+
+    .pluto-input__checkbox-input {
+        position: relative;
+        cursor: pointer;
+        opacity: 0;
+        height: var(--pluto-height-medium);
+        width: var(--pluto-height-medium);
+    }
+
+    .pluto-input__checkbox-indicator {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        display: inline-block;
+        width: round(2.666rem, 1px);
+        height: round(2.666rem, 1px);
+        background: var(--pluto-gray-l3);
+        border: var(--pluto-border-l6);
+        border-radius: 0.5rem;
+        transition:
+            background-color 0.1s ease,
+            border-color 0.1s ease,
+            outline-color 0.1s ease;
+        cursor: pointer;
+    }
+
+    .pluto-input__checkbox-indicator::after {
+        content: "";
+        position: absolute;
+        display: none;
+        left: round(1rem, 1px);
+        top: round(0.4rem, 1px);
+        width: round(0.5rem, 1px);
+        height: round(1.3rem, 1px);
+        border: solid var(--pluto-text-on-primary);
+        border-width: 0 1px 1px 0;
+        transform: rotate(45deg);
+    }
+
+    .pluto-input__checkbox-input:checked ~ .pluto-input__checkbox-indicator {
+        background: var(--pluto-primary-m1);
+        border-color: var(--pluto-primary-m1);
+    }
+
+    .pluto-input__checkbox-input:checked ~ .pluto-input__checkbox-indicator::after {
+        display: block;
+    }
+
+    &.pluto--height-tiny {
+        .pluto-input__checkbox-input {
+            height: var(--pluto-height-small);
+            width: var(--pluto-height-small);
+        }
+        .pluto-input__checkbox-indicator {
+            width: 1.5rem;
+            height: 1.5rem;
+            border-radius: 0.25rem;
+        }
+        .pluto-input__checkbox-indicator::after {
+            left: round(0.4rem, 1px);
+            top: round(0.2rem, 1px);
+            width: 0.25rem;
+            height: 0.5rem;
+            border-width: 0 1.5px 1.5px 0;
+        }
+    }
+
+    &.pluto--height-small {
+        .pluto-input__checkbox-input {
+            height: var(--pluto-height-medium);
+            width: var(--pluto-height-medium);
+        }
+        .pluto-input__checkbox-indicator {
+            width: 2rem;
+            height: 2rem;
+            border-radius: 0.25rem;
+        }
+        .pluto-input__checkbox-indicator::after {
+            left: 0.5rem;
+            top: 0.25rem;
+            width: 0.5rem;
+            height: 0.75rem;
+            border-width: 0 2px 2px 0;
+        }
+    }
+
+    &.pluto--height-large {
+        .pluto-input__checkbox-input {
+            height: var(--pluto-height-large);
+            width: var(--pluto-height-large);
+        }
+        .pluto-input__checkbox-indicator {
+            width: 3.25rem;
+            height: 3.25rem;
+            border-radius: 0.5rem;
+        }
+        .pluto-input__checkbox-indicator::after {
+            left: round(1.1rem, 1px);
+            top: round(0.4rem, 1px);
+            width: 0.75rem;
+            height: 1.5rem;
+            border-width: 0 2.5px 2.5px 0;
+        }
+    }
+
+    &.pluto--height-huge {
+        .pluto-input__checkbox-input {
+            height: var(--pluto-height-huge);
+            width: var(--pluto-height-huge);
+        }
+        .pluto-input__checkbox-indicator {
+            width: 3.75rem;
+            height: 3.75rem;
+            border-radius: 0.5rem;
+        }
+        .pluto-input__checkbox-indicator::after {
+            left: round(1.1rem, 1px);
+            top: round(0.4rem, 1px);
+            width: 1rem;
+            height: 1.75rem;
+            border-width: 0 3px 3px 0;
+        }
+    }
+
+    /* Icon skin: the supplied glyph IS the indicator, so the box chrome and the
+       check glyph go away entirely. */
+    &.pluto--icon {
+        .pluto-input__checkbox-indicator,
+        .pluto-input__checkbox-input:checked ~ .pluto-input__checkbox-indicator {
+            width: auto;
+            height: auto;
+            background: none;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: round(2.333rem, 1px);
+        }
+
+        .pluto-input__checkbox-indicator::after,
+        .pluto-input__checkbox-input:checked ~ .pluto-input__checkbox-indicator::after {
+            display: none;
+        }
+    }
+
+    &.pluto--disabled {
+        * {
+            cursor: not-allowed !important;
+        }
+
+        .pluto-input__checkbox-indicator {
+            background: var(--pluto-gray-l2-50);
+            border-color: var(--pluto-gray-l3-50);
+        }
+
+        .pluto-input__checkbox-input:checked ~ .pluto-input__checkbox-indicator {
+            background: color-mix(
+                in srgb,
+                var(--pluto-gray-l3),
+                var(--pluto-primary-m1)
+            );
+            border-color: color-mix(
+                in srgb,
+                var(--pluto-gray-l3),
+                var(--pluto-primary-m1)
+            );
+        }
+
+        .pluto-input__checkbox-indicator::after {
+            border-color: color-mix(
+                in srgb,
+                var(--pluto-text-disabled),
+                var(--pluto-text-on-primary)
+            );
+        }
+    }
+}

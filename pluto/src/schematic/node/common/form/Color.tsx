@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Form } from "@synnaxlabs/lyra/form";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { type color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Color } from "@/color";
-import { Form } from "@/form";
-import { Theming } from "@/theming";
 
 export const ColorField: Form.FieldT<color.Crude> = (props): ReactElement => {
   const theme = Theming.use();

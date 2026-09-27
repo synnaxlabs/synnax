@@ -32,6 +32,7 @@ func readWriteChan(elem types.Type) types.Type {
 var _ = Describe("Statement", func() {
 	// Helper to set up function context for tests that need it
 	setupFunctionContext := func(ctx context.Context[parser.IBlockContext]) {
+		GinkgoHelper()
 		scope := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
 			Name: "testFunc",
 			Kind: symbol.KindFunction,
@@ -162,6 +163,7 @@ var _ = Describe("Statement", func() {
 			analyzeInStage := func(
 				bCtx SpecContext, code string,
 			) context.Context[parser.IStatementContext] {
+				GinkgoHelper()
 				stmt := MustSucceed(parser.ParseStatement(code))
 				ctx := context.NewRoot(bCtx, stmt, NewRoot(nil))
 				ctx.Scope = MustSucceed(ctx.Scope.Add(bCtx, symbol.Symbol{
@@ -225,6 +227,7 @@ var _ = Describe("Statement", func() {
 			declareIn := func(
 				bCtx SpecContext, root *symbol.Symbol, code string,
 			) context.Context[parser.IVariableDeclarationContext] {
+				GinkgoHelper()
 				stage := root.FindChild("body")
 				if stage == nil {
 					stage = MustSucceed(root.Add(bCtx, symbol.Symbol{
@@ -428,6 +431,7 @@ var _ = Describe("Statement", func() {
 			},
 		}
 		declareIn := func(bCtx SpecContext, root, scope *symbol.Symbol, code string) {
+			GinkgoHelper()
 			stmt := MustSucceed(parser.ParseStatement(code))
 			ctx := context.NewRoot(bCtx, stmt.VariableDeclaration(), root)
 			ctx.Scope = scope
@@ -437,6 +441,7 @@ var _ = Describe("Statement", func() {
 		assignIn := func(
 			bCtx SpecContext, root, scope *symbol.Symbol, code string,
 		) context.Context[parser.IAssignmentContext] {
+			GinkgoHelper()
 			stmt := MustSucceed(parser.ParseStatement(code))
 			ctx := context.NewRoot(bCtx, stmt.Assignment(), root)
 			ctx.Scope = scope
@@ -444,6 +449,7 @@ var _ = Describe("Statement", func() {
 			return ctx
 		}
 		newStage := func(bCtx SpecContext, root *symbol.Symbol) *symbol.Symbol {
+			GinkgoHelper()
 			return MustSucceed(root.Add(bCtx, symbol.Symbol{
 				Name: "s1", Kind: symbol.KindStage,
 			}))
@@ -786,6 +792,7 @@ var _ = Describe("Statement", func() {
 		})
 
 		setupChannelFunctionContext := func(ctx context.Context[parser.IBlockContext]) {
+			GinkgoHelper()
 			scope := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
 				Name: "testFunc",
 				Kind: symbol.KindFunction,

@@ -9,20 +9,16 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Fails unless the GitHub Actions checks on a commit passed. Usage:
-# verify_checks.sh <sha> <run_id> <branch>. Runs of the given workflow run are ignored,
-# so a release can verify its own commit. Path filters skip a workflow on a push that
-# leaves its paths alone, so the newest push run of every test, lint, and check workflow
-# on the branch must have passed too. A workflow with no push run on the branch is
-# skipped: a hotfix branch only runs what a cherry-pick touches. Runs from the checkout
-# root, which supplies the workflow files.
+# Fails unless the GitHub Actions checks on a commit passed. Usage: verify_checks.sh
+# <sha> <run_id>. Runs of the given workflow run are ignored, so a release can verify
+# its own commit. Every merged commit carries the CI merge-group run, so the commit's
+# own check runs are the whole verdict.
 
 set -euo pipefail
 
-USAGE="usage: verify_checks.sh <sha> <run_id> <branch>"
+USAGE="usage: verify_checks.sh <sha> <run_id>"
 SHA=${1:?$USAGE}
 RUN_ID=${2:?$USAGE}
-BRANCH=${3:?$USAGE}
 REPO=${GITHUB_REPOSITORY:?GITHUB_REPOSITORY is not set}
 
 RUNS=$(gh api "repos/${REPO}/commits/${SHA}/check-runs?per_page=100" \
@@ -51,36 +47,3 @@ if [ -n "$FAILED" ]; then
 fi
 
 echo "$(wc -l <<< "$RUNS" | tr -d ' ') checks passed on $SHA"
-
-shopt -s nullglob
-FILES=(.github/workflows/{test,lint,check}.*.yaml)
-WORKFLOWS=""
-if [ "${#FILES[@]}" -gt 0 ]; then
-    WORKFLOWS=$(grep -lE '^  push:' "${FILES[@]}" || true)
-fi
-STALE=""
-CHECKED=0
-for FILE in $WORKFLOWS; do
-    NAME=$(basename "$FILE")
-    LATEST=$(gh api --method GET "repos/${REPO}/actions/workflows/${NAME}/runs" \
-        -f branch="$BRANCH" -f event=push -F per_page=1 \
-        --jq '.workflow_runs[0] // {} | "\(.status // "missing") \(.conclusion // "")"')
-    read -r STATUS CONCLUSION <<< "$LATEST"
-    if [ "$STATUS" = "missing" ]; then
-        echo "$NAME never ran on $BRANCH, skipped"
-        continue
-    fi
-    CHECKED=$((CHECKED + 1))
-    if [ "$STATUS" != "completed" ]; then
-        STALE+="  $NAME ($STATUS)"$'\n'
-    elif [ "$CONCLUSION" != "success" ] && [ "$CONCLUSION" != "skipped" ] \
-        && [ "$CONCLUSION" != "neutral" ]; then
-        STALE+="  $NAME ($CONCLUSION)"$'\n'
-    fi
-done
-if [ -n "$STALE" ]; then
-    printf 'newest push run on %s did not pass:\n%s' "$BRANCH" "$STALE" >&2
-    exit 1
-fi
-
-echo "$CHECKED workflows pass on $BRANCH"

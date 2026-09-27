@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Nav } from "@synnaxlabs/pluto";
+import { Nav } from "@synnaxlabs/lyra/nav";
 import { type ReactElement, useCallback } from "react";
 
 import { useBottomActions } from "@/app/nav/bar/bottom";

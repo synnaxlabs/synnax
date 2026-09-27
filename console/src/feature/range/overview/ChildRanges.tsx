@@ -8,7 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { ranger } from "@synnaxlabs/client";
-import { Access, Button, Flex, Header, Icon, Ranger } from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Header } from "@synnaxlabs/lyra/header";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Access, Ranger } from "@synnaxlabs/pluto";
 import { type FC } from "react";
 
 import { List } from "@/feature/range/list/List";

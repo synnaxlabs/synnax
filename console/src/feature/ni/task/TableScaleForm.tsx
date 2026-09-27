@@ -7,7 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex, Form, Input, Select, state } from "@synnaxlabs/pluto";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Select } from "@synnaxlabs/lyra/select";
+import { state } from "@synnaxlabs/lyra/state";
 import { binary, type record } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 import { z } from "zod";
@@ -118,6 +121,11 @@ export const TableScaleForm = ({ prefix }: TableScaleFormProps): ReactElement =>
     scaled.onChange(next.map(([, value]) => Number(value)));
   };
 
+  const colItems = colOptions.map(({ key, name }) => (
+    <Select.Item key={key} itemKey={key}>
+      {name}
+    </Select.Item>
+  ));
   const { preview } = preScaled;
   const status =
     preScaled.status.variant !== "success" ? preScaled.status : scaled.status;
@@ -139,24 +147,26 @@ export const TableScaleForm = ({ prefix }: TableScaleFormProps): ReactElement =>
             />
           </Input.Item>
           {colOptions.length > 0 && (
-            <Flex.Box x>
-              <Input.Item label="Raw column" padHelpText grow>
-                <Select.Static
+            <>
+              <Input.Item label="Raw column" padHelpText>
+                <Select.Simple<string>
                   resourceName="raw column"
                   value={rawCol}
                   onChange={handleRawColChange}
-                  data={colOptions}
-                />
+                >
+                  {colItems}
+                </Select.Simple>
               </Input.Item>
-              <Input.Item label="Scaled column" padHelpText grow>
-                <Select.Static
+              <Input.Item label="Scaled column" padHelpText>
+                <Select.Simple<string>
                   resourceName="scaled column"
                   value={scaledCol}
                   onChange={handleScaledColChange}
-                  data={colOptions}
-                />
+                >
+                  {colItems}
+                </Select.Simple>
               </Input.Item>
-            </Flex.Box>
+            </>
           )}
         </>
       )}
@@ -171,6 +181,7 @@ export const TableScaleForm = ({ prefix }: TableScaleFormProps): ReactElement =>
           onChange={handleRowsChange}
           createRow={createRow}
           preview={preview}
+          rowLabel={(index) => (index + 1).toString()}
         >
           <Input.TableColumn name="Pre-scaled" />
           <Input.TableColumn name="Scaled" />

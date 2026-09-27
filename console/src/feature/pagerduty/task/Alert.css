@@ -14,12 +14,10 @@
 }
 
 .console-pagerduty-alert-details {
-    padding: 2rem;
+    padding: var(--console-details-padding);
     overflow-y: auto;
 }
 
-.console-pagerduty-alert-list {
-    width: 300px;
-    flex-shrink: 0;
-    overflow-y: auto;
+.console-task-configure--pagerduty_alert .console-panes {
+    --console-list-width: 300px;
 }

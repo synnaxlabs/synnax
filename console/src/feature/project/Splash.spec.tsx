@@ -12,7 +12,7 @@ import {
   createTestClient,
   createTestClientWithPolicy,
 } from "@synnaxlabs/client/testutil";
-import { Triggers } from "@synnaxlabs/pluto";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { id, uuid } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -78,18 +78,6 @@ describe("project/Splash", () => {
       const name = Session.Core.selectSelected(store.getState())?.name;
       if (name == null) throw new Error("no Core is selected");
       expect(await screen.findByText(name)).toBeTruthy();
-    });
-
-    it("should offer no log out and name no Core when standalone", async () => {
-      const { store } = await renderWithConsole(<Project.Splash standalone />);
-      act(() => {
-        store.dispatch(Session.Core.select(Session.Core.LOCAL_KEY));
-      });
-      const name = Session.Core.selectSelected(store.getState())?.name;
-      if (name == null) throw new Error("no Core is selected");
-      expect(screen.getByText("Projects")).toBeTruthy();
-      expect(screen.queryByRole("button", { name: "Log out" })).toBeNull();
-      expect(screen.queryByText(name)).toBeNull();
     });
   });
 

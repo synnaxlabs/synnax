@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { type table } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { type Triggers } from "@synnaxlabs/lyra/triggers";
 import { type ReactElement, type ReactNode, useCallback, useMemo } from "react";
 
-import { Icon } from "@/icon";
-import { Menu } from "@/menu";
 import { getCellColumn } from "@/table/Indicator";
 import { useCellPosition, useRedo, useRows, useUndo } from "@/table/queries";
-import { type Triggers } from "@/triggers";
 
 /** Erases the selected cells. Registered by {@link Table}; shown on the erase item. */
 export const ERASE_TRIGGER: Triggers.Trigger = ["Delete"];

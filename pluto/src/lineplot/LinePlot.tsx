@@ -8,6 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, lineplot } from "@synnaxlabs/client";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { usePrevious } from "@synnaxlabs/lyra/hooks";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 import {
   box,
   type color,
@@ -27,9 +31,6 @@ import {
 } from "react";
 
 import { canDropHaulItem, filterHaulItems } from "@/channel/types";
-import { CSS } from "@/css";
-import { Haul } from "@/haul";
-import { usePrevious } from "@/hooks";
 import { XAxis as BaseXAxis, YAxis as BaseYAxis } from "@/lineplot/Axis";
 import { Frame, type FrameProps } from "@/lineplot/Frame";
 import {
@@ -63,7 +64,6 @@ import { Title as BaseTitle } from "@/lineplot/Title";
 import { Tooltip } from "@/lineplot/tooltip";
 import { Viewport as BaseViewport } from "@/lineplot/Viewport";
 import { telem } from "@/telem/aether";
-import { Triggers } from "@/triggers";
 import { type Viewport } from "@/viewport";
 
 // A resolved range descriptor supplied by the consumer. Range resolution lives

@@ -20,6 +20,7 @@ import (
 
 var _ = Describe("StructurallyEqual", func() {
 	analyze := func(source string) *resolution.Table {
+		GinkgoHelper()
 		table := resolution.NewTable()
 		diag := analyzer.AnalyzeSeeded(
 			GinkgoT().Context(), source,
@@ -30,6 +31,7 @@ var _ = Describe("StructurallyEqual", func() {
 		return table
 	}
 	typeOf := func(t *resolution.Table, name string) resolution.Type {
+		GinkgoHelper()
 		typ, ok := t.Get("channel." + name)
 		Expect(ok).To(BeTrue())
 		return typ

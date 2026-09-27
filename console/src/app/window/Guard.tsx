@@ -27,7 +27,7 @@ const ConsoleGuard = ({ children }: PropsWithChildren): ReactElement => (
 const DesktopGuard = ({ children }: PropsWithChildren): ReactElement => (
   <License.Guard standalone>
     <Embedded.Guard>
-      <Project.Guard standalone>{children}</Project.Guard>
+      <Project.Guard>{children}</Project.Guard>
     </Embedded.Guard>
   </License.Guard>
 );

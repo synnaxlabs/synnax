@@ -8,19 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { lineplot } from "@synnaxlabs/client";
-import {
-  Button,
-  Color,
-  Divider,
-  Flex,
-  Icon,
-  Input,
-  LinePlot,
-  List as PList,
-  Menu,
-  Select,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { List as PList } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Color, LinePlot } from "@synnaxlabs/pluto";
 import { bounds, type color, id } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
@@ -51,7 +48,7 @@ const ListItem = (props: ListItemProps): ReactElement | null => {
   const handleChangeLabel = (label: string): void =>
     dispatch(lineplot.setRuleLabel({ key: itemKey, label }));
   return (
-    <Select.ListItem
+    <Select.Item
       {...props}
       className={CSS.BE("line-plot", "toolbar", "annotations-item")}
       align="center"
@@ -65,7 +62,7 @@ const ListItem = (props: ListItemProps): ReactElement | null => {
         weight={500}
         onChange={handleChangeLabel}
       />
-    </Select.ListItem>
+    </Select.Item>
   );
 };
 
@@ -122,26 +119,24 @@ const List = ({
           )}
           {...menuProps}
         >
-          <PList.Items<string, lineplot.Rule> onContextMenu={menuProps.open} grow>
-            {({ key, ...rest }) => <ListItem key={key} {...rest} />}
-          </PList.Items>
+          <PList.Scroll onContextMenu={menuProps.open} grow>
+            <PList.Items<string, lineplot.Rule>>
+              {({ key, ...rest }) => <ListItem key={key} {...rest} />}
+            </PList.Items>
+          </PList.Scroll>
         </Menu.ContextMenu>
       </Select.Frame>
     </Flex.Box>
   );
 };
 
-const AXIS_DATA: lineplot.AxisKey[] = ["y1", "y2"];
-
 const LINE_WIDTH_BOUNDS: bounds.Bounds = { lower: 1, upper: 10 };
 const LINE_DASH_BOUNDS: bounds.Bounds = { lower: 0, upper: 50 };
 
-const SelectAxis = (
-  props: Omit<Select.ButtonsProps<lineplot.AxisKey>, "keys">,
-): ReactElement => (
-  <Select.Buttons {...props} keys={AXIS_DATA}>
-    <Select.Button itemKey="y1">Y1</Select.Button>
-    <Select.Button itemKey="y2">Y2</Select.Button>
+const SelectAxis = (props: Select.ButtonsProps<lineplot.AxisKey>): ReactElement => (
+  <Select.Buttons {...props}>
+    <Select.Item itemKey="y1">Y1</Select.Item>
+    <Select.Item itemKey="y2">Y2</Select.Item>
   </Select.Buttons>
 );
 

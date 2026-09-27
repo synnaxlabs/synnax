@@ -76,7 +76,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.moveTo({ x: 756, y: 760 });
 
   session.startRecording();
-  await session.hold(1200);
+  await session.hold(500);
 
   // No zoom: the dialog opens over the button.
   await session.click(addCore, { zoom: false });
@@ -131,5 +131,5 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   // Under the indicator, not on it: the cursor sprite draws down and right of
   // its point, so aiming at the badge would cover it.
   await session.moveTo({ x: 1420, y: 110 });
-  await session.hold(2200);
+  await session.hold(500);
 };

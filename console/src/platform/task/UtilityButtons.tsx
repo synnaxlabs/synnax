@@ -8,14 +8,18 @@
 // included in the file licenses/APL.txt.
 
 import { task } from "@synnaxlabs/client";
-import { Button, Divider, Flex, Form, Icon } from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { binary, primitive } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { Core } from "@/platform/core";
 import { Export } from "@/platform/export";
-import { Link } from "@/platform/link";
 import { useKey } from "@/platform/task/useKey";
+import { Session } from "@/session";
 
 export const UtilityButtons = () => {
   const ctx = Form.useContext();
@@ -49,7 +53,6 @@ export const UtilityButtons = () => {
     copyLink({ name: getName(), ontologyID: task.ontologyID(taskKey) });
   };
   const hasKey = !primitive.isZero(taskKey);
-  const linksDisabled = Link.useDisabled();
   return (
     <Flex.Box x gap="small">
       {hasKey && (
@@ -92,7 +95,7 @@ export const UtilityButtons = () => {
       {hasKey && (
         <>
           <Divider.Divider y />
-          {!linksDisabled && (
+          {!Session.Runtime.LINKS_DISABLED && (
             <Button.Button
               onClick={handleCopyLink}
               tooltip="Copy link"

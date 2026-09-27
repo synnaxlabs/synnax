@@ -1809,6 +1809,7 @@ var _ = Describe("ProgramState", func() {
 
 	Describe("ResolveInput", func() {
 		buildNode := func(ctx SpecContext) *node.State {
+			GinkgoHelper()
 			g := graph.Graph{
 				Nodes:  []graph.Node{{Key: "n"}},
 				Inputs: map[string]msgpack.EncodedJSON{"n": {"type": "n"}},
@@ -2728,6 +2729,7 @@ var _ = Describe("ProgramState", func() {
 
 // newLinkedState builds src (i32 output) -> dst (i32 input) and returns the state.
 func newLinkedState(ctx SpecContext) *node.ProgramState {
+	GinkgoHelper()
 	g := graph.Graph{
 		Functions: []ir.Function{
 			{
@@ -2756,6 +2758,7 @@ func newLinkedState(ctx SpecContext) *node.ProgramState {
 
 // newPairState builds a and b (i32 outputs) -> target (two i32 inputs).
 func newPairState(ctx SpecContext) *node.ProgramState {
+	GinkgoHelper()
 	g := graph.Graph{
 		Functions: []ir.Function{
 			{
@@ -2797,6 +2800,7 @@ func newPairState(ctx SpecContext) *node.ProgramState {
 // newRefState builds reader with a chan-typed reference input edge-fed from reg's
 // chan-typed output.
 func newRefState(ctx SpecContext) *node.ProgramState {
+	GinkgoHelper()
 	g := graph.Graph{
 		Functions: []ir.Function{
 			{

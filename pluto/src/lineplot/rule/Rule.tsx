@@ -9,21 +9,21 @@
 
 import "@/lineplot/rule/Rule.css";
 
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Cursor } from "@synnaxlabs/lyra/cursor";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
+import { state } from "@synnaxlabs/lyra/state";
+import { Text } from "@synnaxlabs/lyra/text";
 import { box, color } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { CSS } from "@/css";
-import { Cursor } from "@/cursor";
-import { Divider } from "@/divider";
-import { Flex } from "@/flex";
-import { useSyncedRef } from "@/hooks";
 import { useContext } from "@/lineplot/Frame";
 import { rule } from "@/lineplot/rule/aether";
-import { state } from "@/state";
-import { Text } from "@/text";
 
 export interface RuleProps
   extends

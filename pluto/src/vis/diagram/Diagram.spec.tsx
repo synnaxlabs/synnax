@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Component } from "@synnaxlabs/lyra/component";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { fireEvent, waitFor } from "@testing-library/react";
 import { type ReactElement, useState } from "react";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
-import { Component } from "@/component";
 import { render } from "@/testutil";
-import { Triggers } from "@/triggers";
 import { Diagram } from "@/vis/diagram";
 import { diagram } from "@/vis/diagram/aether";
 

@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex, Form, Icon, type Select } from "@synnaxlabs/pluto";
-import { deep, type record } from "@synnaxlabs/x";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Select } from "@synnaxlabs/lyra/select";
+import { deep } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { CoefficientsField } from "@/feature/ni/task/CoefficientsField";
-import { selectData } from "@/feature/ni/task/selectData";
 import { TableScaleForm } from "@/feature/ni/task/TableScaleForm";
 import {
   createScale,
@@ -21,11 +22,9 @@ import {
   type ScaleType,
   type Units,
 } from "@/feature/ni/task/types";
+import { Task } from "@/platform/task";
 
-const SelectCustomScaleTypeField = Form.buildSelectField<
-  ScaleType,
-  Select.StaticEntry<ScaleType>
->({
+const SelectCustomScaleTypeField = Form.buildSelectField<ScaleType>({
   fieldKey: "type",
   fieldProps: {
     label: "Custom scaling",
@@ -43,13 +42,30 @@ const SelectCustomScaleTypeField = Form.buildSelectField<
   },
   inputProps: {
     resourceName: "scale type",
-    data: [
-      { key: "linear", name: "Linear", icon: <Icon.Linear /> },
-      { key: "map", name: "Map", icon: <Icon.Map /> },
-      { key: "polynomial", name: "Polynomial", icon: <Icon.Function /> },
-      { key: "table", name: "Table", icon: <Icon.Table /> },
-      { key: "none", name: "None", icon: <Icon.None /> },
-    ],
+    children: (
+      <>
+        <Select.Item itemKey="linear">
+          <Icon.Linear />
+          Linear
+        </Select.Item>
+        <Select.Item itemKey="map">
+          <Icon.Map />
+          Map
+        </Select.Item>
+        <Select.Item itemKey="polynomial">
+          <Icon.Function />
+          Polynomial
+        </Select.Item>
+        <Select.Item itemKey="table">
+          <Icon.Table />
+          Table
+        </Select.Item>
+        <Select.Item itemKey="none">
+          <Icon.None />
+          None
+        </Select.Item>
+      </>
+    ),
   },
 });
 
@@ -84,13 +100,13 @@ const UNIT_SYMBOLS = {
   FootPounds: "ft·lb",
 } as const satisfies Record<Units, string>;
 
-const UnitsField = Form.buildSelectField<Units, record.KeyedNamed<Units>>({
+const UnitsField = Form.buildSelectField<Units>({
   fieldKey: "units",
-  fieldProps: { label: "Units", style: { width: "19rem" } },
+  fieldProps: { label: "Units" },
   inputProps: {
     resourceName: "units",
     allowNone: false,
-    data: selectData(UNIT_SYMBOLS),
+    children: Task.selectItems(UNIT_SYMBOLS),
   },
 });
 
@@ -99,47 +115,27 @@ export interface CustomScaleFormProps {
 }
 
 const CustomScaleUnitsFields = ({ prefix }: { prefix: string }) => (
-  <Flex.Box x>
-    <UnitsField fieldKey="preScaledUnits" label="Prescaled units" path={prefix} grow />
-    <Form.TextField fieldKey="scaledUnits" label="Scaled units" path={prefix} grow />
-  </Flex.Box>
+  <>
+    <UnitsField fieldKey="preScaledUnits" label="Prescaled units" path={prefix} />
+    <Form.TextField fieldKey="scaledUnits" label="Scaled units" path={prefix} />
+  </>
 );
 
 const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
   linear: ({ prefix }) => (
     <>
       <CustomScaleUnitsFields prefix={prefix} />
-      <Flex.Box x>
-        <Form.NumericField fieldKey="slope" label="Slope" path={prefix} grow />
-        <Form.NumericField
-          fieldKey="yIntercept"
-          label="Y-Intercept"
-          path={prefix}
-          grow
-        />
-      </Flex.Box>
+      <Form.NumericField fieldKey="slope" label="Slope" path={prefix} />
+      <Form.NumericField fieldKey="yIntercept" label="Y-intercept" path={prefix} />
     </>
   ),
   map: ({ prefix }) => (
     <>
       <CustomScaleUnitsFields prefix={prefix} />
-      <Flex.Box x>
-        <Form.NumericField
-          fieldKey="preScaledMin"
-          label="Pre-scaled min"
-          path={prefix}
-          grow
-        />
-        <Form.NumericField
-          fieldKey="preScaledMax"
-          label="Pre-scaled max"
-          path={prefix}
-        />
-      </Flex.Box>
-      <Flex.Box x>
-        <Form.NumericField fieldKey="scaledMin" label="Scaled min" path={prefix} grow />
-        <Form.NumericField fieldKey="scaledMax" label="Scaled max" path={prefix} />
-      </Flex.Box>
+      <Form.NumericField fieldKey="preScaledMin" label="Pre-scaled min" path={prefix} />
+      <Form.NumericField fieldKey="preScaledMax" label="Pre-scaled max" path={prefix} />
+      <Form.NumericField fieldKey="scaledMin" label="Scaled min" path={prefix} />
+      <Form.NumericField fieldKey="scaledMax" label="Scaled max" path={prefix} />
     </>
   ),
   polynomial: ({ prefix }) => (
@@ -173,5 +169,16 @@ export const CustomScaleForm = ({ prefix }: CustomScaleFormProps) => {
       <SelectCustomScaleTypeField path={path} />
       <FormComponent prefix={path} />
     </>
+  );
+};
+
+/** The Scale section, or nothing for a channel type without a custom scale. */
+export const CustomScaleSection = ({ prefix }: CustomScaleFormProps) => {
+  const scale = Form.useFieldValue<Scale>(`${prefix}.customScale`, { optional: true });
+  if (scale == null) return null;
+  return (
+    <Form.Section title="Scale">
+      <CustomScaleForm prefix={prefix} />
+    </Form.Section>
   );
 };

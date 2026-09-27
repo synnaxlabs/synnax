@@ -7,17 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon, Menu } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
 import { type ReactElement } from "react";
 
-import { useDisabled } from "@/platform/link/Disabled";
+import { Session } from "@/session";
 
 export interface CopyContextMenuItemProps extends Omit<Menu.ItemProps, "itemKey"> {}
 
 export const CopyContextMenuItem = (
   props: CopyContextMenuItemProps,
 ): ReactElement | null => {
-  if (useDisabled()) return null;
+  if (Session.Runtime.LINKS_DISABLED) return null;
   return (
     <Menu.Item {...props} itemKey="link">
       <Icon.Link />

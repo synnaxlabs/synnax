@@ -3530,8 +3530,13 @@ export type {{ .TypeName }} = z.infer<typeof {{ .TypeSchemaName }}>;
 {{ formatDoc .TSName .Doc }}
 {{ end -}}
 export const {{ .SchemaName }} = z.discriminatedUnion("{{ .Discriminator }}", [
+{{- $lazy := .LazyVariants }}
 {{- range .Variants }}
+{{- if $lazy }}
+  z.lazy(() => {{ .SchemaName }}),
+{{- else }}
   {{ .SchemaName }},
+{{- end }}
 {{- end }}
 ]);
 {{- if $.GenerateTypes }}

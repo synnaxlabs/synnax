@@ -53,6 +53,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		calculations *[]channel.Channel,
 		streamKeys func([]channel.Channel) channel.Keys,
 	) (*framer.Writer, confluence.Outlet[streamer.Response], context.CancelFunc) {
+		GinkgoHelper()
 		if indexChannels != nil {
 			Expect(channelWriter.CreateMany(ctx, indexChannels)).To(Succeed())
 		}
@@ -651,6 +652,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				calc channel.Channel,
 				off, on telem.Series,
 			) {
+				GinkgoHelper()
 				rm := c.OpenRequestManager()
 				Expect(rm.Set(ctx, channel.Keys{calc.Key()})).To(Succeed())
 				sCtx, cancel := signal.Isolated()

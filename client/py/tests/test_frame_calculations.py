@@ -7,13 +7,15 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import time
-
 import numpy as np
 import pytest
 
 import synnax as sy
 from x.strings import random_name
+from x.testutil import assert_eventually
+
+# Seconds to wait for a written sample to come back through the calculation pipeline.
+READ_TIMEOUT = 5
 
 
 @pytest.mark.framer
@@ -54,9 +56,8 @@ class TestCalculatedChannelStreaming:
                 start,
                 [timestamp_channel.key, src_channels[0].key, src_channels[1].key],
             ) as writer:
-                alignment_hwm = 0
-                for i in range(5):
-                    time.sleep(0.01)
+
+                def write_sources() -> None:
                     writer.write(
                         {
                             timestamp_channel.key: sy.TimeStamp.now(),
@@ -64,7 +65,20 @@ class TestCalculatedChannelStreaming:
                             src_channels[1].key: value / 2,
                         }
                     )
-                    frame = streamer.read(timeout=100)
+
+                # The calculation subscribes to its sources asynchronously, so writes
+                # made before it is listening produce no frame at all.
+                def await_first_calculation() -> None:
+                    write_sources()
+                    assert streamer.read(timeout=0.5) is not None
+
+                assert_eventually(await_first_calculation)
+
+                alignment_hwm = 0
+                for i in range(5):
+                    write_sources()
+                    frame = streamer.read(timeout=READ_TIMEOUT)
+                    assert frame is not None
                     assert len(frame.channels) == 1
                     ser = frame[calc_channel.key]
                     assert ser.alignment != 0
@@ -73,7 +87,6 @@ class TestCalculatedChannelStreaming:
                         assert ser.alignment == alignment_hwm
                     else:
                         alignment_hwm = ser.alignment
-                    assert frame is not None
                     assert np.array_equal(frame[calc_channel.key], value)
 
     def test_stream_passthrough_virtual_channel(self, client: sy.Synnax):

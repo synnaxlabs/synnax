@@ -24,6 +24,7 @@ var _ = Describe("Sequence", func() {
 	// lastU8 returns the final u8 value written to a channel in a flushed
 	// frame. Fails if the channel was not written.
 	lastU8 := func(fr telem.Frame[uint32], key uint32) uint8 {
+		GinkgoHelper()
 		ch := fr.Get(key)
 		Expect(ch.Series).ToNot(BeEmpty(), "channel %d not written", key)
 		s := ch.Series[len(ch.Series)-1]
@@ -34,6 +35,7 @@ var _ = Describe("Sequence", func() {
 
 	// lastF32 returns the final f32 value written to a channel.
 	lastF32 := func(fr telem.Frame[uint32], key uint32) float32 {
+		GinkgoHelper()
 		ch := fr.Get(key)
 		Expect(ch.Series).ToNot(BeEmpty(), "channel %d not written", key)
 		s := ch.Series[len(ch.Series)-1]
@@ -44,6 +46,7 @@ var _ = Describe("Sequence", func() {
 
 	// lastString returns the final string value written to a channel.
 	lastString := func(fr telem.Frame[uint32], key uint32) string {
+		GinkgoHelper()
 		ch := fr.Get(key)
 		Expect(ch.Series).ToNot(BeEmpty(), "channel %d not written", key)
 		s := ch.Series[len(ch.Series)-1]
@@ -54,6 +57,7 @@ var _ = Describe("Sequence", func() {
 
 	// lastBool returns the final bool value written to a channel.
 	lastBool := func(fr telem.Frame[uint32], key uint32) bool {
+		GinkgoHelper()
 		ch := fr.Get(key)
 		Expect(ch.Series).ToNot(BeEmpty(), "channel %d not written", key)
 		s := ch.Series[len(ch.Series)-1]
@@ -651,6 +655,7 @@ var _ = Describe("Sequence", func() {
     }
     start_cmd => main`
 		newH := func(ctx SpecContext) *runtimeHarness {
+			GinkgoHelper()
 			resolver := channelSymbols(map[string]channelDef{
 				"start_cmd": {types.U8(), 100},
 				"rx_src":    {types.F32(), 101},
@@ -764,6 +769,7 @@ var _ = Describe("Sequence", func() {
     }
     start_cmd => main`
 		newH := func(ctx SpecContext) *runtimeHarness {
+			GinkgoHelper()
 			resolver := channelSymbols(map[string]channelDef{
 				"start_cmd": {types.U8(), 100},
 				"ch_init":   {types.U8(), 201},
@@ -943,6 +949,7 @@ var _ = Describe("Sequence", func() {
 			}
 		}
 		assertLast := func(s telem.Series, expected any) {
+			GinkgoHelper()
 			switch e := expected.(type) {
 			case int8:
 				Expect(s.Unmarshal[int8]()).To(ContainElement(e))
@@ -1890,6 +1897,7 @@ var _ = Describe("Sequence", func() {
 		// mk builds `trigger -> select{} -> { true: <body> }` inside a stage,
 		// so <body> is entered once when trigger fires select's true output.
 		mk := func(ctx SpecContext, body string) *runtimeHarness {
+			GinkgoHelper()
 			resolver := channelSymbols(map[string]channelDef{
 				"start_cmd": {types.U8(), 100},
 				"trigger":   {types.Bool(), 101},
@@ -1918,6 +1926,7 @@ var _ = Describe("Sequence", func() {
 		// firesPerUpdate counts total out samples across entry + 4 later cpu
 		// updates. A once-and-done body writes once; a stage fires each update.
 		firesPerUpdate := func(ctx SpecContext, body string) int {
+			GinkgoHelper()
 			h := mk(ctx, body)
 			defer h.Close(ctx)
 			h.Ingest(100, telem.NewSeriesV[uint8](1))
@@ -5681,6 +5690,7 @@ var _ = Describe("Sequence", func() {
 		// loop drives four s1->s2->s1 re-entries via a 100ms wait, two
 		// scheduler passes settling each re-entry.
 		loop := func(h *runtimeHarness, ctx SpecContext) {
+			GinkgoHelper()
 			step := func(now telem.TimeSpan) {
 				h.Tick(ctx, now)
 				h.channelState.ClearReads()
@@ -6023,6 +6033,7 @@ var _ = Describe("Sequence", func() {
     }
     start_cmd => main`
 		newH := func(ctx SpecContext, src string) *runtimeHarness {
+			GinkgoHelper()
 			resolver := channelSymbols(map[string]channelDef{
 				"start_cmd": {types.U8(), 300},
 				"set_ch":    {types.U8(), 301},
@@ -6244,6 +6255,7 @@ var _ = Describe("Sequence", func() {
     }
     start_cmd => main`
 		newH := func(ctx SpecContext) *runtimeHarness {
+			GinkgoHelper()
 			resolver := channelSymbols(map[string]channelDef{
 				"start_cmd": {types.U8(), 300},
 				"tag_ch":    {types.String(), 301},
@@ -6326,6 +6338,7 @@ var _ = Describe("Sequence", func() {
     }
     start_cmd => main`
 		newH := func(ctx SpecContext) *runtimeHarness {
+			GinkgoHelper()
 			resolver := channelSymbols(map[string]channelDef{
 				"start_cmd": {types.U8(), 310},
 				"tag_ch":    {types.String(), 311},
@@ -6413,6 +6426,7 @@ var _ = Describe("Sequence", func() {
 
 	Describe("Channel brace inputs", func() {
 		newH := func(ctx SpecContext, src string) *runtimeHarness {
+			GinkgoHelper()
 			resolver := channelSymbols(map[string]channelDef{
 				"start_cmd":  {types.U8(), 320},
 				"data_ch":    {types.F32(), 321},
@@ -6437,6 +6451,7 @@ var _ = Describe("Sequence", func() {
 			}
 		}
 		run := func(ctx SpecContext, src string) {
+			GinkgoHelper()
 			h := newH(ctx, src)
 			defer h.Close(ctx)
 			trigger(h, ctx, 320)
@@ -6478,6 +6493,7 @@ var _ = Describe("Sequence", func() {
 		})
 
 		runWrite := func(ctx SpecContext, src string) {
+			GinkgoHelper()
 			h := newH(ctx, src)
 			defer h.Close(ctx)
 			trigger(h, ctx, 320)

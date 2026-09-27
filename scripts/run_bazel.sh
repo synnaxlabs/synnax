@@ -35,13 +35,18 @@ if [ "$status" -eq 0 ]; then
     exit 0
 fi
 
-# Retry an unloadable repo only. A compile error or a failed test ends the job here.
+# Retry an unloadable repo or a stale output tree only. A compile error or a failed test
+# ends the job here.
 corrupt_repo="Error loading '@@|no such package '@@|@@[^']*' is invalid because"
-if ! grep -qE "$corrupt_repo" "$log"; then
+# A dependency version bump leaves archives from the old version in a warm output base,
+# so linking an external target finds no definition for the new symbols. A first-party
+# link failure is a source defect and must fail at once, so it is not matched here.
+stale_outputs="ERROR: .*Linking external/.* failed"
+if ! grep -qE "$corrupt_repo|$stale_outputs" "$log"; then
     exit "$status"
 fi
 
-echo "::warning::Bazel could not load an external repo. Wiping the output base."
+echo "::warning::Bazel hit an unloadable repo or stale outputs. Wiping the output base."
 repository_cache=$(bazel info repository_cache 2> /dev/null || true)
 bazel clean --expunge
 if [ -n "$repository_cache" ]; then

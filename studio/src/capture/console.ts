@@ -20,7 +20,7 @@ const CREDENTIALS = { username: "synnax", password: "seldon" };
  * user's project. Every capture gets its own empty core, so it needs no
  * uniquifier.
  */
-export const PROJECT = "Test Stand";
+export const PROJECT = "Synnax";
 
 /**
  * login fills the Console login form, passes the projects screen (selecting or

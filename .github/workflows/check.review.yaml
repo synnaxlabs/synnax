@@ -8,10 +8,14 @@
 # included in the file licenses/APL.txt.
 
 # Reports the Review gate commit status the main ruleset requires. The job itself
-# always succeeds: a pull request that still waits on a label or an approval gets a
-# pending status, not a failed run and its email. pull_request_target and the base-ref
-# checkout run the base branch's workflow and script, so a pull request cannot edit
-# the gate it is judged by; no pull request code runs here.
+# always succeeds: a pull request that still waits on a label, the Greptile review, or
+# an approval gets a pending status, not a failed run and its email. The check_run
+# trigger re-reports the gate when the Greptile review lands after the push. A merge
+# group gets success outright: its pull request passed the gate to enqueue, and the
+# queue needs the context on the merge commit too. Every trigger runs a workflow from
+# a branch of the repository, never from the pull request, and the base-ref checkout
+# takes the script from the base branch, so a pull request cannot edit the gate it is
+# judged by; no pull request code runs here.
 
 name: Check - Review
 
@@ -28,6 +32,16 @@ on:
     types:
       - submitted
       - dismissed
+  check_run:
+    types:
+      - completed
+  merge_group:
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Pull request number to re-report
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -35,26 +49,50 @@ permissions:
   statuses: write
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  group:
+    ${{ github.workflow }}-${{ github.event.pull_request.number ||
+    github.event.check_run.pull_requests[0].number || inputs.pr || github.ref }}
   cancel-in-progress: true
 
 jobs:
   gate:
     name: Review gate
+    if:
+      github.event_name != 'check_run' || (github.event.check_run.name == 'Greptile
+      Review' && github.event.check_run.pull_requests[0])
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event.pull_request.base.ref }}
-
-      - name: Report the Review gate status
+      - name: Resolve the pull request
+        if: github.event_name != 'merge_group'
+        id: pull
         env:
           GH_TOKEN: ${{ github.token }}
-          PR: ${{ github.event.pull_request.number }}
-          SHA: ${{ github.event.pull_request.head.sha }}
+          NUMBER:
+            ${{ github.event.pull_request.number ||
+            github.event.check_run.pull_requests[0].number || inputs.pr }}
         run: |
-          IFS=$'\t' read -r state description < <(.github/scripts/check_review.sh "$PR")
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${NUMBER}" \
+            --jq '"number=\(.number)", "base=\(.base.ref)", "sha=\(.head.sha)"' \
+            >> "$GITHUB_OUTPUT"
+
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.pull.outputs.base || github.event.merge_group.base_ref }}
+
+      - name: Report the review gate status
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ steps.pull.outputs.number }}
+          SHA: ${{ steps.pull.outputs.sha || github.event.merge_group.head_sha }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = merge_group ]; then
+            state=success
+            description="merge group: the pull request passed the gate to enqueue"
+          else
+            IFS=$'\t' read -r state description \
+              < <(.github/scripts/check_review.sh "$PR")
+          fi
           echo "$state: $description"
           RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           gh api "repos/${GITHUB_REPOSITORY}/statuses/${SHA}" \

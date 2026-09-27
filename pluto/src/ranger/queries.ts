@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { label, type ontology, query, ranger } from "@synnaxlabs/client";
+import { type List } from "@synnaxlabs/lyra/list";
 import { primitive, verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
 import { Label } from "@/label";
-import { type List } from "@/list";
 import { listDefinition, type ListQuery } from "@/ranger/aether/queries";
 import { Synnax } from "@/synnax";
 

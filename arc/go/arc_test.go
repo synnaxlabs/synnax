@@ -118,6 +118,7 @@ var _ = Describe("Dashed names keep -> intact", func() {
 
 var _ = Describe("Arc", func() {
 	compile := func(ctx SpecContext, code string, channels ...arc.Symbol) arc.Program {
+		GinkgoHelper()
 		t := arc.Text{Raw: code}
 		Expect(t.Raw).ToNot(BeEmpty())
 		root := symbol.NewRoot(nil, stl.NewSymbols())
@@ -129,6 +130,7 @@ var _ = Describe("Arc", func() {
 	}
 
 	findNodeByType := func(nodes ir.Nodes, nodeType string) ir.Node {
+		GinkgoHelper()
 		for _, n := range nodes {
 			if n.Type == nodeType {
 				return n
@@ -141,6 +143,7 @@ var _ = Describe("Arc", func() {
 	// findTopLevelScope returns the top-level Scope member whose key matches.
 	// Fails the spec if no such member exists.
 	findTopLevelScope := func(prog arc.Program, key string) ir.Scope {
+		GinkgoHelper()
 		for _, stratum := range prog.Root.Strata {
 			for _, m := range stratum {
 				if m.Scope != nil && m.Scope.Key == key {
@@ -155,6 +158,7 @@ var _ = Describe("Arc", func() {
 	// findMember returns the member with the given key in a scope's
 	// Steps (sequential) or its Strata (parallel).
 	findMember := func(scope ir.Scope, key string) ir.Member {
+		GinkgoHelper()
 		for _, m := range scope.Steps {
 			if m.Key() == key {
 				return m
@@ -599,6 +603,36 @@ func check() {
 				),
 				MatchError(ContainSubstring("did you mean: check{}?")),
 			))
+		},
+	)
+
+	It(
+		"Should return a compile error when '=>' feeds a routing table",
+		func(ctx SpecContext) {
+			root := symbol.NewRoot(nil, stl.NewSymbols())
+			flag := symbol.Symbol{
+				Name: "flag",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.Bool()),
+				ID:   1,
+			}
+			vlvCmd := symbol.Symbol{
+				Name: "vlv_cmd",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.Bool()),
+				ID:   2,
+			}
+			root.Parent.AddChild(&flag)
+			root.Parent.AddChild(&vlvCmd)
+			t := arc.Text{Raw: `
+flag -> select{} => {
+    true: true -> vlv_cmd,
+    false: false -> vlv_cmd
+}
+`}
+			Expect(arc.CompileText(ctx, t, root)).Error().To(
+				MatchError(ContainSubstring("'=>' cannot feed a routing table")),
+			)
 		},
 	)
 

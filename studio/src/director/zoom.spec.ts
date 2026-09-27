@@ -9,11 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import {
-  AUTO_ZOOM_AMOUNT,
-  RECT_ZOOM_MAX,
-  ZOOM_RECT_MARGIN_PX,
-} from "@/director/constants";
+import { RECT_ZOOM_MAX, ZOOM_RECT_MARGIN_PX } from "@/director/constants";
 import { fitAmount, plan } from "@/director/zoom";
 import { type Event, type Rect, type Timeline } from "@/timeline";
 
@@ -60,55 +56,19 @@ describe("fitAmount", () => {
 });
 
 describe("zoom.plan", () => {
-  it("should create one segment per isolated click", () => {
+  it("should not zoom on clicks", () => {
     const tl = timeline([...click(300), ...click(1800)]);
-    const segments = plan(tl);
-    expect(segments).toHaveLength(2);
-    expect(segments[0].amount).toEqual(AUTO_ZOOM_AMOUNT);
-    expect(segments[0].start).toEqual(300 - 0.3 * FPS);
-    expect(segments[0].end).toEqual(300 + 1.2 * FPS);
-  });
-
-  it("should merge clicks closer than the merge gap into one segment", () => {
-    const tl = timeline([...click(300), ...click(400, 700, 500)]);
-    const segments = plan(tl);
-    expect(segments).toHaveLength(1);
-    expect(segments[0].focus).toHaveLength(2);
-    expect(segments[0].end).toEqual(400 + 1.2 * FPS);
-  });
-
-  it("should ignore clicks in the final second", () => {
-    const frames = 10 * FPS;
-    const tl = timeline(click(frames - 30), frames);
     expect(plan(tl)).toHaveLength(0);
   });
 
-  it("should clamp segment ends away from the tail", () => {
-    const frames = 5 * FPS;
-    const tl = timeline(click(3.5 * FPS), frames);
-    const segments = plan(tl);
-    expect(segments[0].end).toEqual(frames - 0.8 * FPS);
-  });
-
-  it("should let an authored zoom override suppress overlapping auto zooms", () => {
+  it("should create one segment per authored override", () => {
     const tl = timeline([
-      ...click(600),
       { type: "zoom", tick: 500, endTick: 900, amount: 1.5, x: 100, y: 100 },
-    ]);
-    const segments = plan(tl);
-    expect(segments).toHaveLength(1);
-    expect(segments[0].amount).toEqual(1.5);
-  });
-
-  it("should clip an auto segment that leads into an authored override", () => {
-    const tl = timeline([
-      ...click(600),
-      { type: "zoom", tick: 650, endTick: 1200, amount: 1.4, x: 900, y: 500 },
+      { type: "zoom", tick: 1200, endTick: 1600, amount: 1.4, x: 900, y: 500 },
     ]);
     const segments = plan(tl);
     expect(segments).toHaveLength(2);
-    expect(segments[0].end).toEqual(649);
-    expect(segments[1].start).toEqual(650);
+    expect(segments[0].amount).toEqual(1.5);
     expect(segments[1].amount).toEqual(1.4);
   });
 
@@ -136,57 +96,13 @@ describe("zoom.plan", () => {
     expect(() => plan(tl)).toThrow("requires a rect");
   });
 
-  it("should skip clicks that opted out of auto-zoom", () => {
+  it("should sort overrides by start tick", () => {
     const tl = timeline([
-      { type: "pointerdown", tick: 300, x: 500, y: 400, button: "left", zoom: false },
-      { type: "pointerup", tick: 306, x: 500, y: 400, button: "left" },
-      ...click(1800),
+      { type: "zoom", tick: 1200, endTick: 1600, amount: 1.4, x: 900, y: 500 },
+      { type: "zoom", tick: 500, endTick: 900, amount: 1.5, x: 100, y: 100 },
     ]);
     const segments = plan(tl);
-    expect(segments).toHaveLength(1);
-    expect(segments[0].focus[0].tick).toEqual(1800);
-  });
-
-  it("should anchor the zoom start at the cursor's approach", () => {
-    const tl = timeline([
-      { type: "move", tick: 280, x: 500, y: 400, duration: 40 },
-      ...click(300),
-    ]);
-    expect(plan(tl)[0].start).toEqual(240);
-  });
-
-  it("should cap the approach anchor at the maximum lead", () => {
-    const tl = timeline([
-      { type: "move", tick: 280, x: 500, y: 400, duration: 200 },
-      ...click(300),
-    ]);
-    expect(plan(tl)[0].start).toEqual(300 - 1.5 * FPS);
-  });
-
-  it("should ignore moves that arrive somewhere else", () => {
-    const tl = timeline([
-      { type: "move", tick: 280, x: 900, y: 700, duration: 40 },
-      ...click(300),
-    ]);
-    expect(plan(tl)[0].start).toEqual(300 - 0.3 * FPS);
-  });
-
-  it("should skip clicks whose target rect is too wide to frame", () => {
-    const wide: Rect = { x: 60, y: 900, width: 1800, height: 40 };
-    const tl = timeline([
-      { type: "pointerdown", tick: 300, x: 960, y: 920, button: "left", rect: wide },
-      { type: "pointerup", tick: 306, x: 960, y: 920, button: "left" },
-    ]);
-    expect(plan(tl)).toHaveLength(0);
-  });
-
-  it("should carry click rects onto segment focuses", () => {
-    const rect = { x: 450, y: 350, width: 100, height: 100 };
-    const tl = timeline([
-      { type: "pointerdown", tick: 300, x: 500, y: 400, button: "left", rect },
-      { type: "pointerup", tick: 306, x: 500, y: 400, button: "left" },
-    ]);
-    const segments = plan(tl);
-    expect(segments[0].focus[0].rect).toEqual(rect);
+    expect(segments[0].start).toEqual(500);
+    expect(segments[1].start).toEqual(1200);
   });
 });

@@ -10,20 +10,15 @@
 import "@/feature/table/Table.css";
 
 import { table } from "@synnaxlabs/client";
-import {
-  Access,
-  Breadcrumb,
-  Color,
-  Flex,
-  Form,
-  Icon,
-  Input,
-  Panel as PPanel,
-  Select,
-  Table,
-  Text,
-  Theming,
-} from "@synnaxlabs/pluto";
+import { Breadcrumb } from "@synnaxlabs/lyra/breadcrumb";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Theming } from "@synnaxlabs/lyra/theming";
+import { Access, Color, Panel as PPanel, Table } from "@synnaxlabs/pluto";
 import { color, deep, type text } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { type z } from "zod";
@@ -286,34 +281,33 @@ const MultiCellForm = ({ cellKeys }: MultiCellFormProps): ReactElement => {
   );
 
   return (
-    <Flex.Box
-      x
-      align="start"
-      gap="large"
-      className={CSS.BE("table", "multi-cell-form")}
-    >
-      <Input.Item label="Variant" padHelpText={false}>
-        <Table.Cell.SelectVariant
-          value={commonVariant ?? undefined}
-          onChange={handleVariantChange}
-        />
-      </Input.Item>
-      {colorGroups.size > 0 && (
-        <Input.Item label="Selection colors" align="start" padHelpText={false}>
-          <Flex.Box x>
-            {Array.from(colorGroups.entries()).map(([hex, keys]) => (
-              <Color.Swatch
-                key={keys[0]}
-                value={hex}
-                onChange={(c: color.Color) => handleColorChange(keys, c)}
-              />
-            ))}
-          </Flex.Box>
+    <Form.Sections x>
+      <Form.Section title="Cell">
+        <Input.Item label="Variant" padHelpText={false}>
+          <Table.Cell.SelectVariant
+            value={commonVariant ?? undefined}
+            onChange={handleVariantChange}
+          />
         </Input.Item>
-      )}
-      <Input.Item label="Size" padHelpText={false}>
-        <Select.Text.Level value={commonLevel} onChange={handleLevelChange} />
-      </Input.Item>
-    </Flex.Box>
+      </Form.Section>
+      <Form.Section title="Appearance">
+        {colorGroups.size > 0 && (
+          <Input.Item label="Selection colors" padHelpText={false}>
+            <Flex.Box x>
+              {Array.from(colorGroups.entries()).map(([hex, keys]) => (
+                <Color.Swatch
+                  key={keys[0]}
+                  value={hex}
+                  onChange={(c: color.Color) => handleColorChange(keys, c)}
+                />
+              ))}
+            </Flex.Box>
+          </Input.Item>
+        )}
+        <Input.Item label="Size" padHelpText={false}>
+          <Select.Text.Level value={commonLevel} onChange={handleLevelChange} />
+        </Input.Item>
+      </Form.Section>
+    </Form.Sections>
   );
 };

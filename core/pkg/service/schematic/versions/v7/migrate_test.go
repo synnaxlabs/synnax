@@ -176,6 +176,7 @@ var _ = Describe("MigrateSchematic", func() {
 	// Console contract. Keep one concern per spec so failures localize.
 	Describe("v5 reshape semantics", func() {
 		migrateV5 := func(ctx SpecContext, body string) v7.Schematic {
+			GinkgoHelper()
 			return migrateSeed(ctx, v0.Schematic{
 				Key: uuid.New(),
 				Data: jsonMap(
