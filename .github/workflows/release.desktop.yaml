@@ -64,6 +64,7 @@ jobs:
       version: ${{ steps.desktop.outputs.version }}
       tag: ${{ steps.desktop.outputs.tag }}
       previous_tag: ${{ steps.desktop.outputs.previous_tag }}
+      core_version: ${{ steps.core.outputs.version }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -77,6 +78,12 @@ jobs:
           product: desktop
           bump: ${{ inputs.bump }}
           prerelease: ${{ inputs.prerelease }}
+
+      # The bundled clients report their package version, so the Core and Driver carry
+      # it too and the client compatibility checks pass.
+      - name: Resolve Core version
+        id: core
+        run: echo "version=$(jq -r .version client/ts/package.json)" >> "$GITHUB_OUTPUT"
 
   draft:
     name: Draft Desktop
@@ -94,8 +101,8 @@ jobs:
           previous_tag: ${{ needs.resolve.outputs.previous_tag }}
           prerelease: ${{ inputs.prerelease }}
 
-  # The Core and Driver of this run exist only inside Desktop and carry its version.
-  # No release_tag reaches the build, so neither lands on the release as an asset.
+  # The Core and Driver of this run exist only inside Desktop. No release_tag reaches
+  # the build, so neither lands on the release as an asset.
   build:
     name: Build Desktop
     needs: [resolve, draft]
@@ -112,7 +119,8 @@ jobs:
       desktop: true
       sign_binaries: true
       use_simple_artifact_names: true
-      version: ${{ needs.resolve.outputs.version }}
+      version: ${{ needs.resolve.outputs.core_version }}
+      desktop_version: ${{ needs.resolve.outputs.version }}
       updater_channel: ${{ inputs.prerelease && 'next' || 'stable' }}
     secrets: inherit
 

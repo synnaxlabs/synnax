@@ -164,11 +164,6 @@ export interface ClientParams {
   unary: UnaryClient;
   /** Cluster address, used in error messages. */
   address: string;
-  /**
-   * The version compared with the Core's in the compatibility check. Defaults to the
-   * version of this package.
-   */
-  clientVersion?: string;
   /** Human-readable cluster name for status messages. */
   name?: string;
   /** Consecutive check failures before escalating to error(unreachable). */
@@ -229,7 +224,6 @@ export class Client implements Handle {
   constructor({
     unary,
     address,
-    clientVersion = __VERSION__,
     name,
     escalateAfter = DEFAULT_ESCALATE_AFTER,
     clockSkewThreshold = TimeSpan.seconds(1),
@@ -243,7 +237,7 @@ export class Client implements Handle {
     this.unary = unary;
     this.address = address;
     this.config = {
-      clientVersion,
+      clientVersion: __VERSION__,
       name,
       escalateAfter,
       clockSkewThreshold,

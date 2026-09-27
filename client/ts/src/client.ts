@@ -61,12 +61,6 @@ export const synnaxParamsZ = z.object({
   retry: breaker.breakerConfigZ.optional(),
   cache: z.boolean().default(true),
   /**
-   * The version the client reports in the Core compatibility check. Defaults to the
-   * version of this package. An app that bundles its own Core passes the version the
-   * two share.
-   */
-  clientVersion: z.string().default(__VERSION__),
-  /**
    * Receives cache errors that have no caller to throw to (listener fan-out, streamer
    * frame handling, background reconciliation). Defaults to console logging.
    */
@@ -118,8 +112,8 @@ export default class Synnax extends framer.Client {
   private readonly transport: Transport;
   private readonly conn: connection.Client;
 
-  /** The version the client reports in the Core compatibility check. */
-  readonly clientVersion: string;
+  /** The version of the client. */
+  readonly clientVersion: string = __VERSION__;
 
   /**
    * @param props.host - Hostname of a node in the cluster.
@@ -172,11 +166,9 @@ export default class Synnax extends framer.Client {
       onError: parsedParams.onInternalError,
     });
     this.cache = cache;
-    this.clientVersion = parsedParams.clientVersion;
     this.conn = new connection.Client({
       unary: transport.unaryNoRetry,
       address: `${host}:${Number(port)}`,
-      clientVersion: parsedParams.clientVersion,
       name: parsedParams.name,
       clockSkewThreshold: new TimeSpan(clockSkewThreshold).abs(),
       requiresStream: parsedParams.cache,

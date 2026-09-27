@@ -382,14 +382,14 @@ reuses the parts of `release.yaml`:
    (`Synnax-Desktop_*`), because GitHub rewrites a space in an asset name, writes the
    updater manifest `latest.json` from their signatures, and publishes the release.
 
-Every binary of a run carries the Desktop version, the Core included, so a Desktop 1.4.0
-reports a Core 1.4.0. The Core that the release builds exists only inside Desktop, so no
-released Core shares its number. The Core has no Console tag, because Desktop never
-serves the web bundle. The client compares its own version with the Core's major and
-minor numbers (`client/ts/src/connection/status.ts:246`). Desktop passes its app version
-to the client as the client version, so the check compares two numbers of one release.
-Desktop licenses carry no maximum version (RFC 0062 §5.8), so the license ceiling never
-reads the number.
+The Desktop version names a Desktop release and nothing else. It is on the tag, the app,
+and the updater manifest. The Core and Driver of the run carry the version of the TS
+client package (`client/ts/package.json`), which is the version that the bundled clients
+report. So the client checks (`client/ts/src/connection/status.ts:246`) compare two
+versions of the same code, and they need no special case for Desktop. The bundled Core
+shares its number with a Core release but is a different build. Its Git commit
+(`synnax version`) identifies it. Desktop licenses carry no maximum version (RFC 0062
+§5.8), so the license ceiling never reads the number.
 
 The docs site serves `/releases/desktop/latest.json` and `/releases/desktop/next.json`.
 Each one redirects to the `latest.json` of the highest `desktop/` release on its
@@ -419,8 +419,6 @@ of `ci.yaml` on macOS, which compiles the Tauri shell with no extra system packa
   `resolve_version.sh` and the hub, the Desktop CI job, the updater manifest, and
   signing. The installation page waits for the first release, because its download link
   needs a published manifest.
-- **Phase 4: Version check.** The `clientVersion` client parameter, which Desktop sets
-  to its app version.
 
 ## 7 What this RFC does not cover
 
@@ -479,10 +477,10 @@ of `ci.yaml` on macOS, which compiles the Tauri shell with no extra system packa
     wait on a Core release, and while `main` is on the next train, every Desktop release
     would come from a release branch. The trade is real: Desktop ships a Core that no
     Core release tested, and each Desktop release builds the Driver again.
-16. **The Core's own version inside Desktop**: Rejected. The bundled Core has no release
-    of its own, so a number from the train would name a Core that does not exist. The
-    trade is real: an external client would report a false mismatch against the Desktop
-    number, if Desktop ever allows one.
+16. **The Desktop version on the Core and Driver**: Rejected. The bundled clients report
+    their package version, so each check would see a mismatch. The fix would be a client
+    version that each app can set, in two shared packages, for Desktop alone. The trade
+    is real: the Core reports a version that no Core release has.
 
 ## 9 Open questions
 

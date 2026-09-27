@@ -126,6 +126,10 @@ on:
         type: string
         required: false
         default: ""
+      desktop_version:
+        description: Synnax Desktop app version; the Core and Driver keep version
+        type: string
+        default: ""
       driver_ref_run_id:
         type: string
         required: false
@@ -172,6 +176,7 @@ jobs:
       - name: Validate inputs
         env:
           VERSION: ${{ inputs.version }}
+          DESKTOP_VERSION: ${{ inputs.desktop_version }}
           CONSOLE_RELEASE: ${{ inputs.console_release }}
           DRIVER_RELEASE: ${{ inputs.driver_release }}
         run: |
@@ -182,10 +187,13 @@ jobs:
               exit 1
             fi
           done
-          if ! [[ "$VERSION" =~ ^([0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9._-]+)?)?$ ]]; then
-            echo "malformed version: $VERSION" >&2
-            exit 1
-          fi
+          SEMVER='^([0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9._-]+)?)?$'
+          for VALUE in "$VERSION" "$DESKTOP_VERSION"; do
+            if ! [[ "$VALUE" =~ $SEMVER ]]; then
+              echo "malformed version: $VALUE" >&2
+              exit 1
+            fi
+          done
 
       - name: Get version
         id: version
@@ -1120,16 +1128,17 @@ jobs:
             runner.name) || '~/setup-pnpm' }}
 
       # The whole Desktop config is merged into the release config, so one --config
-      # carries the product name, the sidecar, the icons, and the resolved version. A
-      # build without a version falls back to the Cargo.toml version.
+      # carries the product name, the sidecar, the icons, and the Desktop version. A
+      # build without one falls back to the Cargo.toml version.
       - name: Write Tauri release config
         id: config
         working-directory: console
+        env:
+          DESKTOP_VERSION: ${{ inputs.desktop_version }}
         run: |
           ENDPOINT="https://docs.synnaxlabs.com/releases/desktop/${{ inputs.updater_channel == 'next' && 'next' || 'latest' }}.json"
-          if [ -n "${{ inputs.version }}" ]; then
-            APP_VERSION="${{ needs.setup.outputs.VERSION }}"
-            APP_VERSION="${APP_VERSION/-rc./-}"
+          if [ -n "$DESKTOP_VERSION" ]; then
+            APP_VERSION="${DESKTOP_VERSION/-rc./-}"
           else
             APP_VERSION=$(grep -m1 '^version = ' src-tauri/Cargo.toml | cut -d'"' -f2)
           fi
@@ -1227,7 +1236,7 @@ jobs:
           name:
             ${{ inputs.use_simple_artifact_names && format('synnax-desktop-{0}',
             env.OS_NAME) || format('synnax-desktop-v{0}-{1}',
-            needs.setup.outputs.VERSION, env.OS_NAME) }}
+            steps.config.outputs.app_version, env.OS_NAME) }}
           path: desktop-bundles
           retention-days: 7
           if-no-files-found: error

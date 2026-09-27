@@ -20,8 +20,7 @@ export const NAME = "Synnax";
 /**
  * @returns The parameters a client needs to reach the embedded Core, or undefined
  * before the Core runs for the first time. The parameters outlive a restart of the
- * Core, so the client keeps its intent to connect and reconnects by itself. The client
- * reports the app version, which the Core shares, so the compatibility check holds.
+ * Core, so the client keeps its intent to connect and reconnects by itself.
  */
 export const useConnParams = (): SynnaxParams | undefined => {
   const status = useStatus();
@@ -30,9 +29,9 @@ export const useConnParams = (): SynnaxParams | undefined => {
   // child sees a stale connection. An effect would commit one render late.
   if (status.state === "running" && !deep.equal(connection, status.connection))
     setConnection(status.connection);
-  return useMemo(() => {
-    if (connection == null) return undefined;
-    const { version, ...address } = connection;
-    return { ...address, clientVersion: version, name: NAME, secure: false };
-  }, [connection]);
+  return useMemo(
+    () =>
+      connection == null ? undefined : { ...connection, name: NAME, secure: false },
+    [connection],
+  );
 };

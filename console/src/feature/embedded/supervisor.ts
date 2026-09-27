@@ -17,7 +17,6 @@ export const connectionZ = z.object({
   port: z.number(),
   username: z.string(),
   password: z.string(),
-  version: z.string(),
 });
 export interface Connection extends z.infer<typeof connectionZ> {}
 
