@@ -35,7 +35,7 @@ import {
   type AlertSchemas,
   deployAlertTaskConfigZ,
 } from "@/feature/pagerduty/task/types";
-import { Button as PlatformButton } from "@/platform/button";
+import { Button } from "@/platform/button";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
@@ -265,9 +265,9 @@ const Form: FC = () => {
             </Select.Frame>
           </PMenu.ContextMenu>
           {!isPreview && (
-            <PlatformButton.CreateListItem size="small" onClick={handleAdd}>
+            <Button.CreateListItem size="small" onClick={handleAdd}>
               Add alert
-            </PlatformButton.CreateListItem>
+            </Button.CreateListItem>
           )}
         </>
       }
