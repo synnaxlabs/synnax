@@ -318,14 +318,9 @@ Entry struct {
 		)
 
 		DescribeTable(
-			"Should omit an inline variant payload where its union or variant omits",
-			func(ctx SpecContext, source string) {
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-				Expect(diag.Ok()).To(BeTrue(), diag.String())
-				payload := table.MustGet("test.ReductionLimitPayload")
-				Expect(omit.IsType(payload, "go")).To(BeTrue())
-			},
-			Entry("union omit", `
+			"Should omit an inline variant payload where its union omits",
+			func(ctx SpecContext, unionDomains string) {
+				source := `
 				@go output "out"
 				Entry struct { value int32 }
 				Aggregation enum {
@@ -334,10 +329,22 @@ Entry struct {
 				}
 				Reduction union on variant {
 					limit { aggregation Aggregation }
-					@go omit
+					` + unionDomains + `
 				}
-			`),
-			Entry("variant omit", `
+			`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+				payload := table.MustGet("test.ReductionLimitPayload")
+				Expect(omit.IsType(payload, "go")).To(BeTrue())
+			},
+			Entry("alone", "@go omit"),
+			Entry("followed by another go domain", "@go omit\n@go marshal"),
+		)
+
+		DescribeTable(
+			"Should keep an inline variant payload that its union does not omit",
+			func(ctx SpecContext, variantDomains string) {
+				source := `
 				@go output "out"
 				Aggregation enum {
 					min_max = 0
@@ -346,23 +353,8 @@ Entry struct {
 				Reduction union on variant {
 					limit {
 						aggregation Aggregation
-						@go omit
+						` + variantDomains + `
 					}
-				}
-			`),
-		)
-
-		It(
-			"Should keep an inline variant payload that its union does not omit",
-			func(ctx SpecContext) {
-				source := `
-				@go output "out"
-				Aggregation enum {
-					min_max = 0
-					@go omit
-				}
-				Reduction union on variant {
-					limit { aggregation Aggregation }
 				}
 			`
 				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
@@ -371,6 +363,8 @@ Entry struct {
 						"aggregation references test.Aggregation, which is omitted in go",
 				))
 			},
+			Entry("no variant domains", ""),
+			Entry("a variant omit", "@go omit"),
 		)
 
 		It("Should allow references to hand-written types", func(ctx SpecContext) {

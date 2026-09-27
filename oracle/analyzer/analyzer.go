@@ -1310,10 +1310,8 @@ func collectUnion(c *analysisCtx, def parser.IUnionDefContext) {
 	maps.Copy(domains, c.fileDomains)
 
 	if body := def.UnionBody(); body != nil {
-		bodyDomains := make(map[string]resolution.Domain)
 		for _, d := range body.AllDomain() {
 			de := collectDomain(d)
-			bodyDomains[de.Name] = de
 			if existing, ok := domains[de.Name]; ok {
 				domains[de.Name] = de.Merge(existing)
 			} else {
@@ -1323,7 +1321,7 @@ func collectUnion(c *analysisCtx, def parser.IUnionDefContext) {
 		for _, v := range body.AllUnionVariant() {
 			form.Variants = append(
 				form.Variants,
-				collectUnionVariant(c, name, bodyDomains, v),
+				collectUnionVariant(c, name, domains, v),
 			)
 		}
 	}
@@ -1370,7 +1368,7 @@ func collectUnionVariant(
 // collectInlineVariant desugars an inline variant body into a Synthetic struct type
 // registered in the table, so the variant resolves and validates like a named payload
 // while generators flatten its fields into the variant member instead of emitting a
-// standalone type. The payload takes every omit of the union and the variant.
+// standalone type. The payload takes every omit of the union.
 func collectInlineVariant(
 	c *analysisCtx,
 	unionName string,
@@ -1434,7 +1432,6 @@ func collectInlineVariant(
 	domains := make(map[string]resolution.Domain)
 	maps.Copy(domains, c.fileDomains)
 	inheritOmits(domains, unionDomains)
-	inheritOmits(domains, variant.Domains)
 	lo.Must0(c.table.Add(resolution.Type{
 		Name:          name,
 		Namespace:     c.namespace,
@@ -1449,7 +1446,8 @@ func collectInlineVariant(
 	return variant
 }
 
-// inheritOmits appends each omit expression in from to the same-named domain in to.
+// inheritOmits adds each omit expression in from to the same-named domain in to,
+// unless that domain already omits.
 func inheritOmits(to, from map[string]resolution.Domain) {
 	for name, d := range from {
 		for _, e := range d.Expressions {
@@ -1457,6 +1455,9 @@ func inheritOmits(to, from map[string]resolution.Domain) {
 				continue
 			}
 			target := to[name]
+			if _, ok := target.Expressions.Find("omit"); ok {
+				continue
+			}
 			target.Name = name
 			target.Expressions = append(slices.Clone(target.Expressions), e)
 			to[name] = target
