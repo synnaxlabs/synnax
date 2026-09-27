@@ -1164,6 +1164,93 @@ var _ = Describe("Iterator Behavior", func() {
 					)
 					Expect(i.Close()).To(Succeed())
 				})
+
+				It(
+					"Should reduce the channels of each index over that index's groups",
+					func(
+						ctx SpecContext,
+					) {
+						fastIdx, fastData := GenerateChannelKey(), GenerateChannelKey()
+						slowIdx, slowData := GenerateChannelKey(), GenerateChannelKey()
+						Expect(db.CreateChannel(
+							ctx,
+							cesium.Channel{
+								Key:      fastIdx,
+								Name:     "Amundsen",
+								IsIndex:  true,
+								DataType: telem.TimestampT,
+							},
+							cesium.Channel{
+								Key:      fastData,
+								Name:     "Scott",
+								Index:    fastIdx,
+								DataType: telem.Float32T,
+							},
+							cesium.Channel{
+								Key:      slowIdx,
+								Name:     "Nansen",
+								IsIndex:  true,
+								DataType: telem.TimestampT,
+							},
+							cesium.Channel{
+								Key:      slowData,
+								Name:     "Peary",
+								Index:    slowIdx,
+								DataType: telem.Float32T,
+							},
+						)).To(Succeed())
+						// Both indexes span the same 100 seconds, at 100 and 20
+						// samples.
+						write := func(
+							idx, data cesium.ChannelKey,
+							count int,
+							step telem.TimeSpan,
+						) {
+							GinkgoHelper()
+							stamps := make([]telem.TimeStamp, count)
+							values := make([]float32, count)
+							for j := range count {
+								stamps[j] = telem.SecondTS.Add(telem.TimeSpan(j) * step)
+								values[j] = float32(j)
+							}
+							Expect(db.Write(ctx, telem.SecondTS, telem.MultiFrame(
+								[]cesium.ChannelKey{idx, data},
+								[]telem.Series{
+									telem.NewSeries(stamps),
+									telem.NewSeries(values),
+								},
+							))).To(Succeed())
+						}
+						write(fastIdx, fastData, 100, telem.Second)
+						write(slowIdx, slowData, 20, 5*telem.Second)
+						i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+							Bounds: telem.TimeRangeMax,
+							Channels: []cesium.ChannelKey{
+								fastIdx,
+								fastData,
+								slowIdx,
+								slowData,
+							},
+							Reduction: telem.Reduction{Variant: telem.LimitReduction{
+								Aggregation: telem.AggregationMinMax,
+								PointLimit:  10,
+							}},
+						}))
+						Expect(i.SeekFirst()).To(BeTrue())
+						Expect(i.Next(cesium.AutoSpan)).To(BeTrue())
+						f := i.Value()
+						fast, slow := f.Get(fastData).Series[0], f.Get(slowData).Series[0]
+						Expect(fast.Unmarshal[float32]()).To(HaveLen(10))
+						Expect(fast.AlignmentMultiple).To(Equal(uint32(10)))
+						Expect(slow.Unmarshal[float32]()).To(HaveLen(10))
+						Expect(slow.AlignmentMultiple).To(Equal(uint32(2)))
+						Expect(f.Get(fastIdx).Series[0].AlignmentBounds()).
+							To(Equal(fast.AlignmentBounds()))
+						Expect(f.Get(slowIdx).Series[0].AlignmentBounds()).
+							To(Equal(slow.AlignmentBounds()))
+						Expect(i.Close()).To(Succeed())
+					},
+				)
 			})
 
 			Describe("Open", func() {
