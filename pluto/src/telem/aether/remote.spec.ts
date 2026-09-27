@@ -2050,8 +2050,8 @@ describe("remote", () => {
       ]);
     });
 
-    it("should size tiles by the line's aggregation and detail", async () => {
-      const source = create({ aggregation: "average", detail: "high" });
+    it("should size tiles by the line's aggregation and groups per column", async () => {
+      const source = create({ aggregation: "average", groupsPerColumn: 1 });
       await settle(source);
       expect(c.tiles.map((t) => [t.pointLimit, t.aggregation])).toEqual([
         [1024, "average"],

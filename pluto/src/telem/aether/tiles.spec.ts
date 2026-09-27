@@ -64,33 +64,36 @@ describe("tiles", () => {
   describe("pointLimit", () => {
     const view = range(0, 1024);
 
-    it("should give one pair of points per two columns at medium detail", () => {
+    it("should give one pair of points per two columns at half a group", () => {
       const limit = pointLimit({
         level: 9,
         view,
         width: 1000,
-        detail: "medium",
+        groupsPerColumn: 1 / 2,
         aggregation: "min_max",
       });
       expect(limit).toBe(512);
     });
 
     it.each([
-      ["low", "min_max", 256],
-      ["high", "min_max", 1024],
-      ["medium", "average", 256],
-      ["high", "average", 512],
-    ] as const)("should scale %s detail with %s", (detail, aggregation, expected) => {
-      expect(pointLimit({ level: 9, view, width: 1000, detail, aggregation })).toBe(
-        expected,
-      );
-    });
+      [1 / 4, "min_max", 256],
+      [1, "min_max", 1024],
+      [1 / 2, "average", 256],
+      [1, "average", 512],
+    ] as const)(
+      "should scale %d groups per column with %s",
+      (groupsPerColumn, aggregation, expected) => {
+        expect(
+          pointLimit({ level: 9, view, width: 1000, groupsPerColumn, aggregation }),
+        ).toBe(expected);
+      },
+    );
 
     it("should keep the same limit across a small resize", () => {
       const props = {
         level: 9,
         view,
-        detail: "medium",
+        groupsPerColumn: 1 / 2,
         aggregation: "min_max",
       } as const;
       expect(pointLimit({ ...props, width: 900 })).toBe(
@@ -104,7 +107,7 @@ describe("tiles", () => {
           level: 0,
           view,
           width: 1,
-          detail: "low",
+          groupsPerColumn: 1 / 4,
           aggregation: "average",
         }),
       ).toBe(1);

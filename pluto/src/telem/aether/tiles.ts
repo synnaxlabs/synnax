@@ -9,17 +9,6 @@
 
 import { framer } from "@synnaxlabs/client";
 import { type Aggregation, type TimeRange } from "@synnaxlabs/x";
-import { z } from "zod";
-
-/** How many aggregation groups a line draws per pixel column. */
-export const detailZ = z.enum(["low", "medium", "high"]);
-export type Detail = z.infer<typeof detailZ>;
-
-const GROUPS_PER_COLUMN: Record<Detail, number> = {
-  low: 1 / 4,
-  medium: 1 / 2,
-  high: 1,
-};
 
 /** Identifies one tile of the grid: tile index of level. */
 export interface Position {
@@ -52,7 +41,8 @@ export interface PointLimitProps {
   view: TimeRange;
   /** The width of the line in pixels. */
   width: number;
-  detail: Detail;
+  /** The number of aggregation groups the line draws per pixel column. */
+  groupsPerColumn: number;
   aggregation: Aggregation;
 }
 
@@ -65,13 +55,13 @@ export const pointLimit = ({
   level,
   view,
   width,
-  detail,
+  groupsPerColumn,
   aggregation,
 }: PointLimitProps): number => {
   const share =
     (Number(framer.tileSpan(level).valueOf()) / Number(view.span.valueOf())) * width;
   const perGroup = aggregation === "min_max" ? 2 : 1;
-  const points = Math.max(share * GROUPS_PER_COLUMN[detail] * perGroup, 1);
+  const points = Math.max(share * groupsPerColumn * perGroup, 1);
   return 2 ** Math.ceil(Math.log2(points));
 };
 

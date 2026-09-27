@@ -48,7 +48,6 @@ import {
 } from "@/telem/aether/telem";
 import {
   choose,
-  detailZ,
   indexes,
   level,
   pointLimit,
@@ -645,7 +644,11 @@ const tiledChannelDataPropsZ = z.object({
   /** The span of the home view of a live line, which ends now. */
   timeSpan: TimeSpan.z.optional(),
   aggregation: aggregationZ.default("min_max"),
-  detail: detailZ.default("medium"),
+  /** The number of aggregation groups the line draws per pixel column. */
+  groupsPerColumn: z
+    .number()
+    .positive()
+    .default(1 / 2),
 });
 
 export type TiledChannelDataProps = z.input<typeof tiledChannelDataPropsZ>;
@@ -782,7 +785,7 @@ export class TiledChannelData
       level: l,
       view,
       width: this.width,
-      detail: this.props.detail,
+      groupsPerColumn: this.props.groupsPerColumn,
       aggregation,
     });
     return indexes(tiled, l).map((index) => {
