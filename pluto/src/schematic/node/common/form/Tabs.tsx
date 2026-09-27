@@ -22,7 +22,7 @@ const TABS = {
   control: { name: "Control", icon: <Icon.Control /> },
   telemetry: { name: "Telemetry", icon: <Icon.Channel /> },
   options: { name: "Options", icon: <Icon.Menu /> },
-  redline: { name: "Redline", icon: <Icon.Range /> },
+  redline: { name: "Redline", icon: <Icon.Redline /> },
   fill: { name: "Fill", icon: <Icon.Tank /> },
 };
 

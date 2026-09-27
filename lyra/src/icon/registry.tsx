@@ -222,6 +222,7 @@ import {
   TbArrowRight,
   TbArrowsSplit,
   TbArrowUp,
+  TbBaselineDensitySmall,
   TbBoxAlignTopLeft,
   TbBoxModel2,
   TbChartArcs,
@@ -345,6 +346,7 @@ export const Import = wrapSVGIcon(PiUploadSimple, "import");
 export const Export = wrapSVGIcon(PiDownloadSimple, "export");
 export const Download = Export;
 export const Range = wrapSVGIcon(MdOutlineTimelapse, "range");
+export const Redline = wrapSVGIcon(TbBaselineDensitySmall, "redline");
 export const Node = wrapSVGIcon(MdOutlineDeviceHub, "node");
 export const Channel = wrapSVGIcon(MdSensors, "channel");
 export const Resources = wrapSVGIcon(AiFillFolder, "resources");
@@ -619,6 +621,7 @@ const icons = {
   Import,
   Export,
   Range,
+  Redline,
   Node,
   Channel,
   Resources,
