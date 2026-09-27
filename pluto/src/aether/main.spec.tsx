@@ -177,6 +177,36 @@ const newProvider = async (): Promise<[FC<TestProviderProps>, aether.Root]> => {
   ];
 };
 
+/** Comms that hold each direction's messages until the spec delivers them, so a main
+ * update and a worker push can cross in flight. */
+const createHeldPair = () => {
+  const toWorker: aether.MainMessage[][] = [];
+  const toMain: aether.WorkerMessage[][] = [];
+  let workerHandler: (messages: aether.MainMessage[]) => void = () => {};
+  let mainHandler: (messages: aether.WorkerMessage[]) => void = () => {};
+  const flushed = async (): Promise<void> =>
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  return {
+    workerSide: {
+      send: (messages) => toMain.push(messages),
+      handle: (handler) => (workerHandler = handler),
+    } satisfies aether.WorkerComms,
+    mainSide: {
+      send: (messages) => toWorker.push(messages),
+      handle: (handler) => (mainHandler = handler),
+    } satisfies aether.MainComms,
+    toWorker,
+    deliverToWorker: async (): Promise<void> => {
+      await flushed();
+      for (const messages of toWorker.splice(0)) workerHandler(messages);
+    },
+    deliverToMain: async (): Promise<void> => {
+      await flushed();
+      for (const messages of toMain.splice(0)) mainHandler(messages);
+    },
+  };
+};
+
 class FakeWorker {
   onmessage: ((e: MessageEvent) => void) | null = null;
   onerror: ((e: ErrorEvent) => void) | null = null;
@@ -1589,6 +1619,62 @@ describe("Aether Main", () => {
       store.dispose();
     });
   });
+  describe("crossing updates", () => {
+    const stageLive = async () => {
+      const pair = createHeldPair();
+      const root = aether.render({
+        worker: pair.workerSide,
+        registry: { [MultiLeaf.TYPE]: MultiLeaf },
+      });
+      const store = new Aether.Store({ worker: pair.mainSide });
+      const handle = store.stage({
+        type: MultiLeaf.TYPE,
+        schema: multiProps,
+        path: ["root", "multi"],
+        initialState: { x: 0, y: "a" },
+      });
+      handle.attach();
+      await pair.deliverToWorker();
+      await pair.deliverToMain();
+      const leaf = root.children[0] as MultiLeaf;
+      return { ...pair, handle, leaf };
+    };
+
+    it("should send only the fields a main update changed", async () => {
+      const { handle, toWorker } = await stageLive();
+      handle.setState((p) => ({ ...p, y: "b" }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(toWorker.flat()).toEqual([
+        {
+          variant: "update",
+          path: ["root", "multi"],
+          type: MultiLeaf.TYPE,
+          state: { y: "b" },
+        },
+      ]);
+    });
+
+    it("should keep a main update that a worker push crossed", async () => {
+      const { handle, leaf, deliverToMain, deliverToWorker } = await stageLive();
+      leaf.setState((p) => ({ ...p, x: 1 }));
+      handle.setState((p) => ({ ...p, y: "b" }));
+      await deliverToMain();
+      expect(handle.getState()).toEqual({ x: 1, y: "b" });
+      await deliverToWorker();
+      expect(leaf.state).toEqual({ x: 1, y: "b" });
+    });
+
+    it("should keep a worker change that a main update crossed", async () => {
+      const { handle, leaf, deliverToMain, deliverToWorker } = await stageLive();
+      handle.setState((p) => ({ ...p, y: "b" }));
+      leaf.setState((p) => ({ ...p, x: 1 }));
+      await deliverToWorker();
+      expect(leaf.state).toEqual({ x: 1, y: "b" });
+      await deliverToMain();
+      expect(handle.getState()).toEqual({ x: 1, y: "b" });
+    });
+  });
+
   describe("regression pins", () => {
     it("should silently collapse two siblings sharing an aetherKey to one worker entry (current behavior)", async () => {
       // Pin: today two components rendered under the same Provider with the same
