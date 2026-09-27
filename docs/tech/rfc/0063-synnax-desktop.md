@@ -3,7 +3,8 @@
 - **Author**: Emiliano Bonilla
 - **Date**: 2026-09-21
 - **Related**: [RFC 0018 - Embed local server in Console](0018-console-server-embed.md),
-  [RFC 0049 - Client connection lifecycle](0049-client-connection-lifecycle.md)
+  [RFC 0049 - Client connection lifecycle](0049-client-connection-lifecycle.md),
+  [RFC 0058 - Release workflow](0058-release-workflow.md)
 
 ## 0 Summary
 
@@ -13,10 +14,10 @@ Core. It has no login screen and no user management, and its interface never nam
 Core, a host, or a port. A supervisor in the Rust shell starts the Core on a free
 loopback port with a root password made for each launch, watches it, restarts it after a
 crash, and stops it when the app exits. Desktop and the Console are one package: static
-build flags select the features that each app wires in. The sidecar is the same Core
-binary that the release pipeline already builds and signs, with the Driver embedded. The
-Core gets two small changes: a loopback bind option and a flag that stops the Core when
-its stdin closes.
+build flags select the features that each app wires in. Desktop has its own version
+numbers and its own release workflow, apart from the Console, Core, and Driver, and each
+Desktop release builds its own Core and Driver. The Core gets two small changes: a
+loopback bind option and a flag that stops the Core when its stdin closes.
 
 ## 1 Motivation
 
@@ -83,11 +84,13 @@ follows this shape.
 4. **The operating system cleans up orphans**: The Core stops when its stdin closes.
    Desktop never saves a process ID.
 5. **No secret is saved**: The root password is made on each launch and stays in memory.
-6. **One Core binary**: Desktop bundles the released Core. Differences arrive as
-   configuration, never as a build tag.
-7. **Only `app/` knows the build**: Build flags are read at wiring sites in the
-   composition root. The `session`, `platform`, and `feature` layers stay the same for
-   both apps.
+6. **Desktop versions on its own**: Desktop releases apart from the train of RFC 0058,
+   with its own version numbers. It never talks to a Core other than its own, so no user
+   has to match its version with another product. The bundled Core builds from the
+   Desktop commit with no Desktop build tag; differences arrive as configuration.
+7. **Only `app/` and `session/runtime` know the build**: `app/` picks features at wiring
+   sites. `session/runtime` turns the flag into constants that name what the build can
+   do, as `ENGINE` does. The other layers read those constants, never the flag.
 
 ## 5 Design
 
@@ -259,7 +262,7 @@ bundler removes the dead branch and every module that only it imports. The built
 confirm it in both directions: the Desktop bundle holds no connect modal and no user
 registration, and the Console bundle holds no supervisor code.
 
-Only files under `console/src/app/` read `DESKTOP`. The login, Core, and user features
+Only `app/` and `session/runtime` read `DESKTOP`. The login, Core, and user features
 enter the app at eight wiring sites, and each one picks its entries with the constant:
 
 | Wiring site              | Console                                | Desktop                  |
@@ -275,15 +278,19 @@ enter the app at eight wiring sites, and each one picks its entries with the con
 | `App.tsx`                | None                                   | The Desktop providers    |
 
 Both window shells mount `window/Guard.tsx`, which is the one place that picks the
-guards. Login surfaces below `app/` become inputs, and three exist:
+guards.
 
-- `Project.Guard` takes a `standalone` flag. The project splash then shows no "Log out"
-  action and no connection island.
-- `Link.Disabled` is a context that removes every copy-link control below it. Desktop
-  registers no URL scheme, so a copied link can open nothing.
-- `Version.InstallProvider` wraps the install of a downloaded update in a middleware.
-  Desktop stops the Core before the install and starts it again if the install fails
-  (§5.6).
+A fact that the build fixes is a constant in `session/runtime`, not an input. Two exist,
+and both are true in Desktop:
+
+- `Runtime.CORE_EMBEDDED`: The app runs its own Core, so it has no login and no Core to
+  pick. The project splash shows no "Log out" action and no connection island.
+- `Runtime.LINKS_DISABLED`: The app opens no `synnax://` links, so a copied link can
+  open nothing. Every copy-link control hides itself.
+
+Behavior that only `app/` can reach is an input. `Version.InstallProvider` wraps the
+install of a downloaded update in a middleware. Desktop stops the Core before the
+install and starts it again if the install fails (§5.6).
 
 The Tauri side uses the same split. `tauri build --config` merges
 `tauri.desktop.conf.json` over `tauri.conf.json`: product name, identifier,
@@ -356,20 +363,42 @@ The role is an instrumentation engineer at first launch, and a test operator in 
 
 ### 5.6 Build and release
 
-Desktop ships where the Console ships: macOS arm64 and Windows x64. The Core is already
-built, signed, and notarized for both with `-tags console,driver`. The Desktop job runs
-after the Core job in `build.synnax.yaml`, downloads the `synnax-core-<os>` artifact,
-and places it at `console/src-tauri/binaries/synnax-core-<target-triple>`, which Git
-already ignores (`.gitignore:236`). Tauri signs the app bundle with the sidecar inside.
+Desktop is a fourth release product with its own tags, `desktop/vX.Y.Z`, and its own
+version numbers. The train rule of RFC 0058 §2.2 does not apply: Desktop 1.4.0 can ship
+beside Core 0.59.2. RFC 0058 §4 rejected independent numbers because users could not
+tell which products work together, and Desktop pairs with nothing but its own Core.
 
-Desktop takes its version from `tauri.conf.json`, as the Console does.
-`scripts/check_versions.sh` already holds that version to the Core's major and minor
-numbers, and the bundle always carries the Core from the same commit, so the client and
-the Core always match. Desktop has its own updater manifest, because an update for one
-identifier must never install the other app: `desktop-latest.json`, written by the same
-publish job and served at `/releases/desktop/latest.json`. Desktop assets go to the
-`console/v*` release under names without a space (`Synnax-Desktop_*`), because GitHub
-rewrites a space in an asset name.
+A person dispatches `release.desktop.yaml` from `main` or from a `release/desktop-X.Y`
+branch, with a bump (`patch`, `minor`, or `major`) and an optional candidate flag. It
+reuses the parts of `release.yaml`:
+
+1. **Verify**: `verify-checks` requires green CI on the commit.
+2. **Resolve**: `resolve_version.sh desktop` takes the base from the highest `desktop/`
+   tag reachable from `HEAD`, skips the train rule, and bumps the first release from
+   `0.0.0`. Candidates count up as for the other products.
+3. **Draft**: `draft-release` makes a draft under the tag.
+4. **Build**: `build.synnax.yaml` builds the Driver, a Core with the Driver embedded,
+   and Desktop, for macOS arm64 and Windows x64, signed and notarized. The run passes no
+   release tag, so the Core and Driver never appear as release assets. The Desktop job
+   places the Core at `console/src-tauri/binaries/synnax-core-<target-triple>`, which
+   Git ignores (`.gitignore:236`), and Tauri signs the bundle with the sidecar inside.
+5. **Publish**: The job uploads the bundles under names without a space
+   (`Synnax-Desktop_*`), because GitHub rewrites a space in an asset name, writes the
+   updater manifest `latest.json` from their signatures, and publishes the release.
+
+The Desktop version names a Desktop release and nothing else. It is on the tag, the app,
+and the updater manifest. The Core and Driver of the run carry the version of the TS
+client package (`client/ts/package.json`), which is the version that the bundled clients
+report. So the client checks (`client/ts/src/connection/status.ts:246`) compare two
+versions of the same code, and they need no special case for Desktop. The bundled Core
+shares its number with a Core release but is a different build. Its Git commit
+(`synnax version`) identifies it. Desktop licenses carry no maximum version (RFC 0062
+§5.8), so the license ceiling never reads the number.
+
+The docs site serves `/releases/desktop/latest.json` and `/releases/desktop/next.json`.
+Each one redirects to the `latest.json` of the highest `desktop/` release on its
+channel, as the Console routes do for `console/` releases. An update for one app never
+installs the other, because each app polls its own route.
 
 An update stops the Core first. The Windows installer ends the app with no exit event,
 and it cannot replace the executable of a Core that still runs. The updater plugin has
@@ -379,8 +408,8 @@ next start.
 
 `console/scripts/build_desktop.sh` makes a local build: it builds the Core from source
 into `binaries/`, then an unsigned app with no updater artifacts. With `--dev` it runs
-the app with hot reload. The Rust tests of the supervisor run in `test.console.yaml` on
-macOS, which compiles the Tauri shell with no extra system packages.
+the app with hot reload. The Rust tests of the supervisor run in the `desktop-shell` job
+of `ci.yaml` on macOS, which compiles the Tauri shell with no extra system packages.
 
 ## 6 Implementation phases
 
@@ -390,9 +419,10 @@ macOS, which compiles the Tauri shell with no extra system packages.
   `DESKTOP` constant and wiring sites, `feature/embedded`, `EMBEDDED_KEY`, and the
   splash inputs. One phase, because no part runs without the others and the Console
   bundle is the green state at every commit.
-- **Phase 3: Release.** The Desktop CI job, the updater manifest, and signing. The
-  installation page waits for the first release, because its download link needs a
-  published manifest.
+- **Phase 3: Release.** `release.desktop.yaml`, the `desktop` product in
+  `resolve_version.sh` and the hub, the Desktop CI job, the updater manifest, and
+  signing. The installation page waits for the first release, because its download link
+  needs a published manifest.
 
 ## 7 What this RFC does not cover
 
@@ -430,9 +460,8 @@ macOS, which compiles the Tauri shell with no extra system packages.
    `localhost:9090` binding every interface.
 7. **A second package or a second `app/` root**: Rejected. About 20 `app/` directories
    would fork for eight wiring sites, and the copies would drift apart.
-8. **A Desktop build of the Core**: Rejected. One binary means one build matrix and one
-   signing path. The trade is real: the installer carries the embedded Console assets,
-   which Desktop never serves.
+8. **A Desktop build tag for the Core**: Rejected. The bundled Core builds from the same
+   code as a released Core, and differences arrive as configuration.
 9. **A project made on first launch**: Rejected. The user sees the project selector.
 10. **A dialog on each Core crash**: Rejected. A restart that works needs no decision
     from the operator, and the give-up state catches a Core that keeps crashing.
@@ -443,6 +472,19 @@ macOS, which compiles the Tauri shell with no extra system packages.
 12. **A data guard in the uninstaller**: Not needed. The Tauri NSIS uninstaller deletes
     the app data only when the user ticks "Delete the application data", never in an
     update, and macOS leaves the data when the app goes to the trash.
+13. **Desktop on the Console release**: Rejected. Desktop took the Console's version and
+    tag, so a fix to Desktop alone needed a Console release, and the enterprise product
+    set when Desktop could ship.
+14. **Desktop on the train**: Rejected. Desktop would take a new minor each time the
+    enterprise product opens a train, and could never ship a minor of its own.
+15. **A released Core in the bundle**: Rejected. A fix to the Core for Desktop would
+    wait on a Core release, and while `main` is on the next train, every Desktop release
+    would come from a release branch. The trade is real: Desktop ships a Core that no
+    Core release tested, and each Desktop release builds the Driver again.
+16. **The Desktop version on the Core and Driver**: Rejected. The bundled clients report
+    their package version, so each check would see a mismatch. The fix would be a client
+    version that each app can set, in two shared packages, for Desktop alone. The trade
+    is real: the Core reports a version that no Core release has.
 
 ## 9 Open questions
 
@@ -451,3 +493,5 @@ macOS, which compiles the Tauri shell with no extra system packages.
 - The installer size. The macOS arm64 Core with the Driver is about 195 MB before
   compression.
 - The copy in shared surfaces that still says "Console", such as the update dialog.
+- The first version number. The first dispatch sets it through the bump: `major` gives
+  1.0.0, and `minor` gives 0.1.0.

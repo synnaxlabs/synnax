@@ -21,6 +21,7 @@ import (
 
 var _ = Describe("Retrieve", func() {
 	createN := func(ctx context.Context, n int) []panel.Key {
+		GinkgoHelper()
 		keys := make([]panel.Key, n)
 		for i := range keys {
 			p := panel.Panel{Name: "test", Root: leafNode(), Parent: &parentID}

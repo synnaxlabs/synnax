@@ -3,8 +3,8 @@
 How a change gets into `main`. Setup lives in the package guides
 ([Core](core/CONTRIBUTING.md), [Console](console/CONTRIBUTING.md),
 [Pluto](pluto/CONTRIBUTING.md), [TypeScript client](client/ts/CONTRIBUTING.md),
-[Python client](client/py/CONTRIBUTING.md), [docs site](docs/site/CONTRIBUTING.md)),
-design in the [RFCs](docs/tech/rfc), and code style in [CLAUDE.md](CLAUDE.md).
+[Python client](client/py/CONTRIBUTING.md), [docs site](hub/CONTRIBUTING.md)), design in
+the [RFCs](docs/tech/rfc), and code style in [CLAUDE.md](CLAUDE.md).
 
 ## Branches and pull requests
 
@@ -40,10 +40,13 @@ the code around it, against the `CLAUDE.md` principles, the tests, and the docs.
 change carries a migration and a dark feature stays dark. **Tier 3**: Only Greptile
 reads it. A fix that turns out to change behavior gets its tier raised.
 
-The `Review gate` status, required on `main` with `Greptile Review`, stays pending until
-the PR has one tier label and, for Tier 1 or 2, an approval from a human other than the
-author. A later request for changes or a dismissal retires an approval. Two tier labels
-fail it. Admins bypass when Greptile is down. The script is
+Two statuses gate a merge into `main` or a `release/**` branch, both through a merge
+queue. `Review gate` stays pending until the PR has one tier label, a successful
+Greptile review and, for Tier 1 or 2, an approval from a human other than the author. A
+later request for changes or a dismissal retires an approval. Two tier labels fail it.
+`OK` is the CI workflow's last job: it fails when any check the PR's paths select
+failed. The queue reruns CI on the merged result with the integration suite added before
+the branch moves. Admins bypass when Greptile is down. The gate script is
 `.github/scripts/check_review.sh`, the ruleset `.github/rulesets/main.json`.
 
 ## Size
@@ -63,8 +66,8 @@ failure to avoid is a branch that grows for days and lands as one PR nobody can 
 
 Synnax Desktop is the free edition, where a feature ships first. The Console is the
 enterprise edition and gets it once it has proved itself. A static flag in
-`console/src/flags.ts` (or `docs/site/src/flags.ts`) is on in dev and Desktop builds and
-off in the Console build; its entry names the owner, the Linear umbrella issue, and the
+`console/src/flags.ts` (or `hub/src/flags.ts`) is on in dev and Desktop builds and off
+in the Console build; its entry names the owner, the Linear umbrella issue, and the
 release that removes it. A flag past that release is a bug: promote or delete.
 
 1. **Land dark** in Tier 2 PRs. The reviewer confirms the Console build tree-shakes the

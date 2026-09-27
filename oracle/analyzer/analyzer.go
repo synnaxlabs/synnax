@@ -12,6 +12,7 @@ package analyzer
 import (
 	"context"
 	"maps"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -1310,9 +1311,6 @@ func collectUnion(c *analysisCtx, def parser.IUnionDefContext) {
 	maps.Copy(domains, c.fileDomains)
 
 	if body := def.UnionBody(); body != nil {
-		for _, v := range body.AllUnionVariant() {
-			form.Variants = append(form.Variants, collectUnionVariant(c, name, v))
-		}
 		for _, d := range body.AllDomain() {
 			de := collectDomain(d)
 			if existing, ok := domains[de.Name]; ok {
@@ -1320,6 +1318,12 @@ func collectUnion(c *analysisCtx, def parser.IUnionDefContext) {
 			} else {
 				domains[de.Name] = de
 			}
+		}
+		for _, v := range body.AllUnionVariant() {
+			form.Variants = append(
+				form.Variants,
+				collectUnionVariant(c, name, domains, v),
+			)
 		}
 	}
 
@@ -1335,7 +1339,10 @@ func collectUnion(c *analysisCtx, def parser.IUnionDefContext) {
 }
 
 func collectUnionVariant(
-	c *analysisCtx, unionName string, def parser.IUnionVariantContext,
+	c *analysisCtx,
+	unionName string,
+	unionDomains map[string]resolution.Domain,
+	def parser.IUnionVariantContext,
 ) resolution.UnionVariant {
 	switch v := def.(type) {
 	case *parser.NamedVariantContext:
@@ -1353,7 +1360,7 @@ func collectUnionVariant(
 		}
 		return variant
 	case *parser.InlineVariantContext:
-		return collectInlineVariant(c, unionName, v)
+		return collectInlineVariant(c, unionName, unionDomains, v)
 	default:
 		return resolution.UnionVariant{}
 	}
@@ -1362,9 +1369,12 @@ func collectUnionVariant(
 // collectInlineVariant desugars an inline variant body into a Synthetic struct type
 // registered in the table, so the variant resolves and validates like a named payload
 // while generators flatten its fields into the variant member instead of emitting a
-// standalone type.
+// standalone type. The payload takes every omit of the union.
 func collectInlineVariant(
-	c *analysisCtx, unionName string, def *parser.InlineVariantContext,
+	c *analysisCtx,
+	unionName string,
+	unionDomains map[string]resolution.Domain,
+	def *parser.InlineVariantContext,
 ) resolution.UnionVariant {
 	variantName := def.VariantName().GetText()
 	variant := resolution.UnionVariant{
@@ -1422,6 +1432,7 @@ func collectInlineVariant(
 	}
 	domains := make(map[string]resolution.Domain)
 	maps.Copy(domains, c.fileDomains)
+	inheritOmits(domains, unionDomains)
 	lo.Must0(c.table.Add(resolution.Type{
 		Name:          name,
 		Namespace:     c.namespace,
@@ -1434,6 +1445,25 @@ func collectInlineVariant(
 	}))
 	variant.Type = resolution.TypeRef{Name: name}
 	return variant
+}
+
+// inheritOmits adds each omit expression in from to the same-named domain in to,
+// unless that domain already omits.
+func inheritOmits(to, from map[string]resolution.Domain) {
+	for name, d := range from {
+		for _, e := range d.Expressions {
+			if e.Name != "omit" {
+				continue
+			}
+			target := to[name]
+			if _, ok := target.Expressions.Find("omit"); ok {
+				continue
+			}
+			target.Name = name
+			target.Expressions = append(slices.Clone(target.Expressions), e)
+			to[name] = target
+		}
+	}
 }
 
 // pascalIdent converts a snake_case variant name to PascalCase for the synthesized

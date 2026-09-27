@@ -7,7 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, Dialog, Form, Icon, Select } from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Select } from "@synnaxlabs/lyra/select";
 import { navigate } from "astro:transitions/client";
 import { type ReactElement, useCallback } from "react";
 import { z } from "zod";
@@ -78,11 +82,13 @@ const Content = ({ teams }: IssueDialogProps): ReactElement => {
           helpText="Organizations and their admins are created in the Clerk dashboard."
         >
           {(p) => (
-            <Select.Static<string, OrganizationEntry>
-              {...p}
-              data={entries}
-              resourceName="Organization"
-            />
+            <Select.Simple<string> {...p} resourceName="Organization">
+              {entries.map(({ key, name }) => (
+                <Select.Item key={key} itemKey={key}>
+                  {name}
+                </Select.Item>
+              ))}
+            </Select.Simple>
           )}
         </Form.Field>
         <TermsFields />

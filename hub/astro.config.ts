@@ -16,6 +16,7 @@ import { type AstroUserConfig } from "astro";
 import { envField } from "astro/config";
 
 import { portal } from "./src/portal/integration";
+import { layer } from "./src/util/layer";
 import { symbols, theme } from "./src/util/shiki";
 
 const secret = envField.string({ context: "server", access: "secret" });
@@ -40,6 +41,11 @@ export const docs = {
   output: "server",
   env: { schema: docsEnv },
   adapter: vercel(),
+  vite: {
+    // Lyra is ESM with CSS imports, which Node cannot load; Vite bundles it for SSR.
+    ssr: { noExternal: ["@synnaxlabs/lyra"] },
+    css: { postcss: { plugins: [layer(/[\\/]lyra[\\/]/, "pluto")] } },
+  },
   markdown: {
     shikiConfig: {
       theme,

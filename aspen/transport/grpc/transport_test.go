@@ -42,6 +42,13 @@ var _ = Describe("Transport", func() {
 		})
 	})
 	Describe("Close", func() {
+		It("Should release the listener when it immediately follows Serve", func() {
+			Expect(tr.Configure(alamos.Instrumentation{})).To(Succeed())
+			lis := MustSucceed(net.Listen("tcp", "localhost:0"))
+			Expect(tr.Serve(lis)).To(Succeed())
+			Expect(tr.Close()).To(Succeed())
+			Expect(lis.Close()).To(MatchError(net.ErrClosed))
+		})
 		It("Should succeed on a Transport that never served", func() {
 			Expect(tr.Configure(alamos.Instrumentation{})).To(Succeed())
 			Expect(tr.Close()).To(Succeed())

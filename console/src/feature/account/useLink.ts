@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { Drift } from "@synnaxlabs/drift";
-import { Status, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
+import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Synnax } from "@synnaxlabs/pluto";
 import { useState } from "react";
 
 import { type Linked, parseLink } from "@/feature/account/handoff";

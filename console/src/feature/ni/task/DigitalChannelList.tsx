@@ -9,7 +9,11 @@
 
 import "@/feature/ni/task/DigitalChannelList.css";
 
-import { type Component, Flex, Form, Select, Text } from "@synnaxlabs/pluto";
+import { type Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
 import { useCallback } from "react";
 
 import { type DigitalChannel } from "@/feature/ni/task/types";
@@ -28,16 +32,20 @@ export type DigitalNameComponentProps<C extends DigitalChannel> = Omit<C, "key">
   path: string;
 };
 
+const PORT_INPUT_PROPS = { showDragHandle: false, "aria-label": "Port" };
+
+const LINE_INPUT_PROPS = { showDragHandle: false, "aria-label": "Line" };
+
 const ListItem = <C extends DigitalChannel>({ name, ...rest }: ListItemProps<C>) => {
   const path = `config.channels.${rest.itemKey}`;
   const channel = Form.useFieldValue<C>(path);
   if (channel == null) return null;
   return (
-    <Select.ListItem {...rest} align="center" justify="between" full="x">
+    <Select.Item {...rest} align="center" justify="between" full="x">
       <Flex.Box align="center" x justify="evenly">
         <Flex.Box pack align="center" className="port-line-input" x>
           <Form.NumericField
-            inputProps={{ showDragHandle: false }}
+            inputProps={PORT_INPUT_PROPS}
             hideIfNull
             showLabel={false}
             showHelpText={false}
@@ -47,7 +55,7 @@ const ListItem = <C extends DigitalChannel>({ name, ...rest }: ListItemProps<C>)
             /
           </Text.Text>
           <Form.NumericField
-            inputProps={{ showDragHandle: false }}
+            inputProps={LINE_INPUT_PROPS}
             hideIfNull
             showLabel={false}
             showHelpText={false}
@@ -64,9 +72,9 @@ const ListItem = <C extends DigitalChannel>({ name, ...rest }: ListItemProps<C>)
       </Flex.Box>
       <Flex.Box x align="center" justify="evenly">
         {name({ ...channel, itemKey: rest.itemKey, path })}
-        <Task.EnableDisableButton path={`${path}.disabled`} />
+        <Task.EnabledCheckbox path={`${path}.disabled`} />
       </Flex.Box>
-    </Select.ListItem>
+    </Select.Item>
   );
 };
 

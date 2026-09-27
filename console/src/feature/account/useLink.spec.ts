@@ -9,7 +9,7 @@
 
 import { type license, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Status } from "@synnaxlabs/pluto";
+import { Status } from "@synnaxlabs/lyra/status";
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { act, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, type MockInstance, vi } from "vitest";

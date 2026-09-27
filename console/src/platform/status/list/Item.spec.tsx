@@ -9,7 +9,10 @@
 
 import { type status } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
-import { Component, List, Select, Text } from "@synnaxlabs/pluto";
+import { Component } from "@synnaxlabs/lyra/component";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -48,7 +51,9 @@ const Fixture = ({ status: stat }: { status: status.Status }): ReactElement => {
       value={[]}
       onChange={vi.fn()}
     >
-      <List.Items>{item}</List.Items>
+      <List.Scroll>
+        <List.Items>{item}</List.Items>
+      </List.Scroll>
     </Select.Frame>
   );
 };

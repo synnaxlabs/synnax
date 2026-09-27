@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type Dispatch } from "@reduxjs/toolkit";
-import { type Haul, type state } from "@synnaxlabs/pluto";
+import { type Haul } from "@synnaxlabs/lyra/haul";
+import { type state } from "@synnaxlabs/lyra/state";
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 

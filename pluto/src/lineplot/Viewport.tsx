@@ -9,6 +9,9 @@
 
 import "@/lineplot/Viewport.css";
 
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
 import { box, xy } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
@@ -17,10 +20,7 @@ import {
   useLayoutEffect,
 } from "react";
 
-import { CSS } from "@/css";
 import { useContext } from "@/lineplot/Frame";
-import { Status } from "@/status/base";
-import { Text } from "@/text";
 import { Viewport as Base } from "@/viewport";
 
 export interface ViewportProps extends PropsWithChildren, Base.UseProps {}

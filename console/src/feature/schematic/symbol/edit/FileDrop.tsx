@@ -9,7 +9,10 @@
 
 import "@/feature/schematic/symbol/edit/Edit.css";
 
-import { Flex, Icon, Status, Text } from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
 import { caseconv } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 

@@ -10,6 +10,8 @@
 package literal_test
 
 import (
+	"slices"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/literal"
@@ -441,11 +443,8 @@ var _ = Describe("ValidateSpec", func() {
 
 	nonIntTypes := append(append([]namedType{}, floatTypes...), stringType)
 	nonFloatTypes := append(append([]namedType{}, intTypes...), stringType)
-	nonStringTypes := append(append([]namedType{}, intTypes...), floatTypes...)
-	allTypes := append(
-		append(append([]namedType{}, intTypes...), floatTypes...),
-		stringType,
-	)
+	nonStringTypes := slices.Concat(intTypes, floatTypes)
+	allTypes := append(slices.Concat(intTypes, floatTypes), stringType)
 
 	var invalidArgs []any
 	invalidArgs = append(

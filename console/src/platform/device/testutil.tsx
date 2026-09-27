@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { device, type ontology, type Synnax } from "@synnaxlabs/client";
-import { Form, Menu as PMenu } from "@synnaxlabs/pluto";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
 import { id } from "@synnaxlabs/x";
 import { render, type RenderResult } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";

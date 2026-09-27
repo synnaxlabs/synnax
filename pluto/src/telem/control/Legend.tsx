@@ -10,17 +10,17 @@
 import "@/telem/control/Legend.css";
 
 import { UnexpectedError } from "@synnaxlabs/client";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type color, type state, unique } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { Aether } from "@/aether";
 import { Color } from "@/color";
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
-import { Icon } from "@/icon";
 import { control } from "@/telem/control/aether";
 import { useContext } from "@/telem/control/Controller";
-import { Text } from "@/text";
 import { Legend as Base } from "@/vis/legend";
 
 const SUBJECT_NAME_RE = /^(.+)\s*\(([^)]+)\)$/;

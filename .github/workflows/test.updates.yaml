@@ -7,29 +7,21 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-name: Check Versions
+name: Check versions
 
 on:
-  pull_request:
-  push:
-    branches:
-      - main
-      - release/**
+  workflow_call:
   workflow_dispatch:
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
 
 jobs:
   check-versions:
-    name: Check Versions
+    name: Check versions
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v7
         with:
           fetch-tags: true
 
-      - name: Check Versions
+      - name: Check versions
         run: scripts/check_versions.sh

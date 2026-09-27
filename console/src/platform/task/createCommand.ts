@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { task } from "@synnaxlabs/client";
-import { Access, type Icon } from "@synnaxlabs/pluto";
+import { type Icon } from "@synnaxlabs/lyra/icon";
+import { Access } from "@synnaxlabs/pluto";
 
 import { Command } from "@/platform/command";
 import { type UseCreate } from "@/platform/task/useCreate";

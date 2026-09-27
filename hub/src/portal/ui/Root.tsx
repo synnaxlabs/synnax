@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Triggers } from "@synnaxlabs/pluto";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { type PropsWithChildren, type ReactElement } from "react";
 
 /** Root wraps a portal island with the providers Pluto's interactive pieces need. */

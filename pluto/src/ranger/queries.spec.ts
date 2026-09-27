@@ -911,6 +911,38 @@ describe("queries", () => {
       });
     });
 
+    it("should keep the form's label order after a save", async () => {
+      const [lo, hi] = (
+        await Promise.all(
+          ["orderLabel1", "orderLabel2"].map((name) =>
+            client.labels.create({ name, color: "#FF00FF" }),
+          ),
+        )
+      )
+        .map((l) => l.key)
+        .sort();
+      const rng = await client.ranges.create({
+        name: "labelOrderRange",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.minutes(5)),
+      });
+      const { result } = renderHook(() => Ranger.useForm({ query: { key: rng.key } }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      for (const labels of [[hi], [hi, lo]])
+        await act(async () => {
+          result.current.form.set("labels", labels);
+          await result.current.saveAsync({ signal: controller.signal });
+        });
+      await act(async () => {
+        await client.ranges.rename(rng.key, "renamedLabelOrderRange");
+      });
+      await waitFor(() =>
+        expect(result.current.form.value().name).toEqual("renamedLabelOrderRange"),
+      );
+      expect(result.current.form.value().labels).toEqual([hi, lo]);
+    });
+
     it("should retrieve range with existing labels", async () => {
       const label1 = await client.labels.create({
         name: "existingLabel1",

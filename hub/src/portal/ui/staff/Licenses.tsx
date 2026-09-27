@@ -7,7 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex, Icon, Input, Select, Text } from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useMemo, useState } from "react";
 
 import { date, type LicenseStatus, statusOf, term } from "@/portal/ui/format";
@@ -90,15 +94,14 @@ export const StaffLicenses = ({
               style={{ maxWidth: "40rem" }}
             />
             <Select.Buttons<LicenseStatus>
-              keys={STATUSES}
               value={status ?? undefined}
               onChange={setStatus}
               allowNone
             >
               {STATUSES.map((s) => (
-                <Select.Button key={s} itemKey={s} size="small">
+                <Select.Item key={s} itemKey={s} size="small">
                   {STATUS_LABELS[s]}
-                </Select.Button>
+                </Select.Item>
               ))}
             </Select.Buttons>
           </Flex.Box>

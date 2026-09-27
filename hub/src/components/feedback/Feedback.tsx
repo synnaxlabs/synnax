@@ -7,17 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  Breadcrumb,
-  Button,
-  Dialog,
-  Flex,
-  Form,
-  Icon,
-  Input,
-  Nav,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Breadcrumb } from "@synnaxlabs/lyra/breadcrumb";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Nav } from "@synnaxlabs/lyra/nav";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, type SubmitEvent, useState } from "react";
 import { z } from "zod";
 

@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { CSS } from "@synnaxlabs/lyra/css";
 import { color } from "@synnaxlabs/x";
 import { BaseEdge, type BaseEdgeProps } from "@xyflow/react";
 import { type CSSProperties, type ReactElement, useMemo } from "react";
 import { z } from "zod";
-
-import { CSS } from "@/css";
 
 export interface BaseProps extends Omit<BaseEdgeProps, "color"> {
   color?: color.Crude;

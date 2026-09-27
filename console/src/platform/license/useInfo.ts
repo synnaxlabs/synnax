@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type license } from "@synnaxlabs/client";
-import { Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
+import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
+import { Synnax } from "@synnaxlabs/pluto";
 import { useState } from "react";
 
 export interface InfoResult {

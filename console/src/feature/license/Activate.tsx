@@ -10,7 +10,13 @@
 import "@/feature/license/Activate.css";
 
 import { status } from "@synnaxlabs/client";
-import { Button, Flex, Icon, Input, Status, Synnax, Text } from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Synnax } from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
 
 import { Shell } from "@/feature/shell";
@@ -88,11 +94,6 @@ const Fingerprint = ({ info: { info, error } }: FingerprintProps): ReactElement 
 };
 
 export interface ActivateProps {
-  /**
-   * True when the session has one fixed Core. The screen then shows no connection
-   * island and no log out action.
-   */
-  standalone?: boolean;
   /** Offers a way back to the screen that led here. */
   onBack?: () => void;
 }
@@ -102,10 +103,7 @@ export interface ActivateProps {
  * applies. Shows the host fingerprint the hub needs and takes the token it issues,
  * pasted or from a file.
  */
-export const Activate = ({
-  standalone = false,
-  onBack,
-}: ActivateProps): ReactElement => {
+export const Activate = ({ onBack }: ActivateProps): ReactElement => {
   const client = Synnax.use();
   const connection = Synnax.useConnectionStatus();
   const target = Session.Core.useSelectSelected();
@@ -147,7 +145,7 @@ export const Activate = ({
   return (
     <Shell.Frame
       className={CSS.B("license-activate")}
-      connection={standalone ? null : target}
+      connection={Session.Runtime.CORE_EMBEDDED ? null : target}
     >
       <Flex.Box y gap="large" className={CSS.BE("license-activate", "body")}>
         <Status.Summary variant="warning" level="h4" message={connection.message} />
@@ -190,7 +188,7 @@ export const Activate = ({
           <Connection.Retry variant="outlined" grow justify="center">
             Check again
           </Connection.Retry>
-          {!standalone && (
+          {!Session.Runtime.CORE_EMBEDDED && (
             <Button.Button variant="outlined" grow justify="center" onClick={logout}>
               <Icon.Logout />
               Log out

@@ -1185,6 +1185,7 @@ var _ = Describe("Control", func() {
 	Describe("ResourceAt", func() {
 		at := func(ts telem.TimeStamp) telem.TimeRange { return ts.Range(ts + 1) }
 		openAt := func(value int, tr telem.TimeRange) *control.Gate[testResource] {
+			GinkgoHelper()
 			cfg, _ := baseConfig(value)
 			cfg.TimeRange = tr
 			cfg.Subject.Key = fmt.Sprintf("gate-%d", value)

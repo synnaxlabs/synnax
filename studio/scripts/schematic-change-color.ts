@@ -27,7 +27,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.moveTo({ x: 300, y: 620 });
 
   session.startRecording();
-  await session.hold(1200);
+  await session.hold(500);
 
   await capture.selectSymbols(session, [tank, valve, pump]);
   await session.hold(1000);
@@ -52,5 +52,5 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.hold(1000);
 
   await session.press("Escape");
-  await session.hold(2600);
+  await session.hold(500);
 };

@@ -9,7 +9,11 @@
 
 import "@/feature/account/SignIn.css";
 
-import { Button, Flex, Icon, Status, Text } from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useEffect, useState } from "react";
 
 import { mintState, signInURL } from "@/feature/account/handoff";
@@ -46,7 +50,7 @@ type Stage = "idle" | "waiting" | "file";
 export const SignIn = (): ReactElement => {
   const [stage, setStage] = useState<Stage>("idle");
   if (stage === "file")
-    return <License.Activate standalone onBack={() => setStage("idle")} />;
+    return <License.Activate onBack={() => setStage("idle")} />;
   return <Handoff stage={stage} onStage={setStage} />;
 };
 

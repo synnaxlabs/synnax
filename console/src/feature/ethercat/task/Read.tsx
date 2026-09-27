@@ -8,10 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { channel } from "@synnaxlabs/client";
-import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { primitive } from "@synnaxlabs/x";
-import { type FC } from "react";
+import { type FC, useCallback } from "react";
 
+import { useSlavesByKeys } from "@/feature/ethercat/device/queries";
 import { ReadChannelDetails } from "@/feature/ethercat/task/ChannelDetails";
 import {
   checkOrCreateIndex,
@@ -63,16 +67,42 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
 
 const channelDetails = Component.renderProp(ReadChannelDetails);
 
+const DetailsTitle = ({ path }: Task.Views.DetailsProps) => {
+  const ch = PForm.useFieldValue<ReadChannel>(path);
+  return (
+    <Task.Views.ItemLabel kind={ch.type === "automatic" ? "PDO" : "Manual"}>
+      {getPortLabel(ch)}
+    </Task.Views.ItemLabel>
+  );
+};
+
+const detailsTitle = Component.renderProp(DetailsTitle);
+
 const listItem = Component.renderProp(ChannelListItem);
 
-const Form: FC = () => (
-  <Task.Views.ListAndDetails<ReadChannel>
-    listItem={listItem}
-    details={channelDetails}
-    createChannel={createReadChannel}
-    contextMenuItems={Task.readChannelContextMenuItem}
-  />
-);
+const Form: FC = () => {
+  const slaves = useSlavesByKeys(Task.useChannelDeviceKeys());
+  const resolve = useCallback(
+    (ch: ReadChannel) => {
+      const slave = slaves?.find(({ key }) => key === ch.device);
+      if (slave == null) return null;
+      return {
+        channel: getChannelByMapKey(slave.properties.read.channels, channelMapKey(ch)),
+      };
+    },
+    [slaves],
+  );
+  return (
+    <Task.Views.ListAndDetails<ReadChannel>
+      listItem={listItem}
+      details={channelDetails}
+      detailsTitle={detailsTitle}
+      createChannel={createReadChannel}
+      contextMenuItems={Task.readChannelContextMenuItem}
+      resolve={resolve}
+    />
+  );
+};
 
 const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({ config }) => ({
   name: "EtherCAT read task",

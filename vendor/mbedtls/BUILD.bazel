@@ -29,8 +29,6 @@ genrule(
         "include/everest/kremlin/internal/types.h",
         "include/everest/kremlin/internal/wasmsupport.h",
         "include/everest/vs2013/Hacl_Curve25519.h",
-        "include/everest/vs2013/inttypes.h",
-        "include/everest/vs2013/stdbool.h",
 
         # mbedtls headers
         "include/mbedtls/aes.h",

@@ -21,7 +21,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.moveTo({ x: 756, y: 500 });
 
   session.startRecording();
-  await session.hold(1200);
+  await session.hold(500);
 
   await capture.clickPanelCreate(session);
   await session.hold(800);
@@ -49,5 +49,5 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.waitForHidden(modal);
   session.endZoom();
   await session.waitFor(page.locator(".pluto-editor").first());
-  await session.hold(3000);
+  await session.hold(500);
 };

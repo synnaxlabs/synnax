@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { lineplot, log, type ontology, panel } from "@synnaxlabs/client";
-import { Status, Synnax } from "@synnaxlabs/pluto";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Synnax } from "@synnaxlabs/pluto";
 import { color } from "@synnaxlabs/x";
 import { useCallback } from "react";
 

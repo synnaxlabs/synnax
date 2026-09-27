@@ -10,18 +10,14 @@
 import "@/feature/project/Selector.css";
 
 import { project, UnexpectedError } from "@synnaxlabs/client";
-import {
-  Access,
-  Component,
-  CSS as PCSS,
-  Dialog,
-  type Flux,
-  List,
-  Menu,
-  Project,
-  Select,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Component } from "@synnaxlabs/lyra/component";
+import { CSS as PCSS } from "@synnaxlabs/lyra/css";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
+import { List } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Access, type Flux, Project } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 import { type MouseEvent, type ReactElement, useCallback, useState } from "react";
 
@@ -51,7 +47,7 @@ export const listItem = Component.renderProp(
     );
     if (proj == null) return null;
     return (
-      <Select.ListItem
+      <Select.Item
         {...props}
         className={Menu.CONTEXT_TARGET}
         data-menu-key={itemKey}
@@ -66,7 +62,7 @@ export const listItem = Component.renderProp(
           className={CSS.BE("project", "name")}
           overflow="ellipsis"
         />
-      </Select.ListItem>
+      </Select.Item>
     );
   },
 );
@@ -179,20 +175,23 @@ export const Selector = (): ReactElement | null => {
           >
             <TriggerAvatar itemKey={activeKey} />
           </Dialog.Trigger>
-          <Select.Dialog<project.Key>
+          <Select.Dialog
             className={CSS.B("project-selector-dialog")}
-            resourceName="project"
-            onSearch={search}
             onContextMenu={menuProps.open}
-            footer={
-              hasCreatePermission && (
-                <Button.CreateListItem size="small" onClick={handleCreate}>
-                  New project
-                </Button.CreateListItem>
-              )
-            }
           >
-            {listItem}
+            <Select.Body<project.Key>
+              resourceName="project"
+              onSearch={search}
+              footer={
+                hasCreatePermission && (
+                  <Button.CreateListItem size="small" onClick={handleCreate}>
+                    New project
+                  </Button.CreateListItem>
+                )
+              }
+            >
+              {listItem}
+            </Select.Body>
           </Select.Dialog>
         </Select.Frame>
       </Dialog.Frame>

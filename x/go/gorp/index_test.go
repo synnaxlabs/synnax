@@ -81,6 +81,7 @@ func openIndexedTable[K gorp.Key, E gorp.Entry[K]](
 	db *gorp.DB,
 	indexes ...gorp.Index[K, E],
 ) *gorp.Table[K, E] {
+	GinkgoHelper()
 	return MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[K, E]{
 		DB:      db,
 		Indexes: indexes,

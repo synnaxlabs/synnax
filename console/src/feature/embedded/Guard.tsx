@@ -9,7 +9,11 @@
 
 import "@/feature/embedded/Guard.css";
 
-import { Button, Flex, Icon, Status, Synnax } from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Synnax } from "@synnaxlabs/pluto";
 import {
   type PropsWithChildren,
   type ReactElement,

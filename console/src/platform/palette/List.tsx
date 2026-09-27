@@ -9,16 +9,14 @@
 
 import "@/platform/palette/List.css";
 
-import {
-  type Component,
-  Dialog,
-  Input,
-  List as Base,
-  Select,
-  Triggers,
-} from "@synnaxlabs/pluto";
-import { type record, type state } from "@synnaxlabs/x";
-import { type FC, type ReactElement, useCallback } from "react";
+import { type Component } from "@synnaxlabs/lyra/component";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
+import { Input } from "@synnaxlabs/lyra/input";
+import { List as Base } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
+import { destructor, type record, type state } from "@synnaxlabs/x";
+import { type FC, type MouseEvent, type ReactElement, useCallback } from "react";
 
 import { CSS } from "@/platform/css";
 
@@ -41,32 +39,23 @@ export interface ListProps<E extends record.Keyed<string>> extends Pick<
 
 export interface List<E extends record.Keyed<string>> extends FC<ListProps<E>> {}
 
-export const SYNTHETIC_CLICK_DETAIL = 0;
-
 const ESCAPE_TRIGGERS: Triggers.Trigger[] = [Triggers.ESCAPE];
 
-export interface ListItemProps extends Select.ListItemProps<string> {}
+export interface ListItemProps extends Select.ItemProps<string> {}
 
-export const ListItem = ({
-  onSelect,
-  itemKey,
-  ...rest
-}: Select.ListItemProps<string>) => {
+// The row's own onSelect runs its action from onClick, so the frame's selection still
+// runs first and closes the palette.
+export const ListItem = ({ onSelect, itemKey, ...rest }: Select.ItemProps<string>) => {
   const handleClick = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      // Only trigger on the synthetic click, which means we won't accidentally call
-      // `onSelect` twice.
-      if (e.detail === SYNTHETIC_CLICK_DETAIL) onSelect?.(itemKey, e);
-    },
+    (e: MouseEvent<HTMLElement>) => onSelect?.(itemKey, e),
     [onSelect, itemKey],
   );
   return (
-    <Select.ListItem
+    <Select.Item
       justify="between"
       align="center"
       onClick={handleClick}
       itemKey={itemKey}
-      data-palette-key={itemKey}
       {...rest}
     />
   );
@@ -84,11 +73,6 @@ export const BaseList = <E extends record.Keyed<string>>({
 }: BaseListProps<E>) => {
   const { fetchMore, search } = Base.usePager({ retrieve, pageSize: 20 });
   const { close } = Dialog.useContext();
-  const handleSelect = useCallback((key: string) => {
-    const element = document.querySelector(`[data-palette-key="${key}"]`);
-    if (element == null || !(element instanceof HTMLElement)) return;
-    element.click();
-  }, []);
 
   const handleSearch = useCallback(
     (v: string) => {
@@ -101,7 +85,7 @@ export const BaseList = <E extends record.Keyed<string>>({
   return (
     <Select.Frame<string, E>
       {...rest}
-      onChange={handleSelect}
+      onChange={destructor.NOOP}
       onFetchMore={fetchMore}
       itemHeight={36}
       initialHover={0}
@@ -121,16 +105,15 @@ export const BaseList = <E extends record.Keyed<string>>({
         onKeyDown={Triggers.matchCallback(ESCAPE_TRIGGERS, close)}
         full="x"
       />
-      <Base.Items
+      <Base.Scroll
         className={CSS.BE("palette", "list")}
-        emptyContent={emptyContent}
         bordered
         borderColor={8}
         displayItems={10}
         animateHeight
       >
-        {listItem}
-      </Base.Items>
+        <Base.Items emptyContent={emptyContent}>{listItem}</Base.Items>
+      </Base.Scroll>
     </Select.Frame>
   );
 };

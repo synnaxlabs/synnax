@@ -37,6 +37,7 @@ func openTestService(
 	ctx context.Context,
 	c cluster.Cluster,
 ) (*node.Service, *ontology.Ontology) {
+	GinkgoHelper()
 	db := DeferClose(gorp.Wrap(memkv.New()))
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	idx := MustOpen(search.OpenIndex())

@@ -13,6 +13,7 @@ import (
 	"context"
 	"slices"
 
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/runtime/node"
@@ -60,6 +61,7 @@ func newRuntimeHarness(
 	channelSyms []symbol.Symbol,
 	channelDigests ...channels.Digest,
 ) *runtimeHarness {
+	GinkgoHelper()
 	stlSyms := stl.NewSymbols()
 	ambient := make([]*symbol.Symbol, 0, len(stlSyms)+len(channelSyms))
 	ambient = append(ambient, stlSyms...)
@@ -143,6 +145,7 @@ func newRuntimeHarness(
 }
 
 func (h *runtimeHarness) Close(ctx context.Context) {
+	GinkgoHelper()
 	for _, v := range slices.Backward(h.closers) {
 		Expect(v(ctx)).To(Succeed())
 	}

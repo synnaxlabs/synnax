@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
+import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import { box, type optional } from "@synnaxlabs/x";
 import {
   type Dispatch,
@@ -20,9 +22,7 @@ import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { Channel } from "@/channel";
-import { useSyncedRef } from "@/hooks/ref";
 import { log } from "@/log/aether";
-import { useMemoDeepEqual } from "@/memo";
 
 export interface UseProps
   extends

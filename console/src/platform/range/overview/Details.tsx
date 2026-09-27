@@ -10,17 +10,14 @@
 import "@/platform/range/overview/Details.css";
 
 import { ranger } from "@synnaxlabs/client";
-import {
-  Access,
-  Button,
-  Divider,
-  Flex,
-  Form,
-  Icon,
-  Ranger,
-  Status,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Access, Ranger } from "@synnaxlabs/pluto";
 import { type NumericTimeRange, TimeStamp } from "@synnaxlabs/x";
 import { type FC, type ReactElement, useCallback } from "react";
 

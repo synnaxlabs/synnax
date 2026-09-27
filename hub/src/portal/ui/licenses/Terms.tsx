@@ -7,7 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Form, Input, Select, Text } from "@synnaxlabs/pluto";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 import { z } from "zod";
 
@@ -72,11 +75,6 @@ export const termsOf = (lic: License): TermsValues => ({
   maxVersion: lic.maxVersion ?? "",
 });
 
-const TERMS: { key: Term; name: string }[] = [
-  { key: "subscription", name: "Subscription" },
-  { key: "perpetual", name: "Perpetual" },
-];
-
 /** TermsFields are the license terms staff set, shared by issuing and editing. */
 export const TermsFields = (): ReactElement => (
   <>
@@ -87,11 +85,10 @@ export const TermsFields = (): ReactElement => (
     />
     <Form.Field<Term> path="term" label="Term">
       {(p) => (
-        <Select.Static<Term, { key: Term; name: string }>
-          {...p}
-          data={TERMS}
-          resourceName="Term"
-        />
+        <Select.Simple<Term> {...p} resourceName="Term">
+          <Select.Item itemKey="subscription">Subscription</Select.Item>
+          <Select.Item itemKey="perpetual">Perpetual</Select.Item>
+        </Select.Simple>
       )}
     </Form.Field>
     <Form.NumericField path="nodes" label="Machines that may activate" />

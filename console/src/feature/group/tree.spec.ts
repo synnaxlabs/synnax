@@ -9,7 +9,7 @@
 
 import { group, ontology } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
-import { Tree as PTree } from "@synnaxlabs/pluto";
+import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 

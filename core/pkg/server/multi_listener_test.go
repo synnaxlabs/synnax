@@ -246,6 +246,7 @@ func handshake(addr address.Address, pool *x509.CertPool) error {
 }
 
 func presentedSANs(addr address.Address) []string {
+	GinkgoHelper()
 	conn := MustSucceed(tls.Dial(
 		"tcp", addr.String(), &tls.Config{InsecureSkipVerify: true},
 	))

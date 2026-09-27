@@ -159,3 +159,12 @@ Window-keyed slice specs build their store with `createSliceStore` from
 `session/window/testutil.ts` — it adds the drift slice the selectors read the window
 from and runs the slice's middleware. `inWindow` and `documentIn` write and read one
 window's documents.
+
+## UI text
+
+- **Add** and **Remove**: an entry in something the user edits, such as a task's
+  channels. Remove leaves what the entry refers to in place.
+- **Create** (or **New**) and **Delete**: a resource that exists on its own, such as a
+  range.
+
+Never mix the pairs on one object.

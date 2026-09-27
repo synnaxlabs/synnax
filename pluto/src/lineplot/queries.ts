@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { lineplot, NotFoundError, type project } from "@synnaxlabs/client";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { color, compare, DataType, type require, uuid, verbs } from "@synnaxlabs/x";
 import { useMemo } from "react";
 
 import { Channel } from "@/channel";
 import { Flux } from "@/flux";
 import { Scope } from "@/lineplot/scope";
-import { Theming } from "@/theming";
 
 const RESOURCE_NAME = "line plot";
 
