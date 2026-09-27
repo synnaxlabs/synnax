@@ -145,7 +145,7 @@ export { RegistryContext, useRegistry, useRegistryContext };
 
 // Items register in layout effects, after their readers render. useSyncExternalStore
 // subscribes after paint, so a reader would paint its stale value for one frame.
-const useRegistryValue = <T,>(
+const useRegistryValue = <T>(
   name: string,
   get: (registry: Registry, key?: record.Key) => T,
   key?: record.Key,
