@@ -16,7 +16,7 @@ import { memo } from "@/component/memo";
 import { CSS } from "@/css";
 import { useData } from "@/list/Frame";
 import { type ItemRenderProp } from "@/list/Item";
-import { ItemsContext, type SetElement, useScrollContext } from "@/list/scope";
+import { ItemsContext, useElementsContext, useScrollContext } from "@/list/scope";
 
 /** Props for {@link Items}. */
 export interface ItemsProps<K extends record.Key = record.Key> {
@@ -34,8 +34,8 @@ const BaseItems = <
   emptyContent,
 }: ItemsProps<K>): ReactNode => {
   const scrollRef = useScrollContext("List.Items");
-  const { ref, itemsRef, getItems, getTotalSize, data, sentinelRef, setElement } =
-    useData<K, E>();
+  const { ref, itemsRef, getItems, getTotalSize, data, sentinelRef } = useData<K, E>();
+  const { setElement } = useElementsContext("List.Items");
   if (scrollRef !== ref)
     throw new Error("List.Items must be inside the List.Scroll of its own List.Frame");
   const totalSize = getTotalSize();
@@ -47,7 +47,7 @@ const BaseItems = <
       className={CSS.BE("list", "virtualizer")}
       style={virtualizerStyle}
     >
-      <ItemsContext value={setElement as SetElement}>
+      <ItemsContext value={setElement}>
         {getItems().map(({ key, index, translate }) =>
           children({ key, index, itemKey: key, translate }),
         )}

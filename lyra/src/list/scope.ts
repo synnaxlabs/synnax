@@ -8,12 +8,42 @@
 // included in the file licenses/APL.txt.
 
 import { type record } from "@synnaxlabs/x";
-import { type RefCallback } from "react";
+import { type RefCallback, useLayoutEffect } from "react";
 
 import { context } from "@/context";
 
 /** Records the element of a mounted row, or null when the row unmounts. */
 export type SetElement = (key: record.Key, element: HTMLElement | null) => void;
+
+/** Acts on the mounted items of a Frame by key. */
+export interface Elements {
+  setElement: SetElement;
+  /** Clicks the mounted item with the given key. */
+  click: (key: record.Key) => void;
+  /** Keeps the item with the given key mounted when it scrolls out of view. */
+  pin: (key: record.Key | null) => void;
+}
+
+export const [ElementsContext, useElementsContext] = context.create<Elements>({
+  displayName: "List.ElementsContext",
+  providerName: "List.Frame",
+});
+
+/** @returns a function that clicks the item of the enclosing Frame by key. */
+export const useClick = (): Elements["click"] =>
+  useElementsContext("List.useClick").click;
+
+/**
+ * Keeps the item with the given key mounted while it is out of view, so it can still be
+ * clicked. Pass undefined to release it.
+ */
+export const usePin = (key: record.Key | undefined): void => {
+  const { pin } = useElementsContext("List.usePin");
+  useLayoutEffect(() => {
+    pin(key ?? null);
+    return () => pin(null);
+  }, [pin, key]);
+};
 
 /**
  * Holds the element setter of the nearest Frame under an Items render function, and

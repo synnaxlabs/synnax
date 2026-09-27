@@ -20,6 +20,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { Dialog } from "@/dialog";
 import { useSyncedRef } from "@/hooks/ref";
 import { List } from "@/list";
+import { useClick, usePin } from "@/list/scope";
 import { useRegistryContext } from "@/select/registry";
 import { useHover, type UseHoverProps, type UseHoverReturn } from "@/select/useHover";
 import { Triggers } from "@/triggers";
@@ -117,7 +118,7 @@ const useOrder = <K extends record.Key>(): Order<K> => {
   const registry = useRegistryContext("Select.Frame");
   const { data } = List.useData<K>();
   const { scrollToIndex } = List.useScroller();
-  const clickRow = List.useClick<K>();
+  const clickRow = useClick();
   const getOrder = useCallback(() => registry.getOrder(data) as K[], [registry, data]);
   const scrollTo = useCallback(
     (key: K, direction: location.Y) => {
@@ -192,7 +193,7 @@ export const useSingle = <K extends record.Key>({
     initialHover,
     enableTriggers,
   });
-  List.usePin(hover.hover);
+  usePin(hover.hover);
   return { onSelect: handleSelect, setSelected, clear, ...hover };
 };
 
@@ -282,6 +283,6 @@ export const useMultiple = <K extends record.Key>({
     initialHover,
     enableTriggers,
   });
-  List.usePin(hover.hover);
+  usePin(hover.hover);
   return { onSelect, setSelected, clear, ...hover };
 };
