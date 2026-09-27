@@ -16,6 +16,7 @@ import { Button } from "@/button";
 import { renderProp } from "@/component/renderProp";
 import { List } from "@/list";
 import { mockGeometry } from "@/testutil/dom";
+import { createRenderCounter } from "@/testutil/renders";
 
 describe("List", () => {
   interface Context {
@@ -242,6 +243,68 @@ describe("List", () => {
       const tight = rows(renderWindowed(0)).length;
       const loose = rows(renderWindowed(40)).length;
       expect(loose).toBeGreaterThan(tight);
+    });
+
+    it("should not re-render the rows that stay in view when the list scrolls", () => {
+      const { Counted, counts } = createRenderCounter();
+      const result = render(
+        <List.Frame data={DATA} virtual itemHeight={ITEM_HEIGHT} overscan={0}>
+          <List.Scroll>
+            <List.Items>
+              {({ key, ...rest }: List.ItemProps<string>) => (
+                <Counted key={key} id={rest.itemKey}>
+                  <List.Item {...rest}>{key}</List.Item>
+                </Counted>
+              )}
+            </List.Items>
+          </List.Scroll>
+        </List.Frame>,
+      );
+      const scroller =
+        result.container.querySelector<HTMLElement>(".pluto-list__scroll");
+      if (scroller == null) throw new Error("scroll container not found");
+      const before = rows(result).map((row) => row.id);
+      act(() => {
+        scroller.scrollTop = ITEM_HEIGHT;
+        fireEvent.scroll(scroller);
+      });
+      const after = rows(result).map((row) => row.id);
+      expect(after).not.toEqual(before);
+      expect([...counts.keys()]).toEqual([]);
+    });
+
+    it("should show a changed record in an item whose element is reused", () => {
+      interface Entry {
+        key: string;
+        name: string;
+      }
+      const Name = (props: List.ItemProps<string>): ReactElement => {
+        const entry = List.useItem<string, Entry>(props.itemKey);
+        return <List.Item {...props}>{entry?.name}</List.Item>;
+      };
+      const item = ({ key, ...rest }: List.ItemProps<string>): ReactElement => (
+        <Name key={key} {...rest} />
+      );
+      const Harness = (): ReactElement => {
+        const [entries, setEntries] = useState<Entry[]>([{ key: "a", name: "before" }]);
+        const props = List.useStaticData<string, Entry>({ data: entries });
+        return (
+          <>
+            <button onClick={() => setEntries([{ key: "a", name: "after" }])}>
+              rename
+            </button>
+            <List.Frame {...props} virtual itemHeight={ITEM_HEIGHT}>
+              <List.Scroll>
+                <List.Items>{item}</List.Items>
+              </List.Scroll>
+            </List.Frame>
+          </>
+        );
+      };
+      const result = render(<Harness />);
+      expect(result.getByText("before")).toBeTruthy();
+      fireEvent.click(result.getByText("rename"));
+      expect(result.getByText("after")).toBeTruthy();
     });
 
     it("should keep the container tall enough to scroll the whole data set", () => {

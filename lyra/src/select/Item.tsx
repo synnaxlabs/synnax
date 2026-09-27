@@ -16,7 +16,6 @@ import {
   useLayoutEffect,
   useMemo,
   useRef,
-  useState,
 } from "react";
 import { createPortal } from "react-dom";
 
@@ -25,7 +24,7 @@ import { CSS } from "@/css";
 import { List } from "@/list";
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/types";
 import { useItemState, useReselectNoop, useSelectedAmong } from "@/select/Context";
-import { useRegistryContext, useSearchContext } from "@/select/registry";
+import { useIsHidden, useRegistryContext } from "@/select/registry";
 import { type ButtonsContextValue, useButtonsContext, useClosed } from "@/select/scope";
 
 /** Props for {@link Item}. */
@@ -55,12 +54,9 @@ const BlockItem = <K extends record.Key, E extends Button.ElementType>(
 const useRegister = (
   key: record.Key,
   ref: RefObject<HTMLElement | null> | null,
-  hidden: boolean,
 ): void => {
   const registry = useRegistryContext("Select.Item");
-  useLayoutEffect(() =>
-    registry.setItem(key, { element: ref?.current ?? null, hidden }),
-  );
+  useLayoutEffect(() => registry.setItem(key, ref?.current ?? null));
   useLayoutEffect(() => () => registry.removeItem(key), [registry, key]);
 };
 
@@ -77,7 +73,7 @@ const ButtonItem = <K extends record.Key>({
 }: ButtonItemProps<K>): ReactNode => {
   const { selected, onSelect } = useItemState(itemKey);
   const ref = useRef<HTMLButtonElement>(null);
-  useRegister(itemKey, ref, false);
+  useRegister(itemKey, ref);
   if (preview && !selected) return null;
   return (
     <Button.Toggle
@@ -99,9 +95,6 @@ const ButtonItem = <K extends record.Key>({
   );
 };
 
-const matches = (text: string, term: string): boolean =>
-  term === "" || text.toLowerCase().includes(term.toLowerCase());
-
 // A closed item draws nothing but its label, so it skips the hooks an open item needs.
 const ClosedFixedItem = <K extends record.Key>({
   itemKey,
@@ -110,7 +103,7 @@ const ClosedFixedItem = <K extends record.Key>({
   const keys = useMemo(() => [itemKey], [itemKey]);
   const selected = useSelectedAmong(keys) != null;
   const registry = useRegistryContext("Select.Item");
-  useRegister(itemKey, null, false);
+  useRegister(itemKey, null);
   if (!selected) return null;
   return createPortal(children, registry.getLabel(itemKey));
 };
@@ -119,21 +112,12 @@ const OpenFixedItem = <K extends record.Key, E extends Button.ElementType>(
   props: ItemProps<K, E>,
 ): ReactNode => {
   const { itemKey, children } = props;
-  const { term } = useSearchContext("Select.Item");
   const { selected, hovered, onSelect, sole } = useItemState(itemKey);
   const reselectNoop = useReselectNoop();
   const registry = useRegistryContext("Select.Item");
   const ref = useRef<HTMLElement>(null);
-  // The search matches the rendered text, which is only known after a commit. Null
-  // until a term needs it, so opening the dialog measures nothing.
-  const [text, setText] = useState<string | null>(null);
-  useLayoutEffect(() => {
-    if (term === "") return;
-    const next = ref.current?.textContent ?? "";
-    if (next !== text) setText(next);
-  });
-  const hidden = text != null && !matches(text, term);
-  useRegister(itemKey, ref, hidden);
+  const hidden = useIsHidden(itemKey);
+  useRegister(itemKey, ref);
   const label = selected ? createPortal(children, registry.getLabel(itemKey)) : null;
   return (
     <>
