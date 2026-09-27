@@ -35,6 +35,20 @@ type Listener struct {
 	Address address.Address
 	// TLS is the TLS configuration served on this Listener. It is nil in insecure mode.
 	TLS *tls.Config
+	// Loopback binds the Listener to the IPv4 loopback interface only. When false, the
+	// Listener binds the port on every interface.
+	Loopback bool
+}
+
+// loopbackHost is the interface a Loopback Listener binds.
+const loopbackHost = "127.0.0.1"
+
+// bindAddress returns the address the Listener passes to net.Listen.
+func (l Listener) bindAddress() string {
+	if l.Loopback {
+		return loopbackHost + l.Address.PortString()
+	}
+	return l.Address.PortString()
 }
 
 // Config is the configuration for a Server.
@@ -147,7 +161,7 @@ func (s *Server) start() (err error) {
 	s.listeners = make([]net.Listener, 0, len(s.Listeners))
 	s.addresses = make([]address.Address, 0, len(s.Listeners))
 	for _, l := range s.Listeners {
-		lis, err := net.Listen("tcp", l.Address.PortString())
+		lis, err := net.Listen("tcp", l.bindAddress())
 		if err != nil {
 			// Closing the opened listeners unblocks their serve goroutines; cancel then
 			// tears down the signal context so a partial bind leaves nothing running.

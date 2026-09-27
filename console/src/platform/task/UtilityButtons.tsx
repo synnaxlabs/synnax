@@ -19,6 +19,7 @@ import { useCallback } from "react";
 import { Core } from "@/platform/core";
 import { Export } from "@/platform/export";
 import { useKey } from "@/platform/task/useKey";
+import { Session } from "@/session";
 
 export const UtilityButtons = () => {
   const ctx = Form.useContext();
@@ -94,15 +95,17 @@ export const UtilityButtons = () => {
       {hasKey && (
         <>
           <Divider.Divider y />
-          <Button.Button
-            onClick={handleCopyLink}
-            tooltip="Copy link"
-            tooltipLocation="left"
-            variant="text"
-            textColor={9}
-          >
-            <Icon.Link />
-          </Button.Button>
+          {!Session.Runtime.LINKS_DISABLED && (
+            <Button.Button
+              onClick={handleCopyLink}
+              tooltip="Copy link"
+              tooltipLocation="left"
+              variant="text"
+              textColor={9}
+            >
+              <Icon.Link />
+            </Button.Button>
+          )}
           <Button.Button
             onClick={handleExport}
             tooltip="Export"

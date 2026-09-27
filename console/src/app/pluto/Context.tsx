@@ -11,6 +11,7 @@ import { type Alamos, Pluto } from "@synnaxlabs/pluto";
 import { memo } from "react";
 
 import { Triggers } from "@/app/triggers";
+import { Embedded } from "@/feature/embedded";
 import { Session } from "@/session";
 
 export interface ContextProps extends Pick<
@@ -20,13 +21,15 @@ export interface ContextProps extends Pick<
 
 const ALAMOS_PROPS: Alamos.ProviderProps = { level: "info" };
 
+const useConnParams = DESKTOP ? Embedded.useConnParams : Session.Core.useSelectSelected;
+
 export const Context = memo((props: ContextProps) => {
-  const core = Session.Core.useSelectSelected();
+  const connParams = useConnParams();
   const themingProps = Session.Theme.useProviderProps();
   return (
     <Pluto.Provider
       workerEnabled
-      connParams={core}
+      connParams={connParams}
       triggers={Triggers.PROVIDER_PROPS}
       haul={Session.Haul.PROVIDER_PROPS}
       color={Session.Color.PROVIDER_PROPS}
