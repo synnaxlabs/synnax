@@ -69,9 +69,14 @@
     justify-self: start;
 }
 
-/* The orientation square is taller than a row, so it takes a column of its own. */
+/* The orientation square is taller than a row, so it takes a column of its own, with
+   its label on top. */
 .pluto-form-sections.pluto--direction-x
     .pluto-form-section__body
     > .pluto-input__item:has(.pluto-select-orientation) {
     grid-row: 1 / -1;
+    grid-column: span 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
 }

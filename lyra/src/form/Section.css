@@ -75,7 +75,7 @@
         grid-auto-flow: column;
         grid-template-rows: repeat(3, max-content);
         grid-auto-columns: max-content;
-        gap: 2rem 8rem;
+        gap: 2rem 4rem;
         align-items: start;
 
         /* A dissolved row's fields are grid items too. */
