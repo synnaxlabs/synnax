@@ -43,7 +43,7 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
   const { name, Preview } = spec;
 
   return (
-    <Select.ListItem
+    <Select.Item
       className={CSS.cls(CSS.BE("arc-stages", "button"))}
       aria-label={name}
       align="center"
@@ -58,7 +58,7 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
       <Flex.Box align="center" justify="center" grow>
         <Preview config={config} scale={0.75} />
       </Flex.Box>
-    </Select.ListItem>
+    </Select.Item>
   );
 };
 
@@ -90,15 +90,15 @@ export const StaticStageList = ({
       allowNone
       onChange={onSelect}
     >
-      <List.Items
+      <List.Scroll
         x
         className={CSS.BE("arc", "stages", "group")}
         wrap
         role="listbox"
         aria-label={STAGES_LABEL}
       >
-        {staticListItem}
-      </List.Items>
+        <List.Items>{staticListItem}</List.Items>
+      </List.Scroll>
     </Select.Frame>
   );
 };
@@ -137,9 +137,9 @@ const GroupList = ({ value, onChange }: GroupListProps) => {
       value={value}
       onChange={onChange}
     >
-      <List.Items<string, Arc.Graph.Node.Group> x gap="small">
-        {groupListItem}
-      </List.Items>
+      <List.Scroll x gap="small">
+        <List.Items<string, Arc.Graph.Node.Group>>{groupListItem}</List.Items>
+      </List.Scroll>
     </Select.Frame>
   );
 };

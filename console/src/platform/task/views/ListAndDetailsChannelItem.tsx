@@ -80,7 +80,7 @@ export const ListAndDetailsChannelItem = <K extends string>({
     [portMaxChars],
   );
   return (
-    <Select.ListItem
+    <Select.Item
       {...rest}
       justify="between"
       align="center"
@@ -127,6 +127,6 @@ export const ListAndDetailsChannelItem = <K extends string>({
         )}
         <EnabledCheckbox path={`${path}.disabled`} />
       </Flex.Box>
-    </Select.ListItem>
+    </Select.Item>
   );
 };

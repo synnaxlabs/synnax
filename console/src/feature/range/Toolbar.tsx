@@ -80,14 +80,9 @@ const List = (): ReactElement => {
       onChange={handleSelect}
     >
       <Menu.ContextMenu menu={(p) => <ContextMenu {...p} />} {...menuProps} />
-      <BaseList.Items
-        full="y"
-        emptyContent={<NoRanges />}
-        {...dropProps}
-        onContextMenu={menuProps.open}
-      >
-        {listItem}
-      </BaseList.Items>
+      <BaseList.Scroll full="y" {...dropProps} onContextMenu={menuProps.open}>
+        <BaseList.Items emptyContent={<NoRanges />}>{listItem}</BaseList.Items>
+      </BaseList.Scroll>
     </Select.Frame>
   );
 };
@@ -102,7 +97,7 @@ const listItem = Component.renderProp((props: BaseList.ItemProps<string>) => {
   if (entry == null || entry.variant === "dynamic") return null;
   const { key, name, timeRange } = entry;
   return (
-    <Select.ListItem className={CSS.B("range-list-item")} {...props} gap="small" y>
+    <Select.Item className={CSS.B("range-list-item")} {...props} gap="small" y>
       {isLocal && (
         <Tooltip.Dialog location="left">
           <Text.Text level="small">This range is local.</Text.Text>
@@ -139,7 +134,7 @@ const listItem = Component.renderProp((props: BaseList.ItemProps<string>) => {
           ))}
         </Flex.Box>
       )}
-    </Select.ListItem>
+    </Select.Item>
   );
 });
 

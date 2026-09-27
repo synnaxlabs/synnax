@@ -9,8 +9,8 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type Select as PSelect } from "@synnaxlabs/lyra/select";
-import { type record } from "@synnaxlabs/x";
+import { Select as PSelect } from "@synnaxlabs/lyra/select";
+import { record } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { PortField } from "@/feature/ni/device/PortField";
@@ -19,7 +19,6 @@ import { CoefficientsField } from "@/feature/ni/task/CoefficientsField";
 import { CustomScaleSection } from "@/feature/ni/task/CustomScaleForm";
 import { MinMaxValueFields } from "@/feature/ni/task/MinMaxValueFields";
 import { SelectAIChannelTypeField } from "@/feature/ni/task/SelectAIChannelTypeField";
-import { selectData } from "@/feature/ni/task/selectData";
 import {
   type AccelChargeSensitivityUnits,
   type AccelSensitivityUnits,
@@ -45,6 +44,7 @@ import {
   type VelocitySensitivityUnits,
   type VelocityUnits,
 } from "@/feature/ni/task/types";
+import { Task } from "@/platform/task";
 
 interface FormProps {
   prefix: string;
@@ -58,15 +58,12 @@ const TERMINAL_CONFIG_NAMES = {
   Cfg_Default: "Default",
 } as const satisfies Record<TerminalConfig, string>;
 
-const TerminalConfigField = Form.buildSelectField<
-  TerminalConfig,
-  record.KeyedNamed<TerminalConfig>
->({
+const TerminalConfigField = Form.buildSelectField<TerminalConfig>({
   fieldKey: "terminalConfig",
   fieldProps: { label: "Terminal configuration" },
   inputProps: {
     resourceName: "terminal configuration",
-    data: selectData(TERMINAL_CONFIG_NAMES),
+    children: Task.selectItems(TERMINAL_CONFIG_NAMES),
   },
 });
 
@@ -76,15 +73,12 @@ const ACCEL_UNITS_NAMES = {
   InchesPerSecondSquared: "in/s²",
 } as const satisfies Record<AccelUnits, string>;
 
-const AccelUnitsField = Form.buildSelectField<
-  AccelUnits,
-  record.KeyedNamed<AccelUnits>
->({
+const AccelUnitsField = Form.buildSelectField<AccelUnits>({
   fieldKey: "units",
   fieldProps: { label: "Acceleration units" },
   inputProps: {
     resourceName: "acceleration units",
-    data: selectData(ACCEL_UNITS_NAMES),
+    children: Task.selectItems(ACCEL_UNITS_NAMES),
   },
 });
 
@@ -93,15 +87,12 @@ const ACCEL_SENSITIVITY_UNITS_NAMES = {
   VoltsPerG: "V/g",
 } as const satisfies Record<AccelSensitivityUnits, string>;
 
-const AccelSensitivityUnitsField = Form.buildSelectField<
-  AccelSensitivityUnits,
-  record.KeyedNamed<AccelSensitivityUnits>
->({
+const AccelSensitivityUnitsField = Form.buildSelectField<AccelSensitivityUnits>({
   fieldKey: "sensitivityUnits",
   fieldProps: { label: "Sensitivity units" },
   inputProps: {
     resourceName: "sensitivity units",
-    data: selectData(ACCEL_SENSITIVITY_UNITS_NAMES),
+    children: Task.selectItems(ACCEL_SENSITIVITY_UNITS_NAMES),
   },
 });
 
@@ -111,17 +102,15 @@ const ACCEL_CHARGE_SENSITIVITY_UNITS_NAMES = {
   PicoCoulombsPerInchesPerSecondSquared: "pC/(in/s²)",
 } as const satisfies Record<AccelChargeSensitivityUnits, string>;
 
-const AccelChargeSensitivityUnitsField = Form.buildSelectField<
-  AccelChargeSensitivityUnits,
-  record.KeyedNamed<AccelChargeSensitivityUnits>
->({
-  fieldKey: "sensitivityUnits",
-  fieldProps: { label: "Sensitivity units" },
-  inputProps: {
-    resourceName: "sensitivity units",
-    data: selectData(ACCEL_CHARGE_SENSITIVITY_UNITS_NAMES),
-  },
-});
+const AccelChargeSensitivityUnitsField =
+  Form.buildSelectField<AccelChargeSensitivityUnits>({
+    fieldKey: "sensitivityUnits",
+    fieldProps: { label: "Sensitivity units" },
+    inputProps: {
+      resourceName: "sensitivity units",
+      children: Task.selectItems(ACCEL_CHARGE_SENSITIVITY_UNITS_NAMES),
+    },
+  });
 
 const EXCIT_SOURCE_NAMES = {
   Internal: "Internal",
@@ -129,15 +118,12 @@ const EXCIT_SOURCE_NAMES = {
   None: "None",
 } as const satisfies Record<ExcitationSource, string>;
 
-const ExcitSourceField = Form.buildSelectField<
-  ExcitationSource,
-  record.KeyedNamed<ExcitationSource>
->({
+const ExcitSourceField = Form.buildSelectField<ExcitationSource>({
   fieldKey: "excitSource",
   fieldProps: { label: "Excitation source" },
   inputProps: {
     resourceName: "excitation source",
-    data: selectData(EXCIT_SOURCE_NAMES),
+    children: Task.selectItems(EXCIT_SOURCE_NAMES),
   },
 });
 
@@ -147,15 +133,12 @@ const BRIDGE_CONFIG_NAMES = {
   QuarterBridge: "Quarter bridge",
 } as const satisfies Record<BridgeConfig, string>;
 
-const BridgeConfigField = Form.buildSelectField<
-  BridgeConfig,
-  record.KeyedNamed<BridgeConfig>
->({
+const BridgeConfigField = Form.buildSelectField<BridgeConfig>({
   fieldKey: "bridgeConfig",
   fieldProps: { label: "Bridge configuration" },
   inputProps: {
     resourceName: "bridge configuration",
-    data: selectData(BRIDGE_CONFIG_NAMES),
+    children: Task.selectItems(BRIDGE_CONFIG_NAMES),
   },
 });
 
@@ -165,15 +148,12 @@ const SHUNT_RESISTOR_LOC_NAMES = {
   External: "External",
 } as const satisfies Record<ShuntResistorLoc, string>;
 
-const ShuntResistorLocField = Form.buildSelectField<
-  ShuntResistorLoc,
-  record.KeyedNamed<ShuntResistorLoc>
->({
+const ShuntResistorLocField = Form.buildSelectField<ShuntResistorLoc>({
   fieldKey: "shuntResistorLoc",
   fieldProps: { label: "Shunt resistor location" },
   inputProps: {
     resourceName: "shunt resistor location",
-    data: selectData(SHUNT_RESISTOR_LOC_NAMES),
+    children: Task.selectItems(SHUNT_RESISTOR_LOC_NAMES),
   },
 });
 
@@ -183,15 +163,12 @@ const RESISTANCE_CONFIG_NAMES = {
   "4Wire": "4-Wire",
 } as const satisfies Record<ResistanceConfig, string>;
 
-const ResistanceConfigField = Form.buildSelectField<
-  ResistanceConfig,
-  record.KeyedNamed<ResistanceConfig>
->({
+const ResistanceConfigField = Form.buildSelectField<ResistanceConfig>({
   fieldKey: "resistanceConfig",
   fieldProps: { label: "Resistance configuration" },
   inputProps: {
     resourceName: "resistance configuration",
-    data: selectData(RESISTANCE_CONFIG_NAMES),
+    children: Task.selectItems(RESISTANCE_CONFIG_NAMES),
   },
 });
 
@@ -205,15 +182,12 @@ const STRAIN_CONFIG_NAMES = {
   QuarterBridgeII: "Quarter bridge II",
 } as const satisfies Record<StrainConfig, string>;
 
-const StrainConfigField = Form.buildSelectField<
-  StrainConfig,
-  record.KeyedNamed<StrainConfig>
->({
+const StrainConfigField = Form.buildSelectField<StrainConfig>({
   fieldKey: "strainConfig",
   fieldProps: { label: "Strain configuration" },
   inputProps: {
     resourceName: "strain configuration",
-    data: selectData(STRAIN_CONFIG_NAMES),
+    children: Task.selectItems(STRAIN_CONFIG_NAMES),
   },
 });
 
@@ -229,15 +203,14 @@ const FORCE_UNITS_NAMES = {
   KilogramForce: "Kilograms",
 } as const satisfies Record<ForceUnits, string>;
 
-const ForceUnitsField = Form.buildSelectField<
-  ForceUnits,
-  record.KeyedNamed<ForceUnits>
->({
+const IEPE_FORCE_UNITS_NAMES = record.omit(FORCE_UNITS_NAMES, "KilogramForce");
+
+const ForceUnitsField = Form.buildSelectField<ForceUnits>({
   fieldKey: "units",
   fieldProps: { label: "Force units" },
   inputProps: {
     resourceName: "force units",
-    data: selectData(FORCE_UNITS_NAMES),
+    children: Task.selectItems(FORCE_UNITS_NAMES),
   },
 });
 
@@ -246,15 +219,12 @@ const ELECTRICAL_UNITS_NAMES = {
   mVoltsPerVolt: "mV/V",
 } as const satisfies Record<ElectricalUnits, string>;
 
-const ElectricalUnitsField = Form.buildSelectField<
-  ElectricalUnits,
-  record.KeyedNamed<ElectricalUnits>
->({
+const ElectricalUnitsField = Form.buildSelectField<ElectricalUnits>({
   fieldKey: "electricalUnits",
   fieldProps: { label: "Electrical units" },
   inputProps: {
     resourceName: "electrical units",
-    data: selectData(ELECTRICAL_UNITS_NAMES),
+    children: Task.selectItems(ELECTRICAL_UNITS_NAMES),
   },
 });
 
@@ -263,15 +233,12 @@ const CHARGE_UNITS_NAMES = {
   PicoCoulombs: "Picocoulombs",
 } as const satisfies Record<ChargeUnits, string>;
 
-const ChargeUnitsField = Form.buildSelectField<
-  ChargeUnits,
-  record.KeyedNamed<ChargeUnits>
->({
+const ChargeUnitsField = Form.buildSelectField<ChargeUnits>({
   fieldKey: "units",
   fieldProps: { label: "Charge units" },
   inputProps: {
     resourceName: "charge units",
-    data: selectData(CHARGE_UNITS_NAMES),
+    children: Task.selectItems(CHARGE_UNITS_NAMES),
   },
 });
 
@@ -281,15 +248,12 @@ const PRESSURE_UNITS_NAMES = {
   Bar: "Bar",
 } as const satisfies Record<PressureUnits, string>;
 
-const PressureUnitsField = Form.buildSelectField<
-  PressureUnits,
-  record.KeyedNamed<PressureUnits>
->({
+const PressureUnitsField = Form.buildSelectField<PressureUnits>({
   fieldKey: "units",
   fieldProps: { label: "Pressure units" },
   inputProps: {
     resourceName: "pressure units",
-    data: selectData(PRESSURE_UNITS_NAMES),
+    children: Task.selectItems(PRESSURE_UNITS_NAMES),
   },
 });
 
@@ -307,15 +271,12 @@ const TEMPERATURE_UNIT_SYMBOLS = {
   DegR: "°R",
 } as const satisfies Record<TemperatureUnits, string>;
 
-const TemperatureUnitsField = Form.buildSelectField<
-  TemperatureUnits,
-  record.KeyedNamed<TemperatureUnits>
->({
+const TemperatureUnitsField = Form.buildSelectField<TemperatureUnits>({
   fieldKey: "units",
   fieldProps: { label: "Temperature units" },
   inputProps: {
     resourceName: "temperature units",
-    data: selectData(TEMPERATURE_UNITS_NAMES),
+    children: Task.selectItems(TEMPERATURE_UNITS_NAMES),
   },
 });
 
@@ -330,15 +291,12 @@ const THERMOCOUPLE_TYPE_NAMES = {
   T: "T",
 } as const satisfies Record<ThermocoupleType, string>;
 
-const ThermocoupleTypeField = Form.buildSelectField<
-  ThermocoupleType,
-  record.KeyedNamed<ThermocoupleType>
->({
+const ThermocoupleTypeField = Form.buildSelectField<ThermocoupleType>({
   fieldKey: "thermocoupleType",
   fieldProps: { label: "Thermocouple type" },
   inputProps: {
     resourceName: "thermocouple type",
-    data: selectData(THERMOCOUPLE_TYPE_NAMES),
+    children: Task.selectItems(THERMOCOUPLE_TYPE_NAMES),
   },
 });
 
@@ -349,15 +307,12 @@ const TORQUE_UNITS_NAMES = {
   FootPounds: "Foot pounds",
 } as const satisfies Record<TorqueUnits, string>;
 
-const TorqueUnitsField = Form.buildSelectField<
-  TorqueUnits,
-  record.KeyedNamed<TorqueUnits>
->({
+const TorqueUnitsField = Form.buildSelectField<TorqueUnits>({
   fieldKey: "units",
   fieldProps: { label: "Torque units" },
   inputProps: {
     resourceName: "torque units",
-    data: selectData(TORQUE_UNITS_NAMES),
+    children: Task.selectItems(TORQUE_UNITS_NAMES),
   },
 });
 
@@ -366,15 +321,12 @@ const FORCE_SENSITIVITY_UNITS_NAMES = {
   mVoltsPerPound: "mV/lb",
 } as const satisfies Record<ForceSensitivityUnits, string>;
 
-const ForceSensitivityUnitsField = Form.buildSelectField<
-  ForceSensitivityUnits,
-  record.KeyedNamed<ForceSensitivityUnits>
->({
+const ForceSensitivityUnitsField = Form.buildSelectField<ForceSensitivityUnits>({
   fieldKey: "sensitivityUnits",
   fieldProps: { label: "Sensitivity units" },
   inputProps: {
     resourceName: "sensitivity units",
-    data: selectData(FORCE_SENSITIVITY_UNITS_NAMES),
+    children: Task.selectItems(FORCE_SENSITIVITY_UNITS_NAMES),
   },
 });
 
@@ -387,12 +339,12 @@ const R_T_D_TYPE_NAMES = {
   Pt3928: "Pt3928",
 } as const satisfies Record<RTDType, string>;
 
-const RTDTypeField = Form.buildSelectField<RTDType, record.KeyedNamed<RTDType>>({
+const RTDTypeField = Form.buildSelectField<RTDType>({
   fieldKey: "rtdType",
   fieldProps: { label: "RTD type" },
   inputProps: {
     resourceName: "RTD type",
-    data: selectData(R_T_D_TYPE_NAMES),
+    children: Task.selectItems(R_T_D_TYPE_NAMES),
   },
 });
 
@@ -402,7 +354,7 @@ const ZERO_CJCS: Record<CJCType, CJC> = {
   chan: { source: "chan", port: 0 },
 };
 
-const CJCSourceField = Form.buildSelectField<CJCType, PSelect.StaticEntry<CJCType>>({
+const CJCSourceField = Form.buildSelectField<CJCType>({
   fieldKey: "cjc.source",
   fieldProps: {
     label: "CJC source",
@@ -413,11 +365,22 @@ const CJCSourceField = Form.buildSelectField<CJCType, PSelect.StaticEntry<CJCTyp
   },
   inputProps: {
     resourceName: "CJC source",
-    data: [
-      { key: "built_in", name: "Built in", icon: <Icon.Device /> },
-      { key: "const_val", name: "Constant value", icon: <Icon.Constant /> },
-      { key: "chan", name: "Channel", icon: <Icon.Channel /> },
-    ],
+    children: (
+      <>
+        <PSelect.Item itemKey="built_in">
+          <Icon.Device />
+          Built in
+        </PSelect.Item>
+        <PSelect.Item itemKey="const_val">
+          <Icon.Constant />
+          Constant value
+        </PSelect.Item>
+        <PSelect.Item itemKey="chan">
+          <Icon.Channel />
+          Channel
+        </PSelect.Item>
+      </>
+    ),
   },
 });
 
@@ -426,15 +389,12 @@ const VELOCITY_UNITS_NAMES = {
   InchesPerSecond: "in/s",
 } as const satisfies Record<VelocityUnits, string>;
 
-const VelocityUnitsField = Form.buildSelectField<
-  VelocityUnits,
-  record.KeyedNamed<VelocityUnits>
->({
+const VelocityUnitsField = Form.buildSelectField<VelocityUnits>({
   fieldKey: "units",
   fieldProps: { label: "Velocity units" },
   inputProps: {
     resourceName: "velocity units",
-    data: selectData(VELOCITY_UNITS_NAMES),
+    children: Task.selectItems(VELOCITY_UNITS_NAMES),
   },
 });
 
@@ -443,15 +403,12 @@ const VELOCITY_SENSITIVITY_UNITS_NAMES = {
   MilliVoltsPerInchPerSecond: "mV/in/s",
 } as const satisfies Record<VelocitySensitivityUnits, string>;
 
-const VelocitySensitivityUnitsField = Form.buildSelectField<
-  VelocitySensitivityUnits,
-  record.KeyedNamed<VelocitySensitivityUnits>
->({
+const VelocitySensitivityUnitsField = Form.buildSelectField<VelocitySensitivityUnits>({
   fieldKey: "sensitivityUnits",
   fieldProps: { label: "Sensitivity units" },
   inputProps: {
     resourceName: "sensitivity units",
-    data: selectData(VELOCITY_SENSITIVITY_UNITS_NAMES),
+    children: Task.selectItems(VELOCITY_SENSITIVITY_UNITS_NAMES),
   },
 });
 
@@ -683,10 +640,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
       <MinMaxValueFields path={prefix} />
       <ForceUnitsField
         path={prefix}
-        inputProps={{
-          filter: ({ key }) => key !== "KilogramForce",
-          resourceName: "force units",
-        }}
+        inputProps={{ children: Task.selectItems(IEPE_FORCE_UNITS_NAMES) }}
       />
       <SensitivityField
         path={prefix}

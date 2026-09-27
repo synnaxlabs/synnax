@@ -11,29 +11,27 @@ import { type text } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { type Select } from "@/select";
-import { Button, Buttons } from "@/select/Button";
+import { Buttons } from "@/select/Buttons";
+import { Item } from "@/select/Item";
 
-export interface LevelProps extends Omit<Select.ButtonsProps<text.Level>, "keys"> {}
-
-/** The levels the picker offers, in render order. */
-const KEYS: text.Level[] = ["small", "h5", "h4", "h3", "h2"];
+export interface LevelProps extends Select.ButtonsProps<text.Level> {}
 
 export const Level = (props: LevelProps): ReactElement => (
-  <Buttons {...props} keys={KEYS}>
-    <Button itemKey="small" square>
+  <Buttons {...props}>
+    <Item itemKey="small" square>
       XS
-    </Button>
-    <Button itemKey="h5" square>
+    </Item>
+    <Item itemKey="h5" square>
       S
-    </Button>
-    <Button itemKey="h4" square>
+    </Item>
+    <Item itemKey="h4" square>
       M
-    </Button>
-    <Button itemKey="h3" square>
+    </Item>
+    <Item itemKey="h3" square>
       L
-    </Button>
-    <Button itemKey="h2" square>
+    </Item>
+    <Item itemKey="h2" square>
       XL
-    </Button>
+    </Item>
   </Buttons>
 );

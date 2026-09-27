@@ -28,7 +28,7 @@ const listItemRenderProp = Component.renderProp(
     if (item == null) return null;
     const { name, location, status } = item;
     return (
-      <Select.ListItem
+      <Select.Item
         itemKey={itemKey}
         {...rest}
         className={CSS.BE("device", "list-item")}
@@ -42,7 +42,7 @@ const listItemRenderProp = Component.renderProp(
         <Text.Text level="small" color={9} weight={450} style={LOCATION_STYLE}>
           {location}
         </Text.Text>
-      </Select.ListItem>
+      </Select.Item>
     );
   },
 );

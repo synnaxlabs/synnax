@@ -16,23 +16,12 @@ import {
   SIGN_SECURITY_MODE,
 } from "@/feature/opcua/device/types";
 
-const DATA: SecurityMode[] = [
-  NO_SECURITY_MODE,
-  SIGN_SECURITY_MODE,
-  SIGN_AND_ENCRYPT_SECURITY_MODE,
-];
-
-export interface SelectSecurityModeProps extends Omit<
-  Select.ButtonsProps<SecurityMode>,
-  "keys"
-> {}
+export interface SelectSecurityModeProps extends Select.ButtonsProps<SecurityMode> {}
 
 export const SelectSecurityMode = (props: SelectSecurityModeProps) => (
-  <Select.Buttons {...props} keys={DATA}>
-    <Select.Button itemKey={NO_SECURITY_MODE}>None</Select.Button>
-    <Select.Button itemKey={SIGN_SECURITY_MODE}>Sign</Select.Button>
-    <Select.Button itemKey={SIGN_AND_ENCRYPT_SECURITY_MODE}>
-      Sign and encrypt
-    </Select.Button>
+  <Select.Buttons {...props}>
+    <Select.Item itemKey={NO_SECURITY_MODE}>None</Select.Item>
+    <Select.Item itemKey={SIGN_SECURITY_MODE}>Sign</Select.Item>
+    <Select.Item itemKey={SIGN_AND_ENCRYPT_SECURITY_MODE}>Sign and encrypt</Select.Item>
   </Select.Buttons>
 );

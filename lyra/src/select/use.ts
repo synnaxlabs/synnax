@@ -7,22 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, type optional, type record, unique } from "@synnaxlabs/x";
+import {
+  array,
+  type destructor,
+  type location,
+  type optional,
+  type record,
+  unique,
+} from "@synnaxlabs/x";
 import { useCallback, useEffect, useRef } from "react";
 
 import { Dialog } from "@/dialog";
 import { useSyncedRef } from "@/hooks/ref";
 import { List } from "@/list";
+import { useRegistryContext } from "@/select/registry";
 import { useHover, type UseHoverProps, type UseHoverReturn } from "@/select/useHover";
 import { Triggers } from "@/triggers";
 
-/**
- * Extra information passed as an additional argument to the `onChange` callback.
- * of the {@link useMultiple} hook.
- */
+/** Extra information passed as a second argument to a selection's `onChange`. */
 export interface UseOnChangeExtra<K extends record.Key = record.Key> {
-  /** The index of the clicked entry in the list data. */
-  clickedIndex: number | null;
   /** The key of the entry that was last clicked. */
   clicked: K | null;
 }
@@ -34,7 +37,7 @@ export interface UseSingleAllowNoneProps<K extends record.Key> {
   allowNone?: true;
   /** Whether to close the enclosing dialog after a selection. */
   closeDialogOnSelect?: boolean;
-  /** Whether to select the first entry whenever the value names nothing in the data. */
+  /** Whether to select the first option whenever the value names none of them. */
   autoSelectOnNone?: boolean;
 }
 
@@ -73,7 +76,7 @@ export interface UseMultipleProps<K extends record.Key> extends Pick<
   replaceOnSingle?: boolean;
   /** Whether to close the enclosing dialog after a selection. */
   closeDialogOnSelect?: boolean;
-  /** Whether to select the first entry whenever the value names nothing in the data. */
+  /** Whether to select the first option whenever the value names none of them. */
   autoSelectOnNone?: boolean;
 }
 
@@ -99,8 +102,33 @@ export interface UseReturn<K extends record.Key> extends UseHoverReturn<K> {
   clear: () => void;
 }
 
+interface Order<K extends record.Key> {
+  /** Changes identity whenever the data changes. */
+  getOrder: () => K[];
+  scrollTo: (key: K, direction: location.Y) => void;
+  /** Calls the listener whenever the fixed items change. */
+  subscribe: (listener: () => void) => destructor.Destructor;
+}
+
+// The registry holds keys of every selection's type, so the order narrows them to K.
+const useOrder = <K extends record.Key>(): Order<K> => {
+  const registry = useRegistryContext("Select.Frame");
+  const { data } = List.useData<K>();
+  const { scrollToIndex } = List.useScroller();
+  const getOrder = useCallback(() => registry.getOrder(data) as K[], [registry, data]);
+  const scrollTo = useCallback(
+    (key: K, direction: location.Y) => {
+      const element = registry.getElement(key);
+      if (element != null) element.scrollIntoView({ block: "nearest" });
+      else scrollToIndex(data.indexOf(key), direction);
+    },
+    [registry, data, scrollToIndex],
+  );
+  return { getOrder, scrollTo, subscribe: registry.subscribe };
+};
+
 /**
- * Drives a single-entry selection over the enclosing {@link List.Frame}, adding
+ * Drives a single-entry selection over the options of the enclosing frame, adding
  * keyboard hover and, when allowed, clear-on-reclick.
  */
 export const useSingle = <K extends record.Key>({
@@ -113,40 +141,43 @@ export const useSingle = <K extends record.Key>({
   autoSelectOnNone = false,
 }: UseSingleProps<K>): UseReturn<K> => {
   const valueRef = useSyncedRef(value);
-  const { data } = List.useData<K>();
   const { close } = Dialog.useContext();
-  const dataRef = useSyncedRef(data);
+  const { getOrder, scrollTo, subscribe } = useOrder<K>();
   useEffect(() => {
-    const dataHasValue = value != null && data.includes(value);
-    if (autoSelectOnNone && data.length > 0 && !dataHasValue)
-      onChange(data[0], { clicked: data[0], clickedIndex: 0 });
-  }, [autoSelectOnNone, onChange, value, data.length, data]);
+    if (!autoSelectOnNone) return;
+    const select = (): void => {
+      const order = getOrder();
+      if (order.length > 0 && (value == null || !order.includes(value)))
+        onChange(order[0], { clicked: order[0] });
+    };
+    select();
+    return subscribe(select);
+  }, [autoSelectOnNone, onChange, value, getOrder, subscribe]);
   const handleSelect = useCallback(
     (key: K): void => {
       if (valueRef.current === key) {
-        if (allowNone)
-          onChange(null as unknown as K, { clicked: null, clickedIndex: null });
+        if (allowNone) onChange(null as unknown as K, { clicked: null });
         if (closeDialogOnSelect) close();
         return;
       }
-      const clickedIndex = dataRef.current.findIndex((v) => v === key);
-      onChange(key, { clicked: key, clickedIndex });
+      onChange(key, { clicked: key });
       if (closeDialogOnSelect) close();
     },
-    [dataRef, onChange, close],
+    [onChange, close],
   );
   const clear = useCallback(() => {
-    if (allowNone)
-      onChange(null as unknown as K, { clicked: null, clickedIndex: null });
+    if (allowNone) onChange(null as unknown as K, { clicked: null });
   }, [onChange, allowNone]);
 
   const setSelected = useCallback(
-    (keys: K[]): void => onChange(keys[0], { clicked: null, clickedIndex: null }),
+    (keys: K[]): void => onChange(keys[0], { clicked: null }),
     [onChange],
   );
 
   const hover = useHover({
-    data,
+    getOrder,
+    subscribe,
+    scrollTo,
     onSelect: handleSelect,
     initialHover,
     enableTriggers,
@@ -155,9 +186,9 @@ export const useSingle = <K extends record.Key>({
 };
 
 /**
- * Drives a multi-entry selection over the enclosing {@link List.Frame}. Shift extends a
- * range from the last click, control toggles one key, and a plain click adds or removes
- * unless `replaceOnSingle` is set.
+ * Drives a multi-entry selection over the options of the enclosing frame. Shift extends
+ * a range from the last click, control toggles one key, and a plain click adds or
+ * removes unless `replaceOnSingle` is set.
  */
 export const useMultiple = <K extends record.Key>({
   value = [],
@@ -169,21 +200,25 @@ export const useMultiple = <K extends record.Key>({
   closeDialogOnSelect = false,
   autoSelectOnNone = false,
 }: UseMultipleProps<K>): UseReturn<K> => {
-  const { data } = List.useData<K>();
   const shiftValueRef = useRef<K | null>(null);
   const shift = Triggers.useHeldRef({ triggers: [["Shift"]], loose: true });
   const ctrl = Triggers.useHeldRef({ triggers: [["Control"]], loose: true });
+  const { close } = Dialog.useContext();
   const valueRef = useSyncedRef(value);
-  const dataRef = useSyncedRef(data);
+  const { getOrder, scrollTo, subscribe } = useOrder<K>();
   useEffect(() => {
-    const dataHasValue = data.some((v) => value.includes(v));
-    if (autoSelectOnNone && data.length > 0 && !dataHasValue)
-      onChange([data[0]], { clicked: data[0], clickedIndex: 0 });
-  }, [autoSelectOnNone, onChange, value, data.length, data]);
+    if (!autoSelectOnNone) return;
+    const select = (): void => {
+      const order = getOrder();
+      if (order.length > 0 && !order.some((k) => value.includes(k)))
+        onChange([order[0]], { clicked: order[0] });
+    };
+    select();
+    return subscribe(select);
+  }, [autoSelectOnNone, onChange, value, getOrder, subscribe]);
   const onSelect = useCallback(
     (key: K): void => {
       const shiftValue = shiftValueRef.current;
-      const data = dataRef.current;
       let nextSelected: K[];
       const value = array.toArray(valueRef.current).filter((v) => v != null);
       // If the control key is held, we can still allow multiple selection.
@@ -191,12 +226,12 @@ export const useMultiple = <K extends record.Key>({
         if (value.includes(key)) nextSelected = value.filter((k) => k !== key);
         else nextSelected = [...value, key];
       else if (shift.current.held && shiftValue !== null) {
+        const order = getOrder();
         // We might select in reverse order, so we need to sort the indexes.
-        const [start, end] = [
-          data.findIndex((v) => v === key),
-          data.findIndex((v) => v === shiftValue),
-        ].sort((a, b) => a - b);
-        const nextKeys = data.slice(start, end + 1).map((v) => v);
+        const [start, end] = [order.indexOf(key), order.indexOf(shiftValue)].sort(
+          (a, b) => a - b,
+        );
+        const nextKeys = order.slice(start, end + 1);
         // We already deselect the shiftSelected key, so we don't included it
         // when checking whether to select or deselect the entire range.
         if (
@@ -218,22 +253,23 @@ export const useMultiple = <K extends record.Key>({
         if (!allowNone) return;
         shiftValueRef.current = null;
       }
-      onChange(v, {
-        clicked: key,
-        clickedIndex: data.findIndex((v) => v === key),
-      });
+      onChange(v, { clicked: key });
       if (closeDialogOnSelect) close();
     },
-    [valueRef, dataRef, onChange],
+    [valueRef, getOrder, onChange, close],
   );
-  const clear = useCallback(
-    (): void => onChange([], { clicked: null, clickedIndex: 0 }),
-    [onChange],
-  );
+  const clear = useCallback((): void => onChange([], { clicked: null }), [onChange]);
   const setSelected = useCallback(
-    (keys: K[]): void => onChange(keys, { clicked: null, clickedIndex: 0 }),
+    (keys: K[]): void => onChange(keys, { clicked: null }),
     [onChange],
   );
-  const hover = useHover({ data, onSelect, initialHover, enableTriggers });
+  const hover = useHover({
+    getOrder,
+    subscribe,
+    scrollTo,
+    onSelect,
+    initialHover,
+    enableTriggers,
+  });
   return { onSelect, setSelected, clear, ...hover };
 };

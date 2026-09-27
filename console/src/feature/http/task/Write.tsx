@@ -57,22 +57,13 @@ const Properties = () => (
   </>
 );
 
-const WRITE_METHOD_KEYS: WriteMethod[] = ["POST", "PUT", "PATCH"];
-
-const JSON_TYPE_DATA: Select.StaticEntry<json.PrimitiveType>[] = [
-  { key: "number", name: "Number" },
-  { key: "string", name: "String" },
-  { key: "boolean", name: "Boolean" },
-];
-
-const GENERATOR_DATA: Select.StaticEntry<GeneratorType | TimeFormat>[] = [
-  { key: "uuid", name: "UUID" },
-  { key: "iso8601", name: "Timestamp (ISO 8601)" },
-  { key: "unix_sec", name: "Timestamp (s)" },
-  { key: "unix_ms", name: "Timestamp (ms)" },
-  { key: "unix_us", name: "Timestamp (µs)" },
-  { key: "unix_ns", name: "Timestamp (ns)" },
-];
+const JSON_TYPE_ITEMS = (
+  <>
+    <Select.Item itemKey="number">Number</Select.Item>
+    <Select.Item itemKey="string">String</Select.Item>
+    <Select.Item itemKey="boolean">Boolean</Select.Item>
+  </>
+);
 
 const MethodSelect: FC<{ path: string }> = ({ path }) => (
   <PForm.Field<WriteMethod> path={path} label="Method">
@@ -81,11 +72,11 @@ const MethodSelect: FC<{ path: string }> = ({ path }) => (
 );
 
 const renderMethodSelect = Component.renderProp(
-  (p: Omit<Select.ButtonsProps<WriteMethod>, "keys">) => (
-    <Select.Buttons<WriteMethod> {...p} keys={WRITE_METHOD_KEYS}>
-      <Select.Button<WriteMethod> itemKey="POST">POST</Select.Button>
-      <Select.Button<WriteMethod> itemKey="PUT">PUT</Select.Button>
-      <Select.Button<WriteMethod> itemKey="PATCH">PATCH</Select.Button>
+  (p: Select.ButtonsProps<WriteMethod>) => (
+    <Select.Buttons<WriteMethod> {...p}>
+      <Select.Item<WriteMethod> itemKey="POST">POST</Select.Item>
+      <Select.Item<WriteMethod> itemKey="PUT">PUT</Select.Item>
+      <Select.Item<WriteMethod> itemKey="PATCH">PATCH</Select.Item>
     </Select.Buttons>
   ),
 );
@@ -98,7 +89,7 @@ const EndpointItem = (props: List.ItemProps<string>) => {
     `config.endpoints.${itemKey}.channel.channel`,
   );
   return (
-    <Select.ListItem
+    <Select.Item
       {...props}
       y
       align="start"
@@ -117,7 +108,7 @@ const EndpointItem = (props: List.ItemProps<string>) => {
         color={9}
         overflow="ellipsis"
       />
-    </Select.ListItem>
+    </Select.Item>
   );
 };
 
@@ -182,17 +173,10 @@ const ChannelFieldSection: FC<{ epPath: string }> = ({ epPath }) => {
 };
 
 const renderSelectJSONType = Component.renderProp(
-  (
-    p: Omit<
-      Select.StaticProps<string, Select.StaticEntry<json.PrimitiveType>>,
-      "data" | "resourceName"
-    >,
-  ) => (
-    <Select.Static<string, Select.StaticEntry<json.PrimitiveType>>
-      {...p}
-      data={JSON_TYPE_DATA}
-      resourceName="JSON type"
-    />
+  (p: Omit<Select.SingleSimpleProps<string>, "children" | "resourceName">) => (
+    <Select.Simple<string> {...p} resourceName="JSON type">
+      {JSON_TYPE_ITEMS}
+    </Select.Simple>
   ),
 );
 
@@ -261,7 +245,7 @@ const FieldListItem = (props: List.ItemProps<string> & { epKey: string }) => {
   );
 
   return (
-    <Select.ListItem {...props} justify="between" align="center" x>
+    <Select.Item {...props} justify="between" align="center" x>
       <PForm.TextField
         path={`${path}.pointer`}
         showLabel={false}
@@ -269,12 +253,13 @@ const FieldListItem = (props: List.ItemProps<string> & { epKey: string }) => {
         inputProps={POINTER_INPUT_PROPS}
       />
       {fieldType === "static" && (
-        <Select.Static<json.PrimitiveType, Select.StaticEntry<json.PrimitiveType>>
+        <Select.Simple<json.PrimitiveType>
           value={jsonType ?? "string"}
           onChange={handleJSONTypeChange}
-          data={JSON_TYPE_DATA}
           resourceName="type"
-        />
+        >
+          {JSON_TYPE_ITEMS}
+        </Select.Simple>
       )}
       {fieldType === "static" && jsonType === "string" && (
         <PForm.TextField
@@ -300,21 +285,24 @@ const FieldListItem = (props: List.ItemProps<string> & { epKey: string }) => {
         />
       )}
       {fieldType === "generated" && (
-        <Select.Static<
-          GeneratorType | TimeFormat,
-          Select.StaticEntry<GeneratorType | TimeFormat>
-        >
+        <Select.Simple<GeneratorType | TimeFormat>
           value={generatorDisplayKey(generator, timeFormat)}
           onChange={handleGeneratorChange}
-          data={GENERATOR_DATA}
           resourceName="generator"
           variant="floating"
-        />
+        >
+          <Select.Item itemKey="uuid">UUID</Select.Item>
+          <Select.Item itemKey="iso8601">Timestamp (ISO 8601)</Select.Item>
+          <Select.Item itemKey="unix_sec">Timestamp (s)</Select.Item>
+          <Select.Item itemKey="unix_ms">Timestamp (ms)</Select.Item>
+          <Select.Item itemKey="unix_us">Timestamp (µs)</Select.Item>
+          <Select.Item itemKey="unix_ns">Timestamp (ns)</Select.Item>
+        </Select.Simple>
       )}
       <Text.Text level="small" color={9}>
         {fieldType}
       </Text.Text>
-    </Select.ListItem>
+    </Select.Item>
   );
 };
 
@@ -415,13 +403,11 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
           allowNone={false}
           autoSelectOnNone
         >
-          <List.Items<string, WriteField>
-            className={menuProps.className}
-            onContextMenu={menuProps.open}
-            emptyContent={EMPTY_CONTENT}
-          >
-            {listItem}
-          </List.Items>
+          <List.Scroll className={menuProps.className} onContextMenu={menuProps.open}>
+            <List.Items<string, WriteField> emptyContent={EMPTY_CONTENT}>
+              {listItem}
+            </List.Items>
+          </List.Scroll>
         </Select.Frame>
       </Menu.ContextMenu>
     </PForm.Section>
@@ -549,14 +535,15 @@ const Form: FC = () => {
                 allowNone={false}
                 autoSelectOnNone
               >
-                <List.Items<string, WriteEndpoint>
+                <List.Scroll
                   full="y"
                   className={menuProps.className}
                   onContextMenu={menuProps.open}
-                  emptyContent={EMPTY_ENDPOINTS}
                 >
-                  {endpointItem}
-                </List.Items>
+                  <List.Items<string, WriteEndpoint> emptyContent={EMPTY_ENDPOINTS}>
+                    {endpointItem}
+                  </List.Items>
+                </List.Scroll>
               </Select.Frame>
             </Menu.ContextMenu>
             {!isPreview && (

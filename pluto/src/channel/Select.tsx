@@ -27,10 +27,10 @@ const listItemRenderProp = Component.renderProp(
     const item = List.useItem<channel.Key, channel.Channel>(itemKey);
     const Icon = resolveIcon(item?.payload);
     return (
-      <Select.ListItem itemKey={itemKey} {...rest}>
+      <Select.Item itemKey={itemKey} {...rest}>
         <Icon />
         {item?.name}
-      </Select.ListItem>
+      </Select.Item>
     );
   },
 );

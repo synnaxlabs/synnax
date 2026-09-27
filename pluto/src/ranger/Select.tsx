@@ -88,7 +88,7 @@ const ListItem = ({
   if (item == null) return null;
   const { name, timeRange, parent, labels } = item;
   return (
-    <Base.ListItem
+    <Base.Item
       className={CSS.cls(CSS.BE("range", "list-item"), className)}
       itemKey={itemKey}
       justify="between"
@@ -112,7 +112,7 @@ const ListItem = ({
         )}
         <Telem.Text.TimeRange level="small">{timeRange}</Telem.Text.TimeRange>
       </Flex.Box>
-    </Base.ListItem>
+    </Base.Item>
   );
 };
 

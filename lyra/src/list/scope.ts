@@ -1,0 +1,26 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { type RefCallback } from "react";
+
+import { context } from "@/context";
+
+/** True under an Items render function, for the rows of the nearest Frame. */
+export const [ItemsContext, useInItems] = context.create<boolean>({
+  defaultValue: false,
+  displayName: "List.ItemsContext",
+});
+
+/** Holds the scroll ref of the Frame whose Scroll encloses the subtree. */
+export const [ScrollContext, useScrollContext] = context.create<
+  RefCallback<HTMLDivElement | null>
+>({
+  displayName: "List.ScrollContext",
+  providerName: "List.Scroll",
+});

@@ -120,33 +120,34 @@ export const StateMappingForm = ({
       className={CSS.B("state-mapping-list")}
     >
       <List.Frame data={data}>
-        <List.Items<string>
-          grow
-          emptyContent={
-            <Flex.Box center grow>
-              <Text.Text y center status="disabled" gap="tiny">
-                No options added
-                <Text.Text variant="link" onClick={handleAddOption}>
-                  Add an option
+        <List.Scroll grow>
+          <List.Items<string>
+            emptyContent={
+              <Flex.Box center grow>
+                <Text.Text y center status="disabled" gap="tiny">
+                  No options added
+                  <Text.Text variant="link" onClick={handleAddOption}>
+                    Add an option
+                  </Text.Text>
                 </Text.Text>
-              </Text.Text>
-            </Flex.Box>
-          }
-        >
-          {({ itemKey, index }) => {
-            if (index >= options.length) return null;
-            return (
-              <StateMappingListItem
-                itemKey={itemKey}
-                index={index}
-                path={path}
-                showColor={showColor}
-                duplicateValue={duplicateValues.has(options[index].value)}
-                onRemove={remove}
-              />
-            );
-          }}
-        </List.Items>
+              </Flex.Box>
+            }
+          >
+            {({ itemKey, index }) => {
+              if (index >= options.length) return null;
+              return (
+                <StateMappingListItem
+                  itemKey={itemKey}
+                  index={index}
+                  path={path}
+                  showColor={showColor}
+                  duplicateValue={duplicateValues.has(options[index].value)}
+                  onRemove={remove}
+                />
+              );
+            }}
+          </List.Items>
+        </List.Scroll>
       </List.Frame>
       {options.length > 0 && (
         <Button.Button

@@ -203,8 +203,6 @@ const renderTelemSelectDataType = Component.renderProp(
   ),
 );
 
-const METHOD_KEYS: ReadMethod[] = ["GET", "POST"];
-
 const MethodSelect: FC<{ path: string; epPath: string }> = ({ path, epPath }) => {
   const { set } = PForm.useContext();
   const handleChange = useCallback(
@@ -218,10 +216,10 @@ const MethodSelect: FC<{ path: string; epPath: string }> = ({ path, epPath }) =>
     [set, path, epPath],
   );
   const renderMethod = useCallback(
-    (p: Omit<Select.ButtonsProps<ReadMethod>, "keys">) => (
-      <Select.Buttons<ReadMethod> {...p} onChange={handleChange} keys={METHOD_KEYS}>
-        <Select.Button<ReadMethod> itemKey="GET">GET</Select.Button>
-        <Select.Button<ReadMethod> itemKey="POST">POST</Select.Button>
+    (p: Select.ButtonsProps<ReadMethod>) => (
+      <Select.Buttons<ReadMethod> {...p} onChange={handleChange}>
+        <Select.Item<ReadMethod> itemKey="GET">GET</Select.Item>
+        <Select.Item<ReadMethod> itemKey="POST">POST</Select.Item>
       </Select.Buttons>
     ),
     [handleChange],
@@ -311,7 +309,6 @@ const ExistingChannelNameField = ({ channel: key }: { channel: channel.Key }) =>
 };
 
 type TimingMode = "software" | "value";
-const TIMING_MODE_KEYS: TimingMode[] = ["software", "value"];
 
 const TimestampFields: FC<{ path: string }> = ({ path }) => {
   const fields = PForm.useFieldValue<ReadField[]>(`${path}.fields`);
@@ -346,10 +343,9 @@ const TimestampFields: FC<{ path: string }> = ({ path }) => {
         <Select.Buttons<TimingMode>
           value={isValueTiming ? "value" : "software"}
           onChange={handleChange}
-          keys={TIMING_MODE_KEYS}
         >
-          <Select.Button<TimingMode> itemKey="software">Poll time</Select.Button>
-          <Select.Button<TimingMode> itemKey="value">Response value</Select.Button>
+          <Select.Item<TimingMode> itemKey="software">Poll time</Select.Item>
+          <Select.Item<TimingMode> itemKey="value">Response value</Select.Item>
         </Select.Buttons>
       </Input.Item>
       {isValueTiming && indexField != null && (

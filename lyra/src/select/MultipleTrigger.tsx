@@ -22,6 +22,8 @@ import { useSyncedRef } from "@/hooks";
 import { Icon } from "@/icon";
 import { List } from "@/list";
 import { useContext, useItemState, useSelected } from "@/select/Context";
+import { Label } from "@/select/Label";
+import { useIsFixed } from "@/select/registry";
 import { Tag } from "@/tag";
 import { Text } from "@/text";
 
@@ -46,23 +48,24 @@ const MultipleTag = <K extends record.Key, E extends MultipleEntry<K>>({
   onDragStart,
   renderIcon,
 }: MultipleTagProps<K>): ReactElement | null => {
+  const fixed = useIsFixed(itemKey);
   const item = List.useItem<K, E>(itemKey);
   const { onSelect } = useItemState(itemKey);
   let label: string = itemKey.toString();
   if (primitive.isNonZero(item?.alias)) label = item.alias;
   else if (primitive.isNonZero(item?.name)) label = item.name;
-  const resolvedIcon = renderIcon?.(item) ?? item?.icon ?? icon;
+  const resolvedIcon = fixed ? undefined : (renderIcon?.(item) ?? item?.icon ?? icon);
   return (
     <Tag.Tag
       onClose={onSelect}
       onDragStart={() => onDragStart(itemKey)}
       draggable
       size="small"
-      status={item == null ? "error" : undefined}
+      status={item == null && !fixed ? "error" : undefined}
       icon={resolvedIcon}
       color={item?.color}
     >
-      {label}
+      {fixed ? <Label itemKey={itemKey} /> : label}
     </Tag.Tag>
   );
 };

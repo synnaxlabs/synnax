@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type record } from "@synnaxlabs/x";
+import { type optional, type record } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement } from "react";
 
 import { List } from "@/list";
 import { Context } from "@/select/Context";
+import { RegistryContext, SearchProvider, useRegistry } from "@/select/registry";
 import {
   useMultiple,
   type UseMultipleProps,
@@ -74,7 +75,7 @@ export interface TriggerProps<
 interface BaseFrameProps<
   K extends record.Key,
   E extends record.Keyed<K> | undefined,
-> extends Omit<List.FrameProps<K, E>, "onChange"> {}
+> extends optional.Optional<Omit<List.FrameProps<K, E>, "onChange">, "data"> {}
 
 export interface MultipleFrameProps<
   K extends record.Key,
@@ -98,15 +99,18 @@ export type FrameProps<
   E extends record.Keyed<K> | undefined = record.Keyed<K>,
 > = MultipleFrameProps<K, E> | SingleFrameProps<K, E>;
 
+const EMPTY: never[] = [];
+
 /**
- * Provides list data and selection state to its children, with no UI of its own. Use it
- * to build a selection whose trigger and dialog are not the standard ones.
+ * Provides the options and the selection state to its children, with no UI of its own.
+ * The options are its `data`, if any, and the {@link Item}s rendered outside an
+ * {@link Items} block.
  */
 export const Frame = <
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K>,
 >({
-  data,
+  data = EMPTY,
   getItem,
   subscribe,
   itemHeight,
@@ -117,21 +121,28 @@ export const Frame = <
   value,
   onChange,
   ...rest
-}: FrameProps<K, E>): ReactElement => (
-  <List.Frame<K, E>
-    data={data}
-    getItem={getItem}
-    subscribe={subscribe}
-    onFetchMore={onFetchMore}
-    itemHeight={itemHeight}
-    overscan={overscan}
-    virtual={virtual}
-  >
-    {multiple ? (
-      <MultipleProvider value={value} onChange={onChange} {...rest} />
-    ) : (
-      <SingleProvider value={value} onChange={onChange} {...rest} />
-    )}
-  </List.Frame>
-);
+}: FrameProps<K, E>): ReactElement => {
+  const registry = useRegistry();
+  return (
+    <List.Frame<K, E>
+      data={data}
+      getItem={getItem}
+      subscribe={subscribe}
+      onFetchMore={onFetchMore}
+      itemHeight={itemHeight}
+      overscan={overscan}
+      virtual={virtual}
+    >
+      <RegistryContext value={registry}>
+        <SearchProvider>
+          {multiple ? (
+            <MultipleProvider value={value} onChange={onChange} {...rest} />
+          ) : (
+            <SingleProvider value={value} onChange={onChange} {...rest} />
+          )}
+        </SearchProvider>
+      </RegistryContext>
+    </List.Frame>
+  );
+};
 Frame.displayName = "Select.Frame";
