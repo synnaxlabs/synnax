@@ -223,7 +223,11 @@ func (i *Domain) EndAfter(
 	n int64,
 ) (end telem.TimeStamp, err error) {
 	iter := i.DB.OpenIterator(domain.IterRange(ref.SpanRange(telem.TimeSpanMax)))
-	defer func() { err = errors.Combine(err, iter.Close()) }()
+	defer func() {
+		if err = errors.Combine(err, iter.Close()); err != nil {
+			end = 0
+		}
+	}()
 	for ok := iter.SeekFirst(ctx); ok; ok = iter.Next() {
 		var found bool
 		if end, found, n, err = i.endInDomain(ctx, iter, ref, n); err != nil || found {

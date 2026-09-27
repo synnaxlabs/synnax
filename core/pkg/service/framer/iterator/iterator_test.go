@@ -1762,6 +1762,12 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Expect(values(v)).To(Equal(groupEnds(ramp(3), 20)))
 				Expect(fr.Get(calc.Index()).AlignmentBounds()).
 					To(Equal(v.AlignmentBounds()))
+				for _, s := range fr.Get(calc.Index()).Series {
+					stamps := s.Unmarshal[telem.TimeStamp]()
+					Expect(s.TimeRange.ContainsStamp(stamps[0])).To(BeTrue())
+					Expect(s.TimeRange.ContainsStamp(stamps[len(stamps)-1])).
+						To(BeTrue())
+				}
 			})
 
 			It("Should read a reduced calculation with AutoSpan in one reply", func(
