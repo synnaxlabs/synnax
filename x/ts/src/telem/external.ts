@@ -12,8 +12,8 @@ export { type GLBufferController } from "@/telem/gl";
 export * from "@/telem/series";
 export * from "@/telem/telem";
 export {
-  AGGREGATIONS,
   type Aggregation,
+  AGGREGATIONS,
   aggregationZ,
   type Reduction,
   reductionZ,
