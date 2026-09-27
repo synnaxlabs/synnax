@@ -11,13 +11,9 @@
 
 import { z } from "zod";
 
-export enum Aggregation {
-  none = 0,
-  min_max = 1,
-  average = 2,
-  decimate = 3,
-}
-export const aggregationZ = z.enum(Aggregation);
+export const AGGREGATIONS = ["min_max", "average", "decimate"] as const;
+export const aggregationZ = z.enum(AGGREGATIONS);
+export type Aggregation = z.infer<typeof aggregationZ>;
 
 export const TIMESTAMP_FORMATS = [
   "ISO",
@@ -34,3 +30,44 @@ export type TimestampFormat = z.infer<typeof timestampFormatZ>;
 export const TIME_ZONES = ["local", "UTC"] as const;
 export const timeZoneZ = z.enum(TIME_ZONES);
 export type TimeZone = z.infer<typeof timeZoneZ>;
+
+/** StrideReduction keeps every factor-th sample of each series read. */
+export const strideReductionZ = z.object({
+  variant: z.literal("stride"),
+  /** factor is the stride. Values below 2 keep every sample. */
+  factor: z.uint32(),
+});
+export interface StrideReduction extends z.infer<typeof strideReductionZ> {}
+
+/**
+ * LimitReduction reduces each group of samples so that each channel comes back as about
+ * point_limit points. Channels on one index reduce over the same groups.
+ */
+export const limitReductionZ = z.object({
+  variant: z.literal("limit"),
+  /** aggregation selects the points each group of samples reduces to. */
+  aggregation: aggregationZ.default("min_max"),
+  /** pointLimit is the number of points each channel reduces to. */
+  pointLimit: z.uint32().min(1),
+});
+export interface LimitReduction extends z.infer<typeof limitReductionZ> {}
+
+export const REDUCTION_TYPES = ["stride", "limit"] as const;
+export const reductionTypeZ = z.enum(REDUCTION_TYPES);
+export type ReductionType = z.infer<typeof reductionTypeZ>;
+
+/**
+ * Reduction selects how a read reduces samples. A read without one keeps every sample.
+ */
+export const reductionZ = z.discriminatedUnion("variant", [
+  strideReductionZ,
+  limitReductionZ,
+]);
+export type Reduction = StrideReduction | LimitReduction;
+
+export const REDUCTION_SCHEMAS: {
+  [K in ReductionType]: z.ZodType<Extract<Reduction, { variant: K }>>;
+} = {
+  stride: strideReductionZ,
+  limit: limitReductionZ,
+};

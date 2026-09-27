@@ -32,20 +32,13 @@ type IteratorConfig struct {
 	// AutoChunkSize sets the maximum size of a chunk that will be returned by the
 	// iterator when using AutoSpan in calls ot Next or Prev.
 	AutoChunkSize int64
-	// DownsampleFactor keeps every n-th sample of each series the iterator reads,
-	// striding the read so the discarded samples are never materialized. Values below
-	// 2 keep every sample.
-	DownsampleFactor uint32
-	// Aggregation reduces each group of samples to the points it selects, so that the
-	// samples in Bounds come back as about PointLimit points. Groups are counted on the
-	// channel's index and anchored at the start of each index domain, so every channel
-	// on one index reduces over the same groups. With AutoSpan, AutoChunkSize counts
-	// points and chunks end on group boundaries. A fixed span clips groups at the view
-	// edges. Numeric channels only; other channels read every sample.
-	Aggregation telem.Aggregation
-	// PointLimit is the number of points Aggregation reduces Bounds to. Zero keeps
-	// every sample.
-	PointLimit uint32
+	// Reduction reduces the samples the iterator reads. A stride skips samples
+	// without reading them. A limit reduces the samples in Bounds to about PointLimit
+	// points over groups counted on the channel's index and anchored at the start of
+	// each index domain, so every channel on one index reduces over the same groups.
+	// With AutoSpan, AutoChunkSize counts points and chunks end on group boundaries. A
+	// fixed span clips groups at the view edges. A limit reduces numeric channels only.
+	Reduction telem.Reduction
 }
 
 func (i IteratorConfig) domainIteratorConfig() domain.IteratorConfig {
@@ -56,31 +49,14 @@ func (i IteratorConfig) domainIteratorConfig() domain.IteratorConfig {
 func (i IteratorConfig) Override(other IteratorConfig) IteratorConfig {
 	i.Bounds = override.Zero(i.Bounds, other.Bounds)
 	i.AutoChunkSize = override.Numeric(i.AutoChunkSize, other.AutoChunkSize)
-	i.DownsampleFactor = override.Numeric(i.DownsampleFactor, other.DownsampleFactor)
-	i.Aggregation = override.Numeric(i.Aggregation, other.Aggregation)
-	i.PointLimit = override.Numeric(i.PointLimit, other.PointLimit)
+	i.Reduction.Variant = override.Nil(i.Reduction.Variant, other.Reduction.Variant)
 	return i
 }
 
 // Validate implements config.Config.
 func (i IteratorConfig) Validate() error {
 	v := validate.New("unary.iterator")
-	aggregated := i.Aggregation != telem.AggregationNone
-	v.Ternary(
-		"aggregation",
-		i.Aggregation > telem.AggregationDecimate,
-		"unknown aggregation",
-	)
-	v.Ternary(
-		"point_limit",
-		aggregated != (i.PointLimit > 0),
-		"must be set together with aggregation",
-	)
-	v.Ternary(
-		"downsample_factor",
-		aggregated && i.DownsampleFactor > 1,
-		"cannot be combined with aggregation",
-	)
+	v.Exec(i.Reduction.Validate)
 	return v.Error()
 }
 
@@ -109,6 +85,10 @@ type Iterator struct {
 	view   telem.TimeRange
 	bounds telem.TimeRange
 	closed bool
+	// stride keeps every stride-th sample. Values below 2 keep every sample.
+	stride uint32
+	// limit is the point limit of the reduction, or nil when the read has none.
+	limit *telem.LimitReduction
 	// groupSize is the number of samples per aggregation group over bounds. Zero means
 	// it has not been computed since bounds last changed.
 	groupSize uint32
@@ -130,6 +110,12 @@ func (db *DB) OpenIterator(cfgs ...IteratorConfig) (*Iterator, error) {
 		resolver:        db.resolver,
 		internal:        iter,
 		IteratorConfig:  cfg,
+	}
+	switch r := cfg.Reduction.Variant.(type) {
+	case telem.StrideReduction:
+		i.stride = r.Factor
+	case telem.LimitReduction:
+		i.limit = &r
 	}
 	i.SetBounds(cfg.Bounds)
 	return i, nil
@@ -543,7 +529,7 @@ func (i *Iterator) insert(series telem.Series) {
 }
 
 // read reads the slice [offset, offset+size) of the current domain into a series,
-// keeping every DownsampleFactor-th sample. It returns the series and the number of
+// keeping every stride-th sample. It returns the series and the number of
 // source samples the slice held, which exceeds the series length when the read is
 // downsampled.
 func (i *Iterator) read(
@@ -564,7 +550,7 @@ func (i *Iterator) read(
 	if i.groupSize > 1 {
 		return i.readReduced(r, series, offset, size)
 	}
-	if i.DownsampleFactor > 1 {
+	if i.stride > 1 {
 		series.Data, srcLen, err = i.readStrided(r, offset, size)
 		if err != nil {
 			return telem.Series{}, 0, err
@@ -596,7 +582,7 @@ func (i *Iterator) resolveGroupSize(ctx context.Context) error {
 	if i.groupSize != 0 {
 		return nil
 	}
-	if i.Aggregation == telem.AggregationNone || !telem.Reducible(i.Channel.DataType) {
+	if i.limit == nil || !telem.Reducible(i.Channel.DataType) {
 		i.groupSize = 1
 		return nil
 	}
@@ -608,7 +594,11 @@ func (i *Iterator) resolveGroupSize(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	i.groupSize = telem.GroupSize(pickSampleOffset(approx), i.PointLimit, i.Aggregation)
+	i.groupSize = telem.GroupSize(
+		pickSampleOffset(approx),
+		i.limit.PointLimit,
+		i.limit.Aggregation,
+	)
 	return nil
 }
 
@@ -627,8 +617,8 @@ func (i *Iterator) consumed(series telem.Series, srcLen int64) int64 {
 func (i *Iterator) forwardGroupSpan(start telem.Alignment, points int64) int64 {
 	var (
 		size   = int64(i.groupSize)
-		groups = (points + i.Aggregation.PointsPerGroup() - 1) /
-			i.Aggregation.PointsPerGroup()
+		groups = (points + i.limit.Aggregation.PointsPerGroup() - 1) /
+			i.limit.Aggregation.PointsPerGroup()
 		pos = int64(start.SampleIndex())
 		end = pos + groups*size
 	)
@@ -643,8 +633,8 @@ func (i *Iterator) forwardGroupSpan(start telem.Alignment, points int64) int64 {
 func (i *Iterator) backwardGroupSpan(end telem.Alignment, points int64) int64 {
 	var (
 		size   = int64(i.groupSize)
-		groups = (points + i.Aggregation.PointsPerGroup() - 1) /
-			i.Aggregation.PointsPerGroup()
+		groups = (points + i.limit.Aggregation.PointsPerGroup() - 1) /
+			i.limit.Aggregation.PointsPerGroup()
 		pos   = int64(end.SampleIndex())
 		start = max(pos-groups*size, 0)
 	)
@@ -696,7 +686,7 @@ func (i *Iterator) readReduced(
 			DataType:  series.DataType,
 			Data:      b[:density.Size(avail)],
 			Alignment: start.AddSamples(uint32(read)),
-		}.Reduce(i.Aggregation, i.groupSize)
+		}.Reduce(i.limit.Aggregation, i.groupSize)
 		series.Data = append(series.Data, part.Data...)
 		series.AlignmentMultiple = part.AlignmentMultiple
 		read += avail
@@ -710,7 +700,7 @@ func (i *Iterator) readReduced(
 
 var errPrefixOverrunsSlice = errors.New("length prefix exceeds domain slice")
 
-// readStrided reads every DownsampleFactor-th sample of the slice [offset, offset+size)
+// readStrided reads every stride-th sample of the slice [offset, offset+size)
 // in r, packing the kept samples into a buffer sized to them alone. It returns the
 // packed data and the number of source samples the slice held. A slice shorter than
 // size yields the samples that were available.
@@ -732,7 +722,7 @@ func (i *Iterator) readStridedFixed(
 ) ([]byte, int64, error) {
 	var (
 		density    = i.Channel.DataType.Density()
-		factor     = int64(i.DownsampleFactor)
+		factor     = int64(i.stride)
 		srcSamples = density.SampleCount(size)
 		kept       = srcSamples/factor + min(srcSamples%factor, 1)
 		stride     = int64(density.Size(factor))
@@ -768,7 +758,7 @@ func (i *Iterator) readStridedVariable(
 	size telem.Size,
 ) ([]byte, int64, error) {
 	var (
-		factor = int64(i.DownsampleFactor)
+		factor = int64(i.stride)
 		br     = bufio.NewReaderSize(
 			io.NewSectionReader(r, int64(offset), int64(size)),
 			int(min(strideBufferSize, size)),

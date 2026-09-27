@@ -196,12 +196,10 @@ func (s *Service) openIterator(
 		return nil, err
 	}
 	iter, err := s.internal.NewStreamIterator(ctx, framer.IteratorConfig{
-		Bounds:           req.Bounds,
-		Keys:             req.Keys,
-		ChunkSize:        req.ChunkSize,
-		DownsampleFactor: req.DownsampleFactor,
-		Aggregation:      req.Aggregation,
-		PointLimit:       req.PointLimit,
+		Bounds:    req.Bounds,
+		Keys:      req.Keys,
+		ChunkSize: req.ChunkSize,
+		Reduction: req.Reduction,
 	})
 	if err != nil {
 		return nil, err

@@ -35,19 +35,17 @@ const (
 )
 
 type IteratorRequest struct {
-	state            protoimpl.MessageState `protogen:"open.v1"`
-	Command          int32                  `protobuf:"varint,1,opt,name=command,proto3" json:"command,omitempty"`
-	Stamp            int64                  `protobuf:"varint,2,opt,name=stamp,proto3" json:"stamp,omitempty"`
-	Span             int64                  `protobuf:"varint,3,opt,name=span,proto3" json:"span,omitempty"`
-	Bounds           *pb.TimeRange          `protobuf:"bytes,4,opt,name=bounds,proto3" json:"bounds,omitempty"`
-	Keys             []uint32               `protobuf:"varint,6,rep,packed,name=keys,proto3" json:"keys,omitempty"`
-	ChunkSize        int64                  `protobuf:"varint,7,opt,name=chunk_size,json=chunkSize,proto3" json:"chunk_size,omitempty"`
-	SeqNum           int32                  `protobuf:"varint,8,opt,name=seq_num,json=seqNum,proto3" json:"seq_num,omitempty"`
-	DownsampleFactor uint32                 `protobuf:"varint,9,opt,name=downsample_factor,json=downsampleFactor,proto3" json:"downsample_factor,omitempty"`
-	Aggregation      uint32                 `protobuf:"varint,10,opt,name=aggregation,proto3" json:"aggregation,omitempty"`
-	PointLimit       uint32                 `protobuf:"varint,11,opt,name=point_limit,json=pointLimit,proto3" json:"point_limit,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Command       int32                  `protobuf:"varint,1,opt,name=command,proto3" json:"command,omitempty"`
+	Stamp         int64                  `protobuf:"varint,2,opt,name=stamp,proto3" json:"stamp,omitempty"`
+	Span          int64                  `protobuf:"varint,3,opt,name=span,proto3" json:"span,omitempty"`
+	Bounds        *pb.TimeRange          `protobuf:"bytes,4,opt,name=bounds,proto3" json:"bounds,omitempty"`
+	Keys          []uint32               `protobuf:"varint,6,rep,packed,name=keys,proto3" json:"keys,omitempty"`
+	ChunkSize     int64                  `protobuf:"varint,7,opt,name=chunk_size,json=chunkSize,proto3" json:"chunk_size,omitempty"`
+	SeqNum        int32                  `protobuf:"varint,8,opt,name=seq_num,json=seqNum,proto3" json:"seq_num,omitempty"`
+	Reduction     *Reduction             `protobuf:"bytes,10,opt,name=reduction,proto3" json:"reduction,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *IteratorRequest) Reset() {
@@ -129,21 +127,185 @@ func (x *IteratorRequest) GetSeqNum() int32 {
 	return 0
 }
 
-func (x *IteratorRequest) GetDownsampleFactor() uint32 {
+func (x *IteratorRequest) GetReduction() *Reduction {
 	if x != nil {
-		return x.DownsampleFactor
+		return x.Reduction
+	}
+	return nil
+}
+
+type Reduction struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Variant:
+	//
+	//	*Reduction_Stride
+	//	*Reduction_Limit
+	Variant       isReduction_Variant `protobuf_oneof:"variant"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Reduction) Reset() {
+	*x = Reduction{}
+	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Reduction) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Reduction) ProtoMessage() {}
+
+func (x *Reduction) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Reduction.ProtoReflect.Descriptor instead.
+func (*Reduction) Descriptor() ([]byte, []int) {
+	return file_core_pkg_distribution_framer_pb_framer_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *Reduction) GetVariant() isReduction_Variant {
+	if x != nil {
+		return x.Variant
+	}
+	return nil
+}
+
+func (x *Reduction) GetStride() *StrideReduction {
+	if x != nil {
+		if x, ok := x.Variant.(*Reduction_Stride); ok {
+			return x.Stride
+		}
+	}
+	return nil
+}
+
+func (x *Reduction) GetLimit() *LimitReduction {
+	if x != nil {
+		if x, ok := x.Variant.(*Reduction_Limit); ok {
+			return x.Limit
+		}
+	}
+	return nil
+}
+
+type isReduction_Variant interface {
+	isReduction_Variant()
+}
+
+type Reduction_Stride struct {
+	Stride *StrideReduction `protobuf:"bytes,1,opt,name=stride,proto3,oneof"`
+}
+
+type Reduction_Limit struct {
+	Limit *LimitReduction `protobuf:"bytes,2,opt,name=limit,proto3,oneof"`
+}
+
+func (*Reduction_Stride) isReduction_Variant() {}
+
+func (*Reduction_Limit) isReduction_Variant() {}
+
+type StrideReduction struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Factor        uint32                 `protobuf:"varint,1,opt,name=factor,proto3" json:"factor,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StrideReduction) Reset() {
+	*x = StrideReduction{}
+	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StrideReduction) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StrideReduction) ProtoMessage() {}
+
+func (x *StrideReduction) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StrideReduction.ProtoReflect.Descriptor instead.
+func (*StrideReduction) Descriptor() ([]byte, []int) {
+	return file_core_pkg_distribution_framer_pb_framer_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *StrideReduction) GetFactor() uint32 {
+	if x != nil {
+		return x.Factor
 	}
 	return 0
 }
 
-func (x *IteratorRequest) GetAggregation() uint32 {
+type LimitReduction struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Aggregation   string                 `protobuf:"bytes,1,opt,name=aggregation,proto3" json:"aggregation,omitempty"`
+	PointLimit    uint32                 `protobuf:"varint,2,opt,name=point_limit,json=pointLimit,proto3" json:"point_limit,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LimitReduction) Reset() {
+	*x = LimitReduction{}
+	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LimitReduction) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LimitReduction) ProtoMessage() {}
+
+func (x *LimitReduction) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LimitReduction.ProtoReflect.Descriptor instead.
+func (*LimitReduction) Descriptor() ([]byte, []int) {
+	return file_core_pkg_distribution_framer_pb_framer_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *LimitReduction) GetAggregation() string {
 	if x != nil {
 		return x.Aggregation
 	}
-	return 0
+	return ""
 }
 
-func (x *IteratorRequest) GetPointLimit() uint32 {
+func (x *LimitReduction) GetPointLimit() uint32 {
 	if x != nil {
 		return x.PointLimit
 	}
@@ -165,7 +327,7 @@ type IteratorResponse struct {
 
 func (x *IteratorResponse) Reset() {
 	*x = IteratorResponse{}
-	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[1]
+	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -177,7 +339,7 @@ func (x *IteratorResponse) String() string {
 func (*IteratorResponse) ProtoMessage() {}
 
 func (x *IteratorResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[1]
+	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -190,7 +352,7 @@ func (x *IteratorResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IteratorResponse.ProtoReflect.Descriptor instead.
 func (*IteratorResponse) Descriptor() ([]byte, []int) {
-	return file_core_pkg_distribution_framer_pb_framer_proto_rawDescGZIP(), []int{1}
+	return file_core_pkg_distribution_framer_pb_framer_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *IteratorResponse) GetVariant() int32 {
@@ -251,7 +413,7 @@ type RelayRequest struct {
 
 func (x *RelayRequest) Reset() {
 	*x = RelayRequest{}
-	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[2]
+	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -263,7 +425,7 @@ func (x *RelayRequest) String() string {
 func (*RelayRequest) ProtoMessage() {}
 
 func (x *RelayRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[2]
+	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -276,7 +438,7 @@ func (x *RelayRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RelayRequest.ProtoReflect.Descriptor instead.
 func (*RelayRequest) Descriptor() ([]byte, []int) {
-	return file_core_pkg_distribution_framer_pb_framer_proto_rawDescGZIP(), []int{2}
+	return file_core_pkg_distribution_framer_pb_framer_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *RelayRequest) GetKeys() []uint32 {
@@ -297,7 +459,7 @@ type RelayResponse struct {
 
 func (x *RelayResponse) Reset() {
 	*x = RelayResponse{}
-	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[3]
+	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -309,7 +471,7 @@ func (x *RelayResponse) String() string {
 func (*RelayResponse) ProtoMessage() {}
 
 func (x *RelayResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[3]
+	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -322,7 +484,7 @@ func (x *RelayResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RelayResponse.ProtoReflect.Descriptor instead.
 func (*RelayResponse) Descriptor() ([]byte, []int) {
-	return file_core_pkg_distribution_framer_pb_framer_proto_rawDescGZIP(), []int{3}
+	return file_core_pkg_distribution_framer_pb_framer_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *RelayResponse) GetFrame() *pb.Frame {
@@ -357,7 +519,7 @@ type WriterRequest struct {
 
 func (x *WriterRequest) Reset() {
 	*x = WriterRequest{}
-	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[4]
+	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -369,7 +531,7 @@ func (x *WriterRequest) String() string {
 func (*WriterRequest) ProtoMessage() {}
 
 func (x *WriterRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[4]
+	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -382,7 +544,7 @@ func (x *WriterRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WriterRequest.ProtoReflect.Descriptor instead.
 func (*WriterRequest) Descriptor() ([]byte, []int) {
-	return file_core_pkg_distribution_framer_pb_framer_proto_rawDescGZIP(), []int{4}
+	return file_core_pkg_distribution_framer_pb_framer_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *WriterRequest) GetCommand() int32 {
@@ -423,7 +585,7 @@ type WriterConfig struct {
 
 func (x *WriterConfig) Reset() {
 	*x = WriterConfig{}
-	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[5]
+	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -435,7 +597,7 @@ func (x *WriterConfig) String() string {
 func (*WriterConfig) ProtoMessage() {}
 
 func (x *WriterConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[5]
+	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -448,7 +610,7 @@ func (x *WriterConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WriterConfig.ProtoReflect.Descriptor instead.
 func (*WriterConfig) Descriptor() ([]byte, []int) {
-	return file_core_pkg_distribution_framer_pb_framer_proto_rawDescGZIP(), []int{5}
+	return file_core_pkg_distribution_framer_pb_framer_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *WriterConfig) GetKeys() []uint32 {
@@ -527,7 +689,7 @@ type WriterResponse struct {
 
 func (x *WriterResponse) Reset() {
 	*x = WriterResponse{}
-	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[6]
+	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -539,7 +701,7 @@ func (x *WriterResponse) String() string {
 func (*WriterResponse) ProtoMessage() {}
 
 func (x *WriterResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[6]
+	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -552,7 +714,7 @@ func (x *WriterResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WriterResponse.ProtoReflect.Descriptor instead.
 func (*WriterResponse) Descriptor() ([]byte, []int) {
-	return file_core_pkg_distribution_framer_pb_framer_proto_rawDescGZIP(), []int{6}
+	return file_core_pkg_distribution_framer_pb_framer_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *WriterResponse) GetCommand() int32 {
@@ -600,7 +762,7 @@ type DeleteRequest struct {
 
 func (x *DeleteRequest) Reset() {
 	*x = DeleteRequest{}
-	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[7]
+	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -612,7 +774,7 @@ func (x *DeleteRequest) String() string {
 func (*DeleteRequest) ProtoMessage() {}
 
 func (x *DeleteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[7]
+	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -625,7 +787,7 @@ func (x *DeleteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteRequest.ProtoReflect.Descriptor instead.
 func (*DeleteRequest) Descriptor() ([]byte, []int) {
-	return file_core_pkg_distribution_framer_pb_framer_proto_rawDescGZIP(), []int{7}
+	return file_core_pkg_distribution_framer_pb_framer_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *DeleteRequest) GetKeys() []uint32 {
@@ -646,7 +808,7 @@ var File_core_pkg_distribution_framer_pb_framer_proto protoreflect.FileDescripto
 
 const file_core_pkg_distribution_framer_pb_framer_proto_rawDesc = "" +
 	"\n" +
-	",core/pkg/distribution/framer/pb/framer.proto\x12\x1asynnax.distribution.framer\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1dx/go/control/pb/control.proto\x1a\x18x/go/errors/errors.proto\x1a\x19x/go/telem/pb/frame.proto\x1a\x19x/go/telem/pb/telem.proto\"\xc0\x02\n" +
+	",core/pkg/distribution/framer/pb/framer.proto\x12\x1asynnax.distribution.framer\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1dx/go/control/pb/control.proto\x1a\x18x/go/errors/errors.proto\x1a\x19x/go/telem/pb/frame.proto\x1a\x19x/go/telem/pb/telem.proto\"\x9b\x02\n" +
 	"\x0fIteratorRequest\x12\x18\n" +
 	"\acommand\x18\x01 \x01(\x05R\acommand\x12\x14\n" +
 	"\x05stamp\x18\x02 \x01(\x03R\x05stamp\x12\x12\n" +
@@ -655,11 +817,19 @@ const file_core_pkg_distribution_framer_pb_framer_proto_rawDesc = "" +
 	"\x04keys\x18\x06 \x03(\rR\x04keys\x12\x1d\n" +
 	"\n" +
 	"chunk_size\x18\a \x01(\x03R\tchunkSize\x12\x17\n" +
-	"\aseq_num\x18\b \x01(\x05R\x06seqNum\x12+\n" +
-	"\x11downsample_factor\x18\t \x01(\rR\x10downsampleFactor\x12 \n" +
-	"\vaggregation\x18\n" +
-	" \x01(\rR\vaggregation\x12\x1f\n" +
-	"\vpoint_limit\x18\v \x01(\rR\n" +
+	"\aseq_num\x18\b \x01(\x05R\x06seqNum\x12C\n" +
+	"\treduction\x18\n" +
+	" \x01(\v2%.synnax.distribution.framer.ReductionR\treductionJ\x04\b\t\x10\n" +
+	"\"\xa1\x01\n" +
+	"\tReduction\x12E\n" +
+	"\x06stride\x18\x01 \x01(\v2+.synnax.distribution.framer.StrideReductionH\x00R\x06stride\x12B\n" +
+	"\x05limit\x18\x02 \x01(\v2*.synnax.distribution.framer.LimitReductionH\x00R\x05limitB\t\n" +
+	"\avariant\")\n" +
+	"\x0fStrideReduction\x12\x16\n" +
+	"\x06factor\x18\x01 \x01(\rR\x06factor\"S\n" +
+	"\x0eLimitReduction\x12 \n" +
+	"\vaggregation\x18\x01 \x01(\tR\vaggregation\x12\x1f\n" +
+	"\vpoint_limit\x18\x02 \x01(\rR\n" +
 	"pointLimit\"\xde\x01\n" +
 	"\x10IteratorResponse\x12\x18\n" +
 	"\avariant\x18\x01 \x01(\x05R\avariant\x12\x18\n" +
@@ -723,45 +893,51 @@ func file_core_pkg_distribution_framer_pb_framer_proto_rawDescGZIP() []byte {
 	return file_core_pkg_distribution_framer_pb_framer_proto_rawDescData
 }
 
-var file_core_pkg_distribution_framer_pb_framer_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_core_pkg_distribution_framer_pb_framer_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_core_pkg_distribution_framer_pb_framer_proto_goTypes = []any{
 	(*IteratorRequest)(nil),  // 0: synnax.distribution.framer.IteratorRequest
-	(*IteratorResponse)(nil), // 1: synnax.distribution.framer.IteratorResponse
-	(*RelayRequest)(nil),     // 2: synnax.distribution.framer.RelayRequest
-	(*RelayResponse)(nil),    // 3: synnax.distribution.framer.RelayResponse
-	(*WriterRequest)(nil),    // 4: synnax.distribution.framer.WriterRequest
-	(*WriterConfig)(nil),     // 5: synnax.distribution.framer.WriterConfig
-	(*WriterResponse)(nil),   // 6: synnax.distribution.framer.WriterResponse
-	(*DeleteRequest)(nil),    // 7: synnax.distribution.framer.DeleteRequest
-	(*pb.TimeRange)(nil),     // 8: x.telem.pb.TimeRange
-	(*pb.Frame)(nil),         // 9: x.telem.pb.Frame
-	(*errors.PBPayload)(nil), // 10: errors.PBPayload
-	(*pb1.Subject)(nil),      // 11: x.control.pb.Subject
-	(*emptypb.Empty)(nil),    // 12: google.protobuf.Empty
+	(*Reduction)(nil),        // 1: synnax.distribution.framer.Reduction
+	(*StrideReduction)(nil),  // 2: synnax.distribution.framer.StrideReduction
+	(*LimitReduction)(nil),   // 3: synnax.distribution.framer.LimitReduction
+	(*IteratorResponse)(nil), // 4: synnax.distribution.framer.IteratorResponse
+	(*RelayRequest)(nil),     // 5: synnax.distribution.framer.RelayRequest
+	(*RelayResponse)(nil),    // 6: synnax.distribution.framer.RelayResponse
+	(*WriterRequest)(nil),    // 7: synnax.distribution.framer.WriterRequest
+	(*WriterConfig)(nil),     // 8: synnax.distribution.framer.WriterConfig
+	(*WriterResponse)(nil),   // 9: synnax.distribution.framer.WriterResponse
+	(*DeleteRequest)(nil),    // 10: synnax.distribution.framer.DeleteRequest
+	(*pb.TimeRange)(nil),     // 11: x.telem.pb.TimeRange
+	(*pb.Frame)(nil),         // 12: x.telem.pb.Frame
+	(*errors.PBPayload)(nil), // 13: errors.PBPayload
+	(*pb1.Subject)(nil),      // 14: x.control.pb.Subject
+	(*emptypb.Empty)(nil),    // 15: google.protobuf.Empty
 }
 var file_core_pkg_distribution_framer_pb_framer_proto_depIdxs = []int32{
-	8,  // 0: synnax.distribution.framer.IteratorRequest.bounds:type_name -> x.telem.pb.TimeRange
-	9,  // 1: synnax.distribution.framer.IteratorResponse.frame:type_name -> x.telem.pb.Frame
-	10, // 2: synnax.distribution.framer.IteratorResponse.error:type_name -> errors.PBPayload
-	9,  // 3: synnax.distribution.framer.RelayResponse.frame:type_name -> x.telem.pb.Frame
-	10, // 4: synnax.distribution.framer.RelayResponse.error:type_name -> errors.PBPayload
-	5,  // 5: synnax.distribution.framer.WriterRequest.config:type_name -> synnax.distribution.framer.WriterConfig
-	9,  // 6: synnax.distribution.framer.WriterRequest.frame:type_name -> x.telem.pb.Frame
-	11, // 7: synnax.distribution.framer.WriterConfig.control_subject:type_name -> x.control.pb.Subject
-	8,  // 8: synnax.distribution.framer.DeleteRequest.bounds:type_name -> x.telem.pb.TimeRange
-	0,  // 9: synnax.distribution.framer.IteratorService.Iterate:input_type -> synnax.distribution.framer.IteratorRequest
-	2,  // 10: synnax.distribution.framer.RelayService.Relay:input_type -> synnax.distribution.framer.RelayRequest
-	4,  // 11: synnax.distribution.framer.WriterService.Write:input_type -> synnax.distribution.framer.WriterRequest
-	7,  // 12: synnax.distribution.framer.DeleteService.Exec:input_type -> synnax.distribution.framer.DeleteRequest
-	1,  // 13: synnax.distribution.framer.IteratorService.Iterate:output_type -> synnax.distribution.framer.IteratorResponse
-	3,  // 14: synnax.distribution.framer.RelayService.Relay:output_type -> synnax.distribution.framer.RelayResponse
-	6,  // 15: synnax.distribution.framer.WriterService.Write:output_type -> synnax.distribution.framer.WriterResponse
-	12, // 16: synnax.distribution.framer.DeleteService.Exec:output_type -> google.protobuf.Empty
-	13, // [13:17] is the sub-list for method output_type
-	9,  // [9:13] is the sub-list for method input_type
-	9,  // [9:9] is the sub-list for extension type_name
-	9,  // [9:9] is the sub-list for extension extendee
-	0,  // [0:9] is the sub-list for field type_name
+	11, // 0: synnax.distribution.framer.IteratorRequest.bounds:type_name -> x.telem.pb.TimeRange
+	1,  // 1: synnax.distribution.framer.IteratorRequest.reduction:type_name -> synnax.distribution.framer.Reduction
+	2,  // 2: synnax.distribution.framer.Reduction.stride:type_name -> synnax.distribution.framer.StrideReduction
+	3,  // 3: synnax.distribution.framer.Reduction.limit:type_name -> synnax.distribution.framer.LimitReduction
+	12, // 4: synnax.distribution.framer.IteratorResponse.frame:type_name -> x.telem.pb.Frame
+	13, // 5: synnax.distribution.framer.IteratorResponse.error:type_name -> errors.PBPayload
+	12, // 6: synnax.distribution.framer.RelayResponse.frame:type_name -> x.telem.pb.Frame
+	13, // 7: synnax.distribution.framer.RelayResponse.error:type_name -> errors.PBPayload
+	8,  // 8: synnax.distribution.framer.WriterRequest.config:type_name -> synnax.distribution.framer.WriterConfig
+	12, // 9: synnax.distribution.framer.WriterRequest.frame:type_name -> x.telem.pb.Frame
+	14, // 10: synnax.distribution.framer.WriterConfig.control_subject:type_name -> x.control.pb.Subject
+	11, // 11: synnax.distribution.framer.DeleteRequest.bounds:type_name -> x.telem.pb.TimeRange
+	0,  // 12: synnax.distribution.framer.IteratorService.Iterate:input_type -> synnax.distribution.framer.IteratorRequest
+	5,  // 13: synnax.distribution.framer.RelayService.Relay:input_type -> synnax.distribution.framer.RelayRequest
+	7,  // 14: synnax.distribution.framer.WriterService.Write:input_type -> synnax.distribution.framer.WriterRequest
+	10, // 15: synnax.distribution.framer.DeleteService.Exec:input_type -> synnax.distribution.framer.DeleteRequest
+	4,  // 16: synnax.distribution.framer.IteratorService.Iterate:output_type -> synnax.distribution.framer.IteratorResponse
+	6,  // 17: synnax.distribution.framer.RelayService.Relay:output_type -> synnax.distribution.framer.RelayResponse
+	9,  // 18: synnax.distribution.framer.WriterService.Write:output_type -> synnax.distribution.framer.WriterResponse
+	15, // 19: synnax.distribution.framer.DeleteService.Exec:output_type -> google.protobuf.Empty
+	16, // [16:20] is the sub-list for method output_type
+	12, // [12:16] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_distribution_framer_pb_framer_proto_init() }
@@ -769,13 +945,17 @@ func file_core_pkg_distribution_framer_pb_framer_proto_init() {
 	if File_core_pkg_distribution_framer_pb_framer_proto != nil {
 		return
 	}
+	file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[1].OneofWrappers = []any{
+		(*Reduction_Stride)(nil),
+		(*Reduction_Limit)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_distribution_framer_pb_framer_proto_rawDesc), len(file_core_pkg_distribution_framer_pb_framer_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   8,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   4,
 		},

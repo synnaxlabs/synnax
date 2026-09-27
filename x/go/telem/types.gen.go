@@ -11,7 +11,13 @@
 
 package telem
 
-import "github.com/synnaxlabs/x/telem/versions"
+import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/telem/versions"
+	"github.com/synnaxlabs/x/validate"
+)
 
 // TimeStamp is a 64-bit signed integer representing nanoseconds since the Unix epoch
 // (1970-01-01 00:00:00 UTC). Provides nanosecond precision for high-frequency telemetry
@@ -67,17 +73,152 @@ const (
 // single value for efficient multi-dimensional data access.
 type Alignment uint64
 
-// Aggregation selects how a reduced read collapses each group of samples into points.
-// none keeps every sample, min_max keeps the lowest and highest sample of each group in
-// the order they occurred, average keeps the mean of each group, and decimate keeps the
-// first sample of each group.
-type Aggregation uint8
-
-//go:generate stringer -type=Aggregation
+// Aggregation selects how a limited read collapses each group of samples into points.
+// min_max keeps the lowest and highest sample of each group in the order they occurred,
+// average keeps the mean of each group, and decimate keeps the first sample of each
+// group.
+type Aggregation string
 
 const (
-	AggregationNone Aggregation = iota
-	AggregationMinMax
-	AggregationAverage
-	AggregationDecimate
+	AggregationMinMax   Aggregation = "min_max"
+	AggregationAverage  Aggregation = "average"
+	AggregationDecimate Aggregation = "decimate"
 )
+
+// IsValid reports whether a is one of the defined Aggregation
+// values.
+func (a Aggregation) IsValid() bool {
+	switch a {
+	case AggregationMinMax, AggregationAverage, AggregationDecimate:
+		return true
+	default:
+		return false
+	}
+}
+
+type ReductionType string
+
+const (
+	StrideReductionType ReductionType = "stride"
+	LimitReductionType  ReductionType = "limit"
+)
+
+type ReductionVariant interface {
+	isReductionVariant()
+}
+
+// StrideReduction keeps every factor-th sample of each series read.
+type StrideReduction struct {
+	// Factor is the stride. Values below 2 keep every sample.
+	Factor uint32 `json:"factor" msgpack:"factor"`
+}
+
+func (StrideReduction) isReductionVariant() {}
+
+// LimitReduction reduces each group of samples so that each channel comes back as about
+// point_limit points. Channels on one index reduce over the same groups.
+type LimitReduction struct {
+	// Aggregation selects the points each group of samples reduces to.
+	Aggregation Aggregation `json:"aggregation" msgpack:"aggregation"`
+	// PointLimit is the number of points each channel reduces to.
+	PointLimit uint32 `json:"point_limit" msgpack:"point_limit"`
+}
+
+func (LimitReduction) isReductionVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (l *LimitReduction) ApplyDefaults() {
+	if l.Aggregation == "" {
+		l.Aggregation = AggregationMinMax
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (l LimitReduction) Validate() error {
+	v := validate.New("LimitReduction")
+	v.Ternaryf("aggregation", !l.Aggregation.IsValid(), "invalid aggregation: %v", l.Aggregation)
+	v.GreaterThanEq("point_limit", l.PointLimit, 1)
+	return v.Error()
+}
+
+// Reduction selects how a read reduces samples. A read without one keeps every sample.
+type Reduction struct {
+	Variant ReductionVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "variant" tag injected.
+func (u Reduction) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case StrideReduction:
+		return json.MarshalEncode(enc, struct {
+			Type ReductionType `json:"variant"`
+			StrideReduction
+		}{Type: StrideReductionType, StrideReduction: v})
+	case LimitReduction:
+		return json.MarshalEncode(enc, struct {
+			Type ReductionType `json:"variant"`
+			LimitReduction
+		}{Type: LimitReductionType, LimitReduction: v})
+	default:
+		return errors.Newf("Reduction: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "variant" field.
+func (u *Reduction) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type ReductionType `json:"variant"`
+	}
+	if err := json.Unmarshal(data, &disc, opts); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case StrideReductionType:
+		var v StrideReduction
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v
+	case LimitReductionType:
+		var v LimitReduction
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v
+	default:
+		return errors.Newf("Reduction: unknown variant %q", disc.Type)
+	}
+	return nil
+}
+
+// ApplyDefaults fills the active variant's zero-valued fields with their
+// schema-declared defaults.
+func (u *Reduction) ApplyDefaults() {
+	switch variant := u.Variant.(type) {
+	case LimitReduction:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if the active variant
+// violates its schema constraints.
+func (u Reduction) Validate() error {
+	switch variant := u.Variant.(type) {
+	case LimitReduction:
+		return variant.Validate()
+	}
+	return nil
+}

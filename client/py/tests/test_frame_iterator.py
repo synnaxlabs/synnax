@@ -8,7 +8,10 @@
 #  included in the file licenses/APL.txt.
 
 
+from collections.abc import Callable
+
 import numpy as np
+import pydantic
 import pytest
 
 import synnax as sy
@@ -368,7 +371,9 @@ class TestIterator:
         data_ch.write(sy.TimeSpan.SECOND * 1, data)
 
         with client.open_iterator(
-            sy.TimeRange.MAX, [idx_ch.key, data_ch.key], downsample_factor=2
+            sy.TimeRange.MAX,
+            [idx_ch.key, data_ch.key],
+            reduction=sy.StrideReduction(factor=2),
         ) as i:
             assert i.seek_first()
             assert i.next(sy.framer.AUTO_SPAN)
@@ -387,7 +392,9 @@ class TestIterator:
         data_ch.write(sy.TimeSpan.SECOND * 1, data)
 
         with client.open_iterator(
-            sy.TimeRange.MAX, [idx_ch.key, data_ch.key], downsample_factor=3
+            sy.TimeRange.MAX,
+            [idx_ch.key, data_ch.key],
+            reduction=sy.StrideReduction(factor=3),
         ) as i:
             assert i.seek_first()
             assert i.next(sy.framer.AUTO_SPAN)
@@ -410,29 +417,12 @@ class TestIterator:
         data_ch.write(sy.TimeSpan.SECOND * 1, data)
 
         with client.open_iterator(
-            sy.TimeRange.MAX, data_ch.key, downsample_factor=factor
+            sy.TimeRange.MAX, data_ch.key, reduction=sy.StrideReduction(factor=factor)
         ) as i:
             assert i.seek_first()
             assert i.next(sy.framer.AUTO_SPAN)
             result = i.value.get(data_ch.key).to_numpy()
             assert np.array_equal(result, np.array([1.0, 2.0, 3.0, 4.0]))
-
-    def test_downsample_negative(
-        self,
-        indexed_pair: tuple[sy.Channel, sy.Channel],
-        client: sy.Synnax,
-    ):
-        """Test that a negative factor is rejected.
-
-        The wire field is unsigned, so a negative one would reach the Core as a very
-        large factor rather than as an error.
-        """
-        _, data_ch = indexed_pair
-        with pytest.raises(sy.ValidationError):
-            with client.open_iterator(
-                sy.TimeRange.MAX, data_ch.key, downsample_factor=-1
-            ):
-                ...
 
     def test_downsample_multiple_domains(self, client: sy.Synnax):
         """Test downsampling across multiple domains."""
@@ -461,7 +451,9 @@ class TestIterator:
         )
 
         with client.open_iterator(
-            sy.TimeRange.MAX, [idx_ch.key, data_ch.key], downsample_factor=2
+            sy.TimeRange.MAX,
+            [idx_ch.key, data_ch.key],
+            reduction=sy.StrideReduction(factor=2),
         ) as i:
             assert i.seek_first()
             assert i.next(sy.framer.AUTO_SPAN)
@@ -473,10 +465,10 @@ class TestIterator:
     @pytest.mark.parametrize(
         "aggregation,point_limit,expected,multiple",
         [
-            (sy.Aggregation.min_max, 4, [1.0, 8.0, 2.0, 7.0], 2),
-            (sy.Aggregation.average, 4, [2.5, 5.5, 3.5, 6.5], 2),
-            (sy.Aggregation.decimate, 2, [4.0, 5.0], 4),
-            (sy.Aggregation.min_max, 8, [4.0, 1.0, 3.0, 8.0, 5.0, 2.0, 6.0, 7.0], 1),
+            ("min_max", 4, [1.0, 8.0, 2.0, 7.0], 2),
+            ("average", 4, [2.5, 5.5, 3.5, 6.5], 2),
+            ("decimate", 2, [4.0, 5.0], 4),
+            ("min_max", 8, [4.0, 1.0, 3.0, 8.0, 5.0, 2.0, 6.0, 7.0], 1),
         ],
     )
     def test_aggregation(
@@ -498,8 +490,9 @@ class TestIterator:
         with client.open_iterator(
             sy.TimeRange.MAX,
             [idx_ch.key, data_ch.key],
-            aggregation=aggregation,
-            point_limit=point_limit,
+            reduction=sy.LimitReduction(
+                aggregation=aggregation, point_limit=point_limit
+            ),
         ) as i:
             assert i.seek_first()
             assert i.next(sy.framer.AUTO_SPAN)
@@ -510,29 +503,16 @@ class TestIterator:
             assert data.alignment == index.alignment
             assert not i.next(sy.framer.AUTO_SPAN)
 
-    def test_point_limit_without_aggregation(
-        self,
-        indexed_pair: tuple[sy.Channel, sy.Channel],
-        client: sy.Synnax,
-    ):
-        """Should reject a point limit without an aggregation."""
-        _, data_ch = indexed_pair
-        with pytest.raises(sy.ValidationError, match="point_limit"):
-            with client.open_iterator(sy.TimeRange.MAX, data_ch.key, point_limit=4):
-                ...
-
-    def test_point_limit_negative(
-        self,
-        indexed_pair: tuple[sy.Channel, sy.Channel],
-        client: sy.Synnax,
-    ):
-        """Should reject a negative point limit before it reaches the Core."""
-        _, data_ch = indexed_pair
-        with pytest.raises(sy.ValidationError, match="point_limit"):
-            with client.open_iterator(
-                sy.TimeRange.MAX,
-                data_ch.key,
-                aggregation=sy.Aggregation.min_max,
-                point_limit=-1,
-            ):
-                ...
+    @pytest.mark.parametrize(
+        "make",
+        [
+            lambda: sy.StrideReduction(factor=-1),
+            lambda: sy.LimitReduction(point_limit=0),
+            lambda: sy.LimitReduction(point_limit=-1),
+            lambda: sy.LimitReduction(point_limit=2**32),
+        ],
+    )
+    def test_reduction_out_of_range(self, make: Callable[[], sy.Reduction]):
+        """Should reject a reduction the unsigned wire fields would reinterpret."""
+        with pytest.raises(pydantic.ValidationError):
+            make()

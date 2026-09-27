@@ -27,9 +27,9 @@ import (
 // the busiest index the channel depends on, so reads of a channel reduce the same way
 // with or without calculated channels in the request.
 type groupSizer struct {
-	framer      *framer.Service
-	aggregation telem.Aggregation
-	pointLimit  uint32
+	framer *framer.Service
+	// limit is the point limit and aggregation the reduction targets.
+	limit telem.LimitReduction
 	// indexes maps each output channel to the index channels its group size follows.
 	indexes map[channel.Key][]channel.Key
 }
@@ -49,7 +49,7 @@ func (g *groupSizer) resolve(
 		for _, idx := range indexes {
 			count = max(count, counts[idx])
 		}
-		sizes[key] = telem.GroupSize(count, g.pointLimit, g.aggregation)
+		sizes[key] = telem.GroupSize(count, g.limit.PointLimit, g.limit.Aggregation)
 	}
 	return sizes, nil
 }
@@ -70,10 +70,12 @@ func (g *groupSizer) count(
 		return counts, nil
 	}
 	iter, err := g.framer.OpenIterator(ctx, framer.IteratorConfig{
-		Keys:        keys.Slice(),
-		Bounds:      bounds,
-		Aggregation: telem.AggregationDecimate,
-		PointLimit:  1,
+		Keys:   keys.Slice(),
+		Bounds: bounds,
+		Reduction: telem.Reduction{Variant: telem.LimitReduction{
+			Aggregation: telem.AggregationDecimate,
+			PointLimit:  1,
+		}},
 	})
 	if err != nil {
 		return nil, err

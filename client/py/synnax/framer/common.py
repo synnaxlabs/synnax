@@ -13,8 +13,6 @@ from synnax.exceptions import ValidationError
 # unsigned 32-bit integer, so an out-of-range value would be reinterpreted rather than
 # rejected by the server.
 MAX_DOWNSAMPLE_FACTOR = 2**32 - 1
-# MAX_POINT_LIMIT is the largest point limit the Core accepts, for the same reason.
-MAX_POINT_LIMIT = 2**32 - 1
 
 
 def validate_downsample_factor(factor: int) -> None:
@@ -23,12 +21,4 @@ def validate_downsample_factor(factor: int) -> None:
         raise ValidationError(
             f"downsample_factor must be between 0 and {MAX_DOWNSAMPLE_FACTOR}, "
             f"got {factor}"
-        )
-
-
-def validate_point_limit(limit: int) -> None:
-    """Raises ValidationError if limit is outside the range the Core accepts."""
-    if limit < 0 or limit > MAX_POINT_LIMIT:
-        raise ValidationError(
-            f"point_limit must be between 0 and {MAX_POINT_LIMIT}, got {limit}"
         )

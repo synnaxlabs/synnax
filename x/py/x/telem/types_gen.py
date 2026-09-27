@@ -11,11 +11,39 @@
 
 from __future__ import annotations
 
-from enum import IntEnum
+from typing import Annotated, Literal, Union
+
+from pydantic import BaseModel, Field
+
+AGGREGATION_MIN_MAX: Literal["min_max"] = "min_max"
+
+AGGREGATION_AVERAGE: Literal["average"] = "average"
+
+AGGREGATION_DECIMATE: Literal["decimate"] = "decimate"
 
 
-class Aggregation(IntEnum):
-    none = 0
-    min_max = 1
-    average = 2
-    decimate = 3
+Aggregation = Literal["min_max", "average", "decimate"]
+
+
+class StrideReduction(BaseModel):
+    """Keeps every factor-th sample of each series read."""
+
+    variant: Literal["stride"] = "stride"
+    factor: int = Field(ge=0, le=4294967295)
+
+
+class LimitReduction(BaseModel):
+    """Reduces each group of samples so that each channel comes back as about
+    point_limit points. Channels on one index reduce over the same groups.
+    """
+
+    variant: Literal["limit"] = "limit"
+    aggregation: Aggregation = "min_max"
+    point_limit: int = Field(ge=1, le=4294967295)
+
+
+# Selects how a read reduces samples. A read without one keeps every sample.
+Reduction = Annotated[
+    Union[StrideReduction, LimitReduction],
+    Field(discriminator="variant"),
+]

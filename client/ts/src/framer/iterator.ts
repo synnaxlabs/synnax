@@ -9,12 +9,11 @@
 
 import { type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
 import {
-  Aggregation,
-  aggregationZ,
   type CrudeTimeRange,
   type CrudeTimeSpan,
   type CrudeTimeStamp,
   errors,
+  reductionZ,
   TimeRange,
   TimeSpan,
   TimeStamp,
@@ -40,9 +39,7 @@ export const iteratorReqZ = z.object({
   stamp: TimeStamp.z.optional(),
   keys: keyZ.array().optional(),
   chunkSize: z.number().optional(),
-  downsampleFactor: z.uint32().optional(),
-  aggregation: aggregationZ.optional(),
-  pointLimit: z.uint32().optional(),
+  reduction: reductionZ.optional(),
 });
 
 export interface IteratorRequest extends z.infer<typeof iteratorReqZ> {}
@@ -63,22 +60,12 @@ export const iteratorConfigZ = z.object({
    */
   chunkSize: z.number().default(1e5),
   /**
-   * downsampleFactor keeps every n-th sample of each series read. Values below 2 keep
-   * every sample.
+   * reduction reduces the samples of each channel read. A stride keeps every
+   * factor-th sample. A limit reduces each channel to about pointLimit points, and
+   * channels on one index reduce over the same groups, so their reduced series share
+   * alignments. Each reduced series carries its alignment multiple.
    */
-  downsampleFactor: z.uint32().default(1),
-  /**
-   * aggregation reduces each group of samples to the points it selects, so that each
-   * channel comes back as about pointLimit points. Channels on one index reduce over
-   * the same groups, so their reduced series share alignments. Each reduced series
-   * carries its alignment multiple.
-   */
-  aggregation: aggregationZ.default(Aggregation.none),
-  /**
-   * pointLimit is the number of points aggregation reduces each channel to. It must be
-   * set if and only if aggregation is set.
-   */
-  pointLimit: z.uint32().default(0),
+  reduction: reductionZ.optional(),
 });
 
 /** Config for an iterator. Pass it to `client.telem.openIterator`. */
@@ -127,9 +114,7 @@ export class Iterator {
       keys: Array.from(adapter.keys),
       bounds: new TimeRange(tr),
       chunkSize: cfg.chunkSize,
-      downsampleFactor: cfg.downsampleFactor,
-      aggregation: cfg.aggregation,
-      pointLimit: cfg.pointLimit,
+      reduction: cfg.reduction,
     });
     return iter;
   }

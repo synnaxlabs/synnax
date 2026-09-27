@@ -48,55 +48,27 @@ type Config struct {
 	//
 	// [OPTIONAL]
 	ChunkSize int64 `json:"chunk_size" msgpack:"chunk_size"`
-	// DownsampleFactor keeps every n-th sample of each series read from storage. The
-	// read is strided at the source, so the discarded samples are never read into
-	// memory. Values below 2 keep every sample.
+	// Reduction reduces the samples of each channel read. A stride keeps every
+	// factor-th sample. A limit reduces each channel in Bounds to about PointLimit
+	// points, and every channel on one index reduces over the same groups, so reduced
+	// index and data series share alignments.
 	//
 	// [OPTIONAL]
-	DownsampleFactor uint32 `json:"downsample_factor" msgpack:"downsample_factor"`
-	// Aggregation reduces each group of samples to the points it selects, so that the
-	// samples of each channel in Bounds come back as about PointLimit points. Every
-	// channel on one index reduces over the same groups, so reduced index and data
-	// series share alignments.
-	//
-	// [OPTIONAL]
-	Aggregation telem.Aggregation `json:"aggregation" msgpack:"aggregation"`
-	// PointLimit is the number of points Aggregation reduces each channel to. It must
-	// be set if and only if Aggregation is set.
-	//
-	// [OPTIONAL]
-	PointLimit uint32 `json:"point_limit" msgpack:"point_limit"`
+	Reduction telem.Reduction `json:"reduction" msgpack:"reduction"`
 }
 
 func (c Config) distribution() framer.IteratorConfig {
 	return framer.IteratorConfig{
-		Keys:             c.Keys,
-		Bounds:           c.Bounds,
-		ChunkSize:        c.ChunkSize,
-		DownsampleFactor: c.DownsampleFactor,
-		Aggregation:      c.Aggregation,
-		PointLimit:       c.PointLimit,
+		Keys:      c.Keys,
+		Bounds:    c.Bounds,
+		ChunkSize: c.ChunkSize,
+		Reduction: c.Reduction,
 	}
 }
 
 func (c Config) validate() error {
 	v := validate.New("iterator.config")
-	aggregated := c.Aggregation != telem.AggregationNone
-	v.Ternary(
-		"aggregation",
-		c.Aggregation > telem.AggregationDecimate,
-		"unknown aggregation",
-	)
-	v.Ternary(
-		"point_limit",
-		aggregated != (c.PointLimit > 0),
-		"must be set together with aggregation",
-	)
-	v.Ternary(
-		"downsample_factor",
-		aggregated && c.DownsampleFactor > 1,
-		"cannot be combined with aggregation",
-	)
+	v.Exec(c.Reduction.Validate)
 	return v.Error()
 }
 
@@ -164,9 +136,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 		// A calculation must see every sample its expression was written over. Fed a
 		// strided or aggregated input, a stateful expression returns a different signal
 		// rather than a reduced one, so the reduction stays above the calculation.
-		distCfg.DownsampleFactor = 0
-		distCfg.Aggregation = telem.AggregationNone
-		distCfg.PointLimit = 0
+		distCfg.Reduction = telem.Reduction{}
 	}
 	dist, err := s.cfg.Framer.NewStreamIterator(ctx, distCfg)
 	if err != nil {
@@ -185,8 +155,9 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 		)
 		p.MustConnect[Response](routeOutletFrom, "calculation", 25)
 		routeOutletFrom = "calculation"
-		if cfg.DownsampleFactor > 1 {
-			p.SetSegment("downsampler", newDownsampler(cfg))
+		if stride, ok := cfg.Reduction.Variant.(telem.StrideReduction); ok &&
+			stride.Factor > 1 {
+			p.SetSegment("downsampler", newDownsampler(stride.Factor))
 			p.MustConnect[Response](routeOutletFrom, "downsampler", 25)
 			routeOutletFrom = "downsampler"
 		}
@@ -195,7 +166,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 			if err != nil {
 				return nil, err
 			}
-			r := newReducer(cfg.Aggregation, sizes)
+			r := newReducer(sizer.limit.Aggregation, sizes)
 			p.SetSegment("reducer", r)
 			p.MustConnect[Response](routeOutletFrom, "reducer", 25)
 			routeOutletFrom = "reducer"
@@ -314,10 +285,11 @@ func (s *Service) newCalculationTransform(
 	})
 
 	transform := newCalculationTransform(originalKeys, calculators)
-	if cfg.Aggregation == telem.AggregationNone {
+	limit, ok := cfg.Reduction.Variant.(telem.LimitReduction)
+	if !ok {
 		return transform, nil, nil
 	}
-	sizer, err := s.newGroupSizer(*cfg, channels, concreteBaseChannels, calcGraph)
+	sizer, err := s.newGroupSizer(limit, channels, concreteBaseChannels, calcGraph)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -328,7 +300,7 @@ func (s *Service) newCalculationTransform(
 // follows its own index. A calculated channel and its index follow the indexes of the
 // concrete channels the calculation reads.
 func (s *Service) newGroupSizer(
-	cfg Config,
+	limit telem.LimitReduction,
 	requested []channel.Channel,
 	bases []channel.Channel,
 	calcGraph *graph.Graph,
@@ -361,9 +333,8 @@ func (s *Service) newGroupSizer(
 		indexes[ch.Index()] = calcIndexes
 	}
 	return &groupSizer{
-		framer:      s.cfg.Framer,
-		aggregation: cfg.Aggregation,
-		pointLimit:  cfg.PointLimit,
-		indexes:     indexes,
+		framer:  s.cfg.Framer,
+		limit:   limit,
+		indexes: indexes,
 	}, nil
 }

@@ -24,10 +24,10 @@ from synnax.framer.iterator import AUTO_SPAN, Iterator
 from synnax.framer.streamer import AsyncStreamer, Streamer
 from synnax.framer.writer import CrudeWriterMode, Writer, WriterMode
 from synnax.telem import (
-    Aggregation,
     CrudeSeries,
     CrudeTimeStamp,
     MultiSeries,
+    Reduction,
     TimeRange,
     TimeSpan,
 )
@@ -143,9 +143,7 @@ class Client:
         tr: TimeRange,
         channels: channel.Params,
         chunk_size: int = 100000,
-        downsample_factor: int = 1,
-        aggregation: Aggregation = Aggregation.none,
-        point_limit: int = 0,
+        reduction: Reduction | None = None,
     ) -> Iterator:
         """Opens a new iterator over the given channels within the provided time range.
 
@@ -153,14 +151,9 @@ class Client:
         :param tr: A time range to iterate over.
         :param chunk_size: The number of samples to read in a chunk with AutoSpan.
             Defaults to 100000.
-        :param downsample_factor: The factor to downsample the data by, keeping every
-            n-th sample. Must be between 0 and 2**32 - 1; 0 and 1 keep every sample.
-            Defaults to 1.
-        :param aggregation: How the Core reduces each group of samples to keep the read
-            under point_limit. Must be set together with point_limit, and cannot be
-            combined with downsample_factor.
-        :param point_limit: The largest number of points to return for each channel
-            over the time range. Must be between 0 and 2**32 - 1.
+        :param reduction: How the Core reduces the samples of each channel. A
+            StrideReduction keeps every factor-th sample. A LimitReduction reduces each
+            channel to about point_limit points. Defaults to keeping every sample.
         :returns: An Iterator over the given channels within the provided time
         range. See the Iterator documentation for more.
         """
@@ -171,9 +164,7 @@ class Client:
             adapter=adapter,
             client=self._stream_client,
             chunk_size=chunk_size,
-            downsample_factor=downsample_factor,
-            aggregation=aggregation,
-            point_limit=point_limit,
+            reduction=reduction,
             instrumentation=self.instrumentation,
         )
 

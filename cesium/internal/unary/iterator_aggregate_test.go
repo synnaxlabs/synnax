@@ -89,8 +89,10 @@ var _ = Describe("Aggregated Iteration", func() {
 				limit uint32,
 			) unary.IteratorConfig {
 				cfg := unary.IterRange(bounds)
-				cfg.Aggregation = agg
-				cfg.PointLimit = limit
+				cfg.Reduction.Variant = telem.LimitReduction{
+					Aggregation: agg,
+					PointLimit:  limit,
+				}
 				return cfg
 			}
 
@@ -135,31 +137,23 @@ var _ = Describe("Aggregated Iteration", func() {
 						To(MatchError(ContainSubstring(message)))
 				},
 				Entry(
-					"aggregation without a point limit",
-					unary.IteratorConfig{Aggregation: telem.AggregationMinMax},
-					"point_limit: must be set together with aggregation",
-				),
-				Entry(
-					"a point limit without aggregation",
-					unary.IteratorConfig{PointLimit: 10},
-					"point_limit: must be set together with aggregation",
-				),
-				Entry(
-					"aggregation with a downsample factor",
-					unary.IteratorConfig{
-						Aggregation:      telem.AggregationMinMax,
-						PointLimit:       10,
-						DownsampleFactor: 2,
-					},
-					"downsample_factor: cannot be combined with aggregation",
+					"a limit without a point limit",
+					unary.IteratorConfig{Reduction: telem.Reduction{
+						Variant: telem.LimitReduction{
+							Aggregation: telem.AggregationMinMax,
+						},
+					}},
+					"point_limit: must be greater than or equal to 1",
 				),
 				Entry(
 					"an unknown aggregation",
-					unary.IteratorConfig{
-						Aggregation: telem.AggregationDecimate + 1,
-						PointLimit:  10,
-					},
-					"aggregation: unknown aggregation",
+					unary.IteratorConfig{Reduction: telem.Reduction{
+						Variant: telem.LimitReduction{
+							Aggregation: "median",
+							PointLimit:  10,
+						},
+					}},
+					"aggregation: invalid aggregation: median",
 				),
 			)
 

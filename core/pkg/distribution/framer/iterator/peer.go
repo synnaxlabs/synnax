@@ -97,11 +97,9 @@ func (s *Service) openPeerClient(
 		return nil, err
 	}
 	return client, client.Send(Request{
-		Keys:             cfg.Keys,
-		ChunkSize:        cfg.ChunkSize,
-		Bounds:           cfg.Bounds,
-		DownsampleFactor: cfg.DownsampleFactor,
-		Aggregation:      cfg.Aggregation,
-		PointLimit:       cfg.PointLimit,
+		Keys:      cfg.Keys,
+		ChunkSize: cfg.ChunkSize,
+		Bounds:    cfg.Bounds,
+		Reduction: cfg.Reduction,
 	})
 }

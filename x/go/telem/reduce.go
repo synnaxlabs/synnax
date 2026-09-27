@@ -26,11 +26,10 @@ func (a Aggregation) PointsPerGroup() int64 {
 }
 
 // GroupSize returns the number of samples per group that brings count samples under
-// limit points with the given aggregation. It returns 1, meaning no reduction, when the
-// aggregation is AggregationNone, limit is zero, or count already fits under limit.
-// Min/max group sizes are always even.
+// limit points with the given aggregation. It returns 1, meaning no reduction, when
+// limit is zero or count already fits under limit. Min/max group sizes are always even.
 func GroupSize(count int64, limit uint32, agg Aggregation) uint32 {
-	if agg == AggregationNone || limit == 0 || count <= int64(limit) {
+	if limit == 0 || count <= int64(limit) {
 		return 1
 	}
 	groups := max(int64(limit)/agg.PointsPerGroup(), 1)
@@ -58,11 +57,10 @@ func GroupStart(a Alignment, groupSize uint32) Alignment {
 // otherwise, and its Alignment is the start of the first group. Each min/max group
 // therefore occupies the alignments of its sample 0 and sample groupSize/2.
 //
-// Reduce returns the series unchanged when groupSize is below 2, when agg is
-// AggregationNone, or when the data type is not numeric. It panics if the series is
-// already reduced.
+// Reduce returns the series unchanged when groupSize is below 2 or when the data type
+// is not numeric. It panics if the series is already reduced.
 func (s Series) Reduce(agg Aggregation, groupSize uint32) Series {
-	if groupSize < 2 || agg == AggregationNone || s.Len() == 0 {
+	if groupSize < 2 || s.Len() == 0 {
 		return s
 	}
 	if s.Multiple() > 1 {
@@ -109,7 +107,7 @@ func (s Series) Reduce(agg Aggregation, groupSize uint32) Series {
 // Reduce joins each run of alignment-contiguous series and reduces it as one series, so
 // that a group split across two series yields one set of points. See Series.Reduce.
 func (m MultiSeries) Reduce(agg Aggregation, groupSize uint32) MultiSeries {
-	if groupSize < 2 || agg == AggregationNone || !Reducible(m.DataType()) {
+	if groupSize < 2 || !Reducible(m.DataType()) {
 		return m
 	}
 	out := MultiSeries{Series: make([]Series, 0, len(m.Series))}
@@ -181,7 +179,7 @@ func reduceData[T types.SizedNumeric](
 		case AggregationDecimate:
 			out = append(out, group[0])
 		default:
-			panic(fmt.Sprintf("telem: unknown aggregation %d", agg))
+			panic(fmt.Sprintf("telem: unknown aggregation %q", agg))
 		}
 	}
 	return xunsafe.CastSlice[T, byte](out)

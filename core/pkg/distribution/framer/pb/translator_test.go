@@ -128,16 +128,13 @@ var _ = Describe("Translator", func() {
 
 		It("Should round-trip an iterator request", func(ctx SpecContext) {
 			original := iterator.Request{
-				Command:          iterator.CommandNext,
-				Span:             telem.TimeSpan(5000),
-				Bounds:           telem.TimeRange{Start: 100, End: 200},
-				Stamp:            telem.TimeStamp(150),
-				Keys:             channel.Keys{10, 20},
-				ChunkSize:        1024,
-				SeqNum:           7,
-				DownsampleFactor: 4,
-				Aggregation:      telem.AggregationAverage,
-				PointLimit:       512,
+				Command:   iterator.CommandNext,
+				Span:      telem.TimeSpan(5000),
+				Bounds:    telem.TimeRange{Start: 100, End: 200},
+				Stamp:     telem.TimeStamp(150),
+				Keys:      channel.Keys{10, 20},
+				ChunkSize: 1024,
+				SeqNum:    7,
 			}
 			pb := MustSucceed(t.Forward(ctx, original))
 			result := MustSucceed(t.Backward(ctx, pb))
@@ -148,10 +145,24 @@ var _ = Describe("Translator", func() {
 			Expect(result.Keys).To(Equal(original.Keys))
 			Expect(result.ChunkSize).To(Equal(original.ChunkSize))
 			Expect(result.SeqNum).To(Equal(original.SeqNum))
-			Expect(result.DownsampleFactor).To(Equal(original.DownsampleFactor))
-			Expect(result.Aggregation).To(Equal(original.Aggregation))
-			Expect(result.PointLimit).To(Equal(original.PointLimit))
 		})
+
+		DescribeTable(
+			"Should round-trip a reduction",
+			func(ctx SpecContext, reduction telem.Reduction) {
+				pb := MustSucceed(
+					t.Forward(ctx, iterator.Request{Reduction: reduction}),
+				)
+				result := MustSucceed(t.Backward(ctx, pb))
+				Expect(result.Reduction).To(Equal(reduction))
+			},
+			Entry("none", telem.Reduction{}),
+			Entry("stride", telem.Reduction{Variant: telem.StrideReduction{Factor: 4}}),
+			Entry("limit", telem.Reduction{Variant: telem.LimitReduction{
+				Aggregation: telem.AggregationAverage,
+				PointLimit:  512,
+			}}),
+		)
 
 		It("Should handle zero-value request", func(ctx SpecContext) {
 			original := iterator.Request{}

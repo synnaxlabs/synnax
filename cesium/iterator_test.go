@@ -1033,9 +1033,11 @@ var _ = Describe("Iterator Behavior", func() {
 						},
 					))).To(Succeed())
 					i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
-						Bounds:           telem.TimeRangeMax,
-						Channels:         []cesium.ChannelKey{idxKey, dataKey},
-						DownsampleFactor: 3,
+						Bounds:   telem.TimeRangeMax,
+						Channels: []cesium.ChannelKey{idxKey, dataKey},
+						Reduction: telem.Reduction{
+							Variant: telem.StrideReduction{Factor: 3},
+						},
 					}))
 					Expect(i.SeekFirst()).To(BeTrue())
 					Expect(i.Next(10 * telem.Second)).To(BeTrue())

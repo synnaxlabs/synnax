@@ -1233,9 +1233,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			Expect(w.Close()).To(Succeed())
 
 			iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
-				Keys:             keys,
-				Bounds:           telem.TimeRangeMax,
-				DownsampleFactor: 2,
+				Keys:   keys,
+				Bounds: telem.TimeRangeMax,
+				Reduction: telem.Reduction{
+					Variant: telem.StrideReduction{Factor: 2},
+				},
 			}))
 			Expect(iter.SeekFirst()).To(BeTrue())
 			Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
@@ -1293,9 +1295,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			Expect(channelWriter.Create(ctx, total)).To(Succeed())
 
 			iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
-				Keys:             []channel.Key{total.Key()},
-				Bounds:           telem.TimeRangeMax,
-				DownsampleFactor: 2,
+				Keys:   []channel.Key{total.Key()},
+				Bounds: telem.TimeRangeMax,
+				Reduction: telem.Reduction{
+					Variant: telem.StrideReduction{Factor: 2},
+				},
 			}))
 			Expect(iter.SeekFirst()).To(BeTrue())
 			Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
@@ -1337,9 +1341,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			Expect(w.Close()).To(Succeed())
 
 			iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
-				Keys:             keys,
-				Bounds:           telem.TimeRangeMax,
-				DownsampleFactor: 3,
+				Keys:   keys,
+				Bounds: telem.TimeRangeMax,
+				Reduction: telem.Reduction{
+					Variant: telem.StrideReduction{Factor: 3},
+				},
 			}))
 			Expect(iter.SeekFirst()).To(BeTrue())
 			Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
@@ -1391,9 +1397,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Expect(w.Close()).To(Succeed())
 
 				iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
-					Keys:             keys,
-					Bounds:           telem.TimeRangeMax,
-					DownsampleFactor: factor,
+					Keys:   keys,
+					Bounds: telem.TimeRangeMax,
+					Reduction: telem.Reduction{
+						Variant: telem.StrideReduction{Factor: factor},
+					},
 				}))
 				Expect(iter.SeekFirst()).To(BeTrue())
 				Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
@@ -1457,8 +1465,10 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						calculation.Key(),
 						calculation.Index(),
 					},
-					Bounds:           telem.TimeRangeMax,
-					DownsampleFactor: 2,
+					Bounds: telem.TimeRangeMax,
+					Reduction: telem.Reduction{
+						Variant: telem.StrideReduction{Factor: 2},
+					},
 				}))
 				Expect(iter.SeekFirst()).To(BeTrue())
 				Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
@@ -1522,9 +1532,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Expect(w.Close()).To(Succeed())
 
 				iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
-					Keys:             keys,
-					Bounds:           telem.TimeRangeMax,
-					DownsampleFactor: 2,
+					Keys:   keys,
+					Bounds: telem.TimeRangeMax,
+					Reduction: telem.Reduction{
+						Variant: telem.StrideReduction{Factor: 2},
+					},
 				}))
 				Expect(iter.SeekFirst()).To(BeTrue())
 				Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
@@ -1594,10 +1606,12 @@ var _ = Describe("StreamIterator", Ordered, func() {
 
 		aggregated := func(keys ...channel.Key) iterator.Config {
 			return iterator.Config{
-				Keys:        keys,
-				Bounds:      bounds,
-				Aggregation: telem.AggregationMinMax,
-				PointLimit:  10,
+				Keys:   keys,
+				Bounds: bounds,
+				Reduction: telem.Reduction{Variant: telem.LimitReduction{
+					Aggregation: telem.AggregationMinMax,
+					PointLimit:  10,
+				}},
 			}
 		}
 
@@ -1625,31 +1639,21 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					To(MatchError(ContainSubstring(message)))
 			},
 			Entry(
-				"aggregation without a point limit",
-				iterator.Config{Aggregation: telem.AggregationMinMax},
-				"point_limit: must be set together with aggregation",
-			),
-			Entry(
-				"a point limit without aggregation",
-				iterator.Config{PointLimit: 10},
-				"point_limit: must be set together with aggregation",
-			),
-			Entry(
-				"aggregation with a downsample factor",
-				iterator.Config{
-					Aggregation:      telem.AggregationMinMax,
-					PointLimit:       10,
-					DownsampleFactor: 2,
-				},
-				"downsample_factor: cannot be combined with aggregation",
+				"a limit without a point limit",
+				iterator.Config{Reduction: telem.Reduction{
+					Variant: telem.LimitReduction{Aggregation: telem.AggregationMinMax},
+				}},
+				"point_limit: must be greater than or equal to 1",
 			),
 			Entry(
 				"an unknown aggregation",
-				iterator.Config{
-					Aggregation: telem.AggregationDecimate + 1,
-					PointLimit:  10,
-				},
-				"aggregation: unknown aggregation",
+				iterator.Config{Reduction: telem.Reduction{
+					Variant: telem.LimitReduction{
+						Aggregation: "median",
+						PointLimit:  10,
+					},
+				}},
+				"aggregation: invalid aggregation: median",
 			),
 		)
 

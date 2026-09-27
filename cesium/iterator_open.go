@@ -53,11 +53,9 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (si *streamIterator, err err
 	for _, key := range cfg.Channels {
 		if uDB, ok := db.mu.dbs.unary[key]; ok {
 			iter, iterErr := uDB.OpenIterator(unary.IteratorConfig{
-				Bounds:           cfg.Bounds,
-				AutoChunkSize:    cfg.AutoChunkSize,
-				DownsampleFactor: cfg.DownsampleFactor,
-				Aggregation:      cfg.Aggregation,
-				PointLimit:       cfg.PointLimit,
+				Bounds:        cfg.Bounds,
+				AutoChunkSize: cfg.AutoChunkSize,
+				Reduction:     cfg.Reduction,
 			})
 			if iterErr != nil {
 				return nil, iterErr

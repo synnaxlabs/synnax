@@ -2874,7 +2874,7 @@ var _ = Describe("Downsampled Iteration", func() {
 			) []telem.Series {
 				GinkgoHelper()
 				cfg := unary.IterRange(telem.TimeRangeMax)
-				cfg.DownsampleFactor = factor
+				cfg.Reduction.Variant = telem.StrideReduction{Factor: factor}
 				iter := MustOpen(db.OpenIterator(cfg))
 				Expect(iter.SeekFirst(ctx)).To(BeTrue())
 				Expect(iter.Next(ctx, telem.TimeSpan(1e6)*telem.Second)).To(BeTrue())
@@ -3017,7 +3017,7 @@ var _ = Describe("Downsampled Iteration", func() {
 				writeInt64(ctx, telem.SecondTS, 4)
 				writeInt64(ctx, 100*telem.SecondTS, 4)
 				cfg := unary.IterRange(telem.TimeRangeMax)
-				cfg.DownsampleFactor = 2
+				cfg.Reduction.Variant = telem.StrideReduction{Factor: 2}
 				cfg.AutoChunkSize = 6
 				iter := MustOpen(dataDB.OpenIterator(cfg))
 				Expect(iter.SeekFirst(ctx)).To(BeTrue())

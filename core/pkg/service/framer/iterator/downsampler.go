@@ -20,8 +20,8 @@ type downsampler struct {
 	factor uint32
 }
 
-func newDownsampler(cfg Config) responseSegment {
-	d := &downsampler{factor: cfg.DownsampleFactor}
+func newDownsampler(factor uint32) responseSegment {
+	d := &downsampler{factor: factor}
 	d.Transform = d.transform
 	return d
 }

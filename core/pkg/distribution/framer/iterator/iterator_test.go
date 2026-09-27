@@ -109,10 +109,12 @@ var _ = Describe("Iterator", func() {
 
 				Specify("Aggregation", func(ctx SpecContext) {
 					iter := MustSucceed(s.dist.Framer.OpenIterator(ctx, iterator.Config{
-						Keys:        s.keys,
-						Bounds:      telem.TimeRangeMax,
-						Aggregation: telem.AggregationMinMax,
-						PointLimit:  4,
+						Keys:   s.keys,
+						Bounds: telem.TimeRangeMax,
+						Reduction: telem.Reduction{Variant: telem.LimitReduction{
+							Aggregation: telem.AggregationMinMax,
+							PointLimit:  4,
+						}},
 					}))
 					Expect(iter.SeekFirst()).To(BeTrue())
 					Expect(iter.Next(telem.TimeSpanMax)).To(BeTrue())
@@ -182,9 +184,11 @@ var _ = Describe("Iterator", func() {
 
 				Specify("Downsample", func(ctx SpecContext) {
 					iter := MustSucceed(s.dist.Framer.OpenIterator(ctx, iterator.Config{
-						Keys:             s.keys,
-						Bounds:           telem.TimeRangeMax,
-						DownsampleFactor: 3,
+						Keys:   s.keys,
+						Bounds: telem.TimeRangeMax,
+						Reduction: telem.Reduction{
+							Variant: telem.StrideReduction{Factor: 3},
+						},
 					}))
 					Expect(iter.SeekFirst()).To(BeTrue())
 					Expect(iter.Next(20 * telem.Second)).To(BeTrue())

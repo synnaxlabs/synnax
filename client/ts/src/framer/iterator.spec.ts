@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
-  Aggregation,
+  type Aggregation,
   type Series,
   TimeRange,
   TimeSpan,
@@ -116,7 +116,7 @@ describe("Iterator", () => {
       });
       await writer.close();
       const iter = await client.openIterator(TimeRange.MAX, channels, {
-        downsampleFactor: 2,
+        reduction: { variant: "stride", factor: 2 },
       });
 
       try {
@@ -141,7 +141,7 @@ describe("Iterator", () => {
       });
       await writer.close();
       const iter = await client.openIterator(TimeRange.MAX, channels, {
-        downsampleFactor: 3,
+        reduction: { variant: "stride", factor: 3 },
       });
 
       try {
@@ -164,7 +164,7 @@ describe("Iterator", () => {
       });
       await writer.close();
       const iter = await client.openIterator(TimeRange.MAX, channels, {
-        downsampleFactor: 1,
+        reduction: { variant: "stride", factor: 1 },
       });
       try {
         expect(await iter.seekFirst()).toBe(true);
@@ -179,19 +179,21 @@ describe("Iterator", () => {
     });
 
     describe("config", () => {
-      test("defaults to keeping every sample", () => {
-        expect(iteratorConfigZ.parse({}).downsampleFactor).toEqual(1);
+      const stride = (factor: number) => ({
+        reduction: { variant: "stride" as const, factor },
+      });
+      test("defaults to no reduction", () => {
+        expect(iteratorConfigZ.parse({}).reduction).toBeUndefined();
       });
       test.each([0, 1, 2, 10, MAX_DOWNSAMPLE_FACTOR])("accepts %i", (factor) => {
-        expect(iteratorConfigZ.parse({ downsampleFactor: factor })).toHaveProperty(
-          "downsampleFactor",
-          factor,
+        expect(iteratorConfigZ.parse(stride(factor)).reduction).toEqual(
+          stride(factor).reduction,
         );
       });
       // The wire field is unsigned, so a factor the schema lets through would be
       // reinterpreted by the Core instead of rejected.
       test.each([-1, 1.5, MAX_DOWNSAMPLE_FACTOR + 1])("rejects %s", (factor) => {
-        expect(() => iteratorConfigZ.parse({ downsampleFactor: factor })).toThrow();
+        expect(() => iteratorConfigZ.parse(stride(factor))).toThrow();
       });
     });
   });
@@ -209,8 +211,7 @@ describe("Iterator", () => {
       });
       await writer.close();
       const iter = await client.openIterator(TimeRange.MAX, channels, {
-        aggregation,
-        pointLimit,
+        reduction: { variant: "limit", aggregation, pointLimit },
       });
       try {
         expect(await iter.seekFirst()).toBe(true);
@@ -225,44 +226,42 @@ describe("Iterator", () => {
     };
 
     test("min_max keeps the extremes of each group in order", async () => {
-      const data = await readReduced(Aggregation.min_max, 4);
+      const data = await readReduced("min_max", 4);
       expect(Array.from(data)).toEqual([1, 8, 2, 7]);
       expect(data.alignmentMultiple).toEqual(2n);
     });
 
     test("average keeps the mean of each group", async () => {
-      const data = await readReduced(Aggregation.average, 4);
+      const data = await readReduced("average", 4);
       expect(Array.from(data)).toEqual([2.5, 5.5, 3.5, 6.5]);
       expect(data.alignmentMultiple).toEqual(2n);
     });
 
     test("decimate keeps the first sample of each group", async () => {
-      const data = await readReduced(Aggregation.decimate, 2);
+      const data = await readReduced("decimate", 2);
       expect(Array.from(data)).toEqual([4, 5]);
       expect(data.alignmentMultiple).toEqual(4n);
     });
 
     test("returns every sample under the point limit", async () => {
-      const data = await readReduced(Aggregation.min_max, 8);
+      const data = await readReduced("min_max", 8);
       expect(Array.from(data)).toEqual([4, 1, 3, 8, 5, 2, 6, 7]);
       expect(data.alignmentMultiple).toEqual(1n);
     });
 
-    test("rejects a point limit without an aggregation", async () => {
-      const channels = await newIndexedPair(client);
-      await expect(
-        client.openIterator(TimeRange.MAX, channels, { pointLimit: 4 }),
-      ).rejects.toThrow(/point_limit/);
-    });
-
     describe("config", () => {
-      test("defaults to no aggregation and no point limit", () => {
-        const cfg = iteratorConfigZ.parse({});
-        expect(cfg.aggregation).toEqual(Aggregation.none);
-        expect(cfg.pointLimit).toEqual(0);
+      const limit = (pointLimit: number) => ({
+        reduction: { variant: "limit" as const, pointLimit },
       });
-      test.each([-1, 1.5, 2 ** 32])("rejects a point limit of %s", (pointLimit) => {
-        expect(() => iteratorConfigZ.parse({ pointLimit })).toThrow();
+      test("defaults the aggregation to min_max", () => {
+        expect(iteratorConfigZ.parse(limit(4)).reduction).toEqual({
+          variant: "limit",
+          aggregation: "min_max",
+          pointLimit: 4,
+        });
+      });
+      test.each([0, -1, 1.5, 2 ** 32])("rejects a point limit of %s", (pointLimit) => {
+        expect(() => iteratorConfigZ.parse(limit(pointLimit))).toThrow();
       });
     });
   });

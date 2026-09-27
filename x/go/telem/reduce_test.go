@@ -21,7 +21,6 @@ var _ = Describe("Reduce", func() {
 			func(agg telem.Aggregation, expected int64) {
 				Expect(agg.PointsPerGroup()).To(Equal(expected))
 			},
-			Entry("none", telem.AggregationNone, int64(1)),
 			Entry("min/max", telem.AggregationMinMax, int64(2)),
 			Entry("average", telem.AggregationAverage, int64(1)),
 			Entry("decimate", telem.AggregationDecimate, int64(1)),
@@ -34,13 +33,6 @@ var _ = Describe("Reduce", func() {
 			func(count int64, limit uint32, agg telem.Aggregation, expected uint32) {
 				Expect(telem.GroupSize(count, limit, agg)).To(Equal(expected))
 			},
-			Entry(
-				"no aggregation",
-				int64(1e6),
-				uint32(100),
-				telem.AggregationNone,
-				uint32(1),
-			),
 			Entry(
 				"no limit",
 				int64(1e6),
@@ -186,8 +178,8 @@ var _ = Describe("Reduce", func() {
 
 		It("Should panic on an unknown aggregation", func() {
 			s := telem.NewSeriesV[float32](1, 2, 3, 4)
-			Expect(func() { s.Reduce(telem.Aggregation(99), 2) }).To(PanicWith(
-				"telem: unknown aggregation 99",
+			Expect(func() { s.Reduce(telem.Aggregation("median"), 2) }).To(PanicWith(
+				`telem: unknown aggregation "median"`,
 			))
 		})
 
@@ -254,12 +246,6 @@ var _ = Describe("Reduce", func() {
 				uint32(1),
 			),
 			Entry(
-				"no aggregation",
-				telem.NewSeriesV[float64](1, 2, 3),
-				telem.AggregationNone,
-				uint32(2),
-			),
-			Entry(
 				"empty series",
 				telem.NewSeriesV[float64](),
 				telem.AggregationMinMax,
@@ -310,12 +296,6 @@ var _ = Describe("Reduce", func() {
 				telem.NewMultiSeriesV(telem.NewSeriesV[int64](1, 2)),
 				telem.AggregationMinMax,
 				uint32(1),
-			),
-			Entry(
-				"no aggregation",
-				telem.NewMultiSeriesV(telem.NewSeriesV[int64](1, 2)),
-				telem.AggregationNone,
-				uint32(2),
 			),
 			Entry(
 				"strings",

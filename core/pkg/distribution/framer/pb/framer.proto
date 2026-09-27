@@ -31,9 +31,24 @@ message IteratorRequest {
   repeated uint32 keys = 6;
   int64 chunk_size = 7;
   int32 seq_num = 8;
-  uint32 downsample_factor = 9;
-  uint32 aggregation = 10;
-  uint32 point_limit = 11;
+  reserved 9;
+  Reduction reduction = 10;
+}
+
+message Reduction {
+  oneof variant {
+    StrideReduction stride = 1;
+    LimitReduction limit = 2;
+  }
+}
+
+message StrideReduction {
+  uint32 factor = 1;
+}
+
+message LimitReduction {
+  string aggregation = 1;
+  uint32 point_limit = 2;
 }
 
 message IteratorResponse {
