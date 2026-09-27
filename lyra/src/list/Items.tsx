@@ -20,7 +20,10 @@ import { ItemsContext, useScrollContext } from "@/list/scope";
 
 /** Props for {@link Items}. */
 export interface ItemsProps<K extends record.Key = record.Key> {
-  /** Renders one item. It is called once per visible key. */
+  /**
+   * Renders one item. Its element is reused while the item's key, index, and offset stay
+   * the same, so read item data through a hook such as `useItem`.
+   */
   children: ItemRenderProp<K>;
   /** Rendered in place of the items when the list is empty. */
   emptyContent?: ReactNode;

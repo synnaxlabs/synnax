@@ -273,6 +273,40 @@ describe("List", () => {
       expect([...counts.keys()]).toEqual([]);
     });
 
+    it("should show a changed record in an item whose element is reused", () => {
+      interface Entry {
+        key: string;
+        name: string;
+      }
+      const Name = (props: List.ItemProps<string>): ReactElement => {
+        const entry = List.useItem<string, Entry>(props.itemKey);
+        return <List.Item {...props}>{entry?.name}</List.Item>;
+      };
+      const item = ({ key, ...rest }: List.ItemProps<string>): ReactElement => (
+        <Name key={key} {...rest} />
+      );
+      const Harness = (): ReactElement => {
+        const [entries, setEntries] = useState<Entry[]>([{ key: "a", name: "before" }]);
+        const props = List.useStaticData<string, Entry>({ data: entries });
+        return (
+          <>
+            <button onClick={() => setEntries([{ key: "a", name: "after" }])}>
+              rename
+            </button>
+            <List.Frame {...props} virtual itemHeight={ITEM_HEIGHT}>
+              <List.Scroll>
+                <List.Items>{item}</List.Items>
+              </List.Scroll>
+            </List.Frame>
+          </>
+        );
+      };
+      const result = render(<Harness />);
+      expect(result.getByText("before")).toBeTruthy();
+      fireEvent.click(result.getByText("rename"));
+      expect(result.getByText("after")).toBeTruthy();
+    });
+
     it("should keep the container tall enough to scroll the whole data set", () => {
       const result = renderWindowed();
       const virtualizer = result.container.querySelector<HTMLElement>(
