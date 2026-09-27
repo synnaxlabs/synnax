@@ -8,4 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/aether/aether/aether";
+export * from "@/aether/aether/delta";
 export * from "@/aether/aether/message";

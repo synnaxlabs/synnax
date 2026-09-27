@@ -9,7 +9,7 @@
 
 import { context } from "@synnaxlabs/lyra/context";
 import { useSyncedRef, useUniqueKey } from "@synnaxlabs/lyra/hooks";
-import { type CrudeTimeSpan, deep, type destructor, type state } from "@synnaxlabs/x";
+import { type CrudeTimeSpan, deep, type destructor, type record } from "@synnaxlabs/x";
 import {
   memo,
   type PropsWithChildren,
@@ -96,7 +96,7 @@ export const Provider = ({ children, ...config }: ProviderProps): ReactElement =
 /** Output of {@link useLifecycle}: the component's path, a typed setState, the methods
  * registry, and the subscribe / getSnapshot pair consumed by `useSyncExternalStore`. */
 export interface UseLifecycleReturn<
-  StateSchema extends z.ZodType<state.State, state.State>,
+  StateSchema extends z.ZodType<record.Unknown, record.Unknown>,
   Methods extends MethodsSchema = EmptyMethodsSchema,
 > {
   path: readonly string[];
@@ -134,7 +134,7 @@ interface UseLifecycleProps<
  * React to state changes. Most callers want {@link use} or {@link useUnidirectional}
  * instead. */
 export const useLifecycle = <
-  StateSchema extends z.ZodType<state.State, state.State>,
+  StateSchema extends z.ZodType<record.Unknown, record.Unknown>,
   Methods extends MethodsSchema = EmptyMethodsSchema,
 >({
   type,
@@ -208,7 +208,7 @@ interface ComponentContext {
 
 /** Tuple returned by {@link use}: `[ctx, state, setState, methods]`. */
 export type UseReturn<
-  StateSchema extends z.ZodType<state.State, state.State>,
+  StateSchema extends z.ZodType<record.Unknown, record.Unknown>,
   Methods extends MethodsSchema = EmptyMethodsSchema,
 > = [
   ComponentContext,
@@ -240,7 +240,7 @@ export interface UseUnidirectionalReturn<
  * worker on every change (compared with `deep.equal`); worker-side updates do not
  * propagate back. Use {@link use} for bidirectional state. */
 export const useUnidirectional = <
-  StateSchema extends z.ZodType<state.State, state.State>,
+  StateSchema extends z.ZodType<record.Unknown, record.Unknown>,
   Methods extends MethodsSchema = EmptyMethodsSchema,
 >({
   state,
@@ -267,7 +267,7 @@ export const useUnidirectional = <
  * `useSyncExternalStore`, and returns the current state, a setter, and the methods
  * registry. */
 export const use = <
-  StateSchema extends z.ZodType<state.State, state.State>,
+  StateSchema extends z.ZodType<record.Unknown, record.Unknown>,
   Methods extends MethodsSchema = EmptyMethodsSchema,
 >(
   props: UseProps<StateSchema, Methods>,
