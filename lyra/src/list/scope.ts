@@ -7,15 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type record } from "@synnaxlabs/x";
 import { type RefCallback } from "react";
 
 import { context } from "@/context";
 
-/** True under an Items render function, for the rows of the nearest Frame. */
-export const [ItemsContext, useInItems] = context.create<boolean>({
-  defaultValue: false,
+/** Records the element of a mounted row, or null when the row unmounts. */
+export type SetElement = (key: record.Key, element: HTMLElement | null) => void;
+
+/**
+ * Holds the element setter of the nearest Frame under an Items render function, and
+ * null elsewhere.
+ */
+export const [ItemsContext, useItemsContext] = context.create<SetElement | null>({
+  defaultValue: null,
   displayName: "List.ItemsContext",
 });
+
+/** @returns true under an Items render function, for the rows of the nearest Frame. */
+export const useInItems = (): boolean => useItemsContext() != null;
 
 /** Holds the scroll ref of the Frame whose Scroll encloses the subtree. */
 export const [ScrollContext, useScrollContext] = context.create<

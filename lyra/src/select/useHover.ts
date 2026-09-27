@@ -25,7 +25,8 @@ export interface UseHoverProps<K extends record.Key> {
   getOrder: () => K[];
   /** Calls the listener when the order changes but getOrder does not. */
   subscribe: (listener: () => void) => destructor.Destructor;
-  onSelect: (key: K) => void;
+  /** Clicks the option with the given key. Enter clicks the hovered option. */
+  click: (key: K) => void;
   /** Brings the given option into view after the hover moves onto it. */
   scrollTo?: (key: K, direction: location.Y) => void;
   /**
@@ -59,15 +60,16 @@ const resolveHover = <K extends record.Key>(
 };
 
 /**
- * Moves a hover cursor through the options with the arrow keys and selects with Enter,
- * scrolling the hovered option into view. Holding an arrow key repeats. The hover is a
- * key, so it survives options appearing or disappearing around it.
+ * Moves a hover cursor through the options with the arrow keys and clicks the hovered
+ * option with Enter, scrolling the hovered option into view. Holding an arrow key
+ * repeats. The hover is a key, so it survives options appearing or disappearing around
+ * it.
  */
 export const useHover = <K extends record.Key>({
   getOrder,
   subscribe,
   initialHover = -1,
-  onSelect,
+  click,
   scrollTo,
   enableTriggers,
 }: UseHoverProps<K>): UseHoverReturn<K> => {
@@ -103,7 +105,7 @@ export const useHover = <K extends record.Key>({
           movedRef.current,
           initialHover,
         );
-        if (current != null) onSelect(current);
+        if (current != null) click(current);
         return;
       }
       const move = () => {
@@ -126,7 +128,7 @@ export const useHover = <K extends record.Key>({
         intervalRef.current = setInterval(move, HOVER_INTERVAL);
       }, INITIAL_HOVER_DELAY);
     },
-    [onSelect, initialHover],
+    [click, initialHover],
   );
   Triggers.use({
     triggers: TRIGGERS,

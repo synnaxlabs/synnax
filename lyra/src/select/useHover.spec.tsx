@@ -7,13 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, renderHook } from "@testing-library/react";
+import { act, fireEvent, render, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Dialog } from "@/dialog";
+import { List } from "@/list";
 import { Select } from "@/select";
+import { mockGeometry } from "@/testutil/dom";
 import { Triggers } from "@/triggers";
+
+const row = ({ key, ...rest }: List.ItemProps<string>): ReactElement => (
+  <Select.Item key={key} {...rest}>
+    {rest.itemKey}
+  </Select.Item>
+);
 
 describe("Select keyboard hover", () => {
   const DATA = ["alpha", "bravo", "charlie"];
@@ -39,6 +47,9 @@ describe("Select keyboard hover", () => {
             enableTriggers={enableTriggers}
           >
             {children}
+            <List.Scroll>
+              <Select.Items<string>>{row}</Select.Items>
+            </List.Scroll>
           </Select.Frame>
         </Triggers.Provider>
       );
@@ -124,6 +135,88 @@ describe("Select keyboard hover", () => {
       enabled = true;
       keyDown("ArrowDown");
       expect(hover()).toBe("bravo");
+    });
+  });
+
+  describe("Enter", () => {
+    beforeAll(() => mockGeometry(100, 100));
+
+    const renderRows = (
+      data: string[],
+      onChange: (key: string) => void,
+      item: (props: List.ItemProps<string>) => ReactElement = row,
+      virtual = false,
+    ) =>
+      render(
+        <Triggers.Provider>
+          <Dialog.Frame visible>
+            <Select.Frame
+              data={data}
+              onChange={(key: string) => onChange(key)}
+              initialHover={0}
+              itemHeight={33}
+              virtual={virtual}
+            >
+              <List.Scroll>
+                <Select.Items<string>>{item}</Select.Items>
+              </List.Scroll>
+            </Select.Frame>
+          </Dialog.Frame>
+        </Triggers.Provider>,
+      );
+
+    const pressEnter = (): void => {
+      act(() => {
+        fireEvent.keyDown(window, { code: "Enter" });
+      });
+      act(() => {
+        fireEvent.keyUp(window, { code: "Enter" });
+      });
+    };
+
+    it("should run the hovered item's own onSelect and onClick", () => {
+      const onChange = vi.fn();
+      const onSelect = vi.fn();
+      const onClick = vi.fn();
+      renderRows(DATA, onChange, ({ key, ...rest }) => (
+        <Select.Item key={key} {...rest} onSelect={onSelect} onClick={onClick}>
+          {rest.itemKey}
+        </Select.Item>
+      ));
+      pressEnter();
+      expect(onSelect).toHaveBeenCalledTimes(1);
+      expect(onSelect.mock.calls[0][0]).toBe("alpha");
+      expect(onClick).toHaveBeenCalledTimes(1);
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("should not select a hovered item that prevents clicks", () => {
+      const onChange = vi.fn();
+      renderRows(DATA, onChange, ({ key, ...rest }) => (
+        <Select.Item key={key} {...rest} preventClick>
+          {rest.itemKey}
+        </Select.Item>
+      ));
+      pressEnter();
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("should scroll to and click a hovered row that scrolled out of view", async () => {
+      const onChange = vi.fn();
+      const data = Array.from({ length: 300 }, (_, i) => `${i}`);
+      const c = renderRows(data, onChange, row, true);
+      const scroller = c.container.querySelector<HTMLElement>(".pluto-list__scroll");
+      if (scroller == null) throw new Error("scroll container not found");
+      scroller.scrollTo = ((options: ScrollToOptions) => {
+        scroller.scrollTop = options.top ?? 0;
+        fireEvent.scroll(scroller);
+      }) as typeof scroller.scrollTo;
+      scroller.scrollTop = 200 * 33;
+      fireEvent.scroll(scroller);
+      expect(c.queryByText("0", { exact: true })).toBeNull();
+      pressEnter();
+      await waitFor(() => expect(onChange).toHaveBeenCalledWith("0"));
+      expect(onChange).toHaveBeenCalledTimes(1);
     });
   });
 });

@@ -24,7 +24,12 @@ import {
 import { memo } from "@/component/memo";
 import { context } from "@/context";
 import { Dialog } from "@/dialog";
-import { useCombinedRefs, usePrevious, useSyncedRef } from "@/hooks";
+import {
+  useCombinedRefs,
+  useInitializerRef,
+  usePrevious,
+  useSyncedRef,
+} from "@/hooks";
 import { ItemsContext } from "@/list/scope";
 
 /** Function interface for getting items from a list by key(s). */
@@ -86,6 +91,13 @@ export interface UtilContextValue<
   getItem?: GetItem<K, E>;
   subscribe?: (callback: () => void, key: K) => () => void;
   scrollToIndex: (index: number, direction?: location.Y) => void;
+  /** Records the element of a mounted row, or null when the row unmounts. */
+  setElement: (key: K, element: HTMLElement | null) => void;
+  /**
+   * Clicks the row with the given key. A row outside the rendered window is scrolled
+   * to first and clicked when it mounts.
+   */
+  click: (key: K) => void;
   itemHeight?: number;
 }
 
@@ -131,6 +143,10 @@ export const useScroller = <K extends record.Key = record.Key>(): Pick<
   const { scrollToIndex } = useUtilCtx("List.useScroller");
   return useMemo(() => ({ scrollToIndex }), [scrollToIndex]);
 };
+
+/** @returns a function that clicks the row of the enclosing {@link Frame} by key. */
+export const useClick = <K extends record.Key = record.Key>(): ((key: K) => void) =>
+  useUtilCtx("List.useClick").click;
 
 /**
  * useItemHeight returns the row height the enclosing Frame was given. It reads the
@@ -178,9 +194,16 @@ export const useData = <
   const { data, getItems, getTotalSize, sentinelRef } = useDataContext(
     "List.useData",
   ) as DataContextValue<K>;
-  const { ref, itemsRef, getItem, scrollToIndex, subscribe, itemHeight } = useUtilCtx(
-    "List.useData",
-  ) as unknown as UtilContextValue<K, E>;
+  const {
+    ref,
+    itemsRef,
+    getItem,
+    scrollToIndex,
+    setElement,
+    click,
+    subscribe,
+    itemHeight,
+  } = useUtilCtx("List.useData") as unknown as UtilContextValue<K, E>;
   return useMemo(
     () => ({
       data,
@@ -190,6 +213,8 @@ export const useData = <
       itemsRef,
       getItem,
       scrollToIndex,
+      setElement,
+      click,
       subscribe,
       itemHeight,
       sentinelRef,
@@ -202,6 +227,8 @@ export const useData = <
       itemsRef,
       getItem,
       scrollToIndex,
+      setElement,
+      click,
       subscribe,
       itemHeight,
       sentinelRef,
@@ -292,6 +319,45 @@ const useIntersectionFetchMore = (
   return { containerRef, sentinelRef };
 };
 
+interface Rows<K extends record.Key> {
+  setElement: (key: K, element: HTMLElement | null) => void;
+  click: (key: K) => void;
+}
+
+const useRows = <K extends record.Key>(
+  data: K[],
+  scrollToIndex: (index: number) => void,
+): Rows<K> => {
+  const elementsRef = useInitializerRef(() => new Map<K, HTMLElement>());
+  // The key whose row must be clicked once it mounts.
+  const pendingRef = useRef<K | null>(null);
+  const dataRef = useSyncedRef(data);
+  const setElement = useCallback((key: K, element: HTMLElement | null) => {
+    if (element == null) {
+      elementsRef.current.delete(key);
+      return;
+    }
+    elementsRef.current.set(key, element);
+    if (pendingRef.current !== key) return;
+    pendingRef.current = null;
+    element.click();
+  }, []);
+  const click = useCallback(
+    (key: K) => {
+      const element = elementsRef.current.get(key);
+      if (element != null) {
+        pendingRef.current = null;
+        element.click();
+        return;
+      }
+      pendingRef.current = key;
+      scrollToIndex(dataRef.current.indexOf(key));
+    },
+    [scrollToIndex],
+  );
+  return useMemo(() => ({ setElement, click }), [setElement, click]);
+};
+
 const INITIAL_WINDOW_HEIGHT = 800;
 
 const VirtualFrame = <
@@ -355,6 +421,11 @@ const VirtualFrame = <
     ),
   });
 
+  const scrollToIndex = useCallback(
+    (index: number) => virtualizer.scrollToIndex(index),
+    [virtualizer],
+  );
+  const { setElement, click } = useRows(data, scrollToIndex);
   const items = virtualizer.getVirtualItems();
   const dataCtxValue = useMemo<DataContextValue<K>>(
     () => ({
@@ -377,11 +448,22 @@ const VirtualFrame = <
       ref: refCallback,
       itemsRef,
       getItem,
-      scrollToIndex: (index) => virtualizer.scrollToIndex(index),
+      scrollToIndex,
+      setElement,
+      click,
       subscribe,
       itemHeight,
     }),
-    [refCallback, itemsRef, virtualizer, getItem, subscribe, itemHeight],
+    [
+      refCallback,
+      itemsRef,
+      scrollToIndex,
+      setElement,
+      click,
+      getItem,
+      subscribe,
+      itemHeight,
+    ],
   );
 
   return (
@@ -423,6 +505,7 @@ const StaticFrame = <
     if (child != null)
       child.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
   }, []);
+  const { setElement, click } = useRows(data, scrollToIndex);
 
   const initialFetchCallback = useFetchMoreRefCallback(ref, hasData, onFetchMore);
   const { containerRef: intersectionContainerRef, sentinelRef } =
@@ -447,10 +530,21 @@ const StaticFrame = <
       itemsRef,
       getItem,
       scrollToIndex,
+      setElement,
+      click,
       subscribe,
       itemHeight,
     }),
-    [refCallback, itemsRef, getItem, subscribe, scrollToIndex, itemHeight],
+    [
+      refCallback,
+      itemsRef,
+      getItem,
+      subscribe,
+      scrollToIndex,
+      setElement,
+      click,
+      itemHeight,
+    ],
   );
   return (
     <DataContext value={dataCtxValue}>
@@ -470,7 +564,7 @@ export const BaseFrame = <
   ...rest
 }: FrameProps<K, E>): ReactElement => (
   // A nested frame starts a new list, so its content is not a row of the outer one.
-  <ItemsContext value={false}>
+  <ItemsContext value={null}>
     {virtual ? <VirtualFrame {...rest} /> : <StaticFrame {...rest} />}
   </ItemsContext>
 );
