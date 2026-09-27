@@ -894,6 +894,18 @@ describe("color.Color", () => {
       expect(color.fromCSS("hsla(240 100% 50% / 0.25)")).toEqual([0, 0, 255, 0.25]);
     });
 
+    test("converts hsl hue units to degrees", () => {
+      const cyan = [0, 255, 255, 1];
+      expect(color.fromCSS("hsl(180deg 100% 50%)")).toEqual(cyan);
+      expect(color.fromCSS("hsl(0.5turn 100% 50%)")).toEqual(cyan);
+      expect(color.fromCSS(`hsl(${Math.PI}rad 100% 50%)`)).toEqual(cyan);
+      expect(color.fromCSS("hsl(200grad 100% 50%)")).toEqual(cyan);
+    });
+
+    test("rejects an hsl hue with an unknown unit", () => {
+      expect(color.fromCSS("hsl(180px 100% 50%)")).toBeUndefined();
+    });
+
     test("clamps out of range channels", () => {
       expect(color.fromCSS("rgb(300, -5, 0, 2)")).toEqual([255, 0, 0, 1]);
     });

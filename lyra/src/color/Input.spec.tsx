@@ -75,6 +75,13 @@ describe("Input", () => {
     expect(color.aValue(lastValue(onChange) ?? color.ZERO)).toBeCloseTo(0.5, 2);
   });
 
+  it("should make a typed hex opaque from Auto on a clear fallback", () => {
+    const onChange = vi.fn();
+    const c = renderInput({ fallback: color.ZERO, onChange });
+    fireEvent.change(textOf(c), { target: { value: "0000ff" } });
+    expect(color.aValue(lastValue(onChange) ?? color.ZERO)).toEqual(1);
+  });
+
   it("should apply a pasted CSS color at once", () => {
     const onChange = vi.fn();
     const c = renderInput({ value: RED, onChange });

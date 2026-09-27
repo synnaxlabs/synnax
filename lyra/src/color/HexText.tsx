@@ -21,7 +21,8 @@ const COMPLETE_HEX = /^#?([0-9a-f]{6}|[0-9a-f]{8})$/i;
 
 /**
  * Parses what the user typed or pasted into a hex box. Bare hex digits need no `#`,
- * and any other CSS color also parses. A hex with no alpha digits keeps `alpha`.
+ * and any other CSS color also parses. A hex with no alpha digits keeps `alpha`, or is
+ * opaque when `alpha` is 0, so a new color never lands invisible.
  */
 export const parseHexInput = (text: string, alpha: number): color.Color | undefined => {
   const trimmed = text.trim();
@@ -30,7 +31,8 @@ export const parseHexInput = (text: string, alpha: number): color.Color | undefi
     isHex && !trimmed.startsWith("#") ? `#${trimmed}` : trimmed,
   );
   if (parsed == null) return undefined;
-  return HEX_WITHOUT_ALPHA.test(trimmed) ? color.setAlpha(parsed, alpha) : parsed;
+  if (!HEX_WITHOUT_ALPHA.test(trimmed)) return parsed;
+  return color.setAlpha(parsed, alpha === 0 ? 1 : alpha);
 };
 
 export interface HexTextProps extends Omit<

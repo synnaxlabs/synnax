@@ -82,6 +82,13 @@ describe("Picker", () => {
       expect(onChange.mock.calls[0][0]).toEqual([0, 0, 255, 0.5]);
     });
 
+    it("should make a typed hex opaque when the color is transparent", () => {
+      const onChange = vi.fn();
+      const c = renderPicker({ fallback: color.ZERO, onChange });
+      fireEvent.change(hexInput(c), { target: { value: "0000ff" } });
+      expect(color.aValue(onChange.mock.calls[0][0])).toEqual(1);
+    });
+
     it("should take the alpha from an eight digit hex", () => {
       const onChange = vi.fn();
       const c = renderPicker({ value: "#ff0000", onChange });

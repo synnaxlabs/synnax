@@ -412,16 +412,33 @@ const fromCSSFunction = (name: string, body: string): Color | undefined => {
     const [r, g, b] = channels.map((c) => clampRound(c as number, 255));
     return [r, g, b, Math.min(Math.max(alpha, 0), 1)];
   }
-  const h = parseFloat(args[0]);
+  const h = parseCSSHue(args[0]);
   const sat = parseCSSNumber(args[1], 100);
   const light = parseCSSNumber(args[2], 100);
-  if (Number.isNaN(h) || sat == null || light == null) return undefined;
+  if (h == null || sat == null || light == null) return undefined;
   return fromHSLA([
     ((h % 360) + 360) % 360,
     Math.min(Math.max(sat, 0), 100),
     Math.min(Math.max(light, 0), 100),
     Math.min(Math.max(alpha, 0), 1),
   ]);
+};
+
+const DEGREES_PER_HUE_UNIT: Record<string, number> = {
+  "": 1,
+  deg: 1,
+  turn: 360,
+  rad: 180 / Math.PI,
+  grad: 0.9,
+};
+
+/** Parses a CSS hue angle into degrees. A bare number is in degrees. */
+const parseCSSHue = (arg: string): number | undefined => {
+  const match = arg.match(/^([+-]?(?:\d+\.?\d*|\.\d+))([a-z]*)$/);
+  if (match == null) return undefined;
+  const factor = DEGREES_PER_HUE_UNIT[match[2]];
+  if (factor == null) return undefined;
+  return parseFloat(match[1]) * factor;
 };
 
 /** Parses a CSS number, reading a percentage as a fraction of `scale`. */
