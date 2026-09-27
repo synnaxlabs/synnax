@@ -145,6 +145,7 @@ import {
   MdLogout,
   MdMoreVert,
   MdNewReleases,
+  MdOpacity,
   MdOutlineControlCamera,
   MdOutlineDeviceHub,
   MdOutlineExplore,
@@ -283,6 +284,7 @@ export const Add = wrapSVGIcon(FaPlus, "add");
 export const Subtract = wrapSVGIcon(AiOutlineMinus, "subtract");
 export const Copy = wrapSVGIcon(IoCopy, "copy");
 export const Eyedropper = wrapSVGIcon(LuPipette, "eyedropper");
+export const Opacity = wrapSVGIcon(MdOpacity, "opacity");
 export const Cut = wrapSVGIcon(MdContentCut, "cut");
 export const Paste = wrapSVGIcon(MdContentPaste, "paste");
 export const Undo = wrapSVGIcon(MdUndo, "undo");

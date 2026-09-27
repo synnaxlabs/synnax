@@ -124,7 +124,7 @@ describe("Picker", () => {
       const onChange = vi.fn();
       const c = renderPicker({ value: "#ff0000", onChange });
       const [first] = c.container.querySelectorAll<HTMLElement>(
-        `.${CSS.BE("color-picker", "swatch")}`,
+        `.${CSS.BE("color-picker", "swatches")} .${CSS.B("color-swatch")}`,
       );
       fireEvent.click(first);
       expect(lastHex(onChange)).toEqual(first.getAttribute("aria-label"));

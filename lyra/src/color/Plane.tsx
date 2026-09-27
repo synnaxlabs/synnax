@@ -18,8 +18,7 @@ const PERCENT = bounds.construct(0, 100);
 const HUE_VAR = CSS.variable("color-picker", "hue");
 
 export interface PlaneProps {
-  /** The color as HSVA. The plane shows its hue and places the thumb at its
-   * saturation and value. */
+  /** The plane shows the hue and puts the thumb at the saturation and value. */
   value: color.HSVA;
   /** Called with the new saturation and value, each from 0 to 100. */
   onChange: (saturation: number, value: number) => void;
@@ -53,7 +52,9 @@ export const Plane = ({ value, onChange, thumb }: PlaneProps): ReactElement => {
       role="slider"
       tabIndex={0}
       aria-label="Saturation and brightness"
-      aria-valuetext={`Saturation ${Math.round(saturation)}%, brightness ${Math.round(brightness)}%`}
+      aria-valuetext={`Saturation ${Math.round(saturation)}%, brightness ${Math.round(
+        brightness,
+      )}%`}
       onKeyDown={handleKeyDown}
     >
       <div

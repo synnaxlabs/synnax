@@ -11,9 +11,7 @@ import "@/color/Picker.css";
 
 import { color, TimeSpan } from "@synnaxlabs/x";
 import {
-  type ClipboardEvent,
   type ComponentPropsWithoutRef,
-  type KeyboardEvent,
   type ReactElement,
   useCallback,
   useMemo,
@@ -22,6 +20,7 @@ import {
 
 import { Button } from "@/button";
 import { BaseSwatch } from "@/color/BaseSwatch";
+import { parseHexInput, useHexDraft } from "@/color/hex";
 import { Plane } from "@/color/Plane";
 import { useFrequent, useFrequentUpdater } from "@/color/Provider";
 import { Slider } from "@/color/Slider";
@@ -44,17 +43,17 @@ export interface PickerProps extends Omit<
   onChange: (value?: color.Color) => void;
   /**
    * The color the theme paints while the value is absent. Setting it makes the value
-   * optional and adds an Auto swatch that clears it.
+   * optional and adds an Auto button that clears it.
    */
   fallback?: color.Crude;
 }
 
-const HUE_TRACK =
-  "linear-gradient(to right, #f00 0%, #ff0 17%, #0f0 33%, #0ff 50%, #00f 67%, #f0f 83%, #f00 100%)";
+const HUE_STOPS = ["#f00", "#ff0", "#0f0", "#0ff", "#00f", "#f0f", "#f00"];
+const HUE_TRACK = `linear-gradient(to right, ${HUE_STOPS.join(", ")})`;
 
 /**
- * An HSV color picker: theme and palette swatches, a saturation and brightness plane,
- * hue and alpha sliders, a hex and alpha input row, and the user's recent colors.
+ * An HSV color picker: a saturation and brightness plane, hue and alpha sliders, a hex
+ * and alpha input row, theme and palette swatches, and the user's recent colors.
  */
 export const Picker = ({
   value,
@@ -103,12 +102,6 @@ export const Picker = ({
       background={1}
       {...rest}
     >
-      <Swatches
-        value={value}
-        fallback={fallback}
-        onChange={onChange}
-        onPick={handleChange}
-      />
       <Flex.Box y gap="small">
         <Plane
           value={hsva.value}
@@ -134,6 +127,13 @@ export const Picker = ({
         />
       </Flex.Box>
       <InputRow value={shown} onChange={handleChange} />
+      <Divider.Divider x />
+      <Swatches
+        value={value}
+        fallback={fallback}
+        onChange={onChange}
+        onPick={handleChange}
+      />
       <Recent value={value} onPick={handleChange} />
     </Flex.Box>
   );
@@ -186,19 +186,20 @@ const Swatches = ({
   return (
     <div className={CSS.BE("color-picker", "swatches")}>
       {fallback != null && (
-        <BaseSwatch
-          value={fallback}
+        <Button.Button
+          variant="outlined"
+          size="tiny"
           className={CSS.cls(
-            CSS.BE("color-picker", "swatch"),
+            CSS.BE("color-picker", "auto"),
             CSS.selected(value == null),
           )}
-          draggable={false}
           onClick={() => onChange(undefined)}
           tooltip="Auto: the theme picks the color"
           aria-label="Auto"
         >
           <Icon.Auto />
-        </BaseSwatch>
+          Auto
+        </Button.Button>
       )}
       {presets.map((c) => (
         <PickerSwatch key={color.hex(c)} value={c} current={value} onPick={onPick} />
@@ -234,10 +235,8 @@ interface PickerSwatchProps {
 const PickerSwatch = ({ value, current, onPick }: PickerSwatchProps): ReactElement => (
   <BaseSwatch
     value={value}
-    className={CSS.cls(
-      CSS.BE("color-picker", "swatch"),
-      CSS.selected(current != null && color.equals(current, value)),
-    )}
+    className={CSS.cls(CSS.selected(current != null && color.equals(current, value)))}
+    size="tiny"
     onClick={() => onPick(color.construct(value))}
     aria-label={color.hex(value)}
   />
@@ -248,69 +247,22 @@ interface InputRowProps {
   onChange: (value: color.Color) => void;
 }
 
-const HEX_DIGITS = /^#?[0-9a-f]+$/i;
-const HEX_WITHOUT_ALPHA = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i;
-const COMPLETE_HEX = /^#?([0-9a-f]{6}|[0-9a-f]{8})$/i;
-
-/**
- * Parses what the user typed or pasted into the hex box. Bare hex digits need no `#`,
- * and any other CSS color also parses. A hex with no alpha digits keeps `alpha`.
- */
-const parseHexInput = (text: string, alpha: number): color.Color | undefined => {
-  const trimmed = text.trim();
-  const isHex = HEX_DIGITS.test(trimmed);
-  const parsed = color.fromCSS(
-    isHex && !trimmed.startsWith("#") ? `#${trimmed}` : trimmed,
-  );
-  if (parsed == null) return undefined;
-  return HEX_WITHOUT_ALPHA.test(trimmed) ? color.setAlpha(parsed, alpha) : parsed;
-};
-
 const InputRow = ({ value, onChange }: InputRowProps): ReactElement => {
   const alpha = color.aValue(value);
-  const hex = color.hex(color.setAlpha(value, 1)).slice(1);
-  const [draft, setDraft] = useState<string | null>(null);
-
-  const commit = (text: string): void => {
-    setDraft(null);
-    const parsed = parseHexInput(text, alpha);
-    if (parsed != null) onChange(parsed);
-  };
-
-  const handleDraftChange = (text: string): void => {
-    setDraft(text);
-    // A complete hex applies as the user types. Shorter forms wait for Enter or blur,
-    // since "fff" is also the start of "ffffff".
-    if (!COMPLETE_HEX.test(text.trim())) return;
-    const parsed = parseHexInput(text, alpha);
-    if (parsed != null) onChange(parsed);
-  };
-
-  const handlePaste = (e: ClipboardEvent<HTMLInputElement>): void => {
-    const parsed = parseHexInput(e.clipboardData.getData("text"), alpha);
-    if (parsed == null) return;
-    e.preventDefault();
-    setDraft(null);
-    onChange(parsed);
-  };
-
-  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>): void => {
-    if (e.key === "Enter" && draft != null) commit(draft);
-  };
-
+  const hex = useHexDraft({
+    text: color.hex(color.setAlpha(value, 1)).slice(1),
+    alpha,
+    onChange,
+  });
   return (
     <Flex.Box x gap="small" align="center">
       <Input.Text
         aria-label="Hex"
         size="small"
         grow
-        value={draft ?? hex}
-        onChange={handleDraftChange}
-        onBlur={() => draft != null && commit(draft)}
-        onKeyDown={handleKeyDown}
-        onPaste={handlePaste}
         startContent="#"
         selectOnFocus
+        {...hex}
       />
       <Input.Numeric
         aria-label="Alpha percentage"
@@ -318,7 +270,9 @@ const InputRow = ({ value, onChange }: InputRowProps): ReactElement => {
         size="small"
         value={Math.round(alpha * 100)}
         bounds={{ lower: 0, upper: 100 }}
-        units="%"
+        endContent="%"
+        startContent={<Icon.Opacity />}
+        showDragHandle={false}
         onChange={(pct) => onChange(color.setAlpha(value, pct / 100))}
       />
       <Button.Copy

@@ -10,14 +10,14 @@
 import { type color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Swatch, type SwatchProps } from "@/color/Swatch";
+import { Input, type InputProps } from "@/color/Input";
 import { Form } from "@/form";
-import { Input } from "@/input";
+import { Input as BaseInput } from "@/input";
 
 export interface FieldProps
   extends
-    Omit<Input.ItemProps, "children" | "onChange">,
-    Pick<SwatchProps, "size" | "onlyChangeOnBlur"> {
+    Omit<BaseInput.ItemProps, "children" | "onChange">,
+    Pick<InputProps, "size" | "onlyChangeOnBlur"> {
   /** Dot-separated path into the form values. */
   path: string;
   /** The color the theme paints while the field is absent. */
@@ -25,8 +25,8 @@ export interface FieldProps
 }
 
 /**
- * A form row that edits an optional color. The swatch shows the fallback, marked as
- * auto, while the field is absent, and the picker's Auto swatch clears the field.
+ * A form row that edits an optional color. While the field is absent, the input shows
+ * Auto; clearing the input or picking Auto clears the field.
  */
 export const Field = ({
   path,
@@ -41,15 +41,14 @@ export const Field = ({
   const value = Form.useFieldValue<color.Crude>(path, { optional: true });
   const { set } = Form.useContext();
   return (
-    <Input.Item label={label} align={align} padHelpText={padHelpText} {...rest}>
-      <Swatch
+    <BaseInput.Item label={label} align={align} padHelpText={padHelpText} {...rest}>
+      <Input
         value={value ?? undefined}
         fallback={fallback}
         onChange={(c) => set(path, c)}
         size={size}
         onlyChangeOnBlur={onlyChangeOnBlur}
-        bordered
       />
-    </Input.Item>
+    </BaseInput.Item>
   );
 };

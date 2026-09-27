@@ -15,29 +15,23 @@
 
     .pluto-color-picker__swatches {
         display: grid;
-        grid-template-columns: repeat(10, 1fr);
-        gap: 0.75rem;
+        grid-template-columns: repeat(10, var(--pluto-height-tiny));
+        row-gap: 0.75rem;
+        justify-content: space-between;
     }
 
-    .pluto-color-picker__swatch.pluto-color-swatch {
-        width: 100%;
+    .pluto-color-picker__swatches .pluto--selected.pluto-color-swatch {
+        box-shadow: var(--pluto-selected-ring);
+    }
+
+    /* A button, not a swatch: it spans two cells and speaks the button selection tier,
+       so it never reads as one more color. */
+    .pluto-color-picker__auto.pluto-btn {
+        grid-column: span 2;
+        gap: 0.5rem;
         min-width: 0;
-        height: auto;
-        min-height: 0;
-        aspect-ratio: 1;
-        padding: 0;
-        border-radius: var(--pluto-border-radius-small);
-
-        &.pluto--selected {
-            box-shadow:
-                0 0 0 2px var(--pluto-gray-l1),
-                0 0 0 3.5px var(--pluto-gray-l11);
-        }
-
-        & svg {
-            width: 60%;
-            height: 60%;
-        }
+        padding: 0 0.5rem;
+        justify-content: center;
     }
 
     .pluto-color-picker__plane,
@@ -95,7 +89,7 @@
     }
 
     .pluto-color-picker__alpha-input {
-        width: 7rem;
+        width: 13rem;
         flex-shrink: 0;
     }
 }

@@ -9,55 +9,55 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-color-swatch {
-    border-radius: var(--pluto-border-radius-small);
-    background:
+.pluto-color-swatch.pluto-btn.pluto-btn--outlined {
+    --pluto-swatch-fill:
         linear-gradient(var(--pluto-swatch-color), var(--pluto-swatch-color)),
         repeating-conic-gradient(
                 var(--pluto-gray-l2) 0% 25%,
                 var(--pluto-gray-l5) 0% 50%
             )
             50% / 1rem 1rem;
+    --pluto-swatch-edge: color-mix(in srgb, var(--pluto-gray-l11) 20%, transparent);
+
+    border-radius: var(--pluto-border-radius-small);
 
     & svg {
         color: var(--pluto-swatch-text);
     }
 
-    &.pluto--no-border {
-        border-color: transparent;
+    /* The fill is the color, so a translucent border reads on every color and
+       surface. */
+    &:not(.pluto-color-swatch--chip) {
+        --pluto-border-color: var(--pluto-swatch-edge);
+        --pluto-hover-border-color: color-mix(
+            in srgb,
+            var(--pluto-gray-l11) 40%,
+            transparent
+        );
+        --pluto-active-border-color: var(--pluto-hover-border-color);
+
+        background: var(--pluto-swatch-fill);
     }
 
-    &.pluto-haul-drop-region {
-        border: var(--pluto-border-l6) !important;
-        border-color: var(--haul-border-color) !important;
-        background: var(--haul-background) !important;
-    }
+    /* A control: a standard button with the color as a smaller chip inside. */
+    &.pluto-color-swatch--chip {
+        position: relative;
 
-    &.pluto--tiny {
-        min-width: 3rem;
-        min-height: 2.25rem;
-        padding: 0;
-        border-radius: var(--pluto-border-radius-tiny);
-    }
+        &::before {
+            content: "";
+            position: absolute;
+            inset: 20%;
+            border-radius: var(--pluto-border-radius-tiny);
+            background: var(--pluto-swatch-fill);
+            box-shadow: inset 0 0 0 var(--pluto-border-width) var(--pluto-swatch-edge);
+        }
 
-    &.pluto--small {
-        width: 4rem;
-        min-height: 3rem;
-    }
-
-    &.pluto--medium {
-        min-width: 4rem;
-        min-height: 3.5rem;
-    }
-
-    &.pluto--large {
-        width: 7rem;
-        height: 5rem;
+        & svg {
+            position: relative;
+        }
     }
 }
 
 .pluto-color-swatch__dropdown {
-    display: inline-block;
-    min-width: 1px;
-    min-height: 1px;
+    flex-shrink: 0;
 }

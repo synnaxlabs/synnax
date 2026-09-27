@@ -197,7 +197,7 @@ const StopSwatch = ({ stop, onChange, nextStop, onDelete, scale }: StopSwatchPro
         />
       </Flex.Box>
       <Swatch
-        size="small"
+        size="tiny"
         draggable
         key={stop.key}
         value={stop.color}

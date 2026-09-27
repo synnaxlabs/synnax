@@ -39,11 +39,11 @@ export const canDropHaulItem = Haul.canDropOfType<HaulItem>(HAUL_TYPE);
 
 export interface BaseSwatchProps extends Omit<
   Button.ButtonProps,
-  "onChange" | "value" | "size"
+  "onChange" | "value"
 > {
   value: color.Crude;
+  /** Called with a dropped color. Without it, the swatch takes no drop. */
   onChange?: (c: color.Color) => void;
-  size?: Button.ButtonProps["size"] | "tiny";
 }
 
 export const BaseSwatch = ({
@@ -56,15 +56,14 @@ export const BaseSwatch = ({
   ...rest
 }: BaseSwatchProps): ReactElement => {
   const { gray } = Theming.use().colors;
-  const background = gray.l0;
   const clr = color.construct(value);
   const dragging = Haul.useDraggingState();
   const canDrop: Haul.CanDrop = useCallback(
     ({ items }) => {
       const [k] = filterHaulItems(items);
-      return k != null && k.key !== color.hex(clr);
+      return onChange != null && k != null && k.key !== color.hex(clr);
     },
-    [clr],
+    [onChange, clr],
   );
   const handleDrop: Haul.OnDrop = useCallback(
     ({ items }) => {
@@ -94,14 +93,11 @@ export const BaseSwatch = ({
     <Button.Button
       className={CSS.cls(
         CSS.B("color-swatch"),
-        CSS.M(size),
-        color.contrast(background, clr) > 1.5 &&
-          color.aValue(clr) > 0.5 &&
-          CSS.M("no-border"),
         CSS.dropRegion(canDrop(dragging)),
         className,
       )}
       size={size}
+      square
       draggable={draggable}
       onDragStart={handleDragStart}
       style={swatchStyle}

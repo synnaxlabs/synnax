@@ -7,10 +7,10 @@
 
 ## 0 Summary
 
-The color picker drops `react-color` and becomes a Lyra component built from scratch.
-It is one panel: theme and palette swatches at the top, an HSV editor in the middle,
-and recent colors at the bottom. An Auto swatch clears an optional color back to the
-theme. The browser's native picker is never used.
+The color picker drops `react-color` and becomes a Lyra component built from scratch. It
+is one panel: an HSV editor at the top, then theme and palette swatches, then recent
+colors below a divider. An Auto button clears an optional color back to the theme. The
+browser's native picker is never used.
 
 ## 1 Motivation
 
@@ -18,12 +18,11 @@ theme. The browser's native picker is never used.
   green for a schematic state, a label color, a line color. The old picker put a large
   gradient first and presets in a thin strip, so users tuned slightly different reds by
   hand.
-- **Absence is unreachable**: RFC 0061 makes color fields optional, with absence
-  meaning the theme picks. The picker had no way back to absent. The log toolbar passed
-  an `onDelete` for this, and `Color.Swatch` dropped it silently.
+- **Absence is unreachable**: RFC 0061 makes color fields optional, with absence meaning
+  the theme picks. The picker had no way back to absent. The log toolbar passed an
+  `onDelete` for this, and `Color.Swatch` dropped it silently.
 - **Styles fight the dependency**: `Picker.css` held a dozen `!important` rules and
-  structural selectors (`> div:nth-child(2)`) to restyle `SketchPicker`'s inline
-  styles.
+  structural selectors (`> div:nth-child(2)`) to restyle `SketchPicker`'s inline styles.
 - **The dependency is dead weight**: `react-color` is unmaintained, and Pluto was its
   only user.
 
@@ -32,16 +31,16 @@ theme. The browser's native picker is never used.
 Figma and Chrome DevTools put an HSV square first, then hue and alpha sliders, a format
 menu, and an eyedropper; their users mostly make new colors. Grafana splits "Colors" and
 "Custom" into two tabs, which hides the custom path behind a click. Linear and GitHub
-labels offer swatches plus a hex box and nothing else. We take the swatches-first order
-of the label tools, because Synnax users mostly reuse colors, and keep the Figma editor
-below them, with no tabs, so a custom color is never more than one click away.
+labels offer swatches plus a hex box and nothing else. We take the Figma editor and put
+both swatch groups below it, with no tabs, so a preset and a custom color are each one
+click away.
 
 ## 3 Principles
 
 1. **One panel, no tabs**: every action is at most one click away. The panel is taller
    in exchange.
-2. **Reuse beats invention**: the one-click presets come first. The editor is for the
-   color that is not there yet.
+2. **Reuse is one click**: presets and recent colors are always in view. The editor is
+   for the color that is not there yet.
 3. **The stored value stays RGBA**: HSV is the input model only. No wire or storage
    format changes.
 4. **The picker is Synnax-blind**: the whole `Color` namespace lives in Lyra (RFC 0066).
@@ -52,14 +51,16 @@ below them, with no tabs, so a custom color is never more than one click away.
 
 From the top:
 
-- **Swatches**: the Auto swatch (optional fields only), the theme's primary, secondary,
-  warning, and error colors, then the visualization palette. A grid of ten columns. The
-  swatch that equals the value carries a ring.
 - **Plane**: the saturation and value square. Saturation runs left to right, value runs
   bottom to top.
 - **Hue slider** and **alpha slider**: round thumbs on rounded tracks. The alpha track
   sits on a checkerboard.
 - **Input row**: a hex box, an alpha percent box, a copy button, and an eyedropper.
+- **Swatches**: below a divider, the Auto button (optional fields only, two cells wide,
+  with the button selection tier), the theme's primary, secondary, warning, and error
+  colors, then the visualization palette. A grid of ten columns. The swatch that equals
+  the value carries `--pluto-selected-ring`, a new selection tier for items whose fill
+  is their content: a gray-l11 ring outside a focus-ring-offset gap.
 - **Recent**: the user's recent colors, below a divider, shown only when there are any.
 
 ### 4.1 Color model
@@ -91,18 +92,30 @@ the move changes nothing visible.
 
 ### 4.3 Auto
 
-`Color.Swatch` takes a `fallback`: the color the theme paints while the value is
-absent. A `fallback` makes the value optional:
+`Color.Swatch` takes a `fallback`: the color the theme paints while the value is absent.
+A `fallback` makes the value optional:
 
-- The picker leads its grid with an Auto swatch. A click calls `onChange(undefined)`.
+- The picker leads its grid with an Auto button. A click calls `onChange(undefined)`.
 - While the value is absent, the trigger shows the fallback with an Auto icon, and the
   tooltip says the theme picks the color.
-- Without a `fallback`, the value is required and the Auto swatch never shows.
+- Without a `fallback`, the value is required and the Auto button never shows.
 
 The prop types are a union, so a required caller keeps
 `onChange: (value: color.Color) => void` and never sees `undefined`.
 
-### 4.4 Keyboard and pointer
+### 4.4 Color input
+
+`Color.Input` joins a swatch to a hex text box, the shape Figma, Sketch, Penpot, and
+Webflow use for a fill. The user types or pastes a color into the box, or clicks the
+swatch to open the picker. An empty box means Auto: the box shows "Auto" and the swatch
+shows the fallback with the Auto icon. `Color.Field`, every form color, uses it. The
+bare `Color.Swatch` stays for dense places: the line plot line list, the control legend,
+and table cells.
+
+Every swatch is a square at the standard control height (`--pluto-height-<size>`), so it
+lines up with labels and inputs. A translucent border shows on every color and surface.
+
+### 4.5 Keyboard and pointer
 
 The plane and both sliders take focus and have the `slider` role. Arrow keys move one
 percent, or ten with Shift. A press sets the value at once, with no drag threshold, and
@@ -115,15 +128,16 @@ the drag captures the pointer.
   `react-color`. It updates the unit, integration, and Studio selectors that named the
   `react-color` DOM.
 
-The move and the rewrite share a pull request because a Lyra `Color` that still
-imports `react-color` would put the dependency in Lyra for one release.
+The move and the rewrite share a pull request because a Lyra `Color` that still imports
+`react-color` would put the dependency in Lyra for one release.
 
 ## 6 Resolved decisions
 
 1. **One panel over tabs**: tabs make the panel shorter but put a click in front of
    either half. The trade is real: the panel is about 30 rem tall.
-2. **Recent at the bottom**: recent colors are a personal history, not a shared
-   vocabulary. The shared presets stay closest to the trigger.
+2. **Swatches at the bottom**: presets and recent colors sit together below the editor,
+   split by a divider, so all one-click picks are in one place. The trade is real: a
+   preset is further from the trigger than with a swatches-first order.
 3. **HSV over OKLCH**: an OKLCH square is perceptually even, but its out-of-gamut edge
    is irregular and reads as a defect to a first-time user. The theme already corrects
    lightness at render (RFC 0061 §2), so OKLCH gives less here than in a design tool.

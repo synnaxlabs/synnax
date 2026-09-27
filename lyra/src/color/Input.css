@@ -1,0 +1,28 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/* The pack rounds its children, but the swatch sits inside the picker's frame. */
+.pluto-color-input .pluto-color-swatch.pluto-btn.pluto-btn--outlined {
+    border-radius: inherit;
+}
+
+/* A hex has a fixed length, so the box fits an 8-digit hex and never the form. */
+.pluto-color-input {
+    --pluto-control-width: fit-content;
+
+    & .pluto-input {
+        flex-grow: 0;
+    }
+
+    & input {
+        width: calc(9.5ch + 3rem);
+    }
+}

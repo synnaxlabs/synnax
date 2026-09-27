@@ -40,7 +40,7 @@ interface OptionalValueProps extends BaseProps {
   onChange?: (value?: color.Color) => void;
   /**
    * The color the theme paints while the value is absent. Setting it makes the value
-   * optional: the picker offers an Auto swatch that clears it, and the swatch marks
+   * optional: the picker offers an Auto button that clears it, and the swatch marks
    * when it shows the fallback.
    */
   fallback: color.Crude;
@@ -135,7 +135,11 @@ export const Swatch = ({
       value={shownValue ?? fallback ?? color.ZERO}
       style={style}
       tooltip={tooltip}
-      className={CSS.cls(auto && CSS.M("auto"), className)}
+      className={CSS.cls(
+        CSS.BM("color-swatch", "chip"),
+        auto && CSS.M("auto"),
+        className,
+      )}
       {...rest}
     >
       {auto && <Icon.Auto />}

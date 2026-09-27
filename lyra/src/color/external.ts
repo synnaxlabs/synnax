@@ -9,6 +9,7 @@
 
 export * from "@/color/Field";
 export * from "@/color/GradientPicker";
+export * from "@/color/Input";
 export * from "@/color/Picker";
 export * from "@/color/Provider";
 export * from "@/color/Swatch";
