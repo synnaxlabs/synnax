@@ -30,7 +30,6 @@
 
 .pluto-tabs__selector {
     position: relative;
-    height: 0 !important;
     max-width: 100%;
     overflow-x: auto;
     overflow-y: hidden;
@@ -44,6 +43,10 @@
 
     &::-webkit-scrollbar {
         display: none;
+    }
+
+    &.pluto--direction-x {
+        height: 0 !important;
     }
 }
 
@@ -159,6 +162,23 @@
 .pluto-tabs__selector:not(.pluto-tabs__selector--sizing-content)
     .pluto-tabs__tab.pluto--selected:not(:has([contenteditable="true"])) {
     min-width: var(--pluto-tabs-selected-min-width);
+}
+
+/* A vertical strip is a rail: it scrolls down, and each tab fills its width. It sits
+   after the sizing rules so it wins their ties. */
+.pluto-tabs__selector.pluto--direction-y {
+    flex-shrink: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    --pluto-tabs-tab-width: 100%;
+
+    .pluto-tabs__tab {
+        flex: none;
+        width: 100%;
+        max-width: none;
+        height: var(--pluto-tabs-tab-height, var(--pluto-height-small));
+        justify-content: flex-start;
+    }
 }
 
 /* The slot a hauled tab would land in. An absolute child of a flex container takes its

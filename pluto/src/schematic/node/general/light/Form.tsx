@@ -31,41 +31,41 @@ const LightTelemForm = ({ path }: { path: string }): ReactElement => {
     onChange({ ...value, threshold: bounds });
 
   return (
-    <Form.Wrapper x align="stretch">
-      <Input.Item label="Channel" grow>
-        <Channel.SelectSingle
-          value={value.channel ?? 0}
-          onChange={handleSourceChange}
-        />
-      </Input.Item>
-      <Input.Item label="Lower threshold">
-        <Input.Numeric
-          value={threshold.lower}
-          onChange={(v) => handleThresholdChange({ ...threshold, lower: v })}
-        />
-      </Input.Item>
-      <Input.Item label="Upper threshold">
-        <Input.Numeric
-          value={threshold.upper}
-          onChange={(v) => handleThresholdChange({ ...threshold, upper: v })}
-        />
-      </Input.Item>
-      <Staleness.Fields />
-    </Form.Wrapper>
+    <Base.Sections x>
+      <Base.Section title="State">
+        <Input.Item label="Channel" padHelpText={false}>
+          <Channel.SelectSingle
+            value={value.channel ?? 0}
+            onChange={handleSourceChange}
+          />
+        </Input.Item>
+        <Input.Item label="Lower threshold" padHelpText={false}>
+          <Input.Numeric
+            value={threshold.lower}
+            onChange={(v) => handleThresholdChange({ ...threshold, lower: v })}
+          />
+        </Input.Item>
+        <Input.Item label="Upper threshold" padHelpText={false}>
+          <Input.Numeric
+            value={threshold.upper}
+            onChange={(v) => handleThresholdChange({ ...threshold, upper: v })}
+          />
+        </Input.Item>
+      </Base.Section>
+      <Base.Section title="Staleness">
+        <Staleness.Fields />
+      </Base.Section>
+    </Base.Sections>
   );
 };
 
 export const LightForm = (): ReactElement => (
-  <Tabs.Frame initialValue="style">
-    <Tabs.Selector>
-      <Tabs.Tab itemKey="style">Style</Tabs.Tab>
-      <Tabs.Tab itemKey="telemetry">Telemetry</Tabs.Tab>
-    </Tabs.Selector>
+  <Form.Tabs tabs={["style", "telemetry"]}>
     <Tabs.Content itemKey="style">
       <Form.StyleForm />
     </Tabs.Content>
     <Tabs.Content itemKey="telemetry">
       <LightTelemForm path="" />
     </Tabs.Content>
-  </Tabs.Frame>
+  </Form.Tabs>
 );
