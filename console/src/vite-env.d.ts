@@ -10,6 +10,11 @@
 /// <reference types="vite/client" />
 
 declare const IS_DEV: boolean;
+/**
+ * True in a Synnax Desktop build. Only the composition root (`app/`) reads it; lower
+ * layers stay the same for both apps.
+ */
+declare const DESKTOP: boolean;
 
 interface MonacoEnvironment {
   getWorker: (moduleId: string, label: string) => Worker;

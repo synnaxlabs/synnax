@@ -18,8 +18,9 @@ inputs:
     description: The release title
     required: true
   previous_tag:
-    description: The tag the generated notes start after
-    required: true
+    description: The tag the generated notes start after, or empty for the first release
+    required: false
+    default: ""
   notes:
     description: Text placed above the generated notes
     required: false
@@ -48,8 +49,8 @@ runs:
           '.[] | select(.tagName == $tag and .isDraft)' | grep -q .; then
           gh release delete "$TAG" --yes
         fi
-        ARGS=(--draft --target "$GITHUB_SHA" --title "$TITLE" --generate-notes
-          --notes-start-tag "$PREVIOUS_TAG")
+        ARGS=(--draft --target "$GITHUB_SHA" --title "$TITLE" --generate-notes)
+        if [ -n "$PREVIOUS_TAG" ]; then ARGS+=(--notes-start-tag "$PREVIOUS_TAG"); fi
         if [ -n "$NOTES" ]; then ARGS+=(--notes "$NOTES"); fi
         if [ "$PRERELEASE" = true ]; then ARGS+=(--prerelease); fi
         gh release create "$TAG" "${ARGS[@]}"
