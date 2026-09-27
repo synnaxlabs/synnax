@@ -448,6 +448,8 @@ export const buildDrawOperations = (
   const ops: DrawOperation[] = [];
   xSeries.series.forEach((x) =>
     ySeries.series.forEach((y) => {
+      // Series at different reductions have no sample-to-sample pairing.
+      if (x.alignmentMultiple !== y.alignmentMultiple) return;
       if (!seriesOverlap(x, y, overlapThreshold)) return;
       let xAlignmentOffset = 0n;
       let yAlignmentOffset = 0n;
