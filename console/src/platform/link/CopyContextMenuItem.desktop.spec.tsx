@@ -15,12 +15,14 @@ import { Link } from "@/platform/link";
 import { renderWithConsole } from "@/testutil";
 
 describe("Link.CopyContextMenuItem", () => {
-  it("renders the Copy link label", async () => {
+  it("renders nothing when links are disabled", async () => {
     await renderWithConsole(
       <Menu.Menu>
         <Link.CopyContextMenuItem />
+        <Menu.Item itemKey="rename">Rename</Menu.Item>
       </Menu.Menu>,
     );
-    expect(screen.getByText("Copy link")).toBeTruthy();
+    expect(screen.getByText("Rename")).toBeTruthy();
+    expect(screen.queryByText("Copy link")).toBeNull();
   });
 });

@@ -19,6 +19,7 @@ import { Range } from "@/feature/range";
 import { Schematic } from "@/feature/schematic";
 import { Table } from "@/feature/table";
 import { Task } from "@/feature/task";
+import { Session } from "@/session";
 
 const LINKS: Link.Registry = {
   ...Arc.LINKS,
@@ -40,5 +41,4 @@ const useLinks = (): void => {
   Link.useDeep(Core.useLink(), linkHandlers);
 };
 
-// Desktop registers no URL scheme, so no link can reach it.
-export const useDeep: () => void = DESKTOP ? () => {} : useLinks;
+export const useDeep: () => void = Session.Runtime.LINKS_DISABLED ? () => {} : useLinks;

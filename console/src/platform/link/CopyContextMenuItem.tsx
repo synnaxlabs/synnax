@@ -11,14 +11,14 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { type ReactElement } from "react";
 
-import { useDisabled } from "@/platform/link/Disabled";
+import { Session } from "@/session";
 
 export interface CopyContextMenuItemProps extends Omit<Menu.ItemProps, "itemKey"> {}
 
 export const CopyContextMenuItem = (
   props: CopyContextMenuItemProps,
 ): ReactElement | null => {
-  if (useDisabled()) return null;
+  if (Session.Runtime.LINKS_DISABLED) return null;
   return (
     <Menu.Item {...props} itemKey="link">
       <Icon.Link />

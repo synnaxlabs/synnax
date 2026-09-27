@@ -30,16 +30,8 @@ import { Empty } from "@/platform/empty";
 import { Project as PlatformProject } from "@/platform/project";
 import { Session } from "@/session";
 
-export interface SplashProps {
-  /**
-   * True when the session has one fixed Core. The splash then shows no connection
-   * island and no log out action.
-   */
-  standalone?: boolean;
-}
-
 /** Full-window project picker shown when the session has no active project. */
-export const Splash = ({ standalone = false }: SplashProps): ReactElement => {
+export const Splash = (): ReactElement => {
   const dispatch = Session.useDispatch();
   const logout = Session.useLogout();
   const activeCore = Session.Core.useSelectSelected();
@@ -85,7 +77,7 @@ export const Splash = ({ standalone = false }: SplashProps): ReactElement => {
   return (
     <Shell.Frame
       className={CSS.B("project-splash")}
-      connection={standalone ? null : activeCore}
+      connection={Session.Runtime.CORE_EMBEDDED ? null : activeCore}
     >
       <Menu.ContextMenu menu={contextMenu} {...menuProps} />
       <Select.Frame
@@ -107,7 +99,7 @@ export const Splash = ({ standalone = false }: SplashProps): ReactElement => {
               <Icon.Project />
               Projects
             </Header.Title>
-            {!standalone && (
+            {!Session.Runtime.CORE_EMBEDDED && (
               <Header.Actions>
                 <PButton.Button
                   variant="text"

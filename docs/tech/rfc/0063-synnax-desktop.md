@@ -88,9 +88,9 @@ follows this shape.
    with its own version numbers. It never talks to a Core other than its own, so no user
    has to match its version with another product. The bundled Core builds from the
    Desktop commit with no Desktop build tag; differences arrive as configuration.
-7. **Only `app/` knows the build**: Build flags are read at wiring sites in the
-   composition root. The `session`, `platform`, and `feature` layers stay the same for
-   both apps.
+7. **Only `app/` and `session/runtime` know the build**: `app/` picks features at wiring
+   sites. `session/runtime` turns the flag into constants that name what the build can
+   do, as `ENGINE` does. The other layers read those constants, never the flag.
 
 ## 5 Design
 
@@ -262,7 +262,7 @@ bundler removes the dead branch and every module that only it imports. The built
 confirm it in both directions: the Desktop bundle holds no connect modal and no user
 registration, and the Console bundle holds no supervisor code.
 
-Only files under `console/src/app/` read `DESKTOP`. The login, Core, and user features
+Only `app/` and `session/runtime` read `DESKTOP`. The login, Core, and user features
 enter the app at eight wiring sites, and each one picks its entries with the constant:
 
 | Wiring site              | Console                                | Desktop                  |
@@ -278,15 +278,19 @@ enter the app at eight wiring sites, and each one picks its entries with the con
 | `App.tsx`                | None                                   | The Desktop providers    |
 
 Both window shells mount `window/Guard.tsx`, which is the one place that picks the
-guards. Login surfaces below `app/` become inputs, and three exist:
+guards.
 
-- `Project.Guard` takes a `standalone` flag. The project splash then shows no "Log out"
-  action and no connection island.
-- `Link.Disabled` is a context that removes every copy-link control below it. Desktop
-  registers no URL scheme, so a copied link can open nothing.
-- `Version.InstallProvider` wraps the install of a downloaded update in a middleware.
-  Desktop stops the Core before the install and starts it again if the install fails
-  (§5.6).
+A fact that the build fixes is a constant in `session/runtime`, not an input. Two exist,
+and both are true in Desktop:
+
+- `Runtime.CORE_EMBEDDED`: The app runs its own Core, so it has no login and no Core to
+  pick. The project splash shows no "Log out" action and no connection island.
+- `Runtime.LINKS_DISABLED`: The app registers no URL scheme, so a copied link can open
+  nothing. Every copy-link control hides itself.
+
+Behavior that only `app/` can reach is an input. `Version.InstallProvider` wraps the
+install of a downloaded update in a middleware. Desktop stops the Core before the
+install and starts it again if the install fails (§5.6).
 
 The Tauri side uses the same split. `tauri build --config` merges
 `tauri.desktop.conf.json` over `tauri.conf.json`: product name, identifier,
