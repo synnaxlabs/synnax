@@ -172,16 +172,15 @@ export const ChannelList = <C extends Channel>({
           allowNone={false}
           autoSelectOnNone
         >
-          <List.Items<string, C>
+          <List.Scroll
             full="y"
             onDragOver={onDragOver}
             onDrop={onDrop}
             className={menuProps.className}
             onContextMenu={menuProps.open}
-            emptyContent={emptyContent}
           >
-            {listItem}
-          </List.Items>
+            <List.Items<string, C> emptyContent={emptyContent}>{listItem}</List.Items>
+          </List.Scroll>
         </Select.Frame>
       </Menu.ContextMenu>
     </Flex.Box>

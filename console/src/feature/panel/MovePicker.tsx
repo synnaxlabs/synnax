@@ -12,7 +12,7 @@ import "@/feature/panel/MovePicker.css";
 import { type panel } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { List } from "@synnaxlabs/lyra/list";
+import { type List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Errors, Panel } from "@synnaxlabs/pluto";
@@ -27,7 +27,7 @@ import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
 
-// The row that mints a panel, listed last. Panel keys are UUIDs, so nothing collides.
+// The row that mints a panel. Panel keys are UUIDs, so nothing collides.
 const NEW_PANEL_KEY = "new";
 
 const ROW_CLASS = CSS.BE("panel-move-picker", "row");
@@ -38,25 +38,19 @@ const RowFallback = (): null => null;
 const Row = (props: List.ItemProps<panel.Key>): ReactElement => {
   const name = Panel.useName({ key: props.itemKey });
   return (
-    <Select.ListItem {...props} align="center" gap="medium" className={ROW_CLASS}>
+    <Select.Item {...props} align="center" gap="medium" className={ROW_CLASS}>
       <Icon.Panel />
       <Text.Text overflow="ellipsis">{name}</Text.Text>
-    </Select.ListItem>
+    </Select.Item>
   );
 };
 
 const listItem = Component.renderProp(
-  (props: List.ItemProps<panel.Key>): ReactElement =>
-    props.itemKey === NEW_PANEL_KEY ? (
-      <Select.ListItem {...props} align="center" gap="medium" className={ROW_CLASS}>
-        <Icon.Add />
-        <Text.Text>New panel</Text.Text>
-      </Select.ListItem>
-    ) : (
-      <Errors.SuspenseBoundary loading={null} FallbackComponent={RowFallback}>
-        <Row {...props} />
-      </Errors.SuspenseBoundary>
-    ),
+  (props: List.ItemProps<panel.Key>): ReactElement => (
+    <Errors.SuspenseBoundary loading={null} FallbackComponent={RowFallback}>
+      <Row {...props} />
+    </Errors.SuspenseBoundary>
+  ),
 );
 
 export interface MovePickerParams {
@@ -72,7 +66,7 @@ const Content = ({
   const moveTab = useMoveTab();
   const moveToNewPanel = useMoveTabToNewPanel();
   const data = useMemo(
-    () => [...keys.filter((key) => key !== origin.panel), NEW_PANEL_KEY],
+    () => keys.filter((key) => key !== origin.panel),
     [keys, origin.panel],
   );
   const handleChange = useCallback(
@@ -90,9 +84,21 @@ const Content = ({
       </Modals.Header>
       <Modals.Body>
         <Select.Frame<panel.Key> data={data} allowNone onChange={handleChange}>
-          <List.Items<panel.Key> className={CSS.BE("panel-move-picker", "list")}>
-            {listItem}
-          </List.Items>
+          <Select.List
+            className={CSS.BE("panel-move-picker", "list")}
+            animateHeight={false}
+          >
+            <Select.Items<panel.Key>>{listItem}</Select.Items>
+            <Select.Item
+              itemKey={NEW_PANEL_KEY}
+              align="center"
+              gap="medium"
+              className={ROW_CLASS}
+            >
+              <Icon.Add />
+              <Text.Text>New panel</Text.Text>
+            </Select.Item>
+          </Select.List>
         </Select.Frame>
       </Modals.Body>
     </Modals.Frame>

@@ -28,8 +28,8 @@ export const SelectButton = ({ platforms }: SelectButtonProps) => {
   const [platform, setPlatform] = useState<Platform>(platforms[0]);
 
   // Map the platforms so the order of the platforms is consistent between the props and
-  // the data passed to the select button.
-  const data = platforms.map((p) => PLATFORMS[indexMap.get(p) as number]);
+  // the options of the select button.
+  const options = platforms.map((p) => PLATFORMS[indexMap.get(p) as number]);
 
   useEffect(() => {
     const updateFromURL = () => {
@@ -51,15 +51,20 @@ export const SelectButton = ({ platforms }: SelectButtonProps) => {
   };
 
   return (
-    <Select.Static
+    <Select.Simple<Platform>
       className="styled-scrollbar"
       location="bottom"
       resourceName="platform"
-      data={data}
       value={platform}
       allowNone={false}
       onChange={handleChange}
-      virtual={false}
-    />
+    >
+      {options.map(({ key, name, icon }) => (
+        <Select.Item key={key} itemKey={key}>
+          {icon}
+          {name}
+        </Select.Item>
+      ))}
+    </Select.Simple>
   );
 };

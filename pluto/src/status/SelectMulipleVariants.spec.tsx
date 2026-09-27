@@ -80,8 +80,9 @@ describe("SelectMultipleVariants", () => {
     fireEvent.change(c.getByPlaceholderText("Search variants..."), {
       target: { value: "Err" },
     });
-    expect(c.getByText("Error")).toBeTruthy();
-    expect(c.queryByText("Success")).toBeNull();
-    expect(c.queryByText("Warning")).toBeNull();
+    const hidden = (text: string) => c.getByText(text).closest("[hidden]") != null;
+    expect(hidden("Error")).toBe(false);
+    expect(hidden("Success")).toBe(true);
+    expect(hidden("Warning")).toBe(true);
   });
 });

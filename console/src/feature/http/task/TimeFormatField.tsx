@@ -15,26 +15,15 @@ import { type FC, useEffect } from "react";
 import { type TimeFormat } from "@/feature/http/task/types";
 import { CSS } from "@/platform/css";
 
-const DATA: Select.StaticEntry<TimeFormat>[] = [
-  { key: "iso8601", name: "ISO 8601" },
-  { key: "unix_sec", name: "Unix (s)" },
-  { key: "unix_ms", name: "Unix (ms)" },
-  { key: "unix_us", name: "Unix (µs)" },
-  { key: "unix_ns", name: "Unix (ns)" },
-];
-
 const renderSelect = Component.renderProp(
-  (
-    p: Omit<
-      Select.StaticProps<TimeFormat, Select.StaticEntry<TimeFormat>>,
-      "data" | "resourceName"
-    >,
-  ) => (
-    <Select.Static<TimeFormat, Select.StaticEntry<TimeFormat>>
-      {...p}
-      data={DATA}
-      resourceName="time format"
-    />
+  (p: Omit<Select.SingleSimpleProps<TimeFormat>, "children" | "resourceName">) => (
+    <Select.Simple<TimeFormat> {...p} resourceName="time format">
+      <Select.Item itemKey="iso8601">ISO 8601</Select.Item>
+      <Select.Item itemKey="unix_sec">Unix (s)</Select.Item>
+      <Select.Item itemKey="unix_ms">Unix (ms)</Select.Item>
+      <Select.Item itemKey="unix_us">Unix (µs)</Select.Item>
+      <Select.Item itemKey="unix_ns">Unix (ns)</Select.Item>
+    </Select.Simple>
   ),
 );
 

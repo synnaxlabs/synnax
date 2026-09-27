@@ -30,7 +30,7 @@ const listItemRenderProp = Component.renderProp(
     if (item == null) return null;
     const { name, description } = item;
     return (
-      <Base.ListItem
+      <Base.Item
         itemKey={itemKey}
         y
         gap="small"
@@ -43,7 +43,7 @@ const listItemRenderProp = Component.renderProp(
             {description}
           </Text.Text>
         )}
-      </Base.ListItem>
+      </Base.Item>
     );
   },
 );

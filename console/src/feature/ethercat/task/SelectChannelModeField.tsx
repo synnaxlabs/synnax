@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Form } from "@synnaxlabs/lyra/form";
-import { type record } from "@synnaxlabs/x";
+import { Select } from "@synnaxlabs/lyra/select";
 import { type ReactElement, useCallback } from "react";
 
 import {
@@ -18,17 +18,19 @@ import {
   type WriteChannel,
 } from "@/feature/ethercat/task/types";
 
-interface ChannelModeEntry extends record.KeyedNamed<ChannelMode> {}
-
-const DATA: ChannelModeEntry[] = [
-  { key: "automatic", name: "Automatic (PDO)" },
-  { key: "manual", name: "Manual (Address)" },
-];
-
-const Base = Form.buildSelectField<ChannelMode, ChannelModeEntry>({
+const Base = Form.buildSelectField<ChannelMode>({
   fieldKey: "type",
   fieldProps: { label: "Mode", showHelpText: false },
-  inputProps: { allowNone: false, resourceName: "channel mode", data: DATA },
+  inputProps: {
+    allowNone: false,
+    resourceName: "channel mode",
+    children: (
+      <>
+        <Select.Item itemKey="automatic">Automatic (PDO)</Select.Item>
+        <Select.Item itemKey="manual">Manual (Address)</Select.Item>
+      </>
+    ),
+  },
 });
 
 export interface SelectChannelModeFieldProps {

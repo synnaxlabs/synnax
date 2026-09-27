@@ -43,13 +43,9 @@ export const SYNTHETIC_CLICK_DETAIL = 0;
 
 const ESCAPE_TRIGGERS: Triggers.Trigger[] = [Triggers.ESCAPE];
 
-export interface ListItemProps extends Select.ListItemProps<string> {}
+export interface ListItemProps extends Select.ItemProps<string> {}
 
-export const ListItem = ({
-  onSelect,
-  itemKey,
-  ...rest
-}: Select.ListItemProps<string>) => {
+export const ListItem = ({ onSelect, itemKey, ...rest }: Select.ItemProps<string>) => {
   const handleClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       // Only trigger on the synthetic click, which means we won't accidentally call
@@ -59,7 +55,7 @@ export const ListItem = ({
     [onSelect, itemKey],
   );
   return (
-    <Select.ListItem
+    <Select.Item
       justify="between"
       align="center"
       onClick={handleClick}
@@ -119,16 +115,15 @@ export const BaseList = <E extends record.Keyed<string>>({
         onKeyDown={Triggers.matchCallback(ESCAPE_TRIGGERS, close)}
         full="x"
       />
-      <Base.Items
+      <Base.Scroll
         className={CSS.BE("palette", "list")}
-        emptyContent={emptyContent}
         bordered
         borderColor={8}
         displayItems={10}
         animateHeight
       >
-        {listItem}
-      </Base.Items>
+        <Base.Items emptyContent={emptyContent}>{listItem}</Base.Items>
+      </Base.Scroll>
     </Select.Frame>
   );
 };
