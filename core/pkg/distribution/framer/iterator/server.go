@@ -52,6 +52,8 @@ func (sf *server) handle(ctx context.Context, server ServerStream) error {
 		Bounds:           req.Bounds,
 		AutoChunkSize:    req.ChunkSize,
 		DownsampleFactor: req.DownsampleFactor,
+		Aggregation:      req.Aggregation,
+		PointLimit:       req.PointLimit,
 	})
 	if err != nil {
 		return err

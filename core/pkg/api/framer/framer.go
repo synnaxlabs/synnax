@@ -200,6 +200,8 @@ func (s *Service) openIterator(
 		Keys:             req.Keys,
 		ChunkSize:        req.ChunkSize,
 		DownsampleFactor: req.DownsampleFactor,
+		Aggregation:      req.Aggregation,
+		PointLimit:       req.PointLimit,
 	})
 	if err != nil {
 		return nil, err

@@ -12,6 +12,8 @@ export { type GLBufferController } from "@/telem/gl";
 export * from "@/telem/series";
 export * from "@/telem/telem";
 export {
+  Aggregation,
+  aggregationZ,
   TIME_ZONES,
   TIMESTAMP_FORMATS,
   type TimestampFormat,

@@ -54,6 +54,15 @@ type Config struct {
 	//
 	// [OPTIONAL]
 	DownsampleFactor uint32
+	// Aggregation reduces each group of samples to the points it selects, so that the
+	// samples of each channel in Bounds come back as about PointLimit points.
+	//
+	// [OPTIONAL]
+	Aggregation telem.Aggregation
+	// PointLimit is the number of points Aggregation reduces each channel to.
+	//
+	// [OPTIONAL]
+	PointLimit uint32
 }
 
 // Validate ensures that Keys is non-empty and contains no free channels, which cannot

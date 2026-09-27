@@ -25,6 +25,8 @@ func (s *Service) newGateway(
 		Channels:         cfg.Keys.Storage(),
 		AutoChunkSize:    cfg.ChunkSize,
 		DownsampleFactor: cfg.DownsampleFactor,
+		Aggregation:      cfg.Aggregation,
+		PointLimit:       cfg.PointLimit,
 	})
 	if err != nil {
 		return nil, err

@@ -9,6 +9,8 @@
 
 import { type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
 import {
+  Aggregation,
+  aggregationZ,
   type CrudeTimeRange,
   type CrudeTimeSpan,
   type CrudeTimeStamp,
@@ -39,6 +41,8 @@ export const iteratorReqZ = z.object({
   keys: keyZ.array().optional(),
   chunkSize: z.number().optional(),
   downsampleFactor: z.uint32().optional(),
+  aggregation: aggregationZ.optional(),
+  pointLimit: z.uint32().optional(),
 });
 
 export interface IteratorRequest extends z.infer<typeof iteratorReqZ> {}
@@ -63,6 +67,18 @@ export const iteratorConfigZ = z.object({
    * every sample.
    */
   downsampleFactor: z.uint32().default(1),
+  /**
+   * aggregation reduces each group of samples to the points it selects, so that each
+   * channel comes back as about pointLimit points. Channels on one index reduce over
+   * the same groups, so their reduced series share alignments. Each reduced series
+   * carries its alignment multiple.
+   */
+  aggregation: aggregationZ.default(Aggregation.none),
+  /**
+   * pointLimit is the number of points aggregation reduces each channel to. It must be
+   * set if and only if aggregation is set.
+   */
+  pointLimit: z.uint32().default(0),
 });
 
 /** Config for an iterator. Pass it to `client.telem.openIterator`. */
@@ -112,6 +128,8 @@ export class Iterator {
       bounds: new TimeRange(tr),
       chunkSize: cfg.chunkSize,
       downsampleFactor: cfg.downsampleFactor,
+      aggregation: cfg.aggregation,
+      pointLimit: cfg.pointLimit,
     });
     return iter;
   }

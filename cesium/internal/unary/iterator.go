@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
 
@@ -35,6 +36,16 @@ type IteratorConfig struct {
 	// striding the read so the discarded samples are never materialized. Values below
 	// 2 keep every sample.
 	DownsampleFactor uint32
+	// Aggregation reduces each group of samples to the points it selects, so that the
+	// samples in Bounds come back as about PointLimit points. Groups are counted on the
+	// channel's index and anchored at the start of each index domain, so every channel
+	// on one index reduces over the same groups. With AutoSpan, AutoChunkSize counts
+	// points and chunks end on group boundaries. A fixed span clips groups at the view
+	// edges. Numeric channels only; other channels read every sample.
+	Aggregation telem.Aggregation
+	// PointLimit is the number of points Aggregation reduces Bounds to. Zero keeps
+	// every sample.
+	PointLimit uint32
 }
 
 func (i IteratorConfig) domainIteratorConfig() domain.IteratorConfig {
@@ -46,11 +57,32 @@ func (i IteratorConfig) Override(other IteratorConfig) IteratorConfig {
 	i.Bounds = override.Zero(i.Bounds, other.Bounds)
 	i.AutoChunkSize = override.Numeric(i.AutoChunkSize, other.AutoChunkSize)
 	i.DownsampleFactor = override.Numeric(i.DownsampleFactor, other.DownsampleFactor)
+	i.Aggregation = override.Numeric(i.Aggregation, other.Aggregation)
+	i.PointLimit = override.Numeric(i.PointLimit, other.PointLimit)
 	return i
 }
 
 // Validate implements config.Config.
-func (i IteratorConfig) Validate() error { return nil }
+func (i IteratorConfig) Validate() error {
+	v := validate.New("unary.iterator")
+	aggregated := i.Aggregation != telem.AggregationNone
+	v.Ternary(
+		"aggregation",
+		i.Aggregation > telem.AggregationDecimate,
+		"unknown aggregation",
+	)
+	v.Ternary(
+		"point_limit",
+		aggregated != (i.PointLimit > 0),
+		"must be set together with aggregation",
+	)
+	v.Ternary(
+		"downsample_factor",
+		aggregated && i.DownsampleFactor > 1,
+		"cannot be combined with aggregation",
+	)
+	return v.Error()
+}
 
 var (
 	_                     config.Config[IteratorConfig] = IteratorConfig{}
@@ -77,13 +109,15 @@ type Iterator struct {
 	view   telem.TimeRange
 	bounds telem.TimeRange
 	closed bool
+	// groupSize is the number of samples per aggregation group over bounds. Zero means
+	// it has not been computed since bounds last changed.
+	groupSize uint32
 }
 
 func (db *DB) OpenIterator(cfgs ...IteratorConfig) (*Iterator, error) {
 	if db.closed.Load() {
 		return nil, db.wrapError(ErrDBClosed)
 	}
-	// Safe to ignore error here as Validate will always return nil
 	cfg, err := config.New(DefaultIteratorConfig, cfgs...)
 	if err != nil {
 		return nil, err
@@ -107,6 +141,7 @@ const AutoSpan telem.TimeSpan = -1
 // valid until a seeking call is made.
 func (i *Iterator) SetBounds(tr telem.TimeRange) {
 	i.bounds = tr
+	i.groupSize = 0
 	i.internal.SetBounds(tr)
 	i.seekReset(i.bounds.End)
 }
@@ -221,6 +256,10 @@ func (i *Iterator) Next(ctx context.Context, span telem.TimeSpan) (ok bool) {
 // domain resolves the chunk to a pair of sample positions, and both the samples read
 // and the time range reported come from that pair, so the two cannot disagree.
 func (i *Iterator) autoNext(ctx context.Context) bool {
+	if err := i.resolveGroupSize(ctx); err != nil {
+		i.err = err
+		return false
+	}
 	// The chunk provisionally covers everything left in bounds. The sample that closes
 	// it replaces the end once the read reaches it.
 	i.reset(i.view.End.Range(i.bounds.End))
@@ -253,6 +292,12 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 			limit     = pickSampleOffset(endApprox)
 			endSample = min(startSample+nRemaining, limit)
 		)
+		if i.groupSize > 1 {
+			endSample = min(
+				startSample+i.forwardGroupSpan(alignment, nRemaining),
+				limit,
+			)
+		}
 		end = domainTR.End
 		if closed = endSample < limit; closed {
 			// The chunk fills inside this domain, so it ends at the first sample it
@@ -284,7 +329,7 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 			i.err = err
 			return false
 		}
-		nRemaining -= srcLen
+		nRemaining -= i.consumed(series, srcLen)
 		i.insert(series)
 		if closed || nRemaining <= 0 || !i.internal.Next() {
 			break
@@ -298,6 +343,10 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 // mirrors autoNext: the chunk resolves to sample positions first, and its time range
 // follows from them.
 func (i *Iterator) autoPrev(ctx context.Context) bool {
+	if err := i.resolveGroupSize(ctx); err != nil {
+		i.err = err
+		return false
+	}
 	i.reset(i.bounds.Start.Range(i.view.Start))
 	var (
 		nRemaining = i.AutoChunkSize
@@ -328,6 +377,11 @@ func (i *Iterator) autoPrev(ctx context.Context) bool {
 			endSample   = pickSampleOffset(endApprox)
 			startSample = max(endSample-nRemaining, first)
 		)
+		if i.groupSize > 1 {
+			// alignment sits at first, so the chunk's end sits endSample-first later.
+			end := alignment.AddSamples(uint32(endSample - first))
+			startSample = max(endSample-i.backwardGroupSpan(end, nRemaining), first)
+		}
 		start = domainTR.Start
 		if closed = startSample > first; closed {
 			// The chunk fills inside this domain, so it starts at the earliest sample
@@ -362,7 +416,7 @@ func (i *Iterator) autoPrev(ctx context.Context) bool {
 			i.err = err
 			return false
 		}
-		nRemaining -= srcLen
+		nRemaining -= i.consumed(series, srcLen)
 		i.insert(series)
 		if closed || nRemaining <= 0 || !i.internal.Prev() {
 			break
@@ -454,6 +508,10 @@ func (i *Iterator) Close() error {
 // accumulate reads the underlying data contained in the view from OS and appends them
 // to the frame. accumulate returns false if iterator must stop moving.
 func (i *Iterator) accumulate(ctx context.Context) bool {
+	if err := i.resolveGroupSize(ctx); err != nil {
+		i.err = err
+		return false
+	}
 	domainTR := i.internal.TimeRange()
 	if domainTR.IsZero() || !domainTR.OverlapsWith(i.view) {
 		return false
@@ -503,6 +561,9 @@ func (i *Iterator) read(
 		return telem.Series{}, 0, err
 	}
 	defer func() { err = errors.Combine(err, r.Close()) }()
+	if i.groupSize > 1 {
+		return i.readReduced(r, series, offset, size)
+	}
 	if i.DownsampleFactor > 1 {
 		series.Data, srcLen, err = i.readStrided(r, offset, size)
 		if err != nil {
@@ -524,6 +585,128 @@ func (i *Iterator) read(
 // strideBufferSize bounds the scratch buffer a strided read holds, so the buffer never
 // scales with the size of the slice being read.
 const strideBufferSize = 64 * telem.Kilobyte
+
+// reduceBufferSize is the target size of the scratch buffer a reduced read holds. A
+// group larger than it widens the buffer to one group.
+const reduceBufferSize = telem.Megabyte
+
+// resolveGroupSize computes the aggregation group size over the iterator's bounds once
+// per bounds. The count comes from the index, so every channel on it agrees.
+func (i *Iterator) resolveGroupSize(ctx context.Context) error {
+	if i.groupSize != 0 {
+		return nil
+	}
+	if i.Aggregation == telem.AggregationNone || !telem.Reducible(i.Channel.DataType) {
+		i.groupSize = 1
+		return nil
+	}
+	approx, _, err := i.idx.Distance(ctx, i.bounds, index.AllowDiscontinuous)
+	if errors.Is(err, index.ErrDiscontinuous) {
+		i.groupSize = 1
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	i.groupSize = telem.GroupSize(pickSampleOffset(approx), i.PointLimit, i.Aggregation)
+	return nil
+}
+
+// consumed returns how much of AutoChunkSize a read used: points when the read is
+// reduced, and source samples otherwise.
+func (i *Iterator) consumed(series telem.Series, srcLen int64) int64 {
+	if i.groupSize > 1 {
+		return series.Len()
+	}
+	return srcLen
+}
+
+// forwardGroupSpan returns the number of samples from start that covers enough whole
+// groups to give up to points points. The span ends on a group boundary and covers at
+// least the group that holds start.
+func (i *Iterator) forwardGroupSpan(start telem.Alignment, points int64) int64 {
+	var (
+		size   = int64(i.groupSize)
+		groups = (points + i.Aggregation.PointsPerGroup() - 1) /
+			i.Aggregation.PointsPerGroup()
+		pos = int64(start.SampleIndex())
+		end = pos + groups*size
+	)
+	end -= end % size
+	if end <= pos {
+		end = pos - pos%size + size
+	}
+	return end - pos
+}
+
+// backwardGroupSpan mirrors forwardGroupSpan for a chunk that ends before end.
+func (i *Iterator) backwardGroupSpan(end telem.Alignment, points int64) int64 {
+	var (
+		size   = int64(i.groupSize)
+		groups = (points + i.Aggregation.PointsPerGroup() - 1) /
+			i.Aggregation.PointsPerGroup()
+		pos   = int64(end.SampleIndex())
+		start = max(pos-groups*size, 0)
+	)
+	if rem := start % size; rem != 0 {
+		start += size - rem
+	}
+	if start >= pos {
+		start = max(pos-1, 0)
+		start -= start % size
+	}
+	return pos - start
+}
+
+// readReduced reads the slice [offset, offset+size) of r in chunks of whole groups and
+// reduces each chunk into series. The first chunk ends on the first group boundary, so
+// no group spans two chunks. It returns the reduced series and the number of source
+// samples read.
+func (i *Iterator) readReduced(
+	r io.ReaderAt,
+	series telem.Series,
+	offset telem.Size,
+	size telem.Size,
+) (telem.Series, int64, error) {
+	var (
+		density   = i.Channel.DataType.Density()
+		groupSize = int64(i.groupSize)
+		src       = density.SampleCount(size)
+		chunk     = max(density.SampleCount(reduceBufferSize)/groupSize, 1) * groupSize
+		buf       = make([]byte, density.Size(min(chunk, src)))
+		start     = series.Alignment
+		// next is the sample count of the next chunk. The first chunk stops at the end
+		// of the group that holds the first sample.
+		next = chunk - int64(start.SampleIndex())%groupSize
+		read int64
+	)
+	series.Alignment = telem.GroupStart(start, i.groupSize)
+	for read < src {
+		n := min(next, src-read)
+		b := buf[:density.Size(n)]
+		count, err := r.ReadAt(b, int64(offset+density.Size(read)))
+		if err != nil && !errors.Is(err, io.EOF) {
+			return telem.Series{}, 0, err
+		}
+		avail := density.SampleCount(telem.Size(count))
+		if avail == 0 {
+			break
+		}
+		part := telem.Series{
+			DataType:  series.DataType,
+			Data:      b[:density.Size(avail)],
+			Alignment: start.AddSamples(uint32(read)),
+		}.Reduce(i.Aggregation, i.groupSize)
+		series.Data = append(series.Data, part.Data...)
+		series.AlignmentMultiple = part.AlignmentMultiple
+		read += avail
+		if avail < n {
+			break
+		}
+		next = chunk
+	}
+	return series, read, nil
+}
 
 var errPrefixOverrunsSlice = errors.New("length prefix exceeds domain slice")
 

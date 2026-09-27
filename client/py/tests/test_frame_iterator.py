@@ -469,3 +469,70 @@ class TestIterator:
             # Domain 1: [10, 11, 12, 13] downsampled by 2 = [10, 12]
             result = i.value.get(data_ch.key).to_numpy()
             assert np.array_equal(result, np.array([1.0, 3.0, 10.0, 12.0]))
+
+    @pytest.mark.parametrize(
+        "aggregation,point_limit,expected,multiple",
+        [
+            (sy.Aggregation.min_max, 4, [1.0, 8.0, 2.0, 7.0], 2),
+            (sy.Aggregation.average, 4, [2.5, 5.5, 3.5, 6.5], 2),
+            (sy.Aggregation.decimate, 2, [4.0, 5.0], 4),
+            (sy.Aggregation.min_max, 8, [4.0, 1.0, 3.0, 8.0, 5.0, 2.0, 6.0, 7.0], 1),
+        ],
+    )
+    def test_aggregation(
+        self,
+        aggregation: sy.Aggregation,
+        point_limit: int,
+        expected: list[float],
+        multiple: int,
+        indexed_pair: tuple[sy.Channel, sy.Channel],
+        client: sy.Synnax,
+    ):
+        """Should reduce each channel under the point limit with the aggregation."""
+        idx_ch, data_ch = indexed_pair
+        idx_ch.write(sy.TimeSpan.SECOND * 1, seconds_linspace(1, 8))
+        data_ch.write(
+            sy.TimeSpan.SECOND * 1,
+            np.array([4.0, 1.0, 3.0, 8.0, 5.0, 2.0, 6.0, 7.0], dtype=np.float32),
+        )
+        with client.open_iterator(
+            sy.TimeRange.MAX,
+            [idx_ch.key, data_ch.key],
+            aggregation=aggregation,
+            point_limit=point_limit,
+        ) as i:
+            assert i.seek_first()
+            assert i.next(sy.framer.AUTO_SPAN)
+            data = i.value.get(data_ch.key).series[0]
+            index = i.value.get(idx_ch.key).series[0]
+            assert np.array_equal(data.to_numpy(), np.array(expected))
+            assert data.alignment_multiple == multiple
+            assert data.alignment == index.alignment
+            assert not i.next(sy.framer.AUTO_SPAN)
+
+    def test_point_limit_without_aggregation(
+        self,
+        indexed_pair: tuple[sy.Channel, sy.Channel],
+        client: sy.Synnax,
+    ):
+        """Should reject a point limit without an aggregation."""
+        _, data_ch = indexed_pair
+        with pytest.raises(sy.ValidationError, match="point_limit"):
+            with client.open_iterator(sy.TimeRange.MAX, data_ch.key, point_limit=4):
+                ...
+
+    def test_point_limit_negative(
+        self,
+        indexed_pair: tuple[sy.Channel, sy.Channel],
+        client: sy.Synnax,
+    ):
+        """Should reject a negative point limit before it reaches the Core."""
+        _, data_ch = indexed_pair
+        with pytest.raises(sy.ValidationError, match="point_limit"):
+            with client.open_iterator(
+                sy.TimeRange.MAX,
+                data_ch.key,
+                aggregation=sy.Aggregation.min_max,
+                point_limit=-1,
+            ):
+                ...

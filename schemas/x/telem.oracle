@@ -129,6 +129,22 @@ DataType string {
     @ts hand
 }
 
+Aggregation enum {
+    none     = 0
+    min_max  = 1
+    average  = 2
+    decimate = 3
+
+    @cpp omit
+    @doc value """
+        selects how a reduced read collapses each group of samples into points. none
+        keeps every sample, min_max keeps the lowest and highest sample of each group in
+        the order they occurred, average keeps the mean of each group, and decimate
+        keeps the first sample of each group.
+    """
+    @pb omit
+}
+
 TimestampFormat enum {
     iso         = "ISO"
     isoDate     = "ISODate"

@@ -63,6 +63,10 @@ type Request struct {
 	ChunkSize int64 `json:"chunk_size" msgpack:"chunk_size"`
 	// DownsampleFactor should only be set when opening the Iterator.
 	DownsampleFactor uint32 `json:"downsample_factor" msgpack:"downsample_factor"`
+	// Aggregation should only be set when opening the Iterator.
+	Aggregation telem.Aggregation `json:"aggregation" msgpack:"aggregation"`
+	// PointLimit should only be set when opening the Iterator.
+	PointLimit uint32 `json:"point_limit" msgpack:"point_limit"`
 	// SeqNum is the sequence number of the request (starting at 0). This is used to
 	// match responses to requests. Each request should increment the sequence number by
 	// 1.

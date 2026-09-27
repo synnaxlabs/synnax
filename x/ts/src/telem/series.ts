@@ -216,6 +216,7 @@ export class Series<T extends TelemValue = TelemValue>
     timeRange: TimeRange.z.optional(),
     dataType: DataType.z,
     alignment: z.coerce.bigint().optional(),
+    alignmentMultiple: z.coerce.bigint().optional(),
     data: z
       .union([
         stringArrayZ,

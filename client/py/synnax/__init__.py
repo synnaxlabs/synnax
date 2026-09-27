@@ -70,6 +70,7 @@ from synnax.task import Status as TaskStatus
 from synnax.task import StatusDetails as TaskStatusDetails
 from synnax.task import Task
 from synnax.telem import (
+    Aggregation,
     Alignment,
     Authority,
     Bounds,
@@ -116,6 +117,7 @@ __all__ = [
     "ArcTask",
     "TaskStatus",
     "TaskStatusDetails",
+    "Aggregation",
     "Alignment",
     "Arc",
     "AUTO_SPAN",

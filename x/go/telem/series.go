@@ -40,9 +40,16 @@ type Series struct {
 	// Alignment defines the location of the series relative to other series in a
 	// logical group. Typically used for defining the position of the series within a
 	// channel's data.
-	Alignment    Alignment `json:"alignment" msgpack:"alignment"`
-	cachedLength *int64
+	Alignment Alignment `json:"alignment" msgpack:"alignment"`
+	// AlignmentMultiple is the number of alignment steps between consecutive samples.
+	// It is above one when each sample stands for a group of stored samples. Zero
+	// means one.
+	AlignmentMultiple uint32 `json:"alignment_multiple,omitempty" msgpack:"alignment_multiple,omitempty"`
+	cachedLength      *int64
 }
+
+// Multiple returns the number of alignment steps between consecutive samples.
+func (s Series) Multiple() uint32 { return max(s.AlignmentMultiple, 1) }
 
 // Len returns the number of samples currently in the Series.
 func (s Series) Len() int64 {
@@ -263,7 +270,7 @@ func (s Series) AlignmentBounds() AlignmentBounds {
 		Lower: s.Alignment,
 		Upper: NewAlignment(
 			s.Alignment.DomainIndex(),
-			s.Alignment.SampleIndex()+uint32(s.Len()),
+			s.Alignment.SampleIndex()+uint32(s.Len())*s.Multiple(),
 		),
 	}
 }
@@ -326,10 +333,11 @@ func truncateAndFormatSlice[T any](slice []T) string {
 // DeepCopy creates a deep copy of the series, including all of its data.
 func (s Series) DeepCopy() Series {
 	return Series{
-		TimeRange: s.TimeRange,
-		Alignment: s.Alignment,
-		DataType:  s.DataType,
-		Data:      slices.Clone(s.Data),
+		TimeRange:         s.TimeRange,
+		Alignment:         s.Alignment,
+		AlignmentMultiple: s.AlignmentMultiple,
+		DataType:          s.DataType,
+		Data:              slices.Clone(s.Data),
 	}
 }
 
@@ -338,6 +346,7 @@ func (s Series) DeepCopy() Series {
 func (s *Series) CopyFrom(src Series) {
 	s.TimeRange = src.TimeRange
 	s.Alignment = src.Alignment
+	s.AlignmentMultiple = src.AlignmentMultiple
 	s.DataType = src.DataType
 	s.Data = append(s.Data[:0], src.Data...)
 }

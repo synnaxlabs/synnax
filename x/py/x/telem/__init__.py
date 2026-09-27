@@ -38,8 +38,10 @@ from x.telem.telem import (
     convert_time_units,
     seconds_linspace,
 )
+from x.telem.types_gen import Aggregation
 
 __all__ = [
+    "Aggregation",
     "Alignment",
     "ClockSkewCalculator",
     "Authority",

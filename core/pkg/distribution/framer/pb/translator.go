@@ -184,6 +184,8 @@ func (IteratorRequestTranslator) Backward(
 		ChunkSize:        req.ChunkSize,
 		SeqNum:           int(req.SeqNum),
 		DownsampleFactor: req.DownsampleFactor,
+		Aggregation:      telem.Aggregation(req.Aggregation),
+		PointLimit:       req.PointLimit,
 	}, nil
 }
 
@@ -205,6 +207,8 @@ func (IteratorRequestTranslator) Forward(
 		ChunkSize:        req.ChunkSize,
 		SeqNum:           int32(req.SeqNum),
 		DownsampleFactor: req.DownsampleFactor,
+		Aggregation:      uint32(req.Aggregation),
+		PointLimit:       req.PointLimit,
 	}, nil
 }
 

@@ -66,3 +66,18 @@ const (
 // Packs a domain index (which array) and sample index (position within array) into a
 // single value for efficient multi-dimensional data access.
 type Alignment uint64
+
+// Aggregation selects how a reduced read collapses each group of samples into points.
+// none keeps every sample, min_max keeps the lowest and highest sample of each group in
+// the order they occurred, average keeps the mean of each group, and decimate keeps the
+// first sample of each group.
+type Aggregation uint8
+
+//go:generate stringer -type=Aggregation
+
+const (
+	AggregationNone Aggregation = iota
+	AggregationMinMax
+	AggregationAverage
+	AggregationDecimate
+)

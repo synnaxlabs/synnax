@@ -11,6 +11,14 @@
 
 import { z } from "zod";
 
+export enum Aggregation {
+  none = 0,
+  min_max = 1,
+  average = 2,
+  decimate = 3,
+}
+export const aggregationZ = z.enum(Aggregation);
+
 export const TIMESTAMP_FORMATS = [
   "ISO",
   "ISODate",

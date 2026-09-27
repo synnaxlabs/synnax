@@ -21,9 +21,9 @@ from freighter.transport import P
 from freighter.websocket import Message
 from synnax.framer.adapter import ReadFrameAdapter
 from synnax.framer.codec import LOW_PERF_SPECIAL_CHAR, WSFramerCodec
-from synnax.framer.common import validate_downsample_factor
+from synnax.framer.common import validate_downsample_factor, validate_point_limit
 from synnax.framer.frame import Frame, FramePayload
-from synnax.telem import TimeRange, TimeSpan, TimeStamp
+from synnax.telem import Aggregation, TimeRange, TimeSpan, TimeStamp
 
 AUTO_SPAN = TimeSpan(-1)
 
@@ -54,6 +54,8 @@ class _Request(BaseModel):
     keys: list[channel.Key] | None = None
     chunk_size: int | None = None
     downsample_factor: int | None = None
+    aggregation: Aggregation | None = None
+    point_limit: int | None = None
 
 
 class _Response(BaseModel):
@@ -105,6 +107,8 @@ class Iterator:
     value: Frame
     _chunk_size: int
     _downsample_factor: int
+    _aggregation: Aggregation
+    _point_limit: int
 
     def __init__(
         self,
@@ -113,9 +117,12 @@ class Iterator:
         adapter: ReadFrameAdapter,
         chunk_size: int = 100000,
         downsample_factor: int = 1,
+        aggregation: Aggregation = Aggregation.none,
+        point_limit: int = 0,
         instrumentation: Instrumentation = NOOP,
     ) -> None:
         validate_downsample_factor(downsample_factor)
+        validate_point_limit(point_limit)
         self.tr = tr
         self.instrumentation = instrumentation
         self._adapter = adapter
@@ -123,6 +130,8 @@ class Iterator:
         self._stream = client.stream("/frame/iterate", _Request, _Response)
         self._chunk_size = chunk_size
         self._downsample_factor = downsample_factor
+        self._aggregation = aggregation
+        self._point_limit = point_limit
         self._open()
 
     def _open(self) -> None:
@@ -138,6 +147,8 @@ class Iterator:
             keys=self._adapter.keys,
             chunk_size=self._chunk_size,
             downsample_factor=self._downsample_factor,
+            aggregation=self._aggregation,
+            point_limit=self._point_limit,
         )
         self.value = Frame()
 

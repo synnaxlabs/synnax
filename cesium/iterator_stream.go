@@ -145,6 +145,14 @@ type IteratorConfig struct {
 	// read is strided at the source, so the discarded samples are never read into
 	// memory. Values below 2 keep every sample.
 	DownsampleFactor uint32
+	// Aggregation reduces each group of samples to the points it selects, so that the
+	// samples of each channel in Bounds come back as about PointLimit points. Every
+	// channel on one index reduces over the same groups, so reduced index and data
+	// series share alignments.
+	Aggregation telem.Aggregation
+	// PointLimit is the number of points Aggregation reduces each channel to. Zero
+	// keeps every sample.
+	PointLimit uint32
 }
 
 // Flow implements the confluence.Segment interface.

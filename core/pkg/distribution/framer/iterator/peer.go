@@ -101,5 +101,7 @@ func (s *Service) openPeerClient(
 		ChunkSize:        cfg.ChunkSize,
 		Bounds:           cfg.Bounds,
 		DownsampleFactor: cfg.DownsampleFactor,
+		Aggregation:      cfg.Aggregation,
+		PointLimit:       cfg.PointLimit,
 	})
 }

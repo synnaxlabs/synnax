@@ -59,10 +59,8 @@ func byteSize(sampleCount int64) telem.Size {
 // whose start timestamp and end timestamps are both known will have an equal lower
 // and upper bound.
 //
-// The distance method also returns an alignment pair, which represents the
-// alignment of the lower and upper bounds. The alignment pair is a 64-bit integer
-// where the lower 32 bits represent the domain and the upper 32 bits represent the
-// sample index within the domain.
+// Distance also returns the alignment of the first index sample at or after the end
+// of tr.
 func (i *Domain) Distance(
 	ctx context.Context,
 	tr telem.TimeRange,
@@ -99,12 +97,6 @@ func (i *Domain) Distance(
 		return approx, alignment, err
 	}
 
-	// If the time range is zero, then the distance is zero.
-	if tr.Span().IsZero() {
-		alignment = telem.NewAlignment(iter.Position(), 0)
-		return approx, alignment, err
-	}
-
 	// Open a new reader on the domain at the start of the range.
 	r, err := iter.OpenReader(ctx)
 	if err != nil {
@@ -116,6 +108,12 @@ func (i *Domain) Distance(
 
 	startApprox, err = i.search(tr.Start, r)
 	if err != nil {
+		return approx, alignment, err
+	}
+
+	// If the time range is zero, then the distance is zero.
+	if tr.Span().IsZero() {
+		alignment = telem.NewAlignment(iter.Position(), uint32(startApprox.Upper))
 		return approx, alignment, err
 	}
 	approx.StartExact = startApprox.Exact()

@@ -136,6 +136,8 @@ var _ = Describe("Translator", func() {
 				ChunkSize:        1024,
 				SeqNum:           7,
 				DownsampleFactor: 4,
+				Aggregation:      telem.AggregationAverage,
+				PointLimit:       512,
 			}
 			pb := MustSucceed(t.Forward(ctx, original))
 			result := MustSucceed(t.Backward(ctx, pb))
@@ -147,6 +149,8 @@ var _ = Describe("Translator", func() {
 			Expect(result.ChunkSize).To(Equal(original.ChunkSize))
 			Expect(result.SeqNum).To(Equal(original.SeqNum))
 			Expect(result.DownsampleFactor).To(Equal(original.DownsampleFactor))
+			Expect(result.Aggregation).To(Equal(original.Aggregation))
+			Expect(result.PointLimit).To(Equal(original.PointLimit))
 		})
 
 		It("Should handle zero-value request", func(ctx SpecContext) {

@@ -107,6 +107,25 @@ var _ = Describe("Iterator", func() {
 					},
 				)
 
+				Specify("Aggregation", func(ctx SpecContext) {
+					iter := MustSucceed(s.dist.Framer.OpenIterator(ctx, iterator.Config{
+						Keys:        s.keys,
+						Bounds:      telem.TimeRangeMax,
+						Aggregation: telem.AggregationMinMax,
+						PointLimit:  4,
+					}))
+					Expect(iter.SeekFirst()).To(BeTrue())
+					Expect(iter.Next(telem.TimeSpanMax)).To(BeTrue())
+					for _, series := range iter.Value().SeriesI() {
+						Expect(series).To(telem.MatchSeriesData(
+							telem.NewSeriesSecondsTSV(10, 17, 18, 22),
+						))
+						Expect(series.AlignmentMultiple).To(Equal(uint32(4)))
+					}
+					Expect(iter.Value().Count()).To(Equal(len(s.keys)))
+					Expect(iter.Close()).To(Succeed())
+				})
+
 				Specify("Auto chunk", func(ctx SpecContext) {
 					iter := MustSucceed(s.dist.Framer.OpenIterator(ctx, iterator.Config{
 						Keys:      s.keys,
