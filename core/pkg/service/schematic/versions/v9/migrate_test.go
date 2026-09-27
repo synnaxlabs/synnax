@@ -333,6 +333,19 @@ var _ = Describe("Config typing", func() {
 			}))
 		})
 
+		It("Should read reversed bounds in ascending order", func(ctx SpecContext) {
+			Expect(redline(ctx, map[string]any{
+				"bounds": map[string]any{"lower": 200.0, "upper": 100.0},
+				"gradient": []any{
+					map[string]any{"key": "a", "color": "#00ff00", "position": 0.0},
+					map[string]any{"key": "b", "color": "#ff0000", "position": 1.0},
+				},
+			}).Bands).To(Equal([]v9.Band{
+				{Key: "a", Threshold: 100, Color: green},
+				{Key: "b", Threshold: 200, Color: red},
+			}))
+		})
+
 		It("Should take the base from the lowest stop in any stored order", func(
 			ctx SpecContext,
 		) {

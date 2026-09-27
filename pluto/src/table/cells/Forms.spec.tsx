@@ -92,6 +92,22 @@ describe("ValueForm", () => {
       expect(methods.value().redline.bands[0].flashing).toBe(true);
     });
 
+    it("should flash a flashing band in the preview", () => {
+      const { getByText, container } = renderTab("Redline");
+      fireEvent.click(getByText("Add a band"));
+      const preview = container.querySelector<HTMLElement>(
+        ".pluto-redline-form__preview",
+      );
+      expect(preview).not.toBeNull();
+      expect(preview!.classList).not.toContain("pluto--flashing");
+      fireEvent.click(container.querySelector("[aria-pressed]")!);
+      expect(preview!.classList).toContain("pluto--flashing");
+      const on = preview!.style.getPropertyValue("--pluto-redline-on");
+      const off = preview!.style.getPropertyValue("--pluto-redline-off");
+      expect(on).toContain("linear-gradient");
+      expect(off).not.toEqual(on);
+    });
+
     it("should write a committed threshold", () => {
       const { getByText, container } = renderTab("Redline");
       fireEvent.click(getByText("Add a band"));

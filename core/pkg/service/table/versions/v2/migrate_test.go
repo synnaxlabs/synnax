@@ -151,6 +151,19 @@ var _ = Describe("MigrateTable", func() {
 			}))
 		})
 
+		It("Should read reversed bounds in ascending order", func(ctx SpecContext) {
+			Expect(redline(ctx, `{
+				"bounds": {"lower": 200, "upper": 100},
+				"gradient": [
+					{"key": "a", "color": "#00ff00", "position": 0},
+					{"key": "b", "color": "#ff0000", "position": 1}
+				]
+			}`).Bands).To(Equal([]v2.Band{
+				{Key: "a", Threshold: 100, Color: green},
+				{Key: "b", Threshold: 200, Color: red},
+			}))
+		})
+
 		It("Should take the base from the lowest stop in any stored order", func(
 			ctx SpecContext,
 		) {

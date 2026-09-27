@@ -648,7 +648,14 @@ describe("BandColor", () => {
     });
 
     it("should paint the base for a value that is not a number", () => {
-      expect(create({ bands: BANDS, base: green }, "")[0].value()).toEqual(green);
+      const bands = [{ threshold: 0, color: red }];
+      expect(create({ bands, base: green }, "abc")[0].value()).toEqual(green);
+    });
+
+    // The display stringifier renders a missing sample as an empty string.
+    it("should paint the base for a missing value", () => {
+      const bands = [{ threshold: 0, color: red }];
+      expect(create({ bands, base: green }, "")[0].value()).toEqual(green);
     });
 
     it("should read a stringified value", () => {
@@ -677,6 +684,15 @@ describe("BandColor", () => {
 
     it("should hold the highest band's color above its threshold", () => {
       expect(create({ bands: BANDS, smooth: true }, 500)[0].value()).toEqual(red);
+    });
+
+    it("should paint the same band as discrete mode at a shared threshold", () => {
+      const bands = [
+        { threshold: 50, color: yellow },
+        { threshold: 50, color: red },
+      ];
+      expect(create({ bands, smooth: true }, 50)[0].value()).toEqual(red);
+      expect(create({ bands }, 50)[0].value()).toEqual(red);
     });
 
     it("should paint the base below every threshold", () => {

@@ -307,8 +307,9 @@ func bandRedline(cfg map[string]any) error {
 		return errors.Wrapf(validate.ErrValidation, "invalid redline: %s", err)
 	}
 	lower, upper := 0.0, 1.0
-	if old.Bounds != nil {
-		lower, upper = old.Bounds.Lower, old.Bounds.Upper
+	if b := old.Bounds; b != nil {
+		// The legacy renderer swapped reversed bounds before it scaled.
+		lower, upper = min(b.Lower, b.Upper), max(b.Lower, b.Upper)
 	}
 	bands := make([]any, len(old.Gradient))
 	for i, stop := range old.Gradient {

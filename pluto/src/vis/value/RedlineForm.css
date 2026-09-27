@@ -35,6 +35,17 @@
 
 .pluto-redline-form__preview {
     height: 1rem;
+    background: var(--pluto-redline-on);
     border: var(--pluto-border);
     border-radius: var(--pluto-border-radius);
+}
+
+.pluto-redline-form__preview.pluto--flashing {
+    animation: pluto-redline-flash 1s steps(1) infinite;
+}
+
+@keyframes pluto-redline-flash {
+    50% {
+        background: var(--pluto-redline-off);
+    }
 }

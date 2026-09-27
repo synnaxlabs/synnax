@@ -18,8 +18,9 @@ band, and an optional base fill for values below every threshold.
 The gradient editor (`Color.GradientPicker`) failed its users in four ways:
 
 - **Deletion is hidden**: a stop is deleted by a double click on a line one pixel wide.
-- **Discrete bands are an illusion**: the editor preview draws hard steps for stops close
-  together, but the renderer always interpolates. The preview and the canvas disagree.
+- **Discrete bands are an illusion**: the editor preview draws hard steps for stops
+  close together, but the renderer always interpolates. The preview and the canvas
+  disagree.
 - **Positions are normalized**: operators think "red at 850 psi", but stops store 0 to 1
   positions, and the bounds exist only to define that mapping.
 - **No alarm emphasis**: a static gradient cannot make a value in an alarm band blink.
@@ -62,8 +63,8 @@ open.
 
 ### 3.1 Editor
 
-`Value.RedlineForm` (`pluto/src/vis/value/RedlineForm.tsx`) follows the row-list
-anatomy of the schematic state mapping form:
+`Value.RedlineForm` (`pluto/src/vis/value/RedlineForm.tsx`) follows the row-list anatomy
+of the schematic state mapping form:
 
 - **Band rows**: The highest threshold is at the top. Each row has a color swatch, a
   threshold input that shows the value's units, a flash toggle, and a delete button that
@@ -76,6 +77,7 @@ anatomy of the schematic state mapping form:
   highest band, where the step is the gap between the two highest bands.
 - **Smooth**: One switch for the redline.
 - **Preview**: A strip that paints the same fill the canvas paints, in the active mode.
+  Flashing bands flash in the strip too.
 - **Swatch presets**: `Color.Picker` takes `presets`. The redline offers the theme's
   secondary, warning, error, and primary colors ahead of the full picker.
 
@@ -86,9 +88,10 @@ anatomy of the schematic state mapping form:
 `Value.backgroundTelem` builds one pipeline for both surfaces:
 
 - **`telem.bandColor`**: A multi-source transformer that maps the value's display text,
-  read as a number, onto its band color. Discrete mode finds the owning band. Smooth mode
-  reuses `color.fromGradient` with thresholds as positions. It notifies only when the
-  color changes.
+  read as a number, onto its band color. Discrete mode finds the owning band. Smooth
+  mode blends from the owning band's color to the next higher band's color, so both
+  modes pick the same band when two share a threshold. It notifies only when the color
+  changes.
 - **`telem.clock`**: A number source that counts up and notifies once every period. It
   connects to the band stage as `phase` only when some band flashes. Odd ticks paint the
   base for a flashing band. The value renderer already repaints on each background
@@ -106,7 +109,8 @@ changes in place in those version files and in their lifts from the opaque confi
 lifts rewrite each legacy value config's redline before they decode it:
 
 - Each stop becomes a band with `threshold = lower + position * (upper - lower)`. Absent
-  bounds read as 0 to 1, the old default.
+  bounds read as 0 to 1, the old default. Reversed bounds are swapped first, as the
+  released renderer did.
 - `smooth` is true when the legacy gradient has stops, because the released renderer
   always interpolated.
 - `base` is the color of the lowest stop, which keeps the released fill below the range.

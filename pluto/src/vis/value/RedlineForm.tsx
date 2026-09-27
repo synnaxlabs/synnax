@@ -28,7 +28,9 @@ const ascending: compare.Comparator<Band> = (a, b) => a.threshold - b.threshold;
 // The share of the preview strip given to the base on each side of the thresholds.
 const PREVIEW_PAD = 0.2;
 
-const previewBackground = ({ bands, base, smooth }: Redline): string => {
+// Paints the strip the canvas paints. With off true, flashing bands take the base, as
+// they do on the canvas during the off half of each flash.
+const previewBackground = ({ bands, base, smooth }: Redline, off: boolean): string => {
   const sorted = bands.toSorted(ascending);
   const baseCSS = color.cssString(base ?? color.ZERO);
   if (sorted.length === 0) return baseCSS;
@@ -37,14 +39,14 @@ const previewBackground = ({ bands, base, smooth }: Redline): string => {
   const percent = (threshold: number): number =>
     ((threshold - lowest) / span + PREVIEW_PAD) * (100 / (1 + 2 * PREVIEW_PAD));
   const stops = [`${baseCSS} 0%`, `${baseCSS} ${percent(lowest)}%`];
-  sorted.forEach(({ threshold, color: c }, i) => {
-    const css = color.cssString(c);
-    stops.push(`${css} ${percent(threshold)}%`);
-    if (smooth) return;
-    const next = sorted[i + 1];
-    stops.push(`${css} ${next == null ? 100 : percent(next.threshold)}%`);
+  sorted.forEach(({ threshold, color: c, flashing }, i) => {
+    const next = sorted.at(i + 1);
+    let from = color.cssString(c);
+    let to = smooth && next != null ? color.cssString(next.color) : from;
+    if (off && flashing) from = to = baseCSS;
+    const end = next == null ? 100 : percent(next.threshold);
+    stops.push(`${from} ${percent(threshold)}%`, `${to} ${end}%`);
   });
-  if (smooth) stops.push(`${color.cssString(sorted[sorted.length - 1].color)} 100%`);
   return `linear-gradient(to right, ${stops.join(", ")})`;
 };
 
@@ -197,7 +199,10 @@ export const RedlineForm = ({ path }: RedlineFormProps): ReactElement => {
     ],
     [theme],
   );
-  const preview: CSSProperties = { background: previewBackground(redline) };
+  const preview = {
+    "--pluto-redline-on": previewBackground(redline, false),
+    "--pluto-redline-off": previewBackground(redline, true),
+  } as CSSProperties;
 
   const handleAdd = (): void => {
     const sorted = bands.toSorted((a, b) => ascending(b, a));
@@ -282,7 +287,13 @@ export const RedlineForm = ({ path }: RedlineFormProps): ReactElement => {
           x
           align="center"
         />
-        <div className={CSS.BE("redline-form", "preview")} style={preview} />
+        <div
+          className={CSS.cls(
+            CSS.BE("redline-form", "preview"),
+            bands.some(({ flashing }) => flashing) && CSS.M("flashing"),
+          )}
+          style={preview}
+        />
       </Flex.Box>
     </Flex.Box>
   );
