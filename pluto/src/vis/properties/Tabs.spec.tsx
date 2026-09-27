@@ -11,15 +11,15 @@ import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Form } from "@/schematic/node/common/form";
+import { Properties } from "@/vis/properties";
 
-describe("Form.Tabs", () => {
+describe("Properties.Tabs", () => {
   it("should select the first tab", () => {
     render(
-      <Form.Tabs tabs={["telemetry", "style"]}>
+      <Properties.Tabs tabs={["telemetry", "style"]}>
         <Tabs.Content itemKey="telemetry">telemetry content</Tabs.Content>
         <Tabs.Content itemKey="style">style content</Tabs.Content>
-      </Form.Tabs>,
+      </Properties.Tabs>,
     );
     expect(screen.getByRole("tab", { name: "Telemetry" }).ariaSelected).toBe("true");
     expect(screen.getByRole("tab", { name: "Style" }).ariaSelected).toBe("false");
@@ -28,9 +28,9 @@ describe("Form.Tabs", () => {
 
   it("should render the actions in the tab rail", () => {
     render(
-      <Form.Tabs tabs={["style"]} actions={<button>Swap</button>}>
+      <Properties.Tabs tabs={["style"]} actions={<button>Swap</button>}>
         <Tabs.Content itemKey="style">style content</Tabs.Content>
-      </Form.Tabs>,
+      </Properties.Tabs>,
     );
     const rail = screen.getByRole("tab", { name: "Style" }).parentElement;
     expect(rail?.contains(screen.getByRole("button", { name: "Swap" }))).toBe(true);

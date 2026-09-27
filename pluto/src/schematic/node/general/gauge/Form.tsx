@@ -16,6 +16,7 @@ import { type ReactElement } from "react";
 
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
+import { Properties } from "@/vis/properties";
 import { Value } from "@/vis/value";
 
 const GAUGE_BAR_WIDTH_INPUT_PROPS: Partial<Input.NumericProps> = {
@@ -34,7 +35,7 @@ const handleLevelChange = (v: text.Level, { set }: Base.ContextValue): void => {
 };
 
 export const GaugeForm = (): ReactElement => (
-  <Form.Tabs tabs={["style", "telemetry"]}>
+  <Properties.Tabs tabs={["style", "telemetry"]}>
     <Tabs.Content itemKey="style">
       <Base.Sections x>
         <Base.Section title="Label">
@@ -72,5 +73,5 @@ export const GaugeForm = (): ReactElement => (
         <Value.TelemForm path="" />
       </Base.Sections>
     </Tabs.Content>
-  </Form.Tabs>
+  </Properties.Tabs>
 );

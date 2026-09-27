@@ -18,6 +18,7 @@ import { Control } from "@/schematic/node/common/control";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Button as BaseButton } from "@/vis/button";
+import { Properties } from "@/vis/properties";
 
 type ButtonTelemFormT = Pick<
   schematic.ButtonNodeConfig,
@@ -59,7 +60,7 @@ export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
 };
 
 export const ButtonForm = (): ReactElement => (
-  <Form.Tabs tabs={["style", "control"]}>
+  <Properties.Tabs tabs={["style", "control"]}>
     <Tabs.Content itemKey="style">
       <Base.Sections x>
         <Base.Section title="Label">
@@ -77,5 +78,5 @@ export const ButtonForm = (): ReactElement => (
     <Tabs.Content itemKey="control">
       <ButtonTelemForm path="" />
     </Tabs.Content>
-  </Form.Tabs>
+  </Properties.Tabs>
 );

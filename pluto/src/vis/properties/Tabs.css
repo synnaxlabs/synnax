@@ -1,0 +1,36 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/* Sub-tabs sit in a rail on the left so the form keeps its full height. */
+.pluto-properties-tabs {
+    flex-grow: 1;
+    height: 100%;
+
+    & > .pluto-tabs__selector.pluto--direction-y {
+        width: 20rem;
+        padding: 1.5rem;
+        border-right: var(--pluto-border-l6);
+
+        .pluto-tabs__tab {
+            padding: 0 2rem;
+
+            & > .pluto-icon {
+                margin: 0 1rem 0 0;
+            }
+        }
+    }
+
+    & > .pluto-tabs__content {
+        flex-grow: 1;
+        min-width: 0;
+        overflow: hidden;
+    }
+}

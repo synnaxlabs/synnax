@@ -24,6 +24,7 @@ import { Channel } from "@/channel";
 import { Color } from "@/color";
 import { Notation } from "@/notation";
 import { type Variant } from "@/table/cells/registry";
+import { Properties } from "@/vis/properties";
 import { Staleness } from "@/vis/staleness";
 import { Value } from "@/vis/value";
 
@@ -110,12 +111,7 @@ const TelemForm = () => {
 export const ValueForm = ({ onVariantChange }: FormProps) => {
   const theme = Theming.use();
   return (
-    <Tabs.Frame initialValue="style" className={CSS.B("table-cell-value-form-tabs")}>
-      <Tabs.Selector>
-        <Tabs.Tab itemKey="style">Style</Tabs.Tab>
-        <Tabs.Tab itemKey="telem">Telemetry</Tabs.Tab>
-        <Tabs.Tab itemKey="redline">Redline</Tabs.Tab>
-      </Tabs.Selector>
+    <Properties.Tabs tabs={["style", "telemetry", "redline"]}>
       <Tabs.Content itemKey="style">
         <Form.Sections x>
           <Form.Section title="Cell">
@@ -141,7 +137,7 @@ export const ValueForm = ({ onVariantChange }: FormProps) => {
           </Form.Section>
         </Form.Sections>
       </Tabs.Content>
-      <Tabs.Content itemKey="telem">
+      <Tabs.Content itemKey="telemetry">
         <Form.Sections x>
           <TelemForm />
         </Form.Sections>
@@ -149,7 +145,7 @@ export const ValueForm = ({ onVariantChange }: FormProps) => {
       <Tabs.Content itemKey="redline">
         <Value.RedlineForm path="redline" />
       </Tabs.Content>
-    </Tabs.Frame>
+    </Properties.Tabs>
   );
 };
 

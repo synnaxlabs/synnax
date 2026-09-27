@@ -26,34 +26,9 @@
     }
 }
 
-/* Sub-tabs sit in a rail on the left so the form keeps its full height. */
-.pluto-symbol-form-tabs {
-    height: 100%;
-
-    & > .pluto-tabs__selector.pluto--direction-y {
-        width: 20rem;
-        padding: 1.5rem;
-        border-right: var(--pluto-border-l6);
-
-        .pluto-tabs__tab {
-            padding: 0 2rem;
-
-            & > .pluto-icon {
-                margin: 0 1rem 0 0;
-            }
-        }
-    }
-
-    & > .pluto-tabs__content {
-        flex-grow: 1;
-        min-width: 0;
-        overflow: hidden;
-    }
-
-    /* The square widget would otherwise stretch to the column width. */
-    .pluto-select-orientation {
-        justify-self: start;
-    }
+/* The square widget would otherwise stretch to the column width. */
+.pluto-form-sections .pluto-select-orientation {
+    justify-self: start;
 }
 
 /* The orientation square is taller than a row, so it takes a column of its own. */

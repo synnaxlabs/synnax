@@ -16,6 +16,7 @@ import { type ReactElement } from "react";
 import { Channel } from "@/channel";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
+import { Properties } from "@/vis/properties";
 import { Staleness } from "@/vis/staleness";
 
 const StateIndicatorTelemForm = ({ path }: { path: string }): ReactElement => {
@@ -43,7 +44,7 @@ const StateIndicatorTelemForm = ({ path }: { path: string }): ReactElement => {
 };
 
 export const StateIndicatorForm = (): ReactElement => (
-  <Form.Tabs tabs={["style", "telemetry", "options"]}>
+  <Properties.Tabs tabs={["style", "telemetry", "options"]}>
     <Tabs.Content itemKey="style">
       <Base.Sections x>
         <Base.Section title="Label">
@@ -68,5 +69,5 @@ export const StateIndicatorForm = (): ReactElement => (
     <Tabs.Content itemKey="options">
       <Form.StateMappingForm path="options" showColor />
     </Tabs.Content>
-  </Form.Tabs>
+  </Properties.Tabs>
 );

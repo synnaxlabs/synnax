@@ -35,8 +35,8 @@
     }
 }
 
-/* Side by side: each section is as wide as its content. Fields fill the rows the
-   strip's height affords, then flow into a further label and control column pair.
+/* Side by side: each section is as wide as its content. Fields fill three rows, then
+   flow into a further label and control column pair, whatever the strip's height.
    A control that declares --pluto-control-width is laid out at that width; any
    other keeps its natural size. The strip scrolls when the sections outgrow it. */
 .pluto-form-sections.pluto--direction-x {
@@ -71,10 +71,9 @@
     }
 
     .pluto-form-section__body {
-        --pluto-form-section-rows: 3;
         display: grid;
         grid-auto-flow: column;
-        grid-template-rows: repeat(var(--pluto-form-section-rows), max-content);
+        grid-template-rows: repeat(3, max-content);
         grid-auto-columns: max-content;
         gap: 2rem 8rem;
         align-items: start;
@@ -101,38 +100,6 @@
                 }
             }
         }
-    }
-}
-
-/* One more row per 40px of strip height: a medium control plus the row gap. The strip
-   is the query container, so the rules match its descendants, never the strip. */
-@container (min-height: 204px) {
-    .pluto-form-sections.pluto--direction-x .pluto-form-section__body {
-        --pluto-form-section-rows: 4;
-    }
-}
-
-@container (min-height: 244px) {
-    .pluto-form-sections.pluto--direction-x .pluto-form-section__body {
-        --pluto-form-section-rows: 5;
-    }
-}
-
-@container (min-height: 284px) {
-    .pluto-form-sections.pluto--direction-x .pluto-form-section__body {
-        --pluto-form-section-rows: 6;
-    }
-}
-
-@container (min-height: 324px) {
-    .pluto-form-sections.pluto--direction-x .pluto-form-section__body {
-        --pluto-form-section-rows: 7;
-    }
-}
-
-@container (min-height: 364px) {
-    .pluto-form-sections.pluto--direction-x .pluto-form-section__body {
-        --pluto-form-section-rows: 8;
     }
 }
 

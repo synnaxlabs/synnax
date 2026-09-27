@@ -20,6 +20,7 @@ import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { Synnax } from "@/synnax";
+import { Properties } from "@/vis/properties";
 import { Staleness } from "@/vis/staleness";
 
 const TelemForm = (): ReactElement => {
@@ -76,12 +77,12 @@ const StyleForm = (): ReactElement => (
 );
 
 export const StringDisplayForm = (): ReactElement => (
-  <Form.Tabs tabs={["style", "telemetry"]}>
+  <Properties.Tabs tabs={["style", "telemetry"]}>
     <Tabs.Content itemKey="style">
       <StyleForm />
     </Tabs.Content>
     <Tabs.Content itemKey="telemetry">
       <TelemForm />
     </Tabs.Content>
-  </Form.Tabs>
+  </Properties.Tabs>
 );

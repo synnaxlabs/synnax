@@ -18,8 +18,3 @@
 .console-table__toolbar-buttons {
     width: 72px;
 }
-
-/* Insets the cell form's tab strip off the pane edge. */
-.console-table__toolbar-content {
-    padding: 1rem 0.75rem;
-}
