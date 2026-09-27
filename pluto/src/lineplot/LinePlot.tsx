@@ -120,6 +120,12 @@ interface LineProps {
   visible?: boolean;
 }
 
+const GROUPS_PER_COLUMN: Record<lineplot.Detail, number> = {
+  low: 1 / 4,
+  medium: 1 / 2,
+  high: 1,
+};
+
 const Line = ({
   pKey,
   lineKey,
@@ -137,7 +143,7 @@ const Line = ({
         : { timeRange: resolved.timeRange }),
       xChannel,
       aggregation,
-      detail,
+      groupsPerColumn: GROUPS_PER_COLUMN[detail],
     };
     return {
       x: telem.tiledChannelData({
