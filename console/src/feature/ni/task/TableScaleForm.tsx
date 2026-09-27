@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
@@ -148,8 +147,8 @@ export const TableScaleForm = ({ prefix }: TableScaleFormProps): ReactElement =>
             />
           </Input.Item>
           {colOptions.length > 0 && (
-            <Flex.Box x>
-              <Input.Item label="Raw column" padHelpText grow>
+            <>
+              <Input.Item label="Raw column" padHelpText>
                 <Select.Simple<string>
                   resourceName="raw column"
                   value={rawCol}
@@ -158,7 +157,7 @@ export const TableScaleForm = ({ prefix }: TableScaleFormProps): ReactElement =>
                   {colItems}
                 </Select.Simple>
               </Input.Item>
-              <Input.Item label="Scaled column" padHelpText grow>
+              <Input.Item label="Scaled column" padHelpText>
                 <Select.Simple<string>
                   resourceName="scaled column"
                   value={scaledCol}
@@ -167,7 +166,7 @@ export const TableScaleForm = ({ prefix }: TableScaleFormProps): ReactElement =>
                   {colItems}
                 </Select.Simple>
               </Input.Item>
-            </Flex.Box>
+            </>
           )}
         </>
       )}
@@ -182,6 +181,7 @@ export const TableScaleForm = ({ prefix }: TableScaleFormProps): ReactElement =>
           onChange={handleRowsChange}
           createRow={createRow}
           preview={preview}
+          rowLabel={(index) => (index + 1).toString()}
         >
           <Input.TableColumn name="Pre-scaled" />
           <Input.TableColumn name="Scaled" />

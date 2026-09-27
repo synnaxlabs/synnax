@@ -45,7 +45,7 @@ class Table(ConsolePage):
         """
         self._get_cell(row, col).click()
         self.set_toolbar_variant("Value")
-        self.page.get_by_text("Telemetry").click()
+        self.page.get_by_role("tab", name="Telemetry", exact=True).click()
         self.layout.click_btn("Channel")
         self.layout.select_from_dropdown(channel_name)
 
@@ -60,7 +60,7 @@ class Table(ConsolePage):
             The channel name or empty string if not set
         """
         self._select_cell(row, col)
-        self.page.get_by_text("Telemetry").click()
+        self.page.get_by_role("tab", name="Telemetry", exact=True).click()
         channel_btn = (
             self.page.locator('text="Channel"').locator("..").locator("button").first
         )
@@ -151,7 +151,7 @@ class Table(ConsolePage):
             upper: Upper redline bound
         """
         self._select_cell(row, col)
-        self.page.get_by_text("Redline").click()
+        self.page.get_by_role("tab", name="Redline", exact=True).click()
         self.layout.fill_input_field("Lower", str(lower))
         self.layout.fill_input_field("Upper", str(upper))
 
@@ -166,7 +166,7 @@ class Table(ConsolePage):
             Tuple of (lower_bound, upper_bound) as strings
         """
         self._select_cell(row, col)
-        self.page.get_by_text("Redline").click()
+        self.page.get_by_role("tab", name="Redline", exact=True).click()
         lower = self.layout.get_input_field("Lower")
         upper = self.layout.get_input_field("Upper")
         return (lower, upper)

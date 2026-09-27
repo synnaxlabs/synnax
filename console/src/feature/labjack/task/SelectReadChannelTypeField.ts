@@ -8,9 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { Form } from "@synnaxlabs/lyra/form";
-import { Select } from "@synnaxlabs/lyra/select";
 
 import { type ReadChannelType } from "@/feature/labjack/task/types";
+import { Task } from "@/platform/task";
+
+export const READ_CHANNEL_TYPE_NAMES = {
+  analog: "Analog input",
+  digital: "Digital input",
+  thermocouple: "Thermocouple",
+} as const satisfies Record<ReadChannelType, string>;
 
 export type SelectReadChannelTypeFieldProps = Form.SelectFieldProps<ReadChannelType>;
 
@@ -20,12 +26,6 @@ export const SelectReadChannelTypeField = Form.buildSelectField<ReadChannelType>
   inputProps: {
     allowNone: false,
     resourceName: "channel type",
-    children: (
-      <>
-        <Select.Item itemKey="analog">Analog input</Select.Item>
-        <Select.Item itemKey="digital">Digital input</Select.Item>
-        <Select.Item itemKey="thermocouple">Thermocouple</Select.Item>
-      </>
-    ),
+    children: Task.selectItems(READ_CHANNEL_TYPE_NAMES),
   },
 });

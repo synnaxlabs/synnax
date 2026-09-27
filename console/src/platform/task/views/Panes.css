@@ -1,0 +1,114 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-panes {
+    position: relative;
+
+    --console-list-width: 250px;
+    --console-list-motion: 0.15s;
+    --console-details-padding: 3.5rem;
+
+    /* A mode switch lands without motion: the list sliding away because the window
+       shrank would read as something breaking. */
+    &.console--snap {
+        --console-list-motion: 0s;
+    }
+
+    .console-panes__list {
+        flex: none;
+        width: var(--console-list-width);
+        overflow: hidden;
+        transition: width var(--console-list-motion) ease-out;
+    }
+
+    /* Its own stacking context, so the buttons' z-indexes inside it never climb
+       above the drawer. */
+    .console-panes__details {
+        min-width: 0;
+        isolation: isolate;
+    }
+
+    .console-panes__title {
+        min-width: 0;
+    }
+
+    .console-panes__item-title {
+        min-width: 0;
+        overflow: hidden;
+    }
+
+    &.console--list-closed {
+        .console-panes__list {
+            width: 0;
+        }
+
+        > .pluto-divider {
+            display: none;
+        }
+    }
+
+    /* The column clips its content on the way out instead of squeezing it. */
+    &:not(.console--narrow) .console-panes__list > * {
+        width: var(--console-list-width);
+    }
+
+    .console-panes__list > :is(.pluto-header, .console-create-list-item) {
+        flex-shrink: 0;
+    }
+
+    /* Its side margins come out of the column's width. */
+    &:not(.console--narrow) .console-panes__list > .console-create-list-item {
+        width: calc(var(--console-list-width) - 2rem);
+    }
+}
+
+/* Too narrow for both: the list is a drawer over the details. */
+.console-panes.console--narrow {
+    > .pluto-divider {
+        display: none;
+    }
+
+    .console-panes__list {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 2;
+        width: min(var(--console-list-width), 85%);
+        background: var(--pluto-gray-l1);
+        border-right: var(--pluto-border);
+        box-shadow: var(--pluto-shadow-overlay);
+        transform: translateX(-100%);
+        visibility: hidden;
+        transition:
+            transform var(--console-list-motion) ease-out,
+            visibility var(--console-list-motion);
+    }
+
+    &.console--list-open {
+        .console-panes__list {
+            transform: none;
+            visibility: visible;
+        }
+
+        /* The backdrop: the details pane takes the click that closes the drawer, so
+           nothing under it can. */
+        .console-panes__details > * {
+            pointer-events: none;
+        }
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .console-panes {
+        --console-list-motion: 0s;
+    }
+}

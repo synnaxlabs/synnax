@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, type schematic } from "@synnaxlabs/client";
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
@@ -36,40 +35,38 @@ export const SetpointTelemForm = ({ path }: { path: string }): ReactElement => {
   };
 
   return (
-    <Form.Wrapper x grow align="stretch">
-      <Input.Item label="Command channel" grow>
-        <Channel.SelectSingle
-          value={value.commandChannel ?? 0}
-          onChange={handleSinkChange}
-        />
-      </Input.Item>
-      <Form.ActivationDelayField />
-      <Form.ControlChipField />
-    </Form.Wrapper>
+    <Base.Sections x>
+      <Base.Section title="Command">
+        <Input.Item label="Channel" padHelpText={false}>
+          <Channel.SelectSingle
+            value={value.commandChannel ?? 0}
+            onChange={handleSinkChange}
+          />
+        </Input.Item>
+        <Form.ActivationDelayField />
+        <Form.ControlChipField />
+      </Base.Section>
+    </Base.Sections>
   );
 };
 
 export const SetpointForm = (): ReactElement => (
-  <Tabs.Frame initialValue="style">
-    <Tabs.Selector>
-      <Tabs.Tab itemKey="style">Style</Tabs.Tab>
-      <Tabs.Tab itemKey="control">Control</Tabs.Tab>
-    </Tabs.Selector>
+  <Form.Tabs tabs={["style", "control"]}>
     <Tabs.Content itemKey="style">
-      <Form.Wrapper x align="stretch">
-        <Flex.Box y align="stretch" grow gap="small">
+      <Base.Sections x>
+        <Base.Section title="Label">
           <Label.Form path="label" />
-          <Flex.Box x>
-            <Form.ColorField path="color" />
-            <Form.SizeField />
-            <Form.UnitsField />
-          </Flex.Box>
-        </Flex.Box>
-        <Orientation.Field path="" hideInner />
-      </Form.Wrapper>
+        </Base.Section>
+        <Base.Section title="Appearance">
+          <Form.ColorField path="color" />
+          <Form.SizeField />
+          <Form.UnitsField />
+        </Base.Section>
+        <Orientation.Section path="" hideInner />
+      </Base.Sections>
     </Tabs.Content>
     <Tabs.Content itemKey="control">
       <SetpointTelemForm path="" />
     </Tabs.Content>
-  </Tabs.Frame>
+  </Form.Tabs>
 );

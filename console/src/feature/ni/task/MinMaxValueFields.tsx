@@ -9,6 +9,7 @@
 
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
+import { Input } from "@synnaxlabs/lyra/input";
 
 const MinValueField = Form.buildNumericField({
   fieldKey: "minVal",
@@ -24,11 +25,24 @@ const MaxValueField = Form.buildNumericField({
 
 export interface MinMaxValueFieldsProps {
   path: string;
+  units?: string;
 }
 
-export const MinMaxValueFields = ({ path }: MinMaxValueFieldsProps) => (
-  <Flex.Box x>
-    <MinValueField path={path} grow />
-    <MaxValueField path={path} grow />
-  </Flex.Box>
+export const MinMaxValueFields = ({ path, units }: MinMaxValueFieldsProps) => (
+  <Input.Item label="Range">
+    <Flex.Box x gap="small">
+      <MinValueField
+        path={path}
+        showLabel={false}
+        padHelpText={false}
+        inputProps={{ endContent: units, grow: true, "aria-label": "Minimum value" }}
+      />
+      <MaxValueField
+        path={path}
+        showLabel={false}
+        padHelpText={false}
+        inputProps={{ endContent: units, grow: true, "aria-label": "Maximum value" }}
+      />
+    </Flex.Box>
+  </Input.Item>
 );
