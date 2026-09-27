@@ -9,7 +9,7 @@
 
 import { type Synnax as Client } from "@synnaxlabs/client";
 import { RoleClients } from "@synnaxlabs/client/testutil";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Table } from "@/feature/table";
@@ -128,6 +128,30 @@ describe("table/Toolbar", () => {
     expect(await screen.findByText("Selection colors")).toBeDefined();
     expect(screen.getByText("Size")).toBeDefined();
     await waitFor(() => expect(result.container.textContent).toContain("2 cells"));
+  });
+
+  it("keeps the selected form tab when another value cell is selected", async () => {
+    const { key, store } = await renderTable(Table.Toolbar, {
+      table: {
+        name: uniqueName("table"),
+        rows: [{ size: 36, cells: ["a", "b"] }],
+        columns: [{ size: 72 }, { size: 72 }],
+        cells: { a: { variant: "value" }, b: { variant: "value" } },
+      },
+      preloadedState: (key) =>
+        createPreloadedState(key, { selectedCells: ["a"], lastSelected: "a" }),
+    });
+    const telemetry = await screen.findByRole("tab", { name: "Telemetry" });
+    expect(telemetry.ariaSelected).toBe("true");
+    fireEvent.click(screen.getByRole("tab", { name: "Style" }));
+    act(() => {
+      store.dispatch(
+        Session.Table.setSelectedCells({ key, cells: ["b"], anchor: "b" }),
+      );
+    });
+    await waitFor(() =>
+      expect(screen.getByRole("tab", { name: "Style" }).ariaSelected).toBe("true"),
+    );
   });
 
   it("groups uncolored cells into one selection color", async () => {

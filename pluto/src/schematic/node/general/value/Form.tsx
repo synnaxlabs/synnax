@@ -15,11 +15,16 @@ import { type ReactElement } from "react";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
+import { type FormProps } from "@/schematic/node/spec";
 import { Properties } from "@/vis/properties";
 import { Value } from "@/vis/value";
 
-export const ValueForm = (): ReactElement => (
-  <Properties.Tabs tabs={["style", "telemetry", "redline"]}>
+export const ValueForm = ({ tab, onTabChange }: FormProps): ReactElement => (
+  <Properties.Tabs
+    tabs={["telemetry", "style", "redline"]}
+    tab={tab}
+    onTabChange={onTabChange}
+  >
     <Tabs.Content itemKey="style">
       <Base.Sections x>
         <Base.Section title="Label">

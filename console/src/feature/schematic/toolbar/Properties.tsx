@@ -17,7 +17,13 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Color, Diagram, Direction, Schematic } from "@synnaxlabs/pluto";
+import {
+  Color,
+  Diagram,
+  Direction,
+  type Properties as PProperties,
+  Schematic,
+} from "@synnaxlabs/pluto";
 import {
   box,
   color,
@@ -66,6 +72,13 @@ const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement | null
   if (config == null) throw new Error(`Element with key ${elKey} not found`);
   const schematicKey = Schematic.useKey();
   const dispatch = Schematic.useSingleDispatch();
+  const sessionDispatch = Session.useDispatch();
+  const tab = Session.Schematic.useSelectPropertiesTab({ key: schematicKey });
+  const handleTabChange = useCallback(
+    (tab: PProperties.TabKey) =>
+      sessionDispatch(Session.Schematic.setPropertiesTab({ key: schematicKey, tab })),
+    [sessionDispatch, schematicKey],
+  );
   const initialValues = useMemo(() => deep.copy(config), [config]);
   const formMethods = Form.use<typeof Schematic.elementConfigZ>({
     schema: Schematic.elementConfigZ,
@@ -98,6 +111,12 @@ const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement | null
 
   if (config == null) return null;
   const C = Schematic.ELEMENT_REGISTRY[config.variant];
+  const formProps: Schematic.Node.FormProps = {
+    actions,
+    schematicKey,
+    tab,
+    onTabChange: handleTabChange,
+  };
   return (
     <Flex.Box className={CSS.BE("schematic", "properties")} y>
       <Form.Form<typeof Schematic.elementConfigZ> {...formMethods}>
@@ -105,11 +124,11 @@ const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement | null
           <CustomVariantForm
             specKey={specKey}
             elKey={elKey}
-            actions={actions}
+            formProps={formProps}
             VariantForm={C.Form}
           />
         ) : (
-          <C.Form key={elKey} actions={actions} schematicKey={schematicKey} />
+          <C.Form key={elKey} {...formProps} />
         )}
       </Form.Form>
     </Flex.Box>
@@ -119,20 +138,19 @@ const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement | null
 interface CustomVariantFormProps {
   specKey: string;
   elKey: string;
-  actions: ReactNode;
+  formProps: Schematic.Node.FormProps;
   VariantForm: FC<Schematic.Node.FormProps>;
 }
 
 const CustomVariantForm = ({
   specKey,
   elKey,
-  actions,
+  formProps,
   VariantForm,
 }: CustomVariantFormProps): ReactElement => {
-  const schematicKey = Schematic.useKey();
   const { missing } = Schematic.Symbol.useResolved(specKey);
   if (missing) return <Symbol.MissingForm />;
-  return <VariantForm key={elKey} actions={actions} schematicKey={schematicKey} />;
+  return <VariantForm key={elKey} {...formProps} />;
 };
 
 interface MultiElementPropertiesProps {

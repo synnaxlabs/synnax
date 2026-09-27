@@ -18,6 +18,7 @@ import { Control } from "@/schematic/node/common/control";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
+import { type FormProps } from "@/schematic/node/spec";
 import { Properties } from "@/vis/properties";
 
 export const SetpointTelemForm = ({ path }: { path: string }): ReactElement => {
@@ -51,8 +52,8 @@ export const SetpointTelemForm = ({ path }: { path: string }): ReactElement => {
   );
 };
 
-export const SetpointForm = (): ReactElement => (
-  <Properties.Tabs tabs={["style", "control"]}>
+export const SetpointForm = ({ tab, onTabChange }: FormProps): ReactElement => (
+  <Properties.Tabs tabs={["control", "style"]} tab={tab} onTabChange={onTabChange}>
     <Tabs.Content itemKey="style">
       <Base.Sections x>
         <Base.Section title="Label">

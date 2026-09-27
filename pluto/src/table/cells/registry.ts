@@ -13,7 +13,7 @@ import { type FC } from "react";
 import { type z } from "zod";
 
 import { type CellProps, Text, Value } from "@/table/cells/Cells";
-import { TextForm, ValueForm } from "@/table/cells/Forms";
+import { type FormProps, TextForm, ValueForm } from "@/table/cells/Forms";
 
 export const variantZ = table.cellConfigTypeZ;
 export type Variant = table.CellConfigType;
@@ -26,7 +26,7 @@ export interface Spec<V extends Variant = Variant> {
   key: V;
   name: string;
   Icon: Icon.FC;
-  Form: FC;
+  Form: FC<FormProps>;
   Cell: FC<CellProps<ConfigOf<V>>>;
   schema: z.ZodType<ConfigOf<V>>;
 }

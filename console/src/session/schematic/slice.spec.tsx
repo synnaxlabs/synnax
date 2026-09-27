@@ -208,6 +208,25 @@ describe("Schematic Slice", () => {
       store.dispatch(Schematic.setSelectedSymbolGroup({ key: KEY, group: "valves" }));
       expect(read(Schematic.useGet).toolbar.selectedSymbolGroup).toBe("valves");
     });
+
+    it("should leave the properties tab unset by default", () => {
+      store.dispatch(Schematic.create({ key: KEY }));
+      expect(read(Schematic.useGet).toolbar.propertiesTab).toBeUndefined();
+    });
+
+    it("should set the properties tab", () => {
+      store.dispatch(Schematic.create({ key: KEY }));
+      store.dispatch(Schematic.setPropertiesTab({ key: KEY, tab: "style" }));
+      expect(read(Schematic.useGet).toolbar.propertiesTab).toBe("style");
+    });
+
+    it("should keep the properties tab when the selection changes", () => {
+      store.dispatch(Schematic.create({ key: KEY }));
+      store.dispatch(Schematic.setPropertiesTab({ key: KEY, tab: "style" }));
+      store.dispatch(Schematic.setSelected({ key: KEY, selected: ["a"] }));
+      store.dispatch(Schematic.setSelected({ key: KEY, selected: ["b"] }));
+      expect(read(Schematic.useGet).toolbar.propertiesTab).toBe("style");
+    });
   });
 
   describe("setEditable", () => {

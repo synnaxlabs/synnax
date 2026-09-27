@@ -16,6 +16,7 @@ import { type ReactElement } from "react";
 import { Channel } from "@/channel";
 import { Form } from "@/schematic/node/common/form";
 import { Telem } from "@/schematic/node/common/telem";
+import { type FormProps } from "@/schematic/node/spec";
 import { Properties } from "@/vis/properties";
 import { Staleness } from "@/vis/staleness";
 
@@ -60,8 +61,8 @@ const LightTelemForm = ({ path }: { path: string }): ReactElement => {
   );
 };
 
-export const LightForm = (): ReactElement => (
-  <Properties.Tabs tabs={["style", "telemetry"]}>
+export const LightForm = ({ tab, onTabChange }: FormProps): ReactElement => (
+  <Properties.Tabs tabs={["telemetry", "style"]} tab={tab} onTabChange={onTabChange}>
     <Tabs.Content itemKey="style">
       <Form.StyleForm />
     </Tabs.Content>

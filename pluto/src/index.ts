@@ -55,6 +55,7 @@ export { Diagram } from "@/vis/diagram";
 export { Eraser } from "@/vis/eraser";
 export { Legend } from "@/vis/legend";
 export { Line } from "@/vis/line";
+export { Properties } from "@/vis/properties";
 export { Staleness } from "@/vis/staleness";
 export { Value } from "@/vis/value";
 export {

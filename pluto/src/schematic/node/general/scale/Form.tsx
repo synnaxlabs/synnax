@@ -16,12 +16,13 @@ import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { Scale } from "@/schematic/node/common/scale";
+import { type FormProps } from "@/schematic/node/spec";
 import { Properties } from "@/vis/properties";
 
-export const ScaleForm = (): ReactElement => {
+export const ScaleForm = ({ tab, onTabChange }: FormProps): ReactElement => {
   const { value: orientation } = Base.useField<location.Outer>("orientation");
   return (
-    <Properties.Tabs tabs={["style", "telemetry"]}>
+    <Properties.Tabs tabs={["telemetry", "style"]} tab={tab} onTabChange={onTabChange}>
       <Tabs.Content itemKey="style">
         <Base.Sections x>
           <Base.Section title="Label">

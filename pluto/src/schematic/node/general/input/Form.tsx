@@ -17,6 +17,7 @@ import { Channel } from "@/channel";
 import { Control } from "@/schematic/node/common/control";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
+import { type FormProps } from "@/schematic/node/spec";
 import { Properties } from "@/vis/properties";
 interface InputTelemFormProps {
   path: string;
@@ -53,8 +54,8 @@ const InputTelemForm = ({ path }: InputTelemFormProps): ReactElement => {
   );
 };
 
-export const InputForm = (): ReactElement => (
-  <Properties.Tabs tabs={["style", "control"]}>
+export const InputForm = ({ tab, onTabChange }: FormProps): ReactElement => (
+  <Properties.Tabs tabs={["control", "style"]} tab={tab} onTabChange={onTabChange}>
     <Tabs.Content itemKey="style">
       <Base.Sections x>
         <Base.Section title="Label">

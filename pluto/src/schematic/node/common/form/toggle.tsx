@@ -27,10 +27,17 @@ interface ToggleFormProps extends FormProps {
 
 export const ToggleForm = ({
   actions,
+  tab,
+  onTabChange,
   hideInnerOrientation,
   omit,
 }: ToggleFormProps): ReactElement => (
-  <Properties.Tabs tabs={["style", "control"]} actions={actions}>
+  <Properties.Tabs
+    tabs={["control", "style"]}
+    tab={tab}
+    onTabChange={onTabChange}
+    actions={actions}
+  >
     <BaseTabs.Content itemKey="style">
       <StyleForm hideInnerOrientation={hideInnerOrientation} />
     </BaseTabs.Content>

@@ -47,6 +47,8 @@ const FillForm = (): ReactElement => {
 };
 
 export const TankForm = ({
+  tab,
+  onTabChange,
   showBorderRadius = false,
   showStrokeWidth = false,
   showFillTab = false,
@@ -96,7 +98,7 @@ export const TankForm = ({
   );
   if (!showFillTab) return style;
   return (
-    <Properties.Tabs tabs={["style", "fill"]}>
+    <Properties.Tabs tabs={["style", "fill"]} tab={tab} onTabChange={onTabChange}>
       <Tabs.Content itemKey="style">{style}</Tabs.Content>
       <Tabs.Content itemKey="fill">
         <FillForm />

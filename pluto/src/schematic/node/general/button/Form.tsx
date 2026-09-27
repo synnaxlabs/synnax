@@ -17,6 +17,7 @@ import { Channel } from "@/channel";
 import { Control } from "@/schematic/node/common/control";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
+import { type FormProps } from "@/schematic/node/spec";
 import { Button as BaseButton } from "@/vis/button";
 import { Properties } from "@/vis/properties";
 
@@ -59,8 +60,8 @@ export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
   );
 };
 
-export const ButtonForm = (): ReactElement => (
-  <Properties.Tabs tabs={["style", "control"]}>
+export const ButtonForm = ({ tab, onTabChange }: FormProps): ReactElement => (
+  <Properties.Tabs tabs={["control", "style"]} tab={tab} onTabChange={onTabChange}>
     <Tabs.Content itemKey="style">
       <Base.Sections x>
         <Base.Section title="Label">

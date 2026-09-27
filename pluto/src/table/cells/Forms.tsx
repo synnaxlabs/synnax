@@ -23,6 +23,9 @@ import { Properties } from "@/vis/properties";
 import { Staleness } from "@/vis/staleness";
 import { Value } from "@/vis/value";
 
+/** Props for a cell variant's form. */
+export interface FormProps extends Properties.SelectionProps {}
+
 interface ColorFieldProps {
   path: string;
   label: string;
@@ -99,10 +102,14 @@ const TelemForm = () => {
   );
 };
 
-export const ValueForm = () => {
+export const ValueForm = ({ tab, onTabChange }: FormProps) => {
   const theme = Theming.use();
   return (
-    <Properties.Tabs tabs={["style", "telemetry", "redline"]}>
+    <Properties.Tabs
+      tabs={["telemetry", "style", "redline"]}
+      tab={tab}
+      onTabChange={onTabChange}
+    >
       <Tabs.Content itemKey="style">
         <Form.Sections x>
           <Form.Section title="Appearance">

@@ -18,7 +18,13 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { Access, Color, Panel as PPanel, Table } from "@synnaxlabs/pluto";
+import {
+  Access,
+  Color,
+  Panel as PPanel,
+  type Properties,
+  Table,
+} from "@synnaxlabs/pluto";
 import { color, deep, type text } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useCallback, useMemo } from "react";
 import { type z } from "zod";
@@ -82,7 +88,11 @@ const Internal = (): ReactElement => {
         ) : liveCellCount === 0 ? (
           <EmptyContent />
         ) : singleSelectedKey != null ? (
-          <CellForm key={singleSelectedKey} cellKey={singleSelectedKey} />
+          // A variant's form holds that variant's config, so a swap remounts it.
+          <CellForm
+            key={`${singleSelectedKey}:${variant}`}
+            cellKey={singleSelectedKey}
+          />
         ) : (
           <MultiCellForm cellKeys={selectedCellKeys} />
         )}
@@ -155,6 +165,14 @@ interface CellFormProps {
 const CellForm = ({ cellKey }: CellFormProps): ReactElement | null => {
   const cell = Table.useCell({ cellKey });
   const dispatch = Table.useSingleDispatch();
+  const key = Table.useKey();
+  const sessionDispatch = Session.useDispatch();
+  const tab = Session.Table.useSelectPropertiesTab({ key });
+  const handleTabChange = useCallback(
+    (tab: Properties.TabKey) =>
+      sessionDispatch(Session.Table.setPropertiesTab({ key, tab })),
+    [sessionDispatch, key],
+  );
 
   const handleChange = useCallback(
     ({ values }: Form.OnChangeParams<typeof Table.Cell.configZ>) => {
@@ -179,7 +197,7 @@ const CellForm = ({ cellKey }: CellFormProps): ReactElement | null => {
   const C = Table.Cell.REGISTRY[cell.variant];
   return (
     <Form.Form<typeof Table.Cell.configZ> {...methods}>
-      <C.Form />
+      <C.Form tab={tab} onTabChange={handleTabChange} />
     </Form.Form>
   );
 };

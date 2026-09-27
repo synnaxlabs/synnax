@@ -45,6 +45,15 @@ const renderTab = (tab: string) => {
 const renderTelemetryTab = () => renderTab("Telemetry");
 
 describe("ValueForm", () => {
+  it("should open on the telemetry tab", () => {
+    const { getByRole } = render(
+      <FormWrapper>
+        <ValueForm />
+      </FormWrapper>,
+    );
+    expect(getByRole("tab", { name: "Telemetry" }).ariaSelected).toBe("true");
+  });
+
   describe("telemetry tab", () => {
     it("should render the telemetry fields for a value cell", () => {
       const { getByText } = renderTelemetryTab();
