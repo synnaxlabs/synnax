@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { location } from "@synnaxlabs/x";
@@ -21,48 +20,44 @@ import { Scale } from "@/schematic/node/common/scale";
 export const ScaleForm = (): ReactElement => {
   const { value: orientation } = Base.useField<location.Outer>("orientation");
   return (
-    <Tabs.Frame initialValue="properties">
-      <Tabs.Selector>
-        <Tabs.Tab itemKey="properties">Properties</Tabs.Tab>
-        <Tabs.Tab itemKey="telemetry">Telemetry</Tabs.Tab>
-      </Tabs.Selector>
-      <Tabs.Content itemKey="properties">
-        <Form.Wrapper x>
-          <Flex.Box y grow>
+    <Form.Tabs tabs={["style", "telemetry"]}>
+      <Tabs.Content itemKey="style">
+        <Base.Sections x>
+          <Base.Section title="Label">
             <Label.Form path="label" />
-            <Flex.Box x>
-              <Base.NumericField
-                path="dimensions.width"
-                label="Width"
-                padHelpText={false}
-                inputProps={Form.DIMENSIONS_INPUT_PROPS}
-              />
-              <Base.NumericField
-                path="dimensions.height"
-                label="Height"
-                padHelpText={false}
-                inputProps={Form.DIMENSIONS_INPUT_PROPS}
-              />
-              <Scale.DisplayFields
-                path="indicator"
-                axis={location.direction(orientation)}
-              />
-            </Flex.Box>
-            <Flex.Box x>
-              <Form.ColorField path="color" label="Fill color" />
-              <Scale.StyleFields path="indicator" />
-            </Flex.Box>
-          </Flex.Box>
-          <Orientation.Field path="" hideInner />
-        </Form.Wrapper>
+          </Base.Section>
+          <Base.Section title="Dimensions">
+            <Base.NumericField
+              path="dimensions.width"
+              label="Width"
+              padHelpText={false}
+              inputProps={Form.DIMENSIONS_INPUT_PROPS}
+            />
+            <Base.NumericField
+              path="dimensions.height"
+              label="Height"
+              padHelpText={false}
+              inputProps={Form.DIMENSIONS_INPUT_PROPS}
+            />
+          </Base.Section>
+          <Base.Section title="Display">
+            <Scale.DisplayFields
+              path="indicator"
+              axis={location.direction(orientation)}
+            />
+          </Base.Section>
+          <Base.Section title="Appearance">
+            <Form.ColorField path="color" label="Fill color" />
+            <Scale.StyleFields path="indicator" />
+          </Base.Section>
+          <Orientation.Section path="" hideInner />
+        </Base.Sections>
       </Tabs.Content>
       <Tabs.Content itemKey="telemetry">
-        <Form.Wrapper x>
-          <Flex.Box y grow>
-            <Scale.TelemForm path="indicator" />
-          </Flex.Box>
-        </Form.Wrapper>
+        <Base.Sections x>
+          <Scale.TelemForm path="indicator" />
+        </Base.Sections>
       </Tabs.Content>
-    </Tabs.Frame>
+    </Form.Tabs>
   );
 };

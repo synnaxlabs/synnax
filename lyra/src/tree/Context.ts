@@ -10,7 +10,13 @@
 import { context } from "@/context";
 import { type NodeShape } from "@/tree/base";
 
-export const [Context, useContext] = context.create<NodeShape[]>({
+export interface ContextValue {
+  nodes: NodeShape[];
+  /** Set when carets toggle their nodes, by index; a row click then only selects. */
+  toggle?: (index: number) => void;
+}
+
+export const [Context, useContext] = context.create<ContextValue>({
   displayName: "Tree.Context",
   providerName: "Tree.Provider",
 });
