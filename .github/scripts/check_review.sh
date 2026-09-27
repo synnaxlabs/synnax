@@ -9,11 +9,11 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Decides the Review gate commit status for a pull request. Usage:
-# check_review.sh <pr_number>. Prints "<state>\t<description>" where state is pending
-# (waiting on a tier label or a human approval), failure (more than one tier label),
-# or success. Exits non-zero only when the GitHub API fails. The tiers are documented
-# in CONTRIBUTING.md.
+# Decides the Review gate commit status for a pull request. Usage: check_review.sh
+# <pr_number>. Prints "<state>\t<description>" where state is pending (waiting on a tier
+# label, the Greptile review, or a human approval), failure (more than one tier label),
+# or success. Exits non-zero only when the GitHub API fails. The tiers are documented in
+# CONTRIBUTING.md.
 
 set -euo pipefail
 
@@ -28,8 +28,9 @@ report() {
 }
 
 PULL=$(gh api "repos/${REPO}/pulls/${PR}" \
-    --jq '{author: .user.login, labels: [.labels[].name]}')
+    --jq '{author: .user.login, head: .head.sha, labels: [.labels[].name]}')
 AUTHOR=$(jq -r .author <<< "$PULL")
+HEAD=$(jq -r .head <<< "$PULL")
 LABELS=$(jq -r '.labels[]' <<< "$PULL")
 
 FOUND=()
@@ -43,11 +44,21 @@ elif [ "${#FOUND[@]}" -gt 1 ]; then
 fi
 TIER=${FOUND[0]#review/}
 
+# Only a review of the head counts: a push after the review needs a new one. The latest
+# filter keeps a rerun's verdict from being shadowed by an earlier success.
+REVIEW=$(gh api "repos/${REPO}/commits/${HEAD}/check-runs?filter=latest&per_page=100" \
+    --paginate \
+    --jq '.check_runs[]
+        | select(.name == "Greptile Review" and .conclusion == "success") | .id')
+if [ -z "$REVIEW" ]; then
+    report pending "review/${TIER}: waiting for the Greptile review of the head"
+fi
+
 if [ "$TIER" = bot ]; then report success "review/bot: no human approval required"; fi
 
 # The latest review by each human decides; a later request for changes or a dismissal
-# retires an earlier approval. Pages are joined before grouping, since gh applies a
-# --jq filter to each page on its own.
+# retires an earlier approval. Pages are joined before grouping, since gh applies a --jq
+# filter to each page on its own.
 APPROVERS=$(gh api "repos/${REPO}/pulls/${PR}/reviews?per_page=100" --paginate \
     | jq -rs 'add
         | map(select(.user.type != "Bot" and .state != "COMMENTED"))

@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/platform/task/BindChannels";
 export * from "@/platform/task/ChannelList";
 export * from "@/platform/task/ChannelName";
 export * from "@/platform/task/controls";
 export * from "@/platform/task/createCommand";
 export * from "@/platform/task/CreateMenuItem";
-export * from "@/platform/task/EnableDisableButton";
+export * from "@/platform/task/EnabledCheckbox";
 export * from "@/platform/task/fields";
 export * from "@/platform/task/Form";
 export * from "@/platform/task/getChannelNameID";
@@ -20,8 +21,10 @@ export * from "@/platform/task/ParentRangeButton";
 export * from "@/platform/task/Rack";
 export * from "@/platform/task/ReadChannelContextMenuItem";
 export * from "@/platform/task/registry";
+export * from "@/platform/task/selectItems";
 export * from "@/platform/task/TareButton";
 export * from "@/platform/task/types";
+export * from "@/platform/task/useChannelDeviceKeys";
 export * from "@/platform/task/useCreate";
 export * from "@/platform/task/useDrifted";
 export * from "@/platform/task/useKey";

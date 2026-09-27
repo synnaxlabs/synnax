@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, Dialog, Icon, Menu, Text, User } from "@synnaxlabs/pluto";
+import { Avatar } from "@synnaxlabs/lyra/avatar";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useCallback } from "react";
 
 import { useClerk, useUser } from "@/portal/ui/clerk";
@@ -42,7 +47,7 @@ export const Account = (): ReactElement | null => {
         square
         aria-label="Account menu"
         className="account-button account-avatar"
-        style={user.hasImage ? undefined : { background: User.avatar(name) }}
+        style={user.hasImage ? undefined : { background: Avatar.gradient(name) }}
       >
         {user.hasImage ? (
           <img className="account-avatar__image" src={user.imageUrl} alt="" />

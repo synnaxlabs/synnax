@@ -34,6 +34,7 @@ func encodeWith[T any](
 	write func(*jsontext.Encoder, T) error,
 	value T,
 ) string {
+	GinkgoHelper()
 	var buf bytes.Buffer
 	Expect(write(jsontext.NewEncoder(&buf), value)).To(Succeed())
 	// A bare encoder terminates a top-level value with a newline; a marshaler writing

@@ -13,6 +13,10 @@ import {
   createTestClient,
   createTestClientWithPolicy,
 } from "@synnaxlabs/client/testutil";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { Tabs } from "@synnaxlabs/lyra/tabs";
+import { mockBoundingClientRect } from "@synnaxlabs/lyra/testutil";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { type record, TimeSpan, uuid } from "@synnaxlabs/x";
 import {
   act,
@@ -25,12 +29,8 @@ import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { assert, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Errors } from "@/errors";
-import { Haul } from "@/haul";
 import { Panel } from "@/panel";
-import { Tabs } from "@/tabs";
-import { mockBoundingClientRect } from "@/testutil/dom";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
-import { Tooltip } from "@/tooltip";
 
 const client = createTestClient();
 // writer is a second connected client used to emit changes the wrapper client

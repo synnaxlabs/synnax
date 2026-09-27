@@ -87,20 +87,12 @@ const Fingerprint = ({ info: { info, error } }: FingerprintProps): ReactElement 
   );
 };
 
-export interface ActivateProps {
-  /**
-   * True when the session has one fixed Core. The screen then shows no connection
-   * island and no log out action.
-   */
-  standalone?: boolean;
-}
-
 /**
  * Full-screen activation surface for a Core that refuses requests until a license
  * applies. Shows the host fingerprint the portal needs and takes the token it issues,
  * pasted or from a file.
  */
-export const Activate = ({ standalone = false }: ActivateProps): ReactElement => {
+export const Activate = (): ReactElement => {
   const client = Synnax.use();
   const connection = Synnax.useConnectionStatus();
   const target = Session.Core.useSelectSelected();
@@ -142,7 +134,7 @@ export const Activate = ({ standalone = false }: ActivateProps): ReactElement =>
   return (
     <Shell.Frame
       className={CSS.B("license-activate")}
-      connection={standalone ? null : target}
+      connection={Session.Runtime.CORE_EMBEDDED ? null : target}
     >
       <Flex.Box y gap="large" className={CSS.BE("license-activate", "body")}>
         <Status.Summary variant="warning" level="h4" message={connection.message} />
@@ -185,7 +177,7 @@ export const Activate = ({ standalone = false }: ActivateProps): ReactElement =>
           <Connection.Retry variant="outlined" grow justify="center">
             Check again
           </Connection.Retry>
-          {!standalone && (
+          {!Session.Runtime.CORE_EMBEDDED && (
             <Button.Button variant="outlined" grow justify="center" onClick={logout}>
               <Icon.Logout />
               Log out

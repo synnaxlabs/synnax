@@ -9,6 +9,13 @@
 
 import "@/vis/canvas/Canvas.css";
 
+import { CSS } from "@synnaxlabs/lyra/css";
+import {
+  useCombinedRefs,
+  useResize,
+  type UseResizeHandler,
+  type UseResizeOpts,
+} from "@synnaxlabs/lyra/hooks";
 import { box, type CrudeTimeSpan, runtime, scale, TimeSpan, xy } from "@synnaxlabs/x";
 import {
   type CanvasHTMLAttributes,
@@ -21,13 +28,6 @@ import {
 } from "react";
 
 import { Aether } from "@/aether";
-import { CSS } from "@/css";
-import {
-  useCombinedRefs,
-  useResize,
-  type UseResizeHandler,
-  type UseResizeOpts,
-} from "@/hooks";
 import { canvas } from "@/vis/canvas/aether";
 
 type HTMLDivProps = DetailedHTMLProps<

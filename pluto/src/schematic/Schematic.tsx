@@ -9,15 +9,16 @@
 
 import "@/schematic/Schematic.css";
 
+import { type Component } from "@synnaxlabs/lyra/component";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { type Triggers } from "@synnaxlabs/lyra/triggers";
 import { box, TimeSpan, xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo, useRef } from "react";
 
-import { type Component } from "@/component";
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
-import { Haul } from "@/haul";
-import { useSyncedRef } from "@/hooks";
-import { Menu } from "@/menu";
 import { useClipboard } from "@/schematic/clipboard";
 import {
   Diagram,
@@ -40,7 +41,6 @@ import {
   useUngroup,
 } from "@/schematic/queries";
 import { useKey } from "@/schematic/Suspended";
-import { type Triggers } from "@/triggers";
 import { Diagram as BaseDiagram } from "@/vis/diagram";
 
 export interface SchematicProps extends Omit<

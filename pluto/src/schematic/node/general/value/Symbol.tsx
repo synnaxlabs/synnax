@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
+import { Component } from "@synnaxlabs/lyra/component";
 import { box, scale, text, xy } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
-import { HEIGHTS } from "@/component/size";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { LEVEL_SIZES } from "@/schematic/node/common/size";
@@ -45,7 +45,7 @@ export const Symbol = ({
     redline,
   },
 }: NodeProps<schematic.ValueNodeConfig>): ReactElement => {
-  const valueBoxHeight = HEIGHTS[LEVEL_SIZES[level]];
+  const valueBoxHeight = Component.HEIGHTS[LEVEL_SIZES[level]];
   const t = useMemo(
     () => BaseValue.stringSource({ channel, rollingAverage, precision, notation }),
     [channel, rollingAverage, precision, notation],

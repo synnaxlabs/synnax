@@ -9,7 +9,8 @@
 
 import "@/app/window/Primary.css";
 
-import { Flex, OS } from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { OS } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Link } from "@/app/link";

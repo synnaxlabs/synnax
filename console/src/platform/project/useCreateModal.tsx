@@ -8,17 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type panel, project, status, UnexpectedError } from "@synnaxlabs/client";
-import {
-  Button,
-  type Flux,
-  Form,
-  Icon,
-  Input,
-  Nav,
-  Panel,
-  Project,
-  Synnax,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Nav } from "@synnaxlabs/lyra/nav";
+import { type Flux, Panel, Project, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Modals } from "@/platform/modals";

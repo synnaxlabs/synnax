@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { log } from "@synnaxlabs/client";
-import { Access, Flex, Input, Log } from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Access, Log } from "@synnaxlabs/pluto";
 import { type bounds } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 

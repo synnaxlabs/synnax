@@ -7,14 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  Button,
-  Dialog,
-  Modal as PModal,
-  Nav,
-  Status,
-  Triggers,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
+import { Modal as PModal } from "@synnaxlabs/lyra/modal";
+import { Nav } from "@synnaxlabs/lyra/nav";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { type PropsWithChildren, type ReactElement, type ReactNode } from "react";
 
 export interface FrameProps extends PropsWithChildren {

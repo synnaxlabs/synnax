@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex, Input, Schematic } from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Schematic } from "@synnaxlabs/pluto";
 import { control } from "@synnaxlabs/x";
 import { useCallback } from "react";
 

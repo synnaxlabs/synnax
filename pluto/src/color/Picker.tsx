@@ -9,19 +9,19 @@
 
 import "@/color/Picker.css";
 
+import { Button } from "@synnaxlabs/lyra/button";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { useDebouncedCallback } from "@synnaxlabs/lyra/hooks";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { type Input } from "@synnaxlabs/lyra/input";
+import { Text } from "@synnaxlabs/lyra/text";
 import { color, TimeSpan } from "@synnaxlabs/x";
 import { type ComponentPropsWithoutRef, type ReactElement, useCallback } from "react";
 import { type ColorResult, SketchPicker } from "react-color";
 
-import { Button } from "@/button";
 import { BaseSwatch } from "@/color/BaseSwatch";
 import { useFrequent, useFrequentUpdater } from "@/color/Provider";
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
-import { useDebouncedCallback } from "@/hooks";
-import { Icon } from "@/icon";
-import { type Input } from "@/input";
-import { Text } from "@/text";
 
 export interface PickerProps
   extends

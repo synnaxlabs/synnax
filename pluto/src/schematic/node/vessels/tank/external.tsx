@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
+import { Component } from "@synnaxlabs/lyra/component";
 
-import { Component } from "@/component";
 import { type Spec } from "@/schematic/node/spec";
 import { TankForm } from "@/schematic/node/vessels/tank/Form";
 import { Tank } from "@/schematic/node/vessels/tank/Primitive";

@@ -13,21 +13,19 @@ import {
   query,
   type Synnax as Client,
 } from "@synnaxlabs/client";
+import { Component } from "@synnaxlabs/lyra/component";
+import { context } from "@synnaxlabs/lyra/context";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import {
-  Access,
-  Component,
-  context,
-  Haul,
-  List,
-  Menu,
-  Ontology,
-  Status,
-  Synnax,
-  Tree as Base,
   useCombinedStateAndRef,
   useInitializerRef,
   useSyncedRef,
-} from "@synnaxlabs/pluto";
+} from "@synnaxlabs/lyra/hooks";
+import { List } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Tree as Base } from "@synnaxlabs/lyra/tree";
+import { Access, Ontology, Synnax } from "@synnaxlabs/pluto";
 import { array, type destructor, type observe } from "@synnaxlabs/x";
 import {
   type DragEvent,

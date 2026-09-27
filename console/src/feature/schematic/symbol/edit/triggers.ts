@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Triggers } from "@synnaxlabs/pluto";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 
 // Bare keys, not Control chords: a browser reserves Control with = and - for its own
 // zoom and ignores preventDefault on them. The provider withholds printable keys from a

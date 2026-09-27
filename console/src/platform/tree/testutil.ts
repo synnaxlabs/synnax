@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, type Synnax } from "@synnaxlabs/client";
-import { type Status, Tree as PTree } from "@synnaxlabs/pluto";
+import { type Status } from "@synnaxlabs/lyra/status";
+import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { array } from "@synnaxlabs/x";
 
 import { type Tree } from "@/platform/tree";

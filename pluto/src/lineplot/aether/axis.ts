@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { theme as baseTheme } from "@synnaxlabs/lyra/theme";
 import {
   bounds,
   box,
@@ -20,7 +21,6 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { theming } from "@/theming/aether";
-import { fontString } from "@/theming/base/fontString";
 import { axis } from "@/vis/axis";
 import { type TickType } from "@/vis/axis/ticks";
 import { grid } from "@/vis/grid";
@@ -119,7 +119,7 @@ export class BaseAxis<
       dir === "x" ? DEFAULT_Y_BOUND_PADDING : DEFAULT_X_BOUND_PADDING;
     i.base = axis.newCanvas(location, i.render, {
       color: theme.colors.gray.l10,
-      font: fontString(theme, { level: "small", code: true }),
+      font: baseTheme.fontString(theme, { level: "small", code: true }),
       gridColor: theme.colors.gray.l1,
       ...this.state,
     });

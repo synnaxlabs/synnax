@@ -7,7 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { CSS as PCSS, Menu as PMenu, Triggers, useSyncedRef } from "@synnaxlabs/pluto";
+import { CSS as PCSS } from "@synnaxlabs/lyra/css";
+import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
+import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { array, direction, type location, xy } from "@synnaxlabs/x";
 import {
   type MouseEvent as ReactMouseEvent,

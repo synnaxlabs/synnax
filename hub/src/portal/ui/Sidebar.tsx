@@ -7,7 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, Flex, Icon, Select, Text } from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useCallback } from "react";
 
 export interface SidebarOrganization {
@@ -68,13 +72,18 @@ export const Sidebar = ({
   return (
     <Flex.Box y gap="large" className="portal-sidebar">
       {teams.length > 1 && (
-        <Select.Static<string, SidebarOrganization>
+        <Select.Simple<string>
           resourceName="Organization"
-          data={teams}
           value={selected ?? teams[0].key}
           onChange={handleOrganization}
           full="x"
-        />
+        >
+          {teams.map(({ key, name }) => (
+            <Select.Item key={key} itemKey={key}>
+              {name}
+            </Select.Item>
+          ))}
+        </Select.Simple>
       )}
       <Flex.Box y gap="tiny">
         {visible.map((link) => (

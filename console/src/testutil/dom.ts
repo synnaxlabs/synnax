@@ -232,9 +232,9 @@ export const getInputTable = (labelText: string): InputTable => {
     getInputItem(labelText),
     ".pluto-input__table",
   );
-  const [header, ...rows] = Array.from(table.querySelectorAll<HTMLElement>("tr"));
+  const rows = Array.from(table.querySelectorAll<HTMLElement>("tbody tr"));
   return {
-    add: getIconButton(header, "add"),
+    add: getIconButton(table, "add"),
     rows,
     cell: (row, col = 0) =>
       within(rows[row]).getAllByRole<HTMLInputElement>("textbox")[col],
@@ -256,7 +256,9 @@ export const getHeaderIconButton = (
   title: string,
   icon: string = "add",
 ): HTMLButtonElement => {
-  const header = screen.getByText(title).closest(".pluto-header");
+  const header = screen
+    .getByText(title)
+    .closest(".pluto-header, .pluto-form-section__header");
   if (header == null) throw new Error(`no header titled ${title}`);
   return getIconButton(header, icon);
 };

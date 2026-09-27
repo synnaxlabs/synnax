@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, Dialog, Form, Icon, Input, Select, Text } from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
 import { navigate } from "astro:transitions/client";
 import { type ReactElement, useCallback } from "react";
 import { z } from "zod";
@@ -54,11 +60,6 @@ const schema = z
         input: v.maxVersion,
       });
   });
-
-const TERMS: { key: Term; name: string }[] = [
-  { key: "subscription", name: "Subscription" },
-  { key: "perpetual", name: "Perpetual" },
-];
 
 export interface IssueDialogProps {
   /** teams are the organizations in Clerk. Create one there first. */
@@ -122,11 +123,13 @@ const Content = ({ teams }: IssueDialogProps): ReactElement => {
           helpText="Organizations and their admins are created in the Clerk dashboard."
         >
           {(p) => (
-            <Select.Static<string, OrganizationEntry>
-              {...p}
-              data={entries}
-              resourceName="Organization"
-            />
+            <Select.Simple<string> {...p} resourceName="Organization">
+              {entries.map(({ key, name }) => (
+                <Select.Item key={key} itemKey={key}>
+                  {name}
+                </Select.Item>
+              ))}
+            </Select.Simple>
           )}
         </Form.Field>
         <Form.TextField
@@ -136,11 +139,10 @@ const Content = ({ teams }: IssueDialogProps): ReactElement => {
         />
         <Form.Field<Term> path="term" label="Term">
           {(p) => (
-            <Select.Static<Term, { key: Term; name: string }>
-              {...p}
-              data={TERMS}
-              resourceName="Term"
-            />
+            <Select.Simple<Term> {...p} resourceName="Term">
+              <Select.Item itemKey="subscription">Subscription</Select.Item>
+              <Select.Item itemKey="perpetual">Perpetual</Select.Item>
+            </Select.Simple>
           )}
         </Form.Field>
         <Form.NumericField path="nodes" label="Machines that may activate" />

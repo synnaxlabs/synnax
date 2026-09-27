@@ -294,7 +294,9 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
 
         self.log("Testing: Verify rename synchronization")
         self.console.layout.get_tab(new_name).wait_for(state="visible", timeout=5000)
-        name_value = self.console.layout.get_input_field("Name")
+        name_value = self.console.layout.page.get_by_role(
+            "textbox", name="Name", exact=True
+        ).first.input_value()
         assert name_value == new_name, (
             f"Task config Name field should show '{new_name}', got '{name_value}'"
         )

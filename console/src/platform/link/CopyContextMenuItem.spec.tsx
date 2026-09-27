@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Menu } from "@synnaxlabs/pluto";
+import { Menu } from "@synnaxlabs/lyra/menu";
 import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -22,18 +22,5 @@ describe("Link.CopyContextMenuItem", () => {
       </Menu.Menu>,
     );
     expect(screen.getByText("Copy link")).toBeTruthy();
-  });
-
-  it("renders nothing below Link.Disabled", async () => {
-    await renderWithConsole(
-      <Menu.Menu>
-        <Link.Disabled>
-          <Link.CopyContextMenuItem />
-        </Link.Disabled>
-        <Menu.Item itemKey="rename">Rename</Menu.Item>
-      </Menu.Menu>,
-    );
-    expect(screen.getByText("Rename")).toBeTruthy();
-    expect(screen.queryByText("Copy link")).toBeNull();
   });
 });

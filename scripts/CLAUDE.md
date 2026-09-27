@@ -55,8 +55,9 @@ release actions (pytest coverage beside them), `check_artifact_cache.sh`,
 ## Bazel
 
 - `run_bazel.sh <bazel arguments...>` — runs Bazel, and recovers once from an external
-  repo that a repo contents cache deletion left unloadable. Only the Windows CI steps
-  use it, because those runners hold one output base for weeks.
+  repo that a repo contents cache deletion left unloadable, or from a link against
+  archives a dependency bump made stale. Only the Windows CI steps use it, because those
+  runners hold one output base for weeks.
 
 ## Toolchain bootstrap
 

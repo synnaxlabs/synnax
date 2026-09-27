@@ -32,11 +32,13 @@ var _ = Describe("SetRack", func() {
 	var a arc.Arc
 
 	createArc := func(ctx SpecContext, raw string) {
+		GinkgoHelper()
 		a = arc.Arc{Name: "deployable", Mode: arc.ModeText, Text: newText(raw)}
 		Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 	}
 
 	retrieveTask := func(ctx SpecContext, key task.Key) task.Task {
+		GinkgoHelper()
 		var tsk task.Task
 		Expect(taskSvc.NewRetrieve().
 			Where(task.MatchKeys(key)).
@@ -148,6 +150,7 @@ var _ = Describe("Task sync", func() {
 	var a arc.Arc
 
 	createArc := func(ctx SpecContext, mode arc.Mode) {
+		GinkgoHelper()
 		a = arc.Arc{Name: "syncable", Mode: mode}
 		Expect(writer.Create(ctx, &a)).To(Succeed())
 	}
@@ -235,6 +238,7 @@ var _ = Describe("Task sync", func() {
 			),
 		).To(Succeed())
 		tasksByName := func(g Gomega) {
+			GinkgoHelper()
 			var tasks []task.Task
 			g.Expect(taskSvc.NewRetrieve().
 				Where(task.MatchNames(unbound.Name)).

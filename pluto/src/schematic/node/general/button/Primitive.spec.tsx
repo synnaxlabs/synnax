@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
+import { Form } from "@synnaxlabs/lyra/form";
 import { color, deep } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Form } from "@/form";
 import { ButtonForm } from "@/schematic/node/general/button/Form";
 import { Button } from "@/schematic/node/general/button/Primitive";
 import { createSynnaxWrapper } from "@/testutil/Synnax";

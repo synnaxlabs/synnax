@@ -28,6 +28,7 @@ import (
 
 var _ = Describe("Service", func() {
 	createIndexed := func(ctx SpecContext) (channel.Channel, channel.Channel) {
+		GinkgoHelper()
 		idxCh := channel.Channel{
 			Name:     UniqueChannelName(),
 			DataType: telem.TimestampT,
@@ -44,6 +45,7 @@ var _ = Describe("Service", func() {
 	}
 
 	write := func(ctx SpecContext, idxCh, dataCh channel.Channel) {
+		GinkgoHelper()
 		w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 			Start: telem.SecondTS,
 			Keys:  []channel.Key{idxCh.Key(), dataCh.Key()},

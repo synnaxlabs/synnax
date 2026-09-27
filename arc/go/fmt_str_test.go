@@ -19,6 +19,7 @@ import (
 
 var _ = Describe("format-string end-to-end runtime", func() {
 	lastString := func(fr telem.Frame[uint32], key uint32) string {
+		GinkgoHelper()
 		ch := fr.Get(key)
 		Expect(ch.Series).ToNot(BeEmpty(), "channel %d not written", key)
 		s := ch.Series[len(ch.Series)-1]
@@ -28,6 +29,7 @@ var _ = Describe("format-string end-to-end runtime", func() {
 	}
 
 	runFmtTrigger := func(ctx SpecContext, source string) string {
+		GinkgoHelper()
 		resolver := channelSymbols(map[string]channelDef{
 			"trig": {types.U8(), 100},
 			"log":  {types.String(), 101},
@@ -57,6 +59,7 @@ var _ = Describe("format-string end-to-end runtime", func() {
 		valueDT telem.DataType,
 		ingest func(*runtimeHarness),
 	) string {
+		GinkgoHelper()
 		resolver := channelSymbols(map[string]channelDef{
 			"v":   {valueType, 100},
 			"log": {types.String(), 101},
@@ -254,6 +257,7 @@ var _ = Describe("format-string end-to-end runtime", func() {
 		// Runs a program that renders a bool placeholder into log, driven by a
 		// u8 trigger. Bool-channel placeholders wait on read_bool/write_bool.
 		runBoolProgram := func(ctx SpecContext, program string) string {
+			GinkgoHelper()
 			resolver := channelSymbols(map[string]channelDef{
 				"trig": {types.U8(), 100},
 				"log":  {types.String(), 101},
@@ -502,6 +506,7 @@ trig -> f{}`, "v=false"),
 
 	Describe("Documented Examples table (syntax.mdx)", func() {
 		runFmtExample := func(ctx SpecContext, declarations, body string) string {
+			GinkgoHelper()
 			resolver := channelSymbols(map[string]channelDef{
 				"trig": {types.U8(), 100},
 				"log":  {types.String(), 101},

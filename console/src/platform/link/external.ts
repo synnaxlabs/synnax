@@ -9,7 +9,6 @@
 
 export * from "@/platform/link/CopyContextMenuItem";
 export * from "@/platform/link/createUseOpen";
-export * from "@/platform/link/Disabled";
 export * from "@/platform/link/markIgnored";
 export * from "@/platform/link/types";
 export * from "@/platform/link/useCopyToClipboard";

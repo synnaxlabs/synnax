@@ -29,6 +29,7 @@
     { "name": "freighter/ts", "path": "../freighter/ts" },
     { "name": "hub", "path": "../hub" },
     { "name": "integration", "path": "../integration" },
+    { "name": "lyra", "path": "../lyra" },
     { "name": "media", "path": "../x/media" },
     { "name": "oracle", "path": "../oracle" },
     { "name": "pluto", "path": "../pluto" },

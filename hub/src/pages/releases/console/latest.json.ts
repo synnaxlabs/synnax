@@ -10,7 +10,6 @@
 import { type APIRoute } from "astro";
 
 import { manifest } from "@/pages/releases/_manifest";
-import { manifestURL } from "@/util/releases";
 
 export const GET: APIRoute = async ({ locals }) =>
-  await manifest(locals.releases, "stable", manifestURL);
+  await manifest(locals.releases, "console", "stable");

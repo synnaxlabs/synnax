@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, Flex, Form, Select, Status, Text } from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
 import { navigate } from "astro:transitions/client";
 import { type ReactElement, useCallback, useState } from "react";
 
@@ -66,12 +71,13 @@ export const Activate = ({ choices, selected }: ActivateProps): ReactElement => 
             <Text.Text level="small" color={9}>
               License
             </Text.Text>
-            <Select.Static<string, Entry>
-              data={entries}
-              resourceName="License"
-              value={key}
-              onChange={setKey}
-            />
+            <Select.Simple<string> resourceName="License" value={key} onChange={setKey}>
+              {entries.map(({ key, name }) => (
+                <Select.Item key={key} itemKey={key}>
+                  {name}
+                </Select.Item>
+              ))}
+            </Select.Simple>
           </Flex.Box>
           {key !== "" && <Inline key={key} licenseKey={key} />}
         </Flex.Box>

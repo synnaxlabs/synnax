@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type connection } from "@synnaxlabs/client";
-import { Status, Synnax, Text } from "@synnaxlabs/pluto";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Synnax } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Connection as PlatformConnection } from "@/platform/connection";

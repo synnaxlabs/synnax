@@ -7,16 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  Button,
-  Dialog,
-  Flex,
-  Form,
-  Icon,
-  Input,
-  Select,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 import { z } from "zod";
 
@@ -290,13 +288,18 @@ const Member = ({
         {data?.identifier ?? ""}
       </Text.Text>
       {editable ? (
-        <Select.Static<string, { key: string; name: string }>
-          data={ROLES}
+        <Select.Simple<string>
           resourceName="Role"
           value={m.role}
           onChange={changeRole.run}
           disabled={changeRole.loading}
-        />
+        >
+          {ROLES.map(({ key, name }) => (
+            <Select.Item key={key} itemKey={key}>
+              {name}
+            </Select.Item>
+          ))}
+        </Select.Simple>
       ) : (
         <Text.Text level="p" color={10}>
           {roleName(m.role)}
@@ -379,11 +382,13 @@ const InviteContent = ({ organization, onDone }: InviteDialogProps): ReactElemen
         </Form.Field>
         <Form.Field<string> path="role" label="Role">
           {(p) => (
-            <Select.Static<string, { key: string; name: string }>
-              {...p}
-              data={ROLES}
-              resourceName="Role"
-            />
+            <Select.Simple<string> {...p} resourceName="Role">
+              {ROLES.map(({ key, name }) => (
+                <Select.Item key={key} itemKey={key}>
+                  {name}
+                </Select.Item>
+              ))}
+            </Select.Simple>
           )}
         </Form.Field>
       </Modal.Body>

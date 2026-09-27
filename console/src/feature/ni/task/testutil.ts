@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Synnax } from "@synnaxlabs/client";
-import { type Status } from "@synnaxlabs/pluto";
+import { type Status } from "@synnaxlabs/lyra/status";
 import { id } from "@synnaxlabs/x";
 import { waitFor } from "@testing-library/react";
 import { type FC } from "react";

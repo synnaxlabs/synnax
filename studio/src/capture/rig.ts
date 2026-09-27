@@ -38,13 +38,6 @@ import {
   type Timeline,
 } from "@/timeline";
 
-/**
- * Fixed virtual-clock epoch for every capture. A constant epoch keeps captures
- * reproducible run to run and gives both videos of a themed pair identical
- * on-screen timestamps (plot axes, range pickers).
- */
-const CLOCK_EPOCH = new Date("2026-08-18T09:00:00");
-
 export interface CaptureOptions {
   /** URL of the Console web build. */
   url: string;
@@ -56,6 +49,8 @@ export interface CaptureOptions {
   fps?: number;
   theme?: "light" | "dark";
   headed?: boolean;
+  /** Accepts self-signed certificates, for a capture Core served over TLS. */
+  insecure?: boolean;
   /**
    * Hides the text caret. The native caret blinks on renderer wall time, which
    * capture cannot step, so it blinks fps/wall-rate times too fast in output.
@@ -158,12 +153,13 @@ export class CaptureSession {
 
   static async launch(options: CaptureOptions): Promise<CaptureSession> {
     const opts: Required<CaptureOptions> = {
-      width: 1512,
-      height: 945,
+      width: 1080,
+      height: 608,
       dsf: 2,
       fps: 60,
       theme: "light",
       headed: false,
+      insecure: false,
       hideCaret: false,
       hideNotifications: true,
       corePort: 9090,
@@ -171,15 +167,21 @@ export class CaptureSession {
     };
     const browser = await chromium.launch({
       headless: !opts.headed,
-      args: ["--force-color-profile=srgb", "--hide-scrollbars"],
+      args: [
+        "--force-color-profile=srgb",
+        "--hide-scrollbars",
+        // ignoreHTTPSErrors does not reach WebSocket TLS.
+        ...(opts.insecure ? ["--ignore-certificate-errors"] : []),
+      ],
     });
     const context = await browser.newContext({
       viewport: { width: opts.width, height: opts.height },
       deviceScaleFactor: opts.dsf,
       colorScheme: opts.theme,
+      ignoreHTTPSErrors: opts.insecure,
     });
     const page = await context.newPage();
-    await page.clock.install({ time: CLOCK_EPOCH });
+    await page.clock.install();
     await page.addInitScript(ANIMATION_STEPPER);
     await page.addInitScript(PERFORMANCE_ENTRIES);
     await page.addInitScript(
@@ -541,12 +543,17 @@ export class CaptureSession {
       if (e.type === "zoom" && e.endTick > this.frame) e.endTick = this.frame;
   }
 
-  /** type enters text at a human cadence, one key per interval. */
+  /**
+   * type enters text at a human cadence: each key waits about msPerChar, jittered
+   * by a seeded sequence so a re-render of the same script lands identically.
+   */
   async type(text: string, msPerChar = 120): Promise<void> {
+    let seed = text.length;
     for (const char of text) {
       this.events.push({ type: "key", tick: this.frame, key: char });
       await this.page.keyboard.type(char);
-      await this.hold(msPerChar);
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      await this.hold(msPerChar * (0.6 + (seed % 1000) / 1250));
     }
   }
 

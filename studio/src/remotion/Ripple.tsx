@@ -22,11 +22,13 @@ export interface RippleProps {
   top: number;
   amount: number;
   dsf: number;
+  theme: "light" | "dark";
 }
 
 /**
  * Ripple is the click highlight: a world-space circle expanding with an
- * ease-out cubic and fading from 30% opacity to zero.
+ * ease-out cubic and fading to zero. The white ripple reads far harsher on the
+ * dark ground, so it starts fainter there.
  */
 export const Ripple = ({
   progress,
@@ -34,10 +36,11 @@ export const Ripple = ({
   top,
   amount,
   dsf,
+  theme,
 }: RippleProps): ReactElement => {
   const eased = 1 - (1 - progress) ** 3;
   const radius = MAX_RADIUS * eased * amount * dsf;
-  const opacity = 0.3 * (1 - progress);
+  const opacity = (theme === "dark" ? 0.025 : 0.3) * (1 - progress);
   return (
     <div
       style={{

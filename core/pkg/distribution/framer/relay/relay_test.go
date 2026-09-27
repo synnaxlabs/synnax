@@ -17,9 +17,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
@@ -27,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -37,7 +36,6 @@ type scenario struct {
 	close    io.Closer
 	name     string
 	channels []channel.Channel
-	resCount int
 }
 
 func (s scenario) Close() error { return s.close.Close() }
@@ -60,50 +58,65 @@ var _ = Describe("Relay", func() {
 			Specify(fmt.Sprintf("Scenario: %v - Happy Path", i), func(ctx SpecContext) {
 				keys := channel.KeysFromChannels(s.channels)
 				reader := MustSucceed(s.dist.Framer.NewStreamer(relay.StreamerConfig{
-					Keys: keys,
+					Keys:        keys,
+					SendOpenAck: new(true),
 				}))
-				sCtx, _ := signal.Isolated()
+				sCtx, cancel := signal.Isolated()
 				streamerReq, readerRes := confluence.Attach(reader, 10)
 				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-				// We need to give a few milliseconds for the reader to boot up.
-				time.Sleep(10 * time.Millisecond)
-				w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+				DeferCleanup(func() {
+					streamerReq.Close()
+					// A streamer parked on the open ack never reads its request inlet,
+					// so the drain below only returns once the context is cancelled.
+					cancel()
+					confluence.Drain(readerRes)
+				})
+				var ack relay.Response
+				Eventually(readerRes.Outlet()).Should(Receive(&ack))
+				Expect(ack.Frame.Empty()).To(BeTrue())
+				w := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 					Keys:  keys,
 					Start: 10 * telem.SecondTS,
 				}))
-				defer func() {
-					defer GinkgoRecover()
-					Expect(w.Close()).To(Succeed())
-				}()
-				writeF := frame.NewMulti(
-					keys,
-					[]telem.Series{
-						telem.NewSeriesV[int64](1, 2, 3),
-						telem.NewSeriesV[int64](3, 4, 5),
-						telem.NewSeriesV[int64](5, 6, 7),
-					},
-				)
-				Expect(w.Write(writeF)).To(BeTrue())
-				var f framer.Frame
-				for range s.resCount {
-					var res relay.Response
-					Eventually(readerRes.Outlet()).Should(Receive(&res))
-					f = frame.Merge([]frame.Frame{f, res.Frame})
+				// The writer takes ownership of the frame it is handed and mutates it
+				// asynchronously, so every attempt below writes a fresh one and the
+				// expected values live in a frame the writer never sees.
+				newWriteFrame := func() frame.Frame {
+					return frame.NewMulti(
+						keys,
+						[]telem.Series{
+							telem.NewSeriesV[int64](1, 2, 3),
+							telem.NewSeriesV[int64](3, 4, 5),
+							telem.NewSeriesV[int64](5, 6, 7),
+						},
+					)
 				}
-				Expect(f.Count()).To(Equal(3))
-				for i, k := range f.KeysSlice() {
-					wi := lo.IndexOf(keys, k)
-					ch := s.channels[wi]
-					s := f.SeriesAt(i)
-					ws := writeF.SeriesAt(wi)
-					Expect(s.Data).To(Equal(ws.Data))
-					Expect(s.DataType).To(Equal(ws.DataType))
-					if !ch.Free() {
-						Expect(s.Alignment).To(BeNumerically(">", telem.Alignment(0)))
+				writeF := newWriteFrame()
+				// Peer taps subscribe after the open ack fires, so an early write is
+				// lost. Write until every demanded channel has delivered.
+				got := make(map[channel.Key]telem.Series, len(keys))
+				Eventually(func(g Gomega) int {
+					g.Expect(w.Write(newWriteFrame())).To(BeTrue())
+					var res relay.Response
+					g.Expect(readerRes.Outlet()).To(Receive(&res))
+					resKeys := res.Frame.KeysSlice()
+					g.Expect(set.New(resKeys...)).To(HaveLen(len(resKeys)))
+					for i, k := range resKeys {
+						if _, ok := got[k]; !ok {
+							got[k] = res.Frame.SeriesAt(i)
+						}
+					}
+					return len(got)
+				}, 5*time.Second).Should(Equal(len(keys)))
+				for i, k := range keys {
+					series, ws := got[k], writeF.SeriesAt(i)
+					Expect(series.Data).To(Equal(ws.Data))
+					Expect(series.DataType).To(Equal(ws.DataType))
+					if !s.channels[i].Free() {
+						Expect(series.Alignment).
+							To(BeNumerically(">", telem.Alignment(0)))
 					}
 				}
-				streamerReq.Close()
-				confluence.Drain(readerRes)
 			})
 		}
 	})
@@ -127,13 +140,16 @@ var _ = Describe("Relay", func() {
 				keys := channel.KeysFromChannels([]channel.Channel{idx, data})
 
 				reader := MustSucceed(node.Framer.NewStreamer(relay.StreamerConfig{
-					Keys: keys,
+					Keys:        keys,
+					SendOpenAck: new(true),
 				}))
 				sCtx, cancel := signal.Isolated()
 				defer cancel()
 				streamerReq, readerRes := confluence.Attach(reader, 10)
 				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-				time.Sleep(10 * time.Millisecond)
+				var ack relay.Response
+				Eventually(readerRes.Outlet()).Should(Receive(&ack))
+				Expect(ack.Frame.Empty()).To(BeTrue())
 
 				w := MustSucceed(node.Framer.OpenWriter(ctx, writer.Config{
 					Keys:  keys,
@@ -171,12 +187,15 @@ var _ = Describe("Relay", func() {
 				reader := MustSucceed(node.Framer.NewStreamer(relay.StreamerConfig{
 					Keys:          keys,
 					ExcludeGroups: []uint32{99},
+					SendOpenAck:   new(true),
 				}))
 				sCtx, cancel := signal.Isolated()
 				defer cancel()
 				streamerReq, readerRes := confluence.Attach(reader, 10)
 				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-				time.Sleep(10 * time.Millisecond)
+				var ack relay.Response
+				Eventually(readerRes.Outlet()).Should(Receive(&ack))
+				Expect(ack.Frame.Empty()).To(BeTrue())
 
 				w := MustSucceed(node.Framer.OpenWriter(ctx, writer.Config{
 					Keys:  keys,
@@ -214,12 +233,15 @@ var _ = Describe("Relay", func() {
 			reader := MustSucceed(node.Framer.NewStreamer(relay.StreamerConfig{
 				Keys:          keys,
 				ExcludeGroups: []uint32{99},
+				SendOpenAck:   new(true),
 			}))
 			sCtx, cancel := signal.Isolated()
 			defer cancel()
 			streamerReq, readerRes := confluence.Attach(reader, 10)
 			reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-			time.Sleep(10 * time.Millisecond)
+			var ack relay.Response
+			Eventually(readerRes.Outlet()).Should(Receive(&ack))
+			Expect(ack.Frame.Empty()).To(BeTrue())
 
 			w := MustSucceed(node.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  keys,
@@ -258,12 +280,15 @@ var _ = Describe("Relay", func() {
 				reader := MustSucceed(node.Framer.NewStreamer(relay.StreamerConfig{
 					Keys:          keys,
 					ExcludeGroups: []uint32{99},
+					SendOpenAck:   new(true),
 				}))
 				sCtx, cancel := signal.Isolated()
 				defer cancel()
 				streamerReq, readerRes := confluence.Attach(reader, 10)
 				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-				time.Sleep(10 * time.Millisecond)
+				var ack relay.Response
+				Eventually(readerRes.Outlet()).Should(Receive(&ack))
+				Expect(ack.Frame.Empty()).To(BeTrue())
 
 				w := MustSucceed(node.Framer.OpenWriter(ctx, writer.Config{
 					Keys:  keys,
@@ -302,12 +327,15 @@ var _ = Describe("Relay", func() {
 				reader := MustSucceed(svc.Framer.NewStreamer(relay.StreamerConfig{
 					Keys:          keys,
 					ExcludeGroups: []uint32{55},
+					SendOpenAck:   new(true),
 				}))
 				sCtx, cancel := signal.Isolated()
 				defer cancel()
 				streamerReq, readerRes := confluence.Attach(reader, 10)
 				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-				time.Sleep(10 * time.Millisecond)
+				var ack relay.Response
+				Eventually(readerRes.Outlet()).Should(Receive(&ack))
+				Expect(ack.Frame.Empty()).To(BeTrue())
 
 				w := MustSucceed(svc.Framer.OpenWriter(ctx, writer.Config{
 					Keys:  keys,
@@ -351,6 +379,7 @@ var _ = Describe("Relay", func() {
 		})
 
 		newFreeChannels := func(ctx context.Context, n int) []channel.Channel {
+			GinkgoHelper()
 			chs := make([]channel.Channel, n)
 			ts := time.Now().UnixNano()
 			for i := range chs {
@@ -574,6 +603,7 @@ var _ = Describe("Relay", func() {
 		})
 
 		newUniqueChannels := func(ctx context.Context, n int) []channel.Channel {
+			GinkgoHelper()
 			chs := make([]channel.Channel, n)
 			ts := time.Now().UnixNano()
 			for i := range chs {
@@ -700,11 +730,11 @@ func newChannelSet() []channel.Channel {
 }
 
 func gatewayOnlyScenario(ctx context.Context) scenario {
+	GinkgoHelper()
 	channels := newChannelSet()
 	node := mock.OpenNode(ctx)
 	channels = MustSucceed(node.Channel.Create(ctx, channels))
 	return scenario{
-		resCount: 1,
 		name:     "Gateway Only",
 		channels: channels,
 		dist:     node,
@@ -713,6 +743,7 @@ func gatewayOnlyScenario(ctx context.Context) scenario {
 }
 
 func peerOnlyScenario(ctx context.Context) scenario {
+	GinkgoHelper()
 	channels := newChannelSet()
 	cluster := mock.OpenCluster(ctx, 4)
 	dist := cluster.Nodes[1]
@@ -722,7 +753,6 @@ func peerOnlyScenario(ctx context.Context) scenario {
 	}
 	channels = MustSucceed(dist.Channel.Create(ctx, channels))
 	return scenario{
-		resCount: 3,
 		name:     "Peer Only",
 		channels: channels,
 		dist:     dist,
@@ -731,6 +761,7 @@ func peerOnlyScenario(ctx context.Context) scenario {
 }
 
 func mixedScenario(ctx context.Context) scenario {
+	GinkgoHelper()
 	channels := newChannelSet()
 	cluster := mock.OpenCluster(ctx, 3)
 	gateway := cluster.Nodes[1]
@@ -740,7 +771,6 @@ func mixedScenario(ctx context.Context) scenario {
 	}
 	channels = MustSucceed(gateway.Channel.Create(ctx, channels))
 	return scenario{
-		resCount: 3,
 		name:     "Mixed Gateway and Peer",
 		channels: channels,
 		dist:     gateway,
@@ -749,6 +779,7 @@ func mixedScenario(ctx context.Context) scenario {
 }
 
 func freeScenario(ctx context.Context) scenario {
+	GinkgoHelper()
 	channels := newChannelSet()
 	dist := mock.OpenNode(ctx)
 	for i, ch := range channels {
@@ -759,7 +790,6 @@ func freeScenario(ctx context.Context) scenario {
 	channels = MustSucceed(dist.Channel.Create(ctx, channels))
 	return scenario{
 		name:     "Free Channel",
-		resCount: 1,
 		channels: channels,
 		dist:     dist,
 		close:    dist,

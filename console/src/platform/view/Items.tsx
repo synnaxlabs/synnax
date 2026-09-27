@@ -7,34 +7,37 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex, List, Menu, Text } from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { List } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type record } from "@synnaxlabs/x";
 import { plural } from "pluralize";
 import { type ReactElement } from "react";
 
 import { useContext, useFormContext } from "@/platform/view/context";
 
-export interface ItemsProps<K extends record.Key = record.Key> extends Omit<
-  List.ItemsProps<K>,
-  "contextMenu"
-> {
+export interface ItemsProps<K extends record.Key = record.Key>
+  extends
+    Omit<List.ScrollProps, "children" | "contextMenu">,
+    Pick<List.ItemsProps<K>, "children"> {
   contextMenu?: Menu.ContextMenuProps["menu"];
 }
 
 export const Items = <K extends record.Key>({
   contextMenu,
-  ...props
+  children,
+  ...rest
 }: ItemsProps<K>): ReactElement => {
   const menuProps = Menu.useContextMenu();
   const { answered } = useFormContext("View.Items");
   return (
     <Menu.ContextMenu menu={contextMenu} {...menuProps}>
-      <List.Items<K>
-        emptyContent={answered && defaultEmptyContent}
-        grow
-        onContextMenu={menuProps.open}
-        {...props}
-      />
+      <List.Scroll grow onContextMenu={menuProps.open} {...rest}>
+        <List.Items<K> emptyContent={answered && defaultEmptyContent}>
+          {children}
+        </List.Items>
+      </List.Scroll>
     </Menu.ContextMenu>
   );
 };

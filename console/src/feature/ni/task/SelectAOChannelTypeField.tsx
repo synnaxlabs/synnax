@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Form } from "@synnaxlabs/pluto";
-import { deep, type record } from "@synnaxlabs/x";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Select } from "@synnaxlabs/lyra/select";
+import { deep } from "@synnaxlabs/x";
 
 import {
   AO_CHANNEL_SCHEMAS,
@@ -20,11 +21,9 @@ import {
   createAOChannel,
 } from "@/feature/ni/task/types";
 
-export interface Entry extends record.KeyedNamed<AOChannelType> {}
+export type SelectAOChannelTypeFieldProps = Form.SelectFieldProps<AOChannelType>;
 
-export type SelectAOChannelTypeFieldProps = Form.SelectFieldProps<AOChannelType, Entry>;
-
-export const SelectAOChannelTypeField = Form.buildSelectField<AOChannelType, Entry>({
+export const SelectAOChannelTypeField = Form.buildSelectField<AOChannelType>({
   fieldKey: "type",
   fieldProps: {
     label: "Channel type",
@@ -44,9 +43,14 @@ export const SelectAOChannelTypeField = Form.buildSelectField<AOChannelType, Ent
   inputProps: {
     allowNone: false,
     resourceName: "channel type",
-    data: AO_CHANNEL_TYPES.map((key) => {
+    children: AO_CHANNEL_TYPES.map((key) => {
       const Icon = AO_CHANNEL_TYPE_ICONS[key];
-      return { key, name: AO_CHANNEL_TYPE_NAMES[key], icon: <Icon color={9} /> };
+      return (
+        <Select.Item key={key} itemKey={key}>
+          <Icon color={9} />
+          {AO_CHANNEL_TYPE_NAMES[key]}
+        </Select.Item>
+      );
     }),
   },
 });
