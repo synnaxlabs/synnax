@@ -2370,13 +2370,12 @@ describe("remote", () => {
       return { data, home };
     };
 
+    const create = (props: Partial<TiledChannelDataProps>) =>
+      new TiledChannelData(client, props, undefined, undefined, TimeSpan.ZERO);
+
     const createPair = (dataKey: channel.Key, home: TimeRange) => ({
-      x: new TiledChannelData(client, {
-        channel: dataKey,
-        useIndexOfChannel: true,
-        timeRange: home,
-      }),
-      y: new TiledChannelData(client, { channel: dataKey, timeRange: home }),
+      x: create({ channel: dataKey, useIndexOfChannel: true, timeRange: home }),
+      y: create({ channel: dataKey, timeRange: home }),
     });
 
     const settle = async (...sources: TiledChannelData[]): Promise<void> =>
