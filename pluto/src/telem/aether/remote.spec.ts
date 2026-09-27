@@ -2177,6 +2177,24 @@ describe("remote", () => {
       expect(c.served.get(`13/0/${DATA_KEY}`)!.series[0].refCount).toBe(1);
     });
 
+    it("should release a tile that arrives after its view moved on", async () => {
+      const source = create();
+      await settle(source);
+      c.deferred = true;
+      source.value({ view: view(2000, 3000) });
+      const home = view(1000, 10000, 1000);
+      source.value({ view: home });
+      c.resolveAll();
+      await expect.poll(() => source.fetching()).toBe(false);
+      const late = c.served.get(`9/3/${DATA_KEY}`)!;
+      expect(late.series[0].refCount).toBe(1);
+      expect(positions(source.value({ view: home })[1])).toEqual([
+        [13, 0],
+        [13, 1],
+      ]);
+      expect(late.series[0].refCount).toBe(0);
+    });
+
     it("should keep the home tiles through a view far from home", async () => {
       const source = create();
       await settle(source);
@@ -2320,6 +2338,25 @@ describe("remote", () => {
         now = TimeStamp.seconds(200);
         source.value();
         expect(old.refCount).toBe(0);
+      });
+
+      it("should draw a finished tile where the live window moved past", async () => {
+        const left = raw(82, 90);
+        c.response = new MultiSeries([left, raw(90, 100)]);
+        const source = createLive();
+        await settle(source);
+        now = TimeStamp.seconds(108);
+        const v = view(80_000, 108_000, 1000);
+        source.value({ view: v });
+        await expect.poll(() => source.fetching()).toBe(false);
+        expect(left.refCount).toBe(0);
+        const cut = c.tiles.find((t) => t.level === 14 && t.index === 5);
+        expect(cut?.end?.valueOf()).toBe(TimeStamp.milliseconds(90_112).valueOf());
+        expect(positions(source.value({ view: v })[1])).toEqual([
+          [14, 4],
+          [14, 5],
+          [90, 100],
+        ]);
       });
 
       it("should bound a live index by the span before its latest sample", async () => {
