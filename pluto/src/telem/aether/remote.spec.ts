@@ -16,7 +16,15 @@ import {
   ValidationError,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { bounds, id, MultiSeries, Series, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import {
+  bounds,
+  id,
+  MultiSeries,
+  Series,
+  sleep,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
 import { afterAll, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import { createFactory, type CreateOptions } from "@/telem/aether/factory";
@@ -2003,12 +2011,14 @@ describe("remote", () => {
       props: Partial<TiledChannelDataProps> = {},
       now: () => TimeStamp = () => TimeStamp.seconds(100),
       options?: CreateOptions,
+      levelSettle: TimeSpan = TimeSpan.ZERO,
     ): TiledChannelData =>
       new TiledChannelData(
         c,
         { channel: DATA_KEY, timeRange: HOME, ...props },
         options,
         now,
+        levelSettle,
       );
 
     // Waits for the source to settle after a value call that starts reads.
@@ -2105,6 +2115,52 @@ describe("remote", () => {
       source.value({ view: view(2000, 3000) });
       source.value({ view: view(2000, 3000) });
       expect(c.tiles.length - before).toBe(3);
+    });
+
+    describe("level settle", () => {
+      const SETTLE = TimeSpan.milliseconds(50);
+      const createSettling = () => create({}, undefined, undefined, SETTLE);
+
+      it("should read a new level's tiles once the level holds", async () => {
+        const source = createSettling();
+        await settle(source);
+        const handleChange = vi.fn();
+        source.onChange(handleChange);
+        const before = c.tiles.length;
+        source.value({ view: view(2000, 3000) });
+        expect(c.tiles).toHaveLength(before);
+        await expect.poll(() => handleChange.mock.calls.length).toBeGreaterThan(0);
+        source.value({ view: view(2000, 3000) });
+        expect(c.tiles.slice(before).map((t) => [t.level, t.index])).toEqual([
+          [9, 3],
+          [9, 4],
+          [9, 5],
+        ]);
+      });
+
+      it("should skip the levels a fast zoom passes through", async () => {
+        const source = createSettling();
+        await settle(source);
+        const before = c.tiles.length;
+        source.value({ view: view(2000, 6000) });
+        source.value({ view: view(2000, 3000) });
+        await sleep.sleep(SETTLE.mult(2));
+        source.value({ view: view(2000, 3000) });
+        expect(new Set(c.tiles.slice(before).map((t) => t.level))).toEqual(
+          new Set([9]),
+        );
+      });
+
+      it("should read a pan within a level at once", async () => {
+        const source = createSettling();
+        await settle(source);
+        source.value({ view: view(2000, 3000) });
+        await sleep.sleep(SETTLE.mult(2));
+        source.value({ view: view(2000, 3000) });
+        const before = c.tiles.length;
+        source.value({ view: view(3000, 4000) });
+        expect(c.tiles.length).toBeGreaterThan(before);
+      });
     });
 
     it("should release the tiles a view no longer needs", async () => {

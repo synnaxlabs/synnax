@@ -32,9 +32,21 @@
     top: calc(50% + min(var(--pluto-orbital-size, 18rem), 100cqw, 100cqh) / 2 + 2rem);
 }
 
+/* Fades in only once a fetch has run for a while, so a fast fetch shows nothing. */
 .pluto-line-plot__fetching {
     position: absolute;
     top: 1rem;
     right: 1rem;
     pointer-events: none;
+    animation: pluto-line-plot-fetching-in 150ms ease-in 300ms both;
+}
+
+@keyframes pluto-line-plot-fetching-in {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
 }
