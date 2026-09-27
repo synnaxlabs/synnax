@@ -20,6 +20,9 @@ export interface ContextMenuProps {
   onRemove: (keys: string[]) => void;
   onDuplicate?: (keys: string[]) => void;
   onRename?: (key: string) => void;
+  onAddField?: () => void;
+  onEnable?: () => void;
+  onDisable?: () => void;
 }
 
 export const ContextMenu = ({
@@ -27,6 +30,9 @@ export const ContextMenu = ({
   onDuplicate,
   onRemove,
   onRename,
+  onAddField,
+  onEnable,
+  onDisable,
 }: ContextMenuProps) => {
   const isPreview = Task.useIsPreview();
   const canRenameChannel = Access.useUpdateGranted(channel.TYPE_ONTOLOGY_ID);
@@ -37,7 +43,25 @@ export const ContextMenu = ({
     <Base.Menu>
       {!isPreview && canAct && (
         <>
+          {onAddField != null && (
+            <Menu.Item itemKey="addField" onClick={onAddField}>
+              <Icon.Add />
+              Add field
+            </Menu.Item>
+          )}
           {canRename && <Base.RenameItem onClick={() => onRename(keys[0])} />}
+          {onEnable != null && (
+            <Menu.Item itemKey="enable" onClick={onEnable}>
+              <Icon.Enable />
+              Enable
+            </Menu.Item>
+          )}
+          {onDisable != null && (
+            <Menu.Item itemKey="disable" onClick={onDisable}>
+              <Icon.Disable />
+              Disable
+            </Menu.Item>
+          )}
           {canDuplicate && (
             <Menu.Item itemKey="duplicate" onClick={() => onDuplicate?.(keys)}>
               <Icon.Copy />

@@ -67,6 +67,17 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
 
 const channelDetails = Component.renderProp(ReadChannelDetails);
 
+const DetailsTitle = ({ path }: Task.Views.DetailsProps) => {
+  const ch = PForm.useFieldValue<ReadChannel>(path);
+  return (
+    <Task.Views.ItemLabel kind={ch.type === "automatic" ? "PDO" : "Manual"}>
+      {getPortLabel(ch)}
+    </Task.Views.ItemLabel>
+  );
+};
+
+const detailsTitle = Component.renderProp(DetailsTitle);
+
 const listItem = Component.renderProp(ChannelListItem);
 
 const Form: FC = () => {
@@ -85,6 +96,7 @@ const Form: FC = () => {
     <Task.Views.ListAndDetails<ReadChannel>
       listItem={listItem}
       details={channelDetails}
+      detailsTitle={detailsTitle}
       createChannel={createReadChannel}
       contextMenuItems={Task.readChannelContextMenuItem}
       resolve={resolve}

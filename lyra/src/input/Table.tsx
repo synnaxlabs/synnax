@@ -25,7 +25,7 @@ import { CSS } from "@/css";
 import { Icon } from "@/icon";
 import { Numeric } from "@/input/Numeric";
 import { Text as InputText } from "@/input/Text";
-import { type Control } from "@/input/types";
+import { type Control, type Variant } from "@/input/types";
 import { Text } from "@/text";
 import { reactElementToArray } from "@/util/children";
 
@@ -36,6 +36,8 @@ export type TableCell = string | number;
 export interface TableCellProps<V extends TableCell = TableCell> extends Control<V> {
   /** Whether the cell is read-only. */
   preview?: boolean;
+  /** The edit-in-place chassis every cell shares. Spread it onto the input. */
+  variant?: Variant;
   "aria-label": string;
 }
 
@@ -149,7 +151,7 @@ export interface TableProps
   children: ColumnElement | ColumnElement[];
   /** Hides the add and remove buttons and makes every cell read-only. */
   preview?: boolean;
-  /** Labels a row's gutter cell. Defaults to the one-based row index. */
+  /** Labels a row's gutter cell. Omitted, no gutter column renders. */
   rowLabel?: (index: number) => string;
   /** Builds the row the add button appends. Defaults to the column default values. */
   createRow?: (value: TableCell[][]) => TableCell[];
@@ -172,7 +174,7 @@ export const Table = ({
   onChange,
   children,
   preview = false,
-  rowLabel = (index) => (index + 1).toString(),
+  rowLabel,
   createRow,
   className,
   ...rest
@@ -185,6 +187,11 @@ export const Table = ({
   );
   const dims: dimensions.Dimensions = { width: columns.length, height: value.length };
   const emptyRow = (): TableCell[] => columns.map(emptyCell);
+  const hasGutter = rowLabel != null;
+  // Accessible row names survive without a gutter.
+  const rowName = (index: number): string =>
+    rowLabel?.(index) ?? (index + 1).toString();
+  const hasHeader = columns.some(({ name }) => name != null);
 
   const handleCellChange = (at: xy.XY, next: TableCell) =>
     onChange(
@@ -210,11 +217,11 @@ export const Table = ({
     onChange(next);
   };
 
-  // The row's first cell is its gutter header, so the data columns start at one.
+  // A gutter header shifts the data columns over by one.
   const cellAt = ({ x, y }: xy.XY): HTMLInputElement | null =>
-    table.current?.tBodies[0]?.rows[y]?.cells[x + 1]?.querySelector<HTMLInputElement>(
-      "input",
-    ) ?? null;
+    table.current?.tBodies[0]?.rows[y]?.cells[
+      x + (hasGutter ? 1 : 0)
+    ]?.querySelector<HTMLInputElement>("input") ?? null;
 
   const handleKeyDown = (e: KeyboardEvent) => {
     // Enter on the add and remove buttons must reach their native activation.
@@ -234,46 +241,40 @@ export const Table = ({
       onKeyDown={handleKeyDown}
       {...rest}
     >
-      <thead>
-        <tr>
-          <th />
-          {columns.map(({ name }, i) => (
-            <th key={i} scope="col">
-              <Text.Text level="small" color={9}>
-                {name}
-              </Text.Text>
-            </th>
-          ))}
-          <th>
-            {!preview && (
-              <Button.Button
-                variant="filled"
-                size="small"
-                tooltip="Add row"
-                onClick={() => onChange([...value, createRow?.(value) ?? emptyRow()])}
-              >
-                <Icon.Add />
-              </Button.Button>
-            )}
-          </th>
-        </tr>
-      </thead>
+      {hasHeader && (
+        <thead>
+          <tr>
+            {hasGutter && <th className={CSS.BE("input", "table-gutter")} />}
+            {columns.map(({ name }, i) => (
+              <th key={i} scope="col">
+                <Text.Text level="small" weight={450} color={9}>
+                  {name}
+                </Text.Text>
+              </th>
+            ))}
+            <th />
+          </tr>
+        </thead>
+      )}
       <tbody>
         {value.map((row, i) => (
           <tr key={i} className={CSS.M("reveals")}>
-            <th scope="row">
-              <Text.Text level="small" color={9}>
-                {rowLabel(i)}
-              </Text.Text>
-            </th>
+            {hasGutter && (
+              <th scope="row" className={CSS.BE("input", "table-gutter")}>
+                <Text.Text level="small" color={9}>
+                  {rowName(i)}
+                </Text.Text>
+              </th>
+            )}
             {columns.map((column, j) => (
               <td key={j} onFocus={() => (anchor.current = { x: j, y: i })}>
                 {renderCell(column, {
                   value: row[j] ?? emptyCell(column),
                   onChange: (next) => handleCellChange({ x: j, y: i }, next),
                   preview,
+                  variant: "shadow",
                   "aria-label":
-                    column.name == null ? rowLabel(i) : `${column.name} ${rowLabel(i)}`,
+                    column.name == null ? rowName(i) : `${column.name} ${rowName(i)}`,
                 })}
               </td>
             ))}
@@ -283,7 +284,7 @@ export const Table = ({
                   variant="text"
                   size="small"
                   reveal
-                  tooltip={`Remove row ${rowLabel(i)}`}
+                  tooltip={`Remove row ${rowName(i)}`}
                   onClick={() => onChange(value.filter((_, j) => j !== i))}
                 >
                   <Icon.Close />
@@ -293,6 +294,24 @@ export const Table = ({
           </tr>
         ))}
       </tbody>
+      {!preview && (
+        <tfoot>
+          <tr>
+            {hasGutter && <td className={CSS.BE("input", "table-gutter")} />}
+            <td colSpan={columns.length + 1}>
+              <Button.Button
+                variant="text"
+                size="small"
+                textColor={9}
+                onClick={() => onChange([...value, createRow?.(value) ?? emptyRow()])}
+              >
+                <Icon.Add />
+                Add row
+              </Button.Button>
+            </td>
+          </tr>
+        </tfoot>
+      )}
     </table>
   );
 };

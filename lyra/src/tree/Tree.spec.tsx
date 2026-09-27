@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { render } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { type Haul } from "@/haul";
@@ -21,6 +21,7 @@ import {
   filterHaulItems,
   HAUL_TYPE,
   isHaulItem,
+  type ToggleOn,
   Tree,
   use,
 } from "@/tree/Tree";
@@ -117,5 +118,69 @@ describe("Tree", () => {
       ".pluto-list__virtualizer",
     );
     expect(virtualizer?.style.minHeight).toBe(`${NODES.length * 27}px`);
+  });
+});
+
+describe("Tree toggling", () => {
+  beforeAll(() => mockGeometry(100, 100));
+
+  const NODES: Node[] = [{ key: "parent", children: [{ key: "child" }] }];
+
+  const getItem = List.createGetItem(
+    (key: string) => ({ key, name: key }),
+    (keys: string[]) => keys.map((key) => ({ key, name: key })),
+  );
+
+  const Component = ({ toggleOn }: { toggleOn?: ToggleOn }) => {
+    const props = use({ nodes: NODES, toggleOn });
+    return (
+      <Tree {...props} getItem={getItem}>
+        {({ key, ...rest }) => (
+          <Item key={key} {...rest}>
+            {key}
+          </Item>
+        )}
+      </Tree>
+    );
+  };
+
+  const parentRow = () => screen.getByRole("treeitem", { name: "parent" });
+  const caret = () =>
+    parentRow().querySelector(".pluto-tree__expansion-indicator") as Element;
+
+  describe("on the row", () => {
+    it("should select and expand a node when its row is clicked", () => {
+      render(<Component />);
+      fireEvent.click(parentRow());
+      expect(parentRow().getAttribute("aria-selected")).toBe("true");
+      expect(parentRow().getAttribute("aria-expanded")).toBe("true");
+      expect(screen.getByText("child")).toBeTruthy();
+    });
+  });
+
+  describe("on the caret", () => {
+    it("should expand a node without selecting it when its caret is clicked", () => {
+      render(<Component toggleOn="caret" />);
+      fireEvent.click(caret());
+      expect(parentRow().getAttribute("aria-expanded")).toBe("true");
+      expect(parentRow().getAttribute("aria-selected")).toBe("false");
+      expect(screen.getByText("child")).toBeTruthy();
+    });
+
+    it("should collapse an expanded node when its caret is clicked again", () => {
+      render(<Component toggleOn="caret" />);
+      fireEvent.click(caret());
+      fireEvent.click(caret());
+      expect(parentRow().getAttribute("aria-expanded")).toBe("false");
+      expect(screen.queryByText("child")).toBeNull();
+    });
+
+    it("should select a node without expanding it when its row is clicked", () => {
+      render(<Component toggleOn="caret" />);
+      fireEvent.click(parentRow());
+      expect(parentRow().getAttribute("aria-selected")).toBe("true");
+      expect(parentRow().getAttribute("aria-expanded")).toBe("false");
+      expect(screen.queryByText("child")).toBeNull();
+    });
   });
 });

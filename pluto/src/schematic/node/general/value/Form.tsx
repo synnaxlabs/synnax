@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { type ReactElement } from "react";
@@ -18,40 +17,38 @@ import { Orientation } from "@/schematic/node/common/orientation";
 import { Value } from "@/vis/value";
 
 export const ValueForm = (): ReactElement => (
-  <Tabs.Frame initialValue="style">
-    <Tabs.Selector>
-      <Tabs.Tab itemKey="style">Style</Tabs.Tab>
-      <Tabs.Tab itemKey="telemetry">Telemetry</Tabs.Tab>
-      <Tabs.Tab itemKey="redline">Redline</Tabs.Tab>
-    </Tabs.Selector>
+  <Form.Tabs tabs={["style", "telemetry", "redline"]}>
     <Tabs.Content itemKey="style">
-      <Form.Wrapper x>
-        <Flex.Box y grow>
+      <Base.Sections x>
+        <Base.Section title="Label">
           <Label.Form path="label" />
-          <Flex.Box x>
-            <Form.ColorField path="color" />
-            <Form.LevelSizeField />
-            <Form.UnitsField />
-            <Base.NumericField
-              path="inlineSize"
-              label="Value width"
-              hideIfNull
-              inputProps={Form.VALUE_WIDTH_INPUT_PROPS}
-            />
-          </Flex.Box>
-        </Flex.Box>
-        <Orientation.Field path="" hideInner />
-      </Form.Wrapper>
+        </Base.Section>
+        <Base.Section title="Appearance">
+          <Form.ColorField path="color" />
+          <Form.LevelSizeField />
+          <Form.UnitsField />
+          <Base.NumericField
+            path="inlineSize"
+            label="Width"
+            hideIfNull
+            padHelpText={false}
+            inputProps={Form.VALUE_WIDTH_INPUT_PROPS}
+          />
+        </Base.Section>
+        <Orientation.Section path="" hideInner />
+      </Base.Sections>
     </Tabs.Content>
     <Tabs.Content itemKey="telemetry">
-      <Form.Wrapper y empty>
+      <Base.Sections x>
         <Value.TelemForm path="" />
-      </Form.Wrapper>
+      </Base.Sections>
     </Tabs.Content>
     <Tabs.Content itemKey="redline">
-      <Form.Wrapper y empty>
-        <Value.RedlineForm path="redline" />
-      </Form.Wrapper>
+      <Base.Sections x>
+        <Base.Section title="Redline">
+          <Value.RedlineForm path="redline" />
+        </Base.Section>
+      </Base.Sections>
     </Tabs.Content>
-  </Tabs.Frame>
+  </Form.Tabs>
 );
