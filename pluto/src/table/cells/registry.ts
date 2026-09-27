@@ -8,11 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError, table } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { type FC } from "react";
 import { type z } from "zod";
 
 import { type CellProps, Text, Value } from "@/table/cells/Cells";
-import { type FormProps, TextForm, ValueForm } from "@/table/cells/Forms";
+import { TextForm, ValueForm } from "@/table/cells/Forms";
 
 export const variantZ = table.cellConfigTypeZ;
 export type Variant = table.CellConfigType;
@@ -24,7 +25,8 @@ export type ConfigOf<V extends Variant> = Extract<Config, { variant: V }>;
 export interface Spec<V extends Variant = Variant> {
   key: V;
   name: string;
-  Form: FC<FormProps>;
+  Icon: Icon.FC;
+  Form: FC;
   Cell: FC<CellProps<ConfigOf<V>>>;
   schema: z.ZodType<ConfigOf<V>>;
 }
@@ -32,6 +34,7 @@ export interface Spec<V extends Variant = Variant> {
 const value: Spec<"value"> = {
   key: "value",
   name: "Value",
+  Icon: Icon.Channel,
   Form: ValueForm,
   Cell: Value,
   schema: table.CELL_CONFIG_SCHEMAS.value,
@@ -40,6 +43,7 @@ const value: Spec<"value"> = {
 const text: Spec<"text"> = {
   key: "text",
   name: "Text",
+  Icon: Icon.Text,
   Form: TextForm,
   Cell: Text,
   schema: table.CELL_CONFIG_SCHEMAS.text,

@@ -11,7 +11,7 @@ import { table } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { act, fireEvent, render } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { ValueForm } from "@/table/cells/Forms";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
@@ -35,7 +35,7 @@ const FormWrapper = ({ children }: PropsWithChildren): ReactElement => {
 const renderTab = (tab: string) => {
   const result = render(
     <FormWrapper>
-      <ValueForm onVariantChange={vi.fn()} />
+      <ValueForm />
     </FormWrapper>,
   );
   fireEvent.click(result.getByText(tab));

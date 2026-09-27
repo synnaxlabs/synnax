@@ -328,16 +328,17 @@ class Table(ConsolePage):
     SIZE_LABELS = ("XL", "L", "M", "S", "XS")
 
     def set_toolbar_variant(self, variant: str) -> None:
-        """Open the toolbar's Variant dropdown and pick the named option."""
+        """Open the toolbar header's cell type picker and pick the named option."""
         self.layout.show_visualization_toolbar()
-        self.layout.click_btn("Variant")
+        self.page.get_by_role("button", name="Change cell type", exact=True).click()
         self.layout.select_from_dropdown(variant)
 
     def get_toolbar_variant(self) -> str:
-        """Read the toolbar's Variant dropdown value. Empty string when the
-        selected cells disagree on variant."""
+        """Read the cell type from the toolbar header. "Mixed" when the selected
+        cells disagree on type."""
         self.layout.show_visualization_toolbar()
-        return self.layout.get_dropdown_value("Variant")
+        identity = self.page.locator(".console-table__variant > .pluto-text")
+        return identity.inner_text().strip()
 
     def set_toolbar_size(self, label: str) -> None:
         """Click one of the toolbar's Size buttons (XL/L/M/S/XS)."""

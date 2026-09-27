@@ -9,6 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-table-cell-select-variant {
-    min-width: 30rem;
+.pluto-table-cell-change-variant__dialog {
+    width: 30rem;
 }

@@ -18,3 +18,9 @@
 .console-table__toolbar-buttons {
     width: 72px;
 }
+
+.console-table__variant {
+    margin-left: 1rem;
+    padding-left: 2rem;
+    border-left: var(--pluto-border-l6);
+}

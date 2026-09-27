@@ -7,13 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/table/cells/Forms.css";
-
 import { type channel } from "@synnaxlabs/client";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { type Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
-import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
@@ -23,14 +19,9 @@ import { color, type notation, type text } from "@synnaxlabs/x";
 import { Channel } from "@/channel";
 import { Color } from "@/color";
 import { Notation } from "@/notation";
-import { type Variant } from "@/table/cells/registry";
 import { Properties } from "@/vis/properties";
 import { Staleness } from "@/vis/staleness";
 import { Value } from "@/vis/value";
-
-export interface FormProps {
-  onVariantChange: (variant: Variant) => void;
-}
 
 interface ColorFieldProps {
   path: string;
@@ -108,17 +99,12 @@ const TelemForm = () => {
   );
 };
 
-export const ValueForm = ({ onVariantChange }: FormProps) => {
+export const ValueForm = () => {
   const theme = Theming.use();
   return (
     <Properties.Tabs tabs={["style", "telemetry", "redline"]}>
       <Tabs.Content itemKey="style">
         <Form.Sections x>
-          <Form.Section title="Cell">
-            <Input.Item label="Variant" padHelpText={false}>
-              <SelectVariant onChange={onVariantChange} value="value" />
-            </Input.Item>
-          </Form.Section>
           <Form.Section title="Appearance">
             <ColorField path="color" label="Color" fallback={theme.colors.gray.l11} />
             <ColorField
@@ -149,13 +135,8 @@ export const ValueForm = ({ onVariantChange }: FormProps) => {
   );
 };
 
-export const TextForm = ({ onVariantChange }: FormProps) => (
+export const TextForm = () => (
   <Form.Sections x>
-    <Form.Section title="Cell">
-      <Input.Item label="Variant" padHelpText={false}>
-        <SelectVariant onChange={onVariantChange} value="text" />
-      </Input.Item>
-    </Form.Section>
     <Form.Section title="Text">
       <Form.TextField path="value" label="Text" padHelpText={false} />
       <Form.Field<text.Level> path="level" label="Size" hideIfNull padHelpText={false}>
@@ -177,26 +158,4 @@ export const TextForm = ({ onVariantChange }: FormProps) => (
       <ColorField path="backgroundColor" label="Background" fallback={color.ZERO} />
     </Form.Section>
   </Form.Sections>
-);
-
-export interface SelectVariantProps extends Omit<
-  Select.SingleSimpleProps<Variant>,
-  "children" | "resourceName"
-> {}
-
-export const SelectVariant = ({ className, ...rest }: SelectVariantProps) => (
-  <Select.Simple<Variant>
-    {...rest}
-    className={CSS.cls(CSS.B("table-cell-select-variant"), className)}
-    resourceName="variant"
-  >
-    <Select.Item itemKey="text">
-      <Icon.Text />
-      Text
-    </Select.Item>
-    <Select.Item itemKey="value">
-      <Icon.Channel />
-      Value
-    </Select.Item>
-  </Select.Simple>
 );

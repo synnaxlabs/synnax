@@ -20,7 +20,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Access, Color, Panel as PPanel, Table } from "@synnaxlabs/pluto";
 import { color, deep, type text } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useMemo } from "react";
+import { type ReactElement, type ReactNode, useCallback, useMemo } from "react";
 import { type z } from "zod";
 
 import { Core } from "@/platform/core";
@@ -43,6 +43,11 @@ const Internal = (): ReactElement => {
   const singleSelectedKey =
     liveCellCount === 1 ? (cellsByKey.keys().next().value ?? null) : null;
   const selectedCellPos = Table.useCellPosition({ cellKey: singleSelectedKey ?? "" });
+  const dispatch = Table.useSingleDispatch();
+  const variants = new Set(Array.from(cellsByKey.values(), ({ variant }) => variant));
+  const variant = variants.size === 1 ? variants.values().next().value : undefined;
+  const handleVariantChange = (next: Table.Cell.Variant): void =>
+    dispatch(buildVariantSwapActions(cellsByKey, next));
   return (
     <Base.Content>
       <Base.Header>
@@ -54,7 +59,7 @@ const Internal = (): ReactElement => {
             </Breadcrumb.Segment>
             {selectedCellPos != null && (
               <Breadcrumb.Segment color={9}>
-                {Table.getCellColumn(selectedCellPos.x)}
+                Cell {Table.getCellColumn(selectedCellPos.x)}
                 {selectedCellPos.y + 1}
               </Breadcrumb.Segment>
             )}
@@ -62,6 +67,9 @@ const Internal = (): ReactElement => {
               <Breadcrumb.Segment color={9}>{liveCellCount} cells</Breadcrumb.Segment>
             )}
           </Breadcrumb.Breadcrumb>
+          {canEdit && liveCellCount > 0 && (
+            <Variant value={variant} onChange={handleVariantChange} />
+          )}
         </Flex.Box>
         <Flex.Box x className={CSS.BE("table", "toolbar-buttons")} gap="small">
           <Export.ToolbarButton id={table.ontologyID(key)} />
@@ -80,6 +88,34 @@ const Internal = (): ReactElement => {
         )}
       </Flex.Box>
     </Base.Content>
+  );
+};
+
+interface VariantProps {
+  /** The shared variant of the selected cells, or undefined when they disagree. */
+  value?: Table.Cell.Variant;
+  onChange: (variant: Table.Cell.Variant) => void;
+}
+
+// Variant shows what the selected cells are, apart from their properties.
+const Variant = ({ value, onChange }: VariantProps): ReactElement => {
+  let identity: ReactNode = "Mixed";
+  if (value != null) {
+    const { Icon: VariantIcon, name } = Table.Cell.REGISTRY[value];
+    identity = (
+      <>
+        <VariantIcon />
+        {name}
+      </>
+    );
+  }
+  return (
+    <Flex.Box x align="center" gap="small" className={CSS.BE("table", "variant")}>
+      <Text.Text level="p" weight={500} color={10}>
+        {identity}
+      </Text.Text>
+      <Table.Cell.ChangeVariant value={value} onChange={onChange} />
+    </Flex.Box>
   );
 };
 
@@ -120,13 +156,6 @@ const CellForm = ({ cellKey }: CellFormProps): ReactElement | null => {
   const cell = Table.useCell({ cellKey });
   const dispatch = Table.useSingleDispatch();
 
-  const handleVariantChange = useCallback(
-    (variant: Table.Cell.Variant) => {
-      if (cell != null) dispatch(buildVariantSwapActions([[cellKey, cell]], variant));
-    },
-    [cell, cellKey, dispatch],
-  );
-
   const handleChange = useCallback(
     ({ values }: Form.OnChangeParams<typeof Table.Cell.configZ>) => {
       if (cell == null) return;
@@ -150,7 +179,7 @@ const CellForm = ({ cellKey }: CellFormProps): ReactElement | null => {
   const C = Table.Cell.REGISTRY[cell.variant];
   return (
     <Form.Form<typeof Table.Cell.configZ> {...methods}>
-      <C.Form onVariantChange={handleVariantChange} />
+      <C.Form />
     </Form.Form>
   );
 };
@@ -233,21 +262,6 @@ const MultiCellForm = ({ cellKeys }: MultiCellFormProps): ReactElement => {
     [cellsByKey, dispatch],
   );
 
-  const variants = useMemo(() => {
-    const s = new Set<Table.Cell.Variant>();
-    cellsByKey.forEach((c) => s.add(c.variant));
-    return s;
-  }, [cellsByKey]);
-  const commonVariant =
-    variants.size === 1 ? (variants.values().next().value ?? null) : null;
-
-  const handleVariantChange = useCallback(
-    (variant: Table.Cell.Variant) => {
-      dispatch(buildVariantSwapActions(cellsByKey, variant));
-    },
-    [cellsByKey, dispatch],
-  );
-
   const theme = Theming.use();
   const colorGroups = useMemo(() => {
     const groups = new Map<color.Hex, string[]>();
@@ -282,14 +296,6 @@ const MultiCellForm = ({ cellKeys }: MultiCellFormProps): ReactElement => {
 
   return (
     <Form.Sections x>
-      <Form.Section title="Cell">
-        <Input.Item label="Variant" padHelpText={false}>
-          <Table.Cell.SelectVariant
-            value={commonVariant ?? undefined}
-            onChange={handleVariantChange}
-          />
-        </Input.Item>
-      </Form.Section>
       <Form.Section title="Appearance">
         {colorGroups.size > 0 && (
           <Input.Item label="Selection colors" padHelpText={false}>
