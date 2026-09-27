@@ -20,7 +20,7 @@ import {
 
 import { Button } from "@/button";
 import { BaseSwatch } from "@/color/BaseSwatch";
-import { parseHexInput, useHexDraft } from "@/color/hex";
+import { HexText, parseHexInput } from "@/color/HexText";
 import { Plane } from "@/color/Plane";
 import { useFrequent, useFrequentUpdater } from "@/color/Provider";
 import { Slider } from "@/color/Slider";
@@ -249,20 +249,16 @@ interface InputRowProps {
 
 const InputRow = ({ value, onChange }: InputRowProps): ReactElement => {
   const alpha = color.aValue(value);
-  const hex = useHexDraft({
-    text: color.hex(color.setAlpha(value, 1)).slice(1),
-    alpha,
-    onChange,
-  });
   return (
     <Flex.Box x gap="small" align="center">
-      <Input.Text
+      <HexText
         aria-label="Hex"
         size="small"
         grow
         startContent="#"
-        selectOnFocus
-        {...hex}
+        text={color.hex(color.setAlpha(value, 1)).slice(1)}
+        alpha={alpha}
+        onChange={onChange}
       />
       <Input.Numeric
         aria-label="Alpha percentage"

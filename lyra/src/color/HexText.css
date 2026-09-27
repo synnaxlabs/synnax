@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-color-hex input {
+.pluto-color-hex-text input {
     text-transform: uppercase;
 
     &::placeholder {

@@ -92,7 +92,7 @@ const LabelListItem = ({
             padHelpText={false}
             showLabel={false}
           >
-            {(p) => <Color.Swatch onlyChangeOnBlur {...p} />}
+            {(p) => <Color.Swatch onlyChangeOnBlur variant="text" {...p} />}
           </Form.Field>
           <Form.TextField
             showLabel={false}

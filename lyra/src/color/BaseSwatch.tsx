@@ -50,7 +50,6 @@ export const BaseSwatch = ({
   value,
   onChange,
   className,
-  size = "medium",
   draggable = true,
   style,
   ...rest
@@ -96,7 +95,6 @@ export const BaseSwatch = ({
         CSS.dropRegion(canDrop(dragging)),
         className,
       )}
-      size={size}
       square
       draggable={draggable}
       onDragStart={handleDragStart}

@@ -96,6 +96,7 @@ const Entry = ({
           draggable={false}
           onChange={(c) => onColorChange?.(key, c)}
           size="tiny"
+          variant="text"
           value={color}
           onVisibleChange={onColorPickerVisibleChange}
         />

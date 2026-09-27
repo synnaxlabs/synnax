@@ -14,6 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Color } from "@/color";
 import { CSS } from "@/css";
+import { Haul } from "@/haul";
 import { mockBoundingClientRect } from "@/testutil";
 import { Theming } from "@/theming";
 import { Triggers } from "@/triggers";
@@ -200,6 +201,37 @@ describe("Swatch", () => {
         expect(onChange).toHaveBeenCalledOnce();
         expect(color.hex(onChange.mock.calls[0][0])).toEqual(`#${BLUE}`);
       });
+    });
+  });
+
+  describe("drop", () => {
+    const renderPair = (target: ReactElement): HTMLElement[] => {
+      const c = render(
+        <Haul.Provider>
+          <Color.Swatch value={RED} onChange={vi.fn()} />
+          {target}
+        </Haul.Provider>,
+        { wrapper: Wrapper },
+      );
+      const swatches = [
+        ...c.container.querySelectorAll<HTMLElement>(`.${CSS.B("color-swatch")}`),
+      ];
+      fireEvent.dragStart(swatches[0]);
+      return swatches;
+    };
+
+    it("should offer a changeable swatch as a drop target", () => {
+      const [, target] = renderPair(
+        <Color.Swatch value={`#${BLUE}`} onChange={vi.fn()} />,
+      );
+      expect(target.className).toContain(CSS.B("haul-drop-region"));
+    });
+
+    it("should not offer a swatch that cannot change as a drop target", () => {
+      const [, target] = renderPair(
+        <Color.Swatch value={`#${BLUE}`} onChange={vi.fn()} allowChange={false} />,
+      );
+      expect(target.className).not.toContain(CSS.B("haul-drop-region"));
     });
   });
 });

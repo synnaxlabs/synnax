@@ -77,8 +77,8 @@ export const Swatch = ({
   className,
   ...rest
 }: SwatchProps): ReactElement => {
-  // Only an OptionalValueProps caller sets a fallback, and only the fallback's Auto
-  // swatch passes undefined.
+  // Only an OptionalValueProps caller sets a fallback, and only then does the picker
+  // show the Auto button that passes undefined.
   const onChange = propsOnChange as ((value?: color.Color) => void) | undefined;
   const [visible, setVisible] = state.usePassthrough({
     initial: initialVisible,
@@ -131,7 +131,7 @@ export const Swatch = ({
     <BaseSwatch
       disabled={!canPick && onClick == null}
       onClick={handleClick}
-      onChange={handleSwatchChange}
+      onChange={canPick ? handleSwatchChange : undefined}
       value={shownValue ?? fallback ?? color.ZERO}
       style={style}
       tooltip={tooltip}
@@ -155,7 +155,7 @@ export const Swatch = ({
       variant="floating"
     >
       {swatch}
-      <Dialog.Dialog rounded="small">
+      <Dialog.Dialog>
         <Picker value={shownValue} fallback={fallback} onChange={handlePickerChange} />
       </Dialog.Dialog>
     </Dialog.Frame>

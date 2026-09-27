@@ -9,14 +9,14 @@
  * included in the file licenses/APL.txt.
  */
 
-/* The pack rounds its children, but the swatch sits inside the picker's frame. */
-.pluto-color-input .pluto-color-swatch.pluto-btn.pluto-btn--outlined {
-    border-radius: inherit;
-}
-
 /* A hex has a fixed length, so the box fits an 8-digit hex and never the form. */
 .pluto-color-input {
     --pluto-control-width: fit-content;
+
+    /* The pack rounds its children, but the swatch sits inside the picker's frame. */
+    & .pluto-color-swatch.pluto-btn {
+        border-radius: inherit;
+    }
 
     & .pluto-input {
         flex-grow: 0;

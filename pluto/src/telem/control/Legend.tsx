@@ -159,6 +159,7 @@ const LegendEntry = ({
         draggable={false}
         onChange={handleColorChange}
         size="tiny"
+        variant="text"
         value={entryColor}
         fallback={fallback}
         onVisibleChange={onColorPickerVisibleChange}

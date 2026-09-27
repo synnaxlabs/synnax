@@ -12,16 +12,15 @@ import "@/color/Input.css";
 import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { useHexDraft } from "@/color/hex";
-import { Swatch, type SwatchProps } from "@/color/Swatch";
+import { HexText, type HexTextProps } from "@/color/HexText";
+import { Swatch } from "@/color/Swatch";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
-import { Input as Base } from "@/input";
 
-export interface InputProps
-  extends
-    Omit<Base.TextProps, "value" | "onChange" | "startContent" | "children">,
-    Pick<SwatchProps, "onlyChangeOnBlur"> {
+export interface InputProps extends Omit<
+  HexTextProps,
+  "text" | "alpha" | "onChange" | "onClear" | "startContent"
+> {
   /** The picked color. Absent means the theme picks. */
   value?: color.Crude;
   /** Called with the new color, or with undefined when the user picks Auto. */
@@ -43,30 +42,25 @@ export const Input = ({
   size = "medium",
   className,
   ...rest
-}: InputProps): ReactElement => {
-  const hex = useHexDraft({
-    text: value == null ? "" : color.hex(value).slice(1),
-    alpha: color.aValue(value ?? fallback),
-    onChange,
-    onClear: () => onChange(undefined),
-  });
-  return (
-    <Flex.Box pack className={CSS.cls(CSS.B("color-input"), className)}>
-      <Swatch
-        value={value}
-        fallback={fallback}
-        onChange={onChange}
-        onlyChangeOnBlur={onlyChangeOnBlur}
-        size={size}
-      />
-      <Base.Text
-        size={size}
-        placeholder="Auto"
-        startContent={value == null ? undefined : "#"}
-        selectOnFocus
-        {...rest}
-        {...hex}
-      />
-    </Flex.Box>
-  );
-};
+}: InputProps): ReactElement => (
+  <Flex.Box pack className={CSS.cls(CSS.B("color-input"), className)}>
+    <Swatch
+      value={value}
+      fallback={fallback}
+      onChange={onChange}
+      onlyChangeOnBlur={onlyChangeOnBlur}
+      size={size}
+    />
+    <HexText
+      size={size}
+      placeholder="Auto"
+      startContent={value == null ? undefined : "#"}
+      text={value == null ? "" : color.hex(value).slice(1)}
+      alpha={color.aValue(value ?? fallback)}
+      onChange={onChange}
+      onClear={() => onChange(undefined)}
+      onlyChangeOnBlur={onlyChangeOnBlur}
+      {...rest}
+    />
+  </Flex.Box>
+);

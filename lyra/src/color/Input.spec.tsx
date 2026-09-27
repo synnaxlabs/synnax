@@ -100,4 +100,28 @@ describe("Input", () => {
     expect(onChange).not.toHaveBeenCalled();
     expect(textOf(c).value).toEqual("ff0000");
   });
+
+  describe("onlyChangeOnBlur", () => {
+    it("should hold a typed hex until blur", () => {
+      const onChange = vi.fn();
+      const c = renderInput({ value: RED, onChange, onlyChangeOnBlur: true });
+      fireEvent.change(textOf(c), { target: { value: "0000ff" } });
+      expect(onChange).not.toHaveBeenCalled();
+      fireEvent.blur(textOf(c));
+      expect(onChange).toHaveBeenCalledOnce();
+      expect(color.hex(lastValue(onChange))).toEqual("#0000ff");
+    });
+
+    it("should hold a paste until Enter", () => {
+      const onChange = vi.fn();
+      const c = renderInput({ value: RED, onChange, onlyChangeOnBlur: true });
+      fireEvent.paste(textOf(c), {
+        clipboardData: { getData: () => "rgb(0, 0, 255)" },
+      });
+      expect(onChange).not.toHaveBeenCalled();
+      expect(textOf(c).value).toEqual("0000ff");
+      fireEvent.keyDown(textOf(c), { key: "Enter" });
+      expect(color.hex(lastValue(onChange))).toEqual("#0000ff");
+    });
+  });
 });

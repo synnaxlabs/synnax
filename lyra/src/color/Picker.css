@@ -28,9 +28,9 @@
        so it never reads as one more color. */
     .pluto-color-picker__auto.pluto-btn {
         grid-column: span 2;
-        gap: 0.5rem;
+        gap: 0.25rem;
         min-width: 0;
-        padding: 0 0.5rem;
+        padding: 0 0.75rem;
         justify-content: center;
     }
 

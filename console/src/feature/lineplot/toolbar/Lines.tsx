@@ -124,6 +124,7 @@ const Line = ({ itemKey, index }: LineProps): ReactElement | null => {
         fallback={line.autoColor}
         onChange={handleColorChange}
         size="small"
+        variant="text"
       />
     </List.Item>
   );
