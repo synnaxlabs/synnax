@@ -46,6 +46,7 @@ const makeProvider = (key: string): aether.Component => {
     parent: null,
   });
   agg._updateState({
+    seq: 0,
     path: [`${key}-status`],
     state: { statuses: [] },
     type: status.Aggregator.TYPE,
@@ -67,6 +68,7 @@ const shouldNotCreate = (): never => {
 
 const update = (provider: aether.Component, key: string, props: SynnaxParams | null) =>
   provider._updateState({
+    seq: 0,
     path: [key],
     state: { props },
     type: synnax.Provider.TYPE,

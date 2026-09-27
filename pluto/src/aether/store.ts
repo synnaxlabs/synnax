@@ -127,7 +127,21 @@ interface Entry<
   /** Invokes issued before the create message flushed. The worker cannot resolve a path
    * it has not seen, so they ride out immediately after it. */
   pendingInvokes: aether.MainInvokeRequest[];
+  /** Updates sent to the worker that it has not acknowledged, in seq order. A worker
+   * push reapplies them, so it cannot revert a change the worker had not received. */
+  unacknowledged: Update<StateSchema>[];
 }
+
+interface Update<StateSchema extends z.ZodType<state.State, state.State>> {
+  seq: number;
+  apply: (prev: z.infer<StateSchema>) => z.infer<StateSchema>;
+}
+
+/** Drops the updates up to and including seq. */
+const acknowledge = (updates: { seq: number }[], seq: number): void => {
+  const i = updates.findIndex((u) => u.seq > seq);
+  updates.splice(0, i === -1 ? updates.length : i);
+};
 
 /** Arguments accepted by {@link Store.stage}. */
 export interface StageParams<
@@ -207,6 +221,10 @@ export class Store {
   private listeners: Map<string, Set<Listener>> = new Map();
   /** Entries attached since the last flush, in attach order. */
   private queued: Entry[] = [];
+  /** The seq of the last update sent to the worker. */
+  private seq = 0;
+  /** Entries holding updates the worker has not acknowledged. */
+  private unacknowledged = new Set<{ unacknowledged: { seq: number }[] }>();
   private readonly outbound: aether.Batcher<aether.MainMessage>;
   /** Active worker comms. {@link NOOP_WORKER} when `workerEnabled: false` or between
    * {@link dispose} and the next send (lazy re-attach). */
@@ -299,6 +317,8 @@ export class Store {
   dispose(): void {
     this.queued = [];
     this.outbound.clear();
+    this.unacknowledged.forEach((entry) => (entry.unacknowledged = []));
+    this.unacknowledged.clear();
     if (this.worker === aether.NOOP_MAIN_COMMS) return;
     this.invokeTracker.abort(new Error("aether store disposed"));
     // In-process comms have no thread to die with, so tear the tree down explicitly.
@@ -388,6 +408,7 @@ export class Store {
       displaced: false,
       transfer: [...initialTransfer],
       pendingInvokes: [],
+      unacknowledged: [],
     };
     return this.buildHandle(entry, methodsSchema);
   }
@@ -408,7 +429,10 @@ export class Store {
       const { path, state, type, transfer, pendingInvokes } = entry;
       entry.transfer = [];
       entry.pendingInvokes = [];
-      this.outbound.send({ variant: "update", path, state, type }, transfer);
+      this.outbound.send(
+        { variant: "update", path, state, type, seq: ++this.seq },
+        transfer,
+      );
       for (const invoke of pendingInvokes) this.outbound.send(invoke);
       this.listeners.get(pathID(path))?.forEach((l) => l());
     }
@@ -472,6 +496,13 @@ export class Store {
       this.invokeTracker.resolve(msg.key, msg.result, msg.error);
       return;
     }
+    if (variant === "ack") {
+      for (const entry of this.unacknowledged) {
+        acknowledge(entry.unacknowledged, msg.seq);
+        if (entry.unacknowledged.length === 0) this.unacknowledged.delete(entry);
+      }
+      return;
+    }
     const { path, state } = msg;
     const id = pathID(path);
     const entry = this.entries.get(id);
@@ -479,9 +510,10 @@ export class Store {
     // in flight, or after a StrictMode pseudo-unmount.
     if (entry == null) return;
     const parsed = zod.parse(entry.schema, state, { label: entry.type });
-    entry.state = parsed;
+    acknowledge(entry.unacknowledged, msg.seq);
+    entry.state = entry.unacknowledged.reduce((prev, u) => u.apply(prev), parsed);
     this.listeners.get(id)?.forEach((l) => l());
-    entry.onReceiveRef?.current?.(parsed);
+    entry.onReceiveRef?.current?.(entry.state);
   }
 
   private buildHandle<
@@ -495,20 +527,35 @@ export class Store {
       transfer: Transferable[] = [],
     ): void => {
       if (entry.displaced) return;
-      const raw = state.executeSetter<z.input<StateSchema>, z.infer<StateSchema>>(
-        next,
-        entry.state,
-      );
-      entry.state = zod.parse(entry.schema, raw, { label: entry.type });
+      const apply = (prev: z.infer<StateSchema>): z.infer<StateSchema> =>
+        zod.parse(
+          entry.schema,
+          state.executeSetter<z.input<StateSchema>, z.infer<StateSchema>>(next, prev),
+          { label: entry.type },
+        );
+      entry.state = apply(entry.state);
       // Before the create message flushes the worker has no component to update, so
       // the state rides along on that message instead and the transfer list merges
       // into it. Ownership of each Transferable still moves exactly once.
       if (entry.phase !== "live") entry.transfer.push(...transfer);
-      else
+      else {
+        const seq = ++this.seq;
+        // Without a worker nothing pushes or acknowledges, so nothing is tracked.
+        if (this.config.workerEnabled !== false) {
+          entry.unacknowledged.push({ seq, apply });
+          this.unacknowledged.add(entry);
+        }
         this.outbound.send(
-          { variant: "update", path: entry.path, state: entry.state, type: entry.type },
+          {
+            variant: "update",
+            path: entry.path,
+            state: entry.state,
+            type: entry.type,
+            seq,
+          },
           transfer,
         );
+      }
       this.listeners.get(id)?.forEach((l) => l());
     };
 
