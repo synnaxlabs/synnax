@@ -97,8 +97,16 @@ interface HeaderProps {
 const Header = ({ isSnapshot }: HeaderProps) => (
   <>
     <Flex.Box x justify="between">
-      <PForm.Field<string> path="name">
-        {(p) => <Input.Text variant="text" level="h2" onlyChangeOnBlur {...p} />}
+      <PForm.Field<string> path="name" showLabel={false}>
+        {(p) => (
+          <Input.Text
+            variant="text"
+            level="h2"
+            onlyChangeOnBlur
+            aria-label="Name"
+            {...p}
+          />
+        )}
       </PForm.Field>
       <Flex.Box align="end" gap="small">
         <UtilityButtons />
