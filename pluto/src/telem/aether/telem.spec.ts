@@ -97,6 +97,50 @@ describe("telem", () => {
     });
   });
 
+  describe("SourcePipeline forwarding", () => {
+    const pipeline = (outlet: telem.Source<number>): telem.SourcePipeline<number> => {
+      const p = new telem.SourcePipeline<number>(
+        { connections: [], outlet: "s", segments: { s: telem.fixedNumber(1) } },
+        telem.createFactory(),
+      );
+      p.sources.s = outlet;
+      return p;
+    };
+
+    it("should forward the value props to its outlet", () => {
+      const received: (telem.ValueProps | undefined)[] = [];
+      const p = pipeline({
+        value: (props) => {
+          received.push(props);
+          return 1;
+        },
+        onChange: () => () => {},
+      });
+      const props: telem.ValueProps = {
+        view: { bounds: { lower: 1, upper: 2 }, width: 100 },
+      };
+      p.value(props);
+      expect(received).toEqual([props]);
+    });
+
+    it("should forward loading and fetching from its outlet", () => {
+      const p = pipeline({
+        value: () => 1,
+        onChange: () => () => {},
+        loading: () => true,
+        fetching: () => true,
+      });
+      expect(p.loading()).toBe(true);
+      expect(p.fetching()).toBe(true);
+    });
+
+    it("should default loading and fetching to false", () => {
+      const p = pipeline({ value: () => 1, onChange: () => () => {} });
+      expect(p.loading()).toBe(false);
+      expect(p.fetching()).toBe(false);
+    });
+  });
+
   describe("AbstractSource loading", () => {
     class LatchedSource extends telem.AbstractSource<z.ZodNumber> {
       schema = z.number();
