@@ -179,17 +179,23 @@ never offers it. XY plots use it (§4.7).
 
 ### 4.4 The Core
 
-The iterator's open config gains two fields:
+The iterator's open config replaces `downsampleFactor` with one `reduction` field. It is
+a union of two variants:
 
-- **`aggregation`**: `min_max`, `average`, or `decimate`.
-- **`point_limit`**: A `uint32`. `0` means no limit.
+- **`stride`**: Keeps every `factor`-th sample. CSV export uses it.
+- **`limit`**: Reduces each channel in the read bounds to about `point_limit` points.
+  Its `aggregation` is `min_max` (default), `average`, or `decimate`. `point_limit` is
+  at least `1`.
 
-The fields travel the same path SY-4786 built for `downsampleFactor`: the TS and Python
-clients (`client/ts/src/framer/iterator.ts:61-65`), the API
+A request without `reduction` reads raw data. The union makes it impossible to ask for a
+stride and a limit together. The field travels the path SY-4786 built for
+`downsampleFactor`: the TS and Python clients
+(`client/ts/src/framer/iterator.ts:61-65`), the API
 (`core/pkg/api/framer/framer.go:198-203`), the service
 (`core/pkg/service/framer/iterator/service.go:51-65`), the distribution transport
 (`core/pkg/distribution/framer/iterator/transport.go:64-65`), and Cesium
-(`cesium/internal/unary/iterator.go:34-37`).
+(`cesium/internal/unary/iterator.go:34-37`). The streamer keeps its own
+`downsampleFactor`.
 
 Cesium reduces in the unary iterator, beside the every-Nth path. Each data channel's
 iterator counts the samples of its index channel inside the read bounds, with
@@ -205,14 +211,23 @@ an even number for `min_max`. When the count is already under the limit, the rea
 raw.
 
 Calculated channels are computed from raw data in the service layer, then reduced with
-`MultiSeries.Reduce`. Arc gives a calculation's output the alignment of its inputs, so
-the output and its virtual index reduce like stored data. The service picks each
-output's group size from the concrete indexes the calculation reads: a `decimate` read
-with a limit of one point returns one point per domain, with the index's sample count as
-its alignment multiple. A stored channel read beside a calculation reduces the same way
-as when it is read alone.
+`MultiSeries.Reduce`. A calculation must see every sample, because a stateful expression
+fed reduced input returns a different signal. Arc gives a calculation's output the
+alignment of its inputs, so the output and its virtual index reduce like stored data.
+The service picks each output's group size from the concrete indexes the calculation
+reads: a `decimate` read with a limit of one point returns one point per domain, with
+the index's sample count as its alignment multiple. A stored channel read beside a
+calculation reduces the same way as when it is read alone.
 
-`downsampleFactor` stays. CSV export and the Python client use it.
+A raw read of a whole tile can be large: 12 hours of a 1 kHz channel is about 400 MB.
+Cesium therefore sends an unreduced read of a fixed span in pieces. A piece holds at
+most the chunk size of samples of every index, and ends at the same time for every
+channel. Each piece goes out as one response, in time order. The calculation runs on
+each piece. A piece edge can cut a group, so the reducer keeps each channel's last group
+until the next piece completes it, and sends it before the reply's acknowledgement. The
+groups are the same as in a read of one piece. A stride over a calculation continues
+across pieces in the same way. `Next` with the automatic span reads all of the remaining
+bounds of a reduced calculated read, so it returns exact groups in one reply.
 
 ### 4.5 The wire
 
@@ -234,8 +249,8 @@ The frame codec has one flags byte, and bits 0 to 5 are in use
 All four codecs change together: Go, TS (`client/ts/src/framer/codec.ts:74-79`), Python
 (`client/py/synnax/framer/codec.py:21-26`), and C++ (`client/cpp/framer/codec.cpp`).
 
-The Core sets bit 6 only when a request asks for aggregation. A shipped client never
-asks, so it never receives the bit.
+The Core sets bit 6 only when a request asks for a limit. A shipped client never asks,
+so it never receives the bit.
 
 ### 4.6 The `Feed`
 
@@ -286,17 +301,17 @@ setting is hidden for these lines.
 
 ### 4.8 Live plots
 
-- **Finished tiles**: Tiles fully in the past come from `readTile`, like a static plot.
-- **The newest tile**: It streams at full resolution, through `Feed.stream` as today.
-- **Before the stream started**: The newest tile has no streamed data before the first
-  streamed sample. One `readTile` with `end` set to that sample's time fills the gap at
-  the point limit. It is not cached.
-- **When the newest tile finishes**: The source reads it as a finished tile and drops
-  its streamed data.
+A live line keeps a live window at full resolution: `feed.read` fills it once, and
+`Feed.stream` extends it. The window starts at the home-level tile boundary at or before
+the start of the home view, so it covers the home view and at most one tile more. Series
+that end before the window's start are released as it moves.
 
-The pieces never overlap, so nothing is drawn twice. At most one tile of streamed data
-stays at full resolution. Today a live plot keeps three times its window
-(`pluto/src/lineplot/LinePlot.tsx:135`).
+Tiles cover everything before the window's start. The start is a tile boundary at the
+home level and every finer level, so no tile at those levels crosses it. A coarser tile
+that crosses it is read with `end` set to the start, and the `Feed` does not cache it.
+The x and y sources compute the start from the clock, so both cut at the same time.
+
+Today a live plot keeps three times its window (`pluto/src/lineplot/LinePlot.tsx:135`).
 
 ### 4.9 Loading
 
@@ -319,36 +334,42 @@ actions (`lineplot.oracle:546-558`). It adds two fields to `Line`:
 - **`detail`**: `medium` default, `low`, or `high`.
 
 A 1-50 factor has no meaningful mapping to a detail level, so saved plots take the
-defaults. The Console toolbar (`console/src/feature/lineplot/toolbar/Lines.tsx`) swaps
-its two inputs for the two new ones.
+default detail. A line saved with the `average` mode takes the `average` aggregation.
+The Console toolbar (`console/src/feature/lineplot/toolbar/Lines.tsx`) swaps its two
+inputs for the two new ones.
 
 The per-line `SeriesDownsampler` (`pluto/src/telem/aether/transformers.ts:357-409`) and
 the GPU stride (`line.ts:141-177`, `line.ts:493-503`) are deleted.
 
 ## 5 Implementation phases
 
-Each phase is one PR into `main`. The split follows the seam of §3: Phase 1 is the data
-plane, Phase 2 is rendering, and Phase 3 is the user-facing cutover. Phase 2 sits behind
-the Console flag `lineplotTiles` in `console/src/flags.ts`, which Pluto receives as a
+Each phase is one PR into `main`, merged in order. Phases 2 and 3 are the data plane,
+Phase 4 is rendering, and Phase 5 is the user-facing cutover. Phase 4 sits behind the
+Console flag `lineplotTiles` in `console/src/flags.ts`, which Pluto receives as a
 `LinePlot` prop.
 
-- **Phase 1: Data plane.** Go `Series.AlignmentMultiple` and codec bits 6 and 7 in the
-  Go, TS, Python, and C++ codecs. `min_max`, `average`, and `decimate` under a point
-  limit in the Cesium unary iterator, with index-anchored groups and one group size per
-  index. The two iterator fields through the service, distribution, API, and the TS and
-  Python clients, and the service-layer path for calculated channels. `Feed.readTile`
-  with its cache, batching, eviction budget, staleness, and partial tiles. Live-Core
-  `Feed` specs cover the path end to end. No plot uses it yet.
-- **Phase 2: Tiled plots, flagged.** Home-view bounds, `tiledChannelData`, the `view`
+- **Phase 1: Aether update fix.** Main-thread updates that cross a worker push in flight
+  are kept. Tiles push often, so the plot depends on it.
+- **Phase 2: Core reduction.** Go `Series.AlignmentMultiple` and codec bits 6 and 7 in
+  the Go, TS, Python, and C++ codecs. The `reduction` union through Cesium, the
+  distribution layer, the service, the API, and the TS and Python clients, with CSV
+  export moved to `stride`. `min_max`, `average`, and `decimate` under a point limit in
+  the Cesium unary iterator, with index-anchored groups and one group size per index.
+  Pieced raw reads, and the service-layer path for calculated channels.
+- **Phase 3: Tile cache.** `Feed.readTile` with its cache, batching, eviction budget,
+  staleness, and partial tiles. Live-Core `Feed` specs cover the path end to end. No
+  plot uses it yet.
+- **Phase 4: Tiled plots, flagged.** Home-view bounds, `tiledChannelData`, the `view`
   value prop, the slot drawing rule, the loading behavior of §4.9, the live handoff of
   §4.8, and `decimate` for XY plots.
-- **Phase 3: Cutover.** The oracle field and action changes, with regenerated code in
+- **Phase 5: Cutover.** The oracle field and action changes, with regenerated code in
   its own commit, and the toolbar inputs. Tiles turn on, and the flag,
   `SeriesDownsampler`, the GPU stride, and the #2882 canvas erase are deleted.
 
-**Compatibility**: Shipped clients never request aggregation, so they never see codec
-bit 6. The dropped line fields were in stable releases. Stored plots that carry them
-decode with the fields ignored, and take the new defaults.
+**Compatibility**: Shipped clients never request a limit, so they never see codec bit 6.
+A shipped client that sends `downsampleFactor` to an iterator reads raw data. The
+dropped line fields were in stable releases. Stored plots that carry them decode with
+the fields ignored, and take the new defaults.
 
 ## 6 Resolved decisions
 
@@ -400,11 +421,23 @@ once.
 values, so it does not choose tiles. The trade is real: a large XY plot still loads its
 whole home view, reduced by `decimate`.
 
+**6.10 One `reduction` union, not three fields.** Separate `downsampleFactor`,
+`aggregation`, and `point_limit` fields allow a request that sets a stride and a limit
+together, and each layer must reject it. A union cannot state that request. The trade is
+real: the iterator field `downsampleFactor` leaves the wire, and a client that still
+sends it gets raw data.
+
+**6.11 Pieces in Cesium, not in the service.** The service could split a calculated read
+into several smaller reads. Only Cesium knows where each index's samples are, so the
+service cannot cut reads at a sample count, and a second iterator position in the
+service could drift from Cesium's. Reducing each chunk alone was also considered. It
+adds two points at every chunk edge: 2,848 points for a limit of 2,000 at 100,000-sample
+chunks. The trade is real: the reducer holds one group per channel between pieces.
+
 ## 7 What this RFC does not cover
 
 - A precomputed pyramid of reduced data in Cesium. The Core reduces at read time.
 - Reduction of live streams. Live data stays at full resolution.
-- CSV export, which keeps `downsampleFactor`.
 - Schematic values, tables, and other consumers of `Feed.read`.
 - Prefetching tiles ahead of a pan.
 

@@ -535,6 +535,54 @@ var _ = Describe("Series", func() {
 		})
 	})
 
+	Describe("DownsampleFrom", func() {
+		DescribeTable(
+			"keeps every factor-th sample from start",
+			func(
+				original telem.Series,
+				start int64,
+				factor uint32,
+				expected telem.Series,
+			) {
+				out := original.DownsampleFrom(start, factor)
+				Expect(out).To(telem.MatchSeriesData(expected))
+				if factor > 1 {
+					Expect(out.Alignment).To(
+						Equal(original.Alignment.AddSamples(uint32(start))),
+					)
+				}
+			},
+			Entry(
+				"fixed density",
+				telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6, 7),
+				int64(2),
+				uint32(3),
+				telem.NewSeriesV[int64](3, 6),
+			),
+			Entry(
+				"variable density",
+				telem.NewSeriesV("a", "b", "c", "d"),
+				int64(1),
+				uint32(2),
+				telem.NewSeriesV("b", "d"),
+			),
+			Entry(
+				"a start past the end",
+				telem.NewSeriesV[int64](1, 2),
+				int64(2),
+				uint32(3),
+				telem.NewSeriesV[int64](),
+			),
+			Entry(
+				"a factor below 2",
+				telem.NewSeriesV[int64](1, 2),
+				int64(0),
+				uint32(1),
+				telem.NewSeriesV[int64](1, 2),
+			),
+		)
+	})
+
 	Describe("Downsample", func() {
 		Context("Fixed Length Data Types", func() {
 			It("Should correctly downsample a series with a factor of 2", func() {

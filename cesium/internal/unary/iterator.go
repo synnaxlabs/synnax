@@ -134,6 +134,22 @@ func (i *Iterator) SetBounds(tr telem.TimeRange) {
 
 func (i *Iterator) Bounds() telem.TimeRange { return i.bounds }
 
+// Continue reads the data between the end of the view and end into the frame, and
+// extends the view to end. It splits one Next into consecutive reads.
+func (i *Iterator) Continue(ctx context.Context, end telem.TimeStamp) bool {
+	start := i.view.Start
+	ok := i.Next(ctx, i.view.End.Span(end))
+	i.view.Start = start
+	return ok
+}
+
+// EndAfter returns the end of the time range that starts at the end of the view and
+// holds the next n samples of the channel. It returns telem.TimeStampMax when fewer
+// than n samples follow the view.
+func (i *Iterator) EndAfter(ctx context.Context, n int64) (telem.TimeStamp, error) {
+	return i.idx.EndAfter(ctx, i.view.End, n)
+}
+
 func (i *Iterator) Value() channel.Frame { return i.frame }
 
 func (i *Iterator) View() telem.TimeRange { return i.view }

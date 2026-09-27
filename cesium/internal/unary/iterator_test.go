@@ -3033,3 +3033,83 @@ var _ = Describe("Downsampled Iteration", func() {
 		})
 	}
 })
+
+var _ = Describe("Pieced Iteration", func() {
+	for fsName, openFS := range FileSystems {
+		Context("FS: "+fsName, func() {
+			var dataDB *unary.DB
+			BeforeEach(func(ctx SpecContext) {
+				fs := openFS()
+				indexKey := GenerateChannelKey()
+				indexDB := MustOpen(unary.Open(ctx, unary.Config{
+					FS:        MustSucceed(fs.Sub("index")),
+					MetaCodec: json.Codec,
+					Channel: channel.Channel{
+						Key:      indexKey,
+						Name:     "index",
+						DataType: telem.TimestampT,
+						IsIndex:  true,
+						Index:    indexKey,
+					},
+				}))
+				dataDB = MustOpen(unary.Open(ctx, unary.Config{
+					FS:        MustSucceed(fs.Sub("data")),
+					MetaCodec: json.Codec,
+					Channel: channel.Channel{
+						Key:      GenerateChannelKey(),
+						Name:     "data",
+						DataType: telem.Int64T,
+						Index:    indexKey,
+					},
+				}))
+				dataDB.SetIndex(indexDB.Index())
+				Expect(unary.Write(
+					ctx,
+					indexDB,
+					telem.SecondTS,
+					telem.NewSeriesSecondsTSV(1, 2, 3, 4),
+				)).To(Succeed())
+				Expect(unary.Write(
+					ctx,
+					dataDB,
+					telem.SecondTS,
+					telem.NewSeriesV[int64](1, 2, 3, 4),
+				)).To(Succeed())
+			})
+
+			Describe("EndAfter", func() {
+				DescribeTable(
+					"returns the end of the range holding the next n samples",
+					func(ctx SpecContext, n int64, expected telem.TimeStamp) {
+						iter := MustOpen(dataDB.OpenIterator(unary.IterRange(
+							telem.TimeRangeMax,
+						)))
+						Expect(iter.SeekFirst(ctx)).To(BeTrue())
+						Expect(iter.EndAfter(ctx, n)).To(Equal(expected))
+					},
+					Entry("inside the data", int64(2), 3*telem.SecondTS),
+					Entry("past the data", int64(4), telem.TimeStampMax),
+				)
+			})
+
+			Describe("Continue", func() {
+				It("Should read on from the view end and keep its start", func(
+					ctx SpecContext,
+				) {
+					iter := MustOpen(dataDB.OpenIterator(unary.IterRange(
+						telem.TimeRangeMax,
+					)))
+					Expect(iter.SeekFirst(ctx)).To(BeTrue())
+					Expect(iter.Next(ctx, 2*telem.Second)).To(BeTrue())
+					Expect(iter.Continue(ctx, 5*telem.SecondTS)).To(BeTrue())
+					Expect(iter.Value().Get(iter.Channel.Key).Series[0]).To(
+						telem.MatchSeriesDataV[int64](3, 4),
+					)
+					Expect(iter.View()).To(Equal(
+						(1 * telem.SecondTS).Range(5 * telem.SecondTS),
+					))
+				})
+			})
+		})
+	}
+})

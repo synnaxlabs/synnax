@@ -170,9 +170,9 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 			p.SetSegment("reducer", r)
 			p.MustConnect[Response](routeOutletFrom, "reducer", 25)
 			routeOutletFrom = "reducer"
-			p.SetSegment("bounds", newBoundsTracker(sizer, r))
-			p.MustConnect[Request]("bounds", routeInletsTo, 1)
-			routeInletsTo = "bounds"
+			p.SetSegment("planner", newRequestPlanner(sizer, r))
+			p.MustConnect[Request]("planner", routeInletsTo, 1)
+			routeInletsTo = "planner"
 		}
 	}
 	return &plumber.Segment[Request, Response]{

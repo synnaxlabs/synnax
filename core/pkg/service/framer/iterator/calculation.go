@@ -13,7 +13,6 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/x/confluence"
@@ -22,13 +21,14 @@ import (
 	"github.com/synnaxlabs/x/signal"
 )
 
+// calculationTransform runs calculations on each data response as it arrives, so a
+// read's memory stays bounded by the size of one response.
 type calculationTransform struct {
 	confluence.UnarySink[Response]
 	confluence.AbstractUnarySource[Response]
 	keepKeys         set.Set[channel.Key]
 	calculators      []*calculator.Calculator
 	accumulatedError error
-	pendingFrames    []framer.Frame
 }
 
 func newCalculationTransform(
@@ -36,9 +36,8 @@ func newCalculationTransform(
 	calculators []*calculator.Calculator,
 ) *calculationTransform {
 	return &calculationTransform{
-		calculators:   calculators,
-		keepKeys:      set.New(keepKeys...),
-		pendingFrames: make([]framer.Frame, 0, 8),
+		calculators: calculators,
+		keepKeys:    set.New(keepKeys...),
 	}
 }
 
@@ -69,56 +68,29 @@ func (t *calculationTransform) Flow(sCtx signal.Context, opts ...confluence.Opti
 }
 
 func (t *calculationTransform) processResponse(ctx context.Context, res Response) {
-	if res.Command == CommandError {
+	switch {
+	case res.Command == CommandError:
 		res.Error = errors.Combine(res.Error, t.accumulatedError)
-		t.Out.Inlet() <- res
-		return
-	}
-	if res.Variant == ResponseVariantData {
-		if res.Frame.Count() > 0 {
-			t.pendingFrames = append(t.pendingFrames, res.Frame)
+	case res.Variant == ResponseVariantData:
+		res.Frame = t.calculate(ctx, res.Frame)
+		if res.Frame.Count() == 0 {
+			return
 		}
-		return
-	}
-	if res.Variant == ResponseVariantAck {
-		t.processBufferedFrames(ctx, res)
-		return
+	case res.Variant == ResponseVariantAck && t.accumulatedError != nil:
+		res.Ack = false
 	}
 	t.Out.Inlet() <- res
 }
 
-func (t *calculationTransform) processBufferedFrames(
+func (t *calculationTransform) calculate(
 	ctx context.Context,
-	ackRes Response,
-) {
-	defer func() { t.pendingFrames = t.pendingFrames[:0] }()
-	if len(t.pendingFrames) == 0 {
-		if t.accumulatedError != nil {
-			ackRes.Ack = false
-		}
-		t.Out.Inlet() <- ackRes
-		return
-	}
-	mergedFrame := frame.Merge(t.pendingFrames)
+	fr framer.Frame,
+) framer.Frame {
 	var err error
 	for _, c := range t.calculators {
-		mergedFrame, _, err = c.Next(ctx, mergedFrame, mergedFrame)
-		if err != nil {
+		if fr, _, err = c.Next(ctx, fr, fr); err != nil {
 			t.accumulatedError = err
-			continue
 		}
 	}
-	mergedFrame = mergedFrame.KeepKeys(t.keepKeys)
-	if mergedFrame.Count() > 0 {
-		t.Out.Inlet() <- Response{
-			Variant: ResponseVariantData,
-			Command: ackRes.Command,
-			SeqNum:  ackRes.SeqNum,
-			Frame:   mergedFrame,
-		}
-	}
-	if t.accumulatedError != nil {
-		ackRes.Ack = false
-	}
-	t.Out.Inlet() <- ackRes
+	return fr.KeepKeys(t.keepKeys)
 }

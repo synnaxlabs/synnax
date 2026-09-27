@@ -1736,6 +1736,79 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			Expect(v.Series[0].Unmarshal[float32]()).To(Equal(groupEnds(totals, 20)))
 		})
 
+		Describe("Pieces", func() {
+			// values returns the samples of every series in m, in order.
+			values := func(m telem.MultiSeries) []float32 {
+				var out []float32
+				for _, s := range m.Series {
+					out = append(out, s.Unmarshal[float32]()...)
+				}
+				return out
+			}
+
+			It("Should reduce a calculation read in pieces to exact groups", func(
+				ctx SpecContext,
+			) {
+				calc := &channel.Channel{
+					Name:       "aggregate_tripled",
+					DataType:   telem.Float32T,
+					Expression: "return aggregate_sensor * 3",
+				}
+				Expect(channelWriter.Create(ctx, calc)).To(Succeed())
+				cfg := aggregated(calc.Key(), calc.Index())
+				cfg.ChunkSize = 7
+				fr := read(ctx, cfg)
+				v := fr.Get(calc.Key())
+				Expect(values(v)).To(Equal(groupEnds(ramp(3), 20)))
+				Expect(fr.Get(calc.Index()).AlignmentBounds()).
+					To(Equal(v.AlignmentBounds()))
+			})
+
+			It("Should read a reduced calculation with AutoSpan in one reply", func(
+				ctx SpecContext,
+			) {
+				calc := &channel.Channel{
+					Name:       "aggregate_quadrupled",
+					DataType:   telem.Float32T,
+					Expression: "return aggregate_sensor * 4",
+				}
+				Expect(channelWriter.Create(ctx, calc)).To(Succeed())
+				cfg := aggregated(calc.Key())
+				cfg.ChunkSize = 7
+				iter := MustSucceed(iteratorSvc.Open(ctx, cfg))
+				Expect(iter.SeekFirst()).To(BeTrue())
+				Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
+				Expect(values(iter.Value().Get(calc.Key()))).
+					To(Equal(groupEnds(ramp(4), 20)))
+				Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
+				Expect(iter.Close()).To(Succeed())
+			})
+
+			It("Should keep the stride of a calculation read in pieces", func(
+				ctx SpecContext,
+			) {
+				calc := &channel.Channel{
+					Name:       "aggregate_quintupled",
+					DataType:   telem.Float32T,
+					Expression: "return aggregate_sensor * 5",
+				}
+				Expect(channelWriter.Create(ctx, calc)).To(Succeed())
+				fr := read(ctx, iterator.Config{
+					Keys:      []channel.Key{calc.Key()},
+					Bounds:    bounds,
+					ChunkSize: 7,
+					Reduction: telem.Reduction{
+						Variant: telem.StrideReduction{Factor: 3},
+					},
+				})
+				var expected []float32
+				for i := 0; i < 100; i += 3 {
+					expected = append(expected, float32(i+1)*5)
+				}
+				Expect(values(fr.Get(calc.Key()))).To(Equal(expected))
+			})
+		})
+
 		It("Should resize groups when the bounds change", func(ctx SpecContext) {
 			calc := &channel.Channel{
 				Name:       "aggregate_halved",

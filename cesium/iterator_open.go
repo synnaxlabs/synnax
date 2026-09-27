@@ -71,5 +71,8 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (si *streamIterator, err err
 		}
 		return nil, channel.NewNotFoundError(key)
 	}
-	return &streamIterator{internal: internal}, nil
+	return &streamIterator{
+		internal: internal,
+		reduced:  cfg.Reduction.Variant != nil,
+	}, nil
 }
