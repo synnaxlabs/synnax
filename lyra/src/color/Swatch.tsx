@@ -9,23 +9,48 @@
 
 import "@/color/Swatch.css";
 
-import { CSS } from "@synnaxlabs/lyra/css";
-import { Dialog } from "@synnaxlabs/lyra/dialog";
-import { state } from "@synnaxlabs/lyra/state";
-import { Text } from "@synnaxlabs/lyra/text";
-import { type color, state as xstate } from "@synnaxlabs/x";
+import { color, state as xstate } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo, useState } from "react";
 
 import { BaseSwatch, type BaseSwatchProps } from "@/color/BaseSwatch";
-import { Picker, type PickerProps } from "@/color/Picker";
+import { Picker } from "@/color/Picker";
+import { CSS } from "@/css";
+import { Dialog } from "@/dialog";
+import { Icon } from "@/icon";
+import { state } from "@/state";
+import { Text } from "@/text";
 
-export interface SwatchProps
+interface BaseProps
   extends
-    BaseSwatchProps,
-    Pick<Dialog.FrameProps, "visible" | "onVisibleChange" | "initialVisible">,
-    Pick<PickerProps, "onDelete" | "position"> {
+    Omit<BaseSwatchProps, "value" | "onChange">,
+    Pick<Dialog.FrameProps, "visible" | "onVisibleChange" | "initialVisible"> {
   allowChange?: boolean;
   onlyChangeOnBlur?: boolean;
+}
+
+interface RequiredValueProps extends BaseProps {
+  value: color.Crude;
+  onChange?: (value: color.Color) => void;
+  fallback?: undefined;
+}
+
+interface OptionalValueProps extends BaseProps {
+  value?: color.Crude;
+  /** Called with undefined when the user picks Auto. */
+  onChange?: (value?: color.Color) => void;
+  /**
+   * The color the theme paints while the value is absent. Setting it makes the value
+   * optional: the picker offers an Auto swatch that clears it, and the swatch marks
+   * when it shows the fallback.
+   */
+  fallback: color.Crude;
+}
+
+export type SwatchProps = RequiredValueProps | OptionalValueProps;
+
+/** A change the swatch holds until the picker closes. */
+interface Pending {
+  value?: color.Color;
 }
 
 /**
@@ -39,7 +64,7 @@ export interface SwatchProps
  * swatch unmounts is dropped.
  */
 export const Swatch = ({
-  onChange,
+  onChange: propsOnChange,
   onVisibleChange,
   initialVisible = false,
   allowChange = true,
@@ -47,35 +72,40 @@ export const Swatch = ({
   style,
   onClick,
   value,
+  fallback,
   visible: propsVisible,
+  className,
   ...rest
 }: SwatchProps): ReactElement => {
+  // Only an OptionalValueProps caller sets a fallback, and only the fallback's Auto
+  // swatch passes undefined.
+  const onChange = propsOnChange as ((value?: color.Color) => void) | undefined;
   const [visible, setVisible] = state.usePassthrough({
     initial: initialVisible,
     value: propsVisible,
     onChange: onVisibleChange,
   });
-  const [pending, setPending] = useState<color.Color | null>(null);
+  const [pending, setPending] = useState<Pending | null>(null);
   const handleVisibleChange = useCallback<xstate.Setter<boolean>>(
     (arg) => {
       if (pending != null && !xstate.executeSetter(arg, visible)) {
-        onChange?.(pending);
+        onChange?.(pending.value);
         setPending(null);
       }
       setVisible(arg);
     },
     [visible, pending, onChange, setVisible],
   );
-  const handleSwatchChange = useCallback<NonNullable<BaseSwatchProps["onChange"]>>(
-    (c) => {
+  const handleSwatchChange = useCallback(
+    (c: color.Color) => {
       setPending(null);
       onChange?.(c);
     },
     [onChange],
   );
-  const handlePickerChange = useCallback<PickerProps["onChange"]>(
-    (c) => {
-      if (onlyChangeOnBlur) setPending(c);
+  const handlePickerChange = useCallback(
+    (c?: color.Color) => {
+      if (onlyChangeOnBlur) setPending({ value: c });
       else onChange?.(c);
     },
     [onlyChangeOnBlur, onChange],
@@ -85,22 +115,31 @@ export const Swatch = ({
     (e) => (canPick ? handleVisibleChange(true) : onClick?.(e)),
     [canPick, handleVisibleChange, onClick],
   );
-  const tooltip = useMemo(
-    () =>
-      canPick ? <Text.Text level="small">Click to change color</Text.Text> : undefined,
-    [canPick],
-  );
-  const shownValue = pending ?? value;
+  const shownValue = pending != null ? pending.value : value;
+  const auto = shownValue == null;
+  const tooltip = useMemo(() => {
+    if (!canPick) return undefined;
+    return (
+      <Text.Text level="small">
+        {auto
+          ? "Auto: the theme picks the color. Click to change."
+          : "Click to change color"}
+      </Text.Text>
+    );
+  }, [canPick, auto]);
   const swatch = (
     <BaseSwatch
       disabled={!canPick && onClick == null}
       onClick={handleClick}
       onChange={handleSwatchChange}
-      value={shownValue}
+      value={shownValue ?? fallback ?? color.ZERO}
       style={style}
       tooltip={tooltip}
+      className={CSS.cls(auto && CSS.M("auto"), className)}
       {...rest}
-    />
+    >
+      {auto && <Icon.Auto />}
+    </BaseSwatch>
   );
   if (!canPick) return swatch;
   return (
@@ -113,7 +152,7 @@ export const Swatch = ({
     >
       {swatch}
       <Dialog.Dialog rounded="small">
-        <Picker value={shownValue} onChange={handlePickerChange} />
+        <Picker value={shownValue} fallback={fallback} onChange={handlePickerChange} />
       </Dialog.Dialog>
     </Dialog.Frame>
   );

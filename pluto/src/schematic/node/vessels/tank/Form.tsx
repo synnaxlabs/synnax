@@ -9,6 +9,8 @@
 
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
+import { Theming } from "@synnaxlabs/lyra/theming";
+import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Form } from "@/schematic/node/common/form";
@@ -27,6 +29,7 @@ const FillForm = (): ReactElement => {
   const channel = Base.useFieldValue<Scale.Config["channel"]>("fill.channel", {
     optional: true,
   });
+  const theme = Theming.use();
   return (
     <Base.Sections x>
       <Scale.TelemForm path="fill" allowNone />
@@ -36,7 +39,11 @@ const FillForm = (): ReactElement => {
             <Scale.DisplayFields path="fill" />
           </Base.Section>
           <Base.Section title="Appearance">
-            <Form.ColorField path="fill.color" label="Fill color" />
+            <Form.ColorField
+              path="fill.color"
+              label="Fill color"
+              fallback={theme.colors.visualization.palettes.default[0]}
+            />
             <Scale.StyleFields path="fill" />
           </Base.Section>
         </>
@@ -58,7 +65,11 @@ export const TankForm = ({
       </Base.Section>
       <Base.Section title="Appearance">
         <Form.ColorField path="color" />
-        <Form.ColorField path="backgroundColor" label="Background color" />
+        <Form.ColorField
+          path="backgroundColor"
+          label="Background color"
+          fallback={color.ZERO}
+        />
         <Form.RadiusFields path="borderRadius" />
         {showBorderRadius && (
           <Base.NumericField

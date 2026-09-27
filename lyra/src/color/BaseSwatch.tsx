@@ -9,14 +9,18 @@
 
 import "@/color/Swatch.css";
 
-import { Button } from "@synnaxlabs/lyra/button";
-import { CSS } from "@synnaxlabs/lyra/css";
-import { Haul } from "@synnaxlabs/lyra/haul";
-import { Theming } from "@synnaxlabs/lyra/theming";
 import { color } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
 
+import { Button } from "@/button";
+import { CSS } from "@/css";
+import { Haul } from "@/haul";
+import { Theming } from "@/theming";
+
 export const HAUL_TYPE = "color";
+
+const COLOR_VAR = CSS.variable("swatch", "color");
+const TEXT_VAR = CSS.variable("swatch", "text");
 
 export type HaulItem = Haul.Item<typeof HAUL_TYPE, color.Hex, undefined>;
 
@@ -51,7 +55,8 @@ export const BaseSwatch = ({
   style,
   ...rest
 }: BaseSwatchProps): ReactElement => {
-  const background = Theming.use().colors.gray.l0;
+  const { gray } = Theming.use().colors;
+  const background = gray.l0;
   const clr = color.construct(value);
   const dragging = Haul.useDraggingState();
   const canDrop: Haul.CanDrop = useCallback(
@@ -78,8 +83,12 @@ export const BaseSwatch = ({
     startDrag([createHaulItem(color.hex(clr))]);
   }, [startDrag, clr]);
   const swatchStyle = useMemo(
-    () => ({ ...style, [CSS.variable("swatch", "color")]: color.cssString(value) }),
-    [style, value],
+    () => ({
+      ...style,
+      [COLOR_VAR]: color.cssString(value),
+      [TEXT_VAR]: color.cssString(color.pickByContrast(value, gray.l0, gray.l11)),
+    }),
+    [style, value, gray],
   );
   return (
     <Button.Button

@@ -11,6 +11,7 @@ import { type channel, type schematic } from "@synnaxlabs/client";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
@@ -52,21 +53,24 @@ const InputTelemForm = ({ path }: InputTelemFormProps): ReactElement => {
   );
 };
 
-export const InputForm = (): ReactElement => (
-  <Form.Tabs tabs={["style", "control"]}>
-    <Tabs.Content itemKey="style">
-      <Base.Sections x>
-        <Base.Section title="Label">
-          <Label.Form path="label" />
-        </Base.Section>
-        <Base.Section title="Appearance">
-          <Form.ColorField path="color" />
-          <Form.SizeField />
-        </Base.Section>
-      </Base.Sections>
-    </Tabs.Content>
-    <Tabs.Content itemKey="control">
-      <InputTelemForm path="" />
-    </Tabs.Content>
-  </Form.Tabs>
-);
+export const InputForm = (): ReactElement => {
+  const theme = Theming.use();
+  return (
+    <Form.Tabs tabs={["style", "control"]}>
+      <Tabs.Content itemKey="style">
+        <Base.Sections x>
+          <Base.Section title="Label">
+            <Label.Form path="label" />
+          </Base.Section>
+          <Base.Section title="Appearance">
+            <Form.ColorField path="color" fallback={theme.colors.primary.z} />
+            <Form.SizeField />
+          </Base.Section>
+        </Base.Sections>
+      </Tabs.Content>
+      <Tabs.Content itemKey="control">
+        <InputTelemForm path="" />
+      </Tabs.Content>
+    </Form.Tabs>
+  );
+};

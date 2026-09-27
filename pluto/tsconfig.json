@@ -8,7 +8,6 @@
       "offscreencanvas",
       "react",
       "react-dom",
-      "react-color",
       "webgl2"
     ],
     "paths": { "@/*": ["./src/*"] }

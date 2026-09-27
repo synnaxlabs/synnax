@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Button } from "@synnaxlabs/lyra/button";
+import { Color } from "@synnaxlabs/lyra/color";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -16,8 +17,6 @@ import { type Theming } from "@synnaxlabs/lyra/theming";
 import { stopPropagation } from "@synnaxlabs/lyra/util";
 import { type color, type optional, type state } from "@synnaxlabs/x";
 import { memo, type ReactElement } from "react";
-
-import { Color } from "@/color";
 
 export interface EntryData {
   color: color.Crude;

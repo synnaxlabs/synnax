@@ -19,6 +19,10 @@
             )
             50% / 1rem 1rem;
 
+    & svg {
+        color: var(--pluto-swatch-text);
+    }
+
     &.pluto--no-border {
         border-color: transparent;
     }
@@ -35,14 +39,17 @@
         padding: 0;
         border-radius: var(--pluto-border-radius-tiny);
     }
+
     &.pluto--small {
         width: 4rem;
         min-height: 3rem;
     }
+
     &.pluto--medium {
         min-width: 4rem;
         min-height: 3.5rem;
     }
+
     &.pluto--large {
         width: 7rem;
         height: 5rem;

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Color as PColor } from "@synnaxlabs/pluto";
+import { Color as PColor } from "@synnaxlabs/lyra/color";
 import { z } from "zod";
 
 import { Color } from "@/session/color";

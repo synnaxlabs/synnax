@@ -7,16 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { CSS } from "@synnaxlabs/lyra/css";
-import { mockBoundingClientRect } from "@synnaxlabs/lyra/testutil";
-import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { color } from "@synnaxlabs/x";
 import { fireEvent, render, type RenderResult } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Color } from "@/color";
+import { CSS } from "@/css";
+import { mockBoundingClientRect } from "@/testutil";
 import { Theming } from "@/theming";
+import { Triggers } from "@/triggers";
 
 const RED = "#ff0000";
 const GREEN = "00ff00";
@@ -37,7 +37,7 @@ const swatchOf = (c: RenderResult): HTMLElement => {
 };
 
 const hexInputOf = (c: RenderResult): HTMLInputElement =>
-  c.getByLabelText("hex") as HTMLInputElement;
+  c.getByLabelText("Hex") as HTMLInputElement;
 
 const pick = (c: RenderResult, hex: string): void => {
   fireEvent.change(hexInputOf(c), { target: { value: hex } });
@@ -59,6 +59,56 @@ describe("Swatch", () => {
       pick(c, BLUE);
       expect(onChange).toHaveBeenCalledTimes(2);
       expect(color.hex(onChange.mock.calls[1][0])).toEqual(`#${BLUE}`);
+    });
+  });
+
+  describe("fallback", () => {
+    it("should show the fallback marked as auto while the value is absent", () => {
+      const c = render(<Color.Swatch fallback={RED} onChange={vi.fn()} />, {
+        wrapper: Wrapper,
+      });
+      expect(swatchOf(c).className).toContain(CSS.M("auto"));
+      expect(swatchOf(c).style.getPropertyValue(SWATCH_VAR)).toEqual(
+        color.cssString(RED),
+      );
+    });
+
+    it("should not mark a picked value as auto", () => {
+      const c = render(
+        <Color.Swatch value={`#${BLUE}`} fallback={RED} onChange={vi.fn()} />,
+        { wrapper: Wrapper },
+      );
+      expect(swatchOf(c).className).not.toContain(CSS.M("auto"));
+    });
+
+    it("should call onChange with undefined when the user picks Auto", () => {
+      const onChange = vi.fn();
+      const c = render(
+        <Color.Swatch value={`#${BLUE}`} fallback={RED} onChange={onChange} />,
+        { wrapper: Wrapper },
+      );
+      fireEvent.click(swatchOf(c));
+      fireEvent.click(c.getByLabelText("Auto"));
+      expect(onChange).toHaveBeenCalledExactlyOnceWith(undefined);
+    });
+
+    it("should hold a pick of Auto until the picker closes", () => {
+      const onChange = vi.fn();
+      const c = render(
+        <Color.Swatch
+          value={`#${BLUE}`}
+          fallback={RED}
+          onChange={onChange}
+          onlyChangeOnBlur
+        />,
+        { wrapper: Wrapper },
+      );
+      fireEvent.click(swatchOf(c));
+      fireEvent.click(c.getByLabelText("Auto"));
+      expect(onChange).not.toHaveBeenCalled();
+      expect(swatchOf(c).className).toContain(CSS.M("auto"));
+      closePicker(c);
+      expect(onChange).toHaveBeenCalledExactlyOnceWith(undefined);
     });
   });
 
