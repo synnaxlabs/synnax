@@ -13,7 +13,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
-import { Channel, Color, LinePlot, type telem } from "@synnaxlabs/pluto";
+import { Channel, Color, LinePlot } from "@synnaxlabs/pluto";
 import { type bounds, type color, type xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
@@ -37,19 +37,31 @@ const EmptyContent = () => {
 interface LineProps extends Omit<List.ItemProps<string>, "onChange"> {}
 
 const STROKE_WIDTH_BOUNDS: bounds.Bounds = { lower: 1, upper: 10 };
-const DOWNSAMPLE_BOUNDS: bounds.Bounds = { lower: 1, upper: 1000 };
 const STROKE_WIDTH_DRAG_SCALE: xy.XY = { x: 0.1, y: 0.1 };
-const DOWNSAMPLE_DRAG_SCALE: xy.XY = { x: 0.1, y: 0.1 };
 
-const SelectDownsampleMode = (
-  props: Select.ButtonsProps<telem.DownsampleMode>,
+const SelectAggregation = (
+  props: Select.ButtonsProps<lineplot.Aggregation>,
 ): ReactElement => (
-  <Select.Buttons {...props}>
-    <Select.Item itemKey="average" size="small">
+  <Select.Buttons {...props} shrink={0}>
+    <Select.Item itemKey="min_max" size="small" tooltip="Draw the range of each group">
+      Min/max
+    </Select.Item>
+    <Select.Item itemKey="average" size="small" tooltip="Draw the mean of each group">
       Average
     </Select.Item>
-    <Select.Item itemKey="decimate" size="small">
-      Decimate
+  </Select.Buttons>
+);
+
+const SelectDetail = (props: Select.ButtonsProps<lineplot.Detail>): ReactElement => (
+  <Select.Buttons {...props} shrink={0}>
+    <Select.Item itemKey="low" size="small">
+      Low
+    </Select.Item>
+    <Select.Item itemKey="medium" size="small">
+      Medium
+    </Select.Item>
+    <Select.Item itemKey="high" size="small">
+      High
     </Select.Item>
   </Select.Buttons>
 );
@@ -72,11 +84,11 @@ const Line = ({ itemKey, index }: LineProps): ReactElement | null => {
   const handleWidthChange = (strokeWidth: number) =>
     dispatch(lineplot.setLineStrokeWidth({ key: itemKey, strokeWidth }));
 
-  const handleDownsampleChange = (downsample: number) =>
-    dispatch(lineplot.setLineDownsample({ key: itemKey, downsample }));
+  const handleAggregationChange = (aggregation: lineplot.Aggregation) =>
+    dispatch(lineplot.setLineAggregation({ key: itemKey, aggregation }));
 
-  const handleDownsampleModeChange = (downsampleMode: telem.DownsampleMode) =>
-    dispatch(lineplot.setLineDownsampleMode({ key: itemKey, downsampleMode }));
+  const handleDetailChange = (detail: lineplot.Detail) =>
+    dispatch(lineplot.setLineDetail({ key: itemKey, detail }));
 
   const handleColorChange = (color: color.Color) =>
     dispatch(lineplot.setLineColor({ key: itemKey, color }));
@@ -102,22 +114,8 @@ const Line = ({ itemKey, index }: LineProps): ReactElement | null => {
         shrink={false}
         tooltip="Stroke width"
       />
-      <Input.Numeric
-        variant="shadow"
-        startContent={<Icon.Downsample />}
-        value={line.downsample}
-        onChange={handleDownsampleChange}
-        dragScale={DOWNSAMPLE_DRAG_SCALE}
-        bounds={DOWNSAMPLE_BOUNDS}
-        shrink={false}
-        tooltip={
-          line.downsampleMode === "average" ? "Averaging window" : "Downsampling factor"
-        }
-      />
-      <SelectDownsampleMode
-        value={line.downsampleMode}
-        onChange={handleDownsampleModeChange}
-      />
+      <SelectAggregation value={line.aggregation} onChange={handleAggregationChange} />
+      <SelectDetail value={line.detail} onChange={handleDetailChange} />
       <Color.Swatch value={line.color} onChange={handleColorChange} size="small" />
     </List.Item>
   );

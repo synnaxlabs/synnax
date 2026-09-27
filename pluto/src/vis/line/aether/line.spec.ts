@@ -345,14 +345,7 @@ describe("line", () => {
       it(`spec ${name}`, () => {
         const xSeries = buildSeriesFromEntries(x);
         const ySeries = buildSeriesFromEntries(y);
-        const drawOperations = buildDrawOperations(
-          xSeries,
-          ySeries,
-          1,
-          0,
-          "decimate",
-          TimeSpan.ZERO,
-        );
+        const drawOperations = buildDrawOperations(xSeries, ySeries, TimeSpan.ZERO);
         expect(drawOperations.length).toBe(expected.length);
         drawOperations.forEach((drawOperation: DrawOperation, i: number) => {
           expect(drawOperation.x).toBe(xSeries.series[expected[i].xSeries]);

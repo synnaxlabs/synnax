@@ -131,7 +131,7 @@ const buildChunks = ({ rate, span, channels }: Spec): Chunks => {
 // One data-path frame per line, omitting GL upload, so slowdowns are a lower bound.
 const frame = (x: MultiSeries, y: MultiSeries): void => {
   windowBounds(x, y, x.bounds, DEFAULT_OVERLAP_THRESHOLD, y.bounds);
-  buildDrawOperations(x, y, 1, 0, "decimate", DEFAULT_OVERLAP_THRESHOLD);
+  buildDrawOperations(x, y, DEFAULT_OVERLAP_THRESHOLD);
 };
 
 // Drain frames walk only the short live window that is on screen during back-fill.

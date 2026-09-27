@@ -110,12 +110,12 @@ describe("lineplot/toolbar/Lines", () => {
     });
   });
 
-  it("switches the downsample mode when a mode button is clicked", async () => {
+  it("persists an aggregation change to the server", async () => {
     const { key, lineKey } = await renderLinesTab();
     fireEvent.click(await screen.findByText("Average"));
     await waitFor(async () => {
       const plot = await client.lineplots.retrieve(key);
-      expect(plot.lines.find((l) => l.key === lineKey)?.downsampleMode).toBe("average");
+      expect(plot.lines.find((l) => l.key === lineKey)?.aggregation).toBe("average");
     });
   });
 
@@ -131,15 +131,12 @@ describe("lineplot/toolbar/Lines", () => {
     });
   });
 
-  it("persists a downsample factor change to the server", async () => {
+  it("persists a detail change to the server", async () => {
     const { key, lineKey } = await renderLinesTab();
-    await screen.findByText("Average");
-    const input = screen.getByDisplayValue("1");
-    fireEvent.change(input, { target: { value: "10" } });
-    fireEvent.blur(input);
+    fireEvent.click(await screen.findByText("High"));
     await waitFor(async () => {
       const plot = await client.lineplots.retrieve(key);
-      expect(plot.lines.find((l) => l.key === lineKey)?.downsample).toBe(10);
+      expect(plot.lines.find((l) => l.key === lineKey)?.detail).toBe("high");
     });
   });
 });

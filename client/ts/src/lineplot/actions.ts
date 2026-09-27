@@ -30,8 +30,8 @@ import {
   setLegendPosition,
   setLine,
   setLineColor,
-  setLineDownsample,
-  setLineDownsampleMode,
+  setLineAggregation,
+  setLineDetail,
   setLineLabel,
   setLineStrokeWidth,
   setRanges,
@@ -361,23 +361,21 @@ const handlers: Handlers = {
     return { inverse, targets: [`line:${payload.key}`] };
   },
 
-  setLineDownsample: (state, payload) => {
+  setLineAggregation: (state, payload) => {
     const line = state.lines.find((l) => l.key === payload.key);
     if (line == null) return actions.NO_OP_RESULT;
     const inverse = [
-      setLineDownsample({ key: payload.key, downsample: line.downsample }),
+      setLineAggregation({ key: payload.key, aggregation: line.aggregation }),
     ];
-    line.downsample = payload.downsample;
+    line.aggregation = payload.aggregation;
     return { inverse, targets: [`line:${payload.key}`] };
   },
 
-  setLineDownsampleMode: (state, payload) => {
+  setLineDetail: (state, payload) => {
     const line = state.lines.find((l) => l.key === payload.key);
     if (line == null) return actions.NO_OP_RESULT;
-    const inverse = [
-      setLineDownsampleMode({ key: payload.key, downsampleMode: line.downsampleMode }),
-    ];
-    line.downsampleMode = payload.downsampleMode;
+    const inverse = [setLineDetail({ key: payload.key, detail: line.detail })];
+    line.detail = payload.detail;
     return { inverse, targets: [`line:${payload.key}`] };
   },
 
@@ -521,10 +519,10 @@ export const kindOf = (actions: Action[]): string => {
       return `line:${a.setLineColor.key}`;
     case "set_line_stroke_width":
       return `line:${a.setLineStrokeWidth.key}`;
-    case "set_line_downsample":
-      return `line:${a.setLineDownsample.key}`;
-    case "set_line_downsample_mode":
-      return `line:${a.setLineDownsampleMode.key}`;
+    case "set_line_aggregation":
+      return `line:${a.setLineAggregation.key}`;
+    case "set_line_detail":
+      return `line:${a.setLineDetail.key}`;
     case "set_line":
       return `line:${a.setLine.line.key}`;
     case "set_rule":
