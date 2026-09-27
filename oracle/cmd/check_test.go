@@ -35,11 +35,13 @@ var _ = Describe("oracle check end-to-end", func() {
 	})
 
 	writeSchema := func(name, body string) {
+		GinkgoHelper()
 		path := filepath.Join(repoRoot, "schemas", name+".oracle")
 		Expect(os.WriteFile(path, []byte(body), 0o644)).To(Succeed())
 	}
 
 	runOracleCheck := func(args ...string) (string, int) {
+		GinkgoHelper()
 		bin := buildOracleBinary()
 		cmd := exec.Command(bin, append([]string{"check"}, args...)...)
 		cmd.Dir = repoRoot
@@ -179,6 +181,7 @@ var _ = Describe("check command flag paths", func() {
 var oracleBinaryPath string
 
 func buildOracleBinary() string {
+	GinkgoHelper()
 	if oracleBinaryPath != "" {
 		return oracleBinaryPath
 	}
@@ -204,6 +207,7 @@ func buildOracleBinary() string {
 // module root (where go.mod lives at oracle/go.mod). Tests run from
 // the cmd/ directory, so the module root is the parent.
 func findOracleModuleRoot() (string, error) {
+	GinkgoHelper()
 	cwd := MustSucceed(os.Getwd())
 	cur := cwd
 	for {

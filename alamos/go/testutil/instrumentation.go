@@ -63,6 +63,7 @@ func serviceName() string { return lo.Must(os.Hostname()) }
 const devDSN = "http://synnax_dev@localhost:14317/2"
 
 func newTracer(serviceName string) *alamos.Tracer {
+	ginkgo.GinkgoHelper()
 	uptrace.ConfigureOpentelemetry(
 		uptrace.WithDSN(devDSN),
 		uptrace.WithServiceName(serviceName),
@@ -75,12 +76,16 @@ func newTracer(serviceName string) *alamos.Tracer {
 }
 
 func newLogger() *alamos.Logger {
+	ginkgo.GinkgoHelper()
 	return testutil.MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
 		ZapConfig: zap.NewDevelopmentConfig(),
 	}))
 }
 
-func newReports() *alamos.Reporter { return testutil.MustSucceed(alamos.NewReporter()) }
+func newReports() *alamos.Reporter {
+	ginkgo.GinkgoHelper()
+	return testutil.MustSucceed(alamos.NewReporter())
+}
 
 // Instrumentation builds Instrumentation from the given config. When tracing is enabled
 // it configures the process-global OpenTelemetry SDK and registers a Ginkgo
@@ -88,6 +93,7 @@ func newReports() *alamos.Reporter { return testutil.MustSucceed(alamos.NewRepor
 // the SDK's background goroutines so they do not leak. It must therefore be called from
 // within a Ginkgo node (a spec, BeforeEach, BeforeAll, BeforeSuite, etc.).
 func Instrumentation(key string, cfgs ...InstrumentationConfig) alamos.Instrumentation {
+	ginkgo.GinkgoHelper()
 	cfg, err := config.New(DefaultInstrumentationConfig, cfgs...)
 	if err != nil {
 		zap.S().Fatal(err)
@@ -117,6 +123,7 @@ func Instrumentation(key string, cfgs ...InstrumentationConfig) alamos.Instrumen
 func ObservedInstrumentation(
 	level zapcore.Level,
 ) (alamos.Instrumentation, *observer.ObservedLogs) {
+	ginkgo.GinkgoHelper()
 	core, logs := observer.New(level)
 	l := testutil.MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
 		ZapLogger: zap.New(core),
@@ -127,6 +134,7 @@ func ObservedInstrumentation(
 // PanicLogger returns an Instrumentation instance that only contains a logger that only
 // logs above PanicLevel and panics on DPanic.
 func PanicLogger() alamos.Instrumentation {
+	ginkgo.GinkgoHelper()
 	cfg := zap.NewDevelopmentConfig()
 	cfg.Level.SetLevel(zap.PanicLevel)
 	l := testutil.MustSucceed(alamos.NewLogger(alamos.LoggerConfig{ZapConfig: cfg}))

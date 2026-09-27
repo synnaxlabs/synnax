@@ -47,6 +47,7 @@ var (
 // (e.g. to exercise Close without conflicting with the shared service's control update
 // channel).
 func newFramerConfig(ctx context.Context, n mock.Node) framer.ServiceConfig {
+	GinkgoHelper()
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: n.DB}))
 	searchIdx := MustOpen(search.OpenIndex())
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{

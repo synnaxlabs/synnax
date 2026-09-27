@@ -23,7 +23,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.moveTo({ x: 756, y: 500 });
 
     session.startRecording();
-    await session.hold(1200);
+    await session.hold(500);
 
     await capture.clickPanelCreate(session);
     await session.hold(800);
@@ -71,7 +71,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.press("ControlOrMeta+a");
     await session.type("3");
     await session.press("Enter");
-    await session.hold(4000);
+    await session.hold(500);
   } finally {
     await fixture.stop();
   }

@@ -76,6 +76,7 @@ type snapshotHolder struct{ snapshot []gleak.Goroutine }
 // assertNoLeakedGoroutines runs the leak assertion synchronously against the supplied
 // baseline, ignoring goroutines that are known to be unstoppable process-globals.
 func assertNoLeakedGoroutines(snapshot []gleak.Goroutine) {
+	ginkgo.GinkgoHelper()
 	args := []any{
 		snapshot,
 		// fasthttp lazily starts a single process-global goroutine (guarded by

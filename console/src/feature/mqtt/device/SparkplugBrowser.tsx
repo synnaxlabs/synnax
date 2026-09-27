@@ -8,22 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import { DisconnectedError, status, type Synnax as Client } from "@synnaxlabs/client";
-import {
-  Button,
-  Component,
-  Flex,
-  Haul,
-  Icon,
-  Input,
-  List,
-  Select,
-  Status,
-  Synnax,
-  Text,
-  TimeSpan,
-  Tree,
-  useCombinedStateAndRef,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { useCombinedStateAndRef } from "@synnaxlabs/lyra/hooks";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Tree } from "@synnaxlabs/lyra/tree";
+import { Synnax, TimeSpan } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useState } from "react";
 

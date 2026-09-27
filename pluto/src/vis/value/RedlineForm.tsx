@@ -9,14 +9,14 @@
 
 import "@/vis/value/RedlineForm.css";
 
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
 import { type bounds, color, deep, scale } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Color } from "@/color";
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
-import { Form } from "@/form";
-import { type Redline, ZERO_READLINE } from "@/vis/value/redline";
+import { type Redline } from "@/vis/value/redline";
 
 const boundsInputProps = { size: "small", showDragHandle: false } as const;
 
@@ -28,12 +28,7 @@ const baseScale = scale.Scale.scale<number>(0, 1);
 
 export const RedlineForm = ({ path }: RedlineFormProps): ReactElement => {
   const { set, get } = Form.useContext();
-  const { bounds } = Form.useFieldValue<Redline>(`${path}`, {
-    defaultValue: {
-      bounds: { ...ZERO_READLINE.bounds },
-      gradient: [...ZERO_READLINE.gradient],
-    },
-  });
+  const { bounds } = Form.useFieldValue<Redline>(path);
   const scale = baseScale.scale(bounds);
   return (
     <Flex.Box x grow>

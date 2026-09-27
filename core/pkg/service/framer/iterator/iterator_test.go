@@ -10,10 +10,12 @@
 package iterator_test
 
 import (
+	"context"
 	"strconv"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
@@ -24,9 +26,55 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/storage"
+	"github.com/synnaxlabs/synnax/pkg/storage/ts"
+	xfs "github.com/synnaxlabs/x/io/fs"
+	. "github.com/synnaxlabs/x/io/fs/testutil"
+	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+// openServices opens the iterator service and the services it depends on over node.
+func openServices(
+	ctx context.Context, node mock.Node,
+) (*iterator.Service, *channel.Service) {
+	GinkgoHelper()
+	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
+	searchIdx := MustOpen(search.OpenIndex())
+	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
+		Search:   searchIdx,
+	}))
+	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
+		Group:    groupSvc,
+		Search:   searchIdx,
+	}))
+	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
+		Group:    groupSvc,
+		Label:    labelSvc,
+		Search:   searchIdx,
+	}))
+	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+		Channel:      node.Channel,
+		DB:           node.DB,
+		HostProvider: node.Cluster,
+		Ontology:     otg,
+		Group:        groupSvc,
+		Search:       searchIdx,
+		Status:       statusSvc,
+	}))
+	iteratorSvc := MustSucceed(iterator.NewService(iterator.ServiceConfig{
+		Framer:  node.Framer,
+		Channel: channelSvc,
+	}))
+	return iteratorSvc, channelSvc
+}
 
 var _ = Describe("StreamIterator", Ordered, func() {
 	var (
@@ -38,40 +86,8 @@ var _ = Describe("StreamIterator", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		node = mock.NewNode(ctx)
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
-		searchIdx := MustOpen(search.OpenIndex())
-		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       node.DB,
-			Ontology: otg,
-			Search:   searchIdx,
-		}))
-		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       node.DB,
-			Ontology: otg,
-			Group:    groupSvc,
-			Search:   searchIdx,
-		}))
-		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			DB:       node.DB,
-			Ontology: otg,
-			Group:    groupSvc,
-			Label:    labelSvc,
-			Search:   searchIdx,
-		}))
-		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-			Channel:      node.Channel,
-			DB:           node.DB,
-			HostProvider: node.Cluster,
-			Ontology:     otg,
-			Group:        groupSvc,
-			Search:       searchIdx,
-			Status:       statusSvc,
-		}))
+		iteratorSvc, channelSvc = openServices(ctx, node)
 		channelWriter = channelSvc.NewWriter(nil)
-		iteratorSvc = MustSucceed(iterator.NewService(iterator.ServiceConfig{
-			Framer:  node.Framer,
-			Channel: channelSvc,
-		}))
 	})
 	Describe("Basic Iteration", func() {
 		It("Should read written frames correctly", func(ctx SpecContext) {
@@ -1524,5 +1540,68 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Expect(iter.Close()).To(Succeed())
 			},
 		)
+	})
+})
+
+var _ = Describe("Close", func() {
+	It("Should reject every call after Close", func(ctx SpecContext) {
+		node := mock.NewNode(ctx)
+		iteratorSvc, channelSvc := openServices(ctx, node)
+		ch := &channel.Channel{
+			Name:     "Scott",
+			DataType: telem.TimestampT,
+			IsIndex:  true,
+		}
+		Expect(channelSvc.NewWriter(nil).Create(ctx, ch)).To(Succeed())
+		iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
+			Keys:   []channel.Key{ch.Key()},
+			Bounds: telem.TimeRangeMax,
+		}))
+		Expect(iter.Close()).To(Succeed())
+		Expect(iter.SeekFirst()).To(BeFalse())
+		Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
+		Expect(iter.Valid()).To(BeFalse())
+		Expect(iter.Error()).To(MatchError(iterator.ErrClosed))
+		Expect(iter.Close()).To(Succeed())
+	})
+})
+
+var _ = Describe("Read failure", func() {
+	It("Should return the read error from Close", func(ctx SpecContext) {
+		var (
+			cluster = mock.OpenCluster(ctx, 0)
+			faulty  = WrapFaultyFS(xfs.NewMem())
+			store   = &storage.Layer{
+				KV: DeferClose(memkv.New()),
+				TS: DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faulty}))),
+			}
+			node = cluster.Provision(ctx, distribution.LayerConfig{Storage: store})
+		)
+		DeferCleanup(func() { Expect(cluster.Close()).To(Succeed()) })
+		iteratorSvc, channelSvc := openServices(ctx, node)
+		ch := &channel.Channel{
+			Name:     "Shackleton",
+			DataType: telem.TimestampT,
+			IsIndex:  true,
+		}
+		Expect(channelSvc.NewWriter(nil).Create(ctx, ch)).To(Succeed())
+		w := MustSucceed(node.Framer.OpenWriter(ctx, framer.WriterConfig{
+			Start: telem.SecondTS,
+			Keys:  []channel.Key{ch.Key()},
+		}))
+		MustSucceed(
+			w.Write(frame.NewUnary(ch.Key(), telem.NewSeriesSecondsTSV(1, 2, 3))),
+		)
+		Expect(w.Close()).To(Succeed())
+
+		iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
+			Keys:   []channel.Key{ch.Key()},
+			Bounds: telem.TimeRangeMax,
+		}))
+		Expect(iter.SeekFirst()).To(BeTrue())
+		faulty.SetOptions(WithFailReadAt())
+		Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
+		Expect(iter.Close()).To(MatchError(ContainSubstring(ErrFault.Error())))
+		Expect(iter.Close()).To(Succeed())
 	})
 })

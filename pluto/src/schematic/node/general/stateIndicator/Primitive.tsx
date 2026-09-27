@@ -9,19 +9,25 @@
 
 import "@/schematic/node/general/stateIndicator/stateIndicator.css";
 
+import { type schematic } from "@synnaxlabs/client";
+import { Component } from "@synnaxlabs/lyra/component";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { color } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useMemo } from "react";
 
-import { HEIGHTS } from "@/component/size";
-import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { SIZE_LEVELS } from "@/schematic/node/common/size";
-import { type Config } from "@/schematic/node/general/stateIndicator/config";
-import { Text } from "@/text";
-import { Theming } from "@/theming";
 
-interface RenderProps extends Omit<Config, "variant"> {
+interface RenderProps extends Partial<
+  Pick<
+    schematic.StateIndicatorNodeConfig,
+    "color" | "orientation" | "inlineSize" | "size"
+  >
+> {
+  options: schematic.StateIndicatorNodeConfig["options"];
   className?: string;
   matchedOptionKey?: string | null;
   /** Colors the label while the state channel is stale. */
@@ -55,15 +61,14 @@ export const StateIndicator = ({
           )
         : undefined;
   const label = matched != null ? matched.name || `Option ${matched.value}` : "Unknown";
-  const symbolColor = color.rgbaString(colorVal);
   const style = useMemo<CSSProperties>(
     () => ({
-      [CSS.variable("symbol-color")]: symbolColor,
+      [CSS.variable("symbol-color")]: color.rgbaString(colorVal),
       backgroundColor,
       minWidth: inlineSize,
-      height: HEIGHTS[size],
+      height: Component.HEIGHTS[size],
     }),
-    [symbolColor, backgroundColor, inlineSize, size],
+    [colorVal, backgroundColor, inlineSize, size],
   );
   return (
     <Primitive.Div

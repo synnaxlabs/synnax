@@ -10,20 +10,18 @@
 import "@/feature/mqtt/task/Form.css";
 
 import { channel, mqtt, type Synnax as Client } from "@synnaxlabs/client";
-import {
-  Button,
-  Component,
-  Divider,
-  Flex,
-  Form as PForm,
-  Header,
-  Icon,
-  Input,
-  type List,
-  Select,
-  Telem,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Header } from "@synnaxlabs/lyra/header";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { type List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Telem } from "@synnaxlabs/pluto";
 import { DataType, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback, useState } from "react";
 
@@ -119,7 +117,7 @@ const FieldListItem = ({ entryKey, ...props }: FieldListItemProps) => {
   const enumCountText =
     enumCount === 0 ? "" : `${enumCount} enum${enumCount === 1 ? "" : "s"}`;
   return (
-    <Select.ListItem {...props} justify="between" align="center" x>
+    <Select.Item {...props} justify="between" align="center" x>
       <PForm.TextField
         path={`${path}.pointer`}
         showLabel={false}
@@ -148,9 +146,9 @@ const FieldListItem = ({ entryKey, ...props }: FieldListItemProps) => {
           namePath={`${path}.name`}
           id={Task.getChannelNameID(itemKey)}
         />
-        <Task.EnableDisableButton path={`${path}.disabled`} />
+        <Task.EnabledCheckbox path={`${path}.disabled`} />
       </Flex.Box>
-    </Select.ListItem>
+    </Select.Item>
   );
 };
 
@@ -170,6 +168,43 @@ const renderTelemSelectDataType = Component.renderProp(
 interface FieldListProps {
   entryKey: string;
 }
+
+interface BinderProps {
+  device: Device;
+  entryKey: string;
+}
+
+/**
+ * Binds a plain entry's fields to the channels the device stores for its topic.
+ * Mounted for every entry, as the field list renders only for the selected one.
+ */
+const FieldBinder = ({ device, entryKey }: BinderProps) => {
+  const entryPath = `${ENTRIES_PATH}.${entryKey}`;
+  const topic = PForm.useFieldValue<string>(`${entryPath}.topic`);
+  const indexKey = PForm.useFieldValue<string>(`${entryPath}.index`);
+  const resolve = useCallback(
+    (field: ReadField) => {
+      const props = device.properties.read[topic];
+      if (props == null) return { channel: 0 };
+      return {
+        channel:
+          field.key === indexKey ? props.index : (props.channels[field.pointer] ?? 0),
+      };
+    },
+    [device, topic, indexKey],
+  );
+  return (
+    <Task.BindChannels<ReadField> path={`${entryPath}.fields`} resolve={resolve} />
+  );
+};
+
+const EntryBinder = ({ device, entryKey }: BinderProps) => {
+  const type = PForm.useFieldValue<ReadEntry["type"]>(
+    `${ENTRIES_PATH}.${entryKey}.type`,
+  );
+  if (type !== "plain") return null;
+  return <FieldBinder device={device} entryKey={entryKey} />;
+};
 
 const FieldList = ({ entryKey }: FieldListProps) => {
   const entryPath = `${ENTRIES_PATH}.${entryKey}`;
@@ -223,6 +258,7 @@ const FieldList = ({ entryKey }: FieldListProps) => {
   return (
     <>
       <Task.ChannelList<ReadField>
+        resolve={null}
         data={data}
         remove={remove}
         onDuplicate={handleDuplicate}
@@ -282,7 +318,6 @@ const FIELD_LIST_STYLE = {
 } as const;
 
 type TimingMode = "arrival" | "payload";
-const TIMING_MODE_KEYS: TimingMode[] = ["arrival", "payload"];
 
 const TimingToggle: FC<{ path: string }> = ({ path }) => {
   const index = PForm.useFieldValue<string>(`${path}.index`);
@@ -317,10 +352,9 @@ const TimingToggle: FC<{ path: string }> = ({ path }) => {
         <Select.Buttons<TimingMode>
           value={isPayloadTiming ? "payload" : "arrival"}
           onChange={handleChange}
-          keys={TIMING_MODE_KEYS}
         >
-          <Select.Button<TimingMode> itemKey="arrival">Arrival time</Select.Button>
-          <Select.Button<TimingMode> itemKey="payload">Payload</Select.Button>
+          <Select.Item<TimingMode> itemKey="arrival">Arrival time</Select.Item>
+          <Select.Item<TimingMode> itemKey="payload">Payload</Select.Item>
         </Select.Buttons>
       </Input.Item>
       {isPayloadTiming && (
@@ -444,6 +478,15 @@ const duplicateEntry = (entry: ReadEntry): ReadEntry => {
 const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
   const [selected, setSelected] = useState<string[]>([]);
   const isPreview = Task.useIsPreview();
+  const { data } = PForm.useFieldList<string, ReadEntry>(ENTRIES_PATH);
+  const resolve = useCallback(
+    (entry: ReadEntry) => {
+      if (entry.type !== "sparkplug") return {};
+      const props = device.properties.read[sparkplugPropertiesKey(entry)];
+      return { channel: props?.channels[""] ?? 0, index: props?.index ?? 0 };
+    },
+    [device],
+  );
   return (
     <Flex.Box x grow empty>
       {!isPreview && <Browser device={device} />}
@@ -473,6 +516,10 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
           </Flex.Box>
         )}
       </Flex.Box>
+      <Task.BindChannels<ReadEntry> path={ENTRIES_PATH} resolve={resolve} />
+      {data.map((entryKey) => (
+        <EntryBinder key={entryKey} device={device} entryKey={entryKey} />
+      ))}
     </Flex.Box>
   );
 };

@@ -7,22 +7,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/schematic/node/general/button/button.css";
 import "@/schematic/node/general/select/select.css";
 
-import { color } from "@synnaxlabs/x";
+import { type schematic } from "@synnaxlabs/client";
+import { Button as BaseButton } from "@synnaxlabs/lyra/button";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { type Dialog } from "@synnaxlabs/lyra/dialog";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Select as BaseSelect } from "@synnaxlabs/lyra/select";
 import { type ReactElement, useMemo } from "react";
 
-import { Button as BaseButton } from "@/button";
-import { CSS } from "@/css";
-import { type Dialog } from "@/dialog";
-import { Flex } from "@/flex";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
-import { type Config } from "@/schematic/node/general/select/config";
-import { Select as BaseSelect } from "@/select";
 
-interface RenderProps extends Omit<Config, "sink" | "variant"> {
+interface RenderProps extends Partial<
+  Pick<
+    schematic.SelectNodeConfig,
+    "color" | "orientation" | "size" | "disabled" | "inlineSize" | "onClickDelay"
+  >
+> {
+  options: schematic.SelectNodeConfig["options"];
   className?: string;
   value?: string;
   onChange: (key: string | null) => void;
@@ -36,7 +40,7 @@ const DIALOG_PROPS: Dialog.DialogProps = {
 export const Select = ({
   className,
   orientation = "left",
-  color: colorVal,
+  color,
   value,
   onChange,
   onSend,
@@ -46,22 +50,12 @@ export const Select = ({
   inlineSize,
   onClickDelay,
 }: RenderProps): ReactElement => {
-  const data = useMemo(
-    () => options.map((o) => ({ key: o.key, name: o.name || `Option ${o.value}` })),
-    [options],
-  );
   const matched = options.find((o) => o.key === value);
-  const symbolColor = color.rgbaString(colorVal);
-  const style = useMemo(
-    () => ({ [CSS.variable("symbol-color")]: symbolColor }),
-    [symbolColor],
-  );
   const triggerStyle = useMemo(() => ({ minWidth: inlineSize }), [inlineSize]);
   return (
     <Primitive.Div
       orientation={orientation}
-      className={CSS.cls(CSS.B("select-symbol"), CSS.B("symbol-colored"), className)}
-      style={style}
+      className={CSS.cls(CSS.B("select-symbol"), className)}
     >
       <Handle.Boundary orientation={orientation}>
         <Handle.Handle
@@ -94,25 +88,30 @@ export const Select = ({
         />
       </Handle.Boundary>
       <Flex.Box x pack size={size}>
-        <BaseSelect.Static
-          data={data}
+        <BaseSelect.Simple<string>
           value={value}
           onChange={(key: string | null) => onChange(key)}
           disabled={disabled}
           resourceName="option"
-          triggerProps={{ size }}
+          triggerProps={{ color, size }}
           dialogProps={DIALOG_PROPS}
           style={triggerStyle}
-        />
+        >
+          {options.map((o) => (
+            <BaseSelect.Item key={o.key} itemKey={o.key}>
+              {o.name || `Option ${o.value}`}
+            </BaseSelect.Item>
+          ))}
+        </BaseSelect.Simple>
         {onSend != null && (
           <BaseButton.Button
             variant="filled"
             size={size}
-            className={CSS.B("symbol-button")}
             onClick={() => {
               if (matched != null) onSend?.(matched.value);
             }}
             onClickDelay={onClickDelay}
+            color={color}
             disabled={disabled}
           >
             Send

@@ -9,7 +9,8 @@
 
 import "@/platform/vis/Controls.css";
 
-import { Flex, stopPropagation } from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { stopPropagation } from "@synnaxlabs/lyra/util";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";

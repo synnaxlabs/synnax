@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { schematic } from "@synnaxlabs/client";
 import { type xy } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
 import { type Node, ReactFlowProvider, useStoreApi } from "@xyflow/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { type Config } from "@/schematic/node/general/line/config";
-import { defaultConfig } from "@/schematic/node/general/line/external";
 import { Symbol } from "@/schematic/node/general/line/Symbol";
 import { type NodeProps } from "@/schematic/node/spec";
 
@@ -28,7 +27,7 @@ const StoreProbe = ({ onStore }: { onStore: (s: Store) => void }): null => {
 };
 
 // A horizontal line from (100, 100) to (200, 100) in flow coordinates.
-const renderSymbol = (props: Partial<NodeProps<Config>> = {}) => {
+const renderSymbol = (props: Partial<NodeProps<schematic.LineNodeConfig>> = {}) => {
   const onConfigChange = vi.fn();
   let store!: Store;
   const { container } = render(
@@ -39,7 +38,7 @@ const renderSymbol = (props: Partial<NodeProps<Config>> = {}) => {
         selected
         onConfigChange={onConfigChange}
         position={POSITION}
-        config={defaultConfig()}
+        config={schematic.lineNodeConfigZ.parse({ variant: "line" })}
         {...props}
       />
     </ReactFlowProvider>,

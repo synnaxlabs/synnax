@@ -17,15 +17,11 @@ import {
   type Synnax,
   task,
 } from "@synnaxlabs/client";
-import {
-  Access,
-  Flex,
-  Form as PForm,
-  Input,
-  Status,
-  Synnax as PSynnax,
-  Task as PTask,
-} from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Access, Synnax as PSynnax, Task as PTask } from "@synnaxlabs/pluto";
 import { deep, primitive, TimeSpan } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 import { type z } from "zod";
@@ -101,8 +97,16 @@ interface HeaderProps {
 const Header = ({ isSnapshot }: HeaderProps) => (
   <>
     <Flex.Box x justify="between">
-      <PForm.Field<string> path="name">
-        {(p) => <Input.Text variant="text" level="h2" onlyChangeOnBlur {...p} />}
+      <PForm.Field<string> path="name" showLabel={false}>
+        {(p) => (
+          <Input.Text
+            variant="text"
+            level="h2"
+            onlyChangeOnBlur
+            aria-label="Name"
+            {...p}
+          />
+        )}
       </PForm.Field>
       <Flex.Box align="end" gap="small">
         <UtilityButtons />

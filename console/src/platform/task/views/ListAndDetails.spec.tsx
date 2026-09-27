@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Component, Select } from "@synnaxlabs/pluto";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Select } from "@synnaxlabs/lyra/select";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -18,15 +19,17 @@ import { getIconButton } from "@/testutil";
 
 const listItem = Component.renderProp(
   ({ itemKey, ...p }: Task.ChannelListItemProps) => (
-    <Select.ListItem itemKey={itemKey} {...p}>
+    <Select.Item itemKey={itemKey} {...p}>
       item-{itemKey}
-    </Select.ListItem>
+    </Select.Item>
   ),
 );
 
 const details = Component.renderProp(({ path }: { path: string }) => (
   <span>details-for-{path}</span>
 ));
+
+const resolve = () => null;
 
 const renderListAndDetails = (
   channels: Channel[],
@@ -37,6 +40,7 @@ const renderListAndDetails = (
       createChannel={createChannel}
       listItem={listItem}
       details={details}
+      resolve={resolve}
     />,
     { values: { config: { channels } } },
   );

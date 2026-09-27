@@ -10,21 +10,17 @@
 import "@/feature/mqtt/device/Connect.css";
 
 import { type device, type rack, status, TimeSpan } from "@synnaxlabs/client";
-import {
-  Button,
-  Component,
-  Device as PDevice,
-  Divider,
-  Flex,
-  type Flux,
-  Form,
-  Icon,
-  Input,
-  Nav,
-  Rack,
-  Status,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Nav } from "@synnaxlabs/lyra/nav";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Device as PDevice, type Flux, Rack } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
 import { useCallback } from "react";
 

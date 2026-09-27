@@ -12,7 +12,7 @@ import {
   createTestClient,
   createTestClientWithRole,
 } from "@synnaxlabs/client/testutil";
-import { Form as PForm } from "@synnaxlabs/pluto";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { type FC } from "react";
@@ -32,7 +32,7 @@ const schemas = {
   type: z.literal("opc_read"),
   config: z.object({
     device: z.string().default(""),
-    channels: z.array(z.object({ key: z.string(), enabled: z.boolean() })).default([]),
+    channels: z.array(z.object({ key: z.string(), disabled: z.boolean() })).default([]),
   }),
   statusData: z.object({ running: z.boolean() }).nullish(),
 };
@@ -210,7 +210,7 @@ describe("wrapForm", () => {
       const client = createTestClient();
       const draft = await client.tasks.create({
         ...getInitialValues({}),
-        config: { device: "dev", channels: [{ key: "ch1", enabled: true }] },
+        config: { device: "dev", channels: [{ key: "ch1", disabled: false }] },
         rack: 0,
       });
       const Renderer = createRenderer({

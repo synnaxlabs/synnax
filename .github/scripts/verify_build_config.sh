@@ -77,14 +77,14 @@ else
     echo "  X Driver"
 fi
 if [ "$BUILD_CONSOLE" = "true" ]; then
-    echo "  ✓ Console Web Assets"
+    echo "  ✓ Console web assets"
 else
-    echo "  X Console Web Assets"
+    echo "  X Console web assets"
 fi
 if [ "$BUILD_CONSOLE_TAURI" = "true" ]; then
-    echo "  ✓ Console Desktop App"
+    echo "  ✓ Console desktop app"
 else
-    echo "  X Console Desktop App"
+    echo "  X Console desktop app"
 fi
 if [ "$BUILD_CORE" = "true" ]; then
     echo "  ✓ Core"

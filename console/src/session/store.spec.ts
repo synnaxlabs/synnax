@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Drift, MAIN_WINDOW } from "@synnaxlabs/drift";
-import { type Haul } from "@synnaxlabs/pluto";
+import { type Haul } from "@synnaxlabs/lyra/haul";
 import { deep } from "@synnaxlabs/x";
 import { waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";

@@ -7,19 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  Arc,
-  Button,
-  Component,
-  Flex,
-  Haul,
-  type Input,
-  List,
-  Menu,
-  Select,
-  Text,
-  Theming,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { type Input } from "@synnaxlabs/lyra/input";
+import { List } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Theming } from "@synnaxlabs/lyra/theming";
+import { Arc } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo, useState } from "react";
 
@@ -45,7 +43,7 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
   const { name, Preview } = spec;
 
   return (
-    <Select.ListItem
+    <Select.Item
       className={CSS.cls(CSS.BE("arc-stages", "button"))}
       aria-label={name}
       align="center"
@@ -60,7 +58,7 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
       <Flex.Box align="center" justify="center" grow>
         <Preview config={config} scale={0.75} />
       </Flex.Box>
-    </Select.ListItem>
+    </Select.Item>
   );
 };
 
@@ -92,15 +90,15 @@ export const StaticStageList = ({
       allowNone
       onChange={onSelect}
     >
-      <List.Items
+      <List.Scroll
         x
         className={CSS.BE("arc", "stages", "group")}
         wrap
         role="listbox"
         aria-label={STAGES_LABEL}
       >
-        {staticListItem}
-      </List.Items>
+        <List.Items>{staticListItem}</List.Items>
+      </List.Scroll>
     </Select.Frame>
   );
 };
@@ -139,9 +137,9 @@ const GroupList = ({ value, onChange }: GroupListProps) => {
       value={value}
       onChange={onChange}
     >
-      <List.Items<string, Arc.Graph.Node.Group> x gap="small">
-        {groupListItem}
-      </List.Items>
+      <List.Scroll x gap="small">
+        <List.Items<string, Arc.Graph.Node.Group>>{groupListItem}</List.Items>
+      </List.Scroll>
     </Select.Frame>
   );
 };

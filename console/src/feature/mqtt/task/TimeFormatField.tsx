@@ -7,32 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Component, Form as PForm, Select } from "@synnaxlabs/pluto";
-import { type FC } from "react";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Select } from "@synnaxlabs/lyra/select";
+import { type FC, useEffect } from "react";
 
 import { type TimeFormat } from "@/feature/mqtt/task/types";
 import { CSS } from "@/platform/css";
 
-const DATA: Select.StaticEntry<TimeFormat>[] = [
-  { key: "iso8601", name: "ISO 8601" },
-  { key: "unix_sec", name: "Unix (s)" },
-  { key: "unix_ms", name: "Unix (ms)" },
-  { key: "unix_us", name: "Unix (µs)" },
-  { key: "unix_ns", name: "Unix (ns)" },
-];
-
 const renderSelect = Component.renderProp(
-  (
-    p: Omit<
-      Select.StaticProps<TimeFormat, Select.StaticEntry<TimeFormat>>,
-      "data" | "resourceName"
-    >,
-  ) => (
-    <Select.Static<TimeFormat, Select.StaticEntry<TimeFormat>>
-      {...p}
-      data={DATA}
-      resourceName="time format"
-    />
+  (p: Omit<Select.SingleSimpleProps<TimeFormat>, "children" | "resourceName">) => (
+    <Select.Simple<TimeFormat> {...p} resourceName="time format">
+      <Select.Item itemKey="iso8601">ISO 8601</Select.Item>
+      <Select.Item itemKey="unix_sec">Unix (s)</Select.Item>
+      <Select.Item itemKey="unix_ms">Unix (ms)</Select.Item>
+      <Select.Item itemKey="unix_us">Unix (µs)</Select.Item>
+      <Select.Item itemKey="unix_ns">Unix (ns)</Select.Item>
+    </Select.Simple>
   ),
 );
 
@@ -43,16 +34,22 @@ export interface TimeFormatFieldProps {
 
 /**
  * Selects the encoding of a timestamp carried as a JSON value. The caller decides when
- * a timestamp format applies; mounting seeds `path` with ISO 8601 so the choice is
- * visible and stored instead of silently absent.
+ * a timestamp format applies; mounting writes ISO 8601 to `path` so the choice is
+ * stored instead of silently absent.
  */
-export const TimeFormatField: FC<TimeFormatFieldProps> = ({ path, label }) => (
-  <PForm.Field<TimeFormat>
-    path={path}
-    label={label}
-    defaultValue="iso8601"
-    className={CSS.B("time-format")}
-  >
-    {renderSelect}
-  </PForm.Field>
-);
+export const TimeFormatField: FC<TimeFormatFieldProps> = ({ path, label }) => {
+  const { get, set } = PForm.useContext();
+  useEffect(() => {
+    if (get<TimeFormat>(path, { optional: true }) == null) set(path, "iso8601");
+  }, [path, get, set]);
+  return (
+    <PForm.Field<TimeFormat>
+      path={path}
+      label={label}
+      defaultValue="iso8601"
+      className={CSS.B("time-format")}
+    >
+      {renderSelect}
+    </PForm.Field>
+  );
+};

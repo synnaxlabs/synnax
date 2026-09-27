@@ -1,0 +1,27 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/* One shade under the text color, so the choice stands out; hover restores it. */
+.pluto-select-btns--text > .pluto-select-btn:not(.pluto--selected, .pluto--disabled) {
+    color: var(--pluto-gray-l9);
+}
+
+/* Subtle tier, as the tabs selector: only the chosen button carries a chassis, drawn
+   inset because a text button has no border of its own. */
+.pluto-select-btns--text > .pluto-select-btn.pluto--selected {
+    --pluto-bg: var(--pluto-selected-subtle-bg);
+    --pluto-hover-bg: var(--pluto-selected-subtle-hover-bg);
+    --pluto-active-bg: var(--pluto-selected-subtle-active-bg);
+
+    color: var(--pluto-selected-subtle-color);
+    box-shadow: inset 0 0 0 var(--pluto-border-width)
+        var(--pluto-selected-subtle-border-color);
+}

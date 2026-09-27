@@ -17,4 +17,5 @@ export * from "@/platform/device/Select";
 export * from "@/platform/device/TaskContextMenuItems";
 export * from "@/platform/device/types";
 export * from "@/platform/device/useChangeIdentifier";
+export * from "@/platform/device/useFromConfig";
 export * from "@/platform/device/wrapTaskForm";

@@ -7,39 +7,35 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Component, Form as PForm, Select } from "@synnaxlabs/pluto";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Select } from "@synnaxlabs/lyra/select";
 
 import { type SparkplugDataType } from "@/feature/mqtt/task/types";
 
-const DATA: Select.StaticEntry<SparkplugDataType>[] = [
-  { key: "int8", name: "Int8" },
-  { key: "int16", name: "Int16" },
-  { key: "int32", name: "Int32" },
-  { key: "int64", name: "Int64" },
-  { key: "uint8", name: "UInt8" },
-  { key: "uint16", name: "UInt16" },
-  { key: "uint32", name: "UInt32" },
-  { key: "uint64", name: "UInt64" },
-  { key: "float", name: "Float" },
-  { key: "double", name: "Double" },
-  { key: "boolean", name: "Boolean" },
-  { key: "string", name: "String" },
-  { key: "date_time", name: "DateTime" },
-];
-
 const renderSelect = Component.renderProp(
   (
-    p: Omit<
-      Select.StaticProps<SparkplugDataType, Select.StaticEntry<SparkplugDataType>>,
-      "data" | "resourceName"
-    >,
+    p: Omit<Select.SingleSimpleProps<SparkplugDataType>, "children" | "resourceName">,
   ) => (
-    <Select.Static<SparkplugDataType, Select.StaticEntry<SparkplugDataType>>
+    <Select.Simple<SparkplugDataType>
       {...p}
-      data={DATA}
       resourceName="Sparkplug B type"
       location="bottom"
-    />
+    >
+      <Select.Item itemKey="int8">Int8</Select.Item>
+      <Select.Item itemKey="int16">Int16</Select.Item>
+      <Select.Item itemKey="int32">Int32</Select.Item>
+      <Select.Item itemKey="int64">Int64</Select.Item>
+      <Select.Item itemKey="uint8">UInt8</Select.Item>
+      <Select.Item itemKey="uint16">UInt16</Select.Item>
+      <Select.Item itemKey="uint32">UInt32</Select.Item>
+      <Select.Item itemKey="uint64">UInt64</Select.Item>
+      <Select.Item itemKey="float">Float</Select.Item>
+      <Select.Item itemKey="double">Double</Select.Item>
+      <Select.Item itemKey="boolean">Boolean</Select.Item>
+      <Select.Item itemKey="string">String</Select.Item>
+      <Select.Item itemKey="date_time">DateTime</Select.Item>
+    </Select.Simple>
   ),
 );
 

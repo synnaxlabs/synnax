@@ -340,6 +340,96 @@ describe("MQTT Read form", () => {
     });
   });
 
+  describe("binding to the channels the broker maps", () => {
+    const createIndexed = async (prefix: string) => {
+      const index = await client.channels.create({
+        name: uniqueName(`${prefix}_time`),
+        dataType: "timestamp",
+        isIndex: true,
+      });
+      const data = await client.channels.create({
+        name: uniqueName(prefix),
+        dataType: "float64",
+        index: index.key,
+      });
+      return { index, data };
+    };
+
+    const renderOnBroker = async (
+      read: MQTT.Device.Properties["read"],
+      entries: MQTT.Task.ReadEntry[],
+    ) => {
+      const dev = await createBroker(client, { properties: { read } });
+      const draft = await createDraft(client, createReadConfig(dev.key, entries));
+      await renderTaskFormTab(MQTT.Task.Read, { client, taskKey: draft.key });
+      return draft;
+    };
+
+    it("should bind the fields of every plain entry to the channels of its topic", async () => {
+      const [oven, line] = await Promise.all([
+        createIndexed("mqtt_oven"),
+        createIndexed("mqtt_line"),
+      ]);
+      const draft = await renderOnBroker(
+        {
+          "plant/oven": { index: oven.index.key, channels: { "/temp": oven.data.key } },
+          "plant/line": { index: line.index.key, channels: { "/flow": line.data.key } },
+        },
+        [
+          createReadEntry("e1", "plant/oven", {
+            index: "t1",
+            fields: [
+              createReadField("f1", "/temp"),
+              createReadField("t1", "/ts", { timeFormat: "unix_sec" }),
+            ],
+          }),
+          createReadEntry("e2", "plant/line", {
+            fields: [createReadField("f2", "/flow")],
+          }),
+        ],
+      );
+      await waitFor(async () =>
+        expect(await retrieveEntries(draft.key)).toMatchObject([
+          {
+            fields: [
+              { key: "f1", channel: oven.data.key },
+              { key: "t1", channel: oven.index.key },
+            ],
+          },
+          { fields: [{ key: "f2", channel: line.data.key }] },
+        ]),
+      );
+    });
+
+    it("should bind a Sparkplug entry to the channel of its tag and follow a tag edit", async () => {
+      const { index, data } = await createIndexed("mqtt_tag");
+      const entry = createTagEntry("s1", "flow");
+      const draft = await renderOnBroker(
+        {
+          [MQTT.Task.sparkplugPropertiesKey(entry)]: {
+            index: index.key,
+            channels: { "": data.key },
+          },
+        },
+        [entry],
+      );
+      await waitFor(async () =>
+        expect(await retrieveEntries(draft.key)).toMatchObject([
+          { channel: data.key, index: index.key },
+        ]),
+      );
+      fireEvent.click(await screen.findByText(/flow/));
+      fireEvent.change(await screen.findByPlaceholderText("oven/temperature"), {
+        target: { value: "level" },
+      });
+      await waitFor(async () =>
+        expect(await retrieveEntries(draft.key)).toMatchObject([
+          { tag: "level", channel: 0, index: 0 },
+        ]),
+      );
+    });
+  });
+
   describe("deploying against a live Core", () => {
     it("should put the deploy errors on the fields they belong to", async () => {
       const { container } = await renderRead([createReadEntry("e1", "plant/+/oven")]);

@@ -9,6 +9,9 @@
 
 import "@/schematic/node/general/value/value.css";
 
+import { type schematic } from "@synnaxlabs/client";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Text } from "@synnaxlabs/lyra/text";
 import { color, type dimensions, type text } from "@synnaxlabs/x";
 import {
   type CSSProperties,
@@ -17,13 +20,12 @@ import {
   useMemo,
 } from "react";
 
-import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
-import { type Config } from "@/schematic/node/general/value/config";
-import { Text } from "@/text";
 
-interface RenderProps extends PropsWithChildren<Omit<Config, "label" | "variant">> {
+interface RenderProps extends PropsWithChildren<
+  Pick<schematic.ValueNodeConfig, "color" | "orientation" | "units" | "inlineSize">
+> {
   className?: string;
   dimensions?: dimensions.Dimensions;
   unitsLevel?: text.Level;
@@ -33,8 +35,8 @@ export const Value = ({
   className,
   color: colorVal,
   dimensions,
-  orientation = "left",
-  units = "psi",
+  orientation,
+  units,
   unitsLevel = "small",
   children,
   inlineSize = 80,

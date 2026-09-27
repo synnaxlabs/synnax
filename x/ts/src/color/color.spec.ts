@@ -637,8 +637,8 @@ describe("color.Color", () => {
       expect(color.rgbaString([255, 0, 0, 0.5])).toEqual("255, 0, 0, 0.5");
     });
 
-    test("is undefined for the ZERO sentinel", () => {
-      expect(color.rgbaString(color.ZERO)).toBeUndefined();
+    test("carries a fully transparent color", () => {
+      expect(color.rgbaString(color.ZERO)).toEqual("0, 0, 0, 0");
     });
 
     test("is undefined for no color", () => {

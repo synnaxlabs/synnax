@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { device } from "@synnaxlabs/client";
-import { Access, Icon } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Access } from "@synnaxlabs/pluto";
 
 import { useConnectModal } from "@/feature/opcua/device/useConnectModal";
 import { Command } from "@/platform/command";

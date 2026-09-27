@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { status } from "@synnaxlabs/client";
-import { Access, Status } from "@synnaxlabs/pluto";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Access } from "@synnaxlabs/pluto";
 
 import { Explorer } from "@/feature/status/explorer";
 import { Command } from "@/platform/command";

@@ -7,18 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  Button,
-  type Component,
-  Flex,
-  Form as PForm,
-  Haul,
-  Header,
-  Icon,
-  List,
-  Menu,
-  Select,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { type Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { Header } from "@synnaxlabs/lyra/header";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Select } from "@synnaxlabs/lyra/select";
 import { useCallback } from "react";
 
 import {
@@ -191,21 +189,24 @@ export const TopicList = <E extends Item>({
           allowNone={false}
           autoSelectOnNone
         >
-          <List.Items<string, E>
+          <List.Scroll
             full="y"
             className={menuProps.className}
             onContextMenu={menuProps.open}
-            emptyContent={
-              <Empty.Action
-                message={`No ${title.toLowerCase()}`}
-                action={isPreview ? undefined : `Add ${noun}`}
-                onClick={handleAdd}
-              />
-            }
             {...haulProps}
           >
-            {children}
-          </List.Items>
+            <List.Items<string, E>
+              emptyContent={
+                <Empty.Action
+                  message={`No ${title.toLowerCase()}`}
+                  action={isPreview ? undefined : `Add ${noun}`}
+                  onClick={handleAdd}
+                />
+              }
+            >
+              {children}
+            </List.Items>
+          </List.Scroll>
         </Select.Frame>
       </Menu.ContextMenu>
     </Flex.Box>

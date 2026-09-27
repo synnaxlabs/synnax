@@ -1377,6 +1377,123 @@ describe("queries", () => {
       });
     });
 
+    // Other consumers write untyped records into the client cache; a typed hook must
+    // parse them, or a form reads a property group the vendor's defaults would fill.
+    describe("untyped records in the cache", () => {
+      const defaultedSchemas = {
+        properties: z.object({
+          sampleRate: z.number().default(100),
+          channels: z.record(z.string(), z.number()).default(() => ({})),
+        }),
+        make: makeSchema,
+        model: modelSchema,
+      };
+      const createUntyped = async () => {
+        const rack = await client.racks.create({ name: "untyped-rack" });
+        const dev = await client.devices.create({
+          key: id.create(),
+          name: "untyped-device",
+          rack: rack.key,
+          location: "test",
+          make: "custom_make",
+          model: "test",
+          properties: {},
+        });
+        await client.devices.retrieve(dev.key);
+        return dev;
+      };
+
+      it("should fill schema defaults on a record cached untyped", async () => {
+        const dev = await createUntyped();
+        const { use } = Device.createRetrieve(defaultedSchemas);
+        const { result } = await renderHookSuspended(() => use({ key: dev.key }), {
+          wrapper,
+        });
+        await waitFor(() => expect(result.current?.properties.sampleRate).toBe(100));
+        expect(result.current?.properties.channels).toEqual({});
+      });
+
+      it("should keep schema defaults across an untyped streamed update", async () => {
+        const dev = await createUntyped();
+        const { use } = Device.createRetrieve(defaultedSchemas);
+        const { result } = await renderHookSuspended(() => use({ key: dev.key }), {
+          wrapper,
+        });
+        await waitFor(() => expect(result.current?.properties.sampleRate).toBe(100));
+        await act(async () => {
+          await client.devices.create({ ...dev, name: "renamed", properties: {} });
+        });
+        await waitFor(() => expect(result.current?.name).toBe("renamed"));
+        expect(result.current?.properties.sampleRate).toBe(100);
+      });
+
+      it("should fill schema defaults on records cached untyped by keys", async () => {
+        const first = await createUntyped();
+        const second = await createUntyped();
+        const { use } = Device.createRetrieveMultiple(defaultedSchemas);
+        const { result } = await renderHookSuspended(
+          () => use({ keys: [first.key, second.key] }),
+          { wrapper },
+        );
+        await waitFor(() => expect(result.current).toHaveLength(2));
+        expect(result.current.map(({ properties }) => properties.sampleRate)).toEqual([
+          100, 100,
+        ]);
+      });
+    });
+
+    describe("createRetrieveMultiple", () => {
+      const createDevice = async (rack: number, sampleRate: number) =>
+        await client.devices.create(
+          {
+            key: id.create(),
+            name: "schema-multi-device",
+            rack,
+            location: "test",
+            make: "custom_make",
+            model: "test",
+            properties: { sampleRate, channels: {} },
+          },
+          schemas,
+        );
+
+      it("should retrieve the devices the keys name with typed properties", async () => {
+        const rack = await client.racks.create({ name: "schema-multi-rack" });
+        const first = await createDevice(rack.key, 100);
+        const second = await createDevice(rack.key, 200);
+        const { use } = Device.createRetrieveMultiple(schemas);
+        const { result } = await renderHookSuspended(
+          () => use({ keys: [first.key, second.key] }),
+          { wrapper },
+        );
+        await waitFor(() => expect(result.current).toHaveLength(2));
+        const rates = result.current.map(({ properties }) => properties.sampleRate);
+        expect(rates.sort()).toEqual([100, 200]);
+      });
+
+      it("should update when one of the devices changes", async () => {
+        const rack = await client.racks.create({ name: "schema-multi-update-rack" });
+        const first = await createDevice(rack.key, 100);
+        const second = await createDevice(rack.key, 200);
+        const { use } = Device.createRetrieveMultiple(schemas);
+        const { result } = await renderHookSuspended(
+          () => use({ keys: [first.key, second.key] }),
+          { wrapper },
+        );
+        await waitFor(() => expect(result.current).toHaveLength(2));
+        await act(async () => {
+          await client.devices.create(
+            { ...second, properties: { sampleRate: 500, channels: {} } },
+            schemas,
+          );
+        });
+        await waitFor(() => {
+          const updated = result.current.find(({ key }) => key === second.key);
+          expect(updated?.properties.sampleRate).toBe(500);
+        });
+      });
+    });
+
     describe("createCreate", () => {
       it("should create a device with typed properties", async () => {
         const rack = await client.racks.create({ name: "schema-create-rack" });

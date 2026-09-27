@@ -10,16 +10,13 @@
 import "@/feature/arc/editor/toolbar/graph/Properties.css";
 
 import { arc } from "@synnaxlabs/client";
-import {
-  Arc,
-  Button,
-  Diagram,
-  Flex,
-  Form,
-  Icon,
-  Input,
-  Status,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Arc, Diagram } from "@synnaxlabs/pluto";
 import { box, deep, type direction, location, xy } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback, useMemo } from "react";
 

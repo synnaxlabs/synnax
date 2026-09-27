@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/x";
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -137,14 +138,63 @@ describe("Primitive.SVG", () => {
       expect(svg.getAttribute("fill")).toBeNull();
       expect(svg.getAttribute("stroke")).toBeNull();
     });
+
+    it("should set the symbol-color variable and marker class for a color", () => {
+      const { container } = render(
+        <Primitive.SVG dimensions={{ width: 10, height: 10 }} color="#ff0000" />,
+      );
+      const svg = container.querySelector("svg") as SVGSVGElement;
+      // Fill and stroke are driven by CSS off --pluto-symbol-color, not attributes.
+      expect(svg.style.getPropertyValue("--pluto-symbol-color")).toMatch(
+        /255\s*,\s*0\s*,\s*0/,
+      );
+      expect(svg.getAttribute("class")).toContain("pluto-symbol-colored");
+    });
+
+    it("should pass a fully transparent color through as a choice", () => {
+      const { container } = render(
+        <Primitive.SVG dimensions={{ width: 10, height: 10 }} color={color.ZERO} />,
+      );
+      const svg = container.querySelector("svg") as SVGSVGElement;
+      expect(svg.style.getPropertyValue("--pluto-symbol-color")).toBe("0, 0, 0, 0");
+      expect(svg.getAttribute("class")).toContain("pluto-symbol-colored");
+    });
+
+    it("should carry the alpha channel so transparency survives the transform", () => {
+      // rgba(255, 0, 0, 0.5) -> the var must include the alpha so the OKLCH
+      // transform preserves it instead of rendering fully opaque.
+      const { container } = render(
+        <Primitive.SVG
+          dimensions={{ width: 10, height: 10 }}
+          color={[255, 0, 0, 0.5]}
+        />,
+      );
+      const svg = container.querySelector("svg") as SVGSVGElement;
+      expect(svg.style.getPropertyValue("--pluto-symbol-color")).toBe("255, 0, 0, 0.5");
+    });
   });
 
-  describe("structure", () => {
-    it("should preserve a user-supplied className", () => {
+  describe("class and structure", () => {
+    it("should encode the orientation as a location class", () => {
       const { container } = render(
-        <Primitive.SVG dimensions={{ width: 10, height: 10 }} className="user-cls" />,
+        <Primitive.SVG dimensions={{ width: 10, height: 10 }} orientation="top" />,
       );
-      expect(container.querySelector("svg.user-cls")).not.toBeNull();
+      expect(container.querySelector("svg")?.getAttribute("class")).toContain(
+        "pluto--location-top",
+      );
+    });
+
+    it("should preserve user-supplied className alongside the location class", () => {
+      const { container } = render(
+        <Primitive.SVG
+          dimensions={{ width: 10, height: 10 }}
+          orientation="left"
+          className="user-cls"
+        />,
+      );
+      expect(container.querySelector("svg")?.getAttribute("class")).toContain(
+        "user-cls",
+      );
     });
 
     it("should always wrap children in a single <g>", () => {
@@ -169,44 +219,6 @@ describe("Primitive.SVG", () => {
       );
       expect(container.querySelector("svg")?.getAttribute("xmlns")).toBe(
         "http://www.w3.org/2000/svg",
-      );
-    });
-  });
-
-  describe("hold fill", () => {
-    const renderSVG = (holdFill: boolean): HTMLElement =>
-      render(
-        <Primitive.HoldFill value={holdFill}>
-          <Primitive.SVG dimensions={{ width: 10, height: 20 }}>
-            <rect />
-          </Primitive.SVG>
-        </Primitive.HoldFill>,
-      ).container;
-
-    it("should draw only the shapes outside a delayed toggle", () => {
-      const container = renderSVG(false);
-      expect(container.querySelector("mask")).toBeNull();
-      expect(container.querySelectorAll("rect")).toHaveLength(1);
-    });
-
-    it("should mask a fill rect with the symbol's own shapes", () => {
-      const container = renderSVG(true);
-      const shapes = container.querySelector("rect:not([mask])")?.parentElement;
-      const mask = container.querySelector("mask");
-      const fill = container.querySelector("rect[mask]");
-      expect(shapes?.id).toBeTruthy();
-      expect(mask?.querySelector("use")?.getAttribute("href")).toBe(`#${shapes?.id}`);
-      expect(fill?.getAttribute("mask")).toBe(`url(#${mask?.id})`);
-      expect(fill?.getAttribute("width")).toBe("14");
-      expect(fill?.getAttribute("height")).toBe("24");
-    });
-
-    it("should keep the fill inside the rotating group", () => {
-      const container = renderSVG(true);
-      const svg = container.querySelector("svg");
-      expect(svg?.children).toHaveLength(1);
-      expect(container.querySelector("rect[mask]")?.parentElement).toBe(
-        svg?.children[0],
       );
     });
   });

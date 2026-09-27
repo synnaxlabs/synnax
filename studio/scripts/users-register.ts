@@ -76,7 +76,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     // Tree entries show the username, not the full name.
     const created = drawer.getByText("grace", { exact: true }).first();
     await session.waitFor(created);
-    await session.hold(2200);
+    await session.hold(500);
   } finally {
     await fixture.stop();
   }

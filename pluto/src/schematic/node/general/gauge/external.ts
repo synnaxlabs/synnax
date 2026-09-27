@@ -7,50 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, color } from "@synnaxlabs/x";
+import { type schematic } from "@synnaxlabs/client";
 
-import { Label } from "@/schematic/node/common/label";
-import { type Config, VARIANT } from "@/schematic/node/general/gauge/config";
 import { GaugeForm } from "@/schematic/node/general/gauge/Form";
 import { Gauge } from "@/schematic/node/general/gauge/Primitive";
 import { Symbol } from "@/schematic/node/general/gauge/Symbol";
 import { type Spec } from "@/schematic/node/spec";
-import { telem } from "@/telem/aether";
-import { Staleness } from "@/vis/staleness";
 
-export * from "@/schematic/node/general/gauge/config";
-
-export const defaultConfig = (): Config => ({
-  variant: VARIANT,
-  orientation: "left",
-  color: color.ZERO,
-  units: "RPM",
-  level: "h5",
-  bounds: bounds.construct(0, 100),
-  barWidth: 10,
-  label: Label.defaultConfig("Gauge"),
-  ...Staleness.ZERO_CONFIG,
-  telem: telem.sourcePipeline("string", {
-    connections: [
-      { from: "valueStream", to: "rollingAverage" },
-      { from: "rollingAverage", to: "stringifier" },
-    ],
-    segments: {
-      valueStream: telem.streamChannelValue({ channel: 0 }),
-      rollingAverage: telem.rollingAverage({ windowSize: 1 }),
-      stringifier: telem.stringifyNumber({ precision: 2, notation: "standard" }),
-    },
-    outlet: "stringifier",
-  }),
-});
-
-export const spec: Spec<typeof VARIANT, Config> = {
-  key: VARIANT,
+export const spec: Spec<"gauge", schematic.GaugeNodeConfig> = {
+  key: "gauge",
   name: "Gauge",
   Form: GaugeForm,
   Node: Symbol,
   Preview: Gauge,
-  defaultConfig,
   zIndex: 4,
   needsPosition: true,
 };

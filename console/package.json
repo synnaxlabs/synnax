@@ -25,6 +25,7 @@
     "@synnaxlabs/client": "catalog:",
     "@synnaxlabs/drift": "catalog:",
     "@synnaxlabs/freighter": "catalog:",
+    "@synnaxlabs/lyra": "catalog:",
     "@synnaxlabs/media": "catalog:",
     "@synnaxlabs/pluto": "catalog:",
     "@synnaxlabs/x": "catalog:",

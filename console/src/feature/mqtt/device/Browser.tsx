@@ -10,22 +10,19 @@
 import "@/feature/mqtt/device/Browser.css";
 
 import { DisconnectedError, status, type Synnax as Client } from "@synnaxlabs/client";
-import {
-  Button,
-  Component,
-  Flex,
-  Haul,
-  Header,
-  Icon,
-  Input,
-  List,
-  Select,
-  Status,
-  Synnax,
-  Tag,
-  Text,
-  TimeSpan,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { Header } from "@synnaxlabs/lyra/header";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Tag } from "@synnaxlabs/lyra/tag";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Synnax, TimeSpan } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useState } from "react";
 
@@ -80,7 +77,7 @@ const listItem = Component.renderProp((props: List.ItemProps<string>) => {
   }, [startDrag, topic, getState, getItem, itemKey]);
   if (topic == null) return null;
   return (
-    <Select.ListItem {...props} draggable onDragStart={handleDragStart} y gap="tiny">
+    <Select.Item {...props} draggable onDragStart={handleDragStart} y gap="tiny">
       <Flex.Box x justify="between" align="center">
         <Text.Text level="small" weight={500} color={10} overflow="ellipsis">
           {topic.topic}
@@ -90,7 +87,7 @@ const listItem = Component.renderProp((props: List.ItemProps<string>) => {
       <Text.Text level="small" color={9} overflow="ellipsis">
         {topic.payload}
       </Text.Text>
-    </Select.ListItem>
+    </Select.Item>
   );
 });
 
@@ -175,9 +172,11 @@ const TopicBrowser = ({ device }: BrowserProps) => {
         onChange={setSelected}
         replaceOnSingle
       >
-        <List.Items<string, KeyedTopic> full="y" emptyContent={EMPTY_CONTENT}>
-          {listItem}
-        </List.Items>
+        <List.Scroll full="y">
+          <List.Items<string, KeyedTopic> emptyContent={EMPTY_CONTENT}>
+            {listItem}
+          </List.Items>
+        </List.Scroll>
       </Select.Frame>
     );
   return (
@@ -204,8 +203,6 @@ const TopicBrowser = ({ device }: BrowserProps) => {
 
 type Mode = "topics" | "sparkplug";
 
-const MODE_KEYS: Mode[] = ["topics", "sparkplug"];
-
 export const Browser = ({ device }: BrowserProps) => {
   const [mode, setMode] = useState<Mode>("topics");
   return (
@@ -218,15 +215,14 @@ export const Browser = ({ device }: BrowserProps) => {
       <Select.Buttons<Mode>
         value={mode}
         onChange={setMode}
-        keys={MODE_KEYS}
         className={CSS.BE("mqtt-browser", "mode")}
       >
-        <Select.Button<Mode> itemKey="topics" grow justify="center">
+        <Select.Item<Mode> itemKey="topics" grow justify="center">
           Topics
-        </Select.Button>
-        <Select.Button<Mode> itemKey="sparkplug" grow justify="center">
+        </Select.Item>
+        <Select.Item<Mode> itemKey="sparkplug" grow justify="center">
           Sparkplug B
-        </Select.Button>
+        </Select.Item>
       </Select.Buttons>
       {mode === "topics" ? (
         <TopicBrowser device={device} />

@@ -33,6 +33,7 @@ const usage = `usage: pnpm produce --script <path> --out <dir> [options]
   --draft           fast review render: higher crf + fast encoder preset
   --hide-caret      hide the text caret during capture
   --headed          run the capture browser headed
+  --insecure        accept self-signed certificates from the capture Core
   --skip-capture    reuse <out>/timeline.json and frames from a prior run
   --capture-only    stop after capture (no render)`;
 
@@ -59,6 +60,7 @@ const main = async (): Promise<void> => {
       draft: { type: "boolean", default: false },
       "hide-caret": { type: "boolean", default: false },
       headed: { type: "boolean", default: false },
+      insecure: { type: "boolean", default: false },
       "skip-capture": { type: "boolean", default: false },
       "capture-only": { type: "boolean", default: false },
     },
@@ -82,6 +84,7 @@ const main = async (): Promise<void> => {
       url: values.url,
       theme,
       headed: values.headed,
+      insecure: values.insecure,
       hideCaret: values["hide-caret"],
       core: values.core === "external" ? "external" : "ephemeral",
       coreBin: values["core-bin"],
@@ -95,7 +98,12 @@ const main = async (): Promise<void> => {
 
   if (values["capture-only"]) return;
 
-  const outputLocation = path.join(outDir, `video-${theme}.mp4`);
+  // Name the video after the out path's last segment, beside its capture
+  // directory: `--out .../client/ranges/create` writes create-<theme>.mp4.
+  const outputLocation = path.join(
+    path.dirname(outDir),
+    `${path.basename(outDir)}-${theme}.mp4`,
+  );
   console.log(`rendering ${timeline.meta.frames} frames...`);
   await runRender({
     timeline,

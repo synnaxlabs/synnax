@@ -59,6 +59,7 @@ func (r *recordingReporter) get() []reportCall {
 
 // newModule builds a Module without WASM wiring (covered C++-side).
 func newModule(ctx context.Context, reporter *recordingReporter) node.Factory {
+	GinkgoHelper()
 	return MustSucceed(arcstatus.NewModule(ctx, arcstatus.ModuleConfig{
 		Status:   statSvc,
 		Reporter: reporter.report,
@@ -268,6 +269,7 @@ var _ = Describe("setNode.Next", func() {
 	})
 
 	build := func(keyOrName, message, variant string) (node.Node, *node.State) {
+		GinkgoHelper()
 		cfg := set.Config(keyOrName, message, variant)
 		n := MustSucceed(mod.Create(cfg))
 		return n, cfg.State
@@ -530,12 +532,14 @@ var _ = Describe("Analyzer hooks", func() {
 	}
 
 	analyzeOK := func(ctx context.Context, src string) bool {
+		GinkgoHelper()
 		parsed := MustSucceed(text.Parse(text.Text{Raw: src}))
 		_, diags := text.Analyze(ctx, parsed, buildRoot())
 		return diags.Ok()
 	}
 
 	expectInvalidVariantError := func(ctx context.Context, src, badVariant string) {
+		GinkgoHelper()
 		parsed := MustSucceed(text.Parse(text.Text{Raw: src}))
 		_, diags := text.Analyze(ctx, parsed, buildRoot())
 		Expect(diags.Ok()).To(BeFalse())

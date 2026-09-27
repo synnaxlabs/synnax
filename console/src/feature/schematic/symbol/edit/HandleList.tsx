@@ -9,37 +9,33 @@
 
 import "@/feature/schematic/symbol/edit/Edit.css";
 
-import {
-  Button,
-  Flex,
-  Form,
-  Header,
-  Icon,
-  type Input,
-  List,
-  Select,
-  Text,
-} from "@synnaxlabs/pluto";
-import { location, xy } from "@synnaxlabs/x";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Header } from "@synnaxlabs/lyra/header";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { type Input } from "@synnaxlabs/lyra/input";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
+import { type location, xy } from "@synnaxlabs/x";
 
 import { CSS } from "@/platform/css";
 
-export const SelectHandleOrientation = (
-  props: Omit<Select.ButtonsProps<location.Outer>, "keys">,
-) => (
-  <Select.Buttons keys={location.OUTER_LOCATIONS} size="small" {...props}>
-    <Select.Button itemKey="left" size="small">
+export const SelectHandleOrientation = (props: Select.ButtonsProps<location.Outer>) => (
+  <Select.Buttons size="small" {...props}>
+    <Select.Item itemKey="left" size="small">
       <Icon.Arrow.Left />
-    </Select.Button>
-    <Select.Button itemKey="right" size="small">
+    </Select.Item>
+    <Select.Item itemKey="right" size="small">
       <Icon.Arrow.Right />
-    </Select.Button>
-    <Select.Button itemKey="top" size="small">
+    </Select.Item>
+    <Select.Item itemKey="top" size="small">
       <Icon.Arrow.Up />
-    </Select.Button>
-    <Select.Button itemKey="bottom" size="small">
+    </Select.Item>
+    <Select.Item itemKey="bottom" size="small">
       <Icon.Arrow.Down />
-    </Select.Button>
+    </Select.Item>
   </Select.Buttons>
 );
 
@@ -59,7 +55,7 @@ const HandleListItem = (props: HandleListItemProps) => {
   if (handle == null) return null;
   const scaledPos = xy.scale(handle.position, 100);
   return (
-    <Select.ListItem
+    <Select.Item
       {...props}
       justify="between"
       className={CSS.B("schematic-handle-list-item")}
@@ -87,7 +83,7 @@ const HandleListItem = (props: HandleListItemProps) => {
           <Icon.Close />
         </Button.Button>
       </Flex.Box>
-    </Select.ListItem>
+    </Select.Item>
   );
 };
 
@@ -107,7 +103,7 @@ export const HandleList = ({ value, onChange, onAddHandle }: HandleListProps) =>
         <Header.Title level="p" weight={500}>
           Handles
         </Header.Title>
-        <Button.Button onClick={onAddHandle} size="small" variant="filled">
+        <Button.Button onClick={onAddHandle} size="small" variant="text">
           <Icon.Add />
         </Button.Button>
       </Header.Header>
@@ -117,9 +113,13 @@ export const HandleList = ({ value, onChange, onAddHandle }: HandleListProps) =>
         data={data}
         closeDialogOnSelect={false}
       >
-        <List.Items<string> y gap={1}>
-          {({ key, index }) => <HandleListItem key={key} itemKey={key} index={index} />}
-        </List.Items>
+        <List.Scroll y gap={1}>
+          <List.Items<string>>
+            {({ key, index }) => (
+              <HandleListItem key={key} itemKey={key} index={index} />
+            )}
+          </List.Items>
+        </List.Scroll>
       </Select.Frame>
     </Flex.Box>
   );

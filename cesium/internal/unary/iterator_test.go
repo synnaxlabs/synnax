@@ -10,6 +10,7 @@
 package unary_test
 
 import (
+	"fmt"
 	"math"
 	"runtime"
 
@@ -1918,55 +1919,64 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							},
 						)
 
+						// openFaulty writes five samples through a fault-injecting file
+						// system and opens an iterator over them with a chunk of two.
+						openFaulty := func(
+							ctx SpecContext,
+						) (*FaultyFS, *unary.DB, *unary.Iterator) {
+							GinkgoHelper()
+							faulty := WrapFaultyFS(openFS())
+							faultyIndexDB := MustOpen(unary.Open(ctx, unary.Config{
+								FS:        MustSucceed(faulty.Sub("index")),
+								MetaCodec: json.Codec,
+								Channel: channel.Channel{
+									Name:     "Shackleton",
+									Key:      index,
+									DataType: telem.TimestampT,
+									IsIndex:  true,
+									Index:    index,
+								},
+								Instrumentation: PanicLogger(),
+							}))
+							faultyDB := MustOpen(unary.Open(ctx, unary.Config{
+								FS:        MustSucceed(faulty.Sub("data")),
+								MetaCodec: json.Codec,
+								Channel: channel.Channel{
+									Name:     "Wild",
+									Key:      data,
+									DataType: telem.Int64T,
+									Index:    index,
+								},
+								Instrumentation: PanicLogger(),
+							}))
+							faultyDB.SetIndex(faultyIndexDB.Index())
+							Expect(unary.Write(
+								ctx,
+								faultyIndexDB,
+								10*telem.SecondTS,
+								telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14),
+							)).To(Succeed())
+							Expect(unary.Write(
+								ctx,
+								faultyDB,
+								10*telem.SecondTS,
+								telem.NewSeriesV[int64](0, 1, 2, 3, 4),
+							)).To(Succeed())
+							return faulty, faultyDB, MustSucceed(
+								faultyDB.OpenIterator(unary.IteratorConfig{
+									Bounds:        telem.TimeRangeMax,
+									AutoChunkSize: 2,
+								}),
+							)
+						}
+
 						// A file system fault mid-chunk must stop the read and surface
-						// through Error. Dropping it would leave a short chunk that
-						// looks exactly like the end of the data.
+						// through Error and Close. Dropping it would leave a short
+						// chunk that looks exactly like the end of the data.
 						DescribeTable(
 							"should report a file system fault during an auto-span read",
 							func(ctx SpecContext, forward bool) {
-								faulty := WrapFaultyFS(openFS())
-								faultyIndexDB := MustOpen(unary.Open(ctx, unary.Config{
-									FS:        MustSucceed(faulty.Sub("index")),
-									MetaCodec: json.Codec,
-									Channel: channel.Channel{
-										Name:     "Shackleton",
-										Key:      index,
-										DataType: telem.TimestampT,
-										IsIndex:  true,
-										Index:    index,
-									},
-									Instrumentation: PanicLogger(),
-								}))
-								faultyDB := MustOpen(unary.Open(ctx, unary.Config{
-									FS:        MustSucceed(faulty.Sub("data")),
-									MetaCodec: json.Codec,
-									Channel: channel.Channel{
-										Name:     "Wild",
-										Key:      data,
-										DataType: telem.Int64T,
-										Index:    index,
-									},
-									Instrumentation: PanicLogger(),
-								}))
-								faultyDB.SetIndex(faultyIndexDB.Index())
-								Expect(unary.Write(
-									ctx,
-									faultyIndexDB,
-									10*telem.SecondTS,
-									telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14),
-								)).To(Succeed())
-								Expect(unary.Write(
-									ctx,
-									faultyDB,
-									10*telem.SecondTS,
-									telem.NewSeriesV[int64](0, 1, 2, 3, 4),
-								)).To(Succeed())
-								iter := MustSucceed(
-									faultyDB.OpenIterator(unary.IteratorConfig{
-										Bounds:        telem.TimeRangeMax,
-										AutoChunkSize: 2,
-									}),
-								)
+								faulty, _, iter := openFaulty(ctx)
 								if forward {
 									Expect(iter.SeekFirst(ctx)).To(BeTrue())
 								} else {
@@ -1983,11 +1993,44 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 									).To(BeFalse())
 								}
 								Expect(iter.Error()).To(MatchError(ErrFault))
+								Expect(iter.Close()).To(MatchError(ErrFault))
 								Expect(iter.Close()).To(Succeed())
 							},
 							Entry("forward", true),
 							Entry("backward", false),
 						)
+
+						It("should close cleanly once a seek clears the fault", func(
+							ctx SpecContext,
+						) {
+							faulty, _, iter := openFaulty(ctx)
+							Expect(iter.SeekFirst(ctx)).To(BeTrue())
+							faulty.SetOptions(WithFailReadAt())
+							Expect(iter.Next(ctx, unary.AutoSpan)).To(BeFalse())
+							faulty.SetOptions()
+							Expect(iter.SeekFirst(ctx)).To(BeTrue())
+							Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
+							Expect(iter.Close()).To(Succeed())
+						})
+
+						It("should prefix a Read fault with the channel once", func(
+							ctx SpecContext,
+						) {
+							faulty, db, iter := openFaulty(ctx)
+							Expect(iter.Close()).To(Succeed())
+							faulty.SetOptions(WithFailReadAt())
+							prefix := fmt.Sprintf("channel [Wild]<%d>:", data)
+							Expect(
+								db.Read(ctx, telem.TimeRangeMax),
+							).Error().
+								To(SatisfyAll(
+									MatchError(ErrFault),
+									MatchError(HavePrefix(prefix)),
+									MatchError(
+										Not(ContainSubstring(prefix+" "+prefix)),
+									),
+								))
+						})
 					})
 				})
 

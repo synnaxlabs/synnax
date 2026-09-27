@@ -217,6 +217,56 @@ describe("MQTT Write form", () => {
     await screen.findByText("Time format");
   });
 
+  it("should store ISO 8601 as the time format of a timestamp command channel", async () => {
+    const ch = await client.channels.create({
+      name: uniqueName("mqtt_cmd"),
+      dataType: "timestamp",
+      virtual: true,
+    });
+    const { draft } = await renderWrite([
+      createWriteTarget("t1", "plant/cmd", { channel: ch.key }),
+    ]);
+    await screen.findByText("Time format");
+    await waitFor(async () =>
+      expect(await retrieveTargets(draft.key)).toMatchObject([
+        { channel: { timeFormat: "iso8601" } },
+      ]),
+    );
+  });
+
+  it("should bind plain and Sparkplug targets to the command channels the broker stores", async () => {
+    const [plainCh, tagCh] = await Promise.all(
+      ["mqtt_cmd", "mqtt_tag_cmd"].map(
+        async (prefix) =>
+          await client.channels.create({
+            name: uniqueName(prefix),
+            dataType: "string",
+            virtual: true,
+          }),
+      ),
+    );
+    const tag = createTagTarget("s1", "setpoint");
+    const dev = await createBroker(client, {
+      properties: {
+        write: {
+          "plant/cmd": plainCh.key,
+          [MQTT.Task.sparkplugPropertiesKey(tag)]: tagCh.key,
+        },
+      },
+    });
+    const draft = await createDraft(
+      client,
+      createWriteConfig(dev.key, [createWriteTarget("t1", "plant/cmd"), tag]),
+    );
+    await renderTaskFormTab(MQTT.Task.Write, { client, taskKey: draft.key });
+    await waitFor(async () =>
+      expect(await retrieveTargets(draft.key)).toMatchObject([
+        { channel: { channel: plainCh.key } },
+        { channel: tagCh.key },
+      ]),
+    );
+  });
+
   it("should hide the time format field for a numeric command channel", async () => {
     await renderWithCommandChannel("float64");
     expect(screen.queryByText("Time format")).toBeNull();

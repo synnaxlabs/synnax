@@ -18,7 +18,11 @@ import {
   renderModalOpener,
 } from "@/platform/modals/testutil";
 import { Range } from "@/platform/range";
-import { createTestRange, uniqueRangeName } from "@/platform/range/testutil";
+import {
+  createOffPageTestRange,
+  createTestRange,
+  uniqueRangeName,
+} from "@/platform/range/testutil";
 import { Session } from "@/session";
 
 const client = createTestClient();
@@ -112,6 +116,43 @@ describe("Range.useCreateModal", () => {
       const updated = await client.ranges.retrieve(existing.key);
       expect(updated.name).toEqual(renamed);
     });
+  });
+
+  it("should close on save after the prefilled parent is cleared", async () => {
+    const parent = await createOffPageTestRange(client);
+    const { store } = await openModal(
+      {
+        name: "Orphaned Range",
+        timeRange: { start: 1000, end: 2000 },
+        parent: parent.key,
+      },
+      { client },
+    );
+    // Clicking the selected range a second time in the list deselects it, but the list
+    // shows one page and this parent sorts past it, so only a search brings it in.
+    fireEvent.click(await screen.findByText(parent.name));
+    await screen.findByPlaceholderText("Search ranges...");
+    await waitFor(() =>
+      expect(screen.getAllByRole("option").length).toBeGreaterThan(0),
+    );
+    expect(screen.queryByRole("option", { name: new RegExp(parent.name) })).toBeNull();
+    fireEvent.change(screen.getByPlaceholderText("Search ranges..."), {
+      target: { value: parent.name },
+    });
+    fireEvent.click(
+      await screen.findByRole(
+        "option",
+        { name: new RegExp(parent.name) },
+        { timeout: 5000 },
+      ),
+    );
+    await waitFor(() => expect(screen.getByText("Parent range")).toBeTruthy());
+    await clickWhenEnabled("Save locally");
+    await waitFor(() => expect(screen.queryByText("Save locally")).toBeNull());
+    const created = Session.Range.selectMultiple(store.getState()).find(
+      (r) => r.variant === "static" && r.name === "Orphaned Range",
+    );
+    expect(created).toBeDefined();
   });
 
   it("should attach the parent and labels when saving to Synnax", async () => {

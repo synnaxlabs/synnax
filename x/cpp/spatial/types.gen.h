@@ -30,6 +30,7 @@ struct Viewport;
 struct CornerLocation;
 struct StickyUnits;
 struct StickyXY;
+struct LocationXY;
 
 constexpr const char *X_LOCATION_LEFT = "left";
 constexpr const char *X_LOCATION_RIGHT = "right";
@@ -39,6 +40,14 @@ constexpr const char *Y_LOCATION_BOTTOM = "bottom";
 
 constexpr const char *STICKY_UNIT_PX = "px";
 constexpr const char *STICKY_UNIT_DECIMAL = "decimal";
+
+constexpr const char *X_CENTER_LOCATION_LEFT = "left";
+constexpr const char *X_CENTER_LOCATION_RIGHT = "right";
+constexpr const char *X_CENTER_LOCATION_CENTER = "center";
+
+constexpr const char *Y_CENTER_LOCATION_TOP = "top";
+constexpr const char *Y_CENTER_LOCATION_BOTTOM = "bottom";
+constexpr const char *Y_CENTER_LOCATION_CENTER = "center";
 
 constexpr const char *OUTER_LOCATION_TOP = "top";
 constexpr const char *OUTER_LOCATION_RIGHT = "right";
@@ -184,6 +193,17 @@ struct StickyXY {
     StickyUnits units = {.x = STICKY_UNIT_PX, .y = STICKY_UNIT_PX};
 
     static StickyXY parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief LocationXY is a per-axis location pair anchoring content within a region.
+struct LocationXY {
+    /// @brief x is the horizontal anchor.
+    std::string x;
+    /// @brief y is the vertical anchor.
+    std::string y;
+
+    static LocationXY parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 }

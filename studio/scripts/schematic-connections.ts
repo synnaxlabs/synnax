@@ -26,7 +26,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.moveTo({ x: 756, y: 640 });
 
   session.startRecording();
-  await session.hold(1200);
+  await session.hold(500);
 
   // Hovering paints the attachment points; hold on them before the drag.
   await session.moveTo(tank);
@@ -38,5 +38,5 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.hold(600);
 
   await session.moveTo({ x: 756, y: 660 });
-  await session.hold(2600);
+  await session.hold(500);
 };

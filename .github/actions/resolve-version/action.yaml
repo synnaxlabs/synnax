@@ -7,7 +7,7 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-name: Resolve Version
+name: Resolve version
 description: Resolves the next version of a product from its Git tags
 
 inputs:
@@ -42,7 +42,7 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Resolve Version
+    - name: Resolve version
       id: resolve
       shell: bash
       env:

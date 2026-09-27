@@ -15,7 +15,8 @@ import {
   type Synnax,
   task,
 } from "@synnaxlabs/client";
-import { Status, Synnax as PSynnax } from "@synnaxlabs/pluto";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Synnax as PSynnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Panel } from "@/platform/panel";

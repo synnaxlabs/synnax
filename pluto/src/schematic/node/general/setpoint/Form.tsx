@@ -7,98 +7,66 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel } from "@synnaxlabs/client";
-import { zod } from "@synnaxlabs/x";
+import { type channel, type schematic } from "@synnaxlabs/client";
+import { Form as Base } from "@synnaxlabs/lyra/form";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
-import { Flex } from "@/flex";
-import { Form as Base } from "@/form";
-import { Input } from "@/input";
-import { type Control } from "@/schematic/node/common/control";
+import { Control } from "@/schematic/node/common/control";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
-import { Tabs } from "@/tabs";
-import { telem } from "@/telem/aether";
-import { control } from "@/telem/control/aether";
-import { type Setpoint } from "@/vis/setpoint";
 
 export const SetpointTelemForm = ({ path }: { path: string }): ReactElement => {
-  const { value, onChange } = Base.useField<
-    Omit<Setpoint.UseProps, "aetherKey"> & {
-      control: Control.StateProps;
-      disabled?: boolean;
-    }
-  >(path);
-  const sinkP = zod.parse(telem.sinkPipelinePropsZ, value.sink?.props, {
-    label: "sink pipeline",
-  });
-  const sink = zod.parse(control.setChannelValuePropsZ, sinkP.segments.setter.props, {
-    label: "setter sink",
-  });
-
+  const { value, onChange } =
+    Base.useField<
+      Pick<schematic.SetpointNodeConfig, "commandChannel" | "control" | "disabled">
+    >(path);
   const handleSinkChange = (v: channel.Key | null): void => {
     v ??= 0;
-    const t = telem.sinkPipeline("number", {
-      connections: [],
-      segments: { setter: control.setChannelValue({ channel: v }) },
-      inlet: "setter",
-    });
-
-    const authSource = control.authoritySource({ channel: v });
-
-    const controlChipSink = control.acquireChannelControl({
-      channel: v,
-      authority: 255,
-    });
-
     onChange({
       ...value,
-      sink: t,
-      control: {
-        ...value.control,
-        showChip: true,
-        chip: { sink: controlChipSink, source: authSource },
-        showIndicator: true,
-        indicator: { statusSource: authSource },
-      },
+      commandChannel: v,
+      control: Control.reveal(value.control),
       disabled: v == 0,
     });
   };
 
   return (
-    <Form.Wrapper x grow align="stretch">
-      <Input.Item label="Command channel" grow>
-        <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
-      </Input.Item>
-      <Form.ActivationDelayField />
-      <Form.ControlChipField />
-    </Form.Wrapper>
+    <Base.Sections x>
+      <Base.Section title="Command">
+        <Input.Item label="Channel" padHelpText={false}>
+          <Channel.SelectSingle
+            value={value.commandChannel ?? 0}
+            onChange={handleSinkChange}
+          />
+        </Input.Item>
+        <Form.ActivationDelayField />
+        <Form.ControlChipField />
+      </Base.Section>
+    </Base.Sections>
   );
 };
 
 export const SetpointForm = (): ReactElement => (
-  <Tabs.Frame initialValue="style">
-    <Tabs.Selector>
-      <Tabs.Tab itemKey="style">Style</Tabs.Tab>
-      <Tabs.Tab itemKey="control">Control</Tabs.Tab>
-    </Tabs.Selector>
+  <Form.Tabs tabs={["style", "control"]}>
     <Tabs.Content itemKey="style">
-      <Form.Wrapper x align="stretch">
-        <Flex.Box y align="stretch" grow gap="small">
+      <Base.Sections x>
+        <Base.Section title="Label">
           <Label.Form path="label" />
-          <Flex.Box x>
-            <Form.ColorField path="color" />
-            <Form.SizeField />
-            <Form.UnitsField />
-          </Flex.Box>
-        </Flex.Box>
-        <Orientation.Field path="" hideInner />
-      </Form.Wrapper>
+        </Base.Section>
+        <Base.Section title="Appearance">
+          <Form.ColorField path="color" />
+          <Form.SizeField />
+          <Form.UnitsField />
+        </Base.Section>
+        <Orientation.Section path="" hideInner />
+      </Base.Sections>
     </Tabs.Content>
     <Tabs.Content itemKey="control">
       <SetpointTelemForm path="" />
     </Tabs.Content>
-  </Tabs.Frame>
+  </Form.Tabs>
 );

@@ -9,7 +9,7 @@
 
 import { type channel, mqtt, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { type Status } from "@synnaxlabs/pluto";
+import { type Status } from "@synnaxlabs/lyra/status";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -26,7 +26,6 @@ import {
   awaitTextEditingElement,
   commitTextEdit,
   findDialogTriggerByText,
-  getHeaderIconButton,
   getLabeledInput,
   uniqueName,
 } from "@/testutil";
@@ -127,7 +126,7 @@ describe("MQTT Edge form", () => {
     const { draft } = await renderEdge();
     fireEvent.click(await screen.findByText("Add channel"));
     await screen.findByPlaceholderText("oven/temperature");
-    await findDialogTriggerByText("Select channel");
+    await findDialogTriggerByText("Channel");
     await findDialogTriggerByText("Double");
     expect(screen.getByText("No command channel")).toBeTruthy();
     await waitFor(async () =>
@@ -140,7 +139,7 @@ describe("MQTT Edge form", () => {
   it("should copy the type of the last tag into a new one", async () => {
     const { draft } = await renderEdge([createTag("t1", { sparkplugType: "int16" })]);
     await screen.findByPlaceholderText("oven/temperature");
-    fireEvent.click(getHeaderIconButton("Channels"));
+    fireEvent.click(screen.getByText("Add channel"));
     await waitFor(async () =>
       expect(await retrieveTags(draft.key)).toMatchObject([
         { key: "t1" },
@@ -150,7 +149,7 @@ describe("MQTT Edge form", () => {
   });
 
   const selectChannel = async (name: string): Promise<void> => {
-    fireEvent.click(await findDialogTriggerByText("Select channel"));
+    fireEvent.click(await findDialogTriggerByText("Channel"));
     fireEvent.change(await screen.findByPlaceholderText("Search channels..."), {
       target: { value: name },
     });

@@ -55,7 +55,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.hold(900);
     // The hover tooltip follows the cursor and covers the second readout.
     await session.moveTo({ x: 520, y: 980 });
-    await session.hold(3000);
+    await session.hold(500);
   } finally {
     await fixture.stop();
   }

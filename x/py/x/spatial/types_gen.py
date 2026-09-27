@@ -36,6 +36,24 @@ STICKY_UNIT_DECIMAL: Literal["decimal"] = "decimal"
 
 StickyUnit = Literal["px", "decimal"]
 
+X_CENTER_LOCATION_LEFT: Literal["left"] = "left"
+
+X_CENTER_LOCATION_RIGHT: Literal["right"] = "right"
+
+X_CENTER_LOCATION_CENTER: Literal["center"] = "center"
+
+
+XCenterLocation = Literal["left", "right", "center"]
+
+Y_CENTER_LOCATION_TOP: Literal["top"] = "top"
+
+Y_CENTER_LOCATION_BOTTOM: Literal["bottom"] = "bottom"
+
+Y_CENTER_LOCATION_CENTER: Literal["center"] = "center"
+
+
+YCenterLocation = Literal["top", "bottom", "center"]
+
 OUTER_LOCATION_TOP: Literal["top"] = "top"
 
 OUTER_LOCATION_RIGHT: Literal["right"] = "right"
@@ -159,6 +177,18 @@ class Dimensions(BaseModel):
 
     width: float
     height: float
+
+
+class LocationXY(BaseModel):
+    """Is a per-axis location pair anchoring content within a region.
+
+    Attributes:
+        x: Is the horizontal anchor.
+        y: Is the vertical anchor.
+    """
+
+    x: XCenterLocation
+    y: YCenterLocation
 
 
 class SignedDimensions(BaseModel):

@@ -108,12 +108,11 @@ func (db *DB) Read(
 	ctx context.Context,
 	tr telem.TimeRange,
 ) (frame channel.Frame, err error) {
-	defer func() { err = db.wrapError(err) }()
 	var iter *Iterator
 	if iter, err = db.OpenIterator(IterRange(tr)); err != nil {
 		return frame, err
 	}
-	defer func() { err = db.wrapError(iter.Close()) }()
+	defer func() { err = errors.Combine(err, iter.Close()) }()
 	if !iter.SeekFirst(ctx) {
 		return frame, err
 	}

@@ -1,0 +1,123 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/* The trigger is the value as content: it sizes to its text, never to the form. */
+.pluto-time-editor {
+    width: fit-content;
+    flex-grow: 0;
+
+    --pluto-control-width: fit-content;
+
+    & .pluto-time-editor__trigger {
+        width: fit-content;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+    }
+
+    /* Content at rest carries no frame; the hover fill says it is editable. */
+    &.pluto--shadow .pluto-time-editor__trigger {
+        padding: 0 0.75rem;
+    }
+}
+
+/* A fixed width, so the dialog holds still while the readings change under it. */
+.pluto-time-editor__dialog {
+    --pluto-time-editor-width: min(56rem, calc(100vw - 4rem));
+
+    min-width: var(--pluto-time-editor-width);
+    max-width: var(--pluto-time-editor-width);
+
+    /* The field's digits line up in one fixed layout, so a caret position names a
+       unit. */
+    & input {
+        font-variant-numeric: tabular-nums;
+    }
+}
+
+.pluto-datetime__day {
+    color: var(--pluto-gray-l9);
+}
+
+/* An empty input reads as a placeholder, the way an empty field does. */
+.pluto-datetime__empty {
+    color: var(--pluto-text-placeholder);
+}
+
+/* A duration is derived from the stamps beside it, so it reads one shade quieter. */
+.pluto-timespan__label {
+    color: var(--pluto-gray-l9);
+}
+
+.pluto-time-editor__suggestions {
+    padding: 1rem;
+    white-space: nowrap;
+}
+
+.pluto-time-editor__note {
+    padding: 0.5rem 1.5rem;
+}
+
+.pluto-time-editor__suggestion {
+    padding: 0 1.5rem;
+    font-variant-numeric: tabular-nums;
+}
+
+/* The reading's detail yields its width to the value and truncates. */
+.pluto-time-editor__detail {
+    min-width: 0;
+    margin-left: auto;
+    padding-left: 2rem;
+    text-align: right;
+}
+
+.pluto-time-editor__actions {
+    padding: 1rem;
+    border-top: var(--pluto-border-width) solid var(--pluto-gray-l4);
+}
+
+.pluto-time-editor__action {
+    padding: 0.5rem 1.5rem;
+
+    & .pluto-time-editor__hint {
+        margin-left: auto;
+        padding-left: 2rem;
+        font-family: var(--pluto-code-font-family);
+    }
+}
+
+/* Collapses to zero rows, so the effect slides in and out instead of popping. */
+.pluto-time-effect {
+    display: grid;
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transition:
+        grid-template-rows 0.15s ease,
+        opacity 0.15s ease;
+
+    &.pluto-time-effect--visible {
+        grid-template-rows: 1fr;
+        opacity: 1;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        transition: none;
+    }
+}
+
+.pluto-time-effect__clip {
+    min-height: 0;
+    overflow: hidden;
+}
+
+.pluto-time-effect__content {
+    padding: 1.5rem 2.5rem;
+    border-top: var(--pluto-border-width) solid var(--pluto-gray-l4);
+}

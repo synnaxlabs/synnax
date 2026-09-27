@@ -8,17 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, ranger, schematic } from "@synnaxlabs/client";
-import {
-  Access,
-  type Flux,
-  Icon,
-  List,
-  Menu,
-  Mosaic,
-  Schematic as Base,
-  Status,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Access, type Flux, Mosaic, Schematic as Base } from "@synnaxlabs/pluto";
 import { array, strings } from "@synnaxlabs/x";
 import { useCallback } from "react";
 

@@ -15,6 +15,19 @@ FAVORITE_ACTIONS = ("Add to favorites", "Favorite")
 UNFAVORITE_ACTIONS = ("Remove from favorites", "Unfavorite")
 CREATE_MODAL_SELECTOR = ".console-range-create-layout"
 NAME_INPUT_PLACEHOLDER = "Name"
+STAGE_MENU_SELECTOR = ".pluto-stage-button__menu"
+
+# The stage menu names its items by action, not by the stage they reach.
+STAGE_TRANSITIONS: dict[str, tuple[str, ...]] = {
+    "To do": ("Move to to do",),
+    "In progress": ("Start", "Reopen"),
+    "Completed": ("Complete",),
+}
+STAGE_ICONS: dict[str, str] = {
+    "To do": "pluto-icon--to-do",
+    "In progress": "pluto-icon--in-progress",
+    "Completed": "pluto-icon--completed",
+}
 
 
 class Surface(ResourceClient):
@@ -43,11 +56,21 @@ class Surface(ResourceClient):
         self._click_visible_option(texts)
 
     def _pick_stage_from_dropdown(self, stage_button: Locator, stage: str) -> None:
-        """Click a stage button and select a stage from the dropdown."""
+        """Move a range to a stage through its stage chip's menu of transitions.
+
+        Does nothing when the chip already shows the stage, since the menu offers
+        no transition into the current stage.
+        """
+        if stage_button.locator(f"svg.{STAGE_ICONS[stage]}").count() > 0:
+            return
         stage_button.click()
-        dropdown = self.layout.page.locator(".pluto-list__item").filter(has_text=stage)
-        dropdown.click(timeout=2000)
-        dropdown.wait_for(state="hidden", timeout=2000)
+        menu = self.layout.page.locator(STAGE_MENU_SELECTOR)
+        names = STAGE_TRANSITIONS[stage]
+        item = menu.get_by_role("menuitem", name=names[0], exact=True)
+        for name in names[1:]:
+            item = item.or_(menu.get_by_role("menuitem", name=name, exact=True))
+        item.click(timeout=2000)
+        menu.wait_for(state="hidden", timeout=2000)
 
     def fill_create_modal(
         self,
@@ -79,7 +102,7 @@ class Surface(ResourceClient):
             self._pick_stage_from_dropdown(stage_button, stage)
 
         if parent is not None:
-            parent_button = modal.locator("button").filter(has_text="Select range")
+            parent_button = modal.locator("button").filter(has_text="Parent range")
             parent_button.click()
             # Scope to the picker dropdown: the explorer view has a search
             # input with the same placeholder.

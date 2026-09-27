@@ -15,19 +15,15 @@ import {
   mqtt,
   type Synnax as Client,
 } from "@synnaxlabs/client";
-import {
-  Access,
-  Channel as PChannel,
-  Component,
-  Flex,
-  Form as PForm,
-  Icon,
-  Menu,
-  Select,
-  Status,
-  Synnax,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Access, Channel as PChannel, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { use } from "@/feature/mqtt/device/queries";
@@ -96,7 +92,7 @@ const TagListItem = (props: Task.ChannelListItemProps) => {
   );
 
   return (
-    <Select.ListItem {...props} justify="between" align="center" x>
+    <Select.Item {...props} justify="between" align="center" x>
       <PForm.Field<channel.Key>
         path={`${path}.channel`}
         showLabel={false}
@@ -133,9 +129,9 @@ const TagListItem = (props: Task.ChannelListItemProps) => {
             id={Task.getChannelNameID(itemKey, "cmd")}
           />
         )}
-        <Task.EnableDisableButton path={`${path}.disabled`} />
+        <Task.EnabledCheckbox path={`${path}.disabled`} />
       </Flex.Box>
-    </Select.ListItem>
+    </Select.Item>
   );
 };
 
@@ -214,6 +210,7 @@ const Content = () => (
     createChannel={createTag}
     listItem={listItem}
     contextMenuItems={contextMenuItems}
+    resolve={null}
   />
 );
 

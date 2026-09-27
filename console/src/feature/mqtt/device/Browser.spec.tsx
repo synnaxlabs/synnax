@@ -9,7 +9,8 @@
 
 import { type Synnax } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { type Haul, type Status } from "@synnaxlabs/pluto";
+import { type Haul } from "@synnaxlabs/lyra/haul";
+import { type Status } from "@synnaxlabs/lyra/status";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 

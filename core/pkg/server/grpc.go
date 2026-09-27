@@ -12,6 +12,7 @@ package server
 import (
 	"github.com/cockroachdb/cmux"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
+	"github.com/synnaxlabs/x/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -53,7 +54,11 @@ func (g *GRPCBranch) Init(ctx BranchContext) {
 }
 
 // Serve implements Branch.
-func (g *GRPCBranch) Serve(ctx BranchContext) error { return g.server.Serve(ctx.Lis) }
+func (g *GRPCBranch) Serve(ctx BranchContext) error {
+	// Stop can land before this routine reaches Serve. gRPC then refuses to start and
+	// closes the listener itself, which is a clean stop rather than a failure.
+	return errors.Skip(g.server.Serve(ctx.Lis), grpc.ErrServerStopped)
+}
 
 // Stop implements Branch.
 func (g *GRPCBranch) Stop() {

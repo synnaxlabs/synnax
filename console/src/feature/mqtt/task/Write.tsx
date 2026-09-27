@@ -10,21 +10,18 @@
 import "@/feature/mqtt/task/Form.css";
 
 import { channel, mqtt } from "@synnaxlabs/client";
-import {
-  Button,
-  Channel as PChannel,
-  Component,
-  Divider,
-  Flex,
-  Form as PForm,
-  Header,
-  Icon,
-  List,
-  Menu,
-  Select,
-  Telem,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Header } from "@synnaxlabs/lyra/header";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Channel as PChannel, Telem } from "@synnaxlabs/pluto";
 import { DataType, id, json, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback, useMemo, useState } from "react";
 
@@ -79,20 +76,13 @@ const Properties = () => (
 
 const TARGETS_PATH = "config.targets";
 
-const JSON_TYPE_DATA: Select.StaticEntry<mqtt.JSONType>[] = [
-  { key: "number", name: "Number" },
-  { key: "string", name: "String" },
-  { key: "boolean", name: "Boolean" },
-];
-
-const GENERATOR_DATA: Select.StaticEntry<GeneratorType | TimeFormat>[] = [
-  { key: "uuid", name: "UUID" },
-  { key: "iso8601", name: "Timestamp (ISO 8601)" },
-  { key: "unix_sec", name: "Timestamp (s)" },
-  { key: "unix_ms", name: "Timestamp (ms)" },
-  { key: "unix_us", name: "Timestamp (µs)" },
-  { key: "unix_ns", name: "Timestamp (ns)" },
-];
+const JSON_TYPE_ITEMS = (
+  <>
+    <Select.Item itemKey="number">Number</Select.Item>
+    <Select.Item itemKey="string">String</Select.Item>
+    <Select.Item itemKey="boolean">Boolean</Select.Item>
+  </>
+);
 
 const getTargetChannelNameID = (targetKey: string) => `write-target-ch-${targetKey}`;
 
@@ -196,17 +186,10 @@ const ChannelFieldSection: FC<{ targetPath: string }> = ({ targetPath }) => {
 };
 
 const renderSelectJSONType = Component.renderProp(
-  (
-    p: Omit<
-      Select.StaticProps<string, Select.StaticEntry<mqtt.JSONType>>,
-      "data" | "resourceName"
-    >,
-  ) => (
-    <Select.Static<string, Select.StaticEntry<mqtt.JSONType>>
-      {...p}
-      data={JSON_TYPE_DATA}
-      resourceName="JSON type"
-    />
+  (p: Omit<Select.SingleSimpleProps<string>, "children" | "resourceName">) => (
+    <Select.Simple<string> {...p} resourceName="JSON type">
+      {JSON_TYPE_ITEMS}
+    </Select.Simple>
   ),
 );
 
@@ -267,7 +250,7 @@ const FieldListItem = (props: List.ItemProps<string> & { targetKey: string }) =>
   );
 
   return (
-    <Select.ListItem {...props} justify="between" align="center" x>
+    <Select.Item {...props} justify="between" align="center" x>
       <PForm.TextField
         path={`${path}.pointer`}
         showLabel={false}
@@ -276,13 +259,14 @@ const FieldListItem = (props: List.ItemProps<string> & { targetKey: string }) =>
         grow
       />
       {fieldType === "static" && (
-        <Select.Static<mqtt.JSONType, Select.StaticEntry<mqtt.JSONType>>
+        <Select.Simple<mqtt.JSONType>
           value={jsonType ?? "string"}
           onChange={handleJSONTypeChange}
-          data={JSON_TYPE_DATA}
           resourceName="type"
           className={CSS.B("field-data-type")}
-        />
+        >
+          {JSON_TYPE_ITEMS}
+        </Select.Simple>
       )}
       {fieldType === "static" && jsonType === "string" && (
         <PForm.TextField
@@ -309,21 +293,24 @@ const FieldListItem = (props: List.ItemProps<string> & { targetKey: string }) =>
         />
       )}
       {fieldType === "generated" && (
-        <Select.Static<
-          GeneratorType | TimeFormat,
-          Select.StaticEntry<GeneratorType | TimeFormat>
-        >
+        <Select.Simple<GeneratorType | TimeFormat>
           value={generatorDisplayKey(generator, timeFormat)}
           onChange={handleGeneratorChange}
-          data={GENERATOR_DATA}
           resourceName="generator"
           variant="floating"
-        />
+        >
+          <Select.Item itemKey="uuid">UUID</Select.Item>
+          <Select.Item itemKey="iso8601">Timestamp (ISO 8601)</Select.Item>
+          <Select.Item itemKey="unix_sec">Timestamp (s)</Select.Item>
+          <Select.Item itemKey="unix_ms">Timestamp (ms)</Select.Item>
+          <Select.Item itemKey="unix_us">Timestamp (µs)</Select.Item>
+          <Select.Item itemKey="unix_ns">Timestamp (ns)</Select.Item>
+        </Select.Simple>
       )}
       <Text.Text level="small" color={9}>
         {fieldType}
       </Text.Text>
-    </Select.ListItem>
+    </Select.Item>
   );
 };
 
@@ -419,14 +406,15 @@ const AdditionalFields: FC<{ targetKey: string }> = ({ targetKey }) => {
           replaceOnSingle
           allowNone
         >
-          <List.Items<string, WriteField>
+          <List.Scroll
             full="y"
             className={CSS.cls(menuProps.className, CSS.B("field-list-items"))}
             onContextMenu={menuProps.open}
-            emptyContent={EMPTY_CONTENT}
           >
-            {listItem}
-          </List.Items>
+            <List.Items<string, WriteField> emptyContent={EMPTY_CONTENT}>
+              {listItem}
+            </List.Items>
+          </List.Scroll>
         </Select.Frame>
       </Menu.ContextMenu>
     </Flex.Box>
@@ -510,6 +498,15 @@ const renameChannel = (key: string) => Text.edit(getTargetChannelNameID(key));
 const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
   const [selected, setSelected] = useState<string[]>([]);
   const isPreview = Task.useIsPreview();
+  const resolve = useCallback(
+    (target: WriteTarget): Partial<WriteTarget> => {
+      const { write } = device.properties;
+      if (target.type === "sparkplug")
+        return { channel: write[sparkplugPropertiesKey(target)] ?? 0 };
+      return { channel: { ...target.channel, channel: write[target.topic] ?? 0 } };
+    },
+    [device],
+  );
   return (
     <Flex.Box x grow empty>
       {!isPreview && <Browser device={device} />}
@@ -540,6 +537,7 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
           </Flex.Box>
         )}
       </Flex.Box>
+      <Task.BindChannels<WriteTarget> path={TARGETS_PATH} resolve={resolve} />
     </Flex.Box>
   );
 };

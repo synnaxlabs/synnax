@@ -8,7 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type status } from "@synnaxlabs/client";
-import { Flex, Form, Status, Tag } from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Tag } from "@synnaxlabs/lyra/tag";
 import { caseconv } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 

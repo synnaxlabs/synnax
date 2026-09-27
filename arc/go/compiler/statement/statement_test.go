@@ -29,6 +29,7 @@ import (
 )
 
 func compile(bCtx SpecContext, source string) []byte {
+	GinkgoHelper()
 	stmt := MustSucceed(parser.ParseStatement(source))
 	aCtx := acontext.NewRoot(bCtx, stmt, NewRoot(nil))
 	analyzer.AnalyzeStatement(aCtx)
@@ -39,6 +40,7 @@ func compile(bCtx SpecContext, source string) []byte {
 }
 
 func compileBlock(bCtx SpecContext, source string) []byte {
+	GinkgoHelper()
 	block := MustSucceed(parser.ParseBlock("{" + source + "}"))
 	aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
 	analyzer.AnalyzeBlock(aCtx)
@@ -52,6 +54,7 @@ func compileBlock(bCtx SpecContext, source string) []byte {
 var _ = Describe("Statement Compiler", func() {
 	Describe("Named Output Assignment", func() {
 		compileWithOutputs := func(bCtx SpecContext, source string, outputs types.Params, memBase uint32) []byte {
+			GinkgoHelper()
 			block := MustSucceed(parser.ParseBlock("{" + source + "}"))
 			aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
 			fnScope := MustSucceed(aCtx.Scope.Add(aCtx, symbol.Symbol{
@@ -826,6 +829,7 @@ var _ = Describe("Statement Compiler", func() {
 	Describe("Compound string concatenation", func() {
 		var sLit, sConcat uint64
 		compileStr := func(bCtx SpecContext, source string) []byte {
+			GinkgoHelper()
 			block := MustSucceed(parser.ParseBlock("{" + source + "}"))
 			aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
@@ -1176,6 +1180,7 @@ var _ = Describe("Statement Compiler", func() {
 
 	Describe("Channel Operations", func() {
 		compileWithChannels := func(bCtx SpecContext, source string, resolver []symbol.Symbol) []byte {
+			GinkgoHelper()
 			block := MustSucceed(parser.ParseBlock("{" + source + "}"))
 			aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil, resolver...))
 			fnScope := MustSucceed(aCtx.Scope.Add(aCtx, symbol.Symbol{
@@ -1842,6 +1847,7 @@ var _ = Describe("Statement Compiler", func() {
 
 	Describe("Chan-typed Input Parameter Operations", func() {
 		compileWithChanInput := func(bCtx SpecContext, source, inputName string, inputType types.Type) []byte {
+			GinkgoHelper()
 			block := MustSucceed(parser.ParseBlock("{" + source + "}"))
 			aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
 			fnScope := MustSucceed(aCtx.Scope.Add(aCtx, symbol.Symbol{
@@ -2447,6 +2453,7 @@ var _ = Describe("Statement Compiler", func() {
 
 		It("Should compile series iteration (single-ident)", func(bCtx SpecContext) {
 			compileForLoop := func(source string) []byte {
+				GinkgoHelper()
 				block := MustSucceed(parser.ParseBlock("{" + source + "}"))
 				aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
 				analyzer.AnalyzeBlock(aCtx)
@@ -2493,6 +2500,7 @@ var _ = Describe("Statement Compiler", func() {
 
 		It("Should compile series iteration (two-ident)", func(bCtx SpecContext) {
 			compileForLoop := func(source string) []byte {
+				GinkgoHelper()
 				block := MustSucceed(parser.ParseBlock("{" + source + "}"))
 				aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
 				analyzer.AnalyzeBlock(aCtx)
@@ -2538,6 +2546,7 @@ var _ = Describe("Statement Compiler", func() {
 
 		It("Should compile series iteration with f64 elements", func(bCtx SpecContext) {
 			compileForLoop := func(source string) []byte {
+				GinkgoHelper()
 				block := MustSucceed(parser.ParseBlock("{" + source + "}"))
 				aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
 				analyzer.AnalyzeBlock(aCtx)

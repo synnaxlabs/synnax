@@ -7,58 +7,37 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x";
+import { schematic } from "@synnaxlabs/client";
 import { describe, expect, it } from "vitest";
 
 import { Scale } from "@/schematic/node/common/scale";
 import { telem } from "@/telem/aether";
-import { Staleness } from "@/vis/staleness";
 
 describe("Scale", () => {
-  describe("defaultConfig", () => {
-    it("should populate every display field", () => {
-      const config = Scale.defaultConfig();
-      expect(config.bounds).toEqual({ lower: 0, upper: 100 });
-      expect(config.showFill).toBe(true);
-      expect(config.showCaret).toBe(true);
-      expect(config.showScale).toBe(true);
-      expect(config.side).toEqual("right");
-      expect(config.units).toEqual("");
-      expect(config.notation).toEqual("standard");
-      expect(config.precision).toEqual(2);
-      expect(config.stalenessTimeout).toEqual(Staleness.ZERO_CONFIG.stalenessTimeout);
-      expect(color.isZero(config.stalenessColor)).toBe(true);
-      expect(config.level).toEqual("small");
-      expect(color.isZero(config.color)).toBe(true);
-      expect(color.isZero(config.axisColor)).toBe(true);
-      expect(color.isZero(config.textColor)).toBe(true);
+  describe("source", () => {
+    it("should build the smoothed read pipeline for the configured channel", () => {
+      const spec = Scale.source(
+        schematic.scaleIndicatorConfigZ.parse({ channel: 12, rollingAverage: 3 }),
+      );
+      const { segments } = telem.sourcePipelinePropsZ.parse(spec.props);
+      expect(
+        telem.streamChannelValuePropsZ.parse(segments.valueStream.props).channel,
+      ).toEqual(12);
+      expect(
+        telem.rollingAverageProps.parse(segments.rollingAverage.props).windowSize,
+      ).toEqual(3);
     });
 
-    it("should keep overrides over the defaults", () => {
-      const config = Scale.defaultConfig({ showCaret: false, side: "left" });
-      expect(config.showCaret).toBe(false);
-      expect(config.side).toEqual("left");
-      expect(config.showFill).toBe(true);
-    });
-  });
-
-  describe("telem", () => {
-    it("should read back the properties a spec was built from", () => {
-      const props = { channel: 12, windowSize: 3 } as const;
-      expect(Scale.parseTelem(Scale.createTelem(props))).toEqual(props);
-    });
-
-    it("should use the defaults for an unset spec", () => {
-      expect(Scale.parseTelem()).toEqual({ channel: 0, windowSize: 1 });
-    });
-
-    it("should use the defaults for a spec built by a different pipeline", () => {
-      const spec = telem.sourcePipeline("number", {
-        connections: [],
-        segments: { other: telem.streamChannelValue({ channel: 9 }) },
-        outlet: "other",
-      });
-      expect(Scale.parseTelem(spec).channel).toEqual(0);
+    it("should read an unset channel as zero and no smoothing", () => {
+      const { segments } = telem.sourcePipelinePropsZ.parse(
+        Scale.source(schematic.scaleIndicatorConfigZ.parse({})).props,
+      );
+      expect(
+        telem.streamChannelValuePropsZ.parse(segments.valueStream.props).channel,
+      ).toEqual(0);
+      expect(
+        telem.rollingAverageProps.parse(segments.rollingAverage.props).windowSize,
+      ).toEqual(1);
     });
   });
 });

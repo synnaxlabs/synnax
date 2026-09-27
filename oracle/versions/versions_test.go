@@ -25,6 +25,7 @@ import (
 // writeRepo materializes a schema tree in a temp directory and returns its
 // root.
 func writeRepo(files map[string]string) string {
+	GinkgoHelper()
 	root := GinkgoT().TempDir()
 	for p, content := range files {
 		full := filepath.Join(root, p)
@@ -35,6 +36,7 @@ func writeRepo(files map[string]string) string {
 }
 
 func resolverFor(files map[string]string) *versions.Resolver {
+	GinkgoHelper()
 	root := writeRepo(files)
 	chains := MustSucceed(versions.Discover(root))
 	return versions.NewResolver(chains, analyzer.NewStandardFileLoader(root))
@@ -506,6 +508,7 @@ Channel struct {
 
 	Describe("Definer", func() {
 		definerFixture := func() *versions.Resolver {
+			GinkgoHelper()
 			return resolverFor(map[string]string{
 				"schemas/synnax/versions/channel/v0.oracle": "Key = uuid\n",
 				"schemas/synnax/versions/channel/v1.oracle": `

@@ -8,7 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { channel } from "@synnaxlabs/client";
-import { Access, Form as PForm, Icon, Menu } from "@synnaxlabs/pluto";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Access } from "@synnaxlabs/pluto";
 
 import { ContextMenu as Base } from "@/platform/context-menu";
 import { Task } from "@/platform/task";

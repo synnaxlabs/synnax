@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { schematic } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 import { render } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { type Config } from "@/schematic/node/general/offPageReference/config";
 import { OffPageReference } from "@/schematic/node/general/offPageReference/Primitive";
 import { Symbol } from "@/schematic/node/general/offPageReference/Symbol";
 import { Theming } from "@/theming";
@@ -50,14 +50,14 @@ describe("OffPageReference", () => {
       expect(arrow?.style.getPropertyValue("--pluto-symbol-color")).toBe("");
     });
 
-    it("should treat the ZERO default config color as unset", () => {
+    it("should pass a fully transparent color through as a choice", () => {
       const { container } = render(
         <ThemeWrapper>
           <OffPageReference color={color.ZERO} />
         </ThemeWrapper>,
       );
       const arrow = container.querySelector<HTMLElement>(".pluto-arrow");
-      expect(arrow?.style.getPropertyValue("--pluto-symbol-color")).toBe("");
+      expect(arrow?.style.getPropertyValue("--pluto-symbol-color")).toBe("0, 0, 0, 0");
     });
   });
 
@@ -115,18 +115,18 @@ describe("OffPageReference", () => {
 });
 
 describe("Symbol", () => {
-  const renderSymbol = (page: Config["page"]) =>
+  const renderSymbol = (page?: schematic.Page) =>
     render(
       <ThemeWrapper>
         <Symbol
           nodeKey="n1"
           selected={false}
           onConfigChange={vi.fn()}
-          config={{
-            variant: "offPageReference",
+          config={schematic.offPageReferenceNodeConfigZ.parse({
+            variant: "off_page_reference",
             label: { label: "Ref" },
             page,
-          }}
+          })}
         />
       </ThemeWrapper>,
     );
@@ -139,13 +139,8 @@ describe("Symbol", () => {
     );
   });
 
-  it("should render the schematic icon for a legacy bare page string", () => {
-    const { container } = renderSymbol("abc");
-    expect(container.querySelector(".pluto-icon--schematic")).not.toBeNull();
-  });
-
-  it("should render unlinked with no icon when the page is empty", () => {
-    const { container } = renderSymbol("");
+  it("should render unlinked with no icon when the page is unset", () => {
+    const { container } = renderSymbol();
     expect(container.querySelector(".pluto-icon")).toBeNull();
     const cls = container.querySelector(".pluto-arrow")?.getAttribute("class") ?? "";
     expect(cls.includes("pluto--linked")).toBe(false);

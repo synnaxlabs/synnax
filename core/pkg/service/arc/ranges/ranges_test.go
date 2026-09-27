@@ -61,6 +61,7 @@ func (r *recordingReporter) get() []reportCall {
 
 // newModule builds a Module without WASM wiring (WASM is covered separately).
 func newModule(ctx context.Context, reporter *recordingReporter) node.Factory {
+	GinkgoHelper()
 	return MustSucceed(arcranges.NewModule(ctx, arcranges.ModuleConfig{
 		DB:       db,
 		Ranger:   rangeSvc,
@@ -321,6 +322,7 @@ var _ = Describe("createNode.Next", func() {
 	})
 
 	build := func(name, parent, colorHex string) (node.Node, *node.State) {
+		GinkgoHelper()
 		cfg := create.Config(name, parent, colorHex)
 		return MustSucceed(mod.Create(cfg)), cfg.State
 	}
@@ -464,11 +466,13 @@ var _ = Describe("endNode.Next", func() {
 	})
 
 	build := func(key string) (node.Node, *node.State) {
+		GinkgoHelper()
 		cfg := end.Config(key)
 		return MustSucceed(mod.Create(cfg)), cfg.State
 	}
 
 	openRange := func(ctx context.Context) ranger.Range {
+		GinkgoHelper()
 		r := ranger.Range{
 			Name:      "end_target_" + uuid.New().String(),
 			TimeRange: telem.TimeRange{Start: telem.Now(), End: telem.TimeStampMax},
@@ -535,6 +539,7 @@ var _ = Describe("Analyzer hooks", func() {
 		return root
 	}
 	hasColorError := func(ctx context.Context, src string) bool {
+		GinkgoHelper()
 		parsed := MustSucceed(text.Parse(text.Text{Raw: src}))
 		_, diags := text.Analyze(ctx, parsed, buildRoot())
 		for _, e := range diags.Errors() {

@@ -7,8 +7,8 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-name: Verify Checks
-description: Fails unless the commit's checks and the branch's newest push runs passed
+name: Verify checks
+description: Fails unless the commit's checks passed
 
 inputs:
   sha:
@@ -18,9 +18,9 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Verify Checks
+    - name: Verify checks
       shell: bash
       env:
         GH_TOKEN: ${{ github.token }}
         SHA: ${{ inputs.sha }}
-      run: .github/scripts/verify_checks.sh "$SHA" "$GITHUB_RUN_ID" "$GITHUB_REF_NAME"
+      run: .github/scripts/verify_checks.sh "$SHA" "$GITHUB_RUN_ID"

@@ -22,6 +22,7 @@ import (
 )
 
 func asCodeActions(elems []protocol.CommandOrCodeAction) []protocol.CodeAction {
+	GinkgoHelper()
 	out := make([]protocol.CodeAction, len(elems))
 	for i, e := range elems {
 		a, ok := e.(*protocol.CodeAction)

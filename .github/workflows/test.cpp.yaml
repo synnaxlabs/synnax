@@ -1,0 +1,190 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+name: Test - C++
+
+on:
+  workflow_call:
+    inputs: &inputs
+      apt_packages:
+        description: Ubuntu packages to install before the build
+        required: false
+        type: string
+        default: ""
+      core_image:
+        description: Core image to test against on Ubuntu, or empty for none
+        required: false
+        type: string
+        default: ""
+      directories:
+        description: Directories clang-format checks, separated by spaces
+        required: false
+        type: string
+        default: ""
+      macos:
+        description: Whether to test on macOS
+        required: false
+        type: boolean
+        default: false
+      rust:
+        description: Whether the build needs a Rust toolchain
+        required: false
+        type: boolean
+        default: false
+      sanitizers:
+        description: Whether to build with the sanitizer configs
+        required: false
+        type: boolean
+        default: true
+      targets:
+        description: Bazel target patterns to test
+        required: true
+        type: string
+      test_flags:
+        description: Extra flags for every bazel test command
+        required: false
+        type: string
+        default: ""
+      test_tags:
+        description: Extra test tag filters, comma separated
+        required: false
+        type: string
+        default: ""
+      ubuntu:
+        description: Whether to test on Ubuntu
+        required: false
+        type: boolean
+        default: true
+      windows:
+        description: Whether to test on Windows
+        required: false
+        type: boolean
+        default: false
+  workflow_dispatch:
+    inputs: *inputs
+
+env:
+  BAZEL_REMOTE_CACHE_FLAGS:
+    --remote_cache=${{ vars.BAZEL_REMOTE_CACHE_GRPC_URL }}
+    --remote_cache_compression=true
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    # A service with an empty image does not start. Services run on Linux only, so the
+    # other runners skip tests tagged requires-core.
+    services:
+      synnax:
+        image: ${{ inputs.core_image }}
+        env:
+          SYNNAX_LISTEN: localhost:9090
+          SYNNAX_VERBOSE: true
+          SYNNAX_INSECURE: true
+          SYNNAX_MEM: true
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
+        credentials:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+        ports:
+          - 9090:9090
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-build-bot, ubuntu-build-bot, windows-build-bot]
+        exclude:
+          - os: ${{ !inputs.macos && 'macos-build-bot' }}
+          - os: ${{ !inputs.ubuntu && 'ubuntu-build-bot' }}
+          - os: ${{ !inputs.windows && 'windows-build-bot' }}
+        include:
+          - os: ubuntu-build-bot
+            format: true
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install packages
+        if: runner.os == 'Linux' && inputs.apt_packages != ''
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ${{ inputs.apt_packages }}
+
+      - name: Install Rust
+        if: inputs.rust
+        uses: actions-rust-lang/setup-rust-toolchain@v2
+
+      - name: Update submodules
+        run: git submodule update --init --recursive
+
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.19.0
+        with:
+          bazelisk-cache: false
+          disk-cache: false
+          repository-cache: false
+
+      - name: Install clang-format
+        if: matrix.format && inputs.directories != ''
+        run: scripts/install_clang_format.sh
+
+      - name: Check formatting
+        if: matrix.format && inputs.directories != ''
+        run: |
+          for directory in ${{ inputs.directories }}; do
+            scripts/check_clang_format.sh "$directory"
+          done
+
+      - name: Choose the test tags
+        id: tags
+        shell: bash
+        env:
+          EXTRA: ${{ inputs.test_tags }}
+          CORE: ${{ runner.os == 'Linux' && inputs.core_image != '' }}
+        run: |
+          tags=()
+          if [ "$RUNNER_OS" = macOS ]; then tags+=(-no-asan); fi
+          if [ "$CORE" = false ]; then tags+=(-requires-core); fi
+          if [ -n "$EXTRA" ]; then tags+=("$EXTRA"); fi
+          IFS=,
+          echo "flag=${tags[*]:+--test_tag_filters=${tags[*]}}" >> "$GITHUB_OUTPUT"
+
+      - name: Test (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: >-
+          bazel test ${{ inputs.sanitizers && '--config=asan' || '' }} --test_output=all
+          ${{ inputs.targets }} ${{ steps.tags.outputs.flag }} ${{ inputs.test_flags }}
+
+      - name: Test (Ubuntu)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: >-
+          bazel test $BAZEL_REMOTE_CACHE_FLAGS ${{ inputs.sanitizers &&
+          '--config=asan-leak' || '' }} --test_output=all
+          --test_env=LSAN_OPTIONS=suppressions=${{ github.workspace
+          }}/scripts/sanitizers/lsan_suppressions.txt ${{ inputs.targets }} ${{
+          steps.tags.outputs.flag }} ${{ inputs.test_flags }}
+
+      - name: Test (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          export MSYS_NO_PATHCONV=1
+          scripts/run_bazel.sh test $BAZEL_REMOTE_CACHE_FLAGS --test_output=all \
+            ${{ inputs.targets }} ${{ steps.tags.outputs.flag }} \
+            ${{ inputs.test_flags }}
+
+      - name: Clean build caches (Ubuntu)
+        if: always() && runner.os == 'Linux'
+        run: integration/scripts/clean_build_caches.sh 25
+
+      - name: Clean build caches (Windows)
+        if: always() && runner.os == 'Windows'
+        shell: powershell
+        run: integration/scripts/CleanBuildCaches.ps1 -MinFreeGB 30

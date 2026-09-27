@@ -10,17 +10,14 @@
 import "@/platform/range/overview/Details.css";
 
 import { ranger } from "@synnaxlabs/client";
-import {
-  Access,
-  Button,
-  Divider,
-  Flex,
-  Form,
-  Icon,
-  Ranger,
-  Status,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Access, Ranger } from "@synnaxlabs/pluto";
 import { type NumericTimeRange, TimeStamp } from "@synnaxlabs/x";
 import { type FC, type ReactElement, useCallback } from "react";
 
@@ -78,6 +75,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
   // The form saves on every edit, so a subject who cannot write the range gets it
   // read-only rather than a field that reverts once the save is refused.
   const canEdit = Access.useUpdateGranted(ranger.ontologyID(rangeKey));
+  const parent = Ranger.useResultParent({ id: ranger.ontologyID(rangeKey) }).data;
   const { form, status } = Ranger.useForm({
     query: { key: rangeKey },
     initialValues: {
@@ -95,11 +93,6 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
   const name = Form.useFieldValue<string, string, typeof Ranger.formSchema>("name", {
     ctx: form,
   });
-  const timeRange = Form.useFieldValue<
-    NumericTimeRange,
-    NumericTimeRange,
-    typeof Ranger.formSchema
-  >("timeRange", { ctx: form });
   const handleCopyLink = () =>
     handleLink({ name, ontologyID: ranger.ontologyID(rangeKey) });
 
@@ -203,46 +196,22 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
             <FavoriteButton range={range} size="medium" />
           </Flex.Box>
         </Flex.Box>
-        <Flex.Box className={CSS.B("time-range")} x gap="medium" align="center">
-          <Form.DateTimeField
-            path="timeRange.start"
-            padHelpText={false}
-            label="From"
-            inputProps={{
-              level: "h4",
-              variant: "text",
-              bound: "start",
-              anchors: { end: timeRange.end },
-            }}
-          />
-          <Icon.Arrow.Right
-            className={CSS.BE("range-overview", "arrow-icon")}
-            color={9}
-          />
-          <Form.DateTimeField
-            padHelpText={false}
-            path="timeRange.end"
-            label="To"
-            inputProps={{
-              level: "h4",
-              variant: "text",
-              bound: "end",
-              anchors: { start: timeRange.start },
-            }}
-          />
-        </Flex.Box>
+        <Form.Field<NumericTimeRange>
+          path="timeRange"
+          padHelpText={false}
+          showLabel={false}
+        >
+          {(p) => (
+            <Ranger.Timeline
+              level="h4"
+              variant="shadow"
+              parent={parent?.timeRange.numeric}
+              {...p}
+            />
+          )}
+        </Form.Field>
         <Flex.Box x>
-          <Form.Field<NumericTimeRange> path="timeRange" label="Stage">
-            {(props) => (
-              <Ranger.SelectStage
-                {...Ranger.wrapNumericTimeRangeToStage(props)}
-                allowNone={false}
-                triggerProps={{ variant: "text", hideCaret: true }}
-                variant="floating"
-              />
-            )}
-          </Form.Field>
-          <Form.Field<string[]> required={false} path="labels">
+          <Form.Field<string[]> required={false} path="labels" showLabel={false}>
             {(p) => (
               <Label.SelectMultiple
                 zIndex={100}

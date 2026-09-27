@@ -8,10 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { channel, NotFoundError } from "@synnaxlabs/client";
-import { Component, Flex, Icon } from "@synnaxlabs/pluto";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { errors, type optional, primitive } from "@synnaxlabs/x";
-import { type FC } from "react";
+import { type FC, useCallback } from "react";
 
+import { useFromConfig } from "@/feature/ni/device/queries";
 import { Select } from "@/feature/ni/device/Select";
 import * as Device from "@/feature/ni/device/types";
 import { createNextDOChannel } from "@/feature/ni/task/createChannel";
@@ -63,13 +66,27 @@ const NameComponent = ({ path, ...rest }: NameComponentProps) => {
 
 const name = Component.renderProp(NameComponent);
 
-const Form: FC = () => (
-  <DigitalChannelList
-    createChannel={createNextDOChannel}
-    name={name}
-    contextMenuItems={Task.writeChannelContextMenuItems}
-  />
-);
+const Form: FC = () => {
+  const dev = useFromConfig();
+  const resolve = useCallback(
+    (ch: DOChannel) => {
+      if (dev == null) return null;
+      const pair =
+        dev.properties.digitalOutput.channels[getDigitalChannelDeviceKey(ch)] ??
+        PlatformDevice.ZERO_COMMAND_STATE_PAIR;
+      return { cmdChannel: pair.command, stateChannel: pair.state };
+    },
+    [dev],
+  );
+  return (
+    <DigitalChannelList
+      createChannel={createNextDOChannel}
+      name={name}
+      contextMenuItems={Task.writeChannelContextMenuItems}
+      resolve={resolve}
+    />
+  );
+};
 
 const getInitialValues: Task.GetInitialValues<DigitalWriteSchemas> = ({
   deviceKey,

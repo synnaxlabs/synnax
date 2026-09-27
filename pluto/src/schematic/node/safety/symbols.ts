@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
-
 import { createStatic } from "@/schematic/node/common/create";
 import { BurstDisc } from "@/schematic/node/safety/BurstDisc";
 import { FlameArrestor } from "@/schematic/node/safety/FlameArrestor";
@@ -19,64 +17,54 @@ import { FlameArrestorFireResDetonation } from "@/schematic/node/safety/FlameArr
 import { IsoBurstDisc } from "@/schematic/node/safety/IsoBurstDisc";
 
 const burstDisc = createStatic({
-  variant: "burstDisc",
+  variant: "burst_disc",
   name: "Standard",
   label: "Burst disc",
   Primitive: BurstDisc,
 });
 const flameArrestor = createStatic({
-  variant: "flameArrestor",
+  variant: "flame_arrestor",
   name: "Standard",
   label: "Flame arrestor",
   Primitive: FlameArrestor,
 });
 const flameArrestorDetonation = createStatic({
-  variant: "flameArrestorDetonation",
+  variant: "flame_arrestor_detonation",
   name: "Detonation-proof",
   label: "Flame arrestor (detonation-proof)",
   Primitive: FlameArrestorDetonation,
 });
 const flameArrestorExplosion = createStatic({
-  variant: "flameArrestorExplosion",
+  variant: "flame_arrestor_explosion",
   name: "Explosion-proof",
   label: "Flame arrestor (explosion-proof)",
   Primitive: FlameArrestorExplosion,
 });
 const flameArrestorFireRes = createStatic({
-  variant: "flameArrestorFireRes",
+  variant: "flame_arrestor_fire_res",
   name: "Fire resistant",
   label: "Flame arrestor (fire resistant)",
   Primitive: FlameArrestorFireRes,
 });
 const flameArrestorFireResDetonation = createStatic({
-  variant: "flameArrestorFireResDetonation",
+  variant: "flame_arrestor_fire_res_detonation",
   name: "Fire resistant and detonation-proof",
   label: "Flame arrestor (fire resistant and detonation-proof)",
   Primitive: FlameArrestorFireResDetonation,
 });
 const isoBurstDisc = createStatic({
-  variant: "isoBurstDisc",
+  variant: "iso_burst_disc",
   name: "ISO",
   label: "ISO burst disc",
   Primitive: IsoBurstDisc,
 });
 
 export const REGISTRY = {
-  burstDisc: burstDisc.spec,
-  flameArrestor: flameArrestor.spec,
-  flameArrestorDetonation: flameArrestorDetonation.spec,
-  flameArrestorExplosion: flameArrestorExplosion.spec,
-  flameArrestorFireRes: flameArrestorFireRes.spec,
-  flameArrestorFireResDetonation: flameArrestorFireResDetonation.spec,
-  isoBurstDisc: isoBurstDisc.spec,
+  burst_disc: burstDisc.spec,
+  flame_arrestor: flameArrestor.spec,
+  flame_arrestor_detonation: flameArrestorDetonation.spec,
+  flame_arrestor_explosion: flameArrestorExplosion.spec,
+  flame_arrestor_fire_res: flameArrestorFireRes.spec,
+  flame_arrestor_fire_res_detonation: flameArrestorFireResDetonation.spec,
+  iso_burst_disc: isoBurstDisc.spec,
 } as const;
-
-export const configZ = z.discriminatedUnion("variant", [
-  burstDisc.configZ,
-  flameArrestor.configZ,
-  flameArrestorDetonation.configZ,
-  flameArrestorExplosion.configZ,
-  flameArrestorFireRes.configZ,
-  flameArrestorFireResDetonation.configZ,
-  isoBurstDisc.configZ,
-]);

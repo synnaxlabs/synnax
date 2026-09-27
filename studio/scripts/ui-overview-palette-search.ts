@@ -33,7 +33,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
 
     await capture.searchPalette(session, "Hotfire");
     await session.waitFor(capture.tab(session.page, "Hotfire"));
-    await session.hold(2500);
+    await session.hold(500);
   } finally {
     await fixture.stop();
   }

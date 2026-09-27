@@ -9,7 +9,11 @@
 
 import "@/feature/mqtt/task/TopicListItem.css";
 
-import { Flex, Form as PForm, type List, Select, Text } from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { type List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactNode } from "react";
 
 import { type SparkplugTagID } from "@/feature/mqtt/task/types";
@@ -27,7 +31,7 @@ interface BaseProps extends TopicListItemProps {
 }
 
 const Base = ({ path, title, placeholder, extra, ...props }: BaseProps) => (
-  <Select.ListItem justify="between" align="center" x {...props}>
+  <Select.Item justify="between" align="center" x {...props}>
     <Flex.Box y gap="tiny" className={CSS.BE("mqtt-topic-list-item", "text")}>
       <Text.Text
         level="small"
@@ -39,8 +43,8 @@ const Base = ({ path, title, placeholder, extra, ...props }: BaseProps) => (
       </Text.Text>
       {extra}
     </Flex.Box>
-    <Task.EnableDisableButton path={`${path}.${props.itemKey}.disabled`} />
-  </Select.ListItem>
+    <Task.EnabledCheckbox path={`${path}.${props.itemKey}.disabled`} />
+  </Select.Item>
 );
 
 export const TopicListItem = (props: TopicListItemProps) => {

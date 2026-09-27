@@ -1,0 +1,16 @@
+{
+  "version": 7,
+  "type": "schematic",
+  "key": "11111111-2222-3333-4444-555555555555",
+  "name": "Scale",
+  "snapshot": false,
+  "nodes": [{ "key": "s1", "position": { "x": 0, "y": 0 }, "z_index": 0 }],
+  "edges": [],
+  "configs": {
+    "s1": {
+      "variant": "scale",
+      "orientation": "left",
+      "dimensions": { "width": 60, "height": 160 }
+    }
+  }
+}
