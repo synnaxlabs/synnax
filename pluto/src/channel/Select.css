@@ -9,16 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-/* Help text shares the label's size, so weight tells them apart. */
-.pluto-input-label {
-    color: var(--pluto-gray-l9);
-    font-size: var(--pluto-small-size);
-    font-weight: 500;
-    line-height: var(--pluto-small-line-height);
-    width: fit-content;
-    white-space: nowrap;
-
-    & .pluto-required-indicator {
-        color: var(--pluto-error-z);
-    }
+/* Channel names run long. */
+.pluto-dialog__frame:has(> .pluto-dialog__trigger.pluto-channel__trigger) {
+    --pluto-control-width: 64rem;
 }
