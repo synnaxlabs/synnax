@@ -192,6 +192,7 @@ export const useSingle = <K extends record.Key>({
     initialHover,
     enableTriggers,
   });
+  List.usePin(hover.hover);
   return { onSelect: handleSelect, setSelected, clear, ...hover };
 };
 
@@ -281,5 +282,6 @@ export const useMultiple = <K extends record.Key>({
     initialHover,
     enableTriggers,
   });
+  List.usePin(hover.hover);
   return { onSelect, setSelected, clear, ...hover };
 };

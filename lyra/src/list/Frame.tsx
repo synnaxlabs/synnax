@@ -8,13 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import { bounds, type location, type record } from "@synnaxlabs/x";
-import { useVirtualizer, type Virtualizer } from "@tanstack/react-virtual";
+import {
+  defaultRangeExtractor,
+  type Range,
+  useVirtualizer,
+  type Virtualizer,
+} from "@tanstack/react-virtual";
 import {
   type PropsWithChildren,
   type ReactElement,
   type RefCallback,
   type RefObject,
   useCallback,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -24,12 +30,7 @@ import {
 import { memo } from "@/component/memo";
 import { context } from "@/context";
 import { Dialog } from "@/dialog";
-import {
-  useCombinedRefs,
-  useInitializerRef,
-  usePrevious,
-  useSyncedRef,
-} from "@/hooks";
+import { useCombinedRefs, useInitializerRef, usePrevious, useSyncedRef } from "@/hooks";
 import { ItemsContext } from "@/list/scope";
 
 /** Function interface for getting items from a list by key(s). */
@@ -93,11 +94,10 @@ export interface UtilContextValue<
   scrollToIndex: (index: number, direction?: location.Y) => void;
   /** Records the element of a mounted row, or null when the row unmounts. */
   setElement: (key: K, element: HTMLElement | null) => void;
-  /**
-   * Clicks the row with the given key. A row outside the rendered window is scrolled
-   * to first and clicked when it mounts.
-   */
+  /** Clicks the mounted row with the given key. */
   click: (key: K) => void;
+  /** Keeps the row with the given key mounted when it scrolls out of view. */
+  pin: (key: K | null) => void;
   itemHeight?: number;
 }
 
@@ -147,6 +147,18 @@ export const useScroller = <K extends record.Key = record.Key>(): Pick<
 /** @returns a function that clicks the row of the enclosing {@link Frame} by key. */
 export const useClick = <K extends record.Key = record.Key>(): ((key: K) => void) =>
   useUtilCtx("List.useClick").click;
+
+/**
+ * Keeps the row with the given key mounted while it is out of view, so it can still be
+ * clicked. Pass undefined to release it.
+ */
+export const usePin = <K extends record.Key = record.Key>(key: K | undefined): void => {
+  const { pin } = useUtilCtx("List.usePin");
+  useLayoutEffect(() => {
+    pin(key ?? null);
+    return () => pin(null);
+  }, [pin, key]);
+};
 
 /**
  * useItemHeight returns the row height the enclosing Frame was given. It reads the
@@ -201,6 +213,7 @@ export const useData = <
     scrollToIndex,
     setElement,
     click,
+    pin,
     subscribe,
     itemHeight,
   } = useUtilCtx("List.useData") as unknown as UtilContextValue<K, E>;
@@ -215,6 +228,7 @@ export const useData = <
       scrollToIndex,
       setElement,
       click,
+      pin,
       subscribe,
       itemHeight,
       sentinelRef,
@@ -229,6 +243,7 @@ export const useData = <
       scrollToIndex,
       setElement,
       click,
+      pin,
       subscribe,
       itemHeight,
       sentinelRef,
@@ -319,44 +334,23 @@ const useIntersectionFetchMore = (
   return { containerRef, sentinelRef };
 };
 
-interface Rows<K extends record.Key> {
+interface Elements<K extends record.Key> {
   setElement: (key: K, element: HTMLElement | null) => void;
   click: (key: K) => void;
 }
 
-const useRows = <K extends record.Key>(
-  data: K[],
-  scrollToIndex: (index: number) => void,
-): Rows<K> => {
+const useElements = <K extends record.Key>(): Elements<K> => {
   const elementsRef = useInitializerRef(() => new Map<K, HTMLElement>());
-  // The key whose row must be clicked once it mounts.
-  const pendingRef = useRef<K | null>(null);
-  const dataRef = useSyncedRef(data);
   const setElement = useCallback((key: K, element: HTMLElement | null) => {
-    if (element == null) {
-      elementsRef.current.delete(key);
-      return;
-    }
-    elementsRef.current.set(key, element);
-    if (pendingRef.current !== key) return;
-    pendingRef.current = null;
-    element.click();
+    if (element == null) elementsRef.current.delete(key);
+    else elementsRef.current.set(key, element);
   }, []);
-  const click = useCallback(
-    (key: K) => {
-      const element = elementsRef.current.get(key);
-      if (element != null) {
-        pendingRef.current = null;
-        element.click();
-        return;
-      }
-      pendingRef.current = key;
-      scrollToIndex(dataRef.current.indexOf(key));
-    },
-    [scrollToIndex],
-  );
+  const click = useCallback((key: K) => elementsRef.current.get(key)?.click(), []);
   return useMemo(() => ({ setElement, click }), [setElement, click]);
 };
+
+// A static frame mounts every row, so nothing needs pinning.
+const NO_PIN = (): void => {};
 
 const INITIAL_WINDOW_HEIGHT = 800;
 
@@ -401,6 +395,21 @@ const VirtualFrame = <
   }, []);
   const hasData = data.length > 0;
   const refCallback = useFetchMoreRefCallback(ref, hasData, onFetchMore);
+  const dataRef = useSyncedRef(data);
+  // Read by the range extractor, which runs whenever the visible range moves. Scrolling
+  // is the only way a pinned row can leave the range, so no re-render is needed here.
+  const pinnedRef = useRef<K | null>(null);
+  const pin = useCallback((key: K | null) => {
+    pinnedRef.current = key;
+  }, []);
+  const rangeExtractor = useCallback((range: Range) => {
+    const indexes = defaultRangeExtractor(range);
+    const pinned = pinnedRef.current;
+    if (pinned == null) return indexes;
+    const index = dataRef.current.indexOf(pinned);
+    if (index === -1 || indexes.includes(index)) return indexes;
+    return [...indexes, index].sort((a, b) => a - b);
+  }, []);
   const virtualizer = useVirtualizer({
     count: data.length,
     getScrollElement: () => ref.current,
@@ -411,11 +420,13 @@ const VirtualFrame = <
     initialRect: { width: 0, height: INITIAL_WINDOW_HEIGHT },
     overscan,
     scrollMargin,
+    rangeExtractor,
     onChange: useCallback(
       (v: Virtualizer<HTMLDivElement, HTMLDivElement>) => {
-        const items = v.getVirtualItems();
-        if (items.length > 0 && items[items.length - 1].index === data.length - 1)
-          onFetchMore?.();
+        const last = v
+          .getVirtualItems()
+          .findLast(({ key }) => key !== pinnedRef.current);
+        if (last?.index === data.length - 1) onFetchMore?.();
       },
       [data.length, onFetchMore],
     ),
@@ -425,7 +436,7 @@ const VirtualFrame = <
     (index: number) => virtualizer.scrollToIndex(index),
     [virtualizer],
   );
-  const { setElement, click } = useRows(data, scrollToIndex);
+  const { setElement, click } = useElements<K>();
   const items = virtualizer.getVirtualItems();
   const dataCtxValue = useMemo<DataContextValue<K>>(
     () => ({
@@ -451,6 +462,7 @@ const VirtualFrame = <
       scrollToIndex,
       setElement,
       click,
+      pin,
       subscribe,
       itemHeight,
     }),
@@ -460,6 +472,7 @@ const VirtualFrame = <
       scrollToIndex,
       setElement,
       click,
+      pin,
       getItem,
       subscribe,
       itemHeight,
@@ -505,7 +518,7 @@ const StaticFrame = <
     if (child != null)
       child.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
   }, []);
-  const { setElement, click } = useRows(data, scrollToIndex);
+  const { setElement, click } = useElements<K>();
 
   const initialFetchCallback = useFetchMoreRefCallback(ref, hasData, onFetchMore);
   const { containerRef: intersectionContainerRef, sentinelRef } =
@@ -532,6 +545,7 @@ const StaticFrame = <
       scrollToIndex,
       setElement,
       click,
+      pin: NO_PIN,
       subscribe,
       itemHeight,
     }),

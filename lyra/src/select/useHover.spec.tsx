@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { act, fireEvent, render, renderHook, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, renderHook } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -201,22 +201,57 @@ describe("Select keyboard hover", () => {
       expect(onChange).not.toHaveBeenCalled();
     });
 
-    it("should scroll to and click a hovered row that scrolled out of view", async () => {
+    it("should not fetch more when only the pinned last row is mounted", () => {
+      const onFetchMore = vi.fn();
+      const data = Array.from({ length: 300 }, (_, i) => `${i}`);
+      const c = render(
+        <Triggers.Provider>
+          <Dialog.Frame visible>
+            <Select.Frame
+              data={data}
+              onChange={vi.fn()}
+              onFetchMore={onFetchMore}
+              initialHover={data.length - 1}
+              itemHeight={33}
+              virtual
+            >
+              <List.Scroll>
+                <Select.Items<string>>{row}</Select.Items>
+              </List.Scroll>
+            </Select.Frame>
+          </Dialog.Frame>
+        </Triggers.Provider>,
+      );
+      const scroller = c.container.querySelector<HTMLElement>(".pluto-list__scroll");
+      if (scroller == null) throw new Error("scroll container not found");
+      act(() => {
+        scroller.scrollTop = 33;
+        fireEvent.scroll(scroller);
+      });
+      expect(c.queryByText("299", { exact: true })).not.toBeNull();
+      const calls = onFetchMore.mock.calls.length;
+      act(() => {
+        scroller.scrollTop = 66;
+        fireEvent.scroll(scroller);
+      });
+      expect(onFetchMore).toHaveBeenCalledTimes(calls);
+    });
+
+    it("should keep the hovered row mounted and click it after it scrolls out of view", () => {
       const onChange = vi.fn();
       const data = Array.from({ length: 300 }, (_, i) => `${i}`);
       const c = renderRows(data, onChange, row, true);
       const scroller = c.container.querySelector<HTMLElement>(".pluto-list__scroll");
       if (scroller == null) throw new Error("scroll container not found");
-      scroller.scrollTo = ((options: ScrollToOptions) => {
-        scroller.scrollTop = options.top ?? 0;
+      act(() => {
+        scroller.scrollTop = 200 * 33;
         fireEvent.scroll(scroller);
-      }) as typeof scroller.scrollTo;
-      scroller.scrollTop = 200 * 33;
-      fireEvent.scroll(scroller);
-      expect(c.queryByText("0", { exact: true })).toBeNull();
+      });
+      expect(c.queryByText("1", { exact: true })).toBeNull();
+      expect(c.queryByText("0", { exact: true })).not.toBeNull();
       pressEnter();
-      await waitFor(() => expect(onChange).toHaveBeenCalledWith("0"));
       expect(onChange).toHaveBeenCalledTimes(1);
+      expect(onChange).toHaveBeenCalledWith("0");
     });
   });
 });
