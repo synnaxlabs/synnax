@@ -8,15 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { Button } from "@synnaxlabs/lyra/button";
-import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
-import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type record, TimeStamp } from "@synnaxlabs/x";
+import { TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useState } from "react";
 import { z } from "zod";
 
@@ -43,8 +41,6 @@ const Row = ({ label, children }: RowProps): ReactElement => (
   </Flex.Box>
 );
 
-const TYPE_KEYS = ["analog", "digital"];
-
 const SelectType = ({
   preview,
   value: initial,
@@ -54,14 +50,9 @@ const SelectType = ({
 }) => {
   const [value, setValue] = useState<string | undefined>(initial);
   return (
-    <Select.Buttons
-      keys={TYPE_KEYS}
-      value={value}
-      onChange={setValue}
-      preview={preview}
-    >
-      <Select.Button itemKey="analog">Analog</Select.Button>
-      <Select.Button itemKey="digital">Digital</Select.Button>
+    <Select.Buttons value={value} onChange={setValue} preview={preview}>
+      <Select.Item itemKey="analog">Analog</Select.Item>
+      <Select.Item itemKey="digital">Digital</Select.Item>
     </Select.Buttons>
   );
 };
@@ -69,32 +60,21 @@ const SelectType = ({
 const SelectAlign = ({ preview }: { preview: boolean }) => {
   const [value, setValue] = useState<string>("x-center");
   return (
-    <Select.Buttons
-      keys={["x-center", "y-center", "x-left"]}
-      value={value}
-      onChange={setValue}
-      preview={preview}
-    >
-      <Select.Button itemKey="x-center">
+    <Select.Buttons value={value} onChange={setValue} preview={preview}>
+      <Select.Item itemKey="x-center">
         <Icon.Align.XCenter />
-      </Select.Button>
-      <Select.Button itemKey="y-center">
+      </Select.Item>
+      <Select.Item itemKey="y-center">
         <Icon.Align.YCenter />
-      </Select.Button>
-      <Select.Button itemKey="x-left">
+      </Select.Item>
+      <Select.Item itemKey="x-left">
         <Icon.Align.Left />
-      </Select.Button>
+      </Select.Item>
     </Select.Buttons>
   );
 };
 
-const PORTS = [
-  { key: "ai0", name: "AI0" },
-  { key: "ai1", name: "AI1" },
-  { key: "ai2", name: "AI2" },
-];
-
-const SelectSingleStatic = ({
+const SelectSimple = ({
   preview,
   value: initial,
 }: {
@@ -103,14 +83,17 @@ const SelectSingleStatic = ({
 }) => {
   const [value, setValue] = useState<string | undefined>(initial);
   return (
-    <Select.Static
+    <Select.Simple<string>
       resourceName="port"
-      data={PORTS}
       value={value ?? ""}
       onChange={setValue}
       allowNone
       preview={preview}
-    />
+    >
+      <Select.Item itemKey="ai0">AI0</Select.Item>
+      <Select.Item itemKey="ai1">AI1</Select.Item>
+      <Select.Item itemKey="ai2">AI2</Select.Item>
+    </Select.Simple>
   );
 };
 
@@ -120,12 +103,7 @@ const LABELS = [
   { key: "abort", name: "Abort" },
 ];
 
-const labelListItem = Component.renderProp((props: List.ItemProps<string>) => {
-  const item = List.useItem<string, record.KeyedNamed>(props.itemKey);
-  return <Select.ListItem {...props}>{item?.name}</Select.ListItem>;
-});
-
-const SelectMultipleStatic = ({
+const SelectMultiple = ({
   preview,
   value: initial,
 }: {
@@ -133,20 +111,20 @@ const SelectMultipleStatic = ({
   value: string[];
 }) => {
   const [value, setValue] = useState<string[]>(initial);
-  const { data, getItem } = List.useStaticData<string, record.KeyedNamed>({
-    data: LABELS,
-  });
   return (
-    <Select.Multiple
+    <Select.Simple
+      multiple
       resourceName="label"
-      data={data}
-      getItem={getItem}
       value={value}
       onChange={setValue}
       preview={preview}
     >
-      {labelListItem}
-    </Select.Multiple>
+      {LABELS.map(({ key, name }) => (
+        <Select.Item key={key} itemKey={key}>
+          {name}
+        </Select.Item>
+      ))}
+    </Select.Simple>
   );
 };
 
@@ -173,14 +151,9 @@ const PreviewForm = ({ preview }: { preview: boolean }) => {
         <Form.SwitchField path="enabled" label="Data saving" />
         <Form.Field<string> path="type" label="Type">
           {({ value, onChange, preview: p }) => (
-            <Select.Buttons
-              keys={TYPE_KEYS}
-              value={value}
-              onChange={onChange}
-              preview={p}
-            >
-              <Select.Button itemKey="analog">Analog</Select.Button>
-              <Select.Button itemKey="digital">Digital</Select.Button>
+            <Select.Buttons value={value} onChange={onChange} preview={p}>
+              <Select.Item itemKey="analog">Analog</Select.Item>
+              <Select.Item itemKey="digital">Digital</Select.Item>
             </Select.Buttons>
           )}
         </Form.Field>
@@ -272,16 +245,16 @@ export const PreviewShowcase = (): ReactElement => (
     </Row>
     <Row label="Select buttons icons">{(p) => <SelectAlign preview={p} />}</Row>
     <Row label="Select single selected">
-      {(p) => <SelectSingleStatic preview={p} value="ai1" />}
+      {(p) => <SelectSimple preview={p} value="ai1" />}
     </Row>
     <Row label="Select single none">
-      {(p) => <SelectSingleStatic preview={p} value={undefined} />}
+      {(p) => <SelectSimple preview={p} value={undefined} />}
     </Row>
     <Row label="Select multiple tags">
-      {(p) => <SelectMultipleStatic preview={p} value={["hotfire", "coldflow"]} />}
+      {(p) => <SelectMultiple preview={p} value={["hotfire", "coldflow"]} />}
     </Row>
     <Row label="Select multiple empty">
-      {(p) => <SelectMultipleStatic preview={p} value={[]} />}
+      {(p) => <SelectMultiple preview={p} value={[]} />}
     </Row>
     <Flex.Box x gap="huge" style={{ marginTop: "3rem" }}>
       <Flex.Box y grow>

@@ -67,12 +67,12 @@ const ListItem = (props: List.ItemProps<status.Key>): ReactElement | null => {
   if (item == null) return null;
   const { name, variant } = item;
   return (
-    <Base.ListItem {...props}>
+    <Base.Item {...props}>
       <Text.Text level="p">
         <Status.Indicator variant={variant} />
         {name}
       </Text.Text>
-    </Base.ListItem>
+    </Base.Item>
   );
 };
 

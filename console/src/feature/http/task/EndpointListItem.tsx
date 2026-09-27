@@ -33,7 +33,7 @@ export const EndpointListItem = ({
   const epPath = PForm.useFieldValue<string>(`config.endpoints.${itemKey}.path`);
   const shownMethod = method + (epPath !== "" ? ` ` : "");
   return (
-    <Select.ListItem justify="between" align="start" {...props}>
+    <Select.Item justify="between" align="start" {...props}>
       <Text.Text
         level="small"
         weight={500}
@@ -48,7 +48,7 @@ export const EndpointListItem = ({
         )}
       </Text.Text>
       {extra}
-    </Select.ListItem>
+    </Select.Item>
   );
 };
 

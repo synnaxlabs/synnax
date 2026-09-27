@@ -51,7 +51,9 @@ const Fixture = ({ status: stat }: { status: status.Status }): ReactElement => {
       value={[]}
       onChange={vi.fn()}
     >
-      <List.Items>{item}</List.Items>
+      <List.Scroll>
+        <List.Items>{item}</List.Items>
+      </List.Scroll>
     </Select.Frame>
   );
 };

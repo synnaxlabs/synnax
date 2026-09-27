@@ -18,7 +18,9 @@ import { Haul } from "@/haul";
 import { type Icon } from "@/icon";
 import { List } from "@/list";
 import { useContext, useSelected } from "@/select/Context";
+import { Label } from "@/select/Label";
 import { staticCanDrop } from "@/select/MultipleTrigger";
+import { useIsFixed } from "@/select/registry";
 
 export interface SingleTriggerEntry<K extends record.Key> extends record.KeyedNamed<K> {
   icon?: Icon.ReactElement;
@@ -52,6 +54,7 @@ export const SingleTrigger = <K extends record.Key>({
   const allSelected = useSelected<K>();
   const { setSelected } = useContext<K>();
   const [selected] = allSelected;
+  const fixed = useIsFixed(selected);
   const item = List.useItem<K, SingleTriggerEntry<K>>(selected);
   const { name, icon } = item ?? {};
   const resolvedIcon = renderIcon?.(item) ?? icon ?? baseIcon;
@@ -79,7 +82,7 @@ export const SingleTrigger = <K extends record.Key>({
       gap="small"
       className={CSS.cls(
         CSS.dropRegion(canDrop(dragging)),
-        name == null ? CSS.BM("select-single-trigger", "empty") : null,
+        name == null && !fixed ? CSS.BM("select-single-trigger", "empty") : null,
         className,
       )}
       disabled={disabled}
@@ -89,7 +92,11 @@ export const SingleTrigger = <K extends record.Key>({
       hideCaret={hideCaret || iconOnly}
     >
       {resolvedIcon}
-      {!iconOnly && (name ?? (preview === true ? "None" : placeholder))}
+      {!iconOnly && (
+        <Label itemKey={selected}>
+          {name ?? (preview === true ? "None" : placeholder)}
+        </Label>
+      )}
     </Dialog.Trigger>
   );
 };

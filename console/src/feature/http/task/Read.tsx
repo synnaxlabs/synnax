@@ -107,7 +107,7 @@ const FieldListItem = ({ epKey, ...props }: FieldListItemProps) => {
   const enumCountText =
     enumCount === 0 ? "" : `${enumCount} enum${enumCount === 1 ? "" : "s"}`;
   return (
-    <Select.ListItem {...props} justify="between" align="center" x>
+    <Select.Item {...props} justify="between" align="center" x>
       <PForm.TextField
         path={`${path}.pointer`}
         showLabel={false}
@@ -138,7 +138,7 @@ const FieldListItem = ({ epKey, ...props }: FieldListItemProps) => {
         />
         <Task.EnableDisableButton path={`${path}.disabled`} />
       </Flex.Box>
-    </Select.ListItem>
+    </Select.Item>
   );
 };
 
@@ -162,8 +162,6 @@ const renderTelemSelectDataType = Component.renderProp(
   ),
 );
 
-const METHOD_KEYS: ReadMethod[] = ["GET", "POST"];
-
 const MethodSelect: FC<{ path: string; epPath: string }> = ({ path, epPath }) => {
   const { set } = PForm.useContext();
   const handleChange = useCallback(
@@ -177,10 +175,10 @@ const MethodSelect: FC<{ path: string; epPath: string }> = ({ path, epPath }) =>
     [set, path, epPath],
   );
   const renderMethod = useCallback(
-    (p: Omit<Select.ButtonsProps<ReadMethod>, "keys">) => (
-      <Select.Buttons<ReadMethod> {...p} onChange={handleChange} keys={METHOD_KEYS}>
-        <Select.Button<ReadMethod> itemKey="GET">GET</Select.Button>
-        <Select.Button<ReadMethod> itemKey="POST">POST</Select.Button>
+    (p: Select.ButtonsProps<ReadMethod>) => (
+      <Select.Buttons<ReadMethod> {...p} onChange={handleChange}>
+        <Select.Item<ReadMethod> itemKey="GET">GET</Select.Item>
+        <Select.Item<ReadMethod> itemKey="POST">POST</Select.Item>
       </Select.Buttons>
     ),
     [handleChange],
@@ -337,7 +335,6 @@ const FIELD_LIST_STYLE = {
 } as const;
 
 type TimingMode = "software" | "value";
-const TIMING_MODE_KEYS: TimingMode[] = ["software", "value"];
 
 const TimingToggle: FC<{ path: string }> = ({ path }) => {
   const fields = PForm.useFieldValue<ReadField[]>(`${path}.fields`);
@@ -372,10 +369,9 @@ const TimingToggle: FC<{ path: string }> = ({ path }) => {
         <Select.Buttons<TimingMode>
           value={isValueTiming ? "value" : "software"}
           onChange={handleChange}
-          keys={TIMING_MODE_KEYS}
         >
-          <Select.Button<TimingMode> itemKey="software">Software</Select.Button>
-          <Select.Button<TimingMode> itemKey="value">Value</Select.Button>
+          <Select.Item<TimingMode> itemKey="software">Software</Select.Item>
+          <Select.Item<TimingMode> itemKey="value">Value</Select.Item>
         </Select.Buttons>
       </Input.Item>
       {isValueTiming && indexField != null && (
@@ -538,20 +534,23 @@ const Form: FC = () => {
             allowNone={false}
             autoSelectOnNone
           >
-            <List.Items<string, ReadEndpoint>
+            <List.Scroll
               full="y"
               className={menuProps.className}
               onContextMenu={menuProps.open}
-              emptyContent={
-                <Empty.Action
-                  message="No endpoints"
-                  action={isPreview ? undefined : "Add endpoint"}
-                  onClick={handleAddEndpoint}
-                />
-              }
             >
-              {readEndpointListItem}
-            </List.Items>
+              <List.Items<string, ReadEndpoint>
+                emptyContent={
+                  <Empty.Action
+                    message="No endpoints"
+                    action={isPreview ? undefined : "Add endpoint"}
+                    onClick={handleAddEndpoint}
+                  />
+                }
+              >
+                {readEndpointListItem}
+              </List.Items>
+            </List.Scroll>
           </Select.Frame>
         </Menu.ContextMenu>
       </Flex.Box>

@@ -8,64 +8,100 @@
 // included in the file licenses/APL.txt.
 
 import { act, renderHook } from "@testing-library/react";
-import { type PropsWithChildren, useState } from "react";
+import { type PropsWithChildren, type ReactNode, useState } from "react";
 import { describe, expect, it } from "vitest";
 
-import { List } from "@/list";
 import { Select } from "@/select";
 import { Triggers } from "@/triggers";
 
-interface UseSelectMultipleWrapperReturn {
-  value: string[];
-  clear: () => void;
+const DATA = ["1", "2", "3"];
+
+interface Harness<V> {
+  value: V;
   onSelect: (key: string) => void;
+  clear: () => void;
 }
 
-const useMultipleWrapper = (
-  props: Omit<Select.UseMultipleProps<string>, "data" | "value" | "onChange">,
-): UseSelectMultipleWrapperReturn => {
-  const [value, onChange] = useState<string[]>([]);
-  const { clear, onSelect } = Select.useMultiple<string>({
-    ...props,
-    value,
-    onChange,
-  });
-  return { value, clear, onSelect };
+const renderFrame = <V,>(
+  initial: V,
+  frame: (value: V, onChange: (next: V) => void, children: ReactNode) => ReactNode,
+) => {
+  const state = { value: initial };
+  const Wrapper = ({ children }: PropsWithChildren): ReactNode => {
+    const [value, onChange] = useState<V>(initial);
+    state.value = value;
+    return <Triggers.Provider>{frame(value, onChange, children)}</Triggers.Provider>;
+  };
+  return renderHook(
+    (): Harness<V> => {
+      const { onSelect, clear } = Select.useContext<string>();
+      return {
+        get value() {
+          return state.value;
+        },
+        onSelect,
+        clear,
+      };
+    },
+    { wrapper: Wrapper },
+  );
 };
 
-interface UseSelectSingleWrapperReturn {
-  value: string | undefined;
-  clear: () => void;
-  onSelect: (key: string) => void;
+const renderMultiple = (
+  props: Partial<Select.UseMultipleProps<string>> = {},
+  initial: string[] = [],
+  getData: () => string[] = () => DATA,
+) =>
+  renderFrame(initial, (value, onChange, children) => (
+    <Select.Frame
+      multiple
+      data={getData()}
+      value={value}
+      onChange={onChange}
+      {...props}
+    >
+      {children}
+    </Select.Frame>
+  ));
+
+interface SingleOptions {
+  allowNone?: boolean;
+  autoSelectOnNone?: boolean;
 }
 
-const useSelectSingleWrapper = (
-  props: Omit<Select.UseSingleProps<string>, "data" | "value" | "onChange">,
-): UseSelectSingleWrapperReturn => {
-  const [value, onChange] = useState<string | undefined>(undefined);
-  const { clear, onSelect } = Select.useSingle<string>({
-    allowNone: true,
-    ...props,
-    value,
-    onChange,
-  });
-  return { value, clear, onSelect };
-};
-
-const data = ["1", "2", "3"];
-
-interface UseMultipleWrapperProps extends Partial<List.FrameProps<string>> {}
-
-const Wrapper = (props: UseMultipleWrapperProps) => (
-  <Triggers.Provider>
-    <List.Frame data={data} {...props} />
-  </Triggers.Provider>
-);
+const renderSingle = (
+  { allowNone = true, autoSelectOnNone }: SingleOptions = {},
+  initial: string | null | undefined = undefined,
+  getData: () => string[] = () => DATA,
+) =>
+  renderFrame(initial, (value, onChange, children) =>
+    allowNone ? (
+      <Select.Frame
+        data={getData()}
+        value={value ?? undefined}
+        onChange={onChange}
+        allowNone
+        autoSelectOnNone={autoSelectOnNone}
+      >
+        {children}
+      </Select.Frame>
+    ) : (
+      <Select.Frame
+        data={getData()}
+        value={value as string}
+        onChange={onChange}
+        allowNone={false}
+        autoSelectOnNone={autoSelectOnNone}
+      >
+        {children}
+      </Select.Frame>
+    ),
+  );
 
 describe("useSelect", () => {
   describe("multiple selection", () => {
     it("should select two items", () => {
-      const { result } = renderHook(useMultipleWrapper, { wrapper: Wrapper });
+      const { result } = renderMultiple();
       act(() => result.current.onSelect("1"));
       expect(result.current.value).toEqual(["1"]);
       act(() => result.current.onSelect("2"));
@@ -73,7 +109,7 @@ describe("useSelect", () => {
     });
 
     it("should deselect an item when you click it again", () => {
-      const { result } = renderHook(useMultipleWrapper, { wrapper: Wrapper });
+      const { result } = renderMultiple();
       act(() => result.current.onSelect("1"));
       act(() => result.current.onSelect("2"));
       act(() => result.current.onSelect("1"));
@@ -81,7 +117,7 @@ describe("useSelect", () => {
     });
 
     it("should clear all selections", () => {
-      const { result } = renderHook(useMultipleWrapper, { wrapper: Wrapper });
+      const { result } = renderMultiple();
       act(() => result.current.onSelect("1"));
       act(() => result.current.onSelect("2"));
       act(() => result.current.clear());
@@ -89,9 +125,7 @@ describe("useSelect", () => {
     });
     describe("no not allow none", () => {
       it("should not allow removing the last selection", () => {
-        const { result } = renderHook(() => useMultipleWrapper({ allowNone: false }), {
-          wrapper: Wrapper,
-        });
+        const { result } = renderMultiple({ allowNone: false });
         act(() => result.current.onSelect("1"));
         act(() => result.current.onSelect("1"));
         expect(result.current.value).toEqual(["1"]);
@@ -99,12 +133,7 @@ describe("useSelect", () => {
     });
     describe("replaceOnSingle", () => {
       it("should replace the selection when you click a new item", () => {
-        const { result } = renderHook(
-          () => useMultipleWrapper({ replaceOnSingle: true }),
-          {
-            wrapper: Wrapper,
-          },
-        );
+        const { result } = renderMultiple({ replaceOnSingle: true });
         act(() => result.current.onSelect("1"));
         act(() => result.current.onSelect("2"));
         expect(result.current.value).toEqual(["2"]);
@@ -112,7 +141,7 @@ describe("useSelect", () => {
     });
 
     it("should clear the selection when clear() is called", () => {
-      const { result } = renderHook(useMultipleWrapper, { wrapper: Wrapper });
+      const { result } = renderMultiple();
       act(() => result.current.onSelect("1"));
       act(() => result.current.clear());
       expect(result.current.value).toEqual([]);
@@ -120,34 +149,17 @@ describe("useSelect", () => {
 
     describe("autoSelectOnNone", () => {
       it("should auto-select the first item when value is empty", () => {
-        const { result } = renderHook(
-          () => useMultipleWrapper({ autoSelectOnNone: true }),
-          { wrapper: Wrapper },
-        );
+        const { result } = renderMultiple({ autoSelectOnNone: true });
         expect(result.current.value).toEqual(["1"]);
       });
 
       it("should not auto-select when value is not empty", () => {
-        const { result } = renderHook(
-          () => {
-            const [value, onChange] = useState<string[]>(["2"]);
-            const { clear, onSelect } = Select.useMultiple<string>({
-              autoSelectOnNone: true,
-              value,
-              onChange,
-            });
-            return { value, clear, onSelect };
-          },
-          { wrapper: Wrapper },
-        );
+        const { result } = renderMultiple({ autoSelectOnNone: true }, ["2"]);
         expect(result.current.value).toEqual(["2"]);
       });
 
       it("should auto-select after clearing when autoSelectOnNone is true", () => {
-        const { result } = renderHook(
-          () => useMultipleWrapper({ autoSelectOnNone: true }),
-          { wrapper: Wrapper },
-        );
+        const { result } = renderMultiple({ autoSelectOnNone: true });
         expect(result.current.value).toEqual(["1"]);
         act(() => result.current.onSelect("2"));
         expect(result.current.value).toEqual(["1", "2"]);
@@ -156,31 +168,21 @@ describe("useSelect", () => {
       });
 
       it("should not auto-select when autoSelectOnNone is false", () => {
-        const { result } = renderHook(
-          () => useMultipleWrapper({ autoSelectOnNone: false }),
-          { wrapper: Wrapper },
-        );
+        const { result } = renderMultiple({ autoSelectOnNone: false });
         expect(result.current.value).toEqual([]);
       });
 
       it("should auto-select first item when allowNone is false and autoSelectOnNone is true", () => {
-        const { result } = renderHook(
-          () => useMultipleWrapper({ allowNone: false, autoSelectOnNone: true }),
-          { wrapper: Wrapper },
-        );
+        const { result } = renderMultiple({ allowNone: false, autoSelectOnNone: true });
         expect(result.current.value).toEqual(["1"]);
       });
 
       it("should auto-select when the selected list item is removed", () => {
         let data = ["1", "2", "3"];
-        const Wrapper = (props: UseMultipleWrapperProps) => (
-          <Triggers.Provider>
-            <List.Frame data={data} {...props} />
-          </Triggers.Provider>
-        );
-        const { result, rerender } = renderHook(
-          () => useMultipleWrapper({ allowNone: false, autoSelectOnNone: true }),
-          { wrapper: Wrapper },
+        const { result, rerender } = renderMultiple(
+          { allowNone: false, autoSelectOnNone: true },
+          [],
+          () => data,
         );
         expect(result.current.value).toEqual(["1"]);
         act(() => {
@@ -193,7 +195,7 @@ describe("useSelect", () => {
   });
   describe("single selection", () => {
     it("should select one item", () => {
-      const { result } = renderHook(useSelectSingleWrapper, { wrapper: Wrapper });
+      const { result } = renderSingle();
       act(() => result.current.onSelect("1"));
       expect(result.current.value).toEqual("1");
       act(() => result.current.onSelect("2"));
@@ -201,7 +203,7 @@ describe("useSelect", () => {
     });
 
     it("should deselect an item when you click it again", () => {
-      const { result } = renderHook(useSelectSingleWrapper, { wrapper: Wrapper });
+      const { result } = renderSingle();
       act(() => result.current.onSelect("1"));
       act(() => result.current.onSelect("1"));
       expect(result.current.value).toEqual(null);
@@ -209,12 +211,7 @@ describe("useSelect", () => {
 
     describe("not allow none", () => {
       it("should not allow clearing all selections", () => {
-        const { result } = renderHook(
-          () => useSelectSingleWrapper({ allowNone: false }),
-          {
-            wrapper: Wrapper,
-          },
-        );
+        const { result } = renderSingle({ allowNone: false });
         act(() => result.current.onSelect("1"));
         act(() => result.current.onSelect("1"));
         expect(result.current.value).toEqual("1");
@@ -222,7 +219,7 @@ describe("useSelect", () => {
     });
 
     it("should clear the selection when clear() is called", () => {
-      const { result } = renderHook(useSelectSingleWrapper, { wrapper: Wrapper });
+      const { result } = renderSingle();
       act(() => result.current.onSelect("1"));
       act(() => result.current.clear());
       expect(result.current.value).toEqual(null);
@@ -230,35 +227,17 @@ describe("useSelect", () => {
 
     describe("autoSelectOnNone", () => {
       it("should auto-select the first item when value is null", () => {
-        const { result } = renderHook(
-          () => useSelectSingleWrapper({ autoSelectOnNone: true }),
-          { wrapper: Wrapper },
-        );
+        const { result } = renderSingle({ autoSelectOnNone: true });
         expect(result.current.value).toEqual("1");
       });
 
       it("should not auto-select when value is not null", () => {
-        const { result } = renderHook(
-          () => {
-            const [value, onChange] = useState<string | undefined>("2");
-            const { clear, onSelect } = Select.useSingle<string>({
-              autoSelectOnNone: true,
-              allowNone: true,
-              value,
-              onChange,
-            });
-            return { value, clear, onSelect };
-          },
-          { wrapper: Wrapper },
-        );
+        const { result } = renderSingle({ autoSelectOnNone: true }, "2");
         expect(result.current.value).toEqual("2");
       });
 
       it("should auto-select after clearing when autoSelectOnNone is true and allowNone is true", () => {
-        const { result } = renderHook(
-          () => useSelectSingleWrapper({ autoSelectOnNone: true, allowNone: true }),
-          { wrapper: Wrapper },
-        );
+        const { result } = renderSingle({ autoSelectOnNone: true, allowNone: true });
         expect(result.current.value).toEqual("1");
         act(() => result.current.onSelect("2"));
         expect(result.current.value).toEqual("2");
@@ -267,44 +246,30 @@ describe("useSelect", () => {
       });
 
       it("should not auto-select when autoSelectOnNone is false", () => {
-        const { result } = renderHook(
-          () => useSelectSingleWrapper({ autoSelectOnNone: false }),
-          { wrapper: Wrapper },
-        );
+        const { result } = renderSingle({ autoSelectOnNone: false });
         expect(result.current.value).toEqual(undefined);
       });
 
       it("should auto-select first item when allowNone is false and autoSelectOnNone is true", () => {
-        const { result } = renderHook(
-          () => useSelectSingleWrapper({ allowNone: false, autoSelectOnNone: true }),
-          { wrapper: Wrapper },
-        );
+        const { result } = renderSingle({ allowNone: false, autoSelectOnNone: true });
         expect(result.current.value).toEqual("1");
       });
 
       it("should handle empty data gracefully", () => {
-        const EmptyWrapper = (props: PropsWithChildren) => (
-          <Triggers.Provider>
-            <List.Frame data={[]} {...props} />
-          </Triggers.Provider>
-        );
-        const { result } = renderHook(
-          () => useSelectSingleWrapper({ autoSelectOnNone: true }),
-          { wrapper: EmptyWrapper },
+        const { result } = renderSingle(
+          { autoSelectOnNone: true },
+          undefined,
+          () => [],
         );
         expect(result.current.value).toEqual(undefined);
       });
 
       it("should auto-select when the selected list item is removed", () => {
         let data = ["1", "2", "3"];
-        const Wrapper = (props: UseMultipleWrapperProps) => (
-          <Triggers.Provider>
-            <List.Frame data={data} {...props} />
-          </Triggers.Provider>
-        );
-        const { result, rerender } = renderHook(
-          () => useSelectSingleWrapper({ allowNone: false, autoSelectOnNone: true }),
-          { wrapper: Wrapper },
+        const { result, rerender } = renderSingle(
+          { allowNone: false, autoSelectOnNone: true },
+          undefined,
+          () => data,
         );
         expect(result.current.value).toEqual("1");
         act(() => {

@@ -13,7 +13,6 @@ import { type Dialog } from "@synnaxlabs/lyra/dialog";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
-import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
 import { type Flux } from "@/flux";
@@ -25,7 +24,7 @@ export interface SelectSingleProps
     Omit<Select.SingleFrameProps<rack.Key, rack.Payload | undefined>, "data">,
     Flux.UseListParams<ListQuery, rack.Key, rack.Payload>,
     Omit<Dialog.FrameProps, "onChange">,
-    Pick<Select.DialogProps<rack.Key>, "emptyContent">,
+    Pick<Select.ItemsProps<rack.Key>, "emptyContent">,
     Pick<
       Select.SingleProps<rack.Key, rack.Payload | undefined>,
       "preview" | "triggerProps"
@@ -36,10 +35,10 @@ const listItemRenderProp = Component.renderProp(
     const { itemKey } = props;
     const item = List.useItem<rack.Key, rack.Rack>(itemKey);
     return (
-      <Select.ListItem {...props} align="center" justify="between">
-        <Text.Text>{item?.name}</Text.Text>
+      <Select.Item {...props} align="center" justify="between">
+        {item?.name}
         <StatusIndicator status={item?.status} tooltipLocation="left" />
-      </Select.ListItem>
+      </Select.Item>
     );
   },
 );

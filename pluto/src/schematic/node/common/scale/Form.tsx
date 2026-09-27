@@ -65,11 +65,11 @@ interface SideFieldProps {
 const SideField = ({ path, label, sides }: SideFieldProps): ReactElement => (
   <Base.Field<location.Outer> path={path} label={label} padHelpText={false}>
     {({ value, onChange }) => (
-      <Select.Buttons value={value} onChange={onChange} keys={sides}>
+      <Select.Buttons value={value} onChange={onChange}>
         {sides.map((side) => (
-          <Select.Button key={side} itemKey={side}>
+          <Select.Item key={side} itemKey={side}>
             {caseconv.capitalize(side)}
-          </Select.Button>
+          </Select.Item>
         ))}
       </Select.Buttons>
     )}

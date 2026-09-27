@@ -65,13 +65,11 @@ const List = (): ReactElement => {
       onChange={setSelected}
     >
       <Menu.ContextMenu menu={contextMenu} {...menuProps} />
-      <BaseList.Items<status.Key>
-        full="y"
-        emptyContent={<NoStatuses />}
-        onContextMenu={menuProps.open}
-      >
-        {listItem}
-      </BaseList.Items>
+      <BaseList.Scroll full="y" onContextMenu={menuProps.open}>
+        <BaseList.Items<status.Key> emptyContent={<NoStatuses />}>
+          {listItem}
+        </BaseList.Items>
+      </BaseList.Scroll>
     </Select.Frame>
   );
 };
@@ -84,7 +82,7 @@ const ListItem = (props: BaseList.ItemProps<status.Key>) => {
   if (item == null) return null;
   const { name, time, variant, message, labels } = item;
   return (
-    <Select.ListItem className={CSS.B("status-list-item")} gap="small" y {...props}>
+    <Select.Item className={CSS.B("status-list-item")} gap="small" y {...props}>
       <Flex.Box x justify="between">
         <Flex.Box x align="center" gap="small">
           <Base.Indicator variant={variant} />
@@ -121,7 +119,7 @@ const ListItem = (props: BaseList.ItemProps<status.Key>) => {
           ))}
         </Flex.Box>
       )}
-    </Select.ListItem>
+    </Select.Item>
   );
 };
 

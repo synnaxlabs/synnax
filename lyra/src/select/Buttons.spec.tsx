@@ -14,14 +14,14 @@ import { describe, expect, it, vi } from "vitest";
 import { Component } from "@/component";
 import { Select } from "@/select";
 
-describe("Select.Button", () => {
+describe("Select.Item", () => {
   it("should render a collection of buttons", () => {
     const onChange = vi.fn();
     const c = render(
-      <Select.Buttons keys={[1, 2, 3]} value={1} onChange={onChange}>
-        <Select.Button itemKey={1}>Option 1</Select.Button>
-        <Select.Button itemKey={2}>Option 2</Select.Button>
-        <Select.Button itemKey={3}>Option 3</Select.Button>
+      <Select.Buttons value={1} onChange={onChange}>
+        <Select.Item itemKey={1}>Option 1</Select.Item>
+        <Select.Item itemKey={2}>Option 2</Select.Item>
+        <Select.Item itemKey={3}>Option 3</Select.Item>
       </Select.Buttons>,
     );
     expect(c.getByText("Option 1")).toBeTruthy();
@@ -31,10 +31,10 @@ describe("Select.Button", () => {
 
   it("should mark the selected button with the selected class", () => {
     const c = render(
-      <Select.Buttons keys={[1, 2, 3]} value={1} onChange={vi.fn()}>
-        <Select.Button itemKey={1}>Option 1</Select.Button>
-        <Select.Button itemKey={2}>Option 2</Select.Button>
-        <Select.Button itemKey={3}>Option 3</Select.Button>
+      <Select.Buttons value={1} onChange={vi.fn()}>
+        <Select.Item itemKey={1}>Option 1</Select.Item>
+        <Select.Item itemKey={2}>Option 2</Select.Item>
+        <Select.Item itemKey={3}>Option 3</Select.Item>
       </Select.Buttons>,
     );
     expect(c.getByText("Option 1").closest("button")?.classList).toContain(
@@ -50,9 +50,9 @@ describe("Select.Button", () => {
 
   it("should render spaced text buttons by default", () => {
     const c = render(
-      <Select.Buttons keys={[1, 2]} value={1} onChange={vi.fn()}>
-        <Select.Button itemKey={1}>Option 1</Select.Button>
-        <Select.Button itemKey={2}>Option 2</Select.Button>
+      <Select.Buttons value={1} onChange={vi.fn()}>
+        <Select.Item itemKey={1}>Option 1</Select.Item>
+        <Select.Item itemKey={2}>Option 2</Select.Item>
       </Select.Buttons>,
     );
     const group = c.getByText("Option 1").closest(".pluto-select-btns");
@@ -68,9 +68,9 @@ describe("Select.Button", () => {
 
   it("should pack outlined buttons for the outlined variant", () => {
     const c = render(
-      <Select.Buttons keys={[1, 2]} value={1} onChange={vi.fn()} variant="outlined">
-        <Select.Button itemKey={1}>Option 1</Select.Button>
-        <Select.Button itemKey={2}>Option 2</Select.Button>
+      <Select.Buttons value={1} onChange={vi.fn()} variant="outlined">
+        <Select.Item itemKey={1}>Option 1</Select.Item>
+        <Select.Item itemKey={2}>Option 2</Select.Item>
       </Select.Buttons>,
     );
     const group = c.getByText("Option 1").closest(".pluto-select-btns");
@@ -81,14 +81,28 @@ describe("Select.Button", () => {
     );
   });
 
+  it("should forward layout and variant props to the button", () => {
+    const c = render(
+      <Select.Buttons value={1} onChange={vi.fn()}>
+        <Select.Item itemKey={1} variant="outlined" y grow>
+          Option 1
+        </Select.Item>
+      </Select.Buttons>,
+    );
+    const button = c.getByText("Option 1").closest("button");
+    expect(button?.classList).toContain("pluto-btn--outlined");
+    expect(button?.classList).toContain("pluto--direction-y");
+    expect(button?.classList).toContain("pluto--grow");
+  });
+
   it("should move the selection state when a button is clicked", () => {
     const C = () => {
       const [value, setValue] = useState(1);
       return (
-        <Select.Buttons keys={[1, 2, 3]} value={value} onChange={setValue}>
-          <Select.Button itemKey={1}>Option 1</Select.Button>
-          <Select.Button itemKey={2}>Option 2</Select.Button>
-          <Select.Button itemKey={3}>Option 3</Select.Button>
+        <Select.Buttons value={value} onChange={setValue}>
+          <Select.Item itemKey={1}>Option 1</Select.Item>
+          <Select.Item itemKey={2}>Option 2</Select.Item>
+          <Select.Item itemKey={3}>Option 3</Select.Item>
         </Select.Buttons>
       );
     };
@@ -108,9 +122,9 @@ describe("Select.Button", () => {
   describe("preview", () => {
     const renderButtons = (preview?: boolean, onChange = vi.fn()) =>
       render(
-        <Select.Buttons keys={[1, 2]} value={1} onChange={onChange} preview={preview}>
-          <Select.Button itemKey={1}>Option 1</Select.Button>
-          <Select.Button itemKey={2}>Option 2</Select.Button>
+        <Select.Buttons value={1} onChange={onChange} preview={preview}>
+          <Select.Item itemKey={1}>Option 1</Select.Item>
+          <Select.Item itemKey={2}>Option 2</Select.Item>
         </Select.Buttons>,
       );
 
@@ -124,9 +138,9 @@ describe("Select.Button", () => {
 
     it("should render None when nothing is selected", () => {
       const c = render(
-        <Select.Buttons keys={[1, 2]} value={undefined} onChange={vi.fn()} preview>
-          <Select.Button itemKey={1}>Option 1</Select.Button>
-          <Select.Button itemKey={2}>Option 2</Select.Button>
+        <Select.Buttons value={undefined} onChange={vi.fn()} preview>
+          <Select.Item itemKey={1}>Option 1</Select.Item>
+          <Select.Item itemKey={2}>Option 2</Select.Item>
         </Select.Buttons>,
       );
       expect(c.getByText("None")).toBeTruthy();

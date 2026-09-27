@@ -486,7 +486,7 @@ class LayoutClient:
             else generic
         )
         loaded = self.dialog.get_by_role("option").or_(
-            self.dialog.locator(".pluto-list__items--empty")
+            self.dialog.locator(".pluto-list__scroll--empty")
         )
         loading = self.dialog.locator(".pluto-icon--loading")
 

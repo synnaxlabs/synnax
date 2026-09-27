@@ -191,9 +191,11 @@ export const useEditModal = Modals.create(() => {
             visible={newFormVisible}
             onClose={() => setNewFormVisible(false)}
           />
-          <List.Items grow emptyContent={answered && !newFormVisible && EMPTY_CONTENT}>
-            {listItem}
-          </List.Items>
+          <List.Scroll grow>
+            <List.Items emptyContent={answered && !newFormVisible && EMPTY_CONTENT}>
+              {listItem}
+            </List.Items>
+          </List.Scroll>
           {!newFormVisible && hasCreatePermission && (
             <PlatformButton.CreateListItem
               onClick={() => setNewFormVisible(true)}

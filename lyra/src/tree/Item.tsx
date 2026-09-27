@@ -22,7 +22,8 @@ import { useContext } from "@/tree/Context";
 export type ItemProps<
   K extends record.Key,
   E extends Button.ElementType = "div",
-> = Select.ListItemProps<K, E> & {
+> = Select.ItemProps<K, E> & {
+  index: number;
   loading?: boolean;
   useMargin?: boolean;
   offsetMultiplier?: number;
@@ -47,7 +48,7 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
     [depth, offsetMultiplier, style],
   );
   return (
-    <Select.ListItem
+    <Select.Item
       className={CSS.cls(
         CSS.BE("tree", "item"),
         depth !== 0 && CSS.M("show-rules"),
@@ -73,6 +74,6 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
       )}
       {children}
       {loading && <Icon.Loading />}
-    </Select.ListItem>
+    </Select.Item>
   );
 };

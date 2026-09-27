@@ -181,21 +181,24 @@ export const TextForm = ({ onVariantChange }: FormProps) => (
   </Flex.Box>
 );
 
-const VARIANT_DATA: Select.StaticEntry<Variant>[] = [
-  { key: "text", name: "Text", icon: <Icon.Text /> },
-  { key: "value", name: "Value", icon: <Icon.Channel /> },
-];
-
 export interface SelectVariantProps extends Omit<
-  Select.StaticProps<Variant>,
-  "data" | "resourceName"
+  Select.SingleSimpleProps<Variant>,
+  "children" | "resourceName"
 > {}
 
 export const SelectVariant = ({ className, ...rest }: SelectVariantProps) => (
-  <Select.Static
+  <Select.Simple<Variant>
     {...rest}
     className={CSS.cls(CSS.B("table-cell-select-variant"), className)}
-    data={VARIANT_DATA}
     resourceName="variant"
-  />
+  >
+    <Select.Item itemKey="text">
+      <Icon.Text />
+      Text
+    </Select.Item>
+    <Select.Item itemKey="value">
+      <Icon.Channel />
+      Value
+    </Select.Item>
+  </Select.Simple>
 );

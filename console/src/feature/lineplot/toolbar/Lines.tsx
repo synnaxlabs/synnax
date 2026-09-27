@@ -41,21 +41,16 @@ const DOWNSAMPLE_BOUNDS: bounds.Bounds = { lower: 1, upper: 1000 };
 const STROKE_WIDTH_DRAG_SCALE: xy.XY = { x: 0.1, y: 0.1 };
 const DOWNSAMPLE_DRAG_SCALE: xy.XY = { x: 0.1, y: 0.1 };
 
-interface SelectDownsampleModeProps extends Omit<
-  Select.ButtonsProps<telem.DownsampleMode>,
-  "keys"
-> {}
-
-const KEYS: telem.DownsampleMode[] = ["average", "decimate"];
-
-const SelectDownsampleMode = (props: SelectDownsampleModeProps): ReactElement => (
-  <Select.Buttons {...props} keys={KEYS}>
-    <Select.Button itemKey="average" size="small">
+const SelectDownsampleMode = (
+  props: Select.ButtonsProps<telem.DownsampleMode>,
+): ReactElement => (
+  <Select.Buttons {...props}>
+    <Select.Item itemKey="average" size="small">
       Average
-    </Select.Button>
-    <Select.Button itemKey="decimate" size="small">
+    </Select.Item>
+    <Select.Item itemKey="decimate" size="small">
       Decimate
-    </Select.Button>
+    </Select.Item>
   </Select.Buttons>
 );
 
@@ -134,13 +129,11 @@ export const Lines = (): ReactElement => {
   const lineKeys = LinePlot.useLineKeys();
   return (
     <List.Frame data={lineKeys}>
-      <List.Items<string, lineplot.Line>
-        full="y"
-        className={CSS.BE("line-plot", "toolbar", "lines")}
-        emptyContent={<EmptyContent />}
-      >
-        {line}
-      </List.Items>
+      <List.Scroll full="y" className={CSS.BE("line-plot", "toolbar", "lines")}>
+        <List.Items<string, lineplot.Line> emptyContent={<EmptyContent />}>
+          {line}
+        </List.Items>
+      </List.Scroll>
     </List.Frame>
   );
 };
