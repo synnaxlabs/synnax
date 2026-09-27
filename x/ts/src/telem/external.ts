@@ -11,16 +11,4 @@ export * from "@/telem/clockSkew";
 export { type GLBufferController } from "@/telem/gl";
 export * from "@/telem/series";
 export * from "@/telem/telem";
-export {
-  type Aggregation,
-  AGGREGATIONS,
-  aggregationZ,
-  type Reduction,
-  reductionZ,
-  TIME_ZONES,
-  TIMESTAMP_FORMATS,
-  type TimestampFormat,
-  timestampFormatZ,
-  type TimeZone,
-  timeZoneZ,
-} from "@/telem/types.gen";
+export * from "@/telem/types.gen";
