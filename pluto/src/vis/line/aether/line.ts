@@ -337,13 +337,13 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     const xSeries = xData.series[series];
     result.value.x = safelyGetDataValue(series, index, xData);
     const [, yData] = yTelem.value(valueProps);
+    const alignment = xSeries.alignment + BigInt(index) * xSeries.alignmentMultiple;
     const ySeries = yData.series.find((ys) =>
-      bounds.contains(ys.alignmentBounds, xSeries.alignment + BigInt(index)),
+      bounds.contains(ys.alignmentBounds, alignment),
     );
     if (ySeries == null) return result;
 
-    const alignmentDiff = Number(ySeries.alignment - xSeries.alignment);
-    result.value.y = Number(ySeries.at(index - alignmentDiff));
+    result.value.y = Number(ySeries.atAlignment(alignment, true));
 
     result.bounds = { ...ySeries.bounds };
 
