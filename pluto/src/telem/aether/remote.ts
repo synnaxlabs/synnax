@@ -661,6 +661,9 @@ interface HeldTile {
 // The width tiles are sized for before a line reports its own.
 const DEFAULT_WIDTH = 1000;
 
+// How long a view must hold a new level before its tiles are requested.
+const DEFAULT_LEVEL_SETTLE = TimeSpan.milliseconds(150);
+
 const tileKey = (spec: framer.TileSpec): string => {
   const { level, index, pointLimit, aggregation, start, end } = spec;
   return [level, index, pointLimit, aggregation, start?.valueOf(), end?.valueOf()].join(
@@ -704,16 +707,23 @@ export class TiledChannelData
   private rawLoaded = false;
   private stopStreaming?: destructor.Destructor;
   private lastFailure?: string;
+  private readonly levelSettle: TimeSpan;
+  // viewLevel is the level of the last view drawn, and settleTimer runs until that
+  // level has held for levelSettle.
+  private viewLevel?: number;
+  private settleTimer?: ReturnType<typeof setTimeout>;
 
   constructor(
     client: Client | null,
     props: unknown,
     options?: CreateOptions,
     now: () => TimeStamp = () => TimeStamp.now(),
+    levelSettle: TimeSpan = DEFAULT_LEVEL_SETTLE,
   ) {
     super(props);
     this.client = client;
     this.now = now;
+    this.levelSettle = levelSettle;
     this.onStatusChange = options?.onStatusChange;
   }
 
@@ -816,9 +826,25 @@ export class TiledChannelData
     return undefined;
   }
 
+  // A zoom that changes the view's level waits for the level to hold, so a fast zoom
+  // does not read the levels it passes through. A pan within a level reads at once.
+  private settled(l: number): boolean {
+    if (l === this.viewLevel) return this.settleTimer == null;
+    this.viewLevel = l;
+    clearTimeout(this.settleTimer);
+    this.settleTimer = undefined;
+    if (this.levelSettle.isZero) return true;
+    this.settleTimer = setTimeout(() => {
+      this.settleTimer = undefined;
+      this.notify();
+    }, this.levelSettle.milliseconds);
+    return false;
+  }
+
   private select(view: TimeRange, prune: boolean): MultiSeries {
     const targets = this.targets(view);
-    targets.forEach((spec) => this.request(spec));
+    if (!prune || (targets.length > 0 && this.settled(targets[0].level)))
+      targets.forEach((spec) => this.request(spec));
     const preferred = new Map(
       targets.map((t) => [`${t.level}/${t.index}`, tileKey(t)]),
     );
@@ -994,6 +1020,9 @@ export class TiledChannelData
 
   cleanup(): void {
     this.generation++;
+    clearTimeout(this.settleTimer);
+    this.settleTimer = undefined;
+    this.viewLevel = undefined;
     this.stopStreaming?.();
     this.stopStreaming = undefined;
     this.held.forEach((tile) => tile.series.release());
