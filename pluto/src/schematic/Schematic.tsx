@@ -307,7 +307,8 @@ export const Schematic = ({
       {...props}
     >
       {children}
-      {hovered != null &&
+      {!editable &&
+        hovered != null &&
         !contextMenu.visible &&
         hoveredConfig != null &&
         Node.isConfig(hoveredConfig) && (
