@@ -191,6 +191,9 @@ describe("ValueForm", () => {
       const floor = () =>
         container.querySelector(".pluto-redline-form__floor-value")?.textContent;
       expect(floor()).toBe("0");
+      expect(
+        container.querySelector(".pluto-redline-form__floor-value")?.classList,
+      ).not.toContain("pluto--square");
       expect(container.querySelector(".pluto-redline-form__floor input")).toBeNull();
       expect(getByText("No fill")).toBeDefined();
       act(() => methods.set("units", "psi"));

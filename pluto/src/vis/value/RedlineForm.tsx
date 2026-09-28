@@ -152,7 +152,12 @@ const FloorItem = ({ background, threshold, units }: FloorItemProps): ReactEleme
         &lt;
       </Text.Text>
     )}
-    <Text.Text level="small" grow className={CSS.BE("redline-form", "floor-value")}>
+    <Text.Text
+      level="small"
+      grow
+      square={false}
+      className={CSS.BE("redline-form", "floor-value")}
+    >
       {threshold == null ? "All values" : `${threshold} ${units}`.trimEnd()}
     </Text.Text>
     <Flex.Box x className={CSS.BE("redline-form", "actions")}>

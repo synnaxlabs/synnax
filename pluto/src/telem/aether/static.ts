@@ -16,6 +16,7 @@ import {
   Series,
   TimeRange,
   TimeSpan,
+  TimeStamp,
   typedArrayZ,
 } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -188,28 +189,36 @@ export const clockPropsZ = z.object({ period: TimeSpan.z });
 
 export type ClockProps = z.input<typeof clockPropsZ>;
 
-/** A number source that counts up by one and notifies once every period. */
+/**
+ * A number source that counts the periods elapsed since the Unix epoch and notifies at
+ * each period boundary. Clocks with the same period tick in phase.
+ */
 export class Clock extends AbstractSource<typeof clockPropsZ> implements NumberSource {
   static readonly TYPE = "clock";
   schema = clockPropsZ;
 
-  private ticks = 0;
-  private readonly interval: ReturnType<typeof setInterval>;
+  private timeout?: ReturnType<typeof setTimeout>;
 
   constructor(props: unknown) {
     super(props);
-    this.interval = setInterval(() => {
-      this.ticks++;
-      this.notify();
-    }, this.props.period.milliseconds);
+    this.schedule();
   }
 
   value(): number {
-    return this.ticks;
+    return Math.floor(TimeStamp.now().milliseconds / this.props.period.milliseconds);
   }
 
   cleanup(): void {
-    clearInterval(this.interval);
+    clearTimeout(this.timeout);
+  }
+
+  private schedule(): void {
+    const period = this.props.period.milliseconds;
+    const delay = period - (TimeStamp.now().milliseconds % period);
+    this.timeout = setTimeout(() => {
+      this.notify();
+      this.schedule();
+    }, delay);
   }
 }
 
