@@ -286,11 +286,10 @@ identity of the rack the Driver last attached to. It lives at
 
 ### Environment file
 
-On Linux and NI Linux Real-Time, `start`, `login`, and the service read
-`/etc/synnax/driver.env` at start and set each `KEY=VALUE` pair it names. A variable
-already in the environment wins, so the file never overrides a variable you set on the
-command line. The file is optional, but a command that can't read an existing file
-fails.
+On Linux and NI Linux Real-Time, the service and the `login` command read
+`/etc/synnax/driver.env` and set each `KEY=VALUE` pair it names. For `login`, a variable
+already in your environment wins. The file is optional. Only root can read it, so run
+`login` with `sudo`.
 
 ### Configuration file
 
@@ -336,8 +335,8 @@ environment.
 The Linux and NI Linux Real-Time service does not inherit your shell. It reads
 `/etc/synnax/driver.env`, one `KEY=value` per line, each time it starts. Lines start
 with the variable name, with no `export`. The `install` command creates the file, owned
-by `root:synnax` with mode `640`, so the service can read it and other users can't. Edit
-it with `sudo` and restart the service after editing it.
+by root with mode `600`, so only root can read the password in it. Edit it with `sudo`
+and restart the service after editing it.
 
 ```bash
 # The host of the Synnax Core.

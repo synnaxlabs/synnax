@@ -73,18 +73,15 @@ int exec(const int argc, char *argv[]) {
         print_usage();
         return 1;
     }
-    const bool standalone = command == "start" && args.flag("--standalone", "-s");
-    // Only commands that connect to the Core read the environment file, so a user who
-    // cannot read it can still run status, logs, and version.
-    if (standalone || command == "internal-start" || command == "login")
+    // The service manager gives the service the environment file. login reads it
+    // itself, so its connection check sees the same variables as the service.
+    if (command == "login")
         if (const auto err = daemon::load_env()) {
-            LOG(ERROR) << err
-                       << ". Run 'sudo synnax-driver install' to make it readable by "
-                          "the synnax group.";
+            LOG(ERROR) << err << ". Run login with sudo.";
             return 1;
         }
     if (command == "start") {
-        if (standalone) return sub::start(args);
+        if (args.flag("--standalone", "-s")) return sub::start(args);
         return sub::service_start(args);
     }
     // Run by the service manager (systemd ExecStart); omitted from the usage text.

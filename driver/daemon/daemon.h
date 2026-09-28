@@ -47,8 +47,8 @@ x::errors::Error view_logs();
 x::errors::Error status();
 
 /// @brief sets the variables in the Driver's environment file into the process
-/// environment, so the CLI reads the same variables as the service. A variable already
-/// in the environment is kept. Does nothing where no service environment file exists.
+/// environment, so login reads the same variables as the service. A variable already in
+/// the environment is kept. Does nothing where no service environment file exists.
 x::errors::Error load_env();
 
 /// @brief runs the application as a daemon with the given configuration.

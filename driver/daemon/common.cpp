@@ -12,6 +12,7 @@
 
 #include "absl/log/log.h"
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "x/cpp/env/env.h"
 
@@ -80,11 +81,10 @@ x::errors::Error create_env_file() {
     std::ofstream env_file(ENV_FILE, std::ios::app);
     if (!env_file) return x::errors::Error("failed to create environment file");
     env_file.close();
-    // The file can hold the Core password: root writes it, the service reads it.
-    if (chmod(ENV_FILE.c_str(), S_IRUSR | S_IWUSR | S_IRGRP) != 0)
-        return x::errors::Error("failed to set environment file permissions");
-    if (system(("chown root:synnax " + ENV_FILE).c_str()) != 0)
+    if (chown(ENV_FILE.c_str(), 0, 0) != 0)
         return x::errors::Error("failed to set environment file ownership");
+    if (chmod(ENV_FILE.c_str(), S_IRUSR | S_IWUSR) != 0)
+        return x::errors::Error("failed to set environment file permissions");
     return x::errors::NIL;
 }
 }

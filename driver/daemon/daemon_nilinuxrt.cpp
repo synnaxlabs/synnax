@@ -44,6 +44,7 @@ DAEMON="/usr/local/bin/$NAME"
 DAEMON_USER="synnax"
 PIDFILE="(pid_file)"
 LOGFILE="/var/log/$NAME.log"
+ENV_FILE="/etc/synnax/driver.env"
 START_CMD="start -s --disable-stdin-stop"
 HEALTH_CHECK_DELAY_SECONDS=2
 
@@ -93,6 +94,12 @@ do_start() {
         else
             rm -f "$PIDFILE"
         fi
+    fi
+
+    if [ -f "$ENV_FILE" ]; then
+        set -a
+        . "$ENV_FILE"
+        set +a
     fi
 
     # Add debug logging
