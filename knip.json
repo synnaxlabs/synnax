@@ -33,6 +33,11 @@
       "entry": ["src/index.ts", "src/ether.ts", "src/testutil/index.ts"],
       "project": ["src/**/*.{ts,tsx}"]
     },
+    "portal": {
+      "entry": ["src/**/*.astro", "src/**/*.tsx", "src/**/*.ts", "scripts/*.ts"],
+      "project": ["src/**/*.{ts,tsx,astro}", "scripts/*.ts"],
+      "ignoreDependencies": ["@astrojs/*"]
+    },
     "x/media": {
       "entry": ["src/index.ts"],
       "project": ["src/**/*.{ts,tsx}"]
@@ -47,7 +52,7 @@
       "project": ["src/**/*.{ts,tsx}"],
       "ignore": ["src-tauri/**"]
     },
-    "hub": {
+    "docs/site": {
       "entry": ["src/**/*.astro", "src/**/*.tsx", "src/**/*.ts"],
       "project": ["src/**/*.{ts,tsx,astro}"],
       "ignoreDependencies": ["@astrojs/*"]

@@ -54,7 +54,7 @@ lower, never the reverse.
   `freighter` → `aspen`, `arc` → `core`. `cesium` uses only `x` + `alamos` (no
   transport). `oracle` uses only `x` + `alamos`.
 - **TS**: `x` → `alamos` → `freighter` → `client` → `pluto` → `console`. `lyra` depends
-  only on `x` and feeds `pluto`, `console`, and `hub`. `drift` depends only on
+  only on `x` and feeds `pluto`, `console`, and `docs/site`. `drift` depends only on
   `x`; `x/media` is a leaf; `arc` is consumed by `pluto` and `console`.
 - **Python**: `x` → `alamos` → `freighter` → `client` (synnax) → `integration`.
 - **C++**: `x` → `freighter` → `client` → `driver`.

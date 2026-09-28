@@ -11,8 +11,7 @@ import { type license } from "@synnaxlabs/client";
 import { TimeStamp } from "@synnaxlabs/x";
 
 /** The portal page that issues a token for a host fingerprint. */
-export const PORTAL_ACTIVATE_URL =
-  "https://docs.synnaxlabs.com/portal/licenses/activate";
+export const PORTAL_ACTIVATE_URL = "https://portal.synnaxlabs.com/licenses/activate";
 
 const EDITIONS: Record<string, string> = { d: "Desktop", e: "Enterprise" };
 

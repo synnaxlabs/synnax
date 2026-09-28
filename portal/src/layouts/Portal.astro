@@ -1,0 +1,54 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { Logo } from "@synnaxlabs/media";
+
+import Root from "@/layouts/Root.astro";
+import { Account } from "@/ui/Account";
+import { Sidebar } from "@/ui/Sidebar";
+import type { Organization } from "@/server/db/schema";
+import type { Session } from "@/server/session";
+import "@/styles/portal.css";
+
+interface Props {
+    title: string;
+    session: Session;
+    organizations: Organization[];
+    organization?: Organization | null;
+}
+
+const { title, session, organizations, organization = null } = Astro.props;
+---
+
+<Root title={title}>
+    <header class="portal-bar">
+        <a href="/" aria-label="Synnax"><Logo variant="title" /></a>
+        <div class="portal-bar__actions">
+            <a class="portal-bar__link" href="https://docs.synnaxlabs.com">Docs</a>
+            <Account client:load />
+        </div>
+    </header>
+    <nav class="portal-nav">
+        <Sidebar
+            client:load
+            path={Astro.url.pathname}
+            staff={session.staff}
+            teams={organizations
+                .filter((o) => o.kind === "team")
+                .map((o) => ({ key: o.key, name: o.name }))}
+            selected={organization?.kind === "team" ? organization.key : null}
+        />
+    </nav>
+    <main>
+        <section class="portal">
+            <slot />
+        </section>
+    </main>
+</Root>

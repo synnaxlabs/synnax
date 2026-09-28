@@ -50,7 +50,7 @@ jobs:
       core: ${{ steps.filter.outputs.core }}
       core_build: ${{ steps.filter.outputs.core_build }}
       core_image: ${{ steps.filter.outputs.core_image }}
-      hub: ${{ steps.filter.outputs.hub }}
+      docs: ${{ steps.filter.outputs.docs }}
       drift: ${{ steps.filter.outputs.drift }}
       driver: ${{ steps.filter.outputs.driver }}
       driver_build: ${{ steps.filter.outputs.driver_build }}
@@ -67,6 +67,7 @@ jobs:
       oracle: ${{ steps.filter.outputs.oracle }}
       oracle_check: ${{ steps.filter.outputs.oracle_check }}
       pluto: ${{ steps.filter.outputs.pluto }}
+      portal: ${{ steps.filter.outputs.portal }}
       protobuf: ${{ steps.filter.outputs.protobuf }}
       scripts: ${{ steps.filter.outputs.scripts }}
       soem: ${{ steps.filter.outputs.soem }}
@@ -252,6 +253,22 @@ jobs:
         working-directory: console/src-tauri
         run: cargo test --features desktop
 
+  docs:
+    needs: changes
+    if: needs.changes.outputs.docs == 'true'
+    uses: ./.github/workflows/test.ts.yaml
+    with:
+      coverage_flag: docs
+      directory: docs/site
+      package: docs
+    secrets: inherit
+
+  docs-site:
+    needs: changes
+    if: needs.changes.outputs.docs == 'true'
+    uses: ./.github/workflows/test.docs.yaml
+    secrets: inherit
+
   drift:
     needs: changes
     if: needs.changes.outputs.drift == 'true'
@@ -344,22 +361,6 @@ jobs:
       package: freighter
     secrets: inherit
 
-  hub:
-    needs: changes
-    if: needs.changes.outputs.hub == 'true'
-    uses: ./.github/workflows/test.ts.yaml
-    with:
-      coverage_flag: hub
-      directory: hub
-      package: hub
-    secrets: inherit
-
-  hub-site:
-    needs: changes
-    if: needs.changes.outputs.hub == 'true'
-    uses: ./.github/workflows/test.hub.yaml
-    secrets: inherit
-
   integration:
     needs: changes
     if:
@@ -427,6 +428,16 @@ jobs:
       directory: pluto
       package: pluto
       test_args: -- --no-file-parallelism
+    secrets: inherit
+
+  portal:
+    needs: changes
+    if: needs.changes.outputs.portal == 'true'
+    uses: ./.github/workflows/test.ts.yaml
+    with:
+      coverage_flag: portal
+      directory: portal
+      package: portal
     secrets: inherit
 
   protobuf:
@@ -517,6 +528,8 @@ jobs:
       - core
       - core-image
       - desktop-shell
+      - docs
+      - docs-site
       - drift
       - driver
       - format
@@ -526,8 +539,6 @@ jobs:
       - freighter-integration
       - freighter-py
       - freighter-ts
-      - hub
-      - hub-site
       - integration
       - lint-integration
       - lyra
@@ -535,6 +546,7 @@ jobs:
       - oracle
       - oracle-check
       - pluto
+      - portal
       - protobuf
       - scripts
       - soem
