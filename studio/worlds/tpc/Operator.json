@@ -3286,6 +3286,733 @@
       ],
       "units": "psi",
       "variant": "value"
+    },
+    "xy-edge__tKyeVybyb2Z2-CST75HX7oD14": {
+      "color": [
+        179,
+        0,
+        255,
+        1
+      ],
+      "segments": [],
+      "variant": "pipe"
+    },
+    "xy-edge__IpSylSnCSc32-WubiiPZ6MyL3": {
+      "color": [
+        0,
+        214,
+        35,
+        1
+      ],
+      "segments": [
+        {
+          "direction": "y",
+          "length": -394.8873653848603
+        },
+        {
+          "direction": "x",
+          "length": 164.99041929803252
+        }
+      ],
+      "variant": "pneumatic"
+    },
+    "xy-edge__n4pmPCUcMaw2-KWwYAhIaXR12": {
+      "color": [
+        0,
+        74,
+        214,
+        1
+      ],
+      "segments": [
+        {
+          "direction": "y",
+          "length": -283.7166395035551
+        },
+        {
+          "direction": "x",
+          "length": 140.1595651616617
+        }
+      ],
+      "variant": "jacketed"
+    },
+    "xy-edge__IpSylSnCSc31-0KwRzIrJ4ii3": {
+      "color": [
+        0,
+        214,
+        35,
+        1
+      ],
+      "segments": [
+        {
+          "direction": "y",
+          "length": 2.0174437145679462
+        },
+        {
+          "direction": "x",
+          "length": 8.375036663927403
+        },
+        {
+          "direction": "y",
+          "length": 2.0174437145679462
+        }
+      ],
+      "variant": "pneumatic"
+    },
+    "xy-edge__kbJw2Oi5Ueu2-rJ8HEDBlxlw7": {
+      "color": [
+        179,
+        0,
+        255,
+        1
+      ],
+      "segments": [
+        {
+          "direction": "x",
+          "length": 8.809159885799176
+        }
+      ],
+      "variant": "pipe"
+    },
+    "1Ajh5kZyqzw": {
+      "color": [
+        0,
+        74,
+        214,
+        1
+      ],
+      "segments": [
+        {
+          "direction": "x",
+          "length": -20.716482044354507
+        },
+        {
+          "direction": "y",
+          "length": 7.989755136102218
+        }
+      ],
+      "variant": "pipe"
+    },
+    "xy-edge__rJ8HEDBlxlw1-tKyeVybyb2Z1": {
+      "color": [
+        179,
+        0,
+        255,
+        1
+      ],
+      "segments": [
+        {
+          "direction": "y",
+          "length": -26.010401116607028
+        },
+        {
+          "direction": "x",
+          "length": -233.4057355441728
+        },
+        {
+          "direction": "y",
+          "length": -20.1443659962018
+        }
+      ],
+      "variant": "pipe"
+    },
+    "xy-edge__CST75HX7oD13-W1dSGKqGk1f1": {
+      "color": [
+        179,
+        0,
+        255,
+        1
+      ],
+      "segments": [
+        {
+          "direction": "y",
+          "length": -10.039775396275516
+        }
+      ],
+      "variant": "pipe"
+    },
+    "xy-edge__0jdKiNGUXdE3-VcyomMLraaN1": {
+      "color": [
+        0,
+        74,
+        214,
+        1
+      ],
+      "segments": [],
+      "variant": "pipe"
+    },
+    "xy-edge__VcyomMLraaN4-n4pmPCUcMaw1": {
+      "color": [
+        0,
+        74,
+        214,
+        1
+      ],
+      "segments": [
+        {
+          "direction": "y",
+          "length": 65.73827310334042
+        },
+        {
+          "direction": "x",
+          "length": 3.1963217423690367
+        }
+      ],
+      "variant": "jacketed"
+    },
+    "xy-edge__7yLD0xOFddf2-dkPgXB2tjWf4": {
+      "color": [
+        255,
+        168,
+        0,
+        1
+      ],
+      "segments": [
+        {
+          "direction": "x",
+          "length": -591.675536248489
+        },
+        {
+          "direction": "y",
+          "length": -35.573951714250825
+        }
+      ],
+      "variant": "pneumatic"
+    },
+    "xy-edge__HH9i7jrQ0rH2-p2dLrZf6mMv2": {
+      "color": [
+        255,
+        0,
+        95,
+        1
+      ],
+      "segments": [
+        {
+          "direction": "x",
+          "length": -26.190764982950554
+        },
+        {
+          "direction": "y",
+          "length": 11.339841623186729
+        }
+      ],
+      "variant": "pipe"
+    },
+    "xy-edge__L0MCB6oJASM1-VeRfM4LedsR1": {
+      "color": [
+        255,
+        0,
+        95,
+        1
+      ],
+      "segments": [
+        {
+          "direction": "x",
+          "length": -7.611323970725607
+        },
+        {
+          "direction": "y",
+          "length": -320.0492650092677
+        },
+        {
+          "direction": "x",
+          "length": -75.27638293247958
+        },
+        {
+          "direction": "y",
+          "length": 19.978930338147897
+        }
+      ],
+      "variant": "jacketed"
+    },
+    "xy-edge__QLFXTKWz3DJ2-tKyeVybyb2Z3": {
+      "color": [
+        255,
+        168,
+        0,
+        1
+      ],
+      "segments": [
+        {
+          "direction": "y",
+          "length": -21.738221317205273
+        },
+        {
+          "direction": "x",
+          "length": 21.15953941272413
+        }
+      ],
+      "variant": "pneumatic"
+    },
+    "xy-edge__rJ8HEDBlxlw4-SKO1UjHj1o31": {
+      "color": [
+        0,
+        214,
+        35,
+        1
+      ],
+      "segments": [
+        {
+          "direction": "y",
+          "length": 7.603945168920745
+        },
+        {
+          "direction": "x",
+          "length": 68.0145904837911
+        }
+      ],
+      "variant": "pneumatic"
+    },
+    "xy-edge__dlptAUF47pk3-D2jnA2ygsRn1": {
+      "color": [
+        255,
+        0,
+        95,
+        1
+      ],
+      "segments": [
+        {
+          "direction": "y",
+          "length": -7.476031885797475
+        },
+        {
+          "direction": "x",
+          "length": 42.70918634908844
+        },
+        {
+          "direction": "y",
+          "length": 37.25798079296152
+        }
+      ],
+      "variant": "pipe"
+    },
+    "xy-edge__0jdKiNGUXdE1-5lnJLvZggVN1": {
+      "color": [
+        0,
+        74,
+        214,
+        1
+      ],
+      "segments": [
+        {
+          "direction": "x",
+          "length": -21.793890705579884
+        },
+        {
+          "direction": "y",
+          "length": -3.731337495209658
+        }
+      ],
+      "variant": "pipe"
+    },
+    "xy-edge__p2dLrZf6mMv1-wGdFMnYeLk81": {
+      "color": [
+        255,
+        0,
+        95,
+        1
+      ],
+      "segments": [
+        {
+          "direction": "y",
+          "length": 17.126255845888807
+        },
+        {
+          "direction": "x",
+          "length": 35.91104042066888
+        }
+      ],
+      "variant": "pipe"
+    },
+    "Q6Ru747fTlZ": {
+      "color": [
+        0,
+        74,
+        214,
+        1
+      ],
+      "segments": [
+        {
+          "direction": "x",
+          "length": 23.574201383533193
+        },
+        {
+          "direction": "y",
+          "length": 9.71191345942043
+        }
+      ],
+      "variant": "pipe"
+    },
+    "xy-edge__nikWEdQSwLr2-wGdFMnYeLk82": {
+      "color": [
+        255,
+        0,
+        95,
+        1
+      ],
+      "segments": [
+        {
+          "direction": "y",
+          "length": 19.10347799420603
+        },
+        {
+          "direction": "x",
+          "length": -30.087778293132487
+        }
+      ],
+      "variant": "pipe"
+    },
+    "xy-edge__dlptAUF47pk3-ojXq08A1bLP1": {
+      "color": [
+        255,
+        0,
+        95,
+        1
+      ],
+      "segments": [
+        {
+          "direction": "y",
+          "length": -7.042165376339312
+        },
+        {
+          "direction": "x",
+          "length": 58.16473197597054
+        }
+      ],
+      "variant": "pipe"
+    },
+    "xy-edge__VeRfM4LedsR2-e4JtXVcg02b3": {
+      "color": [
+        255,
+        0,
+        95,
+        1
+      ],
+      "segments": [
+        {
+          "direction": "y",
+          "length": 56.05145268385104
+        },
+        {
+          "direction": "x",
+          "length": -9.102954995288997
+        }
+      ],
+      "variant": "jacketed"
+    },
+    "xPS0ReajkIY": {
+      "color": "#ffa800",
+      "segments": [],
+      "variant": "pneumatic"
+    },
+    "xy-edge__dkPgXB2tjWf8-kbJw2Oi5Ueu1": {
+      "color": [
+        255,
+        168,
+        0,
+        1
+      ],
+      "segments": [
+        {
+          "direction": "x",
+          "length": 16.27623344266015
+        },
+        {
+          "direction": "y",
+          "length": -22.810077513322653
+        },
+        {
+          "direction": "x",
+          "length": 15.00767944753921
+        }
+      ],
+      "variant": "pneumatic"
+    },
+    "xy-edge__L0MCB6oJASM2-dlptAUF47pk4": {
+      "color": [
+        255,
+        0,
+        95,
+        1
+      ],
+      "segments": [
+        {
+          "direction": "x",
+          "length": 10.019709615372676
+        },
+        {
+          "direction": "y",
+          "length": -75.83755794798219
+        }
+      ],
+      "variant": "jacketed"
+    },
+    "xy-edge__WubiiPZ6MyL2-KWwYAhIaXR12": {
+      "color": [
+        0,
+        214,
+        35,
+        1
+      ],
+      "segments": [
+        {
+          "direction": "x",
+          "length": -30.341323421429934
+        },
+        {
+          "direction": "y",
+          "length": 59.33199895582936
+        }
+      ],
+      "variant": "pipe"
+    },
+    "xy-edge__wGdFMnYeLk83-dlptAUF47pk1": {
+      "color": [
+        255,
+        0,
+        95,
+        1
+      ],
+      "segments": [],
+      "variant": "pipe"
+    },
+    "xy-edge__BLMwEwSkGNS2-VcyomMLraaN2": {
+      "color": [
+        0,
+        74,
+        214,
+        1
+      ],
+      "segments": [
+        {
+          "direction": "x",
+          "length": 69.70495914735761
+        },
+        {
+          "direction": "y",
+          "length": 0.6487563554264568
+        }
+      ],
+      "variant": "pipe"
+    },
+    "xy-edge__W1dSGKqGk1f2-ed2fKMvty6b1": {
+      "color": [
+        179,
+        0,
+        255,
+        1
+      ],
+      "segments": [
+        {
+          "direction": "y",
+          "length": -22.615541532458984
+        },
+        {
+          "direction": "x",
+          "length": 565.9781892716524
+        }
+      ],
+      "variant": "pneumatic"
+    },
+    "xy-edge__YtBdiWNERfU2-rTobk1G30ly3": {
+      "color": [
+        179,
+        0,
+        255,
+        1
+      ],
+      "segments": [
+        {
+          "direction": "x",
+          "length": 134.19966632900412
+        }
+      ],
+      "variant": "pneumatic"
+    },
+    "xy-edge__WubiiPZ6MyL1-VeRfM4LedsR1": {
+      "color": [
+        0,
+        214,
+        35,
+        1
+      ],
+      "segments": [
+        {
+          "direction": "x",
+          "length": 28.376507288195512
+        },
+        {
+          "direction": "y",
+          "length": 59.24584296994891
+        }
+      ],
+      "variant": "pipe"
+    },
+    "reactflow__edge-SKO1UjHj1o32-0KwRzIrJ4ii1": {
+      "color": [
+        0,
+        214,
+        35,
+        1
+      ],
+      "segments": [
+        {
+          "direction": "y",
+          "length": -0.68135597075036
+        },
+        {
+          "direction": "x",
+          "length": 24.074178103465243
+        }
+      ],
+      "variant": "pneumatic"
+    },
+    "xy-edge__ed2fKMvty6b2-HH9i7jrQ0rH3": {
+      "color": [
+        179,
+        0,
+        255,
+        1
+      ],
+      "segments": [
+        {
+          "direction": "x",
+          "length": 150.30660167606368
+        },
+        {
+          "direction": "y",
+          "length": 33.48017219193998
+        }
+      ],
+      "variant": "pneumatic"
+    },
+    "xy-edge__HH9i7jrQ0rH1-nikWEdQSwLr1": {
+      "color": [
+        255,
+        0,
+        95,
+        1
+      ],
+      "segments": [
+        {
+          "direction": "x",
+          "length": 38.31579517167302
+        },
+        {
+          "direction": "y",
+          "length": 10.284495288420302
+        }
+      ],
+      "variant": "pipe"
+    },
+    "xy-edge__7yLD0xOFddf1-VeRfM4LedsR5": {
+      "color": [
+        255,
+        168,
+        0,
+        1
+      ],
+      "segments": [
+        {
+          "direction": "x",
+          "length": 143.29170552523067
+        },
+        {
+          "direction": "y",
+          "length": -411.61577134349704
+        }
+      ],
+      "variant": "pneumatic"
+    },
+    "xy-edge__KWwYAhIaXR11-e4JtXVcg02b1": {
+      "color": [
+        0,
+        74,
+        214,
+        1
+      ],
+      "segments": [
+        {
+          "direction": "y",
+          "length": 55.96528189980745
+        },
+        {
+          "direction": "x",
+          "length": 6.427322322366763
+        }
+      ],
+      "variant": "jacketed"
+    },
+    "xy-edge__0jdKiNGUXdE2-qUGRcDkaBIx2": {
+      "color": [
+        0,
+        74,
+        214,
+        1
+      ],
+      "segments": [
+        {
+          "direction": "x",
+          "length": 22.49688090288504
+        },
+        {
+          "direction": "y",
+          "length": -5.00919456888724
+        }
+      ],
+      "variant": "pipe"
+    },
+    "xy-edge__dkPgXB2tjWf1-QLFXTKWz3DJ1": {
+      "color": [
+        255,
+        168,
+        0,
+        1
+      ],
+      "segments": [
+        {
+          "direction": "y",
+          "length": -9.197029958844112
+        }
+      ],
+      "variant": "pipe"
+    },
+    "xy-edge__YtBdiWNERfU1-W1dSGKqGk1f3": {
+      "color": [
+        179,
+        0,
+        255,
+        1
+      ],
+      "segments": [
+        {
+          "direction": "x",
+          "length": -28.81734564078576
+        }
+      ],
+      "variant": "pneumatic"
+    },
+    "xy-edge__qo0xVKkc4oR1-VcyomMLraaN2": {
+      "color": [
+        0,
+        74,
+        214,
+        1
+      ],
+      "segments": [
+        {
+          "direction": "y",
+          "length": -41.60135297196579
+        },
+        {
+          "direction": "x",
+          "length": 58.69277139477566
+        },
+        {
+          "direction": "y",
+          "length": -2.1980884391345237
+        }
+      ],
+      "variant": "pipe"
     }
   },
   "edges": [
