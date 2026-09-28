@@ -59,7 +59,7 @@ export const NavShowcase = () => {
       key: "search",
       content: (
         <Flex.Box y gap="medium" style={{ padding: "2rem" }}>
-          <Text.Text level="h4">Search Results</Text.Text>
+          <Text.Text level="h4">Search results</Text.Text>
           <Text.Text level="small" color={8}>
             3 matches found
           </Text.Text>
@@ -113,7 +113,7 @@ export const NavShowcase = () => {
     <Flex.Box y pack empty>
       <Flex.Box x pack grow sharp>
         <SubcategorySection
-          title="Navigation Bar"
+          title="Navigation bar"
           description="Horizontal and vertical navigation bars with different locations and content alignment"
         >
           <Flex.Box y gap="large">
@@ -133,7 +133,7 @@ export const NavShowcase = () => {
                     <Button.Button>
                       <Icon.Menu />
                     </Button.Button>
-                    <Text.Text level="h4">App Title</Text.Text>
+                    <Text.Text level="h4">App title</Text.Text>
                   </Nav.Bar.Start>
                   <Nav.Bar.Center>
                     <Button.Button size="small">Home</Button.Button>
@@ -215,7 +215,7 @@ export const NavShowcase = () => {
         </SubcategorySection>
 
         <SubcategorySection
-          title="Navigation Bar Variations"
+          title="Navigation bar variations"
           description="Different navigation bar sizes and content arrangements"
         >
           <Flex.Box y gap="large">
@@ -312,7 +312,7 @@ export const NavShowcase = () => {
 
       <Flex.Box x pack grow sharp>
         <SubcategorySection
-          title="Navigation Drawer"
+          title="Navigation drawer"
           description="Collapsible drawer panels that can be toggled and resized for additional navigation content"
         >
           <Flex.Box y gap="large">

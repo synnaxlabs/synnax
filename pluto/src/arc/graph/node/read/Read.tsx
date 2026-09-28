@@ -46,7 +46,7 @@ export const Symbol = ({ config: { channel } }: SymbolProps) => {
       <Divider.Divider y color={5} />
       <Flex.Box className={CSS.BE("arc", "read-body")} align="start" empty>
         <Text.Text level="small" weight={500} color={9}>
-          Read Channel
+          Read channel
         </Text.Text>
         <Text.Text level="h4" weight={450} color={10}>
           {name}
