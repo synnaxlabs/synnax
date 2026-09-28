@@ -10,10 +10,10 @@
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Avatar } from "@/avatar";
+import { Avatar } from "@/avatar/Avatar";
 
 const hueOf = (name: string): string | undefined =>
-  render(<Avatar.Avatar name={name} />)
+  render(<Avatar name={name} />)
     .container.querySelector<HTMLElement>(".pluto-avatar")
     ?.style.getPropertyValue("--pluto-avatar-hue");
 
@@ -26,13 +26,13 @@ describe("Avatar", () => {
       ["stand_1", "S1"],
       ["  ", "?"],
     ])("should show %j as %s", (name, initials) => {
-      const c = render(<Avatar.Avatar name={name} />);
+      const c = render(<Avatar name={name} />);
       expect(c.container.textContent).toEqual(initials);
     });
   });
 
   it("should show the image in place of the initials", () => {
-    const c = render(<Avatar.Avatar name="Hot Fire" image="https://a.test/p.png" />);
+    const c = render(<Avatar name="Hot Fire" image="https://a.test/p.png" />);
     expect(c.container.textContent).toEqual("");
     expect(c.container.querySelector("img")?.getAttribute("src")).toEqual(
       "https://a.test/p.png",
@@ -49,7 +49,7 @@ describe("Avatar", () => {
   });
 
   it("should apply the size modifier", () => {
-    const c = render(<Avatar.Avatar name="Hot Fire" size="small" />);
+    const c = render(<Avatar name="Hot Fire" size="small" />);
     expect(c.container.firstElementChild?.classList).toContain("pluto--height-small");
   });
 });
