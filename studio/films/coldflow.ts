@@ -53,7 +53,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     const { page } = session;
     await capture.login(session, world.project);
     // The hidden Automations panel stays mounted, so match visible nodes only.
-    await session.click(page.getByText("Primary", { exact: true }).first());
+    await session.click(page.getByText("Operations", { exact: true }).first());
     const diagram = page.locator(".pluto-diagram:visible").first();
     await session.waitFor(diagram);
     await session.settle(1500);

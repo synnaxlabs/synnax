@@ -9,10 +9,15 @@
 
 import { z } from "zod";
 
-/** Output width of every film in px; films are 4:5. */
-export const WIDTH = 1080;
-/** Output height of every film in px. */
-export const HEIGHT = 1350;
+/** A film's output frame: portrait is 4:5, landscape is 16:9. */
+export const formatZ = z.enum(["portrait", "landscape"]).default("portrait");
+export type Format = z.infer<typeof formatZ>;
+
+/** Output size in px of each format. */
+export const SIZES: Record<Format, { width: number; height: number }> = {
+  portrait: { width: 1080, height: 1350 },
+  landscape: { width: 1920, height: 1080 },
+};
 /** Output and capture frame rate. */
 export const FPS = 60;
 /** Capture device scale factor, which sets how far a shot can magnify and stay sharp. */
@@ -97,15 +102,16 @@ export const scopeZ = z.object({
 export type Scope = z.infer<typeof scopeZ>;
 
 /**
- * A label pinned beside the rect of mark `target`, on the window itself. It appears at
- * mark `at` and holds for `seconds`. `side` is the side of the rect it sits on.
+ * A highlight around the rect of mark `target`, drawn on the window, with a caption
+ * beside it. It appears at mark `at` and holds for `seconds`. When `focused`, the rest
+ * of the window blurs and dims while it shows.
  */
 export const calloutZ = z.object({
   at: z.string().min(1),
   target: z.string().min(1),
   text: z.string().min(1),
-  side: z.enum(["left", "right"]).default("right"),
   seconds: z.number().positive().optional(),
+  focused: z.boolean().default(false),
 });
 export type Callout = z.infer<typeof calloutZ>;
 
