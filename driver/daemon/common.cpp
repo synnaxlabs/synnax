@@ -9,6 +9,7 @@
 
 #include <filesystem>
 #include <fstream>
+#include <string>
 
 #include "absl/log/log.h"
 #include <sys/stat.h>
@@ -53,17 +54,22 @@ x::errors::Error install_binary() {
     // copy_file rejects. Skip the copy: the binary is already in place.
     const bool already_installed = fs::exists(target_path, ec) &&
                                    fs::equivalent(curr_bin_path, target_path, ec);
-    if (already_installed) return x::errors::NIL;
+    constexpr auto mode = S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH;
+    if (already_installed) {
+        if (chmod(target_path.c_str(), mode) != 0)
+            return x::errors::Error("failed to set binary permissions");
+        return x::errors::NIL;
+    }
     // Renaming a complete copy over the old binary keeps it in place if the copy
     // fails, and avoids ETXTBSY when a process still runs the old binary.
-    const fs::path tmp_path = BINARY_PATH + ".tmp";
+    const fs::path tmp_path = BINARY_PATH + "." + std::to_string(getpid()) + ".tmp";
     fs::copy_file(curr_bin_path, tmp_path, fs::copy_options::overwrite_existing, ec);
     if (ec) {
         const auto msg = ec.message();
         fs::remove(tmp_path, ec);
         return x::errors::Error("failed to copy binary: " + msg);
     }
-    if (chmod(tmp_path.c_str(), S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH) != 0) {
+    if (chmod(tmp_path.c_str(), mode) != 0) {
         fs::remove(tmp_path, ec);
         return x::errors::Error("failed to set binary permissions");
     }
