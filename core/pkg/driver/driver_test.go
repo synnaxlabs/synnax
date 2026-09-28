@@ -287,6 +287,16 @@ var _ = Describe("Open", func() {
 			Expect(d.Close()).To(Succeed())
 		})
 
+		It("Should keep the Driver's state inside its working directory", func(
+			ctx SpecContext,
+		) {
+			logger, _ := newTestLogger()
+			dir := GinkgoT().TempDir()
+			d := openMockDriver(ctx, logger, driver.Config{ParentDirname: dir})
+			Expect(filepath.Join(dir, "driver", "state.json")).To(BeAnExistingFile())
+			Expect(d.Close()).To(Succeed())
+		})
+
 		It("Should write no trust anchors in insecure mode", func(ctx SpecContext) {
 			logger, _ := newTestLogger()
 			dir := GinkgoT().TempDir()
