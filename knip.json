@@ -53,7 +53,7 @@
       "ignoreDependencies": ["@astrojs/*"]
     },
     "landing": {
-      "entry": ["src/**/*.astro", "src/**/*.tsx", "src/**/*.ts"],
+      "entry": ["src/pages/**/*.astro"],
       "project": ["src/**/*.{ts,tsx,astro}"]
     },
     "configs/eslint": {

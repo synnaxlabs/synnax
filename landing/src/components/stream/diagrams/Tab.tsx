@@ -12,7 +12,7 @@ import type { ReactElement } from "react";
 import { NODE_RX, type NodeColors } from "@/components/stream/diagrams/theme";
 
 export const TAB_EXTEND = 10;
-export const TAB_OVERLAP = 14;
+const TAB_OVERLAP = 14;
 
 const TRANSITION = "fill 0.3s ease, stroke 0.3s ease";
 
