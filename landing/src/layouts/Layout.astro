@@ -8,6 +8,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import favicon from "@synnaxlabs/media/logo/icon-white-transparent.svg";
 import { SEO } from "astro-seo";
 import "@/styles/main.css";
 import Header from "@/components/Header.astro";
@@ -30,7 +31,7 @@ const {
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <SEO title={title} description={description} />
-        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <link rel="icon" type="image/svg+xml" href={favicon.src} />
     </head>
     <body>
         <Header />
