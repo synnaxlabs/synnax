@@ -209,7 +209,7 @@ class LabelClient(ResourceClient):
         swatch.click()
         color_picker = self.layout.page.locator(".pluto-color-picker")
         color_picker.wait_for(state="visible", timeout=2000)
-        hex_input = color_picker.get_by_label("Hex")
+        hex_input = color_picker.get_by_label("Hex", exact=True)
         hex_input.click()
         hex_input.fill(hex_color.lstrip("#"))
         self.layout.press_enter()
