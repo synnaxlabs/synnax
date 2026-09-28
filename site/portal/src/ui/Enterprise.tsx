@@ -13,32 +13,32 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
+import { Panel } from "@/ui/Panel";
+
 export const CONTACT_URL = "https://synnaxlabs.com/#contact";
 
 /** Enterprise tells a personal user what the enterprise edition adds and how to ask. */
 export const Enterprise = (): ReactElement => (
-  <Flex.Box
+  <Panel
     x
     justify="between"
     align="center"
     gap="large"
     wrap
-    bordered
-    rounded
-    background={1}
-    className="portal-enterprise"
-    style={{ padding: "3rem 4rem" }}
+    style={{ padding: "3.5rem 4rem" }}
   >
-    <Flex.Box y gap="small" style={{ flex: "1 1 40rem" }}>
-      <Text.Text level="h5">Synnax Enterprise</Text.Text>
-      <Text.Text level="p" color={10}>
+    <Flex.Box y gap="tiny" style={{ flex: "1 1 40rem" }}>
+      <Text.Text level="h5" weight={500} color={11}>
+        Synnax Enterprise
+      </Text.Text>
+      <Text.Text level="p" color={9}>
         A standalone Core on your own hardware, licensed machines, and a team that
         shares licenses. Organizations are set up by Synnax Labs.
       </Text.Text>
     </Flex.Box>
-    <Button.Button variant="filled" href={CONTACT_URL}>
+    <Button.Button variant="outlined" href={CONTACT_URL}>
       <Icon.Feedback />
       Talk to us
     </Button.Button>
-  </Flex.Box>
+  </Panel>
 );

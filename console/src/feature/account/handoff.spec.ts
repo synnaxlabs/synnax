@@ -32,17 +32,17 @@ describe("account handoff", () => {
     });
   });
 
-  describe("signInURL", () => {
+  describe("loginURL", () => {
     it("should carry the state, fingerprint, name, and version", () => {
       const url = new URL(
-        Account.signInURL({
+        Account.loginURL({
           state: "s",
           fingerprint: ["aa", "bb"],
           name: "my-mac",
           version: "0.58.0",
         }),
       );
-      expect(url.origin + url.pathname).toBe(License.SIGN_IN_URL);
+      expect(url.origin + url.pathname).toBe(License.LOGIN_URL);
       expect(url.searchParams.get("state")).toBe("s");
       expect(url.searchParams.get("fp")).toBe("aa, bb");
       expect(url.searchParams.get("name")).toBe("my-mac");
@@ -50,28 +50,26 @@ describe("account handoff", () => {
     });
 
     it("should leave the version out when unknown", () => {
-      const url = new URL(
-        Account.signInURL({ state: "s", fingerprint: [], name: "n" }),
-      );
+      const url = new URL(Account.loginURL({ state: "s", fingerprint: [], name: "n" }));
       expect(url.searchParams.has("v")).toBe(false);
     });
   });
 
   describe("parseLink", () => {
-    it("should read every field of a sign-in link", () => {
+    it("should read every field of a login link", () => {
       expect(Account.parseLink(linkOf(LINKED))).toEqual(LINKED);
     });
 
     it("should refuse a link with another form", () => {
       expect(() => Account.parseLink("synnax://cluster/abc")).toThrow(
-        "Sign-in links must be of the form",
+        "Login links must be of the form",
       );
     });
 
     it("should refuse a link that misses a field", () => {
       const { secret: _, ...rest } = LINKED;
       expect(() => Account.parseLink(linkOf(rest))).toThrow(
-        "The sign-in link is missing its secret",
+        "The login link is missing its secret",
       );
     });
   });
@@ -100,11 +98,11 @@ describe("account handoff", () => {
       );
     });
 
-    it("should report a machine the hub no longer knows as unlinked", async () => {
-      answer(403, { error: "This machine was unlinked. Sign in again." });
+    it("should report a machine the hub logged out as unlinked", async () => {
+      answer(403, { error: "This machine was logged out. Log in again." });
       expect(await Account.renew("shh")).toEqual({
         variant: "unlinked",
-        message: "This machine was unlinked. Sign in again.",
+        message: "This machine was logged out. Log in again.",
       });
     });
 

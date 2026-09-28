@@ -17,10 +17,10 @@ import { type Linked, parseLink } from "@/feature/account/handoff";
 import { Link } from "@/platform/link";
 import { Session } from "@/session";
 
-const FAILED_MESSAGE = "Failed to sign in";
+const FAILED_MESSAGE = "Failed to log in";
 
 /**
- * Takes the sign-in link the hub opens Synnax Desktop with: applies its token to
+ * Takes the login link the hub opens Synnax Desktop with: applies its token to
  * the embedded Core and stores the link. A link whose state this app did not mint is
  * refused.
  */
@@ -37,11 +37,11 @@ export const useLink = (deps: Link.Deps = Link.DEFAULT_DEPS): void => {
   const receive = (urls: string[]): void => {
     try {
       dispatch(Drift.focusWindow({}));
-      if (urls.length === 0) throw new Error("The sign-in link is empty");
+      if (urls.length === 0) throw new Error("The login link is empty");
       const linked = parseLink(urls[0]);
       const { pending } = Session.Account.select(store.getState());
       if (pending == null || linked.state !== pending)
-        throw new Error("This sign-in link was not requested by this app");
+        throw new Error("This login link was not requested by this app");
       setReceived(linked);
     } catch (e) {
       handleError(e, FAILED_MESSAGE);

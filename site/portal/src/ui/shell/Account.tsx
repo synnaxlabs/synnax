@@ -16,11 +16,11 @@ import { type ReactElement, useCallback } from "react";
 
 import { useClerk, useUser } from "@/ui/clerk";
 
-/** Account is the avatar menu in the portal bar: the user's settings and sign out. */
+/** Account is the avatar menu in the portal bar: the user's settings and log out. */
 export const Account = (): ReactElement | null => {
   const clerk = useClerk();
   const user = useUser();
-  const signOut = useCallback(() => {
+  const logout = useCallback(() => {
     if (clerk == null) return;
     void clerk.signOut(() => {
       window.location.assign("/");
@@ -53,7 +53,7 @@ export const Account = (): ReactElement | null => {
           level="small"
           onChange={{
             settings: () => window.location.assign("/settings"),
-            signOut,
+            logout,
           }}
         >
           <Menu.Item itemKey="settings">
@@ -61,9 +61,9 @@ export const Account = (): ReactElement | null => {
             Settings
           </Menu.Item>
           <Menu.Divider />
-          <Menu.Item itemKey="signOut">
+          <Menu.Item itemKey="logout">
             <Icon.Logout />
-            Sign out
+            Log out
           </Menu.Item>
         </Menu.Menu>
       </Dialog.Dialog>

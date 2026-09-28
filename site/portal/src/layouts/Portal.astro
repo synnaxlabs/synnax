@@ -60,8 +60,6 @@ const option = (o: Organization) => ({
             tabs(scope, session.staff).map((link) => (
                 <Button.Button
                     variant="text"
-                    textColor={link.tab === tab ? 11 : 9}
-                    background={link.tab === tab ? 2 : undefined}
                     weight={link.tab === tab ? 500 : 400}
                     className="portal-tab"
                     href={link.href}

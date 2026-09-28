@@ -87,36 +87,36 @@ describe("Account.Guard", () => {
     expect(screen.getByText("licensed content")).toBeTruthy();
   });
 
-  it("should ask for a sign-in while the Core is unlicensed", async () => {
+  it("should ask for a login while the Core is unlicensed", async () => {
     await renderGuard({ status: UNLICENSED });
-    expect(screen.getByText("Sign in to continue")).toBeTruthy();
+    expect(screen.getByText("Log in to continue")).toBeTruthy();
     expect(screen.queryByText("licensed content")).toBeNull();
   });
 
-  it("should say the sign-in lapsed on a machine that was linked", async () => {
+  it("should say the login lapsed on a machine that was linked", async () => {
     await renderGuard({
       status: UNLICENSED,
       account: { version: 0, email: "someone@example.com" },
     });
-    expect(screen.getByText("Your sign-in has lapsed")).toBeTruthy();
+    expect(screen.getByText("Your login has lapsed")).toBeTruthy();
     expect(screen.getByText(/someone@example\.com/)).toBeTruthy();
   });
 
   it("should open the hub with the state it minted", async () => {
     const open = vi.spyOn(window, "open").mockReturnValue(null);
     const { store } = await renderGuard({ status: UNLICENSED });
-    const signIn = findButton("Sign in");
-    await waitFor(() => expect(signIn.getAttribute("aria-disabled")).toBeNull());
-    fireEvent.click(signIn);
+    const login = findButton("Log in");
+    await waitFor(() => expect(login.getAttribute("aria-disabled")).toBeNull());
+    fireEvent.click(login);
     await waitFor(() => expect(open).toHaveBeenCalled());
     const url = new URL(String(open.mock.calls[0][0]));
-    expect(url.origin + url.pathname).toBe(License.SIGN_IN_URL);
+    expect(url.origin + url.pathname).toBe(License.LOGIN_URL);
     expect(url.searchParams.get("fp")).toBe("aa, bb");
     expect(url.searchParams.get("name")).toBe(Account.DEFAULT_MACHINE_NAME);
     expect(url.searchParams.get("state")).toBe(
       Session.Account.select(store.getState()).pending,
     );
-    expect(await screen.findByText("Waiting for your browser...")).toBeTruthy();
+    expect(await screen.findByText("Finish in your browser")).toBeTruthy();
   });
 
   it("should ask to try again while the machine is offline", async () => {
@@ -124,7 +124,7 @@ describe("Account.Guard", () => {
     await renderGuard({ status: UNLICENSED });
     expect(screen.getByText("You are offline")).toBeTruthy();
     expect(findButton("Try again")).toBeTruthy();
-    expect(screen.queryByText("Sign in")).toBeNull();
+    expect(screen.queryByText("Log in")).toBeNull();
   });
 
   it("should offer the license file screen and a way back", async () => {
@@ -133,6 +133,6 @@ describe("Account.Guard", () => {
     expect(screen.getByPlaceholderText("Paste the token")).toBeTruthy();
     expect(screen.queryByText("Log out")).toBeNull();
     fireEvent.click(findButton("Back"));
-    expect(screen.getByText("Sign in to continue")).toBeTruthy();
+    expect(screen.getByText("Log in to continue")).toBeTruthy();
   });
 });

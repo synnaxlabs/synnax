@@ -95,7 +95,7 @@ const EVENT_LABELS: Record<Event["kind"], string> = {
   expiry_notice: "Expiry notice sent",
   link: "Machine linked",
   renew: "License renewed",
-  unlink: "Machine unlinked",
+  unlink: "Machine logged out",
 };
 
 interface Narrator {

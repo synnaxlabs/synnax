@@ -9,7 +9,8 @@
 
 import { describe, expect, it } from "vitest";
 
-import { MAX_NAME_LENGTH, readName } from "@/server/license/machine";
+import { MAX_NAME_LENGTH } from "@/server/license/limits";
+import { readName } from "@/server/license/machine";
 
 describe("machine.readName", () => {
   it("should trim the name it is given", () => {

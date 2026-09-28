@@ -16,7 +16,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useCallback } from "react";
 import { z } from "zod";
 
-import { MAX_NAME_LENGTH } from "@/server/license/machine";
+import { MAX_NAME_LENGTH } from "@/server/license/limits";
 import { post, reload, save } from "@/ui/api";
 import * as Modal from "@/ui/Modal";
 import { type Action, useAction } from "@/ui/useAction";

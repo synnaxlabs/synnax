@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/feature/account/SignIn.css";
+import "@/feature/account/Login.css";
 
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -16,7 +16,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useEffect, useState } from "react";
 
-import { mintState, signInURL } from "@/feature/account/handoff";
+import { loginURL, mintState } from "@/feature/account/handoff";
 import { readMachineName } from "@/feature/account/machine";
 import { License } from "@/feature/license";
 import { Shell } from "@/feature/shell";
@@ -43,11 +43,11 @@ const useOnline = (): boolean => {
 type Stage = "idle" | "waiting" | "file";
 
 /**
- * Full-screen sign-in surface for Synnax Desktop. Sends the person to the hub in
+ * Full-screen login surface for Synnax Desktop. Sends the person to the hub in
  * their browser and waits for the link the hub opens the app with; a license file
  * is the fallback.
  */
-export const SignIn = (): ReactElement => {
+export const Login = (): ReactElement => {
   const [stage, setStage] = useState<Stage>("idle");
   if (stage === "file") return <License.Activate onBack={() => setStage("idle")} />;
   return <Handoff stage={stage} onStage={setStage} />;
@@ -70,8 +70,8 @@ const Handoff = ({ stage, onStage }: HandoffProps): ReactElement => {
     handleError(async () => {
       if (info == null) return;
       const state = mintState();
-      dispatch(Session.Account.beginSignIn(state));
-      const url = signInURL({
+      dispatch(Session.Account.beginLogin(state));
+      const url = loginURL({
         state,
         fingerprint: info.fingerprint,
         name: await readMachineName(),
@@ -79,71 +79,98 @@ const Handoff = ({ stage, onStage }: HandoffProps): ReactElement => {
       });
       await Runtime.openExternal(url);
       onStage("waiting");
-    }, "Failed to open the sign-in page");
+    }, "Failed to open the login page");
 
   const lapsed = email != null;
-  let content: ReactElement;
-  if (!online)
-    content = (
-      <>
-        <Status.Summary
-          variant="warning"
-          message="You are offline"
-          description="Connect to the internet to sign in."
-        />
-        <Button.Button variant="filled" onClick={start} disabled={info == null}>
-          <Icon.Refresh />
-          Try again
-        </Button.Button>
-      </>
-    );
-  else if (stage === "waiting")
-    content = (
-      <>
-        <Status.Summary
-          variant="loading"
-          message="Waiting for your browser..."
-          description="Finish signing in there. This window updates on its own."
-        />
-        <Button.Button variant="outlined" onClick={start}>
-          <Icon.Refresh />
-          Try again
-        </Button.Button>
-      </>
-    );
-  else
-    content = (
-      <Button.Button variant="filled" onClick={start} disabled={info == null}>
-        <Icon.OpenExternal />
-        Sign in
+  let title: string;
+  let description: string;
+  let action: ReactElement;
+  if (!online) {
+    title = "You are offline";
+    description = "Connect to the internet to log in";
+    action = (
+      <Button.Button
+        size="large"
+        full="x"
+        justify="center"
+        variant="filled"
+        onClick={start}
+        disabled={info == null}
+      >
+        <Icon.Refresh />
+        Try again
       </Button.Button>
     );
+  } else if (stage === "waiting") {
+    title = "Finish in your browser";
+    description = "This window updates on its own once you log in";
+    action = (
+      <Button.Button
+        size="large"
+        full="x"
+        justify="center"
+        variant="outlined"
+        onClick={start}
+      >
+        Open the page again
+        <Icon.OpenExternal />
+      </Button.Button>
+    );
+  } else {
+    title = lapsed ? "Your login has lapsed" : "Log in to continue";
+    description = lapsed
+      ? `Log in again as ${email} to keep using Synnax Desktop`
+      : "Link this computer to your Synnax account";
+    action = (
+      <Button.Button
+        size="large"
+        full="x"
+        justify="center"
+        variant="filled"
+        onClick={start}
+        disabled={info == null}
+      >
+        Log in
+        <Icon.OpenExternal />
+      </Button.Button>
+    );
+  }
 
   return (
-    <Shell.Frame className={CSS.B("account-sign-in")}>
-      <Flex.Box
-        y
-        align="center"
-        gap="large"
-        className={CSS.BE("account-sign-in", "body")}
-      >
-        <Status.Orbital core={<PlatformShell.Mark />} />
-        <Flex.Box y align="center" gap="small">
-          <Text.Text level="h4" weight={500}>
-            {lapsed ? "Your sign-in has lapsed" : "Sign in to continue"}
-          </Text.Text>
-          <Text.Text level="p" color={10} align="center">
-            {lapsed
-              ? `Sign in again as ${email} to keep using Synnax Desktop.`
-              : "Synnax Desktop links this computer to your Synnax account."}
-          </Text.Text>
+    <Shell.Frame className={CSS.B("account-login")}>
+      <Flex.Box y align="center" className={CSS.BE("account-login", "body")}>
+        <Flex.Box y align="center" justify="center" gap="huge" grow full="x">
+          <Flex.Box
+            y
+            align="center"
+            justify="center"
+            className={CSS.BE("account-login", "hero")}
+          >
+            {stage === "waiting" && online ? (
+              <Status.Orbital core={<PlatformShell.Mark />} />
+            ) : (
+              <PlatformShell.Mark />
+            )}
+          </Flex.Box>
+          <Flex.Box y align="center" gap="small" full="x">
+            <Text.Text level="h4" weight={500} color={11}>
+              {title}
+            </Text.Text>
+            <Text.Text
+              level="p"
+              color={9}
+              className={CSS.BE("account-login", "description")}
+            >
+              {description}
+            </Text.Text>
+          </Flex.Box>
+          {action}
         </Flex.Box>
-        {content}
         <Button.Button
           variant="text"
           size="small"
+          textColor={9}
           onClick={() => onStage("file")}
-          className={CSS.BE("account-sign-in", "file")}
         >
           Use a license file
         </Button.Button>

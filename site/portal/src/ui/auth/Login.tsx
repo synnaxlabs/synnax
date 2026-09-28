@@ -9,6 +9,7 @@
 
 import { Button } from "@synnaxlabs/lyra/button";
 import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Text } from "@synnaxlabs/lyra/text";
 import { navigate } from "astro:transitions/client";
@@ -30,8 +31,8 @@ const codeSchema = z.object({ code: z.string().trim().min(1, "Enter the code") }
 
 type Step = "credentials" | "second-factor";
 
-/** SignIn signs a user in with email and password, Google, or Microsoft. */
-export const SignIn = (): ReactElement => {
+/** Login logs a user in with email and password, Google, or Microsoft. */
+export const Login = (): ReactElement => {
   const clerk = useClerk();
   const [step, setStep] = useState<Step>("credentials");
   const [oauthError, setOAuthError] = useState<string | null>(null);
@@ -47,7 +48,7 @@ export const SignIn = (): ReactElement => {
     [clerk],
   );
 
-  const signIn = useAction(
+  const login = useAction(
     useCallback(async () => {
       if (clerk?.client == null || !methods.validate()) return;
       const { email, password } = methods.value();
@@ -61,7 +62,7 @@ export const SignIn = (): ReactElement => {
           setStep("second-factor");
           return;
         }
-        throw new Error(`Sign-in needs ${res.status ?? "another step"}`);
+        throw new Error(`Login needs ${res.status ?? "another step"}`);
       } catch (err) {
         throw new Error(errorMessage(err), { cause: err });
       }
@@ -88,13 +89,15 @@ export const SignIn = (): ReactElement => {
     return (
       <Card
         title="Two-step verification"
-        description="Enter the code from your authenticator app."
+        description="Enter the code from your authenticator app"
         error={verify.error}
       >
         <Form.Form<typeof codeSchema> {...codeMethods}>
           <Form.TextField
             path="code"
             label="Code"
+            required={false}
+            padHelpText={false}
             inputProps={{ autoFocus: true, autoComplete: "one-time-code" }}
           />
           <Button.Button
@@ -114,9 +117,9 @@ export const SignIn = (): ReactElement => {
 
   return (
     <Card
-      title="Sign in"
-      description="Manage your Synnax licenses."
-      error={signIn.error ?? oauthError}
+      title="Log in"
+      description="Manage your Synnax licenses"
+      error={login.error ?? oauthError}
       footer={
         <Text.Text level="small" color={9}>
           New to Synnax?{" "}
@@ -126,12 +129,22 @@ export const SignIn = (): ReactElement => {
         </Text.Text>
       }
     >
-      <OAuth mode="sign-in" onError={setOAuthError} />
+      <OAuth mode="login" onError={setOAuthError} />
       <Form.Form<typeof schema> {...methods}>
-        <Form.Field<string> path="email" label="Email">
+        <Form.Field<string>
+          path="email"
+          label="Email"
+          required={false}
+          padHelpText={false}
+        >
           {(p) => <Input.Text {...p} type="email" autoComplete="email" autoFocus />}
         </Form.Field>
-        <Form.Field<string> path="password" label="Password">
+        <Form.Field<string>
+          path="password"
+          label="Password"
+          required={false}
+          padHelpText={false}
+        >
           {(p) => <Input.Text {...p} type="password" autoComplete="current-password" />}
         </Form.Field>
         <Button.Button
@@ -139,18 +152,19 @@ export const SignIn = (): ReactElement => {
           size="large"
           full="x"
           justify="center"
-          onClick={signIn.run}
+          onClick={login.run}
           disabled={clerk == null}
-          status={signIn.loading ? "loading" : undefined}
+          status={login.loading ? "loading" : undefined}
           trigger={["Enter"]}
         >
-          Sign in
+          Log in
+          <Icon.Arrow.Right />
         </Button.Button>
         <Text.Text
           el="a"
           level="small"
           variant="link"
-          href={withTarget("/sign-in/reset")}
+          href={withTarget("/login/reset")}
           style={{ alignSelf: "center" }}
         >
           Forgot your password?

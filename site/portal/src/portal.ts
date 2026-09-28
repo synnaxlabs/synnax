@@ -29,7 +29,7 @@ export interface Portal {
   signer: Signer;
   mail: Mailer;
   staffOrgID: string;
-  /** session resolves the signed-in user, throwing a 401 when there is none. */
+  /** session resolves the logged-in user, throwing a 401 when there is none. */
   session: () => Promise<Session>;
   now: () => Date;
 }

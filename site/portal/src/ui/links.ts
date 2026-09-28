@@ -1,4 +1,3 @@
----
 // Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
@@ -8,14 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import Guest from "@/layouts/Guest.astro";
-import { guest } from "@/page";
-import { Reset } from "@/ui/auth/Reset";
-
-const away = guest(Astro);
-if (away != null) return away;
----
-
-<Guest title="Reset your password">
-    <Reset client:load />
-</Guest>
+/** DOWNLOAD_URL is where a user gets Synnax Desktop. */
+export const DOWNLOAD_URL = "https://docs.synnaxlabs.com/reference/desktop/get-started";

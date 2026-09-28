@@ -22,16 +22,16 @@ describe("account slice", () => {
     expect(Account.ZERO_SLICE_STATE).toEqual({ version: 0 });
   });
 
-  describe("beginSignIn", () => {
+  describe("beginLogin", () => {
     it("should hold the minted state", () => {
-      const next = Account.reducer(Account.ZERO_SLICE_STATE, Account.beginSignIn("s"));
+      const next = Account.reducer(Account.ZERO_SLICE_STATE, Account.beginLogin("s"));
       expect(next.pending).toBe("s");
     });
   });
 
   describe("link", () => {
     it("should store the link and drop the pending state", () => {
-      const begun = Account.reducer(Account.ZERO_SLICE_STATE, Account.beginSignIn("s"));
+      const begun = Account.reducer(Account.ZERO_SLICE_STATE, Account.beginLogin("s"));
       const next = Account.reducer(begun, Account.link(LINKED));
       expect(next).toEqual({ version: 0, ...LINKED });
     });

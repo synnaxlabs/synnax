@@ -60,7 +60,7 @@ export interface Machine {
   license: License;
 }
 
-/** superseded picks the linked machines that share a hash with the one signing in. */
+/** superseded picks the linked machines that share a hash with the one logging in. */
 export const superseded = (machines: Machine[], fingerprint: string[]): Machine[] =>
   machines.filter(({ activation: a }) =>
     a.fingerprint.some((h) => fingerprint.includes(h)),
@@ -171,9 +171,9 @@ export const resolve = async (store: Store, secret: string): Promise<Machine> =>
     .from(activation)
     .innerJoin(license, eq(activation.license, license.key))
     .where(eq(activation.renewalSecretHash, hashSecret(secret)));
-  if (row == null) throw forbidden("This machine is not linked to an account");
+  if (row == null) throw forbidden("This machine is not logged in");
   if (row.activation.releasedAt != null || row.license.revokedAt != null)
-    throw forbidden("This machine was unlinked. Sign in again.");
+    throw forbidden("This machine was logged out. Log in again.");
   return row;
 };
 

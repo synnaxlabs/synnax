@@ -64,7 +64,7 @@ export const useRenew = ({
           addStatus(
             status.create({
               variant: "warning",
-              message: "This machine was signed out",
+              message: "This machine was logged out",
               description: result.message,
             }),
           );

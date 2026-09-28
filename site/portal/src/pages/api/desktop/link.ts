@@ -19,7 +19,7 @@ import { ensurePersonal } from "@/server/organization";
 import { check } from "@/server/ratelimit";
 
 /**
- * POST links the signed-in user's machine: issues a desktop license bound to the
+ * POST links the logged-in user's machine: issues a desktop license bound to the
  * posted `fingerprint`, named by `name`, and answers `{ token, secret, activation,
  * email }`.
  */

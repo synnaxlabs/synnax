@@ -94,6 +94,7 @@ export const License = ({
       <Section title="Machines">
         {held.length === 0 ? (
           <Empty
+            icon={<Icon.Computer />}
             message="No machines hold a seat"
             description="Activate a machine to give a Core its token."
           />
@@ -107,10 +108,10 @@ export const License = ({
                 <Text.Text level="p" overflow="ellipsis">
                   {machineName(a)}
                 </Text.Text>
-                <Text.Text level="p" color={10}>
+                <Text.Text level="p" color={9}>
                   {date(a.firstSeen)}
                 </Text.Text>
-                <Text.Text level="p" color={10}>
+                <Text.Text level="p" color={9}>
                   {date(a.lastSeen)}
                 </Text.Text>
                 <Flex.Box justify="end">
@@ -148,7 +149,7 @@ export const License = ({
       )}
       <Section title="Activity">
         {events.length === 0 ? (
-          <Empty message="Nothing yet" />
+          <Empty icon={<Icon.Log />} message="Nothing yet" />
         ) : (
           <Flex.Box y gap="small">
             {events.map((e) => (
@@ -265,12 +266,12 @@ const ReleaseContent = ({ activation }: { activation: Activation }): ReactElemen
         <Text.Text level="h4" weight={450}>
           Release the seat held by {machineName(activation)}?
         </Text.Text>
-        <Text.Text level="p" color={10}>
+        <Text.Text level="p" color={9}>
           The Core on that machine loses its license at its next check. Activate it
           again to give it a new token.
         </Text.Text>
       </Modal.Body>
-      <Modal.Footer error={action.error}>
+      <Modal.Footer error={action.error} hint="Press and hold Release to confirm">
         <Modal.Cancel />
         <Button.Button
           variant="filled"
@@ -344,12 +345,12 @@ const RevokeContent = ({ license: lic }: { license: LicenseRecord }): ReactEleme
         <Text.Text level="h4" weight={450}>
           Revoke "{lic.label}"?
         </Text.Text>
-        <Text.Text level="p" color={10}>
+        <Text.Text level="p" color={9}>
           Every Core running under it loses its license at its next check. The
           organization's admins are emailed. There is no undo.
         </Text.Text>
       </Modal.Body>
-      <Modal.Footer error={action.error}>
+      <Modal.Footer error={action.error} hint="Press and hold Revoke to confirm">
         <Modal.Cancel />
         <Button.Button
           variant="filled"
@@ -357,7 +358,7 @@ const RevokeContent = ({ license: lic }: { license: LicenseRecord }): ReactEleme
           onClick={action.run}
           onClickDelay={1500}
         >
-          Hold to revoke
+          Revoke
         </Button.Button>
       </Modal.Footer>
     </>

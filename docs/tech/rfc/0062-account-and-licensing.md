@@ -21,7 +21,7 @@ declared in Terraform. The docs at docs.synnaxlabs.com stay public and link to i
 Core gains one license primitive: a JWT signed with Ed25519 and bound to a machine,
 verified offline with public keys compiled into the binary. Two paths issue that token.
 The free edition, Synnax Desktop, signs the user in through the system browser and
-issues itself a short-lived license that renews while signed in. The enterprise edition,
+issues itself a short-lived license that renews while logged in. The enterprise edition,
 the standalone Core, activates through a start flag or the Console against a license
 that staff issued in the portal, on a subscription or perpetual term. Downloads stay
 public, the Core never phones home, a running Core never stops because of time, and the
@@ -74,7 +74,7 @@ old key format is deleted.
 
 ## 3 Principles
 
-1. **One license primitive**: Desktop sign-in and enterprise activation produce the same
+1. **One license primitive**: Desktop login and enterprise activation produce the same
    token, verified by the same code. There is no second mechanism.
 2. **The running Core never phones home**: Verification is offline. Network calls happen
    in the Console or the portal, never in the server. This continues RFC 0011 §4.4.0 and
@@ -87,7 +87,7 @@ old key format is deleted.
    a process that is already serving. A test operator loses a test if a license lapses
    mid-run; they lose nothing if the Core refuses to start the next morning.
 5. **Enforcement lives in the license, not the download**: Every artifact stays public.
-   Desktop sign-in counts free users; activation counts enterprise machines.
+   Desktop login counts free users; activation counts enterprise machines.
 6. **Buy the standard parts, build the Synnax parts**: Identity, teams, email, and key
    custody come from Clerk, Resend, and AWS KMS. The license token, the fingerprint, the
    verifier, the organization model, and the activation ledger are ours.
@@ -343,7 +343,7 @@ banner appears inside the grace window or under a version fallback.
 The same screen serves the embedded web Console the Core hosts, which is how a headless
 server is activated without a desktop install.
 
-Desktop builds add a sign-in state (§5.8) above the activation screen; enterprise builds
+Desktop builds add a login state (§5.8) above the activation screen; enterprise builds
 never show it. The Desktop build is the one RFC 0063 defines, selected by its `DESKTOP`
 build-time constant, which only `console/src/app` reads. `app/window/Guard.tsx` puts the
 license gate in both guard trees. In Desktop the gate sits outside the embedded Core
@@ -352,7 +352,7 @@ standalone: no connection island and no log out action.
 
 ### 5.6 Portal identity and organizations
 
-Clerk provides sign-up, sign-in, sessions, and, for team organizations, membership,
+Clerk provides sign-up, login, sessions, and, for team organizations, membership,
 invitations, and roles through `@clerk/astro`, on a direct Clerk account. The portal
 renders every one of those screens itself on Clerk's client API (§5.11); no Clerk widget
 appears in the portal. The portal's middleware runs the Clerk handler ahead of its CSP
@@ -422,7 +422,7 @@ an expiry and an optional fallback version; a perpetual license takes a maximum 
 and no expiry; a trial is a short subscription. No self-serve trial and no payments
 exist in this version.
 
-### 5.8 Desktop sign-in
+### 5.8 Desktop login
 
 Desktop follows RFC 8252 with a custom scheme of its own, `synnax-desktop://`,
 registered in `tauri.desktop.conf.json`. The Console keeps `synnax://`, so the two apps
@@ -431,7 +431,7 @@ replaces the Console's link registry in the Desktop build; no Console link can r
 Desktop.
 
 The app reads the fingerprint from its embedded Core, mints a one-time `state` value,
-and opens `portal.synnaxlabs.com/desktop/sign-in?state=&fp=&name=&v=` in the system
+and opens `portal.synnaxlabs.com/desktop/login?state=&fp=&name=&v=` in the system
 browser, `name` being the machine's hostname and `v` the app version. The user signs in
 with Clerk; the page then calls `POST /api/desktop/link`, which issues a desktop license
 for the user's personal organization, records the activation against the fingerprint,
@@ -458,12 +458,12 @@ lapses at expiry plus the grace window. The app clears its account slice on a re
 renewal. A machine that never reaches the portal runs until the lapse. The expiry
 notices (§5.7) skip the desktop edition.
 
-In Desktop the license gate shows a sign-in screen in place of the enterprise activation
-screen: one line and a Sign in button, a waiting state while the browser is open, an
+In Desktop the license gate shows a login screen in place of the enterprise activation
+screen: one line and a Log in button, a waiting state while the browser is open, an
 offline state with Try again, and a link, Use a license file, that opens the
 paste-and-file screen standalone. Desktop's unlicensed messages use plain words ("Sign
-in to continue", "Your sign-in has lapsed") per RFC 0063 §5.5. There is no sign-out in
-the app: the version modal shows the signed-in email with a link to the portal, and
+in to continue", "Your login has lapsed") per RFC 0063 §5.5. There is no logout in the
+app: the version modal shows the logged-in email with a link to the portal, and
 switching accounts is Unlink in the portal or Erase all data.
 
 ### 5.9 Development, CI, and hosted Cores
@@ -516,15 +516,15 @@ concealment. The two that were short to avoid a word, `fp` and `fs`, spell out a
 
 ### 5.11 Portal interface
 
-The portal is its own application shell on its own host. The docs header carries one
-Sign in button to it, beside Search and GitHub, and no other account entry.
+The portal is its own application shell on its own host. The docs header carries one Log
+in button to it, beside Search and GitHub, and no other account entry.
 
 The shell is scope first. The top bar holds the logo, the scope, a Docs link, and the
 avatar menu. For a personal account the scope is the user's name. A team member gets a
 switcher that lists their name and each team, and a switch opens that scope's Overview.
 A tab row under the bar holds the scope's sections: Overview and Devices for a personal
 scope; Overview, Licenses, and Members for a team; and Admin for staff in every scope.
-Every scope opens on Overview. The avatar menu holds Settings and Sign out, the same in
+Every scope opens on Overview. The avatar menu holds Settings and Log out, the same in
 every scope. Content sits in one centered column at the application type scale and
 radius. Theme follows the operating system. Below the mobile breakpoint the tab row
 scrolls sideways and tables collapse to cards.
@@ -540,21 +540,21 @@ channel and the page-level form posts are deleted. That anatomy moves from the C
 into Pluto as `Modal` (frame, header, body, footer), and the Console's `platform/modals`
 keeps only what binds it to the session: the factory and the stack.
 
-- **Sign-in and sign-up**: `/sign-in`, `/sign-up`, `/sign-in/reset`, and
-  `/sso-callback`, built on `signIn`, `signUp`, `setActive`, and
-  `handleRedirectCallback` from Clerk's client. Sign-in offers email and password, a
-  Google button, and a Microsoft button; a second factor renders when the account has
-  one. Reset sends an email code and takes a new password. Sign-up takes name, email,
-  and password, verifies the email with a six-digit code, and lands on `/`. OAuth
-  redirects to `/sso-callback` and completes to the requested page. Clerk's error codes
-  map to field help text; nothing else surfaces raw vendor copy.
+- **Login and sign-up**: `/login`, `/sign-up`, `/login/reset`, and `/sso-callback`,
+  built on `signIn`, `signUp`, `setActive`, and `handleRedirectCallback` from Clerk's
+  client. Login offers email and password, a Google button, and a Microsoft button; a
+  second factor renders when the account has one. Reset sends an email code and takes a
+  new password. Sign-up takes name, email, and password, verifies the email with a
+  six-digit code, and lands on `/`. OAuth redirects to `/sso-callback` and completes to
+  the requested page. Clerk's error codes map to field help text; nothing else surfaces
+  raw vendor copy.
 - **Overview** (`/`): For a personal scope, Synnax Desktop, free for personal use. With
-  no machine linked, two steps: Download Synnax Desktop, then Sign in from the app. With
+  no machine linked, two steps: Download Synnax Desktop, then Log in from the app. With
   machines, the three most recent and a link to Devices. The Enterprise panel sits
   beneath. For a team, the number of usable licenses, the seats in use across them, and
   the next expiry, then the newest licenses and a link to Members, with Activate a
   machine on top.
-- **Devices** (`/devices`, personal scope): The machines signed in through Desktop
+- **Devices** (`/devices`, personal scope): The machines logged in through Desktop
   (§5.8) by name, each with the status of its license, how long that license still runs,
   first seen, last renewal, and Rename and Unlink actions. A machine whose license
   lapsed reads Expired and is told to open the app there, since only the app renews it.
@@ -599,8 +599,8 @@ A page that serves one kind of scope redirects the other kind to its Overview.
 - Support. The docs feedback form stays on Formspree, and the portal has no support
   threads, inbox, or help desk integration.
 - Building Synnax Desktop itself: embedding a Core in the Console bundle and the feature
-  flag surface beyond the sign-in state. RFC 0063 covers that build. This RFC defines
-  the license path Desktop uses.
+  flag surface beyond the login state. RFC 0063 covers that build. This RFC defines the
+  license path Desktop uses.
 - Payments and self-serve purchase. The license table is shaped so a Stripe flow can
   create rows later; nothing here depends on it.
 - The privacy policy. Accounts, Clerk, and PostHog identification change the data
@@ -651,8 +651,8 @@ before the key that signs it exists. Phase 4 lands with the Desktop bundle.
 - **Phase 3: Account interface.** Two pull requests. The first moves the modal anatomy
   from the Console into Pluto and migrates the Console's callers, a mechanical change
   kept apart by risk isolation. The second replaces every portal page: the shell with
-  its scope switcher, tab row, and avatar menu, the docs header's Sign in button, the
-  custom sign-in, sign-up, reset, and callback pages, the overview, devices, licenses,
+  its scope switcher, tab row, and avatar menu, the docs header's Log in button, the
+  custom login, sign-up, reset, and callback pages, the overview, devices, licenses,
   license, members, settings, and admin pages with their dialogs, the Console's
   activation link moved to the portal host, and the deletion of the form-post pages, the
   `?error=` channel, and the account stylesheet. Boundary earned by reviewability: Phase
@@ -660,12 +660,12 @@ before the key that signs it exists. Phase 4 lands with the Desktop bundle.
   deploys, the production Clerk instance needs the name attribute, organizations, and
   the Microsoft connection enabled, and the Neon database needs the Drizzle migration
   applied; neither the build nor the deploy runs it.
-- **Phase 4: Desktop sign-in.** One pull request on top of Phase 3: the `synnax-desktop`
-  scheme, the sign-in page and its link route, the renew route with the renewal secret
-  on the activation row, the machine name, the Desktop sign-in screen and deep link
-  handler, the account slice, and the renewal loop. The Desktop bundle and its build
-  flag exist (RFC 0063). Before it deploys, the Neon database needs the Drizzle
-  migration that adds the two activation columns.
+- **Phase 4: Desktop login.** One pull request on top of Phase 3: the `synnax-desktop`
+  scheme, the login page and its link route, the renew route with the renewal secret on
+  the activation row, the machine name, the Desktop login screen and deep link handler,
+  the account slice, and the renewal loop. The Desktop bundle and its build flag exist
+  (RFC 0063). Before it deploys, the Neon database needs the Drizzle migration that adds
+  the two activation columns.
 
 ### 7.0 Compatibility
 
@@ -693,16 +693,16 @@ registered error types. New clients decode it.
    standard enough that issuance could move to a vendor behind the same endpoint. A
    Desktop-only session would leave two mechanisms.
 3. **No download wall**: Every channel except the portal is public already, and the
-   Tauri updater, `pip`, and `docker pull` cannot be gated. Desktop sign-in and
-   activation give the counts a wall would have given. The trade is real: nothing stops
-   a direct GitHub link.
+   Tauri updater, `pip`, and `docker pull` cannot be gated. Desktop login and activation
+   give the counts a wall would have given. The trade is real: nothing stops a direct
+   GitHub link.
 4. **Clerk and Neon inside the Astro site**: Supabase has no organization concept, so
    invitations and roles would be ours to build. PocketBase is pre-1.0, has no
    organizations, runs on one node, and needs a second host. A separate Go service adds
    a deploy for logic that has no Go consumer. The trade is real: Vercel becomes
    critical for issuance and renewal, though never for a running Core.
 5. **Browser handoff for Desktop**: RFC 8252. An embedded web view is what the RFC
-   forbids, and Google and Apple block their sign-in inside it. A first draft paired it
+   forbids, and Google and Apple block their login inside it. A first draft paired it
    with a device code flow in a CLI; decision 23 removed the CLI.
 6. **The standalone Core requires a license**: Desktop is the free edition; anything
    standalone is enterprise. An unlicensed Core starts and only activation works,
@@ -799,10 +799,10 @@ registered error types. New clients decode it.
 29. **The portal is its own shell, scope first**: A first draft put the account area in
     the docs' left rail under a fourth header entry. Rejected: it read as one more docs
     page, it crowded the header, and nothing said what an account is for. Vercel,
-    Linear, GitHub, Stripe, Tailscale, and Docker all give the signed-in surface its own
+    Linear, GitHub, Stripe, Tailscale, and Docker all give the logged-in surface its own
     shell with the scope at top left and the next action on its first page. The trade is
     real: a second layout to maintain beside the docs.
-30. **Sign-in and the team screens are ours, on Clerk's client API**: Clerk's prebuilt
+30. **Login and the team screens are ours, on Clerk's client API**: Clerk's prebuilt
     components take an appearance object, not a design; they render their own layout and
     copy, and they would be the only surface on the site not built from Pluto. The trade
     is real: password reset, email verification, second factors, and OAuth callbacks are
@@ -858,9 +858,9 @@ registered error types. New clients decode it.
     value is a standalone Core that other people, Drivers, and scripts reach (RFC 0063
     §8), and it would be the first wall a serious evaluator hits. The trade is real:
     nothing in the free edition is metered.
-41. **No sign-out in Desktop**: The Core stores every token it accepts and has no
-    operation to drop one, so a sign-out could only stop renewal while the machine ran
-    on under the old account for up to the term plus grace. A Core operation that
+41. **No logout in Desktop**: The Core stores every token it accepts and has no
+    operation to drop one, so a logout could only stop renewal while the machine ran on
+    under the old account for up to the term plus grace. A Core operation that
     un-licenses a running Core would be permanent surface for a case Unlink and Erase
     all data cover. The trade is real: switching accounts on one machine is a portal
     action, not an app action.

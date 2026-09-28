@@ -13,6 +13,8 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type CSSProperties, type PropsWithChildren, type ReactElement } from "react";
 
+import { Panel } from "@/ui/Panel";
+
 export interface TableProps extends PropsWithChildren {
   /** columns is the grid-template-columns every row shares. */
   columns: string;
@@ -21,19 +23,19 @@ export interface TableProps extends PropsWithChildren {
 
 /** Table lays rows out on one shared grid with a header row above them. */
 export const Table = ({ columns, head, children }: TableProps): ReactElement => (
-  <Flex.Box y gap="tiny" className="portal-list" full="x">
+  <Panel className="portal-list">
     <Flex.Box
       className="portal-list__row portal-list__head"
       style={{ gridTemplateColumns: columns }}
     >
       {head.map((h) => (
-        <Text.Text key={h} level="small" weight={500}>
+        <Text.Text key={h} level="small" weight={500} color={9}>
           {h}
         </Text.Text>
       ))}
     </Flex.Box>
     {children}
-  </Flex.Box>
+  </Panel>
 );
 
 export interface RowProps extends PropsWithChildren {
@@ -43,7 +45,7 @@ export interface RowProps extends PropsWithChildren {
   style?: CSSProperties;
 }
 
-const ROW_STYLE: CSSProperties = { height: "auto", padding: "2rem" };
+const ROW_STYLE: CSSProperties = { height: "auto" };
 
 /** Row is one line of a {@link Table}. */
 export const Row = ({ columns, href, style, children }: RowProps): ReactElement =>

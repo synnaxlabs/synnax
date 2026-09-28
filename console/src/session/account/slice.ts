@@ -15,7 +15,7 @@ export const SLICE_NAME = "account";
 /** The link between this machine and a Synnax account, held by Synnax Desktop. */
 export const sliceStateZ = z.object({
   version: z.literal(0).default(0),
-  /** The state minted for a sign-in the app started and has not finished. */
+  /** The state minted for a login the app started and has not finished. */
   pending: z.string().optional(),
   /** The activation the hub issued for this machine. */
   activation: z.string().optional(),
@@ -42,7 +42,7 @@ const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
   reducers: {
-    beginSignIn: (state, { payload }: PayloadAction<string>) => {
+    beginLogin: (state, { payload }: PayloadAction<string>) => {
       state.pending = payload;
     },
     link: (state, { payload }: PayloadAction<LinkPayload>) => {
@@ -55,7 +55,7 @@ const { actions, reducer } = createSlice({
   },
 });
 
-export const { beginSignIn, link, clear } = actions;
+export const { beginLogin, link, clear } = actions;
 export { reducer };
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;

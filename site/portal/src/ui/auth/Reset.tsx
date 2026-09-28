@@ -9,6 +9,7 @@
 
 import { Button } from "@synnaxlabs/lyra/button";
 import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Text } from "@synnaxlabs/lyra/text";
 import { navigate } from "astro:transitions/client";
@@ -83,8 +84,8 @@ export const Reset = (): ReactElement => {
   );
 
   const footer = (
-    <Text.Text el="a" level="small" variant="link" href={withTarget("/sign-in")}>
-      Back to sign in
+    <Text.Text el="a" level="small" variant="link" href={withTarget("/login")}>
+      Back to log in
     </Text.Text>
   );
 
@@ -92,7 +93,7 @@ export const Reset = (): ReactElement => {
     return (
       <Card
         title="Set a new password"
-        description={`We sent a code to ${emailMethods.value().email}.`}
+        description={`We sent a code to ${emailMethods.value().email}`}
         error={reset.error}
         footer={footer}
       >
@@ -100,9 +101,16 @@ export const Reset = (): ReactElement => {
           <Form.TextField
             path="code"
             label="Code"
+            required={false}
+            padHelpText={false}
             inputProps={{ autoFocus: true, autoComplete: "one-time-code" }}
           />
-          <Form.Field<string> path="password" label="New password">
+          <Form.Field<string>
+            path="password"
+            label="New password"
+            required={false}
+            padHelpText={false}
+          >
             {(p) => <Input.Text {...p} type="password" autoComplete="new-password" />}
           </Form.Field>
           <Button.Button
@@ -114,7 +122,7 @@ export const Reset = (): ReactElement => {
             status={reset.loading ? "loading" : undefined}
             trigger={["Enter"]}
           >
-            Set password and sign in
+            Set password and log in
           </Button.Button>
         </Form.Form>
       </Card>
@@ -123,12 +131,17 @@ export const Reset = (): ReactElement => {
   return (
     <Card
       title="Reset your password"
-      description="We will email you a code."
+      description="We will email you a code"
       error={send.error}
       footer={footer}
     >
       <Form.Form<typeof emailSchema> {...emailMethods}>
-        <Form.Field<string> path="email" label="Email">
+        <Form.Field<string>
+          path="email"
+          label="Email"
+          required={false}
+          padHelpText={false}
+        >
           {(p) => <Input.Text {...p} type="email" autoComplete="email" autoFocus />}
         </Form.Field>
         <Button.Button
@@ -142,6 +155,7 @@ export const Reset = (): ReactElement => {
           trigger={["Enter"]}
         >
           Send code
+          <Icon.Arrow.Right />
         </Button.Button>
       </Form.Form>
     </Card>

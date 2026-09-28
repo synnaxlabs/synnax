@@ -58,7 +58,7 @@ Clerk dashboard:
 
 1. Organizations: enable them. Create the team organization "Synnax Labs" and give every
    staff member the admin role. Its id is `staff_org_id`, the `org_xxx` value above.
-2. Paths: sign-in `/sign-in`, sign-up `/sign-up`, after sign-in `/`.
+2. Paths: login `/login`, sign-up `/sign-up`, after login `/`.
 3. Webhooks: add an endpoint at `https://portal.synnaxlabs.com/api/webhooks/clerk`
    subscribed to `user.created`, `organization.created`, and `organization.updated`. Its
    signing secret is `clerk_webhook_signing_secret`.
@@ -74,7 +74,7 @@ address in `mail_from`.
 
 ### CI license
 
-Sign in to the portal as staff, open the Synnax Labs organization's licenses, issue a
+Log in to the portal as staff, open the Synnax Labs organization's licenses, issue a
 subscription of a few months with one node and no channel cap labelled "CI", and use
 "Download floating token" on it. The file's content is `ci_license_token`. Rotate it by
 issuing a new one before the old one expires and applying again.

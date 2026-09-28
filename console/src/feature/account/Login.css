@@ -9,16 +9,27 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-account-sign-in__body {
+.console-account-login__body {
     width: 100%;
-    padding: 6rem 4rem 4rem;
+    height: 100%;
+    padding: 6rem 8rem 3rem;
 }
 
-.console-account-sign-in .pluto-orbital {
-    --pluto-orbital-size: 45rem;
-    --pluto-loading-delay: 0ms;
+/* One fixed height for the mark and the orbital, so the text holds still between
+   stages. The orbital sizes itself from this box. */
+.console-account-login__hero {
+    width: 100%;
+    height: 26rem;
+    flex-shrink: 0;
+
+    & .pluto-orbital {
+        --pluto-orbital-size: 26rem;
+        --pluto-loading-delay: 0ms;
+    }
 }
 
-.console-account-sign-in__file {
-    margin-top: 2rem;
+/* Text is a flex box, so align centers the box but not its wrapped lines. */
+.console-account-login__description {
+    text-align: center;
+    text-wrap: balance;
 }

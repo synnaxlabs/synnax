@@ -119,7 +119,7 @@ describe("Account.useRenew", () => {
 
   it("should forget the account once the hub has unlinked the machine", async () => {
     const h = await setup({
-      result: { variant: "unlinked", message: "This machine was unlinked." },
+      result: { variant: "unlinked", message: "This machine was logged out." },
     });
     await waitFor(() =>
       expect(Session.Account.select(h.store.getState())).toEqual(
@@ -127,7 +127,7 @@ describe("Account.useRenew", () => {
       ),
     );
     expect(h.activate).not.toHaveBeenCalled();
-    expect(h.statuses().some((s) => s.message === "This machine was signed out")).toBe(
+    expect(h.statuses().some((s) => s.message === "This machine was logged out")).toBe(
       true,
     );
   });

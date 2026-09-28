@@ -12,17 +12,17 @@ import { z } from "zod";
 
 import { License } from "@/platform/license";
 
-/** The URL scheme the hub hands a sign-in back through. */
+/** The URL scheme the hub hands a login back through. */
 export const SCHEME = "synnax-desktop";
 
 const LINK_HOST = "activate";
 
-const INCORRECT_FORMAT_ERROR_MESSAGE = `Sign-in links must be of the form ${SCHEME}://${LINK_HOST}?...`;
+const INCORRECT_FORMAT_ERROR_MESSAGE = `Login links must be of the form ${SCHEME}://${LINK_HOST}?...`;
 
-/** Mints the state a sign-in carries out to the hub and back. */
+/** Mints the state a login carries out to the hub and back. */
 export const mintState = (): string => uuid.create();
 
-export interface SignInParams {
+export interface LoginParams {
   state: string;
   fingerprint: string[];
   /** The name this machine shows in the account. */
@@ -31,13 +31,13 @@ export interface SignInParams {
 }
 
 /** The hub page that links this machine, with what it needs in the query. */
-export const signInURL = ({
+export const loginURL = ({
   state,
   fingerprint,
   name,
   version,
-}: SignInParams): string => {
-  const url = new URL(License.SIGN_IN_URL);
+}: LoginParams): string => {
+  const url = new URL(License.LOGIN_URL);
   url.searchParams.set("state", state);
   url.searchParams.set("fp", License.joinFingerprint(fingerprint));
   url.searchParams.set("name", name);
@@ -56,7 +56,7 @@ export interface Linked {
 
 /**
  * Reads the link the hub opens the app with.
- * @throws {Error} if the URL is not a sign-in link or a field is missing.
+ * @throws {Error} if the URL is not a login link or a field is missing.
  */
 export const parseLink = (url: string): Linked => {
   let parsed: URL;
@@ -70,7 +70,7 @@ export const parseLink = (url: string): Linked => {
   const read = (field: keyof Linked): string => {
     const value = parsed.searchParams.get(field);
     if (value == null || value === "")
-      throw new Error(`The sign-in link is missing its ${field}`);
+      throw new Error(`The login link is missing its ${field}`);
     return value;
   };
   return {

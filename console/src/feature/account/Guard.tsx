@@ -10,15 +10,15 @@
 import { Synnax } from "@synnaxlabs/pluto";
 import { type PropsWithChildren, type ReactElement } from "react";
 
-import { SignIn } from "@/feature/account/SignIn";
+import { Login } from "@/feature/account/Login";
 import { useLink } from "@/feature/account/useLink";
 import { useRenew } from "@/feature/account/useRenew";
 import { Session } from "@/session";
 
 /**
- * Renders the sign-in screen instead of its children while the embedded Core refuses
+ * Renders the login screen instead of its children while the embedded Core refuses
  * requests for want of a license. The connection check keeps polling, so the screen
- * dismisses on its own once the sign-in link applies a license.
+ * dismisses on its own once the login link applies a license.
  */
 export const Guard = ({ children }: PropsWithChildren): ReactElement => {
   const status = Synnax.useConnectionStatus();
@@ -27,12 +27,12 @@ export const Guard = ({ children }: PropsWithChildren): ReactElement => {
   return (
     <>
       {Session.Runtime.isMainWindow() && <SideEffect />}
-      {unlicensed ? <SignIn /> : children}
+      {unlicensed ? <Login /> : children}
     </>
   );
 };
 
-// The sign-in link and the renewal both apply tokens to the embedded Core, so they
+// The login link and the renewal both apply tokens to the embedded Core, so they
 // mount with the gate that waits on it. Tauri hands a deep link to every webview, and
 // the license is one per app, so only the main window listens: a pre-render that
 // answered the link would focus itself into view.

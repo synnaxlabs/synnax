@@ -26,7 +26,7 @@ export interface SettingsProps {
   email: string;
 }
 
-/** Settings shows the signed-in user's profile. */
+/** Settings shows the logged-in user's profile. */
 export const Settings = ({ name, email }: SettingsProps): ReactElement => {
   const user = useUser();
   return (

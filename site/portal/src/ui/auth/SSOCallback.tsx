@@ -17,7 +17,7 @@ import { Card } from "@/ui/auth/Card";
 import { target } from "@/ui/auth/redirect";
 import { errorMessage, useClerk } from "@/ui/clerk";
 
-/** SSOCallback completes a Google or Microsoft sign-in and sends the user on. */
+/** SSOCallback completes a Google or Microsoft login and sends the user on. */
 export const SSOCallback = (): ReactElement => {
   const clerk = useClerk();
   const [error, setError] = useState<string | null>(null);
@@ -35,12 +35,12 @@ export const SSOCallback = (): ReactElement => {
   }, [clerk]);
   return (
     <Card
-      title="Signing you in"
+      title="Logging you in"
       error={error}
       footer={
         error != null && (
-          <Text.Text el="a" level="small" variant="link" href="/sign-in">
-            Back to sign in
+          <Text.Text el="a" level="small" variant="link" href="/login">
+            Back to log in
           </Text.Text>
         )
       }

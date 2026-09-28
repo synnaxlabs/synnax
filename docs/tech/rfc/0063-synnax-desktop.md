@@ -426,7 +426,7 @@ of `ci.yaml` on macOS, which compiles the Tauri shell with no extra system packa
 
 ## 7 What this RFC does not cover
 
-- Portal account sign-in and the license that Desktop runs under. RFC 0062 defines both.
+- Portal account login and the license that Desktop runs under. RFC 0062 defines both.
   The embedded Core refuses work until a license applies, and the license gate sits
   outside the embedded Core guard in `app/window/Guard.tsx`.
 - Access to the embedded Core from the Python client, an external Driver, or a browser.

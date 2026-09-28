@@ -9,13 +9,16 @@
 
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { Status } from "@synnaxlabs/lyra/status";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useCallback, useState } from "react";
 
 import { post, save } from "@/ui/api";
 import { Card } from "@/ui/auth/Card";
+import { useClerk } from "@/ui/clerk";
 import { activateURL, type Linked } from "@/ui/desktop/url";
+import { Panel } from "@/ui/Panel";
+import { Tile } from "@/ui/Tile";
 import { useAction } from "@/ui/useAction";
 
 /** TOKEN_FILE is what the token downloads as when the browser cannot open the app. */
@@ -42,6 +45,7 @@ export const Link = ({
   email,
   problem,
 }: LinkProps): ReactElement => {
+  const clerk = useClerk();
   const [linked, setLinked] = useState<Linked | null>(null);
   const [url, setURL] = useState<string | null>(null);
   const action = useAction(
@@ -56,59 +60,138 @@ export const Link = ({
       window.location.assign(target);
     }, [state, fingerprint, name]),
   );
+  // Reloading after the log out sends the visitor through the login page and back.
+  const logOut = useCallback(() => {
+    void clerk?.signOut(() => {
+      window.location.reload();
+      return Promise.resolve();
+    });
+  }, [clerk]);
   if (problem != null)
     return (
-      <Card title="Cannot sign in this machine" error={problem}>
-        <Text.Text level="p" color={10}>
-          Open Synnax Desktop and choose Sign in again.
-        </Text.Text>
-      </Card>
+      <Card
+        icon={
+          <Tile status="error">
+            <Icon.Warning />
+          </Tile>
+        }
+        title="This machine cannot log in"
+        description="Open Synnax Desktop and choose Log in again"
+        error={problem}
+      />
     );
   if (linked != null && url != null)
     return (
       <Card
-        title="Return to Synnax Desktop"
-        description={`${name} is linked to ${email}. The app should open on its own.`}
+        icon={
+          <Tile status="success">
+            <Icon.Check />
+          </Tile>
+        }
+        title="You're logged in"
+        description="Choose Open Synnax Desktop when your browser asks, then close this tab"
         footer={
-          <Button.Button
-            variant="text"
-            size="small"
-            onClick={() => save(new Blob([linked.token]), TOKEN_FILE)}
-          >
-            Download a license file instead
-          </Button.Button>
+          <Flex.Box x justify="center" gap="small" wrap>
+            <Button.Button
+              variant="text"
+              size="small"
+              textColor={9}
+              onClick={() => save(new Blob([linked.token]), TOKEN_FILE)}
+            >
+              <Icon.Download />
+              Download a license file
+            </Button.Button>
+            <Button.Button variant="text" size="small" textColor={9} href="/">
+              Go to the portal
+              <Icon.Arrow.Right />
+            </Button.Button>
+          </Flex.Box>
         }
       >
-        <Button.Button variant="filled" onClick={() => window.location.assign(url)}>
+        <Summary name={name} email={email} />
+        <Button.Button
+          variant="filled"
+          size="large"
+          full="x"
+          justify="center"
+          onClick={() => window.location.assign(url)}
+        >
           Open Synnax Desktop
+          <Icon.Arrow.Right />
         </Button.Button>
       </Card>
     );
   return (
     <Card
-      title="Sign in to Synnax Desktop"
-      description={`Link ${name} to ${email}.`}
+      icon={
+        <Tile>
+          <Icon.Computer />
+        </Tile>
+      }
+      title="Log in to Synnax Desktop"
+      description="Check that this is your account"
       error={action.error}
       footer={
         <Text.Text level="small" color={9}>
-          You can unlink this machine from the portal at any time.
+          You can log this machine out later from the portal
         </Text.Text>
       }
     >
-      <Flex.Box y gap="small">
-        <Button.Button
-          variant="filled"
-          status={action.loading ? "loading" : undefined}
-          onClick={action.run}
-        >
-          Continue
-        </Button.Button>
-        <Status.Summary
-          variant="info"
-          level="small"
-          message="Synnax Desktop opens once the machine is linked."
-        />
-      </Flex.Box>
+      <Summary name={name} email={email} />
+      <Button.Button
+        variant="filled"
+        size="large"
+        full="x"
+        justify="center"
+        status={action.loading ? "loading" : undefined}
+        onClick={action.run}
+        trigger={["Enter"]}
+      >
+        Continue
+        <Icon.Arrow.Right />
+      </Button.Button>
+      <Button.Button
+        variant="outlined"
+        size="large"
+        full="x"
+        justify="center"
+        onClick={logOut}
+      >
+        Not you? Log out
+      </Button.Button>
     </Card>
   );
 };
+
+interface SummaryProps {
+  name: string;
+  email: string;
+}
+
+/** Summary names the account and the machine a login is for. */
+const Summary = ({ name, email }: SummaryProps): ReactElement => (
+  <Panel gap={0} className="portal-summary">
+    <Entry icon={<Icon.User />} label="Account" value={email} />
+    <Entry icon={<Icon.Computer />} label="Machine" value={name} />
+  </Panel>
+);
+
+interface EntryProps {
+  icon: ReactElement;
+  label: string;
+  value: string;
+}
+
+const Entry = ({ icon, label, value }: EntryProps): ReactElement => (
+  <Flex.Box x align="center" gap="medium">
+    {icon}
+    <Flex.Box y gap={0.25} style={{ minWidth: 0 }}>
+      <Text.Text level="small" color={9}>
+        {label}
+      </Text.Text>
+      <Text.Text level="p" color={11} overflow="ellipsis">
+        {value}
+      </Text.Text>
+    </Flex.Box>
+  </Flex.Box>
+);

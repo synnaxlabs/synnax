@@ -35,7 +35,7 @@ export const useClerk = (): Clerk | null => {
   return loaded ? clerk : null;
 };
 
-/** useUser returns the signed-in user, null when signed out, undefined while loading. */
+/** useUser returns the logged-in user, null when logged out, undefined while loading. */
 export const useUser = (): User | null | undefined => useStore($userStore, undefined);
 
 /** errorMessage reads the message to show for a failed Clerk call. */

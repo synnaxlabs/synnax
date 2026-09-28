@@ -86,13 +86,15 @@ export const SignUp = (): ReactElement => {
     return (
       <Card
         title="Check your email"
-        description={`We sent a code to ${methods.value().email}.`}
+        description={`We sent a code to ${methods.value().email}`}
         error={verify.error}
       >
         <Form.Form<typeof codeSchema> {...codeMethods}>
           <Form.TextField
             path="code"
             label="Code"
+            required={false}
+            padHelpText={false}
             inputProps={{ autoFocus: true, autoComplete: "one-time-code" }}
           />
           <Button.Button
@@ -113,13 +115,13 @@ export const SignUp = (): ReactElement => {
   return (
     <Card
       title="Create an account"
-      description="Activate machines and manage licenses."
+      description="Activate machines and manage licenses"
       error={create.error ?? oauthError}
       footer={
         <Text.Text level="small" color={9}>
           Already have an account?{" "}
-          <Text.Text el="a" level="small" variant="link" href={withTarget("/sign-in")}>
-            Sign in
+          <Text.Text el="a" level="small" variant="link" href={withTarget("/login")}>
+            Log in
           </Text.Text>
         </Text.Text>
       }
@@ -130,20 +132,34 @@ export const SignUp = (): ReactElement => {
           <Form.TextField
             path="firstName"
             label="First name"
+            required={false}
+            padHelpText={false}
             grow
             inputProps={{ autoComplete: "given-name", autoFocus: true }}
           />
           <Form.TextField
             path="lastName"
             label="Last name"
+            required={false}
+            padHelpText={false}
             grow
             inputProps={{ autoComplete: "family-name" }}
           />
         </Flex.Box>
-        <Form.Field<string> path="email" label="Email">
+        <Form.Field<string>
+          path="email"
+          label="Email"
+          required={false}
+          padHelpText={false}
+        >
           {(p) => <Input.Text {...p} type="email" autoComplete="email" />}
         </Form.Field>
-        <Form.Field<string> path="password" label="Password">
+        <Form.Field<string>
+          path="password"
+          label="Password"
+          required={false}
+          padHelpText={false}
+        >
           {(p) => <Input.Text {...p} type="password" autoComplete="new-password" />}
         </Form.Field>
         <div id="clerk-captcha" />

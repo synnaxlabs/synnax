@@ -10,6 +10,7 @@
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
@@ -24,6 +25,7 @@ import {
   useActivate,
 } from "@/ui/licenses/ActivateDialog";
 import { Empty, Page } from "@/ui/Page";
+import { Panel } from "@/ui/Panel";
 
 export interface ActivateChoice {
   license: License;
@@ -55,18 +57,12 @@ export const Activate = ({ choices, selected }: ActivateProps): ReactElement => 
     <Page title="Activate a machine" subtitle="Give a Core its license token">
       {choices.length === 0 ? (
         <Empty
+          icon={<Icon.Access />}
           message="No license to activate against"
           description="Synnax Labs issues licenses. Contact us to ask for one."
         />
       ) : (
-        <Flex.Box
-          y
-          gap="large"
-          bordered
-          rounded
-          background={1}
-          style={{ padding: "4rem" }}
-        >
+        <Panel gap="large" style={{ padding: "4rem" }}>
           <Flex.Box y gap="small">
             <Text.Text level="small" color={9}>
               License
@@ -80,7 +76,7 @@ export const Activate = ({ choices, selected }: ActivateProps): ReactElement => 
             </Select.Simple>
           </Flex.Box>
           {key !== "" && <Inline key={key} licenseKey={key} />}
-        </Flex.Box>
+        </Panel>
       )}
     </Page>
   );

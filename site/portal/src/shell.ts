@@ -10,6 +10,19 @@
 import { type Organization } from "@/server/db/schema";
 
 /** Tab is a section of the portal shell's tab row. */
+/** HOME is where a login lands when nothing sent the visitor. */
+export const HOME = "/";
+
+/**
+ * landing reads where a login lands from its `redirect_url`: the page that sent the
+ * visitor, or {@link HOME} for anything but a same-site path.
+ */
+export const landing = (search: URLSearchParams): string => {
+  const raw = search.get("redirect_url");
+  if (raw == null || !raw.startsWith("/") || raw.startsWith("//")) return HOME;
+  return raw;
+};
+
 export type Tab = "overview" | "devices" | "licenses" | "members" | "admin";
 
 export interface Link {

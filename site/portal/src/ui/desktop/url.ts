@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/** STATE is the shape of the one-time value the Desktop app mints for a sign-in. */
+/** STATE is the shape of the one-time value the Desktop app mints for a login. */
 export const STATE = /^[A-Za-z0-9_-]{16,128}$/;
 
 /** SCHEME is the URL scheme the Desktop app registers. */

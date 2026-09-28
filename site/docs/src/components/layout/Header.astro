@@ -66,11 +66,11 @@ const label = version?.split(".").slice(0, -1).join(".");
                     <Icon.Logo.Github />
                 </Button.Button>
                 <Button.Button
-                    className="sign-in-button"
+                    className="login-button"
                     variant="filled"
-                    href="https://portal.synnaxlabs.com/sign-in"
+                    href="https://portal.synnaxlabs.com/login"
                 >
-                    Sign in
+                    Log in
                 </Button.Button>
                 <PageMobile client:only="react" currentPage={Astro.url.pathname} />
             </Flex.Box>
@@ -126,7 +126,7 @@ const label = version?.split(".").slice(0, -1).join(".");
             color: var(--pluto-gray-l10);
         }
 
-        .sign-in-button {
+        .login-button {
             text-decoration: none;
             font-size: 2rem;
             font-weight: 500;

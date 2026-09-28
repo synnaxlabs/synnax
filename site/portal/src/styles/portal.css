@@ -137,10 +137,22 @@
 
 .portal-tab {
     flex-shrink: 0;
+    color: var(--pluto-gray-l9);
 
     &,
     &:hover {
         text-decoration: none;
+    }
+
+    /* Lyra's subtle selection tier, the one its tab strips use. */
+    &[aria-current="page"] {
+        --pluto-bg: var(--pluto-selected-subtle-bg);
+        --pluto-hover-bg: var(--pluto-selected-subtle-hover-bg);
+        --pluto-active-bg: var(--pluto-selected-subtle-active-bg);
+
+        box-shadow: inset 0 0 0 var(--pluto-border-width)
+            var(--pluto-selected-subtle-border-color);
+        color: var(--pluto-selected-subtle-color);
     }
 }
 
@@ -177,10 +189,6 @@ section.portal {
         border-color: var(--pluto-gray-l4);
         border-radius: var(--pluto-border-radius);
     }
-
-    & .pluto-header .pluto-text {
-        margin: 0;
-    }
 }
 
 /* Rows in a portal list read as a table: the first column grows, the rest keep to
@@ -190,42 +198,189 @@ section.portal {
     align-items: center;
     gap: 4rem;
     width: 100%;
-    min-height: 6rem;
+    min-height: 8rem;
+    padding: 2rem 3rem;
+    border-top: var(--pluto-border-width) solid var(--pluto-gray-l4);
+
+    &.pluto-btn {
+        border-radius: 0;
+    }
+
+    &:last-child {
+        border-bottom-right-radius: inherit;
+        border-bottom-left-radius: inherit;
+    }
 }
 
 .portal-list__head {
-    padding: 0 2rem;
-    color: var(--pluto-gray-l9);
-}
-
-.portal-list .pluto-list__item {
-    border-radius: var(--pluto-border-radius);
+    min-height: 6rem;
+    border-top: none;
 }
 
 .portal-facts {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(24rem, 1fr));
     gap: 3rem 4rem;
+    padding: 3.5rem 4rem;
+}
+
+.portal-empty {
+    padding: 8rem 4rem;
+}
+
+/* A square tile that sets an icon apart above a title. */
+.portal-tile {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 8rem;
+    height: 8rem;
+    margin-bottom: 1rem;
+    border: var(--pluto-border-width) solid var(--pluto-gray-l5);
+    border-radius: var(--pluto-border-radius-large);
+    background: var(--pluto-gray-l3);
+    color: var(--pluto-gray-l10);
+
+    & svg {
+        width: 3.5rem;
+        height: 3.5rem;
+    }
+
+    &.portal-tile--success {
+        border-color: var(--pluto-success-z-40);
+        background: var(--pluto-success-z-10);
+        color: var(--pluto-success-z);
+    }
+
+    &.portal-tile--error {
+        border-color: var(--pluto-error-z-40);
+        background: var(--pluto-error-z-10);
+        color: var(--pluto-error-z);
+    }
+}
+
+.portal-empty__action {
+    margin-top: 2rem;
 }
 
 section.portal-auth-page {
+    position: relative;
+    isolation: isolate;
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 0 4rem;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 8rem 4rem;
+}
+
+/* The Console's frosted glass, so surfaces read over the nebula. */
+.portal-frost {
+    background: color-mix(in srgb, var(--pluto-gray-l0) 45%, transparent);
+    backdrop-filter: blur(3.5rem) saturate(140%);
+    border: var(--pluto-border-width) solid var(--pluto-gray-l6);
+    box-shadow: var(--pluto-shadow-lift);
+}
+
+/* The Console's login rings: two faint outlines that echo the card's corners. */
+.portal-auth__stage {
+    position: relative;
+    width: 100%;
+    max-width: 60rem;
+
+    &::before,
+    &::after {
+        content: "";
+        position: absolute;
+        pointer-events: none;
+    }
+
+    &::before {
+        inset: -2.5rem;
+        border: var(--pluto-border-width) solid
+            color-mix(in srgb, var(--pluto-gray-l7) 45%, transparent);
+        border-radius: calc(var(--pluto-border-radius-huge) + 2.5rem);
+    }
+
+    &::after {
+        inset: -5.5rem;
+        border: var(--pluto-border-width) solid
+            color-mix(in srgb, var(--pluto-gray-l7) 20%, transparent);
+        border-radius: calc(var(--pluto-border-radius-huge) + 5.5rem);
+    }
 }
 
 .portal-auth {
-    width: 100%;
-    max-width: 64rem;
-    margin: 8rem auto 12rem;
+    padding: 5rem;
+    border-radius: var(--pluto-border-radius-huge);
+}
+
+.portal-auth__error {
+    padding: 1.5rem 2rem;
+    border: var(--pluto-border-width) solid var(--pluto-error-z-40);
+    border-radius: var(--pluto-border-radius-large);
+    background: var(--pluto-error-z-10);
+}
+
+.portal-auth__description {
+    text-align: center;
+    text-wrap: balance;
+}
+
+/* The account and machine a Desktop login is for, one per line. */
+.portal-summary {
+    & > * {
+        min-width: 0;
+        padding: 2rem 2.5rem;
+    }
+
+    & > * + * {
+        border-top: var(--pluto-border-width) solid var(--pluto-gray-l4);
+    }
+
+    & > * > svg {
+        flex-shrink: 0;
+        width: 2.5rem;
+        height: 2.5rem;
+        color: var(--pluto-gray-l9);
+    }
+}
+
+.portal-auth__islands {
+    position: absolute;
+    top: 2rem;
+    right: 2rem;
+    left: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.portal-auth__island {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem;
+    border-radius: var(--pluto-border-radius-large);
+
+    &.portal-auth__island--square {
+        justify-content: center;
+        width: 8rem;
+        height: 8rem;
+        padding: 0;
+    }
+
+    & svg {
+        height: 4rem;
+
+        --pluto-logo-color: var(--pluto-gray-l11);
+    }
 }
 
 .portal-step {
-    padding: 3rem 4rem;
+    padding: 3.5rem 4rem;
 
     & + & {
-        border-top: var(--pluto-border);
+        border-top: var(--pluto-border-width) solid var(--pluto-gray-l4);
     }
 }
 
@@ -236,8 +391,9 @@ section.portal-auth-page {
     width: 5rem;
     height: 5rem;
     flex-shrink: 0;
-    border: var(--pluto-border);
+    border: var(--pluto-border-width) solid var(--pluto-gray-l5);
     border-radius: 50%;
+    background: var(--pluto-gray-l3);
 }
 
 .portal-modal {

@@ -76,14 +76,14 @@ const setup = async (overrides: Partial<Link.Deps> = {}): Promise<Harness> => {
 };
 
 const failed = (h: Harness): boolean =>
-  h.statuses().some((s) => s.message === "Failed to sign in");
+  h.statuses().some((s) => s.message === "Failed to log in");
 
 describe("Account.useLink", () => {
   afterEach(() => vi.restoreAllMocks());
 
   it("should apply the token and store the link the app asked for", async () => {
     const h = await setup();
-    h.store.dispatch(Session.Account.beginSignIn("minted"));
+    h.store.dispatch(Session.Account.beginLogin("minted"));
     act(() => h.openURL([linkOf(LINKED)]));
     await waitFor(() => {
       expect(h.activate).toHaveBeenCalledWith("a.b.c");
@@ -99,14 +99,14 @@ describe("Account.useLink", () => {
 
   it("should refuse a link whose state the app did not mint", async () => {
     const h = await setup();
-    h.store.dispatch(Session.Account.beginSignIn("other"));
+    h.store.dispatch(Session.Account.beginLogin("other"));
     act(() => h.openURL([linkOf(LINKED)]));
     await waitFor(() => expect(failed(h)).toBe(true));
     expect(h.activate).not.toHaveBeenCalled();
     expect(Session.Account.select(h.store.getState()).secret).toBeUndefined();
   });
 
-  it("should refuse a link when no sign-in is pending", async () => {
+  it("should refuse a link when no login is pending", async () => {
     const h = await setup();
     act(() => h.openURL([linkOf(LINKED)]));
     await waitFor(() => expect(failed(h)).toBe(true));
@@ -116,7 +116,7 @@ describe("Account.useLink", () => {
   it("should keep the machine unlinked when the Core rejects the token", async () => {
     const h = await setup();
     vi.mocked(h.activate).mockRejectedValue(new Error("bad token"));
-    h.store.dispatch(Session.Account.beginSignIn("minted"));
+    h.store.dispatch(Session.Account.beginLogin("minted"));
     act(() => h.openURL([linkOf(LINKED)]));
     await waitFor(() => expect(failed(h)).toBe(true));
     expect(Session.Account.select(h.store.getState()).secret).toBeUndefined();

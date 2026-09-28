@@ -54,8 +54,8 @@ const PROVIDERS: { strategy: Strategy; name: string; mark: ReactElement }[] = [
 ];
 
 export interface OAuthProps {
-  /** mode picks whether the redirect starts a sign-in or a sign-up. */
-  mode: "sign-in" | "sign-up";
+  /** mode picks whether the redirect starts a login or a sign-up. */
+  mode: "login" | "sign-up";
   onError: (message: string) => void;
 }
 
@@ -73,7 +73,7 @@ export const OAuth = ({ mode, onError }: OAuthProps): ReactElement => {
         redirectUrlComplete: target(),
       };
       const flow =
-        mode === "sign-in"
+        mode === "login"
           ? clerk.client.signIn.authenticateWithRedirect(params)
           : clerk.client.signUp.authenticateWithRedirect(params);
       flow.catch((err: unknown) => {

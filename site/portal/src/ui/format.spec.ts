@@ -137,7 +137,7 @@ describe("format.describeEvent", () => {
       detail: { reason: "superseded" },
     });
     expect(describeEvent(e, NAMES)).toBe(
-      "Machine unlinked: Test stand by Ada (superseded)",
+      "Machine logged out: Test stand by Ada (superseded)",
     );
   });
 });

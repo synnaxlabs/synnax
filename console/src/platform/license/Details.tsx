@@ -125,7 +125,7 @@ const Account = (): ReactElement | null => {
       className={CSS.BE("license", "row")}
     >
       <Text.Text level="small" color={10} overflow="ellipsis">
-        Signed in as {email}
+        Logged in as {email}
       </Text.Text>
       <Button.Button variant="text" size="small" href={ACCOUNT_URL} target="_blank">
         <Icon.OpenExternal />

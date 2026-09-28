@@ -20,7 +20,7 @@ export interface Team {
   role: string;
 }
 
-/** Session is what the portal knows about the signed-in user for one request. */
+/** Session is what the portal knows about the logged-in user for one request. */
 export interface Session extends Membership {
   email: string;
   name: string;
@@ -34,8 +34,8 @@ export const ADMIN_ROLE = "org:admin";
 const STAFF_ROLE = ADMIN_ROLE;
 
 /**
- * resolve reads the signed-in user and their organization memberships from Clerk.
- * Throws a 401 when nobody is signed in.
+ * resolve reads the logged-in user and their organization memberships from Clerk.
+ * Throws a 401 when nobody is logged in.
  */
 export const resolve = async (
   context: APIContext,

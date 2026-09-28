@@ -9,12 +9,25 @@
 // included in the file licenses/APL.txt.
 
 import Root from "@/layouts/Root.astro";
-import { SSOCallback } from "@/ui/auth/SSOCallback";
 import "@/styles/portal.css";
+
+interface Props {
+    title: string;
+}
+
+const { title } = Astro.props;
 ---
 
-<Root title="Logging in">
+<Root title={title}>
     <section class="portal-auth-page">
-        <SSOCallback client:load />
+        <slot />
     </section>
 </Root>
+
+<script>
+    // Back after a login can restore this page from the browser's memory, where the
+    // server's redirect for a logged-in visitor never runs. A reload asks it again.
+    window.addEventListener("pageshow", (e) => {
+        if (e.persisted) window.location.reload();
+    });
+</script>

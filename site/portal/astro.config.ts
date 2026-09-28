@@ -17,7 +17,7 @@ import { layer } from "./src/util/layer";
 const secret = envField.string({ context: "server", access: "secret" });
 
 export default defineConfig({
-  integrations: [react(), clerk({ signInUrl: "/sign-in", signUpUrl: "/sign-up" })],
+  integrations: [react(), clerk({ signInUrl: "/login", signUpUrl: "/sign-up" })],
   output: "server",
   adapter: vercel(),
   // Lyra is ESM with CSS imports, which Node cannot load; Vite bundles it for SSR.

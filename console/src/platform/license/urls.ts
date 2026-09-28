@@ -16,11 +16,11 @@ const PORTAL_URL = import.meta.env.VITE_PORTAL_URL ?? "https://portal.synnaxlabs
 /** The page that issues a token for a host fingerprint. */
 export const ACTIVATE_URL = `${PORTAL_URL}/licenses/activate`;
 
-/** The portal overview of the signed-in account. */
+/** The portal overview of the logged-in account. */
 export const ACCOUNT_URL = `${PORTAL_URL}/`;
 
 /** The page that links a Synnax Desktop machine to an account. */
-export const SIGN_IN_URL = `${PORTAL_URL}/desktop/sign-in`;
+export const LOGIN_URL = `${PORTAL_URL}/desktop/login`;
 
 /** The route that renews a linked machine's license. */
 export const RENEW_URL = `${PORTAL_URL}/api/desktop/renew`;
