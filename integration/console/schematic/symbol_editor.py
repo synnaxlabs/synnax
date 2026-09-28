@@ -131,6 +131,8 @@ class SymbolEditor:
         hex_input.click(click_count=3)
         hex_input.type(hex_color.replace("#", ""))
         self.page.keyboard.press("Enter")
+        # Escape in a text box only leaves the box, so leave it first.
+        hex_input.blur()
         self.page.keyboard.press("Escape")
         color_picker.wait_for(state="hidden", timeout=2000)
 

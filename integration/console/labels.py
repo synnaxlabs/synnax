@@ -213,6 +213,8 @@ class LabelClient(ResourceClient):
         hex_input.click()
         hex_input.fill(hex_color.lstrip("#"))
         self.layout.press_enter()
+        # Escape in a text box only leaves the box, so leave it first.
+        hex_input.blur()
         self.layout.press_escape()
         color_picker.wait_for(state="hidden", timeout=2000)
 
