@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { Avatar } from "@synnaxlabs/lyra/avatar";
-import { Button } from "@synnaxlabs/lyra/button";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -17,10 +16,7 @@ import { type ReactElement, useCallback } from "react";
 
 import { useClerk, useUser } from "@/ui/clerk";
 
-/**
- * Account is the avatar menu in the portal bar: the user's settings and sign out. It
- * shows a sign-in link to a signed-out visitor.
- */
+/** Account is the avatar menu in the portal bar: the user's settings and sign out. */
 export const Account = (): ReactElement | null => {
   const clerk = useClerk();
   const user = useUser();
@@ -31,13 +27,7 @@ export const Account = (): ReactElement | null => {
       return Promise.resolve();
     });
   }, [clerk]);
-  if (user === undefined) return null;
-  if (user === null)
-    return (
-      <Button.Button className="account-button" variant="outlined" href="/sign-in">
-        Sign in
-      </Button.Button>
-    );
+  if (user == null) return null;
   const name = user.fullName ?? user.primaryEmailAddress?.emailAddress ?? "";
   return (
     <Dialog.Frame variant="floating" location={{ x: "right", y: "bottom" }}>
@@ -59,7 +49,7 @@ export const Account = (): ReactElement | null => {
         bordered
         rounded
         background={1}
-        className="account-menu"
+        className="portal-menu"
         style={{ padding: "1rem", minWidth: "24rem" }}
       >
         <Text.Text level="small" color={9} style={{ padding: "1rem 2rem" }}>

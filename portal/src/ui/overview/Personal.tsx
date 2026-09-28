@@ -20,7 +20,7 @@ import { StatusTag } from "@/ui/licenses/StatusTag";
 import { Page, Section } from "@/ui/Page";
 import { Row, Table } from "@/ui/Table";
 
-export const DOWNLOAD_URL = "https://github.com/synnaxlabs/synnax/releases?q=desktop";
+const DOWNLOAD_URL = "https://docs.synnaxlabs.com/reference/desktop/get-started";
 
 /** RECENT is how many machines the overview shows before linking to Devices. */
 const RECENT = 3;

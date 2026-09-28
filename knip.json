@@ -35,8 +35,7 @@
     },
     "portal": {
       "entry": ["src/**/*.astro", "src/**/*.tsx", "src/**/*.ts", "scripts/*.ts"],
-      "project": ["src/**/*.{ts,tsx,astro}", "scripts/*.ts"],
-      "ignoreDependencies": ["@astrojs/*"]
+      "project": ["src/**/*.{ts,tsx,astro}", "scripts/*.ts"]
     },
     "x/media": {
       "entry": ["src/index.ts"],

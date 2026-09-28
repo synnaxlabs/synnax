@@ -105,17 +105,19 @@ export const organizationsFor = async (
 };
 
 /**
- * pick chooses the scope a page acts for. `?org=` selects any of the user's
- * organizations, personal included. Without it, a team member acts for their first
- * team and anyone else for their personal organization. Returns null when the
- * requested key is not one of the user's.
+ * pick chooses the scope a page acts for. `requested`, from `?org=`, selects any of
+ * the user's organizations and returns null when it is not one of them. Without it,
+ * the `remembered` scope applies while the user still belongs to it. Otherwise a team
+ * member acts for their first team and anyone else for their personal organization.
  */
 export const pick = (
   organizations: Organization[],
   requested: string | null,
+  remembered: string | null,
 ): Organization | null => {
   if (requested != null) return organizations.find((o) => o.key === requested) ?? null;
   return (
+    organizations.find((o) => o.key === remembered) ??
     organizations.find((o) => o.kind === "team") ??
     organizations.find((o) => o.kind === "personal") ??
     null

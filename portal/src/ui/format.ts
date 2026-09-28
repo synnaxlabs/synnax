@@ -46,6 +46,32 @@ export const statusOf = (lic: License, now: Date): LicenseStatus => {
 export const usable = (status: LicenseStatus): boolean =>
   status === "active" || status === "expiring";
 
+export interface Standing {
+  /** active counts the licenses that can still grant a seat. */
+  active: number;
+  seats: number;
+  capacity: number;
+  /** nextExpiry is the soonest expiry among them, or null when none expires. */
+  nextExpiry: Date | null;
+}
+
+/** standing sums the seats and expiries of the licenses usable at `now`. */
+export const standing = (
+  licenses: { license: License; seats: number }[],
+  now: Date,
+): Standing => {
+  const live = licenses.filter(({ license }) => usable(statusOf(license, now)));
+  const expiries = live.flatMap(({ license }) =>
+    license.expiresAt == null ? [] : [new Date(license.expiresAt).getTime()],
+  );
+  return {
+    active: live.length,
+    seats: live.reduce((n, l) => n + l.seats, 0),
+    capacity: live.reduce((n, l) => n + l.license.nodes, 0),
+    nextExpiry: expiries.length === 0 ? null : new Date(Math.min(...expiries)),
+  };
+};
+
 export const term = (lic: License): string => {
   if (lic.term === "perpetual") return `Perpetual, up to v${lic.maxVersion}`;
   const until = `Until ${date(lic.expiresAt)}`;

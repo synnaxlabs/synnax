@@ -8,6 +8,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Button } from "@synnaxlabs/lyra/button";
 import { Logo } from "@synnaxlabs/media";
 
 import Root from "@/layouts/Root.astro";
@@ -29,11 +30,11 @@ interface Props {
 }
 
 const { title, session, organizations, scope, tab } = Astro.props;
-const options = organizations.map((o) => ({
+const option = (o: Organization) => ({
     key: o.key,
     name: o.kind === "personal" ? session.name : o.name,
     personal: o.kind === "personal",
-}));
+});
 ---
 
 <Root title={title}>
@@ -41,7 +42,11 @@ const options = organizations.map((o) => ({
         <div class="portal-bar__start">
             <a href={scoped("/", scope)} aria-label="Synnax"><Logo variant="icon" /></a>
             <span class="portal-bar__separator" aria-hidden="true">/</span>
-            <Scope client:load options={options} selected={scope.key} />
+            <Scope
+                client:load
+                options={organizations.map(option)}
+                selected={option(scope)}
+            />
         </div>
         <div class="portal-bar__actions">
             <a class="portal-bar__link" href="https://docs.synnaxlabs.com">Docs</a>
@@ -51,16 +56,15 @@ const options = organizations.map((o) => ({
     <nav class="portal-tabs">
         {
             tabs(scope, session.staff).map((link) => (
-                <a
-                    class:list={[
-                        "portal-tab",
-                        { "portal-tab--active": link.tab === tab },
-                    ]}
+                <Button.Button
+                    variant="text"
+                    textColor={link.tab === tab ? 11 : 9}
+                    className={`portal-tab${link.tab === tab ? " portal-tab--active" : ""}`}
                     href={link.href}
                     aria-current={link.tab === tab ? "page" : undefined}
                 >
                     {link.label}
-                </a>
+                </Button.Button>
             ))
         }
     </nav>

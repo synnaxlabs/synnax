@@ -14,23 +14,18 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useMemo, useState } from "react";
 
-import { type License, type Organization } from "@/server/db/schema";
 import { type Listed } from "@/server/directory";
+import { type Owned } from "@/server/license/list";
+import { IssueDialog } from "@/ui/admin/IssueDialog";
 import { date, type LicenseStatus, statusOf, term } from "@/ui/format";
 import { StatusTag } from "@/ui/licenses/StatusTag";
 import { Empty, Page } from "@/ui/Page";
-import { IssueDialog } from "@/ui/staff/IssueDialog";
 import { Row, Table } from "@/ui/Table";
 
-export interface StaffLicenseRow {
-  license: License;
-  organization: Organization;
-}
-
-export interface StaffLicensesProps {
+export interface LicensesProps {
   /** teams are the organizations in Clerk a license can be issued to. */
   teams: Listed[];
-  licenses: StaffLicenseRow[];
+  licenses: Owned[];
   now: Date | string;
 }
 
@@ -46,21 +41,17 @@ const STATUS_LABELS: Record<LicenseStatus, string> = {
   revoked: "Revoked",
 };
 
-const expiry = ({ license: lic }: StaffLicenseRow): number =>
+const expiry = ({ license: lic }: Owned): number =>
   lic.expiresAt == null ? Infinity : new Date(lic.expiresAt).getTime();
 
-/** StaffLicenses lists every license and issues new ones. Staff only. */
-export const StaffLicenses = ({
-  teams,
-  licenses,
-  now,
-}: StaffLicensesProps): ReactElement => {
+/** Licenses lists every license and issues new ones. Staff only. */
+export const Licenses = ({ teams, licenses, now }: LicensesProps): ReactElement => {
   const at = useMemo(() => new Date(now), [now]);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<LicenseStatus | null>(null);
   const shown = useMemo(() => {
     const query = search.trim().toLowerCase();
-    const matches = (row: StaffLicenseRow): boolean => {
+    const matches = (row: Owned): boolean => {
       const { license: lic, organization: org } = row;
       if (status != null && statusOf(lic, at) !== status) return false;
       if (query === "") return true;

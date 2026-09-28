@@ -57,19 +57,28 @@ describe("shell", () => {
   describe("pick", () => {
     const all = [PERSONAL, ACME, GLOBEX];
     it("should default to the first team", () => {
-      expect(pick(all, null)).toBe(ACME);
+      expect(pick(all, null, null)).toBe(ACME);
     });
     it("should default to the personal organization without a team", () => {
-      expect(pick([PERSONAL], null)).toBe(PERSONAL);
+      expect(pick([PERSONAL], null, null)).toBe(PERSONAL);
     });
     it("should select the personal organization by key", () => {
-      expect(pick(all, "personal")).toBe(PERSONAL);
+      expect(pick(all, "personal", null)).toBe(PERSONAL);
     });
     it("should select a team by key", () => {
-      expect(pick(all, "globex")).toBe(GLOBEX);
+      expect(pick(all, "globex", null)).toBe(GLOBEX);
     });
     it("should return null for a key that is not the user's", () => {
-      expect(pick(all, "initech")).toBeNull();
+      expect(pick(all, "initech", null)).toBeNull();
+    });
+    it("should act for the remembered scope without a request", () => {
+      expect(pick(all, null, "personal")).toBe(PERSONAL);
+    });
+    it("should prefer the requested scope over the remembered one", () => {
+      expect(pick(all, "globex", "personal")).toBe(GLOBEX);
+    });
+    it("should fall back to the default when the remembered scope is gone", () => {
+      expect(pick(all, null, "initech")).toBe(ACME);
     });
   });
 });

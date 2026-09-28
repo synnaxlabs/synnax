@@ -17,7 +17,7 @@ import { type Organization } from "@/server/db/schema";
 import { type Held } from "@/server/license/list";
 import { scoped } from "@/shell";
 import { Fact, Facts } from "@/ui/Facts";
-import { date, statusOf, usable } from "@/ui/format";
+import { date, standing, statusOf } from "@/ui/format";
 import { StatusTag } from "@/ui/licenses/StatusTag";
 import { Empty, Page, Section } from "@/ui/Page";
 import { Row, Table } from "@/ui/Table";
@@ -34,28 +34,13 @@ export interface TeamProps {
   now: Date | string;
 }
 
-/** summarize reads the numbers a team overview leads with from its usable licenses. */
-const summarize = (licenses: Held[], now: Date) => {
-  const live = licenses.filter(({ license }) => usable(statusOf(license, now)));
-  const expiries = live
-    .map(({ license }) => license.expiresAt)
-    .filter((d): d is Date => d != null)
-    .map((d) => new Date(d).getTime());
-  return {
-    active: live.length,
-    seats: live.reduce((n, l) => n + l.seats, 0),
-    capacity: live.reduce((n, l) => n + l.license.nodes, 0),
-    nextExpiry: expiries.length === 0 ? null : new Date(Math.min(...expiries)),
-  };
-};
-
 /**
  * Team is the overview of a team: its license standing, its newest licenses, and the
  * way to its members.
  */
 export const Team = ({ organization, licenses, now }: TeamProps): ReactElement => {
   const at = new Date(now);
-  const { active, seats, capacity, nextExpiry } = summarize(licenses, at);
+  const { active, seats, capacity, nextExpiry } = standing(licenses, at);
   return (
     <Page
       title={organization.name}

@@ -16,7 +16,7 @@ const PORTAL_URL = import.meta.env.VITE_PORTAL_URL ?? "https://portal.synnaxlabs
 /** The page that issues a token for a host fingerprint. */
 export const ACTIVATE_URL = `${PORTAL_URL}/licenses/activate`;
 
-/** The page that lists the account's licenses and linked machines. */
+/** The portal overview of the signed-in account. */
 export const ACCOUNT_URL = `${PORTAL_URL}/`;
 
 /** The page that links a Synnax Desktop machine to an account. */

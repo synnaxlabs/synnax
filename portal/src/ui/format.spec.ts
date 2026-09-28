@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 
 import { type Event, type License } from "@/server/db/schema";
 import { LICENSE, NOW } from "@/server/license/testutil";
-import { describeEvent, statusOf, usable } from "@/ui/format";
+import { describeEvent, standing, statusOf, usable } from "@/ui/format";
 
 const licenseOf = (overrides: Partial<License>): License => ({
   ...LICENSE,
@@ -45,6 +45,37 @@ describe("format.statusOf", () => {
   it("should not warn on a Desktop license, which renews itself", () => {
     const lic = licenseOf({ edition: "desktop", expiresAt: days(2) });
     expect(statusOf(lic, NOW)).toBe("active");
+  });
+});
+
+describe("format.standing", () => {
+  it("should sum seats and capacity over usable licenses only", () => {
+    const held = [
+      { license: licenseOf({ nodes: 5, expiresAt: days(90) }), seats: 2 },
+      { license: licenseOf({ nodes: 3, expiresAt: days(10) }), seats: 1 },
+      { license: licenseOf({ nodes: 9, revokedAt: NOW }), seats: 4 },
+      { license: licenseOf({ nodes: 9, expiresAt: days(-1) }), seats: 4 },
+    ];
+    expect(standing(held, NOW)).toEqual({
+      active: 2,
+      seats: 3,
+      capacity: 8,
+      nextExpiry: days(10),
+    });
+  });
+
+  it("should report no next expiry when every usable license is perpetual", () => {
+    const held = [{ license: licenseOf({ expiresAt: null }), seats: 1 }];
+    expect(standing(held, NOW).nextExpiry).toBeNull();
+  });
+
+  it("should report nothing active for no licenses", () => {
+    expect(standing([], NOW)).toEqual({
+      active: 0,
+      seats: 0,
+      capacity: 0,
+      nextExpiry: null,
+    });
   });
 });
 

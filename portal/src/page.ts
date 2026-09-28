@@ -44,10 +44,16 @@ export interface Scoped extends Loaded {
   scope: Organization;
 }
 
+/** SCOPE_COOKIE remembers the last scope chosen through `?org=`. */
+const SCOPE_COOKIE = "scope";
+
+const YEAR_SECONDS = 365 * 24 * 60 * 60;
+
 /**
  * loadScoped opens the portal for a signed-in page that acts for one organization.
- * An `?org=` the user is not a member of redirects to their default overview. A page
- * that serves only one `kind` of scope redirects any other to its overview.
+ * A page without `?org=` acts for the last scope the user chose. An `?org=` the user
+ * is not a member of redirects to their default overview. A page that serves only one
+ * `kind` of scope redirects any other to its overview.
  */
 export const loadScoped = async (
   context: APIContext,
@@ -56,8 +62,18 @@ export const loadScoped = async (
   const loaded = await load(context);
   if (loaded instanceof Response) return loaded;
   const organizations = await organizationsFor(loaded.portal.store, loaded.session);
-  const scope = pick(organizations, context.url.searchParams.get("org"));
+  const requested = context.url.searchParams.get("org");
+  const remembered = context.cookies.get(SCOPE_COOKIE)?.value ?? null;
+  const scope = pick(organizations, requested, remembered);
   if (scope == null) return context.redirect("/", 303);
+  if (requested != null)
+    context.cookies.set(SCOPE_COOKIE, scope.key, {
+      path: "/",
+      httpOnly: true,
+      sameSite: "lax",
+      secure: context.url.protocol === "https:",
+      maxAge: YEAR_SECONDS,
+    });
   if (kind != null && scope.kind !== kind)
     return context.redirect(scoped("/", scope), 303);
   return { ...loaded, organizations, scope };

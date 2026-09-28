@@ -107,26 +107,23 @@
 
 .portal-tab {
     flex-shrink: 0;
-    padding: 1.5rem 1rem;
-    margin-bottom: -1px;
-    color: var(--pluto-gray-l9);
-    font-size: var(--pluto-p-size);
+    margin-bottom: 1rem;
     text-decoration: none;
-    border-bottom: 2px solid transparent;
-
-    &:hover {
-        color: var(--pluto-gray-l11);
-    }
 }
 
+/* The underline sits on the tab row's bottom border, below the button's own box. */
 .portal-tab--active {
-    color: var(--pluto-gray-l11);
-    font-weight: 500;
-    border-bottom-color: var(--pluto-gray-l11);
-}
+    position: relative;
 
-.account-button {
-    text-decoration: none;
+    &::after {
+        position: absolute;
+        right: 0;
+        bottom: -1rem;
+        left: 0;
+        height: 2px;
+        content: "";
+        background: var(--pluto-gray-l11);
+    }
 }
 
 /* The square chassis sizes both axes from its content, and an image reports its natural
@@ -146,7 +143,7 @@
     object-fit: cover;
 }
 
-.account-menu {
+.portal-menu {
     --pluto-shadow-v1: var(--pluto-shadow-overlay);
 }
 

@@ -22,7 +22,7 @@ export interface ScopeOption {
 export interface ScopeProps {
   /** options are the scopes the user can act for, personal first. */
   options: ScopeOption[];
-  selected: string;
+  selected: ScopeOption;
 }
 
 /**
@@ -30,31 +30,30 @@ export interface ScopeProps {
  * overview of another scope.
  */
 export const Scope = ({ options, selected }: ScopeProps): ReactElement => {
-  const current = options.find((o) => o.key === selected) ?? options[0];
   const handleChange = useCallback((key: string) => {
     window.location.assign(`/?org=${key}`);
   }, []);
   if (options.length === 1)
     return (
       <Text.Text level="p" weight={500} overflow="ellipsis" className="portal-scope">
-        {current.name}
+        {selected.name}
       </Text.Text>
     );
   return (
     <Dialog.Frame variant="floating" location={{ x: "left", y: "bottom" }}>
       <Dialog.Trigger variant="text" className="portal-scope" aria-label="Switch scope">
         <Text.Text level="p" weight={500} overflow="ellipsis">
-          {current.name}
+          {selected.name}
         </Text.Text>
       </Dialog.Trigger>
       <Dialog.Dialog
         bordered
         rounded
         background={1}
-        className="account-menu"
+        className="portal-menu"
         style={{ padding: "1rem", minWidth: "28rem" }}
       >
-        <Menu.Menu level="small" value={current.key} onChange={handleChange}>
+        <Menu.Menu level="small" value={selected.key} onChange={handleChange}>
           {options.map((o) => (
             <Menu.Item key={o.key} itemKey={o.key}>
               {o.personal ? <Icon.User /> : <Icon.Role />}
