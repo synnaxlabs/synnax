@@ -131,7 +131,7 @@
     "knip:media": "knip --workspace x/media",
     "knip:lyra": "knip --workspace lyra",
     "knip:pluto": "knip --workspace pluto",
-    "knip:portal": "knip --workspace portal",
+    "knip:portal": "knip --workspace site/portal",
     "knip:www": "knip --workspace site/www",
     "knip:x": "knip --workspace x/ts"
   },

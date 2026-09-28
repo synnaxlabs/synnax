@@ -14,9 +14,9 @@ pastes a key that encodes an expiry and a channel count with arithmetic anyone c
 reverse (`core/pkg/service/channel/verification/verification.go:28-110`). Nothing
 connects a person to a machine or a machine to a license.
 
-This RFC adds that connection: a portal at portal.synnaxlabs.com, an Astro app in a
-top-level `portal/` package deployed to Vercel apart from the docs. It holds accounts
-through Clerk and organizations and licenses in Neon Postgres, with every cloud resource
+This RFC adds that connection: a portal at portal.synnaxlabs.com, an Astro app in the
+`site/portal/` package deployed to Vercel apart from the docs. It holds accounts through
+Clerk and organizations and licenses in Neon Postgres, with every cloud resource
 declared in Terraform. The docs at docs.synnaxlabs.com stay public and link to it. The
 Core gains one license primitive: a JWT signed with Ed25519 and bound to a machine,
 verified offline with public keys compiled into the binary. Two paths issue that token.
@@ -638,15 +638,16 @@ before the key that signs it exists. Phase 4 lands with the Desktop bundle.
   The flag keeps its obfuscated name. The second: the Console activation screen and
   guard, the info modal block, the warning badge, and the four docs pages. Boundary
   between the two earned by risk isolation: wire and enforcement apart from UX.
-- **Phase 2: Portal accounts and licenses.** One pull request: the `portal/` package and
-  its Vercel project, `infra/portal/`, Clerk, Neon, and Resend on direct accounts, the
-  middleware and CSP changes, the `astro:env` schema, the static-check exclusions for
-  session-bound routes, the webhook, the four tables, the organization pages, KMS
-  signing, the activation ledger, the activation endpoint with rate limits, the offline
-  page, the expiry cron, and the staff area with all three terms. Its infrastructure
-  step is applied first of the whole unit, because the key and the CI secret must exist
-  before Phase 1's Core runs in CI. Boundary earned by a green intermediate state: after
-  this phase staff issue the cutover licenses (§7.0) and the release can ship.
+- **Phase 2: Portal accounts and licenses.** One pull request: the `site/portal/`
+  package and its Vercel project, `infra/portal/`, Clerk, Neon, and Resend on direct
+  accounts, the middleware and CSP changes, the `astro:env` schema, the static-check
+  exclusions for session-bound routes, the webhook, the four tables, the organization
+  pages, KMS signing, the activation ledger, the activation endpoint with rate limits,
+  the offline page, the expiry cron, and the staff area with all three terms. Its
+  infrastructure step is applied first of the whole unit, because the key and the CI
+  secret must exist before Phase 1's Core runs in CI. Boundary earned by a green
+  intermediate state: after this phase staff issue the cutover licenses (§7.0) and the
+  release can ship.
 - **Phase 3: Account interface.** Two pull requests. The first moves the modal anatomy
   from the Console into Pluto and migrates the Console's callers, a mechanical change
   kept apart by risk isolation. The second replaces every portal page: the shell with
@@ -789,7 +790,7 @@ registered error types. New clients decode it.
     their own the prefix says nothing. The scope is a query parameter, not a path
     segment, so a license URL never changes when an organization is renamed.
 28. **The portal is its own package and deployment**: The docs stay at `docs/site` and
-    docs.synnaxlabs.com; the portal is a top-level `portal/` package deployed as its own
+    docs.synnaxlabs.com; the portal is the `site/portal/` package deployed as its own
     Vercel project at portal.synnaxlabs.com. A first draft renamed `docs/site` to `hub/`
     and served accounts from the docs deployment. Rejected: every account change then
     shipped with the docs, and the docs carried Clerk, Neon, and KMS configuration they

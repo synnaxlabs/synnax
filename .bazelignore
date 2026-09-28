@@ -26,6 +26,6 @@ integration/ts/node_modules
 lyra/node_modules
 pluto/examples/node_modules
 pluto/node_modules
-portal/node_modules
+site/portal/node_modules
 x/media/node_modules
 x/ts/node_modules
