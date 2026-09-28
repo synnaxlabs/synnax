@@ -15,7 +15,6 @@ export { Alamos } from "@/alamos";
 export { Arc } from "@/arc";
 export { Channel } from "@/channel";
 export { Code } from "@/code";
-export { Color } from "@/color";
 export { Device } from "@/device";
 export { Direction } from "@/direction";
 export { Errors } from "@/errors";

@@ -11,6 +11,7 @@ import { Form as Base } from "@synnaxlabs/lyra/form";
 import { type Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { type text } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
@@ -35,44 +36,50 @@ const handleLevelChange = (v: text.Level, { set }: Base.ContextValue): void => {
   else set("barWidth", 10);
 };
 
-export const GaugeForm = ({ tab, onTabChange }: FormProps): ReactElement => (
-  <Properties.Tabs tabs={["telemetry", "style"]} tab={tab} onTabChange={onTabChange}>
-    <Tabs.Content itemKey="style">
-      <Base.Sections x>
-        <Base.Section title="Label">
-          <Label.Form path="label" />
-        </Base.Section>
-        <Base.Section title="Appearance">
-          <Form.ColorField path="color" />
-          <Base.Field<text.Level>
-            path="level"
-            label="Size"
-            hideIfNull
-            padHelpText={false}
-            onChange={handleLevelChange}
-          >
-            {({ value, onChange }) => (
-              <Select.Text.Level value={value} onChange={onChange} />
-            )}
-          </Base.Field>
-          <Base.NumericField
-            path="barWidth"
-            label="Bar width"
-            hideIfNull
-            padHelpText={false}
-            inputProps={GAUGE_BAR_WIDTH_INPUT_PROPS}
-          />
-        </Base.Section>
-        <Base.Section title="Range">
-          <Form.UnitsField />
-          <Form.BoundsFields path="bounds" hideIfNull padHelpText={false} />
-        </Base.Section>
-      </Base.Sections>
-    </Tabs.Content>
-    <Tabs.Content itemKey="telemetry">
-      <Base.Sections x>
-        <Value.TelemForm path="" />
-      </Base.Sections>
-    </Tabs.Content>
-  </Properties.Tabs>
-);
+export const GaugeForm = ({ tab, onTabChange }: FormProps): ReactElement => {
+  const theme = Theming.use();
+  return (
+    <Properties.Tabs tabs={["telemetry", "style"]} tab={tab} onTabChange={onTabChange}>
+      <Tabs.Content itemKey="style">
+        <Base.Sections x>
+          <Base.Section title="Label">
+            <Label.Form path="label" />
+          </Base.Section>
+          <Base.Section title="Appearance">
+            <Form.ColorField
+              path="color"
+              fallback={theme.colors.visualization.palettes.default[0]}
+            />
+            <Base.Field<text.Level>
+              path="level"
+              label="Size"
+              hideIfNull
+              padHelpText={false}
+              onChange={handleLevelChange}
+            >
+              {({ value, onChange }) => (
+                <Select.Text.Level value={value} onChange={onChange} />
+              )}
+            </Base.Field>
+            <Base.NumericField
+              path="barWidth"
+              label="Bar width"
+              hideIfNull
+              padHelpText={false}
+              inputProps={GAUGE_BAR_WIDTH_INPUT_PROPS}
+            />
+          </Base.Section>
+          <Base.Section title="Range">
+            <Form.UnitsField />
+            <Form.BoundsFields path="bounds" hideIfNull padHelpText={false} />
+          </Base.Section>
+        </Base.Sections>
+      </Tabs.Content>
+      <Tabs.Content itemKey="telemetry">
+        <Base.Sections x>
+          <Value.TelemForm path="" />
+        </Base.Sections>
+      </Tabs.Content>
+    </Properties.Tabs>
+  );
+};

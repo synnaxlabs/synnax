@@ -9,6 +9,7 @@
 
 import { schematic } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
+import { Color } from "@synnaxlabs/lyra/color";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -18,7 +19,6 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import {
-  Color,
   Diagram,
   Direction,
   type Properties as PProperties,

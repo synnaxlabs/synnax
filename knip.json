@@ -30,12 +30,7 @@
       "project": ["src/**/*.{ts,tsx}"]
     },
     "pluto": {
-      "entry": [
-        "src/index.ts",
-        "src/ether.ts",
-        "src/testutil/index.ts",
-        "src/color/index.ts"
-      ],
+      "entry": ["src/index.ts", "src/ether.ts", "src/testutil/index.ts"],
       "project": ["src/**/*.{ts,tsx}"]
     },
     "x/media": {

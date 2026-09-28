@@ -10,6 +10,7 @@
 import "@/vis/value/RedlineForm.css";
 
 import { Button } from "@synnaxlabs/lyra/button";
+import { Color } from "@synnaxlabs/lyra/color";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -20,8 +21,6 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { color, type compare, id } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
-
-import { Color } from "@/color";
 
 const ascending: compare.Comparator<color.Band> = (a, b) => a.threshold - b.threshold;
 
@@ -45,8 +44,6 @@ interface BandItemProps {
   itemKey: string;
   index: number;
   path: string;
-  units: string;
-  presets: color.Crude[];
   bar: BarProps;
   duplicate: boolean;
   onRemove: (key: string) => void;
@@ -56,8 +53,6 @@ const BandItem = ({
   itemKey,
   index,
   path,
-  units,
-  presets,
   bar,
   duplicate,
   onRemove,
@@ -72,13 +67,7 @@ const BandItem = ({
         showHelpText={false}
       >
         {({ value, onChange }) => (
-          <Color.Swatch
-            value={value}
-            onChange={onChange}
-            presets={presets}
-            size="small"
-            bordered
-          />
+          <Color.Swatch value={value} onChange={onChange} size="small" bordered />
         )}
       </Form.Field>
       <Text.Text level="small" color={9} className={CSS.BE("redline-form", "relation")}>
@@ -92,7 +81,6 @@ const BandItem = ({
         inputProps={{
           size: "small",
           showDragHandle: false,
-          units,
           status: duplicate ? "error" : undefined,
           tooltip: duplicate ? "Duplicate threshold" : undefined,
         }}
@@ -142,7 +130,6 @@ const FloorItem = ({ background, threshold, units }: FloorItemProps): ReactEleme
     <Bar on={color.cssString(background ?? color.ZERO)} />
     <Color.Swatch
       value={background ?? color.ZERO}
-      allowChange={false}
       size="small"
       bordered
       tooltip="Set the background in the style tab"
@@ -222,12 +209,6 @@ export const RedlineForm = ({ path }: RedlineFormProps): ReactElement => {
       return [key, { bar, duplicate }];
     }),
   );
-  const presets = [
-    theme.colors.secondary.z,
-    theme.colors.warning.z,
-    theme.colors.error.z,
-    theme.colors.primary.z,
-  ];
   const lowest = sorted.at(0);
 
   const handleAdd = (): void => {
@@ -274,8 +255,6 @@ export const RedlineForm = ({ path }: RedlineFormProps): ReactElement => {
                       itemKey={itemKey}
                       index={index}
                       path={bandsPath}
-                      units={units}
-                      presets={presets}
                       onRemove={remove}
                       {...item}
                     />

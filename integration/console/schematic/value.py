@@ -110,10 +110,8 @@ class Value(Symbol):
                 raise ValueError(
                     "stale_color must be a valid hex color (e.g., #FF5733)"
                 )
-            self.layout.click_btn("Color")
-            self.layout.fill_input_field("Hex", stale_color.replace("#", ""))
+            self.layout.fill_input_field("Color", stale_color.replace("#", ""))
             self.page.keyboard.press("Enter")
-            self.page.keyboard.press("Escape")
             applied_properties["stale_color"] = stale_color
 
         if stale_timeout is not None:
@@ -159,14 +157,9 @@ class Value(Symbol):
         notation = self.layout.get_selected_button(notation_options)
         props["notation"] = notation.lower()
 
-        # Staleness Color - get hex value from color picker
-        self.layout.click_btn("Color")
-        hex_value = self.layout.get_input_field("Hex")
+        # The staleness color box is empty while the theme picks the color.
+        hex_value = self.layout.get_input_field("Color")
         if hex_value:
-            props["stale_color"] = (
-                f"#{hex_value}" if not hex_value.startswith("#") else hex_value
-            )
-        # Close color picker
-        self.page.keyboard.press("Escape")
+            props["stale_color"] = f"#{hex_value.upper()}"
 
         return props

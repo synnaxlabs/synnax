@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
+import { Color } from "@synnaxlabs/lyra/color";
 import { type Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
@@ -17,7 +18,6 @@ import { Theming } from "@synnaxlabs/lyra/theming";
 import { color, type notation, type text } from "@synnaxlabs/x";
 
 import { Channel } from "@/channel";
-import { Color } from "@/color";
 import { Notation } from "@/notation";
 import { Properties } from "@/vis/properties";
 import { Staleness } from "@/vis/staleness";
@@ -25,30 +25,6 @@ import { Value } from "@/vis/value";
 
 /** Props for a cell variant's form. */
 export interface FormProps extends Properties.SelectionProps {}
-
-interface ColorFieldProps {
-  path: string;
-  label: string;
-  /** Color shown while the field is unset. */
-  fallback: color.Crude;
-}
-
-// The cell colors are optional: an unset color renders from the theme. Form.Field
-// hides an absent path, which would leave the user no way to set one, so the swatch
-// reads the value directly and writes only what the user picks.
-const ColorField = ({ path, label, fallback }: ColorFieldProps) => {
-  const { set } = Form.useContext();
-  const value = Form.useFieldValue<color.Crude>(path, { optional: true });
-  return (
-    <Input.Item label={label} padHelpText={false}>
-      <Color.Swatch
-        value={value ?? fallback}
-        onChange={(next: color.Color) => set(path, next)}
-        bordered
-      />
-    </Input.Item>
-  );
-};
 
 interface TelemFormT {
   channel: channel.Key;
@@ -113,8 +89,8 @@ export const ValueForm = ({ tab, onTabChange }: FormProps) => {
       <Tabs.Content itemKey="style">
         <Form.Sections x>
           <Form.Section title="Appearance">
-            <ColorField path="color" label="Color" fallback={theme.colors.gray.l11} />
-            <ColorField
+            <Color.Field path="color" fallback={theme.colors.gray.l11} />
+            <Color.Field
               path="backgroundColor"
               label="Background"
               fallback={color.ZERO}
@@ -162,7 +138,7 @@ export const TextForm = () => (
       </Form.Field>
     </Form.Section>
     <Form.Section title="Appearance">
-      <ColorField path="backgroundColor" label="Background" fallback={color.ZERO} />
+      <Color.Field path="backgroundColor" label="Background" fallback={color.ZERO} />
     </Form.Section>
   </Form.Sections>
 );

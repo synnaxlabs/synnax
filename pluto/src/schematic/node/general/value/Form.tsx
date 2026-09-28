@@ -35,7 +35,7 @@ export const ValueForm = ({ tab, onTabChange }: FormProps): ReactElement => (
           <Form.ColorField
             path="backgroundColor"
             label="Background"
-            defaultValue={color.ZERO}
+            fallback={color.ZERO}
           />
           <Form.LevelSizeField />
           <Form.UnitsField />

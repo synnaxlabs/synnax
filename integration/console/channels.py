@@ -106,7 +106,9 @@ class ChannelClient(ResourceClient):
                 raise ValueError("Index must be provided if is_index is False")
             data_type_str = str(sy.DataType(data_type))
             self.layout.click_btn("Data type")
-            self.layout.select_from_dropdown(data_type_str, "Search Data Types")
+            self.layout.select_from_dropdown(
+                data_type_str, "Search Data Types", exact=True
+            )
             self.layout.click_btn("Index")
             self.layout.select_from_dropdown(str(index), "Search Channels")
 
@@ -172,7 +174,9 @@ class ChannelClient(ResourceClient):
                     )
                 data_type_str = str(sy.DataType(data_type))
                 self.layout.click_btn("Data type")
-                self.layout.select_from_dropdown(data_type_str, "Search Data Types")
+                self.layout.select_from_dropdown(
+                    data_type_str, "Search Data Types", exact=True
+                )
                 self.layout.click_btn("Index")
                 self.layout.select_from_dropdown(index_str, "Search Channels")
 
