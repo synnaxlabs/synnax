@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Button } from "@synnaxlabs/lyra/button";
+import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
@@ -132,7 +133,7 @@ export const Nav = (): ReactElement => {
       <Button.Button variant="text" className="nav-link" href="/company">
         Company
       </Button.Button>
-      <div className="nav-divider" />
+      <Divider.Divider y color={4} className="nav-divider" />
       <Button.Button
         variant="text"
         className="nav-link"
