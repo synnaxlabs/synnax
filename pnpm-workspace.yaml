@@ -185,6 +185,3 @@ catalog:
 catalogs:
   ts6:
     typescript: ^6.0.3
-minimumReleaseAgeExclude:
-  - astro@7.3.5
-  - prettier-plugin-astro@1.1.0
