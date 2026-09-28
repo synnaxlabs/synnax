@@ -86,11 +86,17 @@ resource "aws_iam_access_key" "portal_signer" {
   user = aws_iam_user.portal_signer.name
 }
 
-# The Vercel project deploys from the repository's Git integration; the Neon and Clerk
-# Marketplace installs already inject DATABASE_URL and the Clerk keys into it. This
-# root owns the rest of its environment.
-data "vercel_project" "portal" {
-  name = var.vercel_project_name
+# The Neon and Clerk Marketplace installs inject DATABASE_URL and the Clerk keys into
+# the project. This root owns the rest of its environment.
+resource "vercel_project" "portal" {
+  name           = var.vercel_project_name
+  framework      = "astro"
+  root_directory = "site/portal"
+  git_repository = {
+    type              = "github"
+    repo              = "synnaxlabs/synnax"
+    production_branch = "main"
+  }
 }
 
 resource "random_password" "cron_secret" {
@@ -120,7 +126,7 @@ locals {
 }
 
 resource "vercel_project_environment_variables" "portal" {
-  project_id = data.vercel_project.portal.id
+  project_id = vercel_project.portal.id
   variables = [
     for name, value in local.runtime_env : {
       key       = name
@@ -132,7 +138,7 @@ resource "vercel_project_environment_variables" "portal" {
 }
 
 resource "vercel_project_domain" "portal" {
-  project_id = data.vercel_project.portal.id
+  project_id = vercel_project.portal.id
   domain     = var.domain
 }
 

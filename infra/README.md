@@ -5,11 +5,11 @@ State lives in HCP Terraform, organization `synnaxlabs`, workspace `hub`.
 
 ## Portal
 
-Terraform declares the AWS signing key and its IAM identity, the Vercel environment and
-domain, and the GitHub Actions secret. Three vendors stay outside it: Neon and Clerk are
-installed through the Vercel Marketplace, which injects their connection string and keys
-into the project and has no Terraform surface; Resend has no provider. Their one-time
-steps are below.
+Terraform declares the AWS signing key and its IAM identity, the Vercel project with its
+environment and domain, and the GitHub Actions secret. Three vendors stay outside it:
+Neon and Clerk are installed through the Vercel Marketplace, which injects their
+connection string and keys into the project and has no Terraform surface; Resend has no
+provider. Their one-time steps are below.
 
 ### Apply
 
@@ -31,6 +31,9 @@ terraform import aws_kms_key.license_signing <key id>
 terraform import aws_kms_alias.license_signing alias/synnax-license-signing
 terraform import github_actions_secret.license_token synnax/SYNNAX_LICENSE_TOKEN
 ```
+
+If a `portal` Vercel project already exists, import it the same way:
+`terraform import vercel_project.portal <project id>`.
 
 ### Neon
 
