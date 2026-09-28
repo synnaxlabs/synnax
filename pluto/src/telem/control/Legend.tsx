@@ -168,7 +168,7 @@ const LegendEntry = ({
           {parsed.primary}
         </Text.Text>
       ) : (
-        <Flex.Box className={CSS.BE("legend-entry", "subject")} gap="small" x>
+        <Flex.Box align="center" gap="small" x>
           <Text.Text
             className={CSS.cls(CSS.BE("legend-entry", "user"), isSelf && CSS.M("self"))}
             level="small"

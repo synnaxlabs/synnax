@@ -10,10 +10,6 @@
  */
 
 .pluto-legend-entry {
-    .pluto-legend-entry__subject {
-        align-items: baseline;
-    }
-
     .pluto-legend-entry__user {
         color: var(--pluto-gray-l10);
 
