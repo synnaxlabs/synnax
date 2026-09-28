@@ -61,6 +61,12 @@ var _ = Describe("License", func() {
 		GinkgoHelper()
 		return MustSucceed(license.Sign(private, keyID, lic))
 	}
+	// store writes lic the way Activate does, bypassing its checks.
+	store := func(ctx SpecContext, lic license.License) {
+		GinkgoHelper()
+		key := append([]byte("license/"), lic.Jti.String()...)
+		Expect(db.Set(ctx, key, []byte(sign(lic)))).To(Succeed())
+	}
 	open := func(ctx SpecContext, cfgs ...license.ServiceConfig) *license.Service {
 		GinkgoHelper()
 		return MustOpen(license.OpenService(ctx, append(
@@ -227,14 +233,19 @@ var _ = Describe("License", func() {
 		It("should prefer a covering entry over an expired one", func(ctx SpecContext) {
 			expired := newLicense()
 			expired.Exp = seconds(now.Add(-100 * day))
-			svc := open(ctx)
-			MustSucceed(svc.Activate(ctx, sign(newLicense())))
-			Expect(svc.Close()).To(Succeed())
-			// Store the expired entry directly: Activate refuses it.
-			key := append([]byte("bGljZW5zZUtleQ==/"), expired.Jti.String()...)
-			Expect(db.Set(ctx, key, []byte(sign(expired)))).To(Succeed())
-			svc = open(ctx)
-			Expect(svc.Retrieve().State).To(Equal(license.StateOk))
+			expired.Iat = uint32(now.Unix())
+			store(ctx, newLicense())
+			store(ctx, expired)
+			Expect(open(ctx).Retrieve().State).To(Equal(license.StateOk))
+		})
+		It("should prefer the most recently issued entry", func(ctx SpecContext) {
+			older, newer := newLicense(), newLicense()
+			older.Jti, newer.Jti = uuid.UUID{}, uuid.Max()
+			older.Channels, newer.Channels = 100, 500
+			newer.Iat = uint32(now.Unix())
+			store(ctx, older)
+			store(ctx, newer)
+			Expect(open(ctx).Retrieve().License.Channels).To(BeEquivalentTo(500))
 		})
 		It("should report a stored entry that no longer covers", func(ctx SpecContext) {
 			lic := newLicense()
@@ -354,6 +365,18 @@ var _ = Describe("License", func() {
 			Expect(info.State).To(Equal(license.StateOk))
 			Expect(info.Warning).To(BeEmpty())
 		})
+		It(
+			"should keep a newer license over an older activation",
+			func(ctx SpecContext) {
+				older, newer := newLicense(), newLicense()
+				older.Channels, newer.Channels = 100, 500
+				newer.Iat = uint32(now.Unix())
+				MustSucceed(svc.Activate(ctx, sign(newer)))
+				info := MustSucceed(svc.Activate(ctx, sign(older)))
+				Expect(info.License.Channels).To(BeEquivalentTo(500))
+				Expect(svc.Retrieve().License.Channels).To(BeEquivalentTo(500))
+			},
+		)
 		It("should warn when expiry is near", func(ctx SpecContext) {
 			lic := newLicense()
 			lic.Exp = seconds(now.Add(2 * day))

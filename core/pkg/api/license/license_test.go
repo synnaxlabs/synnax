@@ -50,15 +50,16 @@ var _ = Describe("Service", Ordered, func() {
 
 	It("Should gate requests while the license is missing", func(ctx SpecContext) {
 		called := false
-		// Exec hands the context back beside the error, so .Error() cannot apply.
-		_, err := apilicense.Middleware(licenseSvc).Exec(
-			freighter.Context{Context: ctx},
+		in := freighter.Context{Context: ctx}
+		out, err := apilicense.Middleware(licenseSvc).Exec(
+			in,
 			func(fctx freighter.Context) (freighter.Context, error) {
 				called = true
 				return fctx, nil
 			},
 		)
 		Expect(err).To(MatchError(license.ErrMissing))
+		Expect(out).To(Equal(in))
 		Expect(called).To(BeFalse())
 	})
 
