@@ -215,9 +215,10 @@ func (i Info) err() error {
 	return nil
 }
 
-// Activate verifies token, checks that it fits this machine and still covers it, stores
-// it, and moves the service to StateOk. The stored token loads on the next open.
-// Returns ErrInvalid, ErrFingerprint, or ErrExpired when the token is refused.
+// Activate verifies token, checks that it fits this machine and still covers it, and
+// stores it. The service then applies the stored token open would pick, which is token
+// unless a newer one is stored, and returns its info. Returns ErrInvalid,
+// ErrFingerprint, or ErrExpired when the token is refused.
 func (s *Service) Activate(ctx context.Context, token string) (Info, error) {
 	lic, err := Verify(s.cfg.Anchors, token)
 	if err != nil {
@@ -234,11 +235,11 @@ func (s *Service) Activate(ctx context.Context, token string) (Info, error) {
 	if err = s.cfg.Set(ctx, key, []byte(token)); err != nil {
 		return Info{}, err
 	}
-	s.mu.Lock()
-	s.mu.info = info
-	s.mu.Unlock()
+	if err = s.load(ctx); err != nil {
+		return Info{}, err
+	}
 	s.logState()
-	return info, nil
+	return s.Retrieve(), nil
 }
 
 // CheckChannelLimit returns ErrTooMany when inUse external channels exceed the
@@ -299,9 +300,8 @@ func (s *Service) recordClock(ctx context.Context, now time.Time) error {
 	return s.cfg.Set(ctx, markKey, raw)
 }
 
-// load picks the stored token that fits this machine. A token that still applies wins
-// over one that no longer does, so an expired license is reported only when no other
-// covers the Core.
+// load applies the stored token that fits this machine. A token that still applies wins
+// over one that no longer does, then the most recently issued wins.
 func (s *Service) load(ctx context.Context) error {
 	iter, err := s.cfg.OpenIterator(kv.IterPrefix(prefix))
 	if err != nil {
@@ -321,7 +321,7 @@ func (s *Service) load(ctx context.Context) error {
 			continue
 		}
 		info := s.evaluate(lic)
-		if chosen == nil || (chosen.State != StateOk && info.State == StateOk) {
+		if chosen == nil || better(info, *chosen) {
 			chosen = &info
 		}
 	}
@@ -334,6 +334,13 @@ func (s *Service) load(ctx context.Context) error {
 		s.mu.Unlock()
 	}
 	return nil
+}
+
+func better(a, b Info) bool {
+	if okA, okB := a.State == StateOk, b.State == StateOk; okA != okB {
+		return okA
+	}
+	return a.License.Iat > b.License.Iat
 }
 
 const (
