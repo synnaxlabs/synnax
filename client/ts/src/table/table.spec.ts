@@ -24,9 +24,9 @@ const mkText = (value?: string): table.CellConfig =>
   table.cellConfigZ.parse(
     value == null ? { variant: "text" } : { variant: "text", value },
   );
-const mkValue = (units?: string): table.CellConfig =>
+const mkValue = (precision?: number): table.CellConfig =>
   table.cellConfigZ.parse(
-    units == null ? { variant: "value" } : { variant: "value", units },
+    precision == null ? { variant: "value" } : { variant: "value", precision },
   );
 
 describe("Table", () => {
@@ -85,7 +85,6 @@ describe("Table", () => {
               smooth: true,
             },
             backgroundColor: [0, 255, 0, 1],
-            units: "psi",
             stalenessTimeout: 5,
           },
         },
@@ -103,7 +102,6 @@ describe("Table", () => {
         smooth: true,
       });
       expect(cfg.backgroundColor).toEqual([0, 255, 0, 1]);
-      expect(cfg.units).toEqual("psi");
       expect(cfg.stalenessTimeout).toEqual(5);
     });
 
@@ -205,11 +203,11 @@ describe("Table", () => {
       const t = await createTable();
       await client.tables.dispatch(t.key, [
         table.setCell({
-          cell: { key: "a", config: mkValue("psi") },
+          cell: { key: "a", config: mkValue(3) },
         }),
       ]);
       const res = await client.tables.retrieve(t.key);
-      expect(res.cells.a).toEqual(mkValue("psi"));
+      expect(res.cells.a).toEqual(mkValue(3));
     });
 
     test("setCell is a no-op for an unknown key", async () => {
@@ -235,13 +233,13 @@ describe("Table", () => {
           ],
         }),
         table.setCell({
-          cell: { key: "c", config: mkValue("psi") },
+          cell: { key: "c", config: mkValue(3) },
         }),
       ]);
       const res = await client.tables.retrieve(t.key);
       expect(res.name).toEqual("multi");
       expect(res.rows).toHaveLength(2);
-      expect(res.cells.c).toEqual(mkValue("psi"));
+      expect(res.cells.c).toEqual(mkValue(3));
     });
   });
 
@@ -287,7 +285,7 @@ describe("Table", () => {
           { size: 36, cells: ["g", "h", "i"] },
         ],
         columns: [{ size: 80 }, { size: 80 }, { size: 80 }],
-        cells: Object.fromEntries(keys.map((k) => [k, mkValue("psi")])),
+        cells: Object.fromEntries(keys.map((k) => [k, mkValue(3)])),
       };
     };
 
@@ -326,7 +324,7 @@ describe("Table", () => {
           },
           [
             table.setCell({
-              cell: { key: "a", config: mkValue("psi") },
+              cell: { key: "a", config: mkValue(3) },
             }),
           ],
         );
@@ -634,7 +632,7 @@ describe("Table", () => {
             size: 60,
             cells: [
               { key: "m1", config: mkText("M1") },
-              { key: "m2", config: mkValue("psi") },
+              { key: "m2", config: mkValue(3) },
             ],
           }),
         },
@@ -644,7 +642,7 @@ describe("Table", () => {
         {
           name: "setCell",
           action: table.setCell({
-            cell: { key: "a", config: mkValue("psi") },
+            cell: { key: "a", config: mkValue(3) },
           }),
         },
       ])("$name round-trips", ({ action }) => roundTrip(action));

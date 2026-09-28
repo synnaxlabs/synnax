@@ -705,23 +705,14 @@ NodeConfig union on variant {
         @doc value "is the configuration for text box annotation symbols."
     }
     value extends LabeledConfig, NumericTelemConfig, StalenessConfig {
-        position         spatial.XY?        {
-            @doc value "is the offset of the value contents within the symbol."
-        }
-        color            color.Color?       {
+        color            color.Color? {
             @doc value "is the color of the value's border and units."
         }
-        text_color       color.Color?       {
-            @doc value "is the color of the displayed text."
-        }
-        background_color color.Color?       {
+        background_color color.Color? {
             @doc value """
                 is the fill behind the value where no redline band paints. When absent
                 the value paints no fill.
             """
-        }
-        tooltip          string[] = [] {
-            @doc value "is the list of tooltip lines shown on hover."
         }
         redline          color.Scale = {} {
             @doc value "is the threshold band mapping applied to the background."
@@ -735,12 +726,6 @@ NodeConfig union on variant {
         }
         level            text.Level = text.LevelH4 {
             @doc value "is the typography level of the displayed value."
-        }
-        location         spatial.LocationXY = {
-            x = spatial.XCenterLocationLeft,
-            y = spatial.YCenterLocationCenter
-        } {
-            @doc value "is the anchor of the value within the symbol."
         }
 
         @doc value "is the configuration for live telemetry value symbols."

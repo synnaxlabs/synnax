@@ -91,8 +91,6 @@ export const valueCellConfigZ = z.object({
    * theme-derived legible color.
    */
   color: color.colorZ.optional(),
-  /** units is the unit suffix displayed after the value. */
-  units: z.string().default(""),
   /**
    * stalenessTimeout is the duration in seconds after which the value is considered
    * stale.

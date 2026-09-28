@@ -118,13 +118,13 @@ var _ = Describe("Writer", func() {
 						},
 					}),
 					table.NewSetCellAction(table.SetCellPayload{
-						Cell: cell("c", valueCfg("psi")),
+						Cell: cell("c", valueCfg(10)),
 					}),
 				})).To(Succeed())
 				res := retrieve(ctx, s.Key)
 				Expect(res.Name).To(Equal("multi"))
 				Expect(res.Rows).To(HaveLen(2))
-				Expect(res.Cells["c"]).To(Equal(valueCfg("psi")))
+				Expect(res.Cells["c"]).To(Equal(valueCfg(10)))
 			},
 		)
 

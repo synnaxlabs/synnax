@@ -88,9 +88,6 @@ CellConfig union on variant {
                 theme-derived legible color.
             """
         }
-        units             string = "" {
-            @doc value "is the unit suffix displayed after the value."
-        }
         staleness_timeout float64 = 5 {
             @doc value    """
                 is the duration in seconds after which the value is considered stale.

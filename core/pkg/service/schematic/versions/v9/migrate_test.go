@@ -425,7 +425,6 @@ var _ = Describe("Config typing", func() {
 				Notation:         "standard",
 				Precision:        2,
 				Units:            "psi",
-				Location:         spatial.LocationXY{X: "left", Y: "center"},
 			}),
 		)
 	})

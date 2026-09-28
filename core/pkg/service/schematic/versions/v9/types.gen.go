@@ -1848,17 +1848,11 @@ type ValueNodeConfig struct {
 	LabeledConfig
 	NumericTelemConfig
 	StalenessConfig
-	// Position is the offset of the value contents within the symbol.
-	Position *spatial.XY `json:"position,omitzero" msgpack:"position,omitempty"`
 	// Color is the color of the value's border and units.
 	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
-	// TextColor is the color of the displayed text.
-	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
 	// BackgroundColor is the fill behind the value where no redline band paints. When
 	// absent the value paints no fill.
 	BackgroundColor *color.Color `json:"background_color,omitzero" msgpack:"background_color,omitempty"`
-	// Tooltip is the list of tooltip lines shown on hover.
-	Tooltip []string `json:"tooltip" msgpack:"tooltip"`
 	// Redline is the threshold band mapping applied to the background.
 	Redline color.Scale `json:"redline" msgpack:"redline"`
 	// Units is the unit suffix displayed after the value.
@@ -1867,8 +1861,6 @@ type ValueNodeConfig struct {
 	InlineSize float64 `json:"inline_size" msgpack:"inline_size"`
 	// Level is the typography level of the displayed value.
 	Level text.Level `json:"level" msgpack:"level"`
-	// Location is the anchor of the value within the symbol.
-	Location spatial.LocationXY `json:"location" msgpack:"location"`
 }
 
 func (ValueNodeConfig) isNodeConfigVariant() {}
@@ -1884,12 +1876,6 @@ func (va *ValueNodeConfig) ApplyDefaults() {
 	if va.Level == "" {
 		va.Level = text.LevelH4
 	}
-	if va.Location.X == "" {
-		va.Location.X = spatial.XCenterLocationLeft
-	}
-	if va.Location.Y == "" {
-		va.Location.Y = spatial.YCenterLocationCenter
-	}
 	va.LabeledConfig.ApplyDefaults()
 	va.NumericTelemConfig.ApplyDefaults()
 	va.StalenessConfig.ApplyDefaults()
@@ -1902,7 +1888,6 @@ func (va ValueNodeConfig) Validate() error {
 	v.Ternaryf("level", !va.Level.IsValid(), "invalid level: %v", va.Level)
 	v.Exec(va.LabeledConfig.Validate)
 	v.Exec(va.NumericTelemConfig.Validate)
-	v.Exec(func() error { return validate.PathedError(va.Location.Validate(), "location") })
 	return v.Error()
 }
 
@@ -6114,17 +6099,11 @@ type ValueElementConfig struct {
 	LabeledConfig
 	NumericTelemConfig
 	StalenessConfig
-	// Position is the offset of the value contents within the symbol.
-	Position *spatial.XY `json:"position,omitzero" msgpack:"position,omitempty"`
 	// Color is the color of the value's border and units.
 	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
-	// TextColor is the color of the displayed text.
-	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
 	// BackgroundColor is the fill behind the value where no redline band paints. When
 	// absent the value paints no fill.
 	BackgroundColor *color.Color `json:"background_color,omitzero" msgpack:"background_color,omitempty"`
-	// Tooltip is the list of tooltip lines shown on hover.
-	Tooltip []string `json:"tooltip" msgpack:"tooltip"`
 	// Redline is the threshold band mapping applied to the background.
 	Redline color.Scale `json:"redline" msgpack:"redline"`
 	// Units is the unit suffix displayed after the value.
@@ -6133,8 +6112,6 @@ type ValueElementConfig struct {
 	InlineSize float64 `json:"inline_size" msgpack:"inline_size"`
 	// Level is the typography level of the displayed value.
 	Level text.Level `json:"level" msgpack:"level"`
-	// Location is the anchor of the value within the symbol.
-	Location spatial.LocationXY `json:"location" msgpack:"location"`
 }
 
 func (ValueElementConfig) isElementConfigVariant() {}
@@ -6150,12 +6127,6 @@ func (va *ValueElementConfig) ApplyDefaults() {
 	if va.Level == "" {
 		va.Level = text.LevelH4
 	}
-	if va.Location.X == "" {
-		va.Location.X = spatial.XCenterLocationLeft
-	}
-	if va.Location.Y == "" {
-		va.Location.Y = spatial.YCenterLocationCenter
-	}
 	va.LabeledConfig.ApplyDefaults()
 	va.NumericTelemConfig.ApplyDefaults()
 	va.StalenessConfig.ApplyDefaults()
@@ -6168,7 +6139,6 @@ func (va ValueElementConfig) Validate() error {
 	v.Ternaryf("level", !va.Level.IsValid(), "invalid level: %v", va.Level)
 	v.Exec(va.LabeledConfig.Validate)
 	v.Exec(va.NumericTelemConfig.Validate)
-	v.Exec(func() error { return validate.PathedError(va.Location.Validate(), "location") })
 	return v.Error()
 }
 

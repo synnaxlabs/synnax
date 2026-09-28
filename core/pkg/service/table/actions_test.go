@@ -24,10 +24,13 @@ func textCfg(value string) table.CellConfig {
 	return cfg
 }
 
-// valueCfg constructs a complete value cell config with the given unit suffix, matching
-// what a client sends once its own defaults have filled.
-func valueCfg(units string) table.CellConfig {
-	cfg := table.CellConfig{Variant: table.ValueCellConfig{Units: units}}
+// valueCfg constructs a complete value cell config with the given staleness timeout,
+// matching what a client sends once its own defaults have filled. Zero takes the
+// default.
+func valueCfg(stalenessTimeout float64) table.CellConfig {
+	cfg := table.CellConfig{
+		Variant: table.ValueCellConfig{StalenessTimeout: stalenessTimeout},
+	}
 	cfg.ApplyDefaults()
 	return cfg
 }
@@ -69,7 +72,7 @@ func create3x3() table.Table {
 	keys := []string{"a", "b", "c", "d", "e", "f", "g", "h", "i"}
 	cells := make(map[string]table.CellConfig, len(keys))
 	for _, k := range keys {
-		cells[k] = valueCfg("")
+		cells[k] = valueCfg(0)
 	}
 	return table.Table{
 		Name: "t",
@@ -371,10 +374,10 @@ var _ = Describe("Reducer", func() {
 		It("Should replace the cell stored under the given key", func() {
 			out := MustSucceed(
 				table.Reduce(create2x2(), table.NewSetCellAction(table.SetCellPayload{
-					Cell: cell("a", valueCfg("psi")),
+					Cell: cell("a", valueCfg(10)),
 				})),
 			)
-			Expect(out.Cells["a"]).To(Equal(valueCfg("psi")))
+			Expect(out.Cells["a"]).To(Equal(valueCfg(10)))
 			Expect(out.Cells).To(HaveLen(4))
 		})
 
@@ -438,7 +441,7 @@ var _ = Describe("Reducer", func() {
 			)
 			Expect(out.Cells["b"]).To(Equal(textCfg("")))
 			Expect(out.Cells["e"]).To(Equal(textCfg("")))
-			Expect(out.Cells["a"]).To(Equal(valueCfg("")))
+			Expect(out.Cells["a"]).To(Equal(valueCfg(0)))
 		})
 
 		It(

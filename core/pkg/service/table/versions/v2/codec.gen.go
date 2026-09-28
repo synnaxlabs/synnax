@@ -68,7 +68,6 @@ func (cc CellConfig) EncodeOrc(w *orc.Writer) error {
 		} else {
 			w.Bool(false)
 		}
-		w.String(v.Units)
 		w.Float64(float64(v.StalenessTimeout))
 		if v.StalenessColor != nil {
 			w.Bool(true)
@@ -194,9 +193,6 @@ func (cc *CellConfig) DecodeOrc(r *orc.Reader) error {
 				}
 				v.Color = &hv
 			}
-		}
-		if v.Units, err = r.String(); err != nil {
-			return err
 		}
 		if v.StalenessTimeout, err = r.Float64(); err != nil {
 			return err

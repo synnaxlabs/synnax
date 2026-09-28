@@ -122,8 +122,6 @@ type ValueCellConfig struct {
 	// Color is the color of the displayed text. When absent the value renders with a
 	// theme-derived legible color.
 	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
-	// Units is the unit suffix displayed after the value.
-	Units string `json:"units" msgpack:"units"`
 	// StalenessTimeout is the duration in seconds after which the value is considered
 	// stale.
 	StalenessTimeout float64 `json:"staleness_timeout" msgpack:"staleness_timeout"`

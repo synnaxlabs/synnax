@@ -823,25 +823,9 @@ func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {
 		if err := v.StalenessConfig.EncodeOrc(w); err != nil {
 			return err
 		}
-		if v.Position != nil {
-			w.Bool(true)
-			if err := v.Position.EncodeOrc(w); err != nil {
-				return err
-			}
-		} else {
-			w.Bool(false)
-		}
 		if v.Color != nil {
 			w.Bool(true)
 			if err := v.Color.EncodeOrc(w); err != nil {
-				return err
-			}
-		} else {
-			w.Bool(false)
-		}
-		if v.TextColor != nil {
-			w.Bool(true)
-			if err := v.TextColor.EncodeOrc(w); err != nil {
 				return err
 			}
 		} else {
@@ -855,22 +839,12 @@ func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {
 		} else {
 			w.Bool(false)
 		}
-		w.Bool(v.Tooltip != nil)
-		if v.Tooltip != nil {
-			w.Uint32(uint32(len(v.Tooltip)))
-			for i := range v.Tooltip {
-				w.String(v.Tooltip[i])
-			}
-		}
 		if err := v.Redline.EncodeOrc(w); err != nil {
 			return err
 		}
 		w.String(v.Units)
 		w.Float64(float64(v.InlineSize))
 		w.String(string(v.Level))
-		if err := v.Location.EncodeOrc(w); err != nil {
-			return err
-		}
 	case AgitatorElementConfig:
 		w.String("agitator")
 		if err := v.ToggleSymbolConfig.EncodeOrc(w); err != nil {
@@ -2358,19 +2332,6 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv spatial.XY
-				if err = hv.DecodeOrc(r); err != nil {
-					return err
-				}
-				v.Position = &hv
-			}
-		}
-		{
-			present, err := r.Bool()
-			if err != nil {
-				return err
-			}
-			if present {
 				var hv color.Color
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
@@ -2388,38 +2349,7 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
-				v.TextColor = &hv
-			}
-		}
-		{
-			present, err := r.Bool()
-			if err != nil {
-				return err
-			}
-			if present {
-				var hv color.Color
-				if err = hv.DecodeOrc(r); err != nil {
-					return err
-				}
 				v.BackgroundColor = &hv
-			}
-		}
-		{
-			present, err := r.Bool()
-			if err != nil {
-				return err
-			}
-			if present {
-				n, err := r.CollectionLen()
-				if err != nil {
-					return err
-				}
-				v.Tooltip = make([]string, n)
-				for i := range v.Tooltip {
-					if v.Tooltip[i], err = r.String(); err != nil {
-						return err
-					}
-				}
 			}
 		}
 		if err = v.Redline.DecodeOrc(r); err != nil {
@@ -2437,9 +2367,6 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			v.Level = text.Level(rawV)
-		}
-		if err = v.Location.DecodeOrc(r); err != nil {
-			return err
 		}
 		ec.Variant = v
 	case "agitator":
@@ -3714,25 +3641,9 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 		if err := v.StalenessConfig.EncodeOrc(w); err != nil {
 			return err
 		}
-		if v.Position != nil {
-			w.Bool(true)
-			if err := v.Position.EncodeOrc(w); err != nil {
-				return err
-			}
-		} else {
-			w.Bool(false)
-		}
 		if v.Color != nil {
 			w.Bool(true)
 			if err := v.Color.EncodeOrc(w); err != nil {
-				return err
-			}
-		} else {
-			w.Bool(false)
-		}
-		if v.TextColor != nil {
-			w.Bool(true)
-			if err := v.TextColor.EncodeOrc(w); err != nil {
 				return err
 			}
 		} else {
@@ -3746,22 +3657,12 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 		} else {
 			w.Bool(false)
 		}
-		w.Bool(v.Tooltip != nil)
-		if v.Tooltip != nil {
-			w.Uint32(uint32(len(v.Tooltip)))
-			for i := range v.Tooltip {
-				w.String(v.Tooltip[i])
-			}
-		}
 		if err := v.Redline.EncodeOrc(w); err != nil {
 			return err
 		}
 		w.String(v.Units)
 		w.Float64(float64(v.InlineSize))
 		w.String(string(v.Level))
-		if err := v.Location.EncodeOrc(w); err != nil {
-			return err
-		}
 	case AgitatorNodeConfig:
 		w.String("agitator")
 		if err := v.ToggleSymbolConfig.EncodeOrc(w); err != nil {
@@ -5214,19 +5115,6 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv spatial.XY
-				if err = hv.DecodeOrc(r); err != nil {
-					return err
-				}
-				v.Position = &hv
-			}
-		}
-		{
-			present, err := r.Bool()
-			if err != nil {
-				return err
-			}
-			if present {
 				var hv color.Color
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
@@ -5244,38 +5132,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
-				v.TextColor = &hv
-			}
-		}
-		{
-			present, err := r.Bool()
-			if err != nil {
-				return err
-			}
-			if present {
-				var hv color.Color
-				if err = hv.DecodeOrc(r); err != nil {
-					return err
-				}
 				v.BackgroundColor = &hv
-			}
-		}
-		{
-			present, err := r.Bool()
-			if err != nil {
-				return err
-			}
-			if present {
-				n, err := r.CollectionLen()
-				if err != nil {
-					return err
-				}
-				v.Tooltip = make([]string, n)
-				for i := range v.Tooltip {
-					if v.Tooltip[i], err = r.String(); err != nil {
-						return err
-					}
-				}
 			}
 		}
 		if err = v.Redline.DecodeOrc(r); err != nil {
@@ -5293,9 +5150,6 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			v.Level = text.Level(rawV)
-		}
-		if err = v.Location.DecodeOrc(r); err != nil {
-			return err
 		}
 		nc.Variant = v
 	case "agitator":

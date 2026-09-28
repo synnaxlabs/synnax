@@ -79,13 +79,12 @@ var _ = Describe("Codec", func() {
 					B: 22,
 					A: 22.5,
 				}),
-				Units:            "test_23",
-				StalenessTimeout: 24.5,
+				StalenessTimeout: 23.5,
 				StalenessColor: new(color.Color{
-					R: 27,
-					G: 28,
-					B: 29,
-					A: 29.5,
+					R: 26,
+					G: 27,
+					B: 28,
+					A: 28.5,
 				}),
 			}}),
 		)
@@ -318,13 +317,12 @@ func FuzzDecodeCellConfig(f *testing.F) {
 				B: 22,
 				A: 22.5,
 			}),
-			Units:            "test_23",
-			StalenessTimeout: 24.5,
+			StalenessTimeout: 23.5,
 			StalenessColor: new(color.Color{
-				R: 27,
-				G: 28,
-				B: 29,
-				A: 29.5,
+				R: 26,
+				G: 27,
+				B: 28,
+				A: 28.5,
 			}),
 		}}
 		w := orc.NewWriter(0)

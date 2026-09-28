@@ -788,22 +788,13 @@ export const valueNodeConfigZ = labeledConfigZ
   .extend(stalenessConfigZ.shape)
   .extend({
     variant: z.literal("value"),
-    /** position is the offset of the value contents within the symbol. */
-    position: spatial.xyZ.optional(),
     /** color is the color of the value's border and units. */
     color: color.colorZ.optional(),
-    /** textColor is the color of the displayed text. */
-    textColor: color.colorZ.optional(),
     /**
      * backgroundColor is the fill behind the value where no redline band paints. When
      * absent the value paints no fill.
      */
     backgroundColor: color.colorZ.optional(),
-    /** tooltip is the list of tooltip lines shown on hover. */
-    tooltip: z
-      .string()
-      .array()
-      .default(() => []),
     /** redline is the threshold band mapping applied to the background. */
     redline: color.scaleZ.prefault({}),
     /** units is the unit suffix displayed after the value. */
@@ -812,8 +803,6 @@ export const valueNodeConfigZ = labeledConfigZ
     inlineSize: z.number().default(70),
     /** level is the typography level of the displayed value. */
     level: text.levelZ.default("h4"),
-    /** location is the anchor of the value within the symbol. */
-    location: spatial.locationXYZ.prefault({ x: "left", y: "center" }),
   });
 export interface ValueNodeConfig extends z.infer<typeof valueNodeConfigZ> {}
 
@@ -2174,22 +2163,13 @@ export const valueElementConfigZ = labeledConfigZ
   .extend(stalenessConfigZ.shape)
   .extend({
     variant: z.literal("value"),
-    /** position is the offset of the value contents within the symbol. */
-    position: spatial.xyZ.optional(),
     /** color is the color of the value's border and units. */
     color: color.colorZ.optional(),
-    /** textColor is the color of the displayed text. */
-    textColor: color.colorZ.optional(),
     /**
      * backgroundColor is the fill behind the value where no redline band paints. When
      * absent the value paints no fill.
      */
     backgroundColor: color.colorZ.optional(),
-    /** tooltip is the list of tooltip lines shown on hover. */
-    tooltip: z
-      .string()
-      .array()
-      .default(() => []),
     /** redline is the threshold band mapping applied to the background. */
     redline: color.scaleZ.prefault({}),
     /** units is the unit suffix displayed after the value. */
@@ -2198,8 +2178,6 @@ export const valueElementConfigZ = labeledConfigZ
     inlineSize: z.number().default(70),
     /** level is the typography level of the displayed value. */
     level: text.levelZ.default("h4"),
-    /** location is the anchor of the value within the symbol. */
-    location: spatial.locationXYZ.prefault({ x: "left", y: "center" }),
   });
 export interface ValueElementConfig extends z.infer<typeof valueElementConfigZ> {}
 

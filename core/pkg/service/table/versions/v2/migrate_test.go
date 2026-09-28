@@ -238,9 +238,8 @@ var _ = Describe("MigrateTable", func() {
 			HaveKeyWithValue("rolling_average", 5.0),
 			HaveKeyWithValue("precision", 3.0),
 			HaveKeyWithValue("notation", "scientific"),
-			HaveKeyWithValue("units", "psi"),
 		))
-		Expect(fields).NotTo(HaveKey("telem"))
+		Expect(fields).NotTo(Or(HaveKey("telem"), HaveKey("units")))
 	})
 
 	It("Should round a fractional legacy precision to a whole count", func(
