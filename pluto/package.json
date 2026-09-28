@@ -85,7 +85,7 @@
     "use-sync-external-store": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:",
-    "vscode": "npm:@codingame/monaco-vscode-extension-api@^37.1.0",
+    "vscode": "catalog:",
     "vscode-jsonrpc": "catalog:",
     "ws": "catalog:"
   },

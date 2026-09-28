@@ -110,10 +110,12 @@ catalog:
   '@types/react': ^19.3.0
   '@types/react-dom': ^19.3.0
   '@types/use-sync-external-store': ^1.7.0
+  '@types/vscode': ^1.91.0
   '@types/webgl2': ^0.0.12
   '@types/ws': ^8.18.1
   '@vitejs/plugin-react': ^6.1.1
   '@vitest/coverage-v8': ^5.0.2
+  '@vscode/vsce': ^4.0.0
   '@xyflow/react': ^12.12.0
   algoliasearch: ^5.59.0
   astro: ^7.3.5
@@ -124,6 +126,7 @@ catalog:
   compromise-dates: ^3.9.0
   d3-scale: ^4.0.2
   error-stack-parser: ^2.1.4
+  esbuild: ^0.28.2
   eslint: ^10.11.0
   eslint-plugin-react: ^7.37.5
   eslint-plugin-simple-import-sort: ^14.0.0
@@ -138,6 +141,7 @@ catalog:
   knip: ^6.38.0
   mathjs: ^15.2.0
   nanoid: ^6.0.1
+  playwright: ^1.63.0
   pluralize: ^8.0.0
   postcss: ^8.5.26
   prettier: ^3.9.9
@@ -170,6 +174,7 @@ catalog:
   uuid: ^14.0.2
   vite: ^8.3.1
   vitest: ^5.0.2
+  vscode: npm:@codingame/monaco-vscode-extension-api@^37.1.0
   vscode-jsonrpc: ^9.0.3
   vscode-languageclient: ^10.1.2
   ws: ^8.22.0

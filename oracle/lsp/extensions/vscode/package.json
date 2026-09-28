@@ -68,9 +68,9 @@
   },
   "devDependencies": {
     "@types/node": "catalog:",
-    "@types/vscode": "^1.91.0",
-    "@vscode/vsce": "^4.0.0",
-    "esbuild": "^0.28.2",
+    "@types/vscode": "catalog:",
+    "@vscode/vsce": "catalog:",
+    "esbuild": "catalog:",
     "typescript": "catalog:"
   }
 }
