@@ -10,9 +10,9 @@
 import "@/schematic/node/general/box/box.css";
 
 import { type schematic } from "@synnaxlabs/client";
+import { CSS } from "@synnaxlabs/lyra/css";
 import { type ReactElement } from "react";
 
-import { CSS } from "@/css";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { type NodeProps } from "@/schematic/node/spec";

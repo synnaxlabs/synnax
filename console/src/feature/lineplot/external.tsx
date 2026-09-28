@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { lineplot, query } from "@synnaxlabs/client";
-import { Icon, LinePlot as Base } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { LinePlot as Base } from "@synnaxlabs/pluto";
 
 import { LinePlot } from "@/feature/lineplot/LinePlot";
 import { Selectable } from "@/feature/lineplot/Selectable";

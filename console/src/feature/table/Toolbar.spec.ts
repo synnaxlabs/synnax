@@ -9,7 +9,7 @@
 
 import { type Synnax as Client } from "@synnaxlabs/client";
 import { RoleClients } from "@synnaxlabs/client/testutil";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Table } from "@/feature/table";
@@ -21,7 +21,7 @@ import {
 } from "@/feature/table/testutil";
 import { Session } from "@/session";
 import { documentIn } from "@/session/window/testutil";
-import { getLabeledDialogTrigger, uniqueName } from "@/testutil";
+import { uniqueName } from "@/testutil";
 
 interface RenderToolbarOptions {
   tableState?: Partial<Session.Table.State>;
@@ -100,7 +100,7 @@ describe("table/Toolbar", () => {
       tableState: { selectedCells: ["a"], lastSelected: "a" },
     });
     await screen.findByDisplayValue("Cell A");
-    fireEvent.click(getLabeledDialogTrigger("Variant"));
+    fireEvent.click(screen.getByLabelText("Change cell type"));
     fireEvent.click(await screen.findByText("Value"));
     await waitFor(async () => {
       const t = await client.tables.retrieve(key);
@@ -108,14 +108,50 @@ describe("table/Toolbar", () => {
     });
   });
 
+  it("swaps the variant of every selected cell from the header", async () => {
+    const { key } = await renderToolbar({
+      tableState: { selectedCells: ["a", "b"], lastSelected: "b" },
+    });
+    await screen.findByText("Selection colors");
+    fireEvent.click(screen.getByLabelText("Change cell type"));
+    fireEvent.click(await screen.findByText("Value"));
+    await waitFor(async () => {
+      const t = await client.tables.retrieve(key);
+      expect([t.cells.a.variant, t.cells.b.variant]).toEqual(["value", "value"]);
+    });
+  });
+
   it("shows the multi-cell form with the shared cell count", async () => {
     const { result } = await renderToolbar({
       tableState: { selectedCells: ["a", "b"], lastSelected: "b" },
     });
-    expect(await screen.findByText("Variant")).toBeDefined();
-    expect(screen.getByText("Selection colors")).toBeDefined();
+    expect(await screen.findByText("Selection colors")).toBeDefined();
     expect(screen.getByText("Size")).toBeDefined();
     await waitFor(() => expect(result.container.textContent).toContain("2 cells"));
+  });
+
+  it("keeps the selected form tab when another value cell is selected", async () => {
+    const { key, store } = await renderTable(Table.Toolbar, {
+      table: {
+        name: uniqueName("table"),
+        rows: [{ size: 36, cells: ["a", "b"] }],
+        columns: [{ size: 72 }, { size: 72 }],
+        cells: { a: { variant: "value" }, b: { variant: "value" } },
+      },
+      preloadedState: (key) =>
+        createPreloadedState(key, { selectedCells: ["a"], lastSelected: "a" }),
+    });
+    const telemetry = await screen.findByRole("tab", { name: "Telemetry" });
+    expect(telemetry.ariaSelected).toBe("true");
+    fireEvent.click(screen.getByRole("tab", { name: "Style" }));
+    act(() => {
+      store.dispatch(
+        Session.Table.setSelectedCells({ key, cells: ["b"], anchor: "b" }),
+      );
+    });
+    await waitFor(() =>
+      expect(screen.getByRole("tab", { name: "Style" }).ariaSelected).toBe("true"),
+    );
   });
 
   it("groups uncolored cells into one selection color", async () => {

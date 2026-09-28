@@ -9,7 +9,7 @@
 
 import "@/platform/modals/Frame.css";
 
-import { Dialog } from "@synnaxlabs/pluto";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";

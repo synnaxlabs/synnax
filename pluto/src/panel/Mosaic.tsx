@@ -10,6 +10,17 @@
 import "@/panel/Mosaic.css";
 
 import { panel, query } from "@synnaxlabs/client";
+import { Button } from "@synnaxlabs/lyra/button";
+import { type Component } from "@synnaxlabs/lyra/component";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Portal } from "@synnaxlabs/lyra/portal";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Tabs } from "@synnaxlabs/lyra/tabs";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { type direction } from "@synnaxlabs/x";
 import {
   type DragEventHandler,
@@ -19,13 +30,7 @@ import {
   useCallback,
 } from "react";
 
-import { Button } from "@/button";
-import { type Component } from "@/component";
-import { CSS } from "@/css";
 import { Errors } from "@/errors";
-import { Flex } from "@/flex";
-import { Icon } from "@/icon";
-import { Menu } from "@/menu";
 import { Mosaic as Base } from "@/mosaic";
 import { createTabDragPayload, parseTabDragPayload } from "@/panel/haul";
 import {
@@ -39,12 +44,7 @@ import {
   useTabKeys,
 } from "@/panel/queries";
 import { Scope, TabScope } from "@/panel/scope";
-import { Portal } from "@/portal";
-import { Select } from "@/select";
-import { Status } from "@/status/base";
 import { Synnax } from "@/synnax";
-import { Tabs } from "@/tabs";
-import { Triggers } from "@/triggers";
 
 export interface MosaicProps extends Omit<
   Base.FrameProps,

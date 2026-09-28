@@ -10,16 +10,14 @@
 import "@/platform/version/Info.css";
 
 import { status } from "@synnaxlabs/client";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Progress } from "@synnaxlabs/lyra/progress";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Logo } from "@synnaxlabs/media";
-import {
-  Button,
-  Flex,
-  Icon,
-  Progress,
-  Status,
-  Text,
-  useAsyncEffect,
-} from "@synnaxlabs/pluto";
 import { Size } from "@synnaxlabs/x";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
@@ -28,6 +26,7 @@ import { useState } from "react";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { isDevBuild } from "@/platform/version/build";
+import { useInstallMiddleware } from "@/platform/version/Install";
 import { Session } from "@/session";
 
 type UpdateCheck =
@@ -77,11 +76,12 @@ interface UseDownloadReturn {
 const useDownload = (): UseDownloadReturn => {
   const [download, setDownload] = useState<Download>(ZERO_DOWNLOAD);
   const addStatus = Status.useAdder();
+  const installMiddleware = useInstallMiddleware();
   const start = (update: Update): void =>
     void (async () => {
       setDownload({ ...ZERO_DOWNLOAD, variant: "loading" });
       try {
-        await update.downloadAndInstall((prog) => {
+        await update.download((prog) => {
           switch (prog.event) {
             case "Started":
               setDownload((p) => ({
@@ -100,6 +100,7 @@ const useDownload = (): UseDownloadReturn => {
               break;
           }
         });
+        await installMiddleware(async () => await update.install());
         if (Session.Runtime.ENGINE === "tauri") await relaunch();
       } catch (error) {
         const st = status.fromException(error, "Failed to update Console");

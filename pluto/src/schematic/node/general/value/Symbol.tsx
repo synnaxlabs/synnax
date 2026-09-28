@@ -8,16 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { box, scale, text, xy } from "@synnaxlabs/x";
+import { Component } from "@synnaxlabs/lyra/component";
+import { box, text, xy } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
-import { HEIGHTS } from "@/component/size";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { LEVEL_SIZES } from "@/schematic/node/common/size";
 import { Value } from "@/schematic/node/general/value/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
-import { telem } from "@/telem/aether";
 import { Value as BaseValue } from "@/vis/value";
 
 const VALUE_BACKGROUND_OVERSCAN = xy.construct(1, -4);
@@ -43,31 +42,18 @@ export const Symbol = ({
     stalenessColor,
     stalenessTimeout,
     redline,
+    backgroundColor,
   },
 }: NodeProps<schematic.ValueNodeConfig>): ReactElement => {
-  const valueBoxHeight = HEIGHTS[LEVEL_SIZES[level]];
+  const valueBoxHeight = Component.HEIGHTS[LEVEL_SIZES[level]];
   const t = useMemo(
     () => BaseValue.stringSource({ channel, rollingAverage, precision, notation }),
     [channel, rollingAverage, precision, notation],
   );
-  const backgroundTelem = useMemo(() => {
-    if (redline == null) return undefined;
-    const { bounds, gradient } = redline;
-    return telem.sourcePipeline("color", {
-      connections: [
-        { from: "source", to: "scale" },
-        { from: "scale", to: "gradient" },
-      ],
-      segments: {
-        source: t,
-        scale: telem.scaleNumber({
-          scale: scale.Scale.scale<number>(bounds).scale(0, 1).transform,
-        }),
-        gradient: telem.colorGradient({ gradient }),
-      },
-      outlet: "gradient",
-    });
-  }, [t, redline]);
+  const backgroundTelem = useMemo(
+    () => BaseValue.backgroundTelem(t, redline, backgroundColor),
+    [t, redline, backgroundColor],
+  );
   const { width: oWidth } = BaseValue.use({
     aetherKey: nodeKey,
     color: textColor,

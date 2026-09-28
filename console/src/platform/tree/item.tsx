@@ -10,7 +10,11 @@
 import "@/platform/tree/item.css";
 
 import { ontology } from "@synnaxlabs/client";
-import { type Haul, Icon, List, Text, Tree as Base } from "@synnaxlabs/pluto";
+import { type Haul } from "@synnaxlabs/lyra/haul";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Tree as Base } from "@synnaxlabs/lyra/tree";
 import { type FC, type ReactElement, useCallback } from "react";
 
 import { CSS } from "@/platform/css";

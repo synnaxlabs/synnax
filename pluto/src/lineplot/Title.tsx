@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { useUniqueKey } from "@synnaxlabs/lyra/hooks";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { type ReactElement } from "react";
 
-import { Flex } from "@/flex";
-import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { useGridEntry } from "@/lineplot/Frame";
-import { Text } from "@/text";
-import { Theming } from "@/theming";
 
 export type TitleProps = Text.MaybeEditableProps;
 

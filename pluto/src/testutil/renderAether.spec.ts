@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { theme } from "@synnaxlabs/lyra/theme";
 import { describe, expect, it } from "vitest";
 
 import { aetherTest } from "@/aether/test";
@@ -15,7 +16,6 @@ import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { renderAether } from "@/testutil/renderAether";
 import { theming } from "@/theming/aether";
-import { SYNNAX_DARK } from "@/theming/base/theme";
 
 const { Leaf, Composite } = aetherTest;
 
@@ -100,7 +100,7 @@ describe("renderAether", () => {
     it("applies a theming override to the theming provider state", () => {
       const h = renderAether(Leaf, {
         state: {},
-        theming: { theme: SYNNAX_DARK, fontURLs: [] },
+        theming: { theme: theme.SYNNAX_DARK, fontURLs: [] },
       });
       expect(h.providers.theming?.state.theme.key).toBe("synnaxDark");
     });

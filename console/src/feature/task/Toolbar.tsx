@@ -10,22 +10,17 @@
 import "@/feature/task/Toolbar.css";
 
 import { task } from "@synnaxlabs/client";
-import {
-  Access,
-  Button,
-  Flex,
-  type Flux,
-  Icon,
-  List,
-  Menu,
-  Select,
-  Status,
-  stopPropagation,
-  Synnax,
-  Task,
-  Text,
-  Tooltip,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
+import { stopPropagation } from "@synnaxlabs/lyra/util";
+import { Access, type Flux, Synnax, Task } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 
@@ -180,21 +175,21 @@ const Content = () => {
             onFetchMore={fetchMore}
             replaceOnSingle
           >
-            <List.Items<task.Key, task.Task>
-              full="y"
-              emptyContent={answered && <EmptyContent />}
-              onContextMenu={menuProps.open}
-            >
-              {({ key, ...p }) => (
-                <TaskListItem
-                  key={key}
-                  {...p}
-                  onStopStart={handleListItemStopStart}
-                  onRename={rename}
-                  onEdit={handleEdit}
-                />
-              )}
-            </List.Items>
+            <List.Scroll full="y" onContextMenu={menuProps.open}>
+              <List.Items<task.Key, task.Task>
+                emptyContent={answered && <EmptyContent />}
+              >
+                {({ key, ...p }) => (
+                  <TaskListItem
+                    key={key}
+                    {...p}
+                    onStopStart={handleListItemStopStart}
+                    onRename={rename}
+                    onEdit={handleEdit}
+                  />
+                )}
+              </List.Items>
+            </List.Scroll>
           </Select.Frame>
         </Toolbar.Body>
       </Toolbar.Content>
@@ -247,7 +242,7 @@ const TaskListItem = ({
   );
   const handleDoubleClick = useCallback(() => onEdit(itemKey), [onEdit, itemKey]);
   return (
-    <Select.ListItem
+    <Select.Item
       {...rest}
       onDoubleClick={handleDoubleClick}
       justify="between"
@@ -295,7 +290,7 @@ const TaskListItem = ({
           {isRunning ? <Icon.Stop /> : <Icon.Play />}
         </Button.Button>
       )}
-    </Select.ListItem>
+    </Select.Item>
   );
 };
 

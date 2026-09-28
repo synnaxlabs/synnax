@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
 import { type ReactElement } from "react";
 
-import { Icon } from "@/icon";
-import { Item, type ItemProps } from "@/menu/Item";
 import { Control } from "@/telem/control";
 import { useContext } from "@/vis/diagram/Context";
 
 export interface ToggleEditItemProps extends Omit<
-  ItemProps,
+  Menu.ItemProps,
   "itemKey" | "onClick" | "children"
 > {}
 
@@ -26,7 +26,7 @@ export const ToggleEditItem = ({
   const { editable, onEditableChange } = useContext();
   const { status } = Control.useContext();
   return (
-    <Item
+    <Menu.Item
       itemKey="toggle-edit"
       onClick={() => onEditableChange(!editable)}
       disabled={disabled || status === "acquired"}
@@ -34,6 +34,6 @@ export const ToggleEditItem = ({
     >
       {editable ? <Icon.EditOff /> : <Icon.Edit />}
       {editable ? "Disable editing" : "Enable editing"}
-    </Item>
+    </Menu.Item>
   );
 };

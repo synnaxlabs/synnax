@@ -8,24 +8,22 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, schematic } from "@synnaxlabs/client";
-import { color, type text } from "@synnaxlabs/x";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Form as Base } from "@synnaxlabs/lyra/form";
+import { type Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Theming } from "@synnaxlabs/lyra/theming";
+import { color, type record, type text } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
-import { Component } from "@/component";
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
-import { Form as Base } from "@/form";
-import { Input } from "@/input";
 import { Project } from "@/project";
 import { Form } from "@/schematic/node/common/form";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { PAGE_ICONS } from "@/schematic/node/general/offPageReference/config";
 import { type FormProps } from "@/schematic/node/spec";
-import { Select } from "@/select";
-import { Status } from "@/status/base";
 import { Synnax } from "@/synnax";
-import { Theming } from "@/theming";
-const CLICK_MODE_KEYS = ["single", "double"] as const;
 
 const ClickModeSelect = Component.renderProp(
   ({
@@ -40,17 +38,17 @@ const ClickModeSelect = Component.renderProp(
       [onChange],
     );
     return (
-      <Select.Buttons
-        value={value ? "single" : "double"}
-        onChange={handleChange}
-        keys={CLICK_MODE_KEYS}
-      >
-        <Select.Button itemKey="single">Single</Select.Button>
-        <Select.Button itemKey="double">Double</Select.Button>
+      <Select.Buttons value={value ? "single" : "double"} onChange={handleChange}>
+        <Select.Item itemKey="single">Single</Select.Item>
+        <Select.Item itemKey="double">Double</Select.Item>
       </Select.Buttons>
     );
   },
 );
+
+interface Sibling extends record.KeyedNamed {
+  icon: Icon.ReactElement;
+}
 
 const selectKey = (page?: schematic.Page | null): string =>
   page == null || page.key.length === 0 ? "" : ontology.idToString(page);
@@ -78,7 +76,7 @@ const useHandlePageChange = (): ((v: string | null) => void) => {
 export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
-  const [siblings, setSiblings] = useState<Select.StaticEntry<string>[]>([]);
+  const [siblings, setSiblings] = useState<Sibling[]>([]);
   useEffect(() => {
     setSiblings([]);
     if (client == null || schematicKey == null) return;
@@ -106,23 +104,34 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
     optional: true,
   });
   return (
-    <Form.Wrapper x align="stretch">
-      <Flex.Box x grow align="stretch">
-        <Base.TextField path="label.label" label="Label" padHelpText={false} grow />
-        <Input.Item
-          label="Page"
+    <Base.Sections x>
+      <Base.Section title="Label">
+        <Base.TextField path="label.label" label="Label" padHelpText={false} />
+        <Base.Field<text.Level>
+          hideIfNull
+          path="label.level"
+          label="Size"
           padHelpText={false}
-          grow
-          className={CSS.BE("symbol-form", "page-field")}
         >
-          <Select.Static
+          {Form.SelectTextLevel}
+        </Base.Field>
+      </Base.Section>
+      <Base.Section title="Navigation">
+        <Input.Item label="Page" padHelpText={false}>
+          <Select.Simple<string>
             value={selectKey(page)}
             onChange={handlePageChange}
-            data={siblings}
             resourceName="page"
             emptyContent="No other pages in this project"
             allowNone
-          />
+          >
+            {siblings.map(({ key, name, icon }) => (
+              <Select.Item key={key} itemKey={key}>
+                {icon}
+                {name}
+              </Select.Item>
+            ))}
+          </Select.Simple>
         </Input.Item>
         <Base.Field<boolean>
           path="dblClickNavDisabled"
@@ -132,17 +141,11 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
         >
           {ClickModeSelect}
         </Base.Field>
-        <Base.Field<text.Level>
-          hideIfNull
-          path="label.level"
-          label="Label size"
-          padHelpText={false}
-        >
-          {Form.SelectTextLevel}
-        </Base.Field>
+      </Base.Section>
+      <Base.Section title="Appearance">
         <Form.ColorField path="color" />
-      </Flex.Box>
-      <Orientation.Field path="" hideOuter />
-    </Form.Wrapper>
+      </Base.Section>
+      <Orientation.Section path="" hideOuter />
+    </Base.Sections>
   );
 };

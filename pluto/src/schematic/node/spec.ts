@@ -11,8 +11,10 @@ import { type schematic } from "@synnaxlabs/client";
 import { type xy } from "@synnaxlabs/x";
 import { type FC, type ReactNode } from "react";
 
-export interface FormProps {
-  /** actions render in the right corner of the form's tab strip. */
+import { type Properties } from "@/vis/properties";
+
+export interface FormProps extends Properties.SelectionProps {
+  /** actions render at the foot of the form's tab rail. */
   actions?: ReactNode;
   schematicKey?: string;
 }

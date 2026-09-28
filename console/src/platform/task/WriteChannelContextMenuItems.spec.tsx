@@ -9,7 +9,7 @@
 
 import { type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
-import { Menu } from "@synnaxlabs/pluto";
+import { Menu } from "@synnaxlabs/lyra/menu";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { act } from "react";
 import { describe, expect, it } from "vitest";

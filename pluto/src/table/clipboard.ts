@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { query, table } from "@synnaxlabs/client";
+import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { uuid } from "@synnaxlabs/x";
 import { type ClipboardEventHandler, useCallback } from "react";
 
-import { useSyncedRef } from "@/hooks";
 import { Synnax } from "@/synnax";
 import { Cell } from "@/table/cells";
 import { findCellPosition, useDispatch } from "@/table/queries";

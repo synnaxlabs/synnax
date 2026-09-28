@@ -17,7 +17,7 @@ import { type Spec } from "@/schematic/node/spec";
 export const spec: Spec<"switch", schematic.SwitchNodeConfig> = {
   key: "switch",
   name: "Switch",
-  Form: () => <Form.ToggleForm hideInnerOrientation />,
+  Form: (props) => <Form.ToggleForm {...props} hideInnerOrientation />,
   Node: Toggle.createToggle<schematic.SwitchNodeConfig>(Switch),
   Preview: Switch,
   zIndex: 4,

@@ -9,7 +9,7 @@
 
 import { label, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { mockBoundingClientRect } from "@synnaxlabs/pluto/testutil";
+import { mockBoundingClientRect } from "@synnaxlabs/lyra/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -90,7 +90,7 @@ describe("Label.useEditModal", () => {
     if (swatch == null) throw new Error("color swatch not found");
     fireEvent.click(swatch);
     const picker = await waitFor(() => {
-      const el = document.querySelector<HTMLElement>(".sketch-picker");
+      const el = document.querySelector<HTMLElement>(".pluto-color-picker");
       if (el == null) throw new Error("color picker did not open");
       return el;
     });

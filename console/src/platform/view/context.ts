@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology, type view } from "@synnaxlabs/client";
-import { context } from "@synnaxlabs/pluto";
+import { context } from "@synnaxlabs/lyra/context";
 
 export interface FormContextValue {
   search: (term: string) => void;

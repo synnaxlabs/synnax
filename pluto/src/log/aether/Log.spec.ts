@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { log as clientLog } from "@synnaxlabs/client";
+import { theme } from "@synnaxlabs/lyra/theme";
 import { box, color, TimeStamp } from "@synnaxlabs/x";
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -19,10 +20,9 @@ import {
 } from "@/log/aether/telem/mock";
 import { type LogEntry } from "@/log/aether/telem/types";
 import { renderAether } from "@/testutil/renderAether";
-import { SYNNAX_DARK, SYNNAX_LIGHT, type Theme, themeZ } from "@/theming/base/theme";
 import { canvasTest } from "@/vis/render/test";
 
-const THEME: Theme = themeZ.parse(SYNNAX_DARK);
+const THEME: theme.Theme = theme.themeZ.parse(theme.SYNNAX_DARK);
 
 const REGION_500 = box.construct({ x: 0, y: 0 }, { width: 400, height: 500 });
 
@@ -55,7 +55,7 @@ const setup = (
   entries: LogEntry[] = [],
   region: box.Box = REGION_500,
   stateOverrides: Record<string, unknown> = {},
-  theme: Theme = THEME,
+  theme: theme.Theme = THEME,
 ) => {
   const testId = `log-test-${++testIdCounter}`;
   const source = new MockLogSource();
@@ -1163,7 +1163,7 @@ describe("log/aether/Log", () => {
 
   describe("theme handling", () => {
     it("should work with light theme", () => {
-      const lightTheme = themeZ.parse(SYNNAX_LIGHT);
+      const lightTheme = theme.themeZ.parse(theme.SYNNAX_LIGHT);
       const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i));
       const { log } = setup(entries, REGION_500, {}, lightTheme);
       expect(log.lineHeight).toBeGreaterThan(0);

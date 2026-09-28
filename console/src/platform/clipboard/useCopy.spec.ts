@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type status } from "@synnaxlabs/client";
-import { Status } from "@synnaxlabs/pluto";
+import { Status } from "@synnaxlabs/lyra/status";
 import { act, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, type Mock } from "vitest";
 

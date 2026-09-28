@@ -18,6 +18,7 @@ on:
       - client/ts/package.json
       - drift/package.json
       - freighter/ts/package.json
+      - lyra/package.json
       - pluto/package.json
       - x/media/package.json
       - x/ts/package.json

@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { DataType } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { Icon } from "@/icon";
 import { resolveDataTypeIcon } from "@/telem/resolveDataTypeIcon";
 
 describe("resolveDataTypeIcon", () => {

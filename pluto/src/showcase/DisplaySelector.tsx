@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
 import { caseconv } from "@synnaxlabs/x";
-
-import { Button } from "@/button";
-import { Flex } from "@/flex";
-import { Select } from "@/select";
-import { Text } from "@/text";
 
 import { DISPLAY } from "./constants";
 
@@ -52,11 +51,11 @@ export const DisplaySelector = ({ display, setDisplay }: DisplaySelectorProps) =
         </Text.Text>
       </Flex.Box>
 
-      <Select.Buttons multiple keys={DISPLAY} value={display} onChange={setDisplay}>
+      <Select.Buttons multiple value={display} onChange={setDisplay}>
         {DISPLAY.map((d) => (
-          <Select.Button key={d} itemKey={d}>
+          <Select.Item key={d} itemKey={d}>
             {caseconv.capitalize(d)}
-          </Select.Button>
+          </Select.Item>
         ))}
       </Select.Buttons>
     </Flex.Box>

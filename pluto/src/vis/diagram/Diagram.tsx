@@ -10,6 +10,16 @@
 import "@/vis/diagram/Diagram.css";
 import "@xyflow/react/dist/base.css";
 
+import { type Component } from "@synnaxlabs/lyra/component";
+import { CSS } from "@synnaxlabs/lyra/css";
+import {
+  useCombinedRefs,
+  useDebouncedCallback,
+  useSyncedRef,
+} from "@synnaxlabs/lyra/hooks";
+import { useMemoCompare } from "@synnaxlabs/lyra/memo";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
+import { blockActivation, isInputOrContentEditable } from "@synnaxlabs/lyra/util";
 import { box, type dimensions, TimeSpan, xy } from "@synnaxlabs/x";
 import {
   type Connection as RFConnection,
@@ -47,12 +57,6 @@ import {
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { type RenderProp } from "@/component/renderProp";
-import { CSS } from "@/css";
-import { useCombinedRefs, useDebouncedCallback, useSyncedRef } from "@/hooks";
-import { useMemoCompare } from "@/memo";
-import { Triggers } from "@/triggers";
-import { blockActivation, isInputOrContentEditable } from "@/util/event";
 import { Viewport as BaseViewport } from "@/viewport";
 import { Canvas } from "@/vis/canvas";
 import { diagram } from "@/vis/diagram/aether";
@@ -87,11 +91,11 @@ export interface NodeProps {
 
 export interface RendererConfig {
   /** Renders each node by key. */
-  node: RenderProp<NodeProps, ReactElement>;
+  node: Component.RenderProp<NodeProps, ReactElement>;
   /** Renders each edge; falls back to React Flow's default edge when omitted. */
-  edge?: RenderProp<diagram.EdgeProps, ReactElement>;
+  edge?: Component.RenderProp<diagram.EdgeProps, ReactElement>;
   /** Renders the line shown while dragging a new connection. */
-  connectionLine?: RenderProp<diagram.ConnectionLineProps, ReactElement>;
+  connectionLine?: Component.RenderProp<diagram.ConnectionLineProps, ReactElement>;
   /** Wraps the diagram inside the React Flow store context, above all renderers. */
   Provider?: FC<PropsWithChildren>;
 }

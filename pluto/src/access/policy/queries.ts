@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { access, ontology } from "@synnaxlabs/client";
+import { type List } from "@synnaxlabs/lyra/list";
 import { array, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
-import { type List } from "@/list";
 
 const RESOURCE_NAME = "policy";
 const PLURAL_RESOURCE_NAME = "policies";

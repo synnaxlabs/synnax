@@ -9,10 +9,9 @@
 
 import "@/schematic/node/general/line/line.css";
 
+import { CSS } from "@synnaxlabs/lyra/css";
 import { color, type xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
-
-import { CSS } from "@/css";
 
 export interface LineProps {
   className?: string;

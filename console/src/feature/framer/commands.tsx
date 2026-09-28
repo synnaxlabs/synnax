@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { framer } from "@synnaxlabs/client";
-import { Access, Icon } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Access } from "@synnaxlabs/pluto";
 
 import { useDeleteDataModal } from "@/feature/framer/useDeleteDataModal";
 import { Command } from "@/platform/command";

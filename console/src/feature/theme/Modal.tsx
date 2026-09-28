@@ -10,7 +10,10 @@
 import "@/feature/theme/Modal.css";
 
 import { type Dispatch } from "@reduxjs/toolkit";
-import { Component, Icon, List, Select, Text } from "@synnaxlabs/pluto";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
@@ -39,10 +42,10 @@ const listItem = Component.renderProp(
     const entry = List.useItem<Theme.Mode, Entry>(props.itemKey);
     if (entry == null) return null;
     return (
-      <Select.ListItem {...props} align="center" gap="medium">
+      <Select.Item {...props} align="center" gap="medium">
         {entry.icon}
-        <Text.Text>{entry.name}</Text.Text>
-      </Select.ListItem>
+        {entry.name}
+      </Select.Item>
     );
   },
 );
@@ -73,7 +76,9 @@ const Content = ({
           onChange={handleChange}
           initialHover={data.indexOf(mode)}
         >
-          <List.Items<Theme.Mode>>{listItem}</List.Items>
+          <List.Scroll>
+            <List.Items<Theme.Mode>>{listItem}</List.Items>
+          </List.Scroll>
         </Select.Frame>
       </Body>
     </Frame>

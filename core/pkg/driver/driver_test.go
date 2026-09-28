@@ -26,6 +26,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/driver"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	. "github.com/synnaxlabs/x/testutil"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -274,6 +275,31 @@ var _ = Describe("Open", func() {
 			Expect(os.ReadFile(envFile)).To(ContainSubstring(
 				"GRPC_DEFAULT_SSL_ROOTS_FILE_PATH=" + anchorFile,
 			))
+			Expect(d.Close()).To(Succeed())
+		})
+
+		It("Should give the Driver its credentials under the keys it reads", func(
+			ctx SpecContext,
+		) {
+			logger, _ := newTestLogger()
+			dir := GinkgoT().TempDir()
+			d := openMockDriver(ctx, logger, driver.Config{
+				ParentDirname: dir,
+				Credentials:   auth.Credentials{Username: "root", Password: "secret"},
+			})
+			conn := readDriverConnection(dir)
+			Expect(conn).To(HaveKeyWithValue("username", "root"))
+			Expect(conn).To(HaveKeyWithValue("password", "secret"))
+			Expect(d.Close()).To(Succeed())
+		})
+
+		It("Should keep the Driver's state inside its working directory", func(
+			ctx SpecContext,
+		) {
+			logger, _ := newTestLogger()
+			dir := GinkgoT().TempDir()
+			d := openMockDriver(ctx, logger, driver.Config{ParentDirname: dir})
+			Expect(filepath.Join(dir, "driver", "state.json")).To(BeAnExistingFile())
 			Expect(d.Close()).To(Succeed())
 		})
 

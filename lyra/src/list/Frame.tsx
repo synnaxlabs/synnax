@@ -1,0 +1,550 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { bounds, type location, type record } from "@synnaxlabs/x";
+import {
+  defaultRangeExtractor,
+  type Range,
+  useVirtualizer,
+  type Virtualizer,
+} from "@tanstack/react-virtual";
+import {
+  type PropsWithChildren,
+  type ReactElement,
+  type RefCallback,
+  type RefObject,
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
+
+import { memo } from "@/component/memo";
+import { context } from "@/context";
+import { Dialog } from "@/dialog";
+import { useCombinedRefs, useInitializerRef, usePrevious, useSyncedRef } from "@/hooks";
+import { type Elements, ElementsContext, ItemsContext } from "@/list/scope";
+
+/** Function interface for getting items from a list by key(s). */
+export interface GetItem<K extends record.Key, E extends record.Keyed<K> | undefined>
+  extends GetSingleItem<K, E>, GetMultipleItems<K, E> {}
+
+/** Reads one item by key. */
+export interface GetSingleItem<
+  K extends record.Key,
+  E extends record.Keyed<K> | undefined,
+> {
+  (key: K): E | undefined;
+}
+
+/** Reads many items at once, dropping any key with no item. */
+export interface GetMultipleItems<
+  K extends record.Key,
+  E extends record.Keyed<K> | undefined,
+> {
+  (keys: K[]): E[];
+}
+
+/** Joins a single-key and a multi-key reader into one {@link GetItem}. */
+export const createGetItem = <
+  K extends record.Key,
+  E extends record.Keyed<K> | undefined,
+>(
+  first: GetSingleItem<K, E>,
+  second: GetMultipleItems<K, E>,
+): GetItem<K, E> =>
+  ((key: K | K[]) => {
+    if (Array.isArray(key)) return second(key);
+    return first(key);
+  }) as GetItem<K, E>;
+
+/** One item the enclosing frame asks its children to render. */
+export interface ItemSpec<K extends record.Key = record.Key> {
+  key: K;
+  index: number;
+  /** Pixel offset from the top of the list, set only when virtualized. */
+  translate?: number;
+}
+
+export interface DataContextValue<K extends record.Key = record.Key> {
+  data: K[];
+  getItems: () => ItemSpec<K>[];
+  getTotalSize: () => number | undefined;
+  sentinelRef?: RefCallback<HTMLDivElement>;
+}
+
+export interface UtilContextValue<
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
+> {
+  /** Attaches the scroll container. */
+  ref: RefCallback<HTMLDivElement | null>;
+  /** Attaches the element that holds the rendered items. */
+  itemsRef: RefCallback<HTMLDivElement | null>;
+  getItem?: GetItem<K, E>;
+  subscribe?: (callback: () => void, key: K) => () => void;
+  scrollToIndex: (index: number, direction?: location.Y) => void;
+  itemHeight?: number;
+}
+
+const [DataContext, useDataContext] = context.create<DataContextValue>({
+  displayName: "List.DataContext",
+  providerName: "List.Frame",
+});
+
+const [UtilContext, useUtilCtx] = context.create<UtilContextValue>({
+  displayName: "List.UtilContext",
+  providerName: "List.Frame",
+});
+
+export const useUtilContext = <
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
+>(): UtilContextValue<K, E> =>
+  useUtilCtx("List.useUtilContext") as unknown as UtilContextValue<K, E>;
+
+/** Props for {@link Frame}. A data hook such as `useStaticData` supplies most of them. */
+export interface FrameProps<
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
+>
+  extends PropsWithChildren, Pick<UtilContextValue<K, E>, "getItem" | "subscribe"> {
+  /** The keys to render, in order. */
+  data: K[];
+  /** Whether to render only the visible window. Needed above a few hundred items. */
+  virtual?: boolean;
+  /** Extra items to render past each edge of the visible window. */
+  overscan?: number;
+  /** Row height in pixels. Virtualization estimates from it. */
+  itemHeight?: number;
+  /** Called when the list scrolls near its end. */
+  onFetchMore?: () => void;
+}
+
+/** @returns a scroller for the enclosing {@link Frame}, stable as the list scrolls. */
+export const useScroller = <K extends record.Key = record.Key>(): Pick<
+  UtilContextValue<K>,
+  "scrollToIndex"
+> => {
+  const { scrollToIndex } = useUtilCtx("List.useScroller");
+  return useMemo(() => ({ scrollToIndex }), [scrollToIndex]);
+};
+
+/**
+ * useItemHeight returns the row height the enclosing Frame was given. It reads the
+ * util context, which does not change as the list scrolls.
+ */
+export const useItemHeight = (): number | undefined =>
+  useUtilCtx("List.useItemHeight").itemHeight;
+
+/**
+ * Reads the item for a key from the enclosing {@link Frame} and re-renders the caller
+ * when that one item changes. Use it inside a list item, so the list does not re-render
+ * on every entry update.
+ */
+export const useItem = <
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
+>(
+  key: K,
+): E | undefined => {
+  const { getItem, subscribe } = useUtilCtx(
+    "List.useItem",
+  ) as unknown as UtilContextValue<K, E>;
+  return useSyncExternalStore(
+    useCallback(
+      (callback) => {
+        if (subscribe == null) return () => {};
+        return subscribe(callback, key);
+      },
+      [key, subscribe],
+    ),
+    useCallback(() => getItem?.(key), [getItem, key]),
+    () => undefined as E | undefined,
+  );
+};
+
+/**
+ * Reads the full state of the enclosing {@link Frame}: the keys, the visible window,
+ * and the item readers. It re-renders on every scroll, so prefer {@link useItem} inside
+ * an item.
+ */
+export const useData = <
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
+>(): DataContextValue<K> & UtilContextValue<K, E> => {
+  const { data, getItems, getTotalSize, sentinelRef } = useDataContext(
+    "List.useData",
+  ) as DataContextValue<K>;
+  const { ref, itemsRef, getItem, scrollToIndex, subscribe, itemHeight } = useUtilCtx(
+    "List.useData",
+  ) as unknown as UtilContextValue<K, E>;
+  return useMemo(
+    () => ({
+      data,
+      getItems,
+      getTotalSize,
+      ref,
+      itemsRef,
+      getItem,
+      scrollToIndex,
+      subscribe,
+      itemHeight,
+      sentinelRef,
+    }),
+    [
+      data,
+      getItems,
+      getTotalSize,
+      ref,
+      itemsRef,
+      getItem,
+      scrollToIndex,
+      subscribe,
+      itemHeight,
+      sentinelRef,
+    ],
+  );
+};
+
+const useFetchMoreRefCallback = (
+  elRef: RefObject<HTMLDivElement | null>,
+  hasData: boolean,
+  onFetchMore?: () => void,
+) => {
+  const onFetchMoreRef = useSyncedRef(onFetchMore);
+  const { visible } = Dialog.useContext();
+  const initialFetchCalledRef = useRef(false);
+  return useCallback(
+    (el: HTMLDivElement) => {
+      elRef.current = el;
+      if (elRef.current == null || initialFetchCalledRef.current) return;
+      initialFetchCalledRef.current = true;
+      onFetchMoreRef.current?.();
+    },
+    [onFetchMoreRef, visible, hasData],
+  );
+};
+
+interface UseIntersectionFetchMoreReturn {
+  containerRef: RefCallback<HTMLDivElement>;
+  sentinelRef: RefCallback<HTMLDivElement>;
+}
+
+const SCROLL_THRESHOLD_PX = 100;
+
+const useIntersectionFetchMore = (
+  onFetchMore: (() => void) | undefined,
+  dataLength: number,
+): UseIntersectionFetchMoreReturn => {
+  const onFetchMoreRef = useSyncedRef(onFetchMore);
+  const isFetchingRef = useRef(false);
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const containerElRef = useRef<HTMLDivElement | null>(null);
+  const sentinelElRef = useRef<HTMLDivElement | null>(null);
+
+  const prevDataLength = usePrevious(dataLength);
+  if (prevDataLength !== undefined && dataLength !== prevDataLength)
+    isFetchingRef.current = false;
+
+  const setupObserver = useCallback(() => {
+    observerRef.current?.disconnect();
+    observerRef.current = null;
+
+    const container = containerElRef.current;
+    const sentinel = sentinelElRef.current;
+    if (container == null || sentinel == null) return;
+
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !isFetchingRef.current) {
+          isFetchingRef.current = true;
+          onFetchMoreRef.current?.();
+        }
+      },
+      {
+        root: container,
+        rootMargin: `0px 0px ${SCROLL_THRESHOLD_PX}px 0px`,
+        threshold: 0,
+      },
+    );
+    observerRef.current.observe(sentinel);
+  }, [onFetchMoreRef]);
+
+  const containerRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      containerElRef.current = el;
+      setupObserver();
+    },
+    [setupObserver],
+  );
+
+  const sentinelRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      sentinelElRef.current = el;
+      setupObserver();
+    },
+    [setupObserver],
+  );
+
+  return { containerRef, sentinelRef };
+};
+
+const useElements = (pin: Elements["pin"]): Elements => {
+  const elementsRef = useInitializerRef(() => new Map<record.Key, HTMLElement>());
+  const setElement = useCallback((key: record.Key, element: HTMLElement | null) => {
+    if (element == null) elementsRef.current.delete(key);
+    else elementsRef.current.set(key, element);
+  }, []);
+  const click = useCallback(
+    (key: record.Key) => elementsRef.current.get(key)?.click(),
+    [],
+  );
+  return useMemo(() => ({ setElement, click, pin }), [setElement, click, pin]);
+};
+
+// A static frame mounts every item, so nothing needs pinning.
+const NO_PIN = (): void => {};
+
+const INITIAL_WINDOW_HEIGHT = 800;
+
+const VirtualFrame = <
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
+>({
+  data,
+  getItem,
+  subscribe,
+  children,
+  onFetchMore,
+  overscan = 10,
+  itemHeight = 33,
+}: FrameProps<K, E>): ReactElement => {
+  const ref = useRef<HTMLDivElement>(null);
+  const [scrollMargin, setScrollMargin] = useState(0);
+  // Content above the items in the scroll container shifts them down. The container is
+  // positioned (Scroll.css), so offsetTop measures that shift and ignores scrolling. It
+  // changes when that content resizes, hides, mounts, or unmounts.
+  const itemsRef = useCallback((el: HTMLDivElement | null) => {
+    if (el == null) return;
+    const measure = () => setScrollMargin(el.offsetTop);
+    const resize = new ResizeObserver(measure);
+    const observeAbove = () => {
+      resize.disconnect();
+      for (let s = el.previousElementSibling; s != null; s = s.previousElementSibling)
+        resize.observe(s);
+    };
+    const mutation = new MutationObserver(() => {
+      observeAbove();
+      measure();
+    });
+    if (el.parentElement != null)
+      mutation.observe(el.parentElement, { childList: true });
+    observeAbove();
+    measure();
+    return () => {
+      resize.disconnect();
+      mutation.disconnect();
+    };
+  }, []);
+  const hasData = data.length > 0;
+  const refCallback = useFetchMoreRefCallback(ref, hasData, onFetchMore);
+  const dataRef = useSyncedRef(data);
+  const pinnedRef = useRef<record.Key | null>(null);
+  // The index of the pinned row when it is mounted only because it is pinned.
+  const pinnedOutsideRef = useRef<number | null>(null);
+  const indexesRef = useRef<number[]>([]);
+  const extract = useCallback((range: Range) => {
+    let indexes = defaultRangeExtractor(range);
+    pinnedOutsideRef.current = null;
+    const pinned = pinnedRef.current;
+    const keys: readonly record.Key[] = dataRef.current;
+    const index = pinned == null ? -1 : keys.indexOf(pinned);
+    if (index !== -1 && !indexes.includes(index)) {
+      pinnedOutsideRef.current = index;
+      indexes = [...indexes, index].sort((a, b) => a - b);
+    }
+    indexesRef.current = indexes;
+    return indexes;
+  }, []);
+  // The virtualizer extracts the range again only when an input changes, so a new
+  // extractor mounts a pinned row that is out of view.
+  const [rangeExtractor, setRangeExtractor] = useState(() => extract);
+  const pin = useCallback(
+    (key: record.Key | null) => {
+      pinnedRef.current = key;
+      if (key == null) return;
+      const keys: readonly record.Key[] = dataRef.current;
+      const index = keys.indexOf(key);
+      if (index !== -1 && !indexesRef.current.includes(index))
+        setRangeExtractor(() => (range: Range) => extract(range));
+    },
+    [extract],
+  );
+  const virtualizer = useVirtualizer({
+    count: data.length,
+    getScrollElement: () => ref.current,
+    estimateSize: () => itemHeight,
+    getItemKey: useCallback((index: number) => data[index] ?? index, [data]),
+    // The container has no measured rect until an effect runs, and an unmeasured
+    // window renders nothing. Assuming one keeps the mount commit from painting empty.
+    initialRect: { width: 0, height: INITIAL_WINDOW_HEIGHT },
+    overscan,
+    scrollMargin,
+    rangeExtractor,
+    onChange: useCallback(
+      (v: Virtualizer<HTMLDivElement, HTMLDivElement>) => {
+        const last = v
+          .getVirtualItems()
+          .findLast(({ index }) => index !== pinnedOutsideRef.current);
+        if (last?.index === data.length - 1) onFetchMore?.();
+      },
+      [data.length, onFetchMore],
+    ),
+  });
+
+  const scrollToIndex = useCallback(
+    (index: number) => virtualizer.scrollToIndex(index),
+    [virtualizer],
+  );
+  const elements = useElements(pin);
+  const items = virtualizer.getVirtualItems();
+  const dataCtxValue = useMemo<DataContextValue<K>>(
+    () => ({
+      getItem,
+      data,
+      subscribe,
+      getTotalSize: () => virtualizer.getTotalSize(),
+      getItems: () =>
+        items.map(({ index, start }) => ({
+          key: data[index],
+          index,
+          translate: start - scrollMargin,
+        })),
+    }),
+    [virtualizer, data, getItem, subscribe, items, scrollMargin],
+  );
+
+  const utilCtxValue = useMemo<UtilContextValue<K, E>>(
+    () => ({
+      ref: refCallback,
+      itemsRef,
+      getItem,
+      scrollToIndex,
+      subscribe,
+      itemHeight,
+    }),
+    [refCallback, itemsRef, scrollToIndex, getItem, subscribe, itemHeight],
+  );
+
+  return (
+    <DataContext value={dataCtxValue}>
+      <UtilContext value={utilCtxValue as unknown as UtilContextValue}>
+        <ElementsContext value={elements}>{children}</ElementsContext>
+      </UtilContext>
+    </DataContext>
+  );
+};
+
+const StaticFrame = <
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
+>({
+  data,
+  getItem,
+  subscribe,
+  children,
+  onFetchMore,
+  itemHeight,
+}: FrameProps<K, E>): ReactElement => {
+  const ref = useRef<HTMLDivElement>(null);
+  const itemsElRef = useRef<HTMLDivElement | null>(null);
+  const itemsRef = useCallback((el: HTMLDivElement | null) => {
+    itemsElRef.current = el;
+  }, []);
+  const hasData = data.length > 0;
+  const scrollToIndex = useCallback((index: number, direction?: location.Y) => {
+    const container = itemsElRef.current;
+    if (container == null) return;
+    const dirMultiplier = direction === "top" ? 1 : -1;
+    let scrollTo: number;
+    const idealHover = index + dirMultiplier;
+    if (bounds.contains({ lower: 0, upper: container.children.length }, idealHover))
+      scrollTo = index + dirMultiplier;
+    else scrollTo = index;
+    const child = container.children[scrollTo] as HTMLElement | undefined;
+    if (child != null)
+      child.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
+  }, []);
+  const elements = useElements(NO_PIN);
+
+  const initialFetchCallback = useFetchMoreRefCallback(ref, hasData, onFetchMore);
+  const { containerRef: intersectionContainerRef, sentinelRef } =
+    useIntersectionFetchMore(onFetchMore, data.length);
+  const refCallback = useCombinedRefs(initialFetchCallback, intersectionContainerRef);
+
+  const items = useMemo(() => data.map((key, index) => ({ key, index })), [data]);
+  const dataCtxValue = useMemo<DataContextValue<K>>(
+    () => ({
+      getItem,
+      data,
+      subscribe,
+      getTotalSize: () => undefined,
+      getItems: () => items,
+      sentinelRef,
+    }),
+    [data, getItem, subscribe, sentinelRef, items],
+  );
+  const utilCtxValue = useMemo<UtilContextValue<K, E>>(
+    () => ({
+      ref: refCallback,
+      itemsRef,
+      getItem,
+      scrollToIndex,
+      subscribe,
+      itemHeight,
+    }),
+    [refCallback, itemsRef, getItem, subscribe, scrollToIndex, itemHeight],
+  );
+  return (
+    <DataContext value={dataCtxValue}>
+      <UtilContext value={utilCtxValue as unknown as UtilContextValue}>
+        <ElementsContext value={elements}>{children}</ElementsContext>
+      </UtilContext>
+    </DataContext>
+  );
+};
+
+/** {@link Frame} before memoization. Prefer `Frame`. */
+export const BaseFrame = <
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
+>({
+  virtual = false,
+  ...rest
+}: FrameProps<K, E>): ReactElement => (
+  // A nested frame starts a new list, so its content is not a row of the outer one.
+  <ItemsContext value={null}>
+    {virtual ? <VirtualFrame {...rest} /> : <StaticFrame {...rest} />}
+  </ItemsContext>
+);
+
+/**
+ * Holds the data for a list and hands it to its children through context. It renders no
+ * element of its own: pair it with {@link Scroll} and {@link Items}.
+ *
+ * @example
+ * <List.Frame {...List.useStaticData({ data })}>
+ *   <List.Scroll>
+ *     <List.Items>{(p) => <List.Item {...p} />}</List.Items>
+ *   </List.Scroll>
+ * </List.Frame>
+ */
+export const Frame = memo(BaseFrame);
