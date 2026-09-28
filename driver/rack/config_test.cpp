@@ -66,17 +66,18 @@ TEST_F(RackConfigTest, clearRackFromPersistedState) {
 
 /// @brief it should save and load connection parameters from persisted state.
 TEST_F(RackConfigTest, saveConnParamsToPersistedState) {
-    Config::save_conn_params(
-        args,
-        {
-            .host = "dog",
-            .port = 450,
-            .username = "cat",
-            .password = "nip",
-        }
+    ASSERT_NIL(
+        Config::save_conn_params(
+            args,
+            {
+                .host = "dog",
+                .port = 450,
+                .username = "cat",
+                .password = "nip",
+            }
+        )
     );
-    auto [cfg, err] = Config::load(args, brk);
-    ASSERT_OCCURRED_AS(err, freighter::UNREACHABLE);
+    const auto cfg = ASSERT_NIL_P(Config::resolve(args, brk));
     ASSERT_EQ(cfg.connection.host, "dog");
     ASSERT_EQ(cfg.connection.port, 450);
     ASSERT_EQ(cfg.connection.username, "cat");
@@ -91,7 +92,7 @@ TEST_F(RackConfigTest, parseRackFromConfigArg) {
         .rack_key = rack.key,
         .cluster_key = client.auth->cluster_info.cluster_key,
     };
-    Config::save_remote_info(args, remote_info);
+    ASSERT_NIL(Config::save_remote_info(args, remote_info));
     const auto cfg = ASSERT_NIL_P(Config::load(args, brk));
     ASSERT_EQ(cfg.rack.key, rack.key);
     ASSERT_EQ(cfg.rack.name, "abc rack");
@@ -102,14 +103,16 @@ TEST_F(RackConfigTest, parseRackFromConfigArg) {
 TEST_F(RackConfigTest, recreateOnClusterKeyMismatch) {
     const auto client = new_test_client();
     const auto rack = ASSERT_NIL_P(client.racks.create("abc rack"));
-    Config::save_remote_info(
-        args,
-        {
-            .rack_key = rack.key,
-            .cluster_key = ASSERT_NIL_P(
-                x::uuid::UUID::parse("00000000-0000-0000-0000-000000000001")
-            ),
-        }
+    ASSERT_NIL(
+        Config::save_remote_info(
+            args,
+            {
+                .rack_key = rack.key,
+                .cluster_key = ASSERT_NIL_P(
+                    x::uuid::UUID::parse("00000000-0000-0000-0000-000000000001")
+                ),
+            }
+        )
     );
     const auto cfg = ASSERT_NIL_P(Config::load(args, brk));
     ASSERT_NE(cfg.rack.key, rack.key);
@@ -196,8 +199,7 @@ TEST_F(RackConfigTest, loadFromCommandLineArgs) {
         }
     );
 
-    const auto [cfg, err] = Config::load(args_with_config, brk);
-    ASSERT_OCCURRED_AS(err, synnax::auth::ERR);
+    const auto cfg = ASSERT_NIL_P(Config::resolve(args_with_config, brk));
     ASSERT_EQ(cfg.connection.host, "localhost");
     ASSERT_EQ(cfg.connection.port, 9090);
     ASSERT_EQ(cfg.connection.username, "arguser");
@@ -206,32 +208,28 @@ TEST_F(RackConfigTest, loadFromCommandLineArgs) {
 
 /// @brief it should load connection parameters from environment variables.
 TEST_F(RackConfigTest, loadFromEnvironmentVariables) {
-    // Set environment variables
     x::env::set("SYNNAX_DRIVER_HOST", "localhost");
     x::env::set("SYNNAX_DRIVER_PORT", "9090");
     x::env::set("SYNNAX_DRIVER_USERNAME", "envuser");
     x::env::set("SYNNAX_DRIVER_PASSWORD", "envpass");
-
-    const auto [cfg, err] = Config::load(args, brk);
-    ASSERT_OCCURRED_AS(err, synnax::auth::ERR);
+    x::defer::defer unset_env([] {
+        x::env::unset("SYNNAX_DRIVER_HOST");
+        x::env::unset("SYNNAX_DRIVER_PORT");
+        x::env::unset("SYNNAX_DRIVER_USERNAME");
+        x::env::unset("SYNNAX_DRIVER_PASSWORD");
+    });
+    const auto cfg = ASSERT_NIL_P(Config::resolve(args, brk));
     ASSERT_EQ(cfg.connection.host, "localhost");
     ASSERT_EQ(cfg.connection.port, 9090);
     ASSERT_EQ(cfg.connection.username, "envuser");
     ASSERT_EQ(cfg.connection.password, "envpass");
-
-    // Clean up environment variables
-    x::env::unset("SYNNAX_DRIVER_HOST");
-    x::env::unset("SYNNAX_DRIVER_PORT");
-    x::env::unset("SYNNAX_DRIVER_USERNAME");
-    x::env::unset("SYNNAX_DRIVER_PASSWORD");
 }
 
 /// @brief it should load the secure flag from environment variables.
 TEST_F(RackConfigTest, loadSecureFromEnvironmentVariables) {
     x::env::set("SYNNAX_DRIVER_SECURE", "true");
     x::defer::defer unset_env([] { x::env::unset("SYNNAX_DRIVER_SECURE"); });
-    const auto [cfg, err] = Config::load(args, brk);
-    ASSERT_OCCURRED_AS(err, freighter::UNREACHABLE);
+    const auto cfg = ASSERT_NIL_P(Config::resolve(args, brk));
     ASSERT_TRUE(cfg.connection.secure);
 }
 
@@ -251,8 +249,7 @@ TEST_F(RackConfigTest, loadSecureFromConfigFile) {
             config_path
         }
     );
-    const auto [cfg, err] = Config::load(config_args, brk);
-    ASSERT_OCCURRED_AS(err, freighter::UNREACHABLE);
+    const auto cfg = ASSERT_NIL_P(Config::resolve(config_args, brk));
     ASSERT_TRUE(cfg.connection.secure);
 }
 
@@ -267,16 +264,14 @@ TEST_F(RackConfigTest, loadSecureFromCommandLineArgs) {
             "true"
         }
     );
-    const auto [cfg, err] = Config::load(secure_args, brk);
-    ASSERT_OCCURRED_AS(err, freighter::UNREACHABLE);
+    const auto cfg = ASSERT_NIL_P(Config::resolve(secure_args, brk));
     ASSERT_TRUE(cfg.connection.secure);
 }
 
 /// @brief it should load the secure flag saved by the login command.
 TEST_F(RackConfigTest, loadSecureFromPersistedState) {
-    Config::save_conn_params(args, {.secure = true});
-    const auto [cfg, err] = Config::load(args, brk);
-    ASSERT_OCCURRED_AS(err, freighter::UNREACHABLE);
+    ASSERT_NIL(Config::save_conn_params(args, {.secure = true}));
+    const auto cfg = ASSERT_NIL_P(Config::resolve(args, brk));
     ASSERT_TRUE(cfg.connection.secure);
 }
 
@@ -298,7 +293,7 @@ TEST_F(RackConfigTest, argsOverrideSecureFromFile) {
             "false"
         }
     );
-    const auto cfg = ASSERT_NIL_P(Config::load(insecure_args, brk));
+    const auto cfg = ASSERT_NIL_P(Config::resolve(insecure_args, brk));
     ASSERT_FALSE(cfg.connection.secure);
 }
 
@@ -343,8 +338,7 @@ TEST_F(RackConfigTest, configurationPrecedence) {
         }
     );
 
-    const auto [cfg, err] = Config::load(args_with_config, brk);
-    ASSERT_OCCURRED_AS(err, synnax::auth::ERR);
+    const auto cfg = ASSERT_NIL_P(Config::resolve(args_with_config, brk));
 
     // Command line args should take precedence
     ASSERT_EQ(cfg.connection.host, "localhost");
