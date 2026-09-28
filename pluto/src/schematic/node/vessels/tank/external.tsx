@@ -18,7 +18,7 @@ import { Symbol } from "@/schematic/node/vessels/tank/Symbol";
 export const spec: Spec<"tank", schematic.TankNodeConfig> = {
   key: "tank",
   name: "Tank",
-  Form: () => <TankForm showFillTab />,
+  Form: (props) => <TankForm {...props} showFillTab />,
   Node: Symbol,
   Preview: Component.removeProps(Tank, ["dimensions"]),
   zIndex: 2,

@@ -207,12 +207,14 @@ class LabelClient(ResourceClient):
             hex_color: The hex color code (e.g., "#FF0000").
         """
         swatch.click()
-        color_picker = self.layout.page.locator(".sketch-picker")
+        color_picker = self.layout.page.locator(".pluto-color-picker")
         color_picker.wait_for(state="visible", timeout=2000)
-        hex_input = color_picker.locator("input").first
+        hex_input = color_picker.get_by_label("Hex", exact=True)
         hex_input.click()
         hex_input.fill(hex_color.lstrip("#"))
         self.layout.press_enter()
+        # Escape in a text box only leaves the box, so leave it first.
+        hex_input.blur()
         self.layout.press_escape()
         color_picker.wait_for(state="hidden", timeout=2000)
 

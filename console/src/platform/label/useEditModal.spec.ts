@@ -90,7 +90,7 @@ describe("Label.useEditModal", () => {
     if (swatch == null) throw new Error("color swatch not found");
     fireEvent.click(swatch);
     const picker = await waitFor(() => {
-      const el = document.querySelector<HTMLElement>(".sketch-picker");
+      const el = document.querySelector<HTMLElement>(".pluto-color-picker");
       if (el == null) throw new Error("color picker did not open");
       return el;
     });

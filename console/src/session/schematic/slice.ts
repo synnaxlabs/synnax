@@ -10,7 +10,13 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type schematic } from "@synnaxlabs/client";
 import { type Drift } from "@synnaxlabs/drift";
-import { type Control, control, type Diagram, Viewport } from "@synnaxlabs/pluto";
+import {
+  type Control,
+  control,
+  type Diagram,
+  Properties,
+  Viewport,
+} from "@synnaxlabs/pluto";
 import { color, control as xcontrol, sticky, xy } from "@synnaxlabs/x";
 import z from "zod";
 
@@ -40,6 +46,8 @@ export type ToolbarTab = z.infer<typeof toolbarTabZ>;
 export const toolbarStateZ = z.object({
   selectedTab: toolbarTabZ.default("symbols"),
   selectedSymbolGroup: z.string().default("general"),
+  /** The last tab selected in a symbol's properties form. */
+  propertiesTab: Properties.tabKeyZ.optional(),
 });
 export interface ToolbarState extends z.infer<typeof toolbarStateZ> {}
 
@@ -116,6 +124,10 @@ export interface SelectToolbarTabPayload extends KeyedPayload {
 
 export interface SetSelectedSymbolGroupPayload extends KeyedPayload {
   group: string;
+}
+
+export interface SetPropertiesTabPayload extends KeyedPayload {
+  tab: Properties.TabKey;
 }
 
 export interface SetEditablePayload extends KeyedPayload {
@@ -198,6 +210,11 @@ export const { actions, reducer } = createSlice({
     >((state, { payload: { group } }) => {
       state.toolbar.selectedSymbolGroup = group;
     }),
+    setPropertiesTab: withSelectedState<SetPropertiesTabPayload, SliceState>(
+      (state, { payload: { tab } }) => {
+        state.toolbar.propertiesTab = tab;
+      },
+    ),
     setEditable: withSelectedState<SetEditablePayload, SliceState>(
       (state, { payload: { editable } }) => {
         state.editable = editable;
@@ -236,6 +253,7 @@ export const {
   setLegendVisible,
   selectToolbarTab,
   setSelectedSymbolGroup,
+  setPropertiesTab,
   setEditable,
   setFitViewOnResize,
   setViewport,
@@ -269,6 +287,7 @@ export const MIDDLEWARE = [
     setLegendVisible,
     selectToolbarTab,
     setSelectedSymbolGroup,
+    setPropertiesTab,
     setEditable,
     setFitViewOnResize,
     setViewport,

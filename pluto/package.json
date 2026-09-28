@@ -67,7 +67,6 @@
     "@types/node": "catalog:",
     "@types/offscreencanvas": "catalog:",
     "@types/react": "catalog:",
-    "@types/react-color": "catalog:",
     "@types/react-dom": "catalog:",
     "@types/use-sync-external-store": "catalog:",
     "@types/webgl2": "catalog:",
@@ -80,7 +79,6 @@
     "eslint": "catalog:",
     "jsdom": "catalog:",
     "react": "catalog:",
-    "react-color": "catalog:",
     "react-dom": "catalog:",
     "source-map-js": "catalog:",
     "stylelint": "catalog:",
@@ -112,10 +110,6 @@
     "./testutil": {
       "types": "./dist/src/testutil/index.d.ts",
       "default": "./dist/testutil.js"
-    },
-    "./color": {
-      "types": "./dist/src/color/index.d.ts",
-      "default": "./dist/color.js"
     },
     "./dist/*": "./dist/*"
   },

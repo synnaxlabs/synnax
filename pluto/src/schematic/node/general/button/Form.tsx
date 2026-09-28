@@ -11,13 +11,16 @@ import { type channel, type schematic } from "@synnaxlabs/client";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
 import { Control } from "@/schematic/node/common/control";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
+import { type FormProps } from "@/schematic/node/spec";
 import { Button as BaseButton } from "@/vis/button";
+import { Properties } from "@/vis/properties";
 
 type ButtonTelemFormT = Pick<
   schematic.ButtonNodeConfig,
@@ -58,24 +61,27 @@ export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
   );
 };
 
-export const ButtonForm = (): ReactElement => (
-  <Form.Tabs tabs={["style", "control"]}>
-    <Tabs.Content itemKey="style">
-      <Base.Sections x>
-        <Base.Section title="Label">
-          <Label.Form
-            path="label"
-            omit={["align", "maxInlineSize", "level", "direction"]}
-          />
-        </Base.Section>
-        <Base.Section title="Appearance">
-          <Form.ColorField path="color" />
-          <Form.SizeField />
-        </Base.Section>
-      </Base.Sections>
-    </Tabs.Content>
-    <Tabs.Content itemKey="control">
-      <ButtonTelemForm path="" />
-    </Tabs.Content>
-  </Form.Tabs>
-);
+export const ButtonForm = ({ tab, onTabChange }: FormProps): ReactElement => {
+  const theme = Theming.use();
+  return (
+    <Properties.Tabs tabs={["control", "style"]} tab={tab} onTabChange={onTabChange}>
+      <Tabs.Content itemKey="style">
+        <Base.Sections x>
+          <Base.Section title="Label">
+            <Label.Form
+              path="label"
+              omit={["align", "maxInlineSize", "level", "direction"]}
+            />
+          </Base.Section>
+          <Base.Section title="Appearance">
+            <Form.ColorField path="color" fallback={theme.colors.primary.z} />
+            <Form.SizeField />
+          </Base.Section>
+        </Base.Sections>
+      </Tabs.Content>
+      <Tabs.Content itemKey="control">
+        <ButtonTelemForm path="" />
+      </Tabs.Content>
+    </Properties.Tabs>
+  );
+};

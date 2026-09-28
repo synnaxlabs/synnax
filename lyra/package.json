@@ -89,6 +89,10 @@
       "types": "./dist/src/caret/index.d.ts",
       "default": "./dist/caret.js"
     },
+    "./color": {
+      "types": "./dist/src/color/index.d.ts",
+      "default": "./dist/color.js"
+    },
     "./component": {
       "types": "./dist/src/component/index.d.ts",
       "default": "./dist/component.js"

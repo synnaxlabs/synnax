@@ -35,11 +35,20 @@ const saturationZ = z.number().min(0).max(100);
 const lightnessZ = z.number().min(0).max(100);
 /** A zod schema for an HSLA color. */
 const hslaZ = z.tuple([hueZ, saturationZ, lightnessZ, alphaZ]);
+/** A zod schema for an HSV value (brightness) between 0 and 100. */
+const valueZ = z.number().min(0).max(100);
+/** A zod schema for an HSVA color. */
+const hsvaZ = z.tuple([hueZ, saturationZ, valueZ, alphaZ]);
 
 /** A color in RGBA format. See https://en.wikipedia.org/wiki/RGBA_color_model */
 export type RGBA = z.infer<typeof rgbaZ>;
 /** A color in HSLA format. See https://en.wikipedia.org/wiki/HSL_and_HSV */
 export type HSLA = z.infer<typeof hslaZ>;
+/**
+ * A color in HSVA format: hue 0-360, saturation and value 0-100, alpha 0-1. Values are
+ * not rounded. See https://en.wikipedia.org/wiki/HSL_and_HSV
+ */
+export type HSVA = z.infer<typeof hsvaZ>;
 /** A color in RGB format. See https://en.wikipedia.org/wiki/RGB_color_model */
 export type RGB = z.infer<typeof rgbZ>;
 /** A color in hex format. See https://en.wikipedia.org/wiki/Web_colors */
@@ -368,8 +377,8 @@ const NAMED: Record<string, string> = {
 };
 
 /**
- * Parses a CSS color string into a Color.
- * Supports hex colors, rgb/rgba functions, and named colors.
+ * Parses a CSS color string into a Color. Supports 3, 4, 6, and 8 digit hex, rgb() and
+ * hsl() in comma or space syntax with an optional alpha, and named colors.
  * @param cssColor - The CSS color string to parse
  * @returns The parsed color or undefined if invalid
  */
@@ -377,30 +386,71 @@ export const fromCSS = (cssColor: string): Color | undefined => {
   if (!cssColor) return undefined;
   const trimmed = cssColor.trim().toLowerCase();
   if (trimmed === "transparent" || trimmed === "none") return undefined;
-  if (trimmed.startsWith("#")) {
-    if (trimmed.length === 4) {
-      const r = trimmed[1];
-      const g = trimmed[2];
-      const b = trimmed[3];
-      const expanded = `#${r}${r}${g}${g}${b}${b}`;
-      if (z.validate(hexZ, expanded)) return fromHex(expanded);
-    }
-    if ((trimmed.length === 7 || trimmed.length === 9) && z.validate(hexZ, trimmed))
-      return fromHex(trimmed);
-    return undefined;
-  }
-  if (trimmed.startsWith("rgb")) {
-    const match = trimmed.match(
-      /rgba?\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+))?\s*\)/,
-    );
-    if (match) {
-      const [, r, g, b, a] = match;
-      return [parseInt(r, 10), parseInt(g, 10), parseInt(b, 10), a ? parseFloat(a) : 1];
-    }
-  }
+  if (trimmed.startsWith("#")) return fromCSSHex(trimmed.slice(1));
+  const fn = trimmed.match(/^(rgba?|hsla?)\((.*)\)$/);
+  if (fn != null) return fromCSSFunction(fn[1], fn[2]);
   if (NAMED[trimmed]) return fromHex(NAMED[trimmed]);
   return undefined;
 };
+
+const fromCSSHex = (digits: string): Color | undefined => {
+  if (!/^[0-9a-f]+$/.test(digits)) return undefined;
+  if (digits.length === 3 || digits.length === 4)
+    digits = [...digits].map((d) => d + d).join("");
+  if (digits.length !== 6 && digits.length !== 8) return undefined;
+  return fromHex(digits);
+};
+
+const fromCSSFunction = (name: string, body: string): Color | undefined => {
+  const args = body.split(/[\s,/]+/).filter((a) => a.length > 0);
+  if (args.length !== 3 && args.length !== 4) return undefined;
+  const alpha = args.length === 4 ? parseCSSNumber(args[3], 1) : 1;
+  if (alpha == null) return undefined;
+  if (name.startsWith("rgb")) {
+    const channels = args.slice(0, 3).map((a) => parseCSSNumber(a, 255));
+    if (channels.some((c) => c == null)) return undefined;
+    const [r, g, b] = channels.map((c) => clampRound(c as number, 255));
+    return [r, g, b, Math.min(Math.max(alpha, 0), 1)];
+  }
+  const h = parseCSSHue(args[0]);
+  const sat = parseCSSNumber(args[1], 100);
+  const light = parseCSSNumber(args[2], 100);
+  if (h == null || sat == null || light == null) return undefined;
+  return fromHSLA([
+    ((h % 360) + 360) % 360,
+    Math.min(Math.max(sat, 0), 100),
+    Math.min(Math.max(light, 0), 100),
+    Math.min(Math.max(alpha, 0), 1),
+  ]);
+};
+
+const DEGREES_PER_HUE_UNIT: Record<string, number> = {
+  "": 1,
+  deg: 1,
+  turn: 360,
+  rad: 180 / Math.PI,
+  grad: 0.9,
+};
+
+/** Parses a CSS hue angle into degrees. A bare number is in degrees. */
+const parseCSSHue = (arg: string): number | undefined => {
+  const match = arg.match(/^([+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?)([a-z]*)$/);
+  if (match == null) return undefined;
+  const factor = DEGREES_PER_HUE_UNIT[match[2]];
+  if (factor == null) return undefined;
+  const hue = parseFloat(match[1]) * factor;
+  return Number.isFinite(hue) ? hue : undefined;
+};
+
+/** Parses a CSS number, reading a percentage as a fraction of `scale`. */
+const parseCSSNumber = (arg: string, scale: number): number | undefined => {
+  const n = parseFloat(arg);
+  if (Number.isNaN(n)) return undefined;
+  return arg.endsWith("%") ? (n / 100) * scale : n;
+};
+
+const clampRound = (n: number, max: number): number =>
+  Math.min(Math.max(Math.round(n), 0), max);
 
 /** @returns parse a color from an HSLA tuple. */
 export const fromHSLA = (hsla: HSLA): RGBA => {
@@ -464,6 +514,34 @@ const rgbaToHSLA = (rgba: RGBA): HSLA => {
   l *= 100;
 
   return [Math.round(h), Math.round(s), Math.round(l), a];
+};
+
+/**
+ * @returns the HSVA representation of the color. Values are not rounded, so a round
+ * trip through `fromHSVA` returns the same color.
+ */
+export const hsva = (color: Crude): HSVA => {
+  const [r, g, b, a] = rgba1(color);
+  const max = Math.max(r, g, b);
+  const d = max - Math.min(r, g, b);
+  let h = 0;
+  if (d !== 0)
+    if (max === r) h = ((g - b) / d + 6) % 6;
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+  return [h * 60, max === 0 ? 0 : (d / max) * 100, max * 100, a];
+};
+
+/** @returns the color for an HSVA tuple. */
+export const fromHSVA = (hsva: HSVA): Color => {
+  const [h, s, v, a] = zod.parse(hsvaZ, hsva, { label: "hsva" });
+  const s1 = s / 100;
+  const v1 = v / 100;
+  const channel = (n: number): number => {
+    const k = (n + h / 60) % 6;
+    return Math.round((v1 - v1 * s1 * Math.max(0, Math.min(k, 4 - k, 1))) * 255);
+  };
+  return [channel(5), channel(3), channel(1), a];
 };
 
 /** The color black. */

@@ -7,26 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Form } from "@synnaxlabs/lyra/form";
+import { Color } from "@synnaxlabs/lyra/color";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { type color } from "@synnaxlabs/x";
+import { type optional } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Color } from "@/color";
+export interface ColorFieldProps extends optional.Optional<
+  Color.FieldProps,
+  "fallback"
+> {}
 
-export const ColorField: Form.FieldT<color.Crude> = (props): ReactElement => {
+/**
+ * Edits an optional symbol color. The fallback defaults to the theme color a symbol
+ * paints when its color is absent.
+ */
+export const ColorField = ({ fallback, ...rest }: ColorFieldProps): ReactElement => {
   const theme = Theming.use();
-  return (
-    <Form.Field
-      label="Color"
-      align="start"
-      padHelpText={false}
-      // An unchosen color is absent, so the swatch shows the theme color it resolves
-      // to until a pick writes one.
-      defaultValue={theme.colors.gray.l11}
-      {...props}
-    >
-      {({ value, ...rest }) => <Color.Swatch value={value} {...rest} bordered />}
-    </Form.Field>
-  );
+  return <Color.Field fallback={fallback ?? theme.colors.gray.l11} {...rest} />;
 };

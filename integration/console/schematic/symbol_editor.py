@@ -125,12 +125,14 @@ class SymbolEditor:
             .nth(swatch_index)
         )
         swatch.click()
-        color_picker = self.page.locator(".pluto-color-picker-container")
+        color_picker = self.page.locator(".pluto-color-picker")
         color_picker.wait_for(state="visible", timeout=2000)
-        hex_input = color_picker.locator(".sketch-picker input").first
+        hex_input = color_picker.get_by_label("Hex", exact=True)
         hex_input.click(click_count=3)
         hex_input.type(hex_color.replace("#", ""))
         self.page.keyboard.press("Enter")
+        # Escape in a text box only leaves the box, so leave it first.
+        hex_input.blur()
         self.page.keyboard.press("Escape")
         color_picker.wait_for(state="hidden", timeout=2000)
 
