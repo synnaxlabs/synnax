@@ -16,8 +16,9 @@ import { renderMedia, selectComposition } from "@remotion/renderer";
 import { type CaptureSession } from "@/capture/rig";
 import { synthesize } from "@/director/cursor";
 import { direct } from "@/director/director";
+import { overlay } from "@/director/overlay";
 import { stage } from "@/director/stage";
-import { type Edit } from "@/film";
+import { type Edit, type Overlays } from "@/film";
 import { type Core } from "@/fixtures/core";
 import { parse, type Timeline } from "@/timeline";
 
@@ -189,6 +190,7 @@ export const runRender = async (opts: RenderRunOptions): Promise<void> => {
 
 export interface FilmRenderOptions {
   edit: Edit;
+  overlays: Overlays;
   timeline: Timeline;
   /** Capture directory holding frames/ (served as the compositor's publicDir). */
   captureDir: string;
@@ -203,10 +205,12 @@ export interface FilmRenderOptions {
 export const runFilmRender = async (opts: FilmRenderOptions): Promise<void> => {
   const { edit, timeline, captureDir, outputLocation, draft = false } = opts;
   const plan = stage(edit, timeline);
+  const overlays = overlay(opts.overlays, plan.samples, timeline);
   const serveUrl = await bundleCompositions(captureDir);
   const inputProps = {
     meta: timeline.meta,
     plan,
+    overlays,
     cursor: synthesize(timeline),
     events: timeline.events,
   };

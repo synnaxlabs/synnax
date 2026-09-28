@@ -149,6 +149,8 @@ export class CaptureSession {
   private readonly cdp: CDPSession;
   private readonly opts: Required<CaptureOptions>;
   private readonly events: Event[] = [];
+  private readonly samplers = new Map<string, () => number>();
+  private readonly tracks: Record<string, number[]> = {};
   private frame = 0;
   private appMs = 0;
   /** Wall time in epoch milliseconds at which the virtual clock started. */
@@ -314,6 +316,7 @@ export class CaptureSession {
         scale: this.opts.dsf,
       },
     });
+    for (const [track, sample] of this.samplers) this.tracks[track].push(sample());
     const name = String(this.frame).padStart(6, "0");
     await writeFile(
       path.join(this.opts.outDir, "frames", `${name}.png`),
@@ -352,6 +355,17 @@ export class CaptureSession {
     this.recording = true;
     this.origin = { ...this.cursor };
     this.events.length = 0;
+  }
+
+  /**
+   * track samples a value once per recorded frame under the given name, so a film can
+   * draw it. Tracks are set before recording, so every track spans every frame.
+   */
+  track(name: string, sample: () => number): void {
+    if (this.recording) throw new Error(`track "${name}" set after startRecording`);
+    if (this.samplers.has(name)) throw new Error(`track "${name}" is already set`);
+    this.samplers.set(name, sample);
+    this.tracks[name] = [];
   }
 
   /** hold captures ms of app time (scaled to video time by the current speed). */
@@ -687,6 +701,7 @@ export class CaptureSession {
       meta,
       events: this.events,
       origin: this.origin ?? this.cursor,
+      tracks: this.tracks,
     };
     await writeFile(
       path.join(this.opts.outDir, "timeline.json"),

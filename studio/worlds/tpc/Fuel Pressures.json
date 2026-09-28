@@ -96,10 +96,7 @@
   "channels": {
     "x1": 0,
     "x2": 0,
-    "y1": [
-      "fuel_pt_1",
-      "fuel_pt_2"
-    ],
+    "y1": ["fuel_pt_1", "fuel_pt_2"],
     "y2": [],
     "y3": [],
     "y4": []
@@ -149,9 +146,7 @@
   ],
   "name": "Fuel Pressures",
   "ranges": {
-    "x1": [
-      "recent"
-    ],
+    "x1": ["recent"],
     "x2": []
   },
   "rules": [],

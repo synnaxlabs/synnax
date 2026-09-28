@@ -133,6 +133,8 @@ export const timelineZ = z.object({
   events: eventZ.array(),
   /** Cursor position at tick 0. */
   origin: pointZ,
+  /** Values a capture sampled once per frame, by track name, indexed by tick. */
+  tracks: z.record(z.string(), z.number().array()).optional(),
 });
 export type Timeline = z.infer<typeof timelineZ>;
 
@@ -142,3 +144,10 @@ export const parse = (data: unknown): Timeline => timelineZ.parse(data);
 /** clicks returns pointerdown events in tick order. */
 export const clicks = (tl: Timeline): z.infer<typeof pointerDownEventZ>[] =>
   tl.events.filter((e) => e.type === "pointerdown").sort((a, b) => a.tick - b.tick);
+
+/** marks returns the capture's marks by name. */
+export const marks = (tl: Timeline): Map<string, Mark> => {
+  const byName = new Map<string, Mark>();
+  for (const e of tl.events) if (e.type === "mark") byName.set(e.name, e);
+  return byName;
+};

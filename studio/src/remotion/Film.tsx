@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "@fontsource-variable/inter";
+import "@fontsource/geist-mono/500.css";
 
 import wordmark from "@synnaxlabs/media/static/logo/title-white-transparent.svg";
 import { type ReactElement, useEffect, useState } from "react";
@@ -19,22 +20,31 @@ import {
   useDelayRender,
 } from "remotion";
 
-import { type CursorTrack, type Plane, type StagePlan } from "@/director";
+import {
+  type CalloutFrame,
+  type CursorTrack,
+  type OverlayPlan,
+  type Plane,
+  project,
+  type StagePlan,
+} from "@/director";
 import { type Card as CardShot, type End as EndShot } from "@/film";
 import { Cursor } from "@/remotion/Cursor";
+import { CalloutView, MONO, SANS, ScopeView } from "@/remotion/Overlay";
 import { Ripple, RIPPLE_TICKS } from "@/remotion/Ripple";
-import { type Event, type Meta } from "@/timeline";
+import { type Event, type Meta, type Point } from "@/timeline";
 
 // A type alias, not an interface: Remotion requires props assignable to a record.
 export type FilmProps = {
   meta: Meta;
   plan: StagePlan;
+  overlays: OverlayPlan;
   cursor: CursorTrack;
   events: Event[];
 };
 
 const GROUND = "#060607";
-const FONT = '"Inter Variable", sans-serif';
+const FONT = SANS;
 const TEXT_KEY = "#F7F8F8";
 const TEXT_REST = "#8A8F98";
 /** Synnax primary blue, the ground of the end card. */
@@ -43,6 +53,12 @@ const BRAND = "#3470CC";
 const WINDOW_RADIUS = 12;
 
 const frameName = (tick: number): string => String(tick).padStart(6, "0");
+
+/** anchorOf returns the middle of the target edge a callout points at, in CSS px. */
+const anchorOf = ({ rect, side }: CalloutFrame): Point => ({
+  x: side === "right" ? rect.x + rect.width : rect.x,
+  y: rect.y + rect.height / 2,
+});
 
 interface PlaneViewProps {
   meta: Meta;
@@ -252,20 +268,30 @@ const EndView = ({ shot, opacity, seed }: EndViewProps): ReactElement => (
  * Film draws one frame of a feature film from the director's stage plan: the capture
  * on its tilted plane, a text card, or the end card, over the dark stage.
  */
-export const Film = ({ meta, plan, cursor, events }: FilmProps): ReactElement => {
+export const Film = ({
+  meta,
+  plan,
+  overlays,
+  cursor,
+  events,
+}: FilmProps): ReactElement => {
   const frame = useCurrentFrame();
   const { delayRender, continueRender, cancelRender } = useDelayRender();
   // Remotion needs the handle before the first frame is captured, so it cannot wait
   // for an effect.
-  const [fontHandle] = useState(() => delayRender("Inter"));
+  const [fontHandle] = useState(() => delayRender("fonts"));
   useEffect(() => {
-    document.fonts
-      .load(`510 68px ${FONT}`)
+    Promise.all([
+      document.fonts.load(`510 68px ${FONT}`),
+      document.fonts.load(`500 21px ${MONO}`),
+    ])
       .then(() => continueRender(fontHandle))
       .catch((err: unknown) => cancelRender(err));
   }, [fontHandle, continueRender, cancelRender]);
 
-  const sample = plan.samples[Math.min(frame, plan.samples.length - 1)];
+  const index = Math.min(frame, plan.samples.length - 1);
+  const sample = plan.samples[index];
+  const layer = overlays.frames[index];
   const shot = plan.shots[sample.shot];
   let body: ReactElement;
   switch (sample.type) {
@@ -293,6 +319,25 @@ export const Film = ({ meta, plan, cursor, events }: FilmProps): ReactElement =>
     <AbsoluteFill style={{ backgroundColor: GROUND, overflow: "hidden" }}>
       {body}
       <Vignette />
+      {sample.type === "take" &&
+        layer.callouts.map((callout) => (
+          <CalloutView
+            key={callout.text}
+            callout={callout}
+            edge={project(
+              sample.plane,
+              anchorOf(callout),
+              plan.width,
+              plan.height,
+              plan.perspective,
+            )}
+            width={plan.width}
+            height={plan.height}
+          />
+        ))}
+      {overlays.scope != null && layer.scope != null && (
+        <ScopeView plan={overlays.scope} frame={layer.scope} />
+      )}
       <Grain seed={frame} opacity={0.05} blend="overlay" />
     </AbsoluteFill>
   );

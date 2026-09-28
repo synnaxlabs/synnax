@@ -20,6 +20,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1112.0",
     "@fontsource-variable/inter": "catalog:",
+    "@fontsource/geist-mono": "catalog:",
     "@remotion/bundler": "^4.0.0",
     "@remotion/renderer": "^4.0.0",
     "@synnaxlabs/client": "workspace:^",

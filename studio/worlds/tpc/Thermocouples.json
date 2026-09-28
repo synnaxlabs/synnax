@@ -5,18 +5,11 @@
       "variant": "value",
       "props": {
         "": {
-          "tooltip": [
-            "fuel_tc_1"
-          ]
+          "tooltip": ["fuel_tc_1"]
         },
         "align": "center",
         "backgroundColor": "#00000000",
-        "color": [
-          255,
-          255,
-          255,
-          1
-        ],
+        "color": [255, 255, 255, 1],
         "level": "h5",
         "redline": {
           "bounds": {
@@ -81,9 +74,7 @@
           "valueType": "string",
           "variant": "source"
         },
-        "tooltip": [
-          "fuel_tc_1"
-        ],
+        "tooltip": ["fuel_tc_1"],
         "units": "",
         "value": "",
         "weight": 400
@@ -95,12 +86,7 @@
       "props": {
         "align": "center",
         "backgroundColor": "#00000000",
-        "color": [
-          255,
-          255,
-          255,
-          1
-        ],
+        "color": [255, 255, 255, 1],
         "level": "h5",
         "redline": {
           "bounds": {
@@ -165,9 +151,7 @@
           "valueType": "string",
           "variant": "source"
         },
-        "tooltip": [
-          "ox_tc_2"
-        ],
+        "tooltip": ["ox_tc_2"],
         "units": "",
         "value": "",
         "weight": 400
@@ -201,12 +185,7 @@
       "props": {
         "align": "center",
         "backgroundColor": "#00000000",
-        "color": [
-          255,
-          255,
-          255,
-          1
-        ],
+        "color": [255, 255, 255, 1],
         "level": "h5",
         "redline": {
           "bounds": {
@@ -271,9 +250,7 @@
           "valueType": "string",
           "variant": "source"
         },
-        "tooltip": [
-          "fuel_tc_2"
-        ],
+        "tooltip": ["fuel_tc_2"],
         "units": "",
         "value": "",
         "weight": 400
@@ -285,12 +262,7 @@
       "props": {
         "align": "center",
         "backgroundColor": "#00000000",
-        "color": [
-          255,
-          255,
-          255,
-          1
-        ],
+        "color": [255, 255, 255, 1],
         "level": "h5",
         "redline": {
           "bounds": {
@@ -310,12 +282,7 @@
             }
           ]
         },
-        "stalenessColor": [
-          0,
-          0,
-          0,
-          0
-        ],
+        "stalenessColor": [0, 0, 0, 0],
         "stalenessTimeout": 5,
         "telem": {
           "props": {
@@ -362,9 +329,7 @@
           "valueType": "string",
           "variant": "source"
         },
-        "tooltip": [
-          "ox_pt_2"
-        ],
+        "tooltip": ["ox_pt_2"],
         "units": "",
         "value": "",
         "weight": 400
@@ -409,12 +374,7 @@
       "props": {
         "align": "center",
         "backgroundColor": "#00000000",
-        "color": [
-          255,
-          255,
-          255,
-          1
-        ],
+        "color": [255, 255, 255, 1],
         "level": "h5",
         "redline": {
           "bounds": {
@@ -434,12 +394,7 @@
             }
           ]
         },
-        "stalenessColor": [
-          0,
-          0,
-          0,
-          0
-        ],
+        "stalenessColor": [0, 0, 0, 0],
         "stalenessTimeout": 5,
         "telem": {
           "props": {
@@ -486,9 +441,7 @@
           "valueType": "string",
           "variant": "source"
         },
-        "tooltip": [
-          "ox_pt_1"
-        ],
+        "tooltip": ["ox_pt_1"],
         "units": "",
         "value": "",
         "weight": 400
@@ -511,12 +464,7 @@
       "props": {
         "align": "center",
         "backgroundColor": "#00000000",
-        "color": [
-          255,
-          255,
-          255,
-          1
-        ],
+        "color": [255, 255, 255, 1],
         "level": "h5",
         "redline": {
           "bounds": {
@@ -581,9 +529,7 @@
           "valueType": "string",
           "variant": "source"
         },
-        "tooltip": [
-          "ox_tc_1"
-        ],
+        "tooltip": ["ox_tc_1"],
         "units": "",
         "value": "",
         "weight": 400
@@ -602,45 +548,27 @@
   "rows": [
     {
       "size": 38,
-      "cells": [
-        "Ys95kM3ifeC",
-        "vQHnqdxe6Uo"
-      ]
+      "cells": ["Ys95kM3ifeC", "vQHnqdxe6Uo"]
     },
     {
       "size": 33,
-      "cells": [
-        "a8tL0K6fV5L",
-        "EA7XYogQC06"
-      ]
+      "cells": ["a8tL0K6fV5L", "EA7XYogQC06"]
     },
     {
       "size": 32,
-      "cells": [
-        "KTRXG908W2B",
-        "1A7JIj4n2Xe"
-      ]
+      "cells": ["KTRXG908W2B", "1A7JIj4n2Xe"]
     },
     {
       "size": 44,
-      "cells": [
-        "mNhbEzkPm1f",
-        "PIKBEdDLTYR"
-      ]
+      "cells": ["mNhbEzkPm1f", "PIKBEdDLTYR"]
     },
     {
       "size": 38,
-      "cells": [
-        "eDTUTVnhFqg",
-        "hDiJAXkp8gD"
-      ]
+      "cells": ["eDTUTVnhFqg", "hDiJAXkp8gD"]
     },
     {
       "size": 36,
-      "cells": [
-        "OcijhdVhntp",
-        "ScCoScHk5k3"
-      ]
+      "cells": ["OcijhdVhntp", "ScCoScHk5k3"]
     }
   ],
   "type": "table",

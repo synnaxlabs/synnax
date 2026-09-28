@@ -82,15 +82,28 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     const recent = { ...plot, x: plot.x + plot.width * 0.45, width: plot.width * 0.55 };
     const logBox = await box(leaf("Sequence Logs"));
     const lines = { ...logBox, width: 400, height: 190 };
+    const iso = await box(label("OX Press Iso"));
+    const readout = await box(
+      diagram
+        .locator(".react-flow__node")
+        .filter({ has: page.getByText("OX PT 1", { exact: true }) })
+        .first(),
+    );
+    session.track("ox", () => world.read("ox_pt_1"));
 
     session.startRecording();
     await session.mark("start", button);
+    await session.mark("iso", iso);
+    await session.mark("tpc", valves);
+    await session.mark("readout", readout);
     await session.hold(900);
     await session.click(start);
+    await session.mark("go");
     await session.hold(150);
     await session.mark("pressing", tank);
     // The hand comes off the button and rests beside it.
     await session.moveTo({ x: rest.x, y: rest.y });
+    await session.mark("pressurizing");
     await logged("OX Press Iso closed");
     await session.hold(1400);
     await session.mark("boosting", plot);
@@ -99,14 +112,18 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.mark("sawtooth", recent);
     await session.hold(3800);
     await session.mark("regulating", valve);
-    await session.hold(3500);
+    await session.hold(800);
+    await session.mark("holding");
+    await session.hold(2700);
     await session.mark("regulated");
     await logged("OX MPV closed");
     await session.hold(200);
     await session.mark("safing", lines);
     await session.hold(2000);
     await session.mark("venting", tank);
-    await session.hold(700);
+    await session.hold(400);
+    await session.mark("safed");
+    await session.hold(1100);
     await session.mark("stand");
     await session.hold(3000);
     await session.mark("end");
@@ -158,3 +175,20 @@ export const edit = film.edit([
   },
   { type: "end", tagline: "Run the test. Watch every channel." },
 ]);
+
+export const overlays = film.overlays({
+  scope: {
+    track: "ox",
+    label: "OX PT 1",
+    unit: "psi",
+    color: "#DC136C",
+    from: "start",
+    to: "stand",
+    zero: "go",
+  },
+  callouts: [
+    { at: "pressurizing", target: "iso", text: "Arc pressurizes to 50 psi" },
+    { at: "holding", target: "tpc", text: "Arc holds 20 to 25 psi" },
+    { at: "safed", target: "readout", text: "Arc vents under 15 psi" },
+  ],
+});

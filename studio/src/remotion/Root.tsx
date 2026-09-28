@@ -39,6 +39,7 @@ const DEFAULT_FILM_PROPS: FilmProps = {
     shots: [{ type: "card", lines: ["Placeholder"] }],
     samples: [{ shot: 0, type: "card", opacity: 1, offset: 0 }],
   },
+  overlays: { frames: [{ callouts: [] }] },
   cursor: [],
   events: [],
 };
@@ -46,20 +47,20 @@ const DEFAULT_FILM_PROPS: FilmProps = {
 export const Root = (): ReactElement => (
   <>
     <Composition
-    id="studio"
-    component={StudioVideo}
-    durationInFrames={60}
-    fps={60}
-    width={3840}
-    height={2160}
-    defaultProps={DEFAULT_PROPS}
-    calculateMetadata={({ props }) => ({
-      durationInFrames: props.meta.frames,
-      fps: props.meta.fps,
-      width: Math.round(props.meta.width * props.meta.dsf),
-      height: Math.round(props.meta.height * props.meta.dsf),
-      props,
-    })}
+      id="studio"
+      component={StudioVideo}
+      durationInFrames={60}
+      fps={60}
+      width={3840}
+      height={2160}
+      defaultProps={DEFAULT_PROPS}
+      calculateMetadata={({ props }) => ({
+        durationInFrames: props.meta.frames,
+        fps: props.meta.fps,
+        width: Math.round(props.meta.width * props.meta.dsf),
+        height: Math.round(props.meta.height * props.meta.dsf),
+        props,
+      })}
     />
     <Composition
       id="film"

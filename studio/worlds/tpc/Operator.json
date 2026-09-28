@@ -16,12 +16,7 @@
         },
         "gradient": []
       },
-      "stalenessColor": [
-        0,
-        0,
-        0,
-        0
-      ],
+      "stalenessColor": [0, 0, 0, 0],
       "stalenessTimeout": 5,
       "telem": {
         "props": {
@@ -68,9 +63,7 @@
         "valueType": "string",
         "variant": "source"
       },
-      "tooltip": [
-        "pneumatics_pt"
-      ],
+      "tooltip": ["pneumatics_pt"],
       "units": "psi",
       "variant": "value"
     },
@@ -104,12 +97,7 @@
         },
         "gradient": []
       },
-      "stalenessColor": [
-        0,
-        0,
-        0,
-        0
-      ],
+      "stalenessColor": [0, 0, 0, 0],
       "stalenessTimeout": 5,
       "telem": {
         "props": {
@@ -156,9 +144,7 @@
         "valueType": "string",
         "variant": "source"
       },
-      "tooltip": [
-        "fuel_tc_2"
-      ],
+      "tooltip": ["fuel_tc_2"],
       "units": "\u00b0C",
       "variant": "value"
     },
@@ -433,9 +419,7 @@
     },
     "DeJ4iOHodtz": {
       "": {
-        "tooltip": [
-          "press_tc_1"
-        ]
+        "tooltip": ["press_tc_1"]
       },
       "color": "#b300ff",
       "label": {
@@ -452,12 +436,7 @@
         },
         "gradient": []
       },
-      "stalenessColor": [
-        0,
-        0,
-        0,
-        0
-      ],
+      "stalenessColor": [0, 0, 0, 0],
       "stalenessTimeout": 5,
       "telem": {
         "props": {
@@ -504,17 +483,13 @@
         "valueType": "string",
         "variant": "source"
       },
-      "tooltip": [
-        "press_tc_1"
-      ],
+      "tooltip": ["press_tc_1"],
       "units": "\u00b0C",
       "variant": "value"
     },
     "GXakOVjitf5": {
       "": {
-        "tooltip": [
-          "fuel_tc_1"
-        ]
+        "tooltip": ["fuel_tc_1"]
       },
       "color": "#ff005f",
       "label": {
@@ -531,12 +506,7 @@
         },
         "gradient": []
       },
-      "stalenessColor": [
-        0,
-        0,
-        0,
-        0
-      ],
+      "stalenessColor": [0, 0, 0, 0],
       "stalenessTimeout": 5,
       "telem": {
         "props": {
@@ -583,9 +553,7 @@
         "valueType": "string",
         "variant": "source"
       },
-      "tooltip": [
-        "fuel_tc_1"
-      ],
+      "tooltip": ["fuel_tc_1"],
       "units": "\u00b0C",
       "variant": "value"
     },
@@ -723,9 +691,7 @@
     },
     "K9nj3YBK0KG": {
       "": {
-        "tooltip": [
-          "press_pt_2"
-        ]
+        "tooltip": ["press_pt_2"]
       },
       "color": "#b300ff",
       "label": {
@@ -742,12 +708,7 @@
         },
         "gradient": []
       },
-      "stalenessColor": [
-        0,
-        0,
-        0,
-        0
-      ],
+      "stalenessColor": [0, 0, 0, 0],
       "stalenessTimeout": 5,
       "telem": {
         "props": {
@@ -794,9 +755,7 @@
         "valueType": "string",
         "variant": "source"
       },
-      "tooltip": [
-        "press_pt_2"
-      ],
+      "tooltip": ["press_pt_2"],
       "units": "psi",
       "variant": "value"
     },
@@ -920,9 +879,7 @@
     },
     "KnJjTf7CJv9": {
       "": {
-        "tooltip": [
-          "ox_tc_1"
-        ]
+        "tooltip": ["ox_tc_1"]
       },
       "color": "#004ad6",
       "inlineSize": 70,
@@ -944,12 +901,7 @@
         "gradient": []
       },
       "scale": 1,
-      "stalenessColor": [
-        0,
-        0,
-        0,
-        0
-      ],
+      "stalenessColor": [0, 0, 0, 0],
       "stalenessTimeout": 5,
       "telem": {
         "props": {
@@ -996,9 +948,7 @@
         "valueType": "string",
         "variant": "source"
       },
-      "tooltip": [
-        "ox_tc_1"
-      ],
+      "tooltip": ["ox_tc_1"],
       "units": "\u00b0C",
       "variant": "value"
     },
@@ -1116,9 +1066,7 @@
     },
     "MEfIDo71Css": {
       "": {
-        "tooltip": [
-          "ox_tc_2"
-        ]
+        "tooltip": ["ox_tc_2"]
       },
       "color": "#004ad6",
       "inlineSize": 70,
@@ -1140,12 +1088,7 @@
         "gradient": []
       },
       "scale": 1,
-      "stalenessColor": [
-        0,
-        0,
-        0,
-        0
-      ],
+      "stalenessColor": [0, 0, 0, 0],
       "stalenessTimeout": 5,
       "telem": {
         "props": {
@@ -1192,17 +1135,13 @@
         "valueType": "string",
         "variant": "source"
       },
-      "tooltip": [
-        "ox_tc_2"
-      ],
+      "tooltip": ["ox_tc_2"],
       "units": "\u00b0C",
       "variant": "value"
     },
     "Px7l7pDawuy": {
       "": {
-        "tooltip": [
-          "fuel_pt_2"
-        ]
+        "tooltip": ["fuel_pt_2"]
       },
       "color": "#ff005f",
       "label": {
@@ -1219,12 +1158,7 @@
         },
         "gradient": []
       },
-      "stalenessColor": [
-        0,
-        0,
-        0,
-        0
-      ],
+      "stalenessColor": [0, 0, 0, 0],
       "stalenessTimeout": 5,
       "telem": {
         "props": {
@@ -1271,9 +1205,7 @@
         "valueType": "string",
         "variant": "source"
       },
-      "tooltip": [
-        "fuel_pt_2"
-      ],
+      "tooltip": ["fuel_pt_2"],
       "units": "psi",
       "variant": "value"
     },
@@ -1407,9 +1339,7 @@
     },
     "UN8NV3qxaz7": {
       "": {
-        "tooltip": [
-          "ox_pt_1"
-        ]
+        "tooltip": ["ox_pt_1"]
       },
       "color": "#004ad6",
       "inlineSize": 70,
@@ -1431,12 +1361,7 @@
         "gradient": []
       },
       "scale": 1,
-      "stalenessColor": [
-        0,
-        0,
-        0,
-        0
-      ],
+      "stalenessColor": [0, 0, 0, 0],
       "stalenessTimeout": 5,
       "telem": {
         "props": {
@@ -1483,17 +1408,13 @@
         "valueType": "string",
         "variant": "source"
       },
-      "tooltip": [
-        "ox_pt_1"
-      ],
+      "tooltip": ["ox_pt_1"],
       "units": "psi",
       "variant": "value"
     },
     "Uf71mmzzyez": {
       "": {
-        "tooltip": [
-          "supply_pt"
-        ]
+        "tooltip": ["supply_pt"]
       },
       "color": "#b300ff",
       "inlineSize": 90,
@@ -1515,12 +1436,7 @@
         "gradient": []
       },
       "scale": 1,
-      "stalenessColor": [
-        0,
-        0,
-        0,
-        0
-      ],
+      "stalenessColor": [0, 0, 0, 0],
       "stalenessTimeout": 5,
       "telem": {
         "props": {
@@ -1567,19 +1483,12 @@
         "valueType": "string",
         "variant": "source"
       },
-      "tooltip": [
-        "supply_pt"
-      ],
+      "tooltip": ["supply_pt"],
       "units": "psi",
       "variant": "value"
     },
     "VcyomMLraaN": {
-      "backgroundColor": [
-        250,
-        250,
-        250,
-        0
-      ],
+      "backgroundColor": [250, 250, 250, 0],
       "borderRadius": {
         "x": 50,
         "y": 10
@@ -1721,9 +1630,7 @@
     },
     "VmLXT8TtVfn": {
       "": {
-        "tooltip": [
-          "fuel_pt_1"
-        ]
+        "tooltip": ["fuel_pt_1"]
       },
       "color": "#ff005f",
       "label": {
@@ -1740,12 +1647,7 @@
         },
         "gradient": []
       },
-      "stalenessColor": [
-        0,
-        0,
-        0,
-        0
-      ],
+      "stalenessColor": [0, 0, 0, 0],
       "stalenessTimeout": 5,
       "telem": {
         "props": {
@@ -1792,9 +1694,7 @@
         "valueType": "string",
         "variant": "source"
       },
-      "tooltip": [
-        "fuel_pt_1"
-      ],
+      "tooltip": ["fuel_pt_1"],
       "units": "psi",
       "variant": "value"
     },
@@ -1972,12 +1872,7 @@
       "variant": "tank"
     },
     "e4JtXVcg02b": {
-      "color": [
-        250,
-        250,
-        250,
-        1
-      ],
+      "color": [250, 250, 250, 1],
       "label": {
         "align": "center",
         "direction": "x",
@@ -2103,12 +1998,7 @@
       "variant": "solenoidValve"
     },
     "k9XCuVYxOzB": {
-      "color": [
-        55,
-        116,
-        208,
-        1
-      ],
+      "color": [55, 116, 208, 1],
       "control": {
         "chip": {
           "sink": {
@@ -2559,9 +2449,7 @@
     },
     "qKNvIK45GCK": {
       "": {
-        "tooltip": [
-          "ox_pt_2"
-        ]
+        "tooltip": ["ox_pt_2"]
       },
       "color": "#004ad6",
       "inlineSize": 70,
@@ -2583,12 +2471,7 @@
         "gradient": []
       },
       "scale": 1,
-      "stalenessColor": [
-        0,
-        0,
-        0,
-        0
-      ],
+      "stalenessColor": [0, 0, 0, 0],
       "stalenessTimeout": 5,
       "telem": {
         "props": {
@@ -2635,9 +2518,7 @@
         "valueType": "string",
         "variant": "source"
       },
-      "tooltip": [
-        "ox_pt_2"
-      ],
+      "tooltip": ["ox_pt_2"],
       "units": "psi",
       "variant": "value"
     },
@@ -2874,9 +2755,7 @@
     },
     "rCUKZktR3sZ": {
       "": {
-        "tooltip": [
-          "press_pt_1"
-        ]
+        "tooltip": ["press_pt_1"]
       },
       "color": "#b300ff",
       "label": {
@@ -2893,12 +2772,7 @@
         },
         "gradient": []
       },
-      "stalenessColor": [
-        0,
-        0,
-        0,
-        0
-      ],
+      "stalenessColor": [0, 0, 0, 0],
       "stalenessTimeout": 5,
       "telem": {
         "props": {
@@ -2945,19 +2819,12 @@
         "valueType": "string",
         "variant": "source"
       },
-      "tooltip": [
-        "press_pt_1"
-      ],
+      "tooltip": ["press_pt_1"],
       "units": "psi",
       "variant": "value"
     },
     "rJ8HEDBlxlw": {
-      "backgroundColor": [
-        255,
-        0,
-        255,
-        0.01
-      ],
+      "backgroundColor": [255, 0, 255, 0.01],
       "borderRadius": {
         "x": 50,
         "y": 25
@@ -3112,9 +2979,7 @@
     },
     "vVP5HNMj1sk": {
       "": {
-        "tooltip": [
-          "press_tc_2"
-        ]
+        "tooltip": ["press_tc_2"]
       },
       "color": "#b300ff",
       "label": {
@@ -3131,12 +2996,7 @@
         },
         "gradient": []
       },
-      "stalenessColor": [
-        0,
-        0,
-        0,
-        0
-      ],
+      "stalenessColor": [0, 0, 0, 0],
       "stalenessTimeout": 5,
       "telem": {
         "props": {
@@ -3183,9 +3043,7 @@
         "valueType": "string",
         "variant": "source"
       },
-      "tooltip": [
-        "press_tc_2"
-      ],
+      "tooltip": ["press_tc_2"],
       "units": "\u00b0C",
       "variant": "value"
     },
@@ -3205,9 +3063,7 @@
     },
     "yAfA5biPqIA": {
       "": {
-        "tooltip": [
-          "press_pt_1"
-        ]
+        "tooltip": ["press_pt_1"]
       },
       "color": "#ffa800",
       "inlineSize": 78,
@@ -3229,12 +3085,7 @@
         "gradient": []
       },
       "scale": 1,
-      "stalenessColor": [
-        0,
-        0,
-        0,
-        0
-      ],
+      "stalenessColor": [0, 0, 0, 0],
       "stalenessTimeout": 5,
       "telem": {
         "props": {
@@ -3281,29 +3132,17 @@
         "valueType": "string",
         "variant": "source"
       },
-      "tooltip": [
-        "pneumatics_pt"
-      ],
+      "tooltip": ["pneumatics_pt"],
       "units": "psi",
       "variant": "value"
     },
     "xy-edge__tKyeVybyb2Z2-CST75HX7oD14": {
-      "color": [
-        179,
-        0,
-        255,
-        1
-      ],
+      "color": [179, 0, 255, 1],
       "segments": [],
       "variant": "pipe"
     },
     "xy-edge__IpSylSnCSc32-WubiiPZ6MyL3": {
-      "color": [
-        0,
-        214,
-        35,
-        1
-      ],
+      "color": [0, 214, 35, 1],
       "segments": [
         {
           "direction": "y",
@@ -3317,12 +3156,7 @@
       "variant": "pneumatic"
     },
     "xy-edge__n4pmPCUcMaw2-KWwYAhIaXR12": {
-      "color": [
-        0,
-        74,
-        214,
-        1
-      ],
+      "color": [0, 74, 214, 1],
       "segments": [
         {
           "direction": "y",
@@ -3336,12 +3170,7 @@
       "variant": "jacketed"
     },
     "xy-edge__IpSylSnCSc31-0KwRzIrJ4ii3": {
-      "color": [
-        0,
-        214,
-        35,
-        1
-      ],
+      "color": [0, 214, 35, 1],
       "segments": [
         {
           "direction": "y",
@@ -3359,12 +3188,7 @@
       "variant": "pneumatic"
     },
     "xy-edge__kbJw2Oi5Ueu2-rJ8HEDBlxlw7": {
-      "color": [
-        179,
-        0,
-        255,
-        1
-      ],
+      "color": [179, 0, 255, 1],
       "segments": [
         {
           "direction": "x",
@@ -3374,12 +3198,7 @@
       "variant": "pipe"
     },
     "1Ajh5kZyqzw": {
-      "color": [
-        0,
-        74,
-        214,
-        1
-      ],
+      "color": [0, 74, 214, 1],
       "segments": [
         {
           "direction": "x",
@@ -3393,12 +3212,7 @@
       "variant": "pipe"
     },
     "xy-edge__rJ8HEDBlxlw1-tKyeVybyb2Z1": {
-      "color": [
-        179,
-        0,
-        255,
-        1
-      ],
+      "color": [179, 0, 255, 1],
       "segments": [
         {
           "direction": "y",
@@ -3416,12 +3230,7 @@
       "variant": "pipe"
     },
     "xy-edge__CST75HX7oD13-W1dSGKqGk1f1": {
-      "color": [
-        179,
-        0,
-        255,
-        1
-      ],
+      "color": [179, 0, 255, 1],
       "segments": [
         {
           "direction": "y",
@@ -3431,22 +3240,12 @@
       "variant": "pipe"
     },
     "xy-edge__0jdKiNGUXdE3-VcyomMLraaN1": {
-      "color": [
-        0,
-        74,
-        214,
-        1
-      ],
+      "color": [0, 74, 214, 1],
       "segments": [],
       "variant": "pipe"
     },
     "xy-edge__VcyomMLraaN4-n4pmPCUcMaw1": {
-      "color": [
-        0,
-        74,
-        214,
-        1
-      ],
+      "color": [0, 74, 214, 1],
       "segments": [
         {
           "direction": "y",
@@ -3460,12 +3259,7 @@
       "variant": "jacketed"
     },
     "xy-edge__7yLD0xOFddf2-dkPgXB2tjWf4": {
-      "color": [
-        255,
-        168,
-        0,
-        1
-      ],
+      "color": [255, 168, 0, 1],
       "segments": [
         {
           "direction": "x",
@@ -3479,12 +3273,7 @@
       "variant": "pneumatic"
     },
     "xy-edge__HH9i7jrQ0rH2-p2dLrZf6mMv2": {
-      "color": [
-        255,
-        0,
-        95,
-        1
-      ],
+      "color": [255, 0, 95, 1],
       "segments": [
         {
           "direction": "x",
@@ -3498,12 +3287,7 @@
       "variant": "pipe"
     },
     "xy-edge__L0MCB6oJASM1-VeRfM4LedsR1": {
-      "color": [
-        255,
-        0,
-        95,
-        1
-      ],
+      "color": [255, 0, 95, 1],
       "segments": [
         {
           "direction": "x",
@@ -3525,12 +3309,7 @@
       "variant": "jacketed"
     },
     "xy-edge__QLFXTKWz3DJ2-tKyeVybyb2Z3": {
-      "color": [
-        255,
-        168,
-        0,
-        1
-      ],
+      "color": [255, 168, 0, 1],
       "segments": [
         {
           "direction": "y",
@@ -3544,12 +3323,7 @@
       "variant": "pneumatic"
     },
     "xy-edge__rJ8HEDBlxlw4-SKO1UjHj1o31": {
-      "color": [
-        0,
-        214,
-        35,
-        1
-      ],
+      "color": [0, 214, 35, 1],
       "segments": [
         {
           "direction": "y",
@@ -3563,12 +3337,7 @@
       "variant": "pneumatic"
     },
     "xy-edge__dlptAUF47pk3-D2jnA2ygsRn1": {
-      "color": [
-        255,
-        0,
-        95,
-        1
-      ],
+      "color": [255, 0, 95, 1],
       "segments": [
         {
           "direction": "y",
@@ -3586,12 +3355,7 @@
       "variant": "pipe"
     },
     "xy-edge__0jdKiNGUXdE1-5lnJLvZggVN1": {
-      "color": [
-        0,
-        74,
-        214,
-        1
-      ],
+      "color": [0, 74, 214, 1],
       "segments": [
         {
           "direction": "x",
@@ -3605,12 +3369,7 @@
       "variant": "pipe"
     },
     "xy-edge__p2dLrZf6mMv1-wGdFMnYeLk81": {
-      "color": [
-        255,
-        0,
-        95,
-        1
-      ],
+      "color": [255, 0, 95, 1],
       "segments": [
         {
           "direction": "y",
@@ -3624,12 +3383,7 @@
       "variant": "pipe"
     },
     "Q6Ru747fTlZ": {
-      "color": [
-        0,
-        74,
-        214,
-        1
-      ],
+      "color": [0, 74, 214, 1],
       "segments": [
         {
           "direction": "x",
@@ -3643,12 +3397,7 @@
       "variant": "pipe"
     },
     "xy-edge__nikWEdQSwLr2-wGdFMnYeLk82": {
-      "color": [
-        255,
-        0,
-        95,
-        1
-      ],
+      "color": [255, 0, 95, 1],
       "segments": [
         {
           "direction": "y",
@@ -3662,12 +3411,7 @@
       "variant": "pipe"
     },
     "xy-edge__dlptAUF47pk3-ojXq08A1bLP1": {
-      "color": [
-        255,
-        0,
-        95,
-        1
-      ],
+      "color": [255, 0, 95, 1],
       "segments": [
         {
           "direction": "y",
@@ -3681,12 +3425,7 @@
       "variant": "pipe"
     },
     "xy-edge__VeRfM4LedsR2-e4JtXVcg02b3": {
-      "color": [
-        255,
-        0,
-        95,
-        1
-      ],
+      "color": [255, 0, 95, 1],
       "segments": [
         {
           "direction": "y",
@@ -3705,12 +3444,7 @@
       "variant": "pneumatic"
     },
     "xy-edge__dkPgXB2tjWf8-kbJw2Oi5Ueu1": {
-      "color": [
-        255,
-        168,
-        0,
-        1
-      ],
+      "color": [255, 168, 0, 1],
       "segments": [
         {
           "direction": "x",
@@ -3728,12 +3462,7 @@
       "variant": "pneumatic"
     },
     "xy-edge__L0MCB6oJASM2-dlptAUF47pk4": {
-      "color": [
-        255,
-        0,
-        95,
-        1
-      ],
+      "color": [255, 0, 95, 1],
       "segments": [
         {
           "direction": "x",
@@ -3747,12 +3476,7 @@
       "variant": "jacketed"
     },
     "xy-edge__WubiiPZ6MyL2-KWwYAhIaXR12": {
-      "color": [
-        0,
-        214,
-        35,
-        1
-      ],
+      "color": [0, 214, 35, 1],
       "segments": [
         {
           "direction": "x",
@@ -3766,22 +3490,12 @@
       "variant": "pipe"
     },
     "xy-edge__wGdFMnYeLk83-dlptAUF47pk1": {
-      "color": [
-        255,
-        0,
-        95,
-        1
-      ],
+      "color": [255, 0, 95, 1],
       "segments": [],
       "variant": "pipe"
     },
     "xy-edge__BLMwEwSkGNS2-VcyomMLraaN2": {
-      "color": [
-        0,
-        74,
-        214,
-        1
-      ],
+      "color": [0, 74, 214, 1],
       "segments": [
         {
           "direction": "x",
@@ -3795,12 +3509,7 @@
       "variant": "pipe"
     },
     "xy-edge__W1dSGKqGk1f2-ed2fKMvty6b1": {
-      "color": [
-        179,
-        0,
-        255,
-        1
-      ],
+      "color": [179, 0, 255, 1],
       "segments": [
         {
           "direction": "y",
@@ -3814,12 +3523,7 @@
       "variant": "pneumatic"
     },
     "xy-edge__YtBdiWNERfU2-rTobk1G30ly3": {
-      "color": [
-        179,
-        0,
-        255,
-        1
-      ],
+      "color": [179, 0, 255, 1],
       "segments": [
         {
           "direction": "x",
@@ -3829,12 +3533,7 @@
       "variant": "pneumatic"
     },
     "xy-edge__WubiiPZ6MyL1-VeRfM4LedsR1": {
-      "color": [
-        0,
-        214,
-        35,
-        1
-      ],
+      "color": [0, 214, 35, 1],
       "segments": [
         {
           "direction": "x",
@@ -3848,12 +3547,7 @@
       "variant": "pipe"
     },
     "reactflow__edge-SKO1UjHj1o32-0KwRzIrJ4ii1": {
-      "color": [
-        0,
-        214,
-        35,
-        1
-      ],
+      "color": [0, 214, 35, 1],
       "segments": [
         {
           "direction": "y",
@@ -3867,12 +3561,7 @@
       "variant": "pneumatic"
     },
     "xy-edge__ed2fKMvty6b2-HH9i7jrQ0rH3": {
-      "color": [
-        179,
-        0,
-        255,
-        1
-      ],
+      "color": [179, 0, 255, 1],
       "segments": [
         {
           "direction": "x",
@@ -3886,12 +3575,7 @@
       "variant": "pneumatic"
     },
     "xy-edge__HH9i7jrQ0rH1-nikWEdQSwLr1": {
-      "color": [
-        255,
-        0,
-        95,
-        1
-      ],
+      "color": [255, 0, 95, 1],
       "segments": [
         {
           "direction": "x",
@@ -3905,12 +3589,7 @@
       "variant": "pipe"
     },
     "xy-edge__7yLD0xOFddf1-VeRfM4LedsR5": {
-      "color": [
-        255,
-        168,
-        0,
-        1
-      ],
+      "color": [255, 168, 0, 1],
       "segments": [
         {
           "direction": "x",
@@ -3924,12 +3603,7 @@
       "variant": "pneumatic"
     },
     "xy-edge__KWwYAhIaXR11-e4JtXVcg02b1": {
-      "color": [
-        0,
-        74,
-        214,
-        1
-      ],
+      "color": [0, 74, 214, 1],
       "segments": [
         {
           "direction": "y",
@@ -3943,12 +3617,7 @@
       "variant": "jacketed"
     },
     "xy-edge__0jdKiNGUXdE2-qUGRcDkaBIx2": {
-      "color": [
-        0,
-        74,
-        214,
-        1
-      ],
+      "color": [0, 74, 214, 1],
       "segments": [
         {
           "direction": "x",
@@ -3962,12 +3631,7 @@
       "variant": "pipe"
     },
     "xy-edge__dkPgXB2tjWf1-QLFXTKWz3DJ1": {
-      "color": [
-        255,
-        168,
-        0,
-        1
-      ],
+      "color": [255, 168, 0, 1],
       "segments": [
         {
           "direction": "y",
@@ -3977,12 +3641,7 @@
       "variant": "pipe"
     },
     "xy-edge__YtBdiWNERfU1-W1dSGKqGk1f3": {
-      "color": [
-        179,
-        0,
-        255,
-        1
-      ],
+      "color": [179, 0, 255, 1],
       "segments": [
         {
           "direction": "x",
@@ -3992,12 +3651,7 @@
       "variant": "pneumatic"
     },
     "xy-edge__qo0xVKkc4oR1-VcyomMLraaN2": {
-      "color": [
-        0,
-        74,
-        214,
-        1
-      ],
+      "color": [0, 74, 214, 1],
       "segments": [
         {
           "direction": "y",

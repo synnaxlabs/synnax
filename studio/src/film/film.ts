@@ -78,3 +78,43 @@ export type Edit = z.infer<typeof editZ>;
 
 /** edit validates a film's shot list, throwing on the first invalid shot. */
 export const edit = (shots: unknown): Edit => editZ.parse(shots);
+
+/**
+ * A live telemetry strip along the bottom of the frame: a channel's name, its value,
+ * and a trace of its last seconds, drawn from the capture's `track`. It shows during
+ * takes from mark `from` to mark `to`, and carries across cuts. With `zero`, it shows a
+ * T+ clock counted from that mark.
+ */
+export const scopeZ = z.object({
+  track: z.string().min(1),
+  label: z.string().min(1),
+  unit: z.string().min(1).optional(),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+  from: z.string().min(1),
+  to: z.string().min(1),
+  zero: z.string().min(1).optional(),
+});
+export type Scope = z.infer<typeof scopeZ>;
+
+/**
+ * A label pinned beside the rect of mark `target`, on the window itself. It appears at
+ * mark `at` and holds for `seconds`. `side` is the side of the rect it sits on.
+ */
+export const calloutZ = z.object({
+  at: z.string().min(1),
+  target: z.string().min(1),
+  text: z.string().min(1),
+  side: z.enum(["left", "right"]).default("right"),
+  seconds: z.number().positive().optional(),
+});
+export type Callout = z.infer<typeof calloutZ>;
+
+/** The layers a film draws over its shots. */
+export const overlaysZ = z.object({
+  scope: scopeZ.optional(),
+  callouts: calloutZ.array().default([]),
+});
+export type Overlays = z.infer<typeof overlaysZ>;
+
+/** overlays validates a film's overlays, throwing on the first invalid one. */
+export const overlays = (layers: unknown): Overlays => overlaysZ.parse(layers);

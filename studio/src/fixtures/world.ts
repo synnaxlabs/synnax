@@ -98,6 +98,8 @@ export interface World {
   project: string;
   /** Every line the stand has written to its sequence log, oldest first. */
   logged: readonly string[];
+  /** read returns a sensor's latest written value. Throws on an unknown sensor. */
+  read: (sensor: string) => number;
   /** Stops the sequence and the simulation, closing every writer and the client. */
   stop: () => Promise<void>;
 }
@@ -241,6 +243,7 @@ export const testStand = async ({
   const t = { ox: -183, fuel: 19, press: 21 };
 
   const logged: string[] = [];
+  const latest = new Map<string, number>(SENSORS.map((s) => [s, 0]));
   let running = true;
   const sim = (async () => {
     while (running) {
@@ -297,7 +300,10 @@ export const testStand = async ({
           if (series == null) values.set(k, [v]);
           else series.push(v);
         };
-        for (const s of SENSORS) push(key(s), sample[s]);
+        for (const s of SENSORS) {
+          push(key(s), sample[s]);
+          latest.set(s, sample[s]);
+        }
         for (const v of VALVE_NAMES) push(key(`${v}_state`), state[v]);
       }
       if (stamps.length > 0)
@@ -314,6 +320,11 @@ export const testStand = async ({
   return {
     project: project.name,
     logged,
+    read: (sensor) => {
+      const value = latest.get(sensor);
+      if (value == null) throw new Error(`the stand has no sensor "${sensor}"`);
+      return value;
+    },
     stop: async () => {
       await task.stop();
       running = false;

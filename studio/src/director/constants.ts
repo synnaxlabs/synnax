@@ -196,3 +196,24 @@ export const END_S = 3.5;
 
 /** Seconds the end card's wordmark takes to fade in. */
 export const END_IN_S = 0.6;
+
+/** Seconds of history a scope's trace spans. */
+export const SCOPE_WINDOW_S = 10;
+
+/** Seconds a scope takes to fade in or out. */
+export const SCOPE_FADE_S = 0.4;
+
+/**
+ * Seconds of the centered window that smooths a scope's readout. Centered, so the
+ * readout never lags the Console.
+ */
+export const SCOPE_SMOOTH_S = 0.3;
+
+/** Share of a track's range a scope leaves free above and below the trace. */
+export const SCOPE_PAD = 0.12;
+
+/** Default seconds a callout holds. */
+export const CALLOUT_S = 2.8;
+
+/** Seconds a callout takes to fade out. */
+export const CALLOUT_OUT_S = 0.35;

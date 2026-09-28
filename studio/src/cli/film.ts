@@ -12,7 +12,7 @@ import { parseArgs } from "node:util";
 
 import { OUT_ROOT, ROOT, run } from "@/cli/common";
 import { loadTimeline, runCapture, runFilmRender } from "@/cli/pipeline";
-import { DSF, edit as parseEdit } from "@/film";
+import { DSF, edit as parseEdit, overlays as parseOverlays } from "@/film";
 import { type Timeline } from "@/timeline";
 
 const usage = `usage: pnpm film <id> [options]
@@ -43,9 +43,10 @@ const main = async (): Promise<void> => {
     process.exit(1);
   }
   const scriptPath = path.join(ROOT, "films", `${id}.ts`);
-  const mod = (await import(scriptPath)) as { edit?: unknown };
+  const mod = (await import(scriptPath)) as { edit?: unknown; overlays?: unknown };
   if (mod.edit == null) throw new Error(`${scriptPath} exports no edit`);
   const edit = parseEdit(mod.edit);
+  const overlays = parseOverlays(mod.overlays ?? {});
 
   const captureDir = path.join(OUT_ROOT, "films", id);
   let timeline: Timeline;
@@ -70,6 +71,7 @@ const main = async (): Promise<void> => {
   console.log("rendering...");
   await runFilmRender({
     edit,
+    overlays,
     timeline,
     captureDir,
     outputLocation,

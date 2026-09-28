@@ -32,7 +32,7 @@ import {
 } from "@/director/constants";
 import { at, type SpringParams, type SpringState, step } from "@/director/spring";
 import { type Edit, FPS, HEIGHT, type Shot, type Take, type Tilt, WIDTH } from "@/film";
-import { type Mark, type Rect, type Timeline } from "@/timeline";
+import { type Mark, marks, type Rect, type Timeline } from "@/timeline";
 
 const clamp = (t: number, lo = 0, hi = 1): number => Math.min(hi, Math.max(lo, t));
 
@@ -65,12 +65,6 @@ export interface StagePlan {
   samples: StageSample[];
 }
 
-const markLookup = (tl: Timeline): Map<string, Mark> => {
-  const marks = new Map<string, Mark>();
-  for (const e of tl.events) if (e.type === "mark") marks.set(e.name, e);
-  return marks;
-};
-
 const describe = (index: number, shot: Shot): string => `shot ${index} (${shot.type})`;
 
 /** settling returns a critically damped spring that settles in about `pace` seconds. */
@@ -95,11 +89,11 @@ const planTake = (
   index: number,
   shot: Take,
   tl: Timeline,
-  marks: Map<string, Mark>,
+  byName: Map<string, Mark>,
 ): StageSample[] => {
   const name = describe(index, shot);
   const find = (mark: string): Mark => {
-    const found = marks.get(mark);
+    const found = byName.get(mark);
     if (found == null)
       throw new Error(`${name} cuts at mark "${mark}", which the capture never set`);
     return found;
@@ -253,11 +247,11 @@ export const stage = (edit: Edit, tl: Timeline): StagePlan => {
     throw new Error(
       `films capture at ${FPS} fps, but this capture ran at ${tl.meta.fps}`,
     );
-  const marks = markLookup(tl);
+  const byName = marks(tl);
   const samples = edit.flatMap((shot, i): StageSample[] => {
     switch (shot.type) {
       case "take":
-        return planTake(i, shot, tl, marks);
+        return planTake(i, shot, tl, byName);
       case "card":
         return planCard(i, shot.seconds ?? CARD_S);
       case "end":

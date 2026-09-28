@@ -11,11 +11,13 @@ The studio (`studio/`) turns scripted Console sessions into docs videos. This RF
 feature films: short, cinematic clips that show one feature, in the style of Linear's
 launch films. A film is made only from real captured pixels. The compositor stages the
 capture on a near-black set: a tilted 3D plane, depth of field, a spotlight on the
-feature, text cards, film grain, and hard cuts. Films share one house style built from
-ten shot types with tunable settings. A film file picks the shots, their order, and
-their settings, so an agent can write and render a film without new design work. All
-films are shot in one demo world, a rocket engine test stand, and live plots are frame
-perfect because Pluto gains a clock the studio can step.
+feature, text cards, film grain, and hard cuts. Overlays draw the stand's real telemetry
+over the capture: a live scope and callouts pinned to the window. Films share one house
+style built from a small set of shot types and overlays with tunable settings. A film
+file picks them, their order, and their settings, so an agent can write and render a
+film without new design work. All films are shot in one demo world, a rocket engine test
+stand run by an Arc program, and live plots are frame perfect because the studio steps
+one virtual clock in the page and its workers.
 
 ## 1 Motivation
 
@@ -76,8 +78,8 @@ A film runs the existing pipeline with one new stage between capture and render:
 
 ```
 film file (studio/films/<id>.ts)
-  -> capture  the existing rig, plus marks          -> frames/, timeline.json
-  -> plan     director: edit + timeline -> stage tracks per output frame
+  -> capture  the existing rig, plus marks, tracks  -> frames/, timeline.json
+  -> plan     director: edit, overlays + timeline -> stage and overlay frames
   -> render   Remotion "film" composition, 1080x1350, 60 fps -> out/films/<id>.mp4
 ```
 
@@ -116,7 +118,10 @@ export const edit = film.edit([
     type: "take",
     from: "open",
     to: "end",
-    beats: [{ at: "open", wide: true }, { at: "group", fill: 0.7 }],
+    beats: [
+      { at: "open", wide: true },
+      { at: "group", fill: 0.7 },
+    ],
   },
   { type: "spotlight", from: "group", to: "end", target: "group" },
   { type: "end", tagline: "Schematics that scale with your stand." },
@@ -129,16 +134,14 @@ house default, so most shots need only their marks.
 
 ### 4.3 Shots and the camera
 
-| Shot        | What it shows                                             | Key settings, house defaults                            |
-| ----------- | --------------------------------------------------------- | ------------------------------------------------------- |
-| `take`      | The window on a tilted plane, a camera moving on beats    | rest tilt X 4°, Z -2°; perspective 1800 px              |
-| `isolate`   | One panel cropped out, the rest falls to black            | panel fills 68% of frame width                          |
-| `spotlight` | The target sharp and lit, everything else blurred and dim | blur 16 px, brightness 0.5, fade 350 ms                 |
-| `focus`     | A depth-of-field band that pulls between two marks        | band 30% of frame height, blur 8 px                     |
-| `card`      | One or two lines of text on the stage                     | Inter 68 px, rise 10 px over 550 ms                     |
-| `label`     | A monospace uppercase tag pinned beside a mark            | tracking 0.2 em, 60% white                              |
-| `stat`      | One large number with a short line                        | number at 160 px, line at 40 px                         |
-| `end`       | Grainy Synnax-blue gradient, white wordmark, tagline      | 3.5 s                                                   |
+| Shot        | What it shows                                             | Key settings, house defaults               |
+| ----------- | --------------------------------------------------------- | ------------------------------------------ |
+| `take`      | The window on a tilted plane, a camera moving on beats    | rest tilt X 4°, Z -2°; perspective 1800 px |
+| `isolate`   | One panel cropped out, the rest falls to black            | panel fills 68% of frame width             |
+| `spotlight` | The target sharp and lit, everything else blurred and dim | blur 16 px, brightness 0.5, fade 350 ms    |
+| `focus`     | A depth-of-field band that pulls between two marks        | band 30% of frame height, blur 8 px        |
+| `card`      | One or two lines of text on the stage                     | Inter 68 px, rise 10 px over 550 ms        |
+| `end`       | Grainy Synnax-blue gradient, white wordmark, tagline      | 3.5 s                                      |
 
 A take is one continuous camera move, and its beats say what the camera looks at. Each
 beat names a mark. At that mark's frame the camera moves to frame the mark's rect, or
@@ -153,15 +156,47 @@ moves because something happened, not on a schedule. The motion follows four rul
   the distance traveled and the zoom change, so small reframes are quick and long pans
   take time.
 - **The plane leans into travel**: tilt follows camera velocity, as a camera on a jib
-  banks into a pan, and returns to rest when the camera holds. Only a reveal opens at
-  a strong tilt (X 22°, Z -10°) and settles over 1.8 s.
+  banks into a pan, and returns to rest when the camera holds. Only a reveal opens at a
+  strong tilt (X 22°, Z -10°) and settles over 1.8 s.
 - **Holds breathe**: while it holds on a beat, the camera pushes in at a per-beat rate
   (default 1% per second), so a still frame is never frozen.
 
 The frame keeps one accent color, and shots join with hard cuts, never a wipe or a
 dissolve.
 
-### 4.4 The stage
+### 4.4 Overlays
+
+Overlays draw over takes, never over cards. A film file exports them next to its edit:
+
+```ts
+export const overlays = film.overlays({
+  scope: {
+    track: "ox",
+    label: "OX PT 1",
+    unit: "psi",
+    color: "#DC136C",
+    from: "start",
+    to: "stand",
+    zero: "go",
+  },
+  callouts: [{ at: "holding", target: "tpc", text: "Arc holds 20 to 25 psi" }],
+});
+```
+
+- **Tracks**: `CaptureSession.track(name, sample)` samples a value once per recorded
+  frame, and the timeline stores each track by tick. Film files sample the stand with
+  `world.read(sensor)`, so a track holds the values the Console shows.
+- **Scope**: a strip along the bottom of the frame. It shows the channel name, a large
+  readout, a T+ clock from mark `zero`, and a 10 s trace drawn as vectors, so it stays
+  sharp at any zoom. It carries across cuts and fades at the edges of its marks. The
+  readout averages a centered 0.3 s window, so it holds its digits still and never lags
+  the Console. Its color is the channel's plot color, the frame's one accent.
+- **Callout**: a dot on the edge of a mark's rect, a leader, and a short label. The
+  director projects the dot through the camera each frame, and the label stays upright
+  inside the frame and clear of the scope. A label that must cross its dot lifts above
+  it. Text states what the program does, with the numbers the scope shows.
+
+### 4.5 The stage
 
 Every frame draws, from back to front: a ground of `#060607`, the shot, a radial
 vignette from 35% to 85% of the frame radius, a rim light (a 1 px top-left edge gradient
@@ -170,35 +205,39 @@ on the plane plus a 6% radial glow in `screen` blend), and grain. The grain is S
 frame index, which keeps renders deterministic and breaks up the banding H.264 adds to
 dark gradients. Captures run in the dark theme only.
 
-### 4.5 Sharpness budget
+### 4.6 Sharpness budget
 
 A shot stays sharp while its zoom `z` meets
 `z <= (source px across the view) / (output px across the view)`, the rule in
 `decisions.md` applied to the shot's crop. Film captures default to `dsf` 3, so a 1440
-CSS px capture carries 4320 source px. The director checks the zoom of every frame of a take and throws
-when one exceeds the budget, with the shot, the beat, and the `dsf` that would fix it.
+CSS px capture carries 4320 source px. The director checks the zoom of every frame of a
+take and throws when one exceeds the budget, with the shot, the beat, and the `dsf` that
+would fix it.
 
-### 4.6 The demo world
+### 4.7 The demo world
 
-`fixtures.testStand` (`studio/src/fixtures/world.ts`) builds one bipropellant test stand
-on the capture's Core:
+`fixtures.testStand` (`studio/src/fixtures/world.ts`) builds an LOX coldflow stand on
+the capture's Core:
 
-- **Project**: the internal TPC operator workspace, committed to `studio/worlds/tpc/`
-  with channel names in place of keys. The fixture binds the names to the new keys and
-  imports the folder through `client.projects.import`, so the Core rebuilds the
-  schematic, the thermocouple table, the pressure plots, the sequence log, and the panel
-  layout.
+- **Project**: the TPC operator workspace, exported from the Console as a project bundle
+  and committed to `studio/worlds/tpc/` with channel names in place of keys. The fixture
+  binds the names to the new keys and imports the bundle through
+  `client.projects.import`. The Core rebuilds the operator schematic, the thermocouple
+  table, the pressure plots, the sequence log, the panels, and the Ox Coldflow Arc
+  program.
 - **Channels**: tank, pressurant, and pneumatic pressures, feed and pressurant
   temperatures, a command and state pair for each of 14 valves, the Start Sequence
   command, and the sequence log.
-- **Simulation**: valves follow their commands. Start Sequence runs a pressurize, flow,
-  and safe sequence in which the TPC valves regulate tank pressure around a setpoint.
-  Tank pressures follow the valves, with sensor noise. The stand writes 60 s of idle
-  history first, so plots open full.
+- **Sequence**: the fixture deploys Ox Coldflow on the Core's Arc rack. Start Sequence
+  runs it: Arc pressurizes the tank to 50 psi, boosts the pressurant, opens the main
+  valve, holds the tank between 20 and 25 psi with the TPC valve, and vents the stand
+  under 15 psi. The simulation only turns valve states into pressures, with sensor
+  noise, and logs each valve change. The stand writes 60 s of idle history first, so
+  plots open full.
 
 Every film file starts from `fixtures.testStand`. Docs scripts keep their own fixtures.
 
-### 4.7 Live data on the virtual clock
+### 4.8 Live data on the virtual clock
 
 A live plot must advance one frame of data per captured frame. A capture runs many times
 slower than real time, so data on wall time scrolls that many times too fast. Two pieces
@@ -227,11 +266,12 @@ Each phase is one PR into `main`.
 - **Phase 2: Studio docs cleanup.** `studio/README.md` still describes click auto-zoom,
   a 1512x945 default, and a 1.5 s idle fade. Remove the dead auto-zoom constants and the
   auto-zoom dwell in `rig.ts`. Mechanical, `review/bot`.
-- **Phase 3: The remaining shots.** `isolate`, `spotlight`, `focus`, `macro`, `follow`,
-  `label`, and `stat`, with the sharpness budget of §4.5.
-- **Phase 4: The demo world and live data.** The test stand of §4.6, the worker clock of
-  §4.7, and the hotfire film.
-- **Phase 5: Music and stills.** The music layer and `--still`.
+- **Phase 3: The remaining shots.** `isolate`, `spotlight`, and `focus`, with the
+  sharpness budget of §4.6.
+- **Phase 4: The demo world and live data.** The test stand of §4.7, the worker clock of
+  §4.8, and the coldflow film.
+- **Phase 5: Overlays.** Tracks, the scope, and callouts of §4.4.
+- **Phase 6: Music and stills.** The music layer and `--still`.
 
 ## 6 Resolved decisions
 
@@ -242,11 +282,11 @@ and it shows engineers a rendering instead of the product. Linear's own Diffs fi
 the look comes from light, camera, and focus, which apply to captures. The trade is
 real: those three looks are out.
 
-**6.1 Motivated camera moves over fixed shot recipes.** The first cut gave every
-capture shot the same motion: open tilted, ease to rest, dolly 1.00 to 1.06. Every
-shot then moved the same way whatever it showed, and the film read as generated. Beats
-tie each move to a change in the content. The trade is real: each film script now
-places marks with intent, which a recipe did for free.
+**6.1 Motivated camera moves over fixed shot recipes.** The first cut gave every capture
+shot the same motion: open tilted, ease to rest, dolly 1.00 to 1.06. Every shot then
+moved the same way whatever it showed, and the film read as generated. Beats tie each
+move to a change in the content. The trade is real: each film script now places marks
+with intent, which a recipe did for free.
 
 **6.2 A shot vocabulary over per-film design.** A film designed from scratch can fit its
 feature exactly, but the craft then gets spent 40 times instead of once, and quality
