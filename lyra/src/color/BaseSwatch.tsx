@@ -9,14 +9,18 @@
 
 import "@/color/Swatch.css";
 
-import { Button } from "@synnaxlabs/lyra/button";
-import { CSS } from "@synnaxlabs/lyra/css";
-import { Haul } from "@synnaxlabs/lyra/haul";
-import { Theming } from "@synnaxlabs/lyra/theming";
 import { color } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useMemo } from "react";
+import { type ReactElement } from "react";
+
+import { Button } from "@/button";
+import { CSS } from "@/css";
+import { Haul } from "@/haul";
+import { Theming } from "@/theming";
 
 export const HAUL_TYPE = "color";
+
+const COLOR_VAR = CSS.variable("swatch", "color");
+const TEXT_VAR = CSS.variable("swatch", "text");
 
 export type HaulItem = Haul.Item<typeof HAUL_TYPE, color.Hex, undefined>;
 
@@ -35,67 +39,52 @@ export const canDropHaulItem = Haul.canDropOfType<HaulItem>(HAUL_TYPE);
 
 export interface BaseSwatchProps extends Omit<
   Button.ButtonProps,
-  "onChange" | "value" | "size"
+  "onChange" | "value"
 > {
   value: color.Crude;
+  /** Called with a dropped color. Without it, the swatch takes no drop. */
   onChange?: (c: color.Color) => void;
-  size?: Button.ButtonProps["size"] | "tiny";
 }
 
 export const BaseSwatch = ({
   value,
   onChange,
   className,
-  size = "medium",
   draggable = true,
   style,
   ...rest
 }: BaseSwatchProps): ReactElement => {
-  const background = Theming.use().colors.gray.l0;
-  const clr = color.construct(value);
+  const { gray } = Theming.use().colors;
+  const hex = color.hex(value);
   const dragging = Haul.useDraggingState();
-  const canDrop: Haul.CanDrop = useCallback(
-    ({ items }) => {
-      const [k] = filterHaulItems(items);
-      return k != null && k.key !== color.hex(clr);
-    },
-    [clr],
-  );
-  const handleDrop: Haul.OnDrop = useCallback(
-    ({ items }) => {
+  const canDrop: Haul.CanDrop = ({ items }) => {
+    const [k] = filterHaulItems(items);
+    return onChange != null && k != null && k.key !== hex;
+  };
+  const { startDrag, ...haulProps } = Haul.useDragAndDrop({
+    type: "color_swatch",
+    onDrop: ({ items }) => {
       const [k] = filterHaulItems(items);
       if (k != null) onChange?.(color.construct(k.key));
       return items;
     },
-    [onChange],
-  );
-  const { startDrag, ...haulProps } = Haul.useDragAndDrop({
-    type: "color_swatch",
-    onDrop: handleDrop,
     canDrop,
   });
-  const handleDragStart = useCallback(() => {
-    startDrag([createHaulItem(color.hex(clr))]);
-  }, [startDrag, clr]);
-  const swatchStyle = useMemo(
-    () => ({ ...style, [CSS.variable("swatch", "color")]: color.cssString(value) }),
-    [style, value],
-  );
   return (
     <Button.Button
       className={CSS.cls(
         CSS.B("color-swatch"),
-        CSS.M(size),
-        color.contrast(background, clr) > 1.5 &&
-          color.aValue(clr) > 0.5 &&
-          CSS.M("no-border"),
         CSS.dropRegion(canDrop(dragging)),
         className,
       )}
-      size={size}
+      square
       draggable={draggable}
-      onDragStart={handleDragStart}
-      style={swatchStyle}
+      onDragStart={() => startDrag([createHaulItem(hex)])}
+      style={{
+        ...style,
+        [COLOR_VAR]: color.cssString(value),
+        [TEXT_VAR]: color.cssString(color.pickByContrast(value, gray.l0, gray.l11)),
+      }}
       variant="outlined"
       {...haulProps}
       {...rest}

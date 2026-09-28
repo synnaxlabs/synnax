@@ -9,6 +9,7 @@
 
 import { lineplot } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
+import { Color } from "@synnaxlabs/lyra/color";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -17,7 +18,7 @@ import { List as PList } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Color, LinePlot } from "@synnaxlabs/pluto";
+import { LinePlot } from "@synnaxlabs/pluto";
 import { bounds, type color, id } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
@@ -155,7 +156,7 @@ const Details = ({ ruleKey }: DetailsProps): ReactElement | null => {
     dispatch(lineplot.setRuleUnits({ key: ruleKey, units }));
   const handleChangePosition = (position: number): void =>
     dispatch(lineplot.setRulePosition({ key: ruleKey, position }));
-  const handleChangeColor = (v: color.Color): void =>
+  const handleChangeColor = (v?: color.Color): void =>
     dispatch(lineplot.setRuleColor({ key: ruleKey, color: v }));
   const handleChangeAxis = (axis: lineplot.AxisKey): void => {
     const position = bounds.mean(axes[axis].bounds);
@@ -195,7 +196,11 @@ const Details = ({ ruleKey }: DetailsProps): ReactElement | null => {
       </Flex.Box>
       <Flex.Box x wrap>
         <Input.Item label="Color">
-          <Color.Swatch value={rule.color} onChange={handleChangeColor} />
+          <Color.Swatch
+            value={rule.pickedColor}
+            fallback={rule.autoColor}
+            onChange={handleChangeColor}
+          />
         </Input.Item>
         <Input.Item label="Line width">
           <Input.Numeric

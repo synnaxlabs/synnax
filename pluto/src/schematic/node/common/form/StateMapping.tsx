@@ -9,6 +9,7 @@
 
 import { type schematic } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
+import { Color } from "@synnaxlabs/lyra/color";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -17,8 +18,6 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
 import { color, id } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
-
-import { Color } from "@/color";
 
 interface StateMappingFormProps {
   path: string;
@@ -70,15 +69,12 @@ const StateMappingListItem = ({
         }}
       />
       {showColor && (
-        <Form.Field<color.Crude>
+        <Color.Field
           path={`${basePath}.color`}
+          fallback={color.ZERO}
           showLabel={false}
           showHelpText={false}
-        >
-          {({ value, onChange }) => (
-            <Color.Swatch value={value ?? color.ZERO} onChange={onChange} bordered />
-          )}
-        </Form.Field>
+        />
       )}
       <Button.Button
         onClick={() => onRemove(itemKey)}

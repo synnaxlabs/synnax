@@ -9,6 +9,7 @@
 
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
@@ -19,6 +20,7 @@ import { Scale } from "@/schematic/node/common/scale";
 
 export const ScaleForm = (): ReactElement => {
   const { value: orientation } = Base.useField<location.Outer>("orientation");
+  const theme = Theming.use();
   return (
     <Form.Tabs tabs={["style", "telemetry"]}>
       <Tabs.Content itemKey="style">
@@ -47,7 +49,11 @@ export const ScaleForm = (): ReactElement => {
             />
           </Base.Section>
           <Base.Section title="Appearance">
-            <Form.ColorField path="color" label="Fill color" />
+            <Form.ColorField
+              path="color"
+              label="Fill color"
+              fallback={theme.colors.visualization.palettes.default[0]}
+            />
             <Scale.StyleFields path="indicator" />
           </Base.Section>
           <Orientation.Section path="" hideInner />

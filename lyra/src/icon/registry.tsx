@@ -85,7 +85,13 @@ import {
   IoTime,
   IoTvOutline,
 } from "react-icons/io5";
-import { LuLock, LuLockOpen, LuSquareFunction, LuUngroup } from "react-icons/lu";
+import {
+  LuLock,
+  LuLockOpen,
+  LuPipette,
+  LuSquareFunction,
+  LuUngroup,
+} from "react-icons/lu";
 import {
   MdAccessTime,
   MdAlignHorizontalCenter,
@@ -139,6 +145,7 @@ import {
   MdLogout,
   MdMoreVert,
   MdNewReleases,
+  MdOpacity,
   MdOutlineControlCamera,
   MdOutlineDeviceHub,
   MdOutlineExplore,
@@ -276,6 +283,8 @@ export const EditOff = wrapSVGIcon(MdEditOff, "edit-off");
 export const Add = wrapSVGIcon(FaPlus, "add");
 export const Subtract = wrapSVGIcon(AiOutlineMinus, "subtract");
 export const Copy = wrapSVGIcon(IoCopy, "copy");
+export const Eyedropper = wrapSVGIcon(LuPipette, "eyedropper");
+export const Opacity = wrapSVGIcon(MdOpacity, "opacity");
 export const Cut = wrapSVGIcon(MdContentCut, "cut");
 export const Paste = wrapSVGIcon(MdContentPaste, "paste");
 export const Undo = wrapSVGIcon(MdUndo, "undo");
