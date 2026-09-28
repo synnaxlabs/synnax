@@ -24,7 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/license"
+	"github.com/synnaxlabs/synnax/pkg/service/license"
 	channelsignals "github.com/synnaxlabs/synnax/pkg/service/channel/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/control"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
@@ -223,7 +223,7 @@ type Layer struct {
 	// Control reads the control state of channels across the cluster and publishes
 	// every transfer on the control channel.
 	Control *control.Service
-	// License verifies that the universe remains as it is.
+	// License holds the Core's license and gates the API on it.
 	License *license.Service
 	// Arc is used for validating, saving, and executing arc automations.
 	Arc *arc.Service

@@ -97,11 +97,11 @@ func Bind(layer *api.Layer, router *http.Router) {
 			"/api/v1/connectivity/check",
 		),
 
-		// VERIFICATION
+		// LICENSE
 		LicenseRetrieve: router.NewUnaryServer[license.RetrieveRequest, license.RetrieveResponse](
 			"/api/v1/license/retrieve",
 		),
-		LicenseApply: router.NewUnaryServer[license.ApplyRequest, license.ApplyResponse](
+		LicenseActivate: router.NewUnaryServer[license.ActivateRequest, license.ActivateResponse](
 			"/api/v1/license/activate",
 		),
 

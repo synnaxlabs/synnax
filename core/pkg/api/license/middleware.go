@@ -11,7 +11,7 @@ package license
 
 import (
 	"github.com/synnaxlabs/freighter"
-	license "github.com/synnaxlabs/synnax/pkg/service/channel/license"
+	license "github.com/synnaxlabs/synnax/pkg/service/license"
 )
 
 // Middleware rejects every request while the Core has no covering license, with the

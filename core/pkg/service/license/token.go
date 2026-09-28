@@ -11,11 +11,14 @@ package license
 
 import (
 	"crypto/ed25519"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/encoding/base64"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 )
 
 // Anchors is the set of public keys a token may be signed under, keyed by the token
@@ -34,6 +37,23 @@ var anchors = Anchors{
 const claimsVersion = 1
 
 const headerKeyID = "kid"
+
+// understood is every claim this build reads. A token whose required list names a claim
+// outside it is refused, so a Core never ignores a rule it cannot enforce.
+var understood = set.New(
+	"jti",
+	"iat",
+	"exp",
+	"claims_version",
+	"organization",
+	"edition",
+	"fingerprints",
+	"fingerprint_scheme",
+	"machines",
+	"channels",
+	"max_version",
+	"required",
+)
 
 // claims adapts License to the jwt.Claims interface. Validation of the times is the
 // service's job, so the accessors only expose them.
@@ -60,16 +80,17 @@ func (c claims) GetSubject() (string, error) { return "", nil }
 
 func (c claims) GetAudience() (jwt.ClaimStrings, error) { return nil, nil }
 
-// Sign produces a token carrying g, signed with priv under the key identifier kid.
-func Sign(priv ed25519.PrivateKey, kid string, g License) (string, error) {
-	tk := jwt.NewWithClaims(jwt.SigningMethodEdDSA, claims{License: g})
+// Sign produces a token carrying lic, signed with priv under the key identifier kid.
+func Sign(priv ed25519.PrivateKey, kid string, lic License) (string, error) {
+	tk := jwt.NewWithClaims(jwt.SigningMethodEdDSA, claims{License: lic})
 	tk.Header[headerKeyID] = kid
 	return tk.SignedString(priv)
 }
 
 // Verify checks token's signature against the anchor its header names and returns the
 // license it carries. It does not check the license's term; the service does. Returns
-// ErrInvalid on a bad signature, an unknown key, or an unsupported claim set version.
+// ErrInvalid on a bad signature, an unknown key, an unsupported claim set version, or a
+// required claim this Core does not understand.
 func Verify(anchors Anchors, token string) (License, error) {
 	var c claims
 	if _, err := jwt.ParseWithClaims(
@@ -91,11 +112,21 @@ func Verify(anchors Anchors, token string) (License, error) {
 		}
 		return License{}, errors.Wrap(ErrInvalid, err.Error())
 	}
-	if c.V != claimsVersion {
+	if c.ClaimsVersion != claimsVersion {
 		return License{}, errors.Wrapf(
 			ErrInvalid,
 			"unsupported claim set version %d",
-			c.V,
+			c.ClaimsVersion,
+		)
+	}
+	unknown := lo.Filter(c.Required, func(claim string, _ int) bool {
+		return !understood.Contains(claim)
+	})
+	if len(unknown) > 0 {
+		return License{}, errors.Wrapf(
+			ErrInvalid,
+			"the license needs a newer Core that understands %s",
+			strings.Join(unknown, ", "),
 		)
 	}
 	return c.License, nil

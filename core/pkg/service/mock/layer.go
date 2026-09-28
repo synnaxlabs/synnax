@@ -22,7 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/security"
 	secmock "github.com/synnaxlabs/synnax/pkg/security/mock"
 	"github.com/synnaxlabs/synnax/pkg/service"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/license"
+	"github.com/synnaxlabs/synnax/pkg/service/license"
 )
 
 // KeyID is the anchor identifier Keys signs under.
@@ -42,9 +42,9 @@ func NewKeys() Keys {
 	return Keys{Private: priv, Anchors: license.Anchors{KeyID: pub}}
 }
 
-// Sign signs g under the key.
-func (k Keys) Sign(g license.License) string {
-	return lo.Must(license.Sign(k.Private, KeyID, g))
+// Sign signs lic under the key.
+func (k Keys) Sign(lic license.License) string {
+	return lo.Must(license.Sign(k.Private, KeyID, lic))
 }
 
 // NewLicense returns a license that floats between machines and lasts fifty years.
@@ -55,11 +55,11 @@ func NewLicense() license.License {
 		Jti:               uuid.New(),
 		Iat:               uint32(now.Unix()),
 		Exp:               &exp,
-		V:                 1,
-		Org:               uuid.New(),
-		Ed:                "e",
+		ClaimsVersion:     1,
+		Organization:      uuid.New(),
+		Edition:           "e",
 		FingerprintScheme: 1,
-		N:                 1,
+		Machines:          1,
 	}
 }
 

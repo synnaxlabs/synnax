@@ -20,7 +20,6 @@ import (
 	policy "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	ontologyv0 "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/migrate"
@@ -117,7 +116,7 @@ func isAdminPolicy(p policy.Policy) bool {
 	hasUserType := false
 	hasPolicyType := false
 	for _, obj := range p.Objects {
-		if obj.Type == ontologyv0.ResourceTypeUser {
+		if obj.Type == ontology.ResourceTypeUser {
 			hasUserType = true
 		}
 		if obj.Type == "policy" {

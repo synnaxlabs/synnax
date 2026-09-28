@@ -15,6 +15,10 @@ namespace synnax::errors {
 /// @brief the Core refused the request over its license. Every license error
 /// carries this prefix.
 const x::errors::Error LICENSE = x::errors::SY.sub("license");
+/// @brief the Core refuses requests because no license is activated on it.
+const x::errors::Error LICENSE_MISSING = LICENSE.sub("missing");
+/// @brief the Core refuses requests because its license has expired.
+const x::errors::Error LICENSE_EXPIRED = LICENSE.sub("expired");
 
 inline x::errors::Error unexpected_missing_error(const std::string &name) {
     return x::errors::Error(

@@ -40,7 +40,6 @@ import {
   AccessDeniedError,
   DisconnectedError,
   errorsMiddleware,
-  MissingLicenseError,
 } from "@/errors";
 import { license } from "@/license";
 import { Transport } from "@/transport";
@@ -332,8 +331,7 @@ export class Client implements Handle {
       ) {
         if (details.reason === "unreachable")
           throw new DisconnectedError(`Cannot reach cluster at ${this.address}`);
-        if (details.reason === "unlicensed")
-          throw details.error ?? new MissingLicenseError();
+        if (details.reason === "unlicensed") throw details.error;
       }
       return await next(ctx);
     };

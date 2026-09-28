@@ -19,7 +19,6 @@ export const RESOURCE_TYPES = [
   "framer",
   "group",
   "label",
-  "license",
   "lineplot",
   "log",
   "node",

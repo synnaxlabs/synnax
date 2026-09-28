@@ -57,9 +57,18 @@ export const statusDetailsZ = z.object({
 });
 export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
 
-/** Error-variant details: the same facts plus the reason the connection failed. */
-export const errorStatusDetailsZ = statusDetailsZ.extend({ reason: reasonZ });
-export interface ErrorStatusDetails extends z.infer<typeof errorStatusDetailsZ> {}
+/**
+ * Error-variant details: the same facts plus the reason the connection failed. An
+ * unlicensed connection always carries the license error its requests throw.
+ */
+export const errorStatusDetailsZ = z.discriminatedUnion("reason", [
+  statusDetailsZ.extend({
+    reason: z.literal("unlicensed"),
+    error: z.instanceof(Error),
+  }),
+  statusDetailsZ.extend({ reason: reasonZ.exclude(["unlicensed"]) }),
+]);
+export type ErrorStatusDetails = z.infer<typeof errorStatusDetailsZ>;
 
 export const nonErrorVariantZ = z.enum([
   "success",
@@ -199,15 +208,10 @@ export type Event =
 const CONNECTING = "Connecting";
 const RECONNECTING = "Reconnecting";
 const UNREACHABLE = "Cannot reach cluster";
-const UNLICENSED: Record<Exclude<license.State, "ok">, string> = {
-  missing: "No license is active on this Core",
-  expired: "The license on this Core has expired",
-};
-
 const licenseError = (state: Exclude<license.State, "ok">): Error =>
   state === "missing"
-    ? new MissingLicenseError(UNLICENSED.missing)
-    : new ExpiredLicenseError(UNLICENSED.expired);
+    ? new MissingLicenseError(license.STATE_MESSAGES.missing)
+    : new ExpiredLicenseError(license.STATE_MESSAGES.expired);
 const STREAM_DENIED =
   "Live updates are unavailable. This user cannot read the change channels.";
 
@@ -246,17 +250,19 @@ const enter = (
   return { ...prev, variant, message, description, details: merged };
 };
 
+type ErrorCause =
+  { reason: "unlicensed"; error: Error } | { reason: Exclude<Reason, "unlicensed"> };
+
 const enterError = (
   prev: Status,
   message: string,
-  reason: Reason,
-  details: Partial<StatusDetails> = {},
+  details: Partial<StatusDetails> & ErrorCause,
 ): ErrorStatus => ({
   ...prev,
   variant: "error",
   message,
   description: "",
-  details: { ...prev.details, ...details, reason },
+  details: { ...prev.details, ...details },
 });
 
 // Reasons the check loop clears on its own; the rest wait on the user.
@@ -315,8 +321,9 @@ const reduceCheckSuccess = (prev: Status, info: Info, config: Config): Status =>
   // the Core answers but refuses everything else until a license is activated;
   // the check keeps running so an activation lifts the error on its own
   if (info.license !== "ok")
-    return enterError(prev, UNLICENSED[info.license], "unlicensed", {
+    return enterError(prev, license.STATE_MESSAGES[info.license], {
       ...facts,
+      reason: "unlicensed",
       error: licenseError(info.license),
       retry: null,
     });
@@ -356,7 +363,8 @@ const reduceClusterReplaced = (prev: Status, info: Info, config: Config): Status
   });
 
 const reduceAuthFailure = (prev: Status, error: Error): Status =>
-  enterError(prev, error.message, "auth", {
+  enterError(prev, error.message, {
+    reason: "auth",
     error,
     authenticated: false,
     retry: null,
@@ -371,7 +379,10 @@ const reduceCheckFailure = (
   if (AuthError.matches(error)) return reduceAuthFailure(prev, error);
   const escalating = prev.variant === "loading";
   if (escalating && attempt >= config.escalateAfter)
-    return enterError(prev, error.message ?? UNREACHABLE, "unreachable", { error });
+    return enterError(prev, error.message ?? UNREACHABLE, {
+      reason: "unreachable",
+      error,
+    });
   if (prev.variant === "success")
     return enter(prev, "loading", RECONNECTING, { error });
   return update(prev, { error });
@@ -395,7 +406,8 @@ const reduceStreamDrop = (prev: Status, error?: Error): Status => {
 
 const reduceRetryExhausted = (prev: Status): Status => {
   if (prev.variant !== "loading") return update(prev, { retry: null });
-  return enterError(prev, prev.details.error?.message ?? UNREACHABLE, "unreachable", {
+  return enterError(prev, prev.details.error?.message ?? UNREACHABLE, {
+    reason: "unreachable",
     retry: null,
   });
 };

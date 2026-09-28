@@ -35,7 +35,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/server"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/license"
+	"github.com/synnaxlabs/synnax/pkg/service/license"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/transport"
 	"github.com/synnaxlabs/synnax/pkg/version"
@@ -356,7 +356,7 @@ func BootupCore(
 	}
 
 	licenseInfo := serviceLayer.License.Retrieve()
-	covered := licenseInfo.State == license.StateOK
+	covered := licenseInfo.State == license.StateOk
 	if embeddedDriver, err := driver.Open(
 		ctx,
 		driver.Config{

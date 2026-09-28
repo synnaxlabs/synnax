@@ -16,10 +16,6 @@ import (
 	"slices"
 )
 
-// Fingerprint identifies the machine the Core runs on: the sorted SHA-256 hex
-// digests of every physical network interface's hardware address.
-type Fingerprint []string
-
 // fingerprintScheme is the version of the hashing rule readFingerprint implements.
 const fingerprintScheme = 1
 

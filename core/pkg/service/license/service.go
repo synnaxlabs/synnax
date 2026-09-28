@@ -31,30 +31,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// State is the verdict the service reached on the licenses it holds.
-type State string
-
-const (
-	// StateOK means a license covers this Core.
-	StateOK State = "ok"
-	// StateMissing means no license applies to this Core.
-	StateMissing State = "missing"
-	// StateExpired means the license that applies no longer covers this Core.
-	StateExpired State = "expired"
-)
-
-// Info is what the service knows about this Core's license.
-type Info struct {
-	// State is the verdict.
-	State State `json:"state" msgpack:"state"`
-	// Warning is set while the state is ok but a change is near or past.
-	Warning string `json:"warning,omitempty" msgpack:"warning,omitempty"`
-	// Fingerprint identifies this machine.
-	Fingerprint Fingerprint `json:"fingerprint" msgpack:"fingerprint"`
-	// License is the license that applies, if any.
-	License *License `json:"license,omitempty" msgpack:"license,omitempty"`
-}
-
 // ServiceConfig is the configuration for a license service.
 type ServiceConfig struct {
 	// Instrumentation is for logging, tracing, and metrics.
@@ -170,7 +146,7 @@ var _ io.Closer = &Service{}
 
 // OpenService opens the service: it reads the fingerprint, checks the clock against the
 // recorded mark, loads the token that fits this fingerprint, and accepts cfg.Token when
-// set. A licenseToken that fails to verify is an error; a Core with no license opens in
+// set. A cfg.Token that fails to verify is an error; a Core with no license opens in
 // StateMissing.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultServiceConfig, cfgs...)
@@ -193,7 +169,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	if cfg.Token != "" {
-		if _, err = s.Apply(ctx, cfg.Token); err != nil {
+		if _, err = s.Activate(ctx, cfg.Token); err != nil {
 			return nil, err
 		}
 	}
@@ -241,26 +217,26 @@ func (i Info) err() error {
 	return nil
 }
 
-// Apply verifies token, checks that it fits this machine and still covers it, stores
-// it, and moves the service to StateOK. The stored token loads on the next open.
+// Activate verifies token, checks that it fits this machine and still covers it, stores
+// it, and moves the service to StateOk. The stored token loads on the next open.
 // Returns ErrInvalid, ErrFingerprint, or ErrExpired when the token is refused.
-func (s *Service) Apply(ctx context.Context, token string) (Info, error) {
+func (s *Service) Activate(ctx context.Context, token string) (Info, error) {
 	lic, err := Verify(s.cfg.Anchors, token)
 	if err != nil {
 		return Info{}, err
 	}
-	if lic.Exp == nil && lic.Mv == nil {
+	if lic.Exp == nil && lic.MaxVersion == nil {
 		return Info{}, errors.Wrap(
 			ErrInvalid,
 			"a license without an expiry must carry a maximum version",
 		)
 	}
-	if lic.Mv != nil {
-		if _, _, ok := parseMinor(*lic.Mv); !ok {
+	if lic.MaxVersion != nil {
+		if _, _, ok := parseMinor(*lic.MaxVersion); !ok {
 			return Info{}, errors.Wrapf(
 				ErrInvalid,
 				"bad version ceiling %q",
-				*lic.Mv,
+				*lic.MaxVersion,
 			)
 		}
 	}
@@ -268,7 +244,7 @@ func (s *Service) Apply(ctx context.Context, token string) (Info, error) {
 		return Info{}, ErrFingerprint
 	}
 	info := s.evaluate(lic)
-	if info.State != StateOK {
+	if info.State != StateOk {
 		return Info{}, info.err()
 	}
 	key := append(append([]byte{}, prefix...), lic.Jti.String()...)
@@ -289,11 +265,11 @@ func (s *Service) CheckOverflow(inUse types.Uint20) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	info := s.mu.info
-	if info.State != StateOK || info.License == nil || info.License.Ch == 0 {
+	if info.State != StateOk || info.License == nil || info.License.Channels == 0 {
 		return nil
 	}
-	if uint32(inUse) > info.License.Ch {
-		return newTooManyError(info.License.Ch)
+	if uint32(inUse) > info.License.Channels {
+		return newTooManyError(info.License.Channels)
 	}
 	return nil
 }
@@ -354,7 +330,7 @@ func (s *Service) load(ctx context.Context) error {
 			continue
 		}
 		info := s.evaluate(lic)
-		if chosen == nil || (chosen.State != StateOK && info.State == StateOK) {
+		if chosen == nil || (chosen.State != StateOk && info.State == StateOk) {
 			chosen = &info
 		}
 	}
@@ -379,19 +355,19 @@ const (
 
 // evaluate decides the state a license puts this Core in at the current time.
 func (s *Service) evaluate(lic License) Info {
-	info := Info{State: StateOK, Fingerprint: s.fingerprint, License: &lic}
+	info := Info{State: StateOk, Fingerprint: s.fingerprint, License: &lic}
 	if s.rolledBack {
 		info.State = StateExpired
 		info.Warning = fmt.Sprintf(expiredClockTemplate, s.cfg.Rollback)
 		return info
 	}
-	covered := lic.Mv == nil || versionCovered(s.cfg.Version, *lic.Mv)
+	covered := lic.MaxVersion == nil || versionCovered(s.cfg.Version, *lic.MaxVersion)
 	if lic.Exp == nil {
 		if !covered {
 			info.State = StateExpired
 			info.Warning = fmt.Sprintf(
 				expiredVersionTemplate,
-				*lic.Mv,
+				*lic.MaxVersion,
 				s.cfg.Version,
 			)
 		}
@@ -413,17 +389,21 @@ func (s *Service) evaluate(lic License) Info {
 		)
 		return info
 	}
-	if lic.Mv != nil && covered {
+	if lic.MaxVersion != nil && covered {
 		info.Warning = fmt.Sprintf(
 			warnFallbackTemplate,
 			exp.Format(time.DateOnly),
-			*lic.Mv,
+			*lic.MaxVersion,
 		)
 		return info
 	}
 	info.State = StateExpired
-	if lic.Mv != nil {
-		info.Warning = fmt.Sprintf(expiredVersionTemplate, *lic.Mv, s.cfg.Version)
+	if lic.MaxVersion != nil {
+		info.Warning = fmt.Sprintf(
+			expiredVersionTemplate,
+			*lic.MaxVersion,
+			s.cfg.Version,
+		)
 	}
 	return info
 }
@@ -467,11 +447,11 @@ const (
 func (s *Service) logState() {
 	info := s.Retrieve()
 	switch info.State {
-	case StateOK:
-		if info.License.Ch == 0 {
+	case StateOk:
+		if info.License.Channels == 0 {
 			s.cfg.L.Info(logActive)
 		} else {
-			s.cfg.L.Infof(logCapTemplate, info.License.Ch)
+			s.cfg.L.Infof(logCapTemplate, info.License.Channels)
 		}
 		if info.Warning != "" {
 			s.cfg.L.Warn(info.Warning)
@@ -499,7 +479,7 @@ func (s *Service) monitor(ctx context.Context) error {
 					s.cfg.L.Warn("failed to record clock", zap.Error(err))
 				}
 			}
-			if info := s.Retrieve(); info.State == StateOK && info.Warning != "" {
+			if info := s.Retrieve(); info.State == StateOk && info.Warning != "" {
 				s.cfg.L.Warn(info.Warning)
 			}
 		}

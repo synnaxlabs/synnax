@@ -28,6 +28,7 @@ import {
   ExpiredLicenseError,
   MissingLicenseError,
 } from "@/errors";
+import { license } from "@/license";
 import { TEST_CLIENT_PARAMS, waitForStatus } from "@/testutil";
 import { Transport } from "@/transport";
 
@@ -69,7 +70,12 @@ interface ScriptedUnary extends UnaryClient {
 const createScriptedUnary = ({
   clusterKey = "test-cluster",
   failing = false,
-}: { clusterKey?: string; failing?: boolean } = {}): ScriptedUnary => {
+  license = "ok",
+}: {
+  clusterKey?: string;
+  failing?: boolean;
+  license?: license.State;
+} = {}): ScriptedUnary => {
   let key = clusterKey;
   let down = failing;
   return {
@@ -79,7 +85,7 @@ const createScriptedUnary = ({
         clusterKey: key,
         nodeVersion: __VERSION__,
         nodeTime: TimeStamp.now(),
-        license: "ok",
+        license,
       };
     }),
     use: vi.fn(),
@@ -615,7 +621,9 @@ describe("connection", () => {
       ...base,
       details: { ...base.details, ...changes },
     });
-    const asError = (reason: connection.Reason): connection.Status => ({
+    const asError = (
+      reason: Exclude<connection.Reason, "unlicensed">,
+    ): connection.Status => ({
       ...base,
       variant: "error",
       details: { ...base.details, reason },
@@ -710,7 +718,9 @@ describe("connection", () => {
     it("should map variants onto check modes", () => {
       const config = createConfig();
       const initial = createInitialStatus(config);
-      const asError = (reason: connection.Reason): connection.Status => ({
+      const asError = (
+        reason: Exclude<connection.Reason, "unlicensed">,
+      ): connection.Status => ({
         ...initial,
         variant: "error",
         details: { ...initial.details, reason },
@@ -1027,6 +1037,31 @@ describe("connection", () => {
       const next = vi.fn(async (ctx: Context) => ctx);
       await mw(createUnaryContext("/api/v1/connectivity/check"), next);
       await mw(createUnaryContext("/api/v1/auth/login"), next);
+      expect(next).toHaveBeenCalledTimes(2);
+      await client.close();
+    });
+
+    it("should short-circuit unary calls with the license error while unlicensed", async () => {
+      const client = createClient(createScriptedUnary({ license: "missing" }));
+      await waitForStatus(
+        client,
+        (s) => s.variant === "error" && s.details.reason === "unlicensed",
+      );
+      const next = vi.fn(async (ctx: Context) => ctx);
+      await expect(
+        client.middleware()(createUnaryContext("/channel/retrieve"), next),
+      ).rejects.toThrow(MissingLicenseError);
+      expect(next).not.toHaveBeenCalled();
+      await client.close();
+    });
+
+    it("should exempt the license endpoints so a license can be activated", async () => {
+      const client = createClient(createScriptedUnary({ license: "missing" }));
+      await waitForStatus(client, (s) => s.variant === "error");
+      const mw = client.middleware();
+      const next = vi.fn(async (ctx: Context) => ctx);
+      await mw(createUnaryContext(`/api/v1${license.RETRIEVE_ENDPOINT}`), next);
+      await mw(createUnaryContext(`/api/v1${license.ACTIVATE_ENDPOINT}`), next);
       expect(next).toHaveBeenCalledTimes(2);
       await client.close();
     });
