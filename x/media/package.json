@@ -53,6 +53,7 @@
       "types": "./dist/src/index.d.ts",
       "default": "./dist/media.js"
     },
-    "./dist/*": "./dist/*"
+    "./dist/*": "./dist/*",
+    "./static/*": "./static/*"
   }
 }
