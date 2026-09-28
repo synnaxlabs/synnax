@@ -210,7 +210,7 @@ const v0PropertiesZ = z.object({
 
 // Anything that is not a channel key reads as no index.
 const storedIndexZ = z.preprocess(
-  (v) => (channel.keyZ.safeParse(v).success ? v : 0),
+  (v) => (channel.keyZ.validate(v) ? v : 0),
   channel.keyZ,
 );
 
