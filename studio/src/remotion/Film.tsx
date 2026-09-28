@@ -23,6 +23,7 @@ import {
 import {
   type CalloutFrame,
   type CursorTrack,
+  easeOutQuint,
   type OverlayPlan,
   type Plane,
   project,
@@ -30,7 +31,16 @@ import {
 } from "@/director";
 import { type Card as CardShot, type End as EndShot } from "@/film";
 import { Cursor } from "@/remotion/Cursor";
-import { CalloutView, MONO, SANS, ScopeView } from "@/remotion/Overlay";
+import {
+  type Box,
+  CaptionView,
+  Highlight,
+  HIGHLIGHT_PAD,
+  HIGHLIGHT_RADIUS,
+  MONO,
+  SANS,
+  ScopeView,
+} from "@/remotion/Overlay";
 import { Ripple, RIPPLE_TICKS } from "@/remotion/Ripple";
 import { type Event, type Meta, type Point } from "@/timeline";
 
@@ -54,11 +64,30 @@ const WINDOW_RADIUS = 12;
 
 const frameName = (tick: number): string => String(tick).padStart(6, "0");
 
-/** anchorOf returns the middle of the target edge a callout points at, in CSS px. */
-const anchorOf = ({ rect, side }: CalloutFrame): Point => ({
-  x: side === "right" ? rect.x + rect.width : rect.x,
-  y: rect.y + rect.height / 2,
-});
+/** Share of the window's brightness a focus takes away outside its target. */
+const FOCUS_DIM = 0.6;
+/** Output px of the blur a focus puts outside its target. */
+const FOCUS_BLUR = 7;
+
+/** boxOf returns the output frame region a callout's highlight covers. */
+const boxOf = (plan: StagePlan, plane: Plane, { rect }: CalloutFrame): Box => {
+  const x0 = rect.x - HIGHLIGHT_PAD;
+  const y0 = rect.y - HIGHLIGHT_PAD;
+  const x1 = rect.x + rect.width + HIGHLIGHT_PAD;
+  const y1 = rect.y + rect.height + HIGHLIGHT_PAD;
+  const corners: Point[] = [
+    { x: x0, y: y0 },
+    { x: x1, y: y0 },
+    { x: x0, y: y1 },
+    { x: x1, y: y1 },
+  ].map((p) => project(plane, p, plan.width, plan.height, plan.perspective));
+  return {
+    left: Math.min(...corners.map((c) => c.x)),
+    top: Math.min(...corners.map((c) => c.y)),
+    right: Math.max(...corners.map((c) => c.x)),
+    bottom: Math.max(...corners.map((c) => c.y)),
+  };
+};
 
 interface PlaneViewProps {
   meta: Meta;
@@ -67,6 +96,7 @@ interface PlaneViewProps {
   tick: number;
   cursor: CursorTrack;
   events: Event[];
+  callouts: CalloutFrame[];
 }
 
 const PlaneView = ({
@@ -76,6 +106,7 @@ const PlaneView = ({
   tick,
   cursor,
   events,
+  callouts,
 }: PlaneViewProps): ReactElement => {
   const { cx, cy, scale: s, tilt } = plane;
   // The plane lays out at the capture's pixel size and moves only by transform.
@@ -83,6 +114,9 @@ const PlaneView = ({
   const d = meta.dsf;
   const k = s / d;
   const cur = cursor[Math.min(tick, cursor.length - 1)];
+  const focus = callouts.find((c) => c.focused);
+  const focused = focus == null ? 0 : focus.opacity * easeOutQuint(focus.age / 0.6);
+  const src = staticFile(`frames/${frameName(tick)}.png`);
   const ripples = events.filter(
     (e) => e.type === "pointerdown" && tick >= e.tick && tick < e.tick + RIPPLE_TICKS,
   );
@@ -108,15 +142,37 @@ const PlaneView = ({
         }}
       >
         <Img
-          src={staticFile(`frames/${frameName(tick)}.png`)}
+          src={src}
           style={{
             display: "block",
             width: "100%",
             height: "100%",
             // Lifts the Console's dark theme off the near-black stage.
-            filter: "brightness(1.1) contrast(1.03)",
+            filter:
+              `brightness(${1.1 * (1 - FOCUS_DIM * focused)}) contrast(1.03) ` +
+              `blur(${(FOCUS_BLUR * focused) / k}px)`,
           }}
         />
+        {focus != null && focused > 0 && (
+          <Img
+            src={src}
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              filter: "brightness(1.1) contrast(1.03)",
+              clipPath:
+                `inset(${(focus.rect.y - HIGHLIGHT_PAD) * d}px ` +
+                `${(meta.width - focus.rect.x - focus.rect.width - HIGHLIGHT_PAD) * d}px ` +
+                `${(meta.height - focus.rect.y - focus.rect.height - HIGHLIGHT_PAD) * d}px ` +
+                `${(focus.rect.x - HIGHLIGHT_PAD) * d}px round ${HIGHLIGHT_RADIUS * d}px)`,
+            }}
+          />
+        )}
+        {callouts.map((callout) => (
+          <Highlight key={callout.text} callout={callout} dsf={d} k={k} />
+        ))}
         {ripples.map((e, i) => {
           if (e.type !== "pointerdown") return null;
           return (
@@ -246,7 +302,7 @@ const EndView = ({ shot, opacity, seed }: EndViewProps): ReactElement => (
     <AbsoluteFill
       style={{ alignItems: "center", justifyContent: "center", gap: 56, opacity }}
     >
-      <Img src={wordmark} style={{ width: "54%" }} />
+      <Img src={wordmark} style={{ width: 580 }} />
       <div
         style={{
           fontFamily: FONT,
@@ -304,6 +360,7 @@ export const Film = ({
           tick={sample.tick}
           cursor={cursor}
           events={events}
+          callouts={layer.callouts}
         />
       );
       break;
@@ -321,22 +378,17 @@ export const Film = ({
       <Vignette />
       {sample.type === "take" &&
         layer.callouts.map((callout) => (
-          <CalloutView
+          <CaptionView
             key={callout.text}
             callout={callout}
-            edge={project(
-              sample.plane,
-              anchorOf(callout),
-              plan.width,
-              plan.height,
-              plan.perspective,
-            )}
+            box={boxOf(plan, sample.plane, callout)}
+            format={plan.format}
             width={plan.width}
             height={plan.height}
           />
         ))}
       {overlays.scope != null && layer.scope != null && (
-        <ScopeView plan={overlays.scope} frame={layer.scope} />
+        <ScopeView plan={overlays.scope} frame={layer.scope} format={plan.format} />
       )}
       <Grain seed={frame} opacity={0.05} blend="overlay" />
     </AbsoluteFill>
