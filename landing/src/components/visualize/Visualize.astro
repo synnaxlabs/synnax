@@ -13,6 +13,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import SectionHero from "@/components/shared/SectionHero.astro";
 import FeatureSection from "@/components/shared/FeatureSection.astro";
 import PanelTab from "@/components/shared/PanelTab.astro";
+import { cdn } from "@/cdn";
 ---
 
 <SectionHero id="visualize" label="2 -> Visualize & Operate">
@@ -39,10 +40,7 @@ import PanelTab from "@/components/shared/PanelTab.astro";
     </Button.Button>
     <div class="visualize-video-clip">
         <video class="visualize-video--schematic" autoplay muted loop playsinline>
-            <source
-                src="https://synnax.nyc3.cdn.digitaloceanspaces.com/landing/schematic.mp4"
-                type="video/mp4"
-            />
+            <source src={cdn("schematic.mp4")} type="video/mp4" />
         </video>
     </div>
 </FeatureSection>
@@ -66,10 +64,7 @@ import PanelTab from "@/components/shared/PanelTab.astro";
                 <Icon.Visualize slot="icon" className="panel-tab-icon" />
             </PanelTab>
             <video autoplay muted loop playsinline>
-                <source
-                    src="https://synnax.nyc3.cdn.digitaloceanspaces.com/landing/lineplot.mp4"
-                    type="video/mp4"
-                />
+                <source src={cdn("lineplot.mp4")} type="video/mp4" />
             </video>
         </div>
         <div class="visualize-lineplot-detail-container">
@@ -79,7 +74,7 @@ import PanelTab from "@/components/shared/PanelTab.astro";
             <div class="visualize-lineplot-detail-image-area">
                 <img
                     class="visualize-lineplot-detail"
-                    src="/images/lineplot-detail.png"
+                    src={cdn("images/lineplot-detail.png")}
                     alt="Line plot measurement detail showing slope, delta X, and delta Y"
                 />
             </div>

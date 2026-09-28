@@ -20,27 +20,28 @@ import logoYale from "@/components/sponsorships/yale.svg";
 import logoUCF from "@/components/sponsorships/ucf.svg";
 import logoASU from "@/components/sponsorships/asu.svg";
 import logoDrexel from "@/components/sponsorships/drexel.svg";
-import logoCSULB from "@/components/sponsorships/csulb.png";
-import logoUCSD from "@/components/sponsorships/ucsd.png";
 import logoConcordia from "@/components/sponsorships/concordia.svg";
-import logoFRL from "@/components/sponsorships/frl.png";
-import logoCincinnati from "@/components/sponsorships/cincinnati.png";
+import { cdn } from "@/cdn";
 
 const universities = [
-    { name: "UCLA", logo: logoUCLA },
-    { name: "University of Michigan", logo: logoMichigan },
-    { name: "San Diego State", logo: logoSDSU, scale: 1.3 },
-    { name: "Purdue University", logo: logoPurdue },
-    { name: "University of Melbourne", logo: logoMelbourne, scale: 1.3 },
-    { name: "Yale University", logo: logoYale },
-    { name: "UCF", logo: logoUCF, scale: 1.2 },
-    { name: "Arizona State University", logo: logoASU, scale: 0.85 },
-    { name: "Drexel University", logo: logoDrexel, scale: 1.2 },
-    { name: "Cal State Long Beach", logo: logoCSULB, scale: 1.2 },
-    { name: "UC San Diego", logo: logoUCSD, scale: 0.7 },
-    { name: "Concordia University", logo: logoConcordia },
-    { name: "Florida Rocket Lab", logo: logoFRL },
-    { name: "University of Cincinnati", logo: logoCincinnati, scale: 1.32 },
+    { name: "UCLA", logo: logoUCLA.src },
+    { name: "University of Michigan", logo: logoMichigan.src },
+    { name: "San Diego State", logo: logoSDSU.src, scale: 1.3 },
+    { name: "Purdue University", logo: logoPurdue.src },
+    { name: "University of Melbourne", logo: logoMelbourne.src, scale: 1.3 },
+    { name: "Yale University", logo: logoYale.src },
+    { name: "UCF", logo: logoUCF.src, scale: 1.2 },
+    { name: "Arizona State University", logo: logoASU.src, scale: 0.85 },
+    { name: "Drexel University", logo: logoDrexel.src, scale: 1.2 },
+    { name: "Cal State Long Beach", logo: cdn("images/csulb.png"), scale: 1.2 },
+    { name: "UC San Diego", logo: cdn("images/ucsd.png"), scale: 0.7 },
+    { name: "Concordia University", logo: logoConcordia.src },
+    { name: "Florida Rocket Lab", logo: cdn("images/frl.png") },
+    {
+        name: "University of Cincinnati",
+        logo: cdn("images/cincinnati.png"),
+        scale: 1.32,
+    },
 ];
 ---
 
@@ -70,7 +71,7 @@ const universities = [
                 universities.map(({ name, logo, scale }) => (
                     <div class="sponsorships-cell">
                         <img
-                            src={logo.src}
+                            src={logo}
                             alt={name}
                             style={scale ? `transform: scale(${scale});` : undefined}
                         />

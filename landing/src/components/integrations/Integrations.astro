@@ -23,6 +23,7 @@ import Modbus from "./logos/Modbus.astro";
 import OPCUA from "./logos/OPCUA.astro";
 import SectionHero from "@/components/shared/SectionHero.astro";
 import FeatureSection from "@/components/shared/FeatureSection.astro";
+import { cdn } from "@/cdn";
 ---
 
 <!-- Dither SVG filter definition -->
@@ -231,7 +232,10 @@ import FeatureSection from "@/components/shared/FeatureSection.astro";
                     data-panel="0"
                     style="--img-br: 3.5rem 1rem 1rem 1rem; --img-w: 170%;"
                 >
-                    <img src="/images/workflow-attach-device.png" alt="Attach device" />
+                    <img
+                        src={cdn("images/workflow-attach-device.png")}
+                        alt="Attach device"
+                    />
                 </div>
                 <div
                     class="workflow-panel"
@@ -239,7 +243,7 @@ import FeatureSection from "@/components/shared/FeatureSection.astro";
                     style="--img-br: 1.5rem 1rem 1rem 1rem;"
                 >
                     <img
-                        src="/images/workflow-configure.png"
+                        src={cdn("images/workflow-configure.png")}
                         alt="Configure instrumentation"
                     />
                 </div>
@@ -249,7 +253,7 @@ import FeatureSection from "@/components/shared/FeatureSection.astro";
                     style="--img-br: 2rem 1rem 1rem 1rem; --img-w: 120%;"
                 >
                     <img
-                        src="/images/workflow-acquire.png"
+                        src={cdn("images/workflow-acquire.png")}
                         alt="Acquire data and control"
                     />
                 </div>

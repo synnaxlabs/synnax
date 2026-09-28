@@ -11,6 +11,7 @@
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Text } from "@synnaxlabs/lyra/text";
+import { cdn } from "@/cdn";
 ---
 
 <div class="hero-wrapper">
@@ -49,7 +50,7 @@ import { Text } from "@synnaxlabs/lyra/text";
                 <div class="screenshot-frame">
                     <img
                         class="hero-screenshot"
-                        src="/images/console-screenshot.png"
+                        src={cdn("images/console-screenshot.png")}
                         alt="Synnax Console"
                     />
                 </div>

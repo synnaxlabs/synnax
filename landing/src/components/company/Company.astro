@@ -11,12 +11,8 @@
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Button } from "@synnaxlabs/lyra/button";
-import profileEB from "@/components/company/profile-eb.png";
-import profilePD from "@/components/company/profile-pd.png";
 import logoNASA from "@/components/company/nasa.svg";
-import logoFirefly from "@/components/company/firefly.png";
-import logoLockheed from "@/components/company/lockheed.png";
-import logoSpaceX from "@/components/company/spacex.png";
+import { cdn } from "@/cdn";
 import logoYC from "@/components/company/yc.svg";
 ---
 
@@ -73,15 +69,20 @@ import logoYC from "@/components/company/yc.svg";
                 className="company-credibility__logos"
             >
                 <img src={logoNASA.src} alt="NASA" width="508" height="142" />
-                <img src={logoSpaceX.src} alt="SpaceX" width="3840" height="480" />
                 <img
-                    src={logoLockheed.src}
+                    src={cdn("images/spacex.png")}
+                    alt="SpaceX"
+                    width="3840"
+                    height="480"
+                />
+                <img
+                    src={cdn("images/lockheed.png")}
                     alt="Lockheed Martin"
                     width="3840"
                     height="581"
                 />
                 <img
-                    src={logoFirefly.src}
+                    src={cdn("images/firefly.png")}
                     alt="Firefly Aerospace"
                     width="3840"
                     height="616"
@@ -92,10 +93,10 @@ import logoYC from "@/components/company/yc.svg";
     <Flex.Box className="company-founders" direction="x" justify="around" wrap gap={8}>
         <Flex.Box className="company-profile" direction="y" align="center">
             <img
-                src={profileEB.src}
+                src={cdn("images/profile-eb.jpg")}
                 alt="Emiliano Bonilla"
-                width="1080"
-                height="1440"
+                width="680"
+                height="906"
             />
             <Flex.Box direction="y" align="center" gap={0}>
                 <Text.Text
@@ -110,7 +111,12 @@ import logoYC from "@/components/company/yc.svg";
             </Flex.Box>
         </Flex.Box>
         <Flex.Box className="company-profile" direction="y" align="center">
-            <img src={profilePD.src} alt="Patrick Dotson" width="2531" height="3375" />
+            <img
+                src={cdn("images/profile-pd.jpg")}
+                alt="Patrick Dotson"
+                width="680"
+                height="906"
+            />
             <Flex.Box direction="y" align="center" gap={0}>
                 <Text.Text
                     level="h5"

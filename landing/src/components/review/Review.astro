@@ -14,6 +14,7 @@ import SectionHero from "@/components/shared/SectionHero.astro";
 import FeatureSection from "@/components/shared/FeatureSection.astro";
 import PanelTab from "@/components/shared/PanelTab.astro";
 import BrickWall from "./BrickWall.astro";
+import { cdn } from "@/cdn";
 ---
 
 <SectionHero id="review" label="4 -> Store, Organize, Review">
@@ -64,7 +65,7 @@ import BrickWall from "./BrickWall.astro";
             </PanelTab>
             <img
                 class="review-ranges-explorer"
-                src="/images/range-explorer.png"
+                src={cdn("images/range-explorer.png")}
                 alt="Range explorer showing labeled test runs with stage indicators"
             />
         </div>
@@ -74,7 +75,7 @@ import BrickWall from "./BrickWall.astro";
             </PanelTab>
             <img
                 class="review-ranges-detail"
-                src="/images/range-overview.png"
+                src={cdn("images/range-overview.png")}
                 alt="Range detail panel showing metadata, labels, and hierarchy"
             />
         </div>
