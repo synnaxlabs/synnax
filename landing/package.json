@@ -1,0 +1,45 @@
+{
+  "name": "@synnaxlabs/landing",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro check && astro build",
+    "check-types": "astro check",
+    "preview": "astro preview",
+    "astro": "astro",
+    "lint": "eslint",
+    "fix": "eslint --fix",
+    "madge": "madge --circular src",
+    "format": "prettier --write .",
+    "format-check": "prettier --check .",
+    "stylelint": "stylelint \"src/**/*.css\""
+  },
+  "dependencies": {
+    "@astrojs/react": "catalog:",
+    "@astrojs/vercel": "catalog:",
+    "@synnaxlabs/arc": "catalog:",
+    "@synnaxlabs/lyra": "catalog:",
+    "@synnaxlabs/media": "catalog:",
+    "astro": "catalog:",
+    "astro-seo": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "shiki": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@astrojs/check": "catalog:",
+    "@synnaxlabs/eslint-config": "catalog:",
+    "@synnaxlabs/madge": "catalog:",
+    "@synnaxlabs/stylelint-config": "catalog:",
+    "@synnaxlabs/tsconfig": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "eslint": "catalog:",
+    "postcss": "catalog:",
+    "stylelint": "catalog:",
+    "typescript": "catalog:ts6"
+  }
+}

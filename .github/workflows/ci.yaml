@@ -61,6 +61,7 @@ jobs:
       freighter_py: ${{ steps.filter.outputs.freighter_py }}
       freighter_ts: ${{ steps.filter.outputs.freighter_ts }}
       integration: ${{ steps.filter.outputs.integration }}
+      landing: ${{ steps.filter.outputs.landing }}
       lint_integration: ${{ steps.filter.outputs.lint_integration }}
       lyra: ${{ steps.filter.outputs.lyra }}
       media: ${{ steps.filter.outputs.media }}
@@ -372,6 +373,17 @@ jobs:
     uses: ./.github/workflows/test.integration.yaml
     secrets: inherit
 
+  landing:
+    needs: changes
+    if: needs.changes.outputs.landing == 'true'
+    uses: ./.github/workflows/test.ts.yaml
+    with:
+      directory: landing
+      knip: true
+      package: landing
+      test: false
+    secrets: inherit
+
   lint-integration:
     needs: changes
     if: needs.changes.outputs.lint_integration == 'true'
@@ -529,6 +541,7 @@ jobs:
       - freighter-py
       - freighter-ts
       - integration
+      - landing
       - lint-integration
       - lyra
       - media

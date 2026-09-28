@@ -1,0 +1,581 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Text } from "@synnaxlabs/lyra/text";
+import NI from "./logos/NI.astro";
+import Dewesoft from "./logos/Dewesoft.astro";
+import Beckhoff from "./logos/Beckhoff.astro";
+import Siemens from "./logos/Siemens.astro";
+import Rockwell from "./logos/Rockwell.astro";
+import Wago from "./logos/Wago.astro";
+import Omron from "./logos/Omron.astro";
+import LabJack from "./logos/LabJack.astro";
+import EtherCAT from "./logos/EtherCAT.astro";
+import Modbus from "./logos/Modbus.astro";
+import OPCUA from "./logos/OPCUA.astro";
+import SectionHero from "@/components/shared/SectionHero.astro";
+import FeatureSection from "@/components/shared/FeatureSection.astro";
+---
+
+<!-- Dither SVG filter definition -->
+<svg class="dither-filters" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <filter
+            id="dither"
+            color-interpolation-filters="sRGB"
+            x="0"
+            y="0"
+            width="100%"
+            height="100%"
+        >
+            <feImage
+                width="2"
+                height="2"
+                href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAASElEQVR42gXBgQAAIAxFwW8QwhBCCCGEIYQQQgghhBBCCEMYwutOkphzYmbsvdG9l9YaEYG7o1or5xxKKay1UGYyxuC9R++dD7yGJkTj6F0HAAAAAElFTkSuQmCC"
+            ></feImage>
+            <feTile></feTile>
+            <feComposite
+                operator="arithmetic"
+                k1="0"
+                k2="1"
+                k3="1"
+                k4="-0.5"
+                in="SourceGraphic"></feComposite>
+            <feComponentTransfer>
+                <feFuncR type="discrete" tableValues="0 1"></feFuncR>
+                <feFuncG type="discrete" tableValues="0 1"></feFuncG>
+                <feFuncB type="discrete" tableValues="0 1"></feFuncB>
+            </feComponentTransfer>
+        </filter>
+    </defs>
+</svg>
+
+<SectionHero id="integrations" label="6 -> Device Integrations">
+    Plug in your hardware, start streaming
+    <Fragment slot="description">
+        Synnax ships with native drivers for the most popular data acquisition and
+        control hardware, and a setup workflow that gets you from unboxing to streaming
+        in minutes.
+    </Fragment>
+</SectionHero>
+
+<Flex.Box el="section" className="feature-section">
+    <Text.Text level="h5" variant="code" className="feature-label">
+        6.1 -> Supported Hardware
+    </Text.Text>
+    <div class="integrations-hardware">
+        <Flex.Box className="integrations-hardware-text">
+            <Text.Text level="h3" className="feature-title">
+                Works with your<br /><span class="integrations-vendor">existing</span
+                ><br />hardware
+            </Text.Text>
+            <Text.Text level="h5" className="feature-description">
+                Native drivers for industry-standard protocols and vendors. If your
+                device speaks OPC UA, Modbus, or EtherCAT, Synnax connects to it out of
+                the box.
+            </Text.Text>
+        </Flex.Box>
+        <div class="integrations-grid">
+            <div
+                class="integration-cell"
+                style="--logo-w: 12rem; --logo-h: 6rem; --brand-color: #03B584;"
+                data-vendor="National Instruments"
+            >
+                <NI />
+            </div>
+            <div
+                class="integration-cell"
+                style="--logo-w: 14rem; --logo-h: 8.5rem; --brand-color: #C1131E;"
+                data-vendor="LabJack"
+            >
+                <LabJack />
+            </div>
+            <div
+                class="integration-cell"
+                style="--logo-w: 17rem; --logo-h: 6rem; --brand-color: #F15D2E;"
+                data-vendor="Dewesoft"
+            >
+                <Dewesoft />
+            </div>
+            <div
+                class="integration-cell"
+                style="--logo-w: 31rem; --logo-h: 12rem; --brand-color: #4A90D9;"
+                data-vendor="OPC UA"
+            >
+                <OPCUA />
+            </div>
+            <div
+                class="integration-cell"
+                style="--logo-w: 10rem; --logo-h: 10rem; --brand-color: #6B4C9A;"
+                data-vendor="Modbus"
+            >
+                <Modbus />
+            </div>
+            <div
+                class="integration-cell"
+                style="--logo-w: 17rem; --logo-h: 8.5rem; --brand-color: #E2001A;"
+                data-vendor="EtherCAT"
+            >
+                <EtherCAT />
+            </div>
+            <div
+                class="integration-cell"
+                style="--logo-w: 22rem; --logo-h: 8.5rem; --brand-color: #E2001A;"
+                data-vendor="Beckhoff"
+            >
+                <Beckhoff />
+            </div>
+            <div
+                class="integration-cell"
+                style="--logo-w: 29rem; --logo-h: 11rem; --brand-color: #009999;"
+                data-vendor="Siemens"
+            >
+                <Siemens />
+            </div>
+            <div
+                class="integration-cell"
+                style="--logo-w: 24rem; --logo-h: 8.5rem; --brand-color: #C1131E;"
+                data-vendor="Rockwell"
+            >
+                <Rockwell />
+            </div>
+            <div
+                class="integration-cell"
+                style="--logo-w: 19rem; --logo-h: 8.5rem; --brand-color: #8bb63a;"
+                data-vendor="WAGO"
+            >
+                <Wago />
+            </div>
+            <div
+                class="integration-cell"
+                style="--logo-w: 20rem; --logo-h: 8rem; --brand-color: #166fc0;"
+                data-vendor="Omron"
+            >
+                <Omron />
+            </div>
+            <div
+                class="integration-cell integration-cell--custom"
+                data-vendor="custom"
+                style="--brand-color: var(--pluto-gray-l8);"
+            >
+                <span class="integration-custom-label">+ Custom</span>
+            </div>
+        </div>
+    </div>
+</Flex.Box>
+
+<FeatureSection label="6.2 -> Getting Started">
+    <Fragment slot="title"> Streaming in three steps </Fragment>
+    <Fragment slot="description">
+        Connect your hardware, configure your channels, and start acquiring data. No
+        custom driver code, no middleware, no separate data historian.
+    </Fragment>
+    <div class="workflow-wrapper">
+        <div class="workflow">
+            <div class="workflow-tabs">
+                <button class="workflow-tab workflow-tab--active" data-step="0">
+                    <div class="workflow-tab-header">
+                        <div class="workflow-step-number-box">
+                            <span class="workflow-step-number">01</span>
+                        </div>
+                        <Text.Text level="h5" className="workflow-tab-title">
+                            Attach device
+                        </Text.Text>
+                    </div>
+                    <Text.Text level="p" className="workflow-tab-description">
+                        Connect your hardware to the Synnax cluster. Our drivers
+                        automatically detect and establish communication with your
+                        devices.
+                    </Text.Text>
+                </button>
+                <button class="workflow-tab" data-step="1">
+                    <div class="workflow-tab-header">
+                        <div class="workflow-step-number-box">
+                            <span class="workflow-step-number">02</span>
+                        </div>
+                        <Text.Text level="h5" className="workflow-tab-title">
+                            Configure instrumentation
+                        </Text.Text>
+                    </div>
+                    <Text.Text level="p" className="workflow-tab-description">
+                        Define your channels, set sample rates, and map physical signals
+                        to logical names. All from a single interface.
+                    </Text.Text>
+                </button>
+                <button class="workflow-tab" data-step="2">
+                    <div class="workflow-tab-header">
+                        <div class="workflow-step-number-box">
+                            <span class="workflow-step-number">03</span>
+                        </div>
+                        <Text.Text level="h5" className="workflow-tab-title">
+                            Acquire data & control actuators
+                        </Text.Text>
+                    </div>
+                    <Text.Text level="p" className="workflow-tab-description">
+                        Stream live telemetry, build dashboards, and send commands to
+                        your hardware in real time with microsecond precision.
+                    </Text.Text>
+                </button>
+            </div>
+            <div class="workflow-screenshot">
+                <div
+                    class="workflow-panel workflow-panel--active"
+                    data-panel="0"
+                    style="--img-br: 3.5rem 1rem 1rem 1rem; --img-w: 170%;"
+                >
+                    <img src="/images/workflow-attach-device.png" alt="Attach device" />
+                </div>
+                <div
+                    class="workflow-panel"
+                    data-panel="1"
+                    style="--img-br: 1.5rem 1rem 1rem 1rem;"
+                >
+                    <img
+                        src="/images/workflow-configure.png"
+                        alt="Configure instrumentation"
+                    />
+                </div>
+                <div
+                    class="workflow-panel"
+                    data-panel="2"
+                    style="--img-br: 2rem 1rem 1rem 1rem; --img-w: 120%;"
+                >
+                    <img
+                        src="/images/workflow-acquire.png"
+                        alt="Acquire data and control"
+                    />
+                </div>
+            </div>
+        </div>
+    </div>
+</FeatureSection>
+
+<style is:global>
+    .dither-filters {
+        position: absolute;
+        width: 0;
+        height: 0;
+        overflow: hidden;
+    }
+
+    .integrations-hardware {
+        display: grid;
+        grid-template-columns: 2fr 3fr;
+        gap: var(--space-lg);
+        width: 100%;
+        align-items: start;
+    }
+
+    .integrations-hardware-text {
+        gap: 3rem;
+    }
+
+    .integrations-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1px;
+        width: 100%;
+        border: var(--pluto-border);
+        border-radius: 2rem;
+        overflow: hidden;
+        background: var(--pluto-gray-l3);
+    }
+
+    .integration-cell {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: clamp(3rem, 2rem + 1.5vw, 5rem) clamp(1.5rem, 1rem + 1vw, 3rem);
+        background: var(--pluto-gray-l1);
+        filter: url(#dither);
+        transition: filter 0.3s ease;
+
+        &:hover {
+            filter: none;
+            background: var(--pluto-gray-l1);
+        }
+
+        & svg {
+            width: var(--logo-w, 12rem);
+            height: var(--logo-h, 7rem);
+            max-width: 80%;
+            max-height: 80%;
+            color: var(--pluto-gray-l6);
+            object-fit: contain;
+            transition: color 0.3s ease;
+        }
+
+        &:hover svg {
+            color: var(--brand-color, var(--pluto-gray-l9));
+        }
+    }
+
+    .integration-custom-label {
+        font-size: clamp(2.5rem, 1.5rem + 2vw, 5rem);
+        font-weight: 500;
+        color: var(--pluto-gray-l5);
+        transition: color 0.3s ease;
+    }
+
+    .integration-cell--custom:hover .integration-custom-label {
+        color: var(--pluto-gray-l9);
+    }
+
+    .integrations-vendor {
+        transition: color 0.3s ease;
+    }
+
+    .feature-section .workflow-wrapper {
+        margin-top: var(--space-xl);
+    }
+
+    .workflow-wrapper {
+        position: relative;
+        width: 100%;
+
+        &::before {
+            content: "";
+            position: absolute;
+            inset: -16px;
+            border-radius: 2.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            pointer-events: none;
+            mask-image: linear-gradient(135deg, rgba(0, 0, 0, 1) 0%, transparent 50%);
+            -webkit-mask-image: linear-gradient(
+                135deg,
+                rgba(0, 0, 0, 1) 0%,
+                transparent 50%
+            );
+        }
+    }
+
+    .workflow {
+        position: relative;
+        display: grid;
+        grid-template-columns: 1fr 1.2fr;
+        width: 100%;
+        max-height: 600px;
+        border: var(--pluto-border);
+        border-radius: 2rem;
+        overflow: hidden;
+        background: var(--pluto-gray-l1);
+    }
+
+    .workflow-tabs {
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+        padding: 3rem;
+    }
+
+    .workflow-tab {
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+        padding: 3rem;
+        background: transparent;
+        border: none;
+        border-radius: 1.5rem;
+        cursor: pointer;
+        text-align: left;
+        color: inherit;
+        font-family: inherit;
+        transition: background 0.2s ease;
+
+        &:hover {
+            background: var(--pluto-gray-l2);
+        }
+    }
+
+    .workflow-tab--active {
+        background: var(--pluto-gray-l2);
+    }
+
+    .workflow-tab-header {
+        display: flex;
+        align-items: center;
+        gap: 3rem;
+    }
+
+    .workflow-step-number-box {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: clamp(5rem, 3.5rem + 2vw, 7rem);
+        height: clamp(5rem, 3.5rem + 2vw, 7rem);
+        border-radius: clamp(1rem, 0.5rem + 0.5vw, 1.5rem);
+        border: 1px solid rgba(80, 160, 240, 0.08);
+        background: rgba(55, 116, 208, 0.1);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        box-shadow:
+            inset 0 1px 0 rgba(80, 160, 240, 0.06),
+            0 0 24px rgba(55, 116, 208, 0.08);
+        flex-shrink: 0;
+
+        &::before {
+            content: "";
+            position: absolute;
+            inset: 4px;
+            border-radius: 1rem;
+            border: 1px solid rgba(80, 160, 240, 0.15);
+            background: rgba(255, 255, 255, 0.02);
+            pointer-events: none;
+        }
+    }
+
+    .workflow-step-number {
+        font-size: clamp(1.8rem, 1.2rem + 0.8vw, 2.5rem);
+        font-weight: 600;
+        line-height: 1;
+        letter-spacing: -0.02em;
+        color: var(--pluto-gray-l7);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .workflow-tab-title {
+        display: block;
+    }
+
+    .workflow-tab-description {
+        color: var(--pluto-gray-l9);
+        font-size: clamp(2rem, 1.5rem + 0.6vw, 2.8rem);
+        line-height: clamp(3rem, 2rem + 1vw, 4.2rem);
+        font-weight: 350;
+    }
+
+    .workflow-screenshot {
+        position: relative;
+        overflow: hidden;
+    }
+
+    .workflow-panel {
+        display: none;
+
+        & img {
+            width: var(--img-w, 110%);
+            max-width: none;
+            display: block;
+            border-radius: var(--img-br, 4rem 1rem 1rem 1rem);
+            margin: clamp(3rem, 2rem + 3vw, 10rem) 0 0 clamp(3rem, 2rem + 3vw, 10rem);
+            outline: var(--pluto-border);
+            outline-offset: -1px;
+        }
+    }
+
+    .workflow-panel--active {
+        display: block;
+    }
+
+    .workflow-screenshot::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background:
+            linear-gradient(to bottom, transparent 30%, var(--pluto-gray-l1) 90%),
+            linear-gradient(to right, transparent 70%, var(--pluto-gray-l1) 100%);
+    }
+
+    @media (max-width: 900px) {
+        .integrations-hardware {
+            grid-template-columns: 1fr;
+        }
+
+        .integrations-grid {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        .workflow {
+            grid-template-columns: 1fr;
+            max-height: none;
+        }
+
+        .workflow-tabs {
+            padding: 2rem;
+            gap: 1rem;
+        }
+
+        .workflow-tab {
+            padding: 2rem;
+            gap: 1.5rem;
+        }
+
+        .workflow-screenshot {
+            max-height: 400px;
+        }
+
+        .workflow-panel img {
+            width: 95% !important;
+            margin: 3rem auto 0 !important;
+            border-radius: 1rem 0.6rem 0.6rem 0.6rem !important;
+        }
+    }
+
+    @media (max-width: 600px) {
+        .integrations-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .integration-cell {
+            padding: 2.5rem 1.5rem;
+
+            & svg {
+                max-width: 60%;
+                max-height: 60%;
+            }
+        }
+
+        .workflow-step-number {
+            font-size: 1.4rem;
+        }
+    }
+</style>
+
+<script>
+    const vendor = document.querySelector(".integrations-vendor");
+
+    document.querySelectorAll(".integration-cell").forEach((cell) => {
+        cell.addEventListener("mouseenter", () => {
+            const name = cell.getAttribute("data-vendor");
+            const color = getComputedStyle(cell).getPropertyValue("--brand-color");
+            if (vendor && name) {
+                vendor.textContent = name;
+                (vendor as HTMLElement).style.color = color;
+            }
+        });
+
+        cell.addEventListener("mouseleave", () => {
+            if (vendor) {
+                vendor.textContent = "existing";
+                (vendor as HTMLElement).style.color = "";
+            }
+        });
+    });
+
+    const tabs = document.querySelectorAll(".workflow-tab");
+    const panels = document.querySelectorAll(".workflow-panel");
+
+    tabs.forEach((tab) => {
+        tab.addEventListener("click", () => {
+            const step = tab.getAttribute("data-step");
+            tabs.forEach((t) => t.classList.remove("workflow-tab--active"));
+            panels.forEach((p) => p.classList.remove("workflow-panel--active"));
+            tab.classList.add("workflow-tab--active");
+            const panel = document.querySelector(
+                `.workflow-panel[data-panel="${step}"]`,
+            );
+            if (panel) panel.classList.add("workflow-panel--active");
+        });
+    });
+</script>

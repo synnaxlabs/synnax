@@ -1,0 +1,203 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Button } from "@synnaxlabs/lyra/button";
+import logoUCLA from "@/components/sponsorships/ucla.svg";
+import logoMichigan from "@/components/sponsorships/michigan.svg";
+import logoSDSU from "@/components/sponsorships/sdsu.svg";
+import logoPurdue from "@/components/sponsorships/purdue.svg";
+import logoMelbourne from "@/components/sponsorships/melbourne.svg";
+import logoYale from "@/components/sponsorships/yale.svg";
+import logoUCF from "@/components/sponsorships/ucf.svg";
+import logoASU from "@/components/sponsorships/asu.svg";
+import logoDrexel from "@/components/sponsorships/drexel.svg";
+import logoCSULB from "@/components/sponsorships/csulb.png";
+import logoUCSD from "@/components/sponsorships/ucsd.png";
+import logoConcordia from "@/components/sponsorships/concordia.svg";
+import logoFRL from "@/components/sponsorships/frl.png";
+import logoCincinnati from "@/components/sponsorships/cincinnati.png";
+
+const universities = [
+    { name: "UCLA", logo: logoUCLA },
+    { name: "University of Michigan", logo: logoMichigan },
+    { name: "San Diego State", logo: logoSDSU, scale: 1.3 },
+    { name: "Purdue University", logo: logoPurdue },
+    { name: "University of Melbourne", logo: logoMelbourne, scale: 1.3 },
+    { name: "Yale University", logo: logoYale },
+    { name: "UCF", logo: logoUCF, scale: 1.2 },
+    { name: "Arizona State University", logo: logoASU, scale: 0.85 },
+    { name: "Drexel University", logo: logoDrexel, scale: 1.2 },
+    { name: "Cal State Long Beach", logo: logoCSULB, scale: 1.2 },
+    { name: "UC San Diego", logo: logoUCSD, scale: 0.7 },
+    { name: "Concordia University", logo: logoConcordia },
+    { name: "Florida Rocket Lab", logo: logoFRL },
+    { name: "University of Cincinnati", logo: logoCincinnati, scale: 1.32 },
+];
+---
+
+<Flex.Box el="section" direction="y" justify="center" gap={15} className="sponsorships">
+    <Flex.Box
+        direction="y"
+        className="sponsorships-hero"
+        justify="between"
+        align="start"
+        gap={4}
+    >
+        <Text.Text level="h3">
+            Synnax sponsors student engineering teams at universities around the world,
+            providing free software licenses and support to help them build the hardware
+            that pushes boundaries.
+        </Text.Text>
+        <Button.Button href="/#contact" level="p" size="large" variant="filled">
+            Become a Sponsored Team -&gt;
+        </Button.Button>
+    </Flex.Box>
+    <Flex.Box direction="y" gap={4} className="sponsorships-universities">
+        <Text.Text level="h5" variant="code" className="sponsorships-label">
+            Sponsored Universities
+        </Text.Text>
+        <div class="sponsorships-grid">
+            {
+                universities.map(({ name, logo, scale }) => (
+                    <div class="sponsorships-cell">
+                        <img
+                            src={logo.src}
+                            alt={name}
+                            style={scale ? `transform: scale(${scale});` : undefined}
+                        />
+                        <Text.Text level="p" className="sponsorships-cell__name">
+                            {name}
+                        </Text.Text>
+                    </div>
+                ))
+            }
+            <a class="sponsorships-cell sponsorships-cell--cta" href="/#contact">
+                <span class="sponsorships-cta-label">+ Your University</span>
+            </a>
+        </div>
+    </Flex.Box>
+</Flex.Box>
+
+<style is:global>
+    .sponsorships {
+        overflow: hidden;
+        position: relative;
+        margin: 0 auto;
+        padding: 30rem 0;
+        max-width: 1300px;
+        min-height: 90vh;
+
+        @media (max-width: 450px) {
+            padding-top: 2rem;
+        }
+    }
+
+    .sponsorships-hero {
+        padding: 20rem 15rem;
+        background-image:
+            linear-gradient(var(--pluto-gray-l1) 1px, transparent 1px),
+            linear-gradient(to right, var(--pluto-gray-l1) 1px, transparent 1px);
+        background-size: 5rem 5rem;
+        box-shadow: inset 0 0 5rem var(--pluto-gray-l1);
+        border: var(--pluto-border);
+        border-radius: 2rem;
+
+        & h3 {
+            font-weight: 400;
+        }
+
+        @media (max-width: 600px) {
+            padding: 20rem 5rem;
+        }
+    }
+
+    .sponsorships-label {
+        color: var(--pluto-gray-l8) !important;
+    }
+
+    .sponsorships-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1px;
+        width: 100%;
+        border: var(--pluto-border);
+        border-radius: 2rem;
+        overflow: hidden;
+        background: var(--pluto-gray-l3);
+    }
+
+    .sponsorships-cell {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 3rem;
+        padding: clamp(4rem, 3rem + 2vw, 6rem) clamp(2rem, 1rem + 1.5vw, 4rem);
+        background: var(--pluto-gray-l1);
+
+        & img {
+            width: auto;
+            height: 10rem;
+            max-width: 80%;
+            object-fit: contain;
+        }
+    }
+
+    .sponsorships-cell__name {
+        color: var(--pluto-gray-l7) !important;
+        text-align: center;
+        white-space: nowrap;
+    }
+
+    .sponsorships-cell--cta {
+        text-decoration: none;
+        cursor: pointer;
+        transition: background 0.2s ease;
+
+        &:hover {
+            background: var(--pluto-gray-l2);
+        }
+    }
+
+    .sponsorships-cta-label {
+        font-size: clamp(1.6rem, 1rem + 0.8vw, 2.4rem);
+        font-weight: 500;
+        text-align: center;
+        color: var(--pluto-gray-l5);
+        transition: color 0.3s ease;
+    }
+
+    .sponsorships-cell--cta:hover .sponsorships-cta-label {
+        color: var(--pluto-gray-l9);
+    }
+
+    @media (max-width: 900px) {
+        .sponsorships-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    @media (max-width: 600px) {
+        .sponsorships-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .sponsorships-cell {
+            padding: 3rem 1.5rem;
+
+            & img {
+                height: 7rem;
+                max-width: 70%;
+            }
+        }
+    }
+</style>

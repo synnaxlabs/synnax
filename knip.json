@@ -52,6 +52,10 @@
       "project": ["src/**/*.{ts,tsx,astro}"],
       "ignoreDependencies": ["@astrojs/*"]
     },
+    "landing": {
+      "entry": ["src/**/*.astro", "src/**/*.tsx", "src/**/*.ts"],
+      "project": ["src/**/*.{ts,tsx,astro}"]
+    },
     "configs/eslint": {
       "entry": ["index.ts"],
       "project": ["*.ts"],
