@@ -15,7 +15,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/query"
 	"go.uber.org/zap"
 )
 
@@ -68,6 +67,9 @@ func (s *Service) loadRootUsers(ctx context.Context, tx gorp.Tx) ([]User, error)
 		Entries(&roots).
 		Exec(ctx, tx); err != nil {
 		return nil, errors.Wrap(err, "load root users")
+	}
+	if err := s.ResolveUsernames(ctx, tx, roots); err != nil {
+		return nil, errors.Wrap(err, "resolve root usernames")
 	}
 	return roots, nil
 }
@@ -162,17 +164,22 @@ func (s *Service) resolveMatchingRoot(
 			return r, nil
 		}
 	}
-	var existing User
-	err := s.NewRetrieve().
-		Where(MatchUsernames(s.cfg.RootCredentials.Username)).
-		Entry(&existing).
-		Exec(ctx, tx)
-	if errors.Is(err, query.ErrNotFound) {
-		return User{}, nil
-	}
+	username := s.cfg.RootCredentials.Username
+	keys, err := s.cfg.Auth.KeysByUsername(ctx, tx, username)
 	if err != nil {
 		return User{}, errors.Wrap(err, "look up configured root username")
 	}
+	if len(keys) == 0 {
+		return User{}, nil
+	}
+	var existing User
+	if err := s.NewRetrieve().
+		Where(MatchKeys(keys[0])).
+		Entry(&existing).
+		Exec(ctx, tx); err != nil {
+		return User{}, errors.Wrapf(err, "retrieve the user holding %q", username)
+	}
+	existing.Username = username
 	if err := s.NewWriter(tx).setRootUser(ctx, existing.Key, true); err != nil {
 		return User{}, errors.Wrapf(err,
 			"promote existing user %q to root", existing.Username)
@@ -195,17 +202,18 @@ func (s *Service) demoteRoot(ctx context.Context, tx gorp.Tx, u User) error {
 	return nil
 }
 
-// ensureAuthSync makes the stored password of root match the configured password. A
-// password that already matches is a no-op (no log). Config is the source of truth for
-// the root password.
+// ensureAuthSync makes the stored credentials of root match the configured
+// credentials. Credentials that already match are a no-op (no log). Config is the
+// source
+// of truth for the root username and password.
 func (s *Service) ensureAuthSync(ctx context.Context, tx gorp.Tx, root User) error {
-	password := s.cfg.RootCredentials.Password
-	if err := s.cfg.Auth.Authenticate(ctx, tx, root.Key, password); err == nil {
+	creds := s.cfg.RootCredentials
+	if _, err := s.cfg.Auth.Authenticate(ctx, tx, creds); err == nil {
 		return nil
 	} else if !errors.Is(err, auth.ErrInvalidCredentials) {
 		return errors.Wrap(err, "check root credentials")
 	}
-	if err := s.cfg.Auth.NewWriter(tx).Register(ctx, root.Key, password); err != nil {
+	if err := s.cfg.Auth.NewWriter(tx).Register(ctx, root.Key, creds); err != nil {
 		return errors.Wrap(err, "set root credentials")
 	}
 	s.cfg.L.Info(

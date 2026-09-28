@@ -13,16 +13,21 @@ import (
 	"context"
 	"io"
 	"iter"
+	"slices"
+	"strings"
 	"uuid"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	xchange "github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/zyn"
+	"go.uber.org/zap"
 )
 
 // OntologyID returns a unique identifier for a User for use within a resource ontology.
@@ -74,17 +79,113 @@ func (s *Service) RetrieveResource(
 	if err != nil {
 		return ontology.Resource{}, err
 	}
-	var u User
+	users := make([]User, 1)
 	if err = s.NewRetrieve().
-		Entry(&u).
+		Entry(&users[0]).
 		Where(MatchKeys(uuidKey)).
 		Exec(ctx, tx); err != nil {
 		return ontology.Resource{}, err
 	}
-	return newResource(u), nil
+	if err = s.ResolveUsernames(ctx, tx, users); err != nil {
+		return ontology.Resource{}, err
+	}
+	return newResource(users[0]), nil
 }
 
 type change = xchange.Change[Key, User]
+
+// OnChange implements ontology.Service. A change to a user's credentials is reported as
+// a change to the user, because the resource name can fall back to the username.
+func (s *Service) OnChange(
+	f func(context.Context, iter.Seq[ontology.Change]),
+) observe.Disconnect {
+	disconnectUsers := s.table.Observe().OnChange(
+		func(ctx context.Context, reader gorp.TxReader[Key, User]) {
+			changes := slices.Collect(reader)
+			if err := s.resolveChangedUsernames(ctx, changes); err != nil {
+				s.cfg.L.Error(
+					"failed to resolve usernames of changed users",
+					zap.Error(err),
+				)
+			}
+			f(ctx, xiter.Map(slices.Values(changes), translateChange))
+		},
+	)
+	disconnectAuth := s.cfg.Auth.OnChange(
+		func(ctx context.Context, keys iter.Seq[Key]) {
+			users, err := s.retrieveWithUsernames(ctx, slices.Collect(keys))
+			if err != nil {
+				s.cfg.L.Error(
+					"failed to retrieve users of changed credentials",
+					zap.Error(err),
+				)
+				return
+			}
+			f(ctx, xiter.Map(slices.Values(users), func(u User) ontology.Change {
+				return translateChange(
+					change{Key: u.Key, Value: u, Variant: xchange.VariantSet},
+				)
+			}))
+		},
+	)
+	return func() {
+		disconnectUsers()
+		disconnectAuth()
+	}
+}
+
+// OpenNexter implements ontology.Service.
+func (s *Service) OpenNexter(
+	ctx context.Context,
+) (iter.Seq[ontology.Resource], io.Closer, error) {
+	usernames, err := s.cfg.Auth.Usernames(ctx, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	n, closer, err := s.table.OpenNexter(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	return xiter.Map(n, func(u User) ontology.Resource {
+		u.Username = usernames[u.Key]
+		return newResource(u)
+	}), closer, nil
+}
+
+func (s *Service) resolveChangedUsernames(ctx context.Context, changes []change) error {
+	var keys []Key
+	for _, ch := range changes {
+		if ch.Variant == xchange.VariantSet {
+			keys = append(keys, ch.Key)
+		}
+	}
+	usernames, err := s.cfg.Auth.UsernamesByKey(ctx, nil, keys...)
+	if err != nil {
+		return err
+	}
+	for i := range changes {
+		changes[i].Value.Username = usernames[changes[i].Key]
+	}
+	return nil
+}
+
+// retrieveWithUsernames returns the users with the given keys that still exist.
+func (s *Service) retrieveWithUsernames(
+	ctx context.Context,
+	keys []Key,
+) ([]User, error) {
+	var users []User
+	if err := s.NewRetrieve().
+		Where(MatchKeys(keys...)).
+		Entries(&users).
+		Exec(ctx, nil); err != nil && !errors.Is(err, query.ErrNotFound) {
+		return nil, err
+	}
+	if err := s.ResolveUsernames(ctx, nil, users); err != nil {
+		return nil, err
+	}
+	return users, nil
+}
 
 func translateChange(ch change) ontology.Change {
 	return ontology.Change{
@@ -94,27 +195,11 @@ func translateChange(ch change) ontology.Change {
 	}
 }
 
-// OnChange implements ontology.Service.
-func (s *Service) OnChange(
-	f func(context.Context, iter.Seq[ontology.Change]),
-) observe.Disconnect {
-	handleChange := func(ctx context.Context, reader gorp.TxReader[Key, User]) {
-		f(ctx, xiter.Map(reader, translateChange))
-	}
-	return s.table.Observe().OnChange(handleChange)
-}
-
-// OpenNexter implements ontology.Service.
-func (s *Service) OpenNexter(
-	ctx context.Context,
-) (iter.Seq[ontology.Resource], io.Closer, error) {
-	n, closer, err := s.table.OpenNexter(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
-	return xiter.Map(n, newResource), closer, nil
-}
-
+// newResource names the resource by the user's full name, falling back to the username.
 func newResource(u User) ontology.Resource {
-	return ontology.NewResource(schema, u.OntologyID(), u.Username, u)
+	name := strings.TrimSpace(u.FirstName + " " + u.LastName)
+	if name == "" {
+		name = u.Username
+	}
+	return ontology.NewResource(schema, u.OntologyID(), name, u)
 }

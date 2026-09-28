@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -60,8 +61,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB: db, Ontology: otg, Search: searchIdx,
 	}))
+	authSvc := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{DB: db}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB: db, Ontology: otg, Group: g, Search: searchIdx,
+		DB: db, Ontology: otg, Group: g, Search: searchIdx, Auth: authSvc,
 	}))
 	labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB: db, Ontology: otg, Group: g, Search: searchIdx,

@@ -11,6 +11,7 @@ package user
 
 import (
 	"context"
+	"slices"
 	"uuid"
 
 	"github.com/samber/lo"
@@ -105,7 +106,7 @@ func (s *Service) Create(
 		}); err != nil {
 			return CreateResponse{}, err
 		}
-		if err := authW.Register(ctx, users[i].Key, nu.Password); err != nil {
+		if err := authW.Register(ctx, users[i].Key, nu.Credentials); err != nil {
 			return CreateResponse{}, err
 		}
 	}
@@ -147,17 +148,11 @@ func (s *Service) update(
 	}); err != nil {
 		return user.User{}, err
 	}
-	userW := s.internal.NewWriter(tx)
-	if existing.Username != nu.Username {
-		if err := userW.ChangeUsername(ctx, existing.Key, nu.Username); err != nil {
-			return user.User{}, err
-		}
-	}
 	if err := s.auth.NewWriter(tx).
-		Register(ctx, existing.Key, nu.Password); err != nil {
+		Register(ctx, existing.Key, nu.Credentials); err != nil {
 		return user.User{}, err
 	}
-	if err := userW.ChangeName(
+	if err := s.internal.NewWriter(tx).ChangeName(
 		ctx, existing.Key, nu.FirstName, nu.LastName,
 	); err != nil {
 		return user.User{}, err
@@ -168,6 +163,7 @@ func (s *Service) update(
 		Exec(ctx, tx); err != nil {
 		return user.User{}, err
 	}
+	updated.Username = nu.Username
 	return updated, nil
 }
 
@@ -188,13 +184,16 @@ func (s *Service) ChangeUsername(
 			"you cannot change your own username through the user service",
 		)
 	}
-	var u user.User
+	u := []user.User{{}}
 	if err := s.internal.NewRetrieve().
-		Where(user.MatchKeys(req.Key)).Entry(&u).
+		Where(user.MatchKeys(req.Key)).Entry(&u[0]).
 		Exec(ctx, tx); err != nil {
 		return struct{}{}, err
 	}
-	if u.Username == req.Username {
+	if err := s.internal.ResolveUsernames(ctx, tx, u); err != nil {
+		return struct{}{}, err
+	}
+	if u[0].Username == req.Username {
 		return struct{}{}, nil
 	}
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
@@ -204,7 +203,7 @@ func (s *Service) ChangeUsername(
 	}); err != nil {
 		return struct{}{}, err
 	}
-	return struct{}{}, s.internal.NewWriter(tx).
+	return struct{}{}, s.auth.NewWriter(tx).
 		ChangeUsername(ctx, req.Key, req.Username)
 }
 
@@ -285,10 +284,21 @@ func (s *Service) Retrieve(
 		q = q.Where(user.MatchKeys(req.Keys...))
 	}
 	if len(req.Usernames) > 0 {
-		q = q.Where(user.MatchUsernames(req.Usernames...))
+		keys, err := s.auth.KeysByUsername(ctx, nil, req.Usernames...)
+		if err != nil {
+			return RetrieveResponse{}, err
+		}
+		q = q.Where(user.Match(
+			func(_ gorp.Context, _ user.Retrieve, u *user.User) (bool, error) {
+				return slices.Contains(keys, u.Key), nil
+			},
+		))
 	}
 	var users []user.User
 	if err := q.Entries(&users).Exec(ctx, nil); err != nil {
+		return RetrieveResponse{}, err
+	}
+	if err := s.internal.ResolveUsernames(ctx, nil, users); err != nil {
 		return RetrieveResponse{}, err
 	}
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{

@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
@@ -50,6 +51,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Ontology: otg,
 		Group:    g,
 		Search:   searchIdx,
+		Auth:     MustOpen(auth.OpenService(ctx, auth.ServiceConfig{DB: db})),
 	}))
 	policySvc = MustOpen(policy.OpenService(ctx, policy.ServiceConfig{
 		DB:       db,

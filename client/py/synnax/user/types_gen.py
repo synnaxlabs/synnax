@@ -27,7 +27,8 @@ class User(BaseModel):
 
     Attributes:
         key: Is the unique identifier for this user.
-        username: Is the unique login name for the user.
+        username: Is the login name of the user's password credential. It is not stored
+            on the user and is filled when the user is read.
         first_name: Is the user's first name.
         last_name: Is the user's last name.
         root_user: Is true if this is a root/admin user with full system access. Root

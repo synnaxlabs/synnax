@@ -68,9 +68,25 @@ func upsert(ctx SpecContext, nu apiuser.NewUser) user.User {
 // usernameExists returns true if a user holds username.
 func usernameExists(ctx SpecContext, username string) bool {
 	GinkgoHelper()
-	return MustSucceed(
-		userSvc.NewRetrieve().Where(user.MatchUsernames(username)).Exists(ctx, nil),
-	)
+	return len(MustSucceed(authSvc.KeysByUsername(ctx, nil, username))) > 0
+}
+
+// authenticate checks password against the credentials of the user with the given key.
+func authenticate(ctx SpecContext, key user.Key, password string) error {
+	GinkgoHelper()
+	username := MustSucceed(authSvc.UsernamesByKey(ctx, nil, key))[key]
+	if username == "" {
+		return auth.ErrInvalidCredentials
+	}
+	authenticated, err := authSvc.Authenticate(ctx, nil, auth.Credentials{
+		Username: username,
+		Password: password,
+	})
+	if err != nil {
+		return err
+	}
+	Expect(authenticated).To(Equal(key))
+	return nil
 }
 
 var _ = Describe("Service", func() {
@@ -96,7 +112,7 @@ var _ = Describe("Service", func() {
 				Expect(res.Users[0].FirstName).To(Equal("First"))
 				Expect(res.Users[0].LastName).To(Equal("Last"))
 				Expect(res.Users[0].Key).ToNot(Equal(uuid.Nil()))
-				Expect(authSvc.Authenticate(ctx, nil, res.Users[0].Key, "p")).
+				Expect(authenticate(ctx, res.Users[0].Key, "p")).
 					To(Succeed())
 			},
 		)
@@ -127,8 +143,8 @@ var _ = Describe("Service", func() {
 					Expect(res.Key).To(Equal(u.Key))
 					Expect(res.Username).To(Equal(renamed))
 					Expect(res.FirstName).To(Equal("First"))
-					Expect(authSvc.Authenticate(ctx, nil, u.Key, "two")).To(Succeed())
-					Expect(authSvc.Authenticate(ctx, nil, u.Key, "one")).
+					Expect(authenticate(ctx, u.Key, "two")).To(Succeed())
+					Expect(authenticate(ctx, u.Key, "one")).
 						To(MatchError(auth.ErrInvalidCredentials))
 					Expect(usernameExists(ctx, u.Username)).To(BeFalse())
 					other := upsert(ctx, apiuser.NewUser{
@@ -136,7 +152,7 @@ var _ = Describe("Service", func() {
 						Password: "three",
 					})
 					Expect(other.Key).ToNot(Equal(u.Key))
-					Expect(authSvc.Authenticate(ctx, nil, other.Key, "three")).
+					Expect(authenticate(ctx, other.Key, "three")).
 						To(Succeed())
 				},
 			)
@@ -150,8 +166,8 @@ var _ = Describe("Service", func() {
 						Key:      u.Key,
 					})
 					Expect(res.Username).To(Equal(u.Username))
-					Expect(authSvc.Authenticate(ctx, nil, u.Key, "two")).To(Succeed())
-					Expect(authSvc.Authenticate(ctx, nil, u.Key, "one")).
+					Expect(authenticate(ctx, u.Key, "two")).To(Succeed())
+					Expect(authenticate(ctx, u.Key, "one")).
 						To(MatchError(auth.ErrInvalidCredentials))
 				},
 			)
@@ -168,8 +184,8 @@ var _ = Describe("Service", func() {
 							Key:      u.Key,
 						}},
 					})).Error().To(MatchError(query.ErrUniqueViolation))
-					Expect(authSvc.Authenticate(ctx, nil, u.Key, "one")).To(Succeed())
-					Expect(authSvc.Authenticate(ctx, nil, taken.Key, "two")).
+					Expect(authenticate(ctx, u.Key, "one")).To(Succeed())
+					Expect(authenticate(ctx, taken.Key, "two")).
 						To(Succeed())
 				},
 			)
@@ -217,9 +233,7 @@ var _ = Describe("Service", func() {
 		It(
 			"Should retrieve users by key when the subject has retrieve access",
 			func(ctx SpecContext) {
-				u := MustSucceed(writer.Create(ctx, user.User{
-					Username: "retrieve-by-key-" + uuid.New().String(),
-				}))
+				u := createUser(ctx, "retrieve-by-key", "p")
 				res := MustSucceed(
 					apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
 						Keys: []user.Key{u.Key},
@@ -229,12 +243,9 @@ var _ = Describe("Service", func() {
 			},
 		)
 		It("Should retrieve users by username", func(ctx SpecContext) {
-			username := "retrieve-by-username-" + uuid.New().String()
-			u := MustSucceed(writer.Create(ctx, user.User{
-				Username: username,
-			}))
+			u := createUser(ctx, "retrieve-by-username", "p")
 			res := MustSucceed(apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
-				Usernames: []string{username},
+				Usernames: []string{u.Username},
 			}))
 			Expect(res.Users).To(ConsistOf(u))
 		})
@@ -312,11 +323,9 @@ var _ = Describe("Service", func() {
 					),
 				).Error().
 					ToNot(HaveOccurred())
-				var updated user.User
-				Expect(userSvc.NewRetrieve().Where(user.MatchKeys(u.Key)).
-					Entry(&updated).Exec(ctx, nil)).To(Succeed())
-				Expect(updated.Username).To(Equal(newName))
-				Expect(authSvc.Authenticate(ctx, nil, u.Key, "p")).To(Succeed())
+				Expect(authSvc.UsernamesByKey(ctx, nil, u.Key)).
+					To(HaveKeyWithValue(u.Key, newName))
+				Expect(authenticate(ctx, u.Key, "p")).To(Succeed())
 			},
 		)
 		It(
@@ -335,24 +344,21 @@ var _ = Describe("Service", func() {
 					Username: u.Username,
 					Password: "q",
 				})
-				Expect(authSvc.Authenticate(ctx, nil, reused.Key, "q")).To(Succeed())
-				Expect(authSvc.Authenticate(ctx, nil, u.Key, "p")).To(Succeed())
+				Expect(authenticate(ctx, reused.Key, "q")).To(Succeed())
+				Expect(authenticate(ctx, u.Key, "p")).To(Succeed())
 			},
 		)
 		It(
 			"Should be a no-op when the target name already matches",
 			func(ctx SpecContext) {
-				username := "change-username-noop-" + uuid.New().String()
-				u := MustSucceed(writer.Create(ctx, user.User{
-					Username: username,
-				}))
+				u := createUser(ctx, "change-username-noop", "p")
 				Expect(
 					apiSvc.ChangeUsername(
 						rootCtx(ctx),
 						db,
 						apiuser.ChangeUsernameRequest{
 							Key:      u.Key,
-							Username: username,
+							Username: u.Username,
 						},
 					),
 				).Error().
@@ -401,13 +407,8 @@ var _ = Describe("Service", func() {
 		It(
 			"Should return query.ErrUniqueViolation when the target name is already taken",
 			func(ctx SpecContext) {
-				taken := "change-username-taken-" + uuid.New().String()
-				MustSucceed(writer.Create(ctx, user.User{
-					Username: taken,
-				}))
-				target := MustSucceed(writer.Create(ctx, user.User{
-					Username: "change-username-collide-" + uuid.New().String(),
-				}))
+				taken := createUser(ctx, "change-username-taken", "p").Username
+				target := createUser(ctx, "change-username-collide", "p")
 				Expect(
 					apiSvc.ChangeUsername(
 						rootCtx(ctx),
@@ -433,8 +434,8 @@ var _ = Describe("Service", func() {
 					db,
 					apiuser.ChangePasswordRequest{Key: u.Key, Password: "new"},
 				)).To(Equal(struct{}{}))
-				Expect(authSvc.Authenticate(ctx, nil, u.Key, "new")).To(Succeed())
-				Expect(authSvc.Authenticate(ctx, nil, u.Key, "old")).
+				Expect(authenticate(ctx, u.Key, "new")).To(Succeed())
+				Expect(authenticate(ctx, u.Key, "old")).
 					To(MatchError(auth.ErrInvalidCredentials))
 			},
 		)
@@ -446,7 +447,7 @@ var _ = Describe("Service", func() {
 					db,
 					apiuser.ChangePasswordRequest{Key: root.Key, Password: "root-new"},
 				)).Error().To(MatchError(user.ErrRootCredentialsManaged))
-				Expect(authSvc.Authenticate(ctx, nil, root.Key, "p")).To(Succeed())
+				Expect(authenticate(ctx, root.Key, "p")).To(Succeed())
 			},
 		)
 		It(
@@ -458,7 +459,7 @@ var _ = Describe("Service", func() {
 					Key:      u.Key,
 					Password: "new",
 				})).Error().To(MatchError(access.ErrDenied))
-				Expect(authSvc.Authenticate(ctx, nil, u.Key, "old")).To(Succeed())
+				Expect(authenticate(ctx, u.Key, "old")).To(Succeed())
 			},
 		)
 		It(
@@ -519,7 +520,7 @@ var _ = Describe("Service", func() {
 					})
 					wg.Wait()
 					Expect(usernameExists(ctx, newName)).To(BeTrue())
-					Expect(authSvc.Authenticate(ctx, nil, u.Key, newPassword)).
+					Expect(authenticate(ctx, u.Key, newPassword)).
 						To(Succeed())
 				}
 			},
@@ -556,7 +557,7 @@ var _ = Describe("Service", func() {
 						Exists(ctx, nil),
 				).
 					To(BeFalse())
-				Expect(authSvc.Authenticate(ctx, nil, created.Key, "password")).
+				Expect(authenticate(ctx, created.Key, "password")).
 					To(MatchError(auth.ErrInvalidCredentials))
 			},
 		)

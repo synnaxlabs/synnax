@@ -20,37 +20,8 @@ import (
 // Retrieve is used to retrieve User records from the database using a
 // builder pattern for constructing queries.
 type Retrieve struct {
-	baseTX  gorp.Tx
-	gorp    gorp.Retrieve[Key, User]
-	indexes indexes
-}
-
-// indexes bundles the per-Service secondary indexes registered on the
-// User table. Each index is constructed via newIndexes and threaded
-// onto the Retrieve so filter functions can resolve them off r.indexes
-// instead of relying on package-level state.
-type indexes struct {
-	username *gorp.LookupIndex[Key, User, string]
-}
-
-// newIndexes constructs a fresh indexes value, allocating one index instance
-// per registered field. Call once per Service in OpenService and store the
-// result on the Service struct.
-func newIndexes() indexes {
-	return indexes{
-		username: gorp.NewLookupIndex[Key, User, string](
-			"username",
-			func(e *User) string { return e.Username },
-		),
-	}
-}
-
-// all returns the indexes packaged as a heterogeneous slice for registration
-// via gorp.TableConfig.Indexes when opening the underlying table.
-func (i indexes) all() []gorp.Index[Key, User] {
-	return []gorp.Index[Key, User]{
-		i.username,
-	}
+	baseTX gorp.Tx
+	gorp   gorp.Retrieve[Key, User]
 }
 
 // Filter is a per-service filter that is bound to the Retrieve when passed to
@@ -93,15 +64,6 @@ func Not(f Filter) Filter {
 func MatchKeys(keys ...Key) Filter {
 	return func(_ Retrieve) gorp.Filter[Key, User] {
 		return gorp.MatchKeys[Key, User](keys...)
-	}
-}
-
-// MatchUsernames returns a filter for
-// users whose Username matches any of the
-// provided values.
-func MatchUsernames(vals ...string) Filter {
-	return func(r Retrieve) gorp.Filter[Key, User] {
-		return r.indexes.username.Filter(vals...)
 	}
 }
 

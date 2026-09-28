@@ -10,6 +10,7 @@
 package user_test
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -63,3 +64,20 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	writer = svc.NewWriter(nil)
 	Expect(searchIdx.Initialize(ctx)).To(Succeed())
 })
+
+// createWithCredentials creates u and registers a password credential under
+// u.Username in one transaction.
+func createWithCredentials(ctx context.Context, u user.User) user.User {
+	GinkgoHelper()
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		var err error
+		if u, err = svc.NewWriter(tx).Create(ctx, u); err != nil {
+			return err
+		}
+		return authSvc.NewWriter(tx).Register(ctx, u.Key, auth.Credentials{
+			Username: u.Username,
+			Password: "p",
+		})
+	})).To(Succeed())
+	return u
+}

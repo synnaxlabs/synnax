@@ -16,10 +16,12 @@ import "uuid"
 // Key is the key of the user the credentials belong to.
 type Key = uuid.UUID
 
-// SecureCredentials is a persisted password hash for the user with the matching key.
+// SecureCredentials is the persisted login name and password hash of a user.
 type SecureCredentials struct {
 	// Key is the key of the user the credentials belong to.
 	Key Key `json:"key" msgpack:"key"`
+	// Username is the unique login name that the credentials answer to.
+	Username string `json:"username" msgpack:"username"`
 	// Password is the bcrypt hash of the user's password.
 	Password []byte `json:"password" msgpack:"password"`
 }

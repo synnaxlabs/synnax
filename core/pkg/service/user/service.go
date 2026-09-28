@@ -17,6 +17,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -52,11 +53,9 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Search *search.Index
-	// Auth is the auth service used to register and rotate credentials for the root
-	// user during startup-time reconciliation.
+	// Auth holds the credentials that users sign in with, including their usernames.
 	//
-	// [OPTIONAL] - Required when [ServiceConfig.RootCredentials] is set; ignored
-	// otherwise.
+	// [REQUIRED]
 	Auth *auth.Service
 	// Signals is used to propagate user changes through the Synnax signals' channel
 	// communication mechanism.
@@ -101,8 +100,8 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("ontology", c.Ontology)
 	v.NotNil("group", c.Group)
 	v.NotNil("search", c.Search)
+	v.NotNil("auth", c.Auth)
 	if c.RootCredentials.Username != "" {
-		v.NotNil("auth", c.Auth)
 		v.Exec(c.RootCredentials.Validate)
 	}
 	return v.Error()
@@ -110,10 +109,9 @@ func (c ServiceConfig) Validate() error {
 
 // A Service is how [User]s are managed in the Synnax cluster.
 type Service struct {
-	cfg     ServiceConfig
-	closer  xio.MultiCloser
-	table   *gorp.Table[Key, User]
-	indexes indexes
+	cfg    ServiceConfig
+	closer xio.MultiCloser
+	table  *gorp.Table[Key, User]
 }
 
 // OpenService opens a new [Service] with the given context and configurations.
@@ -125,13 +123,12 @@ func OpenService(
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{cfg: cfg, indexes: newIndexes()}
+	s := &Service{cfg: cfg}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, User]{
 		DB:              cfg.DB,
 		Migrations:      versions.Migrations,
-		Indexes:         s.indexes.all(),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
@@ -170,10 +167,27 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 // NewRetrieve opens a new [Retrieve] query capable of retrieving [User]s.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		gorp:    s.table.NewRetrieve(),
-		baseTX:  s.cfg.DB,
-		indexes: s.indexes,
+		gorp:   s.table.NewRetrieve(),
+		baseTX: s.cfg.DB,
 	}
+}
+
+// ResolveUsernames fills the username of each user in users from the user's stored
+// credentials. A user without credentials keeps an empty username.
+func (s *Service) ResolveUsernames(
+	ctx context.Context,
+	tx gorp.Tx,
+	users []User,
+) error {
+	keys := lo.Map(users, func(u User, _ int) Key { return u.Key })
+	usernames, err := s.cfg.Auth.UsernamesByKey(ctx, tx, keys...)
+	if err != nil {
+		return err
+	}
+	for i := range users {
+		users[i].Username = usernames[users[i].Key]
+	}
+	return nil
 }
 
 // Close closes the [Service] and stops any signal publishing.

@@ -89,7 +89,7 @@ var _ = Describe("Legacy Permission Migration", func() {
 			w := userSvc.NewWriter(tx)
 			var rootUser user.User
 			Expect(userSvc.NewRetrieve().
-				Where(user.MatchUsernames("root")).
+				Where(user.MatchRootUser(true)).
 				Entry(&rootUser).
 				Exec(ctx, tx)).To(Succeed())
 			adminUser := MustSucceed(w.Create(ctx, user.User{Username: "admin"}))

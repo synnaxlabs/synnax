@@ -16,5 +16,5 @@ import "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v2"
 // Key is the key of the user the credentials belong to.
 type Key = v2.Key
 
-// SecureCredentials is a persisted password hash for the user with the matching key.
+// SecureCredentials is the persisted login name and password hash of a user.
 type SecureCredentials = v2.SecureCredentials

@@ -14,15 +14,18 @@ Key = uuid {
 }
 
 SecureCredentials struct {
-    key      Key   {
+    key      Key    {
         @doc value "is the key of the user the credentials belong to."
         @key
     }
-    password bytes {
+    username string {
+        @doc value "is the unique login name that the credentials answer to."
+    }
+    password bytes  {
         @doc value "is the bcrypt hash of the user's password."
     }
 
-    @doc value  "is a persisted password hash for the user with the matching key."
+    @doc value  "is the persisted login name and password hash of a user."
     @go marshal
     @go migrate
 }

@@ -20,9 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/version"
 	xconfig "github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -118,29 +116,23 @@ func (s *Service) ChangePassword(
 		ChangePassword(ctx, u.Key, req.NewPassword)
 }
 
-// authenticate returns the user that creds identify. An unknown username and a wrong
-// password both return [auth.ErrInvalidCredentials], so a caller cannot probe which
-// usernames exist.
+// authenticate returns the user that creds identify.
 func (s *Service) authenticate(
 	ctx context.Context,
 	tx gorp.Tx,
 	creds Credentials,
 ) (user.User, error) {
-	if err := creds.Validate(); err != nil {
+	key, err := s.auth.Authenticate(ctx, tx, creds)
+	if err != nil {
 		return user.User{}, err
 	}
 	var u user.User
 	if err := s.user.NewRetrieve().
-		Where(user.MatchUsernames(creds.Username)).
+		Where(user.MatchKeys(key)).
 		Entry(&u).
 		Exec(ctx, tx); err != nil {
-		if errors.Is(err, query.ErrNotFound) {
-			return user.User{}, auth.ErrInvalidCredentials
-		}
 		return user.User{}, err
 	}
-	if err := s.auth.Authenticate(ctx, tx, u.Key, creds.Password); err != nil {
-		return user.User{}, err
-	}
+	u.Username = creds.Username
 	return u, nil
 }

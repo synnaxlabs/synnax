@@ -53,7 +53,10 @@ func createUser(
 				Create(ctx, user.User{Username: username}); err != nil {
 				return err
 			}
-			return authSvc.NewWriter(tx).Register(ctx, u.Key, password)
+			return authSvc.NewWriter(tx).Register(ctx, u.Key, auth.Credentials{
+				Username: username,
+				Password: password,
+			})
 		}
 		u = user.User{Key: uuid.New(), Username: username, RootUser: true}
 		if err := gorp.WrapWriter[user.Key, user.User](tx).Set(ctx, u); err != nil {
@@ -62,25 +65,19 @@ func createUser(
 		if err := otg.NewWriter(tx).DefineResources(ctx, u.OntologyID()); err != nil {
 			return err
 		}
-		return authSvc.NewWriter(tx).Register(ctx, u.Key, password)
+		return authSvc.NewWriter(tx).Register(ctx, u.Key, auth.Credentials{
+			Username: username,
+			Password: password,
+		})
 	})).To(Succeed())
 	return u
 }
 
-// createUserRecordOnly creates a user record without registering credentials,
-// simulating an orphan record that the reconciler must heal by registering creds. Root
-// records are inserted with the raw gorp writer because [user.Writer.Create] now
-// rejects RootUser=true.
-func createUserRecordOnly(
-	ctx context.Context, svc *user.Service, username string, root bool,
-) user.User {
+// createRootRecordOnly creates a root user record without credentials. The raw gorp
+// writer is used because [user.Writer.Create] rejects RootUser=true.
+func createRootRecordOnly(ctx context.Context) user.User {
 	GinkgoHelper()
-	if !root {
-		return MustSucceed(
-			svc.NewWriter(nil).Create(ctx, user.User{Username: username}),
-		)
-	}
-	u := user.User{Key: uuid.New(), Username: username, RootUser: true}
+	u := user.User{Key: uuid.New(), RootUser: true}
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 		if err := gorp.WrapWriter[user.Key, user.User](tx).Set(ctx, u); err != nil {
 			return err
@@ -90,21 +87,27 @@ func createUserRecordOnly(
 	return u
 }
 
-// authenticate checks password against the stored password of the user with the given
-// username.
+// authenticate checks the given credentials against the auth service.
 func authenticate(ctx context.Context, username, password string) error {
 	GinkgoHelper()
-	return authSvc.Authenticate(ctx, nil, findUser(ctx, svc, username).Key, password)
+	_, err := authSvc.Authenticate(ctx, nil, auth.Credentials{
+		Username: username,
+		Password: password,
+	})
+	return err
 }
 
-// findUser retrieves the user with the given username and fails the spec if no such
-// user exists.
+// findUser retrieves the user whose credentials hold username and fails the spec if no
+// such user exists.
 func findUser(ctx context.Context, svc *user.Service, username string) user.User {
 	GinkgoHelper()
-	var u user.User
-	Expect(svc.NewRetrieve().Where(user.MatchUsernames(username)).Entry(&u).
+	keys := MustSucceed(authSvc.KeysByUsername(ctx, nil, username))
+	Expect(keys).To(HaveLen(1))
+	u := []user.User{{}}
+	Expect(svc.NewRetrieve().Where(user.MatchKeys(keys[0])).Entry(&u[0]).
 		Exec(ctx, nil)).To(Succeed())
-	return u
+	Expect(svc.ResolveUsernames(ctx, nil, u)).To(Succeed())
+	return u[0]
 }
 
 func rootUsers(ctx context.Context, svc *user.Service) []user.User {
@@ -295,7 +298,11 @@ var _ = Describe("Root user reconciliation", Serial, func() {
 			"Should open cleanly when no roots exist and no credentials are configured",
 			func(ctx SpecContext) {
 				s := MustOpen(user.OpenService(ctx, user.ServiceConfig{
-					DB: db, Ontology: otg, Group: groupSvc, Search: searchIdx,
+					DB:       db,
+					Ontology: otg,
+					Group:    groupSvc,
+					Search:   searchIdx,
+					Auth:     authSvc,
 				}))
 				Expect(rootUsers(ctx, s)).To(BeEmpty())
 			},
@@ -303,21 +310,17 @@ var _ = Describe("Root user reconciliation", Serial, func() {
 	})
 	Describe("Orphan state recovery", func() {
 		It(
-			"Should register credentials when a root user record exists without an auth row",
+			"Should demote a root user record without credentials and create a new root",
 			func(ctx SpecContext) {
 				seedSvc := openRootUser(ctx, "root-bootstrap", "p")
-				orphan := createUserRecordOnly(ctx, seedSvc, "orphan-record", true)
+				orphan := createRootRecordOnly(ctx)
 				Expect(seedSvc.Close()).To(Succeed())
-				Expect(
-					authenticate(ctx, "orphan-record", "newpassword"),
-				).Error().
-					To(MatchError(auth.ErrInvalidCredentials))
-				s := openRootUser(ctx, "orphan-record", "newpassword")
-				Expect(authenticate(ctx, "orphan-record", "newpassword")).To(Succeed())
-				u := findUser(ctx, s, "orphan-record")
-				Expect(u.Key).To(Equal(orphan.Key))
-				Expect(u.RootUser).To(BeTrue())
-				Expect(rootUsers(ctx, s)).To(HaveLen(1))
+				s := openRootUser(ctx, "fresh-root", "p")
+				Expect(authenticate(ctx, "fresh-root", "p")).To(Succeed())
+				fresh := findUser(ctx, s, "fresh-root")
+				Expect(fresh.Key).ToNot(Equal(orphan.Key))
+				Expect(fresh.RootUser).To(BeTrue())
+				Expect(rootUsers(ctx, s)).To(ConsistOf(HaveField("Key", fresh.Key)))
 			},
 		)
 	})

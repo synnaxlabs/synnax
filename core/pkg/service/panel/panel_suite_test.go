@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -110,6 +111,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Ontology: otg,
 		Group:    groupSvc,
 		Search:   searchIdx,
+		Auth:     MustOpen(auth.OpenService(ctx, auth.ServiceConfig{DB: node.DB})),
 	}))
 	parent := MustSucceed(
 		userSvc.NewWriter(nil).Create(ctx, user.User{Username: "panel-parent"}),

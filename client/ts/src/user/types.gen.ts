@@ -23,7 +23,10 @@ export type Key = z.infer<typeof keyZ>;
 export const userZ = z.object({
   /** key is the unique identifier for this user. */
   key: keyZ,
-  /** username is the unique login name for the user. */
+  /**
+   * username is the login name of the user's password credential. It is not stored on
+   * the user and is filled when the user is read.
+   */
   username: z.string().min(1, "username is required"),
   /** firstName is the user's first name. */
   firstName: z.string(),

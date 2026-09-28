@@ -37,7 +37,8 @@ func QuarantineKVKey(username string) []byte {
 }
 
 // NewMigration returns a migration that re-keys every stored credential from its
-// username to the key of the user with that username. Credentials whose username
+// username to the key of the user with that username, keeping the username. Credentials
+// whose username
 // matches no user move to [QuarantineKVKey]. The user table must be readable when the
 // migration runs.
 func NewMigration(cfg MigrationConfig) migrate.Migration {

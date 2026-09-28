@@ -130,10 +130,10 @@ var _ = Describe("Ontology", func() {
 	Describe("RetrieveResource", func() {
 		It("Should retrieve a user's schema entity by its key", func(ctx SpecContext) {
 			key := uuid.New()
-			created := MustSucceed(writer.Create(ctx, user.User{
+			created := createWithCredentials(ctx, user.User{
 				Username: uuid.New().String(),
 				Key:      key,
-			}))
+			})
 			Expect(svc.RetrieveResource(ctx, key.String(), nil)).To(
 				Equal(ontology.Resource{
 					ID:   created.OntologyID(),
@@ -147,6 +147,15 @@ var _ = Describe("Ontology", func() {
 					},
 				}),
 			)
+		})
+		It("Should name the resource by the user's full name", func(ctx SpecContext) {
+			created := createWithCredentials(ctx, user.User{
+				Username:  uuid.New().String(),
+				FirstName: "Ada",
+				LastName:  "Lovelace",
+			})
+			Expect(svc.RetrieveResource(ctx, created.Key.String(), nil)).
+				To(HaveField("Name", "Ada Lovelace"))
 		})
 		It(
 			"Should return an error when the key is not a valid UUID",
@@ -184,10 +193,10 @@ var _ = Describe("Ontology", func() {
 				)
 				DeferCleanup(disconnect)
 
-				created := MustSucceed(writer.Create(ctx, user.User{
+				created := createWithCredentials(ctx, user.User{
 					Username:  uuid.New().String(),
 					FirstName: "Octavian",
-				}))
+				})
 				expectedID := created.OntologyID().String()
 
 				Eventually(func(g Gomega) {
@@ -198,7 +207,7 @@ var _ = Describe("Ontology", func() {
 					})
 					g.Expect(setIdx).ToNot(Equal(-1))
 					g.Expect(changes[setIdx].Value.ID).To(Equal(created.OntologyID()))
-					g.Expect(changes[setIdx].Value.Name).To(Equal(created.Username))
+					g.Expect(changes[setIdx].Value.Name).To(Equal("Octavian"))
 				}).Should(Succeed())
 
 				Expect(writer.Delete(ctx, created.Key)).To(Succeed())
@@ -213,16 +222,49 @@ var _ = Describe("Ontology", func() {
 				}).Should(Succeed())
 			})
 	})
+	Describe("OnChange on a username change", func() {
+		It("Should publish the user with its new username", func(ctx SpecContext) {
+			created := createWithCredentials(ctx, user.User{
+				Username: uuid.New().String(),
+			})
+			var (
+				mu      sync.Mutex
+				changes []ontology.Change
+			)
+			disconnect := svc.OnChange(
+				func(_ context.Context, it iter.Seq[ontology.Change]) {
+					mu.Lock()
+					defer mu.Unlock()
+					changes = append(changes, slices.Collect(it)...)
+				},
+			)
+			DeferCleanup(disconnect)
+			renamed := uuid.New().String()
+			Expect(authSvc.NewWriter(nil).ChangeUsername(ctx, created.Key, renamed)).
+				To(Succeed())
+			Eventually(func(g Gomega) {
+				mu.Lock()
+				defer mu.Unlock()
+				g.Expect(changes).To(ContainElement(SatisfyAll(
+					HaveField("Key", created.OntologyID().String()),
+					HaveField("Variant", change.VariantSet),
+					HaveField("Value.Name", renamed),
+				)))
+			}).Should(Succeed())
+		})
+	})
 	Describe("OpenNexter", func() {
 		It(
 			"Should iterate over all users currently stored in the service",
 			func(ctx SpecContext) {
-				a := MustSucceed(writer.Create(ctx, user.User{
-					Username: uuid.New().String(),
-				}))
-				b := MustSucceed(writer.Create(ctx, user.User{
-					Username: uuid.New().String(),
-				}))
+				a := createWithCredentials(
+					ctx,
+					user.User{Username: uuid.New().String()},
+				)
+				b := createWithCredentials(
+					ctx,
+					user.User{Username: uuid.New().String()},
+				)
 
 				seq, closer := MustSucceed2(svc.OpenNexter(ctx))
 				DeferClose(closer)

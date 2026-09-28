@@ -65,58 +65,12 @@ var _ = Describe("Writer", func() {
 			Expect(u.Username).To(Equal(name))
 		})
 		It(
-			"Should return ErrUniqueViolation when the username already exists",
-			func(ctx SpecContext) {
-				name := uuid.New().String()
-				u := MustSucceed(w.Create(ctx, user.User{Username: name}))
-				Expect(u.Key).ToNot(Equal(uuid.Nil()))
-				Expect(u.Username).To(Equal(name))
-				Expect(w.Create(ctx, user.User{Username: name})).
-					Error().To(MatchError(query.ErrUniqueViolation))
-			},
-		)
-		It(
-			"Should return a validation error when the username is empty",
-			func(ctx SpecContext) {
-				Expect(w.Create(ctx, user.User{})).Error().
-					To(MatchError(ContainSubstring("username: required")))
-			},
-		)
-		It(
 			"Should reject RootUser=true so the root-user invariant cannot be bypassed",
 			func(ctx SpecContext) {
 				Expect(w.Create(ctx, user.User{
 					Username: uuid.New().String(),
 					RootUser: true,
 				})).Error().To(MatchError(ContainSubstring("cannot create a root user; root users are provisioned at startup")))
-			},
-		)
-	})
-	Describe("ChangeUsername", func() {
-		It("Should change the username of a user", func(ctx SpecContext) {
-			original := uuid.New().String()
-			updated := uuid.New().String()
-			created := MustSucceed(w.Create(ctx, user.User{Username: original}))
-			Expect(w.ChangeUsername(ctx, created.Key, updated)).To(Succeed())
-			Expect(
-				svc.NewRetrieve().Where(user.MatchUsernames(updated)).Exists(ctx, tx),
-			).To(BeTrue())
-			Expect(
-				svc.NewRetrieve().Where(user.MatchUsernames(original)).Exists(ctx, tx),
-			).To(BeFalse())
-		})
-		It(
-			"Should return ErrUniqueViolation if the username already exists",
-			func(ctx SpecContext) {
-				a := MustSucceed(
-					w.Create(ctx, user.User{Username: uuid.New().String()}),
-				)
-				b := MustSucceed(
-					w.Create(ctx, user.User{Username: uuid.New().String()}),
-				)
-				Expect(
-					w.ChangeUsername(ctx, a.Key, b.Username),
-				).To(MatchError(query.ErrUniqueViolation))
 			},
 		)
 	})
@@ -160,11 +114,6 @@ var _ = Describe("Writer", func() {
 				w.Create(ctx, user.User{Username: uuid.New().String()}),
 			)
 			Expect(w.Delete(ctx, created.Key)).To(Succeed())
-			Expect(
-				svc.NewRetrieve().
-					Where(user.MatchUsernames(created.Username)).
-					Exists(ctx, tx),
-			).To(BeFalse())
 			var u user.User
 			Expect(
 				svc.NewRetrieve().
@@ -180,13 +129,8 @@ var _ = Describe("Writer", func() {
 			Expect(w.Delete(ctx, a.Key, b.Key)).To(Succeed())
 			Expect(
 				svc.NewRetrieve().
-					Where(user.MatchUsernames(a.Username)).
-					Exists(ctx, nil),
-			).To(BeFalse())
-			Expect(
-				svc.NewRetrieve().
-					Where(user.MatchUsernames(b.Username)).
-					Exists(ctx, nil),
+					Where(user.MatchKeys(a.Key, b.Key)).
+					Exists(ctx, tx),
 			).To(BeFalse())
 		})
 		It("Should not delete a root user", func(ctx SpecContext) {

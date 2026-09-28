@@ -30,7 +30,10 @@ var _ = Describe("Service", func() {
 			}); err != nil {
 				return err
 			}
-			return authSvc.NewWriter(tx).Register(ctx, u.Key, "old")
+			return authSvc.NewWriter(tx).Register(ctx, u.Key, auth.Credentials{
+				Username: u.Username,
+				Password: "old",
+			})
 		})).To(Succeed())
 	})
 
@@ -52,14 +55,20 @@ var _ = Describe("Service", func() {
 	Describe("ChangePassword", func() {
 		It("Should replace the password of the named user", func(ctx SpecContext) {
 			Expect(changePassword(ctx, u.Username, "old")).To(Succeed())
-			Expect(authSvc.Authenticate(ctx, nil, u.Key, "new")).To(Succeed())
+			Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+				Username: u.Username,
+				Password: "new",
+			})).To(Equal(u.Key))
 		})
 		It(
 			"Should return ErrInvalidCredentials when the password is wrong",
 			func(ctx SpecContext) {
 				Expect(changePassword(ctx, u.Username, "wrong")).
 					To(MatchError(auth.ErrInvalidCredentials))
-				Expect(authSvc.Authenticate(ctx, nil, u.Key, "old")).To(Succeed())
+				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+					Username: u.Username,
+					Password: "old",
+				})).To(Equal(u.Key))
 			},
 		)
 		It(

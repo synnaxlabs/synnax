@@ -64,25 +64,30 @@ var _ = Describe("Migration", func() {
 		return creds
 	}
 
-	It("Should re-key each credential by its user's key", func(ctx SpecContext) {
-		alice := userv0.User{Key: uuid.New(), Username: "alice"}
-		bob := userv0.User{Key: uuid.New(), Username: "bob"}
-		createUsers(ctx, alice, bob)
-		createCredentials(
-			ctx,
-			v1.SecureCredentials{Username: "alice", Password: []byte("alice-hash")},
-			v1.SecureCredentials{Username: "bob", Password: []byte("bob-hash")},
-		)
-		runMigration(ctx)
-		Expect(retrieve(ctx, alice.Key)).To(Equal(v2.SecureCredentials{
-			Key:      alice.Key,
-			Password: []byte("alice-hash"),
-		}))
-		Expect(retrieve(ctx, bob.Key)).To(Equal(v2.SecureCredentials{
-			Key:      bob.Key,
-			Password: []byte("bob-hash"),
-		}))
-	})
+	It(
+		"Should re-key each credential by its user's key and keep the username",
+		func(ctx SpecContext) {
+			alice := userv0.User{Key: uuid.New(), Username: "alice"}
+			bob := userv0.User{Key: uuid.New(), Username: "bob"}
+			createUsers(ctx, alice, bob)
+			createCredentials(
+				ctx,
+				v1.SecureCredentials{Username: "alice", Password: []byte("alice-hash")},
+				v1.SecureCredentials{Username: "bob", Password: []byte("bob-hash")},
+			)
+			runMigration(ctx)
+			Expect(retrieve(ctx, alice.Key)).To(Equal(v2.SecureCredentials{
+				Key:      alice.Key,
+				Username: "alice",
+				Password: []byte("alice-hash"),
+			}))
+			Expect(retrieve(ctx, bob.Key)).To(Equal(v2.SecureCredentials{
+				Key:      bob.Key,
+				Username: "bob",
+				Password: []byte("bob-hash"),
+			}))
+		},
+	)
 
 	It("Should delete every username-keyed row", func(ctx SpecContext) {
 		alice := userv0.User{Key: uuid.New(), Username: "alice"}

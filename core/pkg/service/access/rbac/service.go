@@ -201,8 +201,8 @@ func (s *Service) assignOwnerToRoots(ctx context.Context, ownerKey role.Key) err
 			); err != nil {
 				return errors.Wrapf(
 					err,
-					"assign Owner role to root user %q",
-					r.Username,
+					"assign Owner role to root user %s",
+					r.Key,
 				)
 			}
 		}

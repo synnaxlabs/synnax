@@ -21,9 +21,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	userv0 "github.com/synnaxlabs/synnax/pkg/service/user/versions/v0"
+	userv1 "github.com/synnaxlabs/synnax/pkg/service/user/versions/v1"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -83,13 +83,6 @@ var _ = Describe("ServiceConfig", func() {
 		It("Should succeed when every required field is set", func() {
 			Expect(cfg.Validate()).To(Succeed())
 		})
-		It(
-			"Should succeed without Auth when no root credentials are configured",
-			func() {
-				cfg.Auth = nil
-				Expect(cfg.Validate()).To(Succeed())
-			},
-		)
 		It("Should require Auth when root credentials are configured", func() {
 			cfg.Auth = nil
 			cfg.RootCredentials = auth.Credentials{Username: "u", Password: "p"}
@@ -127,11 +120,30 @@ var _ = Describe("ServiceConfig", func() {
 				func(c *user.ServiceConfig) { c.Search = nil },
 				"search: must be non-nil",
 			),
+			Entry(
+				"auth",
+				func(c *user.ServiceConfig) { c.Auth = nil },
+				"auth: must be non-nil",
+			),
 		)
 	})
 })
 
 var _ = Describe("Service", func() {
+	Describe("ResolveUsernames", func() {
+		It(
+			"Should fill each user's username from its credentials",
+			func(ctx SpecContext) {
+				created := createWithCredentials(ctx, user.User{
+					Username: uuid.New().String(),
+				})
+				users := []user.User{{Key: created.Key}, {Key: uuid.New()}}
+				Expect(svc.ResolveUsernames(ctx, nil, users)).To(Succeed())
+				Expect(users[0].Username).To(Equal(created.Username))
+				Expect(users[1].Username).To(BeEmpty())
+			},
+		)
+	})
 	Describe("Open", func() {
 		It("Should return an error when the config is invalid", func(ctx SpecContext) {
 			Expect(user.OpenService(ctx, user.ServiceConfig{})).Error().
@@ -148,44 +160,35 @@ var _ = Describe("Service", func() {
 			w = svc.NewWriter(tx)
 		})
 		It("Should retrieve a user by its key", func(ctx SpecContext) {
-			created := MustSucceed(
-				w.Create(ctx, user.User{Username: uuid.New().String()}),
-			)
+			created := MustSucceed(w.Create(ctx, user.User{FirstName: "Ada"}))
 			var u user.User
 			Expect(svc.NewRetrieve().Where(user.MatchKeys(created.Key)).Entry(&u).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(u).To(Equal(created))
 		})
 		It("Should retrieve multiple users by keys", func(ctx SpecContext) {
-			a := MustSucceed(w.Create(ctx, user.User{Username: uuid.New().String()}))
-			b := MustSucceed(w.Create(ctx, user.User{Username: uuid.New().String()}))
+			a := MustSucceed(w.Create(ctx, user.User{FirstName: "Ada"}))
+			b := MustSucceed(w.Create(ctx, user.User{FirstName: "Grace"}))
 			var ret []user.User
 			Expect(svc.NewRetrieve().Where(user.MatchKeys(a.Key, b.Key)).Entries(&ret).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(ret).To(ConsistOf(a, b))
 		})
-		It("Should retrieve a user by its username", func(ctx SpecContext) {
-			created := MustSucceed(
-				w.Create(ctx, user.User{Username: uuid.New().String()}),
-			)
+		It("Should not store the username on the user", func(ctx SpecContext) {
+			created := createWithCredentials(ctx, user.User{
+				Username: uuid.New().String(),
+			})
 			var u user.User
-			Expect(svc.NewRetrieve().Where(user.MatchUsernames(created.Username)).
-				Entry(&u).Exec(ctx, tx)).To(Succeed())
-			Expect(u).To(Equal(created))
+			Expect(svc.NewRetrieve().Where(user.MatchKeys(created.Key)).Entry(&u).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(u.Username).To(BeEmpty())
 		})
-		It(
-			"Should return an error if the username does not exist",
-			func(ctx SpecContext) {
-				Expect(svc.NewRetrieve().Where(user.MatchUsernames("does-not-exist")).
-					Entry(&user.User{}).Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
-			},
-		)
 	})
 })
 
 var _ = Describe("Credential re-key", func() {
 	It(
-		"Should re-key username-keyed credentials when the service opens",
+		"Should move usernames onto credentials keyed by user when the service opens",
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
 			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
@@ -215,7 +218,16 @@ var _ = Describe("Credential re-key", func() {
 				Search:   searchIdx,
 				Auth:     authSvc,
 			}))
-			Expect(authSvc.Authenticate(ctx, nil, alice.Key, "p")).To(Succeed())
+			Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+				Username: "alice",
+				Password: "p",
+			})).To(Equal(alice.Key))
+			var stored userv1.User
+			Expect(gorp.NewRetrieve[userv1.Key, userv1.User]().
+				Where(gorp.MatchKeys[userv1.Key, userv1.User](alice.Key)).
+				Entry(&stored).
+				Exec(ctx, db)).To(Succeed())
+			Expect(stored.Username).To(BeEmpty())
 		},
 	)
 })

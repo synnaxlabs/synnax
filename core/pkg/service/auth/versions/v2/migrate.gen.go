@@ -19,6 +19,7 @@ import (
 
 func autoMigrateSecureCredentials(_ context.Context, old v1.SecureCredentials) (SecureCredentials, error) {
 	return SecureCredentials{
+		Username: old.Username,
 		Password: old.Password,
 	}, nil
 }

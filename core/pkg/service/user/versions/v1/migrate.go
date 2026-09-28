@@ -7,19 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package versions
+package v1
 
 import (
-	authv2 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v2"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/user/versions/v0"
-	v1 "github.com/synnaxlabs/synnax/pkg/service/user/versions/v1"
-	"github.com/synnaxlabs/x/migrate"
+	"github.com/synnaxlabs/x/gorp"
 )
 
-// Migrations is the ordered migration chain for stored users.
-var Migrations = []migrate.Migration{
-	v0.NormalizeKeys,
-	v0.Migration,
-	authv2.NewMigration(authv2.MigrationConfig{UserKeys: v0.KeysByUsername}),
-	v1.Migration,
-}
+// Migration drops the username from stored users. It must run after the credential
+// re-key, which copies each username onto the user's credentials.
+var Migration = gorp.NewEntryMigration[Key, Key, v0.User, User](
+	"v1_username_to_credentials",
+	autoMigrateUser,
+)
