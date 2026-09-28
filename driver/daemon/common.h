@@ -19,8 +19,8 @@ x::errors::Error create_system_user();
 /// when the running binary is already the installed one.
 x::errors::Error install_binary();
 
-/// @brief creates the Driver's environment file, owned by root:synnax with mode 0640
-/// so the service can read it and other users can't. An existing file keeps its
-/// contents but gets that owner and mode. Requires root.
+/// @brief creates the Driver's environment file, owned by root:synnax with mode 0640 so
+/// the service can read it and other users can't. An existing file keeps its contents
+/// but gets that owner and mode. Requires root.
 x::errors::Error create_env_file();
 }
