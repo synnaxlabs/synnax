@@ -19,10 +19,16 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { AuthError, DisconnectedError } from "@/errors";
+import {
+  AuthError,
+  DisconnectedError,
+  ExpiredLicenseError,
+  MissingLicenseError,
+} from "@/errors";
+import { license } from "@/license";
 import { status } from "@/status";
 
-export const REASONS = ["unreachable", "auth", "incompatible"] as const;
+export const REASONS = ["unreachable", "auth", "incompatible", "unlicensed"] as const;
 export const reasonZ = z.enum(REASONS);
 /** Why the connection is in the error variant. */
 export type Reason = z.infer<typeof reasonZ>;
@@ -43,15 +49,26 @@ export const statusDetailsZ = z.object({
   clockSkew: TimeSpan.z,
   clockSkewExceeded: z.boolean(),
   retry: z.object({ attempt: z.number(), nextAt: TimeStamp.z }).nullable(),
+  // What the Core last reported about its license. Absent before the first check.
+  license: license.stateZ.optional(),
   // A check is in flight right now. A process fact, not a judgment: the
   // variant holds its verdict while attempts run beneath it.
   checking: z.boolean(),
 });
 export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
 
-/** Error-variant details: the same facts plus the reason the connection failed. */
-export const errorStatusDetailsZ = statusDetailsZ.extend({ reason: reasonZ });
-export interface ErrorStatusDetails extends z.infer<typeof errorStatusDetailsZ> {}
+/**
+ * Error-variant details: the same facts plus the reason the connection failed. An
+ * unlicensed connection always carries the license error its requests throw.
+ */
+export const errorStatusDetailsZ = z.discriminatedUnion("reason", [
+  statusDetailsZ.extend({
+    reason: z.literal("unlicensed"),
+    error: z.instanceof(Error),
+  }),
+  statusDetailsZ.extend({ reason: reasonZ.exclude(["unlicensed"]) }),
+]);
+export type ErrorStatusDetails = z.infer<typeof errorStatusDetailsZ>;
 
 export const nonErrorVariantZ = z.enum([
   "success",
@@ -163,6 +180,8 @@ export interface Info {
   nodeVersion: string;
   /** Skew measured across the check's round trip. */
   clockSkew: TimeSpan;
+  /** Whether a license applies to the Core. */
+  license: license.State;
 }
 
 /**
@@ -191,6 +210,11 @@ const RECONNECTING = "Reconnecting";
 const UNREACHABLE = "Cannot reach cluster";
 const STREAM_DENIED =
   "Live updates are unavailable. This user cannot read the change channels.";
+
+const licenseError = (state: Exclude<license.State, "ok">): Error =>
+  state === "missing"
+    ? new MissingLicenseError(license.STATE_MESSAGES.missing)
+    : new ExpiredLicenseError(license.STATE_MESSAGES.expired);
 
 const connectedMessage = ({ name }: Config): string =>
   `Connected to ${name ?? "cluster"}`;
@@ -227,18 +251,24 @@ const enter = (
   return { ...prev, variant, message, description, details: merged };
 };
 
+type ErrorCause =
+  { reason: "unlicensed"; error: Error } | { reason: Exclude<Reason, "unlicensed"> };
+
 const enterError = (
   prev: Status,
   message: string,
-  reason: Reason,
-  details: Partial<StatusDetails> = {},
+  details: Partial<StatusDetails> & ErrorCause,
 ): ErrorStatus => ({
   ...prev,
   variant: "error",
   message,
   description: "",
-  details: { ...prev.details, ...details, reason },
+  details: { ...prev.details, ...details },
 });
+
+// Reasons the check loop clears on its own; the rest wait on the user.
+export const isSelfHealing = (reason: Reason): boolean =>
+  reason === "unreachable" || reason === "unlicensed";
 
 // A 0.0 major.minor marks a development build, which pairs with anything.
 const isDev = (version: string): boolean => version.startsWith("0.0.");
@@ -260,6 +290,7 @@ const checkFacts = (info: Info, config: Config): Partial<StatusDetails> => ({
   clockSkew: info.clockSkew,
   clockSkewExceeded: info.clockSkew.abs().greaterThan(config.clockSkewThreshold),
   clientServerCompatible: isCompatible(info.nodeVersion, config.clientVersion),
+  license: info.license,
 });
 
 // Connected, with live updates refused. A settled outcome: only a policy
@@ -288,13 +319,21 @@ const reduceCheckSuccess = (prev: Status, info: Info, config: Config): Status =>
   if (clusterKey !== "" && info.clusterKey !== clusterKey)
     return reduceClusterReplaced(prev, info, config);
   const facts = checkFacts(info, config);
+  // the Core answers but refuses everything else until a license is activated
+  if (info.license !== "ok")
+    return enterError(prev, license.STATE_MESSAGES[info.license], {
+      ...facts,
+      reason: "unlicensed",
+      error: licenseError(info.license),
+      retry: null,
+    });
   // reachable but the stream is still dark: the client re-demands it and we
-  // stay degraded until it reports live. A parked unreachable error must
-  // lift out of error: the short circuit it drives would starve the very
-  // stream reopen this state waits on.
+  // stay degraded until it reports live. A parked unreachable or unlicensed
+  // error must lift out of error: the short circuit it drives would starve
+  // the very stream reopen this state waits on.
   if (config.requiresStream && !prev.details.streamLive) {
     if (prev.details.streamDenied) return enterStreamDenied(prev, config, facts);
-    if (prev.variant === "error" && prev.details.reason === "unreachable")
+    if (prev.variant === "error" && isSelfHealing(prev.details.reason))
       return enter(prev, "loading", RECONNECTING, {
         ...facts,
         error: undefined,
@@ -324,7 +363,8 @@ const reduceClusterReplaced = (prev: Status, info: Info, config: Config): Status
   });
 
 const reduceAuthFailure = (prev: Status, error: Error): Status =>
-  enterError(prev, error.message, "auth", {
+  enterError(prev, error.message, {
+    reason: "auth",
     error,
     authenticated: false,
     retry: null,
@@ -339,7 +379,10 @@ const reduceCheckFailure = (
   if (AuthError.matches(error)) return reduceAuthFailure(prev, error);
   const escalating = prev.variant === "loading";
   if (escalating && attempt >= config.escalateAfter)
-    return enterError(prev, error.message ?? UNREACHABLE, "unreachable", { error });
+    return enterError(prev, error.message ?? UNREACHABLE, {
+      reason: "unreachable",
+      error,
+    });
   if (prev.variant === "success")
     return enter(prev, "loading", RECONNECTING, { error });
   return update(prev, { error });
@@ -363,7 +406,8 @@ const reduceStreamDrop = (prev: Status, error?: Error): Status => {
 
 const reduceRetryExhausted = (prev: Status): Status => {
   if (prev.variant !== "loading") return update(prev, { retry: null });
-  return enterError(prev, prev.details.error?.message ?? UNREACHABLE, "unreachable", {
+  return enterError(prev, prev.details.error?.message ?? UNREACHABLE, {
+    reason: "unreachable",
     retry: null,
   });
 };
@@ -402,8 +446,7 @@ export const reduce = (prev: Status, event: Event, config: Config): Status => {
     case "retry.requested":
       // deliberately does not clear auth or incompatibility: those rest until
       // the user supplies something new
-      if (prev.variant !== "error" || prev.details.reason !== "unreachable")
-        return prev;
+      if (prev.variant !== "error" || !isSelfHealing(prev.details.reason)) return prev;
       return enter(prev, "loading", CONNECTING);
     case "credentials.replaced":
       // the new user may hold the permissions the old one lacked

@@ -15,6 +15,8 @@ cc_library(
     hdrs = ["errors.h"],
     visibility = ["//visibility:public"],
     deps = [
+        "//client/cpp/errors",
+        "//freighter/cpp:freighter",
         "//x/cpp/errors",
         "//x/cpp/lib",
     ],
