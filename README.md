@@ -47,7 +47,7 @@ monorepo. The following is a summary of each:
   Python, and TypeScript.
 - [Console](console) - A data-visualization and graphical control application for macOS
   and Windows.
-- [Documentation Site](docs/site) - The code for the Synnax documentation website.
+- [Documentation Site](site/docs) - The code for the Synnax documentation website.
 - [Technical Documentation](docs/tech) - Technical documentation such as RFCs and
   contribution guides.
 - [Drift](drift) - Redux state synchronization and declarative window management for

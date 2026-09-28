@@ -118,7 +118,7 @@
     "knip:arc": "knip --workspace arc/ts",
     "knip:client": "knip --workspace client/ts",
     "knip:console": "knip --workspace console",
-    "knip:docs": "knip --workspace docs/site",
+    "knip:docs": "knip --workspace site/docs",
     "knip:drift": "knip --workspace drift",
     "knip:freighter": "knip --workspace freighter/ts",
     "knip:media": "knip --workspace x/media",

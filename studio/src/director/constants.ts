@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type SpringParams } from "@/director/spring";
-import { type Tilt } from "@/film";
+import { type Format, type Tilt } from "@/film";
 
 /**
  * Tuning constants for the Screen Studio look. Sources: Screen Studio's landing
@@ -164,8 +164,11 @@ export const PACE_PER_ZOOM_S = 0.4;
 /** Default share the camera zooms in per second while it holds on a beat. */
 export const PUSH_PER_S = 0.01;
 
-/** Share of the frame width the whole window takes on a wide beat. */
-export const WINDOW_FILL = 1.3;
+/**
+ * Share of the frame width the whole window takes on a wide beat. A portrait frame crops
+ * the window's sides; a landscape frame holds all of it with a margin.
+ */
+export const WINDOW_FILL: Record<Format, number> = { portrait: 1.3, landscape: 0.72 };
 
 /** Share of the frame width a framed rect takes. */
 export const TARGET_FILL = 0.72;
