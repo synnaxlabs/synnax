@@ -87,59 +87,11 @@
     }
 }
 
-/* A sharp fill inside a milky, translucent twin of the same gradient, which reads as a
-   frosted ring. */
-.portal-mark {
-    display: flex;
-    flex-shrink: 0;
-    width: 4rem;
-    height: 4rem;
-    padding: 2px;
-    border-radius: var(--pluto-border-radius-small);
-    background: linear-gradient(
-        135deg,
-        oklch(0.8 0.09 var(--portal-mark-hue) / 0.7),
-        oklch(0.62 0.08 calc(var(--portal-mark-hue) + 70) / 0.7)
-    );
-    box-shadow: var(--pluto-shadow-lift);
-    user-select: none;
+.portal-account__trigger .pluto-avatar {
+    --pluto-avatar-size: round(5.6667rem, 1px);
 }
 
-.portal-mark__fill {
-    display: flex;
-    flex: 1;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    border-radius: calc(var(--pluto-border-radius-small) - 2px);
-    background: linear-gradient(
-        135deg,
-        oklch(0.62 0.17 var(--portal-mark-hue)),
-        oklch(0.42 0.16 calc(var(--portal-mark-hue) + 70))
-    );
-    color: oklch(0.9 0.08 calc(var(--portal-mark-hue) + 20));
-    font-size: 1.75rem;
-    font-weight: 500;
-    line-height: 1;
-    letter-spacing: -0.03em;
-
-    & img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-}
-
-.portal-bar__mark-trigger .portal-mark {
-    width: round(5.6667rem, 1px);
-    height: round(5.6667rem, 1px);
-
-    & .portal-mark__fill {
-        font-size: round(2.3333rem, 1px);
-    }
-}
-
-.pluto-btn.portal-bar__mark-trigger {
+.pluto-btn.portal-account__trigger {
     padding: 0;
 }
 
