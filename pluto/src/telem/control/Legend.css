@@ -24,7 +24,7 @@
 
         /* The person glyph ends 4 units above the bottom of its 24-unit view box. */
         .pluto-icon {
-            transform: translateY(calc(1em / 6));
+            transform: translateY(16.667%);
         }
     }
 
