@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { type IssueArgs, validate } from "@/server/license/issue";
+import { changes, type IssueArgs, validate } from "@/server/license/issue";
 import { LICENSE, NOW } from "@/server/license/testutil";
 
 const base: IssueArgs = {
@@ -65,5 +65,32 @@ describe("issue.validate", () => {
     );
     expect(() => validate({ ...base, nodes: 0 })).toThrow("Nodes must be");
     expect(() => validate({ ...base, channels: -1 })).toThrow("Channels must be");
+  });
+});
+
+describe("issue.changes", () => {
+  it("should list nothing when the terms are the same", () => {
+    expect(changes(LICENSE, { ...LICENSE })).toEqual({});
+  });
+
+  it("should list each changed field as its before and after", () => {
+    expect(changes(LICENSE, { ...LICENSE, nodes: 5, label: "Site B" })).toEqual({
+      nodes: { from: 2, to: 5 },
+      label: { from: LICENSE.label, to: "Site B" },
+    });
+  });
+
+  it("should read an expiry as a date the log can print", () => {
+    const later = new Date("2028-01-01T00:00:00Z");
+    expect(changes(LICENSE, { ...LICENSE, expiresAt: later })).toEqual({
+      expiresAt: {
+        from: LICENSE.expiresAt?.toISOString(),
+        to: later.toISOString(),
+      },
+    });
+  });
+
+  it("should ignore fields an amendment cannot alter", () => {
+    expect(changes(LICENSE, { ...LICENSE, revokedAt: NOW })).toEqual({});
   });
 });

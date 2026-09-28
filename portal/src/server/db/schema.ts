@@ -29,10 +29,12 @@ export type Term = (typeof TERMS)[number];
 
 export const EVENT_KINDS = [
   "issue",
+  "amend",
   "activate",
   "activate_denied",
   "token",
   "release",
+  "rename",
   "revoke",
   "expiry_notice",
 ] as const;
@@ -78,6 +80,8 @@ export const activation = pgTable(
       .notNull()
       .references(() => license.key),
     fingerprint: text("fingerprint").array().notNull(),
+    /** name is what the ledger calls the machine. */
+    name: text("name"),
     firstSeen: timestamp("first_seen", { withTimezone: true }).notNull().defaultNow(),
     lastSeen: timestamp("last_seen", { withTimezone: true }).notNull().defaultNow(),
     releasedAt: timestamp("released_at", { withTimezone: true }),

@@ -12,7 +12,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
 import { type License, type Organization } from "@/server/db/schema";
-import { channels, date, edition, statusOf, term } from "@/ui/format";
+import { channels, date, edition, statusOf, term, usable } from "@/ui/format";
 import { ActivateDialog } from "@/ui/licenses/ActivateDialog";
 import { StatusTag } from "@/ui/licenses/StatusTag";
 import { Empty, Page } from "@/ui/Page";
@@ -29,7 +29,7 @@ export interface LicensesProps {
   now: Date | string;
 }
 
-const COLUMNS = "minmax(0, 2fr) 10rem 10rem minmax(0, 1.4fr) 10rem 3rem";
+const COLUMNS = "minmax(0, 2fr) 14rem 10rem minmax(0, 1.4fr) 10rem 3rem";
 
 /** Licenses lists an organization's licenses, one row per license. */
 export const Licenses = ({
@@ -38,7 +38,7 @@ export const Licenses = ({
   now,
 }: LicensesProps): ReactElement => {
   const at = new Date(now);
-  const activatable = licenses.filter((l) => statusOf(l.license, at) === "active");
+  const activatable = licenses.filter((l) => usable(statusOf(l.license, at)));
   return (
     <Page
       title="Licenses"

@@ -8,11 +8,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Button } from "@synnaxlabs/lyra/button";
 import { Logo } from "@synnaxlabs/media";
 
 import Root from "@/layouts/Root.astro";
-import { Account } from "@/ui/Account";
-import { Sidebar } from "@/ui/Sidebar";
+import { scoped, type Tab, tabs } from "@/shell";
+import { Account } from "@/ui/shell/Account";
+import { Scope } from "@/ui/shell/Scope";
 import type { Organization } from "@/server/db/schema";
 import type { Session } from "@/server/session";
 import "@/styles/portal.css";
@@ -21,30 +23,54 @@ interface Props {
     title: string;
     session: Session;
     organizations: Organization[];
-    organization?: Organization | null;
+    /** scope is the organization the page acts for. */
+    scope: Organization;
+    /** tab is the active tab, or null for a page outside the tab row. */
+    tab: Tab | null;
 }
 
-const { title, session, organizations, organization = null } = Astro.props;
+const { title, session, organizations, scope, tab } = Astro.props;
+const option = (o: Organization) => ({
+    key: o.key,
+    name: o.kind === "personal" ? session.name : o.name,
+    personal: o.kind === "personal",
+});
 ---
 
 <Root title={title}>
     <header class="portal-bar">
-        <a href="/" aria-label="Synnax"><Logo variant="title" /></a>
+        <div class="portal-bar__start">
+            <a class="portal-bar__logo" href={scoped("/", scope)} aria-label="Synnax"
+                ><Logo variant="icon" /></a
+            >
+            <span class="portal-bar__separator" aria-hidden="true">/</span>
+            <Scope
+                client:load
+                options={organizations.map(option)}
+                selected={option(scope)}
+            />
+        </div>
         <div class="portal-bar__actions">
             <a class="portal-bar__link" href="https://docs.synnaxlabs.com">Docs</a>
             <Account client:load />
         </div>
     </header>
-    <nav class="portal-nav">
-        <Sidebar
-            client:load
-            path={Astro.url.pathname}
-            staff={session.staff}
-            teams={organizations
-                .filter((o) => o.kind === "team")
-                .map((o) => ({ key: o.key, name: o.name }))}
-            selected={organization?.kind === "team" ? organization.key : null}
-        />
+    <nav class="portal-tabs">
+        {
+            tabs(scope, session.staff).map((link) => (
+                <Button.Button
+                    variant="text"
+                    textColor={link.tab === tab ? 11 : 9}
+                    background={link.tab === tab ? 2 : undefined}
+                    weight={link.tab === tab ? 500 : 400}
+                    className="portal-tab"
+                    href={link.href}
+                    aria-current={link.tab === tab ? "page" : undefined}
+                >
+                    {link.label}
+                </Button.Button>
+            ))
+        }
     </nav>
     <main>
         <section class="portal">

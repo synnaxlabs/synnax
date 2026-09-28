@@ -22,16 +22,22 @@ import {
   type Organization,
 } from "@/server/db/schema";
 import { post, postFile, reload, save } from "@/ui/api";
+import { Fact, Facts } from "@/ui/Facts";
 import {
   channels,
   date,
   dateTime,
+  describeEvent,
   edition,
-  shortHash,
+  type LicenseStatus,
+  machineName,
   statusOf,
   term,
+  usable,
 } from "@/ui/format";
 import { ActivateDialog } from "@/ui/licenses/ActivateDialog";
+import { EditDialog } from "@/ui/licenses/EditDialog";
+import { RenameDialog } from "@/ui/licenses/RenameDialog";
 import { StatusTag } from "@/ui/licenses/StatusTag";
 import * as Modal from "@/ui/Modal";
 import { Empty, Page, Section } from "@/ui/Page";
@@ -43,6 +49,8 @@ export interface LicenseProps {
   organization: Organization;
   activations: Activation[];
   events: Event[];
+  /** actors is the name each Clerk user id in `events` reads as. */
+  actors: Record<string, string>;
   staff: boolean;
   now: Date | string;
 }
@@ -55,12 +63,15 @@ export const License = ({
   organization,
   activations,
   events,
+  actors,
   staff,
   now,
 }: LicenseProps): ReactElement => {
   const at = new Date(now);
   const status = statusOf(lic, at);
   const held = activations.filter((a) => a.releasedAt == null);
+  const released = activations.filter((a) => a.releasedAt != null);
+  const machines = Object.fromEntries(activations.map((a) => [a.key, machineName(a)]));
   return (
     <Page
       title={lic.label || "Untitled license"}
@@ -75,13 +86,11 @@ export const License = ({
       actions={
         <>
           {staff && <StaffActions license={lic} status={status} />}
-          {status === "active" && (
-            <ActivateDialog licenseKey={lic.key} label={lic.label} />
-          )}
+          {usable(status) && <ActivateDialog licenseKey={lic.key} label={lic.label} />}
         </>
       }
     >
-      <Facts license={lic} held={held.length} />
+      <LicenseFacts license={lic} held={held.length} />
       <Section title="Machines">
         {held.length === 0 ? (
           <Empty
@@ -91,12 +100,12 @@ export const License = ({
         ) : (
           <Table
             columns={MACHINE_COLUMNS}
-            head={["Host", "First seen", "Last seen", ""]}
+            head={["Machine", "First seen", "Last seen", ""]}
           >
             {held.map((a) => (
               <Row key={a.key} columns={MACHINE_COLUMNS}>
-                <Text.Text level="p" variant="code" overflow="ellipsis">
-                  {shortHash(a.fingerprint)}
+                <Text.Text level="p" overflow="ellipsis">
+                  {machineName(a)}
                 </Text.Text>
                 <Text.Text level="p" color={10}>
                   {date(a.firstSeen)}
@@ -112,6 +121,31 @@ export const License = ({
           </Table>
         )}
       </Section>
+      {released.length > 0 && (
+        <Section title="Released">
+          <Table
+            columns={MACHINE_COLUMNS}
+            head={["Machine", "First seen", "Last seen", "Released"]}
+          >
+            {released.map((a) => (
+              <Row key={a.key} columns={MACHINE_COLUMNS}>
+                <Text.Text level="p" color={9} overflow="ellipsis">
+                  {machineName(a)}
+                </Text.Text>
+                <Text.Text level="p" color={9}>
+                  {date(a.firstSeen)}
+                </Text.Text>
+                <Text.Text level="p" color={9}>
+                  {date(a.lastSeen)}
+                </Text.Text>
+                <Text.Text level="p" color={9}>
+                  {date(a.releasedAt)}
+                </Text.Text>
+              </Row>
+            ))}
+          </Table>
+        </Section>
+      )}
       <Section title="Activity">
         {events.length === 0 ? (
           <Empty message="Nothing yet" />
@@ -123,7 +157,7 @@ export const License = ({
                   {dateTime(e.at)}
                 </Text.Text>
                 <Text.Text level="small" color={10}>
-                  {describe(e)}
+                  {describeEvent(e, { machines, actors })}
                 </Text.Text>
               </Flex.Box>
             ))}
@@ -134,61 +168,23 @@ export const License = ({
   );
 };
 
-const Facts = ({
+const LicenseFacts = ({
   license: lic,
   held,
 }: {
   license: LicenseRecord;
   held: number;
 }): ReactElement => (
-  <Flex.Box bordered rounded background={1} style={{ padding: "3rem 4rem" }}>
-    <Flex.Box className="portal-facts" full="x">
-      <Fact label="Edition" value={edition(lic.edition)} />
-      <Fact label="Term" value={term(lic)} />
-      <Fact label="Machines" value={`${held} of ${lic.nodes} seats in use`} />
-      <Fact label="Channels per Core" value={channels(lic.channels)} />
-      <Fact label="Issued" value={date(lic.issuedAt)} />
-      {lic.revokedAt != null && <Fact label="Revoked" value={date(lic.revokedAt)} />}
-      <Fact label="Key" value={lic.key} code />
-    </Flex.Box>
-  </Flex.Box>
+  <Facts>
+    <Fact label="Edition" value={edition(lic.edition)} />
+    <Fact label="Term" value={term(lic)} />
+    <Fact label="Machines" value={`${held} of ${lic.nodes} seats in use`} />
+    <Fact label="Channels per Core" value={channels(lic.channels)} />
+    <Fact label="Issued" value={date(lic.issuedAt)} />
+    {lic.revokedAt != null && <Fact label="Revoked" value={date(lic.revokedAt)} />}
+    <Fact label="Key" value={lic.key} code />
+  </Facts>
 );
-
-const Fact = ({
-  label,
-  value,
-  code = false,
-}: {
-  label: string;
-  value: string;
-  code?: boolean;
-}): ReactElement => (
-  <Flex.Box y gap="tiny" style={{ minWidth: 0 }}>
-    <Text.Text level="small" color={9}>
-      {label}
-    </Text.Text>
-    <Text.Text level="p" variant={code ? "code" : "prose"} overflow="ellipsis">
-      {value}
-    </Text.Text>
-  </Flex.Box>
-);
-
-const EVENT_LABELS: Record<Event["kind"], string> = {
-  issue: "License issued",
-  activate: "Machine activated",
-  activate_denied: "Activation denied",
-  token: "Token downloaded",
-  release: "Seat released",
-  revoke: "License revoked",
-  expiry_notice: "Expiry notice sent",
-};
-
-const describe = (e: Event): string => {
-  const label = EVENT_LABELS[e.kind];
-  const detail = e.detail as Record<string, unknown>;
-  const reason = typeof detail.reason === "string" ? ` (${detail.reason})` : "";
-  return `${label}${reason}`;
-};
 
 interface MachineMenuProps {
   activation: Activation;
@@ -197,6 +193,7 @@ interface MachineMenuProps {
 
 const MachineMenu = ({ activation, label }: MachineMenuProps): ReactElement => {
   const [releasing, setReleasing] = useState(false);
+  const [renaming, setRenaming] = useState(false);
   const download = useAction(
     useCallback(async () => {
       const blob = await postFile(`/api/activations/${activation.key}/token`);
@@ -204,6 +201,7 @@ const MachineMenu = ({ activation, label }: MachineMenuProps): ReactElement => {
     }, [activation.key, label]),
   );
   const release = useCallback(() => setReleasing(true), []);
+  const rename = useCallback(() => setRenaming(true), []);
   return (
     <>
       <Dialog.Frame variant="floating" location={{ x: "right", y: "bottom" }}>
@@ -216,10 +214,17 @@ const MachineMenu = ({ activation, label }: MachineMenuProps): ReactElement => {
           <Icon.KebabMenu />
         </Dialog.Trigger>
         <Dialog.Dialog bordered rounded background={1} style={{ padding: "1rem" }}>
-          <Menu.Menu level="small" onChange={{ download: download.run, release }}>
+          <Menu.Menu
+            level="small"
+            onChange={{ download: download.run, rename, release }}
+          >
             <Menu.Item itemKey="download">
               <Icon.Download />
               Download token
+            </Menu.Item>
+            <Menu.Item itemKey="rename">
+              <Icon.Rename />
+              Rename
             </Menu.Item>
             <Menu.Item itemKey="release" status="error">
               <Icon.Release />
@@ -236,6 +241,11 @@ const MachineMenu = ({ activation, label }: MachineMenuProps): ReactElement => {
       >
         <ReleaseContent activation={activation} />
       </Modal.Frame>
+      <RenameDialog
+        activation={activation}
+        visible={renaming}
+        onVisibleChange={setRenaming}
+      />
     </>
   );
 };
@@ -253,7 +263,7 @@ const ReleaseContent = ({ activation }: { activation: Activation }): ReactElemen
     <>
       <Modal.Body gap="small">
         <Text.Text level="h4" weight={450}>
-          Release the seat held by {shortHash(activation.fingerprint)}?
+          Release the seat held by {machineName(activation)}?
         </Text.Text>
         <Text.Text level="p" color={10}>
           The Core on that machine loses its license at its next check. Activate it
@@ -277,7 +287,7 @@ const ReleaseContent = ({ activation }: { activation: Activation }): ReactElemen
 
 interface StaffActionsProps {
   license: LicenseRecord;
-  status: ReturnType<typeof statusOf>;
+  status: LicenseStatus;
 }
 
 const StaffActions = ({ license: lic, status }: StaffActionsProps): ReactElement => {
@@ -289,7 +299,8 @@ const StaffActions = ({ license: lic, status }: StaffActionsProps): ReactElement
   );
   return (
     <>
-      {status === "active" && (
+      {status !== "revoked" && <EditDialog license={lic} />}
+      {usable(status) && (
         <Button.Button
           variant="outlined"
           onClick={floating.run}

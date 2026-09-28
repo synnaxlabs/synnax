@@ -1,0 +1,1 @@
+ALTER TABLE "activation" ADD COLUMN "name" text;

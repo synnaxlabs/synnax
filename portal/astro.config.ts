@@ -12,6 +12,8 @@ import vercel from "@astrojs/vercel";
 import clerk from "@clerk/astro";
 import { defineConfig, envField } from "astro/config";
 
+import { layer } from "./src/util/layer";
+
 const secret = envField.string({ context: "server", access: "secret" });
 
 export default defineConfig({
@@ -19,7 +21,12 @@ export default defineConfig({
   output: "server",
   adapter: vercel(),
   // Lyra is ESM with CSS imports, which Node cannot load; Vite bundles it for SSR.
-  vite: { ssr: { noExternal: ["@synnaxlabs/lyra"] } },
+  vite: {
+    ssr: { noExternal: ["@synnaxlabs/lyra"] },
+    // Lyra's CSS sits in a lower cascade layer, so portal styles override it without
+    // out-specifying its selectors.
+    css: { postcss: { plugins: [layer(/[\\/]lyra[\\/]/, "pluto")] } },
+  },
   env: {
     schema: {
       DATABASE_URL: secret,

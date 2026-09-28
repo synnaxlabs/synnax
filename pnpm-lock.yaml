@@ -1411,6 +1411,9 @@ importers:
       jsdom:
         specifier: 'catalog:'
         version: 30.0.1
+      postcss:
+        specifier: 'catalog:'
+        version: 8.5.26
       stylelint:
         specifier: 'catalog:'
         version: 17.14.1(supports-color@10.2.2)(typescript@6.0.3)

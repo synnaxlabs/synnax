@@ -10,19 +10,19 @@
 
 import Portal from "@/layouts/Portal.astro";
 import { loadScoped } from "@/page";
-import { Settings } from "@/ui/settings/Settings";
+import { Members } from "@/ui/members/Members";
 
-const loaded = await loadScoped(Astro);
+const loaded = await loadScoped(Astro, "team");
 if (loaded instanceof Response) return loaded;
 const { session, organizations, scope } = loaded;
 ---
 
 <Portal
-    title="Settings"
+    title="Members"
     session={session}
     organizations={organizations}
     scope={scope}
-    tab={null}
+    tab="members"
 >
-    <Settings client:load name={session.name} email={session.email} />
+    <Members client:load organization={scope} />
 </Portal>

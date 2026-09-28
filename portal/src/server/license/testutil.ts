@@ -39,6 +39,7 @@ export const activationOf = (
   key: crypto.randomUUID(),
   license: LICENSE.key,
   fingerprint,
+  name: null,
   firstSeen: NOW,
   lastSeen: NOW,
   releasedAt: null,

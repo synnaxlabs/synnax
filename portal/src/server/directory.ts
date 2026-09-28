@@ -33,6 +33,27 @@ export const listTeams = async (context: APIContext): Promise<Listed[]> => {
   }
 };
 
+/** MAX_USERS is how many ids Clerk resolves in one call. */
+const MAX_USERS = 100;
+
+/**
+ * namesFor resolves Clerk user ids to the name each one reads as. An id Clerk does not
+ * know is left out.
+ */
+export const namesFor = async (
+  context: APIContext,
+  userIDs: string[],
+): Promise<Record<string, string>> => {
+  if (userIDs.length === 0) return {};
+  const { data } = await clerkClient(context).users.getUserList({
+    userId: userIDs.slice(0, MAX_USERS),
+    limit: MAX_USERS,
+  });
+  return Object.fromEntries(
+    data.map((u) => [u.id, u.fullName ?? u.primaryEmailAddress?.emailAddress ?? u.id]),
+  );
+};
+
 /**
  * adoptTeam mirrors a Clerk organization into the portal's tables and returns the
  * row, so a license can be issued to an organization the webhook has not delivered.

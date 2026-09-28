@@ -10,24 +10,28 @@
 
 import Portal from "@/layouts/Portal.astro";
 import { licenseFor } from "@/access";
-import { failure, load } from "@/page";
+import { failure, loadScoped } from "@/page";
 import { Page } from "@/ui/Page";
 import { License } from "@/ui/licenses/License";
+import { namesFor } from "@/server/directory";
 import { listForLicense } from "@/server/event";
-import { organizationsFor } from "@/server/organization";
 
-const loaded = await load(Astro);
+const loaded = await loadScoped(Astro);
 if (loaded instanceof Response) return loaded;
-const { portal, session } = loaded;
-
-const organizations = await organizationsFor(portal.store, session);
+const { portal, session, organizations, scope } = loaded;
 
 let error: string | undefined;
 let view: Awaited<ReturnType<typeof licenseFor>> | undefined;
 let events: Awaited<ReturnType<typeof listForLicense>> = [];
+let actors: Record<string, string> = {};
 try {
     view = await licenseFor(portal, session, Astro.params.key ?? "");
     events = await listForLicense(portal.store, view.license.key);
+    const machines = new Set(view.activations.map((a) => a.key));
+    actors = await namesFor(
+        Astro,
+        [...new Set(events.map((e) => e.actor))].filter((a) => !machines.has(a)),
+    );
 } catch (err) {
     const f = failure(err);
     Astro.response.status = f.status;
@@ -39,7 +43,8 @@ try {
     title={view?.license.label || "License"}
     session={session}
     organizations={organizations}
-    organization={view?.organization}
+    scope={view?.organization ?? scope}
+    tab={view == null ? null : "licenses"}
 >
     {
         view == null ? (
@@ -51,6 +56,7 @@ try {
                 organization={view.organization}
                 activations={view.activations}
                 events={events}
+                actors={actors}
                 staff={session.staff}
                 now={portal.now()}
             />

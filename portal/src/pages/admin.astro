@@ -8,36 +8,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { desc, eq } from "drizzle-orm";
 import Portal from "@/layouts/Portal.astro";
 import { requireStaff } from "@/access";
-import { failure, load } from "@/page";
+import { failure, loadScoped } from "@/page";
 import { Page } from "@/ui/Page";
-import { StaffLicenses } from "@/ui/staff/Licenses";
-import { license, organization } from "@/server/db/schema";
+import { Licenses } from "@/ui/admin/Licenses";
+import { type Owned, listAll } from "@/server/license/list";
 import { type Listed, listTeams } from "@/server/directory";
-import { organizationsFor } from "@/server/organization";
 
-const loaded = await load(Astro);
+const loaded = await loadScoped(Astro);
 if (loaded instanceof Response) return loaded;
-const { portal, session } = loaded;
-
-const organizations = await organizationsFor(portal.store, session);
+const { portal, session, organizations, scope } = loaded;
 
 let error: string | undefined;
 let teams: Listed[] = [];
-let licenses: {
-    license: typeof license.$inferSelect;
-    organization: typeof organization.$inferSelect;
-}[] = [];
+let licenses: Owned[] = [];
 try {
     requireStaff(session);
     teams = await listTeams(Astro);
-    licenses = await portal.store.query
-        .select({ license, organization })
-        .from(license)
-        .innerJoin(organization, eq(license.organization, organization.key))
-        .orderBy(desc(license.issuedAt));
+    licenses = await listAll(portal.store.query);
 } catch (err) {
     const f = failure(err);
     Astro.response.status = f.status;
@@ -45,12 +34,18 @@ try {
 }
 ---
 
-<Portal title="All licenses" session={session} organizations={organizations}>
+<Portal
+    title="Admin"
+    session={session}
+    organizations={organizations}
+    scope={scope}
+    tab="admin"
+>
     {
         error != null ? (
             <Page client:load title="All licenses" error={error} />
         ) : (
-            <StaffLicenses
+            <Licenses
                 client:load
                 teams={teams}
                 licenses={licenses}

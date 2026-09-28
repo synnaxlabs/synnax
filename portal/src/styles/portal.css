@@ -42,35 +42,44 @@
     --pluto-height-small: 4rem;
 }
 
-body {
-    display: grid;
-    grid-template-columns: 45rem minmax(0, 1fr);
-    grid-template-rows: auto 1fr;
-}
-
 .portal-bar {
-    grid-column: 1 / -1;
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 3rem;
     height: 8rem;
     padding: 0 4rem;
-    border-bottom: var(--pluto-border);
-
-    & svg {
-        height: 3.5rem;
-        width: auto;
-    }
 }
 
+.portal-bar__logo svg {
+    height: 3.5rem;
+    width: auto;
+}
+
+.portal-bar__start,
 .portal-bar__actions {
     display: flex;
     align-items: center;
+    min-width: 0;
+}
+
+.portal-bar__start {
+    gap: 2rem;
+}
+
+.portal-bar__actions {
     gap: 3rem;
+}
+
+.portal-bar__separator {
+    color: var(--pluto-gray-l7);
+    font-size: 3rem;
+    font-weight: 300;
 }
 
 .portal-bar__link {
     color: var(--pluto-gray-l9);
+    font-size: var(--pluto-p-size);
     text-decoration: none;
 
     &:hover {
@@ -78,39 +87,113 @@ body {
     }
 }
 
-.account-button {
-    text-decoration: none;
+/* A sharp fill inside a milky, translucent twin of the same gradient, which reads as a
+   frosted ring. */
+.portal-mark {
+    display: flex;
+    flex-shrink: 0;
+    width: 4rem;
+    height: 4rem;
+    padding: 2px;
+    border-radius: var(--pluto-border-radius-small);
+    background: linear-gradient(
+        135deg,
+        oklch(0.8 0.09 var(--portal-mark-hue) / 0.7),
+        oklch(0.62 0.08 calc(var(--portal-mark-hue) + 70) / 0.7)
+    );
+    box-shadow: var(--pluto-shadow-lift);
+    user-select: none;
 }
 
-.account-avatar {
-    border-radius: 50%;
+.portal-mark__fill {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    justify-content: center;
     overflow: hidden;
-    color: var(--pluto-gray-l0);
+    border-radius: calc(var(--pluto-border-radius-small) - 2px);
+    background: linear-gradient(
+        135deg,
+        oklch(0.62 0.17 var(--portal-mark-hue)),
+        oklch(0.42 0.16 calc(var(--portal-mark-hue) + 70))
+    );
+    color: oklch(0.9 0.08 calc(var(--portal-mark-hue) + 20));
+    font-size: 1.75rem;
     font-weight: 500;
+    line-height: 1;
+    letter-spacing: -0.03em;
+
+    & img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
 }
 
-.account-avatar__image {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+.portal-bar__mark-trigger .portal-mark {
+    width: round(5.6667rem, 1px);
+    height: round(5.6667rem, 1px);
+
+    & .portal-mark__fill {
+        font-size: round(2.3333rem, 1px);
+    }
 }
 
-.account-menu {
+.pluto-btn.portal-bar__mark-trigger {
+    padding: 0;
+}
+
+.portal-scope {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    min-width: 0;
+}
+
+/* The left inset matches the space above and below the mark, so the hover fill rims it
+   evenly. */
+.pluto-btn.portal-scope {
+    padding: 0 1.5rem 0 0.75rem;
+}
+
+.portal-scope__caret {
+    width: 2rem;
+    height: 2rem;
+    color: var(--pluto-gray-l8);
+}
+
+.pluto-dialog__dialog.portal-scope__dialog {
+    min-width: 40rem;
+    padding: 0.5rem;
+    border: var(--pluto-border);
+    box-shadow: var(--pluto-shadow-overlay);
+}
+
+.portal-scope__item {
+    gap: 1.5rem;
+}
+
+/* Phones scroll the tab row sideways instead of wrapping it. */
+.portal-tabs {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0 3rem 1.5rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    border-bottom: var(--pluto-border);
+}
+
+.portal-tab {
+    flex-shrink: 0;
+
+    &,
+    &:hover {
+        text-decoration: none;
+    }
+}
+
+.portal-menu {
     --pluto-shadow-v1: var(--pluto-shadow-overlay);
-}
-
-.portal-nav {
-    padding: 4rem 2rem 0 3rem;
-    background: var(--pluto-gray-l2-20);
-    border-right: var(--pluto-border);
-
-    & .portal-sidebar__link {
-        justify-content: flex-start;
-    }
-
-    & .portal-sidebar__link .pluto-text {
-        font-size: var(--pluto-p-size);
-    }
 }
 
 main {
@@ -153,7 +236,7 @@ section.portal {
 .portal-list__row {
     display: grid;
     align-items: center;
-    gap: 3rem;
+    gap: 4rem;
     width: 100%;
     min-height: 6rem;
 }
@@ -173,10 +256,6 @@ section.portal {
     gap: 3rem 4rem;
 }
 
-body:has(> .portal-auth-page) {
-    display: block;
-}
-
 section.portal-auth-page {
     display: flex;
     flex-direction: column;
@@ -190,19 +269,40 @@ section.portal-auth-page {
     margin: 8rem auto 12rem;
 }
 
+.portal-step {
+    padding: 3rem 4rem;
+
+    & + & {
+        border-top: var(--pluto-border);
+    }
+}
+
+.portal-step__number {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 5rem;
+    height: 5rem;
+    flex-shrink: 0;
+    border: var(--pluto-border);
+    border-radius: 50%;
+}
+
 .portal-modal {
     width: min(96rem, 100%);
 }
 
 @media (width <= 800px) {
-    body {
-        grid-template-columns: minmax(0, 1fr);
+    .portal-bar {
+        padding: 0 2rem;
     }
 
-    .portal-nav {
-        padding: 2rem 2rem 0;
-        border-right: none;
-        border-bottom: var(--pluto-border);
+    .portal-bar__actions {
+        gap: 2rem;
+    }
+
+    .portal-tabs {
+        padding: 0 1rem;
     }
 
     section.portal {

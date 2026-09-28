@@ -11,55 +11,20 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
-import { Text } from "@synnaxlabs/lyra/text";
 import { navigate } from "astro:transitions/client";
 import { type ReactElement, useCallback } from "react";
 import { z } from "zod";
 
-import { type Term } from "@/server/db/schema";
 import { type Listed } from "@/server/directory";
 import { post } from "@/ui/api";
+import { checkTerms, TermsFields, termsSchema, ZERO_TERMS } from "@/ui/licenses/Terms";
 import * as Modal from "@/ui/Modal";
 import { useAction } from "@/ui/useAction";
 
-const VERSION_PATTERN = /^\d+\.\d+$/;
-
-const schema = z
-  .object({
-    organization: z.string().min(1, "Choose an organization"),
-    label: z.string().trim().min(1, "Give the license a label"),
-    term: z.enum(["subscription", "perpetual"]),
-    nodes: z.number().int().min(1, "At least one machine"),
-    channels: z.number().int().min(0, "0 for unlimited"),
-    expiresAt: z.string(),
-    maxVersion: z.string().trim(),
-  })
-  .check((ctx) => {
-    const v = ctx.value;
-    if (v.term === "subscription" && v.expiresAt === "")
-      ctx.issues.push({
-        code: "custom",
-        message: "A subscription needs an expiry date",
-        path: ["expiresAt"],
-        input: v.expiresAt,
-      });
-    if (v.term === "perpetual" && v.maxVersion === "")
-      ctx.issues.push({
-        code: "custom",
-        message: "A perpetual license needs a maximum version",
-        path: ["maxVersion"],
-        input: v.maxVersion,
-      });
-    if (v.maxVersion !== "" && !VERSION_PATTERN.test(v.maxVersion))
-      ctx.issues.push({
-        code: "custom",
-        message: "Use major.minor, like 0.62",
-        path: ["maxVersion"],
-        input: v.maxVersion,
-      });
-  });
+const schema = termsSchema
+  .extend({ organization: z.string().min(1, "Choose an organization") })
+  .check(checkTerms);
 
 export interface IssueDialogProps {
   /** teams are the organizations in Clerk. Create one there first. */
@@ -93,15 +58,7 @@ const Content = ({ teams }: IssueDialogProps): ReactElement => {
     name: t.name,
   }));
   const methods = Form.use({
-    values: {
-      organization: entries[0]?.key ?? "",
-      label: "",
-      term: "subscription",
-      nodes: 1,
-      channels: 0,
-      expiresAt: "",
-      maxVersion: "",
-    },
+    values: { ...ZERO_TERMS, organization: entries[0]?.key ?? "" },
     schema,
   });
   const action = useAction(
@@ -129,41 +86,7 @@ const Content = ({ teams }: IssueDialogProps): ReactElement => {
             </Select.Simple>
           )}
         </Form.Field>
-        <Form.TextField
-          path="label"
-          label="Label"
-          inputProps={{ autoFocus: true, placeholder: "Test stand, site B" }}
-        />
-        <Form.Field<Term> path="term" label="Term">
-          {(p) => (
-            <Select.Simple<Term> {...p} resourceName="Term">
-              <Select.Item itemKey="subscription">Subscription</Select.Item>
-              <Select.Item itemKey="perpetual">Perpetual</Select.Item>
-            </Select.Simple>
-          )}
-        </Form.Field>
-        <Form.NumericField path="nodes" label="Machines that may activate" />
-        <Form.NumericField
-          path="channels"
-          label="Channel cap per Core"
-          inputProps={{ placeholder: "0 for unlimited" }}
-        />
-        <Form.Field<string>
-          path="expiresAt"
-          label="Expires (UTC)"
-          visible={(_, ctx) => ctx.get<Term>("term")?.value === "subscription"}
-        >
-          {(p) => <Input.Text {...p} type="date" />}
-        </Form.Field>
-        <Form.TextField
-          path="maxVersion"
-          label="Maximum Core version"
-          inputProps={{ placeholder: "0.62" }}
-        />
-        <Text.Text level="small" color={9}>
-          Required on a perpetual license. On a subscription it is the version the
-          license keeps covering after it expires.
-        </Text.Text>
+        <TermsFields />
       </Modal.Body>
       <Modal.Footer error={action.error}>
         <Modal.Cancel />

@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Avatar } from "@synnaxlabs/lyra/avatar";
-import { Button } from "@synnaxlabs/lyra/button";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -16,11 +14,9 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useCallback } from "react";
 
 import { useClerk, useUser } from "@/ui/clerk";
+import { Mark } from "@/ui/shell/Mark";
 
-/**
- * Account is the header control: a sign-in link when signed out, an avatar menu when
- * signed in.
- */
+/** Account is the avatar menu in the portal bar: the user's settings and sign out. */
 export const Account = (): ReactElement | null => {
   const clerk = useClerk();
   const user = useUser();
@@ -31,35 +27,23 @@ export const Account = (): ReactElement | null => {
       return Promise.resolve();
     });
   }, [clerk]);
-  if (user === undefined) return null;
-  if (user === null)
-    return (
-      <Button.Button className="account-button" variant="outlined" href="/sign-in">
-        Sign in
-      </Button.Button>
-    );
+  if (user == null) return null;
   const name = user.fullName ?? user.primaryEmailAddress?.emailAddress ?? "";
   return (
     <Dialog.Frame variant="floating" location={{ x: "right", y: "bottom" }}>
       <Dialog.Trigger
         variant="text"
         hideCaret
-        square
         aria-label="Account menu"
-        className="account-button account-avatar"
-        style={user.hasImage ? undefined : { background: Avatar.gradient(name) }}
+        className="portal-bar__mark-trigger"
       >
-        {user.hasImage ? (
-          <img className="account-avatar__image" src={user.imageUrl} alt="" />
-        ) : (
-          name.slice(0, 1).toUpperCase()
-        )}
+        <Mark name={name} image={user.hasImage ? user.imageUrl : undefined} />
       </Dialog.Trigger>
       <Dialog.Dialog
         bordered
         rounded
         background={1}
-        className="account-menu"
+        className="portal-menu"
         style={{ padding: "1rem", minWidth: "24rem" }}
       >
         <Text.Text level="small" color={9} style={{ padding: "1rem 2rem" }}>
@@ -68,18 +52,13 @@ export const Account = (): ReactElement | null => {
         <Menu.Menu
           level="small"
           onChange={{
-            portal: () => window.location.assign("/"),
-            account: () => window.location.assign("/settings"),
+            settings: () => window.location.assign("/settings"),
             signOut,
           }}
         >
-          <Menu.Item itemKey="portal">
-            <Icon.Access />
-            Licenses
-          </Menu.Item>
-          <Menu.Item itemKey="account">
-            <Icon.User />
-            Account
+          <Menu.Item itemKey="settings">
+            <Icon.Settings />
+            Settings
           </Menu.Item>
           <Menu.Divider />
           <Menu.Item itemKey="signOut">
