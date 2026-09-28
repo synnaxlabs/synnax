@@ -36,13 +36,14 @@ const LINKED: Session.Account.SliceState = {
 const DESKTOP_LICENSE: license.License = {
   jti: "0b4d1e6e-7a4b-4d2f-9c8e-1f2a3b4c5d6e",
   iat: 0,
-  v: 1,
-  org: "6e5d4c3b-2a1f-4e8c-9d2f-4b7a6e1d0c9b",
-  ed: "d",
+  claimsVersion: 1,
+  organization: "6e5d4c3b-2a1f-4e8c-9d2f-4b7a6e1d0c9b",
+  edition: "d",
   fingerprints: ["aa"],
   fingerprintScheme: 1,
-  n: 1,
-  ch: 0,
+  machines: 1,
+  channels: 0,
+  required: [],
 };
 
 const expiringIn = (span: TimeSpan): license.License => ({
@@ -52,7 +53,7 @@ const expiringIn = (span: TimeSpan): license.License => ({
 
 const infoOf = (lic: license.License | undefined): license.Info => ({
   state: lic == null ? "missing" : "ok",
-  warning: undefined,
+  warning: "",
   fingerprint: ["aa"],
   license: lic,
 });

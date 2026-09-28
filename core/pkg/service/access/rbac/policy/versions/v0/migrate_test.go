@@ -18,7 +18,6 @@ import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/versions/v0"
 	access "github.com/synnaxlabs/synnax/pkg/service/access/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	ontologyv0 "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	gorptestutil "github.com/synnaxlabs/x/gorp/testutil"
@@ -47,11 +46,11 @@ var _ = Describe("Migration", func() {
 		})).To(Succeed())
 	}
 
-	newLegacy := func(subjects ...ontologyv0.ID) v0.Policy {
+	newLegacy := func(subjects ...ontology.ID) v0.Policy {
 		return v0.Policy{
 			Key:      uuid.New(),
 			Subjects: subjects,
-			Objects:  []ontologyv0.ID{{Type: "schematic"}},
+			Objects:  []ontology.ID{{Type: "schematic"}},
 			Actions:  []access.Action{"all"},
 		}
 	}
@@ -59,19 +58,13 @@ var _ = Describe("Migration", func() {
 	It(
 		"Should extract legacy policies into the KV mapping and delete them",
 		func(ctx SpecContext) {
-			u1 := ontologyv0.ID{
-				Type: ontologyv0.ResourceTypeUser,
-				Key:  uuid.New().String(),
-			}
-			u2 := ontologyv0.ID{
-				Type: ontologyv0.ResourceTypeUser,
-				Key:  uuid.New().String(),
-			}
+			u1 := ontology.ID{Type: ontology.ResourceTypeUser, Key: uuid.New().String()}
+			u2 := ontology.ID{Type: ontology.ResourceTypeUser, Key: uuid.New().String()}
 			shared := newLegacy(u1, u2)
 			single := newLegacy(u1)
 			modern := v0.Policy{
 				Key:     uuid.New(),
-				Objects: []ontologyv0.ID{{Type: "label"}},
+				Objects: []ontology.ID{{Type: "label"}},
 				Actions: []access.Action{"retrieve"},
 			}
 			Expect(gorp.NewCreate[uuid.UUID, v0.Policy]().
@@ -110,9 +103,7 @@ var _ = Describe("Migration", func() {
 			Expect(db.Set(
 				ctx, []byte("sy_rbac_migration_performed"), []byte{1},
 			)).To(Succeed())
-			legacy := newLegacy(
-				ontologyv0.ID{Type: ontologyv0.ResourceTypeUser, Key: "u1"},
-			)
+			legacy := newLegacy(ontology.ID{Type: ontology.ResourceTypeUser, Key: "u1"})
 			Expect(gorp.NewCreate[uuid.UUID, v0.Policy]().
 				Entry(&legacy).Exec(ctx, legacyDB)).To(Succeed())
 			run(ctx)

@@ -22,29 +22,27 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/security"
 	secmock "github.com/synnaxlabs/synnax/pkg/security/mock"
 	"github.com/synnaxlabs/synnax/pkg/service"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/license"
+	"github.com/synnaxlabs/synnax/pkg/service/license"
 )
 
-// KeyID is the anchor identifier Keys signs under.
-const KeyID = "test"
+const keyID = "test"
 
 // Keys is a throwaway signing key and the anchor set that verifies it.
 type Keys struct {
-	// Private signs licenses.
-	Private ed25519.PrivateKey
-	// Anchors holds the matching public key under KeyID.
+	private ed25519.PrivateKey
+	// Anchors holds the matching public key.
 	Anchors license.Anchors
 }
 
 // NewKeys generates a fresh signing key.
 func NewKeys() Keys {
 	pub, priv := lo.Must2(ed25519.GenerateKey(rand.Reader))
-	return Keys{Private: priv, Anchors: license.Anchors{KeyID: pub}}
+	return Keys{private: priv, Anchors: license.Anchors{keyID: pub}}
 }
 
-// Sign signs g under the key.
-func (k Keys) Sign(g license.License) string {
-	return lo.Must(license.Sign(k.Private, KeyID, g))
+// Sign signs lic under the key.
+func (k Keys) Sign(lic license.License) string {
+	return lo.Must(license.Sign(k.private, keyID, lic))
 }
 
 // NewLicense returns a license that floats between machines and lasts fifty years.
@@ -55,11 +53,11 @@ func NewLicense() license.License {
 		Jti:               uuid.New(),
 		Iat:               uint32(now.Unix()),
 		Exp:               &exp,
-		V:                 1,
-		Org:               uuid.New(),
-		Ed:                "e",
+		ClaimsVersion:     1,
+		Organization:      uuid.New(),
+		Edition:           "e",
 		FingerprintScheme: 1,
-		N:                 1,
+		Machines:          1,
 	}
 }
 

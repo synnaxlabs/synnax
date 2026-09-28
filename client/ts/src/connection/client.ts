@@ -33,15 +33,11 @@ import {
   type Event,
   type Handle,
   type Info,
+  isSelfHealing,
   reduce,
   type Status,
 } from "@/connection/status";
-import {
-  AccessDeniedError,
-  DisconnectedError,
-  errorsMiddleware,
-  MissingLicenseError,
-} from "@/errors";
+import { AccessDeniedError, DisconnectedError, errorsMiddleware } from "@/errors";
 import { license } from "@/license";
 import { Transport } from "@/transport";
 
@@ -124,11 +120,7 @@ export const modeFor = ({ variant, details }: Status): Mode => {
     case "disabled":
       return "idle";
     case "error":
-      // unreachable and unlicensed keep checking beneath the error and
-      // self-heal; auth and incompatibility rest until the user acts
-      return details.reason === "unreachable" || details.reason === "unlicensed"
-        ? "checking"
-        : "idle";
+      return isSelfHealing(details.reason) ? "checking" : "idle";
     default:
       return "checking";
   }
@@ -332,8 +324,7 @@ export class Client implements Handle {
       ) {
         if (details.reason === "unreachable")
           throw new DisconnectedError(`Cannot reach cluster at ${this.address}`);
-        if (details.reason === "unlicensed")
-          throw details.error ?? new MissingLicenseError();
+        if (details.reason === "unlicensed") throw details.error;
       }
       return await next(ctx);
     };

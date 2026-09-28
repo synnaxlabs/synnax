@@ -50,8 +50,6 @@ x::errors::Error Config::load_remote(x::breaker::Breaker &breaker) {
         res = client.racks.create(host_name);
     }
     const x::errors::Error err = res.second;
-    // While the Core is unreachable or unlicensed, keep trying according to the
-    // breaker retry logic.
     if (errors::core_unavailable(err) && breaker.wait(err.message()))
         return this->load_remote(breaker);
 

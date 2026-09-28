@@ -71,6 +71,7 @@ jobs:
       protobuf: ${{ steps.filter.outputs.protobuf }}
       scripts: ${{ steps.filter.outputs.scripts }}
       soem: ${{ steps.filter.outputs.soem }}
+      www: ${{ steps.filter.outputs.www }}
       x_cpp: ${{ steps.filter.outputs.x_cpp }}
       x_go: ${{ steps.filter.outputs.x_go }}
       x_py: ${{ steps.filter.outputs.x_py }}
@@ -466,6 +467,17 @@ jobs:
   versions:
     uses: ./.github/workflows/test.updates.yaml
 
+  www:
+    needs: changes
+    if: needs.changes.outputs.www == 'true'
+    uses: ./.github/workflows/test.ts.yaml
+    with:
+      directory: site/www
+      knip: true
+      package: www
+      test: false
+    secrets: inherit
+
   x-cpp:
     needs: changes
     if: needs.changes.outputs.x_cpp == 'true'
@@ -551,6 +563,7 @@ jobs:
       - scripts
       - soem
       - versions
+      - www
       - x-cpp
       - x-go
       - x-py

@@ -19,6 +19,7 @@ packages:
   - lyra
   - pluto
   - portal
+  - site/www
   - studio
   - x/media
   - x/ts

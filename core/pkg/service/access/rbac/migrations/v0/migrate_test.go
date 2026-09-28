@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	ontologyv0 "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -100,25 +99,19 @@ var _ = Describe("Legacy Permission Migration", func() {
 			regularUser := MustSucceed(w.Create(ctx, user.User{Username: "regular"}))
 
 			// Seed legacy policies with Subjects field
-			legacyUserID := func(u user.User) ontologyv0.ID {
-				return ontologyv0.ID{
-					Type: ontologyv0.ResourceTypeUser,
-					Key:  u.Key.String(),
-				}
-			}
 			adminPolicy := policyv0.Policy{
 				Key:      uuid.New(),
-				Subjects: []ontologyv0.ID{legacyUserID(adminUser)},
-				Objects: []ontologyv0.ID{
-					{Type: ontologyv0.ResourceTypeUser},
+				Subjects: []ontology.ID{adminUser.OntologyID()},
+				Objects: []ontology.ID{
+					{Type: ontology.ResourceTypeUser},
 					{Type: "policy"},
 				},
 				Actions: []access.Action{"all"},
 			}
 			schematicPolicy := policyv0.Policy{
 				Key:      uuid.New(),
-				Subjects: []ontologyv0.ID{legacyUserID(schematicUser)},
-				Objects:  []ontologyv0.ID{{Type: "schematic"}},
+				Subjects: []ontology.ID{schematicUser.OntologyID()},
+				Objects:  []ontology.ID{{Type: "schematic"}},
 				Actions:  []access.Action{"all"},
 			}
 			Expect(tx.Commit(ctx)).To(Succeed())

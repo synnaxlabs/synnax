@@ -9,7 +9,7 @@
 
 import "@/platform/license/Details.css";
 
-import { type license } from "@synnaxlabs/client";
+import { license } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -23,21 +23,15 @@ import { ACCOUNT_URL } from "@/platform/license/urls";
 import { useInfo } from "@/platform/license/useInfo";
 import { Session } from "@/session";
 
-const STATE_MESSAGES: Record<license.State, string> = {
-  ok: "Licensed",
-  missing: "No license is active on this Core",
-  expired: "The license on this Core has expired",
-};
-
 /** The license on two lines for the Core badge: what applies, and any warning. */
 export const Summary = (): ReactElement | null => {
   const { info } = useInfo();
   if (info == null) return null;
-  const { state, warning, license } = info;
+  const { state, warning, license: lic } = info;
   const label =
-    license == null || state !== "ok"
-      ? STATE_MESSAGES[state]
-      : `${editionLabel(license)} license, ${describeTerm(license).toLowerCase()}`;
+    lic == null || state !== "ok"
+      ? license.STATE_MESSAGES[state]
+      : `${editionLabel(lic)} license, ${describeTerm(lic).toLowerCase()}`;
   return (
     <>
       <Text.Text
@@ -47,7 +41,7 @@ export const Summary = (): ReactElement | null => {
       >
         {label}
       </Text.Text>
-      {warning != null && (
+      {warning !== "" && (
         <Text.Text level="small" status="warning">
           {warning}
         </Text.Text>
@@ -86,25 +80,25 @@ export const Details = (): ReactElement | null => {
       />
     );
   else if (info != null) {
-    const { state, warning, license } = info;
+    const { state, warning, license: lic } = info;
     body = (
       <>
-        {license == null || state !== "ok" ? (
+        {lic == null || state !== "ok" ? (
           <Status.Summary
             variant="warning"
             level="small"
-            message={STATE_MESSAGES[state]}
+            message={license.STATE_MESSAGES[state]}
           />
         ) : (
           <>
-            <Row name="Edition" value={editionLabel(license)} />
-            <Row name="Organization" value={license.org} />
-            <Row name="Term" value={describeTerm(license)} />
-            <Row name="Machines" value={String(license.n)} />
-            <Row name="Channels" value={describeChannels(license)} />
+            <Row name="Edition" value={editionLabel(lic)} />
+            <Row name="Organization" value={lic.organization} />
+            <Row name="Term" value={describeTerm(lic)} />
+            <Row name="Machines" value={String(lic.machines)} />
+            <Row name="Channels" value={describeChannels(lic)} />
           </>
         )}
-        {warning != null && (
+        {warning !== "" && (
           <Status.Summary variant="warning" level="small" message={warning} />
         )}
       </>

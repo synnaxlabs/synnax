@@ -52,9 +52,8 @@ type Config struct {
 	Insecure *bool `json:"insecure"`
 	// Enabled is used to enable or disable the embedded Driver.
 	Enabled *bool `json:"enabled"`
-	// Detached launches the Driver without waiting for it to report a successful
-	// start, so StartTimeout does not apply. Set it when the Core cannot register the
-	// Driver's rack yet; the Driver retries on its own.
+	// Detached makes Open return without waiting for the Driver to start. The Driver
+	// retries registration on its own.
 	Detached *bool `json:"-"`
 	// Debug sets whether to enable debug logging.
 	Debug *bool `json:"debug"`

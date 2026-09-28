@@ -41,7 +41,7 @@ const UNLICENSED: connection.Status = {
 
 const MISSING: license.Info = {
   state: "missing",
-  warning: undefined,
+  warning: "",
   fingerprint: ["aa", "bb"],
   license: undefined,
 };

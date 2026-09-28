@@ -11,9 +11,21 @@
 
 from __future__ import annotations
 
+from typing import Literal, TypeAlias
 from uuid import UUID
 
 from pydantic import BaseModel, Field
+
+Fingerprint: TypeAlias = list[str]
+
+STATE_OK: Literal["ok"] = "ok"
+
+STATE_MISSING: Literal["missing"] = "missing"
+
+STATE_EXPIRED: Literal["expired"] = "expired"
+
+
+State = Literal["ok", "missing", "expired"]
 
 
 class License(BaseModel):
@@ -24,26 +36,45 @@ class License(BaseModel):
         iat: Is when the license was issued, in seconds since the Unix epoch.
         exp: Is when the license stops applying, in seconds since the Unix epoch. Absent
             when it never stops applying on its own.
-        v: Is the version of the claim set.
-        org: Is the organization the license belongs to.
-        ed: Is the edition the license applies to.
+        claims_version: Is the version of the claim set.
+        organization: Is the organization the license belongs to.
+        edition: Is the edition the license applies to.
         fingerprints: Is the set of machine fingerprints the license is bound to. Empty
             when the license runs on any machine.
         fingerprint_scheme: Is the scheme that produced the fingerprints.
-        n: Is how many machines may run under the license.
-        ch: Is the channel cap per Core. Zero means unlimited.
-        mv: Is the highest Core minor version the license covers, as "0.62". Absent
-            means any version.
+        machines: Is how many machines may run under the license.
+        channels: Is the channel cap per Core. Zero means unlimited.
+        max_version: Is the highest Core minor version the license covers, as "0.62".
+            Absent means any version.
+        required: Is the claims a Core must understand to accept the license. A Core
+            that does not know one of them refuses the token.
     """
 
     jti: UUID
     iat: int = Field(ge=0, le=4294967295)
     exp: int | None = Field(default=None, ge=0, le=4294967295)
-    v: int = Field(ge=0, le=255)
-    org: UUID
-    ed: str
+    claims_version: int = Field(ge=0, le=255)
+    organization: UUID
+    edition: str
     fingerprints: list[str] = Field(default_factory=list)
     fingerprint_scheme: int = Field(ge=0, le=255)
-    n: int = Field(ge=0, le=4294967295)
-    ch: int = Field(ge=0, le=4294967295)
-    mv: str | None = None
+    machines: int = Field(ge=0, le=4294967295)
+    channels: int = Field(ge=0, le=4294967295)
+    max_version: str | None = None
+    required: list[str] = Field(default_factory=list)
+
+
+class Info(BaseModel):
+    """Is what the Core knows about its license.
+
+    Attributes:
+        state: Is whether a license covers the Core.
+        warning: Is set while the state is ok but a change is near or past.
+        fingerprint: Identifies the machine the Core runs on.
+        license: Is the license that applies, if any.
+    """
+
+    state: State
+    warning: str
+    fingerprint: Fingerprint = Field(default_factory=list)
+    license: License | None = None

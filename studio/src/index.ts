@@ -9,6 +9,7 @@
 
 export * as capture from "@/capture";
 export * as director from "@/director";
+export * as film from "@/film";
 export * as fixtures from "@/fixtures";
 export * as manifest from "@/manifest";
 export * as timeline from "@/timeline";

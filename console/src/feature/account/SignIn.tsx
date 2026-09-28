@@ -49,8 +49,7 @@ type Stage = "idle" | "waiting" | "file";
  */
 export const SignIn = (): ReactElement => {
   const [stage, setStage] = useState<Stage>("idle");
-  if (stage === "file")
-    return <License.Activate onBack={() => setStage("idle")} />;
+  if (stage === "file") return <License.Activate onBack={() => setStage("idle")} />;
   return <Handoff stage={stage} onStage={setStage} />;
 };
 

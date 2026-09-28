@@ -27,8 +27,6 @@ RESOURCE_TYPE_GROUP: Literal["group"] = "group"
 
 RESOURCE_TYPE_LABEL: Literal["label"] = "label"
 
-RESOURCE_TYPE_LICENSE: Literal["license"] = "license"
-
 RESOURCE_TYPE_LINEPLOT: Literal["lineplot"] = "lineplot"
 
 RESOURCE_TYPE_LOG: Literal["log"] = "log"
@@ -72,7 +70,6 @@ ResourceType = Literal[
     "framer",
     "group",
     "label",
-    "license",
     "lineplot",
     "log",
     "node",

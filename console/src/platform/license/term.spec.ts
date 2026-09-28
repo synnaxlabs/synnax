@@ -15,13 +15,14 @@ import { License } from "@/platform/license";
 const BASE: license.License = {
   jti: "6d1f7a0e-1c3b-4e2a-9f7d-2a1b3c4d5e6f",
   iat: 1_700_000_000,
-  v: 1,
-  org: "0f8fad5b-d9cb-469f-a165-70867728950e",
-  ed: "e",
+  claimsVersion: 1,
+  organization: "0f8fad5b-d9cb-469f-a165-70867728950e",
+  edition: "e",
   fingerprints: [],
   fingerprintScheme: 1,
-  n: 2,
-  ch: 0,
+  machines: 2,
+  channels: 0,
+  required: [],
 };
 
 // 2027-03-01T00:00:00Z
@@ -33,13 +34,13 @@ describe("License.describeTerm", () => {
   });
 
   it("should describe a perpetual license by its version ceiling", () => {
-    expect(License.describeTerm({ ...BASE, mv: "0.62" })).toBe(
+    expect(License.describeTerm({ ...BASE, maxVersion: "0.62" })).toBe(
       "Perpetual, covers versions up to 0.62",
     );
   });
 
   it("should describe a subscription with a version fallback", () => {
-    expect(License.describeTerm({ ...BASE, exp: EXP, mv: "0.62" })).toBe(
+    expect(License.describeTerm({ ...BASE, exp: EXP, maxVersion: "0.62" })).toBe(
       "Subscription until 2027-03-01, then versions up to 0.62",
     );
   });
@@ -55,23 +56,17 @@ describe("License.describeChannels", () => {
   });
 
   it("should state the cap", () => {
-    expect(License.describeChannels({ ...BASE, ch: 500 })).toBe("Up to 500");
+    expect(License.describeChannels({ ...BASE, channels: 500 })).toBe("Up to 500");
   });
 });
 
 describe("License.editionLabel", () => {
   it("should name the known editions", () => {
     expect(License.editionLabel(BASE)).toBe("Enterprise");
-    expect(License.editionLabel({ ...BASE, ed: "d" })).toBe("Desktop");
+    expect(License.editionLabel({ ...BASE, edition: "d" })).toBe("Desktop");
   });
 
   it("should pass an unknown edition code through", () => {
-    expect(License.editionLabel({ ...BASE, ed: "x" })).toBe("x");
-  });
-});
-
-describe("License.joinFingerprint", () => {
-  it("should separate hashes so a single-line paste keeps them apart", () => {
-    expect(License.joinFingerprint(["aa", "bb"])).toBe("aa, bb");
+    expect(License.editionLabel({ ...BASE, edition: "x" })).toBe("x");
   });
 });

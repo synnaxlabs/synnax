@@ -32,7 +32,7 @@ const linkOf = (linked: Account.Linked): string =>
 
 const ACTIVATED: license.Info = {
   state: "ok",
-  warning: undefined,
+  warning: "",
   fingerprint: ["aa"],
   license: undefined,
 };

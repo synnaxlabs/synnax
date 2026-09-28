@@ -13,21 +13,22 @@ import { TimeStamp } from "@synnaxlabs/x";
 const EDITIONS: Record<string, string> = { d: "Desktop", e: "Enterprise" };
 
 /** The display name of a license edition code. */
-export const editionLabel = ({ ed }: license.License): string => EDITIONS[ed] ?? ed;
+export const editionLabel = ({ edition }: license.License): string =>
+  EDITIONS[edition] ?? edition;
 
 /** The license's term on one line: when it ends, or the versions it covers. */
-export const describeTerm = ({ exp, mv }: license.License): string => {
+export const describeTerm = ({ exp, maxVersion }: license.License): string => {
   const until = exp == null ? null : TimeStamp.seconds(exp).toString("ISODate");
-  if (until == null && mv == null) return "Perpetual";
-  if (until == null) return `Perpetual, covers versions up to ${mv}`;
-  if (mv == null) return `Expires ${until}`;
-  return `Subscription until ${until}, then versions up to ${mv}`;
+  if (until == null && maxVersion == null) return "Perpetual";
+  if (until == null) return `Perpetual, covers versions up to ${maxVersion}`;
+  if (maxVersion == null) return `Expires ${until}`;
+  return `Subscription until ${until}, then versions up to ${maxVersion}`;
 };
 
 /** The channel cap on one line. */
-export const describeChannels = ({ ch }: license.License): string =>
-  ch === 0 ? "Unlimited" : `Up to ${ch}`;
+export const describeChannels = ({ channels }: license.License): string =>
+  channels === 0 ? "Unlimited" : `Up to ${channels}`;
 
-/** Joins host hashes the way the activation page reads them. */
+/** Joins host hashes the way the portal reads them. */
 export const joinFingerprint = (fingerprint: string[]): string =>
   fingerprint.join(", ");

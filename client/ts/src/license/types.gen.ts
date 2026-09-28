@@ -12,6 +12,16 @@
 import { zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
+export const fingerprintZ = z
+  .string()
+  .array()
+  .default(() => []);
+export type Fingerprint = z.infer<typeof fingerprintZ>;
+
+export const STATES = ["ok", "missing", "expired"] as const;
+export const stateZ = z.enum(STATES);
+export type State = z.infer<typeof stateZ>;
+
 /** License is the signed set of claims a Core verifies. */
 export const licenseZ = z.object({
   /** jti is the unique identifier of the license. */
@@ -23,12 +33,12 @@ export const licenseZ = z.object({
    * when it never stops applying on its own.
    */
   exp: z.uint32().optional(),
-  /** v is the version of the claim set. */
-  v: zod.uint8,
-  /** org is the organization the license belongs to. */
-  org: z.uuid(),
-  /** ed is the edition the license applies to. */
-  ed: z.string(),
+  /** claimsVersion is the version of the claim set. */
+  claimsVersion: zod.uint8,
+  /** organization is the organization the license belongs to. */
+  organization: z.uuid(),
+  /** edition is the edition the license applies to. */
+  edition: z.string(),
   /**
    * fingerprints is the set of machine fingerprints the license is bound to. Empty when
    * the license runs on any machine.
@@ -39,14 +49,35 @@ export const licenseZ = z.object({
     .default(() => []),
   /** fingerprintScheme is the scheme that produced the fingerprints. */
   fingerprintScheme: zod.uint8,
-  /** n is how many machines may run under the license. */
-  n: z.uint32(),
-  /** ch is the channel cap per Core. Zero means unlimited. */
-  ch: z.uint32(),
+  /** machines is how many machines may run under the license. */
+  machines: z.uint32(),
+  /** channels is the channel cap per Core. Zero means unlimited. */
+  channels: z.uint32(),
   /**
-   * mv is the highest Core minor version the license covers, as "0.62". Absent means
-   * any version.
+   * maxVersion is the highest Core minor version the license covers, as "0.62". Absent
+   * means any version.
    */
-  mv: z.string().optional(),
+  maxVersion: z.string().optional(),
+  /**
+   * required is the claims a Core must understand to accept the license. A Core that
+   * does not know one of them refuses the token.
+   */
+  required: z
+    .string()
+    .array()
+    .default(() => []),
 });
 export interface License extends z.infer<typeof licenseZ> {}
+
+/** Info is what the Core knows about its license. */
+export const infoZ = z.object({
+  /** state is whether a license covers the Core. */
+  state: stateZ,
+  /** warning is set while the state is ok but a change is near or past. */
+  warning: z.string(),
+  /** fingerprint identifies the machine the Core runs on. */
+  fingerprint: fingerprintZ.default([]),
+  /** license is the license that applies, if any. */
+  license: licenseZ.optional(),
+});
+export interface Info extends z.infer<typeof infoZ> {}

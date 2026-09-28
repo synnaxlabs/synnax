@@ -11,24 +11,14 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
 import { type connection } from "@/connection";
-import { licenseZ } from "@/license/types.gen";
+import { type Info, infoZ, type State } from "@/license/types.gen";
 
-export const STATES = ["ok", "missing", "expired"] as const;
-export const stateZ = z.enum(STATES);
-/** Whether a license applies to the Core. */
-export type State = z.infer<typeof stateZ>;
-
-const infoZ = z.object({
-  state: stateZ,
-  warning: z.string().optional(),
-  fingerprint: z
-    .string()
-    .array()
-    .default(() => []),
-  license: licenseZ.optional(),
-});
-/** The Core's license state, its machine fingerprint, and the license that applies. */
-export interface Info extends z.infer<typeof infoZ> {}
+/** What each license state means, worded for display. */
+export const STATE_MESSAGES: Record<State, string> = {
+  ok: "Licensed",
+  missing: "No license is active on this Core",
+  expired: "The license on this Core has expired",
+};
 
 const activateReqZ = z.object({ token: z.string() });
 

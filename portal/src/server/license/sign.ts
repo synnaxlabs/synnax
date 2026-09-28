@@ -10,7 +10,8 @@
 import { type KeyObject, sign as nodeSign } from "node:crypto";
 
 import { type KMSClient, SignCommand } from "@aws-sdk/client-kms";
-import { type license as client } from "@synnaxlabs/client";
+import { license } from "@synnaxlabs/client";
+import { binary } from "@synnaxlabs/x";
 
 /** Signer produces a raw Ed25519 signature over a JWS signing input. */
 export interface Signer {
@@ -22,12 +23,15 @@ export interface Signer {
 const base64url = (data: Uint8Array | string): string =>
   Buffer.from(data).toString("base64url");
 
-/** sign encodes the claims as a compact EdDSA JWS. */
-export const sign = async (signer: Signer, claims: client.License): Promise<string> => {
+/** sign encodes the claims as a compact EdDSA JWS, keyed as the Core reads them. */
+export const sign = async (
+  signer: Signer,
+  claims: license.License,
+): Promise<string> => {
   const header = base64url(
     JSON.stringify({ alg: "EdDSA", typ: "JWT", kid: signer.kid }),
   );
-  const payload = base64url(JSON.stringify(claims));
+  const payload = base64url(binary.JSON_CODEC.encodeString(claims, license.licenseZ));
   const input = `${header}.${payload}`;
   const signature = await signer.sign(new TextEncoder().encode(input));
   return `${input}.${base64url(signature)}`;
