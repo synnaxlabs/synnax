@@ -57,7 +57,7 @@ catalog:
   '@astrojs/mdx': ^8.0.2
   '@astrojs/react': ^7.0.0
   '@astrojs/vercel': ^11.0.11
-  '@aws-sdk/client-s3': ^3.1139.0
+  '@aws-sdk/client-s3': ^3.1141.0
   '@codingame/monaco-vscode-api': ^37.1.0
   '@codingame/monaco-vscode-editor-api': ^37.1.0
   '@codingame/monaco-vscode-extension-api': ^37.1.0
@@ -105,7 +105,7 @@ catalog:
   '@testing-library/user-event': ^14.6.7
   '@types/d3-scale': ^4.0.9
   '@types/html-escaper': ^3.0.4
-  '@types/node': ^24.13.6
+  '@types/node': ^24.19.0
   '@types/offscreencanvas': ^2019.7.3
   '@types/pluralize': ^0.0.33
   '@types/react': ^19.3.0
@@ -115,7 +115,7 @@ catalog:
   '@types/ws': ^8.18.1
   '@vitejs/plugin-react': ^6.1.1
   '@vitest/coverage-v8': ^4.1.10
-  '@xyflow/react': ^12.11.6
+  '@xyflow/react': ^12.12.0
   algoliasearch: ^5.59.0
   astro: ^7.3.5
   astro-seo: ^1.2.0
@@ -144,7 +144,7 @@ catalog:
   postcss: ^8.5.26
   prettier: ^3.9.9
   prettier-plugin-astro: ^1.1.0
-  prettier-plugin-sh: ^0.19.0
+  prettier-plugin-sh: ^0.20.2
   prettier-plugin-toml: ^2.0.6
   # Pinned exactly, never with a caret: 2.0.3 is the last release on proxy-compare
   # 2.4.0. 2.0.6 takes proxy-compare 2.6.0, which wraps a frozen property's value and
@@ -174,7 +174,7 @@ catalog:
   vitest: ^4.1.10
   vscode-jsonrpc: ^9.0.3
   vscode-languageclient: ^10.1.2
-  ws: ^8.21.2
+  ws: ^8.22.0
   zod: ^4.6.5
 
 # TypeScript 6 pins for tooling that needs the JS Compiler API, which TS 7 no longer
