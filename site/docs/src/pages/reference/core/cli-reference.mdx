@@ -45,7 +45,7 @@ synnax start -l localhost:9090 -im
       default: '"localhost:9090"',
       description: `A reachable address and port to listen on for incoming client connections and RPCs from other nodes. To bind
             multiple addresses, each with its own certificate, provide a list of listener objects in a configuration file.
-            See <a href="/reference/core/production#serving-multiple-listeners">Serving Multiple Listeners</a>.`,
+            See <a href="/reference/core/production#serving-multiple-listeners">Serving multiple listeners</a>.`,
     },
     {
       option: "--peers/-p",
@@ -88,7 +88,7 @@ synnax start -l localhost:9090 -im
       default: '"/usr/local/synnax/config.yaml"',
       description: `Path to a JSON, YAML, or TOML configuration file that can
                 be used to set the node's configuration instead of using flags or environment variables.
-                See <a href="#configuration-files">Configuration Files</a> for more information.`,
+                See <a href="#configuration-files">Configuration files</a> for more information.`,
     },
     {
       option: "--auto-cert",
@@ -120,13 +120,13 @@ synnax start -l localhost:9090 -im
       option: "--username",
       default: '"synnax"',
       description:
-        'Username for the cluster root user. Reconciled on every start — see <a href="#root-user-reconciliation">Root User Reconciliation</a> for the behavior when this changes between restarts.',
+        'Username for the cluster root user. Reconciled on every start — see <a href="#root-user-reconciliation">Root user reconciliation</a> for the behavior when this changes between restarts.',
     },
     {
       option: "--password",
       default: '"seldon"',
       description:
-        'Password for the cluster root user. The configured value is the source of truth: if the stored password diverges, it is rotated to match on the next start. See <a href="#root-user-reconciliation">Root User Reconciliation</a>.',
+        'Password for the cluster root user. The configured value is the source of truth: if the stored password diverges, it is rotated to match on the next start. See <a href="#root-user-reconciliation">Root user reconciliation</a>.',
     },
     {
       option: "--license-key",
@@ -238,7 +238,7 @@ Command line flags will take precedence over environment variables.
   client:only="react"
   columns={[
     { key: "option", name: "Flag", type: "code" },
-    { key: "env", name: "Environment Variable", type: "code" },
+    { key: "env", name: "Environment variable", type: "code" },
   ]}
   data={[
     { option: "--listen/-l", env: "SYNNAX_LISTEN" },
@@ -444,7 +444,7 @@ Each listener object accepts the following fields:
     {
       field: "cert.source",
       description:
-        'The certificate source: <code>file</code>, <code>auto</code>, or <code>tailscale</code>. See <a href="/reference/core/production#certificate-sources">Certificate Sources</a>.',
+        'The certificate source: <code>file</code>, <code>auto</code>, or <code>tailscale</code>. See <a href="/reference/core/production#certificate-sources">Certificate sources</a>.',
     },
     {
       field: "cert.cert",
