@@ -19,8 +19,9 @@ import { type Spec } from "@/schematic/node/spec";
 
 export const CUSTOM_ACTUATOR_VARIANT = "custom_actuator";
 
-export interface CustomActuatorConfig
-  extends z.infer<typeof schematic.customActuatorNodeConfigZ> {}
+export interface CustomActuatorConfig extends z.infer<
+  typeof schematic.customActuatorNodeConfigZ
+> {}
 
 export const customActuatorSpec: Spec<
   typeof CUSTOM_ACTUATOR_VARIANT,
@@ -36,8 +37,9 @@ export const customActuatorSpec: Spec<
 
 export const CUSTOM_STATIC_VARIANT = "custom_static";
 
-export interface CustomStaticConfig
-  extends z.infer<typeof schematic.customStaticNodeConfigZ> {}
+export interface CustomStaticConfig extends z.infer<
+  typeof schematic.customStaticNodeConfigZ
+> {}
 
 export const customStaticSpec: Spec<typeof CUSTOM_STATIC_VARIANT, CustomStaticConfig> =
   {
