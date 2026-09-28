@@ -19,7 +19,7 @@ on:
       - client/ts/**
       - configs/ts/**
       - configs/vite/**
-      - docs/site/**
+      - site/docs/**
       - freighter/ts/**
       - lyra/**
       - package.json
@@ -48,5 +48,5 @@ jobs:
           cache: true
 
       - name: Update docs search index
-        working-directory: docs/site
+        working-directory: site/docs
         run: pnpm algolia
