@@ -17,5 +17,4 @@ export {
   VOTING_DIAGRAM,
 } from "@/components/stream/diagrams/definitions";
 export { Diagram } from "@/components/stream/diagrams/Diagram";
-export { PrototypeDiagram } from "@/components/stream/diagrams/PrototypeDiagram";
 export type { DiagramDef } from "@/components/stream/diagrams/types";
