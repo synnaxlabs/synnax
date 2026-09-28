@@ -9,75 +9,275 @@
 
 import "@/vis/value/RedlineForm.css";
 
+import { Button } from "@synnaxlabs/lyra/button";
+import { Color } from "@synnaxlabs/lyra/color";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
-import { type bounds, color, deep, scale } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Theming } from "@synnaxlabs/lyra/theming";
+import { color, type compare, id } from "@synnaxlabs/x";
+import { type CSSProperties, type ReactElement } from "react";
 
-import { Color } from "@/color";
-import { type Redline } from "@/vis/value/redline";
+const ascending: compare.Comparator<color.Band> = (a, b) => a.threshold - b.threshold;
 
-const boundsInputProps = { size: "small", showDragHandle: false } as const;
+interface BarProps {
+  /** The CSS background the canvas paints for the band. */
+  on: string;
+  /** The CSS background during the off half of a flash, for a flashing band. */
+  off?: string;
+}
 
-export interface RedlineFormProps {
+// One segment of the color bar down the left edge of the list. Adjacent segments join
+// into one bar that paints what the canvas paints.
+const Bar = ({ on, off }: BarProps): ReactElement => (
+  <div
+    className={CSS.cls(CSS.BE("redline-form", "bar"), off != null && CSS.M("flashing"))}
+    style={{ "--pluto-redline-on": on, "--pluto-redline-off": off } as CSSProperties}
+  />
+);
+
+interface BandItemProps {
+  itemKey: string;
+  index: number;
+  path: string;
+  bar: BarProps;
+  duplicate: boolean;
+  onRemove: (key: string) => void;
+}
+
+const BandItem = ({
+  itemKey,
+  index,
+  path,
+  bar,
+  duplicate,
+  onRemove,
+}: BandItemProps): ReactElement => {
+  const bandPath = `${path}.${itemKey}`;
+  return (
+    <List.Item itemKey={itemKey} index={index} x align="center" gap="small">
+      <Bar {...bar} />
+      <Form.Field<color.Crude>
+        path={`${bandPath}.color`}
+        showLabel={false}
+        showHelpText={false}
+      >
+        {({ value, onChange }) => (
+          <Color.Swatch value={value} onChange={onChange} size="small" bordered />
+        )}
+      </Form.Field>
+      <Text.Text level="small" color={9} className={CSS.BE("redline-form", "relation")}>
+        ≥
+      </Text.Text>
+      <Form.NumericField
+        path={`${bandPath}.threshold`}
+        showLabel={false}
+        showHelpText={false}
+        grow
+        inputProps={{
+          size: "small",
+          showDragHandle: false,
+          status: duplicate ? "error" : undefined,
+          tooltip: duplicate ? "Duplicate threshold" : undefined,
+        }}
+      />
+      <Flex.Box x gap="small" className={CSS.BE("redline-form", "actions")}>
+        <Form.Field<boolean>
+          path={`${bandPath}.flashing`}
+          showLabel={false}
+          showHelpText={false}
+        >
+          {({ value, onChange }) => (
+            <Button.Toggle
+              value={value}
+              onChange={onChange}
+              size="small"
+              tooltip="Flash while the value is in this band"
+            >
+              <Icon.Bolt />
+            </Button.Toggle>
+          )}
+        </Form.Field>
+        <Button.Button
+          onClick={() => onRemove(itemKey)}
+          size="small"
+          variant="text"
+          aria-label="Remove band"
+          reveal
+        >
+          <Icon.Close />
+        </Button.Button>
+      </Flex.Box>
+    </List.Item>
+  );
+};
+
+interface FloorItemProps {
+  background?: color.Color;
+  /** The lowest band threshold, or undefined when there are no bands. */
+  threshold?: number;
+  units: string;
+}
+
+// Values below every threshold show the value's background, set in the style tab. The
+// item mirrors a band's columns so the two line up.
+const FloorItem = ({ background, threshold, units }: FloorItemProps): ReactElement => (
+  <Flex.Box x align="center" gap="small" className={CSS.BE("redline-form", "floor")}>
+    <Bar on={color.cssString(background ?? color.ZERO)} />
+    <Color.Swatch
+      value={background ?? color.ZERO}
+      size="small"
+      bordered
+      tooltip="Set the background in the style tab"
+    />
+    {threshold != null && (
+      <Text.Text level="small" color={9} className={CSS.BE("redline-form", "relation")}>
+        &lt;
+      </Text.Text>
+    )}
+    <Text.Text
+      level="small"
+      grow
+      square={false}
+      className={CSS.BE("redline-form", "floor-value")}
+    >
+      {threshold == null ? "All values" : `${threshold} ${units}`.trimEnd()}
+    </Text.Text>
+    <Flex.Box x className={CSS.BE("redline-form", "actions")}>
+      <Text.Text level="small" color={9}>
+        {background == null ? "No fill" : "Background"}
+      </Text.Text>
+    </Flex.Box>
+  </Flex.Box>
+);
+
+interface TransitionFieldProps {
   path: string;
 }
 
-const baseScale = scale.Scale.scale<number>(0, 1);
-
-export const RedlineForm = ({ path }: RedlineFormProps): ReactElement => {
-  const { set, get } = Form.useContext();
-  const { bounds } = Form.useFieldValue<Redline>(path);
-  const scale = baseScale.scale(bounds);
-  return (
-    <Flex.Box x grow>
-      <Form.NumericField
-        inputProps={boundsInputProps}
-        className={CSS.B("redline-form-bound")}
-        label="Lower"
-        path={`${path}.bounds.lower`}
-      />
-      <Form.Field<color.Gradient>
-        path={`${path}.gradient`}
-        label="Gradient"
-        align="start"
-        padHelpText={false}
+const TransitionField = ({ path }: TransitionFieldProps): ReactElement => (
+  <Form.Field<boolean> path={`${path}.smooth`} label="Transition" padHelpText={false}>
+    {({ value, onChange }) => (
+      <Select.Buttons
+        value={value ? "smooth" : "steps"}
+        onChange={(v: string) => onChange(v === "smooth")}
       >
-        {({ value, onChange }) => (
-          <Color.GradientPicker
-            value={deep.copy(value)}
-            scale={scale}
-            onChange={(v) => {
-              const prevB = get<bounds.Bounds>(`${path}.bounds`).value;
-              const nextBounds = { ...prevB };
-              const positions = v.map((c) => c.position);
-              const highestPos = scale.pos(Math.max(...positions));
-              const lowestPos = scale.pos(Math.min(...positions));
-              const highestGreater = highestPos > nextBounds.upper;
-              const lowestLower = lowestPos < nextBounds.lower;
-              if (highestGreater) {
-                v[v.length - 1].position = 1;
-                nextBounds.upper = highestPos;
-              }
-              if (lowestLower) {
-                v[0].position = 0;
-                nextBounds.lower = lowestPos;
-              }
-              const nextGradient = v.map((c) => ({ ...c, color: color.hex(c.color) }));
-              if (highestGreater || lowestLower)
-                set(path, { bounds: nextBounds, gradient: nextGradient });
-              else onChange(v.map((c) => ({ ...c, color: color.hex(c.color) })));
-            }}
+        <Select.Item itemKey="steps">Steps</Select.Item>
+        <Select.Item itemKey="smooth">Smooth</Select.Item>
+      </Select.Buttons>
+    )}
+  </Form.Field>
+);
+
+export interface RedlineFormProps {
+  /** The path of the redline. */
+  path: string;
+}
+
+/**
+ * Edits a redline as a list of threshold bands, lowest first. Rows sort by threshold
+ * as thresholds change. Reads the value's units and background from the form root.
+ */
+export const RedlineForm = ({ path }: RedlineFormProps): ReactElement => {
+  const bandsPath = `${path}.bands`;
+  const redline = Form.useFieldValue<color.Scale>(path);
+  const units = Form.useFieldValue<string>("units", { optional: true }) ?? "";
+  const background =
+    Form.useFieldValue<color.Color>("backgroundColor", { optional: true }) ?? undefined;
+  const { push, remove } = Form.useFieldListUtils<string, color.Band>(bandsPath);
+  const theme = Theming.use();
+  // The form edits values in place, so values read here keep their identity across
+  // edits and cannot key a memo.
+  const { bands, smooth } = redline;
+  const sorted = bands.toSorted(ascending);
+  const keys = sorted.map(({ key }) => key);
+  const backgroundCSS = color.cssString(background ?? color.ZERO);
+  const items = new Map(
+    sorted.map(({ key, threshold, color: c, flashing }, i) => {
+      const css = color.cssString(c);
+      const next = sorted.at(i + 1);
+      const on =
+        smooth && next != null
+          ? `linear-gradient(to bottom, ${css}, ${color.cssString(next.color)})`
+          : css;
+      const bar: BarProps = { on, off: flashing ? backgroundCSS : undefined };
+      const duplicate = sorted.some((b, j) => j !== i && b.threshold === threshold);
+      return [key, { bar, duplicate }];
+    }),
+  );
+  const lowest = sorted.at(0);
+
+  const handleAdd = (): void => {
+    const [highest, second] = sorted.toReversed();
+    let threshold = 0;
+    if (highest != null) {
+      const step = second == null ? 0 : highest.threshold - second.threshold;
+      threshold = highest.threshold + (step > 0 ? step : 1);
+    }
+    const palette = [
+      theme.colors.warning.z,
+      theme.colors.error.z,
+      ...(theme.colors.visualization.palettes.default ?? []),
+    ];
+    push(
+      {
+        key: id.create(),
+        threshold,
+        color: color.construct(palette[bands.length % palette.length]),
+        flashing: false,
+      },
+      ascending,
+    );
+  };
+
+  return (
+    <Form.Sections x className={CSS.B("redline-form")}>
+      <Form.Section title="Bands">
+        <Flex.Box y empty className={CSS.BE("redline-form", "bands")}>
+          <FloorItem
+            background={background}
+            threshold={lowest?.threshold}
+            units={units}
           />
-        )}
-      </Form.Field>
-      <Form.NumericField
-        inputProps={boundsInputProps}
-        className={CSS.B("redline-form-bound")}
-        label="Upper"
-        path={`${path}.bounds.upper`}
-      />
-    </Flex.Box>
+          <List.Frame data={keys}>
+            <List.Scroll>
+              <List.Items<string>>
+                {({ itemKey, index }) => {
+                  const item = items.get(itemKey);
+                  if (item == null) return null;
+                  return (
+                    <BandItem
+                      key={itemKey}
+                      itemKey={itemKey}
+                      index={index}
+                      path={bandsPath}
+                      onRemove={remove}
+                      {...item}
+                    />
+                  );
+                }}
+              </List.Items>
+            </List.Scroll>
+          </List.Frame>
+          <Button.Button
+            onClick={handleAdd}
+            variant="text"
+            size="small"
+            textColor={10}
+            className={CSS.BE("redline-form", "add")}
+          >
+            <Icon.Add />
+            Add band
+          </Button.Button>
+        </Flex.Box>
+      </Form.Section>
+      <Form.Section title="Options">
+        <TransitionField path={path} />
+      </Form.Section>
+    </Form.Sections>
   );
 };

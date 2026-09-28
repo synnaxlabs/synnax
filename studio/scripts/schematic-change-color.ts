@@ -37,7 +37,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     .first();
   await session.waitFor(swatch);
   await session.click(swatch, { zoom: false });
-  const hex = page.locator(".pluto-color-picker input").first();
+  const hex = page.locator(".pluto-color-picker").getByLabel("Hex");
   await session.waitFor(hex);
   await session.zoom(page.locator(".pluto-color-picker").first());
   await session.hold(600);

@@ -87,23 +87,35 @@ export interface RawDerivedLine extends lineplot.Line, lineplot.LineKeyParts {}
 
 // DerivedLine is a RawDerivedLine with its render color resolved to a concrete
 // palette color, ready for the chart and toolbar to consume directly.
-export interface DerivedLine extends Omit<RawDerivedLine, "color"> {
-  color: color.Color;
+export interface DerivedLine extends Omit<RawDerivedLine, "color">, ResolvedColor {
   // isDefaultLabel reports whether label is derived from the channel name rather
   // than a stored user override. The toolbar uses it to offer a reset affordance.
   isDefaultLabel: boolean;
 }
 
-// resolvePaletteColor returns the concrete color an element should render with:
-// its stored color when set, otherwise a palette color chosen by its position.
-// Lines and rules both route through this so their displayed colors agree, and
-// so the chart and the toolbar resolve an element to the same color.
-const resolvePaletteColor = (
+export interface ResolvedColor {
+  // color is the color the element renders with: its picked color when set,
+  // otherwise its auto color.
+  color: color.Color;
+  // pickedColor is the stored color the user picked, or undefined when the
+  // element follows the palette.
+  pickedColor?: color.Color;
+  // autoColor is the palette color chosen by the element's position.
+  autoColor: color.Color;
+}
+
+// resolveColor resolves a line or rule color. Lines and rules both route through
+// it so the chart and the toolbar resolve an element to the same color.
+const resolveColor = (
   stored: color.Color | undefined,
   index: number,
   palette: color.Crude[],
-): color.Color =>
-  stored ?? color.construct(palette[index % Math.max(palette.length, 1)] ?? color.ZERO);
+): ResolvedColor => {
+  const autoColor = color.construct(
+    palette[index % Math.max(palette.length, 1)] ?? color.ZERO,
+  );
+  return { color: stored ?? autoColor, pickedColor: stored, autoColor };
+};
 
 const useStoredLines = createSelector(({ lines }) => lines);
 
@@ -129,7 +141,7 @@ export const useLines = Scope.bindHook((params: KeyParams): DerivedLine[] => {
     () =>
       lines.map(({ color, ...line }, i) => ({
         ...line,
-        color: resolvePaletteColor(color, i, palette),
+        ...resolveColor(color, i, palette),
         isDefaultLabel: line.label == null,
       })),
     [lines, palette],
@@ -272,7 +284,7 @@ export const useLine = Scope.bindHook(
       () => ({
         ...raw.line,
         ...lineplot.parseLineKey(raw.line.key),
-        color: resolvePaletteColor(raw.line.color, raw.index, palette),
+        ...resolveColor(raw.line.color, raw.index, palette),
         label: raw.line.label ?? chanName ?? "",
         isDefaultLabel: raw.line.label == null,
       }),
@@ -283,9 +295,7 @@ export const useLine = Scope.bindHook(
 
 // DerivedRule is a stored rule with its render color resolved to a concrete
 // palette color, ready for the chart and toolbar to consume directly.
-export interface DerivedRule extends Omit<lineplot.Rule, "color"> {
-  color: color.Color;
-}
+export interface DerivedRule extends Omit<lineplot.Rule, "color">, ResolvedColor {}
 
 const useRawRules = createSelector(({ rules }) => rules);
 
@@ -299,7 +309,7 @@ export const useRules = Scope.bindHook((params: KeyParams): DerivedRule[] => {
     () =>
       rules.map(({ color, ...rule }, i) => ({
         ...rule,
-        color: resolvePaletteColor(color, i, palette),
+        ...resolveColor(color, i, palette),
       })),
     [rules, palette],
   );
@@ -333,7 +343,7 @@ export const useRule = Scope.bindHook((params: RuleParams): DerivedRule => {
   return useMemo(
     () => ({
       ...raw.rule,
-      color: resolvePaletteColor(raw.rule.color, raw.index, palette),
+      ...resolveColor(raw.rule.color, raw.index, palette),
     }),
     [raw, palette],
   );

@@ -9,29 +9,13 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-state-mapping-list {
-    padding: 1rem 0;
-
-    & > .pluto-btn {
-        margin-left: 1rem;
-    }
-
-    .pluto-list__item {
-        min-height: unset;
-        padding: 1rem 2rem;
-    }
-
-    .pluto-state-mapping-list__value {
-        width: 80px;
-    }
-}
-
 /* Sub-tabs sit in a rail on the left so the form keeps its full height. */
-.pluto-symbol-form-tabs {
+.pluto-properties-tabs {
+    flex-grow: 1;
     height: 100%;
 
     & > .pluto-tabs__selector.pluto--direction-y {
-        width: 20rem;
+        width: 24rem;
         padding: 1.5rem;
         border-right: var(--pluto-border-l6);
 
@@ -49,16 +33,4 @@
         min-width: 0;
         overflow: hidden;
     }
-
-    /* The square widget would otherwise stretch to the column width. */
-    .pluto-select-orientation {
-        justify-self: start;
-    }
-}
-
-/* The orientation square is taller than a row, so it takes a column of its own. */
-.pluto-form-sections.pluto--direction-x
-    .pluto-form-section__body
-    > .pluto-input__item:has(.pluto-select-orientation) {
-    grid-row: 1 / -1;
 }

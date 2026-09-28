@@ -10,7 +10,7 @@
 import "schemas/synnax/versions/channel/v0"
 import "schemas/synnax/versions/symbol/v2"
 import "schemas/x/versions/border/v0"
-import "schemas/x/versions/color/v0"
+import "schemas/x/versions/color/v1"
 import "schemas/x/versions/spatial/v0"
 import "schemas/x/versions/text/v0"
 
@@ -316,18 +316,6 @@ StateMapping struct {
     }
 
     @doc value  "maps a numeric channel value to a named, colored state."
-    @go marshal
-}
-
-Redline struct {
-    bounds   spatial.Bounds {
-        @doc value "is the numeric range mapped onto the gradient."
-    }
-    gradient color.Stop[]   {
-        @doc value "is the color gradient applied across the bounds."
-    }
-
-    @doc value  "maps a numeric range to a color gradient for limit visualization."
     @go marshal
 }
 
@@ -717,32 +705,38 @@ NodeConfig union on variant {
         @doc value "is the configuration for text box annotation symbols."
     }
     value extends LabeledConfig, NumericTelemConfig, StalenessConfig {
-        position    spatial.XY?        {
+        position         spatial.XY?        {
             @doc value "is the offset of the value contents within the symbol."
         }
-        color       color.Color?       {
-            @doc value "is the background color of the value."
+        color            color.Color?       {
+            @doc value "is the color of the value's border and units."
         }
-        text_color  color.Color?       {
+        text_color       color.Color?       {
             @doc value "is the color of the displayed text."
         }
-        tooltip     string[] = [] {
+        background_color color.Color?       {
+            @doc value """
+                is the fill behind the value where no redline band paints. When absent
+                the value paints no fill.
+            """
+        }
+        tooltip          string[] = [] {
             @doc value "is the list of tooltip lines shown on hover."
         }
-        redline     Redline = { bounds = { lower = 0, upper = 1 }, gradient = [] } {
-            @doc value "is the bounds-to-gradient mapping applied to the background."
+        redline          color.Scale = {} {
+            @doc value "is the threshold band mapping applied to the background."
         }
-        units       string = "psi" {
+        units            string = "psi" {
             @doc value "is the unit suffix displayed after the value."
         }
-        inline_size float64 = 70 {
+        inline_size      float64 = 70 {
             @doc value    "is the inline size of the value in pixels."
             @validate min 1
         }
-        level       text.Level = text.LevelH4 {
+        level            text.Level = text.LevelH4 {
             @doc value "is the typography level of the displayed value."
         }
-        location    spatial.LocationXY = {
+        location         spatial.LocationXY = {
             x = spatial.XCenterLocationLeft,
             y = spatial.YCenterLocationCenter
         } {

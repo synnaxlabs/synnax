@@ -319,6 +319,9 @@ cc_library(
         ],
         "//conditions:default": [],
     }),
+    # Consumers see the headers through -isystem, so warnings in wasmtime's own inline
+    # code never fail a -Werror build.
+    features = ["system_include_paths"],
     includes = ["include"],
     linkopts = select({
         "@platforms//os:windows": [
