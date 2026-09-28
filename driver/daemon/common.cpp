@@ -60,8 +60,8 @@ x::errors::Error install_binary() {
             return x::errors::Error("failed to set binary permissions");
         return x::errors::NIL;
     }
-    // Renaming a complete copy over the old binary keeps it in place if the copy
-    // fails, and avoids ETXTBSY when a process still runs the old binary.
+    // Renaming a complete copy over the old binary keeps it in place if the copy fails,
+    // and avoids ETXTBSY when a process still runs the old binary.
     const fs::path tmp_path = BINARY_PATH + "." + std::to_string(getpid()) + ".tmp";
     fs::copy_file(curr_bin_path, tmp_path, fs::copy_options::overwrite_existing, ec);
     if (ec) {
