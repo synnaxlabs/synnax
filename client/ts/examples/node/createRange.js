@@ -19,7 +19,8 @@
 import { DataType, Synnax, TimeSpan, TimeStamp } from "@synnaxlabs/client";
 
 // Connect to a locally running, insecure Synnax cluster. If your connection parameters
-// are different, enter them here. See https://docs.synnaxlabs.com/reference/client/quick-start.
+// are different, enter them here. See
+// https://docs.synnaxlabs.com/reference/client/quick-start.
 const client = new Synnax({
   host: "localhost",
   port: 9090,
@@ -62,8 +63,8 @@ const exampleRange = await client.ranges.create({
   timeRange: { start, end },
 });
 
-// We can pull and plot the data from the range by just accessing the channel names as if
-// they were attributes of the range itself.
+// We can pull and plot the data from the range by just accessing the channel names as
+// if they were attributes of the range itself.
 const rangeTimeData = await exampleRange.read("create_range_time");
 const rangeData = await exampleRange.read("create_range_data");
 

@@ -149,8 +149,8 @@ catalog:
   prettier-plugin-sh: ^0.20.2
   prettier-plugin-toml: ^3.0.2
   # Pinned exactly, never with a caret: 2.0.3 is the last release on proxy-compare
-  # 2.4.0. 2.0.6 takes proxy-compare 2.6.0, which wraps a frozen property's value and
-  # so throws "'get' on proxy: ... read-only and non-configurable" against Drift's
+  # 2.4.0. 2.0.6 takes proxy-compare 2.6.0, which wraps a frozen property's value and so
+  # throws "'get' on proxy: ... read-only and non-configurable" against Drift's
   # deep-frozen preloaded state, killing Console store subscriptions. The console/user
   # role cases catch it; unit specs do not.
   proxy-memoize: 2.0.3
