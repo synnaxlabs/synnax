@@ -12,4 +12,5 @@ export * from "@/director/constants";
 export * from "@/director/cursor";
 export * from "@/director/director";
 export * from "@/director/spring";
+export * from "@/director/stage";
 export * from "@/director/zoom";

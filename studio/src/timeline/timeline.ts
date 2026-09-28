@@ -92,12 +92,25 @@ export const zoomOverrideEventZ = z
     message: "zoom override requires an amount, a rect, or both",
   });
 
+/**
+ * Named point in a capture that a film's shots cut between. `rect` is the region a
+ * shot frames when it targets the mark.
+ */
+export const markEventZ = z.object({
+  type: z.literal("mark"),
+  tick: z.int().nonnegative(),
+  name: z.string().min(1),
+  rect: rectZ.optional(),
+});
+export type Mark = z.infer<typeof markEventZ>;
+
 export const eventZ = z.discriminatedUnion("type", [
   moveEventZ,
   pointerDownEventZ,
   pointerUpEventZ,
   keyEventZ,
   zoomOverrideEventZ,
+  markEventZ,
 ]);
 export type Event = z.infer<typeof eventZ>;
 

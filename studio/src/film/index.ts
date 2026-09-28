@@ -7,9 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/fixtures/client";
-export * from "@/fixtures/cluster";
-export * from "@/fixtures/control";
-export * from "@/fixtures/core";
-export * from "@/fixtures/telemetry";
-export * from "@/fixtures/world";
+export * from "@/film/film";

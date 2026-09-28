@@ -10,6 +10,7 @@
 import { type ReactElement } from "react";
 import { Composition } from "remotion";
 
+import { Film, type FilmProps } from "@/remotion/Film";
 import { StudioVideo, type StudioVideoProps } from "@/remotion/StudioVideo";
 
 /** Placeholder metadata; the CLI overrides everything via calculateMetadata. */
@@ -27,8 +28,24 @@ const DEFAULT_PROPS: StudioVideoProps = {
   events: [],
 };
 
+/** Placeholder film; the CLI supplies the real plan via inputProps. */
+const DEFAULT_FILM_PROPS: FilmProps = {
+  meta: { ...DEFAULT_PROPS.meta, theme: "dark" },
+  plan: {
+    width: 1080,
+    height: 1350,
+    fps: 60,
+    perspective: 1800,
+    shots: [{ type: "card", lines: ["Placeholder"] }],
+    samples: [{ shot: 0, type: "card", opacity: 1, offset: 0 }],
+  },
+  cursor: [],
+  events: [],
+};
+
 export const Root = (): ReactElement => (
-  <Composition
+  <>
+    <Composition
     id="studio"
     component={StudioVideo}
     durationInFrames={60}
@@ -43,5 +60,22 @@ export const Root = (): ReactElement => (
       height: Math.round(props.meta.height * props.meta.dsf),
       props,
     })}
-  />
+    />
+    <Composition
+      id="film"
+      component={Film}
+      durationInFrames={1}
+      fps={60}
+      width={1080}
+      height={1350}
+      defaultProps={DEFAULT_FILM_PROPS}
+      calculateMetadata={({ props }) => ({
+        durationInFrames: props.plan.samples.length,
+        fps: props.plan.fps,
+        width: props.plan.width,
+        height: props.plan.height,
+        props,
+      })}
+    />
+  </>
 );

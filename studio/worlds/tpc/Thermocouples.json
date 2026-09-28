@@ -1,0 +1,648 @@
+{
+  "cells": {
+    "1A7JIj4n2Xe": {
+      "key": "1A7JIj4n2Xe",
+      "variant": "value",
+      "props": {
+        "": {
+          "tooltip": [
+            "fuel_tc_1"
+          ]
+        },
+        "align": "center",
+        "backgroundColor": "#00000000",
+        "color": [
+          255,
+          255,
+          255,
+          1
+        ],
+        "level": "h5",
+        "redline": {
+          "bounds": {
+            "lower": -200,
+            "upper": 1
+          },
+          "gradient": [
+            {
+              "color": "#1987d3",
+              "key": "9mWdJh0Nv4k",
+              "position": 0
+            },
+            {
+              "color": "#000000",
+              "key": "ofIIlcoxJGT",
+              "position": 0.9855505402017476
+            }
+          ]
+        },
+        "telem": {
+          "props": {
+            "connections": [
+              {
+                "from": "valueStream",
+                "to": "rollingAverage"
+              },
+              {
+                "from": "rollingAverage",
+                "to": "stringifier"
+              }
+            ],
+            "outlet": "stringifier",
+            "segments": {
+              "rollingAverage": {
+                "props": {
+                  "windowSize": 1
+                },
+                "type": "rolling-average",
+                "valueType": "number",
+                "variant": "source"
+              },
+              "stringifier": {
+                "props": {
+                  "notation": "standard",
+                  "precision": 2
+                },
+                "type": "stringify-number",
+                "valueType": "string",
+                "variant": "source"
+              },
+              "valueStream": {
+                "props": {
+                  "channel": "fuel_tc_1"
+                },
+                "type": "stream-channel-value",
+                "valueType": "number",
+                "variant": "source"
+              }
+            }
+          },
+          "type": "source-pipeline",
+          "valueType": "string",
+          "variant": "source"
+        },
+        "tooltip": [
+          "fuel_tc_1"
+        ],
+        "units": "",
+        "value": "",
+        "weight": 400
+      }
+    },
+    "EA7XYogQC06": {
+      "key": "EA7XYogQC06",
+      "variant": "value",
+      "props": {
+        "align": "center",
+        "backgroundColor": "#00000000",
+        "color": [
+          255,
+          255,
+          255,
+          1
+        ],
+        "level": "h5",
+        "redline": {
+          "bounds": {
+            "lower": -200,
+            "upper": 1
+          },
+          "gradient": [
+            {
+              "color": "#1987d3",
+              "key": "9mWdJh0Nv4k",
+              "position": 0
+            },
+            {
+              "color": "#000000",
+              "key": "ofIIlcoxJGT",
+              "position": 0.9855505402017476
+            }
+          ]
+        },
+        "telem": {
+          "props": {
+            "connections": [
+              {
+                "from": "valueStream",
+                "to": "rollingAverage"
+              },
+              {
+                "from": "rollingAverage",
+                "to": "stringifier"
+              }
+            ],
+            "outlet": "stringifier",
+            "segments": {
+              "rollingAverage": {
+                "props": {
+                  "windowSize": 1
+                },
+                "type": "rolling-average",
+                "valueType": "number",
+                "variant": "source"
+              },
+              "stringifier": {
+                "props": {
+                  "notation": "standard",
+                  "precision": 2
+                },
+                "type": "stringify-number",
+                "valueType": "string",
+                "variant": "source"
+              },
+              "valueStream": {
+                "props": {
+                  "channel": "ox_tc_2"
+                },
+                "type": "stream-channel-value",
+                "valueType": "number",
+                "variant": "source"
+              }
+            }
+          },
+          "type": "source-pipeline",
+          "valueType": "string",
+          "variant": "source"
+        },
+        "tooltip": [
+          "ox_tc_2"
+        ],
+        "units": "",
+        "value": "",
+        "weight": 400
+      }
+    },
+    "KTRXG908W2B": {
+      "key": "KTRXG908W2B",
+      "variant": "text",
+      "props": {
+        "align": "center",
+        "backgroundColor": "#00000000",
+        "level": "h5",
+        "value": "Fuel TC 1",
+        "weight": 400
+      }
+    },
+    "OcijhdVhntp": {
+      "key": "OcijhdVhntp",
+      "variant": "text",
+      "props": {
+        "align": "center",
+        "backgroundColor": "#00000000",
+        "level": "h5",
+        "value": "OX PT 2",
+        "weight": 400
+      }
+    },
+    "PIKBEdDLTYR": {
+      "key": "PIKBEdDLTYR",
+      "variant": "value",
+      "props": {
+        "align": "center",
+        "backgroundColor": "#00000000",
+        "color": [
+          255,
+          255,
+          255,
+          1
+        ],
+        "level": "h5",
+        "redline": {
+          "bounds": {
+            "lower": -200,
+            "upper": 1
+          },
+          "gradient": [
+            {
+              "color": "#1987d3",
+              "key": "9mWdJh0Nv4k",
+              "position": 0
+            },
+            {
+              "color": "#000000",
+              "key": "ofIIlcoxJGT",
+              "position": 0.9855505402017476
+            }
+          ]
+        },
+        "telem": {
+          "props": {
+            "connections": [
+              {
+                "from": "valueStream",
+                "to": "rollingAverage"
+              },
+              {
+                "from": "rollingAverage",
+                "to": "stringifier"
+              }
+            ],
+            "outlet": "stringifier",
+            "segments": {
+              "rollingAverage": {
+                "props": {
+                  "windowSize": 1
+                },
+                "type": "rolling-average",
+                "valueType": "number",
+                "variant": "source"
+              },
+              "stringifier": {
+                "props": {
+                  "notation": "standard",
+                  "precision": 2
+                },
+                "type": "stringify-number",
+                "valueType": "string",
+                "variant": "source"
+              },
+              "valueStream": {
+                "props": {
+                  "channel": "fuel_tc_2"
+                },
+                "type": "stream-channel-value",
+                "valueType": "number",
+                "variant": "source"
+              }
+            }
+          },
+          "type": "source-pipeline",
+          "valueType": "string",
+          "variant": "source"
+        },
+        "tooltip": [
+          "fuel_tc_2"
+        ],
+        "units": "",
+        "value": "",
+        "weight": 400
+      }
+    },
+    "ScCoScHk5k3": {
+      "key": "ScCoScHk5k3",
+      "variant": "value",
+      "props": {
+        "align": "center",
+        "backgroundColor": "#00000000",
+        "color": [
+          255,
+          255,
+          255,
+          1
+        ],
+        "level": "h5",
+        "redline": {
+          "bounds": {
+            "lower": 0,
+            "upper": 100
+          },
+          "gradient": [
+            {
+              "color": "#00641f",
+              "key": "cIyY686HBxZ",
+              "position": 0.008
+            },
+            {
+              "color": "#ff0500",
+              "key": "mlULk2z2Dq5",
+              "position": 0.736
+            }
+          ]
+        },
+        "stalenessColor": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "stalenessTimeout": 5,
+        "telem": {
+          "props": {
+            "connections": [
+              {
+                "from": "valueStream",
+                "to": "rollingAverage"
+              },
+              {
+                "from": "rollingAverage",
+                "to": "stringifier"
+              }
+            ],
+            "outlet": "stringifier",
+            "segments": {
+              "rollingAverage": {
+                "props": {
+                  "windowSize": 1
+                },
+                "type": "rolling-average",
+                "valueType": "number",
+                "variant": "source"
+              },
+              "stringifier": {
+                "props": {
+                  "notation": "standard",
+                  "precision": 2
+                },
+                "type": "stringify-number",
+                "valueType": "string",
+                "variant": "source"
+              },
+              "valueStream": {
+                "props": {
+                  "channel": "ox_pt_2"
+                },
+                "type": "stream-channel-value",
+                "valueType": "number",
+                "variant": "source"
+              }
+            }
+          },
+          "type": "source-pipeline",
+          "valueType": "string",
+          "variant": "source"
+        },
+        "tooltip": [
+          "ox_pt_2"
+        ],
+        "units": "",
+        "value": "",
+        "weight": 400
+      }
+    },
+    "Ys95kM3ifeC": {
+      "key": "Ys95kM3ifeC",
+      "variant": "text",
+      "props": {
+        "align": "center",
+        "backgroundColor": "#00000000",
+        "level": "h5",
+        "value": "OX TC 1",
+        "weight": 400
+      }
+    },
+    "a8tL0K6fV5L": {
+      "key": "a8tL0K6fV5L",
+      "variant": "text",
+      "props": {
+        "align": "center",
+        "backgroundColor": "#00000000",
+        "level": "h5",
+        "value": "OX TC 2",
+        "weight": 400
+      }
+    },
+    "eDTUTVnhFqg": {
+      "key": "eDTUTVnhFqg",
+      "variant": "text",
+      "props": {
+        "align": "center",
+        "backgroundColor": "#00000000",
+        "level": "h5",
+        "value": "OX PT 1",
+        "weight": 400
+      }
+    },
+    "hDiJAXkp8gD": {
+      "key": "hDiJAXkp8gD",
+      "variant": "value",
+      "props": {
+        "align": "center",
+        "backgroundColor": "#00000000",
+        "color": [
+          255,
+          255,
+          255,
+          1
+        ],
+        "level": "h5",
+        "redline": {
+          "bounds": {
+            "lower": 0,
+            "upper": 100
+          },
+          "gradient": [
+            {
+              "color": "#00641f",
+              "key": "cIyY686HBxZ",
+              "position": 0.008
+            },
+            {
+              "color": "#ff0500",
+              "key": "mlULk2z2Dq5",
+              "position": 0.736
+            }
+          ]
+        },
+        "stalenessColor": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "stalenessTimeout": 5,
+        "telem": {
+          "props": {
+            "connections": [
+              {
+                "from": "valueStream",
+                "to": "rollingAverage"
+              },
+              {
+                "from": "rollingAverage",
+                "to": "stringifier"
+              }
+            ],
+            "outlet": "stringifier",
+            "segments": {
+              "rollingAverage": {
+                "props": {
+                  "windowSize": 1
+                },
+                "type": "rolling-average",
+                "valueType": "number",
+                "variant": "source"
+              },
+              "stringifier": {
+                "props": {
+                  "notation": "standard",
+                  "precision": 2
+                },
+                "type": "stringify-number",
+                "valueType": "string",
+                "variant": "source"
+              },
+              "valueStream": {
+                "props": {
+                  "channel": "ox_pt_1"
+                },
+                "type": "stream-channel-value",
+                "valueType": "number",
+                "variant": "source"
+              }
+            }
+          },
+          "type": "source-pipeline",
+          "valueType": "string",
+          "variant": "source"
+        },
+        "tooltip": [
+          "ox_pt_1"
+        ],
+        "units": "",
+        "value": "",
+        "weight": 400
+      }
+    },
+    "mNhbEzkPm1f": {
+      "key": "mNhbEzkPm1f",
+      "variant": "text",
+      "props": {
+        "align": "center",
+        "backgroundColor": "#00000000",
+        "level": "h5",
+        "value": "Fuel TC 2",
+        "weight": 400
+      }
+    },
+    "vQHnqdxe6Uo": {
+      "key": "vQHnqdxe6Uo",
+      "variant": "value",
+      "props": {
+        "align": "center",
+        "backgroundColor": "#00000000",
+        "color": [
+          255,
+          255,
+          255,
+          1
+        ],
+        "level": "h5",
+        "redline": {
+          "bounds": {
+            "lower": -200,
+            "upper": 1
+          },
+          "gradient": [
+            {
+              "color": "#1987d3",
+              "key": "9mWdJh0Nv4k",
+              "position": 0
+            },
+            {
+              "color": "#000000",
+              "key": "ofIIlcoxJGT",
+              "position": 0.9855505402017476
+            }
+          ]
+        },
+        "telem": {
+          "props": {
+            "connections": [
+              {
+                "from": "valueStream",
+                "to": "rollingAverage"
+              },
+              {
+                "from": "rollingAverage",
+                "to": "stringifier"
+              }
+            ],
+            "outlet": "stringifier",
+            "segments": {
+              "rollingAverage": {
+                "props": {
+                  "windowSize": 1
+                },
+                "type": "rolling-average",
+                "valueType": "number",
+                "variant": "source"
+              },
+              "stringifier": {
+                "props": {
+                  "notation": "standard",
+                  "precision": 2
+                },
+                "type": "stringify-number",
+                "valueType": "string",
+                "variant": "source"
+              },
+              "valueStream": {
+                "props": {
+                  "channel": "ox_tc_1"
+                },
+                "type": "stream-channel-value",
+                "valueType": "number",
+                "variant": "source"
+              }
+            }
+          },
+          "type": "source-pipeline",
+          "valueType": "string",
+          "variant": "source"
+        },
+        "tooltip": [
+          "ox_tc_1"
+        ],
+        "units": "",
+        "value": "",
+        "weight": 400
+      }
+    }
+  },
+  "columns": [
+    {
+      "size": 116
+    },
+    {
+      "size": 185
+    }
+  ],
+  "name": "Thermocouples",
+  "rows": [
+    {
+      "size": 38,
+      "cells": [
+        "Ys95kM3ifeC",
+        "vQHnqdxe6Uo"
+      ]
+    },
+    {
+      "size": 33,
+      "cells": [
+        "a8tL0K6fV5L",
+        "EA7XYogQC06"
+      ]
+    },
+    {
+      "size": 32,
+      "cells": [
+        "KTRXG908W2B",
+        "1A7JIj4n2Xe"
+      ]
+    },
+    {
+      "size": 44,
+      "cells": [
+        "mNhbEzkPm1f",
+        "PIKBEdDLTYR"
+      ]
+    },
+    {
+      "size": 38,
+      "cells": [
+        "eDTUTVnhFqg",
+        "hDiJAXkp8gD"
+      ]
+    },
+    {
+      "size": 36,
+      "cells": [
+        "OcijhdVhntp",
+        "ScCoScHk5k3"
+      ]
+    }
+  ],
+  "type": "table",
+  "version": 1
+}
