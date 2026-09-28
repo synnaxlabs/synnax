@@ -131,15 +131,6 @@ export const stateMappingZ = z.object({
 });
 export interface StateMapping extends z.infer<typeof stateMappingZ> {}
 
-/** Redline maps a numeric range to a color gradient for limit visualization. */
-export const redlineZ = z.object({
-  /** bounds is the numeric range mapped onto the gradient. */
-  bounds: spatial.boundsZ(),
-  /** gradient is the color gradient applied across the bounds. */
-  gradient: color.stopZ.array().default(() => []),
-});
-export interface Redline extends z.infer<typeof redlineZ> {}
-
 /** Page identifies a page an off-page reference links to. */
 export const pageZ = z.object({
   /** type is the kind of page referenced. */
@@ -799,17 +790,22 @@ export const valueNodeConfigZ = labeledConfigZ
     variant: z.literal("value"),
     /** position is the offset of the value contents within the symbol. */
     position: spatial.xyZ.optional(),
-    /** color is the background color of the value. */
+    /** color is the color of the value's border and units. */
     color: color.colorZ.optional(),
     /** textColor is the color of the displayed text. */
     textColor: color.colorZ.optional(),
+    /**
+     * backgroundColor is the fill behind the value where no redline band paints. When
+     * absent the value paints no fill.
+     */
+    backgroundColor: color.colorZ.optional(),
     /** tooltip is the list of tooltip lines shown on hover. */
     tooltip: z
       .string()
       .array()
       .default(() => []),
-    /** redline is the bounds-to-gradient mapping applied to the background. */
-    redline: redlineZ.prefault({ bounds: { lower: 0, upper: 1 }, gradient: [] }),
+    /** redline is the threshold band mapping applied to the background. */
+    redline: color.scaleZ.prefault({}),
     /** units is the unit suffix displayed after the value. */
     units: z.string().default("psi"),
     /** inlineSize is the inline size of the value in pixels. */
@@ -2180,17 +2176,22 @@ export const valueElementConfigZ = labeledConfigZ
     variant: z.literal("value"),
     /** position is the offset of the value contents within the symbol. */
     position: spatial.xyZ.optional(),
-    /** color is the background color of the value. */
+    /** color is the color of the value's border and units. */
     color: color.colorZ.optional(),
     /** textColor is the color of the displayed text. */
     textColor: color.colorZ.optional(),
+    /**
+     * backgroundColor is the fill behind the value where no redline band paints. When
+     * absent the value paints no fill.
+     */
+    backgroundColor: color.colorZ.optional(),
     /** tooltip is the list of tooltip lines shown on hover. */
     tooltip: z
       .string()
       .array()
       .default(() => []),
-    /** redline is the bounds-to-gradient mapping applied to the background. */
-    redline: redlineZ.prefault({ bounds: { lower: 0, upper: 1 }, gradient: [] }),
+    /** redline is the threshold band mapping applied to the background. */
+    redline: color.scaleZ.prefault({}),
     /** units is the unit suffix displayed after the value. */
     units: z.string().default("psi"),
     /** inlineSize is the inline size of the value in pixels. */

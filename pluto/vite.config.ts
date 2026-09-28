@@ -29,7 +29,6 @@ export default defineConfig({
         index: path.resolve(".", "src/index.ts"),
         ether: path.resolve(".", "src/ether.ts"),
         testutil: path.resolve(".", "src/testutil/index.ts"),
-        color: path.resolve(".", "src/color/index.ts"),
       },
     },
     rolldownOptions: {

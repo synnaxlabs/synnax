@@ -46,9 +46,13 @@ func migrateCell(c v1.Cell) CellConfig {
 		fields = msgpack.EncodedJSON{}
 	}
 	fields["variant"] = c.Variant
+	err := bandRedline(fields)
 	stripZeroColors(map[string]any(fields))
 	extractLegacyArgs(fields)
-	cfg, err := decodeCellConfig(fields)
+	var cfg CellConfig
+	if err == nil {
+		cfg, err = decodeCellConfig(fields)
+	}
 	if err != nil {
 		cfg = CellConfig{Variant: TextCellConfig{}}
 	}

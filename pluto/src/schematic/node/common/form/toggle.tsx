@@ -14,11 +14,11 @@ import { type ReactElement } from "react";
 import { ColorField } from "@/schematic/node/common/form/Color";
 import { ScaleField } from "@/schematic/node/common/form/Scale";
 import { StyleForm } from "@/schematic/node/common/form/Style";
-import { Tabs } from "@/schematic/node/common/form/Tabs";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { Toggle } from "@/schematic/node/common/toggle";
 import { type FormProps } from "@/schematic/node/spec";
+import { Properties } from "@/vis/properties";
 
 interface ToggleFormProps extends FormProps {
   hideInnerOrientation?: boolean;
@@ -27,17 +27,24 @@ interface ToggleFormProps extends FormProps {
 
 export const ToggleForm = ({
   actions,
+  tab,
+  onTabChange,
   hideInnerOrientation,
   omit,
 }: ToggleFormProps): ReactElement => (
-  <Tabs tabs={["style", "control"]} actions={actions}>
+  <Properties.Tabs
+    tabs={["control", "style"]}
+    tab={tab}
+    onTabChange={onTabChange}
+    actions={actions}
+  >
     <BaseTabs.Content itemKey="style">
       <StyleForm hideInnerOrientation={hideInnerOrientation} />
     </BaseTabs.Content>
     <BaseTabs.Content itemKey="control">
       <Toggle.ChannelForm path="" omit={omit} />
     </BaseTabs.Content>
-  </Tabs>
+  </Properties.Tabs>
 );
 
 export const DummyToggleForm = (): ReactElement => (

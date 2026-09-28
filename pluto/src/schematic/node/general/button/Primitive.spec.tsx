@@ -237,16 +237,19 @@ describe("ButtonForm", () => {
         <ButtonForm />
       </FormWrapper>,
     );
+    fireEvent.click(getByText("Style"));
     expect(getByText("Size")).toBeDefined();
     expect(getByText("M").closest("button")?.getAttribute("aria-pressed")).toBe("true");
   });
 
   it("should not render the label size and direction fields", () => {
-    const { queryByText } = render(
+    const { getByText, queryByText } = render(
       <FormWrapper>
         <ButtonForm />
       </FormWrapper>,
     );
+    fireEvent.click(getByText("Style"));
+    expect(getByText("Size")).toBeDefined();
     expect(queryByText("Label size")).toBeNull();
     expect(queryByText("Label direction")).toBeNull();
   });

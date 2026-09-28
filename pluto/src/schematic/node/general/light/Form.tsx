@@ -16,6 +16,8 @@ import { type ReactElement } from "react";
 import { Channel } from "@/channel";
 import { Form } from "@/schematic/node/common/form";
 import { Telem } from "@/schematic/node/common/telem";
+import { type FormProps } from "@/schematic/node/spec";
+import { Properties } from "@/vis/properties";
 import { Staleness } from "@/vis/staleness";
 
 type LightTelemFormT = Pick<schematic.LightNodeConfig, "channel" | "threshold">;
@@ -59,13 +61,13 @@ const LightTelemForm = ({ path }: { path: string }): ReactElement => {
   );
 };
 
-export const LightForm = (): ReactElement => (
-  <Form.Tabs tabs={["style", "telemetry"]}>
+export const LightForm = ({ tab, onTabChange }: FormProps): ReactElement => (
+  <Properties.Tabs tabs={["telemetry", "style"]} tab={tab} onTabChange={onTabChange}>
     <Tabs.Content itemKey="style">
       <Form.StyleForm />
     </Tabs.Content>
     <Tabs.Content itemKey="telemetry">
       <LightTelemForm path="" />
     </Tabs.Content>
-  </Form.Tabs>
+  </Properties.Tabs>
 );
