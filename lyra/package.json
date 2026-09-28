@@ -173,6 +173,10 @@
       "types": "./dist/src/nav/index.d.ts",
       "default": "./dist/nav.js"
     },
+    "./nebula": {
+      "types": "./dist/src/nebula/index.d.ts",
+      "default": "./dist/nebula.js"
+    },
     "./note": {
       "types": "./dist/src/note/index.d.ts",
       "default": "./dist/note.js"

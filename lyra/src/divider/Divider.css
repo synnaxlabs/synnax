@@ -29,6 +29,11 @@
         }
     }
 
+    /* In a row, stretch has no height to fill and pins the line to the top. */
+    .pluto--direction-x > &.pluto--direction-x {
+        align-self: center;
+    }
+
     &.pluto--direction-y {
         width: 0;
         border-right: var(--pluto-border);
