@@ -12,6 +12,7 @@
 :root {
     --nav-height: clamp(7rem, 5.5rem + 2vw, 9rem);
     --content-padding: clamp(2rem, 1rem + 2vw, 7rem);
+    --pluto-gray-l8: #7c7c7c;
 
     /* Fluid spacing scale */
     --space-sm: clamp(2rem, 1rem + 1vw, 4rem);
@@ -20,4 +21,17 @@
     --space-xl: clamp(6rem, 2rem + 4vw, 15rem);
     --space-2xl: clamp(8rem, 3rem + 5vw, 20rem);
     --space-3xl: clamp(10rem, 4rem + 6vw, 25rem);
+}
+
+html {
+    background: var(--pluto-gray-l0);
+}
+
+a:not(.pluto-btn) {
+    color: var(--pluto-primary-p1);
+    text-decoration: none;
+
+    &:hover {
+        text-decoration: underline;
+    }
 }
