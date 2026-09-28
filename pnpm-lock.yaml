@@ -263,6 +263,9 @@ catalogs:
     '@synnaxlabs/pluto':
       specifier: workspace:^
       version: workspace:^
+    '@synnaxlabs/site-common':
+      specifier: workspace:^
+      version: workspace:^
     '@synnaxlabs/stylelint-config':
       specifier: workspace:^
       version: workspace:^
@@ -1291,6 +1294,46 @@ importers:
         specifier: 'catalog:'
         version: 8.22.0
 
+  site/common:
+    dependencies:
+      '@synnaxlabs/lyra':
+        specifier: 'catalog:'
+        version: link:../../lyra
+      '@synnaxlabs/media':
+        specifier: 'catalog:'
+        version: link:../../x/media
+      astro:
+        specifier: 'catalog:'
+        version: 7.3.5(@astrojs/markdown-remark@7.3.0(supports-color@10.2.2))(@azure/identity@4.13.3(supports-color@10.2.2))(@types/node@24.19.0)(@vercel/functions@3.7.6(@aws-sdk/credential-provider-web-identity@3.972.77)(ws@8.22.0))(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.0)
+      postcss:
+        specifier: 'catalog:'
+        version: 8.5.28
+    devDependencies:
+      '@astrojs/check':
+        specifier: 'catalog:'
+        version: 0.9.10(prettier-plugin-astro@1.1.0(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(prettier@3.9.9))(prettier@3.9.9)(typescript@6.0.3)
+      '@synnaxlabs/eslint-config':
+        specifier: 'catalog:'
+        version: link:../../configs/eslint
+      '@synnaxlabs/stylelint-config':
+        specifier: 'catalog:'
+        version: link:../../configs/stylelint
+      '@synnaxlabs/tsconfig':
+        specifier: 'catalog:'
+        version: link:../../configs/ts
+      '@types/react':
+        specifier: 'catalog:'
+        version: 19.3.0
+      eslint:
+        specifier: 'catalog:'
+        version: 10.11.0(jiti@2.7.0)(supports-color@10.2.2)
+      stylelint:
+        specifier: 'catalog:'
+        version: 17.15.0(supports-color@10.2.2)(typescript@6.0.3)
+      typescript:
+        specifier: catalog:ts6
+        version: 6.0.3
+
   site/docs:
     dependencies:
       '@astrojs/mdx':
@@ -1311,6 +1354,9 @@ importers:
       '@synnaxlabs/media':
         specifier: 'catalog:'
         version: link:../../x/media
+      '@synnaxlabs/site-common':
+        specifier: 'catalog:'
+        version: link:../common
       '@synnaxlabs/x':
         specifier: 'catalog:'
         version: link:../../x/ts
@@ -1378,9 +1424,6 @@ importers:
       jsdom:
         specifier: 'catalog:'
         version: 30.1.1
-      postcss:
-        specifier: 'catalog:'
-        version: 8.5.28
       remark:
         specifier: 'catalog:'
         version: 15.0.1(supports-color@10.2.2)
@@ -1420,6 +1463,9 @@ importers:
       '@synnaxlabs/media':
         specifier: 'catalog:'
         version: link:../../x/media
+      '@synnaxlabs/site-common':
+        specifier: 'catalog:'
+        version: link:../common
       astro:
         specifier: 'catalog:'
         version: 7.3.5(@astrojs/markdown-remark@7.3.0(supports-color@10.2.2))(@azure/identity@4.13.3(supports-color@10.2.2))(@types/node@24.19.0)(@vercel/functions@3.7.6(@aws-sdk/credential-provider-web-identity@3.972.77)(ws@8.22.0))(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.0)
@@ -1460,9 +1506,6 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 10.11.0(jiti@2.7.0)(supports-color@10.2.2)
-      postcss:
-        specifier: 'catalog:'
-        version: 8.5.28
       stylelint:
         specifier: 'catalog:'
         version: 17.15.0(supports-color@10.2.2)(typescript@6.0.3)

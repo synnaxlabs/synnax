@@ -9,17 +9,16 @@
 
 import react from "@astrojs/react";
 import vercel from "@astrojs/vercel";
+import { layer } from "@synnaxlabs/site-common/layer";
 import { defineConfig } from "astro/config";
-
-import { layer } from "./src/util/layer";
 
 export default defineConfig({
   integrations: [react()],
   output: "server",
   adapter: vercel(),
   vite: {
-    // Lyra is ESM with CSS imports, which Node cannot load; Vite bundles it for SSR.
-    ssr: { noExternal: ["@synnaxlabs/lyra"] },
+    // These ship ESM with CSS imports, which Node cannot load; Vite bundles them for SSR.
+    ssr: { noExternal: ["@synnaxlabs/lyra", "@synnaxlabs/site-common"] },
     css: { postcss: { plugins: [layer(/[\\/]lyra[\\/]/, "pluto")] } },
   },
   site: "https://www.synnaxlabs.com",

@@ -48,6 +48,10 @@
       "project": ["src/**/*.{ts,tsx}"],
       "ignore": ["src-tauri/**"]
     },
+    "site/common": {
+      "entry": ["src/**/*.{astro,ts}"],
+      "project": ["src/**/*.{ts,astro}"]
+    },
     "site/docs": {
       "entry": ["src/**/*.astro", "src/**/*.tsx", "src/**/*.ts"],
       "project": ["src/**/*.{ts,tsx,astro,mdx}"]

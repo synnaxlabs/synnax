@@ -18,6 +18,7 @@ packages:
   - lyra
   - oracle/lsp/extensions/vscode
   - pluto
+  - site/common
   - site/docs
   - site/www
   - studio
@@ -86,6 +87,7 @@ catalog:
   '@synnaxlabs/lyra': workspace:^
   '@synnaxlabs/media': workspace:^
   '@synnaxlabs/pluto': workspace:^
+  '@synnaxlabs/site-common': workspace:^
   '@synnaxlabs/stylelint-config': workspace:^
   '@synnaxlabs/tsconfig': workspace:^
   '@synnaxlabs/vite-plugin': workspace:^

@@ -12,7 +12,7 @@ import favicon from "@synnaxlabs/media/static/logo/icon-white-favicon.svg";
 import { SEO } from "astro-seo";
 import "@/styles/main.css";
 import Header from "@/components/Header.astro";
-import Footer from "@/components/Footer.astro";
+import Footer from "@synnaxlabs/site-common/Footer.astro";
 
 interface Props {
     title?: string;
@@ -23,6 +23,35 @@ const {
     title = "Synnax",
     description = "The observability and control platform for hardware systems.",
 } = Astro.props;
+
+const FOOTER_COLUMNS = [
+    {
+        title: "Product",
+        links: [
+            { label: "Visualize & Operate", href: "/#visualize" },
+            { label: "Automate & Control", href: "/#automate" },
+            { label: "Store & Review", href: "/#review" },
+            { label: "Stream & Process", href: "/#stream" },
+            { label: "Integrations", href: "/#integrations" },
+            { label: "SDKs", href: "/#sdks" },
+        ],
+    },
+    {
+        title: "Resources",
+        links: [
+            { label: "Documentation", href: "https://docs.synnaxlabs.com" },
+            { label: "Sponsorships", href: "/sponsorships" },
+        ],
+    },
+    {
+        title: "Company",
+        href: "/company",
+        links: [
+            { label: "Contact", href: "/#contact" },
+            { label: "Privacy Policy", href: "/privacy" },
+        ],
+    },
+];
 ---
 
 <!doctype html>
@@ -38,7 +67,7 @@ const {
         <main>
             <slot />
         </main>
-        <Footer />
+        <Footer home="/" columns={FOOTER_COLUMNS} />
     </body>
 </html>
 

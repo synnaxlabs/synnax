@@ -1,14 +1,15 @@
 {
-  "name": "@synnaxlabs/www",
+  "name": "@synnaxlabs/site-common",
   "type": "module",
   "private": true,
+  "exports": {
+    "./Footer.astro": "./src/Footer.astro",
+    "./drawer.css": "./src/drawer.css",
+    "./layer": "./src/layer.ts",
+    "./tokens.css": "./src/tokens.css"
+  },
   "scripts": {
-    "dev": "astro dev",
-    "start": "astro dev",
-    "build": "astro check && astro build",
     "check-types": "astro check",
-    "preview": "astro preview",
-    "astro": "astro",
     "lint": "eslint",
     "fix": "eslint --fix",
     "format": "prettier --write .",
@@ -16,18 +17,10 @@
     "stylelint": "stylelint \"src/**/*.css\""
   },
   "dependencies": {
-    "@astrojs/react": "catalog:",
-    "@astrojs/vercel": "catalog:",
-    "@synnaxlabs/arc": "catalog:",
     "@synnaxlabs/lyra": "catalog:",
     "@synnaxlabs/media": "catalog:",
-    "@synnaxlabs/site-common": "catalog:",
     "astro": "catalog:",
-    "astro-seo": "catalog:",
-    "react": "catalog:",
-    "react-dom": "catalog:",
-    "shiki": "catalog:",
-    "zod": "catalog:"
+    "postcss": "catalog:"
   },
   "devDependencies": {
     "@astrojs/check": "catalog:",
@@ -35,7 +28,6 @@
     "@synnaxlabs/stylelint-config": "catalog:",
     "@synnaxlabs/tsconfig": "catalog:",
     "@types/react": "catalog:",
-    "@types/react-dom": "catalog:",
     "eslint": "catalog:",
     "stylelint": "catalog:",
     "typescript": "catalog:ts6"

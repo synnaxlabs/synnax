@@ -11,9 +11,9 @@ import mdx from "@astrojs/mdx";
 import react from "@astrojs/react";
 import vercel from "@astrojs/vercel";
 import { grammar as arcGrammar } from "@synnaxlabs/arc";
+import { layer } from "@synnaxlabs/site-common/layer";
 import { defineConfig, envField } from "astro/config";
 
-import { layer } from "./src/util/layer";
 import { symbols, theme } from "./src/util/shiki";
 
 // https://astro.build/config
@@ -32,8 +32,8 @@ export default defineConfig({
   },
   adapter: vercel(),
   vite: {
-    // Lyra is ESM with CSS imports, which Node cannot load; Vite bundles it for SSR.
-    ssr: { noExternal: ["@synnaxlabs/lyra"] },
+    // These ship ESM with CSS imports, which Node cannot load; Vite bundles them for SSR.
+    ssr: { noExternal: ["@synnaxlabs/lyra", "@synnaxlabs/site-common"] },
     css: { postcss: { plugins: [layer(/[\\/]lyra[\\/]/, "pluto")] } },
   },
   markdown: {

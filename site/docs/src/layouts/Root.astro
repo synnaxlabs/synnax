@@ -14,7 +14,7 @@ import PostHog from "@/components/analytics/PostHog.astro";
 import { ClientRouter } from "astro:transitions";
 import favicon from "@synnaxlabs/media/static/logo/icon-white-favicon.svg";
 import { SEO } from "astro-seo";
-import Footer from "@/components/layout/Footer.astro";
+import Footer from "@synnaxlabs/site-common/Footer.astro";
 import { enabled } from "@/flags";
 const {
     frontmatter: { title, description, url, image, flag },
@@ -31,6 +31,34 @@ const canonicalUrl = new URL(
 ).href;
 const cleanTitle = title?.replace(/`/g, "");
 const fullTitle = cleanTitle ? `${cleanTitle} | Synnax` : "Synnax";
+
+const FOOTER_COLUMNS = [
+    {
+        title: "Documentation",
+        links: [
+            { label: "Reference", href: "/reference/" },
+            { label: "Concepts", href: "/reference/concepts/overview" },
+            { label: "Client libraries", href: "/reference/client/quick-start" },
+            { label: "Control", href: "/reference/control/get-started" },
+        ],
+    },
+    {
+        title: "Resources",
+        links: [
+            { label: "Blog", href: "/blog/" },
+            { label: "Releases", href: "/releases/" },
+            { label: "GitHub", href: "https://github.com/synnaxlabs/synnax" },
+        ],
+    },
+    {
+        title: "Company",
+        links: [
+            { label: "About", href: "https://www.synnaxlabs.com/company" },
+            { label: "Contact", href: "https://synnaxlabs.com/#contact" },
+            { label: "Privacy policy", href: "/privacy-policy" },
+        ],
+    },
+];
 ---
 
 <html>
@@ -91,7 +119,7 @@ const fullTitle = cleanTitle ? `${cleanTitle} | Synnax` : "Synnax";
                 <slot />
             )}
         </main>
-        <Footer />
+        <Footer home="https://synnaxlabs.com" columns={FOOTER_COLUMNS} />
     </body>
     <script>
         import { addCodeButtonListeners } from "@/components/code/codeUtil";
