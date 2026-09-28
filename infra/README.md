@@ -42,10 +42,10 @@ pnpm --filter @synnaxlabs/portal db:migrate
 STAFF_ORG_ID=org_xxx pnpm --filter @synnaxlabs/portal create-internal-organization
 ```
 
-`db:migrate` applies the SQL under `portal/drizzle/`. `create-internal-organization`
-creates the Synnax Labs organization every internal license belongs to. Rerun
-`db:migrate` after each schema change lands, and run `db:generate` to produce the SQL
-for one.
+`db:migrate` applies the SQL under `site/portal/drizzle/`.
+`create-internal-organization` creates the Synnax Labs organization every internal
+license belongs to. Rerun `db:migrate` after each schema change lands, and run
+`db:generate` to produce the SQL for one.
 
 ### Clerk
 
@@ -61,7 +61,7 @@ Clerk dashboard:
    signing secret is `clerk_webhook_signing_secret`.
 4. Domains: for production, set the application domain to `portal.synnaxlabs.com`, add
    `clerk.portal.synnaxlabs.com`, and add the DNS records it asks for. The CSP in
-   `portal/src/middleware.ts` already allows that host.
+   `site/portal/src/middleware.ts` already allows that host.
 
 ### Resend
 

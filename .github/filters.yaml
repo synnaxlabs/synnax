@@ -179,7 +179,7 @@ portal:
   - *media
   - *ts
   - *x_ts
-  - portal/**
+  - site/portal/**
 
 console: &console
   - *client_ts

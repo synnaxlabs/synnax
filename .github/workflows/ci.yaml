@@ -437,7 +437,7 @@ jobs:
     uses: ./.github/workflows/test.ts.yaml
     with:
       coverage_flag: portal
-      directory: portal
+      directory: site/portal
       package: portal
     secrets: inherit
 
