@@ -56,12 +56,6 @@ export interface HandleTreeRenameProps extends BaseProps {
   state: TreeState;
 }
 
-export interface HandleTreeRename {
-  eager?: (props: HandleTreeRenameProps) => void;
-  execute: (props: HandleTreeRenameProps) => Promise<void>;
-  rollback?: (props: HandleTreeRenameProps, prevName: string) => void;
-}
-
 export interface AllowRename {
   (resource: ontology.Resource): boolean;
 }

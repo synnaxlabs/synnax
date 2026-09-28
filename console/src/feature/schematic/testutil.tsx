@@ -213,7 +213,7 @@ export const SYMBOL_FILE_DROP_PROMPT =
   "Click to select an SVG file or drag and drop it here";
 
 /** A minimal SVG whose single rect can act as a region selector target. */
-export const SYMBOL_SVG =
+const SYMBOL_SVG =
   '<svg viewBox="0 0 10 10"><rect id="body" width="10" height="10" fill="#ffffff"/></svg>';
 
 /** Builds a valid symbol wire payload for import fixtures. */

@@ -178,7 +178,6 @@ export type CILinearVelocityUnits = ni.CILinearVelocityUnits;
 export type CIAngularVelocityUnits = ni.CIAngularVelocityUnits;
 export type CILinearPositionUnits = ni.CILinearPositionUnits;
 export type CIAngularPositionUnits = ni.CIAngularPositionUnits;
-export type ZIndexPhase = ni.ZIndexPhase;
 export type CIEdge = ni.CIEdge;
 export type CIMeasMethod = ni.CIMeasMethod;
 export type CICountDirection = ni.CICountDirection;
@@ -258,8 +257,6 @@ export const createDOChannel = (): DOChannel =>
   ni.doChannelZ.parse({ type: "digital_output" });
 
 export type DigitalChannel = DIChannel | DOChannel;
-
-export type Channel = AnalogChannel | DigitalChannel;
 
 const deployReadRateShape = {
   sampleRate: z.number().positive().max(1000000),

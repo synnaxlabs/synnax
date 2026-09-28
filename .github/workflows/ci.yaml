@@ -202,6 +202,7 @@ jobs:
       core_image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
       coverage_flag: console
       directory: console
+      knip: true
       package: console
       test_args: -- --no-file-parallelism
     secrets: inherit
