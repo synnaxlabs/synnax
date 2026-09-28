@@ -62,6 +62,9 @@ ts: &ts
   - pnpm-workspace.yaml
   - turbo.json
 
+vite_plugin:
+  - *ts
+
 alamos_go: &alamos_go
   - *go
   - alamos/go/**

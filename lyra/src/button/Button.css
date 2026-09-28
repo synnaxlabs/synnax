@@ -41,8 +41,8 @@
     border: none;
     transition: var(--pluto-btn-transition);
 
-    /* Variants and consumers set the rest, hover, and active inputs. Only the states
-       below write these outputs. */
+    /* Variants and consumers set the rest, hover, and active inputs. Only state rules
+       write these outputs. */
     --pluto-btn-bg: var(--pluto-bg);
     --pluto-btn-border-color: var(--pluto-border-color);
 
