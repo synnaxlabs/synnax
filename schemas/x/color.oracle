@@ -33,6 +33,7 @@ Color struct {
     @go marshal
     @py hand
     @ts hand
+    @ts include  "x/ts/src/color/color"
 }
 
 Stop struct {
@@ -74,7 +75,6 @@ Band struct {
     @go marshal
     @pb omit
     @py omit
-    @ts hand
 }
 
 Scale struct {
@@ -93,5 +93,4 @@ Scale struct {
     @go marshal
     @pb omit
     @py omit
-    @ts hand
 }
