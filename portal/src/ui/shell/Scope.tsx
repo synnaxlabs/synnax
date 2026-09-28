@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Avatar } from "@synnaxlabs/lyra/avatar";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useCallback } from "react";
-
-import { Mark } from "@/ui/shell/Mark";
 
 export interface ScopeOption {
   key: string;
@@ -37,7 +36,7 @@ export const Scope = ({ options, selected }: ScopeProps): ReactElement => {
   }, []);
   const label = (
     <>
-      <Mark name={selected.name} />
+      <Avatar.Avatar name={selected.name} size="small" />
       <Text.Text level="p" weight={500} overflow="ellipsis">
         {selected.name}
       </Text.Text>
@@ -61,7 +60,7 @@ export const Scope = ({ options, selected }: ScopeProps): ReactElement => {
           <Select.List full="x">
             {options.map((o) => (
               <Select.Item key={o.key} itemKey={o.key} className="portal-scope__item">
-                <Mark name={o.name} />
+                <Avatar.Avatar name={o.name} size="small" />
                 <Text.Text level="p" overflow="ellipsis">
                   {o.name}
                 </Text.Text>
