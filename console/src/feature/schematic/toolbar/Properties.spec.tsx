@@ -10,7 +10,7 @@
 import { type schematic } from "@synnaxlabs/client";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { Schematic as PSchematic } from "@synnaxlabs/pluto";
-import { location, uuid } from "@synnaxlabs/x";
+import { color, location, uuid } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -64,6 +64,45 @@ const renderProperties = async ({
     },
   });
 };
+
+const createBoxConfig = (): Record<string, unknown> =>
+  PSchematic.Node.createConfig({ variant: "box" });
+
+const RED = "#ff0000";
+const GREEN = "#00ff00";
+const BLUE = "#0000ff";
+
+// The role control's hex box, labeled with the role name.
+const roleInput = (label: string): HTMLInputElement => {
+  const input = screen
+    .getAllByLabelText(label)
+    .find((el): el is HTMLInputElement => el instanceof HTMLInputElement);
+  assertDefined(input);
+  return input;
+};
+
+const setRoleColor = (label: string, hex: string): void => {
+  fireEvent.change(roleInput(label), { target: { value: hex.slice(1) } });
+};
+
+// Picks Auto in the role control's picker.
+const clearRoleColor = (label: string): void => {
+  const swatch = roleInput(label)
+    .closest(".pluto-color-input")
+    ?.querySelector<HTMLElement>(".pluto-color-swatch");
+  assertDefined(swatch);
+  fireEvent.click(swatch);
+  fireEvent.click(screen.getByLabelText("Auto"));
+};
+
+const selectionSwatches = (): HTMLElement[] => {
+  const item = screen.getByText("Selection colors").closest(".pluto-input__item");
+  assertDefined(item);
+  return Array.from(item.querySelectorAll<HTMLElement>(".pluto-color-swatch"));
+};
+
+const hexOf = (value: unknown): string | undefined =>
+  value == null ? undefined : color.hex(value as color.Crude);
 
 const retrieveConfig = async (
   key: string,
@@ -205,6 +244,20 @@ describe("Schematic toolbar Properties", () => {
       });
     });
 
+    it("skips a locked group's members when setting a role color", async () => {
+      const { key } = await renderProperties({
+        nodeKeys,
+        createConfig: createLockedConfig,
+        sessionState: { selected: nodeKeys },
+      });
+      await screen.findByText("Colors");
+      setRoleColor("Stroke", RED);
+      await expect
+        .poll(async () => hexOf((await retrieveConfig(key, "n3")).strokeColor))
+        .toBe(RED);
+      expect((await retrieveConfig(key, "n1")).strokeColor).toBeUndefined();
+    });
+
     it("routes a group selected with its members to the multi form", async () => {
       await renderProperties({
         nodeKeys,
@@ -213,6 +266,150 @@ describe("Schematic toolbar Properties", () => {
       });
       await screen.findByText("Align");
       expect(screen.queryByText("Groups have no editable properties.")).toBeNull();
+    });
+  });
+
+  describe("multi-element colors", () => {
+    it("sets a stroke on every selected symbol whose stroke is auto", async () => {
+      const { key } = await renderProperties({ nodeKeys: ["n1", "n2"] });
+      await screen.findByText("Colors");
+      expect(roleInput("Stroke").placeholder).toBe("Auto");
+      setRoleColor("Stroke", RED);
+      await expect
+        .poll(async () =>
+          (
+            await Promise.all([retrieveConfig(key, "n1"), retrieveConfig(key, "n2")])
+          ).map((c) => hexOf(c.strokeColor)),
+        )
+        .toEqual([RED, RED]);
+    });
+
+    it("shows Mixed when the selected strokes differ", async () => {
+      await renderProperties({
+        nodeKeys: ["n1", "n2"],
+        createConfig: (key) =>
+          key === "n1"
+            ? { ...createValveConfig(), strokeColor: RED }
+            : createValveConfig(),
+      });
+      await screen.findByText("Colors");
+      expect(roleInput("Stroke").placeholder).toBe("Mixed");
+      expect(roleInput("Stroke").value).toBe("");
+    });
+
+    it("shows the shared stroke when every selected symbol has it", async () => {
+      await renderProperties({
+        nodeKeys: ["n1", "n2"],
+        createConfig: () => ({ ...createValveConfig(), strokeColor: RED }),
+      });
+      await screen.findByText("Colors");
+      expect(roleInput("Stroke").value).toBe("ff0000");
+    });
+
+    it("clears the stroke on every selected symbol with Auto", async () => {
+      const { key } = await renderProperties({
+        nodeKeys: ["n1", "n2"],
+        createConfig: (key) => ({
+          ...createValveConfig(),
+          strokeColor: key === "n1" ? RED : GREEN,
+        }),
+      });
+      await screen.findByText("Colors");
+      clearRoleColor("Stroke");
+      await expect
+        .poll(async () =>
+          (
+            await Promise.all([retrieveConfig(key, "n1"), retrieveConfig(key, "n2")])
+          ).map((c) => c.strokeColor),
+        )
+        .toEqual([undefined, undefined]);
+    });
+
+    it("writes a fill only to the symbols that have one", async () => {
+      const { key } = await renderProperties({
+        nodeKeys: ["n1", "n2"],
+        createConfig: (key) => (key === "n1" ? createBoxConfig() : createValveConfig()),
+      });
+      await screen.findByText("Colors");
+      setRoleColor("Fill", BLUE);
+      await expect
+        .poll(async () => hexOf((await retrieveConfig(key, "n1")).fillColor))
+        .toBe(BLUE);
+      expect((await retrieveConfig(key, "n2")).fillColor).toBeUndefined();
+    });
+
+    it("hides the roles that no selected symbol has", async () => {
+      await renderProperties({ nodeKeys: ["n1", "n2"] });
+      await screen.findByText("Colors");
+      expect(screen.queryByLabelText("Fill")).toBeNull();
+      expect(screen.queryByLabelText("Text")).toBeNull();
+    });
+
+    it("lists only stored colors in Selection colors", async () => {
+      await renderProperties({ nodeKeys: ["n1", "n2"] });
+      await screen.findByText("Colors");
+      expect(screen.queryByText("Selection colors")).toBeNull();
+    });
+
+    it("recolors every field that holds a selection color", async () => {
+      const { key } = await renderProperties({
+        nodeKeys: ["n1", "n2", "n3"],
+        createConfig: (key) => {
+          if (key === "n1") return { ...createBoxConfig(), strokeColor: RED };
+          if (key === "n2") return { ...createValveConfig(), stalenessColor: RED };
+          return { ...createBoxConfig(), fillColor: GREEN };
+        },
+      });
+      await screen.findByText("Selection colors");
+      const [red] = selectionSwatches();
+      expect(selectionSwatches()).toHaveLength(2);
+      fireEvent.click(red);
+      fireEvent.change(screen.getByLabelText("Hex"), {
+        target: { value: BLUE.slice(1) },
+      });
+      fireEvent.keyDown(document.body, { code: "Escape" });
+      await expect
+        .poll(async () => {
+          const [n1, n2, n3] = await Promise.all(
+            ["n1", "n2", "n3"].map(async (k) => await retrieveConfig(key, k)),
+          );
+          return [hexOf(n1.strokeColor), hexOf(n2.stalenessColor), hexOf(n3.fillColor)];
+        })
+        .toEqual([BLUE, BLUE, GREEN]);
+    });
+
+    it("sets a staleness color only on the symbols that have staleness", async () => {
+      const { key } = await renderProperties({
+        nodeKeys: ["n1", "n2"],
+        createConfig: (key) => (key === "n1" ? createValveConfig() : createBoxConfig()),
+      });
+      await screen.findByText("Staleness");
+      setRoleColor("Color", RED);
+      await expect
+        .poll(async () => hexOf((await retrieveConfig(key, "n1")).stalenessColor))
+        .toBe(RED);
+      expect((await retrieveConfig(key, "n2")).stalenessColor).toBeUndefined();
+    });
+
+    it("hides the staleness group when no selected symbol has staleness", async () => {
+      await renderProperties({ nodeKeys: ["n1", "n2"], createConfig: createBoxConfig });
+      await screen.findByText("Colors");
+      expect(screen.queryByText("Staleness")).toBeNull();
+    });
+
+    it("applies a symbol scale to every selected symbol", async () => {
+      const { key, result } = await renderProperties({ nodeKeys: ["n1", "n2"] });
+      await screen.findByText("Symbol size");
+      const input = getInputByItemLabel(result.container, "Scale");
+      fireEvent.change(input, { target: { value: "150" } });
+      fireEvent.blur(input);
+      await expect
+        .poll(async () =>
+          (
+            await Promise.all([retrieveConfig(key, "n1"), retrieveConfig(key, "n2")])
+          ).map((c) => c.scale),
+        )
+        .toEqual([1.5, 1.5]);
     });
   });
 

@@ -24,20 +24,65 @@ export type Config = schematic.ScaleIndicatorConfig;
 export const DEFAULT_DIMENSIONS: dimensions.Dimensions = { width: 34, height: 160 };
 
 /** source builds the smoothed read pipeline the indicator's value is drawn from. */
-export const source = ({ channel, rollingAverage }: Config): telem.NumberSourceSpec =>
+export const source = ({
+  channel,
+  rollingAverage,
+}: Pick<Config, "channel" | "rollingAverage">): telem.NumberSourceSpec =>
   Telem.smoothedNumberSource({ channel, rollingAverage });
 
-/** visProps translates the stored hidden flags into the vis scale's show flags. */
+/** The indicator fields the vis scale draws from. */
+export type VisConfig = Pick<
+  Config,
+  | "bounds"
+  | "levelColor"
+  | "strokeColor"
+  | "textColor"
+  | "units"
+  | "stalenessColor"
+  | "stalenessTimeout"
+  | "notation"
+  | "precision"
+  | "side"
+  | "caretSide"
+  | "level"
+  | "levelHidden"
+  | "caretHidden"
+  | "scaleHidden"
+>;
+
+/** visProps translates the stored indicator fields into the vis scale's props. */
 export const visProps = ({
-  fillHidden,
+  levelColor,
+  strokeColor,
+  levelHidden,
   caretHidden,
   scaleHidden,
-  ...rest
-}: Config): Omit<VisScale.UseProps, "aetherKey" | "box"> & {
+  bounds,
+  textColor,
+  units,
+  stalenessColor,
+  stalenessTimeout,
+  notation,
+  precision,
+  side,
+  caretSide,
+  level,
+}: VisConfig): Omit<VisScale.UseProps, "aetherKey" | "box"> & {
   showScale: boolean;
 } => ({
-  ...rest,
-  showFill: !fillHidden,
+  bounds,
+  color: levelColor,
+  axisColor: strokeColor,
+  textColor,
+  units,
+  stalenessColor,
+  stalenessTimeout,
+  notation,
+  precision,
+  side,
+  caretSide,
+  level,
+  showFill: !levelHidden,
   showCaret: !caretHidden,
   showScale: !scaleHidden,
 });

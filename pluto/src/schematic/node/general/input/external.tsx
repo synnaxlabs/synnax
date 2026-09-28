@@ -17,13 +17,13 @@ import { Symbol } from "@/schematic/node/general/input/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 
 const Preview = ({
-  color,
+  fillColor,
   orientation,
   size,
 }: schematic.InputNodeConfig): ReactElement => (
   <Input
     initialValue="send message"
-    color={color}
+    fillColor={fillColor}
     orientation={orientation}
     size={size}
     disabled

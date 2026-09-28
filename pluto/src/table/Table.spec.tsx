@@ -105,7 +105,7 @@ describe("Table", () => {
       name: "center_table",
       rows: [{ size: ROW_SIZE, cells: ["a"] }],
       columns: [{ size: COL_SIZE }],
-      cells: { a: { variant: "value", level: "h5", color: "#000000" } },
+      cells: { a: { variant: "value", level: "h5", textColor: "#000000" } },
     });
     key = created.key;
     await loadTable(wrapper, key);
@@ -380,7 +380,7 @@ describe("Table", () => {
           cells[cellKey] = table.cellConfigZ.parse({
             variant: "value",
             level: "h5",
-            color: "#000000",
+            textColor: "#000000",
           });
           return cellKey;
         }),

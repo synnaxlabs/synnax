@@ -67,7 +67,7 @@ const useHandlePageChange = (): ((v: string | null) => void) => {
         cleared ? undefined : schematic.pageZ.parse(ontology.stringIDZ.parse(v)),
       );
       const hadPage = prev != null && prev.key.length > 0;
-      if (!hadPage && !cleared) ctx.set("color", color.hex(theme.colors.primary.z));
+      if (!hadPage && !cleared) ctx.set("fillColor", color.hex(theme.colors.primary.z));
     },
     [ctx, theme],
   );
@@ -143,7 +143,7 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
         </Base.Field>
       </Base.Section>
       <Base.Section title="Appearance">
-        <Form.ColorField path="color" />
+        <Form.ColorField path="fillColor" label="Fill" />
       </Base.Section>
       <Orientation.Section path="" hideOuter />
     </Base.Sections>

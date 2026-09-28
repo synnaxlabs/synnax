@@ -9,7 +9,7 @@
 
 import re
 
-from playwright.sync_api import Locator
+from playwright.sync_api import Locator, expect
 
 import synnax as sy
 from console.layout import LayoutClient
@@ -369,6 +369,17 @@ class Table(ConsolePage):
         if text.endswith("cells"):
             return int(text.split()[0])
         return 1
+
+    def set_toolbar_fill(self, hex_digits: str) -> None:
+        """Type a hex color into the multi-cell toolbar's Fill control."""
+        self.layout.show_visualization_toolbar()
+        self.page.locator('input[aria-label="Fill"]').first.fill(hex_digits)
+
+    def wait_for_color_swatch_count(self, count: int) -> None:
+        """Wait until the "Selection colors" group shows the given swatch count."""
+        self.layout.show_visualization_toolbar()
+        label = self.page.get_by_text("Selection colors", exact=True).first
+        expect(label.locator("..").locator(".pluto-color-swatch")).to_have_count(count)
 
     def get_color_swatch_count(self) -> int:
         """Count the swatches in the toolbar's "Selection colors" group.

@@ -43,7 +43,7 @@ describe("Label", () => {
     });
 
     it("should serialize a hex color into the fill style as rgba", () => {
-      const { container } = renderInSVG(<Label color="#ff0000" />);
+      const { container } = renderInSVG(<Label strokeColor="#ff0000" />);
       const text = queryText(container) as SVGTextElement;
       // color.cssString turns hex into an rgba(...) CSS value.
       expect(text.style.fill).toMatch(/^rgba?\(/);
@@ -58,7 +58,7 @@ describe("Label", () => {
     });
 
     it("should always set stroke to none", () => {
-      const { container } = renderInSVG(<Label color="#00ff00" />);
+      const { container } = renderInSVG(<Label strokeColor="#00ff00" />);
       expect(queryText(container)?.getAttribute("stroke")).toBe("none");
     });
   });

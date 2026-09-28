@@ -713,7 +713,7 @@ type DataElementConfig = v9.DataElementConfig
 // handles, and dynamic state visualization.
 type Schematic = v9.Schematic
 
-// ScaleIndicatorConfig is a live fill indicator driven by a channel, rendered by
+// ScaleIndicatorConfig is a live level indicator driven by a channel, extended by
 // symbols that show a level against a numeric range.
 type ScaleIndicatorConfig = v9.ScaleIndicatorConfig
 

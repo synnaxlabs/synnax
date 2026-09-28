@@ -74,7 +74,11 @@ export const ButtonForm = ({ tab, onTabChange }: FormProps): ReactElement => {
             />
           </Base.Section>
           <Base.Section title="Appearance">
-            <Form.ColorField path="color" fallback={theme.colors.primary.z} />
+            <Form.ColorField
+              path="fillColor"
+              label="Fill"
+              fallback={theme.colors.primary.z}
+            />
             <Form.SizeField />
           </Base.Section>
         </Base.Sections>

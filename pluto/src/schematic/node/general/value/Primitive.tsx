@@ -24,7 +24,10 @@ import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 
 interface RenderProps extends PropsWithChildren<
-  Pick<schematic.ValueNodeConfig, "color" | "orientation" | "units" | "inlineSize">
+  Pick<
+    schematic.ValueNodeConfig,
+    "strokeColor" | "textColor" | "orientation" | "units" | "inlineSize"
+  >
 > {
   className?: string;
   dimensions?: dimensions.Dimensions;
@@ -33,7 +36,8 @@ interface RenderProps extends PropsWithChildren<
 
 export const Value = ({
   className,
-  color: colorVal,
+  strokeColor,
+  textColor,
   dimensions,
   orientation,
   units,
@@ -41,7 +45,7 @@ export const Value = ({
   children,
   inlineSize = 80,
 }: RenderProps): ReactElement => {
-  const symbolColor = color.rgbaString(colorVal);
+  const symbolColor = color.rgbaString(strokeColor);
   const style = useMemo<CSSProperties>(
     () => ({
       [CSS.variable("symbol-color")]: symbolColor,
@@ -73,7 +77,12 @@ export const Value = ({
         bottom={102}
       />
       <div className={CSS.cls(CSS.BE("value", "units"), CSS.M(unitsLevel))}>
-        <Text.Text level={unitsLevel}>{units}</Text.Text>
+        <Text.Text
+          level={unitsLevel}
+          color={textColor == null ? undefined : color.cssString(textColor)}
+        >
+          {units}
+        </Text.Text>
       </div>
     </Primitive.Div>
   );

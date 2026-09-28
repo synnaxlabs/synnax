@@ -66,14 +66,22 @@ Redline a value to change its background color when it passes a threshold. In th
 
 Each band has a threshold and a color. A band paints the values at or above its
 threshold and below the next higher threshold. Values below every threshold show the
-background from the `Style` tab. By default, the background paints nothing.
+fill from the `Style` tab. By default, the fill paints nothing.
 
 - **Transition** -> `Steps` changes the color at each threshold. `Smooth` blends the
   colors between thresholds.
-- **Flash** (lightning icon) -> Makes the band blink between its color and the
-  background while the value is in the band.
+- **Flash** (lightning icon) -> Makes the band blink between its color and the fill
+  while the value is in the band.
 
 <Image client:only="react" id="console/tables/redline" />
+
+### Editing several cells
+
+Select several cells to edit them at once. The Text and Fill controls show "Mixed" when
+the selected cells use different colors. Selection colors lists each color the cells
+use. Change a swatch to recolor every cell that uses that color. Staleness and number
+format settings show when the selection holds a value cell, and apply only to value
+cells.
 
 <Divider.Divider x />
 

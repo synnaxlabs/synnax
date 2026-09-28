@@ -105,8 +105,8 @@ type configLoss struct {
 // typeConfigs decodes v8's opaque config entries into the element config union. The
 // entries reach here in the camelCase form the Console wrote verbatim and never
 // validated, so each is normalized to the snake_case wire form and has its stored
-// telem pipelines, legacy page keys, legacy redlines, and zero colors rewritten into
-// the typed shape first. An entry the union rejects is replaced by its variant's zero
+// telem pipelines, legacy page keys, legacy redlines, legacy color names, and zero
+// colors rewritten into the typed shape first. An entry the union rejects is replaced by its variant's zero
 // config when the variant is known and left out otherwise; both are reported in the
 // returned losses.
 func typeConfigs(
@@ -126,6 +126,7 @@ func typeConfigs(
 			extractTelemArgs(normalized)
 			normalizePage(normalized)
 			err = bandRedline(normalized)
+			renameColors(normalized)
 			stripZeroColors(map[string]any(normalized))
 		}
 		if err == nil {

@@ -31,12 +31,9 @@ export const ValueForm = ({ tab, onTabChange }: FormProps): ReactElement => (
           <Label.Form path="label" />
         </Base.Section>
         <Base.Section title="Appearance">
-          <Form.ColorField path="color" />
-          <Form.ColorField
-            path="backgroundColor"
-            label="Background"
-            fallback={color.ZERO}
-          />
+          <Form.ColorField path="strokeColor" label="Stroke" />
+          <Form.ColorField path="fillColor" label="Fill" fallback={color.ZERO} />
+          <Form.ColorField path="textColor" label="Text" />
           <Form.LevelSizeField />
           <Form.UnitsField />
           <Base.NumericField

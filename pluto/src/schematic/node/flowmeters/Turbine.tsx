@@ -21,7 +21,7 @@ export const Turbine = ({
   id,
   className,
   orientation = "right",
-  color,
+  strokeColor,
   scale = 1,
   ...rest
 }: Props): ReactElement => (
@@ -35,7 +35,7 @@ export const Turbine = ({
     />
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={color}
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
     >
@@ -53,7 +53,7 @@ export const Turbine = ({
         d="M38.5 26C38.5 26.7956 38.1839 27.5587 37.6213 28.1213C37.0587 28.6839 36.2956 29 35.5 29C34.7044 29 33.9413 28.6839 33.3787 28.1213C32.8161 27.5587 32.5 26.7956 32.5 26"
         strokeWidth="2"
       />
-      <Label color={color} />
+      <Label strokeColor={strokeColor} />
     </Primitive.SVG>
   </Primitive.Div>
 );

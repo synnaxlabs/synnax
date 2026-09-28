@@ -18,7 +18,7 @@ export interface Props extends Toggle.ButtonProps, Primitive.SVGBasedProps {}
 const DIMENSIONS = { width: 64, height: 64 };
 
 export const Vacuum = ({
-  color,
+  strokeColor,
   className,
   orientation = "left",
   scale,
@@ -38,7 +38,7 @@ export const Vacuum = ({
     />
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={color}
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
     >

@@ -47,7 +47,8 @@ export const GaugeForm = ({ tab, onTabChange }: FormProps): ReactElement => {
           </Base.Section>
           <Base.Section title="Appearance">
             <Form.ColorField
-              path="color"
+              path="strokeColor"
+              label="Stroke"
               fallback={theme.colors.visualization.palettes.default[0]}
             />
             <Base.Field<text.Level>

@@ -200,11 +200,11 @@ describe("ValueForm", () => {
       expect(floor()).toBe("0 psi");
     });
 
-    it("should show the background below the lowest band once one is set", () => {
+    it("should show the fill below the lowest band once one is set", () => {
       const { getByText } = renderTab("Redline");
       fireEvent.click(getByText("Add band"));
-      act(() => methods.set("backgroundColor", [0, 255, 0, 1]));
-      expect(getByText("Background")).toBeDefined();
+      act(() => methods.set("fillColor", [0, 255, 0, 1]));
+      expect(getByText("Fill")).toBeDefined();
     });
   });
 });

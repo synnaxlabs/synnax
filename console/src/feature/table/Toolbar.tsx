@@ -11,7 +11,6 @@ import "@/feature/table/Table.css";
 
 import { table } from "@synnaxlabs/client";
 import { Breadcrumb } from "@synnaxlabs/lyra/breadcrumb";
-import { Color } from "@synnaxlabs/lyra/color";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -19,15 +18,23 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { Access, Panel as PPanel, type Properties, Table } from "@synnaxlabs/pluto";
-import { color, deep, type text } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useMemo } from "react";
+import {
+  Access,
+  Notation,
+  Panel as PPanel,
+  type Properties,
+  Staleness,
+  Table,
+} from "@synnaxlabs/pluto";
+import { color, deep, type notation, type record, type text } from "@synnaxlabs/x";
+import { type ReactElement, useCallback } from "react";
 import { type z } from "zod";
 
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Export } from "@/platform/export";
+import { MultiEdit } from "@/platform/multiedit";
 import { type Panel } from "@/platform/panel";
 import { Toolbar as Base } from "@/platform/toolbar";
 import { Session } from "@/session";
@@ -214,28 +221,19 @@ const NotEditableContent = ({ name }: NotEditableContentProps): ReactElement => 
   );
 };
 
-// An unset color reads as the fallback the single-cell form shows, so uncolored cells
-// still get a swatch.
-const readCellColor = (cell: Table.Cell.Config, theme: Theming.Theme): color.Hex => {
-  switch (cell.variant) {
-    case "text":
-      return color.hex(cell.backgroundColor ?? color.ZERO);
-    case "value":
-      return color.hex(cell.color ?? theme.colors.gray.l11);
-  }
+const FIELDS = MultiEdit.fieldsByVariant(table.CELL_CONFIG_SCHEMAS);
+
+const hasField = (cell: Table.Cell.Config, field: string): boolean => {
+  const fields = FIELDS.get(cell.variant);
+  if (fields == null) throw new Error(`[table] - no schema for ${cell.variant}`);
+  return fields.has(field);
 };
 
-const cellColorPatch = (
-  cell: Table.Cell.Config,
-  next: color.Color,
-): Partial<Table.Cell.Config> => {
-  switch (cell.variant) {
-    case "text":
-      return { backgroundColor: next };
-    case "value":
-      return { color: next };
-  }
-};
+// Every stored color field that Selection colors lists.
+const COLOR_FIELDS = ["textColor", "fillColor", "stalenessColor"] as const;
+
+const STALENESS_TIMEOUT_BOUNDS = { lower: 1, upper: Infinity };
+const PRECISION_BOUNDS = { lower: 0, upper: 10 };
 
 interface MultiCellFormProps {
   cellKeys: string[];
@@ -244,83 +242,134 @@ interface MultiCellFormProps {
 const MultiCellForm = ({ cellKeys }: MultiCellFormProps): ReactElement => {
   const cellsByKey = Table.useCells({ cellKeys });
   const dispatch = Table.useSingleDispatch();
+  const theme = Theming.use();
 
   // Cells absent from the store are skipped (selection may include keys from
   // a removed row). One dispatch per call so undo collapses to one step.
-  const applyPropPatch = useCallback(
-    (
-      keys: string[],
-      patch: (cell: Table.Cell.Config) => Partial<Table.Cell.Config> | null,
-    ) => {
+  const applyConfigs = useCallback(
+    (next: (key: string, cell: Table.Cell.Config) => Table.Cell.Config | null) => {
       const actions: table.Action[] = [];
-      for (const key of keys) {
+      for (const key of cellKeys) {
         const cell = cellsByKey.get(key);
         if (cell == null) continue;
-        const next = patch(cell);
-        if (next == null) continue;
+        const config = next(key, cell);
+        if (config == null) continue;
         actions.push(
-          table.setCell({
-            cell: { key, config: Table.Cell.configZ.parse({ ...cell, ...next }) },
-          }),
+          table.setCell({ cell: { key, config: Table.Cell.configZ.parse(config) } }),
         );
       }
       dispatch(actions);
     },
-    [cellsByKey, dispatch],
+    [cellKeys, cellsByKey, dispatch],
   );
 
-  const theme = Theming.use();
-  const colorGroups = useMemo(() => {
-    const groups = new Map<color.Hex, string[]>();
-    cellsByKey.forEach((cell, key) => {
-      const hex = readCellColor(cell, theme);
-      const existing = groups.get(hex);
-      if (existing != null) existing.push(key);
-      else groups.set(hex, [key]);
+  const withField = (field: string): Table.Cell.Config[] =>
+    Array.from(cellsByKey.values()).filter((cell) => hasField(cell, field));
+
+  const firstValue = <V,>(field: string): V | undefined => {
+    const [cell] = withField(field);
+    if (cell == null) return undefined;
+    return (cell as record.Unknown)[field] as V | undefined;
+  };
+
+  // Writes the value on every selected cell that has the field.
+  const handleFieldChange = (field: string, value: unknown): void =>
+    applyConfigs((_, cell) =>
+      hasField(cell, field) ? MultiEdit.patch(cell, [[field, value]]) : null,
+    );
+
+  const colorValues = (field: string): Array<color.Crude | undefined> =>
+    withField(field).map(
+      (cell) => (cell as record.Unknown)[field] as color.Crude | undefined,
+    );
+
+  const selectionRefs = Array.from(cellsByKey).flatMap(([key, cell]) =>
+    MultiEdit.colorRefs(key, cell as record.Unknown, COLOR_FIELDS),
+  );
+
+  const handleSelectionColorChange = (refs: MultiEdit.ColorRef[], c: color.Color) => {
+    const byKey = MultiEdit.groupByKey(refs);
+    applyConfigs((key, cell) => {
+      const group = byKey.get(key);
+      if (group == null) return null;
+      return MultiEdit.patch(
+        cell,
+        group.map((r) => [r.path, c]),
+      );
     });
-    return groups;
-  }, [cellsByKey, theme]);
+  };
 
-  const handleColorChange = useCallback(
-    (groupKeys: string[], next: color.Color) =>
-      applyPropPatch(groupKeys, (cell) => cellColorPatch(cell, next)),
-    [applyPropPatch],
-  );
+  const levels = new Set(Array.from(cellsByKey.values(), (cell) => cell.level));
+  const commonLevel = levels.size === 1 ? levels.values().next().value : undefined;
 
-  const commonLevel = useMemo((): text.Level | undefined => {
-    let result: text.Level | undefined;
-    for (const cell of cellsByKey.values())
-      if (result == null) result = cell.level;
-      else if (result !== cell.level) return undefined;
-
-    return result;
-  }, [cellsByKey]);
-
-  const handleLevelChange = useCallback(
-    (level: text.Level) => applyPropPatch(cellKeys, () => ({ level })),
-    [applyPropPatch, cellKeys],
-  );
+  const hasStaleness = withField("stalenessColor").length > 0;
+  const hasNumberFormat = withField("precision").length > 0;
 
   return (
     <Form.Sections x>
-      <Form.Section title="Appearance">
-        {colorGroups.size > 0 && (
-          <Input.Item label="Selection colors" padHelpText={false}>
-            <Flex.Box x>
-              {Array.from(colorGroups.entries()).map(([hex, keys]) => (
-                <Color.Swatch
-                  key={keys[0]}
-                  value={hex}
-                  onChange={(c: color.Color) => handleColorChange(keys, c)}
-                />
-              ))}
-            </Flex.Box>
-          </Input.Item>
-        )}
+      <Form.Section title="Colors">
+        <MultiEdit.ColorField
+          label="Text"
+          values={colorValues("textColor")}
+          fallback={theme.colors.gray.l11}
+          onChange={(c) => handleFieldChange("textColor", c)}
+        />
+        <MultiEdit.ColorField
+          label="Fill"
+          values={colorValues("fillColor")}
+          fallback={color.ZERO}
+          onChange={(c) => handleFieldChange("fillColor", c)}
+        />
+        <MultiEdit.SelectionColors
+          refs={selectionRefs}
+          onChange={handleSelectionColorChange}
+        />
+      </Form.Section>
+      <Form.Section title="Text">
         <Input.Item label="Size" padHelpText={false}>
-          <Select.Text.Level value={commonLevel} onChange={handleLevelChange} />
+          <Select.Text.Level
+            value={commonLevel}
+            onChange={(level: text.Level) => handleFieldChange("level", level)}
+          />
         </Input.Item>
       </Form.Section>
+      {hasStaleness && (
+        <Form.Section title="Staleness">
+          <MultiEdit.ColorField
+            label="Color"
+            values={colorValues("stalenessColor")}
+            fallback={Staleness.resolveColor(undefined, theme)}
+            onChange={(c) => handleFieldChange("stalenessColor", c)}
+          />
+          <Input.Item label="Timeout" align="start" padHelpText={false}>
+            <Input.Numeric
+              bounds={STALENESS_TIMEOUT_BOUNDS}
+              endContent="s"
+              value={
+                firstValue<number>("stalenessTimeout") ?? Staleness.DEFAULT_TIMEOUT
+              }
+              onChange={(v) => handleFieldChange("stalenessTimeout", v)}
+            />
+          </Input.Item>
+        </Form.Section>
+      )}
+      {hasNumberFormat && (
+        <Form.Section title="Number format">
+          <Input.Item label="Notation" align="start" padHelpText={false}>
+            <Notation.Select
+              value={firstValue<notation.Notation>("notation") ?? "standard"}
+              onChange={(v: notation.Notation) => handleFieldChange("notation", v)}
+            />
+          </Input.Item>
+          <Input.Item label="Precision" align="start" padHelpText={false}>
+            <Input.Numeric
+              bounds={PRECISION_BOUNDS}
+              value={firstValue<number>("precision") ?? 2}
+              onChange={(v) => handleFieldChange("precision", v)}
+            />
+          </Input.Item>
+        </Form.Section>
+      )}
     </Form.Sections>
   );
 };

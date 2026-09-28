@@ -9,7 +9,6 @@
 
 import { schematic } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
-import { Color } from "@synnaxlabs/lyra/color";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -18,11 +17,14 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import {
   Diagram,
   Direction,
+  Notation,
   type Properties as PProperties,
   Schematic,
+  Staleness,
 } from "@synnaxlabs/pluto";
 import {
   box,
@@ -31,6 +33,8 @@ import {
   type dimensions,
   type direction,
   location,
+  type notation,
+  type record,
   type text,
   xy,
 } from "@synnaxlabs/x";
@@ -46,6 +50,7 @@ import { z } from "zod";
 
 import { Symbol } from "@/feature/schematic/symbol";
 import { CSS } from "@/platform/css";
+import { MultiEdit } from "@/platform/multiedit";
 import { Session } from "@/session";
 
 export const Properties = memo((): ReactElement => {
@@ -150,6 +155,41 @@ const CustomVariantForm = ({
   return <VariantForm key={elKey} {...formProps} />;
 };
 
+const FIELDS = MultiEdit.fieldsByVariant(schematic.ELEMENT_CONFIG_SCHEMAS);
+
+const hasField = (cfg: Schematic.ElementConfig, field: string): boolean => {
+  const fields = FIELDS.get(cfg.variant);
+  if (fields == null) throw new Error(`[schematic] - no schema for ${cfg.variant}`);
+  return fields.has(field);
+};
+
+// Every stored color field, role or not, that Selection colors lists.
+const COLOR_FIELDS = [
+  "strokeColor",
+  "fillColor",
+  "textColor",
+  "levelColor",
+  "onColor",
+  "stalenessColor",
+] as const;
+
+const selectionColorRefs = (
+  key: string,
+  cfg: Schematic.ElementConfig,
+): MultiEdit.ColorRef[] => {
+  const refs = MultiEdit.colorRefs(key, cfg, COLOR_FIELDS);
+  if (cfg.variant === "state_indicator")
+    cfg.options.forEach((o, i) => {
+      if (o.color != null)
+        refs.push({ key, path: `options.${i}.color`, value: color.construct(o.color) });
+    });
+  return refs;
+};
+
+const SCALE_BOUNDS = { lower: 5, upper: 1000 };
+const STALENESS_TIMEOUT_BOUNDS = { lower: 1, upper: Infinity };
+const PRECISION_BOUNDS = { lower: 0, upper: 10 };
+
 interface MultiElementPropertiesProps {
   configByKey: Map<string, Schematic.ElementConfig>;
 }
@@ -187,14 +227,9 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
   }, [selectedNodes]);
 
   const configActions = (
-    updates: Iterable<[string, Partial<Schematic.ElementConfig>]>,
+    updates: Iterable<[string, Schematic.ElementConfig]>,
   ): schematic.Action[] =>
-    Array.from(updates).flatMap(([elKey, next]) => {
-      const existing = configByKey.get(elKey);
-      if (existing == null) return [];
-      const config = { ...existing, ...next } as Schematic.ElementConfig;
-      return schematic.setConfig({ key: elKey, config });
-    });
+    Array.from(updates, ([key, config]) => schematic.setConfig({ key, config }));
 
   let firstNodeLabel: Schematic.Node.Label.Config | undefined;
   for (const cfg of configByKey.values()) {
@@ -203,16 +238,59 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
     if (firstNodeLabel != null) break;
   }
 
-  const colorGroups = useMemo(() => {
-    const groups: Record<color.Hex, string[]> = {};
-    editableByKey.forEach((cfg, key) => {
-      if (!("color" in cfg) || cfg.color == null) return;
-      const hex = color.hex(cfg.color);
-      if (!(hex in groups)) groups[hex] = [];
-      groups[hex].push(key);
-    });
-    return groups;
-  }, [configByKey]);
+  const theme = Theming.use();
+
+  // The editable elements whose schema declares the field, with their configs.
+  const withField = (field: string): [string, Schematic.ElementConfig][] =>
+    Array.from(editableByKey).filter(([, cfg]) => hasField(cfg, field));
+
+  const firstValue = <V,>(field: string, path: string = field): V | undefined => {
+    const [entry] = withField(field);
+    if (entry == null) return undefined;
+    return (
+      deep.get<V, Schematic.ElementConfig>(entry[1], path, { optional: true }) ??
+      undefined
+    );
+  };
+
+  // Writes the value at the path on every editable element that has the field.
+  const handleFieldChange = (field: string, value: unknown, path: string = field) => {
+    const actions = configActions(
+      withField(field).map(([key, cfg]) => [
+        key,
+        MultiEdit.patch(cfg, [[path, value]]),
+      ]),
+    );
+    if (actions.length > 0) dispatch(actions);
+  };
+
+  const colorValues = (field: string): Array<color.Crude | undefined> =>
+    withField(field).map(
+      ([, cfg]) => (cfg as record.Unknown)[field] as color.Crude | undefined,
+    );
+
+  const selectionRefs = Array.from(editableByKey).flatMap(([key, cfg]) =>
+    selectionColorRefs(key, cfg),
+  );
+
+  const handleSelectionColorChange = (refs: MultiEdit.ColorRef[], c: color.Color) => {
+    const actions = configActions(
+      Array.from(MultiEdit.groupByKey(refs)).flatMap(([key, group]) => {
+        const cfg = editableByKey.get(key);
+        if (cfg == null) return [];
+        return [
+          [
+            key,
+            MultiEdit.patch(
+              cfg,
+              group.map((r) => [r.path, c]),
+            ),
+          ],
+        ];
+      }),
+    );
+    if (actions.length > 0) dispatch(actions);
+  };
 
   const handleLayouts = (
     nodeEl: Element,
@@ -353,10 +431,13 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
   };
 
   const rotateOrientationActions = (dir: direction.Angular): schematic.Action[] => {
-    const updates: [string, Partial<Schematic.ElementConfig>][] = [];
+    const updates: [string, Schematic.ElementConfig][] = [];
     editableByKey.forEach((cfg, key) => {
       if (!("orientation" in cfg) || cfg.orientation == null) return;
-      updates.push([key, { orientation: location.rotate(cfg.orientation, dir) }]);
+      updates.push([
+        key,
+        { ...cfg, orientation: location.rotate(cfg.orientation, dir) },
+      ]);
     });
     return configActions(updates);
   };
@@ -380,16 +461,26 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
     key: K,
     value: Schematic.Node.Label.Config[K],
   ): void => {
-    const updates: [string, Partial<Schematic.ElementConfig>][] = [];
+    const updates: [string, Schematic.ElementConfig][] = [];
     editableByKey.forEach((cfg, elKey) => {
       if (!("label" in cfg) || cfg.label == null) return;
-      updates.push([elKey, { label: { ...cfg.label, [key]: value } }]);
+      updates.push([elKey, { ...cfg, label: { ...cfg.label, [key]: value } }]);
     });
     const actions = configActions(updates);
     if (actions.length > 0) dispatch(actions);
   };
 
-  const colorEntries = Object.entries(colorGroups);
+  const hasStroke = withField("strokeColor").length > 0;
+  const hasFill = withField("fillColor").length > 0;
+  const hasText = withField("textColor").length > 0;
+  const hasColors = hasStroke || hasFill || hasText || selectionRefs.length > 0;
+  const hasLabel = withField("label").length > 0;
+  const hasScale = withField("scale").length > 0;
+  const hasStaleness =
+    withField("stalenessColor").length > 0 || withField("stalenessTimeout").length > 0;
+  const hasNumberFormat =
+    withField("precision").length > 0 || withField("notation").length > 0;
+  const hasControl = withField("control").length > 0;
 
   return (
     <Form.Sections x>
@@ -486,63 +577,135 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
           </Flex.Box>
         </Input.Item>
       </Form.Section>
-      <Form.Section title="Label">
-        <Input.Item label="Wrap width">
-          <Input.Numeric
-            value={firstNodeLabel?.maxInlineSize ?? 150}
-            onChange={(v) => handleLabelProp("maxInlineSize", v)}
-            endContent="px"
+      {hasColors && (
+        <Form.Section title="Colors">
+          {hasStroke && (
+            <MultiEdit.ColorField
+              label="Stroke"
+              values={colorValues("strokeColor")}
+              fallback={theme.colors.gray.l11}
+              onChange={(c) => handleFieldChange("strokeColor", c)}
+            />
+          )}
+          {hasFill && (
+            <MultiEdit.ColorField
+              label="Fill"
+              values={colorValues("fillColor")}
+              fallback={color.ZERO}
+              onChange={(c) => handleFieldChange("fillColor", c)}
+            />
+          )}
+          {hasText && (
+            <MultiEdit.ColorField
+              label="Text"
+              values={colorValues("textColor")}
+              fallback={theme.colors.gray.l11}
+              onChange={(c) => handleFieldChange("textColor", c)}
+            />
+          )}
+          <MultiEdit.SelectionColors
+            refs={selectionRefs}
+            onChange={handleSelectionColorChange}
           />
-        </Input.Item>
-        <Input.Item label="Size">
-          <Select.Text.Level
-            value={firstNodeLabel?.level ?? "p"}
-            onChange={(v: text.Level) => handleLabelProp("level", v)}
+        </Form.Section>
+      )}
+      {hasLabel && (
+        <Form.Section title="Label">
+          <Input.Item label="Wrap width">
+            <Input.Numeric
+              value={firstNodeLabel?.maxInlineSize ?? 150}
+              onChange={(v) => handleLabelProp("maxInlineSize", v)}
+              endContent="px"
+            />
+          </Input.Item>
+          <Input.Item label="Size">
+            <Select.Text.Level
+              value={firstNodeLabel?.level ?? "p"}
+              onChange={(v: text.Level) => handleLabelProp("level", v)}
+            />
+          </Input.Item>
+          <Input.Item label="Alignment">
+            <Select.Flex.Alignment
+              value={firstNodeLabel?.align ?? "center"}
+              onChange={(v: Flex.Alignment) => handleLabelProp("align", v)}
+            />
+          </Input.Item>
+          <Input.Item label="Direction">
+            <Direction.Select
+              value={firstNodeLabel?.direction ?? "x"}
+              onChange={(v: direction.Direction) => handleLabelProp("direction", v)}
+              yDirection="down"
+            />
+          </Input.Item>
+          <Input.Item label="Location">
+            <Schematic.Node.Orientation.Select
+              value={{ inner: "top", outer: firstNodeLabel?.orientation ?? "top" }}
+              onChange={(v) =>
+                v.outer !== "center" && handleLabelProp("orientation", v.outer)
+              }
+              hideInner
+            />
+          </Input.Item>
+        </Form.Section>
+      )}
+      {hasScale && (
+        <Form.Section title="Symbol size">
+          <Input.Item label="Scale" align="start" padHelpText={false}>
+            <Input.Numeric
+              bounds={SCALE_BOUNDS}
+              endContent="%"
+              value={Math.round((firstValue<number>("scale") ?? 1) * 100)}
+              onChange={(v) =>
+                handleFieldChange("scale", parseFloat((v / 100).toFixed(2)))
+              }
+            />
+          </Input.Item>
+        </Form.Section>
+      )}
+      {hasStaleness && (
+        <Form.Section title="Staleness">
+          <MultiEdit.ColorField
+            label="Color"
+            values={colorValues("stalenessColor")}
+            fallback={Staleness.resolveColor(undefined, theme)}
+            onChange={(c) => handleFieldChange("stalenessColor", c)}
           />
-        </Input.Item>
-        <Input.Item label="Alignment">
-          <Select.Flex.Alignment
-            value={firstNodeLabel?.align ?? "center"}
-            onChange={(v: Flex.Alignment) => handleLabelProp("align", v)}
-          />
-        </Input.Item>
-        <Input.Item label="Direction">
-          <Direction.Select
-            value={firstNodeLabel?.direction ?? "x"}
-            onChange={(v: direction.Direction) => handleLabelProp("direction", v)}
-            yDirection="down"
-          />
-        </Input.Item>
-        <Input.Item label="Location">
-          <Schematic.Node.Orientation.Select
-            value={{ inner: "top", outer: firstNodeLabel?.orientation ?? "top" }}
-            onChange={(v) =>
-              v.outer !== "center" && handleLabelProp("orientation", v.outer)
-            }
-            hideInner
-          />
-        </Input.Item>
-      </Form.Section>
-      {colorEntries.length > 0 && (
-        <Form.Section title="Appearance">
-          <Input.Item label="Colors">
-            <Flex.Box x>
-              {colorEntries.map(([hex, keys]) => (
-                <Color.Swatch
-                  key={keys[0]}
-                  value={hex}
-                  onChange={(c: color.Color) => {
-                    const actions = configActions(
-                      keys.map((key): [string, Partial<Schematic.ElementConfig>] => [
-                        key,
-                        { color: c },
-                      ]),
-                    );
-                    if (actions.length > 0) dispatch(actions);
-                  }}
-                />
-              ))}
-            </Flex.Box>
+          <Input.Item label="Timeout" align="start" padHelpText={false}>
+            <Input.Numeric
+              bounds={STALENESS_TIMEOUT_BOUNDS}
+              endContent="s"
+              value={
+                firstValue<number>("stalenessTimeout") ?? Staleness.DEFAULT_TIMEOUT
+              }
+              onChange={(v) => handleFieldChange("stalenessTimeout", v)}
+            />
+          </Input.Item>
+        </Form.Section>
+      )}
+      {hasNumberFormat && (
+        <Form.Section title="Number format">
+          <Input.Item label="Notation" align="start" padHelpText={false}>
+            <Notation.Select
+              value={firstValue<notation.Notation>("notation") ?? "standard"}
+              onChange={(v: notation.Notation) => handleFieldChange("notation", v)}
+            />
+          </Input.Item>
+          <Input.Item label="Precision" align="start" padHelpText={false}>
+            <Input.Numeric
+              bounds={PRECISION_BOUNDS}
+              value={firstValue<number>("precision") ?? 2}
+              onChange={(v) => handleFieldChange("precision", v)}
+            />
+          </Input.Item>
+        </Form.Section>
+      )}
+      {hasControl && (
+        <Form.Section title="Control">
+          <Input.Item label="Control chip" align="start" padHelpText={false}>
+            <Input.Switch
+              value={firstValue<boolean>("control", "control.hidden") !== true}
+              onChange={(v) => handleFieldChange("control", !v, "control.hidden")}
+            />
           </Input.Item>
         </Form.Section>
       )}

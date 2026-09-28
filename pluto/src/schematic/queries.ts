@@ -195,8 +195,8 @@ const augmentWithEdgeSegments = (
 const isEdgeConfig = (c: schematic.ElementConfig): c is schematic.EdgeConfig =>
   c.variant in schematic.EDGE_CONFIG_SCHEMAS;
 
-// An edge added in this batch whose config names no color takes its source
-// symbol's color, so a pipe drawn out of a colored symbol matches it.
+// An edge added in this batch whose config names no stroke takes its source symbol's
+// stroke, so a pipe drawn out of a colored symbol matches it.
 const inheritEdgeColor = (
   current: schematic.Schematic,
   actions: schematic.Action[],
@@ -209,10 +209,14 @@ const inheritEdgeColor = (
     if (a.type !== "set_config") return a;
     const { key, config } = a.setConfig;
     const edge = added.get(key);
-    if (edge == null || !isEdgeConfig(config) || config.color != null) return a;
+    if (edge == null || !isEdgeConfig(config) || config.strokeColor != null) return a;
     const source = current.configs[edge.source.node];
-    if (source == null || !("color" in source) || source.color == null) return a;
-    return schematic.setConfig({ key, config: { ...config, color: source.color } });
+    if (source == null || !("strokeColor" in source) || source.strokeColor == null)
+      return a;
+    return schematic.setConfig({
+      key,
+      config: { ...config, strokeColor: source.strokeColor },
+    });
   });
 };
 

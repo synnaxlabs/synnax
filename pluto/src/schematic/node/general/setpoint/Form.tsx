@@ -63,7 +63,11 @@ export const SetpointForm = ({ tab, onTabChange }: FormProps): ReactElement => {
             <Label.Form path="label" />
           </Base.Section>
           <Base.Section title="Appearance">
-            <Form.ColorField path="color" fallback={theme.colors.primary.z} />
+            <Form.ColorField
+              path="fillColor"
+              label="Fill"
+              fallback={theme.colors.primary.z}
+            />
             <Form.SizeField />
             <Form.UnitsField />
           </Base.Section>

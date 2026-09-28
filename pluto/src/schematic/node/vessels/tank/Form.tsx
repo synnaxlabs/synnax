@@ -9,7 +9,6 @@
 
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
-import { Theming } from "@synnaxlabs/lyra/theming";
 import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
@@ -27,25 +26,19 @@ export interface TankFormProps extends NodeFormProps {
 }
 
 const FillForm = (): ReactElement => {
-  const channel = Base.useFieldValue<Scale.Config["channel"]>("fill.channel", {
+  const channel = Base.useFieldValue<Scale.Config["channel"]>("channel", {
     optional: true,
   });
-  const theme = Theming.use();
   return (
     <Base.Sections x>
-      <Scale.TelemForm path="fill" allowNone />
+      <Scale.TelemForm allowNone />
       {channel != null && (
         <>
           <Base.Section title="Display">
-            <Scale.DisplayFields path="fill" />
+            <Scale.DisplayFields hiddenByDefault />
           </Base.Section>
           <Base.Section title="Appearance">
-            <Form.ColorField
-              path="fill.color"
-              label="Fill color"
-              fallback={theme.colors.visualization.palettes.default[0]}
-            />
-            <Scale.StyleFields path="fill" />
+            <Scale.StyleFields />
           </Base.Section>
         </>
       )}
@@ -67,12 +60,8 @@ export const TankForm = ({
         <Orientation.Field path="" hideInner showOuterCenter label="Location" />
       </Base.Section>
       <Base.Section title="Appearance">
-        <Form.ColorField path="color" />
-        <Form.ColorField
-          path="backgroundColor"
-          label="Background color"
-          fallback={color.ZERO}
-        />
+        <Form.ColorField path="strokeColor" label="Stroke" />
+        <Form.ColorField path="fillColor" label="Fill" fallback={color.ZERO} />
         <Form.RadiusFields path="borderRadius" />
         {showBorderRadius && (
           <Base.NumericField

@@ -71,10 +71,10 @@ export const PolygonForm = (): ReactElement => {
         />
       </Base.Section>
       <Base.Section title="Appearance">
-        <Form.ColorField path="color" />
+        <Form.ColorField path="strokeColor" label="Stroke" />
         <Form.ColorField
-          path="backgroundColor"
-          label="Background color"
+          path="fillColor"
+          label="Fill"
           fallback={theme.colors.gray.l1}
         />
         <Base.NumericField
