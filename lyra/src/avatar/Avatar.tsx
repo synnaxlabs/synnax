@@ -7,16 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/feature/project/Avatar.css";
+import "@/avatar/Avatar.css";
 
 import { type ReactElement, useMemo } from "react";
 
-import { CSS } from "@/platform/css";
+import { type Component } from "@/component";
+import { CSS } from "@/css";
 
 /* Even coverage of the OKLCH wheel. */
 const HUES: readonly number[] = [15, 60, 105, 150, 195, 240, 285, 330];
 
-/* Hashes the full name, not the initials, so same-letter projects differ. */
+/* Hashes the full name, not the initials, so same-letter names differ. */
 const hueOf = (name: string): number => {
   let hash = 0;
   for (const char of name) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
@@ -37,18 +38,37 @@ const initialsOf = (name: string): string => {
 };
 
 export interface AvatarProps {
+  /** name picks the color and the initials. */
   name: string;
+  /** image replaces the initials when set. */
+  image?: string;
+  size?: Component.Size;
+  className?: string;
 }
 
-export const Avatar = ({ name }: AvatarProps): ReactElement => {
+/**
+ * Avatar is a square that stands for a named thing, such as a user or a project. It
+ * shows the initials of the name, or an image, inside a frosted ring.
+ */
+export const Avatar = ({
+  name,
+  image,
+  size = "medium",
+  className,
+}: AvatarProps): ReactElement => {
   const hue = hueOf(name);
   const style = useMemo<CSS.VarProperties>(
-    () => ({ "--console-avatar-hue": hue }),
+    () => ({ "--pluto-avatar-hue": hue }),
     [hue],
   );
   return (
-    <div className={CSS.B("project-avatar")} style={style}>
-      {initialsOf(name)}
-    </div>
+    <span
+      className={CSS.cls(CSS.B("avatar"), CSS.M("height", size), className)}
+      style={style}
+    >
+      <span className={CSS.BE("avatar", "fill")}>
+        {image == null ? initialsOf(name) : <img src={image} alt="" />}
+      </span>
+    </span>
   );
 };

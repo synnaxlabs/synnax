@@ -14,7 +14,11 @@ import { bundle } from "@remotion/bundler";
 import { renderMedia, selectComposition } from "@remotion/renderer";
 
 import { type CaptureSession } from "@/capture/rig";
+import { synthesize } from "@/director/cursor";
 import { direct } from "@/director/director";
+import { overlay } from "@/director/overlay";
+import { stage } from "@/director/stage";
+import { type Edit, type Overlays } from "@/film";
 import { type Core } from "@/fixtures/core";
 import { parse, type Timeline } from "@/timeline";
 
@@ -138,15 +142,11 @@ export interface RenderRunOptions {
   onProgress?: (progress: number) => void;
 }
 
-/** runRender directs the timeline and renders the video through Remotion. */
-export const runRender = async (opts: RenderRunOptions): Promise<void> => {
-  const { timeline, captureDir, outputLocation, draft = false } = opts;
-  const tracks = direct(timeline);
-
-  const entry = path.resolve(import.meta.dirname, "../remotion/entry.ts");
+/** bundleCompositions bundles the Remotion entry, serving captureDir as its public dir. */
+const bundleCompositions = async (captureDir: string): Promise<string> => {
   const src = path.resolve(import.meta.dirname, "..");
-  const serveUrl = await bundle({
-    entryPoint: entry,
+  return await bundle({
+    entryPoint: path.join(src, "remotion/entry.ts"),
     publicDir: captureDir,
     webpackOverride: (config) => ({
       ...config,
@@ -156,7 +156,14 @@ export const runRender = async (opts: RenderRunOptions): Promise<void> => {
       },
     }),
   });
+};
 
+/** runRender directs the timeline and renders the video through Remotion. */
+export const runRender = async (opts: RenderRunOptions): Promise<void> => {
+  const { timeline, captureDir, outputLocation, draft = false } = opts;
+  const tracks = direct(timeline);
+
+  const serveUrl = await bundleCompositions(captureDir);
   const inputProps = { meta: timeline.meta, tracks, events: timeline.events };
   const composition = await selectComposition({ serveUrl, id: "studio", inputProps });
 
@@ -172,6 +179,48 @@ export const runRender = async (opts: RenderRunOptions): Promise<void> => {
     crf: draft ? 22 : 20,
     x264Preset: draft ? "veryfast" : "slow",
     scale,
+    pixelFormat: "yuv420p",
+    colorSpace: "bt709",
+    imageFormat: "png",
+    inputProps,
+    outputLocation,
+    onProgress: ({ progress }) => opts.onProgress?.(progress),
+  });
+};
+
+export interface FilmRenderOptions {
+  edit: Edit;
+  overlays: Overlays;
+  timeline: Timeline;
+  /** Capture directory holding frames/ (served as the compositor's publicDir). */
+  captureDir: string;
+  /** Path the encoded MP4 is written to. */
+  outputLocation: string;
+  /** Higher crf and a fast encoder preset, for review iterations. */
+  draft?: boolean;
+  onProgress?: (progress: number) => void;
+}
+
+/** runFilmRender stages the edit against its capture and renders the film. */
+export const runFilmRender = async (opts: FilmRenderOptions): Promise<void> => {
+  const { edit, timeline, captureDir, outputLocation, draft = false } = opts;
+  const plan = stage(edit, timeline);
+  const overlays = overlay(opts.overlays, plan.samples, timeline);
+  const serveUrl = await bundleCompositions(captureDir);
+  const inputProps = {
+    meta: timeline.meta,
+    plan,
+    overlays,
+    cursor: synthesize(timeline),
+    events: timeline.events,
+  };
+  const composition = await selectComposition({ serveUrl, id: "film", inputProps });
+  await renderMedia({
+    composition,
+    serveUrl,
+    codec: "h264",
+    crf: draft ? 22 : 18,
+    x264Preset: draft ? "veryfast" : "slow",
     pixelFormat: "yuv420p",
     colorSpace: "bt709",
     imageFormat: "png",

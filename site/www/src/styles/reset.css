@@ -9,20 +9,13 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-avatar {
-    position: relative;
-    overflow: hidden;
-    z-index: 20;
-    opacity: 0.8;
-    cursor: default;
-    &::after {
-        content: "";
-        position: absolute;
-        border: 1px solid var(--pluto-gray-l10-25);
-        top: 0px;
-        left: 0px;
-        bottom: 0px;
-        right: 0px;
-        border-radius: inherit;
-    }
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+* {
+    margin: 0;
+    padding: 0;
 }
