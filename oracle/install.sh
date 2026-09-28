@@ -288,9 +288,9 @@ if $ADD_TO_PATH; then
     step $STEP $TOTAL "Configure PATH"
 
     SHELL_CONFIG=""
-    [[ "$SHELL" == *"zsh"* ]] && SHELL_CONFIG="$HOME/.zshrc"
-    [[ "$SHELL" == *"bash"* ]] && SHELL_CONFIG="${HOME}/.bash_profile"
-    [[ -z "$SHELL_CONFIG" && -f "$HOME/.bashrc" ]] && SHELL_CONFIG="$HOME/.bashrc"
+    [[ $SHELL == *"zsh"* ]] && SHELL_CONFIG="$HOME/.zshrc"
+    [[ $SHELL == *"bash"* ]] && SHELL_CONFIG="${HOME}/.bash_profile"
+    [[ -z $SHELL_CONFIG && -f "$HOME/.bashrc" ]] && SHELL_CONFIG="$HOME/.bashrc"
 
     PATH_LINE="export PATH=\"$INSTALL_DIR:\$PATH\""
 

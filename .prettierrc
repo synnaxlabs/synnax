@@ -1,6 +1,7 @@
 {
   "printWidth": 88,
   "proseWrap": "always",
+  "simplify": true,
   "overrides": [
     {
       "files": ["synnax.code-workspace", ".prettierrc", ".madgerc"],
