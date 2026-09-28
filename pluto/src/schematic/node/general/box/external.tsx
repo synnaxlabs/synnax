@@ -20,7 +20,7 @@ const NAME = "Box";
 export const spec: Spec<"box", schematic.BoxNodeConfig> = {
   key: "box",
   name: NAME,
-  Form: () => <TankForm showBorderRadius showStrokeWidth />,
+  Form: (props) => <TankForm {...props} showBorderRadius showStrokeWidth />,
   Node: Symbol,
   Preview: Component.removeProps(Box, ["dimensions"]),
   zIndex: 2,

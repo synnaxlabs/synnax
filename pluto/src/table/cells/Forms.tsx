@@ -7,30 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/table/cells/Forms.css";
-
 import { type channel } from "@synnaxlabs/client";
 import { Color } from "@synnaxlabs/lyra/color";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { type Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
-import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { color, type notation, type text } from "@synnaxlabs/x";
-import { useEffect } from "react";
 
 import { Channel } from "@/channel";
 import { Notation } from "@/notation";
-import { type Variant } from "@/table/cells/registry";
+import { Properties } from "@/vis/properties";
 import { Staleness } from "@/vis/staleness";
 import { Value } from "@/vis/value";
 
-export interface FormProps {
-  onVariantChange: (variant: Variant) => void;
-}
+/** Props for a cell variant's form. */
+export interface FormProps extends Properties.SelectionProps {}
 
 interface TelemFormT {
   channel: channel.Key;
@@ -84,37 +78,23 @@ const TelemForm = () => {
   );
 };
 
-// A cell carries no redline until one is edited, and the bound and gradient fields
-// need the subtree to exist. Opening the tab materializes it.
-const RedlineForm = () => {
-  const { set } = Form.useContext();
-  const redline = Form.useFieldValue<Value.Redline>("redline", { optional: true });
-  const absent = redline == null;
-  useEffect(() => {
-    if (absent) set("redline", Value.ZERO_READLINE);
-  }, [absent, set]);
-  if (absent) return null;
-  return <Value.RedlineForm path="redline" />;
-};
-
-export const ValueForm = ({ onVariantChange }: FormProps) => {
+export const ValueForm = ({ tab, onTabChange }: FormProps) => {
   const theme = Theming.use();
   return (
-    <Tabs.Frame initialValue="style" className={CSS.B("table-cell-value-form-tabs")}>
-      <Tabs.Selector>
-        <Tabs.Tab itemKey="style">Style</Tabs.Tab>
-        <Tabs.Tab itemKey="telem">Telemetry</Tabs.Tab>
-        <Tabs.Tab itemKey="redline">Redline</Tabs.Tab>
-      </Tabs.Selector>
+    <Properties.Tabs
+      tabs={["telemetry", "style", "redline"]}
+      tab={tab}
+      onTabChange={onTabChange}
+    >
       <Tabs.Content itemKey="style">
         <Form.Sections x>
-          <Form.Section title="Cell">
-            <Input.Item label="Variant" padHelpText={false}>
-              <SelectVariant onChange={onVariantChange} value="value" />
-            </Input.Item>
-          </Form.Section>
           <Form.Section title="Appearance">
             <Color.Field path="color" fallback={theme.colors.gray.l11} />
+            <Color.Field
+              path="backgroundColor"
+              label="Background"
+              fallback={color.ZERO}
+            />
             <Form.Field<text.Level>
               path="level"
               label="Size"
@@ -126,29 +106,20 @@ export const ValueForm = ({ onVariantChange }: FormProps) => {
           </Form.Section>
         </Form.Sections>
       </Tabs.Content>
-      <Tabs.Content itemKey="telem">
+      <Tabs.Content itemKey="telemetry">
         <Form.Sections x>
           <TelemForm />
         </Form.Sections>
       </Tabs.Content>
       <Tabs.Content itemKey="redline">
-        <Form.Sections x>
-          <Form.Section title="Redline">
-            <RedlineForm />
-          </Form.Section>
-        </Form.Sections>
+        <Value.RedlineForm path="redline" />
       </Tabs.Content>
-    </Tabs.Frame>
+    </Properties.Tabs>
   );
 };
 
-export const TextForm = ({ onVariantChange }: FormProps) => (
+export const TextForm = () => (
   <Form.Sections x>
-    <Form.Section title="Cell">
-      <Input.Item label="Variant" padHelpText={false}>
-        <SelectVariant onChange={onVariantChange} value="text" />
-      </Input.Item>
-    </Form.Section>
     <Form.Section title="Text">
       <Form.TextField path="value" label="Text" padHelpText={false} />
       <Form.Field<text.Level> path="level" label="Size" hideIfNull padHelpText={false}>
@@ -170,26 +141,4 @@ export const TextForm = ({ onVariantChange }: FormProps) => (
       <Color.Field path="backgroundColor" label="Background" fallback={color.ZERO} />
     </Form.Section>
   </Form.Sections>
-);
-
-export interface SelectVariantProps extends Omit<
-  Select.SingleSimpleProps<Variant>,
-  "children" | "resourceName"
-> {}
-
-export const SelectVariant = ({ className, ...rest }: SelectVariantProps) => (
-  <Select.Simple<Variant>
-    {...rest}
-    className={CSS.cls(CSS.B("table-cell-select-variant"), className)}
-    resourceName="variant"
-  >
-    <Select.Item itemKey="text">
-      <Icon.Text />
-      Text
-    </Select.Item>
-    <Select.Item itemKey="value">
-      <Icon.Channel />
-      Value
-    </Select.Item>
-  </Select.Simple>
 );

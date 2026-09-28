@@ -9,11 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-table-cell-select-variant {
-    min-width: 30rem;
-}
-
-/* Side-by-side sections size to their container, so the tabs must fill the pane. */
-.pluto-table-cell-value-form-tabs {
-    flex-grow: 1;
+.pluto-table-cell-change-variant__dialog {
+    width: 30rem;
 }

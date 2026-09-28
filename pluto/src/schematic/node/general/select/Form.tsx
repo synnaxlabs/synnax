@@ -18,6 +18,8 @@ import { Channel } from "@/channel";
 import { Control } from "@/schematic/node/common/control";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
+import { type FormProps } from "@/schematic/node/spec";
+import { Properties } from "@/vis/properties";
 
 const SelectTelemForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } =
@@ -49,10 +51,14 @@ const SelectTelemForm = ({ path }: { path: string }): ReactElement => {
   );
 };
 
-export const SelectForm = (): ReactElement => {
+export const SelectForm = ({ tab, onTabChange }: FormProps): ReactElement => {
   const theme = Theming.use();
   return (
-    <Form.Tabs tabs={["style", "control", "options"]}>
+    <Properties.Tabs
+      tabs={["control", "style", "options"]}
+      tab={tab}
+      onTabChange={onTabChange}
+    >
       <Tabs.Content itemKey="style">
         <Base.Sections x>
           <Base.Section title="Label">
@@ -76,6 +82,6 @@ export const SelectForm = (): ReactElement => {
       <Tabs.Content itemKey="options">
         <Form.StateMappingForm path="options" />
       </Tabs.Content>
-    </Form.Tabs>
+    </Properties.Tabs>
   );
 };

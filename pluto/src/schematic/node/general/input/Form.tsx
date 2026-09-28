@@ -18,6 +18,8 @@ import { Channel } from "@/channel";
 import { Control } from "@/schematic/node/common/control";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
+import { type FormProps } from "@/schematic/node/spec";
+import { Properties } from "@/vis/properties";
 interface InputTelemFormProps {
   path: string;
 }
@@ -53,10 +55,10 @@ const InputTelemForm = ({ path }: InputTelemFormProps): ReactElement => {
   );
 };
 
-export const InputForm = (): ReactElement => {
+export const InputForm = ({ tab, onTabChange }: FormProps): ReactElement => {
   const theme = Theming.use();
   return (
-    <Form.Tabs tabs={["style", "control"]}>
+    <Properties.Tabs tabs={["control", "style"]} tab={tab} onTabChange={onTabChange}>
       <Tabs.Content itemKey="style">
         <Base.Sections x>
           <Base.Section title="Label">
@@ -71,6 +73,6 @@ export const InputForm = (): ReactElement => {
       <Tabs.Content itemKey="control">
         <InputTelemForm path="" />
       </Tabs.Content>
-    </Form.Tabs>
+    </Properties.Tabs>
   );
 };

@@ -18,6 +18,7 @@ import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { Scale } from "@/schematic/node/common/scale";
 import { type FormProps as NodeFormProps } from "@/schematic/node/spec";
+import { Properties } from "@/vis/properties";
 
 export interface TankFormProps extends NodeFormProps {
   showBorderRadius?: boolean;
@@ -53,6 +54,8 @@ const FillForm = (): ReactElement => {
 };
 
 export const TankForm = ({
+  tab,
+  onTabChange,
   showBorderRadius = false,
   showStrokeWidth = false,
   showFillTab = false,
@@ -106,11 +109,11 @@ export const TankForm = ({
   );
   if (!showFillTab) return style;
   return (
-    <Form.Tabs tabs={["style", "fill"]}>
+    <Properties.Tabs tabs={["style", "fill"]} tab={tab} onTabChange={onTabChange}>
       <Tabs.Content itemKey="style">{style}</Tabs.Content>
       <Tabs.Content itemKey="fill">
         <FillForm />
       </Tabs.Content>
-    </Form.Tabs>
+    </Properties.Tabs>
   );
 };
