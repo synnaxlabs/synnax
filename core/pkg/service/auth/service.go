@@ -59,7 +59,7 @@ func (c ServiceConfig) Validate() error {
 // [Service.NewWriter] must be spawned from the same [gorp.DB] used to open the service.
 type Service struct {
 	cfg   ServiceConfig
-	table *gorp.Table[string, SecureCredentials]
+	table *gorp.Table[Key, SecureCredentials]
 }
 
 // OpenService opens a new [Service] with the given configurations.
@@ -69,7 +69,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	s := &Service{cfg: cfg}
-	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[string, SecureCredentials]{
+	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, SecureCredentials]{
 		DB:              cfg.DB,
 		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
@@ -82,22 +82,23 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 // Close closes the service and releases any resources.
 func (s *Service) Close() error { return s.table.Close() }
 
-// Authenticate validates the identity of the entity with the given credentials. It
-// returns [ErrInvalidCredentials] only when creds.Username has no stored row or
-// creds.Password does not match the stored hash. Any other failure (e.g. a storage
-// error during the retrieve) is returned verbatim so callers can distinguish a
-// transient system failure from a credential mismatch.
+// Authenticate checks password against the stored password of the user with the given
+// key. It returns [ErrInvalidCredentials] only when the user has no stored password or
+// password does not match the stored hash. Any other failure (e.g. a storage error
+// during the retrieve) is returned verbatim so callers can distinguish a transient
+// system failure from a credential mismatch.
 func (s *Service) Authenticate(
 	ctx context.Context,
 	tx gorp.Tx,
-	creds Credentials,
+	key Key,
+	password string,
 ) error {
-	if err := creds.Validate(); err != nil {
+	if err := validatePassword(password); err != nil {
 		return err
 	}
 	var stored SecureCredentials
 	if err := s.table.NewRetrieve().
-		Where(gorp.MatchKeys[string, SecureCredentials](creds.Username)).
+		Where(gorp.MatchKeys[Key, SecureCredentials](key)).
 		Entry(&stored).
 		Exec(ctx, gorp.OverrideTx(s.cfg.DB, tx)); err != nil {
 		if errors.Is(err, query.ErrNotFound) {
@@ -106,7 +107,7 @@ func (s *Service) Authenticate(
 		return err
 	}
 	if err := bcrypt.
-		CompareHashAndPassword(stored.Password, []byte(creds.Password)); err != nil {
+		CompareHashAndPassword(stored.Password, []byte(password)); err != nil {
 		return errors.Combine(ErrInvalidCredentials, err)
 	}
 	return nil

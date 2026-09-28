@@ -12,9 +12,8 @@ package auth
 import (
 	"context"
 
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/validate"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -28,113 +27,52 @@ type Writer struct {
 	tx      gorp.Tx
 }
 
-// Register stores new credentials. Returns [ErrRepeatedUsername] if the username is
-// already taken, or a validation error if creds has an empty username or password.
-func (w Writer) Register(ctx context.Context, creds Credentials) error {
-	if err := creds.Validate(); err != nil {
-		return err
-	}
-	if err := w.assertUsernameAvailable(ctx, creds.Username); err != nil {
-		return err
-	}
-	hashed, err := hashPassword(creds.Password)
+// Register sets the password of the user with the given key, replacing any stored
+// password. Returns a validation error if password is empty.
+func (w Writer) Register(ctx context.Context, key Key, password string) error {
+	hashed, err := hashPassword(password)
 	if err != nil {
 		return err
 	}
-	return w.service.table.NewCreate().Entry(&SecureCredentials{
-		Username: creds.Username,
-		Password: hashed,
-	}).Exec(ctx, w.tx)
+	return w.service.table.NewCreate().
+		Entry(&SecureCredentials{Key: key, Password: hashed}).
+		Exec(ctx, w.tx)
 }
 
-// UpdateUsername renames the credential entry from oldUsername to newUsername. No
-// identity check; caller is responsible for authorization.
-func (w Writer) UpdateUsername(
-	ctx context.Context,
-	oldUsername,
-	newUsername string,
-) error {
-	if oldUsername == newUsername {
-		return nil
-	}
-	if err := w.assertUsernameAvailable(ctx, newUsername); err != nil {
-		return err
-	}
-	stored, err := w.retrieve(ctx, oldUsername)
+// ChangePassword replaces the stored password of the user with the given key. No
+// identity check; caller is responsible for authorization. Returns
+// [query.ErrNotFound] if the user has no stored password, or a validation error if
+// password is empty.
+func (w Writer) ChangePassword(ctx context.Context, key Key, password string) error {
+	hashed, err := hashPassword(password)
 	if err != nil {
 		return err
 	}
-	if err := w.service.table.NewDelete().
-		Where(gorp.MatchKeys[string, SecureCredentials](oldUsername)).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	stored.Username = newUsername
-	return w.service.table.NewCreate().Entry(&stored).Exec(ctx, w.tx)
-}
-
-// ChangePassword replaces the stored password for creds.Username with creds.Password.
-// No identity check; caller is responsible for authorization. Returns a validation
-// error if creds has an empty username or password.
-func (w Writer) ChangePassword(ctx context.Context, creds Credentials) error {
-	if err := creds.Validate(); err != nil {
-		return err
-	}
-	hashed, err := hashPassword(creds.Password)
-	if err != nil {
-		return err
-	}
-	err = w.service.table.NewUpdate().
-		Where(gorp.MatchKeys[string, SecureCredentials](creds.Username)).
+	return w.service.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, SecureCredentials](key)).
 		Change(func(_ gorp.Context, c SecureCredentials) SecureCredentials {
 			c.Password = hashed
 			return c
 		}).
 		Exec(ctx, w.tx)
-	if errors.Is(err, query.ErrNotFound) {
-		return ErrInvalidCredentials
-	}
-	return err
 }
 
-// Deactivate removes credentials for the given usernames. No identity check; caller
-// is responsible for authorization.
-func (w Writer) Deactivate(ctx context.Context, usernames ...string) error {
+// Deactivate deletes the stored passwords of the users with the given keys.
+func (w Writer) Deactivate(ctx context.Context, keys ...Key) error {
 	return w.service.table.NewDelete().
-		Where(gorp.MatchKeys[string, SecureCredentials](usernames...)).
+		Where(gorp.MatchKeys[Key, SecureCredentials](keys...)).
 		Exec(ctx, w.tx)
 }
 
-func (w Writer) retrieve(
-	ctx context.Context,
-	username string,
-) (SecureCredentials, error) {
-	var stored SecureCredentials
-	if err := w.service.table.NewRetrieve().
-		Where(gorp.MatchKeys[string, SecureCredentials](username)).
-		Entry(&stored).
-		Exec(ctx, w.tx); err != nil {
-		return SecureCredentials{}, err
-	}
-	return stored, nil
-}
-
-func (w Writer) assertUsernameAvailable(ctx context.Context, username string) error {
-	exists, err := w.service.table.NewRetrieve().
-		Where(gorp.MatchKeys[string, SecureCredentials](username)).
-		Exists(ctx, w.tx)
-	if err != nil {
-		return err
-	}
-	if exists {
-		return errors.Wrapf(ErrRepeatedUsername, "username %s already exists", username)
-	}
-	return nil
-}
-
-// hashPassword returns the bcrypt hash of plaintext, propagating any bcrypt error
-// (e.g. password too long, out of memory) verbatim so callers can distinguish a real
-// system failure from a credential mismatch.
 func hashPassword(plaintext string) ([]byte, error) {
+	if err := validatePassword(plaintext); err != nil {
+		return nil, err
+	}
 	return bcrypt.GenerateFromPassword([]byte(plaintext), bcrypt.DefaultCost)
+}
+
+func validatePassword(password string) error {
+	v := validate.New("auth.credentials")
+	v.NotEmptyString("password", password)
+	return v.Error()
 }

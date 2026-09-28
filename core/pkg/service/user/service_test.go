@@ -15,10 +15,17 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	authv1 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	userv0 "github.com/synnaxlabs/synnax/pkg/service/user/versions/v0"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var _ = Describe("ServiceConfig", func() {
@@ -174,4 +181,41 @@ var _ = Describe("Service", func() {
 			},
 		)
 	})
+})
+
+var _ = Describe("Credential re-key", func() {
+	It(
+		"Should re-key username-keyed credentials when the service opens",
+		func(ctx SpecContext) {
+			db := DeferClose(gorp.Wrap(memkv.New()))
+			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+			searchIdx := MustOpen(search.OpenIndex())
+			groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Search:   searchIdx,
+			}))
+			authSvc := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{DB: db}))
+			alice := userv0.User{Key: uuid.New(), Username: "alice"}
+			hash := MustSucceed(
+				bcrypt.GenerateFromPassword([]byte("p"), bcrypt.MinCost),
+			)
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				if err := gorp.WrapWriter[userv0.Key, userv0.User](tx).
+					Set(ctx, alice); err != nil {
+					return err
+				}
+				return gorp.WrapWriter[string, authv1.SecureCredentials](tx).
+					Set(ctx, authv1.SecureCredentials{Username: "alice", Password: hash})
+			})).To(Succeed())
+			MustOpen(user.OpenService(ctx, user.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Group:    groupSvc,
+				Search:   searchIdx,
+				Auth:     authSvc,
+			}))
+			Expect(authSvc.Authenticate(ctx, nil, alice.Key, "p")).To(Succeed())
+		},
+	)
 })

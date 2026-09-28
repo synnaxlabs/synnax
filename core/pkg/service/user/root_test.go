@@ -47,21 +47,22 @@ func createUser(
 	GinkgoHelper()
 	var u user.User
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := authSvc.NewWriter(tx).Register(ctx, auth.Credentials{
-			Username: username, Password: password,
-		}); err != nil {
-			return err
-		}
 		if !root {
 			var err error
-			u, err = svc.NewWriter(tx).Create(ctx, user.User{Username: username})
-			return err
+			if u, err = svc.NewWriter(tx).
+				Create(ctx, user.User{Username: username}); err != nil {
+				return err
+			}
+			return authSvc.NewWriter(tx).Register(ctx, u.Key, password)
 		}
 		u = user.User{Key: uuid.New(), Username: username, RootUser: true}
 		if err := gorp.WrapWriter[user.Key, user.User](tx).Set(ctx, u); err != nil {
 			return err
 		}
-		return otg.NewWriter(tx).DefineResources(ctx, u.OntologyID())
+		if err := otg.NewWriter(tx).DefineResources(ctx, u.OntologyID()); err != nil {
+			return err
+		}
+		return authSvc.NewWriter(tx).Register(ctx, u.Key, password)
 	})).To(Succeed())
 	return u
 }
@@ -89,14 +90,11 @@ func createUserRecordOnly(
 	return u
 }
 
-// createAuthRowOnly registers credentials without creating a user record, simulating an
-// orphan auth row that the reconciler must heal by creating the corresponding user
-// record.
-func createAuthRowOnly(ctx context.Context, username, password string) {
+// authenticate checks password against the stored password of the user with the given
+// username.
+func authenticate(ctx context.Context, username, password string) error {
 	GinkgoHelper()
-	Expect(authSvc.NewWriter(nil).Register(ctx, auth.Credentials{
-		Username: username, Password: password,
-	})).To(Succeed())
+	return authSvc.Authenticate(ctx, nil, findUser(ctx, svc, username).Key, password)
 }
 
 // findUser retrieves the user with the given username and fails the spec if no such
@@ -119,7 +117,7 @@ func rootUsers(ctx context.Context, svc *user.Service) []user.User {
 	return roots
 }
 
-// purgeUsersAndAuth deletes every user record and every auth credential from the
+// purgeUsersAndAuth deletes every user record and its credentials from the
 // suite-level db, restoring a clean slate between specs. Uses the raw gorp writer and
 // the ontology writer directly so it can delete root users — the public
 // [user.Writer.Delete] rejects them by design.
@@ -131,10 +129,8 @@ func purgeUsersAndAuth(ctx context.Context) {
 		return
 	}
 	keys := make([]user.Key, len(users))
-	usernames := make([]string, len(users))
 	for i, u := range users {
 		keys[i] = u.Key
-		usernames[i] = u.Username
 	}
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 		if err := gorp.WrapWriter[user.Key, user.User](
@@ -147,7 +143,7 @@ func purgeUsersAndAuth(ctx context.Context) {
 		); err != nil {
 			return err
 		}
-		return authSvc.NewWriter(tx).Deactivate(ctx, usernames...)
+		return authSvc.NewWriter(tx).Deactivate(ctx, keys...)
 	})).To(Succeed())
 }
 
@@ -157,9 +153,7 @@ var _ = Describe("Root user reconciliation", Serial, func() {
 		It("Should create a root user on a fresh cluster", func(ctx SpecContext) {
 			s := openRootUser(ctx, "alpha", "p1")
 			Expect(findUser(ctx, s, "alpha").RootUser).To(BeTrue())
-			Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
-				Username: "alpha", Password: "p1",
-			})).To(Succeed())
+			Expect(authenticate(ctx, "alpha", "p1")).To(Succeed())
 		})
 	})
 	Describe("Matching root user", func() {
@@ -180,17 +174,14 @@ var _ = Describe("Root user reconciliation", Serial, func() {
 			"Should rotate the root password when config provides a different password",
 			func(ctx SpecContext) {
 				svc1 := openRootUser(ctx, "alpha", "p1")
-				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
-					Username: "alpha", Password: "p1",
-				})).To(Succeed())
+				Expect(authenticate(ctx, "alpha", "p1")).To(Succeed())
 				Expect(svc1.Close()).To(Succeed())
 				svc2 := openRootUser(ctx, "alpha", "p2")
-				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
-					Username: "alpha", Password: "p2",
-				})).To(Succeed())
-				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
-					Username: "alpha", Password: "p1",
-				})).Error().To(MatchError(auth.ErrInvalidCredentials))
+				Expect(authenticate(ctx, "alpha", "p2")).To(Succeed())
+				Expect(
+					authenticate(ctx, "alpha", "p1"),
+				).Error().
+					To(MatchError(auth.ErrInvalidCredentials))
 				Expect(rootUsers(ctx, svc2)).To(HaveLen(1))
 			},
 		)
@@ -205,12 +196,8 @@ var _ = Describe("Root user reconciliation", Serial, func() {
 				Expect(findUser(ctx, svc2, "alpha").RootUser).To(BeFalse())
 				Expect(findUser(ctx, svc2, "beta").RootUser).To(BeTrue())
 				Expect(rootUsers(ctx, svc2)).To(HaveLen(1))
-				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
-					Username: "alpha", Password: "p1",
-				})).To(Succeed())
-				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
-					Username: "beta", Password: "p2",
-				})).To(Succeed())
+				Expect(authenticate(ctx, "alpha", "p1")).To(Succeed())
+				Expect(authenticate(ctx, "beta", "p2")).To(Succeed())
 			},
 		)
 		It("Should be idempotent after a demotion+recreate", func(ctx SpecContext) {
@@ -240,12 +227,11 @@ var _ = Describe("Root user reconciliation", Serial, func() {
 				Expect(findUser(ctx, s, "old-root").RootUser).To(BeFalse())
 				Expect(rootUsers(ctx, s)).To(HaveLen(1))
 				// New password is active; the old one no longer authenticates.
-				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
-					Username: "gamma", Password: "p3",
-				})).To(Succeed())
-				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
-					Username: "gamma", Password: "x",
-				})).Error().To(MatchError(auth.ErrInvalidCredentials))
+				Expect(authenticate(ctx, "gamma", "p3")).To(Succeed())
+				Expect(
+					authenticate(ctx, "gamma", "x"),
+				).Error().
+					To(MatchError(auth.ErrInvalidCredentials))
 			},
 		)
 		It(
@@ -260,9 +246,7 @@ var _ = Describe("Root user reconciliation", Serial, func() {
 				Expect(gammaAfter.Key).To(Equal(gammaBefore.Key))
 				Expect(gammaAfter.RootUser).To(BeTrue())
 				Expect(rootUsers(ctx, s)).To(HaveLen(1))
-				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
-					Username: "gamma", Password: "same-pwd",
-				})).To(Succeed())
+				Expect(authenticate(ctx, "gamma", "same-pwd")).To(Succeed())
 			},
 		)
 	})
@@ -324,43 +308,16 @@ var _ = Describe("Root user reconciliation", Serial, func() {
 				seedSvc := openRootUser(ctx, "root-bootstrap", "p")
 				orphan := createUserRecordOnly(ctx, seedSvc, "orphan-record", true)
 				Expect(seedSvc.Close()).To(Succeed())
-				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
-					Username: "orphan-record", Password: "newpassword",
-				})).Error().To(MatchError(auth.ErrInvalidCredentials))
+				Expect(
+					authenticate(ctx, "orphan-record", "newpassword"),
+				).Error().
+					To(MatchError(auth.ErrInvalidCredentials))
 				s := openRootUser(ctx, "orphan-record", "newpassword")
-				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
-					Username: "orphan-record", Password: "newpassword",
-				})).To(Succeed())
+				Expect(authenticate(ctx, "orphan-record", "newpassword")).To(Succeed())
 				u := findUser(ctx, s, "orphan-record")
 				Expect(u.Key).To(Equal(orphan.Key))
 				Expect(u.RootUser).To(BeTrue())
 				Expect(rootUsers(ctx, s)).To(HaveLen(1))
-			},
-		)
-		It(
-			"Should create the user record when an auth row exists without one",
-			func(ctx SpecContext) {
-				createAuthRowOnly(ctx, "orphan-auth", "p")
-				s := openRootUser(ctx, "orphan-auth", "p")
-				Expect(findUser(ctx, s, "orphan-auth").RootUser).To(BeTrue())
-				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
-					Username: "orphan-auth", Password: "p",
-				})).To(Succeed())
-				Expect(rootUsers(ctx, s)).To(HaveLen(1))
-			},
-		)
-		It(
-			"Should rotate the auth password when an orphan auth row has a different password",
-			func(ctx SpecContext) {
-				createAuthRowOnly(ctx, "orphan-auth-rot", "old-password")
-				s := openRootUser(ctx, "orphan-auth-rot", "new-password")
-				Expect(findUser(ctx, s, "orphan-auth-rot").RootUser).To(BeTrue())
-				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
-					Username: "orphan-auth-rot", Password: "new-password",
-				})).To(Succeed())
-				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
-					Username: "orphan-auth-rot", Password: "old-password",
-				})).Error().To(MatchError(auth.ErrInvalidCredentials))
 			},
 		)
 	})

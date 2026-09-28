@@ -103,8 +103,8 @@ func (s *Service) collapseStaleRoots(
 // root-user invariant described on [Service.reconcileRootUser]. The flow is:
 //  1. Identify the root user that matches the configured username, promoting an
 //     existing non-root user with that username if one exists.
-//  2. Sync the stored password to match config (rotating or registering as needed).
-//  3. Create the root user record if no existing user matches.
+//  2. Create the root user record if no existing user matches.
+//  3. Sync the stored password to match config.
 //  4. Demote every other stale root.
 func (s *Service) reconcileWithCreds(
 	ctx context.Context,
@@ -113,9 +113,6 @@ func (s *Service) reconcileWithCreds(
 ) error {
 	matchingRoot, err := s.resolveMatchingRoot(ctx, tx, roots)
 	if err != nil {
-		return err
-	}
-	if err := s.ensureAuthSync(ctx, tx, s.cfg.RootCredentials); err != nil {
 		return err
 	}
 	if matchingRoot.Key == (Key{}) {
@@ -131,6 +128,9 @@ func (s *Service) reconcileWithCreds(
 			"created root user record",
 			zap.String("username", created.Username),
 		)
+	}
+	if err := s.ensureAuthSync(ctx, tx, matchingRoot); err != nil {
+		return err
 	}
 	for _, r := range roots {
 		if r.Key == matchingRoot.Key {
@@ -195,36 +195,22 @@ func (s *Service) demoteRoot(ctx context.Context, tx gorp.Tx, u User) error {
 	return nil
 }
 
-// ensureAuthSync makes the stored credentials for creds.Username match creds.Password.
-// If no row exists, one is registered; if a row exists with a different password, the
-// password is rotated. A row that already authenticates against creds is a no-op (no
-// log). Config is the source of truth for the root password.
-func (s *Service) ensureAuthSync(
-	ctx context.Context,
-	tx gorp.Tx,
-	creds auth.Credentials,
-) error {
-	if err := s.cfg.Auth.Authenticate(ctx, tx, creds); err == nil {
+// ensureAuthSync makes the stored password of root match the configured password. A
+// password that already matches is a no-op (no log). Config is the source of truth for
+// the root password.
+func (s *Service) ensureAuthSync(ctx context.Context, tx gorp.Tx, root User) error {
+	password := s.cfg.RootCredentials.Password
+	if err := s.cfg.Auth.Authenticate(ctx, tx, root.Key, password); err == nil {
 		return nil
 	} else if !errors.Is(err, auth.ErrInvalidCredentials) {
 		return errors.Wrap(err, "check root credentials")
 	}
-	w := s.cfg.Auth.NewWriter(tx)
-	if err := w.ChangePassword(ctx, creds); err == nil {
-		s.cfg.L.Info(
-			"rotated root user password to match config",
-			zap.String("username", creds.Username),
-		)
-		return nil
-	} else if !errors.Is(err, auth.ErrInvalidCredentials) {
-		return errors.Wrap(err, "rotate root credentials")
-	}
-	if err := w.Register(ctx, creds); err != nil {
-		return errors.Wrap(err, "register root credentials")
+	if err := s.cfg.Auth.NewWriter(tx).Register(ctx, root.Key, password); err != nil {
+		return errors.Wrap(err, "set root credentials")
 	}
 	s.cfg.L.Info(
-		"registered root user credentials",
-		zap.String("username", creds.Username),
+		"set root user password to match config",
+		zap.String("username", root.Username),
 	)
 	return nil
 }

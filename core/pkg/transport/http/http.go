@@ -64,6 +64,9 @@ func Bind(layer *api.Layer, router *http.Router) {
 		UserChangeUsername: router.NewUnaryServer[user.ChangeUsernameRequest, struct{}](
 			"/api/v1/user/change-username",
 		),
+		UserChangePassword: router.NewUnaryServer[user.ChangePasswordRequest, struct{}](
+			"/api/v1/user/change-password",
+		),
 		UserCreate: router.NewUnaryServer[user.CreateRequest, user.CreateResponse](
 			"/api/v1/user/create",
 		),

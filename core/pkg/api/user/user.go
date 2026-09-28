@@ -11,6 +11,7 @@ package user
 
 import (
 	"context"
+	"uuid"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
@@ -65,8 +66,11 @@ type (
 	}
 )
 
-// Create registers the new users with the provided credentials. If successful, Create
-// returns a slice of the new users.
+// Create registers the new users with the provided credentials. A user whose Key
+// already belongs to an existing user is updated in place instead: its username,
+// password, and names are replaced with the request values, and the subject must hold
+// update access on that user. Empty names leave the existing values unchanged, as in
+// [Service.Rename]. If successful, Create returns the created or updated users.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -81,23 +85,90 @@ func (s *Service) Create(
 	}
 	authW := s.auth.NewWriter(tx)
 	userW := s.internal.NewWriter(tx)
-	newUsers := make([]user.User, len(req.Users))
+	users := make([]user.User, len(req.Users))
 	for i, nu := range req.Users {
-		if err := authW.Register(ctx, nu.Credentials); err != nil {
+		existing, found, err := s.retrieveByKey(ctx, tx, nu.Key)
+		if err != nil {
 			return CreateResponse{}, err
 		}
-		u, err := userW.Create(ctx, user.User{
+		if found {
+			if users[i], err = s.update(ctx, tx, existing, nu); err != nil {
+				return CreateResponse{}, err
+			}
+			continue
+		}
+		if users[i], err = userW.Create(ctx, user.User{
 			Username:  nu.Username,
 			FirstName: nu.FirstName,
 			LastName:  nu.LastName,
 			Key:       nu.Key,
-		})
-		if err != nil {
+		}); err != nil {
 			return CreateResponse{}, err
 		}
-		newUsers[i] = u
+		if err := authW.Register(ctx, users[i].Key, nu.Password); err != nil {
+			return CreateResponse{}, err
+		}
 	}
-	return CreateResponse{Users: newUsers}, nil
+	return CreateResponse{Users: users}, nil
+}
+
+// retrieveByKey returns the user with the given key and whether one exists. A nil key
+// never matches.
+func (s *Service) retrieveByKey(
+	ctx context.Context,
+	tx gorp.Tx,
+	key user.Key,
+) (user.User, bool, error) {
+	if key == uuid.Nil() {
+		return user.User{}, false, nil
+	}
+	var u user.User
+	err := s.internal.NewRetrieve().Where(user.MatchKeys(key)).Entry(&u).Exec(ctx, tx)
+	if errors.Is(err, query.ErrNotFound) {
+		return user.User{}, false, nil
+	}
+	if err != nil {
+		return user.User{}, false, err
+	}
+	return u, true, nil
+}
+
+// update applies nu to existing and replaces its stored password.
+func (s *Service) update(
+	ctx context.Context,
+	tx gorp.Tx,
+	existing user.User,
+	nu NewUser,
+) (user.User, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{existing.OntologyID()},
+	}); err != nil {
+		return user.User{}, err
+	}
+	userW := s.internal.NewWriter(tx)
+	if existing.Username != nu.Username {
+		if err := userW.ChangeUsername(ctx, existing.Key, nu.Username); err != nil {
+			return user.User{}, err
+		}
+	}
+	if err := s.auth.NewWriter(tx).
+		Register(ctx, existing.Key, nu.Password); err != nil {
+		return user.User{}, err
+	}
+	if err := userW.ChangeName(
+		ctx, existing.Key, nu.FirstName, nu.LastName,
+	); err != nil {
+		return user.User{}, err
+	}
+	var updated user.User
+	if err := s.internal.NewRetrieve().
+		Where(user.MatchKeys(existing.Key)).Entry(&updated).
+		Exec(ctx, tx); err != nil {
+		return user.User{}, err
+	}
+	return updated, nil
 }
 
 type ChangeUsernameRequest struct {
@@ -133,12 +204,41 @@ func (s *Service) ChangeUsername(
 	}); err != nil {
 		return struct{}{}, err
 	}
-	if err := s.internal.NewWriter(tx).
-		ChangeUsername(ctx, req.Key, req.Username); err != nil {
+	return struct{}{}, s.internal.NewWriter(tx).
+		ChangeUsername(ctx, req.Key, req.Username)
+}
+
+// ChangePasswordRequest is a request to replace a user's password.
+type ChangePasswordRequest struct {
+	Password string   `json:"password" msgpack:"password"`
+	Key      user.Key `json:"key"      msgpack:"key"`
+}
+
+// ChangePassword replaces the password for the user with the given key. The subject
+// must hold update access on that user; the current password is not required. Returns
+// [user.ErrRootCredentialsManaged] if the key names the root user.
+func (s *Service) ChangePassword(
+	ctx context.Context,
+	tx gorp.Tx,
+	req ChangePasswordRequest,
+) (struct{}, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{user.OntologyID(req.Key)},
+	}); err != nil {
 		return struct{}{}, err
 	}
-	return struct{}{}, s.auth.NewWriter(tx).
-		UpdateUsername(ctx, u.Username, req.Username)
+	var u user.User
+	if err := s.internal.NewRetrieve().
+		Where(user.MatchKeys(req.Key)).Entry(&u).
+		Exec(ctx, tx); err != nil {
+		return struct{}{}, err
+	}
+	if u.RootUser {
+		return struct{}{}, user.ErrRootCredentialsManaged
+	}
+	return struct{}{}, s.auth.NewWriter(tx).ChangePassword(ctx, u.Key, req.Password)
 }
 
 type RenameRequest struct {
@@ -218,11 +318,8 @@ func (s *Service) Delete(
 	}); err != nil {
 		return struct{}{}, err
 	}
-	// Look up the usernames of the keys that actually exist so we can deactivate the
-	// matching auth rows. A bare-key retrieve wraps query.ErrNotFound when any key is
-	// missing; we treat that as "those keys are simply not here" and continue with
-	// whatever was found, so deleting a non-existent user is a no-op rather than an
-	// error.
+	// A bare-key retrieve wraps query.ErrNotFound when any key is missing; the keys
+	// that were found are the only ones with credentials to deactivate.
 	var toDelete []user.User
 	if err := s.internal.NewRetrieve().
 		Where(user.MatchKeys(req.Keys...)).
@@ -236,8 +333,6 @@ func (s *Service) Delete(
 	if len(toDelete) == 0 {
 		return struct{}{}, nil
 	}
-	usernames := lo.Map(toDelete, func(u user.User, _ int) string {
-		return u.Username
-	})
-	return struct{}{}, s.auth.NewWriter(tx).Deactivate(ctx, usernames...)
+	keys := lo.Map(toDelete, func(u user.User, _ int) user.Key { return u.Key })
+	return struct{}{}, s.auth.NewWriter(tx).Deactivate(ctx, keys...)
 }

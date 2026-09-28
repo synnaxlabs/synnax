@@ -10,9 +10,14 @@
 package versions
 
 import (
+	authv2 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v2"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/user/versions/v0"
 	"github.com/synnaxlabs/x/migrate"
 )
 
 // Migrations is the ordered migration chain for stored users.
-var Migrations = []migrate.Migration{v0.NormalizeKeys, v0.Migration}
+var Migrations = []migrate.Migration{
+	v0.NormalizeKeys,
+	v0.Migration,
+	authv2.NewMigration(authv2.MigrationConfig{UserKeys: v0.KeysByUsername}),
+}

@@ -13,6 +13,8 @@ package auth
 
 import "github.com/synnaxlabs/synnax/pkg/service/auth/versions"
 
-// SecureCredentials is a persisted username and password-hash pair used to authenticate
-// a user.
+// Key is the key of the user the credentials belong to.
+type Key = versions.Key
+
+// SecureCredentials is a persisted password hash for the user with the matching key.
 type SecureCredentials = versions.SecureCredentials

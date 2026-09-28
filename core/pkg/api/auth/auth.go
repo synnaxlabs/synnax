@@ -20,7 +20,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/version"
 	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -78,14 +80,8 @@ func (s *Service) Login(
 	req LoginRequest,
 ) (LoginResponse, error) {
 	startTime := telem.Now()
-	if err := s.auth.Authenticate(ctx, nil, req.Credentials); err != nil {
-		return LoginResponse{}, err
-	}
-	var u user.User
-	if err := s.user.NewRetrieve().
-		Where(user.MatchUsernames(req.Username)).
-		Entry(&u).
-		Exec(ctx, nil); err != nil {
+	u, err := s.authenticate(ctx, nil, req.Credentials)
+	if err != nil {
 		return LoginResponse{}, err
 	}
 	tk, err := s.token.New(u.Key)
@@ -114,11 +110,37 @@ func (s *Service) ChangePassword(
 	tx gorp.Tx,
 	req ChangePasswordRequest,
 ) (struct{}, error) {
-	if err := s.auth.Authenticate(ctx, tx, req.Credentials); err != nil {
+	u, err := s.authenticate(ctx, tx, req.Credentials)
+	if err != nil {
 		return struct{}{}, err
 	}
-	return struct{}{}, s.auth.NewWriter(tx).ChangePassword(ctx, Credentials{
-		Username: req.Username,
-		Password: req.NewPassword,
-	})
+	return struct{}{}, s.auth.NewWriter(tx).
+		ChangePassword(ctx, u.Key, req.NewPassword)
+}
+
+// authenticate returns the user that creds identify. An unknown username and a wrong
+// password both return [auth.ErrInvalidCredentials], so a caller cannot probe which
+// usernames exist.
+func (s *Service) authenticate(
+	ctx context.Context,
+	tx gorp.Tx,
+	creds Credentials,
+) (user.User, error) {
+	if err := creds.Validate(); err != nil {
+		return user.User{}, err
+	}
+	var u user.User
+	if err := s.user.NewRetrieve().
+		Where(user.MatchUsernames(creds.Username)).
+		Entry(&u).
+		Exec(ctx, tx); err != nil {
+		if errors.Is(err, query.ErrNotFound) {
+			return user.User{}, auth.ErrInvalidCredentials
+		}
+		return user.User{}, err
+	}
+	if err := s.auth.Authenticate(ctx, tx, u.Key, creds.Password); err != nil {
+		return user.User{}, err
+	}
+	return u, nil
 }

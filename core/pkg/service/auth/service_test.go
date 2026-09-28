@@ -49,68 +49,40 @@ var _ = Describe("OpenService", func() {
 })
 
 var _ = Describe("Service", func() {
+	const password = "password"
 	var (
-		svc              *auth.Service
-		creds            auth.Credentials
-		invalidPassCreds auth.Credentials
-		invalidUserCreds auth.Credentials
+		svc *auth.Service
+		key auth.Key
 	)
 	BeforeEach(func(ctx SpecContext) {
 		svc = MustOpen(auth.OpenService(ctx, auth.ServiceConfig{DB: db}))
-		creds = auth.Credentials{Username: uuid.New().String(), Password: "password"}
-		invalidPassCreds = auth.Credentials{
-			Username: creds.Username,
-			Password: "invalid",
-		}
-		invalidUserCreds = auth.Credentials{
-			Username: uuid.New().String(),
-			Password: creds.Password,
-		}
-		Expect(svc.NewWriter(nil).Register(ctx, creds)).To(Succeed())
+		key = uuid.New()
+		Expect(svc.NewWriter(nil).Register(ctx, key, password)).To(Succeed())
 	})
 
 	Describe("Authenticate", func() {
-		It("Should return a nil error for valid credentials", func(ctx SpecContext) {
-			Expect(svc.Authenticate(ctx, nil, creds)).To(Succeed())
+		It("Should return a nil error for a valid password", func(ctx SpecContext) {
+			Expect(svc.Authenticate(ctx, nil, key, password)).To(Succeed())
 		})
 		It(
 			"Should return an InvalidCredentials error when the password is wrong",
 			func(ctx SpecContext) {
-				Expect(
-					svc.Authenticate(ctx, nil, invalidPassCreds),
-				).To(MatchError(auth.ErrInvalidCredentials))
+				Expect(svc.Authenticate(ctx, nil, key, "invalid")).
+					To(MatchError(auth.ErrInvalidCredentials))
 			},
 		)
 		It(
-			"Should return an InvalidCredentials error when the user can't be found",
+			"Should return an InvalidCredentials error when the key has no password",
 			func(ctx SpecContext) {
-				Expect(
-					svc.Authenticate(ctx, nil, invalidUserCreds),
-				).To(MatchError(auth.ErrInvalidCredentials))
-			},
-		)
-		It(
-			"Should return a validation error when the username is empty",
-			func(ctx SpecContext) {
-				Expect(
-					svc.Authenticate(ctx, nil, auth.Credentials{Password: "password"}),
-				).To(
-					MatchError(ContainSubstring("username")),
-				)
+				Expect(svc.Authenticate(ctx, nil, uuid.New(), password)).
+					To(MatchError(auth.ErrInvalidCredentials))
 			},
 		)
 		It(
 			"Should return a validation error when the password is empty",
 			func(ctx SpecContext) {
-				Expect(
-					svc.Authenticate(
-						ctx,
-						nil,
-						auth.Credentials{Username: uuid.New().String()},
-					),
-				).To(
-					MatchError(ContainSubstring("password")),
-				)
+				Expect(svc.Authenticate(ctx, nil, key, "")).
+					To(MatchError(ContainSubstring("password: required")))
 			},
 		)
 		It(
@@ -118,23 +90,12 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				newPass := "rotated-" + uuid.New().String()
 				tx := DeferClose(db.OpenTx())
-				// Rotate the password inside the tx but do not commit.
-				Expect(svc.NewWriter(tx).ChangePassword(ctx, auth.Credentials{
-					Username: creds.Username,
-					Password: newPass,
-				})).To(Succeed())
-				// Inside the same tx, only the new password authenticates; the old one
-				// no longer does — proof that Authenticate observed the in-flight
-				// write.
-				Expect(svc.Authenticate(ctx, tx, auth.Credentials{
-					Username: creds.Username, Password: newPass,
-				})).To(Succeed())
-				Expect(svc.Authenticate(ctx, tx, creds)).To(
-					MatchError(auth.ErrInvalidCredentials),
-				)
-				// Outside the tx (against committed state), the original password still
-				// works because the rotation has not been committed.
-				Expect(svc.Authenticate(ctx, nil, creds)).To(Succeed())
+				Expect(svc.NewWriter(tx).ChangePassword(ctx, key, newPass)).
+					To(Succeed())
+				Expect(svc.Authenticate(ctx, tx, key, newPass)).To(Succeed())
+				Expect(svc.Authenticate(ctx, tx, key, password)).
+					To(MatchError(auth.ErrInvalidCredentials))
+				Expect(svc.Authenticate(ctx, nil, key, password)).To(Succeed())
 			},
 		)
 	})
@@ -142,9 +103,9 @@ var _ = Describe("Service", func() {
 
 var _ = Describe("SecureCredentials", func() {
 	Describe("GorpKey", func() {
-		It("Should return the username", func() {
-			Expect(auth.SecureCredentials{Username: "root"}.GorpKey()).
-				To(Equal("root"))
+		It("Should return the user key", func() {
+			key := uuid.New()
+			Expect(auth.SecureCredentials{Key: key}.GorpKey()).To(Equal(key))
 		})
 	})
 

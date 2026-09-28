@@ -13,10 +13,10 @@ import (
 	"context"
 	"uuid"
 
-	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 )
 
 // A Writer is used to create, update, and delete user records. It does not touch
@@ -32,7 +32,7 @@ type Writer struct {
 
 // Create persists a new user record from u. If u.Key is the zero UUID, a new key is
 // assigned. The returned User has Key populated. Returns an error if u.RootUser is true
-// and [auth.ErrRepeatedUsername] if a user with u.Username already exists.
+// and [query.ErrUniqueViolation] if a user with u.Username already exists.
 func (w Writer) Create(ctx context.Context, u User) (User, error) {
 	if u.RootUser {
 		return User{}, errors.New(
@@ -52,7 +52,7 @@ func (w Writer) create(ctx context.Context, u User) (User, error) {
 		return User{}, err
 	}
 	if exists {
-		return User{}, auth.ErrRepeatedUsername
+		return User{}, errUsernameTaken(u.Username)
 	}
 	if err := u.Validate(); err != nil {
 		return User{}, err
@@ -68,7 +68,7 @@ func (w Writer) create(ctx context.Context, u User) (User, error) {
 
 // ChangeUsername renames the user record identified by key to newUsername. No identity
 // check; callers must already have authorized the operation. Returns
-// [auth.ErrRepeatedUsername] if newUsername already belongs to a different user.
+// [query.ErrUniqueViolation] if newUsername already belongs to a different user.
 func (w Writer) ChangeUsername(ctx context.Context, key Key, newUsername string) error {
 	exists, err := w.svc.NewRetrieve().
 		Where(MatchUsernames(newUsername)).Exists(ctx, w.tx)
@@ -76,7 +76,7 @@ func (w Writer) ChangeUsername(ctx context.Context, key Key, newUsername string)
 		return err
 	}
 	if exists {
-		return auth.ErrRepeatedUsername
+		return errUsernameTaken(newUsername)
 	}
 	return w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, User](key)).
@@ -122,4 +122,12 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		return err
 	}
 	return w.otg.DeleteResources(ctx, OntologyIDsFromKeys(keys)...)
+}
+
+func errUsernameTaken(username string) error {
+	return errors.Wrapf(
+		query.ErrUniqueViolation,
+		"username %s already exists",
+		username,
+	)
 }

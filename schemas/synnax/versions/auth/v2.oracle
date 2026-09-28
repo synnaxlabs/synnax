@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-@go output "core/pkg/service/auth"
-
 Key = uuid {
     @doc value "is the key of the user the credentials belong to."
 }
