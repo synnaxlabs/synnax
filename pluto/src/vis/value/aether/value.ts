@@ -24,10 +24,7 @@ import { telem } from "@/telem/aether";
 import { noopColorSourceSpec } from "@/telem/aether/noop";
 import { theming } from "@/theming/aether";
 import { type Element } from "@/vis/diagram/aether/Diagram";
-import {
-  type FillTextOptions,
-  type SugaredOffscreenCanvasRenderingContext2D,
-} from "@/vis/draw2d/canvas";
+import { type FillTextOptions } from "@/vis/draw2d/canvas";
 import { render } from "@/vis/render";
 import { staleness } from "@/vis/staleness/aether";
 
@@ -42,6 +39,20 @@ const MIN_LEGIBLE_CONTRAST = 1.1;
 const SIGN_OFFSET = 0.6;
 
 const ELLIPSIS = "…";
+
+// Longest head of the value that fits in available, with an ellipsis standing in for
+// what was cut. Returns the value unchanged when it already fits, and the bare ellipsis
+// when not even one digit does, so a cut reading is never mistaken for a whole one.
+// The atlas gives every character, the ellipsis included, the same advance.
+const ellipsize = (
+  value: string,
+  available: number,
+  dims: dimensions.Dimensions,
+): string => {
+  if (dims.width <= available || value.length < 2) return value;
+  const head = Math.floor(available / (dims.width / value.length)) - 1;
+  return head > 0 ? `${value.slice(0, head)}${ELLIPSIS}` : ELLIPSIS;
+};
 
 const valueState = staleness.configZ.extend({
   box: box.box,
@@ -137,31 +148,6 @@ export class Value
     return theme.typography[this.state.level].size * theme.sizes.base;
   }
 
-  // Longest head of the value that fits in available, with an ellipsis standing in for
-  // what was cut. Returns the value unchanged when it already fits, and the bare
-  // ellipsis when not even one digit does, so a cut reading is never mistaken for a
-  // whole one. The value font is monospaced, so one advance estimates the fit and a
-  // single remeasure confirms it.
-  private ellipsize(
-    canvas: SugaredOffscreenCanvasRenderingContext2D,
-    value: string,
-    available: number,
-    dims: dimensions.Dimensions,
-  ): string {
-    if (dims.width <= available || value.length < 2) return value;
-    const advance = dims.width / value.length;
-    let head = Math.max(0, Math.floor(available / advance) - 1);
-    let fitted = `${value.slice(0, head)}${ELLIPSIS}`;
-    while (
-      head > 0 &&
-      canvas.textDimensions(fitted, FILL_TEXT_OPTIONS).width > available
-    ) {
-      head -= 1;
-      fitted = `${value.slice(0, head)}${ELLIPSIS}`;
-    }
-    return fitted;
-  }
-
   // Color the value draws in, given the color it draws on top of. Pass ZERO when no
   // background is filled, which leaves the value on the host's own surface.
   private getTextColor(background: color.Color): color.Color {
@@ -206,7 +192,7 @@ export class Value
     const start =
       location === "left" ? inset : isNegative ? fontHeight * SIGN_OFFSET : 0;
     let dims = canvas.textDimensions(value, FILL_TEXT_OPTIONS);
-    const fitted = this.ellipsize(canvas, value, bWidth - start, dims);
+    const fitted = ellipsize(value, bWidth - start, dims);
     if (fitted !== value) {
       value = fitted;
       dims = canvas.textDimensions(value, FILL_TEXT_OPTIONS);
