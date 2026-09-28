@@ -44,7 +44,7 @@
   "files": [
     "dist",
     "src",
-    "static/logo/*.svg",
+    "static",
     "!**/*.spec.*",
     "!**/*.bench.*",
     "!dist/eslint.config.*"
@@ -55,6 +55,6 @@
       "default": "./dist/media.js"
     },
     "./dist/*": "./dist/*",
-    "./logo/*.svg": "./static/logo/*.svg"
+    "./static/*": "./static/*"
   }
 }

@@ -7,11 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/director/camera";
-export * from "@/director/constants";
-export * from "@/director/cursor";
-export * from "@/director/director";
-export * from "@/director/overlay";
-export * from "@/director/spring";
-export * from "@/director/stage";
-export * from "@/director/zoom";
+export * from "@/film/film";
