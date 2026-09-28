@@ -220,10 +220,7 @@ class SymbolEditor:
         Args:
             state: The state type - "Static" or "Actuator"
         """
-        static_btn = self.modal.get_by_text("Static", exact=True)
-        static_btn.wait_for(state="visible", timeout=2000)
-        static_btn.click()
-        self.layout.select_from_dropdown(state, placeholder="variants")
+        self.modal.get_by_role("button", name=state, exact=True).click()
 
     def save(self) -> None:
         """Click Save/Create button to save the symbol."""
