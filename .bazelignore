@@ -21,7 +21,6 @@ console/node_modules
 docs/site/node_modules
 drift/node_modules
 freighter/ts/node_modules
-integration/node_modules
 lyra/node_modules
 oracle/lsp/extensions/vscode/node_modules
 pluto/node_modules
