@@ -63,6 +63,7 @@ func main() {
 		env := []byte(strings.Join(os.Environ(), "\n"))
 		if err := os.WriteFile(path, env, 0o644); err != nil {
 			fmt.Fprintf(os.Stderr, "E [mock] [main.go] failed to dump environment: %v\n", err)
+			os.Exit(1)
 		}
 	}
 
