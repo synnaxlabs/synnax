@@ -259,7 +259,7 @@ jobs:
     uses: ./.github/workflows/test.ts.yaml
     with:
       coverage_flag: docs
-      directory: docs/site
+      directory: site/docs
       package: docs
     secrets: inherit
 
