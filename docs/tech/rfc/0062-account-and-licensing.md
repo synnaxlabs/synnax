@@ -48,7 +48,7 @@ old key format is deleted.
 
 - **Portal**: The Astro app at `portal/`, served at portal.synnaxlabs.com: accounts,
   organizations, licenses, and the routes that issue tokens. Its own Vercel deployment,
-  apart from the docs site at `docs/site`.
+  apart from the docs site at `site/docs`.
 - **Scope**: The organization a portal page acts for: the user's personal organization
   or one of their teams. The scope switcher chooses it and `?org=` carries it.
 - **Organization**: The owner of every license. A row in the portal's own table. A
@@ -125,12 +125,12 @@ Console on its own listener (`core/cmd/start/start.go:290-310`), which is where 
 operator without a desktop install activates.
 
 The docs site runs Astro 7 with `output: "server"` and the Vercel adapter
-(`docs/site/astro.config.ts:21-22`), imports Pluto CSS through a cascade layer
-(`docs/site/src/styles/main.css`), loads PostHog
-(`docs/site/src/components/analytics/PostHog.astro:65-68`), sets a Content Security
-Policy in `docs/site/src/middleware.ts:12-21`, and connects its live plot to a Core at
-`demo.synnaxlabs.com` (`docs/site/src/components/pluto/Plot.tsx:18`). It already depends
-on `@synnaxlabs/client` (`docs/site/package.json`). The Console registers the
+(`site/docs/astro.config.ts:21-22`), imports Pluto CSS through a cascade layer
+(`site/docs/src/styles/main.css`), loads PostHog
+(`site/docs/src/components/analytics/PostHog.astro:65-68`), sets a Content Security
+Policy in `site/docs/src/middleware.ts:12-21`, and connects its live plot to a Core at
+`demo.synnaxlabs.com` (`site/docs/src/components/pluto/Plot.tsx:18`). It already depends
+on `@synnaxlabs/client` (`site/docs/package.json`). The Console registers the
 `synnax://` scheme (`console/src-tauri/tauri.conf.json:41`) and dispatches deep links
 through a registry (`console/src/app/link/useDeep.ts`).
 
@@ -789,7 +789,7 @@ registered error types. New clients decode it.
     page under `/account`, because the pages shared a host with the docs; on a host of
     their own the prefix says nothing. The scope is a query parameter, not a path
     segment, so a license URL never changes when an organization is renamed.
-28. **The portal is its own package and deployment**: The docs stay at `docs/site` and
+28. **The portal is its own package and deployment**: The docs stay at `site/docs` and
     docs.synnaxlabs.com; the portal is the `site/portal/` package deployed as its own
     Vercel project at portal.synnaxlabs.com. A first draft renamed `docs/site` to `hub/`
     and served accounts from the docs deployment. Rejected: every account change then

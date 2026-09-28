@@ -165,7 +165,7 @@ each index group that was written this cycle:
 
 `ProgramState.Flush` gains the stamp: `Flush(fr, now)`. The 1 ns spacing matches what
 the Core already does for auto-index ("subsequent samples in the same write are spaced 1
-nanosecond apart", `docs/site/src/pages/reference/client/advanced/auto-index.mdx`) and
+nanosecond apart", `site/docs/src/pages/reference/client/advanced/auto-index.mdx`) and
 what the channel source already synthesizes (`telem.Arrange(clock.Now(), n, 1ns)`,
 `arc/go/stl/channels/channels.go:293`).
 

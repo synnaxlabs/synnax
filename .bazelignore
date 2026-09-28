@@ -16,7 +16,7 @@ configs/stylelint/node_modules
 configs/ts/node_modules
 configs/vite/node_modules
 console/node_modules
-docs/site/node_modules
+site/docs/node_modules
 docs/videos/node_modules
 drift/examples/tauri/node_modules
 drift/node_modules

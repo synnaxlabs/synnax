@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/synnaxlabs/alamos"
@@ -59,7 +60,7 @@ type ServiceConfig struct {
 	// [OPTIONAL] - Defaults to time.Now
 	Now func() time.Time
 	// CheckInterval is how often the service records the clock and repeats its
-	// warning.
+	// warning. While the clock is behind, the service checks it every minute instead.
 	//
 	// [OPTIONAL] - Defaults to 1 hour
 	CheckInterval time.Duration
@@ -72,7 +73,7 @@ type ServiceConfig struct {
 	// [OPTIONAL] - Defaults to 14 days
 	Grace time.Duration
 	// Rollback is how far behind the recorded clock the current clock may fall before
-	// every license is treated as expired.
+	// licenses with an expiry are treated as expired.
 	//
 	// [OPTIONAL] - Defaults to 24 hours
 	Rollback time.Duration
@@ -132,10 +133,10 @@ type Service struct {
 	cfg         ServiceConfig
 	fingerprint Fingerprint
 	shutdown    io.Closer
-	// rolledBack is set when the clock at open fell behind the recorded mark. The
-	// service never records the clock again in that state.
-	rolledBack bool
-	mu         struct {
+	// clockBehind is set while the clock is more than Rollback behind the recorded
+	// mark.
+	clockBehind atomic.Bool
+	mu          struct {
 		sync.RWMutex
 		info Info
 	}
@@ -156,7 +157,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		s.fingerprint = Fingerprint{}
 	}
 	s.mu.info = Info{State: StateMissing, Fingerprint: s.fingerprint}
-	if err = s.checkClock(ctx); err != nil {
+	if err = s.syncClock(ctx); err != nil {
 		return nil, err
 	}
 	if err = cfg.Delete(ctx, legacyKey); err != nil {
@@ -255,9 +256,10 @@ func (s *Service) CheckChannelLimit(inUse types.Uint20) error {
 	return nil
 }
 
-// checkClock compares the clock with the recorded mark and moves the mark forward.
-// A clock more than Rollback behind the mark marks the service rolled back.
-func (s *Service) checkClock(ctx context.Context) error {
+// syncClock compares the clock with the recorded mark and moves the mark forward, never
+// back. A clock more than Rollback behind the mark sets clockBehind until it catches
+// up.
+func (s *Service) syncClock(ctx context.Context) error {
 	now := s.cfg.Now()
 	raw, closer, err := s.cfg.Get(ctx, markKey)
 	if errors.Is(err, query.ErrNotFound) {
@@ -276,9 +278,14 @@ func (s *Service) checkClock(ctx context.Context) error {
 	if err = closer.Close(); err != nil {
 		return err
 	}
-	if mark.Sub(now) > s.cfg.Rollback {
-		s.rolledBack = true
-		return nil
+	behind := mark.Sub(now) > s.cfg.Rollback
+	if s.clockBehind.Swap(behind) != behind {
+		fields := []zap.Field{zap.Time("now", now), zap.Time("recorded", mark)}
+		if behind {
+			s.cfg.L.Warn(fmt.Sprintf(logClockBehindTemplate, s.cfg.Rollback), fields...)
+		} else {
+			s.cfg.L.Info(logClockCaughtUp, fields...)
+		}
 	}
 	if now.After(mark) {
 		return s.recordClock(ctx, now)
@@ -322,7 +329,9 @@ func (s *Service) load(ctx context.Context) error {
 		return err
 	}
 	if chosen != nil {
+		s.mu.Lock()
 		s.mu.info = *chosen
+		s.mu.Unlock()
 	}
 	return nil
 }
@@ -333,19 +342,16 @@ const (
 	warnFallbackTemplate = "subscription ended on %s, this version is covered up to %s"
 
 	expiredVersionTemplate = "license covers versions up to %s, this Core is %s"
-	expiredClockTemplate   = "system clock is behind the last recorded time by more " +
-		"than %s, treating the license as expired"
+
+	clockTemplate = "system clock is more than %s behind the last recorded time, so " +
+		"the license term cannot be checked"
 )
 
 // evaluate decides the state a license puts this Core in at the current time.
 func (s *Service) evaluate(lic License) Info {
 	info := Info{State: StateOk, Fingerprint: s.fingerprint, License: &lic}
-	if s.rolledBack {
-		info.State = StateExpired
-		info.Warning = fmt.Sprintf(expiredClockTemplate, s.cfg.Rollback)
-		return info
-	}
-	if lic.Exp != nil {
+	termUnknown := lic.Exp != nil && s.clockBehind.Load()
+	if lic.Exp != nil && !termUnknown {
 		now, exp := s.cfg.Now(), time.Unix(int64(*lic.Exp), 0)
 		if now.Before(exp) {
 			if left := exp.Sub(now); left <= s.cfg.WarningTime {
@@ -363,7 +369,10 @@ func (s *Service) evaluate(lic License) Info {
 		}
 	}
 	if lic.MaxVersion != nil && versionCovered(s.cfg.Version, *lic.MaxVersion) {
-		if lic.Exp != nil {
+		switch {
+		case termUnknown:
+			info.Warning = fmt.Sprintf(clockTemplate, s.cfg.Rollback)
+		case lic.Exp != nil:
 			info.Warning = fmt.Sprintf(
 				warnFallbackTemplate,
 				time.Unix(int64(*lic.Exp), 0).Format(time.DateOnly),
@@ -373,7 +382,10 @@ func (s *Service) evaluate(lic License) Info {
 		return info
 	}
 	info.State = StateExpired
-	if lic.MaxVersion != nil {
+	switch {
+	case termUnknown:
+		info.Warning = fmt.Sprintf(clockTemplate, s.cfg.Rollback)
+	case lic.MaxVersion != nil:
 		info.Warning = fmt.Sprintf(
 			expiredVersionTemplate,
 			*lic.MaxVersion,
@@ -417,7 +429,15 @@ func parseMinor(version string) (major, minor int, ok bool) {
 const (
 	logActive      = "license active"
 	logCapTemplate = "license active, limit is %d channels"
+
+	logClockBehindTemplate = "system clock is more than %s behind the last recorded " +
+		"time, so licenses with an expiry are treated as expired until it catches up"
+	logClockCaughtUp = "system clock caught up with the last recorded time, " +
+		"reloading the license"
 )
+
+// clockRecheck is how often the service checks a clock that is behind.
+const clockRecheck = time.Minute
 
 func (s *Service) logState() {
 	info := s.Retrieve()
@@ -438,25 +458,38 @@ func (s *Service) logState() {
 	}
 }
 
-// monitor records the clock and repeats the warning on every check interval. The
-// state itself never changes here: a Core that opened covered stays covered until it
-// restarts.
+// monitor checks the clock and repeats the warning on every check interval. The
+// state changes here only when a clock that was behind catches up: a Core that opened
+// covered stays covered until it restarts.
 func (s *Service) monitor(ctx context.Context) error {
-	ticker := time.NewTicker(s.cfg.CheckInterval)
-	defer ticker.Stop()
 	for {
+		interval := s.cfg.CheckInterval
+		if s.clockBehind.Load() {
+			interval = min(interval, clockRecheck)
+		}
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-ticker.C:
-			if !s.rolledBack {
-				if err := s.recordClock(ctx, s.cfg.Now()); err != nil {
-					s.cfg.L.Warn("failed to record clock", zap.Error(err))
-				}
+		case <-time.After(interval):
+		}
+		wasBehind := s.clockBehind.Load()
+		if err := s.syncClock(ctx); err != nil {
+			s.cfg.L.Warn("failed to check the clock", zap.Error(err))
+			continue
+		}
+		if s.clockBehind.Load() {
+			continue
+		}
+		if wasBehind {
+			if err := s.load(ctx); err != nil {
+				s.cfg.L.Warn("failed to reload the license", zap.Error(err))
+				continue
 			}
-			if info := s.Retrieve(); info.State == StateOk && info.Warning != "" {
-				s.cfg.L.Warn(info.Warning)
-			}
+			s.logState()
+			continue
+		}
+		if info := s.Retrieve(); info.State == StateOk && info.Warning != "" {
+			s.cfg.L.Warn(info.Warning)
 		}
 	}
 }

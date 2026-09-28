@@ -47,7 +47,7 @@
       "project": ["src/**/*.{ts,tsx}"],
       "ignore": ["src-tauri/**"]
     },
-    "docs/site": {
+    "site/docs": {
       "entry": ["src/**/*.astro", "src/**/*.tsx", "src/**/*.ts"],
       "project": ["src/**/*.{ts,tsx,astro}"],
       "ignoreDependencies": ["@astrojs/*"]
