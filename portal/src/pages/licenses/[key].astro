@@ -10,18 +10,15 @@
 
 import Portal from "@/layouts/Portal.astro";
 import { licenseFor } from "@/access";
-import { failure, load } from "@/page";
+import { failure, loadScoped } from "@/page";
 import { Page } from "@/ui/Page";
 import { License } from "@/ui/licenses/License";
 import { namesFor } from "@/server/directory";
 import { listForLicense } from "@/server/event";
-import { organizationsFor } from "@/server/organization";
 
-const loaded = await load(Astro);
+const loaded = await loadScoped(Astro);
 if (loaded instanceof Response) return loaded;
-const { portal, session } = loaded;
-
-const organizations = await organizationsFor(portal.store, session);
+const { portal, session, organizations, scope } = loaded;
 
 let error: string | undefined;
 let view: Awaited<ReturnType<typeof licenseFor>> | undefined;
@@ -46,7 +43,8 @@ try {
     title={view?.license.label || "License"}
     session={session}
     organizations={organizations}
-    organization={view?.organization}
+    scope={view?.organization ?? scope}
+    tab={view == null ? null : "licenses"}
 >
     {
         view == null ? (

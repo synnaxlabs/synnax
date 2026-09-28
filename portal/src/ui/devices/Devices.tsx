@@ -17,7 +17,6 @@ import { type ReactElement, useCallback } from "react";
 import { type Activation, type License } from "@/server/db/schema";
 import { type Machine } from "@/server/license/desktop";
 import { post, reload } from "@/ui/api";
-import { Enterprise } from "@/ui/Enterprise";
 import { date, machineName, statusOf } from "@/ui/format";
 import { RenameDialog } from "@/ui/licenses/RenameDialog";
 import { StatusTag } from "@/ui/licenses/StatusTag";
@@ -26,7 +25,7 @@ import { Empty, Page } from "@/ui/Page";
 import { Row, Table } from "@/ui/Table";
 import { useAction } from "@/ui/useAction";
 
-export interface DesktopProps {
+export interface DevicesProps {
   /** machines are the machines signed in from the Desktop app that hold a seat. */
   machines: Machine[];
   now: Date | string;
@@ -40,11 +39,11 @@ const validity = (lic: License, at: Date): string =>
     ? `Expired ${date(lic.expiresAt)}. Open the app on that machine to renew.`
     : `Valid until ${date(lic.expiresAt)}`;
 
-/** Desktop is a personal user's portal home: their Desktop machines. */
-export const Desktop = ({ machines, now }: DesktopProps): ReactElement => {
+/** Devices lists the machines a personal user signed in from Synnax Desktop. */
+export const Devices = ({ machines, now }: DevicesProps): ReactElement => {
   const at = new Date(now);
   return (
-    <Page title="Desktop" subtitle="Machines signed in from the Synnax Desktop app">
+    <Page title="Devices" subtitle="Machines signed in from Synnax Desktop">
       {machines.length === 0 ? (
         <Empty
           message="No machines yet"
@@ -89,7 +88,6 @@ export const Desktop = ({ machines, now }: DesktopProps): ReactElement => {
           ))}
         </Table>
       )}
-      <Enterprise />
     </Page>
   );
 };

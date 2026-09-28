@@ -105,17 +105,21 @@ export const organizationsFor = async (
 };
 
 /**
- * pick chooses the organization a page acts for. A team is the default for a member of
- * any team; `?org=` selects among them. A user on no team acts for their personal
- * organization. Returns null when the requested key is not one of the user's.
+ * pick chooses the scope a page acts for. `?org=` selects any of the user's
+ * organizations, personal included. Without it, a team member acts for their first
+ * team and anyone else for their personal organization. Returns null when the
+ * requested key is not one of the user's.
  */
 export const pick = (
   organizations: Organization[],
   requested: string | null,
 ): Organization | null => {
-  const teams = organizations.filter((o) => o.kind === "team");
-  if (requested != null) return teams.find((o) => o.key === requested) ?? null;
-  return teams[0] ?? organizations.find((o) => o.kind === "personal") ?? null;
+  if (requested != null) return organizations.find((o) => o.key === requested) ?? null;
+  return (
+    organizations.find((o) => o.kind === "team") ??
+    organizations.find((o) => o.kind === "personal") ??
+    null
+  );
 };
 
 /** listAll returns every organization, for staff. */

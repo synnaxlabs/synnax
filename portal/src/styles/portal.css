@@ -42,20 +42,13 @@
     --pluto-height-small: 4rem;
 }
 
-body {
-    display: grid;
-    grid-template-columns: 45rem minmax(0, 1fr);
-    grid-template-rows: auto 1fr;
-}
-
 .portal-bar {
-    grid-column: 1 / -1;
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 3rem;
     height: 8rem;
     padding: 0 4rem;
-    border-bottom: var(--pluto-border);
 
     & svg {
         height: 3.5rem;
@@ -63,19 +56,73 @@ body {
     }
 }
 
+.portal-bar__start,
 .portal-bar__actions {
     display: flex;
     align-items: center;
+    min-width: 0;
+}
+
+.portal-bar__start {
+    gap: 2rem;
+}
+
+.portal-bar__actions {
     gap: 3rem;
+}
+
+.portal-bar__separator {
+    color: var(--pluto-gray-l7);
+    font-size: 3rem;
+    font-weight: 300;
 }
 
 .portal-bar__link {
     color: var(--pluto-gray-l9);
+    font-size: var(--pluto-p-size);
     text-decoration: none;
 
     &:hover {
         color: var(--pluto-gray-l11);
     }
+}
+
+.portal-scope {
+    min-width: 0;
+
+    & .pluto-text {
+        font-size: var(--pluto-p-size);
+    }
+}
+
+/* Phones scroll the tab row sideways instead of wrapping it. */
+.portal-tabs {
+    display: flex;
+    gap: 1rem;
+    padding: 0 3rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    border-bottom: var(--pluto-border);
+}
+
+.portal-tab {
+    flex-shrink: 0;
+    padding: 1.5rem 1rem;
+    margin-bottom: -1px;
+    color: var(--pluto-gray-l9);
+    font-size: var(--pluto-p-size);
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+
+    &:hover {
+        color: var(--pluto-gray-l11);
+    }
+}
+
+.portal-tab--active {
+    color: var(--pluto-gray-l11);
+    font-weight: 500;
+    border-bottom-color: var(--pluto-gray-l11);
 }
 
 .account-button {
@@ -101,20 +148,6 @@ body {
 
 .account-menu {
     --pluto-shadow-v1: var(--pluto-shadow-overlay);
-}
-
-.portal-nav {
-    padding: 4rem 2rem 0 3rem;
-    background: var(--pluto-gray-l2-20);
-    border-right: var(--pluto-border);
-
-    & .portal-sidebar__link {
-        justify-content: flex-start;
-    }
-
-    & .portal-sidebar__link .pluto-text {
-        font-size: var(--pluto-p-size);
-    }
 }
 
 main {
@@ -177,10 +210,6 @@ section.portal {
     gap: 3rem 4rem;
 }
 
-body:has(> .portal-auth-page) {
-    display: block;
-}
-
 section.portal-auth-page {
     display: flex;
     flex-direction: column;
@@ -194,19 +223,40 @@ section.portal-auth-page {
     margin: 8rem auto 12rem;
 }
 
+.portal-step {
+    padding: 3rem 4rem;
+
+    & + & {
+        border-top: var(--pluto-border);
+    }
+}
+
+.portal-step__number {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 5rem;
+    height: 5rem;
+    flex-shrink: 0;
+    border: var(--pluto-border);
+    border-radius: 50%;
+}
+
 .portal-modal {
     width: min(96rem, 100%);
 }
 
 @media (width <= 800px) {
-    body {
-        grid-template-columns: minmax(0, 1fr);
+    .portal-bar {
+        padding: 0 2rem;
     }
 
-    .portal-nav {
-        padding: 2rem 2rem 0;
-        border-right: none;
-        border-bottom: var(--pluto-border);
+    .portal-bar__actions {
+        gap: 2rem;
+    }
+
+    .portal-tabs {
+        padding: 0 1rem;
     }
 
     section.portal {

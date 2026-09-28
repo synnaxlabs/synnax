@@ -10,8 +10,11 @@
 import { type APIContext } from "astro";
 
 import { open, type Portal } from "@/portal";
+import { type Organization, type OrganizationKind } from "@/server/db/schema";
 import { HTTPError } from "@/server/errors";
+import { organizationsFor, pick } from "@/server/organization";
 import { type Session } from "@/server/session";
+import { scoped } from "@/shell";
 
 export interface Loaded {
   portal: Portal;
@@ -32,6 +35,32 @@ export const load = async (context: APIContext): Promise<Loaded | Response> => {
     const back = context.url.pathname + context.url.search;
     return context.redirect(`/sign-in?redirect_url=${encodeURIComponent(back)}`, 303);
   }
+};
+
+export interface Scoped extends Loaded {
+  /** organizations are every organization the user can act for, personal first. */
+  organizations: Organization[];
+  /** scope is the organization the page acts for, from `?org=` or the default. */
+  scope: Organization;
+}
+
+/**
+ * loadScoped opens the portal for a signed-in page that acts for one organization.
+ * An `?org=` the user is not a member of redirects to their default overview. A page
+ * that serves only one `kind` of scope redirects any other to its overview.
+ */
+export const loadScoped = async (
+  context: APIContext,
+  kind?: OrganizationKind,
+): Promise<Scoped | Response> => {
+  const loaded = await load(context);
+  if (loaded instanceof Response) return loaded;
+  const organizations = await organizationsFor(loaded.portal.store, loaded.session);
+  const scope = pick(organizations, context.url.searchParams.get("org"));
+  if (scope == null) return context.redirect("/", 303);
+  if (kind != null && scope.kind !== kind)
+    return context.redirect(scoped("/", scope), 303);
+  return { ...loaded, organizations, scope };
 };
 
 /** failure reads the status and message a page shows for an error it caught. */

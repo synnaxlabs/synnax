@@ -10,18 +10,15 @@
 
 import Portal from "@/layouts/Portal.astro";
 import { requireStaff } from "@/access";
-import { failure, load } from "@/page";
+import { failure, loadScoped } from "@/page";
 import { Page } from "@/ui/Page";
 import { StaffLicenses } from "@/ui/staff/Licenses";
 import { type Owned, listAll } from "@/server/license/list";
 import { type Listed, listTeams } from "@/server/directory";
-import { organizationsFor } from "@/server/organization";
 
-const loaded = await load(Astro);
+const loaded = await loadScoped(Astro);
 if (loaded instanceof Response) return loaded;
-const { portal, session } = loaded;
-
-const organizations = await organizationsFor(portal.store, session);
+const { portal, session, organizations, scope } = loaded;
 
 let error: string | undefined;
 let teams: Listed[] = [];
@@ -37,7 +34,13 @@ try {
 }
 ---
 
-<Portal title="All licenses" session={session} organizations={organizations}>
+<Portal
+    title="Admin"
+    session={session}
+    organizations={organizations}
+    scope={scope}
+    tab="admin"
+>
     {
         error != null ? (
             <Page client:load title="All licenses" error={error} />

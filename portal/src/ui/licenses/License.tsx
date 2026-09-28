@@ -22,6 +22,7 @@ import {
   type Organization,
 } from "@/server/db/schema";
 import { post, postFile, reload, save } from "@/ui/api";
+import { Fact, Facts } from "@/ui/Facts";
 import {
   channels,
   date,
@@ -89,7 +90,7 @@ export const License = ({
         </>
       }
     >
-      <Facts license={lic} held={held.length} />
+      <LicenseFacts license={lic} held={held.length} />
       <Section title="Machines">
         {held.length === 0 ? (
           <Empty
@@ -167,43 +168,22 @@ export const License = ({
   );
 };
 
-const Facts = ({
+const LicenseFacts = ({
   license: lic,
   held,
 }: {
   license: LicenseRecord;
   held: number;
 }): ReactElement => (
-  <Flex.Box bordered rounded background={1} style={{ padding: "3rem 4rem" }}>
-    <Flex.Box className="portal-facts" full="x">
-      <Fact label="Edition" value={edition(lic.edition)} />
-      <Fact label="Term" value={term(lic)} />
-      <Fact label="Machines" value={`${held} of ${lic.nodes} seats in use`} />
-      <Fact label="Channels per Core" value={channels(lic.channels)} />
-      <Fact label="Issued" value={date(lic.issuedAt)} />
-      {lic.revokedAt != null && <Fact label="Revoked" value={date(lic.revokedAt)} />}
-      <Fact label="Key" value={lic.key} code />
-    </Flex.Box>
-  </Flex.Box>
-);
-
-const Fact = ({
-  label,
-  value,
-  code = false,
-}: {
-  label: string;
-  value: string;
-  code?: boolean;
-}): ReactElement => (
-  <Flex.Box y gap="tiny" style={{ minWidth: 0 }}>
-    <Text.Text level="small" color={9}>
-      {label}
-    </Text.Text>
-    <Text.Text level="p" variant={code ? "code" : "prose"} overflow="ellipsis">
-      {value}
-    </Text.Text>
-  </Flex.Box>
+  <Facts>
+    <Fact label="Edition" value={edition(lic.edition)} />
+    <Fact label="Term" value={term(lic)} />
+    <Fact label="Machines" value={`${held} of ${lic.nodes} seats in use`} />
+    <Fact label="Channels per Core" value={channels(lic.channels)} />
+    <Fact label="Issued" value={date(lic.issuedAt)} />
+    {lic.revokedAt != null && <Fact label="Revoked" value={date(lic.revokedAt)} />}
+    <Fact label="Key" value={lic.key} code />
+  </Facts>
 );
 
 interface MachineMenuProps {

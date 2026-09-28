@@ -9,48 +9,43 @@
 // included in the file licenses/APL.txt.
 
 import Portal from "@/layouts/Portal.astro";
-import { load } from "@/page";
-import { Desktop } from "@/ui/licenses/Desktop";
-import { Licenses } from "@/ui/licenses/Licenses";
+import { loadScoped } from "@/page";
+import { scoped } from "@/shell";
+import { Personal } from "@/ui/overview/Personal";
+import { Team } from "@/ui/overview/Team";
 import { machinesFor } from "@/server/license/desktop";
 import { listForOrganization } from "@/server/license/list";
-import { organizationsFor, pick } from "@/server/organization";
 
-const loaded = await load(Astro);
+const loaded = await loadScoped(Astro);
 if (loaded instanceof Response) return loaded;
-const { portal, session } = loaded;
-
-const organizations = await organizationsFor(portal.store, session);
-const selected = pick(organizations, Astro.url.searchParams.get("org"));
-const enterprise = selected?.kind === "team";
-
-const licenses =
-    selected == null || !enterprise
-        ? []
-        : await listForOrganization(portal.store.query, selected.key);
-
-const machines =
-    selected == null || enterprise
-        ? []
-        : await machinesFor(portal.store.query, selected.key);
+const { portal, session, organizations, scope } = loaded;
+const team = scope.kind === "team";
+const licenses = team ? await listForOrganization(portal.store.query, scope.key) : [];
+const machines = team ? [] : await machinesFor(portal.store.query, scope.key);
 ---
 
 <Portal
-    title={enterprise ? "Licenses" : "Desktop"}
+    title="Overview"
     session={session}
     organizations={organizations}
-    organization={selected}
+    scope={scope}
+    tab="overview"
 >
     {
-        enterprise ? (
-            <Licenses
+        team ? (
+            <Team
                 client:load
-                organization={selected}
+                organization={scope}
                 licenses={licenses}
                 now={portal.now()}
             />
         ) : (
-            <Desktop client:load machines={machines} now={portal.now()} />
+            <Personal
+                client:load
+                machines={machines}
+                devices={scoped("/devices", scope)}
+                now={portal.now()}
+            />
         )
     }
 </Portal>

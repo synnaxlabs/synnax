@@ -18,8 +18,8 @@ import { type ReactElement, useCallback } from "react";
 import { useClerk, useUser } from "@/ui/clerk";
 
 /**
- * Account is the header control: a sign-in link when signed out, an avatar menu when
- * signed in.
+ * Account is the avatar menu in the portal bar: the user's settings and sign out. It
+ * shows a sign-in link to a signed-out visitor.
  */
 export const Account = (): ReactElement | null => {
   const clerk = useClerk();
@@ -68,15 +68,10 @@ export const Account = (): ReactElement | null => {
         <Menu.Menu
           level="small"
           onChange={{
-            licenses: () => window.location.assign("/"),
             settings: () => window.location.assign("/settings"),
             signOut,
           }}
         >
-          <Menu.Item itemKey="licenses">
-            <Icon.Access />
-            Licenses
-          </Menu.Item>
           <Menu.Item itemKey="settings">
             <Icon.Settings />
             Settings
