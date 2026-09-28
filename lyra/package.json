@@ -77,6 +77,10 @@
     "!dist/eslint.config.*"
   ],
   "exports": {
+    "./avatar": {
+      "types": "./dist/src/avatar/index.d.ts",
+      "default": "./dist/avatar.js"
+    },
     "./breadcrumb": {
       "types": "./dist/src/breadcrumb/index.d.ts",
       "default": "./dist/breadcrumb.js"

@@ -10,6 +10,7 @@
 import "@/feature/project/Selector.css";
 
 import { project, UnexpectedError } from "@synnaxlabs/client";
+import { Avatar } from "@synnaxlabs/lyra/avatar";
 import { Component } from "@synnaxlabs/lyra/component";
 import { CSS as PCSS } from "@synnaxlabs/lyra/css";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
@@ -21,7 +22,6 @@ import { Access, type Flux, Project } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 import { type MouseEvent, type ReactElement, useCallback, useState } from "react";
 
-import { Avatar } from "@/feature/project/Avatar";
 import { Button } from "@/platform/button";
 import { ContextMenu as CMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
@@ -53,7 +53,7 @@ export const listItem = Component.renderProp(
         data-menu-key={itemKey}
         onClickCapture={stopClicksWhileEditing}
       >
-        <Avatar name={proj.name} />
+        <Avatar.Avatar name={proj.name} size="small" />
         <Text.MaybeEditable
           id={PCSS.B(`project-${itemKey}`)}
           value={proj.name}
@@ -124,7 +124,7 @@ export const ContextMenu = ({
 const TriggerAvatar = ({ itemKey }: { itemKey: project.Key }): ReactElement | null => {
   const proj = List.useItem<project.Key, project.Project>(itemKey);
   if (proj == null) return null;
-  return <Avatar name={proj.name} />;
+  return <Avatar.Avatar name={proj.name} />;
 };
 
 export const Selector = (): ReactElement | null => {
