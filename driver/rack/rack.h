@@ -148,9 +148,9 @@ struct Config {
         return os;
     }
 
-    /// @brief builds the configuration from defaults, persisted state, the config
-    /// file, the environment, and command line arguments, each overriding the last.
-    /// Does not reach the Core. On error, returns the configuration built so far.
+    /// @brief builds the configuration from defaults, persisted state, the config file,
+    /// the environment, and command line arguments, each overriding the last. Does not
+    /// reach the Core. On error, returns the configuration built so far.
     static std::pair<Config, x::errors::Error>
     resolve(x::args::Parser &parser, x::breaker::Breaker &breaker) {
         rack::Config cfg{
