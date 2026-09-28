@@ -1145,12 +1145,6 @@ importers:
       '@xyflow/react':
         specifier: 'catalog:'
         version: 12.12.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(immer@11.1.15)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      clsx:
-        specifier: 'catalog:'
-        version: 2.1.1
-      react-icons:
-        specifier: 'catalog:'
-        version: 5.7.0(react@19.3.0)
       vscode-languageclient:
         specifier: 'catalog:'
         version: 10.1.2
@@ -1206,9 +1200,6 @@ importers:
       '@testing-library/react':
         specifier: 'catalog:'
         version: 16.3.3(@testing-library/dom@10.4.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      '@testing-library/user-event':
-        specifier: 'catalog:'
-        version: 14.6.7(@testing-library/dom@10.4.0)
       '@types/d3-scale':
         specifier: 'catalog:'
         version: 4.0.9
@@ -1239,9 +1230,6 @@ importers:
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 5.0.2(vitest@5.0.2)
-      async-mutex:
-        specifier: 'catalog:'
-        version: 0.5.0
       d3-scale:
         specifier: 'catalog:'
         version: 4.0.2
