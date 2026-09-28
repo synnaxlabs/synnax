@@ -1,12 +1,12 @@
 # Docs Video Shot List
 
-Complete inventory of every `<Video id="..." />` under `hub/src/pages`.
+Complete inventory of every `<Video id="..." />` under `docs/site/src/pages`.
 
 **Total: 61 unique ids** under `reference/` (the docs-site tutorial set), plus the
 legacy clips under `releases/` (release-notes demos, listed in an addendum at the
 bottom). Shot descriptions marked "(inferred)" come from thin prose; the flow was
 reconstructed from the section heading and neighboring steps. Source paths are relative
-to `hub/src/pages/`.
+to `docs/site/src/pages/`.
 
 ## Prerequisites legend
 

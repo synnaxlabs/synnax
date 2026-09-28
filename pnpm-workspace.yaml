@@ -13,11 +13,12 @@ packages:
   - client/ts
   - configs/**
   - console
+  - docs/site
   - drift
   - freighter/ts
-  - hub
   - lyra
   - pluto
+  - portal
   - studio
   - x/media
   - x/ts

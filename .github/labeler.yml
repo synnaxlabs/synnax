@@ -66,4 +66,4 @@ ts-client:
 documentation:
   - changed-files:
       - any-glob-to-any-file:
-          - hub/**
+          - docs/site/**

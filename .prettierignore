@@ -9,4 +9,4 @@ pnpm-workspace.yaml
 *.mod
 *.rs
 *.lock
-hub/drizzle/meta
+portal/drizzle/meta
