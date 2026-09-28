@@ -82,6 +82,7 @@ export const Dialog = ({
   const id = useId();
 
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const anchorRef = useRef<HTMLElement | null>(null);
   const openTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const releaseRef = useRef<destructor.Destructor | null>(null);
@@ -127,6 +128,8 @@ export const Dialog = ({
     setClosing(false);
     releaseRef.current?.();
     releaseRef.current = acquire(closeNow);
+    // Set from the ref on open so mounting alone never re-renders the dialog
+    setAnchor(anchorRef.current);
     setVisible(true);
   }, []);
 
@@ -154,6 +157,7 @@ export const Dialog = ({
   useEffect(() => {
     if (!visible) return;
     const handleScroll = (e: Event): void => {
+      const anchor = anchorRef.current;
       if (
         e.target instanceof Node &&
         anchor != null &&
@@ -163,7 +167,7 @@ export const Dialog = ({
     };
     window.addEventListener("scroll", handleScroll, { capture: true, passive: true });
     return () => window.removeEventListener("scroll", handleScroll, { capture: true });
-  }, [visible, close, anchor]);
+  }, [visible, close]);
 
   const handleEscape = useCallback(
     ({ stage }: Triggers.UseEvent): void => {
@@ -187,7 +191,7 @@ export const Dialog = ({
   );
 
   const [tip, children_] = children;
-  const combinedAnchorRef = useCombinedRefs(setAnchor, children_.props.ref);
+  const combinedAnchorRef = useCombinedRefs(anchorRef, children_.props.ref);
 
   return (
     <>
