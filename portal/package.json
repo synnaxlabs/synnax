@@ -49,6 +49,7 @@
     "drizzle-kit": "catalog:",
     "eslint": "catalog:",
     "jsdom": "catalog:",
+    "postcss": "catalog:",
     "stylelint": "catalog:",
     "typescript": "catalog:ts6",
     "vitest": "catalog:"

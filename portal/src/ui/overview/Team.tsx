@@ -25,7 +25,7 @@ import { Row, Table } from "@/ui/Table";
 /** RECENT is how many licenses the overview shows before linking to Licenses. */
 const RECENT = 3;
 
-const COLUMNS = "minmax(0, 2fr) 10rem 10rem";
+const COLUMNS = "minmax(0, 2fr) 14rem 10rem";
 
 export interface TeamProps {
   organization: Organization;
@@ -68,7 +68,11 @@ export const Team = ({ organization, licenses, now }: TeamProps): ReactElement =
       <Section
         title="Licenses"
         actions={
-          <Button.Button variant="text" href={scoped("/licenses", organization)}>
+          <Button.Button
+            variant="text"
+            textColor={9}
+            href={scoped("/licenses", organization)}
+          >
             View all
           </Button.Button>
         }
@@ -99,7 +103,11 @@ export const Team = ({ organization, licenses, now }: TeamProps): ReactElement =
       <Section
         title="Members"
         actions={
-          <Button.Button variant="text" href={scoped("/members", organization)}>
+          <Button.Button
+            variant="text"
+            textColor={9}
+            href={scoped("/members", organization)}
+          >
             Manage
           </Button.Button>
         }

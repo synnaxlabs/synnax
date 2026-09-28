@@ -40,7 +40,9 @@ const option = (o: Organization) => ({
 <Root title={title}>
     <header class="portal-bar">
         <div class="portal-bar__start">
-            <a href={scoped("/", scope)} aria-label="Synnax"><Logo variant="icon" /></a>
+            <a class="portal-bar__logo" href={scoped("/", scope)} aria-label="Synnax"
+                ><Logo variant="icon" /></a
+            >
             <span class="portal-bar__separator" aria-hidden="true">/</span>
             <Scope
                 client:load
@@ -59,7 +61,9 @@ const option = (o: Organization) => ({
                 <Button.Button
                     variant="text"
                     textColor={link.tab === tab ? 11 : 9}
-                    className={`portal-tab${link.tab === tab ? " portal-tab--active" : ""}`}
+                    background={link.tab === tab ? 2 : undefined}
+                    weight={link.tab === tab ? 500 : 400}
+                    className="portal-tab"
                     href={link.href}
                     aria-current={link.tab === tab ? "page" : undefined}
                 >

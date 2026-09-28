@@ -25,7 +25,7 @@ const DOWNLOAD_URL = "https://docs.synnaxlabs.com/reference/desktop/get-started"
 /** RECENT is how many machines the overview shows before linking to Devices. */
 const RECENT = 3;
 
-const COLUMNS = "minmax(0, 2fr) 10rem 12rem";
+const COLUMNS = "minmax(0, 2fr) 14rem 16rem";
 
 export interface PersonalProps {
   /** machines are the user's linked machines, most recently renewed first. */
@@ -107,7 +107,7 @@ const Recent = ({ machines, devices, now }: RecentProps): ReactElement => (
   <Section
     title="Recent devices"
     actions={
-      <Button.Button variant="text" href={devices}>
+      <Button.Button variant="text" textColor={9} href={devices}>
         View all
       </Button.Button>
     }
@@ -127,11 +127,9 @@ const Recent = ({ machines, devices, now }: RecentProps): ReactElement => (
         </Row>
       ))}
     </Table>
-    <Text.Text level="small" color={9}>
-      Setting up another machine?{" "}
-      <Text.Text el="a" level="small" variant="link" href={DOWNLOAD_URL}>
-        Download Synnax Desktop
-      </Text.Text>
-    </Text.Text>
+    <Button.Button variant="text" size="small" textColor={9} href={DOWNLOAD_URL}>
+      <Icon.Download />
+      Download Synnax Desktop for another machine
+    </Button.Button>
   </Section>
 );

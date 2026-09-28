@@ -30,7 +30,7 @@ export interface LicensesProps {
 }
 
 const COLUMNS =
-  "minmax(0, 2fr) minmax(0, 1.5fr) 10rem minmax(0, 1.4fr) 8rem 10rem 3rem";
+  "minmax(0, 2fr) minmax(0, 1.5fr) 14rem minmax(0, 1.4fr) 8rem 10rem 3rem";
 
 const STATUSES: LicenseStatus[] = ["active", "expiring", "expired", "revoked"];
 

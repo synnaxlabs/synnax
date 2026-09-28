@@ -1,6 +1,6 @@
 {
-  "id": "2dd3a0bf-e797-4770-b905-303141cce7f3",
-  "prevId": "a5c0795e-c42c-4b73-9c64-83b60e4eb021",
+  "id": "5e9518df-73b9-463b-84b8-9ce5c541d3c8",
+  "prevId": "2dd3a0bf-e797-4770-b905-303141cce7f3",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -29,6 +29,12 @@
         },
         "name": {
           "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "renewal_secret_hash": {
+          "name": "renewal_secret_hash",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -87,7 +93,15 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "activation_renewal_secret_hash_unique": {
+          "name": "activation_renewal_secret_hash_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "renewal_secret_hash"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false

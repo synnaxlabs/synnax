@@ -31,7 +31,7 @@ export interface DevicesProps {
   now: Date | string;
 }
 
-const COLUMNS = "minmax(0, 2fr) 10rem 12rem 12rem 16rem";
+const COLUMNS = "minmax(0, 2fr) 14rem 16rem 16rem 18rem";
 
 /** validity says how much longer a machine keeps working. */
 const validity = (lic: License, at: Date): string =>

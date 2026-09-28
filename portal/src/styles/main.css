@@ -9,9 +9,17 @@
  * included in the file licenses/APL.txt.
  */
 
-@import url("@synnaxlabs/lyra/dist/base.css");
-@import url("@synnaxlabs/lyra/dist/theme.css");
-@import url("@synnaxlabs/media/dist/media.css");
+/* Lyra's CSS sits in the pluto layer, below the portal's unlayered styles. Its
+   component CSS lands there through the PostCSS plugin in astro.config.ts. */
+@layer pluto;
+
+@import url("@synnaxlabs/lyra/dist/base.css") layer(pluto);
+@import url("@synnaxlabs/lyra/dist/theme.css") layer(pluto);
+@import url("@synnaxlabs/media/dist/media.css") layer(pluto);
+
+* {
+    box-sizing: border-box;
+}
 
 html {
     background: var(--pluto-gray-l0);
@@ -28,24 +36,24 @@ body {
    set, so it is restated here for dialogs and menus. */
 :root {
     --pluto-shadow-lift:
-        lch(0% 0 0% / 4.4%) 0px 3px 9px, lch(0% 0 0% / 4.4%) 0px 1px 1px;
+        lch(0% 0 0deg / 4.4%) 0px 3px 9px, lch(0% 0 0deg / 4.4%) 0px 1px 1px;
     --pluto-shadow-overlay:
-        lch(0% 0 0% / 2%) 0px 1px 1px, lch(0% 0 0% / 10%) 0px 4px 8px -4px,
-        lch(0% 0 0% / 12%) 0px 16px 24px -8px;
+        lch(0% 0 0deg / 2%) 0px 1px 1px, lch(0% 0 0deg / 10%) 0px 4px 8px -4px,
+        lch(0% 0 0deg / 12%) 0px 16px 24px -8px;
     --pluto-shadow-modal:
-        lch(0% 0 0% / 8.8%) 0px 9px 48px, lch(0% 0 0% / 11%) 0px 6px 24px,
-        lch(0% 0 0% / 4.4%) 0px 1px 1px;
+        lch(0% 0 0deg / 8.8%) 0px 9px 48px, lch(0% 0 0deg / 11%) 0px 6px 24px,
+        lch(0% 0 0deg / 4.4%) 0px 1px 1px;
 }
 
 @media (prefers-color-scheme: dark) {
     :root {
         --pluto-shadow-lift:
-            lch(0% 0 0% / 18.8%) 0px 2px 5px, lch(0% 0 0% / 18.8%) 0px 1px 1px;
+            lch(0% 0 0deg / 18.8%) 0px 2px 5px, lch(0% 0 0deg / 18.8%) 0px 1px 1px;
         --pluto-shadow-overlay:
-            lch(0% 0 0% / 18.8%) 0px 3px 8px, lch(0% 0 0% / 18.8%) 0px 2px 5px,
-            lch(0% 0 0% / 18.8%) 0px 1px 1px;
+            lch(0% 0 0deg / 18.8%) 0px 3px 8px, lch(0% 0 0deg / 18.8%) 0px 2px 5px,
+            lch(0% 0 0deg / 18.8%) 0px 1px 1px;
         --pluto-shadow-modal:
-            lch(0% 0 0% / 32%) 0px 9px 48px, lch(0% 0 0% / 28%) 0px 6px 24px,
-            lch(0% 0 0% / 18.8%) 0px 1px 1px;
+            lch(0% 0 0deg / 32%) 0px 9px 48px, lch(0% 0 0deg / 28%) 0px 6px 24px,
+            lch(0% 0 0deg / 18.8%) 0px 1px 1px;
     }
 }

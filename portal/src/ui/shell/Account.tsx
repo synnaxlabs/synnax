@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Avatar } from "@synnaxlabs/lyra/avatar";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -15,6 +14,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useCallback } from "react";
 
 import { useClerk, useUser } from "@/ui/clerk";
+import { Mark } from "@/ui/shell/Mark";
 
 /** Account is the avatar menu in the portal bar: the user's settings and sign out. */
 export const Account = (): ReactElement | null => {
@@ -34,16 +34,10 @@ export const Account = (): ReactElement | null => {
       <Dialog.Trigger
         variant="text"
         hideCaret
-        square
         aria-label="Account menu"
-        className="account-button account-avatar"
-        style={user.hasImage ? undefined : { background: Avatar.gradient(name) }}
+        className="portal-bar__mark-trigger"
       >
-        {user.hasImage ? (
-          <img className="account-avatar__image" src={user.imageUrl} alt="" />
-        ) : (
-          name.slice(0, 1).toUpperCase()
-        )}
+        <Mark name={name} image={user.hasImage ? user.imageUrl : undefined} />
       </Dialog.Trigger>
       <Dialog.Dialog
         bordered
