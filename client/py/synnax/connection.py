@@ -135,6 +135,7 @@ class Checker:
         with self._lock:
             prev_status = self._state.status
             prev_skew_exceeded = self._state.clock_skew_exceeded
+            prev_license = self._state.license
 
         self._skew_calc.start()
         try:
@@ -196,6 +197,7 @@ class Checker:
         changed = (
             prev_status != state.status
             or prev_skew_exceeded != state.clock_skew_exceeded
+            or prev_license != state.license
         )
         if changed and self._on_change_handlers:
             for handler in self._on_change_handlers:
