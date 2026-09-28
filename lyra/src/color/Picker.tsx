@@ -10,13 +10,7 @@
 import "@/color/Picker.css";
 
 import { color, TimeSpan } from "@synnaxlabs/x";
-import {
-  type ComponentPropsWithoutRef,
-  type ReactElement,
-  useCallback,
-  useMemo,
-  useState,
-} from "react";
+import { type ComponentPropsWithoutRef, type ReactElement, useState } from "react";
 
 import { Button } from "@/button";
 import { BaseSwatch } from "@/color/BaseSwatch";
@@ -72,27 +66,20 @@ export const Picker = ({
     [updateFrequent],
   );
 
-  const handleChange = useCallback(
-    (next: color.Color) => {
-      onChange(next);
-      updateFrequentDebounced(next);
-    },
-    [onChange, updateFrequentDebounced],
-  );
+  const handleChange = (next?: color.Color): void => {
+    onChange(next);
+    if (next != null) updateFrequentDebounced(next);
+  };
 
-  const handleHSVAChange = useCallback(
-    (next: color.HSVA) => {
-      hsva.set(next);
-      handleChange(color.fromHSVA(next));
-    },
-    [hsva.set, handleChange],
-  );
+  const handleHSVAChange = (next: color.HSVA): void => {
+    hsva.set(next);
+    handleChange(color.fromHSVA(next));
+  };
 
   // Moving the plane or the hue of a fully transparent color would change nothing
   // visible, so those moves make it opaque.
   const visibleAlpha = a === 0 ? 1 : a;
-  const opaque = color.fromHSVA([h, s, v, 1]);
-  const opaqueCSS = color.rgbaCSS(opaque);
+  const opaqueCSS = color.rgbaCSS(color.fromHSVA([h, s, v, 1]));
 
   return (
     <Flex.Box
@@ -128,13 +115,8 @@ export const Picker = ({
       </Flex.Box>
       <InputRow value={shown} onChange={handleChange} />
       <Divider.Divider x />
-      <Swatches
-        value={value}
-        fallback={fallback}
-        onChange={onChange}
-        onPick={handleChange}
-      />
-      <Recent value={value} onPick={handleChange} />
+      <Swatches value={value} fallback={fallback} onChange={handleChange} />
+      <Recent value={value} onChange={handleChange} />
     </Flex.Box>
   );
 };
@@ -163,26 +145,17 @@ interface SwatchesProps {
   value?: color.Crude;
   fallback?: color.Crude;
   onChange: (value?: color.Color) => void;
-  onPick: (value: color.Color) => void;
 }
 
-const Swatches = ({
-  value,
-  fallback,
-  onChange,
-  onPick,
-}: SwatchesProps): ReactElement => {
-  const theme = Theming.use();
-  const presets = useMemo(
-    () => [
-      theme.colors.primary.z,
-      theme.colors.secondary.z,
-      theme.colors.warning.z,
-      theme.colors.error.z,
-      ...theme.colors.visualization.palettes.default,
-    ],
-    [theme],
-  );
+const Swatches = ({ value, fallback, onChange }: SwatchesProps): ReactElement => {
+  const { colors } = Theming.use();
+  const presets = [
+    colors.primary.z,
+    colors.secondary.z,
+    colors.warning.z,
+    colors.error.z,
+    ...colors.visualization.palettes.default,
+  ];
   return (
     <div className={CSS.BE("color-picker", "swatches")}>
       {fallback != null && (
@@ -202,7 +175,12 @@ const Swatches = ({
         </Button.Button>
       )}
       {presets.map((c) => (
-        <PickerSwatch key={color.hex(c)} value={c} current={value} onPick={onPick} />
+        <PickerSwatch
+          key={color.hex(c)}
+          value={c}
+          current={value}
+          onChange={onChange}
+        />
       ))}
     </div>
   );
@@ -210,8 +188,8 @@ const Swatches = ({
 
 const Recent = ({
   value,
-  onPick,
-}: Pick<SwatchesProps, "value" | "onPick">): ReactElement | null => {
+  onChange,
+}: Omit<SwatchesProps, "fallback">): ReactElement | null => {
   const frequent = useFrequent();
   if (frequent.length === 0) return null;
   return (
@@ -219,7 +197,12 @@ const Recent = ({
       <Divider.Divider x />
       <div className={CSS.BE("color-picker", "swatches")}>
         {frequent.map((c) => (
-          <PickerSwatch key={color.hex(c)} value={c} current={value} onPick={onPick} />
+          <PickerSwatch
+            key={color.hex(c)}
+            value={c}
+            current={value}
+            onChange={onChange}
+          />
         ))}
       </div>
     </>
@@ -228,16 +211,21 @@ const Recent = ({
 
 interface PickerSwatchProps {
   value: color.Crude;
+  /** The picker's color. The swatch shows as selected when it matches. */
   current?: color.Crude;
-  onPick: (value: color.Color) => void;
+  onChange: (value: color.Color) => void;
 }
 
-const PickerSwatch = ({ value, current, onPick }: PickerSwatchProps): ReactElement => (
+const PickerSwatch = ({
+  value,
+  current,
+  onChange,
+}: PickerSwatchProps): ReactElement => (
   <BaseSwatch
     value={value}
     className={CSS.cls(CSS.selected(current != null && color.equals(current, value)))}
     size="tiny"
-    onClick={() => onPick(color.construct(value))}
+    onClick={() => onChange(color.construct(value))}
     aria-label={color.hex(value)}
   />
 );

@@ -194,6 +194,12 @@ th,
         0 0 0 var(--pluto-focus-ring-offset) var(--pluto-gray-l1),
         0 0 0 calc(var(--pluto-focus-ring-offset) + 1.5px)
             var(--pluto-selected-subtle-color);
+    /* Shows behind a translucent color. */
+    --pluto-checkerboard: repeating-conic-gradient(
+            var(--pluto-gray-l2) 0% 25%,
+            var(--pluto-gray-l5) 0% 50%
+        )
+        50% / 1rem 1rem;
     --pluto-border: var(--pluto-border-width) solid var(--pluto-border-color);
     --pluto-border-l6: var(--pluto-border-width) solid var(--pluto-gray-l6);
 }

@@ -10,7 +10,7 @@
 import "@/color/Swatch.css";
 
 import { color, state as xstate } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useMemo, useState } from "react";
+import { type ReactElement, useState } from "react";
 
 import { BaseSwatch, type BaseSwatchProps } from "@/color/BaseSwatch";
 import { Picker } from "@/color/Picker";
@@ -24,12 +24,16 @@ interface BaseProps
   extends
     Omit<BaseSwatchProps, "value" | "onChange">,
     Pick<Dialog.FrameProps, "visible" | "onVisibleChange" | "initialVisible"> {
-  allowChange?: boolean;
+  /**
+   * If true, the swatch holds picker changes and calls `onChange` once, when the picker
+   * closes. A change pending when the swatch unmounts is dropped.
+   */
   onlyChangeOnBlur?: boolean;
 }
 
 interface RequiredValueProps extends BaseProps {
   value: color.Crude;
+  /** Without it, the swatch only shows the color. */
   onChange?: (value: color.Color) => void;
   fallback?: undefined;
 }
@@ -53,23 +57,12 @@ interface Pending {
   value?: color.Color;
 }
 
-/**
- * A color swatch that opens a picker when clicked.
- * @param props - The props for the swatch. Unlisted props are passed to the underlying
- * button.
- * @param props.onChange - A function to call when the color changes.
- * @param props.onlyChangeOnBlur - If true, the swatch holds picker changes locally and
- * calls `onChange` once, when the picker closes. Set it where a live preview is not
- * worth a change per pixel of drag through the gradient. A change pending when the
- * swatch unmounts is dropped.
- */
+/** A color swatch that opens a picker when clicked. Takes a dropped color too. */
 export const Swatch = ({
   onChange: propsOnChange,
   onVisibleChange,
   initialVisible = false,
-  allowChange = true,
   onlyChangeOnBlur = false,
-  style,
   onClick,
   value,
   fallback,
@@ -86,55 +79,37 @@ export const Swatch = ({
     onChange: onVisibleChange,
   });
   const [pending, setPending] = useState<Pending | null>(null);
-  const handleVisibleChange = useCallback<xstate.Setter<boolean>>(
-    (arg) => {
-      if (pending != null && !xstate.executeSetter(arg, visible)) {
-        onChange?.(pending.value);
-        setPending(null);
-      }
-      setVisible(arg);
-    },
-    [visible, pending, onChange, setVisible],
-  );
-  const handleSwatchChange = useCallback(
-    (c: color.Color) => {
+  const handleVisibleChange: xstate.Setter<boolean> = (arg) => {
+    if (pending != null && !xstate.executeSetter(arg, visible)) {
+      onChange?.(pending.value);
       setPending(null);
-      onChange?.(c);
-    },
-    [onChange],
-  );
-  const handlePickerChange = useCallback(
-    (c?: color.Color) => {
-      if (onlyChangeOnBlur) setPending({ value: c });
-      else onChange?.(c);
-    },
-    [onlyChangeOnBlur, onChange],
-  );
-  const canPick = onChange != null && allowChange;
-  const handleClick = useCallback<NonNullable<BaseSwatchProps["onClick"]>>(
-    (e) => (canPick ? handleVisibleChange(true) : onClick?.(e)),
-    [canPick, handleVisibleChange, onClick],
-  );
+    }
+    setVisible(arg);
+  };
   const shownValue = pending != null ? pending.value : value;
   const auto = shownValue == null;
-  const tooltip = useMemo(() => {
-    if (!canPick) return undefined;
-    return (
-      <Text.Text level="small">
-        {auto
-          ? "Auto: the theme picks the color. Click to change."
-          : "Click to change color"}
-      </Text.Text>
-    );
-  }, [canPick, auto]);
   const swatch = (
     <BaseSwatch
-      disabled={!canPick && onClick == null}
-      onClick={handleClick}
-      onChange={canPick ? handleSwatchChange : undefined}
+      disabled={onChange == null && onClick == null}
+      onClick={(e) => (onChange != null ? handleVisibleChange(true) : onClick?.(e))}
+      onChange={
+        onChange == null
+          ? undefined
+          : (c) => {
+              setPending(null);
+              onChange(c);
+            }
+      }
       value={shownValue ?? fallback ?? color.ZERO}
-      style={style}
-      tooltip={tooltip}
+      tooltip={
+        onChange == null ? undefined : (
+          <Text.Text level="small">
+            {auto
+              ? "Auto: the theme picks the color. Click to change."
+              : "Click to change color"}
+          </Text.Text>
+        )
+      }
       className={CSS.cls(
         CSS.BM("color-swatch", "chip"),
         auto && CSS.M("auto"),
@@ -145,18 +120,21 @@ export const Swatch = ({
       {auto && <Icon.Auto />}
     </BaseSwatch>
   );
-  if (!canPick) return swatch;
+  if (onChange == null) return swatch;
   return (
     <Dialog.Frame
       visible={visible}
-      initialVisible={initialVisible}
       onVisibleChange={handleVisibleChange}
       className={CSS.BE("color-swatch", "dropdown")}
       variant="floating"
     >
       {swatch}
       <Dialog.Dialog>
-        <Picker value={shownValue} fallback={fallback} onChange={handlePickerChange} />
+        <Picker
+          value={shownValue}
+          fallback={fallback}
+          onChange={(c) => (onlyChangeOnBlur ? setPending({ value: c }) : onChange(c))}
+        />
       </Dialog.Dialog>
     </Dialog.Frame>
   );

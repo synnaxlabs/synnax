@@ -92,9 +92,8 @@ const Entry = ({
     >
       <Flex.Box align="center" gap="small" x>
         <Color.Swatch
-          allowChange={onColorChange != null}
           draggable={false}
-          onChange={(c) => onColorChange?.(key, c)}
+          onChange={onColorChange == null ? undefined : (c) => onColorChange(key, c)}
           size="tiny"
           variant="text"
           value={color}

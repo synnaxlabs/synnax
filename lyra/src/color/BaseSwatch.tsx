@@ -10,7 +10,7 @@
 import "@/color/Swatch.css";
 
 import { color } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useMemo } from "react";
+import { type ReactElement } from "react";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
@@ -55,39 +55,21 @@ export const BaseSwatch = ({
   ...rest
 }: BaseSwatchProps): ReactElement => {
   const { gray } = Theming.use().colors;
-  const clr = color.construct(value);
+  const hex = color.hex(value);
   const dragging = Haul.useDraggingState();
-  const canDrop: Haul.CanDrop = useCallback(
-    ({ items }) => {
-      const [k] = filterHaulItems(items);
-      return onChange != null && k != null && k.key !== color.hex(clr);
-    },
-    [onChange, clr],
-  );
-  const handleDrop: Haul.OnDrop = useCallback(
-    ({ items }) => {
+  const canDrop: Haul.CanDrop = ({ items }) => {
+    const [k] = filterHaulItems(items);
+    return onChange != null && k != null && k.key !== hex;
+  };
+  const { startDrag, ...haulProps } = Haul.useDragAndDrop({
+    type: "color_swatch",
+    onDrop: ({ items }) => {
       const [k] = filterHaulItems(items);
       if (k != null) onChange?.(color.construct(k.key));
       return items;
     },
-    [onChange],
-  );
-  const { startDrag, ...haulProps } = Haul.useDragAndDrop({
-    type: "color_swatch",
-    onDrop: handleDrop,
     canDrop,
   });
-  const handleDragStart = useCallback(() => {
-    startDrag([createHaulItem(color.hex(clr))]);
-  }, [startDrag, clr]);
-  const swatchStyle = useMemo(
-    () => ({
-      ...style,
-      [COLOR_VAR]: color.cssString(value),
-      [TEXT_VAR]: color.cssString(color.pickByContrast(value, gray.l0, gray.l11)),
-    }),
-    [style, value, gray],
-  );
   return (
     <Button.Button
       className={CSS.cls(
@@ -97,8 +79,12 @@ export const BaseSwatch = ({
       )}
       square
       draggable={draggable}
-      onDragStart={handleDragStart}
-      style={swatchStyle}
+      onDragStart={() => startDrag([createHaulItem(hex)])}
+      style={{
+        ...style,
+        [COLOR_VAR]: color.cssString(value),
+        [TEXT_VAR]: color.cssString(color.pickByContrast(value, gray.l0, gray.l11)),
+      }}
       variant="outlined"
       {...haulProps}
       {...rest}

@@ -18,14 +18,12 @@
         grid-template-columns: repeat(10, var(--pluto-height-tiny));
         row-gap: 0.75rem;
         justify-content: space-between;
+
+        & .pluto--selected.pluto-color-swatch {
+            box-shadow: var(--pluto-selected-ring);
+        }
     }
 
-    .pluto-color-picker__swatches .pluto--selected.pluto-color-swatch {
-        box-shadow: var(--pluto-selected-ring);
-    }
-
-    /* A button, not a swatch: it spans two cells and speaks the button selection tier,
-       so it never reads as one more color. */
     .pluto-color-picker__auto.pluto-btn {
         grid-column: span 2;
         gap: 0.25rem;
@@ -64,13 +62,7 @@
     }
 
     .pluto-color-picker__alpha {
-        background:
-            var(--pluto-color-picker-track),
-            repeating-conic-gradient(
-                    var(--pluto-gray-l2) 0% 25%,
-                    var(--pluto-gray-l5) 0% 50%
-                )
-                50% / 1rem 1rem;
+        background: var(--pluto-color-picker-track), var(--pluto-checkerboard);
     }
 
     .pluto-color-picker__thumb {

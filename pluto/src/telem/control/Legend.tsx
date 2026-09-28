@@ -155,7 +155,6 @@ const LegendEntry = ({
       grow
     >
       <Color.Swatch
-        allowChange
         draggable={false}
         onChange={handleColorChange}
         size="tiny"

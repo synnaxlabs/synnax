@@ -228,9 +228,7 @@ describe("Swatch", () => {
     });
 
     it("should not offer a swatch that cannot change as a drop target", () => {
-      const [, target] = renderPair(
-        <Color.Swatch value={`#${BLUE}`} onChange={vi.fn()} allowChange={false} />,
-      );
+      const [, target] = renderPair(<Color.Swatch value={`#${BLUE}`} />);
       expect(target.className).not.toContain(CSS.B("haul-drop-region"));
     });
   });
