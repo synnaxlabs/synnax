@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Form as Base } from "@synnaxlabs/lyra/form";
+import { type Input } from "@synnaxlabs/lyra/input";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { type ReactElement } from "react";
 
-import { Flex } from "@/flex";
-import { Form as Base } from "@/form";
-import { type Input } from "@/input";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 export interface PolygonFormProps {
@@ -41,46 +41,50 @@ const CORNER_ROUNDING_INPUT_PROPS: Partial<Input.NumericProps> = {
   endContent: "px",
 };
 
-export const PolygonForm = (): ReactElement => (
-  <Form.Wrapper direction="x" align="stretch">
-    <Flex.Box direction="y" grow>
-      <Label.Form path="label" />
-      <Flex.Box direction="x">
-        <Form.ColorField path="color" />
-        <Form.ColorField path="backgroundColor" label="Background color" />
-        <Base.NumericField
-          path="rotation"
-          label="Rotation"
-          inputProps={ROTATION_INPUT_PROPS}
-          grow
-        />
+export const PolygonForm = (): ReactElement => {
+  const theme = Theming.use();
+  return (
+    <Base.Sections x>
+      <Base.Section title="Label">
+        <Label.Form path="label" />
+      </Base.Section>
+      <Base.Section title="Shape">
         <Base.NumericField
           path="numSides"
-          label="Number of sides"
+          label="Sides"
           inputProps={NUM_SIDES_INPUT_PROPS}
-          grow
         />
         <Base.NumericField
           path="sideLength"
           label="Side length"
           inputProps={SIDE_LENGTH_INPUT_PROPS}
-          grow
+        />
+        <Base.NumericField
+          path="rotation"
+          label="Rotation"
+          inputProps={ROTATION_INPUT_PROPS}
         />
         <Base.NumericField
           path="cornerRounding"
           label="Corner rounding"
           inputProps={CORNER_ROUNDING_INPUT_PROPS}
-          grow
+        />
+      </Base.Section>
+      <Base.Section title="Appearance">
+        <Form.ColorField path="color" />
+        <Form.ColorField
+          path="backgroundColor"
+          label="Background color"
+          fallback={theme.colors.gray.l1}
         />
         <Base.NumericField
           path="strokeWidth"
           label="Border width"
           inputProps={Form.STROKE_WIDTH_INPUT_PROPS}
-          grow
         />
-      </Flex.Box>
-    </Flex.Box>
-  </Form.Wrapper>
-);
+      </Base.Section>
+    </Base.Sections>
+  );
+};
 
 export const CommonPolygonForm = PolygonForm;

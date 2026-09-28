@@ -4,13 +4,14 @@
 
 pnpm workspaces with catalog dependencies: `/alamos/ts/` (instrumentation),
 `/client/ts/` (Synnax client), `/console/` (Tauri app), `/drift/` (multi-window Redux
-sync), `/freighter/ts/` (transport), `/x/media/`, `/pluto/` (viz components), `/x/ts/`
-(shared utilities). All use Vite (ESM-only output), TypeScript strict, Vitest, ESLint
-flat config, Turbo for orchestration.
+sync), `/freighter/ts/` (transport), `/lyra/` (UI primitives, subpath-only:
+`@synnaxlabs/lyra/<module>`), `/x/media/`, `/pluto/` (viz components), `/x/ts/` (shared
+utilities). All use Vite (ESM-only output), TypeScript strict, Vitest, ESLint flat
+config, Turbo for orchestration.
 
 ## Commands
 
-- `pnpm build` / `pnpm build:<pkg>` (console, pluto, client, x, drift, freighter,
+- `pnpm build` / `pnpm build:<pkg>` (console, pluto, lyra, client, x, drift, freighter,
   alamos, media)
 - `pnpm check-types` / `pnpm check-types:console`
 - `pnpm dev:console` (Tauri) / `pnpm dev:console-vite` (Vite only, faster, no Tauri
@@ -59,7 +60,9 @@ barrel would be circular). Spec files follow the same rule — tests are not exe
 
 Where a package exposes subpath entries (`@synnaxlabs/pluto/testutil`), exports-map keys
 and vite `lib.entry` keys use real slash paths
-(`"telem/aether": "src/telem/aether/index.ts"`) so `dist/` mirrors the subpath.
+(`"telem/aether": "src/telem/aether/index.ts"`) so `dist/` mirrors the subpath. Lyra has
+no root barrel: its exports map is generated from `src/*/index.ts` by `pnpm exports` in
+`lyra/`, and the build fails when the map is stale.
 
 ### Rule 4: Alias only to resolve a name collision
 
@@ -70,9 +73,10 @@ forces one, which side gets the bare name and which gets aliased follows the fil
 subject:
 
 - **Wrapping the same name**: a file whose own primary export shares the exact name of
-  the lower-layer/pluto component it wraps aliases that import to `Base` (`Tree as Base`
-  in a Tree wrapper, `Toolbar as Base` in a Toolbar wrapper, `Schematic as Base` in a
-  Schematic tree adapter). `Base.<Member>` reads as "the underlying implementation."
+  the lower-layer component it wraps aliases that import to `Base` (`Tree as Base` in a
+  Tree wrapper, `Status as Base` in Pluto's `status` over lyra's, `Toolbar as Base` in a
+  Toolbar wrapper, `Schematic as Base` in a Schematic tree adapter). `Base.<Member>`
+  reads as "the underlying implementation."
 - **Secondary collision**: when the colliding import isn't the file's own primary
   subject (a type built on top of it, a companion `Props` type, an unrelated same-named
   import), alias it to `Base` + the identifier (`Store as BaseStore`,
@@ -81,6 +85,7 @@ subject:
   with an imported one, alias the import to the identifier prefixed (or, for lowercase
   namespaces, suffixed) with a short tag for its origin, matching the identifier's own
   casing: `P` for `@synnaxlabs/pluto` (`Form as PForm`, `Menu as PMenu`, `CSS as PCSS`),
+  `Lyra` for `@synnaxlabs/lyra` when `Base` is already taken (`Status as LyraStatus`),
   `Platform` for console's `platform/` layer (`Device as PlatformDevice`,
   `Nav as PlatformNav`), `Client`/`client` for `@synnaxlabs/client` (`Synnax as Client`,
   `table as clientTable`), `X` for `@synnaxlabs/x` (`TimeSpan as XTimeSpan`), and the
@@ -183,12 +188,12 @@ identity.
 
 ### The four tiers
 
-| Tier                 | Packages                                                    | Decision        |
-| -------------------- | ----------------------------------------------------------- | --------------- |
-| 1. Our own stack     | `@synnaxlabs/{x,freighter,alamos,client,media,drift,pluto}` | Always external |
-| 2. Framework         | `react`, `react-dom`, `react-redux`, `@reduxjs/toolkit`     | External, peer  |
-| 3. Shared vocabulary | `zod`                                                       | External        |
-| 4. Private machinery | monaco, mathjs, fuse.js, d3-scale, `@synnaxlabs/arc`        | Bundle          |
+| Tier                 | Packages                                                         | Decision        |
+| -------------------- | ---------------------------------------------------------------- | --------------- |
+| 1. Our own stack     | `@synnaxlabs/{x,freighter,alamos,client,media,drift,lyra,pluto}` | Always external |
+| 2. Framework         | `react`, `react-dom`, `react-redux`, `@reduxjs/toolkit`          | External, peer  |
+| 3. Shared vocabulary | `zod`                                                            | External        |
+| 4. Private machinery | monaco, mathjs, fuse.js, d3-scale, `@synnaxlabs/arc`             | Bundle          |
 
 Tiers 1 to 3 cross a package boundary: a `Series` from the Client must satisfy
 `instanceof Series` in Pluto, and a Zod schema from the Client must compose with a

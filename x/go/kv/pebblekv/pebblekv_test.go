@@ -261,6 +261,7 @@ var _ = Describe("PebbleKV", func() {
 		var db kv.DB
 
 		open := func(disableObserver bool) {
+			GinkgoHelper()
 			path := GinkgoT().TempDir()
 			pdb := MustSucceed(pebble.Open(path, &pebble.Options{
 				Logger: pebblekv.NewNoopLogger(),

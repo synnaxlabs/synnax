@@ -10,20 +10,18 @@
 import "@/feature/schematic/symbol/edit/Edit.css";
 
 import { type schematic } from "@synnaxlabs/client";
-import {
-  Button,
-  Color,
-  Flex,
-  Form,
-  Header,
-  Icon,
-  type Input,
-  List,
-  Select,
-  Text,
-  Tooltip,
-} from "@synnaxlabs/pluto";
-import { type color } from "@synnaxlabs/x";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Color } from "@synnaxlabs/lyra/color";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Header } from "@synnaxlabs/lyra/header";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { type Input } from "@synnaxlabs/lyra/input";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
+import { color } from "@synnaxlabs/x";
 
 import { CSS } from "@/platform/css";
 
@@ -45,7 +43,7 @@ export const RegionListItem = ({ selectedState, ...props }: RegionListItemProps)
   );
   if (region == null) return null;
   return (
-    <Select.ListItem
+    <Select.Item
       {...props}
       justify="between"
       className={CSS.B("schematic-region-list-item")}
@@ -66,16 +64,20 @@ export const RegionListItem = ({ selectedState, ...props }: RegionListItemProps)
         <Text.Text level="small" color={9}>
           {region?.selectors?.length || 0} elements
         </Text.Text>
-        <Form.Field<color.Color> path={`${path}.strokeColor`} showLabel={false}>
-          {({ onChange, value }) => (
-            <Color.Swatch value={value} onChange={onChange} size="small" />
-          )}
-        </Form.Field>
-        <Form.Field<color.Color> path={`${path}.fillColor`} showLabel={false}>
-          {({ onChange, value }) => (
-            <Color.Swatch value={value} onChange={onChange} size="small" />
-          )}
-        </Form.Field>
+        <Color.Field
+          path={`${path}.strokeColor`}
+          fallback={color.ZERO}
+          showLabel={false}
+          padHelpText
+          size="small"
+        />
+        <Color.Field
+          path={`${path}.fillColor`}
+          fallback={color.ZERO}
+          showLabel={false}
+          padHelpText
+          size="small"
+        />
         <Button.Button
           onClick={() => remove(itemKey)}
           size="small"
@@ -85,7 +87,7 @@ export const RegionListItem = ({ selectedState, ...props }: RegionListItemProps)
           <Icon.Close />
         </Button.Button>
       </Flex.Box>
-    </Select.ListItem>
+    </Select.Item>
   );
 };
 
@@ -119,7 +121,7 @@ export const RegionList = ({
               </Flex.Box>
             </Tooltip.Dialog>
           </Text.Text>
-          <Button.Button onClick={onAddRegion} size="small" variant="filled">
+          <Button.Button onClick={onAddRegion} size="small" variant="text">
             <Icon.Add />
           </Button.Button>
         </Header.Actions>
@@ -130,11 +132,13 @@ export const RegionList = ({
         data={data}
         closeDialogOnSelect={false}
       >
-        <List.Items<string> y gap={1}>
-          {({ key, ...rest }) => (
-            <RegionListItem selectedState={selectedState} key={key} {...rest} />
-          )}
-        </List.Items>
+        <List.Scroll y gap={1}>
+          <List.Items<string>>
+            {({ key, ...rest }) => (
+              <RegionListItem selectedState={selectedState} key={key} {...rest} />
+            )}
+          </List.Items>
+        </List.Scroll>
       </Select.Frame>
     </Flex.Box>
   );

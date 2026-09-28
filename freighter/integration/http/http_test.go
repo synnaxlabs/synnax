@@ -134,6 +134,7 @@ var _ = Describe("BindTo", func() {
 
 var _ = Describe("unaryParamEcho", func() {
 	postParamEcho := func(query, message string) ihttp.Message {
+		GinkgoHelper()
 		app := fiber.New(fiber.Config{})
 		Expect(ihttp.BindTo(app)).To(Succeed())
 
@@ -190,6 +191,7 @@ var _ = Describe("unaryParamEcho", func() {
 
 var _ = Describe("flakyUnavailable", func() {
 	post := func(app *fiber.App, msg ihttp.Message) *http.Response {
+		GinkgoHelper()
 		body := MustSucceed(json.Marshal(msg))
 		req := MustSucceed(
 			http.NewRequest(

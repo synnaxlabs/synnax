@@ -166,10 +166,12 @@ class TableLifecycle(ConsoleCase):
             f"Cell [1,0] should have channel '{self.data_name}'"
         )
 
-        table.set_redline(row=1, col=0, lower=10.0, upper=90.0)
-        lower, upper = table.get_redline(row=1, col=0)
-        assert lower == "10", f"Lower bound should be '10', got '{lower}'"
-        assert upper == "90", f"Upper bound should be '90', got '{upper}'"
+        table.add_redline_band(row=1, col=0, threshold=10.0)
+        table.add_redline_band(row=1, col=0, threshold=90.0)
+        thresholds = table.get_redline_thresholds(row=1, col=0)
+        assert thresholds == ["10", "90"], (
+            f"Thresholds should be ['10', '90'], got {thresholds}"
+        )
 
     def test_open_table_from_resources(self) -> None:
         """Test opening a table by double-clicking in the project resources toolbar."""

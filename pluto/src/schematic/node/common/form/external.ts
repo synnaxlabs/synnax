@@ -21,4 +21,3 @@ export * from "@/schematic/node/common/form/Style";
 export * from "@/schematic/node/common/form/Text";
 export * from "@/schematic/node/common/form/toggle";
 export * from "@/schematic/node/common/form/Units";
-export * from "@/schematic/node/common/form/Wrapper";

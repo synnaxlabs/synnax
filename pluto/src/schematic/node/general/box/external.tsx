@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
+import { Component } from "@synnaxlabs/lyra/component";
 
-import { Component } from "@/component";
 import { Box } from "@/schematic/node/general/box/Primitive";
 import { Symbol } from "@/schematic/node/general/box/Symbol";
 import { type Spec } from "@/schematic/node/spec";
@@ -20,7 +20,7 @@ const NAME = "Box";
 export const spec: Spec<"box", schematic.BoxNodeConfig> = {
   key: "box",
   name: NAME,
-  Form: () => <TankForm showBorderRadius showStrokeWidth />,
+  Form: (props) => <TankForm {...props} showBorderRadius showStrokeWidth />,
   Node: Symbol,
   Preview: Component.removeProps(Box, ["dimensions"]),
   zIndex: 2,

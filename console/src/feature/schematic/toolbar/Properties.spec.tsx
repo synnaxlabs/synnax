@@ -8,17 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { Schematic as PSchematic, type Status } from "@synnaxlabs/pluto";
+import { type Status } from "@synnaxlabs/lyra/status";
+import { Schematic as PSchematic } from "@synnaxlabs/pluto";
 import { location, uuid } from "@synnaxlabs/x";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Schematic } from "@/feature/schematic";
 import { client, renderSchematic } from "@/feature/schematic/testutil";
 import { findButton } from "@/platform/modals/testutil";
-import { type Session } from "@/session";
+import { Session } from "@/session";
 import {
+  assertDefined,
   CaptureStatuses,
   getIconButton,
   getInputByItemLabel,
@@ -87,7 +89,7 @@ describe("Schematic toolbar Properties", () => {
   describe("single selection", () => {
     it("writes label edits back to the schematic config and the breadcrumb", async () => {
       const { key, result } = await renderProperties({ nodeKeys: ["n1"] });
-      await screen.findByText("Style");
+      fireEvent.click(await screen.findByRole("tab", { name: "Style" }));
       const input = getInputByItemLabel(result.container, "Label");
       fireEvent.change(input, { target: { value: "Main Valve" } });
       await waitFor(async () => {
@@ -95,6 +97,33 @@ describe("Schematic toolbar Properties", () => {
         expect(config.label).toMatchObject({ label: "Main Valve" });
       });
       expect(await screen.findByText("Main Valve")).toBeDefined();
+    });
+  });
+
+  describe("tabs", () => {
+    it("opens a symbol on its control tab", async () => {
+      const { result } = await renderProperties({ nodeKeys: ["n1"] });
+      await screen.findByRole("tab", { name: "Style" });
+      const rail = result.container.querySelector<HTMLElement>(
+        ".pluto-properties-tabs",
+      );
+      assertDefined(rail);
+      const tab = within(rail).getByRole("tab", { name: "Control" });
+      expect(tab.ariaSelected).toBe("true");
+    });
+
+    it("keeps the selected tab when another symbol is selected", async () => {
+      const { key, store } = await renderProperties({
+        nodeKeys: ["n1", "n2"],
+        sessionState: { selected: ["n1"] },
+      });
+      fireEvent.click(await screen.findByRole("tab", { name: "Style" }));
+      act(() => {
+        store.dispatch(Session.Schematic.setSelected({ key, selected: ["n2"] }));
+      });
+      await waitFor(() =>
+        expect(screen.getByRole("tab", { name: "Style" }).ariaSelected).toBe("true"),
+      );
     });
   });
 
@@ -165,7 +194,7 @@ describe("Schematic toolbar Properties", () => {
         sessionState: { selected: nodeKeys },
       });
       await screen.findByText("Align");
-      const input = getInputByItemLabel(result.container, "Label wrap width");
+      const input = getInputByItemLabel(result.container, "Wrap width");
       fireEvent.change(input, { target: { value: "200" } });
       fireEvent.blur(input);
       await expect
@@ -204,7 +233,7 @@ describe("Schematic toolbar Properties", () => {
     it("applies label wrap width to every selected symbol", async () => {
       const { key, result } = await renderProperties({ nodeKeys: ["n1", "n2"] });
       await screen.findByText("Align");
-      const input = getInputByItemLabel(result.container, "Label wrap width");
+      const input = getInputByItemLabel(result.container, "Wrap width");
       fireEvent.change(input, { target: { value: "200" } });
       fireEvent.blur(input);
       await expect

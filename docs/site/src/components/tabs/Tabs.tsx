@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Tabs as Base } from "@synnaxlabs/pluto/tabs";
-import { Text } from "@synnaxlabs/pluto/text";
+import { Tabs as Base } from "@synnaxlabs/lyra/tabs";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 
 // Astro's React SSR camelCases dashed slot names; hydration passes them raw.

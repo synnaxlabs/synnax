@@ -15,7 +15,8 @@ import {
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { type Flux, Icon, Schematic } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { type Flux, Schematic } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import {
   act,

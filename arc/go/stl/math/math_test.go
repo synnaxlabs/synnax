@@ -97,6 +97,7 @@ func openMath(
 	dt types.Type,
 	inputs types.Params,
 ) mathSetup {
+	GinkgoHelper()
 	g := makeMathGraph(nodeType, dt)
 	analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 	Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -117,6 +118,7 @@ func openMathWithReset(
 	dt types.Type,
 	inputs types.Params,
 ) mathSetup {
+	GinkgoHelper()
 	g := makeMathGraphWithReset(nodeType, dt, types.Bool())
 	analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 	Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -138,6 +140,7 @@ func nextChanged(ctx SpecContext, n node.Node) set.Set[int] {
 }
 
 func expectOutput[T telem.NumericSample](s *node.ProgramState, values ...T) {
+	GinkgoHelper()
 	result := *s.Node("math").Output(0)
 	Expect(result.Len()).To(Equal(int64(len(values))))
 	vals := result.Unmarshal[T]()
@@ -147,6 +150,7 @@ func expectOutput[T telem.NumericSample](s *node.ProgramState, values ...T) {
 }
 
 func expectOutputTime(s *node.ProgramState, timestamps ...telem.TimeStamp) {
+	GinkgoHelper()
 	result := *s.Node("math").OutputTime(0)
 	Expect(result.Len()).To(Equal(int64(len(timestamps))))
 	vals := result.Unmarshal[telem.TimeStamp]()
@@ -318,6 +322,7 @@ var _ = Describe("Math", func() {
 		var root *symbol.Symbol
 		BeforeEach(func() { root = symbol.NewRoot(nil, stlmath.NewSymbols()) })
 		math := func(ctx context.Context, member string) *symbol.Symbol {
+			GinkgoHelper()
 			mod := MustSucceed(root.Resolve(ctx, "math", symbol.IncludeInternal))
 			return MustSucceed(mod.Resolve(ctx, member, symbol.IncludeInternal))
 		}
@@ -855,6 +860,7 @@ var _ = Describe("Derivative", func() {
 	}
 
 	openDeriv := func(ctx SpecContext, dt types.Type) mathSetup {
+		GinkgoHelper()
 		g := makeDerivGraph(dt)
 		analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 		Expect(diagnostics.Ok()).To(BeTrue())
@@ -869,6 +875,7 @@ var _ = Describe("Derivative", func() {
 	}
 
 	expectDerivOutput := func(s *node.ProgramState, values ...float64) {
+		GinkgoHelper()
 		result := *s.Node("deriv").Output(0)
 		Expect(result.Len()).To(Equal(int64(len(values))))
 		vals := result.Unmarshal[float64]()

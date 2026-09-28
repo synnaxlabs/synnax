@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { theme } from "@synnaxlabs/lyra/theme";
 import {
   array,
   box,
@@ -20,8 +21,6 @@ import {
 } from "@synnaxlabs/x";
 
 import { text as aetherText } from "@/text/aether";
-import { type theming } from "@/theming/aether";
-import { fontString } from "@/theming/base/fontString";
 import {
   type FillTextOptions,
   type SugaredOffscreenCanvasRenderingContext2D,
@@ -74,7 +73,7 @@ export interface DrawTextProps extends FillTextOptions {
    */
   align?: CanvasTextBaseline | "center";
   weight?: text.Weight;
-  shade?: theming.Shade;
+  shade?: theme.Shade;
   maxWidth?: number;
   code?: boolean;
   color?: ColorSpec;
@@ -121,14 +120,14 @@ export interface DrawList {
   padding?: xy.XY;
 }
 
-type ColorSpec = color.Crude | ((t: theming.Theme) => color.Color);
+type ColorSpec = color.Crude | ((t: theme.Theme) => color.Color);
 
 export class Draw2D {
   readonly canvas: SugaredOffscreenCanvasRenderingContext2D;
-  readonly theme: theming.Theme;
+  readonly theme: theme.Theme;
   private charWidthCache: Partial<Record<text.Level, number>> = {};
 
-  constructor(canvas: SugaredOffscreenCanvasRenderingContext2D, theme: theming.Theme) {
+  constructor(canvas: SugaredOffscreenCanvasRenderingContext2D, theme: theme.Theme) {
     this.canvas = canvas;
     this.theme = theme;
   }
@@ -325,7 +324,7 @@ export class Draw2D {
     spacing = 1,
     level = "p",
   }: Draw2DMeasureTextContainerProps): [dimensions.Dimensions, (base: xy.XY) => void] {
-    const font = fontString(this.theme, { level });
+    const font = theme.fontString(this.theme, { level });
     const textDims = labels.map((t) => aetherText.dimensions(t, font, this.canvas));
     const spacingPx = this.theme.sizes.base * spacing;
     const offset =
@@ -339,7 +338,7 @@ export class Draw2D {
       },
 
       (position: xy.XY) => {
-        const font = fontString(this.theme, { level });
+        const font = theme.fontString(this.theme, { level });
         this.canvas.font = font;
         this.canvas.fillStyle = color.hex(this.theme.colors.text);
         this.canvas.textBaseline = "top";
@@ -392,7 +391,7 @@ export class Draw2D {
    * box, not the ink, which sits a few pixels lower.
    */
   measureInkOffsetY(level: text.Level, rowHeight: number): number {
-    this.canvas.font = fontString(this.theme, { level, code: true });
+    this.canvas.font = theme.fontString(this.theme, { level, code: true });
     const m = this.canvas.measureText("0M[]g_");
     const inkTop = m.fontBoundingBoxAscent - m.actualBoundingBoxAscent;
     const inkHeight = m.actualBoundingBoxAscent + m.actualBoundingBoxDescent;
@@ -402,7 +401,7 @@ export class Draw2D {
   measureCharWidth(level: text.Level): number {
     const cached = this.charWidthCache[level];
     if (cached != null) return cached;
-    this.canvas.font = fontString(this.theme, { level, code: true });
+    this.canvas.font = theme.fontString(this.theme, { level, code: true });
     const width = this.canvas.measureText("M").width;
     this.charWidthCache[level] = width;
     return width;
@@ -427,7 +426,7 @@ export class Draw2D {
     useAtlas,
     color: colorVal,
   }: DrawTextProps): void {
-    this.canvas.font = fontString(this.theme, { level, weight, code });
+    this.canvas.font = theme.fontString(this.theme, { level, weight, code });
     if (colorVal != null)
       this.canvas.fillStyle = color.hex(this.resolveColor(colorVal));
     else if (shade == null) this.canvas.fillStyle = color.hex(this.theme.colors.text);

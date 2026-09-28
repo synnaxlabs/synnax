@@ -7,41 +7,44 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Component, Divider, Flex, Form, Icon, Select } from "@synnaxlabs/pluto";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Select } from "@synnaxlabs/lyra/select";
 import { type FC } from "react";
 
 import { PortField } from "@/feature/ni/device/PortField";
-import { CustomScaleForm } from "@/feature/ni/task/CustomScaleForm";
+import { CustomScaleSection } from "@/feature/ni/task/CustomScaleForm";
 import { MinMaxValueFields } from "@/feature/ni/task/MinMaxValueFields";
+import { SelectAOChannelTypeField } from "@/feature/ni/task/SelectAOChannelTypeField";
 import {
   AO_CURRENT_CHAN_TYPE,
   AO_FUNC_GEN_CHAN_TYPE,
   AO_VOLTAGE_CHAN_TYPE,
   type AOChannelType,
-  WAVE_TYPES,
   type WaveType,
 } from "@/feature/ni/task/types";
 
-interface SelectWaveTypeProps extends Omit<Select.ButtonsProps<WaveType>, "keys"> {}
+interface SelectWaveTypeProps extends Select.ButtonsProps<WaveType> {}
 
 const SelectWaveType = (props: SelectWaveTypeProps) => (
-  <Select.Buttons<WaveType> {...props} keys={WAVE_TYPES}>
-    <Select.Button<WaveType> itemKey="Sine">
+  <Select.Buttons<WaveType> {...props}>
+    <Select.Item<WaveType> itemKey="Sine">
       <Icon.Wave.Sine />
       Sine
-    </Select.Button>
-    <Select.Button<WaveType> itemKey="Triangle">
+    </Select.Item>
+    <Select.Item<WaveType> itemKey="Triangle">
       <Icon.Wave.Triangle />
       Triangle
-    </Select.Button>
-    <Select.Button<WaveType> itemKey="Square">
+    </Select.Item>
+    <Select.Item<WaveType> itemKey="Square">
       <Icon.Wave.Square />
       Square
-    </Select.Button>
-    <Select.Button<WaveType> itemKey="Sawtooth">
+    </Select.Item>
+    <Select.Item<WaveType> itemKey="Sawtooth">
       <Icon.Wave.Sawtooth />
       Sawtooth
-    </Select.Button>
+    </Select.Item>
   </Select.Buttons>
 );
 
@@ -50,47 +53,30 @@ interface FormProps {
 }
 
 const CHANNEL_FORMS: Record<AOChannelType, FC<FormProps>> = {
-  [AO_CURRENT_CHAN_TYPE]: ({ path }) => (
-    <>
-      <MinMaxValueFields path={path} />
-      <Divider.Divider x padded="bottom" />
-      <CustomScaleForm prefix={path} />
-    </>
-  ),
+  [AO_CURRENT_CHAN_TYPE]: ({ path }) => <MinMaxValueFields path={path} />,
   [AO_FUNC_GEN_CHAN_TYPE]: ({ path }) => (
-    <Flex.Box y align="center">
-      <Flex.Box x grow>
-        <Form.NumericField
-          path={`${path}.frequency`}
-          label="Frequency"
-          inputProps={HZ_END_CONTENT_INPUT_PROPS}
-          grow
-        />
-        <Form.NumericField
-          path={`${path}.amplitude`}
-          label="Amplitude"
-          inputProps={V_END_CONTENT_INPUT_PROPS}
-          grow
-        />
-        <Form.NumericField
-          path={`${path}.offset`}
-          label="Offset"
-          inputProps={V_END_CONTENT_INPUT_PROPS}
-          grow
-        />
-      </Flex.Box>
-      <Form.Field<WaveType> path={`${path}.waveType`} showLabel={false}>
+    <>
+      <Form.Field<WaveType> path={`${path}.waveType`} label="Wave">
         {selectWaveType}
       </Form.Field>
-    </Flex.Box>
-  ),
-  [AO_VOLTAGE_CHAN_TYPE]: ({ path }) => (
-    <>
-      <MinMaxValueFields path={path} />
-      <Divider.Divider x padded="bottom" />
-      <CustomScaleForm prefix={path} />
+      <Form.NumericField
+        path={`${path}.frequency`}
+        label="Frequency"
+        inputProps={HZ_END_CONTENT_INPUT_PROPS}
+      />
+      <Form.NumericField
+        path={`${path}.amplitude`}
+        label="Amplitude"
+        inputProps={V_END_CONTENT_INPUT_PROPS}
+      />
+      <Form.NumericField
+        path={`${path}.offset`}
+        label="Offset"
+        inputProps={V_END_CONTENT_INPUT_PROPS}
+      />
     </>
   ),
+  [AO_VOLTAGE_CHAN_TYPE]: ({ path }) => <MinMaxValueFields path={path} />,
 };
 
 const HZ_END_CONTENT_INPUT_PROPS = { endContent: "Hz" } as const;
@@ -105,12 +91,17 @@ export interface AOChannelFormProps {
 }
 
 export const AOChannelForm = ({ type, path }: AOChannelFormProps) => {
-  const Form = CHANNEL_FORMS[type];
+  const TypeForm = CHANNEL_FORMS[type];
   return (
-    <>
-      <PortField path={path} />
-      <Divider.Divider x padded="bottom" />
-      <Form path={path} />
-    </>
+    <Form.Sections>
+      <Form.Section title="Source">
+        <PortField path={path} />
+      </Form.Section>
+      <Form.Section title="Signal">
+        <SelectAOChannelTypeField path={path} />
+        <TypeForm path={path} />
+      </Form.Section>
+      <CustomScaleSection prefix={path} />
+    </Form.Sections>
   );
 };

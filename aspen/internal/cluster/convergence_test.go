@@ -96,16 +96,20 @@ var _ = Describe("Convergence", func() {
 					))
 					addresses = append(addresses, gossipT.Address())
 					clusters = append(clusters, cluster)
+					// A responsible node proposes the highest key it knows plus one, so
+					// the cluster has to agree on its membership before the next node
+					// pledges. Joining faster than gossip converges leaves keys the
+					// algorithm never promised, and can hand one key to two nodes.
+					for _, c := range clusters {
+						Eventually(
+							c.Nodes,
+							values.convergenceThreshold,
+						).Should(HaveLen(len(clusters)))
+					}
 				}
 				Expect(clusters).To(HaveLen(values.clusterSize))
 				for j, c := range clusters {
 					Expect(c.HostKey()).To(Equal(node.Key(j + 1)))
-				}
-				for _, c := range clusters {
-					Eventually(
-						c.Nodes,
-						values.convergenceThreshold,
-					).Should(HaveLen(values.clusterSize))
 				}
 			})
 		})

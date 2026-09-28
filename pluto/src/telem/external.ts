@@ -12,4 +12,3 @@ export * from "@/telem/resolveDataTypeIcon";
 export * from "@/telem/SelectDataType";
 export * from "@/telem/SelectTimestampFormat";
 export * from "@/telem/SelectTimeZone";
-export * from "@/telem/text";

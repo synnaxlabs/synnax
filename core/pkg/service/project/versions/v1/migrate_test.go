@@ -30,6 +30,7 @@ import (
 
 // runMigrations runs the full project migration chain against db.
 func runMigrations(ctx context.Context, db *gorp.DB) {
+	GinkgoHelper()
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 		DB:        db,
@@ -43,6 +44,7 @@ func runMigrations(ctx context.Context, db *gorp.DB) {
 
 var _ = Describe("Workspace to project migration", func() {
 	openProjectTable := func(ctx context.Context, db *gorp.DB) *gorp.Table[v1.Key, v1.Project] {
+		GinkgoHelper()
 		return MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[v1.Key, v1.Project]{DB: db},
 		))

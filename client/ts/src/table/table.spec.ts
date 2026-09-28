@@ -79,9 +79,12 @@ describe("Table", () => {
             precision: 3,
             notation: "scientific",
             redline: {
-              bounds: { lower: 0, upper: 100 },
-              gradient: [],
+              bands: [
+                { key: "hi", threshold: 90, color: [255, 0, 0, 1], flashing: true },
+              ],
+              smooth: true,
             },
+            backgroundColor: [0, 255, 0, 1],
             units: "psi",
             stalenessTimeout: 5,
           },
@@ -95,7 +98,11 @@ describe("Table", () => {
       expect(cfg.rollingAverage).toEqual(5);
       expect(cfg.precision).toEqual(3);
       expect(cfg.notation).toEqual("scientific");
-      expect(cfg.redline?.bounds).toEqual({ lower: 0, upper: 100 });
+      expect(cfg.redline).toEqual({
+        bands: [{ key: "hi", threshold: 90, color: [255, 0, 0, 1], flashing: true }],
+        smooth: true,
+      });
+      expect(cfg.backgroundColor).toEqual([0, 255, 0, 1]);
       expect(cfg.units).toEqual("psi");
       expect(cfg.stalenessTimeout).toEqual(5);
     });

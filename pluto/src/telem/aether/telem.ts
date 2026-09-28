@@ -229,8 +229,21 @@ export abstract class MultiSourceTransformer<I, O, P extends z.ZodType>
     return this.transform(values);
   }
 
+  onChange(handler: () => void): destructor.Destructor {
+    const destructors = Object.values(this.sources).map((source) =>
+      source.onChange(() => {
+        if (this.shouldNotify()) handler();
+      }),
+    );
+    return () => destructors.forEach((d) => d());
+  }
+
   setSources(sources: Record<string, Source<I>>): void {
     this.sources = { ...this.sources, ...sources };
+  }
+
+  protected shouldNotify(): boolean {
+    return true;
   }
 
   protected abstract transform(_: Record<string, I>): O;

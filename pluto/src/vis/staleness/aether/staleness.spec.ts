@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { color, type CrudeTimeSpan, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -14,7 +15,6 @@ import { aether } from "@/aether/aether";
 import { aetherTest } from "@/aether/test";
 import { type telem } from "@/telem/aether";
 import { buildStack } from "@/testutil/providers";
-import { Theming } from "@/theming";
 import { staleness } from "@/vis/staleness/aether";
 
 const createSource = (): telem.Source<unknown> => ({

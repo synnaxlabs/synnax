@@ -51,6 +51,7 @@ var _ = Describe("Iterator", func() {
 						Sync:  new(true),
 					}))
 					writeBatch := func(ts ...telem.TimeStamp) {
+						GinkgoHelper()
 						series := make([]telem.Series, len(s.keys))
 						for i := range s.keys {
 							cp := make([]telem.TimeStamp, len(ts))
@@ -290,6 +291,7 @@ func newChannelSet() []channel.Channel {
 }
 
 func gatewayOnlyScenario(ctx context.Context) scenario {
+	GinkgoHelper()
 	channels := newChannelSet()
 	builder := mock.OpenCluster(ctx, 1)
 	dist := builder.Nodes[1]
@@ -305,6 +307,7 @@ func gatewayOnlyScenario(ctx context.Context) scenario {
 }
 
 func peerOnlyScenario(ctx context.Context) scenario {
+	GinkgoHelper()
 	channels := newChannelSet()
 	builder := mock.OpenCluster(ctx, 4)
 	dist := builder.Nodes[1]
@@ -324,6 +327,7 @@ func peerOnlyScenario(ctx context.Context) scenario {
 }
 
 func mixedScenario(ctx context.Context) scenario {
+	GinkgoHelper()
 	channels := []channel.Channel{
 		{
 			Name:        "mixed_gateway",

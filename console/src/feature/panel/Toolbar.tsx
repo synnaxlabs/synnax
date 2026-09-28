@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Errors, Flux, Icon, Panel } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Errors, Flux, Panel } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { isNotFound } from "@/feature/panel/Mosaic";

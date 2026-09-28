@@ -10,19 +10,19 @@
 import "@/schematic/Tooltip.css";
 
 import { channel } from "@synnaxlabs/client";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Telem } from "@synnaxlabs/lyra/telem";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Theming } from "@synnaxlabs/lyra/theming";
+import { Tooltip as Base } from "@synnaxlabs/lyra/tooltip";
 import { caseconv, type color, primitive, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useEffect, useState } from "react";
 
 import { Channel } from "@/channel";
-import { CSS } from "@/css";
-import { Divider } from "@/divider";
-import { Flex } from "@/flex";
-import { Icon } from "@/icon";
 import { type Node } from "@/schematic/node";
-import { Telem } from "@/telem";
-import { Text } from "@/text";
-import { Theming } from "@/theming";
-import { Tooltip as Base } from "@/tooltip";
 import { LatestSample } from "@/vis/latestSample";
 import { Staleness } from "@/vis/staleness";
 
@@ -185,7 +185,9 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
       />
     );
   });
-  const divider = <Divider.Divider x className={CSS.BE("schematic-tooltip", "divider")} />;
+  const divider = (
+    <Divider.Divider x className={CSS.BE("schematic-tooltip", "divider")} />
+  );
   if (channels.length + fields.length === 0 && followed == null) return null;
   return (
     <Base.Frame

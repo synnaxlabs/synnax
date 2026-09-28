@@ -13,7 +13,11 @@ import {
   NotFoundError,
   type status,
 } from "@synnaxlabs/client";
-import { Access, Channel, Flex, Flux, Form, Text, Tooltip } from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
+import { Access, Channel, Flux } from "@synnaxlabs/pluto";
 import { type optional, primitive } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
@@ -26,6 +30,7 @@ export interface ChannelNameProps extends optional.Optional<
   "level"
 > {
   channel: channel.Key;
+  /** The name configure will give the channel; shown as a preview while it is 0. */
   defaultName?: string;
   namePath: string;
 }
@@ -128,11 +133,18 @@ const describe = (error: Error): Pick<MessageProps, "message" | "description"> =
 };
 
 export const ChannelName = (props: ChannelNameProps): ReactElement => {
-  if (props.channel === 0)
+  if (props.channel === 0) {
+    if (props.defaultName != null)
+      return (
+        <Message variant="info" message="Created when the task is configured">
+          <Unresolved {...props} color={8} />
+        </Message>
+      );
     return (
       <Message variant="warning" message="No channel selected">
         <Unresolved {...props} status="warning" />
       </Message>
     );
+  }
   return <Resolved {...props} />;
 };

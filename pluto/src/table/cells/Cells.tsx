@@ -10,14 +10,13 @@
 import "@/table/cells/Cells.css";
 
 import { table } from "@synnaxlabs/client";
-import { type border, box, color, scale } from "@synnaxlabs/x";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Text as BaseText } from "@synnaxlabs/lyra/text";
+import { type border, box, color } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
-import { CSS } from "@/css";
-import { Menu } from "@/menu";
 import { Cell as Base } from "@/table/cells/Cell";
-import { telem } from "@/telem/aether";
-import { Text as BaseText } from "@/text";
 import { Value as BaseValue } from "@/vis/value";
 
 export const textConfigZ = table.textCellConfigZ;
@@ -99,6 +98,7 @@ export const Value = ({
   level = "h5",
   color: textColor,
   redline,
+  backgroundColor,
   selected,
   box: b,
   onSelect,
@@ -109,24 +109,10 @@ export const Value = ({
     () => BaseValue.stringSource({ channel, rollingAverage, precision, notation }),
     [channel, rollingAverage, precision, notation],
   );
-  const backgroundTelem = useMemo(() => {
-    if (redline == null) return undefined;
-    const { bounds, gradient } = redline;
-    return telem.sourcePipeline("color", {
-      connections: [
-        { from: "source", to: "scale" },
-        { from: "scale", to: "gradient" },
-      ],
-      segments: {
-        source: t,
-        scale: telem.scaleNumber({
-          scale: scale.Scale.scale<number>(bounds).scale(0, 1).transform,
-        }),
-        gradient: telem.colorGradient({ gradient }),
-      },
-      outlet: "gradient",
-    });
-  }, [t, redline]);
+  const backgroundTelem = useMemo(
+    () => BaseValue.backgroundTelem(t, redline, backgroundColor),
+    [t, redline, backgroundColor],
+  );
   BaseValue.use({
     aetherKey: cellKey,
     box: b,

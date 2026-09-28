@@ -9,13 +9,12 @@
 
 import "@/table/AddCountControl.css";
 
+import { Button } from "@synnaxlabs/lyra/button";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
 import { type ReactElement, useState } from "react";
-
-import { Button } from "@/button";
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
-import { Icon } from "@/icon";
-import { Input } from "@/input";
 
 export interface AddCountControlProps {
   resourceName: "row" | "column";

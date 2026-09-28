@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Haul } from "@synnaxlabs/lyra/haul";
 import { type record } from "@synnaxlabs/x";
-
-import { Haul } from "@/haul";
 
 /**
  * This type should be used when the user wants to drop a tab in the mosaic.

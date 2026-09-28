@@ -9,15 +9,13 @@
 
 import "@/app/palette/Palette.css";
 
-import {
-  Button,
-  Dialog,
-  Flex,
-  Icon,
-  Text,
-  Triggers,
-  useCombinedStateAndRef,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { useCombinedStateAndRef } from "@synnaxlabs/lyra/hooks";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { type ReactElement, useCallback, useMemo, useState } from "react";
 
 import { Command } from "@/app/command";

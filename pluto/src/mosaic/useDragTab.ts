@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Haul } from "@synnaxlabs/lyra/haul";
 import { type record } from "@synnaxlabs/x";
 import { type DragEvent, useCallback } from "react";
 
-import { Haul } from "@/haul";
 import { createTabDropHaulItem } from "@/mosaic/haul";
 
 export interface UseDragTabReturn {

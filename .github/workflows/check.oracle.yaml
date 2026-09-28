@@ -10,70 +10,17 @@
 name: Check - Oracle
 
 on:
-  pull_request:
-    paths:
-      - .github/workflows/check.oracle.yaml
-      - alamos/go/**
-      - oracle/**
-      - schemas/**
-      - x/go/**
-      - "**/*.gen.*"
-      - "**/*.proto"
-      - "**/pyproject.toml"
-      - licenses/headers/**
-      - .clang-format
-      - .clang-format-ignore
-      - .prettierignore
-      - .prettierrc
-      - scripts/install_clang_format.sh
-      - buf.gen.yaml
-      - buf.yaml
-      - configs/eslint/**
-      - eslint.config.ts
-      - pnpm-lock.yaml
-      - pnpm-workspace.yaml
-      - uv.lock
-  push:
-    branches:
-      - main
-      - release/**
-    paths:
-      - .github/workflows/check.oracle.yaml
-      - alamos/go/**
-      - oracle/**
-      - schemas/**
-      - x/go/**
-      - "**/*.gen.*"
-      - "**/*.proto"
-      - "**/pyproject.toml"
-      - licenses/headers/**
-      - .clang-format
-      - .clang-format-ignore
-      - .prettierignore
-      - .prettierrc
-      - scripts/install_clang_format.sh
-      - buf.gen.yaml
-      - buf.yaml
-      - configs/eslint/**
-      - eslint.config.ts
-      - pnpm-lock.yaml
-      - pnpm-workspace.yaml
-      - uv.lock
+  workflow_call:
   workflow_dispatch:
-
 permissions:
   contents: read
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
 
 jobs:
   check:
     name: Check
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v7
 
       - name: Set up Go
@@ -89,14 +36,10 @@ jobs:
         with:
           cache: true
 
-      - name: Set up Python
-        uses: actions/setup-python@v7
-        with:
-          python-version-file: pyproject.toml
-
       - name: Set up uv
         uses: astral-sh/setup-uv@v10.2.0
         with:
+          version: latest-known
           enable-cache: true
 
       - name: Set up buf
@@ -117,18 +60,18 @@ jobs:
 
       # The exit code names the gate that failed: 10 format, 11 analyze, 12 generated,
       # 13 orphans, 14 cache.
-      - name: Run Oracle Check
+      - name: Run Oracle check
         id: check
         run: ./oracle-bin check --diff
 
-      - name: Generate JSON Report
+      - name: Generate JSON report
         if: failure() && steps.check.conclusion == 'failure'
         run: ./oracle-bin check --format=json > oracle-check.json || true
 
-      - name: Archive JSON Report
+      - name: Archive JSON report
         if: failure() && steps.check.conclusion == 'failure'
         uses: actions/upload-artifact@v7
         with:
-          name: oracle-check-report
           path: oracle-check.json
+          archive: false
           if-no-files-found: ignore

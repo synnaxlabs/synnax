@@ -10,20 +10,12 @@
 name: Test - Format
 
 on:
-  pull_request:
-  push:
-    branches:
-      - main
-      - release/**
+  workflow_call:
   workflow_dispatch:
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
 
 jobs:
   test:
-    name: Check Formatting
+    name: Check formatting
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -31,5 +23,5 @@ jobs:
         with:
           cache: true
 
-      - name: Check Formatting
+      - name: Check formatting
         run: pnpm check-format

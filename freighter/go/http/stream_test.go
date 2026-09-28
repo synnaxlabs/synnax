@@ -45,7 +45,6 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 		server freighter.StreamServer[test.Request, test.Response]
 		client freighter.StreamClient[test.Request, test.Response]
 		addr   address.Address
-		app    *fiber.App
 	)
 
 	BeforeAll(func() {
@@ -57,10 +56,8 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 		client = MustSucceed(fhttp.NewStreamClient[test.Request, test.Response](
 			fhttp.StreamClientConfig{Codec: json.Codec},
 		))
-		app, addr = serveRouter(router)
+		_, addr = serveRouter(router)
 	})
-
-	AfterAll(func() { Expect(app.Shutdown()).To(Succeed()) })
 
 	test.StreamSuite(func() (
 		freighter.StreamServer[test.Request, test.Response],

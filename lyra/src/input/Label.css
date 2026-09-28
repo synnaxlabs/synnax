@@ -1,0 +1,24 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/* Help text shares the label's size, so weight tells them apart. */
+.pluto-input-label {
+    color: var(--pluto-gray-l9);
+    font-size: var(--pluto-small-size);
+    font-weight: 500;
+    line-height: var(--pluto-small-line-height);
+    width: fit-content;
+    white-space: nowrap;
+
+    & .pluto-required-indicator {
+        color: var(--pluto-error-z);
+    }
+}

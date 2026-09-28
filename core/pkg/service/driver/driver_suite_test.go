@@ -137,6 +137,7 @@ func (f *mockFactory) ConfigureTask(
 	t task.Task,
 	cmdKey string,
 ) (driver.Task, error) {
+	GinkgoHelper()
 	f.cmdKey.Store(t.Key, cmdKey)
 	if f.configureFunc == nil {
 		return nil, driver.ErrTaskNotHandled
