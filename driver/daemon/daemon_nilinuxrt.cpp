@@ -199,6 +199,26 @@ x::errors::Error create_system_user() {
     return x::errors::NIL;
 }
 
+x::errors::Error create_env_file() {
+    LOG(INFO) << "creating environment file at " << ENV_FILE;
+    std::error_code ec;
+    fs::create_directories(fs::path(ENV_FILE).parent_path(), ec);
+    if (ec)
+        return x::errors::Error(
+            "failed to create environment file directory: " + ec.message()
+        );
+    // Opened in append mode so an existing file keeps its contents.
+    std::ofstream env_file(ENV_FILE, std::ios::app);
+    if (!env_file) return x::errors::Error("failed to create environment file");
+    env_file.close();
+    // The file can hold the Core password: root writes it, the service reads it.
+    if (chmod(ENV_FILE.c_str(), S_IRUSR | S_IWUSR | S_IRGRP) != 0)
+        return x::errors::Error("failed to set environment file permissions");
+    if (system(("chown root:synnax " + ENV_FILE).c_str()) != 0)
+        return x::errors::Error("failed to set environment file ownership");
+    return x::errors::NIL;
+}
+
 x::errors::Error install_binary() {
     LOG(INFO) << "moving binary to " << BINARY_INSTALL_DIR;
     std::error_code ec;
@@ -298,6 +318,7 @@ x::errors::Error install_service() {
     }
 
     if (auto err = create_system_user()) return err;
+    if (auto err = create_env_file()) return err;
     if (auto err = install_binary()) return err;
 
     if (auto err = setup_pid_file()) {
