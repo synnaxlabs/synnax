@@ -17,7 +17,6 @@
 #include <sys/stat.h>
 #include <systemd/sd-daemon.h>
 
-#include "x/cpp/env/env.h"
 #include "x/cpp/thread/thread.h"
 
 #include "driver/daemon/daemon.h"
@@ -28,11 +27,6 @@ namespace driver::daemon {
 const std::string BINARY_INSTALL_DIR = "/usr/local/bin";
 const std::string BINARY_NAME = "synnax-driver";
 const std::string SYSTEMD_SERVICE_PATH = "/etc/systemd/system/synnax-driver.service";
-const std::string ENV_FILE = "/etc/synnax/driver.env";
-
-x::errors::Error load_env() {
-    return x::env::load_file(ENV_FILE);
-}
 
 auto SYSTEMD_SERVICE_TEMPLATE = R"([Unit]
 Description=Synnax Driver Service
@@ -95,26 +89,6 @@ x::errors::Error create_system_user() {
     );
     if (result != 0) { return x::errors::Error("Failed to create system user"); }
     return {};
-}
-
-x::errors::Error create_env_file() {
-    LOG(INFO) << "Creating environment file at " << ENV_FILE;
-    std::error_code ec;
-    fs::create_directories(fs::path(ENV_FILE).parent_path(), ec);
-    if (ec)
-        return x::errors::Error(
-            "Failed to create environment file directory: " + ec.message()
-        );
-    // Opened in append mode so an existing file keeps its contents.
-    std::ofstream env_file(ENV_FILE, std::ios::app);
-    if (!env_file) return x::errors::Error("Failed to create environment file");
-    env_file.close();
-    // The file can hold the Core password: root writes it, the service reads it.
-    if (chmod(ENV_FILE.c_str(), S_IRUSR | S_IWUSR | S_IRGRP) != 0)
-        return x::errors::Error("Failed to set environment file permissions");
-    if (system(("chown root:synnax " + ENV_FILE).c_str()) != 0)
-        return x::errors::Error("Failed to set environment file ownership");
-    return x::errors::NIL;
 }
 
 x::errors::Error install_binary() {
