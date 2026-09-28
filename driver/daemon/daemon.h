@@ -51,11 +51,6 @@ x::errors::Error status();
 /// in the environment is kept. Does nothing where no service environment file exists.
 x::errors::Error load_env();
 
-/// @brief creates the Driver's environment file, owned by root:synnax with mode 0640
-/// so the service can read it and other users can't. An existing file keeps its
-/// contents but gets that owner and mode. Requires root.
-x::errors::Error create_env_file();
-
 /// @brief runs the application as a daemon with the given configuration.
 void run(const Config &config);
 }

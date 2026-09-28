@@ -57,8 +57,4 @@ x::errors::Error status() {
 x::errors::Error load_env() {
     return x::errors::NIL;
 }
-
-x::errors::Error create_env_file() {
-    return NOT_SUPPORTED;
-}
 }

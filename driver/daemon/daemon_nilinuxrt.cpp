@@ -18,13 +18,12 @@
 #include <signal.h>
 #include <sys/stat.h>
 
+#include "driver/daemon/common.h"
 #include "driver/daemon/daemon.h"
 
 namespace fs = std::filesystem;
 
 namespace driver::daemon {
-const std::string BINARY_INSTALL_DIR = "/usr/local/bin";
-const std::string BINARY_NAME = "synnax-driver";
 const std::string INIT_SCRIPT_PATH = "/etc/init.d/synnax-driver";
 const std::string DRIVER_PID_FILE = "/var/run/synnax-driver/synnax-driver.pid";
 
@@ -182,48 +181,6 @@ esac
 
 exit 0
 )###";
-
-x::errors::Error create_system_user() {
-    LOG(INFO) << "creating system user";
-    const int result = system(
-        "id -u synnax >/dev/null 2>&1 || useradd -r -s /sbin/nologin synnax"
-    );
-    if (result != 0) return x::errors::Error("failed to create system user");
-    return x::errors::NIL;
-}
-
-x::errors::Error install_binary() {
-    LOG(INFO) << "moving binary to " << BINARY_INSTALL_DIR;
-    std::error_code ec;
-    const fs::path curr_bin_path = fs::read_symlink("/proc/self/exe", ec);
-    if (ec)
-        return x::errors::Error(
-            "failed to get current executable path: " + ec.message()
-        );
-
-    fs::create_directories(BINARY_INSTALL_DIR, ec);
-    if (ec)
-        return x::errors::Error("failed to create binary directory: " + ec.message());
-
-    const fs::path target_path = BINARY_INSTALL_DIR + "/" + BINARY_NAME;
-
-    if (fs::exists(target_path)) {
-        fs::remove(target_path, ec);
-        if (ec)
-            return x::errors::Error(
-                "failed to remove existing binary: " + ec.message()
-            );
-    }
-
-    fs::copy_file(curr_bin_path, target_path, fs::copy_options::overwrite_existing, ec);
-    if (ec) return x::errors::Error("failed to copy binary: " + ec.message());
-
-    if (chmod(target_path.c_str(), S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH) !=
-        0)
-        return x::errors::Error("failed to set binary permissions");
-
-    return x::errors::NIL;
-}
 
 x::errors::Error setup_pid_file() {
     LOG(INFO) << "Setting up dedicated PID directory and file";

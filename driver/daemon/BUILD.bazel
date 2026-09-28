@@ -21,12 +21,14 @@ cc_library(
     name = "daemon",
     srcs = select({
         ":nilinuxrt": [
+            "common.cpp",
+            "common.h",
             "daemon_nilinuxrt.cpp",
-            "env.cpp",
         ],
         "@platforms//os:linux": [
+            "common.cpp",
+            "common.h",
             "daemon_linux.cpp",
-            "env.cpp",
         ],
         "//conditions:default": ["daemon_noop.cpp"],
     }),
