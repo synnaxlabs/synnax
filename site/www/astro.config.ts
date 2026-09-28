@@ -22,5 +22,5 @@ export default defineConfig({
     ssr: { noExternal: ["@synnaxlabs/lyra"] },
     css: { postcss: { plugins: [layer(/[\\/]lyra[\\/]/, "pluto")] } },
   },
-  site: "https://synnaxlabs.com",
+  site: "https://www.synnaxlabs.com",
 });

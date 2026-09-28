@@ -195,12 +195,12 @@ docs:
   - .github/workflows/test.docs.yaml
   - docs/site/**
 
-landing:
+www:
   - *arc_ts
   - *lyra
   - *media
   - *ts
-  - landing/**
+  - site/www/**
 
 alamos_py: &alamos_py
   - *py

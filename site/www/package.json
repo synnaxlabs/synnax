@@ -1,5 +1,5 @@
 {
-  "name": "@synnaxlabs/landing",
+  "name": "@synnaxlabs/www",
   "type": "module",
   "private": true,
   "scripts": {

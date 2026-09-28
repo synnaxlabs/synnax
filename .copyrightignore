@@ -23,7 +23,7 @@ pnpm-lock.yaml
 integration/tests/fixtures/test_symbol.svg
 integration/tests/fixtures/styled_symbol.svg
 docs/site/public/images/us-flag.svg
-landing/public/images/us-flag.svg
-landing/src/components/company/nasa.svg
-landing/src/components/company/yc.svg
-landing/src/components/sponsorships/*.svg
+site/www/public/images/us-flag.svg
+site/www/src/components/company/nasa.svg
+site/www/src/components/company/yc.svg
+site/www/src/components/sponsorships/*.svg

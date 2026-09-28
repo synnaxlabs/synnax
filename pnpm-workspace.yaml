@@ -16,9 +16,9 @@ packages:
   - docs/site
   - drift
   - freighter/ts
-  - landing
   - lyra
   - pluto
+  - site/www
   - studio
   - x/media
   - x/ts
