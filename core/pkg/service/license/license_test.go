@@ -14,6 +14,7 @@ import (
 	"crypto/rand"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"time"
 	"uuid"
 
@@ -276,6 +277,73 @@ var _ = Describe("License", func() {
 				ContainSubstring("license clock mark has 3 bytes, want 8"),
 			))
 		})
+	})
+
+	Describe("Clock", func() {
+		var (
+			clock   atomic.Int64
+			clocked license.ServiceConfig
+		)
+		BeforeEach(func() {
+			clock.Store(now.UnixNano())
+			clocked = license.ServiceConfig{
+				Now:           func() time.Time { return time.Unix(0, clock.Load()) },
+				CheckInterval: 10 * time.Millisecond,
+			}
+		})
+		state := func(svc *license.Service) func() license.State {
+			return func() license.State { return svc.Retrieve().State }
+		}
+		It(
+			"should recover once a clock that was behind catches up",
+			func(ctx SpecContext) {
+				svc := open(ctx, license.ServiceConfig{Token: sign(newLicense())})
+				Expect(svc.Close()).To(Succeed())
+				clock.Store(now.Add(-2 * day).UnixNano())
+				svc = open(ctx, clocked)
+				Expect(svc.Retrieve().State).To(Equal(license.StateExpired))
+				clock.Store(now.Add(time.Hour).UnixNano())
+				Eventually(state(svc)).Should(Equal(license.StateOk))
+				Expect(svc.Retrieve().Warning).To(BeEmpty())
+			},
+		)
+		It("should never move the recorded time back", func(ctx SpecContext) {
+			svc := open(ctx, clocked, license.ServiceConfig{Token: sign(newLicense())})
+			clock.Store(now.Add(-2 * day).UnixNano())
+			Consistently(state(svc)).
+				WithTimeout(100 * time.Millisecond).
+				Should(Equal(license.StateOk))
+			Expect(svc.Close()).To(Succeed())
+			svc = open(ctx, clocked)
+			Expect(svc.Retrieve().State).To(Equal(license.StateExpired))
+		})
+		It(
+			"should ignore the clock for a license without an expiry",
+			func(ctx SpecContext) {
+				lic := newLicense()
+				lic.Exp = nil
+				lic.MaxVersion = new("0.60")
+				svc := open(ctx, license.ServiceConfig{Token: sign(lic)})
+				Expect(svc.Close()).To(Succeed())
+				clock.Store(now.Add(-2 * day).UnixNano())
+				info := open(ctx, clocked).Retrieve()
+				Expect(info.State).To(Equal(license.StateOk))
+				Expect(info.Warning).To(BeEmpty())
+			},
+		)
+		It(
+			"should fall back to the version ceiling while the clock is behind",
+			func(ctx SpecContext) {
+				lic := newLicense()
+				lic.MaxVersion = new("0.60")
+				svc := open(ctx, license.ServiceConfig{Token: sign(lic)})
+				Expect(svc.Close()).To(Succeed())
+				clock.Store(now.Add(-2 * day).UnixNano())
+				info := open(ctx, clocked).Retrieve()
+				Expect(info.State).To(Equal(license.StateOk))
+				Expect(info.Warning).To(ContainSubstring("clock"))
+			},
+		)
 	})
 
 	Describe("Activate", func() {
