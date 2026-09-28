@@ -33,14 +33,11 @@ import {
   type Event,
   type Handle,
   type Info,
+  isSelfHealing,
   reduce,
   type Status,
 } from "@/connection/status";
-import {
-  AccessDeniedError,
-  DisconnectedError,
-  errorsMiddleware,
-} from "@/errors";
+import { AccessDeniedError, DisconnectedError, errorsMiddleware } from "@/errors";
 import { license } from "@/license";
 import { Transport } from "@/transport";
 
@@ -123,11 +120,7 @@ export const modeFor = ({ variant, details }: Status): Mode => {
     case "disabled":
       return "idle";
     case "error":
-      // unreachable and unlicensed keep checking beneath the error and
-      // self-heal; auth and incompatibility rest until the user acts
-      return details.reason === "unreachable" || details.reason === "unlicensed"
-        ? "checking"
-        : "idle";
+      return isSelfHealing(details.reason) ? "checking" : "idle";
     default:
       return "checking";
   }

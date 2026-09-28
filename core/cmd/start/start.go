@@ -362,8 +362,9 @@ func BootupCore(
 		driver.Config{
 			Enabled:  new(!*cfg.noDriver),
 			Insecure: cfg.insecure,
-			// Without a covering license the Core refuses the rack registration, so the
-			// Driver must keep retrying in the background instead of failing the start.
+			// An unlicensed Core refuses the Driver's rack, so the Driver retries in
+			// the
+			// background.
 			Detached: new(!covered),
 			Integrations: parseIntegrations(
 				cfg.enabledIntegrations,

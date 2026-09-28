@@ -12,8 +12,7 @@
 #include "x/cpp/errors/errors.h"
 
 namespace synnax::errors {
-/// @brief the Core refused the request over its license. Every license error
-/// carries this prefix.
+/// @brief the base of every license error the Core returns.
 const x::errors::Error LICENSE = x::errors::SY.sub("license");
 /// @brief the Core refuses requests because no license is activated on it.
 const x::errors::Error LICENSE_MISSING = LICENSE.sub("missing");

@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
-	"github.com/synnaxlabs/synnax/pkg/service/license"
 	channelsignals "github.com/synnaxlabs/synnax/pkg/service/channel/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/control"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
@@ -36,6 +35,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/labjack"
+	"github.com/synnaxlabs/synnax/pkg/service/license"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/metrics"
@@ -328,16 +328,16 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 	if l.Channel, err = channel.OpenService(ctx, channel.ServiceConfig{
-		Instrumentation:  cfg.Child("channel"),
-		Channel:          cfg.Distribution.Channel,
-		DB:               cfg.Distribution.DB,
-		HostProvider:     cfg.Distribution.Cluster,
-		Ontology:         l.Ontology,
-		Group:            l.Group,
-		Search:           l.Search,
-		IntOverflowCheck: l.License.CheckOverflow,
-		ValidateNames:    cfg.ValidateChannelNames,
-		Status:           l.Status,
+		Instrumentation: cfg.Child("channel"),
+		Channel:         cfg.Distribution.Channel,
+		DB:              cfg.Distribution.DB,
+		HostProvider:    cfg.Distribution.Cluster,
+		Ontology:        l.Ontology,
+		Group:           l.Group,
+		Search:          l.Search,
+		ChannelLimit:    l.License.CheckChannelLimit,
+		ValidateNames:   cfg.ValidateChannelNames,
+		Status:          l.Status,
 	}); !ok(err, l.Channel) {
 		return nil, err
 	}

@@ -7,19 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { connection, MissingLicenseError } from "@synnaxlabs/client";
-
-export const UNLICENSED_MESSAGE = "No license is active on this Core";
+import { connection, license, MissingLicenseError } from "@synnaxlabs/client";
 
 /** The status of a client whose Core refuses requests for want of a license. */
 export const UNLICENSED_STATUS: connection.Status = {
   ...connection.DEFAULT_STATUS,
   variant: "error",
-  message: UNLICENSED_MESSAGE,
+  message: license.STATE_MESSAGES.missing,
   details: {
     ...connection.DEFAULT_STATUS.details,
     authenticated: true,
     reason: "unlicensed",
-    error: new MissingLicenseError(UNLICENSED_MESSAGE),
+    error: new MissingLicenseError(license.STATE_MESSAGES.missing),
   },
 };

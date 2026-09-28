@@ -25,26 +25,24 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/license"
 )
 
-// KeyID is the anchor identifier Keys signs under.
-const KeyID = "test"
+const keyID = "test"
 
 // Keys is a throwaway signing key and the anchor set that verifies it.
 type Keys struct {
-	// Private signs licenses.
-	Private ed25519.PrivateKey
-	// Anchors holds the matching public key under KeyID.
+	private ed25519.PrivateKey
+	// Anchors holds the matching public key.
 	Anchors license.Anchors
 }
 
 // NewKeys generates a fresh signing key.
 func NewKeys() Keys {
 	pub, priv := lo.Must2(ed25519.GenerateKey(rand.Reader))
-	return Keys{Private: priv, Anchors: license.Anchors{KeyID: pub}}
+	return Keys{private: priv, Anchors: license.Anchors{keyID: pub}}
 }
 
 // Sign signs lic under the key.
 func (k Keys) Sign(lic license.License) string {
-	return lo.Must(license.Sign(k.Private, KeyID, lic))
+	return lo.Must(license.Sign(k.private, keyID, lic))
 }
 
 // NewLicense returns a license that floats between machines and lasts fifty years.

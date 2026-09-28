@@ -249,9 +249,7 @@ func (l *Layer) BindTo(t Transport) {
 		gate               = license.Middleware(l.config.Service.License)
 		insecureMiddleware = []freighter.Middleware{rec, instrumentation}
 		secureMiddleware   = append(slices.Clone(insecureMiddleware), tk)
-		// Every endpoint that is neither exempt from the token check nor one of the
-		// license endpoints is gated on the Core holding a covering license.
-		gatedMiddleware = append(slices.Clone(secureMiddleware), gate)
+		gatedMiddleware    = append(slices.Clone(secureMiddleware), gate)
 	)
 
 	freighter.UseOnAll(
@@ -260,6 +258,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.ConnectivityCheck,
 	)
 
+	// The license endpoints skip the gate so an unlicensed Core can be activated.
 	freighter.UseOnAll(
 		secureMiddleware,
 		t.LicenseRetrieve,
@@ -437,7 +436,6 @@ func (l *Layer) BindTo(t Transport) {
 
 	// AUTH
 	t.AuthLogin.BindHandler(l.Auth.Login)
-
 	t.AuthChangePassword.BindHandler(
 		fgorp.CreateWriteUnaryHandler(db, l.Auth.ChangePassword),
 	)

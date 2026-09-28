@@ -193,7 +193,7 @@ var _ = Describe("License", func() {
 			Expect(info.State).To(Equal(license.StateMissing))
 			Expect(info.License).To(BeNil())
 			Expect(svc.Check()).To(MatchError(license.ErrMissing))
-			Expect(svc.CheckOverflow(1000)).To(Succeed())
+			Expect(svc.CheckChannelLimit(1000)).To(Succeed())
 		})
 		It(
 			"should accept a licenseToken on open and load it on the next",
@@ -269,6 +269,12 @@ var _ = Describe("License", func() {
 				Now: func() time.Time { return earlier },
 			})
 			Expect(svc.Retrieve().State).To(Equal(license.StateOk))
+		})
+		It("should refuse to open over a corrupt clock mark", func(ctx SpecContext) {
+			Expect(db.Set(ctx, []byte("highWater"), []byte{1, 2, 3})).To(Succeed())
+			Expect(license.OpenService(ctx, cfg)).Error().To(MatchError(
+				ContainSubstring("license clock mark has 3 bytes, want 8"),
+			))
 		})
 	})
 
@@ -394,12 +400,12 @@ var _ = Describe("License", func() {
 			lic := newLicense()
 			lic.Channels = 10
 			MustSucceed(svc.Activate(ctx, sign(lic)))
-			Expect(svc.CheckOverflow(10)).To(Succeed())
-			Expect(svc.CheckOverflow(11)).To(MatchError(license.ErrTooMany))
+			Expect(svc.CheckChannelLimit(10)).To(Succeed())
+			Expect(svc.CheckChannelLimit(11)).To(MatchError(license.ErrTooMany))
 		})
 		It("should not cap a license with a zero cap", func(ctx SpecContext) {
 			MustSucceed(svc.Activate(ctx, sign(newLicense())))
-			Expect(svc.CheckOverflow(1 << 19)).To(Succeed())
+			Expect(svc.CheckChannelLimit(1 << 19)).To(Succeed())
 		})
 	})
 })

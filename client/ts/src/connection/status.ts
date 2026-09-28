@@ -208,12 +208,13 @@ export type Event =
 const CONNECTING = "Connecting";
 const RECONNECTING = "Reconnecting";
 const UNREACHABLE = "Cannot reach cluster";
+const STREAM_DENIED =
+  "Live updates are unavailable. This user cannot read the change channels.";
+
 const licenseError = (state: Exclude<license.State, "ok">): Error =>
   state === "missing"
     ? new MissingLicenseError(license.STATE_MESSAGES.missing)
     : new ExpiredLicenseError(license.STATE_MESSAGES.expired);
-const STREAM_DENIED =
-  "Live updates are unavailable. This user cannot read the change channels.";
 
 const connectedMessage = ({ name }: Config): string =>
   `Connected to ${name ?? "cluster"}`;
@@ -266,7 +267,7 @@ const enterError = (
 });
 
 // Reasons the check loop clears on its own; the rest wait on the user.
-const isSelfHealing = (reason: Reason): boolean =>
+export const isSelfHealing = (reason: Reason): boolean =>
   reason === "unreachable" || reason === "unlicensed";
 
 // A 0.0 major.minor marks a development build, which pairs with anything.
@@ -318,8 +319,7 @@ const reduceCheckSuccess = (prev: Status, info: Info, config: Config): Status =>
   if (clusterKey !== "" && info.clusterKey !== clusterKey)
     return reduceClusterReplaced(prev, info, config);
   const facts = checkFacts(info, config);
-  // the Core answers but refuses everything else until a license is activated;
-  // the check keeps running so an activation lifts the error on its own
+  // the Core answers but refuses everything else until a license is activated
   if (info.license !== "ok")
     return enterError(prev, license.STATE_MESSAGES[info.license], {
       ...facts,

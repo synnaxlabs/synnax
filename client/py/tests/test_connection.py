@@ -17,7 +17,7 @@ import synnax as sy
 from freighter.exceptions import Unreachable
 from freighter.mock import MockUnaryClient
 from synnax.connection import Checker, CheckResponse, State, _versions_compatible
-from synnax.license.client import State as LicenseState
+from synnax.license import State as LicenseState
 from x.telem import TimeSpan, TimeStamp
 
 

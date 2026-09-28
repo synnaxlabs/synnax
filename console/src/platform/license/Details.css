@@ -9,10 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-license {
-    width: 100%;
-}
-
 .console-license__row > :first-child {
     flex-shrink: 0;
 }

@@ -82,7 +82,7 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 // Validate validates the configuration for use in the service.
 func (c ServiceConfig) Validate() error {
-	v := validate.New("channel.license")
+	v := validate.New("license")
 	v.NotNil("db", c.DB)
 	v.NotNil("anchors", c.Anchors)
 	v.NotNil("now", c.Now)
@@ -121,8 +121,7 @@ var DefaultServiceConfig = ServiceConfig{
 var (
 	// prefix keys the accepted tokens. The stored value is the token itself.
 	prefix = []byte("license/")
-	// legacyKey held the previous format; it is removed on open. Its bytes are what
-	// a Core before this format wrote, so they never change.
+	// legacyKey is where Cores before token licenses stored their key. Open deletes it.
 	legacyKey = []byte("bGljZW5zZUtleQ==")
 	// markKey holds the latest clock reading the service has recorded.
 	markKey = []byte("highWater")
@@ -144,10 +143,8 @@ type Service struct {
 
 var _ io.Closer = &Service{}
 
-// OpenService opens the service: it reads the fingerprint, checks the clock against the
-// recorded mark, loads the token that fits this fingerprint, and accepts cfg.Token when
-// set. A cfg.Token that fails to verify is an error; a Core with no license opens in
-// StateMissing.
+// OpenService opens the service and activates cfg.Token when set. It returns an error
+// when cfg.Token is refused. A Core with no license opens in StateMissing.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
@@ -225,21 +222,6 @@ func (s *Service) Activate(ctx context.Context, token string) (Info, error) {
 	if err != nil {
 		return Info{}, err
 	}
-	if lic.Exp == nil && lic.MaxVersion == nil {
-		return Info{}, errors.Wrap(
-			ErrInvalid,
-			"a license without an expiry must carry a maximum version",
-		)
-	}
-	if lic.MaxVersion != nil {
-		if _, _, ok := parseMinor(*lic.MaxVersion); !ok {
-			return Info{}, errors.Wrapf(
-				ErrInvalid,
-				"bad version ceiling %q",
-				*lic.MaxVersion,
-			)
-		}
-	}
 	if !s.fingerprint.Covers(lic.FingerprintScheme, lic.Fingerprints) {
 		return Info{}, ErrFingerprint
 	}
@@ -258,10 +240,9 @@ func (s *Service) Activate(ctx context.Context, token string) (Info, error) {
 	return info, nil
 }
 
-// CheckOverflow returns ErrTooMany when inUse external channels exceed the license's
-// cap. A Core without a covering license is idle behind the API gate, so the cap does
-// not apply to it.
-func (s *Service) CheckOverflow(inUse types.Uint20) error {
+// CheckChannelLimit returns ErrTooMany when inUse external channels exceed the
+// license's cap, and nil while no license covers the Core.
+func (s *Service) CheckChannelLimit(inUse types.Uint20) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	info := s.mu.info
@@ -279,27 +260,30 @@ func (s *Service) CheckOverflow(inUse types.Uint20) error {
 func (s *Service) checkClock(ctx context.Context) error {
 	now := s.cfg.Now()
 	raw, closer, err := s.cfg.Get(ctx, markKey)
-	if err != nil && !errors.Is(err, query.ErrNotFound) {
+	if errors.Is(err, query.ErrNotFound) {
+		return s.recordClock(ctx, now)
+	}
+	if err != nil {
 		return err
 	}
-	if err == nil {
-		// A mark of another width is treated as absent and overwritten.
-		var mark time.Time
-		if len(raw) == 8 {
-			mark = time.Unix(0, int64(binary.LittleEndian.Uint64(raw)))
-		}
-		if err = closer.Close(); err != nil {
-			return err
-		}
-		if mark.Sub(now) > s.cfg.Rollback {
-			s.rolledBack = true
-			return nil
-		}
-		if !now.After(mark) {
-			return nil
-		}
+	if len(raw) != 8 {
+		return errors.Join(
+			errors.Newf("license clock mark has %d bytes, want 8", len(raw)),
+			closer.Close(),
+		)
 	}
-	return s.recordClock(ctx, now)
+	mark := time.Unix(0, int64(binary.LittleEndian.Uint64(raw)))
+	if err = closer.Close(); err != nil {
+		return err
+	}
+	if mark.Sub(now) > s.cfg.Rollback {
+		s.rolledBack = true
+		return nil
+	}
+	if now.After(mark) {
+		return s.recordClock(ctx, now)
+	}
+	return nil
 }
 
 func (s *Service) recordClock(ctx context.Context, now time.Time) error {
@@ -361,40 +345,31 @@ func (s *Service) evaluate(lic License) Info {
 		info.Warning = fmt.Sprintf(expiredClockTemplate, s.cfg.Rollback)
 		return info
 	}
-	covered := lic.MaxVersion == nil || versionCovered(s.cfg.Version, *lic.MaxVersion)
-	if lic.Exp == nil {
-		if !covered {
-			info.State = StateExpired
+	if lic.Exp != nil {
+		now, exp := s.cfg.Now(), time.Unix(int64(*lic.Exp), 0)
+		if now.Before(exp) {
+			if left := exp.Sub(now); left <= s.cfg.WarningTime {
+				info.Warning = fmt.Sprintf(warnExpiresTemplate, left.Round(time.Minute))
+			}
+			return info
+		}
+		if graceEnd := exp.Add(s.cfg.Grace); now.Before(graceEnd) {
 			info.Warning = fmt.Sprintf(
-				expiredVersionTemplate,
+				warnGraceTemplate,
+				exp.Format(time.DateOnly),
+				graceEnd.Format(time.DateOnly),
+			)
+			return info
+		}
+	}
+	if lic.MaxVersion != nil && versionCovered(s.cfg.Version, *lic.MaxVersion) {
+		if lic.Exp != nil {
+			info.Warning = fmt.Sprintf(
+				warnFallbackTemplate,
+				time.Unix(int64(*lic.Exp), 0).Format(time.DateOnly),
 				*lic.MaxVersion,
-				s.cfg.Version,
 			)
 		}
-		return info
-	}
-	now := s.cfg.Now()
-	exp := time.Unix(int64(*lic.Exp), 0)
-	if now.Before(exp) {
-		if left := exp.Sub(now); left <= s.cfg.WarningTime {
-			info.Warning = fmt.Sprintf(warnExpiresTemplate, left.Round(time.Minute))
-		}
-		return info
-	}
-	if graceEnd := exp.Add(s.cfg.Grace); now.Before(graceEnd) {
-		info.Warning = fmt.Sprintf(
-			warnGraceTemplate,
-			exp.Format(time.DateOnly),
-			graceEnd.Format(time.DateOnly),
-		)
-		return info
-	}
-	if lic.MaxVersion != nil && covered {
-		info.Warning = fmt.Sprintf(
-			warnFallbackTemplate,
-			exp.Format(time.DateOnly),
-			*lic.MaxVersion,
-		)
 		return info
 	}
 	info.State = StateExpired

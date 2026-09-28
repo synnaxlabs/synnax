@@ -13,11 +13,7 @@ import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { License } from "@/feature/license";
-import {
-  createConsoleWrapper,
-  UNLICENSED_MESSAGE,
-  UNLICENSED_STATUS,
-} from "@/testutil";
+import { createConsoleWrapper, UNLICENSED_STATUS } from "@/testutil";
 
 describe("License.Guard", () => {
   it("should offer no log out action", async () => {
@@ -36,7 +32,7 @@ describe("License.Guard", () => {
       </License.Guard>,
       { wrapper: Wrapper },
     );
-    expect(screen.getByText(UNLICENSED_MESSAGE)).toBeTruthy();
+    expect(screen.getByText(UNLICENSED_STATUS.message)).toBeTruthy();
     expect(screen.queryByText("Log out")).toBeNull();
   });
 });

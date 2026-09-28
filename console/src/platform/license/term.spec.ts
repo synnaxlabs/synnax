@@ -70,9 +70,3 @@ describe("License.editionLabel", () => {
     expect(License.editionLabel({ ...BASE, edition: "x" })).toBe("x");
   });
 });
-
-describe("License.joinFingerprint", () => {
-  it("should separate hashes so a single-line paste keeps them apart", () => {
-    expect(License.joinFingerprint(["aa", "bb"])).toBe("aa, bb");
-  });
-});

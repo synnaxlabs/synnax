@@ -16,7 +16,7 @@ import (
 	apilicense "github.com/synnaxlabs/synnax/pkg/api/license"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	license "github.com/synnaxlabs/synnax/pkg/service/license"
+	"github.com/synnaxlabs/synnax/pkg/service/license"
 	svcmock "github.com/synnaxlabs/synnax/pkg/service/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	. "github.com/synnaxlabs/x/testutil"

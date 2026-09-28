@@ -21,7 +21,6 @@ import {
   fakePickedFile,
   interceptFilePicker,
   uniqueName,
-  UNLICENSED_MESSAGE,
   UNLICENSED_STATUS,
 } from "@/testutil";
 
@@ -60,7 +59,7 @@ describe("License.Guard", () => {
 
   it("should render the activation screen while the Core is unlicensed", async () => {
     await renderGuard(null, UNLICENSED_STATUS);
-    expect(screen.getByText(UNLICENSED_MESSAGE)).toBeTruthy();
+    expect(screen.getByText(UNLICENSED_STATUS.message)).toBeTruthy();
     expect(screen.queryByText("licensed content")).toBeNull();
   });
 
@@ -104,6 +103,6 @@ describe("License.Guard", () => {
     });
     fireEvent.click(findButton("Activate"));
     expect(await screen.findByText("Failed to activate the license")).toBeTruthy();
-    expect(screen.getByText(UNLICENSED_MESSAGE)).toBeTruthy();
+    expect(screen.getByText(UNLICENSED_STATUS.message)).toBeTruthy();
   });
 });

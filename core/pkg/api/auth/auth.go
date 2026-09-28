@@ -15,7 +15,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
-	"github.com/synnaxlabs/synnax/pkg/service/license"
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -38,8 +37,6 @@ type ClusterInfo struct {
 	NodeKey node.Key `json:"node_key" msgpack:"node_key"`
 	// NodeTime is the time of the node that the request was sent to.
 	NodeTime telem.TimeStamp `json:"node_time" msgpack:"node_time"`
-	// License is the state of the Core's license: ok, missing, or expired.
-	License license.State `json:"license" msgpack:"license"`
 }
 
 // Service is the core authentication service for the Synnax API.
@@ -48,7 +45,6 @@ type Service struct {
 	auth    *auth.Service
 	user    *user.Service
 	cluster cluster.Cluster
-	license *license.Service
 }
 
 func NewService(cfgs ...config.LayerConfig) (*Service, error) {
@@ -61,7 +57,6 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		auth:    cfg.Service.Auth,
 		user:    cfg.Service.User,
 		cluster: cfg.Distribution.Cluster,
-		license: cfg.Service.License,
 	}, nil
 }
 
@@ -104,7 +99,6 @@ func (s *Service) Login(
 			NodeKey:     s.cluster.HostKey(),
 			NodeVersion: version.Get(),
 			NodeTime:    midPoint,
-			License:     s.license.Retrieve().State,
 		},
 	}, err
 }

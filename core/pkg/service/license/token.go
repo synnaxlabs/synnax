@@ -25,7 +25,7 @@ import (
 // header's key identifier.
 type Anchors = map[string]ed25519.PublicKey
 
-// anchors holds the production keys. Key 1 is the hub's signing key; its private
+// anchors holds the production keys. Key 1 is the portal's signing key; its private
 // half lives only in KMS.
 var anchors = Anchors{
 	"1": ed25519.PublicKey(base64.MustDecode(
@@ -89,8 +89,9 @@ func Sign(priv ed25519.PrivateKey, kid string, lic License) (string, error) {
 
 // Verify checks token's signature against the anchor its header names and returns the
 // license it carries. It does not check the license's term; the service does. Returns
-// ErrInvalid on a bad signature, an unknown key, an unsupported claim set version, or a
-// required claim this Core does not understand.
+// ErrInvalid on a bad signature, an unknown key, an unsupported claim set version, a
+// required claim this Core does not understand, a missing or unparseable version
+// ceiling on a license without an expiry, or an unparseable ceiling on any license.
 func Verify(anchors Anchors, token string) (License, error) {
 	var c claims
 	if _, err := jwt.ParseWithClaims(
@@ -128,6 +129,21 @@ func Verify(anchors Anchors, token string) (License, error) {
 			"the license needs a newer Core that understands %s",
 			strings.Join(unknown, ", "),
 		)
+	}
+	if c.Exp == nil && c.MaxVersion == nil {
+		return License{}, errors.Wrap(
+			ErrInvalid,
+			"a license without an expiry must carry a maximum version",
+		)
+	}
+	if c.MaxVersion != nil {
+		if _, _, ok := parseMinor(*c.MaxVersion); !ok {
+			return License{}, errors.Wrapf(
+				ErrInvalid,
+				"bad version ceiling %q",
+				*c.MaxVersion,
+			)
+		}
 	}
 	return c.License, nil
 }
