@@ -29,7 +29,8 @@ public:
         const std::vector<synnax::channel::Channel> &state_channels,
         const std::vector<synnax::channel::Key> &cmd_channels,
         const bool data_saving_disabled,
-        const std::shared_ptr<std::vector<x::telem::Frame>> &writes,
+        const std::shared_ptr<driver::pipeline::mock::Recording<x::telem::Frame>>
+            &writes,
         const std::shared_ptr<std::vector<x::errors::Error>> &errors
     ):
         common::Sink(
@@ -75,7 +76,7 @@ TEST(TestCommonWriteTask, testSetStateUsesLastSample) {
     state.data_type = x::telem::UINT8_T;
     state.index = 2;
 
-    auto writes = std::make_shared<std::vector<x::telem::Frame>>();
+    auto writes = std::make_shared<pipeline::mock::Recording<x::telem::Frame>>();
     auto errors = std::make_shared<std::vector<x::errors::Error>>();
 
     auto sink = std::make_unique<MockSink>(
@@ -155,7 +156,7 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     state.data_type = x::telem::UINT8_T;
     state.index = 2;
 
-    auto writes = std::make_shared<std::vector<x::telem::Frame>>();
+    auto writes = std::make_shared<pipeline::mock::Recording<x::telem::Frame>>();
     auto errors = std::make_shared<std::vector<x::errors::Error>>();
 
     auto sink = std::make_unique<MockSink>(
@@ -206,9 +207,9 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     ASSERT_EVENTUALLY_GE(mock_writer_factory->writes->size(), 1);
     ASSERT_EVENTUALLY_EQ(writes->size(), 1);
     auto check_state_writes = [&]() -> uint8_t {
-        const auto fr = std::move(
-            mock_writer_factory->writes->at(mock_writer_factory->writes->size() - 1)
-        );
+        const auto fr = mock_writer_factory->writes
+                            ->at(mock_writer_factory->writes->size() - 1)
+                            .deep_copy();
         if (fr.size() < 2) return 0;
         if (fr.length() < 1) return 0;
         if (!fr.contains(3)) return 0;
@@ -226,7 +227,7 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(stop_state.message, "Task stopped successfully");
 
-    auto write_fr = std::move(writes->at(0));
+    auto write_fr = writes->at(0).deep_copy();
     ASSERT_EQ(write_fr.size(), 1);
     ASSERT_EQ(write_fr.length(), 1);
     ASSERT_EQ(write_fr.contains(1), true);
@@ -234,9 +235,9 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     ASSERT_EQ(write_fr.contains(3), false);
     ASSERT_GE(write_fr.at<uint8_t>(1, 0), 1);
 
-    auto state_fr = std::move(
-        mock_writer_factory->writes->at(mock_writer_factory->writes->size() - 1)
-    );
+    auto state_fr = mock_writer_factory->writes
+                        ->at(mock_writer_factory->writes->size() - 1)
+                        .deep_copy();
     ASSERT_EQ(state_fr.size(), 2);
     ASSERT_EQ(state_fr.length(), 1);
     ASSERT_EQ(state_fr.contains(1), false);
@@ -259,7 +260,7 @@ TEST(TestCommonWriteTask, testStartWhileRunningAcks) {
     state.key = 3;
     state.data_type = x::telem::UINT8_T;
     state.index = 2;
-    auto writes = std::make_shared<std::vector<x::telem::Frame>>();
+    auto writes = std::make_shared<pipeline::mock::Recording<x::telem::Frame>>();
     auto errors = std::make_shared<std::vector<x::errors::Error>>();
     auto sink = std::make_unique<MockSink>(
         x::telem::HERTZ * 10,
@@ -316,7 +317,7 @@ TEST(TestCommonWriteTask, testStopReleasesSinkWithoutStateChannels) {
         std::vector<synnax::channel::Channel>{},
         std::vector<synnax::channel::Key>{1},
         false,
-        std::make_shared<std::vector<x::telem::Frame>>(),
+        std::make_shared<pipeline::mock::Recording<x::telem::Frame>>(),
         std::make_shared<std::vector<x::errors::Error>>()
     );
     auto *raw_sink = sink.get();
