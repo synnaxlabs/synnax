@@ -416,9 +416,11 @@ export class Client implements Handle {
       this.warn(this.current.details);
       const replaced = prevKey !== "" && info.clusterKey !== prevKey;
       // reachable but the stream is still dark: re-demand it, in case its own
-      // retry budget was exhausted. Replacement already brings it up.
+      // retry budget was exhausted. Replacement already brings it up, and an
+      // unlicensed Core refuses it.
       if (
         !replaced &&
+        info.license === "ok" &&
         this.config.requiresStream &&
         !this.current.details.streamLive &&
         this.takeStreamProbe()

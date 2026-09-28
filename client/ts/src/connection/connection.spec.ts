@@ -64,6 +64,8 @@ interface ScriptedUnary extends UnaryClient {
   setFailing: (failing: boolean) => void;
   /** Changes the cluster key answered by later checks. */
   setClusterKey: (key: string) => void;
+  /** Changes the license state answered by later checks. */
+  setLicense: (state: license.State) => void;
 }
 
 /** A unary whose reachability and cluster identity change mid-test. */
@@ -78,6 +80,7 @@ const createScriptedUnary = ({
 } = {}): ScriptedUnary => {
   let key = clusterKey;
   let down = failing;
+  let state = license;
   return {
     send: vi.fn().mockImplementation(async () => {
       if (down) throw new Unreachable({ message: "server down" });
@@ -85,12 +88,13 @@ const createScriptedUnary = ({
         clusterKey: key,
         nodeVersion: __VERSION__,
         nodeTime: TimeStamp.now(),
-        license,
+        license: state,
       };
     }),
     use: vi.fn(),
     setFailing: (next) => (down = next),
     setClusterKey: (next) => (key = next),
+    setLicense: (next) => (state = next),
   };
 };
 
@@ -904,6 +908,21 @@ describe("connection", () => {
       expect(client.status.variant).toEqual("loading");
       client.notify({ type: "stream.live" });
       expect(client.status.variant).toEqual("success");
+      await client.close();
+    });
+
+    it("should not demand the stream until the Core is licensed", async () => {
+      const ensured = vi.fn(async () => {});
+      const unary = createScriptedUnary({ license: "missing" });
+      const client = createClient(unary, {
+        requiresStream: true,
+        stream: { reset: async () => {}, ensure: ensured },
+      });
+      const send = unary.send as ReturnType<typeof vi.fn>;
+      while (send.mock.calls.length < 3) await sleep(TimeSpan.milliseconds(1));
+      expect(ensured).not.toHaveBeenCalled();
+      unary.setLicense("ok");
+      while (ensured.mock.calls.length === 0) await sleep(TimeSpan.milliseconds(1));
       await client.close();
     });
 
