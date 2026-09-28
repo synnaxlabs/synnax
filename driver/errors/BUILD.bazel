@@ -28,11 +28,11 @@ cc_test(
     deps = [
         "//client/cpp/errors",
         "//driver/errors",
-        "//freighter/cpp:freighter",
         "//driver/labjack/ljm",
         "//driver/ni/daqmx",
         "//driver/ni/errors",
         "//driver/ni/syscfg",
+        "//freighter/cpp:freighter",
         "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
