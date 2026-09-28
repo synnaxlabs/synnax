@@ -201,7 +201,7 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
       {followed != null && (
         <>
           {channels.length + fields.length > 0 && divider}
-          <LastWrite channel={followed.key} />
+          <LastWrite key={followed.key} channel={followed.key} />
         </>
       )}
     </Base.Frame>

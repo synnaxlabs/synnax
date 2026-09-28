@@ -261,6 +261,79 @@ describe("Unary", () => {
       expect(u.latest).toBe(series);
     });
 
+    it("should replace a stored read with a later one at the same version", () => {
+      const u = newUnary();
+      const later = sample();
+      u.storeLatest(sample(), u.version);
+      u.storeLatest(later, u.version);
+      expect(u.latest).toBe(later);
+    });
+
+    it("should keep a valid read when an overtaken one arrives late", () => {
+      const u = newUnary();
+      const stale = u.version;
+      u.writeDynamic(stamped(10, 13, [1, 2, 3], LEADING_ALIGNMENT));
+      const valid = sample();
+      u.storeLatest(valid, u.version);
+      u.storeLatest(sample(), stale);
+      expect(u.latest).toBe(valid);
+    });
+
+    const SPAN = TimeStamp.seconds(1).range(TimeStamp.seconds(2));
+
+    // Nothing here changes the newest sample, so none of it may invalidate.
+    const QUIET: [string, (u: Unary) => unknown][] = [
+      ["a static write", (u) => u.writeStatic(stamped(1, 2, [0], 0n))],
+      ["marking a span fetched", (u) => u.markFetched(SPAN)],
+      ["a read", (u) => u.read(SPAN)],
+      ["garbage collection", (u) => u.gc()],
+    ];
+
+    it.each(QUIET)("should keep serving a stored read across %s", (_, op) => {
+      const u = newUnary();
+      const series = sample();
+      u.storeLatest(series, u.version);
+      op(u);
+      expect(u.latest).toBe(series);
+    });
+
+    it.each(QUIET)("should store an in-flight read after %s", (_, op) => {
+      const u = newUnary();
+      const version = u.version;
+      op(u);
+      const series = sample();
+      u.storeLatest(series, version);
+      expect(u.latest).toBe(series);
+    });
+
+    const CHANGES: [string, (u: Unary) => unknown][] = [
+      [
+        "live write",
+        (u) => u.writeDynamic(stamped(10, 13, [1, 2, 3], LEADING_ALIGNMENT)),
+      ],
+      ["flush", (u) => u.flushDynamic()],
+    ];
+
+    it.each(CHANGES)("should change the version on every %s", (_, op) => {
+      const u = newUnary();
+      const first = u.version;
+      op(u);
+      const second = u.version;
+      expect(second).not.toBe(first);
+      op(u);
+      expect(u.version).not.toBe(second);
+    });
+
+    it.each(CHANGES)("should drop a read stored before a %s", (_, op) => {
+      const u = newUnary();
+      u.storeLatest(sample(), u.version);
+      op(u);
+      expect(u.latest).toBeNull();
+      const series = sample();
+      u.storeLatest(series, u.version);
+      expect(u.latest).toBe(series);
+    });
+
     it("should throw after close", () => {
       const u = newUnary();
       u.close();

@@ -10,13 +10,15 @@
 import { type channel, DataType } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Tooltip as Base } from "@synnaxlabs/lyra/tooltip";
-import { id, sleep, TimeSpan } from "@synnaxlabs/x";
+import { id, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { render, waitFor, within } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { Node } from "@/schematic/node";
 import { Tooltip } from "@/schematic/Tooltip";
+import { telem } from "@/telem/aether";
+import { telemTest } from "@/telem/aether/test";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 import { latestSample } from "@/vis/latestSample/aether";
 
@@ -85,6 +87,19 @@ const createCalculated = async (): Promise<channel.Channel> => {
   });
 };
 
+// The harness has no worker client, so stream sources report stamps set by hand.
+const stamps = new Map<channel.Key, TimeStamp>();
+const stampFactory: telem.Factory = {
+  type: "remote",
+  create: (spec) => {
+    if (spec.type !== telem.StreamChannelValue.TYPE) return null;
+    const source = telemTest.source<number>(1);
+    const key = spec.props.channel as channel.Key;
+    (source as telem.Source<number>).lastWrite = () => stamps.get(key) ?? null;
+    return source;
+  },
+};
+
 const getTooltip = (): HTMLElement | null =>
   document.querySelector<HTMLElement>(".pluto-schematic-tooltip");
 
@@ -107,7 +122,7 @@ describe("Schematic.Tooltip", () => {
   beforeAll(async () => {
     Providers = await createAsyncSynnaxWrapper({
       client,
-      telemFactories: [],
+      telemFactories: [stampFactory],
       additionalRegistry: latestSample.REGISTRY,
     });
   });
@@ -275,6 +290,91 @@ describe("Schematic.Tooltip", () => {
       renderTooltip(Node.createConfig({ variant: "value", channel: calc.key }));
       const tooltip = await findTooltip();
       expect(within(tooltip).queryByText("Last sample")).toBeNull();
+    });
+
+    describe("config changes while open", () => {
+      const createSampled = async (): Promise<Indexed> => {
+        const ch = await createIndexed();
+        stamps.set(ch.data.key, TimeStamp.now());
+        return ch;
+      };
+
+      // Cached, so a swap re-renders the open tooltip instead of remounting it.
+      const createCached = async (): Promise<Indexed> => {
+        const ch = await createIndexed();
+        await client.channels.retrieve(ch.data.key);
+        return ch;
+      };
+
+      const renderSwappable = async (config: Node.Config) => {
+        const anchor = createAnchor();
+        const { rerender } = render(<Tooltip anchor={anchor} config={config} />, {
+          wrapper: Wrapper,
+        });
+        const tooltip = await findTooltip();
+        await waitFor(() =>
+          expect(valueOf(labelOf(tooltip, "Last sample")).textContent).toContain("ago"),
+        );
+        const label = labelOf(tooltip, "Last sample");
+        const swap = (next: Node.Config): void => {
+          rerender(<Tooltip anchor={anchor} config={next} />);
+          expect(getTooltip()).toBe(tooltip);
+        };
+        return { tooltip, label, swap };
+      };
+
+      it("should follow a new channel", async () => {
+        const [a, b] = await Promise.all([createSampled(), createCached()]);
+        const { tooltip, label, swap } = await renderSwappable(
+          Node.createConfig({ variant: "value", channel: a.data.key }),
+        );
+        swap(Node.createConfig({ variant: "value", channel: b.data.key }));
+        expect(labelOf(tooltip, "Last sample")).not.toBe(label);
+        await sleep.sleep(TimeSpan.milliseconds(250));
+        expect(valueOf(labelOf(tooltip, "Last sample")).textContent).toEqual("");
+      });
+
+      it("should follow a state channel added to a command-only valve", async () => {
+        const [command, state] = await Promise.all([createSampled(), createCached()]);
+        const { tooltip, label, swap } = await renderSwappable(
+          Node.createConfig({ variant: "valve", commandChannel: command.data.key }),
+        );
+        swap(
+          Node.createConfig({
+            variant: "valve",
+            commandChannel: command.data.key,
+            stateChannel: state.data.key,
+          }),
+        );
+        expect(labelOf(tooltip, "Last sample")).not.toBe(label);
+        await sleep.sleep(TimeSpan.milliseconds(250));
+        expect(valueOf(labelOf(tooltip, "Last sample")).textContent).toEqual("");
+      });
+
+      it("should keep the row when only another field changes", async () => {
+        const a = await createSampled();
+        const { tooltip, label, swap } = await renderSwappable(
+          Node.createConfig({ variant: "value", channel: a.data.key }),
+        );
+        swap(
+          Node.createConfig({
+            variant: "value",
+            channel: a.data.key,
+            stalenessTimeout: 10,
+          }),
+        );
+        expect(labelOf(tooltip, "Last sample")).toBe(label);
+        expect(valueOf(label).textContent).toContain("ago");
+      });
+
+      it("should drop the row when the channel is cleared", async () => {
+        const a = await createSampled();
+        const { tooltip, swap } = await renderSwappable(
+          Node.createConfig({ variant: "value", channel: a.data.key }),
+        );
+        swap(Node.createConfig({ variant: "value" }));
+        expect(within(tooltip).queryByText("Last sample")).toBeNull();
+      });
     });
   });
 
