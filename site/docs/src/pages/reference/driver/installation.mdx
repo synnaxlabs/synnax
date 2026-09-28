@@ -291,6 +291,14 @@ On Linux and NI Linux Real-Time, the service and the `login` command read
 already in your environment wins. The file is optional. Only root can read it, so run
 `login` with `sudo`.
 
+`start --standalone` does not read the file. For a foreground run, set the variables in
+your shell:
+
+```bash
+export GRPC_DEFAULT_SSL_ROOTS_FILE_PATH=/path/to/ca.crt
+synnax-driver start --standalone
+```
+
 ### Configuration file
 
 Pass a JSON file with the `--config` flag. Every key is optional and has the same
