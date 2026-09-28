@@ -46,6 +46,42 @@ public:
     }
 };
 
+/// @brief a source that fails or returns empty frames per a script, then returns a
+/// frame on every read.
+class ScriptedSource final : public Source {
+    std::vector<x::errors::Error> script;
+    size_t reads = 0;
+
+public:
+    x::errors::Error stopped_err = x::errors::NIL;
+
+    /// @param script one entry per read, in order. A nil entry reads an empty frame.
+    explicit ScriptedSource(std::vector<x::errors::Error> script):
+        script(std::move(script)) {}
+
+    x::errors::Error
+    read(x::breaker::Breaker &, x::telem::Frame &fr, Authorities &) override {
+        if (this->reads < this->script.size()) return this->script[this->reads++];
+        fr.emplace(1, x::telem::Series(x::telem::TimeStamp::now()));
+        return x::errors::NIL;
+    }
+
+    void stopped_with_err(const x::errors::Error &err) override {
+        this->stopped_err = err;
+    }
+};
+
+const auto TEMPORARY = x::errors::Error(errors::TEMPORARY_HARDWARE_ERROR);
+
+x::breaker::Config fast_breaker(const int max_retries) {
+    return x::breaker::Config{
+        .name = "pipeline",
+        .base_interval = x::telem::MICROSECOND * 10,
+        .max_retries = max_retries,
+        .scale = 0,
+    };
+}
+
 /// @brief it should correctly resolve the start timestamp for the pipeline from the
 /// first frame written.
 TEST(AcquisitionPipeline, testStartResolution) {
@@ -224,6 +260,46 @@ TEST(AcquisitionPipeline, testErrorCommunicationOnReadCriticalHardwareError) {
     ASSERT_EVENTUALLY_EQ(source->stopped_err, critical_error);
     ASSERT_EQ(writes->size(), 0);
     pipeline.stop();
+}
+
+/// @brief it should back off on a temporary read error and resume reading when the
+/// source recovers.
+TEST(AcquisitionPipeline, testTemporaryReadErrorRecovers) {
+    auto writes = std::make_shared<std::vector<x::telem::Frame>>();
+    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
+    const auto source = std::make_shared<ScriptedSource>(
+        std::vector{TEMPORARY, TEMPORARY}
+    );
+    auto pipeline = Acquisition(
+        mock_factory,
+        synnax::framer::WriterConfig(),
+        source,
+        fast_breaker(3)
+    );
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_GE(writes->size(), 1);
+    ASSERT_TRUE(pipeline.stop());
+    ASSERT_NIL(source->stopped_err);
+}
+
+/// @brief a successful read with an empty frame should reset the retry count, so
+/// separate outages do not add up to the retry limit.
+TEST(AcquisitionPipeline, testEmptyReadResetsRetries) {
+    auto writes = std::make_shared<std::vector<x::telem::Frame>>();
+    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
+    const auto source = std::make_shared<ScriptedSource>(
+        std::vector{TEMPORARY, x::errors::NIL, TEMPORARY, x::errors::NIL}
+    );
+    auto pipeline = Acquisition(
+        mock_factory,
+        synnax::framer::WriterConfig(),
+        source,
+        fast_breaker(1)
+    );
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_GE(writes->size(), 1);
+    ASSERT_TRUE(pipeline.stop());
+    ASSERT_NIL(source->stopped_err);
 }
 
 /// @brief it should not stop the pipeline if it was never started.
