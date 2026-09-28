@@ -30,11 +30,9 @@
     "@synnaxlabs/vite-plugin": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
-    "@vitejs/plugin-react": "catalog:",
     "clsx": "catalog:",
     "eslint": "catalog:",
     "react": "catalog:",
-    "react-icons": "catalog:",
     "stylelint": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:"

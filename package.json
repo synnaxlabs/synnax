@@ -124,6 +124,8 @@
     "knip:media": "knip --workspace x/media",
     "knip:lyra": "knip --workspace lyra",
     "knip:pluto": "knip --workspace pluto",
+    "knip:studio": "knip --workspace studio",
+    "knip:vscode": "knip --workspace oracle/lsp/extensions/vscode",
     "knip:www": "knip --workspace site/www",
     "knip:x": "knip --workspace x/ts"
   },
@@ -134,7 +136,6 @@
     "prettier-plugin-astro": "catalog:",
     "prettier-plugin-sh": "catalog:",
     "prettier-plugin-toml": "catalog:",
-    "stylelint-config-standard": "catalog:",
     "turbo": "catalog:"
   },
   "devEngines": {
