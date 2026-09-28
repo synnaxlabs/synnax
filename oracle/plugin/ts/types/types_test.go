@@ -2176,6 +2176,77 @@ var _ = Describe("TS Types Plugin", func() {
 			})
 		})
 
+		Context("same-namespace hand-written reference", func() {
+			It("Should import a referenced hand-written struct from its module",
+				func(ctx SpecContext) {
+					source := `
+						@ts output "x/ts/src/color"
+
+						Color struct {
+							r uint8
+							@ts hand
+							@ts include "x/ts/src/color/color"
+						}
+
+						Band struct {
+							threshold float64
+							color Color
+						}
+					`
+					resp := MustGenerate(ctx, source, "color", loader, typesPlugin)
+					ExpectContent(resp, "types.gen.ts").
+						ToContain(
+							`import { colorZ } from "@/color/color"`,
+							`color: colorZ`,
+						).
+						ToNotContain("export const colorZ")
+				})
+
+			It("Should import a hand-written struct that a struct extends",
+				func(ctx SpecContext) {
+					source := `
+						@ts output "x/ts/src/color"
+
+						Color struct {
+							r uint8
+							@ts hand
+							@ts include "x/ts/src/color/color"
+						}
+
+						Named struct extends Color {
+							name string
+						}
+					`
+					resp := MustGenerate(ctx, source, "color", loader, typesPlugin)
+					ExpectContent(resp, "types.gen.ts").
+						ToContain(
+							`import { colorZ } from "@/color/color"`,
+							"export const namedZ = colorZ\n",
+						)
+				})
+
+			It("Should fail when a referenced hand-written struct declares no module",
+				func(ctx SpecContext) {
+					source := `
+						@ts output "x/ts/src/color"
+
+						Color struct {
+							r uint8
+							@ts hand
+						}
+
+						Band struct {
+							color Color
+						}
+					`
+					req := MustGenerateRequest(ctx, source, "color", loader)
+					Expect(typesPlugin.Generate(req)).Error().To(MatchError(
+						"failed to generate x/ts/src/color: types with no generated " +
+							"TypeScript declaration need a @ts include module: color.Color",
+					))
+				})
+		})
+
 		Context("documentation", func() {
 			It("Should generate JSDoc comments from doc domain", func(ctx SpecContext) {
 				source := `

@@ -11,6 +11,7 @@ import "@/platform/label/Edit.css";
 
 import { label, type query } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
+import { Color } from "@synnaxlabs/lyra/color";
 import { Component } from "@synnaxlabs/lyra/component";
 import { CSS as PCSS } from "@synnaxlabs/lyra/css";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
@@ -21,7 +22,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access, Color, type Flux, Label } from "@synnaxlabs/pluto";
+import { Access, type Flux, Label } from "@synnaxlabs/pluto";
 import { color } from "@synnaxlabs/x";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -91,7 +92,7 @@ const LabelListItem = ({
             padHelpText={false}
             showLabel={false}
           >
-            {(p) => <Color.Swatch onlyChangeOnBlur {...p} />}
+            {(p) => <Color.Swatch onlyChangeOnBlur variant="text" {...p} />}
           </Form.Field>
           <Form.TextField
             showLabel={false}

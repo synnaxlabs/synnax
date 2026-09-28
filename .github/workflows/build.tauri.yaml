@@ -1,0 +1,226 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Builds the Console or Synnax Desktop Tauri app. Only build.synnax.yaml calls it.
+
+name: Build - Tauri
+
+on:
+  workflow_call:
+    inputs:
+      desktop:
+        description: Build Synnax Desktop instead of the Console
+        type: boolean
+        default: false
+      os:
+        description: JSON list of runner labels
+        type: string
+        required: true
+      version:
+        description: Version of the Core this run built, which Desktop bundles
+        type: string
+        default: ""
+      app_version:
+        description: Version the app carries; empty falls back to Cargo.toml
+        type: string
+        default: ""
+      sign_binaries:
+        type: boolean
+        default: false
+      release_tag:
+        description: Upload the bundles to this GitHub release tag (empty skips upload)
+        type: string
+        default: ""
+      use_simple_artifact_names:
+        type: boolean
+        default: false
+      updater_channel:
+        description: Updater channel the app polls, stable or next
+        type: string
+        default: stable
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    env:
+      SYNNAX_TS_ENV: prod
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      NODE_OPTIONS: "--max_old_space_size=4096"
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      VITE_DESKTOP: ${{ inputs.desktop }}
+      RELEASE_TAG: ${{ inputs.release_tag }}
+      APP: ${{ inputs.desktop && 'Synnax Desktop' || 'Synnax' }}
+      PRODUCT: ${{ inputs.desktop && 'desktop' || 'console' }}
+      OS_NAME: ${{ startsWith(matrix.os, 'macos') && 'macos' || 'windows' }}
+      BUNDLE_DIR: console/src-tauri/target/release/bundle
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ fromJSON(inputs.os) }}
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Import Apple Developer Certificate
+        if: startsWith(matrix.os, 'macos') && inputs.sign_binaries
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          KEYCHAIN_NAME: build-${{ runner.name }}.keychain
+        run: .github/scripts/import_apple_certificate.sh
+
+      - name: Set up pnpm and Node.js
+        uses: pnpm/setup@v3
+        with:
+          # Signed builds run on macos-latest and windows-latest, which start cold and
+          # want the cache. An unsigned build takes macos-build-bot, which keeps a local
+          # store, so restoring the GitHub cache tarball only adds time.
+          cache: ${{ !endsWith(matrix.os, '-build-bot') }}
+          # A build bot hosts several runners out of one home directory, so a shared
+          # dest lets one job's store cleanup delete files another is installing.
+          dest:
+            ${{ endsWith(matrix.os, '-build-bot') && format('~/setup-pnpm-{0}',
+            runner.name) || '~/setup-pnpm' }}
+
+      # One --config carries the version and the updater endpoint, plus the whole
+      # Desktop config for Desktop. tauri.conf.json never changes. The MSI bundler
+      # accepts only a numeric pre-release, so a candidate X.Y.Z-rc.N runs as app
+      # version X.Y.Z-N.
+      - name: Write Tauri release config
+        id: config
+        working-directory: console
+        env:
+          APP_VERSION: ${{ inputs.app_version }}
+          CHANNEL: ${{ inputs.updater_channel == 'next' && 'next' || 'latest' }}
+        run: |
+          ENDPOINT="https://docs.synnaxlabs.com/releases/${PRODUCT}/${CHANNEL}.json"
+          if [ -z "$APP_VERSION" ]; then
+            APP_VERSION=$(grep -m1 '^version = ' src-tauri/Cargo.toml | cut -d'"' -f2)
+          fi
+          APP_VERSION="${APP_VERSION/-rc./-}"
+          BASE='{}'
+          if [ "$PRODUCT" = desktop ]; then
+            BASE="$(cat src-tauri/tauri.desktop.conf.json)"
+          fi
+          jq -n --argjson base "$BASE" --arg version "$APP_VERSION" \
+            --arg endpoint "$ENDPOINT" \
+            '$base | .version = $version | .plugins.updater.endpoints = [$endpoint]' \
+            > src-tauri/release.tauri.conf.json
+          echo "app_version=${APP_VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Install Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v2
+        with:
+          cache-workspaces: console/src-tauri -> target
+          cache-shared-key: ${{ runner.os }}-${{ env.PRODUCT }}
+
+      - name: Download Core binary
+        if: inputs.desktop
+        uses: actions/download-artifact@v8
+        with:
+          name:
+            ${{ inputs.use_simple_artifact_names && format('synnax-core-{0}',
+            env.OS_NAME) || format('synnax-core-v{0}-{1}', inputs.version, env.OS_NAME)
+            }}
+          path: core-artifact
+
+      - name: Install Core as the Desktop sidecar
+        if: inputs.desktop
+        run: |
+          # Tauri resolves a sidecar by the Rust host triple.
+          TRIPLE="$(rustc -vV | sed -n 's/^host: //p')"
+          EXT=""
+          case "$TRIPLE" in *windows*) EXT=".exe" ;; esac
+          mkdir -p console/src-tauri/binaries
+          SIDECAR="console/src-tauri/binaries/synnax-core-${TRIPLE}${EXT}"
+          cp "core-artifact/synnax-v${{ inputs.version }}${EXT}" "$SIDECAR"
+          chmod +x "$SIDECAR"
+
+      # Only the dependencies build here. The Console's own vite build runs inside
+      # tauri build, where VITE_DESKTOP reaches it.
+      - name: Build workspace packages
+        run: pnpm exec turbo build --filter "@synnaxlabs/console^..."
+
+      - name: Install trusted-signing-cli
+        if: matrix.os == 'windows-latest' && inputs.sign_binaries
+        run: cargo install trusted-signing-cli
+
+      - name: Build app (signed)
+        if: inputs.sign_binaries
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ env.CERT_ID }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+        working-directory: console
+        run: pnpm build --config src-tauri/release.tauri.conf.json
+
+      - name: Build app (unsigned)
+        if: ${{ !inputs.sign_binaries }}
+        working-directory: console
+        run: pnpm build --config src-tauri/release.tauri.conf.json --no-sign
+
+      - name: Stage bundles
+        env:
+          APP_VERSION: ${{ steps.config.outputs.app_version }}
+        run: |
+          # GitHub rewrites a space in a release asset name, so the staged names have
+          # none. The updater manifest points at these names.
+          NAME="${APP// /-}"
+          mkdir -p bundles
+          stage() {
+            cp "$BUNDLE_DIR/$1" "bundles/$2"
+            if [ -f "$BUNDLE_DIR/$1.sig" ]; then
+              cp "$BUNDLE_DIR/$1.sig" "bundles/$2.sig"
+            fi
+          }
+          if [ "$OS_NAME" = "macos" ]; then
+            stage "dmg/${APP}_${APP_VERSION}_aarch64.dmg" \
+              "${NAME}_${APP_VERSION}_aarch64.dmg"
+            if [ -f "$BUNDLE_DIR/macos/${APP}.app.tar.gz" ]; then
+              stage "macos/${APP}.app.tar.gz" "${NAME}.app.tar.gz"
+            fi
+          else
+            stage "msi/${APP}_${APP_VERSION}_x64_en-US.msi" \
+              "${NAME}_${APP_VERSION}_x64_en-US.msi"
+            stage "nsis/${APP}_${APP_VERSION}_x64-setup.exe" \
+              "${NAME}_${APP_VERSION}_x64-setup.exe"
+          fi
+
+      - name: Upload bundles as artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name:
+            ${{ inputs.use_simple_artifact_names && format('synnax-{0}-{1}',
+            env.PRODUCT, env.OS_NAME) || format('synnax-{0}-v{1}-{2}', env.PRODUCT,
+            steps.config.outputs.app_version, env.OS_NAME) }}
+          path: bundles
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Upload release assets
+        if: inputs.release_tag != ''
+        uses: nick-fields/retry@v4
+        with:
+          shell: bash
+          timeout_minutes: 5
+          max_attempts: 3
+          command: gh release upload --clobber "$RELEASE_TAG" bundles/*

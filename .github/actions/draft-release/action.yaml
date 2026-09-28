@@ -45,8 +45,9 @@ runs:
         NOTES: ${{ inputs.notes }}
         PRERELEASE: ${{ inputs.prerelease }}
       run: |
-        if gh release list --json tagName,isDraft --jq --arg tag "$TAG" \
-          '.[] | select(.tagName == $tag and .isDraft)' | grep -q .; then
+        RELEASES=$(gh release list --json tagName,isDraft)
+        if jq -e --arg tag "$TAG" 'any(.[]; .tagName == $tag and .isDraft)' \
+          <<< "$RELEASES" > /dev/null; then
           gh release delete "$TAG" --yes
         fi
         ARGS=(--draft --target "$GITHUB_SHA" --title "$TITLE" --generate-notes)

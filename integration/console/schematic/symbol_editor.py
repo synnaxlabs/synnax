@@ -125,12 +125,14 @@ class SymbolEditor:
             .nth(swatch_index)
         )
         swatch.click()
-        color_picker = self.page.locator(".pluto-color-picker-container")
+        color_picker = self.page.locator(".pluto-color-picker")
         color_picker.wait_for(state="visible", timeout=2000)
-        hex_input = color_picker.locator(".sketch-picker input").first
+        hex_input = color_picker.get_by_label("Hex", exact=True)
         hex_input.click(click_count=3)
         hex_input.type(hex_color.replace("#", ""))
         self.page.keyboard.press("Enter")
+        # Escape in a text box only leaves the box, so leave it first.
+        hex_input.blur()
         self.page.keyboard.press("Escape")
         color_picker.wait_for(state="hidden", timeout=2000)
 
@@ -220,10 +222,7 @@ class SymbolEditor:
         Args:
             state: The state type - "Static" or "Actuator"
         """
-        static_btn = self.modal.get_by_text("Static", exact=True)
-        static_btn.wait_for(state="visible", timeout=2000)
-        static_btn.click()
-        self.layout.select_from_dropdown(state, placeholder="variants")
+        self.modal.get_by_role("button", name=state, exact=True).click()
 
     def save(self) -> None:
         """Click Save/Create button to save the symbol."""
