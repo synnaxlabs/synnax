@@ -88,17 +88,22 @@ const createCalculated = async (): Promise<channel.Channel> => {
 };
 
 // The harness has no worker client, so stream sources report stamps set by hand.
-const stamps = new Map<channel.Key, TimeStamp>();
-const stampFactory: telem.Factory = {
-  type: "remote",
-  create: (spec) => {
+class StampFactory implements telem.Factory {
+  type = "remote";
+  private readonly stamps = new Map<channel.Key, TimeStamp>();
+
+  stamp(key: channel.Key, at: TimeStamp): void {
+    this.stamps.set(key, at);
+  }
+
+  create(spec: telem.Spec): telem.Telem | null {
     if (spec.type !== telem.StreamChannelValue.TYPE) return null;
     const source = telemTest.source<number>(1);
     const key = spec.props.channel as channel.Key;
-    (source as telem.Source<number>).lastWrite = () => stamps.get(key) ?? null;
+    (source as telem.Source<number>).lastWrite = () => this.stamps.get(key) ?? null;
     return source;
-  },
-};
+  }
+}
 
 const getTooltip = (): HTMLElement | null =>
   document.querySelector<HTMLElement>(".pluto-schematic-tooltip");
@@ -119,10 +124,12 @@ const dividersOf = (tooltip: HTMLElement): NodeListOf<Element> =>
 
 describe("Schematic.Tooltip", () => {
   let Providers: FC<PropsWithChildren>;
+  let stamps: StampFactory;
   beforeAll(async () => {
+    stamps = new StampFactory();
     Providers = await createAsyncSynnaxWrapper({
       client,
-      telemFactories: [stampFactory],
+      telemFactories: [stamps],
       additionalRegistry: latestSample.REGISTRY,
     });
   });
@@ -295,7 +302,7 @@ describe("Schematic.Tooltip", () => {
     describe("config changes while open", () => {
       const createSampled = async (): Promise<Indexed> => {
         const ch = await createIndexed();
-        stamps.set(ch.data.key, TimeStamp.now());
+        stamps.stamp(ch.data.key, TimeStamp.now());
         return ch;
       };
 
