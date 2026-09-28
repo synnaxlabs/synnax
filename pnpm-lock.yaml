@@ -639,6 +639,9 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 10.9.1(jiti@2.7.0)(supports-color@10.2.2)
+      postcss:
+        specifier: 'catalog:'
+        version: 8.5.26
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
@@ -742,6 +745,9 @@ importers:
       '@synnaxlabs/tsconfig':
         specifier: 'catalog:'
         version: link:../configs/ts
+      '@synnaxlabs/vite-plugin':
+        specifier: 'catalog:'
+        version: link:../configs/vite
       '@tauri-apps/cli':
         specifier: 'catalog:'
         version: 2.11.5
@@ -860,6 +866,9 @@ importers:
       '@synnaxlabs/tsconfig':
         specifier: 'catalog:'
         version: link:../../configs/ts
+      '@synnaxlabs/vite-plugin':
+        specifier: 'catalog:'
+        version: link:../../configs/vite
       '@testing-library/react':
         specifier: 'catalog:'
         version: 16.3.3(@testing-library/dom@10.4.0)(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -893,9 +902,6 @@ importers:
       jsdom:
         specifier: 'catalog:'
         version: 30.0.1
-      postcss:
-        specifier: 'catalog:'
-        version: 8.5.26
       remark:
         specifier: 'catalog:'
         version: 15.0.1(supports-color@10.2.2)

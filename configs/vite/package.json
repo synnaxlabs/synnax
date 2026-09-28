@@ -18,6 +18,7 @@
     "@synnaxlabs/eslint-config": "catalog:",
     "@synnaxlabs/tsconfig": "catalog:",
     "eslint": "catalog:",
+    "postcss": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:"
   }
