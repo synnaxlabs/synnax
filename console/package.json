@@ -17,7 +17,6 @@
     "stylelint": "stylelint \"src/**/*.css\"",
     "test": "vitest",
     "cov": "vitest --coverage",
-    "madge": "madge --circular src",
     "devtools": "pnpm dlx react-devtools"
   },
   "dependencies": {
@@ -49,7 +48,6 @@
   },
   "devDependencies": {
     "@synnaxlabs/eslint-config": "catalog:",
-    "@synnaxlabs/madge": "catalog:",
     "@synnaxlabs/stylelint-config": "catalog:",
     "@synnaxlabs/tsconfig": "catalog:",
     "@tauri-apps/cli": "catalog:",
