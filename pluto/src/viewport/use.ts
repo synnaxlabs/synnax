@@ -7,6 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { useCombinedStateAndRef, useStateRef } from "@synnaxlabs/lyra/hooks";
+import { useMemoCompare } from "@synnaxlabs/lyra/memo";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
+import { findParent } from "@synnaxlabs/lyra/util";
 import { box, dimensions, location, record, scale, xy } from "@synnaxlabs/x";
 import {
   type ForwardedRef,
@@ -18,11 +22,6 @@ import {
   useState,
 } from "react";
 import { z } from "zod";
-
-import { useCombinedStateAndRef, useStateRef } from "@/hooks/ref";
-import { useMemoCompare } from "@/memo";
-import { Triggers } from "@/triggers";
-import { findParent } from "@/util/findParent";
 
 export interface UseEvent {
   box: box.Box;

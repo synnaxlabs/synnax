@@ -9,7 +9,8 @@
 
 import "@/platform/button/CreateListItem.css";
 
-import { Button, Icon } from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";

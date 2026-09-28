@@ -14,50 +14,18 @@ run-name:
   }}
 
 on:
-  pull_request:
-    branches:
-      - main
-      - release/**
-    paths:
-      - .bazeliskrc
-      - .bazelrc
-      - .github/workflows/build.synnax.yaml
-      - .github/workflows/test.integration.yaml
-      - .github/workflows/test.integration.worker.yaml
-      - alamos/go/**
-      - alamos/py/**
-      - alamos/ts/**
-      - aspen/**
-      - cesium/**
-      - client/**
-      - configs/ts/**
-      - configs/vite/**
-      - console/**
-      - core/**
-      - drift/**
-      - driver/**
-      - freighter/cpp/**
-      - freighter/go/**
-      - freighter/ts/**
-      - freighter/py/**
-      - integration/**
-      - .github/scripts/check_artifact_cache.sh
-      - MODULE.bazel
-      - MODULE.bazel.lock
-      - package.json
-      - pluto/**
-      - pnpm-lock.yaml
-      - pnpm-workspace.yaml
-      - pyproject.toml
-      - turbo.json
-      - uv.lock
-      - vendor/**
-      - x/cpp/**
-      - x/go/**
-      - x/media/**
-      - x/ts/**
-
   workflow_call:
+    inputs:
+      ubuntu:
+        description: Whether to build and test on Ubuntu
+        required: false
+        type: boolean
+        default: true
+      windows:
+        description: Whether to build and test on Windows
+        required: false
+        type: boolean
+        default: false
 
   workflow_dispatch:
     inputs:
@@ -88,10 +56,16 @@ on:
         required: false
         default: false
         type: boolean
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+      ubuntu:
+        description: Whether to build and test on Ubuntu
+        required: false
+        type: boolean
+        default: true
+      windows:
+        description: Whether to build and test on Windows
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   setup:
@@ -103,14 +77,15 @@ jobs:
       DRIVER_REF_RUN_ID: ${{ steps.check-cache.outputs.DRIVER_REF_RUN_ID }}
       CONSOLE_REF_RUN_ID: ${{ steps.check-cache.outputs.CONSOLE_REF_RUN_ID }}
       FLAGS: ${{ steps.set-outputs.outputs.FLAGS }}
+      BINARY_CHECK_MATRIX: ${{ steps.binary-check-matrix.outputs.MATRIX }}
       TEST_MATRIX:
         ${{ steps.set-outputs.outputs.CUSTOM_MATRIX ||
         steps.test-matrix.outputs.TEST_MATRIX }}
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: Get Version
+      - name: Get version
         id: version
         run: |
           echo "VERSION=0.0.0-${GITHUB_SHA:0:7}" >> $GITHUB_OUTPUT
@@ -126,7 +101,7 @@ jobs:
             echo "CUSTOM_MATRIX={\"include\":[{\"name\":\"${SAFE_NAME}\",\"target\":\"\"}]}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Check for Cached Artifacts
+      - name: Check for cached artifacts
         id: check-cache
         env:
           GH_TOKEN: ${{ github.token }}
@@ -135,10 +110,26 @@ jobs:
           REF_RUN_ID: ${{ github.event.inputs.REF_RUN_ID || '' }}
         run: .github/scripts/check_artifact_cache.sh all
 
-      - name: Validate Test Coverage
+      - name: Validate test coverage
         if: ${{ steps.set-outputs.outputs.FLAGS == '' }}
         id: test-matrix
         run: integration/scripts/validate_test_coverage.sh
+
+      # A matrix exclude only filters keys of the base matrix, so an include-only matrix
+      # cannot drop a platform that way.
+      - name: Generate binary check matrix
+        id: binary-check-matrix
+        env:
+          UBUNTU: ${{ inputs.ubuntu }}
+          WINDOWS: ${{ inputs.windows }}
+        run: |
+          MATRIX=$(jq -nc --argjson ubuntu "$UBUNTU" --argjson windows "$WINDOWS" '[
+            if $ubuntu then {os: "ubuntu-24.04", "os-name": "linux", display: "ubuntu",
+              executable: ""} else empty end,
+            if $windows then {os: "windows-2025", "os-name": "windows",
+              display: "windows", executable: ".exe"} else empty end
+          ]')
+          echo "MATRIX=${MATRIX}" >> $GITHUB_OUTPUT
 
   build:
     needs: setup
@@ -149,8 +140,8 @@ jobs:
       packages: write
     uses: ./.github/workflows/build.synnax.yaml
     with:
-      windows: true
-      ubuntu: true
+      windows: ${{ inputs.windows }}
+      ubuntu: ${{ inputs.ubuntu }}
       docker: false
       driver: true
       console: true
@@ -165,13 +156,13 @@ jobs:
     name: Test (windows)
     needs: [setup, build]
     if:
-      ${{ !cancelled() && needs.setup.result == 'success' && (needs.build.result ==
-      'success' || needs.build.result == 'skipped') }}
+      ${{ inputs.windows && !cancelled() && needs.setup.result == 'success' &&
+      (needs.build.result == 'success' || needs.build.result == 'skipped') }}
     uses: ./.github/workflows/test.integration.worker.yaml
     with:
       test_matrix: ${{ needs.setup.outputs.TEST_MATRIX }}
       ref_run_id: ${{ needs.setup.outputs.REF_RUN_ID }}
-      os: windows-latest
+      os: windows-build-bot
       flags: ${{ needs.setup.outputs.FLAGS }}
     secrets: inherit
 
@@ -179,43 +170,36 @@ jobs:
     name: Test (ubuntu)
     needs: [setup, build]
     if:
-      ${{ !cancelled() && needs.setup.result == 'success' && (needs.build.result ==
-      'success' || needs.build.result == 'skipped') }}
+      ${{ inputs.ubuntu && !cancelled() && needs.setup.result == 'success' &&
+      (needs.build.result == 'success' || needs.build.result == 'skipped') }}
     uses: ./.github/workflows/test.integration.worker.yaml
     with:
       test_matrix: ${{ needs.setup.outputs.TEST_MATRIX }}
       ref_run_id: ${{ needs.setup.outputs.REF_RUN_ID }}
-      os: ubuntu-latest
+      os: ubuntu-build-bot
       flags: ${{ needs.setup.outputs.FLAGS }}
     secrets: inherit
 
   binary-checks:
-    name: Binary Checks (${{ matrix.display }})
+    name: Binary checks (${{ matrix.display }})
     needs: [setup, build]
     if:
       ${{ !cancelled() && needs.setup.result == 'success' && (needs.build.result ==
-      'success' || needs.build.result == 'skipped') }}
+      'success' || needs.build.result == 'skipped') &&
+      needs.setup.outputs.BINARY_CHECK_MATRIX != '[]' }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - os: ubuntu-24.04
-            os-name: linux
-            display: ubuntu
-            executable: ""
-          - os: windows-2025
-            os-name: windows
-            display: windows
-            executable: .exe
+        include: ${{ fromJSON(needs.setup.outputs.BINARY_CHECK_MATRIX) }}
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v7
         with:
           sparse-checkout: integration/scripts
 
-      - name: Download Core Artifact
+      - name: Download Core artifact
         uses: actions/download-artifact@v8
         with:
           name: synnax-core-${{ matrix.os-name }}
@@ -223,7 +207,7 @@ jobs:
           run-id: ${{ needs.setup.outputs.REF_RUN_ID }}
           github-token: ${{ github.token }}
 
-      - name: Download Driver Artifact
+      - name: Download Driver artifact
         uses: actions/download-artifact@v8
         with:
           name: synnax-driver-${{ matrix.os-name }}
@@ -231,7 +215,7 @@ jobs:
           run-id: ${{ needs.setup.outputs.REF_RUN_ID }}
           github-token: ${{ github.token }}
 
-      - name: Set Up Binaries
+      - name: Set up binaries
         shell: bash
         run: |
           mkdir -p "$HOME/synnax-binaries"
@@ -240,7 +224,7 @@ jobs:
             "$HOME/synnax-binaries/synnax-driver${{ matrix.executable }}"
           chmod +x "$HOME"/synnax-binaries/synnax*
 
-      - name: Create Driver State Directory (Ubuntu)
+      - name: Create Driver state directory (Ubuntu)
         if: runner.os == 'Linux'
         run: sudo install -d -m 777 /var/lib/synnax-driver
 
@@ -333,9 +317,11 @@ jobs:
     needs: [setup, build]
     if:
       ${{ !cancelled() && needs.setup.result == 'success' && (needs.build.result ==
-      'success' || needs.build.result == 'skipped') && (github.base_ref == 'main' ||
-      github.event.inputs.RUN_MIGRATION == 'true') }}
+      'success' || needs.build.result == 'skipped') && (github.event_name ==
+      'merge_group' || github.event.inputs.RUN_MIGRATION == 'true') }}
     uses: ./.github/workflows/test.migration.yaml
     with:
       ref_run_id: ${{ needs.setup.outputs.REF_RUN_ID }}
+      ubuntu: ${{ inputs.ubuntu }}
+      windows: ${{ inputs.windows }}
     secrets: inherit

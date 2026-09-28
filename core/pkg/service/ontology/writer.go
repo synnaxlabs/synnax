@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/graph"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -127,6 +128,26 @@ func (w Writer) DeleteOutgoingRelationshipsOfType(
 	return w.relationshipTable.NewDelete().
 		WherePrefix([]byte(prefix)).
 		Exec(ctx, w.tx)
+}
+
+// ReplaceOutgoingRelationshipsOfType makes to the complete set of outgoing links of the
+// given type from the given ID. Relationships already in the set are left untouched, so
+// observers only see the ones that change.
+func (w Writer) ReplaceOutgoingRelationshipsOfType(
+	ctx context.Context, from ID, relationshipType RelationshipType, to ...ID,
+) error {
+	kept := set.New(to...)
+	prefix := from.String() + relationshipKeySep +
+		string(relationshipType) + relationshipKeySep
+	if err := w.relationshipTable.NewDelete().
+		WherePrefix([]byte(prefix)).
+		Where(gorp.Match(func(_ gorp.Context, rel *Relationship) (bool, error) {
+			return !kept.Contains(rel.To), nil
+		})).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	return w.DefineRelationships(ctx, from, relationshipType, to...)
 }
 
 // DeleteIncomingRelationshipsOfType deletes all incoming relationships of the given

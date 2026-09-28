@@ -86,6 +86,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 })
 
 func findRoot(ctx SpecContext, svc *user.Service, username string) user.User {
+	GinkgoHelper()
 	var u user.User
 	Expect(
 		svc.NewRetrieve().Where(user.MatchUsernames(username)).Entry(&u).Exec(ctx, nil),

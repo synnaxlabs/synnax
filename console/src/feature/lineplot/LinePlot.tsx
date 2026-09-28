@@ -10,15 +10,15 @@
 import "@/feature/lineplot/LinePlot.css";
 
 import { lineplot, ranger } from "@synnaxlabs/client";
+import { useDebouncedCallback } from "@synnaxlabs/lyra/hooks";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Status } from "@synnaxlabs/lyra/status";
 import {
   Access,
-  Icon,
   LinePlot as Base,
-  Menu,
   Panel as PlutoPanel,
   Ranger,
-  Status,
-  useDebouncedCallback,
   Viewport,
 } from "@synnaxlabs/pluto";
 import { type lineplot as pLineplot } from "@synnaxlabs/pluto/ether";

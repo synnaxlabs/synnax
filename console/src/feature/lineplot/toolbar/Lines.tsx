@@ -8,17 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { lineplot } from "@synnaxlabs/client";
-import {
-  Channel,
-  Color,
-  Component,
-  Icon,
-  Input,
-  LinePlot,
-  List,
-  Select,
-  type telem,
-} from "@synnaxlabs/pluto";
+import { Color } from "@synnaxlabs/lyra/color";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Channel, LinePlot, type telem } from "@synnaxlabs/pluto";
 import { type bounds, type color, type xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
@@ -46,21 +42,16 @@ const DOWNSAMPLE_BOUNDS: bounds.Bounds = { lower: 1, upper: 1000 };
 const STROKE_WIDTH_DRAG_SCALE: xy.XY = { x: 0.1, y: 0.1 };
 const DOWNSAMPLE_DRAG_SCALE: xy.XY = { x: 0.1, y: 0.1 };
 
-interface SelectDownsampleModeProps extends Omit<
-  Select.ButtonsProps<telem.DownsampleMode>,
-  "keys"
-> {}
-
-const KEYS: telem.DownsampleMode[] = ["average", "decimate"];
-
-const SelectDownsampleMode = (props: SelectDownsampleModeProps): ReactElement => (
-  <Select.Buttons {...props} keys={KEYS}>
-    <Select.Button itemKey="average" size="small">
+const SelectDownsampleMode = (
+  props: Select.ButtonsProps<telem.DownsampleMode>,
+): ReactElement => (
+  <Select.Buttons {...props}>
+    <Select.Item itemKey="average" size="small">
       Average
-    </Select.Button>
-    <Select.Button itemKey="decimate" size="small">
+    </Select.Item>
+    <Select.Item itemKey="decimate" size="small">
       Decimate
-    </Select.Button>
+    </Select.Item>
   </Select.Buttons>
 );
 
@@ -88,7 +79,7 @@ const Line = ({ itemKey, index }: LineProps): ReactElement | null => {
   const handleDownsampleModeChange = (downsampleMode: telem.DownsampleMode) =>
     dispatch(lineplot.setLineDownsampleMode({ key: itemKey, downsampleMode }));
 
-  const handleColorChange = (color: color.Color) =>
+  const handleColorChange = (color?: color.Color) =>
     dispatch(lineplot.setLineColor({ key: itemKey, color }));
 
   return (
@@ -128,7 +119,13 @@ const Line = ({ itemKey, index }: LineProps): ReactElement | null => {
         value={line.downsampleMode}
         onChange={handleDownsampleModeChange}
       />
-      <Color.Swatch value={line.color} onChange={handleColorChange} size="small" />
+      <Color.Swatch
+        value={line.pickedColor}
+        fallback={line.autoColor}
+        onChange={handleColorChange}
+        size="small"
+        variant="text"
+      />
     </List.Item>
   );
 };
@@ -139,13 +136,11 @@ export const Lines = (): ReactElement => {
   const lineKeys = LinePlot.useLineKeys();
   return (
     <List.Frame data={lineKeys}>
-      <List.Items<string, lineplot.Line>
-        full="y"
-        className={CSS.BE("line-plot", "toolbar", "lines")}
-        emptyContent={<EmptyContent />}
-      >
-        {line}
-      </List.Items>
+      <List.Scroll full="y" className={CSS.BE("line-plot", "toolbar", "lines")}>
+        <List.Items<string, lineplot.Line> emptyContent={<EmptyContent />}>
+          {line}
+        </List.Items>
+      </List.Scroll>
     </List.Frame>
   );
 };

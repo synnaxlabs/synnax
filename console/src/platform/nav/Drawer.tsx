@@ -9,7 +9,9 @@
 
 import "@/platform/nav/Nav.css";
 
-import { Eraser, Nav, type Resize } from "@synnaxlabs/pluto";
+import { Nav } from "@synnaxlabs/lyra/nav";
+import { type Resize } from "@synnaxlabs/lyra/resize";
+import { Eraser } from "@synnaxlabs/pluto";
 import { box, direction, type location, xy } from "@synnaxlabs/x";
 import {
   type MouseEvent as ReactMouseEvent,

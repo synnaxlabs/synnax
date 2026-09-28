@@ -7,7 +7,7 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-name: Draft Release
+name: Draft release
 description: Creates a draft release under a tag with generated notes
 
 inputs:
@@ -18,8 +18,9 @@ inputs:
     description: The release title
     required: true
   previous_tag:
-    description: The tag the generated notes start after
-    required: true
+    description: The tag the generated notes start after, or empty for the first release
+    required: false
+    default: ""
   notes:
     description: Text placed above the generated notes
     required: false
@@ -34,7 +35,7 @@ runs:
   steps:
     # A failed earlier run can leave a draft under the same tag; the tag itself only
     # exists once a release is published.
-    - name: Draft Release
+    - name: Draft release
       shell: bash
       env:
         GH_TOKEN: ${{ github.token }}
@@ -44,12 +45,13 @@ runs:
         NOTES: ${{ inputs.notes }}
         PRERELEASE: ${{ inputs.prerelease }}
       run: |
-        if gh release list --json tagName,isDraft --jq --arg tag "$TAG" \
-          '.[] | select(.tagName == $tag and .isDraft)' | grep -q .; then
+        RELEASES=$(gh release list --json tagName,isDraft)
+        if jq -e --arg tag "$TAG" 'any(.[]; .tagName == $tag and .isDraft)' \
+          <<< "$RELEASES" > /dev/null; then
           gh release delete "$TAG" --yes
         fi
-        ARGS=(--draft --target "$GITHUB_SHA" --title "$TITLE" --generate-notes
-          --notes-start-tag "$PREVIOUS_TAG")
+        ARGS=(--draft --target "$GITHUB_SHA" --title "$TITLE" --generate-notes)
+        if [ -n "$PREVIOUS_TAG" ]; then ARGS+=(--notes-start-tag "$PREVIOUS_TAG"); fi
         if [ -n "$NOTES" ]; then ARGS+=(--notes "$NOTES"); fi
         if [ "$PRERELEASE" = true ]; then ARGS+=(--prerelease); fi
         gh release create "$TAG" "${ARGS[@]}"

@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Form } from "@synnaxlabs/lyra/form";
 import { color } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
-import { CSS } from "@/css";
-import { Form } from "@/form";
 import { Node } from "@/schematic/node";
 import { GROUP } from "@/schematic/node/general/group";
 import { StringDisplayForm } from "@/schematic/node/general/stringDisplay/Form";
@@ -111,20 +111,25 @@ describe("StringDisplay", () => {
         </FormWrapper>,
       );
 
+    it("should open on the telemetry tab", () => {
+      const { getByRole } = renderForm();
+      expect(getByRole("tab", { name: "Telemetry" }).ariaSelected).toBe("true");
+    });
+
     it("should render the style controls", () => {
-      const { getByText } = renderForm();
-      expect(getByText("Label")).toBeDefined();
+      const { getAllByText, getByText } = renderForm();
+      fireEvent.click(getByText("Style"));
+      expect(getAllByText("Label")).toHaveLength(2);
       expect(getByText("Color")).toBeDefined();
-      expect(getByText("Display width")).toBeDefined();
-      expect(getByText("Size")).toBeDefined();
+      expect(getByText("Width")).toBeDefined();
+      expect(getAllByText("Size")).toHaveLength(2);
     });
 
     it("should render the telemetry controls", () => {
       const { getByText } = renderForm();
-      fireEvent.click(getByText("Telemetry"));
       expect(getByText("Channel")).toBeDefined();
-      expect(getByText("Stale color")).toBeDefined();
-      expect(getByText("Stale timeout")).toBeDefined();
+      expect(getByText("Color")).toBeDefined();
+      expect(getByText("Timeout")).toBeDefined();
     });
   });
 

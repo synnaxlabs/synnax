@@ -14,10 +14,6 @@ cc_library(
     name = "state",
     srcs = ["state.cpp"],
     hdrs = ["state.h"],
-    copts = select({
-        "@platforms//os:windows": ["/wd4201"],
-        "//conditions:default": [],
-    }),
     visibility = ["//visibility:public"],
     deps = [
         "//arc/cpp/types",
@@ -29,10 +25,6 @@ cc_library(
 cc_library(
     name = "channels",
     hdrs = ["channels.h"],
-    copts = select({
-        "@platforms//os:windows": ["/wd4201"],
-        "//conditions:default": [],
-    }),
     visibility = ["//visibility:public"],
     deps = [
         "//arc/cpp/ir",

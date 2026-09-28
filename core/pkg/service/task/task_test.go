@@ -164,6 +164,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	Describe("ConfigHash", func() {
 		create := func(ctx context.Context, config msgpack.EncodedJSON) string {
+			GinkgoHelper()
 			t := &task.Task{
 				Type:   testType,
 				Rack:   testRack.Key,
@@ -228,6 +229,7 @@ var _ = Describe("Task", Ordered, func() {
 			"Should hash integer and integral float values identically",
 			func(ctx SpecContext) {
 				createArc := func(config msgpack.EncodedJSON) string {
+					GinkgoHelper()
 					t := &task.Task{
 						Type:   arc.TaskType,
 						Rack:   testRack.Key,

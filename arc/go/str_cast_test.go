@@ -21,6 +21,7 @@ import (
 
 var _ = Describe("str() typecast end-to-end runtime", func() {
 	lastString := func(fr telem.Frame[uint32], key uint32) string {
+		GinkgoHelper()
 		ch := fr.Get(key)
 		Expect(ch.Series).ToNot(BeEmpty(), "channel %d not written", key)
 		s := ch.Series[len(ch.Series)-1]

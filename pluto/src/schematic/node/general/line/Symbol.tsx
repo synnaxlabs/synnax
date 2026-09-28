@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Cursor } from "@synnaxlabs/lyra/cursor";
 import { box, xy } from "@synnaxlabs/x";
 import { useStoreApi } from "@xyflow/react";
 import { type ReactElement, useRef } from "react";
 
-import { CSS } from "@/css";
-import { Cursor } from "@/cursor";
 import { Grid } from "@/schematic/node/common/grid";
 import { Line } from "@/schematic/node/general/line/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";

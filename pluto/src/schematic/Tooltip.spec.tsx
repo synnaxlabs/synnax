@@ -9,6 +9,7 @@
 
 import { type channel, DataType } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { Tooltip as Base } from "@synnaxlabs/lyra/tooltip";
 import { id, sleep, TimeSpan } from "@synnaxlabs/x";
 import { render, waitFor, within } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
@@ -17,7 +18,6 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { Node } from "@/schematic/node";
 import { Tooltip } from "@/schematic/Tooltip";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
-import { Tooltip as Base } from "@/tooltip";
 
 const client = createTestClient();
 

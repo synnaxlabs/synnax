@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type table } from "@synnaxlabs/client";
-import { Table } from "@synnaxlabs/pluto";
+import { type Properties, Table } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { useStore } from "react-redux";
@@ -80,6 +80,12 @@ const selectCentered = (params: KeyedSelectorParams): boolean =>
   selectState(params).centered;
 
 export const useSelectCentered = createSelector(selectCentered);
+
+const selectPropertiesTab = (
+  params: KeyedSelectorParams,
+): Properties.TabKey | undefined => selectState(params).propertiesTab;
+
+export const useSelectPropertiesTab = createSelector(selectPropertiesTab);
 
 const selectSelectedCellKeys = (params: KeyedSelectorParams): string[] =>
   selectState(params).selectedCells;

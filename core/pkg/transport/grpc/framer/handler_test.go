@@ -24,6 +24,7 @@ import (
 )
 
 func createVirtualChannels(ctx context.Context, dt telem.DataType, n int) channel.Keys {
+	GinkgoHelper()
 	chs := make([]channel.Channel, n)
 	for i := range chs {
 		chs[i] = channel.Channel{

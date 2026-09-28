@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type theme } from "@synnaxlabs/lyra/theme";
 import { bounds, box, color, location, notation, scale, text, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -52,7 +53,7 @@ export interface GaugeProps {
 }
 
 interface InternalState {
-  theme: theming.Theme;
+  theme: theme.Theme;
   render: render.Context;
   telem: telem.StringSource;
   draw2d: Draw2D;

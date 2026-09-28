@@ -9,7 +9,8 @@
 
 import "@/platform/connection/Indicator.css";
 
-import { Status, Synnax } from "@synnaxlabs/pluto";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Synnax } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { useHeldChecking } from "@/platform/connection/useHeldChecking";

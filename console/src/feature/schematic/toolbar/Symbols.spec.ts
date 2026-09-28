@@ -19,7 +19,7 @@ import {
   schematic as schematicClient,
   type Synnax as Client,
 } from "@synnaxlabs/client";
-import { List } from "@synnaxlabs/pluto";
+import { List } from "@synnaxlabs/lyra/list";
 import { theming } from "@synnaxlabs/pluto/ether";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";

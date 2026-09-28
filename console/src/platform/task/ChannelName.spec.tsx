@@ -9,7 +9,8 @@
 
 import { DataType } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Form, Text } from "@synnaxlabs/pluto";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Text } from "@synnaxlabs/lyra/text";
 import { TimeStamp } from "@synnaxlabs/x";
 import { screen, waitFor } from "@testing-library/react";
 import { act } from "react";
@@ -26,6 +27,26 @@ describe("ChannelName", () => {
       { values: { config: { name: "" } } },
     );
     await waitFor(() => expect(screen.getByText("No channel")).toBeTruthy());
+  });
+
+  it("should not warn when a default name previews the created channel", async () => {
+    await renderInTaskForm(
+      <Task.ChannelName channel={0} namePath="config.name" defaultName="No channel" />,
+      { values: { config: { name: "" } } },
+    );
+    await waitFor(() => expect(screen.getByText("No channel")).toBeTruthy());
+    expect(screen.getByText("No channel").closest(".pluto--status-warning")).toBeNull();
+  });
+
+  it("should warn when no channel is selected and there is no default name", async () => {
+    await renderInTaskForm(<Task.ChannelName channel={0} namePath="config.name" />, {
+      values: { config: { name: "unbound_name" } },
+    });
+    await waitFor(() =>
+      expect(
+        screen.getByText("unbound_name").closest(".pluto--status-warning"),
+      ).toBeTruthy(),
+    );
   });
 
   it("should prefer the form name over the default when set", async () => {

@@ -1,0 +1,87 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.pluto-color-picker {
+    width: 44rem;
+    padding: 1.5rem;
+
+    .pluto-color-picker__swatches {
+        display: grid;
+        grid-template-columns: repeat(10, var(--pluto-height-tiny));
+        row-gap: 0.75rem;
+        justify-content: space-between;
+
+        & .pluto--selected.pluto-color-swatch {
+            box-shadow: var(--pluto-selected-ring);
+        }
+    }
+
+    .pluto-color-picker__auto.pluto-btn {
+        grid-column: span 2;
+        gap: 0.25rem;
+        min-width: 0;
+        padding: 0 0.75rem;
+        justify-content: center;
+    }
+
+    .pluto-color-picker__plane,
+    .pluto-color-picker__slider {
+        position: relative;
+        touch-action: none;
+        user-select: none;
+        cursor: pointer;
+
+        &:focus-visible {
+            outline: 2px solid var(--pluto-primary-z);
+            outline-offset: var(--pluto-focus-ring-offset);
+        }
+    }
+
+    .pluto-color-picker__plane {
+        height: 22rem;
+        border-radius: var(--pluto-border-radius-medium);
+        background:
+            linear-gradient(to top, #000, transparent),
+            linear-gradient(to right, #fff, transparent),
+            hsl(var(--pluto-color-picker-hue) 100% 50%);
+        cursor: crosshair;
+    }
+
+    .pluto-color-picker__slider {
+        height: 2rem;
+        border-radius: 1rem;
+        background: var(--pluto-color-picker-track);
+    }
+
+    .pluto-color-picker__alpha {
+        background: var(--pluto-color-picker-track), var(--pluto-checkerboard);
+    }
+
+    .pluto-color-picker__thumb {
+        position: absolute;
+        top: 50%;
+        width: 2.5rem;
+        height: 2.5rem;
+        border: 2px solid #fff;
+        border-radius: 50%;
+        background: var(--pluto-color-picker-thumb);
+        box-shadow:
+            0 0 0 1px rgb(0 0 0 / 25%),
+            0 1px 3px rgb(0 0 0 / 35%);
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+    }
+
+    .pluto-color-picker__alpha-input {
+        width: 13rem;
+        flex-shrink: 0;
+    }
+}

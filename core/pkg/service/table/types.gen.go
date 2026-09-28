@@ -29,9 +29,6 @@ const (
 	FlexAlignmentStretch FlexAlignment = versions.FlexAlignmentStretch
 )
 
-// Redline maps a numeric range to a color gradient for limit visualization.
-type Redline = versions.Redline
-
 // CellConfig is the per-cell configuration stored in the table cells map. The variant
 // selects which Pluto cell component renders the cell.
 type CellConfig = versions.CellConfig

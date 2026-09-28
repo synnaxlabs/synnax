@@ -9,7 +9,10 @@ next: "Tables"
 nextURL: "/reference/console/tables"
 ---
 
-import { Divider, Note, Icon, Flex } from "@synnaxlabs/pluto";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Note } from "@synnaxlabs/lyra/note";
 import { Image, Video } from "@/components/media/Media";
 import Diagram from "@/components/diagram/Diagram.astro";
 import CreateVisualization from "@/components/console/CreateVisualization.astro";
@@ -280,6 +283,21 @@ The control tab is available on symbols that can be actuated.
     </tr>
   </tbody>
 </table>
+
+### Redline tab
+
+The redline tab is available on value symbols. Use it to change the background color of
+the value when the value passes a threshold. Click `Add band`, then set the threshold
+and the color of the band.
+
+Each band has a threshold and a color. A band paints the values at or above its
+threshold and below the next higher threshold. Values below every threshold show the
+background from the `Style` tab. By default, the background paints nothing.
+
+- **Transition** -> `Steps` changes the color at each threshold. `Smooth` blends the
+  colors between thresholds.
+- **Flash** (lightning icon) -> Makes the band blink between its color and the
+  background while the value is in the band.
 
 <Divider.Divider x />
 

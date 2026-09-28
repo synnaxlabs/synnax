@@ -9,10 +9,10 @@
 
 import "@/viewport/Mask.css";
 
+import { CSS } from "@synnaxlabs/lyra/css";
 import { box } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useMemo } from "react";
 
-import { CSS } from "@/css";
 import { type Mode, type UseReturn } from "@/viewport/use";
 
 type DivProps = React.DetailedHTMLProps<

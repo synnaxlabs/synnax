@@ -7,16 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Form as Base } from "@synnaxlabs/lyra/form";
+import { type Input } from "@synnaxlabs/lyra/input";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Tabs } from "@synnaxlabs/lyra/tabs";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { type text } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Flex } from "@/flex";
-import { Form as Base } from "@/form";
-import { type Input } from "@/input";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
-import { Select } from "@/select";
-import { Tabs } from "@/tabs";
+import { type FormProps } from "@/schematic/node/spec";
+import { Properties } from "@/vis/properties";
 import { Value } from "@/vis/value";
 
 const GAUGE_BAR_WIDTH_INPUT_PROPS: Partial<Input.NumericProps> = {
@@ -34,25 +36,19 @@ const handleLevelChange = (v: text.Level, { set }: Base.ContextValue): void => {
   else set("barWidth", 10);
 };
 
-export const GaugeForm = (): ReactElement => (
-  <Tabs.Frame initialValue="properties">
-    <Tabs.Selector>
-      <Tabs.Tab itemKey="properties">Properties</Tabs.Tab>
-      <Tabs.Tab itemKey="telemetry">Telemetry</Tabs.Tab>
-    </Tabs.Selector>
-    <Tabs.Content itemKey="properties">
-      <Form.Wrapper x>
-        <Flex.Box y grow>
-          <Label.Form path="label" />
-          <Flex.Box x>
-            <Form.ColorField path="color" />
-            <Form.UnitsField />
-            <Form.BoundsFields path="bounds" hideIfNull />
-            <Base.NumericField
-              path="barWidth"
-              label="Bar width"
-              hideIfNull
-              inputProps={GAUGE_BAR_WIDTH_INPUT_PROPS}
+export const GaugeForm = ({ tab, onTabChange }: FormProps): ReactElement => {
+  const theme = Theming.use();
+  return (
+    <Properties.Tabs tabs={["telemetry", "style"]} tab={tab} onTabChange={onTabChange}>
+      <Tabs.Content itemKey="style">
+        <Base.Sections x>
+          <Base.Section title="Label">
+            <Label.Form path="label" />
+          </Base.Section>
+          <Base.Section title="Appearance">
+            <Form.ColorField
+              path="color"
+              fallback={theme.colors.visualization.palettes.default[0]}
             />
             <Base.Field<text.Level>
               path="level"
@@ -65,14 +61,25 @@ export const GaugeForm = (): ReactElement => (
                 <Select.Text.Level value={value} onChange={onChange} />
               )}
             </Base.Field>
-          </Flex.Box>
-        </Flex.Box>
-      </Form.Wrapper>
-    </Tabs.Content>
-    <Tabs.Content itemKey="telemetry">
-      <Form.Wrapper y empty>
-        <Value.TelemForm path="" />
-      </Form.Wrapper>
-    </Tabs.Content>
-  </Tabs.Frame>
-);
+            <Base.NumericField
+              path="barWidth"
+              label="Bar width"
+              hideIfNull
+              padHelpText={false}
+              inputProps={GAUGE_BAR_WIDTH_INPUT_PROPS}
+            />
+          </Base.Section>
+          <Base.Section title="Range">
+            <Form.UnitsField />
+            <Form.BoundsFields path="bounds" hideIfNull padHelpText={false} />
+          </Base.Section>
+        </Base.Sections>
+      </Tabs.Content>
+      <Tabs.Content itemKey="telemetry">
+        <Base.Sections x>
+          <Value.TelemForm path="" />
+        </Base.Sections>
+      </Tabs.Content>
+    </Properties.Tabs>
+  );
+};

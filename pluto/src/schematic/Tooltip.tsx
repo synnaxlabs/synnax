@@ -10,18 +10,18 @@
 import "@/schematic/Tooltip.css";
 
 import { channel } from "@synnaxlabs/client";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Theming } from "@synnaxlabs/lyra/theming";
+import { Tooltip as Base } from "@synnaxlabs/lyra/tooltip";
 import { caseconv, type color, type primitive, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useEffect, useState } from "react";
 
 import { Channel } from "@/channel";
-import { CSS } from "@/css";
-import { Divider } from "@/divider";
-import { Flex } from "@/flex";
-import { Icon } from "@/icon";
 import { type Node } from "@/schematic/node";
-import { Text } from "@/text";
-import { Theming } from "@/theming";
-import { Tooltip as Base } from "@/tooltip";
 import { Staleness } from "@/vis/staleness";
 
 export interface TooltipProps {

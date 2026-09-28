@@ -10,21 +10,17 @@
 import "@/feature/http/device/Connect.css";
 
 import { type device, type rack, status, TimeSpan } from "@synnaxlabs/client";
-import {
-  Button,
-  Component,
-  Device as PDevice,
-  Divider,
-  Flex,
-  type Flux,
-  Form,
-  Icon,
-  Nav,
-  Rack,
-  Select,
-  Status,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Nav } from "@synnaxlabs/lyra/nav";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Device as PDevice, type Flux, Rack } from "@synnaxlabs/pluto";
 import { json } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
@@ -196,7 +192,7 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
       ({
         onChange,
         ...rest
-      }: Omit<Select.ButtonsProps<HealthCheckMethod>, "keys"> & {
+      }: Select.ButtonsProps<HealthCheckMethod> & {
         onChange: (v: HealthCheckMethod) => void;
       }) => {
         const handleChange = (method: HealthCheckMethod) => {
@@ -347,15 +343,15 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
                   path="properties.healthCheck.headers"
                   label="Headers"
                   keyField="name"
-                  keyPlaceholder="Name"
-                  valuePlaceholder="Value"
+                  keyPlaceholder="Content-Type"
+                  valuePlaceholder="application/json"
                 />
                 <PlatformForm.KeyValueEditor
                   path="properties.healthCheck.queryParams"
                   label="Query parameters"
                   keyField="parameter"
-                  keyPlaceholder="Parameter"
-                  valuePlaceholder="Value"
+                  keyPlaceholder="limit"
+                  valuePlaceholder="100"
                 />
               </Flex.Box>
               <Flex.Box>
@@ -472,50 +468,43 @@ const AUTH_USERNAME_INPUT_PROPS = { placeholder: "user@example.com" } as const;
 
 const AUTH_PASSWORD_INPUT_PROPS = { type: "password" } as const;
 
-const SELECT_AUTH_TYPE_DATA: AuthType[] = ["none", "bearer", "api_key", "basic"];
-
-interface SelectAuthTypeProps extends Omit<Select.ButtonsProps<AuthType>, "keys"> {}
+interface SelectAuthTypeProps extends Select.ButtonsProps<AuthType> {}
 
 const SelectAuthType = (props: SelectAuthTypeProps) => (
-  <Select.Buttons<AuthType> {...props} keys={SELECT_AUTH_TYPE_DATA}>
-    <Select.Button<AuthType> itemKey="none">None</Select.Button>
-    <Select.Button<AuthType>
+  <Select.Buttons<AuthType> {...props}>
+    <Select.Item<AuthType> itemKey="none">None</Select.Item>
+    <Select.Item<AuthType>
       itemKey="bearer"
       tooltip={authBearerTooltip}
       tooltipLocation="top"
     >
       Bearer token
-    </Select.Button>
-    <Select.Button<AuthType>
+    </Select.Item>
+    <Select.Item<AuthType>
       itemKey="api_key"
       tooltip="Sends your API key as a header or query parameter"
       tooltipLocation="top"
     >
       API key
-    </Select.Button>
-    <Select.Button<AuthType>
+    </Select.Item>
+    <Select.Item<AuthType>
       itemKey="basic"
       tooltip={authBasicTooltip}
       tooltipLocation="top"
     >
       Basic
-    </Select.Button>
+    </Select.Item>
   </Select.Buttons>
 );
 
-const SEND_AS_DATA: APIKeyAuthConfigSendAs[] = ["header", "query_param"];
-
-interface SelectSendAsProps extends Omit<
-  Select.ButtonsProps<APIKeyAuthConfigSendAs>,
-  "keys"
-> {}
+interface SelectSendAsProps extends Select.ButtonsProps<APIKeyAuthConfigSendAs> {}
 
 const SelectSendAs = (props: SelectSendAsProps) => (
-  <Select.Buttons<APIKeyAuthConfigSendAs> {...props} keys={SEND_AS_DATA}>
-    <Select.Button<APIKeyAuthConfigSendAs> itemKey="header">Header</Select.Button>
-    <Select.Button<APIKeyAuthConfigSendAs> itemKey="query_param">
+  <Select.Buttons<APIKeyAuthConfigSendAs> {...props}>
+    <Select.Item<APIKeyAuthConfigSendAs> itemKey="header">Header</Select.Item>
+    <Select.Item<APIKeyAuthConfigSendAs> itemKey="query_param">
       Query parameter
-    </Select.Button>
+    </Select.Item>
   </Select.Buttons>
 );
 
@@ -527,35 +516,21 @@ const HEALTH_POINTER_INPUT_PROPS = { placeholder: "/status" } as const;
 
 const HEALTH_EXPECTED_STRING_INPUT_PROPS = { placeholder: "ok" } as const;
 
-const HEALTH_METHOD_DATA: HealthCheckMethod[] = ["GET", "POST"];
-
-const SelectHealthCheckMethod = (
-  props: Omit<Select.ButtonsProps<HealthCheckMethod>, "keys">,
-) => (
-  <Select.Buttons<HealthCheckMethod> {...props} keys={HEALTH_METHOD_DATA}>
-    <Select.Button<HealthCheckMethod> itemKey="GET">GET</Select.Button>
-    <Select.Button<HealthCheckMethod> itemKey="POST">POST</Select.Button>
+const SelectHealthCheckMethod = (props: Select.ButtonsProps<HealthCheckMethod>) => (
+  <Select.Buttons<HealthCheckMethod> {...props}>
+    <Select.Item<HealthCheckMethod> itemKey="GET">GET</Select.Item>
+    <Select.Item<HealthCheckMethod> itemKey="POST">POST</Select.Item>
   </Select.Buttons>
 );
 
-const EXPECTED_VALUE_TYPE_DATA: json.PrimitiveType[] = [
-  "string",
-  "number",
-  "boolean",
-  "null",
-];
-
-interface SelectExpectedValueTypeProps extends Omit<
-  Select.ButtonsProps<json.PrimitiveType>,
-  "keys"
-> {}
+interface SelectExpectedValueTypeProps extends Select.ButtonsProps<json.PrimitiveType> {}
 
 const SelectExpectedValueType = (props: SelectExpectedValueTypeProps) => (
-  <Select.Buttons<json.PrimitiveType> {...props} keys={EXPECTED_VALUE_TYPE_DATA}>
-    <Select.Button<json.PrimitiveType> itemKey="string">String</Select.Button>
-    <Select.Button<json.PrimitiveType> itemKey="number">Number</Select.Button>
-    <Select.Button<json.PrimitiveType> itemKey="boolean">Boolean</Select.Button>
-    <Select.Button<json.PrimitiveType> itemKey="null">Null</Select.Button>
+  <Select.Buttons<json.PrimitiveType> {...props}>
+    <Select.Item<json.PrimitiveType> itemKey="string">String</Select.Item>
+    <Select.Item<json.PrimitiveType> itemKey="number">Number</Select.Item>
+    <Select.Item<json.PrimitiveType> itemKey="boolean">Boolean</Select.Item>
+    <Select.Item<json.PrimitiveType> itemKey="null">Null</Select.Item>
   </Select.Buttons>
 );
 

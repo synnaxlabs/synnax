@@ -13,20 +13,12 @@ load("@rules_cc//cc:cc_test.bzl", "cc_test")
 cc_library(
     name = "state",
     hdrs = ["state.h"],
-    copts = select({
-        "@platforms//os:windows": ["/wd4201"],
-        "//conditions:default": [],
-    }),
     visibility = ["//visibility:public"],
 )
 
 cc_library(
     name = "strings",
     hdrs = ["strings.h"],
-    copts = select({
-        "@platforms//os:windows": ["/wd4201"],
-        "//conditions:default": [],
-    }),
     visibility = ["//visibility:public"],
     deps = [
         ":state",
