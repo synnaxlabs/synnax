@@ -13,75 +13,55 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Properties } from "@/vis/properties";
 
+const renderTabs = (props: Omit<Properties.TabsProps, "children">) =>
+  render(
+    <Properties.Tabs {...props}>
+      {props.tabs.map((key) => (
+        <Tabs.Content key={key} itemKey={key}>
+          {key} content
+        </Tabs.Content>
+      ))}
+    </Properties.Tabs>,
+  );
+
+const tab = (name: string) => screen.getByRole("tab", { name });
+
 describe("Properties.Tabs", () => {
   it("should select the first tab", () => {
-    render(
-      <Properties.Tabs tabs={["telemetry", "style"]}>
-        <Tabs.Content itemKey="telemetry">telemetry content</Tabs.Content>
-        <Tabs.Content itemKey="style">style content</Tabs.Content>
-      </Properties.Tabs>,
-    );
-    expect(screen.getByRole("tab", { name: "Telemetry" }).ariaSelected).toBe("true");
-    expect(screen.getByRole("tab", { name: "Style" }).ariaSelected).toBe("false");
+    renderTabs({ tabs: ["telemetry", "style"] });
+    expect(tab("Telemetry").ariaSelected).toBe("true");
+    expect(tab("Style").ariaSelected).toBe("false");
     expect(screen.getByText("telemetry content")).toBeTruthy();
   });
 
   it("should render the actions in the tab rail", () => {
-    render(
-      <Properties.Tabs tabs={["style"]} actions={<button>Swap</button>}>
-        <Tabs.Content itemKey="style">style content</Tabs.Content>
-      </Properties.Tabs>,
-    );
-    const rail = screen.getByRole("tab", { name: "Style" }).parentElement;
+    renderTabs({ tabs: ["style"], actions: <button>Swap</button> });
+    const rail = tab("Style").parentElement;
     expect(rail?.contains(screen.getByRole("button", { name: "Swap" }))).toBe(true);
   });
 
   it("should open on the given tab", () => {
-    render(
-      <Properties.Tabs tabs={["telemetry", "style"]} tab="style" onTabChange={vi.fn()}>
-        <Tabs.Content itemKey="telemetry">telemetry content</Tabs.Content>
-        <Tabs.Content itemKey="style">style content</Tabs.Content>
-      </Properties.Tabs>,
-    );
-    expect(screen.getByRole("tab", { name: "Style" }).ariaSelected).toBe("true");
+    renderTabs({ tabs: ["telemetry", "style"], tab: "style", onTabChange: vi.fn() });
+    expect(tab("Style").ariaSelected).toBe("true");
     expect(screen.getByText("style content")).toBeTruthy();
   });
 
   it("should show the first tab when the given tab is not in the rail", () => {
-    render(
-      <Properties.Tabs tabs={["control", "style"]} tab="redline" onTabChange={vi.fn()}>
-        <Tabs.Content itemKey="control">control content</Tabs.Content>
-        <Tabs.Content itemKey="style">style content</Tabs.Content>
-      </Properties.Tabs>,
-    );
-    expect(screen.getByRole("tab", { name: "Control" }).ariaSelected).toBe("true");
+    renderTabs({ tabs: ["control", "style"], tab: "redline", onTabChange: vi.fn() });
+    expect(tab("Control").ariaSelected).toBe("true");
   });
 
   it("should report a selected tab without switching to it", () => {
     const onTabChange = vi.fn();
-    render(
-      <Properties.Tabs
-        tabs={["telemetry", "style"]}
-        tab="telemetry"
-        onTabChange={onTabChange}
-      >
-        <Tabs.Content itemKey="telemetry">telemetry content</Tabs.Content>
-        <Tabs.Content itemKey="style">style content</Tabs.Content>
-      </Properties.Tabs>,
-    );
-    fireEvent.click(screen.getByRole("tab", { name: "Style" }));
+    renderTabs({ tabs: ["telemetry", "style"], tab: "telemetry", onTabChange });
+    fireEvent.click(tab("Style"));
     expect(onTabChange).toHaveBeenCalledWith("style");
-    expect(screen.getByRole("tab", { name: "Telemetry" }).ariaSelected).toBe("true");
+    expect(tab("Telemetry").ariaSelected).toBe("true");
   });
 
   it("should switch tabs on its own without onTabChange", () => {
-    render(
-      <Properties.Tabs tabs={["telemetry", "style"]}>
-        <Tabs.Content itemKey="telemetry">telemetry content</Tabs.Content>
-        <Tabs.Content itemKey="style">style content</Tabs.Content>
-      </Properties.Tabs>,
-    );
-    fireEvent.click(screen.getByRole("tab", { name: "Style" }));
-    expect(screen.getByRole("tab", { name: "Style" }).ariaSelected).toBe("true");
+    renderTabs({ tabs: ["telemetry", "style"] });
+    fireEvent.click(tab("Style"));
+    expect(tab("Style").ariaSelected).toBe("true");
   });
 });

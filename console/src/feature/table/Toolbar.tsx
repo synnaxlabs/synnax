@@ -26,7 +26,7 @@ import {
   Table,
 } from "@synnaxlabs/pluto";
 import { color, deep, type text } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode, useCallback, useMemo } from "react";
+import { type ReactElement, useCallback, useMemo } from "react";
 import { type z } from "zod";
 
 import { Core } from "@/platform/core";
@@ -107,22 +107,19 @@ interface VariantProps {
   onChange: (variant: Table.Cell.Variant) => void;
 }
 
-// Variant shows what the selected cells are, apart from their properties.
 const Variant = ({ value, onChange }: VariantProps): ReactElement => {
-  let identity: ReactNode = "Mixed";
-  if (value != null) {
-    const { Icon: VariantIcon, name } = Table.Cell.REGISTRY[value];
-    identity = (
-      <>
-        <VariantIcon />
-        {name}
-      </>
-    );
-  }
+  const spec = value == null ? null : Table.Cell.REGISTRY[value];
   return (
     <Flex.Box x align="center" gap="small" className={CSS.BE("table", "variant")}>
       <Text.Text level="p" weight={500} color={10}>
-        {identity}
+        {spec == null ? (
+          "Mixed"
+        ) : (
+          <>
+            <spec.Icon />
+            {spec.name}
+          </>
+        )}
       </Text.Text>
       <Table.Cell.ChangeVariant value={value} onChange={onChange} />
     </Flex.Box>
@@ -168,11 +165,8 @@ const CellForm = ({ cellKey }: CellFormProps): ReactElement | null => {
   const key = Table.useKey();
   const sessionDispatch = Session.useDispatch();
   const tab = Session.Table.useSelectPropertiesTab({ key });
-  const handleTabChange = useCallback(
-    (tab: Properties.TabKey) =>
-      sessionDispatch(Session.Table.setPropertiesTab({ key, tab })),
-    [sessionDispatch, key],
-  );
+  const handleTabChange = (tab: Properties.TabKey) =>
+    sessionDispatch(Session.Table.setPropertiesTab({ key, tab }));
 
   const handleChange = useCallback(
     ({ values }: Form.OnChangeParams<typeof Table.Cell.configZ>) => {

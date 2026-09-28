@@ -63,7 +63,10 @@
     }
 
     .pluto-form-section__header {
-        margin-bottom: 2.5rem;
+        margin-bottom: 1.5rem;
+        /* The body's negative margin overlaps the header; keep the header clickable. */
+        position: relative;
+        z-index: 1;
 
         &::after {
             display: none;
@@ -75,13 +78,17 @@
         grid-auto-flow: column;
         grid-template-rows: repeat(3, max-content);
         grid-auto-columns: max-content;
-        gap: 2rem 4rem;
+        /* Rows space by margin, not row-gap: a gap would also open between the empty
+           rows of a section with fewer than three fields. */
+        column-gap: 4rem;
+        margin-top: -2rem;
         align-items: start;
 
         /* A dissolved row's fields are grid items too. */
         & > *,
-        & > .pluto-flex:not(.pluto-input__item) > * {
+        & > .pluto-flex:not(.pluto-input__item):has(> .pluto-input__item) > * {
             grid-column: span 2;
+            margin-top: 2rem;
         }
 
         & > .pluto-input__item,

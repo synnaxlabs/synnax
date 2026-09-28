@@ -11,7 +11,6 @@
 
 .pluto-select-orientation {
     position: relative;
-    aspect-ratio: 1;
 
     .pluto-select-orientation__bar {
         height: 2px;
@@ -21,6 +20,7 @@
     }
 
     &.pluto-select-orientation__inner {
+        aspect-ratio: 1;
         background: var(--pluto-gray-l1);
         border-radius: var(--pluto-border-radius);
     }

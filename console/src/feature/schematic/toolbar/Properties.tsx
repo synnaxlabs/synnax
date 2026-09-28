@@ -74,11 +74,8 @@ const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement | null
   const dispatch = Schematic.useSingleDispatch();
   const sessionDispatch = Session.useDispatch();
   const tab = Session.Schematic.useSelectPropertiesTab({ key: schematicKey });
-  const handleTabChange = useCallback(
-    (tab: PProperties.TabKey) =>
-      sessionDispatch(Session.Schematic.setPropertiesTab({ key: schematicKey, tab })),
-    [sessionDispatch, schematicKey],
-  );
+  const handleTabChange = (tab: PProperties.TabKey) =>
+    sessionDispatch(Session.Schematic.setPropertiesTab({ key: schematicKey, tab }));
   const initialValues = useMemo(() => deep.copy(config), [config]);
   const formMethods = Form.use<typeof Schematic.elementConfigZ>({
     schema: Schematic.elementConfigZ,

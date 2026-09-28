@@ -15,7 +15,7 @@
     height: 100%;
 
     & > .pluto-tabs__selector.pluto--direction-y {
-        width: 20rem;
+        width: 24rem;
         padding: 1.5rem;
         border-right: var(--pluto-border-l6);
 
