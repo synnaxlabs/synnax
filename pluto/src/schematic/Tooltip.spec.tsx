@@ -172,9 +172,9 @@ describe("Schematic.Tooltip", () => {
       );
       const tooltip = await findTooltip();
       const commandLabel = labelOf(tooltip, command.name);
-      expect(commandLabel.querySelector(".pluto-icon--edit")).not.toBeNull();
+      expect(commandLabel.querySelector(".pluto-icon--control")).not.toBeNull();
       const stateLabel = labelOf(tooltip, state.name);
-      expect(stateLabel.querySelector(".pluto-icon--visible-filled")).not.toBeNull();
+      expect(stateLabel.querySelector(".pluto-icon--channel")).not.toBeNull();
       expect(within(tooltip).getAllByText("f32")).toHaveLength(2);
     });
 
@@ -189,7 +189,7 @@ describe("Schematic.Tooltip", () => {
     it("should show the tooltip when no channel is set", async () => {
       renderTooltip(Node.createConfig({ variant: "value" }));
       const tooltip = await findTooltip();
-      expect(tooltip.querySelector(".pluto-icon--visible-filled")).toBeNull();
+      expect(tooltip.querySelector(".pluto-icon--channel")).toBeNull();
       expect(within(tooltip).getByText("Stale timeout")).not.toBeNull();
     });
 
@@ -207,7 +207,7 @@ describe("Schematic.Tooltip", () => {
       renderTooltip(Node.createConfig({ variant: "value", channel: index.key }));
       const tooltip = await findTooltip();
       const label = labelOf(tooltip, index.name);
-      expect(label.querySelector(".pluto-icon--visible-filled")).not.toBeNull();
+      expect(label.querySelector(".pluto-icon--channel")).not.toBeNull();
       expect(valueOf(label).textContent).toEqual("ts");
     });
 

@@ -28,7 +28,7 @@
     justify-content: flex-end;
 }
 
-.pluto-schematic-tooltip__field {
+.pluto-schematic-tooltip__field,
+.pluto-schematic-tooltip .pluto-icon {
     color: var(--pluto-gray-l9);
-    font-weight: var(--pluto-small-font-weight);
 }

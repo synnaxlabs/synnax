@@ -37,9 +37,9 @@ type KeysOf<C> = C extends object ? keyof C : never;
 type Field = KeysOf<Node.Config>;
 
 const CHANNEL_ROWS: { field: Field; icon: Icon.FC }[] = [
-  { field: "commandChannel", icon: Icon.Edit },
-  { field: "stateChannel", icon: Icon.VisibleFilled },
-  { field: "channel", icon: Icon.VisibleFilled },
+  { field: "stateChannel", icon: Icon.Channel },
+  { field: "channel", icon: Icon.Channel },
+  { field: "commandChannel", icon: Icon.Control },
 ];
 
 // Channels the symbol already streams come first, so the row adds no subscription.
@@ -66,18 +66,17 @@ interface RowProps {
   label: ReactNode;
   value: ReactNode;
   color?: Theming.Shade | color.Crude;
-  variant?: Text.TextProps["variant"];
   className?: string;
 }
 
-const Row = ({ label, value, color, variant, className }: RowProps): ReactElement => (
+const Row = ({ label, value, color, className }: RowProps): ReactElement => (
   <>
     <Text.Text level="small" className={className}>
       {label}
     </Text.Text>
     <Text.Text
       level="small"
-      variant={variant}
+      variant="code"
       color={color}
       className={CSS.BE("schematic-tooltip", "value")}
     >
@@ -100,7 +99,6 @@ const LastWrite = ({ channel }: LastWriteProps): ReactElement => {
     <Flex.Box x justify="between" className={CSS.BE("schematic-tooltip", "last-write")}>
       <Row
         className={CSS.BE("schematic-tooltip", "field")}
-        variant="code"
         label={
           <>
             <Icon.TimeOutline />
