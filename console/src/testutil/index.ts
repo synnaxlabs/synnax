@@ -9,6 +9,7 @@
 
 export * from "@/testutil/access";
 export * from "@/testutil/clipboard";
+export * from "@/testutil/connection";
 export * from "@/testutil/dom";
 export * from "@/testutil/downloads";
 export * from "@/testutil/editableText";

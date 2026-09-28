@@ -16,7 +16,7 @@ describe("claims.build", () => {
   it("should map a subscription license to the claim set", () => {
     expect(build({ license: LICENSE, fingerprint: [HASH_A], now: NOW })).toEqual({
       ...CLAIMS,
-      mv: undefined,
+      maxVersion: undefined,
     });
   });
 
@@ -27,14 +27,14 @@ describe("claims.build", () => {
       now: NOW,
     });
     expect(claims.exp).toBeUndefined();
-    expect(claims.mv).toBe("0.62");
+    expect(claims.maxVersion).toBe("0.62");
     expect(claims.fingerprints).toEqual([]);
   });
 
   it("should code the desktop edition as d", () => {
     expect(
       build({ license: { ...LICENSE, edition: "desktop" }, fingerprint: [], now: NOW })
-        .ed,
+        .edition,
     ).toBe("d");
   });
 });

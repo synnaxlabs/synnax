@@ -35,7 +35,10 @@ export const useInfo = (): InfoResult => {
         if (!signal.aborted) setResult({ info });
       } catch (error) {
         if (signal.aborted) return;
-        setResult({ error: error instanceof Error ? error : new Error(String(error)) });
+        setResult({
+          error:
+            error instanceof Error ? error : new Error(String(error), { cause: error }),
+        });
       }
     },
     [client, details.epoch],

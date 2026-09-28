@@ -16,13 +16,13 @@ import (
 	apilicense "github.com/synnaxlabs/synnax/pkg/api/license"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	license "github.com/synnaxlabs/synnax/pkg/service/channel/license"
+	"github.com/synnaxlabs/synnax/pkg/service/license"
 	svcmock "github.com/synnaxlabs/synnax/pkg/service/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var object = ontology.ID{Type: ontology.ResourceTypeLicense}
+var object = ontology.ID{Type: ontology.ResourceTypeBuiltin}
 
 var _ = Describe("Service", Ordered, func() {
 	It("Should refuse retrieval without a retrieve license", func(ctx SpecContext) {
@@ -70,21 +70,21 @@ var _ = Describe("Service", Ordered, func() {
 			[]access.Action{access.ActionRetrieve},
 			object,
 		)
-		Expect(apiSvc.Apply(
+		Expect(apiSvc.Activate(
 			AuthedCtx(ctx, reader),
-			apilicense.ApplyRequest{Token: keys.Sign(svcmock.NewLicense())},
+			apilicense.ActivateRequest{Token: keys.Sign(svcmock.NewLicense())},
 		)).Error().To(MatchError(access.ErrDenied))
 	})
 
-	It("Should apply a token for an owner", func(ctx SpecContext) {
+	It("Should activate a token for an owner", func(ctx SpecContext) {
 		owner := freshUser(ctx)
 		grantOn(ctx, owner.OntologyID(), []access.Action{access.ActionUpdate}, object)
 		lic := svcmock.NewLicense()
-		info := MustSucceed(apiSvc.Apply(
+		info := MustSucceed(apiSvc.Activate(
 			AuthedCtx(ctx, owner),
-			apilicense.ApplyRequest{Token: keys.Sign(lic)},
+			apilicense.ActivateRequest{Token: keys.Sign(lic)},
 		))
-		Expect(info.State).To(Equal(license.StateOK))
+		Expect(info.State).To(Equal(license.StateOk))
 		Expect(info.License).ToNot(BeNil())
 		Expect(info.License.Jti).To(Equal(lic.Jti))
 	})

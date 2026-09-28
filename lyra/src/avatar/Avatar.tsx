@@ -9,59 +9,66 @@
 
 import "@/avatar/Avatar.css";
 
-import { useMemo } from "react";
+import { type ReactElement, useMemo } from "react";
 
-import { Button } from "@/button";
+import { type Component } from "@/component";
 import { CSS } from "@/css";
-import { type Flex } from "@/flex";
 
-const stringToHash = (str: string): number => {
+/* Even coverage of the OKLCH wheel. */
+const HUES: readonly number[] = [15, 60, 105, 150, 195, 240, 285, 330];
+
+/* Hashes the full name, not the initials, so same-letter names differ. */
+const hueOf = (name: string): number => {
   let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = str.charCodeAt(i) + ((hash << 5) - hash);
-    hash |= 0;
-  }
-  return Math.abs(hash);
+  for (const char of name) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  return HUES[hash % HUES.length];
 };
 
-const hashToHSL = (hash: number, offset: number = 0): string => {
-  const hue = (hash + offset) % 360;
-  const saturation = 60 + (hash % 30);
-  const lightness = 50 + (hash % 10);
-  return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+/* "Hot Fire" -> "HF"; "Primary" -> "PR"; "Test Stand 2" -> "T2", so numbered
+   siblings do not collapse onto the same two letters. */
+const initialsOf = (name: string): string => {
+  const trimmed = name.trim();
+  const words = trimmed.split(/[\s\-_]+/).filter(Boolean);
+  if (words.length === 0) return "?";
+  const first = words[0].charAt(0);
+  const digit = trimmed.match(/(\d)$/)?.[1];
+  if (digit != null && digit !== first) return (first + digit).toUpperCase();
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return (first + words[1].charAt(0)).toUpperCase();
 };
 
-export const gradient = (username: string): string => {
-  const baseHash = stringToHash(username);
-  const color1 = hashToHSL(baseHash, 0);
-  const color2 = hashToHSL(baseHash, 120);
-  return `linear-gradient(135deg, ${color1}, ${color2})`;
-};
-
-export interface AvatarProps extends Flex.BoxProps {
-  username: string;
+export interface AvatarProps {
+  /** name picks the color and the initials. */
+  name: string;
+  /** image replaces the initials when set. */
+  image?: string;
+  size?: Component.Size;
+  className?: string;
 }
 
+/**
+ * Avatar is a square that stands for a named thing, such as a user or a project. It
+ * shows the initials of the name, or an image, inside a frosted ring.
+ */
 export const Avatar = ({
-  username,
+  name,
+  image,
+  size = "medium",
   className,
-  square,
-  style,
-  size,
-  ...rest
-}: AvatarProps) => {
-  const oStyle = useMemo(
-    () => ({ background: gradient(username), ...style }),
-    [username, style],
+}: AvatarProps): ReactElement => {
+  const hue = hueOf(name);
+  const style = useMemo<CSS.VarProperties>(
+    () => ({ "--pluto-avatar-hue": hue }),
+    [hue],
   );
   return (
-    <Button.Button
-      preventClick
-      variant="text"
-      {...rest}
-      className={CSS.cls(className, CSS.B("avatar"))}
-      square
-      style={oStyle}
-    />
+    <span
+      className={CSS.cls(CSS.B("avatar"), CSS.M("height", size), className)}
+      style={style}
+    >
+      <span className={CSS.BE("avatar", "fill")}>
+        {image == null ? initialsOf(name) : <img src={image} alt="" />}
+      </span>
+    </span>
   );
 };

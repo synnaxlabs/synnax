@@ -11,7 +11,6 @@ package versions
 
 import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
-	v1 "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v1"
 	"github.com/synnaxlabs/x/migrate"
 )
 
@@ -19,12 +18,10 @@ import (
 var ResourceMigrations = []migrate.Migration{
 	v0.ResourceNormalizeKeys,
 	v0.ResourceMigration,
-	v1.ResourceMigration,
 }
 
 // RelationshipMigrations is the ordered migration chain for stored relationships.
 var RelationshipMigrations = []migrate.Migration{
 	v0.RelationshipNormalizeKeys,
 	v0.RelationshipMigration,
-	v1.RelationshipMigration,
 }

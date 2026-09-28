@@ -19,7 +19,7 @@ from pydantic import BaseModel
 
 from freighter import UnaryClient
 from freighter.transport import Empty
-from synnax.license.client import State as LicenseState
+from synnax.license.types_gen import State as LicenseState
 from synnax.util.send_required import send_required
 from x.telem import CrudeTimeSpan, TimeSpan, TimeStamp
 from x.telem.clock_skew import ClockSkewCalculator
@@ -47,7 +47,7 @@ class CheckResponse(BaseModel):
     cluster_key: str = ""
     node_version: str = ""
     node_time: TimeStamp = TimeStamp(0)
-    # A Core from before licensing reports nothing and is not gated.
+    # A Core from before licensing sends no license state.
     license: LicenseState = "ok"
 
 

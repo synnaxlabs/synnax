@@ -27,6 +27,9 @@ import { License } from "@/platform/license";
 import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
 
+/** The portal page that issues a token for a host fingerprint. */
+const PORTAL_ACTIVATE_URL = "https://portal.synnaxlabs.com/licenses/activate";
+
 /** The extension the portal gives a downloaded token file. */
 const TOKEN_FILE_EXTENSION = "license";
 
@@ -39,8 +42,7 @@ interface FingerprintProps {
 const Fingerprint = ({ info: { info, error } }: FingerprintProps): ReactElement => {
   const copy = Clipboard.useCopy();
   const fingerprint = info?.fingerprint ?? [];
-  const copyFingerprint = (): void =>
-    copy(License.joinFingerprint(fingerprint), "host fingerprint");
+  const copyFingerprint = (): void => copy(fingerprint.join(", "), "host fingerprint");
   return (
     <Flex.Box y gap="small" full="x">
       <Flex.Box x align="center" justify="between">
@@ -82,7 +84,7 @@ const Fingerprint = ({ info: { info, error } }: FingerprintProps): ReactElement 
       <Button.Button
         variant="text"
         size="small"
-        href={License.PORTAL_ACTIVATE_URL}
+        href={PORTAL_ACTIVATE_URL}
         target="_blank"
         className={CSS.BE("license-activate", "portal")}
       >
@@ -95,8 +97,7 @@ const Fingerprint = ({ info: { info, error } }: FingerprintProps): ReactElement 
 
 /**
  * Full-screen activation surface for a Core that refuses requests until a license
- * applies. Shows the host fingerprint the portal needs and takes the token it issues,
- * pasted or from a file.
+ * applies.
  */
 export const Activate = (): ReactElement => {
   const client = Synnax.use();
@@ -107,7 +108,7 @@ export const Activate = (): ReactElement => {
   const info = License.useInfo();
   const [token, setToken] = useState("");
   const [activating, setActivating] = useState(false);
-  const [result, setResult] = useState<status.Status | null>(null);
+  const [error, setError] = useState<status.Status | null>(null);
 
   const pickFile = (): void =>
     handleError(async () => {
@@ -121,16 +122,14 @@ export const Activate = (): ReactElement => {
     }, "Failed to read the license file");
 
   const activate = (): void => {
-    const trimmed = token.trim();
-    if (client == null || trimmed === "") return;
+    if (client == null) return;
     setActivating(true);
-    setResult(null);
+    setError(null);
     void (async () => {
       try {
-        await client.license.activate(trimmed);
-        setResult(status.create({ variant: "success", message: "License activated" }));
-      } catch (error) {
-        setResult(status.fromException(error, "Failed to activate the license"));
+        await client.license.activate(token.trim());
+      } catch (e) {
+        setError(status.fromException(e, "Failed to activate the license"));
       } finally {
         setActivating(false);
       }
@@ -177,7 +176,7 @@ export const Activate = (): ReactElement => {
               Activate
             </Button.Button>
           </Flex.Box>
-          {result != null && <Status.Summary status={result} level="small" />}
+          {error != null && <Status.Summary status={error} level="small" />}
         </Flex.Box>
         <Flex.Box x gap="small" className={CSS.BE("license-activate", "actions")}>
           <Connection.Retry variant="outlined" grow justify="center">

@@ -7,35 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { connection, MissingLicenseError } from "@synnaxlabs/client";
 import { Synnax } from "@synnaxlabs/pluto";
 import { render, screen } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { License } from "@/feature/license";
-import { createConsoleWrapper } from "@/testutil";
-
-const MESSAGE = "No license is active on this Core";
-
-const UNLICENSED: connection.Status = {
-  ...connection.DEFAULT_STATUS,
-  variant: "error",
-  message: MESSAGE,
-  details: {
-    ...connection.DEFAULT_STATUS.details,
-    authenticated: true,
-    reason: "unlicensed",
-    error: new MissingLicenseError(MESSAGE),
-  },
-};
+import { createConsoleWrapper, UNLICENSED_STATUS } from "@/testutil";
 
 describe("License.Guard", () => {
   it("should offer no log out action", async () => {
     const { wrapper: Console } = await createConsoleWrapper({ client: null });
     const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
       <Console>
-        <Synnax.TestProvider client={null} status={UNLICENSED}>
+        <Synnax.TestProvider client={null} status={UNLICENSED_STATUS}>
           {children}
         </Synnax.TestProvider>
       </Console>
@@ -47,7 +32,7 @@ describe("License.Guard", () => {
       </License.Guard>,
       { wrapper: Wrapper },
     );
-    expect(screen.getByText(MESSAGE)).toBeTruthy();
+    expect(screen.getByText(UNLICENSED_STATUS.message)).toBeTruthy();
     expect(screen.queryByText("Log out")).toBeNull();
   });
 });

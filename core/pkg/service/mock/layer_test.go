@@ -13,7 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	distmock "github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/license"
+	"github.com/synnaxlabs/synnax/pkg/service/license"
 	"github.com/synnaxlabs/synnax/pkg/service/mock"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -22,8 +22,8 @@ var _ = Describe("Layer", func() {
 	Describe("Keys", func() {
 		It("should sign a license its anchors verify", func() {
 			keys := mock.NewKeys()
-			g := mock.NewLicense()
-			Expect(license.Verify(keys.Anchors, keys.Sign(g))).To(Equal(g))
+			lic := mock.NewLicense()
+			Expect(license.Verify(keys.Anchors, keys.Sign(lic))).To(Equal(lic))
 		})
 		It("should not verify a license signed by other keys", func() {
 			keys := mock.NewKeys()
@@ -37,7 +37,7 @@ var _ = Describe("Layer", func() {
 		It("should open a covered layer", func(ctx SpecContext) {
 			node := distmock.NewNode(ctx)
 			layer := MustOpen(mock.OpenLayer(ctx, node))
-			Expect(layer.License.Retrieve().State).To(Equal(license.StateOK))
+			Expect(layer.License.Retrieve().State).To(Equal(license.StateOk))
 		})
 	})
 })

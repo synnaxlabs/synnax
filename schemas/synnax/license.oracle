@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-@go output "core/pkg/service/channel/license"
+@go output "core/pkg/service/license"
 @py output "client/py/synnax/license"
 @ts output "client/ts/src/license"
 
@@ -24,13 +24,13 @@ License struct {
             when it never stops applying on its own.
         """
     }
-    v                  uint8    {
+    claims_version     uint8    {
         @doc value "is the version of the claim set."
     }
-    org                uuid     {
+    organization       uuid     {
         @doc value "is the organization the license belongs to."
     }
-    ed                 string   {
+    edition            string   {
         @doc value "is the edition the license applies to."
     }
     fingerprints       string[] = [] {
@@ -42,20 +42,58 @@ License struct {
     fingerprint_scheme uint8    {
         @doc value "is the scheme that produced the fingerprints."
     }
-    n                  uint32   {
+    machines           uint32   {
         @doc value "is how many machines may run under the license."
     }
-    ch                 uint32   {
+    channels           uint32   {
         @doc value "is the channel cap per Core. Zero means unlimited."
     }
-    mv                 string?  {
+    max_version        string?  {
         @doc value """
             is the highest Core minor version the license covers, as "0.62". Absent
             means any version.
+        """
+    }
+    required           string[] = [] {
+        @doc value """
+            is the claims a Core must understand to accept the license. A Core that does
+            not know one of them refuses the token.
         """
     }
 
     @doc value """
         is the signed set of claims a Core verifies.
     """
+}
+
+State enum {
+    ok      = "ok"
+    missing = "missing"
+    expired = "expired"
+
+    @doc value "is whether a license covers the Core."
+}
+
+Fingerprint string[] {
+    @doc value """
+        identifies the machine the Core runs on: the sorted SHA-256 hex digests of every
+        physical network interface's hardware address.
+    """
+}
+
+Info struct {
+    state       State       {
+        @doc value "is whether a license covers the Core."
+    }
+    warning     string      {
+        @doc value "is set while the state is ok but a change is near or past."
+    }
+    fingerprint Fingerprint = [] {
+        @doc value "identifies the machine the Core runs on."
+    }
+    license     License?    {
+        @doc value "is the license that applies, if any."
+    }
+
+    @doc value "is what the Core knows about its license."
 }

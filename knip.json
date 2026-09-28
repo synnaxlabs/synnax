@@ -57,6 +57,10 @@
       "project": ["src/**/*.{ts,tsx,astro}"],
       "ignoreDependencies": ["@astrojs/*"]
     },
+    "site/www": {
+      "entry": ["src/pages/**/*.astro"],
+      "project": ["src/**/*.{ts,tsx,astro}"]
+    },
     "configs/eslint": {
       "entry": ["index.ts"],
       "project": ["*.ts"],

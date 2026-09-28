@@ -7,11 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  connection,
-  MissingLicenseError,
-  type Synnax as Client,
-} from "@synnaxlabs/client";
+import { type connection, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Synnax } from "@synnaxlabs/pluto";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -25,21 +21,8 @@ import {
   fakePickedFile,
   interceptFilePicker,
   uniqueName,
+  UNLICENSED_STATUS,
 } from "@/testutil";
-
-const MESSAGE = "No license is active on this Core";
-
-const UNLICENSED: connection.Status = {
-  ...connection.DEFAULT_STATUS,
-  variant: "error",
-  message: MESSAGE,
-  details: {
-    ...connection.DEFAULT_STATUS.details,
-    authenticated: true,
-    reason: "unlicensed",
-    error: new MissingLicenseError(MESSAGE),
-  },
-};
 
 // The client is handed to the provider unconnected: a Core that refuses requests for
 // want of a license never settles a connection, so the screen must not wait on one.
@@ -75,18 +58,18 @@ describe("License.Guard", () => {
   });
 
   it("should render the activation screen while the Core is unlicensed", async () => {
-    await renderGuard(null, UNLICENSED);
-    expect(screen.getByText(MESSAGE)).toBeTruthy();
+    await renderGuard(null, UNLICENSED_STATUS);
+    expect(screen.getByText(UNLICENSED_STATUS.message)).toBeTruthy();
     expect(screen.queryByText("licensed content")).toBeNull();
   });
 
   it("should offer a log out action", async () => {
-    await renderGuard(null, UNLICENSED);
+    await renderGuard(null, UNLICENSED_STATUS);
     expect(findButton("Log out")).toBeTruthy();
   });
 
   it("should enable activation only once a token is entered", async () => {
-    await renderGuard(null, UNLICENSED);
+    await renderGuard(null, UNLICENSED_STATUS);
     const activate = findButton("Activate");
     expect(activate.getAttribute("aria-disabled")).toBe("true");
     fireEvent.change(screen.getByPlaceholderText("Paste the token"), {
@@ -97,7 +80,7 @@ describe("License.Guard", () => {
 
   it("should read the token from a picked file", async () => {
     const picker = interceptFilePicker();
-    await renderGuard(null, UNLICENSED);
+    await renderGuard(null, UNLICENSED_STATUS);
     fireEvent.click(findButton("Select file"));
     picker.selectFiles([fakePickedFile("synnax.license", "abc.def.ghi\n")]);
     await waitFor(() => {
@@ -108,18 +91,18 @@ describe("License.Guard", () => {
   });
 
   it("should show the host fingerprint the Core reports", async () => {
-    await renderGuard(createTestClient(), UNLICENSED);
+    await renderGuard(createTestClient(), UNLICENSED_STATUS);
     const hashes = await screen.findAllByText(HASH);
     expect(hashes.length).toBeGreaterThan(0);
   });
 
   it("should report a token the Core rejects", async () => {
-    await renderGuard(createTestClient(), UNLICENSED);
+    await renderGuard(createTestClient(), UNLICENSED_STATUS);
     fireEvent.change(screen.getByPlaceholderText("Paste the token"), {
       target: { value: uniqueName("not-a-token") },
     });
     fireEvent.click(findButton("Activate"));
     expect(await screen.findByText("Failed to activate the license")).toBeTruthy();
-    expect(screen.getByText(MESSAGE)).toBeTruthy();
+    expect(screen.getByText(UNLICENSED_STATUS.message)).toBeTruthy();
   });
 });

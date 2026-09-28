@@ -11,12 +11,11 @@ package license
 
 import (
 	"github.com/synnaxlabs/freighter"
-	license "github.com/synnaxlabs/synnax/pkg/service/channel/license"
+	"github.com/synnaxlabs/synnax/pkg/service/license"
 )
 
-// Middleware rejects every request while the Core has no covering license, with the
-// error the service reports. The roster it is applied to is the allowlist: the
-// middleware never inspects the request target.
+// Middleware rejects every request while no license covers the Core, with the error
+// the service reports. It gates only the endpoints it is attached to.
 func Middleware(svc *license.Service) freighter.Middleware {
 	return freighter.MiddlewareFunc(func(
 		ctx freighter.Context,

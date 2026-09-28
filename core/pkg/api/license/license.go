@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	license "github.com/synnaxlabs/synnax/pkg/service/channel/license"
+	"github.com/synnaxlabs/synnax/pkg/service/license"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	xconfig "github.com/synnaxlabs/x/config"
 )
@@ -42,13 +42,15 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 type (
 	RetrieveRequest  = struct{}
 	RetrieveResponse = license.Info
-	ApplyRequest     struct {
+	ActivateRequest  struct {
 		Token string `json:"token" msgpack:"token"`
 	}
-	ApplyResponse = license.Info
+	ActivateResponse = license.Info
 )
 
-var objectID = ontology.ID{Type: ontology.ResourceTypeLicense}
+// objectID names the license as a builtin singleton, so the built-in roles' builtin
+// grants control access to it.
+var objectID = ontology.ID{Type: ontology.ResourceTypeBuiltin, Key: "license"}
 
 // Retrieve returns the state of the Core's license, this machine's fingerprint,
 // and the license when one applies.
@@ -66,17 +68,17 @@ func (s *Service) Retrieve(
 	return s.internal.Retrieve(), nil
 }
 
-// Apply accepts a token for this Core and returns the resulting state.
-func (s *Service) Apply(
+// Activate accepts a token for this Core and returns the resulting state.
+func (s *Service) Activate(
 	ctx context.Context,
-	req ApplyRequest,
-) (ApplyResponse, error) {
+	req ActivateRequest,
+) (ActivateResponse, error) {
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{objectID},
 	}); err != nil {
-		return ApplyResponse{}, err
+		return ActivateResponse{}, err
 	}
-	return s.internal.Apply(ctx, req.Token)
+	return s.internal.Activate(ctx, req.Token)
 }

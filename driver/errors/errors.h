@@ -36,10 +36,13 @@ const x::errors::Error CONFIGURATION_ERROR = BASE_ERROR.sub("configuration");
 /// @brief sentinel indicating expected shutdown, not an error condition.
 const x::errors::Error NOMINAL_SHUTDOWN_ERROR = BASE_ERROR.sub("nominal_shutdown");
 
-/// @brief whether the Core is unreachable or unlicensed, both of which clear on their
-/// own, so the caller waits on its breaker and retries.
+/// @brief whether the Core is unreachable or refuses requests until a license is
+/// activated. Both clear without a driver restart, so the caller waits on its breaker
+/// and retries.
 inline bool core_unavailable(const x::errors::Error &err) {
-    return err.matches(freighter::UNREACHABLE) || err.matches(synnax::errors::LICENSE);
+    return err.matches(freighter::UNREACHABLE) ||
+           err.matches(synnax::errors::LICENSE_MISSING) ||
+           err.matches(synnax::errors::LICENSE_EXPIRED);
 }
 
 /// Standardized missing library error

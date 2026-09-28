@@ -17,7 +17,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	ontologyv0 "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v0"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v1"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
@@ -153,7 +152,7 @@ var _ = Describe("Composition migrations", func() {
 	}
 	resourceTab := func(t ontology.ResourceType, key string) v0.Tab {
 		return v0.Tab{Variant: v0.ResourceTab{
-			Resource: ontologyv0.ID{Type: ontologyv0.ResourceType(t), Key: key},
+			Resource: ontology.ID{Type: t, Key: key},
 		}}
 	}
 	appViewTab := func(viewType string) v0.Tab {
@@ -461,8 +460,8 @@ var _ = Describe("Composition migrations", func() {
 		rt, ok := lf.Tabs[0].Variant.(v0.ResourceTab)
 		Expect(ok).To(BeTrue())
 		Expect(rt.Key).ToNot(Equal(uuid.Nil()))
-		Expect(rt.Resource).To(Equal(ontologyv0.ID{
-			Type: ontologyv0.ResourceTypeTask,
+		Expect(rt.Resource).To(Equal(ontology.ID{
+			Type: ontology.ResourceTypeTask,
 			Key:  taskKey.String(),
 		}))
 
@@ -526,14 +525,14 @@ var _ = Describe("Composition migrations", func() {
 			Expect(lf.Tabs).To(HaveLen(2))
 			byArgs, ok := lf.Tabs[0].Variant.(v0.ResourceTab)
 			Expect(ok).To(BeTrue())
-			Expect(byArgs.Resource).To(Equal(ontologyv0.ID{
-				Type: ontologyv0.ResourceTypeTask,
+			Expect(byArgs.Resource).To(Equal(ontology.ID{
+				Type: ontology.ResourceTypeTask,
 				Key:  argsTaskKey.String(),
 			}))
 			byAlt, ok := lf.Tabs[1].Variant.(v0.ResourceTab)
 			Expect(ok).To(BeTrue())
-			Expect(byAlt.Resource).To(Equal(ontologyv0.ID{
-				Type: ontologyv0.ResourceTypeTask,
+			Expect(byAlt.Resource).To(Equal(ontology.ID{
+				Type: ontology.ResourceTypeTask,
 				Key:  altTaskKey.String(),
 			}))
 		},
@@ -700,8 +699,8 @@ var _ = Describe("Composition migrations", func() {
 			Expect(first.Tabs).To(HaveLen(1))
 			kept, ok := first.Tabs[0].Variant.(v0.ResourceTab)
 			Expect(ok).To(BeTrue())
-			Expect(kept.Resource).To(Equal(ontologyv0.ID{
-				Type: ontologyv0.ResourceTypeLog,
+			Expect(kept.Resource).To(Equal(ontology.ID{
+				Type: ontology.ResourceTypeLog,
 				Key:  logKey,
 			}))
 			last, ok := split.Last.Variant.(v0.LeafNode)
@@ -755,8 +754,8 @@ var _ = Describe("Composition migrations", func() {
 			Expect(ok).To(BeTrue())
 			converted, ok := first.Tabs[0].Variant.(v0.ResourceTab)
 			Expect(ok).To(BeTrue())
-			Expect(converted.Resource).To(Equal(ontologyv0.ID{
-				Type: ontologyv0.ResourceTypeTask,
+			Expect(converted.Resource).To(Equal(ontology.ID{
+				Type: ontology.ResourceTypeTask,
 				Key:  taskKey.String(),
 			}))
 

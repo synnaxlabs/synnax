@@ -78,7 +78,7 @@ type Transport struct {
 	ConnectivityCheck freighter.UnaryServer[struct{}, connectivity.CheckResponse]
 	// LICENSE
 	LicenseRetrieve freighter.UnaryServer[license.RetrieveRequest, license.RetrieveResponse]
-	LicenseApply    freighter.UnaryServer[license.ApplyRequest, license.ApplyResponse]
+	LicenseActivate freighter.UnaryServer[license.ActivateRequest, license.ActivateResponse]
 	// FRAME
 	FrameWriter   freighter.StreamServer[framer.WriterRequest, framer.WriterResponse]
 	FrameIterator freighter.StreamServer[framer.IteratorRequest, framer.IteratorResponse]
@@ -249,9 +249,7 @@ func (l *Layer) BindTo(t Transport) {
 		gate               = license.Middleware(l.config.Service.License)
 		insecureMiddleware = []freighter.Middleware{rec, instrumentation}
 		secureMiddleware   = append(slices.Clone(insecureMiddleware), tk)
-		// Every endpoint that is neither exempt from the token check nor one of the
-		// license endpoints is gated on the Core holding a covering license.
-		gatedMiddleware = append(slices.Clone(secureMiddleware), gate)
+		gatedMiddleware    = append(slices.Clone(secureMiddleware), gate)
 	)
 
 	freighter.UseOnAll(
@@ -260,10 +258,11 @@ func (l *Layer) BindTo(t Transport) {
 		t.ConnectivityCheck,
 	)
 
+	// The license endpoints skip the gate so an unlicensed Core can be activated.
 	freighter.UseOnAll(
 		secureMiddleware,
 		t.LicenseRetrieve,
-		t.LicenseApply,
+		t.LicenseActivate,
 	)
 
 	freighter.UseOnAll(
@@ -437,13 +436,13 @@ func (l *Layer) BindTo(t Transport) {
 
 	// AUTH
 	t.AuthLogin.BindHandler(l.Auth.Login)
-
-	// LICENSE
-	t.LicenseRetrieve.BindHandler(l.License.Retrieve)
-	t.LicenseApply.BindHandler(l.License.Apply)
 	t.AuthChangePassword.BindHandler(
 		fgorp.CreateWriteUnaryHandler(db, l.Auth.ChangePassword),
 	)
+
+	// LICENSE
+	t.LicenseRetrieve.BindHandler(l.License.Retrieve)
+	t.LicenseActivate.BindHandler(l.License.Activate)
 
 	// USER
 	t.UserRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.User.Rename))

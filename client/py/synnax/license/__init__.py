@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.license.client import Client, Info, State
-from synnax.license.types_gen import License
+from synnax.license.client import Client
+from synnax.license.types_gen import Fingerprint, Info, License, State
 
-__all__ = ["Client", "Info", "License", "State"]
+__all__ = ["Client", "Fingerprint", "Info", "License", "State"]
