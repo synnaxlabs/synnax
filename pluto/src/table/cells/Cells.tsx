@@ -95,14 +95,14 @@ export const Value = ({
   precision,
   notation,
   borderRadius,
-  level = "h5",
+  level,
   color: textColor,
   redline,
   backgroundColor,
   selected,
   box: b,
   onSelect,
-  stalenessTimeout = 5,
+  stalenessTimeout,
   stalenessColor,
 }: CellProps<ValueConfig>) => {
   const t = useMemo(
@@ -122,7 +122,7 @@ export const Value = ({
     stalenessTimeout,
     stalenessColor,
     backgroundTelem,
-    location: { x: "center", y: "center" },
+    location: "center",
     borderRadius,
   });
   const handleSelect = (e: React.MouseEvent) => onSelect(cellKey, e);

@@ -25,9 +25,9 @@ const mkText = (value?: string): table.CellConfig =>
   table.cellConfigZ.parse(
     value == null ? { variant: "text" } : { variant: "text", value },
   );
-const mkValue = (units?: string): table.CellConfig =>
+const mkValue = (precision?: number): table.CellConfig =>
   table.cellConfigZ.parse(
-    units == null ? { variant: "value" } : { variant: "value", units },
+    precision == null ? { variant: "value" } : { variant: "value", precision },
   );
 
 describe("table queries", () => {
@@ -186,7 +186,7 @@ describe("table queries", () => {
           name: "explicit_layout",
           rows: [{ size: 40, cells: ["x"] }],
           columns: [{ size: 80 }],
-          cells: { x: { variant: "value", units: "psi" } },
+          cells: { x: { variant: "value", precision: 3 } },
         });
       });
       expect(result.current.variant).toEqual("success");
@@ -377,7 +377,7 @@ describe("table queries", () => {
           key: created.key,
           actions: [
             table.setCell({
-              cell: { key: "a", config: mkValue("psi") },
+              cell: { key: "a", config: mkValue(3) },
             }),
           ],
         });
@@ -411,7 +411,7 @@ describe("table queries", () => {
           key: created.key,
           actions: [
             table.setCell({
-              cell: { key: "a", config: mkValue("psi") },
+              cell: { key: "a", config: mkValue(3) },
             }),
           ],
         });
@@ -427,7 +427,7 @@ describe("table queries", () => {
       await waitFor(() => {
         expect(result.current.retrieve?.cells.a).toMatchObject({
           variant: "value",
-          units: "psi",
+          precision: 3,
         });
       });
     });
@@ -715,7 +715,7 @@ describe("table queries", () => {
           key: created.key,
           actions: [
             table.setCell({
-              cell: { key: "a", config: mkValue("psi") },
+              cell: { key: "a", config: mkValue(3) },
             }),
           ],
         });
@@ -723,7 +723,7 @@ describe("table queries", () => {
       await waitFor(() => {
         const next = result.current.cell;
         expect(next?.variant).toEqual("value");
-        if (next?.variant === "value") expect(next.units).toEqual("psi");
+        if (next?.variant === "value") expect(next.precision).toEqual(3);
       });
     });
 
@@ -777,7 +777,7 @@ describe("table queries", () => {
           key: created.key,
           actions: [
             table.setCell({
-              cell: { key: "c", config: mkValue("psi") },
+              cell: { key: "c", config: mkValue(3) },
             }),
           ],
         });
@@ -797,7 +797,7 @@ describe("table queries", () => {
           key: created.key,
           actions: [
             table.setCell({
-              cell: { key: "a", config: mkValue("psi") },
+              cell: { key: "a", config: mkValue(3) },
             }),
           ],
         });

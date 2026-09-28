@@ -196,8 +196,6 @@ describe("ValueForm", () => {
       ).not.toContain("pluto--square");
       expect(container.querySelector(".pluto-redline-form__floor input")).toBeNull();
       expect(getByText("No fill")).toBeDefined();
-      act(() => methods.set("units", "psi"));
-      expect(floor()).toBe("0 psi");
     });
 
     it("should show the background below the lowest band once one is set", () => {

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { theme } from "@synnaxlabs/lyra/theme";
-import { box, color, type xy } from "@synnaxlabs/x";
+import { box, color, type spatial, type xy } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { telemTest } from "@/telem/aether/test";
@@ -47,6 +47,7 @@ const setup = ({
   const recorder = canvasTest.record();
   const parsed = value.Value.z.parse({
     box: BOX,
+    level: "p",
     telem: telemTest.stringSourceSpec(source),
     ...(backgroundSource != null
       ? { backgroundTelem: telemTest.colorSourceSpec(backgroundSource) }
@@ -98,20 +99,19 @@ const fillRectArgs = (recorder: canvasTest.Recorder): number[] =>
 describe("value/aether/Value", () => {
   describe("schema", () => {
     it("should apply defaults for unspecified fields", () => {
-      const parsed = value.Value.z.parse({ box: BOX });
+      const parsed = value.Value.z.parse({ box: BOX, level: "p" });
       expect(parsed.stalenessTimeout).toBe(5);
-      expect(parsed.level).toBe("p");
-      expect(parsed.location).toEqual({ x: "left", y: "center" });
+      expect(parsed.location).toBe("left");
     });
 
     it("should accept explicit overrides", () => {
       const parsed = value.Value.z.parse({
         box: BOX,
         level: "h2",
-        location: { x: "center", y: "top" },
+        location: "center",
       });
       expect(parsed.level).toBe("h2");
-      expect(parsed.location).toEqual({ x: "center", y: "top" });
+      expect(parsed.location).toBe("center");
     });
   });
 
@@ -183,10 +183,10 @@ describe("value/aether/Value", () => {
       expect(at?.y).toBeCloseTo(box.height(BOX) / 2 + TEXT_HEIGHT / 2);
     });
 
-    it("should center the value horizontally when location.x is center", () => {
+    it("should center the value horizontally when location is center", () => {
       const { component, recorder } = setup({
         value: "5",
-        state: { location: { x: "center", y: "center" } },
+        state: { location: "center" },
       });
       recorder.clear();
       component.render({});
@@ -195,20 +195,10 @@ describe("value/aether/Value", () => {
       );
     });
 
-    it("should align the value to the box top when location.y is top", () => {
+    it("should align the value to the box right when location is right", () => {
       const { component, recorder } = setup({
         value: "5",
-        state: { location: { x: "left", y: "top" } },
-      });
-      recorder.clear();
-      component.render({});
-      expect(fillTextAt(recorder, "5")?.y).toBeCloseTo(0);
-    });
-
-    it("should align the value to the box right when location.x is right", () => {
-      const { component, recorder } = setup({
-        value: "5",
-        state: { location: { x: "right", y: "center" } },
+        state: { location: "right" },
       });
       recorder.clear();
       component.render({});
@@ -216,16 +206,6 @@ describe("value/aether/Value", () => {
       expect(fillTextAt(recorder, "5")?.x).toBeCloseTo(
         box.width(BOX) - CHAR_WIDTH - inset,
       );
-    });
-
-    it("should align the value to the box bottom when location.y is bottom", () => {
-      const { component, recorder } = setup({
-        value: "5",
-        state: { location: { x: "left", y: "bottom" } },
-      });
-      recorder.clear();
-      component.render({});
-      expect(fillTextAt(recorder, "5")?.y).toBeCloseTo(box.height(BOX));
     });
 
     it("should draw the negative sign to the left of the first digit", () => {
@@ -245,7 +225,7 @@ describe("value/aether/Value", () => {
       const digits = "1".repeat(Math.ceil(box.width(BOX) / CHAR_WIDTH));
       const { component, recorder } = setup({
         value: `-${digits}`,
-        state: { location: { x: "center", y: "center" } },
+        state: { location: "center" },
       });
       recorder.clear();
       component.render({});
@@ -271,7 +251,7 @@ describe("value/aether/Value", () => {
     it("should keep the leading digits of a centered value inside the box", () => {
       const { component, recorder } = setup({
         value: "1".repeat(40),
-        state: { location: { x: "center", y: "center" } },
+        state: { location: "center" },
       });
       recorder.clear();
       component.render({});
@@ -281,7 +261,7 @@ describe("value/aether/Value", () => {
     it("should keep the leading digits of a right-located value inside the box", () => {
       const { component, recorder } = setup({
         value: "1".repeat(40),
-        state: { location: { x: "right", y: "center" } },
+        state: { location: "right" },
       });
       recorder.clear();
       component.render({});
@@ -366,7 +346,7 @@ describe("value/aether/Value", () => {
       vi.unstubAllGlobals();
     });
 
-    const ink = (location: { x: string; y: string }): xy.XY[] => {
+    const ink = (location: spatial.XCenterLocation): xy.XY[] => {
       const surface = canvasTest.atlasSurface();
       const { component } = setup({
         value: "72.55",
@@ -379,16 +359,11 @@ describe("value/aether/Value", () => {
     };
 
     it("should end a right-located value an inset in from the box right", () => {
-      const glyphs = ink({ x: "right", y: "center" });
+      const glyphs = ink("right");
       const last = glyphs[glyphs.length - 1];
       expect(box.width(BOX) - (last.x + canvasTest.ATLAS_ADVANCE)).toBeCloseTo(
         6 + FONT_HEIGHT * 0.75,
       );
-    });
-
-    it("should sit a bottom-located value's baseline on the box bottom", () => {
-      const [first] = ink({ x: "left", y: "bottom" });
-      expect(first.y + canvasTest.ATLAS_BASELINE_OFFSET).toBeCloseTo(box.height(BOX));
     });
   });
 
@@ -454,7 +429,9 @@ describe("value/aether/Value", () => {
 
     // The worker draws the value, so a transition must not cost a state push.
     it("should keep staleness off the state that crosses to the DOM", () => {
-      expect(value.Value.z.parse({ box: box.ZERO })).not.toHaveProperty("stale");
+      expect(value.Value.z.parse({ box: box.ZERO, level: "p" })).not.toHaveProperty(
+        "stale",
+      );
     });
 
     it("should stay live before the source has ever sent", () => {

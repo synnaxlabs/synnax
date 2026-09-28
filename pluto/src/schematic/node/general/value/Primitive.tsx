@@ -32,13 +32,11 @@ export const BORDER_WIDTH = 2;
 interface RenderProps extends PropsWithChildren<
   Pick<schematic.ValueNodeConfig, "color" | "orientation" | "units" | "inlineSize">
 > {
-  className?: string;
   height?: number;
   unitsLevel?: text.Level;
 }
 
 export const Value = ({
-  className,
   color: colorVal,
   height,
   orientation,
@@ -59,7 +57,7 @@ export const Value = ({
   const contentStyle = useMemo<CSSProperties>(() => ({ inlineSize }), [inlineSize]);
   return (
     <Primitive.Div
-      className={CSS.cls(CSS.B("value"), CSS.B("symbol-colored"), className)}
+      className={CSS.cls(CSS.B("value"), CSS.B("symbol-colored"))}
       style={style}
     >
       <div className={CSS.BE("value", "content")} style={contentStyle}>

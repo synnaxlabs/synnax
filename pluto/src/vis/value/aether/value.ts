@@ -13,8 +13,8 @@ import {
   box,
   color,
   type dimensions,
-  location,
   scale,
+  spatial,
   text,
   xy,
 } from "@synnaxlabs/x";
@@ -47,10 +47,10 @@ const valueState = staleness.configZ.extend({
   box: box.box,
   telem: telem.stringSourceSpecZ.default(telem.noopStringSourceSpec),
   backgroundTelem: telem.colorSourceSpecZ.default(telem.noopColorSourceSpec),
-  level: text.levelZ.default("p"),
+  level: text.levelZ,
   color: color.colorZ.default(color.ZERO),
   stalenessColor: color.colorZ.optional(),
-  location: location.xy.default({ x: "left", y: "center" }),
+  location: spatial.xCenterLocationZ.default("left"),
   // borderRadius rounds the clip region, in px. Set it when the host has rounded
   // corners, so the background fill does not square them off.
   borderRadius: border.crudeRadiusZ.optional(),
@@ -204,7 +204,7 @@ export class Value
     // left-located value already sits at.
     const inset = 6 + fontHeight * 0.75;
     const start =
-      location.x === "left" ? inset : isNegative ? fontHeight * SIGN_OFFSET : 0;
+      location === "left" ? inset : isNegative ? fontHeight * SIGN_OFFSET : 0;
     let dims = canvas.textDimensions(value, FILL_TEXT_OPTIONS);
     const fitted = this.ellipsize(canvas, value, bWidth - start, dims);
     if (fitted !== value) {
@@ -212,12 +212,15 @@ export class Value
       dims = canvas.textDimensions(value, FILL_TEXT_OPTIONS);
     }
 
-    const labelOffset = { ...xy.ZERO };
-    if (location.x === "left") labelOffset.x = inset;
-    else if (location.x === "center") labelOffset.x = bWidth / 2 - dims.width / 2;
-    else labelOffset.x = bWidth - dims.width - inset;
-    if (location.y === "center") labelOffset.y = bHeight / 2 + dims.height / 2;
-    else if (location.y === "bottom") labelOffset.y = bHeight;
+    const labelOffset = {
+      x:
+        location === "left"
+          ? inset
+          : location === "center"
+            ? bWidth / 2 - dims.width / 2
+            : bWidth - dims.width - inset,
+      y: bHeight / 2 + dims.height / 2,
+    };
     // Overflow must never eat the sign or the leading digits: both change what the
     // value reads as, and neither loss is visible. Pinning the start keeps the cut at
     // the right end, where the ellipsis shows it.
@@ -255,6 +258,4 @@ export class Value
   }
 }
 
-export const REGISTRY: aether.ComponentRegistry = {
-  [Value.TYPE]: Value,
-};
+export const REGISTRY: aether.ComponentRegistry = { [Value.TYPE]: Value };

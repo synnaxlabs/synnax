@@ -8,44 +8,18 @@
 // included in the file licenses/APL.txt.
 
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
-import { text } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { Value } from "@/vis/value/aether/value";
 
-export const basePropsZ = Value.z
-  .partial({ color: true })
-  .extend({ level: text.levelZ.optional() });
-
-export interface UseProps extends z.input<typeof basePropsZ> {
+export interface UseProps extends z.input<typeof Value.z> {
   aetherKey: string;
 }
 
-export const use = ({
-  aetherKey,
-  box,
-  telem,
-  color,
-  level,
-  backgroundTelem,
-  location,
-  stalenessColor,
-  stalenessTimeout,
-  borderRadius,
-}: UseProps): void => {
-  const memoProps = useMemoDeepEqual({
-    box,
-    telem,
-    color,
-    level,
-    backgroundTelem,
-    stalenessColor,
-    stalenessTimeout,
-    location,
-    borderRadius,
-  });
+export const use = ({ aetherKey, ...props }: UseProps): void => {
+  const memoProps = useMemoDeepEqual(props);
   const [, , setState] = Aether.use({
     aetherKey,
     type: Value.TYPE,

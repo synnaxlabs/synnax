@@ -33,7 +33,7 @@ const CLEANUP_REQUEST: render.Request = {
 // Each drawn cell scissors its own box, which is how drawn() sees it.
 const cellChild = (b: box.Box): MountChild => ({
   type: value.Value.TYPE,
-  state: { box: b },
+  state: { box: b, level: "h5" },
 });
 
 const mount = (
