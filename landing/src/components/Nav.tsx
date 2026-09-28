@@ -129,9 +129,6 @@ export const Nav = (): ReactElement => {
           </Flex.Box>
         )}
       </Flex.Box>
-      {/* <Button.Button variant="text" className="nav-link" href="/#testimonials">
-        Testimonials
-      </Button.Button> */}
       <Button.Button variant="text" className="nav-link" href="/company">
         Company
       </Button.Button>
