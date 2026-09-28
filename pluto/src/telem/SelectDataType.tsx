@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Select } from "@synnaxlabs/lyra/select";
 import { caseconv, DataType } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
-import { Select } from "@/select";
 import { resolveDataTypeIcon } from "@/telem/resolveDataTypeIcon";
 
 const ALL_CAPS = new Set([DataType.UUID, DataType.JSON]);
@@ -27,9 +27,7 @@ const resolveName = (d: DataType): string => {
   return caseconv.capitalize(d.toString());
 };
 
-const DATA: Select.StaticEntry<string>[] = DataType.ALL.filter(
-  (d) => d !== DataType.UNKNOWN,
-).map((d) => ({
+const DATA = DataType.ALL.filter((d) => d !== DataType.UNKNOWN).map((d) => ({
   key: d.toString(),
   name: resolveName(d),
   icon: resolveIcon(d),
@@ -38,8 +36,8 @@ const DATA: Select.StaticEntry<string>[] = DataType.ALL.filter(
 const FIXED_DENSITY_DATA = DATA.filter((d) => !new DataType(d.key).isVariable);
 
 export interface SelectDataTypeProps extends Omit<
-  Select.StaticProps<string>,
-  "data" | "resourceName"
+  Select.SingleSimpleProps<string>,
+  "children" | "resourceName"
 > {
   hideVariableDensity?: boolean;
   hideDataTypes?: DataType[];
@@ -55,7 +53,16 @@ export const SelectDataType = ({
     () => data.filter((d) => !hideDataTypes.some((h) => h.equals(d.key))),
     [hideDataTypes, data],
   );
-  return <Select.Static {...rest} data={filteredData} resourceName="data type" />;
+  return (
+    <Select.Simple<string> {...rest} resourceName="data type">
+      {filteredData.map(({ key, name, icon }) => (
+        <Select.Item key={key} itemKey={key}>
+          {icon}
+          {name}
+        </Select.Item>
+      ))}
+    </Select.Simple>
+  );
 };
 
 const DEFAULT_HIDDEN_DATA_TYPES: DataType[] = [];

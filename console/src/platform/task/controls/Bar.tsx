@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type status } from "@synnaxlabs/client";
-import { type Flex } from "@synnaxlabs/pluto";
+import { type Flex } from "@synnaxlabs/lyra/flex";
 import { type ReactElement, type ReactNode, useCallback, useState } from "react";
 
 import { Actions } from "@/platform/task/controls/Actions";

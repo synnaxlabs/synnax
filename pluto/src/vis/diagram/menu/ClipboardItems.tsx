@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { type ReactElement } from "react";
-
-import { Icon } from "@/icon";
-import { Item } from "@/menu/Item";
-import { Triggers } from "@/triggers";
 
 /** Props for {@link ClipboardItems}. */
 export interface ClipboardItemsProps {
@@ -32,7 +31,7 @@ export const ClipboardItems = ({
   hasSelection,
 }: ClipboardItemsProps): ReactElement => (
   <>
-    <Item
+    <Menu.Item
       itemKey="cut"
       onClick={cut}
       disabled={!hasSelection}
@@ -40,8 +39,8 @@ export const ClipboardItems = ({
     >
       <Icon.Cut />
       Cut
-    </Item>
-    <Item
+    </Menu.Item>
+    <Menu.Item
       itemKey="copy"
       onClick={copy}
       disabled={!hasSelection}
@@ -49,10 +48,10 @@ export const ClipboardItems = ({
     >
       <Icon.Copy />
       Copy
-    </Item>
-    <Item itemKey="paste" onClick={paste} triggerIndicator={Triggers.PASTE}>
+    </Menu.Item>
+    <Menu.Item itemKey="paste" onClick={paste} triggerIndicator={Triggers.PASTE}>
       <Icon.Paste />
       Paste
-    </Item>
+    </Menu.Item>
   </>
 );

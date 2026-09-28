@@ -12,6 +12,7 @@ import {
   type CrudeTimeSpan,
   type destructor,
   errors,
+  type record,
   state,
   TimeSpan,
   zod,
@@ -92,7 +93,7 @@ class InvokeTracker {
 /** Setter argument accepted by {@link Handle.setState}: a new state value or a function
  * that derives one from the previous value. Always the schema's input type — the value
  * is parsed before being stored, so post-transform output types shouldn't be passed. */
-export type RawSetArg<StateSchema extends z.ZodType<state.State, state.State>> =
+export type RawSetArg<StateSchema extends z.ZodType<record.Unknown, record.Unknown>> =
   state.SetArg<z.input<StateSchema>, z.infer<StateSchema>>;
 
 type Listener = () => void;
@@ -106,9 +107,9 @@ type Phase = "staged" | "queued" | "live";
  * and the handle it returns keep the per-entry state and callback types without
  * re-asserting at every field access. */
 interface Entry<
-  StateSchema extends z.ZodType<state.State, state.State> = z.ZodType<
-    state.State,
-    state.State
+  StateSchema extends z.ZodType<record.Unknown, record.Unknown> = z.ZodType<
+    record.Unknown,
+    record.Unknown
   >,
 > {
   type: string;
@@ -131,7 +132,7 @@ interface Entry<
 
 /** Arguments accepted by {@link Store.stage}. */
 export interface StageParams<
-  StateSchema extends z.ZodType<state.State, state.State>,
+  StateSchema extends z.ZodType<record.Unknown, record.Unknown>,
   Methods extends aether.MethodsSchema = aether.EmptyMethodsSchema,
 > {
   /** Component type, matched against the worker-side registry. */
@@ -157,11 +158,14 @@ export interface StageParams<
  * Every field is built once with the handle and never replaced, so a React caller can
  * hand them straight to hooks without wrapping them in `useCallback`. */
 export interface Handle<
-  StateSchema extends z.ZodType<state.State, state.State>,
+  StateSchema extends z.ZodType<record.Unknown, record.Unknown>,
   Methods extends aether.MethodsSchema = aether.EmptyMethodsSchema,
 > {
   path: readonly string[];
   methods: aether.CallersFromSchema<Methods>;
+  /** Sets the state and sends the changed top-level fields to the worker. Each
+   * top-level field must have one writer, the main thread or the worker: a field both
+   * write can still swap values when their updates cross in flight. */
   setState: (state: RawSetArg<StateSchema>, transfer?: Transferable[]) => void;
   /** Latest state, readable in every phase. Owned by the handle rather than the store
    * so it stays stable across a detach/attach cycle. */
@@ -353,7 +357,7 @@ export class Store {
    * so a component staged by a render React discards is reclaimed with the caller's
    * own reference. */
   stage<
-    StateSchema extends z.ZodType<state.State, state.State>,
+    StateSchema extends z.ZodType<record.Unknown, record.Unknown>,
     Methods extends aether.MethodsSchema,
   >(params: StageParams<StateSchema, Methods>): Handle<StateSchema, Methods> {
     const {
@@ -478,14 +482,17 @@ export class Store {
     // Drop pushes for a detached path — possible when delete/update messages cross
     // in flight, or after a StrictMode pseudo-unmount.
     if (entry == null) return;
-    const parsed = zod.parse(entry.schema, state, { label: entry.type });
-    entry.state = parsed;
+    entry.state = zod.parse(
+      entry.schema,
+      { ...entry.state, ...state },
+      { label: entry.type },
+    );
     this.listeners.get(id)?.forEach((l) => l());
-    entry.onReceiveRef?.current?.(parsed);
+    entry.onReceiveRef?.current?.(entry.state);
   }
 
   private buildHandle<
-    StateSchema extends z.ZodType<state.State, state.State>,
+    StateSchema extends z.ZodType<record.Unknown, record.Unknown>,
     Methods extends aether.MethodsSchema,
   >(entry: Entry<StateSchema>, methodsSchema?: Methods): Handle<StateSchema, Methods> {
     const id = pathID(entry.path);
@@ -495,9 +502,10 @@ export class Store {
       transfer: Transferable[] = [],
     ): void => {
       if (entry.displaced) return;
+      const prev = entry.state;
       const raw = state.executeSetter<z.input<StateSchema>, z.infer<StateSchema>>(
         next,
-        entry.state,
+        prev,
       );
       entry.state = zod.parse(entry.schema, raw, { label: entry.type });
       // Before the create message flushes the worker has no component to update, so
@@ -506,7 +514,12 @@ export class Store {
       if (entry.phase !== "live") entry.transfer.push(...transfer);
       else
         this.outbound.send(
-          { variant: "update", path: entry.path, state: entry.state, type: entry.type },
+          {
+            variant: "update",
+            path: entry.path,
+            state: aether.delta(prev, entry.state),
+            type: entry.type,
+          },
           transfer,
         );
       this.listeners.get(id)?.forEach((l) => l());

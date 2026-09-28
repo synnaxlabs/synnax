@@ -9,6 +9,9 @@
 
 import { table } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { mockBoundingClientRect } from "@synnaxlabs/lyra/testutil";
+import { Theming } from "@synnaxlabs/lyra/theming";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { type border, box, type scale, xy } from "@synnaxlabs/x";
 import { act, fireEvent, render, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
@@ -18,10 +21,7 @@ import { Errors } from "@/errors";
 import { Table } from "@/table";
 import { table as aetherTable } from "@/table/aether";
 import { INDICATOR_SIZE } from "@/table/Indicator";
-import { mockBoundingClientRect } from "@/testutil/dom";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
-import { Theming } from "@/theming";
-import { Triggers } from "@/triggers";
 import { canvasTest } from "@/vis/render/test";
 import { value } from "@/vis/value/aether";
 

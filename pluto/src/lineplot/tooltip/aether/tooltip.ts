@@ -45,6 +45,8 @@ interface InternalState {
   draw: Draw2D;
   dotColor: color.Color;
   dotColorContrast: color.Color;
+  textColor: color.Color;
+  ruleColor: color.Color;
 }
 
 export interface TooltipProps {
@@ -58,12 +60,11 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
 
   afterUpdate(ctx: aether.Context): void {
     const theme = theming.use(ctx);
-    if (color.isZero(this.state.textColor)) this.state.textColor = theme.colors.text;
-    if (color.isZero(this.state.backgroundColor))
-      this.state.backgroundColor = theme.colors.gray.l2;
-    if (color.isZero(this.state.borderColor))
-      this.state.borderColor = theme.colors.border;
-    if (color.isZero(this.state.ruleColor)) this.state.ruleColor = theme.colors.gray.l7;
+    const { textColor, ruleColor } = this.state;
+    this.internal.textColor = color.isZero(textColor) ? theme.colors.text : textColor;
+    this.internal.ruleColor = color.isZero(ruleColor)
+      ? theme.colors.gray.l7
+      : ruleColor;
     this.internal.dotColor = theme.colors.text;
     this.internal.dotColorContrast = theme.colors.textInverted;
 
@@ -95,7 +96,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
     if (!bounds.contains(box.xBounds(region), rulePosition)) return;
 
     draw.rule({
-      stroke: this.state.ruleColor,
+      stroke: this.internal.ruleColor,
       lineWidth: this.state.ruleStrokeWidth,
       lineDash: this.state.ruleStrokeDash,
       direction: "y",
@@ -140,7 +141,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
       draw: (i, b) => {
         let label: string;
         let value: string;
-        let color = this.state.textColor;
+        let color = this.internal.textColor;
         if (i === 0) {
           label = "Time";
           value = avgXValue.toString("preciseDate", "local");

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Task } from "@/platform/task";
@@ -25,6 +25,17 @@ describe("layouts.DetailsHeader", () => {
     fireEvent.click(getIconButton(container, "json"));
     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
     expect(JSON.parse(writeText.mock.calls[0][0] as string)).toEqual({ channels });
+  });
+
+  it("should not nest a rich title inside a paragraph", async () => {
+    const { container } = await renderInTaskForm(
+      <Task.Views.DetailsHeader path="config">
+        <Task.Views.ItemLabel kind="Voltage">Port 1</Task.Views.ItemLabel>
+      </Task.Views.DetailsHeader>,
+      { values: { config: { channels: [] } } },
+    );
+    expect(screen.getByText("Port 1")).toBeTruthy();
+    expect(container.querySelector("p p, p div")).toBeNull();
   });
 
   it("should not copy anything when disabled", async () => {

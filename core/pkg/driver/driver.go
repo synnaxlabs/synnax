@@ -40,6 +40,11 @@ import (
 // certificates it verifies the Core against.
 const trustAnchorFileName = "trust-anchors.pem"
 
+// stateFileName is the file in the Driver's working directory that holds its persisted
+// state. Without it, the Driver uses a machine-wide directory that the Core's user may
+// not be able to write and that other Drivers on the host share.
+const stateFileName = "state.json"
+
 // Config is the configuration for opening an embedded Driver.
 type Config struct {
 	// Insecure sets whether not to use TLS for communication. If insecure is set to
@@ -121,7 +126,8 @@ func (c Config) format(trustAnchorFile string) map[string]any {
 		"connection": map[string]any{
 			"host":             c.Address.Host(),
 			"port":             c.Address.Port(),
-			"credentials":      c.Credentials,
+			"username":         c.Credentials.Username,
+			"password":         c.Credentials.Password,
 			"ca_cert_file":     trustAnchorFile,
 			"client_cert_file": c.ClientCertFile,
 			"client_key_file":  c.ClientKeyFile,
@@ -519,7 +525,11 @@ func (d *Driver) setupCmd(
 	if *d.cfg.Debug {
 		flags = append(flags, "--debug")
 	}
-	flags = append(flags, "--config", cfgFile)
+	flags = append(
+		flags,
+		"--config", cfgFile,
+		"--state-file", filepath.Join(workDir, stateFileName),
+	)
 	cmd := exec.CommandContext(ctx, extractedBinary, flags...)
 	configureSysProcAttr(cmd)
 	stdin, err := cmd.StdinPipe()

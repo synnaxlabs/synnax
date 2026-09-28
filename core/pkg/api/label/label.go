@@ -177,9 +177,7 @@ func (s *Service) Add(
 	}
 	w := s.internal.NewWriter(tx)
 	if req.Replace {
-		if err := w.Clear(ctx, req.ID); err != nil {
-			return struct{}{}, err
-		}
+		return struct{}{}, w.Replace(ctx, req.ID, req.Labels)
 	}
 	return struct{}{}, w.Label(ctx, req.ID, req.Labels)
 }

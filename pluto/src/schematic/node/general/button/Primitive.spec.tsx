@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
+import { Form } from "@synnaxlabs/lyra/form";
 import { color, deep } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Form } from "@/form";
 import { ButtonForm } from "@/schematic/node/general/button/Form";
 import { Button } from "@/schematic/node/general/button/Primitive";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
@@ -237,16 +237,19 @@ describe("ButtonForm", () => {
         <ButtonForm />
       </FormWrapper>,
     );
+    fireEvent.click(getByText("Style"));
     expect(getByText("Size")).toBeDefined();
     expect(getByText("M").closest("button")?.getAttribute("aria-pressed")).toBe("true");
   });
 
   it("should not render the label size and direction fields", () => {
-    const { queryByText } = render(
+    const { getByText, queryByText } = render(
       <FormWrapper>
         <ButtonForm />
       </FormWrapper>,
     );
+    fireEvent.click(getByText("Style"));
+    expect(getByText("Size")).toBeDefined();
     expect(queryByText("Label size")).toBeNull();
     expect(queryByText("Label direction")).toBeNull();
   });

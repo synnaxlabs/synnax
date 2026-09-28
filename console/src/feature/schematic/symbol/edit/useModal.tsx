@@ -10,19 +10,17 @@
 import "@/feature/schematic/symbol/edit/Edit.css";
 
 import { ontology, type schematic } from "@synnaxlabs/client";
-import {
-  Button,
-  Divider,
-  Flex,
-  Form,
-  Header,
-  Icon,
-  Input,
-  Nav,
-  Schematic,
-  Theming,
-  useCombinedStateAndRef,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Header } from "@synnaxlabs/lyra/header";
+import { useCombinedStateAndRef } from "@synnaxlabs/lyra/hooks";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Nav } from "@synnaxlabs/lyra/nav";
+import { Theming } from "@synnaxlabs/lyra/theming";
+import { Schematic } from "@synnaxlabs/pluto";
 import { type bounds, color, id, type xy } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 

@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { color } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
-import { CSS } from "@/css";
 import { Primitive } from "@/schematic/node/common/primitive";
-import { Theming } from "@/theming";
 
 export const DEFAULT_POLYGON_SIDE_LENGTH = 20;
 

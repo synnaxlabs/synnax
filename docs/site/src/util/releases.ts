@@ -10,8 +10,8 @@
 import { TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod";
 
-export type Product = "console" | "core" | "driver";
-const PRODUCTS: readonly Product[] = ["console", "core", "driver"];
+export type Product = "console" | "core" | "driver" | "desktop";
+const PRODUCTS: readonly Product[] = ["console", "core", "driver", "desktop"];
 const isProduct = (name: string): name is Product =>
   PRODUCTS.some((product) => product === name);
 export type Channel = "stable" | "next";
@@ -20,7 +20,7 @@ const REPO = "synnaxlabs/synnax";
 const API_URL = `https://api.github.com/repos/${REPO}/releases?per_page=100`;
 const MAX_PAGES = 20;
 const NEXT_LINK = /<([^>]+)>;\s*rel="next"/;
-const TAG = /^(console|core|driver)\/v(\d+)\.(\d+)\.(\d+)(?:-rc\.(\d+))?$/;
+const TAG = /^(console|core|driver|desktop)\/v(\d+)\.(\d+)\.(\d+)(?:-rc\.(\d+))?$/;
 
 /** Builds the tag a product release carries, such as `console/v0.59.0`. */
 export const tag = (product: Product, version: string): string =>
@@ -30,9 +30,9 @@ export const tag = (product: Product, version: string): string =>
 export const assetURL = (product: Product, version: string, asset: string): string =>
   `https://github.com/${REPO}/releases/download/${tag(product, version)}/${asset}`;
 
-/** Builds the URL of the Console updater manifest on a Console release. */
-export const manifestURL = (version: string): string =>
-  assetURL("console", version, "latest.json");
+/** Builds the URL of the updater manifest on a release of an app. */
+export const manifestURL = (product: Product, version: string): string =>
+  assetURL(product, version, "latest.json");
 
 interface Parsed {
   product: Product;

@@ -16,8 +16,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { aetherTest } from "@/aether/test";
 import { Flux } from "@/flux";
+import { Status } from "@/status";
 import { status } from "@/status/aether";
-import { Status } from "@/status/base";
 import { Synnax } from "@/synnax";
 import { synnax } from "@/synnax/aether";
 import { createSynnaxWrapper } from "@/testutil/Synnax";

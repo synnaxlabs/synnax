@@ -10,18 +10,14 @@
 import "@/platform/arc/CreateModal.css";
 
 import { type arc, status, UnexpectedError } from "@synnaxlabs/client";
-import {
-  Arc,
-  Button,
-  CSS as PCSS,
-  type Flux,
-  Form,
-  Icon,
-  type Input,
-  Nav,
-  Select,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { type Input } from "@synnaxlabs/lyra/input";
+import { Nav } from "@synnaxlabs/lyra/nav";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Arc, type Flux } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
 import { type z } from "zod";
 
@@ -37,8 +33,6 @@ export interface CreateModalParams {
   initialValues?: Partial<z.infer<typeof Arc.formSchema>>;
 }
 
-const MODE_KEYS: arc.Mode[] = ["text", "graph"];
-
 const NAME_INPUT_PROPS: Partial<Input.TextProps> = {
   autoFocus: true,
   placeholder: "Name",
@@ -47,42 +41,7 @@ const NAME_INPUT_PROPS: Partial<Input.TextProps> = {
   selectOnFocus: true,
 };
 
-export interface ArcModeSelectButtonProps extends Select.ButtonProps<arc.Mode> {
-  icon: Icon.ReactElement;
-  title: string;
-  description: string;
-}
-
-const ArcModeSelectButton = ({
-  itemKey,
-  icon,
-  title,
-  description,
-  ...rest
-}: ArcModeSelectButtonProps) => {
-  const { selected, onSelect } = Select.useItemState<arc.Mode>(itemKey);
-  return (
-    <Button.Button
-      y
-      alignSelf="stretch"
-      className={CSS.cls(
-        CSS.BE("arc-create-modal", "mode-select-button"),
-        PCSS.selected(selected),
-      )}
-      onClick={onSelect}
-      grow
-      justify="start"
-      {...rest}
-    >
-      <Text.Text>
-        {icon} {title}
-      </Text.Text>
-      <Text.Text color={9} level="small" wrap overflow="wrap">
-        {description}
-      </Text.Text>
-    </Button.Button>
-  );
-};
+const MODE_CLASS = CSS.BE("arc-create-modal", "mode-select-button");
 
 export const useCreateModal = Modals.createPrompt<CreateModalResult, CreateModalParams>(
   ({ initialValues, close }) => {
@@ -113,23 +72,42 @@ export const useCreateModal = Modals.createPrompt<CreateModalResult, CreateModal
                 <Select.Buttons
                   value={value}
                   onChange={onChange}
-                  keys={MODE_KEYS}
                   pack={false}
                   x
                   full="x"
                 >
-                  <ArcModeSelectButton
+                  <Select.Item
                     itemKey="text"
-                    icon={<Icon.Text />}
-                    title="Text"
-                    description="Best for complex automations such as control sequences"
-                  />
-                  <ArcModeSelectButton
+                    className={MODE_CLASS}
+                    variant="outlined"
+                    y
+                    grow
+                    alignSelf="stretch"
+                    justify="start"
+                  >
+                    <Text.Text>
+                      <Icon.Text /> Text
+                    </Text.Text>
+                    <Text.Text color={9} level="small" wrap overflow="wrap">
+                      Best for complex automations such as control sequences
+                    </Text.Text>
+                  </Select.Item>
+                  <Select.Item
                     itemKey="graph"
-                    icon={<Icon.Schematic />}
-                    title="Graph"
-                    description="Best for simple automations such as alarms"
-                  />
+                    className={MODE_CLASS}
+                    variant="outlined"
+                    y
+                    grow
+                    alignSelf="stretch"
+                    justify="start"
+                  >
+                    <Text.Text>
+                      <Icon.Schematic /> Graph
+                    </Text.Text>
+                    <Text.Text color={9} level="small" wrap overflow="wrap">
+                      Best for simple automations such as alarms
+                    </Text.Text>
+                  </Select.Item>
                 </Select.Buttons>
               )}
             </Form.Field>

@@ -16,8 +16,10 @@ packages:
   - docs/site
   - drift
   - freighter/ts
+  - lyra
   - oracle/lsp/extensions/vscode
   - pluto
+  - site/www
   - studio
   - x/media
   - x/ts
@@ -81,6 +83,7 @@ catalog:
   '@synnaxlabs/drift': workspace:^
   '@synnaxlabs/eslint-config': workspace:^
   '@synnaxlabs/freighter': workspace:^
+  '@synnaxlabs/lyra': workspace:^
   '@synnaxlabs/madge': workspace:^
   '@synnaxlabs/media': workspace:^
   '@synnaxlabs/pluto': workspace:^
@@ -106,7 +109,6 @@ catalog:
   '@types/offscreencanvas': ^2019.7.3
   '@types/pluralize': ^0.0.33
   '@types/react': ^19.3.0
-  '@types/react-color': ^3.0.13
   '@types/react-dom': ^19.3.0
   '@types/use-sync-external-store': ^1.7.0
   '@types/webgl2': ^0.0.12
@@ -139,6 +141,7 @@ catalog:
   mathjs: ^15.2.0
   nanoid: ^6.0.1
   pluralize: ^8.0.0
+  postcss: ^8.5.26
   prettier: ^3.9.9
   prettier-plugin-astro: ^1.1.0
   prettier-plugin-sh: ^0.19.0
@@ -150,7 +153,6 @@ catalog:
   # role cases catch it; unit specs do not.
   proxy-memoize: 2.0.3
   react: ^19.3.0
-  react-color: ^2.19.3
   react-dom: ^19.3.0
   react-icons: ^5.7.0
   react-redux: ^9.3.0
@@ -166,7 +168,6 @@ catalog:
   turbo: ^2.11.3
   typescript: ^7.0.2
   typescript-eslint: ^8.70.1
-  unplugin-dts: ^1.1.1
   use-sync-external-store: ^1.7.0
   uuid: ^14.0.2
   vite: ^8.3.0
@@ -177,7 +178,7 @@ catalog:
   zod: ^4.6.5
 
 # TypeScript 6 pins for tooling that needs the JS Compiler API, which TS 7 no longer
-# ships (madge, typescript-eslint, astro check, unplugin-dts).
+# ships (madge, typescript-eslint, astro check).
 catalogs:
   ts6:
     '@typescript/typescript6': ^6.0.2

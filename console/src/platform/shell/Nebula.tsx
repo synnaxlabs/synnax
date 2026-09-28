@@ -9,7 +9,7 @@
 
 import "@/platform/shell/Nebula.css";
 
-import { Theming } from "@synnaxlabs/pluto";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { color } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useMemo, useRef } from "react";
 

@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { theme } from "@synnaxlabs/lyra/theme";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { status } from "@/status/aether";
-import { type Theme, themeZ } from "@/theming/base/theme";
 
 const CONTEXT_KEY = "pluto-theming-context";
 
@@ -21,7 +21,7 @@ export const fontSpecZ = z.object({
 });
 
 const providerStateZ = z.object({
-  theme: themeZ,
+  theme: theme.themeZ,
   fontURLs: z.array(fontSpecZ),
 });
 
@@ -31,7 +31,7 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
   schema = Provider.z;
 
   afterUpdate(ctx: aether.Context): void {
-    const v = ctx.getOptional<Theme>(CONTEXT_KEY);
+    const v = ctx.getOptional<theme.Theme>(CONTEXT_KEY);
     if (v != null && this.state.theme.key === this.prevState.theme.key) return;
     ctx.set(CONTEXT_KEY, this.state.theme);
     const runAsync = status.useErrorHandler(ctx);
@@ -59,7 +59,8 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
   }
 }
 
-export const use = (ctx: aether.Context): Theme => ctx.get<Theme>(CONTEXT_KEY);
+export const use = (ctx: aether.Context): theme.Theme =>
+  ctx.get<theme.Theme>(CONTEXT_KEY);
 
 export const REGISTRY: aether.ComponentRegistry = {
   [Provider.TYPE]: Provider,

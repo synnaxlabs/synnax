@@ -1,0 +1,23 @@
+{
+  "productName": "Synnax Desktop",
+  "identifier": "com.synnaxlabs.desktop",
+  "build": {
+    "features": ["desktop"]
+  },
+  "bundle": {
+    "icon": [
+      "icons/desktop/32x32.png",
+      "icons/desktop/128x128.png",
+      "icons/desktop/128x128@2x.png",
+      "icons/desktop/icon.icns",
+      "icons/desktop/icon.ico"
+    ],
+    "externalBin": ["binaries/synnax-core"]
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": ["https://docs.synnaxlabs.com/releases/desktop/latest.json"]
+    },
+    "deep-link": { "mobile": [], "desktop": { "schemes": [] } }
+  }
+}

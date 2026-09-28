@@ -52,7 +52,7 @@ class Select(Symbol):
             self.set_label(channel_name)
             self.page.get_by_text("Properties").dispatch_event("click")
             self.page.get_by_text("Control").last.dispatch_event("click")
-            self.set_channel(input_field="Command Channel", channel_name=channel_name)
+            self.set_channel(section="Command", channel_name=channel_name)
             applied_properties["channel"] = channel_name
 
         if options is not None and len(options) > 0:

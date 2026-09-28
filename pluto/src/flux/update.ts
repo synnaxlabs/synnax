@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type query, type status, type Synnax as Client } from "@synnaxlabs/client";
+import { useDebouncedCallback } from "@synnaxlabs/lyra/hooks";
+import { Status } from "@synnaxlabs/lyra/status";
 import { type CrudeTimeSpan, type destructor, state, type verbs } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 import type z from "zod";
@@ -23,8 +25,6 @@ import {
   resultStatusDetails,
   successResult,
 } from "@/flux/result";
-import { useDebouncedCallback } from "@/hooks";
-import { useAdder } from "@/status/base/Aggregator";
 import { Synnax } from "@/synnax";
 
 /** What an update implementation receives. */
@@ -162,7 +162,7 @@ const useObservable = <
     afterFailure,
   } = params;
   const client = Synnax.use();
-  const addStatus = useAdder();
+  const addStatus = Status.useAdder();
   const runUpdate = useCallback(
     async (data: Input, opts: query.FetchOptions = {}): Promise<boolean> => {
       const { signal } = opts;

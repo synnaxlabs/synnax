@@ -21,6 +21,7 @@ on:
       - configs/vite/**
       - docs/site/**
       - freighter/ts/**
+      - lyra/**
       - package.json
       - pluto/**
       - pnpm-lock.yaml

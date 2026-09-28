@@ -10,6 +10,7 @@
 package types_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -2175,6 +2176,77 @@ var _ = Describe("TS Types Plugin", func() {
 			})
 		})
 
+		Context("same-namespace hand-written reference", func() {
+			It("Should import a referenced hand-written struct from its module",
+				func(ctx SpecContext) {
+					source := `
+						@ts output "x/ts/src/color"
+
+						Color struct {
+							r uint8
+							@ts hand
+							@ts include "x/ts/src/color/color"
+						}
+
+						Band struct {
+							threshold float64
+							color Color
+						}
+					`
+					resp := MustGenerate(ctx, source, "color", loader, typesPlugin)
+					ExpectContent(resp, "types.gen.ts").
+						ToContain(
+							`import { colorZ } from "@/color/color"`,
+							`color: colorZ`,
+						).
+						ToNotContain("export const colorZ")
+				})
+
+			It("Should import a hand-written struct that a struct extends",
+				func(ctx SpecContext) {
+					source := `
+						@ts output "x/ts/src/color"
+
+						Color struct {
+							r uint8
+							@ts hand
+							@ts include "x/ts/src/color/color"
+						}
+
+						Named struct extends Color {
+							name string
+						}
+					`
+					resp := MustGenerate(ctx, source, "color", loader, typesPlugin)
+					ExpectContent(resp, "types.gen.ts").
+						ToContain(
+							`import { colorZ } from "@/color/color"`,
+							"export const namedZ = colorZ\n",
+						)
+				})
+
+			It("Should fail when a referenced hand-written struct declares no module",
+				func(ctx SpecContext) {
+					source := `
+						@ts output "x/ts/src/color"
+
+						Color struct {
+							r uint8
+							@ts hand
+						}
+
+						Band struct {
+							color Color
+						}
+					`
+					req := MustGenerateRequest(ctx, source, "color", loader)
+					Expect(typesPlugin.Generate(req)).Error().To(MatchError(
+						"failed to generate x/ts/src/color: types with no generated " +
+							"TypeScript declaration need a @ts include module: color.Color",
+					))
+				})
+		})
+
 		Context("documentation", func() {
 			It("Should generate JSDoc comments from doc domain", func(ctx SpecContext) {
 				source := `
@@ -3004,6 +3076,44 @@ var _ = Describe("TS Union Generation", func() {
 				)
 		},
 	)
+
+	Describe("Lazy variants", func() {
+		unionSource := func(count int) string {
+			var b strings.Builder
+			b.WriteString(
+				"@ts output \"out\"\nParams struct { value float64 }\nShape union on variant {\n",
+			)
+			for i := range count {
+				fmt.Fprintf(&b, "v%d Params\n", i)
+			}
+			b.WriteString("}\n")
+			return b.String()
+		}
+
+		It(
+			"Should wrap each variant in z.lazy when a union has 16 variants",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, unionSource(16), "ni", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain(
+						`export const shapeZ = z.discriminatedUnion("variant", [`,
+						`z.lazy(() => v0ShapeZ),`,
+						`z.lazy(() => v15ShapeZ),`,
+						`v0: v0ShapeZ,`,
+					)
+			},
+		)
+
+		It(
+			"Should reference variants directly when a union has 15 variants",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, unionSource(15), "ni", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain(`  v0ShapeZ,`).
+					ToNotContain(`z.lazy(`)
+			},
+		)
+	})
 
 	It(
 		"Should declare inline variant fields directly on the member schema",
