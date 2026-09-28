@@ -165,14 +165,36 @@ describe("ValueForm", () => {
       expect(inputs().map((i) => i.value)).toEqual(["1", "5"]);
     });
 
+    it("should flag every band that shares a threshold", () => {
+      const { getByText, container } = renderTab("Redline");
+      const inputs = () =>
+        Array.from(
+          container.querySelectorAll<HTMLInputElement>(
+            ".pluto-redline-form__bands .pluto-list__item input",
+          ),
+        );
+      const flagged = () =>
+        inputs().map((i) => i.parentElement?.classList.contains("pluto--error"));
+      fireEvent.click(getByText("Add band"));
+      fireEvent.click(getByText("Add band"));
+      fireEvent.click(getByText("Add band"));
+      expect(flagged()).toEqual([false, false, false]);
+      fireEvent.change(inputs()[2], { target: { value: "0" } });
+      fireEvent.blur(inputs()[2]);
+      expect(flagged()).toEqual([true, true, false]);
+    });
+
     it("should show that values below the lowest band paint no fill", () => {
       const { getByText, container } = renderTab("Redline");
       expect(getByText("All values")).toBeDefined();
       fireEvent.click(getByText("Add band"));
-      const floor = container.querySelector(".pluto-redline-form__floor input");
-      expect(floor).toHaveProperty("disabled", true);
-      expect(floor).toHaveProperty("value", "0");
+      const floor = () =>
+        container.querySelector(".pluto-redline-form__floor-value")?.textContent;
+      expect(floor()).toBe("0");
+      expect(container.querySelector(".pluto-redline-form__floor input")).toBeNull();
       expect(getByText("No fill")).toBeDefined();
+      act(() => methods.set("units", "psi"));
+      expect(floor()).toBe("0 psi");
     });
 
     it("should show the background below the lowest band once one is set", () => {

@@ -9,7 +9,9 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-redline-form__bands {
+/* Lyra's flex gap rules tie a two-class rule on specificity and load later, so the
+   extra class keeps band items and the floor on the same gap. */
+.pluto-redline-form .pluto-redline-form__bands {
     width: 44rem;
 
     /* The floor sits outside the list, so the list's own inset would misalign it. */
@@ -23,19 +25,20 @@
         padding: 0.5rem 0;
     }
 
+    .pluto-list__item.pluto-flex,
+    .pluto-redline-form__floor.pluto-flex {
+        gap: 1rem;
+    }
+
     .pluto-color-swatch,
     .pluto-color-swatch__dropdown {
         flex-shrink: 0;
     }
 }
 
-/* Lyra's flex gap rules tie on specificity and load later, so they win over a two-class
-   rule. The extra class keeps band items and the floor on the same gap. */
-.pluto-redline-form .pluto-redline-form__bands {
-    .pluto-list__item.pluto-flex,
-    .pluto-redline-form__floor.pluto-flex {
-        gap: 1rem;
-    }
+/* Lines up with the text inside the band threshold inputs. */
+.pluto-redline-form__floor-value {
+    padding-left: calc(1.5rem + var(--pluto-border-width));
 }
 
 /* Segments stretch through the row padding so adjacent rows join into one bar. */

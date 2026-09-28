@@ -21,7 +21,7 @@ import (
 	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v9"
 	border "github.com/synnaxlabs/x/border/versions/v0"
-	color "github.com/synnaxlabs/x/color/versions/v0"
+	color "github.com/synnaxlabs/x/color/versions/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
@@ -171,41 +171,6 @@ var (
 )
 
 var _ = Describe("Codec", func() {
-	Describe("Band", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original v9.Band) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v9.Band
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", v9.Band{
-				Key:       "test_1",
-				Threshold: 2.5,
-				Color: color.Color{
-					R: 5,
-					G: 6,
-					B: 7,
-					A: 7.5,
-				},
-				Flashing: false,
-			}),
-			Entry("zero values", v9.Band{
-				Key:       "",
-				Threshold: 0,
-				Color: color.Color{
-					R: 0,
-					G: 0,
-					B: 0,
-					A: 0,
-				},
-				Flashing: false,
-			}),
-		)
-	})
 	Describe("ControlStateConfig", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v9.ControlStateConfig) {
@@ -700,8 +665,8 @@ var _ = Describe("Codec", func() {
 					A: 18.5,
 				}),
 				Tooltip: []string{"test_19"},
-				Redline: v9.Redline{
-					Bands: []v9.Band{
+				Redline: color.Scale{
+					Bands: []color.Band{
 						{
 							Key:       "test_22",
 							Threshold: 23.5,
@@ -1480,8 +1445,8 @@ var _ = Describe("Codec", func() {
 					A: 18.5,
 				}),
 				Tooltip: []string{"test_19"},
-				Redline: v9.Redline{
-					Bands: []v9.Band{
+				Redline: color.Scale{
+					Bands: []color.Band{
 						{
 							Key:       "test_22",
 							Threshold: 23.5,
@@ -1793,37 +1758,6 @@ var _ = Describe("Codec", func() {
 			Entry("zero values", v9.Page{Type: v9.PageType(""), Key: ""}),
 		)
 	})
-	Describe("Redline", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original v9.Redline) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v9.Redline
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", v9.Redline{
-				Bands: []v9.Band{
-					{
-						Key:       "test_2",
-						Threshold: 3.5,
-						Color: color.Color{
-							R: 6,
-							G: 7,
-							B: 8,
-							A: 8.5,
-						},
-						Flashing: true,
-					},
-				},
-				Smooth: false,
-			}),
-			Entry("zero values", v9.Redline{Bands: []v9.Band{}, Smooth: false}),
-			Entry("empty collections", v9.Redline{Bands: []v9.Band{}, Smooth: false}),
-		)
-	})
 	Describe("ScaleIndicatorConfig", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v9.ScaleIndicatorConfig) {
@@ -2122,33 +2056,6 @@ var _ = Describe("Codec", func() {
 	})
 })
 
-func BenchmarkEncodeDecodeBand(b *testing.B) {
-	seed := v9.Band{
-		Key:       "test_1",
-		Threshold: 2.5,
-		Color: color.Color{
-			R: 5,
-			G: 6,
-			B: 7,
-			A: 7.5,
-		},
-		Flashing: false,
-	}
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for b.Loop() {
-		w.Reset()
-		if err := seed.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded v9.Band
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
 func BenchmarkEncodeDecodeControlStateConfig(b *testing.B) {
 	seed := v9.ControlStateConfig{
 		Authority:       new(uint8(2)),
@@ -2308,38 +2215,6 @@ func BenchmarkEncodeDecodePage(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v9.Page
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeRedline(b *testing.B) {
-	seed := v9.Redline{
-		Bands: []v9.Band{
-			{
-				Key:       "test_2",
-				Threshold: 3.5,
-				Color: color.Color{
-					R: 6,
-					G: 7,
-					B: 8,
-					A: 8.5,
-				},
-				Flashing: true,
-			},
-		},
-		Smooth: false,
-	}
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for b.Loop() {
-		w.Reset()
-		if err := seed.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded v9.Redline
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -2565,65 +2440,6 @@ func BenchmarkEncodeDecodeToggleSymbolConfig(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
-}
-
-func FuzzDecodeBand(f *testing.F) {
-	{
-		seed := v9.Band{
-			Key:       "test_1",
-			Threshold: 2.5,
-			Color: color.Color{
-				R: 5,
-				G: 6,
-				B: 7,
-				A: 7.5,
-			},
-			Flashing: false,
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v9.Band{
-			Key:       "",
-			Threshold: 0,
-			Color: color.Color{
-				R: 0,
-				G: 0,
-				B: 0,
-				A: 0,
-			},
-			Flashing: false,
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v9.Band
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded v9.Band
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		if !testutil.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
-		}
-	})
 }
 
 func FuzzDecodeControlStateConfig(f *testing.F) {
@@ -3505,8 +3321,8 @@ func FuzzDecodeElementConfig(f *testing.F) {
 				A: 18.5,
 			}),
 			Tooltip: []string{"test_19"},
-			Redline: v9.Redline{
-				Bands: []v9.Band{
+			Redline: color.Scale{
+				Bands: []color.Band{
 					{
 						Key:       "test_22",
 						Threshold: 23.5,
@@ -5120,8 +4936,8 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 				A: 18.5,
 			}),
 			Tooltip: []string{"test_19"},
-			Redline: v9.Redline{
-				Bands: []v9.Band{
+			Redline: color.Scale{
+				Bands: []color.Band{
 					{
 						Key:       "test_22",
 						Threshold: 23.5,
@@ -5931,68 +5747,6 @@ func FuzzDecodePage(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v9.Page
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		if !testutil.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
-		}
-	})
-}
-
-func FuzzDecodeRedline(f *testing.F) {
-	{
-		seed := v9.Redline{
-			Bands: []v9.Band{
-				{
-					Key:       "test_2",
-					Threshold: 3.5,
-					Color: color.Color{
-						R: 6,
-						G: 7,
-						B: 8,
-						A: 8.5,
-					},
-					Flashing: true,
-				},
-			},
-			Smooth: false,
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v9.Redline{Bands: []v9.Band{}, Smooth: false}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v9.Redline{Bands: []v9.Band{}, Smooth: false}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v9.Redline
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded v9.Redline
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

@@ -7,13 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
 import { type color, TimeSpan } from "@synnaxlabs/x";
 
 import { telem } from "@/telem/aether";
-
-export type Redline = schematic.Redline;
-export type Band = schematic.Band;
 
 /** How long a flashing band holds each of its two fills. */
 const FLASH_PERIOD = TimeSpan.milliseconds(500);
@@ -27,7 +23,7 @@ const FLASH_PERIOD = TimeSpan.milliseconds(500);
  */
 export const backgroundTelem = (
   source: telem.StringSourceSpec,
-  { bands, smooth }: Redline,
+  { bands, smooth }: color.Scale,
   background?: color.Color,
 ): telem.ColorSourceSpec | undefined => {
   if (bands.length === 0)

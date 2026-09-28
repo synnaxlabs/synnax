@@ -171,19 +171,6 @@ export const numericTelemConfigZ = z.object({
 });
 export interface NumericTelemConfig extends z.infer<typeof numericTelemConfigZ> {}
 
-/** Band is a colored range of values starting at a threshold. */
-export const bandZ = z.object({
-  /** key is the unique identifier for the band. */
-  key: z.string(),
-  /** threshold is the lowest value, in the value's units, that the band paints. */
-  threshold: z.number(),
-  /** color is the fill painted while the value is in the band. */
-  color: color.colorZ,
-  /** flashing is true when the fill blinks while the value is in the band. */
-  flashing: z.boolean().default(false),
-});
-export interface Band extends z.infer<typeof bandZ> {}
-
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
@@ -237,18 +224,6 @@ export const scaleIndicatorConfigZ = numericTelemConfigZ
     level: text.levelZ.default("small"),
   });
 export interface ScaleIndicatorConfig extends z.infer<typeof scaleIndicatorConfigZ> {}
-
-/** Redline maps a value to a background fill through threshold bands. */
-export const redlineZ = z.object({
-  /**
-   * bands is the list of threshold bands. A band paints values at or above its
-   * threshold and below the next higher threshold.
-   */
-  bands: bandZ.array().default(() => []),
-  /** smooth is true when the fill interpolates between band colors. */
-  smooth: z.boolean().default(false),
-});
-export interface Redline extends z.infer<typeof redlineZ> {}
 
 export const pipeEdgeConfigZ = segmentedEdgeConfigZ.extend({
   variant: z.literal("pipe"),
@@ -830,7 +805,7 @@ export const valueNodeConfigZ = labeledConfigZ
       .array()
       .default(() => []),
     /** redline is the threshold band mapping applied to the background. */
-    redline: redlineZ.prefault({}),
+    redline: color.scaleZ.prefault({}),
     /** units is the unit suffix displayed after the value. */
     units: z.string().default("psi"),
     /** inlineSize is the inline size of the value in pixels. */
@@ -2216,7 +2191,7 @@ export const valueElementConfigZ = labeledConfigZ
       .array()
       .default(() => []),
     /** redline is the threshold band mapping applied to the background. */
-    redline: redlineZ.prefault({}),
+    redline: color.scaleZ.prefault({}),
     /** units is the unit suffix displayed after the value. */
     units: z.string().default("psi"),
     /** inlineSize is the inline size of the value in pixels. */

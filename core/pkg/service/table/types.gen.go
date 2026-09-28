@@ -29,9 +29,6 @@ const (
 	FlexAlignmentStretch FlexAlignment = versions.FlexAlignmentStretch
 )
 
-// Redline maps a value to a background fill through threshold bands.
-type Redline = versions.Redline
-
 // CellConfig is the per-cell configuration stored in the table cells map. The variant
 // selects which Pluto cell component renders the cell.
 type CellConfig = versions.CellConfig
@@ -61,9 +58,6 @@ type Column = versions.Column
 // Tables support multiple columns, channel data sources, and customizable formatting
 // options.
 type Table = versions.Table
-
-// Band is a colored range of values starting at a threshold.
-type Band = versions.Band
 
 // Cell is a keyed cell configuration used by actions that address cells explicitly.
 // Inside the table state itself, cell configurations are stored in the cells map keyed

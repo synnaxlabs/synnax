@@ -28,21 +28,6 @@ FlexAlignment enum {
     @doc value "is a cross-axis flex alignment for laid-out content."
 }
 
-Redline struct {
-    bands  Band[] = [] {
-        @doc value """
-            is the list of threshold bands. A band paints values at or above its
-            threshold and below the next higher threshold.
-        """
-    }
-    smooth bool = false {
-        @doc value "is true when the fill interpolates between band colors."
-    }
-
-    @doc value  "maps a value to a background fill through threshold bands."
-    @go marshal
-}
-
 CellConfig union on variant {
     text {
         value            string = "" {
@@ -85,7 +70,7 @@ CellConfig union on variant {
         notation          notation.Notation = notation.NotationStandard {
             @doc value "is the numeric notation used to format the value."
         }
-        redline           Redline = {} {
+        redline           color.Scale = {} {
             @doc value "is the threshold band mapping applied to the background."
         }
         background_color  color.Color?      {
@@ -329,22 +314,4 @@ Table struct {
     @go migrate
     @ontology type "table"
     @retrieve
-}
-
-Band struct {
-    key       string      {
-        @doc value "is the unique identifier for the band."
-    }
-    threshold float64     {
-        @doc value "is the lowest value, in the value's units, that the band paints."
-    }
-    color     color.Color {
-        @doc value "is the fill painted while the value is in the band."
-    }
-    flashing  bool = false {
-        @doc value "is true when the fill blinks while the value is in the band."
-    }
-
-    @doc value  "is a colored range of values starting at a threshold."
-    @go marshal
 }

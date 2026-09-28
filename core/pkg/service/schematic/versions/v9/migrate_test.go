@@ -322,8 +322,8 @@ var _ = Describe("Config typing", func() {
 					map[string]any{"key": "c", "color": "#ff0000", "position": 1.0},
 				},
 			})
-			Expect(cfg.Redline).To(Equal(v9.Redline{
-				Bands: []v9.Band{
+			Expect(cfg.Redline).To(Equal(color.Scale{
+				Bands: []color.Band{
 					{Key: "a", Threshold: 100, Color: green},
 					{Key: "b", Threshold: 150, Color: yellow},
 					{Key: "c", Threshold: 200, Color: red},
@@ -340,7 +340,7 @@ var _ = Describe("Config typing", func() {
 					map[string]any{"key": "a", "color": "#00ff00", "position": 0.0},
 					map[string]any{"key": "b", "color": "#ff0000", "position": 1.0},
 				},
-			}).Redline.Bands).To(Equal([]v9.Band{
+			}).Redline.Bands).To(Equal([]color.Band{
 				{Key: "a", Threshold: 100, Color: green},
 				{Key: "b", Threshold: 200, Color: red},
 			}))
@@ -365,7 +365,7 @@ var _ = Describe("Config typing", func() {
 				"gradient": []any{
 					map[string]any{"key": "a", "color": "#ff0000", "position": 0.25},
 				},
-			}).Redline.Bands).To(Equal([]v9.Band{{Key: "a", Threshold: 0.25, Color: red}}))
+			}).Redline.Bands).To(Equal([]color.Band{{Key: "a", Threshold: 0.25, Color: red}}))
 		})
 
 		It("Should keep a transparent band and leave the background absent", func(
@@ -377,7 +377,7 @@ var _ = Describe("Config typing", func() {
 					map[string]any{"key": "a", "color": "#00000000", "position": 0.0},
 				},
 			})
-			Expect(cfg.Redline.Bands).To(Equal([]v9.Band{{Key: "a"}}))
+			Expect(cfg.Redline.Bands).To(Equal([]color.Band{{Key: "a"}}))
 			Expect(cfg.BackgroundColor).To(BeNil())
 		})
 
@@ -387,7 +387,7 @@ var _ = Describe("Config typing", func() {
 			Expect(lift(ctx, map[string]any{
 				"bounds":   map[string]any{"lower": 0.0, "upper": 1.0},
 				"gradient": []any{},
-			}).Redline).To(Equal(v9.Redline{Bands: []v9.Band{}}))
+			}).Redline).To(Equal(color.Scale{Bands: []color.Band{}}))
 		})
 
 		It("Should reset a value config whose redline cannot be read", func(

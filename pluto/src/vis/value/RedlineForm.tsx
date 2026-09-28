@@ -14,18 +14,16 @@ import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { color, type compare, id } from "@synnaxlabs/x";
-import { type CSSProperties, type ReactElement, useMemo } from "react";
+import { type CSSProperties, type ReactElement } from "react";
 
 import { Color } from "@/color";
-import { type Band, type Redline } from "@/vis/value/redline";
 
-const ascending: compare.Comparator<Band> = (a, b) => a.threshold - b.threshold;
+const ascending: compare.Comparator<color.Band> = (a, b) => a.threshold - b.threshold;
 
 interface BarProps {
   /** The CSS background the canvas paints for the band. */
@@ -149,30 +147,14 @@ const FloorItem = ({ background, threshold, units }: FloorItemProps): ReactEleme
       bordered
       tooltip="Set the background in the style tab"
     />
-    {threshold == null ? (
-      <Text.Text level="small" grow>
-        All values
+    {threshold != null && (
+      <Text.Text level="small" color={9} className={CSS.BE("redline-form", "relation")}>
+        &lt;
       </Text.Text>
-    ) : (
-      <>
-        <Text.Text
-          level="small"
-          color={9}
-          className={CSS.BE("redline-form", "relation")}
-        >
-          &lt;
-        </Text.Text>
-        <Input.Numeric
-          value={threshold}
-          onChange={() => {}}
-          size="small"
-          units={units}
-          showDragHandle={false}
-          disabled
-          grow
-        />
-      </>
     )}
+    <Text.Text level="small" grow className={CSS.BE("redline-form", "floor-value")}>
+      {threshold == null ? "All values" : `${threshold} ${units}`.trimEnd()}
+    </Text.Text>
     <Flex.Box x className={CSS.BE("redline-form", "actions")}>
       <Text.Text level="small" color={9}>
         {background == null ? "No fill" : "Background"}
@@ -210,43 +192,37 @@ export interface RedlineFormProps {
  */
 export const RedlineForm = ({ path }: RedlineFormProps): ReactElement => {
   const bandsPath = `${path}.bands`;
-  const redline = Form.useFieldValue<Redline>(path);
+  const redline = Form.useFieldValue<color.Scale>(path);
   const units = Form.useFieldValue<string>("units", { optional: true }) ?? "";
   const background =
     Form.useFieldValue<color.Color>("backgroundColor", { optional: true }) ?? undefined;
-  const { push, remove } = Form.useFieldListUtils<string, Band>(bandsPath);
+  const { push, remove } = Form.useFieldListUtils<string, color.Band>(bandsPath);
   const theme = Theming.use();
   // The form edits values in place, so values read here keep their identity across
   // edits and cannot key a memo.
   const { bands, smooth } = redline;
   const sorted = bands.toSorted(ascending);
   const keys = sorted.map(({ key }) => key);
-  const seen = new Set<number>();
-  const duplicates = new Set<number>();
-  bands.forEach(({ threshold }) =>
-    (seen.has(threshold) ? duplicates : seen).add(threshold),
-  );
   const backgroundCSS = color.cssString(background ?? color.ZERO);
-  const bars = new Map<string, BarProps>(
-    sorted.map(({ key, color: c, flashing }, i) => {
+  const items = new Map(
+    sorted.map(({ key, threshold, color: c, flashing }, i) => {
       const css = color.cssString(c);
       const next = sorted.at(i + 1);
       const on =
         smooth && next != null
           ? `linear-gradient(to bottom, ${css}, ${color.cssString(next.color)})`
           : css;
-      return [key, { on, off: flashing ? backgroundCSS : undefined }];
+      const bar: BarProps = { on, off: flashing ? backgroundCSS : undefined };
+      const duplicate = sorted.some((b, j) => j !== i && b.threshold === threshold);
+      return [key, { bar, duplicate }];
     }),
   );
-  const presets = useMemo(
-    () => [
-      theme.colors.secondary.z,
-      theme.colors.warning.z,
-      theme.colors.error.z,
-      theme.colors.primary.z,
-    ],
-    [theme],
-  );
+  const presets = [
+    theme.colors.secondary.z,
+    theme.colors.warning.z,
+    theme.colors.error.z,
+    theme.colors.primary.z,
+  ];
   const lowest = sorted.at(0);
 
   const handleAdd = (): void => {
@@ -256,7 +232,7 @@ export const RedlineForm = ({ path }: RedlineFormProps): ReactElement => {
       const step = second == null ? 0 : highest.threshold - second.threshold;
       threshold = highest.threshold + (step > 0 ? step : 1);
     }
-    const seeds = [
+    const palette = [
       theme.colors.warning.z,
       theme.colors.error.z,
       ...(theme.colors.visualization.palettes.default ?? []),
@@ -265,7 +241,7 @@ export const RedlineForm = ({ path }: RedlineFormProps): ReactElement => {
       {
         key: id.create(),
         threshold,
-        color: color.construct(seeds[bands.length % seeds.length]),
+        color: color.construct(palette[bands.length % palette.length]),
         flashing: false,
       },
       ascending,
@@ -285,9 +261,8 @@ export const RedlineForm = ({ path }: RedlineFormProps): ReactElement => {
             <List.Scroll>
               <List.Items<string>>
                 {({ itemKey, index }) => {
-                  const band = bands.find(({ key }) => key === itemKey);
-                  const bar = bars.get(itemKey);
-                  if (band == null || bar == null) return null;
+                  const item = items.get(itemKey);
+                  if (item == null) return null;
                   return (
                     <BandItem
                       key={itemKey}
@@ -296,9 +271,8 @@ export const RedlineForm = ({ path }: RedlineFormProps): ReactElement => {
                       path={bandsPath}
                       units={units}
                       presets={presets}
-                      bar={bar}
-                      duplicate={duplicates.has(band.threshold)}
                       onRemove={remove}
+                      {...item}
                     />
                   );
                 }}

@@ -41,33 +41,8 @@ export const columnZ = z.object({
 });
 export interface Column extends z.infer<typeof columnZ> {}
 
-/** Band is a colored range of values starting at a threshold. */
-export const bandZ = z.object({
-  /** key is the unique identifier for the band. */
-  key: z.string(),
-  /** threshold is the lowest value, in the value's units, that the band paints. */
-  threshold: z.number(),
-  /** color is the fill painted while the value is in the band. */
-  color: color.colorZ,
-  /** flashing is true when the fill blinks while the value is in the band. */
-  flashing: z.boolean().default(false),
-});
-export interface Band extends z.infer<typeof bandZ> {}
-
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
-
-/** Redline maps a value to a background fill through threshold bands. */
-export const redlineZ = z.object({
-  /**
-   * bands is the list of threshold bands. A band paints values at or above its
-   * threshold and below the next higher threshold.
-   */
-  bands: bandZ.array().default(() => []),
-  /** smooth is true when the fill interpolates between band colors. */
-  smooth: z.boolean().default(false),
-});
-export interface Redline extends z.infer<typeof redlineZ> {}
 
 /** TextCellConfig is the configuration for static text cells. */
 export const textCellConfigZ = z.object({
@@ -103,7 +78,7 @@ export const valueCellConfigZ = z.object({
   /** notation is the numeric notation used to format the value. */
   notation: notation.notationZ.default("standard"),
   /** redline is the threshold band mapping applied to the background. */
-  redline: redlineZ.prefault({}),
+  redline: color.scaleZ.prefault({}),
   /**
    * backgroundColor is the fill behind the value where no redline band paints. When
    * absent the cell paints no fill.

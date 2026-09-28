@@ -231,16 +231,8 @@ export const rollingAverage = (
   valueType: "number",
 });
 
-export const bandColorProps = z.object({
-  bands: z
-    .object({
-      threshold: z.number(),
-      color: color.colorZ,
-      flashing: z.boolean().default(false),
-    })
-    .array(),
+export const bandColorProps = color.scaleZ.extend({
   background: color.colorZ.optional(),
-  smooth: z.boolean().default(false),
 });
 
 export type BandColorProps = z.input<typeof bandColorProps>;
@@ -261,10 +253,10 @@ export class BandColor extends MultiSourceTransformer<
   static readonly TYPE = "band-color";
   static readonly propsZ = bandColorProps;
   schema = BandColor.propsZ;
-  private sorted?: z.infer<typeof bandColorProps>["bands"];
+  private sorted?: color.Band[];
   private notified: color.Color | null = null;
 
-  private get bands(): z.infer<typeof bandColorProps>["bands"] {
+  private get bands(): color.Band[] {
     this.sorted ??= [...this.props.bands].sort((a, b) => a.threshold - b.threshold);
     return this.sorted;
   }

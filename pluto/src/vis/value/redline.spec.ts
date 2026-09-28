@@ -11,12 +11,12 @@ import { color } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { telem } from "@/telem/aether";
-import { backgroundTelem, type Band } from "@/vis/value/redline";
+import { backgroundTelem } from "@/vis/value/redline";
 
 const SOURCE = telem.fixedString("10");
 const RED = color.construct("#ff0000");
 
-const band = (flashing: boolean): Band => ({
+const band = (flashing: boolean): color.Band => ({
   key: "a",
   threshold: 0,
   color: RED,

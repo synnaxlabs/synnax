@@ -615,8 +615,8 @@ describe("BandColor", () => {
   const red = color.construct("#ff0000");
   const blue = color.construct("#0000ff");
   const BANDS: BandColorProps["bands"] = [
-    { threshold: 100, color: red },
-    { threshold: 50, color: yellow },
+    { key: "a", threshold: 100, color: red },
+    { key: "b", threshold: 50, color: yellow },
   ];
 
   const create = (
@@ -648,13 +648,13 @@ describe("BandColor", () => {
     });
 
     it("should paint the background for a value that is not a number", () => {
-      const bands = [{ threshold: 0, color: red }];
+      const bands = [{ key: "c", threshold: 0, color: red }];
       expect(create({ bands, background: green }, "abc")[0].value()).toEqual(green);
     });
 
     // The display stringifier renders a missing sample as an empty string.
     it("should paint the background for a missing value", () => {
-      const bands = [{ threshold: 0, color: red }];
+      const bands = [{ key: "d", threshold: 0, color: red }];
       expect(create({ bands, background: green }, "")[0].value()).toEqual(green);
     });
 
@@ -672,8 +672,8 @@ describe("BandColor", () => {
       const [t] = create(
         {
           bands: [
-            { threshold: 0, color: [0, 0, 0, 1] },
-            { threshold: 100, color: [200, 100, 0, 1] },
+            { key: "e", threshold: 0, color: [0, 0, 0, 1] },
+            { key: "f", threshold: 100, color: [200, 100, 0, 1] },
           ],
           smooth: true,
         },
@@ -688,8 +688,8 @@ describe("BandColor", () => {
 
     it("should paint the same band as discrete mode at a shared threshold", () => {
       const bands = [
-        { threshold: 50, color: yellow },
-        { threshold: 50, color: red },
+        { key: "g", threshold: 50, color: yellow },
+        { key: "h", threshold: 50, color: red },
       ];
       expect(create({ bands, smooth: true }, 50)[0].value()).toEqual(red);
       expect(create({ bands }, 50)[0].value()).toEqual(red);
@@ -705,7 +705,10 @@ describe("BandColor", () => {
   describe("flashing", () => {
     it("should alternate between the band color and the background on each tick", () => {
       const [t] = create(
-        { bands: [{ threshold: 0, color: red, flashing: true }], background: green },
+        {
+          bands: [{ key: "i", threshold: 0, color: red, flashing: true }],
+          background: green,
+        },
         10,
       );
       const phase = new TestSource(0);
@@ -739,7 +742,10 @@ describe("BandColor", () => {
 
     it("should notify on every tick of a flashing band", () => {
       const [t] = create(
-        { bands: [{ threshold: 0, color: red, flashing: true }], background: green },
+        {
+          bands: [{ key: "j", threshold: 0, color: red, flashing: true }],
+          background: green,
+        },
         10,
       );
       const phase = new TestSource(0);

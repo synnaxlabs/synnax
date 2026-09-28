@@ -15,42 +15,13 @@ import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
 	border "github.com/synnaxlabs/x/border/versions/v0"
-	color "github.com/synnaxlabs/x/color/versions/v0"
+	color "github.com/synnaxlabs/x/color/versions/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	text "github.com/synnaxlabs/x/text/versions/v0"
 )
-
-// EncodeOrc writes the value to w in the Orc binary format.
-func (bv Band) EncodeOrc(w *orc.Writer) error {
-	w.String(bv.Key)
-	w.Float64(float64(bv.Threshold))
-	if err := bv.Color.EncodeOrc(w); err != nil {
-		return err
-	}
-	w.Bool(bv.Flashing)
-	return nil
-}
-
-// DecodeOrc reads the value from r in the Orc binary format.
-func (bv *Band) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if bv.Key, err = r.String(); err != nil {
-		return err
-	}
-	if bv.Threshold, err = r.Float64(); err != nil {
-		return err
-	}
-	if err = bv.Color.DecodeOrc(r); err != nil {
-		return err
-	}
-	if bv.Flashing, err = r.Bool(); err != nil {
-		return err
-	}
-	return nil
-}
 
 // EncodeOrc writes the value to w in the Orc binary format.
 func (csc ControlStateConfig) EncodeOrc(w *orc.Writer) error {
@@ -5967,48 +5938,6 @@ func (p *Page) DecodeOrc(r *orc.Reader) error {
 		p.Type = PageType(rawV)
 	}
 	if p.Key, err = r.String(); err != nil {
-		return err
-	}
-	return nil
-}
-
-// EncodeOrc writes the value to w in the Orc binary format.
-func (rv Redline) EncodeOrc(w *orc.Writer) error {
-	w.Bool(rv.Bands != nil)
-	if rv.Bands != nil {
-		w.Uint32(uint32(len(rv.Bands)))
-		for i := range rv.Bands {
-			if err := rv.Bands[i].EncodeOrc(w); err != nil {
-				return err
-			}
-		}
-	}
-	w.Bool(rv.Smooth)
-	return nil
-}
-
-// DecodeOrc reads the value from r in the Orc binary format.
-func (rv *Redline) DecodeOrc(r *orc.Reader) error {
-	var err error
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			rv.Bands = make([]Band, n)
-			for i := range rv.Bands {
-				if err = rv.Bands[i].DecodeOrc(r); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	if rv.Smooth, err = r.Bool(); err != nil {
 		return err
 	}
 	return nil

@@ -152,7 +152,6 @@ export class IterativeSeries
 
   cleanup(): void {
     clearInterval(this.interval);
-    this.interval = undefined;
   }
 }
 
@@ -195,7 +194,7 @@ export class Clock extends AbstractSource<typeof clockPropsZ> implements NumberS
   schema = clockPropsZ;
 
   private ticks = 0;
-  private interval?: ReturnType<typeof setInterval>;
+  private readonly interval: ReturnType<typeof setInterval>;
 
   constructor(props: unknown) {
     super(props);
@@ -211,7 +210,6 @@ export class Clock extends AbstractSource<typeof clockPropsZ> implements NumberS
 
   cleanup(): void {
     clearInterval(this.interval);
-    this.interval = undefined;
   }
 }
 

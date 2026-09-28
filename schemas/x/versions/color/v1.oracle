@@ -7,53 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-@cpp output "x/cpp/color"
-@go output  "x/go/color"
-@pb
-@py output  "x/py/x/color"
-@ts output  "x/ts/src/color"
+Color = v0.Color
 
-Color struct {
-    r uint8   {
-        @doc value "is the red component (0-255)."
-    }
-    g uint8   {
-        @doc value "is the green component (0-255)."
-    }
-    b uint8   {
-        @doc value "is the blue component (0-255)."
-    }
-    a float64 {
-        @doc value "is the alpha component (0-1)."
-    }
-
-    @cpp hand
-    @cpp include "x/cpp/color/color.h"
-    @doc value   "is an RGBA color with RGB as 0-255 and alpha as 0-1."
-    @go marshal
-    @py hand
-    @ts hand
-}
-
-Stop struct {
-    key      string  {
-        @doc value "is the unique identifier for the stop."
-    }
-    color    Color   {
-        @doc value "is the color at this stop."
-    }
-    position float64 {
-        @doc value "is the normalized position of the stop along the gradient [0, 1]."
-    }
-    switched bool?   {
-        @doc value "indicates whether the stop's color has been switched by the user."
-    }
-
-    @doc value  "is a single color stop in a gradient."
-    @go marshal
-    @py omit
-    @ts hand
-}
+Stop = v0.Stop
 
 Band struct {
     key       string  {
@@ -69,12 +25,8 @@ Band struct {
         @doc value "is true when the fill blinks while the value is in the band."
     }
 
-    @cpp omit
     @doc value  "is a colored range of values starting at a threshold."
     @go marshal
-    @pb omit
-    @py omit
-    @ts hand
 }
 
 Scale struct {
@@ -88,10 +40,6 @@ Scale struct {
         @doc value "is true when the fill interpolates between band colors."
     }
 
-    @cpp omit
     @doc value  "maps a value to a color through threshold bands."
     @go marshal
-    @pb omit
-    @py omit
-    @ts hand
 }

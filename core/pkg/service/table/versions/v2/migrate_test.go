@@ -17,7 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v2"
-	color "github.com/synnaxlabs/x/color/versions/v0"
+	color "github.com/synnaxlabs/x/color/versions/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
 	text "github.com/synnaxlabs/x/text/versions/v0"
@@ -140,8 +140,8 @@ var _ = Describe("MigrateTable", func() {
 					{"key": "c", "color": "#ff0000", "position": 1}
 				]
 			}`)
-			Expect(cfg.Redline).To(Equal(v2.Redline{
-				Bands: []v2.Band{
+			Expect(cfg.Redline).To(Equal(color.Scale{
+				Bands: []color.Band{
 					{Key: "a", Threshold: 100, Color: green},
 					{Key: "b", Threshold: 150, Color: yellow},
 					{Key: "c", Threshold: 200, Color: red},
@@ -158,7 +158,7 @@ var _ = Describe("MigrateTable", func() {
 					{"key": "a", "color": "#00ff00", "position": 0},
 					{"key": "b", "color": "#ff0000", "position": 1}
 				]
-			}`).Redline.Bands).To(Equal([]v2.Band{
+			}`).Redline.Bands).To(Equal([]color.Band{
 				{Key: "a", Threshold: 100, Color: green},
 				{Key: "b", Threshold: 200, Color: red},
 			}))
@@ -183,7 +183,7 @@ var _ = Describe("MigrateTable", func() {
 				"bounds": {"lower": 0, "upper": 1},
 				"gradient": [{"key": "s", "color": "#00000000", "position": 0}]
 			}`)
-			Expect(cfg.Redline.Bands).To(Equal([]v2.Band{{Key: "s"}}))
+			Expect(cfg.Redline.Bands).To(Equal([]color.Band{{Key: "s"}}))
 			Expect(cfg.BackgroundColor).To(BeNil())
 		})
 
@@ -195,7 +195,7 @@ var _ = Describe("MigrateTable", func() {
 					ctx,
 					`{"bounds": {"lower": 0, "upper": 1}, "gradient": []}`,
 				).Redline,
-			).To(Equal(v2.Redline{Bands: []v2.Band{}}))
+			).To(Equal(color.Scale{Bands: []color.Band{}}))
 		})
 
 		It("Should degrade a value cell whose redline cannot be read", func(

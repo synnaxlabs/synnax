@@ -20,7 +20,7 @@ import (
 	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
 	v8 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v8"
 	border "github.com/synnaxlabs/x/border/versions/v0"
-	color "github.com/synnaxlabs/x/color/versions/v0"
+	color "github.com/synnaxlabs/x/color/versions/v1"
 	"github.com/synnaxlabs/x/errors"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
@@ -610,15 +610,6 @@ type StateMapping struct {
 	Value float64 `json:"value" msgpack:"value"`
 	// Color is the display color associated with this state.
 	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
-}
-
-// Redline maps a value to a background fill through threshold bands.
-type Redline struct {
-	// Bands is the list of threshold bands. A band paints values at or above its
-	// threshold and below the next higher threshold.
-	Bands []Band `json:"bands" msgpack:"bands"`
-	// Smooth is true when the fill interpolates between band colors.
-	Smooth bool `json:"smooth" msgpack:"smooth"`
 }
 
 type NodeConfigType string
@@ -1869,7 +1860,7 @@ type ValueNodeConfig struct {
 	// Tooltip is the list of tooltip lines shown on hover.
 	Tooltip []string `json:"tooltip" msgpack:"tooltip"`
 	// Redline is the threshold band mapping applied to the background.
-	Redline Redline `json:"redline" msgpack:"redline"`
+	Redline color.Scale `json:"redline" msgpack:"redline"`
 	// Units is the unit suffix displayed after the value.
 	Units string `json:"units" msgpack:"units"`
 	// InlineSize is the inline size of the value in pixels.
@@ -6135,7 +6126,7 @@ type ValueElementConfig struct {
 	// Tooltip is the list of tooltip lines shown on hover.
 	Tooltip []string `json:"tooltip" msgpack:"tooltip"`
 	// Redline is the threshold band mapping applied to the background.
-	Redline Redline `json:"redline" msgpack:"redline"`
+	Redline color.Scale `json:"redline" msgpack:"redline"`
 	// Units is the unit suffix displayed after the value.
 	Units string `json:"units" msgpack:"units"`
 	// InlineSize is the inline size of the value in pixels.
@@ -9514,16 +9505,4 @@ func (n NumericTelemConfig) Validate() error {
 	v := validate.New("NumericTelemConfig")
 	v.Ternaryf("notation", !n.Notation.IsValid(), "invalid notation: %v", n.Notation)
 	return v.Error()
-}
-
-// Band is a colored range of values starting at a threshold.
-type Band struct {
-	// Key is the unique identifier for the band.
-	Key string `json:"key" msgpack:"key"`
-	// Threshold is the lowest value, in the value's units, that the band paints.
-	Threshold float64 `json:"threshold" msgpack:"threshold"`
-	// Color is the fill painted while the value is in the band.
-	Color color.Color `json:"color" msgpack:"color"`
-	// Flashing is true when the fill blinks while the value is in the band.
-	Flashing bool `json:"flashing" msgpack:"flashing"`
 }

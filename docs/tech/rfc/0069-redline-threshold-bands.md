@@ -44,17 +44,17 @@ defaults to no fill: operators expect a nominal value to stay quiet.
 
 ### 3.0 Schema
 
-`Redline` is declared in `schemas/synnax/versions/schematic/v9.oracle` and
-`schemas/synnax/versions/table/v2.oracle`:
+A redline is a `color.Scale`, declared once in `schemas/x/versions/color/v1.oracle` and
+shared by the schematic value and the table value cell:
 
 - **`bands`** (`Band[]`, default empty): A band paints the values at or above its
   `threshold` and below the next higher threshold. Thresholds are in the value's units.
 - **`smooth`** (`bool`, default `false`): Band colors interpolate linearly between
   thresholds. Above the highest threshold the highest band's color holds.
 
-A `Band` holds a `key`, a `threshold`, a required `color`, and `flashing`. The value
-config's `redline` field defaults to an empty redline in both resources, so the table
-cell no longer needs an optional field that its editor materializes on open.
+A `color.Band` holds a `key`, a `threshold`, a required `color`, and `flashing`. The
+value config's `redline` field defaults to an empty scale in both resources, so the
+table cell no longer needs an optional field that its editor materializes on open.
 
 The value config in both resources gains `background_color` (`color.Color?`), set in the
 style tab like a text cell's background. It paints where no band does: below the lowest
