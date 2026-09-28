@@ -32,10 +32,10 @@ trustPolicyExclude:
   # against a newer release the tree never installs.
   - 'chokidar@4.0.3'
   - 'semver@6.3.1'
-  # The vercel/vercel monorepo stopped attaching provenance attestations partway
-  # through each package's history. Every release still comes from the same GitHub
-  # Actions trusted publisher and carries the same registry signature, so the only
-  # thing lost is the attestation.
+  # The vercel/vercel monorepo stopped attaching provenance attestations partway through
+  # each package's history. Every release still comes from the same GitHub Actions
+  # trusted publisher and carries the same registry signature, so the only thing lost is
+  # the attestation.
   - '@vercel/cli-config@0.3.0'
   - '@vercel/cli-exec@1.0.1'
   - '@vercel/functions@3.9.9'
