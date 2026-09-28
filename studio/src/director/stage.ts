@@ -38,6 +38,7 @@ import {
   type Shot,
   SIZES,
   type Take,
+  type Thumbnail,
   type Tilt,
 } from "@/film";
 import { type Mark, marks, type Rect, type Timeline } from "@/timeline";
@@ -277,4 +278,23 @@ export const stage = (edit: Edit, tl: Timeline, format: Format): StagePlan => {
     shots: edit,
     samples,
   };
+};
+
+/**
+ * thumbnailFrame returns the output frame of the plan that shows the film's thumbnail.
+ * Throws when the capture never set the thumbnail's mark or no take shows its moment.
+ */
+export const thumbnailFrame = (
+  plan: StagePlan,
+  tl: Timeline,
+  { at, after }: Thumbnail,
+): number => {
+  const mark = marks(tl).get(at);
+  if (mark == null)
+    throw new Error(`the thumbnail names mark "${at}", which the capture never set`);
+  const tick = mark.tick + Math.round(after * FPS);
+  const frame = plan.samples.findIndex((s) => s.type === "take" && s.tick === tick);
+  if (frame === -1)
+    throw new Error(`no take shows the thumbnail, ${after}s past mark "${at}"`);
+  return frame;
 };

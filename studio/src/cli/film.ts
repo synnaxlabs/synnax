@@ -12,12 +12,19 @@ import { parseArgs } from "node:util";
 
 import { OUT_ROOT, ROOT, run } from "@/cli/common";
 import { loadTimeline, runCapture, runFilmRender, runFilmStills } from "@/cli/pipeline";
-import { DSF, edit as parseEdit, formatZ, overlays as parseOverlays } from "@/film";
+import {
+  DSF,
+  edit as parseEdit,
+  formatZ,
+  overlays as parseOverlays,
+  thumbnail as parseThumbnail,
+} from "@/film";
 import { type Timeline } from "@/timeline";
 
 const usage = `usage: pnpm film <id> [options]
   <id>              film file at films/<id>.ts (default export: the capture script,
-                    edit: the shot list)
+                    edit: the shot list, thumbnail: the frame written to
+                    out/films/<id>-thumbnail.png)
   --url <url>       Console URL (default http://localhost:5173)
   --core-bin <path> synnax binary for the ephemeral core
   --port <n>        core port (default 9095)
@@ -52,11 +59,14 @@ const main = async (): Promise<void> => {
     edit?: unknown;
     overlays?: unknown;
     format?: unknown;
+    thumbnail?: unknown;
   };
   if (mod.edit == null) throw new Error(`${scriptPath} exports no edit`);
+  if (mod.thumbnail == null) throw new Error(`${scriptPath} exports no thumbnail`);
   const edit = parseEdit(mod.edit);
   const overlays = parseOverlays(mod.overlays ?? {});
   const format = formatZ.parse(mod.format);
+  const thumbnail = parseThumbnail(mod.thumbnail);
 
   const captureDir = path.join(OUT_ROOT, "films", id);
   let timeline: Timeline;
@@ -96,6 +106,7 @@ const main = async (): Promise<void> => {
   }
 
   const outputLocation = path.join(OUT_ROOT, "films", `${id}.mp4`);
+  const thumbnailLocation = path.join(OUT_ROOT, "films", `${id}-thumbnail.png`);
   console.log("rendering...");
   await runFilmRender({
     edit,
@@ -104,13 +115,15 @@ const main = async (): Promise<void> => {
     timeline,
     captureDir,
     outputLocation,
+    thumbnail,
+    thumbnailLocation,
     draft: values.draft,
     onProgress: (progress) => {
       if (Math.round(progress * 100) % 10 === 0)
         process.stdout.write(`\r${Math.round(progress * 100)}%`);
     },
   });
-  console.log(`\nwrote ${outputLocation}`);
+  console.log(`\nwrote ${outputLocation} and ${thumbnailLocation}`);
 };
 
 run(main);

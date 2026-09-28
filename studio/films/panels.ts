@@ -217,6 +217,9 @@ export const edit = film.edit([
   { type: "end", tagline: "One project. Every view of the system.", seconds: 2.6 },
 ]);
 
+/** Settled on the whole window, before the tour moves in. */
+export const thumbnail = film.thumbnail({ at: "tour", after: 0.9 });
+
 export const overlays = film.overlays({
   scope: {
     track: "ox",

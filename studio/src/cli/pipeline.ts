@@ -17,8 +17,8 @@ import { type CaptureSession } from "@/capture/rig";
 import { synthesize } from "@/director/cursor";
 import { direct } from "@/director/director";
 import { overlay } from "@/director/overlay";
-import { stage } from "@/director/stage";
-import { type Edit, type Format, type Overlays } from "@/film";
+import { stage, thumbnailFrame } from "@/director/stage";
+import { type Edit, type Format, type Overlays, type Thumbnail } from "@/film";
 import { type Core } from "@/fixtures/core";
 import { type FilmProps } from "@/remotion/Film";
 import { parse, type Timeline } from "@/timeline";
@@ -212,6 +212,9 @@ export interface FilmOptions {
 export interface FilmRenderOptions extends FilmOptions {
   /** Path the encoded MP4 is written to. */
   outputLocation: string;
+  thumbnail: Thumbnail;
+  /** Path the thumbnail PNG is written to. */
+  thumbnailLocation: string;
   /** Higher crf and a fast encoder preset, for review iterations. */
   draft?: boolean;
   onProgress?: (progress: number) => void;
@@ -229,10 +232,14 @@ const filmProps = ({ edit, format, timeline, ...opts }: FilmOptions): FilmProps 
   };
 };
 
-/** runFilmRender stages the edit against its capture and renders the film. */
+/**
+ * runFilmRender stages the edit against its capture and renders the film and its
+ * thumbnail.
+ */
 export const runFilmRender = async (opts: FilmRenderOptions): Promise<void> => {
   const { captureDir, outputLocation, draft = false } = opts;
   const inputProps = filmProps(opts);
+  const thumbnail = thumbnailFrame(inputProps.plan, opts.timeline, opts.thumbnail);
   await withBundle(captureDir, async (serveUrl) => {
     const composition = await selectComposition({ serveUrl, id: "film", inputProps });
     await renderMedia({
@@ -247,6 +254,13 @@ export const runFilmRender = async (opts: FilmRenderOptions): Promise<void> => {
       inputProps,
       outputLocation,
       onProgress: ({ progress }) => opts.onProgress?.(progress),
+    });
+    await renderStill({
+      composition,
+      serveUrl,
+      frame: thumbnail,
+      output: opts.thumbnailLocation,
+      inputProps,
     });
   });
 };

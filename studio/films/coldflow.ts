@@ -176,6 +176,9 @@ export const edit = film.edit([
   { type: "end", tagline: "Run the test. Watch every channel." },
 ]);
 
+/** The first callout, fully drawn over the pressurizing tank. */
+export const thumbnail = film.thumbnail({ at: "pressurizing", after: 1 });
+
 export const overlays = film.overlays({
   scope: {
     track: "ox",

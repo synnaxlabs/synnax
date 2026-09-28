@@ -124,3 +124,16 @@ export type Overlays = z.infer<typeof overlaysZ>;
 
 /** overlays validates a film's overlays, throwing on the first invalid one. */
 export const overlays = (layers: unknown): Overlays => overlaysZ.parse(layers);
+
+/**
+ * The frame a film exports as its thumbnail, which a feed shows before the film plays:
+ * the capture `after` seconds past mark `at`.
+ */
+export const thumbnailZ = z.object({
+  at: z.string().min(1),
+  after: z.number().nonnegative().default(0),
+});
+export type Thumbnail = z.infer<typeof thumbnailZ>;
+
+/** thumbnail validates a film's thumbnail. */
+export const thumbnail = (value: unknown): Thumbnail => thumbnailZ.parse(value);

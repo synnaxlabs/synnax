@@ -19,8 +19,14 @@ import {
   TARGET_FILL,
   WINDOW_FILL,
 } from "@/director/constants";
-import { easeOutQuint, type Plane, stage, type StagePlan } from "@/director/stage";
-import { edit, FPS, SIZES } from "@/film";
+import {
+  easeOutQuint,
+  type Plane,
+  stage,
+  type StagePlan,
+  thumbnailFrame,
+} from "@/director/stage";
+import { edit, FPS, SIZES, thumbnail } from "@/film";
 import { type Event, type Timeline } from "@/timeline";
 
 const timeline = (events: Event[], dsf = 3): Timeline => ({
@@ -392,5 +398,49 @@ describe("stage", () => {
     expect(() =>
       stage(edit([{ type: "card", lines: ["Hi."] }]), tl, "portrait"),
     ).toThrow("films capture at 60 fps, but this capture ran at 30");
+  });
+});
+
+describe("thumbnailFrame", () => {
+  const plan = stage(
+    edit([
+      {
+        type: "take",
+        from: "start",
+        to: "middle",
+        beats: [{ at: "start", wide: true }],
+      },
+      { type: "card", lines: ["One line."] },
+      {
+        type: "take",
+        from: "middle",
+        to: "end",
+        beats: [{ at: "middle", wide: true }],
+      },
+    ]),
+    timeline(MARKS),
+    "portrait",
+  );
+
+  it("should find the frame that shows the capture after the thumbnail's mark", () => {
+    const frame = thumbnailFrame(
+      plan,
+      timeline(MARKS),
+      thumbnail({ at: "middle", after: 1 }),
+    );
+    expect(frame).toEqual(300 + Math.round(CARD_S * FPS) + FPS);
+    expect(plan.samples[frame]).toMatchObject({ type: "take", tick: 300 + FPS });
+  });
+
+  it("should throw when the thumbnail names a mark the capture never set", () => {
+    expect(() =>
+      thumbnailFrame(plan, timeline(MARKS), thumbnail({ at: "missing" })),
+    ).toThrow(`the thumbnail names mark "missing", which the capture never set`);
+  });
+
+  it("should throw when no take shows the thumbnail", () => {
+    expect(() =>
+      thumbnailFrame(plan, timeline(MARKS), thumbnail({ at: "end", after: 0.5 })),
+    ).toThrow(`no take shows the thumbnail, 0.5s past mark "end"`);
   });
 });
