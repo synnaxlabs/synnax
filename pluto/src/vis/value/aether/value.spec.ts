@@ -280,6 +280,26 @@ describe("value/aether/Value", () => {
       expect(fillTexts(recorder)).toEqual(["…"]);
     });
 
+    it("should replace a single digit that does not fit with an ellipsis", () => {
+      const { component, recorder } = setup({
+        value: "5",
+        state: { box: box.construct({ x: 0, y: 0 }, { width: 12, height: 50 }) },
+      });
+      recorder.clear();
+      component.render({});
+      expect(fillTexts(recorder)).toEqual(["…"]);
+    });
+
+    it("should keep the sign of a negative single digit that does not fit", () => {
+      const { component, recorder } = setup({
+        value: "-5",
+        state: { box: box.construct({ x: 0, y: 0 }, { width: 12, height: 50 }) },
+      });
+      recorder.clear();
+      component.render({});
+      expect(fillTexts(recorder)).toEqual(["-", "…"]);
+    });
+
     it("should leave a value that fits untouched", () => {
       const { component, recorder } = setup({ value: "12.50" });
       recorder.clear();

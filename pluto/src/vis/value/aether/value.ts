@@ -49,7 +49,7 @@ const ellipsize = (
   available: number,
   dims: dimensions.Dimensions,
 ): string => {
-  if (dims.width <= available || value.length < 2) return value;
+  if (dims.width <= available) return value;
   const head = Math.floor(available / (dims.width / value.length)) - 1;
   return head > 0 ? `${value.slice(0, head)}${ELLIPSIS}` : ELLIPSIS;
 };
