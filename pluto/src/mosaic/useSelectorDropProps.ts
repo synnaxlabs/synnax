@@ -7,16 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Haul } from "@synnaxlabs/lyra/haul";
+import { type Tabs } from "@synnaxlabs/lyra/tabs";
 import { useCallback, useMemo } from "react";
 
-import { type Haul } from "@/haul";
 import { useContext } from "@/mosaic/Frame";
 import {
   filterTabCreateHaulItems,
   filterTabDropHaulItems,
   HAUL_DROP_TYPE,
 } from "@/mosaic/haul";
-import { type Tabs } from "@/tabs";
 
 export interface UseSelectorDropPropsParams {
   /** The key of the leaf whose tab strip is being wired, as passed to its Leaf. */

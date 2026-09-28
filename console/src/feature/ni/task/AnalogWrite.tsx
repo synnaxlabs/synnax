@@ -8,7 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { channel, NotFoundError } from "@synnaxlabs/client";
-import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { errors, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
@@ -17,7 +20,6 @@ import { Select } from "@/feature/ni/device/Select";
 import * as Device from "@/feature/ni/device/types";
 import { AOChannelForm } from "@/feature/ni/task/AOChannelForm";
 import { createNextAOChannel } from "@/feature/ni/task/createChannel";
-import { SelectAOChannelTypeField } from "@/feature/ni/task/SelectAOChannelTypeField";
 import {
   ANALOG_WRITE_SCHEMAS,
   ANALOG_WRITE_TYPE,
@@ -68,15 +70,22 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
 
 const ChannelDetails = ({ path }: Task.Views.DetailsProps) => {
   const type = PForm.useFieldValue<AOChannelType>(`${path}.type`);
-  return (
-    <>
-      <SelectAOChannelTypeField path={path} />
-      <AOChannelForm type={type} path={path} />
-    </>
-  );
+  return <AOChannelForm type={type} path={path} />;
 };
 
 const channelDetails = Component.renderProp(ChannelDetails);
+
+const DetailsTitle = ({ path }: Task.Views.DetailsProps) => {
+  const { port, type } = PForm.useFieldValue<AOChannel>(path);
+  const Icon = AO_CHANNEL_TYPE_ICONS[type];
+  return (
+    <Task.Views.ItemLabel kind={AO_CHANNEL_TYPE_NAMES[type]} icon={<Icon />}>
+      Port {port}
+    </Task.Views.ItemLabel>
+  );
+};
+
+const detailsTitle = Component.renderProp(DetailsTitle);
 const channelListItem = Component.renderProp(ChannelListItem);
 
 const Form: FC = () => {
@@ -95,6 +104,7 @@ const Form: FC = () => {
     <Task.Views.ListAndDetails<AOChannel>
       listItem={channelListItem}
       details={channelDetails}
+      detailsTitle={detailsTitle}
       createChannel={createNextAOChannel}
       contextMenuItems={Task.writeChannelContextMenuItems}
       resolve={resolve}

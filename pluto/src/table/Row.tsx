@@ -8,15 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { table } from "@synnaxlabs/client";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { type border, box, dimensions, xy } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback, useMemo } from "react";
 
-import { CSS } from "@/css";
 import { Cell } from "@/table/cells";
 import { Indicator } from "@/table/Indicator";
 import { useCell, useDispatch } from "@/table/queries";
 import { Selection } from "@/table/selection";
-import { Theming } from "@/theming";
 
 export interface RowProps {
   index: number;

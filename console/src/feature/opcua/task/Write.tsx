@@ -8,7 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { channel, NotFoundError } from "@synnaxlabs/client";
-import { Access, Component, Icon, Menu, Text } from "@synnaxlabs/pluto";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Access } from "@synnaxlabs/pluto";
 import { caseconv, errors, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 

@@ -9,7 +9,8 @@
 
 import { DisconnectedError, imex, project } from "@synnaxlabs/client";
 import { type UploadBody } from "@synnaxlabs/freighter";
-import { Access, Project as PProject, Status, Synnax } from "@synnaxlabs/pluto";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Access, Project as PProject, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Command } from "@/platform/command";

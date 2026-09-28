@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type color } from "@synnaxlabs/x";
+import { Color } from "@synnaxlabs/lyra/color";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { type ReactElement } from "react";
 
-import { Color } from "@/color";
-import { Form } from "@/form";
-import { Theming } from "@/theming";
 import { staleness } from "@/vis/staleness/aether";
 
 export interface FieldsProps {
@@ -32,20 +31,13 @@ export const Fields = ({ path = "" }: FieldsProps = {}): ReactElement => {
     path.length === 0 ? name : `${path}.${name}`;
   return (
     <>
-      <Form.Field<color.Crude>
-        label="Stale color"
-        align="start"
-        padHelpText={false}
+      <Color.Field
         path={field("stalenessColor")}
-        defaultValue={staleness.resolveColor(undefined, theme)}
-      >
-        {({ value, onChange }) => (
-          <Color.Swatch value={value} onChange={onChange} bordered />
-        )}
-      </Form.Field>
+        fallback={staleness.resolveColor(undefined, theme)}
+      />
       <Form.NumericField
         path={field("stalenessTimeout")}
-        label="Stale timeout"
+        label="Timeout"
         padHelpText={false}
         inputProps={INPUT_PROPS}
       />

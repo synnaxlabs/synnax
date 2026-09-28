@@ -8,9 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { query, type Synnax as Client } from "@synnaxlabs/client";
+import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import { use, useLayoutEffect, useRef } from "react";
-
-import { useMemoDeepEqual } from "@/memo";
 
 export interface RetrieveParams<Query extends query.Params> {
   client: Client;

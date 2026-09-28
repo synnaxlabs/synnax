@@ -10,7 +10,6 @@
 package start
 
 import (
-	"bufio"
 	"context"
 	"os"
 	"os/signal"
@@ -22,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/cmd/cert"
 	"github.com/synnaxlabs/synnax/cmd/instrumentation"
 	"github.com/synnaxlabs/synnax/cmd/listener"
+	"github.com/synnaxlabs/synnax/cmd/start/internal/stdin"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
@@ -42,15 +42,6 @@ var Cmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, _ []string) { start(cmd) },
 }
 
-func scanForStopKeyword(interruptC chan os.Signal) {
-	scanner := bufio.NewScanner(os.Stdin)
-	for scanner.Scan() {
-		if scanner.Text() == "stop" {
-			interruptC <- os.Interrupt
-		}
-	}
-}
-
 // start is the entrypoint for starting a Synnax Core. It handles signal interrupts and
 // delegates to startServer for the actual startup.
 func start(cmd *cobra.Command) {
@@ -66,7 +57,12 @@ func start(cmd *cobra.Command) {
 
 	// Listen for a custom stop keyword that can be used in place of a Ctrl+C signal.
 	// It's fine to let this get garbage collected.
-	go scanForStopKeyword(interruptC)
+	go stdin.Watch(os.Stdin, viper.GetBool(FlagStopOnStdinClose), func() {
+		select {
+		case interruptC <- os.Interrupt:
+		default:
+		}
+	})
 
 	cfg, err := GetCoreConfigFromViper(ins)
 	if err != nil {

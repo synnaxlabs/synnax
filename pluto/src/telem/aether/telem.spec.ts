@@ -7,11 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { zod } from "@synnaxlabs/x";
+import { TimeStamp, zod } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { telem } from "@/telem/aether";
+
+const SAMPLE_TIME = TimeStamp.seconds(5);
+
+const stampedSource = (at: TimeStamp | null): telem.Source<number> => ({
+  value: () => 1,
+  onChange: () => () => {},
+  sampleTime: () => at,
+});
 
 class InvalidPropsSource extends telem.AbstractSource<z.ZodNumber> {
   schema = z.number();
@@ -44,6 +52,49 @@ describe("telem", () => {
       telem.createFactory(),
     );
     expect(await p.value()).toBe(true);
+  });
+
+  describe("sampleTime", () => {
+    const stringifier = (): telem.StringifyNumber =>
+      new telem.StringifyNumber({ precision: 2, notation: "standard" });
+
+    it("should forward through a unary transformer", () => {
+      const t = stringifier();
+      t.setSources({ s: stampedSource(SAMPLE_TIME) });
+      expect(t.sampleTime()).toBe(SAMPLE_TIME);
+    });
+
+    it("should be null when the transformer's source lacks it", () => {
+      const t = stringifier();
+      t.setSources({ s: { value: () => 1, onChange: () => () => {} } });
+      expect(t.sampleTime()).toBeNull();
+    });
+
+    it("should forward through a pipeline to its outlet", () => {
+      const p = new telem.SourcePipeline<string>(
+        {
+          connections: [{ from: "s", to: "str" }],
+          outlet: "str",
+          segments: {
+            s: telem.fixedNumber(1),
+            str: telem.stringifyNumber({ precision: 2, notation: "standard" }),
+          },
+        },
+        telem.createFactory(),
+      );
+      (p.sources.str as telem.StringifyNumber).setSources({
+        s: stampedSource(SAMPLE_TIME),
+      });
+      expect(p.sampleTime()).toBe(SAMPLE_TIME);
+    });
+
+    it("should be null when the pipeline outlet lacks it", () => {
+      const p = new telem.SourcePipeline<number>(
+        { connections: [], outlet: "s", segments: { s: telem.fixedNumber(1) } },
+        telem.createFactory(),
+      );
+      expect(p.sampleTime()).toBeNull();
+    });
   });
 
   describe("AbstractSource loading", () => {

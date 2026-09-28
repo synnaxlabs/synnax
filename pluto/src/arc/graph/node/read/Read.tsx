@@ -9,15 +9,16 @@
 
 import "@/arc/graph/node/read/Read.css";
 
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
+
 import { Handle } from "@/arc/graph/handle";
 import { type Config } from "@/arc/graph/node/read/config";
 import { type types } from "@/arc/graph/node/types";
 import { Channel } from "@/channel";
-import { CSS } from "@/css";
-import { Divider } from "@/divider";
-import { Flex } from "@/flex";
-import { Icon } from "@/icon";
-import { Text } from "@/text";
 
 export interface SymbolProps extends types.SymbolProps<Config> {}
 

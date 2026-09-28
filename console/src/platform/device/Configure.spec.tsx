@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Icon } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { id } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";

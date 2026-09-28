@@ -10,7 +10,12 @@
 import "@/feature/modbus/task/Task.css";
 
 import { channel, NotFoundError } from "@synnaxlabs/client";
-import { Component, Flex, Form as PForm, Icon, Select, Telem } from "@synnaxlabs/pluto";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Telem } from "@synnaxlabs/pluto";
 import { DataType, deep, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
@@ -50,7 +55,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const path = `config.channels.${itemKey}`;
   const { type, channel } = PForm.useFieldValue<ReadChannel>(path);
   return (
-    <Select.ListItem
+    <Select.Item
       {...props}
       className={CSS.BE("modbus", "channel-item")}
       justify="between"
@@ -97,9 +102,9 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
           namePath={`${path}.name`}
           id={Task.getChannelNameID(itemKey)}
         />
-        <Task.EnableDisableButton path={`${path}.disabled`} />
+        <Task.EnabledCheckbox path={`${path}.disabled`} />
       </Flex.Box>
-    </Select.ListItem>
+    </Select.Item>
   );
 };
 

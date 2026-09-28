@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { arc, query, task } from "@synnaxlabs/client";
-import { Access, Arc, Icon, Menu, Task } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Access, Arc, Task } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 
 import { ContextMenu } from "@/platform/context-menu";

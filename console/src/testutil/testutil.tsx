@@ -17,7 +17,9 @@ import {
   type SynnaxParams,
 } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
-import { Access, Status, Synnax, Triggers } from "@synnaxlabs/pluto";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
+import { Access, Synnax } from "@synnaxlabs/pluto";
 import { type aether, eraser } from "@synnaxlabs/pluto/ether";
 import { deep, id } from "@synnaxlabs/x";
 import {

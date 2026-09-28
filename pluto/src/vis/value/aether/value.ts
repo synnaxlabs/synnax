@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { theme } from "@synnaxlabs/lyra/theme";
 import {
   border,
   box,
@@ -58,7 +59,7 @@ const valueState = staleness.configZ.extend({
 const CANVAS_VARIANTS: render.Canvas2DVariant[] = ["upper2d", "lower2d"];
 
 interface InternalState {
-  theme: theming.Theme;
+  theme: theme.Theme;
   renderCtx: render.Context;
   telem: telem.StringSource;
   stopListening?: () => void;
@@ -97,7 +98,7 @@ export class Value
       i.staleness.received();
       this.requestRender();
     });
-    i.fontString = theming.fontString(i.theme, { level: this.state.level, code: true });
+    i.fontString = theme.fontString(i.theme, { level: this.state.level, code: true });
     i.backgroundTelem = telem.useSource(
       ctx,
       this.state.backgroundTelem,

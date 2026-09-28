@@ -9,12 +9,12 @@
 
 import { schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { Form } from "@synnaxlabs/lyra/form";
 import { uuid } from "@synnaxlabs/x";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
-import { Form } from "@/form";
 import { Node } from "@/schematic/node";
 import { OffPageReferenceForm } from "@/schematic/node/general/offPageReference/Form";
 import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
@@ -37,12 +37,12 @@ const FormWrapper = ({ children }: PropsWithChildren): ReactElement => {
 
 describe("OffPageReferenceForm", () => {
   it("should render the form with label, page, and click mode fields", () => {
-    const { getByText } = render(
+    const { getAllByText, getByText } = render(
       <FormWrapper>
         <OffPageReferenceForm />
       </FormWrapper>,
     );
-    expect(getByText("Label")).toBeDefined();
+    expect(getAllByText("Label")).toHaveLength(2);
     expect(getByText("Page")).toBeDefined();
     expect(getByText("Click mode")).toBeDefined();
   });
@@ -72,7 +72,7 @@ describe("OffPageReferenceForm", () => {
         <OffPageReferenceForm />
       </FormWrapper>,
     );
-    expect(getByText("Label size")).toBeDefined();
+    expect(getByText("Size")).toBeDefined();
   });
 
   interface PageFormFixtureArgs {

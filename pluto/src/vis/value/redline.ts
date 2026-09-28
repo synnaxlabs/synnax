@@ -7,38 +7,38 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, color, scale } from "@synnaxlabs/x";
-import { z } from "zod";
+import { type color, TimeSpan } from "@synnaxlabs/x";
 
 import { telem } from "@/telem/aether";
 
-export const redlineZ = z.object({
-  bounds: bounds.boundsZ(),
-  gradient: color.gradientZ,
-});
-export type Redline = z.infer<typeof redlineZ>;
-export const ZERO_REDLINE: Redline = { bounds: { lower: 0, upper: 1 }, gradient: [] };
+/** How long a flashing band holds each of its two fills. */
+const FLASH_PERIOD = TimeSpan.milliseconds(500);
 
 /**
- * Builds the color source that paints a value's background, mapping the value's own
- * telemetry through the redline bounds onto its gradient.
- * @param source - The value's telemetry, read as the number to map.
+ * Builds the background color telemetry for a value painted through the given
+ * redline.
+ * @param source - The value's display telemetry. Its text is read as a number.
+ * @param background - The fill where no band paints. Absent paints nothing.
+ * @returns The color telemetry, or undefined when nothing paints.
  */
 export const backgroundTelem = (
   source: telem.StringSourceSpec,
-  { bounds, gradient }: Redline,
-): telem.ColorSourceSpec =>
-  telem.sourcePipeline("color", {
+  { bands, smooth }: color.Scale,
+  background?: color.Color,
+): telem.ColorSourceSpec | undefined => {
+  if (bands.length === 0)
+    return background == null ? undefined : telem.fixedColor(background);
+  const flashing = bands.some((band) => band.flashing);
+  return telem.sourcePipeline("color", {
     connections: [
-      { from: "source", to: "scale" },
-      { from: "scale", to: "gradient" },
+      { from: "source", to: "band" },
+      ...(flashing ? [{ from: "phase", to: "band" }] : []),
     ],
     segments: {
       source,
-      scale: telem.scaleNumber({
-        scale: scale.Scale.scale<number>(bounds).scale(0, 1).transform,
-      }),
-      gradient: telem.colorGradient({ gradient }),
+      band: telem.bandColor({ bands, background, smooth }),
+      ...(flashing ? { phase: telem.clock({ period: FLASH_PERIOD }) } : {}),
     },
-    outlet: "gradient",
+    outlet: "band",
   });
+};

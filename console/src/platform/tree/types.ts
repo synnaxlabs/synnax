@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology, type Synnax } from "@synnaxlabs/client";
-import { type Status, type Tree } from "@synnaxlabs/pluto";
+import { type Status } from "@synnaxlabs/lyra/status";
+import { type Tree } from "@synnaxlabs/lyra/tree";
 import { type FC } from "react";
 
 import { type Panel } from "@/platform/panel";
