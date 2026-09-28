@@ -18,6 +18,7 @@ packages:
   - freighter/ts
   - lyra
   - pluto
+  - site/www
   - studio
   - x/media
   - x/ts

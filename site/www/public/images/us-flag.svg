@@ -1,0 +1,39 @@
+<svg
+    width="1235"
+    height="650"
+    viewBox="0 0 1235 650"
+    xmlns="http://www.w3.org/2000/svg"
+    xmlns:xlink="http://www.w3.org/1999/xlink"
+>
+  <defs>
+    <g id="b">
+      <use xlink:href="#a" x="49" y="43.75" />
+      <use xlink:href="#a" x="115" y="43.75" />
+      <use xlink:href="#a" x="181" y="43.75" />
+      <use xlink:href="#a" x="247" y="43.75" />
+      <use xlink:href="#a" x="313" y="43.75" />
+      <use xlink:href="#a" x="379" y="43.75" />
+      <use xlink:href="#a" x="445" y="43.75" />
+    </g>
+    <g id="c">
+      <use xlink:href="#b" />
+      <use xlink:href="#b" y="87.5" />
+      <use xlink:href="#b" y="175" />
+      <use xlink:href="#b" y="262.5" />
+    </g>
+    <path
+            id="a"
+            transform="scale(20)"
+            fill="#fff"
+            d="M0-1 .588.809-.952-.309H.952L-.588.809z"
+        />
+  </defs>
+  <path fill="#bf0a30" d="M0 0h1235v650H0z" />
+  <path
+        stroke="#FFF"
+        stroke-width="50"
+        d="M0 75h1235M0 175h1235M0 275h1235M0 375h1235M0 475h1235M0 575h1235"
+    />
+  <path fill="#00205b" d="M0 0h494v350H0z" />
+  <use xlink:href="#c" />
+</svg>
