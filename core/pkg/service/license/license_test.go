@@ -151,9 +151,8 @@ var _ = Describe("License", func() {
 		})
 		It("should accept a token requiring every claim the license carries", func() {
 			lic := newLicense()
-			fields := reflect.TypeFor[license.License]()
-			for i := range fields.NumField() {
-				tag := fields.Field(i).Tag.Get("json")
+			for f := range reflect.TypeFor[license.License]().Fields() {
+				tag := f.Tag.Get("json")
 				lic.Required = append(lic.Required, strings.Split(tag, ",")[0])
 			}
 			Expect(license.Verify(anchors, sign(lic))).To(Equal(lic))
