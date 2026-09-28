@@ -30,6 +30,7 @@
     "@synnaxlabs/client": "catalog:",
     "@synnaxlabs/lyra": "catalog:",
     "@synnaxlabs/media": "catalog:",
+    "@synnaxlabs/x": "catalog:",
     "astro": "catalog:",
     "drizzle-orm": "catalog:",
     "react": "catalog:",

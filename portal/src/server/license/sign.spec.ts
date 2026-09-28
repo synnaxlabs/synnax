@@ -9,7 +9,8 @@
 
 import { generateKeyPairSync, verify } from "node:crypto";
 
-import { license as client } from "@synnaxlabs/client";
+import { license } from "@synnaxlabs/client";
+import { binary } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { local, sign } from "@/server/license/sign";
@@ -36,9 +37,30 @@ describe("sign", () => {
     expect(decode(header)).toEqual({ alg: "EdDSA", typ: "JWT", kid: "test" });
   });
 
-  it("should carry claims the client schema parses back", async () => {
+  it("should key the claims as the Core reads them", async () => {
+    const [, payload] = (await sign(signer, { ...CLAIMS, maxVersion: "0.62" })).split(
+      ".",
+    );
+    expect(Object.keys(decode(payload) as object).sort()).toEqual([
+      "channels",
+      "claims_version",
+      "edition",
+      "exp",
+      "fingerprint_scheme",
+      "fingerprints",
+      "iat",
+      "jti",
+      "machines",
+      "max_version",
+      "organization",
+      "required",
+    ]);
+  });
+
+  it("should carry claims the client codec decodes back", async () => {
     const [, payload] = (await sign(signer, CLAIMS)).split(".");
-    expect(client.licenseZ.parse(decode(payload))).toEqual(CLAIMS);
+    const json = Buffer.from(payload, "base64url").toString();
+    expect(binary.JSON_CODEC.decodeString(json, license.licenseZ)).toEqual(CLAIMS);
   });
 
   it("should omit absent optional claims instead of writing null", async () => {
