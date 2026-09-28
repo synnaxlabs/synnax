@@ -13,6 +13,7 @@ import (
 	"context"
 	"os"
 	"os/signal"
+	"strings"
 
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
@@ -95,6 +96,23 @@ func start(cmd *cobra.Command) {
 
 func init() { AddFlags(Cmd) }
 
+// readLicenseToken returns the token from the key flag, or the trimmed contents of the
+// file the path flag names when the key flag is empty.
+func readLicenseToken() (string, error) {
+	if v := viper.GetString(FlagLicenseKey); v != "" {
+		return v, nil
+	}
+	path := viper.GetString(FlagLicenseFile)
+	if path == "" {
+		return "", nil
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(b)), nil
+}
+
 // GetCoreConfigFromViper builds a CoreConfig from the current viper configuration.
 // This is used by the Windows service to start the Core with the config loaded from
 // a YAML file.
@@ -116,12 +134,16 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 			return l.Address
 		},
 	)
+	licenseToken, err := readLicenseToken()
+	if err != nil {
+		return CoreConfig{}, err
+	}
 	return CoreConfig{
 		Instrumentation:     ins,
 		insecure:            new(viper.GetBool(FlagInsecure)),
 		debug:               new(viper.GetBool(instrumentation.FlagDebug)),
 		autoCert:            new(viper.GetBool(cert.FlagAutoCert)),
-		verifier:            viper.GetString(FlagDecoded),
+		licenseToken:        licenseToken,
 		memBacked:           new(viper.GetBool(FlagMem)),
 		listeners:           listeners,
 		peers:               peers,

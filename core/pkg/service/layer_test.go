@@ -15,9 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/security"
-	secmock "github.com/synnaxlabs/synnax/pkg/security/mock"
-	"github.com/synnaxlabs/synnax/pkg/service"
+	svcmock "github.com/synnaxlabs/synnax/pkg/service/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	panelversions "github.com/synnaxlabs/synnax/pkg/service/panel/versions"
 	projectv0 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v0"
@@ -73,15 +71,7 @@ var _ = Describe("Layer", func() {
 			Expect(gorp.WrapWriter[projectv0.Key, projectv0.Workspace](db).
 				Set(ctx, ws)).To(Succeed())
 
-			sec := MustSucceed(security.NewProvider(security.ProviderConfig{
-				Insecure: new(true),
-				KeySize:  secmock.SmallKeySize,
-			}))
-			MustOpen(service.OpenLayer(ctx, service.LayerConfig{
-				Distribution: node.Layer,
-				Security:     sec,
-				Storage:      node.Storage,
-			}))
+			MustOpen(svcmock.OpenLayer(ctx, node))
 
 			seq, closer := MustSucceed2(gorp.
 				WrapReader[panelversions.Key, panelversions.Panel](db).

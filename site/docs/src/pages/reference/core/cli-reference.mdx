@@ -131,7 +131,13 @@ synnax start -l localhost:9090 -im
     {
       option: "--license-key",
       default: '""',
-      description: "License key to use Synnax outside of demo mode.",
+      description:
+        'License token to activate at start. See <a href="/reference/core/production#licensing">Licensing</a>.',
+    },
+    {
+      option: "--license-file",
+      default: '""',
+      description: "Path to a file that holds the license token to activate at start.",
     },
     {
       option: "--debug",
@@ -255,6 +261,7 @@ Command line flags will take precedence over environment variables.
     { option: "--username", env: "SYNNAX_USERNAME" },
     { option: "--password", env: "SYNNAX_PASSWORD" },
     { option: "--license-key", env: "SYNNAX_LICENSE_KEY" },
+    { option: "--license-file", env: "SYNNAX_LICENSE_FILE" },
     { option: "--debug", env: "SYNNAX_DEBUG" },
     { option: "--slow-consumer-timeout", env: "SYNNAX_SLOW_CONSUMER_TIMEOUT" },
     { option: "--no-driver", env: "SYNNAX_NO_DRIVER" },
@@ -314,7 +321,7 @@ Here are example configuration files in various formats:
   "node-key": "node.key",
   "username": "synnax",
   "password": "seldon",
-  "license-key": "000000-00000000-0000000000",
+  "license-file": "/usr/local/synnax/synnax.license",
   "debug": false,
   "slow-consumer-timeout": "2.5s",
   "no-driver": false,
@@ -352,7 +359,7 @@ node-cert: node.crt
 node-key: node.key
 username: synnax
 password: seldon
-license-key: 000000-00000000-0000000000
+license-file: /usr/local/synnax/synnax.license
 no-driver: false
 disable-integrations: []
 enable-integrations: []
@@ -385,7 +392,7 @@ node-cert = "node.crt"
 node-key = "node.key"
 username = "synnax"
 password = "seldon"
-license-key = "000000-00000000-0000000000"
+license-file = "/usr/local/synnax/synnax.license"
 no-driver = false
 disable-integrations = []
 enable-integrations = []

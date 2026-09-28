@@ -29,7 +29,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-func fixedOverflowChecker(limit int) channel.IntOverflowChecker {
+func fixedChannelLimit(limit int) channel.ChannelLimitChecker {
 	return func(count types.Uint20) error {
 		if count > types.Uint20(limit) {
 			return errors.New("channel limit exceeded")
@@ -39,21 +39,19 @@ func fixedOverflowChecker(limit int) channel.IntOverflowChecker {
 }
 
 var _ = Describe("Writer", func() {
-	// The external non-virtual channel set the writer maintains for overflow
-	// enforcement is not directly observable, so these specs exercise it indirectly
-	// through the overflow limit: only external non-virtual channels should count
-	// toward it.
-	Describe("External Channel Overflow", Ordered, func() {
+	// The external non-virtual channel set is not observable, so these specs exercise
+	// it through the channel limit: only external non-virtual channels count toward it.
+	Describe("External Channel Limit", Ordered, func() {
 		var (
-			overflowSvc    *channel.Service
-			overflowWriter channel.Writer
+			limitSvc    *channel.Service
+			limitWriter channel.Writer
 		)
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
-			overflowSvc, _ = openService(ctx, mock.NewNode(ctx), channel.ServiceConfig{
-				IntOverflowCheck: fixedOverflowChecker(2),
+			limitSvc, _ = openService(ctx, mock.NewNode(ctx), channel.ServiceConfig{
+				ChannelLimit: fixedChannelLimit(2),
 			})
-			overflowWriter = overflowSvc.NewWriter(nil)
+			limitWriter = limitSvc.NewWriter(nil)
 		})
 		It(
 			"Should not count virtual or internal channels toward the limit",
@@ -65,7 +63,7 @@ var _ = Describe("Writer", func() {
 						Virtual:     true,
 						Leaseholder: node.KeyFree,
 					}
-					Expect(overflowWriter.Create(ctx, &virtual)).To(Succeed())
+					Expect(limitWriter.Create(ctx, &virtual)).To(Succeed())
 					internal := channel.Channel{
 						Name:        UniqueChannelName(),
 						DataType:    telem.TimestampT,
@@ -73,7 +71,7 @@ var _ = Describe("Writer", func() {
 						Internal:    true,
 						Leaseholder: 1,
 					}
-					Expect(overflowWriter.Create(ctx, &internal)).To(Succeed())
+					Expect(limitWriter.Create(ctx, &internal)).To(Succeed())
 				}
 			},
 		)
@@ -87,7 +85,7 @@ var _ = Describe("Writer", func() {
 						IsIndex:     true,
 						Leaseholder: 1,
 					}
-					Expect(overflowWriter.Create(ctx, &ch)).To(Succeed())
+					Expect(limitWriter.Create(ctx, &ch)).To(Succeed())
 				}
 				third := channel.Channel{
 					Name:        UniqueChannelName(),
@@ -95,18 +93,18 @@ var _ = Describe("Writer", func() {
 					IsIndex:     true,
 					Leaseholder: 1,
 				}
-				Expect(overflowWriter.Create(ctx, &third)).
+				Expect(limitWriter.Create(ctx, &third)).
 					Error().To(MatchError(ContainSubstring("channel limit exceeded")))
 			},
 		)
 		It(
-			"Should remove overwritten channels from the external overflow set",
+			"Should remove overwritten channels from the external channel set",
 			func(ctx SpecContext) {
 				cleanupSvc, _ := openService(
 					ctx,
 					mock.NewNode(ctx),
 					channel.ServiceConfig{
-						IntOverflowCheck: fixedOverflowChecker(3),
+						ChannelLimit: fixedChannelLimit(3),
 					},
 				)
 				idx := channel.Channel{
@@ -138,7 +136,7 @@ var _ = Describe("Writer", func() {
 
 				// The set now holds {idx, overwrite}. If the overwritten channel's key
 				// had been left behind, creating another external channel would push
-				// the count to 4 and trip the limit-of-3 overflow check.
+				// the count to 4 and trip the limit of 3.
 				another := channel.Channel{
 					Name:        UniqueChannelName(),
 					DataType:    telem.Float64T,
@@ -1421,7 +1419,7 @@ var _ = Describe("Writer", func() {
 			limitSvc, _ = openService(
 				ctx,
 				dist,
-				channel.ServiceConfig{IntOverflowCheck: fixedOverflowChecker(limit)},
+				channel.ServiceConfig{ChannelLimit: fixedChannelLimit(limit)},
 			)
 			limitWriter = limitSvc.NewWriter(nil)
 		})

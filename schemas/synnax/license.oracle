@@ -1,0 +1,99 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+@go output "core/pkg/service/license"
+@py output "client/py/synnax/license"
+@ts output "client/ts/src/license"
+
+License struct {
+    jti                uuid     {
+        @doc value "is the unique identifier of the license."
+    }
+    iat                uint32   {
+        @doc value "is when the license was issued, in seconds since the Unix epoch."
+    }
+    exp                uint32?  {
+        @doc value """
+            is when the license stops applying, in seconds since the Unix epoch. Absent
+            when it never stops applying on its own.
+        """
+    }
+    claims_version     uint8    {
+        @doc value "is the version of the claim set."
+    }
+    organization       uuid     {
+        @doc value "is the organization the license belongs to."
+    }
+    edition            string   {
+        @doc value "is the edition the license applies to."
+    }
+    fingerprints       string[] = [] {
+        @doc value """
+            is the set of machine fingerprints the license is bound to. Empty when the
+            license runs on any machine.
+        """
+    }
+    fingerprint_scheme uint8    {
+        @doc value "is the scheme that produced the fingerprints."
+    }
+    machines           uint32   {
+        @doc value "is how many machines may run under the license."
+    }
+    channels           uint32   {
+        @doc value "is the channel cap per Core. Zero means unlimited."
+    }
+    max_version        string?  {
+        @doc value """
+            is the highest Core minor version the license covers, as "0.62". Absent
+            means any version.
+        """
+    }
+    required           string[] = [] {
+        @doc value """
+            is the claims a Core must understand to accept the license. A Core that does
+            not know one of them refuses the token.
+        """
+    }
+
+    @doc value """
+        is the signed set of claims a Core verifies.
+    """
+}
+
+State enum {
+    ok      = "ok"
+    missing = "missing"
+    expired = "expired"
+
+    @doc value "is whether a license covers the Core."
+}
+
+Fingerprint string[] {
+    @doc value """
+        identifies the machine the Core runs on: the sorted SHA-256 hex digests of every
+        physical network interface's hardware address.
+    """
+}
+
+Info struct {
+    state       State       {
+        @doc value "is whether a license covers the Core."
+    }
+    warning     string      {
+        @doc value "is set while the state is ok but a change is near or past."
+    }
+    fingerprint Fingerprint = [] {
+        @doc value "identifies the machine the Core runs on."
+    }
+    license     License?    {
+        @doc value "is the license that applies, if any."
+    }
+
+    @doc value "is what the Core knows about its license."
+}

@@ -25,8 +25,12 @@ Restart = always
 RestartSec = 5s
 StandardOutput = /home/synnax/synnax.log
 StandardError = /home/synnax/errors.log
-ExecStart = /home/synnax/synnax --listen="localhost:9090"
+ExecStart = /home/synnax/synnax start --listen="localhost:9090" --license-file="/home/synnax/synnax.license"
 
 [Install]
 WantedBy = multi-user.target
 ```
+
+The unit passes the license token through `--license-file`, so the token stays out of
+the unit file and the process list. The
+[production guide](/reference/core/production#licensing) explains how to obtain one.

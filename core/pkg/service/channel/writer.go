@@ -464,13 +464,10 @@ func (w Writer) create(
 	)
 }
 
-// allocateAndWrite enforces the external-channel overflow cap, allocates local keys and
-// storage for the new channels (those at newIndices, mirrored in minimal) through the
-// distribution allocator, links calculated channels to their index channels, writes the
-// newly created channels to the table, and records their keys in the external
-// non-virtual set. The service lock is held for the whole sequence so the cap check,
-// allocation, table write, and set update are atomic: a create rejected by the cap
-// allocates no keys or storage, and concurrent creates cannot interleave past the cap.
+// allocateAndWrite enforces the channel limit, then allocates keys and storage for the
+// new channels, writes them to the table, and records them in the external non-virtual
+// set. It holds the service lock throughout, so a create rejected by the limit
+// allocates nothing and concurrent creates cannot pass the limit together.
 func (w Writer) allocateAndWrite(
 	ctx context.Context,
 	channels []Channel,
@@ -486,7 +483,7 @@ func (w Writer) allocateAndWrite(
 	w.svc.mu.Lock()
 	defer w.svc.mu.Unlock()
 	count := w.svc.mu.externalNonVirtualSet.Size()
-	if err := w.svc.cfg.IntOverflowCheck(
+	if err := w.svc.cfg.ChannelLimit(
 		types.Uint20(int(count) + externalNewCount),
 	); err != nil {
 		return err

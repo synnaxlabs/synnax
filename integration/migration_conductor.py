@@ -179,18 +179,22 @@ def install_version(version: str) -> Path:
 
 
 def start_core(
-    binary: Path | None = None, *, dev: bool = False
+    binary: Path | None = None, *, dev: bool = False, current: bool = False
 ) -> subprocess.Popen[bytes]:
     """Start a Core process against the shared migration data directory.
 
     Pass a binary path for release binaries, or ``dev=True`` to run from
-    source via ``go run``.
+    source via ``go run``. A Core built from this checkout (``dev`` or
+    ``current``) takes the license token; a release binary takes the legacy key.
     """
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     log_file = DATA_DIR / "synnax-core.log"
 
     env = os.environ.copy()
-    env.setdefault("SYNNAX_LICENSE_KEY", "")
+    if dev or current:
+        env["SYNNAX_LICENSE_KEY"] = os.environ.get("SYNNAX_LICENSE_TOKEN", "")
+    else:
+        env.setdefault("SYNNAX_LICENSE_KEY", "")
 
     if dev:
         cmd = [
@@ -534,7 +538,7 @@ def run(from_version: str, dev: bool) -> bool:
                 f"Expected CI-built binary at {latest_binary}. "
                 "Pass --dev to run from source instead."
             )
-        proc = start_core(latest_binary)
+        proc = start_core(latest_binary, current=True)
 
     try:
         return run_verify()
