@@ -31,7 +31,15 @@ import {
   WINDOW_FILL,
 } from "@/director/constants";
 import { at, type SpringParams, type SpringState, step } from "@/director/spring";
-import { type Edit, FPS, HEIGHT, type Shot, type Take, type Tilt, WIDTH } from "@/film";
+import {
+  type Edit,
+  type Format,
+  FPS,
+  type Shot,
+  SIZES,
+  type Take,
+  type Tilt,
+} from "@/film";
 import { type Mark, marks, type Rect, type Timeline } from "@/timeline";
 
 const clamp = (t: number, lo = 0, hi = 1): number => Math.min(hi, Math.max(lo, t));
@@ -57,6 +65,7 @@ export type StageSample =
 
 /** StagePlan is everything the film compositor draws, one sample per output frame. */
 export interface StagePlan {
+  format: Format;
   width: number;
   height: number;
   fps: number;
@@ -90,7 +99,9 @@ const planTake = (
   shot: Take,
   tl: Timeline,
   byName: Map<string, Mark>,
+  format: Format,
 ): StageSample[] => {
+  const frame = SIZES[format];
   const name = describe(index, shot);
   const find = (mark: string): Mark => {
     const found = byName.get(mark);
@@ -113,7 +124,7 @@ const planTake = (
     if (tick < prev)
       throw new Error(`${name} beat ${b} at "${beat.at}" comes before beat ${b - 1}`);
     let region: Rect = { x: 0, y: 0, width, height };
-    let fill = beat.fill ?? WINDOW_FILL;
+    let fill = beat.fill ?? WINDOW_FILL[format];
     if (beat.wide !== true) {
       const framed = beat.frame ?? beat.at;
       const { rect } = find(framed);
@@ -123,8 +134,8 @@ const planTake = (
       fill = beat.fill ?? TARGET_FILL;
     }
     const scale = Math.min(
-      (fill * WIDTH) / region.width,
-      (HEIGHT_FILL * HEIGHT) / region.height,
+      (fill * frame.width) / region.width,
+      (HEIGHT_FILL * frame.height) / region.height,
     );
     return {
       tick,
@@ -160,7 +171,7 @@ const planTake = (
         target.pace ??
         clamp(
           PACE_MIN_S +
-            (PACE_PER_WIDTH_S * travel * scale) / WIDTH +
+            (PACE_PER_WIDTH_S * travel * scale) / frame.width +
             PACE_PER_ZOOM_S * doublings,
           PACE_MIN_S,
           PACE_MAX_S,
@@ -187,8 +198,8 @@ const planTake = (
       },
     });
     // The plane leans into the camera's travel, the way a camera on a jib banks.
-    const pan = (x.velocity * scale) / WIDTH;
-    const tiltPan = (y.velocity * scale) / WIDTH;
+    const pan = (x.velocity * scale) / frame.width;
+    const tiltPan = (y.velocity * scale) / frame.width;
     const dolly = zoom.velocity / Math.LN2;
     const leanZ = clamp(-LEAN_DEG * pan, -LEAN_MAX_DEG, LEAN_MAX_DEG);
     const leanX = clamp(
@@ -242,7 +253,7 @@ const planEnd = (index: number, seconds: number): StageSample[] => {
  * out of order or outside it, frames a mark without a rect, or magnifies the capture
  * past its detail.
  */
-export const stage = (edit: Edit, tl: Timeline): StagePlan => {
+export const stage = (edit: Edit, tl: Timeline, format: Format): StagePlan => {
   if (tl.meta.fps !== FPS)
     throw new Error(
       `films capture at ${FPS} fps, but this capture ran at ${tl.meta.fps}`,
@@ -251,7 +262,7 @@ export const stage = (edit: Edit, tl: Timeline): StagePlan => {
   const samples = edit.flatMap((shot, i): StageSample[] => {
     switch (shot.type) {
       case "take":
-        return planTake(i, shot, tl, byName);
+        return planTake(i, shot, tl, byName, format);
       case "card":
         return planCard(i, shot.seconds ?? CARD_S);
       case "end":
@@ -259,8 +270,8 @@ export const stage = (edit: Edit, tl: Timeline): StagePlan => {
     }
   });
   return {
-    width: WIDTH,
-    height: HEIGHT,
+    format,
+    ...SIZES[format],
     fps: FPS,
     perspective: PERSPECTIVE_PX,
     shots: edit,

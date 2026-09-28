@@ -32,6 +32,7 @@ const DEFAULT_PROPS: StudioVideoProps = {
 const DEFAULT_FILM_PROPS: FilmProps = {
   meta: { ...DEFAULT_PROPS.meta, theme: "dark" },
   plan: {
+    format: "portrait",
     width: 1080,
     height: 1350,
     fps: 60,

@@ -23,7 +23,7 @@ We have two main applications:
 
 - `@synnaxlabs/console` (`console`): The exploratory data analysis, cluster management,
   and control application.
-- `@synnaxlabs/docs` (`docs/site`): The Synnax documentation website.
+- `@synnaxlabs/docs` (`site/docs`): The Synnax documentation website.
 
 There are also a few packages that are specifically for defining configurations for
 various build/developments tools:

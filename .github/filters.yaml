@@ -193,7 +193,7 @@ docs:
   - *ts
   - *x_ts
   - .github/workflows/test.docs.yaml
-  - docs/site/**
+  - site/docs/**
 
 www:
   - *arc_ts
