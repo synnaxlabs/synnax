@@ -9,7 +9,7 @@ prevURL: "/reference/core/requirements"
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Table } from "@/components";
+import { Table } from "@/components/table";
 import { Tabs } from "@/components/tabs/Tabs";
 import VersionOutput from "@/components/core/VersionOutput.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
@@ -33,7 +33,6 @@ synnax start -l localhost:9090 -im
 ### Flags
 
 <Table.Data
-  client:only="react"
   columns={[
     { key: "option", name: "Flag", type: "code", width: 150 },
     { key: "default", name: "Default", type: "code" },
@@ -131,7 +130,13 @@ synnax start -l localhost:9090 -im
     {
       option: "--license-key",
       default: '""',
-      description: "License key to use Synnax outside of demo mode.",
+      description:
+        'License key to activate at start. See <a href="/reference/core/production#licensing">Licensing</a>.',
+    },
+    {
+      option: "--license-file",
+      default: '""',
+      description: "Path to a file that holds the license key to activate at start.",
     },
     {
       option: "--debug",
@@ -235,7 +240,6 @@ The following environment variables can be used in place of the corresponding fl
 Command line flags will take precedence over environment variables.
 
 <Table.Data
-  client:only="react"
   columns={[
     { key: "option", name: "Flag", type: "code" },
     { key: "env", name: "Environment Variable", type: "code" },
@@ -255,6 +259,7 @@ Command line flags will take precedence over environment variables.
     { option: "--username", env: "SYNNAX_USERNAME" },
     { option: "--password", env: "SYNNAX_PASSWORD" },
     { option: "--license-key", env: "SYNNAX_LICENSE_KEY" },
+    { option: "--license-file", env: "SYNNAX_LICENSE_FILE" },
     { option: "--debug", env: "SYNNAX_DEBUG" },
     { option: "--slow-consumer-timeout", env: "SYNNAX_SLOW_CONSUMER_TIMEOUT" },
     { option: "--no-driver", env: "SYNNAX_NO_DRIVER" },
@@ -290,7 +295,6 @@ environment variable.
 Here are example configuration files in various formats:
 
 <Tabs
-  client:load
   tabs={[
     { name: "JSON", tabKey: "json" },
     { name: "YAML", tabKey: "yaml" },
@@ -314,7 +318,7 @@ Here are example configuration files in various formats:
   "node-key": "node.key",
   "username": "synnax",
   "password": "seldon",
-  "license-key": "000000-00000000-0000000000",
+  "license-file": "/usr/local/synnax/synnax.license",
   "debug": false,
   "slow-consumer-timeout": "2.5s",
   "no-driver": false,
@@ -352,7 +356,7 @@ node-cert: node.crt
 node-key: node.key
 username: synnax
 password: seldon
-license-key: 000000-00000000-0000000000
+license-file: /usr/local/synnax/synnax.license
 no-driver: false
 disable-integrations: []
 enable-integrations: []
@@ -385,7 +389,7 @@ node-cert = "node.crt"
 node-key = "node.key"
 username = "synnax"
 password = "seldon"
-license-key = "000000-00000000-0000000000"
+license-file = "/usr/local/synnax/synnax.license"
 no-driver = false
 disable-integrations = []
 enable-integrations = []
@@ -430,7 +434,6 @@ listen:
 Each listener object accepts the following fields:
 
 <Table.Data
-  client:only="react"
   columns={[
     { key: "field", name: "Field", type: "code", width: 130 },
     { key: "description", name: "Description", type: "html" },
@@ -481,7 +484,6 @@ update things by hand.
 The behavior depends on what already exists on disk:
 
 <Table.Data
-  client:only="react"
   columns={[
     { key: "scenario", name: "Scenario", type: "html", width: 260 },
     { key: "behavior", name: "Behavior", type: "html" },
@@ -598,7 +600,6 @@ synnax service install --auto-start=false --insecure
 #### Flags
 
 <Table.Data
-  client:only="react"
   columns={[
     { key: "option", name: "Flag", type: "code", width: 180 },
     { key: "default", name: "Default", type: "code" },

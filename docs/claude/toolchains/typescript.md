@@ -18,7 +18,7 @@ config, Turbo for orchestration.
   APIs) / `pnpm dev:pluto`
 - `pnpm test` / `pnpm test:<pkg>`
 - `pnpm lint` / `pnpm fix` (also per-pkg variants)
-- `pnpm madge` / `pnpm madge:console` — circular dependency check
+- `pnpm cycles` / `pnpm cycles:console` — circular dependency check (knip)
 
 ### Console dev login
 
@@ -169,7 +169,7 @@ errors here are invisible at runtime.
 
 `src/index.ts` entry, tests co-located, `dist/` output (ESM `index.js`, types at
 `dist/src/index.d.ts`). Standard scripts: `build` = `tsc --noEmit && vite build`, plus
-`check-types`, `test`, `lint`, `fix`, `madge`.
+`check-types`, `test`, `lint`, `fix`.
 
 ## Bundling and publishing
 

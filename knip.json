@@ -1,5 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
+  "rules": { "cycles": "error" },
   "workspaces": {
     ".": {
       "entry": ["package.json"],
@@ -65,8 +66,8 @@
       "project": ["*.json"]
     },
     "configs/vite": {
-      "entry": ["lib.ts"],
-      "project": ["*.ts"],
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"],
       "ignoreDependencies": ["vite-*"]
     },
     "configs/stylelint": {

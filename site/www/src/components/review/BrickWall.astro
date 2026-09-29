@@ -197,24 +197,22 @@ for (let r = 0; r < layout.length; r++) {
 
 <div class="brick-wall-wrapper">
     <div class="brick-wall">
-        {
-            positions.map((pos, i) => {
-                const brick = bricks[i % bricks.length];
-                return (
-                    <div
-                        class="brick"
-                        style={`grid-column: ${pos.col} / span ${pos.span}; grid-row: ${pos.row};`}
-                    >
-                        <span class="brick-channel">{brick.channel}</span>
-                        <div class="brick-meta">
-                            <span class="brick-detail">{brick.dataRate}</span>
-                            <span class="brick-detail">{brick.dataType}</span>
-                            <span class="brick-detail">{brick.samples}</span>
-                        </div>
+        {positions.map((pos, i) => {
+            const brick = bricks[i % bricks.length];
+            return (
+                <div
+                    class="brick"
+                    style={`grid-column: ${pos.col} / span ${pos.span}; grid-row: ${pos.row};`}
+                >
+                    <span class="brick-channel">{brick.channel}</span>
+                    <div class="brick-meta">
+                        <span class="brick-detail">{brick.dataRate}</span>
+                        <span class="brick-detail">{brick.dataType}</span>
+                        <span class="brick-detail">{brick.samples}</span>
                     </div>
-                );
-            })
-        }
+                </div>
+            );
+        })}
     </div>
 </div>
 

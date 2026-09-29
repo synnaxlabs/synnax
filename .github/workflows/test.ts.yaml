@@ -91,7 +91,7 @@ jobs:
           SYNNAX_VERBOSE: true
           SYNNAX_INSECURE: true
           SYNNAX_MEM: true
-          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
         credentials:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
@@ -131,7 +131,7 @@ jobs:
 
       - name: Check circular dependencies
         if: matrix.lint && inputs.lint
-        run: pnpm madge:${{ inputs.package }}
+        run: pnpm cycles:${{ inputs.package }}
 
       - name: Lint
         if: matrix.lint && inputs.lint
