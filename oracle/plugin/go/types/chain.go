@@ -215,8 +215,7 @@ func ChainPaths(
 // ChainFrozenTable builds the resolution table for one frozen version package:
 // livePath's surface at k under its DepNS namespace, transitive pinned surfaces
 // alongside, and @go output annotations resolving every type to its frozen versions/vN
-// directory (or its live root, for hand-written types). The returned namespace
-// qualifies the package's own types.
+// directory. The returned namespace qualifies the package's own types.
 func ChainFrozenTable(
 	ctx context.Context,
 	req *plugin.Request,
@@ -300,8 +299,8 @@ func frozenFile(
 }
 
 // annotateOutputs assigns a @go output to every namespaced type in a frozen emission
-// table: chain surfaces resolve to their versions/vN directory, and hand-written types
-// resolve to their resource's live root package.
+// table, resolving each to its versions/vN directory. A hand-written type lives there
+// too, since hand-ness is version-local.
 func annotateOutputs(
 	ctx context.Context,
 	req *plugin.Request,
@@ -338,13 +337,7 @@ func annotateOutputs(
 				}
 			}
 		}
-		path := versioning.VersionedPath(goRoot, v)
-		// A dependency's hand-written type has one Go home at its live root; the
-		// chain's own hand-written types live in the frozen directory itself.
-		if omit.IsHand(*t, "go") && lp != ownLive {
-			path = goRoot
-		}
-		withGoOutput(t, path)
+		withGoOutput(t, versioning.VersionedPath(goRoot, v))
 	}
 	return nil
 }
