@@ -172,8 +172,14 @@ run_flags_match() {
     fi
     local file="${CACHE_DIR}/jobs-${run_id}.json"
     if [ ! -f "${file}" ]; then
-        gh api "repos/:owner/:repo/actions/runs/${run_id}/jobs?per_page=100" \
-            > "${file}" 2> /dev/null || echo '{}' > "${file}"
+        # An empty listing reads as every flag off, which is a real build, so a run
+        # whose flags cannot be read has to be rejected rather than assumed.
+        if ! gh api "repos/:owner/:repo/actions/runs/${run_id}/jobs?per_page=100" \
+            > "${file}" 2> /dev/null; then
+            rm -f "${file}"
+            log "flags unreadable for run ${run_id}"
+            return 1
+        fi
     fi
     local os sign_step
     for os in ${os_list}; do
