@@ -139,7 +139,6 @@ export const retrieve = async (
   return row;
 };
 
-/** isMember reports whether a membership covers an organization. */
 export const isMember = (
   org: Organization,
   { userID, clerkOrgIDs }: Membership,

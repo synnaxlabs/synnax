@@ -24,7 +24,6 @@ export interface Team {
 export interface Session extends Membership {
   email: string;
   name: string;
-  /** teams are the Clerk organizations the user is a member of. */
   teams: Team[];
   /** staff is true for admins of the Synnax Labs team organization. */
   staff: boolean;

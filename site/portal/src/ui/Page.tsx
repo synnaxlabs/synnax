@@ -66,7 +66,6 @@ export interface SectionProps extends PropsWithChildren {
   actions?: ReactNode;
 }
 
-/** Section is a titled block within a page. */
 export const Section = ({ title, actions, children }: SectionProps): ReactElement => (
   <Flex.Box y gap="medium" full="x">
     <Flex.Box x justify="between" align="center" gap="medium">

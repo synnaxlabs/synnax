@@ -9,7 +9,6 @@
 
 import { type Organization } from "@/server/db/schema";
 
-/** Tab is a section of the portal shell's tab row. */
 /** HOME is where a login lands when nothing sent the visitor. */
 export const HOME = "/";
 

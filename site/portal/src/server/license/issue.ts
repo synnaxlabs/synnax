@@ -65,7 +65,6 @@ export const validate = (args: Terms & { now: Date }): void => {
   }
 };
 
-/** issue records a new license for an organization. */
 export const issue = async (store: Store, args: IssueArgs): Promise<License> => {
   validate(args);
   const [row] = await store.query

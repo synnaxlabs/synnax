@@ -83,7 +83,6 @@ export const activation = pgTable(
       .notNull()
       .references(() => license.key),
     fingerprint: text("fingerprint").array().notNull(),
-    /** name is what the ledger calls the machine. */
     name: text("name"),
     /** renewalSecretHash is the SHA-256 of the secret a Desktop machine renews with. */
     renewalSecretHash: text("renewal_secret_hash").unique(),

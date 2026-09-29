@@ -27,7 +27,6 @@ import { License } from "@/platform/license";
 import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
 
-/** The extension the portal gives a downloaded license key file. */
 const KEY_FILE_EXTENSION = "license";
 
 const decoder = new TextDecoder();

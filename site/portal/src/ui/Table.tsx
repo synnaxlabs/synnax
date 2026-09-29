@@ -47,7 +47,6 @@ export interface RowProps extends PropsWithChildren {
 
 const ROW_STYLE: CSSProperties = { height: "auto" };
 
-/** Row is one line of a {@link Table}. */
 export const Row = ({ columns, href, style, children }: RowProps): ReactElement =>
   href == null ? (
     <Flex.Box

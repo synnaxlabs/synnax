@@ -12,7 +12,6 @@ import { TimeStamp } from "@synnaxlabs/x";
 
 const EDITIONS: Record<license.Edition, string> = { d: "Desktop", e: "Enterprise" };
 
-/** The display name of a license's edition. */
 export const editionLabel = ({ edition }: license.License): string => EDITIONS[edition];
 
 /** The license's term on one line: when it ends, or the versions it covers. */
@@ -24,7 +23,6 @@ export const describeTerm = ({ exp, maxVersion }: license.License): string => {
   return `Subscription until ${until}, then versions up to ${maxVersion}`;
 };
 
-/** The channel cap on one line. */
 export const describeChannels = ({ channels }: license.License): string =>
   channels === 0 ? "Unlimited" : `Up to ${channels}`;
 

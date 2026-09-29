@@ -30,7 +30,6 @@ export interface RenameArgs {
   actor: string;
 }
 
-/** rename changes what a machine is called wherever the portal names it. */
 export const rename = async (
   store: Store,
   { activationKey, name, actor }: RenameArgs,
