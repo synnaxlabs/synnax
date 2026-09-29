@@ -18,6 +18,13 @@ from pydantic import BaseModel, Field
 
 Fingerprint: TypeAlias = list[str]
 
+EDITION_DESKTOP: Literal["d"] = "d"
+
+EDITION_ENTERPRISE: Literal["e"] = "e"
+
+
+Edition = Literal["d", "e"]
+
 STATE_OK: Literal["ok"] = "ok"
 
 STATE_MISSING: Literal["missing"] = "missing"
@@ -47,7 +54,7 @@ class License(BaseModel):
         max_version: Is the highest Core minor version the license covers, as "0.62".
             Absent means any version.
         required: Is the claims a Core must understand to accept the license. A Core
-            that does not know one of them refuses the token.
+            that does not know one of them refuses the license key.
     """
 
     jti: UUID
@@ -55,7 +62,7 @@ class License(BaseModel):
     exp: int | None = Field(default=None, ge=0, le=4294967295)
     claims_version: int = Field(ge=0, le=255)
     organization: UUID
-    edition: str
+    edition: Edition
     fingerprints: list[str] = Field(default_factory=list)
     fingerprint_scheme: int = Field(ge=0, le=255)
     machines: int = Field(ge=0, le=4294967295)
@@ -69,7 +76,7 @@ class Info(BaseModel):
 
     Attributes:
         state: Is whether a license covers the Core.
-        warning: Is set while the state is ok but a change is near or past.
+        warning: Explains a near or past expiry, or why the license is expired.
         fingerprint: Identifies the machine the Core runs on.
         license: Is the license that applies, if any.
     """

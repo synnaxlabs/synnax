@@ -126,7 +126,7 @@ export class MissingLicenseError extends LicenseError.sub("missing") {}
 /** Raised when the license on the Core no longer applies. */
 export class ExpiredLicenseError extends LicenseError.sub("expired") {}
 
-/** Raised when a token cannot be verified or is malformed. */
+/** Raised when a license key cannot be verified or is malformed. */
 export class InvalidLicenseError extends LicenseError.sub("invalid") {}
 
 /** Raised when a license is bound to a different machine. */

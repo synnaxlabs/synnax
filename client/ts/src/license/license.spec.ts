@@ -21,8 +21,8 @@ describe("license", () => {
     expect(info.license == null).toBe(info.state === "missing");
   });
 
-  it("should reject a token that cannot be verified", async () => {
-    await expect(client.license.activate("not-a-token")).rejects.toThrow(
+  it("should reject a license key that cannot be verified", async () => {
+    await expect(client.license.activate("not-a-license-key")).rejects.toThrow(
       InvalidLicenseError,
     );
   });

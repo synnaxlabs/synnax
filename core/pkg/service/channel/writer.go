@@ -483,7 +483,7 @@ func (w Writer) allocateAndWrite(
 	w.svc.mu.Lock()
 	defer w.svc.mu.Unlock()
 	count := w.svc.mu.externalNonVirtualSet.Size()
-	if err := w.svc.cfg.ChannelLimit(
+	if err := w.svc.cfg.Limit(
 		types.Uint20(int(count) + externalNewCount),
 	); err != nil {
 		return err

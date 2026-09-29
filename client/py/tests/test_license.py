@@ -25,10 +25,10 @@ class TestLicenseClient:
         assert all(re.fullmatch(r"[0-9a-f]{64}", h) for h in info.fingerprint)
         assert (info.license is None) == (info.state == "missing")
 
-    def test_activate_invalid_token(self, client: sy.Synnax):
-        """Should refuse a token that cannot be verified."""
+    def test_activate_invalid_key(self, client: sy.Synnax):
+        """Should refuse a license key that cannot be verified."""
         with pytest.raises(sy.InvalidLicense):
-            client.license.activate("not-a-token")
+            client.license.activate("not-a-license-key")
 
     @pytest.mark.parametrize(
         "type_, exc",

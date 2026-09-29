@@ -47,7 +47,7 @@ var (
 	licenseSvc *license.Service
 	apiSvc     *apilicense.Service
 	userSvc    *user.Service
-	keys       svcmock.Keys
+	signer     svcmock.Signer
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -65,9 +65,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
 		DB: db, Ontology: otg, Group: g, Search: searchIdx, User: userSvc,
 	}))
-	keys = svcmock.NewKeys()
+	signer = svcmock.NewSigner()
 	licenseSvc = MustOpen(license.OpenService(ctx, license.ServiceConfig{
-		DB: kvDB, Anchors: keys.Anchors,
+		DB: kvDB, Anchors: signer.Anchors,
 	}))
 	apiSvc = MustSucceed(apilicense.NewService(apicfg.LayerConfig{
 		Distribution: &distribution.Layer{DB: db},

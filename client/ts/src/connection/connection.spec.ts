@@ -1140,7 +1140,7 @@ describe("connection", () => {
         },
         connection: client,
       });
-      await licenses.activate("token");
+      await licenses.activate("key");
       expect(retryNow).toHaveBeenCalledOnce();
       await client.close();
     });
