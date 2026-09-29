@@ -110,6 +110,118 @@ func BenchmarkWriteChannelU8SameKeyFlush(b *testing.B) {
 	}
 }
 
+const periodNS = int64(100 * telem.Millisecond)
+
+// literalProgram wires consumer c with a literal "period" and a var-bound "rate"
+// (variable node v): the two ways a timer node receives its span.
+func literalProgram() *node.ProgramState {
+	v := ir.Node{Key: "v", Type: "variable", Outputs: types.Params{
+		{Name: ir.DefaultOutputParam, Type: types.I64()},
+	}}
+	c := ir.Node{Key: "c", Type: "consumer", Inputs: types.Params{
+		{Name: "period", Type: types.I64(), Value: periodNS},
+		{Name: "rate", Type: types.VarRef(types.I64(), "v"), Value: periodNS},
+	}}
+	return node.New(ir.IR{Nodes: ir.Nodes{v, c}})
+}
+
+// BenchmarkNumericInputAt is the read a timer node performs after the fix, with
+// the index resolved once at construction.
+func BenchmarkNumericInputAt(b *testing.B) {
+	c := literalProgram().Node("c")
+	idx, err := c.ResolveInput("period")
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.ReportAllocs()
+	var total int64
+	for b.Loop() {
+		total += c.NumericInputAt[int64](idx)
+	}
+	if total == 0 {
+		b.Fatal("read no value")
+	}
+}
+
+// BenchmarkNumericInputLiteral is the read a timer node performed before the
+// fix: resolve by name, then cast the boxed literal.
+func BenchmarkNumericInputLiteral(b *testing.B) {
+	c := literalProgram().Node("c")
+	b.ReportAllocs()
+	var total int64
+	for b.Loop() {
+		total += c.NumericInput[int64]("period")
+	}
+	if total == 0 {
+		b.Fatal("read no value")
+	}
+}
+
+// BenchmarkInputSeriesLiteral reads the same value from the typed series node
+// construction already built for the literal, with the index resolved once.
+func BenchmarkInputSeriesLiteral(b *testing.B) {
+	c := literalProgram().Node("c")
+	idx, err := c.ResolveInput("period")
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.ReportAllocs()
+	var total int64
+	for b.Loop() {
+		total += c.Input(idx).ValueAt[int64](-1)
+	}
+	if total == 0 {
+		b.Fatal("read no value")
+	}
+}
+
+// BenchmarkNumericInputVar reads a var-bound input from the variable's output
+// series. The scheduler fills that slot before the first cycle, so this is the
+// only state a real program reaches.
+func BenchmarkNumericInputVar(b *testing.B) {
+	s := literalProgram()
+	*s.Node("v").Output(0) = telem.NewSeriesV[int64](periodNS)
+	c := s.Node("c")
+	b.ReportAllocs()
+	var total int64
+	for b.Loop() {
+		total += c.NumericInput[int64]("rate")
+	}
+	if total == 0 {
+		b.Fatal("read no value")
+	}
+}
+
+// BenchmarkResolveInput isolates the by-name lookup that every read repeats.
+func BenchmarkResolveInput(b *testing.B) {
+	c := literalProgram().Node("c")
+	b.ReportAllocs()
+	var total int
+	for b.Loop() {
+		idx, err := c.ResolveInput("rate")
+		if err != nil {
+			b.Fatal(err)
+		}
+		total += idx
+	}
+	if total == 0 {
+		b.Fatal("resolved no index")
+	}
+}
+
+// BenchmarkCastNumeric isolates the boxed cast alone.
+func BenchmarkCastNumeric(b *testing.B) {
+	v := any(periodNS)
+	b.ReportAllocs()
+	var total int64
+	for b.Loop() {
+		total += telem.CastNumeric[int64](v)
+	}
+	if total == 0 {
+		b.Fatal("read no value")
+	}
+}
+
 func BenchmarkFlushManyKeysSingleWrite(b *testing.B) {
 	const keys = 256
 	digests := make([]channels.Digest, keys)

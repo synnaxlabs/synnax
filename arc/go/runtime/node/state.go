@@ -410,14 +410,10 @@ func (s *State) StringInput(name string) string {
 	return ""
 }
 
-// NumericInput returns the named input's current value: the referenced
-// variable's value when var-bound (its declared initial until first written),
-// else the configured value.
-func (s *State) NumericInput[T telem.NumericSample](name string) T {
-	i, err := s.ResolveInput(name)
-	if err != nil {
-		return 0
-	}
+// NumericInputAt returns input i's current value: the referenced variable's
+// value when var-bound (its declared initial until first written), else the
+// configured value.
+func (s *State) NumericInputAt[T telem.NumericSample](i int) T {
 	if ref := s.RefInput(i); ref.Len() > 0 {
 		return ref.ValueAt[T](-1)
 	}
@@ -425,6 +421,16 @@ func (s *State) NumericInput[T telem.NumericSample](name string) T {
 		return telem.CastNumeric[T](v)
 	}
 	return 0
+}
+
+// NumericInput returns the named input's current value. It resolves the name on
+// every call, so prefer NumericInputAt on a hot path.
+func (s *State) NumericInput[T telem.NumericSample](name string) T {
+	i, err := s.ResolveInput(name)
+	if err != nil {
+		return 0
+	}
+	return s.NumericInputAt[T](i)
 }
 
 // AbsorbInputs marks every data input consumed at its current source timestamp,
