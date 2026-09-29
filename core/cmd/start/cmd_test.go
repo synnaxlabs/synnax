@@ -10,6 +10,9 @@
 package start_test
 
 import (
+	"io/fs"
+	"path/filepath"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/spf13/viper"
@@ -117,6 +120,43 @@ var _ = Describe("GetCoreConfigFromViper", func() {
 		Expect(cfg.Validate()).ToNot(MatchError(
 			ContainSubstring("advertised listener cannot use the Tailscale source"),
 		))
+	})
+
+	Describe("License token", func() {
+		var missing string
+		BeforeEach(func() {
+			missing = filepath.Join(GinkgoT().TempDir(), "missing.jwt")
+			DeferCleanup(func() {
+				viper.Set(start.FlagLicenseKey, "")
+				viper.Set(start.FlagLicenseFile, "")
+			})
+		})
+
+		It("Should name the flag when the license file cannot be read", func() {
+			viper.Set(start.FlagLicenseFile, missing)
+			Expect(start.GetCoreConfigFromViper(alamos.Instrumentation{})).
+				Error().
+				To(And(
+					MatchError(fs.ErrNotExist),
+					MatchError(ContainSubstring(
+						"failed to read the --license-file file",
+					)),
+				))
+		})
+
+		It("Should not read the license file when the key flag is set", func() {
+			viper.Set(start.FlagLicenseKey, "token")
+			viper.Set(start.FlagLicenseFile, missing)
+			MustSucceed(start.GetCoreConfigFromViper(alamos.Instrumentation{}))
+		})
+
+		It("Should fall back to the license file on a blank key flag", func() {
+			viper.Set(start.FlagLicenseKey, " \n")
+			viper.Set(start.FlagLicenseFile, missing)
+			Expect(start.GetCoreConfigFromViper(alamos.Instrumentation{})).
+				Error().
+				To(MatchError(fs.ErrNotExist))
+		})
 	})
 })
 
