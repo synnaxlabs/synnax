@@ -41,6 +41,25 @@ const deleteReqZ = z.object({ keys: keyZ.array() });
 const retrieveResZ = z.object({ libraries: libraryZ.array().default(() => []) });
 const emptyResZ = z.object({});
 
+/** The file formats an interface control document is imported from. */
+export const IMPORT_FORMATS = ["dbc", "csv", "xlsx"] as const;
+export const importFormatZ = z.enum(IMPORT_FORMATS);
+export type ImportFormat = z.infer<typeof importFormatZ>;
+
+const importReqZ = z.object({ key: keyZ, format: importFormatZ, data: z.string() });
+const importResZ = z.object({ library: libraryZ });
+
+// btoa takes a binary string, and spreading a large array into fromCharCode overflows
+// the stack, so the bytes convert in chunks.
+const BASE64_CHUNK_SIZE = 0x8000;
+
+const encodeBase64 = (data: Uint8Array): string => {
+  let binary = "";
+  for (let i = 0; i < data.length; i += BASE64_CHUNK_SIZE)
+    binary += String.fromCharCode(...data.subarray(i, i + BASE64_CHUNK_SIZE));
+  return btoa(binary);
+};
+
 /**
  * Client-side matching for a request: key sets. Server-computed shapes
  * (search, limit/offset) never reach this filter; they refetch instead.
@@ -113,6 +132,26 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Li
     });
     this.store.set(res.libraries);
     return isMany ? res.libraries : res.libraries[0];
+  }
+
+  /**
+   * Replaces the entries of a library with those parsed from an interface control
+   * document. Entries and fields that match by name keep their keys.
+   * @param key - The key of the library to import into.
+   * @param format - The file format of the document.
+   * @param data - The raw bytes of the document.
+   * @returns The library as the Core stored it.
+   * @throws {ValidationError} if the format is unknown or the document is invalid.
+   */
+  async import(key: Key, format: ImportFormat, data: Uint8Array): Promise<Library> {
+    const res = await this.cfg.unary.send(
+      "/library/import",
+      { key, format, data: encodeBase64(data) },
+      importReqZ,
+      importResZ,
+    );
+    this.store.set([res.library]);
+    return res.library;
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {

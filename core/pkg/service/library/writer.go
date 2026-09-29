@@ -187,7 +187,7 @@ func (w Writer) retrieveUsers(
 	var users []ontology.Resource
 	if err := w.otg.NewRetrieve().
 		WhereIDs(OntologyID(key)).
-		TraverseTo(UsersTraverser).
+		TraverseTo(ontology.UsersTraverser).
 		WhereTypes(ontology.ResourceTypeTask).
 		Entries(&users).
 		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.ErrNotFound) {

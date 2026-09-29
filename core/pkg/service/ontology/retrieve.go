@@ -168,9 +168,17 @@ type Traverser struct {
 }
 
 var (
-	relationshipTypeParentOfBytes = []byte(RelationshipTypeParentOf)
 	// ParentsTraverser traverses to the parents of a resource.
-	ParentsTraverser = Traverser{
+	ParentsTraverser = sourcesTraverser(RelationshipTypeParentOf)
+	// UsersTraverser traverses to the resources that use a resource.
+	UsersTraverser = sourcesTraverser(RelationshipTypeUses)
+)
+
+// sourcesTraverser traverses backward across relationships of type t, from their To end
+// to their From end.
+func sourcesTraverser(t RelationshipType) Traverser {
+	typeBytes := []byte(t)
+	return Traverser{
 		Traverse: func(ids []ID) RawTraversal {
 			w := orc.NewWriter(64)
 			encoded := make([][]byte, len(ids))
@@ -188,38 +196,37 @@ var (
 				fromType, r := raw.ReadString()
 				fromKey, r := r.ReadString()
 				relType, r := r.ReadString()
-				if bytes.Equal(relType, relationshipTypeParentOfBytes) {
-					for _, enc := range encoded {
-						if bytes.HasPrefix(r, enc) {
-							*nextIDs = append(*nextIDs, ID{
-								Type: ResourceType(fromType),
-								Key:  string(fromKey),
-							})
-						}
+				if !bytes.Equal(relType, typeBytes) {
+					return nil
+				}
+				for _, enc := range encoded {
+					if bytes.HasPrefix(r, enc) {
+						*nextIDs = append(*nextIDs, ID{
+							Type: ResourceType(fromType),
+							Key:  string(fromKey),
+						})
 					}
 				}
 				return nil
 			}
 		},
-		Index:     parentsByIndex,
+		Index: func(r Retrieve, tx gorp.Tx, ids []ID) ([]ID, error) {
+			return sourcesByIndex(r, tx, ids, t)
+		},
 		Direction: DirectionBackward,
 	}
-)
+}
 
-// parentsByIndex is the index-backed implementation of ParentsTraverser. It probes
+// sourcesByIndex is the index-backed implementation of sourcesTraverser. It probes
 // r.relIndexes.byTo (one O(1) lookup per source ID), parses each matched relationship
-// key (no KV fetch, no ORC decode), filters by RelationshipTypeParentOf, and emits the
-// From end as a next-hop ID.
-//
-// The index returns every relationship pointing at a given ID regardless of type, so
-// the type filter still has to run here; it's a string compare per matched key, which
-// is negligible compared to the scan it replaces.
+// key (no KV fetch, no ORC decode), filters by relationship type, and emits the From end
+// as a next-hop ID.
 //
 // The probe goes through Lookup.GetTx so the per-tx delta overlay fires: a traverse
-// inside the same write tx that just created a new parent relationship will see that
-// pending write and include it in the next-hop set, preserving read-your-own-writes for
-// graph traversal.
-func parentsByIndex(r Retrieve, tx gorp.Tx, ids []ID) ([]ID, error) {
+// inside the same write tx that just created a relationship will see that pending write
+// and include it in the next-hop set, preserving read-your-own-writes for graph
+// traversal.
+func sourcesByIndex(r Retrieve, tx gorp.Tx, ids []ID, t RelationshipType) ([]ID, error) {
 	nextIDs := make([]ID, 0, len(ids)*4)
 	for _, id := range ids {
 		keys, err := r.relIndexes.byTo.Get(tx, id)
@@ -231,7 +238,7 @@ func parentsByIndex(r Retrieve, tx gorp.Tx, ids []ID) ([]ID, error) {
 			if err != nil {
 				return nil, err
 			}
-			if rel.Type != RelationshipTypeParentOf {
+			if rel.Type != t {
 				continue
 			}
 			nextIDs = append(nextIDs, rel.From)

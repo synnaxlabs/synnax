@@ -11,6 +11,7 @@ import { id } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, test, vi } from "vitest";
 
 import { group } from "@/group";
+import { library } from "@/library";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { createTestClient, expectLive } from "@/testutil";
@@ -290,6 +291,21 @@ describe("Ontology", () => {
             ),
           )
           .toBe(false);
+      });
+    });
+
+    describe("users", () => {
+      it("traverses only uses relationships, not parent relationships", async () => {
+        const lib = await client.libraries.create({ name: randomName() });
+        const libID = library.ontologyID(lib.key);
+        const child = await client.groups.create({
+          parent: ontology.ROOT_ID,
+          name: randomName(),
+        });
+        await client.ontology.addChildren(libID, group.ontologyID(child.key));
+        const children = await client.ontology.children.retrieve({ ids: libID });
+        expect(children.map((r) => r.id.key)).toEqual([child.key]);
+        expect(await client.ontology.users.retrieve({ ids: libID })).toEqual([]);
       });
     });
 

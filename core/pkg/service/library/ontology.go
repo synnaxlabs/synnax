@@ -10,7 +10,6 @@
 package library
 
 import (
-	"bytes"
 	"context"
 	"io"
 	"iter"
@@ -20,54 +19,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	xchange "github.com/synnaxlabs/x/change"
-	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/zyn"
 )
-
-// RelationshipTypeUses indicates that a resource reads a library. The From field is the
-// resource, and the To field is the library it uses.
-const RelationshipTypeUses ontology.RelationshipType = "uses"
-
-var relationshipTypeUsesBytes = []byte(RelationshipTypeUses)
-
-// UsersTraverser traverses from libraries to the resources that use them.
-var UsersTraverser = ontology.Traverser{
-	Traverse: func(ids []ontology.ID) ontology.RawTraversal {
-		w := orc.NewWriter(64)
-		encoded := make([][]byte, len(ids))
-		for i, id := range ids {
-			w.Reset()
-			w.String(string(id.Type))
-			w.String(id.Key)
-			encoded[i] = w.Copy()
-		}
-		return func(data []byte, nextIDs *[]ontology.ID) error {
-			raw, err := orc.NewRaw(data)
-			if err != nil {
-				return err
-			}
-			fromType, r := raw.ReadString()
-			fromKey, r := r.ReadString()
-			relType, r := r.ReadString()
-			if !bytes.Equal(relType, relationshipTypeUsesBytes) {
-				return nil
-			}
-			for _, enc := range encoded {
-				if bytes.HasPrefix(r, enc) {
-					*nextIDs = append(*nextIDs, ontology.ID{
-						Type: ontology.ResourceType(fromType),
-						Key:  string(fromKey),
-					})
-				}
-			}
-			return nil
-		}
-	},
-	Direction: ontology.DirectionBackward,
-}
 
 // OntologyID returns the ontology ID of the library with the given key.
 func OntologyID(key Key) ontology.ID {

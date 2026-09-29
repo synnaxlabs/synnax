@@ -47,7 +47,7 @@ func retrieveUsers(ctx context.Context, lib library.Key) []ontology.ID {
 	var users []ontology.Resource
 	Expect(otg.NewRetrieve().
 		WhereIDs(library.OntologyID(lib)).
-		TraverseTo(library.UsersTraverser).
+		TraverseTo(ontology.UsersTraverser).
 		Entries(&users).
 		Exec(ctx, tx)).To(Succeed())
 	return ontology.ResourceIDs(users)
