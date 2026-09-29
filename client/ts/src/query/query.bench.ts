@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type record } from "@synnaxlabs/x";
-import { bench, describe } from "vitest";
+import { test } from "vitest";
 import z from "zod";
 
 import { query } from "@/query";
@@ -43,14 +43,16 @@ class Client extends query.Retriever<typeof requestZ, string, Thing> {
 const client = new Client(new query.Cache({ openStreamer: null }));
 const stableParams = { minSize: 3 };
 
-describe("Retriever.getCached", () => {
-  bench("repeat params object (memoized route)", () => {
-    client.getCached(stableParams);
-  });
+test("Retriever.getCached", async ({ bench }) => {
+  await bench.compare(
+    bench("repeat params object (memoized route)", () => {
+      client.getCached(stableParams);
+    }),
 
-  bench("fresh params object per call", () => {
-    client.getCached({ minSize: 3 });
-  });
+    bench("fresh params object per call", () => {
+      client.getCached({ minSize: 3 });
+    }),
+  );
 });
 
 const N = 100;
@@ -70,36 +72,41 @@ const listAnswers = new Space<{ minSize: number }, Thing[], string, Thing>({
 listAnswers.onChange({ minSize: 0 }, () => {});
 await listAnswers.retrieve({ minSize: 0 });
 
-describe("frame delivery to a mounted list", () => {
+test("frame delivery to a mounted list", async ({ bench }) => {
   let tick = 1;
-  bench(`one batched set of ${N} entries`, () => {
-    tick++;
-    listTable.set(
-      Array.from({ length: N }, (_, i) => {
-        const key = `k${i}`;
-        return { key, name: key, size: tick };
-      }),
-    );
-  });
 
   let tock = 1;
-  bench(`${N} per-record sets`, () => {
-    tock++;
-    for (let i = 0; i < N; i++) {
-      const key = `k${i}`;
-      listTable.set(key, { key, name: key, size: tock });
-    }
-  });
+
+  await bench.compare(
+    bench(`one batched set of ${N} entries`, () => {
+      tick++;
+      listTable.set(
+        Array.from({ length: N }, (_, i) => {
+          const key = `k${i}`;
+          return { key, name: key, size: tick };
+        }),
+      );
+    }),
+    bench(`${N} per-record sets`, () => {
+      tock++;
+      for (let i = 0; i < N; i++) {
+        const key = `k${i}`;
+        listTable.set(key, { key, name: key, size: tock });
+      }
+    }),
+  );
 });
 
 const stableQuery = { keys: ["a", "b", "c"], rangeKey: "r1", minSize: 3 };
 
-describe("hash", () => {
-  bench("repeat object (memoized)", () => {
-    query.hash(stableQuery);
-  });
+test("hash", async ({ bench }) => {
+  await bench.compare(
+    bench("repeat object (memoized)", () => {
+      query.hash(stableQuery);
+    }),
 
-  bench("fresh object per call", () => {
-    query.hash({ keys: ["a", "b", "c"], rangeKey: "r1", minSize: 3 });
-  });
+    bench("fresh object per call", () => {
+      query.hash({ keys: ["a", "b", "c"], rangeKey: "r1", minSize: 3 });
+    }),
+  );
 });

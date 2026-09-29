@@ -61,7 +61,7 @@ total=$(wc -l < "$TMP" | tr -d ' ')
 files=$(cut -f3 "$TMP" | cut -d: -f1 | sort -u | wc -l | tr -d ' ')
 
 if [ "$total" -eq 0 ]; then
-    echo "No \`uses:\` references found."
+    echo 'No `uses:` references found.'
     exit 0
 fi
 

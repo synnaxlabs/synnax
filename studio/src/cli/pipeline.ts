@@ -7,15 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { readFile } from "node:fs/promises";
+import { readFile, rm } from "node:fs/promises";
 import path from "node:path";
 
 import { bundle } from "@remotion/bundler";
-import { renderMedia, selectComposition } from "@remotion/renderer";
+import { renderMedia, renderStill, selectComposition } from "@remotion/renderer";
 
 import { type CaptureSession } from "@/capture/rig";
+import { synthesize } from "@/director/cursor";
 import { direct } from "@/director/director";
+import { overlay } from "@/director/overlay";
+import { stage } from "@/director/stage";
+import { type Edit, type Format, type Overlays } from "@/film";
 import { type Core } from "@/fixtures/core";
+import { type FilmProps } from "@/remotion/Film";
 import { parse, type Timeline } from "@/timeline";
 
 export interface VideoScript {
@@ -138,15 +143,18 @@ export interface RenderRunOptions {
   onProgress?: (progress: number) => void;
 }
 
-/** runRender directs the timeline and renders the video through Remotion. */
-export const runRender = async (opts: RenderRunOptions): Promise<void> => {
-  const { timeline, captureDir, outputLocation, draft = false } = opts;
-  const tracks = direct(timeline);
-
-  const entry = path.resolve(import.meta.dirname, "../remotion/entry.ts");
+/**
+ * withBundle bundles the Remotion entry, serving captureDir as its public dir, and runs
+ * render against the bundle's serve URL. The bundle holds a copy of every captured
+ * frame, so it is deleted when render settles.
+ */
+const withBundle = async (
+  captureDir: string,
+  render: (serveUrl: string) => Promise<void>,
+): Promise<void> => {
   const src = path.resolve(import.meta.dirname, "..");
   const serveUrl = await bundle({
-    entryPoint: entry,
+    entryPoint: path.join(src, "remotion/entry.ts"),
     publicDir: captureDir,
     webpackOverride: (config) => ({
       ...config,
@@ -156,27 +164,121 @@ export const runRender = async (opts: RenderRunOptions): Promise<void> => {
       },
     }),
   });
+  try {
+    await render(serveUrl);
+  } finally {
+    await rm(serveUrl, { recursive: true, force: true });
+  }
+};
+
+/** runRender directs the timeline and renders the video through Remotion. */
+export const runRender = async (opts: RenderRunOptions): Promise<void> => {
+  const { timeline, captureDir, outputLocation, draft = false } = opts;
+  const tracks = direct(timeline);
 
   const inputProps = { meta: timeline.meta, tracks, events: timeline.events };
-  const composition = await selectComposition({ serveUrl, id: "studio", inputProps });
-
   const native = Math.round(timeline.meta.width * timeline.meta.dsf);
   const targetWidth =
     opts.target == null ? Math.min(1920, native) : parseTarget(opts.target, native);
   const scale = targetWidth / native;
-
-  await renderMedia({
-    composition,
-    serveUrl,
-    codec: "h264",
-    crf: draft ? 22 : 20,
-    x264Preset: draft ? "veryfast" : "slow",
-    scale,
-    pixelFormat: "yuv420p",
-    colorSpace: "bt709",
-    imageFormat: "png",
-    inputProps,
-    outputLocation,
-    onProgress: ({ progress }) => opts.onProgress?.(progress),
+  await withBundle(captureDir, async (serveUrl) => {
+    const composition = await selectComposition({ serveUrl, id: "studio", inputProps });
+    await renderMedia({
+      composition,
+      serveUrl,
+      codec: "h264",
+      crf: draft ? 22 : 20,
+      x264Preset: draft ? "veryfast" : "slow",
+      scale,
+      pixelFormat: "yuv420p",
+      colorSpace: "bt709",
+      imageFormat: "png",
+      inputProps,
+      outputLocation,
+      onProgress: ({ progress }) => opts.onProgress?.(progress),
+    });
   });
+};
+
+export interface FilmOptions {
+  edit: Edit;
+  format: Format;
+  overlays: Overlays;
+  timeline: Timeline;
+  /** Capture directory holding frames/ (served as the compositor's publicDir). */
+  captureDir: string;
+}
+
+export interface FilmRenderOptions extends FilmOptions {
+  /** Path the encoded MP4 is written to. */
+  outputLocation: string;
+  /** Higher crf and a fast encoder preset, for review iterations. */
+  draft?: boolean;
+  onProgress?: (progress: number) => void;
+}
+
+/** filmProps stages the edit against its capture into the film's input props. */
+const filmProps = ({ edit, format, timeline, ...opts }: FilmOptions): FilmProps => {
+  const plan = stage(edit, timeline, format);
+  return {
+    meta: timeline.meta,
+    plan,
+    overlays: overlay(opts.overlays, plan.samples, timeline),
+    cursor: synthesize(timeline),
+    events: timeline.events,
+  };
+};
+
+/** runFilmRender stages the edit against its capture and renders the film. */
+export const runFilmRender = async (opts: FilmRenderOptions): Promise<void> => {
+  const { captureDir, outputLocation, draft = false } = opts;
+  const inputProps = filmProps(opts);
+  await withBundle(captureDir, async (serveUrl) => {
+    const composition = await selectComposition({ serveUrl, id: "film", inputProps });
+    await renderMedia({
+      composition,
+      serveUrl,
+      codec: "h264",
+      crf: draft ? 22 : 18,
+      x264Preset: draft ? "veryfast" : "slow",
+      pixelFormat: "yuv420p",
+      colorSpace: "bt709",
+      imageFormat: "png",
+      inputProps,
+      outputLocation,
+      onProgress: ({ progress }) => opts.onProgress?.(progress),
+    });
+  });
+};
+
+export interface FilmStillsOptions extends FilmOptions {
+  /** Film times, in seconds, to render a still of. */
+  seconds: number[];
+  /** Directory each still is written to, as <seconds>s.png. */
+  outDir: string;
+}
+
+/**
+ * runFilmStills renders single frames of the film as PNGs, for reviewing a change
+ * without rendering the whole film. Returns the path of each still. Throws when a time
+ * falls outside the film.
+ */
+export const runFilmStills = async (opts: FilmStillsOptions): Promise<string[]> => {
+  const inputProps = filmProps(opts);
+  const frames = inputProps.plan.samples.length;
+  const paths: string[] = [];
+  await withBundle(opts.captureDir, async (serveUrl) => {
+    const composition = await selectComposition({ serveUrl, id: "film", inputProps });
+    for (const seconds of opts.seconds) {
+      const frame = Math.round(seconds * inputProps.plan.fps);
+      if (frame < 0 || frame >= frames)
+        throw new Error(
+          `still at ${seconds}s falls outside the film's ${frames / inputProps.plan.fps}s`,
+        );
+      const output = path.join(opts.outDir, `${seconds}s.png`);
+      await renderStill({ composition, serveUrl, frame, output, inputProps });
+      paths.push(output);
+    }
+  });
+  return paths;
 };

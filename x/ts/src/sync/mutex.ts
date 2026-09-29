@@ -11,11 +11,11 @@ import { Mutex as Base } from "async-mutex";
 
 export type Mutex<G> = G & Base;
 
-export class mutex<G> extends Base {
+class Guarded<G> extends Base {
   constructor(guard: G) {
     super();
     Object.assign(this, guard);
   }
 }
 
-export const newMutex = <G>(guard: G): Mutex<G> => new mutex(guard) as Mutex<G>;
+export const newMutex = <G>(guard: G): Mutex<G> => new Guarded(guard) as Mutex<G>;
