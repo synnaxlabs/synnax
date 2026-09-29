@@ -30,15 +30,16 @@ type Stamper struct {
 	Ontology *ontology.Ontology
 }
 
-// Stamp sets ref.LibraryHash to the current hash of the referenced library and makes
-// the library the only one the task uses. It returns a path-scoped validation error when
-// the library does not exist. The task's ontology resource must exist.
+// Stamp sets ref.LibraryHash to the current hash of the referenced library, makes the
+// library the only one the task uses, and returns the library. It returns a path-scoped
+// validation error when the library does not exist. The task's ontology resource must
+// exist.
 func (s Stamper) Stamp(
 	ctx context.Context,
 	tx gorp.Tx,
 	taskKey uuid.UUID,
 	ref *Reference,
-) error {
+) (Library, error) {
 	tx = gorp.OverrideTx(s.DB, tx)
 	var l Library
 	if err := gorp.NewRetrieve[Key, Library]().
@@ -46,18 +47,18 @@ func (s Stamper) Stamp(
 		Entry(&l).
 		Exec(ctx, tx); err != nil {
 		if errors.Is(err, query.ErrNotFound) {
-			return validate.PathedError(errors.Wrapf(
+			return l, validate.PathedError(errors.Wrapf(
 				validate.ErrValidation, "library %s does not exist", ref.Library,
 			), "library")
 		}
-		return err
+		return l, err
 	}
 	hash, err := Hash(l)
 	if err != nil {
-		return err
+		return l, err
 	}
 	ref.LibraryHash = hash
-	return s.Ontology.NewWriter(tx).ReplaceOutgoingRelationshipsOfType(
+	return l, s.Ontology.NewWriter(tx).ReplaceOutgoingRelationshipsOfType(
 		ctx,
 		ontology.ID{Type: ontology.ResourceTypeTask, Key: taskKey.String()},
 		RelationshipTypeUses,

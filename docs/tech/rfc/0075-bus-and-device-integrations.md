@@ -100,33 +100,34 @@ listens as a monitor (§5.5).
 
 ### 5.1 The `message` kind
 
-`schemas/synnax/message.oracle` defines the kind that RFC 0074 composes into the library
-entry union:
+`schemas/synnax/library.oracle` defines the kind as a variant of the library entry union
+(RFC 0074):
 
 ```
 Identifier union on type {
-    can      { id uint32, extended bool, fd bool, mask uint32 = 0xFFFFFFFF }
-    arinc429 { label uint8, sdi uint8 = 0, sdi_matched bool = false }
-    mil1553  { rt uint8, subaddress uint8, direction Direction, word_count uint8 }
-    field    { field string, value int64 }   // binary header field match
-    token    { prefix string }               // text line prefix, may be empty
+    can      { id uint32, extended bool, fd bool, mask uint32? }
+    arinc429 { label uint8, sdi uint8, sdi_matched bool }
+    mil1553  { rt uint8, subaddress uint8, direction Direction, word_count uint8 = 1 }
+    field    { field FieldKey, value int64 }   // binary header field match
+    token    { prefix string }                 // text line prefix, may be empty
 }
 
-Field union on encoding {
-    binary { start_bit uint16, bit_length uint8, byte_order ByteOrder, signed bool,
-             float bool }
-    text   { position int32 = -1, tag string = "" }
-}  // every variant also has: key (uuid), name, scale = 1, offset = 0, units,
-   // enum (EntryKey), multiplexor (field key), multiplex_values int64[]
+Field union on encoding extends BaseField {
+    binary    { start_bit uint16, bit_length uint8 = 8, byte_order ByteOrder,
+                signed bool, float bool }
+    delimited { position uint32 }
+    tagged    { tag string }
+}  // BaseField: key (uuid), name, scale = 1, offset = 0, units,
+   // enumeration EntryKey?, multiplexor FieldKey?, multiplex_values int64[]
 
-Message struct {
-    identifier Identifier
-    format     Format          // binary or text
-    length     uint16 = 0      // bytes; 0 means variable
-    fields     Field[]
-    period     TimeSpan = 0    // transmit period; 0 sends on change
-    query      string = ""     // polled devices: bytes or text to send
-    delimiter  string = ","    // text messages
+message {
+    identifier Identifier?        // absent: every frame on the stream
+    format     Format = binary    // binary or text
+    length     uint16?            // bytes; absent: variable
+    fields     Field[] = []
+    period     TimeSpan?          // absent: send on change
+    query      string?            // absent: the device sends unprompted
+    delimiter  string = ","       // text messages
 }
 ```
 
@@ -135,9 +136,9 @@ Message struct {
 - **Multiplexing**: a field with a `multiplexor` is present only when that field's value
   is in `multiplex_values`. A value list covers DBC extended multiplexing
   (`SG_MUL_VAL_`) as well as simple `m0` signals.
-- **Text messages**: a line splits on `delimiter`. A field takes item `position` or the
-  text after `tag` (for `T=23.4,P=101.3`, the field with tag `P=` reads `101.3`), then
-  parses as a number.
+- **Text messages**: a line splits on `delimiter`. A `delimited` field takes item
+  `position`; a `tagged` field takes the text after `tag` (for `T=23.4,P=101.3`, the
+  field with tag `P=` reads `101.3`). Both parse as numbers.
 - **Queries**: `query` holds escaped bytes for binary messages and plain text for text
   messages. The poll rate is a task setting (§5.5), because it is a rig decision and the
   query is a property of the device.

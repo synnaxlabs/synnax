@@ -135,10 +135,4 @@ type MessageEntry = versions.MessageEntry
 type Library = versions.Library
 
 // Reference is embedded in the config of a task that uses a library.
-type Reference struct {
-	// Library is the key of the library the task reads its layouts from.
-	Library Key `json:"library" msgpack:"library"`
-	// LibraryHash is the hash of the library's entries, stamped by the Core when the
-	// task or the library is written.
-	LibraryHash string `json:"library_hash" msgpack:"library_hash"`
-}
+type Reference = versions.Reference

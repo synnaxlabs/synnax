@@ -133,7 +133,8 @@ var (
 					key uuid.UUID,
 					c *testTaskConfig,
 				) error {
-					return stamper.Stamp(ctx, tx, key, &c.Reference)
+					_, err := stamper.Stamp(ctx, tx, key, &c.Reference)
+					return err
 				},
 			},
 		))

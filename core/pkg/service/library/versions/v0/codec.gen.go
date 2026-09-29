@@ -595,3 +595,22 @@ func (lv *Library) DecodeOrc(r *orc.Reader) error {
 	}
 	return nil
 }
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (rv Reference) EncodeOrc(w *orc.Writer) error {
+	w.Write(rv.Library[:])
+	w.String(rv.LibraryHash)
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (rv *Reference) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if _, err := r.Read(rv.Library[:]); err != nil {
+		return err
+	}
+	if rv.LibraryHash, err = r.String(); err != nil {
+		return err
+	}
+	return nil
+}

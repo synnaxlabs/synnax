@@ -83,48 +83,40 @@ within the library, and a kind with its typed value.
 Key = uuid
 EntryKey = uuid
 
-Entry union on kind {
-    enum    extends enum.Enum
-    message extends message.Message   // RFC 0075
+BaseEntry struct {
+    key  EntryKey = create
+    name string { @validate min_length 1 }
+}
+
+Entry union on kind extends BaseEntry {
+    enum    { values EnumValue[] = [] }
+    message { ... }   // RFC 0075
 }
 
 Library struct {
     key     Key = create { @key }
     name    string { @validate min_length 1 }
     entries Entry[] = []
-
-    @create
-    @go imex
-    @go marshal
-    @go migrate
-    @ontology type "library"
-    @retrieve
-    @search
 }
 ```
 
 Items inside an entry that a consumer points at, such as a message's fields, carry their
 own UUID keys too. A consumer stores keys, so renaming an entry or a field breaks
-nothing.
+nothing. The Core assigns missing keys on write.
 
-Each kind's struct lives in the schema that owns it. `library.oracle` imports them and
-composes the union. Every entry variant extends a base with `key` and `name`, following
-`modbus.ReadChannel union on type extends BaseReadChannel`
-(`schemas/synnax/modbus.oracle`). The schema generates Go, TS, Python, C++, and
-protobuf, as `schemas/synnax/arc.oracle:19-23` does.
+Every kind lives in `schemas/synnax/library.oracle`, the one wiring site where kinds are
+composed. The schema generates Go, TS, Python, C++, and protobuf, as
+`schemas/synnax/arc.oracle:19-23` does. `library` is appended last to `ResourceType`, so
+the protobuf enum numbers of existing types do not change.
 
 ### 5.1 The enum kind
 
 An enum maps integer values to names:
 
 ```
-Enum struct {
-    values EnumValue[] = []
-}
-
 EnumValue struct {
-    value int64
-    name  string { @validate min_length 1 }
+    value int64 = 0
+    name  string
 }
 ```
 
@@ -152,21 +144,20 @@ The library is standalone, like Arc: it has no project parent
 
 ### 5.3 API and clients
 
-- **HTTP**: `/api/v1/library/{create,retrieve,delete}`, each checked by `rbac.Enforce`,
-  following `core/pkg/api/table/table.go`.
+- **HTTP**: `/api/v1/library/{create,retrieve,rename,delete,import}`, each checked by
+  `rbac.Enforce`, following `core/pkg/api/table/table.go`.
 - **gRPC**: a handler in `core/pkg/transport/grpc/library`, following
-  `core/pkg/transport/grpc/arc/handler.go`, for the C++ client.
+  `core/pkg/transport/grpc/view`, for the C++ client.
 - **TS**: `client/ts/src/library`, registered in `client/ts/src/client.ts`.
 - **Python**: `client/py/synnax/library`, registered in `client/py/synnax/synnax.py`.
-- **C++**: `client/cpp/library` with `retrieve_by_key`, following
-  `client/cpp/arc/arc.h:120`.
+- **C++**: `client/cpp/library` with `retrieve`, following `client/cpp/view`.
 
 ### 5.4 Task references
 
-A task config that uses a library extends a shared struct:
+A task config that uses a library embeds a shared struct:
 
 ```
-LibraryReference struct {
+Reference struct {
     library      Key
     library_hash string = ""
 }
@@ -176,11 +167,20 @@ The Driver retrieves the library by key when the task configures, following
 `driver/arc/task.h:63`.
 
 The Core keeps `library_hash` current, following Arc's module hash. `library.Hash` is an
-xxhash64 of the entries, as `core/pkg/service/arc/hash.go:42` hashes a module. When a
-task config that references a library is written, the Core stamps the hash. When a
-library changes, the library writer re-stamps every task that uses it, as Arc's
-`syncTask` does (`core/pkg/service/arc/writer.go:228`). The new hash changes the task's
-config hash (`core/pkg/service/task/writer.go:140`), so:
+xxhash64 of the entries, as `core/pkg/service/arc/hash.go:42` hashes a module. The
+library's name does not contribute.
+
+- **On task write**: the integration's config store stamps the hash through a
+  `ResolveEntry` hook on `core/pkg/service/task/config`. The hook calls
+  `library.Stamper`, which reads the library table directly, so the config stores can
+  open before the task service. The task writer defines the task's ontology resource
+  before it writes the config, so the stamper can relate the two.
+- **On library write**: the library service, which opens after the task service as Arc's
+  does, rewrites every task that uses the library through the task writer. The config
+  store stamps the new hash, as Arc's `syncTask` does
+  (`core/pkg/service/arc/writer.go:228`).
+
+The new hash changes the task's config hash (`core/pkg/service/task/writer.go:140`), so:
 
 - **The Console shows drift**: a running task whose library changed is flagged through
   `task.drifted` (`client/ts/src/task/client.ts:75`).
@@ -190,10 +190,12 @@ config hash (`core/pkg/service/task/writer.go:140`), so:
   content the task used.
 
 The task links to the library in the ontology with a new relationship type, `uses`,
-following `labeled_by` (`core/pkg/service/label/relationship.go:18`). The Core writes it
-with `ReplaceOutgoingRelationshipsOfType` (`core/pkg/service/ontology/writer.go:136`).
-"Which tasks use this library" is one traversal. The library is not the task's parent,
-so tasks do not appear under libraries in the resource tree.
+following `labeled_by` (`core/pkg/service/label/relationship.go:18`). The stamper writes
+it with `ReplaceOutgoingRelationshipsOfType`
+(`core/pkg/service/ontology/writer.go:136`). "Which tasks use this library" is one
+traversal. The library is not the task's parent, so tasks do not appear under libraries
+in the resource tree. The Core rejects deleting a library that a task uses, and the
+error names the tasks.
 
 ### 5.5 Console
 
@@ -223,8 +225,8 @@ kind with a consumer ships (RFC 0075).
   routes, and the TS client.
 - **Phase 2: gRPC, C++, and Python clients.** The gRPC handler and protobuf output,
   `client/cpp/library`, and `client/py/synnax/library`.
-- **Phase 3: Task references.** `LibraryReference`, the `uses` relationship, hash
-  stamping on task write, and re-stamping on library write.
+- **Phase 3: Task references.** `Reference`, the `uses` relationship, hash stamping on
+  task write, and re-stamping on library write.
 - **Phase 4: Console.** Tree, tab, per-kind grids, and the usage list, behind the
   `library` flag.
 

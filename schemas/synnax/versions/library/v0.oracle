@@ -294,3 +294,18 @@ Library struct {
     @go marshal
     @go migrate
 }
+
+Reference struct {
+    library      Key    {
+        @doc value "is the key of the library the task reads its layouts from."
+    }
+    library_hash string = "" {
+        @doc value """
+            is the hash of the library's entries, stamped by the Core when the task or
+            the library is written.
+        """
+    }
+
+    @doc value  "is embedded in the config of a task that uses a library."
+    @go marshal
+}

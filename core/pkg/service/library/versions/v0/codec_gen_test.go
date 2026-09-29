@@ -237,6 +237,24 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
+	Describe("Reference", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v0.Reference) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v0.Reference
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v0.Reference{
+				Library:     uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				LibraryHash: "test_2",
+			}),
+			Entry("zero values", v0.Reference{Library: uuid.Nil(), LibraryHash: ""}),
+		)
+	})
 })
 
 func BenchmarkEncodeDecodeBaseEntry(b *testing.B) {
@@ -375,6 +393,26 @@ func BenchmarkEncodeDecodeLibrary(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v0.Library
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeReference(b *testing.B) {
+	seed := v0.Reference{
+		Library:     uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		LibraryHash: "test_2",
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v0.Reference
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -778,6 +816,48 @@ func FuzzDecodeLibrary(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v0.Library
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeReference(f *testing.F) {
+	{
+		seed := v0.Reference{
+			Library:     uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			LibraryHash: "test_2",
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.Reference{Library: uuid.Nil(), LibraryHash: ""}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v0.Reference
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v0.Reference
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
