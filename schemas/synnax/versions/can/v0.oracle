@@ -42,8 +42,8 @@ Properties struct {
     }
     listen_only  bool = false {
         @doc value """
-            is true when the adapter never acknowledges or sends frames. Write tasks
-            are rejected on a listen only device.
+            is true when the adapter never acknowledges or sends frames. Write tasks are
+            rejected on a listen only device.
         """
     }
 

@@ -35,7 +35,7 @@ ReadMessage struct {
     index    channel.Key = 0 {
         @doc value "is the index channel stamped with the time each message arrives."
     }
-    fields   ReadField[] {
+    fields   ReadField[]      {
         @doc value "are the fields of the message the task writes to channels."
     }
 
@@ -52,8 +52,8 @@ WriteField struct {
     }
 
     @doc value  """
-        maps one command channel to a message field. A field with no mapping is sent
-        as zero.
+        maps one command channel to a message field. A field with no mapping is sent as
+        zero.
     """
     @go marshal
 }
@@ -65,13 +65,13 @@ WriteMessage struct {
     disabled bool = false {
         @doc value "is true when the task does not send the message."
     }
-    fields   WriteField[] {
+    fields   WriteField[]     {
         @doc value "are the fields of the message driven by command channels."
     }
 
     @doc value  """
-        is one library message a write task encodes. A message with a period is sent
-        on that period, and one without is sent when a command channel changes.
+        is one library message a write task encodes. A message with a period is sent on
+        that period, and one without is sent when a command channel changes.
     """
     @go marshal
 }
@@ -158,8 +158,8 @@ Framing union on type {
         }
         length_adjustment int32 = 0 {
             @doc value """
-                is added to the length field to get the number of bytes that follow
-                the length field, checksum included.
+                is added to the length field to get the number of bytes that follow the
+                length field, checksum included.
             """
         }
         checksum          Checksum = none {
