@@ -338,3 +338,70 @@ describe("stringifyNumber", () => {
       )),
   );
 });
+
+describe("exactPrecision", () => {
+  it("should return zero for an integer", () => {
+    expect(notation.exactPrecision(42, "standard")).toBe(0);
+  });
+
+  it("should return the fewest decimals that show the value exactly", () => {
+    expect(notation.exactPrecision(1.5, "standard")).toBe(1);
+    expect(notation.exactPrecision(0.1, "standard")).toBe(1);
+    expect(notation.exactPrecision(3.14159, "standard")).toBe(5);
+  });
+
+  it("should count mantissa decimals in scientific notation", () => {
+    expect(notation.exactPrecision(1234.5, "scientific")).toBe(4);
+  });
+
+  it("should count mantissa decimals in engineering notation", () => {
+    expect(notation.exactPrecision(1234.5, "engineering")).toBe(4);
+  });
+
+  it("should cap a value that no precision shows exactly", () => {
+    expect(notation.exactPrecision(1 / 3, "standard")).toBeLessThanOrEqual(
+      notation.MAX_PRECISION,
+    );
+  });
+
+  it("should return zero for a value that is not finite", () => {
+    expect(notation.exactPrecision(Infinity, "standard")).toBe(0);
+    expect(notation.exactPrecision(NaN, "standard")).toBe(0);
+  });
+});
+
+describe("stringifyToFit", () => {
+  const maxLength = (n: number) => (text: string) => text.length <= n;
+
+  it("should show the value exactly when it fits", () => {
+    expect(notation.stringifyToFit(1.5, undefined, "standard", maxLength(10))).toBe(
+      "1.5",
+    );
+  });
+
+  it("should drop decimals until the value fits when precision is absent", () => {
+    expect(notation.stringifyToFit(3.14159, undefined, "standard", maxLength(4))).toBe(
+      "3.14",
+    );
+  });
+
+  it("should round the decimals it drops", () => {
+    expect(notation.stringifyToFit(9.996, undefined, "standard", maxLength(4))).toBe(
+      "10.0",
+    );
+  });
+
+  it("should return null when the whole number does not fit", () => {
+    expect(
+      notation.stringifyToFit(123456, undefined, "standard", maxLength(5)),
+    ).toBeNull();
+  });
+
+  it("should keep an explicit precision that fits", () => {
+    expect(notation.stringifyToFit(12.5, 2, "standard", maxLength(5))).toBe("12.50");
+  });
+
+  it("should return null when an explicit precision does not fit", () => {
+    expect(notation.stringifyToFit(123.456, 2, "standard", maxLength(5))).toBeNull();
+  });
+});

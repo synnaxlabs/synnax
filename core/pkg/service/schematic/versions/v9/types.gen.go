@@ -1329,6 +1329,9 @@ type GaugeNodeConfig struct {
 	LabeledConfig
 	NumericTelemConfig
 	StalenessConfig
+	// Precision is the number of decimal places shown. When absent, the value shows as
+	// many decimals as fit.
+	Precision *uint8 `json:"precision,omitzero" msgpack:"precision,omitempty"`
 	// Position is the offset of the gauge contents within the symbol.
 	Position *spatial.XY `json:"position,omitzero" msgpack:"position,omitempty"`
 	// Color is the accent color of the gauge arc.
@@ -1848,6 +1851,9 @@ type ValueNodeConfig struct {
 	LabeledConfig
 	NumericTelemConfig
 	StalenessConfig
+	// Precision is the number of decimal places shown. When absent, the value shows as
+	// many decimals as fit.
+	Precision *uint8 `json:"precision,omitzero" msgpack:"precision,omitempty"`
 	// Color is the color of the value's border and units.
 	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// BackgroundColor is the fill behind the value where no redline band paints. When
@@ -5580,6 +5586,9 @@ type GaugeElementConfig struct {
 	LabeledConfig
 	NumericTelemConfig
 	StalenessConfig
+	// Precision is the number of decimal places shown. When absent, the value shows as
+	// many decimals as fit.
+	Precision *uint8 `json:"precision,omitzero" msgpack:"precision,omitempty"`
 	// Position is the offset of the gauge contents within the symbol.
 	Position *spatial.XY `json:"position,omitzero" msgpack:"position,omitempty"`
 	// Color is the accent color of the gauge arc.
@@ -6099,6 +6108,9 @@ type ValueElementConfig struct {
 	LabeledConfig
 	NumericTelemConfig
 	StalenessConfig
+	// Precision is the number of decimal places shown. When absent, the value shows as
+	// many decimals as fit.
+	Precision *uint8 `json:"precision,omitzero" msgpack:"precision,omitempty"`
 	// Color is the color of the value's border and units.
 	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// BackgroundColor is the fill behind the value where no redline band paints. When
@@ -9339,6 +9351,8 @@ func (s Schematic) Validate() error {
 type ScaleIndicatorConfig struct {
 	NumericTelemConfig
 	StalenessConfig
+	// Precision is the number of decimal places the readout shows.
+	Precision uint8 `json:"precision" msgpack:"precision"`
 	// Bounds is the numeric range the indicator maps onto its extent.
 	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
 	// Color is the color of the filled portion.
@@ -9365,6 +9379,9 @@ type ScaleIndicatorConfig struct {
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *ScaleIndicatorConfig) ApplyDefaults() {
+	if s.Precision == 0 {
+		s.Precision = 2
+	}
 	if s.Bounds.Upper == 0 {
 		s.Bounds.Upper = 100
 	}
@@ -9453,17 +9470,12 @@ type NumericTelemConfig struct {
 	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
 	// RollingAverage is the sample window for rolling-average smoothing.
 	RollingAverage *int32 `json:"rolling_average,omitzero" msgpack:"rolling_average,omitempty"`
-	// Precision is the number of decimal places shown.
-	Precision float64 `json:"precision" msgpack:"precision"`
 	// Notation is the numeric notation used to format the value.
 	Notation notation.Notation `json:"notation" msgpack:"notation"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (n *NumericTelemConfig) ApplyDefaults() {
-	if n.Precision == 0 {
-		n.Precision = 2
-	}
 	if n.Notation == "" {
 		n.Notation = "standard"
 	}

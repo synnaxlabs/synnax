@@ -76,3 +76,40 @@ export const stringifyNumber = (
   }
   return `${mantissa.toFixed(precision)}ᴇ${exp}`;
 };
+
+/** The most decimal places {@link stringifyNumber} shows. */
+export const MAX_PRECISION = 20;
+
+/**
+ * @returns the fewest decimal places at which {@link stringifyNumber} shows the value
+ * exactly in the given notation, capped at {@link MAX_PRECISION}. A value that is not
+ * finite returns 0.
+ */
+export const exactPrecision = (value: number, notation: Notation): number => {
+  if (!Number.isFinite(value)) return 0;
+  for (let p = 0; p < MAX_PRECISION; p++) {
+    const text = stringifyNumber(value, p, notation).replace("ᴇ", "e");
+    if (Number(text) === value) return p;
+  }
+  return MAX_PRECISION;
+};
+
+/**
+ * Formats the value in the given notation as the longest text that fits accepts. An
+ * absent precision starts at {@link exactPrecision} and drops decimals, with rounding,
+ * until the text fits. An explicit precision either fits or does not.
+ * @returns the text, or null when no allowed precision fits.
+ */
+export const stringifyToFit = (
+  value: number,
+  precision: number | undefined,
+  notation: Notation,
+  fits: (text: string) => boolean,
+): string | null => {
+  const min = precision ?? 0;
+  for (let p = precision ?? exactPrecision(value, notation); p >= min; p--) {
+    const text = stringifyNumber(value, p, notation);
+    if (fits(text)) return text;
+  }
+  return null;
+};

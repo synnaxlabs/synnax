@@ -35,7 +35,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(l.Channels[0].Alias).To(Equal("temp"))
 		Expect(l.Channels[0].Notation).To(Equal(notation.NotationScientific))
 		Expect(l.Channels[0].Color).To(Equal(color.Color{R: 127, G: 29, B: 29, A: 1}))
-		Expect(l.TimestampPrecision).To(Equal(int32(1)))
+		Expect(l.TimestampPrecision).To(Equal(uint8(1)))
 		Expect(l.ReceiptTimestampHidden).To(BeTrue())
 	})
 
@@ -46,7 +46,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(l.Channels).To(HaveLen(2))
 		Expect(l.Channels[0].Channel).To(Equal(channel.Key(1)))
 		Expect(l.Channels[0].Alias).To(Equal("temp"))
-		Expect(l.Channels[0].Precision).To(Equal(int32(2)))
+		Expect(*l.Channels[0].Precision).To(Equal(uint8(2)))
 		// showX on the wire inverts into hideX on the current shape.
 		Expect(l.ChannelNamesHidden).To(BeFalse())
 		Expect(l.ReceiptTimestampHidden).To(BeTrue())

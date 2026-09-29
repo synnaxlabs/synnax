@@ -1,0 +1,71 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/channel/v0"
+import "schemas/x/versions/color/v0"
+import "schemas/x/versions/notation/v0"
+
+Key = v0.Key
+
+TimestampConfig = v2.TimestampConfig
+
+ChannelEntry struct {
+    channel   channel.Key       {
+        @doc value "is the channel this entry references."
+    }
+    color     color.Color       {
+        @doc value "is the display color for the channel."
+    }
+    notation  notation.Notation = "standard" {
+        @doc value "is the numeric notation used to render samples."
+    }
+    precision uint8?            {
+        @doc value    """
+            is the number of decimal places shown. When absent, the log shows the value
+            exactly.
+        """
+        @validate max 20
+    }
+    alias     string = "" {
+        @doc value "is a human-readable alias displayed in place of the channel name."
+    }
+    timestamp TimestampConfig = { format = "preciseDate", tz = "local" } {
+        @doc value "is the per-channel timestamp display configuration."
+    }
+
+    @doc value  "is a per-channel display configuration entry within a log."
+    @go marshal
+}
+
+Log struct {
+    key                      Key = create {
+        @doc value "is the unique identifier for this log."
+        @key
+    }
+    name                     string         {
+        @doc value "is a human-readable name for the log."
+    }
+    channels                 ChannelEntry[] = [] {
+        @doc value "are the channels displayed in this log, in order."
+    }
+    timestamp_precision      uint8 = 0 {
+        @doc value    "is the number of fractional-second digits shown in timestamps."
+        @validate max 3
+    }
+    channel_names_hidden     bool = false {
+        @doc value "is true when channel names are hidden."
+    }
+    receipt_timestamp_hidden bool = false {
+        @doc value "is true when the receipt timestamp column is hidden."
+    }
+
+    @go imex
+    @go marshal
+    @go migrate
+}

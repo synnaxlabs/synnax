@@ -23,7 +23,7 @@ const BOX = box.construct({ x: 0, y: 0 }, { width: 200, height: 200 });
 const STALE = color.construct("#ff0000");
 
 interface SetupOptions {
-  value?: string;
+  value?: number;
   state?: Record<string, unknown>;
 }
 
@@ -31,13 +31,13 @@ interface SetupOptions {
 // render loop runs in tests, so the gauge draws synchronously on mount and on every
 // telem emit; call `recorder.clear()` before an explicit `render({})` to isolate that
 // render's calls.
-const setup = ({ value = "50", state = {} }: SetupOptions = {}) => {
-  const source = telemTest.source<string>(value);
+const setup = ({ value = 50, state = {} }: SetupOptions = {}) => {
+  const source = telemTest.source<number>(value);
   const recorder = canvasTest.record();
   const h = renderAether(gauge.Gauge, {
     state: gauge.Gauge.z.parse({
       box: BOX,
-      telem: telemTest.stringSourceSpec(source),
+      telem: telemTest.numberSourceSpec(source),
       ...state,
     }),
     theming: { theme: THEME, fontURLs: [] },
@@ -76,7 +76,7 @@ describe("gauge/aether/Gauge", () => {
       const { component, source, recorder } = setup({
         state: { stalenessTimeout: 1, stalenessColor: STALE },
       });
-      source.setValue("60");
+      source.setValue(60);
       vi.advanceTimersByTime(1250);
       recorder.clear();
       component.render({});
@@ -87,7 +87,7 @@ describe("gauge/aether/Gauge", () => {
       const { component, source, recorder } = setup({
         state: { stalenessTimeout: 1, stalenessColor: STALE },
       });
-      source.setValue("60");
+      source.setValue(60);
       vi.advanceTimersByTime(1250);
       recorder.clear();
       component.render({});
@@ -98,7 +98,7 @@ describe("gauge/aether/Gauge", () => {
       const { component, source, recorder } = setup({
         state: { stalenessTimeout: 1 },
       });
-      source.setValue("60");
+      source.setValue(60);
       vi.advanceTimersByTime(1250);
       recorder.clear();
       component.render({});
@@ -111,7 +111,7 @@ describe("gauge/aether/Gauge", () => {
       const { source, recorder } = setup({
         state: { stalenessTimeout: 1, stalenessColor: STALE },
       });
-      source.setValue("60");
+      source.setValue(60);
       recorder.clear();
       // Nothing else asks the canvas to redraw once the source stops sending, so the
       // transition has to request the repaint itself.
@@ -125,7 +125,7 @@ describe("gauge/aether/Gauge", () => {
       });
       for (let i = 0; i < 5; i++) {
         vi.advanceTimersByTime(1000);
-        source.setValue(`${i}`);
+        source.setValue(i);
       }
       recorder.clear();
       component.render({});
@@ -136,9 +136,9 @@ describe("gauge/aether/Gauge", () => {
       const { component, source, recorder } = setup({
         state: { stalenessTimeout: 1, stalenessColor: STALE },
       });
-      source.setValue("60");
+      source.setValue(60);
       vi.advanceTimersByTime(1250);
-      source.setValue("70");
+      source.setValue(70);
       recorder.clear();
       component.render({});
       expect(styles(recorder, "fillStyle")).not.toContain(color.hex(STALE));
@@ -148,6 +148,42 @@ describe("gauge/aether/Gauge", () => {
       const { h } = setup({ state: { stalenessTimeout: 1 } });
       h.unmount();
       expect(vi.getTimerCount()).toEqual(0);
+    });
+  });
+  describe("value text", () => {
+    // A dial whose inner arc fits about six characters.
+    const SMALL = box.construct({ x: 0, y: 0 }, { width: 100, height: 100 });
+    const texts = (recorder: canvasTest.Recorder): string[] =>
+      recorder.upper2d.calls
+        .filter((c) => c.op === "fillText")
+        .map((c) => c.args[0] as string);
+
+    const draw = (value: number, state: Record<string, unknown> = {}): string[] => {
+      const { component, recorder } = setup({ value, state });
+      recorder.clear();
+      component.render({});
+      return texts(recorder);
+    };
+
+    it("should show the value at its explicit precision", () => {
+      expect(draw(12.5, { precision: 2 })).toContain("12.50");
+    });
+
+    it("should show the value exactly when precision is absent and it fits", () => {
+      expect(draw(1.5)).toContain("1.5");
+    });
+
+    it("should drop decimals to fit the dial when precision is absent", () => {
+      const drawn = draw(Math.PI, { box: SMALL });
+      const value = drawn.find((t) => t.startsWith("3."));
+      expect(value).toBeDefined();
+      expect(value!.length).toBeLessThan(String(Math.PI).length);
+    });
+
+    it("should fill the dial with hashes when the value does not fit", () => {
+      expect(
+        draw(123456, { precision: 2, box: SMALL }).some((t) => /^#+$/.test(t)),
+      ).toBe(true);
     });
   });
 });

@@ -36,34 +36,6 @@ const PADDING = 0.3;
 // Fills the box in place of a value too wide for it, as spreadsheets do.
 const OVERFLOW = "#";
 
-const MAX_PRECISION = 20;
-
-// Fewest decimal places that show the value exactly, capped at MAX_PRECISION.
-const exactPrecision = (value: number, n: notation.Notation): number => {
-  if (!isFinite(value)) return 0;
-  for (let p = 0; p < MAX_PRECISION; p++) {
-    const text = notation.stringifyNumber(value, p, n).replace("ᴇ", "e");
-    if (Number(text) === value) return p;
-  }
-  return MAX_PRECISION;
-};
-
-// Text for the value that fits, or null when none does. An absent precision drops
-// decimals until the value fits; an explicit one either fits or does not.
-const fit = (
-  value: number,
-  precision: number | undefined,
-  n: notation.Notation,
-  fits: (text: string) => boolean,
-): string | null => {
-  const min = precision ?? 0;
-  for (let p = precision ?? exactPrecision(value, n); p >= min; p--) {
-    const text = notation.stringifyNumber(value, p, n);
-    if (fits(text)) return text;
-  }
-  return null;
-};
-
 const valueState = staleness.configZ.extend({
   box: box.box,
   telem: telem.numberSourceSpecZ.default(telem.noopNumericSourceSpec),
@@ -211,7 +183,12 @@ export class Value
       canvas.textDimensions(text, FILL_TEXT_OPTIONS).width;
     let value = isNaN(raw)
       ? ""
-      : fit(Math.abs(raw), precision, n, (text) => measure(text) <= available);
+      : notation.stringifyToFit(
+          Math.abs(raw),
+          precision,
+          n,
+          (text) => measure(text) <= available,
+        );
     if (value == null) {
       isNegative = false;
       value = OVERFLOW.repeat(Math.max(1, Math.floor(available / measure(OVERFLOW))));

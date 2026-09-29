@@ -18,6 +18,7 @@ import { type Select } from "@synnaxlabs/lyra/select";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Access, Channel, Log, Notation, Telem } from "@synnaxlabs/pluto";
 import {
+  type bounds,
   color,
   DataType,
   type notation,
@@ -29,7 +30,9 @@ import { type ReactElement, useCallback } from "react";
 
 import { CSS } from "@/platform/css";
 
-const PRECISION_BOUNDS = { lower: -1, upper: 17 };
+// Stands in for an absent precision, which shows the value exactly.
+const AUTO_PRECISION = -1;
+const PRECISION_BOUNDS: bounds.Bounds = { lower: 0, upper: 20 };
 
 const showsNumericFields = (dt: DataType | undefined): boolean =>
   dt != null && dt.isNumeric && !dt.equals(DataType.TIMESTAMP);
@@ -68,7 +71,13 @@ const ChannelRow = ({
     [channel, dispatch],
   );
   const handlePrecisionChange = useCallback(
-    (precision: number) => dispatch(log.setChannelPrecision({ channel, precision })),
+    (precision: number) =>
+      dispatch(
+        log.setChannelPrecision({
+          channel,
+          precision: precision === AUTO_PRECISION ? undefined : precision,
+        }),
+      ),
     [channel, dispatch],
   );
   const handleFormatChange = useCallback(
@@ -135,10 +144,10 @@ const ChannelRow = ({
           <>
             <Notation.Select value={notation} onChange={handleNotationChange} />
             <Input.Numeric
-              value={precision}
+              value={precision ?? AUTO_PRECISION}
               onChange={handlePrecisionChange}
-              resetValue={-1}
-              emptyValue={-1}
+              resetValue={AUTO_PRECISION}
+              emptyValue={AUTO_PRECISION}
               placeholder="Auto"
               bounds={PRECISION_BOUNDS}
               disabled={disabled}
@@ -151,10 +160,10 @@ const ChannelRow = ({
             >
               <Button.Button
                 variant="outlined"
-                disabled={disabled || precision === -1}
-                onClick={() => handlePrecisionChange(-1)}
+                disabled={disabled || precision == null}
+                onClick={() => handlePrecisionChange(AUTO_PRECISION)}
                 tooltip={
-                  config.precision === -1
+                  precision == null
                     ? "Type a number to disable auto precision"
                     : "Enable auto precision"
                 }

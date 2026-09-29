@@ -160,10 +160,6 @@ NumericTelemConfig struct {
     rolling_average int32?            {
         @doc value "is the sample window for rolling-average smoothing."
     }
-    precision       float64 = 2 {
-        @doc value    "is the number of decimal places shown."
-        @validate min 0
-    }
     notation        notation.Notation = "standard" {
         @doc value "is the numeric notation used to format the value."
     }
@@ -260,6 +256,10 @@ DummyToggleSymbolConfig struct extends LabeledConfig {
 }
 
 ScaleIndicatorConfig struct extends NumericTelemConfig, StalenessConfig {
+    precision    uint8 = 2 {
+        @doc value    "is the number of decimal places the readout shows."
+        @validate max 20
+    }
     bounds       spatial.Bounds = { lower = 0, upper = 100 } {
         @doc value "is the numeric range the indicator maps onto its extent."
     }
@@ -427,6 +427,13 @@ NodeConfig union on variant {
         @doc value "is the configuration for circle annotation symbols."
     }
     gauge extends LabeledConfig, NumericTelemConfig, StalenessConfig {
+        precision uint8?             {
+            @doc value    """
+                is the number of decimal places shown. When absent, the value shows as
+                many decimals as fit.
+            """
+            @validate max 20
+        }
         position  spatial.XY?        {
             @doc value "is the offset of the gauge contents within the symbol."
         }
@@ -705,6 +712,13 @@ NodeConfig union on variant {
         @doc value "is the configuration for text box annotation symbols."
     }
     value extends LabeledConfig, NumericTelemConfig, StalenessConfig {
+        precision        uint8?       {
+            @doc value    """
+                is the number of decimal places shown. When absent, the value shows as
+                many decimals as fit.
+            """
+            @validate max 20
+        }
         color            color.Color? {
             @doc value "is the color of the value's border and units."
         }

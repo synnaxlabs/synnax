@@ -164,8 +164,6 @@ export const numericTelemConfigZ = z.object({
   channel: channel.keyZ.optional(),
   /** rollingAverage is the sample window for rolling-average smoothing. */
   rollingAverage: z.int32().optional(),
-  /** precision is the number of decimal places shown. */
-  precision: z.number().default(2),
   /** notation is the numeric notation used to format the value. */
   notation: notation.notationZ.default("standard"),
 });
@@ -211,6 +209,7 @@ export interface LabeledConfig extends z.infer<typeof labeledConfigZ> {}
 export const scaleIndicatorConfigZ = numericTelemConfigZ
   .extend(stalenessConfigZ.shape)
   .extend({
+    precision: zod.uint8.default(2),
     bounds: spatial.boundsZ().prefault({ lower: 0, upper: 100 }),
     color: color.colorZ.optional(),
     axisColor: color.colorZ.optional(),
@@ -546,6 +545,11 @@ export const gaugeNodeConfigZ = labeledConfigZ
   .extend(stalenessConfigZ.shape)
   .extend({
     variant: z.literal("gauge"),
+    /**
+     * precision is the number of decimal places shown. When absent, the value shows as
+     * many decimals as fit.
+     */
+    precision: zod.uint8.optional(),
     /** position is the offset of the gauge contents within the symbol. */
     position: spatial.xyZ.optional(),
     /** color is the accent color of the gauge arc. */
@@ -788,6 +792,11 @@ export const valueNodeConfigZ = labeledConfigZ
   .extend(stalenessConfigZ.shape)
   .extend({
     variant: z.literal("value"),
+    /**
+     * precision is the number of decimal places shown. When absent, the value shows as
+     * many decimals as fit.
+     */
+    precision: zod.uint8.optional(),
     /** color is the color of the value's border and units. */
     color: color.colorZ.optional(),
     /**
@@ -1913,6 +1922,11 @@ export const gaugeElementConfigZ = labeledConfigZ
   .extend(stalenessConfigZ.shape)
   .extend({
     variant: z.literal("gauge"),
+    /**
+     * precision is the number of decimal places shown. When absent, the value shows as
+     * many decimals as fit.
+     */
+    precision: zod.uint8.optional(),
     /** position is the offset of the gauge contents within the symbol. */
     position: spatial.xyZ.optional(),
     /** color is the accent color of the gauge arc. */
@@ -2163,6 +2177,11 @@ export const valueElementConfigZ = labeledConfigZ
   .extend(stalenessConfigZ.shape)
   .extend({
     variant: z.literal("value"),
+    /**
+     * precision is the number of decimal places shown. When absent, the value shows as
+     * many decimals as fit.
+     */
+    precision: zod.uint8.optional(),
     /** color is the color of the value's border and units. */
     color: color.colorZ.optional(),
     /**

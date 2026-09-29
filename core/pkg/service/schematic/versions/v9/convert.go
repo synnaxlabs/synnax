@@ -12,6 +12,7 @@ package v9
 import (
 	"cmp"
 	"encoding/json"
+	"math"
 	"reflect"
 	"slices"
 	"strings"
@@ -143,6 +144,12 @@ func extractTelemArgs(cfg map[string]any) {
 		if w, ok := segProp(cfg["telem"], "rollingAverage", "windowSize"); ok {
 			cfg["rolling_average"] = w
 		}
+		if p, ok := segProp(cfg["telem"], "stringifier", "precision"); ok {
+			cfg["precision"] = roundPrecision(p)
+		}
+		if n, ok := segProp(cfg["telem"], "stringifier", "notation"); ok {
+			cfg["notation"] = n
+		}
 		delete(cfg, "telem")
 		delete(cfg, "background_telem")
 	case "string_display":
@@ -188,6 +195,13 @@ func extractTelemArgs(cfg map[string]any) {
 			delete(cfg, "sink")
 		}
 	}
+	for _, key := range []string{"indicator", "fill"} {
+		if ind, ok := cfg[key].(map[string]any); ok {
+			if p, ok := ind["precision"]; ok {
+				ind["precision"] = roundPrecision(p)
+			}
+		}
+	}
 	if ctl, ok := cfg["control"].(map[string]any); ok {
 		if chip, ok := ctl["chip"].(map[string]any); ok {
 			if sink, ok := chip["sink"].(map[string]any); ok {
@@ -201,6 +215,19 @@ func extractTelemArgs(cfg map[string]any) {
 		delete(ctl, "chip")
 		delete(ctl, "indicator")
 	}
+}
+
+// roundPrecision rounds a stored decimal-place count to a whole number. The legacy
+// schema held it as a float, so a fractional value would fail to decode into the typed
+// uint8 and degrade the whole symbol.
+func roundPrecision(v any) any {
+	switch t := v.(type) {
+	case float64:
+		return int64(math.Round(t))
+	case float32:
+		return int64(math.Round(float64(t)))
+	}
+	return v
 }
 
 // segProp reads a property from a named segment of a stored pipeline spec, reporting

@@ -84,12 +84,12 @@ type SetChannelNotationPayload struct {
 	Notation notation.Notation `json:"notation" msgpack:"notation"`
 }
 
-// SetChannelPrecisionPayload sets the number of decimal digits displayed for the entry
-// identified by channel. -1 means "use the log-level precision". No-op when no entry
-// references the channel.
+// SetChannelPrecisionPayload sets the number of decimal places shown for the entry
+// identified by channel. An absent precision shows the value exactly. No-op when no
+// entry references the channel.
 type SetChannelPrecisionPayload struct {
 	Channel   channel.Key `json:"channel" msgpack:"channel"`
-	Precision int32       `json:"precision" msgpack:"precision"`
+	Precision *uint8      `json:"precision,omitzero" msgpack:"precision,omitempty"`
 }
 
 // SetChannelAliasPayload sets the human-readable alias of the entry identified by
@@ -128,9 +128,10 @@ type SwapChannelPayload struct {
 	To   channel.Key `json:"to" msgpack:"to"`
 }
 
-// SetTimestampPrecisionPayload sets the precision of displayed timestamps (0-3).
+// SetTimestampPrecisionPayload sets the number of fractional-second digits shown in
+// timestamps.
 type SetTimestampPrecisionPayload struct {
-	TimestampPrecision int32 `json:"timestamp_precision" msgpack:"timestamp_precision"`
+	TimestampPrecision uint8 `json:"timestamp_precision" msgpack:"timestamp_precision"`
 }
 
 // SetChannelNamesHiddenPayload sets whether channel names are hidden.

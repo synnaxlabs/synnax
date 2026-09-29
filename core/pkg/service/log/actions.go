@@ -24,26 +24,16 @@ import (
 // on ChannelEntry in schemas/synnax/log.oracle and with the TypeScript
 // defaultChannelEntry in client/ts/src/log/actions.ts.
 const (
-	defaultPrecision         int32                 = -1
 	defaultNotation          notation.Notation     = notation.NotationStandard
 	defaultTimestampFormat   telem.TimestampFormat = telem.TimestampFormatPreciseDate
 	defaultTimestampTimeZone telem.TimeZone        = telem.TimeZoneLocal
 )
 
-// minTimestampPrecision and maxTimestampPrecision bound the log-level timestamp
-// precision. They mirror the @validate constraints on Log.timestamp_precision in
-// schemas/synnax/log.oracle.
+// maxTimestampPrecision and maxChannelPrecision mirror the @validate constraints on
+// Log.timestamp_precision and ChannelEntry.precision in schemas/synnax/log.oracle.
 const (
-	minTimestampPrecision int32 = 0
-	maxTimestampPrecision int32 = 3
-)
-
-// minChannelPrecision and maxChannelPrecision bound a channel entry's display
-// precision. They mirror the @validate constraints on ChannelEntry.precision in
-// schemas/synnax/log.oracle.
-const (
-	minChannelPrecision int32 = -1
-	maxChannelPrecision int32 = 17
+	maxTimestampPrecision uint8 = 3
+	maxChannelPrecision   uint8 = 20
 )
 
 // Handle replaces the document with its created state.
@@ -107,16 +97,15 @@ func (p SetChannelNotationPayload) Handle(state Log) (Log, error) {
 	return state, nil
 }
 
-// Handle sets the display precision of the entry referencing the channel. It
-// returns validate.ErrValidation when the precision is outside the inclusive
-// range [-1, 17], and is a no-op when no entry references the channel.
+// Handle sets the display precision of the entry referencing the channel. An absent
+// precision shows the value exactly. It returns validate.ErrValidation when the
+// precision is above 20, and is a no-op when no entry references the channel.
 func (p SetChannelPrecisionPayload) Handle(state Log) (Log, error) {
-	if p.Precision < minChannelPrecision || p.Precision > maxChannelPrecision {
+	if p.Precision != nil && *p.Precision > maxChannelPrecision {
 		return Log{}, errors.Wrapf(
 			validate.ErrValidation,
-			"channel precision %d out of range [%d, %d]",
-			p.Precision,
-			minChannelPrecision,
+			"channel precision %d above maximum %d",
+			*p.Precision,
 			maxChannelPrecision,
 		)
 	}
@@ -169,15 +158,13 @@ func (p SwapChannelPayload) Handle(state Log) (Log, error) {
 }
 
 // Handle sets the log-level timestamp precision. It returns validate.ErrValidation
-// when the precision is outside the inclusive range [0, 3].
+// when the precision is above 3.
 func (p SetTimestampPrecisionPayload) Handle(state Log) (Log, error) {
-	if p.TimestampPrecision < minTimestampPrecision ||
-		p.TimestampPrecision > maxTimestampPrecision {
+	if p.TimestampPrecision > maxTimestampPrecision {
 		return Log{}, errors.Wrapf(
 			validate.ErrValidation,
-			"timestamp precision %d out of range [%d, %d]",
+			"timestamp precision %d above maximum %d",
 			p.TimestampPrecision,
-			minTimestampPrecision,
 			maxTimestampPrecision,
 		)
 	}
@@ -211,9 +198,8 @@ func channelEntryIndex(entries []ChannelEntry, key channel.Key) int {
 // palette color for entries without an explicit color.
 func defaultChannelEntry(key channel.Key) ChannelEntry {
 	return ChannelEntry{
-		Channel:   key,
-		Notation:  defaultNotation,
-		Precision: defaultPrecision,
+		Channel:  key,
+		Notation: defaultNotation,
 		Timestamp: TimestampConfig{
 			Format: defaultTimestampFormat,
 			Tz:     defaultTimestampTimeZone,

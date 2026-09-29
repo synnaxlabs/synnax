@@ -41,10 +41,10 @@ ChannelEntry struct {
     notation  notation.Notation = "standard" {
         @doc value "is the numeric notation used to render samples."
     }
-    precision int32 = -1 {
+    precision uint8?            {
         @doc value    """
-            is the number of decimal digits to display. -1 means "use the log-level
-            precision"; 17 is the maximum significant digits for a float64.
+            is the number of decimal places shown. When absent, the log shows the value
+            exactly.
         """
         @validate max 17
         @validate min -1
@@ -72,8 +72,8 @@ Log struct {
     channels                 ChannelEntry[] = [] {
         @doc value "are the channels displayed in this log, in order."
     }
-    timestamp_precision      int32 = 0 {
-        @doc value    "is the precision of displayed timestamps (0-3)."
+    timestamp_precision      uint8 = 0 {
+        @doc value    "is the number of fractional-second digits shown in timestamps."
         @validate max 3
         @validate min 0
     }
@@ -151,12 +151,12 @@ Log struct {
 
     action SetChannelPrecision {
         channel   channel.Key
-        precision int32
+        precision uint8?
 
         @doc value """
-            sets the number of decimal digits displayed for the entry identified by
-            channel. -1 means "use the log-level precision". No-op when no entry
-            references the channel.
+            sets the number of decimal places shown for the entry identified by channel.
+            An absent precision shows the value exactly. No-op when no entry references
+            the channel.
         """
     }
 
@@ -212,9 +212,9 @@ Log struct {
     }
 
     action SetTimestampPrecision {
-        timestamp_precision int32
+        timestamp_precision uint8
 
-        @doc value "sets the precision of displayed timestamps (0-3)."
+        @doc value "sets the number of fractional-second digits shown in timestamps."
     }
 
     action SetChannelNamesHidden {

@@ -112,6 +112,7 @@ var _ = Describe("Config typing", func() {
 	valueStream := map[string]map[string]any{
 		"valueStream":    {"channel": 7.0},
 		"rollingAverage": {"windowSize": 5.0},
+		"stringifier":    {"precision": 3.0, "notation": "scientific"},
 	}
 	setter := map[string]map[string]any{"setter": {"channel": 8.0}}
 	DescribeTable("Should rewrite a stored telem pipeline into its arguments",
@@ -128,6 +129,8 @@ var _ = Describe("Config typing", func() {
 				cfg := v.(v9.ValueElementConfig)
 				Expect(cfg.Channel).To(HaveValue(BeEquivalentTo(7)))
 				Expect(cfg.RollingAverage).To(HaveValue(BeEquivalentTo(5)))
+				Expect(cfg.Precision).To(HaveValue(Equal(uint8(3))))
+				Expect(cfg.Notation).To(BeEquivalentTo("scientific"))
 			}),
 		Entry("gauge",
 			msgpack.EncodedJSON{"variant": "gauge", "telem": pipeline(valueStream)},
@@ -135,6 +138,8 @@ var _ = Describe("Config typing", func() {
 				cfg := v.(v9.GaugeElementConfig)
 				Expect(cfg.Channel).To(HaveValue(BeEquivalentTo(7)))
 				Expect(cfg.RollingAverage).To(HaveValue(BeEquivalentTo(5)))
+				Expect(cfg.Precision).To(HaveValue(Equal(uint8(3))))
+				Expect(cfg.Notation).To(BeEquivalentTo("scientific"))
 			}),
 		Entry("string_display",
 			msgpack.EncodedJSON{
@@ -277,6 +282,40 @@ var _ = Describe("Config typing", func() {
 		Expect(ok).To(BeTrue())
 		Expect(cfg.Color).To(HaveValue(Equal(MustSucceed(color.FromHex("#ff000080")))))
 	})
+
+	It("Should round a fractional legacy value precision", func(ctx SpecContext) {
+		cfg, ok := typed(ctx, msgpack.EncodedJSON{
+			"variant": "value",
+			"telem": pipeline(map[string]map[string]any{
+				"stringifier": {"precision": 2.6},
+			}),
+		}).(v9.ValueElementConfig)
+		Expect(ok).To(BeTrue())
+		Expect(cfg.Precision).To(HaveValue(Equal(uint8(3))))
+	})
+
+	It("Should keep a legacy value precision of zero", func(ctx SpecContext) {
+		cfg, ok := typed(ctx, msgpack.EncodedJSON{
+			"variant": "value",
+			"telem": pipeline(map[string]map[string]any{
+				"stringifier": {"precision": 0.0},
+			}),
+		}).(v9.ValueElementConfig)
+		Expect(ok).To(BeTrue())
+		Expect(cfg.Precision).To(HaveValue(Equal(uint8(0))))
+	})
+
+	It(
+		"Should round a fractional precision nested in a tank's fill",
+		func(ctx SpecContext) {
+			cfg, ok := typed(ctx, msgpack.EncodedJSON{
+				"variant": "tank",
+				"fill":    map[string]any{"precision": 1.6},
+			}).(v9.TankElementConfig)
+			Expect(ok).To(BeTrue())
+			Expect(cfg.Fill.Precision).To(Equal(uint8(2)))
+		},
+	)
 
 	It("Should drop zero colors nested in a symbol's indicator", func(ctx SpecContext) {
 		cfg, ok := typed(ctx, msgpack.EncodedJSON{
@@ -423,7 +462,6 @@ var _ = Describe("Config typing", func() {
 				InlineSize:       70,
 				StalenessTimeout: 5,
 				Notation:         "standard",
-				Precision:        2,
 				Units:            "psi",
 			}),
 		)

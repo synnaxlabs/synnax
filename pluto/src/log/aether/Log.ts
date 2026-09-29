@@ -447,10 +447,10 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
       } catch {
         // Leave value as-is if it can't be parsed as a bigint.
       }
-    } else if (cfg != null && (cfg.precision >= 0 || cfg.notation !== "standard")) {
+    } else if (cfg != null && (cfg.precision != null || cfg.notation !== "standard")) {
       const num = parseFloat(value);
       if (!isNaN(num)) {
-        const precision = cfg.precision >= 0 ? cfg.precision : 0;
+        const precision = cfg.precision ?? notation.exactPrecision(num, cfg.notation);
         value = notation.stringifyNumber(num, precision, cfg.notation);
       }
     }

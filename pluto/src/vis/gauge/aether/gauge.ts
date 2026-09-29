@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type theme } from "@synnaxlabs/lyra/theme";
-import { bounds, box, color, scale, text, xy } from "@synnaxlabs/x";
+import { theme } from "@synnaxlabs/lyra/theme";
+import { bounds, box, color, notation, scale, text, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -19,9 +19,21 @@ import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
 import { staleness } from "@/vis/staleness/aether";
 
+// Space the value keeps from the inner edge of the arc, as a multiple of the font
+// height.
+const PADDING = 0.3;
+
+// Fills the dial in place of a value too wide for it.
+const OVERFLOW = "#";
+
+const VALUE_WEIGHT = 450;
+
 const gaugeState = staleness.configZ.extend({
   box: box.box,
-  telem: telem.stringSourceSpecZ.default(telem.noopStringSourceSpec),
+  telem: telem.numberSourceSpecZ.default(telem.noopNumericSourceSpec),
+  // precision is the decimal places shown. When absent, the value shows as many as fit.
+  precision: z.number().optional(),
+  notation: notation.notationZ.default("standard"),
   level: text.levelZ.default("p"),
   color: color.colorZ.default(color.ZERO),
   stalenessColor: color.colorZ.optional(),
@@ -39,7 +51,7 @@ export interface GaugeProps {
 interface InternalState {
   theme: theme.Theme;
   render: render.Context;
-  telem: telem.StringSource;
+  telem: telem.NumberSource;
   draw2d: Draw2D;
   stopListening?: () => void;
   staleness: staleness.Registration;
@@ -155,11 +167,10 @@ export class Gauge
     const { internal: i } = this;
     const upper2d = i.render.upper2d.applyScale(viewportScale);
     const draw2d = new Draw2D(upper2d, i.theme);
-    const value = i.telem.value();
+    const raw = i.telem.value();
 
     const { lower, upper } = this.state.bounds;
-    const valueNum = Number(value);
-    const clampedValue = bounds.clamp(this.state.bounds, valueNum);
+    const clampedValue = bounds.clamp(this.state.bounds, raw);
     const range = upper - lower;
     const valueRatio = range === 0 ? 0 : (clampedValue - lower) / range;
     const valueAngle = i.gaugeStartAngle + valueRatio * i.gaugeAngleRange;
@@ -169,13 +180,13 @@ export class Gauge
 
     draw2d.text({
       align: "center",
-      text: value,
+      text: this.valueText(upper2d, raw),
       position: i.valueTextPos,
       shade: 10,
       color: staleColor,
       level: i.textLevel,
       justify: "center",
-      weight: 450,
+      weight: VALUE_WEIGHT,
       code: true,
       useAtlas: true,
     });
@@ -220,6 +231,7 @@ export class Gauge
       lineCap: "round",
     });
 
+    if (isNaN(raw)) return;
     draw2d.circle({
       stroke: staleColor ?? i.strokeColor,
       radius: { inner: i.innerRadius, outer: i.outerRadius },
@@ -230,6 +242,30 @@ export class Gauge
       },
       lineCap: "round",
     });
+  }
+
+  // The value as text that fits across the dial, or hashes when none does. Empty
+  // before the source sends a number.
+  private valueText(canvas: Draw2D["canvas"], raw: number): string {
+    if (isNaN(raw)) return "";
+    const { theme: t, textLevel, innerRadius } = this.internal;
+    canvas.font = theme.fontString(t, {
+      level: textLevel,
+      weight: VALUE_WEIGHT,
+      code: true,
+    });
+    const fontHeight = t.typography[textLevel].size * t.sizes.base;
+    const available = 2 * (innerRadius - fontHeight * PADDING);
+    const measure = (text: string): number =>
+      canvas.textDimensions(text, { useAtlas: true }).width;
+    const fitted = notation.stringifyToFit(
+      raw,
+      this.state.precision,
+      this.state.notation,
+      (text) => measure(text) <= available,
+    );
+    if (fitted != null) return fitted;
+    return OVERFLOW.repeat(Math.max(1, Math.floor(available / measure(OVERFLOW))));
   }
 }
 

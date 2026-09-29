@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/log/versions/legacy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v0"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v2"
+	v3 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v3"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
@@ -35,7 +36,13 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Log, error) {
 		var body msgpack.EncodedJSON
 		if body, err = env.Decode[msgpack.EncodedJSON](ctx); err == nil {
 			if err = imex.RequireFields(body, "a log", "channels"); err == nil {
-				l, err = v2.MigrateLog(ctx, v0.Log{Name: env.Name, Data: body})
+				var typed v2.Log
+				if typed, err = v2.MigrateLog(
+					ctx,
+					v0.Log{Name: env.Name, Data: body},
+				); err == nil {
+					l, err = v3.MigrateLog(ctx, typed)
+				}
 			}
 		}
 	}

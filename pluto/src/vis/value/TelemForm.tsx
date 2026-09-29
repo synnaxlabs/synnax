@@ -10,8 +10,8 @@
 import { type channel } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
-import { type notation } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type bounds, type notation } from "@synnaxlabs/x";
+import { type ReactElement, useCallback } from "react";
 
 import { Channel } from "@/channel";
 import { Notation } from "@/notation";
@@ -28,34 +28,49 @@ export interface TelemFormProps {
   path: string;
 }
 
+// Stands in for an absent precision, which shows as many decimals as fit.
+const AUTO_PRECISION = -1;
+const PRECISION_BOUNDS: bounds.Bounds = { lower: 0, upper: 20 };
+const ROLLING_AVERAGE_BOUNDS: bounds.Bounds = { lower: 1, upper: 100 };
+
 /** TelemForm renders telemetry sections; place it inside `Form.Sections`. */
 export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
   const { value, onChange } = Form.useField<ValueTelemFormT>(path);
 
-  const handleSourceChange = (key: channel.Key | null): void =>
-    onChange({ ...value, channel: key ?? undefined });
-
-  const handleNotationChange = (notation: notation.Notation): void =>
-    onChange({ ...value, notation });
-
-  const handlePrecisionChange = (precision: number): void =>
-    onChange({ ...value, precision });
-
-  const handleRollingAverageChange = (windowSize: number): void =>
-    onChange({ ...value, rollingAverage: windowSize });
-
-  const channelKey = value.channel ?? 0;
+  const handleSourceChange = useCallback(
+    (key: channel.Key | null) => onChange({ ...value, channel: key ?? undefined }),
+    [value, onChange],
+  );
+  const handleNotationChange = useCallback(
+    (notation: notation.Notation) => onChange({ ...value, notation }),
+    [value, onChange],
+  );
+  const handlePrecisionChange = useCallback(
+    (precision: number) =>
+      onChange({
+        ...value,
+        precision: precision === AUTO_PRECISION ? undefined : precision,
+      }),
+    [value, onChange],
+  );
+  const handleRollingAverageChange = useCallback(
+    (rollingAverage: number) => onChange({ ...value, rollingAverage }),
+    [value, onChange],
+  );
 
   return (
     <>
       <Form.Section title="Source">
         <Input.Item label="Channel" padHelpText={false}>
-          <Channel.SelectSingle value={channelKey} onChange={handleSourceChange} />
+          <Channel.SelectSingle
+            value={value.channel ?? 0}
+            onChange={handleSourceChange}
+          />
         </Input.Item>
         <Input.Item label="Averaging window" padHelpText={false}>
           <Input.Numeric
             value={value.rollingAverage ?? 1}
-            bounds={{ lower: 1, upper: 100 }}
+            bounds={ROLLING_AVERAGE_BOUNDS}
             onChange={handleRollingAverageChange}
           />
         </Input.Item>
@@ -69,8 +84,10 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
         </Input.Item>
         <Input.Item label="Precision" padHelpText={false}>
           <Input.Numeric
-            value={value.precision ?? 2}
-            bounds={{ lower: 0, upper: 10 }}
+            value={value.precision ?? AUTO_PRECISION}
+            emptyValue={AUTO_PRECISION}
+            placeholder="Auto"
+            bounds={PRECISION_BOUNDS}
             onChange={handlePrecisionChange}
           />
         </Input.Item>

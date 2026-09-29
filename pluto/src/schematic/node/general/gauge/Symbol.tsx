@@ -53,13 +53,15 @@ export const Symbol = ({
     [level],
   );
   const telem = useMemo(
-    () => Value.stringSource({ channel, rollingAverage, precision, notation }),
-    [channel, rollingAverage, precision, notation],
+    () => Value.numberSource({ channel, rollingAverage }),
+    [channel, rollingAverage],
   );
   BaseGauge.use({
     aetherKey: nodeKey,
     box: box.construct(position ?? xy.ZERO, dims),
     telem,
+    precision,
+    notation,
     color,
     level,
     units,

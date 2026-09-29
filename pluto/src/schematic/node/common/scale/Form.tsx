@@ -30,7 +30,7 @@ import { type Config } from "@/schematic/node/common/scale/config";
 import { Staleness } from "@/vis/staleness";
 
 const PRECISION_INPUT_PROPS: Partial<Input.NumericProps> = {
-  bounds: { lower: 0, upper: 10 },
+  bounds: { lower: 0, upper: 20 },
 };
 const WINDOW_SIZE_INPUT_PROPS: Partial<Input.NumericProps> = {
   bounds: { lower: 1, upper: 100 },

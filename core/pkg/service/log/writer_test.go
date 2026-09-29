@@ -187,7 +187,7 @@ var _ = Describe("Writer", func() {
 					entry := res.Channels[0]
 					Expect(entry.Channel).To(Equal(channel.Key(42)))
 					Expect(entry.Notation).To(Equal(notation.NotationStandard))
-					Expect(entry.Precision).To(Equal(int32(-1)))
+					Expect(entry.Precision).To(BeNil())
 					Expect(
 						entry.Timestamp.Format,
 					).To(Equal(telem.TimestampFormatPreciseDate))
@@ -257,7 +257,10 @@ var _ = Describe("Writer", func() {
 							},
 						),
 						log.NewSetChannelPrecisionAction(
-							log.SetChannelPrecisionPayload{Channel: 5, Precision: 4},
+							log.SetChannelPrecisionPayload{
+								Channel:   5,
+								Precision: new(uint8(4)),
+							},
 						),
 						log.NewSetChannelAliasAction(
 							log.SetChannelAliasPayload{Channel: 5, Alias: "volts"},
@@ -278,7 +281,7 @@ var _ = Describe("Writer", func() {
 					entry := retrieve(ctx, l.Key).Channels[0]
 					Expect(entry.Color).To(Equal(red))
 					Expect(entry.Notation).To(Equal(notation.NotationScientific))
-					Expect(entry.Precision).To(Equal(int32(4)))
+					Expect(*entry.Precision).To(Equal(uint8(4)))
 					Expect(entry.Alias).To(Equal("volts"))
 					Expect(entry.Timestamp.Format).To(Equal(telem.TimestampFormatTime))
 					Expect(entry.Timestamp.Tz).To(Equal(telem.TimeZoneUTC))
@@ -304,8 +307,9 @@ var _ = Describe("Writer", func() {
 				},
 			)
 
-			DescribeTable("Should reject an out-of-range channel precision",
-				func(ctx SpecContext, precision int32) {
+			It(
+				"Should reject a channel precision above the maximum",
+				func(ctx SpecContext) {
 					l := log.Log{
 						Name:     "test",
 						Channels: []log.ChannelEntry{{Channel: 5}},
@@ -314,12 +318,29 @@ var _ = Describe("Writer", func() {
 					Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
 						log.NewSetChannelPrecisionAction(log.SetChannelPrecisionPayload{
 							Channel:   5,
-							Precision: precision,
+							Precision: new(uint8(21)),
 						}),
 					})).Error().To(MatchError(validate.ErrValidation))
 				},
-				Entry("below minimum", int32(-2)),
-				Entry("above maximum", int32(18)),
+			)
+
+			It(
+				"Should clear a channel precision with an absent one",
+				func(ctx SpecContext) {
+					l := log.Log{
+						Name: "test",
+						Channels: []log.ChannelEntry{
+							{Channel: 5, Precision: new(uint8(4))},
+						},
+					}
+					Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
+					Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
+						log.NewSetChannelPrecisionAction(
+							log.SetChannelPrecisionPayload{Channel: 5},
+						),
+					})).To(Succeed())
+					Expect(retrieve(ctx, l.Key).Channels[0].Precision).To(BeNil())
+				},
 			)
 
 			It("Should replace the whole list via SetChannels", func(ctx SpecContext) {
@@ -343,7 +364,7 @@ var _ = Describe("Writer", func() {
 						Name: "test",
 						Channels: []log.ChannelEntry{
 							{Channel: 1},
-							{Channel: 2, Alias: "kept", Precision: 3},
+							{Channel: 2, Alias: "kept", Precision: new(uint8(3))},
 							{Channel: 4},
 						},
 					}
@@ -357,7 +378,7 @@ var _ = Describe("Writer", func() {
 					Expect(res.Channels).To(HaveLen(3))
 					Expect(res.Channels[1].Channel).To(Equal(channel.Key(5)))
 					Expect(res.Channels[1].Alias).To(Equal("kept"))
-					Expect(res.Channels[1].Precision).To(Equal(int32(3)))
+					Expect(*res.Channels[1].Precision).To(Equal(uint8(3)))
 				},
 			)
 
@@ -392,24 +413,21 @@ var _ = Describe("Writer", func() {
 							},
 						),
 					})).To(Succeed())
-					Expect(retrieve(ctx, l.Key).TimestampPrecision).To(Equal(int32(3)))
+					Expect(retrieve(ctx, l.Key).TimestampPrecision).To(Equal(uint8(3)))
 				},
 			)
 
-			DescribeTable("Should reject an out-of-range timestamp precision",
-				func(ctx SpecContext, precision int32) {
+			It(
+				"Should reject a timestamp precision above the maximum",
+				func(ctx SpecContext) {
 					l := log.Log{Name: "test"}
 					Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
 					Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
 						log.NewSetTimestampPrecisionAction(
-							log.SetTimestampPrecisionPayload{
-								TimestampPrecision: precision,
-							},
+							log.SetTimestampPrecisionPayload{TimestampPrecision: 4},
 						),
 					})).Error().To(MatchError(validate.ErrValidation))
 				},
-				Entry("below minimum", int32(-1)),
-				Entry("above maximum", int32(4)),
 			)
 
 			It("Should toggle the display flags", func(ctx SpecContext) {
@@ -445,7 +463,7 @@ var _ = Describe("Writer", func() {
 				res := retrieve(ctx, l.Key)
 				Expect(res.Name).To(Equal("batched"))
 				Expect(res.Channels).To(HaveLen(1))
-				Expect(res.TimestampPrecision).To(Equal(int32(2)))
+				Expect(res.TimestampPrecision).To(Equal(uint8(2)))
 			})
 
 			It(

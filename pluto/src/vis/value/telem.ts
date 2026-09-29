@@ -8,36 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { type notation } from "@synnaxlabs/x";
 
 import { telem } from "@/telem/aether";
-
-export interface StringSourceArgs {
-  channel?: channel.Key;
-  rollingAverage?: number;
-  precision?: number;
-  notation?: notation.Notation;
-}
-
-/** stringSource builds the formatted display pipeline for a value channel. */
-export const stringSource = ({
-  channel = 0,
-  rollingAverage = 1,
-  precision = 2,
-  notation,
-}: StringSourceArgs): telem.StringSourceSpec =>
-  telem.sourcePipeline("string", {
-    connections: [
-      { from: "valueStream", to: "rollingAverage" },
-      { from: "rollingAverage", to: "stringifier" },
-    ],
-    segments: {
-      valueStream: telem.streamChannelValue({ channel }),
-      rollingAverage: telem.rollingAverage({ windowSize: rollingAverage }),
-      stringifier: telem.stringifyNumber({ precision, notation }),
-    },
-    outlet: "stringifier",
-  });
 
 export interface NumberSourceArgs {
   channel?: channel.Key;

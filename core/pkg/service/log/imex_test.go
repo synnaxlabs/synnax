@@ -71,7 +71,7 @@ var _ = Describe("ImEx", func() {
 
 				decoded := MustSucceed(WireRoundTrip(env).Decode[log.Log](ctx))
 				Expect(decoded.Name).To(Equal("exported"))
-				Expect(decoded.TimestampPrecision).To(Equal(int32(2)))
+				Expect(decoded.TimestampPrecision).To(Equal(uint8(2)))
 				Expect(decoded.ChannelNamesHidden).To(BeTrue())
 				Expect(decoded.Channels).To(HaveLen(1))
 				Expect(decoded.Channels[0].Channel).To(Equal(channel.Key(1)))
@@ -178,14 +178,14 @@ var _ = Describe("ImEx", func() {
 			func(ctx SpecContext) {
 				_, res := importAndRetrieve(ctx, v1Fixture)
 				Expect(res.Name).To(Equal("Test Log V1"))
-				Expect(res.TimestampPrecision).To(Equal(int32(1)))
+				Expect(res.TimestampPrecision).To(Equal(uint8(1)))
 				Expect(res.ChannelNamesHidden).To(BeFalse())
 				Expect(res.ReceiptTimestampHidden).To(BeTrue())
 				Expect(res.Channels).To(HaveLen(2))
 				Expect(res.Channels[0].Channel).To(Equal(channel.Key(1)))
 				Expect(res.Channels[0].Color).To(Equal(color.MustFromHex("#ff0000")))
 				Expect(res.Channels[0].Notation).To(Equal(notation.NotationScientific))
-				Expect(res.Channels[0].Precision).To(Equal(int32(2)))
+				Expect(*res.Channels[0].Precision).To(Equal(uint8(2)))
 				Expect(res.Channels[0].Alias).To(Equal("temp"))
 				Expect(res.Channels[1].Channel).To(Equal(channel.Key(5)))
 			},
@@ -196,13 +196,13 @@ var _ = Describe("ImEx", func() {
 			func(ctx SpecContext) {
 				_, res := importAndRetrieve(ctx, v2Fixture)
 				Expect(res.Name).To(Equal("Test Log V2"))
-				Expect(res.TimestampPrecision).To(Equal(int32(1)))
+				Expect(res.TimestampPrecision).To(Equal(uint8(1)))
 				Expect(res.ChannelNamesHidden).To(BeFalse())
 				Expect(res.Channels).To(HaveLen(2))
 				Expect(res.Channels[0].Channel).To(Equal(channel.Key(1)))
 				Expect(res.Channels[0].Color).To(Equal(color.MustFromHex("#7f1d1d")))
 				Expect(res.Channels[0].Notation).To(Equal(notation.NotationScientific))
-				Expect(res.Channels[0].Precision).To(Equal(int32(2)))
+				Expect(*res.Channels[0].Precision).To(Equal(uint8(2)))
 				Expect(res.Channels[0].Alias).To(Equal("temp"))
 				Expect(
 					res.Channels[0].Timestamp.Format,
@@ -341,7 +341,11 @@ var _ = Describe("ImEx", func() {
 				original := createLog(ctx, log.Log{
 					Name: "round-trip",
 					Channels: []log.ChannelEntry{
-						{Channel: channel.Key(1), Alias: "first", Precision: 4},
+						{
+							Channel:   channel.Key(1),
+							Alias:     "first",
+							Precision: new(uint8(4)),
+						},
 						{Channel: channel.Key(2), Alias: "second"},
 					},
 					TimestampPrecision:     1,

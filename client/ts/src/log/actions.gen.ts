@@ -89,13 +89,13 @@ export const setChannelNotationPayloadZ = z.object({
 export type SetChannelNotationPayload = z.infer<typeof setChannelNotationPayloadZ>;
 
 /**
- * SetChannelPrecision sets the number of decimal digits displayed for the entry
- * identified by channel. -1 means "use the log-level precision". No-op when no entry
+ * SetChannelPrecision sets the number of decimal places shown for the entry identified
+ * by channel. An absent precision shows the value exactly. No-op when no entry
  * references the channel.
  */
 export const setChannelPrecisionPayloadZ = z.object({
   channel: channel.keyZ,
-  precision: z.int32(),
+  precision: zod.uint8.optional(),
 });
 
 export type SetChannelPrecisionPayload = z.infer<typeof setChannelPrecisionPayloadZ>;
@@ -160,9 +160,12 @@ export const swapChannelPayloadZ = z.object({
 
 export type SwapChannelPayload = z.infer<typeof swapChannelPayloadZ>;
 
-/** SetTimestampPrecision sets the precision of displayed timestamps (0-3). */
+/**
+ * SetTimestampPrecision sets the number of fractional-second digits shown in
+ * timestamps.
+ */
 export const setTimestampPrecisionPayloadZ = z.object({
-  timestampPrecision: z.int32(),
+  timestampPrecision: zod.uint8,
 });
 
 export type SetTimestampPrecisionPayload = z.infer<
