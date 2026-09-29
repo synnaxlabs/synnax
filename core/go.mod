@@ -36,7 +36,6 @@ require (
 	github.com/uptrace/uptrace-go v1.43.0
 	github.com/vmihailenco/msgpack/v5 v5.4.1
 	github.com/xuri/excelize/v2 v2.11.0
-	go.einride.tech/can v0.17.0
 	go.lsp.dev/protocol v1.0.1
 	go.lsp.dev/uri v1.0.1
 	go.uber.org/zap v1.28.0

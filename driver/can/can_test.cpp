@@ -122,7 +122,9 @@ TEST(Aligner, FollowsAnAdapterClockThatDrifts) {
         adapter = adapter + step + step / 10000;
         const auto delay = (i % 4) * x::telem::MILLISECOND;
         const auto aligned = aligner.align(adapter, host + delay);
-        if (i > 0) ASSERT_GT(aligned, last) << i;
+        if (i > 0) {
+            ASSERT_GT(aligned, last) << i;
+        }
         last = aligned;
         error = aligned - host;
     }

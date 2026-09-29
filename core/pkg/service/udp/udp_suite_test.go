@@ -50,11 +50,11 @@ func createLibrary(
 	GinkgoHelper()
 	m := library.MessageEntry{
 		Key: uuid.New(), Name: "Status",
-		Format: library.FormatBinary,
-		Fields: []library.Field{{Variant: library.BinaryField{
-			BaseField: library.BaseField{Key: uuid.New(), Name: "rpm"},
-			BitLength: 16,
-		}}},
+		Payload: library.Payload{Variant: library.BinaryPayload{
+			Fields: []library.BinaryField{
+				{Key: uuid.New(), Name: "rpm", BitLength: 16},
+			},
+		}},
 	}
 	l := library.Library{
 		Key:     uuid.New(),

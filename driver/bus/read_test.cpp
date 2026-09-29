@@ -131,13 +131,9 @@ TEST(Source, DecodesSeveralMessagesMatchedByTheirIdentifiers) {
     const auto a = text_message(
         "a",
         {delimited_field("x", 1), delimited_field("y", 2)},
-        synnax::library::TokenIdentifier{.prefix = "A,"}
+        "A,"
     );
-    const auto b = text_message(
-        "b",
-        {delimited_field("z", 1)},
-        synnax::library::TokenIdentifier{.prefix = "B,"}
-    );
+    const auto b = text_message("b", {delimited_field("z", 1)}, "B,");
     Harness h(read_config({a, b}, NEWLINE));
     h.wire->push(bytes("A,1,2\nB,3\nA,4,5\n"));
     ASSERT_TRUE(h.read_until([](const Output &o) { return o.values.contains(3); }));
@@ -151,16 +147,8 @@ TEST(Source, DecodesSeveralMessagesMatchedByTheirIdentifiers) {
 }
 
 TEST(Source, IgnoresDisabledMessages) {
-    const auto a = text_message(
-        "a",
-        {delimited_field("x", 1)},
-        synnax::library::TokenIdentifier{.prefix = "A,"}
-    );
-    const auto b = text_message(
-        "b",
-        {delimited_field("z", 1)},
-        synnax::library::TokenIdentifier{.prefix = "B,"}
-    );
+    const auto a = text_message("a", {delimited_field("x", 1)}, "A,");
+    const auto b = text_message("b", {delimited_field("z", 1)}, "B,");
     Harness h(read_config({a, b}, NEWLINE, [](auto &cfg) {
         cfg.messages[1].disabled = true;
     }));
@@ -172,11 +160,7 @@ TEST(Source, IgnoresDisabledMessages) {
 }
 
 TEST(Source, WritesEveryFrameToTheRawChannel) {
-    const auto a = text_message(
-        "a",
-        {delimited_field("x", 1)},
-        synnax::library::TokenIdentifier{.prefix = "A,"}
-    );
+    const auto a = text_message("a", {delimited_field("x", 1)}, "A,");
     auto raw = data_channel(50, 0, x::telem::BYTES_T);
     Harness h(read_config({a}, NEWLINE, [](auto &cfg) { cfg.raw = 50; }, {}, {raw}));
     h.wire->push(bytes("A,1\nunknown\n"));
@@ -246,11 +230,7 @@ TEST(Source, ReportsARepeatedWarningOnce) {
 }
 
 TEST(Source, ReconnectsAndDropsThePartialFrameAfterTheTransportFails) {
-    const auto m = text_message(
-        "a",
-        {delimited_field("x", 1)},
-        synnax::library::TokenIdentifier{.prefix = "A,"}
-    );
+    const auto m = text_message("a", {delimited_field("x", 1)}, "A,");
     Harness h(read_config({m}, NEWLINE));
     ASSERT_NIL(h.start());
     h.wire->push(bytes("A,1"));
@@ -312,17 +292,9 @@ TEST(Source, PollsEachQueryAndDecodesItsReplyInOrder) {
 }
 
 TEST(Source, DoesNotTakeAStreamedFrameAsTheReply) {
-    auto polled = text_message(
-        "polled",
-        {delimited_field("v", 1)},
-        synnax::library::TokenIdentifier{.prefix = "R,"}
-    );
+    auto polled = text_message("polled", {delimited_field("v", 1)}, "R,");
     polled.query = "Q";
-    const auto streamed = text_message(
-        "streamed",
-        {delimited_field("v", 1)},
-        synnax::library::TokenIdentifier{.prefix = "S,"}
-    );
+    const auto streamed = text_message("streamed", {delimited_field("v", 1)}, "S,");
     Harness h(read_config(
         {polled, streamed},
         NEWLINE,

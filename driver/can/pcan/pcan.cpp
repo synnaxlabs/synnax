@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <chrono>
 #include <cstring>
 #include <format>
 
@@ -75,14 +76,6 @@ std::vector<std::pair<std::string, TPCANHandle>> channels() {
     return out;
 }
 
-/// @returns PCAN-Basic's description of a status code.
-std::string describe(API &api, const TPCANStatus status) {
-    std::array<char, 256> text{};
-    if (api.GetErrorText(status, LANGUAGE_ENGLISH, text.data()) == PCAN_ERROR_OK)
-        return {text.data()};
-    return std::format("PCAN-Basic status 0x{:X}", status);
-}
-
 /// @brief copies a PCAN-Basic message into a frame.
 void fill(
     Frame &frame,
@@ -113,6 +106,13 @@ TPCANMessageType message_type(const Frame &frame) {
     if (frame.bitrate_switched) type |= PCAN_MESSAGE_BRS;
     return type;
 }
+}
+
+std::string describe(API &api, const TPCANStatus status) {
+    std::array<char, 256> text{};
+    if (api.GetErrorText(status, LANGUAGE_ENGLISH, text.data()) == PCAN_ERROR_OK)
+        return {text.data()};
+    return std::format("PCAN-Basic status 0x{:X}", status);
 }
 
 std::optional<TPCANHandle> parse_channel(const std::string &name) {
@@ -152,11 +152,15 @@ fd_bitrate(const std::uint32_t nominal, const std::uint32_t data) {
 Bus::Bus(
     std::shared_ptr<API> api,
     const TPCANHandle handle,
+    std::unique_ptr<ReceiveEvent> event,
     std::string name,
     const bool fd,
     const bool listen_only
 ):
-    can::Bus(std::move(name), fd, listen_only), api(std::move(api)), handle(handle) {}
+    can::Bus(std::move(name), fd, listen_only),
+    api(std::move(api)),
+    handle(handle),
+    event(std::move(event)) {}
 
 Bus::~Bus() {
     this->close();
@@ -164,7 +168,17 @@ Bus::~Bus() {
 
 std::pair<bool, x::errors::Error>
 Bus::receive(Frame &frame, const x::telem::TimeSpan timeout) {
-    return poll_queue(timeout, POLL_INTERVAL, [&] { return this->take(frame); });
+    const auto deadline = std::chrono::steady_clock::now() + timeout.chrono();
+    while (true) {
+        if (auto res = this->take(frame)) return *res;
+        const auto now = std::chrono::steady_clock::now();
+        if (now >= deadline) return {false, x::errors::NIL};
+        const auto remaining = std::chrono::duration_cast<std::chrono::nanoseconds>(
+            deadline - now
+        );
+        if (auto err = this->event->wait(x::telem::TimeSpan(remaining)))
+            return {false, x::errors::Error(err, this->name + ": " + err.data)};
+    }
 }
 
 std::optional<std::pair<bool, x::errors::Error>> Bus::take(Frame &frame) {
@@ -251,6 +265,7 @@ x::errors::Error Bus::close() {
     if (this->closed) return x::errors::NIL;
     this->closed = true;
     const auto status = this->api->Uninitialize(this->handle);
+    this->event.reset();
     if (status == PCAN_ERROR_OK) return x::errors::NIL;
     return {CRITICAL_HARDWARE_ERROR, this->name + ": " + describe(*this->api, status)};
 }
@@ -333,9 +348,20 @@ Backend::open(const synnax::can::Properties &props) {
             x::errors::Error(type, props.channel + ": " + describe(*this->api, status))
         };
     }
+    auto [event, err] = this->api->OpenReceiveEvent(*handle);
+    if (err) {
+        this->api->Uninitialize(*handle);
+        return {nullptr, x::errors::Error(err, props.channel + ": " + err.data)};
+    }
     return {
-        std::make_unique<
-            Bus>(this->api, *handle, props.channel, props.fd, props.listen_only),
+        std::make_unique<Bus>(
+            this->api,
+            *handle,
+            std::move(event),
+            props.channel,
+            props.fd,
+            props.listen_only
+        ),
         x::errors::NIL
     };
 }

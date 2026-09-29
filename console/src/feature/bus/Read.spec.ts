@@ -26,7 +26,7 @@ import {
   deployAndAwaitTask,
   selectFromDropdown,
 } from "@/platform/task/testutil";
-import { findDialogTriggerByText } from "@/testutil";
+import { assertDefined, findDialogTriggerByText } from "@/testutil";
 
 const client = createTestClient();
 
@@ -68,7 +68,9 @@ describe("bus read task", () => {
     );
     const [msg] = deployed.config.messages;
     expect(msg.message).toBe(engine.key);
-    expect(msg.fields.map((f) => f.field)).toEqual(engine.fields.map((f) => f.key));
+    expect(msg.fields.map((f) => f.field)).toEqual(
+      engine.payload.fields.map((f) => f.key),
+    );
     const index = await client.channels.retrieve(msg.index);
     expect(index.name).toBe(`${dev.name}_Engine_time`);
     expect(index.isIndex).toBe(true);
@@ -137,7 +139,7 @@ describe("bus read task", () => {
       CAN.Task.READ_SCHEMAS,
     );
     const [msg] = deployed.config.messages;
-    expect(msg.fields.map((f) => f.field)).toEqual([engine.fields[0].key]);
+    expect(msg.fields.map((f) => f.field)).toEqual([engine.payload.fields[0].key]);
     expect(await client.channels.retrieve([`${dev.name}_Engine_Temp`])).toHaveLength(0);
   });
 
@@ -147,7 +149,9 @@ describe("bus read task", () => {
     const first = await createDraft({
       library: library.key,
       device: dev.key,
-      messages: [{ message: engine.key, fields: [{ field: engine.fields[0].key }] }],
+      messages: [
+        { message: engine.key, fields: [{ field: engine.payload.fields[0].key }] },
+      ],
     });
     const firstForm = await renderBusTask(CAN.Task.Read, client, first.key);
     const deployed = await deployAndAwaitTask(
@@ -160,7 +164,9 @@ describe("bus read task", () => {
     const second = await createDraft({
       library: library.key,
       device: dev.key,
-      messages: [{ message: engine.key, fields: [{ field: engine.fields[0].key }] }],
+      messages: [
+        { message: engine.key, fields: [{ field: engine.payload.fields[0].key }] },
+      ],
     });
     const secondForm = await renderBusTask(CAN.Task.Read, client, second.key);
     const redeployed = await deployAndAwaitTask(
@@ -199,6 +205,20 @@ describe("bus read task", () => {
     });
   });
 
+  it("should save the library chosen for a task with none", async () => {
+    const { library } = await createBusLibrary(client);
+    const draft = await createDraft({});
+    await renderBusTask(CAN.Task.Read, client, draft.key);
+    fireEvent.click(await findDialogTriggerByText("Select library"));
+    fireEvent.change(await screen.findByPlaceholderText("Search libraries..."), {
+      target: { value: library.name },
+    });
+    fireEvent.click(await screen.findByText(library.name));
+    await waitFor(async () =>
+      expect((await retrieveRead(draft.key)).config.library).toBe(library.key),
+    );
+  });
+
   it("should remove a message from the task", async () => {
     const { library, engine } = await createBusLibrary(client);
     const dev = await createCANDevice();
@@ -215,6 +235,17 @@ describe("bus read task", () => {
   });
 
   describe("validation", () => {
+    it("should show a missing library on the library field", async () => {
+      const dev = await createCANDevice();
+      const draft = await createDraft({ device: dev.key });
+      const { container } = await renderBusTask(CAN.Task.Read, client, draft.key);
+      await clickDeploy(container);
+      const help = await screen.findByText("Select a library");
+      const item = help.closest<HTMLElement>(".pluto-input__item");
+      assertDefined(item);
+      expect(within(item).getByText("Library")).toBeDefined();
+    });
+
     it("should show a missing device on the device field", async () => {
       const { library } = await createBusLibrary(client);
       const draft = await createDraft({ library: library.key });

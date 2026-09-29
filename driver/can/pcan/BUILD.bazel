@@ -15,7 +15,10 @@ cc_library(
     srcs = [
         "pcan.cpp",
         "prod.cpp",
-    ],
+    ] + select({
+        "@platforms//os:windows": ["prod_windows.cpp"],
+        "//conditions:default": ["prod_posix.cpp"],
+    }),
     hdrs = [
         "abi.h",
         "api.h",
@@ -28,8 +31,12 @@ cc_library(
         "//driver/errors",
         "//x/cpp/errors",
         "//x/cpp/lib",
+        "//x/cpp/telem",
         "@abseil-cpp//absl/log",
-    ],
+    ] + select({
+        "@platforms//os:windows": ["//x/cpp/notify"],
+        "//conditions:default": [],
+    }),
 )
 
 cc_library(

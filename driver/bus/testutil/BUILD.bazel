@@ -36,6 +36,7 @@ cc_library(
         "//client/cpp:synnax",
         "//client/cpp/bus",
         "//client/cpp/testutil",
+        "//driver/bus/testutil",
         "//driver/task",
         "//x/cpp/test",
         "//x/cpp/uuid",

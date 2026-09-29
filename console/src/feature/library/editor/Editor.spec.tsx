@@ -56,9 +56,8 @@ const save = async (): Promise<void> => {
   fireEvent.click(await screen.findByRole("button", { name: "Save" }));
 };
 
-const createBinaryField = (name: string, startBit: number): library.Field => ({
+const createBinaryField = (name: string, startBit: number): library.BinaryField => ({
   key: uuid.create(),
-  encoding: "binary",
   name,
   startBit,
   bitLength: 8,
@@ -71,14 +70,18 @@ const createBinaryField = (name: string, startBit: number): library.Field => ({
   multiplexValues: [],
 });
 
-const createMessage = (fields: library.Field[]): library.Entry => ({
+const createMessage = (fields: library.BinaryField[]): library.MessageEntry => ({
   key: uuid.create(),
   kind: "message",
   name: "Engine",
-  format: "binary",
-  delimiter: ",",
-  fields,
+  payload: { format: "binary", fields },
 });
+
+const retrieveMessage = async (key: library.Key): Promise<library.MessageEntry> => {
+  const [entry] = (await client.libraries.retrieve({ key })).entries;
+  if (entry.kind !== "message") throw new Error("expected a message entry");
+  return entry;
+};
 
 describe("Library editor", () => {
   it("should save an edited enum value to the Core", async () => {
@@ -107,10 +110,11 @@ describe("Library editor", () => {
     await commit("Start bit", 2, "16");
     await save();
     await waitFor(async () => {
-      const [entry] = (await client.libraries.retrieve({ key: lib.key })).entries;
-      if (entry.kind !== "message") throw new Error("expected a message entry");
-      expect(entry.fields.map(({ key }) => key)).toEqual(fields.map(({ key }) => key));
-      expect(entry.fields[1]).toMatchObject({ name: "Temp", startBit: 16 });
+      const { payload } = await retrieveMessage(lib.key);
+      expect(payload.fields.map(({ key }) => key)).toEqual(
+        fields.map(({ key }) => key),
+      );
+      expect(payload.fields[1]).toMatchObject({ name: "Temp", startBit: 16 });
     });
   });
 
@@ -126,11 +130,28 @@ describe("Library editor", () => {
     fireEvent.click(remove);
     await save();
     await waitFor(async () => {
-      const [entry] = (await client.libraries.retrieve({ key: lib.key })).entries;
-      if (entry.kind !== "message") throw new Error("expected a message entry");
-      expect(entry.fields.map(({ key, name }) => ({ key, name }))).toEqual([
+      const { payload } = await retrieveMessage(lib.key);
+      expect(payload.fields.map(({ key, name }) => ({ key, name }))).toEqual([
         { key: fields[1].key, name: "Temp" },
       ]);
+    });
+  });
+
+  it("should replace the payload when the format changes", async () => {
+    const lib = await createLibrary([createMessage([createBinaryField("Rpm", 0)])]);
+    await renderEditor(lib);
+    fireEvent.click(await screen.findByRole("button", { name: "Text" }));
+    const delimiter = await screen.findByLabelText("Delimiter");
+    fireEvent.change(delimiter, { target: { value: ";" } });
+    await save();
+    await waitFor(async () => {
+      const { payload } = await retrieveMessage(lib.key);
+      expect(payload).toEqual({
+        format: "text",
+        delimiter: ";",
+        prefix: "",
+        fields: [],
+      });
     });
   });
 

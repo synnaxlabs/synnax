@@ -82,7 +82,7 @@ var _ = Describe("Codec", func() {
 				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				AutoStart:          false,
 				DataSavingDisabled: true,
-				Library:            uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
+				Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"))),
 				LibraryHash:        "test_5",
 				Device:             "test_6",
 				Raw:                channel.Key(8),
@@ -104,7 +104,7 @@ var _ = Describe("Codec", func() {
 				Key:                uuid.Nil(),
 				AutoStart:          false,
 				DataSavingDisabled: false,
-				Library:            uuid.Nil(),
+				Library:            nil,
 				LibraryHash:        "",
 				Device:             "",
 				Raw:                channel.Key(0),
@@ -114,7 +114,7 @@ var _ = Describe("Codec", func() {
 				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				AutoStart:          false,
 				DataSavingDisabled: true,
-				Library:            uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
+				Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"))),
 				LibraryHash:        "test_5",
 				Device:             "test_6",
 				Raw:                channel.Key(8),
@@ -176,6 +176,124 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
+	Describe("StreamReadConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v0.StreamReadConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v0.StreamReadConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v0.StreamReadConfig{
+				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart:          false,
+				DataSavingDisabled: true,
+				Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"))),
+				LibraryHash:        "test_5",
+				Device:             "test_6",
+				Raw:                channel.Key(8),
+				Messages: []v0.ReadMessage{
+					{
+						Message:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
+						Disabled: false,
+						Index:    channel.Key(12),
+						Fields: []v0.ReadField{
+							{
+								Field:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780d"),
+								Channel: channel.Key(15),
+							},
+						},
+					},
+				},
+				Rate:    telem.Rate(15.5),
+				Timeout: telem.TimeSpan(17),
+				Framing: v0.Framing{Variant: v0.DelimiterFraming{Delimiter: "test_18"}},
+			}),
+			Entry("zero values", v0.StreamReadConfig{
+				Key:                uuid.Nil(),
+				AutoStart:          false,
+				DataSavingDisabled: false,
+				Library:            nil,
+				LibraryHash:        "",
+				Device:             "",
+				Raw:                channel.Key(0),
+				Messages:           []v0.ReadMessage{},
+				Rate:               telem.Rate(0),
+				Timeout:            telem.TimeSpan(0),
+				Framing:            v0.Framing{Variant: v0.DelimiterFraming{Delimiter: ""}},
+			}),
+			Entry("empty collections", v0.StreamReadConfig{
+				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart:          false,
+				DataSavingDisabled: true,
+				Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"))),
+				LibraryHash:        "test_5",
+				Device:             "test_6",
+				Raw:                channel.Key(8),
+				Messages:           []v0.ReadMessage{},
+				Rate:               telem.Rate(9.5),
+				Timeout:            telem.TimeSpan(11),
+				Framing:            v0.Framing{Variant: v0.DelimiterFraming{Delimiter: "test_12"}},
+			}),
+		)
+	})
+	Describe("StreamWriteConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v0.StreamWriteConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v0.StreamWriteConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v0.StreamWriteConfig{
+				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart:          false,
+				DataSavingDisabled: true,
+				Device:             "test_4",
+				Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"))),
+				LibraryHash:        "test_6",
+				Messages: []v0.WriteMessage{
+					{
+						Message:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
+						Disabled: true,
+						Fields: []v0.WriteField{
+							{
+								Field:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b"),
+								Channel: channel.Key(13),
+							},
+						},
+					},
+				},
+				Framing: v0.Framing{Variant: v0.DelimiterFraming{Delimiter: "test_14"}},
+			}),
+			Entry("zero values", v0.StreamWriteConfig{
+				Key:                uuid.Nil(),
+				AutoStart:          false,
+				DataSavingDisabled: false,
+				Device:             "",
+				Library:            nil,
+				LibraryHash:        "",
+				Messages:           []v0.WriteMessage{},
+				Framing:            v0.Framing{Variant: v0.DelimiterFraming{Delimiter: ""}},
+			}),
+			Entry("empty collections", v0.StreamWriteConfig{
+				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart:          false,
+				DataSavingDisabled: true,
+				Device:             "test_4",
+				Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"))),
+				LibraryHash:        "test_6",
+				Messages:           []v0.WriteMessage{},
+				Framing:            v0.Framing{Variant: v0.DelimiterFraming{Delimiter: "test_9"}},
+			}),
+		)
+	})
 	Describe("WriteConfig", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v0.WriteConfig) {
@@ -192,7 +310,7 @@ var _ = Describe("Codec", func() {
 				AutoStart:          false,
 				DataSavingDisabled: true,
 				Device:             "test_4",
-				Library:            uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"),
+				Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"))),
 				LibraryHash:        "test_6",
 				Messages: []v0.WriteMessage{
 					{
@@ -212,7 +330,7 @@ var _ = Describe("Codec", func() {
 				AutoStart:          false,
 				DataSavingDisabled: false,
 				Device:             "",
-				Library:            uuid.Nil(),
+				Library:            nil,
 				LibraryHash:        "",
 				Messages:           []v0.WriteMessage{},
 			}),
@@ -221,7 +339,7 @@ var _ = Describe("Codec", func() {
 				AutoStart:          false,
 				DataSavingDisabled: true,
 				Device:             "test_4",
-				Library:            uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"),
+				Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"))),
 				LibraryHash:        "test_6",
 				Messages:           []v0.WriteMessage{},
 			}),
@@ -319,7 +437,7 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 		Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		AutoStart:          false,
 		DataSavingDisabled: true,
-		Library:            uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
+		Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"))),
 		LibraryHash:        "test_5",
 		Device:             "test_6",
 		Raw:                channel.Key(8),
@@ -399,13 +517,91 @@ func BenchmarkEncodeDecodeReadMessage(b *testing.B) {
 	}
 }
 
+func BenchmarkEncodeDecodeStreamReadConfig(b *testing.B) {
+	seed := v0.StreamReadConfig{
+		Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		AutoStart:          false,
+		DataSavingDisabled: true,
+		Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"))),
+		LibraryHash:        "test_5",
+		Device:             "test_6",
+		Raw:                channel.Key(8),
+		Messages: []v0.ReadMessage{
+			{
+				Message:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
+				Disabled: false,
+				Index:    channel.Key(12),
+				Fields: []v0.ReadField{
+					{
+						Field:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780d"),
+						Channel: channel.Key(15),
+					},
+				},
+			},
+		},
+		Rate:    telem.Rate(15.5),
+		Timeout: telem.TimeSpan(17),
+		Framing: v0.Framing{Variant: v0.DelimiterFraming{Delimiter: "test_18"}},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v0.StreamReadConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeStreamWriteConfig(b *testing.B) {
+	seed := v0.StreamWriteConfig{
+		Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		AutoStart:          false,
+		DataSavingDisabled: true,
+		Device:             "test_4",
+		Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"))),
+		LibraryHash:        "test_6",
+		Messages: []v0.WriteMessage{
+			{
+				Message:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
+				Disabled: true,
+				Fields: []v0.WriteField{
+					{
+						Field:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b"),
+						Channel: channel.Key(13),
+					},
+				},
+			},
+		},
+		Framing: v0.Framing{Variant: v0.DelimiterFraming{Delimiter: "test_14"}},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v0.StreamWriteConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkEncodeDecodeWriteConfig(b *testing.B) {
 	seed := v0.WriteConfig{
 		Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		AutoStart:          false,
 		DataSavingDisabled: true,
 		Device:             "test_4",
-		Library:            uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"),
+		Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"))),
 		LibraryHash:        "test_6",
 		Messages: []v0.WriteMessage{
 			{
@@ -597,7 +793,7 @@ func FuzzDecodeReadConfig(f *testing.F) {
 			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			AutoStart:          false,
 			DataSavingDisabled: true,
-			Library:            uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
+			Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"))),
 			LibraryHash:        "test_5",
 			Device:             "test_6",
 			Raw:                channel.Key(8),
@@ -626,7 +822,7 @@ func FuzzDecodeReadConfig(f *testing.F) {
 			Key:                uuid.Nil(),
 			AutoStart:          false,
 			DataSavingDisabled: false,
-			Library:            uuid.Nil(),
+			Library:            nil,
 			LibraryHash:        "",
 			Device:             "",
 			Raw:                channel.Key(0),
@@ -643,7 +839,7 @@ func FuzzDecodeReadConfig(f *testing.F) {
 			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			AutoStart:          false,
 			DataSavingDisabled: true,
-			Library:            uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
+			Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"))),
 			LibraryHash:        "test_5",
 			Device:             "test_6",
 			Raw:                channel.Key(8),
@@ -786,6 +982,186 @@ func FuzzDecodeReadMessage(f *testing.F) {
 	})
 }
 
+func FuzzDecodeStreamReadConfig(f *testing.F) {
+	{
+		seed := v0.StreamReadConfig{
+			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart:          false,
+			DataSavingDisabled: true,
+			Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"))),
+			LibraryHash:        "test_5",
+			Device:             "test_6",
+			Raw:                channel.Key(8),
+			Messages: []v0.ReadMessage{
+				{
+					Message:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
+					Disabled: false,
+					Index:    channel.Key(12),
+					Fields: []v0.ReadField{
+						{
+							Field:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780d"),
+							Channel: channel.Key(15),
+						},
+					},
+				},
+			},
+			Rate:    telem.Rate(15.5),
+			Timeout: telem.TimeSpan(17),
+			Framing: v0.Framing{Variant: v0.DelimiterFraming{Delimiter: "test_18"}},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.StreamReadConfig{
+			Key:                uuid.Nil(),
+			AutoStart:          false,
+			DataSavingDisabled: false,
+			Library:            nil,
+			LibraryHash:        "",
+			Device:             "",
+			Raw:                channel.Key(0),
+			Messages:           []v0.ReadMessage{},
+			Rate:               telem.Rate(0),
+			Timeout:            telem.TimeSpan(0),
+			Framing:            v0.Framing{Variant: v0.DelimiterFraming{Delimiter: ""}},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.StreamReadConfig{
+			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart:          false,
+			DataSavingDisabled: true,
+			Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"))),
+			LibraryHash:        "test_5",
+			Device:             "test_6",
+			Raw:                channel.Key(8),
+			Messages:           []v0.ReadMessage{},
+			Rate:               telem.Rate(9.5),
+			Timeout:            telem.TimeSpan(11),
+			Framing:            v0.Framing{Variant: v0.DelimiterFraming{Delimiter: "test_12"}},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v0.StreamReadConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v0.StreamReadConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeStreamWriteConfig(f *testing.F) {
+	{
+		seed := v0.StreamWriteConfig{
+			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart:          false,
+			DataSavingDisabled: true,
+			Device:             "test_4",
+			Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"))),
+			LibraryHash:        "test_6",
+			Messages: []v0.WriteMessage{
+				{
+					Message:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
+					Disabled: true,
+					Fields: []v0.WriteField{
+						{
+							Field:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b"),
+							Channel: channel.Key(13),
+						},
+					},
+				},
+			},
+			Framing: v0.Framing{Variant: v0.DelimiterFraming{Delimiter: "test_14"}},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.StreamWriteConfig{
+			Key:                uuid.Nil(),
+			AutoStart:          false,
+			DataSavingDisabled: false,
+			Device:             "",
+			Library:            nil,
+			LibraryHash:        "",
+			Messages:           []v0.WriteMessage{},
+			Framing:            v0.Framing{Variant: v0.DelimiterFraming{Delimiter: ""}},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.StreamWriteConfig{
+			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart:          false,
+			DataSavingDisabled: true,
+			Device:             "test_4",
+			Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"))),
+			LibraryHash:        "test_6",
+			Messages:           []v0.WriteMessage{},
+			Framing:            v0.Framing{Variant: v0.DelimiterFraming{Delimiter: "test_9"}},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v0.StreamWriteConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v0.StreamWriteConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
 func FuzzDecodeWriteConfig(f *testing.F) {
 	{
 		seed := v0.WriteConfig{
@@ -793,7 +1169,7 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 			AutoStart:          false,
 			DataSavingDisabled: true,
 			Device:             "test_4",
-			Library:            uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"),
+			Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"))),
 			LibraryHash:        "test_6",
 			Messages: []v0.WriteMessage{
 				{
@@ -820,7 +1196,7 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 			AutoStart:          false,
 			DataSavingDisabled: false,
 			Device:             "",
-			Library:            uuid.Nil(),
+			Library:            nil,
 			LibraryHash:        "",
 			Messages:           []v0.WriteMessage{},
 		}
@@ -836,7 +1212,7 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 			AutoStart:          false,
 			DataSavingDisabled: true,
 			Device:             "test_4",
-			Library:            uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"),
+			Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"))),
 			LibraryHash:        "test_6",
 			Messages:           []v0.WriteMessage{},
 		}

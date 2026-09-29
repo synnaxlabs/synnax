@@ -17,11 +17,25 @@ namespace driver::bus {
 namespace {
 using ChannelMap = std::unordered_map<synnax::channel::Key, synnax::channel::Channel>;
 
-const synnax::library::BaseField &base(const synnax::library::Field &field) {
-    return std::visit(
-        [](const auto &f) -> const synnax::library::BaseField & { return f; },
-        field
-    );
+/// @returns the parts every field of the message shares, in field order.
+std::vector<const synnax::library::BaseField *>
+field_bases(const synnax::library::MessageEntry &message) {
+    std::vector<const synnax::library::BaseField *> bases;
+    if (const auto *b = std::get_if<synnax::library::BinaryPayload>(&message.payload))
+        for (const auto &f: b->fields)
+            bases.push_back(&f);
+    else
+        for (const auto &f:
+             std::get<synnax::library::TextPayload>(message.payload).fields)
+            bases.push_back(
+                std::visit(
+                    [](const auto &v) -> const synnax::library::BaseField * {
+                        return &v;
+                    },
+                    f
+                )
+            );
+    return bases;
 }
 
 const synnax::library::MessageEntry *find_message(
@@ -36,11 +50,11 @@ const synnax::library::MessageEntry *find_message(
 }
 
 std::optional<std::size_t> find_field(
-    const synnax::library::MessageEntry &message,
+    const std::vector<const synnax::library::BaseField *> &bases,
     const synnax::library::FieldKey &key
 ) {
-    for (std::size_t i = 0; i < message.fields.size(); i++)
-        if (base(message.fields[i]).key == key) return i;
+    for (std::size_t i = 0; i < bases.size(); i++)
+        if (bases[i]->key == key) return i;
     return std::nullopt;
 }
 
@@ -52,24 +66,31 @@ std::string field_path(const std::size_t message, const std::size_t field) {
     return path(message, "fields." + std::to_string(field) + ".field");
 }
 
-/// @brief binds an error when the medium cannot carry the message's identifier.
-void check_identifier(
+/// @brief binds an error when the medium cannot carry the message: a CAN bus carries
+/// binary payloads with a CAN identifier or none, and a byte stream carries any payload
+/// without a CAN identifier.
+void check_medium(
     const x::json::Parser &parser,
     const std::size_t index,
     const synnax::library::MessageEntry &message,
     const Medium medium
 ) {
-    if (!message.identifier.has_value()) return;
-    const auto &id = *message.identifier;
-    const bool can = std::holds_alternative<synnax::library::CanIdentifier>(id);
-    const bool bytes = std::holds_alternative<synnax::library::FieldIdentifier>(id) ||
-                       std::holds_alternative<synnax::library::TokenIdentifier>(id);
-    if (medium == Medium::CAN ? can : bytes) return;
-    const auto type = std::visit([](const auto &i) { return i.type; }, id);
+    const bool can = medium == Medium::CAN;
+    std::string what;
+    const auto *binary = std::get_if<synnax::library::BinaryPayload>(&message.payload);
+    if (binary == nullptr) {
+        if (can) what = "a text payload";
+    } else if (binary->identifier.has_value()) {
+        const auto &id = *binary->identifier;
+        if (std::holds_alternative<synnax::library::CanIdentifier>(id) != can)
+            what = "a " + std::visit([](const auto &i) { return i.type; }, id) +
+                   " identifier";
+    }
+    if (what.empty()) return;
     parser.field_err(
         path(index, "message"),
-        "message " + message.name + " has a " + type + " identifier, which " +
-            (medium == Medium::CAN ? "a CAN bus" : "a byte stream") + " cannot carry"
+        "message " + message.name + " has " + what + ", which " +
+            (can ? "a CAN bus" : "a byte stream") + " cannot carry"
     );
 }
 
@@ -123,15 +144,15 @@ ChannelMap to_map(const std::vector<synnax::channel::Channel> &channels) {
 std::pair<synnax::library::Library, x::errors::Error> retrieve_library(
     const synnax::Synnax &client,
     const x::json::Parser &parser,
-    const synnax::library::Key &key
+    const std::optional<synnax::library::Key> &key
 ) {
-    if (key.is_nil()) {
-        parser.field_err("library", "this field is required");
+    if (!key.has_value()) {
+        parser.field_err("library", "select a library");
         return {{}, x::errors::NIL};
     }
-    auto [lib, err] = client.libraries.retrieve(key);
+    auto [lib, err] = client.libraries.retrieve(*key);
     if (err.matches(x::errors::NOT_FOUND)) {
-        parser.field_err("library", "library " + key.to_string() + " does not exist");
+        parser.field_err("library", "library " + key->to_string() + " does not exist");
         return {{}, x::errors::NIL};
     }
     return {std::move(lib), err};
@@ -273,7 +294,7 @@ ReadConfig ReadConfig::resolve(
             );
             continue;
         }
-        check_identifier(parser, i, *entry, medium);
+        check_medium(parser, i, *entry, medium);
         if (medium == Medium::CAN && entry->query.has_value())
             parser.field_err(
                 path(i, "message"),
@@ -292,10 +313,11 @@ ReadConfig ReadConfig::resolve(
             }
         if (m.fields.empty())
             parser.field_err(path(i, "fields"), "at least one field is required");
+        const auto bases = field_bases(*entry);
         std::vector<synnax::library::FieldKey> keys;
         for (std::size_t j = 0; j < m.fields.size(); j++) {
             const auto &f = m.fields[j];
-            if (!find_field(*entry, f.field)) {
+            if (!find_field(bases, f.field)) {
                 parser.field_err(
                     field_path(i, j),
                     "field " + f.field.to_string() + " is not in message " + entry->name
@@ -329,7 +351,9 @@ ReadConfig ReadConfig::resolve(
                 entry->query->begin(),
                 entry->query->end()
             );
-            if (entry->format != synnax::library::FORMAT_TEXT) {
+            if (std::holds_alternative<synnax::library::BinaryPayload>(
+                    entry->payload
+                )) {
                 auto [bytes, err] = unescape(*entry->query);
                 if (err) parser.field_err(path(i, "message"), err);
                 query = std::move(bytes);
@@ -421,8 +445,12 @@ WriteConfig WriteConfig::resolve(
             );
             continue;
         }
-        check_identifier(parser, i, *entry, medium);
-        if (medium == Medium::CAN && !entry->identifier.has_value())
+        check_medium(parser, i, *entry, medium);
+        const auto *binary = std::get_if<synnax::library::BinaryPayload>(
+            &entry->payload
+        );
+        if (medium == Medium::CAN && binary != nullptr &&
+            !binary->identifier.has_value())
             parser.field_err(
                 path(i, "message"),
                 "message " + entry->name + " needs a CAN identifier to send with"
@@ -442,10 +470,11 @@ WriteConfig WriteConfig::resolve(
         msg.initial = msg.plan.values();
         for (std::size_t s = 0; s < msg.plan.size(); s++)
             msg.initial.set(s, std::int64_t{0});
+        const auto bases = field_bases(*entry);
         std::set<std::size_t> bound;
         for (std::size_t j = 0; j < m.fields.size(); j++) {
             const auto &f = m.fields[j];
-            const auto slot = find_field(*entry, f.field);
+            const auto slot = find_field(bases, f.field);
             if (!slot) {
                 parser.field_err(
                     field_path(i, j),
@@ -456,7 +485,7 @@ WriteConfig WriteConfig::resolve(
             if (!bound.insert(*slot).second)
                 parser.field_err(
                     field_path(i, j),
-                    "field " + base(entry->fields[*slot]).name + " is mapped twice"
+                    "field " + bases[*slot]->name + " is mapped twice"
                 );
             const auto at = path(i, "fields." + std::to_string(j) + ".channel");
             const auto *ch = find_channel(parser, at, chs, f.channel);
@@ -465,17 +494,14 @@ WriteConfig WriteConfig::resolve(
             msg.bindings.push_back({.channel = ch->key, .slot = *slot});
             if (commands.insert(ch->key).second) out.commands.push_back(ch->key);
         }
-        if (entry->identifier.has_value()) {
+        if (binary == nullptr)
+            msg.prefix = std::get<synnax::library::TextPayload>(entry->payload).prefix;
+        else if (binary->identifier.has_value())
             if (const auto *id = std::get_if<synnax::library::FieldIdentifier>(
-                    &*entry->identifier
+                    &*binary->identifier
                 ))
-                if (const auto slot = find_field(*entry, id->field))
+                if (const auto slot = find_field(bases, id->field))
                     msg.initial.set(*slot, static_cast<std::int64_t>(id->value));
-            if (const auto *id = std::get_if<synnax::library::TokenIdentifier>(
-                    &*entry->identifier
-                ))
-                msg.prefix = id->prefix;
-        }
         out.messages.push_back(std::move(msg));
     }
     if (cfg.messages.empty() || (out.messages.empty() && parser.ok()))

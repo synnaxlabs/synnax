@@ -9,6 +9,7 @@
 
 #include <cmath>
 #include <limits>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -51,33 +52,43 @@ library::BinaryField multiplexed(
     return f;
 }
 
-library::DelimitedField delimited(const std::string &name, const std::uint32_t pos) {
-    library::DelimitedField f;
+library::DelimitedTextField
+delimited(const std::string &name, const std::uint32_t pos) {
+    library::DelimitedTextField f;
     f.key = x::uuid::create();
     f.name = name;
     f.position = pos;
     return f;
 }
 
-library::TaggedField tagged(const std::string &name, const std::string &tag) {
-    library::TaggedField f;
+library::TaggedTextField tagged(const std::string &name, const std::string &tag) {
+    library::TaggedTextField f;
     f.key = x::uuid::create();
     f.name = name;
     f.tag = tag;
     return f;
 }
 
-library::MessageEntry message(std::vector<library::Field> fields) {
+library::MessageEntry message(
+    std::vector<library::BinaryField> fields,
+    const std::optional<std::uint16_t> length = std::nullopt
+) {
     library::MessageEntry m;
     m.key = x::uuid::create();
     m.name = "message";
-    m.fields = std::move(fields);
+    m.payload = library::BinaryPayload{.length = length, .fields = std::move(fields)};
     return m;
 }
 
-library::MessageEntry text(std::vector<library::Field> fields) {
-    auto m = message(std::move(fields));
-    m.format = library::FORMAT_TEXT;
+library::MessageEntry
+text(std::vector<library::TextField> fields, const std::string &delimiter = ",") {
+    library::MessageEntry m;
+    m.key = x::uuid::create();
+    m.name = "message";
+    m.payload = library::TextPayload{
+        .delimiter = delimiter,
+        .fields = std::move(fields),
+    };
     return m;
 }
 
@@ -88,12 +99,6 @@ std::span<const std::uint8_t> bytes(const std::string &s) {
 std::string str(const std::vector<std::uint8_t> &b) {
     return {b.begin(), b.end()};
 }
-}
-
-TEST(PlanCompile, RejectsAnUnknownFormat) {
-    auto m = message({binary("a", 0, 8)});
-    m.format = "hex";
-    ASSERT_OCCURRED_AS_P(Plan::compile(m), CONFIG_ERROR);
 }
 
 TEST(PlanCompile, RejectsAKeyThatIsNotInTheMessage) {
@@ -118,18 +123,11 @@ TEST(PlanCompile, RejectsAFloatThatIsNot32Or64Bits) {
     ASSERT_OCCURRED_AS_P(Plan::compile(message({a})), CONFIG_ERROR);
 }
 
-TEST(PlanCompile, RejectsATextFieldInABinaryMessage) {
-    ASSERT_OCCURRED_AS_P(Plan::compile(message({delimited("a", 0)})), CONFIG_ERROR);
-}
-
-TEST(PlanCompile, RejectsABinaryFieldInATextMessage) {
-    ASSERT_OCCURRED_AS_P(Plan::compile(text({binary("a", 0, 8)})), CONFIG_ERROR);
-}
-
 TEST(PlanCompile, RejectsFieldsBeyondTheMessageLength) {
-    auto m = message({binary("a", 56, 16)});
-    m.length = 8;
-    ASSERT_OCCURRED_AS_P(Plan::compile(m), CONFIG_ERROR);
+    ASSERT_OCCURRED_AS_P(
+        Plan::compile(message({binary("a", 56, 16)}, 8)),
+        CONFIG_ERROR
+    );
 }
 
 TEST(PlanCompile, RejectsAMultiplexorCycle) {
@@ -177,9 +175,7 @@ TEST(PlanCompile, RejectsAnEmptyTag) {
 }
 
 TEST(PlanCompile, RejectsAnEmptyDelimiter) {
-    auto m = text({delimited("a", 0)});
-    m.delimiter = "";
-    ASSERT_OCCURRED_AS_P(Plan::compile(m), CONFIG_ERROR);
+    ASSERT_OCCURRED_AS_P(Plan::compile(text({delimited("a", 0)}, "")), CONFIG_ERROR);
 }
 
 TEST(PlanCompile, SpansTheFieldsWhenTheMessageHasNoLength) {
@@ -397,9 +393,7 @@ TEST(PlanEncode, SkipsAbsentFields) {
 }
 
 TEST(PlanEncode, GrowsThePayloadToTheMessageLength) {
-    auto m = message({binary("a", 0, 8)});
-    m.length = 8;
-    const auto plan = ASSERT_NIL_P(Plan::compile(m));
+    const auto plan = ASSERT_NIL_P(Plan::compile(message({binary("a", 0, 8)}, 8)));
     auto values = plan.values();
     values.set(0, 1.0);
     std::vector<std::uint8_t> payload;
@@ -606,9 +600,7 @@ TEST(PlanText, ParsesSCPINumbersWithASignAndTrailingWhitespace) {
 }
 
 TEST(PlanText, SplitsOnAMultiCharacterDelimiter) {
-    auto m = text({delimited("a", 1)});
-    m.delimiter = ";;";
-    const auto plan = ASSERT_NIL_P(Plan::compile(m));
+    const auto plan = ASSERT_NIL_P(Plan::compile(text({delimited("a", 1)}, ";;")));
     auto values = plan.values();
     ASSERT_NIL(plan.decode(bytes("1;;2;3"), values));
     EXPECT_FALSE(values.present(0));

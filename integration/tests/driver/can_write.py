@@ -44,24 +44,30 @@ class CANWrite(CANCase):
         return [
             library.MessageEntry(
                 name="command",
-                identifier=library.CanIdentifier(id=COMMAND_ID),
-                length=8,
-                fields=[
-                    library.BinaryField(
-                        name="setpoint", start_bit=0, bit_length=16, scale=0.5
-                    ),
-                    library.BinaryField(
-                        name="trim", start_bit=16, bit_length=8, signed=True
-                    ),
-                    library.BinaryField(name="enabled", start_bit=24, bit_length=1),
-                ],
+                payload=library.BinaryPayload(
+                    identifier=library.CanIdentifier(id=COMMAND_ID),
+                    length=8,
+                    fields=[
+                        library.BinaryField(
+                            name="setpoint", start_bit=0, bit_length=16, scale=0.5
+                        ),
+                        library.BinaryField(
+                            name="trim", start_bit=16, bit_length=8, signed=True
+                        ),
+                        library.BinaryField(name="enabled", start_bit=24, bit_length=1),
+                    ],
+                ),
             ),
             library.MessageEntry(
                 name="heartbeat",
-                identifier=library.CanIdentifier(id=HEARTBEAT_ID),
-                length=2,
                 period=HEARTBEAT_PERIOD,
-                fields=[library.BinaryField(name="beat", start_bit=0, bit_length=16)],
+                payload=library.BinaryPayload(
+                    identifier=library.CanIdentifier(id=HEARTBEAT_ID),
+                    length=2,
+                    fields=[
+                        library.BinaryField(name="beat", start_bit=0, bit_length=16)
+                    ],
+                ),
             ),
         ]
 

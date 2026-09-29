@@ -129,49 +129,37 @@ func (p Properties) Validate() error {
 
 // ReadConfig configures a serial read task.
 type ReadConfig struct {
-	bus.ReadConfig
-	bus.PollConfig
-	// Framing is how the task splits the received byte stream into frames.
-	Framing bus.Framing `json:"framing" msgpack:"framing"`
+	bus.StreamReadConfig
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (r *ReadConfig) ApplyDefaults() {
-	if r.Framing.Variant == nil {
-		r.Framing.Variant = bus.DelimiterFraming{}
-	}
-	r.PollConfig.ApplyDefaults()
-	r.Framing.ApplyDefaults()
+	r.StreamReadConfig.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (r ReadConfig) Validate() error {
 	v := validate.New("ReadConfig")
-	v.Exec(func() error { return validate.PathedError(r.Framing.Validate(), "framing") })
+	v.Exec(r.StreamReadConfig.Validate)
 	return v.Error()
 }
 
 // WriteConfig configures a serial write task.
 type WriteConfig struct {
-	bus.WriteConfig
-	// Framing is how the task frames each message it sends.
-	Framing bus.Framing `json:"framing" msgpack:"framing"`
+	bus.StreamWriteConfig
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (w *WriteConfig) ApplyDefaults() {
-	if w.Framing.Variant == nil {
-		w.Framing.Variant = bus.DelimiterFraming{}
-	}
-	w.Framing.ApplyDefaults()
+	w.StreamWriteConfig.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (w WriteConfig) Validate() error {
 	v := validate.New("WriteConfig")
-	v.Exec(func() error { return validate.PathedError(w.Framing.Validate(), "framing") })
+	v.Exec(w.StreamWriteConfig.Validate)
 	return v.Error()
 }
 

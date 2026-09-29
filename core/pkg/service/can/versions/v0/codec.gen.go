@@ -14,6 +14,7 @@ package v0
 import (
 	bus "github.com/synnaxlabs/synnax/pkg/service/bus/versions/v0"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	library "github.com/synnaxlabs/synnax/pkg/service/library/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
@@ -62,7 +63,12 @@ func (rc ReadConfig) EncodeOrc(w *orc.Writer) error {
 	w.Write(rc.Key[:])
 	w.Bool(rc.AutoStart)
 	w.Bool(rc.DataSavingDisabled)
-	w.Write(rc.Library[:])
+	if rc.Library != nil {
+		w.Bool(true)
+		w.Write((*rc.Library)[:])
+	} else {
+		w.Bool(false)
+	}
 	w.String(rc.LibraryHash)
 	w.String(rc.Device)
 	w.Uint32(uint32(rc.Raw))
@@ -90,8 +96,18 @@ func (rc *ReadConfig) DecodeOrc(r *orc.Reader) error {
 	if rc.DataSavingDisabled, err = r.Bool(); err != nil {
 		return err
 	}
-	if _, err := r.Read(rc.Library[:]); err != nil {
-		return err
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv library.Key
+			if _, err := r.Read(hv[:]); err != nil {
+				return err
+			}
+			rc.Library = &hv
+		}
 	}
 	if rc.LibraryHash, err = r.String(); err != nil {
 		return err
@@ -160,7 +176,12 @@ func (wc WriteConfig) EncodeOrc(w *orc.Writer) error {
 	w.Bool(wc.AutoStart)
 	w.Bool(wc.DataSavingDisabled)
 	w.String(wc.Device)
-	w.Write(wc.Library[:])
+	if wc.Library != nil {
+		w.Bool(true)
+		w.Write((*wc.Library)[:])
+	} else {
+		w.Bool(false)
+	}
 	w.String(wc.LibraryHash)
 	w.Bool(wc.Messages != nil)
 	if wc.Messages != nil {
@@ -189,8 +210,18 @@ func (wc *WriteConfig) DecodeOrc(r *orc.Reader) error {
 	if wc.Device, err = r.String(); err != nil {
 		return err
 	}
-	if _, err := r.Read(wc.Library[:]); err != nil {
-		return err
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv library.Key
+			if _, err := r.Read(hv[:]); err != nil {
+				return err
+			}
+			wc.Library = &hv
+		}
 	}
 	if wc.LibraryHash, err = r.String(); err != nil {
 		return err

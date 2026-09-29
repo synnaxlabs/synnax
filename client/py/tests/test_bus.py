@@ -25,9 +25,11 @@ def create_library(client: sy.Synnax) -> sy.Library:
         entries=[
             sy.library.MessageEntry(
                 name="Status",
-                identifier=sy.library.CanIdentifier(id=0x100),
-                length=8,
-                fields=[sy.library.BinaryField(name="rpm", bit_length=16)],
+                payload=sy.library.BinaryPayload(
+                    identifier=sy.library.CanIdentifier(id=0x100),
+                    length=8,
+                    fields=[sy.library.BinaryField(name="rpm", bit_length=16)],
+                ),
             )
         ],
     )
@@ -138,7 +140,7 @@ class TestBusTasks:
             messages=[
                 sy.bus.ReadMessage(
                     message=message.key,
-                    fields=[sy.bus.ReadField(field=message.fields[0].key)],
+                    fields=[sy.bus.ReadField(field=message.payload.fields[0].key)],
                 )
             ],
         )

@@ -9,9 +9,28 @@
 
 #pragma once
 
+#include <memory>
+#include <string>
+#include <utility>
+
+#include "x/cpp/errors/errors.h"
+#include "x/cpp/telem/telem.h"
+
 #include "driver/can/pcan/abi.h"
 
 namespace driver::can::pcan {
+/// @brief signals that a channel's receive queue got a frame. A signal only follows a
+/// frame that reaches the queue after the queue was read empty, so a reader must drain
+/// the queue before it waits.
+class ReceiveEvent {
+public:
+    virtual ~ReceiveEvent() = default;
+
+    /// @brief blocks until the event signals or the timeout elapses.
+    /// @returns CRITICAL_HARDWARE_ERROR when the wait fails.
+    [[nodiscard]] virtual x::errors::Error wait(x::telem::TimeSpan timeout) = 0;
+};
+
 /// @brief the PCAN-Basic calls the backend makes. ProdAPI loads them from the vendor
 /// library, and MockAPI simulates them in tests.
 class API {
@@ -47,5 +66,13 @@ public:
     ) = 0;
     virtual TPCANStatus
     GetErrorText(TPCANStatus error, std::uint16_t language, char *buffer) = 0;
+    /// @brief registers a receive event on an initialized channel. The event must be
+    /// destroyed after Uninitialize releases the channel.
+    /// @returns CRITICAL_HARDWARE_ERROR when PCAN-Basic cannot register the event.
+    virtual std::pair<std::unique_ptr<ReceiveEvent>, x::errors::Error>
+    OpenReceiveEvent(TPCANHandle channel) = 0;
 };
+
+/// @returns PCAN-Basic's description of a status code.
+[[nodiscard]] std::string describe(API &api, TPCANStatus status);
 }

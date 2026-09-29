@@ -66,53 +66,11 @@ func (b ByteOrder) IsValid() bool {
 	}
 }
 
-// Direction is the direction of a MIL-STD-1553 transfer from the remote terminal's
-// point of view.
-type Direction string
-
-const (
-	DirectionReceive  Direction = "receive"
-	DirectionTransmit Direction = "transmit"
-)
-
-// IsValid reports whether d is one of the defined Direction
-// values.
-func (d Direction) IsValid() bool {
-	switch d {
-	case DirectionReceive, DirectionTransmit:
-		return true
-	default:
-		return false
-	}
-}
-
-// Format is the payload format of a message.
-type Format string
-
-const (
-	FormatBinary Format = "binary"
-	FormatText   Format = "text"
-)
-
-// IsValid reports whether f is one of the defined Format
-// values.
-func (f Format) IsValid() bool {
-	switch f {
-	case FormatBinary, FormatText:
-		return true
-	default:
-		return false
-	}
-}
-
 type IdentifierType string
 
 const (
-	CanIdentifierType      IdentifierType = "can"
-	Arinc429IdentifierType IdentifierType = "arinc429"
-	Mil1553IdentifierType  IdentifierType = "mil1553"
-	FieldIdentifierType    IdentifierType = "field"
-	TokenIdentifierType    IdentifierType = "token"
+	CanIdentifierType   IdentifierType = "can"
+	FieldIdentifierType IdentifierType = "field"
 )
 
 type IdentifierVariant interface {
@@ -134,47 +92,6 @@ type CanIdentifier struct {
 
 func (CanIdentifier) isIdentifierVariant() {}
 
-// Arinc429Identifier matches an ARINC 429 word by label.
-type Arinc429Identifier struct {
-	// Label is the ARINC 429 label, in its octal value.
-	Label uint8 `json:"label" msgpack:"label"`
-	// Sdi is the source/destination identifier matched when sdi_matched.
-	Sdi uint8 `json:"sdi" msgpack:"sdi"`
-	// SdiMatched is true when the SDI bits must equal sdi.
-	SdiMatched bool `json:"sdi_matched" msgpack:"sdi_matched"`
-}
-
-func (Arinc429Identifier) isIdentifierVariant() {}
-
-// Mil1553Identifier matches a MIL-STD-1553 transfer by command word.
-type Mil1553Identifier struct {
-	// Rt is the remote terminal address.
-	Rt uint8 `json:"rt" msgpack:"rt"`
-	// Subaddress is the subaddress.
-	Subaddress uint8 `json:"subaddress" msgpack:"subaddress"`
-	// Direction is the transfer direction.
-	Direction Direction `json:"direction" msgpack:"direction"`
-	// WordCount is the number of data words, from 1 to 32.
-	WordCount uint8 `json:"word_count" msgpack:"word_count"`
-}
-
-func (Mil1553Identifier) isIdentifierVariant() {}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (m *Mil1553Identifier) ApplyDefaults() {
-	if m.WordCount == 0 {
-		m.WordCount = 1
-	}
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (m Mil1553Identifier) Validate() error {
-	v := validate.New("Mil1553Identifier")
-	v.Ternaryf("direction", !m.Direction.IsValid(), "invalid direction: %v", m.Direction)
-	return v.Error()
-}
-
 // FieldIdentifier matches a binary frame by the raw value of one of its fields.
 type FieldIdentifier struct {
 	// Field is the key of the message field that holds the identifier.
@@ -185,15 +102,7 @@ type FieldIdentifier struct {
 
 func (FieldIdentifier) isIdentifierVariant() {}
 
-// TokenIdentifier matches a text line by its prefix.
-type TokenIdentifier struct {
-	// Prefix is the text a line must start with. An empty prefix matches every line.
-	Prefix string `json:"prefix" msgpack:"prefix"`
-}
-
-func (TokenIdentifier) isIdentifierVariant() {}
-
-// Identifier selects which frames on a bus or stream belong to a message.
+// Identifier selects which frames on a bus belong to a binary message.
 type Identifier struct {
 	Variant IdentifierVariant
 }
@@ -208,26 +117,11 @@ func (u Identifier) MarshalJSONTo(enc *jsontext.Encoder) error {
 			Type IdentifierType `json:"type"`
 			CanIdentifier
 		}{Type: CanIdentifierType, CanIdentifier: v})
-	case Arinc429Identifier:
-		return json.MarshalEncode(enc, struct {
-			Type IdentifierType `json:"type"`
-			Arinc429Identifier
-		}{Type: Arinc429IdentifierType, Arinc429Identifier: v})
-	case Mil1553Identifier:
-		return json.MarshalEncode(enc, struct {
-			Type IdentifierType `json:"type"`
-			Mil1553Identifier
-		}{Type: Mil1553IdentifierType, Mil1553Identifier: v})
 	case FieldIdentifier:
 		return json.MarshalEncode(enc, struct {
 			Type IdentifierType `json:"type"`
 			FieldIdentifier
 		}{Type: FieldIdentifierType, FieldIdentifier: v})
-	case TokenIdentifier:
-		return json.MarshalEncode(enc, struct {
-			Type IdentifierType `json:"type"`
-			TokenIdentifier
-		}{Type: TokenIdentifierType, TokenIdentifier: v})
 	default:
 		return errors.Newf("Identifier: unknown variant %T", v)
 	}
@@ -257,52 +151,14 @@ func (u *Identifier) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v
-	case Arinc429IdentifierType:
-		var v Arinc429Identifier
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v
-	case Mil1553IdentifierType:
-		var v Mil1553Identifier
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v
 	case FieldIdentifierType:
 		var v FieldIdentifier
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
-	case TokenIdentifierType:
-		var v TokenIdentifier
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v
 	default:
 		return errors.Newf("Identifier: unknown type %q", disc.Type)
-	}
-	return nil
-}
-
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *Identifier) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case Mil1553Identifier:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
-}
-
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
-func (u Identifier) Validate() error {
-	switch variant := u.Variant.(type) {
-	case Mil1553Identifier:
-		return variant.Validate()
 	}
 	return nil
 }
@@ -345,18 +201,6 @@ func (b BaseField) Validate() error {
 	return v.Error()
 }
 
-type FieldType string
-
-const (
-	BinaryFieldType    FieldType = "binary"
-	DelimitedFieldType FieldType = "delimited"
-	TaggedFieldType    FieldType = "tagged"
-)
-
-type FieldVariant interface {
-	isFieldVariant()
-}
-
 // BinaryField is a field read from a bit range of a binary payload.
 type BinaryField struct {
 	BaseField
@@ -373,8 +217,6 @@ type BinaryField struct {
 	// Float is true when the raw bits are an IEEE 754 float of 32 or 64 bits.
 	Float bool `json:"float" msgpack:"float"`
 }
-
-func (BinaryField) isFieldVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (b *BinaryField) ApplyDefaults() {
@@ -396,83 +238,89 @@ func (b BinaryField) Validate() error {
 	return v.Error()
 }
 
-// DelimitedField is a field read from one item of a delimited text line.
-type DelimitedField struct {
+type TextFieldType string
+
+const (
+	DelimitedTextFieldType TextFieldType = "delimited"
+	TaggedTextFieldType    TextFieldType = "tagged"
+)
+
+type TextFieldVariant interface {
+	isTextFieldVariant()
+}
+
+// DelimitedTextField is a field read from one item of a delimited text line.
+type DelimitedTextField struct {
 	BaseField
 	// Position is the zero-based item index after splitting on the delimiter.
 	Position uint32 `json:"position" msgpack:"position"`
 }
 
-func (DelimitedField) isFieldVariant() {}
+func (DelimitedTextField) isTextFieldVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (d *DelimitedField) ApplyDefaults() {
+func (d *DelimitedTextField) ApplyDefaults() {
 	d.BaseField.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (d DelimitedField) Validate() error {
-	v := validate.New("DelimitedField")
+func (d DelimitedTextField) Validate() error {
+	v := validate.New("DelimitedTextField")
 	v.Exec(d.BaseField.Validate)
 	return v.Error()
 }
 
-// TaggedField is a field read from the text that follows a tag.
-type TaggedField struct {
+// TaggedTextField is a field read from the text that follows a tag.
+type TaggedTextField struct {
 	BaseField
 	// Tag is the text that comes just before the value in the line.
 	Tag string `json:"tag" msgpack:"tag"`
 }
 
-func (TaggedField) isFieldVariant() {}
+func (TaggedTextField) isTextFieldVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (t *TaggedField) ApplyDefaults() {
+func (t *TaggedTextField) ApplyDefaults() {
 	t.BaseField.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (t TaggedField) Validate() error {
-	v := validate.New("TaggedField")
+func (t TaggedTextField) Validate() error {
+	v := validate.New("TaggedTextField")
 	v.NotEmptyString("tag", t.Tag)
 	v.Exec(t.BaseField.Validate)
 	return v.Error()
 }
 
-// Field is one value carried by a message.
-type Field struct {
-	Variant FieldVariant
+// TextField is a field read from a text line.
+type TextField struct {
+	Variant TextFieldVariant
 }
 
 // MarshalJSONTo encodes the active variant with its "encoding" tag injected.
-func (u Field) MarshalJSONTo(enc *jsontext.Encoder) error {
+func (u TextField) MarshalJSONTo(enc *jsontext.Encoder) error {
 	switch v := u.Variant.(type) {
 	case nil:
 		return enc.WriteToken(jsontext.Null)
-	case BinaryField:
+	case DelimitedTextField:
 		return json.MarshalEncode(enc, struct {
-			Type FieldType `json:"encoding"`
-			BinaryField
-		}{Type: BinaryFieldType, BinaryField: v})
-	case DelimitedField:
+			Type TextFieldType `json:"encoding"`
+			DelimitedTextField
+		}{Type: DelimitedTextFieldType, DelimitedTextField: v})
+	case TaggedTextField:
 		return json.MarshalEncode(enc, struct {
-			Type FieldType `json:"encoding"`
-			DelimitedField
-		}{Type: DelimitedFieldType, DelimitedField: v})
-	case TaggedField:
-		return json.MarshalEncode(enc, struct {
-			Type FieldType `json:"encoding"`
-			TaggedField
-		}{Type: TaggedFieldType, TaggedField: v})
+			Type TextFieldType `json:"encoding"`
+			TaggedTextField
+		}{Type: TaggedTextFieldType, TaggedTextField: v})
 	default:
-		return errors.Newf("Field: unknown variant %T", v)
+		return errors.Newf("TextField: unknown variant %T", v)
 	}
 }
 
 // UnmarshalJSONFrom decodes the variant selected by the "encoding" field.
-func (u *Field) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+func (u *TextField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
 		return err
@@ -483,47 +331,38 @@ func (u *Field) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	}
 	opts := dec.Options()
 	var disc struct {
-		Type FieldType `json:"encoding"`
+		Type TextFieldType `json:"encoding"`
 	}
 	if err := json.Unmarshal(data, &disc, opts); err != nil {
 		return err
 	}
 	switch disc.Type {
-	case BinaryFieldType:
-		var v BinaryField
+	case DelimitedTextFieldType:
+		var v DelimitedTextField
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
-	case DelimitedFieldType:
-		var v DelimitedField
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v
-	case TaggedFieldType:
-		var v TaggedField
+	case TaggedTextFieldType:
+		var v TaggedTextField
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	default:
-		return errors.Newf("Field: unknown encoding %q", disc.Type)
+		return errors.Newf("TextField: unknown encoding %q", disc.Type)
 	}
 	return nil
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their
 // schema-declared defaults.
-func (u *Field) ApplyDefaults() {
+func (u *TextField) ApplyDefaults() {
 	switch variant := u.Variant.(type) {
-	case BinaryField:
+	case DelimitedTextField:
 		variant.ApplyDefaults()
 		u.Variant = variant
-	case DelimitedField:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case TaggedField:
+	case TaggedTextField:
 		variant.ApplyDefaults()
 		u.Variant = variant
 	}
@@ -531,13 +370,171 @@ func (u *Field) ApplyDefaults() {
 
 // Validate returns an error wrapping validate.ErrValidation if the active variant
 // violates its schema constraints.
-func (u Field) Validate() error {
+func (u TextField) Validate() error {
 	switch variant := u.Variant.(type) {
-	case BinaryField:
+	case DelimitedTextField:
 		return variant.Validate()
-	case DelimitedField:
+	case TaggedTextField:
 		return variant.Validate()
-	case TaggedField:
+	}
+	return nil
+}
+
+type PayloadType string
+
+const (
+	BinaryPayloadType PayloadType = "binary"
+	TextPayloadType   PayloadType = "text"
+)
+
+type PayloadVariant interface {
+	isPayloadVariant()
+}
+
+// BinaryPayload is a payload of raw bytes.
+type BinaryPayload struct {
+	// Length is the payload length in bytes. When absent the length is variable.
+	Length *uint16 `json:"length,omitzero" msgpack:"length,omitempty"`
+	// Identifier selects the frames that belong to the message. When absent every frame
+	// on the bus belongs to it.
+	Identifier *Identifier `json:"identifier,omitzero" msgpack:"identifier,omitempty"`
+	// Fields are the values the payload carries.
+	Fields []BinaryField `json:"fields" msgpack:"fields"`
+}
+
+func (BinaryPayload) isPayloadVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (b *BinaryPayload) ApplyDefaults() {
+	for i := range b.Fields {
+		b.Fields[i].ApplyDefaults()
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (b BinaryPayload) Validate() error {
+	v := validate.New("BinaryPayload")
+	for i := range b.Fields {
+		v.Exec(func() error { return validate.PathedError(b.Fields[i].Validate(), "fields", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
+
+// TextPayload is a payload of one text line.
+type TextPayload struct {
+	// Delimiter splits the items of the line.
+	Delimiter string `json:"delimiter" msgpack:"delimiter"`
+	// Prefix is the text a line must start with to belong to the message. An empty
+	// prefix matches every line.
+	Prefix string `json:"prefix" msgpack:"prefix"`
+	// Fields are the values the line carries.
+	Fields []TextField `json:"fields" msgpack:"fields"`
+}
+
+func (TextPayload) isPayloadVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (t *TextPayload) ApplyDefaults() {
+	if t.Delimiter == "" {
+		t.Delimiter = ","
+	}
+	for i := range t.Fields {
+		t.Fields[i].ApplyDefaults()
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (t TextPayload) Validate() error {
+	v := validate.New("TextPayload")
+	for i := range t.Fields {
+		v.Exec(func() error { return validate.PathedError(t.Fields[i].Validate(), "fields", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
+
+// Payload is the layout of a message's payload.
+type Payload struct {
+	Variant PayloadVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "format" tag injected.
+func (u Payload) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case BinaryPayload:
+		return json.MarshalEncode(enc, struct {
+			Type PayloadType `json:"format"`
+			BinaryPayload
+		}{Type: BinaryPayloadType, BinaryPayload: v})
+	case TextPayload:
+		return json.MarshalEncode(enc, struct {
+			Type PayloadType `json:"format"`
+			TextPayload
+		}{Type: TextPayloadType, TextPayload: v})
+	default:
+		return errors.Newf("Payload: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "format" field.
+func (u *Payload) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type PayloadType `json:"format"`
+	}
+	if err := json.Unmarshal(data, &disc, opts); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case BinaryPayloadType:
+		var v BinaryPayload
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v
+	case TextPayloadType:
+		var v TextPayload
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v
+	default:
+		return errors.Newf("Payload: unknown format %q", disc.Type)
+	}
+	return nil
+}
+
+// ApplyDefaults fills the active variant's zero-valued fields with their
+// schema-declared defaults.
+func (u *Payload) ApplyDefaults() {
+	switch variant := u.Variant.(type) {
+	case BinaryPayload:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case TextPayload:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if the active variant
+// violates its schema constraints.
+func (u Payload) Validate() error {
+	switch variant := u.Variant.(type) {
+	case BinaryPayload:
+		return variant.Validate()
+	case TextPayload:
 		return variant.Validate()
 	}
 	return nil
@@ -593,55 +590,29 @@ func (e EnumEntry) Validate() error {
 // MessageEntry is a frame layout on a bus or byte stream.
 type MessageEntry struct {
 	BaseEntry
-	// Identifier selects the frames that belong to the message. When absent every frame
-	// on the stream belongs to it.
-	Identifier *Identifier `json:"identifier,omitzero" msgpack:"identifier,omitempty"`
-	// Format is the payload format.
-	Format Format `json:"format" msgpack:"format"`
-	// Length is the payload length in bytes. When absent the length is variable.
-	Length *uint16 `json:"length,omitzero" msgpack:"length,omitempty"`
-	// Fields are the values the message carries.
-	Fields []Field `json:"fields" msgpack:"fields"`
+	// Payload is the layout of the message's payload.
+	Payload Payload `json:"payload" msgpack:"payload"`
 	// Period is the transmit period. When absent a write task sends the message when
 	// one of its command channels changes.
 	Period *telem.TimeSpan `json:"period,omitzero" msgpack:"period,omitempty"`
 	// Query is the request a polling task sends to get the message. Binary messages
 	// hold escaped bytes. When absent the device sends the message unprompted.
 	Query *string `json:"query,omitzero" msgpack:"query,omitempty"`
-	// Delimiter splits the items of a text message.
-	Delimiter string `json:"delimiter" msgpack:"delimiter"`
 }
 
 func (MessageEntry) isEntryVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (m *MessageEntry) ApplyDefaults() {
-	if m.Format == "" {
-		m.Format = FormatBinary
-	}
-	if m.Delimiter == "" {
-		m.Delimiter = ","
-	}
-	if m.Identifier != nil {
-		m.Identifier.ApplyDefaults()
-	}
-	for i := range m.Fields {
-		m.Fields[i].ApplyDefaults()
-	}
+	m.Payload.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (m MessageEntry) Validate() error {
 	v := validate.New("MessageEntry")
-	v.Ternaryf("format", !m.Format.IsValid(), "invalid format: %v", m.Format)
 	v.Exec(m.BaseEntry.Validate)
-	if m.Identifier != nil {
-		v.Exec(func() error { return validate.PathedError(m.Identifier.Validate(), "identifier") })
-	}
-	for i := range m.Fields {
-		v.Exec(func() error { return validate.PathedError(m.Fields[i].Validate(), "fields", strconv.Itoa(i)) })
-	}
+	v.Exec(func() error { return validate.PathedError(m.Payload.Validate(), "payload") })
 	return v.Error()
 }
 
@@ -760,8 +731,9 @@ func (l Library) Validate() error {
 // Reference is embedded in the config of a task that uses a library. A task uses at
 // most one library.
 type Reference struct {
-	// Library is the key of the library the task reads its layouts from.
-	Library Key `json:"library" msgpack:"library"`
+	// Library is the key of the library the task reads its layouts from. When absent
+	// the task uses no library yet.
+	Library *Key `json:"library,omitzero" msgpack:"library,omitempty"`
 	// LibraryHash is the hash of the library's entries, stamped by the Core when the
 	// task or the library is written.
 	LibraryHash string `json:"library_hash" msgpack:"library_hash"`

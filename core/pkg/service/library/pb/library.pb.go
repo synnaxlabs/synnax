@@ -32,54 +32,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Direction is the direction of a MIL-STD-1553 transfer from the remote terminal's
-// point of view.
-type Direction int32
-
-const (
-	Direction_DIRECTION_RECEIVE  Direction = 0
-	Direction_DIRECTION_TRANSMIT Direction = 1
-)
-
-// Enum value maps for Direction.
-var (
-	Direction_name = map[int32]string{
-		0: "DIRECTION_RECEIVE",
-		1: "DIRECTION_TRANSMIT",
-	}
-	Direction_value = map[string]int32{
-		"DIRECTION_RECEIVE":  0,
-		"DIRECTION_TRANSMIT": 1,
-	}
-)
-
-func (x Direction) Enum() *Direction {
-	p := new(Direction)
-	*p = x
-	return p
-}
-
-func (x Direction) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (Direction) Descriptor() protoreflect.EnumDescriptor {
-	return file_core_pkg_service_library_pb_library_proto_enumTypes[0].Descriptor()
-}
-
-func (Direction) Type() protoreflect.EnumType {
-	return &file_core_pkg_service_library_pb_library_proto_enumTypes[0]
-}
-
-func (x Direction) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use Direction.Descriptor instead.
-func (Direction) EnumDescriptor() ([]byte, []int) {
-	return file_core_pkg_service_library_pb_library_proto_rawDescGZIP(), []int{0}
-}
-
 // ByteOrder is the byte order of a multi-byte binary field.
 type ByteOrder int32
 
@@ -111,11 +63,11 @@ func (x ByteOrder) String() string {
 }
 
 func (ByteOrder) Descriptor() protoreflect.EnumDescriptor {
-	return file_core_pkg_service_library_pb_library_proto_enumTypes[1].Descriptor()
+	return file_core_pkg_service_library_pb_library_proto_enumTypes[0].Descriptor()
 }
 
 func (ByteOrder) Type() protoreflect.EnumType {
-	return &file_core_pkg_service_library_pb_library_proto_enumTypes[1]
+	return &file_core_pkg_service_library_pb_library_proto_enumTypes[0]
 }
 
 func (x ByteOrder) Number() protoreflect.EnumNumber {
@@ -124,54 +76,7 @@ func (x ByteOrder) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ByteOrder.Descriptor instead.
 func (ByteOrder) EnumDescriptor() ([]byte, []int) {
-	return file_core_pkg_service_library_pb_library_proto_rawDescGZIP(), []int{1}
-}
-
-// Format is the payload format of a message.
-type Format int32
-
-const (
-	Format_FORMAT_BINARY Format = 0
-	Format_FORMAT_TEXT   Format = 1
-)
-
-// Enum value maps for Format.
-var (
-	Format_name = map[int32]string{
-		0: "FORMAT_BINARY",
-		1: "FORMAT_TEXT",
-	}
-	Format_value = map[string]int32{
-		"FORMAT_BINARY": 0,
-		"FORMAT_TEXT":   1,
-	}
-)
-
-func (x Format) Enum() *Format {
-	p := new(Format)
-	*p = x
-	return p
-}
-
-func (x Format) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (Format) Descriptor() protoreflect.EnumDescriptor {
-	return file_core_pkg_service_library_pb_library_proto_enumTypes[2].Descriptor()
-}
-
-func (Format) Type() protoreflect.EnumType {
-	return &file_core_pkg_service_library_pb_library_proto_enumTypes[2]
-}
-
-func (x Format) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use Format.Descriptor instead.
-func (Format) EnumDescriptor() ([]byte, []int) {
-	return file_core_pkg_service_library_pb_library_proto_rawDescGZIP(), []int{2}
+	return file_core_pkg_service_library_pb_library_proto_rawDescGZIP(), []int{0}
 }
 
 // EnumValue maps one integer value of an enum to a name.
@@ -341,6 +246,165 @@ func (x *BaseField) GetMultiplexValues() []int32 {
 	return nil
 }
 
+// BinaryField is a field read from a bit range of a binary payload.
+type BinaryField struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// key is the unique identifier for the field within its message.
+	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	// name is the name of the field, unique within its message.
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// scale multiplies the raw value on decode.
+	Scale float64 `protobuf:"fixed64,3,opt,name=scale,proto3" json:"scale,omitempty"`
+	// offset is added to the scaled value on decode.
+	Offset float64 `protobuf:"fixed64,4,opt,name=offset,proto3" json:"offset,omitempty"`
+	// units is the engineering unit of the decoded value.
+	Units string `protobuf:"bytes,5,opt,name=units,proto3" json:"units,omitempty"`
+	// enumeration is the key of the enum entry that names the field's raw values. When
+	// absent the field has no named values.
+	Enumeration *string `protobuf:"bytes,6,opt,name=enumeration,proto3,oneof" json:"enumeration,omitempty"`
+	// multiplexor is the key of the field that selects whether this field is present.
+	// When absent the field is always present.
+	Multiplexor *string `protobuf:"bytes,7,opt,name=multiplexor,proto3,oneof" json:"multiplexor,omitempty"`
+	// multiplex_values are the raw values of the multiplexor for which this field is
+	// present.
+	MultiplexValues []int32 `protobuf:"varint,8,rep,packed,name=multiplex_values,json=multiplexValues,proto3" json:"multiplex_values,omitempty"`
+	// start_bit is the bit where the field starts, numbered as in a DBC file: the least
+	// significant bit for little-endian fields and the most significant bit for
+	// big-endian fields.
+	StartBit uint32 `protobuf:"varint,9,opt,name=start_bit,json=startBit,proto3" json:"start_bit,omitempty"`
+	// bit_length is the number of bits in the field, from 1 to 64.
+	BitLength uint32 `protobuf:"varint,10,opt,name=bit_length,json=bitLength,proto3" json:"bit_length,omitempty"`
+	// byte_order is the byte order of the field.
+	ByteOrder ByteOrder `protobuf:"varint,11,opt,name=byte_order,json=byteOrder,proto3,enum=service.library.pb.ByteOrder" json:"byte_order,omitempty"`
+	// signed is true when the raw value is two's complement.
+	Signed bool `protobuf:"varint,12,opt,name=signed,proto3" json:"signed,omitempty"`
+	// float is true when the raw bits are an IEEE 754 float of 32 or 64 bits.
+	Float         bool `protobuf:"varint,13,opt,name=float,proto3" json:"float,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BinaryField) Reset() {
+	*x = BinaryField{}
+	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BinaryField) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BinaryField) ProtoMessage() {}
+
+func (x *BinaryField) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BinaryField.ProtoReflect.Descriptor instead.
+func (*BinaryField) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_library_pb_library_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *BinaryField) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *BinaryField) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *BinaryField) GetScale() float64 {
+	if x != nil {
+		return x.Scale
+	}
+	return 0
+}
+
+func (x *BinaryField) GetOffset() float64 {
+	if x != nil {
+		return x.Offset
+	}
+	return 0
+}
+
+func (x *BinaryField) GetUnits() string {
+	if x != nil {
+		return x.Units
+	}
+	return ""
+}
+
+func (x *BinaryField) GetEnumeration() string {
+	if x != nil && x.Enumeration != nil {
+		return *x.Enumeration
+	}
+	return ""
+}
+
+func (x *BinaryField) GetMultiplexor() string {
+	if x != nil && x.Multiplexor != nil {
+		return *x.Multiplexor
+	}
+	return ""
+}
+
+func (x *BinaryField) GetMultiplexValues() []int32 {
+	if x != nil {
+		return x.MultiplexValues
+	}
+	return nil
+}
+
+func (x *BinaryField) GetStartBit() uint32 {
+	if x != nil {
+		return x.StartBit
+	}
+	return 0
+}
+
+func (x *BinaryField) GetBitLength() uint32 {
+	if x != nil {
+		return x.BitLength
+	}
+	return 0
+}
+
+func (x *BinaryField) GetByteOrder() ByteOrder {
+	if x != nil {
+		return x.ByteOrder
+	}
+	return ByteOrder_BYTE_ORDER_LITTLE_ENDIAN
+}
+
+func (x *BinaryField) GetSigned() bool {
+	if x != nil {
+		return x.Signed
+	}
+	return false
+}
+
+func (x *BinaryField) GetFloat() bool {
+	if x != nil {
+		return x.Float
+	}
+	return false
+}
+
 // BaseEntry carries the parts every library entry shares.
 type BaseEntry struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -354,7 +418,7 @@ type BaseEntry struct {
 
 func (x *BaseEntry) Reset() {
 	*x = BaseEntry{}
-	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[2]
+	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -366,7 +430,7 @@ func (x *BaseEntry) String() string {
 func (*BaseEntry) ProtoMessage() {}
 
 func (x *BaseEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[2]
+	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -379,7 +443,7 @@ func (x *BaseEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BaseEntry.ProtoReflect.Descriptor instead.
 func (*BaseEntry) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_library_pb_library_proto_rawDescGZIP(), []int{2}
+	return file_core_pkg_service_library_pb_library_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *BaseEntry) GetKey() string {
@@ -412,7 +476,7 @@ type Library struct {
 
 func (x *Library) Reset() {
 	*x = Library{}
-	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[3]
+	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -424,7 +488,7 @@ func (x *Library) String() string {
 func (*Library) ProtoMessage() {}
 
 func (x *Library) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[3]
+	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -437,7 +501,7 @@ func (x *Library) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Library.ProtoReflect.Descriptor instead.
 func (*Library) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_library_pb_library_proto_rawDescGZIP(), []int{3}
+	return file_core_pkg_service_library_pb_library_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *Library) GetKey() string {
@@ -465,8 +529,9 @@ func (x *Library) GetEntries() []*Entry {
 // most one library.
 type Reference struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// library is the key of the library the task reads its layouts from.
-	Library string `protobuf:"bytes,1,opt,name=library,proto3" json:"library,omitempty"`
+	// library is the key of the library the task reads its layouts from. When absent the
+	// task uses no library yet.
+	Library *string `protobuf:"bytes,1,opt,name=library,proto3,oneof" json:"library,omitempty"`
 	// library_hash is the hash of the library's entries, stamped by the Core when the
 	// task or the library is written.
 	LibraryHash   string `protobuf:"bytes,2,opt,name=library_hash,json=libraryHash,proto3" json:"library_hash,omitempty"`
@@ -476,7 +541,7 @@ type Reference struct {
 
 func (x *Reference) Reset() {
 	*x = Reference{}
-	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[4]
+	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -488,7 +553,7 @@ func (x *Reference) String() string {
 func (*Reference) ProtoMessage() {}
 
 func (x *Reference) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[4]
+	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -501,12 +566,12 @@ func (x *Reference) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Reference.ProtoReflect.Descriptor instead.
 func (*Reference) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_library_pb_library_proto_rawDescGZIP(), []int{4}
+	return file_core_pkg_service_library_pb_library_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *Reference) GetLibrary() string {
-	if x != nil {
-		return x.Library
+	if x != nil && x.Library != nil {
+		return *x.Library
 	}
 	return ""
 }
@@ -535,7 +600,7 @@ type IdentifierCanPayload struct {
 
 func (x *IdentifierCanPayload) Reset() {
 	*x = IdentifierCanPayload{}
-	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[5]
+	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -547,7 +612,7 @@ func (x *IdentifierCanPayload) String() string {
 func (*IdentifierCanPayload) ProtoMessage() {}
 
 func (x *IdentifierCanPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[5]
+	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -560,7 +625,7 @@ func (x *IdentifierCanPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IdentifierCanPayload.ProtoReflect.Descriptor instead.
 func (*IdentifierCanPayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_library_pb_library_proto_rawDescGZIP(), []int{5}
+	return file_core_pkg_service_library_pb_library_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *IdentifierCanPayload) GetId() uint32 {
@@ -591,141 +656,6 @@ func (x *IdentifierCanPayload) GetMask() uint32 {
 	return 0
 }
 
-type IdentifierArinc429Payload struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// label is the ARINC 429 label, in its octal value.
-	Label uint32 `protobuf:"varint,1,opt,name=label,proto3" json:"label,omitempty"`
-	// sdi is the source/destination identifier matched when sdi_matched.
-	Sdi uint32 `protobuf:"varint,2,opt,name=sdi,proto3" json:"sdi,omitempty"`
-	// sdi_matched is true when the SDI bits must equal sdi.
-	SdiMatched    bool `protobuf:"varint,3,opt,name=sdi_matched,json=sdiMatched,proto3" json:"sdi_matched,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *IdentifierArinc429Payload) Reset() {
-	*x = IdentifierArinc429Payload{}
-	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[6]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *IdentifierArinc429Payload) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*IdentifierArinc429Payload) ProtoMessage() {}
-
-func (x *IdentifierArinc429Payload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[6]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use IdentifierArinc429Payload.ProtoReflect.Descriptor instead.
-func (*IdentifierArinc429Payload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_library_pb_library_proto_rawDescGZIP(), []int{6}
-}
-
-func (x *IdentifierArinc429Payload) GetLabel() uint32 {
-	if x != nil {
-		return x.Label
-	}
-	return 0
-}
-
-func (x *IdentifierArinc429Payload) GetSdi() uint32 {
-	if x != nil {
-		return x.Sdi
-	}
-	return 0
-}
-
-func (x *IdentifierArinc429Payload) GetSdiMatched() bool {
-	if x != nil {
-		return x.SdiMatched
-	}
-	return false
-}
-
-type IdentifierMil1553Payload struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// rt is the remote terminal address.
-	Rt uint32 `protobuf:"varint,1,opt,name=rt,proto3" json:"rt,omitempty"`
-	// subaddress is the subaddress.
-	Subaddress uint32 `protobuf:"varint,2,opt,name=subaddress,proto3" json:"subaddress,omitempty"`
-	// direction is the transfer direction.
-	Direction Direction `protobuf:"varint,3,opt,name=direction,proto3,enum=service.library.pb.Direction" json:"direction,omitempty"`
-	// word_count is the number of data words, from 1 to 32.
-	WordCount     uint32 `protobuf:"varint,4,opt,name=word_count,json=wordCount,proto3" json:"word_count,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *IdentifierMil1553Payload) Reset() {
-	*x = IdentifierMil1553Payload{}
-	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[7]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *IdentifierMil1553Payload) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*IdentifierMil1553Payload) ProtoMessage() {}
-
-func (x *IdentifierMil1553Payload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[7]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use IdentifierMil1553Payload.ProtoReflect.Descriptor instead.
-func (*IdentifierMil1553Payload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_library_pb_library_proto_rawDescGZIP(), []int{7}
-}
-
-func (x *IdentifierMil1553Payload) GetRt() uint32 {
-	if x != nil {
-		return x.Rt
-	}
-	return 0
-}
-
-func (x *IdentifierMil1553Payload) GetSubaddress() uint32 {
-	if x != nil {
-		return x.Subaddress
-	}
-	return 0
-}
-
-func (x *IdentifierMil1553Payload) GetDirection() Direction {
-	if x != nil {
-		return x.Direction
-	}
-	return Direction_DIRECTION_RECEIVE
-}
-
-func (x *IdentifierMil1553Payload) GetWordCount() uint32 {
-	if x != nil {
-		return x.WordCount
-	}
-	return 0
-}
-
 type IdentifierFieldPayload struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// field is the key of the message field that holds the identifier.
@@ -738,7 +668,7 @@ type IdentifierFieldPayload struct {
 
 func (x *IdentifierFieldPayload) Reset() {
 	*x = IdentifierFieldPayload{}
-	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[8]
+	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -750,7 +680,7 @@ func (x *IdentifierFieldPayload) String() string {
 func (*IdentifierFieldPayload) ProtoMessage() {}
 
 func (x *IdentifierFieldPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[8]
+	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -763,7 +693,7 @@ func (x *IdentifierFieldPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IdentifierFieldPayload.ProtoReflect.Descriptor instead.
 func (*IdentifierFieldPayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_library_pb_library_proto_rawDescGZIP(), []int{8}
+	return file_core_pkg_service_library_pb_library_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *IdentifierFieldPayload) GetField() string {
@@ -780,135 +710,7 @@ func (x *IdentifierFieldPayload) GetValue() int32 {
 	return 0
 }
 
-type IdentifierTokenPayload struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// prefix is the text a line must start with. An empty prefix matches every line.
-	Prefix        string `protobuf:"bytes,1,opt,name=prefix,proto3" json:"prefix,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *IdentifierTokenPayload) Reset() {
-	*x = IdentifierTokenPayload{}
-	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[9]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *IdentifierTokenPayload) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*IdentifierTokenPayload) ProtoMessage() {}
-
-func (x *IdentifierTokenPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[9]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use IdentifierTokenPayload.ProtoReflect.Descriptor instead.
-func (*IdentifierTokenPayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_library_pb_library_proto_rawDescGZIP(), []int{9}
-}
-
-func (x *IdentifierTokenPayload) GetPrefix() string {
-	if x != nil {
-		return x.Prefix
-	}
-	return ""
-}
-
-type FieldBinaryPayload struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// start_bit is the bit where the field starts, numbered as in a DBC file: the least
-	// significant bit for little-endian fields and the most significant bit for
-	// big-endian fields.
-	StartBit uint32 `protobuf:"varint,1,opt,name=start_bit,json=startBit,proto3" json:"start_bit,omitempty"`
-	// bit_length is the number of bits in the field, from 1 to 64.
-	BitLength uint32 `protobuf:"varint,2,opt,name=bit_length,json=bitLength,proto3" json:"bit_length,omitempty"`
-	// byte_order is the byte order of the field.
-	ByteOrder ByteOrder `protobuf:"varint,3,opt,name=byte_order,json=byteOrder,proto3,enum=service.library.pb.ByteOrder" json:"byte_order,omitempty"`
-	// signed is true when the raw value is two's complement.
-	Signed bool `protobuf:"varint,4,opt,name=signed,proto3" json:"signed,omitempty"`
-	// float is true when the raw bits are an IEEE 754 float of 32 or 64 bits.
-	Float         bool `protobuf:"varint,5,opt,name=float,proto3" json:"float,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *FieldBinaryPayload) Reset() {
-	*x = FieldBinaryPayload{}
-	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[10]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *FieldBinaryPayload) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*FieldBinaryPayload) ProtoMessage() {}
-
-func (x *FieldBinaryPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[10]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use FieldBinaryPayload.ProtoReflect.Descriptor instead.
-func (*FieldBinaryPayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_library_pb_library_proto_rawDescGZIP(), []int{10}
-}
-
-func (x *FieldBinaryPayload) GetStartBit() uint32 {
-	if x != nil {
-		return x.StartBit
-	}
-	return 0
-}
-
-func (x *FieldBinaryPayload) GetBitLength() uint32 {
-	if x != nil {
-		return x.BitLength
-	}
-	return 0
-}
-
-func (x *FieldBinaryPayload) GetByteOrder() ByteOrder {
-	if x != nil {
-		return x.ByteOrder
-	}
-	return ByteOrder_BYTE_ORDER_LITTLE_ENDIAN
-}
-
-func (x *FieldBinaryPayload) GetSigned() bool {
-	if x != nil {
-		return x.Signed
-	}
-	return false
-}
-
-func (x *FieldBinaryPayload) GetFloat() bool {
-	if x != nil {
-		return x.Float
-	}
-	return false
-}
-
-type FieldDelimitedPayload struct {
+type TextFieldDelimitedPayload struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// position is the zero-based item index after splitting on the delimiter.
 	Position      uint32 `protobuf:"varint,1,opt,name=position,proto3" json:"position,omitempty"`
@@ -916,21 +718,21 @@ type FieldDelimitedPayload struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *FieldDelimitedPayload) Reset() {
-	*x = FieldDelimitedPayload{}
-	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[11]
+func (x *TextFieldDelimitedPayload) Reset() {
+	*x = TextFieldDelimitedPayload{}
+	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *FieldDelimitedPayload) String() string {
+func (x *TextFieldDelimitedPayload) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*FieldDelimitedPayload) ProtoMessage() {}
+func (*TextFieldDelimitedPayload) ProtoMessage() {}
 
-func (x *FieldDelimitedPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[11]
+func (x *TextFieldDelimitedPayload) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -941,19 +743,19 @@ func (x *FieldDelimitedPayload) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use FieldDelimitedPayload.ProtoReflect.Descriptor instead.
-func (*FieldDelimitedPayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_library_pb_library_proto_rawDescGZIP(), []int{11}
+// Deprecated: Use TextFieldDelimitedPayload.ProtoReflect.Descriptor instead.
+func (*TextFieldDelimitedPayload) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_library_pb_library_proto_rawDescGZIP(), []int{8}
 }
 
-func (x *FieldDelimitedPayload) GetPosition() uint32 {
+func (x *TextFieldDelimitedPayload) GetPosition() uint32 {
 	if x != nil {
 		return x.Position
 	}
 	return 0
 }
 
-type FieldTaggedPayload struct {
+type TextFieldTaggedPayload struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// tag is the text that comes just before the value in the line.
 	Tag           string `protobuf:"bytes,1,opt,name=tag,proto3" json:"tag,omitempty"`
@@ -961,21 +763,21 @@ type FieldTaggedPayload struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *FieldTaggedPayload) Reset() {
-	*x = FieldTaggedPayload{}
-	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[12]
+func (x *TextFieldTaggedPayload) Reset() {
+	*x = TextFieldTaggedPayload{}
+	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *FieldTaggedPayload) String() string {
+func (x *TextFieldTaggedPayload) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*FieldTaggedPayload) ProtoMessage() {}
+func (*TextFieldTaggedPayload) ProtoMessage() {}
 
-func (x *FieldTaggedPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[12]
+func (x *TextFieldTaggedPayload) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -986,16 +788,144 @@ func (x *FieldTaggedPayload) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use FieldTaggedPayload.ProtoReflect.Descriptor instead.
-func (*FieldTaggedPayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_library_pb_library_proto_rawDescGZIP(), []int{12}
+// Deprecated: Use TextFieldTaggedPayload.ProtoReflect.Descriptor instead.
+func (*TextFieldTaggedPayload) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_library_pb_library_proto_rawDescGZIP(), []int{9}
 }
 
-func (x *FieldTaggedPayload) GetTag() string {
+func (x *TextFieldTaggedPayload) GetTag() string {
 	if x != nil {
 		return x.Tag
 	}
 	return ""
+}
+
+type PayloadBinaryPayload struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// length is the payload length in bytes. When absent the length is variable.
+	Length *uint32 `protobuf:"varint,1,opt,name=length,proto3,oneof" json:"length,omitempty"`
+	// identifier selects the frames that belong to the message. When absent every frame
+	// on the bus belongs to it.
+	Identifier *Identifier `protobuf:"bytes,2,opt,name=identifier,proto3,oneof" json:"identifier,omitempty"`
+	// fields are the values the payload carries.
+	Fields        []*BinaryField `protobuf:"bytes,3,rep,name=fields,proto3" json:"fields,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PayloadBinaryPayload) Reset() {
+	*x = PayloadBinaryPayload{}
+	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PayloadBinaryPayload) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PayloadBinaryPayload) ProtoMessage() {}
+
+func (x *PayloadBinaryPayload) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PayloadBinaryPayload.ProtoReflect.Descriptor instead.
+func (*PayloadBinaryPayload) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_library_pb_library_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *PayloadBinaryPayload) GetLength() uint32 {
+	if x != nil && x.Length != nil {
+		return *x.Length
+	}
+	return 0
+}
+
+func (x *PayloadBinaryPayload) GetIdentifier() *Identifier {
+	if x != nil {
+		return x.Identifier
+	}
+	return nil
+}
+
+func (x *PayloadBinaryPayload) GetFields() []*BinaryField {
+	if x != nil {
+		return x.Fields
+	}
+	return nil
+}
+
+type PayloadTextPayload struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// delimiter splits the items of the line.
+	Delimiter string `protobuf:"bytes,1,opt,name=delimiter,proto3" json:"delimiter,omitempty"`
+	// prefix is the text a line must start with to belong to the message. An empty prefix
+	// matches every line.
+	Prefix string `protobuf:"bytes,2,opt,name=prefix,proto3" json:"prefix,omitempty"`
+	// fields are the values the line carries.
+	Fields        []*TextField `protobuf:"bytes,3,rep,name=fields,proto3" json:"fields,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PayloadTextPayload) Reset() {
+	*x = PayloadTextPayload{}
+	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PayloadTextPayload) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PayloadTextPayload) ProtoMessage() {}
+
+func (x *PayloadTextPayload) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PayloadTextPayload.ProtoReflect.Descriptor instead.
+func (*PayloadTextPayload) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_library_pb_library_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *PayloadTextPayload) GetDelimiter() string {
+	if x != nil {
+		return x.Delimiter
+	}
+	return ""
+}
+
+func (x *PayloadTextPayload) GetPrefix() string {
+	if x != nil {
+		return x.Prefix
+	}
+	return ""
+}
+
+func (x *PayloadTextPayload) GetFields() []*TextField {
+	if x != nil {
+		return x.Fields
+	}
+	return nil
 }
 
 type EntryEnumPayload struct {
@@ -1008,7 +938,7 @@ type EntryEnumPayload struct {
 
 func (x *EntryEnumPayload) Reset() {
 	*x = EntryEnumPayload{}
-	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[13]
+	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1020,7 +950,7 @@ func (x *EntryEnumPayload) String() string {
 func (*EntryEnumPayload) ProtoMessage() {}
 
 func (x *EntryEnumPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[13]
+	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1033,7 +963,7 @@ func (x *EntryEnumPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EntryEnumPayload.ProtoReflect.Descriptor instead.
 func (*EntryEnumPayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_library_pb_library_proto_rawDescGZIP(), []int{13}
+	return file_core_pkg_service_library_pb_library_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *EntryEnumPayload) GetValues() []*EnumValue {
@@ -1045,30 +975,21 @@ func (x *EntryEnumPayload) GetValues() []*EnumValue {
 
 type EntryMessagePayload struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// identifier selects the frames that belong to the message. When absent every frame
-	// on the stream belongs to it.
-	Identifier *Identifier `protobuf:"bytes,1,opt,name=identifier,proto3,oneof" json:"identifier,omitempty"`
-	// format is the payload format.
-	Format Format `protobuf:"varint,2,opt,name=format,proto3,enum=service.library.pb.Format" json:"format,omitempty"`
-	// length is the payload length in bytes. When absent the length is variable.
-	Length *uint32 `protobuf:"varint,3,opt,name=length,proto3,oneof" json:"length,omitempty"`
-	// fields are the values the message carries.
-	Fields []*Field `protobuf:"bytes,4,rep,name=fields,proto3" json:"fields,omitempty"`
+	// payload is the layout of the message's payload.
+	Payload *Payload `protobuf:"bytes,1,opt,name=payload,proto3" json:"payload,omitempty"`
 	// period is the transmit period. When absent a write task sends the message when one
 	// of its command channels changes.
-	Period *int64 `protobuf:"varint,5,opt,name=period,proto3,oneof" json:"period,omitempty"`
+	Period *int64 `protobuf:"varint,2,opt,name=period,proto3,oneof" json:"period,omitempty"`
 	// query is the request a polling task sends to get the message. Binary messages hold
 	// escaped bytes. When absent the device sends the message unprompted.
-	Query *string `protobuf:"bytes,6,opt,name=query,proto3,oneof" json:"query,omitempty"`
-	// delimiter splits the items of a text message.
-	Delimiter     string `protobuf:"bytes,7,opt,name=delimiter,proto3" json:"delimiter,omitempty"`
+	Query         *string `protobuf:"bytes,3,opt,name=query,proto3,oneof" json:"query,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *EntryMessagePayload) Reset() {
 	*x = EntryMessagePayload{}
-	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[14]
+	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1080,7 +1001,7 @@ func (x *EntryMessagePayload) String() string {
 func (*EntryMessagePayload) ProtoMessage() {}
 
 func (x *EntryMessagePayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[14]
+	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1093,33 +1014,12 @@ func (x *EntryMessagePayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EntryMessagePayload.ProtoReflect.Descriptor instead.
 func (*EntryMessagePayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_library_pb_library_proto_rawDescGZIP(), []int{14}
+	return file_core_pkg_service_library_pb_library_proto_rawDescGZIP(), []int{13}
 }
 
-func (x *EntryMessagePayload) GetIdentifier() *Identifier {
+func (x *EntryMessagePayload) GetPayload() *Payload {
 	if x != nil {
-		return x.Identifier
-	}
-	return nil
-}
-
-func (x *EntryMessagePayload) GetFormat() Format {
-	if x != nil {
-		return x.Format
-	}
-	return Format_FORMAT_BINARY
-}
-
-func (x *EntryMessagePayload) GetLength() uint32 {
-	if x != nil && x.Length != nil {
-		return *x.Length
-	}
-	return 0
-}
-
-func (x *EntryMessagePayload) GetFields() []*Field {
-	if x != nil {
-		return x.Fields
+		return x.Payload
 	}
 	return nil
 }
@@ -1138,23 +1038,13 @@ func (x *EntryMessagePayload) GetQuery() string {
 	return ""
 }
 
-func (x *EntryMessagePayload) GetDelimiter() string {
-	if x != nil {
-		return x.Delimiter
-	}
-	return ""
-}
-
-// Identifier selects which frames on a bus or stream belong to a message.
+// Identifier selects which frames on a bus belong to a binary message.
 type Identifier struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Types that are valid to be assigned to Variant:
 	//
 	//	*Identifier_Can
-	//	*Identifier_Arinc429
-	//	*Identifier_Mil1553
 	//	*Identifier_Field
-	//	*Identifier_Token
 	Variant       isIdentifier_Variant `protobuf_oneof:"variant"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1162,7 +1052,7 @@ type Identifier struct {
 
 func (x *Identifier) Reset() {
 	*x = Identifier{}
-	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[15]
+	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1174,7 +1064,7 @@ func (x *Identifier) String() string {
 func (*Identifier) ProtoMessage() {}
 
 func (x *Identifier) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[15]
+	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1187,7 +1077,7 @@ func (x *Identifier) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Identifier.ProtoReflect.Descriptor instead.
 func (*Identifier) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_library_pb_library_proto_rawDescGZIP(), []int{15}
+	return file_core_pkg_service_library_pb_library_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *Identifier) GetVariant() isIdentifier_Variant {
@@ -1206,37 +1096,10 @@ func (x *Identifier) GetCan() *IdentifierCanPayload {
 	return nil
 }
 
-func (x *Identifier) GetArinc429() *IdentifierArinc429Payload {
-	if x != nil {
-		if x, ok := x.Variant.(*Identifier_Arinc429); ok {
-			return x.Arinc429
-		}
-	}
-	return nil
-}
-
-func (x *Identifier) GetMil1553() *IdentifierMil1553Payload {
-	if x != nil {
-		if x, ok := x.Variant.(*Identifier_Mil1553); ok {
-			return x.Mil1553
-		}
-	}
-	return nil
-}
-
 func (x *Identifier) GetField() *IdentifierFieldPayload {
 	if x != nil {
 		if x, ok := x.Variant.(*Identifier_Field); ok {
 			return x.Field
-		}
-	}
-	return nil
-}
-
-func (x *Identifier) GetToken() *IdentifierTokenPayload {
-	if x != nil {
-		if x, ok := x.Variant.(*Identifier_Token); ok {
-			return x.Token
 		}
 	}
 	return nil
@@ -1250,60 +1113,131 @@ type Identifier_Can struct {
 	Can *IdentifierCanPayload `protobuf:"bytes,1,opt,name=can,proto3,oneof"`
 }
 
-type Identifier_Arinc429 struct {
-	Arinc429 *IdentifierArinc429Payload `protobuf:"bytes,2,opt,name=arinc429,proto3,oneof"`
-}
-
-type Identifier_Mil1553 struct {
-	Mil1553 *IdentifierMil1553Payload `protobuf:"bytes,3,opt,name=mil1553,proto3,oneof"`
-}
-
 type Identifier_Field struct {
-	Field *IdentifierFieldPayload `protobuf:"bytes,4,opt,name=field,proto3,oneof"`
-}
-
-type Identifier_Token struct {
-	Token *IdentifierTokenPayload `protobuf:"bytes,5,opt,name=token,proto3,oneof"`
+	Field *IdentifierFieldPayload `protobuf:"bytes,2,opt,name=field,proto3,oneof"`
 }
 
 func (*Identifier_Can) isIdentifier_Variant() {}
 
-func (*Identifier_Arinc429) isIdentifier_Variant() {}
-
-func (*Identifier_Mil1553) isIdentifier_Variant() {}
-
 func (*Identifier_Field) isIdentifier_Variant() {}
 
-func (*Identifier_Token) isIdentifier_Variant() {}
-
-// Field is one value carried by a message.
-type Field struct {
+// TextField is a field read from a text line.
+type TextField struct {
 	state     protoimpl.MessageState `protogen:"open.v1"`
 	BaseField *BaseField             `protobuf:"bytes,1,opt,name=base_field,json=baseField,proto3" json:"base_field,omitempty"`
 	// Types that are valid to be assigned to Variant:
 	//
-	//	*Field_Binary
-	//	*Field_Delimited
-	//	*Field_Tagged
-	Variant       isField_Variant `protobuf_oneof:"variant"`
+	//	*TextField_Delimited
+	//	*TextField_Tagged
+	Variant       isTextField_Variant `protobuf_oneof:"variant"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *Field) Reset() {
-	*x = Field{}
+func (x *TextField) Reset() {
+	*x = TextField{}
+	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TextField) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TextField) ProtoMessage() {}
+
+func (x *TextField) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TextField.ProtoReflect.Descriptor instead.
+func (*TextField) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_library_pb_library_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *TextField) GetBaseField() *BaseField {
+	if x != nil {
+		return x.BaseField
+	}
+	return nil
+}
+
+func (x *TextField) GetVariant() isTextField_Variant {
+	if x != nil {
+		return x.Variant
+	}
+	return nil
+}
+
+func (x *TextField) GetDelimited() *TextFieldDelimitedPayload {
+	if x != nil {
+		if x, ok := x.Variant.(*TextField_Delimited); ok {
+			return x.Delimited
+		}
+	}
+	return nil
+}
+
+func (x *TextField) GetTagged() *TextFieldTaggedPayload {
+	if x != nil {
+		if x, ok := x.Variant.(*TextField_Tagged); ok {
+			return x.Tagged
+		}
+	}
+	return nil
+}
+
+type isTextField_Variant interface {
+	isTextField_Variant()
+}
+
+type TextField_Delimited struct {
+	Delimited *TextFieldDelimitedPayload `protobuf:"bytes,2,opt,name=delimited,proto3,oneof"`
+}
+
+type TextField_Tagged struct {
+	Tagged *TextFieldTaggedPayload `protobuf:"bytes,3,opt,name=tagged,proto3,oneof"`
+}
+
+func (*TextField_Delimited) isTextField_Variant() {}
+
+func (*TextField_Tagged) isTextField_Variant() {}
+
+// Payload is the layout of a message's payload.
+type Payload struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Variant:
+	//
+	//	*Payload_Binary
+	//	*Payload_Text
+	Variant       isPayload_Variant `protobuf_oneof:"variant"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Payload) Reset() {
+	*x = Payload{}
 	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *Field) String() string {
+func (x *Payload) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*Field) ProtoMessage() {}
+func (*Payload) ProtoMessage() {}
 
-func (x *Field) ProtoReflect() protoreflect.Message {
+func (x *Payload) ProtoReflect() protoreflect.Message {
 	mi := &file_core_pkg_service_library_pb_library_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1315,73 +1249,51 @@ func (x *Field) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Field.ProtoReflect.Descriptor instead.
-func (*Field) Descriptor() ([]byte, []int) {
+// Deprecated: Use Payload.ProtoReflect.Descriptor instead.
+func (*Payload) Descriptor() ([]byte, []int) {
 	return file_core_pkg_service_library_pb_library_proto_rawDescGZIP(), []int{16}
 }
 
-func (x *Field) GetBaseField() *BaseField {
-	if x != nil {
-		return x.BaseField
-	}
-	return nil
-}
-
-func (x *Field) GetVariant() isField_Variant {
+func (x *Payload) GetVariant() isPayload_Variant {
 	if x != nil {
 		return x.Variant
 	}
 	return nil
 }
 
-func (x *Field) GetBinary() *FieldBinaryPayload {
+func (x *Payload) GetBinary() *PayloadBinaryPayload {
 	if x != nil {
-		if x, ok := x.Variant.(*Field_Binary); ok {
+		if x, ok := x.Variant.(*Payload_Binary); ok {
 			return x.Binary
 		}
 	}
 	return nil
 }
 
-func (x *Field) GetDelimited() *FieldDelimitedPayload {
+func (x *Payload) GetText() *PayloadTextPayload {
 	if x != nil {
-		if x, ok := x.Variant.(*Field_Delimited); ok {
-			return x.Delimited
+		if x, ok := x.Variant.(*Payload_Text); ok {
+			return x.Text
 		}
 	}
 	return nil
 }
 
-func (x *Field) GetTagged() *FieldTaggedPayload {
-	if x != nil {
-		if x, ok := x.Variant.(*Field_Tagged); ok {
-			return x.Tagged
-		}
-	}
-	return nil
+type isPayload_Variant interface {
+	isPayload_Variant()
 }
 
-type isField_Variant interface {
-	isField_Variant()
+type Payload_Binary struct {
+	Binary *PayloadBinaryPayload `protobuf:"bytes,1,opt,name=binary,proto3,oneof"`
 }
 
-type Field_Binary struct {
-	Binary *FieldBinaryPayload `protobuf:"bytes,2,opt,name=binary,proto3,oneof"`
+type Payload_Text struct {
+	Text *PayloadTextPayload `protobuf:"bytes,2,opt,name=text,proto3,oneof"`
 }
 
-type Field_Delimited struct {
-	Delimited *FieldDelimitedPayload `protobuf:"bytes,3,opt,name=delimited,proto3,oneof"`
-}
+func (*Payload_Binary) isPayload_Variant() {}
 
-type Field_Tagged struct {
-	Tagged *FieldTaggedPayload `protobuf:"bytes,4,opt,name=tagged,proto3,oneof"`
-}
-
-func (*Field_Binary) isField_Variant() {}
-
-func (*Field_Delimited) isField_Variant() {}
-
-func (*Field_Tagged) isField_Variant() {}
+func (*Payload_Text) isPayload_Variant() {}
 
 // Entry is one typed item in a library.
 type Entry struct {
@@ -1492,6 +1404,25 @@ const file_core_pkg_service_library_pb_library_proto_rawDesc = "" +
 	"\vmultiplexor\x18\a \x01(\tH\x01R\vmultiplexor\x88\x01\x01\x12)\n" +
 	"\x10multiplex_values\x18\b \x03(\x05R\x0fmultiplexValuesB\x0e\n" +
 	"\f_enumerationB\x0e\n" +
+	"\f_multiplexor\"\xb8\x03\n" +
+	"\vBinaryField\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
+	"\x05scale\x18\x03 \x01(\x01R\x05scale\x12\x16\n" +
+	"\x06offset\x18\x04 \x01(\x01R\x06offset\x12\x14\n" +
+	"\x05units\x18\x05 \x01(\tR\x05units\x12%\n" +
+	"\venumeration\x18\x06 \x01(\tH\x00R\venumeration\x88\x01\x01\x12%\n" +
+	"\vmultiplexor\x18\a \x01(\tH\x01R\vmultiplexor\x88\x01\x01\x12)\n" +
+	"\x10multiplex_values\x18\b \x03(\x05R\x0fmultiplexValues\x12\x1b\n" +
+	"\tstart_bit\x18\t \x01(\rR\bstartBit\x12\x1d\n" +
+	"\n" +
+	"bit_length\x18\n" +
+	" \x01(\rR\tbitLength\x12<\n" +
+	"\n" +
+	"byte_order\x18\v \x01(\x0e2\x1d.service.library.pb.ByteOrderR\tbyteOrder\x12\x16\n" +
+	"\x06signed\x18\f \x01(\bR\x06signed\x12\x14\n" +
+	"\x05float\x18\r \x01(\bR\x05floatB\x0e\n" +
+	"\f_enumerationB\x0e\n" +
 	"\f_multiplexor\"1\n" +
 	"\tBaseEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
@@ -1499,92 +1430,69 @@ const file_core_pkg_service_library_pb_library_proto_rawDesc = "" +
 	"\aLibrary\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x123\n" +
-	"\aentries\x18\x03 \x03(\v2\x19.service.library.pb.EntryR\aentries\"H\n" +
-	"\tReference\x12\x18\n" +
-	"\alibrary\x18\x01 \x01(\tR\alibrary\x12!\n" +
-	"\flibrary_hash\x18\x02 \x01(\tR\vlibraryHash\"t\n" +
+	"\aentries\x18\x03 \x03(\v2\x19.service.library.pb.EntryR\aentries\"Y\n" +
+	"\tReference\x12\x1d\n" +
+	"\alibrary\x18\x01 \x01(\tH\x00R\alibrary\x88\x01\x01\x12!\n" +
+	"\flibrary_hash\x18\x02 \x01(\tR\vlibraryHashB\n" +
+	"\n" +
+	"\b_library\"t\n" +
 	"\x14IdentifierCanPayload\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\rR\x02id\x12\x1a\n" +
 	"\bextended\x18\x02 \x01(\bR\bextended\x12\x0e\n" +
 	"\x02fd\x18\x03 \x01(\bR\x02fd\x12\x17\n" +
 	"\x04mask\x18\x04 \x01(\rH\x00R\x04mask\x88\x01\x01B\a\n" +
-	"\x05_mask\"d\n" +
-	"\x19IdentifierArinc429Payload\x12\x14\n" +
-	"\x05label\x18\x01 \x01(\rR\x05label\x12\x10\n" +
-	"\x03sdi\x18\x02 \x01(\rR\x03sdi\x12\x1f\n" +
-	"\vsdi_matched\x18\x03 \x01(\bR\n" +
-	"sdiMatched\"\xa6\x01\n" +
-	"\x18IdentifierMil1553Payload\x12\x0e\n" +
-	"\x02rt\x18\x01 \x01(\rR\x02rt\x12\x1e\n" +
-	"\n" +
-	"subaddress\x18\x02 \x01(\rR\n" +
-	"subaddress\x12;\n" +
-	"\tdirection\x18\x03 \x01(\x0e2\x1d.service.library.pb.DirectionR\tdirection\x12\x1d\n" +
-	"\n" +
-	"word_count\x18\x04 \x01(\rR\twordCount\"D\n" +
+	"\x05_mask\"D\n" +
 	"\x16IdentifierFieldPayload\x12\x14\n" +
 	"\x05field\x18\x01 \x01(\tR\x05field\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\x05R\x05value\"0\n" +
-	"\x16IdentifierTokenPayload\x12\x16\n" +
-	"\x06prefix\x18\x01 \x01(\tR\x06prefix\"\xbc\x01\n" +
-	"\x12FieldBinaryPayload\x12\x1b\n" +
-	"\tstart_bit\x18\x01 \x01(\rR\bstartBit\x12\x1d\n" +
+	"\x05value\x18\x02 \x01(\x05R\x05value\"7\n" +
+	"\x19TextFieldDelimitedPayload\x12\x1a\n" +
+	"\bposition\x18\x01 \x01(\rR\bposition\"*\n" +
+	"\x16TextFieldTaggedPayload\x12\x10\n" +
+	"\x03tag\x18\x01 \x01(\tR\x03tag\"\xcb\x01\n" +
+	"\x14PayloadBinaryPayload\x12\x1b\n" +
+	"\x06length\x18\x01 \x01(\rH\x00R\x06length\x88\x01\x01\x12C\n" +
 	"\n" +
-	"bit_length\x18\x02 \x01(\rR\tbitLength\x12<\n" +
-	"\n" +
-	"byte_order\x18\x03 \x01(\x0e2\x1d.service.library.pb.ByteOrderR\tbyteOrder\x12\x16\n" +
-	"\x06signed\x18\x04 \x01(\bR\x06signed\x12\x14\n" +
-	"\x05float\x18\x05 \x01(\bR\x05float\"3\n" +
-	"\x15FieldDelimitedPayload\x12\x1a\n" +
-	"\bposition\x18\x01 \x01(\rR\bposition\"&\n" +
-	"\x12FieldTaggedPayload\x12\x10\n" +
-	"\x03tag\x18\x01 \x01(\tR\x03tag\"I\n" +
+	"identifier\x18\x02 \x01(\v2\x1e.service.library.pb.IdentifierH\x01R\n" +
+	"identifier\x88\x01\x01\x127\n" +
+	"\x06fields\x18\x03 \x03(\v2\x1f.service.library.pb.BinaryFieldR\x06fieldsB\t\n" +
+	"\a_lengthB\r\n" +
+	"\v_identifier\"\x81\x01\n" +
+	"\x12PayloadTextPayload\x12\x1c\n" +
+	"\tdelimiter\x18\x01 \x01(\tR\tdelimiter\x12\x16\n" +
+	"\x06prefix\x18\x02 \x01(\tR\x06prefix\x125\n" +
+	"\x06fields\x18\x03 \x03(\v2\x1d.service.library.pb.TextFieldR\x06fields\"I\n" +
 	"\x10EntryEnumPayload\x125\n" +
-	"\x06values\x18\x01 \x03(\v2\x1d.service.library.pb.EnumValueR\x06values\"\xe3\x02\n" +
-	"\x13EntryMessagePayload\x12C\n" +
-	"\n" +
-	"identifier\x18\x01 \x01(\v2\x1e.service.library.pb.IdentifierH\x00R\n" +
-	"identifier\x88\x01\x01\x122\n" +
-	"\x06format\x18\x02 \x01(\x0e2\x1a.service.library.pb.FormatR\x06format\x12\x1b\n" +
-	"\x06length\x18\x03 \x01(\rH\x01R\x06length\x88\x01\x01\x121\n" +
-	"\x06fields\x18\x04 \x03(\v2\x19.service.library.pb.FieldR\x06fields\x12\x1b\n" +
-	"\x06period\x18\x05 \x01(\x03H\x02R\x06period\x88\x01\x01\x12\x19\n" +
-	"\x05query\x18\x06 \x01(\tH\x03R\x05query\x88\x01\x01\x12\x1c\n" +
-	"\tdelimiter\x18\a \x01(\tR\tdelimiterB\r\n" +
-	"\v_identifierB\t\n" +
-	"\a_lengthB\t\n" +
+	"\x06values\x18\x01 \x03(\v2\x1d.service.library.pb.EnumValueR\x06values\"\x99\x01\n" +
+	"\x13EntryMessagePayload\x125\n" +
+	"\apayload\x18\x01 \x01(\v2\x1b.service.library.pb.PayloadR\apayload\x12\x1b\n" +
+	"\x06period\x18\x02 \x01(\x03H\x00R\x06period\x88\x01\x01\x12\x19\n" +
+	"\x05query\x18\x03 \x01(\tH\x01R\x05query\x88\x01\x01B\t\n" +
 	"\a_periodB\b\n" +
-	"\x06_query\"\xf4\x02\n" +
+	"\x06_query\"\x99\x01\n" +
 	"\n" +
 	"Identifier\x12<\n" +
-	"\x03can\x18\x01 \x01(\v2(.service.library.pb.IdentifierCanPayloadH\x00R\x03can\x12K\n" +
-	"\barinc429\x18\x02 \x01(\v2-.service.library.pb.IdentifierArinc429PayloadH\x00R\barinc429\x12H\n" +
-	"\amil1553\x18\x03 \x01(\v2,.service.library.pb.IdentifierMil1553PayloadH\x00R\amil1553\x12B\n" +
-	"\x05field\x18\x04 \x01(\v2*.service.library.pb.IdentifierFieldPayloadH\x00R\x05field\x12B\n" +
-	"\x05token\x18\x05 \x01(\v2*.service.library.pb.IdentifierTokenPayloadH\x00R\x05tokenB\t\n" +
-	"\avariant\"\x9f\x02\n" +
-	"\x05Field\x12<\n" +
+	"\x03can\x18\x01 \x01(\v2(.service.library.pb.IdentifierCanPayloadH\x00R\x03can\x12B\n" +
+	"\x05field\x18\x02 \x01(\v2*.service.library.pb.IdentifierFieldPayloadH\x00R\x05fieldB\t\n" +
+	"\avariant\"\xe9\x01\n" +
+	"\tTextField\x12<\n" +
 	"\n" +
-	"base_field\x18\x01 \x01(\v2\x1d.service.library.pb.BaseFieldR\tbaseField\x12@\n" +
-	"\x06binary\x18\x02 \x01(\v2&.service.library.pb.FieldBinaryPayloadH\x00R\x06binary\x12I\n" +
-	"\tdelimited\x18\x03 \x01(\v2).service.library.pb.FieldDelimitedPayloadH\x00R\tdelimited\x12@\n" +
-	"\x06tagged\x18\x04 \x01(\v2&.service.library.pb.FieldTaggedPayloadH\x00R\x06taggedB\t\n" +
+	"base_field\x18\x01 \x01(\v2\x1d.service.library.pb.BaseFieldR\tbaseField\x12M\n" +
+	"\tdelimited\x18\x02 \x01(\v2-.service.library.pb.TextFieldDelimitedPayloadH\x00R\tdelimited\x12D\n" +
+	"\x06tagged\x18\x03 \x01(\v2*.service.library.pb.TextFieldTaggedPayloadH\x00R\x06taggedB\t\n" +
+	"\avariant\"\x96\x01\n" +
+	"\aPayload\x12B\n" +
+	"\x06binary\x18\x01 \x01(\v2(.service.library.pb.PayloadBinaryPayloadH\x00R\x06binary\x12<\n" +
+	"\x04text\x18\x02 \x01(\v2&.service.library.pb.PayloadTextPayloadH\x00R\x04textB\t\n" +
 	"\avariant\"\xd1\x01\n" +
 	"\x05Entry\x12<\n" +
 	"\n" +
 	"base_entry\x18\x01 \x01(\v2\x1d.service.library.pb.BaseEntryR\tbaseEntry\x12:\n" +
 	"\x04enum\x18\x02 \x01(\v2$.service.library.pb.EntryEnumPayloadH\x00R\x04enum\x12C\n" +
 	"\amessage\x18\x03 \x01(\v2'.service.library.pb.EntryMessagePayloadH\x00R\amessageB\t\n" +
-	"\avariant*:\n" +
-	"\tDirection\x12\x15\n" +
-	"\x11DIRECTION_RECEIVE\x10\x00\x12\x16\n" +
-	"\x12DIRECTION_TRANSMIT\x10\x01*D\n" +
+	"\avariant*D\n" +
 	"\tByteOrder\x12\x1c\n" +
 	"\x18BYTE_ORDER_LITTLE_ENDIAN\x10\x00\x12\x19\n" +
-	"\x15BYTE_ORDER_BIG_ENDIAN\x10\x01*,\n" +
-	"\x06Format\x12\x11\n" +
-	"\rFORMAT_BINARY\x10\x00\x12\x0f\n" +
-	"\vFORMAT_TEXT\x10\x01B\xc5\x01\n" +
+	"\x15BYTE_ORDER_BIG_ENDIAN\x10\x01B\xc5\x01\n" +
 	"\x16com.service.library.pbB\fLibraryProtoP\x01Z3github.com/synnaxlabs/synnax/pkg/service/library/pb\xa2\x02\x03SLP\xaa\x02\x12Service.Library.Pb\xca\x02\x12Service\\Library\\Pb\xe2\x02\x1eService\\Library\\Pb\\GPBMetadata\xea\x02\x14Service::Library::Pbb\x06proto3"
 
 var (
@@ -1599,56 +1507,52 @@ func file_core_pkg_service_library_pb_library_proto_rawDescGZIP() []byte {
 	return file_core_pkg_service_library_pb_library_proto_rawDescData
 }
 
-var file_core_pkg_service_library_pb_library_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_core_pkg_service_library_pb_library_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_core_pkg_service_library_pb_library_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
 var file_core_pkg_service_library_pb_library_proto_goTypes = []any{
-	(Direction)(0),                    // 0: service.library.pb.Direction
-	(ByteOrder)(0),                    // 1: service.library.pb.ByteOrder
-	(Format)(0),                       // 2: service.library.pb.Format
-	(*EnumValue)(nil),                 // 3: service.library.pb.EnumValue
-	(*BaseField)(nil),                 // 4: service.library.pb.BaseField
-	(*BaseEntry)(nil),                 // 5: service.library.pb.BaseEntry
-	(*Library)(nil),                   // 6: service.library.pb.Library
-	(*Reference)(nil),                 // 7: service.library.pb.Reference
-	(*IdentifierCanPayload)(nil),      // 8: service.library.pb.IdentifierCanPayload
-	(*IdentifierArinc429Payload)(nil), // 9: service.library.pb.IdentifierArinc429Payload
-	(*IdentifierMil1553Payload)(nil),  // 10: service.library.pb.IdentifierMil1553Payload
-	(*IdentifierFieldPayload)(nil),    // 11: service.library.pb.IdentifierFieldPayload
-	(*IdentifierTokenPayload)(nil),    // 12: service.library.pb.IdentifierTokenPayload
-	(*FieldBinaryPayload)(nil),        // 13: service.library.pb.FieldBinaryPayload
-	(*FieldDelimitedPayload)(nil),     // 14: service.library.pb.FieldDelimitedPayload
-	(*FieldTaggedPayload)(nil),        // 15: service.library.pb.FieldTaggedPayload
-	(*EntryEnumPayload)(nil),          // 16: service.library.pb.EntryEnumPayload
-	(*EntryMessagePayload)(nil),       // 17: service.library.pb.EntryMessagePayload
-	(*Identifier)(nil),                // 18: service.library.pb.Identifier
-	(*Field)(nil),                     // 19: service.library.pb.Field
-	(*Entry)(nil),                     // 20: service.library.pb.Entry
+	(ByteOrder)(0),                    // 0: service.library.pb.ByteOrder
+	(*EnumValue)(nil),                 // 1: service.library.pb.EnumValue
+	(*BaseField)(nil),                 // 2: service.library.pb.BaseField
+	(*BinaryField)(nil),               // 3: service.library.pb.BinaryField
+	(*BaseEntry)(nil),                 // 4: service.library.pb.BaseEntry
+	(*Library)(nil),                   // 5: service.library.pb.Library
+	(*Reference)(nil),                 // 6: service.library.pb.Reference
+	(*IdentifierCanPayload)(nil),      // 7: service.library.pb.IdentifierCanPayload
+	(*IdentifierFieldPayload)(nil),    // 8: service.library.pb.IdentifierFieldPayload
+	(*TextFieldDelimitedPayload)(nil), // 9: service.library.pb.TextFieldDelimitedPayload
+	(*TextFieldTaggedPayload)(nil),    // 10: service.library.pb.TextFieldTaggedPayload
+	(*PayloadBinaryPayload)(nil),      // 11: service.library.pb.PayloadBinaryPayload
+	(*PayloadTextPayload)(nil),        // 12: service.library.pb.PayloadTextPayload
+	(*EntryEnumPayload)(nil),          // 13: service.library.pb.EntryEnumPayload
+	(*EntryMessagePayload)(nil),       // 14: service.library.pb.EntryMessagePayload
+	(*Identifier)(nil),                // 15: service.library.pb.Identifier
+	(*TextField)(nil),                 // 16: service.library.pb.TextField
+	(*Payload)(nil),                   // 17: service.library.pb.Payload
+	(*Entry)(nil),                     // 18: service.library.pb.Entry
 }
 var file_core_pkg_service_library_pb_library_proto_depIdxs = []int32{
-	20, // 0: service.library.pb.Library.entries:type_name -> service.library.pb.Entry
-	0,  // 1: service.library.pb.IdentifierMil1553Payload.direction:type_name -> service.library.pb.Direction
-	1,  // 2: service.library.pb.FieldBinaryPayload.byte_order:type_name -> service.library.pb.ByteOrder
-	3,  // 3: service.library.pb.EntryEnumPayload.values:type_name -> service.library.pb.EnumValue
-	18, // 4: service.library.pb.EntryMessagePayload.identifier:type_name -> service.library.pb.Identifier
-	2,  // 5: service.library.pb.EntryMessagePayload.format:type_name -> service.library.pb.Format
-	19, // 6: service.library.pb.EntryMessagePayload.fields:type_name -> service.library.pb.Field
-	8,  // 7: service.library.pb.Identifier.can:type_name -> service.library.pb.IdentifierCanPayload
-	9,  // 8: service.library.pb.Identifier.arinc429:type_name -> service.library.pb.IdentifierArinc429Payload
-	10, // 9: service.library.pb.Identifier.mil1553:type_name -> service.library.pb.IdentifierMil1553Payload
-	11, // 10: service.library.pb.Identifier.field:type_name -> service.library.pb.IdentifierFieldPayload
-	12, // 11: service.library.pb.Identifier.token:type_name -> service.library.pb.IdentifierTokenPayload
-	4,  // 12: service.library.pb.Field.base_field:type_name -> service.library.pb.BaseField
-	13, // 13: service.library.pb.Field.binary:type_name -> service.library.pb.FieldBinaryPayload
-	14, // 14: service.library.pb.Field.delimited:type_name -> service.library.pb.FieldDelimitedPayload
-	15, // 15: service.library.pb.Field.tagged:type_name -> service.library.pb.FieldTaggedPayload
-	5,  // 16: service.library.pb.Entry.base_entry:type_name -> service.library.pb.BaseEntry
-	16, // 17: service.library.pb.Entry.enum:type_name -> service.library.pb.EntryEnumPayload
-	17, // 18: service.library.pb.Entry.message:type_name -> service.library.pb.EntryMessagePayload
-	19, // [19:19] is the sub-list for method output_type
-	19, // [19:19] is the sub-list for method input_type
-	19, // [19:19] is the sub-list for extension type_name
-	19, // [19:19] is the sub-list for extension extendee
-	0,  // [0:19] is the sub-list for field type_name
+	0,  // 0: service.library.pb.BinaryField.byte_order:type_name -> service.library.pb.ByteOrder
+	18, // 1: service.library.pb.Library.entries:type_name -> service.library.pb.Entry
+	15, // 2: service.library.pb.PayloadBinaryPayload.identifier:type_name -> service.library.pb.Identifier
+	3,  // 3: service.library.pb.PayloadBinaryPayload.fields:type_name -> service.library.pb.BinaryField
+	16, // 4: service.library.pb.PayloadTextPayload.fields:type_name -> service.library.pb.TextField
+	1,  // 5: service.library.pb.EntryEnumPayload.values:type_name -> service.library.pb.EnumValue
+	17, // 6: service.library.pb.EntryMessagePayload.payload:type_name -> service.library.pb.Payload
+	7,  // 7: service.library.pb.Identifier.can:type_name -> service.library.pb.IdentifierCanPayload
+	8,  // 8: service.library.pb.Identifier.field:type_name -> service.library.pb.IdentifierFieldPayload
+	2,  // 9: service.library.pb.TextField.base_field:type_name -> service.library.pb.BaseField
+	9,  // 10: service.library.pb.TextField.delimited:type_name -> service.library.pb.TextFieldDelimitedPayload
+	10, // 11: service.library.pb.TextField.tagged:type_name -> service.library.pb.TextFieldTaggedPayload
+	11, // 12: service.library.pb.Payload.binary:type_name -> service.library.pb.PayloadBinaryPayload
+	12, // 13: service.library.pb.Payload.text:type_name -> service.library.pb.PayloadTextPayload
+	4,  // 14: service.library.pb.Entry.base_entry:type_name -> service.library.pb.BaseEntry
+	13, // 15: service.library.pb.Entry.enum:type_name -> service.library.pb.EntryEnumPayload
+	14, // 16: service.library.pb.Entry.message:type_name -> service.library.pb.EntryMessagePayload
+	17, // [17:17] is the sub-list for method output_type
+	17, // [17:17] is the sub-list for method input_type
+	17, // [17:17] is the sub-list for extension type_name
+	17, // [17:17] is the sub-list for extension extendee
+	0,  // [0:17] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_library_pb_library_proto_init() }
@@ -1657,19 +1561,22 @@ func file_core_pkg_service_library_pb_library_proto_init() {
 		return
 	}
 	file_core_pkg_service_library_pb_library_proto_msgTypes[1].OneofWrappers = []any{}
+	file_core_pkg_service_library_pb_library_proto_msgTypes[2].OneofWrappers = []any{}
 	file_core_pkg_service_library_pb_library_proto_msgTypes[5].OneofWrappers = []any{}
-	file_core_pkg_service_library_pb_library_proto_msgTypes[14].OneofWrappers = []any{}
-	file_core_pkg_service_library_pb_library_proto_msgTypes[15].OneofWrappers = []any{
+	file_core_pkg_service_library_pb_library_proto_msgTypes[6].OneofWrappers = []any{}
+	file_core_pkg_service_library_pb_library_proto_msgTypes[10].OneofWrappers = []any{}
+	file_core_pkg_service_library_pb_library_proto_msgTypes[13].OneofWrappers = []any{}
+	file_core_pkg_service_library_pb_library_proto_msgTypes[14].OneofWrappers = []any{
 		(*Identifier_Can)(nil),
-		(*Identifier_Arinc429)(nil),
-		(*Identifier_Mil1553)(nil),
 		(*Identifier_Field)(nil),
-		(*Identifier_Token)(nil),
+	}
+	file_core_pkg_service_library_pb_library_proto_msgTypes[15].OneofWrappers = []any{
+		(*TextField_Delimited)(nil),
+		(*TextField_Tagged)(nil),
 	}
 	file_core_pkg_service_library_pb_library_proto_msgTypes[16].OneofWrappers = []any{
-		(*Field_Binary)(nil),
-		(*Field_Delimited)(nil),
-		(*Field_Tagged)(nil),
+		(*Payload_Binary)(nil),
+		(*Payload_Text)(nil),
 	}
 	file_core_pkg_service_library_pb_library_proto_msgTypes[17].OneofWrappers = []any{
 		(*Entry_Enum)(nil),
@@ -1680,7 +1587,7 @@ func file_core_pkg_service_library_pb_library_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_library_pb_library_proto_rawDesc), len(file_core_pkg_service_library_pb_library_proto_rawDesc)),
-			NumEnums:      3,
+			NumEnums:      1,
 			NumMessages:   18,
 			NumExtensions: 0,
 			NumServices:   0,

@@ -145,7 +145,12 @@ func (rc ReadConfig) EncodeOrc(w *orc.Writer) error {
 	w.Write(rc.Key[:])
 	w.Bool(rc.AutoStart)
 	w.Bool(rc.DataSavingDisabled)
-	w.Write(rc.Library[:])
+	if rc.Library != nil {
+		w.Bool(true)
+		w.Write((*rc.Library)[:])
+	} else {
+		w.Bool(false)
+	}
 	w.String(rc.LibraryHash)
 	w.String(rc.Device)
 	w.Uint32(uint32(rc.Raw))
@@ -173,8 +178,18 @@ func (rc *ReadConfig) DecodeOrc(r *orc.Reader) error {
 	if rc.DataSavingDisabled, err = r.Bool(); err != nil {
 		return err
 	}
-	if _, err := r.Read(rc.Library[:]); err != nil {
-		return err
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv library.Key
+			if _, err := r.Read(hv[:]); err != nil {
+				return err
+			}
+			rc.Library = &hv
+		}
 	}
 	if rc.LibraryHash, err = r.String(); err != nil {
 		return err
@@ -287,12 +302,207 @@ func (rm *ReadMessage) DecodeOrc(r *orc.Reader) error {
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
+func (src StreamReadConfig) EncodeOrc(w *orc.Writer) error {
+	w.Write(src.Key[:])
+	w.Bool(src.AutoStart)
+	w.Bool(src.DataSavingDisabled)
+	if src.Library != nil {
+		w.Bool(true)
+		w.Write((*src.Library)[:])
+	} else {
+		w.Bool(false)
+	}
+	w.String(src.LibraryHash)
+	w.String(src.Device)
+	w.Uint32(uint32(src.Raw))
+	w.Bool(src.Messages != nil)
+	if src.Messages != nil {
+		w.Uint32(uint32(len(src.Messages)))
+		for i := range src.Messages {
+			if err := src.Messages[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	w.Float64(float64(src.Rate))
+	w.Int64(int64(src.Timeout))
+	if err := src.Framing.EncodeOrc(w); err != nil {
+		return err
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (src *StreamReadConfig) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if _, err := r.Read(src.Key[:]); err != nil {
+		return err
+	}
+	if src.AutoStart, err = r.Bool(); err != nil {
+		return err
+	}
+	if src.DataSavingDisabled, err = r.Bool(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv library.Key
+			if _, err := r.Read(hv[:]); err != nil {
+				return err
+			}
+			src.Library = &hv
+		}
+	}
+	if src.LibraryHash, err = r.String(); err != nil {
+		return err
+	}
+	if src.Device, err = r.String(); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		src.Raw = channel.Key(rawV)
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			src.Messages = make([]ReadMessage, n)
+			for i := range src.Messages {
+				if err = src.Messages[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		rawV, err := r.Float64()
+		if err != nil {
+			return err
+		}
+		src.Rate = telem.Rate(rawV)
+	}
+	{
+		rawV, err := r.Int64()
+		if err != nil {
+			return err
+		}
+		src.Timeout = telem.TimeSpan(rawV)
+	}
+	if err = src.Framing.DecodeOrc(r); err != nil {
+		return err
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (swc StreamWriteConfig) EncodeOrc(w *orc.Writer) error {
+	w.Write(swc.Key[:])
+	w.Bool(swc.AutoStart)
+	w.Bool(swc.DataSavingDisabled)
+	w.String(swc.Device)
+	if swc.Library != nil {
+		w.Bool(true)
+		w.Write((*swc.Library)[:])
+	} else {
+		w.Bool(false)
+	}
+	w.String(swc.LibraryHash)
+	w.Bool(swc.Messages != nil)
+	if swc.Messages != nil {
+		w.Uint32(uint32(len(swc.Messages)))
+		for i := range swc.Messages {
+			if err := swc.Messages[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	if err := swc.Framing.EncodeOrc(w); err != nil {
+		return err
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (swc *StreamWriteConfig) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if _, err := r.Read(swc.Key[:]); err != nil {
+		return err
+	}
+	if swc.AutoStart, err = r.Bool(); err != nil {
+		return err
+	}
+	if swc.DataSavingDisabled, err = r.Bool(); err != nil {
+		return err
+	}
+	if swc.Device, err = r.String(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv library.Key
+			if _, err := r.Read(hv[:]); err != nil {
+				return err
+			}
+			swc.Library = &hv
+		}
+	}
+	if swc.LibraryHash, err = r.String(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			swc.Messages = make([]WriteMessage, n)
+			for i := range swc.Messages {
+				if err = swc.Messages[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	if err = swc.Framing.DecodeOrc(r); err != nil {
+		return err
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
 func (wc WriteConfig) EncodeOrc(w *orc.Writer) error {
 	w.Write(wc.Key[:])
 	w.Bool(wc.AutoStart)
 	w.Bool(wc.DataSavingDisabled)
 	w.String(wc.Device)
-	w.Write(wc.Library[:])
+	if wc.Library != nil {
+		w.Bool(true)
+		w.Write((*wc.Library)[:])
+	} else {
+		w.Bool(false)
+	}
 	w.String(wc.LibraryHash)
 	w.Bool(wc.Messages != nil)
 	if wc.Messages != nil {
@@ -321,8 +531,18 @@ func (wc *WriteConfig) DecodeOrc(r *orc.Reader) error {
 	if wc.Device, err = r.String(); err != nil {
 		return err
 	}
-	if _, err := r.Read(wc.Library[:]); err != nil {
-		return err
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv library.Key
+			if _, err := r.Read(hv[:]); err != nil {
+				return err
+			}
+			wc.Library = &hv
+		}
 	}
 	if wc.LibraryHash, err = r.String(); err != nil {
 		return err

@@ -37,18 +37,20 @@ class SerialWrite(SerialCase):
         return [
             library.MessageEntry(
                 name="command",
-                length=6,
-                fields=[
-                    library.BinaryField(
-                        name="setpoint",
-                        start_bit=24,
-                        bit_length=16,
-                        scale=SETPOINT_SCALE,
-                    ),
-                    library.BinaryField(
-                        name="trim", start_bit=40, bit_length=8, signed=True
-                    ),
-                ],
+                payload=library.BinaryPayload(
+                    length=6,
+                    fields=[
+                        library.BinaryField(
+                            name="setpoint",
+                            start_bit=24,
+                            bit_length=16,
+                            scale=SETPOINT_SCALE,
+                        ),
+                        library.BinaryField(
+                            name="trim", start_bit=40, bit_length=8, signed=True
+                        ),
+                    ],
+                ),
             )
         ]
 

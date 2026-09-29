@@ -47,47 +47,33 @@ inline x::json::json Properties::to_json() const {
 
 inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
     ReadConfig result;
-    static_cast<::synnax::bus::ReadConfig &>(result) = ::synnax::bus::ReadConfig::parse(
-        parser
-    );
-    static_cast<::synnax::bus::PollConfig &>(result) = ::synnax::bus::PollConfig::parse(
-        parser
-    );
-    result.framing = parser.has("framing")
-                       ? ::synnax::bus::parse_framing(parser.child("framing"))
-                       : ::synnax::bus::Framing{::synnax::bus::DelimiterFraming{}};
+    static_cast<::synnax::bus::StreamReadConfig &>(
+        result
+    ) = ::synnax::bus::StreamReadConfig::parse(parser);
     return result;
 }
 
 inline x::json::json ReadConfig::to_json() const {
     x::json::json j;
-    for (const auto base = ::synnax::bus::ReadConfig::to_json();
+    for (const auto base = ::synnax::bus::StreamReadConfig::to_json();
          const auto &[k, v]: base.items())
         j[k] = v;
-    for (const auto base = ::synnax::bus::PollConfig::to_json();
-         const auto &[k, v]: base.items())
-        j[k] = v;
-    j["framing"] = ::synnax::bus::to_json(this->framing);
     return j;
 }
 
 inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
     WriteConfig result;
-    static_cast<::synnax::bus::WriteConfig &>(
+    static_cast<::synnax::bus::StreamWriteConfig &>(
         result
-    ) = ::synnax::bus::WriteConfig::parse(parser);
-    result.framing = parser.has("framing")
-                       ? ::synnax::bus::parse_framing(parser.child("framing"))
-                       : ::synnax::bus::Framing{::synnax::bus::DelimiterFraming{}};
+    ) = ::synnax::bus::StreamWriteConfig::parse(parser);
     return result;
 }
 
 inline x::json::json WriteConfig::to_json() const {
     x::json::json j;
-    for (const auto base = ::synnax::bus::WriteConfig::to_json();
+    for (const auto base = ::synnax::bus::StreamWriteConfig::to_json();
          const auto &[k, v]: base.items())
         j[k] = v;
-    j["framing"] = ::synnax::bus::to_json(this->framing);
     return j;
 }
 

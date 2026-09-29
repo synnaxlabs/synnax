@@ -37,14 +37,12 @@ baud_code(std::uint32_t bitrate);
 [[nodiscard]] std::pair<std::string, x::errors::Error>
 fd_bitrate(std::uint32_t nominal, std::uint32_t data);
 
-/// @brief the longest a receive sleeps between polls of an empty receive queue.
-const auto POLL_INTERVAL = x::telem::MILLISECOND;
-
-/// @brief an initialized PCAN-Basic channel. PCAN-Basic has no blocking read, so
-/// receive polls the receive queue every POLL_INTERVAL while it is empty.
+/// @brief an initialized PCAN-Basic channel. receive drains the receive queue and waits
+/// on the channel's receive event while the queue is empty.
 class Bus final : public can::Bus {
     std::shared_ptr<API> api;
     TPCANHandle handle;
+    std::unique_ptr<ReceiveEvent> event;
     bool closed = false;
 
     /// @brief takes the next frame from the receive queue.
@@ -56,6 +54,7 @@ class Bus final : public can::Bus {
 public:
     Bus(std::shared_ptr<API> api,
         TPCANHandle handle,
+        std::unique_ptr<ReceiveEvent> event,
         std::string name,
         bool fd,
         bool listen_only);

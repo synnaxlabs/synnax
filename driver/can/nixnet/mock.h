@@ -25,6 +25,7 @@ class MockAPI final : public API {
 public:
     /// @brief a session the backend created.
     struct Session {
+        std::string database;
         std::string interface;
         u32 mode = 0;
         std::map<u32, std::vector<std::uint8_t>> properties;
@@ -58,7 +59,7 @@ public:
     nxStatus_t write_status = nxSuccess;
 
     nxStatus_t CreateSession(
-        const char *,
+        const char *database,
         const char *,
         const char *,
         const char *interface,
@@ -68,7 +69,11 @@ public:
         std::lock_guard lock(this->mu);
         if (this->create_status < nxSuccess) return this->create_status;
         *session = static_cast<nxSessionRef_t>(this->sessions.size() + 1);
-        this->sessions[*session] = {.interface = interface, .mode = mode};
+        this->sessions[*session] = {
+            .database = database,
+            .interface = interface,
+            .mode = mode,
+        };
         return nxSuccess;
     }
 

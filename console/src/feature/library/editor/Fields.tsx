@@ -16,8 +16,14 @@ import { type ReactElement, useCallback, useMemo } from "react";
 
 import { useNestedStatus } from "@/feature/library/editor/useNestedStatus";
 
-type Encoding = library.FieldType;
-type FieldOf<E extends Encoding> = Extract<library.Field, { encoding: E }>;
+type Field = library.BinaryField | library.TextField;
+type Encoding = "binary" | library.TextFieldType;
+type FieldOf<E extends Encoding> = E extends "binary"
+  ? library.BinaryField
+  : Extract<library.TextField, { encoding: E }>;
+
+const encodingOf = (field: Field): Encoding =>
+  "encoding" in field ? field.encoding : "binary";
 
 /** Marks an absent enumeration or multiplexor in a select cell. */
 const NONE = "none";
@@ -25,49 +31,49 @@ const NONE = "none";
 type Render =
   "text" | "number" | "byteOrder" | "boolean" | "enumeration" | "multiplexor";
 
-interface Column<F extends library.Field> {
+interface Column<F extends Field> {
   name: string;
   render: Render;
   get(field: F): Input.TableCell;
   set(field: F, cell: Input.TableCell): F;
 }
 
-const name = <F extends library.Field>(): Column<F> => ({
+const name = <F extends Field>(): Column<F> => ({
   name: "Name",
   render: "text",
   get: ({ name }) => name,
   set: (f, cell) => ({ ...f, name: String(cell) }),
 });
 
-const scale = <F extends library.Field>(): Column<F> => ({
+const scale = <F extends Field>(): Column<F> => ({
   name: "Scale",
   render: "number",
   get: ({ scale }) => scale,
   set: (f, cell) => ({ ...f, scale: Number(cell) }),
 });
 
-const offset = <F extends library.Field>(): Column<F> => ({
+const offset = <F extends Field>(): Column<F> => ({
   name: "Offset",
   render: "number",
   get: ({ offset }) => offset,
   set: (f, cell) => ({ ...f, offset: Number(cell) }),
 });
 
-const units = <F extends library.Field>(): Column<F> => ({
+const units = <F extends Field>(): Column<F> => ({
   name: "Units",
   render: "text",
   get: ({ units }) => units,
   set: (f, cell) => ({ ...f, units: String(cell) }),
 });
 
-const enumeration = <F extends library.Field>(): Column<F> => ({
+const enumeration = <F extends Field>(): Column<F> => ({
   name: "Enumeration",
   render: "enumeration",
   get: ({ enumeration }) => enumeration ?? NONE,
   set: (f, cell) => ({ ...f, enumeration: cell === NONE ? undefined : String(cell) }),
 });
 
-const multiplexor = <F extends library.Field>(): Column<F> => ({
+const multiplexor = <F extends Field>(): Column<F> => ({
   name: "Multiplexor",
   render: "multiplexor",
   get: ({ multiplexor }) => multiplexor ?? NONE,
@@ -81,14 +87,14 @@ const parseIntegers = (text: string): number[] =>
     .map(Number)
     .filter(Number.isInteger);
 
-const multiplexValues = <F extends library.Field>(): Column<F> => ({
+const multiplexValues = <F extends Field>(): Column<F> => ({
   name: "Multiplex values",
   render: "text",
   get: ({ multiplexValues }) => multiplexValues.join(", "),
   set: (f, cell) => ({ ...f, multiplexValues: parseIntegers(String(cell)) }),
 });
 
-const shared = <F extends library.Field>(): Column<F>[] => [
+const shared = <F extends Field>(): Column<F>[] => [
   scale(),
   offset(),
   units(),
@@ -140,7 +146,7 @@ const COLUMNS: { [E in Encoding]: Column<FieldOf<E>>[] } = {
       get: ({ position }) => position,
       set: (f, cell) => ({ ...f, position: Number(cell) }),
     },
-    ...shared<library.DelimitedField>(),
+    ...shared<library.DelimitedTextField>(),
   ],
   tagged: [
     name(),
@@ -150,11 +156,11 @@ const COLUMNS: { [E in Encoding]: Column<FieldOf<E>>[] } = {
       get: ({ tag }) => tag,
       set: (f, cell) => ({ ...f, tag: String(cell) }),
     },
-    ...shared<library.TaggedField>(),
+    ...shared<library.TaggedTextField>(),
   ],
 };
 
-const createField = (encoding: Encoding, name: string = ""): library.Field => {
+const createField = (encoding: Encoding, name: string = ""): Field => {
   const base = {
     key: uuid.create(),
     name,
@@ -167,7 +173,6 @@ const createField = (encoding: Encoding, name: string = ""): library.Field => {
     case "binary":
       return {
         ...base,
-        encoding,
         startBit: 0,
         bitLength: 8,
         byteOrder: "little_endian",
@@ -181,7 +186,7 @@ const createField = (encoding: Encoding, name: string = ""): library.Field => {
   }
 };
 
-const uniqueFieldName = (fields: library.Field[]): string => {
+const uniqueFieldName = (fields: Field[]): string => {
   const names = new Set(fields.map(({ name }) => name));
   let i = fields.length + 1;
   while (names.has(`Field ${i}`)) i++;
@@ -189,37 +194,28 @@ const uniqueFieldName = (fields: library.Field[]): string => {
 };
 
 /**
- * Rebuilds the fields a grid shows from its rows. A removal keeps the rows it does not
- * touch, so a shorter grid matches rows to fields by identity; every other edit keeps
- * row positions. Matching keeps each field's key, which other fields and tasks
- * reference.
+ * Rebuilds the fields a grid shows from its rows. Edits keep row positions, so each row
+ * updates the field at its index and keeps that field's key, which other fields and
+ * tasks reference.
  */
 const fieldsFromRows = (
   encoding: Encoding,
-  columns: Column<library.Field>[],
-  prevRows: Input.TableCell[][],
-  prevFields: library.Field[],
+  columns: Column<Field>[],
+  prevFields: Field[],
   rows: Input.TableCell[][],
-): library.Field[] => {
-  const removed = rows.length < prevRows.length;
-  return rows.map((row, i) => {
-    const prev = prevFields[removed ? prevRows.indexOf(row) : i];
-    return columns.reduce<library.Field>(
+): Field[] =>
+  rows.map((row, i) =>
+    columns.reduce<Field>(
       (field, column, j) => column.set(field, row[j]),
-      prev ?? createField(encoding),
-    );
-  });
-};
+      prevFields[i] ?? createField(encoding),
+    ),
+  );
 
 /** Writes the fields of one encoding back into their slots among all the fields. */
-const mergeFields = (
-  all: library.Field[],
-  encoding: Encoding,
-  updated: library.Field[],
-): library.Field[] => {
+const mergeFields = (all: Field[], encoding: Encoding, updated: Field[]): Field[] => {
   let i = 0;
   const merged = all.flatMap((field) => {
-    if (field.encoding !== encoding) return [field];
+    if (encodingOf(field) !== encoding) return [field];
     return i < updated.length ? [updated[i++]] : [];
   });
   return [...merged, ...updated.slice(i)];
@@ -227,11 +223,11 @@ const mergeFields = (
 
 interface CellContext {
   enums: library.EnumEntry[];
-  fields: library.Field[];
+  fields: Field[];
 }
 
 const renderColumn = (
-  column: Column<library.Field>,
+  column: Column<Field>,
   index: number,
   { enums, fields }: CellContext,
 ): ReactElement<Input.TableColumnProps> => {
@@ -316,29 +312,29 @@ const renderColumn = (
 const matchOwnField = (
   key: string | undefined,
   fieldsPath: string,
-  field: library.Field,
+  field: Field,
 ): boolean => key != null && deep.pathsMatch(key, `${fieldsPath}.${field.key}`);
 
 export interface FieldsProps {
-  /** The form path of the message entry. */
+  /** The form path of the message payload. */
   path: string;
   encoding: Encoding;
   label: string;
 }
 
-/** Edits the fields of one encoding in a message as a grid. */
+/** Edits the fields of one encoding in a message payload as a grid. */
 export const Fields = ({ path, encoding, label }: FieldsProps): ReactElement => {
   const fieldsPath = `${path}.fields`;
   const { set } = Form.useContext();
-  const fields = Form.useFieldValue<library.Field[]>(fieldsPath);
+  const fields = Form.useFieldValue<Field[]>(fieldsPath);
   const entries = Form.useFieldValue<library.Entry[]>("entries");
   const enums = useMemo(
     () => entries.filter((e): e is library.EnumEntry => e.kind === "enum"),
     [entries],
   );
-  const columns = COLUMNS[encoding] as Column<library.Field>[];
+  const columns = COLUMNS[encoding] as Column<Field>[];
   const own = useMemo(
-    () => fields.filter((f) => f.encoding === encoding),
+    () => fields.filter((f) => encodingOf(f) === encoding),
     [fields, encoding],
   );
   const rows = useMemo(
@@ -348,7 +344,12 @@ export const Fields = ({ path, encoding, label }: FieldsProps): ReactElement => 
   const handleChange = (next: Input.TableCell[][]) =>
     set(
       fieldsPath,
-      mergeFields(fields, encoding, fieldsFromRows(encoding, columns, rows, own, next)),
+      mergeFields(fields, encoding, fieldsFromRows(encoding, columns, own, next)),
+    );
+  const handleRemove = (index: number) =>
+    set(
+      fieldsPath,
+      fields.filter(({ key }) => key !== own[index].key),
     );
   const createRow = () =>
     columns.map((c) => c.get(createField(encoding, uniqueFieldName(fields))));
@@ -365,6 +366,7 @@ export const Fields = ({ path, encoding, label }: FieldsProps): ReactElement => 
       <Input.Table
         value={rows}
         onChange={handleChange}
+        onRemove={handleRemove}
         createRow={createRow}
         rowLabel={(i) => (i + 1).toString()}
       >

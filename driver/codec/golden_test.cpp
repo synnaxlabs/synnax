@@ -54,10 +54,12 @@ std::vector<Golden> load() {
         Golden g;
         g.message.key = x::uuid::create();
         g.message.name = m["name"];
-        g.message.length = m["length"].get<std::uint16_t>();
-        g.message.identifier = library::CanIdentifier{
-            .id = m["id"],
-            .extended = m["extended"],
+        library::BinaryPayload payload{
+            .length = m["length"].get<std::uint16_t>(),
+            .identifier = library::CanIdentifier{
+                .id = m["id"],
+                .extended = m["extended"],
+            },
         };
         std::unordered_map<std::string, library::FieldKey> keys;
         for (const auto &s: m["signals"])
@@ -80,8 +82,9 @@ std::vector<Golden> load() {
                     f.multiplex_values.push_back(v.get<V>());
             }
             g.names.push_back(f.name);
-            g.message.fields.emplace_back(std::move(f));
+            payload.fields.push_back(std::move(f));
         }
+        g.message.payload = std::move(payload);
         g.signals = m["signals"];
         g.vectors = m["vectors"];
         out.push_back(std::move(g));
@@ -174,7 +177,8 @@ TEST_F(GoldenVectors, MatchEachMessageByItsCANIdentifier) {
         messages.push_back(g.message);
     const auto matcher = ASSERT_NIL_P(Matcher::compile(messages));
     for (std::size_t i = 0; i < messages.size(); i++) {
-        const auto &id = std::get<library::CanIdentifier>(*messages[i].identifier);
+        const auto &payload = std::get<library::BinaryPayload>(messages[i].payload);
+        const auto &id = std::get<library::CanIdentifier>(*payload.identifier);
         EXPECT_EQ(matcher.match(id.id, id.extended), i);
         EXPECT_EQ(matcher.match(id.id, !id.extended), std::nullopt);
     }

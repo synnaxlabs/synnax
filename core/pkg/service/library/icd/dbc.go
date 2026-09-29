@@ -10,19 +10,17 @@
 package icd
 
 import (
-	"bytes"
 	"maps"
 	"math"
-	"regexp"
 	"slices"
 	"strconv"
 	"strings"
 	"uuid"
 
+	"github.com/synnaxlabs/synnax/pkg/service/library/icd/internal/dbc"
 	"github.com/synnaxlabs/synnax/pkg/service/library/versions"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
-	"go.einride.tech/can/pkg/dbc"
 )
 
 const (
@@ -32,20 +30,6 @@ const (
 	independentSignals = "VECTOR__INDEPENDENT_SIG_MSG"
 	// maxMultiplexValues bounds the values the ranges of one SG_MUL_VAL_ line hold.
 	maxMultiplexValues = 1 << 16
-	// keywordMuxValues starts an extended multiplexing definition.
-	keywordMuxValues dbc.Keyword = "SG_MUL_VAL_"
-)
-
-var (
-	// extendedSwitch matches a signal marked m<N>M, which the DBC parser rejects. Its
-	// first submatch is the trailing M.
-	extendedSwitch = regexp.MustCompile(`^\s*SG_\s+\w+\s+m\d+(M)\s*:`)
-	// keyword matches the keyword that starts a definition.
-	keyword       = regexp.MustCompile(`^\s*([A-Z][A-Z0-9_]*)(?:[\s:]|$)`)
-	muxValuesLine = regexp.MustCompile(
-		`^\s*SG_MUL_VAL_\s+(\d+)\s+(\w+)\s+(\w+)\s+(.+?)\s*;\s*$`,
-	)
-	muxRange = regexp.MustCompile(`^(\d+)\s*-\s*(\d+)$`)
 )
 
 // parseDBC parses a DBC file into one message entry per BO_ definition, with a CAN
@@ -54,21 +38,15 @@ var (
 // multiplexing (m<N>M markers and SG_MUL_VAL_ ranges) is supported. Every entry and
 // field gets a new key. Errors are scoped to the "data" path and name the line.
 func parseDBC(data []byte) ([]versions.Entry, error) {
-	text, ext, err := extractExtensions(data)
+	defs, err := dbc.Parse(data)
+	if err != nil {
+		return nil, dataErrorf("%s", err)
+	}
+	f, err := newDBCFile(defs)
 	if err != nil {
 		return nil, err
 	}
-	p := dbc.NewParser("", text)
-	if perr := p.Parse(); perr != nil {
-		pos := perr.Position()
-		return nil, dataErrorf(
-			"line %d, column %d: %s",
-			pos.Line,
-			pos.Column,
-			perr.Reason(),
-		)
-	}
-	return newDBCFile(p.Defs(), ext).entries()
+	return f.entries()
 }
 
 type signalRef struct {
@@ -86,170 +64,45 @@ type muxSpec struct {
 	values []int32
 }
 
-// extensions holds the extended multiplexing syntax the DBC parser does not read.
-type extensions struct {
-	// switchLines are the lines of signals marked m<N>M.
-	switchLines set.Set[int]
-	mux         map[signalRef]muxSpec
-}
-
-// extractExtensions reads the extended multiplexing syntax from data and returns a copy
-// the DBC parser accepts: each m<N>M marker becomes m<N>, and each definition the
-// parser does not read, SG_MUL_VAL_ included, is blanked. The parser skips such
-// definitions with a bug that can also skip the line after them. The copy keeps every
-// byte offset, so parse errors name the right line.
-func extractExtensions(data []byte) ([]byte, extensions, error) {
-	var (
-		text = bytes.Clone(data)
-		ext  = extensions{
-			switchLines: make(set.Set[int]),
-			mux:         make(map[signalRef]muxSpec),
-		}
-		quoted  = false
-		symbols = false
-		start   = 0
-	)
-	for n := 1; start <= len(text); n++ {
-		end := bytes.IndexByte(text[start:], '\n')
-		if end < 0 {
-			end = len(text)
-		} else {
-			end += start
-		}
-		line := text[start:end]
-		start = end + 1
-		wasQuoted := quoted
-		quoted = quoted != (countQuotes(line)%2 == 1)
-		if wasQuoted {
-			continue
-		}
-		var kw dbc.Keyword
-		if m := keyword.FindSubmatch(line); m != nil {
-			kw = dbc.Keyword(m[1])
-		}
-		// The NS_ symbol list is tab-indented keywords, which must stay in place.
-		if kw == dbc.KeywordNewSymbols {
-			symbols = true
-			continue
-		}
-		if symbols && (len(bytes.TrimSpace(line)) == 0 || line[0] == '\t') {
-			continue
-		}
-		symbols = false
-		if err := ext.read(n, kw, line); err != nil {
-			return nil, extensions{}, err
-		}
-	}
-	return text, ext, nil
-}
-
-// countQuotes counts the unescaped double quotes in line, so that lines inside a
-// multi-line comment string are not read as definitions.
-func countQuotes(line []byte) int {
-	n := 0
-	for i, c := range line {
-		if c == '"' && (i == 0 || line[i-1] != '\\') {
-			n++
-		}
-	}
-	return n
-}
-
-func (e extensions) read(n int, kw dbc.Keyword, line []byte) error {
-	if m := extendedSwitch.FindSubmatchIndex(line); m != nil {
-		line[m[2]] = ' '
-		e.switchLines.Add(n)
-		return nil
-	}
-	if kw == keywordMuxValues {
-		if err := e.readMuxValues(n, line); err != nil {
-			return err
-		}
-	}
-	if kw != "" && !parsed(kw) {
-		for i := range line {
-			line[i] = ' '
-		}
-	}
-	return nil
-}
-
-// parsed reports whether the DBC parser reads definitions that start with kw.
-func parsed(kw dbc.Keyword) bool {
-	switch kw {
-	case dbc.KeywordVersion,
-		dbc.KeywordBitTiming,
-		dbc.KeywordNewSymbols,
-		dbc.KeywordNodes,
-		dbc.KeywordMessage,
-		dbc.KeywordSignal,
-		dbc.KeywordEnvironmentVariable,
-		dbc.KeywordComment,
-		dbc.KeywordAttribute,
-		dbc.KeywordAttributeDefault,
-		dbc.KeywordAttributeValue,
-		dbc.KeywordValueDescriptions,
-		dbc.KeywordValueTable,
-		dbc.KeywordSignalValueType,
-		dbc.KeywordMessageTransmitters,
-		dbc.KeywordEnvironmentVariableData:
-		return true
-	}
-	return false
-}
-
-func (e extensions) readMuxValues(n int, line []byte) error {
-	m := muxValuesLine.FindSubmatch(line)
-	if m == nil {
-		return dataErrorf("line %d: invalid SG_MUL_VAL_ definition", n)
-	}
-	id, err := strconv.ParseUint(string(m[1]), 10, 32)
-	if err != nil {
-		return dataErrorf("line %d: invalid message id %s", n, m[1])
-	}
-	ref := signalRef{message: dbc.MessageID(id), signal: string(m[2])}
+func newMuxSpec(d *dbc.MultiplexedValuesDef) (muxSpec, error) {
+	line := d.Pos.Line
 	var values []int32
-	for r := range strings.SplitSeq(string(m[4]), ",") {
-		r = strings.TrimSpace(r)
-		bounds := muxRange.FindStringSubmatch(r)
-		if bounds == nil {
-			return dataErrorf("line %d: invalid multiplexor range %q", n, r)
-		}
-		// The pattern admits only digits, so a parse error is always a range error.
-		lo, loErr := strconv.ParseInt(bounds[1], 10, 32)
-		hi, hiErr := strconv.ParseInt(bounds[2], 10, 32)
-		if loErr != nil || hiErr != nil {
-			return dataErrorf(
-				"line %d: multiplexor range %q of signal %s exceeds the int32 range",
-				n,
-				r,
-				ref.signal,
+	for _, r := range d.Ranges {
+		if r.To < r.From {
+			return muxSpec{}, dataErrorf(
+				"line %d: invalid multiplexor range \"%d-%d\"",
+				line,
+				r.From,
+				r.To,
 			)
 		}
-		if hi < lo {
-			return dataErrorf("line %d: invalid multiplexor range %q", n, r)
+		if r.To > math.MaxInt32 {
+			return muxSpec{}, dataErrorf(
+				"line %d: multiplexor range \"%d-%d\" of signal %s exceeds the int32 "+
+					"range",
+				line,
+				r.From,
+				r.To,
+				d.SignalName,
+			)
 		}
-		if hi-lo >= int64(maxMultiplexValues-len(values)) {
-			return dataErrorf(
+		if r.To-r.From >= uint64(maxMultiplexValues-len(values)) {
+			return muxSpec{}, dataErrorf(
 				"line %d: multiplexor ranges hold more than %d values",
-				n,
+				line,
 				maxMultiplexValues,
 			)
 		}
-		for v := lo; v <= hi; v++ {
+		for v := r.From; v <= r.To; v++ {
 			values = append(values, int32(v))
 		}
 	}
 	slices.Sort(values)
-	if _, dup := e.mux[ref]; dup {
-		return dataErrorf("line %d: duplicate SG_MUL_VAL_ for signal %s", n, ref.signal)
-	}
-	e.mux[ref] = muxSpec{
-		line:       n,
-		switchName: string(m[3]),
+	return muxSpec{
+		line:       line,
+		switchName: string(d.SwitchName),
 		values:     slices.Compact(values),
-	}
-	return nil
+	}, nil
 }
 
 type attrRef struct {
@@ -259,7 +112,7 @@ type attrRef struct {
 
 // dbcFile indexes the definitions of a parsed DBC file.
 type dbcFile struct {
-	ext        extensions
+	mux        map[signalRef]muxSpec
 	messages   []*dbc.MessageDef
 	tables     []*dbc.ValueTableDef
 	attrs      map[dbc.Identifier]*dbc.AttributeDef
@@ -269,9 +122,9 @@ type dbcFile struct {
 	choices    map[signalRef]*dbc.ValueDescriptionsDef
 }
 
-func newDBCFile(defs []dbc.Def, ext extensions) dbcFile {
+func newDBCFile(defs []dbc.Def) (dbcFile, error) {
 	f := dbcFile{
-		ext:        ext,
+		mux:        make(map[signalRef]muxSpec),
 		attrs:      make(map[dbc.Identifier]*dbc.AttributeDef),
 		defaults:   make(map[dbc.Identifier]*dbc.AttributeDefaultValueDef),
 		values:     make(map[attrRef]*dbc.AttributeValueForObjectDef),
@@ -302,9 +155,23 @@ func newDBCFile(defs []dbc.Def, ext extensions) dbcFile {
 			if d.ObjectType == dbc.ObjectTypeSignal {
 				f.choices[signalRef{message: d.MessageID, signal: string(d.SignalName)}] = d
 			}
+		case *dbc.MultiplexedValuesDef:
+			ref := signalRef{message: d.MessageID, signal: string(d.SignalName)}
+			if _, dup := f.mux[ref]; dup {
+				return f, dataErrorf(
+					"line %d: duplicate SG_MUL_VAL_ for signal %s",
+					d.Pos.Line,
+					ref.signal,
+				)
+			}
+			spec, err := newMuxSpec(d)
+			if err != nil {
+				return f, err
+			}
+			f.mux[ref] = spec
 		}
 	}
-	return f
+	return f, nil
 }
 
 func (f dbcFile) entries() ([]versions.Entry, error) {
@@ -338,14 +205,14 @@ func (f dbcFile) entries() ([]versions.Entry, error) {
 		entries = append(entries, versions.Entry{Variant: msg})
 		enums = append(enums, signalEnums...)
 	}
-	refs := slices.SortedFunc(maps.Keys(f.ext.mux), func(a, b signalRef) int {
-		return f.ext.mux[a].line - f.ext.mux[b].line
+	refs := slices.SortedFunc(maps.Keys(f.mux), func(a, b signalRef) int {
+		return f.mux[a].line - f.mux[b].line
 	})
 	for _, ref := range refs {
 		if !used.Contains(ref) {
 			return nil, dataErrorf(
 				"line %d: no message with id %d has a multiplexed signal %s",
-				f.ext.mux[ref].line,
+				f.mux[ref].line,
 				ref.message,
 				ref.signal,
 			)
@@ -371,24 +238,20 @@ func (f dbcFile) message(
 	if err != nil {
 		return versions.MessageEntry{}, nil, err
 	}
-	msg := versions.MessageEntry{
-		Key:  uuid.New(),
-		Name: string(m.Name),
+	payload := versions.BinaryPayload{
 		Identifier: &versions.Identifier{Variant: versions.CanIdentifier{
 			ID:       m.MessageID.ToCAN(),
 			Extended: m.MessageID.IsExtended(),
 			Fd:       f.fd(m.MessageID),
 		}},
-		Format: versions.FormatBinary,
 		Length: new(uint16(m.Size)),
-		Period: period,
-		Fields: make([]versions.Field, 0, len(m.Signals)),
+		Fields: make([]versions.BinaryField, 0, len(m.Signals)),
 	}
 	keys := make(map[string]versions.FieldKey, len(m.Signals))
 	var switches []string
 	for _, s := range m.Signals {
 		keys[string(s.Name)] = uuid.New()
-		if s.IsMultiplexerSwitch || f.ext.switchLines.Contains(s.Pos.Line) {
+		if s.IsMultiplexerSwitch {
 			switches = append(switches, string(s.Name))
 		}
 	}
@@ -424,9 +287,14 @@ func (f dbcFile) message(
 			field.Multiplexor = new(keys[mux])
 			field.MultiplexValues = values
 		}
-		msg.Fields = append(msg.Fields, versions.Field{Variant: field})
+		payload.Fields = append(payload.Fields, field)
 	}
-	return msg, enums, nil
+	return versions.MessageEntry{
+		Key:     uuid.New(),
+		Name:    string(m.Name),
+		Payload: versions.Payload{Variant: payload},
+		Period:  period,
+	}, enums, nil
 }
 
 func (f dbcFile) field(
@@ -491,7 +359,7 @@ func (f dbcFile) multiplexor(
 	used set.Set[signalRef],
 ) (string, []int32, error) {
 	ref := signalRef{message: m.MessageID, signal: string(s.Name)}
-	if spec, ok := f.ext.mux[ref]; ok {
+	if spec, ok := f.mux[ref]; ok {
 		used.Add(ref)
 		if _, ok := keys[spec.switchName]; !ok {
 			return "", nil, dataErrorf(

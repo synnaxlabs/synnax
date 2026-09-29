@@ -102,6 +102,7 @@ func (a *attr[T]) merge(column string, row int, v T) error {
 
 type tableMessage struct {
 	entry    versions.MessageEntry
+	payload  versions.BinaryPayload
 	id       attr[uint32]
 	extended attr[bool]
 	length   attr[uint16]
@@ -138,7 +139,7 @@ func parseTable(rows [][]string) ([]versions.Entry, error) {
 			if m.extended.set {
 				extended = m.extended.value
 			}
-			m.entry.Identifier = &versions.Identifier{Variant: versions.CanIdentifier{
+			m.payload.Identifier = &versions.Identifier{Variant: versions.CanIdentifier{
 				ID:       m.id.value,
 				Extended: extended,
 			}}
@@ -146,8 +147,9 @@ func parseTable(rows [][]string) ([]versions.Entry, error) {
 			return nil, rowErrorf(m.extended.row, columnExtended, "requires an id")
 		}
 		if m.length.set {
-			m.entry.Length = new(m.length.value)
+			m.payload.Length = new(m.length.value)
 		}
+		m.entry.Payload = versions.Payload{Variant: m.payload}
 		if m.period.set {
 			m.entry.Period = new(m.period.value)
 		}
@@ -205,11 +207,7 @@ func (t *table) readRow(row int, cells []string) error {
 	}
 	m, ok := t.byName[name]
 	if !ok {
-		m = &tableMessage{entry: versions.MessageEntry{
-			Key:    uuid.New(),
-			Name:   name,
-			Format: versions.FormatBinary,
-		}}
+		m = &tableMessage{entry: versions.MessageEntry{Key: uuid.New(), Name: name}}
 		t.messages = append(t.messages, m)
 		t.byName[name] = m
 	}
@@ -220,7 +218,7 @@ func (t *table) readRow(row int, cells []string) error {
 	if err != nil {
 		return err
 	}
-	m.entry.Fields = append(m.entry.Fields, versions.Field{Variant: field})
+	m.payload.Fields = append(m.payload.Fields, field)
 	return nil
 }
 

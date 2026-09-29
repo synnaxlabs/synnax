@@ -43,46 +43,50 @@ class CANRead(CANCase):
         return [
             library.MessageEntry(
                 name="fast",
-                identifier=library.CanIdentifier(id=can_frames.FAST_ID),
-                length=8,
-                fields=[
-                    library.BinaryField(name="count", start_bit=0, bit_length=16),
-                    library.BinaryField(
-                        name="sine",
-                        start_bit=16,
-                        bit_length=16,
-                        signed=True,
-                        scale=SINE_SCALE,
-                    ),
-                    library.BinaryField(
-                        name="temperature",
-                        start_bit=32,
-                        bit_length=12,
-                        signed=True,
-                        scale=TEMPERATURE_SCALE,
-                        offset=TEMPERATURE_OFFSET,
-                    ),
-                    library.BinaryField(name="state", start_bit=44, bit_length=4),
-                    library.BinaryField(
-                        name="speed",
-                        start_bit=55,
-                        bit_length=16,
-                        byte_order="big_endian",
-                    ),
-                ],
+                payload=library.BinaryPayload(
+                    identifier=library.CanIdentifier(id=can_frames.FAST_ID),
+                    length=8,
+                    fields=[
+                        library.BinaryField(name="count", start_bit=0, bit_length=16),
+                        library.BinaryField(
+                            name="sine",
+                            start_bit=16,
+                            bit_length=16,
+                            signed=True,
+                            scale=SINE_SCALE,
+                        ),
+                        library.BinaryField(
+                            name="temperature",
+                            start_bit=32,
+                            bit_length=12,
+                            signed=True,
+                            scale=TEMPERATURE_SCALE,
+                            offset=TEMPERATURE_OFFSET,
+                        ),
+                        library.BinaryField(name="state", start_bit=44, bit_length=4),
+                        library.BinaryField(
+                            name="speed",
+                            start_bit=55,
+                            bit_length=16,
+                            byte_order="big_endian",
+                        ),
+                    ],
+                ),
             ),
             library.MessageEntry(
                 name="slow",
-                identifier=library.CanIdentifier(
-                    id=can_frames.SLOW_ID & SLOW_MASK, extended=True, mask=SLOW_MASK
-                ),
-                length=8,
-                fields=[
-                    library.BinaryField(name="count", start_bit=0, bit_length=32),
-                    library.BinaryField(
-                        name="ratio", start_bit=32, bit_length=32, float=True
+                payload=library.BinaryPayload(
+                    identifier=library.CanIdentifier(
+                        id=can_frames.SLOW_ID & SLOW_MASK, extended=True, mask=SLOW_MASK
                     ),
-                ],
+                    length=8,
+                    fields=[
+                        library.BinaryField(name="count", start_bit=0, bit_length=32),
+                        library.BinaryField(
+                            name="ratio", start_bit=32, bit_length=32, float=True
+                        ),
+                    ],
+                ),
             ),
         ]
 

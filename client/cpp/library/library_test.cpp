@@ -39,9 +39,11 @@ Library create_can_library(const std::string &name) {
     MessageEntry status;
     status.key = x::uuid::create();
     status.name = "status";
-    status.identifier = CanIdentifier{.id = 0x123};
-    status.length = 8;
-    status.fields = {speed};
+    status.payload = BinaryPayload{
+        .length = 8,
+        .identifier = CanIdentifier{.id = 0x123},
+        .fields = {speed},
+    };
 
     return Library{.name = name, .entries = {state, status}};
 }
@@ -68,13 +70,14 @@ TEST(LibraryTests, testCreateAndRetrieve) {
 
     const auto &status = std::get<MessageEntry>(retrieved.entries[1]);
     ASSERT_EQ(status.name, "status");
-    ASSERT_TRUE(status.identifier.has_value());
-    const auto &id = std::get<CanIdentifier>(*status.identifier);
+    const auto &payload = std::get<BinaryPayload>(status.payload);
+    ASSERT_TRUE(payload.identifier.has_value());
+    const auto &id = std::get<CanIdentifier>(*payload.identifier);
     ASSERT_EQ(id.id, 0x123);
     ASSERT_FALSE(id.extended);
-    ASSERT_EQ(status.length, 8);
-    ASSERT_EQ(status.fields.size(), 1);
-    const auto &speed = std::get<BinaryField>(status.fields[0]);
+    ASSERT_EQ(payload.length, 8);
+    ASSERT_EQ(payload.fields.size(), 1);
+    const auto &speed = payload.fields[0];
     ASSERT_EQ(speed.name, "speed");
     ASSERT_EQ(speed.scale, 0.5);
     ASSERT_EQ(speed.units, "rpm");

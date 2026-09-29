@@ -79,9 +79,9 @@ inline synnax::library::BinaryField binary_field(
 }
 
 /// @returns a text field read from item position of a delimited line.
-inline synnax::library::DelimitedField
+inline synnax::library::DelimitedTextField
 delimited_field(const std::string &name, const std::uint32_t position) {
-    synnax::library::DelimitedField f;
+    synnax::library::DelimitedTextField f;
     f.key = x::uuid::create();
     f.name = name;
     f.position = position;
@@ -89,9 +89,9 @@ delimited_field(const std::string &name, const std::uint32_t position) {
 }
 
 /// @returns a text field read from the text after tag.
-inline synnax::library::TaggedField
+inline synnax::library::TaggedTextField
 tagged_field(const std::string &name, const std::string &tag) {
-    synnax::library::TaggedField f;
+    synnax::library::TaggedTextField f;
     f.key = x::uuid::create();
     f.name = name;
     f.tag = tag;
@@ -101,33 +101,68 @@ tagged_field(const std::string &name, const std::string &tag) {
 /// @returns a binary message with a new key.
 inline synnax::library::MessageEntry binary_message(
     const std::string &name,
-    std::vector<synnax::library::Field> fields,
+    std::vector<synnax::library::BinaryField> fields,
     std::optional<synnax::library::Identifier> identifier = std::nullopt
 ) {
     synnax::library::MessageEntry m;
     m.key = x::uuid::create();
     m.name = name;
-    m.fields = std::move(fields);
-    m.identifier = std::move(identifier);
+    m.payload = synnax::library::BinaryPayload{
+        .identifier = std::move(identifier),
+        .fields = std::move(fields),
+    };
     return m;
 }
 
-/// @returns a text message with a new key, split on delimiter.
+/// @returns a text message with a new key that matches lines starting with prefix,
+/// split on delimiter.
 inline synnax::library::MessageEntry text_message(
     const std::string &name,
-    std::vector<synnax::library::Field> fields,
-    std::optional<synnax::library::Identifier> identifier = std::nullopt,
+    std::vector<synnax::library::TextField> fields,
+    const std::string &prefix = "",
     const std::string &delimiter = ","
 ) {
-    auto m = binary_message(name, std::move(fields), std::move(identifier));
-    m.format = synnax::library::FORMAT_TEXT;
-    m.delimiter = delimiter;
+    synnax::library::MessageEntry m;
+    m.key = x::uuid::create();
+    m.name = name;
+    m.payload = synnax::library::TextPayload{
+        .delimiter = delimiter,
+        .prefix = prefix,
+        .fields = std::move(fields),
+    };
     return m;
 }
 
-/// @returns the key of the field.
-inline synnax::library::FieldKey key(const synnax::library::Field &field) {
-    return std::visit([](const auto &f) { return f.key; }, field);
+/// @returns the binary payload of the message.
+inline synnax::library::BinaryPayload &binary(synnax::library::MessageEntry &message) {
+    return std::get<synnax::library::BinaryPayload>(message.payload);
+}
+
+/// @returns the parts every field of the message shares, in order.
+inline std::vector<const synnax::library::BaseField *>
+field_bases(const synnax::library::MessageEntry &message) {
+    std::vector<const synnax::library::BaseField *> bases;
+    if (const auto *b = std::get_if<synnax::library::BinaryPayload>(&message.payload))
+        for (const auto &f: b->fields)
+            bases.push_back(&f);
+    else
+        for (const auto &f:
+             std::get<synnax::library::TextPayload>(message.payload).fields)
+            bases.push_back(
+                std::visit(
+                    [](const auto &v) -> const synnax::library::BaseField * {
+                        return &v;
+                    },
+                    f
+                )
+            );
+    return bases;
+}
+
+/// @returns the key of field i of the message.
+inline synnax::library::FieldKey
+field_key(const synnax::library::MessageEntry &message, const std::size_t i) {
+    return field_bases(message).at(i)->key;
 }
 
 /// @returns a library holding messages.
@@ -299,9 +334,9 @@ inline ReadConfig read_config(
         const auto index = static_cast<synnax::channel::Key>(100 + i);
         channels.push_back(index_channel(index));
         ::synnax::bus::ReadMessage rm{.message = messages[i].key, .index = index};
-        for (const auto &f: messages[i].fields) {
+        for (const auto *f: field_bases(messages[i])) {
             channels.push_back(data_channel(next, index));
-            rm.fields.push_back({.field = key(f), .channel = next++});
+            rm.fields.push_back({.field = f->key, .channel = next++});
         }
         cfg.messages.push_back(rm);
     }
@@ -333,7 +368,7 @@ inline WriteConfig write_config(
     ::synnax::bus::WriteMessage wm{.message = message.key};
     std::vector<synnax::channel::Channel> channels;
     for (const auto &[ch, field]: bindings) {
-        wm.fields.push_back({.field = key(message.fields[field]), .channel = ch});
+        wm.fields.push_back({.field = field_key(message, field), .channel = ch});
         channels.push_back(data_channel(ch, 0));
     }
     cfg.messages = {wm};

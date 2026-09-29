@@ -348,3 +348,51 @@ func (u Framing) Validate() error {
 	}
 	return nil
 }
+
+// StreamReadConfig carries the settings every byte stream read task shares.
+type StreamReadConfig struct {
+	ReadConfig
+	PollConfig
+	// Framing is how the task splits the received byte stream into frames.
+	Framing Framing `json:"framing" msgpack:"framing"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (s *StreamReadConfig) ApplyDefaults() {
+	if s.Framing.Variant == nil {
+		s.Framing.Variant = DelimiterFraming{}
+	}
+	s.PollConfig.ApplyDefaults()
+	s.Framing.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s StreamReadConfig) Validate() error {
+	v := validate.New("StreamReadConfig")
+	v.Exec(func() error { return validate.PathedError(s.Framing.Validate(), "framing") })
+	return v.Error()
+}
+
+// StreamWriteConfig carries the settings every byte stream write task shares.
+type StreamWriteConfig struct {
+	WriteConfig
+	// Framing is how the task frames each message it sends.
+	Framing Framing `json:"framing" msgpack:"framing"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (s *StreamWriteConfig) ApplyDefaults() {
+	if s.Framing.Variant == nil {
+		s.Framing.Variant = DelimiterFraming{}
+	}
+	s.Framing.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s StreamWriteConfig) Validate() error {
+	v := validate.New("StreamWriteConfig")
+	v.Exec(func() error { return validate.PathedError(s.Framing.Validate(), "framing") })
+	return v.Error()
+}

@@ -183,3 +183,29 @@ class WriteConfig(task.WriteConfig, library_.Reference):
 
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class StreamReadConfig(ReadConfig, PollConfig):
+    """Carries the settings every byte stream read task shares.
+
+    Attributes:
+        framing: Is how the task splits the received byte stream into frames.
+    """
+
+    framing: Framing = Field(default_factory=lambda: DelimiterFraming(type="delimiter"))
+
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
+class StreamWriteConfig(WriteConfig):
+    """Carries the settings every byte stream write task shares.
+
+    Attributes:
+        framing: Is how the task frames each message it sends.
+    """
+
+    framing: Framing = Field(default_factory=lambda: DelimiterFraming(type="delimiter"))
+
+    def __hash__(self) -> int:
+        return hash(self.key)

@@ -9,20 +9,11 @@
 
 import "@/feature/bus/Form.css";
 
-import {
-  bus,
-  DisconnectedError,
-  type library,
-  type Synnax,
-  task,
-} from "@synnaxlabs/client";
+import { bus, type library, type task } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { type Icon } from "@synnaxlabs/lyra/icon";
-import { Status } from "@synnaxlabs/lyra/status";
-import { Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { uuid } from "@synnaxlabs/x";
-import { type FC, useCallback } from "react";
+import { type FC } from "react";
 import { z } from "zod";
 
 import { configureRead, configureWrite } from "@/feature/bus/configure";
@@ -31,7 +22,6 @@ import { Messages } from "@/feature/bus/Messages";
 import { SelectLibrary } from "@/feature/bus/SelectLibrary";
 import { type Accepts, validateRead, validateWrite } from "@/feature/bus/types";
 import { type Command } from "@/platform/command";
-import { Panel } from "@/platform/panel";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
@@ -74,57 +64,16 @@ export interface CreateTasksParams<
   writeChecks?: Check<z.infer<W>>[];
 }
 
-/**
- * @returns the library a new task starts from. The Core rejects a task config that
- * names no library, so a draft needs one before it exists.
- * @throws {Error} if no library exists.
- */
-const retrieveDefaultLibrary = async (
-  client: Synnax,
-  name: string,
-): Promise<library.Key> => {
-  const [first] = await client.libraries.retrieve({ limit: 1 });
-  if (first == null) throw new Error(`Create a library before creating a ${name} task`);
-  return first.key;
-};
-
-const createUseCreate =
-  (getInitialValues: Task.GetInitialValues, name: string): Task.UseCreate =>
-  ({ tabKey } = {}) => {
-    const client = PSynnax.use();
-    const openTab = Panel.useOpenTab();
-    const handleError = Status.useErrorHandler();
-    return useCallback(
-      ({ deviceKey, rackKey, config }: Task.CreateParams = {}) =>
-        handleError(async () => {
-          if (client == null) throw new DisconnectedError();
-          const created = await Task.create({
-            client,
-            getInitialValues,
-            deviceKey,
-            rackKey,
-            config: config ?? { library: await retrieveDefaultLibrary(client, name) },
-          });
-          openTab({
-            variant: "resource",
-            resource: task.ontologyID(created.key),
-            key: tabKey,
-          });
-        }, `Failed to create ${name} task`),
-      [client, openTab, handleError, tabKey],
-    );
-  };
-
 const createReadMessage = (entry: library.MessageEntry): bus.ReadMessage =>
   bus.readMessageZ.parse({
     message: entry.key,
-    fields: entry.fields.map((f) => ({ field: f.key })),
+    fields: entry.payload.fields.map((f) => ({ field: f.key })),
   });
 
 const createWriteMessage = (entry: library.MessageEntry): bus.WriteMessage =>
   bus.writeMessageZ.parse({
     message: entry.key,
-    fields: entry.fields.map((f) => ({ field: f.key })),
+    fields: entry.payload.fields.map((f) => ({ field: f.key })),
   });
 
 const readDetails = Component.renderProp(ReadDetails);
@@ -207,7 +156,7 @@ export const createTasks = <
     deviceKey,
     config,
   }) => {
-    const cfg = readConfigZ.parse(config ?? { library: uuid.ZERO });
+    const cfg = readConfigZ.parse(config ?? {});
     return {
       name: `${name} read task`,
       type: READ_TYPE,
@@ -219,7 +168,7 @@ export const createTasks = <
     deviceKey,
     config,
   }) => {
-    const cfg = writeConfigZ.parse(config ?? { library: uuid.ZERO });
+    const cfg = writeConfigZ.parse(config ?? {});
     return {
       name: `${name} write task`,
       type: WRITE_TYPE,
@@ -247,8 +196,12 @@ export const createTasks = <
     onConfigure: configureWrite,
   });
 
-  const useCreateRead = createUseCreate(getReadInitialValues, `${name} read`);
-  const useCreateWrite = createUseCreate(getWriteInitialValues, `${name} write`);
+  const useCreateRead = Task.createUseCreate({
+    getInitialValues: getReadInitialValues,
+  });
+  const useCreateWrite = Task.createUseCreate({
+    getInitialValues: getWriteInitialValues,
+  });
 
   const COMMANDS: Command.Command[] = [
     Task.createCommand({

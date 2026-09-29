@@ -24,14 +24,10 @@ export const propertiesZ = z.object({
 });
 export interface Properties extends z.infer<typeof propertiesZ> {}
 
-export const readConfigZ = bus.readConfigZ.extend(bus.pollConfigZ.shape).extend({
-  framing: bus.framingZ.prefault({ type: "delimiter" }),
-});
+export const readConfigZ = bus.streamReadConfigZ;
 export interface ReadConfig extends z.infer<typeof readConfigZ> {}
 
-export const writeConfigZ = bus.writeConfigZ.extend({
-  framing: bus.framingZ.prefault({ type: "delimiter" }),
-});
+export const writeConfigZ = bus.streamWriteConfigZ;
 export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 
 export const scanConfigZ = task.scanConfigZ;

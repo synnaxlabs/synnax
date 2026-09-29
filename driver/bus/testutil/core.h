@@ -19,6 +19,7 @@
 #include "x/cpp/test/test.h"
 #include "x/cpp/uuid/uuid.h"
 
+#include "driver/bus/testutil/testutil.h"
 #include "driver/task/task.h"
 
 /// @brief fixtures for bus task tests against a live Core.
@@ -80,20 +81,14 @@ struct Core {
                 true
             ));
             ::synnax::bus::ReadMessage rm{.message = m->key, .index = idx.key};
-            for (const auto &f: m->fields) {
-                const auto &base = std::visit(
-                    [](const auto &v) -> const synnax::library::BaseField & {
-                        return v;
-                    },
-                    f
-                );
+            for (const auto *f: field_bases(*m)) {
                 const auto ch = ASSERT_NIL_P(this->client->channels.create(
-                    make_unique_channel_name(m->name + "_" + base.name),
+                    make_unique_channel_name(m->name + "_" + f->name),
                     x::telem::FLOAT64_T,
                     idx.key,
                     false
                 ));
-                rm.fields.push_back({.field = base.key, .channel = ch.key});
+                rm.fields.push_back({.field = f->key, .channel = ch.key});
             }
             cfg.messages.push_back(rm);
         }

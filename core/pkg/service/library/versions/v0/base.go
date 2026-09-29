@@ -9,7 +9,11 @@
 
 package v0
 
-import "github.com/synnaxlabs/x/errors"
+import (
+	"slices"
+
+	"github.com/synnaxlabs/x/errors"
+)
 
 // Base returns the parts every entry kind shares, or the zero BaseEntry when e has no
 // kind.
@@ -38,35 +42,77 @@ func (e *Entry) SetBase(b BaseEntry) {
 	}
 }
 
-// Base returns the parts every field encoding shares, or the zero BaseField when f has
-// no encoding.
-func (f Field) Base() BaseField {
+// Base returns the parts every text field encoding shares, or the zero BaseField when f
+// has no encoding.
+func (f TextField) Base() BaseField {
 	switch v := f.Variant.(type) {
-	case BinaryField:
+	case DelimitedTextField:
 		return v.BaseField
-	case DelimitedField:
-		return v.BaseField
-	case TaggedField:
+	case TaggedTextField:
 		return v.BaseField
 	default:
 		return BaseField{}
 	}
 }
 
-// SetBase replaces the parts every field encoding shares. It panics when f has no
+// SetBase replaces the parts every text field encoding shares. It panics when f has no
 // encoding.
-func (f *Field) SetBase(b BaseField) {
+func (f *TextField) SetBase(b BaseField) {
 	switch v := f.Variant.(type) {
-	case BinaryField:
+	case DelimitedTextField:
 		v.BaseField = b
 		f.Variant = v
-	case DelimitedField:
-		v.BaseField = b
-		f.Variant = v
-	case TaggedField:
+	case TaggedTextField:
 		v.BaseField = b
 		f.Variant = v
 	default:
-		panic(errors.Newf("field has no encoding: %T", v))
+		panic(errors.Newf("text field has no encoding: %T", v))
+	}
+}
+
+// FieldBases returns the parts every field of p shares, in field order, with a zero
+// BaseField for a text field with no encoding. It returns nil when p has no format.
+func (p Payload) FieldBases() []BaseField {
+	switch v := p.Variant.(type) {
+	case BinaryPayload:
+		bases := make([]BaseField, len(v.Fields))
+		for i, f := range v.Fields {
+			bases[i] = f.BaseField
+		}
+		return bases
+	case TextPayload:
+		bases := make([]BaseField, len(v.Fields))
+		for i, f := range v.Fields {
+			bases[i] = f.Base()
+		}
+		return bases
+	default:
+		return nil
+	}
+}
+
+// UpdateFieldBases calls update with the shared parts of each field of p, in field
+// order, and keeps what update leaves. It skips text fields with no encoding. It copies
+// the fields first, so values that shared them with p see no change. It does nothing
+// when p has no format.
+func (p *Payload) UpdateFieldBases(update func(*BaseField)) {
+	switch v := p.Variant.(type) {
+	case BinaryPayload:
+		v.Fields = slices.Clone(v.Fields)
+		for i := range v.Fields {
+			update(&v.Fields[i].BaseField)
+		}
+		p.Variant = v
+	case TextPayload:
+		v.Fields = slices.Clone(v.Fields)
+		for i := range v.Fields {
+			if v.Fields[i].Variant == nil {
+				continue
+			}
+			b := v.Fields[i].Base()
+			update(&b)
+			v.Fields[i].SetBase(b)
+		}
+		p.Variant = v
 	}
 }

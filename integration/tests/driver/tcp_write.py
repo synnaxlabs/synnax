@@ -34,14 +34,15 @@ class TCPWrite(BusCase):
         return [
             library.MessageEntry(
                 name="setpoints",
-                format="text",
-                delimiter=";",
-                fields=[
-                    library.TaggedField(name="voltage", tag="VOLT "),
-                    library.TaggedField(
-                        name="current", tag="CURR ", scale=CURRENT_SCALE
-                    ),
-                ],
+                payload=library.TextPayload(
+                    delimiter=";",
+                    fields=[
+                        library.TaggedTextField(name="voltage", tag="VOLT "),
+                        library.TaggedTextField(
+                            name="current", tag="CURR ", scale=CURRENT_SCALE
+                        ),
+                    ],
+                ),
             )
         ]
 

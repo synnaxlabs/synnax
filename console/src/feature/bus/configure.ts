@@ -98,9 +98,11 @@ const openContext = async (
   config: bus.ReadConfig | bus.WriteConfig,
   keys: channel.Key[],
 ): Promise<Context> => {
+  const { library: key } = config;
+  if (key == null) throw new Error("Select a library before configuring the task");
   const [dev, lib, existing] = await Promise.all([
     client.devices.retrieve({ key: config.device }),
-    client.libraries.retrieve({ key: config.library }),
+    client.libraries.retrieve({ key }),
     retrieveExisting(client, keys),
   ]);
   return { device: dev.name, rack: dev.rack, messages: messagesOf(lib), existing };
@@ -117,7 +119,7 @@ const entryOf = (ctx: Context, m: Message): library.MessageEntry => {
  * @throws {Error} if the message has no such field.
  */
 const fieldName = (entry: library.MessageEntry, key: library.FieldKey): string => {
-  const field = entry.fields.find((f) => f.key === key);
+  const field = entry.payload.fields.find((f) => f.key === key);
   if (field == null) throw new Error(`Field ${key} is not in message ${entry.name}`);
   return field.name;
 };

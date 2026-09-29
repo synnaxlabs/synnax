@@ -75,7 +75,7 @@ protected:
         cfg.library = lib.key;
         cfg.messages = {{
             .message = m.key,
-            .fields = {{.field = key(m.fields[0]), .channel = cmd.key}},
+            .fields = {{.field = field_key(m, 0), .channel = cmd.key}},
         }};
         return cfg;
     }
@@ -88,7 +88,7 @@ can_message(const std::uint32_t id, const std::uint16_t length = 1) {
         {binary_field("v", 0)},
         synnax::library::CanIdentifier{.id = id}
     );
-    m.length = length;
+    binary(m).length = length;
     return m;
 }
 }
@@ -151,7 +151,7 @@ TEST_F(CANFactory, RejectsAWriteTaskOnAListenOnlyDevice) {
 
 TEST_F(CANFactory, RejectsAnFDMessageOnAClassicBus) {
     auto m = can_message(0x20, 12);
-    std::get<synnax::library::CanIdentifier>(*m.identifier).fd = true;
+    std::get<synnax::library::CanIdentifier>(*binary(m).identifier).fd = true;
     const auto lib = core.create_library({m});
     const auto cfg = this->write_config(
         lib,
@@ -168,7 +168,7 @@ TEST_F(CANFactory, RejectsALengthWithNoDataLengthCode) {
     auto p = props();
     p.fd = true;
     auto m = can_message(0x20, 9);
-    std::get<synnax::library::CanIdentifier>(*m.identifier).fd = true;
+    std::get<synnax::library::CanIdentifier>(*binary(m).identifier).fd = true;
     const auto lib = core.create_library({m});
     const auto cfg = this->write_config(lib, core.create_device(MAKE, p.to_json()));
     EXPECT_EQ(this->configure(WRITE_TASK_TYPE, cfg.to_json()), nullptr);

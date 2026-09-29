@@ -32,6 +32,7 @@ export const {
   icon: <Icon.Hardware />,
   readConfigZ: can.readConfigZ,
   writeConfigZ: can.writeConfigZ,
-  accepts: ({ identifier }) => identifier?.type === "can",
+  accepts: ({ payload }) =>
+    payload.format === "binary" && payload.identifier?.type === "can",
   SelectDevice: Select,
 });
