@@ -108,7 +108,7 @@ pressure, so you give it the alias `tank_pressure`. In a different test, `ai_0` 
 temperature, so you give it the alias `temperature`.
 
 When you search for a channel in a range, you can use its name or its alias. To set an
-alias, see [channel aliases](/reference/channels/manage#channel-aliases).
+alias, see [channel aliases](/reference/ranges/aliases).
 
 <Divider.Divider x />
 
@@ -123,9 +123,16 @@ physical ports and lines of the task. You can also snapshot a
 [schematic](/reference/visualize/schematics#snapshotting-a-schematic) to keep how it
 looked during a test.
 
+To snapshot a task, make the range the
+[active range](/reference/ranges/find#active-range). Then right-click the task in the
+tasks toolbar and select `Snapshot to` followed by the range name. The snapshots section
+of the [range overview](/reference/ranges/find#range-overview) lists the snapshots of
+the range. Click a snapshot to open it.
+
 <Divider.Divider x />
 
 ## Next steps
 
-- [Manage ranges](/reference/ranges/manage) in the Console or in code.
+- [Create ranges](/reference/ranges/create) in the Console or in code.
+- [Find ranges](/reference/ranges/find) and open their range overview.
 - [Export the data](/reference/ranges/export) of a range as CSV.

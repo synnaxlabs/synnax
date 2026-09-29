@@ -1,0 +1,248 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Install a standalone Driver"
+description: "Install the Synnax Driver on a separate machine from the Synnax Core."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Note } from "@synnaxlabs/lyra/note";
+import { Driver } from "@/components";
+import Step from "@/components/text/Step.astro";
+import DriverDownloadURL from "@/components/driver/DownloadURL.astro";
+import DriverMoveCommand from "@/components/driver/MoveCommand.astro";
+import DriverVersionOutput from "@/components/driver/VersionOutput.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Most deployments use the [embedded Synnax Driver](/reference/hardware), which runs
+inside the Synnax Core. This page covers the standalone Driver: a separate binary that
+connects hardware on other machines to one Core.
+
+<Divider.Divider x />
+
+## <Step step="1" level="h2">Installation</Step>
+
+To get started, you'll need to install the Synnax Driver. Choose your operating system
+below to see the installation instructions:
+
+<Driver.Tabs exclude={["docker"]} client:load>
+<Fragment slot="ni-linux-rt">
+
+### Prerequisites
+
+#### Supported hardware and software
+
+The Synnax Driver supports the cRIO-904x and cRIO-905x families of controllers running
+NI Linux Real-Time 2024 Q1 and later.
+
+#### NI-DAQmx programming mode
+
+Data acquisition hardware connected to the cRIO must be configured to use the NI-DAQmx
+real-time programming mode.
+
+To change the programming mode, use NI Measurement & Automation Explorer (NI MAX). For
+detailed instructions, see the
+[NI CompactRIO User Manual](https://www.ni.com/docs/en-US/bundle/ni-compactrio/page/programming-modes.html)
+and the
+[NI-DAQmx on CompactRIO](https://www.ni.com/en/shop/compactrio/what-are-compactrio-controllers/what-is-compactrio-with-ni-daqmx-.html)
+guide.
+
+#### SSH access
+
+The easiest way to install the Driver is to use an SSH connection to the cRIO. Once the
+Driver is installed, SSH can be disabled, although we recommend keeping it enabled to
+install updates and manage the Driver.
+
+#### Network available Synnax Core
+
+The Driver must connect to a Core on the same network. Make sure that a
+[Core is running](/reference/enterprise) and that you have its connection parameters.
+
+### Install and run the Driver
+
+Installing the Driver is as simple as opening an SSH connection to the cRIO and running
+the following command:
+
+<DriverDownloadURL os="ni-linux-rt" />
+
+This will download, install, and start the Driver. Once the Driver is installed, we'll
+need to configure it to connect to your Core.
+
+</Fragment>
+<Fragment slot="Linux">
+
+<Note.Note variant="info">
+  The Driver requires Ubuntu 24.04 LTS or later (glibc 2.39+). Ubuntu 22.04 reaches end
+  of standard support in April 2027.
+</Note.Note>
+
+### Install and run the Driver
+
+To install the Synnax Driver on a Linux distribution, run the following command to
+download the latest binary:
+
+<DriverDownloadURL os="linux" />
+
+We recommend you move the binary into a directory that is in your `PATH`. Most of our
+users use `/usr/local/bin`:
+
+<DriverMoveCommand os="linux" />
+
+Next, give execution permissions to the binary:
+
+```bash
+chmod +x /usr/local/bin/synnax-driver
+```
+
+You may need to use `sudo` to run the above command if you do not have the necessary
+permissions.
+
+If running `synnax-driver` returns "command not found", make sure the directory you
+chose is on your `PATH`.
+
+Then install and start the Driver as a systemd service:
+
+```bash
+sudo synnax-driver install
+sudo synnax-driver start
+```
+
+This creates a `synnax` system user and registers the `synnax-driver` service.
+
+To verify that the installation was successful, run:
+
+```bash
+synnax-driver version
+```
+
+You should see the following output:
+
+<DriverVersionOutput />
+
+</Fragment>
+<Fragment slot="Windows">
+
+### Install and run the Driver
+
+Download the latest Synnax Driver executable for Windows:
+
+<DriverDownloadURL os="windows" />
+
+After downloading, move the `synnax-driver.exe` file to a location on your system, such
+as `C:\Program Files\Synnax\`.
+
+To make the Driver accessible from any command prompt, add the directory to your
+system's `PATH`:
+
+1. Open the Start menu and search for "Environment Variables"
+2. Click "Edit the system environment variables"
+3. Click the "Environment Variables" button
+4. Under "System variables", find and select "Path", then click "Edit"
+5. Click "New" and add the directory containing `synnax-driver.exe`
+6. Click "OK" to save
+
+To verify that the installation was successful, open a new PowerShell terminal and run:
+
+```powershell
+synnax-driver version
+```
+
+The Driver runs in the foreground on Windows. Start it with:
+
+```powershell
+synnax-driver start --standalone
+```
+
+</Fragment>
+<Fragment slot="macOS">
+
+### Install and run the Driver
+
+To install the Synnax Driver on macOS, run the following command to download the latest
+binary:
+
+<DriverDownloadURL os="macos" />
+
+We recommend you move the binary into a directory that is in your `PATH`. Most of our
+users use `/usr/local/bin`:
+
+<DriverMoveCommand os="macos" />
+
+Next, give execution permissions to the binary:
+
+```bash
+chmod +x /usr/local/bin/synnax-driver
+```
+
+You may need to use `sudo` to run the above command if you do not have the necessary
+permissions.
+
+If running `synnax-driver` returns "command not found", make sure the directory you
+chose is on your `PATH`.
+
+To verify that the installation was successful, run:
+
+```bash
+synnax-driver version
+```
+
+You should see the following output:
+
+<DriverVersionOutput />
+
+The Driver runs in the foreground on macOS. Start it with:
+
+```bash
+synnax-driver start --standalone
+```
+
+</Fragment>
+</Driver.Tabs>
+
+<Divider.Divider x />
+
+## <Step step="2" level="h2">Connect to the Synnax Core</Step>
+
+To connect to a Core, you'll need to know the Core's IP address, port, username, and
+password. Then run the `synnax-driver login` command, with `sudo` on Linux:
+
+```bash
+synnax-driver login
+```
+
+This will prompt you to enter the Core's connection parameters. Once you've entered the
+parameters, the Driver will automatically connect to the Core. Here's an example of the
+output:
+
+```
+synnax-driver login
+host (default: localhost): 10.0.0.45
+port (default: 9090): 9090
+username: synnax
+password:
+I20250318 04:57:06.681439 25261 login.cpp:47] connecting to Synnax at 10.0.0.45:9090
+I20250318 04:57:06.792840 25261 login.cpp:53] successfully logged in!
+I20250318 04:57:06.793918 25261 login.cpp:59] credentials saved successfully
+```
+
+<Divider.Divider x />
+
+## <Step step="3" level="h2">Check the Driver status</Step>
+
+As a final step, you can check the Driver's status by running the `synnax-driver status`
+command:
+
+```bash
+synnax-driver status
+```
+
+This will print the Driver's status to the console. Here's an example of the output:
+
+```
+I20250318 05:07:04.312907  5935 daemon_nilinuxrt.cpp:490] Checking service status
+I20250318 05:07:04.346398  5937 version.cpp:21] Synnax Driver v0.39.0 (2025-03-16 00:08:18)
+Synnax Driver is running (PID: 28191)
+```
+
+On Windows and macOS the Driver runs in the foreground, so its terminal output is its
+status.

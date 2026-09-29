@@ -1,0 +1,98 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Read and write range data"
+description: "Read and write the data of a range without exact timestamps."
+clients: ["console", "python", "typescript"]
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Note } from "@synnaxlabs/lyra/note";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+A range knows its start and end time, so you can read and write its data without exact
+time boundaries.
+
+<Divider.Divider x />
+
+## Read from a range
+
+<Client.Tabs client:load exclude={["cpp"]}>
+
+  <Fragment slot="console">
+
+Right-click a range in the ranges toolbar and select `Add to new plot`. When a line plot
+is open, select `Add to active plot` to add the range to it. See
+[line plots](/reference/visualize/line-plots) for more.
+
+  </Fragment>
+
+  <Fragment slot="python">
+
+```python
+my_range = client.ranges.retrieve("My Interesting Test")
+
+# Read data from a single channel
+data = my_range.my_precise_tc.read()
+
+# Read data from multiple channels
+frame = my_range.read(["my_precise_tc", "my_precise_pt"])
+
+# Python allows direct use of channel names as properties
+celsius = my_range.my_precise_tc - 273.15
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const myRange = await client.ranges.retrieve("My Interesting Test");
+
+// Read data from a single channel
+const data = await myRange.read("my_precise_tc");
+
+// Read data from multiple channels
+const frame = await myRange.read(["my_precise_tc", "my_precise_pt"]);
+
+// Convert from Kelvin to Celsius
+const celsius = data.map((v) => v - 273.15);
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Write to a range
+
+Writing to a range removes the burden of needing to correctly align the timestamps for
+different channels. The write will assume that the timestamp of the first sample is the
+start of the range.
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+```python
+my_range = client.ranges.retrieve("My Interesting Test")
+
+temperatures = [55, 55.1, 55.7, 57.2, 58.1, 58.9, 59.1, 59.2, 59.3]
+pressures = [100, 100.1, 100.7, 102.2, 103.1, 103.9, 104.1, 104.2, 104.3]
+
+my_range.write({
+    "my_precise_tc": temperatures,
+    "my_precise_pt": pressures,
+})
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+<Note.Note variant="info">Writing to ranges is not supported in TypeScript.</Note.Note>
+
+  </Fragment>
+</Client.Tabs>

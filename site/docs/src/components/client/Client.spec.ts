@@ -14,7 +14,7 @@ import { getFromURL, getStored, setInURL } from "@/components/client/Client";
 describe("Client", () => {
   beforeEach(() => {
     localStorage.clear();
-    window.history.replaceState({}, "", "/reference/channels/manage");
+    window.history.replaceState({}, "", "/reference/channels/create");
   });
 
   afterEach(() => vi.restoreAllMocks());

@@ -1,0 +1,208 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Create ranges"
+description: "Create ranges and child ranges in the Console or in code."
+clients: ["console", "python", "typescript"]
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Fragment } from "react";
+import { Edition } from "@/components";
+import { Client } from "@/components/client";
+import { Video, Image } from "@/components/media/Media";
+import Diagram from "@/components/diagram/Diagram.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+<Diagram preview style="padding: 1rem">
+  <Image client:only="react" id="client/ranges/preview" />
+</Diagram>
+
+Create a [range](/reference/ranges) to mark a test, a run, or an event in your data.
+Divide a range into smaller intervals with child ranges.
+
+<Divider.Divider x />
+
+## Create a range
+
+<Client.Tabs client:load exclude={["cpp"]}>
+
+  <Fragment slot="console">
+
+{/* prettier-ignore-start */}
+
+To open the create dialog, do one of these steps:
+
+- Click create (<Icon.Add />) in the ranges toolbar.
+- Run the `Create range` command from the
+  [search and command palette](/reference/get-started/ui-overview#search-and-command-palette).
+- Select a region of a [line plot](/reference/visualize/line-plots#select), right-click
+  it, and select `Create range from selection`.
+
+{/* prettier-ignore-end */}
+
+Enter a name. A new range starts now and has no end, so it is in progress. Use the
+timeline to change the start or end time. You can also set a parent range and labels.
+
+Click `Save to Core` to store the range in Synnax. Click `Save locally` to keep the
+range only in this Console. The ranges toolbar marks a local range with an `L`. To store
+it later, right-click it in the ranges toolbar and select `Save to Core`.
+
+<Video client:only="react" id="client/ranges/create" />
+
+  </Fragment>
+
+  <Fragment slot="python">
+
+To create a range, use the `client.ranges.create` method:
+
+```python
+import synnax as sy
+
+# Create a range with a specific time interval
+start = sy.TimeStamp("2023-02-12 12:30:00")
+end = sy.TimeStamp("2023-02-12 14:30:00")
+
+my_range = client.ranges.create(
+    name="My Range",
+    time_range=sy.TimeRange(start=start, end=end),
+    retrieve_if_name_exists=True,  # Return the existing range instead of a duplicate
+)
+
+# Or use the convenience span_range method
+start = sy.TimeStamp.now()
+my_range = client.ranges.create(
+    name="My Range",
+    time_range=start.span_range(sy.TimeSpan.HOUR * 2),
+)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+To create a range, use the `client.ranges.create` method:
+
+```typescript
+import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/client";
+
+// Create a range with a specific time interval
+const start = new TimeStamp("2023-02-12 12:30:00");
+const end = new TimeStamp("2023-02-12 14:30:00");
+
+const range = await client.ranges.create({
+  name: "My Range",
+  timeRange: new TimeRange(start, end),
+  // No retrieveIfNameExists option in TypeScript
+});
+
+// Or use the convenience span method
+const start = TimeStamp.now();
+const range = await client.ranges.create({
+  name: "My Range",
+  timeRange: start.span(TimeSpan.hours(2)),
+});
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Create child ranges
+
+[Child ranges](/reference/ranges#child-ranges) divide a range into smaller intervals.
+
+<Client.Tabs client:load exclude={["cpp"]}>
+
+  <Fragment slot="console">
+
+{/* prettier-ignore-start */}
+
+Set the parent range in the create dialog. You can also right-click a range in the
+ranges toolbar or the range explorer and select `Create child range`, or click create
+(<Icon.Add />) in the child ranges section of the [range overview](/reference/ranges/find#range-overview).
+
+{/* prettier-ignore-end */}
+
+<Video client:only="react" id="client/ranges/create-child" />
+
+  </Fragment>
+
+  <Fragment slot="python">
+
+The most convenient way is the `create_child_range` shorthand on a parent `Range`:
+
+```python
+child_range = parent_range.create_child_range(
+    name="My Child Range",
+    time_range=sy.TimeRange(start=start, end=end),
+)
+```
+
+You can also pass the parent `Range` directly to `client.ranges.create` via the `parent`
+keyword. This form works for one or many children:
+
+```python
+child_range = client.ranges.create(
+    name="My Child Range",
+    time_range=sy.TimeRange(start=start, end=end),
+    parent=parent_range,
+)
+```
+
+To create many children in one call, set `parent` on each `Range`:
+
+```python
+client.ranges.create([
+    sy.Range(name="Child A", time_range=tr_a, parent=parent_range),
+    sy.Range(name="Child B", time_range=tr_b, parent=parent_range),
+])
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+Pass the parent `Range` directly on the child being created. This form works for one or
+many children:
+
+```typescript
+const childRange = await client.ranges.create({
+  name: "My Child Range",
+  timeRange: new TimeRange(start, end),
+  parent: parentRange,
+});
+```
+
+Or set `parent` on each range when batching:
+
+```typescript
+await client.ranges.create([
+  { name: "Child A", timeRange: trA, parent: parentRange },
+  { name: "Child B", timeRange: trB, parent: parentRange },
+]);
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Range parameters
+
+<Edition.Enterprise>
+
+The client libraries accept these parameters when they create or update a range.
+
+| Parameter                                                 | Type                                                  | Required | Default                                        | Description                                                                                                     |
+| --------------------------------------------------------- | ----------------------------------------------------- | -------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `name`                                                    | string                                                | Yes      | -                                              | Human-readable name for the range                                                                               |
+| <Client.Var client:load py="time_range" ts="timeRange" /> | [`TimeRange`](/reference/client/time-types#timerange) | Yes      | -                                              | Time interval spanned by the range (start must be ≤ end)                                                        |
+| `color`                                                   | string                                                | No       | `""`                                           | Hex color code for identifying the range in visualizations (e.g., `"#FF0000"`)                                  |
+| `key`                                                     | `UUID`                                                | No       | Auto                                           | Unique identifier (automatically generated by Synnax if not provided)                                           |
+| `parent`                                                  | `Range`                                               | No       | <Client.Var client:load py="None" ts="null" /> | Optional parent range. Pass the parent `Range` itself.                                                          |
+| `retrieve_if_name_exists`                                 | boolean                                               | No       | `False`                                        | If `True`, retrieves existing range with same name and time range instead of creating a duplicate. Python only. |
+
+</Edition.Enterprise>

@@ -20,9 +20,9 @@ const NODES: PageNavNode[] = [
     children: [
       { key: "/reference/channels", href: "/reference/channels", name: "Channels" },
       {
-        key: "/reference/channels/manage",
-        href: "/reference/channels/manage",
-        name: "Manage channels",
+        key: "/reference/channels/create",
+        href: "/reference/channels/create",
+        name: "Create channels",
       },
     ],
   },
@@ -56,14 +56,14 @@ const NODES: PageNavNode[] = [
 describe("tree", () => {
   describe("neighbors", () => {
     it("should link across section boundaries in depth-first order", () => {
-      const { prev, next } = neighbors(NODES, "/reference/channels/manage");
+      const { prev, next } = neighbors(NODES, "/reference/channels/create");
       expect(prev?.href).toBe("/reference/channels");
       expect(next?.href).toBe("/reference/enterprise");
     });
 
     it("should skip nodes that have no page", () => {
       const { prev, next } = neighbors(NODES, "/reference/enterprise");
-      expect(prev?.href).toBe("/reference/channels/manage");
+      expect(prev?.href).toBe("/reference/channels/create");
       expect(next?.href).toBe("/reference/enterprise/cli");
     });
 
@@ -81,7 +81,7 @@ describe("tree", () => {
 
     it("should ignore a trailing slash on the path", () => {
       expect(neighbors(NODES, "/reference/channels/").next?.href).toBe(
-        "/reference/channels/manage",
+        "/reference/channels/create",
       );
     });
 
@@ -92,7 +92,7 @@ describe("tree", () => {
 
   describe("editionOf", () => {
     it("should return undefined for a page that applies to every edition", () => {
-      expect(editionOf(NODES, "/reference/channels/manage")).toBeUndefined();
+      expect(editionOf(NODES, "/reference/channels/create")).toBeUndefined();
     });
 
     it("should inherit the edition of the nearest ancestor", () => {

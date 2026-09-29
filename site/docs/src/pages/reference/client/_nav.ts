@@ -36,6 +36,11 @@ export const CLIENT_NAV: PageNavNode = {
       name: "Time types",
     },
     {
+      key: "/reference/client/stream-data",
+      href: "/reference/client/stream-data",
+      name: "Streaming data",
+    },
+    {
       key: "/reference/client/read-data",
       href: "/reference/client/read-data",
       name: "Reading data",

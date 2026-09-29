@@ -41,11 +41,27 @@ export const GET_STARTED_NAV: PageNavNode = {
       name: "UI overview",
     },
     {
-      key: "/reference/get-started/manage-desktop",
-      href: "/reference/get-started/manage-desktop",
-      name: "Manage Synnax Desktop",
+      key: "desktop",
+      name: "Synnax Desktop",
       flag: "desktop",
       edition: "desktop",
+      children: [
+        {
+          key: "/reference/get-started/desktop/updates",
+          href: "/reference/get-started/desktop/updates",
+          name: "Updates",
+        },
+        {
+          key: "/reference/get-started/desktop/data",
+          href: "/reference/get-started/desktop/data",
+          name: "Data",
+        },
+        {
+          key: "/reference/get-started/desktop/troubleshooting",
+          href: "/reference/get-started/desktop/troubleshooting",
+          name: "Troubleshooting",
+        },
+      ],
     },
   ],
 };

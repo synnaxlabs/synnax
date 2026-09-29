@@ -1,0 +1,32 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Update Synnax Desktop"
+description: "Install new versions of Synnax Desktop."
+flag: "desktop"
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Synnax Desktop checks for updates while it runs. When a new version is available, a
+notification and the top bar show "Update available". To install the update:
+
+1. Select **Update** in the notification, or select **Update available** in the top bar.
+   You can also run the "Show version info" command.
+2. Select **Update and restart**.
+
+Synnax Desktop downloads the update, stops Synnax, installs the update, and restarts.
+One update includes all parts of Synnax Desktop.
+
+<Divider.Divider x />
+
+## Metadata backup
+
+Before a new version of Synnax Desktop starts for the first time, it copies your
+metadata to a backup. Metadata includes your channels, ranges, projects, and
+visualizations. The backup does not include recorded data. Synnax Desktop keeps the
+three newest backups in the `backups` folder, next to the data folder.
+
+If the backup fails, Synnax does not start, and your data stays unchanged. The app has
+no restore command.

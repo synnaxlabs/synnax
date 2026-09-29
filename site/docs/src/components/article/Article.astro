@@ -33,9 +33,12 @@ const visibleTitleLength = String(title ?? "").replace(/`/g, "").length;
 ---
 
 <article transition:animate="none" data-edition={edition}>
-    {showBreadcrumb && url.split("/").length > 2 && (
-        <Breadcrumb url={url} title={title} />
-    )}
+    <div class="article-top">
+        {showBreadcrumb && url.split("/").length > 2 && (
+            <Breadcrumb url={url} title={title} />
+        )}
+        {edition && <Badge edition={edition} />}
+    </div>
     {published && (
         <div class="blog-meta">
             <span class="blog-published">{published}</span>
@@ -46,11 +49,6 @@ const visibleTitleLength = String(title ?? "").replace(/`/g, "").length;
             <InlineCode text={title} />
         </span>
     </Text.Text>
-    {edition && (
-        <div class="article-edition">
-            <Badge edition={edition} />
-        </div>
-    )}
     <h4 class="article-description">{description}</h4>
     {author && (
         <a
@@ -130,8 +128,13 @@ const visibleTitleLength = String(title ?? "").replace(/`/g, "").length;
             background: var(--pluto-primary-z);
         }
 
-        .article-edition {
-            margin-top: 1.5rem;
+        .article-top {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            > .edition-badge {
+                margin-left: auto;
+            }
         }
         .article-description {
             color: var(--pluto-gray-l9);

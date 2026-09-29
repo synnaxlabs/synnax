@@ -1,0 +1,133 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Edit and delete ranges"
+description: "Rename, change, and delete ranges in the Console or in code."
+clients: ["console", "python", "typescript"]
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Note } from "@synnaxlabs/lyra/note";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { Image } from "@/components/media/Media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Change the name, time range, or labels of a [range](/reference/ranges), or delete it.
+
+<Divider.Divider x />
+
+## Edit a range
+
+<Client.Tabs client:load exclude={["cpp"]}>
+
+  <Fragment slot="console">
+
+Right-click the range in the ranges toolbar or the range explorer and select `Rename`.
+To change the time range or labels, edit them in the
+[range overview](/reference/ranges/find#range-overview).
+
+  </Fragment>
+
+  <Fragment slot="python">
+
+Call `client.ranges.create` with the `key` of the range to update. You can change the
+name, time range, or color.
+
+```python
+import synnax as sy
+
+# First, retrieve the range you want to update
+my_range = client.ranges.retrieve(name="My Range")
+
+# Update the range by providing its key and new values
+updated_range = client.ranges.create(
+    key=my_range.key,  # Specify the key to update existing range
+    name="My Updated Range",  # New name
+    time_range=sy.TimeRange(
+        start=sy.TimeStamp("2023-02-12 13:00:00"),
+        end=sy.TimeStamp("2023-02-12 15:00:00"),
+    ),
+    color="#00FF00",  # New color
+)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+Call `client.ranges.create` with the `key` of the range to update. You can change the
+name, time range, or color.
+
+```typescript
+import { TimeRange, TimeStamp } from "@synnaxlabs/client";
+
+// First, retrieve the range you want to update
+const myRange = await client.ranges.retrieve("My Range");
+
+// Update the range by providing its key and new values
+const updatedRange = await client.ranges.create({
+  key: myRange.key, // Specify the key to update existing range
+  name: "My Updated Range", // New name
+  timeRange: new TimeRange(
+    new TimeStamp("2023-02-12 13:00:00"),
+    new TimeStamp("2023-02-12 15:00:00"),
+  ),
+  color: "#00FF00", // New color
+});
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Note.Note variant="warning" className="compact">
+  In code, an update replaces all the properties of the range. Include every property
+  that you want to keep. If no range has the `key`, Synnax creates a new range with that
+  key.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Delete a range
+
+Deleting a range also deletes its child ranges. It does not delete the data of the
+channels in the range.
+
+<Client.Tabs client:load exclude={["cpp"]}>
+
+  <Fragment slot="console">
+
+Right-click the range in the ranges toolbar or the range explorer and select `Delete`.
+
+<Image client:only="react" id="client/ranges/delete" />
+
+  </Fragment>
+
+  <Fragment slot="python">
+
+Delete a range by passing its key to the `client.ranges.delete` method.
+
+```python
+# Delete a single range
+client.ranges.delete(my_range.key)
+
+# Delete multiple ranges
+client.ranges.delete([my_range.key, my_other_range.key])
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+Delete a range by passing its key to the `client.ranges.delete` method.
+
+```typescript
+// Delete a single range
+await client.ranges.delete(myRange.key);
+
+// Delete multiple ranges
+await client.ranges.delete([myRange.key, myOtherRange.key]);
+```
+
+  </Fragment>
+</Client.Tabs>

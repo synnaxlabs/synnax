@@ -106,8 +106,8 @@ simply instantiate a new client with your connection parameters and credentials:
 
 ## Create a channel
 
-[Create a channel](/reference/channels/manage#create-channels) using the
-`channels.create` client method. First create an "index" channel to
+[Create a channel](/reference/channels/create) using the `channels.create` client
+method. First create an "index" channel to
 [store timestamps for your data channel](/reference/channels#index-channels).
 
 <Client.Tabs client:load exclude={["console", "cpp"]}>
@@ -259,8 +259,8 @@ const data = Array.from(series);
 
 <Note.Note variant="info" className="compact">
   Data can also be read in chunks with [iterators](/reference/client/advanced/iterators)
-  or live-streamed with [streamers](/reference/client/read-data#streaming-data). Data
-  can also be read from a specific time range with [ranges](/reference/ranges/manage).
+  or live-streamed with [streamers](/reference/client/stream-data). Data can also be
+  read from a specific time range with [ranges](/reference/ranges/data).
 </Note.Note>
 
 <Divider.Divider x />
@@ -271,10 +271,11 @@ Now that you've completed the quick start, here are some recommended next steps:
 
 - **[Authentication](/reference/client/authentication)** -> Learn about authentication
   methods, connection parameters, and troubleshooting.
-- **[Channels](/reference/channels/manage)** -> Master channel creation, retrieval,
-  renaming, and deletion.
-- **[Reading data](/reference/client/read-data)** -> Explore different ways to read data
-  from Synnax.
+- **[Channels](/reference/channels/create)** -> Create, find, rename, and delete
+  channels.
+- **[Streaming data](/reference/client/stream-data)** -> Get samples as they arrive.
+- **[Reading data](/reference/client/read-data)** -> Read data that Synnax already
+  stored.
 - **[Writing data](/reference/client/write-data)** -> Learn best practices for writing
   data to Synnax.
 - **[Examples](/reference/client/examples)** -> Browse full working examples for common

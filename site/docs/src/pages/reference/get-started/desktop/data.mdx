@@ -1,0 +1,37 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Synnax Desktop data"
+description: "Find the data folder of Synnax Desktop, or erase all data."
+flag: "desktop"
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Note } from "@synnaxlabs/lyra/note";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Synnax Desktop keeps its data in one folder for each user account on the computer:
+
+| Operating system | Data folder                                                 |
+| ---------------- | ----------------------------------------------------------- |
+| macOS            | `~/Library/Application Support/com.synnaxlabs.desktop/core` |
+| Windows          | `%LOCALAPPDATA%\com.synnaxlabs.desktop\core`                |
+
+The folder holds your channels, recorded data, ranges, and projects. To open it, run the
+"Show data folder" command. Do not change the files in the folder while Synnax Desktop
+runs.
+
+<Divider.Divider x />
+
+## Erase all data
+
+<Note.Note variant="error">
+  Erase all data cannot be undone. It deletes every channel, all recorded data, every
+  project, and all metadata backups.
+</Note.Note>
+
+1. Run the "Erase all data" command, or select **Erase all data** in the diagnostics
+   dialog.
+2. Hold the **Erase all data** button for one second to confirm.
+
+Synnax Desktop deletes the data and starts again with no data. The logs stay.

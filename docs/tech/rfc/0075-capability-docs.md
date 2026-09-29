@@ -76,9 +76,10 @@ page, is the failure mode this RFC removes.
 1. **A reader finds a capability by goal, not by program**: section names are user
    goals. A program name appears only in the Enterprise and Client libraries sections,
    where the program is the subject.
-2. **One page per capability**: interfaces are tabs on that page, never parallel pages
-   in separate sections. Topics that exist only in code (frames, iterators, time types)
-   live in Client libraries.
+2. **One page per task**: a page covers one task, such as create, find, or delete, and
+   its title names that task. No page is a catch-all "manage" page. Interfaces are tabs
+   on the page, never parallel pages in separate sections. Topics that exist only in
+   code (frames, iterators, time types) live in Client libraries.
 3. **Desktop is the default reader**: shared pages lead with the Console, and the
    Console tab is first. Enterprise-only content carries a marker.
 4. **The nav is the one source of order and edition**: `_nav.ts` defines the reading
@@ -93,17 +94,17 @@ page, is the failure mode this RFC removes.
 
 ### 5.0 The tree
 
-| Section          | Path                    | Edition    | Holds                                                       |
-| ---------------- | ----------------------- | ---------- | ----------------------------------------------------------- |
-| Get started      | `/reference/`           | both       | Overview, editions, Desktop install, first run, UI overview |
-| Channels         | `/reference/channels`   | both       | Concept, manage channels, calculated channels               |
-| Hardware         | `/reference/hardware`   | both       | Driver overview, tasks, one page set per vendor             |
-| Visualize        | `/reference/visualize`  | both       | Projects, line plots, schematics, tables, logs              |
-| Ranges           | `/reference/ranges`     | both       | Concept, manage ranges, export                              |
-| Control          | `/reference/control`    | both       | Overview, manual control, authority, Arc, Python sequences  |
-| Alarms           | `/reference/alarms`     | both       | Statuses, redlines, Arc alarms, PagerDuty                   |
-| Client libraries | `/reference/client`     | Enterprise | Code-only topics                                            |
-| Enterprise       | `/reference/enterprise` | Enterprise | Core setup, production, users, standalone Driver, CLI       |
+| Section          | Path                    | Edition    | Holds                                                                       |
+| ---------------- | ----------------------- | ---------- | --------------------------------------------------------------------------- |
+| Get started      | `/reference/`           | both       | Overview, editions, Desktop install, first run, UI overview, Desktop upkeep |
+| Channels         | `/reference/channels`   | both       | Concept, create, find, rename and delete, calculated                        |
+| Hardware         | `/reference/hardware`   | both       | Driver overview, tasks, one page set per vendor                             |
+| Visualize        | `/reference/visualize`  | both       | Projects, line plots, schematics, tables, logs                              |
+| Ranges           | `/reference/ranges`     | both       | Concept, create, find, edit, metadata, aliases, data, export                |
+| Control          | `/reference/control`    | both       | Overview, manual control, authority, Arc, Python sequences                  |
+| Alarms           | `/reference/alarms`     | both       | Statuses, redlines, Arc alarms, PagerDuty                                   |
+| Client libraries | `/reference/client`     | Enterprise | Code-only topics                                                            |
+| Enterprise       | `/reference/enterprise` | Enterprise | Core setup, production, users, standalone Driver, CLI                       |
 
 The `/reference/` prefix stays. It keeps the header tab logic
 (`components/layout/Header.astro:34-56` tests `url.includes("reference")`) and the
@@ -116,22 +117,26 @@ marks a page built from several sources, with the duplicate text deleted.
 
 **Get started**
 
-| New path                                 | Source                                                  |
-| ---------------------------------------- | ------------------------------------------------------- |
-| `/reference/`                            | `index.mdx`, rewritten Desktop-first                    |
-| `/reference/get-started/editions`        | NEW: the edition table                                  |
-| `/reference/get-started/install-desktop` | NEW (Desktop): from branch `sy-4856-desktop-download`   |
-| `/reference/get-started/first-run`       | NEW: connect, plot, record a range                      |
-| `/reference/get-started/ui-overview`     | `console/ui-overview.mdx`                               |
-| `/reference/get-started/manage-desktop`  | NEW (Desktop): data folder, updates, diagnostics, erase |
+| New path                                         | Source                                                |
+| ------------------------------------------------ | ----------------------------------------------------- |
+| `/reference/`                                    | `index.mdx`, rewritten Desktop-first                  |
+| `/reference/get-started/editions`                | NEW: the edition table                                |
+| `/reference/get-started/install-desktop`         | NEW (Desktop): from branch `sy-4856-desktop-download` |
+| `/reference/get-started/first-run`               | NEW: connect, plot, record a range                    |
+| `/reference/get-started/ui-overview`             | `console/ui-overview.mdx`                             |
+| `/reference/get-started/desktop/updates`         | NEW (Desktop): updates and the metadata backup        |
+| `/reference/get-started/desktop/data`            | NEW (Desktop): the data folder, erase all data        |
+| `/reference/get-started/desktop/troubleshooting` | NEW (Desktop): restart, logs, diagnostics             |
 
 **Channels**
 
-| New path                         | Source                                                                   |
-| -------------------------------- | ------------------------------------------------------------------------ |
-| `/reference/channels/`           | merge: `concepts/channels.mdx`, `concepts/overview.mdx:68-97`            |
-| `/reference/channels/manage`     | `client/channels.mdx`                                                    |
-| `/reference/channels/calculated` | merge: `client/calculated-channels.mdx`, `concepts/channels.mdx:104-140` |
+| New path                                | Source                                                                   |
+| --------------------------------------- | ------------------------------------------------------------------------ |
+| `/reference/channels/`                  | merge: `concepts/channels.mdx`, `concepts/overview.mdx:68-97`            |
+| `/reference/channels/create`            | `client/channels.mdx`: create, channel parameters                        |
+| `/reference/channels/find`              | `client/channels.mdx`: retrieve, regular expressions                     |
+| `/reference/channels/rename-and-delete` | `client/channels.mdx`: rename, delete                                    |
+| `/reference/channels/calculated`        | merge: `client/calculated-channels.mdx`, `concepts/channels.mdx:104-140` |
 
 **Hardware**
 
@@ -154,11 +159,16 @@ marks a page built from several sources, with the duplicate text deleted.
 
 **Ranges**
 
-| New path                   | Source                                                       |
-| -------------------------- | ------------------------------------------------------------ |
-| `/reference/ranges/`       | merge: `concepts/ranges.mdx`, `concepts/overview.mdx:99-120` |
-| `/reference/ranges/manage` | `client/ranges.mdx`                                          |
-| `/reference/ranges/export` | NEW: CSV from a plot selection and from a range              |
+| New path                     | Source                                                                     |
+| ---------------------------- | -------------------------------------------------------------------------- |
+| `/reference/ranges/`         | merge: `concepts/ranges.mdx`, `concepts/overview.mdx:99-120`               |
+| `/reference/ranges/create`   | `client/ranges.mdx`: create, child ranges, range parameters                |
+| `/reference/ranges/find`     | `client/ranges.mdx`: explorer, favorites, active range, overview, retrieve |
+| `/reference/ranges/edit`     | `client/ranges.mdx`: update, delete                                        |
+| `/reference/ranges/metadata` | `client/ranges.mdx`: metadata, labels                                      |
+| `/reference/ranges/aliases`  | `client/channels.mdx` and `client/ranges.mdx`: set and read aliases        |
+| `/reference/ranges/data`     | `client/ranges.mdx`: read from and write to a range                        |
+| `/reference/ranges/export`   | NEW: CSV from a plot selection and from a range                            |
 
 **Control**
 
@@ -180,28 +190,31 @@ marks a page built from several sources, with the duplicate text deleted.
 | `/reference/alarms/pagerduty` | `driver/pagerduty/alert-task.mdx`                                   |
 
 **Client libraries** keep their paths: `quick-start`, `authentication`,
-`series-and-frames`, `time-types`, `read-data`, `write-data`, `advanced/auto-commit`,
-`advanced/auto-index`, `advanced/iterators`, `advanced/delete-data`, `examples`, and
-`troubleshooting`. `read-data` absorbs `concepts/reads.mdx` and `concepts/streams.mdx`.
-`write-data` absorbs `concepts/writes.mdx` except its authority part, and it carries the
-`#rule-1` and `#the-rules-of-writes` anchors that `cesium/writer_stream.go:775,812`
-prints. `channels`, `calculated-channels`, `ranges`, and `advanced/write-authorities`
-move to their capability sections.
+`series-and-frames`, `time-types`, `stream-data`, `read-data`, `write-data`,
+`advanced/auto-commit`, `advanced/auto-index`, `advanced/iterators`,
+`advanced/delete-data`, `examples`, and `troubleshooting`. `stream-data` absorbs
+`concepts/streams.mdx`, and `read-data` absorbs `concepts/reads.mdx`. `write-data`
+absorbs `concepts/writes.mdx` except its authority part, and it carries the `#rule-1`
+and `#the-rules-of-writes` anchors that `cesium/writer_stream.go:775,812` prints.
+`channels`, `calculated-channels`, `ranges`, and `advanced/write-authorities` move to
+their capability sections.
 
 **Enterprise**
 
-| New path                                | Source                                                                     |
-| --------------------------------------- | -------------------------------------------------------------------------- |
-| `/reference/enterprise/`                | merge: `installation.mdx`, `core/quick-start.mdx`, `core/installation.mdx` |
-| `/reference/enterprise/console`         | `console/get-started.mdx` (install, connect a Core)                        |
-| `/reference/enterprise/production`      | `core/production.mdx`                                                      |
-| `/reference/enterprise/certificates`    | `core/installing-certificates.mdx` (an orphan today)                       |
-| `/reference/enterprise/requirements`    | `core/requirements.mdx`                                                    |
-| `/reference/enterprise/clusters`        | `concepts/clusters-and-nodes.mdx`                                          |
-| `/reference/enterprise/users`           | `console/users.mdx`                                                        |
-| `/reference/enterprise/driver`          | `driver/installation.mdx`                                                  |
-| `/reference/enterprise/cli-reference`   | `core/cli-reference.mdx`                                                   |
-| `/reference/enterprise/systemd-service` | `core/systemd-service.mdx`                                                 |
+| New path                                     | Source                                                                     |
+| -------------------------------------------- | -------------------------------------------------------------------------- |
+| `/reference/enterprise/`                     | merge: `installation.mdx`, `core/quick-start.mdx`, `core/installation.mdx` |
+| `/reference/enterprise/console`              | `console/get-started.mdx` (install, connect a Core)                        |
+| `/reference/enterprise/production`           | `core/production.mdx`                                                      |
+| `/reference/enterprise/certificates`         | `core/installing-certificates.mdx` (an orphan today)                       |
+| `/reference/enterprise/requirements`         | `core/requirements.mdx`                                                    |
+| `/reference/enterprise/clusters`             | `concepts/clusters-and-nodes.mdx`                                          |
+| `/reference/enterprise/users`                | `console/users.mdx`                                                        |
+| `/reference/enterprise/driver/install`       | `driver/installation.mdx`: steps 1 to 3                                    |
+| `/reference/enterprise/driver/configuration` | `driver/installation.mdx`: configuration methods                           |
+| `/reference/enterprise/driver/cli-reference` | `driver/installation.mdx`: CLI reference                                   |
+| `/reference/enterprise/cli-reference`        | `core/cli-reference.mdx`                                                   |
+| `/reference/enterprise/systemd-service`      | `core/systemd-service.mdx`                                                 |
 
 `concepts/overview.mdx` is split into the channel, range, and client pages above and is
 deleted. `reference/installation.mdx` redirects to `/reference/enterprise/` until the
@@ -227,8 +240,8 @@ Two more marker forms, in a new `components/edition/` package beside
   `components/console/ShareAndExport.astro`, whose copy link text applies only to
   Enterprise.
 
-Desktop-only pages (`install-desktop`, `manage-desktop`) carry `edition: "desktop"` and
-show a Desktop badge.
+Desktop-only pages (`install-desktop` and the `desktop/` group) carry
+`edition: "desktop"` and show a Desktop badge.
 
 ### 5.3 The client switcher remembers a choice
 
@@ -287,8 +300,8 @@ Redirects keep old binaries working. The sources still move to the final URLs:
   `integration/console/docs.py:16` follows.
 - **Core and Cesium**: `cesium/writer_stream.go:775,812` print
   `/reference/client/write-data#rule-1` and `#the-rules-of-writes`.
-- **Driver**: `driver/daemon/daemon_linux.cpp:33` writes `/reference/enterprise/driver`
-  into the systemd unit.
+- **Driver**: `driver/daemon/daemon_linux.cpp:33` writes
+  `/reference/enterprise/driver/install` into the systemd unit.
 - **Clients**: the dead URLs of §5.5, and the `concepts/*` docstring links in the Python
   and TypeScript clients.
 - **Other sites and files**: `site/www` (hero, automate, visualize, and review blocks),
@@ -359,7 +372,7 @@ section land as separate phases when the move is mechanical.
   merged; `concepts/` deleted; dead-URL redirects of §5.5.
 - **Phase 12: Product links.** The code changes of §5.6.
 - **Phase 13: Get started.** Desktop-first body behind the `desktop` flag, editions
-  page, first run, Desktop install and manage pages.
+  page, first run, Desktop install and upkeep pages.
 - **Phase 14: Desktop release.** Flag removed, `installation` redirected to the Desktop
   install page, and the Desktop download button moved from the `next` to the `stable`
   release channel. Ships with the first Desktop release.

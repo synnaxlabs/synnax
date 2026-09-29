@@ -12,23 +12,25 @@
 .edition-badge {
     display: inline-flex;
     align-items: center;
-    height: 2.25rem;
-    padding: 0 0.75rem;
-    border: var(--pluto-border-l6);
-    border-radius: var(--pluto-border-radius-small);
+    gap: 0.6rem;
     font-family: var(--pluto-font-family);
     font-size: var(--pluto-small-size);
     font-weight: 500;
     line-height: 1;
     white-space: nowrap;
-    color: var(--pluto-gray-l9);
-    background: var(--pluto-gray-l1);
+    color: var(--pluto-gray-l8);
+}
+
+.edition-badge::before {
+    content: "";
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 50%;
+    background: currentcolor;
 }
 
 .edition-badge--enterprise {
     color: var(--pluto-primary-z);
-    border-color: var(--pluto-primary-z-30);
-    background: var(--pluto-primary-z-10);
 }
 
 /* An Enterprise page says so once, under its title, so its tabs and blocks do not. */
@@ -36,6 +38,6 @@ article[data-edition="enterprise"] .edition-badge--enterprise {
     display: none;
 }
 
-article[data-edition="enterprise"] .article-edition .edition-badge--enterprise {
+article[data-edition="enterprise"] .article-top > .edition-badge--enterprise {
     display: inline-flex;
 }

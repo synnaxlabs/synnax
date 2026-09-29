@@ -1,0 +1,147 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Create channels"
+description: "Create index, data, and virtual channels."
+clients: ["console", "python", "typescript"]
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Note } from "@synnaxlabs/lyra/note";
+import { Fragment } from "react";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Client } from "@/components/client";
+import { Edition } from "@/components";
+import { Video } from "@/components/media/Media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Most [channels](/reference/channels) come from
+[read tasks](/reference/hardware/tasks#read-tasks), which create their channels for you.
+Create a channel yourself to store data from a script or another source. To make a
+channel that computes its values from other channels, use a
+[calculated channel](/reference/channels/calculated).
+
+<Note.Note variant="warning" className="compact">
+  You must create an index channel before the non-virtual data channels that use it.
+</Note.Note>
+
+<Client.Tabs client:load exclude={["cpp"]}>
+
+  <Fragment slot="console">
+
+Click the <Icon.Add /> button in the
+[channels toolbar](/reference/get-started/ui-overview#channels), or run the "Create
+channel" command in the
+[command palette](/reference/get-started/ui-overview#search-and-command-palette). Enter
+a name, and set the data type and the index channel. Turn on **Is index** to create an
+index channel, or **Virtual** to create a virtual channel. Turn on **Create more** to
+keep the dialog open after each channel.
+
+<Video client:only="react" id="client/channels/create" />
+
+  </Fragment>
+
+  <Fragment slot="python">
+
+```python
+import numpy as np, synnax as sy
+
+time_index = client.channels.create(
+    name="time",
+    data_type=sy.DataType.TIMESTAMP,
+    is_index=True,
+)
+
+sensor_one = sy.Channel(
+    name="sensor_one",
+    data_type=sy.DataType.FLOAT32, # Use Synnax datatypes
+    index=time_index.key,
+)
+
+sensor_two = sy.Channel(
+    name="sensor_two",
+    data_type=np.float32, # Or numpy
+    index=time_index.key,
+)
+
+sensor_three = sy.Channel(
+    name="sensor_three",
+    data_type="float32", # Or strings
+    index=time_index.key,
+)
+
+data_channels = client.channels.create(
+    [sensor_one, sensor_two, sensor_three],
+    retrieve_if_name_exists=True, # Optional
+)
+```
+
+<Note.Note variant="info" className="compact">
+  `retrieve_if_name_exists` returns the existing channel if the name already exists.
+</Note.Note>
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+import { Channel } from "@synnaxlabs/client";
+
+const timeIndexChannel = await client.channels.create({
+  name: "time",
+  dataType: DataType.TIMESTAMP,
+  isIndex: true,
+});
+
+const sensorOne = new Channel({
+  name: "sensor_one",
+  dataType: DataType.FLOAT32,
+  index: timeIndexChannel.key,
+});
+
+const sensorTwo = new Channel({
+  name: "sensor_two",
+  dataType: DataType.FLOAT32,
+  index: timeIndexChannel.key,
+});
+
+const sensorThree = new Channel({
+  name: "sensor_three",
+  dataType: DataType.FLOAT32,
+  index: timeIndexChannel.key,
+});
+
+const sensors = await client.channels.create(
+  [sensorOne, sensorTwo, sensorThree],
+  { retrieveIfNameExists: true }, // optional
+);
+```
+
+<Note.Note variant="info" className="compact">
+  `retrieveIfNameExists` returns the existing channel if the name already exists.
+</Note.Note>
+
+  </Fragment>
+
+</Client.Tabs>
+
+<Edition.Enterprise>
+
+In the client libraries, `create` takes one channel or a list of channels. A list is
+faster than many single calls. The call is atomic, so Synnax creates all of the channels
+or none of them.
+
+</Edition.Enterprise>
+
+<Divider.Divider x />
+
+## Channel parameters
+
+| Parameter                                                                        | Type       | Default                                          | Description                                                                                                                                                                                                         |
+| -------------------------------------------------------------------------------- | ---------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`                                                                           | string     | Required                                         | A human-readable name for the channel. This name is not guaranteed to be unique.                                                                                                                                    |
+| <Client.Var client:load py="data_type" ts="dataType" />                          | `DataType` | Required                                         | The data type of the samples stored in the channel (e.g., `DataType.FLOAT32`, `DataType.TIMESTAMP`).                                                                                                                |
+| <Client.Var client:load py="is_index" ts="isIndex" />                            | boolean    | <Client.Var client:load py="False" ts="false" /> | Set to <Client.Var client:load py="True" ts="true" /> if the channel is an index channel, <Client.Var client:load py="False" ts="false" /> otherwise. Index channels must have a data type of `DataType.TIMESTAMP`. |
+| `index`                                                                          | number     | `0`                                              | The key of the index channel that this channel is associated with. Not required for index channels.                                                                                                                 |
+| `virtual`                                                                        | boolean    | <Client.Var client:load py="False" ts="false" /> | Set to <Client.Var client:load py="True" ts="true" /> if the channel is virtual. Virtual channels do not store data in the database and are used for streaming purposes only.                                       |
+| <Client.Var client:load py="retrieve_if_name_exists" ts="retrieveIfNameExists"/> | boolean    | <Client.Var client:load py="False" ts="false" /> | If <Client.Var client:load py="True" ts="true" />, retrieves the channel if one with the same name already exists instead of creating a duplicate.                                                                  |

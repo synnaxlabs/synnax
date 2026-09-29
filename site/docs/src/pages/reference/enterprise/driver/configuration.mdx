@@ -1,0 +1,122 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Configure a standalone Driver"
+description: "Set Driver parameters with a file or environment variables."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+The `synnax-driver login` command sets how the Driver connects to the Core. You can also
+set the parameters of the Driver in a configuration file or with environment variables.
+
+<Divider.Divider x />
+
+## Precedence
+
+The precedence of the different configuration methods is as follows, with earlier
+methods taking precedence over later ones:
+
+1. Command line arguments (Highest)
+2. Environment variables
+3. Configuration file
+4. Parameters passed to the `synnax-driver login` command
+5. Internal defaults (Lowest)
+
+<Divider.Divider x />
+
+## Configuration file
+
+The Synnax Driver can optionally read connection parameters from a JSON configuration
+file with the following format:
+
+```json
+{
+  // Connection parameters
+  "connection": {
+    // The host of the Synnax Core.
+    "host": "localhost",
+    // The port of the Synnax Core.
+    "port": 9090,
+    // The username to use when logging in to the Synnax Core.
+    "username": "synnax",
+    // The password to use when logging in to the Synnax Core.
+    "password": "password",
+    // The path to the CA certificate file to use when connecting
+    // to the Synnax Core. This is only required if the Core
+    // is configured to use TLS.
+    "ca_cert_file": "/path/to/ca.crt",
+    // The path to the client certificate file to use when connecting
+    // to the Synnax Core. This is only required when the Core is
+    // configured to use TLS and client certificates for authentication.
+    "client_cert_file": "/path/to/client.crt",
+    // The path to the client key file to use when connecting to the
+    // Synnax Core. This is only required when the Core is configured
+    // to use TLS and client certificates for authentication.
+    "client_key_file": "/path/to/client.key"
+  },
+  "timing": {
+    // Enable automatic skew correction for the Driver.
+    "correct_skew": true
+  },
+  "manager": {
+    // Duration in seconds before reporting stuck task operations.
+    "op_timeout": 60,
+    // Interval in seconds between task timeout checks.
+    "poll_interval": 1,
+    // Maximum time in seconds to wait for task workers during shutdown.
+    "shutdown_timeout": 30,
+    // Number of worker threads for task operations (1-64).
+    "worker_count": 4
+  },
+  // List of device integrations to enable (overrides defaults).
+  "enable_integrations": ["arc", "ethercat", "http", "labjack", "modbus", "ni", "opc"],
+  // List of device integrations to disable.
+  "disable_integrations": []
+}
+```
+
+<Divider.Divider x />
+
+## Environment variables
+
+The Synnax Driver also supports setting connection parameters via environment variables.
+
+```bash
+# The host of the Synnax Core.
+export SYNNAX_DRIVER_HOST=localhost
+# The port of the Synnax Core.
+export SYNNAX_DRIVER_PORT=9090
+# The username to use when logging in to the Synnax Core.
+export SYNNAX_DRIVER_USERNAME=synnax
+# The password to use when logging in to the Synnax Core.
+export SYNNAX_DRIVER_PASSWORD=password
+# The path to the CA certificate file to use when
+# connecting to the Synnax Core. This is only required
+# if the Core is configured to use TLS.
+export SYNNAX_DRIVER_CA_CERT_FILE=/path/to/ca.crt
+# The path to the client certificate file to use when
+# connecting to the Synnax Core. This is only required when
+# the Core is configured to use TLS and client certificates
+# for authentication.
+export SYNNAX_DRIVER_CLIENT_CERT_FILE=/path/to/client.crt
+# The path to the client key file to use when connecting to
+# the Synnax Core. This is only required when the Core is
+# configured to use TLS and client certificates for authentication.
+export SYNNAX_DRIVER_CLIENT_KEY_FILE=/path/to/client.key
+# Enable automatic clock skew correction for the Driver.
+export SYNNAX_DRIVER_CORRECT_SKEW=true
+# Duration in seconds before reporting stuck task operations.
+export SYNNAX_DRIVER_OP_TIMEOUT=60
+# Interval in seconds between task timeout checks.
+export SYNNAX_DRIVER_POLL_INTERVAL=1
+# Maximum time in seconds to wait for task workers during shutdown.
+export SYNNAX_DRIVER_SHUTDOWN_TIMEOUT=30
+# Number of worker threads for task operations (1-64).
+export SYNNAX_DRIVER_WORKER_COUNT=4
+# Comma-separated list of device integrations to enable.
+export SYNNAX_DRIVER_ENABLE_INTEGRATIONS=labjack,ni,opc
+# Comma-separated list of device integrations to disable.
+export SYNNAX_DRIVER_DISABLE_INTEGRATIONS=modbus
+```

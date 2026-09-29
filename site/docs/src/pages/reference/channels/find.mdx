@@ -1,0 +1,108 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Find channels"
+description: "Find channels by name, key, or pattern."
+clients: ["console", "python", "typescript"]
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { Edition } from "@/components";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Find a channel in the Console to open it, or retrieve it in code to read and write its
+data.
+
+<Client.Tabs client:load exclude={["cpp"]}>
+
+  <Fragment slot="console">
+
+Find a channel in the [channels toolbar](/reference/get-started/ui-overview#channels).
+To search by name, open the
+[search palette](/reference/get-started/ui-overview#search-and-command-palette) and type
+part of the name. Select a channel in the results to open it in a line plot.
+
+  </Fragment>
+
+  <Fragment slot="python">
+
+```python
+# One channel, by key or by name
+my_sensor = client.channels.retrieve(my_sensor.key)
+my_sensor = client.channels.retrieve("my_sensor")
+
+# Many channels, by key or by name
+my_channels = client.channels.retrieve([sensor_one.key, sensor_two.key])
+my_channels = client.channels.retrieve(["sensor_one", "sensor_two"])
+
+# This won't work!
+my_channels = client.channels.retrieve(["sensor_one", sensor_two.key])
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+// One channel, by key or by name
+const tempChannel = await client.channels.retrieve(tempChannel.key);
+const tempChannel = await client.channels.retrieve("my_temp_sensor");
+
+// Many channels, by key or by name
+const my_channels = await client.channels.retrieve([sensorOne.key, sensorTwo.key]);
+const my_channels = await client.channels.retrieve(["sensor_one", "sensor_two"]);
+
+// This won't work!
+const my_channels = await client.channels.retrieve(["sensor_one", sensor_two.key]);
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+<Edition.Enterprise>
+
+In the client libraries, pass one or more names or keys to `retrieve`. Retrieving by key
+is faster than retrieving by name. If you pass one key or name, the client raises a
+`NotFoundError` when no channel matches and a `MultipleFoundError` when more than one
+channel matches. If you pass a list, the client raises no error and leaves missing
+channels out of the results. You can also retrieve channels from a
+[range](/reference/ranges/data#read-from-a-range).
+
+</Edition.Enterprise>
+
+<Divider.Divider x />
+
+## Regular expressions
+
+<Edition.Enterprise>
+
+The client libraries accept regular expressions as names. Synnax treats a name that
+starts with `^` or ends with `$` as a pattern. Pass the pattern in a list, or the client
+raises a `MultipleFoundError` when more than one channel matches.
+
+</Edition.Enterprise>
+
+<Client.Tabs client:load exclude={["console", "cpp"]}>
+
+  <Fragment slot="python">
+
+```python
+# Returns list[sy.Channel]
+sensor_channels = client.channels.retrieve(["^sensor.*"])
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+// Returns Channel[]
+const sensorChannels = await client.channels.retrieve(["^sensor.*"]);
+```
+
+  </Fragment>
+
+</Client.Tabs>

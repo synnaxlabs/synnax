@@ -1,0 +1,132 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Rename and delete channels"
+description: "Rename channels, or delete them and their data."
+clients: ["console", "python", "typescript"]
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Note } from "@synnaxlabs/lyra/note";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Rename a [channel](/reference/channels) to give it a clearer name. Delete a channel to
+remove it and all of its data.
+
+<Divider.Divider x />
+
+## Rename channels
+
+<Client.Tabs client:load exclude={["cpp"]}>
+
+  <Fragment slot="console">
+
+Right-click the channel in the channels toolbar and select **Rename**.
+
+<Video client:only="react" id="client/channels/rename" />
+
+  </Fragment>
+
+  <Fragment slot="python">
+
+Rename channels by key with `channels.rename`, or call `rename` on a channel object.
+
+```python
+# Rename an already existing channel
+data_channel.rename("new_name")
+
+# Renaming single channel
+client.channels.rename(data_channel.key, "new_name")
+
+# Renaming multiple channels
+client.channels.rename([channel_one.key, channel_two.key], ["name_one", "name_two"])
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+Rename channels by key with `channels.rename`.
+
+```typescript
+// Renaming single channel
+await client.channels.rename(dataChannel.key, "new_name");
+
+// Renaming multiple channels
+await client.channels.rename(
+  [channelOne.key, channelTwo.key],
+  ["name_one", "name_two"],
+);
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Delete channels
+
+<Note.Note variant="warning" className="compact">
+  Deleting a channel also deletes all of its stored data. You cannot undo a delete.
+</Note.Note>
+
+<Client.Tabs client:load exclude={["cpp"]}>
+
+  <Fragment slot="console">
+
+Select one or more channels in the channels toolbar. Right-click the selection, select
+**Delete**, and confirm.
+
+<Video client:only="react" id="client/channels/delete" />
+
+  </Fragment>
+
+  <Fragment slot="python">
+
+Use the `channels.delete` method. `delete` does not raise an error if a channel is not
+found, so it is safe to call again. Deleting by name deletes **all** channels with that
+name.
+
+```python
+# Delete by name
+client.channels.delete("my_sensor")
+
+# Delete multiple by name
+client.channels.delete(["sensor_one", "sensor_two"])
+
+# Delete by key
+client.channels.delete(sensor_three.key)
+
+# Delete multiple by key
+client.channels.delete([sensor_one.key, sensor_two.key, sensor_three.key])
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+Use the `channels.delete` method. `delete` does not raise an error if a channel is not
+found, so it is safe to call again. Deleting by name deletes **all** channels with that
+name.
+
+```typescript
+// Delete by name
+await client.channels.delete("my_sensor");
+
+// Delete multiple by name
+await client.channels.delete(["sensor_one", "sensor_two"]);
+
+// Delete by key
+await client.channels.delete(sensor_three.key);
+
+// Delete multiple by key
+await client.channels.delete([sensor_one.key, sensor_two.key, sensor_three.key]);
+```
+
+  </Fragment>
+
+</Client.Tabs>

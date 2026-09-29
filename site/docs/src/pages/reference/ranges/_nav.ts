@@ -19,9 +19,34 @@ export const RANGES_NAV: PageNavNode = {
       name: "Overview",
     },
     {
-      key: "/reference/ranges/manage",
-      href: "/reference/ranges/manage",
-      name: "Manage ranges",
+      key: "/reference/ranges/create",
+      href: "/reference/ranges/create",
+      name: "Create ranges",
+    },
+    {
+      key: "/reference/ranges/find",
+      href: "/reference/ranges/find",
+      name: "Find ranges",
+    },
+    {
+      key: "/reference/ranges/edit",
+      href: "/reference/ranges/edit",
+      name: "Edit and delete ranges",
+    },
+    {
+      key: "/reference/ranges/metadata",
+      href: "/reference/ranges/metadata",
+      name: "Metadata and labels",
+    },
+    {
+      key: "/reference/ranges/aliases",
+      href: "/reference/ranges/aliases",
+      name: "Channel aliases",
+    },
+    {
+      key: "/reference/ranges/data",
+      href: "/reference/ranges/data",
+      name: "Read and write range data",
     },
     {
       key: "/reference/ranges/export",

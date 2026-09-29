@@ -19,9 +19,19 @@ export const CHANNELS_NAV: PageNavNode = {
       name: "Overview",
     },
     {
-      key: "/reference/channels/manage",
-      href: "/reference/channels/manage",
-      name: "Manage channels",
+      key: "/reference/channels/create",
+      href: "/reference/channels/create",
+      name: "Create channels",
+    },
+    {
+      key: "/reference/channels/find",
+      href: "/reference/channels/find",
+      name: "Find channels",
+    },
+    {
+      key: "/reference/channels/rename-and-delete",
+      href: "/reference/channels/rename-and-delete",
+      name: "Rename and delete channels",
     },
     {
       key: "/reference/channels/calculated",

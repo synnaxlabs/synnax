@@ -50,9 +50,25 @@ export const ENTERPRISE_NAV: PageNavNode = {
       name: "Users",
     },
     {
-      key: "/reference/enterprise/driver",
-      href: "/reference/enterprise/driver",
+      key: "driver",
       name: "Standalone Driver",
+      children: [
+        {
+          key: "/reference/enterprise/driver/install",
+          href: "/reference/enterprise/driver/install",
+          name: "Install",
+        },
+        {
+          key: "/reference/enterprise/driver/configuration",
+          href: "/reference/enterprise/driver/configuration",
+          name: "Configuration",
+        },
+        {
+          key: "/reference/enterprise/driver/cli-reference",
+          href: "/reference/enterprise/driver/cli-reference",
+          name: "CLI reference",
+        },
+      ],
     },
     {
       key: "/reference/enterprise/cli-reference",
