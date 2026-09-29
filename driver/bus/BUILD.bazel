@@ -15,13 +15,16 @@ cc_library(
     srcs = [
         "config.cpp",
         "connection.cpp",
+        "decoder.cpp",
         "read.cpp",
         "write.cpp",
     ],
     hdrs = [
         "config.h",
         "connection.h",
+        "decoder.h",
         "read.h",
+        "registry.h",
         "task.h",
         "transport.h",
         "write.h",

@@ -14,6 +14,7 @@
 #include <deque>
 #include <memory>
 #include <mutex>
+#include <span>
 #include <thread>
 #include <unordered_map>
 #include <utility>
@@ -29,6 +30,41 @@
 #include "driver/task/task.h"
 
 namespace driver::bus {
+/// @brief sends a write task's encoded messages to its device.
+class Transmitter {
+public:
+    virtual ~Transmitter() = default;
+
+    /// @brief acquires the device's connection. Called on start.
+    /// @returns transport::CONFIG_ERROR when another task has the device open with
+    /// other properties.
+    virtual x::errors::Error acquire() = 0;
+
+    /// @brief releases the connection. Called on stop, after the last send.
+    virtual void release() = 0;
+
+    /// @brief sends one encoded message.
+    /// @param message the index of the message in the write config.
+    /// @param payload the encoded, framed message.
+    virtual x::errors::Error
+    send(std::size_t message, std::span<const std::uint8_t> payload) = 0;
+};
+
+/// @brief sends each message as bytes on a shared byte-stream or datagram
+/// connection, and reopens the connection after a failed send.
+class ConnectionTransmitter final : public Transmitter {
+    Acquire acquirer;
+    std::shared_ptr<Connection> conn;
+
+public:
+    explicit ConnectionTransmitter(Acquire acquire): acquirer(std::move(acquire)) {}
+
+    x::errors::Error acquire() override;
+    void release() override;
+    x::errors::Error
+    send(std::size_t message, std::span<const std::uint8_t> payload) override;
+};
+
 /// @brief encodes command channel values into messages and sends them on one I/O
 /// thread. A message with a period is sent on that period with the latest values, and
 /// one without is sent once per command frame that changes it. A message is sent only
@@ -37,13 +73,12 @@ namespace driver::bus {
 class Sink final : public common::Sink {
 public:
     /// @param cfg the resolved write config.
-    /// @param acquire acquires the device's connection on start. The sink reopens the
-    /// connection after a failed send.
+    /// @param transmitter sends the encoded messages to the device.
     /// @param ctx reports send failures as task status warnings.
     /// @param task the task the sink belongs to.
     Sink(
         WriteConfig cfg,
-        Acquire acquire,
+        std::unique_ptr<Transmitter> transmitter,
         const std::shared_ptr<task::Context> &ctx,
         const synnax::task::Task &task
     );
@@ -80,7 +115,7 @@ private:
     };
 
     WriteConfig cfg;
-    Acquire acquire;
+    std::unique_ptr<Transmitter> transmitter;
     /// @brief the message slots each command channel drives.
     std::unordered_map<
         synnax::channel::Key,
@@ -91,19 +126,18 @@ private:
     std::condition_variable cv;
     bool running = false;
     std::vector<State> states;
-    std::deque<std::vector<std::uint8_t>> queue;
+    /// @brief each message waiting to send, by index, with its payload.
+    std::deque<std::pair<std::size_t, std::vector<std::uint8_t>>> queue;
     std::thread thread;
 
     /// @brief guards status, which the control and I/O threads both report through.
     std::mutex status_mu;
     common::StatusHandler status;
-    /// @brief the connection, used only by the I/O thread while it runs.
-    std::shared_ptr<Connection> conn;
 
     void reset();
     void run();
     void enqueue(std::size_t message);
-    void send(const std::vector<std::uint8_t> &payload);
+    void send(std::size_t message, const std::vector<std::uint8_t> &payload);
     void warn(const std::string &message);
 };
 }

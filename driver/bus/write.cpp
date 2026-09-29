@@ -19,13 +19,13 @@
 namespace driver::bus {
 Sink::Sink(
     WriteConfig cfg,
-    Acquire acquire,
+    std::unique_ptr<Transmitter> transmitter,
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task
 ):
     common::Sink(cfg.commands),
     cfg(std::move(cfg)),
-    acquire(std::move(acquire)),
+    transmitter(std::move(transmitter)),
     states(this->cfg.messages.size()),
     status(ctx, task) {
     for (std::size_t i = 0; i < this->cfg.messages.size(); i++)
@@ -54,9 +54,7 @@ void Sink::reset() {
 x::errors::Error Sink::start() {
     std::lock_guard lock(this->mu);
     if (this->running) return x::errors::NIL;
-    auto [conn, err] = this->acquire();
-    if (err) return err;
-    this->conn = std::move(conn);
+    if (const auto err = this->transmitter->acquire()) return err;
     this->reset();
     this->running = true;
     {
@@ -77,7 +75,7 @@ x::errors::Error Sink::stop() {
     if (this->thread.joinable()) this->thread.join();
     std::lock_guard lock(this->mu);
     this->reset();
-    this->conn.reset();
+    this->transmitter->release();
     return x::errors::NIL;
 }
 
@@ -131,7 +129,7 @@ void Sink::enqueue(const std::size_t message) {
         payload.insert(payload.begin(), prefix.begin(), prefix.end());
     }
     if (this->cfg.framer == nullptr) {
-        this->queue.push_back(std::move(payload));
+        this->queue.emplace_back(message, std::move(payload));
         return;
     }
     std::vector<std::uint8_t> wire;
@@ -139,7 +137,7 @@ void Sink::enqueue(const std::size_t message) {
         this->warn(m.entry.name + ": " + err.data);
         return;
     }
-    this->queue.push_back(std::move(wire));
+    this->queue.emplace_back(message, std::move(wire));
 }
 
 void Sink::run() {
@@ -166,24 +164,17 @@ void Sink::run() {
                 this->cv.wait_for(lock, (next - now).chrono());
             continue;
         }
-        const auto payload = std::move(this->queue.front());
+        const auto [message, payload] = std::move(this->queue.front());
         this->queue.pop_front();
         lock.unlock();
-        this->send(payload);
+        this->send(message, payload);
         lock.lock();
     }
 }
 
-void Sink::send(const std::vector<std::uint8_t> &payload) {
-    x::errors::Error err;
-    {
-        auto guard = this->conn->lock();
-        auto [t, open_err] = guard.transport();
-        err = open_err;
-        if (!err) err = t->write(payload, WRITE_TIMEOUT);
-        if (err) guard.close();
-    }
-    if (err) return this->warn(err.data);
+void Sink::send(const std::size_t message, const std::vector<std::uint8_t> &payload) {
+    if (const auto err = this->transmitter->send(message, payload))
+        return this->warn(err.data);
     std::lock_guard lock(this->status_mu);
     this->status.clear_warning();
 }
@@ -191,5 +182,24 @@ void Sink::send(const std::vector<std::uint8_t> &payload) {
 void Sink::warn(const std::string &message) {
     std::lock_guard lock(this->status_mu);
     this->status.send_warning(message);
+}
+
+x::errors::Error ConnectionTransmitter::acquire() {
+    auto [conn, err] = this->acquirer();
+    this->conn = std::move(conn);
+    return err;
+}
+
+void ConnectionTransmitter::release() {
+    this->conn.reset();
+}
+
+x::errors::Error
+ConnectionTransmitter::send(std::size_t, const std::span<const std::uint8_t> payload) {
+    auto guard = this->conn->lock();
+    auto [t, err] = guard.transport();
+    if (!err) err = t->write(payload, WRITE_TIMEOUT);
+    if (err) guard.close();
+    return err;
 }
 }

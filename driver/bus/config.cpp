@@ -52,23 +52,24 @@ std::string field_path(const std::size_t message, const std::size_t field) {
     return path(message, "fields." + std::to_string(field) + ".field");
 }
 
-/// @brief binds an error when a byte-stream task cannot match the message's
-/// identifier.
+/// @brief binds an error when the medium cannot carry the message's identifier.
 void check_identifier(
     const x::json::Parser &parser,
     const std::size_t index,
-    const synnax::library::MessageEntry &message
+    const synnax::library::MessageEntry &message,
+    const Medium medium
 ) {
     if (!message.identifier.has_value()) return;
     const auto &id = *message.identifier;
-    if (std::holds_alternative<synnax::library::FieldIdentifier>(id) ||
-        std::holds_alternative<synnax::library::TokenIdentifier>(id))
-        return;
+    const bool can = std::holds_alternative<synnax::library::CanIdentifier>(id);
+    const bool bytes = std::holds_alternative<synnax::library::FieldIdentifier>(id) ||
+                       std::holds_alternative<synnax::library::TokenIdentifier>(id);
+    if (medium == Medium::CAN ? can : bytes) return;
     const auto type = std::visit([](const auto &i) { return i.type; }, id);
     parser.field_err(
         path(index, "message"),
-        "message " + message.name + " has a " + type +
-            " identifier, which a byte stream cannot carry"
+        "message " + message.name + " has a " + type + " identifier, which " +
+            (medium == Medium::CAN ? "a CAN bus" : "a byte stream") + " cannot carry"
     );
 }
 
@@ -219,7 +220,8 @@ ReadConfig ReadConfig::resolve(
     const ::synnax::bus::PollConfig &poll,
     const std::optional<::synnax::bus::Framing> &framing,
     const synnax::library::Library &library,
-    const std::vector<synnax::channel::Channel> &channels
+    const std::vector<synnax::channel::Channel> &channels,
+    const Medium medium
 ) {
     ReadConfig out;
     out.data_saving_disabled = cfg.data_saving_disabled;
@@ -261,7 +263,12 @@ ReadConfig ReadConfig::resolve(
             );
             continue;
         }
-        check_identifier(parser, i, *entry);
+        check_identifier(parser, i, *entry, medium);
+        if (medium == Medium::CAN && entry->query.has_value())
+            parser.field_err(
+                path(i, "message"),
+                "message " + entry->name + " has a query, which a CAN bus cannot send"
+            );
         ReadMessage msg{.entry = *entry, .index = m.index};
         if (m.index != 0)
             if (const auto
@@ -360,7 +367,8 @@ std::pair<ReadConfig, x::errors::Error> ReadConfig::parse(
     x::json::Parser &parser,
     const ::synnax::bus::ReadConfig &cfg,
     const ::synnax::bus::PollConfig &poll,
-    const std::optional<::synnax::bus::Framing> &framing
+    const std::optional<::synnax::bus::Framing> &framing,
+    const Medium medium
 ) {
     auto [library, lib_err] = retrieve_library(client, parser, cfg.library);
     if (lib_err) return {ReadConfig{}, lib_err};
@@ -373,7 +381,7 @@ std::pair<ReadConfig, x::errors::Error> ReadConfig::parse(
     }
     auto [channels, ch_err] = retrieve_channels(client, keys);
     if (ch_err) return {ReadConfig{}, ch_err};
-    auto out = resolve(parser, cfg, poll, framing, library, channels);
+    auto out = resolve(parser, cfg, poll, framing, library, channels, medium);
     if (!parser.ok()) return {std::move(out), parser.error()};
     return {std::move(out), x::errors::NIL};
 }
@@ -383,7 +391,8 @@ WriteConfig WriteConfig::resolve(
     const ::synnax::bus::WriteConfig &cfg,
     const std::optional<::synnax::bus::Framing> &framing,
     const synnax::library::Library &library,
-    const std::vector<synnax::channel::Channel> &channels
+    const std::vector<synnax::channel::Channel> &channels,
+    const Medium medium
 ) {
     WriteConfig out;
     out.framer = create_framer(parser, framing);
@@ -402,7 +411,12 @@ WriteConfig WriteConfig::resolve(
             );
             continue;
         }
-        check_identifier(parser, i, *entry);
+        check_identifier(parser, i, *entry, medium);
+        if (medium == Medium::CAN && !entry->identifier.has_value())
+            parser.field_err(
+                path(i, "message"),
+                "message " + entry->name + " needs a CAN identifier to send with"
+            );
         if (m.fields.empty() && !entry->period.has_value())
             parser.field_err(
                 path(i, "fields"),
@@ -463,7 +477,8 @@ std::pair<WriteConfig, x::errors::Error> WriteConfig::parse(
     const synnax::Synnax &client,
     x::json::Parser &parser,
     const ::synnax::bus::WriteConfig &cfg,
-    const std::optional<::synnax::bus::Framing> &framing
+    const std::optional<::synnax::bus::Framing> &framing,
+    const Medium medium
 ) {
     auto [library, lib_err] = retrieve_library(client, parser, cfg.library);
     if (lib_err) return {WriteConfig{}, lib_err};
@@ -475,7 +490,7 @@ std::pair<WriteConfig, x::errors::Error> WriteConfig::parse(
     }
     auto [channels, ch_err] = retrieve_channels(client, keys);
     if (ch_err) return {WriteConfig{}, ch_err};
-    auto out = resolve(parser, cfg, framing, library, channels);
+    auto out = resolve(parser, cfg, framing, library, channels, medium);
     if (!parser.ok()) return {std::move(out), parser.error()};
     return {std::move(out), x::errors::NIL};
 }

@@ -70,7 +70,7 @@ public:
     /// @brief reads once, recording what came back. Starts the source first when no
     /// test has.
     void read() {
-        if (!this->started) ASSERT_NIL(this->start());
+        if (!this->started) { ASSERT_NIL(this->start()); }
         x::telem::Frame fr;
         const auto res = this->source->read(this->breaker, fr);
         this->out.warning = res.warning;
@@ -354,6 +354,29 @@ TEST(Source, WarnsOnAMissedReplyAndRecoversWhenRepliesResume) {
         return o.values.contains(1) && o.warning.empty();
     }));
     EXPECT_EQ(h.values(1).back(), 2);
+}
+
+TEST(Source, DiscardsALateReplyBeforeTheNextQuery) {
+    auto volt = text_message("volt", {delimited_field("v", 0)});
+    volt.query = "VOLT?";
+    Harness h(read_config(
+        {volt},
+        NEWLINE,
+        nullptr,
+        {.rate = x::telem::Rate(1000), .timeout = 20 * x::telem::MILLISECOND}
+    ));
+    ASSERT_NIL(h.start());
+    h.read();
+    ASSERT_EQ(h.out.warning, "no reply to the query of volt within 20ms");
+    {
+        std::lock_guard lock(h.wire->mu);
+        h.wire->reads.push_back(bytes("1\n7"));
+        h.wire->on_write = [](Wire &w, std::span<const std::uint8_t>) {
+            w.reads.push_back(bytes("2\n"));
+        };
+    }
+    ASSERT_TRUE(h.read_until([](const Output &o) { return o.values.contains(1); }));
+    EXPECT_EQ(h.values(1), std::vector<double>{2});
 }
 
 TEST(Source, DecodesEachDatagramAsOneFrame) {

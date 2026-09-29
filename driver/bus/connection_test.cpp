@@ -27,6 +27,17 @@ int opens(Wire &wire) {
     return wire.opens;
 }
 
+std::pair<std::shared_ptr<Connection>, x::errors::Error> acquire(
+    Connections &connections,
+    const std::string &key,
+    const x::json::json &settings,
+    const std::shared_ptr<Wire> &wire
+) {
+    return connections.acquire(key, settings, [&] {
+        return std::make_shared<Connection>(opener(wire));
+    });
+}
+
 int closes(Wire &wire) {
     std::lock_guard lock(wire.mu);
     return wire.closes;
@@ -37,8 +48,8 @@ TEST(Connections, SharesOneTransportAmongTheTasksOfADevice) {
     const auto wire = std::make_shared<Wire>();
     Connections connections;
     const auto settings = x::json::json{{"port", "/dev/ttyUSB0"}};
-    const auto a = ASSERT_NIL_P(connections.acquire("dev", settings, opener(wire)));
-    const auto b = ASSERT_NIL_P(connections.acquire("dev", settings, opener(wire)));
+    const auto a = ASSERT_NIL_P(acquire(connections, "dev", settings, wire));
+    const auto b = ASSERT_NIL_P(acquire(connections, "dev", settings, wire));
     EXPECT_EQ(a, b);
     ASSERT_NIL(a->lock().transport().second);
     ASSERT_NIL(b->lock().transport().second);
@@ -48,14 +59,14 @@ TEST(Connections, SharesOneTransportAmongTheTasksOfADevice) {
 TEST(Connections, ClosesTheTransportWhenTheLastTaskReleasesIt) {
     const auto wire = std::make_shared<Wire>();
     Connections connections;
-    auto a = ASSERT_NIL_P(connections.acquire("dev", {}, opener(wire)));
-    auto b = ASSERT_NIL_P(connections.acquire("dev", {}, opener(wire)));
+    auto a = ASSERT_NIL_P(acquire(connections, "dev", {}, wire));
+    auto b = ASSERT_NIL_P(acquire(connections, "dev", {}, wire));
     ASSERT_NIL(a->lock().transport().second);
     a.reset();
     EXPECT_EQ(closes(*wire), 0);
     b.reset();
     EXPECT_EQ(closes(*wire), 1);
-    const auto c = ASSERT_NIL_P(connections.acquire("dev", {}, opener(wire)));
+    const auto c = ASSERT_NIL_P(acquire(connections, "dev", {}, wire));
     ASSERT_NIL(c->lock().transport().second);
     EXPECT_EQ(opens(*wire), 2);
 }
@@ -63,22 +74,20 @@ TEST(Connections, ClosesTheTransportWhenTheLastTaskReleasesIt) {
 TEST(Connections, RejectsOtherSettingsForAnOpenDevice) {
     const auto wire = std::make_shared<Wire>();
     Connections connections;
-    auto a = ASSERT_NIL_P(
-        connections.acquire("dev", {{"baud_rate", 9600}}, opener(wire))
-    );
+    auto a = ASSERT_NIL_P(acquire(connections, "dev", {{"baud_rate", 9600}}, wire));
     ASSERT_OCCURRED_AS_P(
-        connections.acquire("dev", {{"baud_rate", 115200}}, opener(wire)),
+        acquire(connections, "dev", {{"baud_rate", 115200}}, wire),
         transport::CONFIG_ERROR
     );
     a.reset();
-    ASSERT_NIL_P(connections.acquire("dev", {{"baud_rate", 115200}}, opener(wire)));
+    ASSERT_NIL_P(acquire(connections, "dev", {{"baud_rate", 115200}}, wire));
 }
 
 TEST(Connections, OpensADeviceConnectionPerDevice) {
     const auto wire = std::make_shared<Wire>();
     Connections connections;
-    const auto a = ASSERT_NIL_P(connections.acquire("a", {}, opener(wire)));
-    const auto b = ASSERT_NIL_P(connections.acquire("b", {}, opener(wire)));
+    const auto a = ASSERT_NIL_P(acquire(connections, "a", {}, wire));
+    const auto b = ASSERT_NIL_P(acquire(connections, "b", {}, wire));
     EXPECT_NE(a, b);
 }
 

@@ -15,12 +15,12 @@
 #include <memory>
 #include <mutex>
 #include <string>
-#include <unordered_map>
 #include <utility>
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 
+#include "driver/bus/registry.h"
 #include "driver/bus/transport.h"
 
 namespace driver::bus {
@@ -73,33 +73,11 @@ private:
     std::uint64_t opened = 0;
 };
 
+/// @brief the byte-stream and datagram connections of an integration.
+using Connections = Registry<Connection>;
+
 /// @brief acquires the shared connection to a task's device.
-/// @returns transport::CONFIG_ERROR when the device is open with other settings.
-using Acquire = std::function<
-    std::pair<std::shared_ptr<Connection>, x::errors::Error>()>;
-
-/// @brief the open connections of an integration, one per device. Safe for concurrent
-/// use.
-class Connections {
-public:
-    /// @brief returns the live connection to the device, or creates one.
-    /// @param key the device key.
-    /// @param settings how the device opens. Every task on the device must use the
-    /// same settings.
-    /// @param open opens the transport.
-    /// @returns transport::CONFIG_ERROR when the device is open with other settings.
-    std::pair<std::shared_ptr<Connection>, x::errors::Error>
-    acquire(const std::string &key, const x::json::json &settings, const Opener &open);
-
-private:
-    struct Entry {
-        std::weak_ptr<Connection> conn;
-        x::json::json settings;
-    };
-
-    std::mutex mu;
-    std::unordered_map<std::string, Entry> entries;
-};
+using Acquire = Acquirer<Connection>;
 
 /// @returns an Acquire of the device's connection from connections.
 Acquire acquirer(

@@ -22,12 +22,10 @@
 
 #include "driver/bus/config.h"
 #include "driver/bus/connection.h"
+#include "driver/bus/decoder.h"
 #include "driver/common/read_task.h"
 
 namespace driver::bus {
-/// @brief how long a warning stays on the task status after its cause stops.
-const auto WARNING_HOLD = 1 * x::telem::SECOND;
-
 /// @brief reads a byte stream or datagrams from a device's connection, splits it into
 /// frames, decodes each frame whose message the task reads, and writes the values to
 /// the messages' channels. It polls messages that have a query at the configured
@@ -61,43 +59,26 @@ public:
     common::ReadResult read(x::breaker::Breaker &breaker, x::telem::Frame &fr) override;
 
 private:
-    /// @brief decoded samples of one message waiting to go into a frame.
-    struct Pending {
-        /// @brief one decoded sample per arrival, reused across reads.
-        std::vector<codec::Values> values;
-        /// @brief the arrival time of each sample.
-        std::vector<x::telem::TimeStamp> times;
-        /// @brief the last time stamped on the message's index.
-        x::telem::TimeStamp last;
-    };
-
     ReadConfig cfg;
+    Decoder decoder;
     Acquire acquire;
     std::shared_ptr<Connection> conn;
     /// @brief the open count of the connection when the framer last read from it.
     std::uint64_t opens = 0;
-    std::vector<Pending> pending;
-    std::vector<std::string> raw;
     /// @brief the index into cfg.polled of the next query to send in this cycle.
     std::size_t next_query;
     /// @brief the message whose query waits for its reply.
     std::optional<std::size_t> awaiting;
     x::telem::TimeStamp next_poll;
-    std::vector<std::string> warnings;
-    std::string held_warning;
-    x::telem::TimeStamp held_at;
 
     x::errors::Error exchange(Transport &t, const x::breaker::Breaker &breaker);
     x::errors::Error
     query(Transport &t, const x::breaker::Breaker &breaker, x::telem::TimeStamp now);
+    /// @brief reads what the device sent before a query, so a late reply to an
+    /// earlier query is never taken as its reply, and drops any partial frame.
+    x::errors::Error drain(Transport &t);
     x::errors::Error receive(Transport &t, x::telem::TimeSpan timeout);
+    void consume(const transport::Chunk &chunk);
     void handle(std::span<const std::uint8_t> frame, x::telem::TimeStamp time);
-    void decode(
-        std::size_t message,
-        std::span<const std::uint8_t> frame,
-        x::telem::TimeStamp time
-    );
-    void flush(x::telem::Frame &fr);
-    std::string warning(x::telem::TimeStamp now);
 };
 }

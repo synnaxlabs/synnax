@@ -40,40 +40,19 @@ void Connection::Guard::close() {
     this->conn.current.reset();
 }
 
-std::pair<std::shared_ptr<Connection>, x::errors::Error> Connections::acquire(
-    const std::string &key,
-    const x::json::json &settings,
-    const Opener &open
-) {
-    std::lock_guard lock(this->mu);
-    auto &entry = this->entries[key];
-    if (auto conn = entry.conn.lock()) {
-        if (entry.settings != settings)
-            return {
-                nullptr,
-                x::errors::Error(
-                    transport::CONFIG_ERROR,
-                    "another task has device " + key +
-                        " open with different settings. Stop or reconfigure it"
-                )
-            };
-        return {std::move(conn), x::errors::NIL};
-    }
-    auto conn = std::make_shared<Connection>(open);
-    entry = {.conn = conn, .settings = settings};
-    return {std::move(conn), x::errors::NIL};
-}
-
 Acquire acquirer(
     std::shared_ptr<Connections> connections,
     std::string key,
     x::json::json settings,
     Opener open
 ) {
-    return
-        [connections = std::move(connections),
-         key = std::move(key),
-         settings = std::move(settings),
-         open = std::move(open)] { return connections->acquire(key, settings, open); };
+    return [connections = std::move(connections),
+            key = std::move(key),
+            settings = std::move(settings),
+            open = std::move(open)] {
+        return connections->acquire(key, settings, [&open] {
+            return std::make_shared<Connection>(open);
+        });
+    };
 }
 }

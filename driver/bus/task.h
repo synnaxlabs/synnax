@@ -156,7 +156,9 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
                 x::breaker::default_config(task.name),
                 std::make_unique<Sink>(
                     std::move(resolved),
-                    acquirer<Conn>(connections, cfg.device, std::move(props)),
+                    std::make_unique<ConnectionTransmitter>(
+                        acquirer<Conn>(connections, cfg.device, std::move(props))
+                    ),
                     ctx,
                     task
                 )

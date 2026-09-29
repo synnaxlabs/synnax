@@ -36,6 +36,8 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//driver/arc",
+        "//driver/can:task",
+        "//driver/can/backends",
         "//driver/common",
         "//driver/ethercat",
         "//driver/http",

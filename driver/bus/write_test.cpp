@@ -64,7 +64,7 @@ struct Harness {
         task.name = "write";
         this->sink = std::make_unique<Sink>(
             std::move(resolved),
-            acquire(this->wire),
+            std::make_unique<ConnectionTransmitter>(acquire(this->wire)),
             this->ctx,
             task
         );
@@ -210,7 +210,7 @@ TEST(Sink, WaitsForAPollOfTheSameDeviceToGetItsReply) {
             {{7, 0}},
             newline
         ),
-        acquire(wire, connections),
+        std::make_unique<ConnectionTransmitter>(acquire(wire, connections)),
         std::make_shared<task::MockContext>(nullptr),
         synnax::task::Task{.key = x::uuid::create(), .name = "write"}
     );

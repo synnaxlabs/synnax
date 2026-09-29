@@ -30,6 +30,7 @@
 #include "driver/modbus/modbus.h"
 #endif
 
+#include "driver/can/factory.h"
 #include "driver/common/sample_clock.h"
 #include "driver/ethercat/ethercat.h"
 #include "driver/http/http.h"
@@ -73,6 +74,7 @@ inline std::vector<std::string> default_integrations() {
         arc::INTEGRATION_NAME,
         ethercat::INTEGRATION_NAME,
         http::INTEGRATION_NAME,
+        can::INTEGRATION_NAME,
         serial::INTEGRATION_NAME,
         tcp::INTEGRATION_NAME,
         udp::INTEGRATION_NAME,
