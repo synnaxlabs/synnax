@@ -42,7 +42,7 @@ tauri = { version = "2.12.0", features = ["devtools"] }
 tauri-plugin-store = "2.5.0"
 tauri-plugin-deep-link = "2.5.0"
 tauri-plugin-fs = "2.6.0"
-tauri-plugin-os = "2.3.2"
+tauri-plugin-os = "2.4.0"
 tauri-plugin-shell = "2.4.0"
 tauri-plugin-updater = "2.13.0"
 tauri-plugin-dialog = "2.8.0"
