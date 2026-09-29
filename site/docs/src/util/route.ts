@@ -1,4 +1,3 @@
----
 // Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
@@ -8,13 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import Layout from "@/layouts/Layout.astro";
-import SponsorshipsSection from "@/components/sponsorships/Sponsorships.astro";
----
-
-<Layout
-    title="Sponsorships"
-    description="Synnax sponsors student engineering teams around the world with free software licenses and support."
->
-    <SponsorshipsSection />
-</Layout>
+/** Strips the trailing slash from a pathname, except for the root. */
+export const normalizeRoute = (route: string): string =>
+  route !== "/" && route.endsWith("/") ? route.slice(0, -1) : route;

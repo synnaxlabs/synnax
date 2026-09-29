@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { type MarkdownHeading } from "astro";
 import { unescape } from "html-escaper";
 import { type ReactElement, useEffect, useRef, useState } from "react";
@@ -22,18 +23,29 @@ interface IndicatorPosition {
   height: number;
 }
 
-// Splits a rendered heading into plain text and inline code segments. Reads the DOM
-// because Astro's heading metadata flattens inline code to plain text.
-const parseHeading = (el: HTMLElement): Segment[] =>
+interface Heading {
+  step?: string;
+  segments: Segment[];
+}
+
+const parseSegments = (el: HTMLElement): Segment[] =>
   Array.from(el.childNodes)
     .flatMap((n): Segment[] => {
       if (!(n instanceof HTMLElement))
         return [{ text: n.textContent ?? "", code: false }];
-      if (n.classList.contains("heading-anchor")) return [];
+      if (n.classList.contains("heading-anchor") || n.classList.contains("step-label"))
+        return [];
       if (n.tagName === "CODE") return [{ text: n.textContent ?? "", code: true }];
-      return parseHeading(n);
+      return parseSegments(n);
     })
     .filter(({ text }) => text.length > 0);
+
+// Reads the rendered heading because Astro's heading metadata flattens inline code
+// and step labels to plain text.
+const parseHeading = (el: HTMLElement): Heading => ({
+  step: el.querySelector(".step-label")?.textContent?.trim(),
+  segments: parseSegments(el),
+});
 
 export interface OnThisPageProps {
   headings?: MarkdownHeading[];
@@ -51,12 +63,12 @@ export const OnThisPage = ({
   const [currentID, setCurrentID] = useState("");
   const [indicator, setIndicator] = useState<IndicatorPosition>({ top: 0, height: 0 });
   const [initialized, setInitialized] = useState(false);
-  const [visibleHeadings, setVisibleHeadings] = useState<Map<string, Segment[]>>(
+  const [visibleHeadings, setVisibleHeadings] = useState<Map<string, Heading>>(
     () =>
       new Map(
         headings.map(({ slug, text }) => [
           slug,
-          [{ text: unescape(text), code: false }],
+          { segments: [{ text: unescape(text), code: false }] },
         ]),
       ),
   );
@@ -70,7 +82,7 @@ export const OnThisPage = ({
           .filter(
             (t) => t.offsetParent !== null || getComputedStyle(t).display !== "none",
           )
-          .map((t): [string, Segment[]] => [t.id, parseHeading(t)]),
+          .map((t): [string, Heading] => [t.id, parseHeading(t)]),
       );
       setVisibleHeadings(visibleIds);
     };
@@ -157,17 +169,28 @@ export const OnThisPage = ({
             opacity: initialized ? 1 : 0,
           }}
         />
-        {filteredHeadings.map((heading) => (
-          <a
-            href={`#${heading.slug}`}
-            key={heading.slug}
-            data-item-key={heading.slug}
-            onClick={() => setCurrentID(heading.slug)}
-            className={`on-this-page-item depth-${heading.depth} ${currentID === heading.slug ? "active" : ""}`}
-          >
-            <Segments segments={visibleHeadings.get(heading.slug) ?? []} />
-          </a>
-        ))}
+        {filteredHeadings.map((heading) => {
+          const { step, segments } = visibleHeadings.get(heading.slug) ?? {
+            segments: [],
+          };
+          return (
+            <a
+              href={`#${heading.slug}`}
+              key={heading.slug}
+              data-item-key={heading.slug}
+              onClick={() => setCurrentID(heading.slug)}
+              className={`on-this-page-item depth-${heading.depth} ${currentID === heading.slug ? "active" : ""}`}
+            >
+              {step != null && (
+                <span className="on-this-page-step">
+                  {step}
+                  <Icon.Arrow.Right />
+                </span>
+              )}
+              <Segments segments={segments} />
+            </a>
+          );
+        })}
       </div>
     </>
   );

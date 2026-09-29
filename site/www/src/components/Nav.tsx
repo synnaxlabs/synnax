@@ -136,14 +136,14 @@ export const Nav = (): ReactElement => {
       <Button.Button
         variant="text"
         className="nav-link"
-        href="https://docs.synnaxlabs.com"
+        href="https://docs.synnaxlabs.com/reference"
       >
         Docs
       </Button.Button>
       <Button.Button
         variant="text"
         className="nav-link"
-        href="https://docs.synnaxlabs.com/blog/"
+        href="https://docs.synnaxlabs.com/blog"
       >
         Blog
       </Button.Button>
