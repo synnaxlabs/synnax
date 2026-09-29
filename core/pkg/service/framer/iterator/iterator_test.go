@@ -1216,6 +1216,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					}))
 					Expect(iter.SeekFirst()).To(BeTrue())
 					Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
+					Expect(iter.Value().KeysSlice()).To(HaveEach(Equal(calc.Index())))
 					v := iter.Value().Get(calc.Index())
 					Expect(v.Series).To(HaveLen(2))
 					Expect(v.Series[0]).To(telem.MatchSeriesData(idxData.Series[0]))
@@ -1251,6 +1252,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					}))
 					Expect(iter.SeekFirst()).To(BeTrue())
 					Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
+					Expect(iter.Value().KeysSlice()).To(HaveEach(Equal(calcC.Index())))
 					v := iter.Value().Get(calcC.Index())
 					Expect(v.Series).To(HaveLen(2))
 					Expect(v.Series[0]).To(telem.MatchSeriesData(idxData.Series[0]))
@@ -1277,9 +1279,66 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					}))
 					Expect(iter.SeekFirst()).To(BeTrue())
 					Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
+					Expect(iter.Value().KeysSlice()).To(HaveEach(Equal(calc.Index())))
 					v := iter.Value().Get(calc.Index())
 					Expect(v.Series).To(HaveLen(2))
 					Expect(v.Series[0]).To(telem.MatchSeriesData(idxData.Series[0]))
+					Expect(iter.Close()).To(Succeed())
+				})
+
+				It("Should keep only requested keys alongside a stored channel", func(
+					ctx SpecContext,
+				) {
+					calc := &channel.Channel{
+						Name:       "idx_only_mixed",
+						DataType:   telem.Float32T,
+						Expression: "return sensor_1",
+					}
+					Expect(channelWriter.Create(ctx, calc)).To(Succeed())
+					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
+						Keys:   []channel.Key{calc.Index(), dataCh1.Key()},
+						Bounds: telem.TimeRangeMax,
+					}))
+					Expect(iter.SeekFirst()).To(BeTrue())
+					Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
+					v := iter.Value()
+					Expect(v.KeysSlice()).To(HaveEach(
+						BeElementOf(calc.Index(), dataCh1.Key()),
+					))
+					Expect(v.Get(calc.Index()).Series).To(HaveLen(2))
+					Expect(v.Get(dataCh1.Key()).Series).To(HaveLen(2))
+					Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
+					Expect(iter.Close()).To(Succeed())
+				})
+
+				It("Should resolve two calculated indexes in one request", func(
+					ctx SpecContext,
+				) {
+					calcA := &channel.Channel{
+						Name:       "idx_only_pair_a",
+						DataType:   telem.Float32T,
+						Expression: "return sensor_1",
+					}
+					Expect(channelWriter.Create(ctx, calcA)).To(Succeed())
+					calcB := &channel.Channel{
+						Name:       "idx_only_pair_b",
+						DataType:   telem.Float32T,
+						Expression: "return sensor_1 * 2",
+					}
+					Expect(channelWriter.Create(ctx, calcB)).To(Succeed())
+					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
+						Keys:   []channel.Key{calcA.Index(), calcB.Index()},
+						Bounds: telem.TimeRangeMax,
+					}))
+					Expect(iter.SeekFirst()).To(BeTrue())
+					Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
+					v := iter.Value()
+					Expect(v.KeysSlice()).To(HaveEach(
+						BeElementOf(calcA.Index(), calcB.Index()),
+					))
+					Expect(v.Get(calcA.Index()).Series).To(HaveLen(2))
+					Expect(v.Get(calcB.Index()).Series).To(HaveLen(2))
+					Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
 					Expect(iter.Close()).To(Succeed())
 				})
 
