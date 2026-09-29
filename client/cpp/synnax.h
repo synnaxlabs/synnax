@@ -19,6 +19,7 @@
 #include "client/cpp/control/control.h"
 #include "client/cpp/device/device.h"
 #include "client/cpp/framer/framer.h"
+#include "client/cpp/library/library.h"
 #include "client/cpp/rack/rack.h"
 #include "client/cpp/ranger/ranger.h"
 #include "client/cpp/status/status.h"
@@ -165,6 +166,8 @@ public:
     arc::Client arcs;
     /// @brief Client for managing views.
     view::Client views;
+    /// @brief Client for managing libraries.
+    library::Client libraries;
     /// @brief Client for reading the control state of channels.
     control::Client control;
 
@@ -233,6 +236,11 @@ public:
             std::move(this->t.view_create),
             std::move(this->t.view_retrieve),
             std::move(this->t.view_delete)
+        ),
+        libraries(
+            std::move(this->t.library_create),
+            std::move(this->t.library_retrieve),
+            std::move(this->t.library_delete)
         ),
         control(this->t.control_retrieve) {
         details::check_little_endian();

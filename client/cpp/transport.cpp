@@ -26,6 +26,8 @@
 #include "core/pkg/transport/grpc/device/device.pb.h"
 #include "core/pkg/transport/grpc/framer/framer.grpc.pb.h"
 #include "core/pkg/transport/grpc/framer/framer.pb.h"
+#include "core/pkg/transport/grpc/library/library.grpc.pb.h"
+#include "core/pkg/transport/grpc/library/library.pb.h"
 #include "core/pkg/transport/grpc/rack/rack.grpc.pb.h"
 #include "core/pkg/transport/grpc/rack/rack.pb.h"
 #include "core/pkg/transport/grpc/ranger/kv/kv.grpc.pb.h"
@@ -179,6 +181,18 @@ Transport::Transport(
         grpc::view::DeleteRequest,
         google::protobuf::Empty,
         grpc::view::ViewDeleteService>>(pool, base_target);
+    this->library_create = std::make_unique<freighter::grpc::UnaryClient<
+        grpc::library::CreateRequest,
+        grpc::library::CreateResponse,
+        grpc::library::LibraryCreateService>>(pool, base_target);
+    this->library_retrieve = std::make_unique<freighter::grpc::UnaryClient<
+        grpc::library::RetrieveRequest,
+        grpc::library::RetrieveResponse,
+        grpc::library::LibraryRetrieveService>>(pool, base_target);
+    this->library_delete = std::make_unique<freighter::grpc::UnaryClient<
+        grpc::library::DeleteRequest,
+        google::protobuf::Empty,
+        grpc::library::LibraryDeleteService>>(pool, base_target);
     this->connectivity_check = std::make_unique<freighter::grpc::UnaryClient<
         google::protobuf::Empty,
         grpc::connectivity::CheckResponse,
@@ -216,5 +230,8 @@ void Transport::use(const std::shared_ptr<freighter::Middleware> &mw) const {
     view_create->use(mw);
     view_retrieve->use(mw);
     view_delete->use(mw);
+    library_create->use(mw);
+    library_retrieve->use(mw);
+    library_delete->use(mw);
 }
 }

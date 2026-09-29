@@ -29,6 +29,7 @@ cc_library(
         "//client/cpp/control",
         "//client/cpp/device",
         "//client/cpp/framer",
+        "//client/cpp/library",
         "//client/cpp/rack",
         "//client/cpp/ranger",
         "//client/cpp/status",

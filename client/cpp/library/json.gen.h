@@ -327,7 +327,7 @@ inline x::json::json MessageEntry::to_json() const {
             arr.push_back(::synnax::library::to_json(item));
         j["fields"] = arr;
     }
-    j["period"] = this->period.nanoseconds();
+    if (this->period.has_value()) j["period"] = this->period->nanoseconds();
     j["query"] = this->query;
     j["delimiter"] = this->delimiter;
     j["kind"] = this->kind;
