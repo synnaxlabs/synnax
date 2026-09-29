@@ -61,7 +61,7 @@ func (s Stamper) Stamp(
 	return l, s.Ontology.NewWriter(tx).ReplaceOutgoingRelationshipsOfType(
 		ctx,
 		ontology.ID{Type: ontology.ResourceTypeTask, Key: taskKey.String()},
-		RelationshipTypeUses,
+		ontology.RelationshipTypeUses,
 		OntologyID(ref.Library),
 	)
 }
