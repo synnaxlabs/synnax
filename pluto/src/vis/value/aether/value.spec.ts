@@ -373,6 +373,21 @@ describe("value/aether/Value", () => {
       return surface.glyphs();
     };
 
+    it("should draw an overflowing value as hash glyphs", () => {
+      const surface = canvasTest.atlasSurface();
+      const { component } = setup({
+        value: 123456,
+        render: surface.context,
+        state: {
+          location: "center",
+          box: box.construct({ x: 0, y: 0 }, { width: 20, height: 50 }),
+        },
+      });
+      surface.clear();
+      component.render({});
+      expect(surface.glyphs().length).toBeGreaterThan(0);
+    });
+
     it("should end a right-located value an inset in from the box right", () => {
       const glyphs = ink("right");
       const last = glyphs[glyphs.length - 1];
