@@ -11,21 +11,21 @@
 import Article from "@/components/article/Article.astro";
 import OnThisPage from "@/components/nav/OnThisPage.astro";
 import PageNav from "@/components/nav/Page.astro";
+import { editionOf, neighbors } from "@/components/nav/tree";
 import Main from "@/layouts/Root.astro";
+import { REFERENCE_PAGES } from "@/pages/_nav";
 const { headings, frontmatter } = Astro.props;
 const {
     title,
     heading,
     description,
     url,
-    next,
-    nextURL,
-    prev,
-    prevURL,
     clients,
     platforms,
     showOnThisPage = true,
 } = frontmatter;
+const { prev, next } = neighbors(REFERENCE_PAGES, Astro.url.pathname);
+const edition = editionOf(REFERENCE_PAGES, Astro.url.pathname);
 ---
 
 <Main frontmatter={frontmatter} headings={headings}>
@@ -35,10 +35,11 @@ const {
             url={url}
             title={heading ?? title}
             description={description}
-            next={next}
-            prev={prev}
-            nextURL={nextURL}
-            prevURL={prevURL}
+            next={next?.name}
+            prev={prev?.name}
+            nextURL={next?.href}
+            prevURL={prev?.href}
+            edition={edition}
         >
             <slot />
         </Article>

@@ -70,6 +70,29 @@ export const enumerateRoutes = (): string[] => {
   return [...new Set(routes)];
 };
 
+/** A link and where it came from. */
+export interface Ref {
+  source: string;
+  base: string;
+  href: string;
+}
+
+/**
+ * Lists every href in the nav definitions. Deep nav entries only render after
+ * hydration, so the crawl cannot see them.
+ */
+export const navRefs = (): Ref[] =>
+  pageFiles()
+    .filter((f) => f.endsWith("_nav.ts"))
+    .flatMap((f) => {
+      const text = fs.readFileSync(path.join(PAGES_DIR, f), "utf8");
+      return [...text.matchAll(/href:\s*"([^"]+)"/g)].map((m) => ({
+        source: `src/pages/${f}:${text.slice(0, m.index).split("\n").length}`,
+        base: "/",
+        href: m[1],
+      }));
+    });
+
 export interface CrawlResult {
   pages: Page[];
   failures: string[];

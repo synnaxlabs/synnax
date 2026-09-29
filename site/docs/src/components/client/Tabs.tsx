@@ -9,7 +9,14 @@
 
 import { useLayoutEffect } from "react";
 
-import { type Client, CLIENTS, getFromURL, setInURL } from "@/components/client/Client";
+import {
+  type Client,
+  CLIENTS,
+  getFromURL,
+  getStored,
+  setInURL,
+  store,
+} from "@/components/client/Client";
 import { Tabs as Base, type TabsProps as BaseProps } from "@/components/tabs/Tabs";
 
 const TABS = CLIENTS.map(({ key, ...c }) => ({ ...c, tabKey: key }));
@@ -21,8 +28,8 @@ export interface TabsProps extends Omit<BaseProps, "tabs" | "queryParamKey"> {
 
 export const Tabs = ({ exclude = [], priority = [], ...rest }: TabsProps) => {
   useLayoutEffect(() => {
-    const client = getFromURL();
-    if (client) setInURL(client);
+    const client = getFromURL() ?? getStored();
+    if (client) setInURL(client, true);
   }, []);
 
   const excludeSet = new Set(exclude);
@@ -37,5 +44,12 @@ export const Tabs = ({ exclude = [], priority = [], ...rest }: TabsProps) => {
       return aIndex - bIndex;
     });
 
-  return <Base queryParamKey="client" tabs={tabs} {...rest} />;
+  return (
+    <Base
+      queryParamKey="client"
+      tabs={tabs}
+      onSelect={(key) => store(key as Client)}
+      {...rest}
+    />
+  );
 };

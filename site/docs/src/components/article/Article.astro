@@ -10,6 +10,7 @@
 
 import { Breadcrumb } from "@/components/article/Breadcrumb";
 import NextPrev from "@/components/article/NextPrev.astro";
+import { Badge } from "@/components/edition/Badge";
 import { InlineCode } from "@/components/text/InlineCode";
 import { Text } from "@synnaxlabs/lyra/text";
 const {
@@ -25,6 +26,7 @@ const {
     author,
     authorImage,
     authorLink,
+    edition,
 } = Astro.props;
 
 const visibleTitleLength = String(title ?? "").replace(/`/g, "").length;
@@ -44,6 +46,11 @@ const visibleTitleLength = String(title ?? "").replace(/`/g, "").length;
             <InlineCode text={title} />
         </span>
     </Text.Text>
+    {edition && (
+        <div class="article-edition">
+            <Badge edition={edition} />
+        </div>
+    )}
     <h4 class="article-description">{description}</h4>
     {author && (
         <a
@@ -123,6 +130,9 @@ const visibleTitleLength = String(title ?? "").replace(/`/g, "").length;
             background: var(--pluto-primary-z);
         }
 
+        .article-edition {
+            margin-top: 1.5rem;
+        }
         .article-description {
             color: var(--pluto-gray-l9);
             font-weight: 350;

@@ -16,6 +16,8 @@ import { Tree } from "@synnaxlabs/lyra/tree";
 import { Logo } from "@synnaxlabs/media";
 import { type ReactElement, useEffect, useState } from "react";
 
+import { type Edition } from "@/components/edition/edition";
+import { flatten } from "@/components/nav/tree";
 import { InlineCode } from "@/components/text/InlineCode";
 import { type Flag } from "@/flags";
 import { REFERENCE_PAGES } from "@/pages/_nav";
@@ -40,6 +42,8 @@ export type PageNavNode = Omit<Tree.Node<string>, "children"> & {
   icon?: string;
   /** Hides the node and its children while the flag is off. */
   flag?: Flag;
+  /** Marks the node and its children as applying only to this edition. */
+  edition?: Edition;
   children?: PageNavNode[];
 };
 
@@ -122,15 +126,6 @@ const Item = ({ translate: _, ...props }: Tree.ItemRenderProps<string>) => {
 };
 
 const item = Component.renderProp(Item);
-
-const flatten = (nodes: PageNavNode[]): PageNavNode[] => {
-  const flattened: PageNavNode[] = [];
-  nodes.forEach((node) => {
-    flattened.push(node);
-    if (node.children != null) flattened.push(...flatten(node.children));
-  });
-  return flattened;
-};
 
 const REFERENCE_SECTION_KEYS = REFERENCE_PAGES.filter((p) => p.children != null).map(
   (p) => p.key,

@@ -11,6 +11,9 @@ import { Tabs as Base } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 
+import { Badge } from "@/components/edition/Badge";
+import { type Edition } from "@/components/edition/edition";
+
 // Astro's React SSR camelCases dashed slot names; hydration passes them raw.
 const slotName = (key: string): string =>
   key.replace(/[-_]([a-z])/g, (_, c: string) => c.toUpperCase());
@@ -23,14 +26,21 @@ export interface TabEntry {
   tabKey: string;
   name: string;
   icon?: ReactElement;
+  edition?: Edition;
 }
 
 export interface TabsProps extends Record<string, ReactElement | any> {
   tabs: TabEntry[];
   queryParamKey?: string;
+  onSelect?: (tabKey: string) => void;
 }
 
-export const Tabs = ({ tabs, queryParamKey, ...rest }: TabsProps): ReactElement => {
+export const Tabs = ({
+  tabs,
+  queryParamKey,
+  onSelect,
+  ...rest
+}: TabsProps): ReactElement => {
   const [selected, setSelected] = useState<string>(tabs[0].tabKey);
   const frameRef = useRef<HTMLDivElement>(null);
   const settling = useRef<AbortController>(null);
@@ -64,6 +74,7 @@ export const Tabs = ({ tabs, queryParamKey, ...rest }: TabsProps): ReactElement 
   const handleSelect = (tabKey: string) => {
     compensateScroll();
     setSelected(tabKey);
+    onSelect?.(tabKey);
     if (queryParamKey == null) return;
     const url = new URL(window.location.href);
     url.searchParams.set(queryParamKey, tabKey);
@@ -91,10 +102,11 @@ export const Tabs = ({ tabs, queryParamKey, ...rest }: TabsProps): ReactElement 
   return (
     <Base.Frame ref={frameRef} value={selected} onChange={handleSelect}>
       <Base.Selector>
-        {tabs.map(({ tabKey, name, icon }) => (
+        {tabs.map(({ tabKey, name, icon, edition }) => (
           <Base.Tab key={tabKey} itemKey={tabKey}>
             {icon ?? rest[`${tabKey}-icon`]}
             <Text.Text>{name}</Text.Text>
+            {edition != null && <Badge edition={edition} />}
           </Base.Tab>
         ))}
       </Base.Selector>

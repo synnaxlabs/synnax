@@ -25,6 +25,7 @@ import { crawlPages, enumerateRoutes, normalizeRoute } from "@/util/checks/crawl
 import { createFetcher } from "@/util/checks/fetch";
 import { links } from "@/util/checks/links";
 import { media } from "@/util/checks/media";
+import { nav } from "@/util/checks/nav";
 import { notes } from "@/util/checks/notes";
 import { tabs } from "@/util/checks/tabs";
 
@@ -56,6 +57,7 @@ const ALL: Check[] = [
   links(fullCrawl),
   media(fullCrawl),
   notes(fullCrawl),
+  nav(fullCrawl),
 ];
 const unknown = names.filter((name) => ALL.every((check) => check.name !== name));
 if (unknown.length > 0) {

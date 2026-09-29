@@ -17,6 +17,7 @@ export { Core } from "@/components/core";
 export { Details } from "@/components/details";
 export { Diagram } from "@/components/diagram";
 export { Driver } from "@/components/driver";
+export { Edition } from "@/components/edition";
 export { Feedback } from "@/components/feedback";
 export { Media } from "@/components/media";
 export { Nav } from "@/components/nav";

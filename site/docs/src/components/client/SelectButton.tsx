@@ -10,7 +10,13 @@
 import { Select } from "@synnaxlabs/lyra/select";
 import { useEffect, useState } from "react";
 
-import { type Client, CLIENTS, getFromURL, setInURL } from "@/components/client/Client";
+import {
+  type Client,
+  CLIENTS,
+  getFromURL,
+  getStored,
+  setInURL,
+} from "@/components/client/Client";
 
 const indexMap = new Map<Client, number>();
 CLIENTS.forEach((c, i) => indexMap.set(c.key, i));
@@ -28,8 +34,8 @@ export const SelectButton = ({ clients }: SelectButtonProps) => {
 
   useEffect(() => {
     const updateFromURL = () => {
-      const c = getFromURL();
-      if (c) setClient(c);
+      const c = getFromURL() ?? getStored();
+      if (c != null && clients.includes(c)) setClient(c);
     };
     updateFromURL();
     window.addEventListener("popstate", updateFromURL);
