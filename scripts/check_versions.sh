@@ -26,11 +26,11 @@ fail() {
 }
 
 require_dir() {
-    [[ -d "$1" ]] || fail "directory not found: $1"
+    [[ -d $1 ]] || fail "directory not found: $1"
 }
 
 require_file() {
-    [[ -f "$1" ]] || fail "file not found: $1"
+    [[ -f $1 ]] || fail "file not found: $1"
 }
 
 # Extract major.minor (X.Y) from a semver-ish string.
@@ -45,7 +45,7 @@ get_allowed_mm() {
     core="$(git -C "$ROOT_DIR" tag --list 'core/v*' \
         | sed -nE 's#^core/v([0-9]+\.[0-9]+\.[0-9]+)$#\1#p' \
         | sort -t. -k1,1n -k2,2n -k3,3n | tail -1)"
-    [[ -n "$core" ]] || fail "no stable core tag found; fetch tags first"
+    [[ -n $core ]] || fail "no stable core tag found; fetch tags first"
     local major minor
     IFS=. read -r major minor _ <<< "$core"
     CORE_MM="$major.$minor"
@@ -59,7 +59,7 @@ read_node_mm() {
 
     local full
     full="$(grep -m1 '"version"[[:space:]]*:' "$pkg_json" | cut -d '"' -f4)"
-    [[ -n "$full" ]] || fail "could not read version from $pkg_json"
+    [[ -n $full ]] || fail "could not read version from $pkg_json"
     major_minor "$full"
 }
 
@@ -69,7 +69,7 @@ read_python_mm() {
 
     local full
     full="$(grep -m1 '^version[[:space:]]*=' "$pyproject" | cut -d '"' -f2)"
-    [[ -n "$full" ]] || fail "could not read version from $pyproject"
+    [[ -n $full ]] || fail "could not read version from $pyproject"
     major_minor "$full"
 }
 
@@ -79,7 +79,7 @@ check_match() {
     local expected_mm="$3"
     local source="$4"
 
-    if [[ "$found_mm" != "$expected_mm" ]]; then
+    if [[ $found_mm != "$expected_mm" ]]; then
         echo "❌ $label version mismatch: found ${found_mm}.x, expected ${expected_mm}.x ($source)" >&2
         return 1
     fi
@@ -139,12 +139,12 @@ main() {
         ok=false
     fi
 
-    if [[ "$expected" != "$CORE_MM" && "$expected" != "$NEXT_MM" ]]; then
+    if [[ $expected != "$CORE_MM" && $expected != "$NEXT_MM" ]]; then
         echo "❌ packages are on ${expected}.x, not ${CORE_MM}.x or ${NEXT_MM}.x" >&2
         ok=false
     fi
 
-    if [[ "$ok" == true ]]; then
+    if [[ $ok == true ]]; then
         echo "All packages share ${expected}.x."
         exit 0
     else

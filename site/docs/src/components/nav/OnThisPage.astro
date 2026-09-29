@@ -22,43 +22,37 @@ const hasHeadings =
 ---
 
 <Flex.Box el="nav" className="on-this-page" gap="medium">
-    {
-        hasHeadings && (
-            <Flex.Box direction="y" gap={2} className="on-this-page__header">
-                <Text.Text level="h5">
-                    <Icon.Log style={{ transform: "scale(0.8)" }} />
-                    On this page
-                </Text.Text>
+    {hasHeadings && (
+        <Flex.Box direction="y" gap={2} className="on-this-page__header">
+            <Text.Text level="h5">
+                <Icon.Log style={{ transform: "scale(0.8)" }} />
+                On this page
+            </Text.Text>
+        </Flex.Box>
+    )}
+    {hasHeadings && (
+        <Flex.Box
+            direction="y"
+            gap={2}
+            className="on-this-page__content styled-scrollbar"
+        >
+            <OTP
+                client:only="react"
+                headings={props.headings}
+                url={props.url}
+                clients={props.clients}
+                platforms={props.platforms}
+            />
+        </Flex.Box>
+    )}
+    {!hideFeedback && (
+        <Flex.Box direction="y" gap={2}>
+            {hasHeadings && <Divider.Divider direction="x" />}
+            <Flex.Box direction="x" justify="end">
+                <Feedback />
             </Flex.Box>
-        )
-    }
-    {
-        hasHeadings && (
-            <Flex.Box
-                direction="y"
-                gap={2}
-                className="on-this-page__content styled-scrollbar"
-            >
-                <OTP
-                    client:only="react"
-                    headings={props.headings}
-                    url={props.url}
-                    clients={props.clients}
-                    platforms={props.platforms}
-                />
-            </Flex.Box>
-        )
-    }
-    {
-        !hideFeedback && (
-            <Flex.Box direction="y" gap={2}>
-                {hasHeadings && <Divider.Divider direction="x" />}
-                <Flex.Box direction="x" justify="end">
-                    <Feedback />
-                </Flex.Box>
-            </Flex.Box>
-        )
-    }
+        </Flex.Box>
+    )}
     <slot />
 </Flex.Box>
 
@@ -141,6 +135,20 @@ const hasHeadings =
 
             &.depth-3 {
                 padding-left: 4rem;
+            }
+
+            .on-this-page-step {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.5rem;
+                margin-right: 0.75rem;
+                color: var(--pluto-gray-l6);
+                transition: color 0.15s ease;
+            }
+
+            &:hover .on-this-page-step,
+            &.active .on-this-page-step {
+                color: var(--pluto-gray-l8);
             }
 
             &:hover {

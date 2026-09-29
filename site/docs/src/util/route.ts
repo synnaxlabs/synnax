@@ -7,4 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// <reference types="vite/client" />
+/** Strips the trailing slash from a pathname, except for the root. */
+export const normalizeRoute = (route: string): string =>
+  route !== "/" && route.endsWith("/") ? route.slice(0, -1) : route;

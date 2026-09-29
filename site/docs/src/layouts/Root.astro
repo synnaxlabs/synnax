@@ -16,8 +16,11 @@ import favicon from "@synnaxlabs/media/static/logo/icon-white-favicon.svg";
 import { SEO } from "astro-seo";
 import Footer from "@/components/layout/Footer.astro";
 import { enabled } from "@/flags";
+import { sectionOf } from "@/pages/_nav";
+import { normalizeRoute } from "@/util/route";
 const {
     frontmatter: { title, description, url, image, flag },
+    article,
 } = Astro.props;
 // A page behind a flag that is off does not exist.
 const hidden = flag != null && !enabled(flag);
@@ -25,26 +28,29 @@ if (hidden) Astro.response.status = 404;
 const DEFAULT_OG_IMAGE =
     "https://synnax.nyc3.cdn.digitaloceanspaces.com/docs/og-default.png";
 const ogImage = image || DEFAULT_OG_IMAGE;
-const canonicalUrl = new URL(
-    Astro.url.pathname,
-    Astro.site || "https://docs.synnaxlabs.com",
-).href;
+// Query strings (the ?client= switcher) and trailing slashes must not split a page
+// into duplicates.
+const route = normalizeRoute(Astro.url.pathname);
+const canonicalUrl = new URL(route, Astro.site).href;
+const section = sectionOf(route);
 const cleanTitle = title?.replace(/`/g, "");
-const fullTitle = cleanTitle ? `${cleanTitle} | Synnax` : "Synnax";
+const pageTitle = cleanTitle && section ? `${cleanTitle} | ${section}` : cleanTitle;
+const fullTitle = pageTitle ? `${pageTitle} | Synnax` : "Synnax";
 ---
 
-<html>
+<html lang="en">
     <head>
         <PostHog />
         <SEO
-            title={cleanTitle}
+            title={pageTitle}
             titleTemplate="%s | Synnax"
             titleDefault="Synnax"
             description={description}
+            canonical={canonicalUrl}
             openGraph={{
                 basic: {
                     title: fullTitle,
-                    type: "website",
+                    type: article == null ? "website" : "article",
                     image: ogImage,
                     url: canonicalUrl,
                 },
@@ -55,6 +61,7 @@ const fullTitle = cleanTitle ? `${cleanTitle} | Synnax` : "Synnax";
                 image: {
                     alt: cleanTitle || "Synnax",
                 },
+                article,
             }}
             twitter={{
                 card: "summary_large_image",
@@ -68,6 +75,12 @@ const fullTitle = cleanTitle ? `${cleanTitle} | Synnax` : "Synnax";
                         rel: "icon",
                         href: favicon.src,
                     },
+                    {
+                        rel: "alternate",
+                        type: "application/rss+xml",
+                        title: "Synnax blog",
+                        href: "/blog/rss.xml",
+                    },
                 ],
                 meta: [
                     {
@@ -79,22 +92,22 @@ const fullTitle = cleanTitle ? `${cleanTitle} | Synnax` : "Synnax";
         />
         <ClientRouter />
         <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+        <slot name="head" />
     </head>
     <body>
         <Header url={url} transition:persist />
         <main>
-            {
-                hidden ? (
-                    <section class="not-found">
-                        <h1>Page not found</h1>
-                    </section>
-                ) : (
-                    <slot />
-                )
-            }
+            {hidden ? (
+                <section class="not-found">
+                    <h1>Page not found</h1>
+                </section>
+            ) : (
+                <slot />
+            )}
         </main>
         <Footer />
-    </body><script>
+    </body>
+    <script>
         import { addCodeButtonListeners } from "@/components/code/codeUtil";
         import { startPinningHashTarget } from "@/util/hash";
         import { startUpdatingIframeHref } from "@/util/iframe";

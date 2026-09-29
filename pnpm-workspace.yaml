@@ -16,6 +16,7 @@ packages:
   - drift
   - freighter/ts
   - lyra
+  - oracle/lsp/extensions/vscode
   - pluto
   - site/docs
   - site/www
@@ -25,19 +26,27 @@ packages:
 
 shellEmulator: true
 
-# Both entries are old major versions that predate provenance on their package, so the
-# downgrade is against a newer release the tree never installs.
 trustPolicy: no-downgrade
 trustPolicyExclude:
+  # Old major versions that predate provenance on their package, so the downgrade is
+  # against a newer release the tree never installs.
   - 'chokidar@4.0.3'
   - 'semver@6.3.1'
-  # Publishes from a GitHub Actions trusted publisher, but stopped attaching a
-  # provenance attestation after 6.4.0.
-  - '@vercel/routing-utils@6.5.0'
+  # The vercel/vercel monorepo stopped attaching provenance attestations partway through
+  # each package's history. Every release still comes from the same GitHub Actions
+  # trusted publisher and carries the same registry signature, so the only thing lost is
+  # the attestation.
+  - '@vercel/cli-config@0.3.0'
+  - '@vercel/cli-exec@1.0.1'
+  - '@vercel/functions@3.9.9'
+  - '@vercel/oidc@3.8.9'
+  - '@vercel/routing-utils@6.6.0'
 catalogMode: strict
 catalogPrune: true
+autoDedupe: true
 
 allowBuilds:
+  '@vscode/vsce-sign': false
   core-js: false
   esbuild: true
   protobufjs: false
@@ -45,27 +54,29 @@ allowBuilds:
 
 catalog:
   '@astrojs/check': ^0.9.10
-  '@astrojs/mdx': ^8.0.0
-  '@astrojs/react': ^6.0.5
-  '@astrojs/vercel': ^11.0.9
-  '@codingame/monaco-vscode-api': ^36.2.7
-  '@codingame/monaco-vscode-editor-api': ^36.2.7
-  '@codingame/monaco-vscode-extension-api': ^36.2.7
-  '@codingame/monaco-vscode-languages-service-override': ^36.2.7
-  '@codingame/monaco-vscode-textmate-service-override': ^36.2.7
-  '@codingame/monaco-vscode-theme-defaults-default-extension': ^36.2.7
-  '@codingame/monaco-vscode-theme-service-override': ^36.2.7
-  '@eslint-react/eslint-plugin': ^5.18.7
-  '@eslint/compat': ^2.1.0
+  '@astrojs/mdx': ^8.0.2
+  '@astrojs/react': ^7.0.0
+  '@astrojs/vercel': ^11.0.11
+  '@aws-sdk/client-s3': ^3.1141.0
+  '@codingame/monaco-vscode-api': ^37.1.0
+  '@codingame/monaco-vscode-editor-api': ^37.1.0
+  '@codingame/monaco-vscode-extension-api': ^37.1.0
+  '@codingame/monaco-vscode-languages-service-override': ^37.1.0
+  '@codingame/monaco-vscode-textmate-service-override': ^37.1.0
+  '@codingame/monaco-vscode-theme-defaults-default-extension': ^37.1.0
+  '@codingame/monaco-vscode-theme-service-override': ^37.1.0
+  '@eslint-react/eslint-plugin': ^5.21.0
+  '@eslint/compat': ^2.1.1
   '@eslint/js': ^10.0.1
   '@fontsource-variable/inter': ^5.3.0
-  # Held at 5.2.8. 5.3.0 drops the liga feature, so "->" no longer renders as an arrow.
-  '@fontsource/geist-mono': 5.2.8
+  '@fontsource/geist-mono': ^5.3.0
   '@fontsource/inter': ^5.3.0
   '@juggle/resize-observer': ^3.4.0
   '@opentelemetry/api': ^1.9.1
   '@prettier/plugin-xml': ^3.4.2
   '@reduxjs/toolkit': ^2.12.0
+  '@remotion/bundler': ^4.0.529
+  '@remotion/renderer': ^4.0.529
   '@synnaxlabs/alamos': workspace:^
   '@synnaxlabs/arc': workspace:^
   '@synnaxlabs/client': workspace:^
@@ -73,48 +84,52 @@ catalog:
   '@synnaxlabs/eslint-config': workspace:^
   '@synnaxlabs/freighter': workspace:^
   '@synnaxlabs/lyra': workspace:^
-  '@synnaxlabs/madge': workspace:^
   '@synnaxlabs/media': workspace:^
   '@synnaxlabs/pluto': workspace:^
   '@synnaxlabs/stylelint-config': workspace:^
   '@synnaxlabs/tsconfig': workspace:^
   '@synnaxlabs/vite-plugin': workspace:^
   '@synnaxlabs/x': workspace:^
-  '@tanstack/react-virtual': ^3.14.10
-  '@tauri-apps/api': ^2.11.1
-  '@tauri-apps/cli': ^2.11.5
-  '@tauri-apps/plugin-deep-link': ^2.4.10
-  '@tauri-apps/plugin-dialog': ^2.7.3
-  '@tauri-apps/plugin-fs': ^2.5.2
-  '@tauri-apps/plugin-process': ^2.3.1
-  '@tauri-apps/plugin-shell': ^2.3.6
-  '@tauri-apps/plugin-store': ^2.4.5
-  '@tauri-apps/plugin-updater': ^2.12.0
+  '@tanstack/react-virtual': ^3.14.13
+  '@tauri-apps/api': ^2.12.0
+  '@tauri-apps/cli': ^2.12.0
+  '@tauri-apps/plugin-deep-link': ^2.5.0
+  '@tauri-apps/plugin-dialog': ^2.8.0
+  '@tauri-apps/plugin-fs': ^2.6.0
+  '@tauri-apps/plugin-process': ^2.4.0
+  '@tauri-apps/plugin-shell': ^2.4.0
+  '@tauri-apps/plugin-store': ^2.5.0
+  '@tauri-apps/plugin-updater': ^2.13.0
   '@testing-library/react': ^16.3.2
   '@testing-library/user-event': ^14.6.7
   '@types/d3-scale': ^4.0.9
+  '@types/hast': ^3.0.4
   '@types/html-escaper': ^3.0.4
-  '@types/node': ^24.13.3
+  '@types/mdast': ^4.0.4
+  '@types/node': ^24.19.0
   '@types/offscreencanvas': ^2019.7.3
   '@types/pluralize': ^0.0.33
-  '@types/react': ^19.2.18
-  '@types/react-dom': ^19.2.4
-  '@types/use-sync-external-store': ^1.5.0
+  '@types/react': ^19.3.0
+  '@types/react-dom': ^19.3.0
+  '@types/use-sync-external-store': ^1.7.0
+  '@types/vscode': ^1.91.0
   '@types/webgl2': ^0.0.12
   '@types/ws': ^8.18.1
   '@vitejs/plugin-react': ^6.1.1
-  '@vitest/coverage-v8': ^4.1.10
-  '@xyflow/react': ^12.11.6
-  algoliasearch: ^5.57.0
-  astro: ^7.2.10
+  '@vitest/coverage-v8': ^5.0.2
+  '@vscode/vsce': ^4.0.0
+  '@xyflow/react': ^12.12.0
+  algoliasearch: ^5.59.0
+  astro: ^7.3.5
   astro-seo: ^1.2.0
   async-mutex: ^0.5.0
   clsx: ^2.1.1
-  compromise: ^14.16.0
-  compromise-dates: ^3.8.1
+  compromise: ^14.17.0
+  compromise-dates: ^3.9.0
   d3-scale: ^4.0.2
   error-stack-parser: ^2.1.4
-  eslint: ^10.9.1
+  esbuild: ^0.28.2
+  eslint: ^10.11.0
   eslint-plugin-react: ^7.37.5
   eslint-plugin-simple-import-sort: ^14.0.0
   fake-indexeddb: ^6.2.5
@@ -122,52 +137,57 @@ catalog:
   fuse.js: ^7.5.0
   globals: ^17.12.0
   gray-matter: ^4.0.3
+  hast-util-from-html: ^2.0.3
+  hast-util-to-mdast: ^10.1.2
   html-escaper: ^3.0.3
   immer: ^11.1.15
-  jsdom: ^30.0.1
-  knip: ^6.34.0
-  madge: ^8.0.0
+  jsdom: ^30.1.1
+  knip: ^6.38.0
   mathjs: ^15.2.0
+  mdast-util-gfm: ^3.1.0
+  mdast-util-to-markdown: ^2.1.2
   nanoid: ^6.0.1
+  playwright: ^1.63.0
   pluralize: ^8.0.0
   postcss: ^8.5.26
-  prettier: ^3.9.6
-  prettier-plugin-astro: ^0.14.1
-  prettier-plugin-sh: ^0.19.0
-  prettier-plugin-toml: ^2.0.6
-  # Held at 2.x. 3.x throws "'get' on proxy: property ... is a read-only and
-  # non-configurable data property" when a memoized selector reads frozen state,
-  # breaking Console store subscriptions. Failed the project, rename_synchronization,
-  # role_engineer_permissions, and role_operator_permissions integration tests on both
-  # platforms.
+  prettier: ^3.9.9
+  prettier-plugin-astro: ^1.1.0
+  prettier-plugin-sh: ^0.20.2
+  prettier-plugin-toml: ^3.0.2
+  # Pinned exactly, never with a caret: 2.0.3 is the last release on proxy-compare
+  # 2.4.0. 2.0.6 takes proxy-compare 2.6.0, which wraps a frozen property's value and so
+  # throws "'get' on proxy: ... read-only and non-configurable" against Drift's
+  # deep-frozen preloaded state, killing Console store subscriptions. The console/user
+  # role cases catch it; unit specs do not.
   proxy-memoize: 2.0.3
-  react: ^19.2.8
-  react-dom: ^19.2.8
+  react: ^19.3.0
+  react-dom: ^19.3.0
   react-icons: ^5.7.0
   react-redux: ^9.3.0
   remark: ^15.0.1
   remark-gfm: ^4.0.1
+  remotion: ^4.0.529
   shiki: ^4.4.3
   source-map-js: ^1.2.1
   strip-markdown: ^6.0.0
-  stylelint: ^17.14.1
+  stylelint: ^17.15.0
   stylelint-config-standard: ^40.0.0
-  tsx: ^4.23.13
-  turbo: ^2.10.12
+  tsx: ^4.23.15
+  turbo: ^2.11.4
   typescript: ^7.0.2
-  typescript-eslint: ^8.69.0
-  use-sync-external-store: ^1.6.0
+  typescript-eslint: ^8.70.1
+  use-sync-external-store: ^1.7.0
   uuid: ^14.0.2
-  vite: ^8.2.0
-  vitest: ^4.1.10
-  vscode-jsonrpc: ^9.0.2
-  vscode-languageclient: ^10.1.1
-  ws: ^8.21.2
-  zod: ^4.5.4
+  vite: ^8.3.1
+  vitest: ^5.0.2
+  vscode: npm:@codingame/monaco-vscode-extension-api@^37.1.0
+  vscode-jsonrpc: ^9.0.3
+  vscode-languageclient: ^10.1.2
+  ws: ^8.22.0
+  zod: ^4.6.5
 
 # TypeScript 6 pins for tooling that needs the JS Compiler API, which TS 7 no longer
-# ships (madge, typescript-eslint, astro check).
+# ships (typescript-eslint, astro check).
 catalogs:
   ts6:
-    '@typescript/typescript6': ^6.0.2
     typescript: ^6.0.3
