@@ -40,14 +40,16 @@ the code around it, against the `CLAUDE.md` principles, the tests, and the docs.
 change carries a migration and a dark feature stays dark. **Tier 3**: Only Greptile
 reads it. A fix that turns out to change behavior gets its tier raised.
 
-Two statuses gate a merge into `main` or a `release/**` branch, both through a merge
-queue. `Review gate` stays pending until the PR has one tier label, a successful
-Greptile review and, for Tier 1 or 2, an approval from a human other than the author. A
-later request for changes or a dismissal retires an approval. Two tier labels fail it.
-`OK` is the CI workflow's last job: it fails when any check the PR's paths select
-failed. The queue reruns CI on the merged result with the integration suite added before
-the branch moves. Admins bypass when Greptile is down. The gate script is
-`.github/scripts/check_review.sh`, the ruleset `.github/rulesets/main.json`.
+Two statuses gate a merge into `main` or a `release/**` branch. `Review gate` stays
+pending until the PR has one tier label, a successful Greptile review and, for Tier 1 or
+2, an approval from a human other than the author. A later request for changes or a
+dismissal retires an approval. Two tier labels fail it. `OK` is the CI workflow's last
+job: it fails when any check the PR's paths select failed. A merge into `main` goes
+through a merge queue, which reruns CI on the merged result with the integration suite
+added before the branch moves. GitHub refuses a queue on a wildcard branch pattern, so a
+`release/**` merge goes in directly. Admins bypass when Greptile is down. The gate
+script is `.github/scripts/check_review.sh`, the rulesets `.github/rulesets/main.json`
+and `.github/rulesets/release.json`.
 
 ## Size
 

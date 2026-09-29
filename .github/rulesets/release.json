@@ -1,10 +1,10 @@
 {
-  "name": "main",
+  "name": "release",
   "target": "branch",
   "enforcement": "active",
   "conditions": {
     "ref_name": {
-      "include": ["~DEFAULT_BRANCH"],
+      "include": ["refs/heads/release/**"],
       "exclude": []
     }
   },
@@ -31,18 +31,6 @@
       "parameters": {
         "strict_required_status_checks_policy": false,
         "required_status_checks": [{ "context": "Review gate" }, { "context": "OK" }]
-      }
-    },
-    {
-      "type": "merge_queue",
-      "parameters": {
-        "merge_method": "SQUASH",
-        "grouping_strategy": "ALLGREEN",
-        "max_entries_to_build": 5,
-        "max_entries_to_merge": 5,
-        "min_entries_to_merge": 1,
-        "min_entries_to_merge_wait_minutes": 5,
-        "check_response_timeout_minutes": 240
       }
     }
   ]
