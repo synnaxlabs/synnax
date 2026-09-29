@@ -123,18 +123,10 @@ export const useResultAliasAndName = createResultSelector(
   (a, b) => a.alias === b.alias && a.name === b.name,
 );
 
-export const {
-  use: useMultiple,
-  useResult: useResultMultiple,
-  createResultSelector: createResultMultipleSelector,
-} = Flux.createRetrieve<RetrieveMultipleQuery, channel.Channel[]>(
-  retrieveMultipleDefinition,
-);
-
-/** Counts the queried channels that compute their samples from an expression. */
-export const useResultCalculatedCount = createResultMultipleSelector(
-  (channels) => channels.filter(({ isCalculated }) => isCalculated).length,
-);
+export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRetrieve<
+  RetrieveMultipleQuery,
+  channel.Channel[]
+>(retrieveMultipleDefinition);
 
 const retrieveInitialFormValues = async ({
   query: { key, rangeKey },

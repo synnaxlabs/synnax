@@ -10,8 +10,8 @@
 import "@/lineplot/Viewport.css";
 
 import { CSS } from "@synnaxlabs/lyra/css";
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
 import { box, xy } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
@@ -57,9 +57,9 @@ export const Viewport = ({
         <Status.Loading className={CSS.BE("line-plot", "loading")}>
           <Status.Orbital />
           {loadingMessage != null && (
-            <Flex.Box y gap="tiny" className={CSS.BE("line-plot", "loading-message")}>
+            <Text.Text className={CSS.BE("line-plot", "loading-message")}>
               {loadingMessage}
-            </Flex.Box>
+            </Text.Text>
           )}
         </Status.Loading>
       )}

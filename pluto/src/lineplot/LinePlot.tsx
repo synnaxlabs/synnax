@@ -11,8 +11,6 @@ import { type channel, lineplot } from "@synnaxlabs/client";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { usePrevious } from "@synnaxlabs/lyra/hooks";
-import { Icon } from "@synnaxlabs/lyra/icon";
-import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import {
   box,
@@ -22,7 +20,6 @@ import {
   primitive,
   type TimeRange,
   type TimeSpan,
-  unique,
 } from "@synnaxlabs/x";
 import {
   type ReactElement,
@@ -33,7 +30,6 @@ import {
   useRef,
 } from "react";
 
-import { Channel } from "@/channel";
 import { canDropHaulItem, filterHaulItems } from "@/channel/types";
 import { XAxis as BaseXAxis, YAxis as BaseYAxis } from "@/lineplot/Axis";
 import { Frame, type FrameProps } from "@/lineplot/Frame";
@@ -50,7 +46,6 @@ import {
   useLegend,
   useLine,
   useLineCount,
-  useLineKeys,
   useName,
   useRedo,
   useRename,
@@ -506,41 +501,14 @@ export const LinePlot = ({
   useUndoRedoTriggers({ key, enabled: enableTriggers });
   const xAxisKeys = useXAxisKeys({ key });
   const viewportRef = useViewportReset({ key, hold: rest.hold });
-  const lineKeys = useLineKeys({ key });
-  const yChannels = useMemo(
-    () =>
-      unique.unique(
-        lineKeys
-          .map((k) => lineplot.parseLineKey(k).yChannel)
-          .filter(primitive.isNonZero),
-      ),
-    [lineKeys],
-  );
-  const { data: calculatedCount = 0 } = Channel.useResultCalculatedCount(
-    yChannels.length === 0 ? null : { keys: yChannels },
-  );
-  const longestSpan = useMemo(() => {
+  const loadingMessage = useMemo(() => {
     if (resolvedRanges == null || resolvedRanges.size === 0) return undefined;
     const spans = [...resolvedRanges.values()].map((r) =>
       r.variant === "dynamic" ? r.span : r.timeRange.span,
     );
-    return spans.reduce((a, b) => (b.greaterThan(a) ? b : a)).toString();
+    const longest = spans.reduce((a, b) => (b.greaterThan(a) ? b : a));
+    return `Fetching ${longest.toString()} of data`;
   }, [resolvedRanges]);
-  // Keyed on the span string so an unchanged message keeps its element identity.
-  const loadingMessage = useMemo(() => {
-    if (longestSpan == null) return undefined;
-    const fetching = <Text.Text>Fetching {longestSpan} of data</Text.Text>;
-    if (calculatedCount === 0) return fetching;
-    return (
-      <>
-        {fetching}
-        <Text.Text>
-          Core processing {calculatedCount} <Icon.Calculation /> calculated channel
-          {calculatedCount === 1 ? "" : "s"}
-        </Text.Text>
-      </>
-    );
-  }, [longestSpan, calculatedCount]);
   return (
     <Frame ref={ref} loadingMessage={loadingMessage} {...rest}>
       {xAxisKeys.map((xAxisKey) => (

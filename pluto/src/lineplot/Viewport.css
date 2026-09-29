@@ -26,7 +26,7 @@
     position: absolute;
     left: 0;
     right: 0;
-    align-items: center;
+    justify-content: center;
     text-align: center;
     font-size: var(--pluto-p-size);
     top: calc(50% + min(var(--pluto-orbital-size, 18rem), 100cqw, 100cqh) / 2 + 2rem);

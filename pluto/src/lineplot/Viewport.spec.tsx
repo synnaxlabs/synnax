@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Text } from "@synnaxlabs/lyra/text";
 import { act, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -54,35 +53,5 @@ describe("Viewport", () => {
     await waitFor(() =>
       expect(container.querySelector(".pluto-line-plot__loading")).toBeNull(),
     );
-  });
-
-  it("should render every line of a multi-part message", async () => {
-    const { container, root } = render(
-      <Frame
-        aetherKey="plot"
-        loadingMessage={
-          <>
-            <Text.Text>Fetching 90d of data</Text.Text>
-            <Text.Text>Core processing 2 calculated channels</Text.Text>
-          </>
-        }
-      >
-        <Viewport />
-      </Frame>,
-      { render: true, registry: lineplot.REGISTRY },
-    );
-    let plot: lineplot.LinePlot | null = null;
-    await waitFor(() => {
-      plot = root.findChildAtPath(WORKER_PATH) as lineplot.LinePlot;
-      expect(plot).toBeInstanceOf(lineplot.LinePlot);
-    });
-    act(() => {
-      plot?.setState((p) => ({ ...p, loading: true }));
-    });
-    await waitFor(() => {
-      const message = container.querySelector(".pluto-line-plot__loading-message");
-      expect(message?.textContent).toContain("Fetching 90d of data");
-      expect(message?.textContent).toContain("Core processing 2 calculated channels");
-    });
   });
 });
