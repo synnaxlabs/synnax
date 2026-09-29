@@ -219,16 +219,37 @@ func (s *Service) newCalculationTransform(
 			freeIndexes = append(freeIndexes, ch.Key())
 		}
 	}
+	unresolved := make(channel.Keys, 0, len(freeIndexes))
 	for _, key := range freeIndexes {
 		if graphed.Contains(key) {
 			continue
 		}
 		owner, ok := s.cfg.ChannelGraph.OwnerOfIndex(key)
 		if !ok {
+			unresolved = append(unresolved, key)
 			continue
 		}
 		if err := calcGraph.Add(ctx, owner); err != nil {
 			return nil, err
+		}
+	}
+	if len(unresolved) > 0 {
+		// The graph observes channel creation asynchronously, so a calculated channel
+		// made moments ago can miss. The channel table is the source of truth.
+		var owners []channel.Channel
+		if err := s.cfg.Channel.NewRetrieve().
+			Where(channel.MatchCalculated()).
+			Entries(&owners).
+			Exec(ctx, nil); err != nil {
+			return nil, err
+		}
+		for _, ch := range owners {
+			if !lo.Contains(unresolved, ch.Index()) {
+				continue
+			}
+			if err := calcGraph.Add(ctx, ch); err != nil {
+				return nil, err
+			}
 		}
 	}
 

@@ -1317,6 +1317,115 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						))
 				})
 			})
+
+			Describe("Virtual Upstream Reads", func() {
+				virtualErr := MatchError(ContainSubstring(
+					"cannot open iterator on virtual channel",
+				))
+				create := func(ctx SpecContext, chs ...*channel.Channel) {
+					GinkgoHelper()
+					for _, ch := range chs {
+						Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+					}
+				}
+
+				It("Should reject a calculation over a virtual channel alone", func(
+					ctx SpecContext,
+				) {
+					calc := &channel.Channel{
+						Name:       "virt_only_calc",
+						DataType:   telem.Float32T,
+						Expression: "return virt_only * 2",
+					}
+					create(
+						ctx,
+						&channel.Channel{
+							Name:     "virt_only",
+							DataType: telem.Float32T,
+							Virtual:  true,
+						},
+						calc,
+					)
+					Expect(iteratorSvc.Open(ctx, iterator.Config{
+						Keys:   []channel.Key{calc.Key(), calc.Index()},
+						Bounds: telem.TimeRangeMax,
+					})).Error().To(virtualErr)
+				})
+
+				It("Should reject a calculation mixing virtual and stored inputs", func(
+					ctx SpecContext,
+				) {
+					calc := &channel.Channel{
+						Name:       "virt_mixed_calc",
+						DataType:   telem.Float32T,
+						Expression: "return sensor_1 + virt_mixed",
+					}
+					create(
+						ctx,
+						&channel.Channel{
+							Name:     "virt_mixed",
+							DataType: telem.Float32T,
+							Virtual:  true,
+						},
+						calc,
+					)
+					Expect(iteratorSvc.Open(ctx, iterator.Config{
+						Keys:   []channel.Key{calc.Key(), calc.Index()},
+						Bounds: telem.TimeRangeMax,
+					})).Error().To(virtualErr)
+				})
+
+				It("Should reject a nested chain whose leaf is virtual", func(
+					ctx SpecContext,
+				) {
+					outer := &channel.Channel{
+						Name:       "virt_nested_2",
+						DataType:   telem.Float32T,
+						Expression: "return virt_nested_1 + sensor_1",
+					}
+					create(
+						ctx,
+						&channel.Channel{
+							Name:     "virt_nested_leaf",
+							DataType: telem.Float32T,
+							Virtual:  true,
+						},
+						&channel.Channel{
+							Name:       "virt_nested_1",
+							DataType:   telem.Float32T,
+							Expression: "return virt_nested_leaf * 2",
+						},
+						outer,
+					)
+					Expect(iteratorSvc.Open(ctx, iterator.Config{
+						Keys:   []channel.Key{outer.Key(), outer.Index()},
+						Bounds: telem.TimeRangeMax,
+					})).Error().To(virtualErr)
+				})
+
+				It("Should reject an index-only read of a virtual-backed chain", func(
+					ctx SpecContext,
+				) {
+					calc := &channel.Channel{
+						Name:       "virt_idx_calc",
+						DataType:   telem.Float32T,
+						Expression: "return virt_idx * 2",
+					}
+					create(
+						ctx,
+						&channel.Channel{
+							Name:     "virt_idx",
+							DataType: telem.Float32T,
+							Virtual:  true,
+						},
+						calc,
+					)
+					Expect(iteratorSvc.Open(ctx, iterator.Config{
+						Keys:   []channel.Key{calc.Index()},
+						Bounds: telem.TimeRangeMax,
+					})).Error().To(virtualErr)
+				})
+			})
 		})
 	})
 
