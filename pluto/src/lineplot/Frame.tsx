@@ -30,6 +30,7 @@ import {
   type HTMLAttributes,
   type PropsWithChildren,
   type ReactElement,
+  type ReactNode,
   type Ref,
   useCallback,
   useEffect,
@@ -59,7 +60,7 @@ export interface ContextValue {
   addViewportHandler: (handler: Viewport.UseHandler) => destructor.Destructor;
   setHold: (hold: boolean) => void;
   loading: boolean;
-  loadingMessage?: string;
+  loadingMessage?: ReactNode;
 }
 
 const [Context, useContext] = context.create<ContextValue>({
@@ -124,7 +125,7 @@ export interface FrameProps
     Aether.ComponentProps {
   resizeDebounce?: CrudeTimeSpan;
   onHold?: (hold: boolean) => void;
-  loadingMessage?: string;
+  loadingMessage?: ReactNode;
   ref?: Ref<FrameRef>;
 }
 

@@ -1032,6 +1032,73 @@ describe("queries", () => {
     });
   });
 
+  describe("useResultCalculatedCount", () => {
+    const createCalculated = async (source: channel.Channel) =>
+      await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+        expression: `return ${source.name} * 2`,
+      });
+
+    it("should count only the calculated channels in the query", async () => {
+      const source = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+      const calculated = await createCalculated(source);
+      const { result } = renderHook(
+        () => Channel.useResultCalculatedCount({ keys: [source.key, calculated.key] }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.data).toEqual(1);
+    });
+
+    it("should count every calculated channel in the query", async () => {
+      const source = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+      const first = await createCalculated(source);
+      const second = await createCalculated(source);
+      const { result } = renderHook(
+        () => Channel.useResultCalculatedCount({ keys: [first.key, second.key] }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.data).toEqual(2);
+    });
+
+    // An empty key list reaches the Core unfiltered, so no channels must pass null.
+    it("should disable the query and never reach the Core when given null", () => {
+      const { result } = renderHook(() => Channel.useResultCalculatedCount(null), {
+        wrapper,
+      });
+      expect(result.current.variant).toEqual("disabled");
+      expect(result.current.data).toBeUndefined();
+    });
+
+    it("should recount when a calculated channel joins the query", async () => {
+      const source = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+      const calculated = await createCalculated(source);
+      const { result, rerender } = renderHook(
+        ({ keys }: { keys: channel.Key[] }) =>
+          Channel.useResultCalculatedCount({ keys }),
+        { wrapper, initialProps: { keys: [source.key] } },
+      );
+      await waitFor(() => expect(result.current.data).toEqual(0));
+      rerender({ keys: [source.key, calculated.key] });
+      await waitFor(() => expect(result.current.data).toEqual(1));
+    });
+  });
+
   describe("useDelete", () => {
     it("should delete a single channel", async () => {
       const ch = await client.channels.create({
