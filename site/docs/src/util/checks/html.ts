@@ -42,7 +42,7 @@ export const attrOf = (tag: string, name: string): string | undefined => {
   return m == null ? undefined : unescapeHTML(m[1] ?? m[2]);
 };
 
-export interface Element {
+export interface Match {
   /** The opening tag. */
   tag: string;
   /** The inner HTML. */
@@ -74,7 +74,7 @@ export const elements = (
   name: string,
   attr: string,
   value: string,
-): Element[] =>
+): Match[] =>
   [
     ...html.matchAll(new RegExp(`<${name}\\b[^>]*\\s${attr}="${value}"[^>]*>`, "g")),
   ].map((m) => ({ tag: m[0], body: bodyOf(html, name, (m.index ?? 0) + m[0].length) }));
