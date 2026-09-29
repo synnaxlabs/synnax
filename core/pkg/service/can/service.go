@@ -40,7 +40,10 @@ var _ xconfig.Config[ServiceConfig] = ServiceConfig{}
 // Override implements xconfig.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Resolver.Stamper.DB = override.Nil(c.Resolver.Stamper.DB, other.Resolver.Stamper.DB)
+	c.Resolver.Stamper.DB = override.Nil(
+		c.Resolver.Stamper.DB,
+		other.Resolver.Stamper.DB,
+	)
 	c.Resolver.Stamper.Ontology = override.Nil(
 		c.Resolver.Stamper.Ontology,
 		other.Resolver.Stamper.Ontology,

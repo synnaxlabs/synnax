@@ -106,16 +106,21 @@ var _ = Describe("Service", func() {
 			}))
 		})
 
-		It("Should default the length of a fixed framing to one byte", func(ctx SpecContext) {
-			key := uuid.New()
-			l, _ := createLibrary(ctx, key)
-			Expect(svc.Write.Write(ctx, nil, key, msgpack.EncodedJSON{
-				"library": l.Key.String(),
-				"framing": map[string]any{"type": "fixed", "length": 0},
-			})).To(Succeed())
-			data := MustSucceed(svc.Write.Read(ctx, nil, key))
-			Expect(data["framing"]).To(HaveKeyWithValue("length", BeNumerically("==", 1)))
-		})
+		It(
+			"Should default the length of a fixed framing to one byte",
+			func(ctx SpecContext) {
+				key := uuid.New()
+				l, _ := createLibrary(ctx, key)
+				Expect(svc.Write.Write(ctx, nil, key, msgpack.EncodedJSON{
+					"library": l.Key.String(),
+					"framing": map[string]any{"type": "fixed", "length": 0},
+				})).To(Succeed())
+				data := MustSucceed(svc.Write.Read(ctx, nil, key))
+				Expect(
+					data["framing"],
+				).To(HaveKeyWithValue("length", BeNumerically("==", 1)))
+			},
+		)
 
 		It("Should apply scan config schema defaults to absent fields", func(
 			ctx SpecContext,

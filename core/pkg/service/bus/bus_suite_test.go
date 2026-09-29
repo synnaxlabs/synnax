@@ -6,6 +6,7 @@
 // As of the Change Date specified in that file, in accordance with the Business Source
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
+
 package bus_test
 
 import (
@@ -59,7 +60,7 @@ func fieldKey(f library.Field) library.FieldKey {
 
 func canMessage(name string, id uint32, fields ...library.Field) library.MessageEntry {
 	return library.MessageEntry{
-		BaseEntry:  library.BaseEntry{Key: uuid.New(), Name: name},
+		Key: uuid.New(), Name: name,
 		Identifier: &library.Identifier{Variant: library.CanIdentifier{ID: id}},
 		Format:     library.FormatBinary,
 		Fields:     fields,
