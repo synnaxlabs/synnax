@@ -18,6 +18,7 @@ import {
   event,
   type License,
   license,
+  organization,
 } from "@/server/db/schema";
 import { forbidden, notFound } from "@/server/errors";
 import { build } from "@/server/license/claims";
@@ -90,7 +91,8 @@ export const machinesFor = async (
 /**
  * link issues a desktop license for the user's personal organization, bound to one
  * machine, and returns its license key beside the secret that renews it. A machine that
- * logs in again replaces its earlier link, so it stays one entry.
+ * logs in again replaces its earlier link, so it stays one entry. Nothing is stored
+ * when signing fails.
  */
 export const link = async (
   store: Store,
@@ -100,6 +102,12 @@ export const link = async (
   const org = await ensurePersonal(store, { userID, name: userName });
   const secret = mintSecret();
   const linked = await store.transact(async (tx) => {
+    // Serializes a user's links, so a concurrent one sees this link and supersedes it.
+    await tx
+      .select({ key: organization.key })
+      .from(organization)
+      .where(eq(organization.key, org.key))
+      .for("update");
     const machines = await machinesFor(tx, org.key);
     for (const old of superseded(machines, fingerprint)) {
       await tx
@@ -152,14 +160,13 @@ export const link = async (
       activation: act.key,
       detail: { name: machineName, fingerprint },
     });
-    return { license: lic, activation: act };
+    const signed = await sign(signer, build({ license: lic, fingerprint, now }));
+    return { key: signed, license: lic, activation: act };
   });
-  const signed = await sign(
-    signer,
-    build({ license: linked.license, fingerprint, now }),
-  );
-  return { key: signed, secret, ...linked };
+  return { secret, ...linked };
 };
+
+const LOGGED_OUT = "This machine was logged out. Log in again.";
 
 /**
  * resolve finds the machine a renewal secret belongs to. Throws a 403 when the secret
@@ -173,7 +180,7 @@ export const resolve = async (store: Store, secret: string): Promise<Machine> =>
     .where(eq(activation.renewalSecretHash, hashSecret(secret)));
   if (row == null) throw forbidden("This machine is not logged in");
   if (row.activation.releasedAt != null || row.license.revokedAt != null)
-    throw forbidden("This machine was logged out. Log in again.");
+    throw forbidden(LOGGED_OUT);
   return row;
 };
 
@@ -182,7 +189,10 @@ export interface RenewArgs {
   now: Date;
 }
 
-/** renew slides the expiry of a machine's license and returns a fresh license key. */
+/**
+ * renew slides the expiry of a machine's license and returns a fresh license key.
+ * Throws a 403 when the machine was unlinked after `resolve` found it.
+ */
 export const renew = async (
   store: Store,
   signer: Signer,
@@ -191,8 +201,9 @@ export const renew = async (
   const [lic] = await store.query
     .update(license)
     .set({ expiresAt: expiryFrom(now) })
-    .where(eq(license.key, row.license.key))
+    .where(and(eq(license.key, row.license.key), isNull(license.revokedAt)))
     .returning();
+  if (lic == null) throw forbidden(LOGGED_OUT);
   await store.query
     .update(activation)
     .set({ lastSeen: now })
