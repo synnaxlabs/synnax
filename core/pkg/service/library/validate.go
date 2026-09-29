@@ -120,7 +120,7 @@ func (v *validator) validateMessage(
 	names := make(set.Set[string], len(m.Fields))
 	for i, f := range m.Fields {
 		p := pathOf(path, "fields", strconv.Itoa(i))
-		base, ok := fieldBaseOf(f)
+		base, ok := FieldBase(f)
 		if !ok {
 			v.addf(p, "encoding is required")
 			continue
@@ -140,7 +140,7 @@ func (v *validator) validateMessage(
 	v.validateIdentifier(path, m, fields)
 	for i, f := range m.Fields {
 		p := pathOf(path, "fields", strconv.Itoa(i))
-		base, ok := fieldBaseOf(f)
+		base, ok := FieldBase(f)
 		if !ok {
 			continue
 		}
@@ -177,7 +177,9 @@ func (v *validator) validateMessage(
 	}
 }
 
-func fieldBaseOf(f Field) (BaseField, bool) {
+// FieldBase returns the fields every encoding of f shares, and false when f has no
+// encoding.
+func FieldBase(f Field) (BaseField, bool) {
 	switch variant := f.Variant.(type) {
 	case BinaryField:
 		return variant.BaseField, true
