@@ -688,21 +688,21 @@ func (p *Plugin) processFieldForTranslation(
 
 	// Optional primitives that need type conversion (e.g., *uint8 <-> *uint32) require
 	// pointer dereference before casting and re-addressing after.
-	goFieldDeref := "*r." + goName
 	// uuid's forward is a method call, so its deref is parenthesized to apply the call
 	// to the pointee rather than the pointer.
-	uuidFieldDeref := "(*r." + goName + ")"
+	goFieldDeref := func(base string) string {
+		if base == "uuid" {
+			return "(*r." + goName + ")"
+		}
+		return "*r." + goName
+	}
 	pbFieldDeref := "*pb." + pbName
 	if isOptional && resolution.IsPrimitive(typeRef.Name) &&
 		(primitiveNeedsConversion(typeRef.Name) || typeRef.Name == "uuid") {
 		fd.NeedsPtrConversion = true
-		deref := goFieldDeref
-		if typeRef.Name == "uuid" {
-			deref = uuidFieldDeref
-		}
 		fd.ForwardExpr, fd.BackwardExpr, _, fd.HasBackwardError = p.generatePrimitiveConversion(
 			typeRef.Name,
-			deref,
+			goFieldDeref(typeRef.Name),
 			pbFieldDeref,
 			data,
 		)
@@ -716,14 +716,14 @@ func (p *Plugin) processFieldForTranslation(
 			switch form := resolved.Form.(type) {
 			case resolution.DistinctForm:
 				if resolution.IsPrimitive(form.Base.Name) {
-					deref := goFieldDeref
-					if form.Base.Name == "uuid" {
-						deref = uuidFieldDeref
-					}
 					fd.NeedsPtrConversion = true
 					fd.ForwardExpr, fd.BackwardExpr, fd.BackwardCast,
 						fd.HasBackwardError = p.generateTypeDefConversion(
-						resolved, form, data, deref, pbFieldDeref,
+						resolved,
+						form,
+						data,
+						goFieldDeref(form.Base.Name),
+						pbFieldDeref,
 					)
 				}
 			case resolution.AliasForm:
@@ -733,7 +733,7 @@ func (p *Plugin) processFieldForTranslation(
 						resolved,
 						form,
 						data,
-						uuidFieldDeref,
+						goFieldDeref(form.Target.Name),
 						pbFieldDeref,
 					)
 					fd.BackwardCast = ""

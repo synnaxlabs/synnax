@@ -165,14 +165,14 @@ func toXLSX(sheets ...[][]string) []byte {
 	return MustSucceed(f.WriteToBuffer()).Bytes()
 }
 
-var _ = Describe("ParseCSV", func() {
+var _ = Describe("Parse CSV", func() {
 	It("Should group the rows of each message into one message entry", func() {
-		entries := MustSucceed(icd.ParseCSV(toCSV(tableRows)))
+		entries := MustSucceed(icd.Parse(icd.FormatCSV, toCSV(tableRows)))
 		Expect(withoutKeys(entries)).To(Equal(tableEntries))
 	})
 
 	It("Should give every message and field a key", func() {
-		entries := MustSucceed(icd.ParseCSV(toCSV(tableRows)))
+		entries := MustSucceed(icd.Parse(icd.FormatCSV, toCSV(tableRows)))
 		m := messagesOf(entries)[0]
 		Expect(m.Key).ToNot(Equal(uuid.Nil()))
 		Expect(binaryFields(m)[0].Key).ToNot(Equal(uuid.Nil()))
@@ -180,20 +180,26 @@ var _ = Describe("ParseCSV", func() {
 
 	It("Should skip a leading byte order mark", func() {
 		entries := MustSucceed(
-			icd.ParseCSV(append([]byte("\ufeff"), toCSV(tableRows)...)),
+			icd.Parse(icd.FormatCSV, append([]byte("\ufeff"), toCSV(tableRows)...)),
 		)
 		Expect(withoutKeys(entries)).To(Equal(tableEntries))
 	})
 
 	It("Should report the line of malformed CSV", func() {
-		Expect(icd.ParseCSV([]byte("message,field,start_bit,bit_length\na,\"b,0,8\n"))).
-			Error().To(MatchError(HavePrefix("data: line 2: ")))
+		Expect(
+			icd.Parse(
+				icd.FormatCSV,
+				[]byte("message,field,start_bit,bit_length\na,\"b,0,8\n"),
+			),
+		).
+			Error().
+			To(MatchError(HavePrefix("data: line 2: ")))
 	})
 
 	header := "message,id,extended,length,period_ms,field,start_bit,bit_length," +
 		"byte_order,signed,float\n"
 	DescribeTable("Should reject an invalid table", func(csv, message string) {
-		Expect(icd.ParseCSV([]byte(csv))).Error().To(MatchError(
+		Expect(icd.Parse(icd.FormatCSV, []byte(csv))).Error().To(MatchError(
 			"data: " + message + ": validation error",
 		))
 	},
@@ -230,10 +236,10 @@ var _ = Describe("ParseCSV", func() {
 	)
 })
 
-var _ = Describe("ParseXLSX", func() {
+var _ = Describe("Parse XLSX", func() {
 	It("Should parse the table in the first sheet", func() {
 		other := [][]string{{"Color"}, {"red"}}
-		entries := MustSucceed(icd.ParseXLSX(toXLSX(tableRows, other)))
+		entries := MustSucceed(icd.Parse(icd.FormatXLSX, toXLSX(tableRows, other)))
 		Expect(withoutKeys(entries)).To(Equal(tableEntries))
 	})
 
@@ -243,13 +249,13 @@ var _ = Describe("ParseXLSX", func() {
 			{"m", "a", "0", "8"},
 			{"m", "b", "x", "8"},
 		}
-		Expect(icd.ParseXLSX(toXLSX(rows))).Error().To(MatchError(
+		Expect(icd.Parse(icd.FormatXLSX, toXLSX(rows))).Error().To(MatchError(
 			`data: row 3, column start_bit: invalid integer "x": validation error`,
 		))
 	})
 
 	It("Should reject data that is not a workbook", func() {
-		Expect(icd.ParseXLSX([]byte("message,field"))).Error().
+		Expect(icd.Parse(icd.FormatXLSX, []byte("message,field"))).Error().
 			To(MatchError(HavePrefix("data: invalid workbook: ")))
 	})
 })

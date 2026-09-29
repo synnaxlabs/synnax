@@ -126,8 +126,8 @@ const toFormPath = (path: string[], value: library.Library): string =>
 
 /**
  * Edits one library. A save writes the whole library, so the Core replaces it and
- * assigns keys to new entries and fields. A validation error from the Core lands on
- * the field it names.
+ * assigns keys to new entries and fields. A validation error from the Core lands on the
+ * field it names.
  */
 export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
   name: RESOURCE_NAME,
@@ -151,17 +151,13 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
       throw errors.fromUnknown(e);
     }
   },
-  // The editor has no name field, so a rename made elsewhere must reach the form
-  // before a save writes the old name back.
+  // The editor has no name field, so a rename made elsewhere must reach the form before
+  // a save writes the old name back.
   mountListeners: ({ client, query: { key }, set }) =>
     client.libraries.onChange({ key }, (result) => {
       if (query.isLive(result)) set("name", result.name);
     }),
 });
-
-export type RetrieveTasksQuery = {
-  key: library.Key;
-};
 
 const tasksParams = (key: library.Key) => ({
   ids: library.ontologyID(key),
@@ -170,7 +166,7 @@ const tasksParams = (key: library.Key) => ({
 
 /** Retrieves the tasks that use a library. */
 export const { use: useTasks, useResult: useTasksResult } = Flux.createRetrieve<
-  RetrieveTasksQuery,
+  RetrieveQuery,
   ontology.Resource[]
 >({
   name: "library tasks",

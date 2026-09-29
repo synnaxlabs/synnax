@@ -123,7 +123,7 @@ func (v *validator) validateMessage(
 	names := make(set.Set[string], len(m.Fields))
 	for i, f := range m.Fields {
 		p := pathOf(path, "fields", strconv.Itoa(i))
-		base, ok := FieldBase(f)
+		base, ok := fieldBase(f)
 		if !ok {
 			v.addf(p, "encoding is required")
 			continue
@@ -143,7 +143,7 @@ func (v *validator) validateMessage(
 	v.validateIdentifier(path, m, fields)
 	for i, f := range m.Fields {
 		p := pathOf(path, "fields", strconv.Itoa(i))
-		base, ok := FieldBase(f)
+		base, ok := fieldBase(f)
 		if !ok {
 			continue
 		}
@@ -180,9 +180,9 @@ func (v *validator) validateMessage(
 	}
 }
 
-// FieldBase returns the fields every encoding of f shares, and false when f has no
+// fieldBase returns the fields every encoding of f shares, and false when f has no
 // encoding.
-func FieldBase(f Field) (BaseField, bool) {
+func fieldBase(f Field) (BaseField, bool) {
 	switch variant := f.Variant.(type) {
 	case BinaryField:
 		return variant.BaseField, true
@@ -304,7 +304,7 @@ func (v *validator) validateBinaryField(path []string, m MessageEntry, f BinaryF
 	if f.Float && f.Signed {
 		v.addf(pathOf(path, "signed"), "a float field cannot also be signed")
 	}
-	if m.Length != nil && LastByte(f) >= int(*m.Length) {
+	if m.Length != nil && lastByte(f) >= int(*m.Length) {
 		v.addf(
 			pathOf(path, "start_bit"),
 			"field extends past the %d-byte payload",
@@ -313,10 +313,10 @@ func (v *validator) validateBinaryField(path []string, m MessageEntry, f BinaryF
 	}
 }
 
-// LastByte returns the index of the last payload byte a binary field touches. A
+// lastByte returns the index of the last payload byte a binary field touches. A
 // little-endian start bit is the field's least significant bit; a big-endian start bit
 // is its most significant bit, and the field continues toward higher byte indices.
-func LastByte(f BinaryField) int {
+func lastByte(f BinaryField) int {
 	start, length := int(f.StartBit), int(f.BitLength)
 	if f.ByteOrder == ByteOrderBigEndian {
 		msb := 8*(start/8) + 7 - start%8

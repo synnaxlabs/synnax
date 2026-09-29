@@ -64,9 +64,11 @@ var _ = Describe("Merge", func() {
 			first := library.Library{
 				Key:     uuid.New(),
 				Name:    "Bus",
-				Entries: MustSucceed(icd.ParseDBC(data)),
+				Entries: MustSucceed(icd.Parse(icd.FormatDBC, data)),
 			}
-			Expect(icd.Merge(first, MustSucceed(icd.ParseDBC(data)))).To(Equal(first))
+			Expect(
+				icd.Merge(first, MustSucceed(icd.Parse(icd.FormatDBC, data))),
+			).To(Equal(first))
 		},
 		Entry("enum references", "basic"),
 		Entry("multiplexor references", "extended_multiplexed"),

@@ -10,5 +10,3 @@
 import { Icon } from "@synnaxlabs/lyra/icon";
 
 export const CreateIcon = Icon.createComposite(Icon.Library, { topRight: Icon.Add });
-
-export const ImportIcon = Icon.createComposite(Icon.Library, { topRight: Icon.Import });

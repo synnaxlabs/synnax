@@ -14,6 +14,7 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -60,7 +61,7 @@ func (s Stamper) Stamp(
 	ref.LibraryHash = hash
 	return l, s.Ontology.NewWriter(tx).ReplaceOutgoingRelationshipsOfType(
 		ctx,
-		ontology.ID{Type: ontology.ResourceTypeTask, Key: taskKey.String()},
+		task.OntologyID(taskKey),
 		ontology.RelationshipTypeUses,
 		OntologyID(ref.Library),
 	)

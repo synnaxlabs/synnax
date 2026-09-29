@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.library.client import Client
+from synnax.library.client import Client, ImportFormat
 from synnax.library.types_gen import (
     ONTOLOGY_TYPE,
     Arinc429Identifier,
@@ -56,6 +56,7 @@ __all__ = [
     "FieldKey",
     "Format",
     "Identifier",
+    "ImportFormat",
     "Key",
     "Library",
     "MessageEntry",
