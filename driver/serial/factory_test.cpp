@@ -83,7 +83,7 @@ TEST_F(SerialFactory, ConfiguresAWriteTask) {
     cfg.library = lib.key;
     cfg.messages = {{
         .message = m.key,
-        .fields = {{.field = key(m.fields[0]), .channel = cmd.key}},
+        .fields = {{.field = field_key(m, 0), .channel = cmd.key}},
     }};
     auto [t, ok] = this->factory.configure_task(
         core.ctx,

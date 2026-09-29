@@ -19,6 +19,7 @@ import (
 	. "github.com/onsi/gomega"
 	bus "github.com/synnaxlabs/synnax/pkg/service/bus/versions/v0"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	library "github.com/synnaxlabs/synnax/pkg/service/library/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/tcp/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -56,7 +57,7 @@ var _ = Describe("Codec", func() {
 				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				AutoStart:          false,
 				DataSavingDisabled: true,
-				Library:            uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
+				Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"))),
 				LibraryHash:        "test_5",
 				Device:             "test_6",
 				Raw:                channel.Key(8),
@@ -81,7 +82,7 @@ var _ = Describe("Codec", func() {
 				Key:                uuid.Nil(),
 				AutoStart:          false,
 				DataSavingDisabled: false,
-				Library:            uuid.Nil(),
+				Library:            nil,
 				LibraryHash:        "",
 				Device:             "",
 				Raw:                channel.Key(0),
@@ -94,7 +95,7 @@ var _ = Describe("Codec", func() {
 				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				AutoStart:          false,
 				DataSavingDisabled: true,
-				Library:            uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
+				Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"))),
 				LibraryHash:        "test_5",
 				Device:             "test_6",
 				Raw:                channel.Key(8),
@@ -144,7 +145,7 @@ var _ = Describe("Codec", func() {
 				AutoStart:          false,
 				DataSavingDisabled: true,
 				Device:             "test_4",
-				Library:            uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"),
+				Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"))),
 				LibraryHash:        "test_6",
 				Messages: []bus.WriteMessage{
 					{
@@ -165,7 +166,7 @@ var _ = Describe("Codec", func() {
 				AutoStart:          false,
 				DataSavingDisabled: false,
 				Device:             "",
-				Library:            uuid.Nil(),
+				Library:            nil,
 				LibraryHash:        "",
 				Messages:           []bus.WriteMessage{},
 				Framing:            bus.Framing{Variant: bus.DelimiterFraming{Delimiter: ""}},
@@ -175,7 +176,7 @@ var _ = Describe("Codec", func() {
 				AutoStart:          false,
 				DataSavingDisabled: true,
 				Device:             "test_4",
-				Library:            uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"),
+				Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"))),
 				LibraryHash:        "test_6",
 				Messages:           []bus.WriteMessage{},
 				Framing:            bus.Framing{Variant: bus.DelimiterFraming{Delimiter: "test_9"}},
@@ -206,7 +207,7 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 		Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		AutoStart:          false,
 		DataSavingDisabled: true,
-		Library:            uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
+		Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"))),
 		LibraryHash:        "test_5",
 		Device:             "test_6",
 		Raw:                channel.Key(8),
@@ -269,7 +270,7 @@ func BenchmarkEncodeDecodeWriteConfig(b *testing.B) {
 		AutoStart:          false,
 		DataSavingDisabled: true,
 		Device:             "test_4",
-		Library:            uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"),
+		Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"))),
 		LibraryHash:        "test_6",
 		Messages: []bus.WriteMessage{
 			{
@@ -345,7 +346,7 @@ func FuzzDecodeReadConfig(f *testing.F) {
 			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			AutoStart:          false,
 			DataSavingDisabled: true,
-			Library:            uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
+			Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"))),
 			LibraryHash:        "test_5",
 			Device:             "test_6",
 			Raw:                channel.Key(8),
@@ -377,7 +378,7 @@ func FuzzDecodeReadConfig(f *testing.F) {
 			Key:                uuid.Nil(),
 			AutoStart:          false,
 			DataSavingDisabled: false,
-			Library:            uuid.Nil(),
+			Library:            nil,
 			LibraryHash:        "",
 			Device:             "",
 			Raw:                channel.Key(0),
@@ -397,7 +398,7 @@ func FuzzDecodeReadConfig(f *testing.F) {
 			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			AutoStart:          false,
 			DataSavingDisabled: true,
-			Library:            uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
+			Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"))),
 			LibraryHash:        "test_5",
 			Device:             "test_6",
 			Raw:                channel.Key(8),
@@ -488,7 +489,7 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 			AutoStart:          false,
 			DataSavingDisabled: true,
 			Device:             "test_4",
-			Library:            uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"),
+			Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"))),
 			LibraryHash:        "test_6",
 			Messages: []bus.WriteMessage{
 				{
@@ -516,7 +517,7 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 			AutoStart:          false,
 			DataSavingDisabled: false,
 			Device:             "",
-			Library:            uuid.Nil(),
+			Library:            nil,
 			LibraryHash:        "",
 			Messages:           []bus.WriteMessage{},
 			Framing:            bus.Framing{Variant: bus.DelimiterFraming{Delimiter: ""}},
@@ -533,7 +534,7 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 			AutoStart:          false,
 			DataSavingDisabled: true,
 			Device:             "test_4",
-			Library:            uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"),
+			Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"))),
 			LibraryHash:        "test_6",
 			Messages:           []bus.WriteMessage{},
 			Framing:            bus.Framing{Variant: bus.DelimiterFraming{Delimiter: "test_9"}},

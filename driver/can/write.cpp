@@ -19,7 +19,8 @@ std::vector<Frame>
 frames(const x::json::Parser &parser, const bus::WriteConfig &cfg, const bool fd) {
     std::vector<Frame> out;
     for (const auto &m: cfg.messages) {
-        const auto &id = std::get<synnax::library::CanIdentifier>(*m.entry.identifier);
+        const auto &payload = std::get<synnax::library::BinaryPayload>(m.entry.payload);
+        const auto &id = std::get<synnax::library::CanIdentifier>(*payload.identifier);
         const auto length = m.plan.length();
         if (length > std::numeric_limits<std::uint8_t>::max()) {
             parser.field_err(

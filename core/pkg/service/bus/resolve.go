@@ -46,15 +46,15 @@ func (r Resolver) Validate() error {
 	return v.Error()
 }
 
-// Read stamps cfg and returns a path-scoped validation error when a message or field
-// it reads is not in its library.
+// Read stamps cfg and returns a path-scoped validation error when cfg has messages but
+// no library, or when a message or field it reads is not in its library.
 func (r Resolver) Read(
 	ctx context.Context,
 	tx gorp.Tx,
 	taskKey uuid.UUID,
 	cfg *ReadConfig,
 ) error {
-	messages, err := r.stamp(ctx, tx, taskKey, &cfg.Reference)
+	messages, err := r.stamp(ctx, tx, taskKey, &cfg.Reference, len(cfg.Messages))
 	if err != nil {
 		return err
 	}
@@ -69,15 +69,15 @@ func (r Resolver) Read(
 	return nil
 }
 
-// Write stamps cfg and returns a path-scoped validation error when a message or field
-// it sends is not in its library.
+// Write stamps cfg and returns a path-scoped validation error when cfg has messages but
+// no library, or when a message or field it sends is not in its library.
 func (r Resolver) Write(
 	ctx context.Context,
 	tx gorp.Tx,
 	taskKey uuid.UUID,
 	cfg *WriteConfig,
 ) error {
-	messages, err := r.stamp(ctx, tx, taskKey, &cfg.Reference)
+	messages, err := r.stamp(ctx, tx, taskKey, &cfg.Reference, len(cfg.Messages))
 	if err != nil {
 		return err
 	}
@@ -97,7 +97,13 @@ func (r Resolver) stamp(
 	tx gorp.Tx,
 	taskKey uuid.UUID,
 	ref *library.Reference,
+	messageCount int,
 ) (map[library.EntryKey]library.MessageEntry, error) {
+	if ref.Library == nil && messageCount > 0 {
+		return nil, validate.PathedError(errors.Wrap(
+			validate.ErrValidation, "select a library before choosing messages",
+		), "library")
+	}
 	l, err := r.Stamper.Stamp(ctx, tx, taskKey, ref)
 	if err != nil {
 		return nil, err
@@ -124,9 +130,10 @@ func checkMessage(
 			validate.ErrValidation, "message %s is not in the library", key,
 		), path+".message")
 	}
-	known := make(set.Set[library.FieldKey], len(m.Fields))
-	for _, f := range m.Fields {
-		known.Add(f.Base().Key)
+	bases := m.Payload.FieldBases()
+	known := make(set.Set[library.FieldKey], len(bases))
+	for _, b := range bases {
+		known.Add(b.Key)
 	}
 	for j, f := range fields {
 		if !known.Contains(f) {

@@ -43,11 +43,13 @@ x::errors::Error duplicate(
     );
 }
 
-const library::BinaryField &
-find_field(const library::MessageEntry &m, const library::FieldKey &key) {
-    for (const auto &f: m.fields)
-        if (const auto &bf = std::get<library::BinaryField>(f); bf.key == key)
-            return bf;
+const library::BinaryField &find_field(
+    const library::MessageEntry &m,
+    const library::BinaryPayload &payload,
+    const library::FieldKey &key
+) {
+    for (const auto &f: payload.fields)
+        if (f.key == key) return f;
     throw std::out_of_range("message " + m.name + " has no field " + key.to_string());
 }
 }
@@ -57,7 +59,9 @@ Matcher::compile(const std::span<const library::MessageEntry> messages) {
     Matcher m;
     for (std::size_t i = 0; i < messages.size(); i++) {
         const auto &msg = messages[i];
-        if (!msg.identifier.has_value()) {
+        const auto *text = std::get_if<library::TextPayload>(&msg.payload);
+        const auto *binary = std::get_if<library::BinaryPayload>(&msg.payload);
+        if (text != nullptr ? text->prefix.empty() : !binary->identifier.has_value()) {
             if (m.fallback.has_value())
                 return {
                     {},
@@ -66,7 +70,22 @@ Matcher::compile(const std::span<const library::MessageEntry> messages) {
             m.fallback = i;
             continue;
         }
-        const auto &identifier = *msg.identifier;
+        if (text != nullptr) {
+            for (const auto &t: m.prefixed)
+                if (t.prefix == text->prefix)
+                    return {
+                        {},
+                        duplicate(
+                            messages,
+                            t.message,
+                            i,
+                            "have the same prefix " + t.prefix
+                        ),
+                    };
+            m.prefixed.push_back({.prefix = text->prefix, .message = i});
+            continue;
+        }
+        const auto &identifier = *binary->identifier;
         if (const auto *can = std::get_if<library::CanIdentifier>(&identifier)) {
             const auto valid = can->extended ? EXTENDED_ID_MASK : STANDARD_ID_MASK;
             const auto mask = can->mask.value_or(valid) & valid;
@@ -99,61 +118,39 @@ Matcher::compile(const std::span<const library::MessageEntry> messages) {
                 };
             continue;
         }
-        if (const auto *field = std::get_if<library::FieldIdentifier>(&identifier)) {
-            const auto &bf = find_field(msg, field->field);
-            if (bf.float_)
-                return {{}, message_error(msg, "identifier field must be an integer")};
-            auto [bits, err] = BitRange::compile(
-                bf.start_bit,
-                bf.bit_length,
-                bf.byte_order
-            );
-            if (err) return {{}, message_error(msg, err.data)};
-            auto h = std::find_if(
-                m.headers.begin(),
+        const auto &field = std::get<library::FieldIdentifier>(identifier);
+        const auto &bf = find_field(msg, *binary, field.field);
+        if (bf.float_)
+            return {{}, message_error(msg, "identifier field must be an integer")};
+        auto [bits, err] = BitRange::compile(
+            bf.start_bit,
+            bf.bit_length,
+            bf.byte_order
+        );
+        if (err) return {{}, message_error(msg, err.data)};
+        auto h = std::find_if(m.headers.begin(), m.headers.end(), [&](const Header &h) {
+            return h.bits == bits && h.signed_ == bf.signed_;
+        });
+        if (h == m.headers.end())
+            h = m.headers.insert(
                 m.headers.end(),
-                [&](const Header &h) {
-                    return h.bits == bits && h.signed_ == bf.signed_;
-                }
+                Header{.bits = bits, .signed_ = bf.signed_}
             );
-            if (h == m.headers.end())
-                h = m.headers.insert(
-                    m.headers.end(),
-                    Header{.bits = bits, .signed_ = bf.signed_}
-                );
-            const auto [it, ok] = h->messages.emplace(field->value, i);
-            if (!ok)
-                return {
-                    {},
-                    duplicate(
-                        messages,
-                        it->second,
-                        i,
-                        "have the same identifier value " + std::to_string(field->value)
-                    ),
-                };
-            continue;
-        }
-        if (const auto *token = std::get_if<library::TokenIdentifier>(&identifier)) {
-            for (const auto &t: m.tokens)
-                if (t.prefix == token->prefix)
-                    return {
-                        {},
-                        duplicate(
-                            messages,
-                            t.message,
-                            i,
-                            "have the same token " + t.prefix
-                        ),
-                    };
-            m.tokens.push_back({.prefix = token->prefix, .message = i});
-            continue;
-        }
-        return {{}, message_error(msg, "identifier type is not supported")};
+        const auto [it, ok] = h->messages.emplace(field.value, i);
+        if (!ok)
+            return {
+                {},
+                duplicate(
+                    messages,
+                    it->second,
+                    i,
+                    "have the same identifier value " + std::to_string(field.value)
+                ),
+            };
     }
     std::stable_sort(
-        m.tokens.begin(),
-        m.tokens.end(),
+        m.prefixed.begin(),
+        m.prefixed.end(),
         [](const auto &a, const auto &b) { return a.prefix.size() > b.prefix.size(); }
     );
     return {std::move(m), x::errors::NIL};
@@ -183,7 +180,7 @@ Matcher::match(const std::span<const std::uint8_t> frame) const {
         reinterpret_cast<const char *>(frame.data()),
         frame.size()
     );
-    for (const auto &t: this->tokens)
+    for (const auto &t: this->prefixed)
         if (line.starts_with(t.prefix)) return t.message;
     return this->fallback;
 }

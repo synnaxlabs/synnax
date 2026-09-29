@@ -50,7 +50,7 @@ struct Harness {
         ::synnax::bus::WriteMessage wm{.message = message.key};
         std::vector<synnax::channel::Channel> channels;
         for (const auto &[ch, field]: bindings) {
-            wm.fields.push_back({.field = key(message.fields[field]), .channel = ch});
+            wm.fields.push_back({.field = field_key(message, field), .channel = ch});
             channels.push_back(data_channel(ch, 0));
         }
         cfg.messages = {wm};
@@ -154,19 +154,18 @@ TEST(Sink, SendsAPeriodicMessageWithNoFields) {
 TEST(Sink, WritesTheValueOfAFieldIdentifier) {
     auto id = binary_field("kind", 0);
     auto m = binary_message("cmd", {id, binary_field("v", 8)});
-    m.identifier = synnax::library::FieldIdentifier{.field = id.key, .value = 0x42};
+    binary(m).identifier = synnax::library::FieldIdentifier{
+        .field = id.key,
+        .value = 0x42
+    };
     Harness h(m, {{1, 1}}, std::nullopt);
     h.command(1, 7);
     ASSERT_EVENTUALLY_EQ(h.count(), 1);
     EXPECT_EQ(h.wire->written()[0], (Bytes{0x42, 0x07}));
 }
 
-TEST(Sink, StartsATextLineWithItsToken) {
-    const auto m = text_message(
-        "set",
-        {delimited_field("v", 1)},
-        synnax::library::TokenIdentifier{.prefix = "SET,"}
-    );
+TEST(Sink, StartsATextLineWithItsPrefix) {
+    const auto m = text_message("set", {delimited_field("v", 1)}, "SET,");
     Harness h(m, {{1, 0}}, ::synnax::bus::DelimiterFraming{});
     h.command(1, 5);
     ASSERT_EVENTUALLY_EQ(h.count(), 1);

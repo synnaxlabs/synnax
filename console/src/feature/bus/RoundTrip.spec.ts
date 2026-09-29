@@ -48,7 +48,7 @@ const expectMessage = (
 ) => {
   expect(messages.map((m) => m.message)).toEqual([entry.key]);
   expect(messages[0].fields.map((f) => f.field)).toEqual(
-    entry.fields.map((f) => f.key),
+    entry.payload.fields.map((f) => f.key),
   );
 };
 

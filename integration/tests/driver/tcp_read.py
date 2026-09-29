@@ -31,17 +31,21 @@ PRESSURE_SCALE = 1000.0
 def reading_entry() -> library.MessageEntry:
     return library.MessageEntry(
         name="reading",
-        format="text",
         query="READ?",
-        fields=[
-            library.DelimitedField(name="count", position=0),
-            library.DelimitedField(
-                name="voltage", position=1, scale=VOLTAGE_SCALE, offset=VOLTAGE_OFFSET
-            ),
-            library.DelimitedField(
-                name="current", position=2, scale=CURRENT_SCALE, units="mA"
-            ),
-        ],
+        payload=library.TextPayload(
+            fields=[
+                library.DelimitedTextField(name="count", position=0),
+                library.DelimitedTextField(
+                    name="voltage",
+                    position=1,
+                    scale=VOLTAGE_SCALE,
+                    offset=VOLTAGE_OFFSET,
+                ),
+                library.DelimitedTextField(
+                    name="current", position=2, scale=CURRENT_SCALE, units="mA"
+                ),
+            ]
+        ),
     )
 
 
@@ -64,22 +68,27 @@ class TCPRead(BusCase):
             reading_entry(),
             library.MessageEntry(
                 name="status",
-                format="text",
                 query="STAT?",
-                fields=[
-                    library.TaggedField(
-                        name="temperature", tag="T=", offset=KELVIN_OFFSET, units="K"
-                    ),
-                    library.TaggedField(
-                        name="pressure", tag="P=", scale=PRESSURE_SCALE, units="Pa"
-                    ),
-                ],
+                payload=library.TextPayload(
+                    fields=[
+                        library.TaggedTextField(
+                            name="temperature",
+                            tag="T=",
+                            offset=KELVIN_OFFSET,
+                            units="K",
+                        ),
+                        library.TaggedTextField(
+                            name="pressure", tag="P=", scale=PRESSURE_SCALE, units="Pa"
+                        ),
+                    ]
+                ),
             ),
             library.MessageEntry(
                 name="output",
-                format="text",
                 query="MEAS:VOLT?",
-                fields=[library.DelimitedField(name="voltage", position=0)],
+                payload=library.TextPayload(
+                    fields=[library.DelimitedTextField(name="voltage", position=0)]
+                ),
             ),
         ]
 

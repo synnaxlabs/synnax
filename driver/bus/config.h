@@ -37,9 +37,10 @@ const auto WRITE_TIMEOUT = 1 * x::telem::SECOND;
 /// @brief what carries a task's frames, which decides the identifiers its messages can
 /// have.
 enum class Medium : std::uint8_t {
-    /// @brief a byte stream or datagrams. Messages match by field or token.
+    /// @brief a byte stream or datagrams. Messages match by field or prefix.
     BYTES,
-    /// @brief CAN frames. Messages match by CAN identifier and cannot be polled.
+    /// @brief CAN frames. Messages are binary, match by CAN identifier, and cannot be
+    /// polled.
     CAN,
 };
 
@@ -133,7 +134,7 @@ struct WriteMessage {
     codec::Plan plan;
     /// @brief binds command channels to slots.
     std::vector<Binding> bindings;
-    /// @brief the bytes that start every encoded payload: the token of a text message.
+    /// @brief the bytes that start every encoded payload: the prefix of a text message.
     std::string prefix;
     /// @brief values that every payload starts from: zero for unbound fields, and the
     /// identifier value of a field identifier.

@@ -228,6 +228,12 @@ private:
                 return false;
         return true;
     }
+    /// @brief compiles the fields of keys from a binary payload.
+    /// @returns CONFIG_ERROR when the layout of a field the plan needs is invalid.
+    x::errors::Error compile_payload(const synnax::library::BinaryPayload &payload);
+    /// @brief compiles the fields of keys from a text payload.
+    /// @returns CONFIG_ERROR when the delimiter or a field the plan needs is invalid.
+    x::errors::Error compile_payload(const synnax::library::TextPayload &payload);
     x::errors::Error
     decode_binary(std::span<const std::uint8_t> payload, Values &values) const;
     void decode_text(std::span<const std::uint8_t> payload, Values &values) const;

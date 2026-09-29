@@ -25,17 +25,18 @@ var _ = Describe("Resolver", func() {
 		lib      library.Library
 		status   library.MessageEntry
 		command  library.MessageEntry
+		rpm      library.BinaryField
+		temp     library.BinaryField
+		throttle library.BinaryField
 		task     uuid.UUID
 	)
 	BeforeEach(func(ctx SpecContext) {
 		resolver = bus.Resolver{Stamper: library.Stamper{DB: db, Ontology: otg}}
-		status = canMessage(
-			"Status",
-			0x100,
-			binaryField("rpm", 0),
-			binaryField("temp", 8),
-		)
-		command = canMessage("Command", 0x200, binaryField("throttle", 0))
+		rpm = binaryField("rpm", 0)
+		temp = binaryField("temp", 8)
+		throttle = binaryField("throttle", 0)
+		status = canMessage("Status", 0x100, rpm, temp)
+		command = canMessage("Command", 0x200, throttle)
 		lib = library.Library{
 			Name: "Engine",
 			Entries: []library.Entry{
@@ -52,7 +53,7 @@ var _ = Describe("Resolver", func() {
 
 	readConfig := func(messages ...bus.ReadMessage) bus.ReadConfig {
 		return bus.ReadConfig{
-			Library:  lib.Key,
+			Library:  &lib.Key,
 			Messages: messages,
 		}
 	}
@@ -90,7 +91,7 @@ var _ = Describe("Resolver", func() {
 			cfg := readConfig(bus.ReadMessage{
 				Message: status.Key,
 				Fields: []bus.ReadField{
-					{Field: fieldKey(status.Fields[1]), Channel: 2},
+					{Field: temp.Key, Channel: 2},
 				},
 			})
 			Expect(resolver.Read(ctx, tx, task, &cfg)).To(Succeed())
@@ -117,11 +118,11 @@ var _ = Describe("Resolver", func() {
 		})
 
 		It("Should reject a field of another message", func(ctx SpecContext) {
-			other := fieldKey(command.Fields[0])
+			other := throttle.Key
 			cfg := readConfig(bus.ReadMessage{
 				Message: status.Key,
 				Fields: []bus.ReadField{
-					{Field: fieldKey(status.Fields[0])},
+					{Field: rpm.Key},
 					{Field: other},
 				},
 			})
@@ -134,9 +135,40 @@ var _ = Describe("Resolver", func() {
 		It(
 			"Should reject a config whose library does not exist",
 			func(ctx SpecContext) {
-				cfg := bus.ReadConfig{Library: uuid.New()}
-				Expect(resolver.Read(ctx, tx, task, &cfg)).
-					To(MatchError(ContainSubstring("does not exist")))
+				missing := uuid.New()
+				cfg := bus.ReadConfig{
+					Library: &missing,
+				}
+				Expect(
+					resolver.Read(ctx, tx, task, &cfg),
+				).To(MatchError(ContainSubstring(
+					"library: library " + missing.String() + " does not exist",
+				)))
+			},
+		)
+
+		It(
+			"Should accept a config with no library and no messages",
+			func(ctx SpecContext) {
+				cfg := bus.ReadConfig{
+					LibraryHash: "stale",
+				}
+				Expect(resolver.Read(ctx, tx, task, &cfg)).To(Succeed())
+				Expect(cfg.LibraryHash).To(BeEmpty())
+			},
+		)
+
+		It(
+			"Should reject a config with messages but no library",
+			func(ctx SpecContext) {
+				cfg := bus.ReadConfig{
+					Messages: []bus.ReadMessage{{Message: status.Key}},
+				}
+				Expect(
+					resolver.Read(ctx, tx, task, &cfg),
+				).To(MatchError(ContainSubstring(
+					"library: select a library before choosing messages",
+				)))
 			},
 		)
 	})
@@ -144,11 +176,11 @@ var _ = Describe("Resolver", func() {
 	Describe("Write", func() {
 		It("Should stamp the library hash into the config", func(ctx SpecContext) {
 			cfg := bus.WriteConfig{
-				Library: lib.Key,
+				Library: &lib.Key,
 				Messages: []bus.WriteMessage{{
 					Message: command.Key,
 					Fields: []bus.WriteField{
-						{Field: fieldKey(command.Fields[0]), Channel: 3},
+						{Field: throttle.Key, Channel: 3},
 					},
 				}},
 			}
@@ -159,7 +191,7 @@ var _ = Describe("Resolver", func() {
 		It("Should reject a field that is not in the message", func(ctx SpecContext) {
 			missing := uuid.New()
 			cfg := bus.WriteConfig{
-				Library: lib.Key,
+				Library: &lib.Key,
 				Messages: []bus.WriteMessage{{
 					Message: command.Key,
 					Fields:  []bus.WriteField{{Field: missing}},
@@ -170,5 +202,28 @@ var _ = Describe("Resolver", func() {
 					" is not in message Command",
 			)))
 		})
+
+		It(
+			"Should accept a config with no library and no messages",
+			func(ctx SpecContext) {
+				cfg := bus.WriteConfig{}
+				Expect(resolver.Write(ctx, tx, task, &cfg)).To(Succeed())
+				Expect(cfg.LibraryHash).To(BeEmpty())
+			},
+		)
+
+		It(
+			"Should reject a config with messages but no library",
+			func(ctx SpecContext) {
+				cfg := bus.WriteConfig{
+					Messages: []bus.WriteMessage{{Message: command.Key}},
+				}
+				Expect(
+					resolver.Write(ctx, tx, task, &cfg),
+				).To(MatchError(ContainSubstring(
+					"library: select a library before choosing messages",
+				)))
+			},
+		)
 	})
 })

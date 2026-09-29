@@ -33,21 +33,23 @@ class UDPWrite(BusCase):
         return [
             library.MessageEntry(
                 name="command",
-                length=6,
-                fields=[
-                    library.BinaryField(
-                        name="setpoint", start_bit=0, bit_length=16, scale=0.5
-                    ),
-                    library.BinaryField(
-                        name="trim",
-                        start_bit=23,
-                        bit_length=16,
-                        byte_order="big_endian",
-                        signed=True,
-                    ),
-                    library.BinaryField(name="mode", start_bit=32, bit_length=8),
-                    library.BinaryField(name="spare", start_bit=40, bit_length=8),
-                ],
+                payload=library.BinaryPayload(
+                    length=6,
+                    fields=[
+                        library.BinaryField(
+                            name="setpoint", start_bit=0, bit_length=16, scale=0.5
+                        ),
+                        library.BinaryField(
+                            name="trim",
+                            start_bit=23,
+                            bit_length=16,
+                            byte_order="big_endian",
+                            signed=True,
+                        ),
+                        library.BinaryField(name="mode", start_bit=32, bit_length=8),
+                        library.BinaryField(name="spare", start_bit=40, bit_length=8),
+                    ],
+                ),
             )
         ]
 

@@ -27,7 +27,7 @@ export interface BusLibrary {
   engine: library.MessageEntry;
   /** A CAN message with the binary field Pressure. */
   brake: library.MessageEntry;
-  /** A text message matched by token S, with the delimited fields Volts and Amps. */
+  /** A text message matched by prefix S, with the delimited fields Volts and Amps. */
   status: library.MessageEntry;
 }
 
@@ -45,29 +45,37 @@ export const createBusLibrary = async (client: Synnax): Promise<BusLibrary> => {
       {
         kind: "message",
         name: "Engine",
-        identifier: { type: "can", id: 0x100, extended: false, fd: false },
-        length: 8,
-        fields: [
-          { encoding: "binary", name: "Rpm", startBit: 0, bitLength: 16, units: "rpm" },
-          { encoding: "binary", name: "Temp", startBit: 16, bitLength: 8 },
-        ],
+        payload: {
+          format: "binary",
+          identifier: { type: "can", id: 0x100, extended: false, fd: false },
+          length: 8,
+          fields: [
+            { name: "Rpm", startBit: 0, bitLength: 16, units: "rpm" },
+            { name: "Temp", startBit: 16, bitLength: 8 },
+          ],
+        },
       },
       {
         kind: "message",
         name: "Brake",
-        identifier: { type: "can", id: 0x200, extended: false, fd: false },
-        length: 8,
-        fields: [{ encoding: "binary", name: "Pressure", startBit: 0, bitLength: 16 }],
+        payload: {
+          format: "binary",
+          identifier: { type: "can", id: 0x200, extended: false, fd: false },
+          length: 8,
+          fields: [{ name: "Pressure", startBit: 0, bitLength: 16 }],
+        },
       },
       {
         kind: "message",
         name: "Status",
-        format: "text",
-        identifier: { type: "token", prefix: "S" },
-        fields: [
-          { encoding: "delimited", name: "Volts", position: 1 },
-          { encoding: "delimited", name: "Amps", position: 2 },
-        ],
+        payload: {
+          format: "text",
+          prefix: "S",
+          fields: [
+            { encoding: "delimited", name: "Volts", position: 1 },
+            { encoding: "delimited", name: "Amps", position: 2 },
+          ],
+        },
       },
     ],
   });
@@ -134,7 +142,7 @@ export const findFieldRow = async (name: string): Promise<HTMLElement> => {
 /** Creates the config entry of a task message that binds every field of entry. */
 export const createMessage = (entry: library.MessageEntry) => ({
   message: entry.key,
-  fields: entry.fields.map((f) => ({ field: f.key })),
+  fields: entry.payload.fields.map((f) => ({ field: f.key })),
 });
 
 /** Commits value into the text or numeric input with the given label. */

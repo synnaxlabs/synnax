@@ -343,7 +343,7 @@ std::vector<synnax::library::MessageEntry> read_messages() {
          speed_field},
         synnax::library::CanIdentifier{.id = FAST_ID}
     );
-    fast_msg.length = 8;
+    binary(fast_msg).length = 8;
     auto ratio = binary_field("ratio", 32, 32);
     ratio.float_ = true;
     auto slow_msg = binary_message(
@@ -355,7 +355,7 @@ std::vector<synnax::library::MessageEntry> read_messages() {
             .mask = SLOW_MASK,
         }
     );
-    slow_msg.length = 8;
+    binary(slow_msg).length = 8;
     return {fast_msg, slow_msg};
 }
 
@@ -369,8 +369,8 @@ write_config(const std::vector<synnax::library::MessageEntry> &messages) {
     synnax::channel::Key next = 7;
     for (const auto &m: messages) {
         ::synnax::bus::WriteMessage wm{.message = m.key};
-        for (const auto &f: m.fields) {
-            wm.fields.push_back({.field = key(f), .channel = next});
+        for (const auto *f: field_bases(m)) {
+            wm.fields.push_back({.field = f->key, .channel = next});
             channels.push_back(data_channel(next++, 0));
         }
         cfg.messages.push_back(wm);
@@ -399,13 +399,13 @@ std::vector<synnax::library::MessageEntry> write_messages() {
         {setpoint, trim, binary_field("enabled", 24, 1)},
         synnax::library::CanIdentifier{.id = COMMAND_ID}
     );
-    command.length = 8;
+    binary(command).length = 8;
     auto heartbeat = binary_message(
         "heartbeat",
         {binary_field("beat", 0, 16)},
         synnax::library::CanIdentifier{.id = HEARTBEAT_ID}
     );
-    heartbeat.length = 2;
+    binary(heartbeat).length = 2;
     heartbeat.period = 100 * x::telem::MILLISECOND;
     return {command, heartbeat};
 }

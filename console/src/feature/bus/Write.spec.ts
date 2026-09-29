@@ -151,7 +151,7 @@ describe("bus write task", () => {
       TCP.Task.WRITE_SCHEMAS,
     );
     const [volts, amps] = deployed.config.messages[0].fields;
-    expect(volts).toEqual({ field: status.fields[0].key, channel: cmd.key });
+    expect(volts).toEqual({ field: status.payload.fields[0].key, channel: cmd.key });
     expect(amps.channel).not.toBe(0);
     expect(amps.channel).not.toBe(cmd.key);
   });
@@ -166,7 +166,7 @@ describe("bus write task", () => {
         schemas: TCP.Task.WRITE_SCHEMAS,
       });
       expect(saved.config.messages[0].fields).toEqual([
-        { field: status.fields[0].key, channel: 0 },
+        { field: status.payload.fields[0].key, channel: 0 },
       ]);
     });
   });

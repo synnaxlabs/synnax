@@ -106,15 +106,15 @@ void Sink::enqueue(const std::size_t message) {
         return;
     }
     if (!m.prefix.empty()) {
-        // The token of a text line is its item 0, which the plan leaves empty.
+        // The prefix of a text line is its item 0, which the plan leaves empty.
         std::string_view prefix = m.prefix;
         const std::string_view body(
             reinterpret_cast<const char *>(payload.data()),
             payload.size()
         );
-        const auto &delimiter = m.entry.delimiter;
-        if (m.entry.format == synnax::library::FORMAT_TEXT && !delimiter.empty() &&
-            prefix.ends_with(delimiter) && body.starts_with(delimiter))
+        const auto &delimiter = std::get<synnax::library::TextPayload>(m.entry.payload)
+                                    .delimiter;
+        if (prefix.ends_with(delimiter) && body.starts_with(delimiter))
             prefix.remove_suffix(delimiter.size());
         payload.insert(payload.begin(), prefix.begin(), prefix.end());
     }

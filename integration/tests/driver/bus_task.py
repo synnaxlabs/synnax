@@ -45,7 +45,7 @@ def typed_message(
     type_value: int,
     type_start_bit: int,
     length: int,
-    fields: list[library.Field],
+    fields: list[library.BinaryField],
 ) -> library.MessageEntry:
     """Returns a binary message identified by the value of a one-byte type field.
 
@@ -57,9 +57,11 @@ def typed_message(
     kind = library.BinaryField(name="type", start_bit=type_start_bit, bit_length=8)
     return library.MessageEntry(
         name=name,
-        identifier=library.FieldIdentifier(field=kind.key, value=type_value),
-        length=length,
-        fields=[kind, *fields],
+        payload=library.BinaryPayload(
+            identifier=library.FieldIdentifier(field=kind.key, value=type_value),
+            length=length,
+            fields=[kind, *fields],
+        ),
     )
 
 
@@ -280,7 +282,7 @@ class BusCase(SimulatorCase):
         entry = self._messages[message]
         types = data_types or {}
         index = self.create_index(f"{self.prefix}_{entry.name}_time")
-        keys = {f.name: f.key for f in entry.fields}
+        keys = {f.name: f.key for f in entry.payload.fields}
         channels = {
             name: self.create_channel(
                 f"{self.prefix}_{entry.name}_{name}",
@@ -305,7 +307,7 @@ class BusCase(SimulatorCase):
         """Creates a FLOAT64 command channel for each named field of a message."""
         entry = self._messages[message]
         index = self.create_index(f"{self.prefix}_{entry.name}_cmd_time")
-        keys = {f.name: f.key for f in entry.fields}
+        keys = {f.name: f.key for f in entry.payload.fields}
         channels = {
             name: self.create_channel(
                 f"{self.prefix}_{entry.name}_{name}_cmd", sy.DataType.FLOAT64, index

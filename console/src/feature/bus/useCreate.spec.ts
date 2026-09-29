@@ -29,8 +29,7 @@ const setup = async () => {
 };
 
 describe("bus task create", () => {
-  it("should create a draft on an existing library and open it", async () => {
-    await createBusLibrary(client);
+  it("should create a draft with no library and open it", async () => {
     const dev = await createBusDevice(
       client,
       CAN.Device.MAKE,
@@ -42,8 +41,7 @@ describe("bus task create", () => {
     const tsk = await client.tasks.retrieve({ key, schemas: CAN.Task.READ_SCHEMAS });
     expect(tsk.name).toBe("CAN read task");
     expect(tsk.config.device).toBe(dev.key);
-    const lib = await client.libraries.retrieve({ key: tsk.config.library });
-    expect(lib.key).toBe(tsk.config.library);
+    expect(tsk.config.library).toBeUndefined();
   });
 
   it("should create a draft on the library the caller names", async () => {

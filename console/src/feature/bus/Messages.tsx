@@ -17,7 +17,6 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Library } from "@synnaxlabs/pluto";
-import { primitive, uuid } from "@synnaxlabs/x";
 import {
   type ReactElement,
   type ReactNode,
@@ -41,27 +40,22 @@ const useLibraryMessages = (): {
   messages: Map<library.EntryKey, library.MessageEntry>;
   error?: string;
 } => {
-  const key = Form.useFieldValue<library.Key>("config.library");
-  const selected = primitive.isNonZero(key) && key !== uuid.ZERO;
-  const { data, variant, status } = Library.useResult(selected ? { key } : null);
+  const key = Form.useFieldValue<library.Key>("config.library", { optional: true });
+  const { data, variant, status } = Library.useResult(key == null ? null : { key });
   const messages = useMemo(() => messagesOf(data), [data]);
   return { messages, error: variant === "error" ? status.message : undefined };
 };
 
 /** @returns a short label for how a message is matched on its transport. */
-const describeIdentifier = (id?: library.Identifier): string => {
+const describeMatch = ({ payload }: library.MessageEntry): string => {
+  if (payload.format === "text") return payload.prefix;
+  const id = payload.identifier;
   if (id == null) return "";
   switch (id.type) {
     case "can":
       return `0x${id.id.toString(16).toUpperCase()}${id.extended ? " ext" : ""}`;
-    case "arinc429":
-      return `label ${id.label.toString(8)}`;
-    case "mil1553":
-      return `RT ${id.rt} SA ${id.subaddress}`;
     case "field":
       return `= ${id.value}`;
-    case "token":
-      return id.prefix;
   }
 };
 
@@ -81,7 +75,7 @@ const MessageItem = ({ entries, onRemove, ...props }: MessageItemProps) => {
           {entry?.name ?? "Unknown message"}
         </Text.Text>
         <Text.Text level="small" color={8}>
-          {describeIdentifier(entry?.identifier)}
+          {entry == null ? "" : describeMatch(entry)}
         </Text.Text>
       </Flex.Box>
       <Flex.Box x align="center" gap="tiny">

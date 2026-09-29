@@ -18,9 +18,14 @@ export interface Accepts {
   (message: library.MessageEntry): boolean;
 }
 
-/** Accepts the messages a byte stream can carry: no identifier, or a field or token. */
-export const acceptsStream: Accepts = ({ identifier }) =>
-  identifier == null || identifier.type === "field" || identifier.type === "token";
+/**
+ * Accepts the messages a byte stream can carry: text, or binary with no identifier or a
+ * field identifier.
+ */
+export const acceptsStream: Accepts = ({ payload }) =>
+  payload.format === "text" ||
+  payload.identifier == null ||
+  payload.identifier.type === "field";
 
 /** @returns the message entries of a library, keyed by entry key. */
 export const messagesOf = (
@@ -42,6 +47,10 @@ const validateDevice = (issues: Issues, input: unknown, device: string) => {
   if (device === "") push(issues, input, ["device"], "Device is required");
 };
 
+const validateLibrary = (issues: Issues, input: unknown, key?: library.Key) => {
+  if (key == null) push(issues, input, ["library"], "Select a library");
+};
+
 const validateMessages = (issues: Issues, input: unknown, messages: Message[]) => {
   if (messages.every((m) => m.disabled))
     push(issues, input, ["messages"], "Add at least one enabled message");
@@ -53,6 +62,7 @@ export const validateRead = ({
   issues,
 }: z.core.ParsePayload<bus.ReadConfig>) => {
   validateDevice(issues, value, value.device);
+  validateLibrary(issues, value, value.library);
   validateMessages(issues, value, value.messages);
   value.messages.forEach((m, i) => {
     if (!m.disabled && m.fields.length === 0)
@@ -66,6 +76,7 @@ export const validateWrite = ({
   issues,
 }: z.core.ParsePayload<bus.WriteConfig>) => {
   validateDevice(issues, value, value.device);
+  validateLibrary(issues, value, value.library);
   validateMessages(issues, value, value.messages);
 };
 

@@ -24,9 +24,10 @@
 #include "driver/codec/bits.h"
 
 namespace driver::codec {
-/// @brief Matcher maps a received frame to the message it belongs to. It supports CAN,
-/// field, and token identifiers, and messages with no identifier, which match every
-/// frame that no other message matches.
+/// @brief Matcher maps a received frame to the message it belongs to. It matches binary
+/// messages by CAN or field identifier and text messages by prefix. A binary message
+/// with no identifier or a text message with an empty prefix matches every frame that
+/// no other message matches.
 class Matcher {
 public:
     Matcher() = default;
@@ -34,9 +35,8 @@ public:
     /// @brief compiles a matcher over messages that the Core has validated. Match
     /// results index this span.
     /// @returns CONFIG_ERROR naming both messages when two messages have the same CAN
-    /// identifier and mask, header field value, or token, or when neither has an
-    /// identifier. CONFIG_ERROR when an identifier field is a float or an identifier
-    /// type is not supported.
+    /// identifier and mask, header field value, or prefix, or when neither has an
+    /// identifier or prefix. CONFIG_ERROR when an identifier field is a float.
     static std::pair<Matcher, x::errors::Error>
     compile(std::span<const synnax::library::MessageEntry> messages);
 
@@ -50,9 +50,9 @@ public:
     match(std::uint32_t id, bool extended) const;
 
     /// @brief matches a frame from a byte stream or datagram, or a text line. Header
-    /// fields are read first, once each, in the order they first appear, then tokens
-    /// are checked from the longest prefix to the shortest, then the message with no
-    /// identifier.
+    /// fields are read first, once each, in the order they first appear, then prefixes
+    /// are checked from the longest to the shortest, then the message with no
+    /// identifier or prefix.
     /// @returns the index of the message, or nullopt when none matches.
     [[nodiscard]] std::optional<std::size_t>
     match(std::span<const std::uint8_t> frame) const;
@@ -81,8 +81,8 @@ private:
         std::unordered_map<std::int64_t, std::size_t> messages;
     };
 
-    /// @brief Token matches a line by its prefix.
-    struct Token {
+    /// @brief Prefixed matches a line by its prefix.
+    struct Prefixed {
         /// @brief prefix is the text the line must start with.
         std::string prefix;
         /// @brief message is the index of the message.
@@ -96,9 +96,9 @@ private:
     std::vector<Masked> masked;
     /// @brief headers holds each distinct header field in the order it first appears.
     std::vector<Header> headers;
-    /// @brief tokens holds token identifiers from the longest prefix to the shortest.
-    std::vector<Token> tokens;
-    /// @brief fallback is the message with no identifier.
+    /// @brief prefixed holds text messages from the longest prefix to the shortest.
+    std::vector<Prefixed> prefixed;
+    /// @brief fallback is the message with no identifier or prefix.
     std::optional<std::size_t> fallback;
 };
 }

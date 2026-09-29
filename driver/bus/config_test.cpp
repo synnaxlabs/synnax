@@ -42,7 +42,7 @@ struct ReadFixture {
         cfg.messages = {{
             .message = message.key,
             .index = 1,
-            .fields = {{.field = key(message.fields[0]), .channel = 2}},
+            .fields = {{.field = field_key(message, 0), .channel = 2}},
         }};
     }
 
@@ -60,6 +60,13 @@ struct ReadFixture {
         return this->first_error(library({message}));
     }
 };
+
+/// @returns a client whose port has no Core, for parses that must not reach one.
+synnax::Synnax unreachable_client() {
+    synnax::Config cfg;
+    cfg.port = 1;
+    return synnax::Synnax(cfg);
+}
 }
 
 TEST(Unescape, DecodesEscapedBytes) {
@@ -161,7 +168,13 @@ TEST(ReadConfig, RejectsAnIndexThatIsNotAnIndexChannel) {
 
 TEST(ReadConfig, RejectsACANIdentifierOnAByteStream) {
     ReadFixture f;
-    f.message.identifier = synnax::library::CanIdentifier{.id = 0x10};
+    f.message = binary_message(
+        "status",
+        {binary_field("value", 0)},
+        synnax::library::CanIdentifier{.id = 0x10}
+    );
+    f.cfg.messages[0].message = f.message.key;
+    f.cfg.messages[0].fields[0].field = field_key(f.message, 0);
     const auto [path, msg] = f.first_error();
     EXPECT_EQ(path, "messages.0.message");
     EXPECT_EQ(
@@ -173,12 +186,12 @@ TEST(ReadConfig, RejectsACANIdentifierOnAByteStream) {
 TEST(ReadConfig, RejectsAFieldIdentifierOnACANBus) {
     ReadFixture f;
     f.message = binary_message("status", {binary_field("value", 0)});
-    f.message.identifier = synnax::library::FieldIdentifier{
-        .field = key(f.message.fields[0]),
+    binary(f.message).identifier = synnax::library::FieldIdentifier{
+        .field = field_key(f.message, 0),
         .value = 1,
     };
     f.cfg.messages[0].message = f.message.key;
-    f.cfg.messages[0].fields[0].field = key(f.message.fields[0]);
+    f.cfg.messages[0].fields[0].field = field_key(f.message, 0);
     f.framing = std::nullopt;
     f.medium = Medium::CAN;
     const auto [path, msg] = f.first_error();
@@ -187,6 +200,15 @@ TEST(ReadConfig, RejectsAFieldIdentifierOnACANBus) {
         msg,
         "message status has a field identifier, which a CAN bus cannot carry"
     );
+}
+
+TEST(ReadConfig, RejectsATextMessageOnACANBus) {
+    ReadFixture f;
+    f.framing = std::nullopt;
+    f.medium = Medium::CAN;
+    const auto [path, msg] = f.first_error();
+    EXPECT_EQ(path, "messages.0.message");
+    EXPECT_EQ(msg, "message status has a text payload, which a CAN bus cannot carry");
 }
 
 TEST(ReadConfig, RejectsAQueryOnACANBus) {
@@ -198,7 +220,7 @@ TEST(ReadConfig, RejectsAQueryOnACANBus) {
     );
     f.message.query = R"(\x01)";
     f.cfg.messages[0].message = f.message.key;
-    f.cfg.messages[0].fields[0].field = key(f.message.fields[0]);
+    f.cfg.messages[0].fields[0].field = field_key(f.message, 0);
     f.framing = std::nullopt;
     f.medium = Medium::CAN;
     const auto [path, msg] = f.first_error();
@@ -236,8 +258,7 @@ TEST(ReadConfig, RejectsABinaryQueryWithAnUnknownEscape) {
     f.message = binary_message("status", {binary_field("value", 0)});
     f.message.query = R"(\q)";
     f.cfg.messages[0].message = f.message.key;
-    f.cfg.messages[0].message = f.message.key;
-    f.cfg.messages[0].fields[0].field = key(f.message.fields[0]);
+    f.cfg.messages[0].fields[0].field = field_key(f.message, 0);
     const auto [path, msg] = f.first_error();
     EXPECT_EQ(path, "messages.0.message");
     EXPECT_EQ(msg, "unknown escape \\q");
@@ -276,12 +297,24 @@ TEST(ReadConfig, SendsTheFramedQueryOfAPolledMessage) {
     EXPECT_EQ(text(cfg.messages[0].query), "VOLT?\n");
 }
 
+TEST(ReadConfig, ParseRejectsATaskWithNoLibrary) {
+    const auto client = unreachable_client();
+    ::synnax::bus::ReadConfig cfg;
+    cfg.device = "dev";
+    x::json::Parser parser(x::json::json::object());
+    const auto [_, err] = ReadConfig::parse(client, parser, cfg, {}, std::nullopt);
+    ASSERT_MATCHES(err, x::errors::VALIDATION);
+    const auto first = parser.error_json()["errors"][0];
+    EXPECT_EQ(first["path"], "library");
+    EXPECT_EQ(first["message"], "select a library");
+}
+
 TEST(WriteConfig, BindsCommandChannelsToFieldSlots) {
     auto m = binary_message("cmd", {binary_field("a", 0), binary_field("b", 8)});
     ::synnax::bus::WriteConfig cfg;
     cfg.device = "dev";
     cfg.messages = {
-        {.message = m.key, .fields = {{.field = key(m.fields[1]), .channel = 5}}}
+        {.message = m.key, .fields = {{.field = field_key(m, 1), .channel = 5}}}
     };
     x::json::Parser parser(x::json::json::object());
     const auto out = WriteConfig::resolve(
@@ -302,7 +335,7 @@ TEST(WriteConfig, RejectsAFieldMappedTwice) {
     auto m = binary_message("cmd", {binary_field("a", 0)});
     ::synnax::bus::WriteConfig cfg;
     cfg.device = "dev";
-    const auto field = key(m.fields[0]);
+    const auto field = field_key(m, 0);
     cfg.messages = {{
         .message = m.key,
         .fields = {{.field = field, .channel = 5}, {.field = field, .channel = 6}},
@@ -340,7 +373,7 @@ TEST(WriteConfig, RequiresACANIdentifierOnACANBus) {
     ::synnax::bus::WriteConfig cfg;
     cfg.device = "dev";
     cfg.messages = {
-        {.message = m.key, .fields = {{.field = key(m.fields[0]), .channel = 5}}}
+        {.message = m.key, .fields = {{.field = field_key(m, 0), .channel = 5}}}
     };
     x::json::Parser parser(x::json::json::object());
     WriteConfig::resolve(
@@ -354,5 +387,17 @@ TEST(WriteConfig, RequiresACANIdentifierOnACANBus) {
     const auto err = parser.error_json()["errors"][0];
     EXPECT_EQ(err["path"], "messages.0.message");
     EXPECT_EQ(err["message"], "message cmd needs a CAN identifier to send with");
+}
+
+TEST(WriteConfig, ParseRejectsATaskWithNoLibrary) {
+    const auto client = unreachable_client();
+    ::synnax::bus::WriteConfig cfg;
+    cfg.device = "dev";
+    x::json::Parser parser(x::json::json::object());
+    const auto [_, err] = WriteConfig::parse(client, parser, cfg, std::nullopt);
+    ASSERT_MATCHES(err, x::errors::VALIDATION);
+    const auto first = parser.error_json()["errors"][0];
+    EXPECT_EQ(first["path"], "library");
+    EXPECT_EQ(first["message"], "select a library");
 }
 }

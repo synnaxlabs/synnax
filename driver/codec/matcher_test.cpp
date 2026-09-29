@@ -26,12 +26,16 @@ namespace library = synnax::library;
 
 library::MessageEntry message(
     std::optional<library::Identifier> identifier,
-    const std::string &name = "message"
+    const std::string &name = "message",
+    std::vector<library::BinaryField> fields = {}
 ) {
     library::MessageEntry m;
     m.key = x::uuid::create();
     m.name = name;
-    m.identifier = std::move(identifier);
+    m.payload = library::BinaryPayload{
+        .identifier = std::move(identifier),
+        .fields = std::move(fields),
+    };
     return m;
 }
 
@@ -44,8 +48,13 @@ can(const std::uint32_t id,
     );
 }
 
-library::MessageEntry token(const std::string &prefix) {
-    return message(library::TokenIdentifier{.prefix = prefix});
+library::MessageEntry
+prefixed(const std::string &prefix, const std::string &name = "message") {
+    library::MessageEntry m;
+    m.key = x::uuid::create();
+    m.name = name;
+    m.payload = library::TextPayload{.prefix = prefix};
+    return m;
 }
 
 library::MessageEntry header(
@@ -58,9 +67,11 @@ library::MessageEntry header(
     type.name = "type";
     type.start_bit = 0;
     type.bit_length = bit_length;
-    auto m = message(library::FieldIdentifier{.field = type.key, .value = value}, name);
-    m.fields.emplace_back(type);
-    return m;
+    return message(
+        library::FieldIdentifier{.field = type.key, .value = value},
+        name,
+        {type}
+    );
 }
 
 std::span<const std::uint8_t> bytes(const std::string &s) {
@@ -114,22 +125,26 @@ TEST(Matcher, RejectsTwoMessagesWithNoIdentifier) {
     ASSERT_OCCURRED_AS_P(Matcher::compile(messages), CONFIG_ERROR);
 }
 
-TEST(Matcher, RejectsAnUnsupportedIdentifier) {
-    const std::vector messages = {message(library::Arinc429Identifier{.label = 0x10})};
-    ASSERT_OCCURRED_AS_P(Matcher::compile(messages), CONFIG_ERROR);
-}
-
-TEST(Matcher, MatchesTheLongestTokenPrefix) {
-    const std::vector messages = {token(""), token("$GP"), token("$GPGGA")};
+TEST(Matcher, MatchesTheLongestPrefix) {
+    const std::vector messages = {prefixed(""), prefixed("$GP"), prefixed("$GPGGA")};
     const auto m = ASSERT_NIL_P(Matcher::compile(messages));
     EXPECT_EQ(m.match(bytes("$GPGGA,1,2")), 2);
     EXPECT_EQ(m.match(bytes("$GPRMC,1,2")), 1);
     EXPECT_EQ(m.match(bytes("$GL")), 0);
 }
 
-TEST(Matcher, RejectsADuplicateToken) {
-    const std::vector messages = {token("A"), token("A")};
-    ASSERT_OCCURRED_AS_P(Matcher::compile(messages), CONFIG_ERROR);
+TEST(Matcher, RejectsADuplicatePrefix) {
+    const std::vector messages = {prefixed("A", "a"), prefixed("A", "b")};
+    const auto [_, err] = Matcher::compile(messages);
+    ASSERT_MATCHES(err, CONFIG_ERROR);
+    EXPECT_EQ(err.data, "messages a and b have the same prefix A");
+}
+
+TEST(Matcher, TreatsAnEmptyPrefixAsNoIdentifier) {
+    const std::vector messages = {message(std::nullopt, "a"), prefixed("", "b")};
+    const auto [_, err] = Matcher::compile(messages);
+    ASSERT_MATCHES(err, CONFIG_ERROR);
+    EXPECT_EQ(err.data, "messages a and b both have no identifier");
 }
 
 TEST(Matcher, MatchesAFrameByAHeaderField) {
@@ -192,7 +207,7 @@ TEST(Matcher, NamesBothMessagesWithNoIdentifier) {
 
 TEST(Matcher, RejectsAFloatHeaderField) {
     auto m = header(1);
-    std::get<library::BinaryField>(m.fields[0]).float_ = true;
+    std::get<library::BinaryPayload>(m.payload).fields[0].float_ = true;
     const std::vector messages = {m};
     const auto [_, err] = Matcher::compile(messages);
     ASSERT_MATCHES(err, CONFIG_ERROR);

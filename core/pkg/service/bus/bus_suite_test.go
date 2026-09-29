@@ -45,25 +45,26 @@ func TestBus(t *testing.T) {
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
-func binaryField(name string, startBit uint16) library.Field {
-	return library.Field{Variant: library.BinaryField{
-		BaseField: library.BaseField{Key: uuid.New(), Name: name},
+func binaryField(name string, startBit uint16) library.BinaryField {
+	return library.BinaryField{
+		Key: uuid.New(), Name: name,
 		StartBit:  startBit,
 		BitLength: 8,
 		ByteOrder: library.ByteOrderLittleEndian,
-	}}
+	}
 }
 
-func fieldKey(f library.Field) library.FieldKey {
-	return f.Variant.(library.BinaryField).Key
-}
-
-func canMessage(name string, id uint32, fields ...library.Field) library.MessageEntry {
+func canMessage(
+	name string,
+	id uint32,
+	fields ...library.BinaryField,
+) library.MessageEntry {
 	return library.MessageEntry{
 		Key: uuid.New(), Name: name,
-		Identifier: &library.Identifier{Variant: library.CanIdentifier{ID: id}},
-		Format:     library.FormatBinary,
-		Fields:     fields,
+		Payload: library.Payload{Variant: library.BinaryPayload{
+			Identifier: &library.Identifier{Variant: library.CanIdentifier{ID: id}},
+			Fields:     fields,
+		}},
 	}
 }
 

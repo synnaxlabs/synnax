@@ -59,7 +59,7 @@ interface FieldListProps {
   onChange: (value: Bound[]) => void;
   /** Renders how an included field binds to its channel. */
   binding: (
-    field: library.Field,
+    field: library.BaseField,
     bound: Bound,
     update: (next: Bound) => void,
   ) => ReactNode;
@@ -81,13 +81,13 @@ const FieldList = ({
     const next = new Map(byField);
     if (included) next.set(key, { field: key, channel: 0 });
     else next.delete(key);
-    onChange(entry.fields.flatMap((f) => next.get(f.key) ?? []));
+    onChange(entry.payload.fields.flatMap((f) => next.get(f.key) ?? []));
   };
   const update = (bound: Bound) =>
     onChange(value.map((f) => (f.field === bound.field ? bound : f)));
   return (
     <Flex.Box y gap="small" className={CSS.B("bus-fields")}>
-      {entry.fields.map((f) => {
+      {entry.payload.fields.map((f) => {
         const bound = byField.get(f.key);
         return (
           <Flex.Box key={f.key} x align="center" className={CSS.B("bus-field")}>
@@ -109,7 +109,7 @@ const FieldList = ({
           </Flex.Box>
         );
       })}
-      {entry.fields.length === 0 && (
+      {entry.payload.fields.length === 0 && (
         <Text.Text status="disabled">The message has no fields</Text.Text>
       )}
     </Flex.Box>
