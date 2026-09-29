@@ -60,6 +60,7 @@ from synnax.framer import (
     Writer,
     WriterMode,
 )
+from synnax.library import Library
 from synnax.options import Options
 from synnax.project import Project
 from synnax.rack import Rack
@@ -141,6 +142,7 @@ __all__ = [
     "DataType",
     "Density",
     "Device",
+    "Library",
     "Project",
     "View",
     "elapsed_seconds",
