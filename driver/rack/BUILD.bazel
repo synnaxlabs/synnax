@@ -35,9 +35,9 @@ cc_library(
     }),
     visibility = ["//visibility:public"],
     deps = [
+        "//client/cpp/errors",
         "//driver/arc",
         "//driver/common",
-        "//driver/errors",
         "//driver/ethercat",
         "//driver/http",
         "//driver/labjack",

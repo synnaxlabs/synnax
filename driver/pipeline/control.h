@@ -52,10 +52,10 @@ public:
     virtual std::pair<x::telem::Frame, x::errors::Error> read() = 0;
 
     /// @brief closes the streamer, returning any error that occurred during normal
-    /// operation. If errors::core_unavailable matches the returned error, the control
-    /// pipeline will trigger a breaker (temporary backoff), and then retry until the
-    /// configured number of maximum retries is exceeded. Any other error will be
-    /// considered permanent and the pipeline will exit.
+    /// operation. If synnax::errors::is_temporarily_unavailable matches the returned
+    /// error, the control pipeline will trigger a breaker (temporary backoff), and then
+    /// retry until the configured number of maximum retries is exceeded. Any other
+    /// error will be considered permanent and the pipeline will exit.
     virtual x::errors::Error close() = 0;
 
     /// @brief signals the streamer that the caller is done sending requests, and that
@@ -72,10 +72,10 @@ public:
 class StreamerFactory {
 public:
     /// @brief opens a streamer with the given configuration, returning the streamer and
-    /// an error if one occurs. If errors::core_unavailable matches the error, the
-    /// control pipeline will trigger a breaker (temporary backoff), and then retry
-    /// until the configured number of maximum retries is exceeded. Any other error is
-    /// considered permanent and the pipeline will exit.
+    /// an error if one occurs. If synnax::errors::is_temporarily_unavailable matches
+    /// the error, the control pipeline will trigger a breaker (temporary backoff), and
+    /// then retry until the configured number of maximum retries is exceeded. Any other
+    /// error is considered permanent and the pipeline will exit.
     virtual std::pair<std::unique_ptr<Streamer>, x::errors::Error>
     open_streamer(synnax::framer::StreamerConfig config) = 0;
 
