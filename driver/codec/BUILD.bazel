@@ -13,14 +13,18 @@ load("@rules_cc//cc:cc_test.bzl", "cc_test")
 cc_library(
     name = "codec",
     srcs = [
+        "arinc429.cpp",
         "bits.cpp",
         "matcher.cpp",
+        "mil1553.cpp",
         "plan.cpp",
     ],
     hdrs = [
+        "arinc429.h",
         "bits.h",
         "errors.h",
         "matcher.h",
+        "mil1553.h",
         "plan.h",
     ],
     visibility = ["//visibility:public"],
@@ -35,9 +39,11 @@ cc_library(
 cc_test(
     name = "codec_test",
     srcs = [
+        "arinc429_test.cpp",
         "bits_test.cpp",
         "golden_test.cpp",
         "matcher_test.cpp",
+        "mil1553_test.cpp",
         "plan_test.cpp",
     ],
     data = ["testdata/vectors.json"],

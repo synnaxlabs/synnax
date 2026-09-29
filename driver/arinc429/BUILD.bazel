@@ -1,0 +1,116 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+cc_library(
+    name = "queue",
+    hdrs = ["queue.h"],
+    visibility = ["//visibility:public"],
+    deps = ["//x/cpp/telem"],
+)
+
+cc_library(
+    name = "vendor",
+    srcs = ["vendor.cpp"],
+    hdrs = ["vendor.h"],
+    linkopts = select({
+        "@platforms//os:windows": [],
+        "//conditions:default": ["-ldl"],
+    }),
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/errors",
+        "//x/cpp/errors",
+        "//x/cpp/lib",
+    ],
+)
+
+cc_library(
+    name = "backend",
+    hdrs = ["backend.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":queue",
+        "//client/cpp/arinc429",
+        "//driver/codec",
+        "//x/cpp/errors",
+        "//x/cpp/telem",
+    ],
+)
+
+cc_library(
+    name = "simulated",
+    srcs = ["simulated/backend.cpp"],
+    hdrs = ["simulated/backend.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":backend",
+        "//driver/errors",
+    ],
+)
+
+cc_library(
+    name = "ddc",
+    srcs = [
+        "ddc/api.cpp",
+        "ddc/backend.cpp",
+    ],
+    hdrs = [
+        "ddc/api.h",
+        "ddc/backend.h",
+    ],
+    linkopts = select({
+        "@platforms//os:windows": [],
+        "//conditions:default": ["-ldl"],
+    }),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":backend",
+        "//driver/errors",
+        "//x/cpp/lib",
+    ],
+)
+
+cc_library(
+    name = "ballard",
+    srcs = ["ballard/backend.cpp"],
+    hdrs = [
+        "ballard/api.h",
+        "ballard/backend.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":backend",
+        ":vendor",
+        "//driver/errors",
+    ],
+)
+
+cc_test(
+    name = "arinc429_test",
+    srcs = [
+        "ballard/backend_test.cpp",
+        "ddc/backend_test.cpp",
+        "queue_test.cpp",
+        "simulated/backend_test.cpp",
+        "vendor_test.cpp",
+    ],
+    deps = [
+        ":ballard",
+        ":ddc",
+        ":queue",
+        ":simulated",
+        ":vendor",
+        "//x/cpp/lib",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)

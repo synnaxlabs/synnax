@@ -1,0 +1,95 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+cc_library(
+    name = "schedule",
+    srcs = ["schedule.cpp"],
+    hdrs = ["schedule.h"],
+    visibility = ["//visibility:public"],
+    deps = ["//x/cpp/telem"],
+)
+
+cc_library(
+    name = "backend",
+    srcs = ["backend.cpp"],
+    hdrs = ["backend.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//client/cpp/mil1553",
+        "//driver/arinc429:queue",
+        "//driver/codec",
+        "//driver/errors",
+        "//x/cpp/errors",
+        "//x/cpp/telem",
+    ],
+)
+
+cc_library(
+    name = "simulated",
+    srcs = ["simulated/backend.cpp"],
+    hdrs = ["simulated/backend.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":backend",
+        "//driver/errors",
+    ],
+)
+
+cc_library(
+    name = "ddc",
+    srcs = ["ddc/backend.cpp"],
+    hdrs = [
+        "ddc/api.h",
+        "ddc/backend.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":backend",
+        "//driver/arinc429:vendor",
+        "//driver/errors",
+    ],
+)
+
+cc_library(
+    name = "ballard",
+    srcs = ["ballard/backend.cpp"],
+    hdrs = [
+        "ballard/api.h",
+        "ballard/backend.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":backend",
+        "//driver/arinc429:vendor",
+        "//driver/errors",
+    ],
+)
+
+cc_test(
+    name = "mil1553_test",
+    srcs = [
+        "backend_test.cpp",
+        "ballard/backend_test.cpp",
+        "ddc/backend_test.cpp",
+        "schedule_test.cpp",
+        "simulated/backend_test.cpp",
+    ],
+    deps = [
+        ":ballard",
+        ":ddc",
+        ":schedule",
+        ":simulated",
+        "//x/cpp/lib",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)
