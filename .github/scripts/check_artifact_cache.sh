@@ -11,7 +11,7 @@
 
 # Finds a recent integration run whose live artifacts were built from an unchanged
 # path set per product, so the build can be skipped or partly reused. Emits SKIP_BUILD,
-# REF_RUN_ID, DRIVER_REF_RUN_ID, and CONSOLE_REF_RUN_ID as workflow outputs.
+# REF_RUN_ID, and the DRIVER, CONSOLE, and CORE REF_RUN_ID maps.
 # Usage: check_artifact_cache.sh [linux|windows|all]
 
 set -e
@@ -34,11 +34,10 @@ done
 FULL_ARTIFACTS=("${CORE_ARTIFACTS[@]}" "${DRIVER_ARTIFACTS[@]}")
 
 # A component's artifacts are reusable from a run that matches on its path set.
-# build.synnax.yaml is in every set because a build definition change rebuilds all.
 FILTERS=.github/filters.yaml
 # Reads one *_build list from the change map, aliases expanded.
 build_paths() {
-    yq "explode(.) | .$1 | flatten | .[]" "${FILTERS}"
+    yq "explode(.) | .$1 | flatten | .[]" "${FILTERS}" | grep -v '^\.github/'
 }
 mapfile -t DRIVER_PATHS < <(build_paths driver_build)
 mapfile -t CONSOLE_PATHS < <(build_paths console_build)
@@ -53,16 +52,29 @@ WORKFLOW_FILES=("ci.yaml" "test.integration.yaml" "build.synnax.yaml")
 DEBUG=${DEBUG:-false}
 SIGN_BINARIES=${SIGN_BINARIES:-false}
 
-# The API does not report a run's inputs, so each flag is read back from the step it
-# gates. Linux drivers are never signed, so that platform has no signing step.
-declare -A DEBUG_STEP=(
-    [linux]="Upload Linux debug symbols"
-    [windows]="Upload Windows debug symbols"
-)
+# The API does not report a run's inputs, so signing is read back from its step.
+# Linux drivers are never signed, so that platform has no signing step.
 declare -A SIGN_STEP=(
-    [linux]=""
     [windows]="Sign Driver (Windows)"
 )
+declare -A BUILD_JOB=(
+    [linux]="Build (ubuntu-build-bot)"
+    [windows]="Build (windows-build-bot)"
+)
+declare -A DRIVER_STEP=(
+    [linux]="Build Driver (Linux)"
+    [windows]="Build Driver (Windows)"
+)
+declare -A BUILD_STEP=(
+    [console]="Build Console web assets"
+    [core]="Build Core"
+)
+declare -A TOOLCHAIN=(
+    [driver]="bazel-contrib/setup-bazel actions-rust-lang/setup-rust-toolchain"
+    [console]="pnpm/setup"
+    [core]="actions/setup-go"
+)
+WORKFLOW=.github/workflows/build.synnax.yaml
 
 CACHE_DIR=$(mktemp -d)
 trap 'rm -rf "${CACHE_DIR}"' EXIT
@@ -150,10 +162,6 @@ run_has_artifacts() {
 step_ran() {
     local file=$1
     local name=$2
-    if [ -z "${name}" ]; then
-        echo false
-        return
-    fi
     if jq -e --arg n "${name}" \
         '.jobs[]?.steps[]? | select(.name == $n and .conclusion == "success")' \
         "${file}" > /dev/null; then
@@ -163,34 +171,152 @@ step_ran() {
     fi
 }
 
-# True when the run built every named platform with this build's flags.
-run_flags_match() {
+# Prints the path of the run's build job log for the platform, timestamps and color
+# stripped. Fails when the job or its log cannot be read.
+job_log() {
     local run_id=$1
-    local os_list=$2
-    if [ -z "${os_list}" ]; then
-        return 0
+    local os=$2
+    local job_id
+    job_id=$(jq -r --arg n "${BUILD_JOB[${os}]}" \
+        '[.jobs[] | select(.name | endswith($n))][0].id // empty' \
+        "${CACHE_DIR}/jobs-${run_id}.json")
+    if [ -z "${job_id}" ]; then
+        return 1
     fi
+    local file="${CACHE_DIR}/log-${job_id}"
+    if [ ! -f "${file}" ]; then
+        if ! gh api "repos/:owner/:repo/actions/jobs/${job_id}/logs" \
+            > "${file}.raw" 2> /dev/null; then
+            rm -f "${file}.raw"
+            return 1
+        fi
+        sed -E 's/^[^ ]+ //; s/\x1b\[[0-9;]*m//g' "${file}.raw" > "${file}"
+    fi
+    echo "${file}"
+}
+
+# Prints the script of the first logged step containing the marker, plus any of its
+# env lines matching the pattern.
+step_block() {
+    local file=$1
+    local marker=$2
+    local env_pat=${3:-^$}
+    awk -v m="${marker}" -v e="${env_pat}" '
+        /^##\[group\]Run / { script = ""; env = ""; hit = 0; s = 1; next }
+        s == 1 && /^shell: / { s = 2; next }
+        s == 1 { script = script $0 "\n"; if (index($0, m)) hit = 1; next }
+        s == 2 && /^##\[endgroup\]/ {
+            if (hit) { printf "%s%s", script, env; exit }
+            s = 0; next
+        }
+        s == 2 && $0 ~ e { sub(/^  /, ""); env = env $0 "\n" }
+    ' "${file}"
+}
+
+# Resolves the debug ternaries in workflow text for this build. The Go tags are pinned
+# because a core candidate must already hold the driver and console artifacts.
+resolve_expressions() {
+    local plain neg
+    if [ "${DEBUG}" = true ]; then
+        plain='\1'
+        neg='\2'
+    else
+        plain='\2'
+        neg='\1'
+    fi
+    local t="inputs\\.debug *&& *'([^']*)' *\\|\\| *'([^']*)' *\\}\\}"
+    sed -E \
+        -e "s/\\$\\{\\{ *!${t}/${neg}/g" \
+        -e "s/\\$\\{\\{ *${t}/${plain}/g" \
+        -e 's/\$\{\{[^}]*GO_BUILD_TAGS *\}\}/-tags console,driver/g' \
+        -e 's/\$\{\{[^}]*\}\}//g'
+}
+
+expected_script() {
+    yq ".jobs.build.steps[] | select(.name == \"$1\") | .run" "${WORKFLOW}" \
+        | resolve_expressions
+}
+
+expected_env() {
+    yq '.jobs.build.env | to_entries | .[] | select(.key | test("^BAZEL_"))
+        | .key + ": " + .value' "${WORKFLOW}" | resolve_expressions
+}
+
+# Prints the sorted token set of a block with the per run values masked.
+normalize() {
+    tr -s ' \t\n' '\n' | grep -v -e '^\\$' -e '^$' \
+        | sed -E 's/^--define=SYNNAX_DRIVER_VERSION=.*/--define=SYNNAX_DRIVER_VERSION=/
+            s/^--remote_cache=.*/--remote_cache=/
+            s/(version\.version|gitCommit)=.*/\1=/
+            s/^synnax-v.*/synnax-v/' \
+        | sort -u
+}
+
+# True when the logged build of one component used the same toolchain, script, and
+# flags this build would.
+component_matches() {
+    local comp=$1
+    local os=$2
+    local log=$3
+    local action ref
+    for action in ${TOOLCHAIN[${comp}]}; do
+        ref=$(yq ".jobs.build.steps[].uses // \"\" | select(test(\"^${action}@\"))" \
+            "${WORKFLOW}")
+        if [ -z "${ref}" ] || ! grep -qxF "##[group]Run ${ref}" "${log}"; then
+            return 1
+        fi
+    done
+    local step env_pat=""
+    if [ "${comp}" = driver ]; then
+        step=${DRIVER_STEP[${os}]}
+        env_pat='^  BAZEL_[A-Z_]*: '
+    else
+        step=${BUILD_STEP[${comp}]}
+    fi
+    local script marker expected actual
+    script=$(expected_script "${step}")
+    marker=$(awk 'NF { l = $0 } END { sub(/^[ \t]+/, "", l); print l }' <<< "${script}")
+    expected=${script}
+    if [ -n "${env_pat}" ]; then
+        expected+=$'\n'$(expected_env)
+    fi
+    actual=$(step_block "${log}" "${marker}" "${env_pat}")
+    if [ -z "${actual}" ]; then
+        return 1
+    fi
+    diff <(normalize <<< "${expected}") <(normalize <<< "${actual}") > /dev/null
+}
+
+# True when the run built the component on every named platform like this build would.
+# An unreadable run is rejected rather than assumed to match.
+run_build_matches() {
+    local run_id=$1
+    local component=$2
+    local os_list=$3
     local file="${CACHE_DIR}/jobs-${run_id}.json"
     if [ ! -f "${file}" ]; then
-        # An empty listing reads as every flag off, which is a real build, so a run
-        # whose flags cannot be read has to be rejected rather than assumed.
         if ! gh api "repos/:owner/:repo/actions/runs/${run_id}/jobs?per_page=100" \
             > "${file}" 2> /dev/null; then
             rm -f "${file}"
-            log "flags unreadable for run ${run_id}"
+            log "jobs unreadable for run ${run_id}"
             return 1
         fi
     fi
-    local os sign_step
+    local comps=${component}
+    if [ "${component}" = all ]; then
+        comps="driver console core"
+    fi
+    local os log comp sign
     for os in ${os_list}; do
-        if [ "$(step_ran "${file}" "${DEBUG_STEP[${os}]}")" != "${DEBUG}" ]; then
-            return 1
-        fi
-        sign_step=${SIGN_STEP[${os}]}
-        if [ -n "${sign_step}" ] \
-            && [ "$(step_ran "${file}" "${sign_step}")" != "${SIGN_BINARIES}" ]; then
-            return 1
-        fi
+        log=$(job_log "${run_id}" "${os}") || return 1
+        for comp in ${comps}; do
+            component_matches "${comp}" "${os}" "${log}" || return 1
+            sign=${SIGN_STEP[${os}]}
+            if [ "${comp}" = driver ] && [ -n "${sign}" ] \
+                && [ "$(step_ran "${file}" "${sign}")" != "${SIGN_BINARIES}" ]; then
+                return 1
+            fi
+        done
     done
     return 0
 }
@@ -200,8 +326,9 @@ run_flags_match() {
 find_reusable_run() {
     local label=$1
     local artifact_names=$2
-    local flag_os=$3
-    shift 3
+    local component=$3
+    local os_list=$4
+    shift 4
 
     local sha run_id
     for sha in ${CANDIDATE_SHAS}; do
@@ -213,7 +340,7 @@ find_reusable_run() {
                 continue
             fi
             if run_has_artifacts "${run_id}" "${artifact_names}" \
-                && run_flags_match "${run_id}" "${flag_os}"; then
+                && run_build_matches "${run_id}" "${component}" "${os_list}"; then
                 log "${label}: reusing run ${run_id} (${sha:0:8}, exact sha)"
                 echo "${run_id}"
                 return 0
@@ -235,7 +362,7 @@ find_reusable_run() {
             continue
         fi
         if run_has_artifacts "${run_id}" "${artifact_names}" \
-            && run_flags_match "${run_id}" "${flag_os}"; then
+            && run_build_matches "${run_id}" "${component}" "${os_list}"; then
             log "${label}: reusing run ${run_id} (${sha:0:8}, clean diff)"
             echo "${run_id}"
             return 0
@@ -269,7 +396,7 @@ main() {
     done | sort -t: -k1 -rn)
 
     local full_run
-    full_run=$(find_reusable_run "full" "${FULL_ARTIFACTS[*]}" "${OS_NAMES[*]}" \
+    full_run=$(find_reusable_run "full" "${FULL_ARTIFACTS[*]}" all "${OS_NAMES[*]}" \
         "${UNION_PATHS[@]}")
     if [ -n "${full_run}" ]; then
         log "✅ Skipping build. Using artifacts from run ${full_run}"
@@ -280,22 +407,27 @@ main() {
 
     # Each platform resolves on its own, so a windows-only run can serve the windows
     # half of a build that also does Ubuntu.
-    local driver_ids="{}" console_ids="{}" os run
+    local driver_ids="{}" console_ids="{}" core_ids="{}" os run
     for os in "${OS_NAMES[@]}"; do
-        run=$(find_reusable_run "driver ${os}" "synnax-driver-${os}" "${os}" \
+        run=$(find_reusable_run "driver ${os}" "synnax-driver-${os}" driver "${os}" \
             "${DRIVER_PATHS[@]}")
         driver_ids=$(jq -c --arg os "${os}" --arg run "${run}" '.[$os] = $run' \
             <<< "${driver_ids}")
-        # Console assets are platform-independent web output, so no flag affects them.
-        run=$(find_reusable_run "console ${os}" "synnax-console-assets-${os}" "" \
-            "${CONSOLE_PATHS[@]}")
+        run=$(find_reusable_run "console ${os}" "synnax-console-assets-${os}" console \
+            "${os}" "${CONSOLE_PATHS[@]}")
         console_ids=$(jq -c --arg os "${os}" --arg run "${run}" '.[$os] = $run' \
             <<< "${console_ids}")
+        run=$(find_reusable_run "core ${os}" \
+            "synnax-core-${os} synnax-driver-${os} synnax-console-assets-${os}" \
+            all "${os}" "${UNION_PATHS[@]}")
+        core_ids=$(jq -c --arg os "${os}" --arg run "${run}" '.[$os] = $run' \
+            <<< "${core_ids}")
     done
     emit "SKIP_BUILD=false"
     emit "REF_RUN_ID=${GITHUB_RUN_ID:-}"
     emit "DRIVER_REF_RUN_ID=${driver_ids}"
     emit "CONSOLE_REF_RUN_ID=${console_ids}"
+    emit "CORE_REF_RUN_ID=${core_ids}"
 }
 
 main

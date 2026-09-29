@@ -78,6 +78,7 @@ jobs:
       REF_RUN_ID: ${{ steps.check-cache.outputs.REF_RUN_ID }}
       DRIVER_REF_RUN_ID: ${{ steps.check-cache.outputs.DRIVER_REF_RUN_ID }}
       CONSOLE_REF_RUN_ID: ${{ steps.check-cache.outputs.CONSOLE_REF_RUN_ID }}
+      CORE_REF_RUN_ID: ${{ steps.check-cache.outputs.CORE_REF_RUN_ID }}
       FLAGS: ${{ steps.set-outputs.outputs.FLAGS }}
       BINARY_CHECK_MATRIX: ${{ steps.binary-check-matrix.outputs.MATRIX }}
       TEST_MATRIX:
@@ -155,6 +156,7 @@ jobs:
       version: ${{ needs.setup.outputs.VERSION }}
       driver_ref_run_id: ${{ needs.setup.outputs.DRIVER_REF_RUN_ID }}
       console_ref_run_id: ${{ needs.setup.outputs.CONSOLE_REF_RUN_ID }}
+      core_ref_run_id: ${{ needs.setup.outputs.CORE_REF_RUN_ID }}
     secrets: inherit
 
   test-windows:
