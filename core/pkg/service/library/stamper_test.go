@@ -141,6 +141,17 @@ var _ = Describe("Task references", func() {
 		},
 	)
 
+	It(
+		"Should not rewrite the tasks that use a library when its hash is unchanged",
+		func(ctx SpecContext) {
+			createUsingTask(ctx, lib.Key)
+			before := stamps
+			lib.Name = "Renamed"
+			Expect(svc.NewWriter(tx).Create(ctx, &lib)).To(Succeed())
+			Expect(stamps).To(Equal(before))
+		},
+	)
+
 	It("Should relate a copied task to the library", func(ctx SpecContext) {
 		t := createUsingTask(ctx, lib.Key)
 		copied := MustSucceed(taskSvc.NewWriter(tx).Copy(ctx, t.Key, "Copy", false))

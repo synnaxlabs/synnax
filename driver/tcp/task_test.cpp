@@ -91,9 +91,7 @@ protected:
                 std::move(cfg),
                 std::make_unique<bus::ConnectionTransmitter>(
                     bus::acquirer<Client>(this->connections, "dev", this->props())
-                ),
-                this->ctx,
-                this->task
+                )
             ),
             nullptr,
             pipeline::mock::simple_streamer_factory({7}, commands)
@@ -233,6 +231,34 @@ TEST_F(TCPTask, InterleavesCommandsWithPollsOnOneConnection) {
     EXPECT_EQ(ec, asio::error::would_block);
 }
 
+TEST_F(TCPTask, ScansADeviceThroughTheConnectionItsTaskHolds) {
+    const auto m = text_message("status", {delimited_field("v", 0)});
+    auto t = this->read_task(read_config({m}, NEWLINE));
+    t->start("start");
+    auto peer = this->acceptor.accept();
+    send(peer, "1\n");
+    ASSERT_EVENTUALLY_EQ(values(*this->writes, 1).size(), 1);
+    const std::unordered_map<std::string, synnax::device::Device> tracked = {
+        {"dev",
+         synnax::device::Device{
+             .key = "dev",
+             .make = MAKE,
+             .name = "dev",
+             .properties = this->props().to_json().get<x::json::json::object_t>(),
+         }},
+    };
+    Scanner scanner(synnax::task::Task{.rack = 1}, Config{}, this->connections);
+    const auto devs = ASSERT_NIL_P(scanner.scan({.devices = &tracked}));
+    ASSERT_EQ(devs.size(), 1);
+    EXPECT_EQ(devs[0].status->variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(devs[0].status->message, "Device connected");
+    this->acceptor.non_blocking(true);
+    std::error_code ec;
+    this->acceptor.accept(ec);
+    EXPECT_EQ(ec, asio::error::would_block);
+    t->stop("stop", true);
+}
+
 TEST(Scanner, ReportsWhetherEachDeviceAcceptsAConnection) {
     asio::io_context io;
     asio::ip::tcp::acceptor open(
@@ -259,7 +285,11 @@ TEST(Scanner, ReportsWhetherEachDeviceAcceptsAConnection) {
         {"up", device("up", open.local_endpoint().port())},
         {"down", device("down", closed_port)},
     };
-    Scanner scanner(synnax::task::Task{.rack = 1}, Config{});
+    Scanner scanner(
+        synnax::task::Task{.rack = 1},
+        Config{},
+        std::make_shared<bus::Connections>()
+    );
     const auto devs = ASSERT_NIL_P(scanner.scan({.devices = &tracked}));
     ASSERT_EQ(devs.size(), 2);
     for (const auto &dev: devs)

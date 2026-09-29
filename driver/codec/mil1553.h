@@ -101,6 +101,6 @@ from_payload(std::span<const std::uint8_t> payload, std::span<std::uint16_t> wor
 /// mil1553 identifier with an address from 0 to 30, a subaddress from 1 to 30, a
 /// direction, and a word count from 1 to 32; a binary format; a length of twice the
 /// word count when set; and fields inside the data words.
-/// @returns LAYOUT_ERROR naming the message when it cannot.
+/// @returns CONFIG_ERROR naming the message when it cannot.
 x::errors::Error validate(const synnax::library::MessageEntry &message);
 }

@@ -17,17 +17,11 @@
 #include "driver/bus/write.h"
 
 namespace driver::bus {
-Sink::Sink(
-    WriteConfig cfg,
-    std::unique_ptr<Transmitter> transmitter,
-    const std::shared_ptr<task::Context> &ctx,
-    const synnax::task::Task &task
-):
+Sink::Sink(WriteConfig cfg, std::unique_ptr<Transmitter> transmitter):
     common::Sink(cfg.commands),
     cfg(std::move(cfg)),
     transmitter(std::move(transmitter)),
-    states(this->cfg.messages.size()),
-    status(ctx, task) {
+    states(this->cfg.messages.size()) {
     for (std::size_t i = 0; i < this->cfg.messages.size(); i++)
         for (const auto &b: this->cfg.messages[i].bindings)
             this->targets[b.channel].emplace_back(i, b.slot);
@@ -47,6 +41,7 @@ void Sink::reset() {
         s.seen.assign(m.plan.size(), false);
         s.unseen = m.bindings.size();
         s.due = now;
+        s.pending.reset();
     }
     this->queue.clear();
 }
@@ -57,11 +52,6 @@ x::errors::Error Sink::start() {
     if (const auto err = this->transmitter->acquire()) return err;
     this->reset();
     this->running = true;
-    {
-        std::lock_guard status_lock(this->status_mu);
-        this->status.reset();
-        this->status.status.details.running = true;
-    }
     this->thread = std::thread([this] { this->run(); });
     return x::errors::NIL;
 }
@@ -112,7 +102,7 @@ void Sink::enqueue(const std::size_t message) {
     if (s.unseen > 0) return;
     std::vector<std::uint8_t> payload;
     if (const auto err = m.plan.encode(s.values, payload)) {
-        this->warn(m.entry.name + ": " + err.data);
+        this->set_warning(x::errors::Error(err, m.entry.name + ": " + err.data));
         return;
     }
     if (!m.prefix.empty()) {
@@ -128,16 +118,19 @@ void Sink::enqueue(const std::size_t message) {
             prefix.remove_suffix(delimiter.size());
         payload.insert(payload.begin(), prefix.begin(), prefix.end());
     }
-    if (this->cfg.framer == nullptr) {
-        this->queue.emplace_back(message, std::move(payload));
-        return;
-    }
+    if (this->cfg.framer == nullptr) return this->push(message, std::move(payload));
     std::vector<std::uint8_t> wire;
     if (const auto err = this->cfg.framer->encode(payload, wire)) {
-        this->warn(m.entry.name + ": " + err.data);
+        this->set_warning(x::errors::Error(err, m.entry.name + ": " + err.data));
         return;
     }
-    this->queue.emplace_back(message, std::move(wire));
+    this->push(message, std::move(wire));
+}
+
+void Sink::push(const std::size_t message, std::vector<std::uint8_t> payload) {
+    auto &pending = this->states[message].pending;
+    if (!pending.has_value()) this->queue.push_back(message);
+    pending = std::move(payload);
 }
 
 void Sink::run() {
@@ -164,8 +157,10 @@ void Sink::run() {
                 this->cv.wait_for(lock, (next - now).chrono());
             continue;
         }
-        const auto [message, payload] = std::move(this->queue.front());
+        const auto message = this->queue.front();
         this->queue.pop_front();
+        const auto payload = std::move(*this->states[message].pending);
+        this->states[message].pending.reset();
         lock.unlock();
         this->send(message, payload);
         lock.lock();
@@ -173,15 +168,7 @@ void Sink::run() {
 }
 
 void Sink::send(const std::size_t message, const std::vector<std::uint8_t> &payload) {
-    if (const auto err = this->transmitter->send(message, payload))
-        return this->warn(err.data);
-    std::lock_guard lock(this->status_mu);
-    this->status.clear_warning();
-}
-
-void Sink::warn(const std::string &message) {
-    std::lock_guard lock(this->status_mu);
-    this->status.send_warning(message);
+    this->set_warning(this->transmitter->send(message, payload));
 }
 
 x::errors::Error ConnectionTransmitter::acquire() {

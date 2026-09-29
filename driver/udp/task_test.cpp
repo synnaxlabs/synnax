@@ -104,9 +104,7 @@ protected:
                 std::move(cfg),
                 std::make_unique<bus::ConnectionTransmitter>(
                     bus::acquirer<Socket>(this->connections, "dev", this->props())
-                ),
-                this->ctx,
-                this->task
+                )
             ),
             nullptr,
             pipeline::mock::simple_streamer_factory({7}, commands)
@@ -173,8 +171,7 @@ TEST_F(UDPTask, ReadsAndWritesOneSocketAtOnce) {
         read_config({binary_message("status", {binary_field("v", 0)})}, std::nullopt)
     );
     auto commands = std::make_shared<std::vector<x::telem::Frame>>();
-    for (int i = 1; i <= 5; i++)
-        commands->emplace_back(7, x::telem::Series(double(i), x::telem::FLOAT64_T));
+    commands->emplace_back(7, x::telem::Series(5.0, x::telem::FLOAT64_T));
     auto writer = this->write_task(
         write_config(
             binary_message("cmd", {binary_field("v", 0)}),
@@ -185,13 +182,11 @@ TEST_F(UDPTask, ReadsAndWritesOneSocketAtOnce) {
     );
     reader->start("start");
     writer->start("start");
-    for (std::uint8_t i = 1; i <= 5; i++) {
-        std::vector<std::uint8_t> buf(16);
-        asio::ip::udp::endpoint from;
-        buf.resize(this->device.receive_from(asio::buffer(buf), from));
-        EXPECT_EQ(buf, std::vector<std::uint8_t>{i});
-        EXPECT_EQ(from.port(), this->task_port);
-    }
+    std::vector<std::uint8_t> buf(16);
+    asio::ip::udp::endpoint from;
+    buf.resize(this->device.receive_from(asio::buffer(buf), from));
+    EXPECT_EQ(buf, std::vector<std::uint8_t>{5});
+    EXPECT_EQ(from.port(), this->task_port);
     ASSERT_EVENTUALLY_TRUE([&] {
         this->send({42});
         return !values(*this->writes, 1).empty();

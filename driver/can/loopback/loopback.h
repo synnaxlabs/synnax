@@ -43,13 +43,12 @@ class Network {
 class Bus final : public can::Bus {
     friend class Network;
     std::shared_ptr<Network> network;
-    std::string channel;
-    bool fd;
-    bool listen_only;
     bool closed = false;
     std::mutex mu;
     std::condition_variable cv;
     std::deque<Frame> inbox;
+
+    [[nodiscard]] x::errors::Error transmit(const Frame &frame) override;
 
 public:
     Bus(std::shared_ptr<Network> network, const synnax::can::Properties &props);
@@ -57,8 +56,6 @@ public:
 
     [[nodiscard]] std::pair<bool, x::errors::Error>
     receive(Frame &frame, x::telem::TimeSpan timeout) override;
-
-    [[nodiscard]] x::errors::Error send(const Frame &frame) override;
 
     x::errors::Error close() override;
 };

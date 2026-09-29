@@ -38,10 +38,10 @@ class Bus final : public can::Bus {
     std::shared_ptr<API> api;
     canHandle rx;
     std::optional<canHandle> tx;
-    std::string name;
-    bool fd;
     Counter counter;
     bool closed = false;
+
+    [[nodiscard]] x::errors::Error transmit(const Frame &frame) override;
 
 public:
     Bus(std::shared_ptr<API> api,
@@ -53,8 +53,6 @@ public:
 
     [[nodiscard]] std::pair<bool, x::errors::Error>
     receive(Frame &frame, x::telem::TimeSpan timeout) override;
-
-    [[nodiscard]] x::errors::Error send(const Frame &frame) override;
 
     x::errors::Error close() override;
 };

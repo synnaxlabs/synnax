@@ -14,18 +14,18 @@
 namespace driver::can::loopback {
 void Network::attach(Bus *bus) {
     std::lock_guard lock(this->mu);
-    this->channels[bus->channel].push_back(bus);
+    this->channels[bus->name].push_back(bus);
 }
 
 void Network::detach(Bus *bus) {
     std::lock_guard lock(this->mu);
-    auto &buses = this->channels[bus->channel];
+    auto &buses = this->channels[bus->name];
     std::erase(buses, bus);
 }
 
 void Network::deliver(const Bus *from, const Frame &frame) {
     std::lock_guard lock(this->mu);
-    for (auto *bus: this->channels[from->channel]) {
+    for (auto *bus: this->channels[from->name]) {
         if (bus == from) continue;
         {
             std::lock_guard bus_lock(bus->mu);
@@ -38,10 +38,7 @@ void Network::deliver(const Bus *from, const Frame &frame) {
 }
 
 Bus::Bus(std::shared_ptr<Network> network, const synnax::can::Properties &props):
-    network(std::move(network)),
-    channel(props.channel),
-    fd(props.fd),
-    listen_only(props.listen_only) {
+    can::Bus(props.channel, props.fd, props.listen_only), network(std::move(network)) {
     this->network->attach(this);
 }
 
@@ -61,10 +58,7 @@ Bus::receive(Frame &frame, const x::telem::TimeSpan timeout) {
     return {true, x::errors::NIL};
 }
 
-x::errors::Error Bus::send(const Frame &frame) {
-    if (this->listen_only)
-        return {LISTEN_ONLY_ERROR, "channel " + this->channel + " is listen only"};
-    if (auto err = validate(frame, this->fd)) return err;
+x::errors::Error Bus::transmit(const Frame &frame) {
     this->network->deliver(this, frame);
     return x::errors::NIL;
 }

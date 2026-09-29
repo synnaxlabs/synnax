@@ -84,7 +84,8 @@ message Library {
   repeated Entry entries = 3;
 }
 
-// Reference is embedded in the config of a task that uses a library.
+// Reference is embedded in the config of a task that uses a library. A task uses at
+// most one library.
 message Reference {
   // library is the key of the library the task reads its layouts from.
   string library = 1;

@@ -24,7 +24,7 @@ constexpr std::size_t SDI_START = 8;
 constexpr std::size_t DATA_END = 30;
 
 x::errors::Error error(const library::MessageEntry &m, const std::string &msg) {
-    return x::errors::Error(LAYOUT_ERROR, "message " + m.name + ": " + msg);
+    return x::errors::Error(CONFIG_ERROR, "message " + m.name + ": " + msg);
 }
 }
 

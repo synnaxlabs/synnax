@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <stdexcept>
 #include <string_view>
 
 #include "driver/codec/errors.h"
@@ -36,7 +37,28 @@ std::uint16_t transfer_key(mil1553::Command command) {
 }
 
 x::errors::Error message_error(const library::MessageEntry &m, const std::string &msg) {
-    return x::errors::Error(LAYOUT_ERROR, "message " + m.name + ": " + msg);
+    return x::errors::Error(CONFIG_ERROR, "message " + m.name + ": " + msg);
+}
+
+x::errors::Error duplicate(
+    const std::span<const library::MessageEntry> messages,
+    const std::size_t first,
+    const std::size_t second,
+    const std::string &what
+) {
+    return x::errors::Error(
+        CONFIG_ERROR,
+        "messages " + messages[first].name + " and " + messages[second].name + " " +
+            what
+    );
+}
+
+const library::BinaryField &
+find_field(const library::MessageEntry &m, const library::FieldKey &key) {
+    for (const auto &f: m.fields)
+        if (const auto &bf = std::get<library::BinaryField>(f); bf.key == key)
+            return bf;
+    throw std::out_of_range("message " + m.name + " has no field " + key.to_string());
 }
 }
 
@@ -49,7 +71,7 @@ Matcher::compile(const std::span<const library::MessageEntry> messages) {
             if (m.fallback.has_value())
                 return {
                     {},
-                    message_error(msg, "more than one message has no identifier"),
+                    duplicate(messages, *m.fallback, i, "both have no identifier")
                 };
             m.fallback = i;
             continue;
@@ -57,10 +79,20 @@ Matcher::compile(const std::span<const library::MessageEntry> messages) {
         const auto &identifier = *msg.identifier;
         if (const auto *can = std::get_if<library::CanIdentifier>(&identifier)) {
             const auto valid = can->extended ? EXTENDED_ID_MASK : STANDARD_ID_MASK;
-            if ((can->id & ~valid) != 0)
-                return {{}, message_error(msg, "CAN identifier out of range")};
             const auto mask = can->mask.value_or(valid) & valid;
             if (mask != valid) {
+                for (const auto &other: m.masked)
+                    if (other.id == (can->id & mask) && other.mask == mask &&
+                        other.extended == can->extended)
+                        return {
+                            {},
+                            duplicate(
+                                messages,
+                                other.message,
+                                i,
+                                "have the same CAN identifier and mask"
+                            ),
+                        };
                 m.masked.push_back({
                     .id = can->id & mask,
                     .mask = mask,
@@ -69,47 +101,61 @@ Matcher::compile(const std::span<const library::MessageEntry> messages) {
                 });
                 continue;
             }
-            if (!m.exact.emplace(exact_key(can->id, can->extended), i).second)
-                return {{}, message_error(msg, "duplicate CAN identifier")};
+            const auto [it, ok] = m.exact.emplace(exact_key(can->id, can->extended), i);
+            if (!ok)
+                return {
+                    {},
+                    duplicate(messages, it->second, i, "have the same CAN identifier")
+                };
             continue;
         }
         if (const auto *field = std::get_if<library::FieldIdentifier>(&identifier)) {
-            const auto it = std::find_if(
-                msg.fields.begin(),
-                msg.fields.end(),
-                [&field](const library::Field &f) {
-                    return std::visit(
-                        [&field](const auto &v) { return v.key == field->field; },
-                        f
-                    );
-                }
-            );
-            if (it == msg.fields.end())
-                return {{}, message_error(msg, "identifier field is not in message")};
-            const auto *bf = std::get_if<library::BinaryField>(&*it);
-            if (bf == nullptr || bf->float_)
-                return {
-                    {},
-                    message_error(msg, "identifier field must be a binary integer"),
-                };
+            const auto &bf = find_field(msg, field->field);
+            if (bf.float_)
+                return {{}, message_error(msg, "identifier field must be an integer")};
             auto [bits, err] = BitRange::compile(
-                bf->start_bit,
-                bf->bit_length,
-                bf->byte_order
+                bf.start_bit,
+                bf.bit_length,
+                bf.byte_order
             );
             if (err) return {{}, message_error(msg, err.data)};
-            m.fields.push_back({
-                .bits = bits,
-                .signed_ = bf->signed_,
-                .value = field->value,
-                .message = i,
-            });
+            auto h = std::find_if(
+                m.headers.begin(),
+                m.headers.end(),
+                [&](const Header &h) {
+                    return h.bits == bits && h.signed_ == bf.signed_;
+                }
+            );
+            if (h == m.headers.end())
+                h = m.headers.insert(
+                    m.headers.end(),
+                    Header{.bits = bits, .signed_ = bf.signed_}
+                );
+            const auto [it, ok] = h->messages.emplace(field->value, i);
+            if (!ok)
+                return {
+                    {},
+                    duplicate(
+                        messages,
+                        it->second,
+                        i,
+                        "have the same identifier value " + std::to_string(field->value)
+                    ),
+                };
             continue;
         }
         if (const auto *token = std::get_if<library::TokenIdentifier>(&identifier)) {
             for (const auto &t: m.tokens)
                 if (t.prefix == token->prefix)
-                    return {{}, message_error(msg, "duplicate token " + t.prefix)};
+                    return {
+                        {},
+                        duplicate(
+                            messages,
+                            t.message,
+                            i,
+                            "have the same token " + t.prefix
+                        ),
+                    };
             m.tokens.push_back({.prefix = token->prefix, .message = i});
             continue;
         }
@@ -120,8 +166,17 @@ Matcher::compile(const std::span<const library::MessageEntry> messages) {
                 a->label,
                 a->sdi_matched ? std::optional(a->sdi) : std::nullopt
             );
-            if (!m.labels.emplace(key, i).second)
-                return {{}, message_error(msg, "duplicate ARINC 429 label and SDI")};
+            const auto [it, ok] = m.labels.emplace(key, i);
+            if (!ok)
+                return {
+                    {},
+                    duplicate(
+                        messages,
+                        it->second,
+                        i,
+                        "have the same ARINC 429 label and SDI"
+                    ),
+                };
             continue;
         }
         if (const auto *c = std::get_if<library::Mil1553Identifier>(&identifier)) {
@@ -132,11 +187,19 @@ Matcher::compile(const std::span<const library::MessageEntry> messages) {
             if (c->direction != library::DIRECTION_RECEIVE &&
                 c->direction != library::DIRECTION_TRANSMIT)
                 return {{}, message_error(msg, "unknown direction " + c->direction)};
-            if (!m.transfers.emplace(transfer_key(mil1553::Command::from(*c)), i)
-                     .second)
+            const auto [it, ok] = m.transfers.emplace(
+                transfer_key(mil1553::Command::from(*c)),
+                i
+            );
+            if (!ok)
                 return {
                     {},
-                    message_error(msg, "duplicate MIL-STD-1553 address and subaddress"),
+                    duplicate(
+                        messages,
+                        it->second,
+                        i,
+                        "have the same MIL-STD-1553 address and subaddress"
+                    ),
                 };
             continue;
         }
@@ -162,12 +225,13 @@ Matcher::match(const std::uint32_t id, const bool extended) const {
 
 std::optional<std::size_t>
 Matcher::match(const std::span<const std::uint8_t> frame) const {
-    for (const auto &f: this->fields) {
-        if (frame.size() < f.bits.end()) continue;
-        const auto raw = f.signed_
-                           ? f.bits.read_signed(frame.data())
-                           : static_cast<std::int64_t>(f.bits.read(frame.data()));
-        if (raw == f.value) return f.message;
+    for (const auto &h: this->headers) {
+        if (frame.size() < h.bits.end()) continue;
+        const auto raw = h.signed_
+                           ? h.bits.read_signed(frame.data())
+                           : static_cast<std::int64_t>(h.bits.read(frame.data()));
+        if (const auto it = h.messages.find(raw); it != h.messages.end())
+            return it->second;
     }
     const std::string_view line(
         reinterpret_cast<const char *>(frame.data()),

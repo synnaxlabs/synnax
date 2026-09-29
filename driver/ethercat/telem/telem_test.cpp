@@ -333,9 +333,9 @@ TEST(Plan, SpansTheBytesTheEntryTouches) {
 }
 
 TEST(Plan, RejectsEntriesTheCodecCannotLayOut) {
-    ASSERT_OCCURRED_AS_P(plan(entry(0, x::telem::UINT8_T), 0), codec::LAYOUT_ERROR);
-    ASSERT_OCCURRED_AS_P(plan(entry(72, x::telem::STRING_T), 0), codec::LAYOUT_ERROR);
-    ASSERT_OCCURRED_AS_P(plan(entry(16, x::telem::FLOAT32_T), 0), codec::LAYOUT_ERROR);
+    ASSERT_OCCURRED_AS_P(plan(entry(0, x::telem::UINT8_T), 0), codec::CONFIG_ERROR);
+    ASSERT_OCCURRED_AS_P(plan(entry(72, x::telem::STRING_T), 0), codec::CONFIG_ERROR);
+    ASSERT_OCCURRED_AS_P(plan(entry(16, x::telem::FLOAT32_T), 0), codec::CONFIG_ERROR);
 }
 
 TEST(Plan, DecodesAndEncodesACycleWithoutAllocating) {

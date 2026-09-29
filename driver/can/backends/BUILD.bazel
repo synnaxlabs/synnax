@@ -14,6 +14,14 @@ cc_library(
     name = "backends",
     srcs = ["backends.cpp"],
     hdrs = ["backends.h"],
+    # backends.cpp includes libusb.h, which includes windows.h on Windows.
+    copts = select({
+        "@platforms//os:windows": [
+            "/DWIN32_LEAN_AND_MEAN",
+            "/DNOMINMAX",
+        ],
+        "//conditions:default": [],
+    }),
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp/can",

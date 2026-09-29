@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { can } from "@synnaxlabs/client";
+import { type bus, can } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -16,6 +16,7 @@ import {
   createBusDevice,
   createBusLibrary,
   createBusTask,
+  createMessage,
   findOpenDialog,
   renderBusTask,
 } from "@/feature/bus/testutil";
@@ -41,6 +42,14 @@ const createDraft = async (config: Record<string, unknown>) =>
 
 const retrieveRead = async (key: string) =>
   await client.tasks.retrieve({ key, schemas: CAN.Task.READ_SCHEMAS });
+
+/** Expects the index and field channels of a deployed message to hold the names. */
+const expectBound = async (m: bus.ReadMessage, index: string, fields: string[]) => {
+  expect((await client.channels.retrieve(m.index)).name).toBe(index);
+  const channels = await client.channels.retrieve(m.fields.map((f) => f.channel));
+  expect(channels.map((c) => c.name).sort()).toEqual(fields);
+  channels.forEach((c) => expect(c.index).toBe(m.index));
+};
 
 describe("bus read task", () => {
   it("should create one index per message and one channel per field on deploy", async () => {
@@ -74,6 +83,32 @@ describe("bus read task", () => {
     expect(raw.virtual).toBe(true);
     expect(raw.dataType.toString()).toBe("bytes");
     expect(deployed.rack).toBe(dev.rack);
+  });
+
+  it("should bind the fields of each message to the index of that message", async () => {
+    const { library, engine, brake } = await createBusLibrary(client);
+    const dev = await createCANDevice();
+    const draft = await createDraft({
+      library: library.key,
+      device: dev.key,
+      messages: [createMessage(engine), createMessage(brake)],
+    });
+    const { container } = await renderBusTask(CAN.Task.Read, client, draft.key);
+    await screen.findByRole("checkbox", { name: "Rpm" });
+    const deployed = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      CAN.Task.READ_SCHEMAS,
+    );
+    const [engineMsg, brakeMsg] = deployed.config.messages;
+    await expectBound(engineMsg, `${dev.name}_Engine_time`, [
+      `${dev.name}_Engine_Rpm`,
+      `${dev.name}_Engine_Temp`,
+    ]);
+    await expectBound(brakeMsg, `${dev.name}_Brake_time`, [
+      `${dev.name}_Brake_Pressure`,
+    ]);
   });
 
   it("should only offer the library messages the integration can carry", async () => {

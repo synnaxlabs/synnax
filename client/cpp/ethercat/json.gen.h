@@ -120,7 +120,8 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
 
 inline x::json::json ReadConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::ReadConfig::to_json().items())
+    for (const auto base = ::synnax::task::ReadConfig::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
     {
         auto arr = x::json::json::array();
@@ -157,7 +158,8 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
 
 inline x::json::json WriteConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::PersistConfig::to_json().items())
+    for (const auto base = ::synnax::task::PersistConfig::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
     j["state_rate"] = this->state_rate;
     j["execution_rate"] = this->execution_rate;
@@ -180,7 +182,8 @@ inline ScanConfig ScanConfig::parse(x::json::Parser parser) {
 
 inline x::json::json ScanConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::ScanConfig::to_json().items())
+    for (const auto base = ::synnax::task::ScanConfig::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
     return j;
 }
@@ -195,7 +198,7 @@ inline AutomaticReadChannel AutomaticReadChannel::parse(x::json::Parser parser) 
 
 inline x::json::json AutomaticReadChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseReadChannel::to_json().items())
+    for (const auto base = BaseReadChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["pdo"] = this->pdo;
     j["type"] = this->type;
@@ -212,9 +215,9 @@ inline ManualReadChannel ManualReadChannel::parse(x::json::Parser parser) {
 
 inline x::json::json ManualReadChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseReadChannel::to_json().items())
+    for (const auto base = BaseReadChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: PDOAddress::to_json().items())
+    for (const auto base = PDOAddress::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["type"] = this->type;
     return j;
@@ -230,7 +233,8 @@ inline AutomaticWriteChannel AutomaticWriteChannel::parse(x::json::Parser parser
 
 inline x::json::json AutomaticWriteChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseWriteChannel::to_json().items())
+    for (const auto base = BaseWriteChannel::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
     j["pdo"] = this->pdo;
     j["type"] = this->type;
@@ -247,9 +251,10 @@ inline ManualWriteChannel ManualWriteChannel::parse(x::json::Parser parser) {
 
 inline x::json::json ManualWriteChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseWriteChannel::to_json().items())
+    for (const auto base = BaseWriteChannel::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: PDOAddress::to_json().items())
+    for (const auto base = PDOAddress::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["type"] = this->type;
     return j;

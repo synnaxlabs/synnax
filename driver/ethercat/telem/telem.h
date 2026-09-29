@@ -170,7 +170,7 @@ format_index_sub_index(const uint16_t index, const uint8_t sub_index) {
 /// starts at the entry's first byte. Signed and float data types decode as two's
 /// complement and IEEE 754; every other type decodes unsigned.
 /// @param bit the bit offset of the entry within its first byte, from 0 to 7.
-/// @returns LAYOUT_ERROR when the bit length is not from 1 to 64, or when a float
+/// @returns CONFIG_ERROR when the bit length is not from 1 to 64, or when a float
 /// entry is not 32 or 64 bits.
 inline std::pair<codec::Plan, x::errors::Error>
 plan(const pdo::Entry &entry, const uint8_t bit) {

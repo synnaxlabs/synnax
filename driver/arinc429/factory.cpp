@@ -154,8 +154,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
                 task,
                 ctx,
                 x::breaker::default_config(task.name),
-                std::make_unique<
-                    bus::Sink>(std::move(resolved), std::move(transmitter), ctx, task)
+                std::make_unique<bus::Sink>(std::move(resolved), std::move(transmitter))
             ),
             .auto_start = cfg.auto_start,
         },

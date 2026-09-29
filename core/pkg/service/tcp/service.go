@@ -40,14 +40,7 @@ var _ xconfig.Config[ServiceConfig] = ServiceConfig{}
 // Override implements xconfig.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Resolver.Stamper.DB = override.Nil(
-		c.Resolver.Stamper.DB,
-		other.Resolver.Stamper.DB,
-	)
-	c.Resolver.Stamper.Ontology = override.Nil(
-		c.Resolver.Stamper.Ontology,
-		other.Resolver.Stamper.Ontology,
-	)
+	c.Resolver = c.Resolver.Override(other.Resolver)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
@@ -56,8 +49,9 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("tcp.service")
 	v.NotNil("db", c.DB)
-	v.NotNil("resolver.stamper.db", c.Resolver.Stamper.DB)
-	v.NotNil("resolver.stamper.ontology", c.Resolver.Stamper.Ontology)
+	v.Exec(
+		func() error { return validate.PathedError(c.Resolver.Validate(), "resolver") },
+	)
 	return v.Error()
 }
 

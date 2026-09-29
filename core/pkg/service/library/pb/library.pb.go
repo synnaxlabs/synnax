@@ -461,7 +461,8 @@ func (x *Library) GetEntries() []*Entry {
 	return nil
 }
 
-// Reference is embedded in the config of a task that uses a library.
+// Reference is embedded in the config of a task that uses a library. A task uses at
+// most one library.
 type Reference struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// library is the key of the library the task reads its layouts from.

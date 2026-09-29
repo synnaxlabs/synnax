@@ -28,10 +28,7 @@ std::string printable(const std::string_view command) {
 }
 
 Bus::Bus(std::unique_ptr<serial::Port> port, const synnax::can::Properties &props):
-    port(std::move(port)),
-    name(props.channel),
-    fd(props.fd),
-    listen_only(props.listen_only) {}
+    can::Bus(props.channel, props.fd, props.listen_only), port(std::move(port)) {}
 
 Bus::~Bus() {
     this->close();
@@ -70,7 +67,18 @@ Bus::read(const x::telem::TimeSpan timeout) {
     if (!frames.empty()) {
         {
             std::lock_guard lock(this->mu);
-            this->inbox.insert(this->inbox.end(), frames.begin(), frames.end());
+            if (this->inbox.empty()) this->overflowed = false;
+            for (const auto &frame: frames) {
+                if (this->inbox.size() >= MAX_QUEUED) {
+                    this->inbox.pop_front();
+                    if (!this->overflowed)
+                        LOG(WARNING) << "[can] " << this->name
+                                     << ": frames arrive faster than they are read, "
+                                        "dropping the oldest";
+                    this->overflowed = true;
+                }
+                this->inbox.push_back(frame);
+            }
         }
         this->cv.notify_all();
     }
@@ -171,10 +179,7 @@ Bus::receive(Frame &frame, const x::telem::TimeSpan timeout) {
     return {true, x::errors::NIL};
 }
 
-x::errors::Error Bus::send(const Frame &frame) {
-    if (this->listen_only)
-        return {LISTEN_ONLY_ERROR, "channel " + this->name + " is listen only"};
-    if (auto err = validate(frame, this->fd)) return err;
+x::errors::Error Bus::transmit(const Frame &frame) {
     std::lock_guard lock(this->mu);
     if (this->failure) return this->failure;
     if (this->outbox.size() >= MAX_QUEUED)

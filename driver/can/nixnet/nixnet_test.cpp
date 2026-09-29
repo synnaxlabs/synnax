@@ -27,13 +27,6 @@ synnax::can::Properties props(const bool fd = false, const bool listen_only = fa
     return p;
 }
 
-/// @returns the raw frame for a frame, encoded as an interface of the given mode.
-std::vector<std::uint8_t> raw(const Frame &frame, const bool fd = false) {
-    std::vector<std::uint8_t> out(raw_size(frame.length));
-    encode(frame, fd, out);
-    return out;
-}
-
 class NIXNETTest : public ::testing::Test {
 protected:
     std::shared_ptr<MockAPI> api = std::make_shared<MockAPI>();
@@ -58,7 +51,7 @@ TEST(NIXNETFrame, EncodesAClassicStandardFrame) {
     Frame frame{.id = 0x123, .length = 3};
     frame.data[0] = 0xAA;
     frame.data[2] = 0xCC;
-    const auto bytes = raw(frame);
+    const auto bytes = encode(frame, false);
     const std::vector<std::uint8_t> expected = {
         0,    0,    0,    0, 0, 0, 0, 0, // timestamp
         0x23, 0x01, 0,    0, // identifier
@@ -71,7 +64,7 @@ TEST(NIXNETFrame, EncodesAClassicStandardFrame) {
 }
 
 TEST(NIXNETFrame, MarksAClassicFrameOnAnFDInterfaceAsCAN20) {
-    const auto bytes = raw(Frame{.id = 1}, true);
+    const auto bytes = encode(Frame{.id = 1}, true);
     EXPECT_EQ(bytes[12], nxFrameType_CAN20_Data);
 }
 
@@ -84,7 +77,7 @@ TEST(NIXNETFrame, EncodesAnExtendedFDFrameWithABitrateSwitch) {
         .length = 12,
     };
     frame.data[11] = 0x5A;
-    const auto bytes = raw(frame, true);
+    const auto bytes = encode(frame, true);
     ASSERT_EQ(bytes.size(), 32);
     EXPECT_EQ(bytes[8], 0xF0);
     EXPECT_EQ(bytes[9], 0xDE);
@@ -99,8 +92,8 @@ TEST(NIXNETFrame, DecodesWhatItEncodes) {
     Frame sent{.id = 0x7FF, .fd = true, .length = 64};
     for (std::uint8_t i = 0; i < 64; i++)
         sent.data[i] = i;
-    auto bytes = raw(sent, true);
-    const std::uint64_t ticks = nxTimestamp_UnixOffset + 17000000000000000ULL;
+    auto bytes = encode(sent, true);
+    const std::uint64_t ticks = UNIX_EPOCH_TICKS + 17000000000000000ULL;
     for (std::size_t i = 0; i < 8; i++)
         bytes[i] = static_cast<std::uint8_t>(ticks >> (8 * i));
     Frame got;
@@ -117,7 +110,7 @@ TEST(NIXNETFrame, DecodesWhatItEncodes) {
 }
 
 TEST(NIXNETFrame, DecodesARemoteFrame) {
-    auto bytes = raw(Frame{.id = 5, .type = Type::REMOTE, .length = 2});
+    auto bytes = encode(Frame{.id = 5, .type = Type::REMOTE, .length = 2}, false);
     Frame got;
     ASSERT_NIL_P(decode(bytes, got));
     EXPECT_EQ(got.type, Type::REMOTE);
@@ -125,7 +118,7 @@ TEST(NIXNETFrame, DecodesARemoteFrame) {
 }
 
 TEST(NIXNETFrame, RejectsATruncatedFrame) {
-    auto bytes = raw(Frame{.fd = true, .length = 32}, true);
+    auto bytes = encode(Frame{.fd = true, .length = 32}, true);
     bytes.resize(30);
     Frame got;
     auto [size, err] = decode(bytes, got);
@@ -158,7 +151,7 @@ TEST_F(NIXNETTest, SetsTheFDModeAndDataBitrate) {
 TEST_F(NIXNETTest, OpensOnlyAListenOnlyInputSessionWhenListenOnly) {
     auto bus = this->open(props(false, true));
     ASSERT_EQ(this->api->sessions.size(), 1);
-    EXPECT_EQ(this->api->sessions.at(1).property<u8>(nxPropSession_IntfCanLstnOnly), 1);
+    EXPECT_EQ(this->api->sessions.at(1).property<u8>(nxPropSession_IntfCANLstnOnly), 1);
     const auto err = bus->send(Frame{.id = 1});
     ASSERT_MATCHES(err, LISTEN_ONLY_ERROR);
     EXPECT_EQ(err.data, "channel CAN1 is listen only");
@@ -173,8 +166,8 @@ TEST_F(NIXNETTest, ReportsASessionFailure) {
 
 TEST_F(NIXNETTest, ReceivesEveryFrameOfOneRead) {
     auto bus = this->open();
-    auto chunk = raw(Frame{.id = 1, .length = 1});
-    const auto second = raw(Frame{.id = 2, .extended = true, .length = 8});
+    auto chunk = encode(Frame{.id = 1, .length = 1}, false);
+    const auto second = encode(Frame{.id = 2, .extended = true, .length = 8}, false);
     chunk.insert(chunk.end(), second.begin(), second.end());
     this->api->reads.push_back(chunk);
     Frame frame;
@@ -187,10 +180,10 @@ TEST_F(NIXNETTest, ReceivesEveryFrameOfOneRead) {
 
 TEST_F(NIXNETTest, SkipsTransmitEchoes) {
     auto bus = this->open();
-    auto echo = raw(Frame{.id = 1});
+    auto echo = encode(Frame{.id = 1}, false);
     echo[13] = nxFrameFlags_TransmitEcho;
     this->api->reads.push_back(echo);
-    this->api->reads.push_back(raw(Frame{.id = 2}));
+    this->api->reads.push_back(encode(Frame{.id = 2}, false));
     Frame frame;
     ASSERT_TRUE(ASSERT_NIL_P(bus->receive(frame, x::telem::SECOND)));
     EXPECT_EQ(frame.id, 2);

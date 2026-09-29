@@ -9,6 +9,9 @@
 
 #pragma once
 
+#include <functional>
+#include <mutex>
+
 #include "client/cpp/task/json.gen.h"
 
 #include "driver/bypass/pipeline/factory.h"
@@ -51,6 +54,11 @@ public:
     /// @brief the current state of all the outputs. This is shared between
     /// the command sink and state source.
     std::unordered_map<synnax::channel::Key, x::telem::SampleValue> chan_state;
+    /// @brief sets the task's warning to err, or clears it when err is nil, for
+    /// failures that write does not return, such as a send on the sink's own thread. A
+    /// successful write does not clear a warning set here. The WriteTask that owns the
+    /// sink binds it on construction. Safe to call from any thread.
+    std::function<void(const x::errors::Error &err)> set_warning;
 
     explicit Sink(std::vector<synnax::channel::Key> cmd_channels):
         cmd_channels(std::move(cmd_channels)),
@@ -143,7 +151,10 @@ class WriteTask final : public driver::task::Task {
 
         /// @brief implements pipeline::Sink, and pipeline:Source
         void stopped_with_err(const x::errors::Error &err) override {
-            this->p.state.error(err);
+            {
+                std::lock_guard lock(this->p.state_mu);
+                this->p.state.error(err);
+            }
             this->p.stop("", true);
         }
 
@@ -158,10 +169,8 @@ class WriteTask final : public driver::task::Task {
         x::errors::Error write(x::telem::Frame &frame) override {
             if (frame.empty()) return x::errors::NIL;
             auto err = this->internal->write(frame);
-            if (!err)
-                this->p.state.clear_warning();
-            else if (err.matches(errors::TEMPORARY_HARDWARE_ERROR))
-                this->p.state.send_warning(err);
+            if (!err || err.matches(errors::TEMPORARY_HARDWARE_ERROR))
+                this->p.set_warning(err, true);
             return err;
         }
 
@@ -174,8 +183,14 @@ class WriteTask final : public driver::task::Task {
         }
     };
 
+    /// @brief guards state, which the pipeline threads and the sink's own threads
+    /// report through.
+    std::mutex state_mu;
     /// @brief used to manage and communicate the task's state.
     StatusHandler state;
+    /// @brief true when a write set the current warning, so a later successful write
+    /// clears it. Guarded by state_mu.
+    bool write_warning = false;
     /// @brief the hardware interface for writing data
     std::shared_ptr<WrappedSink> sink;
     /// @brief the pipeline used to receive commands from Synnax and write them to
@@ -211,7 +226,11 @@ public:
             this->sink,
             breaker_cfg,
             task.name + ":state"
-        ) {}
+        ) {
+        this->sink->internal->set_warning = [this](const x::errors::Error &err) {
+            this->set_warning(err, false);
+        };
+    }
 
     /// @brief primary constructor that uses the task context's Synnax client for
     /// cluster communication.
@@ -254,7 +273,11 @@ public:
         // pipe records whether the sink holds hardware.
         const auto stopped = this->cmd_write_pipe.stop();
         this->state_write_pipe.stop();
-        if (stopped) this->state.error(this->sink->internal->stop());
+        // The sink's threads report through state until stop joins them, so the lock is
+        // taken after.
+        const auto err = stopped ? this->sink->internal->stop() : x::errors::NIL;
+        std::lock_guard lock(this->state_mu);
+        this->state.error(err);
         if (propagate_state) this->state.send_stop(cmd_key);
         return stopped;
     }
@@ -266,21 +289,45 @@ public:
     /// status.
     bool start(const std::string &cmd_key) {
         if (this->cmd_write_pipe.running()) {
+            std::lock_guard lock(this->state_mu);
             this->state.ack(cmd_key, true);
             return false;
         }
-        this->state.reset();
-        const auto sink_started = !this->state.error(this->sink->internal->start());
-        if (sink_started) {
+        {
+            std::lock_guard lock(this->state_mu);
+            this->state.reset();
+            this->write_warning = false;
+        }
+        // The sink reports through state while holding its own locks, so state_mu is
+        // never held across a call into the sink.
+        const auto err = this->sink->internal->start();
+        if (!err) {
             this->cmd_write_pipe.start();
             if (!this->sink->internal->writer_config().channels.empty())
                 this->state_write_pipe.start();
         }
+        std::lock_guard lock(this->state_mu);
+        this->state.error(err);
         this->state.send_start(cmd_key);
-        return sink_started;
+        return !err;
     }
 
     /// @brief implements driver::task::Task to return the task's name.
     std::string name() const override { return this->state.task.name; }
+
+private:
+    /// @brief sets the task's warning to err, or clears it when err is nil. A nil err
+    /// from a write clears only a warning that a write set.
+    void set_warning(const x::errors::Error &err, const bool from_write) {
+        std::lock_guard lock(this->state_mu);
+        if (err) {
+            this->write_warning = from_write;
+            this->state.send_warning(err);
+            return;
+        }
+        if (from_write && !this->write_warning) return;
+        this->write_warning = false;
+        this->state.clear_warning();
+    }
 };
 }

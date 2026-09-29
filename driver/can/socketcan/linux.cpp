@@ -104,14 +104,11 @@ void decode(const canfd_frame &raw, const bool fd, Frame &frame) {
 
 class Bus final : public can::Bus {
     int socket;
-    std::string name;
-    bool fd;
-    bool listen_only;
     bool closed = false;
 
 public:
     Bus(const int socket, std::string name, const bool fd, const bool listen_only):
-        socket(socket), name(std::move(name)), fd(fd), listen_only(listen_only) {}
+        can::Bus(std::move(name), fd, listen_only), socket(socket) {}
 
     ~Bus() override { this->close(); }
 
@@ -167,10 +164,8 @@ public:
         return {true, x::errors::NIL};
     }
 
-    x::errors::Error send(const Frame &frame) override {
-        if (this->listen_only)
-            return {LISTEN_ONLY_ERROR, "channel " + this->name + " is listen only"};
-        if (auto err = validate(frame, this->fd)) return err;
+private:
+    x::errors::Error transmit(const Frame &frame) override {
         // A classic frame shares the first CAN_MTU bytes of a CAN FD frame's layout.
         canfd_frame raw{};
         raw.can_id = frame.id;
@@ -195,6 +190,7 @@ public:
         );
     }
 
+public:
     x::errors::Error close() override {
         if (this->closed) return x::errors::NIL;
         this->closed = true;

@@ -106,7 +106,7 @@ export const { useUpdate: useImport } = Flux.createUpdate<
   name: RESOURCE_NAME,
   verbs: IMPORT_VERBS,
   update: async ({ client, data: { key, format, data } }) =>
-    await client.libraries.import(key, format, data),
+    await client.libraries.import(key, data, format),
 });
 
 export const formSchema = library.libraryZ;

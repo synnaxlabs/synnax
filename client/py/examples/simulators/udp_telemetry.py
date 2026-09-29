@@ -90,19 +90,17 @@ class UDPTelemetrySim(BusSim[bytes]):
         transport, _ = await loop.create_datagram_endpoint(
             lambda: _Receiver(self), local_addr=(self.host, self.port)
         )
-        self._ready.set()
         driver = (self.host, DRIVER_PORT)
-        period = 1 / float(self.rate)
-        start = loop.time()
-        count = 0
-        while True:
+
+        def send(count: int) -> None:
             transport.sendto(fast(count), driver)
             if count % SLOW_DIVISOR == 0:
                 transport.sendto(slow(count // SLOW_DIVISOR), driver)
             if count % int(float(self.rate)) == 0:
                 transport.sendto(UNKNOWN_DATAGRAM, driver)
-            count += 1
-            await asyncio.sleep(max(0.0, start + count * period - loop.time()))
+
+        self._ready.set()
+        await self._send_at_rate(send)
 
     @staticmethod
     def create_device(rack_key: int) -> udp.Device:

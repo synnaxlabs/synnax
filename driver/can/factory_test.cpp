@@ -159,7 +159,7 @@ TEST_F(CANFactory, RejectsAnFDMessageOnAClassicBus) {
     );
     EXPECT_EQ(this->configure(WRITE_TASK_TYPE, cfg.to_json()), nullptr);
     EXPECT_NE(
-        this->error().find("is CAN FD, but the device's bus is not"),
+        this->error().find("a CAN FD frame cannot be sent on a classic CAN bus"),
         std::string::npos
     );
 }
@@ -173,7 +173,7 @@ TEST_F(CANFactory, RejectsALengthWithNoDataLengthCode) {
     const auto cfg = this->write_config(lib, core.create_device(MAKE, p.to_json()));
     EXPECT_EQ(this->configure(WRITE_TASK_TYPE, cfg.to_json()), nullptr);
     EXPECT_NE(
-        this->error().find("9 bytes, which is not a valid CAN FD frame length"),
+        this->error().find("length 9 is not a valid CAN FD length"),
         std::string::npos
     );
 }

@@ -187,24 +187,24 @@ TEST(Validate, AcceptsFieldsInsideTheDataWords) {
 }
 
 TEST(Validate, RejectsAFieldBeyondTheDataWords) {
-    ASSERT_OCCURRED_AS(validate(message(5, 1, 1, {field("x", 23, 16)})), LAYOUT_ERROR);
+    ASSERT_OCCURRED_AS(validate(message(5, 1, 1, {field("x", 23, 16)})), CONFIG_ERROR);
 }
 
 TEST(Validate, RejectsModeCodesAndBroadcast) {
-    ASSERT_OCCURRED_AS(validate(message(5, 0, 1)), LAYOUT_ERROR);
-    ASSERT_OCCURRED_AS(validate(message(5, 31, 1)), LAYOUT_ERROR);
-    ASSERT_OCCURRED_AS(validate(message(31, 1, 1)), LAYOUT_ERROR);
+    ASSERT_OCCURRED_AS(validate(message(5, 0, 1)), CONFIG_ERROR);
+    ASSERT_OCCURRED_AS(validate(message(5, 31, 1)), CONFIG_ERROR);
+    ASSERT_OCCURRED_AS(validate(message(31, 1, 1)), CONFIG_ERROR);
 }
 
 TEST(Validate, RejectsAWordCountOutOfRange) {
-    ASSERT_OCCURRED_AS(validate(message(5, 1, 0)), LAYOUT_ERROR);
-    ASSERT_OCCURRED_AS(validate(message(5, 1, 33)), LAYOUT_ERROR);
+    ASSERT_OCCURRED_AS(validate(message(5, 1, 0)), CONFIG_ERROR);
+    ASSERT_OCCURRED_AS(validate(message(5, 1, 33)), CONFIG_ERROR);
 }
 
 TEST(Validate, RejectsALengthThatDisagreesWithTheWordCount) {
     auto m = message(5, 1, 2);
     m.length = 2;
-    ASSERT_OCCURRED_AS(validate(m), LAYOUT_ERROR);
+    ASSERT_OCCURRED_AS(validate(m), CONFIG_ERROR);
     m.length = 4;
     ASSERT_NIL(validate(m));
 }
@@ -212,6 +212,6 @@ TEST(Validate, RejectsALengthThatDisagreesWithTheWordCount) {
 TEST(Validate, RejectsAnotherIdentifier) {
     auto m = message(5, 1, 1);
     m.identifier = library::Arinc429Identifier{.label = 1};
-    ASSERT_OCCURRED_AS(validate(m), LAYOUT_ERROR);
+    ASSERT_OCCURRED_AS(validate(m), CONFIG_ERROR);
 }
 }

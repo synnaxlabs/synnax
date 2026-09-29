@@ -109,6 +109,26 @@ TEST(Counter, ExtendsAcrossAWrap) {
     EXPECT_EQ(counter.extend(0x00000001), 0x200000001);
 }
 
+TEST(Aligner, FollowsAnAdapterClockThatDrifts) {
+    Aligner aligner;
+    const auto step = 10 * x::telem::MILLISECOND;
+    // The adapter clock runs 100 ppm fast, and each frame takes up to 3 ms to arrive.
+    x::telem::TimeStamp host(1000 * x::telem::SECOND);
+    x::telem::TimeStamp adapter(5 * x::telem::SECOND);
+    x::telem::TimeStamp last;
+    x::telem::TimeSpan error;
+    for (int i = 0; i < 360000; i++) {
+        host = host + step;
+        adapter = adapter + step + step / 10000;
+        const auto delay = (i % 4) * x::telem::MILLISECOND;
+        const auto aligned = aligner.align(adapter, host + delay);
+        if (i > 0) ASSERT_GT(aligned, last) << i;
+        last = aligned;
+        error = aligned - host;
+    }
+    EXPECT_LT(std::abs(error.nanoseconds()), (2 * x::telem::MILLISECOND).nanoseconds());
+}
+
 TEST(Open, OpensTheBackendThePropertiesName) {
     const Backends backends = {{"loopback", std::make_shared<loopback::Backend>()}};
     synnax::can::Properties props;

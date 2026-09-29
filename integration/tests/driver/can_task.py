@@ -9,6 +9,8 @@
 
 """Base class for CAN task cases."""
 
+import sys
+
 from examples.simulators import can_frames
 from examples.simulators.can_frames import CANFrameSim
 
@@ -21,8 +23,11 @@ class CANCase(BusCase):
     sim_classes = [CANFrameSim]
 
     def unsupported(self) -> str | None:
-        if not can_frames.available():
-            return (
-                f"The CAN simulator needs the SocketCAN interface {can_frames.CHANNEL}"
-            )
+        if sys.platform != "linux":
+            return "The CAN simulator needs SocketCAN (Linux)"
         return None
+
+    def setup(self) -> None:
+        if sys.platform == "linux" and not can_frames.available():
+            self.fail(f"This host has no SocketCAN interface {can_frames.CHANNEL}")
+        super().setup()

@@ -217,12 +217,12 @@ public:
     Engine &operator=(const Engine &) = delete;
 
     /// @brief opens a new Reader for the specified PDO entries.
-    /// @returns LAYOUT_ERROR when the codec cannot lay out an entry.
+    /// @returns CONFIG_ERROR when the codec cannot lay out an entry.
     [[nodiscard]] std::pair<std::unique_ptr<Reader>, x::errors::Error>
     open_reader(const std::vector<pdo::Entry> &entries, x::telem::Rate sample_rate);
 
     /// @brief opens a new Writer for the specified PDO entries.
-    /// @returns LAYOUT_ERROR when the codec cannot lay out an entry.
+    /// @returns CONFIG_ERROR when the codec cannot lay out an entry.
     [[nodiscard]] std::pair<std::unique_ptr<Writer>, x::errors::Error>
     open_writer(const std::vector<pdo::Entry> &entries, x::telem::Rate execution_rate);
 

@@ -113,15 +113,15 @@ TEST(BitRange, ReadsA64BitFieldSpanningNineBytes) {
 }
 
 TEST(BitRange, RejectsAZeroLength) {
-    ASSERT_OCCURRED_AS_P(BitRange::compile(0, 0, order(false)), LAYOUT_ERROR);
+    ASSERT_OCCURRED_AS_P(BitRange::compile(0, 0, order(false)), CONFIG_ERROR);
 }
 
 TEST(BitRange, RejectsALengthOver64) {
-    ASSERT_OCCURRED_AS_P(BitRange::compile(0, 65, order(false)), LAYOUT_ERROR);
+    ASSERT_OCCURRED_AS_P(BitRange::compile(0, 65, order(false)), CONFIG_ERROR);
 }
 
 TEST(BitRange, RejectsAnUnknownByteOrder) {
-    ASSERT_OCCURRED_AS_P(BitRange::compile(0, 8, "middle_endian"), LAYOUT_ERROR);
+    ASSERT_OCCURRED_AS_P(BitRange::compile(0, 8, "middle_endian"), CONFIG_ERROR);
 }
 
 TEST(BitRange, ReadsABigEndianWordSwappedField) {
@@ -171,18 +171,18 @@ TEST(BitRange, TreatsAWordSwapped16BitFieldAsItsBaseOrder) {
 TEST(BitRange, RejectsAWordSwappedFieldThatIsNotByteAligned) {
     ASSERT_OCCURRED_AS_P(
         BitRange::compile(4, 32, BYTE_ORDER_LITTLE_ENDIAN_WORD_SWAPPED),
-        LAYOUT_ERROR
+        CONFIG_ERROR
     );
     ASSERT_OCCURRED_AS_P(
         BitRange::compile(3, 32, BYTE_ORDER_BIG_ENDIAN_WORD_SWAPPED),
-        LAYOUT_ERROR
+        CONFIG_ERROR
     );
 }
 
 TEST(BitRange, RejectsAWordSwappedFieldThatIsNotWholeWords) {
     ASSERT_OCCURRED_AS_P(
         BitRange::compile(0, 24, BYTE_ORDER_LITTLE_ENDIAN_WORD_SWAPPED),
-        LAYOUT_ERROR
+        CONFIG_ERROR
     );
 }
 

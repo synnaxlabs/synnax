@@ -49,7 +49,7 @@ common::ReadResult Source::read(x::breaker::Breaker &, x::telem::Frame &fr) {
     }
     if (bus != this->last) {
         this->last = bus;
-        this->offset.reset();
+        this->aligner = {};
     }
     const auto deadline = x::telem::TimeStamp::now() + bus::READ_TIMEOUT;
     auto timeout = bus::READ_TIMEOUT;
@@ -93,8 +93,6 @@ void Source::handle(const Frame &frame) {
 
 x::telem::TimeStamp Source::stamp(const Frame &frame) {
     if (frame.clock == Clock::HOST) return frame.time;
-    if (!this->offset.has_value())
-        this->offset = x::telem::TimeStamp::now() - frame.time;
-    return frame.time + *this->offset;
+    return this->aligner.align(frame.time, x::telem::TimeStamp::now());
 }
 }

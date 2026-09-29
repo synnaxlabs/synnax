@@ -168,7 +168,7 @@ void sort_by_address(std::vector<Channel> &channels) {
 /// @brief compiles a codec plan whose slots are the channels' values, in order, in a
 /// block that starts at the first channel's address.
 /// @param channels non-empty and sorted by address.
-/// @returns VALIDATION for an unsupported data type, or LAYOUT_ERROR when the block
+/// @returns VALIDATION for an unsupported data type, or CONFIG_ERROR when the block
 /// is too large for the codec.
 template<typename Channel>
 std::pair<codec::Plan, x::errors::Error> compile(const std::vector<Channel> &channels) {

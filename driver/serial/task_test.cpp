@@ -66,9 +66,7 @@ protected:
                 std::move(cfg),
                 std::make_unique<bus::ConnectionTransmitter>(
                     bus::acquirer<Port>(this->connections, "dev", this->props())
-                ),
-                this->ctx,
-                this->task
+                )
             ),
             nullptr,
             pipeline::mock::simple_streamer_factory({7}, commands)
@@ -135,17 +133,16 @@ TEST_F(SerialTask, PollsAnInstrumentAndDecodesItsReplies) {
     EXPECT_EQ(values(*this->writes, 1), (std::vector<double>{10, 11, 12}));
 }
 
-TEST_F(SerialTask, WritesFramedCommands) {
+TEST_F(SerialTask, WritesAFramedCommand) {
     const auto m = text_message("set", {tagged_field("v", "VOLT ")});
     auto commands = std::make_shared<std::vector<x::telem::Frame>>();
     commands->emplace_back(7, x::telem::Series(12.5, x::telem::FLOAT64_T));
-    commands->emplace_back(7, x::telem::Series(3.0, x::telem::FLOAT64_T));
     auto t = this->write_task(
         write_config(m, {{7, 0}}, ::synnax::bus::DelimiterFraming{}),
         commands
     );
     t->start("start");
-    EXPECT_EQ(this->peer_read(17), "VOLT 12.5\nVOLT 3\n");
+    EXPECT_EQ(this->peer_read(10), "VOLT 12.5\n");
     t->stop("stop", true);
 }
 
@@ -155,8 +152,7 @@ TEST_F(SerialTask, ReadsAndWritesOnePortAtOnce) {
         read_config({text_message("env", {tagged_field("t", "T=")})}, newline)
     );
     auto commands = std::make_shared<std::vector<x::telem::Frame>>();
-    for (int i = 1; i <= 5; i++)
-        commands->emplace_back(7, x::telem::Series(double(i), x::telem::FLOAT64_T));
+    commands->emplace_back(7, x::telem::Series(5.0, x::telem::FLOAT64_T));
     auto writer = this->write_task(
         write_config(
             text_message("set", {tagged_field("v", "VOLT ")}),
@@ -167,15 +163,13 @@ TEST_F(SerialTask, ReadsAndWritesOnePortAtOnce) {
     );
     reader->start("start");
     writer->start("start");
-    std::string sent;
-    for (int i = 0; i < 5; i++) {
+    this->peer_write("T=0\n");
+    EXPECT_EQ(this->peer_read(7), "VOLT 5\n");
+    for (int i = 1; i < 5; i++)
         this->peer_write("T=" + std::to_string(i) + "\n");
-        sent += this->peer_read(7);
-    }
     ASSERT_EVENTUALLY_EQ(values(*this->writes, 1).size(), 5);
     writer->stop("stop", true);
     reader->stop("stop", true);
-    EXPECT_EQ(sent, "VOLT 1\nVOLT 2\nVOLT 3\nVOLT 4\nVOLT 5\n");
     EXPECT_EQ(values(*this->writes, 1), (std::vector<double>{0, 1, 2, 3, 4}));
 }
 

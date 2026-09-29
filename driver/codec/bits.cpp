@@ -24,7 +24,7 @@ std::pair<BitRange, x::errors::Error> BitRange::compile(
         return {
             {},
             x::errors::Error(
-                LAYOUT_ERROR,
+                CONFIG_ERROR,
                 "bit length must be from 1 to 64, got " + std::to_string(bit_length)
             ),
         };
@@ -35,7 +35,7 @@ std::pair<BitRange, x::errors::Error> BitRange::compile(
     if (!big && !swapped && byte_order != synnax::library::BYTE_ORDER_LITTLE_ENDIAN)
         return {
             {},
-            x::errors::Error(LAYOUT_ERROR, "unknown byte order: " + byte_order),
+            x::errors::Error(CONFIG_ERROR, "unknown byte order: " + byte_order),
         };
     // Both orders map to a linear run of bit positions. Little-endian positions count
     // from the least significant bit of byte 0, big-endian ones from the most
@@ -46,7 +46,7 @@ std::pair<BitRange, x::errors::Error> BitRange::compile(
         return {
             {},
             x::errors::Error(
-                LAYOUT_ERROR,
+                CONFIG_ERROR,
                 "word-swapped fields must be byte-aligned and a multiple of 16 bits"
             ),
         };

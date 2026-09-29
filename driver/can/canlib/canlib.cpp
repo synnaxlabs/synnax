@@ -44,24 +44,6 @@ const std::vector<std::pair<std::uint32_t, long>> FD_DATA_BITRATES = {
     {8000000, canFD_BITRATE_8M_60P},
 };
 
-std::pair<long, x::errors::Error> lookup(
-    const std::vector<std::pair<std::uint32_t, long>> &table,
-    const std::uint32_t bitrate,
-    const std::string &kind
-) {
-    std::string supported;
-    for (const auto &[rate, constant]: table) {
-        if (rate == bitrate) return {constant, x::errors::NIL};
-        supported += (supported.empty() ? "" : ", ") + std::to_string(rate);
-    }
-    return {
-        0,
-        {CONFIG_ERROR,
-         "CANlib cannot run a " + kind + " at " + std::to_string(bitrate) +
-             " bit/s. Supported bitrates: " + supported}
-    };
-}
-
 /// @returns CANlib's description of a status code.
 std::string describe(API &api, const canStatus status) {
     std::array<char, 256> text{};
@@ -85,13 +67,22 @@ canStatus release(API &api, const canHandle hnd) {
 }
 
 std::pair<long, x::errors::Error> bitrate_constant(const std::uint32_t bitrate) {
-    return lookup(BITRATES, bitrate, "classic CAN bus");
+    return find_bitrate(BITRATES, bitrate, "CANlib cannot run a classic CAN bus");
 }
 
 std::pair<long, x::errors::Error>
 fd_bitrate_constant(const std::uint32_t bitrate, const bool data) {
-    if (data) return lookup(FD_DATA_BITRATES, bitrate, "CAN FD data phase");
-    return lookup(FD_ARBITRATION_BITRATES, bitrate, "CAN FD arbitration phase");
+    if (data)
+        return find_bitrate(
+            FD_DATA_BITRATES,
+            bitrate,
+            "CANlib cannot run a CAN FD data phase"
+        );
+    return find_bitrate(
+        FD_ARBITRATION_BITRATES,
+        bitrate,
+        "CANlib cannot run a CAN FD arbitration phase"
+    );
 }
 
 Bus::Bus(
@@ -101,7 +92,10 @@ Bus::Bus(
     std::string name,
     const bool fd
 ):
-    api(std::move(api)), rx(rx), tx(tx), name(std::move(name)), fd(fd) {}
+    can::Bus(std::move(name), fd, !tx.has_value()),
+    api(std::move(api)),
+    rx(rx),
+    tx(tx) {}
 
 Bus::~Bus() {
     this->close();
@@ -156,10 +150,7 @@ Bus::receive(Frame &frame, const x::telem::TimeSpan timeout) {
     return {true, x::errors::NIL};
 }
 
-x::errors::Error Bus::send(const Frame &frame) {
-    if (!this->tx.has_value())
-        return {LISTEN_ONLY_ERROR, "channel " + this->name + " is listen only"};
-    if (auto err = validate(frame, this->fd)) return err;
+x::errors::Error Bus::transmit(const Frame &frame) {
     unsigned int flags = frame.extended ? canMSG_EXT : canMSG_STD;
     if (frame.type == Type::REMOTE) flags |= canMSG_RTR;
     if (frame.fd) flags |= canFDMSG_FDF;
@@ -332,8 +323,6 @@ Backend::open(const synnax::can::Properties &props) {
 }
 
 std::shared_ptr<can::Backend> load() {
-    auto [api, err] = ProdAPI::load();
-    if (err) return std::make_shared<Unavailable>(err);
-    return std::make_shared<Backend>(api);
+    return or_unavailable<Backend>(ProdAPI::load());
 }
 }

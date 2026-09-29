@@ -1295,7 +1295,12 @@ var _ = Describe("C++ JSON Union Generation", func() {
 				// A field-less struct never reads the parser, so the parameter is
 				// left unnamed to avoid an unused-parameter warning.
 				`inline NoneScale NoneScale::parse(x::json::Parser parser) {`,
-			)
+				// The base JSON must outlive the loop. A temporary in the range
+				// expression dies before the body runs.
+				`for (const auto base = LinearParams::to_json(); `+
+					`const auto& [k, v] : base.items())`,
+			).
+			ToNotContain(`::to_json().items()`)
 	})
 
 	It(

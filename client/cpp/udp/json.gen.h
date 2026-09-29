@@ -51,9 +51,11 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
 
 inline x::json::json ReadConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::bus::ReadConfig::to_json().items())
+    for (const auto base = ::synnax::bus::ReadConfig::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: ::synnax::bus::PollConfig::to_json().items())
+    for (const auto base = ::synnax::bus::PollConfig::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
     return j;
 }
@@ -68,7 +70,8 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
 
 inline x::json::json WriteConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::bus::WriteConfig::to_json().items())
+    for (const auto base = ::synnax::bus::WriteConfig::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
     return j;
 }

@@ -18,7 +18,6 @@ cc_library(
     ],
     hdrs = [
         "can.h",
-        "symbols.h",
         "timing.h",
     ],
     visibility = ["//visibility:public"],
@@ -26,7 +25,6 @@ cc_library(
         "//client/cpp/can",
         "//driver/errors",
         "//x/cpp/errors",
-        "//x/cpp/lib",
         "//x/cpp/telem",
     ],
 )

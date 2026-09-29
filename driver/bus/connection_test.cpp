@@ -71,6 +71,28 @@ TEST(Connections, ClosesTheTransportWhenTheLastTaskReleasesIt) {
     EXPECT_EQ(opens(*wire), 2);
 }
 
+TEST(Connections, ForgetsADeviceWhenTheLastTaskReleasesIt) {
+    const auto wire = std::make_shared<Wire>();
+    Connections connections;
+    auto a = ASSERT_NIL_P(acquire(connections, "dev", {}, wire));
+    ASSERT_NIL(a->lock().transport().second);
+    EXPECT_EQ(connections.find("dev"), a);
+    a.reset();
+    EXPECT_EQ(connections.find("dev"), nullptr);
+    EXPECT_EQ(closes(*wire), 1);
+}
+
+TEST(Connections, ClosesAConnectionReleasedAfterTheRegistry) {
+    const auto wire = std::make_shared<Wire>();
+    auto connections = std::make_unique<Connections>();
+    auto a = ASSERT_NIL_P(acquire(*connections, "dev", {}, wire));
+    ASSERT_NIL(a->lock().transport().second);
+    connections.reset();
+    EXPECT_EQ(closes(*wire), 0);
+    a.reset();
+    EXPECT_EQ(closes(*wire), 1);
+}
+
 TEST(Connections, RejectsOtherSettingsForAnOpenDevice) {
     const auto wire = std::make_shared<Wire>();
     Connections connections;
@@ -112,6 +134,19 @@ TEST(Connection, ReturnsTheOpenError) {
     Connection conn(opener(wire));
     ASSERT_OCCURRED_AS_P(conn.lock().transport(), transport::UNREACHABLE_ERROR);
     ASSERT_NIL(conn.lock().transport().second);
+}
+
+TEST(Connection, ReportsTheErrorOfTheLastOpen) {
+    const auto wire = std::make_shared<Wire>();
+    wire->open_errs.push_back(x::errors::Error(transport::UNREACHABLE_ERROR, "gone"));
+    Connection conn(opener(wire));
+    ASSERT_NIL(conn.error());
+    ASSERT_OCCURRED_AS_P(conn.lock().transport(), transport::UNREACHABLE_ERROR);
+    const auto err = conn.error();
+    ASSERT_MATCHES(err, transport::UNREACHABLE_ERROR);
+    EXPECT_EQ(err.data, "gone");
+    ASSERT_NIL(conn.lock().transport().second);
+    ASSERT_NIL(conn.error());
 }
 
 TEST(Connection, GrantsTheLockInTheOrderItWasAsked) {

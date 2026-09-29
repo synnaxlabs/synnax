@@ -93,43 +93,43 @@ std::string str(const std::vector<std::uint8_t> &b) {
 TEST(PlanCompile, RejectsAnUnknownFormat) {
     auto m = message({binary("a", 0, 8)});
     m.format = "hex";
-    ASSERT_OCCURRED_AS_P(Plan::compile(m), LAYOUT_ERROR);
+    ASSERT_OCCURRED_AS_P(Plan::compile(m), CONFIG_ERROR);
 }
 
 TEST(PlanCompile, RejectsAKeyThatIsNotInTheMessage) {
     const auto m = message({binary("a", 0, 8)});
-    ASSERT_OCCURRED_AS_P(Plan::compile(m, {x::uuid::create()}), LAYOUT_ERROR);
+    ASSERT_OCCURRED_AS_P(Plan::compile(m, {x::uuid::create()}), CONFIG_ERROR);
 }
 
 TEST(PlanCompile, RejectsADuplicateKey) {
     const auto a = binary("a", 0, 8);
-    ASSERT_OCCURRED_AS_P(Plan::compile(message({a}), {a.key, a.key}), LAYOUT_ERROR);
+    ASSERT_OCCURRED_AS_P(Plan::compile(message({a}), {a.key, a.key}), CONFIG_ERROR);
 }
 
 TEST(PlanCompile, RejectsAZeroScale) {
     auto a = binary("a", 0, 8);
     a.scale = 0;
-    ASSERT_OCCURRED_AS_P(Plan::compile(message({a})), LAYOUT_ERROR);
+    ASSERT_OCCURRED_AS_P(Plan::compile(message({a})), CONFIG_ERROR);
 }
 
 TEST(PlanCompile, RejectsAFloatThatIsNot32Or64Bits) {
     auto a = binary("a", 0, 16);
     a.float_ = true;
-    ASSERT_OCCURRED_AS_P(Plan::compile(message({a})), LAYOUT_ERROR);
+    ASSERT_OCCURRED_AS_P(Plan::compile(message({a})), CONFIG_ERROR);
 }
 
 TEST(PlanCompile, RejectsATextFieldInABinaryMessage) {
-    ASSERT_OCCURRED_AS_P(Plan::compile(message({delimited("a", 0)})), LAYOUT_ERROR);
+    ASSERT_OCCURRED_AS_P(Plan::compile(message({delimited("a", 0)})), CONFIG_ERROR);
 }
 
 TEST(PlanCompile, RejectsABinaryFieldInATextMessage) {
-    ASSERT_OCCURRED_AS_P(Plan::compile(text({binary("a", 0, 8)})), LAYOUT_ERROR);
+    ASSERT_OCCURRED_AS_P(Plan::compile(text({binary("a", 0, 8)})), CONFIG_ERROR);
 }
 
 TEST(PlanCompile, RejectsFieldsBeyondTheMessageLength) {
     auto m = message({binary("a", 56, 16)});
     m.length = 8;
-    ASSERT_OCCURRED_AS_P(Plan::compile(m), LAYOUT_ERROR);
+    ASSERT_OCCURRED_AS_P(Plan::compile(m), CONFIG_ERROR);
 }
 
 TEST(PlanCompile, RejectsAMultiplexorCycle) {
@@ -140,28 +140,28 @@ TEST(PlanCompile, RejectsAMultiplexorCycle) {
     b.multiplexor = a.key;
     b.multiplex_values = {0};
     const auto c = multiplexed(binary("c", 16, 8), a, 1);
-    ASSERT_OCCURRED_AS_P(Plan::compile(message({a, b, c})), LAYOUT_ERROR);
+    ASSERT_OCCURRED_AS_P(Plan::compile(message({a, b, c})), CONFIG_ERROR);
 }
 
 TEST(PlanCompile, RejectsAFieldThatMultiplexesItself) {
     auto a = binary("a", 0, 8);
     a.multiplexor = a.key;
     a.multiplex_values = {0};
-    ASSERT_OCCURRED_AS_P(Plan::compile(message({a})), LAYOUT_ERROR);
+    ASSERT_OCCURRED_AS_P(Plan::compile(message({a})), CONFIG_ERROR);
 }
 
 TEST(PlanCompile, RejectsAFloatMultiplexor) {
     auto mux = binary("mux", 0, 32);
     mux.float_ = true;
     const auto a = multiplexed(binary("a", 32, 8), mux, 0);
-    ASSERT_OCCURRED_AS_P(Plan::compile(message({mux, a})), LAYOUT_ERROR);
+    ASSERT_OCCURRED_AS_P(Plan::compile(message({mux, a})), CONFIG_ERROR);
 }
 
 TEST(PlanCompile, RejectsAMultiplexedFieldWithNoValues) {
     const auto mux = binary("mux", 0, 8);
     auto a = binary("a", 8, 8);
     a.multiplexor = mux.key;
-    ASSERT_OCCURRED_AS_P(Plan::compile(message({mux, a})), LAYOUT_ERROR);
+    ASSERT_OCCURRED_AS_P(Plan::compile(message({mux, a})), CONFIG_ERROR);
 }
 
 TEST(PlanCompile, RejectsAMultiplexedTextField) {
@@ -169,17 +169,17 @@ TEST(PlanCompile, RejectsAMultiplexedTextField) {
     auto a = delimited("a", 1);
     a.multiplexor = mux.key;
     a.multiplex_values = {1};
-    ASSERT_OCCURRED_AS_P(Plan::compile(text({mux, a})), LAYOUT_ERROR);
+    ASSERT_OCCURRED_AS_P(Plan::compile(text({mux, a})), CONFIG_ERROR);
 }
 
 TEST(PlanCompile, RejectsAnEmptyTag) {
-    ASSERT_OCCURRED_AS_P(Plan::compile(text({tagged("a", "")})), LAYOUT_ERROR);
+    ASSERT_OCCURRED_AS_P(Plan::compile(text({tagged("a", "")})), CONFIG_ERROR);
 }
 
 TEST(PlanCompile, RejectsAnEmptyDelimiter) {
     auto m = text({delimited("a", 0)});
     m.delimiter = "";
-    ASSERT_OCCURRED_AS_P(Plan::compile(m), LAYOUT_ERROR);
+    ASSERT_OCCURRED_AS_P(Plan::compile(m), CONFIG_ERROR);
 }
 
 TEST(PlanCompile, SpansTheFieldsWhenTheMessageHasNoLength) {

@@ -105,6 +105,6 @@ private:
 /// identifier with an SDI from 0 to 3, a binary format, a length of 4 bytes when set,
 /// and little-endian fields that lie in bits 11 to 31. Fields may also use bits 9 and
 /// 10 when the identifier does not match the SDI.
-/// @returns LAYOUT_ERROR naming the message when it cannot.
+/// @returns CONFIG_ERROR naming the message when it cannot.
 x::errors::Error validate(const synnax::library::MessageEntry &message);
 }

@@ -16,7 +16,7 @@ import {
   type Synnax,
 } from "@synnaxlabs/client";
 import { DataType } from "@synnaxlabs/x";
-import { z } from "zod";
+import { type z } from "zod";
 
 import {
   commandChannelName,
@@ -26,6 +26,7 @@ import {
   rawName,
 } from "@/feature/bus/names";
 import { type Message, type MessageCheck, messagesOf } from "@/feature/bus/types";
+import { Task } from "@/platform/task";
 
 const FIELD_DATA_TYPE = DataType.FLOAT64.toString();
 
@@ -40,28 +41,52 @@ const retrieveExisting = async (
   return new Set(found.map((c) => c.key));
 };
 
-const createIndex = async (client: Synnax, name: string): Promise<channel.Key> =>
-  (
-    await client.channels.create(
-      { name, dataType: DataType.TIMESTAMP, isIndex: true },
-      { retrieveIfNameExists: true },
-    )
-  ).key;
+const newIndex = (name: string): channel.New => ({
+  name,
+  dataType: DataType.TIMESTAMP,
+  isIndex: true,
+});
 
 /**
- * Creates a channel for each name on index, reusing any that already exist by name.
- * @returns the key of each channel by name.
+ * Creates the channels in one call, reusing any that already exist by name.
+ * @returns a function that gets the key of a channel by its name.
+ * @throws {Error} from the returned function if no channel has the name.
  */
-const createFieldChannels = async (
+const createChannels = async (
   client: Synnax,
-  names: string[],
-  index: channel.Key,
-): Promise<Map<string, channel.Key>> => {
-  const created = await client.channels.create(
-    names.map((name) => ({ name, dataType: FIELD_DATA_TYPE, index })),
-    { retrieveIfNameExists: true },
+  channels: channel.New[],
+): Promise<(name: string) => channel.Key> => {
+  const byName = new Map(channels.map((c) => [c.name, c]));
+  const created =
+    byName.size === 0
+      ? []
+      : await client.channels.create([...byName.values()], {
+          retrieveIfNameExists: true,
+        });
+  const keys = new Map(created.map((c) => [c.name, c.key]));
+  return (name) => {
+    const key = keys.get(name);
+    if (key == null) throw new Error(`Channel ${name} was not created`);
+    return key;
+  };
+};
+
+/** A field to bind to a new channel named name on index. */
+interface Unbound {
+  field: { channel: channel.Key };
+  name: string;
+  index: channel.Key;
+}
+
+/** Binds each unbound field to a channel created in one call. */
+const bindFields = async (client: Synnax, unbound: Unbound[]): Promise<void> => {
+  const keyOf = await createChannels(
+    client,
+    unbound.map(({ name, index }) => ({ name, dataType: FIELD_DATA_TYPE, index })),
   );
-  return new Map(created.map((c) => [c.name, c.key]));
+  unbound.forEach(({ field, name }) => {
+    field.channel = keyOf(name);
+  });
 };
 
 interface Context {
@@ -92,7 +117,7 @@ const entryOf = (ctx: Context, m: Message): library.MessageEntry => {
 /**
  * Runs the checks on each enabled message, binding the first failure of a message to
  * its message key.
- * @throws {z.ZodError} if a message fails a check.
+ * @throws {Task.ConfigError} if a message fails a check.
  */
 const checkMessages = (ctx: Context, messages: Message[], checks: MessageCheck[]) => {
   const issues: z.core.$ZodIssue[] = [];
@@ -106,7 +131,7 @@ const checkMessages = (ctx: Context, messages: Message[], checks: MessageCheck[]
       break;
     }
   });
-  if (issues.length > 0) throw new z.ZodError(issues);
+  if (issues.length > 0) throw new Task.ConfigError(issues);
 };
 
 /**
@@ -120,34 +145,12 @@ const fieldName = (entry: library.MessageEntry, key: library.FieldKey): string =
 };
 
 /**
- * Binds each unbound field to the channel createFieldChannels made for its name.
- * @param nameOf - The channel name of a field.
- */
-const bindFields = async (
-  client: Synnax,
-  unbound: { field: library.FieldKey; channel: channel.Key }[],
-  index: channel.Key,
-  nameOf: (field: library.FieldKey) => string,
-): Promise<void> => {
-  const created = await createFieldChannels(
-    client,
-    unbound.map((f) => nameOf(f.field)),
-    index,
-  );
-  unbound.forEach((f) => {
-    const key = created.get(nameOf(f.field));
-    if (key == null) throw new Error(`Channel ${nameOf(f.field)} was not created`);
-    f.channel = key;
-  });
-};
-
-/**
  * Creates the channels a read config names but that do not exist: one index per
  * message, one channel per field, and the virtual raw frame channel. Channels that
  * already exist by name are reused.
  * @param checks - Checks each enabled message must pass before any channel exists.
  * @returns the config bound to its channels and the rack of its device.
- * @throws {z.ZodError} if a message fails a check.
+ * @throws {Task.ConfigError} if a message fails a check.
  */
 export const configureRead = async <C extends bus.ReadConfig>(
   client: Synnax,
@@ -161,24 +164,32 @@ export const configureRead = async <C extends bus.ReadConfig>(
   const ctx = await openContext(client, config, keys);
   checkMessages(ctx, config.messages, checks);
   const deviceName = ctx.device.name;
-  if (!ctx.existing.has(config.raw))
-    config.raw = (
-      await client.channels.create(
-        { name: rawName(deviceName), dataType: DataType.BYTES, virtual: true },
-        { retrieveIfNameExists: true },
-      )
-    ).key;
-  for (const m of config.messages) {
-    if (m.disabled) continue;
-    const entry = entryOf(ctx, m);
-    if (!ctx.existing.has(m.index))
-      m.index = await createIndex(client, indexName(deviceName, entry.name));
-    const unbound = m.fields.filter((f) => !ctx.existing.has(f.channel));
-    if (unbound.length === 0) continue;
-    await bindFields(client, unbound, m.index, (key) =>
-      fieldChannelName(deviceName, entry.name, fieldName(entry, key)),
-    );
-  }
+  const enabled = config.messages
+    .filter((m) => !m.disabled)
+    .map((m) => ({ m, entry: entryOf(ctx, m) }));
+  const raw = rawName(deviceName);
+  const rawMissing = !ctx.existing.has(config.raw);
+  const unindexed = enabled.filter(({ m }) => !ctx.existing.has(m.index));
+  const keyOf = await createChannels(client, [
+    ...(rawMissing ? [{ name: raw, dataType: DataType.BYTES, virtual: true }] : []),
+    ...unindexed.map(({ entry }) => newIndex(indexName(deviceName, entry.name))),
+  ]);
+  if (rawMissing) config.raw = keyOf(raw);
+  unindexed.forEach(({ m, entry }) => {
+    m.index = keyOf(indexName(deviceName, entry.name));
+  });
+  await bindFields(
+    client,
+    enabled.flatMap(({ m, entry }) =>
+      m.fields
+        .filter((f) => !ctx.existing.has(f.channel))
+        .map((field) => ({
+          field,
+          name: fieldChannelName(deviceName, entry.name, fieldName(entry, field.field)),
+          index: m.index,
+        })),
+    ),
+  );
   return [config, ctx.device.rack];
 };
 
@@ -187,7 +198,7 @@ export const configureRead = async <C extends bus.ReadConfig>(
  * command index per message. Channels that already exist by name are reused.
  * @param checks - Checks each enabled message must pass before any channel exists.
  * @returns the config bound to its channels and the rack of its device.
- * @throws {z.ZodError} if a message fails a check.
+ * @throws {Task.ConfigError} if a message fails a check.
  */
 export const configureWrite = async <C extends bus.WriteConfig>(
   client: Synnax,
@@ -198,15 +209,25 @@ export const configureWrite = async <C extends bus.WriteConfig>(
   const ctx = await openContext(client, config, keys);
   checkMessages(ctx, config.messages, checks);
   const deviceName = ctx.device.name;
-  for (const m of config.messages) {
-    if (m.disabled) continue;
-    const unbound = m.fields.filter((f) => !ctx.existing.has(f.channel));
-    if (unbound.length === 0) continue;
-    const entry = entryOf(ctx, m);
-    const index = await createIndex(client, commandIndexName(deviceName, entry.name));
-    await bindFields(client, unbound, index, (key) =>
-      commandChannelName(deviceName, entry.name, fieldName(entry, key)),
-    );
-  }
+  const pending = config.messages.flatMap((m) => {
+    if (m.disabled) return [];
+    const fields = m.fields.filter((f) => !ctx.existing.has(f.channel));
+    return fields.length === 0 ? [] : [{ entry: entryOf(ctx, m), fields }];
+  });
+  const indexOf = await createChannels(
+    client,
+    pending.map(({ entry }) => newIndex(commandIndexName(deviceName, entry.name))),
+  );
+  await bindFields(
+    client,
+    pending.flatMap(({ entry, fields }) => {
+      const index = indexOf(commandIndexName(deviceName, entry.name));
+      return fields.map((field) => ({
+        field,
+        name: commandChannelName(deviceName, entry.name, fieldName(entry, field.field)),
+        index,
+      }));
+    }),
+  );
   return [config, ctx.device.rack];
 };

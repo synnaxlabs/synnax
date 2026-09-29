@@ -263,7 +263,7 @@ class Protocol(BaseProtocol):
         Returns:
             The updated device, or None if no update was performed.
         """
-        ...
+        return None
 
 
 class StarterStopperMixin:

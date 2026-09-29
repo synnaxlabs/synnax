@@ -57,6 +57,34 @@ var _ = Describe("Resolver", func() {
 		}
 	}
 
+	Describe("Override", func() {
+		It("Should take each nil dependency from the other resolver", func() {
+			Expect(bus.Resolver{}.Override(resolver)).To(Equal(resolver))
+		})
+
+		It("Should keep a dependency that is already set", func() {
+			Expect(resolver.Override(bus.Resolver{})).To(Equal(resolver))
+		})
+	})
+
+	Describe("Validate", func() {
+		It("Should accept a resolver with every dependency", func() {
+			Expect(resolver.Validate()).To(Succeed())
+		})
+
+		It("Should reject a resolver missing the database", func() {
+			Expect(bus.Resolver{
+				Stamper: library.Stamper{Ontology: otg},
+			}.Validate()).To(MatchError("stamper.db: must be non-nil"))
+		})
+
+		It("Should reject a resolver missing the ontology", func() {
+			Expect(bus.Resolver{
+				Stamper: library.Stamper{DB: db},
+			}.Validate()).To(MatchError("stamper.ontology: must be non-nil"))
+		})
+	})
+
 	Describe("Read", func() {
 		It("Should stamp the library hash into the config", func(ctx SpecContext) {
 			cfg := readConfig(bus.ReadMessage{

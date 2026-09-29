@@ -21,17 +21,17 @@ namespace driver::can::nixnet {
 /// @brief NI's nixnet library, loaded at runtime.
 class ProdAPI final : public API {
     std::unique_ptr<x::lib::Shared> lib;
-    nxCreateSession_t create_session = nullptr;
-    nxClear_t clear = nullptr;
-    nxSetProperty_t set_property = nullptr;
-    nxGetProperty_t get_property = nullptr;
-    nxGetPropertySize_t get_property_size = nullptr;
-    nxReadFrame_t read_frame = nullptr;
-    nxWriteFrame_t write_frame = nullptr;
-    nxStart_t start = nullptr;
-    nxStatusToString_t status_to_string = nullptr;
-    nxSystemOpen_t system_open = nullptr;
-    nxSystemClose_t system_close = nullptr;
+    decltype(&nxCreateSession) create_session = nullptr;
+    decltype(&nxClear) clear = nullptr;
+    decltype(&nxSetProperty) set_property = nullptr;
+    decltype(&nxGetProperty) get_property = nullptr;
+    decltype(&nxGetPropertySize) get_property_size = nullptr;
+    decltype(&nxReadFrame) read_frame = nullptr;
+    decltype(&nxWriteFrame) write_frame = nullptr;
+    decltype(&nxStart) start = nullptr;
+    decltype(&nxStatusToString) status_to_string = nullptr;
+    decltype(&nxSystemOpen) system_open = nullptr;
+    decltype(&nxSystemClose) system_close = nullptr;
 
 public:
     explicit ProdAPI(std::unique_ptr<x::lib::Shared> lib): lib(std::move(lib)) {}

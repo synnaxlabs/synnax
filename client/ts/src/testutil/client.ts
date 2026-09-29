@@ -14,7 +14,7 @@ import Synnax, { type SynnaxParams } from "@/client";
 
 export const TEST_CLIENT_PARAMS: SynnaxParams = {
   host: "localhost",
-  port: 9090,
+  port: Number(process.env.SYNNAX_TEST_PORT ?? 9090),
   username: "synnax",
   password: "seldon",
   retry: {

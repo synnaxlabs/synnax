@@ -40,7 +40,7 @@ public:
     /// @param byte_order BYTE_ORDER_LITTLE_ENDIAN, BYTE_ORDER_BIG_ENDIAN, or one of
     /// their word-swapped forms, which need a byte-aligned field whose length is a
     /// multiple of 16.
-    /// @returns the range, or LAYOUT_ERROR when an argument is out of bounds.
+    /// @returns the range, or CONFIG_ERROR when an argument is out of bounds.
     static std::pair<BitRange, x::errors::Error> compile(
         std::uint16_t start_bit,
         std::uint8_t bit_length,
@@ -82,6 +82,9 @@ public:
     /// @returns the number of bits in the field.
     [[nodiscard]] std::uint8_t length() const { return this->length_; }
 
+    /// @returns true when both ranges read the same bits in the same order.
+    bool operator==(const BitRange &) const = default;
+
 private:
     /// @brief Segment is the part of the field that lies in one payload byte.
     struct Segment {
@@ -93,6 +96,8 @@ private:
         std::uint8_t mask = 0;
         /// @brief dest is the position of the segment's lowest bit in the raw value.
         std::uint8_t dest = 0;
+
+        bool operator==(const Segment &) const = default;
     };
 
     /// @brief segments holds one entry per byte, as a 64-bit field spans 9 bytes.

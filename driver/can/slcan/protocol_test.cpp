@@ -153,14 +153,15 @@ TEST(SlcanBitrate, RejectsUnsupportedBitrates) {
     ASSERT_MATCHES(err, CONFIG_ERROR);
     EXPECT_EQ(
         err.data,
-        "slcan has no bitrate of 333 bit/s. Supported: 10000, 20000, 50000, 100000, "
-        "125000, 250000, 500000, 750000, 1000000, 83333"
+        "slcan cannot run a classic CAN bus at 333 bit/s. Supported bitrates: 10000, "
+        "20000, 50000, 100000, 125000, 250000, 500000, 750000, 1000000, 83333"
     );
     const auto [__, data_err] = data_bitrate_command(4000000);
     ASSERT_MATCHES(data_err, CONFIG_ERROR);
     EXPECT_EQ(
         data_err.data,
-        "slcan has no data bitrate of 4000000 bit/s. Supported: 2000000, 5000000"
+        "slcan cannot run a CAN FD data phase at 4000000 bit/s. Supported bitrates: "
+        "2000000, 5000000"
     );
 }
 

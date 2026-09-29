@@ -23,22 +23,20 @@
 /// @brief the NI-XNET backend for NI CAN interfaces on Windows, Linux, and NI Linux
 /// Real-Time.
 namespace driver::can::nixnet {
+/// @brief the Unix epoch in the 100 ns ticks since 1601-01-01 of an NI-XNET timestamp.
+constexpr u64 UNIX_EPOCH_TICKS = 116444736000000000ULL;
 /// @brief the size of a raw frame's header, before its payload.
 constexpr std::size_t HEADER_SIZE = 16;
-/// @brief the size of the largest raw CAN frame.
-constexpr std::size_t MAX_RAW_SIZE = HEADER_SIZE + MAX_FD_LENGTH;
 
 /// @returns the size of the raw frame that holds a payload: the header and the payload
 /// padded to a multiple of 8 bytes, never less than 8.
 [[nodiscard]] std::size_t raw_size(std::uint8_t length);
 
-/// @brief encodes a frame in NI-XNET's raw frame format.
+/// @returns a frame in NI-XNET's raw frame format, raw_size(frame.length) bytes long.
 /// @param frame a frame that validate accepts.
 /// @param fd true when the interface runs CAN FD, where a classic frame needs its own
 /// type.
-/// @param out receives the raw frame. It must hold raw_size(frame.length) bytes.
-/// @returns the number of bytes written.
-std::size_t encode(const Frame &frame, bool fd, std::span<std::uint8_t> out);
+[[nodiscard]] std::vector<std::uint8_t> encode(const Frame &frame, bool fd);
 
 /// @brief decodes the raw frame at the start of bytes.
 /// @returns the number of bytes the raw frame occupies. CRITICAL_HARDWARE_ERROR when
@@ -56,12 +54,16 @@ class Bus final : public can::Bus {
     std::shared_ptr<API> api;
     nxSessionRef_t in;
     std::optional<nxSessionRef_t> out;
-    std::string name;
-    bool fd;
     std::array<std::uint8_t, 4096> buffer{};
     std::size_t offset = 0;
     std::size_t size = 0;
     bool closed = false;
+
+    /// @brief takes the next frame from the input session.
+    /// @returns nullopt when the session holds no frame.
+    std::optional<std::pair<bool, x::errors::Error>> take(Frame &frame);
+
+    [[nodiscard]] x::errors::Error transmit(const Frame &frame) override;
 
 public:
     Bus(std::shared_ptr<API> api,
@@ -73,8 +75,6 @@ public:
 
     [[nodiscard]] std::pair<bool, x::errors::Error>
     receive(Frame &frame, x::telem::TimeSpan timeout) override;
-
-    [[nodiscard]] x::errors::Error send(const Frame &frame) override;
 
     x::errors::Error close() override;
 };

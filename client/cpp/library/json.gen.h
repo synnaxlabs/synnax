@@ -223,7 +223,7 @@ inline BinaryField BinaryField::parse(x::json::Parser parser) {
 
 inline x::json::json BinaryField::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseField::to_json().items())
+    for (const auto base = BaseField::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["start_bit"] = this->start_bit;
     j["bit_length"] = this->bit_length;
@@ -244,7 +244,7 @@ inline DelimitedField DelimitedField::parse(x::json::Parser parser) {
 
 inline x::json::json DelimitedField::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseField::to_json().items())
+    for (const auto base = BaseField::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["position"] = this->position;
     j["encoding"] = this->encoding;
@@ -261,7 +261,7 @@ inline TaggedField TaggedField::parse(x::json::Parser parser) {
 
 inline x::json::json TaggedField::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseField::to_json().items())
+    for (const auto base = BaseField::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["tag"] = this->tag;
     j["encoding"] = this->encoding;
@@ -281,7 +281,7 @@ inline EnumEntry EnumEntry::parse(x::json::Parser parser) {
 
 inline x::json::json EnumEntry::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseEntry::to_json().items())
+    for (const auto base = BaseEntry::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["values"] = x::json::to_array(this->values);
     j["kind"] = this->kind;
@@ -315,7 +315,7 @@ inline MessageEntry MessageEntry::parse(x::json::Parser parser) {
 
 inline x::json::json MessageEntry::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseEntry::to_json().items())
+    for (const auto base = BaseEntry::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     if (this->identifier.has_value())
         j["identifier"] = ::synnax::library::to_json(*this->identifier);

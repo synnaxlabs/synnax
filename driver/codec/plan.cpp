@@ -23,8 +23,8 @@ namespace driver::codec {
 namespace {
 namespace library = synnax::library;
 
-x::errors::Error layout_error(const std::string &field, const std::string &msg) {
-    return x::errors::Error(LAYOUT_ERROR, "field " + field + ": " + msg);
+x::errors::Error field_error(const std::string &field, const std::string &msg) {
+    return x::errors::Error(CONFIG_ERROR, "field " + field + ": " + msg);
 }
 
 const library::BaseField &base(const library::Field &field) {
@@ -36,9 +36,9 @@ const library::BaseField &base(const library::Field &field) {
 
 x::errors::Error validate_scaling(const library::BaseField &field) {
     if (!std::isfinite(field.scale) || field.scale == 0)
-        return layout_error(field.name, "scale must be finite and non-zero");
+        return field_error(field.name, "scale must be finite and non-zero");
     if (!std::isfinite(field.offset))
-        return layout_error(field.name, "offset must be finite");
+        return field_error(field.name, "offset must be finite");
     return x::errors::NIL;
 }
 
@@ -176,10 +176,10 @@ std::pair<Plan, x::errors::Error> Plan::compile(
     if (!plan.text && message.format != library::FORMAT_BINARY)
         return {
             {},
-            x::errors::Error(LAYOUT_ERROR, "unknown format: " + message.format)
+            x::errors::Error(CONFIG_ERROR, "unknown format: " + message.format)
         };
     if (plan.text && message.delimiter.empty())
-        return {{}, x::errors::Error(LAYOUT_ERROR, "text delimiter is empty")};
+        return {{}, x::errors::Error(CONFIG_ERROR, "text delimiter is empty")};
     plan.delimiter = message.delimiter;
 
     std::unordered_set<library::FieldKey> seen;
@@ -190,13 +190,13 @@ std::pair<Plan, x::errors::Error> Plan::compile(
         if (!seen.insert(key).second)
             return {
                 {},
-                x::errors::Error(LAYOUT_ERROR, "duplicate field " + key.to_string()),
+                x::errors::Error(CONFIG_ERROR, "duplicate field " + key.to_string()),
             };
         const auto it = by_key.find(key);
         if (it == by_key.end())
             return {
                 {},
-                x::errors::Error(LAYOUT_ERROR, "no field with key " + key.to_string()),
+                x::errors::Error(CONFIG_ERROR, "no field with key " + key.to_string()),
             };
         const auto &field = *it->second;
         const auto &fb = base(field);
@@ -204,29 +204,29 @@ std::pair<Plan, x::errors::Error> Plan::compile(
 
         if (plan.text) {
             if (fb.multiplexor.has_value())
-                return {{}, layout_error(fb.name, "text fields cannot be multiplexed")};
+                return {{}, field_error(fb.name, "text fields cannot be multiplexed")};
             Text t{.slot = slot, .scale = fb.scale, .offset = fb.offset};
             if (const auto *d = std::get_if<library::DelimitedField>(&field)) {
                 t.position = d->position;
                 plan.positional.push_back(std::move(t));
             } else if (const auto *tg = std::get_if<library::TaggedField>(&field)) {
-                if (tg->tag.empty()) return {{}, layout_error(fb.name, "tag is empty")};
+                if (tg->tag.empty()) return {{}, field_error(fb.name, "tag is empty")};
                 t.tag = tg->tag;
                 plan.tagged.push_back(std::move(t));
             } else
-                return {{}, layout_error(fb.name, "text messages need text fields")};
+                return {{}, field_error(fb.name, "text messages need text fields")};
             continue;
         }
 
         const auto *bf = std::get_if<library::BinaryField>(&field);
         if (bf == nullptr)
-            return {{}, layout_error(fb.name, "binary messages need binary fields")};
+            return {{}, field_error(fb.name, "binary messages need binary fields")};
         auto [bits, err] = BitRange::compile(
             bf->start_bit,
             bf->bit_length,
             bf->byte_order
         );
-        if (err) return {{}, layout_error(fb.name, err.data)};
+        if (err) return {{}, field_error(fb.name, err.data)};
         Binary b{
             .name = fb.name,
             .slot = slot,
@@ -236,10 +236,7 @@ std::pair<Plan, x::errors::Error> Plan::compile(
         };
         if (bf->float_) {
             if (bf->bit_length != 32 && bf->bit_length != 64)
-                return {
-                    {},
-                    layout_error(fb.name, "float fields must be 32 or 64 bits")
-                };
+                return {{}, field_error(fb.name, "float fields must be 32 or 64 bits")};
             b.type = bf->bit_length == 32 ? Type::FLOAT32 : Type::FLOAT64;
         } else {
             b.type = bf->signed_ ? Type::SIGNED : Type::UNSIGNED;
@@ -254,10 +251,10 @@ std::pair<Plan, x::errors::Error> Plan::compile(
         const library::BaseField *cur = &fb;
         int fill = -1;
         std::size_t depth = 0;
-        const auto cycle = layout_error(fb.name, "multiplexors form a cycle");
+        const auto cycle = field_error(fb.name, "multiplexors form a cycle");
         while (cur->multiplexor.has_value()) {
             if (cur->multiplex_values.empty())
-                return {{}, layout_error(cur->name, "multiplex values are empty")};
+                return {{}, field_error(cur->name, "multiplex values are empty")};
             target(fill).values.assign(
                 cur->multiplex_values.begin(),
                 cur->multiplex_values.end()
@@ -268,13 +265,13 @@ std::pair<Plan, x::errors::Error> Plan::compile(
             if (mit == by_key.end())
                 return {
                     {},
-                    layout_error(cur->name, "no multiplexor " + mux_key.to_string()),
+                    field_error(cur->name, "no multiplexor " + mux_key.to_string()),
                 };
             const auto *mf = std::get_if<library::BinaryField>(mit->second);
             if (mf == nullptr || mf->float_)
                 return {
                     {},
-                    layout_error(
+                    field_error(
                         base(*mit->second).name,
                         "multiplexors must be integers"
                     ),
@@ -293,7 +290,7 @@ std::pair<Plan, x::errors::Error> Plan::compile(
                 mf->bit_length,
                 mf->byte_order
             );
-            if (mux_err) return {{}, layout_error(mf->name, mux_err.data)};
+            if (mux_err) return {{}, field_error(mf->name, mux_err.data)};
             const auto index = static_cast<int>(plan.muxes.size());
             plan.muxes.push_back({.bits = mux_bits, .signed_ = mf->signed_});
             mux_index[mux_key] = index;
@@ -321,7 +318,7 @@ std::pair<Plan, x::errors::Error> Plan::compile(
             return {
                 {},
                 x::errors::Error(
-                    LAYOUT_ERROR,
+                    CONFIG_ERROR,
                     "fields span " + std::to_string(plan.length_) +
                         " bytes, but the message length is " +
                         std::to_string(*message.length)
@@ -337,17 +334,9 @@ std::pair<Plan, x::errors::Error> Plan::compile(
     return {std::move(plan), x::errors::NIL};
 }
 
-bool Plan::selected(const Condition &condition, const std::uint8_t *payload) const {
-    const Condition *c = &condition;
-    while (c->multiplexor >= 0) {
-        const auto &m = this->muxes[c->multiplexor];
-        const auto raw = m.signed_ ? m.bits.read_signed(payload)
-                                   : static_cast<std::int64_t>(m.bits.read(payload));
-        if (std::find(c->values.begin(), c->values.end(), raw) == c->values.end())
-            return false;
-        c = &m.condition;
-    }
-    return true;
+std::int64_t Plan::read(const Mux &mux, const std::uint8_t *payload) {
+    return mux.signed_ ? mux.bits.read_signed(payload)
+                       : static_cast<std::int64_t>(mux.bits.read(payload));
 }
 
 x::errors::Error
@@ -369,9 +358,12 @@ Plan::decode_binary(const std::span<const std::uint8_t> payload, Values &values)
                 " bytes is too short for its multiplexors"
         );
     const auto *p = payload.data();
+    for (std::size_t i = 0; i < this->muxes.size(); i++)
+        values.muxes[i] = read(this->muxes[i], p);
+    const auto raw = [&values](const int mux) { return values.muxes[mux]; };
     for (const auto &f: this->binary) {
         auto &s = values.slots[f.slot];
-        if (!this->selected(f.condition, p)) {
+        if (!this->selected(f.condition, raw)) {
             s.kind = Values::Kind::ABSENT;
             continue;
         }
@@ -484,9 +476,13 @@ Plan::encode(const Values &values, const std::span<std::uint8_t> payload) const 
 
 x::errors::Error
 Plan::encode_binary(const Values &values, std::uint8_t *const p) const {
+    // Multiplexors come before the fields they select, so each read sees the value this
+    // encode wrote.
+    const auto raw = [this, p](const int mux) { return read(this->muxes[mux], p); };
     for (const auto &f: this->binary) {
         const auto &s = values.slots[f.slot];
-        if (s.kind == Values::Kind::ABSENT || !this->selected(f.condition, p)) continue;
+        if (s.kind == Values::Kind::ABSENT || !this->selected(f.condition, raw))
+            continue;
         const auto bits = f.bits.length();
         if (f.exact && s.kind == Values::Kind::INT) {
             const auto v = static_cast<std::int64_t>(s.integer);

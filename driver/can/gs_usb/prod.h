@@ -22,31 +22,30 @@ namespace driver::can::gs_usb {
 class ProdAPI final : public API {
     std::unique_ptr<x::lib::Shared> lib;
     libusb_context *ctx = nullptr;
-    libusb_init_t init = nullptr;
-    libusb_exit_t exit = nullptr;
-    libusb_get_device_list_t get_device_list = nullptr;
-    libusb_free_device_list_t free_device_list = nullptr;
-    libusb_get_device_descriptor_t get_device_descriptor = nullptr;
-    libusb_get_bus_number_t get_bus_number = nullptr;
-    libusb_get_device_address_t get_device_address = nullptr;
-    libusb_open_t open = nullptr;
-    libusb_close_t close = nullptr;
-    libusb_get_string_descriptor_ascii_t get_string_descriptor_ascii = nullptr;
-    libusb_set_auto_detach_kernel_driver_t set_auto_detach_kernel_driver = nullptr;
-    libusb_claim_interface_t claim_interface = nullptr;
-    libusb_release_interface_t release_interface = nullptr;
-    libusb_control_transfer_t control_transfer = nullptr;
-    libusb_bulk_transfer_t bulk_transfer = nullptr;
-    libusb_error_name_t error_name = nullptr;
+    decltype(&libusb_init) init = nullptr;
+    decltype(&libusb_exit) exit = nullptr;
+    decltype(&libusb_get_device_list) get_device_list = nullptr;
+    decltype(&libusb_free_device_list) free_device_list = nullptr;
+    decltype(&libusb_get_device_descriptor) get_device_descriptor = nullptr;
+    decltype(&libusb_get_bus_number) get_bus_number = nullptr;
+    decltype(&libusb_get_device_address) get_device_address = nullptr;
+    decltype(&libusb_open) open = nullptr;
+    decltype(&libusb_close) close = nullptr;
+    decltype(&libusb_get_string_descriptor_ascii) get_string_descriptor_ascii = nullptr;
+    decltype(&libusb_claim_interface) claim_interface = nullptr;
+    decltype(&libusb_release_interface) release_interface = nullptr;
+    decltype(&libusb_control_transfer) control_transfer = nullptr;
+    decltype(&libusb_bulk_transfer) bulk_transfer = nullptr;
+    decltype(&libusb_error_name) error_name = nullptr;
 
 public:
     explicit ProdAPI(std::unique_ptr<x::lib::Shared> lib): lib(std::move(lib)) {}
     ~ProdAPI() override;
 
     /// @brief loads libusb and creates a context.
-    /// @returns the missing library error when libusb is not installed, and
-    /// CRITICAL_HARDWARE_ERROR when the library lacks a function the backend calls or
-    /// cannot create a context.
+    /// @returns UNSUPPORTED_ERROR on Linux, the missing library error when libusb is
+    /// not installed, and CRITICAL_HARDWARE_ERROR when the library lacks a function the
+    /// backend calls or cannot create a context.
     static std::pair<std::shared_ptr<API>, x::errors::Error> load();
 
     std::ptrdiff_t GetDeviceList(libusb_device ***list) override;
@@ -63,7 +62,6 @@ public:
         unsigned char *data,
         int length
     ) override;
-    int SetAutoDetachKernelDriver(libusb_device_handle *handle, int enable) override;
     int ClaimInterface(libusb_device_handle *handle, int number) override;
     int ReleaseInterface(libusb_device_handle *handle, int number) override;
     int ControlTransfer(

@@ -34,7 +34,8 @@ constexpr std::uint32_t BAUD_RATE = 115200;
 /// @brief how long the adapter has to answer a command while the bus opens.
 const x::telem::TimeSpan REPLY_TIMEOUT = x::telem::SECOND;
 
-/// @brief the most frames send queues before it refuses more.
+/// @brief the most frames send queues before it refuses more, and the most received
+/// frames the bus holds before it drops the oldest.
 constexpr std::size_t MAX_QUEUED = 1024;
 
 /// @brief an slcan adapter on a serial port. A thread owns the port once the bus
@@ -43,13 +44,12 @@ constexpr std::size_t MAX_QUEUED = 1024;
 /// bytes arrived.
 class Bus final : public can::Bus {
     std::unique_ptr<serial::Port> port;
-    std::string name;
-    bool fd;
-    bool listen_only;
     Decoder decoder;
     std::mutex mu;
     std::condition_variable cv;
     std::deque<Frame> inbox;
+    /// @brief true from the first received frame the inbox drops until it empties.
+    bool overflowed = false;
     std::vector<std::string> outbox;
     x::errors::Error failure = x::errors::NIL;
     std::atomic<bool> running = false;
@@ -63,6 +63,10 @@ class Bus final : public can::Bus {
     void run();
     x::errors::Error exchange();
 
+    /// @returns TEMPORARY_HARDWARE_ERROR when MAX_QUEUED frames wait for the port, and
+    /// the port's error once the port fails.
+    [[nodiscard]] x::errors::Error transmit(const Frame &frame) override;
+
 public:
     /// @brief configures the adapter on an open port and puts it on the bus.
     /// @returns CONFIG_ERROR when slcan has no command for a bitrate or the adapter
@@ -75,10 +79,6 @@ public:
     /// @returns the port's error once the port fails.
     [[nodiscard]] std::pair<bool, x::errors::Error>
     receive(Frame &frame, x::telem::TimeSpan timeout) override;
-
-    /// @returns TEMPORARY_HARDWARE_ERROR when MAX_QUEUED frames wait for the port, and
-    /// the port's error once the port fails.
-    [[nodiscard]] x::errors::Error send(const Frame &frame) override;
 
     x::errors::Error close() override;
 };

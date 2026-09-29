@@ -7,8 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import asyncio
 import multiprocessing
 import queue
+from collections.abc import Callable
 
 import synnax as sy
 from examples.simulators.device_sim import DeviceSim
@@ -43,6 +45,20 @@ class BusSim[T](DeviceSim):
                 self.log("Server ready")
                 return
         raise RuntimeError(f"Server not ready after {self.startup_timeout}")
+
+    async def _send_at_rate(self, send: Callable[[int], None]) -> None:
+        """Calls send with the counts 0, 1, 2, and on at the simulator's rate, forever.
+
+        Each call is timed from the start, so a slow call does not drift the rate.
+        """
+        loop = asyncio.get_running_loop()
+        period = 1 / float(self.rate)
+        start = loop.time()
+        count = 0
+        while True:
+            send(count)
+            count += 1
+            await asyncio.sleep(max(0.0, start + count * period - loop.time()))
 
     def _record(self, item: T) -> None:
         """Records a frame the Driver sent. Call it from the server process."""

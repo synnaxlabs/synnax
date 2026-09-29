@@ -9,8 +9,8 @@
 
 #include <string>
 
+#include "driver/can/can.h"
 #include "driver/can/pcan/prod.h"
-#include "driver/can/symbols.h"
 #include "driver/errors/errors.h"
 
 namespace driver::can::pcan {
@@ -43,7 +43,7 @@ std::pair<std::shared_ptr<API>, x::errors::Error> ProdAPI::load() {
     auto lib = std::make_unique<x::lib::Shared>(LIBRARY_NAME);
     if (!lib->load()) return {nullptr, driver::errors::missing_lib(LIBRARY_INFO)};
     auto api = std::make_shared<ProdAPI>(std::move(lib));
-    Symbols symbols(*api->lib);
+    x::lib::Symbols symbols(*api->lib);
     symbols.resolve("CAN_Initialize", api->initialize);
     symbols.resolve("CAN_InitializeFD", api->initialize_fd);
     symbols.resolve("CAN_Uninitialize", api->uninitialize);
@@ -54,7 +54,8 @@ std::pair<std::shared_ptr<API>, x::errors::Error> ProdAPI::load() {
     symbols.resolve("CAN_GetValue", api->get_value);
     symbols.resolve("CAN_SetValue", api->set_value);
     symbols.resolve("CAN_GetErrorText", api->get_error_text);
-    if (auto err = symbols.error(LIBRARY_INFO.name)) return {nullptr, err};
+    if (auto err = symbols.error(CRITICAL_HARDWARE_ERROR, LIBRARY_INFO.name))
+        return {nullptr, err};
     return {api, x::errors::NIL};
 }
 

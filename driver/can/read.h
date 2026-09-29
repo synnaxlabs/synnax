@@ -11,7 +11,6 @@
 
 #include <cstdint>
 #include <memory>
-#include <optional>
 #include <vector>
 
 #include "x/cpp/breaker/breaker.h"
@@ -31,8 +30,8 @@ constexpr std::size_t MAX_BATCH = 1024;
 /// identifier matches a message the task reads, and writes the values to the
 /// messages' channels. Each raw sample is the frame's identifier as a 4-byte
 /// little-endian integer, with bit 31 set for an extended identifier, followed by the
-/// payload. Frames stamped with the adapter's clock move to the host clock by the
-/// offset measured at the first such frame after the bus opens.
+/// payload. Frames stamped with the adapter's clock move to the host clock through an
+/// Aligner that starts over each time the bus opens.
 class Source final : public common::Source {
 public:
     /// @param cfg the resolved read config.
@@ -64,8 +63,8 @@ private:
     Acquire acquire;
     std::shared_ptr<Link> link;
     std::shared_ptr<Bus> last;
-    /// @brief the host time minus the adapter time, measured on the open bus.
-    std::optional<x::telem::TimeSpan> offset;
+    /// @brief moves adapter times of the open bus onto the host clock.
+    Aligner aligner;
     std::vector<std::uint8_t> raw;
 
     void handle(const Frame &frame);

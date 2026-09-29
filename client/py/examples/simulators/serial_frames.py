@@ -182,18 +182,14 @@ class SerialFrameSim(BusSim[bytes]):
                 self._record(f)
                 send(f)
 
-        loop = asyncio.get_running_loop()
-        loop.add_reader(controller, receive)
-        self._ready.set()
-        period = 1 / float(self.rate)
-        start = loop.time()
-        count = 0
-        while True:
+        def stream(count: int) -> None:
             send(telemetry(count))
             if count % STATUS_DIVISOR == 0:
                 send(status(count // STATUS_DIVISOR))
-            count += 1
-            await asyncio.sleep(max(0.0, start + count * period - loop.time()))
+
+        asyncio.get_running_loop().add_reader(controller, receive)
+        self._ready.set()
+        await self._send_at_rate(stream)
 
     @staticmethod
     def create_device(rack_key: int) -> serial.Device:

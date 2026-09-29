@@ -29,11 +29,20 @@ Connection::Guard::~Guard() {
 std::pair<Transport *, x::errors::Error> Connection::Guard::transport() {
     if (this->conn.current == nullptr) {
         auto [t, err] = this->conn.open();
+        {
+            std::lock_guard lock(this->conn.mu);
+            this->conn.open_err = err;
+        }
         if (err) return {nullptr, err};
         this->conn.current = std::move(t);
         this->conn.opened++;
     }
     return {this->conn.current.get(), x::errors::NIL};
+}
+
+x::errors::Error Connection::error() {
+    std::lock_guard lock(this->mu);
+    return this->open_err;
 }
 
 void Connection::Guard::close() {

@@ -19,7 +19,7 @@ namespace {
 namespace library = synnax::library;
 
 x::errors::Error error(const library::MessageEntry &m, const std::string &msg) {
-    return x::errors::Error(LAYOUT_ERROR, "message " + m.name + ": " + msg);
+    return x::errors::Error(CONFIG_ERROR, "message " + m.name + ": " + msg);
 }
 
 bool bit(const std::uint16_t word, const int n) {

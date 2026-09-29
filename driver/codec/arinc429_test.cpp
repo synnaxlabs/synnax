@@ -243,35 +243,35 @@ TEST(Validate, AcceptsAFieldInTheDataBits) {
 }
 
 TEST(Validate, RejectsAFieldOverTheLabel) {
-    ASSERT_OCCURRED_AS(validate(message(0203, {field("x", 7, 4)})), LAYOUT_ERROR);
+    ASSERT_OCCURRED_AS(validate(message(0203, {field("x", 7, 4)})), CONFIG_ERROR);
 }
 
 TEST(Validate, RejectsAFieldOverTheParityBit) {
-    ASSERT_OCCURRED_AS(validate(message(0203, {field("x", 29, 3)})), LAYOUT_ERROR);
+    ASSERT_OCCURRED_AS(validate(message(0203, {field("x", 29, 3)})), CONFIG_ERROR);
 }
 
 TEST(Validate, RejectsAFieldOverTheSDIWhenTheSDIIsMatched) {
-    ASSERT_OCCURRED_AS(validate(message(0203, {field("x", 8, 4)}, 1)), LAYOUT_ERROR);
+    ASSERT_OCCURRED_AS(validate(message(0203, {field("x", 8, 4)}, 1)), CONFIG_ERROR);
     ASSERT_NIL(validate(message(0203, {field("x", 8, 4)})));
 }
 
 TEST(Validate, RejectsABigEndianField) {
     auto f = field("x", 12, 4);
     f.byte_order = library::BYTE_ORDER_BIG_ENDIAN;
-    ASSERT_OCCURRED_AS(validate(message(0203, {f})), LAYOUT_ERROR);
+    ASSERT_OCCURRED_AS(validate(message(0203, {f})), CONFIG_ERROR);
 }
 
 TEST(Validate, RejectsAnotherIdentifier) {
     auto m = altitude();
     m.identifier = library::CanIdentifier{.id = 1};
-    ASSERT_OCCURRED_AS(validate(m), LAYOUT_ERROR);
+    ASSERT_OCCURRED_AS(validate(m), CONFIG_ERROR);
     m.identifier = std::nullopt;
-    ASSERT_OCCURRED_AS(validate(m), LAYOUT_ERROR);
+    ASSERT_OCCURRED_AS(validate(m), CONFIG_ERROR);
 }
 
 TEST(Validate, RejectsALengthOtherThan4) {
     auto m = altitude();
     m.length = 8;
-    ASSERT_OCCURRED_AS(validate(m), LAYOUT_ERROR);
+    ASSERT_OCCURRED_AS(validate(m), CONFIG_ERROR);
 }
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/library"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -28,6 +29,21 @@ type Resolver struct {
 	// Stamper stamps the library hash into the config and relates the task to the
 	// library.
 	Stamper library.Stamper
+}
+
+// Override returns r with each nil dependency taken from other.
+func (r Resolver) Override(other Resolver) Resolver {
+	r.Stamper.DB = override.Nil(r.Stamper.DB, other.Stamper.DB)
+	r.Stamper.Ontology = override.Nil(r.Stamper.Ontology, other.Stamper.Ontology)
+	return r
+}
+
+// Validate returns a validation error if r is missing a dependency.
+func (r Resolver) Validate() error {
+	v := validate.New("bus.resolver")
+	v.NotNil("stamper.db", r.Stamper.DB)
+	v.NotNil("stamper.ontology", r.Stamper.Ontology)
+	return v.Error()
 }
 
 // Read stamps cfg and returns a path-scoped validation error when a message or field
@@ -110,9 +126,7 @@ func checkMessage(
 	}
 	known := make(set.Set[library.FieldKey], len(m.Fields))
 	for _, f := range m.Fields {
-		if base, ok := library.FieldBase(f); ok {
-			known.Add(base.Key)
-		}
+		known.Add(f.Base().Key)
 	}
 	for j, f := range fields {
 		if !known.Contains(f) {

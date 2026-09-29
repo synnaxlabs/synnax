@@ -9,7 +9,6 @@
 
 #include <algorithm>
 #include <array>
-#include <cerrno>
 #include <fstream>
 #include <set>
 #include <string>
@@ -19,6 +18,7 @@
 
 #include "driver/serial/line.h"
 #include "driver/serial/native.h"
+#include "driver/serial/posix.h"
 #include "driver/serial/scan.h"
 #include "driver/transport/errors.h"
 
@@ -66,16 +66,6 @@ x::errors::Error apply(const synnax::serial::Properties &props, Settings &settin
 }
 
 namespace native {
-namespace {
-x::errors::Error failed(const std::string &setting, const std::string &port) {
-    return transport::error(
-        transport::CONFIG_ERROR,
-        "failed to set " + setting + " on " + port,
-        {errno, std::generic_category()}
-    );
-}
-}
-
 x::errors::Error
 configure(const Handle handle, const synnax::serial::Properties &props) {
     const int fd = static_cast<int>(handle);
@@ -92,13 +82,6 @@ configure(const Handle handle, const synnax::serial::Properties &props) {
             return failed("RS-485 mode", props.port);
     }
     return x::errors::NIL;
-}
-
-std::pair<std::size_t, std::error_code> queued_output(const Handle handle) {
-    int queued = 0;
-    if (::ioctl(static_cast<int>(handle), TIOCOUTQ, &queued) != 0)
-        return {0, {errno, std::generic_category()}};
-    return {static_cast<std::size_t>(queued), {}};
 }
 }
 

@@ -8,36 +8,19 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
-#include <chrono>
 #include <cstring>
 #include <format>
-#include <thread>
+
+#include "x/cpp/binary/binary.h"
 
 #include "driver/can/nixnet/nixnet.h"
 #include "driver/can/nixnet/prod.h"
 
 namespace driver::can::nixnet {
 namespace {
-constexpr std::size_t TIMESTAMP_OFFSET = 0;
-constexpr std::size_t IDENTIFIER_OFFSET = 8;
-constexpr std::size_t TYPE_OFFSET = 12;
 constexpr std::size_t FLAGS_OFFSET = 13;
 constexpr std::size_t LENGTH_OFFSET = 15;
 constexpr std::int64_t TICK_NS = 100;
-
-template<typename T>
-T read_le(const std::uint8_t *bytes) {
-    T value = 0;
-    for (std::size_t i = 0; i < sizeof(T); i++)
-        value |= static_cast<T>(bytes[i]) << (8 * i);
-    return value;
-}
-
-template<typename T>
-void write_le(std::uint8_t *bytes, const T value) {
-    for (std::size_t i = 0; i < sizeof(T); i++)
-        bytes[i] = static_cast<std::uint8_t>(value >> (8 * i));
-}
 
 /// @returns NI-XNET's description of a status code.
 std::string describe(API &api, const nxStatus_t status) {
@@ -68,22 +51,24 @@ std::size_t raw_size(const std::uint8_t length) {
     return HEADER_SIZE + std::max<std::size_t>(padded, 8);
 }
 
-std::size_t encode(const Frame &frame, const bool fd, std::span<std::uint8_t> out) {
-    const auto size = raw_size(frame.length);
-    std::fill_n(out.begin(), size, 0);
+std::vector<std::uint8_t> encode(const Frame &frame, const bool fd) {
+    std::vector<std::uint8_t> out;
+    x::binary::Writer writer(out, raw_size(frame.length));
     auto id = frame.id;
     if (frame.extended) id |= nxFrameId_CAN_IsExtended;
-    write_le<std::uint32_t>(out.data() + IDENTIFIER_OFFSET, id);
     u8 type = fd ? nxFrameType_CAN20_Data : nxFrameType_CAN_Data;
     if (frame.fd)
         type = frame.bitrate_switched ? nxFrameType_CANFDBRS_Data
                                       : nxFrameType_CANFD_Data;
     if (frame.type == Type::REMOTE) type = nxFrameType_CAN_Remote;
-    out[TYPE_OFFSET] = type;
-    out[LENGTH_OFFSET] = frame.length;
-    if (frame.type != Type::REMOTE)
-        std::memcpy(out.data() + HEADER_SIZE, frame.data.data(), frame.length);
-    return size;
+    writer.uint64(0);
+    writer.uint32(id);
+    writer.uint8(type);
+    writer.uint8(0);
+    writer.uint8(0);
+    writer.uint8(frame.length);
+    if (frame.type != Type::REMOTE) writer.write(frame.data.data(), frame.length);
+    return out;
 }
 
 std::pair<std::size_t, x::errors::Error>
@@ -96,8 +81,10 @@ decode(const std::span<const std::uint8_t> bytes, Frame &frame) {
     const auto length = std::min<std::uint8_t>(bytes[LENGTH_OFFSET], MAX_FD_LENGTH);
     const auto size = raw_size(length);
     if (bytes.size() < size) return {0, truncated};
-    const auto id = read_le<std::uint32_t>(bytes.data() + IDENTIFIER_OFFSET);
-    const auto type = bytes[TYPE_OFFSET];
+    x::binary::Reader reader(bytes.data(), bytes.size());
+    const auto ticks = reader.uint64();
+    const auto id = reader.uint32();
+    const auto type = reader.uint8();
     frame.extended = (id & nxFrameId_CAN_IsExtended) != 0;
     frame.id = id & ~nxFrameId_CAN_IsExtended;
     frame.fd = type == nxFrameType_CANFD_Data || type == nxFrameType_CANFDBRS_Data;
@@ -108,10 +95,9 @@ decode(const std::span<const std::uint8_t> bytes, Frame &frame) {
     if (type == nxFrameType_CAN_BusError) frame.type = Type::BUS_ERROR;
     frame.length = length;
     std::memcpy(frame.data.data(), bytes.data() + HEADER_SIZE, length);
-    const auto ticks = read_le<std::uint64_t>(bytes.data() + TIMESTAMP_OFFSET);
     frame.time = x::telem::TimeStamp(
         (static_cast<std::int64_t>(ticks) -
-         static_cast<std::int64_t>(nxTimestamp_UnixOffset)) *
+         static_cast<std::int64_t>(UNIX_EPOCH_TICKS)) *
         TICK_NS
     );
     frame.clock = Clock::HARDWARE;
@@ -125,7 +111,10 @@ Bus::Bus(
     std::string name,
     const bool fd
 ):
-    api(std::move(api)), in(in), out(out), name(std::move(name)), fd(fd) {}
+    can::Bus(std::move(name), fd, !out.has_value()),
+    api(std::move(api)),
+    in(in),
+    out(out) {}
 
 Bus::~Bus() {
     this->close();
@@ -133,7 +122,10 @@ Bus::~Bus() {
 
 std::pair<bool, x::errors::Error>
 Bus::receive(Frame &frame, const x::telem::TimeSpan timeout) {
-    const auto deadline = std::chrono::steady_clock::now() + timeout.chrono();
+    return poll_queue(timeout, POLL_INTERVAL, [&] { return this->take(frame); });
+}
+
+std::optional<std::pair<bool, x::errors::Error>> Bus::take(Frame &frame) {
     while (true) {
         while (this->offset < this->size) {
             const std::span<const std::uint8_t> pending(
@@ -145,11 +137,11 @@ Bus::receive(Frame &frame, const x::telem::TimeSpan timeout) {
             auto [consumed, err] = decode(pending, frame);
             if (err) {
                 this->offset = this->size;
-                return {false, err};
+                return std::pair{false, err};
             }
             this->offset += consumed;
             if ((flags & nxFrameFlags_TransmitEcho) != 0) continue;
-            return {true, x::errors::NIL};
+            return std::pair{true, x::errors::NIL};
         }
         u32 returned = 0;
         const auto status = this->api->ReadFrame(
@@ -160,28 +152,19 @@ Bus::receive(Frame &frame, const x::telem::TimeSpan timeout) {
             &returned
         );
         if (status < nxSuccess)
-            return {false, hardware_error(*this->api, this->name, status)};
+            return std::pair{false, hardware_error(*this->api, this->name, status)};
         this->offset = 0;
         this->size = returned;
-        if (returned > 0) continue;
-        const auto now = std::chrono::steady_clock::now();
-        if (now >= deadline) return {false, x::errors::NIL};
-        std::this_thread::sleep_for(
-            std::min<std::chrono::nanoseconds>(POLL_INTERVAL.chrono(), deadline - now)
-        );
+        if (returned == 0) return std::nullopt;
     }
 }
 
-x::errors::Error Bus::send(const Frame &frame) {
-    if (!this->out.has_value())
-        return {LISTEN_ONLY_ERROR, "channel " + this->name + " is listen only"};
-    if (auto err = validate(frame, this->fd)) return err;
-    std::array<std::uint8_t, MAX_RAW_SIZE> raw{};
-    const auto size = encode(frame, this->fd, raw);
+x::errors::Error Bus::transmit(const Frame &frame) {
+    auto raw = encode(frame, this->fd);
     const auto status = this->api->WriteFrame(
         *this->out,
         raw.data(),
-        static_cast<u32>(size),
+        static_cast<u32>(raw.size()),
         0
     );
     if (status < nxSuccess) return hardware_error(*this->api, this->name, status);
@@ -308,7 +291,7 @@ Backend::open(const synnax::can::Properties &props) {
             u8 on = 1;
             status = api.SetProperty(
                 session,
-                nxPropSession_IntfCanLstnOnly,
+                nxPropSession_IntfCANLstnOnly,
                 sizeof(on),
                 &on
             );
@@ -331,8 +314,6 @@ Backend::open(const synnax::can::Properties &props) {
 }
 
 std::shared_ptr<can::Backend> load() {
-    auto [api, err] = ProdAPI::load();
-    if (err) return std::make_shared<Unavailable>(err);
-    return std::make_shared<Backend>(api);
+    return or_unavailable<Backend>(ProdAPI::load());
 }
 }

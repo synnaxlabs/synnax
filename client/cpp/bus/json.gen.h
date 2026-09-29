@@ -120,9 +120,11 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
 
 inline x::json::json ReadConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::PersistConfig::to_json().items())
+    for (const auto base = ::synnax::task::PersistConfig::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: ::synnax::library::Reference::to_json().items())
+    for (const auto base = ::synnax::library::Reference::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
     j["device"] = this->device;
     j["raw"] = this->raw;
@@ -147,9 +149,11 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
 
 inline x::json::json WriteConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::WriteConfig::to_json().items())
+    for (const auto base = ::synnax::task::WriteConfig::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: ::synnax::library::Reference::to_json().items())
+    for (const auto base = ::synnax::library::Reference::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
     j["messages"] = x::json::to_array(this->messages);
     return j;

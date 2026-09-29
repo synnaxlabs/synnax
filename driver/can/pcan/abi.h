@@ -12,7 +12,9 @@
 #include <cstdint>
 
 /// @brief the subset of the PCAN-Basic ABI the backend calls, transcribed from PEAK's
-/// PCAN-Basic documentation. MacCAN's PCBUSB exports the same ABI on macOS.
+/// PCAN-Basic documentation. PEAK's EULA allows sharing PCANBasic.h only free of
+/// charge, so the Driver does not ship it. MacCAN's PCBUSB exports the same ABI on
+/// macOS.
 namespace driver::can::pcan {
 #ifdef _WIN32
 #define PCAN_API __stdcall
@@ -146,3 +148,5 @@ using CAN_SetValue_t = TPCANStatus(PCAN_API *)(
 using CAN_GetErrorText_t =
     TPCANStatus(PCAN_API *)(TPCANStatus Error, std::uint16_t Language, char *Buffer);
 }
+
+#undef PCAN_API

@@ -24,7 +24,7 @@ import (
 func Merge(existing versions.Library, imported []versions.Entry) versions.Library {
 	old := make(map[string]versions.Entry, len(existing.Entries))
 	for _, e := range existing.Entries {
-		old[entryName(e)] = e
+		old[e.Base().Name] = e
 	}
 	var (
 		entryKeys = make(map[versions.EntryKey]versions.EntryKey)
@@ -68,17 +68,17 @@ func keepFieldKeys(
 ) []versions.Field {
 	byName := make(map[string]versions.FieldKey, len(old))
 	for _, f := range old {
-		b := baseOf(f)
+		b := f.Base()
 		byName[b.Name] = b.Key
 	}
 	fields = slices.Clone(fields)
-	for i, f := range fields {
-		fields[i] = withBase(f, func(b *versions.BaseField) {
-			if key, ok := byName[b.Name]; ok {
-				keys[b.Key] = key
-				b.Key = key
-			}
-		})
+	for i := range fields {
+		b := fields[i].Base()
+		if key, ok := byName[b.Name]; ok {
+			keys[b.Key] = key
+			b.Key = key
+			fields[i].SetBase(b)
+		}
 	}
 	return fields
 }
@@ -98,57 +98,19 @@ func remap(
 		}
 	}
 	m.Fields = slices.Clone(m.Fields)
-	for i, f := range m.Fields {
-		m.Fields[i] = withBase(f, func(b *versions.BaseField) {
-			if b.Enumeration != nil {
-				if key, ok := entryKeys[*b.Enumeration]; ok {
-					b.Enumeration = &key
-				}
+	for i := range m.Fields {
+		b := m.Fields[i].Base()
+		if b.Enumeration != nil {
+			if key, ok := entryKeys[*b.Enumeration]; ok {
+				b.Enumeration = &key
 			}
-			if b.Multiplexor != nil {
-				if key, ok := fieldKeys[*b.Multiplexor]; ok {
-					b.Multiplexor = &key
-				}
+		}
+		if b.Multiplexor != nil {
+			if key, ok := fieldKeys[*b.Multiplexor]; ok {
+				b.Multiplexor = &key
 			}
-		})
+		}
+		m.Fields[i].SetBase(b)
 	}
 	return m
-}
-
-func entryName(e versions.Entry) string {
-	switch v := e.Variant.(type) {
-	case versions.EnumEntry:
-		return v.Name
-	case versions.MessageEntry:
-		return v.Name
-	}
-	return ""
-}
-
-func baseOf(f versions.Field) versions.BaseField {
-	switch v := f.Variant.(type) {
-	case versions.BinaryField:
-		return v.BaseField
-	case versions.DelimitedField:
-		return v.BaseField
-	case versions.TaggedField:
-		return v.BaseField
-	}
-	return versions.BaseField{}
-}
-
-// withBase returns f with fn applied to its base.
-func withBase(f versions.Field, fn func(*versions.BaseField)) versions.Field {
-	switch v := f.Variant.(type) {
-	case versions.BinaryField:
-		fn(&v.BaseField)
-		return versions.Field{Variant: v}
-	case versions.DelimitedField:
-		fn(&v.BaseField)
-		return versions.Field{Variant: v}
-	case versions.TaggedField:
-		fn(&v.BaseField)
-		return versions.Field{Variant: v}
-	}
-	return f
 }

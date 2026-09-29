@@ -23,8 +23,8 @@
 
 namespace driver::bus {
 /// @brief the live connections of an integration's devices, one per device, shared by
-/// every task on the device. A connection is destroyed when the last task releases it.
-/// Safe for concurrent use.
+/// every task on the device. When the last task releases a connection, the connection
+/// is destroyed and the registry forgets the device. Safe for concurrent use.
 /// @tparam T the connection type.
 template<typename T>
 class Registry {
@@ -40,8 +40,8 @@ public:
         const x::json::json &settings,
         const std::function<std::shared_ptr<T>()> &create
     ) {
-        std::lock_guard lock(this->mu);
-        auto &entry = this->entries[key];
+        std::lock_guard lock(this->state->mu);
+        auto &entry = this->state->entries[key];
         if (auto conn = entry.conn.lock()) {
             if (entry.settings != settings)
                 return {
@@ -54,9 +54,34 @@ public:
                 };
             return {std::move(conn), x::errors::NIL};
         }
-        auto conn = create();
+        auto created = create();
+        auto *raw = created.get();
+        // The last release destroys the connection, then forgets the device unless
+        // another acquire has already replaced it.
+        std::shared_ptr<T> conn(
+            raw,
+            [created = std::move(created),
+             state = std::weak_ptr(this->state),
+             key](T *) mutable {
+                created.reset();
+                const auto s = state.lock();
+                if (s == nullptr) return;
+                std::lock_guard lock(s->mu);
+                if (const auto it = s->entries.find(key);
+                    it != s->entries.end() && it->second.conn.expired())
+                    s->entries.erase(it);
+            }
+        );
         entry = {.conn = conn, .settings = settings};
         return {std::move(conn), x::errors::NIL};
+    }
+
+    /// @returns the live connection to the device, or nullptr when no task holds one.
+    std::shared_ptr<T> find(const std::string &key) {
+        std::lock_guard lock(this->state->mu);
+        const auto it = this->state->entries.find(key);
+        if (it == this->state->entries.end()) return nullptr;
+        return it->second.conn.lock();
     }
 
 private:
@@ -65,8 +90,13 @@ private:
         x::json::json settings;
     };
 
-    std::mutex mu;
-    std::unordered_map<std::string, Entry> entries;
+    struct State {
+        std::mutex mu;
+        std::unordered_map<std::string, Entry> entries;
+    };
+
+    /// @brief shared with each connection's deleter, which can outlive the registry.
+    std::shared_ptr<State> state = std::make_shared<State>();
 };
 
 /// @brief acquires a task's shared connection to its device.

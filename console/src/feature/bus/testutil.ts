@@ -25,6 +25,8 @@ export interface BusLibrary {
   library: library.Library;
   /** A CAN message with the binary fields Rpm and Temp. */
   engine: library.MessageEntry;
+  /** A CAN message with the binary field Pressure. */
+  brake: library.MessageEntry;
   /** A text message matched by token S, with the delimited fields Volts and Amps. */
   status: library.MessageEntry;
 }
@@ -35,7 +37,7 @@ const findMessage = (lib: library.Library, name: string): library.MessageEntry =
   return entry;
 };
 
-/** Creates a library holding one CAN message and one text message. */
+/** Creates a library holding two CAN messages and one text message. */
 export const createBusLibrary = async (client: Synnax): Promise<BusLibrary> => {
   const lib = await client.libraries.create({
     name: uniqueName("bus_library"),
@@ -52,6 +54,13 @@ export const createBusLibrary = async (client: Synnax): Promise<BusLibrary> => {
       },
       {
         kind: "message",
+        name: "Brake",
+        identifier: { type: "can", id: 0x200, extended: false, fd: false },
+        length: 8,
+        fields: [{ encoding: "binary", name: "Pressure", startBit: 0, bitLength: 16 }],
+      },
+      {
+        kind: "message",
         name: "Status",
         format: "text",
         identifier: { type: "token", prefix: "S" },
@@ -65,6 +74,7 @@ export const createBusLibrary = async (client: Synnax): Promise<BusLibrary> => {
   return {
     library: lib,
     engine: findMessage(lib, "Engine"),
+    brake: findMessage(lib, "Brake"),
     status: findMessage(lib, "Status"),
   };
 };

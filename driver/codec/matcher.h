@@ -33,11 +33,13 @@ class Matcher {
 public:
     Matcher() = default;
 
-    /// @brief compiles a matcher over messages. Match results index this span.
-    /// @returns LAYOUT_ERROR when an identifier is invalid or unsupported, when two
-    /// messages have the same exact CAN identifier, ARINC 429 label and SDI,
-    /// MIL-STD-1553 address, subaddress, and direction, or token, or when more than
-    /// one message has no identifier.
+    /// @brief compiles a matcher over messages that the Core has validated. Match
+    /// results index this span.
+    /// @returns CONFIG_ERROR naming both messages when two messages have the same CAN
+    /// identifier and mask, header field value, ARINC 429 label and SDI, MIL-STD-1553
+    /// address, subaddress, and direction, or token, or when neither has an
+    /// identifier. CONFIG_ERROR when an identifier field is a float, an ARINC 429 or
+    /// MIL-STD-1553 identifier is out of range, or an identifier type is not supported.
     static std::pair<Matcher, x::errors::Error>
     compile(std::span<const synnax::library::MessageEntry> messages);
 
@@ -50,9 +52,10 @@ public:
     [[nodiscard]] std::optional<std::size_t>
     match(std::uint32_t id, bool extended) const;
 
-    /// @brief matches a frame from a byte stream or datagram, or a text line. Field
-    /// identifiers are checked first in declaration order, then tokens from the longest
-    /// prefix to the shortest, then the message with no identifier.
+    /// @brief matches a frame from a byte stream or datagram, or a text line. Header
+    /// fields are read first, once each, in the order they first appear, then tokens
+    /// are checked from the longest prefix to the shortest, then the message with no
+    /// identifier.
     /// @returns the index of the message, or nullopt when none matches.
     [[nodiscard]] std::optional<std::size_t>
     match(std::span<const std::uint8_t> frame) const;
@@ -83,16 +86,15 @@ private:
         std::size_t message = 0;
     };
 
-    /// @brief Field matches a frame by the raw value of a header field.
-    struct Field {
+    /// @brief Header matches frames by the raw value of a header field that several
+    /// messages can share.
+    struct Header {
         /// @brief bits is where the field lies.
         BitRange bits;
         /// @brief signed_ is true when the raw value is two's complement.
         bool signed_ = false;
-        /// @brief value is the raw value the field must hold.
-        std::int64_t value = 0;
-        /// @brief message is the index of the message.
-        std::size_t message = 0;
+        /// @brief messages maps each raw value to the index of its message.
+        std::unordered_map<std::int64_t, std::size_t> messages;
     };
 
     /// @brief Token matches a line by its prefix.
@@ -108,8 +110,8 @@ private:
     std::unordered_map<std::uint32_t, std::size_t> exact;
     /// @brief masked holds CAN identifiers with partial masks in declaration order.
     std::vector<Masked> masked;
-    /// @brief fields holds field identifiers in declaration order.
-    std::vector<Field> fields;
+    /// @brief headers holds each distinct header field in the order it first appears.
+    std::vector<Header> headers;
     /// @brief labels maps an ARINC 429 label to its message. The high byte holds the
     /// SDI plus one when the identifier matches the SDI, and zero otherwise.
     std::unordered_map<std::uint16_t, std::size_t> labels;
