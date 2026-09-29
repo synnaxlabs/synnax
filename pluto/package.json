@@ -49,7 +49,6 @@
     "@codingame/monaco-vscode-theme-defaults-default-extension": "catalog:",
     "@codingame/monaco-vscode-theme-service-override": "catalog:",
     "@fontsource-variable/inter": "catalog:",
-    "@fontsource/geist-mono": "catalog:",
     "@fontsource/inter": "catalog:",
     "@juggle/resize-observer": "catalog:",
     "@synnaxlabs/arc": "catalog:",

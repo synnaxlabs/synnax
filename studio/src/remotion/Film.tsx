@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "@fontsource-variable/inter";
-import "@fontsource/geist-mono/500.css";
+import "@synnaxlabs/lyra/dist/geist-mono.css";
 
 import wordmark from "@synnaxlabs/media/static/logo/title-white-transparent.svg";
 import { type ReactElement, useEffect, useState } from "react";

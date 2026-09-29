@@ -10,7 +10,7 @@
  */
 
 @import url("@fontsource-variable/inter");
-@import url("@fontsource/geist-mono");
+@import url("./geist-mono.css");
 
 h1,
 h2,
@@ -30,7 +30,7 @@ textarea,
     font-family: var(--pluto-font-family);
     color: var(--pluto-text-color);
     fill: var(--pluto-text-color);
-    --webkit-font-smoothing: antialiased;
+    -webkit-font-smoothing: antialiased;
     margin: 0;
 }
 

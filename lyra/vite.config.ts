@@ -24,16 +24,20 @@ export default defineConfig({
     {
       name: "copy-app-css",
       closeBundle() {
-        mkdirSync("dist", { recursive: true });
+        mkdirSync("dist/fonts", { recursive: true });
         for (const file of [
           "base.css",
+          "geist-mono.css",
+          "fonts/GeistMono-Regular.woff2",
+          "fonts/GeistMono-Medium.woff2",
+          "fonts/OFL.txt",
           "static/theme.css",
           "static/theme-dark.css",
           "static/theme-light.css",
         ])
           copyFileSync(
             path.resolve(`src/theming/${file}`),
-            path.resolve(`dist/${path.basename(file)}`),
+            path.resolve("dist", file.replace(/^static\//, "")),
           );
       },
     },

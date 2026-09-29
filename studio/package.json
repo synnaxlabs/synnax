@@ -17,10 +17,10 @@
   "dependencies": {
     "@aws-sdk/client-s3": "catalog:",
     "@fontsource-variable/inter": "catalog:",
-    "@fontsource/geist-mono": "catalog:",
     "@remotion/bundler": "catalog:",
     "@remotion/renderer": "catalog:",
     "@synnaxlabs/client": "catalog:",
+    "@synnaxlabs/lyra": "catalog:",
     "@synnaxlabs/media": "catalog:",
     "@synnaxlabs/x": "catalog:",
     "playwright": "catalog:",

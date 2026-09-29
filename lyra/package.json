@@ -19,7 +19,6 @@
   },
   "dependencies": {
     "@fontsource-variable/inter": "catalog:",
-    "@fontsource/geist-mono": "catalog:",
     "@synnaxlabs/x": "catalog:",
     "clsx": "catalog:",
     "compromise": "catalog:",

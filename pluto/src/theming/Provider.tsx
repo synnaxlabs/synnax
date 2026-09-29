@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import geistMono from "@fontsource/geist-mono/files/geist-mono-latin-400-normal.woff2";
+import geistMono from "@synnaxlabs/lyra/dist/fonts/GeistMono-Regular.woff2";
 import inter200 from "@fontsource/inter/files/inter-latin-200-normal.woff2";
 import inter300 from "@fontsource/inter/files/inter-latin-300-normal.woff2";
 import inter400 from "@fontsource/inter/files/inter-latin-400-normal.woff2";
