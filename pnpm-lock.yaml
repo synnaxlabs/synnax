@@ -359,6 +359,9 @@ catalogs:
     '@types/ws':
       specifier: ^8.18.1
       version: 8.18.1
+    '@vercel/oidc-aws-credentials-provider':
+      specifier: ^3.3.9
+      version: 3.3.9
     '@vitejs/plugin-react':
       specifier: ^6.1.1
       version: 6.1.1
@@ -1495,6 +1498,9 @@ importers:
       '@synnaxlabs/x':
         specifier: 'catalog:'
         version: link:../../x/ts
+      '@vercel/oidc-aws-credentials-provider':
+        specifier: 'catalog:'
+        version: 3.3.9
       astro:
         specifier: 'catalog:'
         version: 7.3.5(@astrojs/markdown-remark@7.3.0(supports-color@10.2.2))(@azure/identity@4.13.3(supports-color@10.2.2))(@types/node@24.19.0)(@vercel/functions@3.7.6(@aws-sdk/credential-provider-web-identity@3.972.77)(ws@8.22.0))(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.0)
@@ -4961,6 +4967,10 @@ packages:
     resolution: {integrity: sha512-m1QFg+U+3yPOnP1xSYJ73UIRxLOXdts1JOhiOiyPYqEsALgrXFFINvgUaD6R6iNvaBFAjHllBCbkfx4FuOdpaA==}
     engines: {node: '>=20'}
     hasBin: true
+
+  '@vercel/oidc-aws-credentials-provider@3.3.9':
+    resolution: {integrity: sha512-AZOU4GiJyDTKIe3NlQ5VL6bo8sbu6mcHXBKNEVzp6dRPCPW+OHJ3AeGawQUsBiFgrEtBIx7O0aVlbQi82sZWfg==}
+    engines: {node: '>= 20'}
 
   '@vercel/oidc@3.8.1':
     resolution: {integrity: sha512-ufdalm2MWOYksyj8KVpWjoOFPJO6zoYpuyvIggIQ2bB0CFCjTCiTkGXHqAKwG77GVRjOaN3/8S5ITlZpXWmqOw==}
@@ -12025,6 +12035,11 @@ snapshots:
       - encoding
       - rollup
       - supports-color
+
+  '@vercel/oidc-aws-credentials-provider@3.3.9':
+    dependencies:
+      '@aws-sdk/credential-provider-web-identity': 3.972.78
+      '@vercel/oidc': 3.8.9
 
   '@vercel/oidc@3.8.1':
     dependencies:

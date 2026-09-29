@@ -29,6 +29,11 @@ export default defineConfig({
   env: {
     schema: {
       DATABASE_URL: secret,
+      AWS_ROLE_ARN: envField.string({
+        context: "server",
+        access: "secret",
+        optional: true,
+      }),
       LICENSE_KMS_KEY_ARN: secret,
       LICENSE_KID: envField.string({
         context: "server",
