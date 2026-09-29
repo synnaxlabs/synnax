@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// The tree reuses the item styles Lyra's tree ships.
-import "@synnaxlabs/lyra/tree";
+// Imported as a file, since a bare import of the side-effect-free tree module is
+// dropped with its styles.
+import "@synnaxlabs/lyra/dist/tree/Item.css";
 
 import { Button } from "@synnaxlabs/lyra/button";
 import { Caret } from "@synnaxlabs/lyra/caret";
@@ -124,7 +125,7 @@ const Item = ({
       el="a"
       variant="text"
       href={node.href}
-      className={`${ITEM_CLASS} pluto--show-rules ${selected ? SELECTED_CLASS : ""}`}
+      className={`${ITEM_CLASS} ${depth !== 0 ? "pluto--show-rules" : ""} ${selected ? SELECTED_CLASS : ""}`}
       role="treeitem"
       aria-level={depth + 1}
       aria-expanded={parent ? expanded : undefined}

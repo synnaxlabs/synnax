@@ -221,6 +221,11 @@ article {
         margin: 5rem var(--docs-block-inset) var(--docs-block-gap);
     }
 
+    /* The picture only picks a source, so the image lays out as if unwrapped. */
+    .docs-picture {
+        display: contents;
+    }
+
     .docs-video {
         position: relative;
 
