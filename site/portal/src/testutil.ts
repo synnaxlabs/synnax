@@ -30,7 +30,7 @@ import { resolve } from "@/server/session";
 
 export const STAFF_ORG_ID = "org_staff";
 export const CRON_SECRET = "cron-secret";
-export const WEBHOOK_SECRET = `whsec_${Buffer.from("webhook-secret").toString("base64")}`;
+export const WEBHOOK_SECRET = `whsec_${Buffer.from("secret").toString("base64")}`;
 
 const { privateKey, publicKey } = generateKeyPairSync("ml-dsa-44");
 
@@ -100,11 +100,11 @@ export interface ContextArgs {
   cookies?: Record<string, string>;
 }
 
-/** Cookies is the cookie jar a {@link createContext} context reads and writes. */
+/** Cookies is the cookie jar a {@link createAPIContext} context reads and writes. */
 export type Cookies = Map<string, string>;
 
-/** createContext builds the request context a route or page handler receives. */
-export const createContext = (
+/** createAPIContext builds the request context a route or page handler receives. */
+export const createAPIContext = (
   portal: Portal,
   {
     params = {},
