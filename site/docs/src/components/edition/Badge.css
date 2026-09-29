@@ -30,3 +30,12 @@
     border-color: var(--pluto-primary-z-30);
     background: var(--pluto-primary-z-10);
 }
+
+/* An Enterprise page says so once, under its title, so its tabs and blocks do not. */
+article[data-edition="enterprise"] .edition-badge--enterprise {
+    display: none;
+}
+
+article[data-edition="enterprise"] .article-edition .edition-badge--enterprise {
+    display: inline-flex;
+}

@@ -267,8 +267,9 @@ target moves are pointed at the final page, so no redirect chains.
 
 `vercel.json` gets no `/reference/driver/:slug*` wildcard, because `installation` and
 `pagerduty` go to other sections; each driver page gets an exact entry instead. The old
-`/reference/device-drivers/:slug*` and `/reference/cluster/:slug*` wildcards are pointed
-at `hardware` and `enterprise`.
+`/reference/device-drivers/:slug*` and `/reference/cluster/:slug*` wildcards keep their
+`driver` and `core` targets. A wildcard cannot rename slugs (`quick-start` becomes the
+Enterprise root), so those old URLs take a second hop through the exact entries.
 
 Three URLs that shipped binaries print are already dead, and they get redirects too:
 `/reference/client/resources/troubleshooting` (`client/py/synnax/connection.py:77`,
@@ -360,7 +361,8 @@ section land as separate phases when the move is mechanical.
 - **Phase 13: Get started.** Desktop-first body behind the `desktop` flag, editions
   page, first run, Desktop install and manage pages.
 - **Phase 14: Desktop release.** Flag removed, `installation` redirected to the Desktop
-  install page. Ships with the first Desktop release.
+  install page, and the Desktop download button moved from the `next` to the `stable`
+  release channel. Ships with the first Desktop release.
 
 Compatibility: every URL that exists on the live site today, and every URL a shipped
 binary prints, resolves to a page after each phase. The anchors that Cesium prints

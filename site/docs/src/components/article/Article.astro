@@ -32,7 +32,7 @@ const {
 const visibleTitleLength = String(title ?? "").replace(/`/g, "").length;
 ---
 
-<article transition:animate="none">
+<article transition:animate="none" data-edition={edition}>
     {showBreadcrumb && url.split("/").length > 2 && (
         <Breadcrumb url={url} title={title} />
     )}
