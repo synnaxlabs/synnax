@@ -81,7 +81,7 @@ TEST(List, ConcurrentPushAndRead) {
     size_t last = 0;
     while (last < n) {
         const auto size = list.size();
-        if (size > 0) EXPECT_EQ(list.at(size - 1), static_cast<int>(size - 1));
+        if (size > 0) { EXPECT_EQ(list.at(size - 1), static_cast<int>(size - 1)); }
         last = size;
     }
     writer.join();
