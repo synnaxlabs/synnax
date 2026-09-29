@@ -61,6 +61,11 @@ on:
         required: false
         type: boolean
         default: true
+      vcan:
+        description: Whether to create the vcan0 virtual CAN interface on Ubuntu
+        required: false
+        type: boolean
+        default: false
       windows:
         description: Whether to test on Windows
         required: false
@@ -114,6 +119,13 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y ${{ inputs.apt_packages }}
+
+      - name: Create the virtual CAN interface
+        if: runner.os == 'Linux' && inputs.vcan
+        run: |
+          sudo modprobe vcan
+          ip link show vcan0 || sudo ip link add dev vcan0 type vcan
+          sudo ip link set up vcan0
 
       - name: Install Rust
         if: inputs.rust
