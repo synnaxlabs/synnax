@@ -56,9 +56,7 @@ export interface DecideArgs {
 
 /**
  * decide applies the seat rules to an activation request. A machine that already
- * holds a seat, found by any shared host hash, keeps it. An expired subscription with
- * a fallback version still activates, because the license key remains valid up to that
- * version.
+ * holds a seat, found by any shared host hash, keeps it.
  */
 export const decide = ({
   license,
@@ -80,7 +78,6 @@ export const decide = ({
 export interface ActivateArgs {
   licenseKey: string;
   fingerprint: string[];
-  /** name is what the ledger calls the machine. */
   name: string;
   actor: string;
   now: Date;

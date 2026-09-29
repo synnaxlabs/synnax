@@ -13,7 +13,6 @@ import { type Store } from "@/server/db/db";
 import { activation, event, license } from "@/server/db/schema";
 import { badRequest, notFound } from "@/server/errors";
 
-/** MAX_NAME_LENGTH bounds the name a machine carries in the ledger. */
 export const MAX_NAME_LENGTH = 64;
 
 /**
@@ -32,7 +31,6 @@ export interface RenameArgs {
   actor: string;
 }
 
-/** rename changes what a machine is called wherever the portal names it. */
 export const rename = async (
   store: Store,
   { activationKey, name, actor }: RenameArgs,

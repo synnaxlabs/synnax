@@ -80,7 +80,6 @@ export const activation = pgTable(
       .notNull()
       .references(() => license.key),
     fingerprint: text("fingerprint").array().notNull(),
-    /** name is what the ledger calls the machine. */
     name: text("name"),
     firstSeen: timestamp("first_seen", { withTimezone: true }).notNull().defaultNow(),
     lastSeen: timestamp("last_seen", { withTimezone: true }).notNull().defaultNow(),

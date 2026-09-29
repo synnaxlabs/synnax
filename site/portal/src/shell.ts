@@ -9,7 +9,6 @@
 
 import { type Organization } from "@/server/db/schema";
 
-/** Tab is a section of the portal shell's tab row. */
 export type Tab = "overview" | "devices" | "licenses" | "members" | "admin";
 
 export interface Link {
