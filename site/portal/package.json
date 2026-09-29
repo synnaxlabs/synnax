@@ -40,6 +40,7 @@
   },
   "devDependencies": {
     "@astrojs/check": "catalog:",
+    "@electric-sql/pglite": "catalog:",
     "@synnaxlabs/eslint-config": "catalog:",
     "@synnaxlabs/stylelint-config": "catalog:",
     "@synnaxlabs/tsconfig": "catalog:",
@@ -49,7 +50,6 @@
     "@vitest/coverage-v8": "catalog:",
     "drizzle-kit": "catalog:",
     "eslint": "catalog:",
-    "jsdom": "catalog:",
     "stylelint": "catalog:",
     "typescript": "catalog:ts6",
     "vitest": "catalog:"
