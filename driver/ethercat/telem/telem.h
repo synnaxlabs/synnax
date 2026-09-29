@@ -183,7 +183,7 @@ plan(const pdo::Entry &entry, const uint8_t bit) {
     );
     f.float_ = entry.data_type.matches({x::telem::FLOAT32_T, x::telem::FLOAT64_T});
     synnax::library::MessageEntry message;
-    message.fields = {f};
+    message.payload = synnax::library::BinaryPayload{.fields = {f}};
     return codec::Plan::compile(message);
 }
 }

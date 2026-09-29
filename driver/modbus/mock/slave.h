@@ -82,7 +82,7 @@ class Slave {
         if (f_err) LOG(FATAL) << f_err;
         f.key = x::uuid::create();
         synnax::library::MessageEntry message;
-        message.fields = {f};
+        message.payload = synnax::library::BinaryPayload{.fields = {f}};
         const auto [plan, plan_err] = codec::Plan::compile(message);
         if (plan_err) LOG(FATAL) << plan_err;
         auto values = plan.values();

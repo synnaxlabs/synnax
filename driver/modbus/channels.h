@@ -172,15 +172,17 @@ void sort_by_address(std::vector<Channel> &channels) {
 /// is too large for the codec.
 template<typename Channel>
 std::pair<codec::Plan, x::errors::Error> compile(const std::vector<Channel> &channels) {
-    synnax::library::MessageEntry message;
+    synnax::library::BinaryPayload payload;
     const auto start = channels.front().address;
     for (const auto &ch: channels) {
         auto [f, err] = ch.field(start);
         if (err) return {{}, err};
         f.key = x::uuid::create();
         f.name = "address " + std::to_string(ch.address);
-        message.fields.emplace_back(std::move(f));
+        payload.fields.emplace_back(std::move(f));
     }
+    synnax::library::MessageEntry message;
+    message.payload = std::move(payload);
     return codec::Plan::compile(message);
 }
 

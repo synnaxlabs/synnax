@@ -22,7 +22,7 @@ namespace {
 codec::Plan compile(synnax::library::BinaryField f) {
     f.key = x::uuid::create();
     synnax::library::MessageEntry m;
-    m.fields = {f};
+    m.payload = synnax::library::BinaryPayload{.fields = {f}};
     return ASSERT_NIL_P(codec::Plan::compile(m));
 }
 
