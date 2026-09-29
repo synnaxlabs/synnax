@@ -1,0 +1,54 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/bus"
+import "schemas/synnax/task"
+
+@cpp output "client/cpp/tcp"
+@go output  "core/pkg/service/tcp"
+@py output  "client/py/synnax/tcp"
+@ts output  "client/ts/src/tcp"
+
+Properties struct {
+    host string = "" {
+        @doc value "is the host name or IP address of the device."
+    }
+    port uint16 = 0 {
+        @doc value "is the TCP port the device listens on."
+    }
+
+    @doc value  "are the properties of a device the Driver reaches as a TCP client."
+    @go marshal
+}
+
+ReadConfig struct extends bus.ReadConfig, bus.PollConfig {
+    framing bus.Framing = delimiter {
+        @doc value "is how the task splits the received byte stream into frames."
+    }
+
+    @doc value  "configures a TCP read task."
+    @go marshal
+    @go migrate
+}
+
+WriteConfig struct extends bus.WriteConfig {
+    framing bus.Framing = delimiter {
+        @doc value "is how the task frames each message it sends."
+    }
+
+    @doc value  "configures a TCP write task."
+    @go marshal
+    @go migrate
+}
+
+ScanConfig struct extends task.ScanConfig {
+    @doc value  "configures the scan task that checks each TCP device is reachable."
+    @go marshal
+    @go migrate
+}

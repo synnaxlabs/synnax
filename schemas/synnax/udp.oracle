@@ -1,0 +1,48 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/bus"
+
+@cpp output "client/cpp/udp"
+@go output  "core/pkg/service/udp"
+@py output  "client/py/synnax/udp"
+@ts output  "client/ts/src/udp"
+
+Properties struct {
+    port            uint16 = 0 {
+        @doc value "is the local port the task binds to."
+    }
+    remote_host     string = "" {
+        @doc value """
+            is the host that writes and queries are sent to. Empty when the task only
+            receives.
+        """
+    }
+    remote_port     uint16 = 0 {
+        @doc value "is the port that writes and queries are sent to."
+    }
+    multicast_group string = "" {
+        @doc value "is the multicast group the task joins. Empty for unicast."
+    }
+
+    @doc value  "are the properties of a UDP device."
+    @go marshal
+}
+
+ReadConfig struct extends bus.ReadConfig, bus.PollConfig {
+    @doc value  "configures a UDP read task. Each datagram is one frame."
+    @go marshal
+    @go migrate
+}
+
+WriteConfig struct extends bus.WriteConfig {
+    @doc value  "configures a UDP write task. Each message is sent as one datagram."
+    @go marshal
+    @go migrate
+}

@@ -385,10 +385,14 @@ func keptDomainExpressions(
 func (r *renderer) value(v resolution.ExpressionValue) string {
 	switch v.Kind {
 	case resolution.ValueKindString:
-		if strings.Contains(v.StringValue, "\n") {
-			return `"""` + v.StringValue + `"""`
+		// A triple-quoted string is trimmed and dedented on parse, so only text that
+		// survives that keeps the triple form.
+		s := v.StringValue
+		if strings.Contains(s, "\n") && strings.TrimSpace(s) == s &&
+			!strings.Contains(s, `"""`) {
+			return `"""` + s + `"""`
 		}
-		return strconv.Quote(v.StringValue)
+		return strconv.Quote(s)
 	case resolution.ValueKindInt:
 		return strconv.FormatInt(v.IntValue, 10)
 	case resolution.ValueKindFloat:

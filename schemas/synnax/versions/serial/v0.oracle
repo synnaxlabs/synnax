@@ -1,0 +1,93 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/bus/v0"
+import "schemas/synnax/versions/task/v2"
+
+Parity enum {
+    none  = "none"
+    even  = "even"
+    odd   = "odd"
+    mark  = "mark"
+    space = "space"
+
+    @doc value "is the parity bit mode of a serial port."
+}
+
+StopBits enum {
+    one          = "1"
+    one_and_half = "1.5"
+    two          = "2"
+
+    @doc value "is the number of stop bits that end each character."
+}
+
+FlowControl enum {
+    none     = "none"
+    hardware = "hardware"
+    software = "software"
+
+    @doc value "is the flow control mode of a serial port."
+}
+
+Properties struct {
+    port         string = "" {
+        @doc value "is the path of the port, such as /dev/ttyUSB0 or COM3."
+    }
+    baud_rate    uint32 = 9600 {
+        @doc value "is the baud rate of the port."
+    }
+    data_bits    uint8 = 8 {
+        @doc value "is the number of data bits in each character: 5, 6, 7, or 8."
+    }
+    parity       Parity = none {
+        @doc value "is the parity bit mode."
+    }
+    stop_bits    StopBits = one {
+        @doc value "is the number of stop bits."
+    }
+    flow_control FlowControl = none {
+        @doc value "is the flow control mode."
+    }
+    rs485        bool = false {
+        @doc value """
+            is true when the port drives an RS-485 transceiver that the kernel turns
+            around between sending and receiving.
+        """
+    }
+
+    @doc value  "are the properties of a serial device."
+    @go marshal
+}
+
+ReadConfig struct extends bus.ReadConfig, bus.PollConfig {
+    framing bus.Framing = delimiter {
+        @doc value "is how the task splits the received byte stream into frames."
+    }
+
+    @doc value  "configures a serial read task."
+    @go marshal
+    @go migrate
+}
+
+WriteConfig struct extends bus.WriteConfig {
+    framing bus.Framing = delimiter {
+        @doc value "is how the task frames each message it sends."
+    }
+
+    @doc value  "configures a serial write task."
+    @go marshal
+    @go migrate
+}
+
+ScanConfig struct extends task.ScanConfig {
+    @doc value  "configures the scan task that lists serial ports."
+    @go marshal
+    @go migrate
+}

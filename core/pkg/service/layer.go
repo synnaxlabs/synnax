@@ -22,6 +22,8 @@ import (
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
+	"github.com/synnaxlabs/synnax/pkg/service/bus"
+	"github.com/synnaxlabs/synnax/pkg/service/can"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	channelsignals "github.com/synnaxlabs/synnax/pkg/service/channel/signals"
@@ -57,11 +59,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
+	"github.com/synnaxlabs/synnax/pkg/service/serial"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
+	"github.com/synnaxlabs/synnax/pkg/service/tcp"
+	"github.com/synnaxlabs/synnax/pkg/service/udp"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/view"
 	"github.com/synnaxlabs/synnax/pkg/storage"
@@ -196,6 +201,14 @@ type Layer struct {
 	EtherCAT *ethercat.Service
 	// HTTP owns the stored configuration records of the HTTP task types.
 	HTTP *http.Service
+	// CAN owns the stored configuration records of the CAN task types.
+	CAN *can.Service
+	// Serial owns the stored configuration records of the serial task types.
+	Serial *serial.Service
+	// TCP owns the stored configuration records of the TCP task types.
+	TCP *tcp.Service
+	// UDP owns the stored configuration records of the UDP task types.
+	UDP *udp.Service
 	// ArcTask owns the stored configuration records of the arc task type.
 	ArcTask *arctask.Service
 	// RackTask owns the stored configuration records of the rack_status task type.
@@ -575,6 +588,38 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.HTTP) {
 		return nil, err
 	}
+	busResolver := bus.Resolver{Stamper: library.Stamper{
+		DB:       cfg.Distribution.DB,
+		Ontology: l.Ontology,
+	}}
+	if l.CAN, err = can.OpenService(ctx, can.ServiceConfig{
+		Instrumentation: cfg.Child("can"),
+		DB:              cfg.Distribution.DB,
+		Resolver:        busResolver,
+	}); !ok(err, l.CAN) {
+		return nil, err
+	}
+	if l.Serial, err = serial.OpenService(ctx, serial.ServiceConfig{
+		Instrumentation: cfg.Child("serial"),
+		DB:              cfg.Distribution.DB,
+		Resolver:        busResolver,
+	}); !ok(err, l.Serial) {
+		return nil, err
+	}
+	if l.TCP, err = tcp.OpenService(ctx, tcp.ServiceConfig{
+		Instrumentation: cfg.Child("tcp"),
+		DB:              cfg.Distribution.DB,
+		Resolver:        busResolver,
+	}); !ok(err, l.TCP) {
+		return nil, err
+	}
+	if l.UDP, err = udp.OpenService(ctx, udp.ServiceConfig{
+		Instrumentation: cfg.Child("udp"),
+		DB:              cfg.Distribution.DB,
+		Resolver:        busResolver,
+	}); !ok(err, l.UDP) {
+		return nil, err
+	}
 	if l.ArcTask, err = arctask.OpenService(ctx, arctask.ServiceConfig{
 		Instrumentation: cfg.Child("arc_task"),
 		DB:              cfg.Distribution.DB,
@@ -595,8 +640,9 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}
 	configStores := slices.Concat(
 		l.NI.Stores(), l.OPCUA.Stores(), l.LabJack.Stores(), l.Modbus.Stores(),
-		l.EtherCAT.Stores(), l.HTTP.Stores(), l.ArcTask.Stores(),
-		l.RackTask.Stores(), l.PagerDuty.Stores(),
+		l.EtherCAT.Stores(), l.HTTP.Stores(), l.CAN.Stores(), l.Serial.Stores(),
+		l.TCP.Stores(), l.UDP.Stores(), l.ArcTask.Stores(), l.RackTask.Stores(),
+		l.PagerDuty.Stores(),
 	)
 	taskConfigs, err := taskconfig.NewRegistry(configStores...)
 	if !ok(err, nil) {

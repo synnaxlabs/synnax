@@ -15,6 +15,8 @@ export type { Role } from "@/access/role/types.gen";
 export { actions } from "@/actions";
 export { arc } from "@/arc";
 export type { Param } from "@/arc/types/types.gen";
+export { bus } from "@/bus";
+export { can } from "@/can";
 export { channel } from "@/channel";
 export { Channel, isCalculated } from "@/channel/client";
 export {
@@ -61,10 +63,13 @@ export { query } from "@/query";
 export { rack } from "@/rack";
 export { ranger } from "@/ranger";
 export { schematic } from "@/schematic";
+export { serial } from "@/serial";
 export { status } from "@/status";
 export type { StatusZodObject } from "@/status/types.gen";
 export { table } from "@/table";
 export { task } from "@/task";
+export { tcp } from "@/tcp";
+export { udp } from "@/udp";
 export { user } from "@/user";
 export { view } from "@/view";
 export {

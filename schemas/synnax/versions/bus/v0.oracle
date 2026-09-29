@@ -1,0 +1,183 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/channel/v0"
+import "schemas/synnax/versions/device/v0"
+import "schemas/synnax/versions/library/v0"
+import "schemas/synnax/versions/task/v2"
+import "schemas/x/versions/telem/v0"
+
+ReadField struct {
+    field   library.FieldKey {
+        @doc value "is the key of the field within its message."
+    }
+    channel channel.Key = 0 {
+        @doc value "is the channel the field's decoded values are written to."
+    }
+
+    @doc value  "maps one decoded message field to a channel."
+    @go marshal
+}
+
+ReadMessage struct {
+    message  library.EntryKey {
+        @doc value "is the key of the message entry in the task's library."
+    }
+    disabled bool = false {
+        @doc value "is true when the task ignores the message."
+    }
+    index    channel.Key = 0 {
+        @doc value "is the index channel stamped with the time each message arrives."
+    }
+    fields   ReadField[] {
+        @doc value "are the fields of the message the task writes to channels."
+    }
+
+    @doc value  "is one library message a read task decodes."
+    @go marshal
+}
+
+WriteField struct {
+    field   library.FieldKey {
+        @doc value "is the key of the field within its message."
+    }
+    channel channel.Key = 0 {
+        @doc value "is the command channel whose values are encoded into the field."
+    }
+
+    @doc value  """
+        maps one command channel to a message field. A field with no mapping is sent
+        as zero.
+    """
+    @go marshal
+}
+
+WriteMessage struct {
+    message  library.EntryKey {
+        @doc value "is the key of the message entry in the task's library."
+    }
+    disabled bool = false {
+        @doc value "is true when the task does not send the message."
+    }
+    fields   WriteField[] {
+        @doc value "are the fields of the message driven by command channels."
+    }
+
+    @doc value  """
+        is one library message a write task encodes. A message with a period is sent
+        on that period, and one without is sent when a command channel changes.
+    """
+    @go marshal
+}
+
+ReadConfig struct extends task.PersistConfig, library.Reference {
+    device   device.Key = "" {
+        @doc value "is the key of the device the task reads from."
+    }
+    raw      channel.Key = 0 {
+        @doc value """
+            is the virtual bytes channel every received frame is written to, known or
+            unknown. Zero when the task does not stream raw frames.
+        """
+    }
+    messages ReadMessage[] {
+        @doc value "are the messages the task decodes."
+    }
+
+    @doc value  "carries the settings every bus read task shares."
+    @go marshal
+}
+
+WriteConfig struct extends task.WriteConfig, library.Reference {
+    messages WriteMessage[] {
+        @doc value "are the messages the task sends."
+    }
+
+    @doc value  "carries the settings every bus write task shares."
+    @go marshal
+}
+
+PollConfig struct {
+    rate    telem.Rate = 1 {
+        @doc value """
+            is the rate, in Hertz, at which the task sends the query of each message
+            that has one.
+        """
+        @ts type   "number"
+    }
+    timeout telem.TimeSpan = 1000000000 {
+        @doc value "is how long the task waits for a reply before it counts a miss."
+    }
+
+    @doc value  "configures how a read task polls messages that carry a query."
+    @go marshal
+}
+
+Checksum enum {
+    none         = "none"
+    crc16_ccitt  = "crc16_ccitt"
+    crc16_modbus = "crc16_modbus"
+    crc32        = "crc32"
+
+    @doc value "is the checksum that ends a sync and length frame."
+}
+
+Framing union on type {
+    delimiter {
+        delimiter string = "\n" {
+            @doc value "is the byte sequence that ends each frame."
+        }
+
+        @doc value "ends each frame with a byte sequence."
+    }
+    fixed {
+        length uint32 = 1 {
+            @doc value "is the number of bytes in each frame."
+        }
+
+        @doc value "gives every frame the same number of bytes."
+    }
+    sync {
+        sync              string = "" {
+            @doc value "is the hex encoded byte sequence that starts each frame."
+        }
+        length_offset     uint32 = 0 {
+            @doc value "is the byte offset of the length field from the frame start."
+        }
+        length_size       uint8 = 1 {
+            @doc value "is the size of the length field in bytes: 1, 2, or 4."
+        }
+        byte_order        library.ByteOrder = little_endian {
+            @doc value "is the byte order of the length field."
+        }
+        length_adjustment int32 = 0 {
+            @doc value """
+                is added to the length field to get the number of bytes that follow
+                the length field, checksum included.
+            """
+        }
+        checksum          Checksum = none {
+            @doc value "is the checksum that ends each frame."
+        }
+
+        @doc value """
+            starts each frame with a sync sequence followed by a length field, and can
+            end it with a checksum.
+        """
+    }
+    cobs {
+        @doc value "delimits frames with consistent overhead byte stuffing."
+    }
+    slip {
+        @doc value "delimits frames with the serial line internet protocol."
+    }
+
+    @doc value  "is how a byte stream is split into frames."
+    @go marshal
+}

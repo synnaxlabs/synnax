@@ -1,0 +1,75 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/bus"
+import "schemas/synnax/task"
+
+@cpp output "client/cpp/can"
+@go output  "core/pkg/service/can"
+@py output  "client/py/synnax/can"
+@ts output  "client/ts/src/can"
+
+Backend enum {
+    socketcan = "socketcan"
+    pcan      = "pcan"
+    gs_usb    = "gs_usb"
+    slcan     = "slcan"
+    canlib    = "canlib"
+    nixnet    = "nixnet"
+
+    @doc value "is the driver library the Driver talks to a CAN adapter through."
+}
+
+Properties struct {
+    backend      Backend = socketcan {
+        @doc value "is the driver library the adapter is reached through."
+    }
+    channel      string = "" {
+        @doc value """
+            names the adapter channel within its backend, such as can0, PCAN_USBBUS1, a
+            serial port path for slcan, or CAN1 for NI-XNET.
+        """
+    }
+    bitrate      uint32 = 500000 {
+        @doc value "is the nominal bitrate of the bus in bits per second."
+    }
+    fd           bool = false {
+        @doc value "is true when the bus runs CAN FD."
+    }
+    data_bitrate uint32 = 2000000 {
+        @doc value "is the CAN FD data phase bitrate in bits per second."
+    }
+    listen_only  bool = false {
+        @doc value """
+            is true when the adapter never acknowledges or sends frames. Write tasks are
+            rejected on a listen only device.
+        """
+    }
+
+    @doc value  "are the properties of a CAN device: one channel on one adapter."
+    @go marshal
+}
+
+ReadConfig struct extends bus.ReadConfig {
+    @doc value  "configures a CAN read task."
+    @go marshal
+    @go migrate
+}
+
+WriteConfig struct extends bus.WriteConfig {
+    @doc value  "configures a CAN write task."
+    @go marshal
+    @go migrate
+}
+
+ScanConfig struct extends task.ScanConfig {
+    @doc value  "configures the scan task that lists the channels of each backend."
+    @go marshal
+    @go migrate
+}
