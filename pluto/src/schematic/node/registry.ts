@@ -63,6 +63,10 @@ export const resolveSpec = (variant: string): Spec => {
   return spec as Spec;
 };
 
+/** Whether the config belongs to a node variant rather than an edge. */
+export const isConfig = (config: schematic.ElementConfig): config is Config =>
+  config.variant in REGISTRY;
+
 /**
  * Builds a fresh config from the schema input. Every unset value comes from the
  * schema, except the label, which names the symbol unless the input sets it.
