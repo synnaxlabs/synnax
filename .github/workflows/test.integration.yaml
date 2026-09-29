@@ -169,7 +169,7 @@ jobs:
     with:
       test_matrix: ${{ needs.setup.outputs.TEST_MATRIX }}
       ref_run_id: ${{ needs.setup.outputs.REF_RUN_ID }}
-      os: windows-build-bot
+      os: windows-test-bot
       flags: ${{ needs.setup.outputs.FLAGS }}
     secrets: inherit
 
@@ -183,7 +183,7 @@ jobs:
     with:
       test_matrix: ${{ needs.setup.outputs.TEST_MATRIX }}
       ref_run_id: ${{ needs.setup.outputs.REF_RUN_ID }}
-      os: ubuntu-build-bot
+      os: ubuntu-test-bot
       flags: ${{ needs.setup.outputs.FLAGS }}
     secrets: inherit
 
