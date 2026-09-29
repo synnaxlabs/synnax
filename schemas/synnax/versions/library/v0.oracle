@@ -1,0 +1,296 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/x/versions/telem/v0"
+
+Key = uuid {
+    @doc value "is a unique identifier for a library."
+}
+
+EntryKey = uuid {
+    @doc value "is a unique identifier for an entry within a library."
+}
+
+FieldKey = uuid {
+    @doc value "is a unique identifier for a field within a message."
+}
+
+EnumValue struct {
+    value int64 = 0 {
+        @doc value "is the integer value."
+    }
+    name  string    {
+        @doc value "is the name of the value."
+    }
+
+    @doc value  "maps one integer value of an enum to a name."
+    @go marshal
+}
+
+ByteOrder enum {
+    little_endian = "little_endian"
+    big_endian    = "big_endian"
+
+    @doc value "is the byte order of a multi-byte binary field."
+}
+
+Direction enum {
+    receive  = "receive"
+    transmit = "transmit"
+
+    @doc value """
+        is the direction of a MIL-STD-1553 transfer from the remote terminal's point of
+        view.
+    """
+}
+
+Format enum {
+    binary = "binary"
+    text   = "text"
+
+    @doc value "is the payload format of a message."
+}
+
+Identifier union on type {
+    can      {
+        id       uint32 = 0 {
+            @doc value "is the CAN arbitration identifier."
+        }
+        extended bool = false {
+            @doc value "is true when the identifier is a 29-bit extended identifier."
+        }
+        fd       bool = false {
+            @doc value "is true when the message is sent as a CAN FD frame."
+        }
+        mask     uint32?    {
+            @doc value """
+                is the bit mask applied to both identifiers before matching. When absent
+                the identifiers must match exactly.
+            """
+        }
+
+        @doc value "matches a CAN frame by arbitration identifier."
+    }
+    arinc429 {
+        label       uint8 = 0 {
+            @doc value "is the ARINC 429 label, in its octal value."
+        }
+        sdi         uint8 = 0 {
+            @doc value "is the source/destination identifier matched when sdi_matched."
+        }
+        sdi_matched bool = false {
+            @doc value "is true when the SDI bits must equal sdi."
+        }
+
+        @doc value "matches an ARINC 429 word by label."
+    }
+    mil1553  {
+        rt         uint8 = 0 {
+            @doc value "is the remote terminal address."
+        }
+        subaddress uint8 = 0 {
+            @doc value "is the subaddress."
+        }
+        direction  Direction {
+            @doc value "is the transfer direction."
+        }
+        word_count uint8 = 1 {
+            @doc value "is the number of data words, from 1 to 32."
+        }
+
+        @doc value "matches a MIL-STD-1553 transfer by command word."
+    }
+    field    {
+        field FieldKey  {
+            @doc value "is the key of the message field that holds the identifier."
+        }
+        value int64 = 0 {
+            @doc value "is the raw value the field must hold."
+        }
+
+        @doc value "matches a binary frame by the raw value of one of its fields."
+    }
+    token    {
+        prefix string = "" {
+            @doc value """
+                is the text a line must start with. An empty prefix matches every line.
+            """
+        }
+
+        @doc value "matches a text line by its prefix."
+    }
+
+    @doc value "selects which frames on a bus or stream belong to a message."
+    @go marshal
+}
+
+BaseField struct {
+    key              FieldKey = create {
+        @doc value "is the unique identifier for the field within its message."
+    }
+    name             string            {
+        @doc value "is the name of the field, unique within its message."
+    }
+    scale            float64 = 1 {
+        @doc value "multiplies the raw value on decode."
+    }
+    offset           float64 = 0 {
+        @doc value "is added to the scaled value on decode."
+    }
+    units            string = "" {
+        @doc value "is the engineering unit of the decoded value."
+    }
+    enumeration      EntryKey?         {
+        @doc value """
+            is the key of the enum entry that names the field's raw values. When absent
+            the field has no named values.
+        """
+    }
+    multiplexor      FieldKey?         {
+        @doc value """
+            is the key of the field that selects whether this field is present. When
+            absent the field is always present.
+        """
+    }
+    multiplex_values int64[] = [] {
+        @doc value """
+            are the raw values of the multiplexor for which this field is present.
+        """
+    }
+
+    @doc value  "carries the parts every message field shares."
+    @go marshal
+}
+
+Field union on encoding extends BaseField {
+    binary    {
+        start_bit  uint16 = 0 {
+            @doc value """
+                is the bit where the field starts, numbered as in a DBC file: the least
+                significant bit for little-endian fields and the most significant bit
+                for big-endian fields.
+            """
+        }
+        bit_length uint8 = 8 {
+            @doc value "is the number of bits in the field, from 1 to 64."
+        }
+        byte_order ByteOrder = little_endian {
+            @doc value "is the byte order of the field."
+        }
+        signed     bool = false {
+            @doc value "is true when the raw value is two's complement."
+        }
+        float      bool = false {
+            @doc value """
+                is true when the raw bits are an IEEE 754 float of 32 or 64 bits.
+            """
+        }
+
+        @doc value "is a field read from a bit range of a binary payload."
+    }
+    delimited {
+        position uint32 = 0 {
+            @doc value "is the zero-based item index after splitting on the delimiter."
+        }
+
+        @doc value "is a field read from one item of a delimited text line."
+    }
+    tagged    {
+        tag string {
+            @doc value "is the text that comes just before the value in the line."
+        }
+
+        @doc value "is a field read from the text that follows a tag."
+    }
+
+    @doc value "is one value carried by a message."
+    @go marshal
+}
+
+BaseEntry struct {
+    key  EntryKey = create {
+        @doc value "is the unique identifier for the entry within its library."
+    }
+    name string            {
+        @doc value "is the name of the entry, unique within its library."
+    }
+
+    @doc value  "carries the parts every library entry shares."
+    @go marshal
+}
+
+Entry union on kind extends BaseEntry {
+    enum    {
+        values EnumValue[] = [] {
+            @doc value "are the named values of the enum."
+        }
+
+        @doc value "maps integer values to names."
+    }
+    message {
+        identifier Identifier?      {
+            @doc value """
+                selects the frames that belong to the message. When absent every frame
+                on the stream belongs to it.
+            """
+        }
+        format     Format = binary {
+            @doc value "is the payload format."
+        }
+        length     uint16?          {
+            @doc value """
+                is the payload length in bytes. When absent the length is variable.
+            """
+        }
+        fields     Field[] = [] {
+            @doc value "are the values the message carries."
+        }
+        period     telem.TimeSpan?  {
+            @doc value """
+                is the transmit period. When absent a write task sends the message when
+                one of its command channels changes.
+            """
+        }
+        query      string?          {
+            @doc value """
+                is the request a polling task sends to get the message. Binary messages
+                hold escaped bytes. When absent the device sends the message unprompted.
+            """
+        }
+        delimiter  string = "," {
+            @doc value "splits the items of a text message."
+        }
+
+        @doc value "is a frame layout on a bus or byte stream."
+    }
+
+    @doc value "is one typed item in a library."
+    @go marshal
+}
+
+Library struct {
+    key     Key = create {
+        @doc value "is the unique identifier for the library."
+        @key
+    }
+    name    string       {
+        @doc value "is a human-readable name for the library."
+    }
+    entries Entry[] = [] {
+        @doc value "are the entries the library holds."
+    }
+
+    @doc value  """
+        is a named, shared container of typed entries that tasks and other resources
+        reference by key.
+    """
+    @go imex
+    @go marshal
+    @go migrate
+}

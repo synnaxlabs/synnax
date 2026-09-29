@@ -10,6 +10,7 @@
 package config_test
 
 import (
+	"context"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -19,6 +20,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config/legacy"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -172,6 +175,68 @@ var _ = Describe("Service", func() {
 			Expect(svc.Read(ctx, nil, k1)).Error().
 				To(MatchError(query.ErrNotFound))
 			Expect(svc.Read(ctx, nil, k2)).Error().
+				To(MatchError(query.ErrNotFound))
+		})
+	})
+
+	Describe("ResolveEntry", func() {
+		var (
+			resolving  *config.Service[arctask.Config]
+			resolved   []uuid.UUID
+			resolveErr error
+		)
+		BeforeEach(func(ctx SpecContext) {
+			resolved, resolveErr = nil, nil
+			resolving = MustOpen(config.OpenService(
+				ctx,
+				config.ServiceConfig[arctask.Config]{
+					DB:          db,
+					Type:        testType,
+					SetEntryKey: (*arctask.Config).SetKey,
+					ResolveEntry: func(
+						_ context.Context,
+						_ gorp.Tx,
+						key uuid.UUID,
+						c *arctask.Config,
+					) error {
+						resolved = append(resolved, key)
+						c.Hash = "resolved"
+						return resolveErr
+					},
+				},
+			))
+		})
+
+		It("Should store the resolved entry under the task key on write", func(
+			ctx SpecContext,
+		) {
+			key := uuid.New()
+			Expect(resolving.Write(ctx, nil, key, msgpack.EncodedJSON{
+				"arc_key": uuid.New().String(),
+			})).To(Succeed())
+			Expect(resolved).To(Equal([]uuid.UUID{key}))
+			Expect(MustSucceed(resolving.Read(ctx, nil, key))["hash"]).
+				To(Equal("resolved"))
+		})
+
+		It("Should resolve the entry under the new key on copy", func(
+			ctx SpecContext,
+		) {
+			from, to := uuid.New(), uuid.New()
+			Expect(resolving.Write(ctx, nil, from, msgpack.EncodedJSON{
+				"arc_key": uuid.New().String(),
+			})).To(Succeed())
+			Expect(resolving.Copy(ctx, nil, from, to)).To(Succeed())
+			Expect(resolved).To(Equal([]uuid.UUID{from, to}))
+		})
+
+		It("Should reject the write when resolution fails", func(ctx SpecContext) {
+			key := uuid.New()
+			resolveErr = errors.New("unresolved")
+			Expect(resolving.Write(ctx, nil, key, msgpack.EncodedJSON{
+				"arc_key": uuid.New().String(),
+			})).To(MatchError("unresolved"))
+			Expect(resolving.Read(ctx, nil, key)).Error().
 				To(MatchError(query.ErrNotFound))
 		})
 	})

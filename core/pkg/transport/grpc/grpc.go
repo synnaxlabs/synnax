@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
+	"github.com/synnaxlabs/synnax/pkg/api/library"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
 	"github.com/synnaxlabs/synnax/pkg/api/ontology"
@@ -164,6 +165,12 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	// IMPORT/EXPORT
 	t.ImExImport = noop.UnaryServer[imex.ImportRequest, imex.ImportResponse]{}
 	t.ImExExport = noop.UnaryServer[imex.ExportRequest, imex.ExportResponse]{}
+
+	// LIBRARY
+	t.LibraryCreate = noop.UnaryServer[library.CreateRequest, library.CreateResponse]{}
+	t.LibraryRetrieve = noop.UnaryServer[library.RetrieveRequest, library.RetrieveResponse]{}
+	t.LibraryRename = noop.UnaryServer[library.RenameRequest, struct{}]{}
+	t.LibraryDelete = noop.UnaryServer[library.DeleteRequest, struct{}]{}
 
 	// ARC
 	t.ArcDispatch = noop.UnaryServer[apiarc.DispatchRequest, struct{}]{}

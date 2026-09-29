@@ -36,6 +36,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/labjack"
+	"github.com/synnaxlabs/synnax/pkg/service/library"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/metrics"
@@ -222,6 +223,8 @@ type Layer struct {
 	Status *status.Service
 	// View is used for managing views
 	View *view.Service
+	// Library stores the shared libraries of typed entries that tasks reference.
+	Library *library.Service
 	// ImEx is the central import/export registry.
 	ImEx *imex.Service
 	// Node publishes the cluster's nodes as resources in the ontology and search
@@ -631,6 +634,17 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			ImEx:            l.ImEx,
 		},
 	); !ok(err, l.Arc) {
+		return nil, err
+	}
+	if l.Library, err = library.OpenService(ctx, library.ServiceConfig{
+		Instrumentation: cfg.Child("library"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        l.Ontology,
+		Task:            l.Task,
+		Search:          l.Search,
+		ImEx:            l.ImEx,
+		Signals:         l.Signals,
+	}); !ok(err, l.Library) {
 		return nil, err
 	}
 	if l.Alias, err = alias.OpenService(ctx, alias.ServiceConfig{

@@ -688,29 +688,49 @@ func (p *Plugin) processFieldForTranslation(
 
 	// Optional primitives that need type conversion (e.g., *uint8 <-> *uint32) require
 	// pointer dereference before casting and re-addressing after.
+	goFieldDeref := "*r." + goName
+	// uuid's forward is a method call, so its deref is parenthesized to apply the call
+	// to the pointee rather than the pointer.
+	uuidFieldDeref := "(*r." + goName + ")"
+	pbFieldDeref := "*pb." + pbName
 	if isOptional && resolution.IsPrimitive(typeRef.Name) &&
-		primitiveNeedsConversion(typeRef.Name) {
+		(primitiveNeedsConversion(typeRef.Name) || typeRef.Name == "uuid") {
 		fd.NeedsPtrConversion = true
-		goFieldDeref := "*r." + goName
-		pbFieldDeref := "*pb." + pbName
-		fd.ForwardExpr, fd.BackwardExpr, _, _ = p.generatePrimitiveConversion(
-			typeRef.Name,
-			goFieldDeref,
-			pbFieldDeref,
-			data,
-		)
+		deref := goFieldDeref
+		if typeRef.Name == "uuid" {
+			deref = uuidFieldDeref
+		}
+		fd.ForwardExpr, fd.BackwardExpr, _, fd.HasBackwardError =
+			p.generatePrimitiveConversion(typeRef.Name, deref, pbFieldDeref, data)
+		fd.BackwardCast = ""
 	}
 
-	// Optional typedefs over primitives (e.g. *channel.Key <-> *uint32) need the same
-	// deref-convert-readdress treatment.
+	// Optional typedefs and aliases over primitives (e.g. *channel.Key <-> *uint32)
+	// need the same deref-convert-readdress treatment.
 	if isOptional && !resolution.IsPrimitive(typeRef.Name) {
 		if resolved, ok := typeRef.Resolve(data.table); ok {
-			if form, isDistinct := resolved.Form.(resolution.DistinctForm); isDistinct &&
-				resolution.IsPrimitive(form.Base.Name) {
-				fd.NeedsPtrConversion = true
-				fd.ForwardExpr, fd.BackwardExpr, _, _ = p.generateTypeDefConversion(
-					resolved, form, data, "*r."+goName, "*pb."+pbName,
-				)
+			switch form := resolved.Form.(type) {
+			case resolution.DistinctForm:
+				if resolution.IsPrimitive(form.Base.Name) {
+					deref := goFieldDeref
+					if form.Base.Name == "uuid" {
+						deref = uuidFieldDeref
+					}
+					fd.NeedsPtrConversion = true
+					fd.ForwardExpr, fd.BackwardExpr, fd.BackwardCast,
+						fd.HasBackwardError = p.generateTypeDefConversion(
+						resolved, form, data, deref, pbFieldDeref,
+					)
+				}
+			case resolution.AliasForm:
+				if form.Target.Name == "uuid" {
+					fd.NeedsPtrConversion = true
+					fd.ForwardExpr, fd.BackwardExpr, _, fd.HasBackwardError =
+						p.generateAliasConversion(
+							resolved, form, data, uuidFieldDeref, pbFieldDeref,
+						)
+					fd.BackwardCast = ""
+				}
 			}
 		}
 	}

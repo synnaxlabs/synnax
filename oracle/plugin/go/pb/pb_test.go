@@ -242,6 +242,33 @@ var _ = Describe("Go PB Plugin", func() {
 				},
 			)
 
+			DescribeTable(
+				"Should parse optional uuid fields through their pointee",
+				func(ctx SpecContext, decl string) {
+					source := `
+					@go output "core/pkg/service/library"
+					@pb
+
+					` + decl + `
+
+					Field struct {
+						enumeration EntryKey?
+					}
+				`
+					resp := MustGenerate(ctx, source, "library", loader, pbPlugin)
+					ExpectContent(resp, "translator.gen.go").
+						ToBeValidGoSource().
+						ToContain(
+							"v := (*r.Enumeration).String()",
+							"pb.Enumeration = &v",
+							"parsed, err := uuid.Parse(*pb.Enumeration)",
+							"r.Enumeration = &v",
+						)
+				},
+				Entry("an alias", "EntryKey = uuid"),
+				Entry("a typedef", "EntryKey uuid"),
+			)
+
 			It(
 				"Should translate union extends bases through the bases' own translators",
 				func(ctx SpecContext) {

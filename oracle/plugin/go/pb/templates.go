@@ -198,7 +198,19 @@ func {{.Name}}FromPB(pb *{{.PBType}}) ({{.GoType}}, error) {
 	}
 {{- else if .NeedsPtrConversion}}
 	if pb.{{.PBName}} != nil {
+{{- if .HasBackwardError}}
+		parsed, err := {{.BackwardExpr}}
+		if err != nil {
+			return {{$goType}}{}, err
+		}
+{{- if .BackwardCast}}
+		v := {{.BackwardCast}}(parsed)
+{{- else}}
+		v := parsed
+{{- end}}
+{{- else}}
 		v := {{.BackwardExpr}}
+{{- end}}
 		r.{{.GoName}} = &v
 	}
 {{- else if .IsOptionalArrayWrapper}}
@@ -557,7 +569,19 @@ func {{.Name}}FromPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}
 	}
 {{- else if .NeedsPtrConversion}}
 	if pb.{{.PBName}} != nil {
+{{- if .HasBackwardError}}
+		parsed, err := {{.BackwardExpr}}
+		if err != nil {
+			return {{$goType}}{}, err
+		}
+{{- if .BackwardCast}}
+		v := {{.BackwardCast}}(parsed)
+{{- else}}
+		v := parsed
+{{- end}}
+{{- else}}
 		v := {{.BackwardExpr}}
+{{- end}}
 		r.{{.GoName}} = &v
 	}
 {{- else if .IsOptionalArrayWrapper}}

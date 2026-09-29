@@ -110,6 +110,17 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 		existed = false
 	}
 	otgID := t.OntologyID()
+	// Define the resource before the config write, so a config store can relate the
+	// task to the resources its config references.
+	exists, err := w.otg.NewRetrieve().WhereIDs(otgID).Exists(ctx, w.tx)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
+			return err
+		}
+	}
 	if existed && existing.Snapshot {
 		t.ConfigHash = existing.ConfigHash
 		existingStore, ok := w.configs.Store(existing.Type)
@@ -154,7 +165,7 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 	cfg := t.Config // Restored after the row write; rows do not store config.
 	providedStatus := t.Status
 	t.Config, t.Status = nil, nil
-	err := w.table.NewCreate().Entry(t).Exec(ctx, w.tx)
+	err = w.table.NewCreate().Entry(t).Exec(ctx, w.tx)
 	t.Config = cfg
 	if err != nil {
 		return err
@@ -168,15 +179,6 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 		return err
 	}
 	t.Status = stat
-	exists, err := w.otg.NewRetrieve().WhereIDs(otgID).Exists(ctx, w.tx)
-	if err != nil {
-		return err
-	}
-	if !exists {
-		if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
-			return err
-		}
-	}
 	// Internal tasks get no group parent, keeping them out of the resource tree.
 	if t.Internal || exists {
 		return nil

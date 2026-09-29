@@ -63,9 +63,31 @@ func ToPascalCase(s string) string {
 	}
 	result := casing.TypePascal(s)
 	for _, acr := range goAcronyms {
-		result = strings.ReplaceAll(result, acr, strings.ToUpper(acr))
+		result = replaceWord(result, acr)
 	}
 	return result
+}
+
+// replaceWord uppercases each occurrence of acr in s that forms a whole PascalCase word
+// or its plural, so "UserId" becomes "UserID" and "Ids" becomes "IDs" while
+// "Identifier" stays intact.
+func replaceWord(s, acr string) string {
+	var b strings.Builder
+	for {
+		i := strings.Index(s, acr)
+		if i < 0 {
+			b.WriteString(s)
+			return b.String()
+		}
+		end := i + len(acr)
+		b.WriteString(s[:i])
+		if !isWordEnd(s, end) {
+			b.WriteString(acr)
+		} else {
+			b.WriteString(strings.ToUpper(acr))
+		}
+		s = s[end:]
+	}
 }
 
 // GetFieldName returns the Go field name for a schema field. It checks for a @go name
@@ -170,4 +192,13 @@ func DeriveVersionedAlias(outputPath, currentPackage string) string {
 		return parent + base
 	}
 	return base
+}
+
+// isWordEnd reports whether a PascalCase word ending at i ends there, or ends one later
+// with a plural "s".
+func isWordEnd(s string, i int) bool {
+	if i < len(s) && s[i] == 's' {
+		i++
+	}
+	return i >= len(s) || !unicode.IsLower(rune(s[i]))
 }

@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
+	"github.com/synnaxlabs/synnax/pkg/api/library"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
 	"github.com/synnaxlabs/synnax/pkg/api/ontology"
@@ -430,6 +431,19 @@ func Bind(layer *api.Layer, router *http.Router) {
 			"/api/v1/status/set-by-key-or-name",
 		),
 
+		// LIBRARY
+		LibraryCreate: router.NewUnaryServer[library.CreateRequest, library.CreateResponse](
+			"/api/v1/library/create",
+		),
+		LibraryRetrieve: router.NewUnaryServer[library.RetrieveRequest, library.RetrieveResponse](
+			"/api/v1/library/retrieve",
+		),
+		LibraryRename: router.NewUnaryServer[library.RenameRequest, struct{}](
+			"/api/v1/library/rename",
+		),
+		LibraryDelete: router.NewUnaryServer[library.DeleteRequest, struct{}](
+			"/api/v1/library/delete",
+		),
 		// VIEW
 		ViewCreate: router.NewUnaryServer[view.CreateRequest, view.CreateResponse](
 			"/api/v1/view/create",

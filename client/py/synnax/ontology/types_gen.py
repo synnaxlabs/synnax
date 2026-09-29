@@ -61,6 +61,8 @@ RESOURCE_TYPE_USER: Literal["user"] = "user"
 
 RESOURCE_TYPE_VIEW: Literal["view"] = "view"
 
+RESOURCE_TYPE_LIBRARY: Literal["library"] = "library"
+
 
 ResourceType = Literal[
     "arc",
@@ -87,4 +89,5 @@ ResourceType = Literal[
     "task",
     "user",
     "view",
+    "library",
 ]

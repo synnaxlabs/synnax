@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
+	"github.com/synnaxlabs/synnax/pkg/api/library"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
 	"github.com/synnaxlabs/synnax/pkg/api/ontology"
@@ -193,6 +194,11 @@ type Transport struct {
 	ViewCreate   freighter.UnaryServer[view.CreateRequest, view.CreateResponse]
 	ViewRetrieve freighter.UnaryServer[view.RetrieveRequest, view.RetrieveResponse]
 	ViewDelete   freighter.UnaryServer[view.DeleteRequest, struct{}]
+	// LIBRARY
+	LibraryCreate   freighter.UnaryServer[library.CreateRequest, library.CreateResponse]
+	LibraryRetrieve freighter.UnaryServer[library.RetrieveRequest, library.RetrieveResponse]
+	LibraryRename   freighter.UnaryServer[library.RenameRequest, struct{}]
+	LibraryDelete   freighter.UnaryServer[library.DeleteRequest, struct{}]
 	// IMPORT/EXPORT
 	ImExImport freighter.UnaryServer[imex.ImportRequest, imex.ImportResponse]
 	ImExExport freighter.UnaryServer[imex.ExportRequest, imex.ExportResponse]
@@ -218,6 +224,7 @@ type Layer struct {
 	Schematic    *schematic.Service
 	Symbol       *symbol.Service
 	View         *view.Service
+	Library      *library.Service
 	Table        *table.Service
 	Panel        *panel.Service
 	Label        *label.Service
@@ -406,6 +413,11 @@ func (l *Layer) BindTo(t Transport) {
 		t.ViewCreate,
 		t.ViewRetrieve,
 		t.ViewDelete,
+		// LIBRARY
+		t.LibraryCreate,
+		t.LibraryRetrieve,
+		t.LibraryRename,
+		t.LibraryDelete,
 
 		// ARC
 		t.ArcCreate,
@@ -614,6 +626,12 @@ func (l *Layer) BindTo(t Transport) {
 	t.ViewRetrieve.BindHandler(l.View.Retrieve)
 	t.ViewDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.View.Delete))
 
+	// LIBRARY
+	t.LibraryCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Library.Create))
+	t.LibraryRetrieve.BindHandler(l.Library.Retrieve)
+	t.LibraryRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Library.Rename))
+	t.LibraryDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Library.Delete))
+
 	// ARC
 	t.ArcCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.Create))
 	t.ArcDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.Delete))
@@ -711,6 +729,9 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.View, err = view.NewService(cfg); err != nil {
+		return nil, err
+	}
+	if l.Library, err = library.NewService(cfg); err != nil {
 		return nil, err
 	}
 	if l.ImEx, err = imex.NewService(cfg); err != nil {

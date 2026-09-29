@@ -41,6 +41,7 @@ var allObjects = []ontology.ID{
 	{Type: ontology.ResourceTypePolicy},
 	{Type: ontology.ResourceTypeBuiltin},
 	{Type: ontology.ResourceTypeView},
+	{Type: ontology.ResourceTypeLibrary},
 }
 
 var (
@@ -89,6 +90,7 @@ var (
 				{Type: ontology.ResourceTypeSchematicSymbol},
 				{Type: ontology.ResourceTypeStatus},
 				{Type: ontology.ResourceTypeView},
+				{Type: ontology.ResourceTypeLibrary},
 			},
 			Actions:  access.AllActions,
 			Internal: true,
@@ -131,6 +133,12 @@ var (
 		{
 			Name:     "Host Channel View Access",
 			Objects:  []ontology.ID{{Type: ontology.ResourceTypeChannel}},
+			Actions:  []access.Action{access.ActionRetrieve},
+			Internal: true,
+		},
+		{
+			Name:     "Host Library View Access",
+			Objects:  []ontology.ID{{Type: ontology.ResourceTypeLibrary}},
 			Actions:  []access.Action{access.ActionRetrieve},
 			Internal: true,
 		},

@@ -89,6 +89,11 @@ type ServiceConfig[E any] struct {
 	// ValidateEntry checks a decoded entry before it is stored.
 	// [OPTIONAL] - nil when the entry type has no validation rules.
 	ValidateEntry func(*E) error
+	// ResolveEntry completes a validated entry from other records in tx before it is
+	// stored under the task key, on both writes and copies. The task's ontology
+	// resource exists when it runs.
+	// [OPTIONAL] - nil when the entry references no other records.
+	ResolveEntry func(ctx context.Context, tx gorp.Tx, key uuid.UUID, e *E) error
 	alamos.Instrumentation
 }
 
@@ -104,6 +109,7 @@ func (c ServiceConfig[E]) Override(other ServiceConfig[E]) ServiceConfig[E] {
 	c.Legacy = override.Nil(c.Legacy, other.Legacy)
 	c.ApplyEntryDefaults = override.Nil(c.ApplyEntryDefaults, other.ApplyEntryDefaults)
 	c.ValidateEntry = override.Nil(c.ValidateEntry, other.ValidateEntry)
+	c.ResolveEntry = override.Nil(c.ResolveEntry, other.ResolveEntry)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
@@ -180,7 +186,21 @@ func (s *Service[E]) Write(
 			return err
 		}
 	}
-	return s.create(ctx, tx, &e)
+	return s.resolveAndCreate(ctx, tx, key, &e)
+}
+
+func (s *Service[E]) resolveAndCreate(
+	ctx context.Context,
+	tx gorp.Tx,
+	key uuid.UUID,
+	e *E,
+) error {
+	if s.cfg.ResolveEntry != nil {
+		if err := s.cfg.ResolveEntry(ctx, tx, key, e); err != nil {
+			return err
+		}
+	}
+	return s.create(ctx, tx, e)
 }
 
 func (s *Service[E]) create(ctx context.Context, tx gorp.Tx, e *E) error {
@@ -254,7 +274,7 @@ func (s *Service[E]) Copy(
 		return err
 	}
 	s.cfg.SetEntryKey(&e, to)
-	return s.create(ctx, tx, &e)
+	return s.resolveAndCreate(ctx, tx, to, &e)
 }
 
 func (s *Service[E]) retrieve(
