@@ -126,17 +126,16 @@ export const clerk = (client: Client): Directory => ({
     }
   },
   names: async (userIDs) => {
-    if (userIDs.length === 0) return {};
-    const { data } = await client.users.getUserList({
-      userId: userIDs.slice(0, PAGE),
-      limit: PAGE,
-    });
-    return Object.fromEntries(
-      data.map((u) => [
-        u.id,
-        u.fullName ?? u.primaryEmailAddress?.emailAddress ?? u.id,
-      ]),
-    );
+    const named: Record<string, string> = {};
+    for (let i = 0; i < userIDs.length; i += PAGE) {
+      const { data } = await client.users.getUserList({
+        userId: userIDs.slice(i, i + PAGE),
+        limit: PAGE,
+      });
+      for (const u of data)
+        named[u.id] = u.fullName ?? u.primaryEmailAddress?.emailAddress ?? u.id;
+    }
+    return named;
   },
 });
 

@@ -77,7 +77,9 @@ const createClient = ({
       },
       getUserList: async (args: { userId: string[]; limit: number }) => {
         record("userList", args);
-        return { data: listed.filter((u) => args.userId.includes(u.id)) };
+        return {
+          data: listed.filter((u) => args.userId.includes(u.id)).slice(0, args.limit),
+        };
       },
     },
     organizations: {
@@ -325,6 +327,17 @@ describe("directory", () => {
             user_c: "user_c",
           },
         );
+      });
+
+      it("should name more users than Clerk lists in one call", async () => {
+        const ids = range(101, (i) => `user_${i}`);
+        const { directory, calls } = createClient({
+          listed: ids.map((id) => ({ id, fullName: id, primaryEmailAddress: null })),
+        });
+        expect(Object.keys(await directory.names(ids))).toHaveLength(101);
+        expect(
+          calls.userList.map((c) => (c as { userId: string[] }).userId.length),
+        ).toEqual([100, 1]);
       });
 
       it("should not call Clerk for no ids", async () => {
