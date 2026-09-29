@@ -43,7 +43,7 @@ type (
 	RetrieveRequest  = struct{}
 	RetrieveResponse = license.Info
 	ActivateRequest  struct {
-		Token string `json:"token" msgpack:"token"`
+		Key string `json:"key" msgpack:"key"`
 	}
 	ActivateResponse = license.Info
 )
@@ -52,8 +52,8 @@ type (
 // grants control access to it.
 var objectID = ontology.ID{Type: ontology.ResourceTypeBuiltin, Key: "license"}
 
-// Retrieve returns the state of the Core's license, this machine's fingerprint,
-// and the license when one applies.
+// Retrieve returns the state of the Core's license, this machine's fingerprint, and the
+// license when one applies.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	_ RetrieveRequest,
@@ -68,7 +68,7 @@ func (s *Service) Retrieve(
 	return s.internal.Retrieve(), nil
 }
 
-// Activate accepts a token for this Core and returns the resulting state.
+// Activate accepts a license key for this Core and returns the resulting state.
 func (s *Service) Activate(
 	ctx context.Context,
 	req ActivateRequest,
@@ -80,5 +80,5 @@ func (s *Service) Activate(
 	}); err != nil {
 		return ActivateResponse{}, err
 	}
-	return s.internal.Activate(ctx, req.Token)
+	return s.internal.Activate(ctx, req.Key)
 }

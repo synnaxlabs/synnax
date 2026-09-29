@@ -20,7 +20,7 @@ import { Session } from "@/session";
 const FAILED_MESSAGE = "Failed to log in";
 
 /**
- * Takes the login link the hub opens Synnax Desktop with: applies its token to
+ * Takes the login link the hub opens Synnax Desktop with: applies its license key to
  * the embedded Core and stores the link. A link whose state this app did not mint is
  * refused.
  */
@@ -63,13 +63,13 @@ export const useLink = (deps: Link.Deps = Link.DEFAULT_DEPS): void => {
   // Handles the case where the app is open and a link gets called
   useAsyncEffect(async () => await deps.onOpenURL(receive), []);
 
-  // A launch link can land before the embedded Core answers, so the token waits for a
-  // client.
+  // A launch link can land before the embedded Core answers, so the license key waits
+  // for a client.
   useAsyncEffect(
     async (signal) => {
       if (client == null || received == null) return;
       try {
-        await client.license.activate(received.token);
+        await client.license.activate(received.key);
         if (signal.aborted) return;
         const { activation, secret, email } = received;
         dispatch(Session.Account.link({ activation, secret, email }));

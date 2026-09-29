@@ -96,7 +96,7 @@ export const License = ({
           <Empty
             icon={<Icon.Computer />}
             message="No machines hold a seat"
-            description="Activate a machine to give a Core its token."
+            description="Activate a machine to give a Core its license key."
           />
         ) : (
           <Table
@@ -197,7 +197,7 @@ const MachineMenu = ({ activation, label }: MachineMenuProps): ReactElement => {
   const [renaming, setRenaming] = useState(false);
   const download = useAction(
     useCallback(async () => {
-      const blob = await postFile(`/api/activations/${activation.key}/token`);
+      const blob = await postFile(`/api/activations/${activation.key}/download`);
       save(blob, `${label || "synnax"}.license`);
     }, [activation.key, label]),
   );
@@ -221,7 +221,7 @@ const MachineMenu = ({ activation, label }: MachineMenuProps): ReactElement => {
           >
             <Menu.Item itemKey="download">
               <Icon.Download />
-              Download token
+              Download license key
             </Menu.Item>
             <Menu.Item itemKey="rename">
               <Icon.Rename />
@@ -268,7 +268,7 @@ const ReleaseContent = ({ activation }: { activation: Activation }): ReactElemen
         </Text.Text>
         <Text.Text level="p" color={9}>
           The Core on that machine loses its license at its next check. Activate it
-          again to give it a new token.
+          again to give it a new license key.
         </Text.Text>
       </Modal.Body>
       <Modal.Footer error={action.error} hint="Press and hold Release to confirm">
@@ -306,10 +306,10 @@ const StaffActions = ({ license: lic, status }: StaffActionsProps): ReactElement
           variant="outlined"
           onClick={floating.run}
           status={floating.loading ? "loading" : undefined}
-          tooltip="Download a token bound to no machine, for CI runners"
+          tooltip="Download a license key bound to no machine, for CI runners"
         >
           <Icon.Download />
-          Floating token
+          Floating license key
         </Button.Button>
       )}
       {status !== "revoked" && (

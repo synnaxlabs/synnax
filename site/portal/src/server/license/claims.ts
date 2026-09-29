@@ -14,11 +14,14 @@ import { type Edition, type License } from "@/server/db/schema";
 export const CLAIMS_VERSION = 1;
 export const FINGERPRINT_SCHEME = 1;
 
-const EDITION_CODES: Record<Edition, string> = { desktop: "d", enterprise: "e" };
+const EDITION_CODES: Record<Edition, client.Edition> = {
+  desktop: "d",
+  enterprise: "e",
+};
 
 export interface BuildArgs {
   license: License;
-  /** Machine fingerprints to bind the token to. Empty for a floating token. */
+  /** Machine fingerprints to bind the license key to. Empty for a floating key. */
   fingerprint: string[];
   now: Date;
 }

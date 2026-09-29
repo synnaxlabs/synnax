@@ -49,12 +49,12 @@ provider "github" {
   owner = "synnaxlabs"
 }
 
-# The signing key. Ed25519, sign-only, and never exportable: every license token a Core
+# The signing key. ML-DSA-44, sign-only, and never exportable: every license key a Core
 # accepts is signed under it, and its public half is compiled into the Core.
 resource "aws_kms_key" "license_signing" {
-  description              = "Signs Synnax license tokens"
+  description              = "Signs Synnax license keys (ML-DSA-44)"
   key_usage                = "SIGN_VERIFY"
-  customer_master_key_spec = "ECC_NIST_EDWARDS25519"
+  customer_master_key_spec = "ML_DSA_44"
   deletion_window_in_days  = 30
   enable_key_rotation      = false
 }
@@ -110,7 +110,7 @@ locals {
     AWS_ACCESS_KEY_ID            = aws_iam_access_key.portal_signer.id
     AWS_SECRET_ACCESS_KEY        = aws_iam_access_key.portal_signer.secret
     LICENSE_KMS_KEY_ARN          = aws_kms_key.license_signing.arn
-    LICENSE_KID                  = "1"
+    LICENSE_KID                  = "2"
     STAFF_ORG_ID                 = var.staff_org_id
     CLERK_WEBHOOK_SIGNING_SECRET = var.clerk_webhook_signing_secret
     RESEND_API_KEY               = var.resend_api_key

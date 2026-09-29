@@ -17,6 +17,25 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// Edition is the product edition a license applies to.
+type Edition string
+
+const (
+	EditionDesktop    Edition = "d"
+	EditionEnterprise Edition = "e"
+)
+
+// IsValid reports whether e is one of the defined Edition
+// values.
+func (e Edition) IsValid() bool {
+	switch e {
+	case EditionDesktop, EditionEnterprise:
+		return true
+	default:
+		return false
+	}
+}
+
 // License is the signed set of claims a Core verifies.
 type License struct {
 	// Jti is the unique identifier of the license.
@@ -31,7 +50,7 @@ type License struct {
 	// Organization is the organization the license belongs to.
 	Organization uuid.UUID `json:"organization" msgpack:"organization"`
 	// Edition is the edition the license applies to.
-	Edition string `json:"edition" msgpack:"edition"`
+	Edition Edition `json:"edition" msgpack:"edition"`
 	// Fingerprints is the set of machine fingerprints the license is bound to. Empty
 	// when the license runs on any machine.
 	Fingerprints []string `json:"fingerprints" msgpack:"fingerprints"`
@@ -45,8 +64,16 @@ type License struct {
 	// Absent means any version.
 	MaxVersion *string `json:"max_version,omitzero" msgpack:"max_version,omitempty"`
 	// Required is the claims a Core must understand to accept the license. A Core that
-	// does not know one of them refuses the token.
+	// does not know one of them refuses the license key.
 	Required []string `json:"required" msgpack:"required"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (l License) Validate() error {
+	v := validate.New("License")
+	v.Ternaryf("edition", !l.Edition.IsValid(), "invalid edition: %v", l.Edition)
+	return v.Error()
 }
 
 // State is whether a license covers the Core.
@@ -69,15 +96,15 @@ func (s State) IsValid() bool {
 	}
 }
 
-// Fingerprint identifies the machine the Core runs on: the sorted SHA-256 hex digests
-// of every physical network interface's hardware address.
+// Fingerprint identifies the machine the Core runs on: the sorted Argon2id hex digests
+// of the hardware addresses of its non-loopback, non-point-to-point network interfaces.
 type Fingerprint []string
 
 // Info is what the Core knows about its license.
 type Info struct {
 	// State is whether a license covers the Core.
 	State State `json:"state" msgpack:"state"`
-	// Warning is set while the state is ok but a change is near or past.
+	// Warning explains a near or past expiry, or why the license is expired.
 	Warning string `json:"warning" msgpack:"warning"`
 	// Fingerprint identifies the machine the Core runs on.
 	Fingerprint Fingerprint `json:"fingerprint" msgpack:"fingerprint"`
@@ -90,5 +117,8 @@ type Info struct {
 func (i Info) Validate() error {
 	v := validate.New("Info")
 	v.Ternaryf("state", !i.State.IsValid(), "invalid state: %v", i.State)
+	if i.License != nil {
+		v.Exec(func() error { return validate.PathedError(i.License.Validate(), "license") })
+	}
 	return v.Error()
 }

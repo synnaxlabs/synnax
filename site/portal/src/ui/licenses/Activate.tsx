@@ -45,7 +45,7 @@ interface Entry {
 
 /**
  * Activate is the page the Console links to: pick a license, paste the host hashes,
- * download the token.
+ * download the license key.
  */
 export const Activate = ({ choices, selected }: ActivateProps): ReactElement => {
   const entries: Entry[] = choices.map(({ license, organization }) => ({
@@ -54,7 +54,7 @@ export const Activate = ({ choices, selected }: ActivateProps): ReactElement => 
   }));
   const [key, setKey] = useState<string>(selected ?? entries[0]?.key ?? "");
   return (
-    <Page title="Activate a machine" subtitle="Give a Core its license token">
+    <Page title="Activate a machine" subtitle="Give a Core its license key">
       {choices.length === 0 ? (
         <Empty
           icon={<Icon.Access />}

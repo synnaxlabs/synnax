@@ -49,7 +49,7 @@ export interface LinkArgs {
 }
 
 export interface Linked {
-  token: string;
+  key: string;
   secret: string;
   activation: Activation;
   license: License;
@@ -89,8 +89,8 @@ export const machinesFor = async (
 
 /**
  * link issues a desktop license for the user's personal organization, bound to one
- * machine, and returns its token beside the secret that renews it. A machine that
- * signs in again replaces its earlier link, so it stays one entry.
+ * machine, and returns its license key beside the secret that renews it. A machine that
+ * logs in again replaces its earlier link, so it stays one entry.
  */
 export const link = async (
   store: Store,
@@ -154,11 +154,11 @@ export const link = async (
     });
     return { license: lic, activation: act };
   });
-  const token = await sign(
+  const signed = await sign(
     signer,
     build({ license: linked.license, fingerprint, now }),
   );
-  return { token, secret, ...linked };
+  return { key: signed, secret, ...linked };
 };
 
 /**
@@ -182,12 +182,12 @@ export interface RenewArgs {
   now: Date;
 }
 
-/** renew slides the expiry of a machine's license and returns a fresh token. */
+/** renew slides the expiry of a machine's license and returns a fresh license key. */
 export const renew = async (
   store: Store,
   signer: Signer,
   { machine: row, now }: RenewArgs,
-): Promise<{ token: string; license: License }> => {
+): Promise<{ key: string; license: License }> => {
   const [lic] = await store.query
     .update(license)
     .set({ expiresAt: expiryFrom(now) })
@@ -205,11 +205,11 @@ export const renew = async (
     activation: row.activation.key,
     detail: {},
   });
-  const token = await sign(
+  const signed = await sign(
     signer,
     build({ license: lic, fingerprint: row.activation.fingerprint, now }),
   );
-  return { token, license: lic };
+  return { key: signed, license: lic };
 };
 
 export interface UnlinkArgs {

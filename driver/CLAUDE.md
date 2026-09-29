@@ -17,8 +17,9 @@ Modbus TCP/IP) to Synnax.
    Synnax client, state updates). Task types: read (acquisition), write (control), scan
    (discovery).
 3. **Pipelines** (`/driver/pipeline/`) — generic streaming: **Acquisition** (Source →
-   Writer → Synnax) and **Control** (Synnax → Streamer → Sink). Automatic retry on
-   `freighter::UNREACHABLE`, breaker pattern (exponential backoff), thread management.
+   Writer → Synnax) and **Control** (Synnax → Streamer → Sink). Automatic retry when
+   `errors::core_unavailable` matches (unreachable or unlicensed Core), breaker pattern
+   (exponential backoff), thread management.
 4. **Device integrations** — each implements
    `Factory → {Read|Write|Scan}Task → Source/Sink → Device API`.
 

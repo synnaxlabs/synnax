@@ -23,7 +23,7 @@ describe("desktop link", () => {
     it("should carry every field on the app's scheme", () => {
       const url = new URL(
         activateURL("s".repeat(16), {
-          token: "t.o.k",
+          key: "t.o.k",
           secret: "sec ret",
           activation: "act",
           email: "a@b.c",
@@ -32,7 +32,7 @@ describe("desktop link", () => {
       expect(url.protocol).toBe(`${SCHEME}:`);
       expect(url.host).toBe("activate");
       expect(url.searchParams.get("state")).toBe("s".repeat(16));
-      expect(url.searchParams.get("token")).toBe("t.o.k");
+      expect(url.searchParams.get("key")).toBe("t.o.k");
       expect(url.searchParams.get("secret")).toBe("sec ret");
       expect(url.searchParams.get("activation")).toBe("act");
       expect(url.searchParams.get("email")).toBe("a@b.c");

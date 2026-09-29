@@ -366,7 +366,8 @@ export class Client implements Handle {
   /** Drops everything cached from the replaced cluster, then brings the stream up. */
   private async resetStream(): Promise<void> {
     await this.stream?.reset();
-    await this.stream?.ensure();
+    // an unlicensed Core refuses the stream; the check after activation brings it up
+    if (this.current.details.license === "ok") await this.stream?.ensure();
   }
 
   /** Discards in-flight checks and wakes the loop for an immediate check. */
@@ -416,9 +417,11 @@ export class Client implements Handle {
       this.warn(this.current.details);
       const replaced = prevKey !== "" && info.clusterKey !== prevKey;
       // reachable but the stream is still dark: re-demand it, in case its own
-      // retry budget was exhausted. Replacement already brings it up.
+      // retry budget was exhausted. Replacement already brings it up, and an
+      // unlicensed Core refuses it.
       if (
         !replaced &&
+        info.license === "ok" &&
         this.config.requiresStream &&
         !this.current.details.streamLive &&
         this.takeStreamProbe()

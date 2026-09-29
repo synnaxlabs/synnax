@@ -36,7 +36,7 @@ export const OPTIONS: APIRoute = () =>
 
 /**
  * POST renews the desktop license of the machine whose renewal secret is the bearer
- * token, and answers `{ token }`. No portal session is involved.
+ * token, and answers `{ key }`. No portal session is involved.
  */
 export const POST: APIRoute = async (context) =>
   withCORS(
@@ -53,7 +53,7 @@ export const POST: APIRoute = async (context) =>
         organization: machine.license.organization,
         now,
       });
-      const { token } = await renew(portal.store, portal.signer, { machine, now });
-      return Response.json({ token });
+      const { key } = await renew(portal.store, portal.signer, { machine, now });
+      return Response.json({ key });
     }),
   );

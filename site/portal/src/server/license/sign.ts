@@ -13,7 +13,7 @@ import { type KMSClient, SignCommand } from "@aws-sdk/client-kms";
 import { license } from "@synnaxlabs/client";
 import { binary } from "@synnaxlabs/x";
 
-/** Signer produces a raw Ed25519 signature over a JWS signing input. */
+/** Signer produces a raw ML-DSA-44 signature over a JWS signing input. */
 export interface Signer {
   /** kid names the public key a Core verifies the signature with. */
   kid: string;
@@ -23,13 +23,13 @@ export interface Signer {
 const base64url = (data: Uint8Array | string): string =>
   Buffer.from(data).toString("base64url");
 
-/** sign encodes the claims as a compact EdDSA JWS, keyed as the Core reads them. */
+/** sign encodes the claims as a compact ML-DSA-44 JWS, keyed as the Core reads them. */
 export const sign = async (
   signer: Signer,
   claims: license.License,
 ): Promise<string> => {
   const header = base64url(
-    JSON.stringify({ alg: "EdDSA", typ: "JWT", kid: signer.kid }),
+    JSON.stringify({ alg: "ML-DSA-44", typ: "JWT", kid: signer.kid }),
   );
   const payload = base64url(binary.JSON_CODEC.encodeString(claims, license.licenseZ));
   const input = `${header}.${payload}`;
@@ -43,7 +43,7 @@ export interface KMSArgs {
   kid: string;
 }
 
-/** kms signs with an Ed25519 key that never leaves AWS KMS. */
+/** kms signs with an ML-DSA-44 key that never leaves AWS KMS. */
 export const kms = ({ client, keyID, kid }: KMSArgs): Signer => ({
   kid,
   sign: async (input) => {
@@ -52,7 +52,7 @@ export const kms = ({ client, keyID, kid }: KMSArgs): Signer => ({
         KeyId: keyID,
         Message: input,
         MessageType: "RAW",
-        SigningAlgorithm: "ED25519_SHA_512",
+        SigningAlgorithm: "ML_DSA_SHAKE_256",
       }),
     );
     if (out.Signature == null) throw new Error("KMS returned no signature");
@@ -60,7 +60,7 @@ export const kms = ({ client, keyID, kid }: KMSArgs): Signer => ({
   },
 });
 
-/** local signs with an in-process Ed25519 private key. For tests only. */
+/** local signs with an in-process ML-DSA-44 private key. For tests only. */
 export const local = (privateKey: KeyObject, kid: string): Signer => ({
   kid,
   sign: async (input) => new Uint8Array(nodeSign(null, input, privateKey)),

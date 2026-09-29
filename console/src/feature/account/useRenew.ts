@@ -42,7 +42,7 @@ const DEFAULT_DEPS: RenewDeps = { renew, interval: CHECK_INTERVAL };
  * hub has unlinked forgets its account.
  */
 export const useRenew = ({
-  renew: renewToken = DEFAULT_DEPS.renew,
+  renew: renewKey = DEFAULT_DEPS.renew,
   interval = DEFAULT_DEPS.interval,
 }: Partial<RenewDeps> = {}): void => {
   const client = Synnax.use();
@@ -57,7 +57,7 @@ export const useRenew = ({
       handleError(async () => {
         const { license } = await client.license.retrieve();
         if (controller.signal.aborted || covered(license, TimeStamp.now())) return;
-        const result = await renewToken(secret);
+        const result = await renewKey(secret);
         if (controller.signal.aborted) return;
         if (result.variant === "unlinked") {
           dispatch(Session.Account.clear());
@@ -70,7 +70,7 @@ export const useRenew = ({
           );
           return;
         }
-        await client.license.activate(result.token);
+        await client.license.activate(result.key);
       }, "Failed to renew the license");
     check();
     const timer = setInterval(check, interval.milliseconds);
@@ -78,5 +78,5 @@ export const useRenew = ({
       controller.abort();
       clearInterval(timer);
     };
-  }, [client, secret, renewToken, interval, dispatch, addStatus, handleError]);
+  }, [client, secret, renewKey, interval, dispatch, addStatus, handleError]);
 };

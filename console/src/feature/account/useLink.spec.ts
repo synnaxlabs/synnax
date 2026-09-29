@@ -21,7 +21,7 @@ import { renderHookWithConsole, type TestStore } from "@/testutil";
 
 const LINKED: Account.Linked = {
   state: "minted",
-  token: "a.b.c",
+  key: "a.b.c",
   secret: "shh",
   activation: "act",
   email: "someone@example.com",
@@ -81,7 +81,7 @@ const failed = (h: Harness): boolean =>
 describe("Account.useLink", () => {
   afterEach(() => vi.restoreAllMocks());
 
-  it("should apply the token and store the link the app asked for", async () => {
+  it("should apply the license key and store the link the app asked for", async () => {
     const h = await setup();
     h.store.dispatch(Session.Account.beginLogin("minted"));
     act(() => h.openURL([linkOf(LINKED)]));
@@ -113,9 +113,9 @@ describe("Account.useLink", () => {
     expect(h.activate).not.toHaveBeenCalled();
   });
 
-  it("should keep the machine unlinked when the Core rejects the token", async () => {
+  it("should keep the machine unlinked when the Core rejects the license key", async () => {
     const h = await setup();
-    vi.mocked(h.activate).mockRejectedValue(new Error("bad token"));
+    vi.mocked(h.activate).mockRejectedValue(new Error("bad license key"));
     h.store.dispatch(Session.Account.beginLogin("minted"));
     act(() => h.openURL([linkOf(LINKED)]));
     await waitFor(() => expect(failed(h)).toBe(true));

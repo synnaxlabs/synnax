@@ -14,17 +14,17 @@ export const STATE = /^[A-Za-z0-9_-]{16,128}$/;
 export const SCHEME = "synnax-desktop";
 
 export interface Linked {
-  token: string;
+  key: string;
   secret: string;
   activation: string;
   email: string;
 }
 
-/** activateURL builds the link that hands a linked machine its token. */
+/** activateURL builds the link that hands a linked machine its license key. */
 export const activateURL = (state: string, linked: Linked): string => {
   const params = new URLSearchParams({
     state,
-    token: linked.token,
+    key: linked.key,
     secret: linked.secret,
     activation: linked.activation,
     email: linked.email,

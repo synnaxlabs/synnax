@@ -60,7 +60,7 @@ type CoreConfig struct {
 	noDriver             *bool
 	alamos.Instrumentation
 	dataPath             string
-	licenseToken         string
+	licenseKey           string
 	rootCredentials      auth.Credentials
 	listeners            listener.Configs
 	peers                []address.Address
@@ -125,7 +125,7 @@ func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 		insecure:        override.Nil(c.insecure, other.insecure),
 		debug:           override.Nil(c.debug, other.debug),
 		autoCert:        override.Nil(c.autoCert, other.autoCert),
-		licenseToken:    override.String(c.licenseToken, other.licenseToken),
+		licenseKey:      override.String(c.licenseKey, other.licenseKey),
 		memBacked:       override.Nil(c.memBacked, other.memBacked),
 		listeners:       override.Slice(c.listeners, other.listeners),
 		peers:           override.Slice(c.peers, other.peers),
@@ -164,9 +164,6 @@ func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 		),
 	}
 }
-
-const unlicensedTemplate = "no active license on this Core. Host fingerprint: %s. " +
-	"Open the Console at %s to activate."
 
 // BootupCore contains the most important Core startup logic. It does and should not
 // read any variables from viper, and instead should be called with  fully configured
@@ -255,13 +252,15 @@ func BootupCore(
 	}
 
 	serviceLayer, err := service.OpenLayer(ctx, service.LayerConfig{
-		Instrumentation:      cfg.Child("service"),
-		Distribution:         distributionLayer,
-		Security:             securityProvider,
-		Storage:              storageLayer,
-		RootCredentials:      cfg.rootCredentials,
-		LicenseToken:         cfg.licenseToken,
-		Version:              version.Get(),
+		Instrumentation: cfg.Child("service"),
+		Distribution:    distributionLayer,
+		Security:        securityProvider,
+		Storage:         storageLayer,
+		RootCredentials: cfg.rootCredentials,
+		License: license.ServiceConfig{
+			Key:     cfg.licenseKey,
+			Version: version.Get(),
+		},
 		ValidateChannelNames: cfg.validateChannelNames,
 	})
 	if !ok(err, serviceLayer) {
@@ -363,8 +362,7 @@ func BootupCore(
 			Enabled:  new(!*cfg.noDriver),
 			Insecure: cfg.insecure,
 			// An unlicensed Core refuses the Driver's rack, so the Driver retries in
-			// the
-			// background.
+			// the background.
 			Detached: new(!covered),
 			Integrations: parseIntegrations(
 				cfg.enabledIntegrations,
@@ -399,7 +397,8 @@ func BootupCore(
 			scheme = "http"
 		}
 		cfg.L.Warn(fmt.Sprintf(
-			unlicensedTemplate,
+			"no active license on this Core. Host fingerprint: %s. Open the "+
+				"Console at %s to activate.",
 			strings.Join(licenseInfo.Fingerprint, ", "),
 			scheme+"://"+string(cfg.listeners.AdvertiseAddress()),
 		))

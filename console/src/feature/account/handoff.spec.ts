@@ -14,7 +14,7 @@ import { License } from "@/platform/license";
 
 const LINKED: Account.Linked = {
   state: "s",
-  token: "a.b.c",
+  key: "a.b.c",
   secret: "shh",
   activation: "act",
   email: "someone@example.com",
@@ -85,9 +85,9 @@ describe("account handoff", () => {
     };
 
     it("should post the secret as a bearer token and return the new token", async () => {
-      answer(200, { token: "x.y.z" });
+      answer(200, { key: "x.y.z" });
       const result = await Account.renew("shh");
-      expect(result).toEqual({ variant: "renewed", token: "x.y.z" });
+      expect(result).toEqual({ variant: "renewed", key: "x.y.z" });
       const fetchMock = vi.mocked(fetch);
       expect(fetchMock).toHaveBeenCalledWith(
         License.RENEW_URL,

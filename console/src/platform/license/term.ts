@@ -10,11 +10,10 @@
 import { type license } from "@synnaxlabs/client";
 import { TimeStamp } from "@synnaxlabs/x";
 
-const EDITIONS: Record<string, string> = { d: "Desktop", e: "Enterprise" };
+const EDITIONS: Record<license.Edition, string> = { d: "Desktop", e: "Enterprise" };
 
-/** The display name of a license edition code. */
-export const editionLabel = ({ edition }: license.License): string =>
-  EDITIONS[edition] ?? edition;
+/** The display name of a license's edition. */
+export const editionLabel = ({ edition }: license.License): string => EDITIONS[edition];
 
 /** The license's term on one line: when it ends, or the versions it covers. */
 export const describeTerm = ({ exp, maxVersion }: license.License): string => {

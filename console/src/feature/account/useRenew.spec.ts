@@ -74,7 +74,7 @@ interface SetupOptions {
 
 const setup = async ({
   license: lic,
-  result = { variant: "renewed", token: "x.y.z" },
+  result = { variant: "renewed", key: "x.y.z" },
   account = LINKED,
 }: SetupOptions = {}): Promise<Harness> => {
   const client = createTestClient();
@@ -94,7 +94,7 @@ const setup = async ({
 describe("Account.useRenew", () => {
   afterEach(() => vi.restoreAllMocks());
 
-  it("should renew and apply the token once the license nears its expiry", async () => {
+  it("should renew and apply the license key once the license nears its expiry", async () => {
     const h = await setup({ license: expiringIn(TimeSpan.days(3)) });
     await waitFor(() => expect(h.activate).toHaveBeenCalledWith("x.y.z"));
     expect(h.renew).toHaveBeenCalledWith("shh");

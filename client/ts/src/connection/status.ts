@@ -180,7 +180,7 @@ export interface Info {
   nodeVersion: string;
   /** Skew measured across the check's round trip. */
   clockSkew: TimeSpan;
-  /** Whether a license applies to the Core. */
+  /** The Core's license state. */
   license: license.State;
 }
 
@@ -383,7 +383,11 @@ const reduceCheckFailure = (
       reason: "unreachable",
       error,
     });
-  if (prev.variant === "success")
+  // an unlicensed Core that stops answering is unreachable, not still unlicensed
+  if (
+    prev.variant === "success" ||
+    (prev.variant === "error" && prev.details.reason === "unlicensed")
+  )
     return enter(prev, "loading", RECONNECTING, { error });
   return update(prev, { error });
 };

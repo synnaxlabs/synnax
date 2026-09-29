@@ -48,7 +48,7 @@ export const loginURL = ({
 /** What the hub hands back once the machine is linked. */
 export interface Linked {
   state: string;
-  token: string;
+  key: string;
   secret: string;
   activation: string;
   email: string;
@@ -75,7 +75,7 @@ export const parseLink = (url: string): Linked => {
   };
   return {
     state: read("state"),
-    token: read("token"),
+    key: read("key"),
     secret: read("secret"),
     activation: read("activation"),
     email: read("email"),
@@ -83,10 +83,10 @@ export const parseLink = (url: string): Linked => {
 };
 
 export type RenewResult =
-  { variant: "renewed"; token: string } | { variant: "unlinked"; message: string };
+  { variant: "renewed"; key: string } | { variant: "unlinked"; message: string };
 
 const errorZ = z.object({ error: z.string() });
-const renewedZ = z.object({ token: z.string() });
+const renewedZ = z.object({ key: z.string() });
 
 const readMessage = async (res: Response): Promise<string> => {
   try {
@@ -99,7 +99,7 @@ const readMessage = async (res: Response): Promise<string> => {
 };
 
 /**
- * Asks the hub for a fresh token for the machine the secret belongs to. Unlinked
+ * Asks the hub for a fresh license key for the machine the secret belongs to. Unlinked
  * means the hub no longer knows the machine, so the secret is spent.
  * @throws {Error} if the hub cannot be reached or refuses for another reason.
  */
@@ -112,6 +112,6 @@ export const renew = async (secret: string): Promise<RenewResult> => {
     return { variant: "unlinked", message: await readMessage(res) };
   if (!res.ok)
     throw new Error(`Could not renew the license: ${await readMessage(res)}`);
-  const { token } = renewedZ.parse(await res.json());
-  return { variant: "renewed", token };
+  const { key } = renewedZ.parse(await res.json());
+  return { variant: "renewed", key };
 };

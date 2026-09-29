@@ -18,6 +18,10 @@ export const fingerprintZ = z
   .default(() => []);
 export type Fingerprint = z.infer<typeof fingerprintZ>;
 
+export const EDITIONS = ["d", "e"] as const;
+export const editionZ = z.enum(EDITIONS);
+export type Edition = z.infer<typeof editionZ>;
+
 export const STATES = ["ok", "missing", "expired"] as const;
 export const stateZ = z.enum(STATES);
 export type State = z.infer<typeof stateZ>;
@@ -38,7 +42,7 @@ export const licenseZ = z.object({
   /** organization is the organization the license belongs to. */
   organization: z.uuid(),
   /** edition is the edition the license applies to. */
-  edition: z.string(),
+  edition: editionZ,
   /**
    * fingerprints is the set of machine fingerprints the license is bound to. Empty when
    * the license runs on any machine.
@@ -60,7 +64,7 @@ export const licenseZ = z.object({
   maxVersion: z.string().optional(),
   /**
    * required is the claims a Core must understand to accept the license. A Core that
-   * does not know one of them refuses the token.
+   * does not know one of them refuses the license key.
    */
   required: z
     .string()
@@ -73,7 +77,7 @@ export interface License extends z.infer<typeof licenseZ> {}
 export const infoZ = z.object({
   /** state is whether a license covers the Core. */
   state: stateZ,
-  /** warning is set while the state is ok but a change is near or past. */
+  /** warning explains a near or past expiry, or why the license is expired. */
   warning: z.string(),
   /** fingerprint identifies the machine the Core runs on. */
   fingerprint: fingerprintZ.default([]),

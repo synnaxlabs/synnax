@@ -22,10 +22,10 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var object = ontology.ID{Type: ontology.ResourceTypeBuiltin}
+var object = ontology.ID{Type: ontology.ResourceTypeBuiltin, Key: "license"}
 
 var _ = Describe("Service", Ordered, func() {
-	It("Should refuse retrieval without a retrieve license", func(ctx SpecContext) {
+	It("Should refuse retrieval without a retrieve permission", func(ctx SpecContext) {
 		Expect(apiSvc.Retrieve(
 			AuthedCtx(ctx, freshUser(ctx)),
 			apilicense.RetrieveRequest{},
@@ -50,39 +50,43 @@ var _ = Describe("Service", Ordered, func() {
 
 	It("Should gate requests while the license is missing", func(ctx SpecContext) {
 		called := false
-		// Exec hands the context back beside the error, so .Error() cannot apply.
-		_, err := apilicense.Middleware(licenseSvc).Exec(
-			freighter.Context{Context: ctx},
+		in := freighter.Context{Context: ctx}
+		out, err := apilicense.Middleware(licenseSvc).Exec(
+			in,
 			func(fctx freighter.Context) (freighter.Context, error) {
 				called = true
 				return fctx, nil
 			},
 		)
 		Expect(err).To(MatchError(license.ErrMissing))
+		Expect(out).To(Equal(in))
 		Expect(called).To(BeFalse())
 	})
 
-	It("Should refuse a token without an update license", func(ctx SpecContext) {
-		reader := freshUser(ctx)
-		grantOn(
-			ctx,
-			reader.OntologyID(),
-			[]access.Action{access.ActionRetrieve},
-			object,
-		)
-		Expect(apiSvc.Activate(
-			AuthedCtx(ctx, reader),
-			apilicense.ActivateRequest{Token: keys.Sign(svcmock.NewLicense())},
-		)).Error().To(MatchError(access.ErrDenied))
-	})
+	It(
+		"Should refuse a license key without an update permission",
+		func(ctx SpecContext) {
+			reader := freshUser(ctx)
+			grantOn(
+				ctx,
+				reader.OntologyID(),
+				[]access.Action{access.ActionRetrieve},
+				object,
+			)
+			Expect(apiSvc.Activate(
+				AuthedCtx(ctx, reader),
+				apilicense.ActivateRequest{Key: signer.Sign(svcmock.NewLicense())},
+			)).Error().To(MatchError(access.ErrDenied))
+		},
+	)
 
-	It("Should activate a token for an owner", func(ctx SpecContext) {
+	It("Should activate a license key for an owner", func(ctx SpecContext) {
 		owner := freshUser(ctx)
 		grantOn(ctx, owner.OntologyID(), []access.Action{access.ActionUpdate}, object)
 		lic := svcmock.NewLicense()
 		info := MustSucceed(apiSvc.Activate(
 			AuthedCtx(ctx, owner),
-			apilicense.ActivateRequest{Token: keys.Sign(lic)},
+			apilicense.ActivateRequest{Key: signer.Sign(lic)},
 		))
 		Expect(info.State).To(Equal(license.StateOk))
 		Expect(info.License).ToNot(BeNil())

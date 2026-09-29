@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 // Creates the Synnax Labs organization the internal licenses belong to. Its key is
-// fixed because tokens already issued carry it. Run once per database:
+// fixed because license keys already issued carry it. Run once per database:
 //
 //   DATABASE_URL=... STAFF_ORG_ID=org_... pnpm --filter @synnaxlabs/portal create-internal-organization
 

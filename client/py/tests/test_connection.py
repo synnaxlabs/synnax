@@ -161,6 +161,21 @@ class TestChecker:
         assert checker.state.license == "missing"
         checker.stop()
 
+    def test_on_change_fires_on_license_transition(self) -> None:
+        """Should fire onChange when only the license state changes."""
+        mock = MockUnaryClient[None, CheckResponse](
+            responses=[_make_response(license="missing"), _make_response()]
+        )
+        checker = Checker(mock, poll_freq=TimeSpan.SECOND * 30)
+        assert checker.state.status == "connected"
+        changes: list[State] = []
+        checker.on_change(lambda s: changes.append(s))
+        checker.check()
+        assert len(changes) == 1
+        assert changes[0].status == "connected"
+        assert changes[0].license == "ok"
+        checker.stop()
+
     def test_version_incompatible(self) -> None:
         """Should report incompatible versions when major.minor differs."""
         mock = MockUnaryClient[None, CheckResponse](

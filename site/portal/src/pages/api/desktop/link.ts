@@ -20,7 +20,7 @@ import { check } from "@/server/ratelimit";
 
 /**
  * POST links the logged-in user's machine: issues a desktop license bound to the
- * posted `fingerprint`, named by `name`, and answers `{ token, secret, activation,
+ * posted `fingerprint`, named by `name`, and answers `{ key, secret, activation,
  * email }`.
  */
 export const POST: APIRoute = async (context) =>
@@ -53,7 +53,7 @@ export const POST: APIRoute = async (context) =>
       now,
     });
     return Response.json({
-      token: linked.token,
+      key: linked.key,
       secret: linked.secret,
       activation: linked.activation.key,
       email: session.email,

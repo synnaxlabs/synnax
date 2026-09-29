@@ -1,6 +1,6 @@
 {
-  "id": "86d892c6-c041-4fdb-84f4-f7062b5d2613",
-  "prevId": "2dd3a0bf-e797-4770-b905-303141cce7f3",
+  "id": "5e9518df-73b9-463b-84b8-9ce5c541d3c8",
+  "prevId": "86d892c6-c041-4fdb-84f4-f7062b5d2613",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -29,6 +29,12 @@
         },
         "name": {
           "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "renewal_secret_hash": {
+          "name": "renewal_secret_hash",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -66,28 +72,36 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {
         "activation_license_license_key_fk": {
           "name": "activation_license_license_key_fk",
           "tableFrom": "activation",
+          "tableTo": "license",
           "columnsFrom": [
             "license"
           ],
-          "tableTo": "license",
           "columnsTo": [
             "key"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "activation_renewal_secret_hash_unique": {
+          "name": "activation_renewal_secret_hash_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "renewal_secret_hash"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -159,9 +173,9 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         },
         "event_actor_at_idx": {
           "name": "event_actor_at_idx",
@@ -180,9 +194,9 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         },
         "event_organization_at_idx": {
           "name": "event_organization_at_idx",
@@ -201,50 +215,50 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {
         "event_organization_organization_key_fk": {
           "name": "event_organization_organization_key_fk",
           "tableFrom": "event",
+          "tableTo": "organization",
           "columnsFrom": [
             "organization"
           ],
-          "tableTo": "organization",
           "columnsTo": [
             "key"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "event_license_license_key_fk": {
           "name": "event_license_license_key_fk",
           "tableFrom": "event",
+          "tableTo": "license",
           "columnsFrom": [
             "license"
           ],
-          "tableTo": "license",
           "columnsTo": [
             "key"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "event_activation_activation_key_fk": {
           "name": "event_activation_activation_key_fk",
           "tableFrom": "event",
+          "tableTo": "activation",
           "columnsFrom": [
             "activation"
           ],
-          "tableTo": "activation",
           "columnsTo": [
             "key"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -346,24 +360,24 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {
         "license_organization_organization_key_fk": {
           "name": "license_organization_organization_key_fk",
           "tableFrom": "license",
+          "tableTo": "organization",
           "columnsFrom": [
             "organization"
           ],
-          "tableTo": "organization",
           "columnsTo": [
             "key"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -421,17 +435,17 @@
       "uniqueConstraints": {
         "organization_clerk_org_id_unique": {
           "name": "organization_clerk_org_id_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "clerk_org_id"
-          ],
-          "nullsNotDistinct": false
+          ]
         },
         "organization_owner_user_id_unique": {
           "name": "organization_owner_user_id_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "owner_user_id"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       },
       "policies": {},
@@ -441,10 +455,10 @@
   },
   "enums": {},
   "schemas": {},
-  "views": {},
   "sequences": {},
   "roles": {},
   "policies": {},
+  "views": {},
   "_meta": {
     "columns": {},
     "schemas": {},

@@ -13,7 +13,7 @@
  */
 const PORTAL_URL = import.meta.env.VITE_PORTAL_URL ?? "https://portal.synnaxlabs.com";
 
-/** The page that issues a token for a host fingerprint. */
+/** The page that issues a license key for a host fingerprint. */
 export const ACTIVATE_URL = `${PORTAL_URL}/licenses/activate`;
 
 /** The portal overview of the logged-in account. */

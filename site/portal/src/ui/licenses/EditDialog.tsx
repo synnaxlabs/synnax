@@ -58,8 +58,8 @@ const Content = ({ license }: EditDialogProps): ReactElement => {
       <Modal.Body gap="medium">
         <TermsFields />
         <Text.Text level="small" color={9}>
-          Machines already holding a seat keep their current token. Download a new one
-          for each to give it the changed terms.
+          Machines already holding a seat keep their current license key. Download a new
+          one for each to give it the changed terms.
         </Text.Text>
       </Modal.Body>
       <Modal.Footer error={action.error}>

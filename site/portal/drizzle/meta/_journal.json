@@ -19,8 +19,15 @@
     {
       "idx": 2,
       "version": "7",
-      "when": 1790622031623,
-      "tag": "0002_desktop",
+      "when": 1790712236476,
+      "tag": "0002_download_event",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790712594240,
+      "tag": "0003_desktop",
       "breakpoints": true
     }
   ]

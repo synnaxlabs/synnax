@@ -185,7 +185,7 @@ def start_core(
 
     Pass a binary path for release binaries, or ``dev=True`` to run from
     source via ``go run``. A Core built from this checkout (``dev`` or
-    ``current``) takes the license token; a release binary takes the legacy key.
+    ``current``) takes the signed license key; a release binary takes the legacy key.
     """
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     log_file = DATA_DIR / "synnax-core.log"

@@ -40,6 +40,7 @@ cc_test(
         "control_test.cpp",
     ],
     deps = [
+        "//client/cpp/errors",
         "//driver/pipeline",
         "//driver/pipeline/mock",
         "//x/cpp/test",

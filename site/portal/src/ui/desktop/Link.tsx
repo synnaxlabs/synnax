@@ -21,8 +21,8 @@ import { Panel } from "@/ui/Panel";
 import { Tile } from "@/ui/Tile";
 import { useAction } from "@/ui/useAction";
 
-/** TOKEN_FILE is what the token downloads as when the browser cannot open the app. */
-const TOKEN_FILE = "synnax-desktop.license";
+/** KEY_FILE is the license key's file name when the browser cannot open the app. */
+const KEY_FILE = "synnax-desktop.license";
 
 export interface LinkProps {
   state: string;
@@ -36,7 +36,7 @@ export interface LinkProps {
 
 /**
  * Link is the page the Desktop app opens in the browser: confirm the machine, issue
- * its license, and hand the token back through the app's URL scheme.
+ * its license, and hand the license key back through the app's URL scheme.
  */
 export const Link = ({
   state,
@@ -96,7 +96,7 @@ export const Link = ({
               variant="text"
               size="small"
               textColor={9}
-              onClick={() => save(new Blob([linked.token]), TOKEN_FILE)}
+              onClick={() => save(new Blob([linked.key]), KEY_FILE)}
             >
               <Icon.Download />
               Download a license file
