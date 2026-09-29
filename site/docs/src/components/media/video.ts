@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 const TOUCH = "(hover: none) and (pointer: coarse)";
-const DARK = "(prefers-color-scheme: dark)";
+/** Matches a reader who prefers the dark color scheme. */
+export const DARK = "(prefers-color-scheme: dark)";
+const VIDEO = ".docs-video > video";
 const PLAYING_CLASS = "docs-video--playing";
 // Most of a video must be in view before it plays.
 const VISIBLE = 0.85;
@@ -29,13 +31,12 @@ export const start = (): void => {
         for (const { target, isIntersecting } of entries) {
           if (!(target instanceof HTMLVideoElement)) continue;
           if (!isIntersecting) target.pause();
-          else if (!touch()) void target.play();
+          else if (!touch()) target.play().catch(console.error);
         }
       },
       { threshold: VISIBLE },
     );
-    for (const video of document.querySelectorAll(".docs-video > video"))
-      observer.observe(video);
+    for (const video of document.querySelectorAll(VIDEO)) observer.observe(video);
   };
 
   const onPlayback = (e: Event): void => {
@@ -50,15 +51,13 @@ export const start = (): void => {
     if (!touch() || !(e.target instanceof Element)) return;
     const video = e.target.closest(".docs-video")?.querySelector("video");
     if (video == null) return;
-    if (video.paused) void video.play();
+    if (video.paused) video.play().catch(console.error);
     else video.pause();
   });
 
   // A video picks its source once, so a themed video reloads when the scheme changes.
   window.matchMedia(DARK).addEventListener("change", () => {
-    for (const video of document.querySelectorAll<HTMLVideoElement>(
-      ".docs-video > video",
-    ))
+    for (const video of document.querySelectorAll<HTMLVideoElement>(VIDEO))
       if (video.querySelector("source[media]") != null) video.load();
   });
 

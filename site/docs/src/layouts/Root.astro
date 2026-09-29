@@ -108,13 +108,13 @@ const fullTitle = pageTitle ? `${pageTitle} | Synnax` : "Synnax";
         <Footer />
     </body>
     <script>
-        import { QUERY as CLIENT } from "@/components/client/choice";
+        import { QUERY as CLIENT_QUERY } from "@/components/client/choice";
         import { addCodeButtonListeners } from "@/components/code/codeUtil";
         import { start as startVideos } from "@/components/media/video";
         import { start as startMobileMenu } from "@/components/nav/mobile";
         import { start as startOnThisPage } from "@/components/nav/onThisPage";
         import { start as startSidebar } from "@/components/nav/sidebar";
-        import { QUERY as PLATFORM } from "@/components/platform/choice";
+        import { QUERY as PLATFORM_QUERY } from "@/components/platform/choice";
         import { start as startTabs } from "@/components/tabs/sync";
         import { startPinningHashTarget } from "@/util/hash";
         import { startUpdatingIframeHref } from "@/util/iframe";
@@ -125,7 +125,7 @@ const fullTitle = pageTitle ? `${pageTitle} | Synnax` : "Synnax";
         startVideos();
         // Before the tabs, so the outline hears the first tab change.
         startOnThisPage();
-        startTabs({ client: CLIENT, platform: PLATFORM, context: {} });
+        startTabs({ client: CLIENT_QUERY, platform: PLATFORM_QUERY, context: {} });
         onDemand({
             selector: '[data-island="search"]',
             load: () => import("@/components/search/mount"),

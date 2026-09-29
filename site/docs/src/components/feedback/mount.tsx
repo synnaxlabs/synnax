@@ -9,16 +9,16 @@
 
 import { createRoot } from "react-dom/client";
 
-import { FeedbackButton } from "@/components/feedback/Feedback";
+import { Button } from "@/components/feedback/Feedback";
 import { Form } from "@/components/feedback/Form";
 import { type Mount } from "@/util/island";
 
 export const mount: Mount = (el) => {
   const root = createRoot(el);
   root.render(
-    <FeedbackButton initialVisible>
+    <Button initialVisible>
       <Form />
-    </FeedbackButton>,
+    </Button>,
   );
   return () => root.unmount();
 };

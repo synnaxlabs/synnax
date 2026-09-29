@@ -68,7 +68,8 @@ const follow = (menu: HTMLElement, signal: AbortSignal): void => {
   menu.addEventListener(
     "click",
     (e) => {
-      const item = (e.target as Element).closest<HTMLElement>("[data-item-key]");
+      if (!(e.target instanceof Element)) return;
+      const item = e.target.closest<HTMLElement>("[data-item-key]");
       if (item != null) activate(item.dataset.itemKey ?? null);
     },
     { signal },

@@ -50,7 +50,7 @@ const ICONS: Record<string, Icon.ReactElement> = {
   client: <Icon.Terminal />,
 };
 
-export const SearchListItem = (props: List.ItemRenderProps<string>) => {
+const Item = (props: List.ItemRenderProps<string>) => {
   const { itemKey } = props;
   const item = List.useItem<string, SearchResult>(itemKey);
   if (item == null) return null;
@@ -102,7 +102,7 @@ export const SearchListItem = (props: List.ItemRenderProps<string>) => {
   );
 };
 
-const searchListItem = Component.renderProp(SearchListItem);
+const item = Component.renderProp(Item);
 
 const hitSchema = z.object({
   objectID: z.string(),
@@ -247,7 +247,7 @@ export const Results = (): ReactElement => {
             </Text.Text>
           }
         >
-          {searchListItem}
+          {item}
         </List.Items>
       </List.Scroll>
     </Select.Frame>

@@ -50,7 +50,7 @@ export const onDemand = ({ selector, load, hotkey }: OnDemandProps): void => {
 
   document.addEventListener("pointerover", (e) => {
     if (e.target instanceof Element && e.target.closest(selector) != null)
-      void importIsland(load);
+      importIsland(load).catch(console.error);
   });
 
   document.addEventListener("click", (e) => {
@@ -58,7 +58,7 @@ export const onDemand = ({ selector, load, hotkey }: OnDemandProps): void => {
     const el = e.target.closest<HTMLElement>(selector);
     if (el == null || mounted.has(el)) return;
     e.preventDefault();
-    void open(el);
+    open(el).catch(console.error);
   });
 
   if (hotkey != null)
@@ -66,7 +66,7 @@ export const onDemand = ({ selector, load, hotkey }: OnDemandProps): void => {
       const el = document.querySelector<HTMLElement>(selector);
       if (el == null || mounted.has(el) || !hotkey(e)) return;
       e.preventDefault();
-      void open(el);
+      open(el).catch(console.error);
     });
 
   // A swap drops the islands outside persisted elements.

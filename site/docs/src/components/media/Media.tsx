@@ -16,8 +16,7 @@ import {
 } from "react";
 
 import { mediaURL } from "@/components/media/url";
-
-const DARK = "(prefers-color-scheme: dark)";
+import { DARK } from "@/components/media/video";
 
 interface MediaProps {
   id: string;

@@ -121,15 +121,11 @@ describe("onDemand", () => {
 
   it("should let the next click retry after a failed download", async () => {
     failure = new Error("offline");
-    const rejections: unknown[] = [];
-    const onRejection = (e: unknown): void => {
-      rejections.push(e);
-    };
-    process.on("unhandledRejection", onRejection);
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
     trigger().click();
     await flush();
-    process.off("unhandledRejection", onRejection);
-    expect(rejections).toEqual([failure]);
+    expect(logged).toHaveBeenCalledExactlyOnceWith(failure);
+    logged.mockRestore();
     failure = null;
     trigger().click();
     await flush();
