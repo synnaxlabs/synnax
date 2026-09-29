@@ -51,6 +51,8 @@ interface FakeArgs {
   members?: { role: string; publicUserData?: { identifier: string } | null }[];
   organizations?: { id: string; name: string }[];
   listed?: { id: string; fullName: string | null; primaryEmailAddress: unknown }[];
+  /** unavailable are organization ids Clerk fails to read with a 500. */
+  unavailable?: string[];
 }
 
 const createClient = ({
@@ -59,6 +61,7 @@ const createClient = ({
   members = [],
   organizations = [],
   listed = [],
+  unavailable = [],
 }: FakeArgs = {}) => {
   const calls: Record<string, unknown[]> = {};
   const record = (name: string, args: unknown): void => {
@@ -94,9 +97,10 @@ const createClient = ({
         return page(organizations, args);
       },
       getOrganization: async ({ organizationId }: { organizationId: string }) => {
+        if (unavailable.includes(organizationId))
+          throw Object.assign(new Error("Down"), { status: 500 });
         const found = organizations.find((o) => o.id === organizationId);
         if (found == null) throw Object.assign(new Error("Not Found"), { status: 404 });
-        if (found.name === "") throw Object.assign(new Error("Down"), { status: 500 });
         return found;
       },
     },
@@ -300,9 +304,7 @@ describe("directory", () => {
       });
 
       it("should throw any other Clerk failure", async () => {
-        const { directory } = createClient({
-          organizations: [{ id: "org_down", name: "" }],
-        });
+        const { directory } = createClient({ unavailable: ["org_down"] });
         await expect(directory.team("org_down")).rejects.toThrow("Down");
       });
     });

@@ -16,9 +16,10 @@ import {
   type License,
   license,
   type Organization,
+  organization,
 } from "@/server/db/schema";
 import { forbidden, notFound } from "@/server/errors";
-import { isMember, retrieve } from "@/server/organization";
+import { isMember } from "@/server/organization";
 import { type Session } from "@/server/session";
 
 export interface LicenseView {
@@ -32,17 +33,19 @@ const view = async (
   session: Session,
   key: string,
 ): Promise<LicenseView | undefined> => {
-  const [lic] = await store.query.select().from(license).where(eq(license.key, key));
-  if (lic == null) return undefined;
-  const organization = await retrieve(store, lic.organization);
-  if (organization == null) return undefined;
-  if (!session.staff && !isMember(organization, session)) return undefined;
+  const [found] = await store.query
+    .select({ license, organization })
+    .from(license)
+    .innerJoin(organization, eq(license.organization, organization.key))
+    .where(eq(license.key, key));
+  if (found == null) return undefined;
+  if (!session.staff && !isMember(found.organization, session)) return undefined;
   const activations = await store.query
     .select()
     .from(activation)
     .where(eq(activation.license, key))
     .orderBy(desc(activation.lastSeen));
-  return { license: lic, organization, activations };
+  return { ...found, activations };
 };
 
 /**

@@ -119,7 +119,7 @@ export const clerk = (client: Client): Directory => ({
     const org = await client.organizations
       .getOrganization({ organizationId: clerkOrgID })
       .catch((e: unknown) => {
-        if ((e as { status?: unknown }).status === 404) return null;
+        if (e instanceof Error && "status" in e && e.status === 404) return null;
         throw errors.fromUnknown(e);
       });
     return org == null ? null : { clerkOrgID: org.id, name: org.name };
