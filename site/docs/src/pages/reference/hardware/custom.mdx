@@ -1,6 +1,7 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Build a device driver"
+title: "Custom devices"
+heading: "Build a device driver"
 description: "Creating custom hardware integrations with device drivers."
 clients: ["python", "typescript"]
 ---
@@ -24,22 +25,26 @@ Arduino as an example, but the patterns apply to any serial-based device.
 
 ## Prerequisites
 
-Before starting, ensure you have:
+Before you start, make sure that you have:
 
-- **Synnax Core** running ([installation guide](/reference/enterprise))
-- **Synnax Console** installed ([get started](/reference/enterprise/console))
-- **Arduino IDE** ([download](https://www.arduino.cc/en/software)) - any Arduino board
-  works (this guide uses an Arduino Mega 2560)
+- A [Synnax Core](/reference/enterprise) that runs on your network.
+- The [Synnax Console](/reference/enterprise/console) installed on your computer.
+- The [Arduino IDE](https://www.arduino.cc/en/software). Any Arduino board works. This
+  guide uses an Arduino Mega 2560.
 
 <Client.Tabs client:load exclude={["console", "cpp"]}>
-  <Fragment slot="python">
-    - **Python 3.12+** with the Synnax client: `pip install synnax` - **pyserial**
-    package: `pip install pyserial`
-  </Fragment>
-  <Fragment slot="typescript">
-    - **Node.js 18+** with the Synnax client: `npm install @synnaxlabs/client` -
-    **serialport** package: `npm install serialport @serialport/parser-readline`
-  </Fragment>
+<Fragment slot="python">
+
+- **Python 3.12+** with the Synnax client: `pip install synnax`
+- The **pyserial** package: `pip install pyserial`
+
+</Fragment>
+<Fragment slot="typescript">
+
+- **Node.js 18+** with the Synnax client: `npm install @synnaxlabs/client`
+- The **serialport** package: `npm install serialport @serialport/parser-readline`
+
+</Fragment>
 </Client.Tabs>
 
 <Image
@@ -956,10 +961,11 @@ Add a line plot for `arduino_value` to see the analog input.
 
 ## Production drivers
 
-For production-grade hardware integrations, see the
-[C++ Driver documentation](/reference/hardware). The C++ driver offers:
+For production-grade hardware integrations, use the
+[Synnax Driver](/reference/hardware). The Driver offers:
 
-- **Built-in support** for LabJack, National Instruments, OPC UA, and Modbus devices
+- **Built-in support** for EtherCAT, HTTP, LabJack, Modbus, National Instruments, and
+  OPC UA devices
 - **Better performance** for high-frequency data acquisition
 - **Device pooling** and connection management
 - **Cross-platform support** (Windows, macOS, Linux)

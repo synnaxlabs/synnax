@@ -12,9 +12,9 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-By default, writers are configured with auto-commit enabled, meaning each write is
-immediately committed and available for read access. This is ideal for real-time data
-acquisition where data should be immediately available for monitoring and analysis.
+By default, a writer commits each write immediately. For how commits work, see
+[auto-commit](/reference/client/write-data#auto-commit) in the writing data guide. This
+guide shows when and how to turn auto-commit off.
 
 <Divider.Divider x />
 
@@ -89,8 +89,8 @@ try {
 ## Commit frequency best practices
 
 When auto-commit is disabled, call `commit` periodically to persist data. However,
-calling `commit` on every write is inefficient because it requires a round-trip to the
-cluster. This can be very slow when writing large volumes of data. Instead, commit every
+calling `commit` on every write is inefficient because it requires a round-trip to
+Synnax. This can be very slow when writing large volumes of data. Instead, commit every
 few seconds or use auto-commit (which is enabled by default).
 
 <span style={{ color: "red" }}>**Avoid this pattern**</span> - Committing on every

@@ -10,29 +10,30 @@ clients: ["python", "typescript"]
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Note } from "@synnaxlabs/lyra/note";
 import { Fragment } from "react";
+import { Table } from "@/components";
 import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-This guide covers reading channel data from Synnax. For real-time data acquisition and
-monitoring, streaming is the recommended approach. Historical reads are useful for
-analyzing data that has already been recorded.
-
-If you'd like a conceptual overview of how reads work in Synnax, check out the
-[reads concepts guide](/reference/client/read-data).
+This guide covers how to read channel data from Synnax. Stream data to get samples in
+real time. Use historical reads to analyze data that Synnax already stored.
 
 <Divider.Divider x />
 
 ## Streaming data
 
-Streaming data is useful for real-time processing, visualization, and monitoring. If
-you'd like a conceptual overview of how streaming works in Synnax, check out the
-[streams](/reference/client/read-data) page.
+Streaming is useful for real-time processing, live visualization, and control sequences.
+The interface for streaming is a **streamer**. One streamer can read from many channels
+at the same time. It returns data only when new samples arrive.
+
+The lifecycle of a streamer has four steps: open it, read frames, update its channels if
+necessary, and close it.
 
 ### Opening a streamer
 
 To start streaming data, call the <Client.Var client:load py="open_streamer"
-ts="openStreamer" /> method on the client and provide a list of channels to stream.
+ts="openStreamer" /> method on the client with a list of channels. Synnax checks that
+each channel exists before the stream starts.
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 
@@ -70,9 +71,9 @@ try {
 ### Downsampling option
 
 To stream data at a lower rate, use the <Client.Var client:load py="downsample_factor"
-ts="downsampleFactor" /> parameter. The streamer will skip the specified number of
-samples in each series before returning the next frame. Note that this does not average
-values—it skips samples.
+ts="downsampleFactor" /> parameter. A value of `n` keeps every nth sample of each
+series. The default is 1, which keeps all samples. The streamer does not average values.
+It drops samples.
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 
@@ -153,7 +154,7 @@ This call will block until a new frame is available. A frame may not contain dat
 every channel, so be ready to [handle partial frames](#handling-partial-frames).
 
 For more on working with frames, see
-[Series and Frames](/reference/client/series-and-frames).
+[series and frames](/reference/client/series-and-frames).
 
 ### Using a for loop
 
@@ -187,11 +188,13 @@ for await (const frame of streamer) {
 
 ### Handling partial frames
 
-When reading frames from a streamer, it's important to note that a frame may not contain
-data for every channel specified when opening the streamer. For example, when reading
-from two sensors, `temperature` and `pressure`, that are being sampled by different
-devices at different rates, a frame may contain data only for the first channel,
-followed by a frame containing only data for the second channel.
+A frame from a streamer does not always contain data for every channel of the streamer.
+It contains data only for the channels that got new samples since the last read. The
+series in a frame can also have different lengths, because channels can get samples in
+batches or at different rates.
+
+For example, two devices sample `temperature` and `pressure` at different rates. One
+frame can contain data only for `temperature`, and the next frame only for `pressure`.
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 
@@ -287,9 +290,10 @@ if (frame === null) {
 
 ### Updating the channel list
 
-To update the list of channels being streamed, call the <Client.Var client:load
-py="update*channels" ts="update" /> method on the streamer. This will \_replace* the
-current list of channels, not add to it.
+To change the channels that a streamer reads from, call the <Client.Var client:load
+py="update_channels" ts="update" /> method. This is useful when a user selects a new set
+of channels to plot. The call replaces the current list of channels. It does not add to
+the list.
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 
@@ -312,8 +316,8 @@ await streamer.update(["temperature", "pressure", "humidity"]);
 
 ### Closing the streamer
 
-After you're done streaming, it's essential that you call the `close` method on the
-streamer to release the network connection and other related resources.
+When you finish streaming, always call the `close` method on the streamer. This closes
+the network connection and releases local resources.
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 
@@ -372,8 +376,65 @@ try {
 
 ## Historical reads
 
-Historical reads are useful for analyzing data that has already been recorded. Use these
-patterns when working with past data rather than live streams.
+Historical reads are useful for analyzing data that Synnax already stored. Use these
+patterns for past data, not for live streams.
+
+### Range inclusivity
+
+A time range includes its start and excludes its end. For example, a read from
+`1677433720970863400` to `1677433721870863400` returns the highlighted samples:
+
+<Table.Data
+  client:only="react"
+  columns={[
+    { key: "time" },
+    { key: "thermocouple-01" },
+    { key: "strain-gauge-01" },
+    { key: "pressure-transducer-05" },
+  ]}
+  highlights={[
+    {
+      key: "one",
+      columns: ["time", "thermocouple-01", "strain-gauge-01", "pressure-transducer-05"],
+      color: "var(--pluto-primary-z)",
+      rows: { lower: 1, upper: 4 },
+    },
+  ]}
+  data={[
+    {
+      time: 1677433720770863800,
+      "thermocouple-01": 19.2,
+      "strain-gauge-01": 350.78,
+      "pressure-transducer-05": 19.22,
+    },
+    {
+      time: 1677433720970863400,
+      "thermocouple-01": 19.2,
+      "strain-gauge-01": 350.78,
+      "pressure-transducer-05": 19.22,
+    },
+    {
+      time: 1677433721270868900,
+      "thermocouple-01": 19.2,
+      "strain-gauge-01": 350.78,
+      "pressure-transducer-05": 19.22,
+    },
+    {
+      time: 1677433721470863800,
+      "thermocouple-01": 19.2,
+      "strain-gauge-01": 350.78,
+      "pressure-transducer-05": 19.22,
+    },
+    {
+      time: 1677433721870863400,
+      "thermocouple-01": 19.2,
+      "strain-gauge-01": 350.78,
+      "pressure-transducer-05": 19.22,
+    },
+  ]}
+/>
+
+For more on time ranges, see [`TimeRange`](/reference/client/time-types#timerange).
 
 ### Reading from a channel
 
@@ -463,8 +524,7 @@ const end = start.add(TimeSpan.seconds(10));
 
 const frame = await client.read({ start, end }, ["my_sensor", "sensor_index"]);
 
-const temperature = frame.get("temperature");
-const humidity = frame.get("humidity");
+const data = frame.get("my_sensor");
 ```
 
   </Fragment>
@@ -510,6 +570,12 @@ const frame = await client.readLatest(["my_tc", "my_sg", "my_pt"], 5);
 
 </Client.Tabs>
 
-The returned data follows the same conventions as regular reads - a `MultiSeries` for
-single channels or a `Frame` for multiple channels. If fewer than `n` samples are
-available, the method returns only the samples that exist.
+The returned data follows the same conventions as other reads. A read of one channel
+returns a `MultiSeries`, and a read of many channels returns a `Frame`. If fewer than
+`n` samples exist, the method returns only the samples that exist.
+
+### Reading large time ranges
+
+Each read above loads all of its data into memory. To read more data than fits in
+memory, use an [iterator](/reference/client/advanced/iterators). An iterator reads a
+time range in chunks.

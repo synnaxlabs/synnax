@@ -11,32 +11,50 @@ import { Divider } from "@synnaxlabs/lyra/divider";
 import { Note } from "@synnaxlabs/lyra/note";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
+import Diagram from "@/components/diagram/Diagram.astro";
+import { Image } from "@/components/media/Media";
+import Rule from "@/components/rule/Rule.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-This guide covers writing data to Synnax channels. For live data acquisition, using a
-Writer is the recommended approach. Historical writes are useful for backfilling data or
-ingesting data from files.
-
-If you'd like a conceptual overview of how writes work in Synnax, check out the
-[writes concepts guide](/reference/client/write-data). The
-[rules of writes](/reference/client/write-data#rules-of-writes) are especially important
-to understand.
+This guide covers how to write data to Synnax channels. Use a writer for live data
+acquisition. Use historical writes to backfill data or to import data from files. Every
+write must obey the [rules of writes](#the-rules-of-writes).
 
 <Divider.Divider x />
 
 ## Writing with writers
 
-Writers are designed for streaming data as it's acquired. This is the recommended
-approach for live data acquisition, control sequences, and real-time data processing.
-Writers maintain a file-like interface governed by transactions. To learn more about
-transactions and how writes work in Synnax, see the
-[concepts](/reference/client/write-data) page.
+A **writer** sends [frames](/reference/client/series-and-frames#frames) of data to
+Synnax for one or more channels. Use writers for live data acquisition, control
+sequences, and real-time data processing. For historical data, a writer can send large
+frames with millions of samples. For live data, a writer sends small frames with one to
+a few dozen samples per channel, many times over a long period.
+
+Many writers can be open at the same time, and each writer can have a different job. For
+example, one writer sends sensor values from a device. Another writer sends commands to
+the actuators of a device. The schematics in the Console also use writers to send
+commands when an operator clicks a valve.
+
+<Diagram>
+  <Image
+    client:only="react"
+    id="concepts/writes/writer"
+    extension="svg"
+    themed={false}
+  />
+</Diagram>
+
+Each writer controls one transaction. You open a writer, write frames to it, and commit
+the data to make it available for reads. You can commit a writer many times. Each commit
+adds to the data of the previous commit. After the last commit, you close the writer.
 
 ### Opening a writer
 
 To open a writer, use the <Client.Var client:load py="open_writer" ts="openWriter" />
-method with a starting timestamp and a list of channels to write to.
+method with a start timestamp and a list of channels. The start timestamp is the time at
+or just before the first sample. Before the writer opens, Synnax checks that each
+channel exists and that no stored data overlaps the start timestamp.
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 
@@ -79,30 +97,29 @@ try {
   </Fragment>
 </Client.Tabs>
 
-These examples write 100 samples to the `temperature` channel, each spaced roughly 100ms
-apart, and commit all writes when finished. It's typical to write and commit millions of
-samples over the course of hours or days, intermittently calling commit to persist data
-to the cluster.
+These examples write 100 samples to the `temperature` channel, approximately 100 ms
+apart, and commit the writes at the end. A writer can stay open for hours or days and
+write millions of samples.
 
 <Note.Note variant="info" className="compact">
-  For advanced writer configuration, see
-  [Auto-Commit](/reference/client/advanced/auto-commit),
-  [Auto-Index](/reference/client/advanced/auto-index), and [Write
-  Authorities](/reference/control/authority).
+  For more writer options, see [auto-commit](/reference/client/advanced/auto-commit),
+  [auto-index](/reference/client/advanced/auto-index), and [control
+  authority](/reference/control/authority).
 </Note.Note>
 
-### Persistence/streaming mode
+### Writer modes
 
-By default, writers are opened in stream + persist
-[mode](/reference/client/write-data#writer-modes). To change the mode of a writer, specify
-the `mode` argument when opening the writer. The available modes are:
+A writer has one of three modes. Set the mode with the `mode` argument when you open the
+writer.
 
-- `persist` - Only persist data to the database (no streaming to subscribers)
-- `stream` - Only stream data to subscribers (no persistence)
-- <Client.Var client:load py="persist_stream" ts="persistStream" /> - Both persist and
-  stream (default)
+- `persist` -> Synnax stores the data, but does not send it to streamers. Use this mode
+  to write historical data that does not show the current state of the hardware.
+- `stream` -> Synnax sends the data to streamers, but does not store it. Calls to
+  `commit` have no effect. Use this mode for data that you need only in real time.
+- <Client.Var client:load py="persist_stream" ts="persistStream" /> -> Synnax stores the
+data and sends it to streamers. This is the default mode.
 
-For example, to open a writer that only persists data:
+For example, to open a writer that only stores data:
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 
@@ -275,11 +292,20 @@ value or TypeScript `Uint8Array`. Variable-length channels can share a writer wi
 fixed-width channels and a common index, so a single `write` call can commit timestamps,
 numeric samples, and string or JSON annotations together.
 
+### Auto-commit
+
+A commit makes written data available for reads. By default, a writer has auto-commit
+on, so Synnax commits each write immediately. This is correct for real-time data that
+does not need to be applied as one unit. To commit a batch of writes as one unit, turn
+off [auto-commit](/reference/client/advanced/auto-commit) and call `commit` yourself.
+
 ### Closing a writer
 
-After you're done writing, it's essential to close the writer to release network
-connections and other resources. If a writer is not closed, other writers may not be
-able to write to the same channels.
+When you finish writing, always close the writer. This closes network connections and
+releases other resources. If you do not close a writer, other writers can be blocked
+from writing to the same channels. Data that you did not commit is lost. Closing a
+writer also gives control of its channels to the writer with the next highest
+[authority](/reference/control/authority), if one exists.
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 
@@ -420,9 +446,8 @@ Notice how the two arrays are aligned using the common `start` timestamp. This t
 Synnax that the first sample in the `temperatures` array is associated with the first
 timestamp in the `timestamps` array.
 
-Synnax will raise a `ValidationError` if the index channel does not contain a
-corresponding timestamp for every sample in the data channel. After all, it wouldn't
-make sense to have a temperature reading without an associated timestamp.
+Synnax raises a `ValidationError` if the index channel does not have a timestamp for
+each sample in the data channel. See [Rule 1](#rule-1).
 
 ### Writing multiple data channels
 
@@ -534,6 +559,190 @@ await client.write(start, {
 
 All data channels use the same `start` timestamp for alignment, which tells Synnax they
 share the same index. The arrays must all have the same length as the timestamps array.
+
+<Divider.Divider x />
+
+## The rules of writes
+
+Synnax rejects a write that breaks one of these rules.
+
+### Rule 1
+
+<Rule>Write to an index channel before or at the same time as its data channels.</Rule>
+
+The examples in this section use two channels. `time` is an index channel, and
+`temperature` is a data channel indexed by `time`:
+
+```json
+time = {
+  "key": 65536,
+  "data_type": "timestamp",
+  "is_index": true,
+}
+
+temperature = {
+  "key": 65537,
+  "data_type": "float32",
+  "is_index": false,
+  "index": 65536,
+}
+```
+
+#### Example 1: write the index and data channels together
+
+{/* prettier-ignore-start */}
+
+A frame that has timestamps for `time` and samples for `temperature` is
+<b style="color: var(--pluto-secondary-z);">valid</b>:
+
+{/* prettier-ignore-end */}
+
+```json
+{
+  "time": [1677433720770863800, 1677433720970863400, 1677433721270868900],
+  "temperature": [19.17, 19.18, 19.19]
+}
+```
+
+{/* prettier-ignore-start */}
+
+If a writer is open on both channels, a frame without `time` breaks Rule 1. This frame
+is <b style="color: var(--pluto-error-z);">invalid</b>:
+
+{/* prettier-ignore-end */}
+
+```json
+{
+  // The time channel is missing.
+  "temperature": [19.17, 19.18, 19.19]
+}
+```
+
+#### Example 2: write the data channel after the index channel
+
+A writer on only the `time` channel writes this frame:
+
+```json
+{
+  "time": [1677433720770863800, 1677433720970863400, 1677433721270868900]
+}
+```
+
+{/* prettier-ignore-start */}
+
+Next, a writer on only the `temperature` channel opens at `1677433720770863800` and
+writes the frame below. The frame is
+<b style="color: var(--pluto-secondary-z);">valid</b>, because the timestamps already
+exist in `time`.
+
+{/* prettier-ignore-end */}
+
+```json
+{
+  // Timestamps already exist for each of these samples.
+  "temperature": [19.17, 19.18, 19.19]
+}
+```
+
+<Note.Note variant="info">
+  Use this pattern to calculate values from one or more data channels and write the
+  results to a new data channel with the same index.
+</Note.Note>
+
+#### Example 3: write the data channel before the index channel
+
+{/* prettier-ignore-start */}
+
+If you write `temperature` before `time`, you break Rule 1. The frame is
+<b style="color: var(--pluto-error-z);">invalid</b>, because no timestamps exist for
+the samples.
+
+{/* prettier-ignore-end */}
+
+```json
+{
+  // Synnax cannot relate these samples to timestamps.
+  "temperature": [19.17, 19.18, 19.19]
+}
+```
+
+### Rule 2
+
+<Rule>
+  In one frame, an index channel and all of its data channels must have the same number
+  of samples.
+</Rule>
+
+In this example, `temperature` and `pressure` are both data channels indexed by `time`.
+
+{/* prettier-ignore-start */}
+
+A writer is open on all three channels. Each series in this frame has three samples, so
+the frame is <b style="color: var(--pluto-secondary-z);">valid</b>:
+
+{/* prettier-ignore-end */}
+
+```json
+{
+  "time": [1677433720770863800, 1677433720970863400, 1677433721270868900],
+  "temperature": [19.17, 19.18, 19.19],
+  "pressure": [16.22, 17.22, 18.22]
+}
+```
+
+{/* prettier-ignore-start */}
+
+A series with one sample less breaks Rule 2. This frame is
+<b style="color: var(--pluto-error-z);">invalid</b>:
+
+{/* prettier-ignore-end */}
+
+```json
+{
+  "time": [1677433720770863800, 1677433720970863400, 1677433721270868900],
+  "temperature": [19.17, 19.18, 19.19],
+  // This series is missing a sample.
+  "pressure": [16.22, 17.22]
+}
+```
+
+{/* prettier-ignore-start */}
+
+A frame without one of the channels also breaks Rule 2. This frame is
+<b style="color: var(--pluto-error-z);">invalid</b>:
+
+{/* prettier-ignore-end */}
+
+```json
+{
+  "time": [1677433720770863800, 1677433720970863400, 1677433721270868900],
+  "temperature": [19.17, 19.18, 19.19]
+  // The pressure channel is missing.
+}
+```
+
+### Rule 3
+
+<Rule>Rules 1 and 2 do not apply to virtual channels.</Rule>
+
+[Virtual channels](/reference/channels#virtual-channels) do not store data. They do not
+need timestamps or an index, so you can write to them at any time.
+
+### Rule implications
+
+<Rule>All channels that share an index must have the same sample rate.</Rule>
+
+For example, one device records temperature at 10 Hz, and a second device records
+pressure at 25 Hz. The samples do not have the same timestamps, so the two channels
+cannot share an index.
+
+<Rule>Command channels almost always need their own index.</Rule>
+
+One device often samples many sensors at the same rate, so the sensor channels can share
+an index. Command channels are different. You usually write to one command channel at a
+time, for example to open one valve, wait, and then open a second valve. The commands do
+not have the same timestamps, so they cannot share an index. Give each command channel
+its own index, or use a virtual channel.
 
 <Divider.Divider x />
 

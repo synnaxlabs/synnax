@@ -1,31 +1,90 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Write authorities"
-description: "Dynamic control handoff with write authorities for concurrent access."
+title: "Control authority"
+description: "How Synnax decides which writer controls a channel."
 clients: ["python", "typescript"]
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Note } from "@synnaxlabs/lyra/note";
 import { Fragment } from "react";
+import { Edition } from "@/components";
 import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Writers support dynamic control handoff. Multiple writers can be opened on a channel at
-the same time, but only one writer is allowed to write to the channel. To determine
-which writer has control, an authority from 0 to 255 is assigned to each writer (or,
-optionally, each channel in the writer). The writer with the highest authority will be
-allowed to write. If two writers have the same authority, the writer that opened first
-will be allowed to write. For more information, see the
-[concepts](/reference/control/authority) page.
+More than one writer can write to the same channel. A writer is a schematic, an Arc
+automation, or a script that sends commands. Only one writer at a time has control of a
+channel. Synnax uses control authority to decide which writer has control. With control
+authority, you can hand off control:
 
-By default, writers are opened with an authority of `ABSOLUTE` (255). This means that no
-other writers can write to the channel as long as the writer is open.
+- Between a manual operator and an automated system.
+- Between two or more manual operators.
+- Between two or more automated systems, such as a nominal control loop and an abort
+  sequence.
 
 <Divider.Divider x />
 
-## Same authority on all channels
+## How authority works
+
+Each writer has an authority from 0 to 255 on each of its channels. 0 is the lowest
+authority and 255 is the highest. An authority of 255 is absolute: other writers cannot
+take control from it.
+
+- **Higher authority wins.** When a writer opens with a higher authority, it takes
+  control from the writer that had control. Synnax ignores the values from writers that
+  do not have control.
+- **Equal authority: first in wins.** When two writers have the same authority, the
+  writer that took control first keeps it.
+- **Control returns on release.** When a writer closes or lowers its authority, the
+  writer with the next highest authority gets control.
+
+A writer can change its authority while it runs. It can raise its authority to take
+control, and lower it to release control.
+
+<Divider.Divider x />
+
+## Example: operator and abort sequence
+
+1. Writer A opens on channel `my-channel` with authority 100.
+2. Writer B watches for abort conditions. It opens on `my-channel` with authority 50.
+   Writer A keeps control.
+3. Writer A writes samples to the channel to command an actuator.
+4. Writer B finds an abort condition and sets its authority to 250. Writer B takes
+   control of the channel and moves the system into a safe state.
+5. An operator (writer C) opens on `my-channel` with authority 255. Writer C takes
+   absolute control to make adjustments.
+6. Writers B and C close. Control goes back to writer A.
+
+<Divider.Divider x />
+
+## Where authority is set
+
+- **Schematics**: each schematic writes at the authority in its component toolbar
+  `Control` tab. The default is 1. A control chip on a symbol raises the authority of
+  that symbol's channel to 255. Refer to
+  [manual control](/reference/control/manual#control-authority-on-a-schematic).
+- **Arc**: an automation writes at 255 if it does not declare an authority. Refer to
+  [control authority in Arc](/reference/control/arc/concepts/control-authority).
+- **Code**: a writer from the Python or TypeScript client opens at 255 if you do not set
+  its authority. Refer to [authority in code](#authority-in-code).
+
+Because 255 is the default for Arc and for code, an operator cannot take a channel from
+them with a schematic. Give these writers an authority below 255 on each channel that an
+operator can need to control by hand.
+
+<Divider.Divider x />
+
+## Authority in code
+
+<Edition.Enterprise>
+
+Writers from the Python and TypeScript clients open with an authority of `ABSOLUTE`
+(255). No other writer can write to the channel while the writer is open. Use the
+`authorities` parameter to set a lower authority.
+
+</Edition.Enterprise>
+
+### Same authority on all channels
 
 To open a writer with the same authority on all channels, pass the `authorities`
 parameter with an integer.
@@ -57,12 +116,10 @@ const writer = await client.openWriter({
   </Fragment>
 </Client.Tabs>
 
-<Divider.Divider x />
+### Different authorities per channel
 
-## Different authorities per channel
-
-To open a writer with different authorities on each channel, pass the `authorities`
-parameter with a list of integers. This list must be the same length as the number of
+To open a writer with a different authority on each channel, pass the `authorities`
+parameter with a list of integers. The list must have the same length as the list of
 channels in the writer.
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
@@ -92,11 +149,9 @@ const writer = await client.openWriter({
   </Fragment>
 </Client.Tabs>
 
-<Divider.Divider x />
+### Adjusting authority after open
 
-## Adjusting authority after open
-
-To change the authority of a writer during operation, use the <Client.Var client:load
+To change the authority of a writer while it runs, use the <Client.Var client:load
 py="set_authority" ts="setAuthority" /> method.
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
@@ -132,7 +187,7 @@ await writer.setAuthority({
   </Fragment>
 </Client.Tabs>
 
-Here's a complete example showing dynamic authority changes during a write session:
+This example changes the authority during a write session:
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 

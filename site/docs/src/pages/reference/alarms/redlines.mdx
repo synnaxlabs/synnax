@@ -1,0 +1,54 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Redlines"
+description: "Color a value on a table or a schematic when it passes a threshold."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Image } from "@/components/media/Media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+A redline changes the background color of a value when the value passes a threshold. Use
+redlines to show an operator which values are near or outside their limits.
+
+Redlines are available on [value cells](/reference/visualize/tables#value-cells) in
+tables and on value symbols in [schematics](/reference/visualize/schematics). A redline
+only changes the color of the value. To record an alarm or send a notification, use a
+[status](/reference/alarms#statuses).
+
+<Image client:only="react" id="console/tables/redline" />
+
+<Divider.Divider x />
+
+## Add a redline
+
+1. Open the component toolbar of the table or the schematic. A schematic must be in edit
+   mode.
+2. Select the value cell or the value symbol.
+3. Open the `Redline` tab.
+4. Click `Add band`.
+5. Set the threshold and the color of the band.
+
+<Divider.Divider x />
+
+## Bands
+
+Each band has a threshold and a color. A band paints the values at or above its
+threshold and below the next higher threshold. Values below every threshold show the
+background from the `Style` tab. By default, the background paints nothing.
+
+For example, a pressure value has two bands: yellow at 500 and red at 600. A value of
+450 shows the background. A value of 550 shows yellow. A value of 650 shows red.
+
+To remove a band, click the close button (<Icon.Close />) on the band.
+
+<Divider.Divider x />
+
+## Options
+
+- **Transition** -> `Steps` changes the color at each threshold. `Smooth` blends the
+  colors between thresholds.
+- **Flash** (<Icon.Bolt />) -> Makes the band blink between its color and the background
+  while the value is in the band.

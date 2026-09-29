@@ -1,0 +1,20 @@
+import { Button } from "@synnaxlabs/lyra/button";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import Cards from "@/pages/reference/get-started/_overview-cards.mdx";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Synnax is a platform for hardware data. It collects measurements from your devices,
+stores them, shows them in real time, and acts on them. Synnax Desktop puts all of this
+in one free app for macOS and Windows, with nothing to set up. To compare it with Synnax
+Enterprise, see [Synnax editions](/reference/get-started/editions).
+
+<Button.Button href="/reference/get-started/install-desktop" variant="filled">
+  <Icon.Download />
+  {"Download Synnax Desktop"}
+</Button.Button>
+
+<Divider.Divider x />
+
+<Cards />

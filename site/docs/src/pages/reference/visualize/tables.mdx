@@ -43,8 +43,8 @@ viewing many channels at once, and conditionally coloring values that exceed thr
 
 ## Configuring the table
 
-Click the table <Icon.Table /> button in the bottom-left corner to open the Component
-Toolbar and configure the table.
+Click the table <Icon.Table /> button in the bottom-left corner to open the component
+toolbar and configure the table.
 
 ### Text cells
 
@@ -57,19 +57,9 @@ new data arrives.
 
 ### Redlining a value
 
-Redline a value to change its background color when it passes a threshold. In the cell's
-`Redline` tab, click `Add band`, then set the threshold and the color of the band.
-
-Each band has a threshold and a color. A band paints the values at or above its
-threshold and below the next higher threshold. Values below every threshold show the
-background from the `Style` tab. By default, the background paints nothing.
-
-- **Transition** -> `Steps` changes the color at each threshold. `Smooth` blends the
-  colors between thresholds.
-- **Flash** (lightning icon) -> Makes the band blink between its color and the
-  background while the value is in the band.
-
-<Image client:only="react" id="console/tables/redline" />
+A redline changes the background color of a value cell when the value passes a
+threshold. Select the cell and open its `Redline` tab in the component toolbar. See
+[redlines](/reference/alarms/redlines) to set up bands and transitions.
 
 <Divider.Divider x />
 

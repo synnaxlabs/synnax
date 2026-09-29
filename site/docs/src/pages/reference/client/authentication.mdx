@@ -16,9 +16,13 @@ import { Platform } from "@/components/platform";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
+The client libraries connect to a Synnax Core that a
+[Synnax Enterprise](/reference/enterprise) deployment runs. Synnax Desktop does not
+accept outside connections.
+
 This guide covers all authentication methods and connection parameters for the Synnax
 clients. If you're looking for a quick start, check out the
-[Quick start](/reference/client/quick-start) guide instead.
+[quick start](/reference/client/quick-start) instead.
 
 <Divider.Divider x />
 
@@ -29,7 +33,7 @@ store your credentials, passing your credentials directly to the client, or conf
 environment variables.
 
 - For instructions on direct authentication, see
-  [Create a Client](/reference/client/quick-start#create-a-client).
+  [create a client](/reference/client/quick-start#create-a-client).
 - CLI authentication is only supported in the Python client.
 
 | Parameter  | Description                        |

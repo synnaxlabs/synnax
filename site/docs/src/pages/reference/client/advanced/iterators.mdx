@@ -12,25 +12,18 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-This guide covers using iterators for efficient lazy evaluation when reading large
-datasets. Iterators allow you to process data in chunks without loading everything into
-memory.
-
-<Divider.Divider x />
-
-## What are iterators?
-
-While standard read methods cover most use cases, there are situations where you need to
-process more data than can fit in memory. Iterators are processed server-side, reading
-data in consistently sized chunks and avoiding the need to load everything into memory
-at once.
+An iterator reads a time range in chunks, so you can process more data than fits in
+memory. Every historical read in Synnax uses an iterator internally. Iterators are more
+complex than a [historical read](/reference/client/read-data#historical-reads), so use a
+single read when the data fits in memory.
 
 <Divider.Divider x />
 
 ## Opening an iterator
 
 To open an iterator, use the <Client.Var client:load py="open_iterator"
-ts="openIterator" /> method with a time range and channel specification.
+ts="openIterator" /> method with a time range and a list of channels. Opening an
+iterator does not return data. It opens a connection to Synnax.
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 
@@ -38,9 +31,8 @@ ts="openIterator" /> method with a time range and channel specification.
 
 ```python
 iterator = client.open_iterator(
-  start,
-  end,
-  ["temperature", "pressure"]
+    sy.TimeRange(start, end),
+    ["temperature", "pressure"],
 )
 ```
 
@@ -67,8 +59,7 @@ the desired number of samples per iteration.
 
 ```python
 iterator = client.open_iterator(
-    start,
-    end,
+    sy.TimeRange(start, end),
     "my_precise_tc",
     chunk_size=100,
 )
@@ -97,7 +88,8 @@ Larger chunk sizes can improve throughput but require more memory.
 ## Iterating through data
 
 Use a <Client.Var client:load py="for" ts="for await" /> loop to iterate through data in
-chunks. Each iteration yields a frame containing a portion of the data.
+chunks. The loop starts at the first sample in the time range. Each iteration yields a
+frame with the next chunk of data.
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 
@@ -123,10 +115,97 @@ for await (const frame of iterator) {
 
 <Divider.Divider x />
 
+## Seeking and reading
+
+A `for` loop is the simplest way to use an iterator. For more control, move the iterator
+with seek calls and read data with <Client.Var client:load py="next" ts="next" /> and
+
+<Client.Var client:load py="prev" ts="prev" />.
+
+### Validity
+
+Each seek and read call returns a boolean. The value is true when the iterator is valid.
+An iterator is invalid when:
+
+1. It has an error, for example when it cannot reach Synnax.
+2. It has no more data to read. This occurs when it reaches the end of the range while
+   it moves forward, or the start of the range while it moves backward.
+
+A seek call can make an exhausted iterator valid again. After an error, a seek call can
+fail.
+
+### Seeking
+
+A seek call moves the iterator to a new position in the time range. It does not read
+data.
+
+| Python           | TypeScript      | Moves to                                                 |
+| ---------------- | --------------- | -------------------------------------------------------- |
+| `seek_first()`   | `seekFirst()`   | The start of the data in the range.                      |
+| `seek_last()`    | `seekLast()`    | The end of the data in the range.                        |
+| `seek_ge(stamp)` | `seekGE(stamp)` | `stamp`, or the start of the nearest data after `stamp`. |
+| `seek_le(stamp)` | `seekLE(stamp)` | `stamp`, or the end of the nearest data before `stamp`.  |
+
+### Reading
+
+`next` reads forward from the current position, and `prev` reads backward. Each call
+reads in one of two ways:
+
+- **By chunk**: pass `AUTO_SPAN` to read the next chunk. The chunk size sets the number
+  of samples in each chunk. In TypeScript, `AUTO_SPAN` is the default.
+- **By time span**: pass a `TimeSpan` to read all samples in that span. A read by span
+  includes the start of the span and excludes its end, in both directions. A very large
+  span can make the read slow.
+
+### Accessing the value
+
+A read call does not return the data. The iterator keeps the data it read in its `value`
+property as a frame. After a seek call, `value` is empty until the next read. If the
+iterator is invalid, do not use `value`.
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+```python
+with client.open_iterator(sy.TimeRange.MAX, "temperature") as iterator:
+    # Read the four seconds of data after a timestamp
+    if iterator.seek_ge(stamp) and iterator.next(4 * sy.TimeSpan.SECOND):
+        print(iterator.value["temperature"])
+
+    # Read the last chunk of data
+    if iterator.seek_last() and iterator.prev(sy.AUTO_SPAN):
+        print(iterator.value["temperature"])
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const iterator = await client.openIterator(TimeRange.MAX, ["temperature"]);
+try {
+  // Read the four seconds of data after a timestamp
+  if ((await iterator.seekGE(stamp)) && (await iterator.next(TimeSpan.seconds(4))))
+    console.log(iterator.value.get("temperature"));
+
+  // Read the last chunk of data
+  if ((await iterator.seekLast()) && (await iterator.prev()))
+    console.log(iterator.value.get("temperature"));
+} finally {
+  await iterator.close();
+}
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
 ## Closing the iterator
 
-After you're done iterating, it's essential to close the iterator to release the network
-connection and other related resources.
+When you finish, always close the iterator. This closes the network connection and
+releases other resources.
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 
@@ -156,12 +235,12 @@ exception is thrown.
 
 ```python
 # Python's context manager is the recommended approach
-with client.open_iterator(start, end, "my_precise_tc") as iterator:
+with client.open_iterator(sy.TimeRange(start, end), "my_precise_tc") as iterator:
     for frame in iterator:
         print(frame)
 
 # Alternatively, use a try/finally block
-iterator = client.open_iterator(start, end, "my_precise_tc")
+iterator = client.open_iterator(sy.TimeRange(start, end), "my_precise_tc")
 try:
     for frame in iterator:
         print(frame)

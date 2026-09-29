@@ -16,6 +16,10 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
+The client libraries connect to a Synnax Core that a
+[Synnax Enterprise](/reference/enterprise) deployment runs. Synnax Desktop does not
+accept outside connections.
+
 Synnax provides first-class Python support and TypeScript support. Our client delivers
 many capabilities, including
 
@@ -200,13 +204,8 @@ index channel must be written to before writing to the data channel.
   </Fragment>
 </Client.Tabs>
 
-Notice how the two arrays are aligned using the common `start` timestamp. This tells
-Synnax that the first sample in the `temperatures` array is associated with the first
-timestamp in the `timestamps` array.
-
-Synnax will raise a `ValidationError` if the index channel does not contain a
-corresponding timestamp for every sample in the data channel. After all, it wouldn't
-make sense to have a temperature reading without an associated timestamp.
+The common `start` timestamp aligns the two arrays. For the rules that each write must
+obey, see [the rules of writes](/reference/client/write-data#the-rules-of-writes).
 
 <Divider.Divider x />
 
@@ -226,7 +225,9 @@ object:
     data = channel.read(start, end)
     ```
 
-    The returned data is a [`Series`](/reference/client/series-and-frames#series) object, which contains the time-range occupied by the data. Notably, the `Series` can be treated exactly like a `numpy.ndarray`.
+    The returned data is a [`Series`](/reference/client/series-and-frames#series)
+    object, which contains the time range of the data. You can use the `Series` like a
+    `numpy.ndarray`.
 
     ```python
     data = data - 273.15

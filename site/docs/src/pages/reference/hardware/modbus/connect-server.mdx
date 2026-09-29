@@ -13,6 +13,7 @@ import { Video } from "@/components/media/Media";
 import { Fragment } from "react";
 import Details from "@/components/details/Details.astro";
 import { Client } from "@/components/client";
+import { Edition } from "@/components";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -27,16 +28,21 @@ variable-frequency drives, power meters, and industrial I/O modules.
 
 ## Prerequisites
 
-Before you can connect to a Modbus TCP server, you will need to ensure that you have the
-following:
+Before you connect to a Modbus TCP server, make sure that you have:
 
-1. A [Synnax Core](/reference/enterprise) running on your network.
-2. A [Synnax Driver](/reference/hardware) running on your network. This Driver
-   must be connected to the Core and running on the same machine or network as your
-   Modbus server.
-3. The [Synnax Console](/reference/enterprise/console) installed on your local machine.
-4. A Modbus TCP server running on your network. This server must be reachable by the
-   Driver.
+1. [Synnax Desktop](/reference/) installed on a computer that can reach your Modbus
+   server over the network.
+2. A Modbus TCP server on your network.
+
+<Edition.Enterprise>
+
+With Synnax Enterprise, you need a [Synnax Core](/reference/enterprise) and a Synnax
+Driver that can reach your Modbus server. A Core runs an embedded Driver on its own
+machine. For a different machine,
+[install a standalone Driver](/reference/enterprise/driver). Install the
+[Synnax Console](/reference/enterprise/console) on your computer.
+
+</Edition.Enterprise>
 
 <Divider.Divider x />
 

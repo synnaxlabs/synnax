@@ -5,48 +5,53 @@ description: "Get started with control sequences in Synnax."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Image, Video } from "@/components/media/Media";
-import { mdxOverrides } from "@/components/mdxOverrides";
-import { Table } from "@/components";
+import { Image } from "@/components/media/Media";
+import { Edition } from "@/components";
 import Diagram from "@/components/diagram/Diagram.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Control sequences are the primary means for automating hardware operations in your
-Synnax deployment. They provide a systematic way to control actuators and other
-mechanisms. On this page, we'll explore the different types of control sequences
-available within Synnax.
+Synnax gives you two ways to control hardware. An operator can command actuators from a
+schematic with [manual control](/reference/control/manual). A control sequence runs the
+commands for you. Use control sequences to automate hardware operations, such as a valve
+that opens when a pressure drops below a limit.
+
+When more than one operator or sequence writes to the same channel,
+[control authority](/reference/control/authority) decides which one has control.
 
 <Divider.Divider x />
 
 ## Control sequence types
 
-There are two primary ways to write control sequences in Synnax:
+**[Arc](/reference/control/arc/introduction)** is the Synnax automation language for
+hardware control. Arc is reactive: you declare what occurs when data changes, and you do
+not write polling loops. Arc has a visual graph mode and a text mode. Arc automations
+run on the [Driver](/reference/hardware), next to the hardware, and are fast enough for
+real-time control. You write, start, and stop Arc automations in the Synnax Console.
 
-**[Arc](/reference/control/arc/introduction)** is Synnax's automation language for
-hardware control. Arc is reactive, meaning you declare what should happen when data
-changes rather than writing polling loops. It offers both a visual Graph Mode and a Text
-Mode, runs directly on [drivers](/reference/hardware) (including
-[NI Linux Real-Time](/reference/enterprise/driver?platform=ni-linux-rt)), and is
-performant enough for real-time control applications. Arc automations can be edited and
-deployed directly from within the [Synnax Console](/reference/enterprise/console).
+<Edition.Enterprise>
 
-**[Python](/reference/control/python/get-started)** gives you the flexibility to write
-whatever software you need, with access to the entire Python ecosystem. Python sequences
-run externally and communicate with Synnax over the network, which introduces latency
-and makes control loop timing less predictable. Use Python for automations where you
-need maximum flexibility, and Arc for automations where you need consistent, low-latency
-control.
+**[Python](/reference/control/python/get-started)** lets you write any software you
+need, with access to all of the Python ecosystem. Python sequences run externally and
+communicate with Synnax over the network. The network adds latency, so the timing of
+control loops is less predictable. Use Python when you need maximum flexibility. Use Arc
+when you need consistent, low-latency control.
+
+With Synnax Enterprise, Arc also runs on a
+[standalone Driver](/reference/enterprise/driver?platform=ni-linux-rt), including on NI
+Linux Real-Time.
+
+</Edition.Enterprise>
 
 <Divider.Divider x />
 
 ## How control sequences work
 
-Control sequences [stream data](/reference/client/read-data) from a set of input
-channels, perform some computation, and [write data](/reference/client/write-data) to a
-set of output channels.
+Control sequences read data from a set of input [channels](/reference/channels), do a
+computation, and write data to a set of output channels.
 
-Arc uses a reactive model where you declare what should happen when data changes. When a
-channel updates, Arc automatically runs the relevant computations:
+Arc uses a reactive model. When a channel updates, Arc runs the computations that depend
+on it:
 
 ```arc channels="press_vlv_cmd, pt_471"
 // Open the valve when pressure is below threshold, close it otherwise
@@ -57,15 +62,16 @@ func bang_bang{threshold f64} (pressure f64) bool {
 pt_471 -> bang_bang{threshold=100.0} -> press_vlv_cmd
 ```
 
-There is no mention of hardware configuration in this sequence. Parameters like
-acquisition rates, scaling, and other hardware specific details are kept independent
-from sequencing mechanisms. This allows for a high degree of flexibility, including the
-ability to move and change hardware without changing the control sequence algorithms.
+This sequence has no hardware configuration. Acquisition rates, scaling, and other
+hardware details stay in [tasks](/reference/hardware/tasks), separate from the sequence.
+Thus you can move and change hardware without a change to the control sequence.
 
 ### Example deployment
 
-To illustrate how control sequences fit into a larger system, here's an example Synnax
-deployment that communicates with National Instruments devices:
+<Edition.Enterprise>
+
+This example Synnax Enterprise deployment communicates with National Instruments
+devices:
 
 <Diagram>
   <Image
@@ -113,9 +119,11 @@ deployment that communicates with National Instruments devices:
         plots](/reference/visualize/line-plots).</td>
     </tr>
     <tr>
-      <td>[Control sequence](/reference/control/get-started)</td>
+      <td>Control sequence</td>
       <td>Reads the sensor values from the analog read task and writes commands to the
         digital write task.</td>
     </tr>
   </tbody>
 </table>
+
+</Edition.Enterprise>

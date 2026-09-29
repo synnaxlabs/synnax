@@ -1,0 +1,56 @@
+import { Icon } from "@synnaxlabs/lyra/icon";
+import Bento from "@/components/bento/Bento.astro";
+import BentoItem from "@/components/bento/BentoItem.astro";
+
+<Bento>
+  <BentoItem
+    href="/reference/channels"
+    title="Channels"
+    description="Learn how Synnax stores data in channels, and create your own."
+  >
+    <Icon.Channel slot="graphic" />
+  </BentoItem>
+  <BentoItem
+    href="/reference/hardware"
+    title="Hardware"
+    description="Connect EtherCAT, HTTP, LabJack, Modbus, NI, and OPC UA devices."
+  >
+    <Icon.Hardware slot="graphic" />
+  </BentoItem>
+  <BentoItem
+    href="/reference/visualize/line-plots"
+    title="Visualize"
+    description="See live and recorded data on plots, schematics, tables, and logs."
+  >
+    <Icon.Visualize slot="graphic" />
+  </BentoItem>
+  <BentoItem
+    href="/reference/ranges"
+    title="Ranges"
+    description="Mark tests and events in time, then find and export their data."
+  >
+    <Icon.Range slot="graphic" />
+  </BentoItem>
+  <BentoItem
+    href="/reference/control/get-started"
+    title="Control"
+    description="Operate hardware by hand, or automate it with Arc."
+  >
+    <Icon.Control slot="graphic" />
+  </BentoItem>
+  <BentoItem
+    href="/reference/alarms"
+    title="Alarms"
+    description="Watch for problems with statuses, redlines, and Arc alarms."
+  >
+    <Icon.Status slot="graphic" />
+  </BentoItem>
+  <BentoItem
+    href="/reference/enterprise"
+    title="Enterprise"
+    description="Deploy Synnax for a team, with users, clients, and remote Drivers."
+    span={2}
+  >
+    <Icon.Core slot="graphic" />
+  </BentoItem>
+</Bento>

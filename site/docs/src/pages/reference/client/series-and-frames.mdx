@@ -10,20 +10,31 @@ import { Divider } from "@synnaxlabs/lyra/divider";
 import { Note } from "@synnaxlabs/lyra/note";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
+import Diagram from "@/components/diagram/Diagram.astro";
+import { Image } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-This guide covers the fundamental data structures used in Synnax: Series (typed arrays)
-and Frames (multi-channel containers). These are core types returned by read operations
-and used for write operations.
+This guide covers the two data structures that hold samples in Synnax: series (typed
+arrays) and frames (containers for many channels). Reads return them, and writes accept
+them.
 
 <Divider.Divider x />
 
 ## Series
 
-A series is a strongly typed array of data samples. A series can contain any data you
-want it to, but in the context of Synnax, it represents a set of contiguous samples from
-a single channel.
+A series is a strongly typed array of data samples, like a list or an array in other
+programming languages. In Synnax, a series holds contiguous samples from one channel.
+When you read or write data, you work with the data of a channel as one or more series.
+
+<Diagram>
+  <Image
+    client:only="react"
+    id="concepts/overview/series"
+    extension="svg"
+    themed={false}
+  />
+</Diagram>
 
 <Divider.Divider x />
 
@@ -350,23 +361,35 @@ console.log(series.bounds); // { lower: 1, upper: 5 }
 
 ## Frames
 
+A frame is a collection of related series. It has a table-like structure, like a pandas
+`DataFrame` in Python or a `data.frame` in R. A channel identifies each column, and each
+column holds one or more series for that channel. Frames are the unit of data transfer
+in Synnax, so they make it easy to work with data from many channels at once.
+
+<Diagram>
+  <Image
+    client:only="react"
+    id="concepts/overview/frame"
+    extension="svg"
+    themed={false}
+  />
+</Diagram>
+
 <Client.Tabs client:load exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
-A frame is a collection of series from multiple channels. Frames are returned by the
-`read` method of the Synnax data client (`client.read`), the `read` method of a
-`Streamer` instance (`client.open_streamer`), and the `value` property of an `Iterator`
-instance (`client.open_iterator`).
+Frames are returned by the `read` method of the Synnax data client (`client.read`), the
+`read` method of a `Streamer` instance (`client.open_streamer`), and the `value`
+property of an `Iterator` instance (`client.open_iterator`).
 
   </Fragment>
 
   <Fragment slot="typescript">
 
-A frame is a collection of series from multiple channels. Frames are returned by the
-`read` method of the Synnax data client (`client.read`), the `read` method of a
-`Streamer` instance (`client.openStreamer`), and the `value` property of an `Iterator`
-instance (`client.openIterator`).
+Frames are returned by the `read` method of the Synnax data client (`client.read`), the
+`read` method of a `Streamer` instance (`client.openStreamer`), and the `value` property
+of an `Iterator` instance (`client.openIterator`).
 
   </Fragment>
 </Client.Tabs>

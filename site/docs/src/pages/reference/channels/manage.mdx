@@ -1,46 +1,27 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Channels"
-description:
-  "Learn the fundamentals of creating, retrieving, renaming, and deleting channels."
+title: "Manage channels"
+description: "Create, find, rename, alias, and delete channels."
 clients: ["console", "python", "typescript"]
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Note } from "@synnaxlabs/lyra/note";
 import { Fragment } from "react";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Client } from "@/components/client";
+import { Edition } from "@/components";
 import { Video } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-A [channel](/reference/channels) is a collection of time-ordered data. Channels
-store sensor readings, actuator commands, post-processed results, logs, or any other
-time-ordered data.
-
-[Calculated channels](/reference/channels/calculated) are computed from other
-channels.
-
-<Divider.Divider x />
-
-## Channel parameters
-
-| Parameter                                                                        | Type       | Default                                          | Description                                                                                                                                                                                                         |
-| -------------------------------------------------------------------------------- | ---------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`                                                                           | string     | Required                                         | A human-readable name for the channel. This name is not guaranteed to be unique.                                                                                                                                    |
-| <Client.Var client:load py="data_type" ts="dataType" />                          | `DataType` | Required                                         | The data type of the samples stored in the channel (e.g., `DataType.FLOAT32`, `DataType.TIMESTAMP`).                                                                                                                |
-| <Client.Var client:load py="is_index" ts="isIndex" />                            | boolean    | <Client.Var client:load py="False" ts="false" /> | Set to <Client.Var client:load py="True" ts="true" /> if the channel is an index channel, <Client.Var client:load py="False" ts="false" /> otherwise. Index channels must have a data type of `DataType.TIMESTAMP`. |
-| `index`                                                                          | number     | `0`                                              | The key of the index channel that this channel is associated with. Not required for index channels.                                                                                                                 |
-| `virtual`                                                                        | boolean    | <Client.Var client:load py="False" ts="false" /> | Set to <Client.Var client:load py="True" ts="true" /> if the channel is virtual. Virtual channels do not store data in the database and are used for streaming purposes only.                                       |
-| <Client.Var client:load py="retrieve_if_name_exists" ts="retrieveIfNameExists"/> | boolean    | <Client.Var client:load py="False" ts="false" /> | If <Client.Var client:load py="True" ts="true" />, retrieves the channel if one with the same name already exists instead of creating a duplicate.                                                                  |
+Work with [channels](/reference/channels) from the Console or from code. To make a
+channel that computes its values from other channels, use a
+[calculated channel](/reference/channels/calculated).
 
 <Divider.Divider x />
 
 ## Create channels
-
-Use the `create` method to create one channel or many channels. Creating many channels
-in a single call is more efficient than creating them individually. The call is atomic,
-so Synnax creates all of the channels or none of them.
 
 <Note.Note variant="warning" className="compact">
   You must create an index channel before the non-virtual data channels that use it.
@@ -50,9 +31,13 @@ so Synnax creates all of the channels or none of them.
 
   <Fragment slot="console">
 
-Create a channel from the [channels toolbar](/reference/get-started/ui-overview#channels),
-or with the "Create Channel" command in the
-[command palette](/reference/get-started/ui-overview#search-and-command-palette).
+Click the <Icon.Add /> button in the
+[channels toolbar](/reference/get-started/ui-overview#channels), or run the "Create
+channel" command in the
+[command palette](/reference/get-started/ui-overview#search-and-command-palette). Enter
+a name, and set the data type and the index channel. Turn on **Is index** to create an
+index channel, or **Virtual** to create a virtual channel. Turn on **Create more** to
+keep the dialog open after each channel.
 
 <Video client:only="react" id="client/channels/create" />
 
@@ -142,15 +127,39 @@ const sensors = await client.channels.create(
 
 </Client.Tabs>
 
+<Edition.Enterprise>
+
+In the client libraries, `create` takes one channel or a list of channels. A list is
+faster than many single calls. The call is atomic, so Synnax creates all of the channels
+or none of them.
+
+</Edition.Enterprise>
+
+### Channel parameters
+
+| Parameter                                                                        | Type       | Default                                          | Description                                                                                                                                                                                                         |
+| -------------------------------------------------------------------------------- | ---------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`                                                                           | string     | Required                                         | A human-readable name for the channel. This name is not guaranteed to be unique.                                                                                                                                    |
+| <Client.Var client:load py="data_type" ts="dataType" />                          | `DataType` | Required                                         | The data type of the samples stored in the channel (e.g., `DataType.FLOAT32`, `DataType.TIMESTAMP`).                                                                                                                |
+| <Client.Var client:load py="is_index" ts="isIndex" />                            | boolean    | <Client.Var client:load py="False" ts="false" /> | Set to <Client.Var client:load py="True" ts="true" /> if the channel is an index channel, <Client.Var client:load py="False" ts="false" /> otherwise. Index channels must have a data type of `DataType.TIMESTAMP`. |
+| `index`                                                                          | number     | `0`                                              | The key of the index channel that this channel is associated with. Not required for index channels.                                                                                                                 |
+| `virtual`                                                                        | boolean    | <Client.Var client:load py="False" ts="false" /> | Set to <Client.Var client:load py="True" ts="true" /> if the channel is virtual. Virtual channels do not store data in the database and are used for streaming purposes only.                                       |
+| <Client.Var client:load py="retrieve_if_name_exists" ts="retrieveIfNameExists"/> | boolean    | <Client.Var client:load py="False" ts="false" /> | If <Client.Var client:load py="True" ts="true" />, retrieves the channel if one with the same name already exists instead of creating a duplicate.                                                                  |
+
 <Divider.Divider x />
 
 ## Retrieve channels
 
-To retrieve channel(s), pass the channel name(s) or key(s) to the `retrieve` method.
-Retrieving by key is faster than retrieving by name, and is recommended whenever
-possible.
+<Client.Tabs client:load exclude={["cpp"]}>
 
-<Client.Tabs client:load exclude={["console", "cpp"]}>
+  <Fragment slot="console">
+
+Find a channel in the [channels toolbar](/reference/get-started/ui-overview#channels).
+To search by name, open the
+[search palette](/reference/get-started/ui-overview#search-and-command-palette) and type
+part of the name. Select a channel in the results to open it in a line plot.
+
+  </Fragment>
 
   <Fragment slot="python">
 
@@ -188,19 +197,26 @@ const my_channels = await client.channels.retrieve(["sensor_one", sensor_two.key
 
 </Client.Tabs>
 
-If you pass one key or name, the client raises a `NotFoundError` when no channel matches
-and a `MultipleFoundError` when more than one channel matches. If you pass a list, the
-client raises no error and leaves missing channels out of the results.
+<Edition.Enterprise>
 
-<Note.Note variant="info" className="compact">
-  Channels can also be retrieved using
-  [ranges](/reference/ranges/manage#read-from-a-range).
-</Note.Note>
+In the client libraries, pass one or more names or keys to `retrieve`. Retrieving by key
+is faster than retrieving by name. If you pass one key or name, the client raises a
+`NotFoundError` when no channel matches and a `MultipleFoundError` when more than one
+channel matches. If you pass a list, the client raises no error and leaves missing
+channels out of the results. You can also retrieve channels from a
+[range](/reference/ranges/manage#read-from-a-range).
+
+</Edition.Enterprise>
 
 ### Regular expressions
 
-Channels can be retrieved using regular expression patterns. The Core treats any name
-starting with `^` or ending with `$` as a regex pattern.
+<Edition.Enterprise>
+
+The client libraries accept regular expressions as names. Synnax treats a name that
+starts with `^` or ends with `$` as a pattern. Pass the pattern in a list, or the client
+raises a `MultipleFoundError` when more than one channel matches.
+
+</Edition.Enterprise>
 
 <Client.Tabs client:load exclude={["console", "cpp"]}>
 
@@ -224,9 +240,6 @@ const sensorChannels = await client.channels.retrieve(["^sensor.*"]);
 
 </Client.Tabs>
 
-If you expect multiple channels to match the pattern, you must pass in a list to the
-`retrieve` method, otherwise the client will raise a `MultipleFoundError`.
-
 <Divider.Divider x />
 
 ## Rename channels
@@ -234,6 +247,8 @@ If you expect multiple channels to match the pattern, you must pass in a list to
 <Client.Tabs client:load exclude={["cpp"]}>
 
   <Fragment slot="console">
+
+Right-click the channel in the channels toolbar and select **Rename**.
 
 <Video client:only="react" id="client/channels/rename" />
 
@@ -280,13 +295,15 @@ await client.channels.rename(
 ## Delete channels
 
 <Note.Note variant="warning" className="compact">
-  Deleting a channel will also delete all of the data stored for that channel in a
-  Synnax Core. This is a permanent operation that cannot be undone. Be careful!
+  Deleting a channel also deletes all of its stored data. You cannot undo a delete.
 </Note.Note>
 
 <Client.Tabs client:load exclude={["cpp"]}>
 
   <Fragment slot="console">
+
+Select one or more channels in the channels toolbar. Right-click the selection, select
+**Delete**, and confirm.
 
 <Video client:only="react" id="client/channels/delete" />
 
@@ -342,17 +359,22 @@ await client.channels.delete([sensor_one.key, sensor_two.key, sensor_three.key])
 
 ## Channel aliases
 
-Ranges allow you to define [aliases](/reference/ranges#channel-aliases) for
-channels that only apply within that range's context. This is useful when you want to
-give a channel a more descriptive name for a specific test or operation.
+A range can give a channel an [alias](/reference/ranges#channel-aliases): a name that
+applies only in that range. Use an alias to give a channel a clear name for one test or
+operation.
 
 <Client.Tabs client:load exclude={["cpp"]}>
 
   <Fragment slot="console">
 
+In the ranges toolbar, right-click the range and select **Set as active range**. Then
+right-click the channel in the channels toolbar and select **Set alias under** followed
+by the range name. To remove an alias, select **Remove alias under** followed by the
+range name.
+
 <Video client:only="react" id="client/channels/alias" />
 
-The alias is only shown while its range is active, and only in your own Console.
+The channels toolbar shows the alias while its range is active.
 
   </Fragment>
 
@@ -399,6 +421,6 @@ await burstTest.deleteAlias(channelKey);
 </Client.Tabs>
 
 <Note.Note variant="info">
-  Aliases are only valid within the context of a particular range. If you try to access
-  an aliased channel outside of the range, Synnax will not be able to find it.
+  An alias applies only in its range. Outside of the range, Synnax does not find the
+  channel by its alias.
 </Note.Note>

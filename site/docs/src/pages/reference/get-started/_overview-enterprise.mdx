@@ -1,0 +1,19 @@
+import { Button } from "@synnaxlabs/lyra/button";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import Cards from "@/pages/reference/get-started/_overview-cards.mdx";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Synnax is a platform for hardware data. It collects measurements from your devices,
+stores them, shows them in real time, and acts on them. Connect your devices, build
+dashboards, and write control sequences, all from one tool.
+
+<Button.Button href="/reference/enterprise" variant="filled">
+  <Icon.Bolt />
+  {"Set up Synnax Enterprise"}
+</Button.Button>
+
+<Divider.Divider x />
+
+<Cards />

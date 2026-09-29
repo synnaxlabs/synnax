@@ -1,62 +1,79 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Driver"
-description: "Acquire data and control hardware from a number of vendors."
+title: "Hardware"
+heading: "Hardware"
+description: "Acquire data from and control hardware from a number of vendors."
 ---
 
+import { Edition } from "@/components";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The Synnax Driver supports hardware from a variety of vendors, such as
-[National Instruments](https://ni.com), [LabJack](https://labjack.com), and
-[EtherCAT](https://ethercat.org) devices. The Driver also supports acquiring data from
-servers via HTTP JSON REST APIs, [Modbus TCP/IP](https://modbus.org), and
-[OPC UA](https://opcfoundation.org). Finally, the Driver supports running
-[Arc automations](/reference/control/arc/introduction), Synnax's automation language for
-hardware control. Synnax also supports building custom drivers for devices that are not
-natively supported.
+The Synnax Driver connects Synnax to your hardware. It reads data from devices into
+channels, and it writes commands from channels to devices. The Driver also runs
+[Arc automations](/reference/control/arc/introduction) close to the hardware.
 
-Jump to [National Instruments](/reference/hardware/ni/configure-device),
-[EtherCAT](/reference/hardware/ethercat/get-started),
-[LabJack](/reference/hardware/labjack/configure-device),
-[HTTP](/reference/hardware/http/connect-server),
-[OPC UA](/reference/hardware/opc-ua/connect-server),
-[Modbus](/reference/hardware/modbus/connect-server), or
-[PagerDuty](/reference/alarms/pagerduty).
+You set up devices and [tasks](/reference/hardware/tasks) in the Console. The Driver
+then runs each task in the background.
+
+<Divider.Divider x />
+
+## Supported integrations
+
+| Integration                                                     | Connects to                                         |
+| --------------------------------------------------------------- | --------------------------------------------------- |
+| [EtherCAT](/reference/hardware/ethercat/get-started)            | EtherCAT devices on a network interface             |
+| [HTTP](/reference/hardware/http/connect-server)                 | Devices and services with an HTTP or HTTPS JSON API |
+| [LabJack](/reference/hardware/labjack/configure-device)         | LabJack T-Series devices                            |
+| [Modbus](/reference/hardware/modbus/connect-server)             | Modbus TCP/IP servers, such as PLCs and I/O modules |
+| [National Instruments](/reference/hardware/ni/configure-device) | NI-DAQmx devices, such as CompactDAQ, cRIO, and PXI |
+| [OPC UA](/reference/hardware/opc-ua/connect-server)             | OPC UA servers, such as PLCs and SCADA systems      |
+
+Each integration has a table of the operating systems it supports. To send alerts to
+[PagerDuty](/reference/alarms/pagerduty), see the alarms section.
 
 <Divider.Divider x />
 
 ## Embedded Driver
 
-Every instance of the [Synnax Core](/reference/enterprise) comes with the Driver
-embedded inside. This Driver will run on the same machine as the Core, and starts
-automatically when the Core starts. The embedded Driver is recommended for most users.
+Synnax Desktop runs an embedded Driver for you. It starts and stops with the app, and
+you do not install or configure it. The Driver can use only the hardware that connects
+to the computer that runs Synnax Desktop.
+
+<Edition.Enterprise>
+
+Every [Synnax Core](/reference/enterprise) also runs an embedded Driver on the same
+machine. It starts when the Core starts.
+
+</Edition.Enterprise>
 
 <Divider.Divider x />
 
-## Driver installation
+## Standalone Driver
 
-The [Driver](/reference/enterprise/driver) can also be installed as a separate binary
-that can run on a different machine from the Core. It is used to integrate data
-acquisition devices across multiple machines. The Driver connects to a Core over the
-network.
+<Edition.Enterprise>
 
-### Support for NI Linux Real-Time
+With Synnax Enterprise, you can also
+[install the Driver as a standalone program](/reference/enterprise/driver) on a
+different machine from the Core. The standalone Driver connects to the Core over the
+network. Use it to acquire data from hardware on more than one machine.
 
-The Driver supports deployment on
+The standalone Driver runs on
 [NI Linux Real-Time](https://www.ni.com/en/shop/linux/introduction-to-ni-linux-real-time.html)
 controllers, such as [NI CompactRIO](https://www.ni.com/en/shop/compactrio.html) and
 [NI PXI](https://www.ni.com/en/shop/pxi.html) systems.
 
-In addition to performing data acquisition and control tasks on real-time controllers,
-the Driver also supports running [Arc automations](/reference/control/arc/introduction)
-on the real-time controller, allowing for precisely timed control loops that run close
-to the hardware without introducing latency from network communication.
+On a real-time controller, the Driver runs data acquisition and control tasks and
+[Arc automations](/reference/control/arc/introduction). Control loops then run close to
+the hardware, with no latency from the network.
+
+</Edition.Enterprise>
 
 <Divider.Divider x />
 
 ## Building a custom driver
 
-If you don't see a driver for your hardware, you can build your own using the
-[Python client](/reference/hardware/custom).
+If Synnax does not support your hardware, you can
+[build a custom driver](/reference/hardware/custom) with the Python or TypeScript
+client.

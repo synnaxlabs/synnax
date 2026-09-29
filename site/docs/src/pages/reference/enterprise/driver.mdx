@@ -1,7 +1,7 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Driver installation"
-heading: "Driver installation"
+title: "Standalone Driver"
+heading: "Install a standalone Driver"
 description: "Install the Synnax Driver on a separate machine from the Synnax Core."
 ---
 
@@ -15,9 +15,9 @@ import DriverMoveCommand from "@/components/driver/MoveCommand.astro";
 import DriverVersionOutput from "@/components/driver/VersionOutput.astro";
 export const components = mdxOverrides;
 
-The Synnax Driver can also be installed as a separate binary, making it possible to
-integrate data acquisition hardware from multiple host machines into a single Synnax
-deployment.
+Most deployments use the [embedded Synnax Driver](/reference/hardware), which runs
+inside the Synnax Core. This page covers the standalone Driver: a separate binary that
+connects hardware on other machines to one Core.
 
 <Divider.Divider x />
 
@@ -31,7 +31,7 @@ below to see the installation instructions:
 
 ### Prerequisites
 
-#### Supported hardware & software
+#### Supported hardware and software
 
 The Synnax Driver supports the cRIO-904x and cRIO-905x families of controllers running
 NI Linux Real-Time 2024 Q1 and later.
@@ -56,9 +56,8 @@ install updates and manage the Driver.
 
 #### Network available Synnax Core
 
-In order to function properly, the Driver must be able to connect to a Synnax Core
-running on the same network. Make sure you have a
-[Core running](/reference/enterprise) and have the connection parameters on hand.
+The Driver must connect to a Core on the same network. Make sure that a
+[Core is running](/reference/enterprise) and that you have its connection parameters.
 
 ### Install and run the Driver
 

@@ -5,7 +5,7 @@ heading: "Connect to an OPC UA server"
 description: "Connect to an OPC UA server using Synnax."
 ---
 
-import { Text as TextComponent, Client, Table } from "@/components";
+import { Text as TextComponent, Client, Edition, Table } from "@/components";
 import Details from "@/components/details/Details.astro";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -24,16 +24,21 @@ supported with anonymous, username and password, or certificate authentication.
 
 ## Prerequisites
 
-Before you can connect to an OPC UA server, you will need to ensure that you have the
-following:
+Before you connect to an OPC UA server, make sure that you have:
 
-1. A [Synnax Core](/reference/enterprise) running on your network.
-2. A [Synnax Driver](/reference/hardware) running on your network. This Driver
-   must be connected to the Core and running on the same machine or network as your OPC
-   UA server.
-3. The [Synnax Console](/reference/enterprise/console) installed on your local machine.
-4. An OPC UA server running on your network. This server must be reachable by the
-   Driver.
+1. [Synnax Desktop](/reference/) installed on a computer that can reach your OPC UA
+   server over the network.
+2. An OPC UA server on your network.
+
+<Edition.Enterprise>
+
+With Synnax Enterprise, you need a [Synnax Core](/reference/enterprise) and a Synnax
+Driver that can reach your OPC UA server. A Core runs an embedded Driver on its own
+machine. For a different machine,
+[install a standalone Driver](/reference/enterprise/driver). Install the
+[Synnax Console](/reference/enterprise/console) on your computer.
+
+</Edition.Enterprise>
 
 <Divider.Divider x />
 

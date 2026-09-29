@@ -1,6 +1,6 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Alarms"
+title: "Alarms in Arc"
 description: "Trigger warnings and notifications when sensor values exceed limits"
 ---
 
@@ -12,7 +12,9 @@ export const components = mdxOverrides;
 
 Alarms notify operators when values exceed acceptable limits. A pressure that crosses
 600 psi should trigger a warning. A temperature that stays above 300°C for more than 5
-seconds should sound an alarm. Arc makes these patterns straightforward.
+seconds should sound an alarm. Arc makes these patterns straightforward. To show an
+alarm to operators, set a [status](/reference/alarms#statuses) with
+[`status.set`](/reference/control/arc/reference/standard-library/status).
 
 <Divider.Divider x />
 

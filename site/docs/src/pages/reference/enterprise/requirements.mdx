@@ -12,6 +12,12 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 import { Table } from "@/components";
 export const components = mdxOverrides;
 
+This page lists the hardware and software that a production Synnax Core needs. For the
+requirements of the Synnax Console, see
+[Connect the Console](/reference/enterprise/console#requirements).
+
+<Divider.Divider x />
+
 ## Operating system
 
 A Synnax Core can run on Linux, macOS, Windows, or a containerized environment.
@@ -24,8 +30,8 @@ or [CentOS](https://www.centos.org/centos-stream/).
 ### Synnax Driver compatibility
 
 If you plan on using the Synnax Driver to integrate directly with your hardware, only
-certain operating systems are supported. Minimum OS versions are listed in the
-[driver installation guide](/reference/enterprise/driver).
+certain operating systems are supported. For minimum OS versions, see
+[standalone Driver](/reference/enterprise/driver).
 
 <table>
   <thead>
@@ -171,14 +177,14 @@ of the following families:
 
 - Intel x86-64 processors (Xeon or Core i7/i9 series).
 - AMD x86-64 processors (EPYC or Ryzen series).
-- Apple Silicon Chips on MacOS (M1/M2/M3 series).
+- Apple silicon chips on macOS (M1/M2/M3 series).
 
 Avoid single or dual core processors for anything beyond development or testing
 environments.
 
 If you plan on using large numbers of
-[calculated channels](/reference/channels/calculated), increase the number of
-cores for your deployment.
+[calculated channels](/reference/channels/calculated), increase the number of cores for
+your deployment.
 
 ### Memory
 

@@ -1,8 +1,7 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Console"
-heading: "The Synnax Console"
-description: "Install and use the Synnax Console."
+title: "Connect the Console"
+description: "Download the Synnax Console and connect it to a Synnax Core."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
@@ -10,41 +9,38 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 
 import { Console } from "@/components/console";
 import { mdxOverrides } from "@/components/mdxOverrides";
-import { Image, Video } from "@/components/media/Media";
+import { Video } from "@/components/media/Media";
 
 export const components = mdxOverrides;
 
-The Synnax Console is a desktop application for visualizing data, controlling hardware,
-and managing a Synnax Core. It runs on Windows 11 and macOS Sequoia or later.
+The Synnax Console is a desktop application to visualize data, control hardware, and
+manage a Synnax Core. It runs on Windows 11 and macOS Sequoia or later. To install and
+start a Core, see [Set up Synnax Enterprise](/reference/enterprise).
 
 <Divider.Divider x />
 
 ## Install
 
-Install the Console by downloading the latest release for your operating system:
+Download the latest release for your operating system:
 
 <br />
 <br />
 <Flex.Box direction="y" justify="center" align="center">
   <Console.DownloadButton />
   <small>
-    Releases for other operating systems and older versions can be found on the
-    [releases page](https://github.com/synnaxlabs/synnax/releases).
+    Releases for other operating systems and earlier versions are on the [Synnax
+    releases page](https://github.com/synnaxlabs/synnax/releases).
   </small>
 </Flex.Box>
 <br />
 <br />
 
-After downloading and installing the Console, you'll see the following splash screen:
-
-<Image id="console/get-started/window" client:only="react" />
-
 <Divider.Divider x />
 
 ## Connecting a Core
 
-Connect to a Core by clicking the **Add a Core** button and entering your connection
-parameters.
+The login window shows a list of Cores. To add a Core, click **Add a Core**. Enter the
+name, host, port, and secure setting, then click **Connect**.
 
 <Video client:only="react" id="console/clusters/connect" />
 
@@ -58,6 +54,14 @@ parameters.
   <tbody>
     <tr>
       <td>
+        <b>Name</b>
+      </td>
+      <td>
+        <p>A name for the Core in the list of Cores.</p>
+      </td>
+    </tr>
+    <tr>
+      <td>
         <b>Host</b>
       </td>
       <td>
@@ -69,28 +73,26 @@ parameters.
         <b>Port</b>
       </td>
       <td>
-        <p>The port number of the Core.</p>
+        <p>The port of the Core. The default is 9090.</p>
       </td>
     </tr>
     <tr>
       <td>
         <b>Secure</b>
       </td>
-      {
-        <td>
-          <p>
-            Whether to use TLS when connecting to the Core. This parameter only works
-            with secure Cores.
-          </p>
-        </td>
-      }
+      <td>
+        <p>
+          Connect with TLS. Turn this on for a Core that uses TLS. Turn it off for a
+          Core started with `--insecure`.
+        </p>
+      </td>
     </tr>
     <tr>
       <td>
         <b>Username</b>
       </td>
       <td>
-        <p>The username to use when connecting to the Core.</p>
+        <p>The username to log in with.</p>
       </td>
     </tr>
     <tr>
@@ -98,11 +100,16 @@ parameters.
         <b>Password</b>
       </td>
       <td>
-        <p>The password to use when connecting to the Core.</p>
+        <p>The password to log in with.</p>
       </td>
     </tr>
   </tbody>
 </table>
+
+To log in, select the Core in the list. Enter your **Username** and **Password**, then
+click **Log in**. The root user of a new Core is `synnax` with the password `seldon`,
+unless the Core started with different
+[`--username` and `--password` flags](/reference/enterprise/cli-reference#start).
 
 <Divider.Divider x />
 
@@ -118,8 +125,8 @@ parameters.
 
 ### Graphics
 
-The Console is GPU-intensive: high-frequency plotting and dense schematics need a
-dedicated graphics card for smooth performance.
+The Console uses the GPU heavily. High-frequency plots and dense schematics need a
+dedicated graphics card to run smoothly.
 
 |             | Minimum                      | Recommended                      |
 | ----------- | ---------------------------- | -------------------------------- |
@@ -128,8 +135,8 @@ dedicated graphics card for smooth performance.
 | **DirectX** | Version 12                   | Version 12 Ultimate              |
 | **OpenGL**  | Version 4.5                  | Version 4.6                      |
 
-Integrated graphics (Intel Iris Xe, AMD Radeon Vega) work, but performance drops with
-multiple high-frequency streams, long time ranges, or complex schematics.
+Integrated graphics (Intel Iris Xe, AMD Radeon Vega) work. Performance decreases with
+many high-frequency streams, long time ranges, or complex schematics.
 
 ### Display
 

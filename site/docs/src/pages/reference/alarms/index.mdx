@@ -1,0 +1,138 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Alarms"
+description: "Show and send alarms with statuses, redlines, Arc, and PagerDuty."
+clients: ["console", "python", "typescript"]
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+An alarm tells an operator that a value is outside its limits, or that a part of the
+system has a problem. Synnax gives you these tools for alarms:
+
+- **[Statuses](#statuses)** record a named condition, such as "Tank pressure high". The
+  Synnax Console shows a notification each time a status changes.
+- **[Redlines](/reference/alarms/redlines)** change the color of a value on a table or a
+  schematic when the value passes a threshold.
+- **[Alarms in Arc](/reference/alarms/arc)** watch channels and set statuses when a
+  condition occurs.
+- **[PagerDuty](/reference/alarms/pagerduty)** sends statuses to an on-call team.
+
+<Divider.Divider x />
+
+## Statuses
+
+A status is a named record of a condition. Each status has these fields:
+
+| Field       | Description                                              |
+| ----------- | -------------------------------------------------------- |
+| Key         | The unique identifier of the status.                     |
+| Name        | A name for people to read, such as "Tank pressure".      |
+| Variant     | The type of the status. Refer to [variants](#variants).  |
+| Message     | A short description of the current condition.            |
+| Description | More detail about the condition. This field is optional. |
+| Time        | The time of the last change to the status.               |
+| Labels      | Labels that group related statuses.                      |
+
+When you set a status with a key that already exists, Synnax updates that status. Thus
+one status can show the current state of one condition as it changes.
+
+### Variants
+
+| Variant  | Use it for                                      |
+| -------- | ----------------------------------------------- |
+| Success  | A nominal condition, or a problem that cleared. |
+| Info     | Information that needs no action.               |
+| Warning  | A condition that needs attention.               |
+| Error    | A failure or a condition out of limits.         |
+| Loading  | An operation that is in progress.               |
+| Disabled | A part of the system that is not active.        |
+
+<Divider.Divider x />
+
+## Statuses in the Console
+
+### Statuses toolbar
+
+Click the statuses icon (<Icon.Status />) on the left side of the Console to open the
+statuses toolbar. The toolbar shows the statuses that you added to your favorites. Each
+status shows its variant, name, message, labels, and the time since its last change.
+
+From the toolbar, you can also create a status and open the status explorer.
+
+### Status explorer
+
+The status explorer shows all statuses. To open it, click the explore button in the
+statuses toolbar, or run the `Open status explorer` command from the
+[command palette](/reference/get-started/ui-overview#search-and-command-palette).
+
+In the explorer, you can search for statuses and filter them by label and by variant.
+Right-click one or more statuses to:
+
+- `Rename` the status.
+- `Favorite` or `Unfavorite` the statuses, to add them to or remove them from the
+  statuses toolbar.
+- `Copy diagnostics` to copy the details of the statuses to the clipboard.
+- `Delete` the statuses.
+
+### Notifications
+
+When a status changes, the Console shows it as a notification. Devices, tasks, and the
+Driver also set statuses. The Console does not show notifications for their success,
+loading, and disabled statuses. The Console shows up to four notifications at a time.
+When there are more, click `+N more` to see all of them, or click `Clear all` to close
+them.
+
+<Divider.Divider x />
+
+## Set a status
+
+Automations and code set most statuses. You can also create a status by hand.
+
+<Client.Tabs client:load exclude={["cpp"]}>
+
+  <Fragment slot="console">
+
+Run the `Create status` command from the command palette, or click the add button
+(<Icon.Add />) in the statuses toolbar or the status explorer. Enter a name, a variant,
+a message, and labels. Then click `Create`.
+
+  </Fragment>
+
+  <Fragment slot="python">
+
+```python
+client.statuses.set(
+    sy.Status(
+        key="tank-pressure",
+        name="Tank pressure",
+        variant="warning",
+        message="Tank pressure is above 600 psi",
+    )
+)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+await client.statuses.set({
+  key: "tank-pressure",
+  name: "Tank pressure",
+  variant: "warning",
+  message: "Tank pressure is above 600 psi",
+});
+```
+
+  </Fragment>
+</Client.Tabs>
+
+To set a status from an Arc automation, use
+[`status.set`](/reference/control/arc/reference/standard-library/status). Refer to
+[alarms in Arc](/reference/alarms/arc) for common alarm patterns.

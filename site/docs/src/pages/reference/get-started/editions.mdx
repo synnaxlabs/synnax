@@ -1,0 +1,85 @@
+---
+title: "Editions"
+heading: "Synnax editions"
+description:
+  "Compare Synnax Desktop and Synnax Enterprise, and find out how to get each."
+layout: "@/layouts/Reference.astro"
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { enabled } from "@/flags";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Synnax comes in two editions. Synnax Desktop is one app that runs on your computer. It
+has its own private database and its own Driver, so you connect hardware and see data
+with nothing to set up. Synnax Enterprise is a Synnax Core that your team deploys on its
+own hardware. Many people, scripts, and Drivers connect to it.
+
+The two editions share most capabilities. The table shows where they differ.
+
+<Divider.Divider x />
+
+## Compare the editions
+
+| Capability                            | Synnax Desktop                       | Synnax Enterprise                         |
+| ------------------------------------- | ------------------------------------ | ----------------------------------------- |
+| Operating systems                     | macOS (Apple silicon), Windows (x64) | Linux, macOS, Windows, Docker             |
+| Channels and calculated channels      | Yes                                  | Yes                                       |
+| Ranges                                | Yes                                  | Yes                                       |
+| Projects and visualizations           | Yes                                  | Yes                                       |
+| Devices and tasks                     | Yes                                  | Yes                                       |
+| LabJack, Modbus, OPC UA, HTTP         | Yes                                  | Yes                                       |
+| NI devices                            | Windows only                         | Windows, Linux, NI Linux Real-Time        |
+| Arc automations                       | Yes                                  | Yes                                       |
+| Statuses                              | Yes                                  | Yes                                       |
+| Import and export                     | Yes                                  | Yes                                       |
+| Driver on the same computer           | Yes, built in                        | Yes                                       |
+| Drivers on other computers            | No                                   | Yes                                       |
+| Access from other computers           | No                                   | Yes                                       |
+| Python and TypeScript clients         | No                                   | Yes                                       |
+| Console in a web browser              | No                                   | Yes                                       |
+| Users, roles, and log in              | No                                   | Yes                                       |
+| Copy link to a resource               | No                                   | Yes                                       |
+| TLS certificates                      | No                                   | Yes                                       |
+| Automatic start, restart, diagnostics | Yes                                  | No, your team runs the Core               |
+| Metadata backup before an update      | Yes                                  | No                                        |
+| Updates                               | In the app, for all parts            | Console in the app; the rest by your team |
+| Price                                 | Free                                 | Contact Synnax Labs                       |
+
+<Divider.Divider x />
+
+## Choose an edition
+
+Use Synnax Desktop when one person works on one computer. For example, an engineer at a
+bench connects a LabJack or NI device, records data, and plots it. Synnax Desktop is
+also a fast way to try Synnax.
+
+Use Synnax Enterprise when a team shares one system. Choose Enterprise when you:
+
+- Have more than one person who needs the same data.
+- Connect hardware on other computers, such as a second PC or an NI CompactRIO.
+- Write Python or TypeScript code that reads, writes, or controls data.
+- Run Synnax on Linux or on a server.
+- Need users, roles, and permissions.
+
+<Divider.Divider x />
+
+## Get an edition
+
+### Synnax Desktop
+
+{enabled("desktop") ? (
+
+  <p>
+    Synnax Desktop is free. To download it, see{" "}
+    <a href="/reference/get-started/install-desktop">Install Synnax Desktop</a>.
+  </p>
+) : (
+  <p>Synnax Desktop is not available for download yet.</p>
+)}
+
+### Synnax Enterprise
+
+To get Synnax Enterprise, contact [Synnax Labs](https://www.synnaxlabs.com). To install
+a Core and connect to it, see [Set up Synnax Enterprise](/reference/enterprise).

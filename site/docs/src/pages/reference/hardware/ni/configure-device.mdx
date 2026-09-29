@@ -11,7 +11,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Note } from "@synnaxlabs/lyra/note";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Image, Video } from "@/components/media/Media";
-import { Details } from "@/components";
+import { Details, Edition } from "@/components";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Client } from "@/components/client";
 import { Fragment } from "react";
@@ -27,19 +27,26 @@ are discovered automatically and shown hierarchically in the Console.
 
 ## Prerequisites
 
-Before you can start using your NI hardware with Synnax, you will need to ensure that
-you have the following:
+Before you use your NI hardware with Synnax, make sure that you have:
 
-1. A [Synnax Core](/reference/enterprise) running on your network.
-2. A [Synnax Driver](/reference/hardware) running on your network. This Driver
-   must be connected to the Core and running on the same machine your NI hardware is
-   connected to.
-3. The
+1. [Synnax Desktop](/reference/) installed on the Windows computer that your NI hardware
+   connects to.
+2. The
    [NI-DAQmx](https://www.ni.com/en/support/downloads/drivers/download.ni-daq-mx.html)
    and
    [System Configuration](https://www.ni.com/en/support/downloads/drivers/download.system-configuration.html)
-   drivers installed on the machine running the Synnax Driver.
-4. The [Synnax Console](/reference/enterprise/console) installed on your local machine.
+   drivers installed on the same computer.
+
+<Edition.Enterprise>
+
+With Synnax Enterprise, you need a [Synnax Core](/reference/enterprise) and a Synnax
+Driver that runs on the machine that your NI hardware connects to. A Core runs an
+embedded Driver on its own machine. For a different machine,
+[install a standalone Driver](/reference/enterprise/driver). Install the NI drivers on
+the machine that runs the Driver. Install the
+[Synnax Console](/reference/enterprise/console) on your computer.
+
+</Edition.Enterprise>
 
 <Divider.Divider x />
 
@@ -52,6 +59,9 @@ you have the following:
 | <Icon.Logo.NI /> NI Linux Real-Time | ✓ Supported     |
 | <Icon.Logo.Apple /> macOS           | ✗ Not Supported |
 | <Icon.Logo.Docker /> Docker         | ✗ Not Supported |
+
+NI-DAQmx does not support macOS. Synnax Desktop runs on macOS and Windows, so NI devices
+work with Synnax Desktop only on Windows.
 
 <Divider.Divider x />
 

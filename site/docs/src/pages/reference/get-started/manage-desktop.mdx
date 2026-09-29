@@ -1,0 +1,132 @@
+---
+title: "Manage Synnax Desktop"
+description:
+  "Find the data folder and logs, restart Synnax, update the app, and erase all data."
+layout: "@/layouts/Reference.astro"
+flag: "desktop"
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Note } from "@synnaxlabs/lyra/note";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Synnax Desktop starts Synnax when the app opens and stops it when the app closes. You
+use the commands below to look after it. Run each command from the
+[command palette](/reference/get-started/ui-overview#search-and-command-palette).
+
+<Divider.Divider x />
+
+## Commands
+
+| Command           | What it does                                             |
+| ----------------- | -------------------------------------------------------- |
+| Open diagnostics  | Opens the diagnostics dialog.                            |
+| Restart Synnax    | Stops Synnax and starts it again.                        |
+| Show logs         | Opens the log folder in Finder or File Explorer.         |
+| Show data folder  | Opens the data folder in Finder or File Explorer.        |
+| Erase all data    | Deletes all of the data and starts Synnax Desktop again. |
+| Show version info | Shows the version of the app and checks for updates.     |
+
+<Divider.Divider x />
+
+## Data folder
+
+Synnax Desktop keeps its data in one folder for each user account on the computer:
+
+| Operating system | Data folder                                                 |
+| ---------------- | ----------------------------------------------------------- |
+| macOS            | `~/Library/Application Support/com.synnaxlabs.desktop/core` |
+| Windows          | `%LOCALAPPDATA%\com.synnaxlabs.desktop\core`                |
+
+The folder holds your channels, recorded data, ranges, and projects. To open it, run the
+"Show data folder" command. Do not change the files in the folder while Synnax Desktop
+runs.
+
+<Divider.Divider x />
+
+## Restart
+
+If Synnax stops unexpectedly, Synnax Desktop starts it again automatically. While it
+restarts, the top bar shows "Reconnecting", and live data stops for a short time. Your
+workspace stays open.
+
+If Synnax stops five times in a row, Synnax Desktop stops trying. It shows "Synnax
+stopped unexpectedly" with two buttons: **Restart** and **Diagnostics**.
+
+To restart Synnax yourself, run the "Restart Synnax" command. Running tasks and live
+data stop for a few seconds. No saved data is lost.
+
+<Divider.Divider x />
+
+## Logs
+
+Synnax writes its log to `core.log` in the log folder. To open the folder, run the "Show
+logs" command.
+
+| Operating system | Log folder                                   |
+| ---------------- | -------------------------------------------- |
+| macOS            | `~/Library/Logs/com.synnaxlabs.desktop`      |
+| Windows          | `%LOCALAPPDATA%\com.synnaxlabs.desktop\logs` |
+
+<Divider.Divider x />
+
+## Diagnostics
+
+The diagnostics dialog helps you, or the person who supports you, find a problem. To
+open it, run the "Open diagnostics" command. The dialog shows:
+
+- The state of Synnax, such as **Running** or **Stopped unexpectedly**.
+- The version of Synnax Desktop.
+- The time Synnax started and the number of starts in this session.
+- The last problem, if there was one.
+- The size and location of the data folder.
+- The end of the log.
+
+The dialog has buttons to show the data folder, show the logs, restart Synnax, and erase
+all data.
+
+### Export diagnostics for support
+
+Select **Export** in the diagnostics dialog, then select where to save the file. Synnax
+Desktop writes a zip file with a summary and every file of the log folder. Send this
+file to the person who supports you.
+
+<Divider.Divider x />
+
+## Updates
+
+Synnax Desktop checks for updates while it runs. When a new version is available, a
+notification and the top bar show "Update available". To install the update:
+
+1. Select **Update** in the notification, or select **Update available** in the top bar.
+   You can also run the "Show version info" command.
+2. Select **Update and restart**.
+
+Synnax Desktop downloads the update, stops Synnax, installs the update, and restarts.
+One update includes all parts of Synnax Desktop.
+
+### Metadata backup
+
+Before a new version of Synnax Desktop starts for the first time, it copies your
+metadata to a backup. Metadata includes your channels, ranges, projects, and
+visualizations. The backup does not include recorded data. Synnax Desktop keeps the
+three newest backups in the `backups` folder, next to the data folder.
+
+If the backup fails, Synnax does not start, and your data stays unchanged. The app has
+no restore command.
+
+<Divider.Divider x />
+
+## Erase all data
+
+<Note.Note variant="error">
+  Erase all data cannot be undone. It deletes every channel, all recorded data, every
+  project, and all metadata backups.
+</Note.Note>
+
+1. Run the "Erase all data" command, or select **Erase all data** in the diagnostics
+   dialog.
+2. Hold the **Erase all data** button for one second to confirm.
+
+Synnax Desktop deletes the data and starts again with no data. The logs stay.

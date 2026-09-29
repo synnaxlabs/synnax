@@ -90,7 +90,7 @@ When starting the Core with TLS, you'll need to specify the correct options and 
 the Core with the correct hostname in the `--listen` option. **The hostname must match
 the hostname in the node certificate**. The Core checks this at startup and refuses to
 start when the certificate does not cover the address it advertises. Here's an example
-for a let's encrypt certificate:
+for a Let's Encrypt certificate:
 
 ```sh
 synnax start \
@@ -98,7 +98,7 @@ synnax start \
   --mem \
   --certs-dir=/etc/letsencrypt/live/synnax.example.com/ \
   --node-cert=fullchain.pem \
-  --node-key=privkey.pem \
+  --node-key=privkey.pem
 ```
 
 <Divider.Divider x />
@@ -115,10 +115,9 @@ all of the relevant certificates and keys for you:
 synnax start --listen=localhost:9090 --auto-cert
 ```
 
-Please note that the `--auto-cert` option will require you to install the generated CA
-certificate on your client machine in order to trust the self-signed certificate
-authority. We have a guide on
-[deploying Synnax with self-signed certificates](/reference/enterprise/certificates).
+With `--auto-cert`, you must install the generated CA certificate on each client machine
+so that it trusts the self-signed certificate authority. See
+[install certificates](/reference/enterprise/certificates).
 
 `--auto-cert` also keeps the certificate current. If you change the address the Core
 listens on, the next start issues a replacement pair that covers it and logs the
@@ -130,11 +129,10 @@ reissue them.
 ### Using Let's Encrypt with Certbot
 
 The easiest way to get started with a trusted certificate is to use
-[Certbot](https://certbot.eff.org/) to generate a certificate for your domain. Please
-note that this requires your domain to be publicly accessible and have a valid DNS
-record. Once you have a certificate, you can use the `--certs-dir` option to specify the
-directory containing the certificate and key files. See the example above for a
-reference on how to do this.
+[Certbot](https://certbot.eff.org/) to generate a certificate for your domain. Your
+domain must be publicly accessible and have a valid DNS record. Once you have a
+certificate, you can use the `--certs-dir` option to specify the directory containing
+the certificate and key files. See the example above for a reference on how to do this.
 
 #### Important caveats when using Docker
 
@@ -174,8 +172,8 @@ while operators reach the same Core at a Tailscale `ts.net` address with a
 Tailscale-issued certificate, so Tailscale can enforce per-user network access.
 
 Multiple listeners are configured through the `listen` key in a
-[configuration file](/reference/enterprise/cli-reference#configuration-files). In this form,
-`listen` is a list of listener objects instead of a single address:
+[configuration file](/reference/enterprise/cli-reference#configuration-files). In this
+form, `listen` is a list of listener objects instead of a single address:
 
 ```yaml
 listen:

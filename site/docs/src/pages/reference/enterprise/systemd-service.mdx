@@ -1,14 +1,14 @@
 ---
 title: "systemd service"
 layout: "@/layouts/Reference.astro"
-description: "Manage Synnax using a systemd service."
+description: "Run a Synnax Core as a systemd service."
 ---
 
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Using a systemd service is a great way to manage a Synnax Core. Here is an example
-service file (typically kept in `/lib/systemd/system/synnax/service`):
+On Linux, you can run a Synnax Core as a systemd service. This is an example service
+file, usually kept at `/lib/systemd/system/synnax.service`:
 
 ```ini
 [Unit]
@@ -21,10 +21,13 @@ Group = synnax
 LimitNOFILE = 4096
 Restart = always
 RestartSec = 5s
-StandardOutput = /home/synnax/synnax.log
-StandardError = /home/synnax/errors.log
-ExecStart = /home/synnax/synnax --listen="localhost:9090"
+StandardOutput = file:/home/synnax/synnax.log
+StandardError = file:/home/synnax/errors.log
+ExecStart = /home/synnax/synnax start --listen=localhost:9090
 
 [Install]
 WantedBy = multi-user.target
 ```
+
+For the flags that `synnax start` accepts, see the
+[Core CLI reference](/reference/enterprise/cli-reference#start).

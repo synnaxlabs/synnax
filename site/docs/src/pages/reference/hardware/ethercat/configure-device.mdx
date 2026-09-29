@@ -11,7 +11,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Note } from "@synnaxlabs/lyra/note";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Image, Video } from "@/components/media/Media";
-import { Details } from "@/components";
+import { Details, Edition } from "@/components";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Client } from "@/components/client";
 import { Fragment } from "react";
@@ -21,13 +21,22 @@ export const components = mdxOverrides;
 
 ## Prerequisites
 
-Before configuring EtherCAT devices, ensure you have:
+Before you configure EtherCAT devices, make sure that you have:
 
-1. A [Synnax Core](/reference/enterprise) running on your network.
-2. A [Synnax Driver](/reference/hardware) running on the same machine as your
-   EtherCAT network interface.
-3. An EtherCAT master configured (IgH kernel module or SOEM).
-4. The [Synnax Console](/reference/enterprise/console) installed on your local machine.
+1. [Synnax](/reference/) running on the computer that has your EtherCAT network
+   interface.
+2. An [EtherCAT master](/reference/hardware/ethercat/get-started) configured (IgH kernel
+   module or SOEM).
+
+<Edition.Enterprise>
+
+With Synnax Enterprise, you need a [Synnax Core](/reference/enterprise) and a Synnax
+Driver that runs on the machine that has your EtherCAT network interface. A Core runs an
+embedded Driver on its own machine. For a different machine,
+[install a standalone Driver](/reference/enterprise/driver). Install the
+[Synnax Console](/reference/enterprise/console) on your computer.
+
+</Edition.Enterprise>
 
 <Note.Note variant="warning" className="compact">
   All channels in a task must use devices connected to the **same network interface**.

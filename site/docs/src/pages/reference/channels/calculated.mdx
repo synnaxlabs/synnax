@@ -14,35 +14,51 @@ import Diagram from "@/components/diagram/Diagram.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Calculated channels compute values from other [channels](/reference/channels/manage) in
-real time:
+A calculated channel computes its values from other [channels](/reference/channels) with
+an [Arc](/reference/control/arc/introduction) expression. Use calculated channels to:
 
-- Scale, convert, or filter raw data
-- Implement sensor voting algorithms
-- Trigger alarms or warnings from a condition
+- Scale, convert, or filter raw data.
+- Vote between redundant sensors.
+- Set a flag when a condition is true, for alarms and warnings.
 
-Calculated channels are [virtual](/reference/channels#virtual-channels): their
-data is computed on demand and never stored to disk. Because nothing is stored, an edit
-applies to all [historical data](/reference/channels#historical-evaluation). A
-channel changed from `chan * 3` to `chan * 10` shows `chan * 10` for its whole history.
+Calculated channels are [virtual](/reference/channels#virtual-channels). Synnax computes
+their values when you read them, and does not store them. Because nothing is stored, an
+edit applies to all [historical data](#historical-evaluation). If you change a channel
+from `chan * 3` to `chan * 10`, its whole history shows `chan * 10`.
 
 <Divider.Divider x />
 
-## Calculated channel parameters
+## How calculations run
 
-| Parameter    | Type                | Default  | Description                                                                                                                                                                                                    |
-| ------------ | ------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`       | string              | Required | A name for the channel.                                                                                                                                                                                        |
-| `expression` | string              | Required | The Arc expression that calculates the value to be written to the calculated channel. This expression must end with a `return` statement. Channel dependencies are automatically detected from the expression. |
-| `operations` | list of `Operation` | `[]`     | Post-processing operation applied to the expression result. Options include `min`, `max`, `avg` for [running aggregations](#operations), and `derivative` for rate of change.                                  |
+### On-demand computation
 
-### Operation parameters
+A calculated channel runs only while something reads or streams it. When you open it in
+a line plot, or read it from a client library, the calculation starts. When the stream
+stops, the calculation stops. Nothing runs in the background, so a calculation uses CPU
+and memory only while you need its results.
 
-| Parameter                                                       | Type       | Default  | Description                                                                                                       |
-| --------------------------------------------------------------- | ---------- | -------- | ----------------------------------------------------------------------------------------------------------------- |
-| `type`                                                          | string     | Required | Options include `min`, `max`, `avg` for [running aggregations](#operations), and `derivative` for rate of change. |
-| `duration`                                                      | `TimeSpan` | `0`      | How long the window runs before the operation state resets. Set to 0 for no timed reset.                          |
-| <Client.Var client:load py="reset_channel" ts="resetChannel" /> | number     | `0`      | A `boolean` [channel that triggers operation reset](#reset-channels) when its value is `true`.                    |
+### Nested calculations
+
+A calculated channel can use other calculated channels as inputs. This makes a chain:
+
+```
+sensor_raw → temp_celsius → temp_fahrenheit → temp_status
+```
+
+New data on `sensor_raw` moves through the chain. Each channel calculates from the
+output of the channel before it. A chain can have any number of levels, but each level
+adds computation time.
+
+### Historical evaluation
+
+You can query a calculated channel for a past time range. Synnax calculates the values
+as if the channel was running at that time. Two conditions apply:
+
+- Each input channel must have data in the time range.
+- Operations with a time window can give different results than they do live.
+
+Nested calculations also work for past time ranges, if the channels at the start of the
+chain store their data.
 
 <Divider.Divider x />
 
@@ -52,10 +68,16 @@ channel changed from `chan * 3` to `chan * 10` shows `chan * 10` for its whole h
 
   <Fragment slot="console">
 
-Create a calculated channel with the "Create Calculated Channel" command in the
-[command palette](/reference/get-started/ui-overview#search-and-command-palette). To edit a
-calculated channel, right-click it in the channels toolbar and select "Edit Calculation"
-from the context menu.
+To create a calculated channel, click the create calculated channel button in the
+[channels toolbar](/reference/get-started/ui-overview#channels), or run the "Create
+calculated channel" command in the
+[command palette](/reference/get-started/ui-overview#search-and-command-palette). Enter
+a name and write the expression. To add an [operation](#operations), select **Min**,
+**Max**, **Average**, or **Derivative**. Min, max, and average also take a **Window**
+and a **Reset channel**.
+
+To edit a calculated channel, right-click it in the channels toolbar and select **Edit
+calculation**.
 
 <Video client:only="react" id="client/calculated-channels/create-and-edit" />
 
@@ -104,6 +126,26 @@ await client.channels.create({
   </Fragment>
 
 </Client.Tabs>
+
+<Divider.Divider x />
+
+## Calculated channel parameters
+
+| Parameter    | Type                | Default  | Description                                                                                                                                                                                                    |
+| ------------ | ------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`       | string              | Required | A name for the channel.                                                                                                                                                                                        |
+| `expression` | string              | Required | The Arc expression that calculates the value to be written to the calculated channel. This expression must end with a `return` statement. Channel dependencies are automatically detected from the expression. |
+| `operations` | list of `Operation` | `[]`     | Post-processing operation applied to the expression result. Options include `min`, `max`, `avg` for [running aggregations](#operations), and `derivative` for rate of change.                                  |
+
+### Operation parameters
+
+In the Console, `duration` is the **Window** field, in seconds.
+
+| Parameter                                                       | Type       | Default  | Description                                                                                                       |
+| --------------------------------------------------------------- | ---------- | -------- | ----------------------------------------------------------------------------------------------------------------- |
+| `type`                                                          | string     | Required | Options include `min`, `max`, `avg` for [running aggregations](#operations), and `derivative` for rate of change. |
+| `duration`                                                      | `TimeSpan` | `0`      | How long the window runs before the operation state resets. Set to 0 for no timed reset.                          |
+| <Client.Var client:load py="reset_channel" ts="resetChannel" /> | number     | `0`      | A `boolean` [channel that triggers operation reset](#reset-channels) when its value is `true`.                    |
 
 <Divider.Divider x />
 

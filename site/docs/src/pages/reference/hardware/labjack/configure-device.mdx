@@ -11,7 +11,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Note } from "@synnaxlabs/lyra/note";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Image, Video } from "@/components/media/Media";
-import { Details } from "@/components";
+import { Details, Edition } from "@/components";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Client } from "@/components/client";
 import { Fragment } from "react";
@@ -28,17 +28,24 @@ The Synnax Driver reads from and writes to LabJack T-Series devices.
 
 ## Prerequisites
 
-Before you can start using your LabJack hardware with Synnax, you will need to ensure
-that you have the following:
+Before you use your LabJack hardware with Synnax, make sure that you have:
 
-1. A [Synnax Core](/reference/enterprise) running on your network.
-2. A [Synnax Driver](/reference/hardware) running on your network. This Driver
-   must be connected to the Core and running on the same machine as your LabJack
-   hardware is connected to.
-3. The
+1. [Synnax Desktop](/reference/) installed on the computer that your LabJack hardware
+   connects to.
+2. The
    [LJM library](https://support.labjack.com/docs/ljm-software-installer-downloads-t4-t7-t8-digit)
-   installed on the machine running the Synnax Driver.
-4. The [Synnax Console](/reference/enterprise/console) installed on your local machine.
+   installed on the same computer.
+
+<Edition.Enterprise>
+
+With Synnax Enterprise, you need a [Synnax Core](/reference/enterprise) and a Synnax
+Driver that runs on the machine that your LabJack hardware connects to. A Core runs an
+embedded Driver on its own machine. For a different machine,
+[install a standalone Driver](/reference/enterprise/driver). Install the LJM library on
+the machine that runs the Driver. Install the
+[Synnax Console](/reference/enterprise/console) on your computer.
+
+</Edition.Enterprise>
 
 <Divider.Divider x />
 

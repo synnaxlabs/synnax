@@ -8,17 +8,15 @@ description: "Navigate the Synnax Console UI."
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Image, Video } from "@/components/media/Media";
-import { Table } from "@/components";
+import { Edition } from "@/components";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The Synnax Console provides a flexible environment to display and interact with data
-stored and streamed through a Synnax Core. It's interface is designed around two main UI
-elements: the central layout mosaic and side toolbars.
+The Synnax Console is the interface you use to see and control your data. It has two
+main parts: the central mosaic and the side toolbars.
 
-The central mosaic displays visualizations such as line plots and schematics, while the
-toolbars exists to provide access to resources, data ranges, tasks, and visualization
-controls.
+The mosaic shows visualizations such as line plots and schematics. The toolbars give
+access to channels, ranges, projects, devices, tasks, and visualization settings.
 
 <Divider.Divider x />
 
@@ -26,39 +24,56 @@ controls.
 
 ### <Icon.Channel />Channels
 
-The [channels toolbar](/reference/channels/manage) allows you to create, view, and
-access the channels you're interested in visualizing.
+The [channels toolbar](/reference/channels/manage) lets you create, view, and open the
+channels you want to visualize.
 
 ### <Icon.Range />Ranges
 
-The [ranges toolbar](/reference/ranges/manage) allows you to create, view, and access
-ranges that you have favorited in the Console.
+The [ranges toolbar](/reference/ranges/manage) shows the ranges that you added to your
+favorites. You can also create ranges and open the range explorer from it.
 
 ### <Icon.Project />Projects
 
-The [projects toolbar](/reference/visualize/projects) allows you to create and view
-projects that have been made by users in your Synnax deployment.
+The [projects toolbar](/reference/visualize/projects) lets you create, open, and export
+projects.
 
 ### <Icon.Device />Devices
 
-The [devices toolbar](/reference/hardware) allows you to view and track the health of the
-devices you're interested in visualizing.
+The [devices toolbar](/reference/hardware) shows the devices that Synnax is connected
+to.
 
 ### <Icon.Task />Tasks
 
-The [tasks toolbar](/reference/hardware) allows you to view, pause, and resume the current
-tasks running on a Driver.
+The [tasks toolbar](/reference/hardware/tasks) lets you create, configure, start, and
+stop tasks.
+
+### <Icon.Arc />Arcs
+
+The [Arcs toolbar](/reference/control/arc/introduction) lets you create, start, and stop
+Arc automations.
+
+### <Icon.Status />Statuses
+
+The [statuses toolbar](/reference/alarms) shows the statuses that you added to your
+favorites. You can also create statuses and open the status explorer from it.
+
+<Edition.Enterprise>
 
 ### <Icon.User />Users
 
-The [users toolbar](/reference/enterprise/users) allows you to view and change permissions
-for users in your Synnax deployment.
+The [users toolbar](/reference/enterprise/users) lets you view the users in your Synnax
+deployment and change their roles.
+
+</Edition.Enterprise>
 
 ### <Icon.Component />Component
 
-The component toolbar allows you to edit the properties of
+The component toolbar lets you edit the properties of
 [line plots](/reference/visualize/line-plots), [logs](/reference/visualize/logs),
-[schematics](/reference/visualize/schematics), and [tables](/reference/visualize/tables).
+[schematics](/reference/visualize/schematics), and
+[tables](/reference/visualize/tables).
+
+<Divider.Divider x />
 
 ## Getting help
 

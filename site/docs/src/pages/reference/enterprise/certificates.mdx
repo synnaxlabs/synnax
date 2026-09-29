@@ -2,7 +2,7 @@
 layout: "@/layouts/Reference.astro"
 title: "Installing certificates"
 heading: "Installing certificates"
-description: "Deploying a Synnax Core to production"
+description: "Install the CA certificate of a Synnax Core on client machines."
 ---
 
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -11,9 +11,9 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
 
-This page is a guide on how to efficiently install CA certificates on client machines to
-enable communication with a Synnax Core using a self-signed certificate. Select your
-operating system below.
+A client machine must trust the CA certificate of a Synnax Core that uses a self-signed
+certificate, such as one started with `--auto-cert`. By default, the Core keeps its CA
+certificate at `/usr/local/synnax/certs/ca.crt`. Select your operating system.
 
 <Tabs
     client:load
@@ -25,9 +25,8 @@ operating system below.
 <Fragment slot="windows">
 ## Windows
 
-To start off, you'll need to pull the CA certificate from the Core. Once you have the
-certificate, you can install it using the `Import-Certificate` command. Note that you
-may need to open PowerShell as an administrator to run the command.
+Copy the CA certificate from the Core. Then install it with the `Import-Certificate`
+command. You may need to open PowerShell as an administrator to run the command.
 
 ```powershell
 Import-Certificate -FilePath PATH_TO_CA_CRT -CertStoreLocation Cert:\LocalMachine\Root
@@ -37,15 +36,14 @@ Import-Certificate -FilePath PATH_TO_CA_CRT -CertStoreLocation Cert:\LocalMachin
 <Fragment slot="macos">
 ## macOS
 
-To start off, you'll need to pull the CA certificate from the Core. If you have ssh
-access to the Core, you can use the `scp` command to pull the certificate:
+Copy the CA certificate from the Core. If you have SSH access to the Core, use `scp`:
 
 ```bash
 scp user@core:/path/to/ca.crt /tmp/synnax-ca.crt
 ```
 
-Otherwise, you can copy and paste the certificate into a new file. Open a new terminal
-and run the following command:
+If you do not have SSH access, paste the certificate into a new file. Then open a new
+terminal and run this command:
 
 ```bash
 sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain /tmp/synnax-ca.crt

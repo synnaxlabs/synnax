@@ -11,16 +11,14 @@ import { Video } from "@/components/media/Media";
 import { Fragment } from "react";
 import Details from "@/components/details/Details.astro";
 import { Client } from "@/components/client";
+import { Edition } from "@/components";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The PagerDuty integration watches status keys and opens or resolves PagerDuty incidents
-when they change. Error, warning, and info variants send an event with the matching
-severity. Success resolves the open incident. Events are deduplicated by status key, so
-repeated changes update the existing incident.
-
-The integration runs on the Synnax Core, not on the Driver, so the Core must reach
-`events.pagerduty.com` over HTTPS.
+The PagerDuty integration watches [statuses](/reference/alarms#statuses) and opens or
+resolves PagerDuty incidents when they change. Error, warning, and info variants send an
+event with the matching severity. Success resolves the open incident. Events are
+deduplicated by status key, so repeated changes update the existing incident.
 
 This task follows the standard
 [task lifecycle](/reference/hardware/tasks#task-lifecycle).
@@ -34,6 +32,15 @@ This task follows the standard
    -> `Service Directory`, select the service, then `Integrations` -> `Add Integration`
    -> `Events API v2`.
 3. The 32-character integration key (routing key) from that integration.
+4. Internet access from the computer that runs Synnax. Synnax sends events to
+   `events.pagerduty.com` over HTTPS.
+
+<Edition.Enterprise>
+
+In Synnax Enterprise, the Synnax Core sends the events, not the Driver. The computer
+that runs the Core must have internet access.
+
+</Edition.Enterprise>
 
 <Divider.Divider x />
 

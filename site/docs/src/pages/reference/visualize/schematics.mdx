@@ -13,7 +13,6 @@ import { Image, Video } from "@/components/media/Media";
 import Diagram from "@/components/diagram/Diagram.astro";
 import CreateVisualization from "@/components/console/CreateVisualization.astro";
 import ShareAndExport from "@/components/console/ShareAndExport.astro";
-import ControlChip from "@/components/console/ControlChip.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -64,8 +63,8 @@ the controls in the top-right corner of the schematic.
       </td>
       {
         <td>
-          Live data from the Core is displayed on the schematic. Symbols are not
-          editable and the user cannot change the system state.
+          The schematic displays live data. Symbols are not editable and the user cannot
+          change the system state.
         </td>
       }
     </tr>
@@ -87,18 +86,9 @@ the controls in the top-right corner of the schematic.
 ### Control mode
 
 In control mode, click an actionable symbol, such as a valve, switch, or button, to
-write to its command channel. The indicator next to the symbol displays the control
-status.
-
-<ControlChip variant="control" /> A blue circle indicates the current user has control.
-
-<ControlChip variant="absolute" /> A green circle indicates the current user has
-absolute control.
-
-<ControlChip variant="other" /> A red square indicates another user or process holds
-control.
-
-The color of the bar and legend indicate what has control over the channel.
+write to its command channel. An indicator next to the symbol shows who has control of
+the channel. To take and release control, and to read the control indicators, see
+[manual control](/reference/control/manual).
 
 <Video client:only="react" id="console/schematics/valve" />
 
@@ -205,8 +195,8 @@ stream and display its live data.
       </td>
       {
         <td>
-          Display a rolling average for the channel. This does not change the underlying
-          value written to the Synnax Core.
+          Display a rolling average for the channel. This does not change the stored
+          value.
         </td>
       }
     </tr>
@@ -282,18 +272,10 @@ The control tab is available on symbols that can be actuated.
 
 ### Redline tab
 
-The redline tab is available on value symbols. Use it to change the background color of
-the value when the value passes a threshold. Click `Add band`, then set the threshold
-and the color of the band.
-
-Each band has a threshold and a color. A band paints the values at or above its
-threshold and below the next higher threshold. Values below every threshold show the
-background from the `Style` tab. By default, the background paints nothing.
-
-- **Transition** -> `Steps` changes the color at each threshold. `Smooth` blends the
-  colors between thresholds.
-- **Flash** (lightning icon) -> Makes the band blink between its color and the
-  background while the value is in the band.
+The redline tab is available on value symbols. A redline changes the background color of
+the value when the value passes a threshold. Select the symbol and open its `Redline`
+tab in the component toolbar. See [redlines](/reference/alarms/redlines) to set up bands
+and transitions.
 
 <Divider.Divider x />
 

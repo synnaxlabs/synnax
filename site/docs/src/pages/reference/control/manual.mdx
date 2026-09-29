@@ -1,0 +1,150 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Manual control"
+description: "Take and release control of hardware from a schematic."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Note } from "@synnaxlabs/lyra/note";
+import { Video } from "@/components/media/Media";
+import { Edition } from "@/components";
+import ControlChip from "@/components/console/ControlChip.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+With manual control, an operator commands hardware from a
+[schematic](/reference/visualize/schematics). You click a valve, a switch, or a button,
+and the schematic writes to the command channel of that symbol. A write task then sends
+the command to the hardware.
+
+Before a schematic can write to a channel, it must have control of that channel. Other
+writers, such as an Arc automation or a different schematic, can also try to write to
+the same channel. [Control authority](/reference/control/authority) decides which writer
+has control.
+
+<Video client:only="react" id="console/schematics/valve" />
+
+<Divider.Divider x />
+
+## Before you start
+
+- Add actuator symbols, such as valves and buttons, to a schematic.
+- In the [control tab](/reference/visualize/schematics#control-tab) of each symbol, set
+  the command channel.
+- Make sure a [write task](/reference/hardware/tasks) listens to each command channel
+  and sends the commands to the hardware.
+
+<Divider.Divider x />
+
+## Take control
+
+To take control, click the control button (<Icon.Circle />) in the top-right corner of
+the schematic. You can also right-click the schematic and select `Take control`.
+
+The schematic takes control of the command channels of all its symbols. It writes at the
+authority of the schematic, which is 1 by default. Refer to
+[control authority on a schematic](#control-authority-on-a-schematic).
+
+If you click an actuator symbol before you take control, the schematic takes control
+first and then sends the command.
+
+You cannot edit a schematic while it has control. To edit it, release control first. You
+can also click `Release control and enable editing` in the component toolbar.
+
+<Edition.Enterprise>
+
+In Synnax Enterprise, the control button shows only to users who have permission to
+write data.
+
+</Edition.Enterprise>
+
+<Divider.Divider x />
+
+## Command a symbol
+
+Click an actuator symbol to write to its command channel. A click on a deactivated
+symbol writes `1`. A click on an activated symbol writes `0`. The symbol shows as
+activated when its state channel has a value of `1`.
+
+If a different writer has control of the channel, your commands have no effect. Look at
+the control chip next to the symbol to see who has control.
+
+<Divider.Divider x />
+
+## Control chips
+
+The control chip next to an actuator symbol shows the control state of its channel.
+Hover over the chip to see a description.
+
+| Chip                                            | Meaning                                        |
+| ----------------------------------------------- | ---------------------------------------------- |
+| Gray circle                                     | No writer has control of the channel.          |
+| <ControlChip variant="control" /> Blue circle   | This schematic has control.                    |
+| <ControlChip variant="absolute" /> Green circle | This schematic has absolute control (255).     |
+| <ControlChip variant="other" /> Red square      | A different writer has control of the channel. |
+
+Click a chip that is not green to take absolute control of its channel. The schematic
+raises its authority on that channel to 255. Click a green chip to set the channel back
+to the authority of the schematic.
+
+To hide the chip of a symbol, turn off the `Control chip` switch in the control tab of
+the symbol.
+
+<Divider.Divider x />
+
+## Control legend
+
+A colored bar next to each actuator symbol shows the color of the writer that has
+control of its channel. The control legend on the schematic shows the name and color of
+each writer that has control of a channel on the schematic. An Arc automation shows with
+its name.
+
+To change the color of a writer, click its color swatch in the legend. To show or hide
+the legend, use the `Show control state legend` switch in the `Control` tab of the
+component toolbar.
+
+<Divider.Divider x />
+
+## Control authority on a schematic
+
+Each schematic writes at one authority. The default is 1, which is low: almost all other
+writers can take control from the schematic. To change it, edit the schematic, open the
+component toolbar, and set `Control authority` in the `Control` tab. The value is from 0
+to 255.
+
+A control chip always takes control at 255, whatever the authority of the schematic is.
+
+<Divider.Divider x />
+
+## When a different writer has control
+
+An operator and an Arc automation often write to the same channels. The result depends
+on their authorities:
+
+- **The automation is below 255**: click the control chip to take absolute control of
+  the channel. Click the chip again to release it. The automation then gets control
+  again.
+- **The automation is at 255**: you cannot take control from the schematic. Equal
+  authority goes to the writer that took control first. Arc automations write at 255 if
+  they do not declare an authority.
+
+<Note.Note variant="info">
+  Give each Arc automation an authority below 255 on each channel that an operator can
+  need to control by hand. Refer to [control authority in
+  Arc](/reference/control/arc/concepts/control-authority).
+</Note.Note>
+
+<Divider.Divider x />
+
+## Release control
+
+To release control, do one of these steps:
+
+- Click the control button (<Icon.Circle />) again.
+- Right-click the schematic and select `Release control`.
+- Close the schematic.
+- Enable editing of the schematic.
+
+When the schematic releases control, the writer with the next highest authority gets
+control of each channel.

@@ -1,0 +1,85 @@
+---
+title: "Install Synnax Desktop"
+description: "Download and install Synnax Desktop on macOS or Windows."
+layout: "@/layouts/Reference.astro"
+flag: "desktop"
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Desktop } from "@/components/desktop";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Synnax Desktop is one app that collects, stores, and shows data from your hardware. It
+includes the Synnax Console, a private database, and a Synnax Driver. You install it
+once and use it with nothing to run from a terminal. Synnax Desktop is free.
+
+<Divider.Divider x />
+
+## Requirements
+
+| Operating system | Processor             |
+| ---------------- | --------------------- |
+| macOS            | Apple silicon (arm64) |
+| Windows          | x64                   |
+
+There is no Synnax Desktop build for Linux or for Intel Macs. To run Synnax on Linux,
+use [Synnax Enterprise](/reference/enterprise).
+
+NI devices work with Synnax Desktop only on Windows, because NI-DAQmx does not support
+macOS. For more information, see [NI devices](/reference/hardware/ni/configure-device).
+
+<Divider.Divider x />
+
+## Download
+
+Download the latest release for your operating system:
+
+<br />
+<Flex.Box direction="y" justify="center" align="center">
+  <Desktop.DownloadButton />
+  <small>
+    Older versions are on the [Synnax releases on
+    GitHub](https://github.com/synnaxlabs/synnax/releases).
+  </small>
+</Flex.Box>
+<br />
+
+<Divider.Divider x />
+
+## Install
+
+### macOS
+
+1. Open the downloaded `.dmg` file.
+2. Drag Synnax Desktop into the Applications folder.
+3. Open Synnax Desktop from the Applications folder.
+
+### Windows
+
+1. Open the downloaded `-setup.exe` file.
+2. Follow the steps of the installer.
+3. Open Synnax Desktop from the Start menu.
+
+<Divider.Divider x />
+
+## First launch
+
+When Synnax Desktop opens, it shows "Starting Synnax..." while Synnax starts. Then it
+shows the project selector. Select **New project** to create a project, or open one.
+Synnax saves your visualizations and layout in the project. For more information, see
+[projects](/reference/visualize/projects).
+
+Each user account on the computer has its own Synnax Desktop data. All of the data stays
+on your computer.
+
+<Divider.Divider x />
+
+## Next steps
+
+- Record and plot your first data in [your first run](/reference/get-started/first-run).
+- Learn the parts of the Console in the
+  [UI overview](/reference/get-started/ui-overview).
+- Find the data folder, logs, and updates in
+  [Manage Synnax Desktop](/reference/get-started/manage-desktop).

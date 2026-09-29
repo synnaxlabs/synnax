@@ -1,7 +1,7 @@
 ---
 title: "CLI reference"
 layout: "@/layouts/Reference.astro"
-description: "Find information about the Synnax Core CLI."
+description: "Commands and flags of the Synnax Core CLI."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
@@ -11,6 +11,11 @@ import VersionOutput from "@/components/core/VersionOutput.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
+The `synnax` command starts and manages a Synnax Core. This page lists its commands,
+flags, environment variables, and configuration file keys.
+
+<Divider.Divider x />
+
 ## Start
 
 The `start` command starts the Synnax Core.
@@ -19,7 +24,7 @@ The `start` command starts the Synnax Core.
 
 #### Starting a Core
 
-We can use the `i` and `m` flags to start a Core in insecure mode with an in-memory data
+Use the `-i` and `-m` flags to start a Core in insecure mode with an in-memory data
 store:
 
 ```cmd
@@ -80,7 +85,7 @@ synnax start -l localhost:9090 -im
       description: "Prints the help message for the start command.",
     },
     {
-      option: "--config/c",
+      option: "--config/-c",
       default: '"/usr/local/synnax/config.yaml"',
       description: `Path to a JSON, YAML, or TOML configuration file that can
                 be used to set the node's configuration instead of using flags or environment variables.
@@ -116,7 +121,7 @@ synnax start -l localhost:9090 -im
       option: "--username",
       default: '"synnax"',
       description:
-        'Username for the cluster root user. Reconciled on every start — see <a href="#root-user-reconciliation">Root User Reconciliation</a> for the behavior when this changes between restarts.',
+        'Username for the cluster root user. Reconciled on every start. See <a href="#root-user-reconciliation">Root User Reconciliation</a> for the behavior when this changes between restarts.',
     },
     {
       option: "--password",
@@ -243,7 +248,7 @@ Command line flags will take precedence over environment variables.
     { option: "--verbose/-v", env: "SYNNAX_VERBOSE" },
     { option: "--insecure/-i", env: "SYNNAX_INSECURE" },
     { option: "--mem/-m", env: "SYNNAX_MEM" },
-    { option: "--config/c", env: "SYNNAX_CONFIG" },
+    { option: "--config/-c", env: "SYNNAX_CONFIG" },
     { option: "--certs-dir", env: "SYNNAX_CERTS_DIR" },
     { option: "--ca-cert", env: "SYNNAX_CA_CERT" },
     { option: "--node-cert", env: "SYNNAX_NODE_CERT" },
@@ -279,9 +284,9 @@ Synnax will also read configuration files in JSON, TOML and YAML formats. The va
 in these configuration files take the lowest precedence and will be overridden by any
 environment variables or command line flags.
 
-By default, Synnax will look for a configuration file at `~/.synnax.yaml`. You can
-specify a different configuration file using the `--config` flag or the `SYNNAX_CONFIG`
-environment variable.
+By default, Synnax reads the configuration file at `/usr/local/synnax/config.yaml`. To
+use a different file, set the `--config` flag or the `SYNNAX_CONFIG` environment
+variable.
 
 Here are example configuration files in various formats:
 
@@ -406,8 +411,8 @@ The `listen` key takes either form. A single address (as above) binds one listen
 the node certificate paths. A list of objects binds one listener per entry, each with
 its own address and certificate. The list form works in configuration files only, not as
 a flag. See
-[Serving multiple listeners](/reference/enterprise/production#serving-multiple-listeners) for
-the full deployment model.
+[Serving multiple listeners](/reference/enterprise/production#serving-multiple-listeners)
+for the full deployment model.
 
 ```yaml
 listen:
@@ -490,7 +495,7 @@ The behavior depends on what already exists on disk:
     },
     {
       scenario: "Restart with unchanged credentials",
-      behavior: "No-op — the existing root user is left alone.",
+      behavior: "No change. The existing root user is left alone.",
     },
     {
       scenario: "Restart with the same username but a different password",
@@ -520,8 +525,8 @@ The behavior depends on what already exists on disk:
 Because the configured password is the source of truth, you can recover a forgotten root
 password by editing the Core's configuration (config file, environment variable, or
 `--password` flag) and restarting the Core. The stored password will be rotated on
-startup. Non-root users rotate their passwords through the API as normal — only the root
-user's password is governed by configuration.
+startup. Non-root users change their passwords through the API as normal. Only the root
+user's password is set by configuration.
 
 #### Demoted users
 
@@ -689,4 +694,13 @@ Stops the running Synnax Windows Service.
 
 ```cmd
 synnax service stop
+```
+
+### service status
+
+Shows if the Synnax Windows Service is installed and running. It also shows the data
+directory, the log file location, and the listen address.
+
+```cmd
+synnax service status
 ```
