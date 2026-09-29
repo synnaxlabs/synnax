@@ -44,7 +44,7 @@ const flatten = (value: unknown): string => {
   return JSON.stringify(value) ?? "";
 };
 
-/** form reads a JSON body or a posted form into one flat record, less null fields. */
+/** form reads a JSON body or a posted form into one flat record without null fields. */
 export const form = async ({
   request,
 }: APIContext): Promise<Record<string, string>> => {

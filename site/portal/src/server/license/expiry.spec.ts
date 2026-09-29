@@ -169,7 +169,9 @@ describe("expiry.sweep", () => {
         throw new Error("mail: down");
       },
     };
-    await sweep({ store, mail: failing, recipients, now: NOW }).catch(() => {});
+    await expect(sweep({ store, mail: failing, recipients, now: NOW })).rejects.toThrow(
+      "1 of 1 expiry warnings failed to send: mail: down",
+    );
     expect(await events()).toHaveLength(0);
     expect(await sweep({ store, mail, recipients, now: NOW })).toHaveLength(1);
     expect(mail.sent).toHaveLength(1);
@@ -178,14 +180,9 @@ describe("expiry.sweep", () => {
   it("should warn the other licenses when one mail fails, then throw", async () => {
     const first = await createExpiring(29.5);
     const second = await createExpiring(6);
-    const flaky: Mailer & { sent: Message[] } = {
-      sent: [],
+    const flaky: Mailer = {
       send: async (msg) => {
-        if (flaky.sent.length === 0 && msg.subject.includes("30 days")) {
-          flaky.sent.push({ ...msg, to: [] });
-          throw new Error("mail: down");
-        }
-        flaky.sent.push(msg);
+        if (msg.subject.includes("30 days")) throw new Error("mail: down");
       },
     };
     await expect(sweep({ store, mail: flaky, recipients, now: NOW })).rejects.toThrow(
