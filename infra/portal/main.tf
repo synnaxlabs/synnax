@@ -49,10 +49,30 @@ provider "github" {
   owner = "synnaxlabs"
 }
 
-# The signing key. ML-DSA-44, sign-only, and never exportable: every license key a Core
-# accepts is signed under it, and its public half is compiled into the Core.
+# Previews sign with their own key. No Core embeds its public half or knows its kid, so
+# code on a preview branch cannot mint a license key a Core accepts.
+locals {
+  signers = {
+    production = {
+      description = "Signs Synnax license keys (ML-DSA-44)"
+      alias       = "alias/synnax-license-signing"
+      user        = "portal-signer"
+      kid         = "2"
+    }
+    preview = {
+      description = "Signs portal preview license keys, trusted by no Core (ML-DSA-44)"
+      alias       = "alias/synnax-license-signing-preview"
+      user        = "portal-preview-signer"
+      kid         = "preview"
+    }
+  }
+}
+
+# The production key signs every license key a Core accepts, and its public half is
+# compiled into the Core. Sign-only and never exportable.
 resource "aws_kms_key" "license_signing" {
-  description              = "Signs Synnax license keys (ML-DSA-44)"
+  for_each                 = local.signers
+  description              = each.value.description
   key_usage                = "SIGN_VERIFY"
   customer_master_key_spec = "ML_DSA_44"
   deletion_window_in_days  = 30
@@ -60,30 +80,35 @@ resource "aws_kms_key" "license_signing" {
 }
 
 resource "aws_kms_alias" "license_signing" {
-  name          = "alias/synnax-license-signing"
-  target_key_id = aws_kms_key.license_signing.key_id
+  for_each      = local.signers
+  name          = each.value.alias
+  target_key_id = aws_kms_key.license_signing[each.key].key_id
 }
 
-# The identity the portal signs with. It can sign and read the public key, nothing else.
+# Each deployment signs as its own identity, which can sign with and read only its key.
 resource "aws_iam_user" "portal_signer" {
-  name = "portal-signer"
+  for_each = local.signers
+  name     = each.value.user
 }
 
 data "aws_iam_policy_document" "portal_signer" {
+  for_each = local.signers
   statement {
     actions   = ["kms:Sign", "kms:GetPublicKey"]
-    resources = [aws_kms_key.license_signing.arn]
+    resources = [aws_kms_key.license_signing[each.key].arn]
   }
 }
 
 resource "aws_iam_user_policy" "portal_signer" {
-  name   = "sign-licenses"
-  user   = aws_iam_user.portal_signer.name
-  policy = data.aws_iam_policy_document.portal_signer.json
+  for_each = local.signers
+  name     = "sign-licenses"
+  user     = aws_iam_user.portal_signer[each.key].name
+  policy   = data.aws_iam_policy_document.portal_signer[each.key].json
 }
 
 resource "aws_iam_access_key" "portal_signer" {
-  user = aws_iam_user.portal_signer.name
+  for_each = local.signers
+  user     = aws_iam_user.portal_signer[each.key].name
 }
 
 # The Neon and Clerk Marketplace installs inject DATABASE_URL and the Clerk keys into
@@ -105,12 +130,16 @@ resource "random_password" "cron_secret" {
 }
 
 locals {
+  signing_env = {
+    for target, signer in local.signers : target => {
+      AWS_ACCESS_KEY_ID     = aws_iam_access_key.portal_signer[target].id
+      AWS_SECRET_ACCESS_KEY = aws_iam_access_key.portal_signer[target].secret
+      LICENSE_KMS_KEY_ARN   = aws_kms_key.license_signing[target].arn
+      LICENSE_KID           = signer.kid
+    }
+  }
   runtime_env = {
     AWS_REGION                   = var.aws_region
-    AWS_ACCESS_KEY_ID            = aws_iam_access_key.portal_signer.id
-    AWS_SECRET_ACCESS_KEY        = aws_iam_access_key.portal_signer.secret
-    LICENSE_KMS_KEY_ARN          = aws_kms_key.license_signing.arn
-    LICENSE_KID                  = "2"
     STAFF_ORG_ID                 = var.staff_org_id
     CLERK_WEBHOOK_SIGNING_SECRET = var.clerk_webhook_signing_secret
     RESEND_API_KEY               = var.resend_api_key
@@ -127,14 +156,26 @@ locals {
 
 resource "vercel_project_environment_variables" "portal" {
   project_id = vercel_project.portal.id
-  variables = [
-    for name, value in local.runtime_env : {
-      key       = name
-      value     = value
-      target    = ["production", "preview"]
-      sensitive = contains(local.sensitive_env, name)
-    }
-  ]
+  variables = concat(
+    [
+      for name, value in local.runtime_env : {
+        key       = name
+        value     = value
+        target    = keys(local.signers)
+        sensitive = contains(local.sensitive_env, name)
+      }
+    ],
+    flatten([
+      for target, env in local.signing_env : [
+        for name, value in env : {
+          key       = name
+          value     = value
+          target    = [target]
+          sensitive = contains(local.sensitive_env, name)
+        }
+      ]
+    ]),
+  )
 }
 
 resource "vercel_project_domain" "portal" {
@@ -144,17 +185,17 @@ resource "vercel_project_domain" "portal" {
 
 moved {
   from = aws_iam_user.hub_signer
-  to   = aws_iam_user.portal_signer
+  to   = aws_iam_user.portal_signer["production"]
 }
 
 moved {
   from = aws_iam_user_policy.hub_signer
-  to   = aws_iam_user_policy.portal_signer
+  to   = aws_iam_user_policy.portal_signer["production"]
 }
 
 moved {
   from = aws_iam_access_key.hub_signer
-  to   = aws_iam_access_key.portal_signer
+  to   = aws_iam_access_key.portal_signer["production"]
 }
 
 moved {

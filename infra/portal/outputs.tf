@@ -8,13 +8,13 @@
 # included in the file licenses/APL.txt.
 
 output "license_kms_key_arn" {
-  value = aws_kms_key.license_signing.arn
+  value = aws_kms_key.license_signing["production"].arn
 }
 
 # The ML-DSA-44 public key as SPKI DER. The last 1,312 bytes, base64 encoded, are the
 # anchor the Core embeds for this kid.
 data "aws_kms_public_key" "license_signing" {
-  key_id = aws_kms_key.license_signing.key_id
+  key_id = aws_kms_key.license_signing["production"].key_id
 }
 
 output "license_public_key" {

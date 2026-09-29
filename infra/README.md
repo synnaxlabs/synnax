@@ -5,11 +5,12 @@ State lives in HCP Terraform, organization `synnaxlabs`, workspace `hub`.
 
 ## Portal
 
-Terraform declares the AWS signing key and its IAM identity, the Vercel project with its
-environment and domain, and the GitHub Actions secret. Three vendors stay outside it:
-Neon and Clerk are installed through the Vercel Marketplace, which injects their
-connection string and keys into the project and has no Terraform surface; Resend has no
-provider. Their one-time steps are below.
+Terraform declares the AWS signing keys and their IAM identities, the Vercel project
+with its environment and domain, and the GitHub Actions secret. Production signs with
+the key whose public half the Core embeds. Previews sign with a second key that no Core
+trusts. Three vendors stay outside it: Neon and Clerk are installed through the Vercel
+Marketplace, which injects their connection string and keys into the project and has no
+Terraform surface; Resend has no provider. Their one-time steps are below.
 
 ### Apply
 
@@ -27,8 +28,8 @@ for an administrator, `VERCEL_API_TOKEN`, and `GITHUB_TOKEN`.
 Resources that existed before this root did are imported once, never recreated:
 
 ```sh
-terraform import aws_kms_key.license_signing <key id>
-terraform import aws_kms_alias.license_signing alias/synnax-license-signing
+terraform import 'aws_kms_key.license_signing["production"]' <key id>
+terraform import 'aws_kms_alias.license_signing["production"]' alias/synnax-license-signing
 terraform import github_actions_secret.license_token synnax/SYNNAX_LICENSE_TOKEN
 ```
 
@@ -36,8 +37,8 @@ A new key spec forces Terraform to replace the key. To move a state that holds a
 key to one created outside Terraform, swap it instead:
 
 ```sh
-terraform state rm aws_kms_key.license_signing
-terraform import aws_kms_key.license_signing <new key id>
+terraform state rm 'aws_kms_key.license_signing["production"]'
+terraform import 'aws_kms_key.license_signing["production"]' <new key id>
 ```
 
 If a `portal` Vercel project already exists, import it the same way:
