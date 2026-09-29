@@ -26,16 +26,14 @@ export type RetrieveQuery = {
   key: library.Key;
 };
 
-export const { use, useEnsure, useTombstone, createSelector } = Flux.createRetrieve<
-  RetrieveQuery,
-  library.Library
->({
-  name: RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.libraries.retrieve(query),
-  onChange: ({ client, query }, handler) => client.libraries.onChange(query, handler),
-  getCached: ({ client, query }) => client.libraries.getCached(query),
-  awaitCreation: true,
-});
+export const { use, useResult, useEnsure, useTombstone, createSelector } =
+  Flux.createRetrieve<RetrieveQuery, library.Library>({
+    name: RESOURCE_NAME,
+    retrieve: async ({ client, query }) => await client.libraries.retrieve(query),
+    onChange: ({ client, query }, handler) => client.libraries.onChange(query, handler),
+    getCached: ({ client, query }) => client.libraries.getCached(query),
+    awaitCreation: true,
+  });
 
 export const useName = createSelector(({ name }) => name);
 

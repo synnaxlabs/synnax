@@ -7,6 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/library/Icons";
-export * from "@/library/queries";
-export * from "@/library/Select";
+import { Bus } from "@/feature/bus";
+import { useConnectModal } from "@/feature/can/device/device";
+import { Task } from "@/feature/can/task";
+
+export const ContextMenuItems = Bus.createContextMenuItems({
+  integration: "can",
+  useConnectModal,
+  useCreateRead: Task.useCreateRead,
+  useCreateWrite: Task.useCreateWrite,
+});

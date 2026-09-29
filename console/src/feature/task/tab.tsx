@@ -13,6 +13,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Panel as PPanel, Task as Base } from "@synnaxlabs/pluto";
 import { cloneElement } from "react";
 
+import { CAN } from "@/feature/can";
 import { EtherCAT } from "@/feature/ethercat";
 import { HTTP } from "@/feature/http";
 import { LabJack } from "@/feature/labjack";
@@ -20,7 +21,11 @@ import { Modbus } from "@/feature/modbus";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
 import { PagerDuty } from "@/feature/pagerduty";
+import { Serial } from "@/feature/serial";
 import { getIcon } from "@/feature/task/types";
+import { TCP } from "@/feature/tcp";
+import { UDP } from "@/feature/udp";
+import { FLAGS } from "@/flags";
 import { Panel } from "@/platform/panel";
 import { type Task } from "@/platform/task";
 
@@ -32,6 +37,14 @@ export const FORMS: Task.Forms = {
   ...NI.Task.FORMS,
   ...OPCUA.Task.FORMS,
   ...PagerDuty.Task.FORMS,
+  ...(FLAGS.can
+    ? {
+        ...CAN.Task.FORMS,
+        ...Serial.Task.FORMS,
+        ...TCP.Task.FORMS,
+        ...UDP.Task.FORMS,
+      }
+    : {}),
 };
 
 const Content: Panel.Content = () => {

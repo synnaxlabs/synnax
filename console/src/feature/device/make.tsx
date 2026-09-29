@@ -12,15 +12,28 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { type ReactElement, useCallback } from "react";
 import { z } from "zod";
 
+import { CAN } from "@/feature/can";
 import { EtherCAT } from "@/feature/ethercat";
 import { HTTP } from "@/feature/http";
 import { LabJack } from "@/feature/labjack";
 import { Modbus } from "@/feature/modbus";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
+import { Serial } from "@/feature/serial";
+import { TCP } from "@/feature/tcp";
+import { UDP } from "@/feature/udp";
+import { FLAGS } from "@/flags";
 import { type Tree } from "@/platform/tree";
 
+const BUS_MAKES = [
+  CAN.Device.MAKE,
+  Serial.Device.MAKE,
+  TCP.Device.MAKE,
+  UDP.Device.MAKE,
+] as const;
+
 export const makeZ = z.enum([
+  ...BUS_MAKES,
   EtherCAT.Device.MAKE,
   HTTP.Device.MAKE,
   LabJack.Device.MAKE,
@@ -30,10 +43,19 @@ export const makeZ = z.enum([
 ]);
 export type Make = z.infer<typeof makeZ>;
 
-export const getMake = (make: unknown): Make | null =>
-  makeZ.safeParse(make).data ?? null;
+const BUS_MAKE_SET = new Set<Make>(BUS_MAKES);
+
+export const getMake = (make: unknown): Make | null => {
+  const parsed = makeZ.safeParse(make).data ?? null;
+  if (parsed != null && !FLAGS.can && BUS_MAKE_SET.has(parsed)) return null;
+  return parsed;
+};
 
 const MAKE_ICONS: Record<Make, Icon.ReactElement> = {
+  [CAN.Device.MAKE]: <Icon.Hardware />,
+  [Serial.Device.MAKE]: <Icon.Connect />,
+  [TCP.Device.MAKE]: <Icon.Link />,
+  [UDP.Device.MAKE]: <Icon.Bridge />,
   [EtherCAT.Device.MAKE]: <Icon.Logo.EtherCAT />,
   [HTTP.Device.MAKE]: <Icon.Logo.HTTP />,
   [LabJack.Device.MAKE]: <Icon.Logo.LabJack />,
@@ -52,6 +74,10 @@ export const getIcon = (make: Make | null) =>
  * hooks.
  */
 export const useConfigureModal = (): ((make: Make, deviceKey: device.Key) => void) => {
+  const can = CAN.Device.useConnectModal();
+  const serial = Serial.Device.useConnectModal();
+  const tcp = TCP.Device.useConnectModal();
+  const udp = UDP.Device.useConnectModal();
   const ethercat = EtherCAT.Device.useConfigureModal();
   const http = HTTP.Device.useConnectModal();
   const labjack = LabJack.Device.useConfigureModal();
@@ -61,6 +87,10 @@ export const useConfigureModal = (): ((make: Make, deviceKey: device.Key) => voi
   return useCallback(
     (make, deviceKey) => {
       const openers: Record<Make, (args: { deviceKey: device.Key }) => void> = {
+        [CAN.Device.MAKE]: can,
+        [Serial.Device.MAKE]: serial,
+        [TCP.Device.MAKE]: tcp,
+        [UDP.Device.MAKE]: udp,
         [EtherCAT.Device.MAKE]: ethercat,
         [HTTP.Device.MAKE]: http,
         [LabJack.Device.MAKE]: labjack,
@@ -70,13 +100,17 @@ export const useConfigureModal = (): ((make: Make, deviceKey: device.Key) => voi
       };
       openers[make]({ deviceKey });
     },
-    [ethercat, http, labjack, modbus, ni, opcua],
+    [can, serial, tcp, udp, ethercat, http, labjack, modbus, ni, opcua],
   );
 };
 
 const CONTEXT_MENU_ITEMS: Partial<
   Record<Make, (props: Tree.ContextMenuProps) => ReactElement | null>
 > = {
+  [CAN.Device.MAKE]: CAN.Device.ContextMenuItems,
+  [Serial.Device.MAKE]: Serial.Device.ContextMenuItems,
+  [TCP.Device.MAKE]: TCP.Device.ContextMenuItems,
+  [UDP.Device.MAKE]: UDP.Device.ContextMenuItems,
   [EtherCAT.Device.MAKE]: EtherCAT.Device.ContextMenuItems,
   [HTTP.Device.MAKE]: HTTP.Device.ContextMenuItems,
   [LabJack.Device.MAKE]: LabJack.Device.ContextMenuItems,
