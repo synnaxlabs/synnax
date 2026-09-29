@@ -15,6 +15,8 @@ import {
   Rate,
   Series,
   TimeRange,
+  TimeSpan,
+  TimeStamp,
   typedArrayZ,
 } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -47,6 +49,8 @@ export class StaticFactory implements Factory {
         return new FixedString(spec.props);
       case FixedColorSource.TYPE:
         return new FixedColorSource(spec.props);
+      case Clock.TYPE:
+        return new Clock(spec.props);
       default:
         return null;
     }
@@ -149,7 +153,6 @@ export class IterativeSeries
 
   cleanup(): void {
     clearInterval(this.interval);
-    this.interval = undefined;
   }
 }
 
@@ -179,6 +182,43 @@ export class FixedString extends AbstractSource<typeof fixedStringPropsZ> {
 
   value(): string {
     return this.props;
+  }
+}
+
+export const clockPropsZ = z.object({ period: TimeSpan.z });
+
+export type ClockProps = z.input<typeof clockPropsZ>;
+
+/**
+ * A number source that counts the periods elapsed since the Unix epoch and notifies at
+ * each period boundary. Clocks with the same period tick in phase.
+ */
+export class Clock extends AbstractSource<typeof clockPropsZ> implements NumberSource {
+  static readonly TYPE = "clock";
+  schema = clockPropsZ;
+
+  private timeout?: ReturnType<typeof setTimeout>;
+
+  constructor(props: unknown) {
+    super(props);
+    this.schedule();
+  }
+
+  value(): number {
+    return Math.floor(TimeStamp.now().milliseconds / this.props.period.milliseconds);
+  }
+
+  cleanup(): void {
+    clearTimeout(this.timeout);
+  }
+
+  private schedule(): void {
+    const period = this.props.period.milliseconds;
+    const delay = period - (TimeStamp.now().milliseconds % period);
+    this.timeout = setTimeout(() => {
+      this.notify();
+      this.schedule();
+    }, delay);
   }
 }
 
@@ -231,4 +271,11 @@ export const fixedColor = (color: color.Crude): ColorSourceSpec => ({
   props: color,
   variant: "source",
   valueType: "color",
+});
+
+export const clock = (props: ClockProps): NumberSourceSpec => ({
+  type: Clock.TYPE,
+  props,
+  variant: "source",
+  valueType: "number",
 });

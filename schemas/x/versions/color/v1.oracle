@@ -1,0 +1,45 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+Color = v0.Color
+
+Stop = v0.Stop
+
+Band struct {
+    key       string  {
+        @doc value "is the unique identifier for the band."
+    }
+    threshold float64 {
+        @doc value "is the lowest value, in the value's units, that the band paints."
+    }
+    color     Color   {
+        @doc value "is the fill painted while the value is in the band."
+    }
+    flashing  bool = false {
+        @doc value "is true when the fill blinks while the value is in the band."
+    }
+
+    @doc value  "is a colored range of values starting at a threshold."
+    @go marshal
+}
+
+Scale struct {
+    bands  Band[] = [] {
+        @doc value """
+            is the list of threshold bands. A band paints values at or above its
+            threshold and below the next higher threshold.
+        """
+    }
+    smooth bool = false {
+        @doc value "is true when the fill interpolates between band colors."
+    }
+
+    @doc value  "maps a value to a color through threshold bands."
+    @go marshal
+}

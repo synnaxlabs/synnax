@@ -35,5 +35,7 @@ jobs:
 
       - name: Check site
         timeout-minutes: 15
-        working-directory: docs/site
+        working-directory: site/docs
+        env:
+          DOCS_GITHUB_TOKEN: ${{ github.token }}
         run: pnpm check-site:build && pnpm check-site

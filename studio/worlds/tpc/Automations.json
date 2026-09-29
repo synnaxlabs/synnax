@@ -1,0 +1,15 @@
+{
+  "name": "Automations",
+  "root": {
+    "variant": "leaf",
+    "tabs": [
+      {
+        "key": "ee7ddb36-8153-46cc-895d-fed9ab2eb328",
+        "variant": "resource",
+        "resource": "Ox Coldflow.json"
+      }
+    ]
+  },
+  "type": "panel",
+  "version": 0
+}

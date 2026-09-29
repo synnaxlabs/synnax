@@ -183,13 +183,13 @@ use both.
 
 ### 4.5 Docs site
 
-- `docs/site/package.json` drops `@synnaxlabs/pluto`; every import becomes a lyra
+- `site/docs/package.json` drops `@synnaxlabs/pluto`; every import becomes a lyra
   subpath. The `reference/pluto` section and `Plot.tsx` are already gone on `main`
   (SY-4908).
 - `astro.config.ts` adds `vite.ssr.noExternal: ["@synnaxlabs/lyra"]` so server-rendered
   components collect lyra CSS.
 - Lyra CSS stays unlayered, like Pluto's. The docs site's 32 override rules depend on
-  `@layer pluto, base, overrides` (`docs/site/src/styles/main.css:20-25`), so its
+  `@layer pluto, base, overrides` (`site/docs/src/styles/main.css:20-25`), so its
   PostCSS config wraps lyra's stylesheets into `layer(pluto)`. The alternative, a
   `@layer lyra` inside lyra, would let every unlayered Console rule beat every lyra rule
   regardless of specificity, a change nobody can audit cheaply.
@@ -286,7 +286,7 @@ Compatibility: no persisted or wire format changes. Published packages:
 
 ## 9 Open questions
 
-None. The docs PostCSS mechanism is a plugin (`docs/site/src/util/layer.ts`) that wraps
+None. The docs PostCSS mechanism is a plugin (`site/docs/src/util/layer.ts`) that wraps
 every stylesheet under `lyra/` in `@layer pluto`. `Input.Numeric` needs no loading
 state: a plain number commits synchronously, only an expression waits for `mathjs`. The
 root-barrel change ships with the next Pluto minor.

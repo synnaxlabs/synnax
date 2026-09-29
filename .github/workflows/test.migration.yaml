@@ -95,6 +95,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
+          SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
           PYTHONUNBUFFERED: "1"
           PYTHONIOENCODING: utf-8
         run: >-

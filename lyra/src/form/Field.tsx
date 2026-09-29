@@ -116,7 +116,9 @@ export type BuiltFieldProps<
  * a render prop. Use it for an input the app reaches for often.
  *
  * @example
- * export const RateField = fieldBuilder(Input.Numeric)({ inputProps: { units: "Hz" } });
+ * export const RateField = fieldBuilder(Input.Numeric)({
+ *   inputProps: { endContent: "Hz" },
+ * });
  */
 export const fieldBuilder =
   <

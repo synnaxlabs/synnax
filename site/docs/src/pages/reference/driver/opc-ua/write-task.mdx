@@ -1,0 +1,337 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "OPC UA write task"
+description: "Learn how to send commands to OPC UA servers with Synnax."
+prev: "Read task"
+prevURL: "/reference/driver/opc-ua/read-task"
+next: "PagerDuty"
+nextURL: "/reference/driver/pagerduty/alert-task"
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Note } from "@synnaxlabs/lyra/note";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Video } from "@/components/media/Media";
+import { Fragment } from "react";
+import Details from "@/components/details/Details.astro";
+import ChannelType from "@/components/details/ChannelType.astro";
+import DetailsGroup from "@/components/details/Group.astro";
+import { Client } from "@/components/client";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+This task follows the standard
+[task lifecycle](/reference/driver/task-basics#task-lifecycle).
+
+<Divider.Divider x />
+
+## Task configuration reference
+
+| Parameter  | Type   | Required | Default | Description                           |
+| ---------- | ------ | -------- | ------- | ------------------------------------- |
+| `device`   | string | Yes      | -       | Key of the OPC UA server device       |
+| `channels` | array  | Yes      | -       | List of output channel configurations |
+
+<Divider.Divider x />
+
+## Channel configuration reference
+
+[OPC UA Write Service Specification](https://reference.opcfoundation.org/specs/OPC-10000-4/5.11.4)
+
+<DetailsGroup>
+
+<ChannelType>
+<Text.Text slot="summary" level="p"><Icon.Value /> Scalar Values</Text.Text>
+
+Writes scalar values to an OPC UA node. Suitable for control setpoints, configuration
+parameters, and single-value commands.
+
+| Parameter     | Type    | Required | Default | Description                             |
+| ------------- | ------- | -------- | ------- | --------------------------------------- |
+| `cmd_channel` | number  | Yes      | -       | Synnax command channel key              |
+| `node_id`     | string  | Yes      | -       | OPC UA NodeId (e.g., `ns=2;s=Setpoint`) |
+| `disabled`    | boolean | No       | `false` | Excludes the node from the task         |
+
+**NodeId Format Examples:**
+
+- Numeric: `ns=2;i=1000`
+- String: `ns=2;s=ControlSetpoint`
+- GUID: `ns=2;g=12345678-1234-1234-1234-123456789012`
+- Opaque: `ns=2;b=aGVsbG8=`
+
+</ChannelType>
+
+<ChannelType>
+<Text.Text slot="summary" level="p"><Icon.Array /> Array Values</Text.Text>
+
+Writes array data to an OPC UA node in bulk. Used for batch control commands or
+multi-value setpoints.
+
+| Parameter     | Type    | Required | Default | Description                                 |
+| ------------- | ------- | -------- | ------- | ------------------------------------------- |
+| `cmd_channel` | number  | Yes      | -       | Synnax command channel key                  |
+| `node_id`     | string  | Yes      | -       | OPC UA NodeId pointing to an array variable |
+| `disabled`    | boolean | No       | `false` | Excludes the node from the task             |
+
+<Note.Note variant="info">
+  The channel data type must match the array element type on the server.
+</Note.Note>
+
+</ChannelType>
+
+</DetailsGroup>
+
+<Divider.Divider x />
+
+## Important rules
+
+- **Node permissions** -> The OPC UA server must allow write access to the specified
+  nodes.
+- **Data type matching** -> Ensure Synnax channel data types match the OPC UA node data
+  types.
+
+<Divider.Divider x />
+
+## How-to
+
+<Client.Tabs exclude={["cpp"]}>
+  <Fragment slot="console">
+    <Video
+      id="device-drivers/opc-ua/write-task/write"
+    />
+  </Fragment>
+  <Fragment slot="python">
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
+
+```python
+import synnax as sy
+from synnax import opcua
+
+client = sy.Synnax()
+
+# Retrieve OPC UA server device
+dev = client.devices.retrieve(name="my_opc_server")
+
+# Create command time index
+cmd_time = client.channels.create(
+    name="opc_cmd_time",
+    is_index=True,
+    data_type=sy.DataType.TIMESTAMP,
+    retrieve_if_name_exists=True,
+)
+
+# Create command channels
+setpoint_cmd = client.channels.create(
+    name="temperature_setpoint_cmd",
+    index=cmd_time.key,
+    data_type=sy.DataType.FLOAT32,
+    retrieve_if_name_exists=True,
+)
+
+valve_cmd = client.channels.create(
+    name="valve_control_cmd",
+    index=cmd_time.key,
+    data_type=sy.DataType.UINT8,
+    retrieve_if_name_exists=True,
+)
+
+# Create and configure task
+task = opcua.WriteTask(
+    name="OPC UA Write Task",
+    device=dev.key,
+    channels=[
+        opcua.WriteChannel(
+            cmd_channel=setpoint_cmd.key,
+            node_id="ns=2;s=TemperatureSetpoint",
+        ),
+        opcua.WriteChannel(
+            cmd_channel=valve_cmd.key,
+            node_id="ns=2;s=ValveControl",
+        ),
+    ],
+)
+
+client.tasks.configure(task)
+
+# Start task and send commands
+with task.run():
+    with client.open_writer(
+        start=sy.TimeStamp.now(),
+        channels=["temperature_setpoint_cmd", "valve_control_cmd"],
+    ) as writer:
+        # Set temperature setpoint
+        writer.write({
+            "temperature_setpoint_cmd": 25.5,
+        })
+
+        # Open valve
+        writer.write({
+            "valve_control_cmd": 1,
+        })
+
+        # Close valve after delay
+        import time
+        time.sleep(2)
+        writer.write({
+            "valve_control_cmd": 0,
+        })
+```
+
+</Details>
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
+
+```python
+# Retrieve existing task
+task = client.tasks.retrieve(name="OPC UA Write Task")
+task = opcua.WriteTask(internal=task)
+
+# Update task-level configuration
+task.config.auto_start = True
+
+# Update first channel configuration
+task.config.channels[0].node_id = "ns=2;s=TemperatureSetpoint2"
+
+# Update second channel configuration
+task.config.channels[1].node_id = "ns=2;s=ValveControl2"
+
+# Apply changes
+client.tasks.configure(task)
+```
+
+</Details>
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
+
+```typescript
+import { Synnax, TimeStamp } from "@synnaxlabs/client";
+
+const client = new Synnax();
+
+// Retrieve OPC UA server device
+const [dev] = await client.devices.retrieve({ names: ["my_opc_server"] });
+
+// Create command time index
+const cmdTime = await client.channels.create(
+  {
+    name: "opc_cmd_time",
+    isIndex: true,
+    dataType: "timestamp",
+  },
+  { retrieveIfNameExists: true },
+);
+
+// Create command channels
+const setpointCmd = await client.channels.create(
+  {
+    name: "temperature_setpoint_cmd",
+    index: cmdTime.key,
+    dataType: "float32",
+  },
+  { retrieveIfNameExists: true },
+);
+
+const valveCmd = await client.channels.create(
+  {
+    name: "valve_control_cmd",
+    index: cmdTime.key,
+    dataType: "uint8",
+  },
+  { retrieveIfNameExists: true },
+);
+
+// Create and configure task
+const task = await client.tasks.create({
+  name: "OPC UA Write Task",
+  rack: dev.rack,
+  type: "opc_write",
+  config: {
+    device: dev.key,
+    channels: [
+      {
+        cmdChannel: setpointCmd.key,
+        nodeId: "ns=2;s=TemperatureSetpoint",
+      },
+      {
+        cmdChannel: valveCmd.key,
+        nodeId: "ns=2;s=ValveControl",
+      },
+    ],
+  },
+});
+
+// Start task
+await task.start();
+
+// Send commands
+const writer = await client.openWriter({
+  start: TimeStamp.now(),
+  channels: ["temperature_setpoint_cmd", "valve_control_cmd"],
+});
+
+// Set temperature setpoint
+await writer.write({
+  temperature_setpoint_cmd: 25.5,
+});
+
+// Open valve
+await writer.write({
+  valve_control_cmd: 1,
+});
+
+// Close valve after delay
+await new Promise((resolve) => setTimeout(resolve, 2000));
+await writer.write({
+  valve_control_cmd: 0,
+});
+
+// Stop task
+await task.stop();
+await writer.close();
+```
+
+</Details>
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
+
+```typescript
+import { opcua } from "@synnaxlabs/client";
+
+// Retrieve existing task
+const task = await client.tasks.retrieve({ name: "OPC UA Write Task" });
+
+// Parse and update configuration
+const config = opcua.writeConfigZ.parse(task.config);
+
+// Update task-level configuration
+config.autoStart = true;
+
+// Update first channel configuration
+config.channels[0].nodeId = "ns=2;s=TemperatureSetpoint2";
+
+// Update second channel configuration
+config.channels[1].nodeId = "ns=2;s=ValveControl2";
+
+// Apply changes
+await client.tasks.create({
+  key: task.key,
+  rack: task.rack,
+  name: task.name,
+  type: task.type,
+  config,
+});
+```
+
+</Details>
+
+  </Fragment>
+</Client.Tabs>

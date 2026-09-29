@@ -1,0 +1,163 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import Header from "@/components/layout/Header.astro";
+import "@/styles/main.css";
+import PostHog from "@/components/analytics/PostHog.astro";
+import { ClientRouter } from "astro:transitions";
+import favicon from "@synnaxlabs/media/static/logo/icon-white-favicon.svg";
+import { SEO } from "astro-seo";
+import Footer from "@/components/layout/Footer.astro";
+import { enabled } from "@/flags";
+import { sectionOf } from "@/pages/_nav";
+import { normalizeRoute } from "@/util/route";
+const {
+    frontmatter: { title, description, url, image, flag },
+    article,
+} = Astro.props;
+// A page behind a flag that is off does not exist.
+const hidden = flag != null && !enabled(flag);
+if (hidden) Astro.response.status = 404;
+const DEFAULT_OG_IMAGE =
+    "https://synnax.nyc3.cdn.digitaloceanspaces.com/docs/og-default.png";
+const ogImage = image || DEFAULT_OG_IMAGE;
+// Query strings (the ?client= switcher) and trailing slashes must not split a page
+// into duplicates.
+const route = normalizeRoute(Astro.url.pathname);
+const canonicalUrl = new URL(route, Astro.site).href;
+const section = sectionOf(route);
+const cleanTitle = title?.replace(/`/g, "");
+const pageTitle = cleanTitle && section ? `${cleanTitle} | ${section}` : cleanTitle;
+const fullTitle = pageTitle ? `${pageTitle} | Synnax` : "Synnax";
+---
+
+<html lang="en" transition:animate="none">
+    <head>
+        <PostHog />
+        <SEO
+            title={pageTitle}
+            titleTemplate="%s | Synnax"
+            titleDefault="Synnax"
+            description={description}
+            canonical={canonicalUrl}
+            openGraph={{
+                basic: {
+                    title: fullTitle,
+                    type: article == null ? "website" : "article",
+                    image: ogImage,
+                    url: canonicalUrl,
+                },
+                optional: {
+                    description: description,
+                    siteName: "Synnax",
+                },
+                image: {
+                    alt: cleanTitle || "Synnax",
+                },
+                article,
+            }}
+            twitter={{
+                card: "summary_large_image",
+                title: fullTitle,
+                description: description,
+                image: ogImage,
+            }}
+            extend={{
+                link: [
+                    {
+                        rel: "icon",
+                        href: favicon.src,
+                    },
+                    {
+                        rel: "alternate",
+                        type: "application/rss+xml",
+                        title: "Synnax blog",
+                        href: "/blog/rss.xml",
+                    },
+                ],
+                meta: [
+                    {
+                        name: "viewport",
+                        content: "width=device-width, initial-scale=1.0",
+                    },
+                ],
+            }}
+        />
+        <ClientRouter />
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+        <slot name="head" />
+    </head>
+    <body>
+        <Header url={url} transition:persist />
+        <main>
+            {hidden ? (
+                <section class="not-found">
+                    <h1>Page not found</h1>
+                </section>
+            ) : (
+                <slot />
+            )}
+        </main>
+        <Footer />
+    </body>
+    <script>
+        import { QUERY as CLIENT_QUERY } from "@/components/client/choice";
+        import { addCodeButtonListeners } from "@/components/code/codeUtil";
+        import { start as startVideos } from "@/components/media/video";
+        import { start as startMobileMenu } from "@/components/nav/mobile";
+        import { start as startOnThisPage } from "@/components/nav/onThisPage";
+        import { start as startSidebar } from "@/components/nav/sidebar";
+        import { QUERY as PLATFORM_QUERY } from "@/components/platform/choice";
+        import { start as startTabs } from "@/components/tabs/sync";
+        import { startPinningHashTarget } from "@/util/hash";
+        import { startUpdatingIframeHref } from "@/util/iframe";
+        import { onDemand } from "@/util/island";
+
+        startSidebar();
+        startMobileMenu();
+        startVideos();
+        // Before the tabs, so the outline hears the first tab change.
+        startOnThisPage();
+        startTabs({ client: CLIENT_QUERY, platform: PLATFORM_QUERY, context: {} });
+        onDemand({
+            selector: '[data-island="search"]',
+            load: () => import("@/components/search/mount"),
+            hotkey: (e) => (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k",
+        });
+        onDemand({
+            selector: '[data-island="feedback"]',
+            load: () => import("@/components/feedback/mount"),
+        });
+        const bindClickHandlersToHeadingAnchors = () => {
+            const anchors =
+                document.querySelectorAll<HTMLAnchorElement>(".heading-anchor");
+            anchors.forEach((anchor) => {
+                if (anchor.previousElementSibling?.classList.contains("no-link"))
+                    anchor.style.display = "none";
+                anchor.addEventListener("click", () => {
+                    const url = window.location.href;
+                    const newUrl = url.split("#")[0];
+                    const hash = anchor.getAttribute("href");
+                    navigator.clipboard.writeText(newUrl + hash);
+                });
+            });
+        };
+
+        addCodeButtonListeners();
+        startUpdatingIframeHref();
+        bindClickHandlersToHeadingAnchors();
+        startPinningHashTarget();
+        document.addEventListener("astro:after-swap", () => {
+            addCodeButtonListeners();
+            startUpdatingIframeHref();
+            bindClickHandlersToHeadingAnchors();
+        });
+    </script>
+</html>

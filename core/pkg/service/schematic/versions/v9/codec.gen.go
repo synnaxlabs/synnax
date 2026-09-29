@@ -15,7 +15,7 @@ import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
 	border "github.com/synnaxlabs/x/border/versions/v0"
-	color "github.com/synnaxlabs/x/color/versions/v0"
+	color "github.com/synnaxlabs/x/color/versions/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
@@ -842,6 +842,14 @@ func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {
 		if v.TextColor != nil {
 			w.Bool(true)
 			if err := v.TextColor.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		if v.BackgroundColor != nil {
+			w.Bool(true)
+			if err := v.BackgroundColor.EncodeOrc(w); err != nil {
 				return err
 			}
 		} else {
@@ -2389,6 +2397,19 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
+				var hv color.Color
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.BackgroundColor = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
 				n, err := r.CollectionLen()
 				if err != nil {
 					return err
@@ -3712,6 +3733,14 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 		if v.TextColor != nil {
 			w.Bool(true)
 			if err := v.TextColor.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		if v.BackgroundColor != nil {
+			w.Bool(true)
+			if err := v.BackgroundColor.EncodeOrc(w); err != nil {
 				return err
 			}
 		} else {
@@ -5224,6 +5253,19 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
+				var hv color.Color
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.BackgroundColor = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
 				n, err := r.CollectionLen()
 				if err != nil {
 					return err
@@ -5897,52 +5939,6 @@ func (p *Page) DecodeOrc(r *orc.Reader) error {
 	}
 	if p.Key, err = r.String(); err != nil {
 		return err
-	}
-	return nil
-}
-
-// EncodeOrc writes the value to w in the Orc binary format.
-func (rv Redline) EncodeOrc(w *orc.Writer) error {
-	w.Float64(float64(rv.Bounds.Lower))
-	w.Float64(float64(rv.Bounds.Upper))
-	w.Bool(rv.Gradient != nil)
-	if rv.Gradient != nil {
-		w.Uint32(uint32(len(rv.Gradient)))
-		for i := range rv.Gradient {
-			if err := rv.Gradient[i].EncodeOrc(w); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-// DecodeOrc reads the value from r in the Orc binary format.
-func (rv *Redline) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if rv.Bounds.Lower, err = r.Float64(); err != nil {
-		return err
-	}
-	if rv.Bounds.Upper, err = r.Float64(); err != nil {
-		return err
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			rv.Gradient = make([]color.Stop, n)
-			for i := range rv.Gradient {
-				if err = rv.Gradient[i].DecodeOrc(r); err != nil {
-					return err
-				}
-			}
-		}
 	}
 	return nil
 }

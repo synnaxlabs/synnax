@@ -15,22 +15,34 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
+	"github.com/synnaxlabs/synnax/pkg/service/license"
 	"github.com/synnaxlabs/synnax/pkg/version"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/telem"
 )
 
-type Service struct{ cluster cluster.Cluster }
+type Service struct {
+	cluster cluster.Cluster
+	license *license.Service
+}
 
 func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	return &Service{cluster: cfg.Distribution.Cluster}, nil
+	return &Service{
+		cluster: cfg.Distribution.Cluster,
+		license: cfg.Service.License,
+	}, nil
 }
 
-type CheckResponse = auth.ClusterInfo
+// CheckResponse describes the Core and the state of its license.
+type CheckResponse struct {
+	auth.ClusterInfo
+	// License is the state of the Core's license.
+	License license.State `json:"license" msgpack:"license"`
+}
 
 func (s *Service) Check(context.Context, struct{}) (CheckResponse, error) {
 	return CheckResponse{
@@ -38,5 +50,6 @@ func (s *Service) Check(context.Context, struct{}) (CheckResponse, error) {
 		NodeVersion: version.Get(),
 		NodeKey:     s.cluster.HostKey(),
 		NodeTime:    telem.Now(),
+		License:     s.license.Retrieve().State,
 	}, nil
 }

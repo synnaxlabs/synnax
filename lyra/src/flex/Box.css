@@ -15,9 +15,10 @@
     gap: 1.5rem;
     flex-direction: column;
 
+    /* A button's states repaint its border through --pluto-btn-border-color. */
     &.pluto--bordered {
         border: var(--pluto-border);
-        border-color: var(--pluto-border-color);
+        border-color: var(--pluto-btn-border-color, var(--pluto-border-color));
     }
     &.pluto--rounded {
         border-radius: var(--pluto-border-radius);

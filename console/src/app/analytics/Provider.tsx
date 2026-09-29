@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useInitializerRef } from "@synnaxlabs/pluto";
+import { useInitializerRef } from "@synnaxlabs/lyra/hooks";
 import { type PropsWithChildren, type ReactElement } from "react";
 
 import { start } from "@/app/analytics/start";

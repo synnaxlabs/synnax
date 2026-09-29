@@ -62,6 +62,9 @@ ts: &ts
   - pnpm-workspace.yaml
   - turbo.json
 
+vite_plugin:
+  - *ts
+
 alamos_go: &alamos_go
   - *go
   - alamos/go/**
@@ -193,7 +196,14 @@ docs:
   - *ts
   - *x_ts
   - .github/workflows/test.docs.yaml
-  - docs/site/**
+  - site/docs/**
+
+www:
+  - *arc_ts
+  - *lyra
+  - *media
+  - *ts
+  - site/www/**
 
 alamos_py: &alamos_py
   - *py
