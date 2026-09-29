@@ -25,8 +25,18 @@ const stub = (...statuses: number[]): ReturnType<typeof vi.fn> => {
   return fetch;
 };
 
+const networkError = (code: string): Error =>
+  new TypeError("fetch failed", { cause: Object.assign(new Error(code), { code }) });
+
 describe("createFetcher", () => {
-  beforeEach(() => vi.useFakeTimers());
+  let warnings: string[];
+  const fetcher = (): ((url: string) => Promise<string | null>) =>
+    createFetcher("http://localhost:4399", (message) => warnings.push(message));
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    warnings = [];
+  });
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
@@ -34,31 +44,60 @@ describe("createFetcher", () => {
 
   it("should pass a link once a 503 clears", async () => {
     stub(503, 503, 200);
-    const result = createFetcher("http://localhost:4399")(LINK);
-    await vi.advanceTimersByTimeAsync(15_000);
+    const result = fetcher()(LINK);
+    await vi.advanceTimersByTimeAsync(1_000);
     expect(await result).toBeNull();
+    expect(warnings).toEqual([]);
   });
 
-  it("should wait longer after a 503 than after another failure", async () => {
-    const unavailable = stub(503);
-    void createFetcher("http://localhost:4399")(LINK);
-    await vi.advanceTimersByTimeAsync(1_000);
-    expect(unavailable).toHaveBeenCalledTimes(2);
-    await vi.advanceTimersByTimeAsync(14_000);
-    expect(unavailable).toHaveBeenCalledTimes(4);
-  });
-
-  it("should retry another failure after a second", async () => {
-    const broken = stub(500);
-    void createFetcher("http://localhost:4399")(LINK);
-    await vi.advanceTimersByTimeAsync(1_000);
-    expect(broken).toHaveBeenCalledTimes(4);
-  });
-
-  it("should fail a link that stays 503", async () => {
+  it("should warn instead of failing on a link that stays 503", async () => {
     stub(503);
-    const result = createFetcher("http://localhost:4399")(LINK);
-    await vi.advanceTimersByTimeAsync(45_000);
-    expect(await result).toContain("HTTP 503");
+    const result = fetcher()(LINK);
+    await vi.advanceTimersByTimeAsync(3_000);
+    expect(await result).toBeNull();
+    expect(warnings).toEqual([`${LINK}: HTTP 503`]);
+  });
+
+  it("should warn instead of failing on a dropped connection", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(networkError("ECONNRESET")));
+    const result = fetcher()(LINK);
+    await vi.advanceTimersByTimeAsync(3_000);
+    expect(await result).toBeNull();
+    expect(warnings).toEqual([`${LINK}: ECONNRESET`]);
+  });
+
+  it("should fail a link that answers 404", async () => {
+    stub(404);
+    expect(await fetcher()(LINK)).toBe(`${LINK}: HTTP 404`);
+    expect(warnings).toEqual([]);
+  });
+
+  it("should fail a link whose host does not resolve", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(networkError("ENOTFOUND")));
+    const result = fetcher()(LINK);
+    await vi.advanceTimersByTimeAsync(3_000);
+    expect(await result).toBe(`${LINK}: ENOTFOUND`);
+  });
+
+  it("should warn instead of failing on a host its breaker skipped", async () => {
+    const hung = vi.fn().mockRejectedValue(networkError("ECONNRESET"));
+    vi.stubGlobal("fetch", hung);
+    const fetchOk = fetcher();
+    for (const path of ["a", "b", "c"]) {
+      const result = fetchOk(`${LINK}/${path}`);
+      await vi.advanceTimersByTimeAsync(3_000);
+      await result;
+    }
+    const calls = hung.mock.calls.length;
+    expect(await fetchOk(`${LINK}/d`)).toBeNull();
+    expect(hung).toHaveBeenCalledTimes(calls);
+    expect(warnings).toContain(`${LINK}/d: skipped, example.com stopped answering`);
+  });
+
+  it("should fail a link to a missing anchor", async () => {
+    stub(200);
+    expect(await fetcher()(`${LINK}#absent`)).toBe(
+      `${LINK}#absent: missing anchor #absent`,
+    );
   });
 });
