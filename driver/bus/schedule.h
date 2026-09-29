@@ -15,7 +15,7 @@
 
 #include "x/cpp/telem/telem.h"
 
-namespace driver::mil1553 {
+namespace driver::bus {
 /// @brief Schedule tracks when each message a bus controller sends is next due. Not
 /// safe for concurrent use.
 class Schedule {

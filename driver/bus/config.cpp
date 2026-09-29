@@ -52,26 +52,6 @@ std::string field_path(const std::size_t message, const std::size_t field) {
     return path(message, "fields." + std::to_string(field) + ".field");
 }
 
-/// @brief binds an error when a byte-stream task cannot match the message's
-/// identifier.
-void check_identifier(
-    const x::json::Parser &parser,
-    const std::size_t index,
-    const synnax::library::MessageEntry &message
-) {
-    if (!message.identifier.has_value()) return;
-    const auto &id = *message.identifier;
-    if (std::holds_alternative<synnax::library::FieldIdentifier>(id) ||
-        std::holds_alternative<synnax::library::TokenIdentifier>(id))
-        return;
-    const auto type = std::visit([](const auto &i) { return i.type; }, id);
-    parser.field_err(
-        path(index, "message"),
-        "message " + message.name + " has a " + type +
-            " identifier, which a byte stream cannot carry"
-    );
-}
-
 /// @brief binds an error when the channel cannot hold decoded or commanded values.
 void check_numeric(
     const x::json::Parser &parser,
@@ -151,6 +131,20 @@ std::pair<std::vector<synnax::channel::Channel>, x::errors::Error> retrieve_chan
 }
 }
 
+x::errors::Error check_stream(const synnax::library::MessageEntry &message) {
+    if (!message.identifier.has_value()) return x::errors::NIL;
+    const auto &id = *message.identifier;
+    if (std::holds_alternative<synnax::library::FieldIdentifier>(id) ||
+        std::holds_alternative<synnax::library::TokenIdentifier>(id))
+        return x::errors::NIL;
+    const auto type = std::visit([](const auto &i) { return i.type; }, id);
+    return x::errors::Error(
+        x::errors::VALIDATION,
+        "message " + message.name + " has a " + type +
+            " identifier, which a byte stream cannot carry"
+    );
+}
+
 std::pair<std::vector<std::uint8_t>, x::errors::Error>
 unescape(const std::string &escaped) {
     std::vector<std::uint8_t> out;
@@ -219,7 +213,8 @@ ReadConfig ReadConfig::resolve(
     const ::synnax::bus::PollConfig &poll,
     const std::optional<::synnax::bus::Framing> &framing,
     const synnax::library::Library &library,
-    const std::vector<synnax::channel::Channel> &channels
+    const std::vector<synnax::channel::Channel> &channels,
+    const Check &check
 ) {
     ReadConfig out;
     out.data_saving_disabled = cfg.data_saving_disabled;
@@ -261,7 +256,7 @@ ReadConfig ReadConfig::resolve(
             );
             continue;
         }
-        check_identifier(parser, i, *entry);
+        if (const auto err = check(*entry)) parser.field_err(path(i, "message"), err);
         ReadMessage msg{.entry = *entry, .index = m.index};
         if (m.index != 0)
             if (const auto
@@ -360,7 +355,8 @@ std::pair<ReadConfig, x::errors::Error> ReadConfig::parse(
     x::json::Parser &parser,
     const ::synnax::bus::ReadConfig &cfg,
     const ::synnax::bus::PollConfig &poll,
-    const std::optional<::synnax::bus::Framing> &framing
+    const std::optional<::synnax::bus::Framing> &framing,
+    const Check &check
 ) {
     auto [library, lib_err] = retrieve_library(client, parser, cfg.library);
     if (lib_err) return {ReadConfig{}, lib_err};
@@ -373,7 +369,7 @@ std::pair<ReadConfig, x::errors::Error> ReadConfig::parse(
     }
     auto [channels, ch_err] = retrieve_channels(client, keys);
     if (ch_err) return {ReadConfig{}, ch_err};
-    auto out = resolve(parser, cfg, poll, framing, library, channels);
+    auto out = resolve(parser, cfg, poll, framing, library, channels, check);
     if (!parser.ok()) return {std::move(out), parser.error()};
     return {std::move(out), x::errors::NIL};
 }
@@ -383,7 +379,8 @@ WriteConfig WriteConfig::resolve(
     const ::synnax::bus::WriteConfig &cfg,
     const std::optional<::synnax::bus::Framing> &framing,
     const synnax::library::Library &library,
-    const std::vector<synnax::channel::Channel> &channels
+    const std::vector<synnax::channel::Channel> &channels,
+    const Check &check
 ) {
     WriteConfig out;
     out.framer = create_framer(parser, framing);
@@ -402,7 +399,7 @@ WriteConfig WriteConfig::resolve(
             );
             continue;
         }
-        check_identifier(parser, i, *entry);
+        if (const auto err = check(*entry)) parser.field_err(path(i, "message"), err);
         if (m.fields.empty() && !entry->period.has_value())
             parser.field_err(
                 path(i, "fields"),
@@ -463,7 +460,8 @@ std::pair<WriteConfig, x::errors::Error> WriteConfig::parse(
     const synnax::Synnax &client,
     x::json::Parser &parser,
     const ::synnax::bus::WriteConfig &cfg,
-    const std::optional<::synnax::bus::Framing> &framing
+    const std::optional<::synnax::bus::Framing> &framing,
+    const Check &check
 ) {
     auto [library, lib_err] = retrieve_library(client, parser, cfg.library);
     if (lib_err) return {WriteConfig{}, lib_err};
@@ -475,7 +473,7 @@ std::pair<WriteConfig, x::errors::Error> WriteConfig::parse(
     }
     auto [channels, ch_err] = retrieve_channels(client, keys);
     if (ch_err) return {WriteConfig{}, ch_err};
-    auto out = resolve(parser, cfg, framing, library, channels);
+    auto out = resolve(parser, cfg, framing, library, channels, check);
     if (!parser.ok()) return {std::move(out), parser.error()};
     return {std::move(out), x::errors::NIL};
 }

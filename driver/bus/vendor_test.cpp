@@ -15,9 +15,9 @@
 #include "x/cpp/lib/lib.h"
 #include "x/cpp/test/test.h"
 
-#include "driver/arinc429/vendor.h"
+#include "driver/bus/vendor.h"
 
-namespace driver::arinc429::vendor {
+namespace driver::bus::vendor {
 namespace {
 #if defined(_WIN32)
 const std::string PRESENT = "kernel32.dll";
@@ -51,7 +51,7 @@ TEST(Load, ReturnsTheMissingLibraryErrorForAnAbsentLibrary) {
 
 TEST(Unsupported, NamesTheBackend) {
     const auto err = unsupported("Ballard ARINC 429");
-    ASSERT_OCCURRED_AS(err, errors::CONFIGURATION_ERROR);
+    ASSERT_OCCURRED_AS(err, UNSUPPORTED_ERROR);
     EXPECT_EQ(
         err.data,
         "the Ballard ARINC 429 backend is not supported yet. Its vendor library "

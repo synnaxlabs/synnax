@@ -11,35 +11,12 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
-    name = "queue",
-    hdrs = ["queue.h"],
-    visibility = ["//visibility:public"],
-    deps = ["//x/cpp/telem"],
-)
-
-cc_library(
-    name = "vendor",
-    srcs = ["vendor.cpp"],
-    hdrs = ["vendor.h"],
-    linkopts = select({
-        "@platforms//os:windows": [],
-        "//conditions:default": ["-ldl"],
-    }),
-    visibility = ["//visibility:public"],
-    deps = [
-        "//driver/errors",
-        "//x/cpp/errors",
-        "//x/cpp/lib",
-    ],
-)
-
-cc_library(
     name = "backend",
     hdrs = ["backend.h"],
     visibility = ["//visibility:public"],
     deps = [
-        ":queue",
         "//client/cpp/arinc429",
+        "//driver/bus:queue",
         "//driver/codec",
         "//x/cpp/errors",
         "//x/cpp/telem",
@@ -89,8 +66,40 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         ":backend",
-        ":vendor",
+        "//driver/bus:vendor",
         "//driver/errors",
+    ],
+)
+
+cc_library(
+    name = "task",
+    srcs = [
+        "factory.cpp",
+        "read.cpp",
+        "write.cpp",
+    ],
+    hdrs = [
+        "arinc429.h",
+        "read.h",
+        "write.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":backend",
+        ":ballard",
+        ":ddc",
+        ":simulated",
+        "//client/cpp/arinc429",
+        "//client/cpp/library",
+        "//driver/bus",
+        "//driver/bus:decoder",
+        "//driver/bus:scan",
+        "//driver/codec",
+        "//driver/common",
+        "//driver/errors",
+        "//driver/task",
+        "//x/cpp/breaker",
+        "//x/cpp/errors",
     ],
 )
 
@@ -99,17 +108,28 @@ cc_test(
     srcs = [
         "ballard/backend_test.cpp",
         "ddc/backend_test.cpp",
-        "queue_test.cpp",
         "simulated/backend_test.cpp",
-        "vendor_test.cpp",
     ],
     deps = [
         ":ballard",
         ":ddc",
-        ":queue",
         ":simulated",
-        ":vendor",
         "//x/cpp/lib",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "task_test",
+    size = "small",
+    srcs = ["task_test.cpp"],
+    tags = ["requires-core"],
+    deps = [
+        ":task",
+        "//client/cpp/arinc429",
+        "//driver/bus/testutil",
+        "//driver/bus/testutil:core",
         "//x/cpp/test",
         "@googletest//:gtest_main",
     ],

@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "driver/mil1553/schedule.h"
+#include "driver/bus/schedule.h"
 
-namespace driver::mil1553 {
+namespace driver::bus {
 Schedule::Schedule(
     const std::vector<std::optional<x::telem::TimeSpan>> &periods,
     const x::telem::TimeStamp start

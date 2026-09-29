@@ -61,3 +61,81 @@ cc_test(
         "@googletest//:gtest_main",
     ],
 )
+
+cc_library(
+    name = "decoder",
+    srcs = ["decoder.cpp"],
+    hdrs = ["decoder.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":bus",
+        "//driver/common",
+        "//x/cpp/strings",
+        "//x/cpp/telem",
+    ],
+)
+
+cc_library(
+    name = "queue",
+    hdrs = ["queue.h"],
+    visibility = ["//visibility:public"],
+    deps = ["//x/cpp/telem"],
+)
+
+cc_library(
+    name = "schedule",
+    srcs = ["schedule.cpp"],
+    hdrs = ["schedule.h"],
+    visibility = ["//visibility:public"],
+    deps = ["//x/cpp/telem"],
+)
+
+cc_library(
+    name = "vendor",
+    srcs = ["vendor.cpp"],
+    hdrs = ["vendor.h"],
+    linkopts = select({
+        "@platforms//os:windows": [],
+        "//conditions:default": ["-ldl"],
+    }),
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/errors",
+        "//x/cpp/errors",
+        "//x/cpp/lib",
+    ],
+)
+
+cc_library(
+    name = "scan",
+    hdrs = ["scan.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":vendor",
+        "//driver/common",
+        "//x/cpp/lib",
+    ],
+)
+
+cc_test(
+    name = "card_test",
+    size = "small",
+    srcs = [
+        "decoder_test.cpp",
+        "queue_test.cpp",
+        "scan_test.cpp",
+        "schedule_test.cpp",
+        "vendor_test.cpp",
+    ],
+    deps = [
+        ":decoder",
+        ":queue",
+        ":scan",
+        ":schedule",
+        ":vendor",
+        "//driver/bus/testutil",
+        "//x/cpp/lib",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)

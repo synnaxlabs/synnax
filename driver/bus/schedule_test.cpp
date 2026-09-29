@@ -11,9 +11,9 @@
 
 #include "gtest/gtest.h"
 
-#include "driver/mil1553/schedule.h"
+#include "driver/bus/schedule.h"
 
-namespace driver::mil1553 {
+namespace driver::bus {
 TEST(Schedule, DuesEveryPeriodicMessageAtTheStart) {
     Schedule s(
         {x::telem::MILLISECOND * 10, std::nullopt, x::telem::MILLISECOND * 20},

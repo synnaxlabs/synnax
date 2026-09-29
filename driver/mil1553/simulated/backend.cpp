@@ -19,7 +19,7 @@ namespace driver::mil1553::simulated {
 namespace {
 using Words = std::array<std::uint16_t, codec::mil1553::MAX_WORDS>;
 using Terminals = std::bitset<codec::mil1553::MAX_RT + 1>;
-using Receiver = arinc429::Queue<Transfer>;
+using Receiver = bus::Queue<Transfer>;
 
 /// @brief the number of subaddresses a terminal has, counting the mode code ones.
 constexpr std::size_t SUBADDRESSES = 32;
@@ -147,7 +147,7 @@ public:
         return {t, x::errors::NIL};
     }
 
-    std::pair<Batch, x::errors::Error>
+    std::pair<bus::Batch, x::errors::Error>
     read(const std::span<Transfer> out, const x::telem::TimeSpan timeout) override {
         if (this->queue == nullptr)
             return {{}, misuse("a bus controller channel does not read transfers")};

@@ -17,7 +17,7 @@
 
 #include "x/cpp/telem/telem.h"
 
-namespace driver::arinc429 {
+namespace driver::bus {
 /// @brief Batch is the result of one Queue::pop.
 struct Batch {
     /// @brief count is the number of items written to the output.

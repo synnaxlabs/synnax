@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "driver/arinc429/vendor.h"
+#include "driver/bus/vendor.h"
 #include "driver/mil1553/ballard/api.h"
 #include "driver/mil1553/ballard/backend.h"
 
@@ -15,9 +15,8 @@ namespace driver::mil1553::ballard {
 namespace {
 x::errors::Error load() {
     for (const auto &name: {CARD_LIBRARY_NAME, LIBRARY_NAME})
-        if (auto [lib, err] = arinc429::vendor::load(name, LIBRARY_INFO); err)
-            return err;
-    return arinc429::vendor::unsupported("Ballard MIL-STD-1553");
+        if (auto [lib, err] = bus::vendor::load(name, LIBRARY_INFO); err) return err;
+    return bus::vendor::unsupported("Ballard MIL-STD-1553");
 }
 }
 

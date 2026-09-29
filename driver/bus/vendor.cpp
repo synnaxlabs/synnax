@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "driver/arinc429/vendor.h"
+#include "driver/bus/vendor.h"
 
-namespace driver::arinc429::vendor {
+namespace driver::bus::vendor {
 std::pair<std::unique_ptr<x::lib::Shared>, x::errors::Error> load(
     const std::string &name,
     const LibraryInfo &info,
@@ -25,7 +25,7 @@ std::pair<std::unique_ptr<x::lib::Shared>, x::errors::Error> load(
 
 x::errors::Error unsupported(const std::string &backend) {
     return x::errors::Error(
-        errors::CONFIGURATION_ERROR,
+        UNSUPPORTED_ERROR,
         "the " + backend +
             " backend is not supported yet. Its vendor library loaded, but the "
             "Driver does not drive it"

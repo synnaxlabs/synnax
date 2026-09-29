@@ -34,7 +34,10 @@
         { "case": "driver/serial_read" },
         { "case": "driver/serial_write" },
         { "case": "driver/can_read" },
-        { "case": "driver/can_write" }
+        { "case": "driver/can_write" },
+        { "case": "driver/arinc429_read" },
+        { "case": "driver/arinc429_write" },
+        { "case": "driver/mil1553_read" }
       ]
     },
     {

@@ -21,12 +21,10 @@
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
 
-#include "driver/arinc429/queue.h"
+#include "driver/bus/queue.h"
 #include "driver/codec/mil1553.h"
 
 namespace driver::mil1553 {
-using Batch = arinc429::Batch;
-
 /// @brief Transfer is one transfer made over or seen on the bus.
 struct Transfer {
     /// @brief command is the command word the bus controller sent.
@@ -80,7 +78,7 @@ public:
     /// to its terminals.
     /// @returns CRITICAL_HARDWARE_ERROR when the channel is a bus controller, or the
     /// error of the card.
-    virtual std::pair<Batch, x::errors::Error>
+    virtual std::pair<bus::Batch, x::errors::Error>
     read(std::span<Transfer> out, x::telem::TimeSpan timeout) = 0;
 
     /// @brief sets the words a terminal of this channel answers a transmit command

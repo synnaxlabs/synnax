@@ -10,6 +10,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -39,6 +40,14 @@ const auto WRITE_TIMEOUT = 1 * x::telem::SECOND;
 /// @returns x::errors::VALIDATION for an unknown or truncated escape.
 std::pair<std::vector<std::uint8_t>, x::errors::Error>
 unescape(const std::string &escaped);
+
+/// @brief checks that a task's device can carry a message.
+/// @returns an error whose data says why it cannot. It binds to the message's field.
+using Check = std::function<x::errors::Error(const synnax::library::MessageEntry &)>;
+
+/// @brief checks that a byte stream or datagram can carry a message: it has no
+/// identifier, or a field or token identifier.
+x::errors::Error check_stream(const synnax::library::MessageEntry &message);
 
 /// @brief a library message a read task decodes.
 struct ReadMessage {
@@ -85,13 +94,15 @@ struct ReadConfig {
     /// @brief resolves cfg against its library and the channels it names, binding
     /// validation errors to their fields on parser.
     /// @param framing how the stream splits into frames. Absent for datagrams.
+    /// @param check checks that the device can carry each enabled message.
     static ReadConfig resolve(
         x::json::Parser &parser,
         const ::synnax::bus::ReadConfig &cfg,
         const ::synnax::bus::PollConfig &poll,
         const std::optional<::synnax::bus::Framing> &framing,
         const synnax::library::Library &library,
-        const std::vector<synnax::channel::Channel> &channels
+        const std::vector<synnax::channel::Channel> &channels,
+        const Check &check = check_stream
     );
 
     /// @brief retrieves the library and channels cfg names from the Core, then
@@ -103,7 +114,8 @@ struct ReadConfig {
         x::json::Parser &parser,
         const ::synnax::bus::ReadConfig &cfg,
         const ::synnax::bus::PollConfig &poll,
-        const std::optional<::synnax::bus::Framing> &framing
+        const std::optional<::synnax::bus::Framing> &framing,
+        const Check &check = check_stream
     );
 };
 
@@ -145,7 +157,8 @@ struct WriteConfig {
         const ::synnax::bus::WriteConfig &cfg,
         const std::optional<::synnax::bus::Framing> &framing,
         const synnax::library::Library &library,
-        const std::vector<synnax::channel::Channel> &channels
+        const std::vector<synnax::channel::Channel> &channels,
+        const Check &check = check_stream
     );
 
     /// @brief resolves cfg against the Core as ReadConfig::parse does.
@@ -153,7 +166,8 @@ struct WriteConfig {
         const synnax::Synnax &client,
         x::json::Parser &parser,
         const ::synnax::bus::WriteConfig &cfg,
-        const std::optional<::synnax::bus::Framing> &framing
+        const std::optional<::synnax::bus::Framing> &framing,
+        const Check &check = check_stream
     );
 };
 }

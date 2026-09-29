@@ -15,7 +15,7 @@
 
 namespace driver::arinc429::simulated {
 namespace {
-using Receiver = Queue<Received>;
+using Receiver = bus::Queue<Received>;
 }
 
 struct Backend::Line {
@@ -55,7 +55,7 @@ public:
         r.erase(std::remove(r.begin(), r.end(), this->queue), r.end());
     }
 
-    std::pair<Batch, x::errors::Error>
+    std::pair<bus::Batch, x::errors::Error>
     read(const std::span<Received> out, const x::telem::TimeSpan timeout) override {
         if (this->queue == nullptr)
             return {

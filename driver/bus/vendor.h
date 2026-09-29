@@ -19,7 +19,12 @@
 
 #include "driver/errors/errors.h"
 
-namespace driver::arinc429::vendor {
+namespace driver::bus::vendor {
+/// @brief a backend whose vendor library loads but that the Driver cannot drive yet.
+const x::errors::Error UNSUPPORTED_ERROR = errors::CONFIGURATION_ERROR.sub(
+    "unsupported"
+);
+
 /// @brief loads a vendor shared library and checks that it has each function.
 /// @returns the missing library error of info when the library or a function is
 /// absent.
@@ -29,7 +34,6 @@ std::pair<std::unique_ptr<x::lib::Shared>, x::errors::Error> load(
     std::span<const char *const> functions = {}
 );
 
-/// @returns the CONFIGURATION_ERROR of a backend whose vendor library loads but that
-/// the Driver cannot drive yet.
+/// @returns the UNSUPPORTED_ERROR of a backend.
 x::errors::Error unsupported(const std::string &backend);
 }

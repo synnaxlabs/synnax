@@ -126,9 +126,9 @@ public:
         this->cards->release(this->card);
     }
 
-    // TODO: map ERR_OVERFLOW to Batch::dropped once its value is known. The manual
+    // TODO: map ERR_OVERFLOW to bus::Batch::dropped once its value is known. The manual
     // names the code but not its number, so an overflow is a read error for now.
-    std::pair<Batch, x::errors::Error>
+    std::pair<bus::Batch, x::errors::Error>
     read(const std::span<Received> out, const x::telem::TimeSpan timeout) override {
         if (this->direction != Direction::RECEIVE)
             return {{}, misuse("cannot read from a transmit channel")};

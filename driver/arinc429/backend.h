@@ -20,7 +20,7 @@
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
 
-#include "driver/arinc429/queue.h"
+#include "driver/bus/queue.h"
 #include "driver/codec/arinc429.h"
 
 namespace driver::arinc429 {
@@ -54,7 +54,7 @@ public:
     /// @brief reads the words that arrived, waiting up to timeout for the first.
     /// @returns CRITICAL_HARDWARE_ERROR when the channel transmits, or the error of
     /// the card.
-    virtual std::pair<Batch, x::errors::Error>
+    virtual std::pair<bus::Batch, x::errors::Error>
     read(std::span<Received> out, x::telem::TimeSpan timeout) = 0;
 
     /// @brief transmits words in order.

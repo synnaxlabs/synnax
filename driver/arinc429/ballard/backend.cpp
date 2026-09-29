@@ -9,14 +9,14 @@
 
 #include "driver/arinc429/ballard/api.h"
 #include "driver/arinc429/ballard/backend.h"
-#include "driver/arinc429/vendor.h"
+#include "driver/bus/vendor.h"
 
 namespace driver::arinc429::ballard {
 namespace {
 x::errors::Error load() {
     for (const auto &name: {CARD_LIBRARY_NAME, LIBRARY_NAME})
-        if (auto [lib, err] = vendor::load(name, LIBRARY_INFO); err) return err;
-    return vendor::unsupported("Ballard ARINC 429");
+        if (auto [lib, err] = bus::vendor::load(name, LIBRARY_INFO); err) return err;
+    return bus::vendor::unsupported("Ballard ARINC 429");
 }
 }
 

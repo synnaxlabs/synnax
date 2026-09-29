@@ -11,9 +11,9 @@
 
 #include "gtest/gtest.h"
 
-#include "driver/arinc429/queue.h"
+#include "driver/bus/queue.h"
 
-namespace driver::arinc429 {
+namespace driver::bus {
 TEST(Queue, DropsTheOldestItemWhenFull) {
     Queue<int> q(2);
     q.push(1);
