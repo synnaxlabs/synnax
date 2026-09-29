@@ -11,7 +11,10 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
 genrule(
     name = "build_open62541",
-    srcs = glob(["open62541/**"]) + ["//vendor/mbedtls:build_mbedtls"],
+    srcs = glob(
+        ["open62541/**"],
+        allow_empty = True,
+    ) + ["//vendor/mbedtls:build_mbedtls"],
     outs = [
         "lib/open62541.lib",  # Windows will create this
         "lib/libopen62541.a",  # Unix will create this

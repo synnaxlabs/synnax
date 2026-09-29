@@ -24,16 +24,14 @@ if (wrap) className += " wrap";
 ---
 
 <div class={className} tabindex={tabindex}>
-    {
-        !hideCopyButton && (
-            <Button.Button variant="outlined" size="medium" square>
-                <>
-                    <Icon.Copy className="copy" />
-                    <Icon.Check className="check" />
-                </>
-            </Button.Button>
-        )
-    }
+    {!hideCopyButton && (
+        <Button.Button variant="outlined" size="medium" square>
+            <>
+                <Icon.Copy className="copy" />
+                <Icon.Check className="check" />
+            </>
+        </Button.Button>
+    )}
     <pre {...rest} class="styled-scrollbar"><slot /></pre>
 </div>
 
@@ -135,7 +133,7 @@ if (wrap) className += " wrap";
 
     /* The code block's own padding carries the gap under the tab strip. */
     .pluto-tabs__content .astro-code-wrapper:first-child,
-    :is(.pluto-tabs__content, .pluto-tabs__content > astro-slot) > p:first-child {
+    .pluto-tabs__content > p:first-child {
         margin-top: 0;
     }
 

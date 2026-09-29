@@ -10,3 +10,6 @@ pnpm-workspace.yaml
 *.rs
 *.lock
 site/portal/drizzle/meta
+
+# Generated background patterns, kept minified.
+site/docs/src/**/*.svg

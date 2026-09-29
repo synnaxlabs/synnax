@@ -1,0 +1,30 @@
+{
+  "name": "Fuel",
+  "root": {
+    "variant": "split",
+    "direction": "x",
+    "size": 0.58,
+    "first": {
+      "variant": "leaf",
+      "tabs": [
+        {
+          "key": "bb2a4310-3ae1-4cc7-b433-d316ef2ea4f5",
+          "variant": "resource",
+          "resource": "Fuel Pressures.json"
+        }
+      ]
+    },
+    "last": {
+      "variant": "leaf",
+      "tabs": [
+        {
+          "key": "173da078-1e0e-4840-bc2f-aa3513e68fd2",
+          "variant": "resource",
+          "resource": "Fuel Temperatures.json"
+        }
+      ]
+    }
+  },
+  "type": "panel",
+  "version": 0
+}

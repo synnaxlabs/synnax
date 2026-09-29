@@ -8,17 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Video as Base } from "@synnaxlabs/lyra/video";
 import {
   type DetailedHTMLProps,
   type ImgHTMLAttributes,
   type ReactElement,
-  useEffect,
-  useRef,
-  useState,
+  type VideoHTMLAttributes,
 } from "react";
 
 import { mediaURL } from "@/components/media/url";
+import { DARK } from "@/components/media/video";
 
 interface MediaProps {
   id: string;
@@ -29,92 +27,26 @@ export interface VideoProps
   extends
     MediaProps,
     Omit<
-      DetailedHTMLProps<React.VideoHTMLAttributes<HTMLVideoElement>, HTMLVideoElement>,
+      DetailedHTMLProps<VideoHTMLAttributes<HTMLVideoElement>, HTMLVideoElement>,
       "id"
     > {}
 
-const useLiveTheme = (): string => {
-  const [theme, setTheme] = useState(
-    window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light",
-  );
-  useEffect(() => {
-    const listener = (e: MediaQueryListEvent) => {
-      setTheme(e.matches ? "dark" : "light");
-    };
-    const bindListener = () => {
-      window
-        .matchMedia("(prefers-color-scheme: dark)")
-        .addEventListener("change", listener);
-    };
-    bindListener();
-    document.addEventListener("astro:after-swap", bindListener);
-    return () => {
-      window
-        .matchMedia("(prefers-color-scheme: dark)")
-        .removeEventListener("change", listener);
-    };
-  }, []);
-  return theme;
-};
-
-const TOUCH_QUERY = "(hover: none) and (pointer: coarse)";
-
+/**
+ * Renders a looping, muted docs video that follows the reader's color scheme. The
+ * script in `@/components/media/video` plays it while it is in view.
+ */
 export const Video = ({ id, themed = true, ...rest }: VideoProps): ReactElement => {
-  const theme = useLiveTheme();
-  const [touch] = useState(() => window.matchMedia(TOUCH_QUERY).matches);
-  const [playing, setPlaying] = useState(false);
-  const url = mediaURL(id, "mp4", themed ? theme : undefined);
-  const ref = useRef<HTMLVideoElement>(null);
-
-  useEffect(() => {
-    if (ref.current) ref.current.load();
-  }, [url]);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (ref.current == null) return;
-        if (!entry.isIntersecting) ref.current.pause();
-        else if (!touch) ref.current.play().catch(console.error);
-      },
-      { threshold: 0.85 },
-    );
-    if (ref.current != null) observer.observe(ref.current);
-    return () => {
-      if (ref.current != null) observer.unobserve(ref.current);
-    };
-  }, []);
-
-  const video = (
-    <Base.Video
-      ref={ref}
-      {...rest}
-      // The time fragment makes iOS Safari render the first frame before playback.
-      href={touch ? `${url}#t=0.001` : url}
-      loop
-      muted
-      playsInline
-      onPlay={() => setPlaying(true)}
-      onPause={() => setPlaying(false)}
-      onClick={
-        touch
-          ? ({ currentTarget: v }) => {
-              if (v.paused) v.play().catch(console.error);
-              else v.pause();
-            }
-          : undefined
-      }
-    />
-  );
-  if (!touch) return video;
+  // The time fragment makes iOS Safari render the first frame before playback.
+  const src = (theme?: string): string => `${mediaURL(id, "mp4", theme)}#t=0.001`;
   return (
     <div className="docs-video">
-      {video}
-      {!playing && (
-        <div className="docs-video__play" aria-hidden>
-          <Icon.Play />
-        </div>
-      )}
+      <video loop muted playsInline preload="metadata" {...rest}>
+        {themed && <source src={src("dark")} media={DARK} type="video/mp4" />}
+        <source src={src(themed ? "light" : undefined)} type="video/mp4" />
+      </video>
+      <div className="docs-video__play" aria-hidden>
+        <Icon.Play />
+      </div>
     </div>
   );
 };
@@ -129,24 +61,28 @@ export interface ImageProps
   extension?: "png" | "jpg" | "jpeg" | "webp" | "svg";
 }
 
+/** Renders a docs image that follows the reader's color scheme. */
 export const Image = ({
   id,
   themed = true,
-  className,
   extension = "png",
   loading = "lazy",
   decoding = "async",
   ...rest
 }: ImageProps): ReactElement => {
-  const theme = useLiveTheme();
-  const url = mediaURL(id, extension, themed ? theme : undefined);
-  return (
+  const img = (
     <img
-      src={url}
-      className={className}
+      src={mediaURL(id, extension, themed ? "light" : undefined)}
       loading={loading}
       decoding={decoding}
       {...rest}
     />
+  );
+  if (!themed) return img;
+  return (
+    <picture className="docs-picture">
+      <source srcSet={mediaURL(id, extension, "dark")} media={DARK} />
+      {img}
+    </picture>
   );
 };

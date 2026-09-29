@@ -20,7 +20,7 @@ import {
   WINDOW_FILL,
 } from "@/director/constants";
 import { easeOutQuint, type Plane, stage, type StagePlan } from "@/director/stage";
-import { edit, FPS, WIDTH } from "@/film";
+import { edit, FPS, SIZES } from "@/film";
 import { type Event, type Timeline } from "@/timeline";
 
 const timeline = (events: Event[], dsf = 3): Timeline => ({
@@ -90,6 +90,7 @@ describe("stage", () => {
         { type: "end", tagline: "Tagline." },
       ]),
       timeline(MARKS),
+      "portrait",
     );
     const cardFrames = Math.round(CARD_S * FPS);
     const endFrames = Math.round(END_S * FPS);
@@ -116,11 +117,33 @@ describe("stage", () => {
           },
         ]),
         timeline(MARKS),
+        "portrait",
       ),
     );
     expect(first.cx).toEqual(720);
     expect(first.cy).toEqual(450);
-    expect(first.scale).toBeCloseTo((WINDOW_FILL * WIDTH) / 1440);
+    expect(first.scale).toBeCloseTo(
+      (WINDOW_FILL.portrait * SIZES.portrait.width) / 1440,
+    );
+  });
+
+  it("should frame a landscape film at 16:9 with the whole window in view", () => {
+    const plan = stage(
+      edit([
+        {
+          type: "take",
+          from: "start",
+          to: "middle",
+          beats: [{ at: "start", wide: true }],
+        },
+      ]),
+      timeline(MARKS),
+      "landscape",
+    );
+    expect(plan).toMatchObject({ format: "landscape", width: 1920, height: 1080 });
+    const [first] = planes(plan);
+    expect(first.scale * 1440).toBeLessThan(1920);
+    expect(first.scale).toBeCloseTo((WINDOW_FILL.landscape * 1920) / 1440);
   });
 
   it("should open centered on the first beat's rect at the target fill", () => {
@@ -135,11 +158,12 @@ describe("stage", () => {
           },
         ]),
         timeline(MARKS),
+        "portrait",
       ),
     );
     expect(first.cx).toEqual(300);
     expect(first.cy).toEqual(400);
-    expect(first.scale).toBeCloseTo((TARGET_FILL * WIDTH) / 400);
+    expect(first.scale).toBeCloseTo((TARGET_FILL * SIZES.portrait.width) / 400);
   });
 
   it("should move to a later beat and settle on it", () => {
@@ -157,6 +181,7 @@ describe("stage", () => {
           },
         ]),
         timeline(MARKS),
+        "portrait",
       ),
     );
     expect(frames[299].cx).toBeCloseTo(300);
@@ -182,6 +207,7 @@ describe("stage", () => {
           },
         ]),
         timeline(MARKS),
+        "portrait",
       ),
     );
     for (const f of frames) expect(f.cx).toBeLessThanOrEqual(1100.001);
@@ -202,6 +228,7 @@ describe("stage", () => {
           },
         ]),
         timeline(MARKS),
+        "portrait",
       ),
     );
     expect(frames[299].tilt.z).toBeCloseTo(STAGE_REST.z);
@@ -222,6 +249,7 @@ describe("stage", () => {
           },
         ]),
         timeline(MARKS),
+        "portrait",
       ),
     );
     expect(frames.at(-1)?.scale).toBeGreaterThan(frames[0].scale * 1.1);
@@ -240,6 +268,7 @@ describe("stage", () => {
           },
         ]),
         timeline(MARKS),
+        "portrait",
       ),
     );
     expect(frames[0].tilt).toEqual(STAGE_TILT);
@@ -248,7 +277,11 @@ describe("stage", () => {
   });
 
   it("should fade and rise a card in from below", () => {
-    const plan = stage(edit([{ type: "card", lines: ["Hello."] }]), timeline(MARKS));
+    const plan = stage(
+      edit([{ type: "card", lines: ["Hello."] }]),
+      timeline(MARKS),
+      "portrait",
+    );
     const [first] = plan.samples;
     const last = plan.samples.at(-1);
     expect(first).toMatchObject({ type: "card", opacity: 0, offset: CARD_RISE_PX });
@@ -262,6 +295,7 @@ describe("stage", () => {
           { type: "take", from: "start", to: "missing", beats: [{ at: "start" }] },
         ]),
         timeline(MARKS),
+        "portrait",
       ),
     ).toThrow(`shot 0 (take) cuts at mark "missing", which the capture never set`);
   });
@@ -273,6 +307,7 @@ describe("stage", () => {
           { type: "take", from: "middle", to: "right", beats: [{ at: "middle" }] },
         ]),
         timeline(MARKS),
+        "portrait",
       ),
     ).toThrow(`shot 0 (take) runs from "middle" to "right", which is empty`);
   });
@@ -282,6 +317,7 @@ describe("stage", () => {
       stage(
         edit([{ type: "take", from: "start", to: "end", beats: [{ at: "right" }] }]),
         timeline(MARKS),
+        "portrait",
       ),
     ).toThrow(`shot 0 (take) opens on beat "right", not on "start"`);
   });
@@ -298,6 +334,7 @@ describe("stage", () => {
           },
         ]),
         timeline(MARKS),
+        "portrait",
       ),
     ).toThrow(`shot 0 (take) beat 1 falls at "right", after the take ends`);
   });
@@ -314,6 +351,7 @@ describe("stage", () => {
           },
         ]),
         timeline(MARKS),
+        "portrait",
       ),
     ).toThrow(`shot 0 (take) beat 2 at "start" comes before beat 1`);
   });
@@ -323,6 +361,7 @@ describe("stage", () => {
       stage(
         edit([{ type: "take", from: "start", to: "end", beats: [{ at: "start" }] }]),
         timeline(MARKS),
+        "portrait",
       ),
     ).toThrow(`shot 0 (take) beat 0 frames mark "start", which has no rect`);
   });
@@ -339,6 +378,7 @@ describe("stage", () => {
           },
         ]),
         timeline(MARKS, 2),
+        "portrait",
       ),
     ).toThrow(
       `shot 0 (take) magnifies the capture 2.24x at beat "start", past its 2x ` +
@@ -349,8 +389,8 @@ describe("stage", () => {
   it("should throw when the capture frame rate differs from the film's", () => {
     const tl = timeline(MARKS);
     tl.meta.fps = 30;
-    expect(() => stage(edit([{ type: "card", lines: ["Hi."] }]), tl)).toThrow(
-      "films capture at 60 fps, but this capture ran at 30",
-    );
+    expect(() =>
+      stage(edit([{ type: "card", lines: ["Hi."] }]), tl, "portrait"),
+    ).toThrow("films capture at 60 fps, but this capture ran at 30");
   });
 });

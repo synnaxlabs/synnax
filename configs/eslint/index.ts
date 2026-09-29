@@ -44,6 +44,7 @@ const config: Linter.Config[] = [
     },
     plugins: { "simple-import-sort": simpleImportSort, "@eslint-react": pluginReact2 },
     rules: {
+      "new-cap": ["error", { capIsNew: false }],
       "no-constant-condition": ["error", { checkLoops: false }],
       "no-duplicate-imports": "error",
       "no-loss-of-precision": "error",
