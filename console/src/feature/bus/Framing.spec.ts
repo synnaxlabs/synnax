@@ -9,13 +9,15 @@
 
 import { type bus, serial } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import {
   createBusDevice,
   createBusLibrary,
   createBusTask,
+  createMessage,
+  enterField,
   renderBusTask,
 } from "@/feature/bus/testutil";
 import { Serial } from "@/feature/serial";
@@ -36,21 +38,13 @@ const render = async (config: Record<string, unknown> = {}) => {
     Serial.Task.READ_SCHEMAS.config.parse({
       library: library.key,
       device: dev.key,
-      messages: [
-        { message: status.key, fields: status.fields.map((f) => ({ field: f.key })) },
-      ],
+      messages: [createMessage(status)],
       ...config,
     }),
   );
   const { container } = await renderBusTask(Serial.Task.Read, client, draft.key);
   await screen.findByRole("checkbox", { name: "Volts" });
   return { key: draft.key, container };
-};
-
-const enter = async (label: string, value: string) => {
-  const input = await screen.findByLabelText(label);
-  fireEvent.change(input, { target: { value } });
-  fireEvent.blur(input);
 };
 
 const awaitFraming = async (key: string, framing: bus.Framing) =>
@@ -63,9 +57,9 @@ describe("bus framing editor", () => {
   it("should store an escaped delimiter as its raw bytes", async () => {
     const { key } = await render();
     await screen.findByDisplayValue("\\n");
-    await enter("Delimiter", "\\r\\n");
+    await enterField("Delimiter", "\\r\\n");
     await awaitFraming(key, { type: "delimiter", delimiter: "\r\n" });
-    await enter("Delimiter", "\\x03");
+    await enterField("Delimiter", "\\x03");
     await awaitFraming(key, { type: "delimiter", delimiter: "\x03" });
   });
 
@@ -73,7 +67,7 @@ describe("bus framing editor", () => {
     const { key } = await render();
     await selectFromDropdown("Delimiter", "Fixed length");
     await awaitFraming(key, { type: "fixed", length: 1 });
-    await enter("Length", "12");
+    await enterField("Length", "12");
     await awaitFraming(key, { type: "fixed", length: 12 });
   });
 
@@ -119,7 +113,7 @@ describe("bus framing editor", () => {
   describe("validation", () => {
     it("should show an empty delimiter on the delimiter field", async () => {
       const { container } = await render();
-      await enter("Delimiter", "");
+      await enterField("Delimiter", "");
       await clickDeploy(container);
       await screen.findByText("Delimiter is required");
     });
@@ -132,14 +126,14 @@ describe("bus framing editor", () => {
 
     it("should show a fixed length of zero on the length field", async () => {
       const { container } = await render({ framing: { type: "fixed", length: 4 } });
-      await enter("Length", "0");
+      await enterField("Length", "0");
       await clickDeploy(container);
       await screen.findByText("Length must be at least 1");
     });
 
     it("should show a poll rate of zero on the rate field", async () => {
       const { container } = await render();
-      await enter("Poll rate", "0");
+      await enterField("Poll rate", "0");
       await clickDeploy(container);
       await screen.findByText("Rate must be greater than 0");
     });

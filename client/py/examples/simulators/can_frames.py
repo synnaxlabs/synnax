@@ -103,13 +103,7 @@ class CANFrameSim(BusSim[Frame]):
                     Frame(msg.arbitration_id, msg.is_extended_id, bytes(msg.data))
                 )
 
-        loop = asyncio.get_running_loop()
-        loop.add_reader(bus.fileno(), receive)
-        self._ready.set()
-        period = 1 / float(self.rate)
-        start = loop.time()
-        count = 0
-        while True:
+        def send(count: int) -> None:
             bus.send(can.Message(arbitration_id=FAST_ID, data=fast(count)))
             if count % SLOW_DIVISOR == 0:
                 bus.send(
@@ -121,8 +115,10 @@ class CANFrameSim(BusSim[Frame]):
                 )
             if count % int(float(self.rate)) == 0:
                 bus.send(can.Message(arbitration_id=UNKNOWN_ID, data=b"\xff" * 8))
-            count += 1
-            await asyncio.sleep(max(0.0, start + count * period - loop.time()))
+
+        asyncio.get_running_loop().add_reader(bus.fileno(), receive)
+        self._ready.set()
+        await self._send_at_rate(send)
 
     @staticmethod
     def create_device(rack_key: int) -> sy_can.Device:

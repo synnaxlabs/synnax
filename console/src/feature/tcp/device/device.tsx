@@ -34,16 +34,7 @@ const Properties = (): ReactElement => (
   </Flex.Box>
 );
 
-export const {
-  MAKE,
-  SCHEMAS,
-  use,
-  useResult,
-  useFromConfig,
-  useConnectModal,
-  Select,
-  COMMANDS,
-} = Bus.createDevice({
+export const { MAKE, useConnectModal, Select, COMMANDS } = Bus.createDevice({
   make: "TCP",
   noun: "TCP device",
   icon: <Icon.Link />,

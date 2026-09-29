@@ -80,10 +80,6 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
             auto_start=auto_start,
         )
 
-    def update_device_properties(self, device_client: device.Client) -> None:
-        """Leaves the device unchanged: the task config holds the channel mapping."""
-        return None
-
 
 class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """A write task that encodes command channel values into serial messages
@@ -127,10 +123,6 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
             framing=framing if framing is not None else bus.DelimiterFraming(),
             auto_start=auto_start,
         )
-
-    def update_device_properties(self, device_client: device.Client) -> None:
-        """Leaves the device unchanged: the task config holds the channel mapping."""
-        return None
 
 
 class Device(device.Device):

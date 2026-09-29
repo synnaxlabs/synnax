@@ -43,16 +43,7 @@ const Properties = (): ReactElement => (
   </>
 );
 
-export const {
-  MAKE,
-  SCHEMAS,
-  use,
-  useResult,
-  useFromConfig,
-  useConnectModal,
-  Select,
-  COMMANDS,
-} = Bus.createDevice({
+export const { MAKE, useConnectModal, Select, COMMANDS } = Bus.createDevice({
   make: "UDP",
   noun: "UDP device",
   icon: <Icon.Bridge />,

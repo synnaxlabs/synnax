@@ -9,12 +9,13 @@
 
 import { type device, type library, type Synnax, type task } from "@synnaxlabs/client";
 import { id, type record } from "@synnaxlabs/x";
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import { type FC } from "react";
 
-import { type FormTabProps } from "@/platform/task/Form";
+import { type Task } from "@/platform/task";
 import {
   awaitEditableForm,
+  commitFieldInput,
   renderTaskFormTab,
   type RenderTaskFormTabResult,
 } from "@/platform/task/testutil";
@@ -24,7 +25,9 @@ export interface BusLibrary {
   library: library.Library;
   /** A CAN message with the binary fields Rpm and Temp. */
   engine: library.MessageEntry;
-  /** A text message matched by the token S, with the delimited fields Volts and Amps. */
+  /** A CAN message with the binary field Pressure. */
+  brake: library.MessageEntry;
+  /** A text message matched by token S, with the delimited fields Volts and Amps. */
   status: library.MessageEntry;
 }
 
@@ -34,7 +37,7 @@ const findMessage = (lib: library.Library, name: string): library.MessageEntry =
   return entry;
 };
 
-/** Creates a library holding one CAN message and one text message. */
+/** Creates a library holding two CAN messages and one text message. */
 export const createBusLibrary = async (client: Synnax): Promise<BusLibrary> => {
   const lib = await client.libraries.create({
     name: uniqueName("bus_library"),
@@ -51,6 +54,13 @@ export const createBusLibrary = async (client: Synnax): Promise<BusLibrary> => {
       },
       {
         kind: "message",
+        name: "Brake",
+        identifier: { type: "can", id: 0x200, extended: false, fd: false },
+        length: 8,
+        fields: [{ encoding: "binary", name: "Pressure", startBit: 0, bitLength: 16 }],
+      },
+      {
+        kind: "message",
         name: "Status",
         format: "text",
         identifier: { type: "token", prefix: "S" },
@@ -64,6 +74,7 @@ export const createBusLibrary = async (client: Synnax): Promise<BusLibrary> => {
   return {
     library: lib,
     engine: findMessage(lib, "Engine"),
+    brake: findMessage(lib, "Brake"),
     status: findMessage(lib, "Status"),
   };
 };
@@ -93,7 +104,7 @@ export const createBusDevice = async (
   });
 };
 
-/** Creates a task row of the given type and config. */
+/** Creates a task of the given type and config. */
 export const createBusTask = async (
   client: Synnax,
   type: string,
@@ -103,7 +114,7 @@ export const createBusTask = async (
 
 /** Renders a bus task form and waits for it to become editable. */
 export const renderBusTask = async (
-  Form: FC<FormTabProps>,
+  Form: FC<Task.FormTabProps>,
   client: Synnax,
   taskKey: task.Key,
 ): Promise<RenderTaskFormTabResult> => {
@@ -119,6 +130,23 @@ export const findFieldRow = async (name: string): Promise<HTMLElement> => {
   if (row == null) throw new Error(`no field row holds the ${name} checkbox`);
   return row;
 };
+
+/** Creates the config entry of a task message that binds every field of entry. */
+export const createMessage = (entry: library.MessageEntry) => ({
+  message: entry.key,
+  fields: entry.fields.map((f) => ({ field: f.key })),
+});
+
+/** Commits value into the text or numeric input with the given label. */
+export const enterField = async (label: string, value: string): Promise<void> =>
+  commitFieldInput(await screen.findByLabelText<HTMLInputElement>(label), value);
+
+/** Finds the dialog opened last, such as the picker a click just opened. */
+export const findOpenDialog = async (): Promise<HTMLElement> =>
+  await waitFor(() => {
+    const dialogs = screen.getAllByRole("dialog");
+    return dialogs[dialogs.length - 1];
+  });
 
 export const BUS_TASK_TYPES = [
   "can_read",

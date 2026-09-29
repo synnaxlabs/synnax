@@ -12,7 +12,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { createBusDevice } from "@/feature/bus/testutil";
+import { createBusDevice, enterField } from "@/feature/bus/testutil";
 import { CAN } from "@/feature/can";
 import { Serial } from "@/feature/serial";
 import { TCP } from "@/feature/tcp";
@@ -27,12 +27,6 @@ const openConnect = async (
 ) => {
   await renderModalOpener(useConnectModal, [{ deviceKey }], { client });
   await screen.findByRole("dialog");
-};
-
-const enter = async (label: string, value: string) => {
-  const input = await screen.findByLabelText(label);
-  fireEvent.change(input, { target: { value } });
-  fireEvent.blur(input);
 };
 
 const connectAndRetrieve = async (key: device.Key): Promise<device.Device> => {
@@ -54,7 +48,7 @@ describe("bus device connect", () => {
     );
     await openConnect(Serial.Device.useConnectModal, dev.key);
     await screen.findByDisplayValue("/dev/ttyUSB3");
-    await enter("Baud rate", "115200");
+    await enterField("Baud rate", "115200");
     const saved = await connectAndRetrieve(dev.key);
     expect(saved.make).toBe("Serial");
     expect(saved.model).toBe("Serial port");
@@ -73,7 +67,7 @@ describe("bus device connect", () => {
       { configured: false },
     );
     await openConnect(CAN.Device.useConnectModal, dev.key);
-    await enter("Channel", "vcan0");
+    await enterField("Channel", "vcan0");
     const saved = await connectAndRetrieve(dev.key);
     expect(saved.model).toBe("socketcan");
     expect(saved.location).toBe("vcan0");
@@ -88,8 +82,8 @@ describe("bus device connect", () => {
       { configured: false },
     );
     await openConnect(TCP.Device.useConnectModal, dev.key);
-    await enter("Host", "10.0.0.2");
-    await enter("Port", "5025");
+    await enterField("Host", "10.0.0.2");
+    await enterField("Port", "5025");
     const saved = await connectAndRetrieve(dev.key);
     expect(saved.model).toBe("TCP server");
     expect(saved.location).toBe("10.0.0.2:5025");
@@ -103,7 +97,7 @@ describe("bus device connect", () => {
       { configured: false },
     );
     await openConnect(UDP.Device.useConnectModal, dev.key);
-    await enter("Local port", "5000");
+    await enterField("Local port", "5000");
     const saved = await connectAndRetrieve(dev.key);
     expect(saved.model).toBe("UDP socket");
     expect(saved.location).toBe(":5000");

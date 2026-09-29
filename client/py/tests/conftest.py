@@ -7,13 +7,15 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import os
+
 import pytest
 
 import synnax as sy
 from x.strings import random_name
 
 HOST = "localhost"
-PORT = 9090
+PORT = int(os.environ.get("SYNNAX_TEST_PORT", "9090"))
 USERNAME = "synnax"
 PASSWORD = "seldon"
 

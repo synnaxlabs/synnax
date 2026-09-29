@@ -18,6 +18,7 @@ import {
   createBusDevice,
   createBusLibrary,
   createBusTask,
+  createMessage,
   findFieldRow,
   renderBusTask,
 } from "@/feature/bus/testutil";
@@ -25,13 +26,13 @@ import { CAN } from "@/feature/can";
 import { Serial } from "@/feature/serial";
 import { TCP } from "@/feature/tcp";
 import { UDP } from "@/feature/udp";
-import { type FormTabProps } from "@/platform/task/Form";
+import { type Task } from "@/platform/task";
 import { deployAndAwaitTask } from "@/platform/task/testutil";
 
 const client = createTestClient();
 
 interface DeployParams<S extends task.Schemas> {
-  Form: FC<FormTabProps>;
+  Form: FC<Task.FormTabProps>;
   type: string;
   schemas: S;
   config: record.Unknown;
@@ -40,11 +41,6 @@ interface DeployParams<S extends task.Schemas> {
   /** A value the form shows only once it has loaded the saved settings. */
   shown?: string;
 }
-
-const messageOf = (entry: library.MessageEntry) => ({
-  message: entry.key,
-  fields: entry.fields.map((f) => ({ field: f.key })),
-});
 
 const expectMessage = (
   messages: { message: library.EntryKey; fields: { field: library.EntryKey }[] }[],
@@ -87,7 +83,7 @@ describe("bus config round trip", () => {
       config: CAN.Task.READ_SCHEMAS.config.parse({
         library: lib.library.key,
         device: dev.key,
-        messages: [messageOf(lib.engine)],
+        messages: [createMessage(lib.engine)],
       }),
       field: "Rpm",
     });
@@ -110,7 +106,7 @@ describe("bus config round trip", () => {
       config: CAN.Task.WRITE_SCHEMAS.config.parse({
         library: lib.library.key,
         device: dev.key,
-        messages: [messageOf(lib.engine)],
+        messages: [createMessage(lib.engine)],
       }),
       field: "Rpm",
     });
@@ -142,7 +138,7 @@ describe("bus config round trip", () => {
       config: Serial.Task.READ_SCHEMAS.config.parse({
         library: lib.library.key,
         device: dev.key,
-        messages: [messageOf(lib.status)],
+        messages: [createMessage(lib.status)],
         framing,
         rate: 5,
         timeout: TimeSpan.milliseconds(250),
@@ -170,7 +166,7 @@ describe("bus config round trip", () => {
       config: Serial.Task.WRITE_SCHEMAS.config.parse({
         library: lib.library.key,
         device: dev.key,
-        messages: [messageOf(lib.status)],
+        messages: [createMessage(lib.status)],
         framing: { type: "slip" },
       }),
       field: "Volts",
@@ -193,7 +189,7 @@ describe("bus config round trip", () => {
       config: TCP.Task.READ_SCHEMAS.config.parse({
         library: lib.library.key,
         device: dev.key,
-        messages: [messageOf(lib.status)],
+        messages: [createMessage(lib.status)],
         framing: { type: "delimiter", delimiter: "\r\n" },
         rate: 20,
         timeout: TimeSpan.milliseconds(50),
@@ -220,7 +216,7 @@ describe("bus config round trip", () => {
       config: TCP.Task.WRITE_SCHEMAS.config.parse({
         library: lib.library.key,
         device: dev.key,
-        messages: [messageOf(lib.status)],
+        messages: [createMessage(lib.status)],
         framing: { type: "fixed", length: 16 },
       }),
       field: "Volts",
@@ -243,7 +239,7 @@ describe("bus config round trip", () => {
       config: UDP.Task.READ_SCHEMAS.config.parse({
         library: lib.library.key,
         device: dev.key,
-        messages: [messageOf(lib.status)],
+        messages: [createMessage(lib.status)],
         rate: 2,
         timeout: TimeSpan.seconds(2),
       }),
@@ -269,7 +265,7 @@ describe("bus config round trip", () => {
       config: UDP.Task.WRITE_SCHEMAS.config.parse({
         library: lib.library.key,
         device: dev.key,
-        messages: [messageOf(lib.status)],
+        messages: [createMessage(lib.status)],
       }),
       field: "Volts",
     });

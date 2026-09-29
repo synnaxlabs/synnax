@@ -69,6 +69,13 @@ jobs:
           REF_RUN_ID: ${{ inputs.ref_run_id }}
         run: integration/scripts/download_artifacts.sh
 
+      - name: Create the virtual CAN interface
+        if: runner.os == 'Linux'
+        run: |
+          sudo modprobe vcan
+          ip link show vcan0 || sudo ip link add dev vcan0 type vcan
+          sudo ip link set up vcan0
+
       - name: Update submodules
         run: git submodule update --init --recursive
 
