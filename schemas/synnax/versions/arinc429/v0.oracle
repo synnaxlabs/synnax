@@ -1,0 +1,65 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/bus/v0"
+import "schemas/synnax/versions/task/v2"
+
+Backend enum {
+    simulated = "simulated"
+    ballard   = "ballard"
+    ddc       = "ddc"
+
+    @doc value "is the driver library the Driver talks to an ARINC 429 card through."
+}
+
+Speed enum {
+    low  = "low"
+    high = "high"
+
+    @doc value "is the bit rate of an ARINC 429 channel: 12.5 or 100 kbit/s."
+}
+
+Properties struct {
+    backend Backend = simulated {
+        @doc value "is the driver library the card is reached through."
+    }
+    card    uint16 = 0 {
+        @doc value "is the index of the card within its backend."
+    }
+    channel uint16 = 0 {
+        @doc value "is the index of the channel on the card."
+    }
+    speed   Speed = high {
+        @doc value "is the bit rate of the channel."
+    }
+
+    @doc value  """
+        are the properties of an ARINC 429 device: one receive or transmit channel on
+        one card.
+    """
+    @go marshal
+}
+
+ReadConfig struct extends bus.ReadConfig {
+    @doc value  "configures an ARINC 429 read task on a receive channel."
+    @go marshal
+    @go migrate
+}
+
+WriteConfig struct extends bus.WriteConfig {
+    @doc value  "configures an ARINC 429 write task on a transmit channel."
+    @go marshal
+    @go migrate
+}
+
+ScanConfig struct extends task.ScanConfig {
+    @doc value  "configures the scan task that lists the channels of each backend."
+    @go marshal
+    @go migrate
+}
