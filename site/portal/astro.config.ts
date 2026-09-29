@@ -34,7 +34,7 @@ export default defineConfig({
       LICENSE_KID: envField.string({
         context: "server",
         access: "public",
-        default: "1",
+        default: "2",
       }),
       STAFF_ORG_ID: secret,
       CLERK_WEBHOOK_SIGNING_SECRET: secret,
