@@ -43,6 +43,13 @@ describe("shell", () => {
     it("should land home for a protocol-relative path", () => {
       expect(land("redirect_url=%2F%2Fevil.example")).toBe(HOME);
     });
+    it("should land home for a path the browser reads as protocol-relative", () => {
+      expect(land("redirect_url=%2F%5Cevil.example")).toBe(HOME);
+      expect(land("redirect_url=%2F%09%2Fevil.example")).toBe(HOME);
+    });
+    it("should land home for a script URL", () => {
+      expect(land("redirect_url=javascript%3Aalert(1)")).toBe(HOME);
+    });
   });
   describe("tabs", () => {
     it("should give a personal scope its overview and devices", () => {

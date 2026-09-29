@@ -12,14 +12,19 @@ import { type Organization } from "@/server/db/schema";
 /** HOME is where a login lands when nothing sent the visitor. */
 export const HOME = "/";
 
+const PLACEHOLDER_ORIGIN = "http://portal.invalid";
+
 /**
  * landing reads where a login lands from its `redirect_url`: the page that sent the
  * visitor, or {@link HOME} for anything but a same-site path.
  */
 export const landing = (search: URLSearchParams): string => {
   const raw = search.get("redirect_url");
-  if (raw == null || !raw.startsWith("/") || raw.startsWith("//")) return HOME;
-  return raw;
+  if (raw == null) return HOME;
+  // Resolving the way a browser does catches every form that escapes the origin.
+  const url = new URL(raw, PLACEHOLDER_ORIGIN);
+  if (url.origin !== PLACEHOLDER_ORIGIN) return HOME;
+  return `${url.pathname}${url.search}${url.hash}`;
 };
 
 export type Tab = "overview" | "devices" | "licenses" | "members" | "admin";
