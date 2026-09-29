@@ -122,7 +122,7 @@ var _ = Describe("GetCoreConfigFromViper", func() {
 		))
 	})
 
-	Describe("License token", func() {
+	Describe("License key", func() {
 		var missing string
 		BeforeEach(func() {
 			missing = filepath.Join(GinkgoT().TempDir(), "missing.jwt")
@@ -145,7 +145,7 @@ var _ = Describe("GetCoreConfigFromViper", func() {
 		})
 
 		It("Should not read the license file when the key flag is set", func() {
-			viper.Set(start.FlagLicenseKey, "token")
+			viper.Set(start.FlagLicenseKey, "key")
 			viper.Set(start.FlagLicenseFile, missing)
 			MustSucceed(start.GetCoreConfigFromViper(alamos.Instrumentation{}))
 		})

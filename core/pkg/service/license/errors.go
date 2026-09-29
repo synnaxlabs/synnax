@@ -23,7 +23,7 @@ var (
 	ErrMissing = errors.Wrap(ErrLicense, "no license is activated on this Core")
 	// ErrExpired is returned while the license on this Core no longer covers it.
 	ErrExpired = errors.Wrap(ErrLicense, "the license on this Core has expired")
-	// ErrInvalid is returned when a token fails to verify.
+	// ErrInvalid is returned when a license key fails to verify.
 	ErrInvalid = errors.Wrap(ErrLicense, "invalid license")
 	// ErrFingerprint is returned when the license is bound to other machines.
 	ErrFingerprint = errors.Wrap(

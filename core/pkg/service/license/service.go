@@ -38,15 +38,15 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL]
 	alamos.Instrumentation
-	// DB is the database that stores accepted tokens and the clock mark.
+	// DB is the database that stores accepted license keys and the clock mark.
 	//
 	// [REQUIRED]
 	kv.DB
-	// Token is a token to accept when the service opens.
+	// Key is a license key to accept when the service opens.
 	//
 	// [OPTIONAL] - Defaults to ""
-	Token string
-	// Anchors is the key set tokens are verified against.
+	Key string
+	// Anchors is the key set license keys are verified against.
 	//
 	// [OPTIONAL] - Defaults to the production keys.
 	Anchors Anchors
@@ -98,7 +98,7 @@ func (c ServiceConfig) Validate() error {
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
-	c.Token = override.String(c.Token, other.Token)
+	c.Key = override.String(c.Key, other.Key)
 	c.Anchors = override.Nil(c.Anchors, other.Anchors)
 	c.Version = override.String(c.Version, other.Version)
 	c.Now = override.Nil(c.Now, other.Now)
@@ -120,9 +120,9 @@ var DefaultServiceConfig = ServiceConfig{
 }
 
 var (
-	// prefix keys the accepted tokens. The stored value is the token itself.
+	// prefix keys the accepted license keys. The stored value is the license key.
 	prefix = []byte("license/")
-	// legacyKey is where Cores before token licenses stored their key. Open deletes it.
+	// legacyKey is where Cores before signed licenses stored a key. Open deletes it.
 	legacyKey = []byte("bGljZW5zZUtleQ==")
 	// markKey holds the latest clock reading the service has recorded.
 	markKey = []byte("highWater")
@@ -136,7 +136,7 @@ type Service struct {
 	// clockBehind is set while the clock is more than Rollback behind the recorded
 	// mark.
 	clockBehind atomic.Bool
-	// loadMu serializes load, so the last load to publish has seen every stored token.
+	// loadMu serializes load, so the last load to publish has seen every stored key.
 	loadMu sync.Mutex
 	mu     struct {
 		sync.RWMutex
@@ -146,8 +146,8 @@ type Service struct {
 
 var _ io.Closer = &Service{}
 
-// OpenService opens the service and activates cfg.Token when set. It returns an error
-// when cfg.Token is refused or the machine fingerprint cannot be read. A Core with no
+// OpenService opens the service and activates cfg.Key when set. It returns an error
+// when cfg.Key is refused or the machine fingerprint cannot be read. A Core with no
 // license opens in StateMissing.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultServiceConfig, cfgs...)
@@ -168,9 +168,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err = s.load(ctx); err != nil {
 		return nil, err
 	}
-	if cfg.Token == "" {
+	if cfg.Key == "" {
 		s.logState()
-	} else if _, err = s.Activate(ctx, cfg.Token); err != nil {
+	} else if _, err = s.Activate(ctx, cfg.Key); err != nil {
 		return nil, err
 	}
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
@@ -216,12 +216,12 @@ func (i Info) err() error {
 	return nil
 }
 
-// Activate verifies token, checks that it fits this machine and still covers it, and
-// stores it. The service then applies the stored token open would pick, which is token
+// Activate verifies key, checks that it fits this machine and still covers it, and
+// stores it. The service then applies the stored key open would pick, which is key
 // unless a newer one is stored, and returns its info. Returns ErrInvalid,
-// ErrFingerprint, or ErrExpired when the token is refused.
-func (s *Service) Activate(ctx context.Context, token string) (Info, error) {
-	lic, err := Verify(s.cfg.Anchors, token)
+// ErrFingerprint, or ErrExpired when the key is refused.
+func (s *Service) Activate(ctx context.Context, key string) (Info, error) {
+	lic, err := Verify(s.cfg.Anchors, key)
 	if err != nil {
 		return Info{}, err
 	}
@@ -232,8 +232,8 @@ func (s *Service) Activate(ctx context.Context, token string) (Info, error) {
 	if info.State != StateOk {
 		return Info{}, info.err()
 	}
-	key := append(append([]byte{}, prefix...), lic.Jti.String()...)
-	if err = s.cfg.Set(ctx, key, []byte(token)); err != nil {
+	entry := append(append([]byte{}, prefix...), lic.Jti.String()...)
+	if err = s.cfg.Set(ctx, entry, []byte(key)); err != nil {
 		return Info{}, err
 	}
 	if err = s.load(ctx); err != nil {
@@ -309,7 +309,7 @@ func (s *Service) recordClock(ctx context.Context, now time.Time) error {
 	return s.cfg.Set(ctx, markKey, raw)
 }
 
-// load applies the stored token that fits this machine. A token that still applies wins
+// load applies the stored key that fits this machine. A key that still applies wins
 // over one that no longer does, then the most recently issued wins.
 func (s *Service) load(ctx context.Context) error {
 	s.loadMu.Lock()
@@ -323,14 +323,14 @@ func (s *Service) load(ctx context.Context) error {
 		lic, err := Verify(s.cfg.Anchors, string(iter.Value()))
 		if err != nil {
 			s.cfg.L.Warn(
-				"skipping a stored token that no longer verifies",
+				"skipping a stored license key that no longer verifies",
 				zap.Error(err),
 			)
 			continue
 		}
 		if !s.fingerprint.Covers(lic.FingerprintScheme, lic.Fingerprints) {
 			s.cfg.L.Warn(
-				"skipping a stored token issued for another machine",
+				"skipping a stored license key issued for another machine",
 				zap.Stringer("jti", lic.Jti),
 			)
 			continue

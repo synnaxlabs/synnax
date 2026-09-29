@@ -143,7 +143,7 @@ var _ = Describe("License", func() {
 	})
 
 	Describe("Verify", func() {
-		It("should return the license a valid token carries", func() {
+		It("should return the license a valid license key carries", func() {
 			lic := newLicense()
 			Expect(license.Verify(anchors, sign(lic))).To(Equal(lic))
 		})
@@ -155,7 +155,7 @@ var _ = Describe("License", func() {
 				MatchError(ContainSubstring(`unknown key "test"`)),
 			))
 		})
-		It("should reject a token signed under another algorithm", func() {
+		It("should reject a license key signed under another algorithm", func() {
 			parts := strings.Split(sign(newLicense()), ".")
 			parts[0] = base64.RawURLEncoding.EncodeToString(
 				[]byte(`{"alg":"EdDSA","typ":"JWT","kid":"test"}`),
@@ -165,7 +165,7 @@ var _ = Describe("License", func() {
 				MatchError(ContainSubstring(`unsupported algorithm "EdDSA"`)),
 			))
 		})
-		It("should reject a token whose claims changed after signing", func() {
+		It("should reject a license key whose claims changed after signing", func() {
 			lic := newLicense()
 			parts := strings.Split(sign(lic), ".")
 			lic.Channels = 1000
@@ -175,20 +175,20 @@ var _ = Describe("License", func() {
 			Expect(license.Verify(anchors, strings.Join(parts, "."))).Error().
 				To(MatchError(license.ErrInvalid))
 		})
-		It("should reject a token without three parts", func() {
+		It("should reject a license key without three parts", func() {
 			Expect(license.Verify(anchors, "a.b")).Error().To(And(
 				MatchError(license.ErrInvalid),
-				MatchError(ContainSubstring("a token has three parts")),
+				MatchError(ContainSubstring("a license key has three parts")),
 			))
 		})
-		It("should reject a token signed by another key", func() {
+		It("should reject a license key signed by another key", func() {
 			other := MustSucceed(mldsa.GenerateKey(mldsa.MLDSA44()))
 			s := MustSucceed(license.Sign(other, keyID, newLicense()))
 			Expect(license.Verify(anchors, s)).Error().
 				To(MatchError(license.ErrInvalid))
 		})
 		It("should reject garbage", func() {
-			Expect(license.Verify(anchors, "not a token")).Error().
+			Expect(license.Verify(anchors, "not a license key")).Error().
 				To(MatchError(license.ErrInvalid))
 		})
 		It("should reject an unsupported claim set version", func() {
@@ -197,7 +197,7 @@ var _ = Describe("License", func() {
 			Expect(license.Verify(anchors, sign(lic))).Error().
 				To(MatchError(license.ErrInvalid))
 		})
-		It("should refuse a token with an unknown edition", func() {
+		It("should refuse a license key with an unknown edition", func() {
 			lic := newLicense()
 			lic.Edition = "x"
 			Expect(license.Verify(anchors, sign(lic))).Error().To(And(
@@ -205,22 +205,28 @@ var _ = Describe("License", func() {
 				MatchError(ContainSubstring("invalid edition: x")),
 			))
 		})
-		It("should accept a token requiring every claim the license carries", func() {
-			lic := newLicense()
-			for f := range reflect.TypeFor[license.License]().Fields() {
-				tag := f.Tag.Get("json")
-				lic.Required = append(lic.Required, strings.Split(tag, ",")[0])
-			}
-			Expect(license.Verify(anchors, sign(lic))).To(Equal(lic))
-		})
-		It("should refuse a token requiring a claim this Core does not know", func() {
-			lic := newLicense()
-			lic.Required = []string{"channels", "seats"}
-			Expect(license.Verify(anchors, sign(lic))).Error().To(And(
-				MatchError(license.ErrInvalid),
-				MatchError(ContainSubstring("understands seats")),
-			))
-		})
+		It(
+			"should accept a license key requiring every claim the license carries",
+			func() {
+				lic := newLicense()
+				for f := range reflect.TypeFor[license.License]().Fields() {
+					tag := f.Tag.Get("json")
+					lic.Required = append(lic.Required, strings.Split(tag, ",")[0])
+				}
+				Expect(license.Verify(anchors, sign(lic))).To(Equal(lic))
+			},
+		)
+		It(
+			"should refuse a license key requiring a claim this Core does not know",
+			func() {
+				lic := newLicense()
+				lic.Required = []string{"channels", "seats"}
+				Expect(license.Verify(anchors, sign(lic))).Error().To(And(
+					MatchError(license.ErrInvalid),
+					MatchError(ContainSubstring("understands seats")),
+				))
+			},
+		)
 	})
 
 	Describe("Fingerprint", func() {
@@ -258,10 +264,10 @@ var _ = Describe("License", func() {
 			Expect(svc.CheckChannelLimit(1000)).To(Succeed())
 		})
 		It(
-			"should accept a token on open and load it on the next",
+			"should accept a license key on open and load it on the next",
 			func(ctx SpecContext) {
 				lic := newLicense()
-				svc := open(ctx, license.ServiceConfig{Token: sign(lic)})
+				svc := open(ctx, license.ServiceConfig{Key: sign(lic)})
 				Expect(svc.Retrieve().State).To(Equal(license.StateOk))
 				Expect(svc.Close()).To(Succeed())
 				svc = open(ctx)
@@ -272,10 +278,10 @@ var _ = Describe("License", func() {
 			},
 		)
 		It(
-			"should fail to open on a licenseToken that does not verify",
+			"should fail to open on a license key that does not verify",
 			func(ctx SpecContext) {
 				Expect(license.OpenService(ctx, cfg, license.ServiceConfig{
-					Token: "garbage",
+					Key: "garbage",
 				})).Error().To(MatchError(license.ErrInvalid))
 			},
 		)
@@ -328,7 +334,7 @@ var _ = Describe("License", func() {
 		)
 		It("should report a stored entry that no longer covers", func(ctx SpecContext) {
 			lic := newLicense()
-			svc := open(ctx, license.ServiceConfig{Token: sign(lic)})
+			svc := open(ctx, license.ServiceConfig{Key: sign(lic)})
 			Expect(svc.Close()).To(Succeed())
 			later := now.Add(60 * day)
 			svc = open(ctx, license.ServiceConfig{
@@ -354,7 +360,7 @@ var _ = Describe("License", func() {
 		It(
 			"should treat every entry as expired after a clock rollback",
 			func(ctx SpecContext) {
-				svc := open(ctx, license.ServiceConfig{Token: sign(newLicense())})
+				svc := open(ctx, license.ServiceConfig{Key: sign(newLicense())})
 				Expect(svc.Close()).To(Succeed())
 				earlier := now.Add(-2 * day)
 				svc = open(ctx, license.ServiceConfig{
@@ -366,7 +372,7 @@ var _ = Describe("License", func() {
 			},
 		)
 		It("should tolerate a clock inside the rollback window", func(ctx SpecContext) {
-			svc := open(ctx, license.ServiceConfig{Token: sign(newLicense())})
+			svc := open(ctx, license.ServiceConfig{Key: sign(newLicense())})
 			Expect(svc.Close()).To(Succeed())
 			earlier := now.Add(-time.Hour)
 			svc = open(ctx, license.ServiceConfig{
@@ -408,7 +414,7 @@ var _ = Describe("License", func() {
 		It(
 			"should recover once a clock that was behind catches up",
 			func(ctx SpecContext) {
-				svc := open(ctx, license.ServiceConfig{Token: sign(newLicense())})
+				svc := open(ctx, license.ServiceConfig{Key: sign(newLicense())})
 				Expect(svc.Close()).To(Succeed())
 				clock.Store(now.Add(-2 * day).UnixNano())
 				svc = open(ctx, clocked)
@@ -419,7 +425,7 @@ var _ = Describe("License", func() {
 			},
 		)
 		It("should never move the recorded time back", func(ctx SpecContext) {
-			svc := open(ctx, clocked, license.ServiceConfig{Token: sign(newLicense())})
+			svc := open(ctx, clocked, license.ServiceConfig{Key: sign(newLicense())})
 			Expect(mark(ctx)()).To(Equal(now.UnixNano()))
 			clock.Store(now.Add(-2 * day).UnixNano())
 			Consistently(mark(ctx)).
@@ -435,7 +441,7 @@ var _ = Describe("License", func() {
 				lic := newLicense()
 				lic.Exp = nil
 				lic.MaxVersion = new("0.60")
-				svc := open(ctx, license.ServiceConfig{Token: sign(lic)})
+				svc := open(ctx, license.ServiceConfig{Key: sign(lic)})
 				Expect(svc.Close()).To(Succeed())
 				clock.Store(now.Add(-2 * day).UnixNano())
 				info := open(ctx, clocked).Retrieve()
@@ -448,7 +454,7 @@ var _ = Describe("License", func() {
 			func(ctx SpecContext) {
 				lic := newLicense()
 				lic.MaxVersion = new("0.60")
-				svc := open(ctx, license.ServiceConfig{Token: sign(lic)})
+				svc := open(ctx, license.ServiceConfig{Key: sign(lic)})
 				Expect(svc.Close()).To(Succeed())
 				clock.Store(now.Add(-2 * day).UnixNano())
 				info := open(ctx, clocked).Retrieve()
@@ -648,7 +654,7 @@ var _ = Describe("License", func() {
 			Expect(svc.Activate(ctx, sign(lic))).Error().
 				To(MatchError(license.ErrFingerprint))
 		})
-		It("should reject an invalid token", func(ctx SpecContext) {
+		It("should reject an invalid license key", func(ctx SpecContext) {
 			Expect(svc.Activate(ctx, "nope")).Error().
 				To(MatchError(license.ErrInvalid))
 		})

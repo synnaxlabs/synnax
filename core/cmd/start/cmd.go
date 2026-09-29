@@ -96,9 +96,9 @@ func start(cmd *cobra.Command) {
 
 func init() { AddFlags(Cmd) }
 
-// readLicenseToken returns the trimmed token from the key flag, or the trimmed contents
-// of the file the path flag names when the key flag is empty.
-func readLicenseToken() (string, error) {
+// readLicenseKey returns the trimmed license key from the key flag, or the trimmed
+// contents of the file the path flag names when the key flag is empty.
+func readLicenseKey() (string, error) {
 	if v := strings.TrimSpace(viper.GetString(FlagLicenseKey)); v != "" {
 		return v, nil
 	}
@@ -134,7 +134,7 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 			return l.Address
 		},
 	)
-	licenseToken, err := readLicenseToken()
+	licenseKey, err := readLicenseKey()
 	if err != nil {
 		return CoreConfig{}, err
 	}
@@ -143,7 +143,7 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 		insecure:            new(viper.GetBool(FlagInsecure)),
 		debug:               new(viper.GetBool(instrumentation.FlagDebug)),
 		autoCert:            new(viper.GetBool(cert.FlagAutoCert)),
-		licenseToken:        licenseToken,
+		licenseKey:          licenseKey,
 		memBacked:           new(viper.GetBool(FlagMem)),
 		listeners:           listeners,
 		peers:               peers,

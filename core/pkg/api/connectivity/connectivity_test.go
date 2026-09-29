@@ -66,14 +66,14 @@ var _ = Describe("Check", func() {
 
 	It("Should report an active license", func(ctx SpecContext) {
 		lic := openLicense(ctx, license.ServiceConfig{
-			Token: keys.Sign(svcmock.NewLicense()),
+			Key: keys.Sign(svcmock.NewLicense()),
 		})
 		Expect(check(ctx, lic).License).To(Equal(license.StateOk))
 	})
 
 	It("Should report an expired license", func(ctx SpecContext) {
 		lic := openLicense(ctx, license.ServiceConfig{
-			Token: keys.Sign(svcmock.NewLicense()),
+			Key: keys.Sign(svcmock.NewLicense()),
 		})
 		Expect(lic.Close()).To(Succeed())
 		later := time.Now().AddDate(60, 0, 0)

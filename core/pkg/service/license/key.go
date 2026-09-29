@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-// Anchors is the set of public keys a token may be signed under, keyed by the token
+// Anchors is the set of public keys a license key may be signed under, keyed by its
 // header's key identifier.
 type Anchors = map[string]*mldsa.PublicKey
 
@@ -61,13 +61,13 @@ func mustPublicKey(encoded string) *mldsa.PublicKey {
 	))
 }
 
-// algorithm is the JWS algorithm every token is signed with.
+// algorithm is the JWS algorithm every license key is signed with.
 const algorithm = "ML-DSA-44"
 
 // claimsVersion is the only claim set version this build understands.
 const claimsVersion = 1
 
-// understood is every claim this build reads. A token whose required list names a claim
+// understood is every claim this build reads. A key whose required list names a claim
 // outside it is refused, so a Core never ignores a rule it cannot enforce.
 var understood = set.New(
 	"jti",
@@ -84,7 +84,7 @@ var understood = set.New(
 	"required",
 )
 
-// header is the JWS protected header of a token.
+// header is the JWS protected header of a license key.
 type header struct {
 	Alg string `json:"alg"`
 	Typ string `json:"typ"`
@@ -93,7 +93,7 @@ type header struct {
 
 var rawURL = base64.RawURLEncoding
 
-// Sign produces a token carrying lic, signed with priv under the key identifier kid.
+// Sign returns a license key carrying lic, signed with priv under the key id kid.
 func Sign(priv *mldsa.PrivateKey, kid string, lic License) (string, error) {
 	h, err := json.Marshal(header{Alg: algorithm, Typ: "JWT", Kid: kid})
 	if err != nil {
@@ -111,16 +111,16 @@ func Sign(priv *mldsa.PrivateKey, kid string, lic License) (string, error) {
 	return input + "." + rawURL.EncodeToString(sig), nil
 }
 
-// Verify checks token's signature against the anchor its header names and returns the
+// Verify checks key's signature against the anchor its header names and returns the
 // license it carries. It does not check the license's term; the service does. Returns
-// ErrInvalid on a malformed token, a bad signature, an unknown key, an unsupported
+// ErrInvalid on a malformed key, a bad signature, an unknown key, an unsupported
 // claim set version, a required claim this Core does not understand, a missing or
 // unparseable version ceiling on a license without an expiry, or an unparseable
 // ceiling on any license.
-func Verify(anchors Anchors, token string) (License, error) {
-	parts := strings.Split(token, ".")
+func Verify(anchors Anchors, key string) (License, error) {
+	parts := strings.Split(key, ".")
 	if len(parts) != 3 {
-		return License{}, errors.Wrap(ErrInvalid, "a token has three parts")
+		return License{}, errors.Wrap(ErrInvalid, "a license key has three parts")
 	}
 	var h header
 	if err := decodePart(parts[0], &h); err != nil {
@@ -129,7 +129,7 @@ func Verify(anchors Anchors, token string) (License, error) {
 	if h.Alg != algorithm {
 		return License{}, errors.Wrapf(ErrInvalid, "unsupported algorithm %q", h.Alg)
 	}
-	key, ok := anchors[h.Kid]
+	anchor, ok := anchors[h.Kid]
 	if !ok {
 		return License{}, errors.Wrapf(ErrInvalid, "unknown key %q", h.Kid)
 	}
@@ -138,7 +138,7 @@ func Verify(anchors Anchors, token string) (License, error) {
 		return License{}, errors.Wrap(ErrInvalid, err.Error())
 	}
 	input := parts[0] + "." + parts[1]
-	if err = mldsa.Verify(key, []byte(input), sig, nil); err != nil {
+	if err = mldsa.Verify(anchor, []byte(input), sig, nil); err != nil {
 		return License{}, errors.Wrap(ErrInvalid, err.Error())
 	}
 	var c License

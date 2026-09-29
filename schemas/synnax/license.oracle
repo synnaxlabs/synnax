@@ -64,7 +64,7 @@ License struct {
     required           string[] = [] {
         @doc value """
             is the claims a Core must understand to accept the license. A Core that does
-            not know one of them refuses the token.
+            not know one of them refuses the license key.
         """
     }
 

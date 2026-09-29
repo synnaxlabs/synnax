@@ -37,7 +37,7 @@ var _ = Describe("Layer", func() {
 		lic.Channels = 50
 		layer := MustOpen(svcmock.OpenLayer(ctx, mock.NewNode(ctx), service.LayerConfig{
 			License: license.ServiceConfig{
-				Token:   keys.Sign(lic),
+				Key:     keys.Sign(lic),
 				Anchors: keys.Anchors,
 			},
 		}))

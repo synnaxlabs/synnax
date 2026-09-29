@@ -148,7 +148,7 @@ var _ = Describe("HTTP", func() {
 				"/api/v1/license/activate",
 				func() any {
 					return apilicense.ActivateRequest{
-						Token: keys.Sign(svcmock.NewLicense()),
+						Key: keys.Sign(svcmock.NewLicense()),
 					}
 				},
 			),

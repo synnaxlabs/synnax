@@ -54,7 +54,7 @@ class License(BaseModel):
         max_version: Is the highest Core minor version the license covers, as "0.62".
             Absent means any version.
         required: Is the claims a Core must understand to accept the license. A Core
-            that does not know one of them refuses the token.
+            that does not know one of them refuses the license key.
     """
 
     jti: UUID

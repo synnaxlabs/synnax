@@ -64,7 +64,7 @@ export const licenseZ = z.object({
   maxVersion: z.string().optional(),
   /**
    * required is the claims a Core must understand to accept the license. A Core that
-   * does not know one of them refuses the token.
+   * does not know one of them refuses the license key.
    */
   required: z
     .string()

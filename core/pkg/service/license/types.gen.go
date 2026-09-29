@@ -64,7 +64,7 @@ type License struct {
 	// Absent means any version.
 	MaxVersion *string `json:"max_version,omitzero" msgpack:"max_version,omitempty"`
 	// Required is the claims a Core must understand to accept the license. A Core that
-	// does not know one of them refuses the token.
+	// does not know one of them refuses the license key.
 	Required []string `json:"required" msgpack:"required"`
 }
 

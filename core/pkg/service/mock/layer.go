@@ -80,7 +80,7 @@ func OpenLayer(
 		Security:     sec,
 		Storage:      node.Storage,
 		License: license.ServiceConfig{
-			Token:   keys.Sign(NewLicense()),
+			Key:     keys.Sign(NewLicense()),
 			Anchors: keys.Anchors,
 		},
 	}

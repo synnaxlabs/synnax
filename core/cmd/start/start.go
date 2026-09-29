@@ -60,7 +60,7 @@ type CoreConfig struct {
 	noDriver             *bool
 	alamos.Instrumentation
 	dataPath             string
-	licenseToken         string
+	licenseKey           string
 	rootCredentials      auth.Credentials
 	listeners            listener.Configs
 	peers                []address.Address
@@ -125,7 +125,7 @@ func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 		insecure:        override.Nil(c.insecure, other.insecure),
 		debug:           override.Nil(c.debug, other.debug),
 		autoCert:        override.Nil(c.autoCert, other.autoCert),
-		licenseToken:    override.String(c.licenseToken, other.licenseToken),
+		licenseKey:      override.String(c.licenseKey, other.licenseKey),
 		memBacked:       override.Nil(c.memBacked, other.memBacked),
 		listeners:       override.Slice(c.listeners, other.listeners),
 		peers:           override.Slice(c.peers, other.peers),
@@ -258,7 +258,7 @@ func BootupCore(
 		Storage:         storageLayer,
 		RootCredentials: cfg.rootCredentials,
 		License: license.ServiceConfig{
-			Token:   cfg.licenseToken,
+			Key:     cfg.licenseKey,
 			Version: version.Get(),
 		},
 		ValidateChannelNames: cfg.validateChannelNames,

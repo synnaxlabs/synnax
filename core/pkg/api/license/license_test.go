@@ -63,27 +63,30 @@ var _ = Describe("Service", Ordered, func() {
 		Expect(called).To(BeFalse())
 	})
 
-	It("Should refuse a token without an update permission", func(ctx SpecContext) {
-		reader := freshUser(ctx)
-		grantOn(
-			ctx,
-			reader.OntologyID(),
-			[]access.Action{access.ActionRetrieve},
-			object,
-		)
-		Expect(apiSvc.Activate(
-			AuthedCtx(ctx, reader),
-			apilicense.ActivateRequest{Token: keys.Sign(svcmock.NewLicense())},
-		)).Error().To(MatchError(access.ErrDenied))
-	})
+	It(
+		"Should refuse a license key without an update permission",
+		func(ctx SpecContext) {
+			reader := freshUser(ctx)
+			grantOn(
+				ctx,
+				reader.OntologyID(),
+				[]access.Action{access.ActionRetrieve},
+				object,
+			)
+			Expect(apiSvc.Activate(
+				AuthedCtx(ctx, reader),
+				apilicense.ActivateRequest{Key: keys.Sign(svcmock.NewLicense())},
+			)).Error().To(MatchError(access.ErrDenied))
+		},
+	)
 
-	It("Should activate a token for an owner", func(ctx SpecContext) {
+	It("Should activate a license key for an owner", func(ctx SpecContext) {
 		owner := freshUser(ctx)
 		grantOn(ctx, owner.OntologyID(), []access.Action{access.ActionUpdate}, object)
 		lic := svcmock.NewLicense()
 		info := MustSucceed(apiSvc.Activate(
 			AuthedCtx(ctx, owner),
-			apilicense.ActivateRequest{Token: keys.Sign(lic)},
+			apilicense.ActivateRequest{Key: keys.Sign(lic)},
 		))
 		Expect(info.State).To(Equal(license.StateOk))
 		Expect(info.License).ToNot(BeNil())
