@@ -18,6 +18,10 @@ export const fingerprintZ = z
   .default(() => []);
 export type Fingerprint = z.infer<typeof fingerprintZ>;
 
+export const EDITIONS = ["d", "e"] as const;
+export const editionZ = z.enum(EDITIONS);
+export type Edition = z.infer<typeof editionZ>;
+
 export const STATES = ["ok", "missing", "expired"] as const;
 export const stateZ = z.enum(STATES);
 export type State = z.infer<typeof stateZ>;
@@ -38,7 +42,7 @@ export const licenseZ = z.object({
   /** organization is the organization the license belongs to. */
   organization: z.uuid(),
   /** edition is the edition the license applies to. */
-  edition: z.string(),
+  edition: editionZ,
   /**
    * fingerprints is the set of machine fingerprints the license is bound to. Empty when
    * the license runs on any machine.

@@ -64,7 +64,7 @@ func newLicense() license.License {
 		Exp:               seconds(now.Add(30 * day)),
 		ClaimsVersion:     1,
 		Organization:      uuid.New(),
-		Edition:           "e",
+		Edition:           license.EditionEnterprise,
 		FingerprintScheme: 1,
 		Machines:          1,
 	}
@@ -174,6 +174,14 @@ var _ = Describe("License", func() {
 			lic.ClaimsVersion = 2
 			Expect(license.Verify(anchors, sign(lic))).Error().
 				To(MatchError(license.ErrInvalid))
+		})
+		It("should refuse a token with an unknown edition", func() {
+			lic := newLicense()
+			lic.Edition = "x"
+			Expect(license.Verify(anchors, sign(lic))).Error().To(And(
+				MatchError(license.ErrInvalid),
+				MatchError(ContainSubstring("invalid edition: x")),
+			))
 		})
 		It("should accept a token requiring every claim the license carries", func() {
 			lic := newLicense()
@@ -488,7 +496,9 @@ var _ = Describe("License", func() {
 			lic.Exp = seconds(now.Add(2 * day))
 			info := MustSucceed(svc.Activate(ctx, sign(lic)))
 			Expect(info.State).To(Equal(license.StateOk))
-			Expect(info.Warning).To(ContainSubstring("expires in"))
+			Expect(info.Warning).To(Equal(
+				"license expires on " + now.Add(2*day).Format(time.DateOnly),
+			))
 		})
 		It(
 			"should accept a subscription inside the grace window",

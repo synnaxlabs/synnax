@@ -11,6 +11,13 @@
 @py output "client/py/synnax/license"
 @ts output "client/ts/src/license"
 
+Edition enum {
+    desktop    = "d"
+    enterprise = "e"
+
+    @doc value "is the product edition a license applies to."
+}
+
 License struct {
     jti                uuid     {
         @doc value "is the unique identifier of the license."
@@ -30,7 +37,7 @@ License struct {
     organization       uuid     {
         @doc value "is the organization the license belongs to."
     }
-    edition            string   {
+    edition            Edition  {
         @doc value "is the edition the license applies to."
     }
     fingerprints       string[] = [] {

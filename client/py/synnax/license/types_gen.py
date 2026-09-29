@@ -18,6 +18,13 @@ from pydantic import BaseModel, Field
 
 Fingerprint: TypeAlias = list[str]
 
+EDITION_DESKTOP: Literal["d"] = "d"
+
+EDITION_ENTERPRISE: Literal["e"] = "e"
+
+
+Edition = Literal["d", "e"]
+
 STATE_OK: Literal["ok"] = "ok"
 
 STATE_MISSING: Literal["missing"] = "missing"
@@ -55,7 +62,7 @@ class License(BaseModel):
     exp: int | None = Field(default=None, ge=0, le=4294967295)
     claims_version: int = Field(ge=0, le=255)
     organization: UUID
-    edition: str
+    edition: Edition
     fingerprints: list[str] = Field(default_factory=list)
     fingerprint_scheme: int = Field(ge=0, le=255)
     machines: int = Field(ge=0, le=4294967295)

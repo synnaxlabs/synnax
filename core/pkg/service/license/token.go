@@ -120,6 +120,9 @@ func Verify(anchors Anchors, token string) (License, error) {
 			c.ClaimsVersion,
 		)
 	}
+	if err := c.Validate(); err != nil {
+		return License{}, errors.Wrap(ErrInvalid, err.Error())
+	}
 	unknown := lo.Filter(c.Required, func(claim string, _ int) bool {
 		return !understood.Contains(claim)
 	})

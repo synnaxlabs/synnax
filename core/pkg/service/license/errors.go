@@ -46,10 +46,8 @@ const (
 	tooManyType     = errorType + ".too_many"
 )
 
-const errTooManyWrapString = "limit is %d channels"
-
 func newTooManyError(count uint32) error {
-	return errors.Wrapf(ErrTooMany, errTooManyWrapString, count)
+	return errors.Wrapf(ErrTooMany, "limit is %d channels", count)
 }
 
 func encode(_ context.Context, err error) (errors.Payload, bool) {

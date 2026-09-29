@@ -17,6 +17,25 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// Edition is the product edition a license applies to.
+type Edition string
+
+const (
+	EditionDesktop    Edition = "d"
+	EditionEnterprise Edition = "e"
+)
+
+// IsValid reports whether e is one of the defined Edition
+// values.
+func (e Edition) IsValid() bool {
+	switch e {
+	case EditionDesktop, EditionEnterprise:
+		return true
+	default:
+		return false
+	}
+}
+
 // License is the signed set of claims a Core verifies.
 type License struct {
 	// Jti is the unique identifier of the license.
@@ -31,7 +50,7 @@ type License struct {
 	// Organization is the organization the license belongs to.
 	Organization uuid.UUID `json:"organization" msgpack:"organization"`
 	// Edition is the edition the license applies to.
-	Edition string `json:"edition" msgpack:"edition"`
+	Edition Edition `json:"edition" msgpack:"edition"`
 	// Fingerprints is the set of machine fingerprints the license is bound to. Empty
 	// when the license runs on any machine.
 	Fingerprints []string `json:"fingerprints" msgpack:"fingerprints"`
@@ -47,6 +66,14 @@ type License struct {
 	// Required is the claims a Core must understand to accept the license. A Core that
 	// does not know one of them refuses the token.
 	Required []string `json:"required" msgpack:"required"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (l License) Validate() error {
+	v := validate.New("License")
+	v.Ternaryf("edition", !l.Edition.IsValid(), "invalid edition: %v", l.Edition)
+	return v.Error()
 }
 
 // State is whether a license covers the Core.
@@ -90,5 +117,8 @@ type Info struct {
 func (i Info) Validate() error {
 	v := validate.New("Info")
 	v.Ternaryf("state", !i.State.IsValid(), "invalid state: %v", i.State)
+	if i.License != nil {
+		v.Exec(func() error { return validate.PathedError(i.License.Validate(), "license") })
+	}
 	return v.Error()
 }

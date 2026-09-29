@@ -55,7 +55,7 @@ func NewLicense() license.License {
 		Exp:               &exp,
 		ClaimsVersion:     1,
 		Organization:      uuid.New(),
-		Edition:           "e",
+		Edition:           license.EditionEnterprise,
 		FingerprintScheme: 1,
 		Machines:          1,
 	}
@@ -80,8 +80,10 @@ func OpenLayer(
 		Distribution: node.Layer,
 		Security:     sec,
 		Storage:      node.Storage,
-		LicenseToken: keys.Sign(NewLicense()),
-		Anchors:      keys.Anchors,
+		License: license.ServiceConfig{
+			Token:   keys.Sign(NewLicense()),
+			Anchors: keys.Anchors,
+		},
 	}
 	return service.OpenLayer(ctx, append([]service.LayerConfig{base}, cfgs...)...)
 }

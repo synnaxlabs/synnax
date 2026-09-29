@@ -36,8 +36,10 @@ var _ = Describe("Layer", func() {
 		lic := svcmock.NewLicense()
 		lic.Channels = 50
 		layer := MustOpen(svcmock.OpenLayer(ctx, mock.NewNode(ctx), service.LayerConfig{
-			LicenseToken: keys.Sign(lic),
-			Anchors:      keys.Anchors,
+			License: license.ServiceConfig{
+				Token:   keys.Sign(lic),
+				Anchors: keys.Anchors,
+			},
 		}))
 		var existing []channel.Channel
 		Expect(layer.Channel.NewRetrieve().Entries(&existing).Exec(ctx, nil)).

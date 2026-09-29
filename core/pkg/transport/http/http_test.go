@@ -85,7 +85,7 @@ var _ = Describe("HTTP", func() {
 				Security:        sec,
 				Storage:         node.Storage,
 				RootCredentials: creds,
-				Anchors:         keys.Anchors,
+				License:         license.ServiceConfig{Anchors: keys.Anchors},
 			}))
 			layer := MustSucceed(api.NewLayer(api.LayerConfig{
 				Service:      svc,

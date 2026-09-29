@@ -284,9 +284,17 @@ func (s *Service) syncClock(ctx context.Context) error {
 	if s.clockBehind.Swap(behind) != behind {
 		fields := []zap.Field{zap.Time("now", now), zap.Time("recorded", mark)}
 		if behind {
-			s.cfg.L.Warn(fmt.Sprintf(logClockBehindTemplate, s.cfg.Rollback), fields...)
+			s.cfg.L.Warn(fmt.Sprintf(
+				"system clock is more than %s behind the last recorded time, so "+
+					"license terms cannot be checked until it catches up",
+				s.cfg.Rollback,
+			), fields...)
 		} else {
-			s.cfg.L.Info(logClockCaughtUp, fields...)
+			s.cfg.L.Info(
+				"system clock caught up with the last recorded time, reloading the "+
+					"license",
+				fields...,
+			)
 		}
 	}
 	if now.After(mark) {
@@ -350,16 +358,8 @@ func better(a, b Info) bool {
 	return a.License.Iat > b.License.Iat
 }
 
-const (
-	warnExpiresTemplate  = "license expires in %s"
-	warnGraceTemplate    = "license expired on %s, grace period ends on %s"
-	warnFallbackTemplate = "subscription ended on %s, this version is covered up to %s"
-
-	expiredVersionTemplate = "license covers versions up to %s, this Core is %s"
-
-	clockTemplate = "system clock is more than %s behind the last recorded time, so " +
-		"the license term cannot be checked"
-)
+const clockTemplate = "system clock is more than %s behind the last recorded time, " +
+	"so the license term cannot be checked"
 
 // evaluate decides the state a license puts this Core in at the current time.
 func (s *Service) evaluate(lic License) Info {
@@ -368,14 +368,14 @@ func (s *Service) evaluate(lic License) Info {
 	if lic.Exp != nil && !termUnknown {
 		now, exp := s.cfg.Now(), time.Unix(int64(*lic.Exp), 0)
 		if now.Before(exp) {
-			if left := exp.Sub(now); left <= s.cfg.WarningTime {
-				info.Warning = fmt.Sprintf(warnExpiresTemplate, left.Round(time.Minute))
+			if exp.Sub(now) <= s.cfg.WarningTime {
+				info.Warning = "license expires on " + exp.Format(time.DateOnly)
 			}
 			return info
 		}
 		if graceEnd := exp.Add(s.cfg.Grace); now.Before(graceEnd) {
 			info.Warning = fmt.Sprintf(
-				warnGraceTemplate,
+				"license expired on %s, grace period ends on %s",
 				exp.Format(time.DateOnly),
 				graceEnd.Format(time.DateOnly),
 			)
@@ -388,7 +388,7 @@ func (s *Service) evaluate(lic License) Info {
 			info.Warning = fmt.Sprintf(clockTemplate, s.cfg.Rollback)
 		case lic.Exp != nil:
 			info.Warning = fmt.Sprintf(
-				warnFallbackTemplate,
+				"subscription ended on %s, this version is covered up to %s",
 				time.Unix(int64(*lic.Exp), 0).Format(time.DateOnly),
 				*lic.MaxVersion,
 			)
@@ -401,7 +401,7 @@ func (s *Service) evaluate(lic License) Info {
 		info.Warning = fmt.Sprintf(clockTemplate, s.cfg.Rollback)
 	case lic.MaxVersion != nil:
 		info.Warning = fmt.Sprintf(
-			expiredVersionTemplate,
+			"license covers versions up to %s, this Core is %s",
 			*lic.MaxVersion,
 			s.cfg.Version,
 		)
@@ -439,16 +439,6 @@ func parseMinor(version string) (major, minor int, ok bool) {
 	return major, minor, true
 }
 
-const (
-	logActive      = "license active"
-	logCapTemplate = "license active, limit is %d channels"
-
-	logClockBehindTemplate = "system clock is more than %s behind the last recorded " +
-		"time, so license terms cannot be checked until it catches up"
-	logClockCaughtUp = "system clock caught up with the last recorded time, " +
-		"reloading the license"
-)
-
 // clockRecheck is how often the service checks a clock that is behind.
 const clockRecheck = time.Minute
 
@@ -457,9 +447,9 @@ func (s *Service) logState() {
 	switch info.State {
 	case StateOk:
 		if info.License.Channels == 0 {
-			s.cfg.L.Info(logActive)
+			s.cfg.L.Info("license active")
 		} else {
-			s.cfg.L.Infof(logCapTemplate, info.License.Channels)
+			s.cfg.L.Infof("license active, limit is %d channels", info.License.Channels)
 		}
 		if info.Warning != "" {
 			s.cfg.L.Warn(info.Warning)
