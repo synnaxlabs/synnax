@@ -30,6 +30,9 @@ const MIN_LEGIBLE_CONTRAST = 1.1;
 // height. The draw and the clamp that keeps the sign in the box must use the same one.
 const SIGN_OFFSET = 0.6;
 
+// Space the text keeps from each edge of the box, as a multiple of the font height.
+const PADDING = 0.3;
+
 // Fills the box in place of a value too wide for it, as spreadsheets do.
 const OVERFLOW = "#";
 
@@ -198,9 +201,12 @@ export class Value
     // The leftmost the text may start: enough room for the sign, and the inset a
     // left-located value already sits at.
     const inset = 6 + fontHeight * 0.75;
+    const padding = fontHeight * PADDING;
     const start =
-      location === "left" ? inset : isNegative ? fontHeight * SIGN_OFFSET : 0;
-    const available = bWidth - start;
+      location === "left"
+        ? inset
+        : padding + (isNegative ? fontHeight * SIGN_OFFSET : 0);
+    const available = bWidth - start - padding;
     const measure = (text: string): number =>
       canvas.textDimensions(text, FILL_TEXT_OPTIONS).width;
     let value = isNaN(raw)

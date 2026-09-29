@@ -83,6 +83,7 @@ const CHAR_WIDTH = 8;
 const TEXT_HEIGHT = 12;
 const BASE = THEME.sizes.base;
 const FONT_HEIGHT = THEME.typography.p.size * BASE;
+const PADDING = FONT_HEIGHT * 0.3;
 
 const fillTextAt = (
   recorder: canvasTest.Recorder,
@@ -221,7 +222,7 @@ describe("value/aether/Value", () => {
 
     it("should keep the negative sign inside the box when the value only just fits", () => {
       const width = 100;
-      const digits = Math.floor((width - FONT_HEIGHT * 0.6) / CHAR_WIDTH);
+      const digits = Math.floor((width - FONT_HEIGHT * 0.6 - 2 * PADDING) / CHAR_WIDTH);
       const { component, recorder } = setup({
         value: -Number("1".repeat(digits)),
         state: {
@@ -236,8 +237,13 @@ describe("value/aether/Value", () => {
   });
 
   describe("overflow", () => {
-    // Five characters fit in a centered positive value.
-    const NARROW = box.construct({ x: 0, y: 0 }, { width: 5 * CHAR_WIDTH, height: 50 });
+    // A centered box that holds exactly this many characters inside its padding.
+    const boxFor = (chars: number): box.Box =>
+      box.construct(
+        { x: 0, y: 0 },
+        { width: chars * CHAR_WIDTH + 2 * PADDING, height: 50 },
+      );
+    const NARROW = boxFor(5);
 
     const draw = (value: number, state: Record<string, unknown> = {}): string[] => {
       const { component, recorder } = setup({
@@ -265,9 +271,16 @@ describe("value/aether/Value", () => {
       expect(draw(3.14159)).toEqual(["3.142"]);
     });
 
+    it("should drop a digit that fits only by touching the box edges", () => {
+      const flush = box.construct(
+        { x: 0, y: 0 },
+        { width: 5 * CHAR_WIDTH, height: 50 },
+      );
+      expect(draw(3.14159, { box: flush })).toEqual(["3.14"]);
+    });
+
     it("should round the decimals it drops", () => {
-      const fourChars = box.construct({ x: 0, y: 0 }, { width: 32, height: 50 });
-      expect(draw(9.996, { box: fourChars })).toEqual(["10.0"]);
+      expect(draw(9.996, { box: boxFor(4) })).toEqual(["10.0"]);
     });
 
     it("should fill the box with hashes when the whole number does not fit", () => {
@@ -281,8 +294,7 @@ describe("value/aether/Value", () => {
     });
 
     it("should fit decimals in the configured notation", () => {
-      const sixChars = box.construct({ x: 0, y: 0 }, { width: 48, height: 50 });
-      expect(draw(1234.5678, { notation: "scientific", box: sixChars })).toEqual([
+      expect(draw(1234.5678, { notation: "scientific", box: boxFor(6) })).toEqual([
         "1.23ᴇ3",
       ]);
     });
