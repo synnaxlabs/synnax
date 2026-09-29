@@ -323,9 +323,6 @@ catalogs:
     '@types/html-escaper':
       specifier: ^3.0.4
       version: 3.0.4
-    '@types/mdast':
-      specifier: ^4.0.4
-      version: 4.0.4
     '@types/node':
       specifier: ^24.19.0
       version: 24.19.0
@@ -1384,9 +1381,6 @@ importers:
       '@types/html-escaper':
         specifier: 'catalog:'
         version: 3.0.4
-      '@types/mdast':
-        specifier: 'catalog:'
-        version: 4.0.4
       '@types/offscreencanvas':
         specifier: 'catalog:'
         version: 2019.7.3
