@@ -511,6 +511,24 @@ describe("connection", () => {
       expect(reasonOf(checked)).toBeUndefined();
     });
 
+    it("should escalate an unlicensed Core that stops answering to unreachable", () => {
+      const config = createConfig({ escalateAfter: 2 });
+      const unlicensed = apply(config, {
+        type: "check.success",
+        info: createInfo({ license: "missing" }),
+      });
+      const error = new Unreachable({ message: "server down" });
+      const once = reduce(
+        unlicensed,
+        { type: "check.failure", error, attempt: 1 },
+        config,
+      );
+      expect(once.variant).toEqual("loading");
+      const twice = reduce(once, { type: "check.failure", error, attempt: 2 }, config);
+      expect(reasonOf(twice)).toEqual("unreachable");
+      expect(twice.details.error).toBe(error);
+    });
+
     it("should clear error(unlicensed) on retry.requested", () => {
       const config = createConfig();
       const unlicensed = apply(config, {
@@ -1057,6 +1075,73 @@ describe("connection", () => {
       await mw(createUnaryContext("/api/v1/connectivity/check"), next);
       await mw(createUnaryContext("/api/v1/auth/login"), next);
       expect(next).toHaveBeenCalledTimes(2);
+      await client.close();
+    });
+
+    it("should not demand the stream from an unlicensed replacement", async () => {
+      const calls: string[] = [];
+      const unary = createScriptedUnary({ clusterKey: "first" });
+      const client = createClient(
+        unary,
+        {
+          stream: {
+            reset: async () => {
+              calls.push("reset");
+            },
+            ensure: async () => {
+              calls.push("ensure");
+            },
+          },
+        },
+        FAST_RETRY,
+        TimeSpan.milliseconds(5),
+      );
+      await waitForStatus(client, (s) => s.details.clusterKey === "first");
+      unary.setLicense("missing");
+      unary.setClusterKey("second");
+      await waitForStatus(client, (s) => s.details.clusterKey === "second");
+      while (calls.length === 0) await sleep(TimeSpan.milliseconds(1));
+      const send = unary.send as ReturnType<typeof vi.fn>;
+      const sent = send.mock.calls.length;
+      while (send.mock.calls.length < sent + 3) await sleep(TimeSpan.milliseconds(1));
+      expect(calls).toEqual(["reset"]);
+      await client.close();
+    });
+
+    it("should short-circuit unary calls with the expired license error", async () => {
+      const client = createClient(createScriptedUnary({ license: "expired" }));
+      await waitForStatus(
+        client,
+        (s) => s.variant === "error" && s.details.reason === "unlicensed",
+      );
+      const next = vi.fn(async (ctx: Context) => ctx);
+      await expect(
+        client.middleware()(createUnaryContext("/channel/retrieve"), next),
+      ).rejects.toThrow(ExpiredLicenseError);
+      expect(next).not.toHaveBeenCalled();
+      await client.close();
+    });
+
+    it("should check again once a license is activated", async () => {
+      const client = createClient(
+        createScriptedUnary({ license: "missing" }),
+        {},
+        FAST_RETRY,
+        TimeSpan.seconds(60),
+      );
+      await waitForStatus(client, (s) => s.variant === "error");
+      const retryNow = vi.spyOn(client, "retryNow");
+      const licenses = new license.Client({
+        unary: {
+          send: vi
+            .fn()
+            .mockResolvedValue({ state: "ok", warning: "", fingerprint: [] }),
+          use: vi.fn(),
+        },
+        connection: client,
+      });
+      await licenses.activate("key");
+      expect(retryNow).toHaveBeenCalledOnce();
       await client.close();
     });
 

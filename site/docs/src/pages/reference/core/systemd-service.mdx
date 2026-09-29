@@ -31,6 +31,6 @@ ExecStart = /home/synnax/synnax start --listen="localhost:9090" --license-file="
 WantedBy = multi-user.target
 ```
 
-The unit passes the license token through `--license-file`, so the token stays out of
-the unit file and the process list. The
+The unit passes the license key through `--license-file`, so the key stays out of the
+unit file and the process list. The
 [production guide](/reference/core/production#licensing) explains how to obtain one.

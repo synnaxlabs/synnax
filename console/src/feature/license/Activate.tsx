@@ -27,11 +27,11 @@ import { License } from "@/platform/license";
 import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
 
-/** The portal page that issues a token for a host fingerprint. */
+/** The portal page that issues a license key for a host fingerprint. */
 const PORTAL_ACTIVATE_URL = "https://docs.synnaxlabs.com/licenses/activate";
 
-/** The extension the portal gives a downloaded token file. */
-const TOKEN_FILE_EXTENSION = "license";
+/** The extension the portal gives a downloaded license key file. */
+const KEY_FILE_EXTENSION = "license";
 
 const decoder = new TextDecoder();
 
@@ -95,7 +95,7 @@ const Fingerprint = ({ info: { info, error } }: FingerprintProps): ReactElement 
         className={CSS.BE("license-activate", "portal")}
       >
         <Icon.OpenExternal />
-        Get a token from the portal
+        Get a license key from the portal
       </Button.Button>
     </Flex.Box>
   );
@@ -112,7 +112,7 @@ export const Activate = (): ReactElement => {
   const logout = Session.useLogout();
   const handleError = Status.useErrorHandler();
   const info = License.useInfo();
-  const [token, setToken] = useState("");
+  const [key, setKey] = useState("");
   const [activating, setActivating] = useState(false);
   const [error, setError] = useState<status.Status | null>(null);
 
@@ -120,11 +120,11 @@ export const Activate = (): ReactElement => {
     handleError(async () => {
       const file = await Runtime.pickFiles({
         title: "Select a license file",
-        extension: TOKEN_FILE_EXTENSION,
+        extension: KEY_FILE_EXTENSION,
       });
       if (file == null) return;
       const bytes = await Runtime.toBytes(await file.read());
-      setToken(decoder.decode(bytes).trim());
+      setKey(decoder.decode(bytes).trim());
     }, "Failed to read the license file");
 
   const activate = async (): Promise<void> => {
@@ -132,7 +132,7 @@ export const Activate = (): ReactElement => {
     setActivating(true);
     setError(null);
     try {
-      await client.license.activate(token.trim());
+      await client.license.activate(key.trim());
     } catch (e) {
       setError(status.fromException(e, "Failed to activate the license"));
     } finally {
@@ -154,13 +154,13 @@ export const Activate = (): ReactElement => {
         />
         <Fingerprint info={info} />
         <Flex.Box y gap="small" full="x">
-          <Input.Item label="License token">
+          <Input.Item label="License key">
             <Input.Text
               area
-              value={token}
-              onChange={setToken}
-              placeholder="Paste the token"
-              className={CSS.BE("license-activate", "token")}
+              value={key}
+              onChange={setKey}
+              placeholder="Paste the license key"
+              className={CSS.BE("license-activate", "key")}
             />
           </Input.Item>
           <Flex.Box x gap="small" className={CSS.BE("license-activate", "actions")}>
@@ -179,7 +179,7 @@ export const Activate = (): ReactElement => {
               grow
               justify="center"
               onClick={() => void activate()}
-              disabled={activating || token.trim() === ""}
+              disabled={activating || key.trim() === ""}
             >
               Activate
             </Button.Button>

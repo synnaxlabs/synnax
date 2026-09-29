@@ -30,7 +30,7 @@
     align-self: flex-start;
 }
 
-.console-license-activate__token {
+.console-license-activate__key {
     width: 100%;
 
     textarea {

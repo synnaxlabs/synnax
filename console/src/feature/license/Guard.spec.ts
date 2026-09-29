@@ -34,8 +34,8 @@ const AUTH_FAILED_STATUS: connection.Status = {
   },
 };
 
-const getTokenField = (): HTMLElement =>
-  screen.getByRole("textbox", { name: "License token" });
+const getKeyField = (): HTMLElement =>
+  screen.getByRole("textbox", { name: "License key" });
 
 describe("License.Guard", () => {
   afterEach(() => vi.restoreAllMocks());
@@ -68,23 +68,23 @@ describe("License.Guard", () => {
     expect(Session.Core.selectSelectedKey(store.getState())).toBeUndefined();
   });
 
-  it("should enable activation only once a token is entered", async () => {
+  it("should enable activation only once a license key is entered", async () => {
     await renderGuard(null, UNLICENSED_STATUS);
     const activate = findButton("Activate");
     expect(activate.getAttribute("aria-disabled")).toBe("true");
-    fireEvent.change(getTokenField(), { target: { value: "   " } });
+    fireEvent.change(getKeyField(), { target: { value: "   " } });
     expect(activate.getAttribute("aria-disabled")).toBe("true");
-    fireEvent.change(getTokenField(), { target: { value: "  token  " } });
+    fireEvent.change(getKeyField(), { target: { value: "  key  " } });
     expect(activate.getAttribute("aria-disabled")).toBeNull();
   });
 
-  it("should read the token from a picked file", async () => {
+  it("should read the license key from a picked file", async () => {
     const picker = interceptFilePicker();
     await renderGuard(null, UNLICENSED_STATUS);
     fireEvent.click(findButton("Select file"));
     picker.selectFiles([fakePickedFile("synnax.license", "abc.def.ghi\n")]);
     await waitFor(() => {
-      const input = getTokenField();
+      const input = getKeyField();
       if (!(input instanceof HTMLTextAreaElement)) throw new Error("not a textarea");
       expect(input.value).toBe("abc.def.ghi");
     });
@@ -110,18 +110,15 @@ describe("License.Guard", () => {
     expect(writeText).toHaveBeenCalledWith(fingerprint.join(", "));
   });
 
-  it("should report a token the Core rejects", async () => {
+  it("should report a license key the Core rejects", async () => {
     await renderGuard(createTestClient(), UNLICENSED_STATUS);
-    fireEvent.change(getTokenField(), {
-      target: { value: uniqueName("not-a-token") },
+    fireEvent.change(getKeyField(), {
+      target: { value: uniqueName("not-a-license-key") },
     });
     fireEvent.click(findButton("Activate"));
     expect(await screen.findByText("Failed to activate the license")).toBeTruthy();
     expect(
-      screen.getByText(
-        "token is malformed: token contains an invalid number of segments: " +
-          "invalid license: license error",
-      ),
+      screen.getByText("a license key has three parts: invalid license: license error"),
     ).toBeTruthy();
     expect(screen.getByText(UNLICENSED_STATUS.message)).toBeTruthy();
   });

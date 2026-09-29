@@ -23,7 +23,7 @@ var (
 	ErrMissing = errors.Wrap(ErrLicense, "no license is activated on this Core")
 	// ErrExpired is returned while the license on this Core no longer covers it.
 	ErrExpired = errors.Wrap(ErrLicense, "the license on this Core has expired")
-	// ErrInvalid is returned when a token fails to verify.
+	// ErrInvalid is returned when a license key fails to verify.
 	ErrInvalid = errors.Wrap(ErrLicense, "invalid license")
 	// ErrFingerprint is returned when the license is bound to other machines.
 	ErrFingerprint = errors.Wrap(
@@ -46,10 +46,8 @@ const (
 	tooManyType     = errorType + ".too_many"
 )
 
-const errTooManyWrapString = "limit is %d channels"
-
 func newTooManyError(count uint32) error {
-	return errors.Wrapf(ErrTooMany, errTooManyWrapString, count)
+	return errors.Wrapf(ErrTooMany, "limit is %d channels", count)
 }
 
 func encode(_ context.Context, err error) (errors.Payload, bool) {

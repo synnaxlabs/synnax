@@ -14,8 +14,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/license"
 )
 
-// Middleware rejects every request while no license covers the Core, with the error
-// the service reports. It gates only the endpoints it is attached to.
+// Middleware rejects every request while no license covers the Core, with the error the
+// service reports. It gates only the endpoints it is attached to.
 func Middleware(svc *license.Service) freighter.Middleware {
 	return freighter.MiddlewareFunc(func(
 		ctx freighter.Context,

@@ -19,7 +19,7 @@ from pydantic import BaseModel
 
 from freighter import UnaryClient
 from freighter.transport import Empty
-from synnax.license.types_gen import State as LicenseState
+from synnax.license import State as LicenseState
 from synnax.util.send_required import send_required
 from x.telem import CrudeTimeSpan, TimeSpan, TimeStamp
 from x.telem.clock_skew import ClockSkewCalculator

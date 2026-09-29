@@ -20,7 +20,7 @@ export const STATE_MESSAGES: Record<State, string> = {
   expired: "The license on this Core has expired",
 };
 
-const activateReqZ = z.object({ token: z.string() });
+const activateReqZ = z.object({ key: z.string() });
 
 export const RETRIEVE_ENDPOINT = "/license/retrieve";
 export const ACTIVATE_ENDPOINT = "/license/activate";
@@ -40,24 +40,23 @@ export class Client {
     this.connection = connection;
   }
 
-  /** Retrieves the Core's license state. */
+  /**
+   * Retrieves the Core's license state.
+   * @throws {AccessDeniedError} if the caller lacks permission to read the license.
+   */
   async retrieve(): Promise<Info> {
     return await this.unary.send(RETRIEVE_ENDPOINT, undefined, z.void(), infoZ);
   }
 
   /**
-   * Activates a license token on the Core and returns the resulting state.
-   * @throws {InvalidLicenseError} if the token cannot be verified or is malformed.
-   * @throws {LicenseFingerprintError} if the token is bound to another machine.
-   * @throws {ExpiredLicenseError} if the token no longer applies.
+   * Activates a license key on the Core and returns the resulting state.
+   * @throws {InvalidLicenseError} if the key cannot be verified or is malformed.
+   * @throws {LicenseFingerprintError} if the key is bound to another machine.
+   * @throws {ExpiredLicenseError} if the key no longer applies.
+   * @throws {AccessDeniedError} if the caller lacks permission to activate a license.
    */
-  async activate(token: string): Promise<Info> {
-    const info = await this.unary.send(
-      ACTIVATE_ENDPOINT,
-      { token },
-      activateReqZ,
-      infoZ,
-    );
+  async activate(key: string): Promise<Info> {
+    const info = await this.unary.send(ACTIVATE_ENDPOINT, { key }, activateReqZ, infoZ);
     this.connection.retryNow();
     return info;
   }
