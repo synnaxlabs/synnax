@@ -14,6 +14,15 @@ import pytest
 import synnax as sy
 from x.testutil import assert_eventually
 
+DBC = b"""VERSION ""
+
+BU_: ECU
+
+BO_ 256 EngineStatus: 8 ECU
+ SG_ rpm : 0|16@1+ (0.25,0) [0|16383.75] "rpm" Vector__XXX
+ SG_ temp : 16|8@1- (1,-40) [-168|87] "degC" Vector__XXX
+"""
+
 
 def create_library(name: str = "Library") -> sy.Library:
     return sy.Library(
@@ -160,3 +169,33 @@ class TestLibrary:
         client.libraries.delete(keys)
         with pytest.raises(sy.NotFoundError):
             client.libraries.retrieve(keys=keys)
+
+    def test_import_dbc(self, client: sy.Synnax) -> None:
+        """Should import the messages and value tables of a DBC file."""
+        lib = client.libraries.create(name="Vehicle")
+        imported = client.libraries.import_icd(lib.key, DBC, "dbc")
+        assert imported.key == lib.key
+        msg = next(e for e in imported.entries if e.name == "EngineStatus")
+        assert isinstance(msg, sy.library.MessageEntry)
+        assert msg.identifier == sy.library.CanIdentifier(id=0x100)
+        rpm = msg.fields[0]
+        assert isinstance(rpm, sy.library.BinaryField)
+        assert (rpm.name, rpm.bit_length, rpm.scale, rpm.units) == (
+            "rpm",
+            16,
+            0.25,
+            "rpm",
+        )
+
+    def test_import_keeps_keys(self, client: sy.Synnax) -> None:
+        """Should keep entry keys when the same file is imported again."""
+        lib = client.libraries.create(name="Vehicle")
+        first = client.libraries.import_icd(lib.key, DBC, "dbc")
+        second = client.libraries.import_icd(lib.key, DBC, "dbc")
+        assert [e.key for e in first.entries] == [e.key for e in second.entries]
+
+    def test_import_invalid(self, client: sy.Synnax) -> None:
+        """Should reject a file that does not parse."""
+        lib = client.libraries.create(name="Broken")
+        with pytest.raises(sy.ValidationError):
+            client.libraries.import_icd(lib.key, b"BO_ not a message", "dbc")
