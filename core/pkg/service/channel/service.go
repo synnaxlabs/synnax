@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/verification"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -36,8 +35,8 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// IntOverflowChecker reports whether a channel causes an integer overflow.
-type IntOverflowChecker = func(types.Uint20) error
+// LimitChecker returns an error when a count of external channels exceeds the limit.
+type LimitChecker = func(types.Uint20) error
 
 // ServiceConfig configures the service-layer channel service.
 type ServiceConfig struct {
@@ -70,11 +69,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Search *search.Index
-	// IntOverflowCheck enforces the cap on external (non-internal, non-virtual)
-	// channels.
+	// Limit enforces the cap on external (non-internal, non-virtual) channels.
 	//
-	// [OPTIONAL] - Defaults to system integer overflow check.
-	IntOverflowCheck IntOverflowChecker
+	// [OPTIONAL] - Defaults to no cap.
+	Limit LimitChecker
 	// Status publishes error/clear statuses for calculated channels.
 	//
 	// [REQUIRED]
@@ -97,7 +95,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("ontology", c.Ontology)
 	v.NotNil("group", c.Group)
 	v.NotNil("search", c.Search)
-	v.NotNil("int_overflow_check", c.IntOverflowCheck)
+	v.NotNil("limit", c.Limit)
 	v.NotNil("status", c.Status)
 	v.NotNil("validate_names", c.ValidateNames)
 	return v.Error()
@@ -112,7 +110,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Search = override.Nil(c.Search, other.Search)
-	c.IntOverflowCheck = override.Nil(c.IntOverflowCheck, other.IntOverflowCheck)
+	c.Limit = override.Nil(c.Limit, other.Limit)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.ValidateNames = override.Nil(c.ValidateNames, other.ValidateNames)
 	return c
@@ -131,9 +129,8 @@ type Service struct {
 	indexes indexes
 	mu      struct {
 		sync.RWMutex
-		// externalNonVirtualSet tracks the keys of external (non-internal, non-virtual)
-		// channels. The create path and the retrieve-time overflow validator consult it
-		// to enforce the uint20 channel-index overflow limit.
+		// externalNonVirtualSet holds the keys of external (non-internal, non-virtual)
+		// channels, which count toward the channel limit.
 		externalNonVirtualSet set.Integer[Key]
 	}
 }
@@ -141,8 +138,8 @@ type Service struct {
 // OpenService opens a channel service using the provided configuration(s).
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
 	cfg, err := config.New(ServiceConfig{
-		ValidateNames:    new(true),
-		IntOverflowCheck: verification.DefaultOverflowCheck,
+		ValidateNames: new(true),
+		Limit:         func(types.Uint20) error { return nil },
 	}, cfgs...)
 	if err != nil {
 		return nil, err
@@ -185,10 +182,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 // Group returns the group under which the service's channels are created.
 func (s *Service) Group() group.Group { return s.group }
 
-// newRetrieve returns a Retrieve without the channel-index overflow validator attached.
-// Internal callers (the create / delete / rename paths) use this instead of NewRetrieve
-// because they run inside the write window that validateChannels' RLock would block on,
-// and because they enforce the overflow check inline at commit time.
+// newRetrieve returns a Retrieve without the channel limit validator. The create,
+// delete, and rename paths use it because they hold the lock validateChannels blocks
+// on, and they check the limit at commit time.
 func (s *Service) newRetrieve() Retrieve {
 	return Retrieve{
 		baseTX:  s.db,
@@ -203,9 +199,8 @@ func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Channel]] {
 	return s.table.Observe()
 }
 
-// NewRetrieve opens a retrieve query for external callers, with the channel index
-// overflow validator attached to enforce the uint20 cap on retrieved external
-// non-virtual channels.
+// NewRetrieve opens a retrieve query that fails when a retrieved external channel is
+// past the channel limit.
 func (s *Service) NewRetrieve() Retrieve {
 	r := s.newRetrieve()
 	r.gorp = r.gorp.Validate(s.validateChannels)
@@ -215,9 +210,8 @@ func (s *Service) NewRetrieve() Retrieve {
 // Close releases the resources held by the Service.
 func (s *Service) Close() error { return s.closer.Close() }
 
-// validateChannels runs after every Retrieve.Exec (when called via NewRetrieve) and
-// fails the query if any retrieved external non-virtual channel would push the uint20
-// channel index past the configured overflow limit.
+// validateChannels fails a NewRetrieve query when a retrieved external non-virtual
+// channel is past the channel limit.
 func (s *Service) validateChannels(_ gorp.Context, channels []Channel) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -227,7 +221,7 @@ func (s *Service) validateChannels(_ gorp.Context, channels []Channel) error {
 			continue
 		}
 		channelNumber := s.mu.externalNonVirtualSet.NumLessThan(key) + 1
-		if err := s.cfg.IntOverflowCheck(types.Uint20(channelNumber)); err != nil {
+		if err := s.cfg.Limit(types.Uint20(channelNumber)); err != nil {
 			return err
 		}
 	}

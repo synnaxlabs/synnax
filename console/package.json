@@ -48,6 +48,7 @@
     "@synnaxlabs/eslint-config": "catalog:",
     "@synnaxlabs/stylelint-config": "catalog:",
     "@synnaxlabs/tsconfig": "catalog:",
+    "@synnaxlabs/vite-plugin": "catalog:",
     "@tauri-apps/cli": "catalog:",
     "@testing-library/react": "catalog:",
     "@types/node": "catalog:",
