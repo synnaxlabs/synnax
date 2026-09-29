@@ -152,6 +152,15 @@ public:
     x::errors::Error
     encode(const Values &values, std::vector<std::uint8_t> &payload) const;
 
+    /// @brief encodes values into a binary payload in place, writing each present
+    /// field that its multiplexor selects and leaving every other bit as it was.
+    /// @param payload holds at least length() bytes, such as a window into a larger
+    /// buffer.
+    /// @returns ENCODE_ERROR when the plan is text, when the payload is shorter than
+    /// length(), or when a binary integer field receives NaN.
+    x::errors::Error
+    encode(const Values &values, std::span<std::uint8_t> payload) const;
+
 private:
     /// @brief Type is how a binary field interprets its raw bits.
     enum class Type : std::uint8_t { UNSIGNED, SIGNED, FLOAT32, FLOAT64 };
@@ -214,8 +223,7 @@ private:
     x::errors::Error
     decode_binary(std::span<const std::uint8_t> payload, Values &values) const;
     void decode_text(std::span<const std::uint8_t> payload, Values &values) const;
-    x::errors::Error
-    encode_binary(const Values &values, std::vector<std::uint8_t> &payload) const;
+    x::errors::Error encode_binary(const Values &values, std::uint8_t *payload) const;
     void encode_text(const Values &values, std::vector<std::uint8_t> &payload) const;
 
     /// @brief keys is the field key of each slot.

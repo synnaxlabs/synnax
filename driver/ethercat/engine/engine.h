@@ -22,6 +22,7 @@
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/thread/rt/rt.h"
 
+#include "driver/codec/plan.h"
 #include "driver/ethercat/master/master.h"
 
 namespace driver::ethercat::engine {
@@ -109,9 +110,12 @@ class Engine {
 public:
     /// @brief resolved PDO entry with offset and type information.
     struct ResolvedPDO {
-        pdo::Offset offset;
+        /// @brief byte is the offset of the entry's first byte in the process image.
+        size_t byte;
+        /// @brief data_type is the type a written value converts to before encoding.
         x::telem::DataType data_type;
-        uint8_t bit_length;
+        /// @brief plan decodes and encodes the entry from its first byte.
+        codec::Plan plan;
     };
 
     /// @brief proxy for reading input data from the EtherCAT cycle engine.
@@ -121,6 +125,8 @@ public:
         size_t total_size;
         std::shared_ptr<Registration> registration;
         mutable std::vector<ResolvedPDO> pdos;
+        /// @brief value holds one decoded PDO. Every PDO plan has one slot.
+        mutable codec::Values value;
         mutable std::vector<uint8_t> private_buffer;
         mutable uint64_t last_seen_epoch = 0;
         mutable uint64_t my_config_gen = 0;
@@ -157,6 +163,8 @@ public:
         size_t id;
         std::shared_ptr<Registration> registration;
         mutable std::vector<ResolvedPDO> pdos;
+        /// @brief value holds one PDO to encode. Every PDO plan has one slot.
+        mutable codec::Values value;
         mutable uint64_t my_config_gen = 0;
 
         void refresh_pdos_locked() const;
@@ -167,6 +175,7 @@ public:
             Engine &engine;
             std::unique_lock<std::mutex> lock;
             const std::vector<ResolvedPDO> &pdos;
+            codec::Values &value;
 
         public:
             explicit Transaction(const Writer &writer);
@@ -176,7 +185,9 @@ public:
             Transaction &operator=(Transaction &&) = delete;
 
             /// @brief writes a value to a specific PDO entry by index.
-            void write(size_t pdo_index, const x::telem::SampleValue &value) const;
+            /// @returns ENCODE_ERROR when the value cannot be encoded.
+            x::errors::Error
+            write(size_t pdo_index, const x::telem::SampleValue &value) const;
         };
 
         Writer(Engine &eng, size_t id, std::shared_ptr<Registration> registration);
@@ -189,7 +200,9 @@ public:
         [[nodiscard]] Transaction open_tx() const;
 
         /// @brief writes a value to a specific PDO entry by index.
-        void write(size_t pdo_index, const x::telem::SampleValue &value) const;
+        /// @returns ENCODE_ERROR when the value cannot be encoded.
+        x::errors::Error
+        write(size_t pdo_index, const x::telem::SampleValue &value) const;
     };
 
     /// @brief constructs an Engine with the given master and configuration.
@@ -204,10 +217,12 @@ public:
     Engine &operator=(const Engine &) = delete;
 
     /// @brief opens a new Reader for the specified PDO entries.
+    /// @returns LAYOUT_ERROR when the codec cannot lay out an entry.
     [[nodiscard]] std::pair<std::unique_ptr<Reader>, x::errors::Error>
     open_reader(const std::vector<pdo::Entry> &entries, x::telem::Rate sample_rate);
 
     /// @brief opens a new Writer for the specified PDO entries.
+    /// @returns LAYOUT_ERROR when the codec cannot lay out an entry.
     [[nodiscard]] std::pair<std::unique_ptr<Writer>, x::errors::Error>
     open_writer(const std::vector<pdo::Entry> &entries, x::telem::Rate execution_rate);
 

@@ -14,11 +14,12 @@
 
 #include "client/cpp/modbus/json.gen.h"
 
+#include "driver/codec/plan.h"
 #include "driver/common/read_task.h"
 #include "driver/common/sample_clock.h"
 #include "driver/modbus/channels.h"
 #include "driver/modbus/device/device.h"
-#include "driver/modbus/util/util.h"
+#include "driver/modbus/registers/registers.h"
 
 namespace driver::modbus {
 /// @brief interface for reading from different types of Modbus registers/bits.
@@ -46,8 +47,18 @@ struct Reader {
 template<typename Channel>
 struct BaseReader : Reader {
     std::vector<Channel> channels;
+    /// @brief decodes each channel's value from the payload.
+    codec::Plan plan;
+    /// @brief holds the decoded values, reused across reads.
+    codec::Values values;
+    /// @brief the bytes read from the device.
+    std::vector<uint8_t> payload;
 
-    explicit BaseReader(const std::vector<Channel> &channels): channels(channels) {}
+    BaseReader(const std::vector<Channel> &channels, codec::Plan plan):
+        channels(channels),
+        plan(std::move(plan)),
+        values(this->plan.values()),
+        payload(this->plan.length()) {}
 
     [[nodiscard]] std::vector<synnax::channel::Channel> sy_channels() const override {
         std::vector<synnax::channel::Channel> result;
@@ -55,6 +66,15 @@ struct BaseReader : Reader {
         for (const auto &channel: channels)
             result.push_back(channel.ch);
         return result;
+    }
+
+protected:
+    /// @brief decodes the payload and appends each channel's value to its series.
+    x::errors::Error decode(x::telem::Frame &fr, size_t &frame_offset) {
+        if (const auto err = this->plan.decode(this->payload, this->values)) return err;
+        for (size_t i = 0; i < this->channels.size(); i++)
+            this->values.write(i, fr.series->at(frame_offset++));
+        return x::errors::NIL;
     }
 };
 
@@ -66,16 +86,16 @@ class RegisterReader final : public BaseReader<channel::InputRegister> {
     std::vector<uint16_t> buffer;
 
 public:
-    explicit RegisterReader(
+    /// @param plan from channel::compile(chs).
+    RegisterReader(
         const device::RegisterType register_type,
-        const std::vector<channel::InputRegister> &chs
+        const std::vector<channel::InputRegister> &chs,
+        codec::Plan plan
     ):
-        BaseReader(chs), register_type(register_type) {
-        auto first_addr = this->channels.front().address;
-        auto last_addr = this->channels.back().address;
-        // Use ceiling division to convert bytes to 16-bit registers
-        last_addr += (this->channels.back().value_type.density() + 1) / 2;
-        this->buffer.resize(last_addr - first_addr);
+        BaseReader(chs, std::move(plan)),
+        register_type(register_type),
+        buffer((this->payload.size() + 1) / 2) {
+        this->payload.resize(this->buffer.size() * 2);
     }
 
     x::errors::Error read(
@@ -84,29 +104,15 @@ public:
         size_t &frame_offset
     ) override {
         if (channels.empty()) return x::errors::NIL;
-
-        const int start_addr = this->channels[0].address;
-
         if (const auto err = dev->read_registers(
                 this->register_type,
-                start_addr,
+                this->channels.front().address,
                 this->buffer.size(),
                 this->buffer.data()
             ))
             return err;
-
-        for (const auto &ch: channels) {
-            int offset = ch.address - start_addr;
-            auto [value, err] = util::parse_register_value(
-                this->buffer.data() + offset,
-                ch.value_type,
-                ch.bytes_swapped,
-                ch.words_swapped
-            );
-            if (err) return err;
-            fr.series->at(frame_offset++).write(value);
-        }
-        return x::errors::NIL;
+        registers::to_bytes(this->buffer, this->payload);
+        return this->decode(fr, frame_offset);
     }
 };
 
@@ -114,17 +120,15 @@ public:
 class BitReader final : public BaseReader<channel::InputDiscrete> {
     /// @brief the bit type to read from. either Coil or DiscreteInput.
     device::BitType bit_type;
-    /// @brief the buffer to read into.
-    std::vector<uint8_t> buffer;
 
 public:
-    explicit BitReader(
+    /// @param plan from channel::compile(channels).
+    BitReader(
         const device::BitType bit_type,
-        const std::vector<channel::InputDiscrete> &channels
+        const std::vector<channel::InputDiscrete> &channels,
+        codec::Plan plan
     ):
-        BaseReader(channels),
-        bit_type(bit_type),
-        buffer(this->channels.back().address - this->channels.front().address + 1) {}
+        BaseReader(channels, std::move(plan)), bit_type(bit_type) {}
 
     x::errors::Error read(
         const std::shared_ptr<device::Device> &dev,
@@ -132,21 +136,14 @@ public:
         size_t &frame_offset
     ) override {
         if (channels.empty()) return x::errors::NIL;
-
-        const int start_addr = channels.front().address;
-
         if (const auto err = dev->read_bits(
                 this->bit_type,
-                start_addr,
-                this->buffer.size(),
-                this->buffer.data()
+                this->channels.front().address,
+                this->payload.size(),
+                this->payload.data()
             ))
             return err;
-
-        for (const auto &channel: channels)
-            fr.series->at(frame_offset++)
-                .write(this->buffer[channel.address - start_addr]);
-        return x::errors::NIL;
+        return this->decode(fr, frame_offset);
     }
 };
 
@@ -269,31 +266,62 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             discrete_inputs[i].ch = synnax_channels
                 [i + holding_registers.size() + input_registers.size() + coils.size()];
 
-        if (!holding_registers.empty())
+        if (!holding_registers.empty()) {
+            auto [plan, err] = channel::compile(holding_registers);
+            if (err) {
+                cfg.field_err("channels", err);
+                return;
+            }
             readers.push_back(
                 std::make_unique<RegisterReader>(
                     device::HoldingRegister,
-                    std::move(holding_registers)
+                    std::move(holding_registers),
+                    std::move(plan)
                 )
             );
-        if (!input_registers.empty())
+        }
+        if (!input_registers.empty()) {
+            auto [plan, err] = channel::compile(input_registers);
+            if (err) {
+                cfg.field_err("channels", err);
+                return;
+            }
             readers.push_back(
                 std::make_unique<RegisterReader>(
                     device::InputRegister,
-                    std::move(input_registers)
+                    std::move(input_registers),
+                    std::move(plan)
                 )
             );
-        if (!coils.empty())
+        }
+        if (!coils.empty()) {
+            auto [plan, err] = channel::compile(coils);
+            if (err) {
+                cfg.field_err("channels", err);
+                return;
+            }
             readers.push_back(
-                std::make_unique<BitReader>(device::Coil, std::move(coils))
+                std::make_unique<BitReader>(
+                    device::Coil,
+                    std::move(coils),
+                    std::move(plan)
+                )
             );
-        if (!discrete_inputs.empty())
+        }
+        if (!discrete_inputs.empty()) {
+            auto [plan, err] = channel::compile(discrete_inputs);
+            if (err) {
+                cfg.field_err("channels", err);
+                return;
+            }
             readers.push_back(
                 std::make_unique<BitReader>(
                     device::DiscreteInput,
-                    std::move(discrete_inputs)
+                    std::move(discrete_inputs),
+                    std::move(plan)
                 )
             );
+        }
         for (const auto &ch: synnax_channels)
             if (ch.index != 0) this->indexes.insert(ch.index);
     }

@@ -18,6 +18,15 @@
 #include "x/cpp/errors/errors.h"
 
 namespace driver::codec {
+/// @brief BYTE_ORDER_BIG_ENDIAN_WORD_SWAPPED is big-endian with the field's 16-bit
+/// words in reverse order (CDAB), a layout common in Modbus devices. The library schema
+/// does not store it.
+constexpr const char *BYTE_ORDER_BIG_ENDIAN_WORD_SWAPPED = "big_endian_word_swapped";
+/// @brief BYTE_ORDER_LITTLE_ENDIAN_WORD_SWAPPED is little-endian with the field's
+/// 16-bit words in reverse order (BADC). The library schema does not store it.
+constexpr const char
+    *BYTE_ORDER_LITTLE_ENDIAN_WORD_SWAPPED = "little_endian_word_swapped";
+
 /// @brief BitRange is the bit positions of a field in a payload, resolved once so that
 /// reads and writes are shifts and masks with no branching on byte order.
 class BitRange {
@@ -28,7 +37,9 @@ public:
     /// @param start_bit the start bit numbered as in a DBC file: the least significant
     /// bit for little-endian fields and the most significant bit for big-endian ones.
     /// @param bit_length the number of bits, from 1 to 64.
-    /// @param byte_order BYTE_ORDER_LITTLE_ENDIAN or BYTE_ORDER_BIG_ENDIAN.
+    /// @param byte_order BYTE_ORDER_LITTLE_ENDIAN, BYTE_ORDER_BIG_ENDIAN, or one of
+    /// their word-swapped forms, which need a byte-aligned field whose length is a
+    /// multiple of 16.
     /// @returns the range, or LAYOUT_ERROR when an argument is out of bounds.
     static std::pair<BitRange, x::errors::Error> compile(
         std::uint16_t start_bit,

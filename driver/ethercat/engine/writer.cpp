@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include "absl/log/check.h"
+
 #include "driver/ethercat/engine/engine.h"
 #include "driver/ethercat/telem/telem.h"
 
@@ -16,20 +18,19 @@ Engine::Writer::Writer(
     const size_t id,
     std::shared_ptr<Registration> registration
 ):
-    engine(eng), id(id), registration(std::move(registration)) {
-    std::lock_guard lock(this->engine.write_mu);
-    this->refresh_pdos_locked();
-}
+    engine(eng), id(id), registration(std::move(registration)) {}
 
 void Engine::Writer::refresh_pdos_locked() const {
     this->pdos.clear();
     this->pdos.reserve(this->registration->entries.size());
-    for (size_t i = 0; i < this->registration->entries.size(); ++i)
-        this->pdos.push_back(
-            {this->registration->offsets[i],
-             this->registration->entries[i].data_type,
-             this->registration->entries[i].bit_length}
-        );
+    for (size_t i = 0; i < this->registration->entries.size(); ++i) {
+        const auto &entry = this->registration->entries[i];
+        const auto &offset = this->registration->offsets[i];
+        auto [plan, err] = telem::plan(entry, offset.bit);
+        CHECK(!err) << "open_writer validates every entry: " << err;
+        this->pdos.push_back({offset.byte, entry.data_type, std::move(plan)});
+    }
+    if (!this->pdos.empty()) this->value = this->pdos.front().plan.values();
     this->my_config_gen = this->engine.config_gen.load(std::memory_order_acquire);
 }
 
@@ -38,38 +39,38 @@ Engine::Writer::~Writer() {
 }
 
 Engine::Writer::Transaction::Transaction(const Writer &writer):
-    engine(writer.engine), lock(writer.engine.write_mu), pdos(writer.pdos) {
+    engine(writer.engine),
+    lock(writer.engine.write_mu),
+    pdos(writer.pdos),
+    value(writer.value) {
     if (writer.engine.config_gen.load(std::memory_order_acquire) !=
         writer.my_config_gen)
         writer.refresh_pdos_locked();
 }
 
-void Engine::Writer::Transaction::write(
+x::errors::Error Engine::Writer::Transaction::write(
     const size_t pdo_index,
     const x::telem::SampleValue &value
 ) const {
-    if (pdo_index >= this->pdos.size()) return;
+    if (pdo_index >= this->pdos.size()) return x::errors::NIL;
     const auto &pdo = this->pdos[pdo_index];
-    const size_t required = telem::pdo_required_bytes(pdo.offset.bit, pdo.bit_length);
-    if (pdo.offset.byte + required > this->engine.write_staging.size()) return;
-    uint8_t *dest = this->engine.write_staging.data() + pdo.offset.byte;
-    telem::write_pdo_from_value(
-        dest,
-        pdo.offset.bit,
-        pdo.bit_length,
-        pdo.data_type,
-        value
-    );
+    auto &staging = this->engine.write_staging;
+    if (pdo.byte + pdo.plan.length() > staging.size()) return x::errors::NIL;
+    const auto casted = pdo.data_type == x::telem::UNKNOWN_T
+                          ? value
+                          : pdo.data_type.cast(value);
+    if (const auto err = this->value.set(0, casted)) return err;
+    return pdo.plan.encode(this->value, std::span(staging).subspan(pdo.byte));
 }
 
 Engine::Writer::Transaction Engine::Writer::open_tx() const {
     return Transaction(*this);
 }
 
-void Engine::Writer::write(
+x::errors::Error Engine::Writer::write(
     const size_t pdo_index,
     const x::telem::SampleValue &value
 ) const {
-    this->open_tx().write(pdo_index, value);
+    return this->open_tx().write(pdo_index, value);
 }
 }

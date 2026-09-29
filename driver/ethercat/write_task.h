@@ -180,7 +180,7 @@ public:
         for (size_t i = 0; i < this->cfg.outputs.size(); ++i) {
             const auto &ch = this->cfg.outputs[i];
             if (!frame.contains(ch->command_key)) continue;
-            tx.write(i, frame.at(ch->command_key, -1));
+            if (const auto err = tx.write(i, frame.at(ch->command_key, -1))) return err;
         }
         this->set_state(frame);
         return x::errors::NIL;

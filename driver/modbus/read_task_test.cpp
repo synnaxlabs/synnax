@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <bit>
 #include <iomanip>
 #include <iostream>
 #include <thread>
@@ -986,5 +987,119 @@ TEST_F(ModbusReadTest, testHoldsSampleRate) {
             rate_hz
         );
     }
+}
+
+/// @brief it should decode byte- and word-swapped multi-register values.
+TEST_F(ModbusReadTest, testSwappedMultiRegisterValues) {
+    mock::SlaveConfig slave_cfg;
+    const auto raw = std::bit_cast<uint32_t>(3.14159f);
+    slave_cfg.holding_registers[0] = static_cast<uint16_t>(raw >> 16);
+    slave_cfg.holding_registers[1] = static_cast<uint16_t>(raw);
+    slave_cfg.holding_registers[2] = static_cast<uint16_t>(0x3412);
+    slave_cfg.holding_registers[3] = static_cast<uint16_t>(0x7856);
+    auto slave = mock::Slave(slave_cfg);
+    ASSERT_NIL(slave.start());
+    x::defer::defer stop_slave([&slave] { slave.stop(); });
+
+    auto float_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("float"),
+        x::telem::FLOAT32_T,
+        index_channel.key
+    ));
+    auto uint_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("uint"),
+        x::telem::UINT32_T,
+        index_channel.key
+    ));
+    auto cfg = create_base_config();
+    auto float_cfg = create_channel_config("holding_register", float_ch, 0);
+    float_cfg["words_swapped"] = true;
+    cfg["channels"].push_back(float_cfg);
+    auto uint_cfg = create_channel_config("holding_register", uint_ch, 2);
+    uint_cfg["bytes_swapped"] = true;
+    uint_cfg["words_swapped"] = true;
+    cfg["channels"].push_back(uint_cfg);
+
+    auto p = x::json::Parser(cfg);
+    auto task_cfg = std::make_unique<ReadTaskConfig>(client, p);
+    ASSERT_NIL(p.error());
+    auto task = common::ReadTask(
+        synnax::task::Task{.rack = rack.key, .name = "swap", .type = "modbus_read"},
+        ctx,
+        x::breaker::default_config("swap"),
+        std::make_unique<ReadTaskSource>(
+            std::make_shared<device::Manager>(),
+            std::move(*task_cfg)
+        ),
+        mock_factory
+    );
+    task.start("start_cmd");
+    ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
+    task.stop("stop_cmd", true);
+
+    auto &fr = mock_factory->writes->at(0);
+    ASSERT_EQ(fr.at<float>(float_ch.key, 0), 3.14159f);
+    ASSERT_EQ(fr.at<uint32_t>(uint_ch.key, 0), 0x12345678);
+}
+
+/// @brief it should read every register of a channel that ends past the last channel.
+TEST_F(ModbusReadTest, testWideChannelEndingPastTheLastChannel) {
+    mock::SlaveConfig slave_cfg;
+    slave_cfg.holding_registers[0] = static_cast<uint16_t>(0x0708);
+    slave_cfg.holding_registers[1] = static_cast<uint16_t>(0x0506);
+    slave_cfg.holding_registers[2] = static_cast<uint16_t>(0x0304);
+    slave_cfg.holding_registers[3] = static_cast<uint16_t>(0x0102);
+    auto slave = mock::Slave(slave_cfg);
+    ASSERT_NIL(slave.start());
+    x::defer::defer stop_slave([&slave] { slave.stop(); });
+
+    auto wide_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("wide"),
+        x::telem::UINT64_T,
+        index_channel.key
+    ));
+    auto narrow_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("narrow"),
+        x::telem::UINT16_T,
+        index_channel.key
+    ));
+    auto cfg = create_base_config();
+    cfg["channels"].push_back(create_channel_config("holding_register", wide_ch, 0));
+    cfg["channels"].push_back(create_channel_config("holding_register", narrow_ch, 1));
+
+    auto p = x::json::Parser(cfg);
+    auto task_cfg = std::make_unique<ReadTaskConfig>(client, p);
+    ASSERT_NIL(p.error());
+    auto task = common::ReadTask(
+        synnax::task::Task{.rack = rack.key, .name = "wide", .type = "modbus_read"},
+        ctx,
+        x::breaker::default_config("wide"),
+        std::make_unique<ReadTaskSource>(
+            std::make_shared<device::Manager>(),
+            std::move(*task_cfg)
+        ),
+        mock_factory
+    );
+    task.start("start_cmd");
+    ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
+    task.stop("stop_cmd", true);
+
+    auto &fr = mock_factory->writes->at(0);
+    ASSERT_EQ(fr.at<uint64_t>(wide_ch.key, 0), 0x0102030405060708);
+    ASSERT_EQ(fr.at<uint16_t>(narrow_ch.key, 0), 0x0506);
+}
+
+/// @brief it should reject a register channel with a non-numeric data type.
+TEST_F(ModbusReadTest, testRejectsANonNumericRegisterType) {
+    auto ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("string"),
+        x::telem::STRING_T,
+        index_channel.key
+    ));
+    auto cfg = create_base_config();
+    cfg["channels"].push_back(create_channel_config("holding_register", ch, 0));
+    auto p = x::json::Parser(cfg);
+    auto task_cfg = std::make_unique<ReadTaskConfig>(client, p);
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
 }
 }

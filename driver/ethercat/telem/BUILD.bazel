@@ -15,6 +15,10 @@ cc_library(
     hdrs = ["telem.h"],
     visibility = ["//driver/ethercat:__subpackages__"],
     deps = [
+        "//client/cpp/library",
+        "//driver/codec",
+        "//driver/ethercat/pdo",
+        "//x/cpp/errors",
         "//x/cpp/telem",
         "@abseil-cpp//absl/log",
     ],
@@ -25,6 +29,8 @@ cc_test(
     srcs = ["telem_test.cpp"],
     deps = [
         ":telem",
+        "//driver/codec",
+        "//x/cpp/bench",
         "//x/cpp/test",
         "@googletest//:gtest_main",
     ],

@@ -28,8 +28,11 @@ std::pair<BitRange, x::errors::Error> BitRange::compile(
                 "bit length must be from 1 to 64, got " + std::to_string(bit_length)
             ),
         };
-    const bool big = byte_order == synnax::library::BYTE_ORDER_BIG_ENDIAN;
-    if (!big && byte_order != synnax::library::BYTE_ORDER_LITTLE_ENDIAN)
+    const bool big = byte_order == synnax::library::BYTE_ORDER_BIG_ENDIAN ||
+                     byte_order == BYTE_ORDER_BIG_ENDIAN_WORD_SWAPPED;
+    const bool swapped = byte_order == BYTE_ORDER_BIG_ENDIAN_WORD_SWAPPED ||
+                         byte_order == BYTE_ORDER_LITTLE_ENDIAN_WORD_SWAPPED;
+    if (!big && !swapped && byte_order != synnax::library::BYTE_ORDER_LITTLE_ENDIAN)
         return {
             {},
             x::errors::Error(LAYOUT_ERROR, "unknown byte order: " + byte_order),
@@ -39,6 +42,14 @@ std::pair<BitRange, x::errors::Error> BitRange::compile(
     // significant bit of byte 0.
     const std::size_t first = big ? (start_bit / 8) * 8 + 7 - start_bit % 8 : start_bit;
     const std::size_t last = first + bit_length - 1;
+    if (swapped && (first % 8 != 0 || bit_length % 16 != 0))
+        return {
+            {},
+            x::errors::Error(
+                LAYOUT_ERROR,
+                "word-swapped fields must be byte-aligned and a multiple of 16 bits"
+            ),
+        };
     BitRange r;
     r.bits = bit_length;
     r.end_ = last / 8 + 1;
@@ -55,6 +66,15 @@ std::pair<BitRange, x::errors::Error> BitRange::compile(
         } else {
             s.shift = static_cast<std::uint8_t>(lo - b * 8);
             s.dest = static_cast<std::uint8_t>(lo - first);
+        }
+    }
+    if (swapped) {
+        const auto base = first / 8;
+        const auto words = bit_length / 16;
+        for (std::size_t i = 0; i < r.count; i++) {
+            auto &s = r.segments[i];
+            const auto rel = s.byte - base;
+            s.byte = base + (words - 1 - rel / 2) * 2 + rel % 2;
         }
     }
     return {r, x::errors::NIL};

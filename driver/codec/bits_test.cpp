@@ -124,6 +124,107 @@ TEST(BitRange, RejectsAnUnknownByteOrder) {
     ASSERT_OCCURRED_AS_P(BitRange::compile(0, 8, "middle_endian"), LAYOUT_ERROR);
 }
 
+TEST(BitRange, ReadsABigEndianWordSwappedField) {
+    const auto r = ASSERT_NIL_P(
+        BitRange::compile(7, 32, BYTE_ORDER_BIG_ENDIAN_WORD_SWAPPED)
+    );
+    const std::vector<std::uint8_t> payload = {0x56, 0x78, 0x12, 0x34};
+    EXPECT_EQ(r.read(payload.data()), 0x12345678);
+    EXPECT_EQ(r.end(), 4);
+}
+
+TEST(BitRange, ReadsALittleEndianWordSwappedField) {
+    const auto r = ASSERT_NIL_P(
+        BitRange::compile(0, 32, BYTE_ORDER_LITTLE_ENDIAN_WORD_SWAPPED)
+    );
+    const std::vector<std::uint8_t> payload = {0x34, 0x12, 0x78, 0x56};
+    EXPECT_EQ(r.read(payload.data()), 0x12345678);
+}
+
+TEST(BitRange, ReversesEveryWordOfA64BitWordSwappedField) {
+    const auto r = ASSERT_NIL_P(
+        BitRange::compile(15, 64, BYTE_ORDER_BIG_ENDIAN_WORD_SWAPPED)
+    );
+    std::vector<std::uint8_t> payload(10, 0xEE);
+    r.write(payload.data(), 0x0102030405060708);
+    EXPECT_EQ(
+        payload,
+        (std::vector<
+            std::uint8_t>{0xEE, 0x07, 0x08, 0x05, 0x06, 0x03, 0x04, 0x01, 0x02, 0xEE})
+    );
+    EXPECT_EQ(r.read(payload.data()), 0x0102030405060708);
+    EXPECT_EQ(r.end(), 9);
+}
+
+TEST(BitRange, TreatsAWordSwapped16BitFieldAsItsBaseOrder) {
+    const std::vector<std::uint8_t> payload = {0x12, 0x34};
+    const auto big = ASSERT_NIL_P(
+        BitRange::compile(7, 16, BYTE_ORDER_BIG_ENDIAN_WORD_SWAPPED)
+    );
+    EXPECT_EQ(big.read(payload.data()), 0x1234);
+    const auto little = ASSERT_NIL_P(
+        BitRange::compile(0, 16, BYTE_ORDER_LITTLE_ENDIAN_WORD_SWAPPED)
+    );
+    EXPECT_EQ(little.read(payload.data()), 0x3412);
+}
+
+TEST(BitRange, RejectsAWordSwappedFieldThatIsNotByteAligned) {
+    ASSERT_OCCURRED_AS_P(
+        BitRange::compile(4, 32, BYTE_ORDER_LITTLE_ENDIAN_WORD_SWAPPED),
+        LAYOUT_ERROR
+    );
+    ASSERT_OCCURRED_AS_P(
+        BitRange::compile(3, 32, BYTE_ORDER_BIG_ENDIAN_WORD_SWAPPED),
+        LAYOUT_ERROR
+    );
+}
+
+TEST(BitRange, RejectsAWordSwappedFieldThatIsNotWholeWords) {
+    ASSERT_OCCURRED_AS_P(
+        BitRange::compile(0, 24, BYTE_ORDER_LITTLE_ENDIAN_WORD_SWAPPED),
+        LAYOUT_ERROR
+    );
+}
+
+TEST(BitRange, MatchesItsBaseOrderOverAWordReversedPayload) {
+    std::mt19937_64 rng(4972);
+    for (int trial = 0; trial < 2000; trial++) {
+        const bool big = rng() % 2 == 0;
+        const auto words = static_cast<std::size_t>(rng() % 4 + 1);
+        const auto byte = static_cast<std::size_t>(rng() % 8);
+        const auto start = static_cast<std::uint16_t>(byte * 8 + (big ? 7 : 0));
+        const auto length = static_cast<std::uint8_t>(words * 16);
+        const auto swapped = ASSERT_NIL_P(
+            BitRange::compile(
+                start,
+                length,
+                big ? BYTE_ORDER_BIG_ENDIAN_WORD_SWAPPED
+                    : BYTE_ORDER_LITTLE_ENDIAN_WORD_SWAPPED
+            )
+        );
+        const auto base = ASSERT_NIL_P(BitRange::compile(start, length, order(big)));
+        std::vector<std::uint8_t> payload(byte + words * 2 + 2);
+        for (auto &b: payload)
+            b = static_cast<std::uint8_t>(rng());
+        auto reversed = payload;
+        for (std::size_t w = 0; w < words; w++)
+            for (std::size_t i = 0; i < 2; i++)
+                reversed[byte + w * 2 + i] = payload[byte + (words - 1 - w) * 2 + i];
+        ASSERT_EQ(swapped.read(payload.data()), base.read(reversed.data()));
+
+        const auto raw = rng();
+        auto written = payload;
+        auto expected = reversed;
+        swapped.write(written.data(), raw);
+        base.write(expected.data(), raw);
+        auto unreversed = expected;
+        for (std::size_t w = 0; w < words; w++)
+            for (std::size_t i = 0; i < 2; i++)
+                unreversed[byte + w * 2 + i] = expected[byte + (words - 1 - w) * 2 + i];
+        ASSERT_EQ(written, unreversed);
+    }
+}
+
 TEST(BitRange, MatchesAReferenceExtractorOverRandomLayouts) {
     std::mt19937_64 rng(4971);
     for (int trial = 0; trial < 20000; trial++) {

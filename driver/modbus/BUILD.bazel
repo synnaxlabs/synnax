@@ -23,16 +23,19 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//client/cpp/library",
         "//client/cpp/modbus",
+        "//driver/codec",
         "//driver/common",
         "//driver/errors",
         "//driver/modbus/device",
-        "//driver/modbus/util",
+        "//driver/modbus/registers",
         "//driver/pipeline",
         "//driver/task",
         "//vendor/libmodbus",
         "//x/cpp/breaker",
         "//x/cpp/defer",
+        "//x/cpp/uuid",
     ],
 )
 

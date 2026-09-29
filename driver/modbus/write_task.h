@@ -13,10 +13,11 @@
 
 #include "client/cpp/modbus/json.gen.h"
 
+#include "driver/codec/plan.h"
 #include "driver/common/write_task.h"
 #include "driver/modbus/channels.h"
 #include "driver/modbus/device/device.h"
-#include "driver/modbus/util/util.h"
+#include "driver/modbus/registers/registers.h"
 
 namespace driver::modbus {
 /// @brief interface for writing to different types of modbus registers/bits.
@@ -41,10 +42,17 @@ public:
 template<typename Channel>
 struct BaseWriter : Writer {
     std::vector<Channel> channels;
+    /// @brief encodes each channel's command into the payload.
+    codec::Plan plan;
+    /// @brief holds the commands of one write, reused across writes.
+    codec::Values values;
+    /// @brief the current state of the device, as bytes. Empty until initialized.
+    std::vector<uint8_t> payload;
 
-    explicit BaseWriter(const std::vector<Channel> &channels): channels(channels) {
-        channel::sort_by_address(this->channels);
-    }
+    /// @param channels sorted by address.
+    /// @param plan from channel::compile(channels).
+    BaseWriter(const std::vector<Channel> &channels, codec::Plan plan):
+        channels(channels), plan(std::move(plan)), values(this->plan.values()) {}
 
     [[nodiscard]] std::vector<synnax::channel::Key> cmd_keys() const override {
         std::vector<synnax::channel::Key> keys;
@@ -53,26 +61,37 @@ struct BaseWriter : Writer {
             keys.push_back(ch.channel);
         return keys;
     }
+
+protected:
+    /// @brief encodes the latest command in the frame for each channel into the
+    /// payload, converting it to the channel's value type first.
+    x::errors::Error encode(const x::telem::Frame &fr) {
+        this->values.clear();
+        for (size_t i = 0; i < this->channels.size(); i++) {
+            const auto &ch = this->channels[i];
+            if (!fr.contains(ch.channel)) continue;
+            const auto command = ch.value_type.cast(fr.at(ch.channel, -1));
+            if (const auto err = this->values.set(i, command)) return err;
+        }
+        return this->plan.encode(this->values, this->payload);
+    }
 };
 
 /// @brief writes to coils.
 class CoilWriter final : public BaseWriter<channel::OutputCoil> {
-    /// @brief the current state of the coils for all channels in the writer.
-    std::vector<uint8_t> state;
-
 public:
-    explicit CoilWriter(const std::vector<channel::OutputCoil> &chs): BaseWriter(chs) {}
+    using BaseWriter::BaseWriter;
 
     /// @brief initializes state if not already initialized, reading the current state
     /// of coils from the device.
     x::errors::Error initialize_state(const std::shared_ptr<device::Device> &dev) {
-        if (!this->state.empty()) return x::errors::NIL;
-        state.resize(channels.back().address - channels.front().address + 1);
+        if (!this->payload.empty()) return x::errors::NIL;
+        this->payload.resize(this->plan.length());
         return dev->read_bits(
             device::Coil,
             channels.front().address,
-            state.size(),
-            state.data()
+            this->payload.size(),
+            this->payload.data()
         );
     }
 
@@ -82,39 +101,40 @@ public:
     ) override {
         if (channels.empty()) return x::errors::NIL;
         this->initialize_state(dev);
-        const int start_addr = channels.front().address;
-        for (const auto &ch: channels)
-            if (fr.contains(ch.channel))
-                state[ch.address - start_addr] = fr.at<uint8_t>(ch.channel, -1);
-        return dev->write_bits(start_addr, state.size(), state.data());
+        if (const auto err = this->encode(fr)) return err;
+        return dev->write_bits(
+            channels.front().address,
+            this->payload.size(),
+            this->payload.data()
+        );
     }
 };
 
 /// @brief writes to holding registers.
 class RegisterWriter final : public BaseWriter<channel::OutputHoldingRegister> {
-    /// @brief the current state of all registers in the writer.
-    std::vector<uint16_t> state;
+    /// @brief the registers exchanged with the device.
+    std::vector<uint16_t> buffer;
 
 public:
-    explicit RegisterWriter(const std::vector<channel::OutputHoldingRegister> &chs):
-        BaseWriter(chs) {}
+    RegisterWriter(
+        const std::vector<channel::OutputHoldingRegister> &chs,
+        codec::Plan plan
+    ):
+        BaseWriter(chs, std::move(plan)), buffer((this->plan.length() + 1) / 2) {}
 
     /// @brief initializes state if not already initialized, reading the current state
     /// of holding registers from the device.
     x::errors::Error initialize_state(const std::shared_ptr<device::Device> &dev) {
-        if (!this->state.empty()) return x::errors::NIL;
-        const auto &last_ch = channels.back();
-        // Use ceiling division to convert bytes to 16-bit registers
-        state.resize(
-            last_ch.address - channels.front().address +
-            (last_ch.value_type.density() + 1) / 2
-        );
-        return dev->read_registers(
+        if (!this->payload.empty()) return x::errors::NIL;
+        this->payload.resize(this->buffer.size() * 2);
+        const auto err = dev->read_registers(
             device::HoldingRegister,
             channels.front().address,
-            state.size(),
-            state.data()
+            this->buffer.size(),
+            this->buffer.data()
         );
+        registers::to_bytes(this->buffer, this->payload);
+        return err;
     }
 
     x::errors::Error write(
@@ -123,21 +143,13 @@ public:
     ) override {
         if (channels.empty()) return x::errors::NIL;
         this->initialize_state(dev);
-        const int start_addr = channels.front().address;
-        for (const auto &channel: channels) {
-            if (!fr.contains(channel.channel)) continue;
-            const int offset = channel.address - start_addr;
-            auto err = util::format_register(
-                fr.at(channel.channel, -1),
-                state.data() + offset,
-                channel.value_type,
-                channel.bytes_swapped,
-                channel.words_swapped
-            );
-            if (err) return err;
-        }
-
-        return dev->write_registers(start_addr, state.size(), state.data());
+        if (const auto err = this->encode(fr)) return err;
+        registers::to_registers(this->payload, this->buffer);
+        return dev->write_registers(
+            channels.front().address,
+            this->buffer.size(),
+            this->buffer.data()
+        );
     }
 };
 
@@ -166,7 +178,7 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
             return;
         }
         std::vector<channel::OutputCoil> coils;
-        std::vector<channel::OutputHoldingRegister> registers;
+        std::vector<channel::OutputHoldingRegister> holding_registers;
         cfg.iter("channels", [&](x::json::Parser &ch) {
             const auto parsed = ::synnax::modbus::parse_write_channel(ch);
             const auto &base = std::visit(
@@ -180,16 +192,37 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
                 return ch.field_err("channel", "channel must be specified");
             if (const auto *c = std::get_if<
                     ::synnax::modbus::HoldingRegisterWriteChannel>(&parsed))
-                registers.emplace_back(*c);
+                holding_registers.emplace_back(*c);
             else
                 coils.emplace_back(
                     std::get<::synnax::modbus::CoilWriteChannel>(parsed)
                 );
         });
-        if (!coils.empty())
-            writers.push_back(std::make_unique<CoilWriter>(std::move(coils)));
-        if (!registers.empty())
-            writers.push_back(std::make_unique<RegisterWriter>(std::move(registers)));
+        channel::sort_by_address(coils);
+        channel::sort_by_address(holding_registers);
+        if (!coils.empty()) {
+            auto [plan, err] = channel::compile(coils);
+            if (err) {
+                cfg.field_err("channels", err);
+                return;
+            }
+            writers.push_back(
+                std::make_unique<CoilWriter>(std::move(coils), std::move(plan))
+            );
+        }
+        if (!holding_registers.empty()) {
+            auto [plan, err] = channel::compile(holding_registers);
+            if (err) {
+                cfg.field_err("channels", err);
+                return;
+            }
+            writers.push_back(
+                std::make_unique<RegisterWriter>(
+                    std::move(holding_registers),
+                    std::move(plan)
+                )
+            );
+        }
     }
 
     /// @returns the keys of all command channels used by the writer.

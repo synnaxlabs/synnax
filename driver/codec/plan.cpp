@@ -464,13 +464,25 @@ Plan::encode(const Values &values, std::vector<std::uint8_t> &payload) const {
         this->encode_text(values, payload);
         return x::errors::NIL;
     }
-    return this->encode_binary(values, payload);
+    if (payload.size() < this->length_) payload.resize(this->length_, 0);
+    return this->encode_binary(values, payload.data());
 }
 
 x::errors::Error
-Plan::encode_binary(const Values &values, std::vector<std::uint8_t> &payload) const {
-    if (payload.size() < this->length_) payload.resize(this->length_, 0);
-    auto *p = payload.data();
+Plan::encode(const Values &values, const std::span<std::uint8_t> payload) const {
+    if (this->text)
+        return x::errors::Error(ENCODE_ERROR, "cannot encode text in place");
+    if (payload.size() < this->length_)
+        return x::errors::Error(
+            ENCODE_ERROR,
+            "payload of " + std::to_string(payload.size()) +
+                " bytes is shorter than the plan's " + std::to_string(this->length_)
+        );
+    return this->encode_binary(values, payload.data());
+}
+
+x::errors::Error
+Plan::encode_binary(const Values &values, std::uint8_t *const p) const {
     for (const auto &f: this->binary) {
         const auto &s = values.slots[f.slot];
         if (s.kind == Values::Kind::ABSENT || !this->selected(f.condition, p)) continue;

@@ -22,21 +22,24 @@ Engine::Reader::Reader(
     const size_t total_size,
     std::shared_ptr<Registration> registration
 ):
-    engine(eng), id(id), total_size(total_size), registration(std::move(registration)) {
-    this->refresh_pdos();
-}
+    engine(eng),
+    id(id),
+    total_size(total_size),
+    registration(std::move(registration)) {}
 
 void Engine::Reader::refresh_pdos() const {
     std::lock_guard lock(this->engine.registration_mu);
     DCHECK_EQ(this->registration->offsets.size(), this->registration->entries.size());
     this->pdos.clear();
     this->pdos.reserve(this->registration->entries.size());
-    for (size_t i = 0; i < this->registration->entries.size(); ++i)
-        this->pdos.push_back(
-            {this->registration->offsets[i],
-             this->registration->entries[i].data_type,
-             this->registration->entries[i].bit_length}
-        );
+    for (size_t i = 0; i < this->registration->entries.size(); ++i) {
+        const auto &entry = this->registration->entries[i];
+        const auto &offset = this->registration->offsets[i];
+        auto [plan, err] = telem::plan(entry, offset.bit);
+        CHECK(!err) << "open_reader validates every entry: " << err;
+        this->pdos.push_back({offset.byte, entry.data_type, std::move(plan)});
+    }
+    if (!this->pdos.empty()) this->value = this->pdos.front().plan.values();
     this->private_buffer.resize(
         this->engine.shared_input_size.load(std::memory_order_acquire)
     );
@@ -113,24 +116,14 @@ x::errors::Error Engine::Reader::read(
 
     for (size_t i = 0; i < this->pdos.size(); ++i) {
         const auto &pdo = this->pdos[i];
-        const size_t required = telem::pdo_required_bytes(
-            pdo.offset.bit,
-            pdo.bit_length
-        );
-        if (pdo.offset.byte + required > this->private_buffer.size())
+        if (pdo.byte + pdo.plan.length() > this->private_buffer.size())
             return x::errors::Error(
                 errors::CYCLIC_ERROR,
                 "PDO offset out of bounds in input buffer"
             );
-        auto &series = frame.series->at(i);
-        const uint8_t *src = this->private_buffer.data() + pdo.offset.byte;
-        telem::read_pdo_to_series(
-            src,
-            pdo.offset.bit,
-            pdo.bit_length,
-            pdo.data_type,
-            series
-        );
+        const auto payload = std::span(this->private_buffer).subspan(pdo.byte);
+        if (const auto err = pdo.plan.decode(payload, this->value)) return err;
+        this->value.write(0, frame.series->at(i));
     }
 
     return x::errors::NIL;

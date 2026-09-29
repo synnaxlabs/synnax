@@ -453,6 +453,52 @@ TEST(PlanEncode, WritesFloatBits) {
     EXPECT_EQ(std::bit_cast<double>(bits), 2.5);
 }
 
+TEST(PlanEncode, WritesInPlaceIntoAWindowOfALargerBuffer) {
+    const auto plan = ASSERT_NIL_P(Plan::compile(message({binary("a", 4, 8)})));
+    auto values = plan.values();
+    values.set(0, 0.0);
+    std::vector<std::uint8_t> buffer = {0xAA, 0xFF, 0xFF, 0xAA};
+    ASSERT_NIL(plan.encode(values, std::span(buffer).subspan(1, 2)));
+    EXPECT_EQ(buffer, (std::vector<std::uint8_t>{0xAA, 0x0F, 0xF0, 0xAA}));
+}
+
+TEST(PlanEncode, RejectsAnInPlacePayloadShorterThanThePlan) {
+    const auto plan = ASSERT_NIL_P(Plan::compile(message({binary("a", 4, 8)})));
+    auto values = plan.values();
+    values.set(0, 1.0);
+    std::vector<std::uint8_t> buffer = {0, 0};
+    ASSERT_OCCURRED_AS(plan.encode(values, std::span(buffer).first(1)), ENCODE_ERROR);
+    EXPECT_EQ(buffer, (std::vector<std::uint8_t>{0, 0}));
+}
+
+TEST(PlanEncode, RejectsEncodingTextInPlace) {
+    const auto plan = ASSERT_NIL_P(Plan::compile(text({delimited("a", 0)})));
+    auto values = plan.values();
+    values.set(0, 1.0);
+    std::vector<std::uint8_t> buffer(4);
+    ASSERT_OCCURRED_AS(plan.encode(values, std::span(buffer)), ENCODE_ERROR);
+}
+
+TEST(PlanDecode, ReadsAWordSwappedFloat) {
+    auto a = binary("a", 7, 32);
+    a.float_ = true;
+    a.byte_order = BYTE_ORDER_BIG_ENDIAN_WORD_SWAPPED;
+    const auto plan = ASSERT_NIL_P(Plan::compile(message({a})));
+    const auto raw = std::bit_cast<std::uint32_t>(3.14159f);
+    const std::vector<std::uint8_t> payload = {
+        static_cast<std::uint8_t>(raw >> 8),
+        static_cast<std::uint8_t>(raw),
+        static_cast<std::uint8_t>(raw >> 24),
+        static_cast<std::uint8_t>(raw >> 16),
+    };
+    auto values = plan.values();
+    ASSERT_NIL(plan.decode(payload, values));
+    EXPECT_EQ(values.get(0), static_cast<double>(3.14159f));
+    std::vector<std::uint8_t> encoded;
+    ASSERT_NIL(plan.encode(values, encoded));
+    EXPECT_EQ(encoded, payload);
+}
+
 TEST(Values, SetsASampleValueExactly) {
     const auto plan = ASSERT_NIL_P(Plan::compile(message({binary("a", 0, 32)})));
     auto values = plan.values();

@@ -15,6 +15,7 @@
 #include "x/cpp/loop/loop.h"
 
 #include "driver/ethercat/engine/engine.h"
+#include "driver/ethercat/telem/telem.h"
 
 namespace driver::ethercat::engine {
 void Engine::run() {
@@ -310,6 +311,8 @@ std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> Engine::open_reader
     const std::vector<pdo::Entry> &entries,
     const x::telem::Rate sample_rate
 ) {
+    for (const auto &e: entries)
+        if (auto [_, err] = telem::plan(e, 0); err) return {nullptr, err};
     size_t total_size = 0;
     for (const auto &e: entries)
         total_size += e.byte_length();
@@ -339,6 +342,8 @@ std::pair<std::unique_ptr<Engine::Writer>, x::errors::Error> Engine::open_writer
     const std::vector<pdo::Entry> &entries,
     const x::telem::Rate execution_rate
 ) {
+    for (const auto &e: entries)
+        if (auto [_, err] = telem::plan(e, 0); err) return {nullptr, err};
     const size_t reg_id = this->next_id.fetch_add(1, std::memory_order_relaxed);
     auto reg = std::make_shared<Registration>(
         Registration{reg_id, entries, {}, execution_rate}

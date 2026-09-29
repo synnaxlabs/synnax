@@ -34,8 +34,10 @@
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
+#include "x/cpp/uuid/uuid.h"
 
-#include "driver/modbus/util/util.h"
+#include "driver/codec/plan.h"
+#include "driver/modbus/registers/registers.h"
 
 namespace driver::modbus::mock {
 /// @brief Configuration for a mock Modbus slave
@@ -69,6 +71,25 @@ class Slave {
             if (pair.first > max_addr) { max_addr = pair.first; }
         }
         return max_addr;
+    }
+
+    /// @brief writes a value into registers starting at addr, laid out as a holding
+    /// register write with no byte or word swaps.
+    static void
+    set_registers(uint16_t *tab, const int addr, const x::telem::SampleValue &value) {
+        const auto dt = x::telem::DataType::infer(value);
+        auto [f, f_err] = registers::whole_field(dt, false, false, 0);
+        if (f_err) LOG(FATAL) << f_err;
+        f.key = x::uuid::create();
+        synnax::library::MessageEntry message;
+        message.fields = {f};
+        const auto [plan, plan_err] = codec::Plan::compile(message);
+        if (plan_err) LOG(FATAL) << plan_err;
+        auto values = plan.values();
+        if (const auto err = values.set(0, value)) LOG(FATAL) << err;
+        std::vector<uint8_t> bytes;
+        if (const auto err = plan.encode(values, bytes)) LOG(FATAL) << err;
+        registers::to_registers(bytes, std::span(tab + addr, bytes.size() / 2));
     }
 
     // Create mapping based on configured values
@@ -133,44 +154,12 @@ class Slave {
             if (addr < nb_input_bits) mb_mapping->tab_input_bits[addr] = value ? 1 : 0;
 
         for (const auto &[addr, value]: config_.holding_registers)
-            if (addr < nb_registers) {
-                auto dt = x::telem::DataType::infer(value);
-                LOG(INFO) << "Holding register[" << addr
-                          << "]: inferred type=" << dt.name()
-                          << " density=" << dt.density()
-                          << " dest_size=" << ((dt.density() + 1) / 2);
-                std::vector<uint16_t> dest((dt.density() + 1) / 2);
-                if (const auto err = util::format_register(
-                        value,
-                        dest.data(),
-                        dt,
-                        false,
-                        false
-                    ))
-                    LOG(FATAL) << err;
-                for (size_t i = 0; i < dest.size(); i++)
-                    mb_mapping->tab_registers[addr + i] = dest[i];
-            }
+            if (addr < nb_registers)
+                set_registers(mb_mapping->tab_registers, addr, value);
 
         for (const auto &[addr, value]: config_.input_registers)
-            if (addr < nb_input_registers) {
-                auto dt = x::telem::DataType::infer(value);
-                LOG(INFO) << "Input register[" << addr
-                          << "]: inferred type=" << dt.name()
-                          << " density=" << dt.density()
-                          << " dest_size=" << ((dt.density() + 1) / 2);
-                std::vector<uint16_t> dest((dt.density() + 1) / 2);
-                if (const auto err = util::format_register(
-                        value,
-                        dest.data(),
-                        dt,
-                        false,
-                        false
-                    ))
-                    LOG(FATAL) << err;
-                for (size_t i = 0; i < dest.size(); i++)
-                    mb_mapping->tab_input_registers[addr + i] = dest[i];
-            }
+            if (addr < nb_input_registers)
+                set_registers(mb_mapping->tab_input_registers, addr, value);
         return mb_mapping;
     }
 

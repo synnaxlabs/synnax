@@ -15,10 +15,13 @@ cc_library(
     hdrs = ["slave.h"],
     visibility = ["//visibility:public"],
     deps = [
-        "//driver/modbus/util",
+        "//client/cpp/library",
+        "//driver/codec",
+        "//driver/modbus/registers",
         "//vendor/libmodbus",
         "//x/cpp/errors",
         "//x/cpp/telem",
+        "//x/cpp/uuid",
         "@abseil-cpp//absl/log",
     ],
 )
@@ -32,7 +35,6 @@ cc_binary(
     }),
     deps = [
         "//driver/modbus/mock",
-        "//driver/modbus/util",
         "//vendor/libmodbus",
         "//x/cpp/errors",
         "@abseil-cpp//absl/log",
