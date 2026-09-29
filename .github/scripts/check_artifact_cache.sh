@@ -185,13 +185,17 @@ job_log() {
         return 1
     fi
     local file="${CACHE_DIR}/log-${job_id}"
+    if [ -f "${file}.err" ]; then
+        return 1
+    fi
     if [ ! -f "${file}" ]; then
         if ! gh api "repos/:owner/:repo/actions/jobs/${job_id}/logs" \
-            > "${file}.raw" 2> /dev/null; then
+            > "${file}.raw" 2> "${file}.err"; then
             rm -f "${file}.raw"
-            log "run ${run_id}: ${os} build log unreadable"
+            log "run ${run_id}: ${os} build log unreadable ($(head -1 "${file}.err"))"
             return 1
         fi
+        rm -f "${file}.err"
         sed -E 's/^[^ ]+ //; s/\x1b\[[0-9;]*m//g; s/\r$//' "${file}.raw" > "${file}"
     fi
     echo "${file}"

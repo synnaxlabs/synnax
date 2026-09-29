@@ -76,6 +76,9 @@ concurrency:
 jobs:
   setup:
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
     outputs:
       VERSION: ${{ steps.version.outputs.VERSION }}
       SKIP_BUILD: ${{ steps.check-cache.outputs.SKIP_BUILD }}
