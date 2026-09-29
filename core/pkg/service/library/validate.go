@@ -93,7 +93,7 @@ func baseOf(e Entry) (BaseEntry, bool) {
 }
 
 func (v *validator) validateEnum(path []string, e EnumEntry) {
-	values := make(set.Set[int64], len(e.Values))
+	values := make(set.Set[int32], len(e.Values))
 	names := make(set.Set[string], len(e.Values))
 	for i, ev := range e.Values {
 		p := pathOf(path, "values", strconv.Itoa(i))

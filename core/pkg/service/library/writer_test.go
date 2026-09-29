@@ -316,7 +316,7 @@ var _ = Describe("Writer", func() {
 						f := binaryField("a", 0, 8)
 						f.Key = uuid.New()
 						f.Multiplexor = new(f.Key)
-						f.MultiplexValues = []int64{1}
+						f.MultiplexValues = []int32{1}
 						return f
 					}()),
 				)}},
@@ -346,7 +346,7 @@ var _ = Describe("Writer", func() {
 			mux.Key = uuid.New()
 			sig := binaryField("sig", 8, 8)
 			sig.Multiplexor = new(mux.Key)
-			sig.MultiplexValues = []int64{0, 2}
+			sig.MultiplexValues = []int32{0, 2}
 			sig.Enumeration = new(stateKey)
 			l := library.Library{
 				Name:    "Mux",
