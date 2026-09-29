@@ -56,6 +56,6 @@ public:
 
     /// @brief waits up to timeout for written bytes to leave the port, then closes it.
     /// Reads and writes after close fail.
-    void close(x::telem::TimeSpan timeout);
+    void close(x::telem::TimeSpan timeout = x::telem::SECOND);
 };
 }
