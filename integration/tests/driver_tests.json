@@ -25,6 +25,19 @@
       ]
     },
     {
+      "sequence_name": "Driver Bus Integrations",
+      "tests": [
+        { "case": "driver/tcp_read" },
+        { "case": "driver/tcp_write" },
+        { "case": "driver/udp_read" },
+        { "case": "driver/udp_write" },
+        { "case": "driver/serial_read" },
+        { "case": "driver/serial_write" },
+        { "case": "driver/can_read" },
+        { "case": "driver/can_write" }
+      ]
+    },
+    {
       "sequence_name": "Console Configuration",
       "tests": [
         { "case": "console/task/opcua_read_task" },
