@@ -106,8 +106,8 @@ export const Value = ({
   stalenessColor,
 }: CellProps<ValueConfig>) => {
   const t = useMemo(
-    () => BaseValue.stringSource({ channel, rollingAverage, precision, notation }),
-    [channel, rollingAverage, precision, notation],
+    () => BaseValue.numberSource({ channel, rollingAverage }),
+    [channel, rollingAverage],
   );
   const backgroundTelem = useMemo(
     () => BaseValue.backgroundTelem(t, redline, backgroundColor),
@@ -117,6 +117,8 @@ export const Value = ({
     aetherKey: cellKey,
     box: b,
     telem: t,
+    precision,
+    notation,
     level,
     color: textColor,
     stalenessTimeout,

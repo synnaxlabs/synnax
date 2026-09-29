@@ -53,7 +53,7 @@ var _ = Describe("Codec", func() {
 			Entry("value variant", v2.CellConfig{Variant: v2.ValueCellConfig{
 				Channel:        channel.Key(2),
 				RollingAverage: 3,
-				Precision:      new(int32(4)),
+				Precision:      new(uint8(4)),
 				Notation:       notation.Notation("standard"),
 				Redline: color.Scale{
 					Bands: []color.Band{
@@ -291,7 +291,7 @@ func FuzzDecodeCellConfig(f *testing.F) {
 		seed := v2.CellConfig{Variant: v2.ValueCellConfig{
 			Channel:        channel.Key(2),
 			RollingAverage: 3,
-			Precision:      new(int32(4)),
+			Precision:      new(uint8(4)),
 			Notation:       notation.Notation("standard"),
 			Redline: color.Scale{
 				Bands: []color.Band{

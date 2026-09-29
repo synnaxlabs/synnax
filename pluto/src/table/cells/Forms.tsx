@@ -33,6 +33,9 @@ interface TelemFormT {
   notation: notation.Notation;
 }
 
+// Stands in for an absent precision, which shows as many decimals as fit.
+const AUTO_PRECISION = -1;
+
 const TelemForm = () => {
   const { value, onChange } = Form.useField<TelemFormT>("");
   return (
@@ -65,9 +68,16 @@ const TelemForm = () => {
         </Input.Item>
         <Input.Item label="Precision" padHelpText={false}>
           <Input.Numeric
-            value={value.precision ?? 2}
-            bounds={{ lower: 0, upper: 10 }}
-            onChange={(precision) => onChange({ ...value, precision })}
+            value={value.precision ?? AUTO_PRECISION}
+            emptyValue={AUTO_PRECISION}
+            placeholder="Auto"
+            bounds={{ lower: 0, upper: 20 }}
+            onChange={(precision) =>
+              onChange({
+                ...value,
+                precision: precision === AUTO_PRECISION ? undefined : precision,
+              })
+            }
           />
         </Input.Item>
       </Form.Section>

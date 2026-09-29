@@ -43,8 +43,8 @@ export const Symbol = ({
 }: NodeProps<schematic.ValueNodeConfig>): ReactElement => {
   const valueBoxHeight = Component.HEIGHTS[LEVEL_SIZES[level]];
   const t = useMemo(
-    () => BaseValue.stringSource({ channel, rollingAverage, precision, notation }),
-    [channel, rollingAverage, precision, notation],
+    () => BaseValue.numberSource({ channel, rollingAverage }),
+    [channel, rollingAverage],
   );
   const backgroundTelem = useMemo(
     () => BaseValue.backgroundTelem(t, redline, backgroundColor),
@@ -58,6 +58,8 @@ export const Symbol = ({
       width: inlineSize,
     }),
     telem: t,
+    precision,
+    notation,
     backgroundTelem,
     stalenessColor,
     stalenessTimeout,

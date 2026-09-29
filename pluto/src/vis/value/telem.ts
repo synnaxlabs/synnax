@@ -38,3 +38,22 @@ export const stringSource = ({
     },
     outlet: "stringifier",
   });
+
+export interface NumberSourceArgs {
+  channel?: channel.Key;
+  rollingAverage?: number;
+}
+
+/** numberSource builds the averaged numeric pipeline for a value channel. */
+export const numberSource = ({
+  channel = 0,
+  rollingAverage = 1,
+}: NumberSourceArgs): telem.NumberSourceSpec =>
+  telem.sourcePipeline("number", {
+    connections: [{ from: "valueStream", to: "rollingAverage" }],
+    segments: {
+      valueStream: telem.streamChannelValue({ channel }),
+      rollingAverage: telem.rollingAverage({ windowSize: rollingAverage }),
+    },
+    outlet: "rollingAverage",
+  });

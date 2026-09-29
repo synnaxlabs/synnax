@@ -53,11 +53,12 @@ CellConfig union on variant {
         rolling_average   int32 = 1 {
             @doc value "is the sample window for rolling-average smoothing."
         }
-        precision         int32?            {
-            @doc value """
-                is the number of decimal places shown. When absent the formatter picks
-                the precision; zero shows whole numbers.
+        precision         uint8?            {
+            @doc value    """
+                is the number of decimal places shown. When absent, the value shows as
+                many decimals as fit.
             """
+            @validate max 20
         }
         notation          notation.Notation = notation.NotationStandard {
             @doc value "is the numeric notation used to format the value."

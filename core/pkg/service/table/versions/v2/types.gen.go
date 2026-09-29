@@ -107,9 +107,9 @@ type ValueCellConfig struct {
 	Channel channel.Key `json:"channel" msgpack:"channel"`
 	// RollingAverage is the sample window for rolling-average smoothing.
 	RollingAverage int32 `json:"rolling_average" msgpack:"rolling_average"`
-	// Precision is the number of decimal places shown. When absent the formatter picks
-	// the precision; zero shows whole numbers.
-	Precision *int32 `json:"precision,omitzero" msgpack:"precision,omitempty"`
+	// Precision is the number of decimal places shown. When absent, the value shows as
+	// many decimals as fit.
+	Precision *uint8 `json:"precision,omitzero" msgpack:"precision,omitempty"`
 	// Notation is the numeric notation used to format the value.
 	Notation notation.Notation `json:"notation" msgpack:"notation"`
 	// Redline is the threshold band mapping applied to the background.

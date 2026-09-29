@@ -22,7 +22,7 @@ const THEME: theme.Theme = theme.themeZ.parse(theme.SYNNAX_DARK);
 const BOX = box.construct({ x: 0, y: 0 }, { width: 200, height: 50 });
 
 interface SetupOptions {
-  value?: string;
+  value?: number;
   background?: color.Color;
   state?: Record<string, unknown>;
   theme?: theme.Theme;
@@ -30,25 +30,25 @@ interface SetupOptions {
 }
 
 // Mounts a Value under the real provider stack with a recording render context. The
-// string telem source (and an optional color background source) are registered before
+// number telem source (and an optional color background source) are registered before
 // mount so the telem TestFactory resolves them on the first afterUpdate. No render loop
 // runs in tests, so the component draws synchronously on mount and on every telem emit;
 // call `recorder.clear()` before an explicit `render({})` to isolate that render's calls.
 const setup = ({
-  value: initialValue = "",
+  value: initialValue = NaN,
   background,
   state = {},
   theme = THEME,
   render,
 }: SetupOptions = {}) => {
-  const source = telemTest.source<string>(initialValue);
+  const source = telemTest.source<number>(initialValue);
   const backgroundSource =
     background != null ? telemTest.source<color.Color>(background) : null;
   const recorder = canvasTest.record();
   const parsed = value.Value.z.parse({
     box: BOX,
     level: "p",
-    telem: telemTest.stringSourceSpec(source),
+    telem: telemTest.numberSourceSpec(source),
     ...(backgroundSource != null
       ? { backgroundTelem: telemTest.colorSourceSpec(backgroundSource) }
       : {}),
@@ -117,22 +117,22 @@ describe("value/aether/Value", () => {
 
   describe("telem", () => {
     it("should draw the current source value", () => {
-      const { component, recorder } = setup({ value: "42.5" });
+      const { component, recorder } = setup({ value: 42.5 });
       recorder.clear();
       component.render({});
       expect(fillTexts(recorder)).toContain("42.5");
     });
 
     it("should redraw automatically when the source emits", () => {
-      const { source, recorder } = setup({ value: "1" });
+      const { source, recorder } = setup({ value: 1 });
       recorder.clear();
-      source.setValue("2");
+      source.setValue(2);
       expect(fillTexts(recorder)).toContain("2");
     });
 
     it("should reflect a new value on the next explicit render", () => {
-      const { component, source, recorder } = setup({ value: "1" });
-      source.setValue("999");
+      const { component, source, recorder } = setup({ value: 1 });
+      source.setValue(999);
       recorder.clear();
       component.render({});
       expect(fillTexts(recorder)).toContain("999");
@@ -142,14 +142,14 @@ describe("value/aether/Value", () => {
   describe("render", () => {
     it("should return early for a zero-area box", () => {
       const zero = box.construct({ x: 0, y: 0 }, { width: 0, height: 0 });
-      const { component, recorder } = setup({ value: "5", state: { box: zero } });
+      const { component, recorder } = setup({ value: 5, state: { box: zero } });
       recorder.clear();
       component.render({});
       expect(fillTexts(recorder)).toHaveLength(0);
     });
 
     it("should draw a negative sign as a separate call so digits stay aligned", () => {
-      const { component, recorder } = setup({ value: "-5" });
+      const { component, recorder } = setup({ value: -5 });
       recorder.clear();
       component.render({});
       const texts = fillTexts(recorder);
@@ -159,14 +159,14 @@ describe("value/aether/Value", () => {
     });
 
     it("should scale the upper canvas before drawing", () => {
-      const { component, recorder } = setup({ value: "7" });
+      const { component, recorder } = setup({ value: 7 });
       recorder.clear();
       component.render({});
       expect(drawCalls(recorder, "applyScale")).toHaveLength(1);
     });
 
     it("should erase the previous region on each render", () => {
-      const { component, recorder } = setup({ value: "1" });
+      const { component, recorder } = setup({ value: 1 });
       recorder.clear();
       component.render({});
       expect(recorder.eraseCalls.length).toBeGreaterThan(0);
@@ -175,7 +175,7 @@ describe("value/aether/Value", () => {
 
   describe("geometry", () => {
     it("should position the value using the left label offset", () => {
-      const { component, recorder } = setup({ value: "5" });
+      const { component, recorder } = setup({ value: 5 });
       recorder.clear();
       component.render({});
       const at = fillTextAt(recorder, "5");
@@ -185,7 +185,7 @@ describe("value/aether/Value", () => {
 
     it("should center the value horizontally when location is center", () => {
       const { component, recorder } = setup({
-        value: "5",
+        value: 5,
         state: { location: "center" },
       });
       recorder.clear();
@@ -197,7 +197,7 @@ describe("value/aether/Value", () => {
 
     it("should align the value to the box right when location is right", () => {
       const { component, recorder } = setup({
-        value: "5",
+        value: 5,
         state: { location: "right" },
       });
       recorder.clear();
@@ -209,7 +209,7 @@ describe("value/aether/Value", () => {
     });
 
     it("should draw the negative sign to the left of the first digit", () => {
-      const { component, recorder } = setup({ value: "-5" });
+      const { component, recorder } = setup({ value: -5 });
       recorder.clear();
       component.render({});
       const sign = fillTextAt(recorder, "-");
@@ -219,92 +219,87 @@ describe("value/aether/Value", () => {
       expect(sign?.x ?? 0).toBeLessThan(digit?.x ?? 0);
     });
 
-    // Trimming the sign before any digit would leave a negative reading drawn as a
-    // positive one, with nothing to show it had been cut.
-    it("should keep the negative sign inside the box when the value overflows", () => {
-      const digits = "1".repeat(Math.ceil(box.width(BOX) / CHAR_WIDTH));
+    it("should keep the negative sign inside the box when the value only just fits", () => {
+      const width = 100;
+      const digits = Math.floor((width - FONT_HEIGHT * 0.6) / CHAR_WIDTH);
       const { component, recorder } = setup({
-        value: `-${digits}`,
-        state: { location: "center" },
+        value: -Number("1".repeat(digits)),
+        state: {
+          location: "center",
+          box: box.construct({ x: 0, y: 0 }, { width, height: 50 }),
+        },
       });
       recorder.clear();
       component.render({});
-      expect(fillTextAt(recorder, "-")?.x).toBeGreaterThanOrEqual(box.left(BOX));
+      expect(fillTextAt(recorder, "-")?.x).toBeGreaterThanOrEqual(0);
     });
   });
 
   describe("overflow", () => {
-    const INSET = 6 + FONT_HEIGHT * 0.75;
-    const firstFillTextX = (recorder: canvasTest.Recorder): number =>
-      drawCalls(recorder, "fillText")[0].args[1] as number;
+    // Five characters fit in a centered positive value.
+    const NARROW = box.construct({ x: 0, y: 0 }, { width: 5 * CHAR_WIDTH, height: 50 });
 
-    it("should trim an overflowing value to an ellipsis rather than cut it at the edge", () => {
-      const { component, recorder } = setup({ value: "1234567890".repeat(4) });
-      recorder.clear();
-      component.render({});
-      const [drawn] = fillTexts(recorder);
-      expect(drawn.startsWith("1234567890")).toBe(true);
-      expect(drawn.endsWith("…")).toBe(true);
-      expect(drawn.length * CHAR_WIDTH).toBeLessThanOrEqual(box.width(BOX) - INSET);
-    });
-
-    it("should keep the leading digits of a centered value inside the box", () => {
+    const draw = (value: number, state: Record<string, unknown> = {}): string[] => {
       const { component, recorder } = setup({
-        value: "1".repeat(40),
-        state: { location: "center" },
+        value,
+        state: { location: "center", box: NARROW, ...state },
       });
       recorder.clear();
       component.render({});
-      expect(firstFillTextX(recorder)).toBeGreaterThanOrEqual(box.left(BOX));
+      return fillTexts(recorder);
+    };
+
+    it("should show a value at its explicit precision when it fits", () => {
+      expect(draw(12.5, { precision: 2 })).toEqual(["12.50"]);
     });
 
-    it("should keep the leading digits of a right-located value inside the box", () => {
+    it("should fill the box with hashes when an explicit precision does not fit", () => {
+      expect(draw(123.456, { precision: 2 })).toEqual(["#####"]);
+    });
+
+    it("should show the fewest decimals that are exact when precision is absent", () => {
+      expect(draw(1.5)).toEqual(["1.5"]);
+    });
+
+    it("should drop decimals until the value fits when precision is absent", () => {
+      expect(draw(3.14159)).toEqual(["3.142"]);
+    });
+
+    it("should round the decimals it drops", () => {
+      const fourChars = box.construct({ x: 0, y: 0 }, { width: 32, height: 50 });
+      expect(draw(9.996, { box: fourChars })).toEqual(["10.0"]);
+    });
+
+    it("should fill the box with hashes when the whole number does not fit", () => {
+      expect(draw(123456)).toEqual(["#####"]);
+    });
+
+    it("should drop the sign of a negative value that does not fit", () => {
+      const texts = draw(-123456);
+      expect(texts).toHaveLength(1);
+      expect(texts[0]).toMatch(/^#+$/);
+    });
+
+    it("should fit decimals in the configured notation", () => {
+      const sixChars = box.construct({ x: 0, y: 0 }, { width: 48, height: 50 });
+      expect(draw(1234.5678, { notation: "scientific", box: sixChars })).toEqual([
+        "1.23ᴇ3",
+      ]);
+    });
+
+    it("should keep a right-located value that fits only without its inset in the box", () => {
       const { component, recorder } = setup({
-        value: "1".repeat(40),
-        state: { location: "right" },
+        value: 1234,
+        state: { location: "right", box: NARROW },
       });
       recorder.clear();
       component.render({});
-      expect(firstFillTextX(recorder)).toBeGreaterThanOrEqual(box.left(BOX));
+      const at = fillTextAt(recorder, "1234");
+      expect(at?.x).toBeGreaterThanOrEqual(0);
     });
 
-    // Nothing legible fits, so a bare ellipsis is the only honest thing to draw: a
-    // lone leading digit would read as the whole value.
-    it("should fall back to a bare ellipsis when not one digit fits", () => {
-      const { component, recorder } = setup({
-        value: "123456",
-        state: { box: box.construct({ x: 0, y: 0 }, { width: 12, height: 50 }) },
-      });
-      recorder.clear();
-      component.render({});
-      expect(fillTexts(recorder)).toEqual(["…"]);
-    });
-
-    it("should replace a single digit that does not fit with an ellipsis", () => {
-      const { component, recorder } = setup({
-        value: "5",
-        state: { box: box.construct({ x: 0, y: 0 }, { width: 12, height: 50 }) },
-      });
-      recorder.clear();
-      component.render({});
-      expect(fillTexts(recorder)).toEqual(["…"]);
-    });
-
-    it("should keep the sign of a negative single digit that does not fit", () => {
-      const { component, recorder } = setup({
-        value: "-5",
-        state: { box: box.construct({ x: 0, y: 0 }, { width: 12, height: 50 }) },
-      });
-      recorder.clear();
-      component.render({});
-      expect(fillTexts(recorder)).toEqual(["-", "…"]);
-    });
-
-    it("should leave a value that fits untouched", () => {
-      const { component, recorder } = setup({ value: "12.50" });
-      recorder.clear();
-      component.render({});
-      expect(fillTexts(recorder)).toContain("12.50");
+    it("should draw nothing before the source sends a number", () => {
+      expect(draw(NaN)).toEqual([""]);
     });
   });
 
@@ -320,7 +315,7 @@ describe("value/aether/Value", () => {
       baseline: CanvasTextBaseline = "alphabetic",
     ): xy.XY[] => {
       const surface = canvasTest.atlasSurface();
-      const { component } = setup({ value: "72.55", render: surface.context });
+      const { component } = setup({ value: 72.55, render: surface.context });
       surface.canvas.textAlign = align;
       surface.canvas.textBaseline = baseline;
       surface.clear();
@@ -351,10 +346,10 @@ describe("value/aether/Value", () => {
 
   describe("sizing", () => {
     it("should not change state when the value gets longer", () => {
-      const { component, source } = setup({ value: "1" });
+      const { component, source } = setup({ value: 1 });
       component.render({});
       const before = { ...component.state };
-      source.setValue("1".repeat(60));
+      source.setValue(1e59);
       expect(component.state).toEqual(before);
     });
   });
@@ -369,7 +364,7 @@ describe("value/aether/Value", () => {
     const ink = (location: spatial.XCenterLocation): xy.XY[] => {
       const surface = canvasTest.atlasSurface();
       const { component } = setup({
-        value: "72.55",
+        value: 72.55,
         render: surface.context,
         state: { location },
       });
@@ -389,7 +384,7 @@ describe("value/aether/Value", () => {
 
   describe("text color", () => {
     it("should use the high-contrast gray when no color is set", () => {
-      const { component, recorder } = setup({ value: "1" });
+      const { component, recorder } = setup({ value: 1 });
       recorder.clear();
       component.render({});
       expect(fillStyles(recorder)).toContain(color.hex(THEME.colors.gray.l11));
@@ -397,7 +392,7 @@ describe("value/aether/Value", () => {
 
     it("should honor a legible custom color", () => {
       const custom = color.construct("#ffffff");
-      const { component, recorder } = setup({ value: "1", state: { color: custom } });
+      const { component, recorder } = setup({ value: 1, state: { color: custom } });
       recorder.clear();
       component.render({});
       expect(fillStyles(recorder)).toContain(color.hex(custom));
@@ -406,7 +401,7 @@ describe("value/aether/Value", () => {
     it("should swap an illegible custom color for the high-contrast gray", () => {
       const illegible = THEME.colors.gray.l0;
       const { component, recorder } = setup({
-        value: "1",
+        value: 1,
         state: { color: illegible },
       });
       recorder.clear();
@@ -420,7 +415,7 @@ describe("value/aether/Value", () => {
     // the fill rather than against the surface it hides.
     it("should pick the legible gray against a filled background", () => {
       const { component, recorder } = setup({
-        value: "1",
+        value: 1,
         background: THEME.colors.gray.l11,
       });
       recorder.clear();
@@ -431,7 +426,7 @@ describe("value/aether/Value", () => {
     it("should swap a custom color illegible against the fill", () => {
       const nearWhite = color.construct("#fefefe");
       const { component, recorder } = setup({
-        value: "1",
+        value: 1,
         background: color.construct("#ffffff"),
         state: { color: nearWhite },
       });
@@ -470,7 +465,7 @@ describe("value/aether/Value", () => {
       const { component, source, recorder } = setup({
         state: { stalenessTimeout: 1, stalenessColor: stale },
       });
-      source.setValue("1");
+      source.setValue(1);
       vi.advanceTimersByTime(1250);
       recorder.clear();
       component.render({});
@@ -481,7 +476,7 @@ describe("value/aether/Value", () => {
       const { component, source, recorder } = setup({
         state: { stalenessTimeout: 1 },
       });
-      source.setValue("1");
+      source.setValue(1);
       vi.advanceTimersByTime(1250);
       recorder.clear();
       component.render({});
@@ -493,7 +488,7 @@ describe("value/aether/Value", () => {
       const { source, recorder } = setup({
         state: { stalenessTimeout: 1, stalenessColor: stale },
       });
-      source.setValue("1");
+      source.setValue(1);
       recorder.clear();
       // Nothing else asks the canvas to redraw once the source stops sending, so the
       // transition has to request the repaint itself.
@@ -504,12 +499,12 @@ describe("value/aether/Value", () => {
     it("should stay live while the source keeps sending", () => {
       const stale = color.construct("#ff0000");
       const { component, source, recorder } = setup({
-        value: "1",
+        value: 1,
         state: { stalenessTimeout: 5, stalenessColor: stale },
       });
       for (let i = 0; i < 5; i++) {
         vi.advanceTimersByTime(1000);
-        source.setValue(`${i}`);
+        source.setValue(i);
       }
       recorder.clear();
       component.render({});
@@ -521,9 +516,9 @@ describe("value/aether/Value", () => {
       const { component, source, recorder } = setup({
         state: { stalenessTimeout: 1, stalenessColor: stale },
       });
-      source.setValue("1");
+      source.setValue(1);
       vi.advanceTimersByTime(1250);
-      source.setValue("2");
+      source.setValue(2);
       recorder.clear();
       component.render({});
       expect(fillStyles(recorder)).not.toContain(color.hex(stale));
@@ -533,7 +528,7 @@ describe("value/aether/Value", () => {
   describe("background", () => {
     it("should fill the background when a non-zero color source is set", () => {
       const bg = color.construct("#00ff00");
-      const { component, recorder } = setup({ value: "1", background: bg });
+      const { component, recorder } = setup({ value: 1, background: bg });
       recorder.clear();
       component.render({});
       expect(drawCalls(recorder, "fillRect")).toHaveLength(1);
@@ -541,14 +536,14 @@ describe("value/aether/Value", () => {
     });
 
     it("should skip the background fill when the color is zero", () => {
-      const { component, recorder } = setup({ value: "1", background: color.ZERO });
+      const { component, recorder } = setup({ value: 1, background: color.ZERO });
       recorder.clear();
       component.render({});
       expect(drawCalls(recorder, "fillRect")).toHaveLength(0);
     });
 
     it("should not fill a background when no background source is configured", () => {
-      const { component, recorder } = setup({ value: "1" });
+      const { component, recorder } = setup({ value: 1 });
       recorder.clear();
       component.render({});
       expect(drawCalls(recorder, "fillRect")).toHaveLength(0);
@@ -556,7 +551,7 @@ describe("value/aether/Value", () => {
 
     it("should span the full box by default", () => {
       const { component, recorder } = setup({
-        value: "1",
+        value: 1,
         background: color.construct("#00ff00"),
       });
       recorder.clear();
@@ -570,11 +565,11 @@ describe("value/aether/Value", () => {
 
     it("should keep the background at the box width when the value gets longer", () => {
       const { source, recorder } = setup({
-        value: "1",
+        value: 1,
         background: color.construct("#00ff00"),
       });
       recorder.clear();
-      source.setValue("1".repeat(60));
+      source.setValue(1e59);
       const [, , w] = fillRectArgs(recorder);
       expect(w).toBe(box.width(BOX));
     });
@@ -582,7 +577,7 @@ describe("value/aether/Value", () => {
 
   describe("clip", () => {
     it("should restrict drawing to the box", () => {
-      const { component, recorder } = setup({ value: "1" });
+      const { component, recorder } = setup({ value: 1 });
       recorder.clear();
       component.render({});
       expect(drawCalls(recorder, "scissor")).toHaveLength(1);
@@ -590,7 +585,7 @@ describe("value/aether/Value", () => {
     });
 
     it("should leave the clip region square by default", () => {
-      const { component, recorder } = setup({ value: "1" });
+      const { component, recorder } = setup({ value: 1 });
       recorder.clear();
       component.render({});
       expect(drawCalls(recorder, "scissor")[0].args[2]).toBeUndefined();
@@ -599,7 +594,7 @@ describe("value/aether/Value", () => {
     it("should round the clip region by borderRadius", () => {
       const radius = { topLeft: 0, topRight: 0, bottomRight: 6, bottomLeft: 0 };
       const { component, recorder } = setup({
-        value: "1",
+        value: 1,
         state: { borderRadius: radius },
       });
       recorder.clear();
@@ -610,14 +605,14 @@ describe("value/aether/Value", () => {
 
   describe("afterDelete", () => {
     it("should clean up the telem source", () => {
-      const { h, source } = setup({ value: "1" });
+      const { h, source } = setup({ value: 1 });
       const cleanupSpy = vi.spyOn(source, "cleanup");
       h.unmount();
       expect(cleanupSpy).toHaveBeenCalled();
     });
 
     it("should erase its render region on delete", () => {
-      const { h, recorder } = setup({ value: "1" });
+      const { h, recorder } = setup({ value: 1 });
       recorder.clear();
       h.unmount();
       expect(recorder.eraseCalls.length).toBeGreaterThan(0);

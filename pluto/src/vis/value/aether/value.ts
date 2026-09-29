@@ -8,16 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { theme } from "@synnaxlabs/lyra/theme";
-import {
-  border,
-  box,
-  color,
-  type dimensions,
-  scale,
-  spatial,
-  text,
-  xy,
-} from "@synnaxlabs/x";
+import { border, box, color, notation, scale, spatial, text, xy } from "@synnaxlabs/x";
+import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { telem } from "@/telem/aether";
@@ -38,25 +30,43 @@ const MIN_LEGIBLE_CONTRAST = 1.1;
 // height. The draw and the clamp that keeps the sign in the box must use the same one.
 const SIGN_OFFSET = 0.6;
 
-const ELLIPSIS = "…";
+// Fills the box in place of a value too wide for it, as spreadsheets do.
+const OVERFLOW = "#";
 
-// Longest head of the value that fits in available, with an ellipsis standing in for
-// what was cut. Returns the value unchanged when it already fits, and the bare ellipsis
-// when not even one digit does, so a cut reading is never mistaken for a whole one.
-// The atlas gives every character, the ellipsis included, the same advance.
-const ellipsize = (
-  value: string,
-  available: number,
-  dims: dimensions.Dimensions,
-): string => {
-  if (dims.width <= available) return value;
-  const head = Math.floor(available / (dims.width / value.length)) - 1;
-  return head > 0 ? `${value.slice(0, head)}${ELLIPSIS}` : ELLIPSIS;
+const MAX_PRECISION = 20;
+
+// Fewest decimal places that show the value exactly, capped at MAX_PRECISION.
+const exactPrecision = (value: number, n: notation.Notation): number => {
+  if (!isFinite(value)) return 0;
+  for (let p = 0; p < MAX_PRECISION; p++) {
+    const text = notation.stringifyNumber(value, p, n).replace("ᴇ", "e");
+    if (Number(text) === value) return p;
+  }
+  return MAX_PRECISION;
+};
+
+// Text for the value that fits, or null when none does. An absent precision drops
+// decimals until the value fits; an explicit one either fits or does not.
+const fit = (
+  value: number,
+  precision: number | undefined,
+  n: notation.Notation,
+  fits: (text: string) => boolean,
+): string | null => {
+  const min = precision ?? 0;
+  for (let p = precision ?? exactPrecision(value, n); p >= min; p--) {
+    const text = notation.stringifyNumber(value, p, n);
+    if (fits(text)) return text;
+  }
+  return null;
 };
 
 const valueState = staleness.configZ.extend({
   box: box.box,
-  telem: telem.stringSourceSpecZ.default(telem.noopStringSourceSpec),
+  telem: telem.numberSourceSpecZ.default(telem.noopNumericSourceSpec),
+  // precision is the decimal places shown. When absent, the value shows as many as fit.
+  precision: z.number().optional(),
+  notation: notation.notationZ.default("standard"),
   backgroundTelem: telem.colorSourceSpecZ.default(telem.noopColorSourceSpec),
   level: text.levelZ,
   color: color.colorZ.default(color.ZERO),
@@ -72,7 +82,7 @@ const CANVAS_VARIANTS: render.Canvas2DVariant[] = ["upper2d", "lower2d"];
 interface InternalState {
   theme: theme.Theme;
   renderCtx: render.Context;
-  telem: telem.StringSource;
+  telem: telem.NumberSource;
   stopListening?: () => void;
   backgroundTelem: telem.ColorSource;
   stopListeningBackground?: () => void;
@@ -170,19 +180,18 @@ export class Value
   render({ viewportScale = scale.XY.IDENTITY }): void {
     const { renderCtx, telem, backgroundTelem, fontString, requestRender } =
       this.internal;
-    const { location, box: b } = this.state;
+    const { location, box: b, precision, notation: n } = this.state;
     if (box.areaIsZero(b)) return;
     const bTopLeft = box.topLeft(b);
     const bWidth = box.width(b);
     const bHeight = box.height(b);
     const canvas = renderCtx.upper2d.applyScale(viewportScale);
-    let value = telem.value();
+    const raw = telem.value();
     canvas.font = fontString;
     canvas.textAlign = "left";
     canvas.textBaseline = "alphabetic";
     const fontHeight = this.fontHeight;
-    const isNegative = value[0] == "-";
-    if (isNegative) value = value.slice(1);
+    let isNegative = raw < 0;
 
     if (requestRender == null) renderCtx.erase(box.construct(this.prevState.box));
 
@@ -191,12 +200,17 @@ export class Value
     const inset = 6 + fontHeight * 0.75;
     const start =
       location === "left" ? inset : isNegative ? fontHeight * SIGN_OFFSET : 0;
-    let dims = canvas.textDimensions(value, FILL_TEXT_OPTIONS);
-    const fitted = ellipsize(value, bWidth - start, dims);
-    if (fitted !== value) {
-      value = fitted;
-      dims = canvas.textDimensions(value, FILL_TEXT_OPTIONS);
+    const available = bWidth - start;
+    const measure = (text: string): number =>
+      canvas.textDimensions(text, FILL_TEXT_OPTIONS).width;
+    let value = isNaN(raw)
+      ? ""
+      : fit(Math.abs(raw), precision, n, (text) => measure(text) <= available);
+    if (value == null) {
+      isNegative = false;
+      value = OVERFLOW.repeat(Math.max(1, Math.floor(available / measure(OVERFLOW))));
     }
+    const dims = canvas.textDimensions(value, FILL_TEXT_OPTIONS);
 
     const labelOffset = {
       x:
@@ -207,9 +221,7 @@ export class Value
             : bWidth - dims.width - inset,
       y: bHeight / 2 + dims.height / 2,
     };
-    // Overflow must never eat the sign or the leading digits: both change what the
-    // value reads as, and neither loss is visible. Pinning the start keeps the cut at
-    // the right end, where the ellipsis shows it.
+    // A value that fits only without its inset must still keep its sign in the box.
     labelOffset.x = Math.max(labelOffset.x, start);
 
     const labelPosition = xy.translate(bTopLeft, labelOffset);

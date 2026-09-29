@@ -17,12 +17,12 @@ const FLASH_PERIOD = TimeSpan.milliseconds(500);
 /**
  * Builds the background color telemetry for a value painted through the given
  * redline.
- * @param source - The value's display telemetry. Its text is read as a number.
+ * @param source - The value's numeric telemetry.
  * @param background - The fill where no band paints. Absent paints nothing.
  * @returns The color telemetry, or undefined when nothing paints.
  */
 export const backgroundTelem = (
-  source: telem.StringSourceSpec,
+  source: telem.NumberSourceSpec,
   { bands, smooth }: color.Scale,
   background?: color.Color,
 ): telem.ColorSourceSpec | undefined => {

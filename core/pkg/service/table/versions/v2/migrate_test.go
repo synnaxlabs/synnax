@@ -250,7 +250,7 @@ var _ = Describe("MigrateTable", func() {
 				"stringifier": {"props": {"precision": 2.6}}
 			}}}
 		}`).Variant.(v2.ValueCellConfig)
-		Expect(*MustBeOk(cfg, ok).Precision).To(Equal(int32(3)))
+		Expect(*MustBeOk(cfg, ok).Precision).To(Equal(uint8(3)))
 	})
 
 	It("Should leave precision absent when the legacy spec carries none", func(
@@ -267,7 +267,7 @@ var _ = Describe("MigrateTable", func() {
 				"stringifier": {"props": {"precision": 0}}
 			}}}
 		}`).Variant.(v2.ValueCellConfig)
-		Expect(*MustBeOk(cfg, ok).Precision).To(Equal(int32(0)))
+		Expect(*MustBeOk(cfg, ok).Precision).To(Equal(uint8(0)))
 	})
 
 	It("Should leave the channel at the zero sentinel for a legacy zero channel", func(

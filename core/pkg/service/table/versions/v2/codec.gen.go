@@ -43,7 +43,7 @@ func (cc CellConfig) EncodeOrc(w *orc.Writer) error {
 		w.Int32(int32(v.RollingAverage))
 		if v.Precision != nil {
 			w.Bool(true)
-			w.Int32(int32(*v.Precision))
+			w.Uint8(uint8(*v.Precision))
 		} else {
 			w.Bool(false)
 		}
@@ -144,8 +144,8 @@ func (cc *CellConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv int32
-				if hv, err = r.Int32(); err != nil {
+				var hv uint8
+				if hv, err = r.Uint8(); err != nil {
 					return err
 				}
 				v.Precision = &hv
