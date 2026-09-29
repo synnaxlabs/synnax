@@ -24,8 +24,8 @@ namespace driver::bus {
 /// @brief how long a warning stays on the task status after its cause stops.
 const auto WARNING_HOLD = 1 * x::telem::SECOND;
 
-/// @brief collects the decoded samples, raw frames, and warnings of a read task
-/// between reads, and moves them into a frame for the task's channels.
+/// @brief collects the decoded samples, raw frames, and warnings of a read task between
+/// reads, and moves them into a frame for the task's channels.
 class Decoder {
 public:
     /// @param cfg the task's config. It must outlive the decoder.
@@ -41,19 +41,19 @@ public:
     void raw(std::span<const std::uint8_t> frame);
 
     /// @brief decodes payload as the given message, received at time. A payload that
-    /// does not decode is dropped with a warning. A sample missing a multiplexed
-    /// field is dropped, so every channel on an index keeps the same length.
+    /// does not decode is dropped with a warning. A sample missing a multiplexed field
+    /// is dropped, so every channel on an index keeps the same length.
     void decode(
         std::size_t message,
         std::span<const std::uint8_t> payload,
         x::telem::TimeStamp time
     );
 
-    /// @brief adds a warning to the next call to warning.
+    /// @brief adds a warning to the next call to warning, unless it is already there.
     void warn(std::string message);
 
-    /// @brief moves every collected sample and raw frame into fr. Index times
-    /// strictly increase.
+    /// @brief moves every collected sample and raw frame into fr. Index times strictly
+    /// increase.
     void flush(x::telem::Frame &fr);
 
     /// @returns the warnings since the last call, joined, or the last warning while it

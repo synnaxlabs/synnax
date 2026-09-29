@@ -69,6 +69,7 @@ func canMessage(name string, id uint32, fields ...library.Field) library.Message
 
 // createLibrary stores l and defines the ontology resources of l and the task.
 func createLibrary(ctx context.Context, l *library.Library, task uuid.UUID) {
+	GinkgoHelper()
 	l.Key = uuid.New()
 	Expect(gorp.NewCreate[library.Key, library.Library]().
 		Entry(l).

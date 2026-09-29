@@ -124,12 +124,12 @@ std::size_t encode_frame(
 }
 
 std::pair<HostFrame, x::errors::Error>
-decode_frame(const std::span<const std::uint8_t> bytes, const bool timestamps) {
+decode_frame(const std::span<const std::uint8_t> bytes, const bool timestamped) {
     if (bytes.size() < HEADER_SIZE) return {{}, short_reply("frame", bytes.size())};
     const std::uint8_t flags = bytes[10];
     const bool fd = (flags & FRAME_FD) != 0;
     const auto data_size = fd ? MAX_FD_LENGTH : MAX_CLASSIC_LENGTH;
-    const auto size = HEADER_SIZE + data_size + (timestamps ? 4 : 0);
+    const auto size = HEADER_SIZE + data_size + (timestamped ? 4 : 0);
     if (bytes.size() < size) return {{}, short_reply("frame", bytes.size())};
     HostFrame hf;
     hf.echo_id = read_u32(bytes, 0);
@@ -150,7 +150,7 @@ decode_frame(const std::span<const std::uint8_t> bytes, const bool timestamps) {
     f.error_passive = (flags & FRAME_ESI) != 0;
     f.length = dlc_to_length(bytes[8], fd);
     std::memcpy(f.data.data(), bytes.data() + HEADER_SIZE, data_size);
-    if (timestamps) hf.timestamp_us = read_u32(bytes, HEADER_SIZE + data_size);
+    if (timestamped) hf.timestamp_us = read_u32(bytes, HEADER_SIZE + data_size);
     return {hf, x::errors::NIL};
 }
 }

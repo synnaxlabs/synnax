@@ -121,7 +121,7 @@ class TestBusTasks:
 
     def test_invalid_data_bits(self) -> None:
         """Should reject data bits outside a byte."""
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="less than or equal to 255"):
             sy.serial.Device(port="/dev/ttyUSB0", data_bits=300)
 
     @pytest.mark.parametrize("integration", INTEGRATIONS)

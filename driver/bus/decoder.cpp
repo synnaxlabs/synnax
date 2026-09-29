@@ -55,11 +55,11 @@ void Decoder::decode(
     if (n == p.values.size()) p.values.push_back(m.plan.values());
     auto &values = p.values[n];
     if (const auto err = m.plan.decode(payload, values)) {
-        this->warnings.push_back(m.entry.name + ": " + err.data);
+        this->warn(m.entry.name + ": " + err.data);
         return;
     }
     if (values.invalid() > 0) {
-        this->warnings.push_back(
+        this->warn(
             m.entry.name + ": " + std::to_string(values.invalid()) +
             " fields did not parse as numbers"
         );
@@ -73,6 +73,7 @@ void Decoder::decode(
 }
 
 void Decoder::warn(std::string message) {
+    if (std::ranges::find(this->warnings, message) != this->warnings.end()) return;
     this->warnings.push_back(std::move(message));
 }
 

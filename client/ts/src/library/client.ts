@@ -61,8 +61,8 @@ const encodeBase64 = (data: Uint8Array): string => {
 };
 
 /**
- * Client-side matching for a request: key sets. Server-computed shapes
- * (search, limit/offset) never reach this filter; they refetch instead.
+ * Client-side matching for a request: key sets. Server-computed shapes (search,
+ * limit/offset) never reach this filter; they refetch instead.
  */
 const requestFilter = (req: RetrieveRequest): ((l: Library) => boolean) => {
   const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;

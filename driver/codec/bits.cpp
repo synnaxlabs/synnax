@@ -51,7 +51,7 @@ std::pair<BitRange, x::errors::Error> BitRange::compile(
             ),
         };
     BitRange r;
-    r.bits = bit_length;
+    r.length_ = bit_length;
     r.end_ = last / 8 + 1;
     for (std::size_t b = first / 8; b <= last / 8; b++) {
         const auto lo = std::max(first, b * 8);

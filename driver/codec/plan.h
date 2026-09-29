@@ -197,8 +197,7 @@ private:
         double scale = 1;
         /// @brief offset is added to the scaled value on decode.
         double offset = 0;
-        /// @brief exact is true for integer fields with a scale of 1 and an offset of
-        /// 0.
+        /// @brief exact is true for integer fields with scale 1 and offset 0.
         bool exact = false;
         /// @brief condition selects the field.
         Condition condition;
@@ -218,6 +217,8 @@ private:
         std::string tag;
     };
 
+    /// @returns true when each multiplexor in the condition's chain holds one of its
+    /// values.
     [[nodiscard]] bool
     selected(const Condition &condition, const std::uint8_t *payload) const;
     x::errors::Error

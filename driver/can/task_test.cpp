@@ -164,6 +164,48 @@ public:
     }
 };
 
+/// @brief a bus whose received frames carry an adapter clock that reads one second at
+/// the first frame and advances one second per frame.
+class AdapterClockBus final : public Bus {
+    std::unique_ptr<Bus> inner;
+    std::int64_t received = 0;
+
+public:
+    explicit AdapterClockBus(std::unique_ptr<Bus> inner): inner(std::move(inner)) {}
+
+    std::pair<bool, x::errors::Error>
+    receive(Frame &frame, const x::telem::TimeSpan timeout) override {
+        auto res = this->inner->receive(frame, timeout);
+        if (!res.first) return res;
+        frame.time = x::telem::TimeStamp(++this->received * x::telem::SECOND);
+        frame.clock = Clock::HARDWARE;
+        return res;
+    }
+
+    x::errors::Error send(const Frame &frame) override {
+        return this->inner->send(frame);
+    }
+
+    x::errors::Error close() override { return this->inner->close(); }
+};
+
+/// @brief a loopback backend whose buses stamp frames with an adapter clock.
+class AdapterClock final : public Backend {
+public:
+    std::shared_ptr<loopback::Backend> inner = std::make_shared<loopback::Backend>();
+
+    std::pair<std::vector<Channel>, x::errors::Error> scan() override {
+        return this->inner->scan();
+    }
+
+    std::pair<std::unique_ptr<Bus>, x::errors::Error>
+    open(const synnax::can::Properties &props) override {
+        auto [bus, err] = this->inner->open(props);
+        if (err) return {nullptr, err};
+        return {std::make_unique<AdapterClockBus>(std::move(bus)), err};
+    }
+};
+
 /// @brief runs CAN tasks on a loopback bus. The test plays the other node on the
 /// bus through peer.
 class CANTask : public ::testing::Test {
@@ -524,6 +566,48 @@ TEST_F(CANTask, ReopensTheBusAfterAReceiveFault) {
     }());
     t->stop("stop", true);
     EXPECT_EQ(values(*this->writes, 1)[0], 9);
+}
+
+TEST_F(CANTask, MovesAdapterTimesOntoTheHostClock) {
+    const auto adapter = std::make_shared<AdapterClock>();
+    const auto backends = std::make_shared<const Backends>(
+        Backends{{loopback::BACKEND, adapter}}
+    );
+    const auto peer = ASSERT_NIL_P(adapter->inner->open(this->props));
+    Source source(
+        read_config(
+            {binary_message(
+                "status",
+                {binary_field("v", 0)},
+                synnax::library::CanIdentifier{.id = 0x10}
+            )},
+            std::nullopt,
+            nullptr,
+            {},
+            {},
+            bus::Medium::CAN
+        ),
+        acquirer(this->links, "dev", backends, this->props)
+    );
+    ASSERT_NIL(source.start());
+    const auto before = x::telem::TimeStamp::now();
+    const Frame frame{.id = 0x10, .length = 1};
+    for (int i = 0; i < 3; i++)
+        ASSERT_NIL(peer->send(frame));
+    x::breaker::Breaker breaker;
+    std::vector<x::telem::Frame> frames;
+    ASSERT_EVENTUALLY_TRUE([&] {
+        x::telem::Frame fr;
+        EXPECT_FALSE(source.read(breaker, fr).error);
+        frames.push_back(std::move(fr));
+        return times(frames, 100).size() == 3;
+    }());
+    ASSERT_NIL(source.stop());
+    const auto stamps = times(frames, 100);
+    EXPECT_GE(stamps[0], before.nanoseconds());
+    EXPECT_LE(stamps[0], x::telem::TimeStamp::now().nanoseconds());
+    EXPECT_EQ(stamps[1] - stamps[0], x::telem::SECOND.nanoseconds());
+    EXPECT_EQ(stamps[2] - stamps[1], x::telem::SECOND.nanoseconds());
 }
 
 TEST_F(CANTask, RejectsAFrameLongerThanTheBusCarries) {

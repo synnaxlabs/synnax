@@ -22,19 +22,19 @@ namespace driver::can::pcan {
 /// libPCBUSB.dylib on macOS, loaded at runtime.
 class ProdAPI final : public API {
     std::unique_ptr<x::lib::Shared> lib;
-    CAN_Initialize_t initialize;
-    CAN_InitializeFD_t initialize_fd;
-    CAN_Uninitialize_t uninitialize;
-    CAN_Read_t read;
-    CAN_ReadFD_t read_fd;
-    CAN_Write_t write;
-    CAN_WriteFD_t write_fd;
-    CAN_GetValue_t get_value;
-    CAN_SetValue_t set_value;
-    CAN_GetErrorText_t get_error_text;
+    CAN_Initialize_t initialize = nullptr;
+    CAN_InitializeFD_t initialize_fd = nullptr;
+    CAN_Uninitialize_t uninitialize = nullptr;
+    CAN_Read_t read = nullptr;
+    CAN_ReadFD_t read_fd = nullptr;
+    CAN_Write_t write = nullptr;
+    CAN_WriteFD_t write_fd = nullptr;
+    CAN_GetValue_t get_value = nullptr;
+    CAN_SetValue_t set_value = nullptr;
+    CAN_GetErrorText_t get_error_text = nullptr;
 
 public:
-    explicit ProdAPI(std::unique_ptr<x::lib::Shared> lib);
+    explicit ProdAPI(std::unique_ptr<x::lib::Shared> lib): lib(std::move(lib)) {}
 
     /// @brief loads the library for this platform.
     /// @returns UNSUPPORTED_ERROR on a platform PCAN-Basic does not serve, the missing

@@ -44,8 +44,8 @@ struct Core {
         return lib;
     }
 
-    /// @returns the key of a device with the given make and properties, created in
-    /// the Core.
+    /// @returns the key of a device with the given make and properties, created in the
+    /// Core.
     std::string
     create_device(const std::string &make, const x::json::json &props) const {
         synnax::device::Device dev{
@@ -62,8 +62,8 @@ struct Core {
         return dev.key;
     }
 
-    /// @returns a read config over every message and field in lib, with an index and
-    /// a float64 channel per field created in the Core.
+    /// @returns a read config over every message and field in lib, with an index and a
+    /// float64 channel per field created in the Core.
     ::synnax::bus::ReadConfig
     read_config(const synnax::library::Library &lib, const std::string &device) const {
         ::synnax::bus::ReadConfig cfg;

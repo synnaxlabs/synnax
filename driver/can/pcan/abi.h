@@ -74,17 +74,14 @@ constexpr TPCANMessageType PCAN_MESSAGE_EXTENDED = 0x02;
 constexpr TPCANMessageType PCAN_MESSAGE_FD = 0x04;
 constexpr TPCANMessageType PCAN_MESSAGE_BRS = 0x08;
 constexpr TPCANMessageType PCAN_MESSAGE_ESI = 0x10;
-constexpr TPCANMessageType PCAN_MESSAGE_ECHO = 0x20;
 constexpr TPCANMessageType PCAN_MESSAGE_ERRFRAME = 0x40;
 constexpr TPCANMessageType PCAN_MESSAGE_STATUS = 0x80;
 
-constexpr TPCANParameter PCAN_DEVICE_ID = 0x01;
 constexpr TPCANParameter PCAN_LISTEN_ONLY = 0x08;
 constexpr TPCANParameter PCAN_CHANNEL_CONDITION = 0x0D;
 constexpr TPCANParameter PCAN_HARDWARE_NAME = 0x0E;
 constexpr TPCANParameter PCAN_CHANNEL_FEATURES = 0x16;
 
-constexpr std::uint32_t PCAN_PARAMETER_OFF = 0x00;
 constexpr std::uint32_t PCAN_PARAMETER_ON = 0x01;
 constexpr std::uint32_t PCAN_CHANNEL_UNAVAILABLE = 0x00;
 constexpr std::uint32_t PCAN_CHANNEL_AVAILABLE = 0x01;

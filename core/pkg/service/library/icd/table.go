@@ -48,9 +48,7 @@ const (
 	utf8BOM      = "\ufeff"
 )
 
-// ParseCSV parses a field table in comma-separated values. See ParseXLSX for the table
-// layout. Errors are scoped to the "data" path and name the line or row.
-func ParseCSV(data []byte) ([]versions.Entry, error) {
+func parseCSV(data []byte) ([]versions.Entry, error) {
 	r := csv.NewReader(bytes.NewReader(bytes.TrimPrefix(data, []byte(utf8BOM))))
 	r.FieldsPerRecord = -1
 	rows, err := r.ReadAll()
@@ -64,14 +62,7 @@ func ParseCSV(data []byte) ([]versions.Entry, error) {
 	return parseTable(rows)
 }
 
-// ParseXLSX parses a field table in the first sheet of an Excel workbook. The first row
-// is a header that names each column, in any case: message, id, extended, length,
-// period_ms, field, start_bit, bit_length, byte_order, signed, float, scale, offset,
-// and units. The message, field, start_bit, and bit_length columns are required. Each
-// other row is one binary field, and the rows of one message form one message entry,
-// with a CAN identifier when an id is present. Errors are scoped to the "data" path
-// and name the row.
-func ParseXLSX(data []byte) (entries []versions.Entry, err error) {
+func parseXLSX(data []byte) (entries []versions.Entry, err error) {
 	f, err := excelize.OpenReader(
 		bytes.NewReader(data),
 		excelize.Options{UnzipSizeLimit: maxUnzipSize},

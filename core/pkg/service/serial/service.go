@@ -24,7 +24,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// ServiceConfig is the configuration for opening the Serial task config service.
+// ServiceConfig is the configuration for opening the serial task config service.
 type ServiceConfig struct {
 	// DB is the database config records are stored in.
 	// [REQUIRED]
@@ -61,7 +61,7 @@ func (c ServiceConfig) Validate() error {
 	return v.Error()
 }
 
-// Service owns the stored configuration records of the Serial task types.
+// Service owns the stored configuration records of the serial task types.
 type Service struct {
 	// Read stores serial_read task configuration records.
 	Read *config.Service[ReadConfig]
@@ -72,7 +72,7 @@ type Service struct {
 	closer xio.MultiCloser
 }
 
-// OpenService opens the Serial task config service with the provided configuration.
+// OpenService opens the serial task config service with the provided configuration.
 // If error is nil, the service is ready for use and must be closed by calling Close
 // to prevent resource leaks.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {

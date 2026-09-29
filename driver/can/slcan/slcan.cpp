@@ -54,7 +54,8 @@ Bus::read(const x::telem::TimeSpan timeout) {
                 frames.push_back(frame);
                 break;
             case Reply::MALFORMED:
-                LOG(WARNING) << this->name << ": the adapter sent a malformed line";
+                LOG(WARNING) << "[can] " << this->name
+                             << ": the adapter sent a malformed line";
                 break;
             case Reply::ACCEPTED:
                 if (!result.has_value()) result = Reply::ACCEPTED;
@@ -140,7 +141,7 @@ x::errors::Error Bus::exchange() {
     auto [reply, err] = this->read(READ_SLICE);
     if (err) return err;
     if (reply == Reply::REJECTED)
-        LOG(WARNING) << this->name << ": the adapter rejected a frame";
+        LOG(WARNING) << "[can] " << this->name << ": the adapter rejected a frame";
     return x::errors::NIL;
 }
 

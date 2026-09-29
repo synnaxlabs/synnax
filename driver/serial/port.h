@@ -39,14 +39,14 @@ class Port {
 
 public:
     /// @brief opens the port at props.port and applies the settings in props.
-    /// @returns UNREACHABLE_ERROR when the port cannot be opened, and CONFIG_ERROR
-    /// when a setting is invalid or the port or platform cannot apply it.
+    /// @returns UNREACHABLE_ERROR when the port cannot be opened, and CONFIG_ERROR when
+    /// a setting is invalid or the port or platform cannot apply it.
     static std::pair<std::unique_ptr<Port>, x::errors::Error>
     open(const synnax::serial::Properties &props);
 
     /// @brief blocks until bytes arrive or the timeout elapses.
-    /// @returns the bytes that arrived, or an empty chunk on timeout.
-    /// UNREACHABLE_ERROR when the port fails, as when its device is unplugged.
+    /// @returns the bytes that arrived, or an empty chunk on timeout. UNREACHABLE_ERROR
+    /// when the port fails, as when its device is unplugged.
     std::pair<transport::Chunk, x::errors::Error> read(x::telem::TimeSpan timeout);
 
     /// @brief blocks until all of data is written or the timeout elapses.

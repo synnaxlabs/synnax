@@ -58,19 +58,6 @@ std::pair<std::shared_ptr<API>, x::errors::Error> ProdAPI::load() {
     return {api, x::errors::NIL};
 }
 
-ProdAPI::ProdAPI(std::unique_ptr<x::lib::Shared> lib):
-    lib(std::move(lib)),
-    initialize(nullptr),
-    initialize_fd(nullptr),
-    uninitialize(nullptr),
-    read(nullptr),
-    read_fd(nullptr),
-    write(nullptr),
-    write_fd(nullptr),
-    get_value(nullptr),
-    set_value(nullptr),
-    get_error_text(nullptr) {}
-
 TPCANStatus ProdAPI::Initialize(
     const TPCANHandle channel,
     const TPCANBaudrate btr0btr1,

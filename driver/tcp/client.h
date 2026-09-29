@@ -62,8 +62,8 @@ class Client {
 
 public:
     /// @brief connects to props.host on props.port.
-    /// @returns CONFIG_ERROR when props has no host or port, and UNREACHABLE_ERROR
-    /// when the first connection attempt fails.
+    /// @returns CONFIG_ERROR when props has no host or port, and UNREACHABLE_ERROR when
+    /// the first connection attempt fails.
     static std::pair<std::unique_ptr<Client>, x::errors::Error>
     open(const synnax::tcp::Properties &props, const Config &config = Config{});
 

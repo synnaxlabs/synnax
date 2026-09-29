@@ -186,10 +186,10 @@ BU_: Ecu
 
 `
 
-var _ = Describe("ParseDBC", func() {
+var _ = Describe("Parse DBC", func() {
 	DescribeTable("Should decode each message as cantools does", func(name string) {
 		data, want := readFixture(name)
-		entries := MustSucceed(icd.ParseDBC(data))
+		entries := MustSucceed(icd.Parse(icd.FormatDBC, data))
 		Expect(toExpected(entries)).To(Equal(want.Messages))
 		for table, values := range want.ValueTables {
 			Expect(enumNamed(entries, table).Values).To(Equal(values))
@@ -203,12 +203,14 @@ var _ = Describe("ParseDBC", func() {
 	It("Should read a file with CRLF line endings", func() {
 		data, want := readFixture("extended_multiplexed")
 		crlf := bytes.ReplaceAll(data, []byte("\n"), []byte("\r\n"))
-		Expect(toExpected(MustSucceed(icd.ParseDBC(crlf)))).To(Equal(want.Messages))
+		Expect(
+			toExpected(MustSucceed(icd.Parse(icd.FormatDBC, crlf))),
+		).To(Equal(want.Messages))
 	})
 
 	It("Should reference a value table whose values match a signal's", func() {
 		data, _ := readFixture("basic")
-		entries := MustSucceed(icd.ParseDBC(data))
+		entries := MustSucceed(icd.Parse(icd.FormatDBC, data))
 		gear := fieldNamed(messageNamed(entries, "Engine"), "Gear")
 		Expect(*gear.Enumeration).To(Equal(enumNamed(entries, "GearTable").Key))
 		state := fieldNamed(messageNamed(entries, "Battery"), "State")
@@ -217,7 +219,7 @@ var _ = Describe("ParseDBC", func() {
 
 	It("Should give every entry and field a distinct key", func() {
 		data, _ := readFixture("basic")
-		entries := MustSucceed(icd.ParseDBC(data))
+		entries := MustSucceed(icd.Parse(icd.FormatDBC, data))
 		keys := make(set.Set[library.EntryKey])
 		for _, e := range entries {
 			switch v := e.Variant.(type) {
@@ -242,7 +244,7 @@ BA_DEF_ BO_ "VFrameFormat" INT 0 15;
 BA_DEF_DEF_ "VFrameFormat" 0;
 BA_ "VFrameFormat" BO_ 256 14;
 `)
-		m := messageNamed(MustSucceed(icd.ParseDBC(data)), "Fast")
+		m := messageNamed(MustSucceed(icd.Parse(icd.FormatDBC, data)), "Fast")
 		Expect(m.Identifier.Variant.(library.CanIdentifier).Fd).To(BeTrue())
 	})
 
@@ -255,7 +257,7 @@ BA_DEF_ BO_ "GenMsgCycleTime" INT 0 65535;
 BA_DEF_DEF_ "GenMsgCycleTime" 0;
 BA_ "GenMsgCycleTime" BO_ 256 20;
 `)
-		m := messageNamed(MustSucceed(icd.ParseDBC(data)), "Engine")
+		m := messageNamed(MustSucceed(icd.Parse(icd.FormatDBC, data)), "Engine")
 		Expect(m.Period).To(Equal(new(20 * telem.Millisecond)))
 	})
 
@@ -265,7 +267,7 @@ BA_ "GenMsgCycleTime" BO_ 256 20;
 
 VAL_ 256 Mode 0 "Off" 1 "Reserved" 2 "Reserved" ;
 `)
-		entries := MustSucceed(icd.ParseDBC(data))
+		entries := MustSucceed(icd.Parse(icd.FormatDBC, data))
 		Expect(enumNamed(entries, "Engine.Mode").Values).To(Equal([]library.EnumValue{
 			{Value: 0, Name: "Off"},
 			{Value: 1, Name: "Reserved"},
@@ -281,7 +283,11 @@ CM_ BO_ 256 "Spans lines,
 SG_MUL_VAL_ 256 A B 0-0;
 and ends here.";
 `)
-		Expect(binaryFields(messageNamed(MustSucceed(icd.ParseDBC(data)), "Engine"))).
+		Expect(
+			binaryFields(
+				messageNamed(MustSucceed(icd.Parse(icd.FormatDBC, data)), "Engine"),
+			),
+		).
 			To(HaveLen(1))
 	})
 
@@ -290,7 +296,7 @@ and ends here.";
 			HavePrefix("data: "+message),
 			HaveSuffix(": validation error"),
 		))
-		Expect(icd.ParseDBC([]byte(dbcHeader + body))).Error().To(err)
+		Expect(icd.Parse(icd.FormatDBC, []byte(dbcHeader+body))).Error().To(err)
 	},
 		Entry("a syntax error", `BO_ 256 Engine 8 Ecu
 `, "line 9, column 18: expected token"),

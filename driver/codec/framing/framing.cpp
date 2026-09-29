@@ -10,6 +10,8 @@
 #include <algorithm>
 #include <string>
 
+#include "client/cpp/library/types.gen.h"
+
 #include "driver/codec/framing/checksum.h"
 #include "driver/codec/framing/framing.h"
 
@@ -67,6 +69,7 @@ x::errors::Error validate(const View frame, const std::size_t wire_size) {
 }
 
 class Delimiter final : public Framer {
+    /// @brief delimiter ends each frame.
     const Bytes delimiter;
     /// @brief buf holds the bytes of the frame in progress.
     Bytes buf;
@@ -165,6 +168,7 @@ public:
 };
 
 class Fixed final : public Framer {
+    /// @brief length is the size of every frame in bytes.
     const std::size_t length;
     /// @brief buf holds the bytes of the frame in progress.
     Bytes buf;
@@ -226,6 +230,7 @@ struct SyncLayout {
 };
 
 class Sync final : public Framer {
+    /// @brief layout is the resolved sync framing.
     const SyncLayout layout;
     /// @brief header is the number of bytes through the end of the length field.
     const std::size_t header;
@@ -415,6 +420,7 @@ struct Unstuffed {
 };
 
 class COBS final : public Framer {
+    /// @brief u holds the frame in progress.
     Unstuffed u;
     /// @brief remaining is the number of data bytes left in the current block.
     std::size_t remaining = 0;
@@ -481,6 +487,7 @@ class SLIP final : public Framer {
     static constexpr std::uint8_t ESC_END = 0xDC;
     static constexpr std::uint8_t ESC_ESC = 0xDD;
 
+    /// @brief u holds the frame in progress.
     Unstuffed u;
     /// @brief escaped is true after an ESC byte.
     bool escaped = false;

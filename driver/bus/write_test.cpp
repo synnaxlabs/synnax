@@ -34,8 +34,8 @@ struct Harness {
     );
     std::unique_ptr<Sink> sink;
 
-    /// @param bindings maps each command channel to the index of the field it drives
-    /// in message.
+    /// @param bindings maps each command channel to the index of the field it drives in
+    /// message.
     Harness(
         const synnax::library::MessageEntry &message,
         const std::vector<std::pair<synnax::channel::Key, std::size_t>> &bindings,

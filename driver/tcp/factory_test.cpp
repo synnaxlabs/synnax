@@ -96,8 +96,8 @@ TEST_F(TCPFactory, ConfiguresAWriteTask) {
     ASSERT_NE(t, nullptr);
     exec(*t, "start");
     auto writer = ASSERT_NIL_P(core.client->telem.open_writer({.channels = {cmd.key}}));
-    // The write task acknowledges its start before its streamer opens, and it
-    // connects on its first send.
+    // The write task acknowledges its start before its streamer opens, and it connects
+    // on its first send.
     this->acceptor.non_blocking(true);
     asio::ip::tcp::socket peer(this->io);
     std::error_code ec = asio::error::would_block;

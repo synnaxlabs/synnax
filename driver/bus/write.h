@@ -50,8 +50,8 @@ public:
     send(std::size_t message, std::span<const std::uint8_t> payload) = 0;
 };
 
-/// @brief sends each message as bytes on a shared byte-stream or datagram
-/// connection, and reopens the connection after a failed send.
+/// @brief sends each message as bytes on a shared byte-stream or datagram connection,
+/// and reopens the connection after a failed send.
 class ConnectionTransmitter final : public Transmitter {
     Acquire acquirer;
     std::shared_ptr<Connection> conn;
@@ -93,8 +93,8 @@ public:
     /// other properties.
     x::errors::Error start() override;
 
-    /// @brief stops the I/O thread, drops unsent messages, and releases the
-    /// connection, which closes when no other task uses it.
+    /// @brief stops the I/O thread, drops unsent messages, and releases the connection,
+    /// which closes when no other task uses it.
     x::errors::Error stop() override;
 
     /// @brief applies the last sample of each command channel in frame and queues the

@@ -24,6 +24,7 @@ import (
 )
 
 func createUsingTask(ctx context.Context, lib library.Key) task.Task {
+	GinkgoHelper()
 	t := task.Task{
 		Rack:   testRack.Key,
 		Name:   "Decoder",
@@ -35,6 +36,7 @@ func createUsingTask(ctx context.Context, lib library.Key) task.Task {
 }
 
 func retrieveTask(ctx context.Context, key task.Key) task.Task {
+	GinkgoHelper()
 	var t task.Task
 	Expect(taskSvc.NewRetrieve().
 		Where(task.MatchKeys(key)).
@@ -44,6 +46,7 @@ func retrieveTask(ctx context.Context, key task.Key) task.Task {
 }
 
 func retrieveUsers(ctx context.Context, lib library.Key) []ontology.ID {
+	GinkgoHelper()
 	var users []ontology.Resource
 	Expect(otg.NewRetrieve().
 		WhereIDs(library.OntologyID(lib)).

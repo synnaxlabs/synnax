@@ -42,7 +42,7 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("Stores", func() {
-		It("Should expose one store per Serial task type", func() {
+		It("Should expose one store per serial task type", func() {
 			types := []string{}
 			for _, s := range svc.Stores() {
 				types = append(types, s.Type())

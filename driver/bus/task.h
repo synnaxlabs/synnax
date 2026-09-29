@@ -84,8 +84,7 @@ Acquire acquirer(
 }
 
 /// @brief configures a bus read task whose device connects through Conn.
-/// @param connections the connections of the integration, shared with its other
-/// tasks.
+/// @param connections the connections of the integration, shared with its other tasks.
 /// @tparam Conn a transport with a static open(Properties).
 /// @tparam Properties the device properties of the integration.
 /// @tparam Config the read config of the integration.

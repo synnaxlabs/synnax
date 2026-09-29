@@ -35,7 +35,7 @@ class Bus final : public can::Bus {
     std::string name;
     bool fd;
     bool listen_only;
-    bool timestamps;
+    bool timestamped;
     Counter counter;
     std::atomic<std::uint32_t> next_echo = 0;
     bool closed = false;
@@ -47,7 +47,7 @@ public:
         std::string name,
         bool fd,
         bool listen_only,
-        bool timestamps);
+        bool timestamped);
     ~Bus() override;
 
     [[nodiscard]] std::pair<bool, x::errors::Error>
