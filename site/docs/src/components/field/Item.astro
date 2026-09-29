@@ -1,0 +1,134 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+export interface Props {
+    /** The flag or key, for example `--listen`. */
+    name: string;
+    /** A short form of the flag, for example `-l`. */
+    short?: string;
+    /** The kind of value the flag takes. Leave it out for a flag that takes none. */
+    type?: string;
+    default?: string;
+    /** The environment variable that sets the same value. */
+    env?: string;
+    /** The anchor of the entry. Defaults to the name without leading dashes. */
+    id?: string;
+}
+
+const {
+    name,
+    short,
+    type,
+    default: defaultValue,
+    env,
+    id = name.replace(/^-+/, ""),
+} = Astro.props;
+---
+
+<div class="field" id={id}>
+    <dt class="field__header">
+        <a class="field__name" href={`#${id}`}>
+            <code>{name}</code>
+            {short != null && (
+                <span>
+                    , <code>{short}</code>
+                </span>
+            )}
+        </a>
+        {type != null && <code class="field__type">{`<${type}>`}</code>}
+        {(defaultValue != null || env != null) && (
+            <span class="field__meta">
+                {defaultValue != null && (
+                    <span>
+                        Default <code>{defaultValue}</code>
+                    </span>
+                )}
+                {env != null && (
+                    <span>
+                        Env <code>{env}</code>
+                    </span>
+                )}
+            </span>
+        )}
+    </dt>
+    <dd class="field__description">
+        <slot />
+    </dd>
+</div>
+
+<style>
+    .field {
+        padding: 2.5rem 0;
+        border-bottom: var(--pluto-border-width) solid var(--pluto-gray-l3);
+    }
+
+    .field__header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 0.5rem 1.5rem;
+    }
+
+    .field__header code {
+        padding: 0;
+        border: none;
+        background: none;
+    }
+
+    .field__name {
+        color: var(--pluto-gray-l8);
+        text-decoration: none;
+
+        & code {
+            font-size: var(--pluto-p-size);
+            font-weight: 600;
+            color: var(--pluto-gray-l11);
+        }
+
+        & span code {
+            font-weight: 400;
+            color: var(--pluto-gray-l9);
+        }
+
+        &:hover code {
+            text-decoration: underline;
+        }
+    }
+
+    .field__type {
+        color: var(--pluto-gray-l8);
+    }
+
+    .field__meta {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        flex-basis: 100%;
+        gap: 0.5rem 4rem;
+        font-size: var(--pluto-small-size);
+        color: var(--pluto-gray-l8);
+
+        & code {
+            color: var(--pluto-gray-l10);
+        }
+    }
+
+    .field__description {
+        margin: 1rem 0 0;
+
+        & :global(p) {
+            margin: 0;
+        }
+
+        & :global(p + p) {
+            margin-top: 1.5rem;
+        }
+    }
+</style>

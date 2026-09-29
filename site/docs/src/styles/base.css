@@ -77,7 +77,7 @@ html {
     --pluto-h5-weight: 450;
     --pluto-h5-line-height: 150%;
     --pluto-h5-text-transform: none;
-    --pluto-p-size: round(2.666rem, 1px);
+    --pluto-p-size: 2.5rem;
     --pluto-p-weight: 350;
     --pluto-p-line-height: 175%;
     --pluto-small-size: round(2.333rem, 1px);

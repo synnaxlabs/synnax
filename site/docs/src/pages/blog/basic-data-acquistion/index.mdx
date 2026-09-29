@@ -1,0 +1,327 @@
+---
+layout: "@/layouts/Blog.astro"
+title: "Basic data acquisition and control with a LabJack"
+description:
+  "A simple guide to acquiring data and commanding outputs using a LabJack and Synnax."
+published: "Sep 29, 2026"
+author: "Emiliano Bonilla"
+authorImage: "https://synnax.nyc3.cdn.digitaloceanspaces.com/eb_headshot.png"
+authorLink: "https://www.linkedin.com/in/emiliano-bonilla-8a0a95187/"
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Note } from "@synnaxlabs/lyra/note";
+import { Image, Video } from "@/components/media/Media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+
+export const components = mdxOverrides;
+
+{/_ TODO(media): Hero screenshot. A LabJack on the desk next to a laptop running Synnax
+Desktop, with the finished layout from this guide on screen: the line plot, the
+schematic, and the Arc editor side by side. _/}
+
+<Image client:only="react" id="blog/basic-data-acquisition/hero" themed={false} />
+
+LabJacks are fantastic low cost, general purpose data acquisition devices that give you
+a lot of bang for your buck. Unfortunately, there aren't a lot of great tools out there
+that make it easy to use everything your LabJack has to offer.
+
+LabJack's own tools like [LJLogM](https://support.labjack.com/docs/ljlogm) and
+[LJStreamM](https://support.labjack.com/docs/ljstreamm) are good for visualizing data on
+benches, but can't really do anything for control. Using Python, a time-series database
+like [InfluxDB](https://www.influxdata.com/) or
+[TimescaleDB](https://www.tigerdata.com/timescaledb), and sending the data to
+[Grafana](https://grafana.com/) allows you to do remote monitoring, but it requires you
+to set up a bunch of different components. Like LabJack's tools, it also doesn't let you
+do control.
+
+We'd like to think Synnax is a pretty good alternative to these options. We
+automatically detect and connect to existing LabJack devices, let you acquire data
+easily, and even have sophisticated, built-in tools for both manual and automated
+control.
+
+In this guide we'll walk you through how to set up the tools, connect your device,
+sample and visualize channel data, and control outputs.
+
+<Note.Note variant="info">
+  Synnax supports all [T-Series](https://labjack.com/pages/t-series) LabJack devices:
+  the T4, T7, and T8.
+</Note.Note>
+
+<Divider.Divider x />
+
+## What you'll need
+
+- **A T-Series LabJack** -> We're using a T7 in this guide, but everything works the
+  same on a T4 or T8.
+- **A USB cable** -> Ethernet and WiFi work too, but USB is the easiest way to start.
+- **One jumper wire** -> We'll wire the LabJack's analog output back into one of its
+  analog inputs. This lets us command an output and watch the result on an input,
+  without any sensors or actuators.
+- **A Windows 11 or macOS machine** -> Synnax Desktop runs on Windows 11 and macOS
+  Sequoia or later.
+
+Take your jumper wire and connect the `DAC0` screw terminal to `AIN0`. That's all the
+wiring we'll do.
+
+{/_ TODO(media): Close-up photo of the LabJack screw terminals with the jumper wire
+running from DAC0 to AIN0. Label both terminals in the photo. _/}
+
+<Image client:only="react" id="blog/basic-data-acquisition/wiring" themed={false} />
+
+<Divider.Divider x />
+
+## Installation
+
+You'll need two things to get up and running: the LabJack LJM drivers, and Synnax
+Desktop.
+
+### LJM drivers
+
+LabJack's LJM drivers allow our machine to communicate with LabJack's devices. You can
+find, download, and install the latest drivers from
+[this page](https://support.labjack.com/docs/ljm-software-installer-downloads-t4-t7-t8-digit).
+
+While you're at it, we recommend opening
+[Kipling](https://support.labjack.com/docs/kipling) (it comes with the installer) and
+updating your device's firmware. It only takes a minute and saves a lot of head
+scratching later.
+
+### Synnax Desktop
+
+Synnax Desktop is completely free, and you can download it
+[here](/reference/desktop/get-started).
+
+Desktop bundles everything Synnax needs into one app: the Console for visualization and
+control, the Core for storing your data, and the Driver for talking to your hardware.
+There's nothing to run from a terminal. Open the app, sign in with a free Synnax
+account, and you're ready to go.
+
+{/_ TODO(media): Short video. Open Synnax Desktop for the first time, click Sign in,
+finish the browser sign-in, and land in an empty workspace. Cut the browser portion down
+to a second or two. _/}
+
+<Video client:only="react" id="blog/basic-data-acquisition/sign-in" themed={false} />
+
+<Divider.Divider x />
+
+## Connecting our device
+
+Plug your LabJack into your machine over USB. Synnax will detect it within a few seconds
+and show a notification in the bottom right corner. Click **Configure** in the
+notification to set it up. If you missed it, you can also find the device in the
+**Devices** toolbar, right click it, and select **Configure**.
+
+Synnax will ask you for two things:
+
+1. **A name** -> Something human readable so you can find it later, like
+   `Bench LabJack`.
+2. **An identifier** -> A short prefix for every channel on the device. We'll use `lj`,
+   so our first analog input will show up as a channel called `lj_AIN0`.
+
+{/_ TODO(media): Video. Plug in the LabJack, the detection notification pops up, click
+Configure, type the name "Bench LabJack", type the identifier "lj", and save. End on the
+device in the Devices toolbar. _/}
+
+<Video
+  client:only="react"
+  id="blog/basic-data-acquisition/configure-device"
+  themed={false}
+/>
+
+If you want more details, take a look at our
+[device configuration docs](/reference/driver/labjack/configure-device).
+
+<Divider.Divider x />
+
+## Starting a read task
+
+In Synnax, everything the Driver does with your hardware runs in a
+[task](/reference/driver/task-basics). A read task samples inputs on the device and
+writes the values to channels in Synnax.
+
+Right click your LabJack in the **Devices** toolbar and select **Create read task**. You
+can also search for "Create LabJack read task" in the
+[command palette](/reference/console/ui-overview#search-and-command-palette)
+(`Ctrl/Cmd + Shift + P`).
+
+Here's how we'll set it up:
+
+1. Set the **sample rate** to `100 Hz` and the **stream rate** to `25 Hz`. The sample
+   rate is how often we read from the device, and the stream rate is how often we send
+   those readings to Synnax.
+2. Add a channel. By default it's an analog input on `AIN0`, which is exactly the one we
+   wired up. Leave the range at `±10 V`.
+3. Give the task a name and click **Configure**, then hit the play button to start it.
+
+When you configure the task, Synnax creates the channels for you. You'll get an
+`lj_AIN0` channel for the voltage, and an `lj_time` channel that holds the timestamps.
+
+{/_ TODO(media): Video. Right click the device, Create read task, set sample rate to 100
+and stream rate to 25, add an analog input on AIN0, name the task "Bench read",
+Configure, then press play. End on the task showing its running status. _/}
+
+<Video client:only="react" id="blog/basic-data-acquisition/read-task" themed={false} />
+
+LabJack read tasks also support thermocouples, digital inputs, and custom scaling for
+converting raw voltages into engineering units. The full list of options is in the
+[read task docs](/reference/driver/labjack/read-task).
+
+<Note.Note variant="info">
+  For sample rates under 50 Hz, keep the stream rate equal to the sample rate. Above
+  that, keep the stream rate under 50 Hz.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Visualizing the data
+
+Now that data is flowing, let's look at it. First, make sure you're working in a
+[project](/reference/console/projects) so your plot gets saved. Then search for "Create
+a line plot" in the command palette, or click the **+** button to add a new tab and
+select **Line plot**.
+
+Open the plot's toolbar with the line plot button in the bottom left corner, and add
+`lj_AIN0` to the **Y1** axis.
+
+You'll see a flat line sitting right around 0 V. That's expected: nothing is driving
+`DAC0` yet. We'll fix that in the next section.
+
+{/_ TODO(media): Video. Create a line plot from the command palette, open the toolbar,
+add lj_AIN0 to Y1, and let the live line scroll for a few seconds. Bonus: briefly touch
+the jumper wire so the noise shows up on the plot. _/}
+
+<Video client:only="react" id="blog/basic-data-acquisition/line-plot" themed={false} />
+
+Line plots can do a lot more: multiple axes, historical data, and zooming into specific
+time ranges. Check out the [line plot docs](/reference/console/line-plots) for the full
+tour.
+
+<Divider.Divider x />
+
+## Starting a write task
+
+Reading data is only half the story. A write task listens for commands on channels in
+Synnax and applies them to outputs on the device.
+
+Right click your LabJack and select **Create write task**. We'll add two channels:
+
+1. An **analog output** on `DAC0`. This is the one wired back into `AIN0`.
+2. A **digital output** on `FIO4`. We don't have anything hooked up to it, but it'll
+   give us something to toggle from a schematic. If you have an LED and a resistor lying
+   around, wire it up here.
+
+Name the task, click **Configure**, and start it.
+
+For each output, Synnax creates two channels: a _command_ channel that you write to, and
+a _state_ channel that reports what the device is actually doing. For `DAC0`, that's
+`lj_DAC0_cmd` and `lj_DAC0_state`. `FIO4` is LabJack's name for the `DIO4` register, so
+its channels are `lj_DIO4_cmd` and `lj_DIO4_state`.
+
+{/_ TODO(media): Video. Right click the device, Create write task, add an analog output
+on DAC0 and a digital output on FIO4, name the task "Bench write", Configure, then press
+play. _/}
+
+<Video client:only="react" id="blog/basic-data-acquisition/write-task" themed={false} />
+
+See the [write task docs](/reference/driver/labjack/write-task) for all of the options.
+
+<Divider.Divider x />
+
+## Manual control with a schematic
+
+A [schematic](/reference/console/schematics) is a diagram of your system that shows live
+data and lets operators take control of actuators. We'll build a tiny one with a switch
+for our digital output, a setpoint for our analog output, and a value readout for our
+analog input.
+
+Create a schematic from the command palette ("Create a schematic"), then click the
+schematic button in the bottom left corner to open the symbol library. Drag three
+symbols onto the canvas:
+
+1. **A switch** -> In the **Control** tab, set the command channel to `lj_DIO4_cmd` and
+   the state channel to `lj_DIO4_state`.
+2. **A setpoint** -> Set the command channel to `lj_DAC0_cmd`.
+3. **A value** -> Set the channel to `lj_AIN0`.
+
+Switch the schematic into control mode using the controls in the top right corner and
+take control. Now type `2.5` into the setpoint and hit enter. Watch the value readout
+jump to 2.5 V, and flip over to your line plot to see the step.
+
+{/_ TODO(media): Video. The main event of the post. Create a schematic, drag in a
+switch, a setpoint, and a value, set their channels, switch to control mode, then type
+2.5 into the setpoint. Split screen or quick cut to the line plot so the step from 0 V
+to 2.5 V is visible. Then click the switch on and off a couple of times. _/}
+
+<Video
+  client:only="react"
+  id="blog/basic-data-acquisition/schematic-control"
+  themed={false}
+/>
+
+That's closed loop hardware control from a GUI you built in a couple of minutes. Other
+people on your network can open the same schematic, and Synnax's
+[control authority](/reference/control/arc/concepts/control-authority) makes sure two
+people never fight over the same output.
+
+<Divider.Divider x />
+
+## Automated control with Arc
+
+Clicking buttons is great, but a lot of testing is repetitive: step an output, wait for
+the system to settle, check a reading, repeat. That's what
+[Arc](/reference/control/arc/introduction), our automation language, is for.
+
+Before starting, release control in the schematic so Arc can take over the outputs. Then
+search for "Create an Arc automation" in the command palette and choose the **Text**
+editor. Paste in this program:
+
+```arc channels="lj_DAC0_cmd, lj_DIO4_cmd, lj_AIN0"
+sequence {
+    1 -> lj_DIO4_cmd
+    1.0 -> lj_DAC0_cmd
+    lj_AIN0 > 0.95 => next
+    time.wait{3s}
+    4.0 -> lj_DAC0_cmd
+    lj_AIN0 > 3.95 => next
+    time.wait{3s}
+    0 -> lj_DAC0_cmd
+    0 -> lj_DIO4_cmd
+}
+```
+
+This sequence turns on our digital output, then steps the analog output to 1 V and waits
+until `AIN0` actually reads it back. It holds for three seconds, steps to 4 V, waits for
+the reading again, holds, and then shuts everything off. Each line runs only after the
+one before it finishes, so it reads like a checklist.
+
+To run it, pick your Driver from the dropdown in the editor toolbar, click
+**Configure**, and hit play.
+
+{/_ TODO(media): Video. Create the Arc automation, paste the program, select the Driver,
+Configure, press play. Keep the line plot visible next to the editor so the staircase (0
+V, 1 V, 4 V, 0 V) draws itself live. The schematic switch should also light up and turn
+off with the digital output. _/}
+
+<Video client:only="react" id="blog/basic-data-acquisition/arc" themed={false} />
+
+This barely scratches the surface. Arc can watch abort conditions while a step runs, run
+closed loop controllers, and trigger alarms. The
+[get started guide](/reference/control/arc/get-started) is a great next step, and if
+you're curious about why we built our own language, we wrote about it in
+[Introducing Arc](/blog/introducing-arc).
+
+<Divider.Divider x />
+
+## Wrapping up
+
+In a few minutes, we went from a LabJack in a box to live data, a working operator
+interface, and an automated test sequence, all in one app. No database to set up, no
+dashboards to wire together, and no scripts to babysit.
+
+From here, you can swap the jumper wire for real sensors, add
+[thermocouples](/reference/driver/labjack/read-task), or bring in hardware from
+[NI](/reference/driver/ni), [Modbus](/reference/driver/modbus/connect-server), or
+[OPC UA](/reference/driver/opc-ua) and run it all side by side. If you get stuck or want
+to show us what you've built, [reach out](https://www.synnaxlabs.com/#contact). We'd
+love to hear from you.

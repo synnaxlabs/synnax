@@ -14,6 +14,8 @@ import { connect, type ConnectionOptions } from "@/fixtures/client";
 export interface TelemetryOptions extends ConnectionOptions {
   /** Wall-clock milliseconds between samples. */
   periodMs?: number;
+  /** Prefix for the channel names: "tank" creates tank_time, tank_pressure, etc. */
+  prefix?: string;
 }
 
 export interface TelemetryFixture {
@@ -31,19 +33,20 @@ export interface TelemetryFixture {
  */
 export const sineTelemetry = async ({
   periodMs = 40,
+  prefix = "demo",
   ...opts
 }: TelemetryOptions = {}): Promise<TelemetryFixture> => {
   const client = connect(opts);
   const time = await client.channels.create(
-    { name: "demo_time", isIndex: true, dataType: "timestamp" },
+    { name: `${prefix}_time`, isIndex: true, dataType: "timestamp" },
     { retrieveIfNameExists: true },
   );
   const pressure = await client.channels.create(
-    { name: "demo_pressure", dataType: "float32", index: time.key },
+    { name: `${prefix}_pressure`, dataType: "float32", index: time.key },
     { retrieveIfNameExists: true },
   );
   const temperature = await client.channels.create(
-    { name: "demo_temperature", dataType: "float32", index: time.key },
+    { name: `${prefix}_temperature`, dataType: "float32", index: time.key },
     { retrieveIfNameExists: true },
   );
 
