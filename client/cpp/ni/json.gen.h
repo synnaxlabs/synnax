@@ -385,7 +385,8 @@ inline AnalogReadConfig AnalogReadConfig::parse(x::json::Parser parser) {
 
 inline x::json::json AnalogReadConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::ReadConfig::to_json().items())
+    for (const auto base = ::synnax::task::ReadConfig::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
     {
         auto arr = x::json::json::array();
@@ -414,7 +415,8 @@ inline CounterReadConfig CounterReadConfig::parse(x::json::Parser parser) {
 
 inline x::json::json CounterReadConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::ReadConfig::to_json().items())
+    for (const auto base = ::synnax::task::ReadConfig::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
     {
         auto arr = x::json::json::array();
@@ -439,7 +441,8 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
 
 inline x::json::json WriteConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::WriteConfig::to_json().items())
+    for (const auto base = ::synnax::task::WriteConfig::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
     j["state_rate"] = this->state_rate;
     return j;
@@ -461,7 +464,7 @@ inline AnalogWriteConfig AnalogWriteConfig::parse(x::json::Parser parser) {
 
 inline x::json::json AnalogWriteConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: WriteConfig::to_json().items())
+    for (const auto base = WriteConfig::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     {
         auto arr = x::json::json::array();
@@ -487,7 +490,8 @@ inline DigitalReadConfig DigitalReadConfig::parse(x::json::Parser parser) {
 
 inline x::json::json DigitalReadConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::ReadConfig::to_json().items())
+    for (const auto base = ::synnax::task::ReadConfig::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
     j["device"] = this->device;
     j["channels"] = x::json::to_array(this->channels);
@@ -506,7 +510,7 @@ inline DigitalWriteConfig DigitalWriteConfig::parse(x::json::Parser parser) {
 
 inline x::json::json DigitalWriteConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: WriteConfig::to_json().items())
+    for (const auto base = WriteConfig::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["channels"] = x::json::to_array(this->channels);
     return j;
@@ -526,7 +530,8 @@ inline ScanConfig ScanConfig::parse(x::json::Parser parser) {
 
 inline x::json::json ScanConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::ScanConfig::to_json().items())
+    for (const auto base = ::synnax::task::ScanConfig::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
     j["ignored_models"] = this->ignored_models;
     return j;
@@ -692,13 +697,13 @@ inline AIVoltageChannel AIVoltageChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AIVoltageChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseAIChannel::to_json().items())
+    for (const auto base = BaseAIChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: MinMaxVal::to_json().items())
+    for (const auto base = MinMaxVal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: Terminal::to_json().items())
+    for (const auto base = Terminal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: CustomScale::to_json().items())
+    for (const auto base = CustomScale::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["type"] = this->type;
     return j;
@@ -723,17 +728,18 @@ inline AIAccelChannel AIAccelChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AIAccelChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseAIChannel::to_json().items())
+    for (const auto base = BaseAIChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: MinMaxVal::to_json().items())
+    for (const auto base = MinMaxVal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: Terminal::to_json().items())
+    for (const auto base = Terminal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: Sensitivity::to_json().items())
+    for (const auto base = Sensitivity::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: CurrentExcitation::to_json().items())
+    for (const auto base = CurrentExcitation::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: CustomScale::to_json().items())
+    for (const auto base = CustomScale::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["units"] = this->units;
     j["sensitivity_units"] = this->sensitivity_units;
@@ -755,15 +761,16 @@ inline AIBridgeChannel AIBridgeChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AIBridgeChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseAIChannel::to_json().items())
+    for (const auto base = BaseAIChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: MinMaxVal::to_json().items())
+    for (const auto base = MinMaxVal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: Bridge::to_json().items())
+    for (const auto base = Bridge::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: VoltageExcitation::to_json().items())
+    for (const auto base = VoltageExcitation::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: CustomScale::to_json().items())
+    for (const auto base = CustomScale::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["units"] = this->units;
     j["type"] = this->type;
@@ -787,13 +794,13 @@ inline AICurrentChannel AICurrentChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AICurrentChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseAIChannel::to_json().items())
+    for (const auto base = BaseAIChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: MinMaxVal::to_json().items())
+    for (const auto base = MinMaxVal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: Terminal::to_json().items())
+    for (const auto base = Terminal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: CustomScale::to_json().items())
+    for (const auto base = CustomScale::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["shunt_resistor_loc"] = this->shunt_resistor_loc;
     j["ext_shunt_resistor_val"] = this->ext_shunt_resistor_val;
@@ -818,17 +825,18 @@ AIForceBridgeTableChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AIForceBridgeTableChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseAIChannel::to_json().items())
+    for (const auto base = BaseAIChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: MinMaxVal::to_json().items())
+    for (const auto base = MinMaxVal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: Bridge::to_json().items())
+    for (const auto base = Bridge::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: VoltageExcitation::to_json().items())
+    for (const auto base = VoltageExcitation::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: Table::to_json().items())
+    for (const auto base = Table::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: CustomScale::to_json().items())
+    for (const auto base = CustomScale::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["units"] = this->units;
     j["physical_units"] = this->physical_units;
@@ -853,17 +861,18 @@ AIForceBridgeTwoPointLinChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AIForceBridgeTwoPointLinChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseAIChannel::to_json().items())
+    for (const auto base = BaseAIChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: MinMaxVal::to_json().items())
+    for (const auto base = MinMaxVal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: Bridge::to_json().items())
+    for (const auto base = Bridge::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: VoltageExcitation::to_json().items())
+    for (const auto base = VoltageExcitation::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: TwoPointLin::to_json().items())
+    for (const auto base = TwoPointLin::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: CustomScale::to_json().items())
+    for (const auto base = CustomScale::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["units"] = this->units;
     j["physical_units"] = this->physical_units;
@@ -890,17 +899,18 @@ inline AIForceIEPEChannel AIForceIEPEChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AIForceIEPEChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseAIChannel::to_json().items())
+    for (const auto base = BaseAIChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: MinMaxVal::to_json().items())
+    for (const auto base = MinMaxVal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: Terminal::to_json().items())
+    for (const auto base = Terminal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: Sensitivity::to_json().items())
+    for (const auto base = Sensitivity::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: CurrentExcitation::to_json().items())
+    for (const auto base = CurrentExcitation::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: CustomScale::to_json().items())
+    for (const auto base = CustomScale::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["units"] = this->units;
     j["sensitivity_units"] = this->sensitivity_units;
@@ -922,13 +932,14 @@ inline AIMicrophoneChannel AIMicrophoneChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AIMicrophoneChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseAIChannel::to_json().items())
+    for (const auto base = BaseAIChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: Terminal::to_json().items())
+    for (const auto base = Terminal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: CurrentExcitation::to_json().items())
+    for (const auto base = CurrentExcitation::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: CustomScale::to_json().items())
+    for (const auto base = CustomScale::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["mic_sensitivity"] = this->mic_sensitivity;
     j["max_snd_press_level"] = this->max_snd_press_level;
@@ -956,17 +967,18 @@ AIPressureBridgeTableChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AIPressureBridgeTableChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseAIChannel::to_json().items())
+    for (const auto base = BaseAIChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: MinMaxVal::to_json().items())
+    for (const auto base = MinMaxVal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: Bridge::to_json().items())
+    for (const auto base = Bridge::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: VoltageExcitation::to_json().items())
+    for (const auto base = VoltageExcitation::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: Table::to_json().items())
+    for (const auto base = Table::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: CustomScale::to_json().items())
+    for (const auto base = CustomScale::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["units"] = this->units;
     j["physical_units"] = this->physical_units;
@@ -994,17 +1006,18 @@ AIPressureBridgeTwoPointLinChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AIPressureBridgeTwoPointLinChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseAIChannel::to_json().items())
+    for (const auto base = BaseAIChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: MinMaxVal::to_json().items())
+    for (const auto base = MinMaxVal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: Bridge::to_json().items())
+    for (const auto base = Bridge::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: VoltageExcitation::to_json().items())
+    for (const auto base = VoltageExcitation::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: TwoPointLin::to_json().items())
+    for (const auto base = TwoPointLin::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: CustomScale::to_json().items())
+    for (const auto base = CustomScale::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["units"] = this->units;
     j["physical_units"] = this->physical_units;
@@ -1025,15 +1038,16 @@ inline AIResistanceChannel AIResistanceChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AIResistanceChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseAIChannel::to_json().items())
+    for (const auto base = BaseAIChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: MinMaxVal::to_json().items())
+    for (const auto base = MinMaxVal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: Resistance::to_json().items())
+    for (const auto base = Resistance::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: CurrentExcitation::to_json().items())
+    for (const auto base = CurrentExcitation::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: CustomScale::to_json().items())
+    for (const auto base = CustomScale::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["type"] = this->type;
     return j;
@@ -1054,13 +1068,14 @@ inline AIRTDChannel AIRTDChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AIRTDChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseAIChannel::to_json().items())
+    for (const auto base = BaseAIChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: MinMaxVal::to_json().items())
+    for (const auto base = MinMaxVal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: Resistance::to_json().items())
+    for (const auto base = Resistance::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: CurrentExcitation::to_json().items())
+    for (const auto base = CurrentExcitation::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
     j["units"] = this->units;
     j["rtd_type"] = this->rtd_type;
@@ -1087,13 +1102,14 @@ inline AIStrainGaugeChannel AIStrainGaugeChannel::parse(x::json::Parser parser) 
 
 inline x::json::json AIStrainGaugeChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseAIChannel::to_json().items())
+    for (const auto base = BaseAIChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: MinMaxVal::to_json().items())
+    for (const auto base = MinMaxVal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: VoltageExcitation::to_json().items())
+    for (const auto base = VoltageExcitation::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: CustomScale::to_json().items())
+    for (const auto base = CustomScale::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["strain_config"] = this->strain_config;
     j["gage_factor"] = this->gage_factor;
@@ -1145,9 +1161,9 @@ inline AIThermocoupleChannel AIThermocoupleChannel::parse(x::json::Parser parser
 
 inline x::json::json AIThermocoupleChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseAIChannel::to_json().items())
+    for (const auto base = BaseAIChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: MinMaxVal::to_json().items())
+    for (const auto base = MinMaxVal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["units"] = this->units;
     j["thermocouple_type"] = this->thermocouple_type;
@@ -1173,17 +1189,18 @@ AITorqueBridgeTableChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AITorqueBridgeTableChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseAIChannel::to_json().items())
+    for (const auto base = BaseAIChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: MinMaxVal::to_json().items())
+    for (const auto base = MinMaxVal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: Bridge::to_json().items())
+    for (const auto base = Bridge::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: VoltageExcitation::to_json().items())
+    for (const auto base = VoltageExcitation::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: Table::to_json().items())
+    for (const auto base = Table::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: CustomScale::to_json().items())
+    for (const auto base = CustomScale::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["units"] = this->units;
     j["physical_units"] = this->physical_units;
@@ -1208,17 +1225,18 @@ AITorqueBridgeTwoPointLinChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AITorqueBridgeTwoPointLinChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseAIChannel::to_json().items())
+    for (const auto base = BaseAIChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: MinMaxVal::to_json().items())
+    for (const auto base = MinMaxVal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: Bridge::to_json().items())
+    for (const auto base = Bridge::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: VoltageExcitation::to_json().items())
+    for (const auto base = VoltageExcitation::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: TwoPointLin::to_json().items())
+    for (const auto base = TwoPointLin::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: CustomScale::to_json().items())
+    for (const auto base = CustomScale::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["units"] = this->units;
     j["physical_units"] = this->physical_units;
@@ -1245,17 +1263,18 @@ inline AIVelocityIEPEChannel AIVelocityIEPEChannel::parse(x::json::Parser parser
 
 inline x::json::json AIVelocityIEPEChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseAIChannel::to_json().items())
+    for (const auto base = BaseAIChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: MinMaxVal::to_json().items())
+    for (const auto base = MinMaxVal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: Terminal::to_json().items())
+    for (const auto base = Terminal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: Sensitivity::to_json().items())
+    for (const auto base = Sensitivity::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: CurrentExcitation::to_json().items())
+    for (const auto base = CurrentExcitation::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: CustomScale::to_json().items())
+    for (const auto base = CustomScale::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["units"] = this->units;
     j["sensitivity_units"] = this->sensitivity_units;
@@ -1284,17 +1303,18 @@ AIAccel4WireDCVoltageChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AIAccel4WireDCVoltageChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseAIChannel::to_json().items())
+    for (const auto base = BaseAIChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: MinMaxVal::to_json().items())
+    for (const auto base = MinMaxVal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: Terminal::to_json().items())
+    for (const auto base = Terminal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: Sensitivity::to_json().items())
+    for (const auto base = Sensitivity::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: VoltageExcitation::to_json().items())
+    for (const auto base = VoltageExcitation::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: CustomScale::to_json().items())
+    for (const auto base = CustomScale::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["units"] = this->units;
     j["sensitivity_units"] = this->sensitivity_units;
@@ -1321,15 +1341,15 @@ inline AIAccelChargeChannel AIAccelChargeChannel::parse(x::json::Parser parser) 
 
 inline x::json::json AIAccelChargeChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseAIChannel::to_json().items())
+    for (const auto base = BaseAIChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: MinMaxVal::to_json().items())
+    for (const auto base = MinMaxVal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: Terminal::to_json().items())
+    for (const auto base = Terminal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: Sensitivity::to_json().items())
+    for (const auto base = Sensitivity::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: CustomScale::to_json().items())
+    for (const auto base = CustomScale::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["units"] = this->units;
     j["sensitivity_units"] = this->sensitivity_units;
@@ -1350,13 +1370,13 @@ inline AIChargeChannel AIChargeChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AIChargeChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseAIChannel::to_json().items())
+    for (const auto base = BaseAIChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: MinMaxVal::to_json().items())
+    for (const auto base = MinMaxVal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: Terminal::to_json().items())
+    for (const auto base = Terminal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: CustomScale::to_json().items())
+    for (const auto base = CustomScale::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["units"] = this->units;
     j["type"] = this->type;
@@ -1380,13 +1400,13 @@ inline AICurrentRMSChannel AICurrentRMSChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AICurrentRMSChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseAIChannel::to_json().items())
+    for (const auto base = BaseAIChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: MinMaxVal::to_json().items())
+    for (const auto base = MinMaxVal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: Terminal::to_json().items())
+    for (const auto base = Terminal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: CustomScale::to_json().items())
+    for (const auto base = CustomScale::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["shunt_resistor_loc"] = this->shunt_resistor_loc;
     j["ext_shunt_resistor_val"] = this->ext_shunt_resistor_val;
@@ -1411,17 +1431,19 @@ AIForceBridgePolynomialChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AIForceBridgePolynomialChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseAIChannel::to_json().items())
+    for (const auto base = BaseAIChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: MinMaxVal::to_json().items())
+    for (const auto base = MinMaxVal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: Bridge::to_json().items())
+    for (const auto base = Bridge::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: VoltageExcitation::to_json().items())
+    for (const auto base = VoltageExcitation::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: BridgePolynomial::to_json().items())
+    for (const auto base = BridgePolynomial::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: CustomScale::to_json().items())
+    for (const auto base = CustomScale::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["units"] = this->units;
     j["physical_units"] = this->physical_units;
@@ -1442,11 +1464,11 @@ inline AIFreqVoltageChannel AIFreqVoltageChannel::parse(x::json::Parser parser) 
 
 inline x::json::json AIFreqVoltageChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseAIChannel::to_json().items())
+    for (const auto base = BaseAIChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: MinMaxVal::to_json().items())
+    for (const auto base = MinMaxVal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: CustomScale::to_json().items())
+    for (const auto base = CustomScale::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["threshold_level"] = this->threshold_level;
     j["hysteresis"] = this->hysteresis;
@@ -1474,17 +1496,19 @@ AIPressureBridgePolynomialChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AIPressureBridgePolynomialChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseAIChannel::to_json().items())
+    for (const auto base = BaseAIChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: MinMaxVal::to_json().items())
+    for (const auto base = MinMaxVal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: Bridge::to_json().items())
+    for (const auto base = Bridge::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: VoltageExcitation::to_json().items())
+    for (const auto base = VoltageExcitation::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: BridgePolynomial::to_json().items())
+    for (const auto base = BridgePolynomial::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: CustomScale::to_json().items())
+    for (const auto base = CustomScale::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["units"] = this->units;
     j["physical_units"] = this->physical_units;
@@ -1508,13 +1532,14 @@ inline AIThermistorIexChannel AIThermistorIexChannel::parse(x::json::Parser pars
 
 inline x::json::json AIThermistorIexChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseAIChannel::to_json().items())
+    for (const auto base = BaseAIChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: MinMaxVal::to_json().items())
+    for (const auto base = MinMaxVal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: Resistance::to_json().items())
+    for (const auto base = Resistance::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: CurrentExcitation::to_json().items())
+    for (const auto base = CurrentExcitation::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
     j["units"] = this->units;
     j["a"] = this->a;
@@ -1541,13 +1566,14 @@ inline AIThermistorVexChannel AIThermistorVexChannel::parse(x::json::Parser pars
 
 inline x::json::json AIThermistorVexChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseAIChannel::to_json().items())
+    for (const auto base = BaseAIChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: MinMaxVal::to_json().items())
+    for (const auto base = MinMaxVal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: Resistance::to_json().items())
+    for (const auto base = Resistance::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: VoltageExcitation::to_json().items())
+    for (const auto base = VoltageExcitation::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
     j["units"] = this->units;
     j["a"] = this->a;
@@ -1575,17 +1601,19 @@ AITorqueBridgePolynomialChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AITorqueBridgePolynomialChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseAIChannel::to_json().items())
+    for (const auto base = BaseAIChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: MinMaxVal::to_json().items())
+    for (const auto base = MinMaxVal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: Bridge::to_json().items())
+    for (const auto base = Bridge::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: VoltageExcitation::to_json().items())
+    for (const auto base = VoltageExcitation::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: BridgePolynomial::to_json().items())
+    for (const auto base = BridgePolynomial::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: CustomScale::to_json().items())
+    for (const auto base = CustomScale::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["units"] = this->units;
     j["physical_units"] = this->physical_units;
@@ -1605,13 +1633,13 @@ inline AIVoltageRMSChannel AIVoltageRMSChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AIVoltageRMSChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseAIChannel::to_json().items())
+    for (const auto base = BaseAIChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: MinMaxVal::to_json().items())
+    for (const auto base = MinMaxVal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: Terminal::to_json().items())
+    for (const auto base = Terminal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: CustomScale::to_json().items())
+    for (const auto base = CustomScale::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["type"] = this->type;
     return j;
@@ -1633,15 +1661,16 @@ AIVoltageWithExcitChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AIVoltageWithExcitChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseAIChannel::to_json().items())
+    for (const auto base = BaseAIChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: MinMaxVal::to_json().items())
+    for (const auto base = MinMaxVal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: Terminal::to_json().items())
+    for (const auto base = Terminal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: VoltageExcitation::to_json().items())
+    for (const auto base = VoltageExcitation::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: CustomScale::to_json().items())
+    for (const auto base = CustomScale::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["bridge_config"] = this->bridge_config;
     j["scaled_by_excitation"] = this->scaled_by_excitation;
@@ -1668,11 +1697,11 @@ inline CIFrequencyChannel CIFrequencyChannel::parse(x::json::Parser parser) {
 
 inline x::json::json CIFrequencyChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseCIChannel::to_json().items())
+    for (const auto base = BaseCIChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: CustomScale::to_json().items())
+    for (const auto base = CustomScale::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: MinMaxVal::to_json().items())
+    for (const auto base = MinMaxVal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["min_val"] = this->min_val;
     j["max_val"] = this->max_val;
@@ -1699,7 +1728,7 @@ inline CIEdgeCountChannel CIEdgeCountChannel::parse(x::json::Parser parser) {
 
 inline x::json::json CIEdgeCountChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseCIChannel::to_json().items())
+    for (const auto base = BaseCIChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["active_edge"] = this->active_edge;
     j["count_direction"] = this->count_direction;
@@ -1728,11 +1757,11 @@ inline CIPeriodChannel CIPeriodChannel::parse(x::json::Parser parser) {
 
 inline x::json::json CIPeriodChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseCIChannel::to_json().items())
+    for (const auto base = BaseCIChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: CustomScale::to_json().items())
+    for (const auto base = CustomScale::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: MinMaxVal::to_json().items())
+    for (const auto base = MinMaxVal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["min_val"] = this->min_val;
     j["max_val"] = this->max_val;
@@ -1762,11 +1791,11 @@ inline CIPulseWidthChannel CIPulseWidthChannel::parse(x::json::Parser parser) {
 
 inline x::json::json CIPulseWidthChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseCIChannel::to_json().items())
+    for (const auto base = BaseCIChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: CustomScale::to_json().items())
+    for (const auto base = CustomScale::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: MinMaxVal::to_json().items())
+    for (const auto base = MinMaxVal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["min_val"] = this->min_val;
     j["max_val"] = this->max_val;
@@ -1792,11 +1821,11 @@ inline CISemiPeriodChannel CISemiPeriodChannel::parse(x::json::Parser parser) {
 
 inline x::json::json CISemiPeriodChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseCIChannel::to_json().items())
+    for (const auto base = BaseCIChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: CustomScale::to_json().items())
+    for (const auto base = CustomScale::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: MinMaxVal::to_json().items())
+    for (const auto base = MinMaxVal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["min_val"] = this->min_val;
     j["max_val"] = this->max_val;
@@ -1824,11 +1853,11 @@ inline CITwoEdgeSepChannel CITwoEdgeSepChannel::parse(x::json::Parser parser) {
 
 inline x::json::json CITwoEdgeSepChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseCIChannel::to_json().items())
+    for (const auto base = BaseCIChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: CustomScale::to_json().items())
+    for (const auto base = CustomScale::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: MinMaxVal::to_json().items())
+    for (const auto base = MinMaxVal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["min_val"] = this->min_val;
     j["max_val"] = this->max_val;
@@ -1859,11 +1888,11 @@ inline CIVelocityLinearChannel CIVelocityLinearChannel::parse(x::json::Parser pa
 
 inline x::json::json CIVelocityLinearChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseCIChannel::to_json().items())
+    for (const auto base = BaseCIChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: CustomScale::to_json().items())
+    for (const auto base = CustomScale::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: MinMaxVal::to_json().items())
+    for (const auto base = MinMaxVal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["min_val"] = this->min_val;
     j["max_val"] = this->max_val;
@@ -1895,11 +1924,11 @@ CIVelocityAngularChannel::parse(x::json::Parser parser) {
 
 inline x::json::json CIVelocityAngularChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseCIChannel::to_json().items())
+    for (const auto base = BaseCIChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: CustomScale::to_json().items())
+    for (const auto base = CustomScale::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: MinMaxVal::to_json().items())
+    for (const auto base = MinMaxVal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["min_val"] = this->min_val;
     j["max_val"] = this->max_val;
@@ -1929,11 +1958,11 @@ inline CIPositionLinearChannel CIPositionLinearChannel::parse(x::json::Parser pa
 
 inline x::json::json CIPositionLinearChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseCIChannel::to_json().items())
+    for (const auto base = BaseCIChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: CustomScale::to_json().items())
+    for (const auto base = CustomScale::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: ZIndex::to_json().items())
+    for (const auto base = ZIndex::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["units"] = this->units;
     j["decoding_type"] = this->decoding_type;
@@ -1963,11 +1992,11 @@ CIPositionAngularChannel::parse(x::json::Parser parser) {
 
 inline x::json::json CIPositionAngularChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseCIChannel::to_json().items())
+    for (const auto base = BaseCIChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: CustomScale::to_json().items())
+    for (const auto base = CustomScale::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: ZIndex::to_json().items())
+    for (const auto base = ZIndex::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["units"] = this->units;
     j["decoding_type"] = this->decoding_type;
@@ -1994,11 +2023,11 @@ inline CIDutyCycleChannel CIDutyCycleChannel::parse(x::json::Parser parser) {
 
 inline x::json::json CIDutyCycleChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseCIChannel::to_json().items())
+    for (const auto base = BaseCIChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: CustomScale::to_json().items())
+    for (const auto base = CustomScale::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: MinMaxVal::to_json().items())
+    for (const auto base = MinMaxVal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["min_val"] = this->min_val;
     j["max_val"] = this->max_val;
@@ -2019,11 +2048,11 @@ inline AOCurrentChannel AOCurrentChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AOCurrentChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseAOChannel::to_json().items())
+    for (const auto base = BaseAOChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: MinMaxVal::to_json().items())
+    for (const auto base = MinMaxVal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: CustomScale::to_json().items())
+    for (const auto base = CustomScale::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["type"] = this->type;
     return j;
@@ -2042,7 +2071,7 @@ inline AOFuncGenChannel AOFuncGenChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AOFuncGenChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseAOChannel::to_json().items())
+    for (const auto base = BaseAOChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["wave_type"] = this->wave_type;
     j["frequency"] = this->frequency;
@@ -2063,11 +2092,11 @@ inline AOVoltageChannel AOVoltageChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AOVoltageChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseAOChannel::to_json().items())
+    for (const auto base = BaseAOChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: MinMaxVal::to_json().items())
+    for (const auto base = MinMaxVal::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: CustomScale::to_json().items())
+    for (const auto base = CustomScale::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["type"] = this->type;
     return j;

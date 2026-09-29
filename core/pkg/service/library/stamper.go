@@ -31,10 +31,10 @@ type Stamper struct {
 	Ontology *ontology.Ontology
 }
 
-// Stamp sets ref.LibraryHash to the current hash of the referenced library, makes the
-// library the only one the task uses, and returns the library. It returns a path-scoped
-// validation error when the library does not exist. The task's ontology resource must
-// exist.
+// Stamp sets ref.LibraryHash to the current hash of the referenced library and returns
+// the library. A task uses at most one library, so Stamp replaces any library the task
+// used before. It returns a path-scoped validation error when the library does not
+// exist. The task's ontology resource must exist.
 func (s Stamper) Stamp(
 	ctx context.Context,
 	tx gorp.Tx,

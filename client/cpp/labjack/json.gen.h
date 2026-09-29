@@ -106,7 +106,8 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
 
 inline x::json::json ReadConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::ReadConfig::to_json().items())
+    for (const auto base = ::synnax::task::ReadConfig::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
     j["device"] = this->device;
     {
@@ -142,7 +143,8 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
 
 inline x::json::json WriteConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::WriteConfig::to_json().items())
+    for (const auto base = ::synnax::task::WriteConfig::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
     j["state_rate"] = this->state_rate;
     {
@@ -165,7 +167,8 @@ inline ScanConfig ScanConfig::parse(x::json::Parser parser) {
 
 inline x::json::json ScanConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::ScanConfig::to_json().items())
+    for (const auto base = ::synnax::task::ScanConfig::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
     j["tcp_scan_multiplier"] = this->tcp_scan_multiplier;
     return j;
@@ -233,7 +236,7 @@ inline AnalogReadChannel AnalogReadChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AnalogReadChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseReadChannel::to_json().items())
+    for (const auto base = BaseReadChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["port"] = this->port;
     j["range"] = this->range;
@@ -253,7 +256,7 @@ inline DigitalReadChannel DigitalReadChannel::parse(x::json::Parser parser) {
 
 inline x::json::json DigitalReadChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseReadChannel::to_json().items())
+    for (const auto base = BaseReadChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["port"] = this->port;
     j["type"] = this->type;
@@ -278,7 +281,7 @@ inline ThermocoupleReadChannel ThermocoupleReadChannel::parse(x::json::Parser pa
 
 inline x::json::json ThermocoupleReadChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseReadChannel::to_json().items())
+    for (const auto base = BaseReadChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["port"] = this->port;
     j["thermocouple_type"] = this->thermocouple_type;
@@ -302,7 +305,8 @@ inline AnalogWriteChannel AnalogWriteChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AnalogWriteChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseWriteChannel::to_json().items())
+    for (const auto base = BaseWriteChannel::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
     j["port"] = this->port;
     j["type"] = this->type;
@@ -319,7 +323,8 @@ inline DigitalWriteChannel DigitalWriteChannel::parse(x::json::Parser parser) {
 
 inline x::json::json DigitalWriteChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseWriteChannel::to_json().items())
+    for (const auto base = BaseWriteChannel::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
     j["port"] = this->port;
     j["type"] = this->type;

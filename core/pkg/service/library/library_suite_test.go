@@ -83,6 +83,8 @@ var (
 	imexSvc  *imex.Service
 	testRack *rack.Rack
 	tx       gorp.Tx
+	// stamps counts the task configs the suite's config store has stamped.
+	stamps int
 )
 
 var (
@@ -133,6 +135,7 @@ var (
 					key uuid.UUID,
 					c *testTaskConfig,
 				) error {
+					stamps++
 					_, err := stamper.Stamp(ctx, tx, key, &c.Reference)
 					return err
 				},

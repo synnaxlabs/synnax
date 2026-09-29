@@ -66,7 +66,8 @@ struct EnumValue {
     from_proto(const ::service::library::pb::EnumValue &pb);
 };
 
-/// @brief Reference is embedded in the config of a task that uses a library.
+/// @brief Reference is embedded in the config of a task that uses a library. A task
+/// uses at most one library.
 struct Reference {
     /// @brief library is the key of the library the task reads its layouts from.
     Key library;

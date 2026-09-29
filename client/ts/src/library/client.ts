@@ -138,12 +138,12 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Li
    * Replaces the entries of a library with those parsed from an interface control
    * document. Entries and fields that match by name keep their keys.
    * @param key - The key of the library to import into.
-   * @param format - The file format of the document.
    * @param data - The raw bytes of the document.
+   * @param format - The file format of the document.
    * @returns The library as the Core stored it.
    * @throws {ValidationError} if the format is unknown or the document is invalid.
    */
-  async import(key: Key, format: ImportFormat, data: Uint8Array): Promise<Library> {
+  async import(key: Key, data: Uint8Array, format: ImportFormat): Promise<Library> {
     const res = await this.cfg.unary.send(
       "/library/import",
       { key, format, data: encodeBase64(data) },

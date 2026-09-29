@@ -162,7 +162,7 @@ describe("library", () => {
         "Engine,256,8,Rpm,0,16,0.25,rpm",
         "Engine,256,8,Temp,16,8,1,degC",
       ].join("\n");
-      const imported = await client.libraries.import(lib.key, "csv", encode(csv));
+      const imported = await client.libraries.import(lib.key, encode(csv), "csv");
       expect(imported.key).toEqual(lib.key);
       expect(imported.entries).toHaveLength(1);
       const [msg] = imported.entries;
@@ -184,7 +184,7 @@ describe("library", () => {
         ' SG_ Rpm : 0|16@1+ (0.25,0) [0|16383.75] "rpm" Ecu',
         "",
       ].join("\n");
-      const imported = await client.libraries.import(lib.key, "dbc", encode(dbc));
+      const imported = await client.libraries.import(lib.key, encode(dbc), "dbc");
       const names = imported.entries.map((e) => `${e.kind}:${e.name}`).sort();
       expect(names).toEqual(["enum:GearTable", "message:Engine"]);
     });
@@ -192,14 +192,14 @@ describe("library", () => {
     it("should keep entry keys across a second import", async () => {
       const lib = await client.libraries.create({ name: "Import" });
       const csv = encode("message,field,start_bit,bit_length\nEngine,Rpm,0,16");
-      const first = await client.libraries.import(lib.key, "csv", csv);
-      const second = await client.libraries.import(lib.key, "csv", csv);
+      const first = await client.libraries.import(lib.key, csv, "csv");
+      const second = await client.libraries.import(lib.key, csv, "csv");
       expect(second.entries[0].key).toEqual(first.entries[0].key);
     });
 
     it("should reject a document that does not parse", async () => {
       const lib = await client.libraries.create({ name: "Import" });
-      await expect(client.libraries.import(lib.key, "csv", encode(""))).rejects.toThrow(
+      await expect(client.libraries.import(lib.key, encode(""), "csv")).rejects.toThrow(
         PathError,
       );
     });

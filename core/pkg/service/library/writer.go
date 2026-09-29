@@ -35,18 +35,22 @@ type Writer struct {
 
 // Create creates the library, or replaces it when a library with its key exists. Keys
 // are assigned to the library, its entries, and their fields where absent. When a
-// library is replaced, every task that uses it is rewritten so its config carries the
-// new library hash. Create returns a path-scoped validation error when the library is
-// invalid.
+// replacement changes the library's hash, every task that uses it is rewritten so its
+// config carries the new hash. Create returns a path-scoped validation error when the
+// library is invalid.
 func (w Writer) Create(ctx context.Context, l *Library) error {
-	exists := false
+	var prev *Library
 	if l.Key == uuid.Nil() {
 		l.Key = uuid.New()
 	} else {
-		var err error
-		if exists, err = w.table.NewRetrieve().
+		var existing Library
+		err := w.table.NewRetrieve().
 			Where(gorp.MatchKeys[Key, Library](l.Key)).
-			Exists(ctx, w.tx); err != nil {
+			Entry(&existing).
+			Exec(ctx, w.tx)
+		if err == nil {
+			prev = &existing
+		} else if !errors.Is(err, query.ErrNotFound) {
 			return err
 		}
 	}
@@ -61,8 +65,16 @@ func (w Writer) Create(ctx context.Context, l *Library) error {
 	if err := w.table.NewCreate().Entry(l).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if !exists {
+	if prev == nil {
 		return w.otgWriter.DefineResources(ctx, l.OntologyID())
+	}
+	prevHash, err := Hash(*prev)
+	if err != nil {
+		return err
+	}
+	hash, err := Hash(*l)
+	if err != nil || hash == prevHash {
+		return err
 	}
 	return w.restampUsers(ctx, l.Key)
 }
@@ -196,43 +208,32 @@ func (w Writer) retrieveUsers(
 	return users, nil
 }
 
-// assignKeys gives a new key to every entry and field that has none.
+// assignKeys gives a new key to every entry and field that has none. It skips entries
+// and fields with no kind or encoding, which validation rejects.
 func assignKeys(l *Library) {
-	for i, e := range l.Entries {
-		switch variant := e.Variant.(type) {
-		case EnumEntry:
-			if variant.Key == uuid.Nil() {
-				variant.Key = uuid.New()
+	for i := range l.Entries {
+		e := &l.Entries[i]
+		if e.Variant == nil {
+			continue
+		}
+		b := e.Base()
+		if b.Key == uuid.Nil() {
+			b.Key = uuid.New()
+			e.SetBase(b)
+		}
+		m, ok := e.Variant.(MessageEntry)
+		if !ok {
+			continue
+		}
+		for j := range m.Fields {
+			f := &m.Fields[j]
+			if f.Variant == nil {
+				continue
 			}
-			l.Entries[i].Variant = variant
-		case MessageEntry:
-			if variant.Key == uuid.Nil() {
-				variant.Key = uuid.New()
+			if fb := f.Base(); fb.Key == uuid.Nil() {
+				fb.Key = uuid.New()
+				f.SetBase(fb)
 			}
-			for j := range variant.Fields {
-				assignFieldKey(&variant.Fields[j])
-			}
-			l.Entries[i].Variant = variant
 		}
-	}
-}
-
-func assignFieldKey(f *Field) {
-	switch variant := f.Variant.(type) {
-	case BinaryField:
-		if variant.Key == uuid.Nil() {
-			variant.Key = uuid.New()
-		}
-		f.Variant = variant
-	case DelimitedField:
-		if variant.Key == uuid.Nil() {
-			variant.Key = uuid.New()
-		}
-		f.Variant = variant
-	case TaggedField:
-		if variant.Key == uuid.Nil() {
-			variant.Key = uuid.New()
-		}
-		f.Variant = variant
 	}
 }

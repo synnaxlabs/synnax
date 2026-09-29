@@ -77,7 +77,8 @@ inline TaskConfig TaskConfig::parse(x::json::Parser parser) {
 
 inline x::json::json TaskConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::PersistConfig::to_json().items())
+    for (const auto base = ::synnax::task::PersistConfig::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
     j["arc_key"] = this->arc_key.to_json();
     j["hash"] = this->hash;

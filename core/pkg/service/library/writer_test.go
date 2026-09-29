@@ -183,6 +183,13 @@ var _ = Describe("Writer", func() {
 				)}},
 				"duplicate value 1",
 			),
+			Entry("enum value without a name",
+				library.Library{Name: "L", Entries: []library.Entry{enumEntry(
+					"State",
+					library.EnumValue{Value: 1},
+				)}},
+				"entries.0.values.0.name: required",
+			),
 			Entry("duplicate enum names",
 				library.Library{Name: "L", Entries: []library.Entry{enumEntry(
 					"State",
@@ -325,7 +332,7 @@ var _ = Describe("Writer", func() {
 						}}},
 					},
 				)}},
-				"tag is required",
+				"entries.0.fields.0.tag: required",
 			),
 			Entry("enumeration naming a missing enum",
 				library.Library{Name: "L", Entries: []library.Entry{messageEntry(
