@@ -14,17 +14,55 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/service"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/license"
 	svcmock "github.com/synnaxlabs/synnax/pkg/service/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	panelversions "github.com/synnaxlabs/synnax/pkg/service/panel/versions"
 	projectv0 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Layer", func() {
+	It("Should cap external channels at the license's limit", func(ctx SpecContext) {
+		keys := svcmock.NewKeys()
+		lic := svcmock.NewLicense()
+		lic.Channels = 50
+		layer := MustOpen(svcmock.OpenLayer(ctx, mock.NewNode(ctx), service.LayerConfig{
+			LicenseToken: keys.Sign(lic),
+			Anchors:      keys.Anchors,
+		}))
+		var existing []channel.Channel
+		Expect(layer.Channel.NewRetrieve().Entries(&existing).Exec(ctx, nil)).
+			To(Succeed())
+		external := lo.CountBy(existing, func(ch channel.Channel) bool {
+			return !ch.Internal && !ch.Virtual
+		})
+		newIndices := func(n int) []channel.Channel {
+			return lo.Times(n, func(int) channel.Channel {
+				return channel.Channel{
+					Name:        UniqueChannelName(),
+					DataType:    telem.TimestampT,
+					IsIndex:     true,
+					Leaseholder: 1,
+				}
+			})
+		}
+		w := layer.Channel.NewWriter(nil)
+		Expect(w.CreateMany(ctx, new(newIndices(50-external)))).To(Succeed())
+		Expect(w.CreateMany(ctx, new(newIndices(1)))).To(And(
+			MatchError(license.ErrTooMany),
+			MatchError(ContainSubstring("limit is 50 channels")),
+		))
+	})
+
 	// Regression: the composition pass converts data staged by services that open
 	// after the panel table (project layouts, task re-key mapping). Running the
 	// conversion inside the panel table's own chain silently produced zero panels,
