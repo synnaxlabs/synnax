@@ -89,8 +89,9 @@ never stops because of time, and the old key format is deleted.
    verifier, the organization model, and the activation ledger are ours.
 7. **Vendor ids never enter a stored format**: The license names the portal's own
    organization key. The Clerk id is replaceable without issuing anything again.
-8. **Infrastructure is code**: Every cloud resource the portal needs is declared in
-   Terraform under `infra/`. What a vendor cannot expose is a documented manual step.
+8. **No stored cloud secret**: The portal reaches AWS through a role that only its
+   production deployments can assume. Setup that runs once is a script or a documented
+   step.
 
 ## 4 Current mechanics
 
@@ -319,11 +320,12 @@ Neon Postgres holds the portal's tables through Drizzle:
 Resend sends the mail Clerk does not: expiry warnings at 30, 7, and 1 days, and
 revocation notices. A daily Vercel Cron job runs the expiry sweep.
 
-`infra/portal/` declares in Terraform the KMS signing key, the IAM identity the Vercel
-runtime signs with, the portal's Vercel environment and domain, and the CI secret, with
-state in HCP Terraform. Neon and Clerk come through the Vercel Marketplace, which
-injects their variables. Their dashboard steps, and Resend, which has no provider, are
-documented in `infra/README.md`.
+The portal deploys like the docs site: Vercel's Git integration deploys `main` to
+production and each branch to a preview, and the build applies the Drizzle migrations
+first. The runtime signs through an AWS role that only production deployments can assume
+with Vercel's OIDC tokens, so no AWS secret is stored and a preview cannot sign. Neon
+and Clerk come through the Vercel Marketplace, which injects their variables.
+`site/portal/README.md` documents the setup that runs once.
 
 ### 5.7 Portal licenses and the activation ledger
 
@@ -454,12 +456,11 @@ The work ships as a stack of five pull requests into `main`.
   every client, the `unlicensed` connection reason, and the Driver retry.
 - **Phase 3: Console.** The activation screen and guard, the Core badge, and the version
   modal.
-- **Phase 4: Portal.** `site/portal/` and its Vercel project, `infra/portal/`, Clerk,
+- **Phase 4: Portal.** `site/portal/` and its Vercel project, the signing role, Clerk,
   Neon, and Resend, the four tables, KMS signing, the activation endpoint, the staff
   area with all three terms, the expiry cron, and every page of §5.10. The Console's
   activation link moves to the portal. Before it deploys, production Clerk needs the
-  name attribute, organizations, and the Microsoft connection, and Neon needs the
-  Drizzle migration, which neither the build nor the deploy runs.
+  name attribute, organizations, and the Microsoft connection.
 - **Phase 5: Desktop sign-in.** The `synnax-desktop` scheme, the sign-in page and its
   link route, the renew route, the Desktop sign-in screen and deep link handler, the
   account slice, and the renewal loop. Neon needs the migration that adds the two
