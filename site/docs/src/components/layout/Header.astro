@@ -13,7 +13,8 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import Search from "@/components/search/Search.astro";
-import { PageMobile } from "@/components/nav/Page";
+import { Page } from "@/components/nav/Page";
+import { REFERENCE_PAGES } from "@/pages/_nav";
 const url = Astro.url.pathname;
 const version = await Astro.locals.releases.latest("core").catch(() => null);
 const label = version?.split(".").slice(0, -1).join(".");
@@ -72,7 +73,40 @@ const label = version?.split(".").slice(0, -1).join(".");
                 >
                     Log in
                 </Button.Button>
-                <PageMobile client:only="react" currentPage={Astro.url.pathname} />
+                <button class="mobile-menu-btn" aria-label="Open menu" data-mobile-open>
+                    <span class="mobile-menu-icon"></span>
+                </button>
+                <div class="mobile-overlay" data-mobile-close></div>
+                <nav class="mobile-drawer">
+                    <div class="mobile-drawer-header">
+                        <a href="https://synnaxlabs.com" class="logo-link">
+                            <Logo variant="title" />
+                        </a>
+                        <button
+                            class="mobile-close-btn"
+                            aria-label="Close menu"
+                            data-mobile-close
+                        >
+                            <span class="mobile-close-icon"></span>
+                        </button>
+                    </div>
+                    <div class="mobile-drawer-links">
+                        <a href="/reference/" class="mobile-drawer-link">
+                            Reference
+                        </a>
+                        <a href="/blog/" class="mobile-drawer-link">
+                            Blog
+                        </a>
+                        <a href="/releases/" class="mobile-drawer-link">
+                            Releases
+                        </a>
+                        <div class="mobile-drawer-divider"></div>
+                        <span class="mobile-drawer-section-label">Reference</span>
+                    </div>
+                    <div class="mobile-drawer-tree">
+                        <Page nodes={REFERENCE_PAGES} currentPage={url} />
+                    </div>
+                </nav>
             </Flex.Box>
         </Flex.Box>
     </Flex.Box>

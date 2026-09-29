@@ -131,7 +131,7 @@ jobs:
 
       - name: Check circular dependencies
         if: matrix.lint && inputs.lint
-        run: pnpm madge:${{ inputs.package }}
+        run: pnpm cycles:${{ inputs.package }}
 
       - name: Lint
         if: matrix.lint && inputs.lint

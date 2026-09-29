@@ -1,17 +1,12 @@
 {
   "name": "examples",
   "type": "module",
-  "version": "1.0.0",
-  "description": "",
   "main": "index.js",
   "private": true,
   "scripts": {
     "main": "node index.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "dependencies": {
-    "@synnaxlabs/client": "^0.45.1"
+    "@synnaxlabs/client": "^0.58.1"
   }
 }

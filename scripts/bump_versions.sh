@@ -17,7 +17,7 @@ SCRIPT_DIR="$(
 )"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." > /dev/null 2>&1 && pwd)"
 
-if [[ -z "${1:-}" ]]; then
+if [[ -z ${1:-} ]]; then
     echo "Usage: $0 <version>"
     echo "Example: $0 0.51.0"
     exit 1
@@ -25,7 +25,7 @@ fi
 
 VERSION="$1"
 
-if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+if ! [[ $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     echo "Error: Version must be in semver format (e.g., 0.51.0)"
     exit 1
 fi
@@ -35,7 +35,7 @@ echo "================================"
 
 update_python() {
     local pyproject="$1"
-    if [[ -f "$pyproject" ]]; then
+    if [[ -f $pyproject ]]; then
         sed -i '' "s/^version = \".*\"/version = \"$VERSION\"/" "$pyproject"
         echo "✅ Updated Python: $pyproject"
     else
@@ -46,7 +46,7 @@ update_python() {
 
 update_node() {
     local pkg_json="$1"
-    if [[ -f "$pkg_json" ]]; then
+    if [[ -f $pkg_json ]]; then
         sed -i '' "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" "$pkg_json"
         echo "✅ Updated Node: $pkg_json"
     else
@@ -76,13 +76,8 @@ echo ""
 echo "Updating Node packages..."
 NODE_DIRS=(
     "$ROOT_DIR/alamos/ts"
-    "$ROOT_DIR/arc/ts"
     "$ROOT_DIR/client/ts"
-    "$ROOT_DIR/drift"
     "$ROOT_DIR/freighter/ts"
-    "$ROOT_DIR/lyra"
-    "$ROOT_DIR/pluto"
-    "$ROOT_DIR/x/media"
     "$ROOT_DIR/x/ts"
 )
 for d in "${NODE_DIRS[@]}"; do

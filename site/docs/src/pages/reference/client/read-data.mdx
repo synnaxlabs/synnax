@@ -35,10 +35,10 @@ you'd like a conceptual overview of how streaming works in Synnax, check out the
 
 ### Opening a streamer
 
-To start streaming data, call the <Client.Var client:load py="open_streamer"
-ts="openStreamer" /> method on the client and provide a list of channels to stream.
+To start streaming data, call the <Client.Var py="open_streamer" ts="openStreamer" />
+method on the client and provide a list of channels to stream.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -73,12 +73,12 @@ try {
 
 ### Downsampling option
 
-To stream data at a lower rate, use the <Client.Var client:load py="downsample_factor"
+To stream data at a lower rate, use the <Client.Var py="downsample_factor"
 ts="downsampleFactor" /> parameter. The streamer will skip the specified number of
 samples in each series before returning the next frame. Note that this does not average
 values—it skips samples.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -107,7 +107,7 @@ const streamer = await client.openStreamer({
 
 ### Using an async streamer
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -134,7 +134,7 @@ TypeScript streaming is async by default.
 
 To read the next incoming frame, call the `read` method on the streamer.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -164,7 +164,7 @@ For more on working with frames, see
 The streamer implements an iterator, allowing you to use a for loop to continuously
 process incoming frames.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -197,7 +197,7 @@ from two sensors, `temperature` and `pressure`, that are being sampled by differ
 devices at different rates, a frame may contain data only for the first channel,
 followed by a frame containing only data for the second channel.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -249,7 +249,7 @@ if (frame.has("temperature")) console.log(frame.get("temperature"));
 
 ### Specifying a timeout
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -291,11 +291,11 @@ if (frame === null) {
 
 ### Updating the channel list
 
-To update the list of channels being streamed, call the <Client.Var client:load
-py="update*channels" ts="update" /> method on the streamer. This will \_replace* the
-current list of channels, not add to it.
+To update the list of channels being streamed, call the <Client.Var py="update*channels"
+ts="update" /> method on the streamer. This will \_replace* the current list of
+channels, not add to it.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -319,7 +319,7 @@ await streamer.update(["temperature", "pressure", "humidity"]);
 After you're done streaming, it's essential that you call the `close` method on the
 streamer to release the network connection and other related resources.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -341,7 +341,7 @@ streamer.close();
 Using structured cleanup patterns ensures the streamer is always closed, even if an
 exception is thrown.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -384,7 +384,7 @@ patterns when working with past data rather than live streams.
 The simplest way to read historical data from Synnax is to use the `read` method on a
 `Channel`.
 
-<Client.Tabs client:load exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console", "cpp"]}>
 
   <Fragment slot="python">
 
@@ -434,7 +434,7 @@ const data = Array.from(series);
 The returned data is an instance of the
 [Frame](/reference/client/series-and-frames#frames) class.
 
-<Client.Tabs client:load exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console", "cpp"]}>
 
   <Fragment slot="python">
 
@@ -480,7 +480,7 @@ const humidity = frame.get("humidity");
 The `readLatest` method allows you to read the latest N samples from one or more
 channels:
 
-<Client.Tabs client:load exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console", "cpp"]}>
 
   <Fragment slot="python">
 

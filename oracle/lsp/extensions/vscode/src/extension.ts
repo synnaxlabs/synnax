@@ -10,7 +10,7 @@
 import * as path from "path";
 import * as fs from "fs";
 import * as os from "os";
-import { ExtensionContext, workspace, window, OutputChannel } from "vscode";
+import { ExtensionContext, workspace, window, LogOutputChannel } from "vscode";
 import {
   LanguageClient,
   LanguageClientOptions,
@@ -19,10 +19,10 @@ import {
 } from "vscode-languageclient/node";
 
 let client: LanguageClient | undefined;
-let outputChannel: OutputChannel;
+let outputChannel: LogOutputChannel;
 
 export function activate(context: ExtensionContext): void {
-  outputChannel = window.createOutputChannel("Oracle Language Server");
+  outputChannel = window.createOutputChannel("Oracle Language Server", { log: true });
   outputChannel.appendLine("Activating Oracle Language extension...");
 
   const serverPath = findOracleBinary(context);

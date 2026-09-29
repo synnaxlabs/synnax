@@ -261,6 +261,7 @@ jobs:
     with:
       coverage_flag: docs
       directory: site/docs
+      knip: true
       package: docs
     secrets: inherit
 

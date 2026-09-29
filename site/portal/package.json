@@ -11,7 +11,6 @@
     "astro": "astro",
     "lint": "eslint",
     "fix": "eslint --fix",
-    "madge": "madge --circular src",
     "format": "prettier --write .",
     "format-check": "prettier --check .",
     "test": "vitest",
@@ -41,7 +40,6 @@
   "devDependencies": {
     "@astrojs/check": "catalog:",
     "@synnaxlabs/eslint-config": "catalog:",
-    "@synnaxlabs/madge": "catalog:",
     "@synnaxlabs/stylelint-config": "catalog:",
     "@synnaxlabs/tsconfig": "catalog:",
     "@types/react": "catalog:",
