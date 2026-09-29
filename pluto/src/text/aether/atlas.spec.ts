@@ -234,8 +234,8 @@ describe("MonospacedAtlas", () => {
   });
 
   describe("default character set", () => {
-    // A value too wide for its box draws as hashes. A character the atlas does not
-    // hold draws as blank, so the box would look empty.
+    // A value too wide for its box draws as hashes. A character the atlas does not hold
+    // draws as blank, so the box would look empty.
     it("should hold the hash an overflowing value draws as", () => {
       expect(setup().copy("#", 0, 0)).toHaveLength(1);
     });
