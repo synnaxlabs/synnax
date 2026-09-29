@@ -12,6 +12,7 @@ package license_test
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/binary"
 	"reflect"
 	"strings"
 	"sync"
@@ -23,6 +24,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
@@ -207,6 +209,12 @@ var _ = Describe("License", func() {
 			),
 			Entry("other machines only", uint8(1), []string{"0000"}, false),
 			Entry("another scheme", uint8(2), []string{"aaaa"}, false),
+			Entry(
+				"unbound license with an unknown scheme is covered",
+				uint8(2),
+				nil,
+				true,
+			),
 		)
 	})
 
@@ -220,7 +228,7 @@ var _ = Describe("License", func() {
 			Expect(svc.CheckChannelLimit(1000)).To(Succeed())
 		})
 		It(
-			"should accept a licenseToken on open and load it on the next",
+			"should accept a token on open and load it on the next",
 			func(ctx SpecContext) {
 				lic := newLicense()
 				svc := open(ctx, license.ServiceConfig{Token: sign(lic)})
@@ -265,6 +273,29 @@ var _ = Describe("License", func() {
 			store(ctx, newer)
 			Expect(open(ctx).Retrieve().License.Channels).To(BeEquivalentTo(500))
 		})
+		It(
+			"should skip a stored entry issued for another machine",
+			func(ctx SpecContext) {
+				lic := newLicense()
+				lic.Fingerprints = []string{"0000"}
+				store(ctx, lic)
+				svc := open(ctx)
+				Expect(svc.Retrieve().State).To(Equal(license.StateMissing))
+				Expect(svc.Check()).To(MatchError(license.ErrMissing))
+			},
+		)
+		It(
+			"should skip a stored entry that no longer verifies",
+			func(ctx SpecContext) {
+				store(ctx, newLicense())
+				other, _ := MustSucceed2(ed25519.GenerateKey(rand.Reader))
+				svc := open(ctx, license.ServiceConfig{
+					Anchors: license.Anchors{keyID: other},
+				})
+				Expect(svc.Retrieve().State).To(Equal(license.StateMissing))
+				Expect(svc.Check()).To(MatchError(license.ErrMissing))
+			},
+		)
 		It("should report a stored entry that no longer covers", func(ctx SpecContext) {
 			lic := newLicense()
 			svc := open(ctx, license.ServiceConfig{Token: sign(lic)})
@@ -276,6 +307,20 @@ var _ = Describe("License", func() {
 			Expect(svc.Retrieve().State).To(Equal(license.StateExpired))
 			Expect(svc.Check()).To(MatchError(license.ErrExpired))
 		})
+		It(
+			"should not cap channels while the license is expired",
+			func(ctx SpecContext) {
+				lic := newLicense()
+				lic.Channels = 1
+				store(ctx, lic)
+				later := now.Add(60 * day)
+				svc := open(ctx, license.ServiceConfig{
+					Now: func() time.Time { return later },
+				})
+				Expect(svc.Retrieve().State).To(Equal(license.StateExpired))
+				Expect(svc.CheckChannelLimit(1000)).To(Succeed())
+			},
+		)
 		It(
 			"should treat every entry as expired after a clock rollback",
 			func(ctx SpecContext) {
@@ -322,6 +367,14 @@ var _ = Describe("License", func() {
 		state := func(svc *license.Service) func() license.State {
 			return func() license.State { return svc.Retrieve().State }
 		}
+		mark := func(ctx SpecContext) func() int64 {
+			return func() int64 {
+				GinkgoHelper()
+				raw, closer := MustSucceed2(db.Get(ctx, []byte("highWater")))
+				Expect(closer.Close()).To(Succeed())
+				return int64(binary.LittleEndian.Uint64(raw))
+			}
+		}
 		It(
 			"should recover once a clock that was behind catches up",
 			func(ctx SpecContext) {
@@ -337,10 +390,11 @@ var _ = Describe("License", func() {
 		)
 		It("should never move the recorded time back", func(ctx SpecContext) {
 			svc := open(ctx, clocked, license.ServiceConfig{Token: sign(newLicense())})
+			Expect(mark(ctx)()).To(Equal(now.UnixNano()))
 			clock.Store(now.Add(-2 * day).UnixNano())
-			Consistently(state(svc)).
+			Consistently(mark(ctx)).
 				WithTimeout(100 * time.Millisecond).
-				Should(Equal(license.StateOk))
+				Should(Equal(now.UnixNano()))
 			Expect(svc.Close()).To(Succeed())
 			svc = open(ctx, clocked)
 			Expect(svc.Retrieve().State).To(Equal(license.StateExpired))
@@ -453,25 +507,34 @@ var _ = Describe("License", func() {
 				To(MatchError(license.ErrExpired))
 			Expect(svc.Retrieve().State).To(Equal(license.StateMissing))
 		})
-		DescribeTable("should hold a perpetual license to its ceiling",
-			func(ctx SpecContext, ceiling string, expected error) {
-				lic := newLicense()
-				lic.Exp = nil
-				lic.MaxVersion = new(ceiling)
-				if expected != nil {
-					Expect(
-						svc.Activate(ctx, sign(lic)),
-					).Error().
-						To(MatchError(expected))
-					return
-				}
-				info := MustSucceed(svc.Activate(ctx, sign(lic)))
+		perpetual := func(ceiling string) license.License {
+			lic := newLicense()
+			lic.Exp = nil
+			lic.MaxVersion = new(ceiling)
+			return lic
+		}
+		DescribeTable("should accept a perpetual license up to its ceiling",
+			func(ctx SpecContext, ceiling string) {
+				info := MustSucceed(svc.Activate(ctx, sign(perpetual(ceiling))))
 				Expect(info.State).To(Equal(license.StateOk))
 				Expect(info.Warning).To(BeEmpty())
 			},
-			Entry("under", "0.62", nil),
-			Entry("at", "0.60", nil),
-			Entry("over", "0.59", license.ErrExpired),
+			Entry("under", "0.62"),
+			Entry("at", "0.60"),
+		)
+		DescribeTable("should refuse a perpetual license past its ceiling",
+			func(ctx SpecContext, ceiling string) {
+				Expect(svc.Activate(ctx, sign(perpetual(ceiling)))).Error().To(And(
+					MatchError(license.ErrExpired),
+					MatchError(ContainSubstring(
+						"license covers versions up to %s, this Core is 0.60.1",
+						ceiling,
+					)),
+				))
+				Expect(svc.Retrieve().State).To(Equal(license.StateMissing))
+			},
+			Entry("over", "0.59"),
+			Entry("over when compared as numbers", "0.9"),
 		)
 		It(
 			"should refuse a license with neither expiry nor ceiling",
@@ -544,6 +607,21 @@ var _ = Describe("License", func() {
 			MustSucceed(svc.Activate(ctx, sign(lic)))
 			Expect(svc.CheckChannelLimit(10)).To(Succeed())
 			Expect(svc.CheckChannelLimit(11)).To(MatchError(license.ErrTooMany))
+		})
+		It("should carry the channel cap across the wire", func(ctx SpecContext) {
+			lic := newLicense()
+			lic.Channels = 10
+			MustSucceed(svc.Activate(ctx, sign(lic)))
+			pld := errors.Encode(ctx, svc.CheckChannelLimit(11), false)
+			Expect(pld.Type).To(Equal("sy.license.too_many"))
+			Expect(pld.Data).To(Equal(
+				"limit is 10 channels: using more channels than allowed by the " +
+					"license: license error",
+			))
+			Expect(errors.Decode(ctx, pld)).To(And(
+				MatchError(license.ErrTooMany),
+				MatchError(ContainSubstring("limit is 10 channels")),
+			))
 		})
 		It("should not cap a license with a zero cap", func(ctx SpecContext) {
 			MustSucceed(svc.Activate(ctx, sign(newLicense())))
