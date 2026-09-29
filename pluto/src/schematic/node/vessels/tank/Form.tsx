@@ -35,7 +35,10 @@ const FillForm = (): ReactElement => {
       {channel != null && (
         <>
           <Base.Section title="Display">
-            <Scale.DisplayFields hiddenByDefault />
+            <Scale.DisplayFields>
+              <Base.SwitchField path="caretVisible" label="Value" padHelpText={false} />
+              <Base.SwitchField path="scaleVisible" label="Scale" padHelpText={false} />
+            </Scale.DisplayFields>
           </Base.Section>
           <Base.Section title="Appearance">
             <Scale.StyleFields />

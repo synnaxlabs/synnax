@@ -18,15 +18,8 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import {
-  Access,
-  Notation,
-  Panel as PPanel,
-  type Properties,
-  Staleness,
-  Table,
-} from "@synnaxlabs/pluto";
-import { color, deep, type notation, type record, type text } from "@synnaxlabs/x";
+import { Access, Panel as PPanel, type Properties, Table } from "@synnaxlabs/pluto";
+import { color, deep, type text } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 import { type z } from "zod";
 
@@ -223,17 +216,8 @@ const NotEditableContent = ({ name }: NotEditableContentProps): ReactElement => 
 
 const FIELDS = MultiEdit.fieldsByVariant(table.CELL_CONFIG_SCHEMAS);
 
-const hasField = (cell: Table.Cell.Config, field: string): boolean => {
-  const fields = FIELDS.get(cell.variant);
-  if (fields == null) throw new Error(`[table] - no schema for ${cell.variant}`);
-  return fields.has(field);
-};
-
 // Every stored color field that Selection colors lists.
 const COLOR_FIELDS = ["textColor", "fillColor", "stalenessColor"] as const;
-
-const STALENESS_TIMEOUT_BOUNDS = { lower: 1, upper: Infinity };
-const PRECISION_BOUNDS = { lower: 0, upper: 10 };
 
 interface MultiCellFormProps {
   cellKeys: string[];
@@ -244,131 +228,68 @@ const MultiCellForm = ({ cellKeys }: MultiCellFormProps): ReactElement => {
   const dispatch = Table.useSingleDispatch();
   const theme = Theming.use();
 
-  // Cells absent from the store are skipped (selection may include keys from
-  // a removed row). One dispatch per call so undo collapses to one step.
-  const applyConfigs = useCallback(
-    (next: (key: string, cell: Table.Cell.Config) => Table.Cell.Config | null) => {
-      const actions: table.Action[] = [];
-      for (const key of cellKeys) {
-        const cell = cellsByKey.get(key);
-        if (cell == null) continue;
-        const config = next(key, cell);
-        if (config == null) continue;
-        actions.push(
+  // One dispatch per change so undo collapses to one step.
+  const selection = MultiEdit.selection({
+    configs: cellsByKey,
+    fields: FIELDS,
+    onChange: (updates) =>
+      dispatch(
+        updates.map(([key, config]) =>
           table.setCell({ cell: { key, config: Table.Cell.configZ.parse(config) } }),
-        );
-      }
-      dispatch(actions);
-    },
-    [cellKeys, cellsByKey, dispatch],
-  );
-
-  const withField = (field: string): Table.Cell.Config[] =>
-    Array.from(cellsByKey.values()).filter((cell) => hasField(cell, field));
-
-  const firstValue = <V,>(field: string): V | undefined => {
-    const [cell] = withField(field);
-    if (cell == null) return undefined;
-    return (cell as record.Unknown)[field] as V | undefined;
-  };
-
-  // Writes the value on every selected cell that has the field.
-  const handleFieldChange = (field: string, value: unknown): void =>
-    applyConfigs((_, cell) =>
-      hasField(cell, field) ? MultiEdit.patch(cell, [[field, value]]) : null,
-    );
-
-  const colorValues = (field: string): Array<color.Crude | undefined> =>
-    withField(field).map(
-      (cell) => (cell as record.Unknown)[field] as color.Crude | undefined,
-    );
+        ),
+      ),
+  });
 
   const selectionRefs = Array.from(cellsByKey).flatMap(([key, cell]) =>
     MultiEdit.colorRefs(key, cell, COLOR_FIELDS),
   );
 
-  const handleSelectionColorChange = (refs: MultiEdit.ColorRef[], c: color.Color) => {
-    const byKey = MultiEdit.groupByKey(refs);
-    applyConfigs((key, cell) => {
-      const group = byKey.get(key);
-      if (group == null) return null;
-      return MultiEdit.patch(
-        cell,
-        group.map((r) => [r.path, c]),
-      );
-    });
-  };
-
   const levels = new Set(Array.from(cellsByKey.values(), (cell) => cell.level));
   const commonLevel = levels.size === 1 ? levels.values().next().value : undefined;
-
-  const hasStaleness = withField("stalenessColor").length > 0;
-  const hasNumberFormat = withField("precision").length > 0;
 
   return (
     <Form.Sections x>
       <Form.Section title="Colors">
         <MultiEdit.ColorField
           label="Text"
-          values={colorValues("textColor")}
+          values={selection.colors("textColor")}
           fallback={theme.colors.gray.l11}
-          onChange={(c) => handleFieldChange("textColor", c)}
+          onChange={(c) => selection.set("textColor", c)}
         />
         <MultiEdit.ColorField
           label="Fill"
-          values={colorValues("fillColor")}
+          values={selection.colors("fillColor")}
           fallback={color.ZERO}
-          onChange={(c) => handleFieldChange("fillColor", c)}
+          onChange={(c) => selection.set("fillColor", c)}
         />
         <MultiEdit.SelectionColors
           refs={selectionRefs}
-          onChange={handleSelectionColorChange}
+          onChange={selection.setColors}
         />
       </Form.Section>
       <Form.Section title="Text">
         <Input.Item label="Size" padHelpText={false}>
           <Select.Text.Level
             value={commonLevel}
-            onChange={(level: text.Level) => handleFieldChange("level", level)}
+            onChange={(level: text.Level) => selection.set("level", level)}
           />
         </Input.Item>
       </Form.Section>
-      {hasStaleness && (
-        <Form.Section title="Staleness">
-          <MultiEdit.ColorField
-            label="Color"
-            values={colorValues("stalenessColor")}
-            fallback={Staleness.resolveColor(undefined, theme)}
-            onChange={(c) => handleFieldChange("stalenessColor", c)}
-          />
-          <Input.Item label="Timeout" align="start" padHelpText={false}>
-            <Input.Numeric
-              bounds={STALENESS_TIMEOUT_BOUNDS}
-              endContent="s"
-              value={
-                firstValue<number>("stalenessTimeout") ?? Staleness.DEFAULT_TIMEOUT
-              }
-              onChange={(v) => handleFieldChange("stalenessTimeout", v)}
-            />
-          </Input.Item>
-        </Form.Section>
+      {selection.has("stalenessTimeout") && (
+        <MultiEdit.StalenessSection
+          colors={selection.colors("stalenessColor")}
+          timeout={selection.first("stalenessTimeout")}
+          onColorChange={(c) => selection.set("stalenessColor", c)}
+          onTimeoutChange={(v) => selection.set("stalenessTimeout", v)}
+        />
       )}
-      {hasNumberFormat && (
-        <Form.Section title="Number format">
-          <Input.Item label="Notation" align="start" padHelpText={false}>
-            <Notation.Select
-              value={firstValue<notation.Notation>("notation") ?? "standard"}
-              onChange={(v: notation.Notation) => handleFieldChange("notation", v)}
-            />
-          </Input.Item>
-          <Input.Item label="Precision" align="start" padHelpText={false}>
-            <Input.Numeric
-              bounds={PRECISION_BOUNDS}
-              value={firstValue<number>("precision") ?? 2}
-              onChange={(v) => handleFieldChange("precision", v)}
-            />
-          </Input.Item>
-        </Form.Section>
+      {selection.has("precision") && (
+        <MultiEdit.NumberFormatSection
+          notation={selection.first("notation")}
+          precision={selection.first("precision")}
+          onNotationChange={(v) => selection.set("notation", v)}
+          onPrecisionChange={(v) => selection.set("precision", v)}
+        />
       )}
     </Form.Sections>
   );

@@ -43,7 +43,18 @@ export const ScaleForm = ({ tab, onTabChange }: FormProps): ReactElement => {
             />
           </Base.Section>
           <Base.Section title="Display">
-            <Scale.DisplayFields axis={location.direction(orientation)} />
+            <Scale.DisplayFields axis={location.direction(orientation)}>
+              <Form.NegatedSwitchField
+                path="caretHidden"
+                label="Value"
+                padHelpText={false}
+              />
+              <Form.NegatedSwitchField
+                path="scaleHidden"
+                label="Scale"
+                padHelpText={false}
+              />
+            </Scale.DisplayFields>
           </Base.Section>
           <Base.Section title="Appearance">
             <Scale.StyleFields />

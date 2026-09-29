@@ -9,3 +9,5 @@
 
 export * from "@/platform/multiedit/Colors";
 export * from "@/platform/multiedit/config";
+export * from "@/platform/multiedit/Sections";
+export * from "@/platform/multiedit/selection";

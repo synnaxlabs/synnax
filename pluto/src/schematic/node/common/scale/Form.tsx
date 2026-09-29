@@ -21,7 +21,7 @@ import {
   primitive,
   type text,
 } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type PropsWithChildren, type ReactElement } from "react";
 
 import { Channel } from "@/channel";
 import { Notation } from "@/notation";
@@ -125,42 +125,22 @@ export const TelemForm = ({ allowNone = false }: TelemFormProps): ReactElement =
   );
 };
 
-export interface DisplayFieldsProps {
+export interface DisplayFieldsProps extends PropsWithChildren {
   /** The axis the bar fills along, which the ticks must sit clear of. */
   axis?: direction.Direction;
-  /**
-   * True for a symbol that stores its caret and scale as shown flags because it hides
-   * them by default.
-   */
-  hiddenByDefault?: boolean;
 }
 
-/** Which parts of the scale are drawn, and the sides the ticks and readout sit on. */
+/**
+ * Which parts of the scale are drawn, and the sides the ticks and readout sit on. The
+ * children are the value and scale switches, which each symbol stores its own way.
+ */
 export const DisplayFields = ({
   axis = "y",
-  hiddenByDefault = false,
+  children,
 }: DisplayFieldsProps): ReactElement => (
   <>
     <NodeForm.NegatedSwitchField path="levelHidden" label="Fill" padHelpText={false} />
-    {hiddenByDefault ? (
-      <>
-        <Base.SwitchField path="caretVisible" label="Value" padHelpText={false} />
-        <Base.SwitchField path="scaleVisible" label="Scale" padHelpText={false} />
-      </>
-    ) : (
-      <>
-        <NodeForm.NegatedSwitchField
-          path="caretHidden"
-          label="Value"
-          padHelpText={false}
-        />
-        <NodeForm.NegatedSwitchField
-          path="scaleHidden"
-          label="Scale"
-          padHelpText={false}
-        />
-      </>
-    )}
+    {children}
     <SideField path="caretSide" label="Value side" sides={SIDES} />
     <SideField
       path="side"
