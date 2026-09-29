@@ -28,7 +28,6 @@ import { Status } from "@/feature/status";
 import { Table } from "@/feature/table";
 import { Task } from "@/feature/task";
 import { User } from "@/feature/user";
-import { FLAGS } from "@/flags";
 import { Tree } from "@/platform/tree";
 
 const TREE_ITEMS: Tree.Items = {
@@ -37,7 +36,7 @@ const TREE_ITEMS: Tree.Items = {
   ...Channel.TREE_ITEMS,
   ...Device.TREE_ITEMS,
   ...Group.TREE_ITEMS,
-  ...(FLAGS.library ? Library.TREE_ITEMS : {}),
+  ...Library.TREE_ITEMS,
   ...Label.TREE_ITEMS,
   ...LinePlot.TREE_ITEMS,
   ...Log.TREE_ITEMS,

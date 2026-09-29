@@ -23,6 +23,9 @@ const BACKEND_NAMES = {
   ballard: "Astronics Ballard",
 } as const satisfies Record<mil1553.Backend, string>;
 
+// The Driver cannot drive a DDC or Ballard card yet.
+const OFFERED_BACKENDS: mil1553.Backend[] = ["simulated"];
+
 const ROLE_NAMES = {
   bus_controller: "Bus controller",
   remote_terminal: "Remote terminal",
@@ -30,12 +33,6 @@ const ROLE_NAMES = {
 } as const satisfies Record<mil1553.Role, string>;
 
 const TERMINALS_PATH = "properties.terminals";
-
-const BackendField = Form.buildSelectField<mil1553.Backend>({
-  fieldKey: "backend",
-  fieldProps: { label: "Backend" },
-  inputProps: { resourceName: "backend", children: Task.selectItems(BACKEND_NAMES) },
-});
 
 const RoleField = Form.buildSelectField<mil1553.Role>({
   fieldKey: "role",
@@ -62,7 +59,7 @@ const Properties = (): ReactElement => {
   const role = Form.useFieldValue<mil1553.Role>("properties.role");
   return (
     <>
-      <BackendField path="properties" />
+      <Bus.BackendField names={BACKEND_NAMES} offered={OFFERED_BACKENDS} />
       <Flex.Box x>
         <Form.NumericField path="properties.card" label="Card" />
         <Form.NumericField path="properties.channel" label="Channel" />

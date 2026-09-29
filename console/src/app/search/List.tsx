@@ -21,13 +21,12 @@ import { Schematic } from "@/feature/schematic";
 import { Search } from "@/feature/search";
 import { Table } from "@/feature/table";
 import { Task } from "@/feature/task";
-import { FLAGS } from "@/flags";
 import { type Palette } from "@/platform/palette";
 
 const SEARCH_LIST_ITEMS: Search.ListItems = {
   ...Arc.SEARCH_LIST_ITEMS,
   ...Channel.SEARCH_LIST_ITEMS,
-  ...(FLAGS.library ? Library.SEARCH_LIST_ITEMS : {}),
+  ...Library.SEARCH_LIST_ITEMS,
   ...LinePlot.SEARCH_LIST_ITEMS,
   ...Log.SEARCH_LIST_ITEMS,
   ...Project.SEARCH_LIST_ITEMS,

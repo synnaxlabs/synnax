@@ -29,6 +29,7 @@ import { TCP } from "@/feature/tcp";
 import { UDP } from "@/feature/udp";
 import { findButton, renderModalOpener } from "@/platform/modals/testutil";
 import { selectFromDropdown } from "@/platform/task/testutil";
+import { findDialogTriggerByText } from "@/testutil";
 
 const client = createTestClient();
 
@@ -53,6 +54,13 @@ const connectAndRetrieve = async (key: device.Key): Promise<device.Device> => {
     if (!dev.configured) throw new Error(`device ${key} is not configured yet`);
     return dev;
   });
+};
+
+const listBackends = async (): Promise<string[]> => {
+  fireEvent.click(await screen.findByRole("button", { name: "Backend" }));
+  const dialogs = await screen.findAllByRole("dialog");
+  const options = await within(dialogs[dialogs.length - 1]).findAllByRole("option");
+  return options.map((o) => o.textContent);
 };
 
 describe("bus device connect", () => {
@@ -201,5 +209,48 @@ describe("bus device connect", () => {
     fireEvent.click(findButton("Connect"));
     await screen.findByText("Host is required");
     expect((await client.devices.retrieve({ key: dev.key })).configured).toBe(false);
+  });
+
+  describe("backends", () => {
+    it("should offer only the ARINC 429 backends the Driver drives", async () => {
+      const dev = await createBusDevice(
+        client,
+        ARINC429.Device.MAKE,
+        arinc429.propertiesZ.parse({}),
+        { configured: false },
+      );
+      await openConnect(ARINC429.Device.useConnectModal, dev.key);
+      expect(await listBackends()).toEqual(["Simulated", "DDC"]);
+    });
+
+    it("should offer only the MIL-STD-1553 backends the Driver drives", async () => {
+      const dev = await createMIL1553Device({});
+      await openConnect(MIL1553.Device.useConnectModal, dev.key);
+      expect(await listBackends()).toEqual(["Simulated"]);
+    });
+
+    it("should keep a stored ARINC 429 backend that is not offered", async () => {
+      const dev = await createBusDevice(
+        client,
+        ARINC429.Device.MAKE,
+        arinc429.propertiesZ.parse({ backend: "ballard" }),
+        { configured: false },
+      );
+      await openConnect(ARINC429.Device.useConnectModal, dev.key);
+      await findDialogTriggerByText("Astronics Ballard");
+      expect(await listBackends()).toEqual(["Simulated", "DDC", "Astronics Ballard"]);
+      const saved = await connectAndRetrieve(dev.key);
+      expect(saved.model).toBe("ballard");
+      expect(arinc429.propertiesZ.parse(saved.properties).backend).toBe("ballard");
+    });
+
+    it("should keep a stored MIL-STD-1553 backend that is not offered", async () => {
+      const dev = await createMIL1553Device({ backend: "ddc" });
+      await openConnect(MIL1553.Device.useConnectModal, dev.key);
+      await findDialogTriggerByText("DDC");
+      expect(await listBackends()).toEqual(["Simulated", "DDC"]);
+      const saved = await connectAndRetrieve(dev.key);
+      expect(saved.model).toBe("ddc");
+    });
   });
 });

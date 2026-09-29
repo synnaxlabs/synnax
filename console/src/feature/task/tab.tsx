@@ -27,28 +27,23 @@ import { Serial } from "@/feature/serial";
 import { getIcon } from "@/feature/task/types";
 import { TCP } from "@/feature/tcp";
 import { UDP } from "@/feature/udp";
-import { FLAGS } from "@/flags";
 import { Panel } from "@/platform/panel";
 import { type Task } from "@/platform/task";
 
 export const FORMS: Task.Forms = {
+  ...ARINC429.Task.FORMS,
+  ...CAN.Task.FORMS,
   ...EtherCAT.Task.FORMS,
   ...HTTP.Task.FORMS,
   ...LabJack.Task.FORMS,
+  ...MIL1553.Task.FORMS,
   ...Modbus.Task.FORMS,
   ...NI.Task.FORMS,
   ...OPCUA.Task.FORMS,
   ...PagerDuty.Task.FORMS,
-  ...(FLAGS.can
-    ? {
-        ...CAN.Task.FORMS,
-        ...Serial.Task.FORMS,
-        ...TCP.Task.FORMS,
-        ...UDP.Task.FORMS,
-        ...ARINC429.Task.FORMS,
-        ...MIL1553.Task.FORMS,
-      }
-    : {}),
+  ...Serial.Task.FORMS,
+  ...TCP.Task.FORMS,
+  ...UDP.Task.FORMS,
 };
 
 const Content: Panel.Content = () => {

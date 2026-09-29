@@ -22,16 +22,13 @@ const BACKEND_NAMES = {
   ddc: "DDC",
 } as const satisfies Record<arinc429.Backend, string>;
 
+// The Driver cannot drive a Ballard card yet.
+const OFFERED_BACKENDS: arinc429.Backend[] = ["simulated", "ddc"];
+
 const SPEED_NAMES = {
   low: "Low (12.5 kbit/s)",
   high: "High (100 kbit/s)",
 } as const satisfies Record<arinc429.Speed, string>;
-
-const BackendField = Form.buildSelectField<arinc429.Backend>({
-  fieldKey: "backend",
-  fieldProps: { label: "Backend" },
-  inputProps: { resourceName: "backend", children: Task.selectItems(BACKEND_NAMES) },
-});
 
 const SpeedField = Form.buildSelectField<arinc429.Speed>({
   fieldKey: "speed",
@@ -41,7 +38,7 @@ const SpeedField = Form.buildSelectField<arinc429.Speed>({
 
 const Properties = (): ReactElement => (
   <>
-    <BackendField path="properties" />
+    <Bus.BackendField names={BACKEND_NAMES} offered={OFFERED_BACKENDS} />
     <Flex.Box x>
       <Form.NumericField path="properties.card" label="Card" />
       <Form.NumericField path="properties.channel" label="Channel" />

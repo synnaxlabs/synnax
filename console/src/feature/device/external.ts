@@ -16,7 +16,6 @@ import { OPCUA } from "@/feature/opcua";
 import { Serial } from "@/feature/serial";
 import { TCP } from "@/feature/tcp";
 import { UDP } from "@/feature/udp";
-import { FLAGS } from "@/flags";
 import { type Command } from "@/platform/command";
 
 export * from "@/feature/device/link";
@@ -27,17 +26,13 @@ export * from "@/feature/device/useListenForChanges";
 export * from "@/platform/device/external";
 
 export const COMMANDS: Command.Command[] = [
+  ...ARINC429.Device.COMMANDS,
+  ...CAN.Device.COMMANDS,
   ...HTTP.Device.COMMANDS,
+  ...MIL1553.Device.COMMANDS,
   ...Modbus.Device.COMMANDS,
   ...OPCUA.Device.COMMANDS,
-  ...(FLAGS.can
-    ? [
-        ...CAN.Device.COMMANDS,
-        ...Serial.Device.COMMANDS,
-        ...TCP.Device.COMMANDS,
-        ...UDP.Device.COMMANDS,
-        ...ARINC429.Device.COMMANDS,
-        ...MIL1553.Device.COMMANDS,
-      ]
-    : []),
+  ...Serial.Device.COMMANDS,
+  ...TCP.Device.COMMANDS,
+  ...UDP.Device.COMMANDS,
 ];

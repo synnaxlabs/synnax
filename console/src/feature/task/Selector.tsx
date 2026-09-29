@@ -25,7 +25,6 @@ import { PagerDuty } from "@/feature/pagerduty";
 import { Serial } from "@/feature/serial";
 import { TCP } from "@/feature/tcp";
 import { UDP } from "@/feature/udp";
-import { FLAGS } from "@/flags";
 import { Panel } from "@/platform/panel";
 import { Selector as Base } from "@/platform/selector";
 
@@ -40,23 +39,19 @@ const withTaskVisibility = (Selectable: Base.Selectable): Base.Selectable => {
 };
 
 export const SELECTABLES: Base.Selectable[] = [
+  ...ARINC429.Task.SELECTABLES,
+  ...CAN.Task.SELECTABLES,
   ...EtherCAT.Task.SELECTABLES,
   ...HTTP.Task.SELECTABLES,
   ...LabJack.Task.SELECTABLES,
+  ...MIL1553.Task.SELECTABLES,
   ...Modbus.Task.SELECTABLES,
   ...NI.Task.SELECTABLES,
   ...OPCUA.Task.SELECTABLES,
   ...PagerDuty.Task.SELECTABLES,
-  ...(FLAGS.can
-    ? [
-        ...CAN.Task.SELECTABLES,
-        ...Serial.Task.SELECTABLES,
-        ...TCP.Task.SELECTABLES,
-        ...UDP.Task.SELECTABLES,
-        ...ARINC429.Task.SELECTABLES,
-        ...MIL1553.Task.SELECTABLES,
-      ]
-    : []),
+  ...Serial.Task.SELECTABLES,
+  ...TCP.Task.SELECTABLES,
+  ...UDP.Task.SELECTABLES,
 ].map(withTaskVisibility);
 
 export const Selector = Base.create({

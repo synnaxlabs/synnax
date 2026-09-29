@@ -33,7 +33,6 @@ import { Task } from "@/feature/task";
 import { Theme } from "@/feature/theme";
 import { User } from "@/feature/user";
 import { Version } from "@/feature/version";
-import { FLAGS } from "@/flags";
 import { type Palette } from "@/platform/palette";
 
 const COMMANDS: Command.Command[] = [
@@ -43,7 +42,7 @@ const COMMANDS: Command.Command[] = [
   ...Docs.COMMANDS,
   ...Framer.COMMANDS,
   ...Import.COMMANDS,
-  ...(FLAGS.library ? Library.COMMANDS : []),
+  ...Library.COMMANDS,
   ...Label.COMMANDS,
   ...LinePlot.COMMANDS,
   ...Log.COMMANDS,

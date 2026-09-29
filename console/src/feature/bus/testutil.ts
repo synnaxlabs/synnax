@@ -220,32 +220,3 @@ export const findFieldRow = async (name: string): Promise<HTMLElement> => {
   if (row == null) throw new Error(`no field row holds the ${name} checkbox`);
   return row;
 };
-
-export const BUS_TASK_TYPES = [
-  "can_read",
-  "can_write",
-  "serial_read",
-  "serial_write",
-  "tcp_read",
-  "tcp_write",
-  "udp_read",
-  "udp_write",
-  "arinc429_read",
-  "arinc429_write",
-  "mil1553_read",
-  "mil1553_write",
-];
-
-export const BUS_CONNECT_COMMANDS = [
-  "can_connect_device",
-  "serial_connect_device",
-  "tcp_connect_device",
-  "udp_connect_device",
-  "arinc429_connect_device",
-  "mil1553_connect_device",
-];
-
-export const BUS_TASK_COMMANDS = BUS_TASK_TYPES.map((type) => {
-  const [prefix, kind] = type.split("_");
-  return `${prefix}_create_${kind}_task`;
-});

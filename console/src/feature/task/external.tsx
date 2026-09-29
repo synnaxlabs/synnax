@@ -26,7 +26,6 @@ import { TAB } from "@/feature/task/tab";
 import { getIcon, parseType } from "@/feature/task/types";
 import { TCP } from "@/feature/tcp";
 import { UDP } from "@/feature/udp";
-import { FLAGS } from "@/flags";
 import { type Command } from "@/platform/command";
 import { type Panel } from "@/platform/panel";
 import { type Range } from "@/platform/range";
@@ -45,23 +44,19 @@ export * from "@/platform/task/external";
 export const REGISTRY: Task.Registry = { getIcon, parseType };
 
 export const COMMANDS: Command.Command[] = [
+  ...ARINC429.Task.COMMANDS,
+  ...CAN.Task.COMMANDS,
   ...EtherCAT.Task.COMMANDS,
   ...HTTP.Task.COMMANDS,
   ...LabJack.Task.COMMANDS,
+  ...MIL1553.Task.COMMANDS,
   ...Modbus.Task.COMMANDS,
   ...NI.Task.COMMANDS,
   ...OPCUA.Task.COMMANDS,
   ...PagerDuty.Task.COMMANDS,
-  ...(FLAGS.can
-    ? [
-        ...CAN.Task.COMMANDS,
-        ...Serial.Task.COMMANDS,
-        ...TCP.Task.COMMANDS,
-        ...UDP.Task.COMMANDS,
-        ...ARINC429.Task.COMMANDS,
-        ...MIL1553.Task.COMMANDS,
-      ]
-    : []),
+  ...Serial.Task.COMMANDS,
+  ...TCP.Task.COMMANDS,
+  ...UDP.Task.COMMANDS,
 ];
 
 export const TABS: Panel.Tabs = {

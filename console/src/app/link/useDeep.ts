@@ -20,14 +20,13 @@ import { Range } from "@/feature/range";
 import { Schematic } from "@/feature/schematic";
 import { Table } from "@/feature/table";
 import { Task } from "@/feature/task";
-import { FLAGS } from "@/flags";
 import { Session } from "@/session";
 
 const LINKS: Link.Registry = {
   ...Arc.LINKS,
   ...Channel.LINKS,
   ...Device.LINKS,
-  ...(FLAGS.library ? Library.LINKS : {}),
+  ...Library.LINKS,
   ...LinePlot.LINKS,
   ...Log.LINKS,
   ...Range.LINKS,

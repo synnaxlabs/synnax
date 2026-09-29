@@ -24,36 +24,26 @@ import { OPCUA } from "@/feature/opcua";
 import { Serial } from "@/feature/serial";
 import { TCP } from "@/feature/tcp";
 import { UDP } from "@/feature/udp";
-import { FLAGS } from "@/flags";
 import { type Tree } from "@/platform/tree";
 
-const BUS_MAKES = [
-  CAN.Device.MAKE,
-  Serial.Device.MAKE,
-  TCP.Device.MAKE,
-  UDP.Device.MAKE,
-  ARINC429.Device.MAKE,
-  MIL1553.Device.MAKE,
-] as const;
-
 export const makeZ = z.enum([
-  ...BUS_MAKES,
+  ARINC429.Device.MAKE,
+  CAN.Device.MAKE,
   EtherCAT.Device.MAKE,
   HTTP.Device.MAKE,
   LabJack.Device.MAKE,
+  MIL1553.Device.MAKE,
   Modbus.Device.MAKE,
   NI.Device.MAKE,
   OPCUA.Device.MAKE,
+  Serial.Device.MAKE,
+  TCP.Device.MAKE,
+  UDP.Device.MAKE,
 ]);
 export type Make = z.infer<typeof makeZ>;
 
-const BUS_MAKE_SET = new Set<Make>(BUS_MAKES);
-
-export const getMake = (make: unknown): Make | null => {
-  const parsed = makeZ.safeParse(make).data ?? null;
-  if (parsed != null && !FLAGS.can && BUS_MAKE_SET.has(parsed)) return null;
-  return parsed;
-};
+export const getMake = (make: unknown): Make | null =>
+  makeZ.safeParse(make).data ?? null;
 
 const MAKE_ICONS: Record<Make, Icon.ReactElement> = {
   [CAN.Device.MAKE]: <Icon.Hardware />,

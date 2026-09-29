@@ -19,13 +19,12 @@ import { Schematic } from "@/feature/schematic";
 import { Status } from "@/feature/status";
 import { Table } from "@/feature/table";
 import { Task } from "@/feature/task";
-import { FLAGS } from "@/flags";
 import { Panel } from "@/platform/panel";
 
 const TABS: Panel.Tabs = {
   ...Status.TABS,
   ...Arc.TABS,
-  ...(FLAGS.library ? Library.TABS : {}),
+  ...Library.TABS,
   ...Range.TABS,
   ...Selector.TABS,
   ...LinePlot.TABS,

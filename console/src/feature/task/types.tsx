@@ -23,28 +23,23 @@ import { PagerDuty } from "@/feature/pagerduty";
 import { Serial } from "@/feature/serial";
 import { TCP } from "@/feature/tcp";
 import { UDP } from "@/feature/udp";
-import { FLAGS } from "@/flags";
-
-const BUS_PREFIXES = [
-  CAN.Task.PREFIX,
-  Serial.Task.PREFIX,
-  TCP.Task.PREFIX,
-  UDP.Task.PREFIX,
-  ARINC429.Task.PREFIX,
-  MIL1553.Task.PREFIX,
-] as const;
 
 const PREFIXES = [
+  ARINC429.Task.PREFIX,
+  CAN.Task.PREFIX,
   EtherCAT.Task.PREFIX,
   HTTP.Task.PREFIX,
   LabJack.Task.PREFIX,
+  MIL1553.Task.PREFIX,
   Modbus.Task.PREFIX,
   NI.Task.PREFIX,
   OPCUA.Task.PREFIX,
   PagerDuty.Task.PREFIX,
-  ...(FLAGS.can ? BUS_PREFIXES : []),
+  Serial.Task.PREFIX,
+  TCP.Task.PREFIX,
+  UDP.Task.PREFIX,
 ] as const;
-type Prefix = (typeof PREFIXES)[number] | (typeof BUS_PREFIXES)[number];
+type Prefix = (typeof PREFIXES)[number];
 
 const ICONS: Record<Prefix, Icon.ReactElement> = {
   [CAN.Task.PREFIX]: <Icon.Hardware />,
