@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <set>
+
 #include "gtest/gtest.h"
 
 #include "x/cpp/test/test.h"
@@ -38,6 +40,14 @@ protected:
         return std::move(bus);
     }
 };
+
+/// @returns the IDs of every property the backend set on a session.
+std::set<u32> property_ids(const MockAPI::Session &session) {
+    std::set<u32> ids;
+    for (const auto &[id, value]: session.properties)
+        ids.insert(id);
+    return ids;
+}
 }
 
 TEST(NIXNETFrame, PadsThePayloadToAMultipleOfEightBytes) {
@@ -134,24 +144,40 @@ TEST_F(NIXNETTest, OpensAnInputAndAnOutputSessionAtTheBitrate) {
     EXPECT_EQ(in.interface, "CAN1");
     EXPECT_EQ(in.mode, nxMode_FrameInStream);
     EXPECT_EQ(out.mode, nxMode_FrameOutStream);
-    EXPECT_EQ(in.property<u64>(nxPropSession_IntfBaudRate64), 500000);
-    EXPECT_EQ(out.property<u64>(nxPropSession_IntfBaudRate64), 500000);
-    EXPECT_TRUE(in.started);
-    EXPECT_TRUE(out.started);
-    EXPECT_FALSE(in.properties.contains(nxPropSession_IntfCanIoMode));
+    for (const auto &session: {in, out}) {
+        EXPECT_EQ(session.database, ":memory:");
+        EXPECT_EQ(property_ids(session), std::set<u32>{nxPropSession_IntfBaudRate64});
+        EXPECT_EQ(session.property<u64>(nxPropSession_IntfBaudRate64), 500000);
+        EXPECT_TRUE(session.started);
+    }
 }
 
-TEST_F(NIXNETTest, SetsTheFDModeAndDataBitrate) {
+TEST_F(NIXNETTest, OpensFDSessionsOnTheFDDatabaseAtTheDataBitrate) {
     auto bus = this->open(props(true));
-    const auto &in = this->api->sessions.at(1);
-    EXPECT_EQ(in.property<u32>(nxPropSession_IntfCanIoMode), nxCANioMode_CAN_FD_BRS);
-    EXPECT_EQ(in.property<u64>(nxPropSession_IntfCanFdBaudRate64), 2000000);
+    ASSERT_EQ(this->api->sessions.size(), 2);
+    for (const auto &[ref, session]: this->api->sessions) {
+        EXPECT_EQ(session.database, ":can_fd_brs:");
+        EXPECT_EQ(
+            property_ids(session),
+            (std::set<u32>{
+                nxPropSession_IntfBaudRate64,
+                nxPropSession_IntfCanFdBaudRate64,
+            })
+        );
+        EXPECT_EQ(session.property<u64>(nxPropSession_IntfBaudRate64), 500000);
+        EXPECT_EQ(session.property<u64>(nxPropSession_IntfCanFdBaudRate64), 2000000);
+    }
 }
 
 TEST_F(NIXNETTest, OpensOnlyAListenOnlyInputSessionWhenListenOnly) {
     auto bus = this->open(props(false, true));
     ASSERT_EQ(this->api->sessions.size(), 1);
-    EXPECT_EQ(this->api->sessions.at(1).property<u8>(nxPropSession_IntfCANLstnOnly), 1);
+    const auto &in = this->api->sessions.at(1);
+    EXPECT_EQ(
+        property_ids(in),
+        (std::set<u32>{nxPropSession_IntfBaudRate64, nxPropSession_IntfCANLstnOnly})
+    );
+    EXPECT_EQ(in.property<u8>(nxPropSession_IntfCANLstnOnly), 1);
     const auto err = bus->send(Frame{.id = 1});
     ASSERT_MATCHES(err, LISTEN_ONLY_ERROR);
     EXPECT_EQ(err.data, "channel CAN1 is listen only");

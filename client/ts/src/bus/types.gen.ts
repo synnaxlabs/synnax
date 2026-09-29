@@ -171,3 +171,13 @@ export const writeConfigZ = task.writeConfigZ.extend(library.referenceZ.shape).e
   messages: writeMessageZ.array().default(() => []),
 });
 export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
+
+export const streamReadConfigZ = readConfigZ.extend(pollConfigZ.shape).extend({
+  framing: framingZ.prefault({ type: "delimiter" }),
+});
+export interface StreamReadConfig extends z.infer<typeof streamReadConfigZ> {}
+
+export const streamWriteConfigZ = writeConfigZ.extend({
+  framing: framingZ.prefault({ type: "delimiter" }),
+});
+export interface StreamWriteConfig extends z.infer<typeof streamWriteConfigZ> {}

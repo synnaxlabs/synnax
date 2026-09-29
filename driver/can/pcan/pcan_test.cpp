@@ -189,27 +189,81 @@ TEST_F(PCANTest, ReceivesARemoteFrame) {
     EXPECT_EQ(frame.length, 4);
 }
 
-TEST_F(PCANTest, ReturnsNoFrameWhenTheTimeoutElapses) {
+TEST_F(PCANTest, RegistersAReceiveEventOnTheChannel) {
+    auto bus = this->open();
+    EXPECT_EQ(this->api->receive_events, std::vector<TPCANHandle>{PCAN_USBBUS1});
+    EXPECT_TRUE(this->api->released.empty());
+}
+
+TEST_F(PCANTest, UninitializesTheChannelWhenTheReceiveEventFails) {
+    this->api->receive_event_error = x::errors::Error(
+        CRITICAL_HARDWARE_ERROR,
+        "cannot register the receive event: mock status 1"
+    );
+    auto [bus, err] = this->backend.open(props());
+    ASSERT_MATCHES(err, CRITICAL_HARDWARE_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "PCAN_USBBUS1: cannot register the receive event: mock status 1"
+    );
+    EXPECT_EQ(this->api->uninitialized, std::vector<TPCANHandle>{PCAN_USBBUS1});
+}
+
+TEST_F(PCANTest, WaitsOnTheReceiveEventWhenTheTimeoutElapses) {
     auto bus = this->open();
     Frame frame;
     const auto start = x::telem::TimeStamp::now();
     EXPECT_FALSE(ASSERT_NIL_P(bus->receive(frame, x::telem::MILLISECOND * 20)));
     EXPECT_GE(x::telem::TimeStamp::now() - start, x::telem::MILLISECOND * 20);
+    EXPECT_GE(this->api->waits, 1);
 }
 
-TEST_F(PCANTest, WaitsForAFrameThatArrivesDuringTheTimeout) {
+TEST_F(PCANTest, WakesOnTheReceiveEventWhenAFrameArrives) {
     auto bus = this->open();
     std::thread producer([this] {
         std::this_thread::sleep_for(std::chrono::milliseconds(20));
         MockAPI::Received read;
         read.msg.ID = 0x55;
-        std::lock_guard lock(this->api->mu);
-        this->api->reads.push_back(read);
+        this->api->receive(read);
     });
     Frame frame;
+    const auto start = x::telem::TimeStamp::now();
     ASSERT_TRUE(ASSERT_NIL_P(bus->receive(frame, x::telem::SECOND * 5)));
+    EXPECT_LT(x::telem::TimeStamp::now() - start, x::telem::SECOND);
     EXPECT_EQ(frame.id, 0x55);
     producer.join();
+}
+
+TEST_F(PCANTest, DrainsTheQueuedFramesBeforeWaiting) {
+    auto bus = this->open();
+    MockAPI::Received first;
+    first.msg.ID = 0x1;
+    MockAPI::Received second;
+    second.msg.ID = 0x2;
+    this->api->receive(first);
+    this->api->receive(second);
+    Frame frame;
+    ASSERT_TRUE(ASSERT_NIL_P(bus->receive(frame, x::telem::SECOND)));
+    EXPECT_EQ(frame.id, 0x1);
+    ASSERT_TRUE(ASSERT_NIL_P(bus->receive(frame, x::telem::SECOND)));
+    EXPECT_EQ(frame.id, 0x2);
+    EXPECT_EQ(this->api->waits, 0);
+}
+
+TEST_F(PCANTest, ReportsAFailedWaitAsACriticalHardwareError) {
+    auto bus = this->open();
+    this->api->wait_error = x::errors::Error(
+        CRITICAL_HARDWARE_ERROR,
+        "cannot wait on the receive event: Windows error 6"
+    );
+    Frame frame;
+    auto [received, err] = bus->receive(frame, x::telem::SECOND);
+    ASSERT_MATCHES(err, CRITICAL_HARDWARE_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "PCAN_USBBUS1: cannot wait on the receive event: Windows error 6"
+    );
+    EXPECT_FALSE(received);
 }
 
 TEST_F(PCANTest, ReportsBusOffAsATemporaryHardwareError) {
@@ -276,6 +330,14 @@ TEST_F(PCANTest, UninitializesTheChannelOnceOnClose) {
     bus.reset();
     ASSERT_EQ(this->api->uninitialized.size(), 1);
     EXPECT_EQ(this->api->uninitialized[0], PCAN_USBBUS1);
+}
+
+TEST_F(PCANTest, ReleasesTheReceiveEventAfterUninitializingOnClose) {
+    auto bus = this->open();
+    ASSERT_NIL(bus->close());
+    ASSERT_EQ(this->api->released.size(), 1);
+    EXPECT_EQ(this->api->released[0].channel, PCAN_USBBUS1);
+    EXPECT_TRUE(this->api->released[0].after_uninitialize);
 }
 
 TEST_F(PCANTest, ScansTheChannelsThatAreAttached) {

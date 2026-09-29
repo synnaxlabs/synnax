@@ -32,6 +32,8 @@ struct ReadMessage;
 struct WriteMessage;
 struct ReadConfig;
 struct WriteConfig;
+struct StreamReadConfig;
+struct StreamWriteConfig;
 
 constexpr const char *CHECKSUM_NONE = "none";
 constexpr const char *CHECKSUM_CRC_16_CCITT = "crc16_ccitt";
@@ -195,6 +197,24 @@ struct WriteConfig : public ::synnax::task::WriteConfig,
     std::vector<WriteMessage> messages;
 
     static WriteConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief StreamReadConfig carries the settings every byte stream read task shares.
+struct StreamReadConfig : public ReadConfig, public PollConfig {
+    /// @brief framing is how the task splits the received byte stream into frames.
+    Framing framing = DelimiterFraming{};
+
+    static StreamReadConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief StreamWriteConfig carries the settings every byte stream write task shares.
+struct StreamWriteConfig : public WriteConfig {
+    /// @brief framing is how the task frames each message it sends.
+    Framing framing = DelimiterFraming{};
+
+    static StreamWriteConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 }

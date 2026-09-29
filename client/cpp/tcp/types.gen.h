@@ -37,18 +37,14 @@ struct Properties {
 };
 
 /// @brief ReadConfig configures a TCP read task.
-struct ReadConfig : public ::synnax::bus::ReadConfig, public ::synnax::bus::PollConfig {
-    /// @brief framing is how the task splits the received byte stream into frames.
-    ::synnax::bus::Framing framing = ::synnax::bus::DelimiterFraming{};
+struct ReadConfig : public ::synnax::bus::StreamReadConfig {
 
     static ReadConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
 /// @brief WriteConfig configures a TCP write task.
-struct WriteConfig : public ::synnax::bus::WriteConfig {
-    /// @brief framing is how the task frames each message it sends.
-    ::synnax::bus::Framing framing = ::synnax::bus::DelimiterFraming{};
+struct WriteConfig : public ::synnax::bus::StreamWriteConfig {
 
     static WriteConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

@@ -22,21 +22,13 @@ Properties struct {
     @go marshal
 }
 
-ReadConfig struct extends bus.ReadConfig, bus.PollConfig {
-    framing bus.Framing = delimiter {
-        @doc value "is how the task splits the received byte stream into frames."
-    }
-
+ReadConfig struct extends bus.StreamReadConfig {
     @doc value  "configures a TCP read task."
     @go marshal
     @go migrate
 }
 
-WriteConfig struct extends bus.WriteConfig {
-    framing bus.Framing = delimiter {
-        @doc value "is how the task frames each message it sends."
-    }
-
+WriteConfig struct extends bus.StreamWriteConfig {
     @doc value  "configures a TCP write task."
     @go marshal
     @go migrate

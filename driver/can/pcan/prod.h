@@ -71,5 +71,7 @@ public:
     ) override;
     TPCANStatus
     GetErrorText(TPCANStatus error, std::uint16_t language, char *buffer) override;
+    std::pair<std::unique_ptr<ReceiveEvent>, x::errors::Error>
+    OpenReceiveEvent(TPCANHandle channel) override;
 };
 }

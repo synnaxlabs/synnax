@@ -80,3 +80,9 @@ type CobsFraming = v0.CobsFraming
 
 // SlipFraming delimits frames with the serial line internet protocol.
 type SlipFraming = v0.SlipFraming
+
+// StreamReadConfig carries the settings every byte stream read task shares.
+type StreamReadConfig = v0.StreamReadConfig
+
+// StreamWriteConfig carries the settings every byte stream write task shares.
+type StreamWriteConfig = v0.StreamWriteConfig

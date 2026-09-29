@@ -249,10 +249,13 @@ Backend::open(const synnax::can::Properties &props) {
             hardware_error(api, props.channel, status)
         };
     };
+    // A session takes its read-only I/O mode from the database cluster, so an FD bus
+    // opens the in-memory database whose cluster is in CAN FD+BRS mode.
+    const auto database = props.fd ? ":can_fd_brs:" : ":memory:";
     const auto create = [&](const u32 mode) -> nxStatus_t {
         nxSessionRef_t session = 0;
         auto status = api.CreateSession(
-            ":memory:",
+            database,
             "",
             "",
             props.channel.c_str(),
@@ -270,14 +273,6 @@ Backend::open(const synnax::can::Properties &props) {
         );
         if (status < nxSuccess) return status;
         if (props.fd) {
-            u32 io_mode = nxCANioMode_CAN_FD_BRS;
-            status = api.SetProperty(
-                session,
-                nxPropSession_IntfCanIoMode,
-                sizeof(io_mode),
-                &io_mode
-            );
-            if (status < nxSuccess) return status;
             u64 data_bitrate = props.data_bitrate;
             status = api.SetProperty(
                 session,

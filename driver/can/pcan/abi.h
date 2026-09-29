@@ -79,6 +79,9 @@ constexpr TPCANMessageType PCAN_MESSAGE_ESI = 0x10;
 constexpr TPCANMessageType PCAN_MESSAGE_ERRFRAME = 0x40;
 constexpr TPCANMessageType PCAN_MESSAGE_STATUS = 0x80;
 
+/// @brief 0x03U in PEAK's PCANBasic.h (1999-2025) and MacCAN's PCBUSB.h (0.13). On
+/// Windows it takes an event handle, and on macOS and Linux it returns a descriptor.
+constexpr TPCANParameter PCAN_RECEIVE_EVENT = 0x03;
 constexpr TPCANParameter PCAN_LISTEN_ONLY = 0x08;
 constexpr TPCANParameter PCAN_CHANNEL_CONDITION = 0x0D;
 constexpr TPCANParameter PCAN_HARDWARE_NAME = 0x0E;

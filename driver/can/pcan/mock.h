@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <algorithm>
+#include <condition_variable>
 #include <cstring>
 #include <deque>
 #include <map>
@@ -22,7 +24,46 @@ namespace driver::can::pcan {
 /// @brief a simulated PCAN-Basic library. Tests queue the messages and statuses reads
 /// return, and inspect the messages writes send.
 class MockAPI final : public API {
+    /// @brief an auto-reset receive event that receive signals.
+    class Event final : public ReceiveEvent {
+        MockAPI &api;
+        TPCANHandle channel;
+
+    public:
+        Event(MockAPI &api, const TPCANHandle channel): api(api), channel(channel) {}
+
+        ~Event() override {
+            std::lock_guard lock(this->api.mu);
+            const auto &uninitialized = this->api.uninitialized;
+            this->api.released.push_back({
+                .channel = this->channel,
+                .after_uninitialize = std::ranges::find(uninitialized, this->channel) !=
+                                      uninitialized.end(),
+            });
+        }
+
+        x::errors::Error wait(const x::telem::TimeSpan timeout) override {
+            std::unique_lock lock(this->api.mu);
+            this->api.waits++;
+            this->api.cv.wait_for(lock, timeout.chrono(), [this] {
+                return this->api.signaled;
+            });
+            this->api.signaled = false;
+            return this->api.wait_error;
+        }
+    };
+
+    std::condition_variable cv;
+    bool signaled = false;
+
 public:
+    /// @brief a receive event the backend destroyed.
+    struct Release {
+        TPCANHandle channel;
+        /// @brief true when Uninitialize released the channel before the event.
+        bool after_uninitialize;
+    };
+
     /// @brief a channel the mock reports to scans.
     struct Channel {
         std::uint32_t condition = PCAN_CHANNEL_AVAILABLE;
@@ -59,6 +100,25 @@ public:
     std::vector<TPCANHandle> listen_only;
     /// @brief the handles Uninitialize released.
     std::vector<TPCANHandle> uninitialized;
+    /// @brief the error OpenReceiveEvent returns.
+    x::errors::Error receive_event_error = x::errors::NIL;
+    /// @brief the handles OpenReceiveEvent registered an event on.
+    std::vector<TPCANHandle> receive_events;
+    /// @brief the receive events the backend destroyed, in order.
+    std::vector<Release> released;
+    /// @brief the number of times a receive event waited.
+    std::size_t waits = 0;
+    /// @brief the error a receive event's wait returns.
+    x::errors::Error wait_error = x::errors::NIL;
+
+    /// @brief queues a read result and signals the receive event, as PCAN-Basic does
+    /// when a frame reaches the receive queue.
+    void receive(const Received &read) {
+        std::lock_guard lock(this->mu);
+        this->reads.push_back(read);
+        this->signaled = true;
+        this->cv.notify_all();
+    }
 
     TPCANStatus Initialize(
         TPCANHandle,
@@ -172,6 +232,14 @@ public:
         const auto text = "mock status " + std::to_string(error);
         std::strncpy(buffer, text.c_str(), 255);
         return PCAN_ERROR_OK;
+    }
+
+    std::pair<std::unique_ptr<ReceiveEvent>, x::errors::Error>
+    OpenReceiveEvent(const TPCANHandle channel) override {
+        std::lock_guard lock(this->mu);
+        if (this->receive_event_error) return {nullptr, this->receive_event_error};
+        this->receive_events.push_back(channel);
+        return {std::make_unique<Event>(*this, channel), x::errors::NIL};
     }
 };
 }

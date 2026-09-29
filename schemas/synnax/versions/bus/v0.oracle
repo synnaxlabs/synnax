@@ -184,3 +184,21 @@ Framing union on type {
     @doc value  "is how a byte stream is split into frames."
     @go marshal
 }
+
+StreamReadConfig struct extends ReadConfig, PollConfig {
+    framing Framing = delimiter {
+        @doc value "is how the task splits the received byte stream into frames."
+    }
+
+    @doc value  "carries the settings every byte stream read task shares."
+    @go marshal
+}
+
+StreamWriteConfig struct extends WriteConfig {
+    framing Framing = delimiter {
+        @doc value "is how the task frames each message it sends."
+    }
+
+    @doc value  "carries the settings every byte stream write task shares."
+    @go marshal
+}

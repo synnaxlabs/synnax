@@ -28,31 +28,15 @@ class Properties(BaseModel):
     port: int = Field(default=0, ge=0, le=65535)
 
 
-class ReadConfig(bus.ReadConfig, bus.PollConfig):
-    """Configures a TCP read task.
-
-    Attributes:
-        framing: Is how the task splits the received byte stream into frames.
-    """
-
-    framing: bus.Framing = Field(
-        default_factory=lambda: bus.DelimiterFraming(type="delimiter")
-    )
+class ReadConfig(bus.StreamReadConfig):
+    """Configures a TCP read task."""
 
     def __hash__(self) -> int:
         return hash(self.key)
 
 
-class WriteConfig(bus.WriteConfig):
-    """Configures a TCP write task.
-
-    Attributes:
-        framing: Is how the task frames each message it sends.
-    """
-
-    framing: bus.Framing = Field(
-        default_factory=lambda: bus.DelimiterFraming(type="delimiter")
-    )
+class WriteConfig(bus.StreamWriteConfig):
+    """Configures a TCP write task."""
 
     def __hash__(self) -> int:
         return hash(self.key)

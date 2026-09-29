@@ -120,9 +120,11 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
 
 inline x::json::json ReadConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::PersistConfig::to_json().items())
+    for (const auto base = ::synnax::task::PersistConfig::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: ::synnax::library::Reference::to_json().items())
+    for (const auto base = ::synnax::library::Reference::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
     j["device"] = this->device;
     j["raw"] = this->raw;
@@ -147,9 +149,11 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
 
 inline x::json::json WriteConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::WriteConfig::to_json().items())
+    for (const auto base = ::synnax::task::WriteConfig::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
-    for (auto &[k, v]: ::synnax::library::Reference::to_json().items())
+    for (const auto base = ::synnax::library::Reference::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
     j["messages"] = x::json::to_array(this->messages);
     return j;
@@ -169,6 +173,41 @@ inline x::json::json PollConfig::to_json() const {
     x::json::json j;
     j["rate"] = this->rate;
     j["timeout"] = this->timeout.nanoseconds();
+    return j;
+}
+
+inline StreamReadConfig StreamReadConfig::parse(x::json::Parser parser) {
+    StreamReadConfig result;
+    static_cast<ReadConfig &>(result) = ReadConfig::parse(parser);
+    static_cast<PollConfig &>(result) = PollConfig::parse(parser);
+    result.framing = parser.has("framing") ? parse_framing(parser.child("framing"))
+                                           : Framing{DelimiterFraming{}};
+    return result;
+}
+
+inline x::json::json StreamReadConfig::to_json() const {
+    x::json::json j;
+    for (const auto base = ReadConfig::to_json(); const auto &[k, v]: base.items())
+        j[k] = v;
+    for (const auto base = PollConfig::to_json(); const auto &[k, v]: base.items())
+        j[k] = v;
+    j["framing"] = ::synnax::bus::to_json(this->framing);
+    return j;
+}
+
+inline StreamWriteConfig StreamWriteConfig::parse(x::json::Parser parser) {
+    StreamWriteConfig result;
+    static_cast<WriteConfig &>(result) = WriteConfig::parse(parser);
+    result.framing = parser.has("framing") ? parse_framing(parser.child("framing"))
+                                           : Framing{DelimiterFraming{}};
+    return result;
+}
+
+inline x::json::json StreamWriteConfig::to_json() const {
+    x::json::json j;
+    for (const auto base = WriteConfig::to_json(); const auto &[k, v]: base.items())
+        j[k] = v;
+    j["framing"] = ::synnax::bus::to_json(this->framing);
     return j;
 }
 
