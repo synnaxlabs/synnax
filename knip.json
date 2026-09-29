@@ -70,8 +70,8 @@
       "project": ["*.json"]
     },
     "configs/vite": {
-      "entry": ["lib.ts"],
-      "project": ["*.ts"],
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"],
       "ignoreDependencies": ["vite-*"]
     },
     "configs/stylelint": {
