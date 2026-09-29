@@ -28,12 +28,7 @@ func withoutKeys(entries []library.Entry) []library.Entry {
 	for i, e := range entries {
 		m := e.Variant.(library.MessageEntry)
 		m.Key = uuid.Nil()
-		fields := binaryFields(m)
-		m.Fields = make([]library.Field, len(fields))
-		for j, f := range fields {
-			f.Key = uuid.Nil()
-			m.Fields[j] = library.Field{Variant: f}
-		}
+		m.Payload.UpdateFieldBases(func(b *library.BaseField) { b.Key = uuid.Nil() })
 		out[i] = library.Entry{Variant: m}
 	}
 	return out
@@ -46,17 +41,15 @@ func tableMessage(
 	period *telem.TimeSpan,
 	fields ...library.BinaryField,
 ) library.Entry {
-	m := library.MessageEntry{
-		Name:       name,
-		Identifier: id,
-		Format:     library.FormatBinary,
-		Length:     length,
-		Period:     period,
-	}
-	for _, f := range fields {
-		m.Fields = append(m.Fields, library.Field{Variant: f})
-	}
-	return library.Entry{Variant: m}
+	return library.Entry{Variant: library.MessageEntry{
+		Name: name,
+		Payload: library.Payload{Variant: library.BinaryPayload{
+			Identifier: id,
+			Length:     length,
+			Fields:     fields,
+		}},
+		Period: period,
+	}}
 }
 
 func canID(id uint32, extended bool) *library.Identifier {

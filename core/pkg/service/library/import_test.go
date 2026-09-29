@@ -97,7 +97,9 @@ var _ = Describe("ImportICD", func() {
 	It("Should reject an imported library that is invalid", func(ctx SpecContext) {
 		csv := "message,field,start_bit,bit_length\nm,a,0,8\nm,a,8,8\n"
 		Expect(importICD(ctx, lib.Key, icd.FormatCSV, csv)).Error().To(MatchError(
-			ContainSubstring(`entries.0.fields.1.name: duplicate field name "a"`),
+			ContainSubstring(
+				`entries.0.payload.fields.1.name: duplicate field name "a"`,
+			),
 		))
 	})
 

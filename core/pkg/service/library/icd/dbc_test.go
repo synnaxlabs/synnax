@@ -101,12 +101,12 @@ func enumWithKey(entries []library.Entry, key library.EntryKey) library.EnumEntr
 	return enumWhere(entries, func(e library.EnumEntry) bool { return e.Key == key })
 }
 
+func binaryPayload(m library.MessageEntry) library.BinaryPayload {
+	return m.Payload.Variant.(library.BinaryPayload)
+}
+
 func binaryFields(m library.MessageEntry) []library.BinaryField {
-	fields := make([]library.BinaryField, len(m.Fields))
-	for i, f := range m.Fields {
-		fields[i] = f.Variant.(library.BinaryField)
-	}
-	return fields
+	return binaryPayload(m).Fields
 }
 
 func fieldNamed(m library.MessageEntry, name string) library.BinaryField {
@@ -125,13 +125,14 @@ func toExpected(entries []library.Entry) []expectedMessage {
 	GinkgoHelper()
 	var out []expectedMessage
 	for _, m := range messagesOf(entries) {
-		id := m.Identifier.Variant.(library.CanIdentifier)
+		p := binaryPayload(m)
+		id := p.Identifier.Variant.(library.CanIdentifier)
 		em := expectedMessage{
 			Name:     m.Name,
 			ID:       id.ID,
 			Extended: id.Extended,
 			FD:       id.Fd,
-			Length:   *m.Length,
+			Length:   *p.Length,
 		}
 		if m.Period != nil {
 			em.PeriodMS = new(int64(*m.Period / telem.Millisecond))
@@ -245,7 +246,8 @@ BA_DEF_DEF_ "VFrameFormat" 0;
 BA_ "VFrameFormat" BO_ 256 14;
 `)
 		m := messageNamed(MustSucceed(icd.Parse(icd.FormatDBC, data)), "Fast")
-		Expect(m.Identifier.Variant.(library.CanIdentifier).Fd).To(BeTrue())
+		Expect(binaryPayload(m).Identifier.Variant.(library.CanIdentifier).Fd).
+			To(BeTrue())
 	})
 
 	It("Should read the lines that follow an unknown definition", func() {
@@ -299,15 +301,15 @@ and ends here.";
 		Expect(icd.Parse(icd.FormatDBC, []byte(dbcHeader+body))).Error().To(err)
 	},
 		Entry("a syntax error", `BO_ 256 Engine 8 Ecu
-`, "line 9, column 18: expected token"),
-		Entry("a syntax error after a blanked SG_MUL_VAL_ line", `BO_ 256 Engine: 8 Ecu
+`, "line 9, column 16: expected token"),
+		Entry("a syntax error after an SG_MUL_VAL_ line", `BO_ 256 Engine: 8 Ecu
  SG_ S M : 0|8@1+ (1,0) [0|255] "" Ecu
  SG_ A m0 : 8|8@1+ (1,0) [0|255] "" Ecu
 SG_MUL_VAL_ 256 A S 0-0;
 BO_ x
 `, "line 13, column 5"),
 		Entry("a malformed SG_MUL_VAL_ line", `SG_MUL_VAL_ 256 A;
-`, "line 9: invalid SG_MUL_VAL_ definition"),
+`, "line 9, column 18: expected ident"),
 		Entry("an inverted multiplexor range", `SG_MUL_VAL_ 256 A S 3-1;
 `, `line 9: invalid multiplexor range "3-1"`),
 		Entry("a multiplexor range past int32", `SG_MUL_VAL_ 256 A S 0-4294967296;

@@ -10,6 +10,7 @@
 from uuid import uuid4
 
 import pytest
+from pydantic import ValidationError
 
 import synnax as sy
 from x.testutil import assert_eventually
@@ -37,19 +38,23 @@ def create_library(name: str = "Library") -> sy.Library:
             ),
             sy.library.MessageEntry(
                 name="Status",
-                identifier=sy.library.CanIdentifier(id=0x101, extended=False, fd=False),
-                length=8,
-                fields=[
-                    sy.library.BinaryField(name="state", start_bit=0, bit_length=8),
-                    sy.library.BinaryField(
-                        name="temperature",
-                        start_bit=8,
-                        bit_length=16,
-                        signed=True,
-                        scale=0.1,
-                        units="degC",
+                payload=sy.library.BinaryPayload(
+                    identifier=sy.library.CanIdentifier(
+                        id=0x101, extended=False, fd=False
                     ),
-                ],
+                    length=8,
+                    fields=[
+                        sy.library.BinaryField(name="state", start_bit=0, bit_length=8),
+                        sy.library.BinaryField(
+                            name="temperature",
+                            start_bit=8,
+                            bit_length=16,
+                            signed=True,
+                            scale=0.1,
+                            units="degC",
+                        ),
+                    ],
+                ),
             ),
         ],
     )
@@ -67,13 +72,14 @@ class TestLibrary:
         assert en.name == "State"
         assert [(v.value, v.name) for v in en.values] == [(0, "Off"), (1, "On")]
         assert isinstance(msg, sy.library.MessageEntry)
-        assert msg.identifier == sy.library.CanIdentifier(
+        payload = msg.payload
+        assert isinstance(payload, sy.library.BinaryPayload)
+        assert payload.identifier == sy.library.CanIdentifier(
             id=0x101, extended=False, fd=False
         )
-        assert msg.format == "binary"
-        assert msg.length == 8
-        assert len(msg.fields) == 2
-        temp = msg.fields[1]
+        assert payload.length == 8
+        assert len(payload.fields) == 2
+        temp = payload.fields[1]
         assert isinstance(temp, sy.library.BinaryField)
         assert temp.name == "temperature"
         assert temp.start_bit == 8
@@ -81,8 +87,54 @@ class TestLibrary:
         assert temp.signed
         assert temp.scale == 0.1
         assert temp.units == "degC"
-        keys = [en.key, msg.key, *(f.key for f in msg.fields)]
+        keys = [en.key, msg.key, *(f.key for f in payload.fields)]
         assert len(set(keys)) == len(keys)
+
+    def test_create_text(self, client: sy.Synnax) -> None:
+        """Should create a message with a text payload."""
+        lib = client.libraries.create(
+            name="Sensor",
+            entries=[
+                sy.library.MessageEntry(
+                    name="Line",
+                    payload=sy.library.TextPayload(
+                        prefix="$",
+                        fields=[
+                            sy.library.TaggedTextField(name="temp", tag="T="),
+                            sy.library.DelimitedTextField(name="rh", position=2),
+                        ],
+                    ),
+                )
+            ],
+        )
+        msg = lib.entries[0]
+        assert isinstance(msg, sy.library.MessageEntry)
+        payload = msg.payload
+        assert isinstance(payload, sy.library.TextPayload)
+        assert (payload.delimiter, payload.prefix) == (",", "$")
+        temp, rh = payload.fields
+        assert isinstance(temp, sy.library.TaggedTextField)
+        assert (temp.name, temp.tag) == ("temp", "T=")
+        assert isinstance(rh, sy.library.DelimitedTextField)
+        assert (rh.name, rh.position) == ("rh", 2)
+
+    def test_reject_binary_field_in_text_payload(self) -> None:
+        """Should not parse a binary field in a text payload."""
+        with pytest.raises(
+            ValidationError, match="Input tag 'binary' found using 'encoding'"
+        ):
+            sy.library.TextPayload.model_validate(
+                {"fields": [{"encoding": "binary", "name": "a"}]}
+            )
+
+    def test_reject_text_identifier_in_binary_payload(self) -> None:
+        """Should not parse a text identifier in a binary payload."""
+        with pytest.raises(
+            ValidationError, match="Input tag 'token' found using 'type'"
+        ):
+            sy.library.BinaryPayload.model_validate(
+                {"identifier": {"type": "token", "prefix": "$"}}
+            )
 
     def test_create_from_kwargs(self, client: sy.Synnax) -> None:
         """Should create a library from keyword arguments."""
@@ -177,8 +229,9 @@ class TestLibrary:
         assert imported.key == lib.key
         msg = next(e for e in imported.entries if e.name == "EngineStatus")
         assert isinstance(msg, sy.library.MessageEntry)
-        assert msg.identifier == sy.library.CanIdentifier(id=0x100)
-        rpm = msg.fields[0]
+        assert isinstance(msg.payload, sy.library.BinaryPayload)
+        assert msg.payload.identifier == sy.library.CanIdentifier(id=0x100)
+        rpm = msg.payload.fields[0]
         assert isinstance(rpm, sy.library.BinaryField)
         assert (rpm.name, rpm.bit_length, rpm.scale, rpm.units) == (
             "rpm",

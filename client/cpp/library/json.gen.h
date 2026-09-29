@@ -65,6 +65,29 @@ inline x::json::json BaseField::to_json() const {
     return j;
 }
 
+inline BinaryField BinaryField::parse(x::json::Parser parser) {
+    BinaryField result;
+    static_cast<BaseField &>(result) = BaseField::parse(parser);
+    result.start_bit = parser.field<std::uint16_t>("start_bit", 0);
+    result.bit_length = parser.field<std::uint8_t>("bit_length", 8);
+    result.byte_order = parser.field<std::string>("byte_order", "little_endian");
+    result.signed_ = parser.field<bool>("signed", false);
+    result.float_ = parser.field<bool>("float", false);
+    return result;
+}
+
+inline x::json::json BinaryField::to_json() const {
+    x::json::json j;
+    for (const auto base = BaseField::to_json(); const auto &[k, v]: base.items())
+        j[k] = v;
+    j["start_bit"] = this->start_bit;
+    j["bit_length"] = this->bit_length;
+    j["byte_order"] = this->byte_order;
+    j["signed"] = this->signed_;
+    j["float"] = this->float_;
+    return j;
+}
+
 inline BaseEntry BaseEntry::parse(x::json::Parser parser) {
     return BaseEntry{
         .key = parser.field<EntryKey>("key", x::uuid::create()),
@@ -109,14 +132,14 @@ inline x::json::json Library::to_json() const {
 
 inline Reference Reference::parse(x::json::Parser parser) {
     return Reference{
-        .library = parser.field<Key>("library"),
+        .library = parser.field<std::optional<Key>>("library"),
         .library_hash = parser.field<std::string>("library_hash", ""),
     };
 }
 
 inline x::json::json Reference::to_json() const {
     x::json::json j;
-    j["library"] = this->library.to_json();
+    if (this->library.has_value()) j["library"] = this->library->to_json();
     j["library_hash"] = this->library_hash;
     return j;
 }
@@ -141,44 +164,6 @@ inline x::json::json CanIdentifier::to_json() const {
     return j;
 }
 
-inline Arinc429Identifier Arinc429Identifier::parse(x::json::Parser parser) {
-    Arinc429Identifier result;
-    result.label = parser.field<std::uint8_t>("label", 0);
-    result.sdi = parser.field<std::uint8_t>("sdi", 0);
-    result.sdi_matched = parser.field<bool>("sdi_matched", false);
-    result.type = parser.field<std::string>("type");
-    return result;
-}
-
-inline x::json::json Arinc429Identifier::to_json() const {
-    x::json::json j;
-    j["label"] = this->label;
-    j["sdi"] = this->sdi;
-    j["sdi_matched"] = this->sdi_matched;
-    j["type"] = this->type;
-    return j;
-}
-
-inline Mil1553Identifier Mil1553Identifier::parse(x::json::Parser parser) {
-    Mil1553Identifier result;
-    result.rt = parser.field<std::uint8_t>("rt", 0);
-    result.subaddress = parser.field<std::uint8_t>("subaddress", 0);
-    result.direction = parser.field<std::string>("direction");
-    result.word_count = parser.field<std::uint8_t>("word_count", 1);
-    result.type = parser.field<std::string>("type");
-    return result;
-}
-
-inline x::json::json Mil1553Identifier::to_json() const {
-    x::json::json j;
-    j["rt"] = this->rt;
-    j["subaddress"] = this->subaddress;
-    j["direction"] = this->direction;
-    j["word_count"] = this->word_count;
-    j["type"] = this->type;
-    return j;
-}
-
 inline FieldIdentifier FieldIdentifier::parse(x::json::Parser parser) {
     FieldIdentifier result;
     result.field = parser.field<FieldKey>("field");
@@ -195,54 +180,15 @@ inline x::json::json FieldIdentifier::to_json() const {
     return j;
 }
 
-inline TokenIdentifier TokenIdentifier::parse(x::json::Parser parser) {
-    TokenIdentifier result;
-    result.prefix = parser.field<std::string>("prefix", "");
-    result.type = parser.field<std::string>("type");
-    return result;
-}
-
-inline x::json::json TokenIdentifier::to_json() const {
-    x::json::json j;
-    j["prefix"] = this->prefix;
-    j["type"] = this->type;
-    return j;
-}
-
-inline BinaryField BinaryField::parse(x::json::Parser parser) {
-    BinaryField result;
-    static_cast<BaseField &>(result) = BaseField::parse(parser);
-    result.start_bit = parser.field<std::uint16_t>("start_bit", 0);
-    result.bit_length = parser.field<std::uint8_t>("bit_length", 8);
-    result.byte_order = parser.field<std::string>("byte_order", "little_endian");
-    result.signed_ = parser.field<bool>("signed", false);
-    result.float_ = parser.field<bool>("float", false);
-    result.encoding = parser.field<std::string>("encoding");
-    return result;
-}
-
-inline x::json::json BinaryField::to_json() const {
-    x::json::json j;
-    for (const auto base = BaseField::to_json(); const auto &[k, v]: base.items())
-        j[k] = v;
-    j["start_bit"] = this->start_bit;
-    j["bit_length"] = this->bit_length;
-    j["byte_order"] = this->byte_order;
-    j["signed"] = this->signed_;
-    j["float"] = this->float_;
-    j["encoding"] = this->encoding;
-    return j;
-}
-
-inline DelimitedField DelimitedField::parse(x::json::Parser parser) {
-    DelimitedField result;
+inline DelimitedTextField DelimitedTextField::parse(x::json::Parser parser) {
+    DelimitedTextField result;
     static_cast<BaseField &>(result) = BaseField::parse(parser);
     result.position = parser.field<std::uint32_t>("position", 0);
     result.encoding = parser.field<std::string>("encoding");
     return result;
 }
 
-inline x::json::json DelimitedField::to_json() const {
+inline x::json::json DelimitedTextField::to_json() const {
     x::json::json j;
     for (const auto base = BaseField::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
@@ -251,20 +197,76 @@ inline x::json::json DelimitedField::to_json() const {
     return j;
 }
 
-inline TaggedField TaggedField::parse(x::json::Parser parser) {
-    TaggedField result;
+inline TaggedTextField TaggedTextField::parse(x::json::Parser parser) {
+    TaggedTextField result;
     static_cast<BaseField &>(result) = BaseField::parse(parser);
     result.tag = parser.field<std::string>("tag");
     result.encoding = parser.field<std::string>("encoding");
     return result;
 }
 
-inline x::json::json TaggedField::to_json() const {
+inline x::json::json TaggedTextField::to_json() const {
     x::json::json j;
     for (const auto base = BaseField::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["tag"] = this->tag;
     j["encoding"] = this->encoding;
+    return j;
+}
+
+inline BinaryPayload BinaryPayload::parse(x::json::Parser parser) {
+    BinaryPayload result;
+    result.length = parser.field<std::optional<std::uint16_t>>("length");
+    result.identifier = parser.has("identifier")
+                          ? std::optional<Identifier>(
+                                parse_identifier(parser.child("identifier"))
+                            )
+                          : std::nullopt;
+    result.fields = parser.field<std::vector<BinaryField>>(
+        "fields",
+        std::vector<BinaryField>{}
+    );
+    result.format = parser.field<std::string>("format");
+    return result;
+}
+
+inline x::json::json BinaryPayload::to_json() const {
+    x::json::json j;
+    j["length"] = this->length;
+    if (this->identifier.has_value())
+        j["identifier"] = ::synnax::library::to_json(*this->identifier);
+    j["fields"] = x::json::to_array(this->fields);
+    j["format"] = this->format;
+    return j;
+}
+
+inline TextPayload TextPayload::parse(x::json::Parser parser) {
+    TextPayload result;
+    result.delimiter = parser.field<std::string>("delimiter", ",");
+    result.prefix = parser.field<std::string>("prefix", "");
+    result.fields = [&] {
+        std::vector<TextField> result;
+        if (parser.has("fields"))
+            parser.iter("fields", [&result](x::json::Parser &p) {
+                result.push_back(parse_text_field(p));
+            });
+        return result;
+    }();
+    result.format = parser.field<std::string>("format");
+    return result;
+}
+
+inline x::json::json TextPayload::to_json() const {
+    x::json::json j;
+    j["delimiter"] = this->delimiter;
+    j["prefix"] = this->prefix;
+    {
+        auto arr = x::json::json::array();
+        for (const auto &item: this->fields)
+            arr.push_back(::synnax::library::to_json(item));
+        j["fields"] = arr;
+    }
+    j["format"] = this->format;
     return j;
 }
 
@@ -291,24 +293,9 @@ inline x::json::json EnumEntry::to_json() const {
 inline MessageEntry MessageEntry::parse(x::json::Parser parser) {
     MessageEntry result;
     static_cast<BaseEntry &>(result) = BaseEntry::parse(parser);
-    result.identifier = parser.has("identifier")
-                          ? std::optional<Identifier>(
-                                parse_identifier(parser.child("identifier"))
-                            )
-                          : std::nullopt;
-    result.format = parser.field<std::string>("format", "binary");
-    result.length = parser.field<std::optional<std::uint16_t>>("length");
-    result.fields = [&] {
-        std::vector<Field> result;
-        if (parser.has("fields"))
-            parser.iter("fields", [&result](x::json::Parser &p) {
-                result.push_back(parse_field(p));
-            });
-        return result;
-    }();
+    result.payload = parse_payload(parser.child("payload"));
     result.period = parser.field<std::optional<::x::telem::TimeSpan>>("period");
     result.query = parser.field<std::optional<std::string>>("query");
-    result.delimiter = parser.field<std::string>("delimiter", ",");
     result.kind = parser.field<std::string>("kind");
     return result;
 }
@@ -317,19 +304,9 @@ inline x::json::json MessageEntry::to_json() const {
     x::json::json j;
     for (const auto base = BaseEntry::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    if (this->identifier.has_value())
-        j["identifier"] = ::synnax::library::to_json(*this->identifier);
-    j["format"] = this->format;
-    j["length"] = this->length;
-    {
-        auto arr = x::json::json::array();
-        for (const auto &item: this->fields)
-            arr.push_back(::synnax::library::to_json(item));
-        j["fields"] = arr;
-    }
+    j["payload"] = ::synnax::library::to_json(this->payload);
     if (this->period.has_value()) j["period"] = this->period->nanoseconds();
     j["query"] = this->query;
-    j["delimiter"] = this->delimiter;
     j["kind"] = this->kind;
     return j;
 }
@@ -337,10 +314,7 @@ inline x::json::json MessageEntry::to_json() const {
 inline Identifier parse_identifier(x::json::Parser parser) {
     const auto discriminator = parser.field<std::string>("type");
     if (discriminator == "can") return CanIdentifier::parse(parser);
-    if (discriminator == "arinc429") return Arinc429Identifier::parse(parser);
-    if (discriminator == "mil1553") return Mil1553Identifier::parse(parser);
     if (discriminator == "field") return FieldIdentifier::parse(parser);
-    if (discriminator == "token") return TokenIdentifier::parse(parser);
     parser.field_err("type", "unknown Identifier type: " + discriminator);
     return {};
 }
@@ -349,16 +323,27 @@ inline x::json::json to_json(const Identifier &value) {
     return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 
-inline Field parse_field(x::json::Parser parser) {
+inline TextField parse_text_field(x::json::Parser parser) {
     const auto discriminator = parser.field<std::string>("encoding");
-    if (discriminator == "binary") return BinaryField::parse(parser);
-    if (discriminator == "delimited") return DelimitedField::parse(parser);
-    if (discriminator == "tagged") return TaggedField::parse(parser);
-    parser.field_err("encoding", "unknown Field encoding: " + discriminator);
+    if (discriminator == "delimited") return DelimitedTextField::parse(parser);
+    if (discriminator == "tagged") return TaggedTextField::parse(parser);
+    parser.field_err("encoding", "unknown TextField encoding: " + discriminator);
     return {};
 }
 
-inline x::json::json to_json(const Field &value) {
+inline x::json::json to_json(const TextField &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
+}
+
+inline Payload parse_payload(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("format");
+    if (discriminator == "binary") return BinaryPayload::parse(parser);
+    if (discriminator == "text") return TextPayload::parse(parser);
+    parser.field_err("format", "unknown Payload format: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const Payload &value) {
     return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 

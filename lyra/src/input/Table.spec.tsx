@@ -22,6 +22,7 @@ interface RenderOptions {
   preview?: boolean;
   createRow?: (value: Input.TableCell[][]) => Input.TableCell[];
   rowLabel?: (index: number) => string;
+  onRemove?: (index: number) => void;
 }
 
 const renderTable = ({ value = [[1, 10]], ...rest }: RenderOptions = {}) => {
@@ -140,6 +141,20 @@ describe("Input.Table", () => {
       [1, 10],
       [3, 30],
     ]);
+  });
+
+  it("should pass the removed row's index to onRemove instead of onChange", () => {
+    const onRemove = vi.fn();
+    const onChange = renderTable({
+      value: [
+        [1, 10],
+        [2, 20],
+      ],
+      onRemove,
+    });
+    fireEvent.click(removeButton(1));
+    expect(onRemove).toHaveBeenCalledExactlyOnceWith(1);
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   it("should hide the add and remove buttons in preview", () => {

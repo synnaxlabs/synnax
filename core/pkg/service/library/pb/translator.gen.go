@@ -148,6 +148,106 @@ func BaseFieldsFromPB(pbs []*BaseField) ([]library.BaseField, error) {
 	return result, nil
 }
 
+// BinaryFieldToPB converts BinaryField to BinaryField.
+func BinaryFieldToPB(r library.BinaryField) (*BinaryField, error) {
+	byteOrderVal, err := ByteOrderToPB(r.ByteOrder)
+	if err != nil {
+		return nil, err
+	}
+	pb := &BinaryField{
+		Name:            r.Name,
+		Scale:           r.Scale,
+		Offset:          r.Offset,
+		Units:           r.Units,
+		MultiplexValues: r.MultiplexValues,
+		StartBit:        uint32(r.StartBit),
+		BitLength:       uint32(r.BitLength),
+		Signed:          r.Signed,
+		Float:           r.Float,
+		Key:             r.Key.String(),
+		ByteOrder:       byteOrderVal,
+	}
+	if r.Enumeration != nil {
+		v := (*r.Enumeration).String()
+		pb.Enumeration = &v
+	}
+	if r.Multiplexor != nil {
+		v := (*r.Multiplexor).String()
+		pb.Multiplexor = &v
+	}
+	return pb, nil
+}
+
+// BinaryFieldFromPB converts BinaryField to BinaryField.
+func BinaryFieldFromPB(pb *BinaryField) (library.BinaryField, error) {
+	var r library.BinaryField
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	parsedKey, err := uuid.Parse(pb.Key)
+	if err != nil {
+		return library.BinaryField{}, err
+	}
+	r.Key = library.FieldKey(parsedKey)
+	r.ByteOrder, err = ByteOrderFromPB(pb.ByteOrder)
+	if err != nil {
+		return library.BinaryField{}, err
+	}
+	r.Name = pb.Name
+	r.Scale = pb.Scale
+	r.Offset = pb.Offset
+	r.Units = pb.Units
+	r.MultiplexValues = pb.MultiplexValues
+	r.StartBit = uint16(pb.StartBit)
+	r.BitLength = uint8(pb.BitLength)
+	r.Signed = pb.Signed
+	r.Float = pb.Float
+	if pb.Enumeration != nil {
+		parsed, err := uuid.Parse(*pb.Enumeration)
+		if err != nil {
+			return library.BinaryField{}, err
+		}
+		v := parsed
+		r.Enumeration = &v
+	}
+	if pb.Multiplexor != nil {
+		parsed, err := uuid.Parse(*pb.Multiplexor)
+		if err != nil {
+			return library.BinaryField{}, err
+		}
+		v := parsed
+		r.Multiplexor = &v
+	}
+	return r, nil
+}
+
+// BinaryFieldsToPB converts a slice of BinaryField to BinaryField.
+func BinaryFieldsToPB(rs []library.BinaryField) ([]*BinaryField, error) {
+	result := make([]*BinaryField, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = BinaryFieldToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// BinaryFieldsFromPB converts a slice of BinaryField to BinaryField.
+func BinaryFieldsFromPB(pbs []*BinaryField) ([]library.BinaryField, error) {
+	result := make([]library.BinaryField, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = BinaryFieldFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
 // BaseEntryToPB converts BaseEntry to BaseEntry.
 func BaseEntryToPB(r library.BaseEntry) (*BaseEntry, error) {
 	pb := &BaseEntry{
@@ -263,7 +363,10 @@ func LibrariesFromPB(pbs []*Library) ([]library.Library, error) {
 func ReferenceToPB(r library.Reference) (*Reference, error) {
 	pb := &Reference{
 		LibraryHash: r.LibraryHash,
-		Library:     r.Library.String(),
+	}
+	if r.Library != nil {
+		v := (*r.Library).String()
+		pb.Library = &v
 	}
 	return pb, nil
 }
@@ -274,13 +377,15 @@ func ReferenceFromPB(pb *Reference) (library.Reference, error) {
 	if pb == nil {
 		return r, nil
 	}
-	var err error
-	parsedLibrary, err := uuid.Parse(pb.Library)
-	if err != nil {
-		return library.Reference{}, err
-	}
-	r.Library = library.Key(parsedLibrary)
 	r.LibraryHash = pb.LibraryHash
+	if pb.Library != nil {
+		parsed, err := uuid.Parse(*pb.Library)
+		if err != nil {
+			return library.Reference{}, err
+		}
+		v := parsed
+		r.Library = &v
+	}
 	return r, nil
 }
 
@@ -364,112 +469,6 @@ func CanIdentifiersFromPB(pbs []*IdentifierCanPayload) ([]library.CanIdentifier,
 	return result, nil
 }
 
-// Arinc429IdentifierToPB converts Arinc429Identifier to IdentifierArinc429Payload.
-func Arinc429IdentifierToPB(r library.Arinc429Identifier) (*IdentifierArinc429Payload, error) {
-	pb := &IdentifierArinc429Payload{
-		Label:      uint32(r.Label),
-		Sdi:        uint32(r.Sdi),
-		SdiMatched: r.SdiMatched,
-	}
-	return pb, nil
-}
-
-// Arinc429IdentifierFromPB converts IdentifierArinc429Payload to Arinc429Identifier.
-func Arinc429IdentifierFromPB(pb *IdentifierArinc429Payload) (library.Arinc429Identifier, error) {
-	var r library.Arinc429Identifier
-	if pb == nil {
-		return r, nil
-	}
-	r.Label = uint8(pb.Label)
-	r.Sdi = uint8(pb.Sdi)
-	r.SdiMatched = pb.SdiMatched
-	return r, nil
-}
-
-// Arinc429IdentifiersToPB converts a slice of Arinc429Identifier to IdentifierArinc429Payload.
-func Arinc429IdentifiersToPB(rs []library.Arinc429Identifier) ([]*IdentifierArinc429Payload, error) {
-	result := make([]*IdentifierArinc429Payload, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = Arinc429IdentifierToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// Arinc429IdentifiersFromPB converts a slice of IdentifierArinc429Payload to Arinc429Identifier.
-func Arinc429IdentifiersFromPB(pbs []*IdentifierArinc429Payload) ([]library.Arinc429Identifier, error) {
-	result := make([]library.Arinc429Identifier, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = Arinc429IdentifierFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// Mil1553IdentifierToPB converts Mil1553Identifier to IdentifierMil1553Payload.
-func Mil1553IdentifierToPB(r library.Mil1553Identifier) (*IdentifierMil1553Payload, error) {
-	directionVal, err := DirectionToPB(r.Direction)
-	if err != nil {
-		return nil, err
-	}
-	pb := &IdentifierMil1553Payload{
-		Rt:         uint32(r.Rt),
-		Subaddress: uint32(r.Subaddress),
-		WordCount:  uint32(r.WordCount),
-		Direction:  directionVal,
-	}
-	return pb, nil
-}
-
-// Mil1553IdentifierFromPB converts IdentifierMil1553Payload to Mil1553Identifier.
-func Mil1553IdentifierFromPB(pb *IdentifierMil1553Payload) (library.Mil1553Identifier, error) {
-	var r library.Mil1553Identifier
-	if pb == nil {
-		return r, nil
-	}
-	var err error
-	r.Direction, err = DirectionFromPB(pb.Direction)
-	if err != nil {
-		return library.Mil1553Identifier{}, err
-	}
-	r.Rt = uint8(pb.Rt)
-	r.Subaddress = uint8(pb.Subaddress)
-	r.WordCount = uint8(pb.WordCount)
-	return r, nil
-}
-
-// Mil1553IdentifiersToPB converts a slice of Mil1553Identifier to IdentifierMil1553Payload.
-func Mil1553IdentifiersToPB(rs []library.Mil1553Identifier) ([]*IdentifierMil1553Payload, error) {
-	result := make([]*IdentifierMil1553Payload, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = Mil1553IdentifierToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// Mil1553IdentifiersFromPB converts a slice of IdentifierMil1553Payload to Mil1553Identifier.
-func Mil1553IdentifiersFromPB(pbs []*IdentifierMil1553Payload) ([]library.Mil1553Identifier, error) {
-	result := make([]library.Mil1553Identifier, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = Mil1553IdentifierFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
 // FieldIdentifierToPB converts FieldIdentifier to IdentifierFieldPayload.
 func FieldIdentifierToPB(r library.FieldIdentifier) (*IdentifierFieldPayload, error) {
 	pb := &IdentifierFieldPayload{
@@ -521,121 +520,17 @@ func FieldIdentifiersFromPB(pbs []*IdentifierFieldPayload) ([]library.FieldIdent
 	return result, nil
 }
 
-// TokenIdentifierToPB converts TokenIdentifier to IdentifierTokenPayload.
-func TokenIdentifierToPB(r library.TokenIdentifier) (*IdentifierTokenPayload, error) {
-	pb := &IdentifierTokenPayload{
-		Prefix: r.Prefix,
-	}
-	return pb, nil
-}
-
-// TokenIdentifierFromPB converts IdentifierTokenPayload to TokenIdentifier.
-func TokenIdentifierFromPB(pb *IdentifierTokenPayload) (library.TokenIdentifier, error) {
-	var r library.TokenIdentifier
-	if pb == nil {
-		return r, nil
-	}
-	r.Prefix = pb.Prefix
-	return r, nil
-}
-
-// TokenIdentifiersToPB converts a slice of TokenIdentifier to IdentifierTokenPayload.
-func TokenIdentifiersToPB(rs []library.TokenIdentifier) ([]*IdentifierTokenPayload, error) {
-	result := make([]*IdentifierTokenPayload, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = TokenIdentifierToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// TokenIdentifiersFromPB converts a slice of IdentifierTokenPayload to TokenIdentifier.
-func TokenIdentifiersFromPB(pbs []*IdentifierTokenPayload) ([]library.TokenIdentifier, error) {
-	result := make([]library.TokenIdentifier, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = TokenIdentifierFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// BinaryFieldToPB converts BinaryField to FieldBinaryPayload.
-func BinaryFieldToPB(r library.BinaryField) (*FieldBinaryPayload, error) {
-	byteOrderVal, err := ByteOrderToPB(r.ByteOrder)
-	if err != nil {
-		return nil, err
-	}
-	pb := &FieldBinaryPayload{
-		StartBit:  uint32(r.StartBit),
-		BitLength: uint32(r.BitLength),
-		Signed:    r.Signed,
-		Float:     r.Float,
-		ByteOrder: byteOrderVal,
-	}
-	return pb, nil
-}
-
-// BinaryFieldFromPB converts FieldBinaryPayload to BinaryField.
-func BinaryFieldFromPB(pb *FieldBinaryPayload) (library.BinaryField, error) {
-	var r library.BinaryField
-	if pb == nil {
-		return r, nil
-	}
-	var err error
-	r.ByteOrder, err = ByteOrderFromPB(pb.ByteOrder)
-	if err != nil {
-		return library.BinaryField{}, err
-	}
-	r.StartBit = uint16(pb.StartBit)
-	r.BitLength = uint8(pb.BitLength)
-	r.Signed = pb.Signed
-	r.Float = pb.Float
-	return r, nil
-}
-
-// BinaryFieldsToPB converts a slice of BinaryField to FieldBinaryPayload.
-func BinaryFieldsToPB(rs []library.BinaryField) ([]*FieldBinaryPayload, error) {
-	result := make([]*FieldBinaryPayload, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = BinaryFieldToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// BinaryFieldsFromPB converts a slice of FieldBinaryPayload to BinaryField.
-func BinaryFieldsFromPB(pbs []*FieldBinaryPayload) ([]library.BinaryField, error) {
-	result := make([]library.BinaryField, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = BinaryFieldFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// DelimitedFieldToPB converts DelimitedField to FieldDelimitedPayload.
-func DelimitedFieldToPB(r library.DelimitedField) (*FieldDelimitedPayload, error) {
-	pb := &FieldDelimitedPayload{
+// DelimitedTextFieldToPB converts DelimitedTextField to TextFieldDelimitedPayload.
+func DelimitedTextFieldToPB(r library.DelimitedTextField) (*TextFieldDelimitedPayload, error) {
+	pb := &TextFieldDelimitedPayload{
 		Position: r.Position,
 	}
 	return pb, nil
 }
 
-// DelimitedFieldFromPB converts FieldDelimitedPayload to DelimitedField.
-func DelimitedFieldFromPB(pb *FieldDelimitedPayload) (library.DelimitedField, error) {
-	var r library.DelimitedField
+// DelimitedTextFieldFromPB converts TextFieldDelimitedPayload to DelimitedTextField.
+func DelimitedTextFieldFromPB(pb *TextFieldDelimitedPayload) (library.DelimitedTextField, error) {
+	var r library.DelimitedTextField
 	if pb == nil {
 		return r, nil
 	}
@@ -643,12 +538,12 @@ func DelimitedFieldFromPB(pb *FieldDelimitedPayload) (library.DelimitedField, er
 	return r, nil
 }
 
-// DelimitedFieldsToPB converts a slice of DelimitedField to FieldDelimitedPayload.
-func DelimitedFieldsToPB(rs []library.DelimitedField) ([]*FieldDelimitedPayload, error) {
-	result := make([]*FieldDelimitedPayload, len(rs))
+// DelimitedTextFieldsToPB converts a slice of DelimitedTextField to TextFieldDelimitedPayload.
+func DelimitedTextFieldsToPB(rs []library.DelimitedTextField) ([]*TextFieldDelimitedPayload, error) {
+	result := make([]*TextFieldDelimitedPayload, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = DelimitedFieldToPB(rs[i])
+		result[i], err = DelimitedTextFieldToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -656,12 +551,12 @@ func DelimitedFieldsToPB(rs []library.DelimitedField) ([]*FieldDelimitedPayload,
 	return result, nil
 }
 
-// DelimitedFieldsFromPB converts a slice of FieldDelimitedPayload to DelimitedField.
-func DelimitedFieldsFromPB(pbs []*FieldDelimitedPayload) ([]library.DelimitedField, error) {
-	result := make([]library.DelimitedField, len(pbs))
+// DelimitedTextFieldsFromPB converts a slice of TextFieldDelimitedPayload to DelimitedTextField.
+func DelimitedTextFieldsFromPB(pbs []*TextFieldDelimitedPayload) ([]library.DelimitedTextField, error) {
+	result := make([]library.DelimitedTextField, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = DelimitedFieldFromPB(pb)
+		result[i], err = DelimitedTextFieldFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -669,17 +564,17 @@ func DelimitedFieldsFromPB(pbs []*FieldDelimitedPayload) ([]library.DelimitedFie
 	return result, nil
 }
 
-// TaggedFieldToPB converts TaggedField to FieldTaggedPayload.
-func TaggedFieldToPB(r library.TaggedField) (*FieldTaggedPayload, error) {
-	pb := &FieldTaggedPayload{
+// TaggedTextFieldToPB converts TaggedTextField to TextFieldTaggedPayload.
+func TaggedTextFieldToPB(r library.TaggedTextField) (*TextFieldTaggedPayload, error) {
+	pb := &TextFieldTaggedPayload{
 		Tag: r.Tag,
 	}
 	return pb, nil
 }
 
-// TaggedFieldFromPB converts FieldTaggedPayload to TaggedField.
-func TaggedFieldFromPB(pb *FieldTaggedPayload) (library.TaggedField, error) {
-	var r library.TaggedField
+// TaggedTextFieldFromPB converts TextFieldTaggedPayload to TaggedTextField.
+func TaggedTextFieldFromPB(pb *TextFieldTaggedPayload) (library.TaggedTextField, error) {
+	var r library.TaggedTextField
 	if pb == nil {
 		return r, nil
 	}
@@ -687,12 +582,12 @@ func TaggedFieldFromPB(pb *FieldTaggedPayload) (library.TaggedField, error) {
 	return r, nil
 }
 
-// TaggedFieldsToPB converts a slice of TaggedField to FieldTaggedPayload.
-func TaggedFieldsToPB(rs []library.TaggedField) ([]*FieldTaggedPayload, error) {
-	result := make([]*FieldTaggedPayload, len(rs))
+// TaggedTextFieldsToPB converts a slice of TaggedTextField to TextFieldTaggedPayload.
+func TaggedTextFieldsToPB(rs []library.TaggedTextField) ([]*TextFieldTaggedPayload, error) {
+	result := make([]*TextFieldTaggedPayload, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = TaggedFieldToPB(rs[i])
+		result[i], err = TaggedTextFieldToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -700,12 +595,142 @@ func TaggedFieldsToPB(rs []library.TaggedField) ([]*FieldTaggedPayload, error) {
 	return result, nil
 }
 
-// TaggedFieldsFromPB converts a slice of FieldTaggedPayload to TaggedField.
-func TaggedFieldsFromPB(pbs []*FieldTaggedPayload) ([]library.TaggedField, error) {
-	result := make([]library.TaggedField, len(pbs))
+// TaggedTextFieldsFromPB converts a slice of TextFieldTaggedPayload to TaggedTextField.
+func TaggedTextFieldsFromPB(pbs []*TextFieldTaggedPayload) ([]library.TaggedTextField, error) {
+	result := make([]library.TaggedTextField, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = TaggedFieldFromPB(pb)
+		result[i], err = TaggedTextFieldFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// BinaryPayloadToPB converts BinaryPayload to PayloadBinaryPayload.
+func BinaryPayloadToPB(r library.BinaryPayload) (*PayloadBinaryPayload, error) {
+	fieldsVal, err := BinaryFieldsToPB(r.Fields)
+	if err != nil {
+		return nil, err
+	}
+	pb := &PayloadBinaryPayload{
+		Fields: fieldsVal,
+	}
+	if r.Length != nil {
+		v := uint32(*r.Length)
+		pb.Length = &v
+	}
+	if r.Identifier != nil {
+		var err error
+		pb.Identifier, err = IdentifierToPB(*r.Identifier)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return pb, nil
+}
+
+// BinaryPayloadFromPB converts PayloadBinaryPayload to BinaryPayload.
+func BinaryPayloadFromPB(pb *PayloadBinaryPayload) (library.BinaryPayload, error) {
+	var r library.BinaryPayload
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Fields, err = BinaryFieldsFromPB(pb.Fields)
+	if err != nil {
+		return library.BinaryPayload{}, err
+	}
+	if pb.Length != nil {
+		v := uint16(*pb.Length)
+		r.Length = &v
+	}
+	if pb.Identifier != nil {
+		val, err := IdentifierFromPB(pb.Identifier)
+		if err != nil {
+			return library.BinaryPayload{}, err
+		}
+		r.Identifier = &val
+	}
+	return r, nil
+}
+
+// BinaryPayloadsToPB converts a slice of BinaryPayload to PayloadBinaryPayload.
+func BinaryPayloadsToPB(rs []library.BinaryPayload) ([]*PayloadBinaryPayload, error) {
+	result := make([]*PayloadBinaryPayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = BinaryPayloadToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// BinaryPayloadsFromPB converts a slice of PayloadBinaryPayload to BinaryPayload.
+func BinaryPayloadsFromPB(pbs []*PayloadBinaryPayload) ([]library.BinaryPayload, error) {
+	result := make([]library.BinaryPayload, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = BinaryPayloadFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// TextPayloadToPB converts TextPayload to PayloadTextPayload.
+func TextPayloadToPB(r library.TextPayload) (*PayloadTextPayload, error) {
+	fieldsVal, err := TextFieldsToPB(r.Fields)
+	if err != nil {
+		return nil, err
+	}
+	pb := &PayloadTextPayload{
+		Delimiter: r.Delimiter,
+		Prefix:    r.Prefix,
+		Fields:    fieldsVal,
+	}
+	return pb, nil
+}
+
+// TextPayloadFromPB converts PayloadTextPayload to TextPayload.
+func TextPayloadFromPB(pb *PayloadTextPayload) (library.TextPayload, error) {
+	var r library.TextPayload
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Fields, err = TextFieldsFromPB(pb.Fields)
+	if err != nil {
+		return library.TextPayload{}, err
+	}
+	r.Delimiter = pb.Delimiter
+	r.Prefix = pb.Prefix
+	return r, nil
+}
+
+// TextPayloadsToPB converts a slice of TextPayload to PayloadTextPayload.
+func TextPayloadsToPB(rs []library.TextPayload) ([]*PayloadTextPayload, error) {
+	result := make([]*PayloadTextPayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = TextPayloadToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// TextPayloadsFromPB converts a slice of PayloadTextPayload to TextPayload.
+func TextPayloadsFromPB(pbs []*PayloadTextPayload) ([]library.TextPayload, error) {
+	result := make([]library.TextPayload, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = TextPayloadFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -767,29 +792,12 @@ func EnumEntriesFromPB(pbs []*EntryEnumPayload) ([]library.EnumEntry, error) {
 
 // MessageEntryToPB converts MessageEntry to EntryMessagePayload.
 func MessageEntryToPB(r library.MessageEntry) (*EntryMessagePayload, error) {
-	formatVal, err := FormatToPB(r.Format)
-	if err != nil {
-		return nil, err
-	}
-	fieldsVal, err := FieldsToPB(r.Fields)
+	payloadVal, err := PayloadToPB(r.Payload)
 	if err != nil {
 		return nil, err
 	}
 	pb := &EntryMessagePayload{
-		Delimiter: r.Delimiter,
-		Format:    formatVal,
-		Fields:    fieldsVal,
-	}
-	if r.Identifier != nil {
-		var err error
-		pb.Identifier, err = IdentifierToPB(*r.Identifier)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if r.Length != nil {
-		v := uint32(*r.Length)
-		pb.Length = &v
+		Payload: payloadVal,
 	}
 	if r.Period != nil {
 		v := int64(*r.Period)
@@ -808,25 +816,9 @@ func MessageEntryFromPB(pb *EntryMessagePayload) (library.MessageEntry, error) {
 		return r, nil
 	}
 	var err error
-	r.Format, err = FormatFromPB(pb.Format)
+	r.Payload, err = PayloadFromPB(pb.Payload)
 	if err != nil {
 		return library.MessageEntry{}, err
-	}
-	r.Fields, err = FieldsFromPB(pb.Fields)
-	if err != nil {
-		return library.MessageEntry{}, err
-	}
-	r.Delimiter = pb.Delimiter
-	if pb.Identifier != nil {
-		val, err := IdentifierFromPB(pb.Identifier)
-		if err != nil {
-			return library.MessageEntry{}, err
-		}
-		r.Identifier = &val
-	}
-	if pb.Length != nil {
-		v := uint16(*pb.Length)
-		r.Length = &v
 	}
 	if pb.Period != nil {
 		v := telem.TimeSpan(*pb.Period)
@@ -877,30 +869,12 @@ func IdentifierToPB(r library.Identifier) (*Identifier, error) {
 			return nil, err
 		}
 		pb.Variant = &Identifier_Can{Can: inner}
-	case library.Arinc429Identifier:
-		inner, err := Arinc429IdentifierToPB(v)
-		if err != nil {
-			return nil, err
-		}
-		pb.Variant = &Identifier_Arinc429{Arinc429: inner}
-	case library.Mil1553Identifier:
-		inner, err := Mil1553IdentifierToPB(v)
-		if err != nil {
-			return nil, err
-		}
-		pb.Variant = &Identifier_Mil1553{Mil1553: inner}
 	case library.FieldIdentifier:
 		inner, err := FieldIdentifierToPB(v)
 		if err != nil {
 			return nil, err
 		}
 		pb.Variant = &Identifier_Field{Field: inner}
-	case library.TokenIdentifier:
-		inner, err := TokenIdentifierToPB(v)
-		if err != nil {
-			return nil, err
-		}
-		pb.Variant = &Identifier_Token{Token: inner}
 	default:
 		return nil, errors.Newf("Identifier: unknown variant %T", r.Variant)
 	}
@@ -921,29 +895,8 @@ func IdentifierFromPB(pb *Identifier) (library.Identifier, error) {
 		}
 		m := inner
 		r.Variant = m
-	case *Identifier_Arinc429:
-		inner, err := Arinc429IdentifierFromPB(v.Arinc429)
-		if err != nil {
-			return r, err
-		}
-		m := inner
-		r.Variant = m
-	case *Identifier_Mil1553:
-		inner, err := Mil1553IdentifierFromPB(v.Mil1553)
-		if err != nil {
-			return r, err
-		}
-		m := inner
-		r.Variant = m
 	case *Identifier_Field:
 		inner, err := FieldIdentifierFromPB(v.Field)
-		if err != nil {
-			return r, err
-		}
-		m := inner
-		r.Variant = m
-	case *Identifier_Token:
-		inner, err := TokenIdentifierFromPB(v.Token)
 		if err != nil {
 			return r, err
 		}
@@ -979,15 +932,15 @@ func IdentifiersFromPB(pbs []*Identifier) ([]library.Identifier, error) {
 	return result, nil
 }
 
-// FieldToPB converts Field to Field.
-func FieldToPB(r library.Field) (*Field, error) {
+// TextFieldToPB converts TextField to TextField.
+func TextFieldToPB(r library.TextField) (*TextField, error) {
 	if r.Variant == nil {
 		return nil, nil
 	}
-	pb := &Field{}
+	pb := &TextField{}
 	switch v := r.Variant.(type) {
-	case library.BinaryField:
-		inner, err := BinaryFieldToPB(v)
+	case library.DelimitedTextField:
+		inner, err := DelimitedTextFieldToPB(v)
 		if err != nil {
 			return nil, err
 		}
@@ -995,9 +948,9 @@ func FieldToPB(r library.Field) (*Field, error) {
 		if err != nil {
 			return nil, err
 		}
-		pb.Variant = &Field_Binary{Binary: inner}
-	case library.DelimitedField:
-		inner, err := DelimitedFieldToPB(v)
+		pb.Variant = &TextField_Delimited{Delimited: inner}
+	case library.TaggedTextField:
+		inner, err := TaggedTextFieldToPB(v)
 		if err != nil {
 			return nil, err
 		}
@@ -1005,32 +958,22 @@ func FieldToPB(r library.Field) (*Field, error) {
 		if err != nil {
 			return nil, err
 		}
-		pb.Variant = &Field_Delimited{Delimited: inner}
-	case library.TaggedField:
-		inner, err := TaggedFieldToPB(v)
-		if err != nil {
-			return nil, err
-		}
-		pb.BaseField, err = BaseFieldToPB(v.BaseField)
-		if err != nil {
-			return nil, err
-		}
-		pb.Variant = &Field_Tagged{Tagged: inner}
+		pb.Variant = &TextField_Tagged{Tagged: inner}
 	default:
-		return nil, errors.Newf("Field: unknown variant %T", r.Variant)
+		return nil, errors.Newf("TextField: unknown variant %T", r.Variant)
 	}
 	return pb, nil
 }
 
-// FieldFromPB converts Field to Field.
-func FieldFromPB(pb *Field) (library.Field, error) {
-	var r library.Field
+// TextFieldFromPB converts TextField to TextField.
+func TextFieldFromPB(pb *TextField) (library.TextField, error) {
+	var r library.TextField
 	if pb == nil {
 		return r, nil
 	}
 	switch v := pb.Variant.(type) {
-	case *Field_Binary:
-		inner, err := BinaryFieldFromPB(v.Binary)
+	case *TextField_Delimited:
+		inner, err := DelimitedTextFieldFromPB(v.Delimited)
 		if err != nil {
 			return r, err
 		}
@@ -1040,19 +983,8 @@ func FieldFromPB(pb *Field) (library.Field, error) {
 			return r, err
 		}
 		r.Variant = m
-	case *Field_Delimited:
-		inner, err := DelimitedFieldFromPB(v.Delimited)
-		if err != nil {
-			return r, err
-		}
-		m := inner
-		m.BaseField, err = BaseFieldFromPB(pb.BaseField)
-		if err != nil {
-			return r, err
-		}
-		r.Variant = m
-	case *Field_Tagged:
-		inner, err := TaggedFieldFromPB(v.Tagged)
+	case *TextField_Tagged:
+		inner, err := TaggedTextFieldFromPB(v.Tagged)
 		if err != nil {
 			return r, err
 		}
@@ -1066,12 +998,12 @@ func FieldFromPB(pb *Field) (library.Field, error) {
 	return r, nil
 }
 
-// FieldsToPB converts a slice of Field to Field.
-func FieldsToPB(rs []library.Field) ([]*Field, error) {
-	result := make([]*Field, len(rs))
+// TextFieldsToPB converts a slice of TextField to TextField.
+func TextFieldsToPB(rs []library.TextField) ([]*TextField, error) {
+	result := make([]*TextField, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = FieldToPB(rs[i])
+		result[i], err = TextFieldToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -1079,12 +1011,88 @@ func FieldsToPB(rs []library.Field) ([]*Field, error) {
 	return result, nil
 }
 
-// FieldsFromPB converts a slice of Field to Field.
-func FieldsFromPB(pbs []*Field) ([]library.Field, error) {
-	result := make([]library.Field, len(pbs))
+// TextFieldsFromPB converts a slice of TextField to TextField.
+func TextFieldsFromPB(pbs []*TextField) ([]library.TextField, error) {
+	result := make([]library.TextField, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = FieldFromPB(pb)
+		result[i], err = TextFieldFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// PayloadToPB converts Payload to Payload.
+func PayloadToPB(r library.Payload) (*Payload, error) {
+	if r.Variant == nil {
+		return nil, nil
+	}
+	pb := &Payload{}
+	switch v := r.Variant.(type) {
+	case library.BinaryPayload:
+		inner, err := BinaryPayloadToPB(v)
+		if err != nil {
+			return nil, err
+		}
+		pb.Variant = &Payload_Binary{Binary: inner}
+	case library.TextPayload:
+		inner, err := TextPayloadToPB(v)
+		if err != nil {
+			return nil, err
+		}
+		pb.Variant = &Payload_Text{Text: inner}
+	default:
+		return nil, errors.Newf("Payload: unknown variant %T", r.Variant)
+	}
+	return pb, nil
+}
+
+// PayloadFromPB converts Payload to Payload.
+func PayloadFromPB(pb *Payload) (library.Payload, error) {
+	var r library.Payload
+	if pb == nil {
+		return r, nil
+	}
+	switch v := pb.Variant.(type) {
+	case *Payload_Binary:
+		inner, err := BinaryPayloadFromPB(v.Binary)
+		if err != nil {
+			return r, err
+		}
+		m := inner
+		r.Variant = m
+	case *Payload_Text:
+		inner, err := TextPayloadFromPB(v.Text)
+		if err != nil {
+			return r, err
+		}
+		m := inner
+		r.Variant = m
+	}
+	return r, nil
+}
+
+// PayloadsToPB converts a slice of Payload to Payload.
+func PayloadsToPB(rs []library.Payload) ([]*Payload, error) {
+	result := make([]*Payload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = PayloadToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// PayloadsFromPB converts a slice of Payload to Payload.
+func PayloadsFromPB(pbs []*Payload) ([]library.Payload, error) {
+	result := make([]library.Payload, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = PayloadFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -1205,53 +1213,5 @@ func ByteOrderFromPB(v ByteOrder) (library.ByteOrder, error) {
 		return library.ByteOrderBigEndian, nil
 	default:
 		return library.ByteOrder(""), errors.Newf("unrecognized ByteOrder value: %v", v)
-	}
-}
-
-// DirectionToPB converts library.Direction to Direction.
-func DirectionToPB(v library.Direction) (Direction, error) {
-	switch v {
-	case library.DirectionReceive:
-		return Direction_DIRECTION_RECEIVE, nil
-	case library.DirectionTransmit:
-		return Direction_DIRECTION_TRANSMIT, nil
-	default:
-		return 0, errors.Newf("unrecognized library.Direction value: %v", v)
-	}
-}
-
-// DirectionFromPB converts Direction to library.Direction.
-func DirectionFromPB(v Direction) (library.Direction, error) {
-	switch v {
-	case Direction_DIRECTION_RECEIVE:
-		return library.DirectionReceive, nil
-	case Direction_DIRECTION_TRANSMIT:
-		return library.DirectionTransmit, nil
-	default:
-		return library.Direction(""), errors.Newf("unrecognized Direction value: %v", v)
-	}
-}
-
-// FormatToPB converts library.Format to Format.
-func FormatToPB(v library.Format) (Format, error) {
-	switch v {
-	case library.FormatBinary:
-		return Format_FORMAT_BINARY, nil
-	case library.FormatText:
-		return Format_FORMAT_TEXT, nil
-	default:
-		return 0, errors.Newf("unrecognized library.Format value: %v", v)
-	}
-}
-
-// FormatFromPB converts Format to library.Format.
-func FormatFromPB(v Format) (library.Format, error) {
-	switch v {
-	case Format_FORMAT_BINARY:
-		return library.FormatBinary, nil
-	case Format_FORMAT_TEXT:
-		return library.FormatText, nil
-	default:
-		return library.Format(""), errors.Newf("unrecognized Format value: %v", v)
 	}
 }

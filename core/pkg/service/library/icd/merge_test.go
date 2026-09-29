@@ -30,14 +30,20 @@ func field(name string, startBit uint16) library.BinaryField {
 }
 
 func message(name string, fields ...library.BinaryField) library.MessageEntry {
-	m := library.MessageEntry{
-		Key:    uuid.New(),
-		Name:   name,
-		Format: library.FormatBinary,
+	return library.MessageEntry{
+		Key:     uuid.New(),
+		Name:    name,
+		Payload: library.Payload{Variant: library.BinaryPayload{Fields: fields}},
 	}
-	for _, f := range fields {
-		m.Fields = append(m.Fields, library.Field{Variant: f})
+}
+
+// identify returns m identified by the raw value 1 of the field with the given key.
+func identify(m library.MessageEntry, field library.FieldKey) library.MessageEntry {
+	p := binaryPayload(m)
+	p.Identifier = &library.Identifier{
+		Variant: library.FieldIdentifier{Field: field, Value: 1},
 	}
+	m.Payload.Variant = p
 	return m
 }
 
@@ -107,26 +113,20 @@ var _ = Describe("Merge", func() {
 	It("Should rewrite references to the kept keys", func() {
 		oldMode, oldValue := field("mode", 0), field("value", 8)
 		oldStatus := enum("Status")
-		oldMessage := message("Frame", oldMode, oldValue)
-		oldMessage.Identifier = &library.Identifier{
-			Variant: library.FieldIdentifier{Field: oldMode.Key, Value: 1},
-		}
+		oldMessage := identify(message("Frame", oldMode, oldValue), oldMode.Key)
 		existing := library.Library{Entries: entries(oldMessage, oldStatus)}
 		newMode, newValue := field("mode", 0), field("value", 8)
 		newStatus := enum("Status")
 		newValue.Enumeration = new(newStatus.Key)
 		newValue.Multiplexor = new(newMode.Key)
 		newValue.MultiplexValues = []int32{1}
-		newMessage := message("Frame", newMode, newValue)
-		newMessage.Identifier = &library.Identifier{
-			Variant: library.FieldIdentifier{Field: newMode.Key, Value: 1},
-		}
+		newMessage := identify(message("Frame", newMode, newValue), newMode.Key)
 		merged := icd.Merge(existing, entries(newMessage, newStatus))
 		frame := messageNamed(merged.Entries, "Frame")
 		value := fieldNamed(frame, "value")
 		Expect(*value.Enumeration).To(Equal(oldStatus.Key))
 		Expect(*value.Multiplexor).To(Equal(oldMode.Key))
-		Expect(frame.Identifier.Variant).To(Equal(
+		Expect(binaryPayload(frame).Identifier.Variant).To(Equal(
 			library.FieldIdentifier{Field: oldMode.Key, Value: 1},
 		))
 		Expect(*newValue.Multiplexor).To(Equal(newMode.Key))
@@ -138,5 +138,31 @@ var _ = Describe("Merge", func() {
 		imported := message("Engine")
 		merged := icd.Merge(library.Library{Entries: entries(old)}, entries(imported))
 		Expect(messageNamed(merged.Entries, "Engine").Key).To(Equal(imported.Key))
+	})
+
+	It("Should keep the keys of text fields", func() {
+		tagged := func(name string) library.TextField {
+			return library.TextField{Variant: library.TaggedTextField{
+				BaseField: library.BaseField{Key: uuid.New(), Name: name},
+				Tag:       name + "=",
+			}}
+		}
+		line := func(fields ...library.TextField) library.MessageEntry {
+			return library.MessageEntry{
+				Key:  uuid.New(),
+				Name: "Line",
+				Payload: library.Payload{Variant: library.TextPayload{
+					Delimiter: ",",
+					Fields:    fields,
+				}},
+			}
+		}
+		old := line(tagged("temp"))
+		imported := line(tagged("temp"), tagged("rh"))
+		merged := icd.Merge(library.Library{Entries: entries(old)}, entries(imported))
+		fields := messageNamed(merged.Entries, "Line").Payload.FieldBases()
+		Expect(fields).To(HaveLen(2))
+		Expect(fields[0].Key).To(Equal(old.Payload.FieldBases()[0].Key))
+		Expect(fields[1].Key).To(Equal(imported.Payload.FieldBases()[1].Key))
 	})
 })

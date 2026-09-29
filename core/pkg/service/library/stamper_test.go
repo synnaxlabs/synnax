@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/gorp"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -54,6 +55,20 @@ func retrieveUsers(ctx context.Context, lib library.Key) []ontology.ID {
 		Entries(&users).
 		Exec(ctx, tx)).To(Succeed())
 	return ontology.ResourceIDs(users)
+}
+
+// retrieveUses returns the uses relationships the task is the source of.
+func retrieveUses(ctx context.Context, t task.Task) []ontology.Relationship {
+	GinkgoHelper()
+	var rels []ontology.Relationship
+	Expect(gorp.NewRetrieve[string, ontology.Relationship]().
+		Where(gorp.Match(func(_ gorp.Context, rel *ontology.Relationship) (bool, error) {
+			return rel.From == t.OntologyID() &&
+				rel.Type == ontology.RelationshipTypeUses, nil
+		})).
+		Entries(&rels).
+		Exec(ctx, tx)).To(Succeed())
+	return rels
 }
 
 var _ = Describe("Task references", func() {
@@ -98,6 +113,38 @@ var _ = Describe("Task references", func() {
 		},
 	)
 
+	It(
+		"Should store a task with no library and relate it to none",
+		func(ctx SpecContext) {
+			t := task.Task{
+				Rack:   testRack.Key,
+				Name:   "Draft",
+				Type:   testTaskType,
+				Config: msgpack.EncodedJSON{},
+			}
+			Expect(taskSvc.NewWriter(tx).Create(ctx, &t)).To(Succeed())
+			Expect(retrieveTask(ctx, t.Key).Config).To(SatisfyAll(
+				Not(HaveKey("library")),
+				HaveKeyWithValue("library_hash", ""),
+			))
+			Expect(retrieveUses(ctx, t)).To(BeEmpty())
+		},
+	)
+
+	It(
+		"Should remove the relationship when the task stops using a library",
+		func(ctx SpecContext) {
+			t := createUsingTask(ctx, lib.Key)
+			t.Config = msgpack.EncodedJSON{}
+			Expect(taskSvc.NewWriter(tx).Create(ctx, &t)).To(Succeed())
+			Expect(retrieveUsers(ctx, lib.Key)).To(BeEmpty())
+			Expect(retrieveUses(ctx, t)).To(BeEmpty())
+			Expect(
+				retrieveTask(ctx, t.Key).Config,
+			).To(HaveKeyWithValue("library_hash", ""))
+		},
+	)
+
 	It("Should reject a task that references a missing library", func(ctx SpecContext) {
 		t := task.Task{
 			Rack:   testRack.Key,
@@ -116,11 +163,10 @@ var _ = Describe("Task references", func() {
 		func(ctx SpecContext) {
 			first := createUsingTask(ctx, lib.Key)
 			second := createUsingTask(ctx, lib.Key)
-			m := messageOf(lib, 0)
-			f := binaryFieldOf(m, 0)
-			f.Scale = 0.5
-			m.Fields[0].Variant = f
-			lib.Entries[0].Variant = m
+			lib.Entries[0].Variant = updateBinary(
+				messageOf(lib, 0),
+				func(p *library.BinaryPayload) { p.Fields[0].Scale = 0.5 },
+			)
 			Expect(svc.NewWriter(tx).Create(ctx, &lib)).To(Succeed())
 			hash := MustSucceed(library.Hash(lib))
 			for _, t := range []task.Task{first, second} {

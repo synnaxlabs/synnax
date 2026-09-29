@@ -155,6 +155,11 @@ export interface TableProps
   rowLabel?: (index: number) => string;
   /** Builds the row the add button appends. Defaults to the column default values. */
   createRow?: (value: TableCell[][]) => TableCell[];
+  /**
+   * Called with the index of the row the user removes. When set, a removal calls it
+   * instead of onChange.
+   */
+  onRemove?: (index: number) => void;
 }
 
 /**
@@ -176,6 +181,7 @@ export const Table = ({
   preview = false,
   rowLabel,
   createRow,
+  onRemove,
   className,
   ...rest
 }: TableProps): ReactElement => {
@@ -285,7 +291,11 @@ export const Table = ({
                   size="small"
                   reveal
                   tooltip={`Remove row ${rowName(i)}`}
-                  onClick={() => onChange(value.filter((_, j) => j !== i))}
+                  onClick={() =>
+                    onRemove != null
+                      ? onRemove(i)
+                      : onChange(value.filter((_, j) => j !== i))
+                  }
                 >
                   <Icon.Close />
                 </Button.Button>

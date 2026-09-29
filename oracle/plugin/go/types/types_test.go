@@ -2995,6 +2995,32 @@ var _ = Describe("Go Union Generation", func() {
 	)
 
 	It(
+		"Should fill a union array whose defaults come only from the union base",
+		func(ctx SpecContext) {
+			source := `
+			@go output "out"
+
+			BaseField struct {
+				scale float64 = 1
+			}
+
+			Field union on encoding extends BaseField {
+				tagged { tag string }
+			}
+
+			Payload struct {
+				fields Field[]
+			}
+		`
+			resp := MustGenerate(ctx, source, "library", loader, goPlugin)
+			Expect(MustContentOf(resp, "types.gen.go")).To(ContainSubstring(
+				"func (p *Payload) ApplyDefaults() {\n" +
+					"\tfor i := range p.Fields {\n\t\tp.Fields[i].ApplyDefaults()\n\t}\n}",
+			))
+		},
+	)
+
+	It(
 		"Should embed a union base struct from another namespace with import",
 		func(ctx SpecContext) {
 			loader.Add("schemas/common", `

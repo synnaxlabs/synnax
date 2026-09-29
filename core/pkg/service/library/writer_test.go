@@ -41,13 +41,27 @@ func messageEntry(m library.MessageEntry) library.Entry {
 }
 
 func binaryMessage(name string, fields ...library.BinaryField) library.MessageEntry {
-	m := library.MessageEntry{
-		Name:   name,
-		Format: library.FormatBinary,
+	return library.MessageEntry{
+		Name:    name,
+		Payload: library.Payload{Variant: library.BinaryPayload{Fields: fields}},
 	}
-	for _, f := range fields {
-		m.Fields = append(m.Fields, library.Field{Variant: f})
+}
+
+func textMessage(name string, fields ...library.TextField) library.MessageEntry {
+	return library.MessageEntry{
+		Name:    name,
+		Payload: library.Payload{Variant: library.TextPayload{Fields: fields}},
 	}
+}
+
+// updateBinary returns m with its binary payload changed by update.
+func updateBinary(
+	m library.MessageEntry,
+	update func(*library.BinaryPayload),
+) library.MessageEntry {
+	p := binaryPayloadOf(m)
+	update(&p)
+	m.Payload.Variant = p
 	return m
 }
 
@@ -56,18 +70,22 @@ func canMessage(
 	id uint32,
 	fields ...library.BinaryField,
 ) library.MessageEntry {
-	m := binaryMessage(name, fields...)
-	m.Identifier = &library.Identifier{Variant: library.CanIdentifier{ID: id}}
-	m.Length = new(uint16(8))
-	return m
+	return updateBinary(binaryMessage(name, fields...), func(p *library.BinaryPayload) {
+		p.Identifier = &library.Identifier{Variant: library.CanIdentifier{ID: id}}
+		p.Length = new(uint16(8))
+	})
 }
 
 func messageOf(l library.Library, i int) library.MessageEntry {
 	return l.Entries[i].Variant.(library.MessageEntry)
 }
 
+func binaryPayloadOf(m library.MessageEntry) library.BinaryPayload {
+	return m.Payload.Variant.(library.BinaryPayload)
+}
+
 func binaryFieldOf(m library.MessageEntry, i int) library.BinaryField {
-	return m.Fields[i].Variant.(library.BinaryField)
+	return binaryPayloadOf(m).Fields[i]
 }
 
 var _ = Describe("Writer", func() {
@@ -102,22 +120,23 @@ var _ = Describe("Writer", func() {
 		)
 
 		It("Should apply schema defaults to entries and fields", func(ctx SpecContext) {
-			m := library.MessageEntry{
-				Name:   "Line",
-				Format: library.FormatText,
-				Fields: []library.Field{{Variant: library.DelimitedField{
+			m := textMessage(
+				"Line",
+				library.TextField{Variant: library.DelimitedTextField{
 					BaseField: library.BaseField{Name: "temperature"},
 					Position:  1,
-				}}},
-			}
+				}},
+			)
 			l := library.Library{
 				Name:    "Sensor",
 				Entries: []library.Entry{messageEntry(m)},
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
-			res := messageOf(l, 0)
+			res := messageOf(l, 0).Payload.Variant.(library.TextPayload)
 			Expect(res.Delimiter).To(Equal(","))
-			Expect(res.Fields[0].Variant.(library.DelimitedField).Scale).To(Equal(1.0))
+			Expect(
+				res.Fields[0].Variant.(library.DelimitedTextField).Scale,
+			).To(Equal(1.0))
 		})
 
 		It("Should define the library in the ontology", func(ctx SpecContext) {
@@ -146,11 +165,10 @@ var _ = Describe("Writer", func() {
 				Expect(w.Create(ctx, &l)).To(Succeed())
 				entryKey := messageOf(l, 0).Key
 				fieldKey := binaryFieldOf(messageOf(l, 0), 0).Key
-				m := messageOf(l, 0)
-				f := binaryFieldOf(m, 0)
-				f.Scale = 0.25
-				m.Fields[0].Variant = f
-				l.Entries[0].Variant = m
+				l.Entries[0].Variant = updateBinary(
+					messageOf(l, 0),
+					func(p *library.BinaryPayload) { p.Fields[0].Scale = 0.25 },
+				)
 				Expect(w.Create(ctx, &l)).To(Succeed())
 				Expect(messageOf(l, 0).Key).To(Equal(entryKey))
 				Expect(binaryFieldOf(messageOf(l, 0), 0).Key).To(Equal(fieldKey))
@@ -244,95 +262,47 @@ var _ = Describe("Writer", func() {
 			),
 			Entry("classic CAN frame over 8 bytes",
 				library.Library{Name: "L", Entries: []library.Entry{messageEntry(
-					func() library.MessageEntry {
-						m := canMessage("M", 1)
-						m.Length = new(uint16(12))
-						return m
-					}(),
+					updateBinary(canMessage("M", 1), func(p *library.BinaryPayload) {
+						p.Length = new(uint16(12))
+					}),
 				)}},
-				"exceeds the 8 bytes a CAN frame carries",
+				"entries.0.payload.length: length 12 exceeds the 8 bytes",
 			),
-			Entry("1553 word count over 32",
+			Entry("message without a format",
 				library.Library{Name: "L", Entries: []library.Entry{messageEntry(
-					func() library.MessageEntry {
-						m := binaryMessage("M")
-						m.Identifier = &library.Identifier{
-							Variant: library.Mil1553Identifier{
-								Rt:        1,
-								Direction: library.DirectionReceive,
-								WordCount: 33,
-							},
-						}
-						return m
-					}(),
+					library.MessageEntry{Name: "M"},
 				)}},
-				"word_count must be between 1 and 32",
+				"entries.0.payload: format is required",
 			),
-			Entry("ARINC 429 SDI over 3",
+			Entry("text field without an encoding",
 				library.Library{Name: "L", Entries: []library.Entry{messageEntry(
-					func() library.MessageEntry {
-						m := binaryMessage("M")
-						m.Identifier = &library.Identifier{
-							Variant: library.Arinc429Identifier{
-								Label: 0o203,
-								Sdi:   4,
-							},
-						}
-						return m
-					}(),
+					textMessage("M", library.TextField{}),
 				)}},
-				"sdi must be between 0 and 3",
-			),
-			Entry("token identifier on a binary message",
-				library.Library{Name: "L", Entries: []library.Entry{messageEntry(
-					func() library.MessageEntry {
-						m := binaryMessage("M")
-						m.Identifier = &library.Identifier{
-							Variant: library.TokenIdentifier{Prefix: "$"},
-						}
-						return m
-					}(),
-				)}},
-				"identifier does not apply to a binary message",
+				"entries.0.payload.fields.0: encoding is required",
 			),
 			Entry("field identifier naming a missing field",
 				library.Library{Name: "L", Entries: []library.Entry{messageEntry(
-					func() library.MessageEntry {
-						m := binaryMessage("M", binaryField("a", 0, 8))
-						m.Identifier = &library.Identifier{
-							Variant: library.FieldIdentifier{
-								Field: uuid.New(),
-								Value: 1,
-							},
-						}
-						return m
-					}(),
+					updateBinary(
+						binaryMessage("M", binaryField("a", 0, 8)),
+						func(p *library.BinaryPayload) {
+							p.Identifier = &library.Identifier{
+								Variant: library.FieldIdentifier{
+									Field: uuid.New(),
+									Value: 1,
+								},
+							}
+						},
+					),
 				)}},
-				"no field with key",
-			),
-			Entry("text field in a binary message",
-				library.Library{Name: "L", Entries: []library.Entry{messageEntry(
-					library.MessageEntry{
-						Name:   "M",
-						Format: library.FormatBinary,
-						Fields: []library.Field{{Variant: library.DelimitedField{
-							BaseField: library.BaseField{Name: "a"},
-						}}},
-					},
-				)}},
-				"a text field requires a text message",
+				"entries.0.payload.identifier.field: no field with key",
 			),
 			Entry("tagged field without a tag",
 				library.Library{Name: "L", Entries: []library.Entry{messageEntry(
-					library.MessageEntry{
-						Name:   "M",
-						Format: library.FormatText,
-						Fields: []library.Field{{Variant: library.TaggedField{
-							BaseField: library.BaseField{Name: "a"},
-						}}},
-					},
+					textMessage("M", library.TextField{Variant: library.TaggedTextField{
+						BaseField: library.BaseField{Name: "a"},
+					}}),
 				)}},
-				"entries.0.fields.0.tag: required",
+				"entries.0.payload.fields.0.tag: required",
 			),
 			Entry("enumeration naming a missing enum",
 				library.Library{Name: "L", Entries: []library.Entry{messageEntry(
@@ -471,8 +441,10 @@ var _ = Describe("Payload bounds", func() {
 				GinkgoHelper()
 				f := binaryField("a", startBit, bitLength)
 				f.ByteOrder = order
-				m := binaryMessage("M", f)
-				m.Length = new(length)
+				m := updateBinary(
+					binaryMessage("M", f),
+					func(p *library.BinaryPayload) { p.Length = new(length) },
+				)
 				l := library.Library{
 					Name:    "L",
 					Entries: []library.Entry{messageEntry(m)},
@@ -481,7 +453,8 @@ var _ = Describe("Payload bounds", func() {
 			}
 			Expect(create(lastByte + 1)).To(Succeed())
 			Expect(create(lastByte)).To(MatchError(ContainSubstring(fmt.Sprintf(
-				"entries.0.fields.0.start_bit: field extends past the %d-byte payload",
+				"entries.0.payload.fields.0.start_bit: field extends past the %d-byte "+
+					"payload",
 				lastByte,
 			))))
 		},

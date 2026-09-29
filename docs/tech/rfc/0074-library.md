@@ -158,13 +158,13 @@ A task config that uses a library embeds a shared struct:
 
 ```
 Reference struct {
-    library      Key
+    library      Key?
     library_hash string = ""
 }
 ```
 
-The Driver retrieves the library by key when the task configures, following
-`driver/arc/task.h:63`.
+The library is optional, so a task draft can exist before the user picks one. The Driver
+retrieves the library by key when the task configures, following `driver/arc/task.h:63`.
 
 The Core keeps `library_hash` current, following Arc's module hash. `library.Hash` is an
 xxhash64 of the entries, as `core/pkg/service/arc/hash.go:42` hashes a module. The
@@ -192,10 +192,11 @@ The new hash changes the task's config hash (`core/pkg/service/task/writer.go:14
 The task links to the library in the ontology with a new relationship type, `uses`,
 following `labeled_by` (`core/pkg/service/label/relationship.go:18`). The stamper writes
 it with `ReplaceOutgoingRelationshipsOfType`
-(`core/pkg/service/ontology/writer.go:136`). "Which tasks use this library" is one
-traversal. The library is not the task's parent, so tasks do not appear under libraries
-in the resource tree. The Core rejects deleting a library that a task uses, and the
-error names the tasks.
+(`core/pkg/service/ontology/writer.go:136`). A task with no library gets no hash, and
+the stamper removes any `uses` relationship it had. "Which tasks use this library" is
+one traversal. The library is not the task's parent, so tasks do not appear under
+libraries in the resource tree. The Core rejects deleting a library that a task uses,
+and the error names the tasks.
 
 ### 5.5 Console
 

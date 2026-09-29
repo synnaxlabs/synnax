@@ -16,6 +16,12 @@ vendor/soem/SOEM/**
 # IgH EtherCAT Master
 driver/ethercat/igh/ecrt.h
 
+# DBC parser derived from go.einride.tech/can (MIT)
+core/pkg/service/library/icd/internal/dbc/def.go
+core/pkg/service/library/icd/internal/dbc/error.go
+core/pkg/service/library/icd/internal/dbc/parser.go
+core/pkg/service/library/icd/internal/dbc/types.go
+
 # Generated lockfiles
 pnpm-lock.yaml
 
