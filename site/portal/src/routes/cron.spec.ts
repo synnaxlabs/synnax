@@ -10,7 +10,6 @@
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { GET } from "@/pages/api/cron/expiry";
-import { type Tx } from "@/server/db/db";
 import { event, type License, type Organization } from "@/server/db/schema";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { ADMIN_ROLE } from "@/server/directory";
@@ -42,12 +41,6 @@ describe("GET /api/cron/expiry", () => {
   beforeEach(async () => {
     await store.clear();
     h = createHarness(store);
-    // PGlite has one connection, so the recipient lookup the route makes through the
-    // store would wait forever on the sweep's open transaction.
-    h.portal = {
-      ...h.portal,
-      store: { ...store, transact: async (fn) => await fn(store.query as Tx) },
-    };
     h.directory.people[ADMIN] = { email: "admin@acme.com", name: "Admin" };
     h.directory.members[ADMIN] = [{ clerkOrgID: ACME, name: "Acme", role: ADMIN_ROLE }];
     acme = await createOrganization(store, { kind: "team", clerkOrgID: ACME });
