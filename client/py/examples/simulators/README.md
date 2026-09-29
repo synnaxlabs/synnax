@@ -88,6 +88,24 @@ Runs a TLS-encrypted OPC UA server on port 4843 with `Basic256Sha256_SignAndEncr
 security and username/password authentication (`testuser` / `testpass`). Exposes the
 same variables as `OPCUASim`.
 
+### Bus simulators
+
+These extend `BusSim` (`bus_sim.py`), a `DeviceSim` that records every frame the Driver
+sends. Tests read the records with `received()` and `wait_for()`. Each module documents
+its frame layouts and exports the functions that generate its values, so tests can
+assert exact decoded values.
+
+- `SCPISim` (`scpi.py`): a power supply on TCP port 5025 that answers SCPI-like queries
+  (`READ?`, `STAT?`, `MEAS:VOLT?`) and accepts `VOLT` and `CURR` setpoints. `mute()`
+  makes it stop answering.
+- `UDPTelemetrySim` (`udp_telemetry.py`): binds UDP port 5030 and sends binary datagrams
+  with a counter and a sine wave to port 5031.
+- `SerialFrameSim` (`serial_frames.py`): streams sync-and-length frames with a
+  CRC-16/MODBUS checksum over a pseudo-terminal linked at `/tmp/synnax_serial_sim`, and
+  echoes the frames it receives. macOS and Linux only.
+- `CANFrameSim` (`can_frames.py`): sends standard and extended CAN frames on the
+  SocketCAN interface `vcan0`. Linux only, and needs `python-can`.
+
 ## Creating custom simulators
 
 ### Custom SimDAQ

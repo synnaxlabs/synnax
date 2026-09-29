@@ -30,6 +30,7 @@ import {
   resourceTypeZ,
   resourceZ,
   stringIDZ,
+  USES_RELATIONSHIP_TYPE,
 } from "@/ontology/payload";
 import {
   Cache,
@@ -46,6 +47,7 @@ const wireReqZ = z.object({
   ids: idZ.array().optional(),
   children: z.boolean().optional(),
   parents: z.boolean().optional(),
+  users: z.boolean().optional(),
   excludeFieldData: z.boolean().optional(),
   types: resourceTypeZ.array().optional(),
   searchTerm: z.string().optional(),
@@ -69,6 +71,33 @@ const parentRel = (from: ID, to: ID): Relationship => ({
   type: PARENT_OF_RELATIONSHIP_TYPE,
   to,
 });
+
+/** The request flag that selects a traversal on the wire. */
+type TraversalFlag = "children" | "parents" | "users";
+
+/** A hop from a set of resources across one relationship type. */
+interface Traversal {
+  flag: TraversalFlag;
+  type: string;
+  /** The end of the relationship the traversal lands on. */
+  direction: RelationshipDirection;
+}
+
+const CHILDREN: Traversal = {
+  flag: "children",
+  type: PARENT_OF_RELATIONSHIP_TYPE,
+  direction: "to",
+};
+const PARENTS: Traversal = {
+  flag: "parents",
+  type: PARENT_OF_RELATIONSHIP_TYPE,
+  direction: "from",
+};
+const USERS: Traversal = {
+  flag: "users",
+  type: USES_RELATIONSHIP_TYPE,
+  direction: "from",
+};
 
 /** A retrieve request with IDs normalized to stable, sorted strings. */
 type NormalizedRequest = {
@@ -190,6 +219,8 @@ export class Client extends query.Retriever<
   readonly children: query.Retrieves<DependentParams, Resource[]>;
   /** Cached read surface for the parents of a set of resources. */
   readonly parents: query.Retrieves<DependentParams, Resource[]>;
+  /** Cached read surface for the resources that use a set of resources. */
+  readonly users: query.Retrieves<DependentParams, Resource[]>;
   private readonly cfg: ClientConfig;
   private readonly writer: Writer;
 
@@ -251,8 +282,9 @@ export class Client extends query.Retriever<
     this.cfg = cfg;
     this.writer = new Writer(unary);
     this.cache = new Cache(relationships, resources, relationshipIndexes);
-    this.children = this.dependentSurface(cache, "children", "to");
-    this.parents = this.dependentSurface(cache, "parents", "from");
+    this.children = this.dependentSurface(cache, CHILDREN);
+    this.parents = this.dependentSurface(cache, PARENTS);
+    this.users = this.dependentSurface(cache, USERS);
   }
 
   /**
@@ -408,13 +440,12 @@ export class Client extends query.Retriever<
 
   private async fetchDependents(
     q: DependentRequest,
-    direction: RelationshipDirection,
+    { flag, type, direction }: Traversal,
   ): Promise<Resource[]> {
     const { ids, ...rest } = q;
     const resources = await this.execRetrieve({
       ids: parseIDs(ids),
-      children: direction === "to",
-      parents: direction === "from",
+      [flag]: true,
       ...rest,
     });
     this.writeResources(resources);
@@ -423,7 +454,10 @@ export class Client extends query.Retriever<
     if (ids.length === 1) {
       const anchor = parseID(ids[0]);
       resources.forEach(({ id }) => {
-        const rel = direction === "to" ? parentRel(anchor, id) : parentRel(id, anchor);
+        const rel: Relationship =
+          direction === "to"
+            ? { from: anchor, type, to: id }
+            : { from: id, type, to: anchor };
         this.cache.relationships.set(relationshipToString(rel), rel);
       });
     }
@@ -432,22 +466,22 @@ export class Client extends query.Retriever<
 
   private dependentSurface(
     cache: query.Cache,
-    name: string,
-    direction: RelationshipDirection,
+    traversal: Traversal,
   ): query.Retrieves<DependentParams, Resource[]> {
+    const { flag, type, direction } = traversal;
     const anchor = oppositeRelationshipDirection(direction);
     const space = cache.queries<DependentRequest, Resource[], string, Resource>({
-      name,
+      name: flag,
       table: this.cache.resources,
-      fetch: async (q) => (await this.fetchDependents(q, direction)).map((r) => r.key),
+      fetch: async (q) => (await this.fetchDependents(q, traversal)).map((r) => r.key),
       compose: (records) => records,
-      matches: (resource, q) => this.isDependent(resource, q, direction),
+      matches: (resource, q) => this.isDependent(resource, q, traversal),
       serverFields: DEPENDENT_SERVER_FIELDS,
       watch: [
         query.watch(this.cache.relationships, (event, q: DependentRequest) => {
           const rel =
             event.variant === "set" ? event.value : relationshipZ.parse(event.key);
-          if (rel.type !== PARENT_OF_RELATIONSHIP_TYPE) return null;
+          if (rel.type !== type) return null;
           if (!q.ids.includes(idToString(rel[anchor]))) return null;
           if (q.types != null && !q.types.includes(rel[direction].type)) return null;
           return [idToString(rel[direction])];
@@ -468,7 +502,7 @@ export class Client extends query.Retriever<
   private isDependent(
     resource: Resource,
     q: DependentRequest,
-    direction: RelationshipDirection,
+    { type, direction }: Traversal,
   ): boolean {
     if (q.types != null && !q.types.includes(resource.id.type)) return false;
     const anchor = oppositeRelationshipDirection(direction);
@@ -477,9 +511,7 @@ export class Client extends query.Retriever<
         ? this.cache.relationshipsTo(resource.id)
         : this.cache.relationshipsFrom(resource.id);
     return rels.some(
-      (rel) =>
-        rel.type === PARENT_OF_RELATIONSHIP_TYPE &&
-        q.ids.includes(idToString(rel[anchor])),
+      (rel) => rel.type === type && q.ids.includes(idToString(rel[anchor])),
     );
   }
 

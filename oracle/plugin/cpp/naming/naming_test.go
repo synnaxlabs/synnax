@@ -150,4 +150,14 @@ var _ = Describe("ScreamingSnake", func() {
 	)
 })
 
+var _ = Describe("EnumConstant", func() {
+	It("Should join the enum and value names", func() {
+		Expect(naming.EnumConstant("Backend", "gs_usb")).To(Equal("BACKEND_GS_USB"))
+	})
+
+	It("Should escape a name that a Windows SDK macro would expand", func() {
+		Expect(naming.EnumConstant("Parity", "none")).To(Equal("PARITY_NONE_"))
+	})
+})
+
 var _ = ShouldNotLeakGoroutinesPerSpec()

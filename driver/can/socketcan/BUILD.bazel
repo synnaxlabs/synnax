@@ -1,0 +1,41 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+cc_library(
+    name = "socketcan",
+    srcs = select({
+        "@platforms//os:linux": ["linux.cpp"],
+        "//conditions:default": ["unsupported.cpp"],
+    }),
+    hdrs = ["socketcan.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//client/cpp/can",
+        "//driver/can",
+        "//x/cpp/errors",
+        "//x/cpp/telem",
+    ],
+)
+
+# On Linux the test runs against vcan0 and skips when it is absent.
+cc_test(
+    name = "socketcan_test",
+    srcs = select({
+        "@platforms//os:linux": ["socketcan_test.cpp"],
+        "//conditions:default": ["unsupported_test.cpp"],
+    }),
+    deps = [
+        ":socketcan",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)

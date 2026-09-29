@@ -24,6 +24,7 @@ dependencies = [
     "nidaqmx>=1.6.0,<2",
     "nisyscfg>=0.2.1,<1",
     "pagerduty>=7.0.1,<8",
+    "python-can>=4.6,<5",
 ]
 classifiers = ["Private :: Do Not Upload"]
 

@@ -1542,11 +1542,7 @@ func (p *Plugin) processEnumForTranslation(
 
 	values := make([]enumValueTranslatorData, 0, len(form.Values))
 	for _, v := range form.Values {
-		cppValueName := fmt.Sprintf(
-			"%s_%s",
-			naming.ScreamingSnake(e.Name),
-			naming.ScreamingSnake(v.Name),
-		)
+		cppValueName := naming.EnumConstant(e.Name, v.Name)
 		pbValueName := fmt.Sprintf(
 			"%s_%s",
 			naming.ScreamingSnake(e.Name),

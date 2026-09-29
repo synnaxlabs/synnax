@@ -60,6 +60,18 @@ var _ = Describe("Writer", func() {
 			Expect(leaf.Tabs[0].Key()).To(Equal(key))
 		})
 
+		It("Should accept a tab that displays a library", func(ctx SpecContext) {
+			root := leafNode(panel.Tab{Variant: panel.ResourceTab{
+				Key: uuid.New(),
+				Resource: ontology.ID{
+					Type: ontology.ResourceTypeLibrary,
+					Key:  uuid.New().String(),
+				},
+			}})
+			p := panel.Panel{Name: "library", Root: root, Parent: &parentID}
+			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
+		})
+
 		DescribeTable("Should reject a caller-provided tree that violates invariants",
 			func(ctx SpecContext, root func() panel.Node, expected string) {
 				p := panel.Panel{Name: "invalid", Root: root(), Parent: &parentID}

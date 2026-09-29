@@ -162,6 +162,9 @@ var (
 		"modbus",
 		"ni",
 		"opc",
+		"serial",
+		"tcp",
+		"udp",
 	}
 	DefaultConfig = Config{
 		Integrations:         []string{},

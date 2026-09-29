@@ -7,9 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import overload
+from typing import Literal, overload
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
@@ -32,6 +32,21 @@ class _DeleteRequest(BaseModel):
 class _RenameRequest(BaseModel):
     key: Key
     name: str
+
+
+ImportFormat = Literal["dbc", "csv", "xlsx"]
+"""The format of an interface control document file."""
+
+
+class _ImportRequest(BaseModel):
+    model_config = ConfigDict(ser_json_bytes="base64")
+    key: Key
+    format: ImportFormat
+    data: bytes
+
+
+class _ImportResponse(BaseModel):
+    library: Library
 
 
 class _RetrieveRequest(BaseModel):
@@ -121,6 +136,19 @@ class Client:
         :param name: The new name for the library.
         """
         self._client.send("/library/rename", _RenameRequest(key=key, name=name), Empty)
+
+    def import_icd(self, key: Key, data: bytes, format: ImportFormat) -> Library:
+        """Import an interface control document into a library. Entries that match
+        existing ones by name keep their keys, so tasks that use them keep working.
+
+        :param key: The key of the library to import into.
+        :param data: The contents of the file.
+        :param format: The format of the file: "dbc", "csv", or "xlsx".
+        :returns: The library after the import.
+        :raises ValidationError: If the file cannot be parsed or the result is invalid.
+        """
+        req = _ImportRequest(key=key, format=format, data=data)
+        return self._client.send("/library/import", req, _ImportResponse).library
 
     @overload
     def retrieve(self, *, key: Key) -> Library: ...

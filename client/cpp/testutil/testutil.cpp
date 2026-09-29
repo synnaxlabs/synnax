@@ -10,10 +10,13 @@
 #include <random>
 
 #include "client/cpp/testutil/testutil.h"
+#include "x/cpp/env/env.h"
 #include "x/cpp/test/test.h"
 
 synnax::Synnax new_test_client() {
-    return synnax::Synnax(test_client_config);
+    auto cfg = test_client_config;
+    cfg.port = x::env::Parser("synnax_test").field("port", cfg.port);
+    return synnax::Synnax(cfg);
 }
 
 std::mt19937 random_generator(const std::string &suite_name) {

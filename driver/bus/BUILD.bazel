@@ -1,0 +1,63 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+cc_library(
+    name = "bus",
+    srcs = [
+        "config.cpp",
+        "connection.cpp",
+        "read.cpp",
+        "write.cpp",
+    ],
+    hdrs = [
+        "config.h",
+        "connection.h",
+        "read.h",
+        "task.h",
+        "transport.h",
+        "write.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//client/cpp:synnax",
+        "//client/cpp/bus",
+        "//client/cpp/library",
+        "//driver/codec",
+        "//driver/codec/framing",
+        "//driver/common",
+        "//driver/task",
+        "//driver/transport",
+        "//x/cpp/breaker",
+        "//x/cpp/errors",
+        "//x/cpp/json",
+        "//x/cpp/strings",
+        "//x/cpp/telem",
+        "//x/cpp/thread",
+    ],
+)
+
+cc_test(
+    name = "bus_test",
+    size = "small",
+    srcs = [
+        "config_test.cpp",
+        "connection_test.cpp",
+        "read_test.cpp",
+        "write_test.cpp",
+    ],
+    deps = [
+        ":bus",
+        "//driver/bus/testutil",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)

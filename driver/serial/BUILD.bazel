@@ -1,0 +1,132 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+cc_library(
+    name = "serial",
+    srcs = [
+        "native.h",
+        "port.cpp",
+    ] + select({
+        "@platforms//os:linux": ["linux.cpp"],
+        "@platforms//os:macos": ["macos.cpp"],
+        "@platforms//os:windows": ["windows.cpp"],
+    }),
+    hdrs = [
+        "port.h",
+        "scan.h",
+    ],
+    linkopts = select({
+        "@platforms//os:windows": ["advapi32.lib"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+    deps = [
+        "//client/cpp/serial",
+        "//driver/errors",
+        "//driver/transport",
+        "//x/cpp/errors",
+        "//x/cpp/telem",
+        "@asio//:asio_no_openssl",
+    ],
+)
+
+cc_library(
+    name = "task",
+    srcs = [
+        "factory.cpp",
+        "scan_task.cpp",
+    ],
+    hdrs = [
+        "scan_task.h",
+        "serial.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":serial",
+        "//client/cpp/serial",
+        "//driver/bus",
+        "//driver/common",
+        "//driver/task",
+    ],
+)
+
+# The tests drive the port through a pseudo-terminal, which Windows lacks.
+cc_test(
+    name = "serial_test",
+    size = "small",
+    srcs = [
+        "port_test.cpp",
+        "pty.h",
+    ] + select({
+        "@platforms//os:linux": [
+            "linux_test.cpp",
+            "termios2.cpp",
+        ],
+        "@platforms//os:macos": ["macos_test.cpp"],
+        "//conditions:default": [],
+    }),
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        ":serial",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)
+
+# The tests play the device on a pseudo-terminal, which Windows lacks.
+cc_test(
+    name = "task_test",
+    size = "small",
+    srcs = [
+        "pty.h",
+        "task_test.cpp",
+    ],
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        ":serial",
+        ":task",
+        "//driver/bus",
+        "//driver/bus/testutil",
+        "//driver/pipeline/mock",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "factory_test",
+    size = "small",
+    srcs = [
+        "factory_test.cpp",
+        "pty.h",
+    ],
+    tags = ["requires-core"],
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        ":task",
+        "//client/cpp/serial",
+        "//client/cpp/testutil",
+        "//driver/bus/testutil",
+        "//driver/bus/testutil:core",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)

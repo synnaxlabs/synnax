@@ -12,6 +12,7 @@ import { type ReactElement } from "react";
 
 import { Arc } from "@/feature/arc";
 import { Channel } from "@/feature/channel";
+import { Library } from "@/feature/library";
 import { LinePlot } from "@/feature/lineplot";
 import { Log } from "@/feature/log";
 import { Project } from "@/feature/project";
@@ -20,11 +21,13 @@ import { Schematic } from "@/feature/schematic";
 import { Search } from "@/feature/search";
 import { Table } from "@/feature/table";
 import { Task } from "@/feature/task";
+import { FLAGS } from "@/flags";
 import { type Palette } from "@/platform/palette";
 
 const SEARCH_LIST_ITEMS: Search.ListItems = {
   ...Arc.SEARCH_LIST_ITEMS,
   ...Channel.SEARCH_LIST_ITEMS,
+  ...(FLAGS.library ? Library.SEARCH_LIST_ITEMS : {}),
   ...LinePlot.SEARCH_LIST_ITEMS,
   ...Log.SEARCH_LIST_ITEMS,
   ...Project.SEARCH_LIST_ITEMS,

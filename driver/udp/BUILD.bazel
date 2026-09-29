@@ -1,0 +1,91 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+cc_library(
+    name = "udp",
+    srcs = ["socket.cpp"],
+    hdrs = ["socket.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//client/cpp/udp",
+        "//driver/transport",
+        "//x/cpp/errors",
+        "//x/cpp/telem",
+        "@asio//:asio_no_openssl",
+    ],
+)
+
+cc_library(
+    name = "task",
+    srcs = [
+        "factory.cpp",
+    ],
+    hdrs = [
+        "udp.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":udp",
+        "//client/cpp/udp",
+        "//driver/bus",
+        "//driver/common",
+        "//driver/task",
+    ],
+)
+
+# The multicast test loops a datagram back through the host's default interface, which
+# the sandbox blocks without network access.
+cc_test(
+    name = "udp_test",
+    size = "small",
+    srcs = ["socket_test.cpp"],
+    tags = ["requires-network"],
+    deps = [
+        ":udp",
+        "//x/cpp/test",
+        "@asio//:asio_no_openssl",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "task_test",
+    size = "small",
+    srcs = ["task_test.cpp"],
+    deps = [
+        ":task",
+        ":udp",
+        "//driver/bus",
+        "//driver/bus/testutil",
+        "//driver/pipeline/mock",
+        "//x/cpp/test",
+        "@asio//:asio_no_openssl",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "factory_test",
+    size = "small",
+    srcs = ["factory_test.cpp"],
+    tags = ["requires-core"],
+    deps = [
+        ":task",
+        "//client/cpp/testutil",
+        "//client/cpp/udp",
+        "//driver/bus/testutil",
+        "//driver/bus/testutil:core",
+        "//x/cpp/test",
+        "@asio//:asio_no_openssl",
+        "@googletest//:gtest_main",
+    ],
+)

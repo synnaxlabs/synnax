@@ -58,6 +58,7 @@ var resourceTabTypes = set.New(
 	ontology.ResourceTypeArc,
 	ontology.ResourceTypeTask,
 	ontology.ResourceTypeRange,
+	ontology.ResourceTypeLibrary,
 )
 
 // validateTree checks the structural invariants every persisted panel tree must uphold:

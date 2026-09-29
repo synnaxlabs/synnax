@@ -952,11 +952,7 @@ func (p *Plugin) cppEnumVariantRef(
 ) string {
 	ref := fmt.Sprintf("%s::%s", ev.Type.Name, lo.PascalCase(ev.Variant.Name))
 	if form, ok := ev.Type.Form.(resolution.EnumForm); ok && !form.IsIntEnum {
-		ref = fmt.Sprintf(
-			"%s_%s",
-			cppnaming.ScreamingSnake(ev.Type.Name),
-			cppnaming.ScreamingSnake(ev.Variant.Name),
-		)
+		ref = cppnaming.EnumConstant(ev.Type.Name, ev.Variant.Name)
 	}
 	if ev.Type.Namespace != data.rawNs {
 		targetOutputPath := enum.FindOutputPath(ev.Type, data.table, "cpp")
@@ -1501,11 +1497,11 @@ func (p *Plugin) extractOntology(
 }
 
 var templateFuncs = template.FuncMap{
-	"join":             strings.Join,
-	"toUpper":          strings.ToUpper,
-	"toScreamingSnake": cppnaming.ScreamingSnake,
-	"toSnakeCase":      casing.FieldSnake,
-	"formatDoc":        doc.FormatCpp,
+	"join":         strings.Join,
+	"toUpper":      strings.ToUpper,
+	"enumConstant": cppnaming.EnumConstant,
+	"toSnakeCase":  casing.FieldSnake,
+	"formatDoc":    doc.FormatCpp,
 }
 
 var fileTemplate = template.Must(
@@ -1541,7 +1537,7 @@ enum class {{$enum.Name}} : std::uint8_t {
 };
 {{- else}}
 {{- range $enum.Values}}
-constexpr const char* {{$enum.Name | toScreamingSnake}}_{{.Name | toScreamingSnake}} = "{{.Value}}";
+constexpr const char* {{enumConstant $enum.Name .Name}} = "{{.Value}}";
 {{- end}}
 {{- end}}
 {{- end}}

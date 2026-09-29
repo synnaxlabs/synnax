@@ -25,11 +25,11 @@ struct WriteConfig;
 struct ScanConfig;
 struct Properties;
 
-constexpr const char *PARITY_NONE = "none";
-constexpr const char *PARITY_EVEN = "even";
-constexpr const char *PARITY_ODD = "odd";
-constexpr const char *PARITY_MARK = "mark";
-constexpr const char *PARITY_SPACE = "space";
+constexpr const char *PARITY_NONE_ = "none";
+constexpr const char *PARITY_EVEN_ = "even";
+constexpr const char *PARITY_ODD_ = "odd";
+constexpr const char *PARITY_MARK_ = "mark";
+constexpr const char *PARITY_SPACE_ = "space";
 
 constexpr const char *STOP_BITS_ONE = "1";
 constexpr const char *STOP_BITS_ONE_AND_HALF = "1.5";
@@ -73,7 +73,7 @@ struct Properties {
     /// @brief data_bits is the number of data bits in each character: 5, 6, 7, or 8.
     std::uint8_t data_bits = 8;
     /// @brief parity is the parity bit mode.
-    std::string parity = PARITY_NONE;
+    std::string parity = PARITY_NONE_;
     /// @brief stop_bits is the number of stop bits.
     std::string stop_bits = STOP_BITS_ONE;
     /// @brief flow_control is the flow control mode.

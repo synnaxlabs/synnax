@@ -52,6 +52,7 @@ type (
 		Offset              int                     `json:"offset"                 msgpack:"offset"`
 		Children            bool                    `json:"children"               msgpack:"children"`
 		Parents             bool                    `json:"parents"                msgpack:"parents"`
+		Users               bool                    `json:"users"                  msgpack:"users"`
 		ExcludeFieldData    bool                    `json:"exclude_field_data"     msgpack:"exclude_field_data"`
 		IgnoreNotFoundError bool                    `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 	}
@@ -91,6 +92,9 @@ func (s *Service) Retrieve(
 		}
 		if req.Parents {
 			q = q.TraverseTo(ontology.ParentsTraverser)
+		}
+		if req.Users {
+			q = q.TraverseTo(ontology.UsersTraverser)
 		}
 		if len(req.Types) > 0 {
 			q = q.WhereTypes(req.Types...)

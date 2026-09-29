@@ -22,6 +22,10 @@ import (
 // be the parent and the To field will be the child i.e. (From is the parent of To).
 const RelationshipTypeParentOf = versions.RelationshipTypeParentOf
 
+// RelationshipTypeUses indicates that a resource reads another, such as a task reading a
+// library. The From field is the user, and the To field is the resource it uses.
+const RelationshipTypeUses RelationshipType = "uses"
+
 // relationshipKeySep separates the From, Type, and To fields in an encoded relationship
 // gorp key. The four Writer delete helpers depend on this layout to short-circuit scans
 // without decoding the entry.
