@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package graph_test
+package channel_test
 
 import (
 	"fmt"
@@ -16,7 +16,6 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	graph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -26,16 +25,19 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// benchGraphEnv holds a Graph hydrated from a fixed number of calculated channels.
-type benchGraphEnv struct {
-	graph   *graph.Graph
-	closer  io.MultiCloser
+// benchEnv holds a channel service whose table has a fixed number of calculated
+// channels.
+type benchEnv struct {
+	// svc is the channel service under test.
+	svc *channel.Service
+	// closer tears down the service and everything it was opened over.
+	closer io.MultiCloser
+	// indexes are the auto-created index keys of the calculated channels.
 	indexes []channel.Key
 }
 
-// newBenchGraphEnv creates count calculated channels off one stored channel, then opens
-// a Graph over them. The returned indexes are the auto-created index of each.
-func newBenchGraphEnv(b *testing.B, count int) *benchGraphEnv {
+// newBenchEnv creates count calculated channels off one stored channel.
+func newBenchEnv(b *testing.B, count int) *benchEnv {
 	gomega.RegisterTestingT(b)
 	node := mock.OpenNode(b.Context())
 	otg, err := ontology.Open(b.Context(), ontology.Config{DB: node.DB})
@@ -73,7 +75,7 @@ func newBenchGraphEnv(b *testing.B, count int) *benchGraphEnv {
 	if err != nil {
 		b.Fatalf("failed to open status service: %v", err)
 	}
-	chSvc, err := channel.OpenService(b.Context(), channel.ServiceConfig{
+	svc, err := channel.OpenService(b.Context(), channel.ServiceConfig{
 		Channel:      node.Channel,
 		DB:           node.DB,
 		HostProvider: node.Cluster,
@@ -85,9 +87,9 @@ func newBenchGraphEnv(b *testing.B, count int) *benchGraphEnv {
 	if err != nil {
 		b.Fatalf("failed to open channel service: %v", err)
 	}
-	w := chSvc.NewWriter(nil)
+	w := svc.NewWriter(nil)
 	idx := channel.Channel{
-		Name:     "bench_graph_time",
+		Name:     "bench_time",
 		DataType: telem.TimestampT,
 		IsIndex:  true,
 	}
@@ -95,7 +97,7 @@ func newBenchGraphEnv(b *testing.B, count int) *benchGraphEnv {
 		b.Fatalf("failed to create index channel: %v", err)
 	}
 	base := channel.Channel{
-		Name:       "bench_graph_base",
+		Name:       "bench_base",
 		DataType:   telem.Float32T,
 		LocalIndex: idx.LocalKey,
 	}
@@ -105,64 +107,81 @@ func newBenchGraphEnv(b *testing.B, count int) *benchGraphEnv {
 	calcs := make([]channel.Channel, count)
 	for i := range calcs {
 		calcs[i] = channel.Channel{
-			Name:       fmt.Sprintf("bench_graph_calc_%d", i),
+			Name:       fmt.Sprintf("bench_calc_%d", i),
 			DataType:   telem.Float32T,
-			Expression: "return bench_graph_base * 2",
+			Expression: "return bench_base * 2",
 		}
 	}
 	if err := w.CreateMany(b.Context(), &calcs); err != nil {
 		b.Fatalf("failed to create calculated channels: %v", err)
 	}
-	g, err := graph.Open(b.Context(), graph.Config{
-		DB:      node.DB,
-		Channel: chSvc,
-		Status:  statusSvc,
-	})
-	if err != nil {
-		b.Fatalf("failed to open graph: %v", err)
-	}
 	indexes := make([]channel.Key, len(calcs))
 	for i, c := range calcs {
 		indexes[i] = c.Index()
 	}
-	return &benchGraphEnv{
-		graph:   g,
+	return &benchEnv{
+		svc:     svc,
 		indexes: indexes,
 		closer: io.MultiCloser{
-			g, node, otg, searchIdx, groupSvc, chSvc, statusSvc, labelSvc,
+			node, otg, searchIdx, groupSvc, svc, statusSvc, labelSvc,
 		},
 	}
 }
 
-func (e *benchGraphEnv) close(b *testing.B) {
+func (e *benchEnv) close(b *testing.B) {
 	if err := e.closer.Close(); err != nil {
 		b.Errorf("failed to close env: %v", err)
 	}
 }
 
-// BenchmarkOwnerOfIndex measures resolving a free index to the calculated channel that
-// writes it, which the iterator does once per requested free index per Open. The count
-// axis is cluster-wide calculated channels, since OwnerOfIndex walks every node.
-func BenchmarkOwnerOfIndex(b *testing.B) {
+// owners resolves the calculated channels indexed by key.
+func (e *benchEnv) owners(b *testing.B, key channel.Key) []channel.Channel {
+	var owners []channel.Channel
+	if err := e.svc.NewRetrieve().
+		Where(channel.MatchCalculated()).
+		Where(channel.MatchIndexes(key)).
+		Entries(&owners).
+		Exec(b.Context(), nil); err != nil {
+		b.Fatalf("failed to resolve owner: %v", err)
+	}
+	return owners
+}
+
+// BenchmarkMatchIndexes measures resolving a free index to its calculated owner as the
+// table grows. The scan case retrieves every calculated channel, the cost a full-table
+// fallback pays.
+func BenchmarkMatchIndexes(b *testing.B) {
 	for _, count := range []int{10, 100, 1_000, 10_000} {
-		env := newBenchGraphEnv(b, count)
+		env := newBenchEnv(b, count)
 		b.Run(fmt.Sprintf("calculated=%d/hit", count), func(b *testing.B) {
 			b.ReportAllocs()
-			b.ResetTimer()
 			for i := range b.N {
-				key := env.indexes[i%len(env.indexes)]
-				if _, ok := env.graph.OwnerOfIndex(key); !ok {
-					b.Fatalf("failed to resolve index %v", key)
+				if n := len(env.owners(b, env.indexes[i%len(env.indexes)])); n != 1 {
+					b.Fatalf("expected one owner, got %d", n)
 				}
 			}
 		})
 		b.Run(fmt.Sprintf("calculated=%d/miss", count), func(b *testing.B) {
 			absent := channel.NewKey(0, 999_999)
 			b.ReportAllocs()
-			b.ResetTimer()
 			for range b.N {
-				if _, ok := env.graph.OwnerOfIndex(absent); ok {
-					b.Fatal("resolved an index that does not exist")
+				if n := len(env.owners(b, absent)); n != 0 {
+					b.Fatalf("resolved an index that does not exist: %d", n)
+				}
+			}
+		})
+		b.Run(fmt.Sprintf("calculated=%d/scan", count), func(b *testing.B) {
+			b.ReportAllocs()
+			for range b.N {
+				var all []channel.Channel
+				if err := env.svc.NewRetrieve().
+					Where(channel.MatchCalculated()).
+					Entries(&all).
+					Exec(b.Context(), nil); err != nil {
+					b.Fatalf("failed to scan: %v", err)
+				}
+				if len(all) != count {
+					b.Fatalf("expected %d calculated channels, got %d", count, len(all))
 				}
 			}
 		})

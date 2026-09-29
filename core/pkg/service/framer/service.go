@@ -171,7 +171,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Instrumentation: cfg.Child("iterator"),
 		Framer:          cfg.Framer,
 		Channel:         cfg.Channel,
-		ChannelGraph:    cfg.ChannelGraph,
 	}); !ok(err, nil) {
 		return nil, err
 	}

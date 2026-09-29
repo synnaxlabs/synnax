@@ -12,7 +12,6 @@ package iterator_test
 import (
 	"context"
 	"strconv"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -21,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -71,15 +69,9 @@ func openServices(
 		Search:       searchIdx,
 		Status:       statusSvc,
 	}))
-	calcGraph := MustOpen(graph.Open(ctx, graph.Config{
-		DB:      node.DB,
-		Channel: channelSvc,
-		Status:  statusSvc,
-	}))
 	iteratorSvc := MustSucceed(iterator.NewService(iterator.ServiceConfig{
-		Framer:       node.Framer,
-		Channel:      channelSvc,
-		ChannelGraph: calcGraph,
+		Framer:  node.Framer,
+		Channel: channelSvc,
 	}))
 	return iteratorSvc, channelSvc
 }
@@ -1302,19 +1294,12 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expect(channelWriter.Create(ctx, calc)).To(Succeed())
 					orphan := calc.Index()
 					Expect(channelWriter.Delete(ctx, calc.Key(), false)).To(Succeed())
-					Eventually(func() error {
-						iter, err := iteratorSvc.Open(ctx, iterator.Config{
-							Keys:   []channel.Key{orphan},
-							Bounds: telem.TimeRangeMax,
-						})
-						if err == nil {
-							Expect(iter.Close()).To(Succeed())
-						}
-						return err
-					}, 2*time.Second, 10*time.Millisecond).
-						Should(MatchError(
-							ContainSubstring("cannot read from free channel"),
-						))
+					Expect(iteratorSvc.Open(ctx, iterator.Config{
+						Keys:   []channel.Key{orphan},
+						Bounds: telem.TimeRangeMax,
+					})).Error().To(MatchError(
+						ContainSubstring("cannot read from free channel"),
+					))
 				})
 			})
 
@@ -1830,13 +1815,5 @@ var _ = Describe("Read failure", func() {
 		Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
 		Expect(iter.Close()).To(MatchError(ContainSubstring(ErrFault.Error())))
 		Expect(iter.Close()).To(Succeed())
-	})
-})
-
-var _ = Describe("ServiceConfig", func() {
-	It("Should reject a nil channel graph", func() {
-		Expect(iterator.NewService(iterator.ServiceConfig{})).
-			Error().
-			To(MatchError(ContainSubstring("channel_graph: must be non-nil")))
 	})
 })

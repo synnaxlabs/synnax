@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	channelgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
 	"github.com/synnaxlabs/x/address"
@@ -25,7 +24,6 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -78,10 +76,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Channel *channel.Service
-	// ChannelGraph resolves an index to the calculated channel that owns it.
-	//
-	// [REQUIRED]
-	ChannelGraph *channelgraph.Graph
 	// Instrumentation is for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - defaults to noop instrumentation.
@@ -95,7 +89,6 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
 	cfg.Framer = override.Nil(cfg.Framer, other.Framer)
 	cfg.Channel = override.Nil(cfg.Channel, other.Channel)
-	cfg.ChannelGraph = override.Nil(cfg.ChannelGraph, other.ChannelGraph)
 	return cfg
 }
 
@@ -104,7 +97,6 @@ func (cfg ServiceConfig) Validate() error {
 	v := validate.New("iterator")
 	v.NotNil("framer", cfg.Framer)
 	v.NotNil("channel", cfg.Channel)
-	v.NotNil("channel_graph", cfg.ChannelGraph)
 	return v.Error()
 }
 
@@ -205,48 +197,28 @@ func (s *Service) newCalculationTransform(
 		return nil, err
 	}
 
-	freeIndexes := make(channel.Keys, 0, len(channels))
-	graphed := set.New[channel.Key]()
-	for _, ch := range channels {
-		if ch.IsCalculated() {
-			if err := calcGraph.Add(ctx, ch); err != nil {
-				return nil, err
-			}
-			graphed.Add(ch.Index())
-			continue
-		}
-		if ch.IsIndex && ch.Key().Free() {
-			freeIndexes = append(freeIndexes, ch.Key())
-		}
-	}
-	unresolved := make(channel.Keys, 0, len(freeIndexes))
-	for _, key := range freeIndexes {
-		if graphed.Contains(key) {
-			continue
-		}
-		owner, ok := s.cfg.ChannelGraph.OwnerOfIndex(key)
-		if !ok {
-			unresolved = append(unresolved, key)
-			continue
-		}
-		if err := calcGraph.Add(ctx, owner); err != nil {
-			return nil, err
-		}
-	}
-	if len(unresolved) > 0 {
-		// The graph observes channel creation asynchronously, so a calculated channel
-		// made moments ago can miss. The channel table is the source of truth.
+	// A free index has no expression, so add the calculated channel that writes it.
+	freeIndexes := lo.FilterMap(
+		channels,
+		func(ch channel.Channel, _ int) (channel.Key, bool) {
+			return ch.Key(), ch.IsIndex && ch.Key().Free()
+		},
+	)
+	if len(freeIndexes) > 0 {
 		var owners []channel.Channel
 		if err := s.cfg.Channel.NewRetrieve().
 			Where(channel.MatchCalculated()).
+			Where(channel.MatchIndexes(freeIndexes...)).
 			Entries(&owners).
 			Exec(ctx, nil); err != nil {
 			return nil, err
 		}
-		for _, ch := range owners {
-			if !lo.Contains(unresolved, ch.Index()) {
-				continue
-			}
+		channels = append(channels, owners...)
+	}
+
+	// Add all calculated channels to the allocator
+	for _, ch := range channels {
+		if ch.IsCalculated() {
 			if err := calcGraph.Add(ctx, ch); err != nil {
 				return nil, err
 			}

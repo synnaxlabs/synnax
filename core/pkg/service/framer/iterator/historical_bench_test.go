@@ -10,6 +10,7 @@
 package iterator_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
@@ -21,9 +22,13 @@ import (
 
 const histWriteChunk = 250_000
 
+// histSpan is one rate and span combination the historical sweep writes and reads.
 type histSpan struct {
+	// name labels the sub-benchmark.
 	name string
+	// rate is the sample rate in Hz.
 	rate float64
+	// span is the length of the written range.
 	span telem.TimeSpan
 }
 
@@ -172,4 +177,35 @@ func runHistCase(b *testing.B, env *benchIterEnv, keys []channel.Key) {
 		b.Fatal("read no samples, the case timed an empty range")
 	}
 	b.ReportMetric(float64(read)/b.Elapsed().Seconds(), "samples/sec")
+}
+
+// BenchmarkIteratorCalculatedCount opens a read over a tiny range while the table holds
+// a growing number of unrelated calculated channels, the axis owner lookup scales on.
+func BenchmarkIteratorCalculatedCount(b *testing.B) {
+	for _, count := range []int{10, 100, 1_000, 10_000} {
+		b.Run(fmt.Sprintf("calculated=%d", count), func(b *testing.B) {
+			env := newBenchIterEnv(b)
+			defer env.close(b)
+			indexCh, data := env.createChannels(b, "count", 1)
+			env.writeData(b, indexCh, data, 10)
+			calc := env.createCalculation(b, "count_calc", "return count_sensor_0 * 2")
+			fillers := make([]channel.Channel, count)
+			for i := range fillers {
+				fillers[i] = channel.Channel{
+					Name:       fmt.Sprintf("count_filler_%d", i),
+					DataType:   telem.Float32T,
+					Expression: "return count_sensor_0 + 1",
+				}
+			}
+			if err := env.channelWriter.CreateMany(env.ctx, &fillers); err != nil {
+				b.Fatalf("failed to create filler channels: %v", err)
+			}
+			b.Run("calc+index", func(b *testing.B) {
+				runHistCase(b, env, []channel.Key{calc.Key(), calc.Index()})
+			})
+			b.Run("index-only", func(b *testing.B) {
+				runHistCase(b, env, []channel.Key{calc.Index()})
+			})
+		})
+	}
 }
