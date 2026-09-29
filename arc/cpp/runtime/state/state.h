@@ -240,19 +240,29 @@ public:
     /// else the configured value.
     [[nodiscard]] std::string string_input(const std::string &name) const;
 
-    /// @brief returns the named input's current value: the referenced
-    /// variable's value when var-bound (its declared initial until first written),
-    /// else the configured value.
+    /// @brief returns input i's current value. A var-bound input reads its
+    /// variable, falling back to its declared initial until the first write.
     template<typename T>
-    [[nodiscard]] T numeric_input(const std::string &name) const {
-        const auto [i, err] = this->resolve_input(name);
-        if (err) return 0;
+    [[nodiscard]] T numeric_input(const size_t i) const {
         if (const auto s = this->ref_input(i); s != nullptr && s->size() > 0)
             return s->at<T>(-1);
+        const auto &d = this->input(i);
+        if (d != nullptr && d->size() > 0) return d->at<T>(-1);
+        // A reference param has no series of its own, so its declared initial
+        // stays in the param until the variable it names is first written.
         const auto &p = this->params[i];
         if (const auto v = types::to_sample_value(p.value, p.type))
             return x::telem::cast<T>(*v);
         return 0;
+    }
+
+    /// @brief returns the named input's current value. Resolves the name on
+    /// every call, so prefer the index overload on a hot path.
+    template<typename T>
+    [[nodiscard]] T numeric_input(const std::string &name) const {
+        const auto [i, err] = this->resolve_input(name);
+        if (err) return 0;
+        return this->numeric_input<T>(i);
     }
 
     /// @brief marks every data input consumed at its current source timestamp,
