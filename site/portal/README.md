@@ -53,7 +53,7 @@ Install Clerk from the Vercel Marketplace on the project. The install sets
 
 1. Organizations: enable them. Create the team organization "Synnax Labs" and give every
    staff member the admin role. Its id is `STAFF_ORG_ID`.
-2. Paths: sign-in `/sign-in`, sign-up `/sign-up`, after sign-in `/`.
+2. Paths: login `/login`, sign-up `/sign-up`, after login `/`.
 3. Webhooks: add an endpoint at `https://portal.synnaxlabs.com/api/webhooks/clerk`
    subscribed to `user.created`, `organization.created`, and `organization.updated`. Its
    signing secret is `CLERK_WEBHOOK_SIGNING_SECRET`.
@@ -72,7 +72,7 @@ Set `CRON_SECRET` to a random string. Vercel sends it to the daily expiry sweep.
 
 ### CI license
 
-Sign in to the portal as staff, open the Synnax Labs organization's licenses, issue a
+Log in to the portal as staff, open the Synnax Labs organization's licenses, issue a
 subscription of a few months with one node and no channel cap labelled "CI", and use
 "Floating license key" on it. Store it with
 `gh secret set SYNNAX_LICENSE_TOKEN < <file>`. Rotate it by issuing a new one before the
