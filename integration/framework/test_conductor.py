@@ -349,11 +349,11 @@ The layout and inspection workflow are identical between local dev and CI.
    - `*.png`, `*.json`, `*.csv` -> screenshots and exports the test produced
 4. **Open the trace shell-first** when `all-failures.md` doesn't pinpoint it:
    ```bash
-   npx -y -p @playwright/test playwright trace open tests/<name>/trace.zip
-   npx -y -p @playwright/test playwright trace actions --errors-only
-   npx -y -p @playwright/test playwright trace action <id>
-   npx -y -p @playwright/test playwright trace requests --failed
-   npx -y -p @playwright/test playwright trace close
+   pnpm dlx --package @playwright/test playwright trace open tests/<name>/trace.zip
+   pnpm dlx --package @playwright/test playwright trace actions --errors-only
+   pnpm dlx --package @playwright/test playwright trace action <id>
+   pnpm dlx --package @playwright/test playwright trace requests --failed
+   pnpm dlx --package @playwright/test playwright trace close
    ```
 
 ## Detailed workflow

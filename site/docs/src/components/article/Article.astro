@@ -31,39 +31,35 @@ const visibleTitleLength = String(title ?? "").replace(/`/g, "").length;
 ---
 
 <article transition:animate="none">
-    {
-        showBreadcrumb && url.split("/").length > 2 && (
-            <Breadcrumb url={url} title={title} />
-        )
-    }
-    {
-        published && (
-            <div class="blog-meta">
-                <span class="blog-published">{published}</span>
-            </div>
-        )
-    }
+    {showBreadcrumb && url.split("/").length > 2 && (
+        <Breadcrumb url={url} title={title} />
+    )}
+    {published && (
+        <div class="blog-meta">
+            <span class="blog-published">{published}</span>
+        </div>
+    )}
     <Text.Text className="article-title" level={visibleTitleLength > 30 ? "h2" : "h1"}>
-        <span><InlineCode text={title} /></span>
+        <span>
+            <InlineCode text={title} />
+        </span>
     </Text.Text>
     <h4 class="article-description">{description}</h4>
-    {
-        author && (
-            <a
-                class="blog-author"
-                href={authorLink}
-                target="_blank"
-                rel="noopener noreferrer"
-            >
-                {authorImage && (
-                    <img class="blog-author__photo" src={authorImage} alt={author} />
-                )}
-                <span class="blog-author__name">
-                    Written by <strong>{author}</strong>
-                </span>
-            </a>
-        )
-    }
+    {author && (
+        <a
+            class="blog-author"
+            href={authorLink}
+            target="_blank"
+            rel="noopener noreferrer"
+        >
+            {authorImage && (
+                <img class="blog-author__photo" src={authorImage} alt={author} />
+            )}
+            <span class="blog-author__name">
+                Written by <strong>{author}</strong>
+            </span>
+        </a>
+    )}
     <slot />
     <NextPrev prev={prev} next={next} prevURL={prevURL} nextURL={nextURL} />
 </article>
