@@ -57,10 +57,7 @@ export const statusDetailsZ = z.object({
 });
 export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
 
-/**
- * Error-variant details: the same facts plus the reason the connection failed. An
- * unlicensed connection always carries the license error its requests throw.
- */
+/** Error-variant details: the same facts plus the reason the connection failed. */
 export const errorStatusDetailsZ = z.discriminatedUnion("reason", [
   statusDetailsZ.extend({
     reason: z.literal("unlicensed"),
@@ -265,7 +262,6 @@ const enterError = (
   details: { ...prev.details, ...details },
 });
 
-// Reasons the check loop clears on its own; the rest wait on the user.
 export const isSelfHealing = (reason: Reason): boolean =>
   reason === "unreachable" || reason === "unlicensed";
 
