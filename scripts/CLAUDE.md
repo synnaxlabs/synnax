@@ -44,15 +44,6 @@ Neither script touches `.oracle` schema files.
 - `bump_versions.sh <version>` — sets a new semver (`X.Y.Z`) across those manifests.
   Release tooling; don't run ad hoc against a dirty tree.
 
-## Workflow-only scripts (`.github/scripts/`)
-
-Scripts only GitHub Actions runs live beside the workflows, each documented in its
-header: `resolve_version.sh`, `latest_version.sh`, and `verify_checks.sh` behind the
-release actions and `verify_rulesets.sh` behind the ruleset drift check (pytest coverage
-beside them), `check_artifact_cache.sh`, `generate_os_matrix.sh`,
-`verify_build_config.sh`, `import_apple_certificate.sh`, `pin_internal_deps.sh`,
-`prune_published.py`, and the Windows installer inputs.
-
 ## Bazel
 
 - `run_bazel.sh <bazel arguments...>` — runs Bazel, and recovers once from an external
