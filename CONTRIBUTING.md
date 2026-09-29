@@ -50,7 +50,8 @@ added before the branch moves. GitHub refuses a queue on a wildcard branch patte
 `release/**` merge goes in directly, and CI runs again on the pushed commit. A release
 runs the integration suite itself. Admins bypass when Greptile is down. The gate script
 is `.github/scripts/check_review.sh`, the rulesets `.github/rulesets/main.json` and
-`.github/rulesets/release.json`.
+`.github/rulesets/release.json`. An admin applies a changed ruleset file by hand; the
+`Check - Rulesets` workflow fails each day until GitHub matches the files.
 
 ## Size
 

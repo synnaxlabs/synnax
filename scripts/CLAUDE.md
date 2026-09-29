@@ -48,9 +48,10 @@ Neither script touches `.oracle` schema files.
 
 Scripts only GitHub Actions runs live beside the workflows, each documented in its
 header: `resolve_version.sh`, `latest_version.sh`, and `verify_checks.sh` behind the
-release actions (pytest coverage beside them), `check_artifact_cache.sh`,
-`generate_os_matrix.sh`, `verify_build_config.sh`, `import_apple_certificate.sh`,
-`pin_internal_deps.sh`, `prune_published.py`, and the Windows installer inputs.
+release actions and `verify_rulesets.sh` behind the ruleset drift check (pytest coverage
+beside them), `check_artifact_cache.sh`, `generate_os_matrix.sh`,
+`verify_build_config.sh`, `import_apple_certificate.sh`, `pin_internal_deps.sh`,
+`prune_published.py`, and the Windows installer inputs.
 
 ## Bazel
 
