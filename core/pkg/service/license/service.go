@@ -38,15 +38,15 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL]
 	alamos.Instrumentation
-	// DB is the database that stores accepted tokens and the clock mark.
+	// DB is the database that stores accepted license keys and the clock mark.
 	//
 	// [REQUIRED]
 	kv.DB
-	// Token is a token to accept when the service opens.
+	// Key is a license key to accept when the service opens.
 	//
 	// [OPTIONAL] - Defaults to ""
-	Token string
-	// Anchors is the key set tokens are verified against.
+	Key string
+	// Anchors is the key set license keys are verified against.
 	//
 	// [OPTIONAL] - Defaults to the production keys.
 	Anchors Anchors
@@ -59,8 +59,8 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL] - Defaults to time.Now
 	Now func() time.Time
-	// CheckInterval is how often the service records the clock and repeats its
-	// warning. While the clock is behind, the service checks it every minute instead.
+	// CheckInterval is how often the service records the clock and repeats its warning.
+	// While the clock is behind, the service checks it every minute instead.
 	//
 	// [OPTIONAL] - Defaults to 1 hour
 	CheckInterval time.Duration
@@ -98,7 +98,7 @@ func (c ServiceConfig) Validate() error {
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
-	c.Token = override.String(c.Token, other.Token)
+	c.Key = override.String(c.Key, other.Key)
 	c.Anchors = override.Nil(c.Anchors, other.Anchors)
 	c.Version = override.String(c.Version, other.Version)
 	c.Now = override.Nil(c.Now, other.Now)
@@ -120,15 +120,15 @@ var DefaultServiceConfig = ServiceConfig{
 }
 
 var (
-	// prefix keys the accepted tokens. The stored value is the token itself.
+	// prefix keys the accepted license keys. The stored value is the license key.
 	prefix = []byte("license/")
-	// legacyKey is where Cores before token licenses stored their key. Open deletes it.
+	// legacyKey is where Cores before signed licenses stored a key. Open deletes it.
 	legacyKey = []byte("bGljZW5zZUtleQ==")
 	// markKey holds the latest clock reading the service has recorded.
 	markKey = []byte("highWater")
 )
 
-// Service verifies the license a Core runs under and gates the API on it.
+// Service verifies the license a Core runs under.
 type Service struct {
 	cfg         ServiceConfig
 	fingerprint Fingerprint
@@ -136,7 +136,9 @@ type Service struct {
 	// clockBehind is set while the clock is more than Rollback behind the recorded
 	// mark.
 	clockBehind atomic.Bool
-	mu          struct {
+	// loadMu serializes load, so the last load to publish has seen every stored key.
+	loadMu sync.Mutex
+	mu     struct {
 		sync.RWMutex
 		info Info
 	}
@@ -144,8 +146,9 @@ type Service struct {
 
 var _ io.Closer = &Service{}
 
-// OpenService opens the service and activates cfg.Token when set. It returns an error
-// when cfg.Token is refused. A Core with no license opens in StateMissing.
+// OpenService opens the service and activates cfg.Key when set. It returns an error
+// when cfg.Key is refused or the machine fingerprint cannot be read. A Core with no
+// license opens in StateMissing.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
@@ -153,8 +156,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}
 	s := &Service{cfg: cfg}
 	if s.fingerprint, err = readFingerprint(); err != nil {
-		cfg.L.Warn("failed to read network interfaces", zap.Error(err))
-		s.fingerprint = Fingerprint{}
+		return nil, errors.Wrap(err, "failed to read the machine fingerprint")
 	}
 	s.mu.info = Info{State: StateMissing, Fingerprint: s.fingerprint}
 	if err = s.syncClock(ctx); err != nil {
@@ -166,12 +168,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err = s.load(ctx); err != nil {
 		return nil, err
 	}
-	if cfg.Token != "" {
-		if _, err = s.Activate(ctx, cfg.Token); err != nil {
-			return nil, err
-		}
+	if cfg.Key == "" {
+		s.logState()
+	} else if _, err = s.Activate(ctx, cfg.Key); err != nil {
+		return nil, err
 	}
-	s.logState()
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
 	s.shutdown = signal.NewHardShutdown(sCtx, cancel)
 	sCtx.Go(
@@ -215,11 +216,12 @@ func (i Info) err() error {
 	return nil
 }
 
-// Activate verifies token, checks that it fits this machine and still covers it, stores
-// it, and moves the service to StateOk. The stored token loads on the next open.
-// Returns ErrInvalid, ErrFingerprint, or ErrExpired when the token is refused.
-func (s *Service) Activate(ctx context.Context, token string) (Info, error) {
-	lic, err := Verify(s.cfg.Anchors, token)
+// Activate verifies key, checks that it fits this machine and still covers it, and
+// stores it. The service then applies the stored key open would pick, which is key
+// unless a newer one is stored, and returns its info. Returns ErrInvalid,
+// ErrFingerprint, or ErrExpired when the key is refused.
+func (s *Service) Activate(ctx context.Context, key string) (Info, error) {
+	lic, err := Verify(s.cfg.Anchors, key)
 	if err != nil {
 		return Info{}, err
 	}
@@ -230,15 +232,15 @@ func (s *Service) Activate(ctx context.Context, token string) (Info, error) {
 	if info.State != StateOk {
 		return Info{}, info.err()
 	}
-	key := append(append([]byte{}, prefix...), lic.Jti.String()...)
-	if err = s.cfg.Set(ctx, key, []byte(token)); err != nil {
+	entry := append(append([]byte{}, prefix...), lic.Jti.String()...)
+	if err = s.cfg.Set(ctx, entry, []byte(key)); err != nil {
 		return Info{}, err
 	}
-	s.mu.Lock()
-	s.mu.info = info
-	s.mu.Unlock()
+	if err = s.load(ctx); err != nil {
+		return Info{}, err
+	}
 	s.logState()
-	return info, nil
+	return s.Retrieve(), nil
 }
 
 // CheckChannelLimit returns ErrTooMany when inUse external channels exceed the
@@ -247,7 +249,7 @@ func (s *Service) CheckChannelLimit(inUse types.Uint20) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	info := s.mu.info
-	if info.State != StateOk || info.License == nil || info.License.Channels == 0 {
+	if info.State != StateOk || info.License.Channels == 0 {
 		return nil
 	}
 	if uint32(inUse) > info.License.Channels {
@@ -282,9 +284,17 @@ func (s *Service) syncClock(ctx context.Context) error {
 	if s.clockBehind.Swap(behind) != behind {
 		fields := []zap.Field{zap.Time("now", now), zap.Time("recorded", mark)}
 		if behind {
-			s.cfg.L.Warn(fmt.Sprintf(logClockBehindTemplate, s.cfg.Rollback), fields...)
+			s.cfg.L.Warn(fmt.Sprintf(
+				"system clock is more than %s behind the last recorded time, so "+
+					"license terms cannot be checked until it catches up",
+				s.cfg.Rollback,
+			), fields...)
 		} else {
-			s.cfg.L.Info(logClockCaughtUp, fields...)
+			s.cfg.L.Info(
+				"system clock caught up with the last recorded time, reloading the "+
+					"license",
+				fields...,
+			)
 		}
 	}
 	if now.After(mark) {
@@ -299,10 +309,11 @@ func (s *Service) recordClock(ctx context.Context, now time.Time) error {
 	return s.cfg.Set(ctx, markKey, raw)
 }
 
-// load picks the stored token that fits this machine. A token that still applies wins
-// over one that no longer does, so an expired license is reported only when no other
-// covers the Core.
+// load applies the stored key that fits this machine. A key that still applies wins
+// over one that no longer does, then the most recently issued wins.
 func (s *Service) load(ctx context.Context) error {
+	s.loadMu.Lock()
+	defer s.loadMu.Unlock()
 	iter, err := s.cfg.OpenIterator(kv.IterPrefix(prefix))
 	if err != nil {
 		return err
@@ -312,16 +323,20 @@ func (s *Service) load(ctx context.Context) error {
 		lic, err := Verify(s.cfg.Anchors, string(iter.Value()))
 		if err != nil {
 			s.cfg.L.Warn(
-				"skipping a stored token that no longer verifies",
+				"skipping a stored license key that no longer verifies",
 				zap.Error(err),
 			)
 			continue
 		}
 		if !s.fingerprint.Covers(lic.FingerprintScheme, lic.Fingerprints) {
+			s.cfg.L.Warn(
+				"skipping a stored license key issued for another machine",
+				zap.Stringer("jti", lic.Jti),
+			)
 			continue
 		}
 		info := s.evaluate(lic)
-		if chosen == nil || (chosen.State != StateOk && info.State == StateOk) {
+		if chosen == nil || better(info, *chosen) {
 			chosen = &info
 		}
 	}
@@ -336,16 +351,15 @@ func (s *Service) load(ctx context.Context) error {
 	return nil
 }
 
-const (
-	warnExpiresTemplate  = "license expires in %s"
-	warnGraceTemplate    = "license expired on %s, grace period ends on %s"
-	warnFallbackTemplate = "subscription ended on %s, this version is covered up to %s"
+func better(a, b Info) bool {
+	if okA, okB := a.State == StateOk, b.State == StateOk; okA != okB {
+		return okA
+	}
+	return a.License.Iat > b.License.Iat
+}
 
-	expiredVersionTemplate = "license covers versions up to %s, this Core is %s"
-
-	clockTemplate = "system clock is more than %s behind the last recorded time, so " +
-		"the license term cannot be checked"
-)
+const clockTemplate = "system clock is more than %s behind the last recorded time, " +
+	"so the license term cannot be checked"
 
 // evaluate decides the state a license puts this Core in at the current time.
 func (s *Service) evaluate(lic License) Info {
@@ -354,14 +368,14 @@ func (s *Service) evaluate(lic License) Info {
 	if lic.Exp != nil && !termUnknown {
 		now, exp := s.cfg.Now(), time.Unix(int64(*lic.Exp), 0)
 		if now.Before(exp) {
-			if left := exp.Sub(now); left <= s.cfg.WarningTime {
-				info.Warning = fmt.Sprintf(warnExpiresTemplate, left.Round(time.Minute))
+			if exp.Sub(now) <= s.cfg.WarningTime {
+				info.Warning = "license expires on " + exp.Format(time.DateOnly)
 			}
 			return info
 		}
 		if graceEnd := exp.Add(s.cfg.Grace); now.Before(graceEnd) {
 			info.Warning = fmt.Sprintf(
-				warnGraceTemplate,
+				"license expired on %s, grace period ends on %s",
 				exp.Format(time.DateOnly),
 				graceEnd.Format(time.DateOnly),
 			)
@@ -374,7 +388,7 @@ func (s *Service) evaluate(lic License) Info {
 			info.Warning = fmt.Sprintf(clockTemplate, s.cfg.Rollback)
 		case lic.Exp != nil:
 			info.Warning = fmt.Sprintf(
-				warnFallbackTemplate,
+				"subscription ended on %s, this version is covered up to %s",
 				time.Unix(int64(*lic.Exp), 0).Format(time.DateOnly),
 				*lic.MaxVersion,
 			)
@@ -387,7 +401,7 @@ func (s *Service) evaluate(lic License) Info {
 		info.Warning = fmt.Sprintf(clockTemplate, s.cfg.Rollback)
 	case lic.MaxVersion != nil:
 		info.Warning = fmt.Sprintf(
-			expiredVersionTemplate,
+			"license covers versions up to %s, this Core is %s",
 			*lic.MaxVersion,
 			s.cfg.Version,
 		)
@@ -396,8 +410,7 @@ func (s *Service) evaluate(lic License) Info {
 }
 
 // versionCovered reports whether version's major and minor are at most ceiling's. An
-// unparseable version passes, so a development build is never gated by its own
-// version string.
+// unparseable version, such as an empty one, passes every ceiling.
 func versionCovered(version, ceiling string) bool {
 	maj, min, ok := parseMinor(version)
 	if !ok {
@@ -426,16 +439,6 @@ func parseMinor(version string) (major, minor int, ok bool) {
 	return major, minor, true
 }
 
-const (
-	logActive      = "license active"
-	logCapTemplate = "license active, limit is %d channels"
-
-	logClockBehindTemplate = "system clock is more than %s behind the last recorded " +
-		"time, so licenses with an expiry are treated as expired until it catches up"
-	logClockCaughtUp = "system clock caught up with the last recorded time, " +
-		"reloading the license"
-)
-
 // clockRecheck is how often the service checks a clock that is behind.
 const clockRecheck = time.Minute
 
@@ -444,23 +447,21 @@ func (s *Service) logState() {
 	switch info.State {
 	case StateOk:
 		if info.License.Channels == 0 {
-			s.cfg.L.Info(logActive)
+			s.cfg.L.Info("license active")
 		} else {
-			s.cfg.L.Infof(logCapTemplate, info.License.Channels)
+			s.cfg.L.Infof("license active, limit is %d channels", info.License.Channels)
 		}
 		if info.Warning != "" {
 			s.cfg.L.Warn(info.Warning)
 		}
-	case StateMissing:
-		s.cfg.L.Warn(ErrMissing.Error())
 	case StateExpired:
 		s.cfg.L.Error(info.err().Error())
 	}
 }
 
-// monitor checks the clock and repeats the warning on every check interval. The
-// state changes here only when a clock that was behind catches up: a Core that opened
-// covered stays covered until it restarts.
+// monitor checks the clock and repeats the warning on every check interval. The state
+// changes here only when a clock that was behind catches up: a Core that opened covered
+// stays covered until it restarts.
 func (s *Service) monitor(ctx context.Context) error {
 	for {
 		interval := s.cfg.CheckInterval

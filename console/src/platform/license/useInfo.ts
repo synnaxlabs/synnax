@@ -10,6 +10,7 @@
 import { type license } from "@synnaxlabs/client";
 import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
 import { Synnax } from "@synnaxlabs/pluto";
+import { errors } from "@synnaxlabs/x";
 import { useState } from "react";
 
 export interface InfoResult {
@@ -21,7 +22,7 @@ export interface InfoResult {
 
 /**
  * Retrieves the active Core's license state. Re-reads when the client changes or the
- * connection reaches a new epoch, so an activation elsewhere is picked up.
+ * connection reaches a new epoch.
  */
 export const useInfo = (): InfoResult => {
   const client = Synnax.use();
@@ -29,16 +30,16 @@ export const useInfo = (): InfoResult => {
   const [result, setResult] = useState<InfoResult>({});
   useAsyncEffect(
     async (signal) => {
-      if (client == null) return setResult({});
+      if (client == null) {
+        setResult({});
+        return;
+      }
       try {
         const info = await client.license.retrieve();
         if (!signal.aborted) setResult({ info });
       } catch (error) {
         if (signal.aborted) return;
-        setResult({
-          error:
-            error instanceof Error ? error : new Error(String(error), { cause: error }),
-        });
+        setResult({ error: errors.fromUnknown(error) });
       }
     },
     [client, details.epoch],

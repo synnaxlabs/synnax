@@ -11,8 +11,8 @@ output "license_kms_key_arn" {
   value = aws_kms_key.license_signing.arn
 }
 
-# The Ed25519 public key as SPKI DER. The last 32 bytes, base64 encoded, are the anchor
-# the Core embeds for this kid.
+# The ML-DSA-44 public key as SPKI DER. The last 1,312 bytes, base64 encoded, are the
+# anchor the Core embeds for this kid.
 data "aws_kms_public_key" "license_signing" {
   key_id = aws_kms_key.license_signing.key_id
 }

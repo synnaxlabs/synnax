@@ -20,12 +20,12 @@ const decode = (segment: string): unknown =>
   JSON.parse(Buffer.from(segment, "base64url").toString());
 
 describe("sign", () => {
-  const { privateKey, publicKey } = generateKeyPairSync("ed25519");
+  const { privateKey, publicKey } = generateKeyPairSync("ml-dsa-44");
   const signer = local(privateKey, "test");
 
   it("should produce a compact JWS the public key verifies", async () => {
-    const token = await sign(signer, CLAIMS);
-    const [header, payload, signature] = token.split(".");
+    const key = await sign(signer, CLAIMS);
+    const [header, payload, signature] = key.split(".");
     const input = Buffer.from(`${header}.${payload}`);
     expect(verify(null, input, publicKey, Buffer.from(signature, "base64url"))).toBe(
       true,
@@ -34,7 +34,7 @@ describe("sign", () => {
 
   it("should name the algorithm and key in the header", async () => {
     const [header] = (await sign(signer, CLAIMS)).split(".");
-    expect(decode(header)).toEqual({ alg: "EdDSA", typ: "JWT", kid: "test" });
+    expect(decode(header)).toEqual({ alg: "ML-DSA-44", typ: "JWT", kid: "test" });
   });
 
   it("should key the claims as the Core reads them", async () => {

@@ -46,12 +46,10 @@ type CheckResponse struct {
 
 func (s *Service) Check(context.Context, struct{}) (CheckResponse, error) {
 	return CheckResponse{
-		ClusterInfo: auth.ClusterInfo{
-			ClusterKey:  s.cluster.Key().String(),
-			NodeVersion: version.Get(),
-			NodeKey:     s.cluster.HostKey(),
-			NodeTime:    telem.Now(),
-		},
-		License: s.license.Retrieve().State,
+		ClusterKey:  s.cluster.Key().String(),
+		NodeVersion: version.Get(),
+		NodeKey:     s.cluster.HostKey(),
+		NodeTime:    telem.Now(),
+		License:     s.license.Retrieve().State,
 	}, nil
 }

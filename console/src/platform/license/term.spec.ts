@@ -61,12 +61,8 @@ describe("License.describeChannels", () => {
 });
 
 describe("License.editionLabel", () => {
-  it("should name the known editions", () => {
+  it("should name each edition", () => {
     expect(License.editionLabel(BASE)).toBe("Enterprise");
     expect(License.editionLabel({ ...BASE, edition: "d" })).toBe("Desktop");
-  });
-
-  it("should pass an unknown edition code through", () => {
-    expect(License.editionLabel({ ...BASE, edition: "x" })).toBe("x");
   });
 });

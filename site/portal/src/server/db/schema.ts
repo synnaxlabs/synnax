@@ -32,7 +32,7 @@ export const EVENT_KINDS = [
   "amend",
   "activate",
   "activate_denied",
-  "token",
+  "download",
   "release",
   "rename",
   "revoke",

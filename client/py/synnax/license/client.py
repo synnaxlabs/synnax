@@ -15,7 +15,7 @@ from synnax.util.send_required import send_required
 
 
 class _ActivateRequest(BaseModel):
-    token: str
+    key: str
 
 
 _RETRIEVE_ENDPOINT = "/license/retrieve"
@@ -37,15 +37,15 @@ class Client:
         """
         return send_required(self._client, _RETRIEVE_ENDPOINT, Empty(), Info)
 
-    def activate(self, token: str) -> Info:
-        """Activates a license token on the Core.
+    def activate(self, key: str) -> Info:
+        """Activates a license key on the Core.
 
-        :param token: The signed license token.
+        :param key: The signed license key.
         :returns: The resulting license state.
-        :raises InvalidLicense: If the token cannot be verified or is malformed.
-        :raises LicenseFingerprintMismatch: If the token is bound to another machine.
-        :raises ExpiredLicense: If the token no longer applies.
+        :raises InvalidLicense: If the key cannot be verified or is malformed.
+        :raises LicenseFingerprintMismatch: If the key is bound to another machine.
+        :raises ExpiredLicense: If the key no longer applies.
         """
         return send_required(
-            self._client, _ACTIVATE_ENDPOINT, _ActivateRequest(token=token), Info
+            self._client, _ACTIVATE_ENDPOINT, _ActivateRequest(key=key), Info
         )

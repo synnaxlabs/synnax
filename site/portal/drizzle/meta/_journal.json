@@ -15,6 +15,13 @@
       "when": 1790083399406,
       "tag": "0001_machine_name",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790712236476,
+      "tag": "0002_download_event",
+      "breakpoints": true
     }
   ]
 }

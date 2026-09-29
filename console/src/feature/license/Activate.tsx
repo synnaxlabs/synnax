@@ -27,11 +27,11 @@ import { License } from "@/platform/license";
 import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
 
-/** The portal page that issues a token for a host fingerprint. */
+/** The portal page that issues a license key for a host fingerprint. */
 const PORTAL_ACTIVATE_URL = "https://portal.synnaxlabs.com/licenses/activate";
 
-/** The extension the portal gives a downloaded token file. */
-const TOKEN_FILE_EXTENSION = "license";
+/** The extension the portal gives a downloaded license key file. */
+const KEY_FILE_EXTENSION = "license";
 
 const decoder = new TextDecoder();
 
@@ -62,7 +62,13 @@ const Fingerprint = ({ info: { info, error } }: FingerprintProps): ReactElement 
       {fingerprint.length > 0 && (
         <Flex.Box y gap="tiny" className={CSS.BE("license-activate", "hashes")}>
           {fingerprint.map((hash) => (
-            <Text.Text key={hash} variant="code" level="small" overflow="ellipsis">
+            <Text.Text
+              key={hash}
+              variant="code"
+              level="small"
+              overflow="ellipsis"
+              className={CSS.BE("license-activate", "hash")}
+            >
               {hash}
             </Text.Text>
           ))}
@@ -89,7 +95,7 @@ const Fingerprint = ({ info: { info, error } }: FingerprintProps): ReactElement 
         className={CSS.BE("license-activate", "portal")}
       >
         <Icon.OpenExternal />
-        Get a token from the portal
+        Get a license key from the portal
       </Button.Button>
     </Flex.Box>
   );
@@ -106,7 +112,7 @@ export const Activate = (): ReactElement => {
   const logout = Session.useLogout();
   const handleError = Status.useErrorHandler();
   const info = License.useInfo();
-  const [token, setToken] = useState("");
+  const [key, setKey] = useState("");
   const [activating, setActivating] = useState(false);
   const [error, setError] = useState<status.Status | null>(null);
 
@@ -114,26 +120,24 @@ export const Activate = (): ReactElement => {
     handleError(async () => {
       const file = await Runtime.pickFiles({
         title: "Select a license file",
-        extension: TOKEN_FILE_EXTENSION,
+        extension: KEY_FILE_EXTENSION,
       });
       if (file == null) return;
       const bytes = await Runtime.toBytes(await file.read());
-      setToken(decoder.decode(bytes).trim());
+      setKey(decoder.decode(bytes).trim());
     }, "Failed to read the license file");
 
-  const activate = (): void => {
+  const activate = async (): Promise<void> => {
     if (client == null) return;
     setActivating(true);
     setError(null);
-    void (async () => {
-      try {
-        await client.license.activate(token.trim());
-      } catch (e) {
-        setError(status.fromException(e, "Failed to activate the license"));
-      } finally {
-        setActivating(false);
-      }
-    })();
+    try {
+      await client.license.activate(key.trim());
+    } catch (e) {
+      setError(status.fromException(e, "Failed to activate the license"));
+    } finally {
+      setActivating(false);
+    }
   };
 
   return (
@@ -142,19 +146,23 @@ export const Activate = (): ReactElement => {
       connection={Session.Runtime.CORE_EMBEDDED ? null : target}
     >
       <Flex.Box y gap="large" className={CSS.BE("license-activate", "body")}>
-        <Status.Summary variant="warning" level="h4" message={connection.message} />
+        <Status.Summary
+          variant="warning"
+          level="h4"
+          message={connection.message}
+          description={info.info?.warning}
+        />
         <Fingerprint info={info} />
         <Flex.Box y gap="small" full="x">
-          <Text.Text level="small" weight={500} color={10}>
-            License token
-          </Text.Text>
-          <Input.Text
-            area
-            value={token}
-            onChange={setToken}
-            placeholder="Paste the token"
-            className={CSS.BE("license-activate", "token")}
-          />
+          <Input.Item label="License key">
+            <Input.Text
+              area
+              value={key}
+              onChange={setKey}
+              placeholder="Paste the license key"
+              className={CSS.BE("license-activate", "key")}
+            />
+          </Input.Item>
           <Flex.Box x gap="small" className={CSS.BE("license-activate", "actions")}>
             <Button.Button
               variant="outlined"
@@ -170,8 +178,8 @@ export const Activate = (): ReactElement => {
               variant="filled"
               grow
               justify="center"
-              onClick={activate}
-              disabled={activating || token.trim() === ""}
+              onClick={() => void activate()}
+              disabled={activating || key.trim() === ""}
             >
               Activate
             </Button.Button>

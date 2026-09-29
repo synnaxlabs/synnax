@@ -15,8 +15,8 @@ import { download, handle } from "@/respond";
 import { reissue } from "@/server/license/activate";
 import { check } from "@/server/ratelimit";
 
-/** GET downloads a fresh token for a machine that holds a seat. */
-export const GET: APIRoute = async (context) =>
+/** POST downloads a fresh license key for a machine that holds a seat. */
+export const POST: APIRoute = async (context) =>
   await handle(async () => {
     const key = context.params.key ?? "";
     const portal = open(context);
@@ -28,10 +28,10 @@ export const GET: APIRoute = async (context) =>
       organization: organization.key,
       now,
     });
-    const { token } = await reissue(portal.store, portal.signer, {
+    const { key: signed } = await reissue(portal.store, portal.signer, {
       activationKey: key,
       actor: session.userID,
       now,
     });
-    return download(token, license.label);
+    return download(signed, license.label);
   });

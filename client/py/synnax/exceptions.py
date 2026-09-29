@@ -89,7 +89,7 @@ class ExpiredLicense(LicenseError):
 
 
 class InvalidLicense(LicenseError):
-    """Raised when a token cannot be verified or is malformed."""
+    """Raised when a license key cannot be verified or is malformed."""
 
     TYPE = LicenseError.TYPE + ".invalid"
 

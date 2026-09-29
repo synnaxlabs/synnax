@@ -17,7 +17,7 @@ import { Connection as PlatformConnection } from "@/platform/connection";
 import { CSS } from "@/platform/css";
 import { Island } from "@/platform/shell/Island";
 
-/* Rejected credentials and a missing license mean the Core answered, so the island
+/* Rejected credentials and an unlicensed Core mean the Core answered, so the island
    stays nominal and the surface behind it carries the error. */
 const ANSWERED: connection.Reason[] = ["auth", "unlicensed"];
 

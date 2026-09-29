@@ -32,6 +32,14 @@ terraform import aws_kms_alias.license_signing alias/synnax-license-signing
 terraform import github_actions_secret.license_token synnax/SYNNAX_LICENSE_TOKEN
 ```
 
+A new key spec forces Terraform to replace the key. To move a state that holds an older
+key to one created outside Terraform, swap it instead:
+
+```sh
+terraform state rm aws_kms_key.license_signing
+terraform import aws_kms_key.license_signing <new key id>
+```
+
 If a `portal` Vercel project already exists, import it the same way:
 `terraform import vercel_project.portal <project id>`.
 

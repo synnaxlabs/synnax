@@ -25,28 +25,28 @@ additional steps compared to development use.
 A standalone Core needs a license. Without one it starts, answers login, connectivity
 checks, and the two license requests, and refuses everything else until a license is
 activated. Synnax Labs issues licenses to your organization, and the portal on this site
-lists them and issues the token that activates a Core.
+lists them and issues the license key that activates a Core.
 
-A token is bound to the machine it is issued for, so activation takes two steps:
+A license key is bound to the machine it is issued for, so activation takes two steps:
 
 1. Start the Core. The start log prints the host fingerprint and the address of the
    Console it serves. Open that Console and log in. The activation screen shows the same
    fingerprint with a copy button.
-2. On the portal's activation page, paste the fingerprint and download the token. Paste
-   the token into the activation screen, or pick the downloaded file.
+2. On the portal's activation page, paste the fingerprint and download the license key.
+   Paste the key into the activation screen, or pick the downloaded file.
 
-The Core stores an accepted token, so a restart does not ask for it again. A Core that
-starts with `--mem` keeps nothing between runs, so pass the token at start instead:
+The Core stores an accepted license key, so a restart does not ask for it again. A Core
+that starts with `--mem` keeps nothing between runs, so pass the key at start instead:
 
 ```sh
-synnax start --listen=localhost:9090 --license-key=<token>
+synnax start --listen=localhost:9090 --license-key=<license-key>
 ```
 
-In production, keep the token off the command line. Set it in the environment, or point
-the Core at a file that holds it:
+In production, keep the license key off the command line. Set it in the environment, or
+point the Core at a file that holds it:
 
 ```sh
-export SYNNAX_LICENSE_KEY=<token>
+export SYNNAX_LICENSE_KEY=<license-key>
 synnax start --listen=localhost:9090
 ```
 

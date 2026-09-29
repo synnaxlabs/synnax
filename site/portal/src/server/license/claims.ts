@@ -18,7 +18,7 @@ const EDITION_CODES: Record<Edition, string> = { desktop: "d", enterprise: "e" }
 
 export interface BuildArgs {
   license: License;
-  /** Machine fingerprints to bind the token to. Empty for a floating token. */
+  /** Machine fingerprints to bind the license key to. Empty for a floating key. */
   fingerprint: string[];
   now: Date;
 }

@@ -47,7 +47,7 @@ var (
 	licenseSvc *license.Service
 	apiSvc     *apilicense.Service
 	userSvc    *user.Service
-	keys       svcmock.Keys
+	signer     svcmock.Signer
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -65,9 +65,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
 		DB: db, Ontology: otg, Group: g, Search: searchIdx, User: userSvc,
 	}))
-	keys = svcmock.NewKeys()
+	signer = svcmock.NewSigner()
 	licenseSvc = MustOpen(license.OpenService(ctx, license.ServiceConfig{
-		DB: kvDB, Anchors: keys.Anchors,
+		DB: kvDB, Anchors: signer.Anchors,
 	}))
 	apiSvc = MustSucceed(apilicense.NewService(apicfg.LayerConfig{
 		Distribution: &distribution.Layer{DB: db},
@@ -77,6 +77,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 
 // freshUser creates a user with no role assignments.
 func freshUser(ctx SpecContext) user.User {
+	GinkgoHelper()
 	return MustSucceed(
 		userSvc.NewWriter(nil).
 			Create(ctx, user.User{Username: "anon-" + uuid.New().String()}),
@@ -91,6 +92,7 @@ func grantOn(
 	actions []access.Action,
 	objects ...ontology.ID,
 ) {
+	GinkgoHelper()
 	roleWriter := rbacSvc.Role.NewWriter(nil, true)
 	policyWriter := rbacSvc.Policy.NewWriter(nil, true)
 	r := &role.Role{Name: "role-" + uuid.New().String(), Description: "test"}

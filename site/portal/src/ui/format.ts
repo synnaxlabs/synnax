@@ -86,7 +86,7 @@ const EVENT_LABELS: Record<Event["kind"], string> = {
   amend: "License changed",
   activate: "Machine activated",
   activate_denied: "Activation denied",
-  token: "Token downloaded",
+  download: "License key downloaded",
   release: "Seat released",
   rename: "Machine renamed",
   revoke: "License revoked",

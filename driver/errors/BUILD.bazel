@@ -26,11 +26,13 @@ cc_test(
     name = "errors_test",
     srcs = ["errors_test.cpp"],
     deps = [
+        "//client/cpp/errors",
         "//driver/errors",
         "//driver/labjack/ljm",
         "//driver/ni/daqmx",
         "//driver/ni/errors",
         "//driver/ni/syscfg",
+        "//freighter/cpp:freighter",
         "//x/cpp/test",
         "@googletest//:gtest_main",
     ],

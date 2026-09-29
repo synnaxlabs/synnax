@@ -32,7 +32,7 @@ const schema = z.object({
 export type ActivateSchema = typeof schema;
 
 interface Activated {
-  token: string;
+  key: string;
   activation: string;
   filename: string;
 }
@@ -44,7 +44,7 @@ interface Activate {
 
 /**
  * useActivate builds the form and the action that grant a seat from pasted host
- * hashes and download the machine's token. `onDone` runs after the download.
+ * hashes and download the machine's license key. `onDone` runs after the download.
  */
 export const useActivate = (
   licenseKey: string,
@@ -59,7 +59,7 @@ export const useActivate = (
         name,
         fingerprint,
       });
-      save(new Blob([res.token], { type: "text/plain" }), res.filename);
+      save(new Blob([res.key], { type: "text/plain" }), res.filename);
       await onDone();
     }, [methods, licenseKey, onDone]),
   );
@@ -71,7 +71,7 @@ export const ActivateFields = (): ReactElement => (
   <>
     <Text.Text level="p" color={10}>
       Start the Core and copy the host hashes it prints. The Console's activation screen
-      shows them too. Give the token you download to the Core with
+      shows them too. Give the license key you download to the Core with
       <code>--license-file</code> or through the Console.
     </Text.Text>
     <Form.TextField
@@ -102,7 +102,7 @@ export const ActivateButton = ({ action }: { action: Action }): ReactElement => 
     triggerIndicator
   >
     <Icon.Download />
-    Activate and download token
+    Activate and download license key
   </Button.Button>
 );
 
@@ -113,7 +113,7 @@ export interface ActivateDialogProps {
 
 /**
  * ActivateDialog grants a seat to a machine from its host hashes and downloads the
- * token that machine needs.
+ * license key that machine needs.
  */
 export const ActivateDialog = ({
   licenseKey,

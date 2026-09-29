@@ -19,16 +19,16 @@ import (
 )
 
 var _ = Describe("Layer", func() {
-	Describe("Keys", func() {
+	Describe("Signer", func() {
 		It("should sign a license its anchors verify", func() {
-			keys := mock.NewKeys()
+			signer := mock.NewSigner()
 			lic := mock.NewLicense()
-			Expect(license.Verify(keys.Anchors, keys.Sign(lic))).To(Equal(lic))
+			Expect(license.Verify(signer.Anchors, signer.Sign(lic))).To(Equal(lic))
 		})
-		It("should not verify a license signed by other keys", func() {
-			keys := mock.NewKeys()
+		It("should not verify a license from another signer", func() {
+			signer := mock.NewSigner()
 			Expect(license.Verify(
-				mock.NewKeys().Anchors, keys.Sign(mock.NewLicense()),
+				mock.NewSigner().Anchors, signer.Sign(mock.NewLicense()),
 			)).Error().To(MatchError(license.ErrInvalid))
 		})
 	})

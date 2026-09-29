@@ -29,7 +29,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-func fixedChannelLimit(limit int) channel.ChannelLimitChecker {
+func fixedLimit(limit int) channel.LimitChecker {
 	return func(count types.Uint20) error {
 		if count > types.Uint20(limit) {
 			return errors.New("channel limit exceeded")
@@ -49,7 +49,7 @@ var _ = Describe("Writer", func() {
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
 			limitSvc, _ = openService(ctx, mock.NewNode(ctx), channel.ServiceConfig{
-				ChannelLimit: fixedChannelLimit(2),
+				Limit: fixedLimit(2),
 			})
 			limitWriter = limitSvc.NewWriter(nil)
 		})
@@ -104,7 +104,7 @@ var _ = Describe("Writer", func() {
 					ctx,
 					mock.NewNode(ctx),
 					channel.ServiceConfig{
-						ChannelLimit: fixedChannelLimit(3),
+						Limit: fixedLimit(3),
 					},
 				)
 				idx := channel.Channel{
@@ -1419,7 +1419,7 @@ var _ = Describe("Writer", func() {
 			limitSvc, _ = openService(
 				ctx,
 				dist,
-				channel.ServiceConfig{ChannelLimit: fixedChannelLimit(limit)},
+				channel.ServiceConfig{Limit: fixedLimit(limit)},
 			)
 			limitWriter = limitSvc.NewWriter(nil)
 		})

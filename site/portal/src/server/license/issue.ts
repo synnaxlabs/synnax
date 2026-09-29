@@ -122,7 +122,7 @@ export const changes = (before: License, after: License): Record<string, unknown
 
 /**
  * amend changes the terms of a license already issued, keeping its key so seats and
- * history survive. Machines pick the new terms up on their next token.
+ * history survive. Machines pick the new terms up on their next license key.
  * @throws {HTTPError} 400 when the license is revoked or the seat count would drop
  * below the machines holding one.
  */
@@ -202,8 +202,8 @@ export interface FloatingArgs {
 }
 
 /**
- * floating signs a token bound to no host, for CI runners with random hardware. Staff
- * only; the ledger records the issuance but holds no seat.
+ * floating signs a license key bound to no host, for CI runners with random hardware.
+ * Staff only; the ledger records the issuance but holds no seat.
  */
 export const floating = async (
   store: Store,
@@ -217,7 +217,7 @@ export const floating = async (
   if (row == null) throw notFound("License");
   if (row.revokedAt != null) throw badRequest("This license has been revoked");
   await store.query.insert(event).values({
-    kind: "token",
+    kind: "download",
     actor,
     organization: row.organization,
     license: row.key,

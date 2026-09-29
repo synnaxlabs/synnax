@@ -42,7 +42,7 @@ export interface DecideArgs {
 /**
  * decide applies the seat rules to an activation request. A machine that already
  * holds a seat, found by any shared host hash, keeps it. An expired subscription with
- * a fallback version still activates, because the token remains valid up to that
+ * a fallback version still activates, because the license key remains valid up to that
  * version.
  */
 export const decide = ({
@@ -77,10 +77,10 @@ export interface ActivateArgs {
 }
 
 export type Result =
-  { ok: true; activation: Activation; token: string } | { ok: false; reason: Denial };
+  { ok: true; activation: Activation; key: string } | { ok: false; reason: Denial };
 
 /**
- * activate grants or refreshes a seat for a machine and signs its token. The seat
+ * activate grants or refreshes a seat for a machine and signs its license key. The seat
  * check and the ledger write run in one transaction under a row lock on the license,
  * so concurrent requests cannot oversubscribe it. A denial is recorded as an event and
  * returned, not thrown.
@@ -137,8 +137,8 @@ export const activate = async (
       activation: act.key,
       detail: { fingerprint },
     });
-    const token = await sign(signer, build({ license: lic, fingerprint, now }));
-    return { ok: true, activation: act, token };
+    const signed = await sign(signer, build({ license: lic, fingerprint, now }));
+    return { ok: true, activation: act, key: signed };
   });
 
 export interface ReissueArgs {
@@ -148,15 +148,15 @@ export interface ReissueArgs {
 }
 
 /**
- * reissue signs a fresh token for a machine that already holds a seat, for a download
- * after the activation page has been left. Throws when the seat was released or the
- * license no longer activates.
+ * reissue signs a fresh license key for a machine that already holds a seat, for a
+ * download after the activation page has been left. Throws when the seat was released
+ * or the license no longer activates.
  */
 export const reissue = async (
   store: Store,
   signer: Signer,
   { activationKey, actor, now }: ReissueArgs,
-): Promise<{ license: License; token: string }> => {
+): Promise<{ license: License; key: string }> => {
   const [row] = await store.query
     .select({ activation, license })
     .from(activation)
@@ -175,18 +175,18 @@ export const reissue = async (
     .set({ lastSeen: now })
     .where(eq(activation.key, activationKey));
   await store.query.insert(event).values({
-    kind: "token",
+    kind: "download",
     actor,
     organization: row.license.organization,
     license: row.license.key,
     activation: activationKey,
     detail: {},
   });
-  const token = await sign(
+  const signed = await sign(
     signer,
     build({ license: row.license, fingerprint: row.activation.fingerprint, now }),
   );
-  return { license: row.license, token };
+  return { license: row.license, key: signed };
 };
 
 export interface ReleaseArgs {

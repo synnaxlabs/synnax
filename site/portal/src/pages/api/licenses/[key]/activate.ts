@@ -20,7 +20,7 @@ import { check } from "@/server/ratelimit";
 
 /**
  * POST grants a seat to the machine whose host hashes are posted as `fingerprint` and
- * answers `{ token, activation, filename }`.
+ * answers `{ key, activation, filename }`.
  */
 export const POST: APIRoute = async (context) =>
   await handle(async () => {
@@ -51,7 +51,7 @@ export const POST: APIRoute = async (context) =>
     });
     if (!result.ok) throw badRequest(DENIAL_MESSAGES[result.reason]);
     return Response.json({
-      token: result.token,
+      key: result.key,
       activation: result.activation.key,
       filename: filename(license.label),
     });

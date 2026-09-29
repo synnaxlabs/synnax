@@ -11,6 +11,13 @@
 @py output "client/py/synnax/license"
 @ts output "client/ts/src/license"
 
+Edition enum {
+    desktop    = "d"
+    enterprise = "e"
+
+    @doc value "is the product edition a license applies to."
+}
+
 License struct {
     jti                uuid     {
         @doc value "is the unique identifier of the license."
@@ -30,7 +37,7 @@ License struct {
     organization       uuid     {
         @doc value "is the organization the license belongs to."
     }
-    edition            string   {
+    edition            Edition  {
         @doc value "is the edition the license applies to."
     }
     fingerprints       string[] = [] {
@@ -57,7 +64,7 @@ License struct {
     required           string[] = [] {
         @doc value """
             is the claims a Core must understand to accept the license. A Core that does
-            not know one of them refuses the token.
+            not know one of them refuses the license key.
         """
     }
 
@@ -76,8 +83,8 @@ State enum {
 
 Fingerprint string[] {
     @doc value """
-        identifies the machine the Core runs on: the sorted SHA-256 hex digests of every
-        physical network interface's hardware address.
+        identifies the machine the Core runs on: the sorted Argon2id hex digests of the
+        hardware addresses of its non-loopback, non-point-to-point network interfaces.
     """
 }
 
@@ -86,7 +93,7 @@ Info struct {
         @doc value "is whether a license covers the Core."
     }
     warning     string      {
-        @doc value "is set while the state is ok but a change is near or past."
+        @doc value "explains a near or past expiry, or why the license is expired."
     }
     fingerprint Fingerprint = [] {
         @doc value "identifies the machine the Core runs on."
