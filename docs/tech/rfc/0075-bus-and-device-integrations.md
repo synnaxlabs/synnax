@@ -158,9 +158,9 @@ Decode writes each value straight into the series for its channel with
 Scaling is `value * scale + offset`, applied on decode and inverted on encode. Enums are
 not applied: the channel holds the raw integer.
 
-Modbus and EtherCAT move onto the codec in their own phases (§7). Modbus register
-decoding becomes a codec field over the register words. EtherCAT PDO decoding becomes a
-codec plan over the process image.
+Modbus and EtherCAT move onto the codec in Phase 3 (§7). Modbus register decoding
+becomes a codec field over the register words. EtherCAT PDO decoding becomes a codec
+plan over the process image.
 
 ### 5.3 Reading
 
@@ -312,6 +312,27 @@ Each integration registers in the Console's task and device maps
 - **`go.einride.tech/can`** (MIT) and **`excelize`** (BSD-3-Clause): import, in the
   Core.
 
+### 5.11 Task configs
+
+`schemas/synnax/bus.oracle` holds the config shapes every bus integration shares. Each
+integration schema (`can`, `serial`, `tcp`, `udp`) extends them and adds its device
+`Properties`.
+
+- **Read**: `bus.ReadConfig` embeds the library `Reference` and lists `messages`. Each
+  message names its library entry, its index channel, and the fields it writes, each by
+  field key and channel. `raw` is the virtual bytes channel.
+- **Write**: `bus.WriteConfig` lists messages and maps field keys to command channels. A
+  field with no mapping is sent as zero.
+- **Polling**: `bus.PollConfig` holds the poll `rate` and reply `timeout` for `serial`,
+  `tcp`, and `udp` read tasks.
+- **Framing**: `bus.Framing` is a union of `delimiter`, `fixed`, `sync`, `cobs`, and
+  `slip`. `serial` and `tcp` read and write configs carry one, because a write task
+  frames what it sends. `udp` needs none.
+
+On every write, the Core stamps the library hash and rejects a config whose message or
+field keys are not in its library (`core/pkg/service/bus/resolve.go`), so the Driver
+never builds a plan from a stale key.
+
 ## 6 What this RFC does not cover
 
 - **Multi-frame transport** (ISO-TP, J1939 transport protocol), **request-and-response
@@ -325,30 +346,18 @@ Each integration registers in the Console's task and device maps
 
 ## 7 Implementation phases
 
-- **Phase 1: `message` kind.** `message.oracle` and its variant in the library entry
-  union.
-- **Phase 2: Codec.** `driver/codec` with binary and text fields, multiplexing, and
-  scaling, with specs against DBC fixtures decoded by `cantools`.
-- **Phase 3: ICD import.** DBC, CSV, and XLSX import in the Core.
-- **Phase 4: CAN on SocketCAN.** `can` read, write, and scan tasks, the Core config
-  service, the Python types, and the Console forms, behind a `can` flag.
-- **Phase 5: CAN on PCAN-Basic.** Windows and macOS.
-- **Phase 6: CAN on gs_usb and slcan.** libusb at runtime, and slcan over the Asio
-  serial port layer this phase adds for Phase 9.
-- **Phase 7: CAN on CANlib.** Windows.
-- **Phase 8: CAN on NI-XNET.** Windows, Linux, and NI Linux RT.
-- **Phase 9: Serial.** Framing, streaming, and polling.
-- **Phase 10: TCP and UDP.** Built on the serial framing and exchange code.
-- **Phase 11: ARINC 429.** One vendor backend, matching the first team's hardware.
-- **Phase 12: MIL-STD-1553.** One vendor backend: monitor, remote terminal simulation,
-  and bus control.
-- **Phase 13: Modbus on the codec.**
-- **Phase 14: EtherCAT on the codec.**
-- **Phase 15: Flag removal.**
+The work lands as three PRs, each behind the `library` and `can` flags until the last.
+
+- **Phase 1: Library and ICD import (SY-4970).** The `message` kind, ICD import, the
+  clients in every language, and the Console library editor.
+- **Phase 2: Codec, CAN, serial, TCP, and UDP (SY-4971).** `driver/codec`, the task
+  config schemas and Core stores, the Driver tasks on every CAN backend and on Asio, the
+  Python types, and the Console forms.
+- **Phase 3: ARINC 429, MIL-STD-1553, and the codec everywhere (SY-4972).** One vendor
+  backend each, Modbus and EtherCAT moved onto the codec, and flag removal.
 
 Every phase adds new task types or internal code. No stored shape changes, so no
-migration is needed. Phases 13 and 14 keep the Modbus and EtherCAT task configs as they
-are.
+migration is needed. Phase 3 keeps the Modbus and EtherCAT task configs as they are.
 
 ## 8 Resolved decisions
 
