@@ -283,7 +283,7 @@ public:
     x::errors::Error start() {
         if (running_) { return x::errors::NIL; }
 
-        socket_ = modbus_tcp_listen(ctx_, 1);
+        socket_ = modbus_tcp_listen(ctx_, SOMAXCONN);
         if (socket_ == -1) {
             return x::errors::Error(
                 "Failed to listen on modbus socket: " +
