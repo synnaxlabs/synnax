@@ -15,7 +15,6 @@
     "build:media": "turbo build --filter @synnaxlabs/media",
     "build:lyra": "turbo build --filter @synnaxlabs/lyra",
     "build:pluto": "turbo build --filter @synnaxlabs/pluto",
-    "build:publish-ts": "turbo build --filter @synnaxlabs/lyra --filter @synnaxlabs/pluto --filter @synnaxlabs/drift",
     "build:vite-plugin": "turbo build --filter @synnaxlabs/vite-plugin",
     "build:www": "turbo build --filter @synnaxlabs/www",
     "build:x": "turbo build --filter @synnaxlabs/x",
@@ -140,7 +139,7 @@
   "devEngines": {
     "packageManager": {
       "name": "pnpm",
-      "version": "12.7.0",
+      "version": "12.8.1",
       "onFail": "download"
     },
     "runtime": {

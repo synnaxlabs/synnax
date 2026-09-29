@@ -22,7 +22,7 @@ libraries.
 
 ## Installing the language
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -30,7 +30,7 @@ Synnax doesn't enforce a specific way to work with Python, although our developm
 recommends using the latest version of the official
 [Python installer](https://www.python.org/downloads/).
 
-<Platform.Tabs client:load exclude={["Docker"]}>
+<Platform.Tabs exclude={["Docker"]}>
 
 <Fragment slot="Windows">
 
@@ -94,7 +94,7 @@ is recommended.
   @synnaxlabs/client`.
 </Note.Note>
 
-<Platform.Tabs client:load exclude={["Docker"]}>
+<Platform.Tabs exclude={["Docker"]}>
 
 <Fragment slot="Windows">
 
@@ -149,7 +149,7 @@ sudo yum install -y nodejs
 
 ## Incorrect version
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -162,7 +162,7 @@ python --version # or try: python3 --version, python3.12 --version
 If the output shows `Python 3.12.x` or higher, the version is compatible. If older,
 update Python:
 
-<Platform.Tabs client:load exclude={["Docker"]}>
+<Platform.Tabs exclude={["Docker"]}>
 
 <Fragment slot="Windows">
 
@@ -208,7 +208,7 @@ section above.
 
 ## Command not found
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -219,7 +219,7 @@ If `python --version` returns `command not found`, the executable isn't on your 
   in your PATH. Check your PATH order and remove or reorder conflicting entries.
 </Note.Note>
 
-<Platform.Tabs client:load exclude={["Docker"]}>
+<Platform.Tabs exclude={["Docker"]}>
 
 <Fragment slot="Windows">
 
@@ -272,7 +272,7 @@ source ~/.bashrc
 
 If `node --version` returns `command not found`, Node.js isn't on your PATH.
 
-<Platform.Tabs client:load exclude={["Docker"]}>
+<Platform.Tabs exclude={["Docker"]}>
 
 <Fragment slot="Windows">
 Reinstall from [nodejs.org](https://nodejs.org/) - the installer automatically adds
@@ -315,7 +315,7 @@ source ~/.bashrc
 
 ## Synnax command not found
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -370,7 +370,7 @@ issues. We recommend updating the Core.
 Your client is newer than the Synnax Core you're connecting to. Either
 [upgrade Synnax Core](/reference/core/installation) or downgrade the client:
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -400,7 +400,7 @@ compatibility issues. We recommend updating the client.
 
 Your client is older than the Synnax Core you're connecting to. Update the client:
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
