@@ -22,7 +22,7 @@ import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Access, Synnax as PSynnax, Task as PTask } from "@synnaxlabs/pluto";
-import { errors, primitive, TimeSpan } from "@synnaxlabs/x";
+import { primitive, TimeSpan } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 import { type z } from "zod";
 
@@ -34,25 +34,6 @@ import { Rack } from "@/platform/task/Rack";
 import { useStatus } from "@/platform/task/useStatus";
 import { UtilityButtons } from "@/platform/task/UtilityButtons";
 
-/**
- * Thrown by an OnConfigure when the config fails a check that needs the Core. Each
- * issue renders as an error on the config field its path names.
- */
-export class ConfigError extends errors.createTyped("console.task.config") {
-  readonly issues: z.core.$ZodIssue[];
-
-  constructor(issues: z.core.$ZodIssue[]) {
-    super(issues.map(({ message }) => message).join(", "));
-    this.issues = issues;
-  }
-}
-
-/**
- * Prepares a config to deploy, such as by creating its channels.
- * @returns the config to save and the rack it runs on.
- * @throws {ConfigError} if the config fails a check that needs the Core. Its issues
- * render as field errors and block the deploy. Any other error fails the deploy.
- */
 export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
   (
     client: Synnax,
@@ -147,24 +128,6 @@ const issueVariant = (issue: z.core.$ZodIssue): status.Variant =>
     ? (issue.params.variant as status.Variant)
     : "error";
 
-/**
- * Shows each issue on the config field it names.
- * @returns whether an issue blocks the deploy.
- */
-const showIssues = (
-  form: Pick<PForm.ContextValue, "setStatus">,
-  issues: z.core.$ZodIssue[],
-): boolean => {
-  let blocked = false;
-  issues.forEach((issue) => {
-    const variant = issueVariant(issue);
-    if (variant !== "warning") blocked = true;
-    const path = ["config", ...issue.path].join(".");
-    form.setStatus(path, { key: path, variant, message: issue.message });
-  });
-  return blocked;
-};
-
 export const wrapForm = <S extends task.Schemas = task.Schemas>({
   Properties,
   Form,
@@ -196,16 +159,17 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
         if (canEdit) {
           const { config, name } = form.value();
           const result = deployConfigZ.safeParse(config);
-          if (!result.success && showIssues(form, result.error.issues)) return;
-          let configured: [typeof config, rack.Key];
-          try {
-            configured = await onConfigure(client, config, name);
-          } catch (e) {
-            if (!(e instanceof ConfigError)) throw errors.fromUnknown(e);
-            showIssues(form, e.issues);
-            return;
+          if (!result.success) {
+            let blocked = false;
+            result.error.issues.forEach((issue) => {
+              const variant = issueVariant(issue);
+              if (variant !== "warning") blocked = true;
+              const path = ["config", ...issue.path].join(".");
+              form.setStatus(path, { key: path, variant, message: issue.message });
+            });
+            if (blocked) return;
           }
-          const [newConfig, newRack] = configured;
+          const [newConfig, newRack] = await onConfigure(client, config, name);
           form.set("config", newConfig, SKIP_AUTOSAVE);
           if (primitive.isNonZero(newRack)) form.set("rack", newRack, SKIP_AUTOSAVE);
           if (!(await saveAsync())) return;

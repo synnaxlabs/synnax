@@ -13,7 +13,6 @@ import {
   createTestClientWithRole,
 } from "@synnaxlabs/client/testutil";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { type Status } from "@synnaxlabs/lyra/status";
 import { TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { type FC } from "react";
@@ -221,59 +220,6 @@ describe("wrapForm", () => {
       });
       await clickDeploy(container);
       await waitFor(() => expect(configured).toBe(true));
-    });
-
-    it("should surface the field errors onConfigure throws", async () => {
-      const client = createTestClient();
-      const draft = await client.tasks.create({ ...getInitialValues({}), rack: 0 });
-      const Renderer = createRenderer({
-        Form: DeviceStatusProbe,
-        onConfigure: async () => {
-          throw new Task.ConfigError([
-            { code: "custom", message: "Device is offline", path: ["device"] },
-          ]);
-        },
-      });
-      const { container } = await renderTaskFormTab(Renderer, {
-        client,
-        taskKey: draft.key,
-      });
-      await clickDeploy(container);
-      await screen.findByText("device-status:Device is offline");
-    });
-
-    it("should notify when onConfigure throws a parse error", async () => {
-      const client = createTestClient();
-      const draft = await client.tasks.create({ ...getInitialValues({}), rack: 0 });
-      const propertiesZ = z.object({ role: z.enum(["monitor"]) });
-      const properties = { role: "bus" };
-      const Renderer = createRenderer({
-        Form: DeviceStatusProbe,
-        onConfigure: async (_client, config) => {
-          propertiesZ.parse(properties);
-          return [config, 0];
-        },
-      });
-      const statuses: Status.NotificationSpec[] = [];
-      const { container } = await renderTaskFormTab(Renderer, {
-        client,
-        taskKey: draft.key,
-        onStatuses: (next) => {
-          statuses.length = 0;
-          statuses.push(...next);
-        },
-      });
-      await clickDeploy(container);
-      await waitFor(() =>
-        expect(statuses).toContainEqual(
-          expect.objectContaining({
-            variant: "error",
-            message: "Failed to start task",
-            description: propertiesZ.safeParse(properties).error?.message,
-          }),
-        ),
-      );
-      expect(screen.getByText("device-status:")).toBeTruthy();
     });
   });
 
