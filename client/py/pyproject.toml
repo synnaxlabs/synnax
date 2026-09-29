@@ -91,6 +91,7 @@ markers = [
     "view: mark test as a view test",
     "ethercat: mark test as an ethercat test",
     "framer: mark test as a framer test",
+    "bus: mark test as a bus integration test",
     "http: mark test as an http test",
     "group: mark test as a group test",
     "imex: mark test as an imex test",

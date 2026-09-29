@@ -44,7 +44,7 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         *,
         device: device.Key = "",
         name: str = "",
-        library: library.Key,
+        library: library.Key | None = None,
         messages: list[bus.ReadMessage] | None = None,
         raw: int = 0,
         data_saving_disabled: bool = False,
@@ -54,6 +54,8 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
             self._internal = internal
             self.config = ReadConfig.model_validate(internal.config)
             return
+        if library is None:
+            raise ValueError("library is required")
         self._internal = task.Task(name=name, type=self.TYPE)
         self.config = ReadConfig(
             device=device,
@@ -63,6 +65,10 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
             data_saving_disabled=data_saving_disabled,
             auto_start=auto_start,
         )
+
+    def update_device_properties(self, device_client: device.Client) -> None:
+        """Leaves the device unchanged: the task config holds the channel mapping."""
+        return None
 
 
 class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
@@ -86,7 +92,7 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         *,
         device: device.Key = "",
         name: str = "",
-        library: library.Key,
+        library: library.Key | None = None,
         messages: list[bus.WriteMessage] | None = None,
         auto_start: bool = False,
     ) -> None:
@@ -94,6 +100,8 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
             self._internal = internal
             self.config = WriteConfig.model_validate(internal.config)
             return
+        if library is None:
+            raise ValueError("library is required")
         self._internal = task.Task(name=name, type=self.TYPE)
         self.config = WriteConfig(
             device=device,
@@ -101,6 +109,10 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
             messages=messages if messages is not None else [],
             auto_start=auto_start,
         )
+
+    def update_device_properties(self, device_client: device.Client) -> None:
+        """Leaves the device unchanged: the task config holds the channel mapping."""
+        return None
 
 
 class Device(device.Device):
