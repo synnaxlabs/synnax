@@ -1538,6 +1538,9 @@ importers:
       '@synnaxlabs/tsconfig':
         specifier: 'catalog:'
         version: link:../../configs/ts
+      '@synnaxlabs/vite-plugin':
+        specifier: 'catalog:'
+        version: link:../../configs/vite
       '@types/react':
         specifier: 'catalog:'
         version: 19.3.0
@@ -1556,9 +1559,6 @@ importers:
       jsdom:
         specifier: 'catalog:'
         version: 30.1.1
-      postcss:
-        specifier: 'catalog:'
-        version: 8.5.28
       stylelint:
         specifier: 'catalog:'
         version: 17.15.0(supports-color@10.2.2)(typescript@6.0.3)
