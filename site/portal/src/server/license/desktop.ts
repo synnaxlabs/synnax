@@ -20,7 +20,7 @@ import {
   license,
   organization,
 } from "@/server/db/schema";
-import { forbidden, notFound } from "@/server/errors";
+import { badRequest, forbidden, notFound } from "@/server/errors";
 import { build } from "@/server/license/claims";
 import { sign, type Signer } from "@/server/license/sign";
 import { ensurePersonal } from "@/server/organization";
@@ -231,6 +231,7 @@ export interface UnlinkArgs {
 /**
  * unlink releases a Desktop machine's seat, forgets its renewal secret, and revokes
  * its license, so its next renewal is refused.
+ * @throws {HTTPError} 400 for an enterprise machine, whose license others share.
  */
 export const unlink = async (
   store: Store,
@@ -242,6 +243,8 @@ export const unlink = async (
     .innerJoin(license, eq(activation.license, license.key))
     .where(eq(activation.key, activationKey));
   if (row == null) throw notFound("Activation");
+  if (row.license.edition !== "desktop")
+    throw badRequest("Only a Synnax Desktop machine can be logged out");
   await store.transact(async (tx) => {
     await tx
       .update(activation)
