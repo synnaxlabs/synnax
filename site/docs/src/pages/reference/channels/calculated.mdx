@@ -9,7 +9,8 @@ import { Divider } from "@synnaxlabs/lyra/divider";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
 import { Video } from "@/components/media/Media";
-import Diagram from "@/components/diagram/Diagram.astro";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Diagram } from "@/components/diagram";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -201,57 +202,22 @@ different times. For correct results, use inputs that share an index.
 An operation keeps a value across many samples, such as the maximum since a reset. It
 applies to the result of the expression.
 
-<Diagram variant="themed">
-  <svg
-    viewBox="18 18 629 124"
-    style={{ width: "100%", height: "auto" }}
-    xmlns="http://www.w3.org/2000/svg"
-  >
-    <defs>
-      <marker
-        id="arrow"
-        viewBox="0 0 8 8"
-        refX="7"
-        refY="4"
-        markerWidth="7"
-        markerHeight="7"
-        orient="auto"
-      >
-        <path class="arrow" d="M0,0 L8,4 L0,8 z" />
-      </marker>
-    </defs>
-    <g class="box">
-      <rect x="20" y="20" width="130" height="40" rx="6" />
-      <rect x="185" y="20" width="130" height="40" rx="6" />
-      <rect x="350" y="20" width="130" height="40" rx="6" />
-      <rect x="515" y="20" width="130" height="40" rx="6" />
-      <rect x="350" y="100" width="130" height="40" rx="6" />
-    </g>
-    <g class="arrow" stroke-width="1" marker-end="url(#arrow)">
-      <line x1="150" y1="40" x2="183" y2="40" />
-      <line x1="315" y1="40" x2="348" y2="40" />
-      <line x1="480" y1="40" x2="513" y2="40" />
-      <line x1="415" y1="100" x2="415" y2="63" />
-    </g>
-    <g class="label" font-size="14" text-anchor="middle" dominant-baseline="middle">
-      <text x="85" y="40">
-        {"Input channels"}
-      </text>
-      <text x="250" y="40">
-        {"Expression"}
-      </text>
-      <text x="415" y="40">
-        {"Operation"}
-      </text>
-      <text x="580" y="40">
-        {"Output channel"}
-      </text>
-      <text x="415" y="120">
-        {"Reset channel"}
-      </text>
-    </g>
-  </svg>
-</Diagram>
+<Diagram.Block
+  title="Input channels go into the expression. The result goes into the operation, which a reset channel can reset. The operation gives the output channel."
+  nodes={[
+    { key: "inputs", label: "Input channels", icon: Icon.Channel, column: 0 },
+    { key: "expression", label: "Expression", icon: Icon.Arc, column: 1 },
+    { key: "reset", label: "Reset channel", icon: Icon.Reset, column: 1 },
+    { key: "operation", label: "Operation", icon: Icon.Calculation, column: 2 },
+    { key: "output", label: "Output channel", icon: Icon.Channel, column: 3 },
+  ]}
+  edges={[
+    { from: "inputs", to: "expression" },
+    { from: "expression", to: "operation" },
+    { from: "reset", to: "operation" },
+    { from: "operation", to: "output" },
+  ]}
+/>
 
 | Operation    | Output                                                            |
 | ------------ | ----------------------------------------------------------------- |

@@ -8,3 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export { default as Diagram } from "@/components/diagram/Diagram.astro";
+export { Block, type BlockProps } from "@/components/diagram/Block";
+export { type Edge, type Node } from "@/components/diagram/layout";
