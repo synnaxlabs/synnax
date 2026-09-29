@@ -13,7 +13,7 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { activation, event } from "@/server/db/schema";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { MAX_NAME_LENGTH, readName, rename } from "@/server/license/machine";
-import { HASH_A } from "@/server/license/testutil";
+import { HASH_A, NOW } from "@/server/license/testutil";
 import { createActivation, createLicense, createOrganization } from "@/testutil";
 
 describe("machine.readName", () => {
@@ -50,7 +50,12 @@ describe("machine.rename", () => {
 
   it("should rename the machine and record the change", async () => {
     const act = await createMachine("Old");
-    await rename(store, { activationKey: act.key, name: "New", actor: "user_a" });
+    await rename(store, {
+      activationKey: act.key,
+      name: "New",
+      actor: "user_a",
+      now: NOW,
+    });
     const [row] = await store.query
       .select()
       .from(activation)
@@ -60,6 +65,7 @@ describe("machine.rename", () => {
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({
       kind: "rename",
+      at: NOW,
       actor: "user_a",
       organization: expect.any(String),
       license: act.license,
@@ -70,7 +76,12 @@ describe("machine.rename", () => {
 
   it("should record nothing when the name is unchanged", async () => {
     const act = await createMachine("Same");
-    await rename(store, { activationKey: act.key, name: "Same", actor: "user_a" });
+    await rename(store, {
+      activationKey: act.key,
+      name: "Same",
+      actor: "user_a",
+      now: NOW,
+    });
     expect(await store.query.select().from(event)).toHaveLength(0);
   });
 
@@ -80,6 +91,7 @@ describe("machine.rename", () => {
         activationKey: crypto.randomUUID(),
         name: "New",
         actor: "user_a",
+        now: NOW,
       }),
     ).rejects.toMatchObject({ status: 404, message: "Activation not found" });
   });

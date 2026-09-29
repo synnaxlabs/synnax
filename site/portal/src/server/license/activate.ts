@@ -111,6 +111,7 @@ export const activate = async (
     const decision = decide({ license: lic, activations, fingerprint, now });
     if (!decision.ok) {
       await tx.insert(event).values({
+        at: now,
         kind: "activate_denied",
         actor,
         organization: lic.organization,
@@ -137,6 +138,7 @@ export const activate = async (
             .where(eq(activation.key, decision.existing.key))
             .returning();
     await tx.insert(event).values({
+      at: now,
       kind: "activate",
       actor,
       organization: lic.organization,
@@ -182,6 +184,7 @@ export const reissue = async (
     .set({ lastSeen: now })
     .where(eq(activation.key, activationKey));
   await store.query.insert(event).values({
+    at: now,
     kind: "download",
     actor,
     organization: row.license.organization,
@@ -219,6 +222,7 @@ export const release = async (
     .set({ releasedAt: now })
     .where(eq(activation.key, activationKey));
   await store.query.insert(event).values({
+    at: now,
     kind: "release",
     actor,
     organization: row.license.organization,

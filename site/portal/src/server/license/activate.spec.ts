@@ -169,6 +169,7 @@ describe("activate", () => {
       expect(await events()).toEqual([
         expect.objectContaining({
           kind: "activate",
+          at: NOW,
           actor: "user_a",
           organization: org.key,
           license: lic.key,
@@ -245,6 +246,7 @@ describe("activate", () => {
       expect(await events()).toEqual([
         expect.objectContaining({
           kind: "activate_denied",
+          at: NOW,
           actor: "user_a",
           organization: org.key,
           license: lic.key,
@@ -305,6 +307,7 @@ describe("activate", () => {
       expect(await events()).toEqual([
         expect.objectContaining({
           kind: "activate_denied",
+          at: NOW,
           detail: { reason: "revoked", fingerprint: [HASH_A] },
         }),
       ]);
@@ -406,6 +409,7 @@ describe("activate", () => {
       expect(await events()).toEqual([
         expect.objectContaining({
           kind: "download",
+          at: NOW,
           actor: "user_a",
           organization: org.key,
           license: lic.key,
@@ -488,6 +492,7 @@ describe("activate", () => {
       expect(await events()).toEqual([
         expect.objectContaining({
           kind: "release",
+          at: NOW,
           actor: "user_a",
           organization: org.key,
           license: lic.key,

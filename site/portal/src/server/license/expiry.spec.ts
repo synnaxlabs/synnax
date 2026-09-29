@@ -112,6 +112,7 @@ describe("expiry.sweep", () => {
     expect(await events()).toEqual([
       expect.objectContaining({
         kind: "expiry_notice",
+        at: NOW,
         actor: "system",
         organization: org.key,
         license: lic.key,

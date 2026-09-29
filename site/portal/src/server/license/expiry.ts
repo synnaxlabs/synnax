@@ -94,6 +94,7 @@ export const sweep = async ({
         const days = dueNotice(locked, await notices(tx, key), now);
         if (days == null) return null;
         await tx.insert(event).values({
+          at: now,
           kind: "expiry_notice",
           actor: "system",
           organization: org.key,

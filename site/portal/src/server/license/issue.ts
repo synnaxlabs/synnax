@@ -83,6 +83,7 @@ export const issue = async (store: Store, args: IssueArgs): Promise<License> => 
     })
     .returning();
   await store.query.insert(event).values({
+    at: args.now,
     kind: "issue",
     actor: args.actor,
     organization: row.organization,
@@ -166,6 +167,7 @@ export const amend = async (
       .where(eq(license.key, licenseKey))
       .returning();
     await tx.insert(event).values({
+      at: now,
       kind: "amend",
       actor,
       organization: after.organization,
@@ -204,6 +206,7 @@ export const revoke = async (
     throw badRequest("This license is already revoked");
   }
   await store.query.insert(event).values({
+    at: now,
     kind: "revoke",
     actor,
     organization: row.organization,
@@ -236,6 +239,7 @@ export const floating = async (
   const denial = deny(row, now);
   if (denial != null) throw badRequest(DENIAL_MESSAGES[denial]);
   await store.query.insert(event).values({
+    at: now,
     kind: "download",
     actor,
     organization: row.organization,

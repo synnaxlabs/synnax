@@ -166,6 +166,7 @@ describe("issue", () => {
       expect(await events()).toEqual([
         expect.objectContaining({
           kind: "issue",
+          at: NOW,
           actor: "user_staff",
           organization: org.key,
           license: lic.key,
@@ -229,6 +230,7 @@ describe("issue", () => {
       expect(await events()).toEqual([
         expect.objectContaining({
           kind: "amend",
+          at: NOW,
           actor: "user_staff",
           organization: org.key,
           license: lic.key,
@@ -381,6 +383,7 @@ describe("issue", () => {
       expect(await events()).toEqual([
         expect.objectContaining({
           kind: "revoke",
+          at: NOW,
           actor: "user_staff",
           organization: org.key,
           license: lic.key,
@@ -435,6 +438,7 @@ describe("issue", () => {
       expect(await events()).toEqual([
         expect.objectContaining({
           kind: "download",
+          at: NOW,
           actor: "user_staff",
           organization: org.key,
           license: lic.key,

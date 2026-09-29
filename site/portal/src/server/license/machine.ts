@@ -29,11 +29,12 @@ export interface RenameArgs {
   activationKey: string;
   name: string;
   actor: string;
+  now: Date;
 }
 
 export const rename = async (
   store: Store,
-  { activationKey, name, actor }: RenameArgs,
+  { activationKey, name, actor, now }: RenameArgs,
 ): Promise<void> => {
   const [row] = await store.query
     .select({ activation, license })
@@ -47,6 +48,7 @@ export const rename = async (
     .set({ name })
     .where(eq(activation.key, activationKey));
   await store.query.insert(event).values({
+    at: now,
     kind: "rename",
     actor,
     organization: row.license.organization,
