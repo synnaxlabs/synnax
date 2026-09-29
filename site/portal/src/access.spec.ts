@@ -99,10 +99,10 @@ describe("access", () => {
       ]);
     });
 
-    it("should throw a 403 for someone outside the organization", async () => {
+    it("should throw the unknown-license 404 for someone outside the organization", async () => {
       await expect(licenseFor(portal, OUTSIDER, lic.key)).rejects.toMatchObject({
-        status: 403,
-        message: "You are not a member of the organization that owns this license",
+        status: 404,
+        message: "License not found",
       });
     });
 
@@ -125,13 +125,14 @@ describe("access", () => {
       expect(view.organization.key).toBe(org.key);
     });
 
-    it("should throw a 403 for someone outside the organization", async () => {
+    it("should throw the unknown-machine 404 for someone outside the organization", async () => {
       const act = await createActivation(store, {
         license: lic.key,
         fingerprint: [HASH_A],
       });
       await expect(activationFor(portal, OUTSIDER, act.key)).rejects.toMatchObject({
-        status: 403,
+        status: 404,
+        message: "Activation not found",
       });
     });
 

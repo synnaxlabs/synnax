@@ -113,8 +113,8 @@ describe("activation routes", () => {
       h.signIn(OUTSIDER);
       await expectError(
         await call(route, { ...args, params: { key: act.key } }),
-        403,
-        "You are not a member of the organization that owns this license",
+        404,
+        "Activation not found",
       );
     });
 

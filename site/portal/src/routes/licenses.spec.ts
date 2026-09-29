@@ -414,8 +414,8 @@ describe("license routes", () => {
       h.signIn(OUTSIDER);
       await expectError(
         await post(MACHINE),
-        403,
-        "You are not a member of the organization that owns this license",
+        404,
+        "License not found",
       );
     });
 
