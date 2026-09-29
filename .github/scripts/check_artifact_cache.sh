@@ -48,6 +48,22 @@ UNION_PATHS=("${DRIVER_PATHS[@]}" "${CONSOLE_PATHS[@]}" "${CORE_PATHS[@]}")
 
 WORKFLOW_FILES=("ci.yaml" "test.integration.yaml" "build.synnax.yaml")
 
+# Flags of the build this run is about to do. A candidate must have used the same
+# ones, or its binaries are not interchangeable with the ones this build would make.
+DEBUG=${DEBUG:-false}
+SIGN_BINARIES=${SIGN_BINARIES:-false}
+
+# The API does not report a run's inputs, so each flag is read back from the step it
+# gates. Linux drivers are never signed, so that platform has no signing step.
+declare -A DEBUG_STEP=(
+    [linux]="Upload Linux debug symbols"
+    [windows]="Upload Windows debug symbols"
+)
+declare -A SIGN_STEP=(
+    [linux]=""
+    [windows]="Sign Driver (Windows)"
+)
+
 CACHE_DIR=$(mktemp -d)
 trap 'rm -rf "${CACHE_DIR}"' EXIT
 
@@ -130,12 +146,56 @@ run_has_artifacts() {
     return 0
 }
 
+# True when the named step ran to success rather than being skipped by its flag.
+step_ran() {
+    local file=$1
+    local name=$2
+    if [ -z "${name}" ]; then
+        echo false
+        return
+    fi
+    if jq -e --arg n "${name}" \
+        '.jobs[]?.steps[]? | select(.name == $n and .conclusion == "success")' \
+        "${file}" > /dev/null; then
+        echo true
+    else
+        echo false
+    fi
+}
+
+# True when the run built every named platform with this build's flags.
+run_flags_match() {
+    local run_id=$1
+    local os_list=$2
+    if [ -z "${os_list}" ]; then
+        return 0
+    fi
+    local file="${CACHE_DIR}/jobs-${run_id}.json"
+    if [ ! -f "${file}" ]; then
+        gh api "repos/:owner/:repo/actions/runs/${run_id}/jobs?per_page=100" \
+            > "${file}" 2> /dev/null || echo '{}' > "${file}"
+    fi
+    local os sign_step
+    for os in ${os_list}; do
+        if [ "$(step_ran "${file}" "${DEBUG_STEP[${os}]}")" != "${DEBUG}" ]; then
+            return 1
+        fi
+        sign_step=${SIGN_STEP[${os}]}
+        if [ -n "${sign_step}" ] \
+            && [ "$(step_ran "${file}" "${sign_step}")" != "${SIGN_BINARIES}" ]; then
+            return 1
+        fi
+    done
+    return 0
+}
+
 # Prints the newest run with live artifacts for $2 and no diff on the path set.
 # Exact-sha lookups cover this branch. The recent-run scan covers other branches.
 find_reusable_run() {
     local label=$1
     local artifact_names=$2
-    shift 2
+    local flag_os=$3
+    shift 3
 
     local sha run_id
     for sha in ${CANDIDATE_SHAS}; do
@@ -146,7 +206,8 @@ find_reusable_run() {
             if [ "${run_id}" = "${GITHUB_RUN_ID:-}" ]; then
                 continue
             fi
-            if run_has_artifacts "${run_id}" "${artifact_names}"; then
+            if run_has_artifacts "${run_id}" "${artifact_names}" \
+                && run_flags_match "${run_id}" "${flag_os}"; then
                 log "${label}: reusing run ${run_id} (${sha:0:8}, exact sha)"
                 echo "${run_id}"
                 return 0
@@ -167,7 +228,8 @@ find_reusable_run() {
         if ! paths_clean "${sha}" "$@"; then
             continue
         fi
-        if run_has_artifacts "${run_id}" "${artifact_names}"; then
+        if run_has_artifacts "${run_id}" "${artifact_names}" \
+            && run_flags_match "${run_id}" "${flag_os}"; then
             log "${label}: reusing run ${run_id} (${sha:0:8}, clean diff)"
             echo "${run_id}"
             return 0
@@ -201,7 +263,8 @@ main() {
     done | sort -t: -k1 -rn)
 
     local full_run
-    full_run=$(find_reusable_run "full" "${FULL_ARTIFACTS[*]}" "${UNION_PATHS[@]}")
+    full_run=$(find_reusable_run "full" "${FULL_ARTIFACTS[*]}" "${OS_NAMES[*]}" \
+        "${UNION_PATHS[@]}")
     if [ -n "${full_run}" ]; then
         log "✅ Skipping build. Using artifacts from run ${full_run}"
         emit "SKIP_BUILD=true"
@@ -213,11 +276,12 @@ main() {
     # half of a build that also does Ubuntu.
     local driver_ids="{}" console_ids="{}" os run
     for os in "${OS_NAMES[@]}"; do
-        run=$(find_reusable_run "driver ${os}" "synnax-driver-${os}" \
+        run=$(find_reusable_run "driver ${os}" "synnax-driver-${os}" "${os}" \
             "${DRIVER_PATHS[@]}")
         driver_ids=$(jq -c --arg os "${os}" --arg run "${run}" '.[$os] = $run' \
             <<< "${driver_ids}")
-        run=$(find_reusable_run "console ${os}" "synnax-console-assets-${os}" \
+        # Console assets are platform-independent web output, so no flag affects them.
+        run=$(find_reusable_run "console ${os}" "synnax-console-assets-${os}" "" \
             "${CONSOLE_PATHS[@]}")
         console_ids=$(jq -c --arg os "${os}" --arg run "${run}" '.[$os] = $run' \
             <<< "${console_ids}")
