@@ -22,10 +22,10 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var object = ontology.ID{Type: ontology.ResourceTypeBuiltin}
+var object = ontology.ID{Type: ontology.ResourceTypeBuiltin, Key: "license"}
 
 var _ = Describe("Service", Ordered, func() {
-	It("Should refuse retrieval without a retrieve license", func(ctx SpecContext) {
+	It("Should refuse retrieval without a retrieve permission", func(ctx SpecContext) {
 		Expect(apiSvc.Retrieve(
 			AuthedCtx(ctx, freshUser(ctx)),
 			apilicense.RetrieveRequest{},
@@ -63,7 +63,7 @@ var _ = Describe("Service", Ordered, func() {
 		Expect(called).To(BeFalse())
 	})
 
-	It("Should refuse a token without an update license", func(ctx SpecContext) {
+	It("Should refuse a token without an update permission", func(ctx SpecContext) {
 		reader := freshUser(ctx)
 		grantOn(
 			ctx,
