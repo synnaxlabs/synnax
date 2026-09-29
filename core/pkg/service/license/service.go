@@ -136,7 +136,9 @@ type Service struct {
 	// clockBehind is set while the clock is more than Rollback behind the recorded
 	// mark.
 	clockBehind atomic.Bool
-	mu          struct {
+	// loadMu serializes load, so the last load to publish has seen every stored token.
+	loadMu sync.Mutex
+	mu     struct {
 		sync.RWMutex
 		info Info
 	}
@@ -303,6 +305,8 @@ func (s *Service) recordClock(ctx context.Context, now time.Time) error {
 // load applies the stored token that fits this machine. A token that still applies wins
 // over one that no longer does, then the most recently issued wins.
 func (s *Service) load(ctx context.Context) error {
+	s.loadMu.Lock()
+	defer s.loadMu.Unlock()
 	iter, err := s.cfg.OpenIterator(kv.IterPrefix(prefix))
 	if err != nil {
 		return err

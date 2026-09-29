@@ -35,6 +35,23 @@ var (
 	day = 24 * time.Hour
 )
 
+// pausedDB holds the first armed scan after it takes its snapshot, until resume closes.
+type pausedDB struct {
+	kv.DB
+	armed  atomic.Bool
+	paused chan struct{}
+	resume chan struct{}
+}
+
+func (p *pausedDB) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) {
+	iter, err := p.DB.OpenIterator(opts)
+	if p.armed.CompareAndSwap(true, false) {
+		close(p.paused)
+		<-p.resume
+	}
+	return iter, err
+}
+
 func seconds(t time.Time) *uint32 { return new(uint32(t.Unix())) }
 
 func newLicense() license.License {
@@ -374,6 +391,38 @@ var _ = Describe("License", func() {
 				MustSucceed(svc.Activate(ctx, sign(newer)))
 				info := MustSucceed(svc.Activate(ctx, sign(older)))
 				Expect(info.License.Channels).To(BeEquivalentTo(500))
+				Expect(svc.Retrieve().License.Channels).To(BeEquivalentTo(500))
+			},
+		)
+		It(
+			"should hold a load until the one in flight publishes",
+			func(ctx SpecContext) {
+				paused := &pausedDB{
+					DB:     db,
+					paused: make(chan struct{}),
+					resume: make(chan struct{}),
+				}
+				svc := open(ctx, license.ServiceConfig{DB: paused})
+				older, newer := newLicense(), newLicense()
+				older.Channels, newer.Channels = 100, 500
+				newer.Iat = uint32(now.Unix())
+				paused.armed.Store(true)
+				olderDone, newerDone := make(chan struct{}), make(chan struct{})
+				go func() {
+					defer GinkgoRecover()
+					MustSucceed(svc.Activate(ctx, sign(older)))
+					close(olderDone)
+				}()
+				Eventually(paused.paused).Should(BeClosed())
+				go func() {
+					defer GinkgoRecover()
+					MustSucceed(svc.Activate(ctx, sign(newer)))
+					close(newerDone)
+				}()
+				Consistently(newerDone, 100*time.Millisecond).ShouldNot(BeClosed())
+				close(paused.resume)
+				Eventually(olderDone).Should(BeClosed())
+				Eventually(newerDone).Should(BeClosed())
 				Expect(svc.Retrieve().License.Channels).To(BeEquivalentTo(500))
 			},
 		)
