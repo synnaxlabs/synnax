@@ -62,7 +62,9 @@ export interface Sent {
 
 /**
  * sweep mails every due expiry warning and records each one as an event. An
- * organization with nobody to mail is skipped and retried on the next sweep.
+ * organization with nobody to mail is skipped and retried on the next sweep. Each
+ * license is warned under a row lock, so overlapping sweeps send a warning once, and a
+ * failed send leaves the warning due.
  */
 export const sweep = async ({
   store,
@@ -76,28 +78,37 @@ export const sweep = async ({
     .innerJoin(organization, eq(license.organization, organization.key))
     .where(and(isNotNull(license.expiresAt), isNull(license.revokedAt)));
   const sent: Sent[] = [];
-  for (const row of rows) {
-    const notices = await store.query
-      .select()
-      .from(event)
-      .where(and(eq(event.license, row.license.key), eq(event.kind, "expiry_notice")));
-    const days = dueNotice(row.license, notices, now);
-    if (days == null) continue;
-    const to = await recipients(row.organization.key);
-    if (to.length === 0) continue;
-    await mail.send({
-      to,
-      subject: `Your Synnax license expires in ${days} ${days === 1 ? "day" : "days"}`,
-      text: expiryText(row.license, row.organization.name, days),
+  for (const { license: lic, organization: org } of rows) {
+    const { key } = lic;
+    const notice = await store.transact(async (tx): Promise<Sent | null> => {
+      const [locked] = await tx
+        .select()
+        .from(license)
+        .where(eq(license.key, key))
+        .for("update");
+      const notices = await tx
+        .select()
+        .from(event)
+        .where(and(eq(event.license, key), eq(event.kind, "expiry_notice")));
+      const days = dueNotice(locked, notices, now);
+      if (days == null) return null;
+      const to = await recipients(org.key);
+      if (to.length === 0) return null;
+      await tx.insert(event).values({
+        kind: "expiry_notice",
+        actor: "system",
+        organization: org.key,
+        license: key,
+        detail: { days, to },
+      });
+      await mail.send({
+        to,
+        subject: `Your Synnax license expires in ${days} ${days === 1 ? "day" : "days"}`,
+        text: expiryText(locked, org.name, days),
+      });
+      return { license: key, days, to };
     });
-    await store.query.insert(event).values({
-      kind: "expiry_notice",
-      actor: "system",
-      organization: row.organization.key,
-      license: row.license.key,
-      detail: { days, to },
-    });
-    sent.push({ license: row.license.key, days, to });
+    if (notice != null) sent.push(notice);
   }
   return sent;
 };

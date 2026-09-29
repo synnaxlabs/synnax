@@ -32,6 +32,21 @@ export const DENIAL_MESSAGES: Record<Denial, string> = {
 export type Decision =
   { ok: true; existing?: Activation } | { ok: false; reason: Denial };
 
+/**
+ * deny returns why a license can no longer issue a license key at `now`, or undefined
+ * when it can. An expired subscription with a fallback version still issues.
+ */
+export const deny = (license: License, now: Date): Denial | undefined => {
+  if (license.revokedAt != null) return "revoked";
+  if (
+    license.expiresAt != null &&
+    license.expiresAt <= now &&
+    license.maxVersion == null
+  )
+    return "expired";
+  return undefined;
+};
+
 export interface DecideArgs {
   license: License;
   activations: Activation[];
@@ -51,13 +66,8 @@ export const decide = ({
   fingerprint,
   now,
 }: DecideArgs): Decision => {
-  if (license.revokedAt != null) return { ok: false, reason: "revoked" };
-  if (
-    license.expiresAt != null &&
-    license.expiresAt <= now &&
-    license.maxVersion == null
-  )
-    return { ok: false, reason: "expired" };
+  const denial = deny(license, now);
+  if (denial != null) return { ok: false, reason: denial };
   const active = activations.filter((a) => a.releasedAt == null);
   const existing = active.find((a) =>
     a.fingerprint.some((h) => fingerprint.includes(h)),

@@ -42,6 +42,12 @@ describe("issue.validate", () => {
     );
   });
 
+  it("should reject an expiry that is not a valid date", () => {
+    expect(() =>
+      validate({ ...base, expiresAt: new Date("not-a-dateT00:00:00Z") }),
+    ).toThrow("The expiry must be a valid date");
+  });
+
   it("should require a ceiling and forbid an expiry on a perpetual license", () => {
     expect(() =>
       validate({
