@@ -10,8 +10,8 @@
 import { Color } from "@synnaxlabs/lyra/color";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Input } from "@synnaxlabs/lyra/input";
-import { color } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { color, state } from "@synnaxlabs/x";
+import { type ReactElement, useState } from "react";
 
 import { type ColorRef, groupByColor } from "@/platform/multiedit/config";
 import { type ColorValue } from "@/platform/multiedit/selection";
@@ -59,23 +59,44 @@ export interface SelectionColorsProps {
   onChange: (refs: ColorRef[], value: color.Color) => void;
 }
 
+const refID = (ref: ColorRef): string => `${ref.key}.${ref.path}`;
+
+interface Held {
+  id: string;
+  groups: ColorRef[][];
+}
+
 /** A swatch for each color the selection stores. A change recolors every holder. */
 export const SelectionColors = ({
   refs,
   onChange,
 }: SelectionColorsProps): ReactElement | null => {
+  // An open picker holds the grouping, so dragging through another group's color does
+  // not merge the two groups.
+  const [held, setHeld] = useState<Held | null>(null);
   if (refs.length === 0) return null;
+  const live = new Map(refs.map((r) => [refID(r), r]));
+  const groups = held?.groups ?? Array.from(groupByColor(refs).values());
   return (
     <Input.Item label="Selection colors" align="start" padHelpText={false}>
       <Flex.Box x wrap>
-        {Array.from(groupByColor(refs).entries()).map(([hex, group]) => (
-          <Color.Swatch
-            key={`${group[0].key}.${group[0].path}`}
-            value={hex}
-            onChange={(c: color.Color) => onChange(group, c)}
-            onlyChangeOnBlur
-          />
-        ))}
+        {groups.map((group) => {
+          const current = group.flatMap((r) => live.get(refID(r)) ?? []);
+          if (current.length === 0) return null;
+          const id = refID(group[0]);
+          const visible = held?.id === id;
+          return (
+            <Color.Swatch
+              key={id}
+              value={current[0].value}
+              visible={visible}
+              onVisibleChange={(arg) =>
+                setHeld(state.executeSetter(arg, visible) ? { id, groups } : null)
+              }
+              onChange={(c: color.Color) => onChange(current, c)}
+            />
+          );
+        })}
       </Flex.Box>
     </Input.Item>
   );

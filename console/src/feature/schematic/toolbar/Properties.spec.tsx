@@ -406,6 +406,30 @@ describe("Schematic toolbar Properties", () => {
         .toEqual([BLUE, BLUE, GREEN]);
     });
 
+    it("recolors live while the picker is open without merging groups", async () => {
+      const { key } = await renderProperties({
+        nodeKeys: ["n1", "n2"],
+        createConfig: (key) =>
+          key === "n1"
+            ? { ...createBoxConfig(), strokeColor: RED }
+            : { ...createBoxConfig(), strokeColor: GREEN },
+      });
+      await screen.findByText("Selection colors");
+      const [red] = selectionSwatches();
+      const strokes = async (): Promise<Array<string | undefined>> =>
+        await Promise.all(
+          ["n1", "n2"].map(async (k) =>
+            hexOf((await retrieveConfig(key, k)).strokeColor),
+          ),
+        );
+      fireEvent.click(red);
+      const hex = screen.getByLabelText("Hex");
+      fireEvent.change(hex, { target: { value: GREEN.slice(1) } });
+      await expect.poll(strokes).toEqual([GREEN, GREEN]);
+      fireEvent.change(hex, { target: { value: BLUE.slice(1) } });
+      await expect.poll(strokes).toEqual([BLUE, GREEN]);
+    });
+
     it("recolors a state option through Selection colors", async () => {
       const { key } = await renderProperties({
         nodeKeys: ["n1", "n2"],
