@@ -32,33 +32,29 @@ Right-click the channel in the channels toolbar and select **Rename**.
 
   <Fragment slot="python">
 
-Rename channels by key with `channels.rename`, or call `rename` on a channel object.
-
 ```python
-# Rename an already existing channel
-data_channel.rename("new_name")
+# One channel
+client.channels.rename(tank_pressure.key, "ox_tank_pressure")
 
-# Renaming single channel
-client.channels.rename(data_channel.key, "new_name")
-
-# Renaming multiple channels
-client.channels.rename([channel_one.key, channel_two.key], ["name_one", "name_two"])
+# Many channels
+client.channels.rename(
+    [tank_pressure.key, tank_temperature.key],
+    ["ox_tank_pressure", "ox_tank_temperature"],
+)
 ```
 
   </Fragment>
 
   <Fragment slot="typescript">
 
-Rename channels by key with `channels.rename`.
-
 ```typescript
-// Renaming single channel
-await client.channels.rename(dataChannel.key, "new_name");
+// One channel
+await client.channels.rename(tankPressure.key, "ox_tank_pressure");
 
-// Renaming multiple channels
+// Many channels
 await client.channels.rename(
-  [channelOne.key, channelTwo.key],
-  ["name_one", "name_two"],
+  [tankPressure.key, tankTemperature.key],
+  ["ox_tank_pressure", "ox_tank_temperature"],
 );
 ```
 
@@ -66,12 +62,30 @@ await client.channels.rename(
 
 </Client.Tabs>
 
+The new name must follow the [name rules](/reference/channels#names). A rename does not
+change the data of the channel.
+
+### What a rename changes
+
+Plots, schematics, and tasks refer to channels by key. They continue to work after a
+rename.
+
+Calculated channels and Arc programs refer to channels by name. After a rename, a
+calculated channel that uses the old name shows an error. Edit its expression to use the
+new name. A calculated channel keeps its `<name>_time` index when you rename it, and the
+index keeps its old name.
+
+<Note.Note variant="info" className="compact">
+  In an Arc editor, **Rename symbol** on a channel name renames the channel in Synnax.
+  It does not change other Arc programs or calculated channels.
+</Note.Note>
+
 <Divider.Divider x />
 
 ## Delete channels
 
 <Note.Note variant="warning" className="compact">
-  Deleting a channel also deletes all of its stored data. You cannot undo a delete.
+  Deleting a channel also deletes all of its data. You cannot undo a delete.
 </Note.Note>
 
 <Client.Tabs client:load exclude={["cpp"]}>
@@ -87,46 +101,55 @@ Select one or more channels in the channels toolbar. Right-click the selection, 
 
   <Fragment slot="python">
 
-Use the `channels.delete` method. `delete` does not raise an error if a channel is not
-found, so it is safe to call again. Deleting by name deletes **all** channels with that
-name.
-
 ```python
-# Delete by name
-client.channels.delete("my_sensor")
+# By key
+client.channels.delete(tank_pressure.key)
+client.channels.delete([tank_pressure.key, tank_temperature.key])
 
-# Delete multiple by name
-client.channels.delete(["sensor_one", "sensor_two"])
-
-# Delete by key
-client.channels.delete(sensor_three.key)
-
-# Delete multiple by key
-client.channels.delete([sensor_one.key, sensor_two.key, sensor_three.key])
+# By name
+client.channels.delete("tank_pressure")
+client.channels.delete(["tank_pressure", "tank_temperature"])
 ```
+
+A [pattern](/reference/channels/find#find-channels-by-pattern) deletes every channel
+that it matches. `delete("tank_.*")` deletes all channels whose names start with
+`tank_`. `delete` raises no error when a channel does not exist, so you can call it
+again.
 
   </Fragment>
 
   <Fragment slot="typescript">
 
-Use the `channels.delete` method. `delete` does not raise an error if a channel is not
-found, so it is safe to call again. Deleting by name deletes **all** channels with that
-name.
-
 ```typescript
-// Delete by name
-await client.channels.delete("my_sensor");
+// By key
+await client.channels.delete(tankPressure.key);
+await client.channels.delete([tankPressure.key, tankTemperature.key]);
 
-// Delete multiple by name
-await client.channels.delete(["sensor_one", "sensor_two"]);
-
-// Delete by key
-await client.channels.delete(sensor_three.key);
-
-// Delete multiple by key
-await client.channels.delete([sensor_one.key, sensor_two.key, sensor_three.key]);
+// By name
+await client.channels.delete("tank_pressure");
+await client.channels.delete(["tank_pressure", "tank_temperature"]);
 ```
+
+A [pattern](/reference/channels/find#find-channels-by-pattern) deletes every channel
+that it matches. `delete("tank_.*")` deletes all channels whose names start with
+`tank_`. `delete` throws no error when a channel does not exist, so you can call it
+again.
 
   </Fragment>
 
 </Client.Tabs>
+
+### Before you delete
+
+- **Delete data channels before their index.** Synnax does not delete an index channel
+  while data channels use it. To delete both, delete the data channels first, or delete
+  all of them in one call.
+- **Stop tasks and scripts that use the channel.** Synnax does not delete a channel
+  while a writer or a reader has it open.
+- **Update what refers to the channel.** Synnax does not check tasks, Arc programs, or
+  calculated channels before a delete. After the delete, they fail or show an error.
+- **Delete the index of a calculated channel.** When you delete a calculated channel,
+  its `<name>_time` index stays. Delete the index too.
+
+To delete the data in a time range and keep the channel, see
+[delete data](/reference/client/advanced/delete-data).

@@ -10,32 +10,50 @@ import { Note } from "@synnaxlabs/lyra/note";
 import { Fragment } from "react";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Client } from "@/components/client";
-import { Edition } from "@/components";
 import { Video } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
 Most [channels](/reference/channels) come from
-[read tasks](/reference/hardware/tasks#read-tasks), which create their channels for you.
-Create a channel yourself to store data from a script or another source. To make a
-channel that computes its values from other channels, use a
+[tasks](/reference/channels#channels-that-tasks-create), which create their channels for
+you. Create a channel yourself to store data from a script, or to send a live signal
+with a virtual channel. To compute values from other channels, create a
 [calculated channel](/reference/channels/calculated).
 
+<Divider.Divider x />
+
+## Choose an index
+
+Each data channel needs an index channel for its timestamps. You set the index when you
+create the data channel, and you cannot change it later.
+
+- Data channels that you write at the same times can share one index. For example,
+  sensors that one script reads in the same loop.
+- Data channels that you write at different times need different indexes. Give each
+  command channel its own index.
+- Virtual channels have no index.
+
 <Note.Note variant="warning" className="compact">
-  You must create an index channel before the non-virtual data channels that use it.
+  Create the index channel before the data channels that use it.
 </Note.Note>
+
+<Divider.Divider x />
+
+## Create index and data channels
 
 <Client.Tabs client:load exclude={["cpp"]}>
 
   <Fragment slot="console">
 
-Click the <Icon.Add /> button in the
-[channels toolbar](/reference/get-started/ui-overview#channels), or run the "Create
-channel" command in the
-[command palette](/reference/get-started/ui-overview#search-and-command-palette). Enter
-a name, and set the data type and the index channel. Turn on **Is index** to create an
-index channel, or **Virtual** to create a virtual channel. Turn on **Create more** to
-keep the dialog open after each channel.
+1. Click <Icon.Add /> in the
+   [channels toolbar](/reference/get-started/ui-overview#channels), or run the **Create
+   channel** command in the
+   [command palette](/reference/get-started/ui-overview#search-and-command-palette).
+2. Enter a name.
+3. For an index channel, turn on **Is index**. The data type changes to `timestamp`.
+4. For a data channel, select the data type and the index channel.
+5. Click **Create**. To keep the dialog open for the next channel, turn on **Create
+   more** first.
 
 <Video client:only="react" id="client/channels/create" />
 
@@ -44,104 +62,118 @@ keep the dialog open after each channel.
   <Fragment slot="python">
 
 ```python
-import numpy as np, synnax as sy
+import synnax as sy
 
-time_index = client.channels.create(
-    name="time",
+tank_time = client.channels.create(
+    name="tank_time",
     data_type=sy.DataType.TIMESTAMP,
     is_index=True,
 )
 
-sensor_one = sy.Channel(
-    name="sensor_one",
-    data_type=sy.DataType.FLOAT32, # Use Synnax datatypes
-    index=time_index.key,
-)
-
-sensor_two = sy.Channel(
-    name="sensor_two",
-    data_type=np.float32, # Or numpy
-    index=time_index.key,
-)
-
-sensor_three = sy.Channel(
-    name="sensor_three",
-    data_type="float32", # Or strings
-    index=time_index.key,
-)
-
-data_channels = client.channels.create(
-    [sensor_one, sensor_two, sensor_three],
-    retrieve_if_name_exists=True, # Optional
+tank_pressure, tank_temperature = client.channels.create(
+    [
+        sy.Channel(
+            name="tank_pressure",
+            data_type=sy.DataType.FLOAT32,
+            index=tank_time.key,
+        ),
+        sy.Channel(
+            name="tank_temperature",
+            data_type=sy.DataType.FLOAT32,
+            index=tank_time.key,
+        ),
+    ],
+    retrieve_if_name_exists=True,
 )
 ```
 
-<Note.Note variant="info" className="compact">
-  `retrieve_if_name_exists` returns the existing channel if the name already exists.
-</Note.Note>
+`create` takes one channel or a list of channels. One call with a list is faster than
+many calls with one channel each.
+
+With `retrieve_if_name_exists=True`, `create` returns the existing channel when a
+channel with the same name exists. It does not compare the data type or the index. Use
+this option to run the same script many times.
 
   </Fragment>
 
   <Fragment slot="typescript">
 
 ```typescript
-import { Channel } from "@synnaxlabs/client";
+import { DataType } from "@synnaxlabs/client";
 
-const timeIndexChannel = await client.channels.create({
-  name: "time",
+const tankTime = await client.channels.create({
+  name: "tank_time",
   dataType: DataType.TIMESTAMP,
   isIndex: true,
 });
 
-const sensorOne = new Channel({
-  name: "sensor_one",
-  dataType: DataType.FLOAT32,
-  index: timeIndexChannel.key,
-});
-
-const sensorTwo = new Channel({
-  name: "sensor_two",
-  dataType: DataType.FLOAT32,
-  index: timeIndexChannel.key,
-});
-
-const sensorThree = new Channel({
-  name: "sensor_three",
-  dataType: DataType.FLOAT32,
-  index: timeIndexChannel.key,
-});
-
-const sensors = await client.channels.create(
-  [sensorOne, sensorTwo, sensorThree],
-  { retrieveIfNameExists: true }, // optional
+const [tankPressure, tankTemperature] = await client.channels.create(
+  [
+    { name: "tank_pressure", dataType: DataType.FLOAT32, index: tankTime.key },
+    { name: "tank_temperature", dataType: DataType.FLOAT32, index: tankTime.key },
+  ],
+  { retrieveIfNameExists: true },
 );
 ```
 
-<Note.Note variant="info" className="compact">
-  `retrieveIfNameExists` returns the existing channel if the name already exists.
-</Note.Note>
+`create` takes one channel or an array of channels. One call with an array is faster
+than many calls with one channel each.
+
+With `retrieveIfNameExists: true`, `create` returns the existing channel when a channel
+with the same name exists. It does not compare the data type or the index. Use this
+option to run the same script many times.
 
   </Fragment>
 
 </Client.Tabs>
 
-<Edition.Enterprise>
+<Divider.Divider x />
 
-In the client libraries, `create` takes one channel or a list of channels. A list is
-faster than many single calls. The call is atomic, so Synnax creates all of the channels
-or none of them.
+## Create a virtual channel
 
-</Edition.Enterprise>
+A [virtual channel](/reference/channels#virtual-channels) has no index, so you can
+create it at any time.
+
+<Client.Tabs client:load exclude={["cpp"]}>
+
+  <Fragment slot="console">
+
+Open the **Create channel** dialog, enter a name, and select the data type. Turn on
+**Virtual**, then click **Create**.
+
+  </Fragment>
+
+  <Fragment slot="python">
+
+```python
+start_cmd = client.channels.create(
+    name="start_cmd",
+    data_type=sy.DataType.BOOLEAN,
+    virtual=True,
+)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const startCmd = await client.channels.create({
+  name: "start_cmd",
+  dataType: DataType.BOOLEAN,
+  virtual: true,
+});
+```
+
+  </Fragment>
+
+</Client.Tabs>
 
 <Divider.Divider x />
 
-## Channel parameters
+## Next steps
 
-| Parameter                                                                        | Type       | Default                                          | Description                                                                                                                                                                                                         |
-| -------------------------------------------------------------------------------- | ---------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`                                                                           | string     | Required                                         | A human-readable name for the channel. This name is not guaranteed to be unique.                                                                                                                                    |
-| <Client.Var client:load py="data_type" ts="dataType" />                          | `DataType` | Required                                         | The data type of the samples stored in the channel (e.g., `DataType.FLOAT32`, `DataType.TIMESTAMP`).                                                                                                                |
-| <Client.Var client:load py="is_index" ts="isIndex" />                            | boolean    | <Client.Var client:load py="False" ts="false" /> | Set to <Client.Var client:load py="True" ts="true" /> if the channel is an index channel, <Client.Var client:load py="False" ts="false" /> otherwise. Index channels must have a data type of `DataType.TIMESTAMP`. |
-| `index`                                                                          | number     | `0`                                              | The key of the index channel that this channel is associated with. Not required for index channels.                                                                                                                 |
-| `virtual`                                                                        | boolean    | <Client.Var client:load py="False" ts="false" /> | Set to <Client.Var client:load py="True" ts="true" /> if the channel is virtual. Virtual channels do not store data in the database and are used for streaming purposes only.                                       |
-| <Client.Var client:load py="retrieve_if_name_exists" ts="retrieveIfNameExists"/> | boolean    | <Client.Var client:load py="False" ts="false" /> | If <Client.Var client:load py="True" ts="true" />, retrieves the channel if one with the same name already exists instead of creating a duplicate.                                                                  |
+- [Channel properties](/reference/channels/reference#properties) lists each property
+  that you can set.
+- [Write data](/reference/client/write-data) shows how to write samples to the new
+  channels.

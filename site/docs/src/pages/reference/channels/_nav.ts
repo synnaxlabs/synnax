@@ -21,22 +21,27 @@ export const CHANNELS_NAV: PageNavNode = {
     {
       key: "/reference/channels/create",
       href: "/reference/channels/create",
-      name: "Create channels",
+      name: "Create",
     },
     {
       key: "/reference/channels/find",
       href: "/reference/channels/find",
-      name: "Find channels",
+      name: "Find",
     },
     {
       key: "/reference/channels/rename-and-delete",
       href: "/reference/channels/rename-and-delete",
-      name: "Rename and delete channels",
+      name: "Rename and delete",
     },
     {
       key: "/reference/channels/calculated",
       href: "/reference/channels/calculated",
       name: "Calculated channels",
+    },
+    {
+      key: "/reference/channels/reference",
+      href: "/reference/channels/reference",
+      name: "Reference",
     },
   ],
 };

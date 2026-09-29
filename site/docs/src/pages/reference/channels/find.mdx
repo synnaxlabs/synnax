@@ -1,19 +1,22 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Find channels"
-description: "Find channels by name, key, or pattern."
+description: "Find channels by name, key, pattern, or search term."
 clients: ["console", "python", "typescript"]
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
-import { Edition } from "@/components";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Find a channel in the Console to open it, or retrieve it in code to read and write its
-data.
+Find a [channel](/reference/channels) in the Console to open it, or retrieve it in code
+to read and write its data.
+
+<Divider.Divider x />
+
+## Find a channel by name or key
 
 <Client.Tabs client:load exclude={["cpp"]}>
 
@@ -22,68 +25,63 @@ data.
 Find a channel in the [channels toolbar](/reference/get-started/ui-overview#channels).
 To search by name, open the
 [search palette](/reference/get-started/ui-overview#search-and-command-palette) and type
-part of the name. Select a channel in the results to open it in a line plot.
+part of the name. Select a result to open the channel in a line plot. A virtual channel
+opens in a log.
 
   </Fragment>
 
   <Fragment slot="python">
 
 ```python
-# One channel, by key or by name
-my_sensor = client.channels.retrieve(my_sensor.key)
-my_sensor = client.channels.retrieve("my_sensor")
+# One channel, by name or by key
+tank_pressure = client.channels.retrieve("tank_pressure")
+tank_pressure = client.channels.retrieve(tank_pressure.key)
 
-# Many channels, by key or by name
-my_channels = client.channels.retrieve([sensor_one.key, sensor_two.key])
-my_channels = client.channels.retrieve(["sensor_one", "sensor_two"])
-
-# This won't work!
-my_channels = client.channels.retrieve(["sensor_one", sensor_two.key])
+# Many channels, by names or by keys
+channels = client.channels.retrieve(["tank_pressure", "tank_temperature"])
+channels = client.channels.retrieve([tank_pressure.key, tank_temperature.key])
 ```
+
+When you pass one name or key, `retrieve` returns one channel. It raises
+`sy.NotFoundError` when no channel matches. When you pass a list, `retrieve` returns a
+list and leaves out the channels that it does not find.
+
+Pass names or keys, not both in one list. A key never changes, but a name can change.
+Store keys in programs that run for a long time.
 
   </Fragment>
 
   <Fragment slot="typescript">
 
 ```typescript
-// One channel, by key or by name
-const tempChannel = await client.channels.retrieve(tempChannel.key);
-const tempChannel = await client.channels.retrieve("my_temp_sensor");
+// One channel, by name or by key
+const tankPressure = await client.channels.retrieve("tank_pressure");
+const sameChannel = await client.channels.retrieve(tankPressure.key);
 
-// Many channels, by key or by name
-const my_channels = await client.channels.retrieve([sensorOne.key, sensorTwo.key]);
-const my_channels = await client.channels.retrieve(["sensor_one", "sensor_two"]);
-
-// This won't work!
-const my_channels = await client.channels.retrieve(["sensor_one", sensor_two.key]);
+// Many channels, by names or by keys
+const byName = await client.channels.retrieve(["tank_pressure", "tank_temperature"]);
+const byKey = await client.channels.retrieve([tankPressure.key, sameChannel.key]);
 ```
+
+When you pass one name or key, `retrieve` returns one channel. It throws a
+`NotFoundError` when no channel matches. When you pass an array, `retrieve` returns an
+array and leaves out the channels that it does not find.
+
+Pass names or keys, not both in one array. A key never changes, but a name can change.
+Store keys in programs that run for a long time.
 
   </Fragment>
 
 </Client.Tabs>
 
-<Edition.Enterprise>
-
-In the client libraries, pass one or more names or keys to `retrieve`. Retrieving by key
-is faster than retrieving by name. If you pass one key or name, the client raises a
-`NotFoundError` when no channel matches and a `MultipleFoundError` when more than one
-channel matches. If you pass a list, the client raises no error and leaves missing
-channels out of the results. You can also retrieve channels from a
-[range](/reference/ranges/data#read-from-a-range).
-
-</Edition.Enterprise>
-
 <Divider.Divider x />
 
-## Regular expressions
+## Find channels by pattern
 
-<Edition.Enterprise>
-
-The client libraries accept regular expressions as names. Synnax treats a name that
-starts with `^` or ends with `$` as a pattern. Pass the pattern in a list, or the client
-raises a `MultipleFoundError` when more than one channel matches.
-
-</Edition.Enterprise>
+A name that is not a valid [channel name](/reference/channels#names) is a regular
+expression, in [Go RE2 syntax](https://github.com/google/re2/wiki/Syntax). The pattern
+must match the full name, unless it starts with `^` or ends with `$`. For example,
+`tank_.*` matches `tank_pressure` and `tank_time`, but not `ox_tank_pressure`.
 
 <Client.Tabs client:load exclude={["console", "cpp"]}>
 
@@ -91,8 +89,11 @@ raises a `MultipleFoundError` when more than one channel matches.
 
 ```python
 # Returns list[sy.Channel]
-sensor_channels = client.channels.retrieve(["^sensor.*"])
+tank_channels = client.channels.retrieve(["tank_.*"])
 ```
+
+Put the pattern in a list. With a pattern that is not in a list, `retrieve` raises
+`sy.MultipleFoundError` when more than one channel matches.
 
   </Fragment>
 
@@ -100,9 +101,61 @@ sensor_channels = client.channels.retrieve(["^sensor.*"])
 
 ```typescript
 // Returns Channel[]
-const sensorChannels = await client.channels.retrieve(["^sensor.*"]);
+const tankChannels = await client.channels.retrieve(["tank_.*"]);
 ```
+
+Put the pattern in an array. With a pattern that is not in an array, `retrieve` throws a
+`MultipleFoundError` when more than one channel matches.
 
   </Fragment>
 
 </Client.Tabs>
+
+<Divider.Divider x />
+
+## Search and filter channels
+
+The TypeScript client can search channels by a part of their name, and filter them by
+their properties.
+
+<Client.Tabs client:load exclude={["console", "python", "cpp"]}>
+
+  <Fragment slot="typescript">
+
+```typescript
+import { DataType } from "@synnaxlabs/client";
+
+// The ten best matches for "pressure"
+const matches = await client.channels.retrieve({ searchTerm: "pressure", limit: 10 });
+
+// All float32 data channels
+const floats = await client.channels.retrieve({
+  dataTypes: [DataType.FLOAT32],
+  isIndex: false,
+});
+```
+
+| Filter         | Returns channels that                                             |
+| -------------- | ----------------------------------------------------------------- |
+| `searchTerm`   | Have a name that is similar to the term.                          |
+| `dataTypes`    | Have one of these data types.                                     |
+| `notDataTypes` | Do not have any of these data types.                              |
+| `isIndex`      | Are index channels (`true`) or are not (`false`).                 |
+| `virtual`      | Are virtual channels. Calculated channels are not in the results. |
+| `internal`     | Are channels that Synnax uses for itself (`true`) or are not.     |
+| `limit`        | Are in the first `limit` results.                                 |
+| `offset`       | Come after the first `offset` results.                            |
+
+Synnax returns only the channels that match all of the filters.
+
+  </Fragment>
+
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Find the channels of a range
+
+A range can give channels a different name, called an
+[alias](/reference/ranges/aliases). To find channels by alias, or to read their data in
+a range, see [read and write range data](/reference/ranges/data).
