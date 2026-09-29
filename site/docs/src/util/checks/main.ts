@@ -90,9 +90,7 @@ const record = (check: string, messages: string[]): void => {
 
 // An outage on an outside host proves nothing about the link, so it warns instead of
 // failing the run.
-let warnings = 0;
-const warn = (message: string): void => {
-  warnings += 1;
+const warnUnverified = (message: string): void => {
   if (process.stdout.isTTY) process.stdout.write("\r\x1b[2K");
   console.warn(`${styleText(["yellow", "bold"], "unverified")} ${message}`);
 };
@@ -124,10 +122,14 @@ try {
     baseURL = `http://localhost:${server.port}`;
     console.log(styleText("dim", `serving dist/ at ${baseURL}`));
   }
+  let warnings = 0;
   const ctx: Context = {
     routes: new Set(routes.map(normalizeRoute)),
     baseURL,
-    fetchOk: createFetcher(baseURL, warn),
+    fetchOk: createFetcher(baseURL, (message) => {
+      warnings += 1;
+      warnUnverified(message);
+    }),
   };
   console.log(styleText("dim", `crawling ${routes.length} routes...`));
   const { pages, failures } = await crawlPages(baseURL, routes);

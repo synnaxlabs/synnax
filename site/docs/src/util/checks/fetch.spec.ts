@@ -79,6 +79,21 @@ describe("createFetcher", () => {
     expect(await result).toBe(`${LINK}: ENOTFOUND`);
   });
 
+  it("should warn instead of failing on a host its breaker skipped", async () => {
+    const hung = vi.fn().mockRejectedValue(networkError("ECONNRESET"));
+    vi.stubGlobal("fetch", hung);
+    const fetchOk = fetcher();
+    for (const path of ["a", "b", "c"]) {
+      const result = fetchOk(`${LINK}/${path}`);
+      await vi.advanceTimersByTimeAsync(3_000);
+      await result;
+    }
+    const calls = hung.mock.calls.length;
+    expect(await fetchOk(`${LINK}/d`)).toBeNull();
+    expect(hung).toHaveBeenCalledTimes(calls);
+    expect(warnings).toContain(`${LINK}/d: skipped, example.com stopped answering`);
+  });
+
   it("should fail a link to a missing anchor", async () => {
     stub(200);
     expect(await fetcher()(`${LINK}#absent`)).toBe(
