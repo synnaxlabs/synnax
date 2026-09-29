@@ -84,8 +84,6 @@ protected:
         return tio;
     }
 
-    [[nodiscard]] const std::string &terminal_path() const { return this->terminal; }
-
     void close_peer() {
         if (this->controller >= 0) ::close(this->controller);
         this->controller = -1;

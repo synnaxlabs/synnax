@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <chrono>
-#include <optional>
+#include <initializer_list>
 #include <string>
 #include <system_error>
 #include <thread>
@@ -22,35 +23,11 @@
 
 namespace driver::serial {
 namespace {
-using Base = asio::serial_port_base;
-
-std::optional<Base::parity::type> parity(const std::string &value) {
-    if (value == synnax::serial::PARITY_NONE_) return Base::parity::none;
-    if (value == synnax::serial::PARITY_EVEN_) return Base::parity::even;
-    if (value == synnax::serial::PARITY_ODD_) return Base::parity::odd;
-    return std::nullopt;
-}
-
-bool mark_or_space(const std::string &value) {
-    return value == synnax::serial::PARITY_MARK_ ||
-           value == synnax::serial::PARITY_SPACE_;
-}
-
-std::optional<Base::stop_bits::type> stop_bits(const std::string &value) {
-    if (value == synnax::serial::STOP_BITS_ONE) return Base::stop_bits::one;
-    if (value == synnax::serial::STOP_BITS_ONE_AND_HALF)
-        return Base::stop_bits::onepointfive;
-    if (value == synnax::serial::STOP_BITS_TWO) return Base::stop_bits::two;
-    return std::nullopt;
-}
-
-std::optional<native::FlowControl> flow_control(const std::string &value) {
-    if (value == synnax::serial::FLOW_CONTROL_NONE) return native::FlowControl::NONE;
-    if (value == synnax::serial::FLOW_CONTROL_SOFTWARE)
-        return native::FlowControl::SOFTWARE;
-    if (value == synnax::serial::FLOW_CONTROL_HARDWARE)
-        return native::FlowControl::HARDWARE;
-    return std::nullopt;
+bool one_of(
+    const std::string &value,
+    const std::initializer_list<const char *> options
+) {
+    return std::ranges::any_of(options, [&value](const char *o) { return value == o; });
 }
 
 x::errors::Error invalid(const std::string &message) {
@@ -64,11 +41,28 @@ x::errors::Error validate(const synnax::serial::Properties &p) {
         return invalid(
             "data bits must be 5, 6, 7, or 8, got " + std::to_string(p.data_bits)
         );
-    if (!parity(p.parity) && !mark_or_space(p.parity))
+    if (!one_of(
+            p.parity,
+            {synnax::serial::PARITY_NONE_,
+             synnax::serial::PARITY_EVEN_,
+             synnax::serial::PARITY_ODD_,
+             synnax::serial::PARITY_MARK_,
+             synnax::serial::PARITY_SPACE_}
+        ))
         return invalid("unknown parity '" + p.parity + "'");
-    if (!stop_bits(p.stop_bits))
+    if (!one_of(
+            p.stop_bits,
+            {synnax::serial::STOP_BITS_ONE,
+             synnax::serial::STOP_BITS_ONE_AND_HALF,
+             synnax::serial::STOP_BITS_TWO}
+        ))
         return invalid("unknown stop bits '" + p.stop_bits + "'");
-    if (!flow_control(p.flow_control))
+    if (!one_of(
+            p.flow_control,
+            {synnax::serial::FLOW_CONTROL_NONE,
+             synnax::serial::FLOW_CONTROL_SOFTWARE,
+             synnax::serial::FLOW_CONTROL_HARDWARE}
+        ))
         return invalid("unknown flow control '" + p.flow_control + "'");
     if (p.rs485 && p.flow_control == synnax::serial::FLOW_CONTROL_HARDWARE)
         return invalid(
@@ -83,45 +77,6 @@ native::Handle to_native(const NativeHandle handle) {
         return reinterpret_cast<native::Handle>(handle);
     else
         return static_cast<native::Handle>(handle);
-}
-
-x::errors::Error
-configure(asio::serial_port &device, const synnax::serial::Properties &p) {
-    const auto failed = [&p](const std::string &setting, const std::error_code &ec) {
-        return transport::error(
-            transport::CONFIG_ERROR,
-            "failed to set " + setting + " on " + p.port,
-            ec
-        );
-    };
-    std::error_code ec;
-    device.set_option(Base::character_size(p.data_bits), ec);
-    if (ec) return failed(std::to_string(p.data_bits) + " data bits", ec);
-    if (const auto standard = parity(p.parity)) {
-        device.set_option(Base::parity(*standard), ec);
-        if (ec) return failed(p.parity + " parity", ec);
-    }
-    device.set_option(Base::stop_bits(*stop_bits(p.stop_bits)), ec);
-    if (ec) return failed(p.stop_bits + " stop bits", ec);
-    const auto handle = to_native(device.native_handle());
-    ec = native::set_flow_control(handle, *flow_control(p.flow_control));
-    if (ec) return failed(p.flow_control + " flow control", ec);
-    device.set_option(Base::baud_rate(p.baud_rate), ec);
-    if (ec == asio::error::invalid_argument)
-        ec = native::set_baud_rate(handle, p.baud_rate);
-    if (ec) return failed("baud rate " + std::to_string(p.baud_rate), ec);
-    if (mark_or_space(p.parity)) {
-        ec = native::set_mark_space_parity(
-            handle,
-            p.parity == synnax::serial::PARITY_MARK_
-        );
-        if (ec) return failed(p.parity + " parity", ec);
-    }
-    if (p.rs485) {
-        ec = native::enable_rs485(handle);
-        if (ec) return failed("RS-485 mode", ec);
-    }
-    return x::errors::NIL;
 }
 }
 
@@ -140,7 +95,8 @@ Port::open(const synnax::serial::Properties &props) {
                 ec
             )
         };
-    if (auto err = configure(port->device, props)) return {nullptr, err};
+    if (auto err = native::configure(to_native(port->device.native_handle()), props))
+        return {nullptr, err};
     return {std::move(port), x::errors::NIL};
 }
 

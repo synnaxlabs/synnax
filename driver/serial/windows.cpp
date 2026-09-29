@@ -12,62 +12,72 @@
 
 #include <windows.h>
 
+#include "driver/serial/line.h"
 #include "driver/serial/native.h"
 #include "driver/serial/scan.h"
+#include "driver/transport/errors.h"
 
 namespace driver::serial {
+namespace line {
+x::errors::Error apply(const synnax::serial::Properties &props, Settings &settings) {
+    settings.BaudRate = props.baud_rate;
+    settings.ByteSize = props.data_bits;
+    const auto &parity = props.parity;
+    settings.fParity = parity != synnax::serial::PARITY_NONE_;
+    if (parity == synnax::serial::PARITY_NONE_) settings.Parity = NOPARITY;
+    if (parity == synnax::serial::PARITY_EVEN_) settings.Parity = EVENPARITY;
+    if (parity == synnax::serial::PARITY_ODD_) settings.Parity = ODDPARITY;
+    if (parity == synnax::serial::PARITY_MARK_) settings.Parity = MARKPARITY;
+    if (parity == synnax::serial::PARITY_SPACE_) settings.Parity = SPACEPARITY;
+    if (props.stop_bits == synnax::serial::STOP_BITS_ONE)
+        settings.StopBits = ONESTOPBIT;
+    if (props.stop_bits == synnax::serial::STOP_BITS_ONE_AND_HALF)
+        settings.StopBits = ONE5STOPBITS;
+    if (props.stop_bits == synnax::serial::STOP_BITS_TWO)
+        settings.StopBits = TWOSTOPBITS;
+    const auto &flow = props.flow_control;
+    settings.fOutxDsrFlow = FALSE;
+    settings.fDsrSensitivity = FALSE;
+    settings.fDtrControl = DTR_CONTROL_ENABLE;
+    settings.fTXContinueOnXoff = TRUE;
+    settings.fOutX = flow == synnax::serial::FLOW_CONTROL_SOFTWARE;
+    settings.fInX = flow == synnax::serial::FLOW_CONTROL_SOFTWARE;
+    settings.fOutxCtsFlow = flow == synnax::serial::FLOW_CONTROL_HARDWARE;
+    settings.fRtsControl = flow == synnax::serial::FLOW_CONTROL_HARDWARE
+                             ? RTS_CONTROL_HANDSHAKE
+                             : RTS_CONTROL_ENABLE;
+    if (props.rs485) settings.fRtsControl = RTS_CONTROL_TOGGLE;
+    return x::errors::NIL;
+}
+}
+
 namespace native {
 namespace {
-std::error_code last_error() {
-    return {static_cast<int>(::GetLastError()), std::system_category()};
+x::errors::Error failed(const std::string &port) {
+    return transport::error(
+        transport::CONFIG_ERROR,
+        "failed to set the line settings on " + port,
+        {static_cast<int>(::GetLastError()), std::system_category()}
+    );
+}
 }
 
-template<typename Edit>
-std::error_code edit_dcb(const Handle handle, Edit &&edit) {
+x::errors::Error
+configure(const Handle handle, const synnax::serial::Properties &props) {
     const auto h = reinterpret_cast<HANDLE>(handle);
-    DCB dcb{};
-    dcb.DCBlength = sizeof(DCB);
-    if (!::GetCommState(h, &dcb)) return last_error();
-    edit(dcb);
-    if (!::SetCommState(h, &dcb)) return last_error();
-    return {};
-}
-}
-
-std::error_code set_flow_control(const Handle handle, const FlowControl mode) {
-    return edit_dcb(handle, [mode](DCB &dcb) {
-        dcb.fOutxDsrFlow = FALSE;
-        dcb.fDsrSensitivity = FALSE;
-        dcb.fDtrControl = DTR_CONTROL_ENABLE;
-        dcb.fTXContinueOnXoff = TRUE;
-        dcb.fOutX = mode == FlowControl::SOFTWARE;
-        dcb.fInX = mode == FlowControl::SOFTWARE;
-        dcb.fOutxCtsFlow = mode == FlowControl::HARDWARE;
-        dcb.fRtsControl = mode == FlowControl::HARDWARE ? RTS_CONTROL_HANDSHAKE
-                                                        : RTS_CONTROL_ENABLE;
-    });
-}
-
-std::error_code set_baud_rate(const Handle handle, const std::uint32_t rate) {
-    return edit_dcb(handle, [rate](DCB &dcb) { dcb.BaudRate = rate; });
-}
-
-std::error_code set_mark_space_parity(const Handle handle, const bool mark) {
-    return edit_dcb(handle, [mark](DCB &dcb) {
-        dcb.fParity = TRUE;
-        dcb.Parity = mark ? MARKPARITY : SPACEPARITY;
-    });
-}
-
-std::error_code enable_rs485(const Handle handle) {
-    return edit_dcb(handle, [](DCB &dcb) { dcb.fRtsControl = RTS_CONTROL_TOGGLE; });
+    line::Settings settings{};
+    settings.DCBlength = sizeof(DCB);
+    if (!::GetCommState(h, &settings)) return failed(props.port);
+    if (auto err = line::apply(props, settings)) return err;
+    if (!::SetCommState(h, &settings)) return failed(props.port);
+    return x::errors::NIL;
 }
 
 std::pair<std::size_t, std::error_code> queued_output(const Handle handle) {
     DWORD errors = 0;
     COMSTAT stat{};
     if (!::ClearCommError(reinterpret_cast<HANDLE>(handle), &errors, &stat))
-        return {0, last_error()};
+        return {0, {static_cast<int>(::GetLastError()), std::system_category()}};
     return {stat.cbOutQue, {}};
 }
 }

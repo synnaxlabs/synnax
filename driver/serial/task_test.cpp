@@ -13,6 +13,7 @@
 
 #include "gtest/gtest.h"
 
+#include "client/cpp/serial/json.gen.h"
 #include "x/cpp/test/test.h"
 
 #include "driver/bus/read.h"

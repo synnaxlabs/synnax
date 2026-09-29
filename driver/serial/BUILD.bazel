@@ -21,6 +21,7 @@ cc_library(
         "@platforms//os:windows": ["windows.cpp"],
     }),
     hdrs = [
+        "line.h",
         "port.h",
         "scan.h",
     ],
@@ -67,10 +68,7 @@ cc_test(
         "port_test.cpp",
         "pty.h",
     ] + select({
-        "@platforms//os:linux": [
-            "linux_test.cpp",
-            "termios2.cpp",
-        ],
+        "@platforms//os:linux": ["linux_test.cpp"],
         "@platforms//os:macos": ["macos_test.cpp"],
         "//conditions:default": [],
     }),
@@ -80,6 +78,22 @@ cc_test(
     }),
     deps = [
         ":serial",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "line_test",
+    size = "small",
+    srcs = select({
+        "@platforms//os:linux": ["line_linux_test.cpp"],
+        "@platforms//os:macos": ["line_macos_test.cpp"],
+        "@platforms//os:windows": ["line_windows_test.cpp"],
+    }),
+    deps = [
+        ":serial",
+        "//driver/transport",
         "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
