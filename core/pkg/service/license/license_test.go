@@ -14,6 +14,7 @@ import (
 	"crypto/rand"
 	"reflect"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 	"uuid"
@@ -403,6 +404,8 @@ var _ = Describe("License", func() {
 					resume: make(chan struct{}),
 				}
 				svc := open(ctx, license.ServiceConfig{DB: paused})
+				release := sync.OnceFunc(func() { close(paused.resume) })
+				DeferCleanup(release)
 				older, newer := newLicense(), newLicense()
 				older.Channels, newer.Channels = 100, 500
 				newer.Iat = uint32(now.Unix())
@@ -420,7 +423,7 @@ var _ = Describe("License", func() {
 					close(newerDone)
 				}()
 				Consistently(newerDone, 100*time.Millisecond).ShouldNot(BeClosed())
-				close(paused.resume)
+				release()
 				Eventually(olderDone).Should(BeClosed())
 				Eventually(newerDone).Should(BeClosed())
 				Expect(svc.Retrieve().License.Channels).To(BeEquivalentTo(500))
