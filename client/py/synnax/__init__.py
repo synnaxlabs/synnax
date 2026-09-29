@@ -10,6 +10,8 @@
 from importlib.metadata import version as _version
 
 from synnax import (
+    bus,
+    can,
     ethercat,
     http,
     labjack,
@@ -18,7 +20,10 @@ from synnax import (
     node,
     opcua,
     pagerduty,
+    serial,
     status,
+    tcp,
+    udp,
 )
 from synnax.access.policy import Policy
 from synnax.access.role import Role
@@ -186,6 +191,8 @@ __all__ = [
     "ValidationError",
     "Writer",
     "WriterMode",
+    "bus",
+    "can",
     "color",
     "ethercat",
     "http",
@@ -195,6 +202,9 @@ __all__ = [
     "node",
     "opcua",
     "pagerduty",
+    "serial",
+    "tcp",
+    "udp",
     "ontology",
     "status",
     "Status",
