@@ -35,7 +35,7 @@ a single channel.
 
 Here are a few simple ways to construct a series:
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -111,7 +111,7 @@ not behave as expected.
 
 ### Native array interop
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -182,7 +182,7 @@ console.log(jsArray); // [ { a: 'one', b: 'two', c: 'three' } ]
 
 ### Accessing data elements
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -220,18 +220,17 @@ console.log(series.at(-1)); // 5
 
 ### The time range property
 
-Whenever you read a series from Synnax, it will have a <Client.Var client:load
-py="time_range" ts="timeRange" /> property that represents the time range occupied by
-the samples in the Series. This property can be useful for getting a high-level
-understanding of when the samples were recorded without needing to query an index
-channel.
+Whenever you read a series from Synnax, it will have a <Client.Var py="time_range"
+ts="timeRange" /> property that represents the time range occupied by the samples in the
+Series. This property can be useful for getting a high-level understanding of when the
+samples were recorded without needing to query an index channel.
 
 The `start` field represents the timestamp for the first sample, and the `end` field
 represents a timestamp just after the last sample (start-inclusive, end-exclusive).
 
 It's also easy to define a time range when constructing a series:
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
   <Fragment slot="python">
 
 ```python
@@ -267,7 +266,7 @@ const series = new Series({
 
 ### Other useful properties
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -354,7 +353,7 @@ console.log(series.bounds); // { lower: 1, upper: 5 }
 
 ## Frames
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -382,7 +381,7 @@ instance (`client.openIterator`).
 A frame maps the key or name of a channel to one or more series. Here are a few examples
 of how to construct a frame:
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -449,7 +448,7 @@ const frame = new Frame({
 
 ### Accessing frame data
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -543,7 +542,7 @@ const obj = frame.at(3, true); // Throws an error
 
 ### Type-safe access (TypeScript only)
 
-<Client.Tabs client:load exclude={["cpp","console","python"]}>
+<Client.Tabs exclude={["cpp","console","python"]}>
 
   <Fragment slot="typescript">
 

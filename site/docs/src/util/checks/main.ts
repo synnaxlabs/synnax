@@ -21,12 +21,13 @@ import fs from "fs";
 import { styleText } from "util";
 
 import { type Check, type Context } from "@/util/checks/check";
-import { crawlPages, enumerateRoutes, normalizeRoute } from "@/util/checks/crawl";
+import { crawlPages, enumerateRoutes } from "@/util/checks/crawl";
 import { createFetcher } from "@/util/checks/fetch";
 import { links } from "@/util/checks/links";
 import { media } from "@/util/checks/media";
 import { notes } from "@/util/checks/notes";
 import { tabs } from "@/util/checks/tabs";
+import { normalizeRoute } from "@/util/route";
 
 const PORT = 4399;
 // A trailing slash would defeat the fetcher's prefix-matched localhost bypass.
