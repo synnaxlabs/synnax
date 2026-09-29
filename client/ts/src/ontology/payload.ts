@@ -145,6 +145,9 @@ export const relationshipToString = (relationship: Relationship) =>
 /** Relationship type joining a parent resource to its children. */
 export const PARENT_OF_RELATIONSHIP_TYPE = "parent";
 
+/** Relationship type joining a resource to one it reads, such as a task to a library. */
+export const USES_RELATIONSHIP_TYPE = "uses";
+
 /** A relationship pattern. An absent field, or field part, matches anything. */
 export interface MatchRelationshipParams {
   from?: Partial<ID>;

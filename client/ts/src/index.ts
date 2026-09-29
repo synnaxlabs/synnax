@@ -34,6 +34,7 @@ export {
   isConnectionError,
   MultipleFoundError,
   NotFoundError,
+  PathError,
   QueryError,
   RouteError,
   UnexpectedError,

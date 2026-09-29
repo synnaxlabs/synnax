@@ -109,6 +109,13 @@ describe("Runtime files", () => {
       picker.cancel();
       await p;
     });
+
+    it("should accept every extension in a list", async () => {
+      const p = Runtime.pickFiles({ title: "Pick", extension: ["dbc", "csv"] });
+      expect(picker.lastInput().accept).toBe(".dbc,.csv");
+      picker.cancel();
+      await p;
+    });
   });
 
   describe("pickFiles (tauri)", () => {
@@ -142,6 +149,16 @@ describe("Runtime files", () => {
       });
       assertDefined(result);
       expect(result.map((f) => f.path)).toEqual(["one.json", "two.json"]);
+    });
+
+    it("should filter the dialog on every extension in a list", async () => {
+      openMock.mockResolvedValue(null);
+      await Runtime.pickFiles({ title: "Pick", extension: ["dbc", "csv"] });
+      expect(openMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          filters: [{ name: "DBC, CSV", extensions: ["dbc", "csv"] }],
+        }),
+      );
     });
 
     it("should return null when the dialog resolves an empty array", async () => {

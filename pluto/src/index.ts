@@ -22,6 +22,7 @@ export { Flux } from "@/flux";
 export { Group } from "@/group";
 export { JSON } from "@/json";
 export { Label } from "@/label";
+export { Library } from "@/library";
 export { LinePlot } from "@/lineplot";
 export { Log } from "@/log";
 export { Mosaic } from "@/mosaic";

@@ -152,6 +152,59 @@ describe("library", () => {
     });
   });
 
+  describe("import", () => {
+    const encode = (text: string): Uint8Array => new TextEncoder().encode(text);
+
+    it("should import messages from a CSV field table", async () => {
+      const lib = await client.libraries.create({ name: "Import" });
+      const csv = [
+        "message,id,length,field,start_bit,bit_length,scale,units",
+        "Engine,256,8,Rpm,0,16,0.25,rpm",
+        "Engine,256,8,Temp,16,8,1,degC",
+      ].join("\n");
+      const imported = await client.libraries.import(lib.key, "csv", encode(csv));
+      expect(imported.key).toEqual(lib.key);
+      expect(imported.entries).toHaveLength(1);
+      const [msg] = imported.entries;
+      if (msg.kind !== "message") throw new Error("expected a message entry");
+      expect(msg.name).toEqual("Engine");
+      expect(msg.fields.map((f) => f.name)).toEqual(["Rpm", "Temp"]);
+      expect(msg.fields[0]).toMatchObject({ startBit: 0, bitLength: 16, scale: 0.25 });
+      expect(await client.libraries.retrieve(lib.key)).toEqual(imported);
+    });
+
+    it("should import messages and value tables from a DBC file", async () => {
+      const lib = await client.libraries.create({ name: "Import" });
+      const dbc = [
+        'VERSION ""',
+        "BS_:",
+        "BU_: Ecu",
+        'VAL_TABLE_ GearTable 0 "Park" 1 "Drive" ;',
+        "BO_ 256 Engine: 8 Ecu",
+        ' SG_ Rpm : 0|16@1+ (0.25,0) [0|16383.75] "rpm" Ecu',
+        "",
+      ].join("\n");
+      const imported = await client.libraries.import(lib.key, "dbc", encode(dbc));
+      const names = imported.entries.map((e) => `${e.kind}:${e.name}`).sort();
+      expect(names).toEqual(["enum:GearTable", "message:Engine"]);
+    });
+
+    it("should keep entry keys across a second import", async () => {
+      const lib = await client.libraries.create({ name: "Import" });
+      const csv = encode("message,field,start_bit,bit_length\nEngine,Rpm,0,16");
+      const first = await client.libraries.import(lib.key, "csv", csv);
+      const second = await client.libraries.import(lib.key, "csv", csv);
+      expect(second.entries[0].key).toEqual(first.entries[0].key);
+    });
+
+    it("should reject a document that does not parse", async () => {
+      const lib = await client.libraries.create({ name: "Import" });
+      await expect(client.libraries.import(lib.key, "csv", encode(""))).rejects.toThrow(
+        PathError,
+      );
+    });
+  });
+
   describe("delete", () => {
     it("should delete a library", async () => {
       const lib = await client.libraries.create(createNew());

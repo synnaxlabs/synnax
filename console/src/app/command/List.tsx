@@ -19,6 +19,7 @@ import { Embedded } from "@/feature/embedded";
 import { Framer } from "@/feature/framer";
 import { Import } from "@/feature/import";
 import { Label } from "@/feature/label";
+import { Library } from "@/feature/library";
 import { LinePlot } from "@/feature/lineplot";
 import { Log } from "@/feature/log";
 import { Panel } from "@/feature/panel";
@@ -32,6 +33,7 @@ import { Task } from "@/feature/task";
 import { Theme } from "@/feature/theme";
 import { User } from "@/feature/user";
 import { Version } from "@/feature/version";
+import { FLAGS } from "@/flags";
 import { type Palette } from "@/platform/palette";
 
 const COMMANDS: Command.Command[] = [
@@ -41,6 +43,7 @@ const COMMANDS: Command.Command[] = [
   ...Docs.COMMANDS,
   ...Framer.COMMANDS,
   ...Import.COMMANDS,
+  ...(FLAGS.library ? Library.COMMANDS : []),
   ...Label.COMMANDS,
   ...LinePlot.COMMANDS,
   ...Log.COMMANDS,

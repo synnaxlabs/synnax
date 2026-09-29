@@ -10,12 +10,14 @@
 import { Arc } from "@/feature/arc";
 import { Channel } from "@/feature/channel";
 import { Device } from "@/feature/device";
+import { Library } from "@/feature/library";
 import { Panel } from "@/feature/panel";
 import { Project } from "@/feature/project";
 import { Range } from "@/feature/range";
 import { Status } from "@/feature/status";
 import { Task } from "@/feature/task";
 import { User } from "@/feature/user";
+import { FLAGS } from "@/flags";
 import { type Nav } from "@/platform/nav";
 
 export const DEFAULT_SIZE = 200;
@@ -27,6 +29,7 @@ export const LEFT: Nav.Toolbar[] = [
   Device.TOOLBAR,
   Task.TOOLBAR,
   Arc.TOOLBAR,
+  ...(FLAGS.library ? [Library.TOOLBAR] : []),
   Status.TOOLBAR,
   ...(DESKTOP ? [] : [User.TOOLBAR]),
 ];
