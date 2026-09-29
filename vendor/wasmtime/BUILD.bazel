@@ -11,7 +11,10 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
 genrule(
     name = "build_wasmtime",
-    srcs = glob(["wasmtime/**"]),
+    srcs = glob(
+        ["wasmtime/**"],
+        allow_empty = True,
+    ),
     outs = [
         "lib/wasmtime.lib",
         "lib/libwasmtime.a",

@@ -11,8 +11,8 @@ import path from "node:path";
 import { parseArgs } from "node:util";
 
 import { OUT_ROOT, ROOT, run } from "@/cli/common";
-import { loadTimeline, runCapture, runFilmRender } from "@/cli/pipeline";
-import { DSF, edit as parseEdit, overlays as parseOverlays } from "@/film";
+import { loadTimeline, runCapture, runFilmRender, runFilmStills } from "@/cli/pipeline";
+import { DSF, edit as parseEdit, formatZ, overlays as parseOverlays } from "@/film";
 import { type Timeline } from "@/timeline";
 
 const usage = `usage: pnpm film <id> [options]
@@ -23,7 +23,10 @@ const usage = `usage: pnpm film <id> [options]
   --port <n>        core port (default 9095)
   --headed          run the capture browser headed
   --skip-capture    re-plan and re-render from the last capture
-  --draft           fast review render: higher crf + fast encoder preset`;
+  --draft           fast review render: higher crf + fast encoder preset
+  --stills <s,...>  render only stills at these film times in seconds, into
+                    out/films/<id>-stills/
+  --no-render       capture only`;
 
 const main = async (): Promise<void> => {
   const { values, positionals } = parseArgs({
@@ -35,6 +38,8 @@ const main = async (): Promise<void> => {
       headed: { type: "boolean", default: false },
       "skip-capture": { type: "boolean", default: false },
       draft: { type: "boolean", default: false },
+      stills: { type: "string" },
+      "no-render": { type: "boolean", default: false },
     },
   });
   const [id] = positionals;
@@ -43,10 +48,15 @@ const main = async (): Promise<void> => {
     process.exit(1);
   }
   const scriptPath = path.join(ROOT, "films", `${id}.ts`);
-  const mod = (await import(scriptPath)) as { edit?: unknown; overlays?: unknown };
+  const mod = (await import(scriptPath)) as {
+    edit?: unknown;
+    overlays?: unknown;
+    format?: unknown;
+  };
   if (mod.edit == null) throw new Error(`${scriptPath} exports no edit`);
   const edit = parseEdit(mod.edit);
   const overlays = parseOverlays(mod.overlays ?? {});
+  const format = formatZ.parse(mod.format);
 
   const captureDir = path.join(OUT_ROOT, "films", id);
   let timeline: Timeline;
@@ -67,10 +77,29 @@ const main = async (): Promise<void> => {
     console.log(`captured ${timeline.meta.frames} frames`);
   }
 
+  if (values["no-render"]) return;
+  if (values.stills != null) {
+    const seconds = values.stills.split(",").map(Number);
+    if (seconds.some((s) => !Number.isFinite(s)))
+      throw new Error(`--stills takes seconds, got "${values.stills}"`);
+    const paths = await runFilmStills({
+      edit,
+      format,
+      overlays,
+      timeline,
+      captureDir,
+      seconds,
+      outDir: path.join(OUT_ROOT, "films", `${id}-stills`),
+    });
+    for (const p of paths) console.log(`wrote ${p}`);
+    return;
+  }
+
   const outputLocation = path.join(OUT_ROOT, "films", `${id}.mp4`);
   console.log("rendering...");
   await runFilmRender({
     edit,
+    format,
     overlays,
     timeline,
     captureDir,

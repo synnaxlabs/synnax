@@ -98,11 +98,11 @@ declare -a IGNORE_PATTERNS
 if [ -f "$GIT_ROOT/.copyrightignore" ]; then
     while IFS= read -r pattern; do
         # Skip empty lines and comments
-        [[ -z "$pattern" || "$pattern" =~ ^[[:space:]]*# ]] && continue
+        [[ -z $pattern || $pattern =~ ^[[:space:]]*# ]] && continue
         # Remove leading/trailing whitespace
         pattern="${pattern#"${pattern%%[![:space:]]*}"}"
         pattern="${pattern%"${pattern##*[![:space:]]}"}"
-        [[ -n "$pattern" ]] && IGNORE_PATTERNS+=("$pattern")
+        [[ -n $pattern ]] && IGNORE_PATTERNS+=("$pattern")
     done < "$GIT_ROOT/.copyrightignore"
 fi
 
@@ -254,12 +254,12 @@ classify_file() {
     # starts at index 0 normally; when a leading line is preserved, at index 2 iff line
     # 2 is blank (LEADING_BLANK=1), or at index 1 directly against the leading line
     # (LEADING_BLANK=0, e.g. astro frontmatter).
-    if [ "$LEADING_REQUIRED" = "1" ] && [[ ! "${LINES[0]}" =~ $LEADING_LINE_RE ]]; then
+    if [ "$LEADING_REQUIRED" = "1" ] && [[ ! ${LINES[0]} =~ $LEADING_LINE_RE ]]; then
         printf 'MALFORMED\t%s\n' "$file"
         return
     fi
     local header_start_idx=0
-    if [ -n "$LEADING_LINE_RE" ] && [[ "${LINES[0]}" =~ $LEADING_LINE_RE ]]; then
+    if [ -n "$LEADING_LINE_RE" ] && [[ ${LINES[0]} =~ $LEADING_LINE_RE ]]; then
         if [ "$LEADING_BLANK" = "0" ]; then
             header_start_idx=1
         elif [ -z "${LINES[1]:-}" ]; then
@@ -299,9 +299,9 @@ classify_file() {
     local has_current_year=0
     for ((i = header_start_idx; i <= last_idx; i++)); do
         local line="${LINES[i]}"
-        if [[ "$line" == *"Copyright"*"Synnax Labs"* ]]; then
+        if [[ $line == *"Copyright"*"Synnax Labs"* ]]; then
             has_copyright=1
-            if [[ "$line" == *"Copyright $CURRENT_YEAR Synnax Labs"* ]]; then
+            if [[ $line == *"Copyright $CURRENT_YEAR Synnax Labs"* ]]; then
                 has_current_year=1
             fi
         fi
@@ -362,7 +362,7 @@ classify_file() {
             "rem "*) dl="${dl#rem}" ;;
         esac
         dl="${dl#"${dl%%[![:space:]]*}"}"
-        if [[ "$dl" == "Copyright"*"Synnax Labs"* ]]; then
+        if [[ $dl == "Copyright"*"Synnax Labs"* ]]; then
             copyright_count=$((copyright_count + 1))
         fi
     done
@@ -396,7 +396,7 @@ cd "$GIT_ROOT" || exit 1
 declare -a FILES_TO_CHECK
 while IFS= read -r file; do
     abs_file="$GIT_ROOT/$file"
-    if [[ "$abs_file" != "$SEARCH_PATH"* ]]; then
+    if [[ $abs_file != "$SEARCH_PATH"* ]]; then
         continue
     fi
     ext="${file##*.}"

@@ -9,7 +9,7 @@ nextURL: "/reference/control/arc/reference/standard-library/select"
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Arc } from "@/components";
+import { Arc } from "@/components/arc";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import Params from "@/components/params/Params.astro";
 
@@ -47,7 +47,7 @@ shown as "In Progress". Outputs the new range key.
   output={{ type: "str", description: "The new range key." }}
 />
 
-<Arc.Tabs client:load>
+<Arc.Tabs>
 
 <Fragment slot="flow">
 
@@ -91,7 +91,7 @@ range key.
   output={{ type: "str", description: "The range key that was closed." }}
 />
 
-<Arc.Tabs client:load>
+<Arc.Tabs>
 
 <Fragment slot="flow">
 

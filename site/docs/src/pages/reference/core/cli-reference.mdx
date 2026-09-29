@@ -9,7 +9,7 @@ prevURL: "/reference/core/requirements"
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Table } from "@/components";
+import { Table } from "@/components/table";
 import { Tabs } from "@/components/tabs/Tabs";
 import VersionOutput from "@/components/core/VersionOutput.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
@@ -33,7 +33,6 @@ synnax start -l localhost:9090 -im
 ### Flags
 
 <Table.Data
-  client:only="react"
   columns={[
     { key: "option", name: "Flag", type: "code", width: 150 },
     { key: "default", name: "Default", type: "code" },
@@ -241,7 +240,6 @@ The following environment variables can be used in place of the corresponding fl
 Command line flags will take precedence over environment variables.
 
 <Table.Data
-  client:only="react"
   columns={[
     { key: "option", name: "Flag", type: "code" },
     { key: "env", name: "Environment Variable", type: "code" },
@@ -297,7 +295,6 @@ environment variable.
 Here are example configuration files in various formats:
 
 <Tabs
-  client:load
   tabs={[
     { name: "JSON", tabKey: "json" },
     { name: "YAML", tabKey: "yaml" },
@@ -437,7 +434,6 @@ listen:
 Each listener object accepts the following fields:
 
 <Table.Data
-  client:only="react"
   columns={[
     { key: "field", name: "Field", type: "code", width: 130 },
     { key: "description", name: "Description", type: "html" },
@@ -488,7 +484,6 @@ update things by hand.
 The behavior depends on what already exists on disk:
 
 <Table.Data
-  client:only="react"
   columns={[
     { key: "scenario", name: "Scenario", type: "html", width: 260 },
     { key: "behavior", name: "Behavior", type: "html" },
@@ -605,7 +600,6 @@ synnax service install --auto-start=false --insecure
 #### Flags
 
 <Table.Data
-  client:only="react"
   columns={[
     { key: "option", name: "Flag", type: "code", width: 180 },
     { key: "default", name: "Default", type: "code" },

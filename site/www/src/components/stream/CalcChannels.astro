@@ -12,7 +12,7 @@ import { grammar as arcGrammar } from "@synnaxlabs/arc";
 import { Button } from "@synnaxlabs/lyra/button";
 import { createCssVariablesTheme, createHighlighter } from "shiki";
 import { CalcVisualizer } from "@/components/stream/CalcVisualizer";
-import FeatureSection from "@/components/shared/FeatureSection.astro";
+import FeatureSection from "@/components/common/FeatureSection.astro";
 
 const cssVarsTheme = createCssVariablesTheme({ name: "css-variables" });
 
@@ -84,7 +84,7 @@ const codeHtmls = [
     <Button.Button
         slot="action"
         variant="text"
-        href="https://docs.synnaxlabs.com/reference/console/calculated-channels"
+        href="https://docs.synnaxlabs.com/reference/client/calculated-channels"
     >
         Learn More →
     </Button.Button>

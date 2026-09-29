@@ -12,6 +12,7 @@ import Article from "@/components/article/Article.astro";
 import OnThisPage from "@/components/nav/OnThisPage.astro";
 import PageNav from "@/components/nav/Page.astro";
 import Main from "@/layouts/Root.astro";
+import { normalizeRoute } from "@/util/route";
 const { headings, frontmatter } = Astro.props;
 const {
     title,
@@ -29,6 +30,12 @@ const {
 ---
 
 <Main frontmatter={frontmatter} headings={headings}>
+    <link
+        slot="head"
+        rel="alternate"
+        type="text/markdown"
+        href={`${normalizeRoute(Astro.url.pathname)}.md`}
+    />
     <PageNav />
     <section>
         <Article
@@ -40,17 +47,15 @@ const {
             nextURL={nextURL}
             prevURL={prevURL}
         >
-            <slot /></Article
-        >
-        {
-            showOnThisPage && (
-                <OnThisPage
-                    headings={headings}
-                    url={Astro.url}
-                    clients={clients}
-                    platforms={platforms}
-                />
-            )
-        }
+            <slot />
+        </Article>
+        {showOnThisPage && (
+            <OnThisPage
+                headings={headings}
+                outline={frontmatter.outline}
+                clients={clients}
+                platforms={platforms}
+            />
+        )}
     </section>
 </Main>

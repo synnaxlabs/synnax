@@ -41,7 +41,7 @@ export interface ScopeFrame {
 
 export interface CalloutFrame {
   text: string;
-  side: "left" | "right";
+  focused: boolean;
   /** Rect of the callout's target, in CSS px of the capture. */
   rect: Rect;
   /** Seconds since the callout appeared. */
@@ -168,7 +168,7 @@ export const overlay = (
       if (tick == null || tick < at || tick >= end) return;
       frames[i].callouts.push({
         text: callout.text,
-        side: callout.side,
+        focused: callout.focused,
         rect,
         age: (tick - at) / FPS,
         opacity: smoothstep((end - tick) / (CALLOUT_OUT_S * FPS)),
