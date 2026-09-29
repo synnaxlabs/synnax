@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/library"
+	"github.com/synnaxlabs/synnax/pkg/service/library/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -131,6 +132,37 @@ func (s *Service) Rename(
 		return struct{}{}, err
 	}
 	return struct{}{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
+}
+
+type ImportRequest struct {
+	Key    Key        `json:"key"    msgpack:"key"`
+	Format icd.Format `json:"format" msgpack:"format"`
+	Data   []byte     `json:"data"   msgpack:"data"`
+}
+
+type ImportResponse struct {
+	Library Library `json:"library" msgpack:"library"`
+}
+
+// Import replaces the entries of a library with those of an interface control
+// document.
+func (s *Service) Import(
+	ctx context.Context,
+	tx gorp.Tx,
+	req ImportRequest,
+) (ImportResponse, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{library.OntologyID(req.Key)},
+	}); err != nil {
+		return ImportResponse{}, err
+	}
+	l, err := s.internal.NewWriter(tx).ImportICD(ctx, req.Key, req.Format, req.Data)
+	if err != nil {
+		return ImportResponse{}, err
+	}
+	return ImportResponse{Library: l}, nil
 }
 
 type DeleteRequest struct {

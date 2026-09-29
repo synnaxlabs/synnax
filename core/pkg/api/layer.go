@@ -199,6 +199,7 @@ type Transport struct {
 	LibraryRetrieve freighter.UnaryServer[library.RetrieveRequest, library.RetrieveResponse]
 	LibraryRename   freighter.UnaryServer[library.RenameRequest, struct{}]
 	LibraryDelete   freighter.UnaryServer[library.DeleteRequest, struct{}]
+	LibraryImport   freighter.UnaryServer[library.ImportRequest, library.ImportResponse]
 	// IMPORT/EXPORT
 	ImExImport freighter.UnaryServer[imex.ImportRequest, imex.ImportResponse]
 	ImExExport freighter.UnaryServer[imex.ExportRequest, imex.ExportResponse]
@@ -418,6 +419,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.LibraryRetrieve,
 		t.LibraryRename,
 		t.LibraryDelete,
+		t.LibraryImport,
 
 		// ARC
 		t.ArcCreate,
@@ -631,6 +633,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.LibraryRetrieve.BindHandler(l.Library.Retrieve)
 	t.LibraryRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Library.Rename))
 	t.LibraryDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Library.Delete))
+	t.LibraryImport.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Library.Import))
 
 	// ARC
 	t.ArcCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.Create))

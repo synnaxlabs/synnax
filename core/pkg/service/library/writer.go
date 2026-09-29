@@ -15,6 +15,7 @@ import (
 	"uuid"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/service/library/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/errors"
@@ -74,6 +75,36 @@ func (w Writer) CreateMany(ctx context.Context, libs *[]Library) error {
 		}
 	}
 	return nil
+}
+
+// ImportICD replaces the entries of the library with the given key by those parsed
+// from data, an interface control document in the given format. Entries and fields
+// keep their keys when their names match (see icd.Merge), and every task that uses the
+// library is rewritten as in Create. It returns the updated library, a path-scoped
+// validation error when data or the result is invalid, and query.ErrNotFound when no
+// library has the key.
+func (w Writer) ImportICD(
+	ctx context.Context,
+	key Key,
+	format icd.Format,
+	data []byte,
+) (Library, error) {
+	entries, err := icd.Parse(format, data)
+	if err != nil {
+		return Library{}, err
+	}
+	var existing Library
+	if err = w.table.NewRetrieve().
+		Where(gorp.MatchKeys[Key, Library](key)).
+		Entry(&existing).
+		Exec(ctx, w.tx); err != nil {
+		return Library{}, err
+	}
+	l := icd.Merge(existing, entries)
+	if err = w.Create(ctx, &l); err != nil {
+		return Library{}, err
+	}
+	return l, nil
 }
 
 // Rename changes the name of the library with the given key.
@@ -149,7 +180,10 @@ func (w Writer) restampUsers(ctx context.Context, key Key) error {
 	return nil
 }
 
-func (w Writer) retrieveUsers(ctx context.Context, key Key) ([]ontology.Resource, error) {
+func (w Writer) retrieveUsers(
+	ctx context.Context,
+	key Key,
+) ([]ontology.Resource, error) {
 	var users []ontology.Resource
 	if err := w.otg.NewRetrieve().
 		WhereIDs(OntologyID(key)).
