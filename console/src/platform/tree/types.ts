@@ -50,12 +50,6 @@ export interface ContextMenuProps extends BaseProps {
 
 export interface ContextMenu extends FC<ContextMenuProps> {}
 
-export interface HandleTreeRenameProps extends BaseProps {
-  id: ontology.ID;
-  name: string;
-  state: TreeState;
-}
-
 export interface AllowRename {
   (resource: ontology.Resource): boolean;
 }

@@ -13,7 +13,6 @@ import { z } from "zod";
 export const VERSION = "0.0.0";
 
 export const MAKE = "opc";
-export type Make = typeof MAKE;
 export const makeZ = z.literal(MAKE);
 
 export const NO_SECURITY_MODE = "None";
