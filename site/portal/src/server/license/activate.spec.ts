@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { decide } from "@/server/license/activate";
+import { decide, deny } from "@/server/license/activate";
 import {
   activationOf,
   HASH_A,
@@ -80,30 +80,29 @@ describe("activate.decide", () => {
       }),
     ).toEqual({ ok: false, reason: "revoked" });
   });
+});
 
-  it("should refuse an expired subscription without a fallback", () => {
-    expect(
-      decide({
-        license: { ...LICENSE, expiresAt: new Date(NOW.getTime() - 1) },
-        activations: [],
-        fingerprint: [HASH_A],
-        now: NOW,
-      }),
-    ).toEqual({ ok: false, reason: "expired" });
+describe("activate.deny", () => {
+  it("should allow a license inside its term", () => {
+    expect(deny(LICENSE, NOW)).toBeUndefined();
   });
 
-  it("should still activate an expired subscription that has a fallback", () => {
+  it("should refuse a revoked license", () => {
+    expect(deny({ ...LICENSE, revokedAt: NOW }, NOW)).toBe("revoked");
+  });
+
+  it("should refuse an expired subscription without a fallback", () => {
+    expect(deny({ ...LICENSE, expiresAt: new Date(NOW.getTime() - 1) }, NOW)).toBe(
+      "expired",
+    );
+  });
+
+  it("should allow an expired subscription that has a fallback", () => {
     expect(
-      decide({
-        license: {
-          ...LICENSE,
-          expiresAt: new Date(NOW.getTime() - 1),
-          maxVersion: "0.60",
-        },
-        activations: [],
-        fingerprint: [HASH_A],
-        now: NOW,
-      }),
-    ).toEqual({ ok: true });
+      deny(
+        { ...LICENSE, expiresAt: new Date(NOW.getTime() - 1), maxVersion: "0.60" },
+        NOW,
+      ),
+    ).toBeUndefined();
   });
 });

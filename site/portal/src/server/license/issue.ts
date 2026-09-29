@@ -19,6 +19,7 @@ import {
   type Term,
 } from "@/server/db/schema";
 import { badRequest, notFound } from "@/server/errors";
+import { DENIAL_MESSAGES, deny } from "@/server/license/activate";
 import { build } from "@/server/license/claims";
 import { sign, type Signer } from "@/server/license/sign";
 
@@ -53,6 +54,8 @@ export const validate = (args: Terms & { now: Date }): void => {
     throw badRequest('Maximum version must look like "0.62"');
   if (args.term === "subscription") {
     if (args.expiresAt == null) throw badRequest("A subscription needs an expiry");
+    if (Number.isNaN(args.expiresAt.getTime()))
+      throw badRequest("The expiry must be a valid date");
     if (args.expiresAt <= args.now)
       throw badRequest("The expiry must be in the future");
   } else {
@@ -215,7 +218,8 @@ export const floating = async (
     .from(license)
     .where(eq(license.key, licenseKey));
   if (row == null) throw notFound("License");
-  if (row.revokedAt != null) throw badRequest("This license has been revoked");
+  const denial = deny(row, now);
+  if (denial != null) throw badRequest(DENIAL_MESSAGES[denial]);
   await store.query.insert(event).values({
     kind: "download",
     actor,
