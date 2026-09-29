@@ -10,12 +10,10 @@
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { caseconv } from "@synnaxlabs/x";
 
-import { ARINC429 } from "@/feature/arinc429";
 import { CAN } from "@/feature/can";
 import { EtherCAT } from "@/feature/ethercat";
 import { HTTP } from "@/feature/http";
 import { LabJack } from "@/feature/labjack";
-import { MIL1553 } from "@/feature/mil1553";
 import { Modbus } from "@/feature/modbus";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
@@ -25,12 +23,10 @@ import { TCP } from "@/feature/tcp";
 import { UDP } from "@/feature/udp";
 
 const PREFIXES = [
-  ARINC429.Task.PREFIX,
   CAN.Task.PREFIX,
   EtherCAT.Task.PREFIX,
   HTTP.Task.PREFIX,
   LabJack.Task.PREFIX,
-  MIL1553.Task.PREFIX,
   Modbus.Task.PREFIX,
   NI.Task.PREFIX,
   OPCUA.Task.PREFIX,
@@ -46,8 +42,6 @@ const ICONS: Record<Prefix, Icon.ReactElement> = {
   [Serial.Task.PREFIX]: <Icon.Connect />,
   [TCP.Task.PREFIX]: <Icon.Link />,
   [UDP.Task.PREFIX]: <Icon.Bridge />,
-  [ARINC429.Task.PREFIX]: <Icon.Wave.Square />,
-  [MIL1553.Task.PREFIX]: <Icon.Node />,
   [EtherCAT.Task.PREFIX]: <Icon.Logo.EtherCAT />,
   [HTTP.Task.PREFIX]: <Icon.Logo.HTTP />,
   [LabJack.Task.PREFIX]: <Icon.Logo.LabJack />,
@@ -67,8 +61,6 @@ const PREFIX_NAMES: Record<Prefix, string> = {
   [Serial.Task.PREFIX]: "Serial",
   [TCP.Task.PREFIX]: "TCP",
   [UDP.Task.PREFIX]: "UDP",
-  [ARINC429.Task.PREFIX]: "ARINC 429",
-  [MIL1553.Task.PREFIX]: "MIL-STD-1553",
   [EtherCAT.Task.PREFIX]: "EtherCAT",
   [HTTP.Task.PREFIX]: "HTTP",
   [LabJack.Task.PREFIX]: "LabJack",

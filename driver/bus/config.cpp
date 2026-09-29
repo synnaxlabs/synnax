@@ -9,12 +9,9 @@
 
 #include <set>
 #include <unordered_map>
-#include <utility>
 #include <variant>
 
 #include "driver/bus/config.h"
-#include "driver/codec/arinc429.h"
-#include "driver/codec/mil1553.h"
 
 namespace driver::bus {
 namespace {
@@ -55,59 +52,24 @@ std::string field_path(const std::size_t message, const std::size_t field) {
     return path(message, "fields." + std::to_string(field) + ".field");
 }
 
-/// @returns what the medium is, for errors.
-std::string describe(const Medium medium) {
-    switch (medium) {
-        case Medium::BYTES:
-            return "a byte stream";
-        case Medium::CAN:
-            return "a CAN bus";
-        case Medium::ARINC429:
-            return "an ARINC 429 channel";
-        case Medium::MIL1553:
-            return "a MIL-STD-1553 bus";
-    }
-    std::unreachable();
-}
-
-/// @returns true when the medium can carry messages with the identifier.
-bool carries(const Medium medium, const synnax::library::Identifier &id) {
-    switch (medium) {
-        case Medium::BYTES:
-            return std::holds_alternative<synnax::library::FieldIdentifier>(id) ||
-                   std::holds_alternative<synnax::library::TokenIdentifier>(id);
-        case Medium::CAN:
-            return std::holds_alternative<synnax::library::CanIdentifier>(id);
-        case Medium::ARINC429:
-            return std::holds_alternative<synnax::library::Arinc429Identifier>(id);
-        case Medium::MIL1553:
-            return std::holds_alternative<synnax::library::Mil1553Identifier>(id);
-    }
-    std::unreachable();
-}
-
-/// @brief binds an error when the medium cannot carry the message: its identifier,
-/// or, on ARINC 429 and MIL-STD-1553, its layout.
+/// @brief binds an error when the medium cannot carry the message's identifier.
 void check_identifier(
     const x::json::Parser &parser,
     const std::size_t index,
     const synnax::library::MessageEntry &message,
     const Medium medium
 ) {
-    if (medium == Medium::ARINC429 || medium == Medium::MIL1553) {
-        const auto err = medium == Medium::ARINC429 ? codec::arinc429::validate(message)
-                                                    : codec::mil1553::validate(message);
-        if (err) parser.field_err(path(index, "message"), err);
-        return;
-    }
     if (!message.identifier.has_value()) return;
     const auto &id = *message.identifier;
-    if (carries(medium, id)) return;
+    const bool can = std::holds_alternative<synnax::library::CanIdentifier>(id);
+    const bool bytes = std::holds_alternative<synnax::library::FieldIdentifier>(id) ||
+                       std::holds_alternative<synnax::library::TokenIdentifier>(id);
+    if (medium == Medium::CAN ? can : bytes) return;
     const auto type = std::visit([](const auto &i) { return i.type; }, id);
     parser.field_err(
         path(index, "message"),
         "message " + message.name + " has a " + type + " identifier, which " +
-            describe(medium) + " cannot carry"
+            (medium == Medium::CAN ? "a CAN bus" : "a byte stream") + " cannot carry"
     );
 }
 
@@ -312,11 +274,10 @@ ReadConfig ReadConfig::resolve(
             continue;
         }
         check_identifier(parser, i, *entry, medium);
-        if (medium != Medium::BYTES && entry->query.has_value())
+        if (medium == Medium::CAN && entry->query.has_value())
             parser.field_err(
                 path(i, "message"),
-                "message " + entry->name + " has a query, which " + describe(medium) +
-                    " cannot send"
+                "message " + entry->name + " has a query, which a CAN bus cannot send"
             );
         ReadMessage msg{.entry = *entry, .index = m.index};
         if (m.index != 0)

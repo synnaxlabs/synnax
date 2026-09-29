@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type bus, type device, type library } from "@synnaxlabs/client";
+import { type bus, type library } from "@synnaxlabs/client";
 import { type z } from "zod";
 
 /** A message entry of a task's config: the fields a read or write task binds. */
@@ -21,29 +21,6 @@ export interface Accepts {
 /** Accepts the messages a byte stream can carry: no identifier, or a field or token. */
 export const acceptsStream: Accepts = ({ identifier }) =>
   identifier == null || identifier.type === "field" || identifier.type === "token";
-
-/**
- * Checks an enabled message of a task against its library entry and the task's device.
- * @returns why the Driver rejects the message, or null.
- */
-export interface MessageCheck {
-  (entry: library.MessageEntry, device: device.Device): string | null;
-}
-
-/**
- * Creates the check of a medium that carries only messages with an identifier of one
- * type, and that sends no queries.
- * @param type - The identifier type the medium matches messages by.
- * @param medium - The medium's name in errors, such as ARINC 429.
- */
-export const checkIdentifier =
-  (type: library.IdentifierType, medium: string) =>
-  ({ name, identifier, query }: library.MessageEntry): string | null => {
-    if (identifier?.type !== type) return `Message ${name} has no ${medium} identifier`;
-    if (query != null)
-      return `Message ${name} has a query, which ${medium} cannot send`;
-    return null;
-  };
 
 /** @returns the message entries of a library, keyed by entry key. */
 export const messagesOf = (

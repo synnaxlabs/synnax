@@ -10,13 +10,11 @@
 from importlib.metadata import version as _version
 
 from synnax import (
-    arinc429,
     bus,
     can,
     ethercat,
     http,
     labjack,
-    mil1553,
     modbus,
     ni,
     node,
@@ -195,14 +193,12 @@ __all__ = [
     "ValidationError",
     "Writer",
     "WriterMode",
-    "arinc429",
     "bus",
     "can",
     "color",
     "ethercat",
     "http",
     "labjack",
-    "mil1553",
     "modbus",
     "ni",
     "node",

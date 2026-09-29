@@ -41,12 +41,6 @@ enum class Medium : std::uint8_t {
     BYTES,
     /// @brief CAN frames. Messages match by CAN identifier and cannot be polled.
     CAN,
-    /// @brief ARINC 429 words. Messages match by label and SDI, fit one word, and
-    /// cannot be polled.
-    ARINC429,
-    /// @brief MIL-STD-1553 transfers. Messages match by terminal and subaddress, fit
-    /// their data words, and cannot be polled.
-    MIL1553,
 };
 
 /// @brief decodes the escaped bytes of a binary query. Characters stand for themselves,

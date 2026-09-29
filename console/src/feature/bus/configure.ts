@@ -10,13 +10,11 @@
 import {
   type bus,
   type channel,
-  type device,
   type library,
   type rack,
   type Synnax,
 } from "@synnaxlabs/client";
 import { DataType } from "@synnaxlabs/x";
-import { type z } from "zod";
 
 import {
   commandChannelName,
@@ -25,8 +23,7 @@ import {
   indexName,
   rawName,
 } from "@/feature/bus/names";
-import { type Message, type MessageCheck, messagesOf } from "@/feature/bus/types";
-import { Task } from "@/platform/task";
+import { type Message, messagesOf } from "@/feature/bus/types";
 
 const FIELD_DATA_TYPE = DataType.FLOAT64.toString();
 
@@ -90,7 +87,8 @@ const bindFields = async (client: Synnax, unbound: Unbound[]): Promise<void> => 
 };
 
 interface Context {
-  device: device.Device;
+  device: string;
+  rack: rack.Key;
   messages: Map<library.EntryKey, library.MessageEntry>;
   existing: Set<channel.Key>;
 }
@@ -105,33 +103,13 @@ const openContext = async (
     client.libraries.retrieve({ key: config.library }),
     retrieveExisting(client, keys),
   ]);
-  return { device: dev, messages: messagesOf(lib), existing };
+  return { device: dev.name, rack: dev.rack, messages: messagesOf(lib), existing };
 };
 
 const entryOf = (ctx: Context, m: Message): library.MessageEntry => {
   const entry = ctx.messages.get(m.message);
   if (entry == null) throw new Error(`Message ${m.message} is not in the library`);
   return entry;
-};
-
-/**
- * Runs the checks on each enabled message, binding the first failure of a message to
- * its message key.
- * @throws {Task.ConfigError} if a message fails a check.
- */
-const checkMessages = (ctx: Context, messages: Message[], checks: MessageCheck[]) => {
-  const issues: z.core.$ZodIssue[] = [];
-  messages.forEach((m, i) => {
-    if (m.disabled) return;
-    const entry = entryOf(ctx, m);
-    for (const check of checks) {
-      const message = check(entry, ctx.device);
-      if (message == null) continue;
-      issues.push({ code: "custom", message, path: ["messages", i, "message"] });
-      break;
-    }
-  });
-  if (issues.length > 0) throw new Task.ConfigError(issues);
 };
 
 /**
@@ -148,35 +126,30 @@ const fieldName = (entry: library.MessageEntry, key: library.FieldKey): string =
  * Creates the channels a read config names but that do not exist: one index per
  * message, one channel per field, and the virtual raw frame channel. Channels that
  * already exist by name are reused.
- * @param checks - Checks each enabled message must pass before any channel exists.
  * @returns the config bound to its channels and the rack of its device.
- * @throws {Task.ConfigError} if a message fails a check.
  */
 export const configureRead = async <C extends bus.ReadConfig>(
   client: Synnax,
   config: C,
-  checks: MessageCheck[],
 ): Promise<[C, rack.Key]> => {
   const keys = [
     config.raw,
     ...config.messages.flatMap((m) => [m.index, ...m.fields.map((f) => f.channel)]),
   ];
   const ctx = await openContext(client, config, keys);
-  checkMessages(ctx, config.messages, checks);
-  const deviceName = ctx.device.name;
   const enabled = config.messages
     .filter((m) => !m.disabled)
     .map((m) => ({ m, entry: entryOf(ctx, m) }));
-  const raw = rawName(deviceName);
+  const raw = rawName(ctx.device);
   const rawMissing = !ctx.existing.has(config.raw);
   const unindexed = enabled.filter(({ m }) => !ctx.existing.has(m.index));
   const keyOf = await createChannels(client, [
     ...(rawMissing ? [{ name: raw, dataType: DataType.BYTES, virtual: true }] : []),
-    ...unindexed.map(({ entry }) => newIndex(indexName(deviceName, entry.name))),
+    ...unindexed.map(({ entry }) => newIndex(indexName(ctx.device, entry.name))),
   ]);
   if (rawMissing) config.raw = keyOf(raw);
   unindexed.forEach(({ m, entry }) => {
-    m.index = keyOf(indexName(deviceName, entry.name));
+    m.index = keyOf(indexName(ctx.device, entry.name));
   });
   await bindFields(
     client,
@@ -185,30 +158,25 @@ export const configureRead = async <C extends bus.ReadConfig>(
         .filter((f) => !ctx.existing.has(f.channel))
         .map((field) => ({
           field,
-          name: fieldChannelName(deviceName, entry.name, fieldName(entry, field.field)),
+          name: fieldChannelName(ctx.device, entry.name, fieldName(entry, field.field)),
           index: m.index,
         })),
     ),
   );
-  return [config, ctx.device.rack];
+  return [config, ctx.rack];
 };
 
 /**
  * Creates a command channel for each field a write config sends without one, on one
  * command index per message. Channels that already exist by name are reused.
- * @param checks - Checks each enabled message must pass before any channel exists.
  * @returns the config bound to its channels and the rack of its device.
- * @throws {Task.ConfigError} if a message fails a check.
  */
 export const configureWrite = async <C extends bus.WriteConfig>(
   client: Synnax,
   config: C,
-  checks: MessageCheck[],
 ): Promise<[C, rack.Key]> => {
   const keys = config.messages.flatMap((m) => m.fields.map((f) => f.channel));
   const ctx = await openContext(client, config, keys);
-  checkMessages(ctx, config.messages, checks);
-  const deviceName = ctx.device.name;
   const pending = config.messages.flatMap((m) => {
     if (m.disabled) return [];
     const fields = m.fields.filter((f) => !ctx.existing.has(f.channel));
@@ -216,18 +184,18 @@ export const configureWrite = async <C extends bus.WriteConfig>(
   });
   const indexOf = await createChannels(
     client,
-    pending.map(({ entry }) => newIndex(commandIndexName(deviceName, entry.name))),
+    pending.map(({ entry }) => newIndex(commandIndexName(ctx.device, entry.name))),
   );
   await bindFields(
     client,
     pending.flatMap(({ entry, fields }) => {
-      const index = indexOf(commandIndexName(deviceName, entry.name));
+      const index = indexOf(commandIndexName(ctx.device, entry.name));
       return fields.map((field) => ({
         field,
-        name: commandChannelName(deviceName, entry.name, fieldName(entry, field.field)),
+        name: commandChannelName(ctx.device, entry.name, fieldName(entry, field.field)),
         index,
       }));
     }),
   );
-  return [config, ctx.device.rack];
+  return [config, ctx.rack];
 };

@@ -156,12 +156,10 @@ var (
 	_               config.Config[Config] = Config{}
 	AllIntegrations                       = []string{
 		"arc",
-		"arinc429",
 		"can",
 		"ethercat",
 		"http",
 		"labjack",
-		"mil1553",
 		"modbus",
 		"ni",
 		"opc",

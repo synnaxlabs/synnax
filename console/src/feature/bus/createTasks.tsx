@@ -29,12 +29,7 @@ import { configureRead, configureWrite } from "@/feature/bus/configure";
 import { ReadDetails, WriteDetails } from "@/feature/bus/Details";
 import { Messages } from "@/feature/bus/Messages";
 import { SelectLibrary } from "@/feature/bus/SelectLibrary";
-import {
-  type Accepts,
-  type MessageCheck,
-  validateRead,
-  validateWrite,
-} from "@/feature/bus/types";
+import { type Accepts, validateRead, validateWrite } from "@/feature/bus/types";
 import { type Command } from "@/platform/command";
 import { Panel } from "@/platform/panel";
 import { Selector } from "@/platform/selector";
@@ -77,10 +72,6 @@ export interface CreateTasksParams<
   readChecks?: Check<z.infer<R>>[];
   /** Deploy checks a write config needs beyond the shared ones. */
   writeChecks?: Check<z.infer<W>>[];
-  /** Deploy checks of each enabled read message against its entry and device. */
-  readMessageChecks?: MessageCheck[];
-  /** Deploy checks of each enabled write message against its entry and device. */
-  writeMessageChecks?: MessageCheck[];
 }
 
 /**
@@ -163,8 +154,6 @@ export const createTasks = <
   WriteSettings,
   readChecks = [],
   writeChecks = [],
-  readMessageChecks = [],
-  writeMessageChecks = [],
 }: CreateTasksParams<P, R, W>) => {
   const READ_TYPE = `${prefix}_read` as const;
   const WRITE_TYPE = `${prefix}_write` as const;
@@ -245,8 +234,7 @@ export const createTasks = <
     deployConfigZ: applyChecks(readConfigZ, [validateRead, ...readChecks]),
     type: READ_TYPE,
     getInitialValues: getReadInitialValues,
-    onConfigure: async (client, config) =>
-      await configureRead(client, config, readMessageChecks),
+    onConfigure: configureRead,
   });
 
   const Write = Task.wrapForm({
@@ -256,8 +244,7 @@ export const createTasks = <
     deployConfigZ: applyChecks(writeConfigZ, [validateWrite, ...writeChecks]),
     type: WRITE_TYPE,
     getInitialValues: getWriteInitialValues,
-    onConfigure: async (client, config) =>
-      await configureWrite(client, config, writeMessageChecks),
+    onConfigure: configureWrite,
   });
 
   const useCreateRead = createUseCreate(getReadInitialValues, `${name} read`);

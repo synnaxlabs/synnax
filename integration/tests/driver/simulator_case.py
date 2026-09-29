@@ -20,9 +20,6 @@ Usage:
 
     class GrandFinale(SimulatorCase):
         sim_classes = [OPCUASim, ModbusSim]
-
-    class CardRead(SimulatorCase):
-        device_classes = [ARINC429Card]
 """
 
 import os

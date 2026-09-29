@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
-	"github.com/synnaxlabs/synnax/pkg/service/arinc429"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/service/bus"
@@ -43,7 +42,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/metrics"
-	"github.com/synnaxlabs/synnax/pkg/service/mil1553"
 	"github.com/synnaxlabs/synnax/pkg/service/modbus"
 	"github.com/synnaxlabs/synnax/pkg/service/ni"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
@@ -211,10 +209,6 @@ type Layer struct {
 	TCP *tcp.Service
 	// UDP owns the stored configuration records of the UDP task types.
 	UDP *udp.Service
-	// ARINC429 owns the stored configuration records of the ARINC 429 task types.
-	ARINC429 *arinc429.Service
-	// MIL1553 owns the stored configuration records of the MIL-STD-1553 task types.
-	MIL1553 *mil1553.Service
 	// ArcTask owns the stored configuration records of the arc task type.
 	ArcTask *arctask.Service
 	// RackTask owns the stored configuration records of the rack_status task type.
@@ -626,20 +620,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.UDP) {
 		return nil, err
 	}
-	if l.ARINC429, err = arinc429.OpenService(ctx, arinc429.ServiceConfig{
-		Instrumentation: cfg.Child("arinc429"),
-		DB:              cfg.Distribution.DB,
-		Resolver:        busResolver,
-	}); !ok(err, l.ARINC429) {
-		return nil, err
-	}
-	if l.MIL1553, err = mil1553.OpenService(ctx, mil1553.ServiceConfig{
-		Instrumentation: cfg.Child("mil1553"),
-		DB:              cfg.Distribution.DB,
-		Resolver:        busResolver,
-	}); !ok(err, l.MIL1553) {
-		return nil, err
-	}
 	if l.ArcTask, err = arctask.OpenService(ctx, arctask.ServiceConfig{
 		Instrumentation: cfg.Child("arc_task"),
 		DB:              cfg.Distribution.DB,
@@ -661,8 +641,8 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	configStores := slices.Concat(
 		l.NI.Stores(), l.OPCUA.Stores(), l.LabJack.Stores(), l.Modbus.Stores(),
 		l.EtherCAT.Stores(), l.HTTP.Stores(), l.CAN.Stores(), l.Serial.Stores(),
-		l.TCP.Stores(), l.UDP.Stores(), l.ARINC429.Stores(), l.MIL1553.Stores(),
-		l.ArcTask.Stores(), l.RackTask.Stores(), l.PagerDuty.Stores(),
+		l.TCP.Stores(), l.UDP.Stores(), l.ArcTask.Stores(), l.RackTask.Stores(),
+		l.PagerDuty.Stores(),
 	)
 	taskConfigs, err := taskconfig.NewRegistry(configStores...)
 	if !ok(err, nil) {
