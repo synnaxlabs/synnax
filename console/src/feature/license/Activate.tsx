@@ -62,7 +62,13 @@ const Fingerprint = ({ info: { info, error } }: FingerprintProps): ReactElement 
       {fingerprint.length > 0 && (
         <Flex.Box y gap="tiny" className={CSS.BE("license-activate", "hashes")}>
           {fingerprint.map((hash) => (
-            <Text.Text key={hash} variant="code" level="small" overflow="ellipsis">
+            <Text.Text
+              key={hash}
+              variant="code"
+              level="small"
+              overflow="ellipsis"
+              className={CSS.BE("license-activate", "hash")}
+            >
               {hash}
             </Text.Text>
           ))}
@@ -121,19 +127,17 @@ export const Activate = (): ReactElement => {
       setToken(decoder.decode(bytes).trim());
     }, "Failed to read the license file");
 
-  const activate = (): void => {
+  const activate = async (): Promise<void> => {
     if (client == null) return;
     setActivating(true);
     setError(null);
-    void (async () => {
-      try {
-        await client.license.activate(token.trim());
-      } catch (e) {
-        setError(status.fromException(e, "Failed to activate the license"));
-      } finally {
-        setActivating(false);
-      }
-    })();
+    try {
+      await client.license.activate(token.trim());
+    } catch (e) {
+      setError(status.fromException(e, "Failed to activate the license"));
+    } finally {
+      setActivating(false);
+    }
   };
 
   return (
@@ -142,19 +146,23 @@ export const Activate = (): ReactElement => {
       connection={Session.Runtime.CORE_EMBEDDED ? null : target}
     >
       <Flex.Box y gap="large" className={CSS.BE("license-activate", "body")}>
-        <Status.Summary variant="warning" level="h4" message={connection.message} />
+        <Status.Summary
+          variant="warning"
+          level="h4"
+          message={connection.message}
+          description={info.info?.warning}
+        />
         <Fingerprint info={info} />
         <Flex.Box y gap="small" full="x">
-          <Text.Text level="small" weight={500} color={10}>
-            License token
-          </Text.Text>
-          <Input.Text
-            area
-            value={token}
-            onChange={setToken}
-            placeholder="Paste the token"
-            className={CSS.BE("license-activate", "token")}
-          />
+          <Input.Item label="License token">
+            <Input.Text
+              area
+              value={token}
+              onChange={setToken}
+              placeholder="Paste the token"
+              className={CSS.BE("license-activate", "token")}
+            />
+          </Input.Item>
           <Flex.Box x gap="small" className={CSS.BE("license-activate", "actions")}>
             <Button.Button
               variant="outlined"
@@ -170,7 +178,7 @@ export const Activate = (): ReactElement => {
               variant="filled"
               grow
               justify="center"
-              onClick={activate}
+              onClick={() => void activate()}
               disabled={activating || token.trim() === ""}
             >
               Activate
