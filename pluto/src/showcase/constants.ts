@@ -9,8 +9,6 @@
 
 export const PADDING_STYLE = { padding: "5rem" };
 
-export const THIN_PADDING_STYLE = { padding: "1rem" };
-
 export const DISPLAY = [
   "text",
   "button",
