@@ -1,0 +1,4 @@
+{
+  "installCommand": "npx --yes pnpm@12.7.0 install --frozen-lockfile",
+  "buildCommand": "cd ../.. && pnpm build:www"
+}

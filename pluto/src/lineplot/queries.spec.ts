@@ -689,6 +689,7 @@ describe("lineplot queries", () => {
         { wrapper },
       );
       expect(line.current.color).toEqual(color.construct("#00aaff"));
+      expect(line.current.pickedColor).toEqual(color.construct("#00aaff"));
     });
 
     it("useRules / useRule reflect setRule and removeRule", async () => {
@@ -765,7 +766,8 @@ describe("lineplot queries", () => {
         () => LinePlot.useRule({ key: created.key, ruleKey: "rl-1" }),
         { wrapper },
       );
-      expect(rule.current.color).toBeDefined();
+      expect(rule.current.pickedColor).toBeUndefined();
+      expect(rule.current.color).toEqual(rule.current.autoColor);
     });
 
     it("useLineCount reflects the number of lines", async () => {

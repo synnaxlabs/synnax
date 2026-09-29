@@ -9,15 +9,22 @@
 
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
+import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
+import { type FormProps } from "@/schematic/node/spec";
+import { Properties } from "@/vis/properties";
 import { Value } from "@/vis/value";
 
-export const ValueForm = (): ReactElement => (
-  <Form.Tabs tabs={["style", "telemetry", "redline"]}>
+export const ValueForm = ({ tab, onTabChange }: FormProps): ReactElement => (
+  <Properties.Tabs
+    tabs={["telemetry", "style", "redline"]}
+    tab={tab}
+    onTabChange={onTabChange}
+  >
     <Tabs.Content itemKey="style">
       <Base.Sections x>
         <Base.Section title="Label">
@@ -25,6 +32,11 @@ export const ValueForm = (): ReactElement => (
         </Base.Section>
         <Base.Section title="Appearance">
           <Form.ColorField path="color" />
+          <Form.ColorField
+            path="backgroundColor"
+            label="Background"
+            fallback={color.ZERO}
+          />
           <Form.LevelSizeField />
           <Form.UnitsField />
           <Base.NumericField
@@ -44,11 +56,7 @@ export const ValueForm = (): ReactElement => (
       </Base.Sections>
     </Tabs.Content>
     <Tabs.Content itemKey="redline">
-      <Base.Sections x>
-        <Base.Section title="Redline">
-          <Value.RedlineForm path="redline" />
-        </Base.Section>
-      </Base.Sections>
+      <Value.RedlineForm path="redline" />
     </Tabs.Content>
-  </Form.Tabs>
+  </Properties.Tabs>
 );

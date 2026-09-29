@@ -85,7 +85,13 @@ import {
   IoTime,
   IoTvOutline,
 } from "react-icons/io5";
-import { LuLock, LuLockOpen, LuSquareFunction, LuUngroup } from "react-icons/lu";
+import {
+  LuLock,
+  LuLockOpen,
+  LuPipette,
+  LuSquareFunction,
+  LuUngroup,
+} from "react-icons/lu";
 import {
   MdAccessTime,
   MdAlignHorizontalCenter,
@@ -139,6 +145,7 @@ import {
   MdLogout,
   MdMoreVert,
   MdNewReleases,
+  MdOpacity,
   MdOutlineControlCamera,
   MdOutlineDeviceHub,
   MdOutlineExplore,
@@ -223,6 +230,7 @@ import {
   TbArrowRight,
   TbArrowsSplit,
   TbArrowUp,
+  TbBaselineDensitySmall,
   TbBoxAlignTopLeft,
   TbBoxModel2,
   TbChartArcs,
@@ -277,6 +285,8 @@ export const EditOff = wrapSVGIcon(MdEditOff, "edit-off");
 export const Add = wrapSVGIcon(FaPlus, "add");
 export const Subtract = wrapSVGIcon(AiOutlineMinus, "subtract");
 export const Copy = wrapSVGIcon(IoCopy, "copy");
+export const Eyedropper = wrapSVGIcon(LuPipette, "eyedropper");
+export const Opacity = wrapSVGIcon(MdOpacity, "opacity");
 export const Cut = wrapSVGIcon(MdContentCut, "cut");
 export const Paste = wrapSVGIcon(MdContentPaste, "paste");
 export const Undo = wrapSVGIcon(MdUndo, "undo");
@@ -346,6 +356,7 @@ export const Import = wrapSVGIcon(PiUploadSimple, "import");
 export const Export = wrapSVGIcon(PiDownloadSimple, "export");
 export const Download = Export;
 export const Range = wrapSVGIcon(MdOutlineTimelapse, "range");
+export const Redline = wrapSVGIcon(TbBaselineDensitySmall, "redline");
 export const Node = wrapSVGIcon(MdOutlineDeviceHub, "node");
 export const Channel = wrapSVGIcon(MdSensors, "channel");
 export const Resources = wrapSVGIcon(AiFillFolder, "resources");
@@ -621,6 +632,7 @@ const icons = {
   Import,
   Export,
   Range,
+  Redline,
   Node,
   Channel,
   Resources,

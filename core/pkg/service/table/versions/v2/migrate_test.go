@@ -17,7 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v2"
-	color "github.com/synnaxlabs/x/color/versions/v0"
+	color "github.com/synnaxlabs/x/color/versions/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
 	text "github.com/synnaxlabs/x/text/versions/v0"
@@ -114,16 +114,96 @@ var _ = Describe("MigrateTable", func() {
 		Expect(cfg.StalenessColor).To(BeNil())
 	})
 
-	It("Should keep a transparent gradient stop color", func(ctx SpecContext) {
-		cfg, ok := migrateCell(ctx, "value", `{
-			"redline": {
+	Describe("Legacy redlines", func() {
+		// lift lifts a value cell carrying the given legacy redline.
+		lift := func(ctx SpecContext, legacy string) v2.ValueCellConfig {
+			GinkgoHelper()
+			cfg, ok := migrateCell(
+				ctx, "value", `{"redline": `+legacy+`}`,
+			).Variant.(v2.ValueCellConfig)
+			return MustBeOk(cfg, ok)
+		}
+		var (
+			green  = color.Color{G: 255, A: 1}
+			yellow = color.Color{R: 255, G: 255, A: 1}
+			red    = color.Color{R: 255, A: 1}
+		)
+
+		It("Should scale each stop across the bounds into a band", func(
+			ctx SpecContext,
+		) {
+			cfg := lift(ctx, `{
+				"bounds": {"lower": 100, "upper": 200},
+				"gradient": [
+					{"key": "a", "color": "#00ff00", "position": 0},
+					{"key": "b", "color": "#ffff00", "position": 0.5},
+					{"key": "c", "color": "#ff0000", "position": 1}
+				]
+			}`)
+			Expect(cfg.Redline).To(Equal(color.Scale{
+				Bands: []color.Band{
+					{Key: "a", Threshold: 100, Color: green},
+					{Key: "b", Threshold: 150, Color: yellow},
+					{Key: "c", Threshold: 200, Color: red},
+				},
+				Smooth: true,
+			}))
+			Expect(cfg.BackgroundColor).To(HaveValue(Equal(green)))
+		})
+
+		It("Should read reversed bounds in ascending order", func(ctx SpecContext) {
+			Expect(lift(ctx, `{
+				"bounds": {"lower": 200, "upper": 100},
+				"gradient": [
+					{"key": "a", "color": "#00ff00", "position": 0},
+					{"key": "b", "color": "#ff0000", "position": 1}
+				]
+			}`).Redline.Bands).To(Equal([]color.Band{
+				{Key: "a", Threshold: 100, Color: green},
+				{Key: "b", Threshold: 200, Color: red},
+			}))
+		})
+
+		It("Should take the background from the lowest stop in any stored order", func(
+			ctx SpecContext,
+		) {
+			Expect(lift(ctx, `{
+				"bounds": {"lower": 0, "upper": 10},
+				"gradient": [
+					{"key": "b", "color": "#ff0000", "position": 0.8},
+					{"key": "a", "color": "#ffff00", "position": 0.2}
+				]
+			}`).BackgroundColor).To(HaveValue(Equal(yellow)))
+		})
+
+		It("Should keep a transparent band and leave the background absent", func(
+			ctx SpecContext,
+		) {
+			cfg := lift(ctx, `{
 				"bounds": {"lower": 0, "upper": 1},
 				"gradient": [{"key": "s", "color": "#00000000", "position": 0}]
-			}
-		}`).Variant.(v2.ValueCellConfig)
-		Expect(MustBeOk(cfg, ok).Redline).NotTo(BeNil())
-		Expect(cfg.Redline.Gradient).To(HaveLen(1))
-		Expect(cfg.Redline.Gradient[0].Key).To(Equal("s"))
+			}`)
+			Expect(cfg.Redline.Bands).To(Equal([]color.Band{{Key: "s"}}))
+			Expect(cfg.BackgroundColor).To(BeNil())
+		})
+
+		It("Should convert an empty gradient into an empty redline", func(
+			ctx SpecContext,
+		) {
+			Expect(
+				lift(
+					ctx,
+					`{"bounds": {"lower": 0, "upper": 1}, "gradient": []}`,
+				).Redline,
+			).To(Equal(color.Scale{Bands: []color.Band{}}))
+		})
+
+		It("Should degrade a value cell whose redline cannot be read", func(
+			ctx SpecContext,
+		) {
+			Expect(migrateCell(ctx, "value", `{"redline": {"gradient": "wide"}}`)).
+				To(Equal(migrateCell(ctx, "hologram", `{}`)))
+		})
 	})
 
 	It("Should fill absent fields with their schema defaults", func(ctx SpecContext) {

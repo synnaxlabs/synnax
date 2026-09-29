@@ -1,0 +1,117 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import Root from "@/layouts/Root.astro";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Releases as ReleasesComponents } from "@/components";
+const { headings } = Astro.props;
+---
+
+<Root frontmatter={{ title: "Releases" }}>
+    <section>
+        <Flex.Box direction="y" className="releases" el="article" grow>
+            <Flex.Box direction="x" className="header" justify="between" align="center">
+                <Flex.Box direction="y" justify="center" gap="large">
+                    <Text.Text level="h1">Releases</Text.Text>
+                    <Flex.Box direction="y" gap="small">
+                        <Text.Text color={8}>
+                            Latest updates and improvements to Synnax.
+                        </Text.Text>
+                        <Flex.Box direction="x" align="center" wrap>
+                            <Text.Text href="https://www.linkedin.com/company/synnaxlabs/">
+                                Follow us on LinkedIn
+                            </Text.Text>
+                            <Icon.Circle style={{ color: "var(--pluto-gray-l6)" }} />
+                            <Text.Text href="https://github.com/synnaxlabs/synnax/releases">
+                                View releases on GitHub
+                            </Text.Text>
+                        </Flex.Box>
+                    </Flex.Box>
+                </Flex.Box>
+                <Text.Text
+                    level="h1"
+                    className="latest version full"
+                    transition:persist
+                />
+            </Flex.Box>
+            <slot />
+        </Flex.Box>
+        <ReleasesComponents.List headings={headings} url={Astro.url} />
+    </section>
+</Root>
+
+<style is:global>
+    main > section:has(.releases) {
+        max-width: 1400px;
+    }
+
+    .releases {
+        flex-basis: 840px;
+        flex-shrink: 1;
+        flex-grow: 1;
+        min-width: 0;
+        padding: 5rem 8rem;
+        & .release-wrapper {
+            position: relative;
+        }
+        & h6 {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            margin: 0 !important;
+        }
+        .header {
+            width: 100%;
+            min-height: 260px;
+            height: 35vh;
+            margin: 0 -8rem;
+            padding-left: 8rem;
+            padding-right: 8rem;
+            width: calc(100% + 16rem);
+            background-size: 2rem 2rem;
+            background-image: radial-gradient(
+                var(--pluto-gray-l4) 0.5px,
+                transparent 0.5px
+            );
+            position: relative;
+            mask-image: radial-gradient(circle, black 90%, transparent);
+
+            & .latest {
+                position: absolute;
+                right: 8rem;
+                z-index: -1;
+                font-size: 34rem;
+                font-weight: 700;
+                color: var(--pluto-gray-l3-45);
+            }
+            @media (max-width: 1100px) {
+                .latest {
+                    display: none;
+                }
+            }
+        }
+        & video,
+        img:not(.diagram img) {
+            width: 100%;
+            border-radius: 1.5rem !important;
+            border: var(--pluto-border);
+            box-shadow: var(--pluto-shadow-l4);
+            margin: 3rem 0;
+            box-shadow: var(--pluto-shadow-v1);
+
+            @media (prefers-color-scheme: dark) {
+                box-shadow: 0 0 2rem 0 rgba(50, 50, 50, 0.1);
+            }
+        }
+    }
+</style>

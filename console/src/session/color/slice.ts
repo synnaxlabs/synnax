@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import { Color } from "@synnaxlabs/pluto";
+import { Color } from "@synnaxlabs/lyra/color";
 import z from "zod";
 
 export const SLICE_NAME = "color";

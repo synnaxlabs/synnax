@@ -77,6 +77,7 @@ jobs:
       DRIVER_REF_RUN_ID: ${{ steps.check-cache.outputs.DRIVER_REF_RUN_ID }}
       CONSOLE_REF_RUN_ID: ${{ steps.check-cache.outputs.CONSOLE_REF_RUN_ID }}
       FLAGS: ${{ steps.set-outputs.outputs.FLAGS }}
+      BINARY_CHECK_MATRIX: ${{ steps.binary-check-matrix.outputs.MATRIX }}
       TEST_MATRIX:
         ${{ steps.set-outputs.outputs.CUSTOM_MATRIX ||
         steps.test-matrix.outputs.TEST_MATRIX }}
@@ -113,6 +114,22 @@ jobs:
         if: ${{ steps.set-outputs.outputs.FLAGS == '' }}
         id: test-matrix
         run: integration/scripts/validate_test_coverage.sh
+
+      # A matrix exclude only filters keys of the base matrix, so an include-only matrix
+      # cannot drop a platform that way.
+      - name: Generate binary check matrix
+        id: binary-check-matrix
+        env:
+          UBUNTU: ${{ inputs.ubuntu }}
+          WINDOWS: ${{ inputs.windows }}
+        run: |
+          MATRIX=$(jq -nc --argjson ubuntu "$UBUNTU" --argjson windows "$WINDOWS" '[
+            if $ubuntu then {os: "ubuntu-24.04", "os-name": "linux", display: "ubuntu",
+              executable: ""} else empty end,
+            if $windows then {os: "windows-2025", "os-name": "windows",
+              display: "windows", executable: ".exe"} else empty end
+          ]')
+          echo "MATRIX=${MATRIX}" >> $GITHUB_OUTPUT
 
   build:
     needs: setup
@@ -168,24 +185,14 @@ jobs:
     needs: [setup, build]
     if:
       ${{ !cancelled() && needs.setup.result == 'success' && (needs.build.result ==
-      'success' || needs.build.result == 'skipped') }}
+      'success' || needs.build.result == 'skipped') &&
+      needs.setup.outputs.BINARY_CHECK_MATRIX != '[]' }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - os: ubuntu-24.04
-            os-name: linux
-            display: ubuntu
-            executable: ""
-          - os: windows-2025
-            os-name: windows
-            display: windows
-            executable: .exe
-        exclude:
-          - os: ${{ !inputs.ubuntu && 'ubuntu-24.04' }}
-          - os: ${{ !inputs.windows && 'windows-2025' }}
+        include: ${{ fromJSON(needs.setup.outputs.BINARY_CHECK_MATRIX) }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7

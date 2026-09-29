@@ -59,15 +59,6 @@ build:linux --copt=-Wno-error=deprecated-declarations
 # call site.
 build:linux --copt=-Wno-sign-compare
 
-# Allow sequence-point warnings without treating them as errors (wasmtime headers use
-# storage++ in pack expansion which triggers this)
-build:linux --copt=-Wno-error=sequence-point
-
-# wasmtime 49 leaves results unread in types/memory.hh and the GC ref classes. GCC
-# reports those against the workspace file that includes them, so the warning cannot be
-# suppressed at the call site. It stays visible, it just does not fail the build.
-build:linux --copt=-Wno-error=unused-variable
-
 # Windows (MSVC)
 # Note: MSVC uses /std:c++latest for C++23 features (not /std:c++23)
 build:windows --enable_runfiles

@@ -24,6 +24,7 @@ BUILD_CONSOLE_TAURI=$9
 BUILD_CORE=${10}
 DEBUG=${11}
 SIGNED=${12}
+BUILD_DESKTOP=${13:-false}
 
 # Verify that at least one platform is selected
 if [ "$PLATFORM_WINDOWS" != "true" ] && [ "$PLATFORM_MACOS" != "true" ] && [ "$PLATFORM_UBUNTU" != "true" ] && [ "$PLATFORM_DOCKER" != "true" ] && [ "$PLATFORM_NILINUXRT" != "true" ]; then
@@ -34,6 +35,12 @@ fi
 # Verify that at least one build target is selected
 if [ "$BUILD_DRIVER" != "true" ] && [ "$BUILD_CONSOLE" != "true" ] && [ "$BUILD_CONSOLE_TAURI" != "true" ] && [ "$BUILD_CORE" != "true" ]; then
     echo "Error: No build targets selected. Please select at least one target to build."
+    exit 1
+fi
+
+# Synnax Desktop bundles the Core binary of the same run.
+if [ "$BUILD_DESKTOP" = "true" ] && [ "$BUILD_CORE" != "true" ]; then
+    echo "Error: Synnax Desktop needs the Core. Please select the Core build too."
     exit 1
 fi
 
@@ -90,6 +97,11 @@ if [ "$BUILD_CORE" = "true" ]; then
     echo "  ✓ Core"
 else
     echo "  X Core"
+fi
+if [ "$BUILD_DESKTOP" = "true" ]; then
+    echo "  ✓ Synnax Desktop"
+else
+    echo "  X Synnax Desktop"
 fi
 echo ""
 echo "Settings:"

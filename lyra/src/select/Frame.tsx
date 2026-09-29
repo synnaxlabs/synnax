@@ -12,7 +12,7 @@ import { type PropsWithChildren, type ReactElement } from "react";
 
 import { List } from "@/list";
 import { Context } from "@/select/Context";
-import { RegistryContext, SearchProvider, useRegistry } from "@/select/registry";
+import { RegistryContext, useRegistry } from "@/select/registry";
 import {
   useMultiple,
   type UseMultipleProps,
@@ -134,13 +134,11 @@ export const Frame = <
       virtual={virtual}
     >
       <RegistryContext value={registry}>
-        <SearchProvider>
-          {multiple ? (
-            <MultipleProvider value={value} onChange={onChange} {...rest} />
-          ) : (
-            <SingleProvider value={value} onChange={onChange} {...rest} />
-          )}
-        </SearchProvider>
+        {multiple ? (
+          <MultipleProvider value={value} onChange={onChange} {...rest} />
+        ) : (
+          <SingleProvider value={value} onChange={onChange} {...rest} />
+        )}
       </RegistryContext>
     </List.Frame>
   );

@@ -879,6 +879,42 @@ describe("color.Color", () => {
       expect(color.fromCSS("rgba(128, 128, 128, 1)")).toEqual([128, 128, 128, 1]);
     });
 
+    test("parses four and eight digit hex with alpha", () => {
+      expect(color.fromCSS("#f008")).toEqual([255, 0, 0, 136 / 255]);
+      expect(color.fromCSS("#ff000080")).toEqual([255, 0, 0, 128 / 255]);
+    });
+
+    test("parses space syntax with a slash alpha", () => {
+      expect(color.fromCSS("rgb(255 0 0 / 50%)")).toEqual([255, 0, 0, 0.5]);
+      expect(color.fromCSS("rgb(100% 0% 0%)")).toEqual([255, 0, 0, 1]);
+    });
+
+    test("parses hsl colors", () => {
+      expect(color.fromCSS("hsl(0, 100%, 50%)")).toEqual([255, 0, 0, 1]);
+      expect(color.fromCSS("hsla(240 100% 50% / 0.25)")).toEqual([0, 0, 255, 0.25]);
+    });
+
+    test("converts hsl hue units to degrees", () => {
+      const cyan = [0, 255, 255, 1];
+      expect(color.fromCSS("hsl(180deg 100% 50%)")).toEqual(cyan);
+      expect(color.fromCSS("hsl(0.5turn 100% 50%)")).toEqual(cyan);
+      expect(color.fromCSS(`hsl(${Math.PI}rad 100% 50%)`)).toEqual(cyan);
+      expect(color.fromCSS("hsl(200grad 100% 50%)")).toEqual(cyan);
+      expect(color.fromCSS("hsl(1.8e2deg 100% 50%)")).toEqual(cyan);
+    });
+
+    test("rejects an hsl hue with an unknown unit", () => {
+      expect(color.fromCSS("hsl(180px 100% 50%)")).toBeUndefined();
+    });
+
+    test("rejects an hsl hue that overflows", () => {
+      expect(color.fromCSS("hsl(1e999deg 100% 50%)")).toBeUndefined();
+    });
+
+    test("clamps out of range channels", () => {
+      expect(color.fromCSS("rgb(300, -5, 0, 2)")).toEqual([255, 0, 0, 1]);
+    });
+
     test("parses named colors", () => {
       expect(color.fromCSS("red")).toEqual([255, 0, 0, 1]);
       expect(color.fromCSS("green")).toEqual([0, 128, 0, 1]);
@@ -899,6 +935,48 @@ describe("color.Color", () => {
       expect(color.fromCSS("transparent")).toBeUndefined();
       expect(color.fromCSS("invalid")).toBeUndefined();
       expect(color.fromCSS("#gggggg")).toBeUndefined();
+      expect(color.fromCSS("#12345")).toBeUndefined();
+      expect(color.fromCSS("rgb(1, 2)")).toBeUndefined();
+      expect(color.fromCSS("rgb(a, b, c)")).toBeUndefined();
+    });
+  });
+
+  describe("hsva", () => {
+    test("converts primary colors", () => {
+      expect(color.hsva("#ff0000")).toEqual([0, 100, 100, 1]);
+      expect(color.hsva("#00ff00")).toEqual([120, 100, 100, 1]);
+      expect(color.hsva("#0000ff")).toEqual([240, 100, 100, 1]);
+    });
+
+    test("converts achromatic colors to zero hue and saturation", () => {
+      expect(color.hsva("#000000")).toEqual([0, 0, 0, 1]);
+      expect(color.hsva("#ffffff")).toEqual([0, 0, 100, 1]);
+    });
+
+    test("keeps the alpha", () => {
+      expect(color.hsva([255, 0, 0, 0.5])[3]).toEqual(0.5);
+    });
+  });
+
+  describe("fromHSVA", () => {
+    test("converts primary colors", () => {
+      expect(color.fromHSVA([0, 100, 100, 1])).toEqual([255, 0, 0, 1]);
+      expect(color.fromHSVA([120, 100, 100, 1])).toEqual([0, 255, 0, 1]);
+      expect(color.fromHSVA([240, 100, 100, 0.5])).toEqual([0, 0, 255, 0.5]);
+    });
+
+    test("treats a hue of 360 as 0", () => {
+      expect(color.fromHSVA([360, 100, 100, 1])).toEqual([255, 0, 0, 1]);
+    });
+
+    test("round trips every hex color it produces", () => {
+      ["#3e8bff", "#dc136c", "#7ac74f", "#808080", "#010203"].forEach((hex) =>
+        expect(color.hex(color.fromHSVA(color.hsva(hex)))).toEqual(hex),
+      );
+    });
+
+    test("throws on an out of range value", () => {
+      expect(() => color.fromHSVA([0, 101, 0, 1])).toThrow();
     });
   });
 
