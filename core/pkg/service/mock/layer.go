@@ -26,22 +26,22 @@ import (
 
 const keyID = "test"
 
-// Keys is a throwaway signing key and the anchor set that verifies it.
-type Keys struct {
+// Signer is a throwaway signing key and the anchor set that verifies it.
+type Signer struct {
 	private *mldsa.PrivateKey
 	// Anchors holds the matching public key.
 	Anchors license.Anchors
 }
 
-// NewKeys generates a fresh signing key.
-func NewKeys() Keys {
+// NewSigner generates a fresh signing key.
+func NewSigner() Signer {
 	priv := lo.Must(mldsa.GenerateKey(mldsa.MLDSA44()))
-	return Keys{private: priv, Anchors: license.Anchors{keyID: priv.PublicKey()}}
+	return Signer{private: priv, Anchors: license.Anchors{keyID: priv.PublicKey()}}
 }
 
-// Sign signs lic under the key.
-func (k Keys) Sign(lic license.License) string {
-	return lo.Must(license.Sign(k.private, keyID, lic))
+// Sign returns a license key carrying lic.
+func (s Signer) Sign(lic license.License) string {
+	return lo.Must(license.Sign(s.private, keyID, lic))
 }
 
 // NewLicense returns a license that floats between machines and lasts fifty years.
@@ -74,14 +74,14 @@ func OpenLayer(
 	if err != nil {
 		return nil, err
 	}
-	keys := NewKeys()
+	signer := NewSigner()
 	base := service.LayerConfig{
 		Distribution: node.Layer,
 		Security:     sec,
 		Storage:      node.Storage,
 		License: license.ServiceConfig{
-			Key:     keys.Sign(NewLicense()),
-			Anchors: keys.Anchors,
+			Key:     signer.Sign(NewLicense()),
+			Anchors: signer.Anchors,
 		},
 	}
 	return service.OpenLayer(ctx, append([]service.LayerConfig{base}, cfgs...)...)

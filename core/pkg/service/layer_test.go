@@ -32,13 +32,13 @@ import (
 
 var _ = Describe("Layer", func() {
 	It("Should cap external channels at the license's limit", func(ctx SpecContext) {
-		keys := svcmock.NewKeys()
+		signer := svcmock.NewSigner()
 		lic := svcmock.NewLicense()
 		lic.Channels = 50
 		layer := MustOpen(svcmock.OpenLayer(ctx, mock.NewNode(ctx), service.LayerConfig{
 			License: license.ServiceConfig{
-				Key:     keys.Sign(lic),
-				Anchors: keys.Anchors,
+				Key:     signer.Sign(lic),
+				Anchors: signer.Anchors,
 			},
 		}))
 		var existing []channel.Channel

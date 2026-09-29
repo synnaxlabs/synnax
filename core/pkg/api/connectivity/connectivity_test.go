@@ -27,12 +27,12 @@ import (
 
 var _ = Describe("Check", func() {
 	var (
-		db   kv.DB
-		keys svcmock.Keys
+		db     kv.DB
+		signer svcmock.Signer
 	)
 	BeforeEach(func() {
 		db = DeferClose(memkv.New())
-		keys = svcmock.NewKeys()
+		signer = svcmock.NewSigner()
 	})
 	openLicense := func(
 		ctx SpecContext,
@@ -40,7 +40,7 @@ var _ = Describe("Check", func() {
 	) *license.Service {
 		GinkgoHelper()
 		return MustOpen(license.OpenService(ctx, append(
-			[]license.ServiceConfig{{DB: db, Anchors: keys.Anchors}},
+			[]license.ServiceConfig{{DB: db, Anchors: signer.Anchors}},
 			cfgs...,
 		)...))
 	}
@@ -66,14 +66,14 @@ var _ = Describe("Check", func() {
 
 	It("Should report an active license", func(ctx SpecContext) {
 		lic := openLicense(ctx, license.ServiceConfig{
-			Key: keys.Sign(svcmock.NewLicense()),
+			Key: signer.Sign(svcmock.NewLicense()),
 		})
 		Expect(check(ctx, lic).License).To(Equal(license.StateOk))
 	})
 
 	It("Should report an expired license", func(ctx SpecContext) {
 		lic := openLicense(ctx, license.ServiceConfig{
-			Key: keys.Sign(svcmock.NewLicense()),
+			Key: signer.Sign(svcmock.NewLicense()),
 		})
 		Expect(lic.Close()).To(Succeed())
 		later := time.Now().AddDate(60, 0, 0)

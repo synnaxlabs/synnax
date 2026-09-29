@@ -69,13 +69,13 @@ var _ = Describe("HTTP", func() {
 
 	Describe("License gate", func() {
 		var (
-			app  *fiber.App
-			keys svcmock.Keys
+			app    *fiber.App
+			signer svcmock.Signer
 		)
 		creds := auth.Credentials{Username: "root", Password: "root"}
 		BeforeEach(func(ctx SpecContext) {
 			node := mock.NewNode(ctx)
-			keys = svcmock.NewKeys()
+			signer = svcmock.NewSigner()
 			sec := MustSucceed(security.NewProvider(security.ProviderConfig{
 				Insecure: new(true),
 				KeySize:  secmock.SmallKeySize,
@@ -85,7 +85,7 @@ var _ = Describe("HTTP", func() {
 				Security:        sec,
 				Storage:         node.Storage,
 				RootCredentials: creds,
-				License:         license.ServiceConfig{Anchors: keys.Anchors},
+				License:         license.ServiceConfig{Anchors: signer.Anchors},
 			}))
 			layer := MustSucceed(api.NewLayer(api.LayerConfig{
 				Service:      svc,
@@ -148,7 +148,7 @@ var _ = Describe("HTTP", func() {
 				"/api/v1/license/activate",
 				func() any {
 					return apilicense.ActivateRequest{
-						Key: keys.Sign(svcmock.NewLicense()),
+						Key: signer.Sign(svcmock.NewLicense()),
 					}
 				},
 			),

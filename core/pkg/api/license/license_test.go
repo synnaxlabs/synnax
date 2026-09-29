@@ -75,7 +75,7 @@ var _ = Describe("Service", Ordered, func() {
 			)
 			Expect(apiSvc.Activate(
 				AuthedCtx(ctx, reader),
-				apilicense.ActivateRequest{Key: keys.Sign(svcmock.NewLicense())},
+				apilicense.ActivateRequest{Key: signer.Sign(svcmock.NewLicense())},
 			)).Error().To(MatchError(access.ErrDenied))
 		},
 	)
@@ -86,7 +86,7 @@ var _ = Describe("Service", Ordered, func() {
 		lic := svcmock.NewLicense()
 		info := MustSucceed(apiSvc.Activate(
 			AuthedCtx(ctx, owner),
-			apilicense.ActivateRequest{Key: keys.Sign(lic)},
+			apilicense.ActivateRequest{Key: signer.Sign(lic)},
 		))
 		Expect(info.State).To(Equal(license.StateOk))
 		Expect(info.License).ToNot(BeNil())
