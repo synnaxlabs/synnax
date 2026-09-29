@@ -19,6 +19,7 @@ const { step, level, name = "Step", ...rest } = Astro.props;
 
 <Text.Text className="no-link" el="span" level={level} {...rest}>
     <span
+        class="step-label"
         style={{
             color: "var(--pluto-gray-l8)",
             display: "inline-flex",
