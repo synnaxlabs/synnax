@@ -36,8 +36,6 @@ jobs:
       - name: Check site
         timeout-minutes: 15
         working-directory: site/docs
-        # The static build renders the download pages, which list the GitHub releases.
-        # Unauthenticated, the shared runner IPs exhaust the API's hourly limit.
         env:
           DOCS_GITHUB_TOKEN: ${{ github.token }}
         run: pnpm check-site:build && pnpm check-site

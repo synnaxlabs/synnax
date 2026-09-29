@@ -52,8 +52,8 @@ const describe = (last: number | string): string =>
 
 interface Probe {
   reason: string;
-  // A connection-level failure (timeout, refused) rather than an HTTP status; these
-  // are the slow failures the per-host circuit breaker counts.
+  // A connection-level failure (timeout, refused) rather than an HTTP status; these are
+  // the slow failures the per-host circuit breaker counts.
   hung: boolean;
   // A 4xx or a host that does not resolve proves the link dead. A 5xx or a dropped
   // connection is the host's outage and proves nothing about the link.
@@ -66,14 +66,13 @@ const failure = (url: string, last: number | string): Probe => ({
   dead: typeof last === "number" ? last < 500 : last === "ENOTFOUND",
 });
 
-// A null body is a page that answered but cannot be verified (a 429): the link
-// passes and its fragment goes unchecked.
+// A null body is a page that answered but cannot be verified (a 429): the link passes
+// and its fragment goes unchecked.
 interface Body {
   body: string | null;
 }
 
-// Fragment checks need the document itself, so GET with the same retry policy as
-// probe.
+// Fragment checks need the document itself, so GET with the same retry policy as probe.
 const fetchBody = async (url: string): Promise<Body | Probe> => {
   let last: number | string = 0;
   for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
@@ -96,8 +95,8 @@ const fetchBody = async (url: string): Promise<Body | Probe> => {
   return failure(url, last);
 };
 
-// Hosts whose pages render anchors client-side; their fragments go unchecked and
-// the link is probed for liveness alone.
+// Hosts whose pages render anchors client-side; their fragments go unchecked and the
+// link is probed for liveness alone.
 const SCRIPTED_ANCHOR_HOSTS = ["github.com", "www.github.com"];
 
 const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -113,8 +112,8 @@ const hasAnchor = (body: string, fragment: string): boolean =>
 // means the host dislikes the URL, and a dropped connection means it refuses HEAD
 // itself, which some hosts do at the TLS layer.
 const probe = async (url: string): Promise<Probe | null> => {
-  // LinkedIn's bot wall answers 999 for live and dead pages alike, so its links
-  // cannot be verified either way. A 429 on any host proves nothing about the link.
+  // LinkedIn's bot wall answers 999 for live and dead pages alike, so its links cannot
+  // be verified either way. A 429 on any host proves nothing about the link.
   const linkedin = new URL(url).host.endsWith("linkedin.com");
   const ok = (status: number): boolean =>
     status < 400 || status === 429 || (linkedin && status === 999);
@@ -131,8 +130,8 @@ const probe = async (url: string): Promise<Probe | null> => {
   return failure(url, last);
 };
 
-// The checks' own server answers fast and never rate-limits; one plain GET, none of
-// the external-host policy.
+// The checks' own server answers fast and never rate-limits; one plain GET, none of the
+// external-host policy.
 const probeLocal = async (url: string): Promise<string | null> => {
   const status = await request(url, "GET");
   if (typeof status === "number" && status < 400) return null;
@@ -143,8 +142,8 @@ const probeLocal = async (url: string): Promise<string | null> => {
 // immediately instead of burning timeouts.
 const BREAKER_LIMIT = 3;
 
-// Concurrent requests allowed per external host: parallel enough that link-heavy
-// hosts don't dominate the run, small enough to stay polite.
+// Concurrent requests allowed per external host: parallel enough that link-heavy hosts
+// don't dominate the run, small enough to stay polite.
 const HOST_WINDOW = 3;
 
 interface Gate {
@@ -167,11 +166,11 @@ const leave = (gate: Gate): void => {
   else gate.active -= 1;
 };
 
-// Deduplicates by URL and windows requests per host to stay polite with external
-// sites; the checks' own server bypasses that policy. A URL with a fragment is
-// fetched in full and its anchor target verified against the document, with the
-// page shared across fragments of the same URL. An external failure that does not prove
-// the link dead goes to warn and passes.
+// Deduplicates by URL and windows requests per host to stay polite with external sites;
+// the checks' own server bypasses that policy. A URL with a fragment is fetched in full
+// and its anchor target verified against the document, with the page shared across
+// fragments of the same URL. An external failure that does not prove the link dead goes
+// to warn and passes.
 export const createFetcher = (
   baseURL: string,
   warn: (message: string) => void,
@@ -205,8 +204,8 @@ export const createFetcher = (
             hung: true,
             dead: false,
           };
-        // A ":~:" fragment is a text directive, not an element anchor, and hosts
-        // that build their anchors in script cannot be checked from static HTML.
+        // A ":~:" fragment is a text directive, not an element anchor, and hosts that
+        // build their anchors in script cannot be checked from static HTML.
         if (
           fragment === "" ||
           fragment.startsWith(":~:") ||

@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Crawls every page of the static check build in dist/ and runs each registered
-// check over the results. Set DOCS_URL to check an already-running server instead.
+// Crawls every page of the static check build in dist/ and runs each registered check
+// over the results. Set DOCS_URL to check an already-running server instead.
 //
 // usage: check-site [check ...] [--route prefix ...]
 //   pnpm check-site:build                        build dist/ for checking
@@ -76,8 +76,8 @@ if (prefixes.length > 0) {
   }
 }
 
-// Failures stream as they are found; the end of the run prints per-check totals. In
-// a terminal each failure first clears any in-place progress line.
+// Failures stream as they are found; the end of the run prints per-check totals. In a
+// terminal each failure first clears any in-place progress line.
 const counts = new Map<string, number>();
 const record = (check: string, messages: string[]): void => {
   if (messages.length === 0) return;
@@ -95,8 +95,8 @@ const warnUnverified = (message: string): void => {
   console.warn(`${styleText(["yellow", "bold"], "unverified")} ${message}`);
 };
 
-// In-place counter for a finish hook; a newline finishes the line so the next
-// output starts fresh. CI logs skip it.
+// In-place counter for a finish hook; a newline finishes the line so the next output
+// starts fresh. CI logs skip it.
 const progressFor =
   (check: string) =>
   (done: number, total: number): void => {
