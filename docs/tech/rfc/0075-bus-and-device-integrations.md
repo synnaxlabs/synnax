@@ -7,24 +7,23 @@
 
 ## 0 Summary
 
-Six new Driver integrations: `can`, `serial`, `tcp`, `udp`, `arinc429`, and `mil1553`.
-Each one is a transport. Every integration reads and writes messages whose bit or text
-layout lives in a library (RFC 0074) as `message` entries, and one codec in the Driver
-decodes and encodes them all. Serial and TCP tasks cut byte streams into messages with a
-framing setting. Any byte-stream task can listen to a device that streams or poll a
-device that answers queries, which covers SCPI instruments such as power supplies. A
-write task sends each message on its period and falls silent when it stops. The Core
-imports ICDs from DBC, CSV, and XLSX files into libraries.
+Five new Driver integrations: `can`, `serial`, `tcp`, `udp`, and `mil1553`. Each one is
+a transport. Every integration reads and writes messages whose bit or text layout lives
+in a library (RFC 0074) as `message` entries, and one codec in the Driver decodes and
+encodes them all. Serial and TCP tasks cut byte streams into messages with a framing
+setting. Any byte-stream task can listen to a device that streams or poll a device that
+answers queries, which covers SCPI instruments such as power supplies. A write task
+sends each message on its period and falls silent when it stops. The Core imports ICDs
+from DBC, CSV, and XLSX files into libraries.
 
 ## 1 Motivation
 
 The Driver speaks NI DAQmx, LabJack, Modbus TCP, OPC UA, EtherCAT, and HTTP. It has no
-serial port, CAN, raw socket, ARINC 429, or MIL-STD-1553 code. Those are the interfaces
-of avionics, drone, eVTOL, and embedded test benches: flight computers on CAN and
-serial, telemetry over UDP, avionics boxes on 429 and 1553, and bench instruments that
-speak SCPI over serial or Ethernet. Today the only route for these devices is a Python
-script against the client, and Synnax Desktop does not expose its Core to the Python
-client (RFC 0063).
+serial port, CAN, raw socket, or MIL-STD-1553 code. Those are the interfaces of
+avionics, drone, eVTOL, and embedded test benches: flight computers on CAN and serial,
+telemetry over UDP, avionics boxes on 1553, and bench instruments that speak SCPI over
+serial or Ethernet. Today the only route for these devices is a Python script against
+the client, and Synnax Desktop does not expose its Core to the Python client (RFC 0063).
 
 Bit-level decoding exists twice and covers neither need. EtherCAT extracts sub-byte PDO
 values little-endian only, without sign extension below 8 bits
@@ -35,16 +34,16 @@ arbitrary widths up to 64 bits, scaling, or text.
 ## 2 Vocabulary
 
 - **Transport**: How bytes or frames travel: a CAN bus, a serial port, a TCP connection,
-  a UDP socket, an ARINC 429 channel, or a 1553 bus. One transport is one integration,
-  and its endpoint is the device.
+  a UDP socket, or a 1553 bus. One transport is one integration, and its endpoint is the
+  device.
 - **Framing**: How a byte stream is cut into messages. Only `serial` and `tcp` need it.
 - **Exchange**: Who speaks first. A streaming device sends on its own. A polled device
   answers a query.
 - **Layout**: Where values sit in a message. A layout is a `message` entry in a library.
 - **Message**: A library entry with an identifier, fields, and an optional period and
   query.
-- **Identifier**: What names a message on its transport: a CAN ID, a 429 label and SDI,
-  a 1553 address, or a match on a header field or starting token.
+- **Identifier**: What names a message on its transport: a CAN ID, a 1553 address, or a
+  match on a header field or starting token.
 - **Field**: One value in a message, located by bits for binary messages or by position
   or tag for text messages.
 - **Multiplexor**: A field whose value selects which other fields a message carries.
@@ -58,8 +57,8 @@ arbitrary widths up to 64 bits, scaling, or text.
 2. **Layout lives in a library**: A task names library entries and maps fields to
    channels. It never carries a layout of its own.
 3. **One codec**: Every integration decodes and encodes through the same code.
-4. **The Driver runs next to the hardware**: A CAN adapter or a 429 card sits in the rig
-   computer, often behind a standalone Driver. These integrations live in the C++
+4. **The Driver runs next to the hardware**: A CAN adapter or a 1553 card sits in the
+   rig computer, often behind a standalone Driver. These integrations live in the C++
    Driver.
 5. **Vendor SDKs load at runtime**: The Driver never links a vendor library. A missing
    library disables its backend, as NI and LabJack do today.
@@ -90,7 +89,6 @@ can carry different devices over a rig's life.
 | `serial`    | RS-232, 422, 485 | Task setting | Stream or poll | All            |
 | `tcp`       | TCP client       | Task setting | Stream or poll | All            |
 | `udp`       | UDP socket       | One datagram | Stream or poll | All            |
-| `arinc429`  | ARINC 429        | By hardware  | Stream         | Windows, Linux |
 | `mil1553`   | MIL-STD-1553 bus | By hardware  | Poll           | Windows, Linux |
 
 "All" is Windows, macOS, Linux, and NI Linux RT. Task types are `<name>_read`,
@@ -143,9 +141,7 @@ message {
   messages. The poll rate is a task setting (§5.5), because it is a rig decision and the
   query is a property of the device.
 
-The ARINC 429 label, SDI, SSM, and parity occupy fixed bits, so a 429 message's fields
-cover bits 11 to 29 and a status field over bits 30 and 31. The 1553 layout covers the
-data words; status words are read by the transport.
+The 1553 layout covers the data words; status words are read by the transport.
 
 ### 5.2 The codec
 
@@ -174,9 +170,8 @@ already blocks on its engine thread the same way.
   because messages arrive at their own rates. A frame carries only the messages that
   arrived, following HTTP's sampling groups (`driver/http/read_task.h:52`).
 - **Timestamps**: hardware timestamps from the adapter when it has them (SocketCAN,
-  PCAN-Basic, CANlib, gs_usb, and the 429 and 1553 cards all do), converted to the host
-  clock once per task by an offset measured at start. Otherwise, the host time of
-  arrival.
+  PCAN-Basic, CANlib, gs_usb, and the 1553 cards all do), converted to the host clock
+  once per task by an offset measured at start. Otherwise, the host time of arrival.
 - **Raw frames**: every read task writes each received frame, known or unknown, to one
   virtual `bytes` channel. It streams for live debugging and is never saved.
 - **Unknown and malformed frames**: a frame no message matches goes only to the raw
@@ -257,15 +252,12 @@ with backoff.
 **`udp`**. The device is a local port to bind, with an optional remote host and port for
 writes and queries, and an optional multicast group.
 
-**`arinc429`**. The device is a card channel with its speed (12.5 or 100 kbit/s) and
-direction. Each vendor (Astronics Ballard, Alta, DDC, AIM) is one backend behind the
-same interface, and the first one built matches the hardware of the first team that
-needs it. A backend loads its SDK at runtime through the pattern in
-`driver/labjack/ljm/api.h`, with a production and a mock implementation.
-
 **`mil1553`**. The device is a card channel with its role: bus controller, remote
 terminal simulation, or monitor. Remote terminal simulation answers commands with the
-latest command channel values of the messages it owns.
+latest command channel values of the messages it owns. Each vendor (Astronics Ballard,
+Alta, DDC, AIM) is one backend behind the same interface. A backend loads its SDK at
+runtime through the pattern in `driver/labjack/ljm/api.h`, with a production and a mock
+implementation.
 
 ### 5.8 ICD import
 
@@ -289,8 +281,8 @@ action on the library service.
 
 ### 5.9 Console
 
-- **Devices**: a connect form per integration, and scan results for `can`, `serial`,
-  `arinc429`, and `mil1553`.
+- **Devices**: a connect form per integration, and scan results for `can`, `serial`, and
+  `mil1553`.
 - **Read tasks**: pick a library, then pick messages and fields. The Console creates one
   index per message (`<device>_<message>_time`) and one channel per field
   (`<device>_<message>_<field>`), following Modbus channel creation
@@ -340,21 +332,25 @@ never builds a plan from a stale key.
   protection.
 - **LIN, FlexRay, AFDX, SpaceWire, and ARINC 717**.
 - **USB-TMC and GPIB** instruments.
-- **ARINC 429 and 1553 on macOS**: no vendor ships a macOS SDK.
+- **1553 on macOS**: no vendor ships a macOS SDK.
+- **ARINC 429**: its vendor backends need an SDK and a card, so it moved to its own work
+  (SY-4982).
 - **Saved raw frames**: the raw channel is virtual.
 - **Units and enum names on channels**: channels hold numbers (RFC 0074 §6).
 
 ## 7 Implementation phases
 
-The work lands as three PRs, each behind the `library` and `can` flags until the last.
+The work lands as four PRs. The first two sit behind the `library` and `can` flags,
+which Phase 3 removes.
 
 - **Phase 1: Library and ICD import (SY-4970).** The `message` kind, ICD import, the
   clients in every language, and the Console library editor.
 - **Phase 2: Codec, CAN, serial, TCP, and UDP (SY-4971).** `driver/codec`, the task
   config schemas and Core stores, the Driver tasks on every CAN backend and on Asio, the
   Python types, and the Console forms.
-- **Phase 3: ARINC 429, MIL-STD-1553, and the codec everywhere (SY-4972).** One vendor
-  backend each, Modbus and EtherCAT moved onto the codec, and flag removal.
+- **Phase 3: Modbus and EtherCAT on the codec (SY-4972).** Modbus and EtherCAT moved
+  onto the codec, and flag removal.
+- **Phase 4: MIL-STD-1553 (SY-4983).** The `mil1553` integration on one vendor backend.
 
 Every phase adds new task types or internal code. No stored shape changes, so no
 migration is needed. Phase 3 keeps the Modbus and EtherCAT task configs as they are.
@@ -388,9 +384,8 @@ already recorded.
 receivers that expect a message on a fixed beat. DBC and Ballard XML already carry the
 period, so import fills it.
 
-**8.6 ARINC 429 and 1553 on Windows and Linux only.** No vendor supports macOS, and
-Desktop cannot reach a Driver on another machine. Avionics benches run Windows and
-Linux.
+**8.6 1553 on Windows and Linux only.** No vendor supports macOS, and Desktop cannot
+reach a Driver on another machine. Avionics benches run Windows and Linux.
 
 **8.7 The Core imports ICDs.** A Console import would run in one client and would rely
 on SheetJS, whose npm package is stuck on a version with known vulnerabilities. Go has

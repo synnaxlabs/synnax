@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import {
-  arinc429,
   can,
   type library,
   mil1553,
@@ -23,7 +22,6 @@ import { screen } from "@testing-library/react";
 import { type FC } from "react";
 import { describe, expect, it } from "vitest";
 
-import { ARINC429 } from "@/feature/arinc429";
 import {
   createAvionicsLibrary,
   createBusDevice,
@@ -285,57 +283,12 @@ describe("bus config round trip", () => {
     expectMessage(config.messages, lib.status);
   });
 
-  it("should keep an ARINC 429 read config", async () => {
-    const lib = await createAvionicsLibrary(client);
-    const dev = await createBusDevice(
-      client,
-      ARINC429.Device.MAKE,
-      arinc429.propertiesZ.parse({ card: 1, channel: 2, speed: "low" }),
-    );
-    const { config } = await deploy({
-      Form: ARINC429.Task.Read,
-      type: ARINC429.Task.READ_TYPE,
-      schemas: ARINC429.Task.READ_SCHEMAS,
-      config: ARINC429.Task.READ_SCHEMAS.config.parse({
-        library: lib.library.key,
-        device: dev.key,
-        messages: [createMessage(lib.airspeed)],
-      }),
-      field: "Speed",
-    });
-    expect(config.library).toBe(lib.library.key);
-    expect(config.device).toBe(dev.key);
-    expectMessage(config.messages, lib.airspeed);
-  });
-
-  it("should keep an ARINC 429 write config", async () => {
-    const lib = await createAvionicsLibrary(client);
-    const dev = await createBusDevice(
-      client,
-      ARINC429.Device.MAKE,
-      arinc429.propertiesZ.parse({}),
-    );
-    const { config } = await deploy({
-      Form: ARINC429.Task.Write,
-      type: ARINC429.Task.WRITE_TYPE,
-      schemas: ARINC429.Task.WRITE_SCHEMAS,
-      config: ARINC429.Task.WRITE_SCHEMAS.config.parse({
-        library: lib.library.key,
-        device: dev.key,
-        messages: [createMessage(lib.airspeed)],
-      }),
-      field: "Speed",
-    });
-    expect(config.device).toBe(dev.key);
-    expectMessage(config.messages, lib.airspeed);
-  });
-
   it("should keep a MIL-STD-1553 bus controller read config", async () => {
     const lib = await createAvionicsLibrary(client);
     const dev = await createBusDevice(
       client,
       MIL1553.Device.MAKE,
-      mil1553.propertiesZ.parse({ role: "bus_controller" }),
+      mil1553.propertiesZ.parse({ backend: "simulated", role: "bus_controller" }),
     );
     const { config } = await deploy({
       Form: MIL1553.Task.Read,
@@ -357,7 +310,11 @@ describe("bus config round trip", () => {
     const dev = await createBusDevice(
       client,
       MIL1553.Device.MAKE,
-      mil1553.propertiesZ.parse({ role: "remote_terminal", terminals: [5] }),
+      mil1553.propertiesZ.parse({
+        backend: "simulated",
+        role: "remote_terminal",
+        terminals: [5],
+      }),
     );
     const { config } = await deploy({
       Form: MIL1553.Task.Write,

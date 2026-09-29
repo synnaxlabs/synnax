@@ -7,8 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Base class for the ARINC 429 and MIL-STD-1553 task cases, which run on the cards
-the Driver simulates in process."""
+"""Base class for the MIL-STD-1553 task cases, which run on the cards the Driver
+simulates in process."""
 
 from collections.abc import Iterator
 from contextlib import ExitStack, contextmanager
@@ -17,15 +17,13 @@ from typing import Any
 import numpy as np
 
 import synnax as sy
-from synnax import arinc429, mil1553
+from synnax import mil1553
 from tests.driver.bus_task import BusCase, Collector
 
 # The terminal address the simulated remote terminal owns.
 REMOTE_TERMINAL = 5
 
-type PeerTask = (
-    arinc429.ReadTask | arinc429.WriteTask | mil1553.ReadTask | mil1553.WriteTask
-)
+type PeerTask = mil1553.ReadTask | mil1553.WriteTask
 
 
 class Card:
@@ -34,19 +32,6 @@ class Card:
 
     device_name: str
     channel_names: tuple[str, ...] = ()
-
-
-class ARINC429Card(Card):
-    device_name = "ARINC 429 Simulated Channel"
-
-    @staticmethod
-    def create_device(rack_key: int) -> sy.Device:
-        return arinc429.Device(
-            backend=arinc429.BACKEND_SIMULATED,
-            name=ARINC429Card.device_name,
-            location="simulated",
-            rack=rack_key,
-        )
 
 
 class BusController(Card):

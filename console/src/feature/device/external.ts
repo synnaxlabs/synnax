@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ARINC429 } from "@/feature/arinc429";
 import { CAN } from "@/feature/can";
 import { HTTP } from "@/feature/http";
 import { MIL1553 } from "@/feature/mil1553";
@@ -26,7 +25,6 @@ export * from "@/feature/device/useListenForChanges";
 export * from "@/platform/device/external";
 
 export const COMMANDS: Command.Command[] = [
-  ...ARINC429.Device.COMMANDS,
   ...CAN.Device.COMMANDS,
   ...HTTP.Device.COMMANDS,
   ...MIL1553.Device.COMMANDS,

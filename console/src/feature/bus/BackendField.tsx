@@ -18,6 +18,9 @@ export interface BackendFieldProps<B extends string> {
   offered: readonly B[];
 }
 
+/** Stands in for an absent backend, which Form.Field would otherwise hide. */
+const NONE = "";
+
 /**
  * Selects the backend at properties.backend from the offered backends. A device that
  * already names a backend outside them still shows it as an option.
@@ -26,10 +29,24 @@ export const BackendField = <B extends string>({
   names,
   offered,
 }: BackendFieldProps<B>): ReactElement => (
-  <Form.Field<B> path="properties.backend" label="Backend">
-    {(p) => (
-      <Select.Simple<B> {...p} resourceName="backend">
-        {(offered.includes(p.value) ? offered : [...offered, p.value]).map((key) => (
+  <Form.Field<B | typeof NONE>
+    path="properties.backend"
+    label="Backend"
+    defaultValue={NONE}
+  >
+    {({ value, onChange, ...rest }) => (
+      <Select.Simple<B>
+        {...rest}
+        resourceName="backend"
+        value={value === NONE ? undefined : value}
+        onChange={(next: B | null) => {
+          if (next != null) onChange(next);
+        }}
+      >
+        {(value === NONE || offered.includes(value)
+          ? offered
+          : [...offered, value]
+        ).map((key) => (
           <Select.Item<B> key={key} itemKey={key}>
             {names[key]}
           </Select.Item>

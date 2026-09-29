@@ -12,7 +12,6 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { ARINC429 } from "@/feature/arinc429";
 import { CAN } from "@/feature/can";
 import { EtherCAT } from "@/feature/ethercat";
 import { HTTP } from "@/feature/http";
@@ -39,7 +38,6 @@ const withTaskVisibility = (Selectable: Base.Selectable): Base.Selectable => {
 };
 
 export const SELECTABLES: Base.Selectable[] = [
-  ...ARINC429.Task.SELECTABLES,
   ...CAN.Task.SELECTABLES,
   ...EtherCAT.Task.SELECTABLES,
   ...HTTP.Task.SELECTABLES,

@@ -14,7 +14,7 @@ import pytest
 
 import synnax as sy
 
-INTEGRATIONS = [sy.can, sy.serial, sy.tcp, sy.udp, sy.arinc429, sy.mil1553]
+INTEGRATIONS = [sy.can, sy.serial, sy.tcp, sy.udp, sy.mil1553]
 FRAMED = [sy.serial, sy.tcp]
 POLLED = [sy.serial, sy.tcp, sy.udp]
 

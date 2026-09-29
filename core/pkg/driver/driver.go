@@ -156,7 +156,6 @@ var (
 	_               config.Config[Config] = Config{}
 	AllIntegrations                       = []string{
 		"arc",
-		"arinc429",
 		"can",
 		"ethercat",
 		"http",

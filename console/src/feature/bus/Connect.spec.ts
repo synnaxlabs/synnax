@@ -7,20 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  arinc429,
-  can,
-  type device,
-  mil1553,
-  serial,
-  tcp,
-  udp,
-} from "@synnaxlabs/client";
+import { can, type device, mil1553, serial, tcp, udp } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { ARINC429 } from "@/feature/arinc429";
 import { createBusDevice, enterField, findOpenDialog } from "@/feature/bus/testutil";
 import { CAN } from "@/feature/can";
 import { MIL1553 } from "@/feature/mil1553";
@@ -121,34 +112,11 @@ describe("bus device connect", () => {
     expect(saved.location).toBe(":5000");
   });
 
-  it("should locate an ARINC 429 device at its card and channel", async () => {
-    const dev = await createBusDevice(
-      client,
-      ARINC429.Device.MAKE,
-      arinc429.propertiesZ.parse({}),
-      { configured: false },
-    );
-    await openConnect(ARINC429.Device.useConnectModal, dev.key);
-    await enterField("Card", "1");
-    await enterField("Channel", "2");
-    await selectFromDropdown("High (100 kbit/s)", "Low (12.5 kbit/s)");
-    const saved = await connectAndRetrieve(dev.key);
-    expect(saved.make).toBe("ARINC 429");
-    expect(saved.model).toBe("simulated");
-    expect(saved.location).toBe("Card 1, channel 2");
-    expect(arinc429.propertiesZ.parse(saved.properties)).toEqual({
-      backend: "simulated",
-      card: 1,
-      channel: 2,
-      speed: "low",
-    });
-  });
-
   const createMIL1553Device = async (properties: Partial<mil1553.Properties>) =>
     await createBusDevice(
       client,
       MIL1553.Device.MAKE,
-      mil1553.propertiesZ.parse(properties),
+      mil1553.propertiesZ.parse({ backend: "simulated", ...properties }),
       { configured: false },
     );
 
@@ -180,6 +148,13 @@ describe("bus device connect", () => {
     });
   });
 
+  it("should require a backend before connecting a new MIL-STD-1553 device", async () => {
+    await renderModalOpener(MIL1553.Device.useConnectModal, [{}], { client });
+    await screen.findByRole("button", { name: "Backend" });
+    fireEvent.click(findButton("Connect"));
+    await screen.findByText("Select a backend");
+  });
+
   it("should require a remote terminal to own a terminal", async () => {
     const dev = await createMIL1553Device({ role: "remote_terminal" });
     await openConnect(MIL1553.Device.useConnectModal, dev.key);
@@ -204,36 +179,10 @@ describe("bus device connect", () => {
   });
 
   describe("backends", () => {
-    it("should offer only the ARINC 429 backends the Driver drives", async () => {
-      const dev = await createBusDevice(
-        client,
-        ARINC429.Device.MAKE,
-        arinc429.propertiesZ.parse({}),
-        { configured: false },
-      );
-      await openConnect(ARINC429.Device.useConnectModal, dev.key);
-      expect(await listBackends()).toEqual(["Simulated", "DDC"]);
-    });
-
     it("should offer only the MIL-STD-1553 backends the Driver drives", async () => {
       const dev = await createMIL1553Device({});
       await openConnect(MIL1553.Device.useConnectModal, dev.key);
       expect(await listBackends()).toEqual(["Simulated"]);
-    });
-
-    it("should keep a stored ARINC 429 backend that is not offered", async () => {
-      const dev = await createBusDevice(
-        client,
-        ARINC429.Device.MAKE,
-        arinc429.propertiesZ.parse({ backend: "ballard" }),
-        { configured: false },
-      );
-      await openConnect(ARINC429.Device.useConnectModal, dev.key);
-      await findDialogTriggerByText("Astronics Ballard");
-      expect(await listBackends()).toEqual(["Simulated", "DDC", "Astronics Ballard"]);
-      const saved = await connectAndRetrieve(dev.key);
-      expect(saved.model).toBe("ballard");
-      expect(arinc429.propertiesZ.parse(saved.properties).backend).toBe("ballard");
     });
 
     it("should keep a stored MIL-STD-1553 backend that is not offered", async () => {

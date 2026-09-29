@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arinc429, type library, mil1553 } from "@synnaxlabs/client";
+import { type library, mil1553 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type record } from "@synnaxlabs/x";
 import { fireEvent, screen, within } from "@testing-library/react";
@@ -15,7 +15,6 @@ import { type FC } from "react";
 import { describe, expect, it } from "vitest";
 import { type z } from "zod";
 
-import { ARINC429 } from "@/feature/arinc429";
 import {
   type AvionicsLibrary,
   createAvionicsLibrary,
@@ -43,20 +42,12 @@ interface Draft {
   messages: (lib: AvionicsLibrary) => library.MessageEntry[];
 }
 
-const ARINC429_READ = {
-  Form: ARINC429.Task.Read,
-  type: ARINC429.Task.READ_TYPE,
-  configZ: ARINC429.Task.READ_SCHEMAS.config,
-  make: ARINC429.Device.MAKE,
-  properties: arinc429.propertiesZ.parse({}),
-};
-
 const mil1553Read = (properties: Partial<mil1553.Properties>) => ({
   Form: MIL1553.Task.Read,
   type: MIL1553.Task.READ_TYPE,
   configZ: MIL1553.Task.READ_SCHEMAS.config,
   make: MIL1553.Device.MAKE,
-  properties: mil1553.propertiesZ.parse(properties),
+  properties: mil1553.propertiesZ.parse({ backend: "simulated", ...properties }),
 });
 
 const mil1553Write = (properties: Partial<mil1553.Properties>) => ({
@@ -91,15 +82,7 @@ const openPicker = async (offered: string): Promise<HTMLElement> => {
   return dialog;
 };
 
-const ALL_MESSAGES = [
-  "Airspeed",
-  "Polled",
-  "Attitude",
-  "Status",
-  "Command",
-  "Engine",
-  "Wheel",
-];
+const ALL_MESSAGES = ["Attitude", "Status", "Command", "Engine", "Wheel"];
 
 /** Expects the picker to offer exactly the named messages of the library. */
 const expectOffered = (dialog: HTMLElement, offered: string[]) =>
@@ -112,11 +95,6 @@ const escaped = (name: string): string => name.replace(/[ -]/g, "_");
 
 describe("avionics bus tasks", () => {
   describe("message picker", () => {
-    it("should offer an ARINC 429 task only its messages with no query", async () => {
-      await open({ ...ARINC429_READ, messages: () => [] });
-      expectOffered(await openPicker("Airspeed"), ["Airspeed"]);
-    });
-
     it("should offer a MIL-STD-1553 task only MIL-STD-1553 messages", async () => {
       await open({ ...mil1553Read({}), messages: () => [] });
       expectOffered(await openPicker("Attitude"), [
@@ -129,28 +107,13 @@ describe("avionics bus tasks", () => {
   });
 
   describe("deploy checks", () => {
-    it("should show a query on its message and create no channels", async () => {
-      const { dev, container } = await open({
-        ...ARINC429_READ,
-        messages: (lib) => [lib.polled],
-      });
-      await clickDeploy(container);
-      await findMessageError(
-        0,
-        "Message Polled has a query, which ARINC 429 cannot send",
-      );
-      expect(await client.channels.retrieve([`${escaped(dev.name)}_raw`])).toHaveLength(
-        0,
-      );
-    });
-
     it("should show a message of another medium on its message", async () => {
       const { container } = await open({
-        ...ARINC429_READ,
-        messages: (lib) => [lib.attitude],
+        ...mil1553Read({ role: "monitor" }),
+        messages: (lib) => [lib.can],
       });
       await clickDeploy(container);
-      await findMessageError(0, "Message Attitude has no ARINC 429 identifier");
+      await findMessageError(0, "Message Wheel has no MIL-STD-1553 identifier");
     });
 
     it.each<[string, Draft, string]>([
@@ -221,29 +184,6 @@ describe("avionics bus tasks", () => {
   });
 
   describe("channel names", () => {
-    it("should name ARINC 429 read channels after the device and message", async () => {
-      const { dev, draft, container } = await open({
-        ...ARINC429_READ,
-        messages: (lib) => [lib.airspeed],
-      });
-      const { config } = await deployAndAwaitTask(
-        client,
-        container,
-        draft.key,
-        ARINC429.Task.READ_SCHEMAS,
-      );
-      const [msg] = config.messages;
-      expect((await client.channels.retrieve(msg.index)).name).toBe(
-        `${escaped(dev.name)}_Airspeed_time`,
-      );
-      expect((await client.channels.retrieve(msg.fields[0].channel)).name).toBe(
-        `${escaped(dev.name)}_Airspeed_Speed`,
-      );
-      expect((await client.channels.retrieve(config.raw)).name).toBe(
-        `${escaped(dev.name)}_raw`,
-      );
-    });
-
     it("should let a MIL-STD-1553 monitor read any terminal", async () => {
       const { dev, draft, container } = await open({
         ...mil1553Read({ role: "monitor" }),

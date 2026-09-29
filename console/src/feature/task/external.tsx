@@ -10,7 +10,6 @@
 import { DisconnectedError, task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { ARINC429 } from "@/feature/arinc429";
 import { CAN } from "@/feature/can";
 import { EtherCAT } from "@/feature/ethercat";
 import { HTTP } from "@/feature/http";
@@ -44,7 +43,6 @@ export * from "@/platform/task/external";
 export const REGISTRY: Task.Registry = { getIcon, parseType };
 
 export const COMMANDS: Command.Command[] = [
-  ...ARINC429.Task.COMMANDS,
   ...CAN.Task.COMMANDS,
   ...EtherCAT.Task.COMMANDS,
   ...HTTP.Task.COMMANDS,

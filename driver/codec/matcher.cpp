@@ -26,11 +26,6 @@ std::uint32_t exact_key(const std::uint32_t id, const bool extended) {
     return extended ? id | EXTENDED_KEY_BIT : id;
 }
 
-std::uint16_t
-label_key(const std::uint8_t label, const std::optional<std::uint8_t> sdi) {
-    return static_cast<std::uint16_t>(label | (sdi.has_value() ? *sdi + 1 : 0) << 8);
-}
-
 std::uint16_t transfer_key(mil1553::Command command) {
     command.count = 0;
     return command.encode();
@@ -159,26 +154,6 @@ Matcher::compile(const std::span<const library::MessageEntry> messages) {
             m.tokens.push_back({.prefix = token->prefix, .message = i});
             continue;
         }
-        if (const auto *a = std::get_if<library::Arinc429Identifier>(&identifier)) {
-            if (a->sdi_matched && a->sdi > arinc429::MAX_SDI)
-                return {{}, message_error(msg, "SDI must be from 0 to 3")};
-            const auto key = label_key(
-                a->label,
-                a->sdi_matched ? std::optional(a->sdi) : std::nullopt
-            );
-            const auto [it, ok] = m.labels.emplace(key, i);
-            if (!ok)
-                return {
-                    {},
-                    duplicate(
-                        messages,
-                        it->second,
-                        i,
-                        "have the same ARINC 429 label and SDI"
-                    ),
-                };
-            continue;
-        }
         if (const auto *c = std::get_if<library::Mil1553Identifier>(&identifier)) {
             if (c->rt > mil1553::MAX_RT)
                 return {{}, message_error(msg, "remote terminal address out of range")};
@@ -239,16 +214,6 @@ Matcher::match(const std::span<const std::uint8_t> frame) const {
     );
     for (const auto &t: this->tokens)
         if (line.starts_with(t.prefix)) return t.message;
-    return this->fallback;
-}
-
-std::optional<std::size_t> Matcher::match(const arinc429::Word word) const {
-    if (const auto it = this->labels.find(label_key(word.label(), word.sdi()));
-        it != this->labels.end())
-        return it->second;
-    if (const auto it = this->labels.find(label_key(word.label(), std::nullopt));
-        it != this->labels.end())
-        return it->second;
     return this->fallback;
 }
 

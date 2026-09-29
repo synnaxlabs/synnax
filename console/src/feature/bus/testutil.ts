@@ -81,10 +81,6 @@ export const createBusLibrary = async (client: Synnax): Promise<BusLibrary> => {
 
 export interface AvionicsLibrary {
   library: library.Library;
-  /** An ARINC 429 message on label 206 with the field Speed. */
-  airspeed: library.MessageEntry;
-  /** An ARINC 429 message on label 203 that a task polls with a query. */
-  polled: library.MessageEntry;
   /** A 1553 transmit message from terminal 5 every 100ms, with Pitch and Roll. */
   attitude: library.MessageEntry;
   /** A 1553 transmit message from terminal 5 with no period, with the field Mode. */
@@ -97,36 +93,18 @@ export interface AvionicsLibrary {
   can: library.MessageEntry;
 }
 
-const ARINC_FIELD = { encoding: "binary", startBit: 10, bitLength: 19 } as const;
 const WORD = { encoding: "binary", bitLength: 16 } as const;
-
-const arinc429 = (label: number) => ({ type: "arinc429", label }) as const;
 
 const mil1553 = (rt: number, subaddress: number, direction: library.Direction) =>
   ({ type: "mil1553", rt, subaddress, direction, wordCount: 2 }) as const;
 
-/** Creates a library holding ARINC 429, MIL-STD-1553, and CAN messages. */
+/** Creates a library holding MIL-STD-1553 and CAN messages. */
 export const createAvionicsLibrary = async (
   client: Synnax,
 ): Promise<AvionicsLibrary> => {
   const lib = await client.libraries.create({
     name: uniqueName("avionics_library"),
     entries: [
-      {
-        kind: "message",
-        name: "Airspeed",
-        identifier: arinc429(0o206),
-        length: 4,
-        fields: [{ ...ARINC_FIELD, name: "Speed", units: "kn" }],
-      },
-      {
-        kind: "message",
-        name: "Polled",
-        identifier: arinc429(0o203),
-        length: 4,
-        query: "\x01",
-        fields: [{ ...ARINC_FIELD, name: "Altitude" }],
-      },
       {
         kind: "message",
         name: "Attitude",
@@ -170,8 +148,6 @@ export const createAvionicsLibrary = async (
   });
   return {
     library: lib,
-    airspeed: findMessage(lib, "Airspeed"),
-    polled: findMessage(lib, "Polled"),
     attitude: findMessage(lib, "Attitude"),
     status: findMessage(lib, "Status"),
     command: findMessage(lib, "Command"),

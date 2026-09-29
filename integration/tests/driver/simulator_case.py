@@ -22,7 +22,7 @@ Usage:
         sim_classes = [OPCUASim, ModbusSim]
 
     class CardRead(SimulatorCase):
-        device_classes = [ARINC429Card]
+        device_classes = [BusController]
 """
 
 import os

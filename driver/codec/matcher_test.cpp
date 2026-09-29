@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <array>
 #include <optional>
 #include <string>
 #include <vector>
@@ -116,17 +115,6 @@ TEST(Matcher, RejectsTwoMessagesWithNoIdentifier) {
 }
 
 namespace {
-library::MessageEntry
-label(const std::uint8_t l, const std::optional<std::uint8_t> sdi = std::nullopt) {
-    return message(
-        library::Arinc429Identifier{
-            .label = l,
-            .sdi = sdi.value_or(0),
-            .sdi_matched = sdi.has_value(),
-        }
-    );
-}
-
 library::MessageEntry transfer(
     const std::uint8_t rt,
     const std::uint8_t sa,
@@ -137,48 +125,6 @@ library::MessageEntry transfer(
     );
 }
 
-arinc429::Word word(const std::uint8_t l, const std::uint8_t sdi = 0) {
-    const std::array<std::uint8_t, 4> payload{};
-    return arinc429::Word::pack(l, sdi, true, payload);
-}
-}
-
-TEST(Matcher, MatchesAnARINC429WordByLabel) {
-    const std::vector messages = {label(0203), label(0103)};
-    const auto m = ASSERT_NIL_P(Matcher::compile(messages));
-    EXPECT_EQ(m.match(word(0203)), 0);
-    EXPECT_EQ(m.match(word(0103, 2)), 1);
-    EXPECT_EQ(m.match(word(0204)), std::nullopt);
-}
-
-TEST(Matcher, PrefersALabelAndSDIMatchOverALabelMatch) {
-    const std::vector messages = {label(0203), label(0203, 1), label(0203, 2)};
-    const auto m = ASSERT_NIL_P(Matcher::compile(messages));
-    EXPECT_EQ(m.match(word(0203, 0)), 0);
-    EXPECT_EQ(m.match(word(0203, 1)), 1);
-    EXPECT_EQ(m.match(word(0203, 2)), 2);
-    EXPECT_EQ(m.match(word(0203, 3)), 0);
-}
-
-TEST(Matcher, FallsBackForAnUnknownLabel) {
-    const std::vector messages = {label(0203), message(std::nullopt)};
-    const auto m = ASSERT_NIL_P(Matcher::compile(messages));
-    EXPECT_EQ(m.match(word(0310)), 1);
-}
-
-TEST(Matcher, RejectsADuplicateLabelAndSDI) {
-    const std::vector messages = {label(0203, 1), label(0203, 1)};
-    const auto [_, err] = Matcher::compile(messages);
-    ASSERT_MATCHES(err, CONFIG_ERROR);
-    EXPECT_EQ(
-        err.data,
-        "messages message and message have the same ARINC 429 label and SDI"
-    );
-}
-
-TEST(Matcher, RejectsAnSDIAbove3) {
-    const std::vector messages = {label(0203, 4)};
-    ASSERT_OCCURRED_AS_P(Matcher::compile(messages), CONFIG_ERROR);
 }
 
 TEST(Matcher, MatchesAMIL1553CommandByAddressSubaddressAndDirection) {
@@ -222,6 +168,11 @@ TEST(Matcher, RejectsAMIL1553ModeCodeSubaddress) {
 
 TEST(Matcher, RejectsTheMIL1553BroadcastAddress) {
     ASSERT_OCCURRED_AS_P(Matcher::compile(std::vector{transfer(31, 1)}), CONFIG_ERROR);
+}
+
+TEST(Matcher, RejectsAnUnsupportedIdentifier) {
+    const std::vector messages = {message(library::Arinc429Identifier{.label = 0x10})};
+    ASSERT_OCCURRED_AS_P(Matcher::compile(messages), CONFIG_ERROR);
 }
 
 TEST(Matcher, MatchesTheLongestTokenPrefix) {

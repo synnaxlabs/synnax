@@ -34,7 +34,7 @@ export interface MessageCheck {
  * Creates the check of a medium that carries only messages with an identifier of one
  * type, and that sends no queries.
  * @param type - The identifier type the medium matches messages by.
- * @param medium - The medium's name in errors, such as ARINC 429.
+ * @param medium - The medium's name in errors, such as MIL-STD-1553.
  */
 export const checkIdentifier =
   (type: library.IdentifierType, medium: string) =>

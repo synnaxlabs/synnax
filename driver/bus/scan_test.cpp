@@ -44,8 +44,8 @@ using Backends = std::unordered_map<std::string, std::shared_ptr<Backend>>;
 Scanner<Backend> create_scanner(Backends backends) {
     return {
         synnax::task::Task{.rack = 7, .name = "scan"},
-        "arinc429",
-        "ARINC 429",
+        "mil1553",
+        "MIL-STD-1553",
         std::move(backends),
     };
 }
@@ -58,8 +58,8 @@ TEST(Scanner, ReportsADeviceForEachListedChannel) {
     });
     const auto devs = ASSERT_NIL_P(scanner.scan({}));
     ASSERT_EQ(devs.size(), 1);
-    EXPECT_EQ(devs[0].key, "arinc429_7_simulated_0_1");
-    EXPECT_EQ(devs[0].make, "ARINC 429");
+    EXPECT_EQ(devs[0].key, "mil1553_7_simulated_0_1");
+    EXPECT_EQ(devs[0].make, "MIL-STD-1553");
     EXPECT_EQ(devs[0].model, "simulated");
     EXPECT_EQ(devs[0].name, "Simulated channel");
     EXPECT_EQ(devs[0].rack, 7);

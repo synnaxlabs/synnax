@@ -50,11 +50,11 @@ TEST(Load, ReturnsTheMissingLibraryErrorForAnAbsentLibrary) {
 }
 
 TEST(Unsupported, NamesTheBackend) {
-    const auto err = unsupported("Ballard ARINC 429");
+    const auto err = unsupported("Ballard MIL-STD-1553");
     ASSERT_OCCURRED_AS(err, UNSUPPORTED_ERROR);
     EXPECT_EQ(
         err.data,
-        "the Ballard ARINC 429 backend is not supported yet. Its vendor library "
+        "the Ballard MIL-STD-1553 backend is not supported yet. Its vendor library "
         "loaded, but the Driver does not drive it"
     );
 }
