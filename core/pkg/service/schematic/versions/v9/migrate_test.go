@@ -310,39 +310,42 @@ var _ = Describe("Config typing", func() {
 		}
 
 		DescribeTable("Should rename a legacy color to the part it paints",
-			func(ctx SpecContext, variant, from string, to []string) {
-				out := fields(ctx, msgpack.EncodedJSON{"variant": variant, from: "#ff0000"})
+			func(ctx SpecContext, variant, from string, to ...string) {
+				out := fields(
+					ctx,
+					msgpack.EncodedJSON{"variant": variant, from: "#ff0000"},
+				)
 				Expect(out).ToNot(HaveKey(from))
 				for _, name := range to {
 					Expect(out).To(HaveKeyWithValue(name, Not(BeNil())), name)
 				}
 			},
-			Entry("valve", "valve", "color", []string{"stroke_color"}),
-			Entry("static symbol", "cap", "color", []string{"stroke_color"}),
-			Entry("manual valve", "manual_valve", "color", []string{"stroke_color"}),
-			Entry("pipe", "pipe", "color", []string{"stroke_color"}),
-			Entry("box stroke", "box", "color", []string{"stroke_color"}),
-			Entry("box fill", "box", "background_color", []string{"fill_color"}),
-			Entry("circle fill", "circle", "background_color", []string{"fill_color"}),
-			Entry("polygon fill", "polygon", "background_color", []string{"fill_color"}),
-			Entry("cylinder fill", "cylinder", "background_color", []string{"fill_color"}),
-			Entry("tank stroke", "tank", "color", []string{"stroke_color"}),
-			Entry("tank fill", "tank", "background_color", []string{"fill_color"}),
-			Entry("value stroke", "value", "color", []string{"stroke_color"}),
-			Entry("value fill", "value", "background_color", []string{"fill_color"}),
-			Entry("button", "button", "color", []string{"fill_color"}),
-			Entry("input", "input", "color", []string{"fill_color"}),
-			Entry("setpoint", "setpoint", "color", []string{"fill_color"}),
-			Entry("select", "select", "color", []string{"fill_color"}),
+			Entry("valve", "valve", "color", "stroke_color"),
+			Entry("static symbol", "cap", "color", "stroke_color"),
+			Entry("manual valve", "manual_valve", "color", "stroke_color"),
+			Entry("pipe", "pipe", "color", "stroke_color"),
+			Entry("box stroke", "box", "color", "stroke_color"),
+			Entry("box fill", "box", "background_color", "fill_color"),
+			Entry("circle fill", "circle", "background_color", "fill_color"),
+			Entry("polygon fill", "polygon", "background_color", "fill_color"),
+			Entry("cylinder fill", "cylinder", "background_color", "fill_color"),
+			Entry("tank stroke", "tank", "color", "stroke_color"),
+			Entry("tank fill", "tank", "background_color", "fill_color"),
+			Entry("value stroke", "value", "color", "stroke_color"),
+			Entry("value fill", "value", "background_color", "fill_color"),
+			Entry("button", "button", "color", "fill_color"),
+			Entry("input", "input", "color", "fill_color"),
+			Entry("setpoint", "setpoint", "color", "fill_color"),
+			Entry("select", "select", "color", "fill_color"),
 			Entry("off-page reference", "off_page_reference", "color",
-				[]string{"fill_color"}),
-			Entry("text box", "text_box", "color", []string{"text_color"}),
-			Entry("gauge", "gauge", "color", []string{"stroke_color"}),
-			Entry("line", "line", "color", []string{"stroke_color"}),
-			Entry("state indicator", "state_indicator", "color", []string{"stroke_color"}),
-			Entry("string display", "string_display", "color", []string{"stroke_color"}),
-			Entry("light", "light", "color", []string{"stroke_color", "on_color"}),
-			Entry("scale", "scale", "color", []string{"level_color"}),
+				"fill_color"),
+			Entry("text box", "text_box", "color", "text_color"),
+			Entry("gauge", "gauge", "color", "stroke_color"),
+			Entry("line", "line", "color", "stroke_color"),
+			Entry("state indicator", "state_indicator", "color", "stroke_color"),
+			Entry("string display", "string_display", "color", "stroke_color"),
+			Entry("light", "light", "color", "stroke_color", "on_color"),
+			Entry("scale", "scale", "color", "level_color"),
 		)
 
 		DescribeTable("Should drop a custom symbol's unpainted color",

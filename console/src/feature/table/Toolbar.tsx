@@ -284,7 +284,7 @@ const MultiCellForm = ({ cellKeys }: MultiCellFormProps): ReactElement => {
     );
 
   const selectionRefs = Array.from(cellsByKey).flatMap(([key, cell]) =>
-    MultiEdit.colorRefs(key, cell as record.Unknown, COLOR_FIELDS),
+    MultiEdit.colorRefs(key, cell, COLOR_FIELDS),
   );
 
   const handleSelectionColorChange = (refs: MultiEdit.ColorRef[], c: color.Color) => {

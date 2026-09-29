@@ -208,11 +208,11 @@ describe("table/Toolbar", () => {
       tableState: { selectedCells: ["a", "b"], lastSelected: "b" },
     });
     const label = await screen.findByText("Selection colors");
-    const swatches = label
-      .closest(".pluto-input__item")
-      ?.querySelectorAll<HTMLElement>(".pluto-color-swatch");
+    const item = label.closest(".pluto-input__item");
+    assertDefined(item);
+    const swatches = item.querySelectorAll<HTMLElement>(".pluto-color-swatch");
     expect(swatches).toHaveLength(2);
-    fireEvent.click(swatches?.[0] as HTMLElement);
+    fireEvent.click(swatches[0]);
     fireEvent.change(screen.getByLabelText("Hex"), { target: { value: "0000ff" } });
     fireEvent.keyDown(document.body, { code: "Escape" });
     await waitFor(async () => {

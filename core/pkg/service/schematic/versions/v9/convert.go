@@ -375,15 +375,21 @@ func isZeroColor(v any) bool {
 	return c.IsZero()
 }
 
+// strokeAndFill renames the fields of a symbol with an outline and a body.
+var strokeAndFill = map[string][]string{
+	"color":            {"stroke_color"},
+	"background_color": {"fill_color"},
+}
+
 // colorRenames maps each variant's legacy color fields to the fields named for the part
 // they paint. A variant absent here keeps a legacy color as its stroke.
 var colorRenames = map[string]map[string][]string{
-	"box":                {"color": {"stroke_color"}, "background_color": {"fill_color"}},
-	"circle":             {"color": {"stroke_color"}, "background_color": {"fill_color"}},
-	"polygon":            {"color": {"stroke_color"}, "background_color": {"fill_color"}},
-	"cylinder":           {"color": {"stroke_color"}, "background_color": {"fill_color"}},
-	"tank":               {"color": {"stroke_color"}, "background_color": {"fill_color"}},
-	"value":              {"color": {"stroke_color"}, "background_color": {"fill_color"}},
+	"box":                strokeAndFill,
+	"circle":             strokeAndFill,
+	"polygon":            strokeAndFill,
+	"cylinder":           strokeAndFill,
+	"tank":               strokeAndFill,
+	"value":              strokeAndFill,
 	"button":             {"color": {"fill_color"}},
 	"input":              {"color": {"fill_color"}},
 	"setpoint":           {"color": {"fill_color"}},

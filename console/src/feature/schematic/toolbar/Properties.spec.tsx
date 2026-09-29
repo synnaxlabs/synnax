@@ -378,6 +378,34 @@ describe("Schematic toolbar Properties", () => {
         .toEqual([BLUE, BLUE, GREEN]);
     });
 
+    it("recolors a state option through Selection colors", async () => {
+      const { key } = await renderProperties({
+        nodeKeys: ["n1", "n2"],
+        createConfig: (key) =>
+          key === "n1"
+            ? {
+                ...PSchematic.Node.createConfig({ variant: "state_indicator" }),
+                options: [{ key: "a", name: "A", value: 0, color: RED }],
+              }
+            : createValveConfig(),
+      });
+      await screen.findByText("Selection colors");
+      const [red] = selectionSwatches();
+      fireEvent.click(red);
+      fireEvent.change(screen.getByLabelText("Hex"), {
+        target: { value: BLUE.slice(1) },
+      });
+      fireEvent.keyDown(document.body, { code: "Escape" });
+      await expect
+        .poll(async () => {
+          const { options } = (await retrieveConfig(key, "n1")) as {
+            options: Array<{ color?: unknown }>;
+          };
+          return hexOf(options[0].color);
+        })
+        .toBe(BLUE);
+    });
+
     it("sets a staleness color only on the symbols that have staleness", async () => {
       const { key } = await renderProperties({
         nodeKeys: ["n1", "n2"],
