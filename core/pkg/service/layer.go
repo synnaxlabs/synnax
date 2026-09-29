@@ -102,8 +102,8 @@ type LayerConfig struct {
 	//
 	// [OPTIONAL] - Defaults to "", which passes every ceiling.
 	Version string
-	// Anchors replaces the key set the license service verifies tokens against.
-	// Only test fixtures set it.
+	// Anchors replaces the key set the license service verifies tokens against. Only
+	// test fixtures set it.
 	//
 	// [OPTIONAL] - Defaults to the production keys.
 	Anchors license.Anchors
@@ -335,7 +335,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Ontology:        l.Ontology,
 		Group:           l.Group,
 		Search:          l.Search,
-		ChannelLimit:    l.License.CheckChannelLimit,
+		Limit:           l.License.CheckChannelLimit,
 		ValidateNames:   cfg.ValidateChannelNames,
 		Status:          l.Status,
 	}); !ok(err, l.Channel) {

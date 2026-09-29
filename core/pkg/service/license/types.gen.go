@@ -70,14 +70,14 @@ func (s State) IsValid() bool {
 }
 
 // Fingerprint identifies the machine the Core runs on: the sorted SHA-256 hex digests
-// of every physical network interface's hardware address.
+// of the hardware addresses of its non-loopback, non-point-to-point network interfaces.
 type Fingerprint []string
 
 // Info is what the Core knows about its license.
 type Info struct {
 	// State is whether a license covers the Core.
 	State State `json:"state" msgpack:"state"`
-	// Warning is set while the state is ok but a change is near or past.
+	// Warning explains a near or past expiry, or why the license is expired.
 	Warning string `json:"warning" msgpack:"warning"`
 	// Fingerprint identifies the machine the Core runs on.
 	Fingerprint Fingerprint `json:"fingerprint" msgpack:"fingerprint"`

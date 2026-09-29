@@ -73,7 +73,7 @@ export interface License extends z.infer<typeof licenseZ> {}
 export const infoZ = z.object({
   /** state is whether a license covers the Core. */
   state: stateZ,
-  /** warning is set while the state is ok but a change is near or past. */
+  /** warning explains a near or past expiry, or why the license is expired. */
   warning: z.string(),
   /** fingerprint identifies the machine the Core runs on. */
   fingerprint: fingerprintZ.default([]),

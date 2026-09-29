@@ -41,10 +41,9 @@ func readFingerprint() (Fingerprint, error) {
 	return slices.Compact(fingerprint), nil
 }
 
-// Covers reports whether a license bound to the given hashes applies to this
-// machine: an unbound license always does, and a bound one does when any hash
-// belongs to the fingerprint. Hashes from a scheme this Core does not implement
-// never match.
+// Covers reports whether a license bound to the given hashes applies to this machine:
+// an unbound license always does, and a bound one does when any hash belongs to the
+// fingerprint. Hashes from a scheme this Core does not implement never match.
 func (f Fingerprint) Covers(scheme uint8, hashes []string) bool {
 	if len(hashes) == 0 {
 		return true

@@ -96,10 +96,10 @@ func start(cmd *cobra.Command) {
 
 func init() { AddFlags(Cmd) }
 
-// readLicenseToken returns the token from the key flag, or the trimmed contents of the
-// file the path flag names when the key flag is empty.
+// readLicenseToken returns the trimmed token from the key flag, or the trimmed contents
+// of the file the path flag names when the key flag is empty.
 func readLicenseToken() (string, error) {
-	if v := viper.GetString(FlagLicenseKey); v != "" {
+	if v := strings.TrimSpace(viper.GetString(FlagLicenseKey)); v != "" {
 		return v, nil
 	}
 	path := viper.GetString(FlagLicenseFile)
@@ -108,7 +108,7 @@ func readLicenseToken() (string, error) {
 	}
 	b, err := os.ReadFile(path)
 	if err != nil {
-		return "", err
+		return "", errors.Wrapf(err, "failed to read the --%s file", FlagLicenseFile)
 	}
 	return strings.TrimSpace(string(b)), nil
 }

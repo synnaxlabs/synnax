@@ -52,8 +52,8 @@ type (
 // grants control access to it.
 var objectID = ontology.ID{Type: ontology.ResourceTypeBuiltin, Key: "license"}
 
-// Retrieve returns the state of the Core's license, this machine's fingerprint,
-// and the license when one applies.
+// Retrieve returns the state of the Core's license, this machine's fingerprint, and the
+// license when one applies.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	_ RetrieveRequest,

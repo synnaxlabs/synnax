@@ -69,7 +69,7 @@ class Info(BaseModel):
 
     Attributes:
         state: Is whether a license covers the Core.
-        warning: Is set while the state is ok but a change is near or past.
+        warning: Explains a near or past expiry, or why the license is expired.
         fingerprint: Identifies the machine the Core runs on.
         license: Is the license that applies, if any.
     """

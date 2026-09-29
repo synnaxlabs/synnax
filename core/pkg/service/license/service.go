@@ -59,8 +59,8 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL] - Defaults to time.Now
 	Now func() time.Time
-	// CheckInterval is how often the service records the clock and repeats its
-	// warning. While the clock is behind, the service checks it every minute instead.
+	// CheckInterval is how often the service records the clock and repeats its warning.
+	// While the clock is behind, the service checks it every minute instead.
 	//
 	// [OPTIONAL] - Defaults to 1 hour
 	CheckInterval time.Duration
@@ -128,7 +128,7 @@ var (
 	markKey = []byte("highWater")
 )
 
-// Service verifies the license a Core runs under and gates the API on it.
+// Service verifies the license a Core runs under.
 type Service struct {
 	cfg         ServiceConfig
 	fingerprint Fingerprint
@@ -168,12 +168,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err = s.load(ctx); err != nil {
 		return nil, err
 	}
-	if cfg.Token != "" {
-		if _, err = s.Activate(ctx, cfg.Token); err != nil {
-			return nil, err
-		}
+	if cfg.Token == "" {
+		s.logState()
+	} else if _, err = s.Activate(ctx, cfg.Token); err != nil {
+		return nil, err
 	}
-	s.logState()
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
 	s.shutdown = signal.NewHardShutdown(sCtx, cancel)
 	sCtx.Go(
@@ -250,7 +249,7 @@ func (s *Service) CheckChannelLimit(inUse types.Uint20) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	info := s.mu.info
-	if info.State != StateOk || info.License == nil || info.License.Channels == 0 {
+	if info.State != StateOk || info.License.Channels == 0 {
 		return nil
 	}
 	if uint32(inUse) > info.License.Channels {
@@ -322,6 +321,10 @@ func (s *Service) load(ctx context.Context) error {
 			continue
 		}
 		if !s.fingerprint.Covers(lic.FingerprintScheme, lic.Fingerprints) {
+			s.cfg.L.Warn(
+				"skipping a stored token issued for another machine",
+				zap.Stringer("jti", lic.Jti),
+			)
 			continue
 		}
 		info := s.evaluate(lic)
@@ -407,8 +410,7 @@ func (s *Service) evaluate(lic License) Info {
 }
 
 // versionCovered reports whether version's major and minor are at most ceiling's. An
-// unparseable version passes, so a development build is never gated by its own
-// version string.
+// unparseable version, such as an empty one, passes every ceiling.
 func versionCovered(version, ceiling string) bool {
 	maj, min, ok := parseMinor(version)
 	if !ok {
@@ -442,7 +444,7 @@ const (
 	logCapTemplate = "license active, limit is %d channels"
 
 	logClockBehindTemplate = "system clock is more than %s behind the last recorded " +
-		"time, so licenses with an expiry are treated as expired until it catches up"
+		"time, so license terms cannot be checked until it catches up"
 	logClockCaughtUp = "system clock caught up with the last recorded time, " +
 		"reloading the license"
 )
@@ -462,16 +464,14 @@ func (s *Service) logState() {
 		if info.Warning != "" {
 			s.cfg.L.Warn(info.Warning)
 		}
-	case StateMissing:
-		s.cfg.L.Warn(ErrMissing.Error())
 	case StateExpired:
 		s.cfg.L.Error(info.err().Error())
 	}
 }
 
-// monitor checks the clock and repeats the warning on every check interval. The
-// state changes here only when a clock that was behind catches up: a Core that opened
-// covered stays covered until it restarts.
+// monitor checks the clock and repeats the warning on every check interval. The state
+// changes here only when a clock that was behind catches up: a Core that opened covered
+// stays covered until it restarts.
 func (s *Service) monitor(ctx context.Context) error {
 	for {
 		interval := s.cfg.CheckInterval

@@ -76,8 +76,8 @@ State enum {
 
 Fingerprint string[] {
     @doc value """
-        identifies the machine the Core runs on: the sorted SHA-256 hex digests of every
-        physical network interface's hardware address.
+        identifies the machine the Core runs on: the sorted SHA-256 hex digests of the
+        hardware addresses of its non-loopback, non-point-to-point network interfaces.
     """
 }
 
@@ -86,7 +86,7 @@ Info struct {
         @doc value "is whether a license covers the Core."
     }
     warning     string      {
-        @doc value "is set while the state is ok but a change is near or past."
+        @doc value "explains a near or past expiry, or why the license is expired."
     }
     fingerprint Fingerprint = [] {
         @doc value "identifies the machine the Core runs on."

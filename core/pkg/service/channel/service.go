@@ -35,9 +35,8 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// ChannelLimitChecker returns an error when a count of external channels exceeds the
-// limit.
-type ChannelLimitChecker = func(types.Uint20) error
+// LimitChecker returns an error when a count of external channels exceeds the limit.
+type LimitChecker = func(types.Uint20) error
 
 // ServiceConfig configures the service-layer channel service.
 type ServiceConfig struct {
@@ -70,11 +69,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Search *search.Index
-	// ChannelLimit enforces the cap on external (non-internal, non-virtual)
-	// channels.
+	// Limit enforces the cap on external (non-internal, non-virtual) channels.
 	//
 	// [OPTIONAL] - Defaults to no cap.
-	ChannelLimit ChannelLimitChecker
+	Limit LimitChecker
 	// Status publishes error/clear statuses for calculated channels.
 	//
 	// [REQUIRED]
@@ -97,7 +95,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("ontology", c.Ontology)
 	v.NotNil("group", c.Group)
 	v.NotNil("search", c.Search)
-	v.NotNil("channel_limit", c.ChannelLimit)
+	v.NotNil("limit", c.Limit)
 	v.NotNil("status", c.Status)
 	v.NotNil("validate_names", c.ValidateNames)
 	return v.Error()
@@ -112,7 +110,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Search = override.Nil(c.Search, other.Search)
-	c.ChannelLimit = override.Nil(c.ChannelLimit, other.ChannelLimit)
+	c.Limit = override.Nil(c.Limit, other.Limit)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.ValidateNames = override.Nil(c.ValidateNames, other.ValidateNames)
 	return c
@@ -141,7 +139,7 @@ type Service struct {
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
 	cfg, err := config.New(ServiceConfig{
 		ValidateNames: new(true),
-		ChannelLimit:  func(types.Uint20) error { return nil },
+		Limit:         func(types.Uint20) error { return nil },
 	}, cfgs...)
 	if err != nil {
 		return nil, err
@@ -185,9 +183,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 func (s *Service) Group() group.Group { return s.group }
 
 // newRetrieve returns a Retrieve without the channel limit validator. The create,
-// delete,
-// and rename paths use it because they hold the lock validateChannels blocks on, and
-// they check the limit at commit time.
+// delete, and rename paths use it because they hold the lock validateChannels blocks
+// on, and they check the limit at commit time.
 func (s *Service) newRetrieve() Retrieve {
 	return Retrieve{
 		baseTX:  s.db,
@@ -203,8 +200,7 @@ func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Channel]] {
 }
 
 // NewRetrieve opens a retrieve query that fails when a retrieved external channel is
-// past
-// the channel limit.
+// past the channel limit.
 func (s *Service) NewRetrieve() Retrieve {
 	r := s.newRetrieve()
 	r.gorp = r.gorp.Validate(s.validateChannels)
@@ -225,7 +221,7 @@ func (s *Service) validateChannels(_ gorp.Context, channels []Channel) error {
 			continue
 		}
 		channelNumber := s.mu.externalNonVirtualSet.NumLessThan(key) + 1
-		if err := s.cfg.ChannelLimit(types.Uint20(channelNumber)); err != nil {
+		if err := s.cfg.Limit(types.Uint20(channelNumber)); err != nil {
 			return err
 		}
 	}
