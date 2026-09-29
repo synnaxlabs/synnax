@@ -41,7 +41,7 @@ jobs:
           cache: true
 
       - name: Build
-        run: pnpm build:publish-ts
+        run: pnpm build:client
 
       - name: Publish
         run: pnpm publish -r
