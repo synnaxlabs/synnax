@@ -39,7 +39,10 @@ func (v *validator) addf(path []string, format string, args ...any) {
 }
 
 func pathOf(parent []string, segments ...string) []string {
-	return append(append(make([]string, 0, len(parent)+len(segments)), parent...), segments...)
+	return append(
+		append(make([]string, 0, len(parent)+len(segments)), parent...),
+		segments...,
+	)
 }
 
 // validateEntries checks the rules that span entries and fields, which the generated

@@ -218,15 +218,17 @@ func sourcesTraverser(t RelationshipType) Traverser {
 }
 
 // sourcesByIndex is the index-backed implementation of sourcesTraverser. It probes
-// r.relIndexes.byTo (one O(1) lookup per source ID), parses each matched relationship
-// key (no KV fetch, no ORC decode), filters by relationship type, and emits the From end
-// as a next-hop ID.
+// r.relIndexes.byTo once per ID, parses each matched relationship key, and emits the
+// From end of each relationship of type t.
 //
-// The probe goes through Lookup.GetTx so the per-tx delta overlay fires: a traverse
-// inside the same write tx that just created a relationship will see that pending write
-// and include it in the next-hop set, preserving read-your-own-writes for graph
-// traversal.
-func sourcesByIndex(r Retrieve, tx gorp.Tx, ids []ID, t RelationshipType) ([]ID, error) {
+// The probe goes through Lookup.GetTx, so a traverse inside a write tx sees the
+// relationships that tx created.
+func sourcesByIndex(
+	r Retrieve,
+	tx gorp.Tx,
+	ids []ID,
+	t RelationshipType,
+) ([]ID, error) {
 	nextIDs := make([]ID, 0, len(ids)*4)
 	for _, id := range ids {
 		keys, err := r.relIndexes.byTo.Get(tx, id)

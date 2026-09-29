@@ -97,7 +97,9 @@ var _ = Describe("Library", func() {
 			l := createLibrary(ctx, "Vehicle")
 			u := createUser(ctx)
 			grantOn(ctx, u.OntologyID(), access.ActionUpdate, l.OntologyID())
-			data := MustSucceed(os.ReadFile("../../service/library/icd/testdata/basic.dbc"))
+			data := MustSucceed(
+				os.ReadFile("../../service/library/icd/testdata/basic.dbc"),
+			)
 			res := MustSucceed(apiSvc.Import(
 				AuthedCtx(ctx, u),
 				nil,

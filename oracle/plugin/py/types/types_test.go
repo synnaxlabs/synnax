@@ -1918,8 +1918,10 @@ var _ = Describe("Python Union Generation", func() {
 			)
 	})
 
-	It("Should alias pydantic's Field when a union is named Field", func(ctx SpecContext) {
-		source := `
+	It(
+		"Should alias pydantic's Field when a union is named Field",
+		func(ctx SpecContext) {
+			source := `
 			@py output "out"
 
 			Binary struct { start int32 = 0 }
@@ -1932,14 +1934,15 @@ var _ = Describe("Python Union Generation", func() {
 
 			Message struct { fields Field[] }
 		`
-		resp := MustGenerate(ctx, source, "library", loader, typesPlugin)
-		ExpectContent(resp, "types_gen.py").
-			ToContain(
-				`from pydantic import BaseModel, Field as PydanticField`,
-				`PydanticField(discriminator="encoding"),`,
-				`fields: list[Field] = PydanticField(default_factory=list)`,
-			)
-	})
+			resp := MustGenerate(ctx, source, "library", loader, typesPlugin)
+			ExpectContent(resp, "types_gen.py").
+				ToContain(
+					`from pydantic import BaseModel, Field as PydanticField`,
+					`PydanticField(discriminator="encoding"),`,
+					`fields: list[Field] = PydanticField(default_factory=list)`,
+				)
+		},
+	)
 
 	It(
 		"Should declare inline variant fields directly on the variant model",
