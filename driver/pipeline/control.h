@@ -52,7 +52,7 @@ public:
     virtual std::pair<x::telem::Frame, x::errors::Error> read() = 0;
 
     /// @brief closes the streamer, returning any error that occurred during normal
-    /// operation. If the returned error is of type freighter::UNREACHABLE, the control
+    /// operation. If errors::core_unavailable matches the returned error, the control
     /// pipeline will trigger a breaker (temporary backoff), and then retry until the
     /// configured number of maximum retries is exceeded. Any other error will be
     /// considered permanent and the pipeline will exit.
@@ -72,7 +72,7 @@ public:
 class StreamerFactory {
 public:
     /// @brief opens a streamer with the given configuration, returning the streamer and
-    /// an error if one occurs. If the error is of type freighter::UNREACHABLE, the
+    /// an error if one occurs. If errors::core_unavailable matches the error, the
     /// control pipeline will trigger a breaker (temporary backoff), and then retry
     /// until the configured number of maximum retries is exceeded. Any other error is
     /// considered permanent and the pipeline will exit.

@@ -37,8 +37,10 @@ const x::errors::Error CONFIGURATION_ERROR = BASE_ERROR.sub("configuration");
 const x::errors::Error NOMINAL_SHUTDOWN_ERROR = BASE_ERROR.sub("nominal_shutdown");
 
 /// @brief whether the Core is unreachable or refuses requests until a license is
-/// activated. Both clear without a driver restart, so the caller waits on its breaker
+/// activated. Both clear without a Driver restart, so the caller waits on its breaker
 /// and retries.
+/// @param err the error a request to the Core returned.
+/// @returns true if the caller should wait and retry, false if the error is permanent.
 inline bool core_unavailable(const x::errors::Error &err) {
     return err.matches(freighter::UNREACHABLE) ||
            err.matches(synnax::errors::LICENSE_MISSING) ||

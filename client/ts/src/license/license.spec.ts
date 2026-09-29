@@ -10,7 +10,6 @@
 import { describe, expect, it } from "vitest";
 
 import { InvalidLicenseError } from "@/errors";
-import { license } from "@/license";
 import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
@@ -18,8 +17,8 @@ const client = createTestClient();
 describe("license", () => {
   it("should retrieve the Core's license state", async () => {
     const info = await client.license.retrieve();
-    expect(license.STATES).toContain(info.state);
-    expect(Array.isArray(info.fingerprint)).toBe(true);
+    for (const hash of info.fingerprint) expect(hash).toMatch(/^[0-9a-f]{64}$/);
+    expect(info.license == null).toBe(info.state === "missing");
   });
 
   it("should reject a token that cannot be verified", async () => {

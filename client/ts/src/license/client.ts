@@ -40,7 +40,10 @@ export class Client {
     this.connection = connection;
   }
 
-  /** Retrieves the Core's license state. */
+  /**
+   * Retrieves the Core's license state.
+   * @throws {AccessDeniedError} if the caller lacks permission to read the license.
+   */
   async retrieve(): Promise<Info> {
     return await this.unary.send(RETRIEVE_ENDPOINT, undefined, z.void(), infoZ);
   }
@@ -50,6 +53,7 @@ export class Client {
    * @throws {InvalidLicenseError} if the token cannot be verified or is malformed.
    * @throws {LicenseFingerprintError} if the token is bound to another machine.
    * @throws {ExpiredLicenseError} if the token no longer applies.
+   * @throws {AccessDeniedError} if the caller lacks permission to activate a license.
    */
   async activate(token: string): Promise<Info> {
     const info = await this.unary.send(
