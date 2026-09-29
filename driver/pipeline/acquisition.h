@@ -84,10 +84,10 @@ public:
     }
 
     /// @brief closes the writer, returning any error that occurred during normal
-    /// operation. If errors::core_unavailable matches the returned error, the
-    /// acquisition pipeline will trigger a breaker (temporary backoff), and then retry
-    /// until the configured number of maximum retries is exceeded. Any other error will
-    /// be considered permanent and the pipeline will exit.
+    /// operation. If synnax::errors::is_temporarily_unavailable matches the returned
+    /// error, the acquisition pipeline will trigger a breaker (temporary backoff), and
+    /// then retry until the configured number of maximum retries is exceeded. Any other
+    /// error will be considered permanent and the pipeline will exit.
     [[nodiscard]] virtual x::errors::Error close() = 0;
 
     virtual ~Writer() = default;
@@ -97,12 +97,12 @@ public:
 /// production, this is typically backed by the Synnax client.
 class WriterFactory {
 public:
-    /// @brief opens the writer with the given configuration. If the writer cannot
-    /// be opened, the method should return an error. If errors::core_unavailable
-    /// matches the error, a breaker will be triggered (temporary backoff), and the
-    /// acquisition pipeline will retry the operation until the configured number of
-    /// maximum retries is exceeded. Any other error will be considered permanent and
-    /// the pipeline will exit.
+    /// @brief opens the writer with the given configuration. If the writer cannot be
+    /// opened, the method should return an error. If
+    /// synnax::errors::is_temporarily_unavailable matches the error, a breaker will be
+    /// triggered (temporary backoff), and the acquisition pipeline will retry the
+    /// operation until the configured number of maximum retries is exceeded. Any other
+    /// error will be considered permanent and the pipeline will exit.
     virtual std::pair<std::unique_ptr<Writer>, x::errors::Error>
     open_writer(const synnax::framer::WriterConfig &config) = 0;
 

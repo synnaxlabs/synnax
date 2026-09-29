@@ -49,7 +49,7 @@ export const statusDetailsZ = z.object({
   clockSkew: TimeSpan.z,
   clockSkewExceeded: z.boolean(),
   retry: z.object({ attempt: z.number(), nextAt: TimeStamp.z }).nullable(),
-  // What the Core last reported about its license. Absent before the first check.
+  // Absent until the first check.
   license: license.stateZ.optional(),
   // A check is in flight right now. A process fact, not a judgment: the
   // variant holds its verdict while attempts run beneath it.
@@ -57,10 +57,7 @@ export const statusDetailsZ = z.object({
 });
 export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
 
-/**
- * Error-variant details: the same facts plus the reason the connection failed. An
- * unlicensed connection always carries the license error its requests throw.
- */
+/** Error-variant details: the same facts plus the reason the connection failed. */
 export const errorStatusDetailsZ = z.discriminatedUnion("reason", [
   statusDetailsZ.extend({
     reason: z.literal("unlicensed"),
@@ -180,7 +177,6 @@ export interface Info {
   nodeVersion: string;
   /** Skew measured across the check's round trip. */
   clockSkew: TimeSpan;
-  /** The Core's license state. */
   license: license.State;
 }
 
@@ -266,7 +262,6 @@ const enterError = (
   details: { ...prev.details, ...details },
 });
 
-// Reasons the check loop clears on its own; the rest wait on the user.
 export const isSelfHealing = (reason: Reason): boolean =>
   reason === "unreachable" || reason === "unlicensed";
 
@@ -319,7 +314,6 @@ const reduceCheckSuccess = (prev: Status, info: Info, config: Config): Status =>
   if (clusterKey !== "" && info.clusterKey !== clusterKey)
     return reduceClusterReplaced(prev, info, config);
   const facts = checkFacts(info, config);
-  // the Core answers but refuses everything else until a license is activated
   if (info.license !== "ok")
     return enterError(prev, license.STATE_MESSAGES[info.license], {
       ...facts,
