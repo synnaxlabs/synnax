@@ -32,7 +32,8 @@
     },
     "pluto": {
       "entry": ["src/index.ts", "src/ether.ts", "src/testutil/index.ts"],
-      "project": ["src/**/*.{ts,tsx}"]
+      "project": ["src/**/*.{ts,tsx}"],
+      "ignoreDependencies": ["vscode"]
     },
     "x/media": {
       "entry": ["src/index.ts"],
