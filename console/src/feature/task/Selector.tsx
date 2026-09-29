@@ -12,6 +12,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
+import { CAN } from "@/feature/can";
 import { EtherCAT } from "@/feature/ethercat";
 import { HTTP } from "@/feature/http";
 import { LabJack } from "@/feature/labjack";
@@ -19,6 +20,10 @@ import { Modbus } from "@/feature/modbus";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
 import { PagerDuty } from "@/feature/pagerduty";
+import { Serial } from "@/feature/serial";
+import { TCP } from "@/feature/tcp";
+import { UDP } from "@/feature/udp";
+import { FLAGS } from "@/flags";
 import { Panel } from "@/platform/panel";
 import { Selector as Base } from "@/platform/selector";
 
@@ -40,6 +45,14 @@ export const SELECTABLES: Base.Selectable[] = [
   ...NI.Task.SELECTABLES,
   ...OPCUA.Task.SELECTABLES,
   ...PagerDuty.Task.SELECTABLES,
+  ...(FLAGS.can
+    ? [
+        ...CAN.Task.SELECTABLES,
+        ...Serial.Task.SELECTABLES,
+        ...TCP.Task.SELECTABLES,
+        ...UDP.Task.SELECTABLES,
+      ]
+    : []),
 ].map(withTaskVisibility);
 
 export const Selector = Base.create({

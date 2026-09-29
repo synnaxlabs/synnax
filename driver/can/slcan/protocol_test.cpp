@@ -65,8 +65,9 @@ void expect_same(const Frame &actual, const Frame &expected) {
     EXPECT_EQ(actual.bitrate_switched, expected.bitrate_switched);
     EXPECT_EQ(actual.type, expected.type);
     EXPECT_EQ(actual.length, expected.length);
-    if (expected.type == Type::DATA)
+    if (expected.type == Type::DATA) {
         EXPECT_TRUE(std::ranges::equal(actual.payload(), expected.payload()));
+    }
 }
 
 struct Vector {

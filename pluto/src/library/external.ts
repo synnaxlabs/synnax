@@ -9,3 +9,4 @@
 
 export * from "@/library/Icons";
 export * from "@/library/queries";
+export * from "@/library/Select";

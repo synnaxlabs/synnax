@@ -289,7 +289,8 @@ inline ReadConfig read_config(
     const std::optional<::synnax::bus::Framing> &framing,
     const std::function<void(::synnax::bus::ReadConfig &)> &edit = nullptr,
     const ::synnax::bus::PollConfig &poll = {},
-    std::vector<synnax::channel::Channel> channels = {}
+    std::vector<synnax::channel::Channel> channels = {},
+    const Medium medium = Medium::BYTES
 ) {
     ::synnax::bus::ReadConfig cfg;
     cfg.device = "dev";
@@ -312,7 +313,8 @@ inline ReadConfig read_config(
         poll,
         framing,
         library(messages),
-        channels
+        channels,
+        medium
     );
     EXPECT_TRUE(parser.ok()) << parser.error_json().dump();
     return out;
@@ -323,7 +325,8 @@ inline ReadConfig read_config(
 inline WriteConfig write_config(
     const synnax::library::MessageEntry &message,
     const std::vector<std::pair<synnax::channel::Key, std::size_t>> &bindings,
-    const std::optional<::synnax::bus::Framing> &framing
+    const std::optional<::synnax::bus::Framing> &framing,
+    const Medium medium = Medium::BYTES
 ) {
     ::synnax::bus::WriteConfig cfg;
     cfg.device = "dev";
@@ -335,7 +338,14 @@ inline WriteConfig write_config(
     }
     cfg.messages = {wm};
     x::json::Parser parser(x::json::json::object());
-    auto out = WriteConfig::resolve(parser, cfg, framing, library({message}), channels);
+    auto out = WriteConfig::resolve(
+        parser,
+        cfg,
+        framing,
+        library({message}),
+        channels,
+        medium
+    );
     EXPECT_TRUE(parser.ok()) << parser.error_json().dump();
     return out;
 }

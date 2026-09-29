@@ -15,6 +15,8 @@
 
 #include "driver/arc/arc.h"
 #include "driver/arinc429/arinc429.h"
+#include "driver/can/backends/backends.h"
+#include "driver/can/factory.h"
 #include "driver/ethercat/ethercat.h"
 #include "driver/http/http.h"
 #include "driver/mil1553/mil1553.h"
@@ -104,6 +106,12 @@ void configure_http(const Config &config, FactoryList &factories) {
     });
 }
 
+void configure_can(const Config &config, FactoryList &factories) {
+    configure_integration(config, factories, can::INTEGRATION_NAME, []() {
+        return std::make_unique<can::Factory>(can::backends::load());
+    });
+}
+
 void configure_serial(const Config &config, FactoryList &factories) {
     configure_integration(config, factories, serial::INTEGRATION_NAME, []() {
         return std::make_unique<serial::Factory>();
@@ -144,6 +152,7 @@ Config::new_factory(const std::shared_ptr<x::thread::rt::Manager> &rt_manager) c
     configure_arc(*this, factories, rt_manager);
     configure_ethercat(*this, factories, rt_manager);
     configure_http(*this, factories);
+    configure_can(*this, factories);
     configure_serial(*this, factories);
     configure_tcp(*this, factories);
     configure_udp(*this, factories);

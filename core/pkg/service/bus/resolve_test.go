@@ -6,6 +6,7 @@
 // As of the Change Date specified in that file, in accordance with the Business Source
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
+
 package bus_test
 
 import (
@@ -28,7 +29,12 @@ var _ = Describe("Resolver", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		resolver = bus.Resolver{Stamper: library.Stamper{DB: db, Ontology: otg}}
-		status = canMessage("Status", 0x100, binaryField("rpm", 0), binaryField("temp", 8))
+		status = canMessage(
+			"Status",
+			0x100,
+			binaryField("rpm", 0),
+			binaryField("temp", 8),
+		)
 		command = canMessage("Command", 0x200, binaryField("throttle", 0))
 		lib = library.Library{
 			Name: "Engine",
@@ -46,8 +52,8 @@ var _ = Describe("Resolver", func() {
 
 	readConfig := func(messages ...bus.ReadMessage) bus.ReadConfig {
 		return bus.ReadConfig{
-			Reference: library.Reference{Library: lib.Key},
-			Messages:  messages,
+			Library:  lib.Key,
+			Messages: messages,
 		}
 	}
 
@@ -97,17 +103,20 @@ var _ = Describe("Resolver", func() {
 			)))
 		})
 
-		It("Should reject a config whose library does not exist", func(ctx SpecContext) {
-			cfg := bus.ReadConfig{Reference: library.Reference{Library: uuid.New()}}
-			Expect(resolver.Read(ctx, tx, task, &cfg)).
-				To(MatchError(ContainSubstring("does not exist")))
-		})
+		It(
+			"Should reject a config whose library does not exist",
+			func(ctx SpecContext) {
+				cfg := bus.ReadConfig{Library: uuid.New()}
+				Expect(resolver.Read(ctx, tx, task, &cfg)).
+					To(MatchError(ContainSubstring("does not exist")))
+			},
+		)
 	})
 
 	Describe("Write", func() {
 		It("Should stamp the library hash into the config", func(ctx SpecContext) {
 			cfg := bus.WriteConfig{
-				Reference: library.Reference{Library: lib.Key},
+				Library: lib.Key,
 				Messages: []bus.WriteMessage{{
 					Message: command.Key,
 					Fields: []bus.WriteField{
@@ -122,7 +131,7 @@ var _ = Describe("Resolver", func() {
 		It("Should reject a field that is not in the message", func(ctx SpecContext) {
 			missing := uuid.New()
 			cfg := bus.WriteConfig{
-				Reference: library.Reference{Library: lib.Key},
+				Library: lib.Key,
 				Messages: []bus.WriteMessage{{
 					Message: command.Key,
 					Fields:  []bus.WriteField{{Field: missing}},

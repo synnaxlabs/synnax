@@ -17,6 +17,7 @@
 
 #include "driver/bus/config.h"
 #include "driver/bus/decoder.h"
+#include "driver/bus/queue.h"
 #include "driver/bus/schedule.h"
 #include "driver/common/read_task.h"
 #include "driver/mil1553/mil1553.h"
@@ -39,16 +40,17 @@ public:
 
     [[nodiscard]] std::vector<synnax::channel::Channel> channels() const override;
 
-    /// @brief opens the channel.
-    /// @returns the backend's error when the channel cannot open.
+    /// @brief acquires the device's link and opens its channel.
+    /// @returns transport::CONFIG_ERROR when another task has the device open with
+    /// other properties, or the backend's error when the channel cannot open.
     x::errors::Error start() override;
 
-    /// @brief releases the channel.
+    /// @brief releases the link, which closes when no other task uses it.
     x::errors::Error stop() override;
 
     /// @brief makes the transfers that are due, or reads the transfers that arrive
     /// within bus::READ_TIMEOUT, and decodes them into fr.
-    /// @returns the backend's error, after which the next read reopens the channel.
+    /// @returns the backend's error, after which the link reopens the channel.
     /// Transfers a terminal did not complete come back as warnings.
     common::ReadResult read(x::breaker::Breaker &breaker, x::telem::Frame &fr) override;
 
@@ -57,7 +59,7 @@ private:
     bus::Decoder decoder;
     synnax::mil1553::Properties props;
     Acquire acquire;
-    std::shared_ptr<Connection> conn;
+    std::shared_ptr<Link> link;
     bus::Schedule schedule;
     std::vector<std::size_t> due;
     std::vector<Transfer> buf;

@@ -35,6 +35,7 @@ struct ReadFixture {
     };
     std::optional<::synnax::bus::Framing> framing = ::synnax::bus::DelimiterFraming{};
     ::synnax::bus::PollConfig poll;
+    Medium medium = Medium::BYTES;
 
     ReadFixture() {
         cfg.device = "dev";
@@ -49,7 +50,7 @@ struct ReadFixture {
     [[nodiscard]] std::pair<std::string, std::string>
     first_error(const synnax::library::Library &lib) const {
         x::json::Parser parser(x::json::json::object());
-        ReadConfig::resolve(parser, cfg, poll, framing, lib, channels);
+        ReadConfig::resolve(parser, cfg, poll, framing, lib, channels, medium);
         if (parser.ok()) return {"", ""};
         const auto err = parser.error_json()["errors"][0];
         return {err["path"], err["message"]};
@@ -169,6 +170,74 @@ TEST(ReadConfig, RejectsACANIdentifierOnAByteStream) {
     );
 }
 
+TEST(ReadConfig, RejectsAFieldIdentifierOnACANBus) {
+    ReadFixture f;
+    f.message = binary_message("status", {binary_field("value", 0)});
+    f.message.identifier = synnax::library::FieldIdentifier{
+        .field = key(f.message.fields[0]),
+        .value = 1,
+    };
+    f.cfg.messages[0].message = f.message.key;
+    f.cfg.messages[0].fields[0].field = key(f.message.fields[0]);
+    f.framing = std::nullopt;
+    f.medium = Medium::CAN;
+    const auto [path, msg] = f.first_error();
+    EXPECT_EQ(path, "messages.0.message");
+    EXPECT_EQ(
+        msg,
+        "message status has a field identifier, which a CAN bus cannot carry"
+    );
+}
+
+TEST(ReadConfig, RejectsAMessageThatDoesNotFitAnARINC429Word) {
+    ReadFixture f;
+    f.message = binary_message(
+        "altitude",
+        {binary_field("value", 0)},
+        synnax::library::Arinc429Identifier{.label = 0203}
+    );
+    f.cfg.messages[0].message = f.message.key;
+    f.cfg.messages[0].fields[0].field = key(f.message.fields[0]);
+    f.framing = std::nullopt;
+    f.medium = Medium::ARINC429;
+    const auto [path, msg] = f.first_error();
+    EXPECT_EQ(path, "messages.0.message");
+    EXPECT_EQ(msg, "message altitude: field value must lie in bits 9 to 31");
+}
+
+TEST(ReadConfig, RejectsACANIdentifierOnAMIL1553Bus) {
+    ReadFixture f;
+    f.message = binary_message(
+        "status",
+        {binary_field("value", 0)},
+        synnax::library::CanIdentifier{.id = 0x10}
+    );
+    f.cfg.messages[0].message = f.message.key;
+    f.cfg.messages[0].fields[0].field = key(f.message.fields[0]);
+    f.framing = std::nullopt;
+    f.medium = Medium::MIL1553;
+    const auto [path, msg] = f.first_error();
+    EXPECT_EQ(path, "messages.0.message");
+    EXPECT_EQ(msg, "message status: identifier is not a MIL-STD-1553 command");
+}
+
+TEST(ReadConfig, RejectsAQueryOnACANBus) {
+    ReadFixture f;
+    f.message = binary_message(
+        "status",
+        {binary_field("value", 0)},
+        synnax::library::CanIdentifier{.id = 0x10}
+    );
+    f.message.query = R"(\x01)";
+    f.cfg.messages[0].message = f.message.key;
+    f.cfg.messages[0].fields[0].field = key(f.message.fields[0]);
+    f.framing = std::nullopt;
+    f.medium = Medium::CAN;
+    const auto [path, msg] = f.first_error();
+    EXPECT_EQ(path, "messages.0.message");
+    EXPECT_EQ(msg, "message status has a query, which a CAN bus cannot send");
+}
+
 TEST(ReadConfig, RejectsARawChannelThatIsNotBytes) {
     ReadFixture f;
     f.channels.push_back(data_channel(9, 0));
@@ -198,6 +267,7 @@ TEST(ReadConfig, RejectsABinaryQueryWithAnUnknownEscape) {
     ReadFixture f;
     f.message = binary_message("status", {binary_field("value", 0)});
     f.message.query = R"(\q)";
+    f.cfg.messages[0].message = f.message.key;
     f.cfg.messages[0].message = f.message.key;
     f.cfg.messages[0].fields[0].field = key(f.message.fields[0]);
     const auto [path, msg] = f.first_error();
@@ -295,5 +365,26 @@ TEST(WriteConfig, RequiresFieldsOnAMessageWithoutAPeriod) {
         err["message"],
         "message cmd has no period, so it needs at least one field"
     );
+}
+
+TEST(WriteConfig, RequiresACANIdentifierOnACANBus) {
+    auto m = binary_message("cmd", {binary_field("a", 0)});
+    ::synnax::bus::WriteConfig cfg;
+    cfg.device = "dev";
+    cfg.messages = {
+        {.message = m.key, .fields = {{.field = key(m.fields[0]), .channel = 5}}}
+    };
+    x::json::Parser parser(x::json::json::object());
+    WriteConfig::resolve(
+        parser,
+        cfg,
+        std::nullopt,
+        library({m}),
+        {data_channel(5, 0)},
+        Medium::CAN
+    );
+    const auto err = parser.error_json()["errors"][0];
+    EXPECT_EQ(err["path"], "messages.0.message");
+    EXPECT_EQ(err["message"], "message cmd needs a CAN identifier to send with");
 }
 }

@@ -37,6 +37,8 @@ cc_library(
     deps = [
         "//driver/arc",
         "//driver/arinc429:task",
+        "//driver/can:task",
+        "//driver/can/backends",
         "//driver/common",
         "//driver/ethercat",
         "//driver/http",

@@ -14,7 +14,7 @@
 #include "driver/arinc429/write.h"
 
 namespace driver::arinc429 {
-Output::Output(
+Transmitter::Transmitter(
     const bus::WriteConfig &cfg,
     std::shared_ptr<Backend> backend,
     synnax::arinc429::Properties props
@@ -26,19 +26,21 @@ Output::Output(
         );
 }
 
-x::errors::Error Output::start() {
+x::errors::Error Transmitter::acquire() {
     auto [ch, err] = this->backend->open(this->props, Direction::TRANSMIT);
     if (err) return err;
     this->channel = std::move(ch);
     return x::errors::NIL;
 }
 
-void Output::stop() {
+void Transmitter::release() {
     this->channel.reset();
 }
 
-x::errors::Error
-Output::send(const std::size_t message, const std::span<const std::uint8_t> payload) {
+x::errors::Error Transmitter::send(
+    const std::size_t message,
+    const std::span<const std::uint8_t> payload
+) {
     if (this->channel == nullptr) {
         auto [ch, err] = this->backend->open(this->props, Direction::TRANSMIT);
         if (err) return err;

@@ -14,61 +14,59 @@
 #include <string>
 #include <vector>
 
+#include "client/cpp/framer/framer.h"
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/telem/telem.h"
 
 #include "driver/bus/config.h"
-#include "driver/bus/read.h"
-#include "driver/codec/plan.h"
 
 namespace driver::bus {
-/// @brief decodes the payloads of a read config's messages into samples and moves
-/// them into Synnax frames. It also collects the warnings a read reports. Not safe
-/// for concurrent use.
+/// @brief how long a warning stays on the task status after its cause stops.
+const auto WARNING_HOLD = 1 * x::telem::SECOND;
+
+/// @brief collects the decoded samples, raw frames, and warnings of a read task
+/// between reads, and moves them into a frame for the task's channels.
 class Decoder {
 public:
-    /// @param cfg the resolved read config. It must outlive the decoder.
+    /// @param cfg the task's config. It must outlive the decoder.
     explicit Decoder(const ReadConfig &cfg);
 
-    Decoder(const Decoder &) = delete;
-    Decoder &operator=(const Decoder &) = delete;
-
-    /// @returns the config of the writer of every index, field, and raw channel.
+    /// @returns the config of a writer for every channel the task writes.
     [[nodiscard]] synnax::framer::WriterConfig writer_config() const;
 
-    /// @returns the channel of every field.
+    /// @returns the data channels of every message.
     [[nodiscard]] std::vector<synnax::channel::Channel> channels() const;
 
-    /// @brief decodes payload as the message at index message of the config, stamped
-    /// at time or just after the message's last sample. A payload that fails to
-    /// decode becomes a warning, and one that leaves a field out is dropped, so every
-    /// channel on an index keeps the same length.
+    /// @brief records a received frame for the raw channel, when the task has one.
+    void raw(std::span<const std::uint8_t> frame);
+
+    /// @brief decodes payload as the given message, received at time. A payload that
+    /// does not decode is dropped with a warning. A sample missing a multiplexed
+    /// field is dropped, so every channel on an index keeps the same length.
     void decode(
         std::size_t message,
         std::span<const std::uint8_t> payload,
         x::telem::TimeStamp time
     );
 
-    /// @brief adds frame to the raw channel, when the config has one.
-    void raw(std::span<const std::uint8_t> frame);
+    /// @brief adds a warning to the next call to warning.
+    void warn(std::string message);
 
-    /// @brief adds a warning to the next call of warning.
-    void warn(std::string warning);
-
-    /// @brief moves every decoded sample and raw frame into fr.
+    /// @brief moves every collected sample and raw frame into fr. Index times
+    /// strictly increase.
     void flush(x::telem::Frame &fr);
 
-    /// @returns the warnings added since the last call, joined, or the last warnings
-    /// for WARNING_HOLD after no new ones arrive.
+    /// @returns the warnings since the last call, joined, or the last warning while it
+    /// is younger than WARNING_HOLD. Empty otherwise.
     std::string warning(x::telem::TimeStamp now);
 
-    /// @brief discards the held warning, for a restarted task.
-    void reset();
+    /// @brief forgets the held warning.
+    void clear_warning();
 
 private:
     /// @brief decoded samples of one message waiting to go into a frame.
     struct Pending {
-        /// @brief one decoded sample per arrival, reused across flushes.
+        /// @brief one decoded sample per arrival, reused across reads.
         std::vector<codec::Values> values;
         /// @brief the arrival time of each sample.
         std::vector<x::telem::TimeStamp> times;
@@ -80,7 +78,7 @@ private:
     std::vector<Pending> pending;
     std::vector<std::string> raws;
     std::vector<std::string> warnings;
-    std::string held;
+    std::string held_warning;
     x::telem::TimeStamp held_at;
 };
 }

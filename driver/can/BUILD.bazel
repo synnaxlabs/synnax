@@ -31,6 +31,33 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "task",
+    srcs = [
+        "factory.cpp",
+        "link.cpp",
+        "read.cpp",
+        "scan_task.cpp",
+        "write.cpp",
+    ],
+    hdrs = [
+        "factory.h",
+        "link.h",
+        "read.h",
+        "scan_task.h",
+        "write.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":can",
+        "//client/cpp/can",
+        "//driver/bus",
+        "//driver/common",
+        "//driver/task",
+        "@abseil-cpp//absl/log",
+    ],
+)
+
 cc_test(
     name = "can_test",
     srcs = [
@@ -39,6 +66,39 @@ cc_test(
     ],
     deps = [
         ":can",
+        "//driver/can/loopback",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "task_test",
+    size = "small",
+    srcs = ["task_test.cpp"],
+    deps = [
+        ":task",
+        "//driver/bus",
+        "//driver/bus/testutil",
+        "//driver/can/loopback",
+        "//driver/can/slcan",
+        "//driver/pipeline/mock",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "factory_test",
+    size = "small",
+    srcs = ["factory_test.cpp"],
+    tags = ["requires-core"],
+    deps = [
+        ":task",
+        "//client/cpp/can",
+        "//client/cpp/testutil",
+        "//driver/bus/testutil",
+        "//driver/bus/testutil:core",
         "//driver/can/loopback",
         "//x/cpp/test",
         "@googletest//:gtest_main",

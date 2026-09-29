@@ -157,6 +157,7 @@ var (
 	AllIntegrations                       = []string{
 		"arc",
 		"arinc429",
+		"can",
 		"ethercat",
 		"http",
 		"labjack",

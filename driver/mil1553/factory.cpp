@@ -52,25 +52,6 @@ invalid(const synnax::library::MessageEntry &message, const std::string &why) {
     );
 }
 
-/// @brief checks what every MIL-STD-1553 message needs, then calls role with the
-/// message's identifier.
-bus::Check check(
-    std::function<x::errors::Error(
-        const synnax::library::MessageEntry &,
-        const synnax::library::Mil1553Identifier &
-    )> role
-) {
-    return [role = std::move(role)](const synnax::library::MessageEntry &message) {
-        if (const auto err = codec::mil1553::validate(message)) return err;
-        if (message.query.has_value())
-            return invalid(message, "has a query, which MIL-STD-1553 cannot send");
-        return role(
-            message,
-            std::get<synnax::library::Mil1553Identifier>(*message.identifier)
-        );
-    };
-}
-
 bool owns(const synnax::mil1553::Properties &props, const std::uint8_t rt) {
     return std::ranges::find(props.terminals, rt) != props.terminals.end();
 }
@@ -103,54 +84,82 @@ x::errors::Error check_owned(
 }
 }
 
-bus::Check read_check(const synnax::mil1553::Properties &props) {
-    return check([props](const auto &message, const auto &id) {
-        if (props.role == synnax::mil1553::ROLE_BUS_CONTROLLER) {
-            if (const auto err = check_direction(
-                    message,
-                    id,
-                    synnax::library::DIRECTION_TRANSMIT,
-                    "bus controller"
-                ))
-                return err;
-            if (!message.period.has_value())
-                return invalid(
-                    message,
-                    "needs a period for the bus controller to poll it"
-                );
-            return x::errors::NIL;
-        }
-        if (props.role == synnax::mil1553::ROLE_REMOTE_TERMINAL) {
-            if (id.direction != synnax::library::DIRECTION_RECEIVE)
-                return invalid(
-                    message,
-                    "must be a receive message for a remote terminal to read"
-                );
-            return check_owned(message, id, props);
-        }
-        return x::errors::NIL;
-    });
-}
-
-bus::Check write_check(const synnax::mil1553::Properties &props) {
-    return check([props](const auto &message, const auto &id) {
-        if (props.role == synnax::mil1553::ROLE_BUS_CONTROLLER)
-            return check_direction(
+x::errors::Error check_read(
+    const synnax::library::MessageEntry &message,
+    const synnax::mil1553::Properties &props
+) {
+    const auto &id = std::get<synnax::library::Mil1553Identifier>(*message.identifier);
+    if (props.role == synnax::mil1553::ROLE_BUS_CONTROLLER) {
+        if (const auto err = check_direction(
                 message,
                 id,
-                synnax::library::DIRECTION_RECEIVE,
+                synnax::library::DIRECTION_TRANSMIT,
                 "bus controller"
+            ))
+            return err;
+        if (!message.period.has_value())
+            return invalid(message, "needs a period for the bus controller to poll it");
+        return x::errors::NIL;
+    }
+    if (props.role == synnax::mil1553::ROLE_REMOTE_TERMINAL) {
+        if (id.direction != synnax::library::DIRECTION_RECEIVE)
+            return invalid(
+                message,
+                "must be a receive message for a remote terminal to read"
             );
-        if (props.role == synnax::mil1553::ROLE_REMOTE_TERMINAL) {
-            if (id.direction != synnax::library::DIRECTION_TRANSMIT)
-                return invalid(
-                    message,
-                    "must be a transmit message for a remote terminal to answer with"
-                );
-            return check_owned(message, id, props);
-        }
-        return invalid(message, "cannot be sent by a monitor");
-    });
+        return check_owned(message, id, props);
+    }
+    return x::errors::NIL;
+}
+
+x::errors::Error check_write(
+    const synnax::library::MessageEntry &message,
+    const synnax::mil1553::Properties &props
+) {
+    const auto &id = std::get<synnax::library::Mil1553Identifier>(*message.identifier);
+    if (props.role == synnax::mil1553::ROLE_BUS_CONTROLLER)
+        return check_direction(
+            message,
+            id,
+            synnax::library::DIRECTION_RECEIVE,
+            "bus controller"
+        );
+    if (props.role == synnax::mil1553::ROLE_REMOTE_TERMINAL) {
+        if (id.direction != synnax::library::DIRECTION_TRANSMIT)
+            return invalid(
+                message,
+                "must be a transmit message for a remote terminal to answer with"
+            );
+        return check_owned(message, id, props);
+    }
+    return invalid(message, "cannot be sent by a monitor");
+}
+
+namespace {
+/// @brief binds the error of check to each enabled message of a resolved config
+/// that fails it.
+/// @returns x::errors::VALIDATION when a message fails.
+template<typename Messages, typename Resolved>
+x::errors::Error check_role(
+    const x::json::Parser &parser,
+    const Messages &messages,
+    const Resolved &resolved,
+    const synnax::mil1553::Properties &props,
+    x::errors::Error (*check)(
+        const synnax::library::MessageEntry &,
+        const synnax::mil1553::Properties &
+    )
+) {
+    for (std::size_t i = 0; i < messages.size(); i++) {
+        if (messages[i].disabled) continue;
+        const auto it = std::ranges::find_if(resolved, [&](const auto &m) {
+            return m.entry.key == messages[i].message;
+        });
+        if (const auto err = check(it->entry, props))
+            parser.field_err("messages." + std::to_string(i) + ".message", err.data);
+    }
+    return parser.ok() ? x::errors::NIL : parser.error();
+}
 }
 
 namespace {
@@ -162,7 +171,7 @@ struct Device {
 
 std::pair<Device, x::errors::Error> retrieve_device(
     const Backends &backends,
-    const std::shared_ptr<Connections> &connections,
+    const std::shared_ptr<Links> &links,
     const synnax::Synnax &client,
     const x::json::Parser &parser,
     const std::string &key
@@ -182,18 +191,13 @@ std::pair<Device, x::errors::Error> retrieve_device(
         parser.field_err("device", "unknown MIL-STD-1553 backend " + props.backend);
         return {Device{}, parser.error()};
     }
-    Acquire acquire = [connections,
-                       key,
-                       settings = props.to_json(),
-                       open = bus::BasicOpener<Channel>([backend = it->second, props] {
-                           return backend->open(props);
-                       })] { return connections->acquire(key, settings, open); };
+    auto acquire = acquirer(links, key, it->second, props);
     return {Device{std::move(props), std::move(acquire)}, x::errors::NIL};
 }
 
 std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     const Backends &backends,
-    const std::shared_ptr<Connections> &connections,
+    const std::shared_ptr<Links> &links,
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task
 ) {
@@ -202,7 +206,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     if (!parser.ok()) return {common::ConfigureResult{}, parser.error()};
     auto [dev, dev_err] = retrieve_device(
         backends,
-        connections,
+        links,
         *ctx->client,
         parser,
         cfg.device
@@ -214,9 +218,17 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
         cfg,
         {},
         std::nullopt,
-        read_check(dev.props)
+        bus::Medium::MIL1553
     );
     if (err) return {common::ConfigureResult{}, err};
+    if (const auto role_err = check_role(
+            parser,
+            cfg.messages,
+            resolved.messages,
+            dev.props,
+            check_read
+        ))
+        return {common::ConfigureResult{}, role_err};
     return {
         common::ConfigureResult{
             .task = std::make_unique<common::ReadTask>(
@@ -237,7 +249,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
 
 std::pair<common::ConfigureResult, x::errors::Error> configure_write(
     const Backends &backends,
-    const std::shared_ptr<Connections> &connections,
+    const std::shared_ptr<Links> &links,
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task
 ) {
@@ -246,7 +258,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
     if (!parser.ok()) return {common::ConfigureResult{}, parser.error()};
     auto [dev, dev_err] = retrieve_device(
         backends,
-        connections,
+        links,
         *ctx->client,
         parser,
         cfg.device
@@ -257,10 +269,18 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
         parser,
         cfg,
         std::nullopt,
-        write_check(dev.props)
+        bus::Medium::MIL1553
     );
     if (err) return {common::ConfigureResult{}, err};
-    auto output = std::make_unique<Output>(
+    if (const auto role_err = check_role(
+            parser,
+            cfg.messages,
+            resolved.messages,
+            dev.props,
+            check_write
+        ))
+        return {common::ConfigureResult{}, role_err};
+    auto transmitter = std::make_unique<Transmitter>(
         resolved,
         std::move(dev.props),
         std::move(dev.acquire)
@@ -272,7 +292,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
                 ctx,
                 x::breaker::default_config(task.name),
                 std::make_unique<
-                    bus::Sink>(std::move(resolved), std::move(output), ctx, task)
+                    bus::Sink>(std::move(resolved), std::move(transmitter), ctx, task)
             ),
             .auto_start = cfg.auto_start,
         },
@@ -314,14 +334,14 @@ std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
         return common::handle_config_err(
             ctx,
             task,
-            configure_read(this->backends, this->connections, ctx, task),
+            configure_read(this->backends, this->links, ctx, task),
             cmd_key
         );
     if (task.type == WRITE_TASK_TYPE)
         return common::handle_config_err(
             ctx,
             task,
-            configure_write(this->backends, this->connections, ctx, task),
+            configure_write(this->backends, this->links, ctx, task),
             cmd_key
         );
     if (task.type == SCAN_TASK_TYPE)

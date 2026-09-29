@@ -10,7 +10,6 @@
 #pragma once
 
 #include <cstdint>
-#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -35,19 +34,26 @@ const auto READ_TIMEOUT = 50 * x::telem::MILLISECOND;
 /// @brief the longest one transport write blocks.
 const auto WRITE_TIMEOUT = 1 * x::telem::SECOND;
 
+/// @brief what carries a task's frames, which decides the identifiers its messages
+/// can have.
+enum class Medium : std::uint8_t {
+    /// @brief a byte stream or datagrams. Messages match by field or token.
+    BYTES,
+    /// @brief CAN frames. Messages match by CAN identifier and cannot be polled.
+    CAN,
+    /// @brief ARINC 429 words. Messages match by label and SDI, fit one word, and
+    /// cannot be polled.
+    ARINC429,
+    /// @brief MIL-STD-1553 transfers. Messages match by terminal and subaddress, fit
+    /// their data words, and cannot be polled.
+    MIL1553,
+};
+
 /// @brief decodes the escaped bytes of a binary query. Characters stand for
 /// themselves, and \xHH, \n, \r, \t, \0, and \\ stand for one byte each.
 /// @returns x::errors::VALIDATION for an unknown or truncated escape.
 std::pair<std::vector<std::uint8_t>, x::errors::Error>
 unescape(const std::string &escaped);
-
-/// @brief checks that a task's device can carry a message.
-/// @returns an error whose data says why it cannot. It binds to the message's field.
-using Check = std::function<x::errors::Error(const synnax::library::MessageEntry &)>;
-
-/// @brief checks that a byte stream or datagram can carry a message: it has no
-/// identifier, or a field or token identifier.
-x::errors::Error check_stream(const synnax::library::MessageEntry &message);
 
 /// @brief a library message a read task decodes.
 struct ReadMessage {
@@ -93,8 +99,8 @@ struct ReadConfig {
 
     /// @brief resolves cfg against its library and the channels it names, binding
     /// validation errors to their fields on parser.
-    /// @param framing how the stream splits into frames. Absent for datagrams.
-    /// @param check checks that the device can carry each enabled message.
+    /// @param framing how the stream splits into frames. Absent for datagrams and
+    /// CAN.
     static ReadConfig resolve(
         x::json::Parser &parser,
         const ::synnax::bus::ReadConfig &cfg,
@@ -102,7 +108,7 @@ struct ReadConfig {
         const std::optional<::synnax::bus::Framing> &framing,
         const synnax::library::Library &library,
         const std::vector<synnax::channel::Channel> &channels,
-        const Check &check = check_stream
+        Medium medium = Medium::BYTES
     );
 
     /// @brief retrieves the library and channels cfg names from the Core, then
@@ -115,7 +121,7 @@ struct ReadConfig {
         const ::synnax::bus::ReadConfig &cfg,
         const ::synnax::bus::PollConfig &poll,
         const std::optional<::synnax::bus::Framing> &framing,
-        const Check &check = check_stream
+        Medium medium = Medium::BYTES
     );
 };
 
@@ -151,14 +157,15 @@ struct WriteConfig {
     /// @brief frames each encoded payload. Null when each payload is one datagram.
     std::unique_ptr<codec::framing::Framer> framer;
 
-    /// @brief resolves cfg as ReadConfig::resolve does.
+    /// @brief resolves cfg as ReadConfig::resolve does. On CAN, every message needs a
+    /// CAN identifier to send with.
     static WriteConfig resolve(
         x::json::Parser &parser,
         const ::synnax::bus::WriteConfig &cfg,
         const std::optional<::synnax::bus::Framing> &framing,
         const synnax::library::Library &library,
         const std::vector<synnax::channel::Channel> &channels,
-        const Check &check = check_stream
+        Medium medium = Medium::BYTES
     );
 
     /// @brief resolves cfg against the Core as ReadConfig::parse does.
@@ -167,7 +174,7 @@ struct WriteConfig {
         x::json::Parser &parser,
         const ::synnax::bus::WriteConfig &cfg,
         const std::optional<::synnax::bus::Framing> &framing,
-        const Check &check = check_stream
+        Medium medium = Medium::BYTES
     );
 };
 }

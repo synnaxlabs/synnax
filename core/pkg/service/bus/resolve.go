@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/library"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -107,14 +108,14 @@ func checkMessage(
 			validate.ErrValidation, "message %s is not in the library", key,
 		), path+".message")
 	}
-	known := make(map[library.FieldKey]bool, len(m.Fields))
+	known := make(set.Set[library.FieldKey], len(m.Fields))
 	for _, f := range m.Fields {
 		if base, ok := library.FieldBase(f); ok {
-			known[base.Key] = true
+			known.Add(base.Key)
 		}
 	}
 	for j, f := range fields {
-		if !known[f] {
+		if !known.Contains(f) {
 			return validate.PathedError(errors.Wrapf(
 				validate.ErrValidation, "field %s is not in message %s", f, m.Name,
 			), path+".fields."+strconv.Itoa(j)+".field")

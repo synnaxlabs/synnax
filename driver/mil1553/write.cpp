@@ -16,12 +16,12 @@
 #include "driver/mil1553/write.h"
 
 namespace driver::mil1553 {
-Output::Output(
+Transmitter::Transmitter(
     const bus::WriteConfig &cfg,
     synnax::mil1553::Properties props,
     Acquire acquire
 ):
-    props(std::move(props)), acquire(std::move(acquire)) {
+    props(std::move(props)), acquirer(std::move(acquire)) {
     for (const auto &m: cfg.messages)
         this->commands.push_back(
             codec::mil1553::Command::from(
@@ -30,20 +30,21 @@ Output::Output(
         );
 }
 
-x::errors::Error Output::start() {
-    auto [conn, err] = this->acquire();
+x::errors::Error Transmitter::acquire() {
+    auto [link, err] = this->acquirer();
     if (err) return err;
-    this->conn = std::move(conn);
-    auto guard = this->conn->lock();
-    return guard.transport().second;
+    this->link = std::move(link);
+    return this->link->open();
 }
 
-void Output::stop() {
-    this->conn.reset();
+void Transmitter::release() {
+    this->link.reset();
 }
 
-x::errors::Error
-Output::send(const std::size_t message, const std::span<const std::uint8_t> payload) {
+x::errors::Error Transmitter::send(
+    const std::size_t message,
+    const std::span<const std::uint8_t> payload
+) {
     const auto &cmd = this->commands[message];
     // The payload holds only the bytes the fields reach, so pad it to the full count.
     std::array<std::uint8_t, 2 * codec::mil1553::MAX_WORDS> bytes{};
@@ -52,19 +53,10 @@ Output::send(const std::size_t message, const std::span<const std::uint8_t> payl
     std::array<std::uint16_t, codec::mil1553::MAX_WORDS> words{};
     codec::mil1553::from_payload(std::span(bytes.data(), size), words);
     const std::span data(words.data(), cmd.count);
-    auto guard = this->conn->lock();
-    auto [ch, err] = guard.transport();
+    if (this->props.role == synnax::mil1553::ROLE_REMOTE_TERMINAL)
+        return this->link->respond(cmd.rt, cmd.subaddress, data);
+    auto [t, err] = this->link->transact(cmd, data);
     if (err) return err;
-    if (this->props.role == synnax::mil1553::ROLE_REMOTE_TERMINAL) {
-        err = ch->respond(cmd.rt, cmd.subaddress, data);
-        if (err) guard.close();
-        return err;
-    }
-    auto [t, t_err] = ch->transact(cmd, data);
-    if (t_err) {
-        guard.close();
-        return t_err;
-    }
     const auto name = address(cmd);
     if (!t.answered)
         return x::errors::Error(

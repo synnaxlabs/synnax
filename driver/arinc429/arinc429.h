@@ -16,7 +16,6 @@
 #include <vector>
 
 #include "client/cpp/arinc429/types.gen.h"
-#include "client/cpp/library/types.gen.h"
 #include "x/cpp/errors/errors.h"
 
 #include "driver/arinc429/backend.h"
@@ -39,10 +38,6 @@ using Backends = std::unordered_map<std::string, std::shared_ptr<Backend>>;
 
 /// @returns the simulated, DDC, and Ballard backends.
 Backends create_backends();
-
-/// @brief checks that an ARINC 429 channel can carry a message: it passes
-/// codec::arinc429::validate and has no query.
-x::errors::Error check(const synnax::library::MessageEntry &message);
 
 /// @brief checks the properties of an ARINC 429 device.
 /// @returns the backend the properties name, or CONFIGURATION_ERROR when the backend

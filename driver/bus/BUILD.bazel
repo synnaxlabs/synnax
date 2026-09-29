@@ -15,13 +15,16 @@ cc_library(
     srcs = [
         "config.cpp",
         "connection.cpp",
+        "decoder.cpp",
         "read.cpp",
         "write.cpp",
     ],
     hdrs = [
         "config.h",
         "connection.h",
+        "decoder.h",
         "read.h",
+        "registry.h",
         "task.h",
         "transport.h",
         "write.h",
@@ -59,19 +62,6 @@ cc_test(
         "//driver/bus/testutil",
         "//x/cpp/test",
         "@googletest//:gtest_main",
-    ],
-)
-
-cc_library(
-    name = "decoder",
-    srcs = ["decoder.cpp"],
-    hdrs = ["decoder.h"],
-    visibility = ["//visibility:public"],
-    deps = [
-        ":bus",
-        "//driver/common",
-        "//x/cpp/strings",
-        "//x/cpp/telem",
     ],
 )
 
@@ -121,14 +111,12 @@ cc_test(
     name = "card_test",
     size = "small",
     srcs = [
-        "decoder_test.cpp",
         "queue_test.cpp",
         "scan_test.cpp",
         "schedule_test.cpp",
         "vendor_test.cpp",
     ],
     deps = [
-        ":decoder",
         ":queue",
         ":scan",
         ":schedule",

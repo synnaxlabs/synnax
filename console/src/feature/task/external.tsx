@@ -10,6 +10,7 @@
 import { DisconnectedError, task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 
+import { CAN } from "@/feature/can";
 import { EtherCAT } from "@/feature/ethercat";
 import { HTTP } from "@/feature/http";
 import { LabJack } from "@/feature/labjack";
@@ -17,9 +18,13 @@ import { Modbus } from "@/feature/modbus";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
 import { PagerDuty } from "@/feature/pagerduty";
+import { Serial } from "@/feature/serial";
 import { Selector, SELECTOR_TAB_TYPE } from "@/feature/task/Selector";
 import { TAB } from "@/feature/task/tab";
 import { getIcon, parseType } from "@/feature/task/types";
+import { TCP } from "@/feature/tcp";
+import { UDP } from "@/feature/udp";
+import { FLAGS } from "@/flags";
 import { type Command } from "@/platform/command";
 import { type Panel } from "@/platform/panel";
 import { type Range } from "@/platform/range";
@@ -45,6 +50,14 @@ export const COMMANDS: Command.Command[] = [
   ...NI.Task.COMMANDS,
   ...OPCUA.Task.COMMANDS,
   ...PagerDuty.Task.COMMANDS,
+  ...(FLAGS.can
+    ? [
+        ...CAN.Task.COMMANDS,
+        ...Serial.Task.COMMANDS,
+        ...TCP.Task.COMMANDS,
+        ...UDP.Task.COMMANDS,
+      ]
+    : []),
 ];
 
 export const TABS: Panel.Tabs = {

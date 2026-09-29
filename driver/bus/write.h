@@ -30,46 +30,39 @@
 #include "driver/task/task.h"
 
 namespace driver::bus {
-/// @brief where a Sink sends the messages it encodes. The Sink calls start, send, and
-/// stop from one thread at a time.
-class Output {
+/// @brief sends a write task's encoded messages to its device.
+class Transmitter {
 public:
-    virtual ~Output() = default;
+    virtual ~Transmitter() = default;
 
-    /// @brief prepares to send, when the task starts.
-    /// @returns an error that fails the start.
-    virtual x::errors::Error start() = 0;
+    /// @brief acquires the device's connection. Called on start.
+    /// @returns transport::CONFIG_ERROR when another task has the device open with
+    /// other properties.
+    virtual x::errors::Error acquire() = 0;
 
-    /// @brief releases what start acquired, when the task stops.
-    virtual void stop() = 0;
+    /// @brief releases the connection. Called on stop, after the last send.
+    virtual void release() = 0;
 
-    /// @brief sends the encoded payload of the message at index message of the write
-    /// config.
-    /// @returns an error the task reports as a warning.
+    /// @brief sends one encoded message.
+    /// @param message the index of the message in the write config.
+    /// @param payload the encoded, framed message.
     virtual x::errors::Error
     send(std::size_t message, std::span<const std::uint8_t> payload) = 0;
 };
 
-/// @brief sends each framed payload on a device's shared transport. It reopens the
-/// transport after a failed send.
-class TransportOutput final : public Output {
+/// @brief sends each message as bytes on a shared byte-stream or datagram
+/// connection, and reopens the connection after a failed send.
+class ConnectionTransmitter final : public Transmitter {
+    Acquire acquirer;
+    std::shared_ptr<Connection> conn;
+
 public:
-    /// @param acquire acquires the device's connection on start.
-    explicit TransportOutput(Acquire acquire): acquire(std::move(acquire)) {}
+    explicit ConnectionTransmitter(Acquire acquire): acquirer(std::move(acquire)) {}
 
-    /// @returns transport::CONFIG_ERROR when another task has the device open with
-    /// other properties.
-    x::errors::Error start() override;
-
-    /// @brief releases the connection, which closes when no other task uses it.
-    void stop() override;
-
+    x::errors::Error acquire() override;
+    void release() override;
     x::errors::Error
     send(std::size_t message, std::span<const std::uint8_t> payload) override;
-
-private:
-    Acquire acquire;
-    std::shared_ptr<Connection> conn;
 };
 
 /// @brief encodes command channel values into messages and sends them on one I/O
@@ -80,24 +73,12 @@ private:
 class Sink final : public common::Sink {
 public:
     /// @param cfg the resolved write config.
-    /// @param acquire acquires the device's connection on start. The sink reopens the
-    /// connection after a failed send.
+    /// @param transmitter sends the encoded messages to the device.
     /// @param ctx reports send failures as task status warnings.
     /// @param task the task the sink belongs to.
     Sink(
         WriteConfig cfg,
-        Acquire acquire,
-        const std::shared_ptr<task::Context> &ctx,
-        const synnax::task::Task &task
-    );
-
-    /// @param cfg the resolved write config.
-    /// @param output where the sink sends each encoded, framed message.
-    /// @param ctx reports send failures as task status warnings.
-    /// @param task the task the sink belongs to.
-    Sink(
-        WriteConfig cfg,
-        std::unique_ptr<Output> output,
+        std::unique_ptr<Transmitter> transmitter,
         const std::shared_ptr<task::Context> &ctx,
         const synnax::task::Task &task
     );
@@ -107,13 +88,12 @@ public:
     Sink(const Sink &) = delete;
     Sink &operator=(const Sink &) = delete;
 
-    /// @brief starts the output and the I/O thread.
-    /// @returns the error of the output's start, such as transport::CONFIG_ERROR when
-    /// another task has the device open with other properties.
+    /// @brief acquires the connection and starts the I/O thread.
+    /// @returns transport::CONFIG_ERROR when another task has the device open with
+    /// other properties.
     x::errors::Error start() override;
 
-    /// @brief stops the I/O thread, drops unsent messages, and stops the output. The
-    /// transport output releases the
+    /// @brief stops the I/O thread, drops unsent messages, and releases the
     /// connection, which closes when no other task uses it.
     x::errors::Error stop() override;
 
@@ -135,7 +115,7 @@ private:
     };
 
     WriteConfig cfg;
-    std::unique_ptr<Output> output;
+    std::unique_ptr<Transmitter> transmitter;
     /// @brief the message slots each command channel drives.
     std::unordered_map<
         synnax::channel::Key,
@@ -146,7 +126,7 @@ private:
     std::condition_variable cv;
     bool running = false;
     std::vector<State> states;
-    /// @brief each unsent message and its framed payload.
+    /// @brief each message waiting to send, by index, with its payload.
     std::deque<std::pair<std::size_t, std::vector<std::uint8_t>>> queue;
     std::thread thread;
 

@@ -34,9 +34,7 @@
           "units": "",
           "choices": null,
           "multiplexor": "Group",
-          "multiplex_values": [
-            0
-          ]
+          "multiplex_values": [0]
         },
         {
           "name": "Voltage",
@@ -50,12 +48,7 @@
           "units": "V",
           "choices": null,
           "multiplexor": "Channel",
-          "multiplex_values": [
-            0,
-            1,
-            2,
-            3
-          ]
+          "multiplex_values": [0, 1, 2, 3]
         },
         {
           "name": "Current",
@@ -69,12 +62,7 @@
           "units": "A",
           "choices": null,
           "multiplexor": "Channel",
-          "multiplex_values": [
-            4,
-            5,
-            8,
-            9
-          ]
+          "multiplex_values": [4, 5, 8, 9]
         },
         {
           "name": "Status",
@@ -88,10 +76,7 @@
           "units": "",
           "choices": null,
           "multiplexor": "Group",
-          "multiplex_values": [
-            1,
-            2
-          ]
+          "multiplex_values": [1, 2]
         },
         {
           "name": "Flags",
@@ -105,9 +90,7 @@
           "units": "",
           "choices": null,
           "multiplexor": "Group",
-          "multiplex_values": [
-            3
-          ]
+          "multiplex_values": [3]
         }
       ]
     }

@@ -9,8 +9,10 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <system_error>
+#include <utility>
 
 /// @brief settings that Asio's serial port options cannot express, applied through the
 /// port's native handle. Each platform implements them in its own file, and this header
@@ -34,4 +36,7 @@ std::error_code set_mark_space_parity(Handle handle, bool mark);
 /// @brief makes the driver assert RTS while sending, to turn an RS-485 transceiver
 /// around.
 std::error_code enable_rs485(Handle handle);
+
+/// @returns the number of written bytes that the port has not yet sent.
+std::pair<std::size_t, std::error_code> queued_output(Handle handle);
 }

@@ -92,7 +92,6 @@ cc_library(
         "//client/cpp/arinc429",
         "//client/cpp/library",
         "//driver/bus",
-        "//driver/bus:decoder",
         "//driver/bus:scan",
         "//driver/codec",
         "//driver/common",

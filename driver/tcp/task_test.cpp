@@ -88,7 +88,9 @@ protected:
             this->breaker,
             std::make_unique<bus::Sink>(
                 std::move(cfg),
-                bus::acquirer<Client>(this->connections, "dev", this->props()),
+                std::make_unique<bus::ConnectionTransmitter>(
+                    bus::acquirer<Client>(this->connections, "dev", this->props())
+                ),
                 this->ctx,
                 this->task
             ),

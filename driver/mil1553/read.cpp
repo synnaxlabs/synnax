@@ -44,20 +44,19 @@ std::vector<synnax::channel::Channel> Source::channels() const {
 }
 
 x::errors::Error Source::start() {
-    this->decoder.reset();
+    this->decoder.clear_warning();
     std::vector<std::optional<x::telem::TimeSpan>> periods;
     for (const auto i: this->cfg.streamed)
         periods.push_back(this->cfg.messages[i].entry.period);
     this->schedule = bus::Schedule(periods, x::telem::TimeStamp::now());
-    auto [conn, err] = this->acquire();
+    auto [link, err] = this->acquire();
     if (err) return err;
-    this->conn = std::move(conn);
-    auto guard = this->conn->lock();
-    return guard.transport().second;
+    this->link = std::move(link);
+    return this->link->open();
 }
 
 x::errors::Error Source::stop() {
-    this->conn.reset();
+    this->link.reset();
     return x::errors::NIL;
 }
 
@@ -82,37 +81,20 @@ x::errors::Error Source::poll(x::breaker::Breaker &breaker) {
         breaker.wait_for(wait);
         return x::errors::NIL;
     }
-    auto guard = this->conn->lock();
-    auto [ch, err] = guard.transport();
-    if (err) return err;
     for (const auto j: this->due) {
         const auto &id = std::get<synnax::library::Mil1553Identifier>(
             *this->cfg.messages[this->cfg.streamed[j]].entry.identifier
         );
-        const auto cmd = codec::mil1553::Command::from(id);
-        auto [t, t_err] = ch->transact(cmd, {});
-        if (t_err) {
-            guard.close();
-            return t_err;
-        }
+        auto [t, err] = this->link->transact(codec::mil1553::Command::from(id), {});
+        if (err) return err;
         this->add(this->cfg.streamed[j], t);
     }
     return x::errors::NIL;
 }
 
 x::errors::Error Source::listen() {
-    bus::Batch batch;
-    {
-        auto guard = this->conn->lock();
-        auto [ch, err] = guard.transport();
-        if (err) return err;
-        auto [b, read_err] = ch->read(this->buf, bus::READ_TIMEOUT);
-        if (read_err) {
-            guard.close();
-            return read_err;
-        }
-        batch = b;
-    }
+    const auto [batch, err] = this->link->read(this->buf, bus::READ_TIMEOUT);
+    if (err) return err;
     for (std::size_t i = 0; i < batch.count; i++) {
         const auto &t = this->buf[i];
         if (const auto m = this->cfg.matcher.match(t.command))

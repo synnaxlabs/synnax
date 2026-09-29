@@ -87,8 +87,8 @@ public:
 /// such as /dev/ttyACM0 or COM3.
 class Backend final : public can::Backend {
 public:
-    /// @returns every serial port on the host. The ports are not probed, so a port may
-    /// hold a device that does not speak slcan.
+    /// @returns no channels. A serial port does not show whether it holds an slcan
+    /// adapter, so the user adds each adapter by its port path.
     [[nodiscard]] std::pair<std::vector<Channel>, x::errors::Error> scan() override;
 
     [[nodiscard]] std::pair<std::unique_ptr<can::Bus>, x::errors::Error>

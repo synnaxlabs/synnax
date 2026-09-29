@@ -74,6 +74,13 @@ std::error_code enable_rs485(const Handle handle) {
     if (::ioctl(static_cast<int>(handle), TIOCSRS485, &conf) != 0) return last_error();
     return {};
 }
+
+std::pair<std::size_t, std::error_code> queued_output(const Handle handle) {
+    int queued = 0;
+    if (::ioctl(static_cast<int>(handle), TIOCOUTQ, &queued) != 0)
+        return {0, last_error()};
+    return {static_cast<std::size_t>(queued), {}};
+}
 }
 
 namespace {

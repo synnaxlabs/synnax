@@ -32,7 +32,7 @@ std::vector<synnax::channel::Channel> Source::channels() const {
 }
 
 x::errors::Error Source::start() {
-    this->decoder.reset();
+    this->decoder.clear_warning();
     auto [ch, err] = this->backend->open(this->props, Direction::RECEIVE);
     if (err) return err;
     this->channel = std::move(ch);

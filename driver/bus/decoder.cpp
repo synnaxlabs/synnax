@@ -39,6 +39,11 @@ std::vector<synnax::channel::Channel> Decoder::channels() const {
     return out;
 }
 
+void Decoder::raw(const std::span<const std::uint8_t> frame) {
+    if (this->cfg.raw == 0) return;
+    this->raws.emplace_back(reinterpret_cast<const char *>(frame.data()), frame.size());
+}
+
 void Decoder::decode(
     const std::size_t message,
     const std::span<const std::uint8_t> payload,
@@ -67,13 +72,8 @@ void Decoder::decode(
     p.times.push_back(stamp);
 }
 
-void Decoder::raw(const std::span<const std::uint8_t> frame) {
-    if (this->cfg.raw == 0) return;
-    this->raws.emplace_back(reinterpret_cast<const char *>(frame.data()), frame.size());
-}
-
-void Decoder::warn(std::string warning) {
-    this->warnings.push_back(std::move(warning));
+void Decoder::warn(std::string message) {
+    this->warnings.push_back(std::move(message));
 }
 
 void Decoder::flush(x::telem::Frame &fr) {
@@ -99,16 +99,15 @@ void Decoder::flush(x::telem::Frame &fr) {
 
 std::string Decoder::warning(const x::telem::TimeStamp now) {
     if (!this->warnings.empty()) {
-        this->held = x::strings::join(this->warnings, "; ");
+        this->held_warning = x::strings::join(this->warnings, "; ");
         this->held_at = now;
         this->warnings.clear();
     } else if (now - this->held_at >= WARNING_HOLD)
-        this->held.clear();
-    return this->held;
+        this->held_warning.clear();
+    return this->held_warning;
 }
 
-void Decoder::reset() {
-    this->held.clear();
-    this->warnings.clear();
+void Decoder::clear_warning() {
+    this->held_warning.clear();
 }
 }

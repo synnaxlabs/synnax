@@ -38,16 +38,6 @@ Backends create_backends() {
     };
 }
 
-x::errors::Error check(const synnax::library::MessageEntry &message) {
-    if (const auto err = codec::arinc429::validate(message)) return err;
-    if (message.query.has_value())
-        return x::errors::Error(
-            x::errors::VALIDATION,
-            "message " + message.name + " has a query, which ARINC 429 cannot send"
-        );
-    return x::errors::NIL;
-}
-
 std::pair<std::shared_ptr<Backend>, x::errors::Error>
 resolve(const Backends &backends, const synnax::arinc429::Properties &props) {
     if (props.speed != synnax::arinc429::SPEED_LOW &&
@@ -114,7 +104,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
         cfg,
         {},
         std::nullopt,
-        check
+        bus::Medium::ARINC429
     );
     if (err) return {common::ConfigureResult{}, err};
     return {
@@ -150,10 +140,10 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
         parser,
         cfg,
         std::nullopt,
-        check
+        bus::Medium::ARINC429
     );
     if (err) return {common::ConfigureResult{}, err};
-    auto output = std::make_unique<Output>(
+    auto transmitter = std::make_unique<Transmitter>(
         resolved,
         std::move(dev.backend),
         std::move(dev.props)
@@ -165,7 +155,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
                 ctx,
                 x::breaker::default_config(task.name),
                 std::make_unique<
-                    bus::Sink>(std::move(resolved), std::move(output), ctx, task)
+                    bus::Sink>(std::move(resolved), std::move(transmitter), ctx, task)
             ),
             .auto_start = cfg.auto_start,
         },

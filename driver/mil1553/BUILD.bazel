@@ -70,10 +70,12 @@ cc_library(
     name = "task",
     srcs = [
         "factory.cpp",
+        "link.cpp",
         "read.cpp",
         "write.cpp",
     ],
     hdrs = [
+        "link.h",
         "mil1553.h",
         "read.h",
         "write.h",
@@ -87,7 +89,7 @@ cc_library(
         "//client/cpp/library",
         "//client/cpp/mil1553",
         "//driver/bus",
-        "//driver/bus:decoder",
+        "//driver/bus:queue",
         "//driver/bus:scan",
         "//driver/bus:schedule",
         "//driver/codec",
