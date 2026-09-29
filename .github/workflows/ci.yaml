@@ -71,6 +71,7 @@ jobs:
       protobuf: ${{ steps.filter.outputs.protobuf }}
       scripts: ${{ steps.filter.outputs.scripts }}
       soem: ${{ steps.filter.outputs.soem }}
+      vite_plugin: ${{ steps.filter.outputs.vite_plugin }}
       www: ${{ steps.filter.outputs.www }}
       x_cpp: ${{ steps.filter.outputs.x_cpp }}
       x_go: ${{ steps.filter.outputs.x_go }}
@@ -468,6 +469,15 @@ jobs:
   versions:
     uses: ./.github/workflows/test.updates.yaml
 
+  vite-plugin:
+    needs: changes
+    if: needs.changes.outputs.vite_plugin == 'true'
+    uses: ./.github/workflows/test.ts.yaml
+    with:
+      directory: configs/vite
+      package: vite-plugin
+    secrets: inherit
+
   www:
     needs: changes
     if: needs.changes.outputs.www == 'true'
@@ -564,6 +574,7 @@ jobs:
       - scripts
       - soem
       - versions
+      - vite-plugin
       - www
       - x-cpp
       - x-go
