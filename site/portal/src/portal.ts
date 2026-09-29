@@ -8,8 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { KMSClient } from "@aws-sdk/client-kms";
+import { awsCredentialsProvider } from "@vercel/oidc-aws-credentials-provider";
 import { type APIContext } from "astro";
 import {
+  AWS_ROLE_ARN,
   DATABASE_URL,
   LICENSE_KID,
   LICENSE_KMS_KEY_ARN,
@@ -41,7 +43,14 @@ export interface Portal {
 export const open = (context: APIContext): Portal => ({
   store: openStore(DATABASE_URL),
   signer: kms({
-    client: new KMSClient({}),
+    // A deployment assumes the signing role through Vercel OIDC. Local development
+    // signs as the AWS CLI identity instead.
+    client: new KMSClient({
+      credentials:
+        AWS_ROLE_ARN == null
+          ? undefined
+          : awsCredentialsProvider({ roleArn: AWS_ROLE_ARN }),
+    }),
     keyID: LICENSE_KMS_KEY_ARN,
     kid: LICENSE_KID,
   }),

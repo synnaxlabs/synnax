@@ -2,6 +2,7 @@ CREATE TABLE "activation" (
 	"key" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"license" uuid NOT NULL,
 	"fingerprint" text[] NOT NULL,
+	"name" text,
 	"first_seen" timestamp with time zone DEFAULT now() NOT NULL,
 	"last_seen" timestamp with time zone DEFAULT now() NOT NULL,
 	"released_at" timestamp with time zone
