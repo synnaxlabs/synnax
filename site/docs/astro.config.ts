@@ -49,6 +49,10 @@ export default defineConfig({
     },
   },
   redirects: {
+    // Shipped clients print these paths in errors and docstrings.
+    "/reference/client/resources/troubleshooting": "/reference/client/troubleshooting",
+    "/reference/client/working-with-data/streaming-data": "/reference/client/read-data",
+    "/concepts/write": "/reference/client/write-data",
     "/guides/comparison/performance/one-billion-rows": "/blog/one-billion-rows",
     "/guides/get-started/installation": "/reference/enterprise",
     "/guides/": "/reference/",

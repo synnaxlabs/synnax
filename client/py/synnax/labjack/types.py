@@ -31,7 +31,7 @@ SUPPORTED_MODELS: TypeAlias = Literal["LJM_dtT4", "LJM_dtT7", "LJM_dtT8"]
 class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """A read task for sampling data from LabJack devices and writing the data to a
     Synnax cluster. For detailed information on configuring and operating a LabJack
-    read task, see https://docs.synnaxlabs.com/reference/driver/labjack/read-task
+    read task, see https://docs.synnaxlabs.com/reference/hardware/labjack/read-task
 
     :param device: The key of the Synnax LabJack device to read from.
     :param name: A human-readable name for the task.
@@ -93,7 +93,7 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
 class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """A write task for sending commands to LabJack devices. For detailed information
     on configuring and operating a LabJack write task, see
-    https://docs.synnaxlabs.com/reference/driver/labjack/write-task
+    https://docs.synnaxlabs.com/reference/hardware/labjack/write-task
 
     :param device: The key of the Synnax LabJack device to write to.
     :param name: A human-readable name for the task.

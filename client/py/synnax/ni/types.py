@@ -48,7 +48,7 @@ def _assign_channel_devices(
 class AnalogReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """A task for reading analog data from NI devices and writing them to a Synnax
     cluster. For detailed information on configuring and operating an analog read
-    task, see https://docs.synnaxlabs.com/reference/driver/ni/analog-read-task
+    task, see https://docs.synnaxlabs.com/reference/hardware/ni/analog-read-task
 
     :param device: The key of the Synnax NI device to read from. Used as the default
         for channels that do not carry their own device.
@@ -98,7 +98,7 @@ class AnalogReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protoc
 class AnalogWriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """A task for writing analog output data to NI devices. For detailed information
     on configuring and operating an analog write task, see
-    https://docs.synnaxlabs.com/reference/driver/ni/analog-write-task
+    https://docs.synnaxlabs.com/reference/hardware/ni/analog-write-task
 
     :param device: The key of the Synnax NI device to write to.
     :param name: A human-readable name for the task.
@@ -143,7 +143,7 @@ class AnalogWriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Proto
 class CounterReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """A task for reading counter data from NI devices and writing them to a Synnax
     cluster. For detailed information on configuring and operating a counter read
-    task, see https://docs.synnaxlabs.com/reference/driver/ni/counter-read-task
+    task, see https://docs.synnaxlabs.com/reference/hardware/ni/counter-read-task
 
     :param device: The key of the Synnax NI device to read from. Used as the default
         for channels that do not carry their own device.
@@ -193,7 +193,7 @@ class CounterReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Proto
 class DigitalReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """A task for reading digital data from NI devices and writing them to a Synnax
     cluster. For detailed information on configuring and operating a digital read
-    task, see https://docs.synnaxlabs.com/reference/driver/ni/digital-read-task
+    task, see https://docs.synnaxlabs.com/reference/hardware/ni/digital-read-task
 
     :param device: The key of the Synnax NI device to read from.
     :param name: A human-readable name for the task.
@@ -241,7 +241,7 @@ class DigitalReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Proto
 class DigitalWriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """A task for writing digital output data to NI devices. For detailed information
     on configuring and operating a digital write task, see
-    https://docs.synnaxlabs.com/reference/driver/ni/digital-write-task
+    https://docs.synnaxlabs.com/reference/hardware/ni/digital-write-task
 
     :param device: The key of the Synnax NI device to write to.
     :param name: A human-readable name for the task.

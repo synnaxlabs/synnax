@@ -12,7 +12,7 @@ import { useCallback } from "react";
 
 import { Runtime } from "@/platform/runtime";
 
-export const URL = "https://docs.synnaxlabs.com/reference/console/get-started";
+export const URL = "https://docs.synnaxlabs.com/reference/";
 
 /** Opens the Synnax documentation in the user's browser. */
 export const useOpen = (): (() => void) => {

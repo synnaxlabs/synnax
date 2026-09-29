@@ -248,7 +248,7 @@ sy.http.GeneratedField(pointer="/ts", generator="timestamp", time_format="iso860
 ## Additional resources
 
 - [JSON Pointer Specification (RFC 6901)](https://datatracker.ietf.org/doc/html/rfc6901)
-- [Synnax HTTP Driver Documentation](https://docs.synnaxlabs.com/reference/driver/http/)
+- [Synnax HTTP Driver Documentation](https://docs.synnaxlabs.com/reference/hardware/http/)
 
 ## Next steps
 

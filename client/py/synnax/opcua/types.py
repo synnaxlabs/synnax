@@ -29,7 +29,7 @@ SecurityPolicy = Literal[
 class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """A read task for sampling data from OPC UA devices and writing the data to a
     Synnax cluster. For detailed information on configuring and operating an OPC UA
-    read task, see https://docs.synnaxlabs.com/reference/driver/opc-ua/read-task
+    read task, see https://docs.synnaxlabs.com/reference/hardware/opc-ua/read-task
 
     :param device: The key of the Synnax OPC UA device to read from.
     :param name: A human-readable name for the task.
@@ -97,7 +97,7 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
 class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """A write task for sending commands to OPC UA devices. For detailed information on
     configuring and operating an OPC UA write task, see
-    https://docs.synnaxlabs.com/reference/driver/opc-ua/write-task
+    https://docs.synnaxlabs.com/reference/hardware/opc-ua/write-task
 
     :param device: The key of the Synnax OPC UA device to write to.
     :param name: A human-readable name for the task.

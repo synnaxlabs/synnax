@@ -44,7 +44,7 @@ from x.lists import normalize
 class Channel(Payload):
     """A channel is a logical collection of samples emitted by or representing the
     values of a single source. See
-    https://docs.synnaxlabs.com/reference/concepts/channels for an introduction to
+    https://docs.synnaxlabs.com/reference/channels for an introduction to
     channels and how they work.
     """
 

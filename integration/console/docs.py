@@ -13,7 +13,7 @@ from playwright.sync_api import Page
 
 from console.base import ResourceClient
 
-URL = "https://docs.synnaxlabs.com/reference/console/get-started"
+URL = "https://docs.synnaxlabs.com/reference/"
 
 _URL_PATTERN = re.compile(r"^https://docs\.synnaxlabs\.com/")
 

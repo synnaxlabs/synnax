@@ -19,7 +19,7 @@
 
 namespace synnax::connection {
 const std::string TROUBLESHOOTING_URL =
-    "https://docs.synnaxlabs.com/reference/client/resources/troubleshooting";
+    "https://docs.synnaxlabs.com/reference/client/troubleshooting";
 
 /// @brief parses major.minor from a version string, or nullopt when it is malformed.
 std::optional<std::pair<int, int>> parse_version(const std::string &v) {

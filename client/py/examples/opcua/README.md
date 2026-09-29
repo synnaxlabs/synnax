@@ -421,7 +421,7 @@ sampling, which is more efficient than polling.
 
 - [OPC Foundation](https://opcfoundation.org/)
 - [OPC UA Specification](https://reference.opcfoundation.org/)
-- [Synnax OPC UA Driver Documentation](https://docs.synnaxlabs.com/reference/driver/opc-ua/)
+- [Synnax OPC UA Driver Documentation](https://docs.synnaxlabs.com/reference/hardware/opc-ua/)
 - [open62541 Documentation](https://www.open62541.org/)
 
 ## Next steps
