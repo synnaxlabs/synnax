@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type clerkClient } from "@clerk/astro/server";
+import { errors } from "@synnaxlabs/x";
 
 /** Person is a Clerk user as the portal names and mails them. */
 export interface Person {
@@ -115,15 +116,13 @@ export const clerk = (client: Client): Directory => ({
       (o) => ({ clerkOrgID: o.id, name: o.name }),
     ),
   team: async (clerkOrgID) => {
-    try {
-      const org = await client.organizations.getOrganization({
-        organizationId: clerkOrgID,
+    const org = await client.organizations
+      .getOrganization({ organizationId: clerkOrgID })
+      .catch((e: unknown) => {
+        if ((e as { status?: unknown }).status === 404) return null;
+        throw errors.fromUnknown(e);
       });
-      return { clerkOrgID: org.id, name: org.name };
-    } catch (e) {
-      if ((e as { status?: unknown }).status === 404) return null;
-      throw e;
-    }
+    return org == null ? null : { clerkOrgID: org.id, name: org.name };
   },
   names: async (userIDs) => {
     const named: Record<string, string> = {};

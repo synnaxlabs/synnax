@@ -19,7 +19,7 @@ import {
 } from "@/server/db/schema";
 import { type Mailer } from "@/server/mail";
 
-/** NOTICE_DAYS are the days before expiry at which a warning is sent, most urgent last. */
+/** NOTICE_DAYS are the days before expiry that get a warning, most urgent last. */
 export const NOTICE_DAYS = [30, 7, 1] as const;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
