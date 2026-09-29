@@ -546,8 +546,8 @@ export const gaugeNodeConfigZ = labeledConfigZ
   .extend({
     variant: z.literal("gauge"),
     /**
-     * precision is the number of decimal places shown. When absent, the value shows as
-     * many decimals as fit.
+     * precision is the number of decimal places shown. When absent, the gauge shows as
+     * many decimals as fit in its dial.
      */
     precision: zod.uint8.optional(),
     /** position is the offset of the gauge contents within the symbol. */
@@ -1923,8 +1923,8 @@ export const gaugeElementConfigZ = labeledConfigZ
   .extend({
     variant: z.literal("gauge"),
     /**
-     * precision is the number of decimal places shown. When absent, the value shows as
-     * many decimals as fit.
+     * precision is the number of decimal places shown. When absent, the gauge shows as
+     * many decimals as fit in its dial.
      */
     precision: zod.uint8.optional(),
     /** position is the offset of the gauge contents within the symbol. */

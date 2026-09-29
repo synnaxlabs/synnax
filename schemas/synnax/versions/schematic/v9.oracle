@@ -429,8 +429,8 @@ NodeConfig union on variant {
     gauge extends LabeledConfig, NumericTelemConfig, StalenessConfig {
         precision uint8?             {
             @doc value    """
-                is the number of decimal places shown. When absent, the value shows as
-                many decimals as fit.
+                is the number of decimal places shown. When absent, the gauge shows as
+                many decimals as fit in its dial.
             """
             @validate max 20
         }

@@ -1329,8 +1329,8 @@ type GaugeNodeConfig struct {
 	LabeledConfig
 	NumericTelemConfig
 	StalenessConfig
-	// Precision is the number of decimal places shown. When absent, the value shows as
-	// many decimals as fit.
+	// Precision is the number of decimal places shown. When absent, the gauge shows as
+	// many decimals as fit in its dial.
 	Precision *uint8 `json:"precision,omitzero" msgpack:"precision,omitempty"`
 	// Position is the offset of the gauge contents within the symbol.
 	Position *spatial.XY `json:"position,omitzero" msgpack:"position,omitempty"`
@@ -5586,8 +5586,8 @@ type GaugeElementConfig struct {
 	LabeledConfig
 	NumericTelemConfig
 	StalenessConfig
-	// Precision is the number of decimal places shown. When absent, the value shows as
-	// many decimals as fit.
+	// Precision is the number of decimal places shown. When absent, the gauge shows as
+	// many decimals as fit in its dial.
 	Precision *uint8 `json:"precision,omitzero" msgpack:"precision,omitempty"`
 	// Position is the offset of the gauge contents within the symbol.
 	Position *spatial.XY `json:"position,omitzero" msgpack:"position,omitempty"`
