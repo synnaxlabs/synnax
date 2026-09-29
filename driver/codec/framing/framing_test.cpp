@@ -144,6 +144,17 @@ const bus::SyncFraming SYNC_MODBUS{
     .checksum = bus::CHECKSUM_CRC_16_MODBUS,
 };
 
+/// @brief MODBUS_STYLE frames are an address byte, a big-endian two-byte body length,
+/// the body, and a little-endian CRC-16/MODBUS as in Modbus RTU.
+const bus::SyncFraming MODBUS_STYLE{
+    .sync = "01",
+    .length_offset = 1,
+    .length_size = 2,
+    .byte_order = synnax::library::BYTE_ORDER_BIG_ENDIAN,
+    .length_adjustment = 2,
+    .checksum = bus::CHECKSUM_CRC_16_MODBUS,
+};
+
 /// @returns the wire bytes of a SYNC_MODBUS frame, built by hand.
 Bytes sync_wire(const Bytes &body) {
     Bytes f = {0xAA, 0x55, static_cast<std::uint8_t>(body.size())};
@@ -369,6 +380,7 @@ TEST(Sync, RoundTripsABigEndianCRC32Frame) {
             .byte_order = synnax::library::BYTE_ORDER_BIG_ENDIAN,
             .length_adjustment = 4,
             .checksum = bus::CHECKSUM_CRC_32,
+            .checksum_byte_order = synnax::library::BYTE_ORDER_BIG_ENDIAN,
         }
     );
     const Bytes frame = {0x7E, 0x00, 0x03, 0x7E, 0x00, 0x42};
@@ -380,6 +392,35 @@ TEST(Sync, RoundTripsABigEndianCRC32Frame) {
     EXPECT_EQ(trickle(*f, wire), std::vector<Bytes>{frame});
     wire.back() ^= 1;
     EXPECT_TRUE(trickle(*f, wire).empty());
+}
+
+TEST(Sync, RoundTripsAModbusStyleFrameWithMixedByteOrders) {
+    const auto f = open(MODBUS_STYLE);
+    const Bytes frame = {0x01, 0x00, 0x03, 0x03, 0x02, 0x00};
+    const auto crc = checksum(Checksum::CRC16_MODBUS, frame);
+    Bytes expected = frame;
+    expected.push_back(static_cast<std::uint8_t>(crc));
+    expected.push_back(static_cast<std::uint8_t>(crc >> 8));
+    Bytes wire;
+    ASSERT_NIL(f->encode(Bytes{0, 0, 0, 0x03, 0x02, 0x00}, wire));
+    EXPECT_EQ(wire, expected);
+    EXPECT_EQ(trickle(*f, wire), std::vector<Bytes>{frame});
+    std::swap(wire[wire.size() - 1], wire[wire.size() - 2]);
+    EXPECT_TRUE(trickle(*f, wire).empty());
+    std::mt19937_64 rng(8);
+    std::vector<Bytes> frames;
+    for (int i = 0; i < 200; i++) {
+        auto body = random_payload(rng, 300);
+        body.insert(
+            body.begin(),
+            {0x01,
+             static_cast<std::uint8_t>(body.size() >> 8),
+             static_cast<std::uint8_t>(body.size())}
+        );
+        frames.push_back(std::move(body));
+    }
+    const auto g = open(MODBUS_STYLE);
+    expect_round_trip(*g, frames, 8);
 }
 
 TEST(Sync, RoundTripsALengthThatCountsTheWholeFrame) {
@@ -559,6 +600,13 @@ TEST(Create, RejectsASyncWithAnOddNumberOfDigits) {
 
 TEST(Create, RejectsAnUnknownChecksum) {
     ASSERT_OCCURRED_AS_P(create(bus::SyncFraming{.checksum = "md5"}), CONFIG_ERROR);
+}
+
+TEST(Create, RejectsAnUnknownChecksumByteOrder) {
+    ASSERT_OCCURRED_AS_P(
+        create(bus::SyncFraming{.checksum_byte_order = "middle"}),
+        CONFIG_ERROR
+    );
 }
 
 TEST(Create, RejectsAnUnknownByteOrder) {

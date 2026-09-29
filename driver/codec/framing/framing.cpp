@@ -215,12 +215,14 @@ struct SyncLayout {
     std::size_t length_offset = 0;
     /// @brief length_size is the size of the length field in bytes.
     std::size_t length_size = 1;
-    /// @brief big is true when the length field and checksum are big-endian.
-    bool big = false;
+    /// @brief length_big is true when the length field is big-endian.
+    bool length_big = false;
     /// @brief length_adjustment is added to the length field's value.
     std::int64_t length_adjustment = 0;
     /// @brief checksum ends each frame and covers every byte before it.
     Checksum checksum = Checksum::NONE;
+    /// @brief checksum_big is true when the checksum is big-endian.
+    bool checksum_big = false;
 };
 
 class Sync final : public Framer {
@@ -237,7 +239,11 @@ class Sync final : public Framer {
     /// @returns the wire size of the frame at head, or 0 when the frame is invalid.
     [[nodiscard]] std::size_t frame_size(const std::uint8_t *frame) const {
         const auto &l = this->layout;
-        const auto value = read_uint(frame + l.length_offset, l.length_size, l.big);
+        const auto value = read_uint(
+            frame + l.length_offset,
+            l.length_size,
+            l.length_big
+        );
         const auto size = static_cast<std::int64_t>(this->header) +
                           static_cast<std::int64_t>(value) + l.length_adjustment;
         if (size < static_cast<std::int64_t>(this->min_size) ||
@@ -251,7 +257,7 @@ class Sync final : public Framer {
         const auto &l = this->layout;
         if (l.checksum == Checksum::NONE) return true;
         const auto w = width(l.checksum);
-        const auto stored = read_uint(frame + size - w, w, l.big);
+        const auto stored = read_uint(frame + size - w, w, l.checksum_big);
         return checksum(l.checksum, View(frame, size - w)) == stored;
     }
 
@@ -352,12 +358,12 @@ public:
             f + l.length_offset,
             static_cast<std::uint64_t>(value),
             l.length_size,
-            l.big
+            l.length_big
         );
         if (w == 0) return x::errors::NIL;
         const auto sum = checksum(l.checksum, View(f, frame.size()));
         out.resize(start + size);
-        write_uint(out.data() + start + frame.size(), sum, w, l.big);
+        write_uint(out.data() + start + frame.size(), sum, w, l.checksum_big);
         return x::errors::NIL;
     }
 };
@@ -563,6 +569,13 @@ std::pair<Checksum, x::errors::Error> parse_checksum(const std::string &name) {
     return {Checksum::NONE, config_error("unknown checksum " + name)};
 }
 
+/// @returns true for big-endian, false for little-endian.
+std::pair<bool, x::errors::Error> parse_byte_order(const std::string &order) {
+    if (order == library::BYTE_ORDER_BIG_ENDIAN) return {true, x::errors::NIL};
+    if (order == library::BYTE_ORDER_LITTLE_ENDIAN) return {false, x::errors::NIL};
+    return {false, config_error("unknown byte order " + order)};
+}
+
 using Result = std::pair<std::unique_ptr<Framer>, x::errors::Error>;
 
 Result create(const bus::DelimiterFraming &f) {
@@ -589,9 +602,10 @@ Result create(const bus::SyncFraming &f) {
     if (sum_err) return {nullptr, sum_err};
     if (f.length_size != 1 && f.length_size != 2 && f.length_size != 4)
         return {nullptr, config_error("length size must be 1, 2, or 4 bytes")};
-    const bool big = f.byte_order == library::BYTE_ORDER_BIG_ENDIAN;
-    if (!big && f.byte_order != library::BYTE_ORDER_LITTLE_ENDIAN)
-        return {nullptr, config_error("unknown byte order " + f.byte_order)};
+    auto [length_big, order_err] = parse_byte_order(f.byte_order);
+    if (order_err) return {nullptr, order_err};
+    auto [checksum_big, checksum_order_err] = parse_byte_order(f.checksum_byte_order);
+    if (checksum_order_err) return {nullptr, checksum_order_err};
     if (f.length_offset < sync.size())
         return {nullptr, config_error("length field overlaps the sync sequence")};
     if (f.length_offset + f.length_size + width(sum) > MAX_SIZE)
@@ -601,9 +615,10 @@ Result create(const bus::SyncFraming &f) {
             .sync = std::move(sync),
             .length_offset = f.length_offset,
             .length_size = f.length_size,
-            .big = big,
+            .length_big = length_big,
             .length_adjustment = f.length_adjustment,
             .checksum = sum,
+            .checksum_big = checksum_big,
         }),
         x::errors::NIL,
     };
