@@ -54,6 +54,7 @@ allowBuilds:
 
 catalog:
   '@astrojs/check': ^0.9.10
+  '@astrojs/markdown-satteri': ^0.4.2
   '@astrojs/mdx': ^8.0.2
   '@astrojs/react': ^7.0.0
   '@astrojs/vercel': ^11.0.11
@@ -167,6 +168,7 @@ catalog:
   remark: ^15.0.1
   remark-gfm: ^4.0.1
   remotion: ^4.0.529
+  satteri: ^0.10.5
   shiki: ^4.4.3
   source-map-js: ^1.2.1
   strip-markdown: ^6.0.0

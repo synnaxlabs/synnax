@@ -167,6 +167,9 @@ catalogs:
     '@astrojs/check':
       specifier: ^0.9.10
       version: 0.9.10
+    '@astrojs/markdown-satteri':
+      specifier: ^0.4.2
+      version: 0.4.2
     '@astrojs/mdx':
       specifier: ^8.0.2
       version: 8.0.2
@@ -491,6 +494,9 @@ catalogs:
     remotion:
       specifier: ^4.0.529
       version: 4.0.529
+    satteri:
+      specifier: ^0.10.5
+      version: 0.10.5
     shiki:
       specifier: ^4.4.3
       version: 4.4.3
@@ -1311,6 +1317,9 @@ importers:
 
   site/docs:
     dependencies:
+      '@astrojs/markdown-satteri':
+        specifier: 'catalog:'
+        version: 0.4.2
       '@astrojs/mdx':
         specifier: 'catalog:'
         version: 8.0.2(@astrojs/markdown-remark@7.3.0(supports-color@10.2.2))(@astrojs/markdown-satteri@0.4.2)(astro@7.3.5(@astrojs/markdown-remark@7.3.0(supports-color@10.2.2))(@azure/identity@4.13.3(supports-color@10.2.2))(@types/node@24.19.0)(@vercel/functions@3.7.6(@aws-sdk/credential-provider-web-identity@3.972.77)(ws@8.22.0))(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.0))
@@ -1423,6 +1432,9 @@ importers:
       remark-gfm:
         specifier: 'catalog:'
         version: 4.0.1(supports-color@10.2.2)
+      satteri:
+        specifier: 'catalog:'
+        version: 0.10.5
       strip-markdown:
         specifier: 'catalog:'
         version: 6.0.0

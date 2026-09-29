@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { satteri } from "@astrojs/markdown-satteri";
 import mdx from "@astrojs/mdx";
 import react from "@astrojs/react";
 import vercel from "@astrojs/vercel";
@@ -14,6 +15,7 @@ import { grammar as arcGrammar } from "@synnaxlabs/arc";
 import { defineConfig, envField } from "astro/config";
 
 import { layer } from "./src/util/layer";
+import { outline } from "./src/util/outline";
 import { symbols, theme } from "./src/util/shiki";
 
 // https://astro.build/config
@@ -35,8 +37,14 @@ export default defineConfig({
     // Lyra is ESM with CSS imports, which Node cannot load; Vite bundles it for SSR.
     ssr: { noExternal: ["@synnaxlabs/lyra"] },
     css: { postcss: { plugins: [layer(/[\\/]lyra[\\/]/, "pluto")] } },
+    // An inlined font ships in the render-blocking stylesheet whether or not a page
+    // needs its characters.
+    build: {
+      assetsInlineLimit: (file) => (/\.woff2?$/.test(file) ? false : undefined),
+    },
   },
   markdown: {
+    processor: satteri({ hastPlugins: [outline] }),
     shikiConfig: {
       theme,
       langs: [arcGrammar],

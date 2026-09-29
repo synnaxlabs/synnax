@@ -1,0 +1,24 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { createRoot } from "react-dom/client";
+
+import { FeedbackButton } from "@/components/feedback/Feedback";
+import { Form } from "@/components/feedback/Form";
+import { type Mount } from "@/util/island";
+
+export const mount: Mount = (el) => {
+  const root = createRoot(el);
+  root.render(
+    <FeedbackButton initialVisible>
+      <Form />
+    </FeedbackButton>,
+  );
+  return () => root.unmount();
+};

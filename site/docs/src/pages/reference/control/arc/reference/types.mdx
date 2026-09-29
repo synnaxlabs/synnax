@@ -11,7 +11,7 @@ nextURL: "/reference/control/arc/reference/variables"
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Note } from "@synnaxlabs/lyra/note";
-import { Arc } from "@/components";
+import { Arc } from "@/components/arc";
 import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
@@ -82,7 +82,7 @@ name declares a channel read/write
 [variable](/reference/control/arc/reference/variables) that reads and writes the
 channel:
 
-<Arc.Tabs client:load>
+<Arc.Tabs>
 
 <Fragment slot="flow">
 ```arc channels="source_ch, sink_ch"

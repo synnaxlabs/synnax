@@ -11,7 +11,9 @@
 import { FeedbackButton } from "@/components/feedback/Feedback";
 ---
 
-<FeedbackButton client:only="react" />
+<div data-island="feedback">
+    <FeedbackButton />
+</div>
 
 <style is:global>
     .feedback-modal,
