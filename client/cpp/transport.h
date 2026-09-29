@@ -16,6 +16,7 @@
 #include "client/cpp/control/control.h"
 #include "client/cpp/device/device.h"
 #include "client/cpp/framer/framer.h"
+#include "client/cpp/library/library.h"
 #include "client/cpp/rack/rack.h"
 #include "client/cpp/ranger/ranger.h"
 #include "client/cpp/status/status.h"
@@ -64,6 +65,9 @@ struct Transport {
     std::unique_ptr<view::CreateClient> view_create;
     std::unique_ptr<view::RetrieveClient> view_retrieve;
     std::unique_ptr<view::DeleteClient> view_delete;
+    std::unique_ptr<library::CreateClient> library_create;
+    std::unique_ptr<library::RetrieveClient> library_retrieve;
+    std::unique_ptr<library::DeleteClient> library_delete;
     std::unique_ptr<connection::CheckClient> connectivity_check;
     std::shared_ptr<control::RetrieveClient> control_retrieve;
 };

@@ -14,10 +14,12 @@ import (
 	"slices"
 
 	"github.com/synnaxlabs/oracle/domain/doc"
+	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/cpp/keywords"
 	cppnaming "github.com/synnaxlabs/oracle/plugin/cpp/naming"
 	"github.com/synnaxlabs/oracle/plugin/domain"
+	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 )
@@ -37,6 +39,11 @@ type unionData struct {
 	DiscJSON string
 	// Variants holds the dispatch info for each variant.
 	Variants []unionVariantData
+	// HasProto marks a union that translates to a protobuf oneof wrapper.
+	HasProto bool
+	// ProtoType is the qualified wrapper message (e.g.
+	// "::service::library::pb::Entry").
+	ProtoType string
 }
 
 // unionVariantData is the template view of one variant for the dispatch alias.
@@ -67,6 +74,19 @@ func (p *Plugin) processUnion(
 		SnakeName: casing.FieldSnake(name),
 		Doc:       doc.Get(entry.Domains),
 		DiscJSON:  casing.FieldSnake(form.Discriminator),
+	}
+
+	if pbOutputPath := output.GetPBPath(entry); pbOutputPath != "" &&
+		hasPBFlag(entry) && !omit.IsSkipped(entry, "pb") {
+		ud.HasProto = true
+		ud.ProtoType = fmt.Sprintf(
+			"%s::%s",
+			cppnaming.PBNamespace(pbOutputPath),
+			cppnaming.PBName(entry),
+		)
+		data.AddSystem("utility")
+		data.AddInternal("x/cpp/errors/errors.h")
+		data.AddInternal(fmt.Sprintf("%s/%s.pb.h", pbOutputPath, entry.Namespace))
 	}
 
 	variants := make([]structData, 0, len(form.Variants))

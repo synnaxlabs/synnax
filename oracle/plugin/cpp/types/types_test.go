@@ -1874,6 +1874,32 @@ var _ = Describe("C++ Types Plugin", func() {
 			)
 
 			It(
+				"Should leave optional telem-typed fields without a default",
+				func(ctx SpecContext) {
+					loader.Add("schemas/telem", `
+					@cpp output "x/cpp/telem"
+
+					TimeSpan int64 {
+						@cpp hand
+					}
+				`)
+					source := `
+					import "schemas/telem"
+
+					@cpp output "out"
+
+					Config struct {
+						period telem.TimeSpan?
+					}
+				`
+					resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
+					ExpectContent(resp, "out/types.gen.h").
+						ToContain(`std::optional<::x::telem::TimeSpan> period;`).
+						ToNotContain(`TimeSpan(0)`)
+				},
+			)
+
+			It(
 				"Should wrap string defaults in the distinct type's constructor",
 				func(ctx SpecContext) {
 					loader.Add("schemas/telem", `
@@ -2070,6 +2096,47 @@ var _ = Describe("C++ Union Generation", func() {
 					`Scale parse_scale(x::json::Parser parser);`,
 					`[[nodiscard]] x::json::json to_json(const Scale& value);`,
 				)
+		},
+	)
+
+	It(
+		"Should declare the protobuf translators of a union with a pb output",
+		func(ctx SpecContext) {
+			source := `
+			@cpp output "client/cpp/schematic"
+			@go output "core/pkg/service/schematic"
+			@pb
+
+			Spec struct { type string }
+
+			Source union on value_type {
+				boolean Spec
+			}
+		`
+			resp := MustGenerate(ctx, source, "schematic", loader, cppPlugin)
+			ExpectContent(resp, "types.gen.h").
+				ToContain(
+					`#include "core/pkg/service/schematic/pb/schematic.pb.h"`,
+					"[[nodiscard]] std::pair<::service::schematic::pb::Source, x::errors::Error>\nto_proto(const Source& value);",
+					"std::pair<Source, x::errors::Error>\nsource_from_proto(const ::service::schematic::pb::Source& pb);",
+				)
+		},
+	)
+
+	It(
+		"Should not declare protobuf translators for a union without a pb output",
+		func(ctx SpecContext) {
+			source := `
+			@cpp output "out"
+
+			Spec struct { type string }
+
+			Source union on value_type {
+				boolean Spec
+			}
+		`
+			resp := MustGenerate(ctx, source, "schematic", loader, cppPlugin)
+			ExpectContent(resp, "types.gen.h").ToNotContain("source_from_proto")
 		},
 	)
 

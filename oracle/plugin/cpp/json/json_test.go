@@ -622,6 +622,35 @@ var _ = Describe("C++ JSON Plugin", func() {
 			)
 
 			It(
+				"Should serialize an optional TimeSpan through the optional",
+				func(ctx SpecContext) {
+					loader.Add("schemas/telem", `
+					@cpp output "x/cpp/telem"
+
+					TimeSpan int64 {
+						@cpp hand
+					}
+				`)
+					source := `
+					import "schemas/telem"
+
+					@cpp output "out"
+
+					Config struct {
+						period telem.TimeSpan?
+					}
+				`
+					resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
+					ExpectContent(resp, "out/json.gen.h").
+						ToContain(
+							`parser.field<std::optional<::x::telem::TimeSpan>>("period")`,
+							`if (this->period.has_value()) j["period"] = this->period->nanoseconds();`,
+						).
+						ToNotContain(`this->period.nanoseconds()`)
+				},
+			)
+
+			It(
 				"Should wrap distinct string defaults in their constructors",
 				func(ctx SpecContext) {
 					loader.Add("schemas/telem", `

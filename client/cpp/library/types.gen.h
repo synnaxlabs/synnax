@@ -217,6 +217,10 @@ using Identifier = std::variant<
 
 Identifier parse_identifier(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const Identifier &value);
+[[nodiscard]] std::pair<::service::library::pb::Identifier, x::errors::Error>
+to_proto(const Identifier &value);
+std::pair<Identifier, x::errors::Error>
+identifier_from_proto(const ::service::library::pb::Identifier &pb);
 
 /// @brief BinaryField is a field read from a bit range of a binary payload.
 struct BinaryField : public BaseField {
@@ -264,6 +268,10 @@ using Field = std::variant<BinaryField, DelimitedField, TaggedField>;
 
 Field parse_field(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const Field &value);
+[[nodiscard]] std::pair<::service::library::pb::Field, x::errors::Error>
+to_proto(const Field &value);
+std::pair<Field, x::errors::Error>
+field_from_proto(const ::service::library::pb::Field &pb);
 
 /// @brief EnumEntry maps integer values to names.
 struct EnumEntry : public BaseEntry {
@@ -291,7 +299,7 @@ struct MessageEntry : public BaseEntry {
     std::vector<Field> fields = {};
     /// @brief period is the transmit period. When absent a write task sends the message
     /// when one of its command channels changes.
-    std::optional<::x::telem::TimeSpan> period = x::telem::TimeSpan(0);
+    std::optional<::x::telem::TimeSpan> period;
     /// @brief query is the request a polling task sends to get the message. Binary
     /// messages
     /// hold escaped bytes. When absent the device sends the message unprompted.
@@ -308,6 +316,10 @@ using Entry = std::variant<EnumEntry, MessageEntry>;
 
 Entry parse_entry(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const Entry &value);
+[[nodiscard]] std::pair<::service::library::pb::Entry, x::errors::Error>
+to_proto(const Entry &value);
+std::pair<Entry, x::errors::Error>
+entry_from_proto(const ::service::library::pb::Entry &pb);
 
 /// @brief Library is a named, shared container of typed entries that tasks and other
 /// resources reference by key.
