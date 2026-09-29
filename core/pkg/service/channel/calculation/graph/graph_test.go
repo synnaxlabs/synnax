@@ -1743,4 +1743,270 @@ var _ = Describe("Graph", func() {
 			)
 		})
 	})
+
+	Describe("OwnerOfIndex", func() {
+		It("Should resolve a calculated channel's index to the channel", func(
+			ctx SpecContext,
+		) {
+			base := createDep(ctx, "own_base")
+			calc := channel.Channel{
+				Name: "own_calc", DataType: telem.Int64T, Virtual: true,
+				Expression: "return own_base * 2",
+			}
+			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+			g := openGraph(ctx)
+			owner := MustBeOk(g.OwnerOfIndex(calc.Index()))
+			Expect(owner.Key()).To(Equal(calc.Key()))
+			Expect(base.Key()).ToNot(Equal(calc.Key()))
+		})
+
+		It("Should not resolve the calculated channel's own key", func(
+			ctx SpecContext,
+		) {
+			createDep(ctx, "own_self_base")
+			calc := channel.Channel{
+				Name: "own_self_calc", DataType: telem.Int64T, Virtual: true,
+				Expression: "return own_self_base * 2",
+			}
+			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+			g := openGraph(ctx)
+			_, ok := g.OwnerOfIndex(calc.Key())
+			Expect(ok).To(BeFalse())
+		})
+
+		It("Should not resolve a non-calculated channel's index", func(
+			ctx SpecContext,
+		) {
+			idx := channel.Channel{
+				Name: "own_plain_time", DataType: telem.TimestampT, IsIndex: true,
+			}
+			Expect(channelWriter.Create(ctx, &idx)).To(Succeed())
+			g := openGraph(ctx)
+			_, ok := g.OwnerOfIndex(idx.Key())
+			Expect(ok).To(BeFalse())
+		})
+
+		It("Should not resolve an unknown key", func(ctx SpecContext) {
+			g := openGraph(ctx)
+			_, ok := g.OwnerOfIndex(channel.NewKey(0, 999999))
+			Expect(ok).To(BeFalse())
+		})
+
+		It("Should resolve every link in a nested chain", func(ctx SpecContext) {
+			createDep(ctx, "own_chain_base")
+			c1 := channel.Channel{
+				Name: "own_chain_1", DataType: telem.Int64T, Virtual: true,
+				Expression: "return own_chain_base * 2",
+			}
+			Expect(channelWriter.Create(ctx, &c1)).To(Succeed())
+			c2 := channel.Channel{
+				Name: "own_chain_2", DataType: telem.Int64T, Virtual: true,
+				Expression: "return own_chain_1 + 1",
+			}
+			Expect(channelWriter.Create(ctx, &c2)).To(Succeed())
+			c3 := channel.Channel{
+				Name: "own_chain_3", DataType: telem.Int64T, Virtual: true,
+				Expression: "return own_chain_2 + 1",
+			}
+			Expect(channelWriter.Create(ctx, &c3)).To(Succeed())
+			g := openGraph(ctx)
+			for _, calc := range []channel.Channel{c1, c2, c3} {
+				Expect(MustBeOk(g.OwnerOfIndex(calc.Index())).Key()).
+					To(Equal(calc.Key()))
+			}
+		})
+
+		It("Should stop resolving after the owner is deleted", func(ctx SpecContext) {
+			createDep(ctx, "own_del_base")
+			calc := channel.Channel{
+				Name: "own_del_calc", DataType: telem.Int64T, Virtual: true,
+				Expression: "return own_del_base * 2",
+			}
+			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+			g := openGraph(ctx)
+			Expect(MustBeOk(g.OwnerOfIndex(calc.Index())).Key()).To(Equal(calc.Key()))
+			Expect(channelWriter.Delete(ctx, calc.Key(), false)).To(Succeed())
+			Eventually(func() bool {
+				_, ok := g.OwnerOfIndex(calc.Index())
+				return ok
+			}, 2*time.Second, 10*time.Millisecond).Should(BeFalse())
+		})
+
+		It("Should keep resolving after the owner is renamed", func(ctx SpecContext) {
+			createDep(ctx, "own_ren_base")
+			calc := channel.Channel{
+				Name: "own_ren_foo", DataType: telem.Int64T, Virtual: true,
+				Expression: "return own_ren_base * 2",
+			}
+			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+			g := openGraph(ctx)
+			index := calc.Index()
+			Expect(channelWriter.Rename(ctx, calc.Key(), "own_ren_bar", false)).
+				To(Succeed())
+			Consistently(func() bool {
+				owner, ok := g.OwnerOfIndex(index)
+				return ok && owner.Key() == calc.Key()
+			}, 100*time.Millisecond, 10*time.Millisecond).Should(BeTrue())
+		})
+
+		It("Should keep resolving after the index is renamed off the suffix", func(
+			ctx SpecContext,
+		) {
+			createDep(ctx, "own_idxren_base")
+			calc := channel.Channel{
+				Name: "own_idxren_calc", DataType: telem.Int64T, Virtual: true,
+				Expression: "return own_idxren_base * 2",
+			}
+			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+			g := openGraph(ctx)
+			index := calc.Index()
+			Expect(channelWriter.Rename(ctx, index, "own_idxren_stamps", false)).
+				To(Succeed())
+			Consistently(func() bool {
+				owner, ok := g.OwnerOfIndex(index)
+				return ok && owner.Key() == calc.Key()
+			}, 100*time.Millisecond, 10*time.Millisecond).Should(BeTrue())
+		})
+
+		It("Should keep resolving after a rename and an expression change", func(
+			ctx SpecContext,
+		) {
+			createDep(ctx, "own_both_base")
+			createDep(ctx, "own_both_base2")
+			calc := channel.Channel{
+				Name: "own_both_foo", DataType: telem.Int64T, Virtual: true,
+				Expression: "return own_both_base * 2",
+			}
+			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+			g := openGraph(ctx)
+			index := calc.Index()
+			Expect(channelWriter.Rename(ctx, calc.Key(), "own_both_bar", false)).
+				To(Succeed())
+			calc.Name = "own_both_bar"
+			calc.Expression = "return own_both_base2 + 1"
+			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+			eventuallyExpectNoStatus(ctx, calc.Key())
+			Consistently(func() bool {
+				owner, ok := g.OwnerOfIndex(index)
+				return ok && owner.Key() == calc.Key()
+			}, 100*time.Millisecond, 10*time.Millisecond).Should(BeTrue())
+		})
+
+		It("Should keep resolving after an index rename and expression change", func(
+			ctx SpecContext,
+		) {
+			createDep(ctx, "own_idxboth_base")
+			createDep(ctx, "own_idxboth_base2")
+			calc := channel.Channel{
+				Name: "own_idxboth_calc", DataType: telem.Int64T, Virtual: true,
+				Expression: "return own_idxboth_base * 2",
+			}
+			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+			g := openGraph(ctx)
+			index := calc.Index()
+			Expect(channelWriter.Rename(ctx, index, "own_idxboth_stamps", false)).
+				To(Succeed())
+			calc.Expression = "return own_idxboth_base2 + 1"
+			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+			eventuallyExpectNoStatus(ctx, calc.Key())
+			Consistently(func() bool {
+				owner, ok := g.OwnerOfIndex(index)
+				return ok && owner.Key() == calc.Key()
+			}, 100*time.Millisecond, 10*time.Millisecond).Should(BeTrue())
+		})
+
+		It("Should resolve an index renamed before the graph opens", func(
+			ctx SpecContext,
+		) {
+			createDep(ctx, "own_idxhyd_base")
+			calc := channel.Channel{
+				Name: "own_idxhyd_calc", DataType: telem.Int64T, Virtual: true,
+				Expression: "return own_idxhyd_base * 2",
+			}
+			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+			index := calc.Index()
+			Expect(channelWriter.Rename(ctx, index, "own_idxhyd_stamps", false)).
+				To(Succeed())
+			g := openGraph(ctx)
+			Expect(MustBeOk(g.OwnerOfIndex(index)).Key()).To(Equal(calc.Key()))
+		})
+
+		It("Should resolve an index renamed onto another channel's suffix", func(
+			ctx SpecContext,
+		) {
+			createDep(ctx, "own_idxtrap_base")
+			decoy := channel.Channel{
+				Name: "own_idxtrap_decoy", DataType: telem.Int64T, Virtual: true,
+			}
+			Expect(channelWriter.Create(ctx, &decoy)).To(Succeed())
+			calc := channel.Channel{
+				Name: "own_idxtrap_calc", DataType: telem.Int64T, Virtual: true,
+				Expression: "return own_idxtrap_base * 2",
+			}
+			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+			g := openGraph(ctx)
+			index := calc.Index()
+			Expect(channelWriter.Rename(
+				ctx, index, "own_idxtrap_decoy_time", false,
+			)).To(Succeed())
+			Consistently(func() bool {
+				owner, ok := g.OwnerOfIndex(index)
+				return ok && owner.Key() == calc.Key()
+			}, 100*time.Millisecond, 10*time.Millisecond).Should(BeTrue())
+		})
+
+		It("Should resolve every link after an inner index is renamed", func(
+			ctx SpecContext,
+		) {
+			createDep(ctx, "own_idxnest_base")
+			c1 := channel.Channel{
+				Name: "own_idxnest_1", DataType: telem.Int64T, Virtual: true,
+				Expression: "return own_idxnest_base * 2",
+			}
+			Expect(channelWriter.Create(ctx, &c1)).To(Succeed())
+			c2 := channel.Channel{
+				Name: "own_idxnest_2", DataType: telem.Int64T, Virtual: true,
+				Expression: "return own_idxnest_1 + 1",
+			}
+			Expect(channelWriter.Create(ctx, &c2)).To(Succeed())
+			c3 := channel.Channel{
+				Name: "own_idxnest_3", DataType: telem.Int64T, Virtual: true,
+				Expression: "return own_idxnest_2 + 1",
+			}
+			Expect(channelWriter.Create(ctx, &c3)).To(Succeed())
+			g := openGraph(ctx)
+			Expect(channelWriter.Rename(
+				ctx, c2.Index(), "own_idxnest_middle", false,
+			)).To(Succeed())
+			Consistently(func() bool {
+				for _, calc := range []channel.Channel{c1, c2, c3} {
+					owner, ok := g.OwnerOfIndex(calc.Index())
+					if !ok || owner.Key() != calc.Key() {
+						return false
+					}
+				}
+				return true
+			}, 100*time.Millisecond, 10*time.Millisecond).Should(BeTrue())
+		})
+
+		It("Should stop resolving a renamed index after the owner is deleted", func(
+			ctx SpecContext,
+		) {
+			createDep(ctx, "own_idxdel_base")
+			calc := channel.Channel{
+				Name: "own_idxdel_calc", DataType: telem.Int64T, Virtual: true,
+				Expression: "return own_idxdel_base * 2",
+			}
+			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+			g := openGraph(ctx)
+			index := calc.Index()
+			Expect(channelWriter.Rename(ctx, index, "own_idxdel_stamps", false)).
+				To(Succeed())
+			Expect(channelWriter.Delete(ctx, calc.Key(), false)).To(Succeed())
+			Eventually(func() bool {
+				_, ok := g.OwnerOfIndex(index)
+				return ok
+			}, 2*time.Second, 10*time.Millisecond).Should(BeFalse())
+		})
+	})
 })

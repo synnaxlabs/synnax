@@ -139,6 +139,18 @@ func Open(ctx context.Context, cfgs ...Config) (*Graph, error) {
 // the Graph's own.
 func (g *Graph) Observe() observe.Observable[Changes] { return g.obs }
 
+// OwnerOfIndex returns the calculated channel indexed by key, and whether one exists.
+func (g *Graph) OwnerOfIndex(key channel.Key) (channel.Channel, bool) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	for _, nd := range g.mu.nodes {
+		if nd.Index() == key {
+			return nd.Channel, true
+		}
+	}
+	return channel.Channel{}, false
+}
+
 // SetRuntimeStatus persists a status reported by the calculation runtime for the
 // channel with the given key. Routing runtime reports through the Graph keeps a single
 // writer on the status record, so a report and a validity clear apply in submission

@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -95,9 +96,19 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 		b.Fatalf("failed to open channel service: %v", err)
 	}
 
-	iteratorSvc, err := iterator.NewService(iterator.ServiceConfig{
-		Framer:  node.Framer,
+	calcGraph, err := graph.Open(b.Context(), graph.Config{
+		DB:      node.DB,
 		Channel: channelSvc,
+		Status:  statusSvc,
+	})
+	if err != nil {
+		b.Fatalf("failed to open calculation graph: %v", err)
+	}
+
+	iteratorSvc, err := iterator.NewService(iterator.ServiceConfig{
+		Framer:       node.Framer,
+		Channel:      channelSvc,
+		ChannelGraph: calcGraph,
 	})
 	if err != nil {
 		b.Fatalf("failed to open iterator service: %v", err)
@@ -107,7 +118,7 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 		ctx:  b.Context(),
 		node: node,
 		closer: io.MultiCloser{
-			node, otg, searchIdx, groupSvc, channelSvc, statusSvc, labelSvc,
+			node, otg, searchIdx, groupSvc, calcGraph, channelSvc, statusSvc, labelSvc,
 		},
 		channelSvc:    channelSvc,
 		channelWriter: channelSvc.NewWriter(nil),
