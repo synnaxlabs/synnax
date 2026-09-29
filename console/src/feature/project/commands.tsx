@@ -13,6 +13,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Access, Project as PProject, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
+import { useOpenSample } from "@/feature/project/sample";
 import { Command } from "@/platform/command";
 import { Export } from "@/platform/export";
 import { Import } from "@/platform/import";
@@ -82,4 +83,20 @@ const ExportProjectCommand = Command.create({
   useVisible: () => Access.useRetrieveGranted(project.TYPE_ONTOLOGY_ID),
 });
 
-export const COMMANDS = [CreateCommand, ImportProjectCommand, ExportProjectCommand];
+const OpenSampleCommand = Command.create({
+  key: "project_open_sample",
+  name: "Open sample project",
+  icon: <PProject.CreateIcon />,
+  useOnSelect: useOpenSample,
+  useVisible: () => {
+    const granted = useCreateVisible();
+    return Session.Runtime.CORE_EMBEDDED && granted;
+  },
+});
+
+export const COMMANDS = [
+  CreateCommand,
+  ImportProjectCommand,
+  ExportProjectCommand,
+  OpenSampleCommand,
+];

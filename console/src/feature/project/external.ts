@@ -11,6 +11,7 @@ export * from "@/feature/project/commands";
 export * from "@/feature/project/Guard";
 export * from "@/feature/project/importBundle";
 export * from "@/feature/project/link";
+export * from "@/feature/project/sample";
 export * from "@/feature/project/search";
 export * from "@/feature/project/Selector";
 export * from "@/feature/project/Splash";
