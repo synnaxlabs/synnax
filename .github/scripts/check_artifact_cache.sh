@@ -181,6 +181,7 @@ job_log() {
         '[.jobs[] | select(.name | endswith($n))][0].id // empty' \
         "${CACHE_DIR}/jobs-${run_id}.json")
     if [ -z "${job_id}" ]; then
+        log "run ${run_id}: no ${os} build job"
         return 1
     fi
     local file="${CACHE_DIR}/log-${job_id}"
@@ -188,9 +189,10 @@ job_log() {
         if ! gh api "repos/:owner/:repo/actions/jobs/${job_id}/logs" \
             > "${file}.raw" 2> /dev/null; then
             rm -f "${file}.raw"
+            log "run ${run_id}: ${os} build log unreadable"
             return 1
         fi
-        sed -E 's/^[^ ]+ //; s/\x1b\[[0-9;]*m//g' "${file}.raw" > "${file}"
+        sed -E 's/^[^ ]+ //; s/\x1b\[[0-9;]*m//g; s/\r$//' "${file}.raw" > "${file}"
     fi
     echo "${file}"
 }
@@ -310,7 +312,10 @@ run_build_matches() {
     for os in ${os_list}; do
         log=$(job_log "${run_id}" "${os}") || return 1
         for comp in ${comps}; do
-            component_matches "${comp}" "${os}" "${log}" || return 1
+            if ! component_matches "${comp}" "${os}" "${log}"; then
+                log "run ${run_id}: ${comp} ${os} build differs"
+                return 1
+            fi
             sign=${SIGN_STEP[${os}]}
             if [ "${comp}" = driver ] && [ -n "${sign}" ] \
                 && [ "$(step_ran "${file}" "${sign}")" != "${SIGN_BINARIES}" ]; then
