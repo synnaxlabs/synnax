@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -75,7 +76,8 @@ public:
 private:
     friend class Plan;
 
-    explicit Values(const std::size_t size): slots(size) {}
+    Values(const std::size_t size, const std::size_t muxes):
+        slots(size), muxes(muxes) {}
 
     /// @brief Kind is how a slot holds its value.
     enum class Kind : std::uint8_t { ABSENT, FLOAT, INT, UINT };
@@ -92,6 +94,8 @@ private:
 
     /// @brief slots holds one entry per plan slot.
     std::vector<Slot> slots;
+    /// @brief muxes holds the raw value of each plan multiplexor in the last decode.
+    std::vector<std::int64_t> muxes;
     /// @brief invalid_ is the number of text fields the last decode could not read.
     std::size_t invalid_ = 0;
 };
@@ -104,13 +108,13 @@ public:
     Plan() = default;
 
     /// @brief compiles a plan whose slots are every field of the message, in order.
-    /// @returns LAYOUT_ERROR when the message layout is invalid.
+    /// @returns CONFIG_ERROR when the message layout is invalid.
     static std::pair<Plan, x::errors::Error>
     compile(const synnax::library::MessageEntry &message);
 
     /// @brief compiles a plan whose slots are the given fields, in the given order.
     /// Multiplexors of the given fields are resolved even when not in keys.
-    /// @returns LAYOUT_ERROR when a key is missing or duplicated, or when the layout of
+    /// @returns CONFIG_ERROR when a key is missing or duplicated, or when the layout of
     /// a field the plan needs is invalid.
     static std::pair<Plan, x::errors::Error> compile(
         const synnax::library::MessageEntry &message,
@@ -130,7 +134,9 @@ public:
     [[nodiscard]] std::size_t length() const { return this->length_; }
 
     /// @returns values with one absent slot per plan slot.
-    [[nodiscard]] Values values() const { return Values(this->size()); }
+    [[nodiscard]] Values values() const {
+        return Values(this->size(), this->muxes.size());
+    }
 
     /// @brief decodes a payload. Binary fields whose multiplexor does not select them
     /// come out absent. Text fields that are missing or fail to parse come out absent
@@ -208,10 +214,20 @@ private:
         std::string tag;
     };
 
+    /// @returns the raw value of the multiplexor in payload.
+    static std::int64_t read(const Mux &mux, const std::uint8_t *payload);
+
     /// @returns true when each multiplexor in the condition's chain holds one of its
     /// values.
-    [[nodiscard]] bool
-    selected(const Condition &condition, const std::uint8_t *payload) const;
+    /// @param raw returns the raw value of the multiplexor at an index of muxes.
+    template<typename Raw>
+    [[nodiscard]] bool selected(const Condition &condition, const Raw &raw) const {
+        for (const Condition *c = &condition; c->multiplexor >= 0;
+             c = &this->muxes[c->multiplexor].condition)
+            if (std::ranges::find(c->values, raw(c->multiplexor)) == c->values.end())
+                return false;
+        return true;
+    }
     x::errors::Error
     decode_binary(std::span<const std::uint8_t> payload, Values &values) const;
     void decode_text(std::span<const std::uint8_t> payload, Values &values) const;

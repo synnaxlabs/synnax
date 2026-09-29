@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <atomic>
+
 #include "gtest/gtest.h"
 
 #include "x/cpp/test/test.h"
@@ -347,6 +349,52 @@ TEST(TestCommonWriteTask, testStopReleasesSinkWithoutStateChannels) {
     EXPECT_EQ(raw_sink->start_count, 2);
     ASSERT_TRUE(write_task.stop("stop_cmd_3", true));
     EXPECT_EQ(raw_sink->stop_count, 2);
+}
+
+namespace {
+/// @brief a sink that warns through set_warning on each write, as a sink that encodes
+/// or sends on its own thread does, and returns nil.
+class WarningSink final : public Sink {
+public:
+    std::atomic<std::size_t> writes = 0;
+
+    WarningSink(): Sink(std::vector<synnax::channel::Key>{1}) {}
+
+    x::errors::Error write(x::telem::Frame &) override {
+        this->set_warning(x::errors::Error(errors::HARDWARE_ERROR, "device busy"));
+        this->writes++;
+        return x::errors::NIL;
+    }
+};
+}
+
+/// @brief a warning the sink sets through set_warning should reach the task status, and
+/// a successful write should not clear it.
+TEST(TestCommonWriteTask, testSinkWarningOutlivesASuccessfulWrite) {
+    const auto cmd_reads = std::make_shared<std::vector<x::telem::Frame>>();
+    cmd_reads->emplace_back(
+        x::telem::Frame(1, x::telem::Series(static_cast<uint8_t>(1), x::telem::UINT8_T))
+    );
+    auto sink = std::make_unique<WarningSink>();
+    auto *raw_sink = sink.get();
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    WriteTask write_task(
+        task,
+        ctx,
+        x::breaker::default_config("cat"),
+        std::move(sink),
+        std::make_shared<pipeline::mock::WriterFactory>(),
+        pipeline::mock::simple_streamer_factory({1}, cmd_reads)
+    );
+    ASSERT_TRUE(write_task.start("start_cmd"));
+    ASSERT_EVENTUALLY_EQ(raw_sink->writes.load(), 1);
+    ASSERT_TRUE(write_task.stop("stop_cmd", true));
+    ASSERT_EQ(ctx->statuses.size(), 3);
+    EXPECT_EQ(ctx->statuses[1].variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(ctx->statuses[1].message, "device busy");
+    EXPECT_EQ(ctx->statuses[2].message, "Task stopped successfully");
 }
 
 /// @brief it should parse a device key from the config.

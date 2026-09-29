@@ -7,8 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <atomic>
 #include <functional>
+#include <future>
 #include <memory>
+#include <mutex>
+#include <optional>
 #include <thread>
 #include <vector>
 
@@ -29,10 +33,10 @@ using Bytes = std::vector<std::uint8_t>;
 /// @brief a sink over an in-memory wire.
 struct Harness {
     std::shared_ptr<Wire> wire = std::make_shared<Wire>();
-    std::shared_ptr<task::MockContext> ctx = std::make_shared<task::MockContext>(
-        nullptr
-    );
     std::unique_ptr<Sink> sink;
+    std::mutex mu;
+    /// @brief each argument to the sink's set_warning, in order.
+    std::vector<x::errors::Error> warnings;
 
     /// @param bindings maps each command channel to the index of the field it drives in
     /// message.
@@ -59,15 +63,14 @@ struct Harness {
             channels
         );
         EXPECT_TRUE(parser.ok()) << parser.error_json().dump();
-        synnax::task::Task task;
-        task.key = x::uuid::create();
-        task.name = "write";
         this->sink = std::make_unique<Sink>(
             std::move(resolved),
-            std::make_unique<ConnectionTransmitter>(acquire(this->wire)),
-            this->ctx,
-            task
+            std::make_unique<ConnectionTransmitter>(acquire(this->wire))
         );
+        this->sink->set_warning = [this](const x::errors::Error &err) {
+            std::lock_guard lock(this->mu);
+            this->warnings.push_back(err);
+        };
         EXPECT_FALSE(this->sink->start());
     }
 
@@ -77,6 +80,13 @@ struct Harness {
     }
 
     [[nodiscard]] std::size_t count() const { return this->wire->written().size(); }
+
+    /// @returns the last argument to set_warning, or nullopt when there is none.
+    std::optional<x::errors::Error> warning() {
+        std::lock_guard lock(this->mu);
+        if (this->warnings.empty()) return std::nullopt;
+        return this->warnings.back();
+    }
 };
 
 const ::synnax::bus::Framing TWO_BYTES = ::synnax::bus::FixedFraming{.length = 2};
@@ -171,21 +181,41 @@ TEST(Sink, WarnsWhenTheDeviceIsUnreachableAndRecovers) {
         h.wire->open_errs = {transport::UNREACHABLE_ERROR};
     }
     h.command(1, 1);
-    ASSERT_EVENTUALLY_TRUE([&] {
-        std::lock_guard lock(h.wire->mu);
-        return h.wire->open_errs.empty();
-    }());
-    ASSERT_EVENTUALLY_GE(h.ctx->statuses.size(), 1);
-    EXPECT_EQ(h.ctx->statuses.back().variant, synnax::status::VARIANT_WARNING);
-    EXPECT_TRUE(h.ctx->statuses.back().details.running);
+    ASSERT_EVENTUALLY_TRUE(h.warning().has_value());
+    EXPECT_TRUE(h.warning()->matches(transport::UNREACHABLE_ERROR));
     EXPECT_EQ(h.count(), 0);
     h.command(1, 2);
     ASSERT_EVENTUALLY_EQ(h.count(), 1);
     EXPECT_EQ(h.wire->written()[0], Bytes{0x02});
-    ASSERT_EVENTUALLY_EQ(
-        h.ctx->statuses.back().variant,
-        synnax::status::VARIANT_SUCCESS
-    );
+    ASSERT_EVENTUALLY_TRUE(h.warning().has_value() && !*h.warning());
+}
+
+TEST(Sink, KeepsOnlyTheNewestUnsentPayloadOfAMessage) {
+    const auto m = binary_message("cmd", {binary_field("a", 0)});
+    Harness h(m, {{1, 0}}, std::nullopt);
+    std::promise<void> release;
+    const auto released = release.get_future().share();
+    std::atomic<bool> blocked = false;
+    {
+        std::lock_guard lock(h.wire->mu);
+        h.wire->on_write = [&](Wire &, std::span<const std::uint8_t>) {
+            if (blocked.exchange(true)) return;
+            released.wait();
+        };
+    }
+    h.command(1, 1);
+    ASSERT_EVENTUALLY_TRUE(blocked.load());
+    for (int v = 2; v <= 50; v++)
+        h.command(1, v);
+    release.set_value();
+    ASSERT_EVENTUALLY_EQ(h.count(), 2);
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    const auto written = h.wire->written();
+    ASSERT_EQ(written.size(), 2);
+    EXPECT_EQ(written[0], Bytes{1});
+    EXPECT_EQ(written[1], Bytes{50});
+    std::lock_guard lock(h.wire->mu);
+    h.wire->on_write = nullptr;
 }
 
 TEST(Sink, WaitsForAPollOfTheSameDeviceToGetItsReply) {
@@ -210,10 +240,9 @@ TEST(Sink, WaitsForAPollOfTheSameDeviceToGetItsReply) {
             {{7, 0}},
             newline
         ),
-        std::make_unique<ConnectionTransmitter>(acquire(wire, connections)),
-        std::make_shared<task::MockContext>(nullptr),
-        synnax::task::Task{.key = x::uuid::create(), .name = "write"}
+        std::make_unique<ConnectionTransmitter>(acquire(wire, connections))
     );
+    sink.set_warning = [](const x::errors::Error &err) { EXPECT_FALSE(err) << err; };
     ASSERT_NIL(sink.start());
     std::thread reader([&] {
         x::breaker::Breaker breaker{x::breaker::Config{.name = "read"}};

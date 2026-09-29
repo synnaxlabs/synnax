@@ -14,6 +14,7 @@
 #include <deque>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <span>
 #include <thread>
 #include <unordered_map>
@@ -25,9 +26,7 @@
 
 #include "driver/bus/config.h"
 #include "driver/bus/connection.h"
-#include "driver/common/status.h"
 #include "driver/common/write_task.h"
-#include "driver/task/task.h"
 
 namespace driver::bus {
 /// @brief sends a write task's encoded messages to its device.
@@ -68,20 +67,15 @@ public:
 /// @brief encodes command channel values into messages and sends them on one I/O
 /// thread. A message with a period is sent on that period with the latest values, and
 /// one without is sent once per command frame that changes it. A message is sent only
-/// after each of its command channels has a value; unmapped fields are zero. Stopping
-/// discards every value, so a restarted task never replays a stale one.
+/// after each of its command channels has a value; unmapped fields are zero. Each
+/// message has at most one payload waiting to send: a newer one replaces it. Stopping
+/// discards every value, so a restarted task never replays a stale one. Send failures
+/// go to set_warning.
 class Sink final : public common::Sink {
 public:
     /// @param cfg the resolved write config.
     /// @param transmitter sends the encoded messages to the device.
-    /// @param ctx reports send failures as task status warnings.
-    /// @param task the task the sink belongs to.
-    Sink(
-        WriteConfig cfg,
-        std::unique_ptr<Transmitter> transmitter,
-        const std::shared_ptr<task::Context> &ctx,
-        const synnax::task::Task &task
-    );
+    Sink(WriteConfig cfg, std::unique_ptr<Transmitter> transmitter);
 
     ~Sink() override;
 
@@ -112,6 +106,8 @@ private:
         std::size_t unseen = 0;
         /// @brief when the message is next sent, for messages with a period.
         x::telem::TimeStamp due;
+        /// @brief the payload waiting to send, when the message is in queue.
+        std::optional<std::vector<std::uint8_t>> pending;
     };
 
     WriteConfig cfg;
@@ -126,18 +122,15 @@ private:
     std::condition_variable cv;
     bool running = false;
     std::vector<State> states;
-    /// @brief each message waiting to send, by index, with its payload.
-    std::deque<std::pair<std::size_t, std::vector<std::uint8_t>>> queue;
+    /// @brief the index of each message with a pending payload, in the order each
+    /// became pending.
+    std::deque<std::size_t> queue;
     std::thread thread;
-
-    /// @brief guards status, which the control and I/O threads both report through.
-    std::mutex status_mu;
-    common::StatusHandler status;
 
     void reset();
     void run();
     void enqueue(std::size_t message);
+    void push(std::size_t message, std::vector<std::uint8_t> payload);
     void send(std::size_t message, const std::vector<std::uint8_t> &payload);
-    void warn(const std::string &message);
 };
 }

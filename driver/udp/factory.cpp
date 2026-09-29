@@ -15,6 +15,17 @@
 #include "driver/udp/udp.h"
 
 namespace driver::udp {
+namespace {
+void check_remote(
+    const x::json::Parser &parser,
+    const synnax::udp::Properties &props,
+    const bool sends
+) {
+    if (sends && props.remote_host.empty())
+        parser.field_err("device", "device has no remote host, so it cannot send");
+}
+}
+
 std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
@@ -27,7 +38,7 @@ std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
             bus::configure_read<
                 Socket,
                 synnax::udp::Properties,
-                synnax::udp::ReadConfig>(this->connections, ctx, task),
+                synnax::udp::ReadConfig>(this->connections, ctx, task, check_remote),
             cmd_key
         );
     if (task.type == WRITE_TASK_TYPE)
@@ -37,7 +48,7 @@ std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
             bus::configure_write<
                 Socket,
                 synnax::udp::Properties,
-                synnax::udp::WriteConfig>(this->connections, ctx, task),
+                synnax::udp::WriteConfig>(this->connections, ctx, task, check_remote),
             cmd_key
         );
     return {nullptr, false};

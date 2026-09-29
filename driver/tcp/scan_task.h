@@ -9,24 +9,38 @@
 
 #pragma once
 
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include "driver/bus/connection.h"
 #include "driver/common/scan_task.h"
 #include "driver/tcp/client.h"
 #include "driver/tcp/tcp.h"
 
 namespace driver::tcp {
-/// @brief reports whether each tracked TCP device accepts a connection.
+/// @brief reports whether each tracked TCP device accepts a connection. A device that a
+/// task holds open reports the state of that connection instead of a new one.
 class Scanner final : public common::Scanner {
     synnax::task::Task task;
     Config connection;
+    std::shared_ptr<bus::Connections> connections;
+
+    /// @returns the error of the device's open task connection, or of a new connection
+    /// when no task holds one.
+    x::errors::Error
+    reach(const std::string &key, const synnax::tcp::Properties &props);
 
 public:
     /// @param task the scan task.
     /// @param connection how each check connects.
-    Scanner(synnax::task::Task task, const Config &connection);
+    /// @param connections the device connections that the integration's tasks hold.
+    Scanner(
+        synnax::task::Task task,
+        const Config &connection,
+        std::shared_ptr<bus::Connections> connections
+    );
 
     [[nodiscard]] common::ScannerConfig config() const override;
 

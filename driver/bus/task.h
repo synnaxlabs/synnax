@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -83,8 +84,16 @@ Acquire acquirer(
     );
 }
 
+/// @brief checks that a device can serve a task, binding errors to parser.
+/// @param sends true when the task sends to the device: a write task, or a read task
+/// that polls.
+template<typename Properties>
+using Check = std::function<
+    void(const x::json::Parser &parser, const Properties &props, bool sends)>;
+
 /// @brief configures a bus read task whose device connects through Conn.
 /// @param connections the connections of the integration, shared with its other tasks.
+/// @param check checks the device against the task, when the integration has one.
 /// @tparam Conn a transport with a static open(Properties).
 /// @tparam Properties the device properties of the integration.
 /// @tparam Config the read config of the integration.
@@ -92,7 +101,8 @@ template<typename Conn, typename Properties, typename Config>
 std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     const std::shared_ptr<Connections> &connections,
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::task::Task &task
+    const synnax::task::Task &task,
+    const Check<Properties> &check = nullptr
 ) {
     x::json::Parser parser(task.config);
     const auto cfg = Config::parse(parser);
@@ -111,6 +121,10 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
         framing(cfg)
     );
     if (err) return {common::ConfigureResult{}, err};
+    if (check != nullptr) {
+        check(parser, props, !resolved.polled.empty());
+        if (!parser.ok()) return {common::ConfigureResult{}, parser.error()};
+    }
     return {
         common::ConfigureResult{
             .task = std::make_unique<common::ReadTask>(
@@ -134,7 +148,8 @@ template<typename Conn, typename Properties, typename Config>
 std::pair<common::ConfigureResult, x::errors::Error> configure_write(
     const std::shared_ptr<Connections> &connections,
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::task::Task &task
+    const synnax::task::Task &task,
+    const Check<Properties> &check = nullptr
 ) {
     x::json::Parser parser(task.config);
     const auto cfg = Config::parse(parser);
@@ -147,6 +162,10 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
     if (props_err) return {common::ConfigureResult{}, props_err};
     auto [resolved, err] = WriteConfig::parse(*ctx->client, parser, cfg, framing(cfg));
     if (err) return {common::ConfigureResult{}, err};
+    if (check != nullptr) {
+        check(parser, props, true);
+        if (!parser.ok()) return {common::ConfigureResult{}, parser.error()};
+    }
     return {
         common::ConfigureResult{
             .task = std::make_unique<common::WriteTask>(
@@ -157,9 +176,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
                     std::move(resolved),
                     std::make_unique<ConnectionTransmitter>(
                         acquirer<Conn>(connections, cfg.device, std::move(props))
-                    ),
-                    ctx,
-                    task
+                    )
                 )
             ),
             .auto_start = cfg.auto_start,

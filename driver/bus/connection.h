@@ -62,6 +62,10 @@ public:
     /// @brief blocks until every earlier caller has released the connection.
     [[nodiscard]] Guard lock() { return Guard(*this); }
 
+    /// @returns the error of the last attempt to open the transport, or nil when it
+    /// succeeded or none was made. Does not wait for the lock.
+    [[nodiscard]] x::errors::Error error();
+
 private:
     Opener open;
     std::mutex mu;
@@ -71,6 +75,8 @@ private:
     /// @brief the open transport, used only by the holder of a guard.
     std::unique_ptr<Transport> current;
     std::uint64_t opened = 0;
+    /// @brief the error of the last open. Guarded by mu.
+    x::errors::Error open_err;
 };
 
 /// @brief the byte-stream and datagram connections of an integration.

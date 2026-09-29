@@ -137,7 +137,8 @@ std::pair<synnax::library::Library, x::errors::Error> retrieve_library(
     return {std::move(lib), err};
 }
 
-/// @brief retrieves the channels with the given keys, skipping zeros.
+/// @brief retrieves the channels with the given keys, skipping zeros and keys with no
+/// channel.
 std::pair<std::vector<synnax::channel::Channel>, x::errors::Error> retrieve_channels(
     const synnax::Synnax &client,
     const std::set<synnax::channel::Key> &keys
@@ -147,8 +148,17 @@ std::pair<std::vector<synnax::channel::Channel>, x::errors::Error> retrieve_chan
         if (key != 0) nonzero.push_back(key);
     if (nonzero.empty()) return {{}, x::errors::NIL};
     auto [channels, err] = client.channels.retrieve(nonzero);
-    if (err.matches(x::errors::NOT_FOUND)) return {{}, x::errors::NIL};
-    return {std::move(channels), err};
+    if (!err.matches(x::errors::NOT_FOUND)) return {std::move(channels), err};
+    // The Core fails the whole batch when any key is missing, so each key is retrieved
+    // alone to find the channels that exist.
+    channels.clear();
+    for (const auto key: nonzero) {
+        auto [ch, ch_err] = client.channels.retrieve(key);
+        if (ch_err.matches(x::errors::NOT_FOUND)) continue;
+        if (ch_err) return {{}, ch_err};
+        channels.push_back(std::move(ch));
+    }
+    return {std::move(channels), x::errors::NIL};
 }
 }
 

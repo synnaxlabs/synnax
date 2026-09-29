@@ -19,6 +19,7 @@
 namespace driver::tcp {
 namespace {
 std::pair<common::ConfigureResult, x::errors::Error> configure_scan(
+    const std::shared_ptr<bus::Connections> &connections,
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task
 ) {
@@ -30,7 +31,8 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_scan(
             .task = std::make_unique<common::ScanTask>(
                 std::make_unique<Scanner>(
                     task,
-                    Config{.connect_timeout = 1 * x::telem::SECOND}
+                    Config{.connect_timeout = 1 * x::telem::SECOND},
+                    connections
                 ),
                 ctx,
                 task,
@@ -70,7 +72,12 @@ std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
             cmd_key
         );
     if (task.type == SCAN_TASK_TYPE)
-        return common::handle_config_err(ctx, task, configure_scan(ctx, task), cmd_key);
+        return common::handle_config_err(
+            ctx,
+            task,
+            configure_scan(this->connections, ctx, task),
+            cmd_key
+        );
     return {nullptr, false};
 }
 

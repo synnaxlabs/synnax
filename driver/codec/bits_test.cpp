@@ -113,15 +113,15 @@ TEST(BitRange, ReadsA64BitFieldSpanningNineBytes) {
 }
 
 TEST(BitRange, RejectsAZeroLength) {
-    ASSERT_OCCURRED_AS_P(BitRange::compile(0, 0, order(false)), LAYOUT_ERROR);
+    ASSERT_OCCURRED_AS_P(BitRange::compile(0, 0, order(false)), CONFIG_ERROR);
 }
 
 TEST(BitRange, RejectsALengthOver64) {
-    ASSERT_OCCURRED_AS_P(BitRange::compile(0, 65, order(false)), LAYOUT_ERROR);
+    ASSERT_OCCURRED_AS_P(BitRange::compile(0, 65, order(false)), CONFIG_ERROR);
 }
 
 TEST(BitRange, RejectsAnUnknownByteOrder) {
-    ASSERT_OCCURRED_AS_P(BitRange::compile(0, 8, "middle_endian"), LAYOUT_ERROR);
+    ASSERT_OCCURRED_AS_P(BitRange::compile(0, 8, "middle_endian"), CONFIG_ERROR);
 }
 
 TEST(BitRange, MatchesAReferenceExtractorOverRandomLayouts) {

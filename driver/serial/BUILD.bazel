@@ -16,8 +16,16 @@ cc_library(
         "native.h",
         "port.cpp",
     ] + select({
-        "@platforms//os:linux": ["linux.cpp"],
-        "@platforms//os:macos": ["macos.cpp"],
+        "@platforms//os:linux": [
+            "linux.cpp",
+            "posix.cpp",
+            "posix.h",
+        ],
+        "@platforms//os:macos": [
+            "macos.cpp",
+            "posix.cpp",
+            "posix.h",
+        ],
         "@platforms//os:windows": ["windows.cpp"],
     }),
     hdrs = [

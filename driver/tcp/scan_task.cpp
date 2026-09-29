@@ -14,8 +14,20 @@
 #include "driver/tcp/scan_task.h"
 
 namespace driver::tcp {
-Scanner::Scanner(synnax::task::Task task, const Config &connection):
-    task(std::move(task)), connection(connection) {}
+Scanner::Scanner(
+    synnax::task::Task task,
+    const Config &connection,
+    std::shared_ptr<bus::Connections> connections
+):
+    task(std::move(task)),
+    connection(connection),
+    connections(std::move(connections)) {}
+
+x::errors::Error
+Scanner::reach(const std::string &key, const synnax::tcp::Properties &props) {
+    if (const auto conn = this->connections->find(key)) return conn->error();
+    return Client::open(props, this->connection).second;
+}
 
 common::ScannerConfig Scanner::config() const {
     return {.make = MAKE, .log_prefix = "[" + INTEGRATION_NAME + ".scan_task] "};
@@ -40,7 +52,7 @@ Scanner::scan(const common::ScannerContext &ctx) {
             status.variant = synnax::status::VARIANT_WARNING;
             status.message = "Invalid device properties";
             status.description = parser.error().data;
-        } else if (auto [client, err] = Client::open(props, this->connection); err) {
+        } else if (const auto err = this->reach(dev.key, props)) {
             status.variant = synnax::status::VARIANT_WARNING;
             status.message = "Failed to reach device";
             status.description = err.data;
