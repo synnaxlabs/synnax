@@ -47,7 +47,6 @@ const checkResZ = z.object({
   clusterKey: z.string(),
   nodeVersion: z.string(),
   nodeTime: TimeStamp.z,
-  // a Core from before licensing reports nothing and is not gated
   license: license.stateZ.default("ok"),
 });
 

@@ -13,7 +13,6 @@ import { z } from "zod";
 import { type connection } from "@/connection";
 import { type Info, infoZ, type State } from "@/license/types.gen";
 
-/** What each license state means, worded for display. */
 export const STATE_MESSAGES: Record<State, string> = {
   ok: "Licensed",
   missing: "No license is active on this Core",
@@ -27,7 +26,6 @@ export const ACTIVATE_ENDPOINT = "/license/activate";
 
 export interface ClientParams {
   unary: UnaryClient;
-  /** Re-checked after an activation so the connection leaves the unlicensed state. */
   connection: connection.Handle;
 }
 

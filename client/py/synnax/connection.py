@@ -47,7 +47,6 @@ class CheckResponse(BaseModel):
     cluster_key: str = ""
     node_version: str = ""
     node_time: TimeStamp = TimeStamp(0)
-    # A Core from before licensing sends no license state.
     license: LicenseState = "ok"
 
 

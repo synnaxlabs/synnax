@@ -9,10 +9,10 @@
 
 #include "absl/log/log.h"
 
+#include "client/cpp/errors/errors.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/os/os.h"
 
-#include "driver/errors/errors.h"
 #include "driver/rack/rack.h"
 
 namespace driver::rack {
@@ -50,7 +50,7 @@ x::errors::Error Config::load_remote(x::breaker::Breaker &breaker) {
         res = client.racks.create(host_name);
     }
     const x::errors::Error err = res.second;
-    if (errors::core_unavailable(err) && breaker.wait(err.message()))
+    if (synnax::errors::is_temporarily_unavailable(err) && breaker.wait(err.message()))
         return this->load_remote(breaker);
 
     this->rack = res.first;
