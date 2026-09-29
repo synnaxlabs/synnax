@@ -10,7 +10,6 @@
 import { type APIRoute } from "astro";
 
 import { activationFor } from "@/access";
-import { open } from "@/portal";
 import { download, handle } from "@/respond";
 import { reissue } from "@/server/license/activate";
 import { check } from "@/server/ratelimit";
@@ -19,7 +18,7 @@ import { check } from "@/server/ratelimit";
 export const POST: APIRoute = async (context) =>
   await handle(async () => {
     const key = context.params.key ?? "";
-    const portal = open(context);
+    const { portal } = context.locals;
     const session = await portal.session();
     const { license, organization } = await activationFor(portal, session, key);
     const now = portal.now();

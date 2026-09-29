@@ -10,7 +10,6 @@
 import { type APIRoute } from "astro";
 
 import { licenseFor, requireStaff } from "@/access";
-import { open } from "@/portal";
 import { handle } from "@/respond";
 import { revocationText } from "@/server/license/expiry";
 import { revoke } from "@/server/license/issue";
@@ -20,7 +19,7 @@ import { emails } from "@/server/session";
 export const POST: APIRoute = async (context) =>
   await handle(async () => {
     const key = context.params.key ?? "";
-    const portal = open(context);
+    const { portal } = context.locals;
     const session = await portal.session();
     requireStaff(session);
     const { organization } = await licenseFor(portal, session, key);
@@ -29,7 +28,7 @@ export const POST: APIRoute = async (context) =>
       actor: session.userID,
       now: portal.now(),
     });
-    const to = await emails(context, organization);
+    const to = await emails(portal.directory, organization);
     if (to.length > 0)
       await portal.mail.send({
         to,

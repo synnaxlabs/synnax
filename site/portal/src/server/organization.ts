@@ -11,6 +11,7 @@ import { eq, inArray, or } from "drizzle-orm";
 
 import { type Store } from "@/server/db/db";
 import { type Organization, organization } from "@/server/db/schema";
+import { type Directory } from "@/server/directory";
 import { type Session } from "@/server/session";
 
 export interface EnsurePersonalArgs {
@@ -62,6 +63,16 @@ export const mirrorTeam = async (
     .returning();
   return created;
 };
+
+/**
+ * adoptTeam mirrors a Clerk organization into the portal's tables and returns the
+ * row, so a license can be issued to an organization the webhook has not delivered.
+ */
+export const adoptTeam = async (
+  store: Store,
+  directory: Directory,
+  clerkOrgID: string,
+): Promise<Organization> => await mirrorTeam(store, await directory.team(clerkOrgID));
 
 export interface Membership {
   userID: string;

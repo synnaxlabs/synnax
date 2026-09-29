@@ -9,9 +9,7 @@
 
 import { verifyWebhook } from "@clerk/astro/webhooks";
 import { type APIRoute } from "astro";
-import { CLERK_WEBHOOK_SIGNING_SECRET } from "astro:env/server";
 
-import { open } from "@/portal";
 import { ensurePersonal, mirrorTeam } from "@/server/organization";
 
 /**
@@ -19,16 +17,14 @@ import { ensurePersonal, mirrorTeam } from "@/server/organization";
  * organization per user and a team organization per Clerk organization.
  */
 export const POST: APIRoute = async (context) => {
+  const { store, webhookSecret } = context.locals.portal;
   let evt: Awaited<ReturnType<typeof verifyWebhook>>;
   try {
-    evt = await verifyWebhook(context.request, {
-      signingSecret: CLERK_WEBHOOK_SIGNING_SECRET,
-    });
+    evt = await verifyWebhook(context.request, { signingSecret: webhookSecret });
   } catch (err) {
     console.error("clerk webhook rejected", err);
     return new Response("Bad signature", { status: 400 });
   }
-  const { store } = open(context);
   switch (evt.type) {
     case "user.created": {
       const { id, first_name, last_name, username, email_addresses } = evt.data;
