@@ -147,7 +147,8 @@ type Service struct {
 var _ io.Closer = &Service{}
 
 // OpenService opens the service and activates cfg.Token when set. It returns an error
-// when cfg.Token is refused. A Core with no license opens in StateMissing.
+// when cfg.Token is refused or the machine fingerprint cannot be read. A Core with no
+// license opens in StateMissing.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
@@ -155,8 +156,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}
 	s := &Service{cfg: cfg}
 	if s.fingerprint, err = readFingerprint(); err != nil {
-		cfg.L.Warn("failed to read network interfaces", zap.Error(err))
-		s.fingerprint = Fingerprint{}
+		return nil, errors.Wrap(err, "failed to read the machine fingerprint")
 	}
 	s.mu.info = Info{State: StateMissing, Fingerprint: s.fingerprint}
 	if err = s.syncClock(ctx); err != nil {
