@@ -125,9 +125,10 @@ func (p *Plugin) processUnionForTranslation(
 		}
 		if v.Inline {
 			for _, f := range resolution.UnifiedFields(payload, data.table) {
-				fd := p.processFieldForTranslation(f, data)
-				fd.ForwardExpr = strings.ReplaceAll(fd.ForwardExpr, "this->", "cpp.")
-				vt.Fields = append(vt.Fields, fd)
+				vt.Fields = append(
+					vt.Fields,
+					p.processFieldForTranslation(f, "cpp.", data),
+				)
 			}
 		} else {
 			vt.PayloadCppType = p.resolveExtendsType(v.Type, payload, data)
@@ -190,15 +191,15 @@ func (p *Plugin) generateUnionConversion(
 	resolved resolution.Type,
 	isOptional bool,
 	data *templateData,
-	cppFieldName, pbAccessorName string,
+	recv, cppFieldName, pbAccessorName string,
 ) (forward, backward string) {
 	toProto, fromProto := p.unionTranslators(resolved, data)
 	if isOptional {
-		forward = fmt.Sprintf(`if (this->%s.has_value()) {
-        auto [v, err] = %s(*this->%s);
+		forward = fmt.Sprintf(`if (%s%s.has_value()) {
+        auto [v, err] = %s(*%s%s);
         if (err) return {{}, err};
         *pb.mutable_%s() = v;
-    }`, cppFieldName, toProto, cppFieldName, pbAccessorName)
+    }`, recv, cppFieldName, toProto, recv, cppFieldName, pbAccessorName)
 		backward = fmt.Sprintf(`if (pb.has_%s()) {
         auto [v, err] = %s(pb.%s());
         if (err) return {{}, err};
@@ -207,10 +208,10 @@ func (p *Plugin) generateUnionConversion(
 		return forward, backward
 	}
 	forward = fmt.Sprintf(`{
-        auto [v, err] = %s(this->%s);
+        auto [v, err] = %s(%s%s);
         if (err) return {{}, err};
         *pb.mutable_%s() = v;
-    }`, toProto, cppFieldName, pbAccessorName)
+    }`, toProto, recv, cppFieldName, pbAccessorName)
 	backward = fmt.Sprintf(`{
         auto [v, err] = %s(pb.%s());
         if (err) return {{}, err};
@@ -224,18 +225,18 @@ func (p *Plugin) generateUnionArrayConversion(
 	resolved resolution.Type,
 	isOptional bool,
 	data *templateData,
-	cppFieldName, pbAccessorName string,
+	recv, cppFieldName, pbAccessorName string,
 ) (forward, backward string) {
 	toProto, fromProto := p.unionTranslators(resolved, data)
 	if isOptional {
-		forward = fmt.Sprintf(`if (this->%s.has_value()) {
+		forward = fmt.Sprintf(`if (%s%s.has_value()) {
         auto* wrapper = pb.mutable_%s();
-        for (const auto& item : *this->%s) {
+        for (const auto& item : *%s%s) {
             auto [v, err] = %s(item);
             if (err) return {{}, err};
             *wrapper->add_values() = v;
         }
-    }`, cppFieldName, pbAccessorName, cppFieldName, toProto)
+    }`, recv, cppFieldName, pbAccessorName, recv, cppFieldName, toProto)
 		backward = fmt.Sprintf(`if (pb.has_%s()) {
         cpp.%s.emplace();
         for (const auto& item : pb.%s().values()) {
@@ -246,11 +247,11 @@ func (p *Plugin) generateUnionArrayConversion(
     }`, pbAccessorName, cppFieldName, pbAccessorName, fromProto, cppFieldName)
 		return forward, backward
 	}
-	forward = fmt.Sprintf(`for (const auto& item : this->%s) {
+	forward = fmt.Sprintf(`for (const auto& item : %s%s) {
         auto [v, err] = %s(item);
         if (err) return {{}, err};
         *pb.add_%s() = v;
-    }`, cppFieldName, toProto, pbAccessorName)
+    }`, recv, cppFieldName, toProto, pbAccessorName)
 	backward = fmt.Sprintf(`for (const auto& item : pb.%s()) {
         auto [v, err] = %s(item);
         if (err) return {{}, err};

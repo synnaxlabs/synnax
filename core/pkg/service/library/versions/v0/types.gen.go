@@ -39,6 +39,14 @@ type EnumValue struct {
 	Name string `json:"name" msgpack:"name"`
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (e EnumValue) Validate() error {
+	v := validate.New("EnumValue")
+	v.NotEmptyString("name", e.Name)
+	return v.Error()
+}
+
 // ByteOrder is the byte order of a multi-byte binary field.
 type ByteOrder string
 
@@ -428,6 +436,7 @@ func (t *TaggedField) ApplyDefaults() {
 // schema constraints.
 func (t TaggedField) Validate() error {
 	v := validate.New("TaggedField")
+	v.NotEmptyString("tag", t.Tag)
 	v.Exec(t.BaseField.Validate)
 	return v.Error()
 }
@@ -575,6 +584,9 @@ func (EnumEntry) isEntryVariant() {}
 func (e EnumEntry) Validate() error {
 	v := validate.New("EnumEntry")
 	v.Exec(e.BaseEntry.Validate)
+	for i := range e.Values {
+		v.Exec(func() error { return validate.PathedError(e.Values[i].Validate(), "values", strconv.Itoa(i)) })
+	}
 	return v.Error()
 }
 
@@ -745,7 +757,8 @@ func (l Library) Validate() error {
 	return v.Error()
 }
 
-// Reference is embedded in the config of a task that uses a library.
+// Reference is embedded in the config of a task that uses a library. A task uses at
+// most one library.
 type Reference struct {
 	// Library is the key of the library the task reads its layouts from.
 	Library Key `json:"library" msgpack:"library"`

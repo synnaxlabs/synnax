@@ -31,7 +31,7 @@ export const enumValueZ = z.object({
   /** value is the integer value. */
   value: z.int32().default(0),
   /** name is the name of the value. */
-  name: z.string(),
+  name: z.string().min(1),
 });
 export interface EnumValue extends z.infer<typeof enumValueZ> {}
 
@@ -44,7 +44,10 @@ export type EntryKey = z.infer<typeof entryKeyZ>;
 export const fieldKeyZ = z.uuid();
 export type FieldKey = z.infer<typeof fieldKeyZ>;
 
-/** Reference is embedded in the config of a task that uses a library. */
+/**
+ * Reference is embedded in the config of a task that uses a library. A task uses at
+ * most one library.
+ */
 export const referenceZ = z.object({
   /** library is the key of the library the task reads its layouts from. */
   library: keyZ,
@@ -226,7 +229,7 @@ export interface DelimitedField extends z.infer<typeof delimitedFieldZ> {}
 export const taggedFieldZ = baseFieldZ.extend({
   encoding: z.literal("tagged"),
   /** tag is the text that comes just before the value in the line. */
-  tag: z.string(),
+  tag: z.string().min(1),
 });
 export interface TaggedField extends z.infer<typeof taggedFieldZ> {}
 

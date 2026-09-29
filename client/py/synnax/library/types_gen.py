@@ -57,11 +57,12 @@ class EnumValue(BaseModel):
     """
 
     value: int = PydanticField(default=0, ge=-2147483648, le=2147483647)
-    name: str
+    name: str = PydanticField(min_length=1)
 
 
 class Reference(BaseModel):
-    """Is embedded in the config of a task that uses a library.
+    """Is embedded in the config of a task that uses a library. A task uses at most one
+    library.
 
     Attributes:
         library: Is the key of the library the task reads its layouts from.
@@ -191,7 +192,7 @@ class TaggedField(BaseField):
     """Is a field read from the text that follows a tag."""
 
     encoding: Literal["tagged"] = "tagged"
-    tag: str
+    tag: str = PydanticField(min_length=1)
 
 
 # Is one value carried by a message.

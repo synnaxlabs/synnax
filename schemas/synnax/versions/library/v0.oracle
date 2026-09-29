@@ -306,6 +306,9 @@ Reference struct {
         """
     }
 
-    @doc value  "is embedded in the config of a task that uses a library."
+    @doc value  """
+        is embedded in the config of a task that uses a library. A task uses at most one
+        library.
+    """
     @go marshal
 }

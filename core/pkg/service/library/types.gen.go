@@ -134,5 +134,6 @@ type MessageEntry = versions.MessageEntry
 // reference by key.
 type Library = versions.Library
 
-// Reference is embedded in the config of a task that uses a library.
+// Reference is embedded in the config of a task that uses a library. A task uses at
+// most one library.
 type Reference = versions.Reference

@@ -63,7 +63,7 @@ inline ReadChannel ReadChannel::parse(x::json::Parser parser) {
 
 inline x::json::json ReadChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseChannel::to_json().items())
+    for (const auto base = BaseChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["channel"] = this->channel;
     j["is_index"] = this->is_index;
@@ -82,7 +82,7 @@ inline WriteChannel WriteChannel::parse(x::json::Parser parser) {
 
 inline x::json::json WriteChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseChannel::to_json().items())
+    for (const auto base = BaseChannel::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["cmd_channel"] = this->cmd_channel;
     return j;
@@ -113,7 +113,8 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
 
 inline x::json::json ReadConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::ReadConfig::to_json().items())
+    for (const auto base = ::synnax::task::ReadConfig::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
     j["sample_rate"] = this->sample_rate;
     j["stream_rate"] = this->stream_rate;
@@ -138,7 +139,8 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
 
 inline x::json::json WriteConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::WriteConfig::to_json().items())
+    for (const auto base = ::synnax::task::WriteConfig::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
     j["channels"] = x::json::to_array(this->channels);
     return j;
@@ -154,7 +156,8 @@ inline ScanConfig ScanConfig::parse(x::json::Parser parser) {
 
 inline x::json::json ScanConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::ScanConfig::to_json().items())
+    for (const auto base = ::synnax::task::ScanConfig::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
     return j;
 }

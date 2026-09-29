@@ -32,7 +32,8 @@ EnumValue struct {
         @doc value "is the integer value."
     }
     name  string {
-        @doc value "is the name of the value."
+        @doc value           "is the name of the value."
+        @validate min_length 1
     }
 
     @doc value  "maps one integer value of an enum to a name."
@@ -210,7 +211,10 @@ Field union on encoding extends BaseField {
     }
     tagged {
         tag string {
-            @doc value "is the text that comes just before the value in the line."
+            @doc value           """
+                is the text that comes just before the value in the line.
+            """
+            @validate min_length 1
         }
 
         @doc value "is a field read from the text that follows a tag."
@@ -319,6 +323,9 @@ Reference struct {
         """
     }
 
-    @doc value  "is embedded in the config of a task that uses a library."
+    @doc value  """
+        is embedded in the config of a task that uses a library. A task uses at most one
+        library.
+    """
     @go marshal
 }

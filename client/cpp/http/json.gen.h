@@ -150,7 +150,8 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
 
 inline x::json::json ReadConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::PersistConfig::to_json().items())
+    for (const auto base = ::synnax::task::PersistConfig::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
     j["device"] = this->device;
     j["rate"] = this->rate;
@@ -261,7 +262,8 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
 
 inline x::json::json WriteConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::StartConfig::to_json().items())
+    for (const auto base = ::synnax::task::StartConfig::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
     j["device"] = this->device;
     j["endpoints"] = x::json::to_array(this->endpoints);
@@ -278,7 +280,8 @@ inline ScanConfig ScanConfig::parse(x::json::Parser parser) {
 
 inline x::json::json ScanConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::ScanConfig::to_json().items())
+    for (const auto base = ::synnax::task::ScanConfig::to_json();
+         const auto &[k, v]: base.items())
         j[k] = v;
     return j;
 }
@@ -294,7 +297,7 @@ inline StaticWriteField StaticWriteField::parse(x::json::Parser parser) {
 
 inline x::json::json StaticWriteField::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseWriteField::to_json().items())
+    for (const auto base = BaseWriteField::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["json_type"] = this->json_type;
     j["value"] = this->value;
@@ -313,7 +316,7 @@ inline GeneratedWriteField GeneratedWriteField::parse(x::json::Parser parser) {
 
 inline x::json::json GeneratedWriteField::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseWriteField::to_json().items())
+    for (const auto base = BaseWriteField::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
     j["generator"] = this->generator;
     j["time_format"] = this->time_format;

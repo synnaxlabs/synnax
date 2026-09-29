@@ -62,11 +62,11 @@ func validateEntries(entries []Entry) error {
 	}
 	for i, e := range entries {
 		path := []string{"entries", strconv.Itoa(i)}
-		base, ok := baseOf(e)
-		if !ok {
+		if e.Variant == nil {
 			v.addf(path, "kind is required")
 			continue
 		}
+		base := e.Base()
 		if keys.Contains(base.Key) {
 			v.addf(pathOf(path, "key"), "duplicate entry key %s", base.Key)
 		}
@@ -85,24 +85,11 @@ func validateEntries(entries []Entry) error {
 	return v.err
 }
 
-func baseOf(e Entry) (BaseEntry, bool) {
-	switch variant := e.Variant.(type) {
-	case EnumEntry:
-		return variant.BaseEntry, true
-	case MessageEntry:
-		return variant.BaseEntry, true
-	}
-	return BaseEntry{}, false
-}
-
 func (v *validator) validateEnum(path []string, e EnumEntry) {
 	values := make(set.Set[int32], len(e.Values))
 	names := make(set.Set[string], len(e.Values))
 	for i, ev := range e.Values {
 		p := pathOf(path, "values", strconv.Itoa(i))
-		if ev.Name == "" {
-			v.addf(pathOf(p, "name"), "name is required")
-		}
 		if values.Contains(ev.Value) {
 			v.addf(pathOf(p, "value"), "duplicate value %d", ev.Value)
 		}
@@ -123,11 +110,11 @@ func (v *validator) validateMessage(
 	names := make(set.Set[string], len(m.Fields))
 	for i, f := range m.Fields {
 		p := pathOf(path, "fields", strconv.Itoa(i))
-		base, ok := fieldBase(f)
-		if !ok {
+		if f.Variant == nil {
 			v.addf(p, "encoding is required")
 			continue
 		}
+		base := f.Base()
 		if _, dup := fields[base.Key]; dup {
 			v.addf(pathOf(p, "key"), "duplicate field key %s", base.Key)
 		}
@@ -143,10 +130,10 @@ func (v *validator) validateMessage(
 	v.validateIdentifier(path, m, fields)
 	for i, f := range m.Fields {
 		p := pathOf(path, "fields", strconv.Itoa(i))
-		base, ok := fieldBase(f)
-		if !ok {
+		if f.Variant == nil {
 			continue
 		}
+		base := f.Base()
 		v.validateFieldEncoding(p, m, f)
 		if base.Enumeration != nil && !enums.Contains(*base.Enumeration) {
 			v.addf(
@@ -178,20 +165,6 @@ func (v *validator) validateMessage(
 			)
 		}
 	}
-}
-
-// fieldBase returns the fields every encoding of f shares, and false when f has no
-// encoding.
-func fieldBase(f Field) (BaseField, bool) {
-	switch variant := f.Variant.(type) {
-	case BinaryField:
-		return variant.BaseField, true
-	case DelimitedField:
-		return variant.BaseField, true
-	case TaggedField:
-		return variant.BaseField, true
-	}
-	return BaseField{}, false
 }
 
 func isFloat(f Field) bool {
@@ -282,9 +255,6 @@ func (v *validator) validateFieldEncoding(path []string, m MessageEntry, f Field
 	case DelimitedField, TaggedField:
 		if m.Format != FormatText {
 			v.addf(path, "a text field requires a text message")
-		}
-		if t, ok := variant.(TaggedField); ok && t.Tag == "" {
-			v.addf(pathOf(path, "tag"), "tag is required")
 		}
 	}
 }
