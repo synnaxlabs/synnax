@@ -3,6 +3,7 @@
   "displayName": "Oracle Schema Language",
   "description": "Language support for Oracle schema files (.oracle)",
   "version": "0.1.0",
+  "private": true,
   "publisher": "synnaxlabs",
   "engines": {
     "vscode": "^1.91.0"
