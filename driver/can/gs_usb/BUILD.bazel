@@ -1,0 +1,77 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+cc_library(
+    name = "protocol",
+    srcs = ["protocol.cpp"],
+    hdrs = ["protocol.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/can",
+        "//x/cpp/errors",
+    ],
+)
+
+cc_library(
+    name = "gs_usb",
+    srcs = [
+        "gs_usb.cpp",
+        "prod.cpp",
+    ],
+    hdrs = [
+        "api.h",
+        "gs_usb.h",
+        "libusb.h",
+        "prod.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":protocol",
+        "//driver/can",
+        "//driver/errors",
+        "//x/cpp/errors",
+        "//x/cpp/lib",
+        "@abseil-cpp//absl/log",
+    ],
+)
+
+cc_library(
+    name = "mock",
+    testonly = True,
+    hdrs = ["mock.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":gs_usb",
+        ":protocol",
+    ],
+)
+
+cc_test(
+    name = "protocol_test",
+    srcs = ["protocol_test.cpp"],
+    deps = [
+        ":protocol",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "gs_usb_test",
+    srcs = ["gs_usb_test.cpp"],
+    deps = [
+        ":gs_usb",
+        ":mock",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)

@@ -1,0 +1,64 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+cc_library(
+    name = "protocol",
+    srcs = ["protocol.cpp"],
+    hdrs = ["protocol.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/can",
+        "//x/cpp/errors",
+    ],
+)
+
+cc_library(
+    name = "slcan",
+    srcs = ["slcan.cpp"],
+    hdrs = ["slcan.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":protocol",
+        "//client/cpp/can",
+        "//client/cpp/serial",
+        "//driver/can",
+        "//driver/serial",
+        "//x/cpp/errors",
+        "//x/cpp/telem",
+        "@abseil-cpp//absl/log",
+    ],
+)
+
+cc_test(
+    name = "protocol_test",
+    srcs = ["protocol_test.cpp"],
+    deps = [
+        ":protocol",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)
+
+# The test plays the adapter on a pseudo-terminal, which Windows lacks.
+cc_test(
+    name = "slcan_test",
+    srcs = ["slcan_test.cpp"],
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        ":slcan",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)
