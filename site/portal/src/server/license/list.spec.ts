@@ -107,18 +107,33 @@ describe("list", () => {
         organization: globex.key,
         issuedAt: issuedOn(3),
       });
-      expect(await listActivatable(store.query, [acme.key])).toEqual([
+      expect(await listActivatable(store.query, [acme.key], NOW)).toEqual([
         { license: older, organization: acme },
       ]);
-      expect(await listActivatable(store.query, [acme.key, globex.key])).toEqual([
+      expect(await listActivatable(store.query, [acme.key, globex.key], NOW)).toEqual([
         { license: other, organization: globex },
         { license: older, organization: acme },
       ]);
     });
 
+    it("should leave out an expired license unless it has a fallback", async () => {
+      await createLicense(store, {
+        organization: acme.key,
+        expiresAt: new Date(NOW.getTime() - 1),
+      });
+      const fallback = await createLicense(store, {
+        organization: acme.key,
+        expiresAt: new Date(NOW.getTime() - 1),
+        maxVersion: "0.60",
+      });
+      expect(await listActivatable(store.query, [acme.key], NOW)).toEqual([
+        { license: fallback, organization: acme },
+      ]);
+    });
+
     it("should list nothing for no organizations", async () => {
       await createLicense(store, { organization: acme.key });
-      expect(await listActivatable(store.query, [])).toEqual([]);
+      expect(await listActivatable(store.query, [], NOW)).toEqual([]);
     });
   });
 });

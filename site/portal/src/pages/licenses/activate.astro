@@ -19,6 +19,7 @@ const { portal, session, organizations, scope } = loaded;
 const choices = await listActivatable(
     portal.store.query,
     organizations.filter((o) => o.kind === "team").map((o) => o.key),
+    portal.now(),
 );
 const selected = Astro.url.searchParams.get("license");
 ---

@@ -17,6 +17,7 @@ import {
   type Organization,
   organization,
 } from "@/server/db/schema";
+import { deny } from "@/server/license/activate";
 
 /** Held is a license beside the number of machines holding one of its seats. */
 export interface Held {
@@ -52,15 +53,20 @@ export const listAll = async (db: Reader): Promise<Owned[]> =>
     .orderBy(desc(license.issuedAt));
 
 /**
- * listActivatable returns the licenses of `orgs` that a machine can still activate
- * against, newest first.
+ * listActivatable returns the licenses of `orgs` that a machine can activate against
+ * at `now`, newest first.
  */
-export const listActivatable = async (db: Reader, orgs: string[]): Promise<Owned[]> => {
+export const listActivatable = async (
+  db: Reader,
+  orgs: string[],
+  now: Date,
+): Promise<Owned[]> => {
   if (orgs.length === 0) return [];
-  return await db
+  const rows = await db
     .select({ license, organization })
     .from(license)
     .innerJoin(organization, eq(license.organization, organization.key))
     .where(and(inArray(license.organization, orgs), isNull(license.revokedAt)))
     .orderBy(desc(license.issuedAt));
+  return rows.filter((r) => deny(r.license, now) == null);
 };
