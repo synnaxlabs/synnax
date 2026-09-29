@@ -13,10 +13,10 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Releases as ReleasesComponents } from "@/components";
-const { headings } = Astro.props;
+const { headings, frontmatter } = Astro.props;
 ---
 
-<Root frontmatter={{ title: "Releases" }}>
+<Root frontmatter={{ title: "Releases", description: frontmatter.description }}>
     <section>
         <Flex.Box direction="y" className="releases" el="article" grow>
             <Flex.Box direction="x" className="header" justify="between" align="center">
@@ -39,6 +39,7 @@ const { headings } = Astro.props;
                 </Flex.Box>
                 <Text.Text
                     level="h1"
+                    el="div"
                     className="latest version full"
                     transition:persist
                 />

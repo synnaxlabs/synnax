@@ -137,6 +137,20 @@ const hasHeadings =
                 padding-left: 4rem;
             }
 
+            .on-this-page-step {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.5rem;
+                margin-right: 0.75rem;
+                color: var(--pluto-gray-l6);
+                transition: color 0.15s ease;
+            }
+
+            &:hover .on-this-page-step,
+            &.active .on-this-page-step {
+                color: var(--pluto-gray-l8);
+            }
+
             &:hover {
                 color: var(--pluto-text-color);
             }
