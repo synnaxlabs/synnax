@@ -1,0 +1,61 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import Article from "@/components/article/Article.astro";
+import OnThisPage from "@/components/nav/OnThisPage.astro";
+import PageNav from "@/components/nav/Page.astro";
+import Main from "@/layouts/Root.astro";
+import { normalizeRoute } from "@/util/route";
+const { headings, frontmatter } = Astro.props;
+const {
+    title,
+    heading,
+    description,
+    url,
+    next,
+    nextURL,
+    prev,
+    prevURL,
+    clients,
+    platforms,
+    showOnThisPage = true,
+} = frontmatter;
+---
+
+<Main frontmatter={frontmatter} headings={headings}>
+    <link
+        slot="head"
+        rel="alternate"
+        type="text/markdown"
+        href={`${normalizeRoute(Astro.url.pathname)}.md`}
+    />
+    <PageNav />
+    <section>
+        <Article
+            url={url}
+            title={heading ?? title}
+            description={description}
+            next={next}
+            prev={prev}
+            nextURL={nextURL}
+            prevURL={prevURL}
+        >
+            <slot />
+        </Article>
+        {showOnThisPage && (
+            <OnThisPage
+                headings={headings}
+                url={Astro.url}
+                clients={clients}
+                platforms={platforms}
+            />
+        )}
+    </section>
+</Main>

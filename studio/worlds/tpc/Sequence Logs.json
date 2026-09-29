@@ -1,0 +1,26 @@
+{
+  "channel_names_hidden": true,
+  "channels": [
+    {
+      "channel": "sequence_log",
+      "color": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "a": 0
+      },
+      "notation": "standard",
+      "precision": -1,
+      "alias": "",
+      "timestamp": {
+        "format": "preciseDate",
+        "tz": "local"
+      }
+    }
+  ],
+  "name": "Sequence Logs",
+  "receipt_timestamp_hidden": false,
+  "timestamp_precision": 0,
+  "type": "log",
+  "version": 2
+}

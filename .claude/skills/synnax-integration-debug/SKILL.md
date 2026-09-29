@@ -50,7 +50,7 @@ the browser under "Artifacts" at the bottom.
 4. **Cross-reference the server log slice** for backend cause of any 4xx/5xx the trace
    shows.
 
-Do not parse `trace.zip` directly. The `npx playwright trace` CLI is the supported
+Do not parse `trace.zip` directly. The `pnpm dlx playwright trace` CLI is the supported
 interactive interface; the batch-mode parsing already done by `all-failures.md` covers
 most triage needs.
 
@@ -96,35 +96,36 @@ Fields:
 ## Inspecting the trace
 
 The Playwright trace CLI is bundled with the Python `playwright` package and is
-invokable via npx (matches the `@playwright/test` shipped CLI). Stay in shell. Don't
-open the GUI viewer for autonomous triage.
+invokable via `pnpm dlx` (matches the `@playwright/test` shipped CLI). Stay in shell.
+Don't open the GUI viewer for autonomous triage.
 
 ```bash
 # 1. Open the trace
-npx -y -p @playwright/test playwright trace open \
+pnpm dlx --package @playwright/test playwright trace open \
   integration/tests/results/latest/tests/NAME/trace.zip
 
 # 2. List all actions with their IDs (failures only)
-npx -y -p @playwright/test playwright trace actions --errors-only
+pnpm dlx --package @playwright/test playwright trace actions --errors-only
 
 # 3. Drill into a specific action: params, error, log, source, snapshots
-npx -y -p @playwright/test playwright trace action ID
+pnpm dlx --package @playwright/test playwright trace action ID
 
 # 4. Page state at that moment
-npx -y -p @playwright/test playwright trace snapshot ID
-npx -y -p @playwright/test playwright trace snapshot ID -- eval "document.querySelector('.error').textContent"
+pnpm dlx --package @playwright/test playwright trace snapshot ID
+pnpm dlx --package @playwright/test playwright trace snapshot ID \
+  -- eval "document.querySelector('.error').textContent"
 
 # 5. Network failures
-npx -y -p @playwright/test playwright trace requests --failed
+pnpm dlx --package @playwright/test playwright trace requests --failed
 
 # 6. Console errors
-npx -y -p @playwright/test playwright trace console --errors-only
+pnpm dlx --package @playwright/test playwright trace console --errors-only
 
 # 7. All trace errors with stacks
-npx -y -p @playwright/test playwright trace errors
+pnpm dlx --package @playwright/test playwright trace errors
 
 # 8. Cleanup
-npx -y -p @playwright/test playwright trace close
+pnpm dlx --package @playwright/test playwright trace close
 ```
 
 All commands after `open` operate on the currently-extracted trace. Opening a new trace
@@ -166,8 +167,8 @@ that wall-clock window. Filter by request path or trace fields to attribute line
 
 ## Next steps after triage
 
-- Stale locator / element-not-found → check `npx playwright trace snapshot ID` and look
-  for renamed/moved elements in nearby DOM.
+- Stale locator / element-not-found → check `pnpm dlx playwright trace snapshot ID` and
+  look for renamed/moved elements in nearby DOM.
 - Backend 500 / 4xx → server log slice will show the handler's error stack; check
   `core/pkg/service/...` for the relevant endpoint.
 - Timeout with no failed actions → likely a Playwright `wait_for_*` exceeded its budget;

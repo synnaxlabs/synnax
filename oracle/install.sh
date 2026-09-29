@@ -246,12 +246,12 @@ fi
 ok "Go $(go version | awk '{print $3}' | sed 's/go//')"
 
 if $INSTALL_EXTENSION; then
-    if ! command -v npm &> /dev/null; then
-        fail "npm not found"
-        info "Install from https://nodejs.org"
+    if ! command -v pnpm &> /dev/null; then
+        fail "pnpm not found"
+        info "Install from https://pnpm.io/installation"
         exit 1
     fi
-    ok "npm $(npm --version)"
+    ok "pnpm $(pnpm --version)"
 fi
 
 # Build CLI
@@ -288,9 +288,9 @@ if $ADD_TO_PATH; then
     step $STEP $TOTAL "Configure PATH"
 
     SHELL_CONFIG=""
-    [[ "$SHELL" == *"zsh"* ]] && SHELL_CONFIG="$HOME/.zshrc"
-    [[ "$SHELL" == *"bash"* ]] && SHELL_CONFIG="${HOME}/.bash_profile"
-    [[ -z "$SHELL_CONFIG" && -f "$HOME/.bashrc" ]] && SHELL_CONFIG="$HOME/.bashrc"
+    [[ $SHELL == *"zsh"* ]] && SHELL_CONFIG="$HOME/.zshrc"
+    [[ $SHELL == *"bash"* ]] && SHELL_CONFIG="${HOME}/.bash_profile"
+    [[ -z $SHELL_CONFIG && -f "$HOME/.bashrc" ]] && SHELL_CONFIG="$HOME/.bashrc"
 
     PATH_LINE="export PATH=\"$INSTALL_DIR:\$PATH\""
 
@@ -316,19 +316,19 @@ if $INSTALL_EXTENSION; then
 
     ((STEP += 1))
     step $STEP $TOTAL "Install Dependencies"
-    run "npm install..." npm install --silent
+    run "pnpm install..." pnpm install --filter oracle-language --silent
     ok "Dependencies ready"
 
     ((STEP += 1))
     step $STEP $TOTAL "Compile Extension"
-    run "Compiling TypeScript..." npm run compile --silent
+    run "Compiling TypeScript..." pnpm compile
     ok "Compiled"
 
     ((STEP += 1))
     step $STEP $TOTAL "Package Extension"
     vsix_log=$(mktemp /tmp/oracle-install-XXXXXX.log)
-    if ! yes 2> /dev/null | npx @vscode/vsce package \
-        --allow-missing-repository -o oracle-language.vsix > "$vsix_log" 2>&1; then
+    if ! yes 2> /dev/null | pnpm exec vsce package --allow-missing-repository \
+        --no-dependencies -o oracle-language.vsix > "$vsix_log" 2>&1; then
         fail "Failed to create package"
         printf "\n"
         info "Output:"

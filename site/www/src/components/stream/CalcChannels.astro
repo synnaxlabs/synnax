@@ -1,0 +1,193 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { grammar as arcGrammar } from "@synnaxlabs/arc";
+import { Button } from "@synnaxlabs/lyra/button";
+import { createCssVariablesTheme, createHighlighter } from "shiki";
+import { CalcVisualizer } from "@/components/stream/CalcVisualizer";
+import FeatureSection from "@/components/shared/FeatureSection.astro";
+
+const cssVarsTheme = createCssVariablesTheme({ name: "css-variables" });
+
+const highlighter = await createHighlighter({
+    themes: [cssVarsTheme],
+    langs: [arcGrammar],
+});
+
+const highlight = (code: string) =>
+    highlighter.codeToHtml(code, { lang: "arc", theme: "css-variables" });
+
+const unitConversion = `fahrenheit := celsius * 9 / 5 + 32
+return fahrenheit`;
+
+const mixtureRatio = `return ox_flow / fuel_flow`;
+
+const thresholdAlarm = `if pressure > 750 {
+    return 1
+}
+return 0`;
+
+const massFlow = `dp := upstream_pt - downstream_pt
+rho := fluids.density(
+    fluid="LOX",
+    pressure=upstream_pt,
+    temp=ox_temp,
+)
+return fluids.orifice_flow(
+    dp=dp,
+    rho=rho,
+    cd=0.62,
+    area=0.00045,
+)`;
+
+const sensorVoting = `tol := 5.0
+a := abs(press_1 - press_2) < tol
+b := abs(press_1 - press_3) < tol
+
+if a and b {
+    return (press_1 + press_2 + press_3) / 3
+}
+if a { return (press_1 + press_2) / 2 }
+if b { return (press_1 + press_3) / 2 }
+return (press_2 + press_3) / 2`;
+
+const fftAnalysis = `window := series.last(accel_x, 1024)
+spectrum := math.fft(window)
+freqs := math.fft_freqs(n=1024, sample_rate=10000)
+peak_idx := series.argmax(spectrum[1:512]) + 1
+return freqs[peak_idx]`;
+
+const codeHtmls = [
+    highlight(unitConversion),
+    highlight(mixtureRatio),
+    highlight(thresholdAlarm),
+    highlight(massFlow),
+    highlight(sensorVoting),
+    highlight(fftAnalysis),
+];
+---
+
+<FeatureSection label="5.1 -> Calculated Channels">
+    <Fragment slot="title"> Sensor voting in 10 lines, not 10 services </Fragment>
+    <Fragment slot="description">
+        Attach Arc expressions to channels and Synnax evaluates them on every sample,
+        whether live or historical. Stateful variables, vector math, and reactive
+        execution replace entire processing pipelines.
+    </Fragment>
+    <Button.Button
+        slot="action"
+        variant="text"
+        href="https://docs.synnaxlabs.com/reference/client/calculated-channels"
+    >
+        Learn More →
+    </Button.Button>
+
+    <CalcVisualizer client:visible codeHtmls={codeHtmls} />
+</FeatureSection>
+
+<style is:global>
+    .calc-visualizer {
+        margin-top: var(--space-md);
+    }
+
+    .calc-visualizer .viz-content {
+        grid-template-columns: 2fr 3fr;
+    }
+
+    @media (max-width: 900px) {
+        .calc-visualizer .viz-content {
+            grid-template-columns: 1fr;
+        }
+
+        .calc-visualizer .viz-tabs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .calc-visualizer .viz-tab {
+            border-right: none;
+            border-bottom: var(--pluto-border);
+        }
+
+        .calc-visualizer .viz-tab:nth-child(odd) {
+            border-right: var(--pluto-border);
+        }
+
+        .calc-visualizer .viz-tab:nth-last-child(-n + 2) {
+            border-bottom: none;
+        }
+    }
+
+    .calc-diagram-svg {
+        width: 100%;
+        height: 100%;
+    }
+
+    .calc-diagram-svg path,
+    .calc-diagram-svg line,
+    .calc-diagram-svg rect,
+    .calc-diagram-svg circle,
+    .calc-diagram-svg polygon {
+        vector-effect: non-scaling-stroke;
+    }
+
+    .calc-diagram-svg .diagram-node {
+        transition:
+            stroke 0.3s ease,
+            fill 0.3s ease,
+            fill-opacity 0.3s ease;
+    }
+
+    .calc-diagram-svg .diagram-label {
+        font-family: var(--pluto-code-font-family);
+        font-size: 10px;
+    }
+
+    .calc-diagram-svg .diagram-label-sm {
+        font-family: var(--pluto-code-font-family);
+        font-size: 9px;
+    }
+
+    .calc-diagram-svg .diagram-value-sm {
+        font-family: var(--pluto-code-font-family);
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .calc-diagram-svg .diagram-badge {
+        font-family: var(--pluto-code-font-family);
+        font-size: 11px;
+        font-weight: 500;
+    }
+
+    .calc-diagram-svg .flow-line {
+        animation: flow-dash 0.8s linear infinite;
+    }
+
+    @keyframes flow-dash {
+        to {
+            stroke-dashoffset: -20;
+        }
+    }
+
+    .calc-diagram-svg .emergency-border {
+        animation: emergency-pulse 1s ease-in-out infinite;
+    }
+
+    @keyframes emergency-pulse {
+        0%,
+        100% {
+            opacity: 1;
+        }
+        50% {
+            opacity: 0.6;
+        }
+    }
+</style>

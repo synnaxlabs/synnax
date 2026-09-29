@@ -1,5 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
+  "rules": { "cycles": "error" },
   "workspaces": {
     ".": {
       "entry": ["package.json"],
@@ -47,10 +48,13 @@
       "project": ["src/**/*.{ts,tsx}"],
       "ignore": ["src-tauri/**"]
     },
-    "docs/site": {
+    "site/docs": {
       "entry": ["src/**/*.astro", "src/**/*.tsx", "src/**/*.ts"],
-      "project": ["src/**/*.{ts,tsx,astro}"],
-      "ignoreDependencies": ["@astrojs/*"]
+      "project": ["src/**/*.{ts,tsx,astro,mdx}"]
+    },
+    "site/www": {
+      "entry": ["src/pages/**/*.astro"],
+      "project": ["src/**/*.{ts,tsx,astro}"]
     },
     "configs/eslint": {
       "entry": ["index.ts"],
