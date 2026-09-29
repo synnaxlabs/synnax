@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type clerkClient } from "@clerk/astro/server";
+import { errors } from "@synnaxlabs/x";
 
 /** Person is a Clerk user as the portal names and mails them. */
 export interface Person {
@@ -38,8 +39,8 @@ export interface Directory {
   admins: (clerkOrgID: string) => Promise<string[]>;
   /** teams returns every organization in Clerk, newest first. */
   teams: () => Promise<Listed[]>;
-  /** team throws when Clerk does not know the organization. */
-  team: (clerkOrgID: string) => Promise<Listed>;
+  /** team returns null when Clerk does not know the organization. */
+  team: (clerkOrgID: string) => Promise<Listed | null>;
   /** names resolves user ids to the name each reads as, leaving out unknown ids. */
   names: (userIDs: string[]) => Promise<Record<string, string>>;
 }
@@ -115,23 +116,25 @@ export const clerk = (client: Client): Directory => ({
       (o) => ({ clerkOrgID: o.id, name: o.name }),
     ),
   team: async (clerkOrgID) => {
-    const org = await client.organizations.getOrganization({
-      organizationId: clerkOrgID,
-    });
-    return { clerkOrgID: org.id, name: org.name };
+    const org = await client.organizations
+      .getOrganization({ organizationId: clerkOrgID })
+      .catch((e: unknown) => {
+        if ((e as { status?: unknown }).status === 404) return null;
+        throw errors.fromUnknown(e);
+      });
+    return org == null ? null : { clerkOrgID: org.id, name: org.name };
   },
   names: async (userIDs) => {
-    if (userIDs.length === 0) return {};
-    const { data } = await client.users.getUserList({
-      userId: userIDs.slice(0, PAGE),
-      limit: PAGE,
-    });
-    return Object.fromEntries(
-      data.map((u) => [
-        u.id,
-        u.fullName ?? u.primaryEmailAddress?.emailAddress ?? u.id,
-      ]),
-    );
+    const named: Record<string, string> = {};
+    for (let i = 0; i < userIDs.length; i += PAGE) {
+      const { data } = await client.users.getUserList({
+        userId: userIDs.slice(i, i + PAGE),
+        limit: PAGE,
+      });
+      for (const u of data)
+        named[u.id] = u.fullName ?? u.primaryEmailAddress?.emailAddress ?? u.id;
+    }
+    return named;
   },
 });
 
@@ -167,11 +170,8 @@ export const memory = ({
       .map(([userID]) => people[userID]?.email ?? "")
       .filter((email) => email !== ""),
   teams: async () => organizations,
-  team: async (clerkOrgID) => {
-    const org = organizations.find((o) => o.clerkOrgID === clerkOrgID);
-    if (org == null) throw new Error(`no Clerk organization ${clerkOrgID}`);
-    return org;
-  },
+  team: async (clerkOrgID) =>
+    organizations.find((o) => o.clerkOrgID === clerkOrgID) ?? null,
   names: async (userIDs) =>
     Object.fromEntries(
       userIDs.flatMap((id) => (people[id] == null ? [] : [[id, people[id].name]])),

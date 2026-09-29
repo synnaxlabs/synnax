@@ -9,7 +9,7 @@
 
 import { and, eq, isNotNull, isNull, ne } from "drizzle-orm";
 
-import { type Store } from "@/server/db/db";
+import { type Query, type Store } from "@/server/db/db";
 import {
   type Event,
   event,
@@ -19,7 +19,7 @@ import {
 } from "@/server/db/schema";
 import { type Mailer } from "@/server/mail";
 
-/** NOTICE_DAYS are the days before expiry at which a warning is sent, most urgent last. */
+/** NOTICE_DAYS are the days before expiry that get a warning, most urgent last. */
 export const NOTICE_DAYS = [30, 7, 1] as const;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -63,8 +63,8 @@ export interface Sent {
 /**
  * sweep mails every due expiry warning and records each one as an event. An
  * organization with nobody to mail is skipped and retried on the next sweep. Each
- * license is warned under a row lock, so overlapping sweeps send a warning once, and a
- * failed send leaves the warning due.
+ * license is warned under a row lock, so overlapping sweeps send a warning once. A
+ * failed send leaves its warning due, and sweep throws after warning the rest.
  */
 export const sweep = async ({
   store,
@@ -85,40 +85,55 @@ export const sweep = async ({
       ),
     );
   const sent: Sent[] = [];
+  const failures: unknown[] = [];
   for (const { license: lic, organization: org } of rows) {
     const { key } = lic;
-    const notice = await store.transact(async (tx): Promise<Sent | null> => {
-      const [locked] = await tx
-        .select()
-        .from(license)
-        .where(eq(license.key, key))
-        .for("update");
-      const notices = await tx
-        .select()
-        .from(event)
-        .where(and(eq(event.license, key), eq(event.kind, "expiry_notice")));
-      const days = dueNotice(locked, notices, now);
-      if (days == null) return null;
-      const to = await recipients(org.key);
-      if (to.length === 0) return null;
-      await tx.insert(event).values({
-        kind: "expiry_notice",
-        actor: "system",
-        organization: org.key,
-        license: key,
-        detail: { days, to },
+    if (dueNotice(lic, await notices(store.query, key), now) == null) continue;
+    const to = await recipients(org.key);
+    if (to.length === 0) continue;
+    try {
+      const notice = await store.transact(async (tx): Promise<Sent | null> => {
+        const [locked] = await tx
+          .select()
+          .from(license)
+          .where(eq(license.key, key))
+          .for("update");
+        const days = dueNotice(locked, await notices(tx, key), now);
+        if (days == null) return null;
+        await tx.insert(event).values({
+          at: now,
+          kind: "expiry_notice",
+          actor: "system",
+          organization: org.key,
+          license: key,
+          detail: { days, to },
+        });
+        await mail.send({
+          to,
+          subject: `Your Synnax license expires in ${days} ${days === 1 ? "day" : "days"}`,
+          text: expiryText(locked, org.name, days),
+        });
+        return { license: key, days, to };
       });
-      await mail.send({
-        to,
-        subject: `Your Synnax license expires in ${days} ${days === 1 ? "day" : "days"}`,
-        text: expiryText(locked, org.name, days),
-      });
-      return { license: key, days, to };
-    });
-    if (notice != null) sent.push(notice);
+      if (notice != null) sent.push(notice);
+    } catch (e) {
+      failures.push(e);
+    }
   }
+  if (failures.length > 0)
+    throw new AggregateError(
+      failures,
+      `${failures.length} of ${sent.length + failures.length} expiry warnings failed ` +
+        `to send: ${failures.map((e) => (e instanceof Error ? e.message : String(e))).join("; ")}`,
+    );
   return sent;
 };
+
+const notices = async (q: Query, licenseKey: string): Promise<Event[]> =>
+  await q
+    .select()
+    .from(event)
+    .where(and(eq(event.license, licenseKey), eq(event.kind, "expiry_notice")));
 
 const expiryText = (lic: License, organizationName: string, days: number): string =>
   [

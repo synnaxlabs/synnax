@@ -83,6 +83,7 @@ export const issue = async (store: Store, args: IssueArgs): Promise<License> => 
     })
     .returning();
   await store.query.insert(event).values({
+    at: args.now,
     kind: "issue",
     actor: args.actor,
     organization: row.organization,
@@ -133,41 +134,48 @@ export const amend = async (
   { licenseKey, actor, now, ...terms }: AmendArgs,
 ): Promise<License> => {
   validate({ ...terms, now });
-  const [before] = await store.query
-    .select()
-    .from(license)
-    .where(eq(license.key, licenseKey));
-  if (before == null) throw notFound("License");
-  if (before.revokedAt != null) throw badRequest("A revoked license cannot be changed");
-  const held = await store.query
-    .select()
-    .from(activation)
-    .where(and(eq(activation.license, licenseKey), isNull(activation.releasedAt)));
-  if (terms.nodes < held.length)
-    throw badRequest(
-      `${held.length} machines hold a seat. Release one before lowering the limit ` +
-        `to ${terms.nodes}.`,
-    );
-  const [after] = await store.query
-    .update(license)
-    .set({
-      term: terms.term,
-      nodes: terms.nodes,
-      channels: terms.channels,
-      label: terms.label,
-      expiresAt: terms.expiresAt ?? null,
-      maxVersion: terms.maxVersion ?? null,
-    })
-    .where(eq(license.key, licenseKey))
-    .returning();
-  await store.query.insert(event).values({
-    kind: "amend",
-    actor,
-    organization: after.organization,
-    license: after.key,
-    detail: changes(before, after),
+  return await store.transact(async (tx) => {
+    // Holds the lock activate takes, so no seat is granted between the count and
+    // the update.
+    const [before] = await tx
+      .select()
+      .from(license)
+      .where(eq(license.key, licenseKey))
+      .for("update");
+    if (before == null) throw notFound("License");
+    if (before.revokedAt != null)
+      throw badRequest("A revoked license cannot be changed");
+    const held = await tx
+      .select()
+      .from(activation)
+      .where(and(eq(activation.license, licenseKey), isNull(activation.releasedAt)));
+    if (terms.nodes < held.length)
+      throw badRequest(
+        `${held.length} machines hold a seat. Release one before lowering the limit ` +
+          `to ${terms.nodes}.`,
+      );
+    const [after] = await tx
+      .update(license)
+      .set({
+        term: terms.term,
+        nodes: terms.nodes,
+        channels: terms.channels,
+        label: terms.label,
+        expiresAt: terms.expiresAt ?? null,
+        maxVersion: terms.maxVersion ?? null,
+      })
+      .where(eq(license.key, licenseKey))
+      .returning();
+    await tx.insert(event).values({
+      at: now,
+      kind: "amend",
+      actor,
+      organization: after.organization,
+      license: after.key,
+      detail: changes(before, after),
+    });
+    return after;
   });
-  return after;
 };
 
 export interface RevokeArgs {
@@ -176,7 +184,10 @@ export interface RevokeArgs {
   now: Date;
 }
 
-/** revoke stops a license from activating. Running Cores keep it until they restart. */
+/**
+ * revoke stops a license from activating. Running Cores keep it until they restart.
+ * @throws {HTTPError} 400 when the license is already revoked.
+ */
 export const revoke = async (
   store: Store,
   { licenseKey, actor, now }: RevokeArgs,
@@ -184,10 +195,18 @@ export const revoke = async (
   const [row] = await store.query
     .update(license)
     .set({ revokedAt: now })
-    .where(eq(license.key, licenseKey))
+    .where(and(eq(license.key, licenseKey), isNull(license.revokedAt)))
     .returning();
-  if (row == null) throw notFound("License");
+  if (row == null) {
+    const [existing] = await store.query
+      .select({ key: license.key })
+      .from(license)
+      .where(eq(license.key, licenseKey));
+    if (existing == null) throw notFound("License");
+    throw badRequest("This license is already revoked");
+  }
   await store.query.insert(event).values({
+    at: now,
     kind: "revoke",
     actor,
     organization: row.organization,
@@ -220,6 +239,7 @@ export const floating = async (
   const denial = deny(row, now);
   if (denial != null) throw badRequest(DENIAL_MESSAGES[denial]);
   await store.query.insert(event).values({
+    at: now,
     kind: "download",
     actor,
     organization: row.organization,

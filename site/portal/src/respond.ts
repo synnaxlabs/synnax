@@ -44,15 +44,19 @@ const flatten = (value: unknown): string => {
   return JSON.stringify(value) ?? "";
 };
 
-/** form reads a JSON body, or a posted form, into one flat record. */
+/** form reads a JSON body or a posted form into one flat record, less null fields. */
 export const form = async ({
   request,
 }: APIContext): Promise<Record<string, string>> => {
   const type = request.headers.get("content-type") ?? "";
   if (type.includes("application/json")) {
     const body: unknown = await request.json();
-    if (body == null || typeof body !== "object") return {};
-    return Object.fromEntries(Object.entries(body).map(([k, v]) => [k, flatten(v)]));
+    if (body == null || typeof body !== "object" || Array.isArray(body)) return {};
+    return Object.fromEntries(
+      Object.entries(body)
+        .filter(([, v]) => v != null)
+        .map(([k, v]) => [k, flatten(v)]),
+    );
   }
   const data = await request.formData();
   return Object.fromEntries(

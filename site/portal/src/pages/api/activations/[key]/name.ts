@@ -25,6 +25,7 @@ export const POST: APIRoute = async (context) =>
       activationKey: key,
       name: readName(body.name),
       actor: session.userID,
+      now: portal.now(),
     });
     return new Response(null, { status: 204 });
   });

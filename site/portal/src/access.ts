@@ -27,22 +27,16 @@ export interface LicenseView {
   activations: Activation[];
 }
 
-/**
- * licenseFor loads a license with its ledger for a member of the owning organization.
- * Staff see every license. Throws a 404 for an unknown key and a 403 for a
- * non-member, so an outsider cannot tell the two apart from the page body alone.
- */
-export const licenseFor = async (
+const view = async (
   { store }: Portal,
   session: Session,
   key: string,
-): Promise<LicenseView> => {
+): Promise<LicenseView | undefined> => {
   const [lic] = await store.query.select().from(license).where(eq(license.key, key));
-  if (lic == null) throw notFound("License");
+  if (lic == null) return undefined;
   const organization = await retrieve(store, lic.organization);
-  if (organization == null) throw notFound("Organization");
-  if (!session.staff && !isMember(organization, session))
-    throw forbidden("You are not a member of the organization that owns this license");
+  if (organization == null) return undefined;
+  if (!session.staff && !isMember(organization, session)) return undefined;
   const activations = await store.query
     .select()
     .from(activation)
@@ -51,7 +45,22 @@ export const licenseFor = async (
   return { license: lic, organization, activations };
 };
 
-/** activationFor loads an activation through the license access check. */
+/**
+ * licenseFor loads a license with its ledger for a member of the owning organization.
+ * Staff see every license. Throws the same 404 for an unknown key and a non-member, so
+ * an outsider cannot tell whether a license exists.
+ */
+export const licenseFor = async (
+  portal: Portal,
+  session: Session,
+  key: string,
+): Promise<LicenseView> => {
+  const found = await view(portal, session, key);
+  if (found == null) throw notFound("License");
+  return found;
+};
+
+/** activationFor loads an activation through the same access check as licenseFor. */
 export const activationFor = async (
   portal: Portal,
   session: Session,
@@ -61,9 +70,9 @@ export const activationFor = async (
     .select()
     .from(activation)
     .where(eq(activation.key, key));
-  if (act == null) throw notFound("Activation");
-  const view = await licenseFor(portal, session, act.license);
-  return { activation: act, ...view };
+  const found = act == null ? undefined : await view(portal, session, act.license);
+  if (found == null) throw notFound("Activation");
+  return { activation: act, ...found };
 };
 
 export const requireStaff = (session: Session): void => {
