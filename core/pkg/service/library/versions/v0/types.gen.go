@@ -34,7 +34,7 @@ type FieldKey = uuid.UUID
 // EnumValue maps one integer value of an enum to a name.
 type EnumValue struct {
 	// Value is the integer value.
-	Value int64 `json:"value" msgpack:"value"`
+	Value int32 `json:"value" msgpack:"value"`
 	// Name is the name of the value.
 	Name string `json:"name" msgpack:"name"`
 }
@@ -172,7 +172,7 @@ type FieldIdentifier struct {
 	// Field is the key of the message field that holds the identifier.
 	Field FieldKey `json:"field" msgpack:"field"`
 	// Value is the raw value the field must hold.
-	Value int64 `json:"value" msgpack:"value"`
+	Value int32 `json:"value" msgpack:"value"`
 }
 
 func (FieldIdentifier) isIdentifierVariant() {}
@@ -319,7 +319,7 @@ type BaseField struct {
 	Multiplexor *FieldKey `json:"multiplexor,omitzero" msgpack:"multiplexor,omitempty"`
 	// MultiplexValues are the raw values of the multiplexor for which this field is
 	// present.
-	MultiplexValues []int64 `json:"multiplex_values" msgpack:"multiplex_values"`
+	MultiplexValues []int32 `json:"multiplex_values" msgpack:"multiplex_values"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.

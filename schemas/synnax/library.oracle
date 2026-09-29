@@ -28,7 +28,7 @@ FieldKey = uuid {
 }
 
 EnumValue struct {
-    value int64 = 0 {
+    value int32 = 0 {
         @doc value "is the integer value."
     }
     name  string {
@@ -116,7 +116,7 @@ Identifier union on type {
         field FieldKey {
             @doc value "is the key of the message field that holds the identifier."
         }
-        value int64 = 0 {
+        value int32 = 0 {
             @doc value "is the raw value the field must hold."
         }
 
@@ -165,7 +165,7 @@ BaseField struct {
             absent the field is always present.
         """
     }
-    multiplex_values int64[] = [] {
+    multiplex_values int32[] = [] {
         @doc value """
             are the raw values of the multiplexor for which this field is present.
         """

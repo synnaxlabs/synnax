@@ -14,7 +14,8 @@ from __future__ import annotations
 from typing import Annotated, Literal, TypeAlias, Union
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
+from pydantic import Field as PydanticField
 
 from synnax.ontology.payload import ID
 from x import telem
@@ -55,7 +56,7 @@ class EnumValue(BaseModel):
         name: Is the name of the value.
     """
 
-    value: int = Field(default=0, ge=-9223372036854775808, le=9223372036854775807)
+    value: int = PydanticField(default=0, ge=-2147483648, le=2147483647)
     name: str
 
 
@@ -80,8 +81,8 @@ class BaseEntry(BaseModel):
         name: Is the name of the entry, unique within its library.
     """
 
-    key: EntryKey = Field(default_factory=uuid4)
-    name: str = Field(min_length=1)
+    key: EntryKey = PydanticField(default_factory=uuid4)
+    name: str = PydanticField(min_length=1)
 
 
 class BaseField(BaseModel):
@@ -101,32 +102,32 @@ class BaseField(BaseModel):
             present.
     """
 
-    key: FieldKey = Field(default_factory=uuid4)
-    name: str = Field(min_length=1)
+    key: FieldKey = PydanticField(default_factory=uuid4)
+    name: str = PydanticField(min_length=1)
     scale: float = 1
     offset: float = 0
     units: str = ""
     enumeration: EntryKey | None = None
     multiplexor: FieldKey | None = None
-    multiplex_values: list[int] = Field(default_factory=list)
+    multiplex_values: list[int] = PydanticField(default_factory=list)
 
 
 class CanIdentifier(BaseModel):
     """Matches a CAN frame by arbitration identifier."""
 
     type: Literal["can"] = "can"
-    id: int = Field(default=0, ge=0, le=4294967295)
+    id: int = PydanticField(default=0, ge=0, le=4294967295)
     extended: bool = False
     fd: bool = False
-    mask: int | None = Field(default=None, ge=0, le=4294967295)
+    mask: int | None = PydanticField(default=None, ge=0, le=4294967295)
 
 
 class Arinc429Identifier(BaseModel):
     """Matches an ARINC 429 word by label."""
 
     type: Literal["arinc429"] = "arinc429"
-    label: int = Field(default=0, ge=0, le=255)
-    sdi: int = Field(default=0, ge=0, le=255)
+    label: int = PydanticField(default=0, ge=0, le=255)
+    sdi: int = PydanticField(default=0, ge=0, le=255)
     sdi_matched: bool = False
 
 
@@ -134,10 +135,10 @@ class Mil1553Identifier(BaseModel):
     """Matches a MIL-STD-1553 transfer by command word."""
 
     type: Literal["mil1553"] = "mil1553"
-    rt: int = Field(default=0, ge=0, le=255)
-    subaddress: int = Field(default=0, ge=0, le=255)
+    rt: int = PydanticField(default=0, ge=0, le=255)
+    subaddress: int = PydanticField(default=0, ge=0, le=255)
     direction: Direction
-    word_count: int = Field(default=1, ge=0, le=255)
+    word_count: int = PydanticField(default=1, ge=0, le=255)
 
 
 class FieldIdentifier(BaseModel):
@@ -145,7 +146,7 @@ class FieldIdentifier(BaseModel):
 
     type: Literal["field"] = "field"
     field: FieldKey
-    value: int = Field(default=0, ge=-9223372036854775808, le=9223372036854775807)
+    value: int = PydanticField(default=0, ge=-2147483648, le=2147483647)
 
 
 class TokenIdentifier(BaseModel):
@@ -164,7 +165,7 @@ Identifier = Annotated[
         FieldIdentifier,
         TokenIdentifier,
     ],
-    Field(discriminator="type"),
+    PydanticField(discriminator="type"),
 ]
 
 
@@ -172,8 +173,8 @@ class BinaryField(BaseField):
     """Is a field read from a bit range of a binary payload."""
 
     encoding: Literal["binary"] = "binary"
-    start_bit: int = Field(default=0, ge=0, le=65535)
-    bit_length: int = Field(default=8, ge=0, le=255)
+    start_bit: int = PydanticField(default=0, ge=0, le=65535)
+    bit_length: int = PydanticField(default=8, ge=0, le=255)
     byte_order: ByteOrder = "little_endian"
     signed: bool = False
     float: bool = False
@@ -183,7 +184,7 @@ class DelimitedField(BaseField):
     """Is a field read from one item of a delimited text line."""
 
     encoding: Literal["delimited"] = "delimited"
-    position: int = Field(default=0, ge=0, le=4294967295)
+    position: int = PydanticField(default=0, ge=0, le=4294967295)
 
 
 class TaggedField(BaseField):
@@ -196,7 +197,7 @@ class TaggedField(BaseField):
 # Is one value carried by a message.
 Field = Annotated[
     Union[BinaryField, DelimitedField, TaggedField],
-    Field(discriminator="encoding"),
+    PydanticField(discriminator="encoding"),
 ]
 
 
@@ -204,7 +205,7 @@ class EnumEntry(BaseEntry):
     """Maps integer values to names."""
 
     kind: Literal["enum"] = "enum"
-    values: list[EnumValue] = Field(default_factory=list)
+    values: list[EnumValue] = PydanticField(default_factory=list)
 
 
 class MessageEntry(BaseEntry):
@@ -213,9 +214,9 @@ class MessageEntry(BaseEntry):
     kind: Literal["message"] = "message"
     identifier: Identifier | None = None
     format: Format = "binary"
-    length: int | None = Field(default=None, ge=0, le=65535)
-    fields: list[Field] = Field(default_factory=list)
-    period: telem.TimeSpan | None = Field(
+    length: int | None = PydanticField(default=None, ge=0, le=65535)
+    fields: list[Field] = PydanticField(default_factory=list)
+    period: telem.TimeSpan | None = PydanticField(
         default=None, ge=-9223372036854775808, le=9223372036854775807
     )
     query: str | None = None
@@ -225,7 +226,7 @@ class MessageEntry(BaseEntry):
 # Is one typed item in a library.
 Entry = Annotated[
     Union[EnumEntry, MessageEntry],
-    Field(discriminator="kind"),
+    PydanticField(discriminator="kind"),
 ]
 
 
@@ -239,9 +240,9 @@ class Library(BaseModel):
         entries: Are the entries the library holds.
     """
 
-    key: Key = Field(default_factory=uuid4)
-    name: str = Field(min_length=1)
-    entries: list[Entry] = Field(default_factory=list)
+    key: Key = PydanticField(default_factory=uuid4)
+    name: str = PydanticField(min_length=1)
+    entries: list[Entry] = PydanticField(default_factory=list)
 
     def __hash__(self) -> int:
         return hash(self.key)

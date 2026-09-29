@@ -24,7 +24,7 @@ namespace synnax::library {
 
 inline EnumValue EnumValue::parse(x::json::Parser parser) {
     return EnumValue{
-        .value = parser.field<std::int64_t>("value", 0),
+        .value = parser.field<std::int32_t>("value", 0),
         .name = parser.field<std::string>("name"),
     };
 }
@@ -45,9 +45,9 @@ inline BaseField BaseField::parse(x::json::Parser parser) {
         .units = parser.field<std::string>("units", ""),
         .enumeration = parser.field<std::optional<EntryKey>>("enumeration"),
         .multiplexor = parser.field<std::optional<FieldKey>>("multiplexor"),
-        .multiplex_values = parser.field<std::vector<std::int64_t>>(
+        .multiplex_values = parser.field<std::vector<std::int32_t>>(
             "multiplex_values",
-            std::vector<std::int64_t>{}
+            std::vector<std::int32_t>{}
         ),
     };
 }
@@ -182,7 +182,7 @@ inline x::json::json Mil1553Identifier::to_json() const {
 inline FieldIdentifier FieldIdentifier::parse(x::json::Parser parser) {
     FieldIdentifier result;
     result.field = parser.field<FieldKey>("field");
-    result.value = parser.field<std::int64_t>("value", 0);
+    result.value = parser.field<std::int32_t>("value", 0);
     result.type = parser.field<std::string>("type");
     return result;
 }

@@ -59,7 +59,7 @@ func (bf BaseField) EncodeOrc(w *orc.Writer) error {
 	if bf.MultiplexValues != nil {
 		w.Uint32(uint32(len(bf.MultiplexValues)))
 		for i := range bf.MultiplexValues {
-			w.Int64(int64(bf.MultiplexValues[i]))
+			w.Int32(int32(bf.MultiplexValues[i]))
 		}
 	}
 	return nil
@@ -119,9 +119,9 @@ func (bf *BaseField) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			bf.MultiplexValues = make([]int64, n)
+			bf.MultiplexValues = make([]int32, n)
 			for i := range bf.MultiplexValues {
-				if bf.MultiplexValues[i], err = r.Int64(); err != nil {
+				if bf.MultiplexValues[i], err = r.Int32(); err != nil {
 					return err
 				}
 			}
@@ -324,7 +324,7 @@ func (e *Entry) DecodeOrc(r *orc.Reader) error {
 
 // EncodeOrc writes the value to w in the Orc binary format.
 func (ev EnumValue) EncodeOrc(w *orc.Writer) error {
-	w.Int64(int64(ev.Value))
+	w.Int32(int32(ev.Value))
 	w.String(ev.Name)
 	return nil
 }
@@ -332,7 +332,7 @@ func (ev EnumValue) EncodeOrc(w *orc.Writer) error {
 // DecodeOrc reads the value from r in the Orc binary format.
 func (ev *EnumValue) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if ev.Value, err = r.Int64(); err != nil {
+	if ev.Value, err = r.Int32(); err != nil {
 		return err
 	}
 	if ev.Name, err = r.String(); err != nil {
@@ -456,7 +456,7 @@ func (iv Identifier) EncodeOrc(w *orc.Writer) error {
 	case FieldIdentifier:
 		w.String("field")
 		w.Write(v.Field[:])
-		w.Int64(int64(v.Value))
+		w.Int32(int32(v.Value))
 	case TokenIdentifier:
 		w.String("token")
 		w.String(v.Prefix)
@@ -534,7 +534,7 @@ func (iv *Identifier) DecodeOrc(r *orc.Reader) error {
 		if _, err := r.Read(v.Field[:]); err != nil {
 			return err
 		}
-		if v.Value, err = r.Int64(); err != nil {
+		if v.Value, err = r.Int32(); err != nil {
 			return err
 		}
 		iv.Variant = v

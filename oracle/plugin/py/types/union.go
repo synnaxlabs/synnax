@@ -29,6 +29,8 @@ type unionData struct {
 	Doc string
 	// DiscName is the discriminator field name (e.g. "type").
 	DiscName string
+	// Field is the name pydantic's Field is imported as.
+	Field string
 	// Variants lists every variant in declaration order.
 	Variants []unionVariantData
 }
@@ -63,7 +65,7 @@ func processUnion(
 	keyFields []keyFieldData,
 ) unionData {
 	form := entry.Form.(resolution.UnionForm)
-	data.imports.addPydantic("Field")
+	field := data.imports.addField()
 	data.imports.addTyping("Annotated")
 	data.imports.addTyping("Union")
 	data.imports.addTyping("Literal")
@@ -71,6 +73,7 @@ func processUnion(
 		Name:     getPyName(entry),
 		Doc:      doc.Get(entry.Domains),
 		DiscName: keywords.Escape(form.Discriminator),
+		Field:    field,
 	}
 	for _, v := range form.Variants {
 		vd := unionVariantData{

@@ -107,6 +107,11 @@ func generatePyFile(
 	if len(structs) > 0 {
 		data.imports.addPydantic("BaseModel")
 	}
+	for _, typ := range slices.Concat(structs, enums, typeDefs, unions) {
+		if getPyName(typ) == "Field" {
+			data.imports.field = "PydanticField"
+		}
+	}
 
 	skip := func(typ resolution.Type) bool { return omit.IsSkipped(typ, "py") }
 	rawKeyFields := key.Collect(structs, table, skip)
@@ -744,7 +749,7 @@ func processStruct(
 				// Find the field type from parent
 				for _, pf := range parentFields {
 					if pf.Name == omittedName {
-						data.imports.addPydantic("Field")
+						data.imports.addField()
 						// Run the inherited field through the normal field
 						// pipeline so it keeps its real type, default, and
 						// validation; processField adds exclude=True because the
@@ -967,9 +972,9 @@ func buildDefault(
 
 	if isAnyOptional {
 		if hasConstraints {
-			data.imports.addPydantic("Field")
 			return fmt.Sprintf(
-				" = Field(default=None, %s)",
+				" = %s(default=None, %s)",
+				data.imports.addField(),
 				strings.Join(constraints, ", "),
 			)
 		}
@@ -983,8 +988,11 @@ func buildDefault(
 		if len(constraints) == 1 && strings.HasPrefix(constraints[0], "default=") {
 			return " = " + strings.TrimPrefix(constraints[0], "default=")
 		}
-		data.imports.addPydantic("Field")
-		return fmt.Sprintf(" = Field(%s)", strings.Join(constraints, ", "))
+		return fmt.Sprintf(
+			" = %s(%s)",
+			data.imports.addField(),
+			strings.Join(constraints, ", "),
+		)
 	}
 
 	return ""
@@ -1682,7 +1690,10 @@ type importManager struct {
 	typing     []string
 	enum       []string
 	pydantic   []string
-	synnax     []string
+	// field is the name pydantic's Field is imported as. It differs from "Field" when
+	// the file declares a type of that name.
+	field  string
+	synnax []string
 	// ontology holds imports from synnax.ontology.payload.
 	ontology []string
 	// namespaces maps alias to path.
@@ -1694,6 +1705,7 @@ type importManager struct {
 func newImportManager() *importManager {
 	return &importManager{
 		fieldNames: make(set.Set[string]),
+		field:      "Field",
 	}
 }
 
@@ -1725,6 +1737,12 @@ func (m *importManager) addPydantic(name string) {
 	if !lo.Contains(m.pydantic, name) {
 		m.pydantic = append(m.pydantic, name)
 	}
+}
+
+// addField imports pydantic's Field and returns the name to call it by.
+func (m *importManager) addField() string {
+	m.addPydantic("Field")
+	return m.field
 }
 
 func (m *importManager) addSynnax(name string) {
@@ -1838,10 +1856,17 @@ type ontologyData struct {
 	StructName string
 }
 
-func (d *templateData) UUIDImports() []string     { return d.imports.uuid }
-func (d *templateData) TypingImports() []string   { return d.imports.typing }
-func (d *templateData) EnumImports() []string     { return d.imports.enum }
-func (d *templateData) PydanticImports() []string { return d.imports.pydantic }
+func (d *templateData) UUIDImports() []string   { return d.imports.uuid }
+func (d *templateData) TypingImports() []string { return d.imports.typing }
+func (d *templateData) EnumImports() []string   { return d.imports.enum }
+func (d *templateData) PydanticImports() []string {
+	return lo.Map(d.imports.pydantic, func(name string, _ int) string {
+		if name == "Field" && d.imports.field != name {
+			return name + " as " + d.imports.field
+		}
+		return name
+	})
+}
 func (d *templateData) SynnaxImports() []string   { return d.imports.synnax }
 func (d *templateData) OntologyImports() []string { return d.imports.ontology }
 
@@ -2171,7 +2196,7 @@ class {{ .ClassName }}({{ range $i, $p := .Parents }}{{ if $i }}, {{ end }}{{ $p
 {{ end -}}
 {{ .Name }} = Annotated[
     Union[{{ range $i, $v := .Variants }}{{ if $i }}, {{ end }}{{ $v.ClassName }}{{ end }}],
-    Field(discriminator="{{ .DiscName }}"),
+    {{ .Field }}(discriminator="{{ .DiscName }}"),
 ]
 {{- end }}
 {{- end }}

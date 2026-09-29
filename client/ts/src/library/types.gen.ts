@@ -29,7 +29,7 @@ export type Format = z.infer<typeof formatZ>;
 /** EnumValue maps one integer value of an enum to a name. */
 export const enumValueZ = z.object({
   /** value is the integer value. */
-  value: z.int64().default(0),
+  value: z.int32().default(0),
   /** name is the name of the value. */
   name: z.string(),
 });
@@ -92,7 +92,7 @@ export const baseFieldZ = z.object({
    * present.
    */
   multiplexValues: z
-    .int64()
+    .int32()
     .array()
     .default(() => []),
 });
@@ -147,7 +147,7 @@ export const fieldIdentifierZ = z.object({
   /** field is the key of the message field that holds the identifier. */
   field: fieldKeyZ,
   /** value is the raw value the field must hold. */
-  value: z.int64().default(0),
+  value: z.int32().default(0),
 });
 export interface FieldIdentifier extends z.infer<typeof fieldIdentifierZ> {}
 

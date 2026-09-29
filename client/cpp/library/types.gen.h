@@ -52,7 +52,7 @@ using FieldKey = x::uuid::UUID;
 /// @brief EnumValue maps one integer value of an enum to a name.
 struct EnumValue {
     /// @brief value is the integer value.
-    std::int64_t value = 0;
+    std::int32_t value = 0;
     /// @brief name is the name of the value.
     std::string name;
 
@@ -124,7 +124,7 @@ struct BaseField {
     /// @brief multiplex_values are the raw values of the multiplexor for which this
     /// field
     /// is present.
-    std::vector<std::int64_t> multiplex_values = {};
+    std::vector<std::int32_t> multiplex_values = {};
 
     static BaseField parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -190,7 +190,7 @@ struct FieldIdentifier {
     /// @brief field is the key of the message field that holds the identifier.
     FieldKey field;
     /// @brief value is the raw value the field must hold.
-    std::int64_t value = 0;
+    std::int32_t value = 0;
 
     static FieldIdentifier parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

@@ -37,7 +37,7 @@ enum Format {
 // EnumValue maps one integer value of an enum to a name.
 message EnumValue {
   // value is the integer value.
-  int64 value = 1;
+  int32 value = 1;
   // name is the name of the value.
   string name = 2;
 }
@@ -62,7 +62,7 @@ message BaseField {
   optional string multiplexor = 7;
   // multiplex_values are the raw values of the multiplexor for which this field is
   // present.
-  repeated int64 multiplex_values = 8;
+  repeated int32 multiplex_values = 8;
 }
 
 // BaseEntry carries the parts every library entry shares.
@@ -125,7 +125,7 @@ message IdentifierFieldPayload {
   // field is the key of the message field that holds the identifier.
   string field = 1;
   // value is the raw value the field must hold.
-  int64 value = 2;
+  int32 value = 2;
 }
 message IdentifierTokenPayload {
   // prefix is the text a line must start with. An empty prefix matches every line.

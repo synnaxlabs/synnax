@@ -178,7 +178,7 @@ func (Format) EnumDescriptor() ([]byte, []int) {
 type EnumValue struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// value is the integer value.
-	Value int64 `protobuf:"varint,1,opt,name=value,proto3" json:"value,omitempty"`
+	Value int32 `protobuf:"varint,1,opt,name=value,proto3" json:"value,omitempty"`
 	// name is the name of the value.
 	Name          string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -215,7 +215,7 @@ func (*EnumValue) Descriptor() ([]byte, []int) {
 	return file_core_pkg_service_library_pb_library_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *EnumValue) GetValue() int64 {
+func (x *EnumValue) GetValue() int32 {
 	if x != nil {
 		return x.Value
 	}
@@ -250,7 +250,7 @@ type BaseField struct {
 	Multiplexor *string `protobuf:"bytes,7,opt,name=multiplexor,proto3,oneof" json:"multiplexor,omitempty"`
 	// multiplex_values are the raw values of the multiplexor for which this field is
 	// present.
-	MultiplexValues []int64 `protobuf:"varint,8,rep,packed,name=multiplex_values,json=multiplexValues,proto3" json:"multiplex_values,omitempty"`
+	MultiplexValues []int32 `protobuf:"varint,8,rep,packed,name=multiplex_values,json=multiplexValues,proto3" json:"multiplex_values,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -334,7 +334,7 @@ func (x *BaseField) GetMultiplexor() string {
 	return ""
 }
 
-func (x *BaseField) GetMultiplexValues() []int64 {
+func (x *BaseField) GetMultiplexValues() []int32 {
 	if x != nil {
 		return x.MultiplexValues
 	}
@@ -730,7 +730,7 @@ type IdentifierFieldPayload struct {
 	// field is the key of the message field that holds the identifier.
 	Field string `protobuf:"bytes,1,opt,name=field,proto3" json:"field,omitempty"`
 	// value is the raw value the field must hold.
-	Value         int64 `protobuf:"varint,2,opt,name=value,proto3" json:"value,omitempty"`
+	Value         int32 `protobuf:"varint,2,opt,name=value,proto3" json:"value,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -772,7 +772,7 @@ func (x *IdentifierFieldPayload) GetField() string {
 	return ""
 }
 
-func (x *IdentifierFieldPayload) GetValue() int64 {
+func (x *IdentifierFieldPayload) GetValue() int32 {
 	if x != nil {
 		return x.Value
 	}
@@ -1479,7 +1479,7 @@ const file_core_pkg_service_library_pb_library_proto_rawDesc = "" +
 	"\n" +
 	")core/pkg/service/library/pb/library.proto\x12\x12service.library.pb\"5\n" +
 	"\tEnumValue\x12\x14\n" +
-	"\x05value\x18\x01 \x01(\x03R\x05value\x12\x12\n" +
+	"\x05value\x18\x01 \x01(\x05R\x05value\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\"\x8e\x02\n" +
 	"\tBaseField\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
@@ -1489,7 +1489,7 @@ const file_core_pkg_service_library_pb_library_proto_rawDesc = "" +
 	"\x05units\x18\x05 \x01(\tR\x05units\x12%\n" +
 	"\venumeration\x18\x06 \x01(\tH\x00R\venumeration\x88\x01\x01\x12%\n" +
 	"\vmultiplexor\x18\a \x01(\tH\x01R\vmultiplexor\x88\x01\x01\x12)\n" +
-	"\x10multiplex_values\x18\b \x03(\x03R\x0fmultiplexValuesB\x0e\n" +
+	"\x10multiplex_values\x18\b \x03(\x05R\x0fmultiplexValuesB\x0e\n" +
 	"\f_enumerationB\x0e\n" +
 	"\f_multiplexor\"1\n" +
 	"\tBaseEntry\x12\x10\n" +
@@ -1523,7 +1523,7 @@ const file_core_pkg_service_library_pb_library_proto_rawDesc = "" +
 	"word_count\x18\x04 \x01(\rR\twordCount\"D\n" +
 	"\x16IdentifierFieldPayload\x12\x14\n" +
 	"\x05field\x18\x01 \x01(\tR\x05field\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\x03R\x05value\"0\n" +
+	"\x05value\x18\x02 \x01(\x05R\x05value\"0\n" +
 	"\x16IdentifierTokenPayload\x12\x16\n" +
 	"\x06prefix\x18\x01 \x01(\tR\x06prefix\"\xbc\x01\n" +
 	"\x12FieldBinaryPayload\x12\x1b\n" +

@@ -36,7 +36,7 @@ var (
 		Units:           "test_5",
 		Enumeration:     new(v0.EntryKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
 		Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
-		MultiplexValues: []int64{9},
+		MultiplexValues: []int32{9},
 	}
 )
 
@@ -76,7 +76,7 @@ var _ = Describe("Codec", func() {
 				Units:           "",
 				Enumeration:     nil,
 				Multiplexor:     nil,
-				MultiplexValues: []int64{},
+				MultiplexValues: []int32{},
 			}),
 			Entry("empty collections", v0.BaseField{
 				Key:             uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -86,7 +86,7 @@ var _ = Describe("Codec", func() {
 				Units:           "test_5",
 				Enumeration:     new(v0.EntryKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
 				Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
-				MultiplexValues: []int64{},
+				MultiplexValues: []int32{},
 			}),
 		)
 	})
@@ -477,7 +477,7 @@ func FuzzDecodeBaseField(f *testing.F) {
 			Units:           "",
 			Enumeration:     nil,
 			Multiplexor:     nil,
-			MultiplexValues: []int64{},
+			MultiplexValues: []int32{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -494,7 +494,7 @@ func FuzzDecodeBaseField(f *testing.F) {
 			Units:           "test_5",
 			Enumeration:     new(v0.EntryKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
 			Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
-			MultiplexValues: []int64{},
+			MultiplexValues: []int32{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
