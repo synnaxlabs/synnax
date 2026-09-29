@@ -14,7 +14,7 @@ import { failure, loadScoped } from "@/page";
 import { Page } from "@/ui/Page";
 import { Licenses } from "@/ui/admin/Licenses";
 import { type Owned, listAll } from "@/server/license/list";
-import { type Listed, listTeams } from "@/server/directory";
+import { type Listed } from "@/server/directory";
 
 const loaded = await loadScoped(Astro);
 if (loaded instanceof Response) return loaded;
@@ -25,7 +25,7 @@ let teams: Listed[] = [];
 let licenses: Owned[] = [];
 try {
     requireStaff(session);
-    teams = await listTeams(Astro);
+    teams = await portal.directory.teams();
     licenses = await listAll(portal.store.query);
 } catch (err) {
     const f = failure(err);
@@ -41,16 +41,9 @@ try {
     scope={scope}
     tab="admin"
 >
-    {
-        error != null ? (
-            <Page client:load title="All licenses" error={error} />
-        ) : (
-            <Licenses
-                client:load
-                teams={teams}
-                licenses={licenses}
-                now={portal.now()}
-            />
-        )
-    }
+    {error != null ? (
+        <Page client:load title="All licenses" error={error} />
+    ) : (
+        <Licenses client:load teams={teams} licenses={licenses} now={portal.now()} />
+    )}
 </Portal>

@@ -9,7 +9,7 @@
 
 import { type APIContext } from "astro";
 
-import { open, type Portal } from "@/portal";
+import { type Portal } from "@/portal";
 import { type Organization, type OrganizationKind } from "@/server/db/schema";
 import { HTTPError } from "@/server/errors";
 import { organizationsFor, pick } from "@/server/organization";
@@ -26,7 +26,7 @@ export interface Loaded {
  * log in that returns them here afterwards.
  */
 export const load = async (context: APIContext): Promise<Loaded | Response> => {
-  const portal = open(context);
+  const { portal } = context.locals;
   try {
     return { portal, session: await portal.session() };
   } catch (err) {

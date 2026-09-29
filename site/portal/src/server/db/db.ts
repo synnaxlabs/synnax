@@ -8,15 +8,25 @@
 // included in the file licenses/APL.txt.
 
 import { Client, neon } from "@neondatabase/serverless";
-import { drizzle as drizzleHTTP, type NeonHttpDatabase } from "drizzle-orm/neon-http";
-import { drizzle as drizzleWS, type NeonDatabase } from "drizzle-orm/neon-serverless";
+import { type ExtractTablesWithRelations } from "drizzle-orm";
+import { drizzle as drizzleHTTP } from "drizzle-orm/neon-http";
+import { drizzle as drizzleWS } from "drizzle-orm/neon-serverless";
+import {
+  type PgDatabase,
+  type PgQueryResultHKT,
+  type PgTransaction,
+} from "drizzle-orm/pg-core";
 
 import * as schema from "@/server/db/schema";
 
-export type Query = NeonHttpDatabase<typeof schema>;
-export type Tx = Parameters<
-  Parameters<NeonDatabase<typeof schema>["transaction"]>[0]
->[0];
+type Schema = typeof schema;
+
+export type Query = PgDatabase<PgQueryResultHKT, Schema>;
+export type Tx = PgTransaction<
+  PgQueryResultHKT,
+  Schema,
+  ExtractTablesWithRelations<Schema>
+>;
 
 /** Reader is what a read runs against: a plain query, or an open transaction. */
 export type Reader = Query | Tx;

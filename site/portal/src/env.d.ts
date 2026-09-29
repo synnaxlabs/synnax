@@ -10,3 +10,9 @@
 /// <reference types="astro/client" />
 /// <reference path="../.astro/types.d.ts" />
 /// <reference types="@clerk/astro/env" />
+
+declare namespace App {
+  interface Locals {
+    portal: import("@/portal").Portal;
+  }
+}

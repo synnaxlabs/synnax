@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { clerkClient } from "@clerk/astro/server";
-import { type APIContext } from "astro";
+import { type clerkClient } from "@clerk/astro/server";
 
-import { type Store } from "@/server/db/db";
-import { type Organization } from "@/server/db/schema";
-import { mirrorTeam } from "@/server/organization";
+/** Person is a Clerk user as the portal names and mails them. */
+export interface Person {
+  email: string;
+  name: string;
+}
 
 /** Listed is one organization in the Clerk dashboard, keyed by its Clerk id. */
 export interface Listed {
@@ -20,51 +21,159 @@ export interface Listed {
   name: string;
 }
 
+/** Team is one Clerk organization the user belongs to. */
+export interface Team extends Listed {
+  role: string;
+}
+
+/** ADMIN_ROLE is Clerk's role for members who manage a team. */
+export const ADMIN_ROLE = "org:admin";
+
+/** Directory reads the people and organizations Clerk holds. */
+export interface Directory {
+  /** person throws when Clerk does not know the user. */
+  person: (userID: string) => Promise<Person>;
+  memberships: (userID: string) => Promise<Team[]>;
+  /** admins returns the email addresses of a team's admins. */
+  admins: (clerkOrgID: string) => Promise<string[]>;
+  /** teams returns every organization in Clerk, newest first. */
+  teams: () => Promise<Listed[]>;
+  /** team throws when Clerk does not know the organization. */
+  team: (clerkOrgID: string) => Promise<Listed>;
+  /** names resolves user ids to the name each reads as, leaving out unknown ids. */
+  names: (userIDs: string[]) => Promise<Record<string, string>>;
+}
+
+type Client = ReturnType<typeof clerkClient>;
+
 const PAGE = 100;
 
-/** listTeams returns every organization in Clerk, newest first. Staff only. */
-export const listTeams = async (context: APIContext): Promise<Listed[]> => {
-  const clerk = clerkClient(context);
-  const all: Listed[] = [];
+const paged = async <T, R>(
+  fetch: (offset: number) => Promise<{ data: T[] }>,
+  map: (item: T) => R,
+): Promise<R[]> => {
+  const all: R[] = [];
   for (let offset = 0; ; offset += PAGE) {
-    const page = await clerk.organizations.getOrganizationList({ limit: PAGE, offset });
-    all.push(...page.data.map((o) => ({ clerkOrgID: o.id, name: o.name })));
-    if (page.data.length < PAGE) return all;
+    const { data } = await fetch(offset);
+    all.push(...data.map(map));
+    if (data.length < PAGE) return all;
   }
 };
 
-/** MAX_USERS is how many ids Clerk resolves in one call. */
-const MAX_USERS = 100;
-
-/**
- * namesFor resolves Clerk user ids to the name each one reads as. An id Clerk does not
- * know is left out.
- */
-export const namesFor = async (
-  context: APIContext,
-  userIDs: string[],
-): Promise<Record<string, string>> => {
-  if (userIDs.length === 0) return {};
-  const { data } = await clerkClient(context).users.getUserList({
-    userId: userIDs.slice(0, MAX_USERS),
-    limit: MAX_USERS,
-  });
-  return Object.fromEntries(
-    data.map((u) => [u.id, u.fullName ?? u.primaryEmailAddress?.emailAddress ?? u.id]),
-  );
+const displayName = (
+  user: { firstName: string | null; lastName: string | null; username: string | null },
+  email: string,
+): string => {
+  const full = [user.firstName, user.lastName].filter((p) => p != null && p !== "");
+  if (full.length > 0) return full.join(" ");
+  return user.username ?? email;
 };
 
-/**
- * adoptTeam mirrors a Clerk organization into the portal's tables and returns the
- * row, so a license can be issued to an organization the webhook has not delivered.
- */
-export const adoptTeam = async (
-  context: APIContext,
-  store: Store,
-  clerkOrgID: string,
-): Promise<Organization> => {
-  const org = await clerkClient(context).organizations.getOrganization({
-    organizationId: clerkOrgID,
-  });
-  return await mirrorTeam(store, { clerkOrgID: org.id, name: org.name });
-};
+export const clerk = (client: Client): Directory => ({
+  person: async (userID) => {
+    const user = await client.users.getUser(userID);
+    const email =
+      user.emailAddresses.find((e) => e.id === user.primaryEmailAddressId)
+        ?.emailAddress ??
+      user.emailAddresses[0]?.emailAddress ??
+      "";
+    return { email, name: displayName(user, email) };
+  },
+  memberships: async (userID) =>
+    await paged(
+      async (offset) =>
+        await client.users.getOrganizationMembershipList({
+          userId: userID,
+          limit: PAGE,
+          offset,
+        }),
+      (m) => ({
+        clerkOrgID: m.organization.id,
+        name: m.organization.name,
+        role: m.role,
+      }),
+    ),
+  admins: async (clerkOrgID) => {
+    const members = await paged(
+      async (offset) =>
+        await client.organizations.getOrganizationMembershipList({
+          organizationId: clerkOrgID,
+          limit: PAGE,
+          offset,
+        }),
+      (m) => m,
+    );
+    return members
+      .filter((m) => m.role === ADMIN_ROLE)
+      .map((m) => m.publicUserData?.identifier)
+      .filter((e): e is string => e != null && e !== "");
+  },
+  teams: async () =>
+    await paged(
+      async (offset) =>
+        await client.organizations.getOrganizationList({ limit: PAGE, offset }),
+      (o) => ({ clerkOrgID: o.id, name: o.name }),
+    ),
+  team: async (clerkOrgID) => {
+    const org = await client.organizations.getOrganization({
+      organizationId: clerkOrgID,
+    });
+    return { clerkOrgID: org.id, name: org.name };
+  },
+  names: async (userIDs) => {
+    if (userIDs.length === 0) return {};
+    const { data } = await client.users.getUserList({
+      userId: userIDs.slice(0, PAGE),
+      limit: PAGE,
+    });
+    return Object.fromEntries(
+      data.map((u) => [
+        u.id,
+        u.fullName ?? u.primaryEmailAddress?.emailAddress ?? u.id,
+      ]),
+    );
+  },
+});
+
+/** Records are what a {@link memory} directory serves. */
+export interface Records {
+  /** people maps a Clerk user id to the person. */
+  people: Record<string, Person>;
+  /** members maps a Clerk user id to the teams the user belongs to. */
+  members: Record<string, Team[]>;
+  organizations: Listed[];
+}
+
+/** memory serves a directory from records instead of Clerk. For tests. */
+export const memory = ({
+  people = {},
+  members = {},
+  organizations = [],
+}: Partial<Records> = {}): Directory & Records => ({
+  people,
+  members,
+  organizations,
+  person: async (userID) => {
+    const person = people[userID];
+    if (person == null) throw new Error(`no Clerk user ${userID}`);
+    return person;
+  },
+  memberships: async (userID) => members[userID] ?? [],
+  admins: async (clerkOrgID) =>
+    Object.entries(members)
+      .filter(([, teams]) =>
+        teams.some((t) => t.clerkOrgID === clerkOrgID && t.role === ADMIN_ROLE),
+      )
+      .map(([userID]) => people[userID]?.email ?? "")
+      .filter((email) => email !== ""),
+  teams: async () => organizations,
+  team: async (clerkOrgID) => {
+    const org = organizations.find((o) => o.clerkOrgID === clerkOrgID);
+    if (org == null) throw new Error(`no Clerk organization ${clerkOrgID}`);
+    return org;
+  },
+  names: async (userIDs) =>
+    Object.fromEntries(
+      userIDs.flatMap((id) => (people[id] == null ? [] : [[id, people[id].name]])),
+    ),
+});

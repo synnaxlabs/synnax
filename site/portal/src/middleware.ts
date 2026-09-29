@@ -11,6 +11,8 @@ import { clerkMiddleware } from "@clerk/astro/server";
 import { type MiddlewareHandler } from "astro";
 import { sequence } from "astro:middleware";
 
+import { open } from "@/portal";
+
 const CLERK = "https://*.clerk.accounts.dev https://clerk.portal.synnaxlabs.com";
 
 const CSP = [
@@ -31,4 +33,9 @@ const headers: MiddlewareHandler = async (_, next) => {
   return response;
 };
 
-export const onRequest = sequence(clerkMiddleware(), headers);
+const portal: MiddlewareHandler = async (context, next) => {
+  context.locals.portal = open(context);
+  return await next();
+};
+
+export const onRequest = sequence(clerkMiddleware(), portal, headers);

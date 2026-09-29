@@ -13,7 +13,6 @@ import { licenseFor } from "@/access";
 import { failure, loadScoped } from "@/page";
 import { Page } from "@/ui/Page";
 import { License } from "@/ui/licenses/License";
-import { namesFor } from "@/server/directory";
 import { listForLicense } from "@/server/event";
 
 const loaded = await loadScoped(Astro);
@@ -28,8 +27,7 @@ try {
     view = await licenseFor(portal, session, Astro.params.key ?? "");
     events = await listForLicense(portal.store, view.license.key);
     const machines = new Set(view.activations.map((a) => a.key));
-    actors = await namesFor(
-        Astro,
+    actors = await portal.directory.names(
         [...new Set(events.map((e) => e.actor))].filter((a) => !machines.has(a)),
     );
 } catch (err) {
@@ -46,20 +44,18 @@ try {
     scope={view?.organization ?? scope}
     tab={view == null ? null : "licenses"}
 >
-    {
-        view == null ? (
-            <Page client:load title="License" error={error} />
-        ) : (
-            <License
-                client:load
-                license={view.license}
-                organization={view.organization}
-                activations={view.activations}
-                events={events}
-                actors={actors}
-                staff={session.staff}
-                now={portal.now()}
-            />
-        )
-    }
+    {view == null ? (
+        <Page client:load title="License" error={error} />
+    ) : (
+        <License
+            client:load
+            license={view.license}
+            organization={view.organization}
+            activations={view.activations}
+            events={events}
+            actors={actors}
+            staff={session.staff}
+            now={portal.now()}
+        />
+    )}
 </Portal>

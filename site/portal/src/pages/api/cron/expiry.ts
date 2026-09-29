@@ -8,9 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type APIRoute } from "astro";
-import { CRON_SECRET } from "astro:env/server";
 
-import { open } from "@/portal";
 import { sweep } from "@/server/license/expiry";
 import { retrieve } from "@/server/organization";
 import { emails } from "@/server/session";
@@ -20,15 +18,15 @@ import { emails } from "@/server/session";
  * token; anything else is refused.
  */
 export const GET: APIRoute = async (context) => {
-  if (context.request.headers.get("authorization") !== `Bearer ${CRON_SECRET}`)
+  const { portal } = context.locals;
+  if (context.request.headers.get("authorization") !== `Bearer ${portal.cronSecret}`)
     return new Response("Unauthorized", { status: 401 });
-  const portal = open(context);
   const sent = await sweep({
     store: portal.store,
     mail: portal.mail,
     recipients: async (key) => {
       const org = await retrieve(portal.store, key);
-      return org == null ? [] : await emails(context, org);
+      return org == null ? [] : await emails(portal.directory, org);
     },
     now: portal.now(),
   });

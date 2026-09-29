@@ -9,7 +9,6 @@
 
 import { type APIRoute } from "astro";
 
-import { open } from "@/portal";
 import { handle } from "@/respond";
 import { unauthorized } from "@/server/errors";
 import { renew, resolve } from "@/server/license/desktop";
@@ -45,7 +44,7 @@ export const POST: APIRoute = async (context) =>
         context.request.headers.get("authorization") ?? "",
       )?.[1];
       if (secret == null) throw unauthorized();
-      const portal = open(context);
+      const { portal } = context.locals;
       const now = portal.now();
       const machine = await resolve(portal.store, secret);
       await check(portal.store, {

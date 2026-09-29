@@ -10,7 +10,6 @@
 import { type APIRoute } from "astro";
 
 import { activationFor } from "@/access";
-import { open } from "@/portal";
 import { form, handle } from "@/respond";
 import { readName, rename } from "@/server/license/machine";
 
@@ -18,7 +17,7 @@ import { readName, rename } from "@/server/license/machine";
 export const POST: APIRoute = async (context) =>
   await handle(async () => {
     const key = context.params.key ?? "";
-    const portal = open(context);
+    const { portal } = context.locals;
     const session = await portal.session();
     await activationFor(portal, session, key);
     const body = await form(context);

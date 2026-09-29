@@ -9,7 +9,6 @@
 
 import { type APIRoute } from "astro";
 
-import { open } from "@/portal";
 import { form, handle } from "@/respond";
 import { badRequest } from "@/server/errors";
 import { link } from "@/server/license/desktop";
@@ -25,7 +24,7 @@ import { check } from "@/server/ratelimit";
  */
 export const POST: APIRoute = async (context) =>
   await handle(async () => {
-    const portal = open(context);
+    const { portal } = context.locals;
     const session = await portal.session();
     const body = await form(context);
     let fingerprint: string[];

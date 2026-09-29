@@ -10,11 +10,10 @@
 import { type APIRoute } from "astro";
 
 import { requireStaff } from "@/access";
-import { open } from "@/portal";
 import { form, handle } from "@/respond";
-import { adoptTeam } from "@/server/directory";
 import { badRequest } from "@/server/errors";
 import { issue } from "@/server/license/issue";
+import { adoptTeam } from "@/server/organization";
 
 /**
  * POST issues a license to the Clerk organization in `organization` and answers
@@ -22,7 +21,7 @@ import { issue } from "@/server/license/issue";
  */
 export const POST: APIRoute = async (context) =>
   await handle(async () => {
-    const portal = open(context);
+    const { portal } = context.locals;
     const session = await portal.session();
     requireStaff(session);
     const body = await form(context);
@@ -34,7 +33,7 @@ export const POST: APIRoute = async (context) =>
     if (!Number.isInteger(channels) || channels < 0)
       throw badRequest("Channels must be a whole number, 0 for unlimited");
     if (!body.organization) throw badRequest("Choose an organization");
-    const team = await adoptTeam(context, portal.store, body.organization);
+    const team = await adoptTeam(portal.store, portal.directory, body.organization);
     const { key } = await issue(portal.store, {
       organization: team.key,
       edition: "enterprise",
