@@ -1,6 +1,7 @@
 {
   "name": "@synnaxlabs/pluto",
   "version": "0.58.1",
+  "private": true,
   "type": "module",
   "scripts": {
     "build": "vite build",
