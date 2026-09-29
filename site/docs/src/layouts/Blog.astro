@@ -11,13 +11,43 @@
 import Article from "@/components/article/Article.astro";
 import OnThisPage from "@/components/nav/OnThisPage.astro";
 import Root from "@/layouts/Root.astro";
+import { normalizeRoute } from "@/util/route";
 
 const { headings, frontmatter } = Astro.props;
 const { title, heading, description, published, author, authorImage, authorLink } =
     frontmatter;
+const route = normalizeRoute(Astro.url.pathname);
+const organization = {
+    "@type": "Organization",
+    name: "Synnax Labs",
+    url: "https://www.synnaxlabs.com",
+};
+const posting = {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    headline: (heading ?? title).replace(/`/g, ""),
+    description,
+    datePublished: published,
+    url: new URL(route, Astro.site).href,
+    author:
+        author == null
+            ? organization
+            : { "@type": "Person", name: author, url: authorLink },
+    publisher: organization,
+};
 ---
 
-<Root frontmatter={frontmatter} headings={headings}>
+<Root
+    frontmatter={frontmatter}
+    headings={headings}
+    article={{ publishedTime: published, authors: author == null ? [] : [author] }}
+>
+    <link slot="head" rel="alternate" type="text/markdown" href={`${route}.md`} />
+    <script
+        slot="head"
+        type="application/ld+json"
+        set:html={JSON.stringify(posting).replaceAll("<", "\\u003c")}
+    />
     <section>
         <Article
             url={Astro.url.pathname}
