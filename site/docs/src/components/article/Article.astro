@@ -28,6 +28,14 @@ const {
 } = Astro.props;
 
 const visibleTitleLength = String(title ?? "").replace(/`/g, "").length;
+const publishedLabel =
+    published &&
+    new Date(published).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        timeZone: "UTC",
+    });
 ---
 
 <article transition:animate="none">
@@ -36,10 +44,16 @@ const visibleTitleLength = String(title ?? "").replace(/`/g, "").length;
     )}
     {published && (
         <div class="blog-meta">
-            <span class="blog-published">{published}</span>
+            <time class="blog-published" datetime={published}>
+                {publishedLabel}
+            </time>
         </div>
     )}
-    <Text.Text className="article-title" level={visibleTitleLength > 30 ? "h2" : "h1"}>
+    <Text.Text
+        className="article-title"
+        el="h1"
+        level={visibleTitleLength > 30 ? "h2" : "h1"}
+    >
         <span>
             <InlineCode text={title} />
         </span>
