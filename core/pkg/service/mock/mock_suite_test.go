@@ -7,13 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel } from "@synnaxlabs/client";
-import z from "zod/v4";
+package mock_test
 
-export const configZ = z.object({
-  type: z.literal("telem.read"),
-  channel: channel.keyZ,
-});
-export interface Config extends z.infer<typeof configZ> {}
+import (
+	"testing"
 
-export const defaultConfig = (): Config => ({ type: "telem.read", channel: 0 });
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
+)
+
+func TestMock(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Service Mock Suite")
+}
+
+var _ = ShouldNotLeakGoroutinesPerSpec()
