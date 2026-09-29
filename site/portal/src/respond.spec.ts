@@ -109,6 +109,14 @@ describe("respond", () => {
     it("should read a JSON body that is not an object as empty", async () => {
       expect(await form(createAPIContext(PORTAL, { body: "text" }))).toEqual({});
       expect(await form(createAPIContext(PORTAL, { body: null }))).toEqual({});
+      expect(await form(createAPIContext(PORTAL, { body: ["a", "b"] }))).toEqual({});
+    });
+
+    it("should leave out null fields", async () => {
+      const context = createAPIContext(PORTAL, {
+        body: { label: "Rig", maxVersion: null },
+      });
+      expect(await form(context)).toEqual({ label: "Rig" });
     });
 
     it("should read a posted form", async () => {
