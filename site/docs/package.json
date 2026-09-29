@@ -21,6 +21,7 @@
     "stylelint": "stylelint \"src/**/*.css\""
   },
   "dependencies": {
+    "@astrojs/markdown-satteri": "catalog:",
     "@astrojs/mdx": "catalog:",
     "@astrojs/react": "catalog:",
     "@astrojs/vercel": "catalog:",
@@ -60,6 +61,7 @@
     "postcss": "catalog:",
     "remark": "catalog:",
     "remark-gfm": "catalog:",
+    "satteri": "catalog:",
     "strip-markdown": "catalog:",
     "stylelint": "catalog:",
     "tsx": "catalog:",

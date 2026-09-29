@@ -7,33 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useEffect, useState } from "react";
+import { type ReactElement } from "react";
 
-import { type Client, getFromURL } from "@/components/client/Client";
+import { VAR_ATTRIBUTE } from "@/components/client/choice";
+import { QUERY_ATTRIBUTE } from "@/components/tabs/sync";
 
 export interface VarProps {
   py: string;
   ts: string;
 }
 
-export const Var = ({ py, ts }: VarProps) => {
-  const [client, setClient] = useState<Client | null>(null);
-
-  useEffect(() => {
-    const updateFromURL = () => {
-      const c = getFromURL();
-      setClient(c);
-    };
-    updateFromURL();
-    window.addEventListener("popstate", updateFromURL);
-    window.addEventListener("urlchange", updateFromURL);
-    return () => {
-      window.removeEventListener("popstate", updateFromURL);
-      window.removeEventListener("urlchange", updateFromURL);
-    };
-  }, []);
-
-  const value = client === "typescript" ? ts : py;
-
-  return <code>{value}</code>;
-};
+/** Shows an identifier in the naming style of the chosen client. */
+export const Var = ({ py, ts }: VarProps): ReactElement => (
+  <code
+    {...{ [QUERY_ATTRIBUTE]: "client", [VAR_ATTRIBUTE]: "" }}
+    data-py={py}
+    data-ts={ts}
+  >
+    {py}
+  </code>
+);

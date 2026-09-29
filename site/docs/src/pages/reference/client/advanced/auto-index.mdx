@@ -18,17 +18,15 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
 By default, every write to a data channel must include a matching series of timestamps
-for that channel's index. When <Client.Var client:load py="auto_index" ts="autoIndex" />
-is enabled, Synnax generates those timestamps for you. This is useful when the exact
-time of each sample doesn't matter and you'd rather have Synnax stamp the data when it
-arrives.
+for that channel's index. When <Client.Var py="auto_index" ts="autoIndex" /> is enabled,
+Synnax generates those timestamps for you. This is useful when the exact time of each
+sample doesn't matter and you'd rather have Synnax stamp the data when it arrives.
 
 ## How it works
 
-When <Client.Var client:load py="auto_index" ts="autoIndex" /> is set to
+When <Client.Var py="auto_index" ts="autoIndex" /> is set to
 
-<Client.Var client:load py="True" ts="true" />, every write call goes through the
-following process:
+<Client.Var py="True" ts="true" />, every write call goes through the following process:
 
 - For each index channel in the writer that you didn't include in the write, Synnax
   generates a timestamp series with one timestamp per sample.
@@ -51,7 +49,7 @@ every sample. The Python client requires a `start` argument, but it's just a pla
 when auto-index is on — pass `start=0` and Synnax will supply the real timestamps. The
 TypeScript client makes `start` optional.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -96,7 +94,7 @@ whether to provide your own timestamps or let Synnax generate them. Any write th
 the index channel is auto-stamped; any write that includes the index channel uses the
 timestamps you supplied.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
