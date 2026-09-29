@@ -70,7 +70,7 @@ to create them first.
 ### Creating the channels
 
 Open the command palette (`Ctrl/Cmd + Shift + P`) and search for "Create Channel".
-Create two [virtual channels](/reference/concepts/channels#virtual-channels):
+Create two [virtual channels](/reference/channels#virtual-channels):
 
 | Name              | Virtual | Data type |
 | ----------------- | ------- | --------- |
@@ -78,13 +78,13 @@ Create two [virtual channels](/reference/concepts/channels#virtual-channels):
 | `pressure_scaled` | Yes     | `float64` |
 
 `float64` is a 64-bit floating-point number, the
-[channel data type](/reference/concepts/channels#data-type) that corresponds to Arc's
+[channel data type](/reference/channels#data-type) that corresponds to Arc's
 [`f64` type](/reference/control/arc/reference/types#floating-point-types). Use `float64`
 for channels that store decimal values like sensor readings.
 
 Virtual channels don't persist data to disk, making them ideal for testing automations.
 For more details on channel types and creation options, see the
-[channels page](/reference/client/channels).
+[channels page](/reference/channels/manage).
 
 Once created, the red squiggles will disappear and your program is ready to deploy.
 
@@ -159,7 +159,7 @@ sampling, and generating test data.
 
 ## Deploy to a Driver
 
-Arc automations run on a [driver](/reference/driver/get-started), the process that
+Arc automations run on a [driver](/reference/hardware), the process that
 manages your hardware. To deploy:
 
 1. Select a driver from the dropdown in the editor toolbar

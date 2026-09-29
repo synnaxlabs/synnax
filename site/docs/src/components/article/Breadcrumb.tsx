@@ -29,6 +29,8 @@ const breadcrumbOverrides: Record<string, string> = {
   opc: "OPC",
   ua: "UA",
   http: "HTTP",
+  ethercat: "EtherCAT",
+  pagerduty: "PagerDuty",
   and: "and",
   in: "in",
   sys: "System",

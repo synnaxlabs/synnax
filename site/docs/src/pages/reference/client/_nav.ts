@@ -13,6 +13,7 @@ export const CLIENT_NAV: PageNavNode = {
   key: "client",
   name: "Client libraries",
   icon: "Terminal",
+  edition: "enterprise",
   children: [
     {
       key: "/reference/client/quick-start",
@@ -25,24 +26,9 @@ export const CLIENT_NAV: PageNavNode = {
       name: "Authentication",
     },
     {
-      key: "/reference/client/channels",
-      href: "/reference/client/channels",
-      name: "Channels",
-    },
-    {
-      key: "/reference/client/calculated-channels",
-      href: "/reference/client/calculated-channels",
-      name: "Calculated channels",
-    },
-    {
-      key: "/reference/client/ranges",
-      href: "/reference/client/ranges",
-      name: "Ranges",
-    },
-    {
       key: "/reference/client/series-and-frames",
       href: "/reference/client/series-and-frames",
-      name: "Series & frames",
+      name: "Series and frames",
     },
     {
       key: "/reference/client/time-types",
@@ -74,11 +60,6 @@ export const CLIENT_NAV: PageNavNode = {
           name: "Auto-index",
         },
         {
-          key: "/reference/client/advanced/write-authorities",
-          href: "/reference/client/advanced/write-authorities",
-          name: "Write authorities",
-        },
-        {
           key: "/reference/client/advanced/iterators",
           href: "/reference/client/advanced/iterators",
           name: "Iterators",
@@ -87,11 +68,6 @@ export const CLIENT_NAV: PageNavNode = {
           key: "/reference/client/advanced/delete-data",
           href: "/reference/client/advanced/delete-data",
           name: "Delete data",
-        },
-        {
-          key: "/reference/client/advanced/build-device-driver",
-          href: "/reference/client/advanced/build-device-driver",
-          name: "Build a device driver",
         },
       ],
     },

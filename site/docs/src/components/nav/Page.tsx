@@ -27,13 +27,15 @@ interface InternalTreeProps {
 }
 
 const SECTION_ICONS: Record<string, ReactElement> = {
-  concepts: <Icon.Reference />,
-  core: <Icon.Core />,
-  client: <Icon.Terminal />,
+  "get-started": <Icon.Bolt />,
+  channels: <Icon.Channel />,
+  hardware: <Icon.Device />,
+  visualize: <Icon.Visualize />,
+  ranges: <Icon.Range />,
   control: <Icon.Control />,
-  console: <Icon.Dashboard />,
-  driver: <Icon.Device />,
-  pluto: <Icon.Visualize />,
+  alarms: <Icon.Status />,
+  client: <Icon.Terminal />,
+  enterprise: <Icon.Core />,
 };
 
 export type PageNavNode = Omit<Tree.Node<string>, "children"> & {

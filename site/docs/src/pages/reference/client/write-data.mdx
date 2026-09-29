@@ -19,8 +19,8 @@ Writer is the recommended approach. Historical writes are useful for backfilling
 ingesting data from files.
 
 If you'd like a conceptual overview of how writes work in Synnax, check out the
-[writes concepts guide](/reference/concepts/writes). The
-[rules of writes](/reference/concepts/writes#rules-of-writes) are especially important
+[writes concepts guide](/reference/client/write-data). The
+[rules of writes](/reference/client/write-data#rules-of-writes) are especially important
 to understand.
 
 <Divider.Divider x />
@@ -31,7 +31,7 @@ Writers are designed for streaming data as it's acquired. This is the recommende
 approach for live data acquisition, control sequences, and real-time data processing.
 Writers maintain a file-like interface governed by transactions. To learn more about
 transactions and how writes work in Synnax, see the
-[concepts](/reference/concepts/writes) page.
+[concepts](/reference/client/write-data) page.
 
 ### Opening a writer
 
@@ -88,13 +88,13 @@ to the cluster.
   For advanced writer configuration, see
   [Auto-Commit](/reference/client/advanced/auto-commit),
   [Auto-Index](/reference/client/advanced/auto-index), and [Write
-  Authorities](/reference/client/advanced/write-authorities).
+  Authorities](/reference/control/authority).
 </Note.Note>
 
 ### Persistence/streaming mode
 
 By default, writers are opened in stream + persist
-[mode](/reference/concepts/writes#writer-modes). To change the mode of a writer, specify
+[mode](/reference/client/write-data#writer-modes). To change the mode of a writer, specify
 the `mode` argument when opening the writer. The available modes are:
 
 - `persist` - Only persist data to the database (no streaming to subscribers)

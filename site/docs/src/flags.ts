@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { VERCEL_ENV } from "astro:env/client";
+import { FLAG_DESKTOP, VERCEL_ENV } from "astro:env/client";
 
 // Preview deploys show every flagged surface, so reviewers see dark work.
 const PREVIEW = VERCEL_ENV === "preview";
@@ -20,7 +20,11 @@ export const flag = (value: boolean): boolean => value || PREVIEW;
  * owner and what removes it. `FLAG_<NAME>=true` at build time turns one on; set it in
  * Vercel for the site and as a repository variable for the search index job.
  */
-export const FLAGS = {} satisfies Record<string, boolean>;
+export const FLAGS = {
+  // Docs team. Hides the Synnax Desktop pages until the first Desktop release, which
+  // removes the flag.
+  desktop: flag(FLAG_DESKTOP),
+} satisfies Record<string, boolean>;
 
 export type Flag = keyof typeof FLAGS;
 

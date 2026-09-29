@@ -14,12 +14,21 @@ import { PYTHON_SEQUENCES_NAV } from "@/pages/reference/control/python/_nav";
 export const CONTROL_NAV: PageNavNode = {
   key: "control",
   name: "Control",
-  icon: "Control",
   children: [
     {
       key: "/reference/control/get-started",
       href: "/reference/control/get-started",
       name: "Get started",
+    },
+    {
+      key: "/reference/control/manual",
+      href: "/reference/control/manual",
+      name: "Manual control",
+    },
+    {
+      key: "/reference/control/authority",
+      href: "/reference/control/authority",
+      name: "Control authority",
     },
     ARC_NAV,
     PYTHON_SEQUENCES_NAV,

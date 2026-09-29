@@ -19,11 +19,6 @@ export const HOW_TO_NAV: PageNavNode = {
       name: "Data processing",
     },
     {
-      key: "/reference/control/arc/how-to/alarms",
-      href: "/reference/control/arc/how-to/alarms",
-      name: "Alarms",
-    },
-    {
       key: "/reference/control/arc/how-to/bang-bang-control",
       href: "/reference/control/arc/how-to/bang-bang-control",
       name: "Bang-bang control",

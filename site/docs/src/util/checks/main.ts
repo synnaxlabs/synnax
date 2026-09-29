@@ -14,7 +14,7 @@
 //   pnpm check-site:build                        build dist/ for checking
 //   pnpm check-site                              all checks, all pages
 //   pnpm check-site links media                  only the named checks
-//   pnpm check-site --route /reference/driver    only routes under the prefix
+//   pnpm check-site --route /reference/hardware    only routes under the prefix
 
 import { preview } from "astro";
 import fs from "fs";
@@ -40,7 +40,7 @@ for (let i = 0; i < argv.length; i++)
   if (argv[i] === "--route") {
     const prefix = argv[i + 1];
     if (prefix == null) {
-      console.error("--route requires a prefix, e.g. --route /reference/driver");
+      console.error("--route requires a prefix, e.g. --route /reference/hardware");
       process.exit(1);
     }
     prefixes.push(prefix);

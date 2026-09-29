@@ -12,6 +12,7 @@ import { type PageNavNode } from "@/components/nav/Page";
 export const PYTHON_SEQUENCES_NAV: PageNavNode = {
   key: "python",
   name: "Python",
+  edition: "enterprise",
   children: [
     {
       key: "/reference/control/python/get-started",

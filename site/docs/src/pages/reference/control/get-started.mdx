@@ -25,10 +25,10 @@ There are two primary ways to write control sequences in Synnax:
 **[Arc](/reference/control/arc/introduction)** is Synnax's automation language for
 hardware control. Arc is reactive, meaning you declare what should happen when data
 changes rather than writing polling loops. It offers both a visual Graph Mode and a Text
-Mode, runs directly on [drivers](/reference/driver/get-started) (including
-[NI Linux Real-Time](/reference/driver/installation?platform=ni-linux-rt)), and is
+Mode, runs directly on [drivers](/reference/hardware) (including
+[NI Linux Real-Time](/reference/enterprise/driver?platform=ni-linux-rt)), and is
 performant enough for real-time control applications. Arc automations can be edited and
-deployed directly from within the [Synnax Console](/reference/console/get-started).
+deployed directly from within the [Synnax Console](/reference/enterprise/console).
 
 **[Python](/reference/control/python/get-started)** gives you the flexibility to write
 whatever software you need, with access to the entire Python ecosystem. Python sequences
@@ -41,8 +41,8 @@ control.
 
 ## How control sequences work
 
-Control sequences [stream data](/reference/concepts/streams) from a set of input
-channels, perform some computation, and [write data](/reference/concepts/writes) to a
+Control sequences [stream data](/reference/client/read-data) from a set of input
+channels, perform some computation, and [write data](/reference/client/write-data) to a
 set of output channels.
 
 Arc uses a reactive model where you declare what should happen when data changes. When a
@@ -86,7 +86,7 @@ deployment that communicates with National Instruments devices:
   </thead>
   <tbody>
     <tr>
-      <td>[NI analog read task](/reference/driver/ni/analog-read-task)</td>
+      <td>[NI analog read task](/reference/hardware/ni/analog-read-task)</td>
       <td>Reads data from the analog input ports of an
         [NI-9205](https://www.ni.com/en-us/shop/model/ni-9205.html) at a fixed sample
         rate. Scaling and calibration information is configured within this task. The
@@ -94,7 +94,7 @@ deployment that communicates with National Instruments devices:
         sequence and Console for visualization.</td>
     </tr>
     <tr>
-      <td>[NI digital write task](/reference/driver/ni/digital-write-task)</td>
+      <td>[NI digital write task](/reference/hardware/ni/digital-write-task)</td>
       <td>Writes to the digital output ports of a
         [NI-9375](https://www.ni.com/en-us/shop/model/ni-9375.html) based on commands
         sent to the `di_X_cmd` channels by the control sequence. The task also
@@ -102,15 +102,15 @@ deployment that communicates with National Instruments devices:
         `di_X_state` channels.</td>
     </tr>
     <tr>
-      <td>[Synnax Core](/reference/core/quick-start)</td>
+      <td>[Synnax Core](/reference/enterprise)</td>
       <td>Stores and streams all incoming and outgoing data from the NI devices, control
         sequences, and Synnax Console. All data will pass through the Core to travel
         from one component to another.</td>
     </tr>
     <tr>
-      <td>[Synnax Console](/reference/console/get-started)</td>
+      <td>[Synnax Console](/reference/enterprise/console)</td>
       <td>Displays real-time sensor values and actuator states on [line
-        plots](/reference/console/line-plots).</td>
+        plots](/reference/visualize/line-plots).</td>
     </tr>
     <tr>
       <td>[Control sequence](/reference/control/get-started)</td>
