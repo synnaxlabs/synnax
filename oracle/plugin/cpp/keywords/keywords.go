@@ -34,8 +34,15 @@ var Reserved = set.New(
 )
 
 // Escape appends an underscore suffix to names that collide with C++ reserved keywords.
+// Macros are Windows SDK macros that would expand a generated identifier with the same
+// name.
+var Macros = set.New(
+	// winbase.h serial port parity capabilities.
+	"PARITY_NONE", "PARITY_ODD", "PARITY_EVEN", "PARITY_MARK", "PARITY_SPACE",
+)
+
 func Escape(name string) string {
-	if Reserved.Contains(name) {
+	if Reserved.Contains(name) || Macros.Contains(name) {
 		return name + "_"
 	}
 	return name

@@ -17,6 +17,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/internal/casing"
+	"github.com/synnaxlabs/oracle/plugin/cpp/keywords"
 	"github.com/synnaxlabs/oracle/resolution"
 )
 
@@ -119,3 +120,8 @@ func PBName(s resolution.Type) string {
 // ScreamingSnake renders an enum constant name. It deliberately keeps
 // lo.SnakeCase's word splitting so generated constants stay stable.
 func ScreamingSnake(s string) string { return strings.ToUpper(lo.SnakeCase(s)) }
+
+// EnumConstant renders the name of the constant for a value of a string enum.
+func EnumConstant(enum, value string) string {
+	return keywords.Escape(ScreamingSnake(enum) + "_" + ScreamingSnake(value))
+}
