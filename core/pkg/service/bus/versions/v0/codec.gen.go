@@ -36,6 +36,7 @@ func (f Framing) EncodeOrc(w *orc.Writer) error {
 		w.String(string(v.ByteOrder))
 		w.Int32(int32(v.LengthAdjustment))
 		w.String(string(v.Checksum))
+		w.String(string(v.ChecksumByteOrder))
 	case CobsFraming:
 		w.String("cobs")
 	case SlipFraming:
@@ -92,6 +93,13 @@ func (f *Framing) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			v.Checksum = Checksum(rawV)
+		}
+		{
+			rawV, err := r.String()
+			if err != nil {
+				return err
+			}
+			v.ChecksumByteOrder = library.ByteOrder(rawV)
 		}
 		f.Variant = v
 	case "cobs":

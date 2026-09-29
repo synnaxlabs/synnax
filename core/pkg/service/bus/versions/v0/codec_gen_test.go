@@ -40,12 +40,13 @@ var _ = Describe("Codec", func() {
 			Entry("delimiter variant", v0.Framing{Variant: v0.DelimiterFraming{Delimiter: "test_1"}}),
 			Entry("fixed variant", v0.Framing{Variant: v0.FixedFraming{Length: 2}}),
 			Entry("sync variant", v0.Framing{Variant: v0.SyncFraming{
-				Sync:             "test_1",
-				LengthOffset:     3,
-				LengthSize:       4,
-				ByteOrder:        library.ByteOrder("little_endian"),
-				LengthAdjustment: 6,
-				Checksum:         v0.Checksum("none"),
+				Sync:              "test_1",
+				LengthOffset:      3,
+				LengthSize:        4,
+				ByteOrder:         library.ByteOrder("little_endian"),
+				LengthAdjustment:  6,
+				Checksum:          v0.Checksum("none"),
+				ChecksumByteOrder: library.ByteOrder("little_endian"),
 			}}),
 			Entry("cobs variant", v0.Framing{Variant: v0.CobsFraming{}}),
 			Entry("slip variant", v0.Framing{Variant: v0.SlipFraming{}}),
@@ -499,12 +500,13 @@ func FuzzDecodeFraming(f *testing.F) {
 	}
 	{
 		seed := v0.Framing{Variant: v0.SyncFraming{
-			Sync:             "test_1",
-			LengthOffset:     3,
-			LengthSize:       4,
-			ByteOrder:        library.ByteOrder("little_endian"),
-			LengthAdjustment: 6,
-			Checksum:         v0.Checksum("none"),
+			Sync:              "test_1",
+			LengthOffset:      3,
+			LengthSize:        4,
+			ByteOrder:         library.ByteOrder("little_endian"),
+			LengthAdjustment:  6,
+			Checksum:          v0.Checksum("none"),
+			ChecksumByteOrder: library.ByteOrder("little_endian"),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

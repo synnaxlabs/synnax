@@ -185,6 +185,8 @@ type SyncFraming struct {
 	LengthAdjustment int32 `json:"length_adjustment" msgpack:"length_adjustment"`
 	// Checksum is the checksum that ends each frame.
 	Checksum Checksum `json:"checksum" msgpack:"checksum"`
+	// ChecksumByteOrder is the byte order of the checksum.
+	ChecksumByteOrder library.ByteOrder `json:"checksum_byte_order" msgpack:"checksum_byte_order"`
 }
 
 func (SyncFraming) isFramingVariant() {}
@@ -200,6 +202,9 @@ func (s *SyncFraming) ApplyDefaults() {
 	if s.Checksum == "" {
 		s.Checksum = ChecksumNone
 	}
+	if s.ChecksumByteOrder == "" {
+		s.ChecksumByteOrder = library.ByteOrderLittleEndian
+	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -208,6 +213,7 @@ func (s SyncFraming) Validate() error {
 	v := validate.New("SyncFraming")
 	v.Ternaryf("byte_order", !s.ByteOrder.IsValid(), "invalid byte_order: %v", s.ByteOrder)
 	v.Ternaryf("checksum", !s.Checksum.IsValid(), "invalid checksum: %v", s.Checksum)
+	v.Ternaryf("checksum_byte_order", !s.ChecksumByteOrder.IsValid(), "invalid checksum_byte_order: %v", s.ChecksumByteOrder)
 	return v.Error()
 }
 

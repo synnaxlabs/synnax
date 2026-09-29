@@ -208,6 +208,10 @@ inline SyncFraming SyncFraming::parse(x::json::Parser parser) {
     result.byte_order = parser.field<std::string>("byte_order", "little_endian");
     result.length_adjustment = parser.field<std::int32_t>("length_adjustment", 0);
     result.checksum = parser.field<std::string>("checksum", "none");
+    result.checksum_byte_order = parser.field<std::string>(
+        "checksum_byte_order",
+        "little_endian"
+    );
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -220,6 +224,7 @@ inline x::json::json SyncFraming::to_json() const {
     j["byte_order"] = this->byte_order;
     j["length_adjustment"] = this->length_adjustment;
     j["checksum"] = this->checksum;
+    j["checksum_byte_order"] = this->checksum_byte_order;
     j["type"] = this->type;
     return j;
 }

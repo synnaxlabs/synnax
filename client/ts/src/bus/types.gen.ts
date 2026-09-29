@@ -91,6 +91,8 @@ export const syncFramingZ = z.object({
   lengthAdjustment: z.int32().default(0),
   /** checksum is the checksum that ends each frame. */
   checksum: checksumZ.default("none"),
+  /** checksumByteOrder is the byte order of the checksum. */
+  checksumByteOrder: library.byteOrderZ.default("little_endian"),
 });
 export interface SyncFraming extends z.infer<typeof syncFramingZ> {}
 

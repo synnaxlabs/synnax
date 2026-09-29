@@ -101,6 +101,7 @@ class SyncFraming(BaseModel):
     byte_order: library_.ByteOrder = "little_endian"
     length_adjustment: int = Field(default=0, ge=-2147483648, le=2147483647)
     checksum: Checksum = "none"
+    checksum_byte_order: library_.ByteOrder = "little_endian"
 
 
 class CobsFraming(BaseModel):

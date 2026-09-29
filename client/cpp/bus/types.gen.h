@@ -142,6 +142,8 @@ struct SyncFraming {
     std::int32_t length_adjustment = 0;
     /// @brief checksum is the checksum that ends each frame.
     std::string checksum = CHECKSUM_NONE;
+    /// @brief checksum_byte_order is the byte order of the checksum.
+    std::string checksum_byte_order = ::synnax::library::BYTE_ORDER_LITTLE_ENDIAN;
 
     static SyncFraming parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

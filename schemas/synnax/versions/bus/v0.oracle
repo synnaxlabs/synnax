@@ -144,26 +144,29 @@ Framing union on type {
         @doc value "gives every frame the same number of bytes."
     }
     sync {
-        sync              string = "" {
+        sync                string = "" {
             @doc value "is the hex encoded byte sequence that starts each frame."
         }
-        length_offset     uint32 = 0 {
+        length_offset       uint32 = 0 {
             @doc value "is the byte offset of the length field from the frame start."
         }
-        length_size       uint8 = 1 {
+        length_size         uint8 = 1 {
             @doc value "is the size of the length field in bytes: 1, 2, or 4."
         }
-        byte_order        library.ByteOrder = little_endian {
+        byte_order          library.ByteOrder = little_endian {
             @doc value "is the byte order of the length field."
         }
-        length_adjustment int32 = 0 {
+        length_adjustment   int32 = 0 {
             @doc value """
                 is added to the length field to get the number of bytes that follow the
                 length field, checksum included.
             """
         }
-        checksum          Checksum = none {
+        checksum            Checksum = none {
             @doc value "is the checksum that ends each frame."
+        }
+        checksum_byte_order library.ByteOrder = little_endian {
+            @doc value "is the byte order of the checksum."
         }
 
         @doc value """
