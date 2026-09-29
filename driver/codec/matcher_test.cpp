@@ -127,16 +127,6 @@ label(const std::uint8_t l, const std::optional<std::uint8_t> sdi = std::nullopt
     );
 }
 
-library::MessageEntry transfer(
-    const std::uint8_t rt,
-    const std::uint8_t sa,
-    const std::string &direction = library::DIRECTION_TRANSMIT
-) {
-    return message(
-        library::Mil1553Identifier{.rt = rt, .subaddress = sa, .direction = direction}
-    );
-}
-
 arinc429::Word word(const std::uint8_t l, const std::uint8_t sdi = 0) {
     const std::array<std::uint8_t, 4> payload{};
     return arinc429::Word::pack(l, sdi, true, payload);
@@ -181,47 +171,9 @@ TEST(Matcher, RejectsAnSDIAbove3) {
     ASSERT_OCCURRED_AS_P(Matcher::compile(messages), CONFIG_ERROR);
 }
 
-TEST(Matcher, MatchesAMIL1553CommandByAddressSubaddressAndDirection) {
-    const std::vector messages = {
-        transfer(5, 1),
-        transfer(5, 1, library::DIRECTION_RECEIVE),
-        transfer(6, 1),
-    };
-    const auto m = ASSERT_NIL_P(Matcher::compile(messages));
-    const auto cmd = [](std::uint8_t rt, bool tx, std::uint8_t sa, std::uint8_t wc) {
-        return mil1553::Command{
-            .rt = rt,
-            .transmit = tx,
-            .subaddress = sa,
-            .count = wc
-        };
-    };
-    EXPECT_EQ(m.match(cmd(5, true, 1, 1)), 0);
-    EXPECT_EQ(m.match(cmd(5, true, 1, 32)), 0);
-    EXPECT_EQ(m.match(cmd(5, false, 1, 4)), 1);
-    EXPECT_EQ(m.match(cmd(6, true, 1, 1)), 2);
-    EXPECT_EQ(m.match(cmd(6, false, 1, 1)), std::nullopt);
-    EXPECT_EQ(m.match(cmd(5, true, 2, 1)), std::nullopt);
-}
-
-TEST(Matcher, RejectsADuplicateMIL1553Transfer) {
-    const std::vector messages = {transfer(5, 1), transfer(5, 1)};
-    const auto [_, err] = Matcher::compile(messages);
-    ASSERT_MATCHES(err, CONFIG_ERROR);
-    EXPECT_EQ(
-        err.data,
-        "messages message and message have the same MIL-STD-1553 address and "
-        "subaddress"
-    );
-}
-
-TEST(Matcher, RejectsAMIL1553ModeCodeSubaddress) {
-    ASSERT_OCCURRED_AS_P(Matcher::compile(std::vector{transfer(5, 0)}), CONFIG_ERROR);
-    ASSERT_OCCURRED_AS_P(Matcher::compile(std::vector{transfer(5, 31)}), CONFIG_ERROR);
-}
-
-TEST(Matcher, RejectsTheMIL1553BroadcastAddress) {
-    ASSERT_OCCURRED_AS_P(Matcher::compile(std::vector{transfer(31, 1)}), CONFIG_ERROR);
+TEST(Matcher, RejectsAnUnsupportedIdentifier) {
+    const std::vector messages = {message(library::Mil1553Identifier{.rt = 5})};
+    ASSERT_OCCURRED_AS_P(Matcher::compile(messages), CONFIG_ERROR);
 }
 
 TEST(Matcher, MatchesTheLongestTokenPrefix) {

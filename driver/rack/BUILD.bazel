@@ -43,7 +43,6 @@ cc_library(
         "//driver/ethercat",
         "//driver/http",
         "//driver/labjack",
-        "//driver/mil1553:task",
         "//driver/ni",
         "//driver/opcua",
         "//driver/rack/status",

@@ -17,7 +17,6 @@ import { CAN } from "@/feature/can";
 import { EtherCAT } from "@/feature/ethercat";
 import { HTTP } from "@/feature/http";
 import { LabJack } from "@/feature/labjack";
-import { MIL1553 } from "@/feature/mil1553";
 import { Modbus } from "@/feature/modbus";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
@@ -32,7 +31,6 @@ export const makeZ = z.enum([
   EtherCAT.Device.MAKE,
   HTTP.Device.MAKE,
   LabJack.Device.MAKE,
-  MIL1553.Device.MAKE,
   Modbus.Device.MAKE,
   NI.Device.MAKE,
   OPCUA.Device.MAKE,
@@ -51,7 +49,6 @@ const MAKE_ICONS: Record<Make, Icon.ReactElement> = {
   [TCP.Device.MAKE]: <Icon.Link />,
   [UDP.Device.MAKE]: <Icon.Bridge />,
   [ARINC429.Device.MAKE]: <Icon.Wave.Square />,
-  [MIL1553.Device.MAKE]: <Icon.Node />,
   [EtherCAT.Device.MAKE]: <Icon.Logo.EtherCAT />,
   [HTTP.Device.MAKE]: <Icon.Logo.HTTP />,
   [LabJack.Device.MAKE]: <Icon.Logo.LabJack />,
@@ -75,7 +72,6 @@ export const useConfigureModal = (): ((make: Make, deviceKey: device.Key) => voi
   const tcp = TCP.Device.useConnectModal();
   const udp = UDP.Device.useConnectModal();
   const arinc429 = ARINC429.Device.useConnectModal();
-  const mil1553 = MIL1553.Device.useConnectModal();
   const ethercat = EtherCAT.Device.useConfigureModal();
   const http = HTTP.Device.useConnectModal();
   const labjack = LabJack.Device.useConfigureModal();
@@ -90,7 +86,6 @@ export const useConfigureModal = (): ((make: Make, deviceKey: device.Key) => voi
         [TCP.Device.MAKE]: tcp,
         [UDP.Device.MAKE]: udp,
         [ARINC429.Device.MAKE]: arinc429,
-        [MIL1553.Device.MAKE]: mil1553,
         [EtherCAT.Device.MAKE]: ethercat,
         [HTTP.Device.MAKE]: http,
         [LabJack.Device.MAKE]: labjack,
@@ -100,20 +95,7 @@ export const useConfigureModal = (): ((make: Make, deviceKey: device.Key) => voi
       };
       openers[make]({ deviceKey });
     },
-    [
-      can,
-      serial,
-      tcp,
-      udp,
-      arinc429,
-      mil1553,
-      ethercat,
-      http,
-      labjack,
-      modbus,
-      ni,
-      opcua,
-    ],
+    [can, serial, tcp, udp, arinc429, ethercat, http, labjack, modbus, ni, opcua],
   );
 };
 
@@ -125,7 +107,6 @@ const CONTEXT_MENU_ITEMS: Partial<
   [TCP.Device.MAKE]: TCP.Device.ContextMenuItems,
   [UDP.Device.MAKE]: UDP.Device.ContextMenuItems,
   [ARINC429.Device.MAKE]: ARINC429.Device.ContextMenuItems,
-  [MIL1553.Device.MAKE]: MIL1553.Device.ContextMenuItems,
   [EtherCAT.Device.MAKE]: EtherCAT.Device.ContextMenuItems,
   [HTTP.Device.MAKE]: HTTP.Device.ContextMenuItems,
   [LabJack.Device.MAKE]: LabJack.Device.ContextMenuItems,

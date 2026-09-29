@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type device, type library, type Synnax, type task } from "@synnaxlabs/client";
-import { id, type record, TimeSpan } from "@synnaxlabs/x";
+import { id, type record } from "@synnaxlabs/x";
 import { screen, waitFor } from "@testing-library/react";
 import { type FC } from "react";
 
@@ -85,14 +85,6 @@ export interface AvionicsLibrary {
   airspeed: library.MessageEntry;
   /** An ARINC 429 message on label 203 that a task polls with a query. */
   polled: library.MessageEntry;
-  /** A 1553 transmit message from terminal 5 every 100ms, with Pitch and Roll. */
-  attitude: library.MessageEntry;
-  /** A 1553 transmit message from terminal 5 with no period, with the field Mode. */
-  status: library.MessageEntry;
-  /** A 1553 receive message to terminal 5 with the field Setpoint. */
-  command: library.MessageEntry;
-  /** A 1553 receive message to terminal 7 with the field Throttle. */
-  engine: library.MessageEntry;
   /** A CAN message with the field Rpm. */
   can: library.MessageEntry;
 }
@@ -102,10 +94,7 @@ const WORD = { encoding: "binary", bitLength: 16 } as const;
 
 const arinc429 = (label: number) => ({ type: "arinc429", label }) as const;
 
-const mil1553 = (rt: number, subaddress: number, direction: library.Direction) =>
-  ({ type: "mil1553", rt, subaddress, direction, wordCount: 2 }) as const;
-
-/** Creates a library holding ARINC 429, MIL-STD-1553, and CAN messages. */
+/** Creates a library holding ARINC 429 and CAN messages. */
 export const createAvionicsLibrary = async (
   client: Synnax,
 ): Promise<AvionicsLibrary> => {
@@ -129,38 +118,6 @@ export const createAvionicsLibrary = async (
       },
       {
         kind: "message",
-        name: "Attitude",
-        identifier: mil1553(5, 1, "transmit"),
-        length: 4,
-        period: TimeSpan.milliseconds(100),
-        fields: [
-          { ...WORD, name: "Pitch", startBit: 0 },
-          { ...WORD, name: "Roll", startBit: 16 },
-        ],
-      },
-      {
-        kind: "message",
-        name: "Status",
-        identifier: mil1553(5, 2, "transmit"),
-        length: 4,
-        fields: [{ ...WORD, name: "Mode", startBit: 0 }],
-      },
-      {
-        kind: "message",
-        name: "Command",
-        identifier: mil1553(5, 3, "receive"),
-        length: 4,
-        fields: [{ ...WORD, name: "Setpoint", startBit: 0 }],
-      },
-      {
-        kind: "message",
-        name: "Engine",
-        identifier: mil1553(7, 1, "receive"),
-        length: 4,
-        fields: [{ ...WORD, name: "Throttle", startBit: 0 }],
-      },
-      {
-        kind: "message",
         name: "Wheel",
         identifier: { type: "can", id: 0x200, extended: false, fd: false },
         length: 8,
@@ -172,10 +129,6 @@ export const createAvionicsLibrary = async (
     library: lib,
     airspeed: findMessage(lib, "Airspeed"),
     polled: findMessage(lib, "Polled"),
-    attitude: findMessage(lib, "Attitude"),
-    status: findMessage(lib, "Status"),
-    command: findMessage(lib, "Command"),
-    engine: findMessage(lib, "Engine"),
     can: findMessage(lib, "Wheel"),
   };
 };

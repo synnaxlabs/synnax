@@ -54,7 +54,6 @@ export { labjack } from "@/labjack";
 export { library } from "@/library";
 export { lineplot } from "@/lineplot";
 export { log } from "@/log";
-export { mil1553 } from "@/mil1553";
 export { modbus } from "@/modbus";
 export { ni } from "@/ni";
 export { node } from "@/node";

@@ -18,7 +18,6 @@ import { CAN } from "@/feature/can";
 import { EtherCAT } from "@/feature/ethercat";
 import { HTTP } from "@/feature/http";
 import { LabJack } from "@/feature/labjack";
-import { MIL1553 } from "@/feature/mil1553";
 import { Modbus } from "@/feature/modbus";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
@@ -36,7 +35,6 @@ export const FORMS: Task.Forms = {
   ...EtherCAT.Task.FORMS,
   ...HTTP.Task.FORMS,
   ...LabJack.Task.FORMS,
-  ...MIL1553.Task.FORMS,
   ...Modbus.Task.FORMS,
   ...NI.Task.FORMS,
   ...OPCUA.Task.FORMS,

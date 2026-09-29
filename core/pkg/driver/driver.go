@@ -161,7 +161,6 @@ var (
 		"ethercat",
 		"http",
 		"labjack",
-		"mil1553",
 		"modbus",
 		"ni",
 		"opc",

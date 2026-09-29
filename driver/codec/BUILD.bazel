@@ -16,7 +16,6 @@ cc_library(
         "arinc429.cpp",
         "bits.cpp",
         "matcher.cpp",
-        "mil1553.cpp",
         "plan.cpp",
     ],
     hdrs = [
@@ -24,7 +23,6 @@ cc_library(
         "bits.h",
         "errors.h",
         "matcher.h",
-        "mil1553.h",
         "plan.h",
     ],
     visibility = ["//visibility:public"],
@@ -43,7 +41,6 @@ cc_test(
         "bits_test.cpp",
         "golden_test.cpp",
         "matcher_test.cpp",
-        "mil1553_test.cpp",
         "plan_test.cpp",
     ],
     data = ["testdata/vectors.json"],

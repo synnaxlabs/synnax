@@ -205,22 +205,6 @@ TEST(ReadConfig, RejectsAMessageThatDoesNotFitAnARINC429Word) {
     EXPECT_EQ(msg, "message altitude: field value must lie in bits 9 to 31");
 }
 
-TEST(ReadConfig, RejectsACANIdentifierOnAMIL1553Bus) {
-    ReadFixture f;
-    f.message = binary_message(
-        "status",
-        {binary_field("value", 0)},
-        synnax::library::CanIdentifier{.id = 0x10}
-    );
-    f.cfg.messages[0].message = f.message.key;
-    f.cfg.messages[0].fields[0].field = key(f.message.fields[0]);
-    f.framing = std::nullopt;
-    f.medium = Medium::MIL1553;
-    const auto [path, msg] = f.first_error();
-    EXPECT_EQ(path, "messages.0.message");
-    EXPECT_EQ(msg, "message status: identifier is not a MIL-STD-1553 command");
-}
-
 TEST(ReadConfig, RejectsAQueryOnACANBus) {
     ReadFixture f;
     f.message = binary_message(

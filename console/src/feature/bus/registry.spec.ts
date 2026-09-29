@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 import { Device } from "@/feature/device";
 import { Task } from "@/feature/task";
 
-const PREFIXES = ["can", "serial", "tcp", "udp", "arinc429", "mil1553"];
+const PREFIXES = ["can", "serial", "tcp", "udp", "arinc429"];
 
 const TASK_TYPES = PREFIXES.flatMap((prefix) => [`${prefix}_read`, `${prefix}_write`]);
 
@@ -46,6 +46,5 @@ describe("bus integration registry", () => {
     expect(Task.parseType("tcp_read")).toBe("TCP read task");
     expect(Task.parseType("udp_write")).toBe("UDP write task");
     expect(Task.parseType("arinc429_read")).toBe("ARINC 429 read task");
-    expect(Task.parseType("mil1553_write")).toBe("MIL-STD-1553 write task");
   });
 });

@@ -15,7 +15,6 @@ import { CAN } from "@/feature/can";
 import { EtherCAT } from "@/feature/ethercat";
 import { HTTP } from "@/feature/http";
 import { LabJack } from "@/feature/labjack";
-import { MIL1553 } from "@/feature/mil1553";
 import { Modbus } from "@/feature/modbus";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
@@ -49,7 +48,6 @@ export const COMMANDS: Command.Command[] = [
   ...EtherCAT.Task.COMMANDS,
   ...HTTP.Task.COMMANDS,
   ...LabJack.Task.COMMANDS,
-  ...MIL1553.Task.COMMANDS,
   ...Modbus.Task.COMMANDS,
   ...NI.Task.COMMANDS,
   ...OPCUA.Task.COMMANDS,

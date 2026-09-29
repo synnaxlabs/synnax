@@ -23,12 +23,11 @@
 
 #include "driver/codec/arinc429.h"
 #include "driver/codec/bits.h"
-#include "driver/codec/mil1553.h"
 
 namespace driver::codec {
 /// @brief Matcher maps a received frame to the message it belongs to. It supports CAN,
-/// ARINC 429, MIL-STD-1553, field, and token identifiers, and messages with no
-/// identifier, which match every frame that no other message matches.
+/// ARINC 429, field, and token identifiers, and messages with no identifier, which
+/// match every frame that no other message matches.
 class Matcher {
 public:
     Matcher() = default;
@@ -36,10 +35,10 @@ public:
     /// @brief compiles a matcher over messages that the Core has validated. Match
     /// results index this span.
     /// @returns CONFIG_ERROR naming both messages when two messages have the same CAN
-    /// identifier and mask, header field value, ARINC 429 label and SDI, MIL-STD-1553
-    /// address, subaddress, and direction, or token, or when neither has an
-    /// identifier. CONFIG_ERROR when an identifier field is a float, an ARINC 429 or
-    /// MIL-STD-1553 identifier is out of range, or an identifier type is not supported.
+    /// identifier and mask, header field value, ARINC 429 label and SDI, or token, or
+    /// when neither has an identifier. CONFIG_ERROR when an identifier field is a
+    /// float, an ARINC 429 identifier is out of range, or an identifier type is not
+    /// supported.
     static std::pair<Matcher, x::errors::Error>
     compile(std::span<const synnax::library::MessageEntry> messages);
 
@@ -65,13 +64,6 @@ public:
     /// with no identifier.
     /// @returns the index of the message, or nullopt when none matches.
     [[nodiscard]] std::optional<std::size_t> match(arinc429::Word word) const;
-
-    /// @brief matches a MIL-STD-1553 command by address, subaddress, and direction,
-    /// then falls back to the message with no identifier. The word count does not
-    /// take part, so a transfer with the wrong count still reaches its message.
-    /// @returns the index of the message, or nullopt when none matches.
-    [[nodiscard]] std::optional<std::size_t>
-    match(const mil1553::Command &command) const;
 
 private:
     /// @brief Masked is a CAN identifier with a partial mask.
@@ -115,9 +107,6 @@ private:
     /// @brief labels maps an ARINC 429 label to its message. The high byte holds the
     /// SDI plus one when the identifier matches the SDI, and zero otherwise.
     std::unordered_map<std::uint16_t, std::size_t> labels;
-    /// @brief transfers maps a MIL-STD-1553 command word with its count cleared to
-    /// its message.
-    std::unordered_map<std::uint16_t, std::size_t> transfers;
     /// @brief tokens holds token identifiers from the longest prefix to the shortest.
     std::vector<Token> tokens;
     /// @brief fallback is the message with no identifier.

@@ -35,7 +35,6 @@
 #include "driver/common/sample_clock.h"
 #include "driver/ethercat/ethercat.h"
 #include "driver/http/http.h"
-#include "driver/mil1553/mil1553.h"
 #include "driver/ni/ni.h"
 #include "driver/opcua/opcua.h"
 #include "driver/serial/serial.h"
@@ -81,7 +80,6 @@ inline std::vector<std::string> default_integrations() {
         tcp::INTEGRATION_NAME,
         udp::INTEGRATION_NAME,
         arinc429::INTEGRATION_NAME,
-        mil1553::INTEGRATION_NAME,
     };
 #ifndef SYNNAX_NILINUXRT
     integrations.push_back(modbus::INTEGRATION_NAME);

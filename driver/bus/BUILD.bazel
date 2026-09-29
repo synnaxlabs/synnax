@@ -73,14 +73,6 @@ cc_library(
 )
 
 cc_library(
-    name = "schedule",
-    srcs = ["schedule.cpp"],
-    hdrs = ["schedule.h"],
-    visibility = ["//visibility:public"],
-    deps = ["//x/cpp/telem"],
-)
-
-cc_library(
     name = "vendor",
     srcs = ["vendor.cpp"],
     hdrs = ["vendor.h"],
@@ -113,13 +105,11 @@ cc_test(
     srcs = [
         "queue_test.cpp",
         "scan_test.cpp",
-        "schedule_test.cpp",
         "vendor_test.cpp",
     ],
     deps = [
         ":queue",
         ":scan",
-        ":schedule",
         ":vendor",
         "//driver/bus/testutil",
         "//x/cpp/lib",

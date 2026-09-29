@@ -19,7 +19,6 @@
 #include "driver/can/factory.h"
 #include "driver/ethercat/ethercat.h"
 #include "driver/http/http.h"
-#include "driver/mil1553/mil1553.h"
 #include "driver/rack/rack.h"
 #include "driver/rack/status/status.h"
 #include "driver/serial/serial.h"
@@ -136,12 +135,6 @@ void configure_arinc429(const Config &config, FactoryList &factories) {
     });
 }
 
-void configure_mil1553(const Config &config, FactoryList &factories) {
-    configure_integration(config, factories, mil1553::INTEGRATION_NAME, []() {
-        return std::make_unique<mil1553::Factory>(mil1553::create_backends());
-    });
-}
-
 std::unique_ptr<task::Factory>
 Config::new_factory(const std::shared_ptr<x::thread::rt::Manager> &rt_manager) const {
     FactoryList factories;
@@ -157,7 +150,6 @@ Config::new_factory(const std::shared_ptr<x::thread::rt::Manager> &rt_manager) c
     configure_tcp(*this, factories);
     configure_udp(*this, factories);
     configure_arinc429(*this, factories);
-    configure_mil1553(*this, factories);
 #ifndef SYNNAX_NILINUXRT
     configure_modbus(*this, factories);
 #endif

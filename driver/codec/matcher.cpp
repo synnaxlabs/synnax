@@ -31,11 +31,6 @@ label_key(const std::uint8_t label, const std::optional<std::uint8_t> sdi) {
     return static_cast<std::uint16_t>(label | (sdi.has_value() ? *sdi + 1 : 0) << 8);
 }
 
-std::uint16_t transfer_key(mil1553::Command command) {
-    command.count = 0;
-    return command.encode();
-}
-
 x::errors::Error message_error(const library::MessageEntry &m, const std::string &msg) {
     return x::errors::Error(CONFIG_ERROR, "message " + m.name + ": " + msg);
 }
@@ -179,30 +174,6 @@ Matcher::compile(const std::span<const library::MessageEntry> messages) {
                 };
             continue;
         }
-        if (const auto *c = std::get_if<library::Mil1553Identifier>(&identifier)) {
-            if (c->rt > mil1553::MAX_RT)
-                return {{}, message_error(msg, "remote terminal address out of range")};
-            if (c->subaddress == 0 || c->subaddress > mil1553::MAX_SUBADDRESS)
-                return {{}, message_error(msg, "subaddress must be from 1 to 30")};
-            if (c->direction != library::DIRECTION_RECEIVE &&
-                c->direction != library::DIRECTION_TRANSMIT)
-                return {{}, message_error(msg, "unknown direction " + c->direction)};
-            const auto [it, ok] = m.transfers.emplace(
-                transfer_key(mil1553::Command::from(*c)),
-                i
-            );
-            if (!ok)
-                return {
-                    {},
-                    duplicate(
-                        messages,
-                        it->second,
-                        i,
-                        "have the same MIL-STD-1553 address and subaddress"
-                    ),
-                };
-            continue;
-        }
         return {{}, message_error(msg, "identifier type is not supported")};
     }
     std::stable_sort(
@@ -248,13 +219,6 @@ std::optional<std::size_t> Matcher::match(const arinc429::Word word) const {
         return it->second;
     if (const auto it = this->labels.find(label_key(word.label(), std::nullopt));
         it != this->labels.end())
-        return it->second;
-    return this->fallback;
-}
-
-std::optional<std::size_t> Matcher::match(const mil1553::Command &command) const {
-    if (const auto it = this->transfers.find(transfer_key(command));
-        it != this->transfers.end())
         return it->second;
     return this->fallback;
 }

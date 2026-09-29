@@ -38,10 +38,7 @@ type FormParams = Flux.BeforeValidateParams<
   typeof PDevice.formSchema
 >;
 
-export interface CreateDeviceParams<
-  M extends string,
-  P extends z.ZodType<record.Unknown>,
-> {
+export interface CreateDeviceParams<M extends string, P extends z.ZodObject> {
   make: M;
   /** Names one device in titles, such as CAN device. */
   noun: string;
@@ -55,12 +52,8 @@ export interface CreateDeviceParams<
   getModel: (properties: z.infer<P>) => string;
   /** @returns where a device with the given properties is reached. */
   getLocation: (properties: z.infer<P>) => string;
-  /** The error shown on each text property that must not be empty. */
+  /** The error shown on each property that must not be absent or empty. */
   required?: Partial<Record<keyof z.infer<P> & string, string>>;
-  /** @returns the error of each property the Driver rejects, keyed by property. */
-  validate?: (
-    properties: z.infer<P>,
-  ) => Partial<Record<keyof z.infer<P> & string, string>>;
 }
 
 /**
@@ -68,7 +61,7 @@ export interface CreateDeviceParams<
  * integration supplies its property fields and how they name a device's model and
  * location. A scanned device opens in the same modal to finish its properties.
  */
-export const createDevice = <M extends string, P extends z.ZodType<record.Unknown>>({
+export const createDevice = <M extends string, P extends z.ZodObject>({
   make,
   noun,
   icon,
@@ -78,7 +71,6 @@ export const createDevice = <M extends string, P extends z.ZodType<record.Unknow
   getModel,
   getLocation,
   required = {},
-  validate = () => ({}),
 }: CreateDeviceParams<M, P>) => {
   const SCHEMAS = {
     properties,
@@ -94,26 +86,26 @@ export const createDevice = <M extends string, P extends z.ZodType<record.Unknow
     make,
     model: "",
     location: "",
-    properties: properties.parse({}),
+    properties: properties.partial().parse({}),
     rack: 0,
     configured: true,
   };
 
   const beforeValidate = ({ get, set, setStatus }: FormParams): boolean => {
-    const props = properties.parse(get("properties").value);
-    const errors: Record<string, string | undefined> = { ...validate(props) };
-    for (const [field, message] of Object.entries(required))
-      if (props[field] === "") errors[field] ??= message;
+    const raw = get<record.Unknown>("properties").value;
     let valid = true;
-    for (const [field, message] of Object.entries(errors)) {
-      if (message == null) continue;
+    for (const [field, message] of Object.entries(required)) {
+      if (message == null || (raw[field] != null && raw[field] !== "")) continue;
       const path = `properties.${field}`;
       setStatus(path, { key: path, variant: "error", message });
       valid = false;
     }
     if (!valid) return false;
-    set("model", getModel(props));
-    set("location", getLocation(props));
+    const props = properties.safeParse(raw);
+    // Saving rejects properties that do not parse and reports why.
+    if (!props.success) return true;
+    set("model", getModel(props.data));
+    set("location", getLocation(props.data));
     set("configured", true);
     return true;
   };
