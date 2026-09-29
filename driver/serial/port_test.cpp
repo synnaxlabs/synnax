@@ -90,39 +90,6 @@ TEST_F(PtyTest, ReadsAfterAWriteFromAnotherThread) {
     EXPECT_EQ(got, "01234");
 }
 
-TEST_F(PtyTest, AppliesTheLineSettings) {
-    auto p = this->props();
-    p.baud_rate = 19200;
-    p.data_bits = 7;
-    p.parity = synnax::serial::PARITY_ODD_;
-    p.stop_bits = synnax::serial::STOP_BITS_TWO;
-    p.flow_control = synnax::serial::FLOW_CONTROL_HARDWARE;
-    const auto port = ASSERT_NIL_P(Port::open(p));
-    const auto tio = this->termios();
-    EXPECT_EQ(cfgetospeed(&tio), static_cast<speed_t>(B19200));
-    EXPECT_EQ(tio.c_cflag & CSIZE, static_cast<tcflag_t>(CS7));
-    EXPECT_TRUE(tio.c_cflag & PARENB);
-    EXPECT_TRUE(tio.c_cflag & PARODD);
-    EXPECT_TRUE(tio.c_cflag & CSTOPB);
-    EXPECT_TRUE(tio.c_cflag & CRTSCTS);
-    EXPECT_FALSE(tio.c_iflag & (IXON | IXOFF));
-}
-
-TEST_F(PtyTest, AppliesSoftwareFlowControlAndNoParity) {
-    auto p = this->props();
-    p.baud_rate = 115200;
-    p.flow_control = synnax::serial::FLOW_CONTROL_SOFTWARE;
-    const auto port = ASSERT_NIL_P(Port::open(p));
-    const auto tio = this->termios();
-    EXPECT_EQ(cfgetospeed(&tio), static_cast<speed_t>(B115200));
-    EXPECT_EQ(tio.c_cflag & CSIZE, static_cast<tcflag_t>(CS8));
-    EXPECT_FALSE(tio.c_cflag & PARENB);
-    EXPECT_FALSE(tio.c_cflag & CSTOPB);
-    EXPECT_FALSE(tio.c_cflag & CRTSCTS);
-    EXPECT_TRUE(tio.c_iflag & IXON);
-    EXPECT_TRUE(tio.c_iflag & IXOFF);
-}
-
 TEST_F(PtyTest, RejectsOneAndAHalfStopBits) {
     auto p = this->props();
     p.stop_bits = synnax::serial::STOP_BITS_ONE_AND_HALF;

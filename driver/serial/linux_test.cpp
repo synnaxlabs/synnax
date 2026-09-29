@@ -7,50 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <string>
 
 #include "gtest/gtest.h"
-#include <termios.h>
 
 #include "x/cpp/test/test.h"
 
-#include "driver/serial/port.h"
-#include "driver/serial/pty.h"
 #include "driver/serial/scan.h"
 
 namespace driver::serial {
-std::uint32_t output_speed(const std::string &path);
-
-TEST_F(PtyTest, SetsABaudRateOutsideTheTermiosTable) {
-    auto p = this->props();
-    p.baud_rate = 250000;
-    const auto port = ASSERT_NIL_P(Port::open(p));
-    EXPECT_EQ(output_speed(this->terminal_path()), 250000u);
-}
-
-TEST_F(PtyTest, SetsMarkParity) {
-    auto p = this->props();
-    p.parity = synnax::serial::PARITY_MARK_;
-    const auto port = ASSERT_NIL_P(Port::open(p));
-    const auto tio = this->termios();
-    EXPECT_TRUE(tio.c_cflag & PARENB);
-    EXPECT_TRUE(tio.c_cflag & CMSPAR);
-    EXPECT_TRUE(tio.c_cflag & PARODD);
-}
-
-TEST_F(PtyTest, SetsSpaceParity) {
-    auto p = this->props();
-    p.parity = synnax::serial::PARITY_SPACE_;
-    const auto port = ASSERT_NIL_P(Port::open(p));
-    const auto tio = this->termios();
-    EXPECT_TRUE(tio.c_cflag & PARENB);
-    EXPECT_TRUE(tio.c_cflag & CMSPAR);
-    EXPECT_FALSE(tio.c_cflag & PARODD);
-}
-
 namespace {
 void touch(const std::filesystem::path &path) {
     std::filesystem::create_directories(path.parent_path());

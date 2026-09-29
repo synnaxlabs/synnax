@@ -16,6 +16,7 @@
 #include "asio/ip/udp.hpp"
 #include "gtest/gtest.h"
 
+#include "client/cpp/udp/json.gen.h"
 #include "x/cpp/test/test.h"
 
 #include "driver/bus/read.h"

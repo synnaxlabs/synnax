@@ -8,77 +8,96 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <array>
 #include <cerrno>
 #include <fstream>
 #include <set>
 #include <string>
 
-#include <asm/termbits.h>
 #include <linux/serial.h>
 #include <sys/ioctl.h>
 
+#include "driver/serial/line.h"
 #include "driver/serial/native.h"
 #include "driver/serial/scan.h"
+#include "driver/transport/errors.h"
 
 namespace driver::serial {
+namespace {
+const std::array<tcflag_t, 4> SIZES{CS5, CS6, CS7, CS8};
+}
+
+namespace line {
+x::errors::Error apply(const synnax::serial::Properties &props, Settings &settings) {
+    if (props.stop_bits == synnax::serial::STOP_BITS_ONE_AND_HALF)
+        return {transport::CONFIG_ERROR, "Linux does not support 1.5 stop bits"};
+    settings.c_cflag &= ~(CBAUD | (CBAUD << IBSHIFT));
+    settings.c_cflag |= BOTHER | (BOTHER << IBSHIFT);
+    settings.c_ispeed = props.baud_rate;
+    settings.c_ospeed = props.baud_rate;
+    settings.c_cflag &= ~CSIZE;
+    settings.c_cflag |= SIZES.at(props.data_bits - 5);
+    settings.c_cflag &= ~(PARENB | PARODD | CMSPAR);
+    settings.c_iflag &= ~(IGNPAR | PARMRK | INPCK);
+    const auto &parity = props.parity;
+    if (parity == synnax::serial::PARITY_NONE_) {
+        settings.c_iflag |= IGNPAR;
+    } else {
+        settings.c_iflag |= INPCK;
+        settings.c_cflag |= PARENB;
+    }
+    if (parity == synnax::serial::PARITY_ODD_ || parity == synnax::serial::PARITY_MARK_)
+        settings.c_cflag |= PARODD;
+    if (parity == synnax::serial::PARITY_MARK_ ||
+        parity == synnax::serial::PARITY_SPACE_)
+        settings.c_cflag |= CMSPAR;
+    if (props.stop_bits == synnax::serial::STOP_BITS_TWO)
+        settings.c_cflag |= CSTOPB;
+    else
+        settings.c_cflag &= ~CSTOPB;
+    settings.c_iflag &= ~(IXON | IXOFF);
+    settings.c_cflag &= ~CRTSCTS;
+    if (props.flow_control == synnax::serial::FLOW_CONTROL_SOFTWARE)
+        settings.c_iflag |= IXON | IXOFF;
+    if (props.flow_control == synnax::serial::FLOW_CONTROL_HARDWARE)
+        settings.c_cflag |= CRTSCTS;
+    return x::errors::NIL;
+}
+}
+
 namespace native {
 namespace {
-std::error_code last_error() {
-    return {errno, std::generic_category()};
+x::errors::Error failed(const std::string &setting, const std::string &port) {
+    return transport::error(
+        transport::CONFIG_ERROR,
+        "failed to set " + setting + " on " + port,
+        {errno, std::generic_category()}
+    );
+}
 }
 
-template<typename Edit>
-std::error_code edit_termios(const Handle handle, Edit &&edit) {
+x::errors::Error
+configure(const Handle handle, const synnax::serial::Properties &props) {
     const int fd = static_cast<int>(handle);
-    termios2 tio{};
-    if (::ioctl(fd, TCGETS2, &tio) != 0) return last_error();
-    edit(tio);
-    if (::ioctl(fd, TCSETS2, &tio) != 0) return last_error();
-    return {};
-}
-}
-
-std::error_code set_flow_control(const Handle handle, const FlowControl mode) {
-    return edit_termios(handle, [mode](termios2 &tio) {
-        tio.c_iflag &= ~(IXON | IXOFF);
-        tio.c_cflag &= ~CRTSCTS;
-        if (mode == FlowControl::SOFTWARE) tio.c_iflag |= IXON | IXOFF;
-        if (mode == FlowControl::HARDWARE) tio.c_cflag |= CRTSCTS;
-    });
-}
-
-std::error_code set_baud_rate(const Handle handle, const std::uint32_t rate) {
-    return edit_termios(handle, [rate](termios2 &tio) {
-        tio.c_cflag &= ~(CBAUD | (CBAUD << IBSHIFT));
-        tio.c_cflag |= BOTHER | (BOTHER << IBSHIFT);
-        tio.c_ispeed = rate;
-        tio.c_ospeed = rate;
-    });
-}
-
-std::error_code set_mark_space_parity(const Handle handle, const bool mark) {
-    return edit_termios(handle, [mark](termios2 &tio) {
-        tio.c_iflag &= ~(IGNPAR | PARMRK);
-        tio.c_iflag |= INPCK;
-        tio.c_cflag |= PARENB | CMSPAR;
-        if (mark)
-            tio.c_cflag |= PARODD;
-        else
-            tio.c_cflag &= ~PARODD;
-    });
-}
-
-std::error_code enable_rs485(const Handle handle) {
-    serial_rs485 conf{};
-    conf.flags = SER_RS485_ENABLED | SER_RS485_RTS_ON_SEND;
-    if (::ioctl(static_cast<int>(handle), TIOCSRS485, &conf) != 0) return last_error();
-    return {};
+    line::Settings settings{};
+    if (::ioctl(fd, TCGETS2, &settings) != 0)
+        return failed("the line settings", props.port);
+    if (auto err = line::apply(props, settings)) return err;
+    if (::ioctl(fd, TCSETS2, &settings) != 0)
+        return failed("the line settings", props.port);
+    if (props.rs485) {
+        serial_rs485 conf{};
+        conf.flags = SER_RS485_ENABLED | SER_RS485_RTS_ON_SEND;
+        if (::ioctl(fd, TIOCSRS485, &conf) != 0)
+            return failed("RS-485 mode", props.port);
+    }
+    return x::errors::NIL;
 }
 
 std::pair<std::size_t, std::error_code> queued_output(const Handle handle) {
     int queued = 0;
     if (::ioctl(static_cast<int>(handle), TIOCOUTQ, &queued) != 0)
-        return {0, last_error()};
+        return {0, {errno, std::generic_category()}};
     return {static_cast<std::size_t>(queued), {}};
 }
 }
