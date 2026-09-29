@@ -17,7 +17,6 @@ SCRIPT = Path(__file__).resolve().parent / "check_versions.sh"
 PYTHON_DIRS = ["alamos/py", "freighter/py", "client/py", "x/py"]
 NODE_DIRS = [
     "alamos/ts",
-    "arc/ts",
     "client/ts",
     "freighter/ts",
     "x/ts",

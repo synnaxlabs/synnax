@@ -111,7 +111,6 @@ main() {
 
     local NODE_DIRS=(
         "$ROOT_DIR/alamos/ts"
-        "$ROOT_DIR/arc/ts"
         "$ROOT_DIR/client/ts"
         "$ROOT_DIR/freighter/ts"
         "$ROOT_DIR/x/ts"
