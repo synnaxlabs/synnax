@@ -34,18 +34,18 @@ export const StalenessSection = ({
   onColorChange,
   onTimeoutChange,
 }: StalenessSectionProps): ReactElement => (
-    <Form.Section title="Staleness">
-      <ColorField label="Color" values={colors} onChange={onColorChange} />
-      <Input.Item label="Timeout" align="start" padHelpText={false}>
-        <Input.Numeric
-          bounds={STALENESS_TIMEOUT_BOUNDS}
-          endContent="s"
-          value={timeout}
-          onChange={onTimeoutChange}
-        />
-      </Input.Item>
-    </Form.Section>
-  );
+  <Form.Section title="Staleness">
+    <ColorField label="Color" values={colors} onChange={onColorChange} />
+    <Input.Item label="Timeout" align="start" padHelpText={false}>
+      <Input.Numeric
+        bounds={STALENESS_TIMEOUT_BOUNDS}
+        endContent="s"
+        value={timeout}
+        onChange={onTimeoutChange}
+      />
+    </Input.Item>
+  </Form.Section>
+);
 
 export interface NumberFormatSectionProps {
   notation?: notation.Notation;
