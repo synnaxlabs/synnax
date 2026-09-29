@@ -32,7 +32,12 @@ export default defineConfig({
       }),
     },
   },
-  adapter: vercel(),
+  adapter: vercel({
+    // Misses read Vercel's shared page cache, not the function, and pages refresh
+    // with the release listing. The updater feeds stay uncached so a failed lookup
+    // never sticks.
+    isr: { expiration: 300, exclude: [/^\/releases\/[^/]+\/(latest|next)\.json$/] },
+  }),
   vite: {
     // Lyra is ESM with CSS imports, which Node cannot load; Vite bundles it for SSR.
     ssr: { noExternal: ["@synnaxlabs/lyra"] },
