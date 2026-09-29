@@ -7,34 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package http_test
+package connectivity_test
 
 import (
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	svcmock "github.com/synnaxlabs/synnax/pkg/service/mock"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var apiLayer *api.Layer
-
-func TestHTTP(t *testing.T) {
+func TestConnectivity(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Transport HTTP Suite")
+	RunSpecs(t, "API Connectivity Suite")
 }
+
+var _ = ShouldNotLeakGoroutinesPerSpec()
+
+var node mock.Node
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node := mock.NewNode(ctx)
-	svc := MustOpen(svcmock.OpenLayer(ctx, node))
-	apiLayer = MustSucceed(api.NewLayer(api.LayerConfig{
-		Service:      svc,
-		Distribution: node.Layer,
-	}))
+	node = mock.NewNode(ctx)
 })
-
-var _ = ShouldNotLeakGoroutinesPerSpec()
