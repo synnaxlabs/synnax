@@ -138,6 +138,10 @@ on:
         type: string
         required: false
         default: ""
+      core_ref_run_id:
+        type: string
+        required: false
+        default: ""
       console_release:
         description: Console release tag whose web bundle the Core embeds
         type: string
@@ -276,6 +280,11 @@ jobs:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
       GH_TOKEN: ${{ github.token }}
+      DRIVER_REF_RUN_ID:
+        ${{ fromJSON(inputs.driver_ref_run_id || '{}')[matrix.os-name] }}
+      CONSOLE_REF_RUN_ID:
+        ${{ fromJSON(inputs.console_ref_run_id || '{}')[matrix.os-name] }}
+      CORE_REF_RUN_ID: ${{ fromJSON(inputs.core_ref_run_id || '{}')[matrix.os-name] }}
       BAZEL_BUILD_FLAGS:
         --enable_platform_specific_config ${{ inputs.debug && '-c dbg' || '--config=opt'
         }} --announce_rc --verbose_failures --define=SYNNAX_DRIVER_VERSION=${{
@@ -308,6 +317,7 @@ jobs:
         run: brew install autoconf automake libtool
 
       - name: Setup Bazel
+        if: inputs.driver && (env.DRIVER_REF_RUN_ID == '' || inputs.nilinuxrt)
         uses: bazel-contrib/setup-bazel@0.19.0
         with:
           # Use S3 cache instead of github cache.
@@ -316,12 +326,12 @@ jobs:
           repository-cache: false
 
       - name: Install Rust
-        if: inputs.driver && inputs.driver_ref_run_id == ''
+        if: inputs.driver && env.DRIVER_REF_RUN_ID == ''
         uses: actions-rust-lang/setup-rust-toolchain@v2
 
       - name: Build Driver (Windows)
         if:
-          inputs.driver && inputs.driver_ref_run_id == '' && matrix.os ==
+          inputs.driver && env.DRIVER_REF_RUN_ID == '' && matrix.os ==
           'windows-build-bot'
         shell: bash
         run: |
@@ -331,8 +341,8 @@ jobs:
 
       - name: Upload Windows debug symbols
         if:
-          inputs.driver && inputs.driver_ref_run_id == '' && inputs.debug && matrix.os
-          == 'windows-build-bot'
+          inputs.driver && env.DRIVER_REF_RUN_ID == '' && inputs.debug && matrix.os ==
+          'windows-build-bot'
         uses: actions/upload-artifact@v7
         with:
           name:
@@ -346,22 +356,21 @@ jobs:
 
       - name: Build Driver (macOS)
         if:
-          inputs.driver && inputs.driver_ref_run_id == '' && startsWith(matrix.os,
-          'macos')
+          inputs.driver && env.DRIVER_REF_RUN_ID == '' && startsWith(matrix.os, 'macos')
         run: |
           bazel build $BAZEL_BUILD_FLAGS \
             --config=opt-unix //driver
 
       - name: Extract debug symbols (macOS)
         if:
-          inputs.driver && inputs.driver_ref_run_id == '' && inputs.debug &&
+          inputs.driver && env.DRIVER_REF_RUN_ID == '' && inputs.debug &&
           startsWith(matrix.os, 'macos')
         run: |
           dsymutil bazel-bin/driver/driver -o bazel-bin/driver/driver.dSYM
 
       - name: Upload macOS debug symbols
         if:
-          inputs.driver && inputs.driver_ref_run_id == '' && inputs.debug &&
+          inputs.driver && env.DRIVER_REF_RUN_ID == '' && inputs.debug &&
           startsWith(matrix.os, 'macos')
         uses: actions/upload-artifact@v7
         with:
@@ -441,7 +450,7 @@ jobs:
 
       - name: Build Driver (Linux)
         if:
-          inputs.driver && inputs.driver_ref_run_id == '' && matrix.os ==
+          inputs.driver && env.DRIVER_REF_RUN_ID == '' && matrix.os ==
           'ubuntu-build-bot'
         run: |
           bazel build $BAZEL_BUILD_FLAGS $BAZEL_REMOTE_CACHE_FLAGS \
@@ -449,15 +458,15 @@ jobs:
 
       - name: Extract debug symbols (Linux)
         if:
-          inputs.driver && inputs.driver_ref_run_id == '' && inputs.debug && matrix.os
-          == 'ubuntu-build-bot'
+          inputs.driver && env.DRIVER_REF_RUN_ID == '' && inputs.debug && matrix.os ==
+          'ubuntu-build-bot'
         run: |
           objcopy --only-keep-debug bazel-bin/driver/driver bazel-bin/driver/driver.debug
 
       - name: Upload Linux debug symbols
         if:
-          inputs.driver && inputs.driver_ref_run_id == '' && inputs.debug && matrix.os
-          == 'ubuntu-build-bot'
+          inputs.driver && env.DRIVER_REF_RUN_ID == '' && inputs.debug && matrix.os ==
+          'ubuntu-build-bot'
         uses: actions/upload-artifact@v7
         with:
           name:
@@ -563,17 +572,21 @@ jobs:
 
       # A scratch dir avoids leftovers in the persistent bazel output base.
       - name: Download cached Driver
-        if: inputs.driver && inputs.driver_ref_run_id != ''
+        if:
+          inputs.driver && env.DRIVER_REF_RUN_ID != '' && inputs.core &&
+          env.CORE_REF_RUN_ID == ''
         uses: actions/download-artifact@v8
         with:
           name: synnax-driver-${{ matrix.os-name }}
           path: ${{ runner.temp }}/cached-driver
-          run-id: ${{ inputs.driver_ref_run_id }}
+          run-id: ${{ env.DRIVER_REF_RUN_ID }}
           github-token: ${{ github.token }}
 
       # The cached binary carries the version stamp of the run that built it.
       - name: Rename cached Driver
-        if: inputs.driver && inputs.driver_ref_run_id != ''
+        if:
+          inputs.driver && env.DRIVER_REF_RUN_ID != '' && inputs.core &&
+          env.CORE_REF_RUN_ID == ''
         shell: bash
         run: |
           mkdir -p bazel-bin/driver
@@ -581,13 +594,13 @@ jobs:
             bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }}
 
       - name: Rename Driver binary
-        if: inputs.driver && inputs.driver_ref_run_id == ''
+        if: inputs.driver && env.DRIVER_REF_RUN_ID == ''
         shell: bash
         run: |
           mv bazel-bin/driver/driver${{ matrix.executable }} bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }}
 
       - name: Upload Driver as artifact
-        if: inputs.driver
+        if: inputs.driver && env.DRIVER_REF_RUN_ID == ''
         uses: actions/upload-artifact@v7
         with:
           name:
@@ -613,12 +626,16 @@ jobs:
             matrix.os-name }}${{ matrix.executable }}
 
       - name: Copy Driver to assets
-        if: inputs.driver && inputs.core && matrix.os != 'windows-build-bot'
+        if:
+          inputs.driver && inputs.core && env.CORE_REF_RUN_ID == '' && matrix.os !=
+          'windows-build-bot'
         run: |
           cp bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }} core/pkg/driver/assets/driver${{ matrix.executable }}
 
       - name: Copy Driver to assets (Windows)
-        if: inputs.driver && inputs.core && matrix.os == 'windows-build-bot'
+        if:
+          inputs.driver && inputs.core && env.CORE_REF_RUN_ID == '' && matrix.os ==
+          'windows-build-bot'
         shell: powershell
         run: |
           Copy-Item -Force bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}.exe core/pkg/driver/assets/driver.exe
@@ -643,7 +660,7 @@ jobs:
           tar -xzf console-web.tar.gz -C core/pkg/console/dist
 
       - name: Set up pnpm and Node.js
-        if: inputs.console && inputs.console_ref_run_id == ''
+        if: inputs.console && env.CONSOLE_REF_RUN_ID == ''
         uses: pnpm/setup@v3
         with:
           # Build bots keep a local pnpm store, so restoring the GitHub cache tarball
@@ -657,22 +674,24 @@ jobs:
             runner.name) || '~/setup-pnpm' }}
 
       - name: Build Console web assets
-        if: inputs.console && inputs.console_ref_run_id == ''
+        if: inputs.console && env.CONSOLE_REF_RUN_ID == ''
         env:
           NODE_OPTIONS: --max_old_space_size=8192
         run: pnpm build:console-vite
 
       - name: Download cached Console assets
-        if: inputs.console && inputs.console_ref_run_id != ''
+        if:
+          inputs.console && env.CONSOLE_REF_RUN_ID != '' && inputs.core &&
+          env.CORE_REF_RUN_ID == ''
         uses: actions/download-artifact@v8
         with:
           name: synnax-console-assets-${{ matrix.os-name }}
           path: console/dist
-          run-id: ${{ inputs.console_ref_run_id }}
+          run-id: ${{ env.CONSOLE_REF_RUN_ID }}
           github-token: ${{ github.token }}
 
       - name: Upload Console assets as artifact
-        if: inputs.console
+        if: inputs.console && env.CONSOLE_REF_RUN_ID == ''
         uses: actions/upload-artifact@v7
         with:
           name:
@@ -691,17 +710,21 @@ jobs:
           gh release upload --clobber "$RELEASE_TAG" console-web-v${{ needs.setup.outputs.VERSION }}.tar.gz
 
       - name: Copy Console to assets
-        if: inputs.console && inputs.core && matrix.os != 'windows-build-bot'
+        if:
+          inputs.console && inputs.core && env.CORE_REF_RUN_ID == '' && matrix.os !=
+          'windows-build-bot'
         run: cp -r console/dist/* core/pkg/console/dist/
 
       - name: Copy Console to assets (Windows)
-        if: inputs.console && inputs.core && matrix.os == 'windows-build-bot'
+        if:
+          inputs.console && inputs.core && env.CORE_REF_RUN_ID == '' && matrix.os ==
+          'windows-build-bot'
         shell: powershell
         run: |
           Copy-Item -Recurse -Force console/dist/* core/pkg/console/dist/
 
       - name: Set up Go
-        if: inputs.core
+        if: inputs.core && env.CORE_REF_RUN_ID == ''
         uses: actions/setup-go@v7
         with:
           go-version-file: core/go.mod
@@ -709,7 +732,7 @@ jobs:
           cache: false
 
       - name: Build Core
-        if: inputs.core
+        if: inputs.core && env.CORE_REF_RUN_ID == ''
         working-directory: core
         shell: bash
         run: |
@@ -795,7 +818,7 @@ jobs:
           core/synnax-v${{ needs.setup.outputs.VERSION }}.exe
 
       - name: Upload Core binary as artifact
-        if: inputs.core
+        if: inputs.core && env.CORE_REF_RUN_ID == ''
         uses: actions/upload-artifact@v7
         with:
           name:
@@ -832,9 +855,108 @@ jobs:
         shell: powershell
         run: integration/scripts/CleanBuildCaches.ps1 -MinFreeGB 30
 
+  republish:
+    name: Republish cached (${{ matrix.os-name }})
+    needs: setup
+    if: needs.setup.outputs.matrix != '[]'
+    timeout-minutes: 20
+    permissions:
+      actions: read
+    env:
+      DRIVER_REF_RUN_ID:
+        ${{ fromJSON(inputs.driver_ref_run_id || '{}')[matrix.os-name] }}
+      CONSOLE_REF_RUN_ID:
+        ${{ fromJSON(inputs.console_ref_run_id || '{}')[matrix.os-name] }}
+      CORE_REF_RUN_ID: ${{ fromJSON(inputs.core_ref_run_id || '{}')[matrix.os-name] }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.setup.outputs.matrix) }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download cached Driver
+        if: inputs.driver && env.DRIVER_REF_RUN_ID != ''
+        uses: actions/download-artifact@v8
+        with:
+          name: synnax-driver-${{ matrix.os-name }}
+          path: driver-in
+          run-id: ${{ env.DRIVER_REF_RUN_ID }}
+          github-token: ${{ github.token }}
+
+      - name: Stamp cached Driver
+        if: inputs.driver && env.DRIVER_REF_RUN_ID != ''
+        run: |
+          mkdir -p driver-out
+          mv driver-in/synnax-driver-v* \
+            driver-out/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }}
+
+      - name: Upload Driver as artifact
+        if: inputs.driver && env.DRIVER_REF_RUN_ID != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name:
+            ${{ inputs.use_simple_artifact_names && format('synnax-driver-{0}',
+            matrix.os-name) || format('synnax-driver-v{0}-{1}',
+            needs.setup.outputs.VERSION, matrix.os-name) }}
+          path:
+            driver-out/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{
+            matrix.os-name }}${{ matrix.executable }}
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Download cached Console assets
+        if: inputs.console && env.CONSOLE_REF_RUN_ID != ''
+        uses: actions/download-artifact@v8
+        with:
+          name: synnax-console-assets-${{ matrix.os-name }}
+          path: console-dist
+          run-id: ${{ env.CONSOLE_REF_RUN_ID }}
+          github-token: ${{ github.token }}
+
+      - name: Upload Console assets as artifact
+        if: inputs.console && env.CONSOLE_REF_RUN_ID != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name:
+            ${{ inputs.use_simple_artifact_names && format('synnax-console-assets-{0}',
+            matrix.os-name) || format('synnax-console-assets-v{0}-{1}',
+            needs.setup.outputs.VERSION, matrix.os-name) }}
+          path: console-dist/
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Download cached Core
+        if: inputs.core && env.CORE_REF_RUN_ID != ''
+        uses: actions/download-artifact@v8
+        with:
+          name: synnax-core-${{ matrix.os-name }}
+          path: core-in
+          run-id: ${{ env.CORE_REF_RUN_ID }}
+          github-token: ${{ github.token }}
+
+      - name: Stamp cached Core
+        if: inputs.core && env.CORE_REF_RUN_ID != ''
+        run: |
+          mkdir -p core-out
+          mv core-in/synnax-v* \
+            core-out/synnax-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }}
+
+      - name: Upload Core binary as artifact
+        if: inputs.core && env.CORE_REF_RUN_ID != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name:
+            ${{ inputs.use_simple_artifact_names && format('synnax-core-{0}',
+            matrix.os-name) || format('synnax-core-v{0}-{1}',
+            needs.setup.outputs.VERSION, matrix.os-name) }}
+          path:
+            core-out/synnax-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }}
+          retention-days: 7
+          if-no-files-found: error
+
   docker:
     name: Build Docker image
-    needs: [setup, build]
+    needs: [setup, build, republish]
     if:
       inputs.docker && (needs.build.result == 'success' || needs.build.result ==
       'skipped')
@@ -970,7 +1092,7 @@ jobs:
 
   build-desktop-tauri:
     name: Build Synnax Desktop
-    needs: [setup, build]
+    needs: [setup, build, republish]
     if: inputs.desktop && needs.setup.outputs.console_tauri_matrix != '[]'
     uses: ./.github/workflows/build.tauri.yaml
     with:
