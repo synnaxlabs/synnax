@@ -15,8 +15,6 @@ cc_library(
     hdrs = ["errors.h"],
     visibility = ["//visibility:public"],
     deps = [
-        "//client/cpp/errors",
-        "//freighter/cpp:freighter",
         "//x/cpp/errors",
         "//x/cpp/lib",
     ],
@@ -26,13 +24,11 @@ cc_test(
     name = "errors_test",
     srcs = ["errors_test.cpp"],
     deps = [
-        "//client/cpp/errors",
         "//driver/errors",
         "//driver/labjack/ljm",
         "//driver/ni/daqmx",
         "//driver/ni/errors",
         "//driver/ni/syscfg",
-        "//freighter/cpp:freighter",
         "//x/cpp/test",
         "@googletest//:gtest_main",
     ],

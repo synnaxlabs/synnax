@@ -18,8 +18,8 @@ Modbus TCP/IP) to Synnax.
    (discovery).
 3. **Pipelines** (`/driver/pipeline/`) — generic streaming: **Acquisition** (Source →
    Writer → Synnax) and **Control** (Synnax → Streamer → Sink). Automatic retry when
-   `errors::core_unavailable` matches (unreachable or unlicensed Core), breaker pattern
-   (exponential backoff), thread management.
+   `synnax::errors::is_temporarily_unavailable` matches (unreachable or unlicensed
+   Core), breaker pattern (exponential backoff), thread management.
 4. **Device integrations** — each implements
    `Factory → {Read|Write|Scan}Task → Source/Sink → Device API`.
 

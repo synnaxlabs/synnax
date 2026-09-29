@@ -11,8 +11,6 @@
 
 #include "gtest/gtest.h"
 
-#include "client/cpp/errors/errors.h"
-#include "freighter/cpp/freighter.h"
 #include "x/cpp/test/test.h"
 
 #include "driver/errors/errors.h"
@@ -74,15 +72,5 @@ TEST(ErrorsTest, WrapChannelError) {
         << "Expected hardware location in error. Got: " << wrapped.data;
     EXPECT_NE(wrapped.data.find("some hardware error"), std::string::npos)
         << "Expected original error message in error. Got: " << wrapped.data;
-}
-
-/// @brief it should retry only on errors that clear without a Driver restart.
-TEST(ErrorsTest, CoreUnavailable) {
-    EXPECT_TRUE(core_unavailable(freighter::UNREACHABLE));
-    EXPECT_TRUE(core_unavailable(synnax::errors::LICENSE_MISSING));
-    EXPECT_TRUE(core_unavailable(synnax::errors::LICENSE_EXPIRED));
-    EXPECT_FALSE(core_unavailable(synnax::errors::LICENSE));
-    EXPECT_FALSE(core_unavailable(synnax::errors::LICENSE.sub("invalid")));
-    EXPECT_FALSE(core_unavailable(x::errors::UNKNOWN));
 }
 }
