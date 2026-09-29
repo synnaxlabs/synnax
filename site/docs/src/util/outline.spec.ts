@@ -61,6 +61,14 @@ describe("outline", () => {
     ).toEqual({ "Run sy": { text: "Run `sy`", step: "Part 2" } });
   });
 
+  it("should label a heading that holds a namespaced Step", async () => {
+    expect(
+      await compile(
+        '## <Text.Step name="Test" step={1} level="h2">Batch size</Text.Step>',
+      ),
+    ).toEqual({ "Batch size": { text: "Batch size", step: "Test 1" } });
+  });
+
   it("should keep each page's headings apart", async () => {
     await compile("## `first`");
     expect(await compile("## `second`")).toEqual({ second: { text: "`second`" } });

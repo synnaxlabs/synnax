@@ -46,9 +46,12 @@ const attribute = (node: Heading, name: string): string | undefined => {
   return undefined;
 };
 
+// Matches Step alone or through a namespace, such as Text.Step.
+const STEP = /(?:^|\.)Step$/;
+
 const step = (node: Heading): string | undefined => {
   const found = node.children?.find(
-    (child) => child.type === "mdxJsxTextElement" && child.name === "Step",
+    (child) => child.type === "mdxJsxTextElement" && STEP.test(child.name ?? ""),
   );
   if (found == null) return undefined;
   return `${attribute(found, "name") ?? "Step"} ${attribute(found, "step")}`;

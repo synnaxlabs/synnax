@@ -17,7 +17,9 @@ const READING_LINE = 120;
 const READING_LIMIT = 150;
 
 const findReading = (selector: string): string | null => {
-  const headings = document.querySelectorAll(selector);
+  const headings = [...document.querySelectorAll(selector)].filter(
+    (heading) => heading.closest("[hidden]") == null,
+  );
   let reading: Element | null = null;
   let closest = Infinity;
   for (const heading of headings) {

@@ -93,6 +93,12 @@ describe("on this page", () => {
       expect(active()).toEqual(["python"]);
     });
 
+    it("should skip headings in hidden tab panels", () => {
+      // A browser places a heading in a hidden panel at the top of the viewport.
+      show({ create: -900, python: -400, typescript: 0, delete: 800 });
+      expect(active()).toEqual(["python"]);
+    });
+
     it("should follow the scroll", () => {
       show({ create: 100, python: 400 });
       scrollTo({ create: -300, python: 110 });
