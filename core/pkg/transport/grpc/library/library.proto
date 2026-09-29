@@ -1,0 +1,52 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+syntax = "proto3";
+
+package grpc.library;
+
+import "core/pkg/service/library/pb/library.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "github.com/synnaxlabs/synnax/pkg/transport/grpc/library";
+
+service LibraryCreateService {
+  rpc Exec(CreateRequest) returns (CreateResponse);
+}
+
+service LibraryRetrieveService {
+  rpc Exec(RetrieveRequest) returns (RetrieveResponse);
+}
+
+service LibraryDeleteService {
+  rpc Exec(DeleteRequest) returns (google.protobuf.Empty);
+}
+
+message CreateRequest {
+  repeated service.library.pb.Library libraries = 1;
+}
+
+message CreateResponse {
+  repeated service.library.pb.Library libraries = 1;
+}
+
+message RetrieveRequest {
+  repeated string keys = 1;
+  string search_term = 2;
+  int32 limit = 3;
+  int32 offset = 4;
+}
+
+message RetrieveResponse {
+  repeated service.library.pb.Library libraries = 1;
+}
+
+message DeleteRequest {
+  repeated string keys = 1;
+}

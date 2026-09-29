@@ -444,6 +444,9 @@ func Bind(layer *api.Layer, router *http.Router) {
 		LibraryDelete: router.NewUnaryServer[library.DeleteRequest, struct{}](
 			"/api/v1/library/delete",
 		),
+		LibraryImport: router.NewUnaryServer[library.ImportRequest, library.ImportResponse](
+			"/api/v1/library/import",
+		),
 		// VIEW
 		ViewCreate: router.NewUnaryServer[view.CreateRequest, view.CreateResponse](
 			"/api/v1/view/create",

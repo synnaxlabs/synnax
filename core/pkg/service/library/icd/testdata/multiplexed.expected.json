@@ -1,0 +1,100 @@
+{
+  "messages": [
+    {
+      "name": "Diagnostics",
+      "id": 768,
+      "extended": false,
+      "fd": false,
+      "length": 8,
+      "period_ms": 50,
+      "fields": [
+        {
+          "name": "Mode",
+          "start_bit": 0,
+          "bit_length": 8,
+          "byte_order": "little_endian",
+          "signed": false,
+          "float": false,
+          "scale": 1.0,
+          "offset": 0.0,
+          "units": "",
+          "choices": [
+            {
+              "value": 0,
+              "name": "Thermal"
+            },
+            {
+              "value": 1,
+              "name": "Atmospheric"
+            }
+          ],
+          "multiplexor": null,
+          "multiplex_values": []
+        },
+        {
+          "name": "Temperature",
+          "start_bit": 8,
+          "bit_length": 16,
+          "byte_order": "little_endian",
+          "signed": true,
+          "float": false,
+          "scale": 0.1,
+          "offset": 0.0,
+          "units": "degC",
+          "choices": null,
+          "multiplexor": "Mode",
+          "multiplex_values": [
+            0
+          ]
+        },
+        {
+          "name": "Pressure",
+          "start_bit": 8,
+          "bit_length": 16,
+          "byte_order": "little_endian",
+          "signed": false,
+          "float": false,
+          "scale": 0.5,
+          "offset": 0.0,
+          "units": "kPa",
+          "choices": null,
+          "multiplexor": "Mode",
+          "multiplex_values": [
+            1
+          ]
+        },
+        {
+          "name": "Humidity",
+          "start_bit": 24,
+          "bit_length": 8,
+          "byte_order": "little_endian",
+          "signed": false,
+          "float": false,
+          "scale": 1.0,
+          "offset": 0.0,
+          "units": "%",
+          "choices": null,
+          "multiplexor": "Mode",
+          "multiplex_values": [
+            1
+          ]
+        },
+        {
+          "name": "Uptime",
+          "start_bit": 32,
+          "bit_length": 32,
+          "byte_order": "little_endian",
+          "signed": false,
+          "float": false,
+          "scale": 1.0,
+          "offset": 0.0,
+          "units": "s",
+          "choices": null,
+          "multiplexor": null,
+          "multiplex_values": []
+        }
+      ]
+    }
+  ],
+  "value_tables": {}
+}
