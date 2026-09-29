@@ -25,7 +25,7 @@ EnumValue struct {
     value int32 = 0 {
         @doc value "is the integer value."
     }
-    name  string    {
+    name  string {
         @doc value "is the name of the value."
     }
 
@@ -58,7 +58,7 @@ Format enum {
 }
 
 Identifier union on type {
-    can      {
+    can {
         id       uint32 = 0 {
             @doc value "is the CAN arbitration identifier."
         }
@@ -68,7 +68,7 @@ Identifier union on type {
         fd       bool = false {
             @doc value "is true when the message is sent as a CAN FD frame."
         }
-        mask     uint32?    {
+        mask     uint32? {
             @doc value """
                 is the bit mask applied to both identifiers before matching. When absent
                 the identifiers must match exactly.
@@ -90,7 +90,7 @@ Identifier union on type {
 
         @doc value "matches an ARINC 429 word by label."
     }
-    mil1553  {
+    mil1553 {
         rt         uint8 = 0 {
             @doc value "is the remote terminal address."
         }
@@ -106,8 +106,8 @@ Identifier union on type {
 
         @doc value "matches a MIL-STD-1553 transfer by command word."
     }
-    field    {
-        field FieldKey  {
+    field {
+        field FieldKey {
             @doc value "is the key of the message field that holds the identifier."
         }
         value int32 = 0 {
@@ -116,7 +116,7 @@ Identifier union on type {
 
         @doc value "matches a binary frame by the raw value of one of its fields."
     }
-    token    {
+    token {
         prefix string = "" {
             @doc value """
                 is the text a line must start with. An empty prefix matches every line.
@@ -126,7 +126,7 @@ Identifier union on type {
         @doc value "matches a text line by its prefix."
     }
 
-    @doc value "selects which frames on a bus or stream belong to a message."
+    @doc value  "selects which frames on a bus or stream belong to a message."
     @go marshal
 }
 
@@ -134,7 +134,7 @@ BaseField struct {
     key              FieldKey = create {
         @doc value "is the unique identifier for the field within its message."
     }
-    name             string            {
+    name             string    {
         @doc value "is the name of the field, unique within its message."
     }
     scale            float64 = 1 {
@@ -146,13 +146,13 @@ BaseField struct {
     units            string = "" {
         @doc value "is the engineering unit of the decoded value."
     }
-    enumeration      EntryKey?         {
+    enumeration      EntryKey? {
         @doc value """
             is the key of the enum entry that names the field's raw values. When absent
             the field has no named values.
         """
     }
-    multiplexor      FieldKey?         {
+    multiplexor      FieldKey? {
         @doc value """
             is the key of the field that selects whether this field is present. When
             absent the field is always present.
@@ -169,7 +169,7 @@ BaseField struct {
 }
 
 Field union on encoding extends BaseField {
-    binary    {
+    binary {
         start_bit  uint16 = 0 {
             @doc value """
                 is the bit where the field starts, numbered as in a DBC file: the least
@@ -201,7 +201,7 @@ Field union on encoding extends BaseField {
 
         @doc value "is a field read from one item of a delimited text line."
     }
-    tagged    {
+    tagged {
         tag string {
             @doc value "is the text that comes just before the value in the line."
         }
@@ -209,7 +209,7 @@ Field union on encoding extends BaseField {
         @doc value "is a field read from the text that follows a tag."
     }
 
-    @doc value "is one value carried by a message."
+    @doc value  "is one value carried by a message."
     @go marshal
 }
 
@@ -217,7 +217,7 @@ BaseEntry struct {
     key  EntryKey = create {
         @doc value "is the unique identifier for the entry within its library."
     }
-    name string            {
+    name string   {
         @doc value "is the name of the entry, unique within its library."
     }
 
@@ -226,7 +226,7 @@ BaseEntry struct {
 }
 
 Entry union on kind extends BaseEntry {
-    enum    {
+    enum {
         values EnumValue[] = [] {
             @doc value "are the named values of the enum."
         }
@@ -234,7 +234,7 @@ Entry union on kind extends BaseEntry {
         @doc value "maps integer values to names."
     }
     message {
-        identifier Identifier?      {
+        identifier Identifier?     {
             @doc value """
                 selects the frames that belong to the message. When absent every frame
                 on the stream belongs to it.
@@ -243,7 +243,7 @@ Entry union on kind extends BaseEntry {
         format     Format = binary {
             @doc value "is the payload format."
         }
-        length     uint16?          {
+        length     uint16?         {
             @doc value """
                 is the payload length in bytes. When absent the length is variable.
             """
@@ -251,13 +251,13 @@ Entry union on kind extends BaseEntry {
         fields     Field[] = [] {
             @doc value "are the values the message carries."
         }
-        period     telem.TimeSpan?  {
+        period     telem.TimeSpan? {
             @doc value """
                 is the transmit period. When absent a write task sends the message when
                 one of its command channels changes.
             """
         }
-        query      string?          {
+        query      string?         {
             @doc value """
                 is the request a polling task sends to get the message. Binary messages
                 hold escaped bytes. When absent the device sends the message unprompted.
@@ -270,7 +270,7 @@ Entry union on kind extends BaseEntry {
         @doc value "is a frame layout on a bus or byte stream."
     }
 
-    @doc value "is one typed item in a library."
+    @doc value  "is one typed item in a library."
     @go marshal
 }
 
@@ -279,7 +279,7 @@ Library struct {
         @doc value "is the unique identifier for the library."
         @key
     }
-    name    string       {
+    name    string  {
         @doc value "is a human-readable name for the library."
     }
     entries Entry[] = [] {

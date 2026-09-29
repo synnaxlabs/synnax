@@ -62,6 +62,307 @@ var _ = Describe("C++ PB Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		Context("union translation", func() {
+			It(
+				"Should generate oneof translators for a discriminated union",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/schematic"
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Spec struct {
+						type string
+						props record
+					}
+
+					Source union on value_type {
+						boolean Spec
+						number Spec
+					}
+				`
+					resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+					ExpectContent(resp, "proto.gen.h").
+						ToContain(
+							"#include <variant>",
+							"to_proto(const Source& value) {",
+							"if (const auto* v = std::get_if<BooleanSource>(&value)) {",
+							"static_cast<const Spec&>(*v).to_proto();",
+							"*pb.mutable_boolean() = payload;",
+							`return {{}, x::errors::Error("Source: unknown variant")};`,
+							"const ::service::schematic::pb::Source& pb",
+							"switch (pb.variant_case()) {",
+							"case ::service::schematic::pb::Source::kNumber: {",
+							"auto [payload, err] = Spec::from_proto(pb.number());",
+							"static_cast<Spec&>(cpp) = std::move(payload);",
+							`return {{}, x::errors::Error("Source: variant is not set")};`,
+						)
+				},
+			)
+
+			It(
+				"Should route union-typed fields through the union translators",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/schematic"
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Spec struct {
+						type string
+					}
+
+					Source union on value_type {
+						boolean Spec
+					}
+
+					Config struct {
+						source Source
+						fallback Source?
+						sources Source[]
+					}
+				`
+					resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+					ExpectContent(resp, "proto.gen.h").
+						ToContain(
+							"auto [v, err] = ::synnax::schematic::to_proto(this->source);",
+							"*pb.mutable_source() = v;",
+							"auto [v, err] = ::synnax::schematic::source_from_proto(pb.source());",
+							"cpp.source = std::move(v);",
+							"if (this->fallback.has_value()) {",
+							"::synnax::schematic::to_proto(*this->fallback);",
+							"if (pb.has_fallback()) {",
+							"for (const auto& item : this->sources) {",
+							"auto [v, err] = ::synnax::schematic::to_proto(item);",
+							"*pb.add_sources() = v;",
+							"for (const auto& item : pb.sources()) {",
+							"auto [v, err] = ::synnax::schematic::source_from_proto(item);",
+							"cpp.sources.push_back(std::move(v));",
+						)
+				},
+			)
+
+			It(
+				"Should camelize multi-word variant values in oneof case constants",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/schematic"
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Body struct {
+						width float64
+					}
+
+					Shape union on variant {
+						isoCap Body
+						tJunction Body
+						arinc429 Body
+					}
+				`
+					resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+					ExpectContent(resp, "proto.gen.h").
+						ToContain(
+							"std::get_if<IsoCapShape>(&value)",
+							"*pb.mutable_iso_cap() = payload;",
+							"case ::service::schematic::pb::Shape::kIsoCap: {",
+							"case ::service::schematic::pb::Shape::kTJunction: {",
+							"auto [payload, err] = Body::from_proto(pb.t_junction());",
+							"case ::service::schematic::pb::Shape::kArinc429: {",
+						)
+				},
+			)
+
+			It(
+				"Should suffix oneof accessors that collide with C++ keywords",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/library"
+					@go output "core/pkg/service/library"
+					@pb
+
+					Values struct {
+						count int32
+					}
+
+					Entry union on kind {
+						enum Values
+					}
+				`
+					resp := MustGenerate(ctx, source, "library", loader, pbPlugin)
+					ExpectContent(resp, "proto.gen.h").
+						ToContain(
+							"*pb.mutable_enum_() = payload;",
+							"case ::service::library::pb::Entry::kEnum: {",
+							"Values::from_proto(pb.enum_());",
+						)
+				},
+			)
+
+			It(
+				"Should convert union map values through union translators",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/schematic"
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Spec struct {
+						type string
+					}
+
+					Source union on value_type {
+						boolean Spec
+					}
+
+					Config struct {
+						sources map<string, Source>
+					}
+				`
+					resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+					ExpectContent(resp, "proto.gen.h").
+						ToContain(
+							"auto [pb_v, err] = ::synnax::schematic::to_proto(v);",
+							"auto [cpp_v, err] = ::synnax::schematic::source_from_proto(v);",
+							"cpp.sources.insert_or_assign(k, std::move(cpp_v));",
+						)
+				},
+			)
+
+			It(
+				"Should translate union extends bases through the bases' own translators",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/schematic"
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Base struct {
+						key string
+					}
+
+					Body struct {
+						width float64
+					}
+
+					Shape union on variant extends Base {
+						square Body
+					}
+				`
+					resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+					ExpectContent(resp, "proto.gen.h").
+						ToContain(
+							"auto [base, err] = static_cast<const Base&>(*v).to_proto();",
+							"*pb.mutable_base() = base;",
+							"auto [base, err] = Base::from_proto(pb.base());",
+							"static_cast<Base&>(cpp) = std::move(base);",
+						)
+				},
+			)
+
+			It(
+				"Should translate inline variants against the variant struct",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/schematic"
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Base struct {
+						key string
+					}
+
+					Shape union on variant extends Base {
+						square {
+							width float64
+							label string?
+						}
+						empty {}
+					}
+				`
+					resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+					ExpectContent(resp, "proto.gen.h").
+						ToContain(
+							"square_shape_to_proto(const SquareShape& cpp) {",
+							"::service::schematic::pb::ShapeSquarePayload pb;",
+							"pb.set_width(cpp.width);",
+							"if (cpp.label.has_value()) pb.set_label(*cpp.label);",
+							"const ::service::schematic::pb::ShapeSquarePayload& pb",
+							"cpp.width = pb.width();",
+							"auto [payload, err] = square_shape_to_proto(*v);",
+							"auto [cpp, err] = square_shape_from_proto(pb.square());",
+							"auto [cpp, err] = empty_shape_from_proto(pb.empty());",
+						).
+						ToNotContain("this->width")
+				},
+			)
+
+			It(
+				"Should translate inline variants inherited through union composition",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/schematic"
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					NodeConfig union on variant {
+						box {
+							width float64
+						}
+					}
+
+					EdgeConfig union on variant {
+						pipe {
+							length float64
+						}
+					}
+
+					ElementConfig union on variant extends NodeConfig, EdgeConfig {}
+				`
+					resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+					ExpectContent(resp, "proto.gen.h").
+						ToContain(
+							"box_node_config_to_proto(const BoxNodeConfig& cpp) {",
+							"box_element_config_to_proto(const BoxElementConfig& cpp) {",
+							"pipe_element_config_to_proto(const PipeElementConfig& cpp) {",
+							"::service::schematic::pb::EdgeConfigPipePayload pb;",
+							"case ::service::schematic::pb::ElementConfig::kBox: {",
+						).
+						ToNotContain("mutable_node_config")
+				},
+			)
+
+			It(
+				"Should translate optional hand-written distinct fields through the optional",
+				func(ctx SpecContext) {
+					loader.Add("schemas/telem", `
+					@cpp output "x/cpp/telem"
+
+					TimeSpan int64 {
+						@cpp hand
+					}
+				`)
+					source := `
+					import "schemas/telem"
+
+					@cpp output "client/cpp/library"
+					@go output "core/pkg/service/library"
+					@pb
+
+					Message struct {
+						period telem.TimeSpan?
+					}
+				`
+					resp := MustGenerate(ctx, source, "library", loader, pbPlugin)
+					ExpectContent(resp, "proto.gen.h").
+						ToContain(
+							"if (this->period.has_value()) pb.set_period(this->period->to_proto())",
+							"if (pb.has_period()) cpp.period = ::x::telem::TimeSpan::from_proto(pb.period());",
+						)
+				},
+			)
+		})
+
 		Context("array alias fields (e.g., Params -> Param[])", func() {
 			It(
 				"Should use add_* for repeated fields in forward conversion",

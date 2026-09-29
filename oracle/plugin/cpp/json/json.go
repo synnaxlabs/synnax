@@ -1054,6 +1054,14 @@ func (p *Plugin) toJSONExprForField(
 	lowerName := strings.ToLower(typeRef.Name)
 	if strings.HasSuffix(lowerName, "timestamp") ||
 		strings.HasSuffix(lowerName, "timespan") {
+		if field.Optional {
+			return fmt.Sprintf(
+				`if (this->%s.has_value()) j["%s"] = this->%s->nanoseconds();`,
+				fieldName,
+				jsonName,
+				fieldName,
+			)
+		}
 		return fmt.Sprintf(`j["%s"] = this->%s.nanoseconds();`, jsonName, fieldName)
 	}
 

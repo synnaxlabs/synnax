@@ -146,6 +146,86 @@ inline std::pair<{{.CppName}}, x::errors::Error> {{.CppName}}::from_proto(
 }
 {{- end}}
 {{- end}}
+{{- range $u := .UnionTranslators}}
+{{- range .Variants}}
+{{- if .IsInline}}
+
+inline std::pair<{{.PayloadPBType}}, x::errors::Error> {{.SnakeName}}_to_proto(const {{.CppType}}& cpp) {
+    {{.PayloadPBType}} pb;
+{{- range .Fields}}
+    {{.ForwardExpr}}{{if needsSemicolon .ForwardExpr}};{{end}}
+{{- end}}
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<{{.CppType}}, x::errors::Error> {{.SnakeName}}_from_proto(
+    const {{.PayloadPBType}}& pb
+) {
+    {{.CppType}} cpp;
+{{- range .Fields}}
+    {{.BackwardExpr}}{{if needsSemicolon .BackwardExpr}};{{end}}
+{{- end}}
+    return {cpp, x::errors::NIL};
+}
+{{- end}}
+{{- end}}
+
+inline std::pair<{{.PBType}}, x::errors::Error> to_proto(const {{.CppName}}& value) {
+    {{.PBType}} pb;
+{{- range .Variants}}
+    if (const auto* v = std::get_if<{{.CppType}}>(&value)) {
+{{- range $u.Bases}}
+        {
+            auto [base, err] = static_cast<const {{.CppType}}&>(*v).to_proto();
+            if (err) return {{lbrace}}{{lbrace}}}, err};
+            *pb.mutable_{{.PBAccessor}}() = base;
+        }
+{{- end}}
+{{- if .IsInline}}
+        auto [payload, err] = {{.SnakeName}}_to_proto(*v);
+{{- else}}
+        auto [payload, err] = static_cast<const {{.PayloadCppType}}&>(*v).to_proto();
+{{- end}}
+        if (err) return {{lbrace}}{{lbrace}}}, err};
+        *pb.mutable_{{.PBAccessor}}() = payload;
+        return {pb, x::errors::NIL};
+    }
+{{- end}}
+    return {{lbrace}}{{lbrace}}}, x::errors::Error("{{.CppName}}: unknown variant")};
+}
+
+inline std::pair<{{.CppName}}, x::errors::Error> {{.SnakeName}}_from_proto(
+    const {{.PBType}}& pb
+) {
+    switch (pb.variant_case()) {
+{{- range .Variants}}
+    case {{$u.PBType}}::{{.CaseName}}: {
+{{- if .IsInline}}
+        auto [cpp, err] = {{.SnakeName}}_from_proto(pb.{{.PBAccessor}}());
+        if (err) return {{lbrace}}{{lbrace}}}, err};
+{{- else}}
+        {{.CppType}} cpp;
+        {
+            auto [payload, err] = {{.PayloadCppType}}::from_proto(pb.{{.PBAccessor}}());
+            if (err) return {{lbrace}}{{lbrace}}}, err};
+            static_cast<{{.PayloadCppType}}&>(cpp) = std::move(payload);
+        }
+{{- end}}
+{{- range $u.Bases}}
+        {
+            auto [base, err] = {{.CppType}}::from_proto(pb.{{.PBAccessor}}());
+            if (err) return {{lbrace}}{{lbrace}}}, err};
+            static_cast<{{.CppType}}&>(cpp) = std::move(base);
+        }
+{{- end}}
+        return {std::move(cpp), x::errors::NIL};
+    }
+{{- end}}
+    default:
+        return {{lbrace}}{{lbrace}}}, x::errors::Error("{{.CppName}}: variant is not set")};
+    }
+}
+{{- end}}
 {{- range .ArrayWrappers}}
 
 inline std::pair<{{.PBNamespace}}::{{.PBName}}, x::errors::Error> {{.CppName}}::to_proto() const {
