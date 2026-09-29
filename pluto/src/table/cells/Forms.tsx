@@ -15,7 +15,8 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { color, type notation, type text } from "@synnaxlabs/x";
+import { type bounds, color, type notation, type text } from "@synnaxlabs/x";
+import { useCallback } from "react";
 
 import { Channel } from "@/channel";
 import { Notation } from "@/notation";
@@ -35,49 +36,56 @@ interface TelemFormT {
 
 // Stands in for an absent precision, which shows as many decimals as fit.
 const AUTO_PRECISION = -1;
+const PRECISION_BOUNDS: bounds.Bounds = { lower: 0, upper: 20 };
+const ROLLING_AVERAGE_BOUNDS: bounds.Bounds = { lower: 1, upper: 100 };
 
 const TelemForm = () => {
   const { value, onChange } = Form.useField<TelemFormT>("");
+  const handleChannelChange = useCallback(
+    (key: channel.Key | null) => onChange({ ...value, channel: key ?? 0 }),
+    [value, onChange],
+  );
+  const handleRollingAverageChange = useCallback(
+    (rollingAverage: number) => onChange({ ...value, rollingAverage }),
+    [value, onChange],
+  );
+  const handleNotationChange = useCallback(
+    (notation: notation.Notation) => onChange({ ...value, notation }),
+    [value, onChange],
+  );
+  const handlePrecisionChange = useCallback(
+    (precision: number) =>
+      onChange({
+        ...value,
+        precision: precision === AUTO_PRECISION ? undefined : precision,
+      }),
+    [value, onChange],
+  );
   return (
     <>
       <Form.Section title="Source">
         <Input.Item label="Channel" padHelpText={false}>
-          <Channel.SelectSingle
-            value={value.channel}
-            onChange={(key: channel.Key | null) =>
-              onChange({ ...value, channel: key ?? 0 })
-            }
-          />
+          <Channel.SelectSingle value={value.channel} onChange={handleChannelChange} />
         </Input.Item>
         <Input.Item label="Averaging window" padHelpText={false}>
           <Input.Numeric
             value={value.rollingAverage}
-            bounds={{ lower: 1, upper: 100 }}
-            onChange={(rollingAverage) => onChange({ ...value, rollingAverage })}
+            bounds={ROLLING_AVERAGE_BOUNDS}
+            onChange={handleRollingAverageChange}
           />
         </Input.Item>
       </Form.Section>
       <Form.Section title="Format">
         <Input.Item label="Notation" padHelpText={false}>
-          <Notation.Select
-            value={value.notation}
-            onChange={(next: notation.Notation) =>
-              onChange({ ...value, notation: next })
-            }
-          />
+          <Notation.Select value={value.notation} onChange={handleNotationChange} />
         </Input.Item>
         <Input.Item label="Precision" padHelpText={false}>
           <Input.Numeric
             value={value.precision ?? AUTO_PRECISION}
             emptyValue={AUTO_PRECISION}
             placeholder="Auto"
-            bounds={{ lower: 0, upper: 20 }}
-            onChange={(precision) =>
-              onChange({
-                ...value,
-                precision: precision === AUTO_PRECISION ? undefined : precision,
-              })
-            }
+            bounds={PRECISION_BOUNDS}
+            onChange={handlePrecisionChange}
           />
         </Input.Item>
       </Form.Section>
