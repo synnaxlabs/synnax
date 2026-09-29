@@ -31,8 +31,7 @@ describe("nameZ", () => {
     ];
     validNames.forEach(([name, description]) => {
       it(`should accept ${name} (${description})`, () => {
-        const result = channel.nameZ.safeParse(name);
-        expect(result.success).toBe(true);
+        expect(channel.nameZ.validate(name)).toBe(true);
       });
     });
   });
@@ -55,13 +54,11 @@ describe("schema validation", () => {
 
   describe("name validation", () => {
     it("should accept valid channel names", () => {
-      const result = channel.payloadZ.safeParse(validNewChannel);
-      expect(result.success).toBe(true);
+      expect(channel.payloadZ.validate(validNewChannel)).toBe(true);
     });
 
     it("should reject empty name", () => {
-      const result = channel.payloadZ.safeParse({ ...validNewChannel, name: "" });
-      expect(result.success).toBe(false);
+      expect(channel.payloadZ.validate({ ...validNewChannel, name: "" })).toBe(false);
     });
 
     it("should accept name with underscores", () => {

@@ -1,5 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
+  "rules": { "cycles": "error" },
   "workspaces": {
     ".": {
       "entry": ["package.json"],
@@ -49,8 +50,7 @@
     },
     "site/docs": {
       "entry": ["src/**/*.astro", "src/**/*.tsx", "src/**/*.ts"],
-      "project": ["src/**/*.{ts,tsx,astro}"],
-      "ignoreDependencies": ["@astrojs/*"]
+      "project": ["src/**/*.{ts,tsx,astro,mdx}"]
     },
     "site/www": {
       "entry": ["src/pages/**/*.astro"],

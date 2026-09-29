@@ -17,9 +17,7 @@
     "stylelint": "stylelint \"src/**/*.css\"",
     "test": "vitest",
     "cov": "vitest --coverage",
-    "madge": "madge --circular src",
-    "devtools": "pnpm react-devtools",
-    "react-devtools": "npx react-devtools"
+    "devtools": "pnpm dlx react-devtools"
   },
   "dependencies": {
     "@fontsource/inter": "catalog:",
@@ -39,8 +37,6 @@
     "@tauri-apps/plugin-shell": "catalog:",
     "@tauri-apps/plugin-store": "catalog:",
     "@tauri-apps/plugin-updater": "catalog:",
-    "compromise": "catalog:",
-    "compromise-dates": "catalog:",
     "fflate": "catalog:",
     "pluralize": "catalog:",
     "proxy-memoize": "catalog:",
@@ -52,7 +48,6 @@
   },
   "devDependencies": {
     "@synnaxlabs/eslint-config": "catalog:",
-    "@synnaxlabs/madge": "catalog:",
     "@synnaxlabs/stylelint-config": "catalog:",
     "@synnaxlabs/tsconfig": "catalog:",
     "@tauri-apps/cli": "catalog:",

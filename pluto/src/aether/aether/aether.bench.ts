@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { alamos } from "@synnaxlabs/alamos";
-import { bench, describe, vi } from "vitest";
+import { test, vi } from "vitest";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -275,10 +275,15 @@ function createSparseTree(): SparseRoot {
 // Full-subscription worst case: every node reads its parent's value, so a root update
 // touches all 3616 nodes either way. Guards against regression from the per-key
 // bookkeeping overhead.
-describe("deep tree updates (full subscription)", () => {
+test("deep tree updates (full subscription)", async ({ bench }) => {
   let root: BenchRoot;
-  bench(
+  await bench(
     "should update the entire tree",
+    {
+      beforeAll: () => {
+        root = createBenchmarkTree();
+      },
+    },
     () => {
       root._updateState({
         path: ["root"],
@@ -296,22 +301,21 @@ describe("deep tree updates (full subscription)", () => {
         create: shouldNotCallCreate,
       });
     },
-    {
-      time: 1000,
-      setup: () => {
-        root = createBenchmarkTree();
-      },
-    },
-  );
+  ).run({ time: 1000 });
 });
 
 // Sparse-subscription case: same 3616-node tree, but only 225 leaves read the root's
 // value. A root update re-runs only those subscribers, so this should be dramatically
 // faster than the full-subscription case — the win the broadcast model could not get.
-describe("deep tree updates (sparse subscription)", () => {
+test("deep tree updates (sparse subscription)", async ({ bench }) => {
   let root: SparseRoot;
-  bench(
+  await bench(
     "should update only the subscribed leaves",
+    {
+      beforeAll: () => {
+        root = createSparseTree();
+      },
+    },
     () => {
       root._updateState({
         path: ["root"],
@@ -320,11 +324,5 @@ describe("deep tree updates (sparse subscription)", () => {
         create: shouldNotCallCreate,
       });
     },
-    {
-      time: 1000,
-      setup: () => {
-        root = createSparseTree();
-      },
-    },
-  );
+  ).run({ time: 1000 });
 });

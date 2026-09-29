@@ -10,6 +10,7 @@
 import { type record } from "@synnaxlabs/x";
 import { act, renderHook } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement, useState } from "react";
+import { renderToString } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 import { Store } from "@/store";
@@ -168,6 +169,25 @@ describe("Store.createMembership", () => {
       expect(renders).toBe(baseline);
       act(() => setValue(["b", "y"]));
       expect(result.current).toEqual("b");
+    });
+  });
+  describe("server rendering", () => {
+    const Probe = (): ReactElement => (
+      <>
+        {String(Set.useIsMember("a"))},{String(Set.useIsMember("b"))},
+        {String(Set.useMemberAmong(["b", "c"]))},{Set.useMembers().join("+")}
+      </>
+    );
+
+    it("should render the value the context holds", () => {
+      const html = renderToString(
+        <Set.Context value={["a", "c"]}>
+          <Probe />
+        </Set.Context>,
+      );
+      expect(html).toBe(
+        "true<!-- -->,<!-- -->false<!-- -->,<!-- -->c<!-- -->,<!-- -->a+c",
+      );
     });
   });
 });

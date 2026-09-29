@@ -21,8 +21,8 @@ import LabJack from "./logos/LabJack.astro";
 import EtherCAT from "./logos/EtherCAT.astro";
 import Modbus from "./logos/Modbus.astro";
 import OPCUA from "./logos/OPCUA.astro";
-import SectionHero from "@/components/shared/SectionHero.astro";
-import FeatureSection from "@/components/shared/FeatureSection.astro";
+import SectionHero from "@/components/common/SectionHero.astro";
+import FeatureSection from "@/components/common/FeatureSection.astro";
 import { cdn } from "@/cdn";
 ---
 
@@ -49,7 +49,8 @@ import { cdn } from "@/cdn";
                 k2="1"
                 k3="1"
                 k4="-0.5"
-                in="SourceGraphic"></feComposite>
+                in="SourceGraphic"
+            ></feComposite>
             <feComponentTransfer>
                 <feFuncR type="discrete" tableValues="0 1"></feFuncR>
                 <feFuncG type="discrete" tableValues="0 1"></feFuncG>
@@ -75,8 +76,11 @@ import { cdn } from "@/cdn";
     <div class="integrations-hardware">
         <Flex.Box className="integrations-hardware-text">
             <Text.Text level="h3" className="feature-title">
-                Works with your<br /><span class="integrations-vendor">existing</span
-                ><br />hardware
+                Works with your
+                <br />
+                <span class="integrations-vendor">existing</span>
+                <br />
+                hardware
             </Text.Text>
             <Text.Text level="h5" className="feature-description">
                 Native drivers for industry-standard protocols and vendors. If your

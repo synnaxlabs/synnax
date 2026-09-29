@@ -8,9 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { runtime } from "@synnaxlabs/x";
 
-export type Platform = runtime.OS | "Docker";
+import { type Platform } from "@/components/platform/choice";
 
 export interface Info {
   key: Platform;
@@ -18,24 +17,9 @@ export interface Info {
   icon: Icon.ReactElement;
 }
 
-export const PLATFORMS: Info[] = [
+export const INFO: Info[] = [
   { key: "Linux", name: "Linux", icon: <Icon.Logo.Linux /> },
   { key: "Windows", name: "Windows", icon: <Icon.Logo.Windows /> },
   { key: "macOS", name: "macOS", icon: <Icon.Logo.Apple /> },
   { key: "Docker", name: "Docker", icon: <Icon.Logo.Docker /> },
 ];
-
-export const getFromURL = (detect: boolean): Platform | null => {
-  const url = new URL(window.location.href);
-  const platform = url.searchParams.get("platform");
-  return (
-    PLATFORMS.find((p) => p.key === platform)?.key ?? (detect ? runtime.getOS() : null)
-  );
-};
-
-export const setInURL = (platform: Platform) => {
-  const url = new URL(window.location.href);
-  url.searchParams.set("platform", platform);
-  window.history.pushState({}, "", url.toString());
-  window.dispatchEvent(new CustomEvent("urlchange"));
-};

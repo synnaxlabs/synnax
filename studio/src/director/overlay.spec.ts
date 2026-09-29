@@ -58,7 +58,7 @@ const SCOPE: Scope = {
 };
 
 const plan = (layers: unknown, tl = timeline()): OverlayPlan =>
-  overlay(overlays(layers), stage(SHOTS, tl).samples, tl);
+  overlay(overlays(layers), stage(SHOTS, tl, "portrait").samples, tl);
 
 const CARD_FRAMES = Math.round(CARD_S * FPS);
 
@@ -135,7 +135,7 @@ describe("overlay", () => {
   });
 
   describe("callouts", () => {
-    it("should appear at its mark beside its target and hold", () => {
+    it("should appear at its mark around its target and hold", () => {
       const { frames } = plan({
         callouts: [{ at: "go", target: "start", text: "Arc opens the valve." }],
       });
@@ -143,7 +143,7 @@ describe("overlay", () => {
       expect(frames[100].callouts).toEqual([
         {
           text: "Arc opens the valve.",
-          side: "right",
+          focused: false,
           rect: RECT,
           age: 0,
           opacity: 1,
@@ -154,11 +154,11 @@ describe("overlay", () => {
 
     it("should fade out as its hold ends", () => {
       const { frames } = plan({
-        callouts: [{ at: "go", target: "start", text: "Out.", side: "left" }],
+        callouts: [{ at: "go", target: "start", text: "Out.", focused: true }],
       });
       const end = 100 + Math.round(CALLOUT_S * FPS);
       expect(frames[end - 1].callouts[0].opacity).toBeLessThan(0.1);
-      expect(frames[end - 1].callouts[0].side).toEqual("left");
+      expect(frames[end - 1].callouts[0].focused).toEqual(true);
       expect(frames[end].callouts).toEqual([]);
     });
 

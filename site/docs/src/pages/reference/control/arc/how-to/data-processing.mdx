@@ -10,7 +10,7 @@ nextURL: "/reference/control/arc/how-to/alarms"
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Note } from "@synnaxlabs/lyra/note";
-import { Arc } from "@/components";
+import { Arc } from "@/components/arc";
 import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
@@ -116,7 +116,7 @@ You can combine channels:
 Some calculations need to remember values across executions. Use `$=` to declare a
 [stateful variable](/reference/control/arc/reference/variables#stateful).
 
-<Arc.Tabs client:load>
+<Arc.Tabs>
 
 <Fragment slot="flow">
 
