@@ -7,74 +7,74 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type connection, type Synnax as Client } from "@synnaxlabs/client";
+import { AuthError, connection } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Synnax } from "@synnaxlabs/pluto";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { License } from "@/feature/license";
+import { GUARDED_CONTENT, renderGuard } from "@/feature/license/testutil";
 import { findButton } from "@/platform/modals/testutil";
+import { Session } from "@/session";
 import {
-  createConsoleWrapper,
   fakePickedFile,
   interceptFilePicker,
+  stubClipboardWriteText,
   uniqueName,
   UNLICENSED_STATUS,
 } from "@/testutil";
 
-// The client is handed to the provider unconnected: a Core that refuses requests for
-// want of a license never settles a connection, so the screen must not wait on one.
-const renderGuard = async (
-  client: Client | null,
-  status?: connection.Status,
-): Promise<void> => {
-  const { wrapper: Console } = await createConsoleWrapper({ client: null });
-  const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
-    <Console>
-      <Synnax.TestProvider client={client} status={status}>
-        {children}
-      </Synnax.TestProvider>
-    </Console>
-  );
-  Wrapper.displayName = "GuardWrapper";
-  render(
-    <License.Guard>
-      <span>licensed content</span>
-    </License.Guard>,
-    { wrapper: Wrapper },
-  );
+const AUTH_FAILED_STATUS: connection.Status = {
+  ...connection.DEFAULT_STATUS,
+  variant: "error",
+  message: "Invalid credentials",
+  details: {
+    ...connection.DEFAULT_STATUS.details,
+    reason: "auth",
+    error: new AuthError("Invalid credentials"),
+  },
 };
 
-const HASH = /^[0-9a-f]{64}$/;
+const getTokenField = (): HTMLElement =>
+  screen.getByRole("textbox", { name: "License token" });
 
 describe("License.Guard", () => {
   afterEach(() => vi.restoreAllMocks());
 
   it("should render children while the connection is not refused for a license", async () => {
     await renderGuard(null);
-    expect(screen.getByText("licensed content")).toBeTruthy();
+    expect(screen.getByText(GUARDED_CONTENT)).toBeTruthy();
+  });
+
+  it("should render children while the connection fails for another reason", async () => {
+    await renderGuard(null, AUTH_FAILED_STATUS);
+    expect(screen.getByText(GUARDED_CONTENT)).toBeTruthy();
   });
 
   it("should render the activation screen while the Core is unlicensed", async () => {
     await renderGuard(null, UNLICENSED_STATUS);
     expect(screen.getByText(UNLICENSED_STATUS.message)).toBeTruthy();
-    expect(screen.queryByText("licensed content")).toBeNull();
+    expect(screen.queryByText(GUARDED_CONTENT)).toBeNull();
   });
 
-  it("should offer a log out action", async () => {
-    await renderGuard(null, UNLICENSED_STATUS);
-    expect(findButton("Log out")).toBeTruthy();
+  it("should clear the selected Core on log out", async () => {
+    const store = await renderGuard(null, UNLICENSED_STATUS);
+    act(() => {
+      store.dispatch(Session.Core.select(Session.Core.LOCAL_KEY));
+    });
+    expect(Session.Core.selectSelectedKey(store.getState())).toBe(
+      Session.Core.LOCAL_KEY,
+    );
+    fireEvent.click(findButton("Log out"));
+    expect(Session.Core.selectSelectedKey(store.getState())).toBeUndefined();
   });
 
   it("should enable activation only once a token is entered", async () => {
     await renderGuard(null, UNLICENSED_STATUS);
     const activate = findButton("Activate");
     expect(activate.getAttribute("aria-disabled")).toBe("true");
-    fireEvent.change(screen.getByPlaceholderText("Paste the token"), {
-      target: { value: "  token  " },
-    });
+    fireEvent.change(getTokenField(), { target: { value: "   " } });
+    expect(activate.getAttribute("aria-disabled")).toBe("true");
+    fireEvent.change(getTokenField(), { target: { value: "  token  " } });
     expect(activate.getAttribute("aria-disabled")).toBeNull();
   });
 
@@ -84,25 +84,45 @@ describe("License.Guard", () => {
     fireEvent.click(findButton("Select file"));
     picker.selectFiles([fakePickedFile("synnax.license", "abc.def.ghi\n")]);
     await waitFor(() => {
-      const input = screen.getByPlaceholderText("Paste the token");
+      const input = getTokenField();
       if (!(input instanceof HTMLTextAreaElement)) throw new Error("not a textarea");
       expect(input.value).toBe("abc.def.ghi");
     });
   });
 
   it("should show the host fingerprint the Core reports", async () => {
-    await renderGuard(createTestClient(), UNLICENSED_STATUS);
-    const hashes = await screen.findAllByText(HASH);
-    expect(hashes.length).toBeGreaterThan(0);
+    const client = createTestClient();
+    const { fingerprint } = await client.license.retrieve();
+    expect(fingerprint.length).toBeGreaterThan(0);
+    await renderGuard(client, UNLICENSED_STATUS);
+    for (const hash of fingerprint) expect(await screen.findByText(hash)).toBeTruthy();
+  });
+
+  it("should copy the host fingerprint", async () => {
+    const writeText = stubClipboardWriteText();
+    const client = createTestClient();
+    const { fingerprint } = await client.license.retrieve();
+    expect(fingerprint.length).toBeGreaterThan(0);
+    await renderGuard(client, UNLICENSED_STATUS);
+    await screen.findByText(fingerprint[0]);
+    fireEvent.click(findButton("Copy"));
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    expect(writeText).toHaveBeenCalledWith(fingerprint.join(", "));
   });
 
   it("should report a token the Core rejects", async () => {
     await renderGuard(createTestClient(), UNLICENSED_STATUS);
-    fireEvent.change(screen.getByPlaceholderText("Paste the token"), {
+    fireEvent.change(getTokenField(), {
       target: { value: uniqueName("not-a-token") },
     });
     fireEvent.click(findButton("Activate"));
     expect(await screen.findByText("Failed to activate the license")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "token is malformed: token contains an invalid number of segments: " +
+          "invalid license: license error",
+      ),
+    ).toBeTruthy();
     expect(screen.getByText(UNLICENSED_STATUS.message)).toBeTruthy();
   });
 });
