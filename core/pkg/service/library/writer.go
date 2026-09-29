@@ -225,15 +225,11 @@ func assignKeys(l *Library) {
 		if !ok {
 			continue
 		}
-		for j := range m.Fields {
-			f := &m.Fields[j]
-			if f.Variant == nil {
-				continue
-			}
-			if fb := f.Base(); fb.Key == uuid.Nil() {
+		m.Payload.UpdateFieldBases(func(fb *BaseField) {
+			if fb.Key == uuid.Nil() {
 				fb.Key = uuid.New()
-				f.SetBase(fb)
 			}
-		}
+		})
+		e.Variant = m
 	}
 }

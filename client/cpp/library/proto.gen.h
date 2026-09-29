@@ -25,31 +25,6 @@
 
 namespace synnax::library {
 
-inline std::pair<::service::library::pb::Direction, x::errors::Error>
-direction_to_pb(const std::string &cpp) {
-    static const std::unordered_map<std::string, ::service::library::pb::Direction>
-        kMap = {
-            {DIRECTION_RECEIVE, ::service::library::pb::DIRECTION_RECEIVE},
-            {DIRECTION_TRANSMIT, ::service::library::pb::DIRECTION_TRANSMIT},
-        };
-    auto it = kMap.find(cpp);
-    if (it == kMap.end())
-        return {{}, x::errors::Error("unrecognized Direction value: " + cpp)};
-    return {it->second, x::errors::NIL};
-}
-
-inline std::pair<std::string, x::errors::Error>
-direction_from_pb(::service::library::pb::Direction pb) {
-    switch (pb) {
-        case ::service::library::pb::DIRECTION_RECEIVE:
-            return {DIRECTION_RECEIVE, x::errors::NIL};
-        case ::service::library::pb::DIRECTION_TRANSMIT:
-            return {DIRECTION_TRANSMIT, x::errors::NIL};
-        default:
-            return {"", x::errors::Error("unrecognized Direction protobuf value")};
-    }
-}
-
 inline std::pair<::service::library::pb::ByteOrder, x::errors::Error>
 byte_order_to_pb(const std::string &cpp) {
     static const std::unordered_map<std::string, ::service::library::pb::ByteOrder>
@@ -73,31 +48,6 @@ byte_order_from_pb(::service::library::pb::ByteOrder pb) {
             return {BYTE_ORDER_BIG_ENDIAN, x::errors::NIL};
         default:
             return {"", x::errors::Error("unrecognized ByteOrder protobuf value")};
-    }
-}
-
-inline std::pair<::service::library::pb::Format, x::errors::Error>
-format_to_pb(const std::string &cpp) {
-    static const std::unordered_map<std::string, ::service::library::pb::Format> kMap =
-        {
-            {FORMAT_BINARY, ::service::library::pb::FORMAT_BINARY},
-            {FORMAT_TEXT, ::service::library::pb::FORMAT_TEXT},
-        };
-    auto it = kMap.find(cpp);
-    if (it == kMap.end())
-        return {{}, x::errors::Error("unrecognized Format value: " + cpp)};
-    return {it->second, x::errors::NIL};
-}
-
-inline std::pair<std::string, x::errors::Error>
-format_from_pb(::service::library::pb::Format pb) {
-    switch (pb) {
-        case ::service::library::pb::FORMAT_BINARY:
-            return {FORMAT_BINARY, x::errors::NIL};
-        case ::service::library::pb::FORMAT_TEXT:
-            return {FORMAT_TEXT, x::errors::NIL};
-        default:
-            return {"", x::errors::Error("unrecognized Format protobuf value")};
     }
 }
 
@@ -161,6 +111,68 @@ BaseField::from_proto(const ::service::library::pb::BaseField &pb) {
     return {cpp, x::errors::NIL};
 }
 
+inline std::pair<::service::library::pb::BinaryField, x::errors::Error>
+BinaryField::to_proto() const {
+    ::service::library::pb::BinaryField pb;
+    pb.set_key(this->key.to_string());
+    pb.set_name(this->name);
+    pb.set_scale(this->scale);
+    pb.set_offset(this->offset);
+    pb.set_units(this->units);
+    if (this->enumeration.has_value())
+        pb.set_enumeration(this->enumeration->to_string());
+    if (this->multiplexor.has_value())
+        pb.set_multiplexor(this->multiplexor->to_string());
+    for (const auto &item: this->multiplex_values)
+        pb.add_multiplex_values(item);
+    pb.set_start_bit(this->start_bit);
+    pb.set_bit_length(this->bit_length);
+    {
+        auto [v, err] = byte_order_to_pb(this->byte_order);
+        if (err) return {{}, err};
+        pb.set_byte_order(v);
+    }
+    pb.set_signed_(this->signed_);
+    pb.set_float_(this->float_);
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<BinaryField, x::errors::Error>
+BinaryField::from_proto(const ::service::library::pb::BinaryField &pb) {
+    BinaryField cpp;
+    {
+        auto [v, err] = x::uuid::UUID::parse(pb.key());
+        if (err) return {{}, err};
+        cpp.key = v;
+    }
+    cpp.name = pb.name();
+    cpp.scale = pb.scale();
+    cpp.offset = pb.offset();
+    cpp.units = pb.units();
+    if (!pb.enumeration().empty()) {
+        auto [v, err] = x::uuid::UUID::parse(pb.enumeration());
+        if (err) return {{}, err};
+        cpp.enumeration = v;
+    }
+    if (!pb.multiplexor().empty()) {
+        auto [v, err] = x::uuid::UUID::parse(pb.multiplexor());
+        if (err) return {{}, err};
+        cpp.multiplexor = v;
+    }
+    for (const auto &item: pb.multiplex_values())
+        cpp.multiplex_values.push_back(item);
+    cpp.start_bit = pb.start_bit();
+    cpp.bit_length = pb.bit_length();
+    {
+        auto [v, err] = byte_order_from_pb(pb.byte_order());
+        if (err) return {{}, err};
+        cpp.byte_order = v;
+    }
+    cpp.signed_ = pb.signed_();
+    cpp.float_ = pb.float_();
+    return {cpp, x::errors::NIL};
+}
+
 inline std::pair<::service::library::pb::BaseEntry, x::errors::Error>
 BaseEntry::to_proto() const {
     ::service::library::pb::BaseEntry pb;
@@ -214,7 +226,7 @@ Library::from_proto(const ::service::library::pb::Library &pb) {
 inline std::pair<::service::library::pb::Reference, x::errors::Error>
 Reference::to_proto() const {
     ::service::library::pb::Reference pb;
-    pb.set_library(this->library.to_string());
+    if (this->library.has_value()) pb.set_library(this->library->to_string());
     pb.set_library_hash(this->library_hash);
     return {pb, x::errors::NIL};
 }
@@ -222,7 +234,7 @@ Reference::to_proto() const {
 inline std::pair<Reference, x::errors::Error>
 Reference::from_proto(const ::service::library::pb::Reference &pb) {
     Reference cpp;
-    {
+    if (!pb.library().empty()) {
         auto [v, err] = x::uuid::UUID::parse(pb.library());
         if (err) return {{}, err};
         cpp.library = v;
@@ -251,54 +263,6 @@ can_identifier_from_proto(const ::service::library::pb::IdentifierCanPayload &pb
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::service::library::pb::IdentifierArinc429Payload, x::errors::Error>
-arinc_429_identifier_to_proto(const Arinc429Identifier &cpp) {
-    ::service::library::pb::IdentifierArinc429Payload pb;
-    pb.set_label(cpp.label);
-    pb.set_sdi(cpp.sdi);
-    pb.set_sdi_matched(cpp.sdi_matched);
-    return {pb, x::errors::NIL};
-}
-
-inline std::pair<Arinc429Identifier, x::errors::Error> arinc_429_identifier_from_proto(
-    const ::service::library::pb::IdentifierArinc429Payload &pb
-) {
-    Arinc429Identifier cpp;
-    cpp.label = pb.label();
-    cpp.sdi = pb.sdi();
-    cpp.sdi_matched = pb.sdi_matched();
-    return {cpp, x::errors::NIL};
-}
-
-inline std::pair<::service::library::pb::IdentifierMil1553Payload, x::errors::Error>
-mil_1553_identifier_to_proto(const Mil1553Identifier &cpp) {
-    ::service::library::pb::IdentifierMil1553Payload pb;
-    pb.set_rt(cpp.rt);
-    pb.set_subaddress(cpp.subaddress);
-    {
-        auto [v, err] = direction_to_pb(cpp.direction);
-        if (err) return {{}, err};
-        pb.set_direction(v);
-    }
-    pb.set_word_count(cpp.word_count);
-    return {pb, x::errors::NIL};
-}
-
-inline std::pair<Mil1553Identifier, x::errors::Error> mil_1553_identifier_from_proto(
-    const ::service::library::pb::IdentifierMil1553Payload &pb
-) {
-    Mil1553Identifier cpp;
-    cpp.rt = pb.rt();
-    cpp.subaddress = pb.subaddress();
-    {
-        auto [v, err] = direction_from_pb(pb.direction());
-        if (err) return {{}, err};
-        cpp.direction = v;
-    }
-    cpp.word_count = pb.word_count();
-    return {cpp, x::errors::NIL};
-}
-
 inline std::pair<::service::library::pb::IdentifierFieldPayload, x::errors::Error>
 field_identifier_to_proto(const FieldIdentifier &cpp) {
     ::service::library::pb::IdentifierFieldPayload pb;
@@ -319,20 +283,6 @@ field_identifier_from_proto(const ::service::library::pb::IdentifierFieldPayload
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::service::library::pb::IdentifierTokenPayload, x::errors::Error>
-token_identifier_to_proto(const TokenIdentifier &cpp) {
-    ::service::library::pb::IdentifierTokenPayload pb;
-    pb.set_prefix(cpp.prefix);
-    return {pb, x::errors::NIL};
-}
-
-inline std::pair<TokenIdentifier, x::errors::Error>
-token_identifier_from_proto(const ::service::library::pb::IdentifierTokenPayload &pb) {
-    TokenIdentifier cpp;
-    cpp.prefix = pb.prefix();
-    return {cpp, x::errors::NIL};
-}
-
 inline std::pair<::service::library::pb::Identifier, x::errors::Error>
 to_proto(const Identifier &value) {
     ::service::library::pb::Identifier pb;
@@ -342,28 +292,10 @@ to_proto(const Identifier &value) {
         *pb.mutable_can() = payload;
         return {pb, x::errors::NIL};
     }
-    if (const auto *v = std::get_if<Arinc429Identifier>(&value)) {
-        auto [payload, err] = arinc_429_identifier_to_proto(*v);
-        if (err) return {{}, err};
-        *pb.mutable_arinc429() = payload;
-        return {pb, x::errors::NIL};
-    }
-    if (const auto *v = std::get_if<Mil1553Identifier>(&value)) {
-        auto [payload, err] = mil_1553_identifier_to_proto(*v);
-        if (err) return {{}, err};
-        *pb.mutable_mil1553() = payload;
-        return {pb, x::errors::NIL};
-    }
     if (const auto *v = std::get_if<FieldIdentifier>(&value)) {
         auto [payload, err] = field_identifier_to_proto(*v);
         if (err) return {{}, err};
         *pb.mutable_field() = payload;
-        return {pb, x::errors::NIL};
-    }
-    if (const auto *v = std::get_if<TokenIdentifier>(&value)) {
-        auto [payload, err] = token_identifier_to_proto(*v);
-        if (err) return {{}, err};
-        *pb.mutable_token() = payload;
         return {pb, x::errors::NIL};
     }
     return {{}, x::errors::Error("Identifier: unknown variant")};
@@ -377,23 +309,8 @@ identifier_from_proto(const ::service::library::pb::Identifier &pb) {
             if (err) return {{}, err};
             return {std::move(cpp), x::errors::NIL};
         }
-        case ::service::library::pb::Identifier::kArinc429: {
-            auto [cpp, err] = arinc_429_identifier_from_proto(pb.arinc429());
-            if (err) return {{}, err};
-            return {std::move(cpp), x::errors::NIL};
-        }
-        case ::service::library::pb::Identifier::kMil1553: {
-            auto [cpp, err] = mil_1553_identifier_from_proto(pb.mil1553());
-            if (err) return {{}, err};
-            return {std::move(cpp), x::errors::NIL};
-        }
         case ::service::library::pb::Identifier::kField: {
             auto [cpp, err] = field_identifier_from_proto(pb.field());
-            if (err) return {{}, err};
-            return {std::move(cpp), x::errors::NIL};
-        }
-        case ::service::library::pb::Identifier::kToken: {
-            auto [cpp, err] = token_identifier_from_proto(pb.token());
             if (err) return {{}, err};
             return {std::move(cpp), x::errors::NIL};
         }
@@ -402,108 +319,68 @@ identifier_from_proto(const ::service::library::pb::Identifier &pb) {
     }
 }
 
-inline std::pair<::service::library::pb::FieldBinaryPayload, x::errors::Error>
-binary_field_to_proto(const BinaryField &cpp) {
-    ::service::library::pb::FieldBinaryPayload pb;
-    pb.set_start_bit(cpp.start_bit);
-    pb.set_bit_length(cpp.bit_length);
-    {
-        auto [v, err] = byte_order_to_pb(cpp.byte_order);
-        if (err) return {{}, err};
-        pb.set_byte_order(v);
-    }
-    pb.set_signed_(cpp.signed_);
-    pb.set_float_(cpp.float_);
-    return {pb, x::errors::NIL};
-}
-
-inline std::pair<BinaryField, x::errors::Error>
-binary_field_from_proto(const ::service::library::pb::FieldBinaryPayload &pb) {
-    BinaryField cpp;
-    cpp.start_bit = pb.start_bit();
-    cpp.bit_length = pb.bit_length();
-    {
-        auto [v, err] = byte_order_from_pb(pb.byte_order());
-        if (err) return {{}, err};
-        cpp.byte_order = v;
-    }
-    cpp.signed_ = pb.signed_();
-    cpp.float_ = pb.float_();
-    return {cpp, x::errors::NIL};
-}
-
-inline std::pair<::service::library::pb::FieldDelimitedPayload, x::errors::Error>
-delimited_field_to_proto(const DelimitedField &cpp) {
-    ::service::library::pb::FieldDelimitedPayload pb;
+inline std::pair<::service::library::pb::TextFieldDelimitedPayload, x::errors::Error>
+delimited_text_field_to_proto(const DelimitedTextField &cpp) {
+    ::service::library::pb::TextFieldDelimitedPayload pb;
     pb.set_position(cpp.position);
     return {pb, x::errors::NIL};
 }
 
-inline std::pair<DelimitedField, x::errors::Error>
-delimited_field_from_proto(const ::service::library::pb::FieldDelimitedPayload &pb) {
-    DelimitedField cpp;
+inline std::pair<DelimitedTextField, x::errors::Error> delimited_text_field_from_proto(
+    const ::service::library::pb::TextFieldDelimitedPayload &pb
+) {
+    DelimitedTextField cpp;
     cpp.position = pb.position();
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::service::library::pb::FieldTaggedPayload, x::errors::Error>
-tagged_field_to_proto(const TaggedField &cpp) {
-    ::service::library::pb::FieldTaggedPayload pb;
+inline std::pair<::service::library::pb::TextFieldTaggedPayload, x::errors::Error>
+tagged_text_field_to_proto(const TaggedTextField &cpp) {
+    ::service::library::pb::TextFieldTaggedPayload pb;
     pb.set_tag(cpp.tag);
     return {pb, x::errors::NIL};
 }
 
-inline std::pair<TaggedField, x::errors::Error>
-tagged_field_from_proto(const ::service::library::pb::FieldTaggedPayload &pb) {
-    TaggedField cpp;
+inline std::pair<TaggedTextField, x::errors::Error>
+tagged_text_field_from_proto(const ::service::library::pb::TextFieldTaggedPayload &pb) {
+    TaggedTextField cpp;
     cpp.tag = pb.tag();
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::service::library::pb::Field, x::errors::Error>
-to_proto(const Field &value) {
-    ::service::library::pb::Field pb;
-    if (const auto *v = std::get_if<BinaryField>(&value)) {
+inline std::pair<::service::library::pb::TextField, x::errors::Error>
+to_proto(const TextField &value) {
+    ::service::library::pb::TextField pb;
+    if (const auto *v = std::get_if<DelimitedTextField>(&value)) {
         {
             auto [base, err] = static_cast<const BaseField &>(*v).to_proto();
             if (err) return {{}, err};
             *pb.mutable_base_field() = base;
         }
-        auto [payload, err] = binary_field_to_proto(*v);
-        if (err) return {{}, err};
-        *pb.mutable_binary() = payload;
-        return {pb, x::errors::NIL};
-    }
-    if (const auto *v = std::get_if<DelimitedField>(&value)) {
-        {
-            auto [base, err] = static_cast<const BaseField &>(*v).to_proto();
-            if (err) return {{}, err};
-            *pb.mutable_base_field() = base;
-        }
-        auto [payload, err] = delimited_field_to_proto(*v);
+        auto [payload, err] = delimited_text_field_to_proto(*v);
         if (err) return {{}, err};
         *pb.mutable_delimited() = payload;
         return {pb, x::errors::NIL};
     }
-    if (const auto *v = std::get_if<TaggedField>(&value)) {
+    if (const auto *v = std::get_if<TaggedTextField>(&value)) {
         {
             auto [base, err] = static_cast<const BaseField &>(*v).to_proto();
             if (err) return {{}, err};
             *pb.mutable_base_field() = base;
         }
-        auto [payload, err] = tagged_field_to_proto(*v);
+        auto [payload, err] = tagged_text_field_to_proto(*v);
         if (err) return {{}, err};
         *pb.mutable_tagged() = payload;
         return {pb, x::errors::NIL};
     }
-    return {{}, x::errors::Error("Field: unknown variant")};
+    return {{}, x::errors::Error("TextField: unknown variant")};
 }
 
-inline std::pair<Field, x::errors::Error>
-field_from_proto(const ::service::library::pb::Field &pb) {
+inline std::pair<TextField, x::errors::Error>
+text_field_from_proto(const ::service::library::pb::TextField &pb) {
     switch (pb.variant_case()) {
-        case ::service::library::pb::Field::kBinary: {
-            auto [cpp, err] = binary_field_from_proto(pb.binary());
+        case ::service::library::pb::TextField::kDelimited: {
+            auto [cpp, err] = delimited_text_field_from_proto(pb.delimited());
             if (err) return {{}, err};
             {
                 auto [base, err] = BaseField::from_proto(pb.base_field());
@@ -512,18 +389,8 @@ field_from_proto(const ::service::library::pb::Field &pb) {
             }
             return {std::move(cpp), x::errors::NIL};
         }
-        case ::service::library::pb::Field::kDelimited: {
-            auto [cpp, err] = delimited_field_from_proto(pb.delimited());
-            if (err) return {{}, err};
-            {
-                auto [base, err] = BaseField::from_proto(pb.base_field());
-                if (err) return {{}, err};
-                static_cast<BaseField &>(cpp) = std::move(base);
-            }
-            return {std::move(cpp), x::errors::NIL};
-        }
-        case ::service::library::pb::Field::kTagged: {
-            auto [cpp, err] = tagged_field_from_proto(pb.tagged());
+        case ::service::library::pb::TextField::kTagged: {
+            auto [cpp, err] = tagged_text_field_from_proto(pb.tagged());
             if (err) return {{}, err};
             {
                 auto [base, err] = BaseField::from_proto(pb.base_field());
@@ -533,7 +400,100 @@ field_from_proto(const ::service::library::pb::Field &pb) {
             return {std::move(cpp), x::errors::NIL};
         }
         default:
-            return {{}, x::errors::Error("Field: variant is not set")};
+            return {{}, x::errors::Error("TextField: variant is not set")};
+    }
+}
+
+inline std::pair<::service::library::pb::PayloadBinaryPayload, x::errors::Error>
+binary_payload_to_proto(const BinaryPayload &cpp) {
+    ::service::library::pb::PayloadBinaryPayload pb;
+    if (cpp.length.has_value()) pb.set_length(*cpp.length);
+    if (cpp.identifier.has_value()) {
+        auto [v, err] = ::synnax::library::to_proto(*cpp.identifier);
+        if (err) return {{}, err};
+        *pb.mutable_identifier() = v;
+    }
+    for (const auto &item: cpp.fields) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_fields() = v;
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<BinaryPayload, x::errors::Error>
+binary_payload_from_proto(const ::service::library::pb::PayloadBinaryPayload &pb) {
+    BinaryPayload cpp;
+    if (pb.has_length()) cpp.length = pb.length();
+    if (pb.has_identifier()) {
+        auto [v, err] = ::synnax::library::identifier_from_proto(pb.identifier());
+        if (err) return {{}, err};
+        cpp.identifier = std::move(v);
+    }
+    if (auto err = x::pb::from_proto_repeated<BinaryField>(cpp.fields, pb.fields()))
+        return {{}, err};
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::library::pb::PayloadTextPayload, x::errors::Error>
+text_payload_to_proto(const TextPayload &cpp) {
+    ::service::library::pb::PayloadTextPayload pb;
+    pb.set_delimiter(cpp.delimiter);
+    pb.set_prefix(cpp.prefix);
+    for (const auto &item: cpp.fields) {
+        auto [v, err] = ::synnax::library::to_proto(item);
+        if (err) return {{}, err};
+        *pb.add_fields() = v;
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<TextPayload, x::errors::Error>
+text_payload_from_proto(const ::service::library::pb::PayloadTextPayload &pb) {
+    TextPayload cpp;
+    cpp.delimiter = pb.delimiter();
+    cpp.prefix = pb.prefix();
+    for (const auto &item: pb.fields()) {
+        auto [v, err] = ::synnax::library::text_field_from_proto(item);
+        if (err) return {{}, err};
+        cpp.fields.push_back(std::move(v));
+    }
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::library::pb::Payload, x::errors::Error>
+to_proto(const Payload &value) {
+    ::service::library::pb::Payload pb;
+    if (const auto *v = std::get_if<BinaryPayload>(&value)) {
+        auto [payload, err] = binary_payload_to_proto(*v);
+        if (err) return {{}, err};
+        *pb.mutable_binary() = payload;
+        return {pb, x::errors::NIL};
+    }
+    if (const auto *v = std::get_if<TextPayload>(&value)) {
+        auto [payload, err] = text_payload_to_proto(*v);
+        if (err) return {{}, err};
+        *pb.mutable_text() = payload;
+        return {pb, x::errors::NIL};
+    }
+    return {{}, x::errors::Error("Payload: unknown variant")};
+}
+
+inline std::pair<Payload, x::errors::Error>
+payload_from_proto(const ::service::library::pb::Payload &pb) {
+    switch (pb.variant_case()) {
+        case ::service::library::pb::Payload::kBinary: {
+            auto [cpp, err] = binary_payload_from_proto(pb.binary());
+            if (err) return {{}, err};
+            return {std::move(cpp), x::errors::NIL};
+        }
+        case ::service::library::pb::Payload::kText: {
+            auto [cpp, err] = text_payload_from_proto(pb.text());
+            if (err) return {{}, err};
+            return {std::move(cpp), x::errors::NIL};
+        }
+        default:
+            return {{}, x::errors::Error("Payload: variant is not set")};
     }
 }
 
@@ -559,50 +519,26 @@ enum_entry_from_proto(const ::service::library::pb::EntryEnumPayload &pb) {
 inline std::pair<::service::library::pb::EntryMessagePayload, x::errors::Error>
 message_entry_to_proto(const MessageEntry &cpp) {
     ::service::library::pb::EntryMessagePayload pb;
-    if (cpp.identifier.has_value()) {
-        auto [v, err] = ::synnax::library::to_proto(*cpp.identifier);
-        if (err) return {{}, err};
-        *pb.mutable_identifier() = v;
-    }
     {
-        auto [v, err] = format_to_pb(cpp.format);
+        auto [v, err] = ::synnax::library::to_proto(cpp.payload);
         if (err) return {{}, err};
-        pb.set_format(v);
-    }
-    if (cpp.length.has_value()) pb.set_length(*cpp.length);
-    for (const auto &item: cpp.fields) {
-        auto [v, err] = ::synnax::library::to_proto(item);
-        if (err) return {{}, err};
-        *pb.add_fields() = v;
+        *pb.mutable_payload() = v;
     }
     if (cpp.period.has_value()) pb.set_period(cpp.period->to_proto());
     if (cpp.query.has_value()) pb.set_query(*cpp.query);
-    pb.set_delimiter(cpp.delimiter);
     return {pb, x::errors::NIL};
 }
 
 inline std::pair<MessageEntry, x::errors::Error>
 message_entry_from_proto(const ::service::library::pb::EntryMessagePayload &pb) {
     MessageEntry cpp;
-    if (pb.has_identifier()) {
-        auto [v, err] = ::synnax::library::identifier_from_proto(pb.identifier());
-        if (err) return {{}, err};
-        cpp.identifier = std::move(v);
-    }
     {
-        auto [v, err] = format_from_pb(pb.format());
+        auto [v, err] = ::synnax::library::payload_from_proto(pb.payload());
         if (err) return {{}, err};
-        cpp.format = v;
-    }
-    if (pb.has_length()) cpp.length = pb.length();
-    for (const auto &item: pb.fields()) {
-        auto [v, err] = ::synnax::library::field_from_proto(item);
-        if (err) return {{}, err};
-        cpp.fields.push_back(std::move(v));
+        cpp.payload = std::move(v);
     }
     if (pb.has_period()) cpp.period = ::x::telem::TimeSpan::from_proto(pb.period());
     if (pb.has_query()) cpp.query = pb.query();
-    cpp.delimiter = pb.delimiter();
     return {cpp, x::errors::NIL};
 }
 

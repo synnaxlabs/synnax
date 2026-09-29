@@ -11,7 +11,7 @@ import { id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { NotFoundError, PathError, ValidationError } from "@/errors";
-import { type library } from "@/library";
+import { library } from "@/library";
 import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
@@ -30,25 +30,47 @@ const createNew = (name: string = "Library"): library.New => ({
     {
       kind: "message",
       name: "Status",
-      identifier: { type: "can", id: 0x101, extended: false, fd: false },
-      length: 8,
-      fields: [
-        { encoding: "binary", name: "state", startBit: 0, bitLength: 8 },
-        {
-          encoding: "binary",
-          name: "temperature",
-          startBit: 8,
-          bitLength: 16,
-          signed: true,
-          scale: 0.1,
-          units: "degC",
-        },
-      ],
+      payload: {
+        format: "binary",
+        identifier: { type: "can", id: 0x101, extended: false, fd: false },
+        length: 8,
+        fields: [
+          { name: "state", startBit: 0, bitLength: 8 },
+          {
+            name: "temperature",
+            startBit: 8,
+            bitLength: 16,
+            signed: true,
+            scale: 0.1,
+            units: "degC",
+          },
+        ],
+      },
     },
   ],
 });
 
 describe("library", () => {
+  describe("payload", () => {
+    it("should reject a text identifier on a binary payload", () => {
+      expect(
+        library.payloadZ.safeParse({
+          format: "binary",
+          identifier: { type: "token", prefix: "$" },
+        }).success,
+      ).toBe(false);
+    });
+
+    it("should reject a binary field in a text payload", () => {
+      expect(
+        library.payloadZ.safeParse({
+          format: "text",
+          fields: [{ encoding: "binary", name: "rpm", startBit: 0, bitLength: 8 }],
+        }).success,
+      ).toBe(false);
+    });
+  });
+
   describe("create", () => {
     it("should create a library with an enum and a CAN message", async () => {
       const lib = await client.libraries.create(createNew());
@@ -67,14 +89,16 @@ describe("library", () => {
       expect(msg).toMatchObject({
         kind: "message",
         name: "Status",
-        identifier: { type: "can", id: 0x101, extended: false, fd: false },
-        format: "binary",
-        length: 8,
+        payload: {
+          format: "binary",
+          identifier: { type: "can", id: 0x101, extended: false, fd: false },
+          length: 8,
+        },
       });
       if (msg.kind !== "message") throw new Error("expected a message entry");
-      expect(msg.fields).toHaveLength(2);
-      expect(msg.fields[1]).toMatchObject({
-        encoding: "binary",
+      const { fields } = msg.payload;
+      expect(fields).toHaveLength(2);
+      expect(fields[1]).toMatchObject({
         name: "temperature",
         startBit: 8,
         bitLength: 16,
@@ -82,8 +106,41 @@ describe("library", () => {
         scale: 0.1,
         units: "degC",
       });
-      const keys = [en.key, msg.key, ...msg.fields.map((f) => f.key)];
+      const keys = [en.key, msg.key, ...fields.map((f) => f.key)];
       expect(new Set(keys).size).toEqual(keys.length);
+    });
+
+    it("should create a text message with the default delimiter", async () => {
+      const lib = await client.libraries.create({
+        name: "Text",
+        entries: [
+          {
+            kind: "message",
+            name: "Line",
+            payload: {
+              format: "text",
+              prefix: "$T",
+              fields: [
+                { encoding: "delimited", name: "temp", position: 1 },
+                { encoding: "tagged", name: "rh", tag: "RH=" },
+              ],
+            },
+          },
+        ],
+      });
+      const [msg] = lib.entries;
+      expect(msg).toMatchObject({
+        kind: "message",
+        payload: {
+          format: "text",
+          delimiter: ",",
+          prefix: "$T",
+          fields: [
+            { encoding: "delimited", name: "temp", position: 1, scale: 1 },
+            { encoding: "tagged", name: "rh", tag: "RH=" },
+          ],
+        },
+      });
     });
 
     it("should create multiple libraries", async () => {
@@ -168,8 +225,13 @@ describe("library", () => {
       const [msg] = imported.entries;
       if (msg.kind !== "message") throw new Error("expected a message entry");
       expect(msg.name).toEqual("Engine");
-      expect(msg.fields.map((f) => f.name)).toEqual(["Rpm", "Temp"]);
-      expect(msg.fields[0]).toMatchObject({ startBit: 0, bitLength: 16, scale: 0.25 });
+      expect(msg.payload).toMatchObject({
+        format: "binary",
+        fields: [
+          { name: "Rpm", startBit: 0, bitLength: 16, scale: 0.25 },
+          { name: "Temp" },
+        ],
+      });
       expect(await client.libraries.retrieve(lib.key)).toEqual(imported);
     });
 

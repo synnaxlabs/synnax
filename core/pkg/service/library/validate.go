@@ -22,9 +22,6 @@ const (
 	maxExtendedCANID = 0x1FFFFFFF
 	maxCANLength     = 8
 	maxCANFDLength   = 64
-	maxARINC429SDI   = 3
-	max1553Address   = 31
-	max1553Words     = 32
 	maxBitLength     = 64
 )
 
@@ -106,59 +103,81 @@ func (v *validator) validateMessage(
 	m MessageEntry,
 	enums set.Set[EntryKey],
 ) {
-	fields := make(map[FieldKey]Field, len(m.Fields))
-	names := make(set.Set[string], len(m.Fields))
-	for i, f := range m.Fields {
-		p := pathOf(path, "fields", strconv.Itoa(i))
-		if f.Variant == nil {
-			v.addf(p, "encoding is required")
+	path = pathOf(path, "payload")
+	var (
+		bases  = m.Payload.FieldBases()
+		fields = make(map[FieldKey]BaseField, len(bases))
+		names  = make(set.Set[string], len(bases))
+		floats = make(set.Set[FieldKey])
+		// unencoded holds the indices of text fields with no encoding, whose bases are
+		// zero values.
+		unencoded = make(set.Set[int])
+	)
+	switch p := m.Payload.Variant.(type) {
+	case BinaryPayload:
+		for i, f := range p.Fields {
+			v.validateBinaryField(pathOf(path, "fields", strconv.Itoa(i)), p, f)
+			if f.Float {
+				floats.Add(f.Key)
+			}
+		}
+	case TextPayload:
+		for i, f := range p.Fields {
+			if f.Variant == nil {
+				v.addf(pathOf(path, "fields", strconv.Itoa(i)), "encoding is required")
+				unencoded.Add(i)
+			}
+		}
+	case nil:
+		v.addf(path, "format is required")
+		return
+	}
+	for i, b := range bases {
+		if unencoded.Contains(i) {
 			continue
 		}
-		base := f.Base()
-		if _, dup := fields[base.Key]; dup {
-			v.addf(pathOf(p, "key"), "duplicate field key %s", base.Key)
-		}
-		fields[base.Key] = f
-		if names.Contains(base.Name) {
-			v.addf(pathOf(p, "name"), "duplicate field name %q", base.Name)
-		}
-		names.Add(base.Name)
-	}
-	if m.Format == FormatText && m.Delimiter == "" {
-		v.addf(pathOf(path, "delimiter"), "delimiter is required for text messages")
-	}
-	v.validateIdentifier(path, m, fields)
-	for i, f := range m.Fields {
 		p := pathOf(path, "fields", strconv.Itoa(i))
-		if f.Variant == nil {
+		if _, dup := fields[b.Key]; dup {
+			v.addf(pathOf(p, "key"), "duplicate field key %s", b.Key)
+		}
+		fields[b.Key] = b
+		if names.Contains(b.Name) {
+			v.addf(pathOf(p, "name"), "duplicate field name %q", b.Name)
+		}
+		names.Add(b.Name)
+	}
+	if p, ok := m.Payload.Variant.(BinaryPayload); ok {
+		v.validateIdentifier(path, p, fields)
+	}
+	for i, b := range bases {
+		if unencoded.Contains(i) {
 			continue
 		}
-		base := f.Base()
-		v.validateFieldEncoding(p, m, f)
-		if base.Enumeration != nil && !enums.Contains(*base.Enumeration) {
+		p := pathOf(path, "fields", strconv.Itoa(i))
+		if b.Enumeration != nil && !enums.Contains(*b.Enumeration) {
 			v.addf(
 				pathOf(p, "enumeration"),
 				"no enum entry with key %s in this library",
-				*base.Enumeration,
+				*b.Enumeration,
 			)
 		}
-		if base.Multiplexor == nil {
+		if b.Multiplexor == nil {
 			continue
 		}
-		mux, ok := fields[*base.Multiplexor]
+		_, ok := fields[*b.Multiplexor]
 		switch {
-		case *base.Multiplexor == base.Key:
+		case *b.Multiplexor == b.Key:
 			v.addf(pathOf(p, "multiplexor"), "a field cannot multiplex itself")
 		case !ok:
 			v.addf(
 				pathOf(p, "multiplexor"),
 				"no field with key %s in this message",
-				*base.Multiplexor,
+				*b.Multiplexor,
 			)
-		case isFloat(mux):
+		case floats.Contains(*b.Multiplexor):
 			v.addf(pathOf(p, "multiplexor"), "a multiplexor must be an integer field")
 		}
-		if len(base.MultiplexValues) == 0 {
+		if len(b.MultiplexValues) == 0 {
 			v.addf(
 				pathOf(p, "multiplex_values"),
 				"at least one value is required when the field has a multiplexor",
@@ -167,99 +186,55 @@ func (v *validator) validateMessage(
 	}
 }
 
-func isFloat(f Field) bool {
-	b, ok := f.Variant.(BinaryField)
-	return ok && b.Float
-}
-
 func (v *validator) validateIdentifier(
 	path []string,
-	m MessageEntry,
-	fields map[FieldKey]Field,
+	p BinaryPayload,
+	fields map[FieldKey]BaseField,
 ) {
-	if m.Identifier == nil {
+	if p.Identifier == nil {
 		return
 	}
-	p := pathOf(path, "identifier")
-	textual := false
-	switch id := m.Identifier.Variant.(type) {
+	idPath := pathOf(path, "identifier")
+	switch id := p.Identifier.Variant.(type) {
 	case CanIdentifier:
 		limit := uint32(maxStandardCANID)
 		if id.Extended {
 			limit = maxExtendedCANID
 		}
 		if id.ID > limit {
-			v.addf(pathOf(p, "id"), "id 0x%X exceeds the maximum 0x%X", id.ID, limit)
+			v.addf(
+				pathOf(idPath, "id"),
+				"id 0x%X exceeds the maximum 0x%X",
+				id.ID,
+				limit,
+			)
 		}
 		maxLength := uint16(maxCANLength)
 		if id.Fd {
 			maxLength = maxCANFDLength
 		}
-		if m.Length != nil && *m.Length > maxLength {
+		if p.Length != nil && *p.Length > maxLength {
 			v.addf(
 				pathOf(path, "length"),
 				"length %d exceeds the %d bytes a CAN frame carries",
-				*m.Length,
+				*p.Length,
 				maxLength,
-			)
-		}
-	case Arinc429Identifier:
-		if id.Sdi > maxARINC429SDI {
-			v.addf(pathOf(p, "sdi"), "sdi must be between 0 and %d", maxARINC429SDI)
-		}
-	case Mil1553Identifier:
-		if id.Rt > max1553Address {
-			v.addf(pathOf(p, "rt"), "rt must be between 0 and %d", max1553Address)
-		}
-		if id.Subaddress > max1553Address {
-			v.addf(
-				pathOf(p, "subaddress"),
-				"subaddress must be between 0 and %d",
-				max1553Address,
-			)
-		}
-		if id.WordCount == 0 || id.WordCount > max1553Words {
-			v.addf(
-				pathOf(p, "word_count"),
-				"word_count must be between 1 and %d",
-				max1553Words,
 			)
 		}
 	case FieldIdentifier:
 		if _, ok := fields[id.Field]; !ok {
-			v.addf(pathOf(p, "field"), "no field with key %s in this message", id.Field)
+			v.addf(
+				pathOf(idPath, "field"),
+				"no field with key %s in this message",
+				id.Field,
+			)
 		}
-	case TokenIdentifier:
-		textual = true
 	case nil:
-		v.addf(p, "type is required")
-		return
-	}
-	if textual != (m.Format == FormatText) {
-		v.addf(
-			pathOf(p, "type"),
-			"identifier does not apply to a %s message",
-			m.Format,
-		)
+		v.addf(idPath, "type is required")
 	}
 }
 
-func (v *validator) validateFieldEncoding(path []string, m MessageEntry, f Field) {
-	switch variant := f.Variant.(type) {
-	case BinaryField:
-		if m.Format != FormatBinary {
-			v.addf(path, "a binary field requires a binary message")
-			return
-		}
-		v.validateBinaryField(path, m, variant)
-	case DelimitedField, TaggedField:
-		if m.Format != FormatText {
-			v.addf(path, "a text field requires a text message")
-		}
-	}
-}
-
-func (v *validator) validateBinaryField(path []string, m MessageEntry, f BinaryField) {
+func (v *validator) validateBinaryField(path []string, p BinaryPayload, f BinaryField) {
 	if f.BitLength == 0 || f.BitLength > maxBitLength {
 		v.addf(
 			pathOf(path, "bit_length"),
@@ -274,11 +249,11 @@ func (v *validator) validateBinaryField(path []string, m MessageEntry, f BinaryF
 	if f.Float && f.Signed {
 		v.addf(pathOf(path, "signed"), "a float field cannot also be signed")
 	}
-	if m.Length != nil && lastByte(f) >= int(*m.Length) {
+	if p.Length != nil && lastByte(f) >= int(*p.Length) {
 		v.addf(
 			pathOf(path, "start_bit"),
 			"field extends past the %d-byte payload",
-			*m.Length,
+			*p.Length,
 		)
 	}
 }

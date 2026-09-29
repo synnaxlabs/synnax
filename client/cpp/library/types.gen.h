@@ -32,16 +32,11 @@ struct EnumValue;
 struct Reference;
 struct BaseEntry;
 struct BaseField;
+struct BinaryField;
 struct Library;
 
 constexpr const char *BYTE_ORDER_LITTLE_ENDIAN = "little_endian";
 constexpr const char *BYTE_ORDER_BIG_ENDIAN = "big_endian";
-
-constexpr const char *DIRECTION_RECEIVE = "receive";
-constexpr const char *DIRECTION_TRANSMIT = "transmit";
-
-constexpr const char *FORMAT_BINARY = "binary";
-constexpr const char *FORMAT_TEXT = "text";
 
 using Key = x::uuid::UUID;
 
@@ -69,8 +64,9 @@ struct EnumValue {
 /// @brief Reference is embedded in the config of a task that uses a library. A task
 /// uses at most one library.
 struct Reference {
-    /// @brief library is the key of the library the task reads its layouts from.
-    Key library;
+    /// @brief library is the key of the library the task reads its layouts from. When
+    /// absent the task uses no library yet.
+    std::optional<Key> library;
     /// @brief library_hash is the hash of the library's entries, stamped by the Core
     /// when
     /// the task or the library is written.
@@ -155,36 +151,6 @@ struct CanIdentifier {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief Arinc429Identifier matches an ARINC 429 word by label.
-struct Arinc429Identifier {
-    std::string type = "arinc429";
-    /// @brief label is the ARINC 429 label, in its octal value.
-    std::uint8_t label = 0;
-    /// @brief sdi is the source/destination identifier matched when sdi_matched.
-    std::uint8_t sdi = 0;
-    /// @brief sdi_matched is true when the SDI bits must equal sdi.
-    bool sdi_matched = false;
-
-    static Arinc429Identifier parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief Mil1553Identifier matches a MIL-STD-1553 transfer by command word.
-struct Mil1553Identifier {
-    std::string type = "mil1553";
-    /// @brief rt is the remote terminal address.
-    std::uint8_t rt = 0;
-    /// @brief subaddress is the subaddress.
-    std::uint8_t subaddress = 0;
-    /// @brief direction is the transfer direction.
-    std::string direction;
-    /// @brief word_count is the number of data words, from 1 to 32.
-    std::uint8_t word_count = 1;
-
-    static Mil1553Identifier parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
 /// @brief FieldIdentifier matches a binary frame by the raw value of one of its fields.
 struct FieldIdentifier {
     std::string type = "field";
@@ -197,24 +163,8 @@ struct FieldIdentifier {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief TokenIdentifier matches a text line by its prefix.
-struct TokenIdentifier {
-    std::string type = "token";
-    /// @brief prefix is the text a line must start with. An empty prefix matches every
-    /// line.
-    std::string prefix = "";
-
-    static TokenIdentifier parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief Identifier selects which frames on a bus or stream belong to a message.
-using Identifier = std::variant<
-    CanIdentifier,
-    Arinc429Identifier,
-    Mil1553Identifier,
-    FieldIdentifier,
-    TokenIdentifier>;
+/// @brief Identifier selects which frames on a bus belong to a binary message.
+using Identifier = std::variant<CanIdentifier, FieldIdentifier>;
 
 Identifier parse_identifier(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const Identifier &value);
@@ -225,7 +175,6 @@ identifier_from_proto(const ::service::library::pb::Identifier &pb);
 
 /// @brief BinaryField is a field read from a bit range of a binary payload.
 struct BinaryField : public BaseField {
-    std::string encoding = "binary";
     /// @brief start_bit is the bit where the field starts, numbered as in a DBC file:
     /// the
     /// least significant bit for little-endian fields and the most significant bit for
@@ -242,37 +191,86 @@ struct BinaryField : public BaseField {
 
     static BinaryField parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::library::pb::BinaryField;
+    [[nodiscard]] std::pair<::service::library::pb::BinaryField, x::errors::Error>
+    to_proto() const;
+    static std::pair<BinaryField, x::errors::Error>
+    from_proto(const ::service::library::pb::BinaryField &pb);
 };
 
-/// @brief DelimitedField is a field read from one item of a delimited text line.
-struct DelimitedField : public BaseField {
+/// @brief DelimitedTextField is a field read from one item of a delimited text line.
+struct DelimitedTextField : public BaseField {
     std::string encoding = "delimited";
     /// @brief position is the zero-based item index after splitting on the delimiter.
     std::uint32_t position = 0;
 
-    static DelimitedField parse(x::json::Parser parser);
+    static DelimitedTextField parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief TaggedField is a field read from the text that follows a tag.
-struct TaggedField : public BaseField {
+/// @brief TaggedTextField is a field read from the text that follows a tag.
+struct TaggedTextField : public BaseField {
     std::string encoding = "tagged";
     /// @brief tag is the text that comes just before the value in the line.
     std::string tag;
 
-    static TaggedField parse(x::json::Parser parser);
+    static TaggedTextField parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief Field is one value carried by a message.
-using Field = std::variant<BinaryField, DelimitedField, TaggedField>;
+/// @brief TextField is a field read from a text line.
+using TextField = std::variant<DelimitedTextField, TaggedTextField>;
 
-Field parse_field(x::json::Parser parser);
-[[nodiscard]] x::json::json to_json(const Field &value);
-[[nodiscard]] std::pair<::service::library::pb::Field, x::errors::Error>
-to_proto(const Field &value);
-std::pair<Field, x::errors::Error>
-field_from_proto(const ::service::library::pb::Field &pb);
+TextField parse_text_field(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const TextField &value);
+[[nodiscard]] std::pair<::service::library::pb::TextField, x::errors::Error>
+to_proto(const TextField &value);
+std::pair<TextField, x::errors::Error>
+text_field_from_proto(const ::service::library::pb::TextField &pb);
+
+/// @brief BinaryPayload is a payload of raw bytes.
+struct BinaryPayload {
+    std::string format = "binary";
+    /// @brief length is the payload length in bytes. When absent the length is
+    /// variable.
+    std::optional<std::uint16_t> length;
+    /// @brief identifier selects the frames that belong to the message. When absent
+    /// every
+    /// frame on the bus belongs to it.
+    std::optional<Identifier> identifier;
+    /// @brief fields are the values the payload carries.
+    std::vector<BinaryField> fields = {};
+
+    static BinaryPayload parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief TextPayload is a payload of one text line.
+struct TextPayload {
+    std::string format = "text";
+    /// @brief delimiter splits the items of the line.
+    std::string delimiter = ",";
+    /// @brief prefix is the text a line must start with to belong to the message. An
+    /// empty
+    /// prefix matches every line.
+    std::string prefix = "";
+    /// @brief fields are the values the line carries.
+    std::vector<TextField> fields = {};
+
+    static TextPayload parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Payload is the layout of a message's payload.
+using Payload = std::variant<BinaryPayload, TextPayload>;
+
+Payload parse_payload(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const Payload &value);
+[[nodiscard]] std::pair<::service::library::pb::Payload, x::errors::Error>
+to_proto(const Payload &value);
+std::pair<Payload, x::errors::Error>
+payload_from_proto(const ::service::library::pb::Payload &pb);
 
 /// @brief EnumEntry maps integer values to names.
 struct EnumEntry : public BaseEntry {
@@ -287,17 +285,8 @@ struct EnumEntry : public BaseEntry {
 /// @brief MessageEntry is a frame layout on a bus or byte stream.
 struct MessageEntry : public BaseEntry {
     std::string kind = "message";
-    /// @brief identifier selects the frames that belong to the message. When absent
-    /// every
-    /// frame on the stream belongs to it.
-    std::optional<Identifier> identifier;
-    /// @brief format is the payload format.
-    std::string format = FORMAT_BINARY;
-    /// @brief length is the payload length in bytes. When absent the length is
-    /// variable.
-    std::optional<std::uint16_t> length;
-    /// @brief fields are the values the message carries.
-    std::vector<Field> fields = {};
+    /// @brief payload is the layout of the message's payload.
+    Payload payload;
     /// @brief period is the transmit period. When absent a write task sends the message
     /// when one of its command channels changes.
     std::optional<::x::telem::TimeSpan> period;
@@ -305,8 +294,6 @@ struct MessageEntry : public BaseEntry {
     /// messages
     /// hold escaped bytes. When absent the device sends the message unprompted.
     std::optional<std::string> query;
-    /// @brief delimiter splits the items of a text message.
-    std::string delimiter = ",";
 
     static MessageEntry parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

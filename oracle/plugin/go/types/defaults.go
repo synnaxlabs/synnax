@@ -450,9 +450,9 @@ func probeData(data *templateData) *templateData {
 
 // typeNeedsMethod reports whether the type named by ref emits a recursive method: it
 // has a field satisfying hasOwn, or a nested struct field, slice/array element, map
-// value, or union variant payload that (transitively) does. Generic types and type
-// parameters never emit a method. visited guards against cycles in recursive types.
-// Probing must not leak imports into the emitted file, so hasOwn runs against a
+// value, union base, or union variant payload that (transitively) does. Generic types
+// and type parameters never emit a method. visited guards against cycles in recursive
+// types. Probing must not leak imports into the emitted file, so hasOwn runs against a
 // scratch-import copy of data.
 func typeNeedsMethod(
 	ref resolution.TypeRef,
@@ -496,6 +496,11 @@ func typeNeedsMethod(
 			}
 		}
 	case resolution.UnionForm:
+		for _, base := range form.Extends {
+			if typeNeedsMethod(base, data, visited, hasOwn, skip) {
+				return true
+			}
+		}
 		for _, variant := range form.Variants {
 			if typeNeedsMethod(variant.Type, data, visited, hasOwn, skip) {
 				return true

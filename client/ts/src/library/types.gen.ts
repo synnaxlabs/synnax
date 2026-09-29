@@ -18,14 +18,6 @@ export const BYTE_ORDERS = ["little_endian", "big_endian"] as const;
 export const byteOrderZ = z.enum(BYTE_ORDERS);
 export type ByteOrder = z.infer<typeof byteOrderZ>;
 
-export const DIRECTIONS = ["receive", "transmit"] as const;
-export const directionZ = z.enum(DIRECTIONS);
-export type Direction = z.infer<typeof directionZ>;
-
-export const FORMATS = ["binary", "text"] as const;
-export const formatZ = z.enum(FORMATS);
-export type Format = z.infer<typeof formatZ>;
-
 /** EnumValue maps one integer value of an enum to a name. */
 export const enumValueZ = z.object({
   /** value is the integer value. */
@@ -49,8 +41,11 @@ export type FieldKey = z.infer<typeof fieldKeyZ>;
  * most one library.
  */
 export const referenceZ = z.object({
-  /** library is the key of the library the task reads its layouts from. */
-  library: keyZ,
+  /**
+   * library is the key of the library the task reads its layouts from. When absent the
+   * task uses no library yet.
+   */
+  library: keyZ.optional(),
   /**
    * libraryHash is the hash of the library's entries, stamped by the Core when the task
    * or the library is written.
@@ -118,32 +113,6 @@ export const canIdentifierZ = z.object({
 });
 export interface CanIdentifier extends z.infer<typeof canIdentifierZ> {}
 
-/** Arinc429Identifier matches an ARINC 429 word by label. */
-export const arinc429IdentifierZ = z.object({
-  type: z.literal("arinc429"),
-  /** label is the ARINC 429 label, in its octal value. */
-  label: zod.uint8.default(0),
-  /** sdi is the source/destination identifier matched when sdi_matched. */
-  sdi: zod.uint8.default(0),
-  /** sdiMatched is true when the SDI bits must equal sdi. */
-  sdiMatched: z.boolean().default(false),
-});
-export interface Arinc429Identifier extends z.infer<typeof arinc429IdentifierZ> {}
-
-/** Mil1553Identifier matches a MIL-STD-1553 transfer by command word. */
-export const mil1553IdentifierZ = z.object({
-  type: z.literal("mil1553"),
-  /** rt is the remote terminal address. */
-  rt: zod.uint8.default(0),
-  /** subaddress is the subaddress. */
-  subaddress: zod.uint8.default(0),
-  /** direction is the transfer direction. */
-  direction: directionZ,
-  /** wordCount is the number of data words, from 1 to 32. */
-  wordCount: zod.uint8.default(1),
-});
-export interface Mil1553Identifier extends z.infer<typeof mil1553IdentifierZ> {}
-
 /** FieldIdentifier matches a binary frame by the raw value of one of its fields. */
 export const fieldIdentifierZ = z.object({
   type: z.literal("field"),
@@ -154,103 +123,110 @@ export const fieldIdentifierZ = z.object({
 });
 export interface FieldIdentifier extends z.infer<typeof fieldIdentifierZ> {}
 
-/** TokenIdentifier matches a text line by its prefix. */
-export const tokenIdentifierZ = z.object({
-  type: z.literal("token"),
-  /** prefix is the text a line must start with. An empty prefix matches every line. */
-  prefix: z.string().default(""),
-});
-export interface TokenIdentifier extends z.infer<typeof tokenIdentifierZ> {}
-
-export const IDENTIFIER_TYPES = [
-  "can",
-  "arinc429",
-  "mil1553",
-  "field",
-  "token",
-] as const;
+export const IDENTIFIER_TYPES = ["can", "field"] as const;
 export const identifierTypeZ = z.enum(IDENTIFIER_TYPES);
 export type IdentifierType = z.infer<typeof identifierTypeZ>;
 
-/** Identifier selects which frames on a bus or stream belong to a message. */
+/** Identifier selects which frames on a bus belong to a binary message. */
 export const identifierZ = z.discriminatedUnion("type", [
   canIdentifierZ,
-  arinc429IdentifierZ,
-  mil1553IdentifierZ,
   fieldIdentifierZ,
-  tokenIdentifierZ,
 ]);
-export type Identifier =
-  | CanIdentifier
-  | Arinc429Identifier
-  | Mil1553Identifier
-  | FieldIdentifier
-  | TokenIdentifier;
+export type Identifier = CanIdentifier | FieldIdentifier;
 
 export const IDENTIFIER_SCHEMAS: {
   [K in IdentifierType]: z.ZodType<Extract<Identifier, { type: K }>>;
 } = {
   can: canIdentifierZ,
-  arinc429: arinc429IdentifierZ,
-  mil1553: mil1553IdentifierZ,
   field: fieldIdentifierZ,
-  token: tokenIdentifierZ,
 };
 
-/** BinaryField is a field read from a bit range of a binary payload. */
 export const binaryFieldZ = baseFieldZ.extend({
-  encoding: z.literal("binary"),
-  /**
-   * startBit is the bit where the field starts, numbered as in a DBC file: the least
-   * significant bit for little-endian fields and the most significant bit for
-   * big-endian fields.
-   */
   startBit: zod.uint16.default(0),
-  /** bitLength is the number of bits in the field, from 1 to 64. */
   bitLength: zod.uint8.default(8),
-  /** byteOrder is the byte order of the field. */
   byteOrder: byteOrderZ.default("little_endian"),
-  /** signed is true when the raw value is two's complement. */
   signed: z.boolean().default(false),
-  /** float is true when the raw bits are an IEEE 754 float of 32 or 64 bits. */
   float: z.boolean().default(false),
 });
 export interface BinaryField extends z.infer<typeof binaryFieldZ> {}
 
-/** DelimitedField is a field read from one item of a delimited text line. */
-export const delimitedFieldZ = baseFieldZ.extend({
+/** DelimitedTextField is a field read from one item of a delimited text line. */
+export const delimitedTextFieldZ = baseFieldZ.extend({
   encoding: z.literal("delimited"),
   /** position is the zero-based item index after splitting on the delimiter. */
   position: z.uint32().default(0),
 });
-export interface DelimitedField extends z.infer<typeof delimitedFieldZ> {}
+export interface DelimitedTextField extends z.infer<typeof delimitedTextFieldZ> {}
 
-/** TaggedField is a field read from the text that follows a tag. */
-export const taggedFieldZ = baseFieldZ.extend({
+/** TaggedTextField is a field read from the text that follows a tag. */
+export const taggedTextFieldZ = baseFieldZ.extend({
   encoding: z.literal("tagged"),
   /** tag is the text that comes just before the value in the line. */
   tag: z.string().min(1),
 });
-export interface TaggedField extends z.infer<typeof taggedFieldZ> {}
+export interface TaggedTextField extends z.infer<typeof taggedTextFieldZ> {}
 
-export const FIELD_TYPES = ["binary", "delimited", "tagged"] as const;
-export const fieldTypeZ = z.enum(FIELD_TYPES);
-export type FieldType = z.infer<typeof fieldTypeZ>;
+export const TEXT_FIELD_TYPES = ["delimited", "tagged"] as const;
+export const textFieldTypeZ = z.enum(TEXT_FIELD_TYPES);
+export type TextFieldType = z.infer<typeof textFieldTypeZ>;
 
-/** Field is one value carried by a message. */
-export const fieldZ = z.discriminatedUnion("encoding", [
-  binaryFieldZ,
-  delimitedFieldZ,
-  taggedFieldZ,
+/** TextField is a field read from a text line. */
+export const textFieldZ = z.discriminatedUnion("encoding", [
+  delimitedTextFieldZ,
+  taggedTextFieldZ,
 ]);
-export type Field = BinaryField | DelimitedField | TaggedField;
+export type TextField = DelimitedTextField | TaggedTextField;
 
-export const FIELD_SCHEMAS: {
-  [K in FieldType]: z.ZodType<Extract<Field, { encoding: K }>>;
+export const TEXT_FIELD_SCHEMAS: {
+  [K in TextFieldType]: z.ZodType<Extract<TextField, { encoding: K }>>;
 } = {
-  binary: binaryFieldZ,
-  delimited: delimitedFieldZ,
-  tagged: taggedFieldZ,
+  delimited: delimitedTextFieldZ,
+  tagged: taggedTextFieldZ,
+};
+
+/** BinaryPayload is a payload of raw bytes. */
+export const binaryPayloadZ = z.object({
+  format: z.literal("binary"),
+  /** length is the payload length in bytes. When absent the length is variable. */
+  length: zod.uint16.optional(),
+  /**
+   * identifier selects the frames that belong to the message. When absent every frame
+   * on the bus belongs to it.
+   */
+  identifier: zod.nullToUndefined(identifierZ),
+  /** fields are the values the payload carries. */
+  fields: binaryFieldZ.array().default(() => []),
+});
+export interface BinaryPayload extends z.infer<typeof binaryPayloadZ> {}
+
+/** TextPayload is a payload of one text line. */
+export const textPayloadZ = z.object({
+  format: z.literal("text"),
+  /** delimiter splits the items of the line. */
+  delimiter: z.string().default(","),
+  /**
+   * prefix is the text a line must start with to belong to the message. An empty prefix
+   * matches every line.
+   */
+  prefix: z.string().default(""),
+  /** fields are the values the line carries. */
+  fields: textFieldZ.array().default(() => []),
+});
+export interface TextPayload extends z.infer<typeof textPayloadZ> {}
+
+export const PAYLOAD_TYPES = ["binary", "text"] as const;
+export const payloadTypeZ = z.enum(PAYLOAD_TYPES);
+export type PayloadType = z.infer<typeof payloadTypeZ>;
+
+/** Payload is the layout of a message's payload. */
+export const payloadZ = z.discriminatedUnion("format", [binaryPayloadZ, textPayloadZ]);
+export type Payload = BinaryPayload | TextPayload;
+
+export const PAYLOAD_SCHEMAS: {
+  [K in PayloadType]: z.ZodType<Extract<Payload, { format: K }>>;
+} = {
+  binary: binaryPayloadZ,
+  text: textPayloadZ,
 };
 
 /** EnumEntry maps integer values to names. */
@@ -264,17 +240,8 @@ export interface EnumEntry extends z.infer<typeof enumEntryZ> {}
 /** MessageEntry is a frame layout on a bus or byte stream. */
 export const messageEntryZ = baseEntryZ.extend({
   kind: z.literal("message"),
-  /**
-   * identifier selects the frames that belong to the message. When absent every frame
-   * on the stream belongs to it.
-   */
-  identifier: zod.nullToUndefined(identifierZ),
-  /** format is the payload format. */
-  format: formatZ.default("binary"),
-  /** length is the payload length in bytes. When absent the length is variable. */
-  length: zod.uint16.optional(),
-  /** fields are the values the message carries. */
-  fields: fieldZ.array().default(() => []),
+  /** payload is the layout of the message's payload. */
+  payload: payloadZ,
   /**
    * period is the transmit period. When absent a write task sends the message when one
    * of its command channels changes.
@@ -285,8 +252,6 @@ export const messageEntryZ = baseEntryZ.extend({
    * escaped bytes. When absent the device sends the message unprompted.
    */
   query: z.string().optional(),
-  /** delimiter splits the items of a text message. */
-  delimiter: z.string().default(","),
 });
 export interface MessageEntry extends z.infer<typeof messageEntryZ> {}
 

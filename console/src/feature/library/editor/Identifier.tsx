@@ -21,29 +21,20 @@ type Type = library.IdentifierType | "none";
 const NAMES: Record<Type, string> = {
   none: "None",
   can: "CAN",
-  arinc429: "ARINC 429",
-  mil1553: "MIL-STD-1553",
   field: "Field value",
-  token: "Token",
 };
 
 const TYPES = Object.keys(NAMES) as Type[];
 
 const create = (
   type: library.IdentifierType,
-  fields: library.Field[],
+  fields: library.BinaryField[],
 ): library.Identifier => {
   switch (type) {
     case "can":
       return { type, id: 0, extended: false, fd: false };
-    case "arinc429":
-      return { type, label: 0, sdi: 0, sdiMatched: false };
-    case "mil1553":
-      return { type, rt: 0, subaddress: 0, direction: "receive", wordCount: 1 };
     case "field":
       return { type, field: fields[0]?.key ?? "", value: 0 };
-    case "token":
-      return { type, prefix: "" };
   }
 };
 
@@ -52,7 +43,7 @@ const formatHex = (value: number): string => `0x${value.toString(16).toUpperCase
 interface TypeFieldsProps {
   path: string;
   type: library.IdentifierType;
-  fields: library.Field[];
+  fields: library.BinaryField[];
 }
 
 const TypeFields = ({ path, type, fields }: TypeFieldsProps): ReactElement => {
@@ -72,32 +63,6 @@ const TypeFields = ({ path, type, fields }: TypeFieldsProps): ReactElement => {
           <Form.SwitchField path={`${path}.fd`} label="CAN FD" />
         </>
       );
-    case "arinc429":
-      return (
-        <>
-          <Form.NumericField path={`${path}.label`} label="Label" />
-          <Form.NumericField path={`${path}.sdi`} label="SDI" />
-          <Form.SwitchField path={`${path}.sdiMatched`} label="Match SDI" />
-        </>
-      );
-    case "mil1553":
-      return (
-        <>
-          <Form.NumericField path={`${path}.rt`} label="Remote terminal" />
-          <Form.NumericField path={`${path}.subaddress`} label="Subaddress" />
-          <Form.NumericField path={`${path}.wordCount`} label="Word count" />
-          <Form.Field<library.Direction> path={`${path}.direction`} label="Direction">
-            {(p) => (
-              <Select.Buttons<library.Direction> {...p}>
-                <Select.Item<library.Direction> itemKey="receive">Receive</Select.Item>
-                <Select.Item<library.Direction> itemKey="transmit">
-                  Transmit
-                </Select.Item>
-              </Select.Buttons>
-            )}
-          </Form.Field>
-        </>
-      );
     case "field":
       return (
         <>
@@ -115,24 +80,22 @@ const TypeFields = ({ path, type, fields }: TypeFieldsProps): ReactElement => {
           <Form.NumericField path={`${path}.value`} label="Value" />
         </>
       );
-    case "token":
-      return <Form.TextField path={`${path}.prefix`} label="Prefix" />;
   }
 };
 
 export interface IdentifierProps {
-  /** The form path of the message entry. */
+  /** The form path of the binary payload. */
   path: string;
 }
 
-/** Edits how a message selects the frames that belong to it. */
+/** Edits how a binary message selects the frames that belong to it. */
 export const Identifier = ({ path }: IdentifierProps): ReactElement => {
   const identifierPath = `${path}.identifier`;
   const { set } = Form.useContext();
   const identifier = Form.useFieldValue<library.Identifier>(identifierPath, {
     optional: true,
   });
-  const fields = Form.useFieldValue<library.Field[]>(`${path}.fields`);
+  const fields = Form.useFieldValue<library.BinaryField[]>(`${path}.fields`);
   const handleChange = (type: Type) =>
     set(identifierPath, type === "none" ? undefined : create(type, fields));
   return (

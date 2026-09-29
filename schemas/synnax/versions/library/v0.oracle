@@ -40,23 +40,6 @@ ByteOrder enum {
     @doc value "is the byte order of a multi-byte binary field."
 }
 
-Direction enum {
-    receive  = "receive"
-    transmit = "transmit"
-
-    @doc value """
-        is the direction of a MIL-STD-1553 transfer from the remote terminal's point of
-        view.
-    """
-}
-
-Format enum {
-    binary = "binary"
-    text   = "text"
-
-    @doc value "is the payload format of a message."
-}
-
 Identifier union on type {
     can {
         id       uint32 = 0 {
@@ -77,35 +60,6 @@ Identifier union on type {
 
         @doc value "matches a CAN frame by arbitration identifier."
     }
-    arinc429 {
-        label       uint8 = 0 {
-            @doc value "is the ARINC 429 label, in its octal value."
-        }
-        sdi         uint8 = 0 {
-            @doc value "is the source/destination identifier matched when sdi_matched."
-        }
-        sdi_matched bool = false {
-            @doc value "is true when the SDI bits must equal sdi."
-        }
-
-        @doc value "matches an ARINC 429 word by label."
-    }
-    mil1553 {
-        rt         uint8 = 0 {
-            @doc value "is the remote terminal address."
-        }
-        subaddress uint8 = 0 {
-            @doc value "is the subaddress."
-        }
-        direction  Direction {
-            @doc value "is the transfer direction."
-        }
-        word_count uint8 = 1 {
-            @doc value "is the number of data words, from 1 to 32."
-        }
-
-        @doc value "matches a MIL-STD-1553 transfer by command word."
-    }
     field {
         field FieldKey {
             @doc value "is the key of the message field that holds the identifier."
@@ -116,17 +70,8 @@ Identifier union on type {
 
         @doc value "matches a binary frame by the raw value of one of its fields."
     }
-    token {
-        prefix string = "" {
-            @doc value """
-                is the text a line must start with. An empty prefix matches every line.
-            """
-        }
 
-        @doc value "matches a text line by its prefix."
-    }
-
-    @doc value  "selects which frames on a bus or stream belong to a message."
+    @doc value  "selects which frames on a bus belong to a binary message."
     @go marshal
 }
 
@@ -168,32 +113,34 @@ BaseField struct {
     @go marshal
 }
 
-Field union on encoding extends BaseField {
-    binary {
-        start_bit  uint16 = 0 {
-            @doc value """
-                is the bit where the field starts, numbered as in a DBC file: the least
-                significant bit for little-endian fields and the most significant bit
-                for big-endian fields.
-            """
-        }
-        bit_length uint8 = 8 {
-            @doc value "is the number of bits in the field, from 1 to 64."
-        }
-        byte_order ByteOrder = little_endian {
-            @doc value "is the byte order of the field."
-        }
-        signed     bool = false {
-            @doc value "is true when the raw value is two's complement."
-        }
-        float      bool = false {
-            @doc value """
-                is true when the raw bits are an IEEE 754 float of 32 or 64 bits.
-            """
-        }
-
-        @doc value "is a field read from a bit range of a binary payload."
+BinaryField struct extends BaseField {
+    start_bit  uint16 = 0 {
+        @doc value """
+            is the bit where the field starts, numbered as in a DBC file: the least
+            significant bit for little-endian fields and the most significant bit for
+            big-endian fields.
+        """
     }
+    bit_length uint8 = 8 {
+        @doc value "is the number of bits in the field, from 1 to 64."
+    }
+    byte_order ByteOrder = little_endian {
+        @doc value "is the byte order of the field."
+    }
+    signed     bool = false {
+        @doc value "is true when the raw value is two's complement."
+    }
+    float      bool = false {
+        @doc value """
+            is true when the raw bits are an IEEE 754 float of 32 or 64 bits.
+        """
+    }
+
+    @doc value  "is a field read from a bit range of a binary payload."
+    @go marshal
+}
+
+TextField union on encoding extends BaseField {
     delimited {
         position uint32 = 0 {
             @doc value "is the zero-based item index after splitting on the delimiter."
@@ -209,7 +156,47 @@ Field union on encoding extends BaseField {
         @doc value "is a field read from the text that follows a tag."
     }
 
-    @doc value  "is one value carried by a message."
+    @doc value  "is a field read from a text line."
+    @go marshal
+}
+
+Payload union on format {
+    binary {
+        length     uint16?       {
+            @doc value """
+                is the payload length in bytes. When absent the length is variable.
+            """
+        }
+        identifier Identifier?   {
+            @doc value """
+                selects the frames that belong to the message. When absent every frame
+                on the bus belongs to it.
+            """
+        }
+        fields     BinaryField[] = [] {
+            @doc value "are the values the payload carries."
+        }
+
+        @doc value "is a payload of raw bytes."
+    }
+    text {
+        delimiter string = "," {
+            @doc value "splits the items of the line."
+        }
+        prefix    string = "" {
+            @doc value """
+                is the text a line must start with to belong to the message. An empty
+                prefix matches every line.
+            """
+        }
+        fields    TextField[] = [] {
+            @doc value "are the values the line carries."
+        }
+
+        @doc value "is a payload of one text line."
+    }
+
+    @doc value  "is the layout of a message's payload."
     @go marshal
 }
 
@@ -234,37 +221,20 @@ Entry union on kind extends BaseEntry {
         @doc value "maps integer values to names."
     }
     message {
-        identifier Identifier?     {
-            @doc value """
-                selects the frames that belong to the message. When absent every frame
-                on the stream belongs to it.
-            """
+        payload Payload         {
+            @doc value "is the layout of the message's payload."
         }
-        format     Format = binary {
-            @doc value "is the payload format."
-        }
-        length     uint16?         {
-            @doc value """
-                is the payload length in bytes. When absent the length is variable.
-            """
-        }
-        fields     Field[] = [] {
-            @doc value "are the values the message carries."
-        }
-        period     telem.TimeSpan? {
+        period  telem.TimeSpan? {
             @doc value """
                 is the transmit period. When absent a write task sends the message when
                 one of its command channels changes.
             """
         }
-        query      string?         {
+        query   string?         {
             @doc value """
                 is the request a polling task sends to get the message. Binary messages
                 hold escaped bytes. When absent the device sends the message unprompted.
             """
-        }
-        delimiter  string = "," {
-            @doc value "splits the items of a text message."
         }
 
         @doc value "is a frame layout on a bus or byte stream."
@@ -296,8 +266,11 @@ Library struct {
 }
 
 Reference struct {
-    library      Key    {
-        @doc value "is the key of the library the task reads its layouts from."
+    library      Key?   {
+        @doc value """
+            is the key of the library the task reads its layouts from. When absent the
+            task uses no library yet.
+        """
     }
     library_hash string = "" {
         @doc value """

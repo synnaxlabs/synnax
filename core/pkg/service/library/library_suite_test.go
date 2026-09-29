@@ -58,21 +58,14 @@ func (testTaskConfig) SetOptions() []any { return nil }
 
 func (c testTaskConfig) EncodeOrc(w *orc.Writer) error {
 	w.Write(c.Key[:])
-	w.Write(c.Library[:])
-	w.String(c.LibraryHash)
-	return nil
+	return c.Reference.EncodeOrc(w)
 }
 
 func (c *testTaskConfig) DecodeOrc(r *orc.Reader) error {
 	if _, err := r.Read(c.Key[:]); err != nil {
 		return err
 	}
-	if _, err := r.Read(c.Library[:]); err != nil {
-		return err
-	}
-	var err error
-	c.LibraryHash, err = r.String()
-	return err
+	return c.Reference.DecodeOrc(r)
 }
 
 var (

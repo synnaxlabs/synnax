@@ -9,11 +9,7 @@
 
 package icd
 
-import (
-	"slices"
-
-	"github.com/synnaxlabs/synnax/pkg/service/library/versions"
-)
+import "github.com/synnaxlabs/synnax/pkg/service/library/versions"
 
 // Merge returns existing with its entries replaced by imported. An imported entry that
 // matches an existing entry of the same kind by name keeps the existing key, and each
@@ -43,7 +39,7 @@ func Merge(existing versions.Library, imported []versions.Entry) versions.Librar
 			if match, ok := old[v.Name].Variant.(versions.MessageEntry); ok {
 				entryKeys[v.Key] = match.Key
 				v.Key = match.Key
-				v.Fields = keepFieldKeys(v.Fields, match.Fields, fieldKeys)
+				keepFieldKeys(&v.Payload, match.Payload, fieldKeys)
 			}
 			entries[i] = versions.Entry{Variant: v}
 		default:
@@ -59,28 +55,23 @@ func Merge(existing versions.Library, imported []versions.Entry) versions.Librar
 	return existing
 }
 
-// keepFieldKeys returns a copy of fields in which each field named like a field of old
-// takes that field's key. It records each replaced key in keys.
+// keepFieldKeys gives each field of p named like a field of old that field's key. It
+// records each replaced key in keys.
 func keepFieldKeys(
-	fields []versions.Field,
-	old []versions.Field,
+	p *versions.Payload,
+	old versions.Payload,
 	keys map[versions.FieldKey]versions.FieldKey,
-) []versions.Field {
-	byName := make(map[string]versions.FieldKey, len(old))
-	for _, f := range old {
-		b := f.Base()
+) {
+	byName := make(map[string]versions.FieldKey)
+	for _, b := range old.FieldBases() {
 		byName[b.Name] = b.Key
 	}
-	fields = slices.Clone(fields)
-	for i := range fields {
-		b := fields[i].Base()
+	p.UpdateFieldBases(func(b *versions.BaseField) {
 		if key, ok := byName[b.Name]; ok {
 			keys[b.Key] = key
 			b.Key = key
-			fields[i].SetBase(b)
 		}
-	}
-	return fields
+	})
 }
 
 // remap rewrites the entry and field references of m through the given key maps.
@@ -89,17 +80,16 @@ func remap(
 	entryKeys map[versions.EntryKey]versions.EntryKey,
 	fieldKeys map[versions.FieldKey]versions.FieldKey,
 ) versions.MessageEntry {
-	if m.Identifier != nil {
-		if id, ok := m.Identifier.Variant.(versions.FieldIdentifier); ok {
+	if p, ok := m.Payload.Variant.(versions.BinaryPayload); ok && p.Identifier != nil {
+		if id, ok := p.Identifier.Variant.(versions.FieldIdentifier); ok {
 			if key, ok := fieldKeys[id.Field]; ok {
 				id.Field = key
-				m.Identifier = &versions.Identifier{Variant: id}
+				p.Identifier = &versions.Identifier{Variant: id}
+				m.Payload.Variant = p
 			}
 		}
 	}
-	m.Fields = slices.Clone(m.Fields)
-	for i := range m.Fields {
-		b := m.Fields[i].Base()
+	m.Payload.UpdateFieldBases(func(b *versions.BaseField) {
 		if b.Enumeration != nil {
 			if key, ok := entryKeys[*b.Enumeration]; ok {
 				b.Enumeration = &key
@@ -110,7 +100,6 @@ func remap(
 				b.Multiplexor = &key
 			}
 		}
-		m.Fields[i].SetBase(b)
-	}
+	})
 	return m
 }

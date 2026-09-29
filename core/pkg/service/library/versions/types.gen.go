@@ -33,24 +33,7 @@ const (
 	ByteOrderBigEndian    ByteOrder = v0.ByteOrderBigEndian
 )
 
-// Direction is the direction of a MIL-STD-1553 transfer from the remote terminal's
-// point of view.
-type Direction = v0.Direction
-
-const (
-	DirectionReceive  Direction = v0.DirectionReceive
-	DirectionTransmit Direction = v0.DirectionTransmit
-)
-
-// Format is the payload format of a message.
-type Format = v0.Format
-
-const (
-	FormatBinary Format = v0.FormatBinary
-	FormatText   Format = v0.FormatText
-)
-
-// Identifier selects which frames on a bus or stream belong to a message.
+// Identifier selects which frames on a bus belong to a binary message.
 type Identifier = v0.Identifier
 type IdentifierVariant = v0.IdentifierVariant
 type IdentifierType = v0.IdentifierType
@@ -58,56 +41,57 @@ type IdentifierType = v0.IdentifierType
 const (
 	// CanIdentifierType matches a CAN frame by arbitration identifier.
 	CanIdentifierType IdentifierType = v0.CanIdentifierType
-	// Arinc429IdentifierType matches an ARINC 429 word by label.
-	Arinc429IdentifierType IdentifierType = v0.Arinc429IdentifierType
-	// Mil1553IdentifierType matches a MIL-STD-1553 transfer by command word.
-	Mil1553IdentifierType IdentifierType = v0.Mil1553IdentifierType
 	// FieldIdentifierType matches a binary frame by the raw value of one of its fields.
 	FieldIdentifierType IdentifierType = v0.FieldIdentifierType
-	// TokenIdentifierType matches a text line by its prefix.
-	TokenIdentifierType IdentifierType = v0.TokenIdentifierType
 )
 
 // CanIdentifier matches a CAN frame by arbitration identifier.
 type CanIdentifier = v0.CanIdentifier
 
-// Arinc429Identifier matches an ARINC 429 word by label.
-type Arinc429Identifier = v0.Arinc429Identifier
-
-// Mil1553Identifier matches a MIL-STD-1553 transfer by command word.
-type Mil1553Identifier = v0.Mil1553Identifier
-
 // FieldIdentifier matches a binary frame by the raw value of one of its fields.
 type FieldIdentifier = v0.FieldIdentifier
-
-// TokenIdentifier matches a text line by its prefix.
-type TokenIdentifier = v0.TokenIdentifier
 
 // BaseField carries the parts every message field shares.
 type BaseField = v0.BaseField
 
-// Field is one value carried by a message.
-type Field = v0.Field
-type FieldVariant = v0.FieldVariant
-type FieldType = v0.FieldType
-
-const (
-	// BinaryFieldType is a field read from a bit range of a binary payload.
-	BinaryFieldType FieldType = v0.BinaryFieldType
-	// DelimitedFieldType is a field read from one item of a delimited text line.
-	DelimitedFieldType FieldType = v0.DelimitedFieldType
-	// TaggedFieldType is a field read from the text that follows a tag.
-	TaggedFieldType FieldType = v0.TaggedFieldType
-)
-
 // BinaryField is a field read from a bit range of a binary payload.
 type BinaryField = v0.BinaryField
 
-// DelimitedField is a field read from one item of a delimited text line.
-type DelimitedField = v0.DelimitedField
+// TextField is a field read from a text line.
+type TextField = v0.TextField
+type TextFieldVariant = v0.TextFieldVariant
+type TextFieldType = v0.TextFieldType
 
-// TaggedField is a field read from the text that follows a tag.
-type TaggedField = v0.TaggedField
+const (
+	// DelimitedTextFieldType is a field read from one item of a delimited text line.
+	DelimitedTextFieldType TextFieldType = v0.DelimitedTextFieldType
+	// TaggedTextFieldType is a field read from the text that follows a tag.
+	TaggedTextFieldType TextFieldType = v0.TaggedTextFieldType
+)
+
+// DelimitedTextField is a field read from one item of a delimited text line.
+type DelimitedTextField = v0.DelimitedTextField
+
+// TaggedTextField is a field read from the text that follows a tag.
+type TaggedTextField = v0.TaggedTextField
+
+// Payload is the layout of a message's payload.
+type Payload = v0.Payload
+type PayloadVariant = v0.PayloadVariant
+type PayloadType = v0.PayloadType
+
+const (
+	// BinaryPayloadType is a payload of raw bytes.
+	BinaryPayloadType PayloadType = v0.BinaryPayloadType
+	// TextPayloadType is a payload of one text line.
+	TextPayloadType PayloadType = v0.TextPayloadType
+)
+
+// BinaryPayload is a payload of raw bytes.
+type BinaryPayload = v0.BinaryPayload
+
+// TextPayload is a payload of one text line.
+type TextPayload = v0.TextPayload
 
 // BaseEntry carries the parts every library entry shares.
 type BaseEntry = v0.BaseEntry

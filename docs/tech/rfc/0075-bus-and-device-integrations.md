@@ -41,10 +41,12 @@ arbitrary widths up to 64 bits, scaling, or text.
 - **Exchange**: Who speaks first. A streaming device sends on its own. A polled device
   answers a query.
 - **Layout**: Where values sit in a message. A layout is a `message` entry in a library.
-- **Message**: A library entry with an identifier, fields, and an optional period and
-  query.
-- **Identifier**: What names a message on its transport: a CAN ID, a 429 label and SDI,
-  a 1553 address, or a match on a header field or starting token.
+- **Message**: A library entry with a payload and an optional period and query.
+- **Payload**: The layout of a message in one format: binary, with a length, an
+  identifier, and bit fields, or text, with a delimiter, a prefix, and text fields.
+- **Identifier**: What names a binary message on its transport: a CAN ID or a match on a
+  header field. Phases 11 and 12 add a 429 label and SDI and a 1553 address. A text
+  message matches by the prefix of its line.
 - **Field**: One value in a message, located by bits for binary messages or by position
   or tag for text messages.
 - **Multiplexor**: A field whose value selects which other fields a message carries.
@@ -105,44 +107,56 @@ listens as a monitor (§5.5).
 
 ```
 Identifier union on type {
-    can      { id uint32, extended bool, fd bool, mask uint32? }
-    arinc429 { label uint8, sdi uint8, sdi_matched bool }
-    mil1553  { rt uint8, subaddress uint8, direction Direction, word_count uint8 = 1 }
-    field    { field FieldKey, value int64 }   // binary header field match
-    token    { prefix string }                 // text line prefix, may be empty
+    can   { id uint32, extended bool, fd bool, mask uint32? }
+    field { field FieldKey, value int64 }   // binary header field match
 }
 
-Field union on encoding extends BaseField {
-    binary    { start_bit uint16, bit_length uint8 = 8, byte_order ByteOrder,
-                signed bool, float bool }
+BinaryField struct extends BaseField {
+    start_bit uint16, bit_length uint8 = 8, byte_order ByteOrder, signed bool, float bool
+}
+
+TextField union on encoding extends BaseField {
     delimited { position uint32 }
     tagged    { tag string }
 }  // BaseField: key (uuid), name, scale = 1, offset = 0, units,
    // enumeration EntryKey?, multiplexor FieldKey?, multiplex_values int64[]
 
+Payload union on format {
+    binary {
+        length     uint16?        // bytes; absent: variable
+        identifier Identifier?    // absent: every frame on the bus
+        fields     BinaryField[] = []
+    }
+    text {
+        delimiter string = ","
+        prefix    string = ""     // a line must start with it; empty matches all
+        fields    TextField[] = []
+    }
+}
+
 message {
-    identifier Identifier?        // absent: every frame on the stream
-    format     Format = binary    // binary or text
-    length     uint16?            // bytes; absent: variable
-    fields     Field[] = []
-    period     TimeSpan?          // absent: send on change
-    query      string?            // absent: the device sends unprompted
-    delimiter  string = ","       // text messages
+    payload Payload
+    period  TimeSpan?             // absent: send on change
+    query   string?               // absent: the device sends unprompted
 }
 ```
+
+The payload union makes a bad mix impossible to store: a binary field, a length, or an
+identifier cannot sit in a text message, and a text field cannot sit in a binary one.
 
 - **Masks**: a CAN identifier matches when `frame_id & mask == id & mask`. J1939
   messages match by PGN across source addresses and priorities.
 - **Multiplexing**: a field with a `multiplexor` is present only when that field's value
   is in `multiplex_values`. A value list covers DBC extended multiplexing
   (`SG_MUL_VAL_`) as well as simple `m0` signals.
-- **Text messages**: a line splits on `delimiter`. A `delimited` field takes item
-  `position`; a `tagged` field takes the text after `tag` (for `T=23.4,P=101.3`, the
-  field with tag `P=` reads `101.3`). Both parse as numbers.
+- **Text messages**: a line that starts with `prefix` splits on `delimiter`. A
+  `delimited` field takes item `position`; a `tagged` field takes the text after `tag`
+  (for `T=23.4,P=101.3`, the field with tag `P=` reads `101.3`). Both parse as numbers.
 - **Queries**: `query` holds escaped bytes for binary messages and plain text for text
   messages. The poll rate is a task setting (§5.5), because it is a rig decision and the
   query is a property of the device.
 
+Phases 11 and 12 add `arinc429` and `mil1553` variants to the binary identifier union.
 The ARINC 429 label, SDI, SSM, and parity occupy fixed bits, so a 429 message's fields
 cover bits 11 to 29 and a status field over bits 30 and 31. The 1553 layout covers the
 data words; status words are read by the transport.
@@ -272,12 +286,14 @@ latest command channel values of the messages it owns.
 The Core imports files into a library, adding `message` and `enum` entries:
 
 - **DBC**: messages, signals, value tables, `GenMsgCycleTime` as the period, and
-  multiplexing, parsed with `go.einride.tech/can/pkg/dbc`. The parser rejects extended
-  multiplexing (`m0M`, `SG_MUL_VAL_`) today, so the import carries a patch for both.
-  `cantools` output is the test oracle for the import specs.
-- **CSV and XLSX**: one line per field, with columns for message name, identifier, start
-  bit, bit length, byte order, sign, scale, offset, units, and period. A header line
-  maps columns by name. XLSX parses with `excelize`.
+  multiplexing, as binary payloads. The parser is a copy of
+  `go.einride.tech/can/pkg/dbc` in `core/pkg/service/library/icd/internal/dbc`, kept
+  under its MIT license. The copy adds extended multiplexing (`m0M`, `SG_MUL_VAL_`),
+  which the upstream parser rejects, and fixes an upstream bug that skips the line after
+  an unknown definition. `cantools` output is the test oracle for the import specs.
+- **CSV and XLSX**: one line per field of a binary payload, with columns for message
+  name, identifier, start bit, bit length, byte order, sign, scale, offset, units, and
+  period. A header line maps columns by name. XLSX parses with `excelize`.
 
 Importing into a library that already has entries matches messages by name, and fields
 by name within their message. A match is updated in place and keeps its key, so tasks
@@ -309,8 +325,8 @@ Each integration registers in the Console's task and device maps
   `@asio//:asio_no_openssl`. Custom baud rates and RS-485 go through `native_handle()`.
 - **libusb** (BCR `libusb`, LGPL-2.1): built as a shared library and loaded at runtime
   for gs_usb.
-- **`go.einride.tech/can`** (MIT) and **`excelize`** (BSD-3-Clause): import, in the
-  Core.
+- **A copy of `go.einride.tech/can/pkg/dbc`** (MIT) and **`excelize`** (BSD-3-Clause):
+  import, in the Core.
 
 ### 5.11 Task configs
 
@@ -394,7 +410,7 @@ Linux.
 
 **8.7 The Core imports ICDs.** A Console import would run in one client and would rely
 on SheetJS, whose npm package is stuck on a version with known vulnerabilities. Go has
-`excelize` and a maintained DBC parser, and every client gets the same result.
+`excelize` and a DBC parser we own, and every client gets the same result.
 
 ## 9 Open questions
 

@@ -46,7 +46,7 @@ const createEntry = (
 ): library.Entry => {
   const base = { key: uuid.create(), name: uniqueName(kind, entries) };
   if (kind === "enum") return { ...base, kind, values: [] };
-  return { ...base, kind, format: "binary", fields: [], delimiter: "," };
+  return { ...base, kind, payload: { format: "binary", fields: [] } };
 };
 
 interface ItemProps extends List.ItemRenderProps<string> {
