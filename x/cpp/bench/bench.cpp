@@ -33,6 +33,18 @@ void *operator new[](const std::size_t n) {
     throw std::bad_alloc();
 }
 
+void *operator new(const std::size_t n, const std::nothrow_t &) noexcept {
+    x::bench::alloc_count.fetch_add(1, std::memory_order_relaxed);
+    x::bench::alloc_bytes.fetch_add(static_cast<int64_t>(n), std::memory_order_relaxed);
+    return std::malloc(n);
+}
+
+void *operator new[](const std::size_t n, const std::nothrow_t &) noexcept {
+    x::bench::alloc_count.fetch_add(1, std::memory_order_relaxed);
+    x::bench::alloc_bytes.fetch_add(static_cast<int64_t>(n), std::memory_order_relaxed);
+    return std::malloc(n);
+}
+
 void operator delete(void *p) noexcept {
     std::free(p);
 }
@@ -43,5 +55,11 @@ void operator delete(void *p, std::size_t) noexcept {
     std::free(p);
 }
 void operator delete[](void *p, std::size_t) noexcept {
+    std::free(p);
+}
+void operator delete(void *p, const std::nothrow_t &) noexcept {
+    std::free(p);
+}
+void operator delete[](void *p, const std::nothrow_t &) noexcept {
     std::free(p);
 }
