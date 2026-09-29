@@ -37,12 +37,7 @@ the actuators of a device. The schematics in the Console also use writers to sen
 commands when an operator clicks a valve.
 
 <Diagram>
-  <Image
-    client:only="react"
-    id="concepts/writes/writer"
-    extension="svg"
-    themed={false}
-  />
+  <Image id="concepts/writes/writer" extension="svg" themed={false} />
 </Diagram>
 
 Each writer controls one transaction. You open a writer, write frames to it, and commit
@@ -51,12 +46,12 @@ adds to the data of the previous commit. After the last commit, you close the wr
 
 ### Opening a writer
 
-To open a writer, use the <Client.Var client:load py="open_writer" ts="openWriter" />
-method with a start timestamp and a list of channels. The start timestamp is the time at
-or just before the first sample. Before the writer opens, Synnax checks that each
-channel exists and that no stored data overlaps the start timestamp.
+To open a writer, use the <Client.Var py="open_writer" ts="openWriter" /> method with a
+start timestamp and a list of channels. The start timestamp is the time at or just
+before the first sample. Before the writer opens, Synnax checks that each channel exists
+and that no stored data overlaps the start timestamp.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -116,12 +111,12 @@ writer.
   to write historical data that does not show the current state of the hardware.
 - `stream` -> Synnax sends the data to streamers, but does not store it. Calls to
   `commit` have no effect. Use this mode for data that you need only in real time.
-- <Client.Var client:load py="persist_stream" ts="persistStream" /> -> Synnax stores the
+- <Client.Var py="persist_stream" ts="persistStream" /> -> Synnax stores the
 data and sends it to streamers. This is the default mode.
 
 For example, to open a writer that only stores data:
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -153,7 +148,7 @@ const writer = await client.openWriter({
 The `write` method accepts several argument formats. Use the one that best fits your use
 case.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -248,7 +243,7 @@ await writer.write(
 Strings, JSON, and bytes are written through the same writer API as fixed-width samples.
 The channel's data type determines how the writer encodes each value.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -307,7 +302,7 @@ from writing to the same channels. Data that you did not commit is lost. Closing
 writer also gives control of its channels to the writer with the next highest
 [authority](/reference/control/authority), if one exists.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -329,7 +324,7 @@ await writer.close();
 Using structured cleanup patterns ensures the writer is always closed, even if an
 exception is thrown.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -392,7 +387,7 @@ data at specific timestamps that have already passed.
 
 ### Writing to a channel
 
-<Client.Tabs client:load exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console", "cpp"]}>
 
   <Fragment slot="python">
 
@@ -460,7 +455,7 @@ timestamps.
 When writing a single sample to multiple channels at the same instant, use a dictionary
 with scalar values.
 
-<Client.Tabs client:load exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console", "cpp"]}>
 
   <Fragment slot="python">
 
@@ -501,7 +496,7 @@ await client.write(now, {
 When writing multiple samples over time, use arrays for both the timestamps and data
 values.
 
-<Client.Tabs client:load exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console", "cpp"]}>
 
   <Fragment slot="python">
 
@@ -761,7 +756,7 @@ transactions has a dramatic impact on performance.
 <span style={{ color: "red" }}>**Avoid this pattern**</span> - Writing directly to
 channels in a loop:
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -795,7 +790,7 @@ for (let i = 0; i < 100; i++) {
 <span style={{ color: "red" }}>**Also avoid this pattern**</span> - Opening and closing
 a writer for every write:
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -837,7 +832,7 @@ for (let i = 0; i < 100; i++) {
 <span style={{ color: "green" }}>**Recommended approach**</span> - Repeatedly call
 `write` on a single writer:
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 

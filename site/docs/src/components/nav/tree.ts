@@ -9,13 +9,11 @@
 
 import { type Edition } from "@/components/edition/edition";
 import { type PageNavNode } from "@/components/nav/Page";
+import { normalizeRoute } from "@/util/route";
 
 /** Lists every node in depth-first order, parents before their children. */
 export const flatten = (nodes: PageNavNode[]): PageNavNode[] =>
   nodes.flatMap((node) => [node, ...flatten(node.children ?? [])]);
-
-const normalize = (path: string): string =>
-  path !== "/" && path.endsWith("/") ? path.slice(0, -1) : path;
 
 export interface Neighbors {
   prev?: PageNavNode;
@@ -28,8 +26,8 @@ export interface Neighbors {
  */
 export const neighbors = (nodes: PageNavNode[], path: string): Neighbors => {
   const pages = flatten(nodes).filter((node) => node.href != null);
-  const target = normalize(path);
-  const i = pages.findIndex((node) => normalize(node.href as string) === target);
+  const target = normalizeRoute(path);
+  const i = pages.findIndex((node) => normalizeRoute(node.href as string) === target);
   if (i === -1) return {};
   return { prev: pages[i - 1], next: pages[i + 1] };
 };
@@ -39,14 +37,14 @@ export const neighbors = (nodes: PageNavNode[], path: string): Neighbors => {
  * or on one of its ancestors. Undefined means the page applies to every edition.
  */
 export const editionOf = (nodes: PageNavNode[], path: string): Edition | undefined => {
-  const target = normalize(path);
+  const target = normalizeRoute(path);
   const find = (
     level: PageNavNode[],
     inherited?: Edition,
   ): { edition?: Edition } | null => {
     for (const node of level) {
       const edition = node.edition ?? inherited;
-      if (node.href != null && normalize(node.href) === target) return { edition };
+      if (node.href != null && normalizeRoute(node.href) === target) return { edition };
       const found = find(node.children ?? [], edition);
       if (found != null) return found;
     }

@@ -7,7 +7,7 @@ clients: ["python", "typescript"]
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Fragment } from "react";
-import { Table } from "@/components";
+import { Table } from "@/components/table";
 import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -24,7 +24,6 @@ A time range includes its start and excludes its end. For example, a read from
 `1677433720970863400` to `1677433721870863400` returns the highlighted samples:
 
 <Table.Data
-  client:only="react"
   columns={[
     { key: "time" },
     { key: "thermocouple-01" },
@@ -82,7 +81,7 @@ For more on time ranges, see [`TimeRange`](/reference/client/time-types#timerang
 The simplest way to read historical data from Synnax is to use the `read` method on a
 `Channel`.
 
-<Client.Tabs client:load exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console", "cpp"]}>
 
   <Fragment slot="python">
 
@@ -134,7 +133,7 @@ const data = Array.from(series);
 The returned data is an instance of the
 [Frame](/reference/client/series-and-frames#frames) class.
 
-<Client.Tabs client:load exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console", "cpp"]}>
 
   <Fragment slot="python">
 
@@ -181,7 +180,7 @@ const data = frame.get("my_sensor");
 The `readLatest` method allows you to read the latest N samples from one or more
 channels:
 
-<Client.Tabs client:load exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console", "cpp"]}>
 
   <Fragment slot="python">
 

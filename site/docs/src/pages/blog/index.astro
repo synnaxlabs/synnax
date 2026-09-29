@@ -15,7 +15,13 @@ import OneBillionRowsTile from "@/components/blog/OneBillionRowsTile.astro";
 import ArcTile from "@/components/blog/ArcTile.astro";
 ---
 
-<Root frontmatter={{ title: "Blog" }}>
+<Root
+    frontmatter={{
+        title: "Blog",
+        description:
+            "Articles from the Synnax team on hardware control, data acquisition, and time-series performance.",
+    }}
+>
     <section>
         <Flex.Box direction="y" className="blog" el="article" grow>
             <Flex.Box direction="x" className="header" justify="between" align="center">

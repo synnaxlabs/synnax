@@ -5,7 +5,10 @@ heading: "Connect to an OPC UA server"
 description: "Connect to an OPC UA server using Synnax."
 ---
 
-import { Text as TextComponent, Client, Edition, Table } from "@/components";
+import { Client } from "@/components/client";
+import { Edition } from "@/components/edition";
+import { Table } from "@/components/table";
+import { Text as TextComponent } from "@/components/text";
 import Details from "@/components/details/Details.astro";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -114,10 +117,10 @@ machine. For a different machine,
 
 ## How-to
 
-<Client.Tabs client:load exclude={["typescript", "cpp"]}>
+<Client.Tabs exclude={["typescript", "cpp"]}>
   <Fragment slot="console">
 
-<Video client:only="react" id="device-drivers/opc-ua/connect-server/connect-server" />
+<Video id="device-drivers/opc-ua/connect-server/connect-server" />
 
   </Fragment>
   <Fragment slot="python">

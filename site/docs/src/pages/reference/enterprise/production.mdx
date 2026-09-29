@@ -7,7 +7,7 @@ description: "Deploy a Core to production."
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Note } from "@synnaxlabs/lyra/note";
-import { Table } from "@/components";
+import { Table } from "@/components/table";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -49,7 +49,6 @@ We recommend using TLS for securing all communications with your Core.
 There are four important command line options for configuring TLS:
 
 <Table.Data
-  client:only="react"
   columns={[
     { key: "option", name: "Option", type: "code", width: 130 },
     { key: "description", name: "Description", type: "string" },
@@ -203,7 +202,6 @@ Each listener draws its certificate from a **source**, selected by `cert.source`
 Different listeners can use different sources.
 
 <Table.Data
-  client:only="react"
   columns={[
     { key: "source", name: "Source", type: "code", width: 100 },
     { key: "description", name: "Description", type: "html" },

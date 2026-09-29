@@ -13,7 +13,7 @@ import { Video } from "@/components/media/Media";
 import { Fragment } from "react";
 import Details from "@/components/details/Details.astro";
 import { Client } from "@/components/client";
-import { Edition } from "@/components";
+import { Edition } from "@/components/edition";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -79,10 +79,10 @@ machine. For a different machine,
 
 ## How-to
 
-<Client.Tabs client:load exclude={["typescript", "cpp"]}>
+<Client.Tabs exclude={["typescript", "cpp"]}>
   <Fragment slot="console">
 
-<Video client:only="react" id="device-drivers/modbus/connect-server/modbus-connect" />
+<Video id="device-drivers/modbus/connect-server/modbus-connect" />
 
 </Fragment>
   <Fragment slot="python">

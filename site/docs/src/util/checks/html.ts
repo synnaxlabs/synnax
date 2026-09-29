@@ -36,64 +36,45 @@ export const idValues = (html: string): string[] =>
     unescapeHTML(m[1] ?? m[2]),
   );
 
-export interface Island {
-  component: string;
-  props: unknown;
+/** Returns the value of attribute name in an opening tag, entity-unescaped. */
+export const attrOf = (tag: string, name: string): string | undefined => {
+  const m = new RegExp(`\\s${name}=${QUOTED}`).exec(tag);
+  return m == null ? undefined : unescapeHTML(m[1] ?? m[2]);
+};
+
+export interface Element {
+  /** The opening tag. */
+  tag: string;
+  /** The inner HTML. */
   body: string;
 }
 
-const ISLAND_OPEN = /<astro-island\b[^>]*>/g;
-
-const attrOf = (tag: string, name: string): string | undefined => {
-  const m = new RegExp(`\\s${name}=${QUOTED}`).exec(tag);
-  return m == null ? undefined : (m[1] ?? m[2]);
-};
-
-// Astro serializes island props as [type, value] pairs; unwrap to plain values.
-const unwrapProp = (v: unknown): unknown => {
-  if (Array.isArray(v)) {
-    if (v.length === 2 && typeof v[0] === "number") return unwrapProp(v[1]);
-    return v.map(unwrapProp);
-  }
-  if (v != null && typeof v === "object")
-    return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, unwrapProp(x)]));
-  return v;
-};
-
-// Returns the island's inner HTML, skipping nested islands to find the matching
-// close tag.
-const islandBody = (html: string, start: number): string => {
+// Returns the inner HTML up to the close tag matching the element opened before start,
+// skipping nested elements of the same name.
+const bodyOf = (html: string, name: string, start: number): string => {
   let depth = 1;
-  let i = start;
-  while (depth > 0) {
-    const open = html.indexOf("<astro-island", i);
-    const close = html.indexOf("</astro-island>", i);
+  for (let i = start; ;) {
+    const open = html.indexOf(`<${name}`, i);
+    const close = html.indexOf(`</${name}>`, i);
     if (close === -1) return html.slice(start);
     if (open !== -1 && open < close) {
       depth += 1;
-      i = open + "<astro-island".length;
-    } else {
-      depth -= 1;
-      i = close + "</astro-island>".length;
+      i = open + name.length + 1;
+      continue;
     }
+    depth -= 1;
+    if (depth === 0) return html.slice(start, close);
+    i = close + name.length + 3;
   }
-  return html.slice(start, i);
 };
 
-export const islands = (html: string): Island[] =>
-  [...html.matchAll(ISLAND_OPEN)].map((match) => {
-    const tag = match[0];
-    let props: unknown = {};
-    const raw = attrOf(tag, "props");
-    if (raw != null)
-      try {
-        props = unwrapProp(JSON.parse(unescapeHTML(raw)));
-      } catch {
-        // Leave props empty; checks that need them will report the miss.
-      }
-    return {
-      component: attrOf(tag, "component-export") ?? "",
-      props,
-      body: islandBody(html, (match.index ?? 0) + tag.length),
-    };
-  });
+/** Returns every name element whose opening tag carries attr="value". */
+export const elements = (
+  html: string,
+  name: string,
+  attr: string,
+  value: string,
+): Element[] =>
+  [
+    ...html.matchAll(new RegExp(`<${name}\\b[^>]*\\s${attr}="${value}"[^>]*>`, "g")),
+  ].map((m) => ({ tag: m[0], body: bodyOf(html, name, (m.index ?? 0) + m[0].length) }));

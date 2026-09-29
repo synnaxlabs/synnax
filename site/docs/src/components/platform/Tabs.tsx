@@ -7,17 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useLayoutEffect } from "react";
-
-import {
-  getFromURL,
-  type Platform,
-  PLATFORMS,
-  setInURL,
-} from "@/components/platform/Platform";
+import { type Platform } from "@/components/platform/choice";
+import { INFO } from "@/components/platform/Platform";
 import { Tabs as Base, type TabsProps as BaseProps } from "@/components/tabs/Tabs";
 
-const TABS = PLATFORMS.map(({ key, ...p }) => ({ ...p, tabKey: key }));
+const TABS = INFO.map(({ key, ...p }) => ({ ...p, tabKey: key }));
 
 export interface TabsProps extends Omit<BaseProps, "tabs" | "queryParamKey"> {
   exclude?: Platform[];
@@ -25,11 +19,6 @@ export interface TabsProps extends Omit<BaseProps, "tabs" | "queryParamKey"> {
 }
 
 export const Tabs = ({ exclude = [], priority = [], ...rest }: TabsProps) => {
-  useLayoutEffect(() => {
-    const platform = getFromURL(true);
-    if (platform) setInURL(platform);
-  }, []);
-
   const excludeSet = new Set(exclude);
   const tabs = TABS.filter((tab) => !excludeSet.has(tab.tabKey));
 

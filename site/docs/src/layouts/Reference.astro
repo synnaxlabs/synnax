@@ -14,6 +14,7 @@ import PageNav from "@/components/nav/Page.astro";
 import { editionOf, neighbors } from "@/components/nav/tree";
 import Main from "@/layouts/Root.astro";
 import { REFERENCE_PAGES } from "@/pages/_nav";
+import { normalizeRoute } from "@/util/route";
 const { headings, frontmatter } = Astro.props;
 const {
     title,
@@ -29,6 +30,12 @@ const edition = editionOf(REFERENCE_PAGES, Astro.url.pathname);
 ---
 
 <Main frontmatter={frontmatter} headings={headings}>
+    <link
+        slot="head"
+        rel="alternate"
+        type="text/markdown"
+        href={`${normalizeRoute(Astro.url.pathname)}.md`}
+    />
     <PageNav />
     <section>
         <Article
@@ -46,7 +53,7 @@ const edition = editionOf(REFERENCE_PAGES, Astro.url.pathname);
         {showOnThisPage && (
             <OnThisPage
                 headings={headings}
-                url={Astro.url}
+                outline={frontmatter.outline}
                 clients={clients}
                 platforms={platforms}
             />

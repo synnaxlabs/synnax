@@ -1,10 +1,7 @@
 {
   "name": "@synnaxlabs/studio",
-  "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Automated docs video production pipeline for Synnax",
-  "repository": "https://github.com/synnaxlabs/synnax/tree/main/studio",
   "scripts": {
     "check-types": "tsc --noEmit",
     "test": "vitest",

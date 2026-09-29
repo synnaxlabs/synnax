@@ -13,7 +13,7 @@ import { Video } from "@/components/media/Media";
 import { Fragment } from "react";
 import Details from "@/components/details/Details.astro";
 import { Client } from "@/components/client";
-import { Edition } from "@/components";
+import { Edition } from "@/components/edition";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -192,10 +192,10 @@ expected value:
 
 ## How-to
 
-<Client.Tabs client:load exclude={["typescript", "cpp"]}>
+<Client.Tabs exclude={["typescript", "cpp"]}>
   <Fragment slot="console">
 
-<Video client:only="react" id="device-drivers/http/connect-server/connect-server" />
+<Video id="device-drivers/http/connect-server/connect-server" />
 
   </Fragment>
   <Fragment slot="python">

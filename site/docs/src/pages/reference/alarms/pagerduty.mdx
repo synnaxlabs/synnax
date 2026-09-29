@@ -11,7 +11,7 @@ import { Video } from "@/components/media/Media";
 import { Fragment } from "react";
 import Details from "@/components/details/Details.astro";
 import { Client } from "@/components/client";
-import { Edition } from "@/components";
+import { Edition } from "@/components/edition";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -93,10 +93,10 @@ alert that is not disabled.
 
 ## How-to
 
-<Client.Tabs client:load exclude={["cpp", "typescript"]}>
+<Client.Tabs exclude={["cpp", "typescript"]}>
   <Fragment slot="console">
 
-<Video client:only="react" id="device-drivers/pagerduty/alert-task/create" />
+<Video id="device-drivers/pagerduty/alert-task/create" />
 
   </Fragment>
   <Fragment slot="python">

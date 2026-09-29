@@ -9,7 +9,7 @@ import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Note } from "@synnaxlabs/lyra/note";
 import { Fragment } from "react";
-import { Edition } from "@/components";
+import { Edition } from "@/components/edition";
 import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -109,7 +109,7 @@ TypeScript code that retrieves the range.
 Retrieve a range by its name or key. Synnax will raise a `NotFoundError` if the range
 does not exist, and a `MultipleFoundError` if multiple ranges with the given name exist.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -142,7 +142,7 @@ Retrieve multiple ranges by passing a list of names or keys. When retrieving mul
 ranges, Synnax will not raise an error if a range cannot be found. Instead, the missing
 range will be omitted from the returned list.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -179,7 +179,7 @@ const ranges = await client.ranges.retrieve({ searchTerm: "Hotfire" });
 
 If a range has child ranges, you can retrieve them directly from the parent range.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -202,7 +202,7 @@ const childRanges = await myRange.retrieveChildren();
 
 Navigate up the hierarchy by retrieving a child range's parent.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 

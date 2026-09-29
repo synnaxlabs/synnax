@@ -6,7 +6,7 @@ description: "Get started with control sequences in Synnax."
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Image } from "@/components/media/Media";
-import { Edition } from "@/components";
+import { Edition } from "@/components/edition";
 import Diagram from "@/components/diagram/Diagram.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -74,12 +74,7 @@ This example Synnax Enterprise deployment communicates with National Instruments
 devices:
 
 <Diagram>
-  <Image
-    client:only="react"
-    id="control/sequence-structure-v2"
-    themed={false}
-    extension="svg"
-  />
+  <Image id="control/sequence-structure-v2" themed={false} extension="svg" />
 </Diagram>
 
 {/* prettier-ignore */}

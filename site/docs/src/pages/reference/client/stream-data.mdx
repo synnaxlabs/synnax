@@ -22,11 +22,11 @@ necessary, and close it.
 
 ## Opening a streamer
 
-To start streaming data, call the <Client.Var client:load py="open_streamer"
-ts="openStreamer" /> method on the client with a list of channels. Synnax checks that
-each channel exists before the stream starts.
+To start streaming data, call the <Client.Var py="open_streamer" ts="openStreamer" />
+method on the client with a list of channels. Synnax checks that each channel exists
+before the stream starts.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -63,12 +63,12 @@ try {
 
 ## Downsampling option
 
-To stream data at a lower rate, use the <Client.Var client:load py="downsample_factor"
+To stream data at a lower rate, use the <Client.Var py="downsample_factor"
 ts="downsampleFactor" /> parameter. A value of `n` keeps every nth sample of each
 series. The default is 1, which keeps all samples. The streamer does not average values.
 It drops samples.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -99,7 +99,7 @@ const streamer = await client.openStreamer({
 
 ## Using an async streamer
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -128,7 +128,7 @@ TypeScript streaming is async by default.
 
 To read the next incoming frame, call the `read` method on the streamer.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -160,7 +160,7 @@ For more on working with frames, see
 The streamer implements an iterator, allowing you to use a for loop to continuously
 process incoming frames.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -197,7 +197,7 @@ batches or at different rates.
 For example, two devices sample `temperature` and `pressure` at different rates. One
 frame can contain data only for `temperature`, and the next frame only for `pressure`.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -251,7 +251,7 @@ if (frame.has("temperature")) console.log(frame.get("temperature"));
 
 ## Specifying a timeout
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -295,12 +295,12 @@ if (frame === null) {
 
 ## Updating the channel list
 
-To change the channels that a streamer reads from, call the <Client.Var client:load
+To change the channels that a streamer reads from, call the <Client.Var
 py="update_channels" ts="update" /> method. This is useful when a user selects a new set
 of channels to plot. The call replaces the current list of channels. It does not add to
 the list.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -326,7 +326,7 @@ await streamer.update(["temperature", "pressure", "humidity"]);
 When you finish streaming, always call the `close` method on the streamer. This closes
 the network connection and releases local resources.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -348,7 +348,7 @@ streamer.close();
 Using structured cleanup patterns ensures the streamer is always closed, even if an
 exception is thrown.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 

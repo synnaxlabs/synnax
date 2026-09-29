@@ -7,7 +7,7 @@ description: "Organize and share Console layouts with projects."
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 
-import { Edition } from "@/components";
+import { Edition } from "@/components/edition";
 import Diagram from "@/components/diagram/Diagram.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Image, Video } from "@/components/media/Media";
@@ -16,7 +16,6 @@ export const components = mdxOverrides;
 
 <Diagram style="height: 400px" preview>
   <Image
-    client:only="react"
     id="console/workspaces/workspaces"
     themed={false}
     style={{
@@ -47,14 +46,14 @@ Create a project from the project selector in the top-left corner of the Console
 with the `Create project` command in the
 [command palette](/reference/get-started/ui-overview#search-and-command-palette).
 
-<Video client:only="react" id="console/workspaces/create" />
+<Video id="console/workspaces/create" />
 
 ### Load
 
 Load a project from the [projects toolbar](/reference/get-started/ui-overview#projects)
 on the left-hand side, or from the project selector in the top-left corner.
 
-<Video client:only="react" id="console/workspaces/load" />
+<Video id="console/workspaces/load" />
 
 <Divider.Divider x />
 
@@ -66,7 +65,7 @@ Right-click the project in the projects toolbar and click `Export`. You can also
 `Export current project` command in the
 [command palette](/reference/get-started/ui-overview#search-and-command-palette).
 
-<Image client:only="react" id="console/workspaces/export" />
+<Image id="console/workspaces/export" />
 
 The Console saves the project as a `.zip` file. The file holds the panels of the project
 and the visualizations in them.
@@ -78,7 +77,7 @@ and the visualizations in them.
 Right-click the project in the projects toolbar and click `Copy link`. Anyone connected
 to the same Core can open the project by pasting the link into a web browser.
 
-<Image client:only="react" id="console/workspaces/copy-link" />
+<Image id="console/workspaces/copy-link" />
 
 </Edition.Enterprise>
 

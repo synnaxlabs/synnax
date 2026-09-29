@@ -91,22 +91,23 @@ export const createPresence = (name: string): Presence => {
 
   const useContext = (): ContextValue => useCtx();
 
+  // The value is known on the first render, so the server renders it too.
   const useIsPresent = (key: record.Key): boolean => {
     const { getPresent, subscribe } = useContext();
+    const isPresent = useCallback(
+      (): boolean => getPresent() === key,
+      [key, getPresent],
+    );
     return useSyncExternalStore(
       useCallback((onStoreChange) => subscribe(onStoreChange, key), [key, subscribe]),
-      useCallback((): boolean => getPresent() === key, [key, getPresent]),
-      useCallback((): boolean => false, []),
+      isPresent,
+      isPresent,
     );
   };
 
   const usePresent = (): record.Key | undefined => {
     const { getPresent, subscribe } = useContext();
-    return useSyncExternalStore(
-      subscribe,
-      () => getPresent(),
-      () => undefined,
-    );
+    return useSyncExternalStore(subscribe, getPresent, getPresent);
   };
 
   return { Context, useContext, useIsPresent, usePresent };

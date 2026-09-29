@@ -8,13 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type Check } from "@/util/checks/check";
-import {
-  enumerateRoutes,
-  navRefs,
-  normalizeRoute,
-  pageFiles,
-  routed,
-} from "@/util/checks/crawl";
+import { enumerateRoutes, navRefs, pageFiles, routed } from "@/util/checks/crawl";
+import { normalizeRoute } from "@/util/route";
 
 // Reference pages written in MDX. Section index.astro files only rewrite to a page, so
 // they need no nav entry.

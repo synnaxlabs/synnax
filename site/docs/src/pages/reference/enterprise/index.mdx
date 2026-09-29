@@ -9,7 +9,8 @@ import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Note } from "@synnaxlabs/lyra/note";
 
-import { Console, Platform } from "@/components";
+import { Console } from "@/components/console";
+import { Platform } from "@/components/platform";
 import DownloadURL from "@/components/core/DownloadURL.astro";
 import MoveCommand from "@/components/core/MoveCommand.astro";
 import VersionOutput from "@/components/core/VersionOutput.astro";
@@ -35,7 +36,7 @@ your operating system to start.
 The Core stores all sensor and actuator data. Devices, Consoles, and control sequences
 communicate through it.
 
-<Platform.Tabs client:load>
+<Platform.Tabs>
 
 <Fragment slot="Docker">
 
@@ -182,7 +183,7 @@ You should see:
 
 ## <Step step={2} level="h2">Start the Core</Step>
 
-<Platform.Tabs client:load>
+<Platform.Tabs>
 
 <Fragment slot="Docker">
 
@@ -274,7 +275,7 @@ For the hardware that the Console needs, see the
 [Console requirements](/reference/enterprise/console#requirements). After you install
 the Console, it opens to the login window:
 
-<Image id="console/get-started/window" client:only="react" />
+<Image id="console/get-started/window" />
 
 <Divider.Divider x />
 

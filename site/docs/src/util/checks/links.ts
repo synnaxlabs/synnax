@@ -8,8 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type Check, type Context } from "@/util/checks/check";
-import { locate, navRefs, normalizeRoute, type Ref } from "@/util/checks/crawl";
+import { locate, navRefs, type Ref } from "@/util/checks/crawl";
 import { attrValues, idValues } from "@/util/checks/html";
+import { normalizeRoute } from "@/util/route";
 
 // Hosts that block automated requests or answer too slowly to probe; entries skip the
 // external check. Omron redirects and takes several seconds from a datacenter IP, so it

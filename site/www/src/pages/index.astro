@@ -21,9 +21,48 @@ import Alarms from "@/components/stream/Alarms.astro";
 import Contact from "@/components/contact/Contact.astro";
 
 import { Divider } from "@synnaxlabs/lyra/divider";
+import logo from "@synnaxlabs/media/static/logo/icon-white-favicon.svg";
+
+const DESCRIPTION =
+    "Synnax is one platform for real-time data acquisition, hardware control, visualization, and analysis, built for teams that test and operate advanced hardware.";
+const organization = {
+    "@type": "Organization",
+    "@id": "https://www.synnaxlabs.com/#organization",
+    name: "Synnax Labs",
+    url: "https://www.synnaxlabs.com",
+    logo: new URL(logo.src, Astro.site).href,
+    sameAs: [
+        "https://github.com/synnaxlabs/synnax",
+        "https://www.linkedin.com/company/synnaxlabs/",
+    ],
+};
+const structuredData = {
+    "@context": "https://schema.org",
+    "@graph": [
+        organization,
+        {
+            "@type": "SoftwareApplication",
+            name: "Synnax",
+            description: DESCRIPTION,
+            applicationCategory: "DeveloperApplication",
+            operatingSystem: "Windows, macOS, Linux",
+            url: "https://www.synnaxlabs.com",
+            softwareHelp: {
+                "@type": "CreativeWork",
+                url: "https://docs.synnaxlabs.com",
+            },
+            publisher: { "@id": organization["@id"] },
+        },
+    ],
+};
 ---
 
-<Layout>
+<Layout description={DESCRIPTION}>
+    <script
+        slot="head"
+        type="application/ld+json"
+        set:html={JSON.stringify(structuredData).replaceAll("<", "\\u003c")}
+    />
     <Hero />
     <Divider.Divider direction="x" />
     <Visualize />

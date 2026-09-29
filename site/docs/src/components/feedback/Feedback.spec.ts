@@ -7,17 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { FeedbackButton } from "@/components/feedback/Feedback";
+import { mount } from "@/components/feedback/mount";
 
-describe("FeedbackButton", () => {
+describe("feedback", () => {
   let fetch: ReturnType<typeof vi.fn>;
+  let unmount: (() => void) | null = null;
 
   const open = (): HTMLButtonElement => {
-    render(<FeedbackButton />);
-    fireEvent.click(screen.getByText("Stuck? Let us know!"));
+    const el = document.createElement("div");
+    document.body.append(el);
+    act(() => {
+      unmount = mount(el);
+    });
     return screen.getByText("Send").closest("button") as HTMLButtonElement;
   };
 
@@ -47,7 +51,8 @@ describe("FeedbackButton", () => {
   });
 
   afterEach(() => {
-    cleanup();
+    act(() => unmount?.());
+    document.body.replaceChildren();
     vi.unstubAllGlobals();
   });
 

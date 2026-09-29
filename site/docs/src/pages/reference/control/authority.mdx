@@ -7,7 +7,7 @@ clients: ["python", "typescript"]
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Fragment } from "react";
-import { Edition } from "@/components";
+import { Edition } from "@/components/edition";
 import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -89,7 +89,7 @@ Writers from the Python and TypeScript clients open with an authority of `ABSOLU
 To open a writer with the same authority on all channels, pass the `authorities`
 parameter with an integer.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -122,7 +122,7 @@ To open a writer with a different authority on each channel, pass the `authoriti
 parameter with a list of integers. The list must have the same length as the list of
 channels in the writer.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -151,10 +151,10 @@ const writer = await client.openWriter({
 
 ### Adjusting authority after open
 
-To change the authority of a writer while it runs, use the <Client.Var client:load
+To change the authority of a writer while it runs, use the <Client.Var
 py="set_authority" ts="setAuthority" /> method.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -189,7 +189,7 @@ await writer.setAuthority({
 
 This example changes the authority during a write session:
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 

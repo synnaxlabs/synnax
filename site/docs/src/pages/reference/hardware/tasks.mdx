@@ -11,7 +11,8 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Video } from "@/components/media/Media";
 import { Tabs } from "@/components/tabs/Tabs";
 import { Fragment } from "react";
-import { Client, Edition } from "@/components";
+import { Client } from "@/components/client";
+import { Edition } from "@/components/edition";
 import Details from "@/components/details/Details.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -44,7 +45,6 @@ of each task, so you can set up tasks for different purposes and change between 
 ## Creating a task
 
 <Tabs
-  client:load
   tabs={[
     { name: "Devices toolbar", tabKey: "tab1" },
     { name: "Command palette", tabKey: "tab2" },
@@ -56,7 +56,7 @@ of each task, so you can set up tasks for different purposes and change between 
 Click the device icon (<Icon.Device />) on the left side of the screen. Right-click the
 device that you want to create the task for, and select the task type.
 
-<Video client:only="react" id="device-drivers/task/toolbar" />
+<Video id="device-drivers/task/toolbar" />
 
 </Fragment>
 <Fragment slot="tab2">
@@ -65,7 +65,7 @@ Open the
 [command palette](/reference/get-started/ui-overview#search-and-command-palette) and
 type `Create`. Select the task type you need to open the task configuration dialog.
 
-<Video client:only="react" id="device-drivers/task/command-palette" />
+<Video id="device-drivers/task/command-palette" />
 
 </Fragment>
 <Fragment slot="tab3">
@@ -73,7 +73,7 @@ type `Create`. Select the task type you need to open the task configuration dial
 Click on the add icon (<Icon.Add />) in the top-right corner of the central mosaic and
 select the task type from the menu.
 
-<Video client:only="react" id="device-drivers/task/layout-selector" />
+<Video id="device-drivers/task/layout-selector" />
 
 </Fragment>
 </Tabs>
@@ -170,10 +170,9 @@ all write tasks are software timed.
 
 ## How-to
 
-<Client.Tabs client:load exclude={["cpp"]}>
+<Client.Tabs exclude={["cpp"]}>
   <Fragment slot="console">
     <Video
-      client:only="react"
       id="device-drivers/task/task-basic"
     />
   </Fragment>

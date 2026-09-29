@@ -19,7 +19,7 @@ Change the name, time range, or labels of a [range](/reference/ranges), or delet
 
 ## Edit a range
 
-<Client.Tabs client:load exclude={["cpp"]}>
+<Client.Tabs exclude={["cpp"]}>
 
   <Fragment slot="console">
 
@@ -93,13 +93,13 @@ const updatedRange = await client.ranges.create({
 Deleting a range also deletes its child ranges. It does not delete the data of the
 channels in the range.
 
-<Client.Tabs client:load exclude={["cpp"]}>
+<Client.Tabs exclude={["cpp"]}>
 
   <Fragment slot="console">
 
 Right-click the range in the ranges toolbar or the range explorer and select `Delete`.
 
-<Image client:only="react" id="client/ranges/delete" />
+<Image id="client/ranges/delete" />
 
   </Fragment>
 

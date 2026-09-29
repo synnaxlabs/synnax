@@ -18,6 +18,7 @@ import { GET_STARTED_NAV } from "@/pages/reference/get-started/_nav";
 import { HARDWARE_NAV } from "@/pages/reference/hardware/_nav";
 import { RANGES_NAV } from "@/pages/reference/ranges/_nav";
 import { VISUALIZE_NAV } from "@/pages/reference/visualize/_nav";
+import { normalizeRoute } from "@/util/route";
 
 const visible = (nodes: PageNavNode[]): PageNavNode[] =>
   nodes
@@ -37,3 +38,11 @@ export const REFERENCE_PAGES: PageNavNode[] = visible([
   CLIENT_NAV,
   ENTERPRISE_NAV,
 ]);
+
+const contains = (node: PageNavNode, route: string): boolean =>
+  (node.href != null && normalizeRoute(node.href) === route) ||
+  (node.children?.some((child) => contains(child, route)) ?? false);
+
+/** Returns the name of the nav section that holds a route, if one does. */
+export const sectionOf = (route: string): string | undefined =>
+  REFERENCE_PAGES.find((node) => node.children != null && contains(node, route))?.name;

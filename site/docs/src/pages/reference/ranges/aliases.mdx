@@ -21,7 +21,7 @@ operation.
 
 ## Set an alias
 
-<Client.Tabs client:load exclude={["cpp"]}>
+<Client.Tabs exclude={["cpp"]}>
 
   <Fragment slot="console">
 
@@ -30,7 +30,7 @@ right-click the channel in the channels toolbar and select **Set alias under** f
 by the range name. To remove an alias, select **Remove alias under** followed by the
 range name.
 
-<Video client:only="react" id="client/channels/alias" />
+<Video id="client/channels/alias" />
 
 The channels toolbar shows the alias while its range is active.
 
@@ -89,7 +89,7 @@ await burstTest.deleteAlias(channelKey);
 
 Once you set an alias, you can access the channel using that alias.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 

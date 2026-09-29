@@ -31,7 +31,10 @@ SOEM_CORE_SRCS = [
 ]
 
 # Core SOEM headers
-SOEM_HDRS = glob(["SOEM/include/soem/*.h"])
+SOEM_HDRS = glob(
+    ["SOEM/include/soem/*.h"],
+    allow_empty = True,
+)
 
 # Linux OSAL + OSHW
 LINUX_OSAL_SRCS = ["SOEM/osal/linux/osal.c"]
@@ -65,7 +68,10 @@ WIN32_PLATFORM_HDRS = [
     # Bazel's include scanner is case-sensitive and reports the name as "IP6_misc.h"
     # from the #include.
     "SOEM/oshw/win32/wpcap/Include/IP6_misc.h",
-] + glob(["SOEM/oshw/win32/wpcap/Include/**/*.h"])
+] + glob(
+    ["SOEM/oshw/win32/wpcap/Include/**/*.h"],
+    allow_empty = True,
+)
 
 # macOS OSAL + OSHW (custom platform files using pcap)
 MACOS_OSAL_SRCS = ["macos/osal/osal.c"]

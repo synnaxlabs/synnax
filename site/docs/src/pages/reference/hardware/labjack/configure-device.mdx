@@ -5,13 +5,14 @@ heading: "Configure a LabJack device"
 description: "Learn how to connect and configure LabJack devices."
 ---
 
-import { Text as TextComponent } from "@/components";
+import { Text as TextComponent } from "@/components/text";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Note } from "@synnaxlabs/lyra/note";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Image, Video } from "@/components/media/Media";
-import { Details, Edition } from "@/components";
+import { Details } from "@/components/details";
+import { Edition } from "@/components/edition";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Client } from "@/components/client";
 import { Fragment } from "react";
@@ -86,14 +87,14 @@ library on the machine that runs the Driver. Install the
   [Kipling](https://support.labjack.com/docs/kipling).
 </Note.Note>
 
-<Client.Tabs client:load exclude={["cpp"]}>
+<Client.Tabs exclude={["cpp"]}>
   <Fragment slot="console">
 
 Synnax will automatically detect new LabJack devices and display a notification in the
 Console when a new device is connected. To start configuring the device, find the device
 in the devices toolbar, right click on the device and select "Configure".
 
-<Video client:only="react" id="device-drivers/labjack/configure-device/lj-configure" />
+<Video id="device-drivers/labjack/configure-device/lj-configure" />
 
 </Fragment>
   <Fragment slot="python">

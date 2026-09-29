@@ -13,7 +13,7 @@ import { CSS } from "@synnaxlabs/lyra/css";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import { Text } from "@synnaxlabs/lyra/text";
-import { TimeStamp } from "@synnaxlabs/x";
+import { location, TimeStamp } from "@synnaxlabs/x";
 import {
   type CSSProperties,
   type ReactElement,
@@ -129,6 +129,7 @@ export const Chip = ({ source, sink, className, ...rest }: ChipProps): ReactElem
       disabled={disabled}
       onClick={handleToggle}
       tooltip={<Text.Text level="small">{message}</Text.Text>}
+      tooltipLocation={location.BOTTOM_CENTER}
       style={buttonStyle}
       {...rest}
     >

@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// The CI media check (src/util/checks/media.ts) rebuilds these URLs from island props
-// to verify the assets exist on the CDN. Keep it dependency-free.
+// The CI media check (src/util/checks/media.ts) imports this file in Node. Keep it
+// dependency-free.
 
 export const CDN_ROOT = "https://synnax.nyc3.cdn.digitaloceanspaces.com/docs";
 

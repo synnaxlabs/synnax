@@ -52,14 +52,10 @@ const Tab = ({ x, y }: { x: number; y: number }): ReactElement => (
 );
 
 const Item = ({
-  label,
-  caption,
-  icon: Icon,
-  x,
-  y,
-  width,
-  height,
-}: PlacedNode): ReactElement => (
+  node: { label, caption, icon: Icon, x, y, width, height },
+}: {
+  node: PlacedNode;
+}): ReactElement => (
   <g>
     <rect
       x={x}
@@ -122,7 +118,7 @@ export const Block = ({ nodes, edges, title }: BlockProps): ReactElement => {
           </g>
         ))}
         {placed.map((node) => (
-          <Item key={node.key} {...node} />
+          <Item key={node.key} node={node} />
         ))}
       </svg>
     </figure>

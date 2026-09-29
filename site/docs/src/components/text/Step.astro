@@ -10,15 +10,16 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
-import { caseconv } from "@synnaxlabs/x";
 export interface StepTextProps extends Text.TextProps {
     step: string | number;
 }
 const { step, level, name = "Step", ...rest } = Astro.props;
+// A step always sits inside a Markdown heading, so it renders a span, not a heading.
 ---
 
-<Text.Text className="no-link" id={caseconv.toKebab(name)} level={level} {...rest}>
+<Text.Text className="no-link" el="span" level={level} {...rest}>
     <span
+        class="step-label"
         style={{
             color: "var(--pluto-gray-l8)",
             display: "inline-flex",
@@ -26,7 +27,7 @@ const { step, level, name = "Step", ...rest } = Astro.props;
         }}
     >
         {`${name} ${step}`}
-        <Icon.Arrow.Right style={{ margin: "0 1rem" }} />
+        <Icon.Arrow.Right style={{ margin: "0 1rem" }} />{" "}
     </span>
     <slot />
 </Text.Text>

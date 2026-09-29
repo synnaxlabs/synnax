@@ -21,11 +21,11 @@ the data fits in memory.
 
 ## Opening an iterator
 
-To open an iterator, use the <Client.Var client:load py="open_iterator"
-ts="openIterator" /> method with a time range and a list of channels. Opening an
-iterator does not return data. It opens a connection to Synnax.
+To open an iterator, use the <Client.Var py="open_iterator" ts="openIterator" /> method
+with a time range and a list of channels. Opening an iterator does not return data. It
+opens a connection to Synnax.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -50,10 +50,10 @@ const iterator = await client.openIterator({ start, end }, ["temperature", "humi
 ### Chunk size option
 
 By default, Synnax uses a chunk size of 100,000 samples. To configure a custom chunk
-size, use the <Client.Var client:load py="chunk_size" ts="chunkSize" /> parameter with
-the desired number of samples per iteration.
+size, use the <Client.Var py="chunk_size" ts="chunkSize" /> parameter with the desired
+number of samples per iteration.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -87,11 +87,11 @@ Larger chunk sizes can improve throughput but require more memory.
 
 ## Iterating through data
 
-Use a <Client.Var client:load py="for" ts="for await" /> loop to iterate through data in
-chunks. The loop starts at the first sample in the time range. Each iteration yields a
-frame with the next chunk of data.
+Use a <Client.Var py="for" ts="for await" /> loop to iterate through data in chunks. The
+loop starts at the first sample in the time range. Each iteration yields a frame with
+the next chunk of data.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -118,9 +118,9 @@ for await (const frame of iterator) {
 ## Seeking and reading
 
 A `for` loop is the simplest way to use an iterator. For more control, move the iterator
-with seek calls and read data with <Client.Var client:load py="next" ts="next" /> and
+with seek calls and read data with <Client.Var py="next" ts="next" /> and
 
-<Client.Var client:load py="prev" ts="prev" />.
+<Client.Var py="prev" ts="prev" />.
 
 ### Validity
 
@@ -163,7 +163,7 @@ A read call does not return the data. The iterator keeps the data it read in its
 property as a frame. After a seek call, `value` is empty until the next read. If the
 iterator is invalid, do not use `value`.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -207,7 +207,7 @@ try {
 When you finish, always close the iterator. This closes the network connection and
 releases other resources.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -229,7 +229,7 @@ iterator.close();
 Using structured cleanup patterns ensures the iterator is always closed, even if an
 exception is thrown.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 

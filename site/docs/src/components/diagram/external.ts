@@ -7,6 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export { default as Diagram } from "@/components/diagram/Diagram.astro";
 export { Block, type BlockProps } from "@/components/diagram/Block";
+export { default as Diagram } from "@/components/diagram/Diagram.astro";
 export { type Edge, type Node } from "@/components/diagram/layout";

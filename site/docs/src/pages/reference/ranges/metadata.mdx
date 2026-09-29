@@ -23,7 +23,7 @@ that you can filter by.
 
 ## Set metadata
 
-<Client.Tabs client:load exclude={["cpp"]}>
+<Client.Tabs exclude={["cpp"]}>
 
   <Fragment slot="console">
 
@@ -35,7 +35,7 @@ change a value, click it and type the new value.
 
 {/* prettier-ignore-end */}
 
-<Video client:only="react" id="client/ranges/set-metadata" />
+<Video id="client/ranges/set-metadata" />
 
   </Fragment>
 
@@ -86,7 +86,7 @@ await myRange.kv.set({
 
 ## Get metadata
 
-<Client.Tabs client:load exclude={["cpp"]}>
+<Client.Tabs exclude={["cpp"]}>
 
   <Fragment slot="console">
 
@@ -134,7 +134,7 @@ const allMetadata = await myRange.kv.list();
 
 ## Delete metadata
 
-<Client.Tabs client:load exclude={["cpp"]}>
+<Client.Tabs exclude={["cpp"]}>
 
   <Fragment slot="console">
 
@@ -180,7 +180,7 @@ await myRange.kv.delete(["part_number", "test_configuration"]);
 
 ## Labels
 
-<Client.Tabs client:load exclude={["cpp"]}>
+<Client.Tabs exclude={["cpp"]}>
 
   <Fragment slot="console">
 
@@ -189,7 +189,7 @@ Select labels in the create dialog or in the
 `New label` at the bottom of the label list. To change your labels, run the
 `Edit labels` command from the search and command palette.
 
-<Video client:only="react" id="client/ranges/labels" />
+<Video id="client/ranges/labels" />
 
   </Fragment>
 

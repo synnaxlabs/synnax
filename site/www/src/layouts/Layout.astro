@@ -15,14 +15,18 @@ import Header from "@/components/Header.astro";
 import Footer from "@/components/Footer.astro";
 
 interface Props {
+    /** The page title, before " | Synnax". The home page leaves it unset. */
     title?: string;
-    description?: string;
+    description: string;
 }
 
-const {
-    title = "Synnax",
-    description = "The observability and control platform for hardware systems.",
-} = Astro.props;
+const { title, description } = Astro.props;
+const HOME_TITLE = "Synnax | Hardware data acquisition, control, and analysis";
+const IMAGE = "https://synnax.nyc3.cdn.digitaloceanspaces.com/docs/og-default.png";
+const fullTitle = title == null ? HOME_TITLE : `${title} | Synnax`;
+// Query strings and trailing slashes must not split a page into duplicates.
+const pathname = Astro.url.pathname.replace(/(.)\/$/, "$1");
+const canonical = new URL(pathname, Astro.site).href;
 ---
 
 <!doctype html>
@@ -30,8 +34,29 @@ const {
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <SEO title={title} description={description} />
+        <SEO
+            title={fullTitle}
+            description={description}
+            canonical={canonical}
+            openGraph={{
+                basic: {
+                    title: fullTitle,
+                    type: "website",
+                    image: IMAGE,
+                    url: canonical,
+                },
+                optional: { description, siteName: "Synnax" },
+                image: { alt: "Synnax" },
+            }}
+            twitter={{
+                card: "summary_large_image",
+                title: fullTitle,
+                description,
+                image: IMAGE,
+            }}
+        />
         <link rel="icon" type="image/svg+xml" href={favicon.src} />
+        <slot name="head" />
     </head>
     <body>
         <Header />

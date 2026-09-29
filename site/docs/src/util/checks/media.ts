@@ -7,20 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
-
-import { mediaURL } from "@/components/media/url";
+import { CDN_ROOT } from "@/components/media/url";
 import { type Check } from "@/util/checks/check";
 import { locate } from "@/util/checks/crawl";
-import { attrValues, islands } from "@/util/checks/html";
-
-const THEMES = ["light", "dark"];
-
-const islandProps = z.object({
-  id: z.string(),
-  themed: z.boolean().default(true),
-  extension: z.string().default("png"),
-});
+import { attrValues } from "@/util/checks/html";
 
 interface Ref {
   route: string;
@@ -29,45 +19,37 @@ interface Ref {
   needle: string;
 }
 
-// Image and Video islands are client:only, so their assets never appear in server
-// HTML; rebuild the CDN URLs they will request from their island props.
+// The page source names a docs asset by its id, not its URL.
+const needle = (url: string): string =>
+  url.startsWith(CDN_ROOT)
+    ? url
+        .slice(CDN_ROOT.length + 1)
+        .replace(/#.*$/, "")
+        .replace(/(-light|-dark)?\.\w+$/, "")
+    : url;
+
+// Verifies every image, video, and poster a page references loads.
 export const media = (fullCrawl: boolean): Check => {
   const refs: Ref[] = [];
-  let matched = 0;
   return {
     name: "media",
     page: ({ route, html }) => {
-      const failures: string[] = [];
-      for (const island of islands(html)) {
-        const kind = island.component.replace(/^.*\./, "");
-        if (kind !== "Image" && kind !== "Video") continue;
-        matched += 1;
-        const parsed = islandProps.safeParse(island.props);
-        if (!parsed.success) {
-          failures.push(
-            `${locate(route, `<${island.component}`)} - ` +
-              `${kind} island has malformed props`,
-          );
-          continue;
-        }
-        const { id, themed } = parsed.data;
-        const extension = kind === "Video" ? "mp4" : parsed.data.extension;
-        const urls = themed
-          ? THEMES.map((theme) => mediaURL(id, extension, theme))
-          : [mediaURL(id, extension)];
-        for (const url of urls) refs.push({ route, url, needle: id });
-      }
-      for (const tag of ["img", "video", "source"])
-        for (const src of attrValues(html, tag, "src"))
-          refs.push({ route, url: src, needle: src });
-      for (const poster of attrValues(html, "video", "poster"))
-        refs.push({ route, url: poster, needle: poster });
-      return failures;
+      const urls = [
+        ...["img", "video", "source"].flatMap((tag) => attrValues(html, tag, "src")),
+        ...attrValues(html, "source", "srcset").flatMap((set) =>
+          set.split(",").map((candidate) => candidate.trim().split(/\s+/)[0]),
+        ),
+        ...attrValues(html, "video", "poster"),
+      ];
+      // A media fragment such as #t=0.001 seeks the video; it names no anchor.
+      for (const url of urls)
+        refs.push({ route, url: url.replace(/#.*$/, ""), needle: needle(url) });
+      return [];
     },
     finish: async (ctx, report, progress) => {
-      // Canary for the island markup silently matching nothing (see tabs.ts).
-      if (fullCrawl && matched === 0)
-        report("no Image or Video islands found: markup has changed");
+      // Canary for the media markup silently matching nothing.
+      if (fullCrawl && !refs.some(({ url }) => url.startsWith(CDN_ROOT)))
+        report("no docs media found: markup has changed");
       const seen = new Set<string>();
       let done = 0;
       await Promise.all(
