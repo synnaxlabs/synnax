@@ -54,6 +54,7 @@ allowBuilds:
 
 catalog:
   '@astrojs/check': ^0.9.10
+  '@astrojs/markdown-satteri': ^0.4.2
   '@astrojs/mdx': ^8.0.2
   '@astrojs/react': ^7.0.0
   '@astrojs/vercel': ^11.0.11
@@ -103,14 +104,15 @@ catalog:
   '@testing-library/react': ^16.3.2
   '@testing-library/user-event': ^14.6.7
   '@types/d3-scale': ^4.0.9
+  '@types/hast': ^3.0.4
   '@types/html-escaper': ^3.0.4
+  '@types/mdast': ^4.0.4
   '@types/node': ^24.19.0
   '@types/offscreencanvas': ^2019.7.3
   '@types/pluralize': ^0.0.33
   '@types/react': ^19.3.0
   '@types/react-dom': ^19.3.0
   '@types/use-sync-external-store': ^1.7.0
-  '@types/vscode': ^1.91.0
   '@types/webgl2': ^0.0.12
   '@types/ws': ^8.18.1
   '@vitejs/plugin-react': ^6.1.1
@@ -135,11 +137,15 @@ catalog:
   fuse.js: ^7.5.0
   globals: ^17.12.0
   gray-matter: ^4.0.3
+  hast-util-from-html: ^2.0.3
+  hast-util-to-mdast: ^10.1.2
   html-escaper: ^3.0.3
   immer: ^11.1.15
   jsdom: ^30.1.1
   knip: ^6.38.0
   mathjs: ^15.2.0
+  mdast-util-gfm: ^3.1.0
+  mdast-util-to-markdown: ^2.1.2
   nanoid: ^6.0.1
   playwright: ^1.63.0
   pluralize: ^8.0.0
@@ -161,6 +167,7 @@ catalog:
   remark: ^15.0.1
   remark-gfm: ^4.0.1
   remotion: ^4.0.529
+  satteri: ^0.10.5
   shiki: ^4.4.3
   source-map-js: ^1.2.1
   strip-markdown: ^6.0.0
