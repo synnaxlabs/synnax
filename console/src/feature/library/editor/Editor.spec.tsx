@@ -114,6 +114,44 @@ describe("Library editor", () => {
     });
   });
 
+  it("should keep the keys of the fields a removal leaves", async () => {
+    const fields = [createBinaryField("Rpm", 0), createBinaryField("Temp", 8)];
+    const lib = await createLibrary([createMessage(fields)]);
+    await renderEditor(lib);
+    await screen.findByLabelText("Name 1");
+    const remove = cell("Name", 1)
+      .closest("tr")
+      ?.querySelector<HTMLButtonElement>("td:last-child button");
+    if (remove == null) throw new Error("expected a remove button on row 1");
+    fireEvent.click(remove);
+    await save();
+    await waitFor(async () => {
+      const [entry] = (await client.libraries.retrieve({ key: lib.key })).entries;
+      if (entry.kind !== "message") throw new Error("expected a message entry");
+      expect(entry.fields.map(({ key, name }) => ({ key, name }))).toEqual([
+        { key: fields[1].key, name: "Temp" },
+      ]);
+    });
+  });
+
+  it("should show a Core validation error on the enum value it names", async () => {
+    const lib = await createLibrary([
+      {
+        key: uuid.create(),
+        kind: "enum",
+        name: "State",
+        values: [
+          { value: 0, name: "Off" },
+          { value: 1, name: "On" },
+        ],
+      },
+    ]);
+    await renderEditor(lib);
+    await commit("Value", 2, "0");
+    await save();
+    expect(await screen.findByText(/^Value 2: duplicate value 0/)).toBeTruthy();
+  });
+
   it("should show a Core validation error on the field it names", async () => {
     const lib = await createLibrary([
       createMessage([createBinaryField("Rpm", 0), createBinaryField("Temp", 8)]),

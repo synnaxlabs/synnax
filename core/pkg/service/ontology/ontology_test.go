@@ -305,3 +305,42 @@ var _ = Describe("ParentsTraverser", func() {
 		Expect(retrieveParents(ctx, labeled)).To(BeEmpty())
 	})
 })
+
+var _ = Describe("UsersTraverser", func() {
+	retrieveUsers := func(ctx SpecContext, id ontology.ID) []ontology.ID {
+		GinkgoHelper()
+		var users []ontology.Resource
+		Expect(otg.NewRetrieve().
+			WhereIDs(id).
+			TraverseTo(ontology.UsersTraverser).
+			Entries(&users).
+			Exec(ctx, tx)).To(Succeed())
+		return ontology.ResourceIDs(users)
+	}
+	It("Should return the resources that use the given ID", func(ctx SpecContext) {
+		w := otg.NewWriter(tx)
+		userA := newSampleType("ru-user-a")
+		userB := newSampleType("ru-user-b")
+		used := newSampleType("ru-used")
+		unused := newSampleType("ru-unused")
+		Expect(w.DefineResources(ctx, userA, userB, used, unused)).To(Succeed())
+		Expect(w.DefineRelationships(
+			ctx, userA, ontology.RelationshipTypeUses, used,
+		)).To(Succeed())
+		Expect(w.DefineRelationships(
+			ctx, userB, ontology.RelationshipTypeUses, used,
+		)).To(Succeed())
+		Expect(retrieveUsers(ctx, used)).To(ConsistOf(userA, userB))
+		Expect(retrieveUsers(ctx, unused)).To(BeEmpty())
+	})
+	It("Should ignore parent relationships", func(ctx SpecContext) {
+		w := otg.NewWriter(tx)
+		parent := newSampleType("ru-parent")
+		child := newSampleType("ru-child")
+		Expect(w.DefineResources(ctx, parent, child)).To(Succeed())
+		Expect(w.DefineRelationships(
+			ctx, parent, ontology.RelationshipTypeParentOf, child,
+		)).To(Succeed())
+		Expect(retrieveUsers(ctx, child)).To(BeEmpty())
+	})
+})

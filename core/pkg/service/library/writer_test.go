@@ -10,6 +10,7 @@
 package library_test
 
 import (
+	"fmt"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -449,50 +450,82 @@ var _ = Describe("Writer", func() {
 	})
 })
 
-var _ = Describe("LastByte", func() {
+var _ = Describe("Payload bounds", func() {
 	DescribeTable(
-		"Should return the last byte a binary field touches",
-		func(startBit uint16, bitLength uint8, order library.ByteOrder, expected int) {
-			f := binaryField("a", startBit, bitLength)
-			f.ByteOrder = order
-			Expect(library.LastByte(f)).To(Equal(expected))
+		"Should require the payload to reach the last byte a binary field touches",
+		func(
+			ctx SpecContext,
+			startBit uint16,
+			bitLength uint8,
+			order library.ByteOrder,
+			lastByte uint16,
+		) {
+			create := func(length uint16) error {
+				GinkgoHelper()
+				f := binaryField("a", startBit, bitLength)
+				f.ByteOrder = order
+				m := binaryMessage("M", f)
+				m.Length = new(length)
+				l := library.Library{
+					Name:    "L",
+					Entries: []library.Entry{messageEntry(m)},
+				}
+				return svc.NewWriter(tx).Create(ctx, &l)
+			}
+			Expect(create(lastByte + 1)).To(Succeed())
+			Expect(create(lastByte)).To(MatchError(ContainSubstring(fmt.Sprintf(
+				"entries.0.fields.0.start_bit: field extends past the %d-byte payload",
+				lastByte,
+			))))
 		},
 		Entry(
 			"little-endian byte",
 			uint16(0),
 			uint8(8),
 			library.ByteOrderLittleEndian,
-			0,
+			uint16(0),
 		),
 		Entry(
 			"little-endian across bytes",
 			uint16(4),
 			uint8(8),
 			library.ByteOrderLittleEndian,
-			1,
+			uint16(1),
 		),
 		Entry(
 			"little-endian last bit",
 			uint16(63),
 			uint8(1),
 			library.ByteOrderLittleEndian,
-			7,
+			uint16(7),
 		),
-		Entry("big-endian byte", uint16(7), uint8(8), library.ByteOrderBigEndian, 0),
-		Entry("big-endian word", uint16(7), uint8(16), library.ByteOrderBigEndian, 1),
+		Entry(
+			"big-endian byte",
+			uint16(7),
+			uint8(8),
+			library.ByteOrderBigEndian,
+			uint16(0),
+		),
+		Entry(
+			"big-endian word",
+			uint16(7),
+			uint8(16),
+			library.ByteOrderBigEndian,
+			uint16(1),
+		),
 		Entry(
 			"big-endian from a mid-byte MSB",
 			uint16(3),
 			uint8(8),
 			library.ByteOrderBigEndian,
-			1,
+			uint16(1),
 		),
 		Entry(
 			"big-endian last byte",
 			uint16(63),
 			uint8(8),
 			library.ByteOrderBigEndian,
-			7,
+			uint16(7),
 		),
 	)
 })

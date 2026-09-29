@@ -90,6 +90,15 @@ var _ = Describe("Library", func() {
 				Exec(ctx, nil)).To(Succeed())
 			Expect(res.Name).To(Equal("New"))
 		})
+
+		It("Should reject a rename that is not granted", func(ctx SpecContext) {
+			l := createLibrary(ctx, "Fixed")
+			Expect(apiSvc.Rename(
+				AuthedCtx(ctx, createUser(ctx)),
+				nil,
+				apilibrary.RenameRequest{Key: l.Key, Name: "New"},
+			)).Error().To(MatchError(access.ErrDenied))
+		})
 	})
 
 	Describe("Import", func() {

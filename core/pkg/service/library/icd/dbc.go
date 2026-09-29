@@ -48,12 +48,12 @@ var (
 	muxRange = regexp.MustCompile(`^(\d+)\s*-\s*(\d+)$`)
 )
 
-// ParseDBC parses a DBC file into one message entry per BO_ definition, with a CAN
+// parseDBC parses a DBC file into one message entry per BO_ definition, with a CAN
 // identifier and a binary field per signal, followed by one enum entry per value
 // table and per signal whose value descriptions match no value table. Extended
 // multiplexing (m<N>M markers and SG_MUL_VAL_ ranges) is supported. Every entry and
 // field gets a new key. Errors are scoped to the "data" path and name the line.
-func ParseDBC(data []byte) ([]versions.Entry, error) {
+func parseDBC(data []byte) ([]versions.Entry, error) {
 	text, ext, err := extractExtensions(data)
 	if err != nil {
 		return nil, err

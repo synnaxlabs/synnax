@@ -1366,22 +1366,17 @@ func (p *Plugin) generateMapConversion(
 
 	if resolved, ok := valueType.Resolve(data.table); ok {
 		if _, isUnion := resolved.Form.(resolution.UnionForm); isUnion {
-			qualifier := p.unionFunctionQualifier(resolved, data)
+			toProto, fromProto := p.unionTranslators(resolved, data)
 			forward = fmt.Sprintf(`for (const auto& [k, v] : this->%s) {
-        auto [pb_v, err] = %s::to_proto(v);
+        auto [pb_v, err] = %s(v);
         if (err) return {{}, err};
         (*pb.mutable_%s())[k] = pb_v;
-    }`, fieldName, qualifier, accessorName)
+    }`, fieldName, toProto, accessorName)
 			backward = fmt.Sprintf(`for (const auto& [k, v] : pb.%s()) {
-        auto [cpp_v, err] = %s::%s_from_proto(v);
+        auto [cpp_v, err] = %s(v);
         if (err) return {{}, err};
         cpp.%s.insert_or_assign(k, std::move(cpp_v));
-    }`,
-				accessorName,
-				qualifier,
-				casing.FieldSnake(domain.GetName(resolved, "cpp")),
-				fieldName,
-			)
+    }`, accessorName, fromProto, fieldName)
 			return forward, backward
 		}
 		if _, isStruct := resolved.Form.(resolution.StructForm); isStruct {

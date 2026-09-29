@@ -38,7 +38,8 @@ export const Enum = ({ path }: EnumProps): ReactElement => {
       next.map(([value, name]) => ({ value: Number(value), name: String(name) })),
     );
   const status = useNestedStatus(valuesPath);
-  const index = deep.getIndex(status?.key?.split(".")[3] ?? "");
+  const valueKey = status?.key?.slice(valuesPath.length + 1) ?? "";
+  const index = deep.getIndex(deep.element(valueKey, 0));
   let helpText = status?.message;
   if (index != null) helpText = `Value ${index + 1}: ${helpText}`;
   return (

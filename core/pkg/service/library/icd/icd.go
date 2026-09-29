@@ -23,9 +23,15 @@ type Format string
 const (
 	// FormatDBC is a Vector CAN database file.
 	FormatDBC Format = "dbc"
-	// FormatCSV is a field table in comma-separated values.
+	// FormatCSV is a field table in comma-separated values. The first row is a header
+	// that names each column, in any case: message, id, extended, length, period_ms,
+	// field, start_bit, bit_length, byte_order, signed, float, scale, offset, and
+	// units. The message, field, start_bit, and bit_length columns are required. Each
+	// other row is one binary field, and the rows of one message form one message
+	// entry, with a CAN identifier when an id is present.
 	FormatCSV Format = "csv"
-	// FormatXLSX is a field table in the first sheet of an Excel workbook.
+	// FormatXLSX is a field table, laid out as for FormatCSV, in the first sheet of an
+	// Excel workbook.
 	FormatXLSX Format = "xlsx"
 )
 
@@ -36,11 +42,11 @@ const (
 func Parse(format Format, data []byte) ([]versions.Entry, error) {
 	switch format {
 	case FormatDBC:
-		return ParseDBC(data)
+		return parseDBC(data)
 	case FormatCSV:
-		return ParseCSV(data)
+		return parseCSV(data)
 	case FormatXLSX:
-		return ParseXLSX(data)
+		return parseXLSX(data)
 	}
 	return nil, validate.PathedError(
 		errors.Wrapf(validate.ErrValidation, "unsupported format %q", format),

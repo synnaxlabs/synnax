@@ -163,21 +163,26 @@ func protocCamelCase(name string) string {
 	return b.String()
 }
 
-// unionFunctionQualifier returns the namespace qualifier for a union's free
-// translators, adding the includes a cross-namespace reference needs. Calls are
-// always qualified: unqualified lookup inside a member to_proto finds the member and
-// never reaches the free overload.
-func (p *Plugin) unionFunctionQualifier(
+// unionTranslators returns the qualified names of a union's free to_proto and
+// <name>_from_proto functions, adding the includes a cross-namespace reference needs.
+// Calls are always qualified: unqualified lookup inside a member to_proto finds the
+// member and never reaches the free overload.
+func (p *Plugin) unionTranslators(
 	resolved resolution.Type,
 	data *templateData,
-) string {
+) (toProto, fromProto string) {
+	qualifier := "::" + data.Namespace
 	if resolved.Namespace != data.rawNs {
 		if targetOutputPath := output.GetPath(resolved, "cpp"); targetOutputPath != "" {
 			data.addConversionIncludes(targetOutputPath)
-			return "::" + naming.Namespace(targetOutputPath)
+			qualifier = "::" + naming.Namespace(targetOutputPath)
 		}
 	}
-	return "::" + data.Namespace
+	return qualifier + "::to_proto", fmt.Sprintf(
+		"%s::%s_from_proto",
+		qualifier,
+		casing.FieldSnake(domain.GetName(resolved, "cpp")),
+	)
 }
 
 // generateUnionConversion renders the conversion of a union-typed field.
@@ -187,18 +192,13 @@ func (p *Plugin) generateUnionConversion(
 	data *templateData,
 	cppFieldName, pbAccessorName string,
 ) (forward, backward string) {
-	qualifier := p.unionFunctionQualifier(resolved, data)
-	fromProto := fmt.Sprintf(
-		"%s::%s_from_proto",
-		qualifier,
-		casing.FieldSnake(domain.GetName(resolved, "cpp")),
-	)
+	toProto, fromProto := p.unionTranslators(resolved, data)
 	if isOptional {
 		forward = fmt.Sprintf(`if (this->%s.has_value()) {
-        auto [v, err] = %s::to_proto(*this->%s);
+        auto [v, err] = %s(*this->%s);
         if (err) return {{}, err};
         *pb.mutable_%s() = v;
-    }`, cppFieldName, qualifier, cppFieldName, pbAccessorName)
+    }`, cppFieldName, toProto, cppFieldName, pbAccessorName)
 		backward = fmt.Sprintf(`if (pb.has_%s()) {
         auto [v, err] = %s(pb.%s());
         if (err) return {{}, err};
@@ -207,10 +207,10 @@ func (p *Plugin) generateUnionConversion(
 		return forward, backward
 	}
 	forward = fmt.Sprintf(`{
-        auto [v, err] = %s::to_proto(this->%s);
+        auto [v, err] = %s(this->%s);
         if (err) return {{}, err};
         *pb.mutable_%s() = v;
-    }`, qualifier, cppFieldName, pbAccessorName)
+    }`, toProto, cppFieldName, pbAccessorName)
 	backward = fmt.Sprintf(`{
         auto [v, err] = %s(pb.%s());
         if (err) return {{}, err};
@@ -226,21 +226,16 @@ func (p *Plugin) generateUnionArrayConversion(
 	data *templateData,
 	cppFieldName, pbAccessorName string,
 ) (forward, backward string) {
-	qualifier := p.unionFunctionQualifier(resolved, data)
-	fromProto := fmt.Sprintf(
-		"%s::%s_from_proto",
-		qualifier,
-		casing.FieldSnake(domain.GetName(resolved, "cpp")),
-	)
+	toProto, fromProto := p.unionTranslators(resolved, data)
 	if isOptional {
 		forward = fmt.Sprintf(`if (this->%s.has_value()) {
         auto* wrapper = pb.mutable_%s();
         for (const auto& item : *this->%s) {
-            auto [v, err] = %s::to_proto(item);
+            auto [v, err] = %s(item);
             if (err) return {{}, err};
             *wrapper->add_values() = v;
         }
-    }`, cppFieldName, pbAccessorName, cppFieldName, qualifier)
+    }`, cppFieldName, pbAccessorName, cppFieldName, toProto)
 		backward = fmt.Sprintf(`if (pb.has_%s()) {
         cpp.%s.emplace();
         for (const auto& item : pb.%s().values()) {
@@ -252,10 +247,10 @@ func (p *Plugin) generateUnionArrayConversion(
 		return forward, backward
 	}
 	forward = fmt.Sprintf(`for (const auto& item : this->%s) {
-        auto [v, err] = %s::to_proto(item);
+        auto [v, err] = %s(item);
         if (err) return {{}, err};
         *pb.add_%s() = v;
-    }`, cppFieldName, qualifier, pbAccessorName)
+    }`, cppFieldName, toProto, pbAccessorName)
 	backward = fmt.Sprintf(`for (const auto& item : pb.%s()) {
         auto [v, err] = %s(item);
         if (err) return {{}, err};
