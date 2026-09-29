@@ -33,7 +33,8 @@
   "plugins": {
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEM4NDVGQTU1RTMxN0M3MjAKUldRZ3h4ZmpWZnBGeUpLeHNMdlE0aGNUcHZrU3M0REpxMGtJdmN2ZGs0OVBUQ0Nrb3Z5SFdacjEK",
-      "endpoints": ["https://docs.synnaxlabs.com/releases/console/latest.json"]
+      "endpoints": ["https://docs.synnaxlabs.com/releases/console/latest.json"],
+      "requireSignedVersion": true
     },
     "deep-link": { "mobile": [], "desktop": { "schemes": ["synnax"] } }
   },
