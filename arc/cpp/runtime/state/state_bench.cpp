@@ -87,6 +87,20 @@ void BM_NumericInputLiteral(benchmark::State &state) {
 }
 BENCHMARK(BM_NumericInputLiteral);
 
+/// @brief the read a timer node performs after the fix, with the index resolved
+/// once at construction.
+void BM_NumericInputAt(benchmark::State &state) {
+    State s(Config{.ir = program()});
+    auto [c, err] = s.node("c");
+    if (failed(state, err)) return;
+    const auto [idx, idx_err] = c.resolve_input("period");
+    if (failed(state, idx_err)) return;
+    run_with_alloc_tracking(state, [&] {
+        benchmark::DoNotOptimize(c.numeric_input<int64_t>(idx));
+    });
+}
+BENCHMARK(BM_NumericInputAt);
+
 /// @brief the same value read from the typed series node construction already
 /// built for the literal, with the index resolved once.
 void BM_InputSeriesLiteral(benchmark::State &state) {
