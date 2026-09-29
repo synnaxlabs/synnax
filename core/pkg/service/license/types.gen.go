@@ -96,7 +96,7 @@ func (s State) IsValid() bool {
 	}
 }
 
-// Fingerprint identifies the machine the Core runs on: the sorted SHA-256 hex digests
+// Fingerprint identifies the machine the Core runs on: the sorted Argon2id hex digests
 // of the hardware addresses of its non-loopback, non-point-to-point network interfaces.
 type Fingerprint []string
 

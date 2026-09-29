@@ -12,8 +12,7 @@ package mock
 
 import (
 	"context"
-	"crypto/ed25519"
-	"crypto/rand"
+	"crypto/mldsa"
 	"time"
 	"uuid"
 
@@ -29,15 +28,15 @@ const keyID = "test"
 
 // Keys is a throwaway signing key and the anchor set that verifies it.
 type Keys struct {
-	private ed25519.PrivateKey
+	private *mldsa.PrivateKey
 	// Anchors holds the matching public key.
 	Anchors license.Anchors
 }
 
 // NewKeys generates a fresh signing key.
 func NewKeys() Keys {
-	pub, priv := lo.Must2(ed25519.GenerateKey(rand.Reader))
-	return Keys{private: priv, Anchors: license.Anchors{keyID: pub}}
+	priv := lo.Must(mldsa.GenerateKey(mldsa.MLDSA44()))
+	return Keys{private: priv, Anchors: license.Anchors{keyID: priv.PublicKey()}}
 }
 
 // Sign signs lic under the key.

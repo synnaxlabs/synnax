@@ -17,13 +17,13 @@ reverse. Nothing connects a person to a machine or a machine to a license.
 This RFC adds that connection. A portal at portal.synnaxlabs.com, an Astro app in
 `site/portal/` deployed apart from the docs, holds accounts through Clerk and
 organizations and licenses in Neon Postgres. The Core gains one license primitive: a JWT
-signed with Ed25519, bound to a machine, and verified offline with public keys compiled
-into the binary. Two paths issue that token. The free edition, Synnax Desktop, signs the
-user in through the system browser and receives a short-lived license that renews while
-signed in. The enterprise edition, the standalone Core, activates through a start flag
-or the Console with a license that staff issued in the portal. Downloads stay public,
-the Core never phones home, a running Core never stops because of time, and the old key
-format is deleted.
+signed with ML-DSA-44, a post-quantum signature, bound to a machine, and verified
+offline with public keys compiled into the binary. Two paths issue that token. The free
+edition, Synnax Desktop, signs the user in through the system browser and receives a
+short-lived license that renews while signed in. The enterprise edition, the standalone
+Core, activates through a start flag or the Console with a license that staff issued in
+the portal. Downloads stay public, the Core never phones home, a running Core never
+stops because of time, and the old key format is deleted.
 
 ## 1 Motivation
 
@@ -125,12 +125,13 @@ keyless 50-channel tier is removed.
 
 ### 5.1 The license token
 
-A license is a JWS compact token: a JWT signed with `EdDSA` over Ed25519, the format
-Grafana Enterprise ships. The Core verifies it with `golang-jwt`, and the portal signs
-it with `jose`. The header carries `alg: EdDSA` and `kid`. The Core embeds a small set
-of public keys by `kid`, the anchors. Rotation adds a key to the set in one release and
-moves signing to it. A compromised key leaves the set in the next release, and the
-licenses signed under it are issued again.
+A license is a JWS compact token: a JWT signed with ML-DSA-44 from FIPS 204, which a
+quantum computer cannot forge. The signature is 2,420 bytes, so a token runs to about
+3,700 characters. `golang-jwt` has no ML-DSA method, so the Core builds and checks the
+three parts itself with Go's `crypto/mldsa`. The header carries `alg: ML-DSA-44` and
+`kid`. The Core embeds a small set of public keys by `kid`, the anchors. Rotation adds a
+key to the set in one release and moves signing to it. A compromised key leaves the set
+in the next release, and the licenses signed under it are issued again.
 
 The claims are defined once, in `schemas/synnax/license.oracle`, which generates the Go,
 TypeScript, and Python `License` types. The portal's signer uses the TypeScript type.
@@ -167,13 +168,15 @@ read as version `1`. Verification also refuses a token that has neither `exp` no
 
 `Sign(priv, kid, license)` and `Verify(anchors, token)` live in the Core's `license`
 package, and only tests call `Sign`. Production signing happens in AWS KMS under an
-`ECC_NIST_EDWARDS25519` key, so the private key never exists in plaintext. The portal
-calls KMS `Sign` with `MessageType: RAW` over the signing input `jose` produces.
+`ML_DSA_44` key, so the private key never exists in plaintext. The portal calls KMS
+`Sign` with `ML_DSA_SHAKE_256` and `MessageType: RAW` over the signing input it builds.
 
 ### 5.2 Fingerprint
 
 Scheme 1 lists the network interfaces, drops loopback, point-to-point, and interfaces
-without a hardware address, and hashes each address with SHA-256 to lowercase hex. The
+without a hardware address, and hashes each address to lowercase hex with Argon2id: one
+pass, 4 MiB, and a fixed salt. A hardware address has few possible values, so a fast
+hash gives the address back in seconds. Argon2id makes each guess cost milliseconds. The
 license carries the set seen at issuance. A token applies when that set shares a hash
 with the machine's current set, FlexNet's "any listed host id" rule, so a new USB
 adapter or a swapped Wi-Fi card does not break a license. A machine with no hashes, such
@@ -482,8 +485,11 @@ new clients decode it.
 2. **One signed offline token**: Online validation makes a running Core depend on our
    uptime and rules out air-gapped sites. Keygen would replace the signer but not the
    portal, the verifier, or the identity model.
-3. **A standard JWT**: The Core already verifies EdDSA JWTs, and `kid` gives key
-   rotation. A custom frame would make every parsing edge ours.
+3. **A standard JWT signed with ML-DSA**: `kid` gives key rotation, and the three-part
+   frame is a published format any language can build. A forged token buys nothing that
+   patching public source does not, by principle 3, but a post-quantum signature settles
+   the question in security reviews. The trade is real: a token grows from about 500
+   characters to about 3,700.
 4. **Claims evolve additively**: New claims are optional, restrictive ones also go in
    `required`, and `claims_version` changes only for a break. An older Core keeps
    working on a newer token and never honors less than the token demands.

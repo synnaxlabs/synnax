@@ -10,9 +10,12 @@
 package license_test
 
 import (
-	"crypto/ed25519"
-	"crypto/rand"
+	"crypto/mldsa"
+	"encoding/base64"
 	"encoding/binary"
+	"encoding/hex"
+	"encoding/json"
+	"net"
 	"reflect"
 	"strings"
 	"sync"
@@ -20,15 +23,16 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/golang-jwt/jwt/v5"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"golang.org/x/crypto/argon2"
 )
 
 const keyID = "test"
@@ -73,7 +77,7 @@ func newLicense() license.License {
 var _ = Describe("License", func() {
 	var (
 		db      kv.DB
-		private ed25519.PrivateKey
+		private *mldsa.PrivateKey
 		anchors license.Anchors
 		cfg     license.ServiceConfig
 	)
@@ -95,9 +99,8 @@ var _ = Describe("License", func() {
 	}
 	BeforeEach(func() {
 		db = DeferClose(memkv.New())
-		public, priv := MustSucceed2(ed25519.GenerateKey(rand.Reader))
-		private = priv
-		anchors = license.Anchors{keyID: public}
+		private = MustSucceed(mldsa.GenerateKey(mldsa.MLDSA44()))
+		anchors = license.Anchors{keyID: private.PublicKey()}
 		cfg = license.ServiceConfig{
 			DB:      db,
 			Anchors: anchors,
@@ -147,20 +150,39 @@ var _ = Describe("License", func() {
 		It("should reject an unknown key", func() {
 			Expect(license.Verify(
 				license.Anchors{"other": anchors[keyID]}, sign(newLicense()),
-			)).Error().To(MatchError(license.ErrInvalid))
+			)).Error().To(And(
+				MatchError(license.ErrInvalid),
+				MatchError(ContainSubstring(`unknown key "test"`)),
+			))
 		})
 		It("should reject a token signed under another algorithm", func() {
-			tk := jwt.NewWithClaims(
-				jwt.SigningMethodHS256,
-				jwt.MapClaims{"claims_version": 1},
+			parts := strings.Split(sign(newLicense()), ".")
+			parts[0] = base64.RawURLEncoding.EncodeToString(
+				[]byte(`{"alg":"EdDSA","typ":"JWT","kid":"test"}`),
 			)
-			tk.Header["kid"] = keyID
-			s := MustSucceed(tk.SignedString([]byte(anchors[keyID])))
-			Expect(license.Verify(anchors, s)).Error().
+			Expect(license.Verify(anchors, strings.Join(parts, "."))).Error().To(And(
+				MatchError(license.ErrInvalid),
+				MatchError(ContainSubstring(`unsupported algorithm "EdDSA"`)),
+			))
+		})
+		It("should reject a token whose claims changed after signing", func() {
+			lic := newLicense()
+			parts := strings.Split(sign(lic), ".")
+			lic.Channels = 1000
+			parts[1] = base64.RawURLEncoding.EncodeToString(
+				MustSucceed(json.Marshal(lic)),
+			)
+			Expect(license.Verify(anchors, strings.Join(parts, "."))).Error().
 				To(MatchError(license.ErrInvalid))
 		})
+		It("should reject a token without three parts", func() {
+			Expect(license.Verify(anchors, "a.b")).Error().To(And(
+				MatchError(license.ErrInvalid),
+				MatchError(ContainSubstring("a token has three parts")),
+			))
+		})
 		It("should reject a token signed by another key", func() {
-			_, other := MustSucceed2(ed25519.GenerateKey(rand.Reader))
+			other := MustSucceed(mldsa.GenerateKey(mldsa.MLDSA44()))
 			s := MustSucceed(license.Sign(other, keyID, newLicense()))
 			Expect(license.Verify(anchors, s)).Error().
 				To(MatchError(license.ErrInvalid))
@@ -296,9 +318,9 @@ var _ = Describe("License", func() {
 			"should skip a stored entry that no longer verifies",
 			func(ctx SpecContext) {
 				store(ctx, newLicense())
-				other, _ := MustSucceed2(ed25519.GenerateKey(rand.Reader))
+				other := MustSucceed(mldsa.GenerateKey(mldsa.MLDSA44()))
 				svc := open(ctx, license.ServiceConfig{
-					Anchors: license.Anchors{keyID: other},
+					Anchors: license.Anchors{keyID: other.PublicKey()},
 				})
 				Expect(svc.Retrieve().State).To(Equal(license.StateMissing))
 				Expect(svc.Check()).To(MatchError(license.ErrMissing))
@@ -593,6 +615,25 @@ var _ = Describe("License", func() {
 			lic := newLicense()
 			lic.Fingerprints = []string{"0000", fingerprint[len(fingerprint)-1]}
 			MustSucceed(svc.Activate(ctx, sign(lic)))
+		})
+		It("should hash each hardware address with Argon2id", func() {
+			var expected []string
+			for _, iface := range MustSucceed(net.Interfaces()) {
+				if iface.Flags&(net.FlagLoopback|net.FlagPointToPoint) != 0 ||
+					len(iface.HardwareAddr) == 0 {
+					continue
+				}
+				sum := argon2.IDKey(
+					[]byte(iface.HardwareAddr.String()),
+					[]byte("synnax-license-fingerprint"),
+					1,
+					4*1024,
+					1,
+					32,
+				)
+				expected = append(expected, hex.EncodeToString(sum))
+			}
+			Expect(svc.Retrieve().Fingerprint).To(ConsistOf(lo.Uniq(expected)))
 		})
 		It("should refuse hashes from a scheme this Core does not implement", func(
 			ctx SpecContext,
