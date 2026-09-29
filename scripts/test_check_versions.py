@@ -19,11 +19,7 @@ NODE_DIRS = [
     "alamos/ts",
     "arc/ts",
     "client/ts",
-    "drift",
     "freighter/ts",
-    "lyra",
-    "pluto",
-    "x/media",
     "x/ts",
 ]
 CPP_VERSION = "client/cpp/version/VERSION"
@@ -102,10 +98,10 @@ class TestTrainRule:
         assert repo.check().returncode != 0
 
     def test_should_reject_a_split(self, repo: Repo) -> None:
-        repo.manifests("0.58.4", pluto="0.59.0")
+        repo.manifests("0.58.4", **{"client/ts": "0.59.0"})
         result = repo.check()
         assert result.returncode != 0
-        assert "Node (" in result.stderr and "pluto" in result.stderr
+        assert "Node (" in result.stderr and "client/ts" in result.stderr
 
     def test_should_reject_a_split_cpp_client(self, repo: Repo) -> None:
         repo.manifests("0.58.4", cpp="0.59.0")

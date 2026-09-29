@@ -1,6 +1,5 @@
 {
   "name": "@synnaxlabs/lyra",
-  "version": "0.58.1",
   "private": true,
   "type": "module",
   "sideEffects": [
@@ -70,11 +69,6 @@
     "vite": "catalog:",
     "vitest": "catalog:"
   },
-  "files": [
-    "dist",
-    "!**/*.spec.*",
-    "!dist/eslint.config.*"
-  ],
   "exports": {
     "./avatar": {
       "types": "./dist/src/avatar/index.d.ts",
@@ -253,15 +247,5 @@
       "default": "./dist/video.js"
     },
     "./dist/*": "./dist/*"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/synnaxlabs/synnax.git",
-    "directory": "lyra"
-  },
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/synnaxlabs/synnax/issues"
-  },
-  "homepage": "https://github.com/synnaxlabs/synnax#readme"
+  }
 }

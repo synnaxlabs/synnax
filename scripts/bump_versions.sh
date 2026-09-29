@@ -78,11 +78,7 @@ NODE_DIRS=(
     "$ROOT_DIR/alamos/ts"
     "$ROOT_DIR/arc/ts"
     "$ROOT_DIR/client/ts"
-    "$ROOT_DIR/drift"
     "$ROOT_DIR/freighter/ts"
-    "$ROOT_DIR/lyra"
-    "$ROOT_DIR/pluto"
-    "$ROOT_DIR/x/media"
     "$ROOT_DIR/x/ts"
 )
 for d in "${NODE_DIRS[@]}"; do
