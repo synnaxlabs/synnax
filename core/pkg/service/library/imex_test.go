@@ -44,9 +44,11 @@ var _ = Describe("ImEx", func() {
 		Expect(env.Version).To(Equal(versions.Latest))
 		Expect(env.Type).To(Equal("library"))
 		Expect(env.Name).To(Equal("Exported"))
-		id := MustSucceed(imexSvc.Import(ctx, db, WireRoundTrip(env), imex.ImportOptions{
-			Parent: ontology.RootID,
-		}))
+		id := MustSucceed(
+			imexSvc.Import(ctx, db, WireRoundTrip(env), imex.ImportOptions{
+				Parent: ontology.RootID,
+			}),
+		)
 		Expect(id.Type).To(Equal(ontology.ResourceTypeLibrary))
 		key := MustSucceed(uuid.Parse(id.Key))
 		DeferCleanup(func(ctx SpecContext) {
@@ -62,8 +64,11 @@ var _ = Describe("ImEx", func() {
 		Expect(library.Hash(res)).To(Equal(MustSucceed(library.Hash(lib))))
 	})
 
-	It("Should return not found when exporting a missing library", func(ctx SpecContext) {
-		Expect(svc.Export(ctx, library.OntologyID(uuid.New()))).
-			Error().To(MatchError(query.ErrNotFound))
-	})
+	It(
+		"Should return not found when exporting a missing library",
+		func(ctx SpecContext) {
+			Expect(svc.Export(ctx, library.OntologyID(uuid.New()))).
+				Error().To(MatchError(query.ErrNotFound))
+		},
+	)
 })

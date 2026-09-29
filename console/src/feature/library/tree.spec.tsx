@@ -84,10 +84,11 @@ describe("Library tree", () => {
     fireEvent.click(await screen.findByText("Delete"));
     await screen.findByText(`Are you sure you want to delete ${lib.name}?`);
     fireEvent.click(findLastButton("Delete"));
-    await waitFor(async () =>
-      await expect(client.libraries.retrieve({ key: lib.key })).rejects.toSatisfy((e) =>
-        NotFoundError.matches(e),
-      ),
+    await waitFor(
+      async () =>
+        await expect(client.libraries.retrieve({ key: lib.key })).rejects.toSatisfy(
+          (e) => NotFoundError.matches(e),
+        ),
     );
   });
 

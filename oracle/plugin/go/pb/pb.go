@@ -700,8 +700,12 @@ func (p *Plugin) processFieldForTranslation(
 		if typeRef.Name == "uuid" {
 			deref = uuidFieldDeref
 		}
-		fd.ForwardExpr, fd.BackwardExpr, _, fd.HasBackwardError =
-			p.generatePrimitiveConversion(typeRef.Name, deref, pbFieldDeref, data)
+		fd.ForwardExpr, fd.BackwardExpr, _, fd.HasBackwardError = p.generatePrimitiveConversion(
+			typeRef.Name,
+			deref,
+			pbFieldDeref,
+			data,
+		)
 		fd.BackwardCast = ""
 	}
 
@@ -725,10 +729,13 @@ func (p *Plugin) processFieldForTranslation(
 			case resolution.AliasForm:
 				if form.Target.Name == "uuid" {
 					fd.NeedsPtrConversion = true
-					fd.ForwardExpr, fd.BackwardExpr, _, fd.HasBackwardError =
-						p.generateAliasConversion(
-							resolved, form, data, uuidFieldDeref, pbFieldDeref,
-						)
+					fd.ForwardExpr, fd.BackwardExpr, _, fd.HasBackwardError = p.generateAliasConversion(
+						resolved,
+						form,
+						data,
+						uuidFieldDeref,
+						pbFieldDeref,
+					)
 					fd.BackwardCast = ""
 				}
 			}

@@ -65,27 +65,35 @@ var _ = Describe("Task references", func() {
 		Expect(svc.NewWriter(tx).Create(ctx, &lib)).To(Succeed())
 	})
 
-	It("Should stamp the library hash into a task config on write", func(ctx SpecContext) {
-		t := createUsingTask(ctx, lib.Key)
-		hash := MustSucceed(library.Hash(lib))
-		Expect(t.Config).To(HaveKeyWithValue("library_hash", hash))
-		Expect(retrieveTask(ctx, t.Key).Config).To(HaveKeyWithValue("library_hash", hash))
-	})
+	It(
+		"Should stamp the library hash into a task config on write",
+		func(ctx SpecContext) {
+			t := createUsingTask(ctx, lib.Key)
+			hash := MustSucceed(library.Hash(lib))
+			Expect(t.Config).To(HaveKeyWithValue("library_hash", hash))
+			Expect(
+				retrieveTask(ctx, t.Key).Config,
+			).To(HaveKeyWithValue("library_hash", hash))
+		},
+	)
 
 	It("Should relate the task to the library it uses", func(ctx SpecContext) {
 		t := createUsingTask(ctx, lib.Key)
 		Expect(retrieveUsers(ctx, lib.Key)).To(ConsistOf(t.OntologyID()))
 	})
 
-	It("Should move the relationship when the task switches libraries", func(ctx SpecContext) {
-		t := createUsingTask(ctx, lib.Key)
-		other := library.Library{Name: "Other"}
-		Expect(svc.NewWriter(tx).Create(ctx, &other)).To(Succeed())
-		t.Config = msgpack.EncodedJSON{"library": other.Key.String()}
-		Expect(taskSvc.NewWriter(tx).Create(ctx, &t)).To(Succeed())
-		Expect(retrieveUsers(ctx, lib.Key)).To(BeEmpty())
-		Expect(retrieveUsers(ctx, other.Key)).To(ConsistOf(t.OntologyID()))
-	})
+	It(
+		"Should move the relationship when the task switches libraries",
+		func(ctx SpecContext) {
+			t := createUsingTask(ctx, lib.Key)
+			other := library.Library{Name: "Other"}
+			Expect(svc.NewWriter(tx).Create(ctx, &other)).To(Succeed())
+			t.Config = msgpack.EncodedJSON{"library": other.Key.String()}
+			Expect(taskSvc.NewWriter(tx).Create(ctx, &t)).To(Succeed())
+			Expect(retrieveUsers(ctx, lib.Key)).To(BeEmpty())
+			Expect(retrieveUsers(ctx, other.Key)).To(ConsistOf(t.OntologyID()))
+		},
+	)
 
 	It("Should reject a task that references a missing library", func(ctx SpecContext) {
 		t := task.Task{
@@ -100,29 +108,35 @@ var _ = Describe("Task references", func() {
 		)))
 	})
 
-	It("Should re-stamp every task that uses a library when it changes", func(ctx SpecContext) {
-		first := createUsingTask(ctx, lib.Key)
-		second := createUsingTask(ctx, lib.Key)
-		m := messageOf(lib, 0)
-		f := binaryFieldOf(m, 0)
-		f.Scale = 0.5
-		m.Fields[0].Variant = f
-		lib.Entries[0].Variant = m
-		Expect(svc.NewWriter(tx).Create(ctx, &lib)).To(Succeed())
-		hash := MustSucceed(library.Hash(lib))
-		for _, t := range []task.Task{first, second} {
-			res := retrieveTask(ctx, t.Key)
-			Expect(res.Config).To(HaveKeyWithValue("library_hash", hash))
-			Expect(res.ConfigHash).ToNot(Equal(t.ConfigHash))
-		}
-	})
+	It(
+		"Should re-stamp every task that uses a library when it changes",
+		func(ctx SpecContext) {
+			first := createUsingTask(ctx, lib.Key)
+			second := createUsingTask(ctx, lib.Key)
+			m := messageOf(lib, 0)
+			f := binaryFieldOf(m, 0)
+			f.Scale = 0.5
+			m.Fields[0].Variant = f
+			lib.Entries[0].Variant = m
+			Expect(svc.NewWriter(tx).Create(ctx, &lib)).To(Succeed())
+			hash := MustSucceed(library.Hash(lib))
+			for _, t := range []task.Task{first, second} {
+				res := retrieveTask(ctx, t.Key)
+				Expect(res.Config).To(HaveKeyWithValue("library_hash", hash))
+				Expect(res.ConfigHash).ToNot(Equal(t.ConfigHash))
+			}
+		},
+	)
 
-	It("Should leave the task config hash alone when only the name changes", func(ctx SpecContext) {
-		t := createUsingTask(ctx, lib.Key)
-		lib.Name = "Renamed"
-		Expect(svc.NewWriter(tx).Create(ctx, &lib)).To(Succeed())
-		Expect(retrieveTask(ctx, t.Key).ConfigHash).To(Equal(t.ConfigHash))
-	})
+	It(
+		"Should leave the task config hash alone when only the name changes",
+		func(ctx SpecContext) {
+			t := createUsingTask(ctx, lib.Key)
+			lib.Name = "Renamed"
+			Expect(svc.NewWriter(tx).Create(ctx, &lib)).To(Succeed())
+			Expect(retrieveTask(ctx, t.Key).ConfigHash).To(Equal(t.ConfigHash))
+		},
+	)
 
 	It("Should relate a copied task to the library", func(ctx SpecContext) {
 		t := createUsingTask(ctx, lib.Key)
@@ -139,9 +153,12 @@ var _ = Describe("Task references", func() {
 		))
 	})
 
-	It("Should allow deleting a library once its tasks are deleted", func(ctx SpecContext) {
-		t := createUsingTask(ctx, lib.Key)
-		Expect(taskSvc.NewWriter(tx).Delete(ctx, t.Key, false)).To(Succeed())
-		Expect(svc.NewWriter(tx).Delete(ctx, lib.Key)).To(Succeed())
-	})
+	It(
+		"Should allow deleting a library once its tasks are deleted",
+		func(ctx SpecContext) {
+			t := createUsingTask(ctx, lib.Key)
+			Expect(taskSvc.NewWriter(tx).Delete(ctx, t.Key, false)).To(Succeed())
+			Expect(svc.NewWriter(tx).Delete(ctx, lib.Key)).To(Succeed())
+		},
+	)
 })

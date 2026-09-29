@@ -43,9 +43,7 @@
           "units": "degC",
           "choices": null,
           "multiplexor": "Mode",
-          "multiplex_values": [
-            0
-          ]
+          "multiplex_values": [0]
         },
         {
           "name": "Pressure",
@@ -59,9 +57,7 @@
           "units": "kPa",
           "choices": null,
           "multiplexor": "Mode",
-          "multiplex_values": [
-            1
-          ]
+          "multiplex_values": [1]
         },
         {
           "name": "Humidity",
@@ -75,9 +71,7 @@
           "units": "%",
           "choices": null,
           "multiplexor": "Mode",
-          "multiplex_values": [
-            1
-          ]
+          "multiplex_values": [1]
         },
         {
           "name": "Uptime",

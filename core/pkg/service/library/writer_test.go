@@ -28,7 +28,7 @@ func enumEntry(name string, values ...library.EnumValue) library.Entry {
 
 func binaryField(name string, startBit uint16, bitLength uint8) library.BinaryField {
 	return library.BinaryField{
-		BaseField: library.BaseField{Name: name},
+		Name:      name,
 		StartBit:  startBit,
 		BitLength: bitLength,
 		ByteOrder: library.ByteOrderLittleEndian,
@@ -41,8 +41,8 @@ func messageEntry(m library.MessageEntry) library.Entry {
 
 func binaryMessage(name string, fields ...library.BinaryField) library.MessageEntry {
 	m := library.MessageEntry{
-		BaseEntry: library.BaseEntry{Name: name},
-		Format:    library.FormatBinary,
+		Name:   name,
+		Format: library.FormatBinary,
 	}
 	for _, f := range fields {
 		m.Fields = append(m.Fields, library.Field{Variant: f})
@@ -50,7 +50,11 @@ func binaryMessage(name string, fields ...library.BinaryField) library.MessageEn
 	return m
 }
 
-func canMessage(name string, id uint32, fields ...library.BinaryField) library.MessageEntry {
+func canMessage(
+	name string,
+	id uint32,
+	fields ...library.BinaryField,
+) library.MessageEntry {
 	m := binaryMessage(name, fields...)
 	m.Identifier = &library.Identifier{Variant: library.CanIdentifier{ID: id}}
 	m.Length = new(uint16(8))
@@ -67,38 +71,48 @@ func binaryFieldOf(m library.MessageEntry, i int) library.BinaryField {
 
 var _ = Describe("Writer", func() {
 	Describe("Create", func() {
-		It("Should create a library with keys for it, its entries, and fields", func(ctx SpecContext) {
-			l := library.Library{
-				Name: "Engine",
-				Entries: []library.Entry{
-					enumEntry("State", library.EnumValue{Value: 0, Name: "Off"}),
-					messageEntry(canMessage("Status", 0x100, binaryField("rpm", 0, 16))),
-				},
-			}
-			Expect(svc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
-			Expect(l.Key).ToNot(Equal(uuid.Nil()))
-			Expect(l.Entries[0].Variant.(library.EnumEntry).Key).ToNot(Equal(uuid.Nil()))
-			m := messageOf(l, 1)
-			Expect(m.Key).ToNot(Equal(uuid.Nil()))
-			Expect(binaryFieldOf(m, 0).Key).ToNot(Equal(uuid.Nil()))
-			var res library.Library
-			Expect(svc.NewRetrieve().
-				Where(library.MatchKeys(l.Key)).
-				Entry(&res).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(res).To(Equal(l))
-		})
+		It(
+			"Should create a library with keys for it, its entries, and fields",
+			func(ctx SpecContext) {
+				l := library.Library{
+					Name: "Engine",
+					Entries: []library.Entry{
+						enumEntry("State", library.EnumValue{Value: 0, Name: "Off"}),
+						messageEntry(
+							canMessage("Status", 0x100, binaryField("rpm", 0, 16)),
+						),
+					},
+				}
+				Expect(svc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
+				Expect(l.Key).ToNot(Equal(uuid.Nil()))
+				Expect(
+					l.Entries[0].Variant.(library.EnumEntry).Key,
+				).ToNot(Equal(uuid.Nil()))
+				m := messageOf(l, 1)
+				Expect(m.Key).ToNot(Equal(uuid.Nil()))
+				Expect(binaryFieldOf(m, 0).Key).ToNot(Equal(uuid.Nil()))
+				var res library.Library
+				Expect(svc.NewRetrieve().
+					Where(library.MatchKeys(l.Key)).
+					Entry(&res).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res).To(Equal(l))
+			},
+		)
 
 		It("Should apply schema defaults to entries and fields", func(ctx SpecContext) {
 			m := library.MessageEntry{
-				BaseEntry: library.BaseEntry{Name: "Line"},
-				Format:    library.FormatText,
+				Name:   "Line",
+				Format: library.FormatText,
 				Fields: []library.Field{{Variant: library.DelimitedField{
 					BaseField: library.BaseField{Name: "temperature"},
 					Position:  1,
 				}}},
 			}
-			l := library.Library{Name: "Sensor", Entries: []library.Entry{messageEntry(m)}}
+			l := library.Library{
+				Name:    "Sensor",
+				Entries: []library.Entry{messageEntry(m)},
+			}
 			Expect(svc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
 			res := messageOf(l, 0)
 			Expect(res.Delimiter).To(Equal(","))
@@ -116,27 +130,32 @@ var _ = Describe("Writer", func() {
 			Expect(res.Name).To(Equal("Ontology"))
 		})
 
-		It("Should keep entry and field keys when replacing a library", func(ctx SpecContext) {
-			l := library.Library{
-				Name: "Replace",
-				Entries: []library.Entry{
-					messageEntry(canMessage("Status", 0x100, binaryField("rpm", 0, 16))),
-				},
-			}
-			w := svc.NewWriter(tx)
-			Expect(w.Create(ctx, &l)).To(Succeed())
-			entryKey := messageOf(l, 0).Key
-			fieldKey := binaryFieldOf(messageOf(l, 0), 0).Key
-			m := messageOf(l, 0)
-			f := binaryFieldOf(m, 0)
-			f.Scale = 0.25
-			m.Fields[0].Variant = f
-			l.Entries[0].Variant = m
-			Expect(w.Create(ctx, &l)).To(Succeed())
-			Expect(messageOf(l, 0).Key).To(Equal(entryKey))
-			Expect(binaryFieldOf(messageOf(l, 0), 0).Key).To(Equal(fieldKey))
-			Expect(binaryFieldOf(messageOf(l, 0), 0).Scale).To(Equal(0.25))
-		})
+		It(
+			"Should keep entry and field keys when replacing a library",
+			func(ctx SpecContext) {
+				l := library.Library{
+					Name: "Replace",
+					Entries: []library.Entry{
+						messageEntry(
+							canMessage("Status", 0x100, binaryField("rpm", 0, 16)),
+						),
+					},
+				}
+				w := svc.NewWriter(tx)
+				Expect(w.Create(ctx, &l)).To(Succeed())
+				entryKey := messageOf(l, 0).Key
+				fieldKey := binaryFieldOf(messageOf(l, 0), 0).Key
+				m := messageOf(l, 0)
+				f := binaryFieldOf(m, 0)
+				f.Scale = 0.25
+				m.Fields[0].Variant = f
+				l.Entries[0].Variant = m
+				Expect(w.Create(ctx, &l)).To(Succeed())
+				Expect(messageOf(l, 0).Key).To(Equal(entryKey))
+				Expect(binaryFieldOf(messageOf(l, 0), 0).Key).To(Equal(fieldKey))
+				Expect(binaryFieldOf(messageOf(l, 0), 0).Scale).To(Equal(0.25))
+			},
+		)
 
 		DescribeTable("Should reject an invalid library",
 			func(ctx SpecContext, l library.Library, msg string) {
@@ -229,11 +248,13 @@ var _ = Describe("Writer", func() {
 				library.Library{Name: "L", Entries: []library.Entry{messageEntry(
 					func() library.MessageEntry {
 						m := binaryMessage("M")
-						m.Identifier = &library.Identifier{Variant: library.Mil1553Identifier{
-							Rt:        1,
-							Direction: library.DirectionReceive,
-							WordCount: 33,
-						}}
+						m.Identifier = &library.Identifier{
+							Variant: library.Mil1553Identifier{
+								Rt:        1,
+								Direction: library.DirectionReceive,
+								WordCount: 33,
+							},
+						}
 						return m
 					}(),
 				)}},
@@ -243,10 +264,12 @@ var _ = Describe("Writer", func() {
 				library.Library{Name: "L", Entries: []library.Entry{messageEntry(
 					func() library.MessageEntry {
 						m := binaryMessage("M")
-						m.Identifier = &library.Identifier{Variant: library.Arinc429Identifier{
-							Label: 0o203,
-							Sdi:   4,
-						}}
+						m.Identifier = &library.Identifier{
+							Variant: library.Arinc429Identifier{
+								Label: 0o203,
+								Sdi:   4,
+							},
+						}
 						return m
 					}(),
 				)}},
@@ -269,7 +292,10 @@ var _ = Describe("Writer", func() {
 					func() library.MessageEntry {
 						m := binaryMessage("M", binaryField("a", 0, 8))
 						m.Identifier = &library.Identifier{
-							Variant: library.FieldIdentifier{Field: uuid.New(), Value: 1},
+							Variant: library.FieldIdentifier{
+								Field: uuid.New(),
+								Value: 1,
+							},
 						}
 						return m
 					}(),
@@ -279,8 +305,8 @@ var _ = Describe("Writer", func() {
 			Entry("text field in a binary message",
 				library.Library{Name: "L", Entries: []library.Entry{messageEntry(
 					library.MessageEntry{
-						BaseEntry: library.BaseEntry{Name: "M"},
-						Format:    library.FormatBinary,
+						Name:   "M",
+						Format: library.FormatBinary,
 						Fields: []library.Field{{Variant: library.DelimitedField{
 							BaseField: library.BaseField{Name: "a"},
 						}}},
@@ -291,8 +317,8 @@ var _ = Describe("Writer", func() {
 			Entry("tagged field without a tag",
 				library.Library{Name: "L", Entries: []library.Entry{messageEntry(
 					library.MessageEntry{
-						BaseEntry: library.BaseEntry{Name: "M"},
-						Format:    library.FormatText,
+						Name:   "M",
+						Format: library.FormatText,
 						Fields: []library.Field{{Variant: library.TaggedField{
 							BaseField: library.BaseField{Name: "a"},
 						}}},
@@ -336,24 +362,30 @@ var _ = Describe("Writer", func() {
 			),
 		)
 
-		It("Should accept a multiplexed message referencing an enum", func(ctx SpecContext) {
-			state := enumEntry("State", library.EnumValue{Value: 1, Name: "On"})
-			stateKey := uuid.New()
-			en := state.Variant.(library.EnumEntry)
-			en.Key = stateKey
-			state.Variant = en
-			mux := binaryField("mux", 0, 8)
-			mux.Key = uuid.New()
-			sig := binaryField("sig", 8, 8)
-			sig.Multiplexor = new(mux.Key)
-			sig.MultiplexValues = []int32{0, 2}
-			sig.Enumeration = new(stateKey)
-			l := library.Library{
-				Name:    "Mux",
-				Entries: []library.Entry{state, messageEntry(canMessage("M", 1, mux, sig))},
-			}
-			Expect(svc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
-		})
+		It(
+			"Should accept a multiplexed message referencing an enum",
+			func(ctx SpecContext) {
+				state := enumEntry("State", library.EnumValue{Value: 1, Name: "On"})
+				stateKey := uuid.New()
+				en := state.Variant.(library.EnumEntry)
+				en.Key = stateKey
+				state.Variant = en
+				mux := binaryField("mux", 0, 8)
+				mux.Key = uuid.New()
+				sig := binaryField("sig", 8, 8)
+				sig.Multiplexor = new(mux.Key)
+				sig.MultiplexValues = []int32{0, 2}
+				sig.Enumeration = new(stateKey)
+				l := library.Library{
+					Name: "Mux",
+					Entries: []library.Entry{
+						state,
+						messageEntry(canMessage("M", 1, mux, sig)),
+					},
+				}
+				Expect(svc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
+			},
+		)
 	})
 
 	Describe("Rename", func() {
@@ -396,37 +428,71 @@ var _ = Describe("Writer", func() {
 	})
 
 	Describe("Retrieve", func() {
-		It("Should find a library by a fuzzy search on its name", func(ctx SpecContext) {
-			l := library.Library{Name: "Flight Controls ICD"}
-			Expect(svc.NewWriter(nil).Create(ctx, &l)).To(Succeed())
-			DeferCleanup(func(ctx SpecContext) {
-				Expect(svc.NewWriter(nil).Delete(ctx, l.Key)).To(Succeed())
-			})
-			Eventually(func(g Gomega) {
-				var res []library.Library
-				g.Expect(svc.NewRetrieve().
-					Search("flight controls").
-					Entries(&res).
-					Exec(ctx, nil)).To(Succeed())
-				g.Expect(res).To(ContainElement(HaveField("Key", l.Key)))
-			}).Should(Succeed())
-		})
+		It(
+			"Should find a library by a fuzzy search on its name",
+			func(ctx SpecContext) {
+				l := library.Library{Name: "Flight Controls ICD"}
+				Expect(svc.NewWriter(nil).Create(ctx, &l)).To(Succeed())
+				DeferCleanup(func(ctx SpecContext) {
+					Expect(svc.NewWriter(nil).Delete(ctx, l.Key)).To(Succeed())
+				})
+				Eventually(func(g Gomega) {
+					var res []library.Library
+					g.Expect(svc.NewRetrieve().
+						Search("flight controls").
+						Entries(&res).
+						Exec(ctx, nil)).To(Succeed())
+					g.Expect(res).To(ContainElement(HaveField("Key", l.Key)))
+				}).Should(Succeed())
+			},
+		)
 	})
 })
 
 var _ = Describe("LastByte", func() {
-	DescribeTable("Should return the last byte a binary field touches",
+	DescribeTable(
+		"Should return the last byte a binary field touches",
 		func(startBit uint16, bitLength uint8, order library.ByteOrder, expected int) {
 			f := binaryField("a", startBit, bitLength)
 			f.ByteOrder = order
 			Expect(library.LastByte(f)).To(Equal(expected))
 		},
-		Entry("little-endian byte", uint16(0), uint8(8), library.ByteOrderLittleEndian, 0),
-		Entry("little-endian across bytes", uint16(4), uint8(8), library.ByteOrderLittleEndian, 1),
-		Entry("little-endian last bit", uint16(63), uint8(1), library.ByteOrderLittleEndian, 7),
+		Entry(
+			"little-endian byte",
+			uint16(0),
+			uint8(8),
+			library.ByteOrderLittleEndian,
+			0,
+		),
+		Entry(
+			"little-endian across bytes",
+			uint16(4),
+			uint8(8),
+			library.ByteOrderLittleEndian,
+			1,
+		),
+		Entry(
+			"little-endian last bit",
+			uint16(63),
+			uint8(1),
+			library.ByteOrderLittleEndian,
+			7,
+		),
 		Entry("big-endian byte", uint16(7), uint8(8), library.ByteOrderBigEndian, 0),
 		Entry("big-endian word", uint16(7), uint8(16), library.ByteOrderBigEndian, 1),
-		Entry("big-endian from a mid-byte MSB", uint16(3), uint8(8), library.ByteOrderBigEndian, 1),
-		Entry("big-endian last byte", uint16(63), uint8(8), library.ByteOrderBigEndian, 7),
+		Entry(
+			"big-endian from a mid-byte MSB",
+			uint16(3),
+			uint8(8),
+			library.ByteOrderBigEndian,
+			1,
+		),
+		Entry(
+			"big-endian last byte",
+			uint16(63),
+			uint8(8),
+			library.ByteOrderBigEndian,
+			7,
+		),
 	)
 })
