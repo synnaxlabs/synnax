@@ -27,7 +27,7 @@ const KEY_FILE = "synnax-desktop.license";
 export interface LinkProps {
   state: string;
   fingerprint: string[];
-  /** name is the hostname the app reported; shown so the person knows what links. */
+  /** name is the hostname the app reported. */
   name: string;
   email: string;
   /** problem is why the page cannot link, when the query did not come from the app. */

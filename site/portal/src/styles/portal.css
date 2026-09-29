@@ -228,7 +228,6 @@ section.portal {
     padding: 8rem 4rem;
 }
 
-/* A square tile that sets an icon apart above a title. */
 .portal-tile {
     display: flex;
     align-items: center;

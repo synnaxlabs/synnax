@@ -30,7 +30,6 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 /** TERM_MS is how long a desktop license runs before it needs a renewal. */
 export const TERM_MS = 30 * DAY_MS;
 
-/** mintSecret returns a fresh renewal secret for one machine. */
 export const mintSecret = (): string => randomBytes(32).toString("base64url");
 
 /** hashSecret is what the activation row stores in place of the secret. */

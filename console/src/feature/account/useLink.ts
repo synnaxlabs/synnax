@@ -25,8 +25,7 @@ const FAILED_MESSAGE = "Failed to log in";
  * refused.
  */
 export const useLink = (deps: Link.Deps = Link.DEFAULT_DEPS): void => {
-  // While early returns are usually bad in hooks, this is fine because the engine is a
-  // constant and so the hook will be the exact same for a given runtime.
+  // The engine is fixed per runtime, so this early return never changes the hook order.
   if (deps.engine !== "tauri") return;
   const handleError = Status.useErrorHandler();
   const dispatch = Session.useDispatch();
@@ -48,7 +47,6 @@ export const useLink = (deps: Link.Deps = Link.DEFAULT_DEPS): void => {
     }
   };
 
-  // Handles the case where the app is opened from a link
   useAsyncEffect(async (signal) => {
     const urls = await deps.getCurrentURLs();
     // A hard reload re-runs this effect with the same launch link; skip it once.
@@ -60,7 +58,6 @@ export const useLink = (deps: Link.Deps = Link.DEFAULT_DEPS): void => {
     receive(urls);
   }, []);
 
-  // Handles the case where the app is open and a link gets called
   useAsyncEffect(async () => await deps.onOpenURL(receive), []);
 
   // A launch link can land before the embedded Core answers, so the license key waits

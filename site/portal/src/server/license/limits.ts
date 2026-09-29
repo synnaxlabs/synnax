@@ -10,5 +10,4 @@
 // The browser imports this file, so it must not import anything that reaches the
 // database.
 
-/** MAX_NAME_LENGTH bounds the name a machine carries in the ledger. */
 export const MAX_NAME_LENGTH = 64;
