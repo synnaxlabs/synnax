@@ -76,14 +76,15 @@ class NoDevice(HardwareCase, ConsoleCase):
         """Configure without defining channels"""
         ni_ai.deploy(expect=None)
 
-        # Assert error notification
-        notifications = self.console.notifications.check(timeout=5)
-        msg = notifications[0]["message"]
         msg_expected = "Failed to start task"
-        assert msg_expected == msg, (
-            f"Notification msg is <{msg}>, should be <{msg_expected}>"
+        assert self.console.notifications.wait_for(msg_expected), (
+            f"No <{msg_expected}> notification appeared"
         )
-        desc = notifications[0].get("description")
+        notifications = self.console.notifications.check()
+        matches = [n for n in notifications if n.get("message") == msg_expected]
+        messages = [n.get("message") for n in notifications]
+        assert matches, f"Notifications {messages} should include <{msg_expected}>"
+        desc = matches[0].get("description")
         desc_expected = "No devices selected"
         assert desc_expected == desc, (
             f"Notification description is <{desc}>, should be <{desc_expected}>"

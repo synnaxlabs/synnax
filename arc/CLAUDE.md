@@ -13,7 +13,7 @@ functions. Language spec: `arc/docs/spec.md`.
   Arc task (`driver/arc/`).
 - `arc/ts` — `@synnaxlabs/arc`: grammar/syntax utilities for editors.
 
-## Language Gotchas
+## Language gotchas
 
 - Logical operators (`and`/`or`/`not`) take `bool` only. `^` is exponentiation; there
   are no bitwise operators.

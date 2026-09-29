@@ -16,21 +16,13 @@ import { type Spec } from "@/schematic/node/spec";
 
 export * from "@/schematic/node/groupBox/config";
 
-const NAME = "Group";
-
-export const defaultConfig = (): Config => ({
-  variant: VARIANT,
-  members: [],
-});
-
 const Preview = (): ReactElement => <div />;
 
 export const spec: Spec<typeof VARIANT, Config> = {
   key: VARIANT,
-  name: NAME,
+  name: "Group",
   Form: GroupBoxForm,
   Node: Symbol,
   Preview,
-  defaultConfig,
   zIndex: -1,
 };

@@ -28,8 +28,8 @@ describe("table action wire decode", () => {
               rows: [{ size: 36, cells: ["UnSv19BHjPB", "SMm7XhRkCJM"] }],
               columns: [{ size: 72 }, { size: 72 }],
               cells: {
-                UnSv19BHjPB: { key: "UnSv19BHjPB", variant: "value", props: {} },
-                SMm7XhRkCJM: { key: "SMm7XhRkCJM", variant: "value", props: {} },
+                UnSv19BHjPB: { variant: "value" },
+                SMm7XhRkCJM: { variant: "value" },
               },
             },
           },
@@ -49,6 +49,6 @@ describe("table action wire decode", () => {
       "UnSv19BHjPB",
       "SMm7XhRkCJM",
     ]);
-    expect(action.create.table.cells.UnSv19BHjPB.key).toEqual("UnSv19BHjPB");
+    expect(action.create.table.cells.UnSv19BHjPB.variant).toEqual("value");
   });
 });

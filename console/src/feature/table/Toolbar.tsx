@@ -10,22 +10,18 @@
 import "@/feature/table/Table.css";
 
 import { table } from "@synnaxlabs/client";
-import {
-  Access,
-  Breadcrumb,
-  Color,
-  Flex,
-  Form,
-  Icon,
-  Input,
-  Panel as PPanel,
-  Select,
-  Table,
-  Text,
-  Theming,
-} from "@synnaxlabs/pluto";
-import { color, deep, record, type text } from "@synnaxlabs/x";
+import { Breadcrumb } from "@synnaxlabs/lyra/breadcrumb";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Theming } from "@synnaxlabs/lyra/theming";
+import { Access, Color, Panel as PPanel, Table } from "@synnaxlabs/pluto";
+import { color, deep, type text } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
+import { type z } from "zod";
 
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
@@ -101,18 +97,17 @@ export const Toolbar: Panel.Toolbar = () => {
 const buildVariantSwapActions = (
   cells: Iterable<[string, Table.Cell.Config]>,
   variant: Table.Cell.Variant,
-  theme: Theming.Theme,
 ): table.Action[] => {
   const spec = Table.Cell.REGISTRY[variant];
   const actions: table.Action[] = [];
   for (const [key, cell] of cells) {
     if (cell.variant === variant) continue;
-    const props = deep.overrideValidItems(
-      cell.props,
-      spec.defaultProps(theme),
-      spec.schema,
+    const config = deep.overrideValidItems(
+      cell,
+      Table.Cell.defaultConfig(variant),
+      spec.schema as z.ZodType<Table.Cell.Config>,
     );
-    actions.push(table.setCell({ cell: { key, variant, props } }));
+    actions.push(table.setCell({ cell: { key, config } }));
   }
   return actions;
 };
@@ -124,31 +119,29 @@ interface CellFormProps {
 const CellForm = ({ cellKey }: CellFormProps): ReactElement | null => {
   const cell = Table.useCell({ cellKey });
   const dispatch = Table.useSingleDispatch();
-  const theme = Theming.use();
 
   const handleVariantChange = useCallback(
     (variant: Table.Cell.Variant) => {
-      if (cell != null)
-        dispatch(buildVariantSwapActions([[cellKey, cell]], variant, theme));
+      if (cell != null) dispatch(buildVariantSwapActions([[cellKey, cell]], variant));
     },
-    [cell, cellKey, dispatch, theme],
+    [cell, cellKey, dispatch],
   );
 
   const handleChange = useCallback(
-    ({ values }: Form.OnChangeParams<ReturnType<typeof record.unknownZ>>) => {
+    ({ values }: Form.OnChangeParams<typeof Table.Cell.configZ>) => {
       if (cell == null) return;
       dispatch([
         table.setCell({
-          cell: { key: cellKey, variant: cell.variant, props: deep.copy(values) },
+          cell: { key: cellKey, config: Table.Cell.configZ.parse(values) },
         }),
       ]);
     },
     [cell, cellKey, dispatch],
   );
 
-  const methods = Form.use<ReturnType<typeof record.unknownZ>>({
-    values: cell != null ? deep.copy(cell.props) : {},
-    schema: record.unknownZ(),
+  const methods = Form.use<typeof Table.Cell.configZ>({
+    values: cell != null ? deep.copy(cell) : Table.Cell.defaultConfig("text"),
+    schema: Table.Cell.configZ,
     onChange: handleChange,
     sync: true,
   });
@@ -156,7 +149,7 @@ const CellForm = ({ cellKey }: CellFormProps): ReactElement | null => {
   if (cell == null) return null;
   const C = Table.Cell.REGISTRY[cell.variant];
   return (
-    <Form.Form<ReturnType<typeof record.unknownZ>> {...methods}>
+    <Form.Form<typeof Table.Cell.configZ> {...methods}>
       <C.Form onVariantChange={handleVariantChange} />
     </Form.Form>
   );
@@ -185,21 +178,21 @@ const NotEditableContent = ({ name }: NotEditableContentProps): ReactElement => 
   );
 };
 
-const readCellColor = (cell: Table.Cell.Config): color.Hex | null => {
+// An unset color reads as the fallback the single-cell form shows, so uncolored cells
+// still get a swatch.
+const readCellColor = (cell: Table.Cell.Config, theme: Theming.Theme): color.Hex => {
   switch (cell.variant) {
     case "text":
-      return cell.props.backgroundColor == null
-        ? null
-        : color.hex(cell.props.backgroundColor);
+      return color.hex(cell.backgroundColor ?? color.ZERO);
     case "value":
-      return color.hex(cell.props.color);
+      return color.hex(cell.color ?? theme.colors.gray.l11);
   }
 };
 
 const cellColorPatch = (
   cell: Table.Cell.Config,
   next: color.Color,
-): Partial<record.Unknown> => {
+): Partial<Table.Cell.Config> => {
   switch (cell.variant) {
     case "text":
       return { backgroundColor: next };
@@ -215,14 +208,13 @@ interface MultiCellFormProps {
 const MultiCellForm = ({ cellKeys }: MultiCellFormProps): ReactElement => {
   const cellsByKey = Table.useCells({ cellKeys });
   const dispatch = Table.useSingleDispatch();
-  const theme = Theming.use();
 
   // Cells absent from the store are skipped (selection may include keys from
   // a removed row). One dispatch per call so undo collapses to one step.
   const applyPropPatch = useCallback(
     (
       keys: string[],
-      patch: (cell: Table.Cell.Config) => Partial<record.Unknown> | null,
+      patch: (cell: Table.Cell.Config) => Partial<Table.Cell.Config> | null,
     ) => {
       const actions: table.Action[] = [];
       for (const key of keys) {
@@ -232,11 +224,7 @@ const MultiCellForm = ({ cellKeys }: MultiCellFormProps): ReactElement => {
         if (next == null) continue;
         actions.push(
           table.setCell({
-            cell: {
-              key,
-              variant: cell.variant,
-              props: { ...cell.props, ...next },
-            },
+            cell: { key, config: Table.Cell.configZ.parse({ ...cell, ...next }) },
           }),
         );
       }
@@ -255,22 +243,22 @@ const MultiCellForm = ({ cellKeys }: MultiCellFormProps): ReactElement => {
 
   const handleVariantChange = useCallback(
     (variant: Table.Cell.Variant) => {
-      dispatch(buildVariantSwapActions(cellsByKey, variant, theme));
+      dispatch(buildVariantSwapActions(cellsByKey, variant));
     },
-    [cellsByKey, dispatch, theme],
+    [cellsByKey, dispatch],
   );
 
+  const theme = Theming.use();
   const colorGroups = useMemo(() => {
     const groups = new Map<color.Hex, string[]>();
     cellsByKey.forEach((cell, key) => {
-      const hex = readCellColor(cell);
-      if (hex == null) return;
+      const hex = readCellColor(cell, theme);
       const existing = groups.get(hex);
       if (existing != null) existing.push(key);
       else groups.set(hex, [key]);
     });
     return groups;
-  }, [cellsByKey]);
+  }, [cellsByKey, theme]);
 
   const handleColorChange = useCallback(
     (groupKeys: string[], next: color.Color) =>
@@ -281,8 +269,8 @@ const MultiCellForm = ({ cellKeys }: MultiCellFormProps): ReactElement => {
   const commonLevel = useMemo((): text.Level | undefined => {
     let result: text.Level | undefined;
     for (const cell of cellsByKey.values())
-      if (result == null) result = cell.props.level;
-      else if (result !== cell.props.level) return undefined;
+      if (result == null) result = cell.level;
+      else if (result !== cell.level) return undefined;
 
     return result;
   }, [cellsByKey]);
@@ -293,34 +281,33 @@ const MultiCellForm = ({ cellKeys }: MultiCellFormProps): ReactElement => {
   );
 
   return (
-    <Flex.Box
-      x
-      align="start"
-      gap="large"
-      className={CSS.BE("table", "multi-cell-form")}
-    >
-      <Input.Item label="Variant" padHelpText={false}>
-        <Table.Cell.SelectVariant
-          value={commonVariant ?? undefined}
-          onChange={handleVariantChange}
-        />
-      </Input.Item>
-      {colorGroups.size > 0 && (
-        <Input.Item label="Selection colors" align="start" padHelpText={false}>
-          <Flex.Box x>
-            {Array.from(colorGroups.entries()).map(([hex, keys]) => (
-              <Color.Swatch
-                key={keys[0]}
-                value={hex}
-                onChange={(c: color.Color) => handleColorChange(keys, c)}
-              />
-            ))}
-          </Flex.Box>
+    <Form.Sections x>
+      <Form.Section title="Cell">
+        <Input.Item label="Variant" padHelpText={false}>
+          <Table.Cell.SelectVariant
+            value={commonVariant ?? undefined}
+            onChange={handleVariantChange}
+          />
         </Input.Item>
-      )}
-      <Input.Item label="Size" padHelpText={false}>
-        <Select.Text.Level value={commonLevel} onChange={handleLevelChange} />
-      </Input.Item>
-    </Flex.Box>
+      </Form.Section>
+      <Form.Section title="Appearance">
+        {colorGroups.size > 0 && (
+          <Input.Item label="Selection colors" padHelpText={false}>
+            <Flex.Box x>
+              {Array.from(colorGroups.entries()).map(([hex, keys]) => (
+                <Color.Swatch
+                  key={keys[0]}
+                  value={hex}
+                  onChange={(c: color.Color) => handleColorChange(keys, c)}
+                />
+              ))}
+            </Flex.Box>
+          </Input.Item>
+        )}
+        <Input.Item label="Size" padHelpText={false}>
+          <Select.Text.Level value={commonLevel} onChange={handleLevelChange} />
+        </Input.Item>
+      </Form.Section>
+    </Form.Sections>
   );
 };

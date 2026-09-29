@@ -32,18 +32,11 @@ describe("getStage", () => {
   });
 });
 
-describe("wrapNumericTimeRangeToStage", () => {
+describe("moveToStage", () => {
   let original: NumericTimeRange;
   let now: TimeStamp;
-  let modified: NumericTimeRange;
-  let onChange: (v: NumericTimeRange) => void;
-  let onStageChange: (v: Ranger.Stage) => void = () => {};
-  let stage: Ranger.Stage | undefined;
   beforeEach(() => {
     now = TimeStamp.now();
-    onChange = (v) => {
-      modified = v;
-    };
   });
   describe("when now is before start", () => {
     beforeEach(() => {
@@ -51,27 +44,19 @@ describe("wrapNumericTimeRangeToStage", () => {
         start: now.add(TimeSpan.HOUR).nanoseconds,
         end: now.add(TimeSpan.HOUR.mult(2)).nanoseconds,
       };
-      ({ value: stage, onChange: onStageChange } = Ranger.wrapNumericTimeRangeToStage({
-        value: original,
-        onChange,
-      }));
-    });
-    it("correctly interprets the value as 'to_do'", () => {
-      expect(stage).toBe("to_do");
     });
     it("changes nothing when changing to 'to_do'", () => {
-      onStageChange("to_do");
-      expect(modified).toEqual(original);
+      expect(Ranger.moveToStage(original, "to_do")).toEqual(original);
     });
     it("only moves start time to now when changing to 'in_progress'", () => {
-      onStageChange("in_progress");
+      const modified = Ranger.moveToStage(original, "in_progress");
       expect(modified.end).toEqual(original.end);
       expect(new TimeStamp(modified.start).span(TimeStamp.now()).seconds).toBeLessThan(
         1,
       );
     });
     it("moves both start and end time to now when changing to 'completed'", () => {
-      onStageChange("completed");
+      const modified = Ranger.moveToStage(original, "completed");
       expect(new TimeStamp(modified.start).span(TimeStamp.now()).seconds).toBeLessThan(
         1,
       );
@@ -84,25 +69,17 @@ describe("wrapNumericTimeRangeToStage", () => {
         start: now.sub(TimeSpan.HOUR).nanoseconds,
         end: now.add(TimeSpan.HOUR).nanoseconds,
       };
-      ({ value: stage, onChange: onStageChange } = Ranger.wrapNumericTimeRangeToStage({
-        value: original,
-        onChange,
-      }));
-    });
-    it("correctly interprets the value as 'in_progress'", () => {
-      expect(stage).toBe("in_progress");
     });
     it("moves start time to end time when changing stage to 'to_do'", () => {
-      onStageChange("to_do");
+      const modified = Ranger.moveToStage(original, "to_do");
       expect(modified.start).toEqual(original.end);
       expect(modified.end).toEqual(original.end);
     });
     it("changes nothing when changing stage to 'in_progress'", () => {
-      onStageChange("in_progress");
-      expect(modified).toEqual(original);
+      expect(Ranger.moveToStage(original, "in_progress")).toEqual(original);
     });
     it("moves end time to now when changing to 'completed'", () => {
-      onStageChange("completed");
+      const modified = Ranger.moveToStage(original, "completed");
       expect(modified.start).toEqual(original.start);
       expect(new TimeStamp(modified.end).span(TimeStamp.now()).seconds).toBeLessThan(1);
     });
@@ -113,27 +90,19 @@ describe("wrapNumericTimeRangeToStage", () => {
         start: now.sub(TimeSpan.HOUR.mult(2)).nanoseconds,
         end: now.sub(TimeSpan.HOUR).nanoseconds,
       };
-      ({ value: stage, onChange: onStageChange } = Ranger.wrapNumericTimeRangeToStage({
-        value: original,
-        onChange,
-      }));
-    });
-    it("correctly interprets the value as 'completed'", () => {
-      expect(stage).toBe("completed");
     });
     it("moves both start and end times to TimeStamp.MAX when changing to 'to_do'", () => {
-      onStageChange("to_do");
+      const modified = Ranger.moveToStage(original, "to_do");
       expect(modified.start).toEqual(TimeStamp.MAX.nanoseconds);
       expect(modified.end).toEqual(TimeStamp.MAX.nanoseconds);
     });
     it("moves end time to TimeStamp.MAX when changing to 'in_progress'", () => {
-      onStageChange("in_progress");
+      const modified = Ranger.moveToStage(original, "in_progress");
       expect(modified.start).toEqual(original.start);
       expect(modified.end).toEqual(TimeStamp.MAX.nanoseconds);
     });
     it("changes nothing when changing to 'completed'", () => {
-      onStageChange("completed");
-      expect(modified).toEqual(original);
+      expect(Ranger.moveToStage(original, "completed")).toEqual(original);
     });
   });
 });

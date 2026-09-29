@@ -1,4 +1,4 @@
-# Modbus TCP Examples
+# Modbus TCP examples
 
 This directory contains example scripts for working with Modbus TCP devices in Synnax.
 
@@ -11,13 +11,13 @@ This directory contains example scripts for working with Modbus TCP devices in S
    - For testing: Modbus TCP test server (included in `examples/modbus/server.py`)
 3. **Authentication**: Logged in to Synnax CLI (`uv run sy login`)
 
-## Quick Start Guide
+## Quick start guide
 
 **Important**: All commands in this guide should be run from the `client/py` directory.
 
 Follow these scripts in order:
 
-### 1. Start the Test Server (Optional)
+### 1. Start the test server (optional)
 
 If you don't have a real Modbus device, start the included test server:
 
@@ -34,7 +34,7 @@ This server simulates:
 
 The server runs on `localhost:5020` by default.
 
-### 2. Connect Your Modbus Server
+### 2. Connect your Modbus server
 
 Register your Modbus TCP server with Synnax:
 
@@ -55,7 +55,7 @@ server:
 - `HOST`: IP address or hostname of the Modbus server
 - `PORT`: Modbus TCP port (typically 502 for production, 5020 for test server)
 
-### 3. Read Data from Modbus Registers
+### 3. Read data from Modbus registers
 
 Read data from input registers:
 
@@ -73,7 +73,7 @@ This example:
 **What you'll see**: Real-time values from input registers 0 and 1 (sine wave data from
 test server).
 
-### 4. Write Commands to Modbus
+### 4. Write commands to Modbus
 
 Send commands to coils and holding registers:
 
@@ -91,7 +91,7 @@ This example:
 **What you'll see**: Commands sent to both digital (coils) and analog (holding
 registers) outputs.
 
-### 5. Test Connection (Diagnostic)
+### 5. Test connection (diagnostic)
 
 Verify your Modbus setup:
 
@@ -106,7 +106,7 @@ This diagnostic script checks:
 - Channel creation
 - Configuration errors
 
-### 6. Delete Server (Cleanup)
+### 6. Delete server (cleanup)
 
 When finished, remove the server registration:
 
@@ -116,9 +116,9 @@ uv run python examples/modbus/delete_server.py
 
 This will remove the server and all associated tasks from Synnax.
 
-## Modbus Register Types
+## Modbus register types
 
-### Read-Only Registers
+### Read-only registers
 
 - **Input Registers** (16-bit): Read-only analog values
   - Function code: 0x04 (Read Input Registers)
@@ -128,7 +128,7 @@ This will remove the server and all associated tasks from Synnax.
   - Function code: 0x02 (Read Discrete Inputs)
   - Typical use: Switch states, digital sensors
 
-### Read-Write Registers
+### Read-write registers
 
 - **Holding Registers** (16-bit): Read-write analog values
   - Function code: 0x03 (Read), 0x06/0x10 (Write)
@@ -138,9 +138,9 @@ This will remove the server and all associated tasks from Synnax.
   - Function code: 0x01 (Read), 0x05/0x0F (Write)
   - Typical use: Digital outputs, relays, control signals
 
-## Channel Types
+## Channel types
 
-### Read Channels
+### Read channels
 
 - **InputChannelRegisterInput** (type="register_input"): Input register (16-bit
   read-only)
@@ -165,7 +165,7 @@ This will remove the server and all associated tasks from Synnax.
   - Address: Modbus coil address
   - Use for reading digital output states
 
-### Write Channels
+### Write channels
 
 - **OutputChannelHoldingRegisterOutput** (type="holding_register_output"): Holding
   register output (16-bit)
@@ -178,7 +178,7 @@ This will remove the server and all associated tasks from Synnax.
   - Address: Modbus coil address
   - Use for digital control (relays, solenoids, etc.)
 
-## Byte and Word Swapping
+## Byte and word swapping
 
 Modbus supports different byte orderings. Configure in `device_props`:
 
@@ -198,7 +198,7 @@ Common configurations:
 - **Mid-big-endian**: `swap_bytes=False, swap_words=True`
 - **Mid-little-endian**: `swap_bytes=True, swap_words=False`
 
-## Sample Rates
+## Sample rates
 
 - **Typical rates**: 1-100 Hz for most Modbus devices
 - **Fast devices**: Up to 1 kHz for high-speed Modbus
@@ -244,13 +244,13 @@ sampling with 10 Hz streaming sends every sample immediately.
 - Verify the device supports the requested Modbus function codes
 - Some devices have connection limits - check concurrent connections
 
-## Additional Resources
+## Additional resources
 
 - [Modbus Protocol Specification](https://modbus.org/specs.php)
 - [Synnax Modbus Driver Documentation](https://docs.synnaxlabs.com/reference/driver/modbus/)
 - [libmodbus Documentation](https://libmodbus.org/)
 
-## Next Steps
+## Next steps
 
 After running these examples, you can:
 

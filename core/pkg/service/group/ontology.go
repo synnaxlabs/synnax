@@ -13,8 +13,8 @@ import (
 	"context"
 	"io"
 	"iter"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
@@ -45,13 +45,13 @@ func OntologyIDsFromGroups(groups []Group) []ontology.ID {
 // field with validate.PathedError.
 func KeyFromOntologyID(id ontology.ID) (Key, error) {
 	if id.Type != ontology.ResourceTypeGroup {
-		return uuid.Nil, errors.Wrapf(
+		return uuid.Nil(), errors.Wrapf(
 			validate.ErrValidation, "must be a group, got %q", id.Type,
 		)
 	}
 	key, err := uuid.Parse(id.Key)
 	if err != nil {
-		return uuid.Nil, errors.Wrapf(
+		return uuid.Nil(), errors.Wrapf(
 			validate.ErrValidation, "invalid group key %q: %v", id.Key, err,
 		)
 	}

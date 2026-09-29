@@ -12,6 +12,7 @@
 #include <atomic>
 #include <condition_variable>
 #include <functional>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -20,6 +21,7 @@
 #include "google/protobuf/empty.pb.h"
 
 #include "freighter/cpp/freighter.h"
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/clock_skew.h"
 #include "x/cpp/telem/telem.h"
 

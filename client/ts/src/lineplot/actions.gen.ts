@@ -365,7 +365,50 @@ export const removeRulePayloadZ = z.object({
 
 export type RemoveRulePayload = z.infer<typeof removeRulePayloadZ>;
 
-export const actionZ = z.discriminatedUnion("type", [
+export type Action =
+  | { type: "create"; create: CreatePayload }
+  | { type: "rename"; rename: RenamePayload }
+  | { type: "set_title_visible"; setTitleVisible: SetTitleVisiblePayload }
+  | { type: "set_title_level"; setTitleLevel: SetTitleLevelPayload }
+  | { type: "set_legend_hidden"; setLegendHidden: SetLegendHiddenPayload }
+  | { type: "set_legend_position"; setLegendPosition: SetLegendPositionPayload }
+  | { type: "add_channel"; addChannel: AddChannelPayload }
+  | { type: "remove_channel"; removeChannel: RemoveChannelPayload }
+  | { type: "set_channels"; setChannels: SetChannelsPayload }
+  | { type: "set_x_channel"; setXChannel: SetXChannelPayload }
+  | { type: "add_range"; addRange: AddRangePayload }
+  | { type: "remove_range"; removeRange: RemoveRangePayload }
+  | { type: "set_ranges"; setRanges: SetRangesPayload }
+  | { type: "set_custom_range"; setCustomRange: SetCustomRangePayload }
+  | { type: "set_axis_label"; setAxisLabel: SetAxisLabelPayload }
+  | {
+      type: "set_axis_label_direction";
+      setAxisLabelDirection: SetAxisLabelDirectionPayload;
+    }
+  | { type: "set_axis_label_level"; setAxisLabelLevel: SetAxisLabelLevelPayload }
+  | { type: "set_axis_bounds"; setAxisBounds: SetAxisBoundsPayload }
+  | { type: "set_axis_tick_spacing"; setAxisTickSpacing: SetAxisTickSpacingPayload }
+  | { type: "set_axis_type"; setAxisType: SetAxisTypePayload }
+  | { type: "set_line_label"; setLineLabel: SetLineLabelPayload }
+  | { type: "set_line_color"; setLineColor: SetLineColorPayload }
+  | { type: "set_line_stroke_width"; setLineStrokeWidth: SetLineStrokeWidthPayload }
+  | { type: "set_line_downsample"; setLineDownsample: SetLineDownsamplePayload }
+  | {
+      type: "set_line_downsample_mode";
+      setLineDownsampleMode: SetLineDownsampleModePayload;
+    }
+  | { type: "set_line"; setLine: SetLinePayload }
+  | { type: "set_rule"; setRule: SetRulePayload }
+  | { type: "set_rule_label"; setRuleLabel: SetRuleLabelPayload }
+  | { type: "set_rule_color"; setRuleColor: SetRuleColorPayload }
+  | { type: "set_rule_axis"; setRuleAxis: SetRuleAxisPayload }
+  | { type: "set_rule_line_width"; setRuleLineWidth: SetRuleLineWidthPayload }
+  | { type: "set_rule_line_dash"; setRuleLineDash: SetRuleLineDashPayload }
+  | { type: "set_rule_units"; setRuleUnits: SetRuleUnitsPayload }
+  | { type: "set_rule_position"; setRulePosition: SetRulePositionPayload }
+  | { type: "remove_rule"; removeRule: RemoveRulePayload };
+
+export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
   z.object({ type: z.literal("create"), create: createPayloadZ }),
   z.object({ type: z.literal("rename"), rename: renamePayloadZ }),
   z.object({
@@ -447,8 +490,6 @@ export const actionZ = z.discriminatedUnion("type", [
   }),
   z.object({ type: z.literal("remove_rule"), removeRule: removeRulePayloadZ }),
 ]);
-
-export type Action = z.infer<typeof actionZ>;
 
 export const create = (payload: z.input<typeof createPayloadZ>): Action => ({
   type: "create",

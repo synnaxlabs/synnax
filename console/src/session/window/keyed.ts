@@ -14,7 +14,7 @@ import {
 } from "@reduxjs/toolkit";
 import { UnexpectedError } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
-import { type require } from "@synnaxlabs/x";
+import { array, type require } from "@synnaxlabs/x";
 import type z from "zod";
 
 /**
@@ -171,7 +171,7 @@ type KeyActionMatcher = Pick<ActionCreatorWithPayload<OptionalKeyParams>, "match
 export const createInjectKeyMiddleware = <StoreState>(
   actionCreators: KeyActionMatcher | KeyActionMatcher[],
 ): Middleware<{}, Drift.StoreState & StoreState> => {
-  const creators = Array.isArray(actionCreators) ? actionCreators : [actionCreators];
+  const creators = array.toArray(actionCreators);
   const matches = (action: unknown): action is PayloadAction<OptionalKeyParams> =>
     creators.some((creator) => creator.match(action));
   return (store) => (next) => (action) => {

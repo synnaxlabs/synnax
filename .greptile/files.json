@@ -1,0 +1,40 @@
+{
+  "files": [
+    {
+      "path": "CONTRIBUTING.md",
+      "description": "Review tiers, pull request rules, and the dark-launch lane"
+    },
+    {
+      "path": "CLAUDE.md",
+      "description": "Code style and architectural principles for every language"
+    },
+    {
+      "path": "docs/claude/architecture.md",
+      "description": "System design, layering, and data flow"
+    },
+    {
+      "path": "docs/claude/testing.md",
+      "description": "Testing rules across languages"
+    },
+    {
+      "path": "docs/claude/toolchains/go.md",
+      "description": "Go rules",
+      "scope": ["**/*.go"]
+    },
+    {
+      "path": "docs/claude/toolchains/typescript.md",
+      "description": "TypeScript rules",
+      "scope": ["**/*.ts", "**/*.tsx"]
+    },
+    {
+      "path": "docs/claude/toolchains/python.md",
+      "description": "Python rules",
+      "scope": ["**/*.py"]
+    },
+    {
+      "path": "docs/claude/toolchains/cpp.md",
+      "description": "C++ rules",
+      "scope": ["**/*.cpp", "**/*.h"]
+    }
+  ]
+}

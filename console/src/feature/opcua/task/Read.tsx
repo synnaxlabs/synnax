@@ -10,7 +10,10 @@
 import "@/feature/opcua/task/Task.css";
 
 import { channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
-import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { caseconv, DataType, errors, primitive } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
@@ -108,11 +111,16 @@ const getChannelKeyAndID: ChannelKeyAndIDGetter<ReadChannel> = ({ channel, key }
   id: Task.getChannelNameID(key),
 });
 
+const resolve = (device: Device.Device, { nodeId }: ReadChannel) => ({
+  channel: getChannelByNodeID(device.properties, nodeId),
+});
+
 const TaskForm: FC = createForm<ReadChannel>({
   convertHaulItemToChannel,
   getChannelKeyAndID,
   contextMenuItems: Task.readChannelContextMenuItem,
   children: isIndexItem,
+  resolve,
 });
 
 const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({

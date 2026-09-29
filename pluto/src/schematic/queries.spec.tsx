@@ -301,7 +301,7 @@ describe("schematic queries", () => {
           actions: [
             schematic.setNode({
               node: { key: "g1", position: { x: 0, y: 0 } },
-              config: { variant: "groupBox", members: ["n1", "n2"] },
+              config: { variant: "group_box", members: ["n1", "n2"] },
             }),
           ],
         });
@@ -534,6 +534,85 @@ describe("schematic queries", () => {
     });
   });
 
+  describe("useDispatch — edge color preprocess", () => {
+    const EDGE: schematic.Edge = {
+      key: "e2",
+      source: { node: "n1", param: "out" },
+      target: { node: "n2", param: "in" },
+    };
+
+    let schem: schematic.Schematic;
+    let getEdgeCfg: () => schematic.ElementConfig | undefined;
+    let dispatch: (...actions: schematic.Action[]) => Promise<void>;
+    let cleanup: () => void;
+
+    beforeEach(async () => {
+      schem = await createTestSchematic(proj.key);
+      const loadUtils = await loadSchematic(Wrapper, schem.key);
+      const edge = renderHook(
+        () => Schematic.useElementConfig({ key: schem.key, elKey: EDGE.key }),
+        { wrapper: Wrapper },
+      );
+      const disp = renderHook(() => Schematic.useDispatch(), { wrapper: Wrapper });
+      getEdgeCfg = () => edge.result.current;
+      dispatch = async (...actions) =>
+        await act(async () => {
+          await disp.result.current.dispatchAsync({ key: schem.key, actions });
+        });
+      cleanup = () => {
+        edge.unmount();
+        disp.unmount();
+        loadUtils.unmount();
+      };
+    });
+
+    afterEach(() => cleanup());
+
+    it("fills a new edge's color from its source symbol", async () => {
+      await dispatch(
+        schematic.setConfig({
+          key: "n1",
+          config: { variant: "tank", color: "#00ff00" },
+        }),
+      );
+      await dispatch(
+        schematic.addEdge({ edge: EDGE }),
+        schematic.setConfig({ key: EDGE.key, config: { variant: "pipe" } }),
+      );
+      await waitFor(() =>
+        expect(getEdgeCfg()).toMatchObject({ variant: "pipe", color: [0, 255, 0, 1] }),
+      );
+    });
+
+    it("keeps the color a new edge's config chose", async () => {
+      await dispatch(
+        schematic.setConfig({
+          key: "n1",
+          config: { variant: "tank", color: "#00ff00" },
+        }),
+      );
+      await dispatch(
+        schematic.addEdge({ edge: EDGE }),
+        schematic.setConfig({
+          key: EDGE.key,
+          config: { variant: "pipe", color: "#0000ff" },
+        }),
+      );
+      await waitFor(() =>
+        expect(getEdgeCfg()).toMatchObject({ variant: "pipe", color: [0, 0, 255, 1] }),
+      );
+    });
+
+    it("leaves a new edge alone when its source symbol has no color", async () => {
+      await dispatch(
+        schematic.addEdge({ edge: EDGE }),
+        schematic.setConfig({ key: EDGE.key, config: { variant: "pipe" } }),
+      );
+      await waitFor(() => expect(getEdgeCfg()).toMatchObject({ variant: "pipe" }));
+      expect(getEdgeCfg()).not.toHaveProperty("color");
+    });
+  });
+
   describe("useDispatch — edge segment preprocess", () => {
     const SEGMENTS: Schematic.Edge.Segmented.Segment[] = [
       { direction: "x", length: 50 },
@@ -596,7 +675,10 @@ describe("schematic queries", () => {
 
     it("adjusts a connected edge's stored segments when its source node moves", async () => {
       await dispatch(
-        schematic.setConfig({ key: "e1", config: { segments: SEGMENTS } }),
+        schematic.setConfig({
+          key: "e1",
+          config: { variant: "pipe", segments: SEGMENTS },
+        }),
       );
       await waitFor(() => expect(getEdgeCfg()?.segments).toEqual(SEGMENTS));
 
@@ -624,7 +706,10 @@ describe("schematic queries", () => {
 
     it("leaves edge segments alone when source and target move by equal deltas", async () => {
       await dispatch(
-        schematic.setConfig({ key: "e1", config: { segments: SEGMENTS } }),
+        schematic.setConfig({
+          key: "e1",
+          config: { variant: "pipe", segments: SEGMENTS },
+        }),
       );
       await waitFor(() => expect(getEdgeCfg()?.segments).toEqual(SEGMENTS));
 
@@ -650,7 +735,7 @@ describe("schematic queries", () => {
       await waitFor(() =>
         expect(getEdgeCfg()).toMatchObject({
           variant: "pipe",
-          color: "#ff00ff",
+          color: [255, 0, 255, 1],
           segments: SEGMENTS,
         }),
       );
@@ -661,7 +746,7 @@ describe("schematic queries", () => {
       await waitFor(() => {
         const cfg = getEdgeCfg();
         expect(cfg?.variant).toBe("pipe");
-        expect(cfg?.color).toBe("#ff00ff");
+        expect(cfg?.color).toEqual([255, 0, 255, 1]);
         expect(cfg?.segments?.[0]).toEqual({ direction: "x", length: 30 });
       });
     });
@@ -721,7 +806,10 @@ describe("schematic queries", () => {
       ];
 
       await dispatch(
-        schematic.setConfig({ key: "e1", config: { segments: longSegments } }),
+        schematic.setConfig({
+          key: "e1",
+          config: { variant: "pipe", segments: longSegments },
+        }),
       );
       await waitFor(() => expect(getEdgeCfg()?.segments).toEqual(longSegments));
 
@@ -787,7 +875,7 @@ describe("schematic queries", () => {
       const groupKey = selection[0];
       await waitFor(() => {
         const cfg = result.current.configs[groupKey] as GroupCfg | undefined;
-        expect(cfg?.variant).toEqual("groupBox");
+        expect(cfg?.variant).toEqual("group_box");
         expect(cfg?.members).toEqual(["n1", "n2"]);
         const groupNode = result.current.nodes.find((n) => n.key === groupKey);
         expect(groupNode?.zIndex).toEqual(-1);

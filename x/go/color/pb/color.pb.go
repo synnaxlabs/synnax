@@ -105,6 +105,79 @@ func (x *Color) GetA() float64 {
 	return 0
 }
 
+// Stop is a single color stop in a gradient.
+type Stop struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// key is the unique identifier for the stop.
+	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	// color is the color at this stop.
+	Color *Color `protobuf:"bytes,2,opt,name=color,proto3" json:"color,omitempty"`
+	// position is the normalized position of the stop along the gradient [0, 1].
+	Position float64 `protobuf:"fixed64,3,opt,name=position,proto3" json:"position,omitempty"`
+	// switched indicates whether the stop's color has been switched by the user.
+	Switched      *bool `protobuf:"varint,4,opt,name=switched,proto3,oneof" json:"switched,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Stop) Reset() {
+	*x = Stop{}
+	mi := &file_x_go_color_pb_color_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Stop) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Stop) ProtoMessage() {}
+
+func (x *Stop) ProtoReflect() protoreflect.Message {
+	mi := &file_x_go_color_pb_color_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Stop.ProtoReflect.Descriptor instead.
+func (*Stop) Descriptor() ([]byte, []int) {
+	return file_x_go_color_pb_color_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *Stop) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *Stop) GetColor() *Color {
+	if x != nil {
+		return x.Color
+	}
+	return nil
+}
+
+func (x *Stop) GetPosition() float64 {
+	if x != nil {
+		return x.Position
+	}
+	return 0
+}
+
+func (x *Stop) GetSwitched() bool {
+	if x != nil && x.Switched != nil {
+		return *x.Switched
+	}
+	return false
+}
+
 var File_x_go_color_pb_color_proto protoreflect.FileDescriptor
 
 const file_x_go_color_pb_color_proto_rawDesc = "" +
@@ -115,7 +188,13 @@ const file_x_go_color_pb_color_proto_rawDesc = "" +
 	"\x01r\x18\x01 \x01(\rR\x01r\x12\f\n" +
 	"\x01g\x18\x02 \x01(\rR\x01g\x12\f\n" +
 	"\x01b\x18\x03 \x01(\rR\x01b\x12\f\n" +
-	"\x01a\x18\x04 \x01(\x01R\x01aB\x88\x01\n" +
+	"\x01a\x18\x04 \x01(\x01R\x01a\"\x8b\x01\n" +
+	"\x04Stop\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12'\n" +
+	"\x05color\x18\x02 \x01(\v2\x11.x.color.pb.ColorR\x05color\x12\x1a\n" +
+	"\bposition\x18\x03 \x01(\x01R\bposition\x12\x1f\n" +
+	"\bswitched\x18\x04 \x01(\bH\x00R\bswitched\x88\x01\x01B\v\n" +
+	"\t_switchedB\x88\x01\n" +
 	"\x0ecom.x.color.pbB\n" +
 	"ColorProtoP\x01Z github.com/synnaxlabs/x/color/pb\xa2\x02\x03XCP\xaa\x02\n" +
 	"X.Color.Pb\xca\x02\n" +
@@ -133,16 +212,18 @@ func file_x_go_color_pb_color_proto_rawDescGZIP() []byte {
 	return file_x_go_color_pb_color_proto_rawDescData
 }
 
-var file_x_go_color_pb_color_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_x_go_color_pb_color_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_x_go_color_pb_color_proto_goTypes = []any{
 	(*Color)(nil), // 0: x.color.pb.Color
+	(*Stop)(nil),  // 1: x.color.pb.Stop
 }
 var file_x_go_color_pb_color_proto_depIdxs = []int32{
-	0, // [0:0] is the sub-list for method output_type
-	0, // [0:0] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	0, // 0: x.color.pb.Stop.color:type_name -> x.color.pb.Color
+	1, // [1:1] is the sub-list for method output_type
+	1, // [1:1] is the sub-list for method input_type
+	1, // [1:1] is the sub-list for extension type_name
+	1, // [1:1] is the sub-list for extension extendee
+	0, // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_x_go_color_pb_color_proto_init() }
@@ -150,13 +231,14 @@ func file_x_go_color_pb_color_proto_init() {
 	if File_x_go_color_pb_color_proto != nil {
 		return
 	}
+	file_x_go_color_pb_color_proto_msgTypes[1].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_x_go_color_pb_color_proto_rawDesc), len(file_x_go_color_pb_color_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   1,
+			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

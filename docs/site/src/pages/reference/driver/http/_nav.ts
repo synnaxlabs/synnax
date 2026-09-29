@@ -16,17 +16,17 @@ export const HTTP_NAV: PageNavNode = {
     {
       key: "/reference/driver/http/connect-server",
       href: "/reference/driver/http/connect-server",
-      name: "Connect to a Server",
+      name: "Connect to a server",
     },
     {
       key: "/reference/driver/http/read-task",
       href: "/reference/driver/http/read-task",
-      name: "Read Task",
+      name: "Read task",
     },
     {
       key: "/reference/driver/http/write-task",
       href: "/reference/driver/http/write-task",
-      name: "Write Task",
+      name: "Write task",
     },
   ],
 };

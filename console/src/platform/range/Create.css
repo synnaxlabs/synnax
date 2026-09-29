@@ -12,21 +12,7 @@
 .console-range-create-layout {
     width: 135rem;
 
-    .console-range-create-layout__stage {
-        width: 25rem;
-    }
-
     .console-range-create-layout__parent {
         width: fit-content;
-    }
-
-    .console-range-create-layout__time-range {
-        container-type: inline-size;
-    }
-}
-
-@container (max-width: 560px) {
-    .console-range-create-layout__time-range-arrow {
-        display: none;
     }
 }

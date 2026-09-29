@@ -9,14 +9,17 @@
 
 import { type ReactElement } from "react";
 
-import { Form } from "@/form";
+import {
+  NegatedSwitchField,
+  type NegatedSwitchFieldProps,
+} from "@/schematic/node/common/form/NegatedSwitch";
 
 export const ControlChipField = (
-  props: Partial<Form.SwitchFieldProps>,
+  props: Partial<NegatedSwitchFieldProps>,
 ): ReactElement => (
-  <Form.SwitchField
-    path="control.show"
-    label="Show control chip"
+  <NegatedSwitchField
+    path="control.hidden"
+    label="Control chip"
     hideIfNull
     optional
     padHelpText={false}

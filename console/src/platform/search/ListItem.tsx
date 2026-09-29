@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology } from "@synnaxlabs/client";
-import { type Icon, List, Text } from "@synnaxlabs/pluto";
+import { type Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type FC, useCallback } from "react";
 
 import { Palette } from "@/platform/palette";

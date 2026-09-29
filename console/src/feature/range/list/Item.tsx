@@ -8,17 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { ranger } from "@synnaxlabs/client";
-import {
-  Access,
-  Flex,
-  Form,
-  Input,
-  List,
-  Ranger,
-  Select,
-  Tag,
-  Telem,
-} from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Input } from "@synnaxlabs/lyra/input";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Tag } from "@synnaxlabs/lyra/tag";
+import { Telem } from "@synnaxlabs/lyra/telem";
+import { Access, Ranger } from "@synnaxlabs/pluto";
 import { type NumericTimeRange } from "@synnaxlabs/x";
 import { memo, type MouseEvent, useMemo } from "react";
 
@@ -98,11 +95,11 @@ const Base = ({
               showLabel={false}
             >
               {({ value, onChange }) => (
-                <Ranger.SelectStage
-                  {...Ranger.wrapNumericTimeRangeToStage({ value, onChange })}
-                  variant="floating"
+                <Ranger.StageButton
+                  value={value}
+                  onChange={onChange}
+                  iconOnly
                   disabled={!canEdit}
-                  triggerProps={{ variant: "text", iconOnly: true }}
                 />
               )}
             </Form.Field>

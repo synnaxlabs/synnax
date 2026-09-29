@@ -17,7 +17,7 @@ import numpy as np
 
 import synnax as sy
 from tests.latency.latency import Latency
-from x import get_cpu_cores, get_machine_info, get_memory_info, get_synnax_version
+from x import get_cpu_cores, get_machine_info, get_memory_info
 
 matplotlib.use("Agg")  # Use non-interactive backend
 
@@ -448,6 +448,7 @@ class DriverNIDigitalWrite(Latency):
             machine_desc += f", {cpu_cores} cores"
         if memory_info:
             machine_desc += f", {memory_info}"
+        core_version = self.client.connectivity.state.node_version
 
         plt.suptitle(
             "NI Digital Output Latency Analysis - Core vs Loop-back",
@@ -457,7 +458,7 @@ class DriverNIDigitalWrite(Latency):
         plt.figtext(
             0.5,
             0.92,
-            f"{machine_desc} | Platform Version: {get_synnax_version()}",
+            f"{machine_desc} | Platform Version: {core_version}",
             fontsize=10,
             ha="center",
         )

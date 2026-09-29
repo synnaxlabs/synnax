@@ -48,8 +48,5 @@ func GenerateAuto(cfg cert.FactoryConfig) error {
 	if err != nil {
 		return err
 	}
-	if err = factory.CreateCAPairIfMissing(); err != nil {
-		return err
-	}
-	return factory.CreateNodePairIfStale()
+	return factory.CreateAll()
 }

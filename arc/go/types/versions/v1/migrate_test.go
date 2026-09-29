@@ -20,6 +20,7 @@ import (
 // migrateType lifts a v0 type through MigrateParam, the package's exported
 // migration surface.
 func migrateType(ctx SpecContext, old v0.Type) v1.Type {
+	GinkgoHelper()
 	migrated := MustSucceed(v1.MigrateParam(ctx, v0.Param{Name: "p", Type: old}))
 	return migrated.Type
 }

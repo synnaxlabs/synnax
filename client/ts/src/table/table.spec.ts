@@ -17,6 +17,18 @@ import { createTestClient, expectDeleted } from "@/testutil";
 
 const client = createTestClient();
 
+// mkText and mkValue build fully-populated cell configs by running the variant
+// through its schema, filling the declared field defaults. Tests use them so
+// fixtures and round-trip assertions agree on the post-default shape.
+const mkText = (value?: string): table.CellConfig =>
+  table.cellConfigZ.parse(
+    value == null ? { variant: "text" } : { variant: "text", value },
+  );
+const mkValue = (units?: string): table.CellConfig =>
+  table.cellConfigZ.parse(
+    units == null ? { variant: "value" } : { variant: "value", units },
+  );
+
 describe("Table", () => {
   describe("create", () => {
     test("create one", async () => {
@@ -54,44 +66,50 @@ describe("Table", () => {
     });
   });
 
-  describe("cell props case preservation", () => {
-    test("preserves arbitrary key casing within cell props values", async () => {
-      const proj = await client.projects.create({ name: "CaseTest", layout: {} });
+  describe("cell config round-trip", () => {
+    test("round-trips a fully-populated value cell config", async () => {
+      const proj = await client.projects.create({ name: "ConfigTest", layout: {} });
       const t = await client.tables.create(proj.key, {
-        name: "CaseTest",
+        name: "ConfigTest",
         cells: {
           a: {
-            key: "a",
             variant: "value",
-            props: {
-              camelCaseKey: "value1",
-              PascalCaseKey: "value2",
-              snake_case_key: "value3",
-              nested: {
-                innerCamelCase: 123,
-                InnerPascalCase: { deepKey: true },
-              },
+            channel: 42,
+            rollingAverage: 5,
+            precision: 3,
+            notation: "scientific",
+            redline: {
+              bounds: { lower: 0, upper: 100 },
+              gradient: [],
             },
+            units: "psi",
+            stalenessTimeout: 5,
           },
         },
       });
       const retrieved = await client.tables.retrieve(t.key);
-      const props = retrieved.cells.a.props as Record<string, unknown>;
-      expect(props.camelCaseKey).toEqual("value1");
-      expect(props.PascalCaseKey).toEqual("value2");
-      expect(props.snake_case_key).toEqual("value3");
-      expect((props.nested as Record<string, unknown>).innerCamelCase).toEqual(123);
-      expect(
-        (
-          (props.nested as Record<string, unknown>).InnerPascalCase as Record<
-            string,
-            unknown
-          >
-        ).deepKey,
-      ).toEqual(true);
-      expect(Object.keys(props)).toContain("camelCaseKey");
-      expect(Object.keys(props)).toContain("PascalCaseKey");
-      expect(Object.keys(props)).toContain("snake_case_key");
+      const cfg = retrieved.cells.a;
+      expect(cfg.variant).toEqual("value");
+      if (cfg.variant !== "value") return;
+      expect(cfg.channel).toEqual(42);
+      expect(cfg.rollingAverage).toEqual(5);
+      expect(cfg.precision).toEqual(3);
+      expect(cfg.notation).toEqual("scientific");
+      expect(cfg.redline?.bounds).toEqual({ lower: 0, upper: 100 });
+      expect(cfg.units).toEqual("psi");
+      expect(cfg.stalenessTimeout).toEqual(5);
+    });
+
+    test("rejects a cell config that matches no variant", async () => {
+      const proj = await client.projects.create({ name: "BadConfig", layout: {} });
+      await expect(
+        client.tables.create(proj.key, {
+          name: "BadConfig",
+          cells: {
+            a: { variant: "hologram" } as unknown as table.CellConfig,
+          },
+        }),
+      ).rejects.toThrow();
     });
   });
 
@@ -103,8 +121,8 @@ describe("Table", () => {
         rows: [{ size: 30, cells: ["a", "b"] }],
         columns: [{ size: 80 }, { size: 100 }],
         cells: {
-          a: { key: "a", variant: "text", props: { value: "A" } },
-          b: { key: "b", variant: "text", props: { value: "B" } },
+          a: { variant: "text", value: "A" },
+          b: { variant: "text", value: "B" },
         },
       });
     };
@@ -123,15 +141,15 @@ describe("Table", () => {
           index: 1,
           size: 40,
           cells: [
-            { key: "c", variant: "text", props: { value: "C" } },
-            { key: "d", variant: "text", props: { value: "D" } },
+            { key: "c", config: mkText("C") },
+            { key: "d", config: mkText("D") },
           ],
         }),
       ]);
       const res = await client.tables.retrieve(t.key);
       expect(res.rows).toHaveLength(2);
       expect(res.rows[1].cells).toEqual(["c", "d"]);
-      expect(res.cells.c.props.value).toEqual("C");
+      expect(res.cells.c).toEqual(mkText("C"));
     });
 
     test("removeRow drops the row and its cells", async () => {
@@ -148,7 +166,7 @@ describe("Table", () => {
         table.addCol({
           index: 1,
           size: 90,
-          cells: [{ key: "mid-1", variant: "text", props: { value: "M1" } }],
+          cells: [{ key: "mid-1", config: mkText("M1") }],
         }),
       ]);
       const res = await client.tables.retrieve(t.key);
@@ -180,18 +198,17 @@ describe("Table", () => {
       const t = await createTable();
       await client.tables.dispatch(t.key, [
         table.setCell({
-          cell: { key: "a", variant: "value", props: { units: "psi" } },
+          cell: { key: "a", config: mkValue("psi") },
         }),
       ]);
       const res = await client.tables.retrieve(t.key);
-      expect(res.cells.a.variant).toEqual("value");
-      expect(res.cells.a.props.units).toEqual("psi");
+      expect(res.cells.a).toEqual(mkValue("psi"));
     });
 
     test("setCell is a no-op for an unknown key", async () => {
       const t = await createTable();
       await client.tables.dispatch(t.key, [
-        table.setCell({ cell: { key: "ghost", variant: "text", props: {} } }),
+        table.setCell({ cell: { key: "ghost", config: mkText() } }),
       ]);
       const res = await client.tables.retrieve(t.key);
       expect(res.cells.ghost).toBeUndefined();
@@ -206,19 +223,18 @@ describe("Table", () => {
           index: 1,
           size: 40,
           cells: [
-            { key: "c", variant: "text", props: {} },
-            { key: "d", variant: "text", props: {} },
+            { key: "c", config: mkText() },
+            { key: "d", config: mkText() },
           ],
         }),
         table.setCell({
-          cell: { key: "c", variant: "value", props: { telem: "ch1" } },
+          cell: { key: "c", config: mkValue("psi") },
         }),
       ]);
       const res = await client.tables.retrieve(t.key);
       expect(res.name).toEqual("multi");
       expect(res.rows).toHaveLength(2);
-      expect(res.cells.c.variant).toEqual("value");
-      expect(res.cells.c.props.telem).toEqual("ch1");
+      expect(res.cells.c).toEqual(mkValue("psi"));
     });
   });
 
@@ -227,7 +243,7 @@ describe("Table", () => {
     const TEMPLATE_KEY = "11111111-2222-4333-8444-555555555555";
     const DERIVED_KEY_0 = "11111111-2222-4333-8444-555555550000";
     const DERIVED_KEY_1 = "11111111-2222-4333-8444-555555550001";
-    const textTemplate: table.CellTemplate = { variant: "text", props: {} };
+    const textTemplate: table.CellConfig = mkText();
 
     const emptyState = (name = "t"): table.Table => ({
       key: KEY,
@@ -246,10 +262,10 @@ describe("Table", () => {
       ],
       columns: [{ size: 80 }, { size: 100 }],
       cells: {
-        a: { key: "a", variant: "text", props: { value: "A" } },
-        b: { key: "b", variant: "text", props: { value: "B" } },
-        c: { key: "c", variant: "text", props: { value: "C" } },
-        d: { key: "d", variant: "text", props: { value: "D" } },
+        a: mkText("A"),
+        b: mkText("B"),
+        c: mkText("C"),
+        d: mkText("D"),
       },
     });
 
@@ -264,9 +280,7 @@ describe("Table", () => {
           { size: 36, cells: ["g", "h", "i"] },
         ],
         columns: [{ size: 80 }, { size: 80 }, { size: 80 }],
-        cells: Object.fromEntries(
-          keys.map((k) => [k, { key: k, variant: "value", props: { units: "psi" } }]),
-        ),
+        cells: Object.fromEntries(keys.map((k) => [k, mkValue("psi")])),
       };
     };
 
@@ -288,7 +302,7 @@ describe("Table", () => {
           table.addRow({
             index: 0,
             size: 30,
-            cells: [{ key: "x", variant: "text", props: {} }],
+            cells: [{ key: "x", config: mkText() }],
           }),
         ]);
         expect(inverse).toHaveLength(1);
@@ -301,22 +315,27 @@ describe("Table", () => {
             ...emptyState(),
             rows: [{ size: 30, cells: ["a"] }],
             columns: [{ size: 80 }],
-            cells: { a: { key: "a", variant: "text", props: { v: 1 } } },
+            cells: { a: mkText("1") },
           },
-          [table.setCell({ cell: { key: "a", variant: "value", props: { v: 2 } } })],
+          [
+            table.setCell({
+              cell: { key: "a", config: mkValue("psi") },
+            }),
+          ],
         );
         expect(next.cells.a.variant).toEqual("value");
         expect(inverse).toHaveLength(1);
         expect(inverse[0].type).toEqual("set_cell");
-        if (inverse[0].type === "set_cell") {
-          expect(inverse[0].setCell.cell.variant).toEqual("text");
-          expect(inverse[0].setCell.cell.props).toEqual({ v: 1 });
-        }
+        if (inverse[0].type === "set_cell")
+          expect(inverse[0].setCell.cell).toEqual({
+            key: "a",
+            config: mkText("1"),
+          });
       });
 
       test("setCell on an unknown key returns no inverse", () => {
         const { inverse } = table.reduceAll(emptyState(), [
-          table.setCell({ cell: { key: "ghost", variant: "text", props: {} } }),
+          table.setCell({ cell: { key: "ghost", config: mkText() } }),
         ]);
         expect(inverse).toEqual([]);
       });
@@ -329,8 +348,8 @@ describe("Table", () => {
             index: 0,
             size: 36,
             cells: [
-              { key: "a", variant: "text", props: {} },
-              { key: "b", variant: "text", props: {} },
+              { key: "a", config: mkText() },
+              { key: "b", config: mkText() },
             ],
           }),
         ]);
@@ -346,8 +365,8 @@ describe("Table", () => {
             index: 0,
             size: 72,
             cells: [
-              { key: "a", variant: "text", props: {} },
-              { key: "b", variant: "text", props: {} },
+              { key: "a", config: mkText() },
+              { key: "b", config: mkText() },
             ],
           }),
         ]);
@@ -360,7 +379,10 @@ describe("Table", () => {
     });
 
     describe("cellTemplate", () => {
-      const template = { key: TEMPLATE_KEY, variant: "text", props: { value: "t" } };
+      const template: table.Cell = {
+        key: TEMPLATE_KEY,
+        config: mkText("t"),
+      };
 
       test("addRow replicates the template across existing columns", () => {
         const { next } = table.reduceAll(
@@ -369,15 +391,14 @@ describe("Table", () => {
             rows: [{ size: 36, cells: ["a", "b"] }],
             columns: [{ size: 80 }, { size: 80 }],
             cells: {
-              a: { key: "a", variant: "text", props: {} },
-              b: { key: "b", variant: "text", props: {} },
+              a: mkText(),
+              b: mkText(),
             },
           },
           [table.addRow({ index: 1, size: 36, cells: [], cellTemplate: template })],
         );
         expect(next.rows[1].cells).toEqual([DERIVED_KEY_0, DERIVED_KEY_1]);
-        expect(next.cells[DERIVED_KEY_0].variant).toEqual("text");
-        expect(next.cells[DERIVED_KEY_0].props).toEqual({ value: "t" });
+        expect(next.cells[DERIVED_KEY_0]).toEqual(mkText("t"));
       });
 
       test("addCol replicates the template across existing rows", () => {
@@ -390,8 +411,8 @@ describe("Table", () => {
             ],
             columns: [{ size: 80 }],
             cells: {
-              a: { key: "a", variant: "text", props: {} },
-              b: { key: "b", variant: "text", props: {} },
+              a: mkText(),
+              b: mkText(),
             },
           },
           [table.addCol({ index: 1, size: 80, cells: [], cellTemplate: template })],
@@ -439,7 +460,7 @@ describe("Table", () => {
         ...emptyState(),
         rows: [{ size: 60, cells: ["a"] }],
         columns: [{ size: 80 }],
-        cells: { a: { key: "a", variant: "text", props: {} } },
+        cells: { a: mkText() },
       };
       test.for<{
         name: string;
@@ -453,7 +474,7 @@ describe("Table", () => {
           action: table.addRow({
             index: 0,
             size: 5,
-            cells: [{ key: "a", variant: "text", props: {} }],
+            cells: [{ key: "a", config: mkText() }],
           }),
           get: (t) => t.rows[0].size,
         },
@@ -463,7 +484,7 @@ describe("Table", () => {
           action: table.addCol({
             index: 1,
             size: 10,
-            cells: [{ key: "b", variant: "text", props: {} }],
+            cells: [{ key: "b", config: mkText() }],
           }),
           get: (t) => t.columns[1].size,
         },
@@ -593,8 +614,8 @@ describe("Table", () => {
             index: 1,
             size: 40,
             cells: [
-              { key: "e", variant: "text", props: { value: "E" } },
-              { key: "f", variant: "text", props: { value: "F" } },
+              { key: "e", config: mkText("E") },
+              { key: "f", config: mkText("F") },
             ],
           }),
         },
@@ -605,8 +626,8 @@ describe("Table", () => {
             index: 1,
             size: 60,
             cells: [
-              { key: "m1", variant: "text", props: { value: "M1" } },
-              { key: "m2", variant: "value", props: { units: "psi" } },
+              { key: "m1", config: mkText("M1") },
+              { key: "m2", config: mkValue("psi") },
             ],
           }),
         },
@@ -616,7 +637,7 @@ describe("Table", () => {
         {
           name: "setCell",
           action: table.setCell({
-            cell: { key: "a", variant: "value", props: { units: "psi" } },
+            cell: { key: "a", config: mkValue("psi") },
           }),
         },
       ])("$name round-trips", ({ action }) => roundTrip(action));

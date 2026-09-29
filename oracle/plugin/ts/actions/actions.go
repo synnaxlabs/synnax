@@ -182,13 +182,16 @@ export const {{ camelCase .Name }}PayloadZ = z.object({
 
 export type {{ .Name }}Payload = z.infer<typeof {{ camelCase .Name }}PayloadZ>;
 {{end}}
-export const actionZ = z.discriminatedUnion("type", [
+export type Action =
+{{- range .Actions}}
+  | { type: "{{ .TypeName }}"; {{ camelCase .Name }}: {{ .Name }}Payload }
+{{- end}};
+
+export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
 {{- range .Actions}}
   z.object({ type: z.literal("{{ .TypeName }}"), {{ camelCase .Name }}: {{ camelCase .Name }}PayloadZ }),
 {{- end}}
 ]);
-
-export type Action = z.infer<typeof actionZ>;
 {{range .Actions}}
 export const {{ camelCase .Name }} = (payload: z.input<typeof {{ camelCase .Name }}PayloadZ>): Action => ({
   type: "{{ .TypeName }}",

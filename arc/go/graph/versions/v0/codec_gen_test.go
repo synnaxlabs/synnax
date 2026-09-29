@@ -14,8 +14,6 @@ package v0_test
 import (
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph/versions/v0"
@@ -24,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
+	"github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Codec", func() {
@@ -119,9 +118,9 @@ var _ = Describe("Codec", func() {
 			}),
 			Entry("zero values", v0.Graph{
 				Viewport:  v0.Viewport{Position: spatial.XY{X: 0, Y: 0}, Zoom: 0},
-				Functions: nil,
-				Edges:     nil,
-				Nodes:     nil,
+				Functions: []ir.Function{},
+				Edges:     []ir.Edge{},
+				Nodes:     []v0.Node{},
 			}),
 			Entry("empty collections", v0.Graph{
 				Viewport:  v0.Viewport{Position: spatial.XY{X: 3.5, Y: 4.5}, Zoom: 5.5},
@@ -151,7 +150,7 @@ var _ = Describe("Codec", func() {
 			Entry("zero values", v0.Node{
 				Key:      "",
 				Type:     "",
-				Config:   nil,
+				Config:   msgpack.EncodedJSON{},
 				Position: spatial.XY{X: 0, Y: 0},
 			}),
 		)
@@ -397,9 +396,9 @@ func FuzzDecodeGraph(f *testing.F) {
 	{
 		seed := v0.Graph{
 			Viewport:  v0.Viewport{Position: spatial.XY{X: 0, Y: 0}, Zoom: 0},
-			Functions: nil,
-			Edges:     nil,
-			Nodes:     nil,
+			Functions: []ir.Function{},
+			Edges:     []ir.Edge{},
+			Nodes:     []v0.Node{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -436,7 +435,7 @@ func FuzzDecodeGraph(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -460,7 +459,7 @@ func FuzzDecodeNode(f *testing.F) {
 		seed := v0.Node{
 			Key:      "",
 			Type:     "",
-			Config:   nil,
+			Config:   msgpack.EncodedJSON{},
 			Position: spatial.XY{X: 0, Y: 0},
 		}
 		w := orc.NewWriter(0)
@@ -485,7 +484,7 @@ func FuzzDecodeNode(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -524,7 +523,7 @@ func FuzzDecodeViewport(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})

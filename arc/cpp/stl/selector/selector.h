@@ -88,8 +88,8 @@ public:
             }
         }
 
-        if (true_count > 0) ctx.mark_changed(0);
-        if (false_count > 0) ctx.mark_changed(1);
+        if (true_count > 0) this->state.emit(ctx.mark_changed, 0);
+        if (false_count > 0) this->state.emit(ctx.mark_changed, 1);
         return x::errors::NIL;
     }
 
@@ -97,7 +97,7 @@ public:
         return state.is_output_truthy(output_idx);
     }
 
-    void reset() override { this->state.reset(); }
+    void reset(runtime::node::Context &) override { this->state.reset(); }
 };
 
 class Module : public stl::Module {

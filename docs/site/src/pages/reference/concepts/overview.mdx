@@ -2,12 +2,13 @@
 layout: "@/layouts/Reference.astro"
 title: "Concepts"
 description: "Learn about the core concepts of Synnax."
-next: "Clusters and Nodes"
+next: "Clusters and nodes"
 nextURL: "/reference/concepts/clusters-and-nodes"
 ---
 
 import { Image } from "@/components/media/Media";
-import { Divider, Note } from "@synnaxlabs/pluto";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Note } from "@synnaxlabs/lyra/note";
 import Diagram from "@/components/diagram/Diagram.astro";
 
 Synnax is a streaming time-series database designed to acquire, store, and transmit
@@ -21,7 +22,7 @@ needed to effectively integrate a Synnax cluster into your systems.
 
 <Divider.Divider x />
 
-## Distribution Components
+## Distribution components
 
 ### Nodes
 
@@ -41,7 +42,7 @@ cluster's data without being aware of where it is actually stored.
 
 <Divider.Divider x />
 
-## Data Components
+## Data components
 
 The data components of a cluster are the building blocks for storing, retrieving, and
 streaming hardware telemetry data. There are five data components in Synnax:
@@ -153,7 +154,7 @@ working with data from multiple channels at once.
 
 <Divider.Divider x />
 
-## Operation Components
+## Operation components
 
 The operation components are key interfaces that allows users to access and modify the
 samples in a cluster.
@@ -172,7 +173,7 @@ opened on the same channel, but only a subset (typically one) of the writers is 
 allowed to write to the channel at any given time. This is useful for transitioning
 control between manual operators and automated systems.
 
-### Iterators / Readers
+### Iterators / readers
 
 The primary method for reading data from a cluster is through an
 [iterator](/reference/concepts/reads). Iterators read data in a streaming fashion,

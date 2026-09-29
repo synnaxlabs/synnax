@@ -15,23 +15,26 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/cmd/version"
+	pkgversion "github.com/synnaxlabs/synnax/pkg/version"
 )
 
 var _ = Describe("Version", func() {
-	Describe("FPrint", func() {
-		It("Should print the version", func() {
-			var buf bytes.Buffer
-			Expect(version.FPrint(&buf)).To(Succeed())
-			Expect(buf.String()).To(Equal(expected))
-		})
+	var expected string
+
+	BeforeEach(func() {
+		expected = "Synnax " + pkgversion.Full() + "\n"
 	})
-	Describe("AddCommand", func() {
-		It("Should register the version subcommand", func() {
-			var buf bytes.Buffer
-			version.Cmd.SetOut(&buf)
-			version.Cmd.SetArgs([]string{})
-			Expect(version.Cmd.Execute()).To(Succeed())
-			Expect(buf.String()).To(Equal(expected))
-		})
+
+	It("Should print the version", func() {
+		var buf bytes.Buffer
+		Expect(version.FPrint(&buf)).To(Succeed())
+		Expect(buf.String()).To(Equal(expected))
+	})
+	It("Should print the version through the subcommand", func() {
+		var buf bytes.Buffer
+		version.Cmd.SetOut(&buf)
+		version.Cmd.SetArgs([]string{})
+		Expect(version.Cmd.Execute()).To(Succeed())
+		Expect(buf.String()).To(Equal(expected))
 	})
 })

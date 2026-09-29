@@ -9,7 +9,7 @@
 The Synnax server is the core of the Synnax platform. For an introduction to the Synnax
 server, see the [architecture](../docs/tech/architecture.md) document.
 
-## Getting Started
+## Getting started
 
 To start a Synnax Core, visit the
 [deployment](https://docs.synnaxlabs.com/reference/core/quick-start) section of the
@@ -17,6 +17,6 @@ Synnax documentation.
 
 ## Contributing
 
-Read both the [Synnax Contribution Guide](../docs/CONTRIBUTING.md) and the
+Read both the [Synnax Contribution Guide](../CONTRIBUTING.md) and the
 [server Contribution Guide](CONTRIBUTING.md) to learn about the codebase and our
 development practices.

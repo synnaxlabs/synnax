@@ -9,7 +9,7 @@
 
 import { type arc, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
-import { type List } from "@synnaxlabs/pluto";
+import { type List } from "@synnaxlabs/lyra/list";
 import { array } from "@synnaxlabs/x";
 import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -53,6 +53,11 @@ describe("Arc.ContextMenu", () => {
     expect(await screen.findByText("Edit")).toBeTruthy();
     expect(await screen.findByText("Rename")).toBeTruthy();
     expect(await screen.findByText("Delete")).toBeTruthy();
+  });
+
+  it("should offer Reload Console", async () => {
+    await renderMenu(await createArc());
+    expect(await screen.findByText("Reload Console")).toBeTruthy();
   });
 
   it.each(["Viewer", "Operator"] as const)(

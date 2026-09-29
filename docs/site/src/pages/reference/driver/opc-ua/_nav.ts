@@ -16,17 +16,17 @@ export const OPC_UA_NAV: PageNavNode = {
     {
       key: "/reference/driver/opc-ua/connect-server",
       href: "/reference/driver/opc-ua/connect-server",
-      name: "Connect to a Server",
+      name: "Connect to a server",
     },
     {
       key: "/reference/driver/opc-ua/read-task",
       href: "/reference/driver/opc-ua/read-task",
-      name: "Read Task",
+      name: "Read task",
     },
     {
       key: "/reference/driver/opc-ua/write-task",
       href: "/reference/driver/opc-ua/write-task",
-      name: "Write Task",
+      name: "Write task",
     },
   ],
 };

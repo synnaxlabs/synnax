@@ -51,7 +51,7 @@ type RetrieveRequest struct {
 type RetrieveResponse struct {
 	// States holds one entry per controlled channel. Channels that no subject controls
 	// are absent.
-	States []State `json:"states,omitzero" msgpack:"states,omitzero"`
+	States []State `json:"states" msgpack:"states"`
 }
 
 // Retrieve returns the control state of the requested channels.

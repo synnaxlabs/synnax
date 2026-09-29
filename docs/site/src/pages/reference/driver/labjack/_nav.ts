@@ -16,17 +16,17 @@ export const LABJACK_NAV: PageNavNode = {
     {
       key: "/reference/driver/labjack/configure-device",
       href: "/reference/driver/labjack/configure-device",
-      name: "Configure a Device",
+      name: "Configure a device",
     },
     {
       key: "/reference/driver/labjack/read-task",
       href: "/reference/driver/labjack/read-task",
-      name: "Read Task",
+      name: "Read task",
     },
     {
       key: "/reference/driver/labjack/write-task",
       href: "/reference/driver/labjack/write-task",
-      name: "Write Task",
+      name: "Write task",
     },
   ],
 };

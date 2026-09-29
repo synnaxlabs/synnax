@@ -16,22 +16,22 @@ export const CONCEPTS_NAV: PageNavNode = {
     {
       key: "/reference/control/arc/concepts/control-authority",
       href: "/reference/control/arc/concepts/control-authority",
-      name: "Control Authority",
+      name: "Control authority",
     },
     {
       key: "/reference/control/arc/concepts/reactive-execution",
       href: "/reference/control/arc/concepts/reactive-execution",
-      name: "Reactive Execution",
+      name: "Reactive execution",
     },
     {
       key: "/reference/control/arc/concepts/sequences-and-stages",
       href: "/reference/control/arc/concepts/sequences-and-stages",
-      name: "Sequences and Stages",
+      name: "Sequences and stages",
     },
     {
       key: "/reference/control/arc/concepts/channels-and-series",
       href: "/reference/control/arc/concepts/channels-and-series",
-      name: "Channels and Series",
+      name: "Channels and series",
     },
   ],
 };

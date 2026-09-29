@@ -14,7 +14,8 @@ import {
   table as clientTable,
   type table,
 } from "@synnaxlabs/client";
-import { List, Text } from "@synnaxlabs/pluto";
+import { List } from "@synnaxlabs/lyra/list";
+import { Text } from "@synnaxlabs/lyra/text";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -95,6 +96,12 @@ describe("table/ontology", () => {
       expect(screen.getByText("Export")).toBeDefined();
       expect(screen.getByText("Copy link")).toBeDefined();
       expect(screen.getByText("Copy properties")).toBeDefined();
+    });
+
+    it("should offer Reload Console", async () => {
+      const t = await createTable();
+      await renderMenu({ tables: [t] });
+      expect(await screen.findByText("Reload Console")).toBeTruthy();
     });
 
     it("hides single-selection items for multi-selections", async () => {

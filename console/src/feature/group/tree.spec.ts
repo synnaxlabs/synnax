@@ -9,7 +9,7 @@
 
 import { group, ontology } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
-import { Tree as PTree } from "@synnaxlabs/pluto";
+import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -34,6 +34,16 @@ describe("group ontology service", () => {
     expect(Item.canDrop({ source: { key: "s", type: "t" }, items: [] })).toBe(true);
     const res = groupResource("g1", "g");
     expect(Item.haulItems(res)).toEqual([res.id]);
+  });
+
+  it("should offer Reload Console", async () => {
+    const g = await createGroup(ontology.ROOT_ID);
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
+      client,
+      resources: [groupResource(g.key, g.name)],
+    });
+    expect(await screen.findByText("Reload Console")).toBeTruthy();
   });
 
   it("should hide rename and ungroup for a zero-depth selection", async () => {

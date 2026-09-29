@@ -9,9 +9,12 @@
 
 package mock
 
-import "github.com/synnaxlabs/freighter"
+import "github.com/synnaxlabs/alamos"
 
-var reporter = freighter.Reporter{
-	Protocol:  "golang-mock",
-	Encodings: []string{"in-memory"},
+const protocol = "golang-mock"
+
+type reporter struct{}
+
+func (reporter) Report() alamos.Report {
+	return alamos.Report{"protocol": protocol, "encodings": []string{"in-memory"}}
 }

@@ -10,19 +10,15 @@
 import "@/feature/opcua/device/Connect.css";
 
 import { type device, type rack, status, TimeSpan } from "@synnaxlabs/client";
-import {
-  Button,
-  Component,
-  Device as PDevice,
-  Divider,
-  Flex,
-  type Flux,
-  Form,
-  Icon,
-  Nav,
-  Rack,
-  Status,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Nav } from "@synnaxlabs/lyra/nav";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Device as PDevice, type Flux, Rack } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { retrieveScanTask } from "@/feature/opcua/device/retrieveScanTask";

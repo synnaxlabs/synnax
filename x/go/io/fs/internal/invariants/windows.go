@@ -11,6 +11,6 @@
 
 package invariants
 
-import "golang.org/x/sys/windows"
+import "syscall"
 
-const ErrAccessDenied = windows.ERROR_ACCESS_DENIED
+const ErrAccessDenied = syscall.ERROR_ACCESS_DENIED

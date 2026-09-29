@@ -10,10 +10,10 @@
 package v2_test
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 	"os"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v0"

@@ -20,6 +20,15 @@ type MonoClock struct {
 	Source func() TimeStamp
 }
 
+// Advance raises the floor so the next Now returns a timestamp strictly greater
+// than ts. A caller that derives further stamps from a Now reading reports the
+// highest one here to keep the sequence increasing.
+func (c *MonoClock) Advance(ts TimeStamp) {
+	if ts > c.last {
+		c.last = ts
+	}
+}
+
 // Now returns a timestamp that is strictly greater than any previous call.
 func (c *MonoClock) Now() TimeStamp {
 	source := c.Source

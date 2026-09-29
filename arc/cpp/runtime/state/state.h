@@ -10,6 +10,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 #include <tuple>
@@ -41,6 +42,10 @@ struct AuthorityChange {
 struct Value {
     Series data;
     Series time;
+    /// @brief the program-wide revision at which this value was last written.
+    /// Zero means never written. Consumers compare it against what they last
+    /// consumed; ordering across values is the program's true write order.
+    uint64_t rev = 0;
 };
 
 using ChannelDigest = stl::channels::Digest;
@@ -67,7 +72,8 @@ class Node {
         size_t source{NO_SOURCE};
         Series data;
         Series time;
-        x::telem::TimeStamp last_timestamp{0};
+        /// @brief the source value's revision when this entry was taken.
+        uint64_t last_rev{0};
         bool consumed{true};
     };
 
@@ -89,6 +95,12 @@ class Node {
     // is_reference marks inputs that are channel references rather than value
     // streams. Reference inputs carry no data series and never gate execution.
     std::vector<bool> is_reference;
+    /// @brief marks inputs fed by a configured value rather than an edge. A
+    /// configured value has no time of its own.
+    std::vector<bool> literal;
+    /// @brief true when an edge feeds at least one data input. reset leaves the
+    /// literals of such a node consumed, so only fresh edge data re-runs it.
+    bool edge_fed = false;
     /// @brief rearm[i] selects when a consumed input i fires again.
     std::vector<Rearm> rearm;
     /// @brief params holds the node's input params with their configured values.
@@ -104,6 +116,7 @@ class Node {
         std::vector<Series> aligned_data,
         std::vector<Series> aligned_time,
         std::vector<bool> is_reference,
+        std::vector<bool> literal,
         std::vector<Rearm> rearm,
         types::Params params
     ):
@@ -116,10 +129,17 @@ class Node {
         aligned_data(std::move(aligned_data)),
         aligned_time(std::move(aligned_time)),
         is_reference(std::move(is_reference)),
+        literal(std::move(literal)),
         rearm(std::move(rearm)),
-        params(std::move(params)) {}
+        params(std::move(params)) {
+        for (size_t i = 0; i < this->literal.size(); i++)
+            if (!this->literal[i] && !this->is_reference[i]) {
+                this->edge_fed = true;
+                break;
+            }
+    }
 
-    /// @brief marks input i consumed at its current source timestamp.
+    /// @brief marks input i consumed at its current source revision.
     void absorb_input(size_t i);
 
 public:
@@ -138,6 +158,40 @@ public:
 
     [[nodiscard]] Series &output(size_t param_index) const;
     [[nodiscard]] Series &output_time(size_t param_index) const;
+
+    /// @brief publishes the value the node just wrote to the output at
+    /// param_index: downstream readers see it as unconsumed, and mark_changed
+    /// runs them. Every producer calls it once per write. Pass
+    /// node::Context::mark_changed.
+    void emit(
+        const std::function<void(size_t)> &mark_changed,
+        const size_t param_index
+    ) const {
+        this->mark_fresh(param_index);
+        mark_changed(param_index);
+    }
+
+    /// @brief makes the output at param_index unconsumed for downstream readers
+    /// without waking them. A cycle stamps one timestamp on everything it
+    /// produces, so a reader cannot tell a new value from the one it already
+    /// consumed; the revision this records is what tells it. Producers writing
+    /// during next call emit instead; this is for a write on reset, which has no
+    /// running node for the scheduler to propagate from.
+    void mark_fresh(size_t param_index) const;
+
+    /// @brief returns the index of the input a node copies its output timestamps from,
+    /// or -1 when no input has time and the node stamps the cycle instead. Among the
+    /// inputs that have time it picks the longest, matching how nodes broadcast a
+    /// shorter input up to a longer one.
+    [[nodiscard]] int time_source_idx() const;
+
+    /// @brief reports whether the input at param_index holds upstream timestamps a node
+    /// can copy. Literal and reference inputs never do: a configured value has no time.
+    [[nodiscard]] bool has_time(size_t param_index) const;
+
+    /// @brief overwrites the output's time series with a single sample of the cycle
+    /// stamp, reusing its buffer. Nodes with no input time to copy use it.
+    void stamp_cycle(x::telem::TimeStamp now, size_t output_idx) const;
 
     /// Reads buffered data and time series from a channel. Returns (data, index_data,
     /// ok). If the channel has an associated index, both data and time are returned.
@@ -222,8 +276,11 @@ public:
     [[nodiscard]] std::pair<size_t, x::errors::Error>
     resolve_input(const std::string &name) const;
 
-    /// @brief Re-arms every input when the node's stage is (re)activated, so a node
-    /// whose gating inputs are all literal-valued re-runs instead of staying consumed.
+    /// @brief re-arms the node's inputs when its stage is (re)activated, so a
+    /// node whose inputs are all literal-valued re-runs instead of staying
+    /// consumed. An edge-fed input keeps what it consumed: re-arming one makes
+    /// the node re-emit a value it already emitted, which duplicates writes
+    /// downstream.
     void reset() {
         for (size_t i = 0; i < this->accumulated.size(); i++) {
             switch (this->rearm[i]) {
@@ -233,9 +290,13 @@ public:
                     this->absorb_input(i);
                     break;
                 case Rearm::Always:
+                    if (!this->literal[i] || this->edge_fed) break;
+                    this->accumulated[i].consumed = false;
+                    this->accumulated[i].last_rev = 0;
+                    break;
                 case Rearm::OnReset:
                     this->accumulated[i].consumed = false;
-                    this->accumulated[i].last_timestamp = x::telem::TimeStamp(0);
+                    this->accumulated[i].last_rev = 0;
                     break;
             }
         }
@@ -253,6 +314,10 @@ class State {
     Config cfg;
     std::vector<Value> values;
     std::unordered_map<ir::Handle, size_t> value_index;
+    /// @brief counts writes across every output in the program. Every cycle
+    /// stamps one timestamp, so the stamp cannot tell a consumer that a value is
+    /// new; this counter does.
+    uint64_t rev = 0;
     /// @brief Per-module state slices.
     std::shared_ptr<stl::channels::State> channel;
     std::shared_ptr<stl::strings::State> strings;
@@ -281,8 +346,10 @@ public:
     std::pair<Node, x::errors::Error> node(const std::string &key);
     void ingest(const x::telem::Frame &frame);
     /// @brief flushes channel state directly into the provided frame, avoiding
-    /// intermediate allocations.
-    void flush_into(x::telem::Frame &out);
+    /// intermediate allocations. An index whose channels wrote no timestamps of their
+    /// own is stamped from now.
+    /// @returns the highest timestamp it synthesized, or zero when it synthesized none.
+    x::telem::TimeStamp flush_into(x::telem::Frame &out, x::telem::TimeStamp now);
 
     /// @brief Buffers an authority change request for later flushing.
     /// If channel_key is nullopt, the change applies to all write channels.

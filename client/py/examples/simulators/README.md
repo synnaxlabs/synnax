@@ -1,4 +1,4 @@
-# Hardware Simulators
+# Hardware simulators
 
 This directory contains reusable hardware simulators for testing control sequences
 without real hardware. There are two types of simulators:
@@ -9,7 +9,7 @@ without real hardware. There are two types of simulators:
 Both extend the shared `Simulator` base class which provides `start()` / `stop()`
 lifecycle management and verbose logging.
 
-## SimDAQ Simulators
+## SimDAQ simulators
 
 SimDAQ simulators create Synnax channels and write data directly. They provide:
 
@@ -52,7 +52,7 @@ Simulates a rocket engine tank pressurization control system with:
 uv run python -m examples.simulators.tpc --help
 ```
 
-## DeviceSim Simulators
+## DeviceSim simulators
 
 DeviceSim simulators expose network protocol endpoints (Modbus TCP, OPC UA) for testing
 driver integration. They run async servers in a subprocess and do NOT interact with
@@ -88,7 +88,7 @@ Runs a TLS-encrypted OPC UA server on port 4843 with `Basic256Sha256_SignAndEncr
 security and username/password authentication (`testuser` / `testpass`). Exposes the
 same variables as `OPCUASim`.
 
-## Creating Custom Simulators
+## Creating custom simulators
 
 ### Custom SimDAQ
 
@@ -151,7 +151,7 @@ class MyDeviceSim(DeviceSim):
         )
 ```
 
-## Usage in Tests
+## Usage in tests
 
 SimDAQ simulators can be used programmatically:
 

@@ -7,7 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, type Icon, Input, Nav } from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { type Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Nav } from "@synnaxlabs/lyra/nav";
 import { useCallback, useState } from "react";
 
 import { Body } from "@/platform/modals/Body";

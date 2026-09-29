@@ -1,14 +1,16 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "LabJack Write Task"
+title: "LabJack write task"
 description: "Learn how to send commands to LabJack devices with Synnax."
-prev: "Read Task"
+prev: "Read task"
 prevURL: "/reference/driver/labjack/read-task"
 next: "Modbus"
 nextURL: "/reference/driver/modbus/connect-server"
 ---
 
-import { Divider, Icon, Text } from "@synnaxlabs/pluto";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Video } from "@/components/media/Media";
 import { Fragment } from "react";
 import Details from "@/components/details/Details.astro";
@@ -18,11 +20,12 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lifecycle).
+This task follows the standard
+[task lifecycle](/reference/driver/task-basics#task-lifecycle).
 
 <Divider.Divider x />
 
-## Task Configuration Reference
+## Task configuration reference
 
 | Parameter    | Type   | Required | Default | Description                                   |
 | ------------ | ------ | -------- | ------- | --------------------------------------------- |
@@ -32,7 +35,7 @@ For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lif
 
 <Divider.Divider x />
 
-## Channel Types Reference
+## Channel types reference
 
 <DetailsGroup>
 
@@ -66,7 +69,7 @@ Writes digital state (0 or 1) to a specified digital I/O line.
 
 <Divider.Divider x />
 
-## How-To
+## How-to
 
 <Client.Tabs client:load exclude={["cpp"]}>
   <Fragment slot="console">

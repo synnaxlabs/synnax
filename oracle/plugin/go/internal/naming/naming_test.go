@@ -75,6 +75,19 @@ var _ = Describe("DerivePackageName", func() {
 	)
 })
 
+var _ = Describe("AssumedImportName", func() {
+	DescribeTable("should return the name goimports binds the path to",
+		func(path, expected string) {
+			Expect(naming.AssumedImportName(path)).To(Equal(expected))
+		},
+		Entry("plain path", "github.com/synnaxlabs/x/telem", "telem"),
+		Entry("module major version", "encoding/json/v2", "json"),
+		Entry("module major version above nine", "github.com/a/b/v12", "b"),
+		Entry("version directory", "core/pkg/task/versions/v2", "versions"),
+		Entry("single segment", "context", "context"),
+	)
+})
+
 var _ = Describe("DerivePackageAlias", func() {
 	It("should return the base name when no conflict exists", func() {
 		Expect(naming.DerivePackageAlias("core/pkg/user", "channel")).To(Equal("user"))

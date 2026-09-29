@@ -10,6 +10,16 @@
 import "@/vis/diagram/Diagram.css";
 import "@xyflow/react/dist/base.css";
 
+import { type Component } from "@synnaxlabs/lyra/component";
+import { CSS } from "@synnaxlabs/lyra/css";
+import {
+  useCombinedRefs,
+  useDebouncedCallback,
+  useSyncedRef,
+} from "@synnaxlabs/lyra/hooks";
+import { useMemoCompare } from "@synnaxlabs/lyra/memo";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
+import { blockActivation, isInputOrContentEditable } from "@synnaxlabs/lyra/util";
 import { box, type dimensions, TimeSpan, xy } from "@synnaxlabs/x";
 import {
   type Connection as RFConnection,
@@ -33,6 +43,7 @@ import {
   type ComponentPropsWithRef,
   type FC,
   Fragment,
+  type KeyboardEvent,
   memo,
   type MouseEvent as ReactMouseEvent,
   type PropsWithChildren,
@@ -46,11 +57,6 @@ import {
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { type RenderProp } from "@/component/renderProp";
-import { CSS } from "@/css";
-import { useCombinedRefs, useDebouncedCallback, useSyncedRef } from "@/hooks";
-import { useMemoCompare } from "@/memo";
-import { Triggers } from "@/triggers";
 import { Viewport as BaseViewport } from "@/viewport";
 import { Canvas } from "@/vis/canvas";
 import { diagram } from "@/vis/diagram/aether";
@@ -85,11 +91,11 @@ export interface NodeProps {
 
 export interface RendererConfig {
   /** Renders each node by key. */
-  node: RenderProp<NodeProps, ReactElement>;
+  node: Component.RenderProp<NodeProps, ReactElement>;
   /** Renders each edge; falls back to React Flow's default edge when omitted. */
-  edge?: RenderProp<diagram.EdgeProps, ReactElement>;
+  edge?: Component.RenderProp<diagram.EdgeProps, ReactElement>;
   /** Renders the line shown while dragging a new connection. */
-  connectionLine?: RenderProp<diagram.ConnectionLineProps, ReactElement>;
+  connectionLine?: Component.RenderProp<diagram.ConnectionLineProps, ReactElement>;
   /** Wraps the diagram inside the React Flow store context, above all renderers. */
   Provider?: FC<PropsWithChildren>;
 }
@@ -131,6 +137,14 @@ const NOT_EDITABLE_PROPS: ReactFlowProps = {
 const PRO_OPTIONS: ProOptions = {
   hideAttribution: true,
 };
+
+// Holding one of these turns a click into a toggle of that element in the selection.
+// Meta covers macOS, Control covers Windows and Linux, and Shift covers both.
+const MULTI_SELECT_KEY_CODES = ["Meta", "Control", "Shift"];
+
+// A modified click on a node or edge belongs to the selection, so only a click on the
+// empty canvas resets the zoom.
+const ELEMENT_SELECTOR = ".react-flow__node, .react-flow__edge";
 
 export type ClipboardHandler = (
   this: void,
@@ -459,9 +473,10 @@ export const create = ({
     Triggers.use({
       triggers: triggers.modes.zoomReset,
       callback: useCallback(
-        ({ stage, cursor }: Triggers.UseEvent) => {
+        ({ stage, cursor, target }: Triggers.UseEvent) => {
           const reg = triggerRef.current;
           if (reg == null || stage !== "start" || !box.contains(reg, cursor)) return;
+          if (target.closest(ELEMENT_SELECTOR) != null) return;
           fitView();
         },
         [fitView],
@@ -554,6 +569,18 @@ export const create = ({
       [onPaste, cursorInDiagramSpace],
     );
 
+    // Space and Enter would click whichever control holds focus. Triggers and React
+    // Flow ignore defaultPrevented, so shortcuts and selection still fire. A dialog
+    // opened from a node portals out of this element, hence the contains check.
+    const handleActivationKey = useCallback(
+      (e: KeyboardEvent<HTMLDivElement>): void => {
+        if (!(e.target instanceof Node) || !e.currentTarget.contains(e.target)) return;
+        if (isInputOrContentEditable(e)) return;
+        blockActivation(e);
+      },
+      [],
+    );
+
     return (
       <div
         className={CSS.BE("diagram", "container")}
@@ -564,6 +591,8 @@ export const create = ({
         onPaste={handlePaste}
         onMouseMove={handleMouseMove}
         onContextMenu={onContextMenu}
+        onKeyDownCapture={handleActivationKey}
+        onKeyUpCapture={handleActivationKey}
         tabIndex={-1}
       >
         <Context value={ctxValue}>
@@ -595,6 +624,7 @@ export const create = ({
                 isValidConnection={isValidConnection}
                 connectionMode={ConnectionMode.Loose}
                 selectionMode={SelectionMode.Partial}
+                multiSelectionKeyCode={MULTI_SELECT_KEY_CODES}
                 proOptions={PRO_OPTIONS}
                 deleteKeyCode={DELETE_KEY_CODES}
                 snapToGrid={snapToGrid}

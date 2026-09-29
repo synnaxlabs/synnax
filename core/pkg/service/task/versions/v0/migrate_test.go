@@ -57,6 +57,7 @@ var _ = Describe("Migration", func() {
 	})
 
 	runMigration := func(ctx context.Context) {
+		GinkgoHelper()
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:         db,
 			Namespace:  "Task",
@@ -103,7 +104,9 @@ var _ = Describe("Migration", func() {
 				Time:    telem.Now(),
 				Details: v0.StatusDetails{Task: t.Key},
 			}
-			Expect(statusSvc.NewWriter(nil).Set(ctx, &existing)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return statusSvc.NewWriter(tx).Set(ctx, &existing)
+			})).To(Succeed())
 
 			runMigration(ctx)
 
@@ -169,7 +172,9 @@ var _ = Describe("Status backfill", func() {
 				},
 			}
 			Expect(
-				statusSvc.NewWriter(nil).Set(ctx, &legacyStatus),
+				db.WithTx(ctx, func(tx gorp.Tx) error {
+					return statusSvc.NewWriter(tx).Set(ctx, &legacyStatus)
+				}),
 			).To(Succeed())
 
 			// The backfill reads existing statuses as Status[StatusDetails]. This would

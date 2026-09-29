@@ -9,11 +9,11 @@
 
 import "@/vis/legend/Grouped.css";
 
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Fragment, type ReactElement, useState } from "react";
 
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
-import { Text } from "@/text";
 import { Container, type ContainerProps } from "@/vis/legend/Container";
 import { Entries, type EntriesProps } from "@/vis/legend/Entries";
 

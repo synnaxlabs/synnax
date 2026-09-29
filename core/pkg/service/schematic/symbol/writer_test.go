@@ -10,7 +10,8 @@
 package symbol_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -34,7 +35,7 @@ var _ = Describe("Writer", func() {
 				},
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, &sym, proj.OntologyID())).To(Succeed())
-			Expect(sym.Key).ToNot(Equal(uuid.Nil))
+			Expect(sym.Key).ToNot(Equal(uuid.Nil()))
 		})
 
 		DescribeTable("Should reject a symbol that fails schema validation",

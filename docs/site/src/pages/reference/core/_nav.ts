@@ -17,7 +17,7 @@ export const CORE_NAV: PageNavNode = {
     {
       key: "/reference/core/quick-start",
       href: "/reference/core/quick-start",
-      name: "Quick Start",
+      name: "Quick start",
     },
     {
       key: "/reference/core/installation",
@@ -37,12 +37,12 @@ export const CORE_NAV: PageNavNode = {
     {
       key: "/reference/core/cli-reference",
       href: "/reference/core/cli-reference",
-      name: "CLI Reference",
+      name: "CLI reference",
     },
     {
       key: "/reference/core/systemd-service",
       href: "/reference/core/systemd-service",
-      name: "systemd Service",
+      name: "systemd service",
     },
   ],
 };

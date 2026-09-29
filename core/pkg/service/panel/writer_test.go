@@ -11,8 +11,8 @@ package panel_test
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
@@ -25,6 +25,7 @@ import (
 
 var _ = Describe("Writer", func() {
 	retrieve := func(ctx context.Context, key panel.Key) panel.Panel {
+		GinkgoHelper()
 		var res panel.Panel
 		Expect(svc.NewRetrieve().Where(panel.MatchKeys(key)).Entry(&res).Exec(ctx, tx)).
 			To(Succeed())
@@ -35,7 +36,7 @@ var _ = Describe("Writer", func() {
 		It("Should assign a key when the panel's key is nil", func(ctx SpecContext) {
 			p := panel.Panel{Name: "test", Parent: &parentID}
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
-			Expect(p.Key).ToNot(Equal(uuid.Nil))
+			Expect(p.Key).ToNot(Equal(uuid.Nil()))
 		})
 
 		It(
@@ -167,7 +168,7 @@ var _ = Describe("Writer", func() {
 				}
 				Expect(svc.NewWriter(tx).CreateMany(ctx, &ps)).To(Succeed())
 				for _, p := range ps {
-					Expect(p.Key).ToNot(Equal(uuid.Nil))
+					Expect(p.Key).ToNot(Equal(uuid.Nil()))
 					leaf := MustBeOk(asLeaf(retrieve(ctx, p.Key).Root))
 					Expect(leaf.Tabs).To(BeEmpty())
 				}
@@ -251,6 +252,7 @@ var _ = Describe("Writer", func() {
 
 	Describe("Dispatch", func() {
 		create := func(ctx context.Context, root panel.Node) panel.Key {
+			GinkgoHelper()
 			p := panel.Panel{Name: "test", Root: root, Parent: &parentID}
 			Expect(svc.NewWriter(nil).Create(ctx, &p)).To(Succeed())
 			return p.Key

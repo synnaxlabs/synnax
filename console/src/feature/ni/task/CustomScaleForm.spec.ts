@@ -43,13 +43,10 @@ import { open } from "@tauri-apps/plugin-dialog";
 
 import { NI } from "@/feature/ni";
 import { renderNITaskForm } from "@/feature/ni/task/testutil";
-import {
-  commitFieldInput,
-  findDialogTriggerByText,
-  selectFromDropdown,
-} from "@/platform/task/testutil";
+import { commitFieldInput, selectFromDropdown } from "@/platform/task/testutil";
 import {
   fakePickedFile,
+  findDialogTriggerByText,
   getIconButton,
   getInputTable,
   interceptFilePicker,
@@ -112,7 +109,7 @@ describe("CustomScaleForm", () => {
     expect(screen.queryByText("Slope")).toBeNull();
     await selectFromDropdown("None", "Linear");
     await waitFor(() => expect(screen.getByText("Slope")).toBeTruthy());
-    expect(screen.getByText("Y-Intercept")).toBeTruthy();
+    expect(screen.getByText("Y-intercept")).toBeTruthy();
     await selectFromDropdown("Linear", "Map");
     await waitFor(() => expect(screen.getByText("Pre-scaled min")).toBeTruthy());
     expect(screen.queryByText("Slope")).toBeNull();

@@ -9,15 +9,11 @@
 
 import "@/platform/errors/Overlay.css";
 
-import {
-  Button,
-  CSS as PCSS,
-  Errors,
-  Flex,
-  OS,
-  Synnax,
-  Theming,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { CSS as PCSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Theming } from "@synnaxlabs/lyra/theming";
+import { Errors, OS, Synnax } from "@synnaxlabs/pluto";
 import { type record, type runtime } from "@synnaxlabs/x";
 import { getVersion } from "@tauri-apps/api/app";
 import { getCurrentWindow } from "@tauri-apps/api/window";

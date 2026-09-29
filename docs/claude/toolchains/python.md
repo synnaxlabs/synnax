@@ -1,4 +1,4 @@
-# Python Development
+# Python development
 
 ## Packages
 
@@ -29,7 +29,7 @@ Always prefix with `uv run`. Client CLI: `uv run sy --help`.
 - Type hints on every function signature.
 - Pydantic models for validation at API boundaries (they validate at runtime).
 
-## Packages & Naming
+## Packages & naming
 
 - A package is a directory whose `__init__.py` re-exports the public surface from its
   leaf modules (`client.py`, `payload.py`, `writer.py`) and declares it in `__all__`.

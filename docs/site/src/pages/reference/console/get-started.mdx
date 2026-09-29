@@ -3,11 +3,12 @@ layout: "@/layouts/Reference.astro"
 title: "Console"
 heading: "The Synnax Console"
 description: "Install and use the Synnax Console."
-next: "UI Overview"
+next: "UI overview"
 nextURL: "/reference/console/ui-overview"
 ---
 
-import { Flex, Divider } from "@synnaxlabs/pluto";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
 
 import { Console } from "@/components/console";
 import { mdxOverrides } from "@/components/mdxOverrides";
@@ -27,7 +28,7 @@ Install the Console by downloading the latest release for your operating system:
 <br />
 <br />
 <Flex.Box direction="y" justify="center" align="center">
-  <Console.DownloadButton client:load />
+  <Console.DownloadButton />
   <small>
     Releases for other operating systems and older versions can be found on the
     [releases page](https://github.com/synnaxlabs/synnax/releases).

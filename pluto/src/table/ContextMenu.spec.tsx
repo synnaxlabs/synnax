@@ -9,6 +9,7 @@
 
 import { type table } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { Menu } from "@synnaxlabs/lyra/menu";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -58,7 +59,7 @@ describe("table DefaultContextMenu", () => {
       name: "menu_table",
       rows: [{ size: 36, cells: ["a"] }],
       columns: [{ size: 72 }],
-      cells: { a: { key: "a", variant: "text", props: { value: "A" } } },
+      cells: { a: { variant: "text", value: "A" } },
     });
     key = created.key;
     await loadTable(wrapper, key);
@@ -85,6 +86,11 @@ describe("table DefaultContextMenu", () => {
     renderMenu({ editable: true });
     expect(await screen.findByText("Undo")).toBeDefined();
     expect(screen.getByText("Redo")).toBeDefined();
+  });
+
+  it("appends the consumer's extra items", async () => {
+    renderMenu({ extra: <Menu.Item itemKey="extra">Extra</Menu.Item> });
+    expect(await screen.findByText("Extra")).toBeDefined();
   });
 
   it("withholds undo and redo from a read-only table", async () => {

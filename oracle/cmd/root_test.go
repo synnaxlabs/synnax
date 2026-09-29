@@ -37,24 +37,16 @@ func executeCommand(root *cobra.Command, args ...string) (string, error) {
 // setupMiniRepo creates a temp directory that looks like a minimal oracle repo:
 //   - .git/ directory (so paths.RepoRoot finds it)
 //   - schemas/*.oracle files
-//   - core/pkg/version/VERSION
 //
 // It changes the working directory to the temp dir and returns a cleanup function
 // that restores the original working directory.
-func setupMiniRepo(version string, schemas map[string]string) (string, func()) {
+func setupMiniRepo(schemas map[string]string) (string, func()) {
 	GinkgoHelper()
 	origDir := MustSucceed(os.Getwd())
 	repoDir := MustSucceed(os.MkdirTemp("", "oracle-test-repo"))
 
 	// Create .git so paths.RepoRoot() finds this as the repo root.
 	Expect(os.MkdirAll(filepath.Join(repoDir, ".git"), 0o755)).To(Succeed())
-
-	// Create VERSION file.
-	versionDir := filepath.Join(repoDir, "core", "pkg", "version")
-	Expect(os.MkdirAll(versionDir, 0o755)).To(Succeed())
-	Expect(
-		os.WriteFile(filepath.Join(versionDir, "VERSION"), []byte(version), 0o644),
-	).To(Succeed())
 
 	// Create schema files.
 	schemasDir := filepath.Join(repoDir, "schemas")
@@ -129,7 +121,7 @@ var _ = Describe("check command", Ordered, func() {
 
 	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
-		_, cleanup = setupMiniRepo("0.53.4", map[string]string{
+		_, cleanup = setupMiniRepo(map[string]string{
 			"user.oracle": "User struct {\n    key  uuid\n    name string\n}\n",
 		})
 	})
@@ -147,7 +139,7 @@ var _ = Describe("check command with no schemas", Ordered, func() {
 
 	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
-		_, cleanup = setupMiniRepo("0.53.4", map[string]string{})
+		_, cleanup = setupMiniRepo(map[string]string{})
 	})
 
 	AfterAll(func() { cleanup() })
@@ -164,7 +156,7 @@ var _ = Describe("fmt command", Ordered, func() {
 
 	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
-		_, cleanup = setupMiniRepo("0.53.4", map[string]string{
+		_, cleanup = setupMiniRepo(map[string]string{
 			"user.oracle": "User struct {\n    key  uuid\n    name string\n}\n",
 		})
 	})
@@ -187,7 +179,7 @@ var _ = Describe("fmt command with nested schema folders", Ordered, func() {
 		ShouldNotLeakGoroutines()
 		// Schemas live in subdirectories (arc/synnax/x); the no-arg fmt default must
 		// recurse to find all of them.
-		_, cleanup := setupMiniRepo("0.53.4", map[string]string{
+		_, cleanup := setupMiniRepo(map[string]string{
 			// Intentionally unformatted in a nested folder.
 			"synnax/user.oracle": "User struct {key uuid\nname   string}",
 			"x/telem.oracle":     "Rate struct {\n    hz float64\n}\n",
@@ -216,7 +208,7 @@ var _ = Describe("fmt command with explicit file arguments", Ordered, func() {
 		// Two unformatted schemas in different subfolders. Passing an explicit path
 		// must format only that file and must not trigger recursive discovery of the
 		// other.
-		_, cleanup := setupMiniRepo("0.53.4", map[string]string{
+		_, cleanup := setupMiniRepo(map[string]string{
 			"synnax/user.oracle": "User struct {key uuid\nname   string}",
 			"x/other.oracle":     "Other struct {a uuid\nb   string}",
 		})
@@ -243,7 +235,7 @@ var _ = Describe("fmt command with explicit file arguments", Ordered, func() {
 var _ = Describe("fmt command discovery error", Ordered, func() {
 	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
-		repoDir, cleanup := setupMiniRepo("0.53.4", map[string]string{
+		repoDir, cleanup := setupMiniRepo(map[string]string{
 			"synnax/user.oracle": "User struct {\n    key uuid\n}\n",
 		})
 		DeferCleanup(cleanup)
@@ -262,7 +254,7 @@ var _ = Describe("fmt command discovery error", Ordered, func() {
 var _ = Describe("fmt command argument error", Ordered, func() {
 	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
-		_, cleanup := setupMiniRepo("0.53.4", map[string]string{
+		_, cleanup := setupMiniRepo(map[string]string{
 			"synnax/user.oracle": "User struct {\n    key uuid\n}\n",
 		})
 		DeferCleanup(func() { cleanup() })
@@ -280,7 +272,7 @@ var _ = Describe("fmt command with unformatted schemas", Ordered, func() {
 
 	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
-		_, cleanup = setupMiniRepo("0.53.4", map[string]string{
+		_, cleanup = setupMiniRepo(map[string]string{
 			// Intentionally poorly formatted (extra spaces, no newline).
 			"user.oracle": "User struct {key uuid\nname   string}",
 		})
@@ -301,7 +293,7 @@ var _ = Describe("migrate command with nested schema folders", Ordered, func() {
 		// Schemas live in subdirectories (synnax/x) after the folder restructure. The
 		// bare migrate command must recurse to discover them rather than relying on a
 		// flat schemas/*.oracle glob, which would find nothing and fail.
-		repoDir, cleanup := setupMiniRepo("0.53.4", map[string]string{
+		repoDir, cleanup := setupMiniRepo(map[string]string{
 			"synnax/user.oracle": "User struct {\n    key  uuid\n    name string\n}\n",
 			"x/telem.oracle":     "Rate struct {\n    hz float64\n}\n",
 		})
@@ -324,7 +316,7 @@ var _ = Describe("expandGlobs", func() {
 	)
 
 	BeforeEach(func() {
-		repoDir, cleanup = setupMiniRepo("0.1.0", map[string]string{
+		repoDir, cleanup = setupMiniRepo(map[string]string{
 			"a.oracle": "A struct {\n    key uuid\n}\n",
 			"b.oracle": "B struct {\n    key uuid\n}\n",
 		})
@@ -361,7 +353,7 @@ var _ = Describe("fmt --diff flag", Ordered, func() {
 
 	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
-		_, cleanup = setupMiniRepo("0.53.4", map[string]string{
+		_, cleanup = setupMiniRepo(map[string]string{
 			"user.oracle": "User struct {key uuid\nname   string}",
 		})
 	})
@@ -379,7 +371,7 @@ var _ = Describe("check command with bad schema", Ordered, func() {
 
 	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
-		_, cleanup = setupMiniRepo("0.53.4", map[string]string{
+		_, cleanup = setupMiniRepo(map[string]string{
 			"bad.oracle": "this is not valid oracle syntax {{{{",
 		})
 	})

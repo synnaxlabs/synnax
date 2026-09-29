@@ -7,16 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { CSS } from "@synnaxlabs/lyra/css";
+import { mockBoundingClientRect } from "@synnaxlabs/lyra/testutil";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { color } from "@synnaxlabs/x";
 import { fireEvent, render, type RenderResult } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Color } from "@/color";
-import { CSS } from "@/css";
-import { mockBoundingClientRect } from "@/testutil/dom";
 import { Theming } from "@/theming";
-import { Triggers } from "@/triggers";
 
 const RED = "#ff0000";
 const GREEN = "00ff00";

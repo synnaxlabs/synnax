@@ -10,9 +10,9 @@
 package v0_test
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/versions/v0"
@@ -38,6 +38,7 @@ var _ = Describe("Migration", func() {
 	})
 
 	run := func(ctx SpecContext) {
+		GinkgoHelper()
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:         db,
 			Namespace:  "Policy",
@@ -57,8 +58,8 @@ var _ = Describe("Migration", func() {
 	It(
 		"Should extract legacy policies into the KV mapping and delete them",
 		func(ctx SpecContext) {
-			u1 := ontology.ID{Type: ontology.ResourceTypeUser, Key: uuid.NewString()}
-			u2 := ontology.ID{Type: ontology.ResourceTypeUser, Key: uuid.NewString()}
+			u1 := ontology.ID{Type: ontology.ResourceTypeUser, Key: uuid.New().String()}
+			u2 := ontology.ID{Type: ontology.ResourceTypeUser, Key: uuid.New().String()}
 			shared := newLegacy(u1, u2)
 			single := newLegacy(u1)
 			modern := v0.Policy{
@@ -120,6 +121,7 @@ var _ = Describe("Legacy mappings", func() {
 	BeforeEach(func() { db = DeferClose(gorp.Wrap(memkv.New())) })
 
 	writeMapping := func(ctx SpecContext, mappings []v0.LegacyUserMapping) {
+		GinkgoHelper()
 		raw := MustSucceed(json.Marshal(mappings))
 		Expect(
 			db.Set(ctx, []byte("sy_rbac_legacy_permission_mapping"), raw),

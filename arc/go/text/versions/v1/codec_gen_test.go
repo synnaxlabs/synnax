@@ -14,14 +14,13 @@ package v1_test
 import (
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/text/versions/v1"
 	crdt "github.com/synnaxlabs/x/crdt/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
+	"github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Codec", func() {
@@ -47,7 +46,7 @@ var _ = Describe("Codec", func() {
 				},
 				Deletes: []crdt.Delete{{ID: crdt.ID{Replica: 13, Counter: 14}}},
 			}),
-			Entry("zero values", v1.Document{Inserts: nil, Deletes: nil}),
+			Entry("zero values", v1.Document{Inserts: []crdt.Insert{}, Deletes: []crdt.Delete{}}),
 			Entry("empty collections", v1.Document{Inserts: []crdt.Insert{}, Deletes: []crdt.Delete{}}),
 		)
 	})
@@ -75,7 +74,7 @@ var _ = Describe("Codec", func() {
 					Deletes: []crdt.Delete{{ID: crdt.ID{Replica: 14, Counter: 15}}},
 				},
 			}),
-			Entry("zero values", v1.Text{Doc: v1.Document{Inserts: nil, Deletes: nil}}),
+			Entry("zero values", v1.Text{Doc: v1.Document{Inserts: []crdt.Insert{}, Deletes: []crdt.Delete{}}}),
 		)
 	})
 })
@@ -156,7 +155,7 @@ func FuzzDecodeDocument(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v1.Document{Inserts: nil, Deletes: nil}
+		seed := v1.Document{Inserts: []crdt.Insert{}, Deletes: []crdt.Delete{}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -187,7 +186,7 @@ func FuzzDecodeDocument(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -215,7 +214,7 @@ func FuzzDecodeText(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v1.Text{Doc: v1.Document{Inserts: nil, Deletes: nil}}
+		seed := v1.Text{Doc: v1.Document{Inserts: []crdt.Insert{}, Deletes: []crdt.Delete{}}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -238,7 +237,7 @@ func FuzzDecodeText(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})

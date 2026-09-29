@@ -15,3 +15,6 @@ import "github.com/synnaxlabs/x/color/versions/v0"
 
 // Color is an RGBA color with RGB as 0-255 and alpha as 0-1.
 type Color = v0.Color
+
+// Stop is a single color stop in a gradient.
+type Stop = v0.Stop

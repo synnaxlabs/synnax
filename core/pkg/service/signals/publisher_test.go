@@ -12,8 +12,8 @@ package signals_test
 import (
 	"io"
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -44,6 +44,7 @@ var _ = Describe("Publisher", Serial, func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		sigs := MustSucceed(signals.New(signals.Config{
+			DB:      db,
 			Channel: channelSvc,
 			Framer:  framerSvc,
 		}))

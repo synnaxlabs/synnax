@@ -19,5 +19,5 @@ type Program struct {
 	WASM []byte `json:"wasm" msgpack:"wasm"`
 	// OutputMemoryBases contains memory base addresses for multi-output functions,
 	// mapping function keys to their base addresses.
-	OutputMemoryBases map[string]uint32 `json:"output_memory_bases,omitzero" msgpack:"output_memory_bases,omitzero"`
+	OutputMemoryBases map[string]uint32 `json:"output_memory_bases" msgpack:"output_memory_bases"`
 }

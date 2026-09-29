@@ -31,11 +31,11 @@ type Region struct {
 	// Name is a human-readable name for the region.
 	Name string `json:"name" msgpack:"name"`
 	// Selectors contains CSS selectors targeting SVG elements within the symbol.
-	Selectors []string `json:"selectors,omitzero" msgpack:"selectors,omitzero"`
+	Selectors []string `json:"selectors" msgpack:"selectors"`
 	// StrokeColor is an optional stroke color override for the region.
-	StrokeColor *color.Color `json:"stroke_color,omitempty" msgpack:"stroke_color,omitempty"`
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// FillColor is an optional fill color override for the region.
-	FillColor *color.Color `json:"fill_color,omitempty" msgpack:"fill_color,omitempty"`
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 }
 
 // State is a named visual state of a symbol with regional styling configurations.
@@ -45,7 +45,7 @@ type State struct {
 	// Name is a human-readable name for this state.
 	Name string `json:"name" msgpack:"name"`
 	// Regions contains style regions defining visual appearance for this state.
-	Regions []Region `json:"regions,omitzero" msgpack:"regions,omitzero"`
+	Regions []Region `json:"regions" msgpack:"regions"`
 }
 
 // Handle is a connection point on a symbol for linking to other diagram elements.
@@ -72,18 +72,18 @@ type Spec struct {
 	// SVG is the SVG markup defining the symbol's visual geometry.
 	SVG string `json:"svg" msgpack:"svg"`
 	// States contains available visual states with regional styling configurations.
-	States []State `json:"states,omitzero" msgpack:"states,omitzero"`
+	States []State `json:"states" msgpack:"states"`
 	// Variant is the symbol variant: 'static' or 'actuator'.
 	Variant string `json:"variant" msgpack:"variant"`
 	// Handles contains connection points for linking to other diagram elements.
-	Handles []Handle `json:"handles,omitzero" msgpack:"handles,omitzero"`
+	Handles []Handle `json:"handles" msgpack:"handles"`
 	// Scale is the symbol scale factor.
 	Scale float64 `json:"scale" msgpack:"scale"`
 	// StrokeScaled is true when stroke width scales with the symbol size.
 	StrokeScaled bool `json:"stroke_scaled" msgpack:"stroke_scaled"`
 	// PreviewViewport is an optional viewport configuration for symbol preview
 	// rendering.
-	PreviewViewport *spatial.Viewport `json:"preview_viewport,omitempty" msgpack:"preview_viewport,omitempty"`
+	PreviewViewport *spatial.Viewport `json:"preview_viewport,omitzero" msgpack:"preview_viewport,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.

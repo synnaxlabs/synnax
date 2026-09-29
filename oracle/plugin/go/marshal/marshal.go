@@ -15,7 +15,6 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 
@@ -23,7 +22,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/versioning"
-	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
+	"github.com/synnaxlabs/oracle/plugin/go/types"
 	"github.com/synnaxlabs/oracle/plugin/gomod"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -58,9 +57,9 @@ func DefaultOptions() Options {
 // New creates a new go/marshal plugin with the given options.
 func New(opts Options) *Plugin { return &Plugin{Options: opts} }
 
-func (p *Plugin) Name() string       { return "go/marshal" }
-func (p *Plugin) Domains() []string  { return []string{"go"} }
-func (p *Plugin) Requires() []string { return []string{"go/types"} }
+func (*Plugin) Name() string       { return "go/marshal" }
+func (*Plugin) Domains() []string  { return []string{"go"} }
+func (*Plugin) Requires() []string { return []string{"go/types"} }
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
@@ -71,16 +70,16 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	}
 	resp.Files = append(resp.Files, frozen...)
 
-	// Types that alias their predecessor version carry its codec methods
-	// through the alias; only defined types get codecs in the current package.
-	aliased, err := gotypes.AliasedTypes(req)
+	// Types that alias their predecessor version carry its codec methods through the
+	// alias; only defined types get codecs in the current package.
+	aliased, err := types.AliasedTypes(req)
 	if err != nil {
 		return nil, err
 	}
 
-	// Version-laid-out packages emit their codecs alongside the current
-	// types in types/vN; the rewrite shifts every affected path at once so
-	// cross-package codec references stay version-pinned.
+	// Version-laid-out packages emit their codecs alongside the current types in
+	// types/vN; the rewrite shifts every affected path at once so cross-package codec
+	// references stay version-pinned.
 	rewritten, _, _, err := versioning.RewriteCurrent(
 		context.Background(), req.Resolutions, req.Versions,
 	)
@@ -91,8 +90,8 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	versionedReq.Resolutions = rewritten
 	req = &versionedReq
 
-	// Collect all entry types. Codecs are explicit: a struct or union gets
-	// one iff it declares @go marshal; references never pull a codec in.
+	// Collect all entry types. Codecs are explicit: a struct or union gets one iff it
+	// declares @go marshal; references never pull a codec in.
 	var entryTypes []resolution.Type
 	for _, entry := range append(
 		req.Resolutions.StructTypes(), req.Resolutions.UnionTypes()...,
@@ -160,8 +159,8 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 
 	// A codec pins a persisted wire format to a type shape, so every marshalled type
 	// must live in a versions/vN package where that shape is immutable. A codec target
-	// outside versions/vN means the type (or one it persists) is not a member of
-	// its resource's current version file.
+	// outside versions/vN means the type (or one it persists) is not a member of its
+	// resource's current version file.
 	if p.Options.RequireVersioned {
 		for goPath := range allPkgs {
 			if isVersionedPath(goPath) {
@@ -274,9 +273,6 @@ type importEntry struct {
 	Alias string
 }
 
-// versionDir matches version sub-directory names ("v0", "v12").
-var versionDir = regexp.MustCompile(`/v\d+$`)
-
 func sortedImports(m map[string]string) []importEntry {
 	keys := make([]string, 0, len(m))
 	for k := range m {
@@ -286,10 +282,8 @@ func sortedImports(m map[string]string) []importEntry {
 	entries := make([]importEntry, 0, len(keys))
 	for _, k := range keys {
 		alias := m[k]
-		// Version directories always import under an explicit alias so the
-		// qualifier's origin stays visible.
-		if alias == "" && versionDir.MatchString(k) {
-			alias = filepath.Base(k)
+		if alias == naming.AssumedImportName(k) {
+			alias = ""
 		}
 		entries = append(entries, importEntry{Path: k, Alias: alias})
 	}

@@ -11,7 +11,8 @@ package imex
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
@@ -32,12 +33,13 @@ import (
 // EncodingJSON names the JSON serialization in an export request's encoding field.
 const EncodingJSON = "JSON"
 
-// JSONCodec is the encoder for the JSON serialization. It pretty-prints its output and
-// writes <, >, and & literally, since an exported file is read by a person and never
-// placed into an HTML document unparsed.
+// JSONCodec is the encoder for the JSON serialization. It pretty-prints its output,
+// since an exported file is read by a person. Its output is deterministic, so
+// re-exporting an unchanged project rewrites the same bytes rather than a spurious
+// diff.
 var JSONCodec http.FileCodec = xjson.NewCodec(
-	xjson.WithIndent("  "),
-	xjson.WithoutHTMLEscaping(),
+	jsontext.WithIndent("  "),
+	json.Deterministic(true),
 )
 
 // ResolveEncoding returns the file encoder for the named export serialization. It

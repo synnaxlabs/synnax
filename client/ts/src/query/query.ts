@@ -615,6 +615,17 @@ export class Space<
   private fetch(query: Query<P, K, D, V>, options?: FetchOptions): Promise<D> {
     const promise = this.config.fetch(query.params, options).then(
       (keys) => {
+        const { table, single, name } = this.config;
+        // Hydration leaves a tombstone in place, so a record deleted while its fetch
+        // was in flight answers as a deletion rather than an empty record.
+        if (
+          single === true &&
+          keys.length === 1 &&
+          table.status(keys[0]) === "tombstoned"
+        ) {
+          this.settle(query, loading, { variant: "deleted", key: keys[0] });
+          throw new NotFoundError(`${name} was deleted`);
+        }
         this.settle(query, loading, { variant: "ready", keys });
         // The settle drains membership changes that raced the fetch, so the answer
         // comes off the query: the keys the fetch returned are already stale.

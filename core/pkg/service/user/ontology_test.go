@@ -14,8 +14,8 @@ import (
 	"iter"
 	"slices"
 	"sync"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -94,7 +94,7 @@ var _ = Describe("Ontology", func() {
 			"Should index first_name for fuzzy search via the suite's search index",
 			func(ctx SpecContext) {
 				created := MustSucceed(writer.Create(ctx, user.User{
-					Username:  uuid.NewString(),
+					Username:  uuid.New().String(),
 					FirstName: "Persephone",
 					LastName:  "Quintarelli",
 				}))
@@ -112,7 +112,7 @@ var _ = Describe("Ontology", func() {
 			"Should index last_name for fuzzy search via the suite's search index",
 			func(ctx SpecContext) {
 				created := MustSucceed(writer.Create(ctx, user.User{
-					Username:  uuid.NewString(),
+					Username:  uuid.New().String(),
 					FirstName: "Marigold",
 					LastName:  "Ravenscroft",
 				}))
@@ -131,7 +131,7 @@ var _ = Describe("Ontology", func() {
 		It("Should retrieve a user's schema entity by its key", func(ctx SpecContext) {
 			key := uuid.New()
 			created := MustSucceed(writer.Create(ctx, user.User{
-				Username: uuid.NewString(),
+				Username: uuid.New().String(),
 				Key:      key,
 			}))
 			Expect(svc.RetrieveResource(ctx, key.String(), nil)).To(
@@ -152,13 +152,13 @@ var _ = Describe("Ontology", func() {
 			"Should return an error when the key is not a valid UUID",
 			func(ctx SpecContext) {
 				Expect(svc.RetrieveResource(ctx, "not-a-uuid", nil)).Error().
-					To(MatchError(ContainSubstring("invalid UUID")))
+					To(MatchError(ContainSubstring("invalid uuid")))
 			},
 		)
 		It(
 			"Should return query.ErrNotFound when no user has the given key",
 			func(ctx SpecContext) {
-				Expect(svc.RetrieveResource(ctx, uuid.NewString(), nil)).Error().
+				Expect(svc.RetrieveResource(ctx, uuid.New().String(), nil)).Error().
 					To(MatchError(query.ErrNotFound))
 			},
 		)
@@ -185,7 +185,7 @@ var _ = Describe("Ontology", func() {
 				DeferCleanup(disconnect)
 
 				created := MustSucceed(writer.Create(ctx, user.User{
-					Username:  uuid.NewString(),
+					Username:  uuid.New().String(),
 					FirstName: "Octavian",
 				}))
 				expectedID := created.OntologyID().String()
@@ -218,10 +218,10 @@ var _ = Describe("Ontology", func() {
 			"Should iterate over all users currently stored in the service",
 			func(ctx SpecContext) {
 				a := MustSucceed(writer.Create(ctx, user.User{
-					Username: uuid.NewString(),
+					Username: uuid.New().String(),
 				}))
 				b := MustSucceed(writer.Create(ctx, user.User{
-					Username: uuid.NewString(),
+					Username: uuid.New().String(),
 				}))
 
 				seq, closer := MustSucceed2(svc.OpenNexter(ctx))

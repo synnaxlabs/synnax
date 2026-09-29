@@ -22,7 +22,7 @@ export const CONCEPTS_NAV: PageNavNode = {
     {
       key: "/reference/concepts/clusters-and-nodes",
       href: "/reference/concepts/clusters-and-nodes",
-      name: "Clusters and Nodes",
+      name: "Clusters and nodes",
     },
     {
       key: "/reference/concepts/channels",

@@ -12,11 +12,9 @@
 package v0_test
 
 import (
-	"github.com/google/uuid"
 	"testing"
+	"uuid"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
@@ -24,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
+	"github.com/synnaxlabs/x/testutil"
 )
 
 var (
@@ -87,9 +86,9 @@ var _ = Describe("Codec", func() {
 				}},
 			}),
 			Entry("zero values", v0.Panel{
-				Key:  uuid.Nil,
+				Key:  uuid.Nil(),
 				Name: "",
-				Root: v0.Node{Variant: v0.LeafNode{Tabs: nil}},
+				Root: v0.Node{Variant: v0.LeafNode{Tabs: []v0.Tab{}}},
 			}),
 		)
 	})
@@ -123,7 +122,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", fullyPopulatedTabBase),
-			Entry("zero values", v0.TabBase{Key: uuid.Nil}),
+			Entry("zero values", v0.TabBase{Key: uuid.Nil()}),
 		)
 	})
 	Describe("View", func() {
@@ -138,7 +137,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", fullyPopulatedView),
-			Entry("zero values", v0.View{Type: "", Args: nil}),
+			Entry("zero values", v0.View{Type: "", Args: msgpack.EncodedJSON{}}),
 		)
 	})
 })
@@ -298,7 +297,7 @@ func FuzzDecodeNode(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -326,9 +325,9 @@ func FuzzDecodePanel(f *testing.F) {
 	}
 	{
 		seed := v0.Panel{
-			Key:  uuid.Nil,
+			Key:  uuid.Nil(),
 			Name: "",
-			Root: v0.Node{Variant: v0.LeafNode{Tabs: nil}},
+			Root: v0.Node{Variant: v0.LeafNode{Tabs: []v0.Tab{}}},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -352,7 +351,7 @@ func FuzzDecodePanel(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -394,7 +393,7 @@ func FuzzDecodeTab(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -410,7 +409,7 @@ func FuzzDecodeTabBase(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.TabBase{Key: uuid.Nil}
+		seed := v0.TabBase{Key: uuid.Nil()}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -433,7 +432,7 @@ func FuzzDecodeTabBase(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -449,7 +448,7 @@ func FuzzDecodeView(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.View{Type: "", Args: nil}
+		seed := v0.View{Type: "", Args: msgpack.EncodedJSON{}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -472,7 +471,7 @@ func FuzzDecodeView(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})

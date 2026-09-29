@@ -18,4 +18,7 @@ export interface SVGBasedProps extends OrientableProps {
   scale?: number;
 }
 
-export const ZERO_PROPS: SVGBasedProps = { orientation: "left", scale: 1 };
+export const ZERO_PROPS = {
+  orientation: "left",
+  scale: 1,
+} as const satisfies SVGBasedProps;

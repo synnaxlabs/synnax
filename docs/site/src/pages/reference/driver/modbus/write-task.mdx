@@ -1,14 +1,16 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Modbus Write Task"
+title: "Modbus write task"
 description: "Learn how to send commands to Modbus TCP devices with Synnax."
-prev: "Read Task"
+prev: "Read task"
 prevURL: "/reference/driver/modbus/read-task"
 next: "National Instruments"
 nextURL: "/reference/driver/ni/configure-device"
 ---
 
-import { Divider, Icon, Text } from "@synnaxlabs/pluto";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Video } from "@/components/media/Media";
 import { Fragment } from "react";
 import Details from "@/components/details/Details.astro";
@@ -18,11 +20,12 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lifecycle).
+This task follows the standard
+[task lifecycle](/reference/driver/task-basics#task-lifecycle).
 
 <Divider.Divider x />
 
-## Task Configuration Reference
+## Task configuration reference
 
 | Parameter  | Type   | Required | Default | Description                           |
 | ---------- | ------ | -------- | ------- | ------------------------------------- |
@@ -31,7 +34,7 @@ For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lif
 
 <Divider.Divider x />
 
-## Register Types Reference
+## Register types reference
 
 <DetailsGroup>
 
@@ -76,7 +79,7 @@ control signals like relay states and valve positions.
 
 <Divider.Divider x />
 
-## Important Rules
+## Important rules
 
 - **Byte/word order** -> Ensure swap settings match your server configuration for
   multi-register data types.
@@ -84,7 +87,7 @@ control signals like relay states and valve positions.
 
 <Divider.Divider x />
 
-## How-To
+## How-to
 
 <Client.Tabs client:load exclude={["cpp"]}>
   <Fragment slot="console">

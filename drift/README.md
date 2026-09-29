@@ -1,4 +1,4 @@
-# Drift - Redux State Synchronization and Declarative Window Management
+# Drift - Redux state synchronization and declarative window management
 
 # Summary
 
@@ -16,7 +16,7 @@ Drift was inspired by the now unmaintained
 [Electron Redux](https://github.com/klarna/electron-redux), and exposes a much simpler,
 more powerful API.
 
-# Supported Runtimes
+# Supported runtimes
 
 | Runtime  | Supported                                                                 | Import                                                   |
 | -------- | ------------------------------------------------------------------------- | -------------------------------------------------------- |
@@ -135,7 +135,7 @@ export const MyReactComponent = () => {
 };
 ```
 
-## Accessing Window State
+## Accessing window state
 
 Drift also provides selectors for accessing Window state in React.
 

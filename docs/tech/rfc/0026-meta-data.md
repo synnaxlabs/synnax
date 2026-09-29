@@ -302,7 +302,7 @@ Implementation details that can change without breaking the architecture:
 
 Two categories of indexes serve different access patterns:
 
-| Type   | Structure               | Use Case                                    | Operations          |
+| Type   | Structure               | Use case                                    | Operations          |
 | ------ | ----------------------- | ------------------------------------------- | ------------------- |
 | Lookup | `map[string][]K`        | Exact match (`WHERE email = ?`)             | O(1) lookup         |
 | Sorted | `[]indexEntry` or btree | Ordering/pagination (`ORDER BY created_at`) | O(log n) + O(limit) |

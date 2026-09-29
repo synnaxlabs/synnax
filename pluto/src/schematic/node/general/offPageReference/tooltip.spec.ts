@@ -7,27 +7,30 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
 import { describe, expect, it } from "vitest";
 
 import { offPageReferenceTooltip } from "@/schematic/node/general/offPageReference/Primitive";
+const PAGE: schematic.Page = { type: "schematic", key: "page-key" };
+
 describe("offPageReferenceTooltip", () => {
   it("should return double-click tooltip by default", () => {
-    expect(offPageReferenceTooltip("page-key")).toBe("Double-click to navigate");
+    expect(offPageReferenceTooltip(PAGE)).toBe("Double-click to navigate");
   });
 
-  it("should return double-click tooltip when dblClickNav is true", () => {
-    expect(offPageReferenceTooltip("page-key", true)).toBe("Double-click to navigate");
+  it("should return single-click tooltip when double-click nav is disabled", () => {
+    expect(offPageReferenceTooltip(PAGE, true)).toBe("Single-click to navigate");
   });
 
-  it("should return single-click tooltip when dblClickNav is false", () => {
-    expect(offPageReferenceTooltip("page-key", false)).toBe("Single-click to navigate");
+  it("should return double-click tooltip when double-click nav is enabled", () => {
+    expect(offPageReferenceTooltip(PAGE, false)).toBe("Double-click to navigate");
   });
 
   it("should return undefined when page is undefined", () => {
     expect(offPageReferenceTooltip(undefined)).toBeUndefined();
   });
 
-  it("should return undefined when page is empty string", () => {
-    expect(offPageReferenceTooltip("")).toBeUndefined();
+  it("should return undefined when the page key is empty", () => {
+    expect(offPageReferenceTooltip({ type: "schematic", key: "" })).toBeUndefined();
   });
 });

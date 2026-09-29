@@ -87,7 +87,7 @@ class Client(Surface):
         :param name: Name of the range to search for and open.
         """
         self.layout.search_palette(name)
-        name_input = self.layout.page.locator("input[placeholder='Name']:visible").first
+        name_input = self.layout.page.locator("input[placeholder='Name']").visible.first
         name_input.wait_for(state="visible", timeout=5000)
         expect(name_input).to_have_value(name, timeout=5000)
 

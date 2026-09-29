@@ -17,7 +17,8 @@ import {
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Haul, Ranger } from "@synnaxlabs/pluto";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { Ranger } from "@synnaxlabs/pluto";
 import { TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
@@ -178,6 +179,13 @@ describe("range/Toolbar", () => {
       await waitFor(() =>
         expect(Session.Range.selectSelectedKey(store.getState())).toBe(rng.key),
       );
+    });
+
+    it("offers Reload Console", async () => {
+      const rng = await createTestRange(client);
+      await renderToolbar({ ranges: [toState(rng)] });
+      await openContextMenu(rng.name);
+      expect(await screen.findByText("Reload Console")).toBeTruthy();
     });
 
     it("clears the active range", async () => {

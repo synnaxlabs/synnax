@@ -10,7 +10,10 @@
 import { Arc } from "@synnaxlabs/pluto";
 
 import { TaskControls } from "@/feature/arc/editor/TaskControls";
+import { ContextMenu } from "@/platform/context-menu";
 import { Session } from "@/session";
+
+const EXTRA_MENU_ITEMS = <ContextMenu.ReloadConsoleItem />;
 
 export const Text = () => {
   // Background tabs stay mounted, so an ungated autofocus would let any of them pull
@@ -18,7 +21,10 @@ export const Text = () => {
   const getTabIsFocused = Session.Panel.useGetTabIsFocused();
   return (
     <>
-      <Arc.Text.Editor autoFocus={getTabIsFocused()} />
+      <Arc.Text.Editor
+        autoFocus={getTabIsFocused()}
+        extraMenuItems={EXTRA_MENU_ITEMS}
+      />
       <TaskControls />
     </>
   );

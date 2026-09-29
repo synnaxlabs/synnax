@@ -15,14 +15,24 @@ import { describe, expect, it } from "vitest";
 import { Modbus } from "@/feature/modbus";
 import { createModbusDevice } from "@/feature/modbus/testutil";
 import {
+  awaitEditableForm,
   createChannelReadOnlyClient,
   deployAndAwaitTask,
   renderTaskFormTab,
+  type RenderTaskFormTabOptions,
   reportTaskStopped,
 } from "@/platform/task/testutil";
 import { awaitTextEditingElement, commitTextEdit, getIconButton } from "@/testutil";
 
 const client = createTestClient();
+
+// The form renders read-only until the update grant lands, and a preview field renders
+// no input, so wait for it to become editable before querying fields.
+const renderWrite = async (options: RenderTaskFormTabOptions) => {
+  const rendered = await renderTaskFormTab(Modbus.Task.Write, options);
+  await awaitEditableForm();
+  return rendered;
+};
 
 // Drafts carry no key; the created row mints its own.
 const ZERO_DRAFT: task.New<Modbus.Task.WriteSchemas> = {
@@ -36,14 +46,14 @@ const createDraft = async (
   config: task.Payload<Modbus.Task.WriteSchemas>["config"],
 ) => await client.tasks.create({ ...ZERO_DRAFT, config }, Modbus.Task.WRITE_SCHEMAS);
 
-describe("Modbus.Write", () => {
+describe("Write", () => {
   it("should create command channels and indexes for the built channels on deploy", async () => {
     const dev = await createModbusDevice(client);
     const draft = await createDraft(client, {
       ...Modbus.Task.WRITE_SCHEMAS.config.parse({}),
       device: dev.key,
     });
-    const { container } = await renderTaskFormTab(Modbus.Task.Write, {
+    const { container } = await renderWrite({
       client,
       taskKey: draft.key,
     });
@@ -93,13 +103,43 @@ describe("Modbus.Write", () => {
     expect(updated.properties.write.channels["coil-output-0"]).toBe(coil.channel);
   });
 
+  it("should bind a new entry to the channel the device already maps", async () => {
+    const dev = await createModbusDevice(client);
+    const config = { ...Modbus.Task.WRITE_SCHEMAS.config.parse({}), device: dev.key };
+    const firstDraft = await createDraft(client, config);
+    const first = await renderWrite({ client, taskKey: firstDraft.key });
+    await screen.findByText(dev.name);
+    fireEvent.click(getIconButton(first.container, "add"));
+    await screen.findByText("Coil");
+    const firstTask = await deployAndAwaitTask(
+      client,
+      first.container,
+      firstDraft.key,
+      Modbus.Task.WRITE_SCHEMAS,
+    );
+    first.unmount();
+    const cmd = await client.channels.retrieve(firstTask.config.channels[0].channel);
+    const secondDraft = await createDraft(client, config);
+    const second = await renderWrite({ client, taskKey: secondDraft.key });
+    await screen.findByText(dev.name);
+    fireEvent.click(getIconButton(second.container, "add"));
+    await screen.findByText(cmd.name);
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: secondDraft.key,
+        schemas: Modbus.Task.WRITE_SCHEMAS,
+      });
+      expect(saved.config.channels[0].channel).toBe(cmd.key);
+    });
+  });
+
   it("should reuse existing command channels when redeploying", async () => {
     const dev = await createModbusDevice(client);
     const draft = await createDraft(client, {
       ...Modbus.Task.WRITE_SCHEMAS.config.parse({}),
       device: dev.key,
     });
-    const first = await renderTaskFormTab(Modbus.Task.Write, {
+    const first = await renderWrite({
       client,
       taskKey: draft.key,
     });
@@ -119,7 +159,7 @@ describe("Modbus.Write", () => {
     await reportTaskStopped(client, deployed.payload);
     first.unmount();
 
-    const second = await renderTaskFormTab(Modbus.Task.Write, {
+    const second = await renderWrite({
       client,
       taskKey: draft.key,
     });
@@ -147,7 +187,7 @@ describe("Modbus.Write", () => {
       ...Modbus.Task.WRITE_SCHEMAS.config.parse({}),
       device: dev.key,
     });
-    const { container } = await renderTaskFormTab(Modbus.Task.Write, {
+    const { container } = await renderWrite({
       client,
       taskKey: draft.key,
     });
@@ -169,7 +209,7 @@ describe("Modbus.Write", () => {
       ...Modbus.Task.WRITE_SCHEMAS.config.parse({}),
       device: dev.key,
     });
-    const { container } = await renderTaskFormTab(Modbus.Task.Write, {
+    const { container } = await renderWrite({
       client,
       taskKey: draft.key,
       as: await createChannelReadOnlyClient(client),

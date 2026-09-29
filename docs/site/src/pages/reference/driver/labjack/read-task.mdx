@@ -1,14 +1,17 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "LabJack Read Task"
+title: "LabJack read task"
 description: "Learn how to acquire data from LabJack devices with Synnax."
-prev: "Configure a Device"
+prev: "Configure a device"
 prevURL: "/reference/driver/labjack/configure-device"
-next: "Write Task"
+next: "Write task"
 nextURL: "/reference/driver/labjack/write-task"
 ---
 
-import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Note } from "@synnaxlabs/lyra/note";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Video } from "@/components/media/Media";
 import { Fragment } from "react";
 import Details from "@/components/details/Details.astro";
@@ -18,11 +21,12 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lifecycle).
+This task follows the standard
+[task lifecycle](/reference/driver/task-basics#task-lifecycle).
 
 <Divider.Divider x />
 
-## Task Configuration Reference
+## Task configuration reference
 
 | Parameter     | Type   | Required | Default | Description                                                   |
 | ------------- | ------ | -------- | ------- | ------------------------------------------------------------- |
@@ -33,7 +37,7 @@ For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lif
 
 <Divider.Divider x />
 
-## Channel Types Reference
+## Channel types reference
 
 <DetailsGroup>
 
@@ -101,7 +105,7 @@ Reads digital state (0 or 1) from a specified digital I/O line.
 
 <Divider.Divider x />
 
-## Important Rules
+## Important rules
 
 - **Thermocouple performance** -> Thermocouple channels lower the maximum sample rate
   because LJM processes them outside the stream.
@@ -110,7 +114,7 @@ Reads digital state (0 or 1) from a specified digital I/O line.
 
 <Divider.Divider x />
 
-## How-To
+## How-to
 
 <Client.Tabs client:load exclude={["cpp"]}>
   <Fragment slot="console">

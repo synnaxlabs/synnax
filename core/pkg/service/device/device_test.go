@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
@@ -775,6 +776,9 @@ var _ = Describe("Device", func() {
 			// Clear fields populated by Create that aren't stored in gorp.
 			d2a.Status, d2a.Parent = nil, nil
 			d2b.Status, d2b.Parent = nil, nil
+			// A stored device reads back with an allocated, empty Properties.
+			d2a.Properties = msgpack.EncodedJSON{}
+			d2b.Properties = msgpack.EncodedJSON{}
 			var res []device.Device
 			Expect(
 				svc.NewRetrieve().
@@ -815,6 +819,9 @@ var _ = Describe("Device", func() {
 			Expect(w.Create(ctx, &d2b)).To(Succeed())
 			d2a.Status, d2a.Parent = nil, nil
 			d2b.Status, d2b.Parent = nil, nil
+			// A stored device reads back with an allocated, empty Properties.
+			d2a.Properties = msgpack.EncodedJSON{}
+			d2b.Properties = msgpack.EncodedJSON{}
 			var res []device.Device
 			Expect(
 				svc.NewRetrieve().
@@ -854,6 +861,8 @@ var _ = Describe("Device", func() {
 			Expect(w.Create(ctx, &d2a)).To(Succeed())
 			Expect(w.Create(ctx, &d2b)).To(Succeed())
 			d2a.Status, d2a.Parent = nil, nil
+			// A stored device reads back with an allocated, empty Properties.
+			d2a.Properties = msgpack.EncodedJSON{}
 			var res []device.Device
 			Expect(
 				svc.NewRetrieve().

@@ -1,6 +1,6 @@
 # Debugging the Driver
 
-## Crash Stack Traces
+## Crash stack traces
 
 The driver installs a crash handler at startup (`x::crash::install`) that writes a stack
 trace to stderr before the process dies. It covers fatal signals (SIGSEGV, SIGABRT,
@@ -33,7 +33,7 @@ alongside the executable.
 The `driver` binary is linked with `-rdynamic` on POSIX, so non-stripped builds resolve
 exported function names directly in the trace.
 
-## Building with Debug Symbols
+## Building with debug symbols
 
 ### Via GitHub Actions
 
@@ -59,7 +59,7 @@ exported function names directly in the trace.
 - `-OutputDir ./mydir` - Custom output directory (default: `./debugdriver`)
 - `-NoLaunch` - Skip opening Visual Studio
 
-### Local Build
+### Local build
 
 ```bash
 bazel build -c dbg --output_groups=+pdb_file //driver
@@ -70,7 +70,7 @@ Output:
 - `bazel-bin/driver/driver.exe`
 - `bazel-bin/driver/driver.pdb`
 
-## Manual Setup (Windows)
+## Manual setup (Windows)
 
 If not using the script, set up manually:
 

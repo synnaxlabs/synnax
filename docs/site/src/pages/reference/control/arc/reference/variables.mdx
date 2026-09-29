@@ -10,7 +10,10 @@ next: "Operators"
 nextURL: "/reference/control/arc/reference/operators"
 ---
 
-import { Divider, Icon, Note, Text } from "@synnaxlabs/pluto";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Note } from "@synnaxlabs/lyra/note";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Arc } from "@/components";
 import Details from "@/components/details/Details.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
@@ -99,7 +102,7 @@ func example() {
 </Note.Note>
 
 <Divider.Divider x />
-## Variable Types
+## Variable types
 
 ### Literal
 
@@ -303,7 +306,7 @@ func toggle(trigger bool) bool {
 
 <Divider.Divider x />
 
-### Channel Read/Write
+### Channel read/write
 
 A channel read/write variable names a channel directly. Reads and writes pass through to
 that channel, so it behaves exactly like the channel it names. Reassign it with `=` to
@@ -396,7 +399,7 @@ stage main {
 
 <Divider.Divider x />
 
-### Channel Read
+### Channel read
 
 A `channel read` variable is a read-only expression over one or more channels. It is
 reactive: when any channel it reads produces new data, the variable updates and every

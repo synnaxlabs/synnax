@@ -7,18 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  Breadcrumb,
-  Component,
-  Dialog,
-  Flex,
-  Icon,
-  Select,
-  Triggers,
-} from "@synnaxlabs/pluto";
-import { Input } from "@synnaxlabs/pluto/input";
-import { List } from "@synnaxlabs/pluto/list";
-import { Text } from "@synnaxlabs/pluto/text";
+import { Breadcrumb } from "@synnaxlabs/lyra/breadcrumb";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { caseconv, deep } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useRef, useState } from "react";
 import z from "zod";
@@ -98,7 +96,7 @@ export const SearchListItem = (props: List.ItemRenderProps<string>) => {
     "/",
   );
   return (
-    <Select.ListItem<string, "a">
+    <Select.Item<string, "a">
       id={itemKey}
       el="a"
       direction="y"
@@ -127,7 +125,7 @@ export const SearchListItem = (props: List.ItemRenderProps<string>) => {
         )}
       </Flex.Box>
       <Text.Text level="small" dangerouslySetInnerHTML={{ __html: content }} />
-    </Select.ListItem>
+    </Select.Item>
   );
 };
 
@@ -184,7 +182,7 @@ const search = async (term: string) => {
 const DEFAULT_ITEMS: SearchResult[] = [
   {
     key: "default-get-started",
-    title: "Get Started",
+    title: "Get started",
     description: "Get started with Synnax",
     content: "Learn how to set up and start using Synnax",
     href: "/reference",
@@ -205,14 +203,14 @@ const DEFAULT_ITEMS: SearchResult[] = [
   },
   {
     key: "default-client",
-    title: "Client Libraries",
+    title: "Client libraries",
     description: "Quick start with client libraries",
     content: "Connect to Synnax using Python or TypeScript",
     href: "/reference/client/quick-start",
   },
   {
     key: "default-driver",
-    title: "Device Drivers",
+    title: "Device drivers",
     description: "Get started with device drivers",
     content: "Connect hardware devices to Synnax",
     href: "/reference/driver/get-started",
@@ -267,19 +265,17 @@ const SearchDialogContent = () => {
         size="huge"
         full="x"
       />
-      <List.Items<string, SearchResult>
-        className="styled-scrollbar"
-        background={0}
-        bordered
-        borderColor={6}
-        emptyContent={
-          <Text.Text center status="disabled">
-            No Results
-          </Text.Text>
-        }
-      >
-        {searchListItem}
-      </List.Items>
+      <List.Scroll className="styled-scrollbar" background={0} bordered borderColor={6}>
+        <List.Items<string, SearchResult>
+          emptyContent={
+            <Text.Text center status="disabled">
+              No results
+            </Text.Text>
+          }
+        >
+          {searchListItem}
+        </List.Items>
+      </List.Scroll>
     </Select.Frame>
   );
 };

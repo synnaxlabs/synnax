@@ -199,11 +199,13 @@ func OpenService(
 			Virtual:  true,
 			Internal: true,
 		}
-		if err = cfg.Channel.NewWriter(nil).Create(
-			ctx,
-			&cmdCh,
-			channel.RetrieveIfNameExists(),
-		); !ok(err, nil) {
+		if err = cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return cfg.Channel.NewWriter(tx).Create(
+				ctx,
+				&cmdCh,
+				channel.RetrieveIfNameExists(),
+			)
+		}); !ok(err, nil) {
 			return nil, err
 		}
 		s.commandChannelKey = cmdCh.Key()
@@ -294,8 +296,9 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {
 			Details:     details,
 		}
 	}
-	if err := s.cfg.Status.NewWriter(nil).
-		SetMany(ctx, &statuses); err != nil {
+	if err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		return s.cfg.Status.NewWriter(tx).SetMany(ctx, &statuses)
+	}); err != nil {
 		s.cfg.L.Error("failed to set statuses on suspect rack", zap.Error(err))
 	}
 }

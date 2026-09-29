@@ -25,7 +25,7 @@ import { StreamProxy } from "@/framer/streamProxy";
 
 const reqZ = z.object({
   keys: z.number().array(),
-  downsampleFactor: z.int(),
+  downsampleFactor: z.uint32(),
   throttleRate: Rate.z.optional(),
   excludeGroups: z.uint32().array().optional(),
   keepAlive: TimeSpan.z.optional(),
@@ -53,7 +53,7 @@ const intermediateStreamerConfigZ = z.object({
   /** The channels to stream data from. Can be channel keys, names, or payloads. */
   channels: paramsZ,
   /** Optional factor to downsample the data by. Defaults to 1 (no downsampling). */
-  downsampleFactor: z.int().default(1),
+  downsampleFactor: z.uint32().default(1),
   /** Optional throttle rate in Hz to limit the rate of frames sent to the client. Defaults to 0 (no throttling). */
   throttleRate: Rate.z.default(new Rate(0)),
   /** excludeGroups sets writer group IDs whose frames should be filtered out by the

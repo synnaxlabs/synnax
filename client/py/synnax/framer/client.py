@@ -150,9 +150,9 @@ class Client:
         :param tr: A time range to iterate over.
         :param chunk_size: The number of samples to read in a chunk with AutoSpan.
             Defaults to 100000.
-        :param downsample_factor: The factor to downsample the data by. If
-            downsample_factor is less than or equal to 1, no downsampling will be
-            performed. Defaults to 1.
+        :param downsample_factor: The factor to downsample the data by, keeping every
+            n-th sample. Must be between 0 and 2**32 - 1; 0 and 1 keep every sample.
+            Defaults to 1.
         :returns: An Iterator over the given channels within the provided time
         range. See the Iterator documentation for more.
         """

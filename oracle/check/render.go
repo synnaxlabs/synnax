@@ -10,13 +10,14 @@
 package check
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"fmt"
 	"io"
 	"strings"
-	"time"
 
 	"charm.land/lipgloss/v2"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // Format selects an output renderer.
@@ -25,8 +26,8 @@ type Format string
 const (
 	// FormatText renders a styled, human-readable report. Default.
 	FormatText Format = "text"
-	// FormatJSON renders a stable, machine-readable report. The exact
-	// JSON shape is defined by the Report and GateReport struct tags.
+	// FormatJSON renders a stable, machine-readable report. The exact JSON shape is
+	// defined by the Report and GateReport struct tags.
 	FormatJSON Format = "json"
 )
 
@@ -41,9 +42,11 @@ func Render(w io.Writer, r *Report, f Format, verbose bool) error {
 }
 
 func renderJSON(w io.Writer, r *Report) error {
-	enc := json.NewEncoder(w)
-	enc.SetIndent("", "  ")
-	return enc.Encode(r)
+	if err := json.MarshalWrite(w, r, jsontext.WithIndent("  ")); err != nil {
+		return err
+	}
+	_, err := w.Write([]byte{'\n'})
+	return err
 }
 
 var (
@@ -81,9 +84,8 @@ func renderText(w io.Writer, r *Report, verbose bool) error {
 		if _, err := fmt.Fprintf(w, "%s %s%s\n", sym, label, elapsed); err != nil {
 			return err
 		}
-		// In a passing gate we suppress info/warning findings unless
-		// verbose; failures always print every finding so the user sees
-		// the full picture.
+		// In a passing gate we suppress info/warning findings unless verbose; failures
+		// always print every finding so the user sees the full picture.
 		for _, f := range g.Findings {
 			if g.Status == StatusPass && f.Severity != SeverityError && !verbose {
 				continue
@@ -171,10 +173,9 @@ func renderSummary(w io.Writer, r *Report) error {
 	return err
 }
 
-func fmtDuration(d time.Duration) string {
-	ms := d.Milliseconds()
-	if ms < 1000 {
+func fmtDuration(d telem.TimeSpan) string {
+	if ms := d.Duration().Milliseconds(); ms < 1000 {
 		return fmt.Sprintf("(%dms)", ms)
 	}
-	return fmt.Sprintf("(%.1fs)", d.Seconds())
+	return fmt.Sprintf("(%.1fs)", d.Duration().Seconds())
 }

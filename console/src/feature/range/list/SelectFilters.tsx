@@ -10,15 +10,13 @@
 import "@/feature/range/list/List.css";
 
 import { type label, type ranger } from "@synnaxlabs/client";
-import {
-  Dialog,
-  Flex,
-  Icon,
-  Label as PLabel,
-  Menu,
-  Tag,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Tag } from "@synnaxlabs/lyra/tag";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Label as PLabel } from "@synnaxlabs/pluto";
 import { location, state } from "@synnaxlabs/x";
 
 import { CSS } from "@/platform/css";

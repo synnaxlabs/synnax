@@ -12,8 +12,8 @@ package v3_test
 import (
 	"context"
 	"slices"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
@@ -231,6 +231,7 @@ var _ = Describe("MigrateArc", func() {
 // migrated current Arc. The v1 chain is marked applied with no-op migrations so only
 // the v3 migration runs.
 func migrateFromV1(ctx SpecContext, seed v1.Arc) v3.Arc {
+	GinkgoHelper()
 	db := DeferClose(gorp.Wrap(memkv.New()))
 	MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v1.Key, v1.Arc]{DB: db}))
 	Expect(gorp.NewCreate[v1.Key, v1.Arc]().Entry(&seed).Exec(ctx, db)).To(Succeed())
@@ -257,6 +258,7 @@ func migrateFromV1(ctx SpecContext, seed v1.Arc) v3.Arc {
 // migrateFromV0 runs the full Arc migration chain over a gorp-seeded v0 Arc and returns
 // the migrated current Arc.
 func migrateFromV0(ctx SpecContext, seed v0.Arc) v3.Arc {
+	GinkgoHelper()
 	db := DeferClose(gorp.Wrap(memkv.New()))
 	MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Arc]{DB: db}))
 	Expect(gorp.NewCreate[v0.Key, v0.Arc]().Entry(&seed).Exec(ctx, db)).To(Succeed())

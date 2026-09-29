@@ -56,11 +56,18 @@ type Calculator struct {
 	cfg       Config
 	deps      runtime.Dependencies
 	start     telem.TimeStamp
-	closer    io.MultiCloser
+	// clock stamps every cycle. Producers without an upstream timestamp to carry
+	// forward stamp from it; upstream timestamps take precedence over it.
+	clock  telem.MonoClock
+	closer io.MultiCloser
 }
 
 type Config struct {
 	Module compiler.Module
+	// Now returns the wall clock the calculator stamps its cycles from.
+	//
+	// [OPTIONAL] - Defaults to telem.Now.
+	Now func() telem.TimeStamp
 }
 
 var _ config.Config[Config] = Config{}
@@ -68,6 +75,7 @@ var _ config.Config[Config] = Config{}
 // Override implements config.Config.
 func (c Config) Override(other Config) Config {
 	c.Module = override.Zero(c.Module, other.Module)
+	c.Now = override.Nil(c.Now, other.Now)
 	return c
 }
 
@@ -85,7 +93,7 @@ func (c Config) Validate() error {
 // The calculator must be closed by calling Close() after use, or memory leaks will
 // occur.
 func Open(ctx context.Context, cfgs ...Config) (_ *Calculator, err error) {
-	cfg, err := config.New(Config{}, cfgs...)
+	cfg, err := config.New(Config{Now: telem.Now}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -200,6 +208,7 @@ func Open(ctx context.Context, cfgs ...Config) (_ *Calculator, err error) {
 		deps:      cfg.Module.Dependencies,
 		closer:    closers,
 		start:     telem.Now(),
+		clock:     telem.MonoClock{Source: cfg.Now},
 	}
 	closers = nil
 	return c, nil
@@ -247,8 +256,15 @@ func (c *Calculator) Next(
 		changed     bool
 	)
 	for {
-		c.scheduler.Next(ctx, telem.Since(c.start), node.ReasonChannelInput)
-		ofr, currChanged = c.state.channel.Flush(ofr)
+		cycle := node.Cycle{
+			Now:     c.clock.Now(),
+			Elapsed: telem.Since(c.start),
+			Reason:  node.ReasonChannelInput,
+		}
+		c.clock.Advance(c.scheduler.Next(ctx, cycle))
+		var highest telem.TimeStamp
+		ofr, highest, currChanged = c.state.channel.Flush(ofr, cycle.Now)
+		c.clock.Advance(highest)
 		// Series and strings must be cleared after every flush, not just at the end
 		// of the loop. On each iteration the scheduler may create new series/string
 		// handles via WASM; if we don't clear them before the next iteration, stale

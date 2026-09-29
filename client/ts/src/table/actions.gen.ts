@@ -13,7 +13,7 @@ import { type Draft } from "immer";
 import { z } from "zod";
 
 import { actions } from "@/actions";
-import { cellTemplateZ, cellZ, keyZ, type Table, tableZ } from "@/table/types.gen";
+import { cellConfigZ, cellZ, keyZ, type Table, tableZ } from "@/table/types.gen";
 
 /**
  * Create replaces the document with the given created state. Emitted by the Core on
@@ -129,21 +129,33 @@ export type SetCellPayload = z.infer<typeof setCellPayloadZ>;
 /**
  * EraseCells erases the cells whose keys are in cells. Any row whose every cell is in
  * the selection is removed entirely; same for columns. Cells that survive that
- * row/column removal have their variant and props replaced with the template's, keeping
- * their original keys. Cells in the selection whose keys are not in the table's cells
- * map are silently skipped.
+ * row/column removal have their config replaced with the template, keeping their
+ * original keys. Cells in the selection whose keys are not in the table's cells map are
+ * silently skipped.
  */
 export const eraseCellsPayloadZ = z.object({
   cells: z
     .string()
     .array()
     .default(() => []),
-  template: cellTemplateZ,
+  template: cellConfigZ,
 });
 
 export type EraseCellsPayload = z.infer<typeof eraseCellsPayloadZ>;
 
-export const actionZ = z.discriminatedUnion("type", [
+export type Action =
+  | { type: "create"; create: CreatePayload }
+  | { type: "rename"; rename: RenamePayload }
+  | { type: "add_row"; addRow: AddRowPayload }
+  | { type: "remove_row"; removeRow: RemoveRowPayload }
+  | { type: "add_col"; addCol: AddColPayload }
+  | { type: "remove_col"; removeCol: RemoveColPayload }
+  | { type: "resize_row"; resizeRow: ResizeRowPayload }
+  | { type: "resize_col"; resizeCol: ResizeColPayload }
+  | { type: "set_cell"; setCell: SetCellPayload }
+  | { type: "erase_cells"; eraseCells: EraseCellsPayload };
+
+export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
   z.object({ type: z.literal("create"), create: createPayloadZ }),
   z.object({ type: z.literal("rename"), rename: renamePayloadZ }),
   z.object({ type: z.literal("add_row"), addRow: addRowPayloadZ }),
@@ -155,8 +167,6 @@ export const actionZ = z.discriminatedUnion("type", [
   z.object({ type: z.literal("set_cell"), setCell: setCellPayloadZ }),
   z.object({ type: z.literal("erase_cells"), eraseCells: eraseCellsPayloadZ }),
 ]);
-
-export type Action = z.infer<typeof actionZ>;
 
 export const create = (payload: z.input<typeof createPayloadZ>): Action => ({
   type: "create",

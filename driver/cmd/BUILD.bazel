@@ -18,7 +18,7 @@ cc_library(
         "service.cpp",
         "start.cpp",
         "version.cpp",
-        "//core/pkg/version",
+        "//driver/version",
     ],
     hdrs = ["cmd.h"],
     linkopts = select({

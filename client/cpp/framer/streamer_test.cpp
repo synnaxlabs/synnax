@@ -20,7 +20,7 @@ namespace synnax::framer {
 void test_downsample(
     const std::vector<int> &raw_data,
     std::vector<int> expected,
-    int32_t downsample_factor
+    std::uint32_t downsample_factor
 );
 
 /// @brief it should correctly receive a frame of streamed telemetry from the DB.
@@ -145,17 +145,6 @@ TEST(StreamerTests, TestStreamDownsample) {
     test_downsample(data, data, 0);
 }
 
-/// @brief it should return a validation error for negative downsample factor.
-TEST(StreamerTests, TestStreamDownsampleNegative) {
-    auto client = new_test_client();
-    ASSERT_OCCURRED_AS_P(
-        client.telem.open_streamer(
-            synnax::framer::StreamerConfig{.downsample_factor = -1}
-        ),
-        x::errors::VALIDATION
-    );
-}
-
 /// @brief it should correctly stream data from a variable density channel.
 TEST(StreamerTests, TestStreamVariableChannel) {
     auto client = new_test_client();
@@ -195,7 +184,7 @@ TEST(StreamerTests, TestStreamVariableChannel) {
 void test_downsample(
     const std::vector<int> &raw_data,
     std::vector<int> expected,
-    int32_t downsample_factor
+    std::uint32_t downsample_factor
 ) {
     auto client = new_test_client();
     auto data = create_virtual_channel(client, x::telem::INT32_T);
@@ -319,7 +308,7 @@ TEST(StreamerTests, testExcludeGroupsPassesZeroGroup) {
 void test_downsample_string(
     const std::vector<std::string> &raw_data,
     const std::vector<std::string> &expected,
-    int32_t downsample_factor
+    std::uint32_t downsample_factor
 ) {
     auto client = new_test_client();
 

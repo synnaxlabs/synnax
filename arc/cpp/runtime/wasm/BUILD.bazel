@@ -17,10 +17,6 @@ cc_library(
         "module.h",
         "node.h",
     ],
-    copts = select({
-        "@platforms//os:windows": ["/wd4201"],
-        "//conditions:default": [],
-    }),
     visibility = ["//visibility:public"],
     deps = [
         "//arc/cpp/ir",
@@ -38,10 +34,6 @@ cc_library(
 cc_test(
     name = "module_test",
     srcs = ["module_test.cpp"],
-    copts = select({
-        "@platforms//os:windows": ["/wd4201"],
-        "//conditions:default": [],
-    }),
     tags = ["requires-core"],
     deps = [
         ":wasm",
@@ -57,16 +49,13 @@ cc_test(
 cc_test(
     name = "node_test",
     srcs = ["node_test.cpp"],
-    copts = select({
-        "@platforms//os:windows": ["/wd4201"],
-        "//conditions:default": [],
-    }),
     tags = ["requires-core"],
     deps = [
         ":wasm",
         "//arc/cpp/ir",
         "//arc/cpp/runtime/errors",
         "//arc/cpp/runtime/state",
+        "//arc/cpp/runtime/testutil",
         "//arc/cpp/runtime/testutil:compile",
         "//arc/cpp/stl/channels",
         "//arc/cpp/stl/channels:state",

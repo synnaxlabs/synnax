@@ -11,8 +11,8 @@ package group_test
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -50,7 +50,7 @@ var _ = Describe("Group", Ordered, func() {
 	Describe("Create", func() {
 		It("Should create a new group", func(ctx SpecContext) {
 			g := MustSucceed(w.Create(ctx, "test1", ontology.RootID))
-			Expect(g.Key).ToNot(Equal(uuid.Nil))
+			Expect(g.Key).ToNot(Equal(uuid.Nil()))
 			Expect(g.Name).To(Equal("test1"))
 		})
 

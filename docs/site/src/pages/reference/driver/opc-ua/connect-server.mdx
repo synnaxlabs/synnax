@@ -1,17 +1,20 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "OPC UA | Connect Server"
-heading: "Connect to an OPC UA Server"
+title: "OPC UA | Connect server"
+heading: "Connect to an OPC UA server"
 description: "Connect to an OPC UA server using Synnax."
-prev: "NI Digital Write Task"
+prev: "NI digital write task"
 prevURL: "/reference/driver/ni/digital-write-task"
-next: "Read Task"
+next: "Read task"
 nextURL: "/reference/driver/opc-ua/read-task"
 ---
 
 import { Text as TextComponent, Client, Table } from "@/components";
 import Details from "@/components/details/Details.astro";
-import { Divider, Text, Icon, Note } from "@synnaxlabs/pluto";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Note } from "@synnaxlabs/lyra/note";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Video } from "@/components/media/Media";
 import { Fragment } from "react";
 import { mdxOverrides } from "@/components/mdxOverrides";
@@ -38,7 +41,7 @@ following:
 
 <Divider.Divider x />
 
-## Supported Operating Systems
+## Supported operating systems
 
 | Platform                            | Status      |
 | ----------------------------------- | ----------- |
@@ -56,7 +59,7 @@ following:
 
 <Divider.Divider x />
 
-## Common OPC UA Servers
+## Common OPC UA servers
 
 | Server                                                                                                                            | Description                                |
 | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
@@ -69,7 +72,7 @@ following:
 
 <Divider.Divider x />
 
-## Configuration Parameters Reference
+## Configuration parameters reference
 
 | Parameter            | Type   | Required | Default | Description                                                                                                             |
 | -------------------- | ------ | -------- | ------- | ----------------------------------------------------------------------------------------------------------------------- |
@@ -108,7 +111,7 @@ following:
 
 <Divider.Divider x />
 
-## How-To
+## How-to
 
 <Client.Tabs client:load exclude={["typescript", "cpp"]}>
   <Fragment slot="console">

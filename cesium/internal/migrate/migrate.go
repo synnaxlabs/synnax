@@ -13,7 +13,6 @@ import (
 	"fmt"
 
 	"github.com/synnaxlabs/cesium/internal/channel"
-	"github.com/synnaxlabs/cesium/internal/version"
 	"github.com/synnaxlabs/x/io/fs"
 )
 
@@ -35,10 +34,11 @@ type migration func(state DBState) DBState
 var migrations = []migration{
 	migrateV0toV1,
 	migrateV1toV2,
+	migrateV2toV3,
 }
 
 func migrateV0toV1(state DBState) DBState {
-	state.Channel.Version = version.Version1
+	state.Channel.Version = channel.Version1
 	if state.Channel.Name == "" {
 		state.Channel.Name = fmt.Sprintf("Unknown %v", state.Channel.Key)
 	}
@@ -46,11 +46,24 @@ func migrateV0toV1(state DBState) DBState {
 }
 
 func migrateV1toV2(state DBState) DBState {
-	state.Channel.Version = version.Version2
+	state.Channel.Version = channel.Version2
 	if state.Channel.Virtual || state.Channel.IsIndex {
 		return state
 	}
 	state.ShouldIgnoreChannel = state.Channel.Index == 0
+	return state
+}
+
+// migrateV2toV3 restates is_index under the name the tag now carries: meta.Open
+// rewrites the file whenever the version moves, so the bump alone canonicalizes what
+// earlier versions wrote under the Go field name. It also clears the flag on virtual
+// channels, which store nothing and so can never be an index. Validate rejects that
+// pair, and it runs after this, so a record carrying both stays readable.
+func migrateV2toV3(state DBState) DBState {
+	state.Channel.Version = channel.Version3
+	if state.Channel.Virtual {
+		state.Channel.IsIndex = false
+	}
 	return state
 }
 

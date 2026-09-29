@@ -15,7 +15,8 @@ import {
   project as clientProject,
 } from "@synnaxlabs/client";
 import { RoleClients } from "@synnaxlabs/client/testutil";
-import { List, Text } from "@synnaxlabs/pluto";
+import { List } from "@synnaxlabs/lyra/list";
+import { Text } from "@synnaxlabs/lyra/text";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -228,6 +229,16 @@ describe("lineplot/ontology", () => {
 });
 
 describe("permission to write the line plot", () => {
+  it("should offer Reload Console", async () => {
+    const plot = await createLinePlot();
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
+      client,
+      resources: [createResource(clientLineplot.ontologyID(plot.key), plot.name)],
+    });
+    expect(await screen.findByText("Reload Console")).toBeTruthy();
+  });
+
   it("should withhold rename, grouping, and delete from a viewer", async () => {
     const plot = await createLinePlot();
     assertDefined(Item.ContextMenu);

@@ -9,10 +9,10 @@
 
 package v0
 
-import "github.com/google/uuid"
+import "uuid"
 
 // Key returns the stable identifier of the tab regardless of its content variant.
-// Returns uuid.Nil for a Tab with no variant set.
+// Returns uuid.Nil() for a Tab with no variant set.
 func (t Tab) Key() uuid.UUID {
 	switch v := t.Variant.(type) {
 	case ResourceTab:
@@ -20,6 +20,6 @@ func (t Tab) Key() uuid.UUID {
 	case ViewTab:
 		return v.Key
 	default:
-		return uuid.Nil
+		return uuid.Nil()
 	}
 }

@@ -77,7 +77,7 @@ type ReadConfig struct {
 	// ArraySize is the number of samples in each array when array_mode is true.
 	ArraySize int32 `json:"array_size" msgpack:"array_size"`
 	// Channels are the OPC UA nodes the task acquires.
-	Channels []ReadChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
+	Channels []ReadChannel `json:"channels" msgpack:"channels"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -101,7 +101,7 @@ func (r *ReadConfig) ApplyDefaults() {
 type WriteConfig struct {
 	task.WriteConfig
 	// Channels are the OPC UA nodes the task drives.
-	Channels []WriteChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
+	Channels []WriteChannel `json:"channels" msgpack:"channels"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.

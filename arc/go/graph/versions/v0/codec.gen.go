@@ -12,7 +12,7 @@
 package v0
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 
 	ir "github.com/synnaxlabs/arc/ir/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"

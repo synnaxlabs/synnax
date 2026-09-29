@@ -8,7 +8,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Text, Flex } from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Text } from "@synnaxlabs/lyra/text";
 import PolkaDot from "./PolkaDot.astro";
 ---
 
@@ -23,7 +24,7 @@ import PolkaDot from "./PolkaDot.astro";
 >
     <Flex.Box direction="y" grow justify="center" align="center" empty>
         <Text.Text className="latest" level="small" weight={500} color={7}
-            >Latest Release</Text.Text
+            >Latest release</Text.Text
         >
         <Text.Text level="h1">v0.37.0</Text.Text>
     </Flex.Box>

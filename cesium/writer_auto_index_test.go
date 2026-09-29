@@ -263,33 +263,33 @@ var _ = Describe("Writer AutoIndex", func() {
 								DataType: telem.Float64T,
 							},
 						)).To(Succeed())
-						before := telem.Now()
 						w := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
 							Channels:  []cesium.ChannelKey{data},
 							AutoIndex: new(true),
 							Sync:      new(true),
 						}))
-						explicit := before + 10*telem.MillisecondTS
-						MustSucceed(w.Write(telem.MultiFrame(
+						explicit := telem.Now() + 10*telem.MillisecondTS
+						Expect(w.Write(telem.MultiFrame(
 							[]cesium.ChannelKey{idx, data},
 							[]telem.Series{
 								telem.NewSeriesV(explicit),
 								telem.NewSeriesV[float64](1),
 							},
-						)))
+						))).To(BeTrue())
 						Eventually(telem.Now).Should(BeNumerically(">", explicit))
-						MustSucceed(
+						afterExplicit := telem.Now()
+						Expect(
 							w.Write(
 								telem.UnaryFrame(data, telem.NewSeriesV[float64](2)),
 							),
-						)
+						).To(BeTrue())
 						MustSucceed(w.Commit())
 
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
 						ts := f.SeriesAt(0).Unmarshal[telem.TimeStamp]()
 						Expect(ts).To(HaveLen(2))
 						Expect(ts[0]).To(Equal(explicit))
-						Expect(ts[1]).To(BeNumerically(">", explicit))
+						Expect(ts[1]).To(BeNumerically(">=", afterExplicit))
 					},
 				)
 			})

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ni, type task } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { z } from "zod";
 
 import { createPortValidator } from "@/feature/ni/task/types/validation";
@@ -38,7 +38,6 @@ export type StrainConfig = ni.StrainConfig;
 export type TerminalConfig = ni.TerminalConfig;
 export type ThermocoupleType = ni.ThermocoupleType;
 
-export const WAVE_TYPES = ni.WAVE_TYPES;
 export type WaveType = ni.WaveType;
 
 export type Scale = ni.Scale;

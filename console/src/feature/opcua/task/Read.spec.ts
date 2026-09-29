@@ -9,12 +9,13 @@
 
 import { type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { OPCUA } from "@/feature/opcua";
 import { createOPCDevice } from "@/feature/opcua/testutil";
 import {
+  awaitEditableForm,
   deployAndAwaitTask,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
@@ -24,8 +25,13 @@ import { getLabeledInput, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
-const renderRead = async (options: RenderTaskFormTabOptions = {}) =>
-  await renderTaskFormTab(OPCUA.Task.Read, options);
+// The form renders read-only until the update grant lands, and a preview field renders
+// no input, so wait for it to become editable before querying fields.
+const renderRead = async (options: RenderTaskFormTabOptions = {}) => {
+  const rendered = await renderTaskFormTab(OPCUA.Task.Read, options);
+  await awaitEditableForm();
+  return rendered;
+};
 
 interface CreateReadChannelOverrides extends Partial<OPCUA.Task.ReadChannel> {}
 
@@ -67,7 +73,7 @@ const ZERO_DRAFT: task.New<OPCUA.Task.ReadSchemas> = {
 const createDraft = async (client: Synnax, config: OPCUA.Task.ReadPayload["config"]) =>
   await client.tasks.create({ ...ZERO_DRAFT, config }, OPCUA.Task.READ_SCHEMAS);
 
-describe("OPCUA.Read", () => {
+describe("Read", () => {
   it("should create channels under a new index on deploy", async () => {
     const dev = await createOPCDevice(client);
     const chA = createReadChannel();
@@ -108,6 +114,33 @@ describe("OPCUA.Read", () => {
     expect(updated.properties.read.channels[chB.nodeId]).toBe(
       config.channels[1].channel,
     );
+  });
+
+  it("should bind a new entry to the channel the device already maps", async () => {
+    const dev = await createOPCDevice(client);
+    const ch = createReadChannel();
+    const firstDraft = await createDraft(client, createReadConfig(dev.key, [ch]));
+    const first = await renderRead({ client, taskKey: firstDraft.key });
+    const firstTask = await deployAndAwaitTask(
+      client,
+      first.container,
+      firstDraft.key,
+      OPCUA.Task.READ_SCHEMAS,
+    );
+    first.unmount();
+    const existing = await client.channels.retrieve(
+      firstTask.config.channels[0].channel,
+    );
+    const secondDraft = await createDraft(client, createReadConfig(dev.key, [ch]));
+    await renderRead({ client, taskKey: secondDraft.key });
+    await screen.findByText(existing.name);
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: secondDraft.key,
+        schemas: OPCUA.Task.READ_SCHEMAS,
+      });
+      expect(saved.config.channels[0].channel).toBe(existing.key);
+    });
   });
 
   it("should use the flagged timestamp channel as the index and reuse it on redeploy", async () => {

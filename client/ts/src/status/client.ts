@@ -285,11 +285,11 @@ export class Client extends query.Retriever<
     return { ...cached, labels };
   }
 
-  /** Writes a fetched status and its included label relationships. */
   private writeThrough(status: Status): void {
-    this.store.set(status);
+    if (this.store.status(status.key) === "tombstoned") return;
+    this.store.ingest(status);
     if (status.labels == null) return;
-    this.cfg.labels.store.set(status.labels);
+    this.cfg.labels.store.ingest(status.labels);
     const id = ontologyID(status.key);
     status.labels.forEach((l) => {
       const rel: ontology.Relationship = {

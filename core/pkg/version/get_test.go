@@ -10,7 +10,6 @@
 package version_test
 
 import (
-	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -18,43 +17,29 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/version"
 )
 
-var _ = Describe("Version", func() {
-	Describe("Get", func() {
-		It("Should return the version name", func() {
-			v := version.Prod()
-			cv := strings.TrimSpace(strings.ReplaceAll(v, "\n", ""))
-			Expect(strings.Count(cv, ".")).To(Equal(2))
-		})
+var _ = Describe("Get", func() {
+	It("Should return the dev version when not set via ldflags", func() {
+		Expect(version.Get()).To(Equal("0.0.0"))
 	})
+})
 
-	Describe("Commit", func() {
-		It("Should return unknown when not set via ldflags", func() {
-			// When built without ldflags, should return unknown
-			Expect(version.Commit()).To(Equal("unknown"))
-		})
+var _ = Describe("Commit", func() {
+	It("Should return unknown when not set via ldflags", func() {
+		Expect(version.Commit()).To(Equal("unknown"))
 	})
+})
 
-	Describe("Date", func() {
-		It("Should return unknown when not set via ldflags", func() {
-			// When built without ldflags, should return unknown
-			Expect(version.Date()).To(Equal("unknown"))
-		})
+var _ = Describe("Time", func() {
+	It("Should return zero time when not set via ldflags", func() {
+		Expect(version.Time()).To(Equal(time.Time{}))
 	})
+})
 
-	Describe("Time", func() {
-		It("Should return zero time when not set via ldflags", func() {
-			// When built without ldflags, should return zero time
-			Expect(version.Time()).To(Equal(time.Time{}))
-		})
-	})
-
-	Describe("Full", func() {
-		It("Should return just version when commit and date are unknown", func() {
-			full := version.Full()
-			// Should just be the version number since commit/date aren't set
-			Expect(strings.Count(full, ".")).To(Equal(2))
-			Expect(full).NotTo(ContainSubstring("commit:"))
-			Expect(full).NotTo(ContainSubstring("built:"))
-		})
+var _ = Describe("Full", func() {
+	It("Should return just version when commit and date are unknown", func() {
+		full := version.Full()
+		Expect(full).To(Equal("0.0.0"))
+		Expect(full).NotTo(ContainSubstring("commit:"))
+		Expect(full).NotTo(ContainSubstring("built:"))
 	})
 })

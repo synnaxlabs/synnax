@@ -9,7 +9,7 @@
 
 import { NotFoundError, project, ranger, schematic } from "@synnaxlabs/client";
 import { RoleClients } from "@synnaxlabs/client/testutil";
-import { Status } from "@synnaxlabs/pluto";
+import { Status } from "@synnaxlabs/lyra/status";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -212,6 +212,18 @@ describe("Schematic TreeContextMenu", () => {
 });
 
 describe("permission to write the schematic", () => {
+  it("should offer Reload Console", async () => {
+    const s = await createSchematic();
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
+      client,
+      resources: [
+        createResource(schematic.ontologyID(s.key), s.name, { snapshot: false }),
+      ],
+    });
+    expect(await screen.findByText("Reload Console")).toBeTruthy();
+  });
+
   it("should withhold rename, grouping, copying, and delete from a viewer", async () => {
     const s = await createSchematic();
     assertDefined(Item.ContextMenu);

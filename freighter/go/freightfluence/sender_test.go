@@ -271,10 +271,10 @@ var _ = Describe("Sender", func() {
 						return serverCtx.Wait()
 					},
 				)
-				clientSender[stream.Address] = MustSucceed(
-					clientTransport.Stream(sCtx, stream.Address),
+				clientSender[stream.Address()] = MustSucceed(
+					clientTransport.Stream(sCtx, stream.Address()),
 				)
-				receiverStreams[stream.Address] = receiverStream
+				receiverStreams[stream.Address()] = receiverStream
 			}
 		})
 		AfterEach(func() { cancel() })

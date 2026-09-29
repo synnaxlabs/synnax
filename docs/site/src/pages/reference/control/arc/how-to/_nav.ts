@@ -11,12 +11,12 @@ import { type PageNavNode } from "@/components/nav/Page";
 
 export const HOW_TO_NAV: PageNavNode = {
   key: "how-to",
-  name: "How-To Guides",
+  name: "How-to guides",
   children: [
     {
       key: "/reference/control/arc/how-to/data-processing",
       href: "/reference/control/arc/how-to/data-processing",
-      name: "Data Processing",
+      name: "Data processing",
     },
     {
       key: "/reference/control/arc/how-to/alarms",
@@ -26,12 +26,12 @@ export const HOW_TO_NAV: PageNavNode = {
     {
       key: "/reference/control/arc/how-to/bang-bang-control",
       href: "/reference/control/arc/how-to/bang-bang-control",
-      name: "Bang-Bang Control",
+      name: "Bang-bang control",
     },
     {
       key: "/reference/control/arc/how-to/test-sequences",
       href: "/reference/control/arc/how-to/test-sequences",
-      name: "Test Sequences",
+      name: "Test sequences",
     },
   ],
 };

@@ -1,6 +1,14 @@
-# Pull Request
+## Linear issue
 
-Go to the `Preview` tab and select the appropriate template for your pull request:
+<!-- Edit the link below with the proper issue number and link -->
 
-- [Issue](?expand=1&template=issue.md)
-- [RC](?expand=1&template=rc.md)
+[SY-####](<>)
+
+## Description
+
+<!-- What changed and why. Lead with the effect on a user or the architecture. -->
+
+## Review tier
+
+<!-- Add one label: review/thorough, review/light, or review/bot. CONTRIBUTING.md
+explains which one. -->

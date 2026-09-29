@@ -11,12 +11,16 @@ package aspen_test
 
 import (
 	"context"
+	"net"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen"
+	transportmock "github.com/synnaxlabs/aspen/transport/mock"
 	"github.com/synnaxlabs/x/address"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Open", func() {
@@ -28,7 +32,7 @@ var _ = Describe("Open", func() {
 		db1 = MustSucceed(aspen.Open(
 			context.Background(),
 			"",
-			"localhost:22646",
+			"localhost:0",
 			[]address.Address{},
 			aspen.Bootstrap(),
 			aspen.InMemory(),
@@ -37,8 +41,8 @@ var _ = Describe("Open", func() {
 		db2 = MustSucceed(aspen.Open(
 			context.Background(),
 			"",
-			"localhost:22647",
-			[]address.Address{"localhost:22646"},
+			"localhost:0",
+			[]address.Address{db1.Cluster.Host().Address},
 			aspen.InMemory(),
 			aspen.WithPropagationConfig(aspen.FastPropagationConfig),
 		))
@@ -56,5 +60,95 @@ var _ = Describe("Open", func() {
 			).To(Succeed())
 		}
 		Expect(tx.Commit(ctx)).To(Succeed())
+	})
+})
+
+// unixListener reports a unix socket address, which carries no port.
+type unixListener struct{ net.Listener }
+
+func (unixListener) Addr() net.Addr {
+	return &net.UnixAddr{Name: "aspen.sock", Net: "unix"}
+}
+
+var _ = Describe("WithListener", func() {
+	It(
+		"Should serve on the pre-bound listener and keep the configured host",
+		func(ctx SpecContext) {
+			lis := MustSucceed(net.Listen("tcp", "localhost:0"))
+			port := lis.Addr().(*net.TCPAddr).Port
+			db := MustSucceed(aspen.Open(
+				ctx,
+				"",
+				"localhost:0",
+				[]address.Address{},
+				aspen.Bootstrap(),
+				aspen.InMemory(),
+				aspen.WithListener(lis),
+			))
+			addr := db.Cluster.Host().Address
+			Expect(addr).To(Equal(address.Newf("localhost:%d", port)))
+			Expect(MustSucceed(net.Dial("tcp", addr.String())).Close()).To(Succeed())
+
+			By("Releasing the listener on shutdown")
+			Expect(db.Close()).To(Succeed())
+			Expect(lis.Close()).To(MatchError(net.ErrClosed))
+		},
+	)
+	It(
+		"Should reject a listener that is not bound to a TCP address",
+		func(ctx SpecContext) {
+			lis := unixListener{Listener: MustSucceed(net.Listen("tcp", "localhost:0"))}
+			Expect(aspen.Open(
+				ctx,
+				"",
+				"localhost:0",
+				[]address.Address{},
+				aspen.Bootstrap(),
+				aspen.InMemory(),
+				aspen.WithListener(lis),
+			)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("is not a TCP address")),
+			))
+
+			By("Leaving the listener for the caller to close")
+			Expect(lis.Close()).To(Succeed())
+		},
+	)
+	It(
+		"Should leave the caller's listener open when a later stage fails",
+		func(ctx SpecContext) {
+			lis := MustSucceed(net.Listen("tcp", "localhost:0"))
+			// Nothing answers at localhost:1, so the pledge runs until the context
+			// expires, failing Open after the listener is bound.
+			pledgeCtx, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
+			defer cancel()
+			Expect(aspen.Open(
+				pledgeCtx,
+				"",
+				"localhost:0",
+				[]address.Address{"localhost:1"},
+				aspen.InMemory(),
+				aspen.WithListener(lis),
+				aspen.WithPropagationConfig(aspen.FastPropagationConfig),
+			)).Error().To(MatchError(context.DeadlineExceeded))
+
+			By("Leaving the listener for the caller to close")
+			Expect(lis.Close()).To(Succeed())
+		},
+	)
+	It("Should reject a listener alongside a custom transport", func(ctx SpecContext) {
+		lis := MustSucceed(net.Listen("tcp", "localhost:0"))
+		Expect(aspen.Open(
+			ctx,
+			"",
+			"localhost:0",
+			[]address.Address{},
+			aspen.Bootstrap(),
+			aspen.InMemory(),
+			aspen.WithTransport(transportmock.NewNetwork().NewTransport("localhost:0")),
+			aspen.WithListener(lis),
+		)).Error().To(MatchError(validate.ErrValidation))
+		Expect(lis.Close()).To(Succeed())
 	})
 })

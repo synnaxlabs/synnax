@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "@/app/App.css";
+import "@synnaxlabs/lyra/dist/base.css";
 import "@synnaxlabs/media/dist/media.css";
 import "@synnaxlabs/pluto/dist/pluto.css";
 
@@ -24,7 +25,6 @@ import { Vis } from "@/app/vis";
 import { Window } from "@/app/window";
 import { Embedded } from "@/feature/embedded";
 import { Errors } from "@/platform/errors";
-import { Link } from "@/platform/link";
 import { Runtime } from "@/platform/runtime";
 import { Version } from "@/platform/version";
 import { Session } from "@/session";
@@ -41,7 +41,7 @@ const DesktopContext = ({ children }: PropsWithChildren): ReactElement => (
   <Analytics.Provider>
     <Embedded.Provider>
       <Version.InstallProvider middleware={Embedded.installMiddleware}>
-        <Link.Disabled>{children}</Link.Disabled>
+        {children}
       </Version.InstallProvider>
     </Embedded.Provider>
   </Analytics.Provider>

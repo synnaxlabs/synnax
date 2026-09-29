@@ -41,5 +41,5 @@ type TaskConfig struct {
 	// RoutingKey is the PagerDuty Events API v2 routing key.
 	RoutingKey string `json:"routing_key" msgpack:"routing_key"`
 	// Alerts are the alerts the task evaluates.
-	Alerts []Alert `json:"alerts,omitzero" msgpack:"alerts,omitzero"`
+	Alerts []Alert `json:"alerts" msgpack:"alerts"`
 }

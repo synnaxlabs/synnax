@@ -16,7 +16,7 @@ export const PAGERDUTY_NAV: PageNavNode = {
     {
       key: "/reference/driver/pagerduty/alert-task",
       href: "/reference/driver/pagerduty/alert-task",
-      name: "Alert Task",
+      name: "Alert task",
     },
   ],
 };

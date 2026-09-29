@@ -9,12 +9,12 @@
 
 import "@/arc/graph/node/operator/Operator.css";
 
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type FC } from "react";
 
 import { Minimal } from "@/arc/graph/node/Base";
-import { CSS } from "@/css";
-import { Icon } from "@/icon";
-import { Text } from "@/text";
 
 export const createOperator = (
   operator: string,

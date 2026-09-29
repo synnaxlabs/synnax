@@ -11,10 +11,21 @@ import socket
 import threading
 
 
+def _shutdown(s: socket.socket) -> None:
+    try:
+        s.shutdown(socket.SHUT_RDWR)
+    except OSError:
+        pass
+    try:
+        s.close()
+    except OSError:
+        pass
+
+
 class SeverableProxy:
     """TCP proxy in front of the live test Core so cases can simulate Core
-    downtime without touching the Core itself. Point the console at ``port``,
-    then ``sever()`` and ``restore()`` the link."""
+    downtime without touching the Core itself. Point the console at ``port``, then
+    ``sever()`` and ``restore()`` the link."""
 
     def __init__(self, target_host: str = "localhost", target_port: int = 9090):
         self.target_host = target_host
@@ -88,25 +99,18 @@ class SeverableProxy:
             for s in socks:
                 self._sockets.discard(s)
         for s in socks:
-            try:
-                s.close()
-            except OSError:
-                pass
+            _shutdown(s)
 
     def sever(self) -> None:
         """Drop every live connection and refuse new ones, as if the Core died."""
         listener, self._listener = self._listener, None
         if listener is not None:
-            listener.close()
+            _shutdown(listener)
         with self._lock:
             self._severed = True
             socks, self._sockets = list(self._sockets), set()
         for s in socks:
-            try:
-                s.shutdown(socket.SHUT_RDWR)
-            except OSError:
-                pass
-            s.close()
+            _shutdown(s)
 
     def restore(self) -> None:
         """Accept connections again on the same port."""

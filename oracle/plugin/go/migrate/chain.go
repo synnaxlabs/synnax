@@ -206,20 +206,20 @@ func (m chainMapping) sameGoType(qualifiedName string) (same, known bool) {
 
 // split recovers the resource and name a versioned qualified name addresses.
 func (m chainMapping) split(qualifiedName string) (livePath, name string, ok bool) {
-	i := strings.LastIndexByte(qualifiedName, '.')
-	if i < 0 {
+	depNS, name, found := strings.CutLast(qualifiedName, ".")
+	if !found {
 		return "", "", false
 	}
-	livePath, _, ok = versions.ParseDepNS(qualifiedName[:i])
-	return livePath, qualifiedName[i+1:], ok
+	livePath, _, ok = versions.ParseDepNS(depNS)
+	return livePath, name, ok
 }
 
 func (m chainMapping) outgoingVersion(qualifiedName string) (int, bool) {
-	i := strings.LastIndexByte(qualifiedName, '.')
-	if i < 0 {
+	depNS, _, found := strings.CutLast(qualifiedName, ".")
+	if !found {
 		return 0, false
 	}
-	_, v, ok := versions.ParseDepNS(qualifiedName[:i])
+	_, v, ok := versions.ParseDepNS(depNS)
 	return v, ok
 }
 

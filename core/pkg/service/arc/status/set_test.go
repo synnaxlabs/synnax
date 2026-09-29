@@ -13,8 +13,8 @@ import (
 	"context"
 	"regexp"
 	"sync"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/ir"
@@ -59,6 +59,7 @@ func (r *recordingReporter) get() []reportCall {
 
 // newModule builds a Module without WASM wiring (covered C++-side).
 func newModule(ctx context.Context, reporter *recordingReporter) node.Factory {
+	GinkgoHelper()
 	return MustSucceed(arcstatus.NewModule(ctx, arcstatus.ModuleConfig{
 		Status:   statSvc,
 		Reporter: reporter.report,
@@ -221,7 +222,7 @@ var _ = Describe("Module", func() {
 		It("Should construct a set node from valid inputs", func() {
 			n := MustSucceed(mod.Create(set.Config("alarm", "msg", "info")))
 			Expect(n).ToNot(BeNil())
-			Expect(func() { n.Reset() }).ToNot(Panic())
+			Expect(func() { n.Reset(node.Context{}) }).ToNot(Panic())
 			// Output(0) hasn't been written yet; truthiness reads the empty cache.
 			Expect(n.IsOutputTruthy(0)).To(BeFalse())
 		})
@@ -268,6 +269,7 @@ var _ = Describe("setNode.Next", func() {
 	})
 
 	build := func(keyOrName, message, variant string) (node.Node, *node.State) {
+		GinkgoHelper()
 		cfg := set.Config(keyOrName, message, variant)
 		n := MustSucceed(mod.Create(cfg))
 		return n, cfg.State
@@ -278,7 +280,7 @@ var _ = Describe("setNode.Next", func() {
 	}
 
 	It("Should read a var-bound message at fire time", func(ctx SpecContext) {
-		name := "var_msg_" + uuid.NewString()
+		name := "var_msg_" + uuid.New().String()
 		cfg := set.Config(name, VarOf("live message"), "info")
 		n := MustSucceed(mod.Create(cfg))
 		n.Next(nodeCtx(ctx))
@@ -294,7 +296,7 @@ var _ = Describe("setNode.Next", func() {
 	It(
 		"Should upsert a new UUID-keyed row by name when none exists",
 		func(ctx SpecContext) {
-			name := "next_new_" + uuid.NewString()
+			name := "next_new_" + uuid.New().String()
 			n, state := build(name, "All good", "success")
 			n.Next(nodeCtx(ctx))
 
@@ -326,7 +328,7 @@ var _ = Describe("setNode.Next", func() {
 	It(
 		"Should report a truthy output on success so a sequence step advances",
 		func(ctx SpecContext) {
-			name := "next_truthy_" + uuid.NewString()
+			name := "next_truthy_" + uuid.New().String()
 			ok, _ := build(name, "msg", "info")
 			ok.Next(nodeCtx(ctx))
 			Expect(ok.IsOutputTruthy(0)).To(BeTrue())
@@ -338,9 +340,9 @@ var _ = Describe("setNode.Next", func() {
 	)
 
 	It("Should update an existing row by name (single match)", func(ctx SpecContext) {
-		name := "next_single_" + uuid.NewString()
-		existingKey := uuid.NewString()
-		Expect(writer.Set(ctx, &status.Status[any]{
+		name := "next_single_" + uuid.New().String()
+		existingKey := uuid.New().String()
+		Expect(setStatus(ctx, &status.Status[any]{
 			Key:     existingKey,
 			Name:    name,
 			Variant: status.VariantInfo,
@@ -363,8 +365,8 @@ var _ = Describe("setNode.Next", func() {
 	})
 
 	It("Should update an existing row by UUID key", func(ctx SpecContext) {
-		key := uuid.NewString()
-		Expect(writer.Set(ctx, &status.Status[any]{
+		key := uuid.New().String()
+		Expect(setStatus(ctx, &status.Status[any]{
 			Key:     key,
 			Name:    "by_uuid",
 			Variant: status.VariantInfo,
@@ -391,7 +393,7 @@ var _ = Describe("setNode.Next", func() {
 	It(
 		"Should produce non-decreasing timestamps on successive Next calls",
 		func(ctx SpecContext) {
-			name := "next_time_" + uuid.NewString()
+			name := "next_time_" + uuid.New().String()
 			n, state := build(name, "msg", "info")
 			nctx := nodeCtx(ctx)
 			n.Next(nctx)
@@ -403,7 +405,7 @@ var _ = Describe("setNode.Next", func() {
 	)
 
 	It("Should warn and not write when the variant is unknown", func(ctx SpecContext) {
-		name := "next_iv_" + uuid.NewString()
+		name := "next_iv_" + uuid.New().String()
 		n, state := build(name, "msg", "not_a_real_variant")
 		n.Next(nodeCtx(ctx))
 
@@ -422,7 +424,7 @@ var _ = Describe("setNode.Next", func() {
 	})
 
 	It("Should reject upper-cased variants as case-sensitive", func(ctx SpecContext) {
-		name := "next_iv_case_" + uuid.NewString()
+		name := "next_iv_case_" + uuid.New().String()
 		n, _ := build(name, "msg", "SUCCESS")
 		n.Next(nodeCtx(ctx))
 		calls := rep.get()
@@ -433,16 +435,16 @@ var _ = Describe("setNode.Next", func() {
 	It(
 		"Should warn on multi-match, update the first match, and report the resolved key",
 		func(ctx SpecContext) {
-			name := "next_multi_" + uuid.NewString()
-			k1, k2 := uuid.NewString(), uuid.NewString()
-			Expect(writer.Set(ctx, &status.Status[any]{
+			name := "next_multi_" + uuid.New().String()
+			k1, k2 := uuid.New().String(), uuid.New().String()
+			Expect(setStatus(ctx, &status.Status[any]{
 				Key:     k1,
 				Name:    name,
 				Variant: status.VariantInfo,
 				Message: "first",
 				Time:    telem.Now(),
 			})).To(Succeed())
-			Expect(writer.Set(ctx, &status.Status[any]{
+			Expect(setStatus(ctx, &status.Status[any]{
 				Key:     k2,
 				Name:    name,
 				Variant: status.VariantInfo,
@@ -530,12 +532,14 @@ var _ = Describe("Analyzer hooks", func() {
 	}
 
 	analyzeOK := func(ctx context.Context, src string) bool {
+		GinkgoHelper()
 		parsed := MustSucceed(text.Parse(text.Text{Raw: src}))
 		_, diags := text.Analyze(ctx, parsed, buildRoot())
 		return diags.Ok()
 	}
 
 	expectInvalidVariantError := func(ctx context.Context, src, badVariant string) {
+		GinkgoHelper()
 		parsed := MustSucceed(text.Parse(text.Text{Raw: src}))
 		_, diags := text.Analyze(ctx, parsed, buildRoot())
 		Expect(diags.Ok()).To(BeFalse())
@@ -732,7 +736,7 @@ var _ = Describe("WASM host functions", func() {
 		It(
 			"Should upsert a status and return a non-zero handle resolving to the key",
 			func(ctx SpecContext) {
-				name := "wasm_set_" + uuid.NewString()
+				name := "wasm_set_" + uuid.New().String()
 				keyH := strs.Create(name)
 				msgH := strs.Create("from wasm")
 				varH := strs.Create("info")
@@ -777,7 +781,7 @@ var _ = Describe("WASM host functions", func() {
 		It(
 			"Should warn and return 0 on an invalid message handle",
 			func(ctx SpecContext) {
-				keyH := strs.Create("wasm_msg_h_" + uuid.NewString())
+				keyH := strs.Create("wasm_msg_h_" + uuid.New().String())
 				varH := strs.Create("info")
 				res := rt.Call(ctx, "status", "set",
 					U32(keyH), U32(9999), U32(varH))
@@ -789,7 +793,7 @@ var _ = Describe("WASM host functions", func() {
 		It(
 			"Should warn and return 0 on an invalid variant handle",
 			func(ctx SpecContext) {
-				keyH := strs.Create("wasm_var_h_" + uuid.NewString())
+				keyH := strs.Create("wasm_var_h_" + uuid.New().String())
 				msgH := strs.Create("m")
 				res := rt.Call(ctx, "status", "set",
 					U32(keyH), U32(msgH), U32(9999))

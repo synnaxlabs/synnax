@@ -19,7 +19,7 @@ import {
   schematic as schematicClient,
   type Synnax as Client,
 } from "@synnaxlabs/client";
-import { List } from "@synnaxlabs/pluto";
+import { List } from "@synnaxlabs/lyra/list";
 import { theming } from "@synnaxlabs/pluto/ether";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -147,6 +147,15 @@ describe("Schematic toolbar Symbols", () => {
         client.schematics.symbols.retrieve(symbols[0].key),
       ).rejects.toSatisfy((e) => NotFoundError.matches(e));
     });
+  });
+
+  it("offers Reload Console from a remote symbol's context menu", async () => {
+    const name = uniqueName("reload_sym");
+    const { grp } = await createRemoteSymbolGroup([name]);
+    await renderSymbolsToolbar();
+    fireEvent.click(await screen.findByText(grp.name));
+    fireEvent.contextMenu(await screen.findByText(name));
+    expect(await screen.findByText("Reload Console")).toBeTruthy();
   });
 
   it("exports a remote symbol as JSON through its context menu", async () => {

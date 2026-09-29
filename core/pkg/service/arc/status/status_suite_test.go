@@ -10,6 +10,7 @@
 package status_test
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -37,7 +38,6 @@ var (
 	groupSvc *group.Service
 	labelSvc *label.Service
 	statSvc  *status.Service
-	writer   status.Writer
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -63,5 +63,13 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Label:    labelSvc,
 		Search:   searchIdx,
 	}))
-	writer = statSvc.NewWriter(nil)
 })
+
+// setStatus writes st in its own transaction, the way a caller outside an existing
+// operation does.
+func setStatus(ctx context.Context, st *status.Status[any]) error {
+	GinkgoHelper()
+	return db.WithTx(ctx, func(tx gorp.Tx) error {
+		return statSvc.NewWriter(tx).Set(ctx, st)
+	})
+}

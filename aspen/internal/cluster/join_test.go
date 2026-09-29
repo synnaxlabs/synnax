@@ -43,11 +43,11 @@ var _ = Describe("Open", func() {
 			It("Should correctly join the Cluster", func(ctx SpecContext) {
 				By("Initializing the Cluster correctly")
 				gossipT1 := gossipNet.UnaryServer("")
-				pledgeT1 := pledgeNet.UnaryServer(gossipT1.Address)
+				pledgeT1 := pledgeNet.UnaryServer(gossipT1.Address())
 				clusterOne := MustSucceed(cluster.Open(
 					ctx,
 					cluster.Config{
-						HostAddress: gossipT1.Address,
+						HostAddress: gossipT1.Address(),
 						Pledge: pledge.Config{
 							Peers:           []address.Address{},
 							TransportClient: pledgeNet.UnaryClient(),
@@ -64,13 +64,13 @@ var _ = Describe("Open", func() {
 
 				By("Pledging a new node to the Cluster")
 				gossipT2 := gossipNet.UnaryServer("")
-				pledgeT2 := pledgeNet.UnaryServer(gossipT2.Address)
+				pledgeT2 := pledgeNet.UnaryServer(gossipT2.Address())
 				clusterTwo := MustSucceed(cluster.Open(
 					ctx,
 					cluster.Config{
-						HostAddress: gossipT2.Address,
+						HostAddress: gossipT2.Address(),
 						Pledge: pledge.Config{
-							Peers:           []address.Address{gossipT1.Address},
+							Peers:           []address.Address{gossipT1.Address()},
 							TransportServer: pledgeT2,
 							TransportClient: pledgeNet.UnaryClient(),
 						},
@@ -96,11 +96,11 @@ var _ = Describe("Open", func() {
 				"Should restart Cluster activities using the persisted state",
 				func(ctx SpecContext) {
 					gossipT1 := gossipNet.UnaryServer("")
-					pledgeT1 := pledgeNet.UnaryServer(gossipT1.Address)
+					pledgeT1 := pledgeNet.UnaryServer(gossipT1.Address())
 					clusterOne := MustSucceed(cluster.Open(
 						ctx,
 						cluster.Config{
-							HostAddress: gossipT1.Address,
+							HostAddress: gossipT1.Address(),
 							Pledge: pledge.Config{
 								Peers:           []address.Address{},
 								TransportClient: pledgeNet.UnaryClient(),
@@ -117,12 +117,12 @@ var _ = Describe("Open", func() {
 
 					kvDB := memkv.New()
 					gossipT2 := gossipNet.UnaryServer("")
-					pledgeT2 := pledgeNet.UnaryServer(gossipT2.Address)
+					pledgeT2 := pledgeNet.UnaryServer(gossipT2.Address())
 
 					clusterTwoConfig := cluster.Config{
-						HostAddress: gossipT2.Address,
+						HostAddress: gossipT2.Address(),
 						Pledge: pledge.Config{
-							Peers:           []address.Address{gossipT1.Address},
+							Peers:           []address.Address{gossipT1.Address()},
 							TransportClient: pledgeNet.UnaryClient(),
 							TransportServer: pledgeT2,
 						},
@@ -154,11 +154,11 @@ var _ = Describe("Open", func() {
 				"Should recover state written by msgpack (v0.39 to v0.53 upgrade)",
 				func(ctx SpecContext) {
 					gossipT1 := gossipNet.UnaryServer("")
-					pledgeT1 := pledgeNet.UnaryServer(gossipT1.Address)
+					pledgeT1 := pledgeNet.UnaryServer(gossipT1.Address())
 					clusterOne := MustSucceed(cluster.Open(
 						ctx,
 						cluster.Config{
-							HostAddress: gossipT1.Address,
+							HostAddress: gossipT1.Address(),
 							Pledge: pledge.Config{
 								Peers:           []address.Address{},
 								TransportClient: pledgeNet.UnaryClient(),
@@ -174,14 +174,14 @@ var _ = Describe("Open", func() {
 
 					kvDB := memkv.New()
 					gossipT2 := gossipNet.UnaryServer("")
-					pledgeT2 := pledgeNet.UnaryServer(gossipT2.Address)
+					pledgeT2 := pledgeNet.UnaryServer(gossipT2.Address())
 					storageKey := []byte("msgpack-upgrade-test")
 
 					// Simulate a v0.39-v0.53 server that wrote state as msgpack.
 					oldConfig := cluster.Config{
-						HostAddress: gossipT2.Address,
+						HostAddress: gossipT2.Address(),
 						Pledge: pledge.Config{
-							Peers:           []address.Address{gossipT1.Address},
+							Peers:           []address.Address{gossipT1.Address()},
 							TransportClient: pledgeNet.UnaryClient(),
 							TransportServer: pledgeT2,
 						},
@@ -201,12 +201,12 @@ var _ = Describe("Open", func() {
 
 					// Reopen with the default codec (JSON primary, msgpack+gob
 					// fallback), simulating an upgrade to v0.54+.
-					gossipT3 := gossipNet.UnaryServer(gossipT2.Address)
-					pledgeT3 := pledgeNet.UnaryServer(gossipT3.Address)
+					gossipT3 := gossipNet.UnaryServer(gossipT2.Address())
+					pledgeT3 := pledgeNet.UnaryServer(gossipT3.Address())
 					upgradedConfig := cluster.Config{
-						HostAddress: gossipT3.Address,
+						HostAddress: gossipT3.Address(),
 						Pledge: pledge.Config{
-							Peers:           []address.Address{gossipT1.Address},
+							Peers:           []address.Address{gossipT1.Address()},
 							TransportClient: pledgeNet.UnaryClient(),
 							TransportServer: pledgeT3,
 						},
@@ -233,11 +233,11 @@ var _ = Describe("Open", func() {
 				"Should recover state written by gob (pre-v0.39 upgrade)",
 				func(ctx SpecContext) {
 					gossipT1 := gossipNet.UnaryServer("")
-					pledgeT1 := pledgeNet.UnaryServer(gossipT1.Address)
+					pledgeT1 := pledgeNet.UnaryServer(gossipT1.Address())
 					clusterOne := MustSucceed(cluster.Open(
 						ctx,
 						cluster.Config{
-							HostAddress: gossipT1.Address,
+							HostAddress: gossipT1.Address(),
 							Pledge: pledge.Config{
 								Peers:           []address.Address{},
 								TransportClient: pledgeNet.UnaryClient(),
@@ -253,14 +253,14 @@ var _ = Describe("Open", func() {
 
 					kvDB := memkv.New()
 					gossipT2 := gossipNet.UnaryServer("")
-					pledgeT2 := pledgeNet.UnaryServer(gossipT2.Address)
+					pledgeT2 := pledgeNet.UnaryServer(gossipT2.Address())
 					storageKey := []byte("gob-upgrade-test")
 
 					// Simulate a pre-v0.39 server that wrote state as gob.
 					oldConfig := cluster.Config{
-						HostAddress: gossipT2.Address,
+						HostAddress: gossipT2.Address(),
 						Pledge: pledge.Config{
-							Peers:           []address.Address{gossipT1.Address},
+							Peers:           []address.Address{gossipT1.Address()},
 							TransportClient: pledgeNet.UnaryClient(),
 							TransportServer: pledgeT2,
 						},
@@ -279,12 +279,12 @@ var _ = Describe("Open", func() {
 					Expect(clusterTwo.Close()).To(Succeed())
 
 					// Reopen with the default codec, simulating an upgrade to v0.54+.
-					gossipT3 := gossipNet.UnaryServer(gossipT2.Address)
-					pledgeT3 := pledgeNet.UnaryServer(gossipT3.Address)
+					gossipT3 := gossipNet.UnaryServer(gossipT2.Address())
+					pledgeT3 := pledgeNet.UnaryServer(gossipT3.Address())
 					upgradedConfig := cluster.Config{
-						HostAddress: gossipT3.Address,
+						HostAddress: gossipT3.Address(),
 						Pledge: pledge.Config{
-							Peers:           []address.Address{gossipT1.Address},
+							Peers:           []address.Address{gossipT1.Address()},
 							TransportClient: pledgeNet.UnaryClient(),
 							TransportServer: pledgeT3,
 						},

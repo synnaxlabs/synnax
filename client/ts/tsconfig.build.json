@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": false,
+    "noEmit": false,
+    "declaration": true,
+    "declarationMap": true,
+    "emitDeclarationOnly": true,
+    "rootDir": "."
+  },
+  "include": ["src/**/*"],
+  "exclude": ["src/**/*.spec.*", "src/**/*.bench.*"]
+}

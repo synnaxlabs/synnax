@@ -10,19 +10,16 @@
 import "@/feature/project/Splash.css";
 
 import { project, UnexpectedError } from "@synnaxlabs/client";
-import {
-  Access,
-  Button as PButton,
-  Flex,
-  Header,
-  Icon,
-  Input,
-  List,
-  Menu,
-  Project as PProject,
-  Select,
-  Status,
-} from "@synnaxlabs/pluto";
+import { Button as PButton } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Header } from "@synnaxlabs/lyra/header";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { List } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Access, Project as PProject } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { ContextMenu, listItem } from "@/feature/project/Selector";
@@ -33,16 +30,8 @@ import { Empty } from "@/platform/empty";
 import { Project as PlatformProject } from "@/platform/project";
 import { Session } from "@/session";
 
-export interface SplashProps {
-  /**
-   * True when the session has one fixed Core. The splash then shows no connection
-   * island and no log out action.
-   */
-  standalone?: boolean;
-}
-
 /** Full-window project picker shown when the session has no active project. */
-export const Splash = ({ standalone = false }: SplashProps): ReactElement => {
+export const Splash = (): ReactElement => {
   const dispatch = Session.useDispatch();
   const logout = Session.useLogout();
   const activeCore = Session.Core.useSelectSelected();
@@ -88,7 +77,7 @@ export const Splash = ({ standalone = false }: SplashProps): ReactElement => {
   return (
     <Shell.Frame
       className={CSS.B("project-splash")}
-      connection={standalone ? null : activeCore}
+      connection={Session.Runtime.CORE_EMBEDDED ? null : activeCore}
     >
       <Menu.ContextMenu menu={contextMenu} {...menuProps} />
       <Select.Frame
@@ -110,7 +99,7 @@ export const Splash = ({ standalone = false }: SplashProps): ReactElement => {
               <Icon.Project />
               Projects
             </Header.Title>
-            {!standalone && (
+            {!Session.Runtime.CORE_EMBEDDED && (
               <Header.Actions>
                 <PButton.Button
                   variant="text"
@@ -145,7 +134,7 @@ export const Splash = ({ standalone = false }: SplashProps): ReactElement => {
             />
           )}
           {hasRetrievePermission && data.length > 0 ? (
-            <List.Items
+            <List.Scroll
               grow
               className={CSS.cls(
                 CSS.BE("shell", "items"),
@@ -153,8 +142,8 @@ export const Splash = ({ standalone = false }: SplashProps): ReactElement => {
               )}
               onContextMenu={menuProps.open}
             >
-              {listItem}
-            </List.Items>
+              <List.Items>{listItem}</List.Items>
+            </List.Scroll>
           ) : answered ? (
             <Empty.Action
               grow

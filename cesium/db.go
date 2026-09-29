@@ -116,7 +116,7 @@ func (db *DB) Read(
 	if err != nil {
 		return frame, err
 	}
-	defer func() { err = iter.Close() }()
+	defer func() { err = errors.Combine(err, iter.Close()) }()
 	if !iter.SeekFirst() {
 		return frame, err
 	}

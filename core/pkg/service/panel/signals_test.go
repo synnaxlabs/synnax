@@ -11,10 +11,10 @@ package panel_test
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
@@ -34,6 +34,7 @@ const (
 
 var _ = Describe("Signals", func() {
 	openStreamer := func(ctx context.Context, name string) confluence.Outlet[framer.StreamerResponse] {
+		GinkgoHelper()
 		var ch channel.Channel
 		Expect(channelSvc.NewRetrieve().Where(channel.MatchNames(name)).Entry(&ch).
 			Exec(ctx, nil)).To(Succeed())
@@ -121,7 +122,7 @@ var _ = Describe("Signals", func() {
 			Eventually(responses.Outlet(), time.Second*5).Should(Receive(&res))
 			var keys []uuid.UUID
 			for sample := range res.Frame.SeriesAt(0).Samples() {
-				keys = append(keys, MustSucceed(uuid.FromBytes(sample)))
+				keys = append(keys, uuid.UUID(sample))
 			}
 			Expect(keys).To(ContainElement(p.Key))
 		},

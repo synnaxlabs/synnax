@@ -10,6 +10,7 @@
           "channel": 10010,
           "data_type": "timestamp",
           "disabled": false,
+          "enum_values": [],
           "key": "fld-ts",
           "name": "fixture_http_timestamp",
           "pointer": "/data/timestamp",
@@ -41,6 +42,7 @@
           "channel": 10030,
           "data_type": "float32",
           "disabled": true,
+          "enum_values": [],
           "key": "fld-press",
           "name": "fixture_http_pressure",
           "pointer": "/data/pressurePsi"
@@ -78,6 +80,7 @@
           "channel": 10040,
           "data_type": "float64",
           "disabled": false,
+          "enum_values": [],
           "key": "fld-temp",
           "name": "fixture_http_temperature",
           "pointer": "/results/0/tempC"

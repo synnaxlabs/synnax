@@ -10,6 +10,7 @@
 package unary
 
 import (
+	"bufio"
 	"context"
 	"io"
 
@@ -22,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
+	"go.uber.org/zap"
 )
 
 type IteratorConfig struct {
@@ -29,6 +31,10 @@ type IteratorConfig struct {
 	// AutoChunkSize sets the maximum size of a chunk that will be returned by the
 	// iterator when using AutoSpan in calls ot Next or Prev.
 	AutoChunkSize int64
+	// DownsampleFactor keeps every n-th sample of each series the iterator reads,
+	// striding the read so the discarded samples are never materialized. Values below
+	// 2 keep every sample.
+	DownsampleFactor uint32
 }
 
 func (i IteratorConfig) domainIteratorConfig() domain.IteratorConfig {
@@ -39,6 +45,7 @@ func (i IteratorConfig) domainIteratorConfig() domain.IteratorConfig {
 func (i IteratorConfig) Override(other IteratorConfig) IteratorConfig {
 	i.Bounds = override.Zero(i.Bounds, other.Bounds)
 	i.AutoChunkSize = override.Numeric(i.AutoChunkSize, other.AutoChunkSize)
+	i.DownsampleFactor = override.Numeric(i.DownsampleFactor, other.DownsampleFactor)
 	return i
 }
 
@@ -83,11 +90,12 @@ func (db *DB) OpenIterator(cfgs ...IteratorConfig) (*Iterator, error) {
 	}
 	iter := db.domain.OpenIterator(cfg.domainIteratorConfig())
 	i := &Iterator{
-		idx:            db.index(),
-		Channel:        db.cfg.Channel,
-		resolver:       db.resolver,
-		internal:       iter,
-		IteratorConfig: cfg,
+		Instrumentation: db.cfg.Instrumentation,
+		idx:             db.index(),
+		Channel:         db.cfg.Channel,
+		resolver:        db.resolver,
+		internal:        iter,
+		IteratorConfig:  cfg,
 	}
 	i.SetBounds(cfg.Bounds)
 	return i, nil
@@ -209,101 +217,96 @@ func (i *Iterator) Next(ctx context.Context, span telem.TimeSpan) (ok bool) {
 	return ok
 }
 
+// autoNext reads up to AutoChunkSize samples forward from the current view end. Each
+// domain resolves the chunk to a pair of sample positions, and both the samples read
+// and the time range reported come from that pair, so the two cannot disagree.
 func (i *Iterator) autoNext(ctx context.Context) bool {
-	i.view.Start = i.view.End
-	viewEnd, err := i.idx.Stamp(
-		ctx,
-		i.view.Start,
-		i.AutoChunkSize,
-		index.AllowDiscontinuous,
+	// The chunk provisionally covers everything left in bounds. The sample that closes
+	// it replaces the end once the read reaches it.
+	i.reset(i.view.End.Range(i.bounds.End))
+	var (
+		nRemaining = i.AutoChunkSize
+		end        = i.view.Start
+		closed     bool
 	)
-	if err != nil {
-		i.err = err
-		return false
-	}
-	if viewEnd.Lower.After(i.bounds.End) {
-		return i.Next(ctx, i.view.Start.Span(i.bounds.End))
-	}
-	// A view start between two samples brackets the chunk end. The upper bound is the
-	// first sample past the chunk, so a view ending there holds exactly AutoChunkSize
-	// samples. A stamp that runs out of data reports an unbounded upper instead.
-	i.view.End = viewEnd.Lower
-	if viewEnd.Upper != telem.TimeStampMax {
-		i.view.End = viewEnd.Upper
-	}
-	i.reset(i.view.BoundBy(i.bounds))
-
-	nRemaining := i.AutoChunkSize
 	for {
 		domainTR := i.internal.TimeRange()
-		// Domains are ordered, so one starting at or after the view end belongs to the
-		// next chunk. Leave the iterator on it and keep what this chunk already read.
-		if domainTR.Start.AfterEq(i.view.End) {
-			break
-		}
-		if !domainTR.OverlapsWith(i.view) {
+		if domainTR.IsZero() || !domainTR.OverlapsWith(i.view) {
 			if !i.internal.Next() {
 				break
 			}
 			continue
 		}
-		startApprox, dmn, err := i.approximateStart(ctx)
+		startApprox, alignment, err := i.approximateStart(ctx)
 		if err != nil {
 			i.err = err
 			return false
 		}
-		startSample := pickSampleOffset(startApprox)
+		endApprox, err := i.approximateEnd(ctx)
+		if err != nil {
+			i.err = err
+			return false
+		}
+		var (
+			startSample = pickSampleOffset(startApprox)
+			// limit is the sample after the last one this domain can give the chunk.
+			limit     = pickSampleOffset(endApprox)
+			endSample = min(startSample+nRemaining, limit)
+		)
+		end = domainTR.End
+		if closed = endSample < limit; closed {
+			// The chunk fills inside this domain, so it ends at the first sample it
+			// leaves behind.
+			end, err = i.stampSample(ctx, domainTR.Start, endSample)
+			if err != nil {
+				i.err = err
+				return false
+			}
+			i.view.End = end
+		}
 		startOffset, err := i.resolver.byteOffset(ctx, i.internal, startSample)
 		if err != nil {
 			i.err = err
 			return false
 		}
-		endOffset, err := i.resolver.byteOffset(ctx, i.internal, startSample+nRemaining)
+		endOffset, err := i.resolver.byteOffset(ctx, i.internal, endSample)
 		if err != nil {
 			i.err = err
 			return false
 		}
-		series, err := i.read(ctx, dmn, startOffset, endOffset-startOffset)
+		series, srcLen, err := i.read(
+			ctx,
+			alignment,
+			startOffset,
+			endOffset-startOffset,
+		)
 		if err != nil && !errors.Is(err, io.EOF) {
 			i.err = err
 			return false
 		}
-		nRemaining -= series.Len()
+		nRemaining -= srcLen
 		i.insert(series)
-		if nRemaining <= 0 || !i.internal.Next() {
+		if closed || nRemaining <= 0 || !i.internal.Next() {
 			break
 		}
 	}
-
+	i.view.End = min(end, i.bounds.End)
 	return i.partiallySatisfied()
 }
 
+// autoPrev reads up to AutoChunkSize samples backward from the current view start. It
+// mirrors autoNext: the chunk resolves to sample positions first, and its time range
+// follows from them.
 func (i *Iterator) autoPrev(ctx context.Context) bool {
-	i.view.End = i.view.Start
-	viewStart, err := i.idx.Stamp(
-		ctx,
-		i.view.Start,
-		-i.AutoChunkSize,
-		index.AllowDiscontinuous,
+	i.reset(i.bounds.Start.Range(i.view.Start))
+	var (
+		nRemaining = i.AutoChunkSize
+		start      = i.view.End
+		closed     bool
 	)
-	if err != nil {
-		i.err = err
-		return false
-	}
-	if viewStart.Lower.Before(i.bounds.Start) {
-		return i.Prev(ctx, i.bounds.Start.Span(i.view.End))
-	}
-	i.view.Start = viewStart.Lower + 1
-	i.reset(i.view.BoundBy(i.bounds))
-	nRemaining := i.AutoChunkSize
 	for {
 		domainTR := i.internal.TimeRange()
-		// Domains are ordered, so one ending at or before the view start belongs to the
-		// previous chunk. Leave the iterator on it and keep this chunk's samples.
-		if domainTR.End.BeforeEq(i.view.Start) {
-			break
-		}
-		if !domainTR.OverlapsWith(i.view) {
+		if domainTR.IsZero() || !domainTR.OverlapsWith(i.view) {
 			if !i.internal.Prev() {
 				break
 			}
@@ -319,33 +322,65 @@ func (i *Iterator) autoPrev(ctx context.Context) bool {
 			i.err = err
 			return false
 		}
-		endSample := pickSampleOffset(endApprox)
-		endOffset, err := i.resolver.byteOffset(ctx, i.internal, endSample)
-		if err != nil {
-			i.err = err
-			return false
+		var (
+			// first is the earliest sample of this domain the chunk can reach.
+			first       = pickSampleOffset(startApprox)
+			endSample   = pickSampleOffset(endApprox)
+			startSample = max(endSample-nRemaining, first)
+		)
+		start = domainTR.Start
+		if closed = startSample > first; closed {
+			// The chunk fills inside this domain, so it starts at the earliest sample
+			// it holds.
+			start, err = i.stampSample(ctx, domainTR.Start, startSample)
+			if err != nil {
+				i.err = err
+				return false
+			}
+			i.view.Start = start
 		}
-		startSample := max(endSample-nRemaining, 0)
 		// approximateStart stamps the alignment at the view start. This chunk may begin
 		// earlier in the domain, so move the alignment back with it.
-		alignment -= telem.Alignment(pickSampleOffset(startApprox) - startSample)
+		alignment -= telem.Alignment(first - startSample)
 		startOffset, err := i.resolver.byteOffset(ctx, i.internal, startSample)
 		if err != nil {
 			i.err = err
 			return false
 		}
-		series, err := i.read(ctx, alignment, startOffset, endOffset-startOffset)
+		endOffset, err := i.resolver.byteOffset(ctx, i.internal, endSample)
+		if err != nil {
+			i.err = err
+			return false
+		}
+		series, srcLen, err := i.read(
+			ctx,
+			alignment,
+			startOffset,
+			endOffset-startOffset,
+		)
 		if err != nil && !errors.Is(err, io.EOF) {
 			i.err = err
 			return false
 		}
-		nRemaining -= series.Len()
+		nRemaining -= srcLen
 		i.insert(series)
-		if nRemaining <= 0 || !i.internal.Prev() {
+		if closed || nRemaining <= 0 || !i.internal.Prev() {
 			break
 		}
 	}
+	i.view.Start = max(start, i.bounds.Start)
 	return i.partiallySatisfied()
+}
+
+// stampSample returns the timestamp of the sample at position offset within the domain
+// starting at start.
+func (i *Iterator) stampSample(
+	ctx context.Context,
+	start telem.TimeStamp,
+	offset int64,
+) (telem.TimeStamp, error) {
+	approx, err := i.idx.Stamp(ctx, start, offset, index.AllowDiscontinuous)
+	return approx.Upper, err
 }
 
 // Prev moves the iterator backward by span. More specifically, if the current view is
@@ -358,10 +393,7 @@ func (i *Iterator) Prev(ctx context.Context, span telem.TimeSpan) (ok bool) {
 		return false
 	}
 	ctx, spn := i.T.Bench(ctx, "Prev")
-	defer func() {
-		ok = i.Valid()
-		spn.End()
-	}()
+	defer func() { ok = i.Valid(); spn.End() }()
 
 	if i.atStart() {
 		i.reset(i.bounds.Start.SpanRange(0))
@@ -404,24 +436,26 @@ func (i *Iterator) Error() error {
 // its current frame.
 func (i *Iterator) Valid() bool { return i.partiallySatisfied() && i.err == nil }
 
-// Close closes the iterator and releases any resources it holds. As with all other
-// iterator methods, Close is not safe to call concurrently with any other database
-// method.
+// Close closes the iterator and releases any resources it holds. It returns the error
+// that stopped the iterator, unless a seek or SetBounds has cleared it since. Closing
+// a closed iterator returns nil. As with all other iterator methods, Close is not safe
+// to call concurrently with any other database method.
 //
 // After close is called, the iterator should no longer be used.
-func (i *Iterator) Close() (err error) {
+func (i *Iterator) Close() error {
 	if i.closed {
 		return nil
 	}
 	i.closed = true
 	wrap := channel.NewErrorWrapper(i.Channel)
-	return wrap(i.internal.Close())
+	return wrap(errors.Combine(i.err, i.internal.Close()))
 }
 
 // accumulate reads the underlying data contained in the view from OS and appends them
 // to the frame. accumulate returns false if iterator must stop moving.
 func (i *Iterator) accumulate(ctx context.Context) bool {
-	if !i.internal.TimeRange().OverlapsWith(i.view) {
+	domainTR := i.internal.TimeRange()
+	if domainTR.IsZero() || !domainTR.OverlapsWith(i.view) {
 		return false
 	}
 	offset, alignment, size, err := i.sliceDomain(ctx)
@@ -429,7 +463,7 @@ func (i *Iterator) accumulate(ctx context.Context) bool {
 		i.err = err
 		return false
 	}
-	series, err := i.read(ctx, alignment, offset, size)
+	series, _, err := i.read(ctx, alignment, offset, size)
 	if err != nil && !errors.Is(err, io.EOF) {
 		i.err = err
 		return false
@@ -450,30 +484,169 @@ func (i *Iterator) insert(series telem.Series) {
 	}
 }
 
+// read reads the slice [offset, offset+size) of the current domain into a series,
+// keeping every DownsampleFactor-th sample. It returns the series and the number of
+// source samples the slice held, which exceeds the series length when the read is
+// downsampled.
 func (i *Iterator) read(
 	ctx context.Context,
 	alignment telem.Alignment,
 	offset telem.Size,
 	size telem.Size,
-) (series telem.Series, err error) {
+) (series telem.Series, srcLen int64, err error) {
 	series.DataType = i.Channel.DataType
 	series.TimeRange = i.internal.TimeRange().BoundBy(i.view)
-	series.Data = make([]byte, size)
 	// set the first 32 bits to the domain index, and the last 32 bits to the alignment
 	series.Alignment = alignment
 	r, err := i.internal.OpenReader(ctx)
 	if err != nil {
-		return series, err
+		return telem.Series{}, 0, err
 	}
 	defer func() { err = errors.Combine(err, r.Close()) }()
+	if i.DownsampleFactor > 1 {
+		series.Data, srcLen, err = i.readStrided(r, offset, size)
+		if err != nil {
+			return telem.Series{}, 0, err
+		}
+		return series, srcLen, nil
+	}
+	series.Data = make([]byte, size)
 	n, err := r.ReadAt(series.Data, int64(offset))
 	if err != nil && !errors.Is(err, io.EOF) {
-		return series, err
+		return telem.Series{}, 0, err
 	}
 	if n < len(series.Data) {
 		series.Data = series.Data[:n]
 	}
-	return series, err
+	return series, series.Len(), nil
+}
+
+// strideBufferSize bounds the scratch buffer a strided read holds, so the buffer never
+// scales with the size of the slice being read.
+const strideBufferSize = 64 * telem.Kilobyte
+
+var errPrefixOverrunsSlice = errors.New("length prefix exceeds domain slice")
+
+// readStrided reads every DownsampleFactor-th sample of the slice [offset, offset+size)
+// in r, packing the kept samples into a buffer sized to them alone. It returns the
+// packed data and the number of source samples the slice held. A slice shorter than
+// size yields the samples that were available.
+func (i *Iterator) readStrided(
+	r io.ReaderAt,
+	offset telem.Size,
+	size telem.Size,
+) ([]byte, int64, error) {
+	if i.Channel.DataType.IsVariable() {
+		return i.readStridedVariable(r, offset, size)
+	}
+	return i.readStridedFixed(r, offset, size)
+}
+
+func (i *Iterator) readStridedFixed(
+	r io.ReaderAt,
+	offset telem.Size,
+	size telem.Size,
+) ([]byte, int64, error) {
+	var (
+		density    = i.Channel.DataType.Density()
+		factor     = int64(i.DownsampleFactor)
+		srcSamples = density.SampleCount(size)
+		kept       = srcSamples/factor + min(srcSamples%factor, 1)
+		stride     = int64(density.Size(factor))
+		// batch is how many kept samples a single ReadAt covers. A stride wider than
+		// the buffer drops it to one, so the read skips the discarded samples instead
+		// of pulling them through the buffer.
+		batch = max(int64(strideBufferSize)/stride, 1)
+		buf   = make([]byte, stride*(batch-1)+int64(density))
+		out   = make([]byte, 0, density.Size(kept))
+	)
+	for read := int64(0); read < kept; {
+		n := min(batch, kept-read)
+		b := buf[:stride*(n-1)+int64(density)]
+		count, err := r.ReadAt(b, int64(offset+density.Size(read*factor)))
+		if err != nil && !errors.Is(err, io.EOF) {
+			return nil, 0, err
+		}
+		avail := density.SampleCount(telem.Size(count))
+		for j := int64(0); j < n && j*factor < avail; j++ {
+			out = append(out, b[j*stride:j*stride+int64(density)]...)
+		}
+		if count < len(b) {
+			return out, read*factor + avail, nil
+		}
+		read += n
+	}
+	return out, srcSamples, nil
+}
+
+func (i *Iterator) readStridedVariable(
+	r io.ReaderAt,
+	offset telem.Size,
+	size telem.Size,
+) ([]byte, int64, error) {
+	var (
+		factor = int64(i.DownsampleFactor)
+		br     = bufio.NewReaderSize(
+			io.NewSectionReader(r, int64(offset), int64(size)),
+			int(min(strideBufferSize, size)),
+		)
+		lenBuf = make([]byte, 4)
+		out    []byte
+		src    int64
+	)
+	for pos := int64(0); pos+4 <= int64(size); src++ {
+		start := pos
+		if _, err := io.ReadFull(br, lenBuf); err != nil {
+			if errors.IsAny(err, io.EOF, io.ErrUnexpectedEOF) {
+				i.logShortStride(offset, start, err)
+				return out, src, nil
+			}
+			return nil, 0, err
+		}
+		length := int64(telem.ByteOrder.Uint32(lenBuf))
+		// A length prefix is stored data. Without this bound a corrupt one would drive
+		// an allocation of up to 4GiB before the short read caught it.
+		if pos+4+length > int64(size) {
+			i.logShortStride(offset, start, errPrefixOverrunsSlice)
+			return out, src, nil
+		}
+		pos += 4 + length
+		if src%factor != 0 {
+			if _, err := br.Discard(int(length)); err != nil {
+				if errors.Is(err, io.EOF) {
+					i.logShortStride(offset, start, err)
+					return out, src, nil
+				}
+				return nil, 0, err
+			}
+			continue
+		}
+		out = append(out, lenBuf...)
+		payload := len(out)
+		out = append(out, make([]byte, length)...)
+		if _, err := io.ReadFull(br, out[payload:]); err != nil {
+			if errors.IsAny(err, io.EOF, io.ErrUnexpectedEOF) {
+				i.logShortStride(offset, start, err)
+				return out[:payload-4], src, nil
+			}
+			return nil, 0, err
+		}
+	}
+	return out, src, nil
+}
+
+// logShortStride reports a strided read that stopped before the end of its slice,
+// because the domain file ended early or because a length prefix claimed more bytes
+// than the slice holds. The offset cache scans the same prefixes and usually reports
+// the domain first, but its table survives a truncation that leaves End untouched.
+func (i *Iterator) logShortStride(offset telem.Size, pos int64, cause error) {
+	i.L.Error(
+		"strided read stopped short of the domain slice",
+		zap.Stringer("range", i.internal.TimeRange()),
+		zap.Int64("domain_size", int64(i.internal.Size())),
+		zap.Int64("stopped_at", int64(offset)+pos),
+		zap.Error(cause),
+	)
 }
 
 func (i *Iterator) sliceDomain(ctx context.Context) (
@@ -516,7 +689,9 @@ func pickSampleOffset(approx index.DistanceApproximation) int64 {
 	if approx.EndExact {
 		return approx.Lower
 	}
-	return (approx.Lower + approx.Upper) / 2
+	// Distance widens its bounds by one sample for each end it could not place, so with
+	// neither end exact the count sits one below the upper bound.
+	return approx.Upper - 1
 }
 
 // approximateStart approximates the number of samples between the start of the current

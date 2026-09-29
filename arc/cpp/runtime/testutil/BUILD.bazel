@@ -13,6 +13,7 @@ cc_library(
     name = "testutil",
     hdrs = [
         "mock_loop.h",
+        "stamps.h",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -20,6 +21,7 @@ cc_library(
         "//x/cpp/breaker",
         "//x/cpp/errors",
         "//x/cpp/notify",
+        "//x/cpp/telem",
     ],
 )
 
@@ -28,10 +30,6 @@ cc_library(
     hdrs = [
         "compile.h",
     ],
-    copts = select({
-        "@platforms//os:windows": ["/wd4201"],
-        "//conditions:default": [],
-    }),
     visibility = ["//visibility:public"],
     deps = [
         "//arc/cpp/program",
@@ -46,10 +44,6 @@ cc_library(
     hdrs = [
         "harness.h",
     ],
-    copts = select({
-        "@platforms//os:windows": ["/wd4201"],
-        "//conditions:default": [],
-    }),
     visibility = ["//visibility:public"],
     deps = [
         ":compile",

@@ -9,22 +9,28 @@
 
 import { pagerduty, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { PagerDuty } from "@/feature/pagerduty";
 import {
+  awaitEditableForm,
   deployAndAwaitTask,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
 } from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
 
-const renderAlert = async (options: RenderTaskFormTabOptions = {}) =>
-  await renderTaskFormTab(PagerDuty.Task.Alert, {
+// The form renders read-only until the update grant lands, and a preview field renders
+// no input, so wait for it to become editable before querying fields.
+const renderAlert = async (options: RenderTaskFormTabOptions = {}) => {
+  const rendered = await renderTaskFormTab(PagerDuty.Task.Alert, {
     task: ZERO_DRAFT,
     ...options,
   });
+  await awaitEditableForm();
+  return rendered;
+};
 
 const ROUTING_KEY_PLACEHOLDER = "R022XIJR9M266DX570EVE6EXP1AFBN6D";
 
@@ -35,9 +41,12 @@ const ZERO_DRAFT: task.New<PagerDuty.Task.AlertSchemas> = {
   config: PagerDuty.Task.ALERT_SCHEMAS.config.parse({}),
 };
 
+const newAlertItem = (): HTMLElement =>
+  screen.getByRole("option", { name: /New alert/ });
+
 const addAlert = async (): Promise<void> => {
-  fireEvent.click(await screen.findByText("Add alert"));
-  await screen.findByText("New alert");
+  fireEvent.click(await screen.findByRole("button", { name: "Add alert" }));
+  await waitFor(() => expect(newAlertItem()).toBeTruthy());
 };
 
 const createAlertConfig = (
@@ -66,22 +75,29 @@ describe("PagerDuty Alert form", () => {
   it("should disable and re-enable alerts through the context menu", async () => {
     await renderAlert();
     await addAlert();
-    fireEvent.contextMenu(screen.getByText("New alert"));
+    fireEvent.contextMenu(newAlertItem());
     await screen.findByText("Disable");
     expect(screen.queryByText("Enable")).toBeNull();
     fireEvent.click(screen.getByText("Disable"));
-    fireEvent.contextMenu(screen.getByText("New alert"));
+    fireEvent.contextMenu(newAlertItem());
     await screen.findByText("Enable");
     expect(screen.queryByText("Disable")).toBeNull();
     fireEvent.click(screen.getByText("Enable"));
-    fireEvent.contextMenu(screen.getByText("New alert"));
+    fireEvent.contextMenu(newAlertItem());
     await screen.findByText("Disable");
+  });
+
+  it("should offer Reload Console from the alert context menu", async () => {
+    await renderAlert();
+    await addAlert();
+    fireEvent.contextMenu(newAlertItem());
+    expect(await screen.findByText("Reload Console")).toBeTruthy();
   });
 
   it("should remove alerts through the context menu", async () => {
     await renderAlert();
     await addAlert();
-    fireEvent.contextMenu(screen.getByText("New alert"));
+    fireEvent.contextMenu(newAlertItem());
     fireEvent.click(await screen.findByText("Remove"));
     await screen.findByText("No alerts");
     expect(screen.getByText("No alert selected")).toBeTruthy();
@@ -96,7 +112,7 @@ describe("PagerDuty Alert form", () => {
     );
     await renderAlert({ client, taskKey: draft.key });
     await screen.findByDisplayValue("R".repeat(32));
-    await screen.findByText("New alert");
+    await waitFor(() => expect(newAlertItem()).toBeTruthy());
   });
 
   it("should load a routing key the deploy schema would reject", async () => {

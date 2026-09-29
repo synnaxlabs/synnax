@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Base } from "@/log/Base";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
-import { Triggers } from "@/triggers";
 
 // Partial Aether mock: only intercepts type "log" for controlling worker-computed
 // state (empty, scrolling, selectionStart, etc.). All other Aether consumers
@@ -124,6 +125,14 @@ describe("log/Base", () => {
     it("should render custom empty content when provided", () => {
       renderLog({ emptyContent: <div data-testid="custom-empty">No data</div> });
       expect(screen.getByTestId("custom-empty")).toBeDefined();
+    });
+
+    it("should append the consumer's extra context menu items", async () => {
+      const { container } = renderLog({
+        extraContextMenuItems: <Menu.Item itemKey="extra">Extra</Menu.Item>,
+      });
+      fireEvent.contextMenu(getLogDiv(container));
+      expect(await screen.findByText("Extra")).toBeDefined();
     });
 
     it("should apply className to the container div", () => {

@@ -74,7 +74,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     if [ -n "$TAGS" ]; then TAGS="${TAGS},"; fi; \
     TAGS="${TAGS}console"; \
     fi; \
-    LDFLAGS="-w -s -X github.com/synnaxlabs/synnax/pkg/version.Version=${VERSION} -X github.com/synnaxlabs/synnax/pkg/version.GitCommit=${GIT_COMMIT} -X github.com/synnaxlabs/synnax/pkg/version.BuildDate=${BUILD_DATE}"; \
+    LDFLAGS="-w -s -X github.com/synnaxlabs/synnax/pkg/version.version=${VERSION} -X github.com/synnaxlabs/synnax/pkg/version.gitCommit=${GIT_COMMIT} -X github.com/synnaxlabs/synnax/pkg/version.buildDate=${BUILD_DATE}"; \
     if [ -n "$TAGS" ]; then \
     CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
     go build -trimpath -tags "$TAGS" -ldflags="${LDFLAGS}" -o synnax .; \

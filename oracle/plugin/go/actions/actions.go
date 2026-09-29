@@ -177,9 +177,18 @@ type fieldData struct {
 	IsOptional bool
 }
 
-// TagSuffix returns the JSON/msgpack tag suffix that controls omitempty
-// emission for optional fields.
-func (f fieldData) TagSuffix() string {
+// JSONTagSuffix returns the JSON tag suffix for the field. An optional field uses
+// `,omitzero` so its Go zero is omitted and any allocated value serializes.
+func (f fieldData) JSONTagSuffix() string {
+	if f.IsOptional {
+		return ",omitzero"
+	}
+	return ""
+}
+
+// MsgpackTagSuffix returns the msgpack tag suffix for the field. vmihailenco/msgpack
+// honors only `,omitempty`, which also omits an allocated empty collection.
+func (f fieldData) MsgpackTagSuffix() string {
 	if f.IsOptional {
 		return ",omitempty"
 	}
@@ -199,10 +208,12 @@ package {{.Package}}
 {{- if .HasImports}}
 
 import (
-{{- range .ExternalImports}}
+{{- range .StdImports}}
 	"{{.}}"
 {{- end}}
-{{- range .InternalImports}}
+{{- if and .StdImports .NonStdImports}}
+{{end}}
+{{- range .NonStdImports}}
 {{- if .NeedsAlias}}
 	{{.Alias}} "{{.Path}}"
 {{- else}}
@@ -223,7 +234,7 @@ const (
 {{end -}}
 type {{.Name}}Payload struct {
 {{- range .Fields}}
-	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONName}}{{.TagSuffix}}" msgpack:"{{.JSONName}}{{.TagSuffix}}"` + "`" + `
+	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONName}}{{.JSONTagSuffix}}" msgpack:"{{.JSONName}}{{.MsgpackTagSuffix}}"` + "`" + `
 {{- end}}
 }
 {{end}}
@@ -232,7 +243,7 @@ type {{.Name}}Payload struct {
 type Action struct {
 	Type string ` + "`" + `json:"type" msgpack:"type"` + "`" + `
 {{- range .Actions}}
-	{{.Name}} *{{.Name}}Payload ` + "`" + `json:"{{.TypeName}},omitempty" msgpack:"{{.TypeName}},omitempty"` + "`" + `
+	{{.Name}} *{{.Name}}Payload ` + "`" + `json:"{{.TypeName}},omitzero" msgpack:"{{.TypeName}},omitempty"` + "`" + `
 {{- end}}
 }
 

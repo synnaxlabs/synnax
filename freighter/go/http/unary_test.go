@@ -28,7 +28,6 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	xhttp "github.com/synnaxlabs/x/http"
-	"github.com/synnaxlabs/x/net"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -62,7 +61,6 @@ func (failingEncoder) EncodeStream(context.Context, io.Writer, any) error {
 
 var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
-	unaryAddr = address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
 	unaryApp = newFiberApp(fiber.Config{DisableKeepalive: true})
 	router := MustSucceed(fhttp.NewRouter())
 	unaryApp.Get("/health", func(ctx fiber.Ctx) error {
@@ -104,18 +102,11 @@ var _ = BeforeSuite(func() {
 	)
 	unaryClient = MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response]())
 	router.BindTo(unaryApp)
-	go func() {
-		defer GinkgoRecover()
-		Expect(unaryApp.Listen(unaryAddr.PortString(), fiber.ListenConfig{
-			DisableStartupMessage: true,
-		})).To(Succeed())
-	}()
+	unaryAddr = serveApp(unaryApp)
 	Eventually(func(g Gomega) {
 		g.Expect(pollHealth("http://" + unaryAddr.String() + "/health")).To(Succeed())
 	}).WithPolling(1 * time.Millisecond).Should(Succeed())
 })
-
-var _ = AfterSuite(func() { Expect(unaryApp.Shutdown()).To(Succeed()) })
 
 var _ = Describe("Unary", func() {
 	test.UnarySuite(func() (
@@ -147,6 +138,7 @@ var _ = Describe("Unary", func() {
 			accept string,
 			body []byte,
 		) (*http.Response, []byte) {
+			GinkgoHelper()
 			httpReq := MustSucceed(http.NewRequestWithContext(
 				ctx,
 				http.MethodPost,
@@ -481,6 +473,7 @@ var _ = Describe("Unary", func() {
 			)
 		}
 		post := func(ctx context.Context, query string) test.Response {
+			GinkgoHelper()
 			body := MustSucceed(json.Codec.Encode(ctx, test.Request{}))
 			httpReq := MustSucceed(http.NewRequestWithContext(
 				ctx, http.MethodPost,

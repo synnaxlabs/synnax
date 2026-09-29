@@ -68,7 +68,7 @@ var _ = Describe("Convergence", func() {
 			configs := make(map[node.Key]gossip.Config)
 			for i := 1; i <= values.nodeCount; i++ {
 				server := net.UnaryServer("")
-				n := node.Node{Key: node.Key(i), Address: server.Address}
+				n := node.Node{Key: node.Key(i), Address: server.Address()}
 				group[n.Key] = n
 				configs[n.Key] = gossip.Config{
 					TransportServer: server,

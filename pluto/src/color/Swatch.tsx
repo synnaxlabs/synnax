@@ -9,15 +9,15 @@
 
 import "@/color/Swatch.css";
 
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
+import { state } from "@synnaxlabs/lyra/state";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type color, state as xstate } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo, useState } from "react";
 
 import { BaseSwatch, type BaseSwatchProps } from "@/color/BaseSwatch";
 import { Picker, type PickerProps } from "@/color/Picker";
-import { CSS } from "@/css";
-import { Dialog } from "@/dialog";
-import { state } from "@/state";
-import { Text } from "@/text";
 
 export interface SwatchProps
   extends

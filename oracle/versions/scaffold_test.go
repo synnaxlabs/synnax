@@ -29,6 +29,7 @@ var _ = Describe("Scaffold", func() {
 	BeforeEach(func() {
 		root = GinkgoT().TempDir()
 		write = func(rel, content string) {
+			GinkgoHelper()
 			full := filepath.Join(root, rel)
 			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
 			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())

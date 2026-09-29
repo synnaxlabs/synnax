@@ -1,14 +1,16 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "NI Analog Write Task"
+title: "NI analog write task"
 description: "Learn how to send analog commands to NI devices with Synnax."
-prev: "Analog Read Task"
+prev: "Analog read task"
 prevURL: "/reference/driver/ni/analog-read-task"
-next: "Counter Read Task"
+next: "Counter read task"
 nextURL: "/reference/driver/ni/counter-read-task"
 ---
 
-import { Divider, Icon, Text } from "@synnaxlabs/pluto";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Video } from "@/components/media/Media";
 import { Fragment } from "react";
 import Details from "@/components/details/Details.astro";
@@ -18,11 +20,12 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lifecycle).
+This task follows the standard
+[task lifecycle](/reference/driver/task-basics#task-lifecycle).
 
 <Divider.Divider x />
 
-## Task Configuration Reference
+## Task configuration reference
 
 | Parameter    | Type   | Required | Default | Description                                   |
 | ------------ | ------ | -------- | ------- | --------------------------------------------- |
@@ -32,7 +35,7 @@ For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lif
 
 <Divider.Divider x />
 
-## Channel Types Reference
+## Channel types reference
 
 <DetailsGroup>
 
@@ -83,13 +86,13 @@ For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lif
 
 <Divider.Divider x />
 
-## Important Rules
+## Important rules
 
 - **One task per module** -> Only one running task can claim a module at a time.
 
 <Divider.Divider x />
 
-## How-To
+## How-to
 
 <Client.Tabs client:load exclude={["cpp"]}>
   <Fragment slot="console">

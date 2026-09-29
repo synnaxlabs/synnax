@@ -1,4 +1,4 @@
-# Synnax Architecture
+# Synnax architecture
 
 Synnax is a horizontally-scalable observability and control platform for hardware
 telemetry, optimized for real-time performance and distributed reliability.
@@ -28,8 +28,11 @@ telemetry, optimized for real-time performance and distributed reliability.
   read-optimized.
 - **Freighter** (`/freighter/`, multi-language) — protocol-agnostic transport: unary +
   streaming over gRPC/HTTP/WebSockets, middleware, consistent across Go/TS/Python/C++.
+- **Lyra** (`/lyra/`, TS/React) — Synnax-blind UI primitives (buttons, inputs, forms,
+  menus, theming); subpath-only imports; the docs site uses it without Pluto.
 - **Pluto** (`/pluto/`, TS/React) — GPU-accelerated viz components; Aether framework
-  renders in a worker thread to hold 60fps; incremental updates.
+  renders in a worker thread to hold 60fps; incremental updates. Extends lyra by adding
+  Synnax-aware members under the same namespace names.
 - **Console** (`/console/`, Tauri + React) — desktop app; Redux Toolkit + Drift
   multi-window state sync; mosaic drag-and-drop layouts. See `console/CLAUDE.md`.
 - **Driver** (`/driver/`, C++) — task-based hardware integration (LabJack, NI, OPC UA,
@@ -41,7 +44,7 @@ telemetry, optimized for real-time performance and distributed reliability.
 - **Alamos** (`/alamos/`, multi-language) — instrumentation: OpenTelemetry
   traces/metrics/logs with cross-service context propagation.
 
-## Dependency Graph
+## Dependency graph
 
 Every language stacks the same way, low to high: `x` (utilities) → `alamos`
 (instrumentation) → `freighter` (transport) → client → application. Higher depends on
@@ -50,12 +53,13 @@ lower, never the reverse.
 - **Go**: `x` and `alamos` are mutually dependent modules (packages stay acyclic) →
   `freighter` → `aspen`, `arc` → `core`. `cesium` uses only `x` + `alamos` (no
   transport). `oracle` uses only `x` + `alamos`.
-- **TS**: `x` → `alamos` → `freighter` → `client` → `pluto` → `console`. `drift` depends
-  only on `x`; `x/media` is a leaf; `arc` is consumed by `pluto` and `console`.
+- **TS**: `x` → `alamos` → `freighter` → `client` → `pluto` → `console`. `lyra` depends
+  only on `x` and feeds `pluto`, `console`, and `docs/site`. `drift` depends only on
+  `x`; `x/media` is a leaf; `arc` is consumed by `pluto` and `console`.
 - **Python**: `x` → `alamos` → `freighter` → `client` (synnax) → `integration`.
 - **C++**: `x` → `freighter` → `client` → `driver`.
 
-## What Belongs Where
+## What belongs where
 
 Put code in the lowest package that can hold it without gaining a forbidden dependency.
 
@@ -72,27 +76,29 @@ Put code in the lowest package that can hold it without gaining a forbidden depe
   `core/CLAUDE.md`).
 - `client/*` — cluster API clients, feature parity across languages. No UI, no hardware.
 - `drift` — multi-window Redux sync. Knows Tauri + Redux, nothing about Synnax.
+- `lyra` — Synnax-blind React primitives. Knows React and the DOM, nothing about the
+  Core or Aether.
 - `pluto` — reusable Synnax-aware React/viz components. Arrangement-blind: no mosaic, no
   layout registries — that's console.
 - `console` — the desktop app: composition + arrangement (see `console/CLAUDE.md`).
 - `driver` — hardware integration (see `driver/CLAUDE.md`).
 - `integration` — cross-component integration tests + the tc conductor.
 
-## Data Flow
+## Data flow
 
 - Ingestion: Hardware → Driver → Server → Cesium → Distribution → Clients.
 - Control: Client → Server (validation) → Distribution → Driver → Hardware.
 - Cluster: nodes sync metadata via Aspen gossip; time-series data routed between Cesium
   stores.
 
-## Development Guidelines
+## Development guidelines
 
 - **Protocol agnostic** — use Freighter abstractions, never direct HTTP/gRPC.
 - **Multi-language API parity** across Go, TS, Python, C++.
 - **Real-time focus** — low latency, high frequency; design for horizontal scale.
 - Availability over consistency for metadata; strong consistency for telemetry.
 
-## Gotchas & Performance
+## Gotchas & performance
 
 - **Cesium**: overlapping time ranges cause write conflicts; structure queries for
   columnar reads.

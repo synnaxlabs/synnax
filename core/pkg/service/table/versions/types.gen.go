@@ -11,21 +11,50 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/table/versions/v1"
+import "github.com/synnaxlabs/synnax/pkg/service/table/versions/v2"
 
 // Key is a unique identifier for a table, represented as a UUID.
-type Key = v1.Key
+type Key = v2.Key
 
-// Cell is a single cell in a table, identified by key and variant.
-type Cell = v1.Cell
+// FlexAlignment is a cross-axis flex alignment for laid-out content.
+type FlexAlignment = v2.FlexAlignment
+
+const (
+	FlexAlignmentStart   FlexAlignment = v2.FlexAlignmentStart
+	FlexAlignmentCenter  FlexAlignment = v2.FlexAlignmentCenter
+	FlexAlignmentEnd     FlexAlignment = v2.FlexAlignmentEnd
+	FlexAlignmentStretch FlexAlignment = v2.FlexAlignmentStretch
+)
+
+// Redline maps a numeric range to a color gradient for limit visualization.
+type Redline = v2.Redline
+
+// CellConfig is the per-cell configuration stored in the table cells map. The variant
+// selects which Pluto cell component renders the cell.
+type CellConfig = v2.CellConfig
+type CellConfigVariant = v2.CellConfigVariant
+type CellConfigType = v2.CellConfigType
+
+const (
+	// TextCellConfigType is the configuration for static text cells.
+	TextCellConfigType CellConfigType = v2.TextCellConfigType
+	// ValueCellConfigType is the configuration for live telemetry value cells.
+	ValueCellConfigType CellConfigType = v2.ValueCellConfigType
+)
+
+// TextCellConfig is the configuration for static text cells.
+type TextCellConfig = v2.TextCellConfig
+
+// ValueCellConfig is the configuration for live telemetry value cells.
+type ValueCellConfig = v2.ValueCellConfig
 
 // Row is a single row in a table, with height and ordered cell keys.
-type Row = v1.Row
+type Row = v2.Row
 
 // Column is a single column in a table, with width.
-type Column = v1.Column
+type Column = v2.Column
 
 // Table is a tabular data display component for viewing structured telemetry data.
 // Tables support multiple columns, channel data sources, and customizable formatting
 // options.
-type Table = v1.Table
+type Table = v2.Table

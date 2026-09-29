@@ -10,6 +10,7 @@
 package types_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -3004,6 +3005,44 @@ var _ = Describe("TS Union Generation", func() {
 				)
 		},
 	)
+
+	Describe("Lazy variants", func() {
+		unionSource := func(count int) string {
+			var b strings.Builder
+			b.WriteString(
+				"@ts output \"out\"\nParams struct { value float64 }\nShape union on variant {\n",
+			)
+			for i := range count {
+				fmt.Fprintf(&b, "v%d Params\n", i)
+			}
+			b.WriteString("}\n")
+			return b.String()
+		}
+
+		It(
+			"Should wrap each variant in z.lazy when a union has 16 variants",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, unionSource(16), "ni", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain(
+						`export const shapeZ = z.discriminatedUnion("variant", [`,
+						`z.lazy(() => v0ShapeZ),`,
+						`z.lazy(() => v15ShapeZ),`,
+						`v0: v0ShapeZ,`,
+					)
+			},
+		)
+
+		It(
+			"Should reference variants directly when a union has 15 variants",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, unionSource(15), "ni", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain(`  v0ShapeZ,`).
+					ToNotContain(`z.lazy(`)
+			},
+		)
+	})
 
 	It(
 		"Should declare inline variant fields directly on the member schema",

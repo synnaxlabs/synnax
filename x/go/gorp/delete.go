@@ -21,11 +21,11 @@ import (
 type Delete[K Key, E Entry[K]] struct {
 	// retrieve is the underlying scan used to resolve entries to delete.
 	retrieve Retrieve[K, E]
-	// guards is the chain of GuardFuncs checked against each matched
-	// entry; any non-nil error aborts the delete.
+	// guards is the chain of GuardFuncs checked against each matched entry; any non-nil
+	// error aborts the delete.
 	guards guards[K, E]
-	// indexes is the set of secondary indexes the query stages
-	// deletions against. Nil means deletions are not staged.
+	// indexes is the set of secondary indexes the query stages deletions against. Nil
+	// means deletions are not staged.
 	indexes []Index[K, E]
 }
 
@@ -34,26 +34,25 @@ func NewDelete[K Key, E Entry[K]]() Delete[K, E] {
 	return Delete[K, E]{retrieve: NewRetrieve[K, E]()}
 }
 
-// Where adds the provided filter to the query. To delete by primary key,
-// compose MatchKeys into the filter (e.g. d.Where(MatchKeys(1, 2, 3))).
+// Where adds the provided filter to the query. To delete by primary key, compose
+// MatchKeys into the filter (e.g. d.Where(MatchKeys(1, 2, 3))).
 func (d Delete[K, E]) Where(filter Filter[K, E]) Delete[K, E] {
 	d.retrieve = d.retrieve.Where(filter)
 	return d
 }
 
-// WherePrefix narrows the underlying scan to entries whose pebble key starts
-// with the given prefix. Combine with Where to skip ranges of the keyspace
-// that cannot possibly match.
+// WherePrefix narrows the underlying scan to entries whose pebble key starts with the
+// given prefix. Combine with Where to skip ranges of the keyspace that cannot possibly
+// match.
 func (d Delete[K, E]) WherePrefix(prefix []byte) Delete[K, E] {
 	d.retrieve = d.retrieve.WherePrefix(prefix)
 	return d
 }
 
-// WhereRaw adds a raw byte filter that runs against each entry's pebble key
-// and encoded value before decoding. Returning false skips the entry without
-// allocating a decoded value, so a key-shaped predicate can drop most rows
-// without paying decode cost. Use in tandem with WherePrefix when the
-// keyspace itself can be narrowed.
+// WhereRaw adds a raw byte filter that runs against each entry's pebble key and encoded
+// value before decoding. Returning false skips the entry without allocating a decoded
+// value, so a key-shaped predicate can drop most rows without paying decode cost. Use
+// in tandem with WherePrefix when the keyspace itself can be narrowed.
 func (d Delete[K, E]) WhereRaw(filter RawFilter) Delete[K, E] {
 	d.retrieve = d.retrieve.WhereRaw(filter)
 	return d
@@ -70,10 +69,9 @@ func (d Delete[K, E]) Guard(filter GuardFunc[K, E]) Delete[K, E] {
 	return d
 }
 
-// Exec executes the query against the provided transaction. If the resolved
-// filter is bounded by primary keys and any of those keys do not exist,
-// Delete will assume the missing keys do not need to be deleted and continue
-// with the keys that do exist.
+// Exec executes the query against the provided transaction. If the resolved filter is
+// bounded by primary keys and any of those keys do not exist, Delete will assume the
+// missing keys do not need to be deleted and continue with the keys that do exist.
 func (d Delete[K, E]) Exec(ctx context.Context, tx Tx) error {
 	checkForNilTx("Delete.Exec", tx)
 	var (
@@ -92,7 +90,7 @@ func (d Delete[K, E]) Exec(ctx context.Context, tx Tx) error {
 }
 
 type (
-	GuardFunc[K Key, E Entry[K]] = func(ctx Context, entry E) error
+	GuardFunc[K Key, E Entry[K]] = func(Context, E) error
 	guards[K Key, E Entry[K]]    []GuardFunc[K, E]
 )
 

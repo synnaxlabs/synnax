@@ -35,6 +35,16 @@ const logResource = (key: string, name: string) =>
   createResource(log.ontologyID(key), name);
 
 describe("log ontology service", () => {
+  it("should offer Reload Console", async () => {
+    const l = await createLog();
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
+      client,
+      resources: [logResource(l.key, l.name)],
+    });
+    expect(await screen.findByText("Reload Console")).toBeTruthy();
+  });
+
   it("should expose rename, group, delete, export, and link actions", async () => {
     const l = await createLog();
     assertDefined(Item.ContextMenu);

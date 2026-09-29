@@ -7,6 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
+import { canDisable, type CanDisabledProps } from "@synnaxlabs/lyra/util";
 import { type PropsWithChildren, type ReactElement } from "react";
 
 import { Aether } from "@/aether";
@@ -14,16 +18,12 @@ import { Alamos } from "@/alamos";
 import { Arc } from "@/arc";
 import { Code } from "@/code";
 import { Color } from "@/color";
-import { Haul } from "@/haul";
 import DefaultWorkerURL from "@/pluto/defaultWorker.ts?url";
-import { Status as StatusBase } from "@/status/base";
+import { Status } from "@/status";
 import { Synnax } from "@/synnax";
 import { Telem } from "@/telem";
 import { Control } from "@/telem/control";
 import { Theming } from "@/theming";
-import { Tooltip } from "@/tooltip";
-import { Triggers } from "@/triggers";
-import { canDisable, type CanDisabledProps } from "@/util/canDisable";
 import { Staleness } from "@/vis/staleness";
 
 const CanDisableTelem = canDisable<Telem.ProviderProps>(Telem.Provider);
@@ -66,7 +66,7 @@ export const Provider = ({
           workerEnabled={workerEnabled}
         >
           <Alamos.Provider {...alamos}>
-            <StatusBase.Aggregator>
+            <Status.Aggregator>
               <Synnax.Provider connParams={connParams}>
                 <Color.Provider {...color}>
                   <Theming.Provider {...theming}>
@@ -80,7 +80,7 @@ export const Provider = ({
                   </Theming.Provider>
                 </Color.Provider>
               </Synnax.Provider>
-            </StatusBase.Aggregator>
+            </Status.Aggregator>
           </Alamos.Provider>
         </CanDisableAether>
       </Haul.Provider>

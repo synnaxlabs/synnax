@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
+	channelgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
@@ -44,6 +45,10 @@ type Status = calculation.Status
 
 // ServiceConfig is the configuration for opening the calculation service.
 type ServiceConfig struct {
+	// DB opens the transactions that status writes run in.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
 	// Framer is the underlying frame service used to stream cached channel values.
 	//
 	// [REQUIRED]
@@ -58,10 +63,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Channel *channel.Service
-	// Status is used for persisting calculation status updates.
+	// ChannelGraph reconciles calculated channel definitions. The service subscribes to
+	// it for channel changes and reports calculation statuses through it.
 	//
 	// [REQUIRED]
-	Status *status.Service
+	ChannelGraph *channelgraph.Graph
 	// Instrumentation is used for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -73,20 +79,22 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("calculate")
+	v.NotNil("db", c.DB)
 	v.NotNil("framer", c.Framer)
 	v.NotNil("writer", c.Writer)
 	v.NotNil("channel", c.Channel)
-	v.NotNil("status", c.Status)
+	v.NotNil("channel_graph", c.ChannelGraph)
 	return v.Error()
 }
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
+	c.DB = override.Nil(c.DB, other.DB)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Writer = override.Nil(c.Writer, other.Writer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
-	c.Status = override.Nil(c.Status, other.Status)
+	c.ChannelGraph = override.Nil(c.ChannelGraph, other.ChannelGraph)
 	return c
 }
 
@@ -99,7 +107,6 @@ type Service struct {
 		groups      map[int]*group
 		sync.Mutex
 	}
-	statusWriter status.Writer
 }
 
 // OpenService opens the service with the provided configuration. The service must be
@@ -117,20 +124,19 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 
-	s := &Service{
-		cfg:          cfg,
-		statusWriter: cfg.Status.NewWriter(nil),
-	}
-	s.disconnectFromChannelChanges = cfg.Channel.Observe().OnChange(s.handleChange)
+	s := &Service{cfg: cfg}
+	s.disconnectFromChannelChanges = cfg.ChannelGraph.Observe().OnChange(s.handleChange)
 	s.mu.graph = g
 	s.mu.calculators = make(map[channel.Key]*calculator.Calculator)
 	s.mu.groups = make(map[int]*group)
 
-	if err := cfg.Channel.NewWriter(nil).DeleteManyByNames(
-		ctx,
-		legacyStatusChannels,
-		true,
-	); err != nil {
+	if err := cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		return cfg.Channel.NewWriter(tx).DeleteManyByNames(
+			ctx,
+			legacyStatusChannels,
+			true,
+		)
+	}); err != nil {
 		cfg.L.Debug("failed to delete legacy status channels", zap.Error(err))
 	}
 
@@ -154,9 +160,7 @@ func (s *Service) setStatus(
 			continue
 		}
 		s.cfg.L.Warn(st.String())
-		statusKey := calculation.StatusKey(chKey)
-		if err = s.statusWriter.Set(ctx, &Status{
-			Key:         statusKey,
+		if err = s.cfg.ChannelGraph.SetRuntimeStatus(ctx, chKey, &Status{
 			Name:        st.Name,
 			Variant:     st.Variant,
 			Message:     st.Message,
@@ -166,16 +170,23 @@ func (s *Service) setStatus(
 			s.cfg.L.Error(
 				"failed to set status",
 				zap.Error(err),
-				zap.String("key", statusKey),
+				zap.Stringer("channel", chKey),
 			)
 		}
 	}
 }
 
-func (s *Service) handleChange(
-	ctx context.Context,
-	reader gorp.TxReader[channel.Key, channel.Channel],
-) {
+func (s *Service) clearStatus(ctx context.Context, key channel.Key) {
+	if err := s.cfg.ChannelGraph.ClearRuntimeStatus(ctx, key); err != nil {
+		s.cfg.L.Error(
+			"failed to clear status",
+			zap.Error(err),
+			zap.Stringer("channel", key),
+		)
+	}
+}
+
+func (s *Service) handleChange(ctx context.Context, reader channelgraph.Changes) {
 	for cg := range reader {
 		ch := cg.Value
 		// Don't stop calculating if the channel is deleted. The calculation will be
@@ -198,6 +209,8 @@ func (s *Service) handleChange(
 				),
 				Description: err.Error(),
 			})
+		} else {
+			s.clearStatus(ctx, ch.Key())
 		}
 		s.mu.Unlock()
 	}
@@ -376,6 +389,8 @@ func (s *Service) updateRequests(
 				Message:     fmt.Sprintf("Failed to request calculation for %s", ch),
 				Description: err.Error(),
 			})
+		} else {
+			s.clearStatus(ctx, ch.Key())
 		}
 		graphChanged = true
 	}

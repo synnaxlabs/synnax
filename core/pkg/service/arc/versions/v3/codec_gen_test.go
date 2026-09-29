@@ -12,11 +12,9 @@
 package v3_test
 
 import (
-	"github.com/google/uuid"
 	"testing"
+	"uuid"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	graph "github.com/synnaxlabs/arc/graph/versions/v1"
@@ -28,6 +26,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
+	"github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Codec", func() {
@@ -97,16 +96,18 @@ var _ = Describe("Codec", func() {
 				},
 			}),
 			Entry("zero values", v3.Arc{
-				Key:  uuid.Nil,
+				Key:  uuid.Nil(),
 				Name: "",
 				Mode: v3.Mode(""),
 				Graph: graph.Graph{
-					Functions: nil,
-					Edges:     nil,
-					Nodes:     nil,
-					Inputs:    nil,
+					Functions: []ir.Function{},
+					Edges:     []graph.Edge{},
+					Nodes:     []graph.Node{},
+					Inputs:    map[string]msgpack.EncodedJSON{},
 				},
-				Text: text.Text{Doc: text.Document{Inserts: nil, Deletes: nil}},
+				Text: text.Text{
+					Doc: text.Document{Inserts: []crdt.Insert{}, Deletes: []crdt.Delete{}},
+				},
 			}),
 		)
 	})
@@ -246,16 +247,18 @@ func FuzzDecodeArc(f *testing.F) {
 	}
 	{
 		seed := v3.Arc{
-			Key:  uuid.Nil,
+			Key:  uuid.Nil(),
 			Name: "",
 			Mode: v3.Mode(""),
 			Graph: graph.Graph{
-				Functions: nil,
-				Edges:     nil,
-				Nodes:     nil,
-				Inputs:    nil,
+				Functions: []ir.Function{},
+				Edges:     []graph.Edge{},
+				Nodes:     []graph.Node{},
+				Inputs:    map[string]msgpack.EncodedJSON{},
 			},
-			Text: text.Text{Doc: text.Document{Inserts: nil, Deletes: nil}},
+			Text: text.Text{
+				Doc: text.Document{Inserts: []crdt.Insert{}, Deletes: []crdt.Delete{}},
+			},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -279,7 +282,7 @@ func FuzzDecodeArc(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})

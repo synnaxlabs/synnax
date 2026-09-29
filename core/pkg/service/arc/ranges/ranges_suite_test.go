@@ -31,11 +31,14 @@ func TestRanges(t *testing.T) {
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
-var rangeSvc *ranger.Service
+var (
+	db       *gorp.DB
+	rangeSvc *ranger.Service
+)
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	db := DeferClose(gorp.Wrap(memkv.New()))
+	db = DeferClose(gorp.Wrap(memkv.New()))
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	searchIdx := MustOpen(search.OpenIndex())
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{

@@ -11,8 +11,8 @@ package builtin
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/x/errors"
@@ -111,12 +111,12 @@ func provisionRole(
 			Where(policy.MatchNames(pol.Name)).
 			Entry(pol).
 			Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
-			return uuid.Nil, err
+			return uuid.Nil(), err
 		}
 		pol.Objects = desiredObjects
 		pol.Actions = desiredActions
 		if err := policySvc.NewWriter(tx, true).Create(ctx, pol); err != nil {
-			return uuid.Nil, err
+			return uuid.Nil(), err
 		}
 		policyKeys = append(policyKeys, pol.Key)
 	}
@@ -124,17 +124,17 @@ func provisionRole(
 		Where(role.MatchNames(rol.Name)).
 		Entry(&rol).
 		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
-		return uuid.Nil, err
+		return uuid.Nil(), err
 	}
-	if rol.Key == uuid.Nil {
+	if rol.Key == uuid.Nil() {
 		w := roleSvc.NewWriter(tx, true)
 		if err := w.Create(ctx, &rol); err != nil {
-			return uuid.Nil, err
+			return uuid.Nil(), err
 		}
 	}
 	if err := policySvc.NewWriter(tx, true).
 		SetOnRole(ctx, rol.Key, policyKeys...); err != nil {
-		return uuid.Nil, err
+		return uuid.Nil(), err
 	}
 	return rol.Key, nil
 }

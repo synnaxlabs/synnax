@@ -44,6 +44,7 @@ var _ = Describe("Rack", Ordered, func() {
 		db         *gorp.DB
 		svc        *rack.Service
 		stat       *status.Service
+		otg        *ontology.Ontology
 		// frozenNow pins the health monitor's clock to a fixed timestamp when
 		// non-zero, letting timing tests stop logical time instead of racing the
 		// wall clock. Zero means use the real clock.
@@ -53,7 +54,7 @@ var _ = Describe("Rack", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		searchIdx := MustOpen(search.OpenIndex())
 		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
@@ -622,6 +623,20 @@ var _ = Describe("Rack", Ordered, func() {
 				Entry(&deletedStatus).
 				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
+
+		It("Should delete the rack's ontology resource", func(ctx SpecContext) {
+			r := &rack.Rack{Name: "rack5"}
+			Expect(writer.Create(ctx, r)).To(Succeed())
+			Expect(otg.NewRetrieve().
+				WhereIDs(r.OntologyID()).
+				Entries(&[]ontology.Resource{}).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(writer.Delete(ctx, r.Key)).To(Succeed())
+			Expect(otg.NewRetrieve().
+				WhereIDs(r.OntologyID()).
+				Entries(&[]ontology.Resource{}).
+				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+		})
 	})
 
 	Describe("Embedded Rack", func() {
@@ -775,16 +790,16 @@ var _ = Describe("Rack", Ordered, func() {
 				r := rack.Rack{Name: "active test rack"}
 				Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
 
-				Expect(
-					stat.NewWriter(nil).Set(ctx, &rack.Status{
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return stat.NewWriter(tx).Set(ctx, &rack.Status{
 						Key:     r.OntologyID().String(),
 						Name:    r.Name,
 						Time:    telem.Now(),
 						Variant: status.VariantSuccess,
 						Message: "Running",
 						Details: rack.StatusDetails{Rack: r.Key},
-					}),
-				).To(Succeed())
+					})
+				})).To(Succeed())
 
 				Consistently(func(g Gomega) {
 					s := MustSucceed(svc.RetrieveStatus(ctx, r.Key))
@@ -855,16 +870,16 @@ var _ = Describe("Rack", Ordered, func() {
 
 				Eventually(getCount).Should(Equal(1))
 
-				Expect(
-					stat.NewWriter(nil).Set(ctx, &rack.Status{
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return stat.NewWriter(tx).Set(ctx, &rack.Status{
 						Key:     r.OntologyID().String(),
 						Name:    r.Name,
 						Time:    telem.Now(),
 						Variant: status.VariantSuccess,
 						Message: "Running",
 						Details: rack.StatusDetails{Rack: r.Key},
-					}),
-				).To(Succeed())
+					})
+				})).To(Succeed())
 
 				countAfterRecovery := getCount()
 				Eventually(

@@ -7,12 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Component } from "@synnaxlabs/lyra/component";
+import { type CSS } from "@synnaxlabs/lyra/css";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Tree } from "@synnaxlabs/lyra/tree";
 import { Logo } from "@synnaxlabs/media";
-import { Component, type CSS, Icon, List, Text } from "@synnaxlabs/pluto";
-import { Tree } from "@synnaxlabs/pluto/tree";
 import { type ReactElement, useEffect, useState } from "react";
 
 import { InlineCode } from "@/components/text/InlineCode";
+import { type Flag } from "@/flags";
 import { REFERENCE_PAGES } from "@/pages/_nav";
 
 interface InternalTreeProps {
@@ -33,6 +38,8 @@ export type PageNavNode = Omit<Tree.Node<string>, "children"> & {
   name: string;
   href?: string;
   icon?: string;
+  /** Hides the node and its children while the flag is off. */
+  flag?: Flag;
   children?: PageNavNode[];
 };
 
@@ -62,7 +69,7 @@ const useCurrentPage = (initialPage?: string): string => {
 const Item = ({ translate: _, ...props }: Tree.ItemRenderProps<string>) => {
   const { itemKey, index } = props;
   const item = List.useItem<string, PageNavNode>(itemKey);
-  const { depth, hasChildren } = Tree.useContext("Item")[index];
+  const { depth, hasChildren } = Tree.useContext("Item").nodes[index];
   if (item == null) return null;
 
   const isSection = depth === 0 && hasChildren;

@@ -9,7 +9,8 @@
 
 import { access, NotFoundError } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
-import { type Haul, User } from "@synnaxlabs/pluto";
+import { type Haul } from "@synnaxlabs/lyra/haul";
+import { User } from "@synnaxlabs/pluto";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -42,6 +43,16 @@ describe("role ontology service", () => {
     expect(await screen.findByText("Rename")).toBeTruthy();
     expect(await screen.findByText("Delete")).toBeTruthy();
     expect(screen.getByText("Copy properties")).toBeTruthy();
+  });
+
+  it("should offer Reload Console", async () => {
+    const role = await createRole();
+    assertDefined(RoleItem.ContextMenu);
+    await renderTreeContextMenu(RoleItem.ContextMenu, {
+      client,
+      resources: [roleResource(role.key, role.name, false)],
+    });
+    expect(await screen.findByText("Reload Console")).toBeTruthy();
   });
 
   it("should hide rename from a subject who cannot write the role", async () => {

@@ -7,15 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError } from "@synnaxlabs/client";
-import z from "zod";
+import { NotFoundError, schematic } from "@synnaxlabs/client";
+import { type z } from "zod";
 
 import {
   CUSTOM_ACTUATOR_VARIANT,
   CUSTOM_STATIC_VARIANT,
-  customActuatorConfigZ,
   customActuatorSpec,
-  customStaticConfigZ,
   customStaticSpec,
 } from "@/schematic/node/custom/configs";
 import { Fittings } from "@/schematic/node/fittings";
@@ -38,35 +36,46 @@ export const REGISTRY = {
   ...Safety.REGISTRY,
   ...Valves.REGISTRY,
   ...Vessels.REGISTRY,
-  customActuator: customActuatorSpec,
-  customStatic: customStaticSpec,
-  groupBox: GroupBox.spec,
-} as const;
+  custom_actuator: customActuatorSpec,
+  custom_static: customStaticSpec,
+  group_box: GroupBox.spec,
+} as const satisfies Record<schematic.NodeConfigType, unknown>;
 
-const VARIANTS = Object.keys(REGISTRY);
-export const variantZ = z.enum(VARIANTS);
-export type Variant = keyof typeof REGISTRY;
+export const variantZ = schematic.nodeConfigTypeZ;
+export type Variant = schematic.NodeConfigType;
 
-export const configZ = z.discriminatedUnion("variant", [
-  ...Fittings.configZ.options,
-  ...Flowmeters.configZ.options,
-  ...General.configZ.options,
-  ...Process.configZ.options,
-  ...Pumps.configZ.options,
-  ...Safety.configZ.options,
-  ...Valves.configZ.options,
-  ...Vessels.configZ.options,
-  customActuatorConfigZ,
-  customStaticConfigZ,
-  GroupBox.configZ,
-]);
-export type Config = z.infer<typeof configZ>;
+export const configZ = schematic.nodeConfigZ;
+export type Config = schematic.NodeConfig;
 export type ConfigOf<V extends Variant> = Extract<Config, { variant: V }>;
 
-export const resolveSpec = (variant: string): Spec<Variant, Config> => {
+/**
+ * Input is the schema input for a variant: its discriminator plus its fields, of which
+ * those with a schema default are optional and the rest required.
+ */
+export type Input<V extends Variant> = { variant: V } & Omit<
+  Extract<z.input<typeof configZ>, { variant: V }>,
+  "variant"
+>;
+
+export const resolveSpec = (variant: string): Spec => {
   const spec = REGISTRY[variant as Variant];
   if (spec == null) throw new NotFoundError(`Symbol with variant ${variant} not found`);
-  return spec as Spec<Variant, Config>;
+  return spec as Spec;
+};
+
+/**
+ * Builds a fresh config from the schema input. Every unset value comes from the
+ * schema, except the label, which names the symbol unless the input sets it.
+ * @param input - The variant plus any fields to set on top of the schema defaults.
+ * @throws {NotFoundError} if no spec is registered for the variant.
+ */
+export const createConfig = <V extends Variant>(input: Input<V>): ConfigOf<V> => {
+  const config = configZ.parse(input) as ConfigOf<V>;
+  const spec = resolveSpec(input.variant);
+  const labeled = input as { label?: { label?: string } };
+  if ("label" in config && labeled.label?.label == null)
+    config.label.label = spec.label ?? spec.name;
+  return config;
 };
 
 /// CustomVariant is the union of Variants that reference a user-defined
@@ -95,6 +104,6 @@ export const isCustomConfig = (config: Config): config is CustomConfig =>
 /// variant. Used by the symbols toolbar to render the built-in catalog.
 // groupBox is excluded by key: it is created only by grouping, and a spec-level
 // hidden flag is not worth the plumbing for one symbol.
-export const STATIC_SPECS: readonly Spec[] = (
-  Object.values(REGISTRY) as ReadonlyArray<Spec>
-).filter((s) => !isCustomVariant(s.key) && s.key !== GroupBox.VARIANT);
+export const STATIC_SPECS: readonly Spec[] = (Object.values(REGISTRY) as Spec[]).filter(
+  (s) => !isCustomVariant(s.key) && s.key !== GroupBox.VARIANT,
+);

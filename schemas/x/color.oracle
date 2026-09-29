@@ -34,3 +34,23 @@ Color struct {
     @py hand
     @ts hand
 }
+
+Stop struct {
+    key      string  {
+        @doc value "is the unique identifier for the stop."
+    }
+    color    Color   {
+        @doc value "is the color at this stop."
+    }
+    position float64 {
+        @doc value "is the normalized position of the stop along the gradient [0, 1]."
+    }
+    switched bool?   {
+        @doc value "indicates whether the stop's color has been switched by the user."
+    }
+
+    @doc value  "is a single color stop in a gradient."
+    @go marshal
+    @py omit
+    @ts hand
+}

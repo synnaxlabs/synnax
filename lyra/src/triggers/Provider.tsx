@@ -1,0 +1,240 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { type destructor, TimeSpan, TimeStamp, xy } from "@synnaxlabs/x";
+import {
+  type PropsWithChildren,
+  type ReactElement,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
+
+import { context } from "@/context";
+import { useStateRef } from "@/hooks/ref";
+import {
+  type Callback,
+  eventKey,
+  isTextEntryKey,
+  type Key,
+  match,
+  type MatchOptions,
+  MODIFIER_KEYS,
+  MOUSE_KEYS,
+  type MouseKey,
+  type Trigger,
+} from "@/triggers/triggers";
+import { isInputOrContentEditable } from "@/util/event";
+
+/** Subscribes to every trigger event, returning the unsubscribe. */
+export interface Listen {
+  (callback: Callback, priority?: number): destructor.Destructor;
+}
+
+/** State the {@link Provider} publishes. */
+export interface ContextValue {
+  listen: Listen;
+}
+
+const [Context, useContext] = context.create<ContextValue>({
+  defaultValue: { listen: () => () => {} },
+  displayName: "Triggers.Context",
+});
+export { useContext };
+
+interface RefState {
+  next: Trigger;
+  prev: Trigger;
+  last: TimeStamp;
+}
+
+const ZERO_REF_STATE: RefState = {
+  next: [],
+  prev: [],
+  last: new TimeStamp(0),
+};
+
+const EXCLUDE_TRIGGERS = ["CapsLock"];
+const DOUBLE_PRESS_WINDOW = TimeSpan.milliseconds(300).valueOf();
+
+// Native text-editing shortcuts (select-all, copy, paste, cut) the browser owns inside
+// any text field. We drop them while a text-entry element is focused so app-level
+// handlers can't hijack them. Undo/redo is excluded — Synnax's controlled inputs often
+// lack working native undo, so app-level undo is usually what the user wants.
+const NATIVE_TEXT_EDIT_KEYS: Key[] = ["A", "C", "V", "X"];
+
+/** Props for {@link Provider}. */
+export interface ProviderProps extends PropsWithChildren {
+  /** Triggers whose browser default is suppressed, such as the browser's own find. */
+  preventDefaultOn?: Trigger[];
+  preventDefaultOptions?: MatchOptions;
+}
+
+const shouldTriggerOnKeyDown = (key: Key, e: KeyboardEvent): boolean => {
+  if (EXCLUDE_TRIGGERS.includes(key)) return false;
+  if (!isInputOrContentEditable(e)) return true;
+  // A bare printable key in a text field is text entry, not a trigger.
+  if (isTextEntryKey(key) && !e.ctrlKey && !e.metaKey) return false;
+  // Let the browser own native text-editing shortcuts within the field.
+  if ((e.ctrlKey || e.metaKey) && NATIVE_TEXT_EDIT_KEYS.includes(key)) return false;
+  return true;
+};
+
+/**
+ * Listens for keyboard and mouse input on the window and fans it out to every
+ * {@link use} subscriber, highest priority first. Mount one near the root of the app.
+ * Keystrokes inside a text field reach subscribers only when they carry a modifier.
+ */
+export const Provider = ({
+  children,
+  preventDefaultOn,
+  preventDefaultOptions,
+}: ProviderProps): ReactElement => {
+  // We track mouse movement to allow for cursor position on keyboard events;
+  const cursor = useRef<xy.XY>(xy.ZERO);
+  const handleMouseMove = useCallback((e: MouseEvent): void => {
+    cursor.current = xy.construct(e);
+  }, []);
+
+  // All registered triggers and callbacks, kept sorted by priority descending.
+  // Same-priority entries are stored in insertion order. Higher priority subscribers
+  // receive events first and can stop propagation to lower priority subscribers.
+  const registry = useRef<Array<{ callback: Callback; priority: number }>>([]);
+
+  const [, setCurr] = useStateRef<RefState>({ ...ZERO_REF_STATE });
+
+  const updateListeners = useCallback((state: RefState, target: HTMLElement): void => {
+    const next = state.next.length > 0 ? [state.next] : [];
+    const prev = state.prev.length > 0 ? [state.prev] : [];
+    let minPriority = -Infinity;
+    for (const { callback, priority } of registry.current) {
+      if (priority < minPriority) break;
+      const stopPropagation = () => {
+        minPriority = priority;
+      };
+      callback({ target, next, prev, cursor: cursor.current, stopPropagation });
+    }
+  }, []);
+
+  const handleKeyDown = useCallback((e: KeyboardEvent | MouseEvent): void => {
+    const key = eventKey(e);
+    // We prevent the default behavior of arrow keys to prevent scrolling and movement
+    // of the cursor. We might want to move this elsewhere in the future.
+    if (["ArrowUp", "ArrowDown"].includes(key)) e.preventDefault();
+    // We don't want to trigger any events for excluded keys.
+    // If our target element is an input, we don't want to trigger any events.
+    if (!shouldTriggerOnKeyDown(key, e as KeyboardEvent)) return;
+    setCurr((prev) => {
+      const next: Trigger = [...prev.next, key];
+      if (prev.next.includes(key)) return prev;
+      // This is considered a double press.
+      if (
+        prev.prev.includes(key) &&
+        TimeStamp.since(prev.last).valueOf() < DOUBLE_PRESS_WINDOW
+      )
+        next.push(key);
+      const nextState: RefState = {
+        next,
+        prev: prev.next,
+        last: new TimeStamp(),
+      };
+      if (shouldPreventDefault(next, preventDefaultOn, preventDefaultOptions))
+        e.preventDefault();
+      updateListeners(nextState, e.target as HTMLElement);
+      return nextState;
+    });
+  }, []);
+
+  const handleKeyUp = useCallback((e: KeyboardEvent | MouseEvent): void => {
+    const key = eventKey(e);
+    // We prevent the default behavior of arrow keys to prevent scrolling and movement
+    if (["ArrowUp", "ArrowDown"].includes(key)) e.preventDefault();
+    // We don't want to trigger any events for excluded keys.
+    if (EXCLUDE_TRIGGERS.includes(key)) return;
+    const isMetaRelease = "code" in e && e.code.includes("Meta");
+    setCurr((prevS) => {
+      let next = prevS.next.filter(
+        (k) => k !== key && !MOUSE_KEYS.includes(k as MouseKey),
+      );
+      // Later versions of Safari have a 'sticky shift' phenomenon when the Shift key
+      // key up even it not always fired. To correct for this, we manually check for
+      // the event.shiftKey flag.
+      if (!e.shiftKey && next.includes("Shift"))
+        next = next.filter((k) => k !== "Shift");
+      // macOS suppresses key up events for non-modifier keys while the Cmd (Meta) key
+      // is held. When Cmd is released, drop any non-modifier keys left in the state —
+      // their key up events will never arrive, so without this they stay stuck and can
+      // match later shortcuts (e.g. a lone Cmd press matching Cmd+P).
+      if (isMetaRelease) next = next.filter((k) => MODIFIER_KEYS.includes(k));
+      const prev = prevS.next;
+      const nextS: RefState = { ...prevS, next, prev };
+      if (shouldPreventDefault(next, preventDefaultOn, preventDefaultOptions))
+        e.preventDefault();
+      updateListeners(nextS, e.target as HTMLElement);
+      return nextS;
+    });
+  }, []);
+
+  /**
+   * If the mouse leaves the window, we want to clear all triggers. This prevents issues
+   * with the user holding down a key and then moving the mouse out of the window.
+   */
+  const handlePageVisibility = useCallback((event: Event): void => {
+    setCurr((prevS) => {
+      const prev = prevS.next;
+      const nextS: RefState = { ...prevS, next: [], prev };
+      updateListeners(nextS, event.target as HTMLElement);
+      return nextS;
+    });
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mousedown", handleKeyDown);
+    window.addEventListener("mouseup", handleKeyUp);
+    window.addEventListener("dragend", handleKeyUp);
+    window.addEventListener("drop", handleKeyUp);
+    window.addEventListener("blur", handlePageVisibility);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mousedown", handleKeyDown);
+      window.removeEventListener("mouseup", handleKeyUp);
+      window.removeEventListener("dragend", handleKeyUp);
+      window.removeEventListener("drop", handleKeyUp);
+      window.removeEventListener("blur", handlePageVisibility);
+    };
+  }, [handleKeyDown, handleKeyUp, handleMouseMove]);
+
+  const listen = useCallback<Listen>((callback, priority = 0) => {
+    const entries = registry.current;
+    let i = 0;
+    while (i < entries.length && entries[i].priority >= priority) i++;
+    entries.splice(i, 0, { callback, priority });
+    return () => {
+      const idx = entries.findIndex((e) => e.callback === callback);
+      if (idx >= 0) entries.splice(idx, 1);
+    };
+  }, []);
+
+  const ctxValue = useMemo(() => ({ listen }), [listen]);
+
+  return <Context value={ctxValue}>{children}</Context>;
+};
+
+const shouldPreventDefault = (
+  t: Trigger,
+  preventDefaultOn?: Trigger[],
+  preventDefaultOptions?: MatchOptions,
+): boolean =>
+  preventDefaultOn != null && match([t], preventDefaultOn, preventDefaultOptions);

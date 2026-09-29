@@ -221,6 +221,7 @@ var _ = Describe("Table", func() {
 
 	Describe("MigrateOldPrefixKeys", func() {
 		writeOldFormatEntry := func(ctx context.Context, codec encoding.Codec, e entry) {
+			GinkgoHelper()
 			typeName := types.Name[entry]()
 			oldPrefix := MustSucceed(codec.Encode(ctx, typeName))
 			encodedValue := MustSucceed(codec.Encode(ctx, e))

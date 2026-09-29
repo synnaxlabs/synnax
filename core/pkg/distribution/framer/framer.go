@@ -41,6 +41,9 @@ type (
 	WriterMode     = writer.Mode
 )
 
+// ErrIteratorClosed is returned by Iterator.Error once the iterator is closed.
+var ErrIteratorClosed = iterator.ErrClosed
+
 const (
 	IteratorAutoSpan = iterator.AutoSpan
 

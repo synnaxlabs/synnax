@@ -45,7 +45,7 @@ var _ = Describe("Mapper", func() {
 	mapper := primitives.NewMapper(map[string]primitives.Mapping{
 		"uuid": {
 			TargetType: "uuid.UUID",
-			ZeroValue:  "uuid.Nil",
+			ZeroValue:  "uuid.Nil()",
 			Imports: []primitives.Import{
 				{Category: "external", Path: "github.com/google/uuid"},
 			},
@@ -56,7 +56,7 @@ var _ = Describe("Mapper", func() {
 	It("should return the table mapping for a known primitive", func() {
 		mapping := mapper.Map("uuid")
 		Expect(mapping.TargetType).To(Equal("uuid.UUID"))
-		Expect(mapping.ZeroValue).To(Equal("uuid.Nil"))
+		Expect(mapping.ZeroValue).To(Equal("uuid.Nil()"))
 		Expect(mapping.Imports).To(HaveLen(1))
 		Expect(mapping.Imports[0].Path).To(Equal("github.com/google/uuid"))
 	})

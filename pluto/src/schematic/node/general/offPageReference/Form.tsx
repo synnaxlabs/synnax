@@ -8,30 +8,22 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, schematic } from "@synnaxlabs/client";
-import { color, type text } from "@synnaxlabs/x";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Form as Base } from "@synnaxlabs/lyra/form";
+import { type Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Theming } from "@synnaxlabs/lyra/theming";
+import { color, type record, type text } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
-import { Component } from "@/component";
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
-import { Form as Base } from "@/form";
 import { Project } from "@/project";
 import { Form } from "@/schematic/node/common/form";
 import { Orientation } from "@/schematic/node/common/orientation";
-import {
-  type Page,
-  PAGE_ICONS,
-  PAGE_TYPES,
-  pageTypeZ,
-  pageZ,
-  parsePage,
-} from "@/schematic/node/general/offPageReference/config";
+import { PAGE_ICONS } from "@/schematic/node/general/offPageReference/config";
 import { type FormProps } from "@/schematic/node/spec";
-import { Select } from "@/select";
-import { Status } from "@/status/base";
 import { Synnax } from "@/synnax";
-import { Theming } from "@/theming";
-const CLICK_MODE_KEYS = ["single", "double"] as const;
 
 const ClickModeSelect = Component.renderProp(
   ({
@@ -42,34 +34,39 @@ const ClickModeSelect = Component.renderProp(
     onChange: (v: boolean) => void;
   }): ReactElement => {
     const handleChange = useCallback(
-      (v: string) => onChange(v === "double"),
+      (v: string) => onChange(v === "single"),
       [onChange],
     );
     return (
-      <Select.Buttons
-        value={value ? "double" : "single"}
-        onChange={handleChange}
-        keys={CLICK_MODE_KEYS}
-      >
-        <Select.Button itemKey="single">Single</Select.Button>
-        <Select.Button itemKey="double">Double</Select.Button>
+      <Select.Buttons value={value ? "single" : "double"} onChange={handleChange}>
+        <Select.Item itemKey="single">Single</Select.Item>
+        <Select.Item itemKey="double">Double</Select.Item>
       </Select.Buttons>
     );
   },
 );
 
-const selectKey = (page: Page): string =>
-  page.key.length === 0 ? "" : ontology.idToString(page);
+interface Sibling extends record.KeyedNamed {
+  icon: Icon.ReactElement;
+}
+
+const selectKey = (page?: schematic.Page | null): string =>
+  page == null || page.key.length === 0 ? "" : ontology.idToString(page);
 
 const useHandlePageChange = (): ((v: string | null) => void) => {
   const theme = Theming.use();
   const ctx = Base.useContext();
   return useCallback(
     (v: string | null) => {
-      const prev = ctx.get<Page | string>("page").value;
+      const prev = ctx.get<schematic.Page | undefined>("page", {
+        optional: true,
+      })?.value;
       const cleared = v == null || v.length === 0;
-      ctx.set("page", cleared ? "" : pageZ.parse(ontology.stringIDZ.parse(v)));
-      const hadPage = parsePage(prev).key.length > 0;
+      ctx.set(
+        "page",
+        cleared ? undefined : schematic.pageZ.parse(ontology.stringIDZ.parse(v)),
+      );
+      const hadPage = prev != null && prev.key.length > 0;
       if (!hadPage && !cleared) ctx.set("color", color.hex(theme.colors.primary.z));
     },
     [ctx, theme],
@@ -79,18 +76,18 @@ const useHandlePageChange = (): ((v: string | null) => void) => {
 export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
-  const [siblings, setSiblings] = useState<Select.StaticEntry<string>[]>([]);
+  const [siblings, setSiblings] = useState<Sibling[]>([]);
   useEffect(() => {
     setSiblings([]);
     if (client == null || schematicKey == null) return;
     handleError(async () => {
       const children = await Project.retrieveChildren(client, {
         resourceID: schematic.ontologyID(schematicKey),
-        types: [...PAGE_TYPES],
+        types: [...schematic.PAGE_TYPES],
       });
       setSiblings(
         children.flatMap(({ key, name, type }) => {
-          const pageType = pageTypeZ.safeParse(type);
+          const pageType = schematic.pageTypeZ.safeParse(type);
           if (!pageType.success) return [];
           const PageIcon = PAGE_ICONS[pageType.data];
           return {
@@ -103,50 +100,52 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
     }, "Failed to retrieve project pages");
   }, [client, schematicKey, handleError]);
   const handlePageChange = useHandlePageChange();
+  const page = Base.useFieldValue<schematic.Page | undefined>("page", {
+    optional: true,
+  });
   return (
-    <Form.Wrapper x align="stretch">
-      <Flex.Box x grow align="stretch">
-        <Base.TextField path="label.label" label="Label" padHelpText={false} grow />
-        <Base.Field<Page | string>
-          path="page"
-          label="Page"
-          padHelpText={false}
-          hideIfNull={false}
-          defaultValue=""
-          grow
-          className={CSS.BE("symbol-form", "page-field")}
-        >
-          {({ value }) => (
-            <Select.Static
-              value={selectKey(parsePage(value))}
-              onChange={handlePageChange}
-              data={siblings}
-              resourceName="page"
-              emptyContent="No other pages in this project"
-              allowNone
-            />
-          )}
-        </Base.Field>
-        <Base.Field<boolean>
-          path="dblClickNav"
-          label="Click mode"
-          padHelpText={false}
-          hideIfNull={false}
-          defaultValue
-        >
-          {ClickModeSelect}
-        </Base.Field>
+    <Base.Sections x>
+      <Base.Section title="Label">
+        <Base.TextField path="label.label" label="Label" padHelpText={false} />
         <Base.Field<text.Level>
           hideIfNull
           path="label.level"
-          label="Label size"
+          label="Size"
           padHelpText={false}
         >
           {Form.SelectTextLevel}
         </Base.Field>
+      </Base.Section>
+      <Base.Section title="Navigation">
+        <Input.Item label="Page" padHelpText={false}>
+          <Select.Simple<string>
+            value={selectKey(page)}
+            onChange={handlePageChange}
+            resourceName="page"
+            emptyContent="No other pages in this project"
+            allowNone
+          >
+            {siblings.map(({ key, name, icon }) => (
+              <Select.Item key={key} itemKey={key}>
+                {icon}
+                {name}
+              </Select.Item>
+            ))}
+          </Select.Simple>
+        </Input.Item>
+        <Base.Field<boolean>
+          path="dblClickNavDisabled"
+          label="Click mode"
+          padHelpText={false}
+          hideIfNull={false}
+        >
+          {ClickModeSelect}
+        </Base.Field>
+      </Base.Section>
+      <Base.Section title="Appearance">
         <Form.ColorField path="color" />
-      </Flex.Box>
-      <Orientation.Field path="" hideOuter />
-    </Form.Wrapper>
+      </Base.Section>
+      <Orientation.Section path="" hideOuter />
+    </Base.Sections>
   );
 };

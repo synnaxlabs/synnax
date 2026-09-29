@@ -261,7 +261,7 @@ The WASM binary's import section is the contract between compiler and runtimes. 
 name-based binding, order is irrelevant. Both Go and C++ runtimes resolve imports by
 `(module, name)` pairs.
 
-| WASM Module | Function Pattern              | Example                  |
+| WASM module | Function pattern              | Example                  |
 | ----------- | ----------------------------- | ------------------------ |
 | `channel`   | `read_{type}`, `write_{type}` | `channel.read_f64`       |
 | `state`     | `load_{type}`, `store_{type}` | `state.store_i32`        |

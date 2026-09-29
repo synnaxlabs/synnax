@@ -12,7 +12,7 @@
 package v3
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v0"
@@ -42,13 +42,13 @@ type Edge struct {
 	// Target is the target node key.
 	Target string `json:"target"`
 	// SourceHandle is the optional source handle identifier.
-	SourceHandle *string `json:"sourceHandle,omitempty"`
+	SourceHandle *string `json:"sourceHandle"`
 	// TargetHandle is the optional target handle identifier.
-	TargetHandle *string `json:"targetHandle,omitempty"`
+	TargetHandle *string `json:"targetHandle"`
 	// Segments is the orthogonal connector path; empty for direct.
-	Segments []Segment `json:"segments,omitempty"`
+	Segments []Segment `json:"segments"`
 	// Data is ReactFlow's opaque per-edge data bag.
-	Data json.RawMessage `json:"data,omitempty"`
+	Data jsontext.Value `json:"data"`
 }
 
 // Data is the persisted per-schematic state at version 3.
@@ -62,7 +62,7 @@ type Data struct {
 	// Edges are the schematic edges.
 	Edges []Edge `json:"edges"`
 	// Props holds per-symbol configuration keyed by node key.
-	Props map[string]json.RawMessage `json:"props"`
+	Props map[string]jsontext.Value `json:"props"`
 	// Type is the literal "schematic" type marker.
 	Type string `json:"type"`
 }
