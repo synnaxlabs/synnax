@@ -18,7 +18,6 @@
     "check-types": "tsc --noEmit",
     "lint": "eslint",
     "fix": "eslint --fix",
-    "madge": "madge --circular src",
     "stylelint": "stylelint \"src/**/*.css\""
   },
   "peerDependencies": {
@@ -26,7 +25,6 @@
   },
   "devDependencies": {
     "@synnaxlabs/eslint-config": "catalog:",
-    "@synnaxlabs/madge": "catalog:",
     "@synnaxlabs/stylelint-config": "catalog:",
     "@synnaxlabs/tsconfig": "catalog:",
     "@synnaxlabs/vite-plugin": "catalog:",

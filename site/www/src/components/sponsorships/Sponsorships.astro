@@ -67,20 +67,18 @@ const universities = [
             Sponsored Universities
         </Text.Text>
         <div class="sponsorships-grid">
-            {
-                universities.map(({ name, logo, scale }) => (
-                    <div class="sponsorships-cell">
-                        <img
-                            src={logo}
-                            alt={name}
-                            style={scale ? `transform: scale(${scale});` : undefined}
-                        />
-                        <Text.Text level="p" className="sponsorships-cell__name">
-                            {name}
-                        </Text.Text>
-                    </div>
-                ))
-            }
+            {universities.map(({ name, logo, scale }) => (
+                <div class="sponsorships-cell">
+                    <img
+                        src={logo}
+                        alt={name}
+                        style={scale ? `transform: scale(${scale});` : undefined}
+                    />
+                    <Text.Text level="p" className="sponsorships-cell__name">
+                        {name}
+                    </Text.Text>
+                </div>
+            ))}
             <a class="sponsorships-cell sponsorships-cell--cta" href="/#contact">
                 <span class="sponsorships-cta-label">+ Your University</span>
             </a>
