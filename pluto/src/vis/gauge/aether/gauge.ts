@@ -244,8 +244,8 @@ export class Gauge
     });
   }
 
-  // The value as text that fits across the dial, or hashes when none does. Empty
-  // before the source sends a number.
+  // The value as text that fits across the dial, or hashes when none does. Empty before
+  // the source sends a number.
   private valueText(canvas: Draw2D["canvas"], raw: number): string {
     if (isNaN(raw)) return "";
     const { theme: t, textLevel, innerRadius } = this.internal;
