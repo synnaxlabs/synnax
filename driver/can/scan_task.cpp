@@ -9,6 +9,7 @@
 
 #include <cctype>
 #include <map>
+#include <optional>
 #include <set>
 #include <string>
 #include <utility>

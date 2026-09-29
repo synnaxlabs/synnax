@@ -41,9 +41,7 @@ struct Collector {
 };
 
 std::unique_ptr<Framer> open(const bus::Framing &framing) {
-    auto [framer, err] = create(framing);
-    EXPECT_FALSE(err) << err;
-    return std::move(framer);
+    return ASSERT_NIL_P(create(framing));
 }
 
 /// @brief writes data in chunks of random sizes and returns the frames.

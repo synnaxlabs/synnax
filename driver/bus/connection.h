@@ -24,8 +24,8 @@
 #include "driver/bus/transport.h"
 
 namespace driver::bus {
-/// @brief one transport to a device, shared by every task on the device. Tasks use
-/// it one at a time, in the order they lock it. The transport opens on first use and
+/// @brief one transport to a device, shared by every task on the device. Tasks use it
+/// one at a time, in the order they lock it. The transport opens on first use and
 /// closes when the connection is destroyed.
 class Connection {
 public:
@@ -51,8 +51,8 @@ public:
         /// @brief closes the transport, so the next caller of transport reopens it.
         void close();
 
-        /// @returns the number of times the transport has opened. A caller that
-        /// buffers bytes across guards discards them when this changes.
+        /// @returns the number of times the transport has opened. A caller that buffers
+        /// bytes across guards discards them when this changes.
         [[nodiscard]] std::uint64_t opens() const { return this->conn.opened; }
 
     private:

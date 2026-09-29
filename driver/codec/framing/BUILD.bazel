@@ -23,6 +23,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp/bus",
+        "//client/cpp/library",
         "//driver/errors",
         "//x/cpp/errors",
     ],

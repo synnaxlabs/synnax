@@ -50,7 +50,7 @@ public:
 
     /// @brief reads the raw bits of the field, sign-extended from its length.
     [[nodiscard]] std::int64_t read_signed(const std::uint8_t *payload) const {
-        const auto shift = 64 - this->bits;
+        const auto shift = 64 - this->length_;
         return static_cast<std::int64_t>(this->read(payload) << shift) >> shift;
     }
 
@@ -69,7 +69,7 @@ public:
     [[nodiscard]] std::size_t end() const { return this->end_; }
 
     /// @returns the number of bits in the field.
-    [[nodiscard]] std::uint8_t length() const { return this->bits; }
+    [[nodiscard]] std::uint8_t length() const { return this->length_; }
 
 private:
     /// @brief Segment is the part of the field that lies in one payload byte.
@@ -88,8 +88,8 @@ private:
     std::array<Segment, 9> segments{};
     /// @brief count is the number of used segments.
     std::size_t count = 0;
-    /// @brief bits is the field length in bits.
-    std::uint8_t bits = 0;
+    /// @brief length_ is the field length in bits.
+    std::uint8_t length_ = 0;
     /// @brief end_ is the number of payload bytes the field needs.
     std::size_t end_ = 0;
 };

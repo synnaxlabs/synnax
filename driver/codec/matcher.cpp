@@ -91,7 +91,7 @@ Matcher::compile(const std::span<const library::MessageEntry> messages) {
             m.fields.push_back({
                 .bits = bits,
                 .signed_ = bf->signed_,
-                .value = static_cast<std::int64_t>(field->value),
+                .value = field->value,
                 .message = i,
             });
             continue;

@@ -40,7 +40,7 @@ std::pair<BitRange, x::errors::Error> BitRange::compile(
     const std::size_t first = big ? (start_bit / 8) * 8 + 7 - start_bit % 8 : start_bit;
     const std::size_t last = first + bit_length - 1;
     BitRange r;
-    r.bits = bit_length;
+    r.length_ = bit_length;
     r.end_ = last / 8 + 1;
     for (std::size_t b = first / 8; b <= last / 8; b++) {
         const auto lo = std::max(first, b * 8);

@@ -28,9 +28,9 @@
 namespace driver::bus {
 /// @brief reads a byte stream or datagrams from a device's connection, splits it into
 /// frames, decodes each frame whose message the task reads, and writes the values to
-/// the messages' channels. It polls messages that have a query at the configured
-/// rate. Each poll holds the connection from its query until its reply or timeout, so
-/// no other task's write lands between them.
+/// the messages' channels. It polls messages that have a query at the configured rate.
+/// Each poll holds the connection from its query until its reply or timeout, so no
+/// other task's write lands between them.
 class Source final : public common::Source {
 public:
     /// @param cfg the resolved read config.
@@ -43,8 +43,8 @@ public:
 
     /// @brief acquires and opens the connection.
     /// @returns transport::CONFIG_ERROR when the device properties are invalid or
-    /// another task has the device open with other properties. An unreachable device
-    /// is not an error here: read retries it.
+    /// another task has the device open with other properties. An unreachable device is
+    /// not an error here: read retries it.
     x::errors::Error start() override;
 
     /// @brief releases the connection, which closes when no other task uses it.
@@ -53,9 +53,9 @@ public:
     /// @brief sends one query and reads until its reply, its timeout, or the stop of
     /// breaker, or reads once for at most READ_TIMEOUT, and decodes what arrived into
     /// fr.
-    /// @returns transport::UNREACHABLE_ERROR when the connection fails, after which
-    /// the next read reconnects. Framing errors, short payloads, unreadable text
-    /// fields, and missed replies come back as warnings.
+    /// @returns transport::UNREACHABLE_ERROR when the connection fails, after which the
+    /// next read reconnects. Framing errors, short payloads, unreadable text fields,
+    /// and missed replies come back as warnings.
     common::ReadResult read(x::breaker::Breaker &breaker, x::telem::Frame &fr) override;
 
 private:
@@ -74,8 +74,8 @@ private:
     x::errors::Error exchange(Transport &t, const x::breaker::Breaker &breaker);
     x::errors::Error
     query(Transport &t, const x::breaker::Breaker &breaker, x::telem::TimeStamp now);
-    /// @brief reads what the device sent before a query, so a late reply to an
-    /// earlier query is never taken as its reply, and drops any partial frame.
+    /// @brief reads what the device sent before a query, so a late reply to an earlier
+    /// query is never taken as its reply, and drops any partial frame.
     x::errors::Error drain(Transport &t);
     x::errors::Error receive(Transport &t, x::telem::TimeSpan timeout);
     void consume(const transport::Chunk &chunk);

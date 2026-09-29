@@ -23,16 +23,16 @@
 
 namespace driver::bus {
 /// @brief the live connections of an integration's devices, one per device, shared by
-/// every task on the device. A connection is destroyed when the last task releases
-/// it. Safe for concurrent use.
+/// every task on the device. A connection is destroyed when the last task releases it.
+/// Safe for concurrent use.
 /// @tparam T the connection type.
 template<typename T>
 class Registry {
 public:
     /// @brief returns the live connection to the device, or creates one.
     /// @param key the device key.
-    /// @param settings how the device opens. Every task on the device must use the
-    /// same settings.
+    /// @param settings how the device opens. Every task on the device must use the same
+    /// settings.
     /// @param create creates the connection. It must not block on I/O.
     /// @returns transport::CONFIG_ERROR when the device is open with other settings.
     std::pair<std::shared_ptr<T>, x::errors::Error> acquire(

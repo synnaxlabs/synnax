@@ -170,7 +170,7 @@ Bus::Bus(
     std::string name,
     const bool fd,
     const bool listen_only,
-    const bool timestamps
+    const bool timestamped
 ):
     api(std::move(api)),
     handle(handle),
@@ -178,7 +178,7 @@ Bus::Bus(
     name(std::move(name)),
     fd(fd),
     listen_only(listen_only),
-    timestamps(timestamps) {}
+    timestamped(timestamped) {}
 
 Bus::~Bus() {
     this->close();
@@ -220,7 +220,7 @@ Bus::receive(Frame &frame, const x::telem::TimeSpan timeout) {
             };
         auto [hf, err] = decode_frame(
             std::span(buffer.data(), static_cast<std::size_t>(transferred)),
-            this->timestamps
+            this->timestamped
         );
         if (err) return {false, err};
         if (hf.overflowed)
@@ -461,8 +461,8 @@ Backend::open(const synnax::can::Properties &props) {
         flags |= FEATURE_FD;
     }
     if (props.listen_only) flags |= FEATURE_LISTEN_ONLY;
-    const bool timestamps = (bt.features & FEATURE_HW_TIMESTAMP) != 0;
-    if (timestamps) flags |= FEATURE_HW_TIMESTAMP;
+    const bool timestamped = (bt.features & FEATURE_HW_TIMESTAMP) != 0;
+    if (timestamped) flags |= FEATURE_HW_TIMESTAMP;
     auto start = encode_mode(MODE_START, flags);
     if (const int rc = control_out(api, handle, Request::MODE, channel, start); rc < 0)
         return usb_error("cannot start the channel", rc);
@@ -474,7 +474,7 @@ Backend::open(const synnax::can::Properties &props) {
             props.channel,
             props.fd,
             props.listen_only,
-            timestamps
+            timestamped
         ),
         x::errors::NIL
     };

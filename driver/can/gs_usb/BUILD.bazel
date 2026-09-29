@@ -30,7 +30,7 @@ cc_library(
     hdrs = [
         "api.h",
         "gs_usb.h",
-        "libusb.h",
+        "abi.h",
         "prod.h",
     ],
     visibility = ["//visibility:public"],

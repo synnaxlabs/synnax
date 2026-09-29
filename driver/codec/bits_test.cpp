@@ -31,13 +31,13 @@ struct Walker {
 
     /// @returns the payload bit position of each field bit, least significant first.
     [[nodiscard]] std::vector<std::size_t> positions() const {
-        std::vector<std::size_t> msb_first;
         if (!big) {
             std::vector<std::size_t> out;
             for (std::size_t i = 0; i < length; i++)
                 out.push_back(start + i);
             return out;
         }
+        std::vector<std::size_t> msb_first;
         std::size_t pos = start;
         for (std::size_t i = 0; i < length; i++) {
             msb_first.push_back(pos);

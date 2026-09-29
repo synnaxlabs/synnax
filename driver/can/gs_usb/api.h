@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "driver/can/gs_usb/libusb.h"
+#include "driver/can/gs_usb/abi.h"
 
 namespace driver::can::gs_usb {
 /// @brief the libusb calls the backend makes, on one libusb context. ProdAPI loads them

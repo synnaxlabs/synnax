@@ -381,13 +381,14 @@ Plan::decode_binary(const std::span<const std::uint8_t> payload, Values &values)
                 "payload of " + std::to_string(payload.size()) +
                     " bytes is too short for field " + f.name
             );
-        const auto raw = f.bits.read(p);
         switch (f.type) {
-            case Type::UNSIGNED:
-                s.integer = raw;
-                s.value = static_cast<double>(raw) * f.scale + f.offset;
+            case Type::UNSIGNED: {
+                const auto v = f.bits.read(p);
+                s.integer = v;
+                s.value = static_cast<double>(v) * f.scale + f.offset;
                 s.kind = f.exact ? Values::Kind::UINT : Values::Kind::FLOAT;
                 break;
+            }
             case Type::SIGNED: {
                 const auto v = f.bits.read_signed(p);
                 s.integer = static_cast<std::uint64_t>(v);
@@ -396,13 +397,14 @@ Plan::decode_binary(const std::span<const std::uint8_t> payload, Values &values)
                 break;
             }
             case Type::FLOAT32: {
-                const auto v = std::bit_cast<float>(static_cast<std::uint32_t>(raw));
-                s.value = static_cast<double>(v) * f.scale + f.offset;
+                const auto bits = static_cast<std::uint32_t>(f.bits.read(p));
+                s.value = static_cast<double>(std::bit_cast<float>(bits)) * f.scale +
+                          f.offset;
                 s.kind = Values::Kind::FLOAT;
                 break;
             }
             case Type::FLOAT64:
-                s.value = std::bit_cast<double>(raw) * f.scale + f.offset;
+                s.value = std::bit_cast<double>(f.bits.read(p)) * f.scale + f.offset;
                 s.kind = Values::Kind::FLOAT;
                 break;
         }
@@ -443,11 +445,10 @@ void Plan::decode_text(
              next < this->positional.size() && this->positional[next].position == index;
              next++)
             read(this->positional[next], item);
-        for (const auto &f: this->tagged) {
-            if (values.present(f.slot)) continue;
-            const auto trimmed = trim_left(item);
-            if (trimmed.starts_with(f.tag)) read(f, trimmed.substr(f.tag.size()));
-        }
+        const auto trimmed = trim_left(item);
+        for (const auto &f: this->tagged)
+            if (!values.present(f.slot) && trimmed.starts_with(f.tag))
+                read(f, trimmed.substr(f.tag.size()));
         if (end == std::string_view::npos) break;
         if (next == this->positional.size() && this->tagged.empty()) break;
         start = end + this->delimiter.size();
@@ -495,12 +496,7 @@ Plan::encode_binary(const Values &values, std::vector<std::uint8_t> &payload) co
             f.bits.write(p, std::min(s.integer, max));
             continue;
         }
-        const double physical = s.kind == Values::Kind::INT
-                                  ? static_cast<double>(
-                                        static_cast<std::int64_t>(s.integer)
-                                    )
-                                  : s.value;
-        const double v = (physical - f.offset) / f.scale;
+        const double v = (s.value - f.offset) / f.scale;
         switch (f.type) {
             case Type::FLOAT32:
                 f.bits.write(p, std::bit_cast<std::uint32_t>(static_cast<float>(v)));

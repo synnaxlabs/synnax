@@ -157,9 +157,9 @@ std::size_t encode_frame(
 );
 
 /// @brief decodes a host frame from the adapter.
-/// @param timestamps true when the adapter runs with hardware timestamps on.
+/// @param timestamped true when the adapter runs with hardware timestamps on.
 /// @returns CRITICAL_HARDWARE_ERROR when bytes is shorter than the frame its flags
 /// describe.
 [[nodiscard]] std::pair<HostFrame, x::errors::Error>
-decode_frame(std::span<const std::uint8_t> bytes, bool timestamps);
+decode_frame(std::span<const std::uint8_t> bytes, bool timestamped);
 }

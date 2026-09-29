@@ -28,14 +28,14 @@
 #include "driver/codec/plan.h"
 
 namespace driver::bus {
-/// @brief the longest one streamed read holds a device's connection, so that writes
-/// to the device wait at most this long and a stopping task exits promptly.
+/// @brief the longest one streamed read holds a device's connection, so that writes to
+/// the device wait at most this long and a stopping task exits promptly.
 const auto READ_TIMEOUT = 50 * x::telem::MILLISECOND;
 /// @brief the longest one transport write blocks.
 const auto WRITE_TIMEOUT = 1 * x::telem::SECOND;
 
-/// @brief what carries a task's frames, which decides the identifiers its messages
-/// can have.
+/// @brief what carries a task's frames, which decides the identifiers its messages can
+/// have.
 enum class Medium : std::uint8_t {
     /// @brief a byte stream or datagrams. Messages match by field or token.
     BYTES,
@@ -43,8 +43,8 @@ enum class Medium : std::uint8_t {
     CAN,
 };
 
-/// @brief decodes the escaped bytes of a binary query. Characters stand for
-/// themselves, and \xHH, \n, \r, \t, \0, and \\ stand for one byte each.
+/// @brief decodes the escaped bytes of a binary query. Characters stand for themselves,
+/// and \xHH, \n, \r, \t, \0, and \\ stand for one byte each.
 /// @returns x::errors::VALIDATION for an unknown or truncated escape.
 std::pair<std::vector<std::uint8_t>, x::errors::Error>
 unescape(const std::string &escaped);
@@ -71,8 +71,7 @@ struct ReadMessage {
 struct ReadConfig {
     /// @brief the enabled messages.
     std::vector<ReadMessage> messages;
-    /// @brief matches frames to the messages with no query. Its results index
-    /// streamed.
+    /// @brief matches frames to the messages with no query. Its results index streamed.
     codec::Matcher matcher;
     /// @brief the index into messages of each message the matcher knows.
     std::vector<std::size_t> streamed;
@@ -87,14 +86,13 @@ struct ReadConfig {
     x::telem::Rate poll_rate;
     /// @brief how long the task waits for a reply before it counts a miss.
     x::telem::TimeSpan poll_timeout;
-    /// @brief splits the byte stream into frames. Null when each chunk is one frame,
-    /// as with UDP datagrams.
+    /// @brief splits the byte stream into frames. Null when each chunk is one frame, as
+    /// with UDP datagrams.
     std::unique_ptr<codec::framing::Framer> framer;
 
     /// @brief resolves cfg against its library and the channels it names, binding
     /// validation errors to their fields on parser.
-    /// @param framing how the stream splits into frames. Absent for datagrams and
-    /// CAN.
+    /// @param framing how the stream splits into frames. Absent for datagrams and CAN.
     static ReadConfig resolve(
         x::json::Parser &parser,
         const ::synnax::bus::ReadConfig &cfg,
@@ -105,8 +103,8 @@ struct ReadConfig {
         Medium medium = Medium::BYTES
     );
 
-    /// @brief retrieves the library and channels cfg names from the Core, then
-    /// resolves cfg as resolve does.
+    /// @brief retrieves the library and channels cfg names from the Core, then resolves
+    /// cfg as resolve does.
     /// @returns x::errors::VALIDATION with field errors when cfg is invalid, or the
     /// Core's error when a retrieval fails.
     static std::pair<ReadConfig, x::errors::Error> parse(

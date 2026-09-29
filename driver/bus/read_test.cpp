@@ -237,6 +237,14 @@ TEST(Source, WarnsWhenATextFieldDoesNotParse) {
     EXPECT_FALSE(h.out.values.contains(1));
 }
 
+TEST(Source, ReportsARepeatedWarningOnce) {
+    const auto m = text_message("status", {delimited_field("v", 0)});
+    Harness h(read_config({m}, NEWLINE));
+    h.wire->push(bytes("abc\nabc\nabc\n"));
+    ASSERT_TRUE(h.read_until([](const Output &o) { return !o.warning.empty(); }));
+    EXPECT_EQ(h.out.warning, "status: 1 fields did not parse as numbers");
+}
+
 TEST(Source, ReconnectsAndDropsThePartialFrameAfterTheTransportFails) {
     const auto m = text_message(
         "a",
