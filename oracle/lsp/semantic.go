@@ -11,6 +11,7 @@ package lsp
 
 import (
 	"context"
+	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/oracle/parser"
@@ -73,11 +74,20 @@ func extractSemanticTokens(content string) []uint32 {
 
 	var tokens []xlsp.Token
 	prevWasAt := false
+	// lastLine is the line the previous visible token ended on, so the first token on
+	// each line can be told apart from the ones after it.
+	lastLine := -1
 	for _, t := range allTokens {
 		if t.GetTokenType() == antlr.TokenEOF {
 			continue
 		}
-		tokenType := mapTokenType(t.GetTokenType(), t.GetText(), prevWasAt)
+		text := t.GetText()
+		if strings.TrimSpace(text) == "" {
+			continue
+		}
+		firstOnLine := t.GetLine() != lastLine
+		lastLine = t.GetLine() + strings.Count(text, "\n")
+		tokenType := mapTokenType(t.GetTokenType(), text, prevWasAt, firstOnLine)
 		prevWasAt = t.GetTokenType() == parser.OracleLexerAT
 		if tokenType == nil {
 			continue
@@ -92,7 +102,10 @@ func extractSemanticTokens(content string) []uint32 {
 	return xlsp.EncodeSemanticTokens(tokens)
 }
 
-func mapTokenType(antlrType int, text string, prevWasAt bool) *uint32 {
+// mapTokenType returns the semantic token type for a lexer token, or nil when the token
+// is not highlighted. The first identifier on a line is a name (a field, declaration,
+// enum member, or action parameter), so it is never a primitive type.
+func mapTokenType(antlrType int, text string, prevWasAt, firstOnLine bool) *uint32 {
 	var tokenType uint32
 	switch antlrType {
 	case parser.OracleLexerSTRUCT, parser.OracleLexerENUM, parser.OracleLexerIMPORT,
@@ -111,7 +124,7 @@ func mapTokenType(antlrType int, text string, prevWasAt bool) *uint32 {
 	case parser.OracleLexerIDENT:
 		if prevWasAt {
 			tokenType = SemanticTokenTypeFunction
-		} else if primitiveTypes.Contains(text) {
+		} else if !firstOnLine && primitiveTypes.Contains(text) {
 			tokenType = SemanticTokenTypeType
 		} else {
 			tokenType = SemanticTokenTypeProperty
