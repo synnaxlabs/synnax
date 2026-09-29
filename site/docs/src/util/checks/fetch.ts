@@ -19,13 +19,18 @@ const HEADERS = {
 const ATTEMPTS = 3;
 const TIMEOUT_MS = 15000;
 
-// A 503 is a host that answered but is temporarily unavailable, so its retry waits
-// long enough for a short outage to clear instead of the usual second or two.
-const UNAVAILABLE_DELAY_MS = 15000;
-const backoff = (last: number | string, attempt: number): Promise<void> =>
-  new Promise((resolve) =>
-    setTimeout(resolve, (last === 503 ? UNAVAILABLE_DELAY_MS : 1000) * attempt),
-  );
+const backoff = (attempt: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+
+// Undici reports every network error as "fetch failed" and puts the code, such as
+// ENOTFOUND, on the cause.
+const errorCode = (e: unknown): string => {
+  if (!(e instanceof Error)) return String(e);
+  const cause: unknown = e.cause;
+  if (cause != null && typeof cause === "object" && "code" in cause)
+    return String(cause.code);
+  return e.message;
+};
 
 const request = async (url: string, method: string): Promise<number | string> => {
   try {
@@ -38,7 +43,7 @@ const request = async (url: string, method: string): Promise<number | string> =>
     await res.body?.cancel();
     return res.status;
   } catch (e) {
-    return e instanceof Error ? e.message : String(e);
+    return errorCode(e);
   }
 };
 
@@ -50,7 +55,16 @@ interface Probe {
   // A connection-level failure (timeout, refused) rather than an HTTP status; these
   // are the slow failures the per-host circuit breaker counts.
   hung: boolean;
+  // A 4xx or a host that does not resolve proves the link dead. A 5xx or a dropped
+  // connection is the host's outage and proves nothing about the link.
+  dead: boolean;
 }
+
+const failure = (url: string, last: number | string): Probe => ({
+  reason: `${url}: ${describe(last)}`,
+  hung: typeof last !== "number",
+  dead: typeof last === "number" ? last < 500 : last === "ENOTFOUND",
+});
 
 // A null body is a page that answered but cannot be verified (a 429): the link
 // passes and its fragment goes unchecked.
@@ -75,11 +89,11 @@ const fetchBody = async (url: string): Promise<Body | Probe> => {
       last = res.status;
       if (last === 404 || last === 410) break;
     } catch (e) {
-      last = e instanceof Error ? e.message : String(e);
+      last = errorCode(e);
     }
-    if (attempt < ATTEMPTS) await backoff(last, attempt);
+    if (attempt < ATTEMPTS) await backoff(attempt);
   }
-  return { reason: `${url}: ${describe(last)}`, hung: typeof last !== "number" };
+  return failure(url, last);
 };
 
 // Hosts whose pages render anchors client-side; their fragments go unchecked and
@@ -112,9 +126,9 @@ const probe = async (url: string): Promise<Probe | null> => {
       if (typeof last === "number" && ok(last)) return null;
       if (last === 404 || last === 410) break;
     } else return null;
-    if (attempt < ATTEMPTS) await backoff(last, attempt);
+    if (attempt < ATTEMPTS) await backoff(attempt);
   }
-  return { reason: `${url}: ${describe(last)}`, hung: typeof last !== "number" };
+  return failure(url, last);
 };
 
 // The checks' own server answers fast and never rate-limits; one plain GET, none of
@@ -156,8 +170,12 @@ const leave = (gate: Gate): void => {
 // Deduplicates by URL and windows requests per host to stay polite with external
 // sites; the checks' own server bypasses that policy. A URL with a fragment is
 // fetched in full and its anchor target verified against the document, with the
-// page shared across fragments of the same URL.
-export const createFetcher = (baseURL: string): Context["fetchOk"] => {
+// page shared across fragments of the same URL. An external failure that does not prove
+// the link dead goes to warn and passes.
+export const createFetcher = (
+  baseURL: string,
+  warn: (message: string) => void,
+): Context["fetchOk"] => {
   const cache = new Map<string, Promise<string | null>>();
   const bodies = new Map<string, Promise<Body | Probe>>();
   const gates = new Map<string, Gate>();
@@ -177,12 +195,16 @@ export const createFetcher = (baseURL: string): Context["fetchOk"] => {
     const host = parsed.host;
     let gate = gates.get(host);
     if (gate == null) gates.set(host, (gate = { active: 0, waiting: [] }));
-    const run = async (): Promise<string | null> => {
+    const run = async (): Promise<Probe | null> => {
       await enter(gate);
       try {
         // Checked after enter so queued requests see a breaker tripped mid-flight.
         if ((hungCounts.get(host) ?? 0) >= BREAKER_LIMIT)
-          return `${url}: skipped, ${host} stopped answering`;
+          return {
+            reason: `${url}: skipped, ${host} stopped answering`,
+            hung: true,
+            dead: false,
+          };
         // A ":~:" fragment is a text directive, not an element anchor, and hosts
         // that build their anchors in script cannot be checked from static HTML.
         if (
@@ -193,7 +215,7 @@ export const createFetcher = (baseURL: string): Context["fetchOk"] => {
           const res = await probe(url);
           if (res == null) hungCounts.set(host, 0);
           else if (res.hung) hungCounts.set(host, (hungCounts.get(host) ?? 0) + 1);
-          return res?.reason ?? null;
+          return res;
         }
         let body = bodies.get(page);
         if (body == null) {
@@ -207,15 +229,23 @@ export const createFetcher = (baseURL: string): Context["fetchOk"] => {
           bodies.set(page, body);
         }
         const res = await body;
-        if ("reason" in res) return res.reason;
+        if ("reason" in res) return res;
         if (res.body != null && !hasAnchor(res.body, fragment))
-          return `${url}: missing anchor #${fragment}`;
+          return {
+            reason: `${url}: missing anchor #${fragment}`,
+            hung: false,
+            dead: true,
+          };
         return null;
       } finally {
         leave(gate);
       }
     };
-    const result = run();
+    const result = run().then((res) => {
+      if (res == null || res.dead) return res?.reason ?? null;
+      warn(res.reason);
+      return null;
+    });
     cache.set(url, result);
     return result;
   };

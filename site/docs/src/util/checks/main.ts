@@ -88,6 +88,15 @@ const record = (check: string, messages: string[]): void => {
   }
 };
 
+// An outage on an outside host proves nothing about the link, so it warns instead of
+// failing the run.
+let warnings = 0;
+const warn = (message: string): void => {
+  warnings += 1;
+  if (process.stdout.isTTY) process.stdout.write("\r\x1b[2K");
+  console.warn(`${styleText(["yellow", "bold"], "unverified")} ${message}`);
+};
+
 // In-place counter for a finish hook; a newline finishes the line so the next
 // output starts fresh. CI logs skip it.
 const progressFor =
@@ -118,7 +127,7 @@ try {
   const ctx: Context = {
     routes: new Set(routes.map(normalizeRoute)),
     baseURL,
-    fetchOk: createFetcher(baseURL),
+    fetchOk: createFetcher(baseURL, warn),
   };
   console.log(styleText("dim", `crawling ${routes.length} routes...`));
   const { pages, failures } = await crawlPages(baseURL, routes);
@@ -130,6 +139,10 @@ try {
       ctx,
       (message) => record(check.name, [message]),
       progressFor(check.name),
+    );
+  if (warnings > 0)
+    console.warn(
+      styleText("yellow", `${warnings} external links could not be verified`),
     );
   if (counts.size > 0) {
     const totals = [...counts].map(([check, n]) => `${check}: ${n}`).join(", ");

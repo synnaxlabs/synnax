@@ -20,9 +20,10 @@ export interface Context {
   baseURL: string;
   /**
    * Fetches a URL, returning null on success and a failure reason otherwise. A URL
-   * with a fragment also fails when the document lacks the anchor target.
-   * External hosts get caching, retries, and per-host serialization; the checks' own
-   * server is fetched directly.
+   * with a fragment also fails when the document lacks the anchor target. An external
+   * URL fails only on proof that it is dead, such as a 404; an outage on its host is
+   * a warning. External hosts get caching, retries, and per-host serialization; the
+   * checks' own server is fetched directly.
    */
   fetchOk: (url: string) => Promise<string | null>;
 }
