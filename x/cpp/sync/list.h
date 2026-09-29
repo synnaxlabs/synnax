@@ -49,15 +49,15 @@ public:
         return this->items.at(i);
     }
 
-    /// @brief removes every item. Must not run while another thread holds a
-    /// reference from at() or snapshot().
+    /// @brief removes every item. Must not run while another thread holds a reference
+    /// from at() or snapshot().
     void clear() {
         std::lock_guard lock(this->mu);
         this->items.clear();
     }
 
-    /// @returns a range over the items present at the time of the call, in order.
-    /// Items appended later are not in the range.
+    /// @returns a range over the items present at the time of the call, in order. Items
+    /// appended later are not in the range.
     [[nodiscard]] auto snapshot() const {
         std::vector<const T *> ptrs;
         {
