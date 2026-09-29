@@ -10,7 +10,7 @@
 """Base class and assertions for the CAN, serial, TCP, and UDP task cases."""
 
 from abc import abstractmethod
-from collections.abc import Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
@@ -345,6 +345,30 @@ class BusCase(SimulatorCase):
         ) as writer:
             now = sy.TimeStamp.now()
             writer.write({**values, **{k: now for k in indexes}})
+
+    def command_until(
+        self,
+        values: dict[int, float],
+        delivered: Callable[[], None],
+        attempts: int = 3,
+    ) -> None:
+        """Writes values to the command channels until the device receives them. A
+        write task acknowledges its start before its streamer opens, so a command
+        sent right after the start can be lost.
+
+        :param delivered: Raises AssertionError when the device did not receive the
+            command.
+        :raises AssertionError: If every attempt fails.
+        """
+        for attempt in range(attempts):
+            self.command(values)
+            try:
+                delivered()
+                return
+            except AssertionError:
+                if attempt == attempts - 1:
+                    raise
+                print(f">>> Retrying command ({attempt + 1}/{attempts})")
 
     def _task_statuses(self, frame: sy.Frame) -> Iterator[sy.task.Status]:
         if STATUS_CHANNEL not in frame:

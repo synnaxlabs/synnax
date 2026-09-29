@@ -28,9 +28,9 @@ TEST_F(PtyTest, RejectsACustomBaudRateThePortCannotSet) {
 
 TEST_F(PtyTest, RejectsMarkAndSpaceParity) {
     auto p = this->props();
-    p.parity = synnax::serial::PARITY_MARK;
+    p.parity = synnax::serial::PARITY_MARK_;
     ASSERT_OCCURRED_AS_P(Port::open(p), transport::CONFIG_ERROR);
-    p.parity = synnax::serial::PARITY_SPACE;
+    p.parity = synnax::serial::PARITY_SPACE_;
     ASSERT_OCCURRED_AS_P(Port::open(p), transport::CONFIG_ERROR);
 }
 

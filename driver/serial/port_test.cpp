@@ -7,7 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <atomic>
+#include <chrono>
+#include <mutex>
 #include <string>
+#include <thread>
 
 #include "gtest/gtest.h"
 #include <termios.h>
@@ -53,11 +57,44 @@ TEST_F(PtyTest, ReadsAgainAfterATimeout) {
     EXPECT_EQ(as_string(chunk.data), "late");
 }
 
+TEST_F(PtyTest, ReadsAfterAWriteFromAnotherThread) {
+    const auto port = ASSERT_NIL_P(Port::open(this->props()));
+    std::mutex mu;
+    std::string got;
+    std::atomic running = true;
+    std::thread reader([&] {
+        while (running) {
+            {
+                std::lock_guard lock(mu);
+                got += as_string(
+                    ASSERT_NIL_P(port->read(20 * x::telem::MILLISECOND)).data
+                );
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+    });
+    for (int i = 0; i < 5; i++) {
+        {
+            std::lock_guard lock(mu);
+            ASSERT_NIL(port->write(bytes("Q?\n"), x::telem::SECOND));
+        }
+        ASSERT_EQ(this->peer_read(3), "Q?\n");
+        this->peer_write(std::to_string(i));
+        ASSERT_EVENTUALLY_TRUE([&] {
+            std::lock_guard lock(mu);
+            return got.size() == static_cast<std::size_t>(i + 1);
+        }());
+    }
+    running = false;
+    reader.join();
+    EXPECT_EQ(got, "01234");
+}
+
 TEST_F(PtyTest, AppliesTheLineSettings) {
     auto p = this->props();
     p.baud_rate = 19200;
     p.data_bits = 7;
-    p.parity = synnax::serial::PARITY_ODD;
+    p.parity = synnax::serial::PARITY_ODD_;
     p.stop_bits = synnax::serial::STOP_BITS_TWO;
     p.flow_control = synnax::serial::FLOW_CONTROL_HARDWARE;
     const auto port = ASSERT_NIL_P(Port::open(p));

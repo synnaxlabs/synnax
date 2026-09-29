@@ -23,15 +23,15 @@ namespace {
 using Base = asio::serial_port_base;
 
 std::optional<Base::parity::type> parity(const std::string &value) {
-    if (value == synnax::serial::PARITY_NONE) return Base::parity::none;
-    if (value == synnax::serial::PARITY_EVEN) return Base::parity::even;
-    if (value == synnax::serial::PARITY_ODD) return Base::parity::odd;
+    if (value == synnax::serial::PARITY_NONE_) return Base::parity::none;
+    if (value == synnax::serial::PARITY_EVEN_) return Base::parity::even;
+    if (value == synnax::serial::PARITY_ODD_) return Base::parity::odd;
     return std::nullopt;
 }
 
 bool mark_or_space(const std::string &value) {
-    return value == synnax::serial::PARITY_MARK ||
-           value == synnax::serial::PARITY_SPACE;
+    return value == synnax::serial::PARITY_MARK_ ||
+           value == synnax::serial::PARITY_SPACE_;
 }
 
 std::optional<Base::stop_bits::type> stop_bits(const std::string &value) {
@@ -111,7 +111,7 @@ configure(asio::serial_port &device, const synnax::serial::Properties &p) {
     if (mark_or_space(p.parity)) {
         ec = native::set_mark_space_parity(
             handle,
-            p.parity == synnax::serial::PARITY_MARK
+            p.parity == synnax::serial::PARITY_MARK_
         );
         if (ec) return failed(p.parity + " parity", ec);
     }

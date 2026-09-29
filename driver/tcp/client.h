@@ -39,8 +39,8 @@ struct Config {
 };
 
 /// @brief a TCP client connection to a device. When the peer drops, the client
-/// reconnects with backoff during later reads and writes. It is not safe for
-/// concurrent use.
+/// reconnects with backoff during later reads and writes. Calls must not overlap, but
+/// any thread may make them.
 class Client {
     std::string host;
     std::uint16_t port;

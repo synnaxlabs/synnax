@@ -7,9 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <atomic>
+#include <chrono>
 #include <cstdint>
+#include <mutex>
 #include <span>
 #include <string>
+#include <thread>
 
 #include "asio/buffer.hpp"
 #include "asio/io_context.hpp"
@@ -105,6 +109,46 @@ TEST_F(SocketTest, AnswersAQueryInARoundTrip) {
     EXPECT_EQ(sender.port(), p.port);
     this->send("ok", sender);
     EXPECT_EQ(as_string(ASSERT_NIL_P(socket->read(x::telem::SECOND)).data), "ok");
+}
+
+TEST_F(SocketTest, ReadsAfterAWriteFromAnotherThread) {
+    synnax::udp::Properties p;
+    p.port = this->free_port();
+    p.remote_host = "127.0.0.1";
+    p.remote_port = this->peer.local_endpoint().port();
+    const auto socket = ASSERT_NIL_P(Socket::open(p));
+    std::mutex mu;
+    std::string got;
+    std::atomic running = true;
+    std::thread reader([&] {
+        while (running) {
+            {
+                std::lock_guard lock(mu);
+                got += as_string(
+                    ASSERT_NIL_P(socket->read(20 * x::telem::MILLISECOND)).data
+                );
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+    });
+    for (int i = 0; i < 5; i++) {
+        {
+            std::lock_guard lock(mu);
+            ASSERT_NIL(socket->write(bytes("Q?"), x::telem::SECOND));
+        }
+        std::string query(16, '\0');
+        asio::ip::udp::endpoint sender;
+        query.resize(this->peer.receive_from(asio::buffer(query), sender));
+        ASSERT_EQ(query, "Q?");
+        this->send(std::to_string(i), sender);
+        ASSERT_EVENTUALLY_TRUE([&] {
+            std::lock_guard lock(mu);
+            return got.size() == static_cast<std::size_t>(i + 1);
+        }());
+    }
+    running = false;
+    reader.join();
+    EXPECT_EQ(got, "01234");
 }
 
 TEST_F(SocketTest, KeepsReceivingAfterTheRemoteRefusesADatagram) {

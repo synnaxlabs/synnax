@@ -25,7 +25,7 @@ TEST(Backends, LoadsEveryBackendWithoutCrashing) {
           synnax::can::BACKEND_NIXNET}) {
         ASSERT_TRUE(backends.contains(name)) << name;
         const auto [channels, err] = backends.at(name)->scan();
-        if (err) EXPECT_FALSE(err.message().empty()) << name;
+        if (err) { EXPECT_FALSE(err.message().empty()) << name; }
     }
     EXPECT_EQ(backends.size(), 6);
 }

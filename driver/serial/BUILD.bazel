@@ -39,6 +39,26 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "task",
+    srcs = [
+        "factory.cpp",
+        "scan_task.cpp",
+    ],
+    hdrs = [
+        "scan_task.h",
+        "serial.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":serial",
+        "//client/cpp/serial",
+        "//driver/bus",
+        "//driver/common",
+        "//driver/task",
+    ],
+)
+
 # The tests drive the port through a pseudo-terminal, which Windows lacks.
 cc_test(
     name = "serial_test",
@@ -60,6 +80,52 @@ cc_test(
     }),
     deps = [
         ":serial",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)
+
+# The tests play the device on a pseudo-terminal, which Windows lacks.
+cc_test(
+    name = "task_test",
+    size = "small",
+    srcs = [
+        "pty.h",
+        "task_test.cpp",
+    ],
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        ":serial",
+        ":task",
+        "//driver/bus",
+        "//driver/bus/testutil",
+        "//driver/pipeline/mock",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "factory_test",
+    size = "small",
+    srcs = [
+        "factory_test.cpp",
+        "pty.h",
+    ],
+    tags = ["requires-core"],
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        ":task",
+        "//client/cpp/serial",
+        "//client/cpp/testutil",
+        "//driver/bus/testutil",
+        "//driver/bus/testutil:core",
         "//x/cpp/test",
         "@googletest//:gtest_main",
     ],

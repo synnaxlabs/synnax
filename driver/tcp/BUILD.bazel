@@ -24,12 +24,65 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "task",
+    srcs = [
+        "factory.cpp",
+        "scan_task.cpp",
+    ],
+    hdrs = [
+        "scan_task.h",
+        "tcp.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":tcp",
+        "//client/cpp/tcp",
+        "//driver/bus",
+        "//driver/common",
+        "//driver/task",
+    ],
+)
+
 cc_test(
     name = "tcp_test",
     size = "small",
     srcs = ["client_test.cpp"],
     deps = [
         ":tcp",
+        "//x/cpp/test",
+        "@asio//:asio_no_openssl",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "task_test",
+    size = "small",
+    srcs = ["task_test.cpp"],
+    deps = [
+        ":task",
+        ":tcp",
+        "//driver/bus",
+        "//driver/bus/testutil",
+        "//driver/pipeline/mock",
+        "//x/cpp/test",
+        "@asio//:asio_no_openssl",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "factory_test",
+    size = "small",
+    srcs = ["factory_test.cpp"],
+    tags = ["requires-core"],
+    deps = [
+        ":task",
+        "//client/cpp/tcp",
+        "//client/cpp/testutil",
+        "//driver/bus/testutil",
+        "//driver/bus/testutil:core",
         "//x/cpp/test",
         "@asio//:asio_no_openssl",
         "@googletest//:gtest_main",

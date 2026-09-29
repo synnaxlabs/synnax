@@ -33,7 +33,7 @@ TEST_F(PtyTest, SetsABaudRateOutsideTheTermiosTable) {
 
 TEST_F(PtyTest, SetsMarkParity) {
     auto p = this->props();
-    p.parity = synnax::serial::PARITY_MARK;
+    p.parity = synnax::serial::PARITY_MARK_;
     const auto port = ASSERT_NIL_P(Port::open(p));
     const auto tio = this->termios();
     EXPECT_TRUE(tio.c_cflag & PARENB);
@@ -43,7 +43,7 @@ TEST_F(PtyTest, SetsMarkParity) {
 
 TEST_F(PtyTest, SetsSpaceParity) {
     auto p = this->props();
-    p.parity = synnax::serial::PARITY_SPACE;
+    p.parity = synnax::serial::PARITY_SPACE_;
     const auto port = ASSERT_NIL_P(Port::open(p));
     const auto tio = this->termios();
     EXPECT_TRUE(tio.c_cflag & PARENB);

@@ -60,13 +60,13 @@ class TCPWrite(BusCase):
         with self.statuses() as statuses:
             with self.task.run():
                 for voltage, current, line in ROUNDS:
-                    self.command(
+                    self.command_until(
                         {
                             self.commands["voltage"]: voltage,
                             self.commands["current"]: current,
-                        }
+                        },
+                        lambda: sim.wait_for(line),
                     )
-                    sim.wait_for(line)
                     self._verify_setpoint(sim, "VOLT?", voltage)
                     self._verify_setpoint(sim, "CURR?", current / CURRENT_SCALE)
             self.assert_no_problems(statuses)

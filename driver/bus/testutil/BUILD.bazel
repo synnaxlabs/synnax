@@ -11,12 +11,33 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
 cc_library(
     name = "testutil",
-    srcs = ["testutil.cpp"],
+    testonly = True,
     hdrs = ["testutil.h"],
     visibility = ["//visibility:public"],
     deps = [
+        "//client/cpp/bus",
+        "//client/cpp/channel",
+        "//client/cpp/library",
+        "//driver/bus",
+        "//x/cpp/errors",
+        "//x/cpp/json",
+        "//x/cpp/telem",
+        "//x/cpp/uuid",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_library(
+    name = "core",
+    testonly = True,
+    hdrs = ["core.h"],
+    visibility = ["//visibility:public"],
+    deps = [
         "//client/cpp:synnax",
-        "//x/cpp/env",
+        "//client/cpp/bus",
+        "//client/cpp/testutil",
+        "//driver/task",
         "//x/cpp/test",
+        "//x/cpp/uuid",
     ],
 )

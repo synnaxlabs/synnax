@@ -67,12 +67,12 @@ class UDPWrite(BusCase):
         with self.statuses() as statuses:
             with self.task.run():
                 for setpoint, trim, mode, datagram in ROUNDS:
-                    self.command(
+                    self.command_until(
                         {
                             self.commands["setpoint"]: setpoint,
                             self.commands["trim"]: trim,
                             self.commands["mode"]: mode,
-                        }
+                        },
+                        lambda: sim.wait_for(datagram),
                     )
-                    sim.wait_for(datagram)
             self.assert_no_problems(statuses)

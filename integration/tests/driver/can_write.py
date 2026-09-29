@@ -87,15 +87,15 @@ class CANWrite(CANCase):
                         f"Expected no frames before any command, got {sim.received()}"
                     )
                 for setpoint, trim, enabled, beat, command, heartbeat in ROUNDS:
-                    self.command(
+                    self.command_until(
                         {
                             self.commands["setpoint"]: setpoint,
                             self.commands["trim"]: trim,
                             self.commands["enabled"]: enabled,
                             self.beat["beat"]: beat,
-                        }
+                        },
+                        lambda: sim.wait_for(Frame(COMMAND_ID, False, command)),
                     )
-                    sim.wait_for(Frame(COMMAND_ID, False, command))
                     sim.wait_for(
                         Frame(HEARTBEAT_ID, False, heartbeat),
                         count=HEARTBEATS,

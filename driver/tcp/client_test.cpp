@@ -7,7 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <atomic>
+#include <chrono>
 #include <cstdint>
+#include <mutex>
 #include <span>
 #include <string>
 #include <thread>
@@ -93,6 +96,40 @@ TEST_F(ClientTest, AnswersAQueryInARoundTrip) {
     asio::write(peer, asio::buffer(std::string("SYNNAX,PSU\n")));
     const auto chunk = ASSERT_NIL_P(client->read(x::telem::SECOND));
     EXPECT_EQ(as_string(chunk.data), "SYNNAX,PSU\n");
+}
+
+TEST_F(ClientTest, ReadsAfterAWriteFromAnotherThread) {
+    const auto client = ASSERT_NIL_P(Client::open(this->props(), FAST));
+    auto peer = this->accept();
+    std::mutex mu;
+    std::string got;
+    std::atomic running = true;
+    std::thread reader([&] {
+        while (running) {
+            {
+                std::lock_guard lock(mu);
+                got += as_string(
+                    ASSERT_NIL_P(client->read(20 * x::telem::MILLISECOND)).data
+                );
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+    });
+    for (int i = 0; i < 5; i++) {
+        {
+            std::lock_guard lock(mu);
+            ASSERT_NIL(client->write(bytes("Q?\n"), x::telem::SECOND));
+        }
+        ASSERT_EQ(receive(peer, 3), "Q?\n");
+        asio::write(peer, asio::buffer(std::to_string(i)));
+        ASSERT_EVENTUALLY_TRUE([&] {
+            std::lock_guard lock(mu);
+            return got.size() == static_cast<std::size_t>(i + 1);
+        }());
+    }
+    running = false;
+    reader.join();
+    EXPECT_EQ(got, "01234");
 }
 
 TEST_F(ClientTest, ReturnsAnEmptyChunkWhenNothingArrivesBeforeTheTimeout) {

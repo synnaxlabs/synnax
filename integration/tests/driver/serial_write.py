@@ -69,13 +69,14 @@ class SerialWrite(SerialCase):
         with self.statuses() as statuses:
             with self.task.run():
                 for setpoint, trim, raw_setpoint, raw_trim in ROUNDS:
-                    self.command(
+                    frame = serial_frames.frame(
+                        struct.pack("<Hb", raw_setpoint, raw_trim)
+                    )
+                    self.command_until(
                         {
                             self.commands["setpoint"]: setpoint,
                             self.commands["trim"]: trim,
-                        }
-                    )
-                    sim.wait_for(
-                        serial_frames.frame(struct.pack("<Hb", raw_setpoint, raw_trim))
+                        },
+                        lambda: sim.wait_for(frame),
                     )
             self.assert_no_problems(statuses)

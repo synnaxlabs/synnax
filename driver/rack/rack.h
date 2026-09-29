@@ -35,7 +35,10 @@
 #include "driver/http/http.h"
 #include "driver/ni/ni.h"
 #include "driver/opcua/opcua.h"
+#include "driver/serial/serial.h"
 #include "driver/task/task.h"
+#include "driver/tcp/tcp.h"
+#include "driver/udp/udp.h"
 
 namespace driver::rack {
 struct RemoteInfo {
@@ -69,7 +72,10 @@ inline std::vector<std::string> default_integrations() {
         labjack::INTEGRATION_NAME,
         arc::INTEGRATION_NAME,
         ethercat::INTEGRATION_NAME,
-        http::INTEGRATION_NAME
+        http::INTEGRATION_NAME,
+        serial::INTEGRATION_NAME,
+        tcp::INTEGRATION_NAME,
+        udp::INTEGRATION_NAME,
     };
 #ifndef SYNNAX_NILINUXRT
     integrations.push_back(modbus::INTEGRATION_NAME);

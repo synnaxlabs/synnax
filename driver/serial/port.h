@@ -26,7 +26,7 @@
 #include "driver/transport/transport.h"
 
 namespace driver::serial {
-/// @brief an open serial port. It is not safe for concurrent use.
+/// @brief an open serial port. Calls must not overlap, but any thread may make them.
 class Port {
     std::string path;
     asio::io_context ctx{1};

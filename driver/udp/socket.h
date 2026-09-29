@@ -27,7 +27,7 @@
 
 namespace driver::udp {
 /// @brief a UDP socket bound to a local port. It receives from any sender and sends to
-/// an optional remote. It is not safe for concurrent use.
+/// an optional remote. Calls must not overlap, but any thread may make them.
 class Socket {
     asio::io_context ctx{1};
     asio::ip::udp::socket socket{ctx};

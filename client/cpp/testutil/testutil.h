@@ -28,7 +28,7 @@ const std::string SYNTHETIC_TASK_TYPE = "opc_scan";
 const std::string ALT_SYNTHETIC_TASK_TYPE = "labjack_scan";
 
 /// @brief instantiates a new client for testing purposes. The cluster is expected to be
-/// running on localhost:9090 in insecure mode.
+/// running on localhost in insecure mode, on port 9090 or on SYNNAX_TEST_PORT when set.
 extern synnax::Synnax new_test_client();
 
 /// @brief creates a new random generator for a test suite, and outputs the seed to
