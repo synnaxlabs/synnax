@@ -15,7 +15,6 @@
 #include <utility>
 #include <vector>
 
-#include "client/cpp/library/types.gen.h"
 #include "client/cpp/mil1553/types.gen.h"
 #include "x/cpp/errors/errors.h"
 
@@ -43,24 +42,6 @@ Backends create_backends();
 
 /// @returns the terminal and subaddress of a command, for errors and warnings.
 std::string address(const codec::mil1553::Command &command);
-
-/// @brief checks that a read task on a channel with props can receive a message. A
-/// bus controller polls transmit messages on their period, a remote terminal receives
-/// messages to its own terminals, and a monitor sees every message.
-/// @returns x::errors::VALIDATION naming the problem.
-x::errors::Error check_read(
-    const synnax::library::MessageEntry &message,
-    const synnax::mil1553::Properties &props
-);
-
-/// @brief checks that a write task on a channel with props can send a message. A bus
-/// controller sends receive messages, a remote terminal answers transmit messages for
-/// its own terminals, and a monitor sends nothing.
-/// @returns x::errors::VALIDATION naming the problem.
-x::errors::Error check_write(
-    const synnax::library::MessageEntry &message,
-    const synnax::mil1553::Properties &props
-);
 
 /// @brief configures MIL-STD-1553 read, write, and scan tasks. The read and write
 /// tasks of one device share its channel.

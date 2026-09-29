@@ -48,7 +48,7 @@ std::pair<std::shared_ptr<API>, x::errors::Error> API::load() {
 
 x::errors::Error API::error(const short code) const {
     if (code >= sdk::SUCCESS) return x::errors::NIL;
-    std::array<char, 256> msg{};
+    std::array<char, sdk::ERROR_MESSAGE_SIZE> msg{};
     if (this->get_error_msg(code, msg.data()) != sdk::SUCCESS)
         return x::errors::Error(
             errors::CRITICAL_HARDWARE_ERROR,

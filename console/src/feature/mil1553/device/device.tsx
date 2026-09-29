@@ -86,16 +86,7 @@ const Properties = (): ReactElement => {
   );
 };
 
-export const {
-  MAKE,
-  SCHEMAS,
-  use,
-  useResult,
-  useFromConfig,
-  useConnectModal,
-  Select,
-  COMMANDS,
-} = Bus.createDevice({
+export const { MAKE, useConnectModal, Select, COMMANDS } = Bus.createDevice({
   make: "MIL-STD-1553",
   noun: "MIL-STD-1553 device",
   icon: <Icon.Node />,

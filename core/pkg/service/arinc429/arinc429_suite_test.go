@@ -47,6 +47,7 @@ func createLibrary(
 	ctx context.Context,
 	task uuid.UUID,
 ) (library.Library, library.MessageEntry) {
+	GinkgoHelper()
 	m := library.MessageEntry{
 		BaseEntry: library.BaseEntry{Key: uuid.New(), Name: "Status"},
 		Format:    library.FormatBinary,

@@ -10,15 +10,8 @@
 import { type bus, type device, type library } from "@synnaxlabs/client";
 import { type z } from "zod";
 
-export type ReadConfig = bus.ReadConfig;
-export type ReadMessage = bus.ReadMessage;
-export type ReadField = bus.ReadField;
-export type WriteConfig = bus.WriteConfig;
-export type WriteMessage = bus.WriteMessage;
-export type WriteField = bus.WriteField;
-
 /** A message entry of a task's config: the fields a read or write task binds. */
-export type Message = ReadMessage | WriteMessage;
+export type Message = bus.ReadMessage | bus.WriteMessage;
 
 /** Whether an integration can carry a library message. */
 export interface Accepts {
@@ -78,7 +71,10 @@ const validateMessages = (issues: Issues, input: unknown, messages: Message[]) =
 };
 
 /** Rejects a read config the Driver cannot run. */
-export const validateRead = ({ value, issues }: z.core.ParsePayload<ReadConfig>) => {
+export const validateRead = ({
+  value,
+  issues,
+}: z.core.ParsePayload<bus.ReadConfig>) => {
   validateDevice(issues, value, value.device);
   validateMessages(issues, value, value.messages);
   value.messages.forEach((m, i) => {
@@ -88,7 +84,10 @@ export const validateRead = ({ value, issues }: z.core.ParsePayload<ReadConfig>)
 };
 
 /** Rejects a write config the Driver cannot run. */
-export const validateWrite = ({ value, issues }: z.core.ParsePayload<WriteConfig>) => {
+export const validateWrite = ({
+  value,
+  issues,
+}: z.core.ParsePayload<bus.WriteConfig>) => {
   validateDevice(issues, value, value.device);
   validateMessages(issues, value, value.messages);
 };

@@ -37,7 +37,7 @@ const MESSAGES_PATH = "config.messages";
  * @returns the message entries of the library the form's config names, keyed by entry
  * key, and the error that kept them from loading.
  */
-export const useLibraryMessages = (): {
+const useLibraryMessages = (): {
   messages: Map<library.EntryKey, library.MessageEntry>;
   error?: string;
 } => {
@@ -49,7 +49,7 @@ export const useLibraryMessages = (): {
 };
 
 /** @returns a short label for how a message is matched on its transport. */
-export const describeIdentifier = (id?: library.Identifier): string => {
+const describeIdentifier = (id?: library.Identifier): string => {
   if (id == null) return "";
   switch (id.type) {
     case "can":

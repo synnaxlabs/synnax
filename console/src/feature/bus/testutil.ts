@@ -9,12 +9,13 @@
 
 import { type device, type library, type Synnax, type task } from "@synnaxlabs/client";
 import { id, type record, TimeSpan } from "@synnaxlabs/x";
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import { type FC } from "react";
 
-import { type FormTabProps } from "@/platform/task/Form";
+import { type Task } from "@/platform/task";
 import {
   awaitEditableForm,
+  commitFieldInput,
   renderTaskFormTab,
   type RenderTaskFormTabResult,
 } from "@/platform/task/testutil";
@@ -24,7 +25,7 @@ export interface BusLibrary {
   library: library.Library;
   /** A CAN message with the binary fields Rpm and Temp. */
   engine: library.MessageEntry;
-  /** A text message matched by the token S, with the delimited fields Volts and Amps. */
+  /** A text message matched by token S, with the delimited fields Volts and Amps. */
   status: library.MessageEntry;
 }
 
@@ -194,7 +195,7 @@ export const createBusDevice = async (
   });
 };
 
-/** Creates a task row of the given type and config. */
+/** Creates a task of the given type and config. */
 export const createBusTask = async (
   client: Synnax,
   type: string,
@@ -204,7 +205,7 @@ export const createBusTask = async (
 
 /** Renders a bus task form and waits for it to become editable. */
 export const renderBusTask = async (
-  Form: FC<FormTabProps>,
+  Form: FC<Task.FormTabProps>,
   client: Synnax,
   taskKey: task.Key,
 ): Promise<RenderTaskFormTabResult> => {
@@ -219,4 +220,28 @@ export const findFieldRow = async (name: string): Promise<HTMLElement> => {
   const row = checkbox.closest<HTMLElement>(".console-bus-field");
   if (row == null) throw new Error(`no field row holds the ${name} checkbox`);
   return row;
+};
+
+/** Creates the config entry of a task message that binds every field of entry. */
+export const createMessage = (entry: library.MessageEntry) => ({
+  message: entry.key,
+  fields: entry.fields.map((f) => ({ field: f.key })),
+});
+
+/** Commits value into the text or numeric input with the given label. */
+export const enterField = async (label: string, value: string): Promise<void> =>
+  commitFieldInput(await screen.findByLabelText<HTMLInputElement>(label), value);
+
+/** Finds the dialog opened last, such as the picker a click just opened. */
+export const findOpenDialog = async (): Promise<HTMLElement> =>
+  await waitFor(() => {
+    const dialogs = screen.getAllByRole("dialog");
+    return dialogs[dialogs.length - 1];
+  });
+
+/** Waits for the error on the message key field of the message at index. */
+export const findMessageError = async (index: number, message: string) => {
+  const text = await screen.findByText(message);
+  if (text.closest(`[class*="field__config-messages-${index}-message"]`) == null)
+    throw new Error(`the error ${message} is not on message ${index}`);
 };

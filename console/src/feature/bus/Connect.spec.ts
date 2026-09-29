@@ -21,7 +21,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { ARINC429 } from "@/feature/arinc429";
-import { createBusDevice } from "@/feature/bus/testutil";
+import { createBusDevice, enterField, findOpenDialog } from "@/feature/bus/testutil";
 import { CAN } from "@/feature/can";
 import { MIL1553 } from "@/feature/mil1553";
 import { Serial } from "@/feature/serial";
@@ -41,12 +41,6 @@ const openConnect = async (
   await screen.findByRole("dialog");
 };
 
-const enter = async (label: string, value: string) => {
-  const input = await screen.findByLabelText(label);
-  fireEvent.change(input, { target: { value } });
-  fireEvent.blur(input);
-};
-
 const connectAndRetrieve = async (key: device.Key): Promise<device.Device> => {
   fireEvent.click(findButton("Connect"));
   return await waitFor(async () => {
@@ -58,8 +52,7 @@ const connectAndRetrieve = async (key: device.Key): Promise<device.Device> => {
 
 const listBackends = async (): Promise<string[]> => {
   fireEvent.click(await screen.findByRole("button", { name: "Backend" }));
-  const dialogs = await screen.findAllByRole("dialog");
-  const options = await within(dialogs[dialogs.length - 1]).findAllByRole("option");
+  const options = await within(await findOpenDialog()).findAllByRole("option");
   return options.map((o) => o.textContent);
 };
 
@@ -73,7 +66,7 @@ describe("bus device connect", () => {
     );
     await openConnect(Serial.Device.useConnectModal, dev.key);
     await screen.findByDisplayValue("/dev/ttyUSB3");
-    await enter("Baud rate", "115200");
+    await enterField("Baud rate", "115200");
     const saved = await connectAndRetrieve(dev.key);
     expect(saved.make).toBe("Serial");
     expect(saved.model).toBe("Serial port");
@@ -92,7 +85,7 @@ describe("bus device connect", () => {
       { configured: false },
     );
     await openConnect(CAN.Device.useConnectModal, dev.key);
-    await enter("Channel", "vcan0");
+    await enterField("Channel", "vcan0");
     const saved = await connectAndRetrieve(dev.key);
     expect(saved.model).toBe("socketcan");
     expect(saved.location).toBe("vcan0");
@@ -107,8 +100,8 @@ describe("bus device connect", () => {
       { configured: false },
     );
     await openConnect(TCP.Device.useConnectModal, dev.key);
-    await enter("Host", "10.0.0.2");
-    await enter("Port", "5025");
+    await enterField("Host", "10.0.0.2");
+    await enterField("Port", "5025");
     const saved = await connectAndRetrieve(dev.key);
     expect(saved.model).toBe("TCP server");
     expect(saved.location).toBe("10.0.0.2:5025");
@@ -122,7 +115,7 @@ describe("bus device connect", () => {
       { configured: false },
     );
     await openConnect(UDP.Device.useConnectModal, dev.key);
-    await enter("Local port", "5000");
+    await enterField("Local port", "5000");
     const saved = await connectAndRetrieve(dev.key);
     expect(saved.model).toBe("UDP socket");
     expect(saved.location).toBe(":5000");
@@ -136,8 +129,8 @@ describe("bus device connect", () => {
       { configured: false },
     );
     await openConnect(ARINC429.Device.useConnectModal, dev.key);
-    await enter("Card", "1");
-    await enter("Channel", "2");
+    await enterField("Card", "1");
+    await enterField("Channel", "2");
     await selectFromDropdown("High (100 kbit/s)", "Low (12.5 kbit/s)");
     const saved = await connectAndRetrieve(dev.key);
     expect(saved.make).toBe("ARINC 429");
@@ -163,8 +156,7 @@ describe("bus device connect", () => {
     const dev = await createMIL1553Device({ role: "remote_terminal", terminals: [3] });
     await openConnect(MIL1553.Device.useConnectModal, dev.key);
     fireEvent.click(await screen.findByRole("button", { name: "Terminals" }));
-    const dialogs = await screen.findAllByRole("dialog");
-    fireEvent.click(await within(dialogs[dialogs.length - 1]).findByText("5"));
+    fireEvent.click(await within(await findOpenDialog()).findByText("5"));
     const saved = await connectAndRetrieve(dev.key);
     expect(saved.make).toBe("MIL-STD-1553");
     expect(saved.location).toBe("Card 0, channel 0");

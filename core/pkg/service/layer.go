@@ -661,8 +661,8 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	configStores := slices.Concat(
 		l.NI.Stores(), l.OPCUA.Stores(), l.LabJack.Stores(), l.Modbus.Stores(),
 		l.EtherCAT.Stores(), l.HTTP.Stores(), l.CAN.Stores(), l.Serial.Stores(),
-		l.TCP.Stores(), l.UDP.Stores(), l.ARINC429.Stores(), l.MIL1553.Stores(), l.ArcTask.Stores(), l.RackTask.Stores(),
-		l.PagerDuty.Stores(),
+		l.TCP.Stores(), l.UDP.Stores(), l.ARINC429.Stores(), l.MIL1553.Stores(),
+		l.ArcTask.Stores(), l.RackTask.Stores(), l.PagerDuty.Stores(),
 	)
 	taskConfigs, err := taskconfig.NewRegistry(configStores...)
 	if !ok(err, nil) {

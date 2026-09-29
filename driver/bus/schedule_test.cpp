@@ -14,7 +14,7 @@
 #include "driver/bus/schedule.h"
 
 namespace driver::bus {
-TEST(Schedule, DuesEveryPeriodicMessageAtTheStart) {
+TEST(Schedule, MakesEveryPeriodicMessageDueAtTheStart) {
     Schedule s(
         {x::telem::MILLISECOND * 10, std::nullopt, x::telem::MILLISECOND * 20},
         x::telem::TimeStamp(0)
@@ -26,7 +26,7 @@ TEST(Schedule, DuesEveryPeriodicMessageAtTheStart) {
     EXPECT_EQ(s.next(), x::telem::TimeStamp(x::telem::MILLISECOND * 10));
 }
 
-TEST(Schedule, DuesEachMessageOnItsPeriod) {
+TEST(Schedule, MakesEachMessageDueOnItsPeriod) {
     Schedule s(
         {x::telem::MILLISECOND * 10, x::telem::MILLISECOND * 20},
         x::telem::TimeStamp(0)

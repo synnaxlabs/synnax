@@ -161,7 +161,7 @@ public:
     ) override {
         if (rt >= this->terminals.size() || !this->terminals.test(rt))
             return misuse("the channel does not own terminal " + std::to_string(rt));
-        if (subaddress == 0 || subaddress > codec::mil1553::MAX_RT)
+        if (subaddress == 0 || subaddress > codec::mil1553::MAX_SUBADDRESS)
             return misuse(
                 "subaddress " + std::to_string(subaddress) + " is not from 1 to 30"
             );

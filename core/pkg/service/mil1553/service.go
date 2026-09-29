@@ -40,7 +40,10 @@ var _ xconfig.Config[ServiceConfig] = ServiceConfig{}
 // Override implements xconfig.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Resolver.Stamper.DB = override.Nil(c.Resolver.Stamper.DB, other.Resolver.Stamper.DB)
+	c.Resolver.Stamper.DB = override.Nil(
+		c.Resolver.Stamper.DB,
+		other.Resolver.Stamper.DB,
+	)
 	c.Resolver.Stamper.Ontology = override.Nil(
 		c.Resolver.Stamper.Ontology,
 		other.Resolver.Stamper.Ontology,
@@ -69,9 +72,9 @@ type Service struct {
 	closer xio.MultiCloser
 }
 
-// OpenService opens the MIL-STD-1553 task config service with the provided configuration.
-// If error is nil, the service is ready for use and must be closed by calling Close
-// to prevent resource leaks.
+// OpenService opens the MIL-STD-1553 task config service with the provided
+// configuration. If error is nil, the service is ready for use and must be closed by
+// calling Close to prevent resource leaks.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
 	cfg, err := xconfig.New(ServiceConfig{}, cfgs...)
 	if err != nil {

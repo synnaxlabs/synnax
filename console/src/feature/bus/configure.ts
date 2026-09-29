@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
+  type bus,
   type channel,
   type device,
   type library,
@@ -24,13 +25,7 @@ import {
   indexName,
   rawName,
 } from "@/feature/bus/names";
-import {
-  type Message,
-  type MessageCheck,
-  messagesOf,
-  type ReadConfig,
-  type WriteConfig,
-} from "@/feature/bus/types";
+import { type Message, type MessageCheck, messagesOf } from "@/feature/bus/types";
 
 const FIELD_DATA_TYPE = DataType.FLOAT64.toString();
 
@@ -77,7 +72,7 @@ interface Context {
 
 const openContext = async (
   client: Synnax,
-  config: ReadConfig | WriteConfig,
+  config: bus.ReadConfig | bus.WriteConfig,
   keys: channel.Key[],
 ): Promise<Context> => {
   const [dev, lib, existing] = await Promise.all([
@@ -114,7 +109,10 @@ const checkMessages = (ctx: Context, messages: Message[], checks: MessageCheck[]
   if (issues.length > 0) throw new z.ZodError(issues);
 };
 
-/** @returns the name of a message field, throwing when the message has no such field. */
+/**
+ * @returns the name of the message field with the key.
+ * @throws {Error} if the message has no such field.
+ */
 const fieldName = (entry: library.MessageEntry, key: library.FieldKey): string => {
   const field = entry.fields.find((f) => f.key === key);
   if (field == null) throw new Error(`Field ${key} is not in message ${entry.name}`);
@@ -151,7 +149,7 @@ const bindFields = async (
  * @returns the config bound to its channels and the rack of its device.
  * @throws {z.ZodError} if a message fails a check.
  */
-export const configureRead = async <C extends ReadConfig>(
+export const configureRead = async <C extends bus.ReadConfig>(
   client: Synnax,
   config: C,
   checks: MessageCheck[],
@@ -191,7 +189,7 @@ export const configureRead = async <C extends ReadConfig>(
  * @returns the config bound to its channels and the rack of its device.
  * @throws {z.ZodError} if a message fails a check.
  */
-export const configureWrite = async <C extends WriteConfig>(
+export const configureWrite = async <C extends bus.WriteConfig>(
   client: Synnax,
   config: C,
   checks: MessageCheck[],

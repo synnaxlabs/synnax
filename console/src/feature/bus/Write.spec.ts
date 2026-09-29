@@ -17,6 +17,7 @@ import {
   createBusDevice,
   createBusLibrary,
   createBusTask,
+  createMessage,
   findFieldRow,
   renderBusTask,
 } from "@/feature/bus/testutil";
@@ -39,12 +40,7 @@ const setup = async () => {
     TCP.Task.WRITE_SCHEMAS.config.parse({
       library: lib.library.key,
       device: dev.key,
-      messages: [
-        {
-          message: lib.status.key,
-          fields: lib.status.fields.map((f) => ({ field: f.key })),
-        },
-      ],
+      messages: [createMessage(lib.status)],
     }),
   );
   return { ...lib, dev, draft };

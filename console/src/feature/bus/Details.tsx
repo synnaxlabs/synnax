@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type library } from "@synnaxlabs/client";
+import { type bus, type channel, type library } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
@@ -18,7 +18,6 @@ import { type ReactElement, type ReactNode } from "react";
 
 import { type DetailsProps } from "@/feature/bus/Messages";
 import { commandChannelName, fieldChannelName, indexName } from "@/feature/bus/names";
-import { type ReadField, type WriteField } from "@/feature/bus/types";
 import { CSS } from "@/platform/css";
 import { Task } from "@/platform/task";
 
@@ -52,7 +51,7 @@ const ChannelLabel = ({ channel, planned }: ChannelLabelProps): ReactElement => 
 };
 
 // Read and write tasks bind a field to a channel the same way.
-type Bound = ReadField & WriteField;
+type Bound = bus.ReadField & bus.WriteField;
 
 interface FieldListProps {
   entry: library.MessageEntry;
@@ -142,7 +141,7 @@ export const ReadDetails = ({ path, entry }: DetailsProps): ReactElement => {
         <ChannelLabel channel={index} planned={plan(indexName(device, entry.name))} />
       </Form.Section>
       <Form.Section title="Fields">
-        <Form.Field<ReadField[]> path={`${path}.fields`} showLabel={false}>
+        <Form.Field<bus.ReadField[]> path={`${path}.fields`} showLabel={false}>
           {({ value, onChange }) => (
             <FieldList
               entry={entry}
@@ -175,7 +174,7 @@ export const WriteDetails = ({ path, entry }: DetailsProps): ReactElement => {
         <Text.Text level="small" color={8}>
           {`Sent ${period}. A field that is not checked is sent as zero.`}
         </Text.Text>
-        <Form.Field<WriteField[]> path={`${path}.fields`} showLabel={false}>
+        <Form.Field<bus.WriteField[]> path={`${path}.fields`} showLabel={false}>
           {({ value, onChange }) => (
             <FieldList
               entry={entry}

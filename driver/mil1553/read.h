@@ -31,7 +31,7 @@ constexpr std::size_t READ_BATCH = 256;
 /// transfer it sees whose address and subaddress match a message.
 class Source final : public common::Source {
 public:
-    /// @param cfg the resolved read config, checked by read_check.
+    /// @param cfg the resolved read config, checked against the role in props.
     /// @param props the device's properties.
     /// @param acquire acquires the device's channel.
     Source(bus::ReadConfig cfg, synnax::mil1553::Properties props, Acquire acquire);

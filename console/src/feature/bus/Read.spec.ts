@@ -16,6 +16,7 @@ import {
   createBusDevice,
   createBusLibrary,
   createBusTask,
+  findOpenDialog,
   renderBusTask,
 } from "@/feature/bus/testutil";
 import { CAN } from "@/feature/can";
@@ -81,10 +82,7 @@ describe("bus read task", () => {
     const draft = await createDraft({ library: library.key, device: dev.key });
     await renderBusTask(CAN.Task.Read, client, draft.key);
     fireEvent.click(await findDialogTriggerByText("Add message"));
-    const dialog = await waitFor(() => {
-      const dialogs = screen.getAllByRole("dialog");
-      return dialogs[dialogs.length - 1];
-    });
+    const dialog = await findOpenDialog();
     await within(dialog).findByText("Engine");
     expect(within(dialog).queryByText("Status")).toBeNull();
   });

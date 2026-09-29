@@ -127,7 +127,7 @@ Matcher::compile(const std::span<const library::MessageEntry> messages) {
         if (const auto *c = std::get_if<library::Mil1553Identifier>(&identifier)) {
             if (c->rt > mil1553::MAX_RT)
                 return {{}, message_error(msg, "remote terminal address out of range")};
-            if (c->subaddress == 0 || c->subaddress > 30)
+            if (c->subaddress == 0 || c->subaddress > mil1553::MAX_SUBADDRESS)
                 return {{}, message_error(msg, "subaddress must be from 1 to 30")};
             if (c->direction != library::DIRECTION_RECEIVE &&
                 c->direction != library::DIRECTION_TRANSMIT)

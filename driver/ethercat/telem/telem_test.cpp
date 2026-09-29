@@ -290,6 +290,18 @@ TEST(Plan, Writes24BitValuesPreservingOtherBits) {
     EXPECT_EQ(b, (std::vector<uint8_t>{0x5B, 0xD1, 0x48, 0xFC}));
 }
 
+TEST(Plan, SaturatesValuesOutsideTheEntryRange) {
+    std::vector<uint8_t> b = {0x00};
+    encode(b, 0, 4, x::telem::UINT8_T, uint8_t{20});
+    EXPECT_EQ(b[0], 0x0F);
+    b = {0x00};
+    encode(b, 0, 4, x::telem::INT8_T, int8_t{-20});
+    EXPECT_EQ(b[0], 0x08);
+    b.assign(4, 0);
+    encode(b, 0, 24, x::telem::INT32_T, int32_t{0x800000});
+    EXPECT_EQ(b, (std::vector<uint8_t>{0xFF, 0xFF, 0x7F, 0x00}));
+}
+
 TEST(Plan, RoundTripsValues) {
     std::vector<uint8_t> b = {0x00};
     encode(b, 3, 1, x::telem::UINT8_T, uint8_t{1});

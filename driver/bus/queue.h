@@ -14,6 +14,7 @@
 #include <deque>
 #include <mutex>
 #include <span>
+#include <utility>
 
 #include "x/cpp/telem/telem.h"
 

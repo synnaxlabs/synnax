@@ -10,7 +10,7 @@
 import { arinc429, type library, mil1553 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type record } from "@synnaxlabs/x";
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, within } from "@testing-library/react";
 import { type FC } from "react";
 import { describe, expect, it } from "vitest";
 import { type z } from "zod";
@@ -21,26 +21,24 @@ import {
   createAvionicsLibrary,
   createBusDevice,
   createBusTask,
+  createMessage,
+  findMessageError,
+  findOpenDialog,
   renderBusTask,
 } from "@/feature/bus/testutil";
 import { MIL1553 } from "@/feature/mil1553";
-import { type FormTabProps } from "@/platform/task/Form";
+import { type Task } from "@/platform/task";
 import { clickDeploy, deployAndAwaitTask } from "@/platform/task/testutil";
 import { findDialogTriggerByText } from "@/testutil";
 
 const client = createTestClient();
 
-const messageOf = (entry: library.MessageEntry) => ({
-  message: entry.key,
-  fields: entry.fields.map((f) => ({ field: f.key })),
-});
-
 interface Draft {
-  Form: FC<FormTabProps>;
+  Form: FC<Task.FormTabProps>;
   type: string;
-  configZ: z.ZodType;
+  configZ: z.ZodType<record.Unknown>;
   make: string;
-  properties: object;
+  properties: record.Unknown;
   /** The library messages the draft's config holds. */
   messages: (lib: AvionicsLibrary) => library.MessageEntry[];
 }
@@ -71,14 +69,14 @@ const mil1553Write = (properties: Partial<mil1553.Properties>) => ({
 /** Opens a draft of the given task with the picked messages in its form. */
 const open = async ({ Form, type, configZ, make, properties, messages }: Draft) => {
   const lib = await createAvionicsLibrary(client);
-  const dev = await createBusDevice(client, make, { ...properties });
+  const dev = await createBusDevice(client, make, properties);
   const picked = messages(lib);
   const config = configZ.parse({
     library: lib.library.key,
     device: dev.key,
-    messages: picked.map(messageOf),
+    messages: picked.map(createMessage),
   });
-  const draft = await createBusTask(client, type, config as record.Unknown);
+  const draft = await createBusTask(client, type, config);
   const { container } = await renderBusTask(Form, client, draft.key);
   if (picked.length > 0)
     await screen.findByRole("checkbox", { name: picked[0].fields[0].name });
@@ -88,10 +86,7 @@ const open = async ({ Form, type, configZ, make, properties, messages }: Draft) 
 /** Opens the add message picker and waits for it to offer the named message. */
 const openPicker = async (offered: string): Promise<HTMLElement> => {
   fireEvent.click(await findDialogTriggerByText("Add message"));
-  const dialog = await waitFor(() => {
-    const dialogs = screen.getAllByRole("dialog");
-    return dialogs[dialogs.length - 1];
-  });
+  const dialog = await findOpenDialog();
   await within(dialog).findByText(offered);
   return dialog;
 };
@@ -114,14 +109,6 @@ const expectOffered = (dialog: HTMLElement, offered: string[]) =>
 
 /** @returns the device name as channel names hold it, spaces and dashes escaped. */
 const escaped = (name: string): string => name.replace(/[ -]/g, "_");
-
-/** Waits for an error on the message key field of the message at index. */
-const findMessageError = async (index: number, message: string) => {
-  const text = await screen.findByText(message);
-  expect(text.closest(`[class*="field__config-messages-${index}-message"]`)).not.toBe(
-    null,
-  );
-};
 
 describe("avionics bus tasks", () => {
   describe("message picker", () => {

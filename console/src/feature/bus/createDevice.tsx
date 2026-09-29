@@ -86,8 +86,6 @@ export const createDevice = <M extends string, P extends z.ZodType<record.Unknow
     model: z.string(),
   } as const satisfies device.DeviceSchemas<P, z.ZodLiteral<M>, z.ZodString>;
 
-  const { use, useResult } = PDevice.createRetrieve(SCHEMAS);
-  const useFromConfig = PlatformDevice.createUseFromConfig(useResult);
   const useForm = PDevice.createForm(SCHEMAS);
 
   const INITIAL_VALUES: device.Device = {
@@ -218,10 +216,6 @@ export const createDevice = <M extends string, P extends z.ZodType<record.Unknow
 
   return {
     MAKE: make,
-    SCHEMAS,
-    use,
-    useResult,
-    useFromConfig,
     useConnectModal,
     Select,
     COMMANDS,

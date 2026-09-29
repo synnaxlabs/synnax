@@ -13,6 +13,7 @@
 #include <utility>
 #include <vector>
 
+#include "client/cpp/library/types.gen.h"
 #include "client/cpp/mil1553/json.gen.h"
 #include "x/cpp/breaker/breaker.h"
 
@@ -82,8 +83,11 @@ x::errors::Error check_owned(
             ", which the remote terminal does not own"
     );
 }
-}
 
+/// @brief checks that a read task on a channel with props can receive a message. A
+/// bus controller polls transmit messages on their period, a remote terminal receives
+/// messages to its own terminals, and a monitor sees every message.
+/// @returns x::errors::VALIDATION naming the problem.
 x::errors::Error check_read(
     const synnax::library::MessageEntry &message,
     const synnax::mil1553::Properties &props
@@ -112,6 +116,10 @@ x::errors::Error check_read(
     return x::errors::NIL;
 }
 
+/// @brief checks that a write task on a channel with props can send a message. A bus
+/// controller sends receive messages, a remote terminal answers transmit messages for
+/// its own terminals, and a monitor sends nothing.
+/// @returns x::errors::VALIDATION naming the problem.
 x::errors::Error check_write(
     const synnax::library::MessageEntry &message,
     const synnax::mil1553::Properties &props
@@ -135,7 +143,6 @@ x::errors::Error check_write(
     return invalid(message, "cannot be sent by a monitor");
 }
 
-namespace {
 /// @brief binds the error of check to each enabled message of a resolved config
 /// that fails it.
 /// @returns x::errors::VALIDATION when a message fails.
@@ -160,9 +167,7 @@ x::errors::Error check_role(
     }
     return parser.ok() ? x::errors::NIL : parser.error();
 }
-}
 
-namespace {
 /// @brief the device properties and channel of a task config.
 struct Device {
     synnax::mil1553::Properties props;

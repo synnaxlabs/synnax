@@ -106,16 +106,7 @@ const Properties = (): ReactElement => (
   </>
 );
 
-export const {
-  MAKE,
-  SCHEMAS,
-  use,
-  useResult,
-  useFromConfig,
-  useConnectModal,
-  Select,
-  COMMANDS,
-} = Bus.createDevice({
+export const { MAKE, useConnectModal, Select, COMMANDS } = Bus.createDevice({
   make: "Serial",
   noun: "serial device",
   icon: <Icon.Connect />,

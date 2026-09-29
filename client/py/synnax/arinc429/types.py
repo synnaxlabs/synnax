@@ -117,7 +117,7 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
 
 
 class Device(device.Device):
-    """A ARINC 429 device: one channel on one ARINC 429 adapter.
+    """An ARINC 429 device: one channel on one ARINC 429 adapter.
 
     :param name: Human-readable name for the device.
     :param location: Physical location or description.

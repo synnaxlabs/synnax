@@ -13,7 +13,7 @@ import {
   bus,
   DisconnectedError,
   type library,
-  type Synnax as Client,
+  type Synnax,
   task,
 } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
@@ -32,10 +32,8 @@ import { SelectLibrary } from "@/feature/bus/SelectLibrary";
 import {
   type Accepts,
   type MessageCheck,
-  type ReadConfig,
   validateRead,
   validateWrite,
-  type WriteConfig,
 } from "@/feature/bus/types";
 import { type Command } from "@/platform/command";
 import { Panel } from "@/platform/panel";
@@ -48,8 +46,7 @@ const statusDataZ = z
     message: z.string(),
     errors: z.array(z.object({ message: z.string(), path: z.string() })).optional(),
   })
-  .nullish()
-  .optional();
+  .nullish();
 
 /** A deploy check on a config, such as {@link validateFraming}. */
 export interface Check<C> {
@@ -58,8 +55,8 @@ export interface Check<C> {
 
 export interface CreateTasksParams<
   P extends string,
-  R extends z.ZodType<ReadConfig>,
-  W extends z.ZodType<WriteConfig>,
+  R extends z.ZodType<bus.ReadConfig>,
+  W extends z.ZodType<bus.WriteConfig>,
 > {
   /** The task type prefix, such as can. */
   prefix: P;
@@ -92,7 +89,7 @@ export interface CreateTasksParams<
  * @throws {Error} if no library exists.
  */
 const retrieveDefaultLibrary = async (
-  client: Client,
+  client: Synnax,
   name: string,
 ): Promise<library.Key> => {
   const [first] = await client.libraries.retrieve({ limit: 1 });
@@ -152,8 +149,8 @@ const applyChecks = <S extends z.ZodType>(schema: S, checks: Check<z.infer<S>>[]
  */
 export const createTasks = <
   P extends string,
-  R extends z.ZodType<ReadConfig>,
-  W extends z.ZodType<WriteConfig>,
+  R extends z.ZodType<bus.ReadConfig>,
+  W extends z.ZodType<bus.WriteConfig>,
 >({
   prefix,
   name,

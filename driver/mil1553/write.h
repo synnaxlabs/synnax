@@ -24,7 +24,7 @@ namespace driver::mil1553 {
 /// words its terminal answers the message's transmit command with.
 class Transmitter final : public bus::Transmitter {
 public:
-    /// @param cfg the resolved write config, checked by write_check.
+    /// @param cfg the resolved write config, checked against the role in props.
     /// @param props the device's properties.
     /// @param acquire acquires the device's link.
     Transmitter(

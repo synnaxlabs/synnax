@@ -110,8 +110,8 @@ private:
     std::vector<Masked> masked;
     /// @brief fields holds field identifiers in declaration order.
     std::vector<Field> fields;
-    /// @brief labels maps an ARINC 429 label to its message. Bits 8 and 9 hold the SDI
-    /// plus one when the identifier matches the SDI, and zero otherwise.
+    /// @brief labels maps an ARINC 429 label to its message. The high byte holds the
+    /// SDI plus one when the identifier matches the SDI, and zero otherwise.
     std::unordered_map<std::uint16_t, std::size_t> labels;
     /// @brief transfers maps a MIL-STD-1553 command word with its count cleared to
     /// its message.

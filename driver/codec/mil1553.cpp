@@ -109,7 +109,8 @@ x::errors::Error validate(const library::MessageEntry &message) {
         return error(message, "remote terminal address must be from 0 to 30");
     if (id->subaddress == 0 || id->subaddress == 31)
         return error(message, "mode codes are not supported");
-    if (id->subaddress > 31) return error(message, "subaddress must be from 1 to 30");
+    if (id->subaddress > MAX_SUBADDRESS)
+        return error(message, "subaddress must be from 1 to 30");
     if (id->direction != library::DIRECTION_RECEIVE &&
         id->direction != library::DIRECTION_TRANSMIT)
         return error(message, "unknown direction: " + id->direction);

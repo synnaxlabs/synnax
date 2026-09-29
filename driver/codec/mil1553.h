@@ -24,6 +24,8 @@ constexpr std::size_t MAX_WORDS = 32;
 constexpr std::uint8_t MAX_RT = 30;
 /// @brief the broadcast remote terminal address.
 constexpr std::uint8_t BROADCAST = 31;
+/// @brief the largest data subaddress. Subaddresses 0 and 31 carry mode codes.
+constexpr std::uint8_t MAX_SUBADDRESS = 30;
 
 /// @brief Command is a MIL-STD-1553 command word.
 struct Command {
