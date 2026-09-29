@@ -22,7 +22,7 @@ import { caseconv, type color, primitive, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useEffect, useState } from "react";
 
 import { Channel } from "@/channel";
-import { type Node } from "@/schematic/node";
+import { Node } from "@/schematic/node";
 import { LatestSample } from "@/vis/latestSample";
 import { Staleness } from "@/vis/staleness";
 
@@ -35,6 +35,8 @@ const LOCATION: Base.FrameProps["location"] = { x: "center", y: "bottom" };
 
 type KeysOf<C> = C extends object ? keyof C : never;
 type Field = KeysOf<Node.Config>;
+// Staleness keeps its color typed. Every other field is read by key.
+type Values = Partial<Record<Field, primitive.Value>> & Staleness.Config;
 
 const CHANNEL_ROWS: { field: Field; icon: Icon.FC }[] = [
   { field: "stateChannel", icon: Icon.Channel },
@@ -125,7 +127,8 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
   }, []);
   useEffect(() => (visible ? markClosed : undefined), [visible]);
   const theme = Theming.use();
-  const values: Partial<Record<Field, primitive.Value>> = config;
+  const spec = Node.resolveSpec(config.variant);
+  const values: Values = spec.tooltipConfig?.(config) ?? config;
   const keys = CHANNEL_ROWS.flatMap(({ field }) => {
     const key = values[field];
     return typeof key === "number" && !primitive.isZero(key) ? key : [];
@@ -160,10 +163,7 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
       />
     );
   });
-  const stalenessColor = Staleness.resolveColor(
-    "stalenessColor" in config ? config.stalenessColor : undefined,
-    theme,
-  );
+  const stalenessColor = Staleness.resolveColor(values.stalenessColor, theme);
   const fields = FIELD_ROWS.flatMap(({ field, label, unit }) => {
     const value = values[field];
     if (value == null) return [];

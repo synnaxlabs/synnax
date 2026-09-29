@@ -22,4 +22,5 @@ export const spec: Spec<"scale", schematic.ScaleNodeConfig> = {
   Preview: Scale,
   zIndex: 4,
   needsPosition: true,
+  tooltipConfig: ({ indicator }) => indicator,
 };

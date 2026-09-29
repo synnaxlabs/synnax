@@ -226,6 +226,26 @@ describe("Schematic.Tooltip", () => {
       const value = valueOf(labelOf(tooltip, virtual.name));
       expect(value.querySelector(".pluto-icon--virtual")).not.toBeNull();
     });
+
+    it("should read a scale's channel from its indicator", async () => {
+      const ch = await createChannel();
+      renderTooltip(
+        Node.createConfig({ variant: "scale", indicator: { channel: ch.key } }),
+      );
+      const tooltip = await findTooltip();
+      const label = labelOf(tooltip, ch.name);
+      expect(label.querySelector(".pluto-icon--channel")).not.toBeNull();
+      expect(within(tooltip).getByText("Stale timeout")).not.toBeNull();
+    });
+
+    it("should read a tank's channel from its fill", async () => {
+      const ch = await createChannel();
+      renderTooltip(Node.createConfig({ variant: "tank", fill: { channel: ch.key } }));
+      const tooltip = await findTooltip();
+      const label = labelOf(tooltip, ch.name);
+      expect(label.querySelector(".pluto-icon--channel")).not.toBeNull();
+      expect(within(tooltip).getByText("Stale timeout")).not.toBeNull();
+    });
   });
 
   describe("last sample row", () => {
@@ -281,6 +301,15 @@ describe("Schematic.Tooltip", () => {
     it("should show the row for a symbol bound to an index channel", async () => {
       const index = await createIndex();
       renderTooltip(Node.createConfig({ variant: "value", channel: index.key }));
+      const tooltip = await findTooltip();
+      expect(within(tooltip).queryByText("Last sample")).not.toBeNull();
+    });
+
+    it("should follow a scale's indicator channel", async () => {
+      const { data } = await createIndexed();
+      renderTooltip(
+        Node.createConfig({ variant: "scale", indicator: { channel: data.key } }),
+      );
       const tooltip = await findTooltip();
       expect(within(tooltip).queryByText("Last sample")).not.toBeNull();
     });
@@ -417,12 +446,26 @@ describe("Schematic.Tooltip", () => {
       expect(within(tooltip).getByText("true")).not.toBeNull();
     });
 
+    it("should tint the stale timeout with a nested stale color", async () => {
+      renderTooltip(
+        Node.createConfig({
+          variant: "scale",
+          indicator: { stalenessColor: "#ff0000" },
+        }),
+      );
+      const tooltip = await findTooltip();
+      const value = valueOf(labelOf(tooltip, "Stale timeout"));
+      expect(value.style.color).toContain("255, 0, 0");
+    });
+
     it.each<[Node.Variant, string[]]>([
       ["valve", ["Stale timeout"]],
       ["solenoid_valve", ["Normally open", "Stale timeout"]],
       ["button", ["Mode"]],
       ["value", ["Stale timeout"]],
       ["manual_valve", ["Clickable"]],
+      ["scale", ["Stale timeout"]],
+      ["tank", ["Stale timeout"]],
     ])("should show the %s rows in order", async (variant, labels) => {
       renderTooltip(Node.createConfig({ variant }));
       const tooltip = await findTooltip();
@@ -433,7 +476,7 @@ describe("Schematic.Tooltip", () => {
     });
 
     // A setpoint's only field is the click delay, which is hidden at zero.
-    it.each<Node.Variant>(["cap", "tank", "circle", "group_box", "setpoint"])(
+    it.each<Node.Variant>(["cap", "circle", "group_box", "setpoint"])(
       "should render nothing for a %s, which has no rows",
       async (variant) => {
         renderTooltip(Node.createConfig({ variant }));

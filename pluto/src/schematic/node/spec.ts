@@ -51,4 +51,6 @@ export interface Spec<
   Preview: FC<PreviewProps<Config>>;
   zIndex: number;
   needsPosition?: boolean;
+  /** The config the tooltip reads. Defaults to the node's config. */
+  tooltipConfig?: (config: Config) => object;
 }

@@ -23,4 +23,5 @@ export const spec: Spec<"tank", schematic.TankNodeConfig> = {
   Preview: Component.removeProps(Tank, ["dimensions"]),
   zIndex: 2,
   needsPosition: true,
+  tooltipConfig: ({ fill }) => fill,
 };
