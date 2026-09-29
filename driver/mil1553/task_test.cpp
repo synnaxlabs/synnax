@@ -62,6 +62,12 @@ create_receive(const std::uint8_t rt, const std::uint8_t sa) {
     return create_message(rt, sa, synnax::library::DIRECTION_RECEIVE);
 }
 
+/// @returns the status message of a validation error with message at path.
+std::string validation(const std::string &path, const std::string &message) {
+    const x::json::json err{{"message", message}, {"path", path}};
+    return "[sy.validation] " + x::json::json{{"errors", {err}}}.dump();
+}
+
 class MIL1553Task : public ::testing::Test {
 protected:
     Core core;
@@ -72,6 +78,7 @@ protected:
         const std::vector<std::uint8_t> &terminals = {}
     ) const {
         synnax::mil1553::Properties props;
+        props.backend = synnax::mil1553::BACKEND_SIMULATED;
         props.role = role;
         props.terminals = terminals;
         return this->core.create_device(MAKE, props.to_json());
@@ -230,7 +237,10 @@ TEST_F(MIL1553Task, RejectsAWriteTaskOnAMonitor) {
         this->create_device(synnax::mil1553::ROLE_MONITOR)
     );
     EXPECT_EQ(t, nullptr);
-    EXPECT_NE(this->error().find("cannot be sent by a monitor"), std::string::npos);
+    EXPECT_EQ(
+        this->error(),
+        validation("messages.0.message", "message rt3_sa2 cannot be sent by a monitor")
+    );
 }
 
 TEST_F(MIL1553Task, RejectsABusControllerMessageWithoutAPeriod) {
@@ -239,7 +249,13 @@ TEST_F(MIL1553Task, RejectsABusControllerMessageWithoutAPeriod) {
         this->create_device(synnax::mil1553::ROLE_BUS_CONTROLLER)
     );
     EXPECT_EQ(t, nullptr);
-    EXPECT_NE(this->error().find("needs a period"), std::string::npos);
+    EXPECT_EQ(
+        this->error(),
+        validation(
+            "messages.0.message",
+            "message rt5_sa1 needs a period for the bus controller to poll it"
+        )
+    );
 }
 
 TEST_F(MIL1553Task, RejectsARemoteTerminalMessageForAnotherTerminal) {
@@ -248,10 +264,25 @@ TEST_F(MIL1553Task, RejectsARemoteTerminalMessageForAnotherTerminal) {
         this->create_device(synnax::mil1553::ROLE_REMOTE_TERMINAL, {5})
     );
     EXPECT_EQ(t, nullptr);
-    EXPECT_NE(
-        this->error().find("is for terminal 6, which the remote terminal does not own"),
-        std::string::npos
+    EXPECT_EQ(
+        this->error(),
+        validation(
+            "messages.0.message",
+            "message rt6_sa2 is for terminal 6, which the remote terminal does not own"
+        )
     );
+}
+
+TEST_F(MIL1553Task, RejectsADeviceWithoutABackend) {
+    auto [t, _] = this->create_reader(
+        create_receive(5, 2),
+        this->core.create_device(
+            MAKE,
+            {{"role", synnax::mil1553::ROLE_REMOTE_TERMINAL}, {"terminals", {5}}}
+        )
+    );
+    EXPECT_EQ(t, nullptr);
+    EXPECT_EQ(this->error(), validation("backend", "This field is required"));
 }
 
 TEST_F(MIL1553Task, RejectsADeviceWithAnInvalidRole) {
@@ -260,9 +291,9 @@ TEST_F(MIL1553Task, RejectsADeviceWithAnInvalidRole) {
         this->create_device(synnax::mil1553::ROLE_MONITOR, {5})
     );
     EXPECT_EQ(t, nullptr);
-    EXPECT_NE(
-        this->error().find("only a remote terminal channel owns terminals"),
-        std::string::npos
+    EXPECT_EQ(
+        this->error(),
+        validation("device", "only a remote terminal channel owns terminals")
     );
 }
 

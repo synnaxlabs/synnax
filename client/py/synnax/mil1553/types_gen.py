@@ -49,7 +49,7 @@ class Properties(BaseModel):
         terminals: Are the remote terminal addresses a remote terminal channel answers.
     """
 
-    backend: Backend = "simulated"
+    backend: Backend
     card: int = Field(default=0, ge=0, le=65535)
     channel: int = Field(default=0, ge=0, le=65535)
     role: Role = "monitor"

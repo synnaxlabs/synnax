@@ -26,7 +26,7 @@ export type Role = z.infer<typeof roleZ>;
 /** Properties are the properties of a MIL-STD-1553 device: one channel on one card. */
 export const propertiesZ = z.object({
   /** backend is the driver library the card is reached through. */
-  backend: backendZ.default("simulated"),
+  backend: backendZ,
   /** card is the index of the card within its backend. */
   card: zod.uint16.default(0),
   /** channel is the index of the channel on the card. */

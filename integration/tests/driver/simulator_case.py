@@ -20,11 +20,15 @@ Usage:
 
     class GrandFinale(SimulatorCase):
         sim_classes = [OPCUASim, ModbusSim]
+
+    class CardRead(SimulatorCase):
+        device_classes = [ARINC429Card]
 """
 
 import os
 import subprocess
 from multiprocessing.process import BaseProcess
+from typing import Protocol
 
 import psutil
 from examples.simulators.device_sim import DeviceSim
@@ -57,14 +61,27 @@ def _listener_pids(port: int) -> list[int]:
         return [int(pid) for pid in out.split()]
 
 
+class DeviceSpec(Protocol):
+    """A device a case registers in Synnax. A DeviceSim is one; a device that needs no
+    simulator process, such as a card the Driver simulates, is another."""
+
+    device_name: str
+    channel_names: tuple[str, ...]
+
+    @staticmethod
+    def create_device(rack_key: int) -> sy.Device: ...
+
+
 class SimulatorCase(HardwareCase):
     """DeviceSim lifecycle management.
 
-    Subclasses set sim_classes to a list of DeviceSim subclasses.
-    The first entry is used as the primary sim (self.sim / self.device_name).
+    Subclasses set sim_classes to a list of DeviceSim subclasses, and device_classes to
+    the devices to register without a simulator. The first sim, or the first device
+    when there is no sim, is the primary one (self.sim / self.device_name).
     """
 
     sim_classes: list[type[DeviceSim]] = []
+    device_classes: list[type[DeviceSpec]] = []
     sim: DeviceSim | None = None
     sims: dict[str, DeviceSim | None]
     SAMPLE_RATE: sy.Rate = 50 * sy.Rate.HZ
@@ -91,9 +108,14 @@ class SimulatorCase(HardwareCase):
             self.sims[name] = sim
             self._connect_device_for(sim_cls)
             self._reclaim_channels(sim_cls)
-        first_cls = self.sim_classes[0]
-        self.sim = self.sims[first_cls.device_name]
-        self.device_name = first_cls.device_name
+        for device_cls in self.device_classes:
+            self._connect_device_for(device_cls)
+            self._reclaim_channels(device_cls)
+        if self.sim_classes:
+            self.device_name = self.sim_classes[0].device_name
+            self.sim = self.sims[self.device_name]
+        else:
+            self.device_name = self.device_classes[0].device_name
         super().setup()
 
     def start_simulator(self, device_name: str | None = None) -> None:
@@ -160,10 +182,10 @@ class SimulatorCase(HardwareCase):
             except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
                 self.log(f"Could not kill PID {pid} on port {sim.port}: {e}")
 
-    def _connect_device_for(self, sim_cls: type[DeviceSim]) -> None:
-        """Get or create the hardware device for a given simulator class."""
+    def _connect_device_for(self, device_cls: type[DeviceSpec]) -> None:
+        """Get or create the hardware device of a device class."""
         rack = self.client.racks.retrieve(name=self.RACK_NAME)
-        device_instance = sim_cls.create_device(rack.key)
+        device_instance = device_cls.create_device(rack.key)
         try:
             existing = self.client.devices.retrieve(name=device_instance.name)
             # A sim device only exists for its sim, so one found here is a leftover from
@@ -172,11 +194,11 @@ class SimulatorCase(HardwareCase):
         except sy.NotFoundError:
             self.create_test_devices([device_instance])
 
-    def _reclaim_channels(self, sim_cls: type[DeviceSim]) -> None:
-        """Delete channels an earlier test left behind under the sim's names."""
-        if not sim_cls.channel_names:
+    def _reclaim_channels(self, device_cls: type[DeviceSpec]) -> None:
+        """Delete channels an earlier test left behind under the device's names."""
+        if not device_cls.channel_names:
             return
         try:
-            self.client.channels.delete(list(sim_cls.channel_names))
+            self.client.channels.delete(list(device_cls.channel_names))
         except sy.NotFoundError:
             pass

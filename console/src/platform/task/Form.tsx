@@ -24,7 +24,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Access, Synnax as PSynnax, Task as PTask } from "@synnaxlabs/pluto";
 import { errors, primitive, TimeSpan } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
-import { z } from "zod";
+import { type z } from "zod";
 
 import { CSS } from "@/platform/css";
 import { Errors } from "@/platform/errors";
@@ -35,10 +35,23 @@ import { useStatus } from "@/platform/task/useStatus";
 import { UtilityButtons } from "@/platform/task/UtilityButtons";
 
 /**
+ * Thrown by an OnConfigure when the config fails a check that needs the Core. Each
+ * issue renders as an error on the config field its path names.
+ */
+export class ConfigError extends errors.createTyped("console.task.config") {
+  readonly issues: z.core.$ZodIssue[];
+
+  constructor(issues: z.core.$ZodIssue[]) {
+    super(issues.map(({ message }) => message).join(", "));
+    this.issues = issues;
+  }
+}
+
+/**
  * Prepares a config to deploy, such as by creating its channels.
  * @returns the config to save and the rack it runs on.
- * @throws {z.ZodError} if the config fails a check that needs the Core. Its issues
- * render as field errors and block the deploy.
+ * @throws {ConfigError} if the config fails a check that needs the Core. Its issues
+ * render as field errors and block the deploy. Any other error fails the deploy.
  */
 export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
   (
@@ -188,7 +201,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
           try {
             configured = await onConfigure(client, config, name);
           } catch (e) {
-            if (!(e instanceof z.ZodError)) throw errors.fromUnknown(e);
+            if (!(e instanceof ConfigError)) throw errors.fromUnknown(e);
             showIssues(form, e.issues);
             return;
           }

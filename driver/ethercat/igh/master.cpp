@@ -16,6 +16,13 @@
 #include "driver/ethercat/telem/telem.h"
 
 namespace driver::ethercat::igh {
+namespace {
+/// @returns the bytes that an entry of bit_length bits starting at bit spans.
+size_t span_bytes(const unsigned int bit, const uint8_t bit_length) {
+    return (bit + bit_length + 7) / 8;
+}
+}
+
 Master::Master(std::shared_ptr<API> api, const unsigned int master_index):
     api(std::move(api)),
     master_index(master_index),
@@ -339,10 +346,7 @@ ec_slave_config_t *Master::get_or_create_slave_config(const uint16_t position) {
         );
         if (result >= 0) {
             const size_t abs_offset = static_cast<size_t>(result);
-            const size_t byte_size = telem::pdo_required_bytes(
-                static_cast<uint8_t>(bit_pos),
-                pdo.bit_length
-            );
+            const size_t byte_size = span_bytes(bit_pos, pdo.bit_length);
             pdo::Key key{position, pdo.index, pdo.sub_index, false};
             this->pdo_offsets[key] = {abs_offset, static_cast<uint8_t>(bit_pos)};
             if (abs_offset + byte_size > this->output_sz)
@@ -368,10 +372,7 @@ ec_slave_config_t *Master::get_or_create_slave_config(const uint16_t position) {
         );
         if (result >= 0) {
             const size_t abs_offset = static_cast<size_t>(result);
-            const size_t byte_size = telem::pdo_required_bytes(
-                static_cast<uint8_t>(bit_pos),
-                pdo.bit_length
-            );
+            const size_t byte_size = span_bytes(bit_pos, pdo.bit_length);
             pdo::Key key{position, pdo.index, pdo.sub_index, true};
             this->pdo_offsets[key] = {abs_offset, static_cast<uint8_t>(bit_pos)};
             if (abs_offset + byte_size > this->input_sz)

@@ -24,7 +24,7 @@ class ARINC429Write(CardCase):
     """Sends a label once for each command and checks that a peer read task on the
     same channel decodes each command once, in order."""
 
-    sim_classes = [ARINC429Card]
+    device_classes = [ARINC429Card]
     prefix = "arinc429_write"
     command_channel: int
 

@@ -10,6 +10,7 @@
 #pragma once
 
 #include <algorithm>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -181,5 +182,22 @@ std::pair<codec::Plan, x::errors::Error> compile(const std::vector<Channel> &cha
         message.fields.emplace_back(std::move(f));
     }
     return codec::Plan::compile(message);
+}
+
+/// @brief appends an R over channels to out, when channels is not empty. R is built
+/// from args, the channels, and their compiled plan.
+/// @param channels sorted by address.
+/// @returns the error of compile(channels).
+template<typename R, typename Base, typename Channel, typename... Args>
+x::errors::Error append(
+    std::vector<std::unique_ptr<Base>> &out,
+    std::vector<Channel> &&channels,
+    Args... args
+) {
+    if (channels.empty()) return x::errors::NIL;
+    auto [plan, err] = compile(channels);
+    if (err) return err;
+    out.push_back(std::make_unique<R>(args..., std::move(channels), std::move(plan)));
+    return x::errors::NIL;
 }
 }

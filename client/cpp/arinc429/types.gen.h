@@ -57,7 +57,7 @@ struct ScanConfig : public ::synnax::task::ScanConfig {
 /// channel on one card.
 struct Properties {
     /// @brief backend is the driver library the card is reached through.
-    std::string backend = BACKEND_SIMULATED;
+    std::string backend;
     /// @brief card is the index of the card within its backend.
     std::uint16_t card = 0;
     /// @brief channel is the index of the channel on the card.

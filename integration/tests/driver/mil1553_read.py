@@ -32,7 +32,7 @@ class MIL1553Read(CardCase):
     bus sets those words. The terminal answers busy until it has words, so the task
     may warn at first."""
 
-    sim_classes = [BusController, RemoteTerminal]
+    device_classes = [BusController, RemoteTerminal]
     prefix = "mil1553_read"
     status: Bound
 

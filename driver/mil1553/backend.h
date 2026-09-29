@@ -58,7 +58,8 @@ struct Info {
 };
 
 /// @brief Channel is one open MIL-STD-1553 channel in the role its properties name.
-/// Safe to use from one thread at a time.
+/// Safe to use from one thread at a time, except that read may run at the same time
+/// as other calls.
 class Channel {
 public:
     virtual ~Channel() = default;

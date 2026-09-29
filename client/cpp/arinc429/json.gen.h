@@ -23,7 +23,7 @@ namespace synnax::arinc429 {
 
 inline Properties Properties::parse(x::json::Parser parser) {
     return Properties{
-        .backend = parser.field<std::string>("backend", "simulated"),
+        .backend = parser.field<std::string>("backend"),
         .card = parser.field<std::uint16_t>("card", 0),
         .channel = parser.field<std::uint16_t>("channel", 0),
         .speed = parser.field<std::string>("speed", "high"),

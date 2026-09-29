@@ -69,7 +69,8 @@ class Backend {
 public:
     virtual ~Backend() = default;
 
-    /// @brief opens the channel the properties name.
+    /// @brief opens the channel the properties name. resolve must have accepted the
+    /// properties.
     /// @returns the load error of the vendor library when it is missing, or
     /// CONFIGURATION_ERROR when the channel cannot be opened in the direction.
     virtual std::pair<std::unique_ptr<Channel>, x::errors::Error>

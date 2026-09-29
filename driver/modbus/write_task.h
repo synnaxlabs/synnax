@@ -200,29 +200,13 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
         });
         channel::sort_by_address(coils);
         channel::sort_by_address(holding_registers);
-        if (!coils.empty()) {
-            auto [plan, err] = channel::compile(coils);
-            if (err) {
-                cfg.field_err("channels", err);
-                return;
-            }
-            writers.push_back(
-                std::make_unique<CoilWriter>(std::move(coils), std::move(plan))
-            );
-        }
-        if (!holding_registers.empty()) {
-            auto [plan, err] = channel::compile(holding_registers);
-            if (err) {
-                cfg.field_err("channels", err);
-                return;
-            }
-            writers.push_back(
-                std::make_unique<RegisterWriter>(
-                    std::move(holding_registers),
-                    std::move(plan)
-                )
-            );
-        }
+        for (const auto &err:
+             {channel::append<CoilWriter>(this->writers, std::move(coils)),
+              channel::append<RegisterWriter>(
+                  this->writers,
+                  std::move(holding_registers)
+              )})
+            if (err) cfg.field_err("channels", err);
     }
 
     /// @returns the keys of all command channels used by the writer.

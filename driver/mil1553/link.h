@@ -27,7 +27,8 @@
 namespace driver::mil1553 {
 /// @brief the channel of one device, shared by the device's read and write tasks. The
 /// channel opens on first use and reopens after any error of the card. Safe for
-/// concurrent use: calls run one at a time.
+/// concurrent use: read waits without blocking other calls, and every other call runs
+/// one at a time.
 class Link {
 public:
     /// @param backend opens the channel.
@@ -45,8 +46,7 @@ public:
         std::span<const std::uint16_t> words
     );
 
-    /// @brief reads the transfers seen since the last read. See Channel::read. It
-    /// blocks other calls for up to timeout.
+    /// @brief reads the transfers seen since the last read. See Channel::read.
     std::pair<bus::Batch, x::errors::Error>
     read(std::span<Transfer> out, x::telem::TimeSpan timeout);
 
@@ -61,10 +61,10 @@ private:
     std::shared_ptr<Backend> backend;
     synnax::mil1553::Properties props;
     std::mutex mu;
-    std::unique_ptr<Channel> channel;
+    std::shared_ptr<Channel> channel;
 
     /// @returns the open channel. The caller holds mu.
-    std::pair<Channel *, x::errors::Error> opened();
+    std::pair<std::shared_ptr<Channel>, x::errors::Error> opened();
 };
 
 /// @brief the links of the MIL-STD-1553 integration, one per device.

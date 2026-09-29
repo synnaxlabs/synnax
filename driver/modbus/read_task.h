@@ -266,62 +266,29 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             discrete_inputs[i].ch = synnax_channels
                 [i + holding_registers.size() + input_registers.size() + coils.size()];
 
-        if (!holding_registers.empty()) {
-            auto [plan, err] = channel::compile(holding_registers);
-            if (err) {
-                cfg.field_err("channels", err);
-                return;
-            }
-            readers.push_back(
-                std::make_unique<RegisterReader>(
-                    device::HoldingRegister,
-                    std::move(holding_registers),
-                    std::move(plan)
-                )
-            );
-        }
-        if (!input_registers.empty()) {
-            auto [plan, err] = channel::compile(input_registers);
-            if (err) {
-                cfg.field_err("channels", err);
-                return;
-            }
-            readers.push_back(
-                std::make_unique<RegisterReader>(
-                    device::InputRegister,
-                    std::move(input_registers),
-                    std::move(plan)
-                )
-            );
-        }
-        if (!coils.empty()) {
-            auto [plan, err] = channel::compile(coils);
-            if (err) {
-                cfg.field_err("channels", err);
-                return;
-            }
-            readers.push_back(
-                std::make_unique<BitReader>(
-                    device::Coil,
-                    std::move(coils),
-                    std::move(plan)
-                )
-            );
-        }
-        if (!discrete_inputs.empty()) {
-            auto [plan, err] = channel::compile(discrete_inputs);
-            if (err) {
-                cfg.field_err("channels", err);
-                return;
-            }
-            readers.push_back(
-                std::make_unique<BitReader>(
-                    device::DiscreteInput,
-                    std::move(discrete_inputs),
-                    std::move(plan)
-                )
-            );
-        }
+        for (const auto &append_err: {
+                 channel::append<RegisterReader>(
+                     this->readers,
+                     std::move(holding_registers),
+                     device::HoldingRegister
+                 ),
+                 channel::append<RegisterReader>(
+                     this->readers,
+                     std::move(input_registers),
+                     device::InputRegister
+                 ),
+                 channel::append<BitReader>(
+                     this->readers,
+                     std::move(coils),
+                     device::Coil
+                 ),
+                 channel::append<BitReader>(
+                     this->readers,
+                     std::move(discrete_inputs),
+                     device::DiscreteInput
+                 ),
+             })
+            if (append_err) cfg.field_err("channels", append_err);
         for (const auto &ch: synnax_channels)
             if (ch.index != 0) this->indexes.insert(ch.index);
     }

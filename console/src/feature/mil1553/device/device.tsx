@@ -95,6 +95,7 @@ export const { MAKE, useConnectModal, Select, COMMANDS } = Bus.createDevice({
   Properties,
   getModel: ({ backend }) => backend,
   getLocation: ({ card, channel }) => `Card ${card}, channel ${channel}`,
+  required: { backend: "Select a backend" },
   validate: ({ role, terminals }) =>
     role === "remote_terminal" && terminals.length === 0
       ? { terminals: "Select at least one terminal" }

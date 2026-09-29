@@ -129,7 +129,7 @@ class Device(device.Device):
     def __init__(
         self,
         *,
-        backend: Backend = "simulated",
+        backend: Backend,
         card: int = 0,
         channel: int = 0,
         role: Role = "monitor",

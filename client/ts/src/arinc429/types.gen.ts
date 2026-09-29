@@ -29,7 +29,7 @@ export type Speed = z.infer<typeof speedZ>;
  */
 export const propertiesZ = z.object({
   /** backend is the driver library the card is reached through. */
-  backend: backendZ.default("simulated"),
+  backend: backendZ,
   /** card is the index of the card within its backend. */
   card: zod.uint16.default(0),
   /** channel is the index of the channel on the card. */

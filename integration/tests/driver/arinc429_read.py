@@ -28,7 +28,7 @@ class ARINC429Read(CardCase):
     SDI, which the task must ignore. The status label does not match its SDI, so its
     field may use bits 9 and 10."""
 
-    sim_classes = [ARINC429Card]
+    device_classes = [ARINC429Card]
     prefix = "arinc429_read"
     altitude: Bound
     status: Bound

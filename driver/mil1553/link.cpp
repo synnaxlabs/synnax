@@ -12,13 +12,13 @@
 #include "driver/mil1553/link.h"
 
 namespace driver::mil1553 {
-std::pair<Channel *, x::errors::Error> Link::opened() {
+std::pair<std::shared_ptr<Channel>, x::errors::Error> Link::opened() {
     if (this->channel == nullptr) {
         auto [ch, err] = this->backend->open(this->props);
         if (err) return {nullptr, err};
         this->channel = std::move(ch);
     }
-    return {this->channel.get(), x::errors::NIL};
+    return {this->channel, x::errors::NIL};
 }
 
 x::errors::Error Link::open() {
@@ -40,11 +40,15 @@ std::pair<Transfer, x::errors::Error> Link::transact(
 
 std::pair<bus::Batch, x::errors::Error>
 Link::read(const std::span<Transfer> out, const x::telem::TimeSpan timeout) {
-    std::lock_guard lock(this->mu);
+    std::unique_lock lock(this->mu);
     auto [ch, err] = this->opened();
     if (err) return {bus::Batch{}, err};
+    lock.unlock();
     auto res = ch->read(out, timeout);
-    if (res.second) this->channel.reset();
+    if (!res.second) return res;
+    lock.lock();
+    // Another call may have reopened the channel during the read.
+    if (this->channel == ch) this->channel.reset();
     return res;
 }
 

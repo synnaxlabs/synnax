@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <array>
 #include <span>
 #include <string>
 #include <utility>
@@ -16,15 +17,15 @@
 
 namespace driver::mil1553 {
 namespace {
-/// @returns the transfer as it moved on the bus: the command word, the status word
-/// when answered, and the data words, each big-endian.
-std::vector<std::uint8_t> raw_frame(const Transfer &t) {
-    std::vector<std::uint16_t> words{t.command.encode()};
-    if (t.answered) words.push_back(t.status.encode());
-    words.insert(words.end(), t.words.begin(), t.words.begin() + t.count());
-    std::vector<std::uint8_t> out;
-    codec::mil1553::to_payload(words, out);
-    return out;
+/// @brief writes the transfer as it moved on the bus into out: the command word, the
+/// status word when answered, and the data words, each big-endian.
+void raw_frame(const Transfer &t, std::vector<std::uint8_t> &out) {
+    std::array<std::uint16_t, codec::mil1553::MAX_WORDS + 2> words{};
+    std::size_t n = 0;
+    words[n++] = t.command.encode();
+    if (t.answered) words[n++] = t.status.encode();
+    std::copy_n(t.words.begin(), t.count(), words.begin() + n);
+    codec::mil1553::to_payload(std::span(words.data(), n + t.count()), out);
 }
 }
 
@@ -99,8 +100,10 @@ x::errors::Error Source::listen() {
         const auto &t = this->buf[i];
         if (const auto m = this->cfg.matcher.match(t.command))
             this->add(this->cfg.streamed[*m], t);
-        else
-            this->decoder.raw(raw_frame(t));
+        else {
+            raw_frame(t, this->payload);
+            this->decoder.raw(this->payload);
+        }
     }
     if (batch.dropped > 0)
         this->decoder.warn(
@@ -111,7 +114,8 @@ x::errors::Error Source::listen() {
 }
 
 void Source::add(const std::size_t message, const Transfer &t) {
-    this->decoder.raw(raw_frame(t));
+    raw_frame(t, this->payload);
+    this->decoder.raw(this->payload);
     if (!t.answered) {
         this->decoder.warn(address(t.command) + " did not answer");
         return;
@@ -121,7 +125,6 @@ void Source::add(const std::size_t message, const Transfer &t) {
     else if (t.status.busy)
         this->decoder.warn(address(t.command) + " was busy");
     if (t.count() == 0 || t.status.message_error) return;
-    this->payload.clear();
     codec::mil1553::to_payload(std::span(t.words.data(), t.count()), this->payload);
     this->decoder.decode(message, this->payload, t.time);
 }

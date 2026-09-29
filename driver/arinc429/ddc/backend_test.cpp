@@ -31,13 +31,6 @@ TEST(ToCard, ClearsTheParityBitForTheCardToGenerate) {
     EXPECT_EQ(to_card(codec::arinc429::Word(0x918C440D)), 0x118C440D);
 }
 
-TEST(Backend, RejectsAnUnknownSpeed) {
-    Backend b;
-    const auto [ch, err] = b.open({.speed = "medium"}, Direction::RECEIVE);
-    ASSERT_OCCURRED_AS(err, errors::CONFIGURATION_ERROR);
-    EXPECT_EQ(err.data, "unknown ARINC 429 speed medium");
-}
-
 TEST(Backend, FailsToOpenWithoutTheSDK) {
     Backend b;
     const auto [ch, err] = b.open({}, Direction::RECEIVE);

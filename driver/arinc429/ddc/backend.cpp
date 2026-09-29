@@ -189,26 +189,14 @@ public:
         return x::errors::NIL;
     }
 };
-
-std::pair<short, x::errors::Error> speed(const std::string &speed) {
-    if (speed == synnax::arinc429::SPEED_HIGH) return {sdk::HIGH_SPEED, x::errors::NIL};
-    if (speed == synnax::arinc429::SPEED_LOW) return {sdk::LOW_SPEED, x::errors::NIL};
-    return {
-        0,
-        x::errors::Error(
-            errors::CONFIGURATION_ERROR,
-            "unknown ARINC 429 speed " + speed
-        ),
-    };
-}
 }
 
 Backend::Backend(): cards(std::make_shared<Cards>()) {}
 
 std::pair<std::unique_ptr<arinc429::Channel>, x::errors::Error>
 Backend::open(const synnax::arinc429::Properties &props, const Direction direction) {
-    auto [spd, spd_err] = speed(props.speed);
-    if (spd_err) return {nullptr, spd_err};
+    const auto spd = props.speed == synnax::arinc429::SPEED_LOW ? sdk::LOW_SPEED
+                                                                : sdk::HIGH_SPEED;
     std::lock_guard lock(this->cards->mu);
     auto [api, load_err] = this->cards->load();
     if (load_err) return {nullptr, load_err};

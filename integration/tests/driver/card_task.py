@@ -15,7 +15,6 @@ from contextlib import ExitStack, contextmanager
 from typing import Any
 
 import numpy as np
-from examples.simulators.device_sim import DeviceSim
 
 import synnax as sy
 from synnax import arinc429, mil1553
@@ -29,21 +28,12 @@ type PeerTask = (
 )
 
 
-class Card(DeviceSim):
-    """A channel of a card the Driver simulates in process. Nothing runs outside the
-    Driver, so start and stop only register the device."""
+class Card:
+    """A channel of a card the Driver simulates in process. A case lists it in
+    device_classes, since nothing runs outside the Driver."""
 
-    host = "localhost"
-    port = 0
-
-    def start(self) -> None:
-        self._running = True
-
-    def stop(self, timeout: sy.TimeSpan = 5 * sy.TimeSpan.SECOND) -> None:
-        self._running = False
-
-    async def _run_server(self) -> None:
-        raise NotImplementedError("a simulated card has no server")
+    device_name: str
+    channel_names: tuple[str, ...] = ()
 
 
 class ARINC429Card(Card):
@@ -52,7 +42,10 @@ class ARINC429Card(Card):
     @staticmethod
     def create_device(rack_key: int) -> sy.Device:
         return arinc429.Device(
-            name=ARINC429Card.device_name, location="simulated", rack=rack_key
+            backend=arinc429.BACKEND_SIMULATED,
+            name=ARINC429Card.device_name,
+            location="simulated",
+            rack=rack_key,
         )
 
 
@@ -62,6 +55,7 @@ class BusController(Card):
     @staticmethod
     def create_device(rack_key: int) -> sy.Device:
         return mil1553.Device(
+            backend=mil1553.BACKEND_SIMULATED,
             name=BusController.device_name,
             location="simulated",
             rack=rack_key,
@@ -75,6 +69,7 @@ class RemoteTerminal(Card):
     @staticmethod
     def create_device(rack_key: int) -> sy.Device:
         return mil1553.Device(
+            backend=mil1553.BACKEND_SIMULATED,
             name=RemoteTerminal.device_name,
             location="simulated",
             rack=rack_key,
@@ -92,7 +87,7 @@ class CardCase(BusCase):
         self._peers: list[PeerTask] = []
 
     def device(self, card: type[Card]) -> sy.Device:
-        """Returns the device of a card in sim_classes."""
+        """Returns the device of a card in device_classes."""
         return self.client.devices.retrieve(name=card.device_name)
 
     def configure_peer[T: PeerTask](self, task: T) -> T:

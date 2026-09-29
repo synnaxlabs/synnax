@@ -61,13 +61,13 @@ x::errors::Error check_direction(
     const synnax::library::MessageEntry &message,
     const synnax::library::Mil1553Identifier &id,
     const std::string &direction,
-    const std::string &role
+    const std::string &role,
+    const std::string &verb
 ) {
     if (id.direction == direction) return x::errors::NIL;
     return invalid(
         message,
-        "must be a " + direction + " message for a " + role + " to " +
-            (direction == synnax::library::DIRECTION_TRANSMIT ? "read" : "send")
+        "must be a " + direction + " message for a " + role + " to " + verb
     );
 }
 
@@ -98,7 +98,8 @@ x::errors::Error check_read(
                 message,
                 id,
                 synnax::library::DIRECTION_TRANSMIT,
-                "bus controller"
+                "bus controller",
+                "read"
             ))
             return err;
         if (!message.period.has_value())
@@ -106,11 +107,14 @@ x::errors::Error check_read(
         return x::errors::NIL;
     }
     if (props.role == synnax::mil1553::ROLE_REMOTE_TERMINAL) {
-        if (id.direction != synnax::library::DIRECTION_RECEIVE)
-            return invalid(
+        if (const auto err = check_direction(
                 message,
-                "must be a receive message for a remote terminal to read"
-            );
+                id,
+                synnax::library::DIRECTION_RECEIVE,
+                "remote terminal",
+                "read"
+            ))
+            return err;
         return check_owned(message, id, props);
     }
     return x::errors::NIL;
@@ -130,14 +134,18 @@ x::errors::Error check_write(
             message,
             id,
             synnax::library::DIRECTION_RECEIVE,
-            "bus controller"
+            "bus controller",
+            "send"
         );
     if (props.role == synnax::mil1553::ROLE_REMOTE_TERMINAL) {
-        if (id.direction != synnax::library::DIRECTION_TRANSMIT)
-            return invalid(
+        if (const auto err = check_direction(
                 message,
-                "must be a transmit message for a remote terminal to answer with"
-            );
+                id,
+                synnax::library::DIRECTION_TRANSMIT,
+                "remote terminal",
+                "answer with"
+            ))
+            return err;
         return check_owned(message, id, props);
     }
     return invalid(message, "cannot be sent by a monitor");

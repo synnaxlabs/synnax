@@ -40,6 +40,12 @@ synnax::library::MessageEntry create_message(const std::uint8_t sdi) {
     );
 }
 
+/// @returns the status message of a validation error with message at path.
+std::string validation(const std::string &path, const std::string &message) {
+    const x::json::json err{{"message", message}, {"path", path}};
+    return "[sy.validation] " + x::json::json{{"errors", {err}}}.dump();
+}
+
 class ARINC429Task : public ::testing::Test {
 protected:
     Core core;
@@ -48,6 +54,7 @@ protected:
     [[nodiscard]] std::string
     create_device(const std::string &speed = synnax::arinc429::SPEED_HIGH) const {
         synnax::arinc429::Properties props;
+        props.backend = synnax::arinc429::BACKEND_SIMULATED;
         props.speed = speed;
         return this->core.create_device(MAKE, props.to_json());
     }
@@ -143,7 +150,18 @@ TEST_F(ARINC429Task, RejectsADeviceWithAnUnknownSpeed) {
         cfg
     ) = core.read_config(lib, this->create_device("medium"));
     EXPECT_EQ(this->configure(READ_TASK_TYPE, cfg.to_json()), nullptr);
-    EXPECT_NE(this->error().find("unknown ARINC 429 speed medium"), std::string::npos);
+    EXPECT_EQ(this->error(), validation("device", "unknown ARINC 429 speed medium"));
+}
+
+TEST_F(ARINC429Task, RejectsADeviceWithoutABackend) {
+    const auto lib = core.create_library({create_message(1)});
+    synnax::arinc429::ReadConfig cfg;
+    static_cast<::synnax::bus::ReadConfig &>(cfg) = core.read_config(
+        lib,
+        this->core.create_device(MAKE, {{"speed", synnax::arinc429::SPEED_HIGH}})
+    );
+    EXPECT_EQ(this->configure(READ_TASK_TYPE, cfg.to_json()), nullptr);
+    EXPECT_EQ(this->error(), validation("backend", "This field is required"));
 }
 
 TEST_F(ARINC429Task, RejectsAMessageWithoutALabel) {
@@ -155,9 +173,12 @@ TEST_F(ARINC429Task, RejectsAMessageWithoutALabel) {
         cfg
     ) = core.read_config(lib, this->create_device());
     EXPECT_EQ(this->configure(READ_TASK_TYPE, cfg.to_json()), nullptr);
-    EXPECT_NE(
-        this->error().find("ARINC 429 messages need an identifier"),
-        std::string::npos
+    EXPECT_EQ(
+        this->error(),
+        validation(
+            "messages.0.message",
+            "message m: ARINC 429 messages need an identifier"
+        )
     );
 }
 
@@ -169,7 +190,13 @@ TEST_F(ARINC429Task, RejectsAWriteMessageWithAFieldOutsideTheData) {
         this->create_device()
     );
     EXPECT_EQ(t, nullptr);
-    EXPECT_NE(this->error().find("must lie in bits"), std::string::npos);
+    EXPECT_EQ(
+        this->error(),
+        validation(
+            "messages.0.message",
+            "message altitude_1: field v must lie in bits 11 to 31"
+        )
+    );
 }
 
 TEST_F(ARINC429Task, ScansTheSimulatedChannel) {

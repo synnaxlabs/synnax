@@ -45,7 +45,7 @@ class Properties(BaseModel):
         speed: Is the bit rate of the channel.
     """
 
-    backend: Backend = "simulated"
+    backend: Backend
     card: int = Field(default=0, ge=0, le=65535)
     channel: int = Field(default=0, ge=0, le=65535)
     speed: Speed = "high"

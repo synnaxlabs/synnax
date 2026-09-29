@@ -31,7 +31,7 @@ Speed enum {
 }
 
 Properties struct {
-    backend Backend = simulated {
+    backend Backend {
         @doc value "is the driver library the card is reached through."
     }
     card    uint16 = 0 {

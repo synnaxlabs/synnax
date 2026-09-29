@@ -75,9 +75,6 @@ type Properties struct {
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (p *Properties) ApplyDefaults() {
-	if p.Backend == "" {
-		p.Backend = BackendSimulated
-	}
 	if p.Role == "" {
 		p.Role = RoleMonitor
 	}
