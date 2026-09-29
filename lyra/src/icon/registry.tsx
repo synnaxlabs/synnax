@@ -183,7 +183,6 @@ import {
   MdTypeSpecimen,
   MdUndo,
   MdVerticalDistribute,
-  MdVisibility,
   MdWorkspacesFilled,
 } from "react-icons/md";
 import {
@@ -538,7 +537,6 @@ export const Bridge = wrapSVGIcon(FaBridge, "bridge");
 export const Sound = wrapSVGIcon(FaMicrophone, "sound");
 export const Function = wrapSVGIcon(TbMathFunction, "function");
 export const Visible = wrapSVGIcon(MdOutlineVisibility, "visible");
-export const VisibleFilled = wrapSVGIcon(MdVisibility, "visible-filled");
 export const Hidden = wrapSVGIcon(MdOutlineVisibilityOff, "invisible");
 export const Virtual = wrapSVGIcon(TbCircleLetterVFilled, "virtual");
 export const Explore = wrapSVGIcon(MdOutlineExplore, "explore");
@@ -725,7 +723,6 @@ const icons = {
   Sound,
   Function,
   Visible,
-  VisibleFilled,
   Hidden,
   Virtual,
   Explore,
