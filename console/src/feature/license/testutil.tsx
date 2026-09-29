@@ -15,14 +15,12 @@ import { type PropsWithChildren, type ReactElement } from "react";
 import { Guard } from "@/feature/license/Guard";
 import { createConsoleWrapper, type TestStore } from "@/testutil";
 
-/** The text the guarded children render, so a spec can tell whether they show. */
 export const GUARDED_CONTENT = "licensed content";
 
 /**
  * Renders a {@link Guard} over {@link GUARDED_CONTENT} with the given client and
- * connection status, and returns the backing store. The client is handed to the
- * provider unconnected: a Core that refuses requests for want of a license never
- * settles a connection, so the screen must not wait on one.
+ * connection status, and returns the backing store. The client stays unconnected,
+ * because an unlicensed Core never settles a connection.
  */
 export const renderGuard = async (
   client: Client | null,

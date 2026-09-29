@@ -14,9 +14,7 @@ import { errors } from "@synnaxlabs/x";
 import { useState } from "react";
 
 export interface InfoResult {
-  /** The Core's license state, once retrieved. */
   info?: license.Info;
-  /** Why the state could not be retrieved. */
   error?: Error;
 }
 

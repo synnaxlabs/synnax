@@ -9,7 +9,6 @@
 
 import { connection, license, MissingLicenseError } from "@synnaxlabs/client";
 
-/** The status of a client whose Core refuses requests for want of a license. */
 export const UNLICENSED_STATUS: connection.Status = {
   ...connection.DEFAULT_STATUS,
   variant: "error",
