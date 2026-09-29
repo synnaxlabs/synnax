@@ -126,14 +126,7 @@ func checkMessage(
 	}
 	known := make(set.Set[library.FieldKey], len(m.Fields))
 	for _, f := range m.Fields {
-		switch v := f.Variant.(type) {
-		case library.BinaryField:
-			known.Add(v.Key)
-		case library.DelimitedField:
-			known.Add(v.Key)
-		case library.TaggedField:
-			known.Add(v.Key)
-		}
+		known.Add(f.Base().Key)
 	}
 	for j, f := range fields {
 		if !known.Contains(f) {
