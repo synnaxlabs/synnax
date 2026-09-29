@@ -557,6 +557,9 @@ importers:
       prettier-plugin-toml:
         specifier: 'catalog:'
         version: 3.0.2(prettier@3.9.9)
+      stylelint-config-standard:
+        specifier: 'catalog:'
+        version: 40.0.0(stylelint@17.15.0(typescript@7.0.2))
       turbo:
         specifier: 'catalog:'
         version: 2.11.4
@@ -700,7 +703,7 @@ importers:
     dependencies:
       stylelint-config-standard:
         specifier: 'catalog:'
-        version: 40.0.0(stylelint@17.15.0(supports-color@10.2.2)(typescript@7.0.2))
+        version: 40.0.0(stylelint@17.15.0(typescript@7.0.2))
     devDependencies:
       '@synnaxlabs/eslint-config':
         specifier: 'catalog:'
@@ -15146,14 +15149,14 @@ snapshots:
       inline-style-parser: 0.2.7
     optional: true
 
-  stylelint-config-recommended@18.0.0(stylelint@17.15.0(supports-color@10.2.2)(typescript@7.0.2)):
+  stylelint-config-recommended@18.0.0(stylelint@17.15.0(typescript@7.0.2)):
     dependencies:
       stylelint: 17.15.0(supports-color@10.2.2)(typescript@7.0.2)
 
-  stylelint-config-standard@40.0.0(stylelint@17.15.0(supports-color@10.2.2)(typescript@7.0.2)):
+  stylelint-config-standard@40.0.0(stylelint@17.15.0(typescript@7.0.2)):
     dependencies:
       stylelint: 17.15.0(supports-color@10.2.2)(typescript@7.0.2)
-      stylelint-config-recommended: 18.0.0(stylelint@17.15.0(supports-color@10.2.2)(typescript@7.0.2))
+      stylelint-config-recommended: 18.0.0(stylelint@17.15.0(typescript@7.0.2))
 
   stylelint@17.15.0(supports-color@10.2.2)(typescript@6.0.3):
     dependencies:

@@ -3,7 +3,8 @@
   "rules": { "cycles": "error" },
   "workspaces": {
     ".": {
-      "ignoreBinaries": ["algolia", "check-site"]
+      "ignoreBinaries": ["algolia", "check-site"],
+      "ignoreDependencies": ["stylelint-config-standard"]
     },
     "alamos/ts": {
       "entry": ["src/index.ts", "src/dev/index.ts"],

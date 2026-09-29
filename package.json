@@ -136,6 +136,7 @@
     "prettier-plugin-astro": "catalog:",
     "prettier-plugin-sh": "catalog:",
     "prettier-plugin-toml": "catalog:",
+    "stylelint-config-standard": "catalog:",
     "turbo": "catalog:"
   },
   "devEngines": {
