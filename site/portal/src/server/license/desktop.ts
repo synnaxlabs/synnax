@@ -118,6 +118,7 @@ export const link = async (
         .set({ revokedAt: old.license.revokedAt ?? now })
         .where(eq(license.key, old.license.key));
       await tx.insert(event).values({
+        at: now,
         kind: "unlink",
         actor: userID,
         organization: org.key,
@@ -152,6 +153,7 @@ export const link = async (
       })
       .returning();
     await tx.insert(event).values({
+      at: now,
       kind: "link",
       actor: userID,
       organization: org.key,
@@ -208,6 +210,7 @@ export const renew = async (
     .set({ lastSeen: now })
     .where(eq(activation.key, row.activation.key));
   await store.query.insert(event).values({
+    at: now,
     kind: "renew",
     actor: row.activation.key,
     organization: lic.organization,
@@ -255,6 +258,7 @@ export const unlink = async (
       .set({ revokedAt: row.license.revokedAt ?? now })
       .where(eq(license.key, row.license.key));
     await tx.insert(event).values({
+      at: now,
       kind: "unlink",
       actor,
       organization: row.license.organization,

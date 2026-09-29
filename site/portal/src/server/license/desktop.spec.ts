@@ -152,6 +152,7 @@ describe("desktop ledger", () => {
       const linked = await linkMachine();
       expect(await eventsOf("link")).toEqual([
         expect.objectContaining({
+          at: NOW,
           actor: "user_a",
           organization: linked.license.organization,
           license: linked.license.key,
@@ -171,6 +172,7 @@ describe("desktop ledger", () => {
       expect((await licenseRow(first.license.key)).revokedAt).toEqual(LATER);
       expect(await eventsOf("unlink")).toEqual([
         expect.objectContaining({
+          at: LATER,
           actor: "user_a",
           license: first.license.key,
           activation: first.activation.key,
@@ -296,6 +298,7 @@ describe("desktop ledger", () => {
       await renew(store, signer(), { machine, now: RENEWED });
       expect(await eventsOf("renew")).toEqual([
         expect.objectContaining({
+          at: RENEWED,
           actor: linked.activation.key,
           organization: linked.license.organization,
           license: linked.license.key,
@@ -338,6 +341,7 @@ describe("desktop ledger", () => {
       expect((await licenseRow(linked.license.key)).revokedAt).toEqual(LATER);
       expect(await eventsOf("unlink")).toEqual([
         expect.objectContaining({
+          at: LATER,
           actor: "user_a",
           license: linked.license.key,
           activation: linked.activation.key,
