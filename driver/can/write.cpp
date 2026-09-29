@@ -8,19 +8,42 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <limits>
 #include <string>
 #include <utility>
 
 #include "driver/can/write.h"
 
 namespace driver::can {
-Transmitter::Transmitter(const bus::WriteConfig &cfg, Acquire acquire):
-    acquirer(std::move(acquire)) {
+std::vector<Frame>
+frames(const x::json::Parser &parser, const bus::WriteConfig &cfg, const bool fd) {
+    std::vector<Frame> out;
     for (const auto &m: cfg.messages) {
         const auto &id = std::get<synnax::library::CanIdentifier>(*m.entry.identifier);
-        this->frames.push_back({.id = id.id, .extended = id.extended, .fd = id.fd});
+        const auto length = m.plan.length();
+        if (length > std::numeric_limits<std::uint8_t>::max()) {
+            parser.field_err(
+                "messages",
+                "message " + m.entry.name + " is " + std::to_string(length) +
+                    " bytes, longer than any CAN frame"
+            );
+            continue;
+        }
+        const Frame frame{
+            .id = id.id,
+            .extended = id.extended,
+            .fd = id.fd,
+            .length = static_cast<std::uint8_t>(length),
+        };
+        if (const auto err = validate(frame, fd))
+            parser.field_err("messages", "message " + m.entry.name + ": " + err.data);
+        out.push_back(frame);
     }
+    return out;
 }
+
+Transmitter::Transmitter(std::vector<Frame> frames, Acquire acquire):
+    frames(std::move(frames)), acquirer(std::move(acquire)) {}
 
 x::errors::Error Transmitter::acquire() {
     auto [link, err] = this->acquirer();

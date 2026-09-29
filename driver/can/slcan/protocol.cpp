@@ -14,49 +14,23 @@
 
 namespace driver::can::slcan {
 namespace {
-struct Rate {
-    std::uint32_t bitrate;
-    const char *command;
-};
-
-constexpr std::array<Rate, 10> BITRATES = {{
-    {10000, "S0"},
-    {20000, "S1"},
-    {50000, "S2"},
-    {100000, "S3"},
-    {125000, "S4"},
-    {250000, "S5"},
-    {500000, "S6"},
-    {750000, "S7"},
-    {1000000, "S8"},
-    {83333, "S9"},
+constexpr std::array<std::pair<std::uint32_t, std::string_view>, 10> BITRATES = {{
+    {10000, "S0\r"},
+    {20000, "S1\r"},
+    {50000, "S2\r"},
+    {100000, "S3\r"},
+    {125000, "S4\r"},
+    {250000, "S5\r"},
+    {500000, "S6\r"},
+    {750000, "S7\r"},
+    {1000000, "S8\r"},
+    {83333, "S9\r"},
 }};
 
-constexpr std::array<Rate, 2> DATA_BITRATES = {{
-    {2000000, "Y2"},
-    {5000000, "Y5"},
+constexpr std::array<std::pair<std::uint32_t, std::string_view>, 2> DATA_BITRATES = {{
+    {2000000, "Y2\r"},
+    {5000000, "Y5\r"},
 }};
-
-template<std::size_t N>
-std::pair<std::string, x::errors::Error> command(
-    const std::array<Rate, N> &rates,
-    const std::uint32_t bitrate,
-    const std::string &kind
-) {
-    std::string supported;
-    for (const auto &rate: rates) {
-        if (rate.bitrate == bitrate)
-            return {std::string(rate.command) + "\r", x::errors::NIL};
-        if (!supported.empty()) supported += ", ";
-        supported += std::to_string(rate.bitrate);
-    }
-    return {
-        "",
-        {CONFIG_ERROR,
-         "slcan has no " + kind + " of " + std::to_string(bitrate) +
-             " bit/s. Supported: " + supported}
-    };
-}
 
 std::optional<std::uint8_t> hex_digit(const char c) {
     if (c >= '0' && c <= '9') return c - '0';
@@ -84,12 +58,22 @@ x::errors::Error malformed(const std::string_view line, const std::string &reaso
 }
 
 std::pair<std::string, x::errors::Error> bitrate_command(const std::uint32_t bitrate) {
-    return command(BITRATES, bitrate, "bitrate");
+    auto [command, err] = find_bitrate(
+        BITRATES,
+        bitrate,
+        "slcan cannot run a classic CAN bus"
+    );
+    return {std::string(command), err};
 }
 
 std::pair<std::string, x::errors::Error>
 data_bitrate_command(const std::uint32_t bitrate) {
-    return command(DATA_BITRATES, bitrate, "data bitrate");
+    auto [command, err] = find_bitrate(
+        DATA_BITRATES,
+        bitrate,
+        "slcan cannot run a CAN FD data phase"
+    );
+    return {std::string(command), err};
 }
 
 std::string open_command(const bool listen_only) {

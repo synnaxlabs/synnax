@@ -198,6 +198,56 @@ TEST_F(GsUsbTest, SendsAHostFrameWithACyclingEchoId) {
     EXPECT_EQ(u32(this->api->out[1], 4), 0x101);
 }
 
+TEST_F(GsUsbTest, SharesTheAdapterBetweenItsChannels) {
+    auto first = this->open(props("ABC123:0"));
+    auto second = this->open(props("ABC123:1"));
+    EXPECT_EQ(this->api->controls_of(Request::DEVICE_CONFIG).size(), 1);
+    ASSERT_NIL(first->close());
+    EXPECT_TRUE(this->api->devices[0].claimed);
+    EXPECT_TRUE(this->api->devices[0].open);
+    ASSERT_NIL(second->close());
+    EXPECT_FALSE(this->api->devices[0].claimed);
+    EXPECT_FALSE(this->api->devices[0].open);
+}
+
+TEST_F(GsUsbTest, RejectsASecondBusOnAnOpenChannel) {
+    auto bus = this->open();
+    auto [second, err] = this->backend.open(props());
+    ASSERT_MATCHES(err, TEMPORARY_HARDWARE_ERROR);
+    EXPECT_EQ(err.data, "ABC123:0: the channel is in use");
+}
+
+TEST_F(GsUsbTest, ReopensAChannelAfterItCloses) {
+    ASSERT_NIL(this->open()->close());
+    auto bus = this->open();
+    EXPECT_TRUE(this->api->devices[0].claimed);
+}
+
+TEST_F(GsUsbTest, RoutesEachFrameToTheBusOfItsChannel) {
+    auto first = this->open(props("ABC123:0"));
+    auto second = this->open(props("ABC123:1"));
+    this->api->in.push_back(received(0x21, 0, 1));
+    this->api->in.push_back(received(0x20, 0, 0));
+    Frame frame;
+    ASSERT_TRUE(ASSERT_NIL_P(first->receive(frame, x::telem::SECOND)));
+    EXPECT_EQ(frame.id, 0x20);
+    ASSERT_TRUE(ASSERT_NIL_P(second->receive(frame, x::telem::SECOND)));
+    EXPECT_EQ(frame.id, 0x21);
+}
+
+TEST_F(GsUsbTest, DropsTheOldestFramesOfAChannelThatIsNotReceiving) {
+    auto first = this->open(props("ABC123:0"));
+    auto second = this->open(props("ABC123:1"));
+    for (std::uint32_t id = 0; id <= MAX_QUEUED; id++)
+        this->api->in.push_back(received(id, 0, 1));
+    this->api->in.push_back(received(0x7FF, 0, 0));
+    Frame frame;
+    ASSERT_TRUE(ASSERT_NIL_P(first->receive(frame, x::telem::SECOND)));
+    EXPECT_EQ(frame.id, 0x7FF);
+    ASSERT_TRUE(ASSERT_NIL_P(second->receive(frame, x::telem::SECOND)));
+    EXPECT_EQ(frame.id, 1);
+}
+
 TEST_F(GsUsbTest, ResetsReleasesAndClosesOnClose) {
     auto bus = this->open();
     ASSERT_NIL(bus->close());

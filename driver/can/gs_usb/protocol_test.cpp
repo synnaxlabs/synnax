@@ -18,9 +18,7 @@
 namespace driver::can::gs_usb {
 namespace {
 std::vector<std::uint8_t> encode(const Frame &frame, const std::uint32_t echo = 0) {
-    std::array<std::uint8_t, MAX_FRAME_SIZE> buffer{};
-    const auto size = encode_frame(frame, echo, 1, buffer);
-    return {buffer.begin(), buffer.begin() + static_cast<std::ptrdiff_t>(size)};
+    return encode_frame(frame, echo, 1);
 }
 }
 
@@ -151,14 +149,14 @@ TEST(GsUsbControl, DecodesTheBitTimingConstants) {
 
 TEST(GsUsbControl, SplitsTimeSegmentOneIntoPropagationAndPhase) {
     const auto body = encode_bittiming({.brp = 6, .tseg1 = 13, .tseg2 = 2, .sjw = 1});
-    const std::array<std::uint8_t, 20> expected = {
+    const std::vector<std::uint8_t> expected = {
         6, 0, 0, 0, 7, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 6, 0, 0, 0,
     };
     EXPECT_EQ(body, expected);
 }
 
 TEST(GsUsbControl, EncodesAMode) {
-    const std::array<std::uint8_t, 8> expected = {1, 0, 0, 0, 0x11, 0x01, 0, 0};
+    const std::vector<std::uint8_t> expected = {1, 0, 0, 0, 0x11, 0x01, 0, 0};
     EXPECT_EQ(
         encode_mode(
             MODE_START,

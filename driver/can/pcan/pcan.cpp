@@ -8,10 +8,8 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
-#include <chrono>
 #include <cstring>
 #include <format>
-#include <thread>
 
 #include "absl/log/log.h"
 
@@ -124,17 +122,7 @@ std::optional<TPCANHandle> parse_channel(const std::string &name) {
 }
 
 std::pair<TPCANBaudrate, x::errors::Error> baud_code(const std::uint32_t bitrate) {
-    std::string supported;
-    for (const auto &[rate, code]: BAUD_CODES) {
-        if (rate == bitrate) return {code, x::errors::NIL};
-        supported += (supported.empty() ? "" : ", ") + std::to_string(rate);
-    }
-    return {
-        0,
-        {CONFIG_ERROR,
-         "PCAN-Basic cannot run a classic CAN bus at " + std::to_string(bitrate) +
-             " bit/s. Supported bitrates: " + supported}
-    };
+    return find_bitrate(BAUD_CODES, bitrate, "PCAN-Basic cannot run a classic CAN bus");
 }
 
 std::pair<std::string, x::errors::Error>
@@ -168,11 +156,7 @@ Bus::Bus(
     const bool fd,
     const bool listen_only
 ):
-    api(std::move(api)),
-    handle(handle),
-    name(std::move(name)),
-    fd(fd),
-    listen_only(listen_only) {}
+    can::Bus(std::move(name), fd, listen_only), api(std::move(api)), handle(handle) {}
 
 Bus::~Bus() {
     this->close();
@@ -180,7 +164,10 @@ Bus::~Bus() {
 
 std::pair<bool, x::errors::Error>
 Bus::receive(Frame &frame, const x::telem::TimeSpan timeout) {
-    const auto deadline = std::chrono::steady_clock::now() + timeout.chrono();
+    return poll_queue(timeout, POLL_INTERVAL, [&] { return this->take(frame); });
+}
+
+std::optional<std::pair<bool, x::errors::Error>> Bus::take(Frame &frame) {
     while (true) {
         TPCANStatus status;
         TPCANMessageType type = 0;
@@ -209,10 +196,13 @@ Bus::receive(Frame &frame, const x::telem::TimeSpan timeout) {
         }
         if (status == PCAN_ERROR_OK) {
             if ((type & PCAN_MESSAGE_STATUS) != 0) continue;
-            return {true, x::errors::NIL};
+            return std::pair{true, x::errors::NIL};
         }
         if ((status & PCAN_ERROR_BUSOFF) != 0)
-            return {false, {TEMPORARY_HARDWARE_ERROR, this->name + ": bus off"}};
+            return std::pair{
+                false,
+                x::errors::Error(TEMPORARY_HARDWARE_ERROR, this->name + ": bus off")
+            };
         if ((status & (PCAN_ERROR_OVERRUN | PCAN_ERROR_QOVERRUN)) != 0) {
             LOG(WARNING) << "[can] " << this->name
                          << ": receive queue overran and frames were lost";
@@ -221,23 +211,18 @@ Bus::receive(Frame &frame, const x::telem::TimeSpan timeout) {
         constexpr TPCANStatus idle = PCAN_ERROR_QRCVEMPTY | PCAN_ERROR_BUSLIGHT |
                                      PCAN_ERROR_BUSHEAVY | PCAN_ERROR_BUSPASSIVE;
         if ((status & ~idle) != 0)
-            return {
+            return std::pair{
                 false,
-                {CRITICAL_HARDWARE_ERROR,
-                 this->name + ": " + describe(*this->api, status)}
+                x::errors::Error(
+                    CRITICAL_HARDWARE_ERROR,
+                    this->name + ": " + describe(*this->api, status)
+                )
             };
-        const auto now = std::chrono::steady_clock::now();
-        if (now >= deadline) return {false, x::errors::NIL};
-        std::this_thread::sleep_for(
-            std::min<std::chrono::nanoseconds>(POLL_INTERVAL.chrono(), deadline - now)
-        );
+        return std::nullopt;
     }
 }
 
-x::errors::Error Bus::send(const Frame &frame) {
-    if (this->listen_only)
-        return {LISTEN_ONLY_ERROR, "channel " + this->name + " is listen only"};
-    if (auto err = validate(frame, this->fd)) return err;
+x::errors::Error Bus::transmit(const Frame &frame) {
     TPCANStatus status;
     if (this->fd) {
         TPCANMsgFD msg{};
@@ -356,8 +341,6 @@ Backend::open(const synnax::can::Properties &props) {
 }
 
 std::shared_ptr<can::Backend> load() {
-    auto [api, err] = ProdAPI::load();
-    if (err) return std::make_shared<Unavailable>(err);
-    return std::make_shared<Backend>(api);
+    return or_unavailable<Backend>(ProdAPI::load());
 }
 }

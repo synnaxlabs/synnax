@@ -66,33 +66,6 @@ Result configure_read(
     };
 }
 
-/// @brief binds an error for each message whose frames the device's bus cannot send.
-void check_frames(
-    const x::json::Parser &parser,
-    const bus::WriteConfig &cfg,
-    const synnax::can::Properties &props
-) {
-    for (const auto &m: cfg.messages) {
-        const auto &id = std::get<synnax::library::CanIdentifier>(*m.entry.identifier);
-        if (id.fd && !props.fd) {
-            parser.field_err(
-                "messages",
-                "message " + m.entry.name + " is CAN FD, but the device's bus is not"
-            );
-            continue;
-        }
-        const auto length = m.plan.length();
-        const auto max = id.fd ? MAX_FD_LENGTH : MAX_CLASSIC_LENGTH;
-        if (length > max || !length_to_dlc(static_cast<std::uint8_t>(length)))
-            parser.field_err(
-                "messages",
-                "message " + m.entry.name + " is " + std::to_string(length) +
-                    " bytes, which is not a valid " + (id.fd ? "CAN FD" : "CAN") +
-                    " frame length"
-            );
-    }
-}
-
 Result configure_write(
     const std::shared_ptr<const Backends> &backends,
     const std::shared_ptr<Links> &links,
@@ -120,10 +93,10 @@ Result configure_write(
         bus::Medium::CAN
     );
     if (err) return {common::ConfigureResult{}, err};
-    check_frames(parser, resolved, props);
+    auto message_frames = frames(parser, resolved, props.fd);
     if (!parser.ok()) return {common::ConfigureResult{}, parser.error()};
     auto transmitter = std::make_unique<Transmitter>(
-        resolved,
+        std::move(message_frames),
         acquirer(links, cfg.device, backends, std::move(props))
     );
     return {
@@ -132,8 +105,7 @@ Result configure_write(
                 task,
                 ctx,
                 x::breaker::default_config(task.name),
-                std::make_unique<
-                    bus::Sink>(std::move(resolved), std::move(transmitter), ctx, task)
+                std::make_unique<bus::Sink>(std::move(resolved), std::move(transmitter))
             ),
             .auto_start = cfg.auto_start,
         },

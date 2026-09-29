@@ -13,3 +13,4 @@
 **/LabJackMModbusMap.h
 **/LJM_Utilities.h
 **/LJM_StreamUtilities.h
+driver/can/nixnet/official/nixnet.h

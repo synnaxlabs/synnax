@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <format>
 #include <string>
 
@@ -54,6 +55,39 @@ x::errors::Error validate(const Frame &frame, const bool fd) {
                 (frame.fd ? "CAN FD" : "classic CAN") + " length"
         };
     return x::errors::NIL;
+}
+
+x::errors::Error Bus::send(const Frame &frame) {
+    if (this->listen_only)
+        return {LISTEN_ONLY_ERROR, "channel " + this->name + " is listen only"};
+    if (auto err = validate(frame, this->fd)) return err;
+    return this->transmit(frame);
+}
+
+x::telem::TimeStamp
+Aligner::align(const x::telem::TimeStamp adapter, const x::telem::TimeStamp host) {
+    const auto measured = host - adapter;
+    if (!this->offset.has_value()) {
+        this->offset = this->target = this->smallest = measured;
+        this->window_start = this->last = adapter;
+        return host;
+    }
+    this->smallest = std::min(this->smallest, measured);
+    if (adapter - this->window_start >= WINDOW) {
+        this->target = this->smallest;
+        this->smallest = measured;
+        this->window_start = adapter;
+    }
+    const auto budget = std::max(adapter - this->last, x::telem::TimeSpan::ZERO()) /
+                        SLEW;
+    this->last = adapter;
+    auto &offset = *this->offset;
+    offset += std::clamp(
+        this->target - offset,
+        x::telem::TimeSpan::ZERO() - budget,
+        budget
+    );
+    return adapter + offset;
 }
 
 std::uint64_t Counter::extend(const std::uint32_t raw) {

@@ -13,19 +13,28 @@
 #include <span>
 #include <vector>
 
+#include "x/cpp/json/json.h"
+
 #include "driver/bus/config.h"
 #include "driver/bus/write.h"
 #include "driver/can/link.h"
 
 namespace driver::can {
+/// @returns the frame of each message in the write config, with the message's
+/// identifier, format, and length and a zero payload. Binds a field error to parser for
+/// each frame that validate rejects on the device's bus.
+/// @param fd true when the device's bus runs CAN FD.
+[[nodiscard]] std::vector<Frame>
+frames(const x::json::Parser &parser, const bus::WriteConfig &cfg, bool fd);
+
 /// @brief sends each message as a frame with the message's CAN identifier on the
 /// device's shared bus. A critical hardware error closes the bus, so the next send
 /// reopens it.
 class Transmitter final : public bus::Transmitter {
 public:
-    /// @param cfg the resolved write config. Every message has a CAN identifier.
+    /// @param frames the frame of each message, from frames.
     /// @param acquire acquires the device's link on start.
-    Transmitter(const bus::WriteConfig &cfg, Acquire acquire);
+    Transmitter(std::vector<Frame> frames, Acquire acquire);
 
     x::errors::Error acquire() override;
     void release() override;

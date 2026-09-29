@@ -12,7 +12,8 @@
 #include <cstddef>
 
 /// @brief the subset of the Kvaser CANlib ABI the backend calls, transcribed from
-/// Kvaser's CANlib SDK documentation.
+/// Kvaser's CANlib SDK documentation. Kvaser's SDK license forbids sharing canlib.h, so
+/// the Driver does not ship it.
 namespace driver::can::canlib {
 #ifdef _WIN32
 #define CANLIB_API __stdcall
@@ -117,3 +118,5 @@ using canGetChannelData_t =
 using canGetErrorText_t =
     canStatus(CANLIB_API *)(canStatus err, char *buf, unsigned int bufsiz);
 }
+
+#undef CANLIB_API

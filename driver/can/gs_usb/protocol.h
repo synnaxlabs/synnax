@@ -15,6 +15,7 @@
 #include <optional>
 #include <span>
 #include <utility>
+#include <vector>
 
 #include "x/cpp/errors/errors.h"
 
@@ -137,24 +138,24 @@ decode_device_config(std::span<const std::uint8_t> bytes);
 decode_bt_const(std::span<const std::uint8_t> bytes, bool extended);
 
 /// @returns the body of a BITTIMING or DATA_BITTIMING request.
-[[nodiscard]] std::array<std::uint8_t, 20> encode_bittiming(const Timing &timing);
+[[nodiscard]] std::vector<std::uint8_t> encode_bittiming(const Timing &timing);
 
 /// @returns the body of a MODE request.
-[[nodiscard]] std::array<std::uint8_t, 8>
+[[nodiscard]] std::vector<std::uint8_t>
 encode_mode(std::uint32_t mode, std::uint32_t flags);
 
-/// @brief encodes a frame as a host frame without a timestamp.
+/// @returns a frame encoded as a host frame without a timestamp.
 /// @param frame a frame that validate accepts.
 /// @param echo_id the id the adapter echoes once it sends the frame.
 /// @param channel the adapter channel to send on.
-/// @param out receives the host frame.
-/// @returns the number of bytes written.
-std::size_t encode_frame(
-    const Frame &frame,
-    std::uint32_t echo_id,
-    std::uint8_t channel,
-    std::span<std::uint8_t, MAX_FRAME_SIZE> out
-);
+[[nodiscard]] std::vector<std::uint8_t>
+encode_frame(const Frame &frame, std::uint32_t echo_id, std::uint8_t channel);
+
+/// @returns the adapter channel of a host frame the adapter received from the bus, or
+/// nullopt for the echo of a frame the host sent. CRITICAL_HARDWARE_ERROR when bytes
+/// are shorter than a header.
+[[nodiscard]] std::pair<std::optional<std::uint8_t>, x::errors::Error>
+decode_channel(std::span<const std::uint8_t> bytes);
 
 /// @brief decodes a host frame from the adapter.
 /// @param timestamped true when the adapter runs with hardware timestamps on.

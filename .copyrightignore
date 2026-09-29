@@ -7,6 +7,7 @@
 **/nisyscfg_errors.h
 **/nisyscfg.h
 **/nidaqmx.h
+driver/can/nixnet/official/nixnet.h
 vendor/open62541/open62541/**
 vendor/mbedtls/mbedtls/**
 vendor/wasmtime/wasmtime/**

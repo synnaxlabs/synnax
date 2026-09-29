@@ -132,10 +132,6 @@ public:
         return n;
     }
 
-    int SetAutoDetachKernelDriver(libusb_device_handle *, int) override {
-        return LIBUSB_ERROR_NOT_SUPPORTED;
-    }
-
     int ClaimInterface(libusb_device_handle *handle, int) override {
         std::lock_guard lock(this->mu);
         auto &d = this->device(handle);

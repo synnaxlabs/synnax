@@ -11,6 +11,7 @@
 #include <cerrno>
 #include <chrono>
 #include <cstdlib>
+#include <format>
 #include <mutex>
 #include <set>
 #include <string>
@@ -20,6 +21,7 @@
 #include "gtest/gtest.h"
 #include <fcntl.h>
 #include <poll.h>
+#include <sys/ioctl.h>
 #include <unistd.h>
 
 #include "x/cpp/test/test.h"
@@ -100,6 +102,26 @@ public:
             ::write(this->controller, data.data(), data.size()),
             static_cast<ssize_t>(data.size())
         );
+    }
+
+    /// @brief waits until the host has read every byte written to it.
+    void drained() const {
+        const int host = ::open(
+            this->terminal.c_str(),
+            O_RDONLY | O_NOCTTY | O_NONBLOCK
+        );
+        ASSERT_GE(host, 0);
+        int pending = 1;
+        const auto deadline = std::chrono::steady_clock::now() +
+                              std::chrono::seconds(5);
+        while (pending > 0 && std::chrono::steady_clock::now() < deadline) {
+            ASSERT_EQ(::ioctl(host, FIONREAD, &pending), 0);
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        ::close(host);
+        EXPECT_EQ(pending, 0);
+        // The host decodes a read after it leaves the terminal's queue.
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
 
     /// @returns the commands received so far once there are at least n, or after one
@@ -231,6 +253,25 @@ TEST_F(SlcanTest, ReceivesFramesSplitAcrossReads) {
     EXPECT_TRUE(frame.bitrate_switched);
     EXPECT_EQ(frame.length, 12);
     EXPECT_EQ(frame.data[11], 0x0B);
+}
+
+TEST_F(SlcanTest, DropsTheOldestFramesWhenTheInboxIsFull) {
+    auto bus = this->open(this->props());
+    ASSERT_NE(bus, nullptr);
+    this->adapter.received(3);
+    std::string lines;
+    for (std::size_t id = 0; id <= MAX_QUEUED; id++)
+        lines += std::format("t{:03X}0\r", id);
+    this->adapter.write(lines);
+    this->adapter.drained();
+    Frame frame;
+    ASSERT_TRUE(ASSERT_NIL_P(bus->receive(frame, x::telem::SECOND)));
+    EXPECT_EQ(frame.id, 1);
+    std::size_t count = 1;
+    while (ASSERT_NIL_P(bus->receive(frame, x::telem::TimeSpan::ZERO())))
+        count++;
+    EXPECT_EQ(count, MAX_QUEUED);
+    EXPECT_EQ(frame.id, MAX_QUEUED);
 }
 
 TEST_F(SlcanTest, ReturnsFalseWhenNoFrameArrives) {

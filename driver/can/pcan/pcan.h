@@ -45,10 +45,13 @@ const auto POLL_INTERVAL = x::telem::MILLISECOND;
 class Bus final : public can::Bus {
     std::shared_ptr<API> api;
     TPCANHandle handle;
-    std::string name;
-    bool fd;
-    bool listen_only;
     bool closed = false;
+
+    /// @brief takes the next frame from the receive queue.
+    /// @returns nullopt when the queue is empty.
+    std::optional<std::pair<bool, x::errors::Error>> take(Frame &frame);
+
+    [[nodiscard]] x::errors::Error transmit(const Frame &frame) override;
 
 public:
     Bus(std::shared_ptr<API> api,
@@ -60,8 +63,6 @@ public:
 
     [[nodiscard]] std::pair<bool, x::errors::Error>
     receive(Frame &frame, x::telem::TimeSpan timeout) override;
-
-    [[nodiscard]] x::errors::Error send(const Frame &frame) override;
 
     x::errors::Error close() override;
 };

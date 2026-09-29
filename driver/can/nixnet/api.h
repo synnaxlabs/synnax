@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "driver/can/nixnet/abi.h"
+#include "driver/can/nixnet/official/nixnet.h"
 
 namespace driver::can::nixnet {
 /// @brief the NI-XNET calls the backend makes. ProdAPI loads them from the vendor

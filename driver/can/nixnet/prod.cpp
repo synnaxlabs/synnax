@@ -9,8 +9,8 @@
 
 #include <string>
 
+#include "driver/can/can.h"
 #include "driver/can/nixnet/prod.h"
-#include "driver/can/symbols.h"
 #include "driver/errors/errors.h"
 
 namespace driver::can::nixnet {
@@ -38,7 +38,7 @@ std::pair<std::shared_ptr<API>, x::errors::Error> ProdAPI::load() {
     auto lib = std::make_unique<x::lib::Shared>(LIBRARY_NAME);
     if (!lib->load()) return {nullptr, driver::errors::missing_lib(LIBRARY_INFO)};
     auto api = std::make_shared<ProdAPI>(std::move(lib));
-    Symbols symbols(*api->lib);
+    x::lib::Symbols symbols(*api->lib);
     symbols.resolve("nxCreateSession", api->create_session);
     symbols.resolve("nxClear", api->clear);
     symbols.resolve("nxSetProperty", api->set_property);
@@ -50,7 +50,8 @@ std::pair<std::shared_ptr<API>, x::errors::Error> ProdAPI::load() {
     symbols.resolve("nxStatusToString", api->status_to_string);
     symbols.resolve("nxSystemOpen", api->system_open);
     symbols.resolve("nxSystemClose", api->system_close);
-    if (auto err = symbols.error(LIBRARY_INFO.name)) return {nullptr, err};
+    if (auto err = symbols.error(CRITICAL_HARDWARE_ERROR, LIBRARY_INFO.name))
+        return {nullptr, err};
     return {api, x::errors::NIL};
 }
 

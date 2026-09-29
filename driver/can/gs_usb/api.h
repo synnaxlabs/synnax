@@ -9,7 +9,10 @@
 
 #pragma once
 
-#include "driver/can/gs_usb/abi.h"
+#include <cstddef>
+#include <cstdint>
+
+#include "libusb.h"
 
 namespace driver::can::gs_usb {
 /// @brief the libusb calls the backend makes, on one libusb context. ProdAPI loads them
@@ -32,7 +35,6 @@ public:
         unsigned char *data,
         int length
     ) = 0;
-    virtual int SetAutoDetachKernelDriver(libusb_device_handle *handle, int enable) = 0;
     virtual int ClaimInterface(libusb_device_handle *handle, int number) = 0;
     virtual int ReleaseInterface(libusb_device_handle *handle, int number) = 0;
     virtual int ControlTransfer(

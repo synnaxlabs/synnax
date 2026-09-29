@@ -119,14 +119,29 @@ raws(const std::vector<x::telem::Frame> &frames, const synnax::channel::Key key)
     return out;
 }
 
+/// @returns the frames of the messages in cfg, failing the test when the bus cannot
+/// carry one.
+std::vector<Frame> message_frames(const bus::WriteConfig &cfg, const bool fd) {
+    x::json::Parser parser(x::json::json::object());
+    auto out = frames(parser, cfg, fd);
+    EXPECT_TRUE(parser.ok()) << parser.error();
+    return out;
+}
+
 /// @brief a bus that fails its next receive on request.
 class FaultyBus final : public Bus {
     std::unique_ptr<Bus> inner;
     std::shared_ptr<std::atomic<bool>> fault;
 
 public:
-    FaultyBus(std::unique_ptr<Bus> inner, std::shared_ptr<std::atomic<bool>> fault):
-        inner(std::move(inner)), fault(std::move(fault)) {}
+    FaultyBus(
+        std::unique_ptr<Bus> inner,
+        const synnax::can::Properties &props,
+        std::shared_ptr<std::atomic<bool>> fault
+    ):
+        Bus(props.channel, props.fd, props.listen_only),
+        inner(std::move(inner)),
+        fault(std::move(fault)) {}
 
     std::pair<bool, x::errors::Error>
     receive(Frame &frame, const x::telem::TimeSpan timeout) override {
@@ -134,11 +149,12 @@ public:
         return this->inner->receive(frame, timeout);
     }
 
-    x::errors::Error send(const Frame &frame) override {
+    x::errors::Error close() override { return this->inner->close(); }
+
+private:
+    x::errors::Error transmit(const Frame &frame) override {
         return this->inner->send(frame);
     }
-
-    x::errors::Error close() override { return this->inner->close(); }
 };
 
 /// @brief a loopback backend that counts the buses it opens and can fault them.
@@ -160,7 +176,7 @@ public:
         auto [bus, err] = this->inner->open(props);
         if (err) return {nullptr, err};
         ++this->opens;
-        return {std::make_unique<FaultyBus>(std::move(bus), this->fault), err};
+        return {std::make_unique<FaultyBus>(std::move(bus), props, this->fault), err};
     }
 };
 
@@ -171,7 +187,8 @@ class AdapterClockBus final : public Bus {
     std::int64_t received = 0;
 
 public:
-    explicit AdapterClockBus(std::unique_ptr<Bus> inner): inner(std::move(inner)) {}
+    AdapterClockBus(std::unique_ptr<Bus> inner, const synnax::can::Properties &props):
+        Bus(props.channel, props.fd, props.listen_only), inner(std::move(inner)) {}
 
     std::pair<bool, x::errors::Error>
     receive(Frame &frame, const x::telem::TimeSpan timeout) override {
@@ -182,11 +199,12 @@ public:
         return res;
     }
 
-    x::errors::Error send(const Frame &frame) override {
+    x::errors::Error close() override { return this->inner->close(); }
+
+private:
+    x::errors::Error transmit(const Frame &frame) override {
         return this->inner->send(frame);
     }
-
-    x::errors::Error close() override { return this->inner->close(); }
 };
 
 /// @brief a loopback backend whose buses stamp frames with an adapter clock.
@@ -202,7 +220,7 @@ public:
     open(const synnax::can::Properties &props) override {
         auto [bus, err] = this->inner->open(props);
         if (err) return {nullptr, err};
-        return {std::make_unique<AdapterClockBus>(std::move(bus)), err};
+        return {std::make_unique<AdapterClockBus>(std::move(bus), props), err};
     }
 };
 
@@ -245,13 +263,13 @@ protected:
     }
 
     std::unique_ptr<bus::Sink> sink(bus::WriteConfig cfg) {
-        auto transmitter = std::make_unique<Transmitter>(cfg, this->acquire());
-        return std::make_unique<bus::Sink>(
-            std::move(cfg),
-            std::move(transmitter),
-            this->ctx,
-            this->task
+        auto transmitter = std::make_unique<Transmitter>(
+            message_frames(cfg, this->props.fd),
+            this->acquire()
         );
+        auto s = std::make_unique<bus::Sink>(std::move(cfg), std::move(transmitter));
+        s->set_warning = [](const x::errors::Error &) {};
+        return s;
     }
 
     void send(const std::uint32_t id, const bool extended, const Bytes &data) const {
@@ -610,17 +628,99 @@ TEST_F(CANTask, MovesAdapterTimesOntoTheHostClock) {
     EXPECT_EQ(stamps[2] - stamps[1], x::telem::SECOND.nanoseconds());
 }
 
+TEST_F(CANTask, SlewsAdapterTimesTowardTheHostClock) {
+    const auto adapter = std::make_shared<AdapterClock>();
+    const auto backends = std::make_shared<const Backends>(
+        Backends{{loopback::BACKEND, adapter}}
+    );
+    const auto peer = ASSERT_NIL_P(adapter->inner->open(this->props));
+    Source source(
+        read_config(
+            {binary_message(
+                "status",
+                {binary_field("v", 0)},
+                synnax::library::CanIdentifier{.id = 0x10}
+            )},
+            std::nullopt,
+            nullptr,
+            {},
+            {},
+            bus::Medium::CAN
+        ),
+        acquirer(this->links, "dev", backends, this->props)
+    );
+    ASSERT_NIL(source.start());
+    constexpr std::size_t count = 13;
+    const Frame frame{.id = 0x10, .length = 1};
+    for (std::size_t i = 0; i < count; i++)
+        ASSERT_NIL(peer->send(frame));
+    x::breaker::Breaker breaker;
+    std::vector<x::telem::Frame> frames;
+    ASSERT_EVENTUALLY_TRUE([&] {
+        x::telem::Frame fr;
+        EXPECT_FALSE(source.read(breaker, fr).error);
+        frames.push_back(std::move(fr));
+        return times(frames, 100).size() == count;
+    }());
+    ASSERT_NIL(source.stop());
+    // The adapter clock gains a second per frame on the host clock. Once a window of
+    // adapter time passes, the offset slews toward the host by 1/SLEW of each step.
+    const auto stamps = times(frames, 100);
+    const auto window = static_cast<std::size_t>(
+        (Aligner::WINDOW / x::telem::SECOND).nanoseconds()
+    );
+    const auto slewed = x::telem::SECOND - x::telem::SECOND / Aligner::SLEW;
+    for (std::size_t i = 1; i < count; i++)
+        EXPECT_EQ(
+            stamps[i] - stamps[i - 1],
+            (i < window ? x::telem::SECOND : slewed).nanoseconds()
+        ) << i;
+}
+
 TEST_F(CANTask, RejectsAFrameLongerThanTheBusCarries) {
     auto m = binary_message(
         "big",
         {binary_field("v", 0)},
         synnax::library::CanIdentifier{.id = 0x20}
     );
-    Transmitter tx(write_config({m}), this->acquire());
+    Transmitter tx(message_frames(write_config({m}), false), this->acquire());
     ASSERT_NIL(tx.acquire());
     ASSERT_OCCURRED_AS(tx.send(0, Bytes(65, 0)), FRAME_ERROR);
     ASSERT_OCCURRED_AS(tx.send(0, Bytes(9, 0)), FRAME_ERROR);
     tx.release();
+}
+
+TEST(CANFrames, BuildsTheFrameOfEachMessage) {
+    auto m = binary_message(
+        "status",
+        {binary_field("v", 0)},
+        synnax::library::CanIdentifier{.id = 0x1ABCDEF0, .extended = true}
+    );
+    x::json::Parser parser(x::json::json::object());
+    const auto built = frames(parser, write_config({m}), false);
+    ASSERT_TRUE(parser.ok());
+    ASSERT_EQ(built.size(), 1);
+    EXPECT_EQ(built[0].id, 0x1ABCDEF0);
+    EXPECT_TRUE(built[0].extended);
+    EXPECT_FALSE(built[0].fd);
+    EXPECT_EQ(built[0].length, 1);
+}
+
+TEST(CANFrames, RejectsAFrameTheBusCannotCarry) {
+    auto m = binary_message(
+        "status",
+        {binary_field("v", 0)},
+        synnax::library::CanIdentifier{.id = 0x20, .fd = true}
+    );
+    x::json::Parser parser(x::json::json::object());
+    const auto built = frames(parser, write_config({m}), false);
+    ASSERT_FALSE(parser.ok());
+    EXPECT_NE(
+        parser.error().data.find(
+            "message status: a CAN FD frame cannot be sent on a classic CAN bus"
+        ),
+        std::string::npos
+    );
 }
 
 TEST(CANScanner, ReportsEveryChannelAndKeepsTrackedDevices) {

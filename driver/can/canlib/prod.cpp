@@ -9,8 +9,8 @@
 
 #include <string>
 
+#include "driver/can/can.h"
 #include "driver/can/canlib/prod.h"
-#include "driver/can/symbols.h"
 #include "driver/errors/errors.h"
 
 namespace driver::can::canlib {
@@ -40,7 +40,7 @@ std::pair<std::shared_ptr<API>, x::errors::Error> ProdAPI::load() {
     auto lib = std::make_unique<x::lib::Shared>(LIBRARY_NAME);
     if (!lib->load()) return {nullptr, driver::errors::missing_lib(LIBRARY_INFO)};
     auto api = std::make_shared<ProdAPI>(std::move(lib));
-    Symbols symbols(*api->lib);
+    x::lib::Symbols symbols(*api->lib);
     symbols.resolve("canInitializeLibrary", api->initialize_library);
     symbols.resolve("canOpenChannel", api->open_channel);
     symbols.resolve("canClose", api->close);
@@ -55,7 +55,8 @@ std::pair<std::shared_ptr<API>, x::errors::Error> ProdAPI::load() {
     symbols.resolve("canGetNumberOfChannels", api->get_number_of_channels);
     symbols.resolve("canGetChannelData", api->get_channel_data);
     symbols.resolve("canGetErrorText", api->get_error_text);
-    if (auto err = symbols.error(LIBRARY_INFO.name)) return {nullptr, err};
+    if (auto err = symbols.error(CRITICAL_HARDWARE_ERROR, LIBRARY_INFO.name))
+        return {nullptr, err};
     api->initialize_library();
     return {api, x::errors::NIL};
 }

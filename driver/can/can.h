@@ -9,13 +9,16 @@
 
 #pragma once
 
+#include <algorithm>
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <optional>
 #include <span>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -119,6 +122,28 @@ struct Frame {
 /// when a remote frame is an FD frame, or when the frame is a bus error.
 [[nodiscard]] x::errors::Error validate(const Frame &frame, bool fd);
 
+/// @brief finds the value a backend's table maps a bitrate to.
+/// @param table pairs of a bitrate and the backend's value for it.
+/// @param bitrate the bitrate to find.
+/// @param what the start of the error message, such as "slcan cannot run a classic CAN
+/// bus".
+/// @returns CONFIG_ERROR listing the table's bitrates when it lacks the bitrate.
+template<typename Table>
+[[nodiscard]] std::pair<typename Table::value_type::second_type, x::errors::Error>
+find_bitrate(const Table &table, const std::uint32_t bitrate, const std::string &what) {
+    std::string supported;
+    for (const auto &[rate, value]: table) {
+        if (rate == bitrate) return {value, x::errors::NIL};
+        supported += (supported.empty() ? "" : ", ") + std::to_string(rate);
+    }
+    return {
+        {},
+        {CONFIG_ERROR,
+         what + " at " + std::to_string(bitrate) +
+             " bit/s. Supported bitrates: " + supported}
+    };
+}
+
 /// @brief extends a wrapping 32-bit hardware counter into a 64-bit count that never
 /// wraps, provided it is read at least once per wrap period.
 class Counter {
@@ -129,6 +154,30 @@ class Counter {
 public:
     /// @returns raw extended to 64 bits.
     std::uint64_t extend(std::uint32_t raw);
+};
+
+/// @brief moves adapter times onto the host clock. Each frame measures the host time
+/// minus the adapter time. The smallest measurement of each WINDOW of adapter time,
+/// which carries the least transfer delay, becomes the target offset. The offset in use
+/// moves toward the target by at most 1/SLEW of the adapter time between two frames, so
+/// it follows adapter clock drift and times never step backward.
+class Aligner {
+    std::optional<x::telem::TimeSpan> offset;
+    x::telem::TimeSpan target;
+    x::telem::TimeSpan smallest;
+    x::telem::TimeStamp window_start;
+    x::telem::TimeStamp last;
+
+public:
+    /// @brief the adapter time over which the aligner measures a new target offset.
+    inline static const x::telem::TimeSpan WINDOW = 10 * x::telem::SECOND;
+    /// @brief the offset moves by at most 1/SLEW of the adapter time between frames.
+    static constexpr std::int64_t SLEW = 1000;
+
+    /// @returns the host time of a frame the adapter stamped at adapter.
+    /// @param adapter the frame's adapter time. It must not decrease between calls.
+    /// @param host the host time at which the frame arrived.
+    x::telem::TimeStamp align(x::telem::TimeStamp adapter, x::telem::TimeStamp host);
 };
 
 /// @brief a channel a backend found.
@@ -146,6 +195,12 @@ struct Channel {
 /// close. A bus never receives the frames it sends.
 class Bus {
 public:
+    /// @param name the channel's name, for error messages.
+    /// @param fd true when the bus runs CAN FD.
+    /// @param listen_only true when the bus only listens.
+    Bus(std::string name, const bool fd, const bool listen_only):
+        name(std::move(name)), fd(fd), listen_only(listen_only) {}
+
     virtual ~Bus() = default;
 
     /// @brief blocks until a frame arrives or the timeout elapses.
@@ -158,14 +213,49 @@ public:
 
     /// @brief queues a frame for transmission without waiting for it to reach the bus.
     /// @returns LISTEN_ONLY_ERROR on a listen only bus, FRAME_ERROR when validate
-    /// rejects the frame, and TEMPORARY_HARDWARE_ERROR when the transmit queue is full
-    /// or the bus is off.
-    [[nodiscard]] virtual x::errors::Error send(const Frame &frame) = 0;
+    /// rejects the frame, and otherwise what transmit returns.
+    [[nodiscard]] x::errors::Error send(const Frame &frame);
 
     /// @brief takes the channel off the bus and releases it. Calling close again does
     /// nothing. The destructor closes the bus.
     virtual x::errors::Error close() = 0;
+
+protected:
+    /// @brief the channel's name, for error messages.
+    const std::string name;
+    /// @brief true when the bus runs CAN FD.
+    const bool fd;
+    /// @brief true when the bus only listens.
+    const bool listen_only;
+
+    /// @brief queues a frame that send checked.
+    /// @returns TEMPORARY_HARDWARE_ERROR when the transmit queue is full or the bus is
+    /// off.
+    [[nodiscard]] virtual x::errors::Error transmit(const Frame &frame) = 0;
 };
+
+/// @brief waits for a frame on a receive queue that has no blocking read.
+/// @param timeout the longest time to wait.
+/// @param interval the longest sleep between polls of an empty queue.
+/// @param take takes the next frame from the queue. It returns nullopt when the queue
+/// is empty, and otherwise the result receive returns.
+/// @returns what take returns, or false once the timeout elapses.
+template<typename Take>
+[[nodiscard]] std::pair<bool, x::errors::Error> poll_queue(
+    const x::telem::TimeSpan timeout,
+    const x::telem::TimeSpan interval,
+    Take &&take
+) {
+    const auto deadline = std::chrono::steady_clock::now() + timeout.chrono();
+    while (true) {
+        if (auto res = take()) return *res;
+        const auto now = std::chrono::steady_clock::now();
+        if (now >= deadline) return {false, x::errors::NIL};
+        std::this_thread::sleep_for(
+            std::min<std::chrono::nanoseconds>(interval.chrono(), deadline - now)
+        );
+    }
+}
 
 /// @brief a way of reaching CAN adapters, such as a kernel interface or a vendor
 /// library.
@@ -200,6 +290,16 @@ public:
         return {nullptr, this->err};
     }
 };
+
+/// @returns an Impl over the API that a vendor library load returned, or an Unavailable
+/// backend holding the error that stopped the load.
+template<typename Impl, typename API>
+[[nodiscard]] std::shared_ptr<Backend>
+or_unavailable(std::pair<std::shared_ptr<API>, x::errors::Error> loaded) {
+    auto [api, err] = std::move(loaded);
+    if (err) return std::make_shared<Unavailable>(err);
+    return std::make_shared<Impl>(std::move(api));
+}
 
 /// @brief maps each backend name, one of synnax::can::BACKEND_*, to its backend.
 using Backends = std::unordered_map<std::string, std::shared_ptr<Backend>>;
