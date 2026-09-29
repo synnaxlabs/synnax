@@ -276,6 +276,10 @@ jobs:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
       GH_TOKEN: ${{ github.token }}
+      DRIVER_REF_RUN_ID:
+        ${{ fromJSON(inputs.driver_ref_run_id || '{}')[matrix.os-name] }}
+      CONSOLE_REF_RUN_ID:
+        ${{ fromJSON(inputs.console_ref_run_id || '{}')[matrix.os-name] }}
       BAZEL_BUILD_FLAGS:
         --enable_platform_specific_config ${{ inputs.debug && '-c dbg' || '--config=opt'
         }} --announce_rc --verbose_failures --define=SYNNAX_DRIVER_VERSION=${{
@@ -316,12 +320,12 @@ jobs:
           repository-cache: false
 
       - name: Install Rust
-        if: inputs.driver && inputs.driver_ref_run_id == ''
+        if: inputs.driver && env.DRIVER_REF_RUN_ID == ''
         uses: actions-rust-lang/setup-rust-toolchain@v2
 
       - name: Build Driver (Windows)
         if:
-          inputs.driver && inputs.driver_ref_run_id == '' && matrix.os ==
+          inputs.driver && env.DRIVER_REF_RUN_ID == '' && matrix.os ==
           'windows-build-bot'
         shell: bash
         run: |
@@ -331,8 +335,8 @@ jobs:
 
       - name: Upload Windows debug symbols
         if:
-          inputs.driver && inputs.driver_ref_run_id == '' && inputs.debug && matrix.os
-          == 'windows-build-bot'
+          inputs.driver && env.DRIVER_REF_RUN_ID == '' && inputs.debug && matrix.os ==
+          'windows-build-bot'
         uses: actions/upload-artifact@v7
         with:
           name:
@@ -346,22 +350,21 @@ jobs:
 
       - name: Build Driver (macOS)
         if:
-          inputs.driver && inputs.driver_ref_run_id == '' && startsWith(matrix.os,
-          'macos')
+          inputs.driver && env.DRIVER_REF_RUN_ID == '' && startsWith(matrix.os, 'macos')
         run: |
           bazel build $BAZEL_BUILD_FLAGS \
             --config=opt-unix //driver
 
       - name: Extract debug symbols (macOS)
         if:
-          inputs.driver && inputs.driver_ref_run_id == '' && inputs.debug &&
+          inputs.driver && env.DRIVER_REF_RUN_ID == '' && inputs.debug &&
           startsWith(matrix.os, 'macos')
         run: |
           dsymutil bazel-bin/driver/driver -o bazel-bin/driver/driver.dSYM
 
       - name: Upload macOS debug symbols
         if:
-          inputs.driver && inputs.driver_ref_run_id == '' && inputs.debug &&
+          inputs.driver && env.DRIVER_REF_RUN_ID == '' && inputs.debug &&
           startsWith(matrix.os, 'macos')
         uses: actions/upload-artifact@v7
         with:
@@ -441,7 +444,7 @@ jobs:
 
       - name: Build Driver (Linux)
         if:
-          inputs.driver && inputs.driver_ref_run_id == '' && matrix.os ==
+          inputs.driver && env.DRIVER_REF_RUN_ID == '' && matrix.os ==
           'ubuntu-build-bot'
         run: |
           bazel build $BAZEL_BUILD_FLAGS $BAZEL_REMOTE_CACHE_FLAGS \
@@ -449,15 +452,15 @@ jobs:
 
       - name: Extract debug symbols (Linux)
         if:
-          inputs.driver && inputs.driver_ref_run_id == '' && inputs.debug && matrix.os
-          == 'ubuntu-build-bot'
+          inputs.driver && env.DRIVER_REF_RUN_ID == '' && inputs.debug && matrix.os ==
+          'ubuntu-build-bot'
         run: |
           objcopy --only-keep-debug bazel-bin/driver/driver bazel-bin/driver/driver.debug
 
       - name: Upload Linux debug symbols
         if:
-          inputs.driver && inputs.driver_ref_run_id == '' && inputs.debug && matrix.os
-          == 'ubuntu-build-bot'
+          inputs.driver && env.DRIVER_REF_RUN_ID == '' && inputs.debug && matrix.os ==
+          'ubuntu-build-bot'
         uses: actions/upload-artifact@v7
         with:
           name:
@@ -563,17 +566,17 @@ jobs:
 
       # A scratch dir avoids leftovers in the persistent bazel output base.
       - name: Download cached Driver
-        if: inputs.driver && inputs.driver_ref_run_id != ''
+        if: inputs.driver && env.DRIVER_REF_RUN_ID != ''
         uses: actions/download-artifact@v8
         with:
           name: synnax-driver-${{ matrix.os-name }}
           path: ${{ runner.temp }}/cached-driver
-          run-id: ${{ inputs.driver_ref_run_id }}
+          run-id: ${{ env.DRIVER_REF_RUN_ID }}
           github-token: ${{ github.token }}
 
       # The cached binary carries the version stamp of the run that built it.
       - name: Rename cached Driver
-        if: inputs.driver && inputs.driver_ref_run_id != ''
+        if: inputs.driver && env.DRIVER_REF_RUN_ID != ''
         shell: bash
         run: |
           mkdir -p bazel-bin/driver
@@ -581,7 +584,7 @@ jobs:
             bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }}
 
       - name: Rename Driver binary
-        if: inputs.driver && inputs.driver_ref_run_id == ''
+        if: inputs.driver && env.DRIVER_REF_RUN_ID == ''
         shell: bash
         run: |
           mv bazel-bin/driver/driver${{ matrix.executable }} bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }}
@@ -643,7 +646,7 @@ jobs:
           tar -xzf console-web.tar.gz -C core/pkg/console/dist
 
       - name: Set up pnpm and Node.js
-        if: inputs.console && inputs.console_ref_run_id == ''
+        if: inputs.console && env.CONSOLE_REF_RUN_ID == ''
         uses: pnpm/setup@v3
         with:
           # Build bots keep a local pnpm store, so restoring the GitHub cache tarball
@@ -657,18 +660,18 @@ jobs:
             runner.name) || '~/setup-pnpm' }}
 
       - name: Build Console web assets
-        if: inputs.console && inputs.console_ref_run_id == ''
+        if: inputs.console && env.CONSOLE_REF_RUN_ID == ''
         env:
           NODE_OPTIONS: --max_old_space_size=8192
         run: pnpm build:console-vite
 
       - name: Download cached Console assets
-        if: inputs.console && inputs.console_ref_run_id != ''
+        if: inputs.console && env.CONSOLE_REF_RUN_ID != ''
         uses: actions/download-artifact@v8
         with:
           name: synnax-console-assets-${{ matrix.os-name }}
           path: console/dist
-          run-id: ${{ inputs.console_ref_run_id }}
+          run-id: ${{ env.CONSOLE_REF_RUN_ID }}
           github-token: ${{ github.token }}
 
       - name: Upload Console assets as artifact

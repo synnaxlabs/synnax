@@ -26,11 +26,9 @@ fi
 
 CORE_ARTIFACTS=()
 DRIVER_ARTIFACTS=()
-CONSOLE_ARTIFACTS=()
 for os in "${OS_NAMES[@]}"; do
     CORE_ARTIFACTS+=("synnax-core-${os}")
     DRIVER_ARTIFACTS+=("synnax-driver-${os}")
-    CONSOLE_ARTIFACTS+=("synnax-console-assets-${os}")
 done
 # Binary checks download the driver from the reused run, so a full skip needs both.
 FULL_ARTIFACTS=("${CORE_ARTIFACTS[@]}" "${DRIVER_ARTIFACTS[@]}")
@@ -48,7 +46,7 @@ mapfile -t CORE_PATHS < <(build_paths core_build)
 
 UNION_PATHS=("${DRIVER_PATHS[@]}" "${CONSOLE_PATHS[@]}" "${CORE_PATHS[@]}")
 
-WORKFLOW_FILES=("test.integration.yaml")
+WORKFLOW_FILES=("ci.yaml" "test.integration.yaml" "build.synnax.yaml")
 
 CACHE_DIR=$(mktemp -d)
 trap 'rm -rf "${CACHE_DIR}"' EXIT
@@ -211,15 +209,23 @@ main() {
         return 0
     fi
 
-    local driver_run console_run
-    driver_run=$(find_reusable_run "driver" "${DRIVER_ARTIFACTS[*]}" \
-        "${DRIVER_PATHS[@]}")
-    console_run=$(find_reusable_run "console" "${CONSOLE_ARTIFACTS[*]}" \
-        "${CONSOLE_PATHS[@]}")
+    # Each platform resolves on its own, so a windows-only run can serve the windows
+    # half of a build that also does Ubuntu.
+    local driver_ids="{}" console_ids="{}" os run
+    for os in "${OS_NAMES[@]}"; do
+        run=$(find_reusable_run "driver ${os}" "synnax-driver-${os}" \
+            "${DRIVER_PATHS[@]}")
+        driver_ids=$(jq -c --arg os "${os}" --arg run "${run}" '.[$os] = $run' \
+            <<< "${driver_ids}")
+        run=$(find_reusable_run "console ${os}" "synnax-console-assets-${os}" \
+            "${CONSOLE_PATHS[@]}")
+        console_ids=$(jq -c --arg os "${os}" --arg run "${run}" '.[$os] = $run' \
+            <<< "${console_ids}")
+    done
     emit "SKIP_BUILD=false"
     emit "REF_RUN_ID=${GITHUB_RUN_ID:-}"
-    emit "DRIVER_REF_RUN_ID=${driver_run}"
-    emit "CONSOLE_REF_RUN_ID=${console_run}"
+    emit "DRIVER_REF_RUN_ID=${driver_ids}"
+    emit "CONSOLE_REF_RUN_ID=${console_ids}"
 }
 
 main
