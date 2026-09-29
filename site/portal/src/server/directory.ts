@@ -38,8 +38,8 @@ export interface Directory {
   admins: (clerkOrgID: string) => Promise<string[]>;
   /** teams returns every organization in Clerk, newest first. */
   teams: () => Promise<Listed[]>;
-  /** team throws when Clerk does not know the organization. */
-  team: (clerkOrgID: string) => Promise<Listed>;
+  /** team returns null when Clerk does not know the organization. */
+  team: (clerkOrgID: string) => Promise<Listed | null>;
   /** names resolves user ids to the name each reads as, leaving out unknown ids. */
   names: (userIDs: string[]) => Promise<Record<string, string>>;
 }
@@ -115,10 +115,15 @@ export const clerk = (client: Client): Directory => ({
       (o) => ({ clerkOrgID: o.id, name: o.name }),
     ),
   team: async (clerkOrgID) => {
-    const org = await client.organizations.getOrganization({
-      organizationId: clerkOrgID,
-    });
-    return { clerkOrgID: org.id, name: org.name };
+    try {
+      const org = await client.organizations.getOrganization({
+        organizationId: clerkOrgID,
+      });
+      return { clerkOrgID: org.id, name: org.name };
+    } catch (e) {
+      if ((e as { status?: unknown }).status === 404) return null;
+      throw e;
+    }
   },
   names: async (userIDs) => {
     if (userIDs.length === 0) return {};
@@ -167,11 +172,8 @@ export const memory = ({
       .map(([userID]) => people[userID]?.email ?? "")
       .filter((email) => email !== ""),
   teams: async () => organizations,
-  team: async (clerkOrgID) => {
-    const org = organizations.find((o) => o.clerkOrgID === clerkOrgID);
-    if (org == null) throw new Error(`no Clerk organization ${clerkOrgID}`);
-    return org;
-  },
+  team: async (clerkOrgID) =>
+    organizations.find((o) => o.clerkOrgID === clerkOrgID) ?? null,
   names: async (userIDs) =>
     Object.fromEntries(
       userIDs.flatMap((id) => (people[id] == null ? [] : [[id, people[id].name]])),

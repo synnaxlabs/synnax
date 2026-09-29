@@ -116,10 +116,11 @@ describe("organization", () => {
       expect(await retrieve(store, org.key)).toEqual(org);
     });
 
-    it("should throw when Clerk does not know the organization", async () => {
-      await expect(adoptTeam(store, memory(), "org_missing")).rejects.toThrow(
-        "no Clerk organization org_missing",
-      );
+    it("should throw a 400 when Clerk does not know the organization", async () => {
+      await expect(adoptTeam(store, memory(), "org_missing")).rejects.toMatchObject({
+        status: 400,
+        message: "Clerk has no organization org_missing",
+      });
       expect(await store.query.select().from(organization)).toHaveLength(0);
     });
   });

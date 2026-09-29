@@ -12,6 +12,7 @@ import { eq, inArray, or } from "drizzle-orm";
 import { type Store } from "@/server/db/db";
 import { type Organization, organization } from "@/server/db/schema";
 import { type Directory } from "@/server/directory";
+import { badRequest } from "@/server/errors";
 import { type Session } from "@/server/session";
 
 export interface EnsurePersonalArgs {
@@ -67,12 +68,18 @@ export const mirrorTeam = async (
 /**
  * adoptTeam mirrors a Clerk organization into the portal's tables and returns the
  * row, so a license can be issued to an organization the webhook has not delivered.
+ *
+ * @throws {HTTPError} 400 when Clerk does not know the organization.
  */
 export const adoptTeam = async (
   store: Store,
   directory: Directory,
   clerkOrgID: string,
-): Promise<Organization> => await mirrorTeam(store, await directory.team(clerkOrgID));
+): Promise<Organization> => {
+  const team = await directory.team(clerkOrgID);
+  if (team == null) throw badRequest(`Clerk has no organization ${clerkOrgID}`);
+  return await mirrorTeam(store, team);
+};
 
 export interface Membership {
   userID: string;

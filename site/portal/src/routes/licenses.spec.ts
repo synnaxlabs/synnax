@@ -154,6 +154,14 @@ describe("license routes", () => {
         );
       });
 
+      it("should refuse an organization Clerk does not know", async () => {
+        await expectError(
+          await post({ ...SUBSCRIPTION, organization: "org_missing" }),
+          400,
+          "Clerk has no organization org_missing",
+        );
+      });
+
       it("should require an expiry on a subscription", async () => {
         await expectError(
           await post({ ...SUBSCRIPTION, expiresAt: "" }),

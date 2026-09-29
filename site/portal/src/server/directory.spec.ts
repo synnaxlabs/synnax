@@ -93,7 +93,8 @@ const createClient = ({
       },
       getOrganization: async ({ organizationId }: { organizationId: string }) => {
         const found = organizations.find((o) => o.id === organizationId);
-        if (found == null) throw new Error("Not Found");
+        if (found == null) throw Object.assign(new Error("Not Found"), { status: 404 });
+        if (found.name === "") throw Object.assign(new Error("Down"), { status: 500 });
         return found;
       },
     },
@@ -148,9 +149,7 @@ describe("directory", () => {
         clerkOrgID: "org_acme",
         name: "Acme",
       });
-      await expect(directory.team("org_x")).rejects.toThrow(
-        "no Clerk organization org_x",
-      );
+      expect(await directory.team("org_x")).toBeNull();
     });
 
     it("should name known users and leave out unknown ones", async () => {
@@ -291,6 +290,18 @@ describe("directory", () => {
           clerkOrgID: "org_acme",
           name: "Acme",
         });
+      });
+
+      it("should answer null for an organization Clerk does not know", async () => {
+        const { directory } = createClient({ organizations: [] });
+        expect(await directory.team("org_x")).toBeNull();
+      });
+
+      it("should throw any other Clerk failure", async () => {
+        const { directory } = createClient({
+          organizations: [{ id: "org_down", name: "" }],
+        });
+        await expect(directory.team("org_down")).rejects.toThrow("Down");
       });
     });
 
