@@ -176,7 +176,10 @@ export interface RevokeArgs {
   now: Date;
 }
 
-/** revoke stops a license from activating. Running Cores keep it until they restart. */
+/**
+ * revoke stops a license from activating. Running Cores keep it until they restart.
+ * @throws {HTTPError} 400 when the license is already revoked.
+ */
 export const revoke = async (
   store: Store,
   { licenseKey, actor, now }: RevokeArgs,
@@ -184,9 +187,16 @@ export const revoke = async (
   const [row] = await store.query
     .update(license)
     .set({ revokedAt: now })
-    .where(eq(license.key, licenseKey))
+    .where(and(eq(license.key, licenseKey), isNull(license.revokedAt)))
     .returning();
-  if (row == null) throw notFound("License");
+  if (row == null) {
+    const [existing] = await store.query
+      .select({ key: license.key })
+      .from(license)
+      .where(eq(license.key, licenseKey));
+    if (existing == null) throw notFound("License");
+    throw badRequest("This license is already revoked");
+  }
   await store.query.insert(event).values({
     kind: "revoke",
     actor,

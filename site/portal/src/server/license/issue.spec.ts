@@ -400,6 +400,22 @@ describe("issue", () => {
       ).rejects.toMatchObject({ status: 404, message: "License not found" });
       expect(await events()).toHaveLength(0);
     });
+
+    it("should refuse a license already revoked, keeping the first stamp", async () => {
+      const earlier = new Date(NOW.getTime() - 60_000);
+      const lic = await createLicense(store, {
+        organization: org.key,
+        revokedAt: earlier,
+      });
+      await expect(
+        revoke(store, { licenseKey: lic.key, actor: "user_staff", now: NOW }),
+      ).rejects.toMatchObject({
+        status: 400,
+        message: "This license is already revoked",
+      });
+      expect((await stored(lic.key)).revokedAt).toEqual(earlier);
+      expect(await events()).toHaveLength(0);
+    });
   });
 
   describe("floating", () => {

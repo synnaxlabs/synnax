@@ -412,11 +412,7 @@ describe("license routes", () => {
 
     it("should reject a user outside the owning organization", async () => {
       h.signIn(OUTSIDER);
-      await expectError(
-        await post(MACHINE),
-        404,
-        "License not found",
-      );
+      await expectError(await post(MACHINE), 404, "License not found");
     });
 
     it("should answer 404 for an unknown license", async () => {
@@ -727,6 +723,14 @@ describe("license routes", () => {
       h.signIn(STAFF);
       await post();
       expect(h.mail.sent).toEqual([]);
+    });
+
+    it("should refuse a second revocation without mailing again", async () => {
+      addPerson("user_admin", [ACME_ADMIN]);
+      h.signIn(STAFF);
+      expect((await post()).status).toBe(204);
+      await expectError(await post(), 400, "This license is already revoked");
+      expect(h.mail.sent).toHaveLength(1);
     });
   });
 });
