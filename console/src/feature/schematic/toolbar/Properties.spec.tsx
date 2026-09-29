@@ -325,6 +325,34 @@ describe("Schematic toolbar Properties", () => {
         .toEqual([undefined, undefined]);
     });
 
+    it("shows the fill that auto-filled symbols paint", async () => {
+      await renderProperties({
+        nodeKeys: ["n1", "n2"],
+        createConfig: () => PSchematic.Node.createConfig({ variant: "button" }),
+      });
+      await screen.findByText("Colors");
+      expect(roleInput("Fill").placeholder).toBe("Auto");
+      const swatch = roleInput("Fill")
+        .closest(".pluto-color-input")
+        ?.querySelector<HTMLElement>(".pluto-color-swatch");
+      assertDefined(swatch);
+      expect(swatch.style.getPropertyValue("--pluto-swatch-color")).not.toBe(
+        "rgba(0, 0, 0, 0)",
+      );
+    });
+
+    it("shows Mixed when auto-filled symbols paint different fills", async () => {
+      await renderProperties({
+        nodeKeys: ["n1", "n2"],
+        createConfig: (key) =>
+          key === "n1"
+            ? PSchematic.Node.createConfig({ variant: "button" })
+            : createBoxConfig(),
+      });
+      await screen.findByText("Colors");
+      expect(roleInput("Fill").placeholder).toBe("Mixed");
+    });
+
     it("writes a fill only to the symbols that have one", async () => {
       const { key } = await renderProperties({
         nodeKeys: ["n1", "n2"],

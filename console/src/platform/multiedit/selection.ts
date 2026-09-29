@@ -26,6 +26,12 @@ export type ColorKey<C> = {
   [F in Field<C>]: Value<C, F> extends color.Color | undefined ? F : never;
 }[Field<C>];
 
+/** One element's color, and the color it paints while the value is absent. */
+export interface ColorValue {
+  value?: color.Color;
+  fallback: color.Crude;
+}
+
 export interface SelectionArgs<C extends { variant: string }> {
   /** The editable configs, by element key. */
   configs: Map<string, C>;
@@ -42,7 +48,7 @@ export interface Selection<C> {
   /** @returns the value of the field on the first element that declares it. */
   first: <F extends Field<C>>(field: F) => Value<C, F> | undefined;
   /** @returns the color of each element that declares the field. */
-  colors: (field: ColorKey<C>) => Array<color.Color | undefined>;
+  colors: (field: ColorKey<C>, fallback: (config: C) => color.Crude) => ColorValue[];
   /** Sets the field on every element that declares it. Undefined removes it. */
   set: <F extends Field<C>>(field: F, value: Value<C, F> | undefined) => void;
   /** Sets the field on every element that declares it to fn of its current value. */
@@ -92,7 +98,11 @@ export const selection = <C extends { variant: string }>({
       const [entry] = withField(field);
       return entry == null ? undefined : read(entry[1], field);
     },
-    colors: (field) => withField(field).map(([, config]) => read(config, field)),
+    colors: (field, fallback) =>
+      withField(field).map(([, config]) => ({
+        value: read(config, field),
+        fallback: fallback(config),
+      })),
     set: (field, value) => update(field, () => value),
     update,
     setColors: (refs, value) =>

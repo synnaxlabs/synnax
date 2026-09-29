@@ -56,8 +56,13 @@ describe("selection", () => {
     expect(selection.first("text")).toBe("hi");
   });
 
-  it("should read the color of each element that declares a field", () => {
-    expect(selection.colors("fillColor")).toEqual([RED, undefined]);
+  it("should read the color and fallback of each element that declares a field", () => {
+    expect(
+      selection.colors("fillColor", (c) => (c.variant === "gauge" ? BLUE : RED)),
+    ).toEqual([
+      { value: RED, fallback: BLUE },
+      { value: undefined, fallback: BLUE },
+    ]);
   });
 
   it("should set a field only on elements that declare it", () => {

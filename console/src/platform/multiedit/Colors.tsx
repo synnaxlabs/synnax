@@ -14,36 +14,39 @@ import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { type ColorRef, groupByColor } from "@/platform/multiedit/config";
+import { type ColorValue } from "@/platform/multiedit/selection";
 
 export interface ColorFieldProps {
   label: string;
-  /** The color of each element that has the field. Undefined means absent. */
-  values: Array<color.Crude | undefined>;
-  /** The color the theme paints while the field is absent. */
-  fallback: color.Crude;
+  /** The color of each element that has the field. Must not be empty. */
+  values: ColorValue[];
   /** Called with the new color, or with undefined when the user picks Auto. */
   onChange: (value?: color.Color) => void;
 }
 
 /**
  * Edits one color field across several elements. It shows the shared color, Auto when
- * every element leaves the field absent, and Mixed when the elements differ.
+ * every element leaves the field absent and paints the same fallback, and Mixed when
+ * the elements differ.
  */
 export const ColorField = ({
   label,
   values,
-  fallback,
   onChange,
 }: ColorFieldProps): ReactElement => {
   const [first] = values;
-  const mixed = values.some((v) => !color.equals(v, first));
+  const painted = (v: ColorValue): color.Crude => v.value ?? v.fallback;
+  const mixed = values.some(
+    (v) =>
+      !color.equals(v.value, first.value) || !color.equals(painted(v), painted(first)),
+  );
   return (
     <Input.Item label={label} align="start" padHelpText={false}>
       <Color.Input
         aria-label={label}
-        value={mixed ? undefined : first}
+        value={mixed ? undefined : first.value}
         mixed={mixed}
-        fallback={fallback}
+        fallback={first.fallback}
         onChange={onChange}
       />
     </Input.Item>

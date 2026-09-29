@@ -18,7 +18,13 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { Access, Panel as PPanel, type Properties, Table } from "@synnaxlabs/pluto";
+import {
+  Access,
+  Panel as PPanel,
+  type Properties,
+  Staleness,
+  Table,
+} from "@synnaxlabs/pluto";
 import { color, deep, type text } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 import { type z } from "zod";
@@ -252,14 +258,12 @@ const MultiCellForm = ({ cellKeys }: MultiCellFormProps): ReactElement => {
       <Form.Section title="Colors">
         <MultiEdit.ColorField
           label="Text"
-          values={selection.colors("textColor")}
-          fallback={theme.colors.gray.l11}
+          values={selection.colors("textColor", () => theme.colors.gray.l11)}
           onChange={(c) => selection.set("textColor", c)}
         />
         <MultiEdit.ColorField
           label="Fill"
-          values={selection.colors("fillColor")}
-          fallback={color.ZERO}
+          values={selection.colors("fillColor", () => color.ZERO)}
           onChange={(c) => selection.set("fillColor", c)}
         />
         <MultiEdit.SelectionColors
@@ -277,7 +281,9 @@ const MultiCellForm = ({ cellKeys }: MultiCellFormProps): ReactElement => {
       </Form.Section>
       {selection.has("stalenessTimeout") && (
         <MultiEdit.StalenessSection
-          colors={selection.colors("stalenessColor")}
+          colors={selection.colors("stalenessColor", () =>
+            Staleness.resolveColor(undefined, theme),
+          )}
           timeout={selection.first("stalenessTimeout")}
           onColorChange={(c) => selection.set("stalenessColor", c)}
           onTimeoutChange={(v) => selection.set("stalenessTimeout", v)}

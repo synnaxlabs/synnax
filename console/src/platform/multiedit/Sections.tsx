@@ -9,19 +9,19 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
-import { Theming } from "@synnaxlabs/lyra/theming";
 import { Notation, Staleness } from "@synnaxlabs/pluto";
 import { type color, type notation } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { ColorField } from "@/platform/multiedit/Colors";
+import { type ColorValue } from "@/platform/multiedit/selection";
 
 const STALENESS_TIMEOUT_BOUNDS = { lower: 1, upper: Infinity };
 const PRECISION_BOUNDS = { lower: 0, upper: 10 };
 
 export interface StalenessSectionProps {
-  /** The staleness color of each element that has one. Undefined means absent. */
-  colors: Array<color.Color | undefined>;
+  /** The staleness color of each element that has the field. */
+  colors: ColorValue[];
   timeout?: number;
   onColorChange: (value?: color.Color) => void;
   onTimeoutChange: (value: number) => void;
@@ -33,16 +33,9 @@ export const StalenessSection = ({
   timeout = Staleness.DEFAULT_TIMEOUT,
   onColorChange,
   onTimeoutChange,
-}: StalenessSectionProps): ReactElement => {
-  const theme = Theming.use();
-  return (
+}: StalenessSectionProps): ReactElement => (
     <Form.Section title="Staleness">
-      <ColorField
-        label="Color"
-        values={colors}
-        fallback={Staleness.resolveColor(undefined, theme)}
-        onChange={onColorChange}
-      />
+      <ColorField label="Color" values={colors} onChange={onColorChange} />
       <Input.Item label="Timeout" align="start" padHelpText={false}>
         <Input.Numeric
           bounds={STALENESS_TIMEOUT_BOUNDS}
@@ -53,7 +46,6 @@ export const StalenessSection = ({
       </Input.Item>
     </Form.Section>
   );
-};
 
 export interface NumberFormatSectionProps {
   notation?: notation.Notation;

@@ -11,7 +11,6 @@ import { type channel, type schematic } from "@synnaxlabs/client";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
-import { Theming } from "@synnaxlabs/lyra/theming";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
@@ -51,41 +50,34 @@ const SelectTelemForm = ({ path }: { path: string }): ReactElement => {
   );
 };
 
-export const SelectForm = ({ tab, onTabChange }: FormProps): ReactElement => {
-  const theme = Theming.use();
-  return (
-    <Properties.Tabs
-      tabs={["control", "style", "options"]}
-      tab={tab}
-      onTabChange={onTabChange}
-    >
-      <Tabs.Content itemKey="style">
-        <Base.Sections x>
-          <Base.Section title="Label">
-            <Label.Form path="label" />
-          </Base.Section>
-          <Base.Section title="Appearance">
-            <Form.ColorField
-              path="fillColor"
-              label="Fill"
-              fallback={theme.colors.primary.z}
-            />
-            <Form.SizeField />
-            <Base.NumericField
-              path="inlineSize"
-              label="Width"
-              padHelpText={false}
-              inputProps={Form.VALUE_WIDTH_INPUT_PROPS}
-            />
-          </Base.Section>
-        </Base.Sections>
-      </Tabs.Content>
-      <Tabs.Content itemKey="control">
-        <SelectTelemForm path="" />
-      </Tabs.Content>
-      <Tabs.Content itemKey="options">
-        <Form.StateMappingForm path="options" />
-      </Tabs.Content>
-    </Properties.Tabs>
-  );
-};
+export const SelectForm = ({ tab, onTabChange }: FormProps): ReactElement => (
+  <Properties.Tabs
+    tabs={["control", "style", "options"]}
+    tab={tab}
+    onTabChange={onTabChange}
+  >
+    <Tabs.Content itemKey="style">
+      <Base.Sections x>
+        <Base.Section title="Label">
+          <Label.Form path="label" />
+        </Base.Section>
+        <Base.Section title="Appearance">
+          <Form.FillField />
+          <Form.SizeField />
+          <Base.NumericField
+            path="inlineSize"
+            label="Width"
+            padHelpText={false}
+            inputProps={Form.VALUE_WIDTH_INPUT_PROPS}
+          />
+        </Base.Section>
+      </Base.Sections>
+    </Tabs.Content>
+    <Tabs.Content itemKey="control">
+      <SelectTelemForm path="" />
+    </Tabs.Content>
+    <Tabs.Content itemKey="options">
+      <Form.StateMappingForm path="options" />
+    </Tabs.Content>
+  </Properties.Tabs>
+);

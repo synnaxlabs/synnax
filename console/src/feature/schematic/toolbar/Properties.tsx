@@ -23,6 +23,7 @@ import {
   Direction,
   type Properties as PProperties,
   Schematic,
+  Staleness,
 } from "@synnaxlabs/pluto";
 import {
   box,
@@ -521,24 +522,23 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
           {hasStroke && (
             <MultiEdit.ColorField
               label="Stroke"
-              values={selection.colors("strokeColor")}
-              fallback={theme.colors.gray.l11}
+              values={selection.colors("strokeColor", () => theme.colors.gray.l11)}
               onChange={(c) => selection.set("strokeColor", c)}
             />
           )}
           {hasFill && (
             <MultiEdit.ColorField
               label="Fill"
-              values={selection.colors("fillColor")}
-              fallback={color.ZERO}
+              values={selection.colors("fillColor", (c) =>
+                Schematic.Node.Form.fillFallback(c.variant, theme),
+              )}
               onChange={(c) => selection.set("fillColor", c)}
             />
           )}
           {hasText && (
             <MultiEdit.ColorField
               label="Text"
-              values={selection.colors("textColor")}
-              fallback={theme.colors.gray.l11}
+              values={selection.colors("textColor", () => theme.colors.gray.l11)}
               onChange={(c) => selection.set("textColor", c)}
             />
           )}
@@ -601,7 +601,9 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
       )}
       {selection.has("stalenessTimeout") && (
         <MultiEdit.StalenessSection
-          colors={selection.colors("stalenessColor")}
+          colors={selection.colors("stalenessColor", () =>
+            Staleness.resolveColor(undefined, theme),
+          )}
           timeout={selection.first("stalenessTimeout")}
           onColorChange={(c) => selection.set("stalenessColor", c)}
           onTimeoutChange={(v) => selection.set("stalenessTimeout", v)}

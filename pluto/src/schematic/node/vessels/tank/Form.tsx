@@ -9,7 +9,6 @@
 
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
-import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Form } from "@/schematic/node/common/form";
@@ -64,7 +63,7 @@ export const TankForm = ({
       </Base.Section>
       <Base.Section title="Appearance">
         <Form.ColorField path="strokeColor" label="Stroke" />
-        <Form.ColorField path="fillColor" label="Fill" fallback={color.ZERO} />
+        <Form.FillField />
         <Form.RadiusFields path="borderRadius" />
         {showBorderRadius && (
           <Base.NumericField
