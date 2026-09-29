@@ -47,9 +47,10 @@ dismissal retires an approval. Two tier labels fail it. `OK` is the CI workflow'
 job: it fails when any check the PR's paths select failed. A merge into `main` goes
 through a merge queue, which reruns CI on the merged result with the integration suite
 added before the branch moves. GitHub refuses a queue on a wildcard branch pattern, so a
-`release/**` merge goes in directly. Admins bypass when Greptile is down. The gate
-script is `.github/scripts/check_review.sh`, the rulesets `.github/rulesets/main.json`
-and `.github/rulesets/release.json`.
+`release/**` merge goes in directly, and CI runs again on the pushed commit. A release
+runs the integration suite itself. Admins bypass when Greptile is down. The gate script
+is `.github/scripts/check_review.sh`, the rulesets `.github/rulesets/main.json` and
+`.github/rulesets/release.json`.
 
 ## Size
 
