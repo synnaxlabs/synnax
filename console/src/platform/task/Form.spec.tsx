@@ -221,6 +221,25 @@ describe("wrapForm", () => {
       await clickDeploy(container);
       await waitFor(() => expect(configured).toBe(true));
     });
+
+    it("should surface the field errors onConfigure throws", async () => {
+      const client = createTestClient();
+      const draft = await client.tasks.create({ ...getInitialValues({}), rack: 0 });
+      const Renderer = createRenderer({
+        Form: DeviceStatusProbe,
+        onConfigure: async () => {
+          throw new z.ZodError([
+            { code: "custom", message: "Device is offline", path: ["device"] },
+          ]);
+        },
+      });
+      const { container } = await renderTaskFormTab(Renderer, {
+        client,
+        taskKey: draft.key,
+      });
+      await clickDeploy(container);
+      await screen.findByText("device-status:Device is offline");
+    });
   });
 
   describe("device rack sync", () => {

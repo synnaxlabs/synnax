@@ -57,7 +57,7 @@ export const describeIdentifier = (id?: library.Identifier): string => {
     case "arinc429":
       return `label ${id.label.toString(8)}`;
     case "mil1553":
-      return `RT ${id.rt} SA ${id.subaddress}`;
+      return `RT ${id.rt} SA ${id.subaddress} ${id.direction}`;
     case "field":
       return `= ${id.value}`;
     case "token":

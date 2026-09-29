@@ -57,6 +57,10 @@ export interface CreateDeviceParams<
   getLocation: (properties: z.infer<P>) => string;
   /** The error shown on each text property that must not be empty. */
   required?: Partial<Record<keyof z.infer<P> & string, string>>;
+  /** @returns the error of each property the Driver rejects, keyed by property. */
+  validate?: (
+    properties: z.infer<P>,
+  ) => Partial<Record<keyof z.infer<P> & string, string>>;
 }
 
 /**
@@ -74,6 +78,7 @@ export const createDevice = <M extends string, P extends z.ZodType<record.Unknow
   getModel,
   getLocation,
   required = {},
+  validate = () => ({}),
 }: CreateDeviceParams<M, P>) => {
   const SCHEMAS = {
     properties,
@@ -98,9 +103,12 @@ export const createDevice = <M extends string, P extends z.ZodType<record.Unknow
 
   const beforeValidate = ({ get, set, setStatus }: FormParams): boolean => {
     const props = properties.parse(get("properties").value);
+    const errors: Record<string, string | undefined> = { ...validate(props) };
+    for (const [field, message] of Object.entries(required))
+      if (props[field] === "") errors[field] ??= message;
     let valid = true;
-    for (const [field, message] of Object.entries(required)) {
-      if (message == null || props[field] !== "") continue;
+    for (const [field, message] of Object.entries(errors)) {
+      if (message == null) continue;
       const path = `properties.${field}`;
       setStatus(path, { key: path, variant: "error", message });
       valid = false;

@@ -13,10 +13,12 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Panel as PPanel, Task as Base } from "@synnaxlabs/pluto";
 import { cloneElement } from "react";
 
+import { ARINC429 } from "@/feature/arinc429";
 import { CAN } from "@/feature/can";
 import { EtherCAT } from "@/feature/ethercat";
 import { HTTP } from "@/feature/http";
 import { LabJack } from "@/feature/labjack";
+import { MIL1553 } from "@/feature/mil1553";
 import { Modbus } from "@/feature/modbus";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
@@ -43,6 +45,8 @@ export const FORMS: Task.Forms = {
         ...Serial.Task.FORMS,
         ...TCP.Task.FORMS,
         ...UDP.Task.FORMS,
+        ...ARINC429.Task.FORMS,
+        ...MIL1553.Task.FORMS,
       }
     : {}),
 };

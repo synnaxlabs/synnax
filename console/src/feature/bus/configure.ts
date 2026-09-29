@@ -7,8 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type library, type rack, type Synnax } from "@synnaxlabs/client";
+import {
+  type channel,
+  type device,
+  type library,
+  type rack,
+  type Synnax,
+} from "@synnaxlabs/client";
 import { DataType } from "@synnaxlabs/x";
+import { z } from "zod";
 
 import {
   commandChannelName,
@@ -19,6 +26,7 @@ import {
 } from "@/feature/bus/names";
 import {
   type Message,
+  type MessageCheck,
   messagesOf,
   type ReadConfig,
   type WriteConfig,
@@ -62,8 +70,7 @@ const createFieldChannels = async (
 };
 
 interface Context {
-  device: string;
-  rack: rack.Key;
+  device: device.Device;
   messages: Map<library.EntryKey, library.MessageEntry>;
   existing: Set<channel.Key>;
 }
@@ -78,13 +85,33 @@ const openContext = async (
     client.libraries.retrieve({ key: config.library }),
     retrieveExisting(client, keys),
   ]);
-  return { device: dev.name, rack: dev.rack, messages: messagesOf(lib), existing };
+  return { device: dev, messages: messagesOf(lib), existing };
 };
 
 const entryOf = (ctx: Context, m: Message): library.MessageEntry => {
   const entry = ctx.messages.get(m.message);
   if (entry == null) throw new Error(`Message ${m.message} is not in the library`);
   return entry;
+};
+
+/**
+ * Runs the checks on each enabled message, binding the first failure of a message to
+ * its message key.
+ * @throws {z.ZodError} if a message fails a check.
+ */
+const checkMessages = (ctx: Context, messages: Message[], checks: MessageCheck[]) => {
+  const issues: z.core.$ZodIssue[] = [];
+  messages.forEach((m, i) => {
+    if (m.disabled) return;
+    const entry = entryOf(ctx, m);
+    for (const check of checks) {
+      const message = check(entry, ctx.device);
+      if (message == null) continue;
+      issues.push({ code: "custom", message, path: ["messages", i, "message"] });
+      break;
+    }
+  });
+  if (issues.length > 0) throw new z.ZodError(issues);
 };
 
 /** @returns the name of a message field, throwing when the message has no such field. */
@@ -120,21 +147,26 @@ const bindFields = async (
  * Creates the channels a read config names but that do not exist: one index per
  * message, one channel per field, and the virtual raw frame channel. Channels that
  * already exist by name are reused.
+ * @param checks - Checks each enabled message must pass before any channel exists.
  * @returns the config bound to its channels and the rack of its device.
+ * @throws {z.ZodError} if a message fails a check.
  */
 export const configureRead = async <C extends ReadConfig>(
   client: Synnax,
   config: C,
+  checks: MessageCheck[],
 ): Promise<[C, rack.Key]> => {
   const keys = [
     config.raw,
     ...config.messages.flatMap((m) => [m.index, ...m.fields.map((f) => f.channel)]),
   ];
   const ctx = await openContext(client, config, keys);
+  checkMessages(ctx, config.messages, checks);
+  const deviceName = ctx.device.name;
   if (!ctx.existing.has(config.raw))
     config.raw = (
       await client.channels.create(
-        { name: rawName(ctx.device), dataType: DataType.BYTES, virtual: true },
+        { name: rawName(deviceName), dataType: DataType.BYTES, virtual: true },
         { retrieveIfNameExists: true },
       )
     ).key;
@@ -142,36 +174,41 @@ export const configureRead = async <C extends ReadConfig>(
     if (m.disabled) continue;
     const entry = entryOf(ctx, m);
     if (!ctx.existing.has(m.index))
-      m.index = await createIndex(client, indexName(ctx.device, entry.name));
+      m.index = await createIndex(client, indexName(deviceName, entry.name));
     const unbound = m.fields.filter((f) => !ctx.existing.has(f.channel));
     if (unbound.length === 0) continue;
     await bindFields(client, unbound, m.index, (key) =>
-      fieldChannelName(ctx.device, entry.name, fieldName(entry, key)),
+      fieldChannelName(deviceName, entry.name, fieldName(entry, key)),
     );
   }
-  return [config, ctx.rack];
+  return [config, ctx.device.rack];
 };
 
 /**
  * Creates a command channel for each field a write config sends without one, on one
  * command index per message. Channels that already exist by name are reused.
+ * @param checks - Checks each enabled message must pass before any channel exists.
  * @returns the config bound to its channels and the rack of its device.
+ * @throws {z.ZodError} if a message fails a check.
  */
 export const configureWrite = async <C extends WriteConfig>(
   client: Synnax,
   config: C,
+  checks: MessageCheck[],
 ): Promise<[C, rack.Key]> => {
   const keys = config.messages.flatMap((m) => m.fields.map((f) => f.channel));
   const ctx = await openContext(client, config, keys);
+  checkMessages(ctx, config.messages, checks);
+  const deviceName = ctx.device.name;
   for (const m of config.messages) {
     if (m.disabled) continue;
     const unbound = m.fields.filter((f) => !ctx.existing.has(f.channel));
     if (unbound.length === 0) continue;
     const entry = entryOf(ctx, m);
-    const index = await createIndex(client, commandIndexName(ctx.device, entry.name));
+    const index = await createIndex(client, commandIndexName(deviceName, entry.name));
     await bindFields(client, unbound, index, (key) =>
-      commandChannelName(ctx.device, entry.name, fieldName(entry, key)),
+      commandChannelName(deviceName, entry.name, fieldName(entry, key)),
     );
   }
-  return [config, ctx.rack];
+  return [config, ctx.device.rack];
 };

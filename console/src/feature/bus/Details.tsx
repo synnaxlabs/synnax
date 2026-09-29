@@ -117,6 +117,19 @@ const FieldList = ({
   );
 };
 
+const renderNothing = () => null;
+
+/** Shows the errors of the message itself, such as one its device cannot carry. */
+const MessageErrors = ({ path }: Pick<DetailsProps, "path">): ReactElement => (
+  <Form.Field<library.EntryKey>
+    path={`${path}.message`}
+    showLabel={false}
+    padHelpText={false}
+  >
+    {renderNothing}
+  </Form.Field>
+);
+
 /** Shows the channels a read task writes a message's fields to. */
 export const ReadDetails = ({ path, entry }: DetailsProps): ReactElement => {
   const device = useDeviceName();
@@ -124,6 +137,7 @@ export const ReadDetails = ({ path, entry }: DetailsProps): ReactElement => {
   const plan = (name: string) => (device === "" ? "" : name);
   return (
     <Form.Sections className={CSS.B("bus-details")}>
+      <MessageErrors path={path} />
       <Form.Section title="Timestamps">
         <ChannelLabel channel={index} planned={plan(indexName(device, entry.name))} />
       </Form.Section>
@@ -156,6 +170,7 @@ export const WriteDetails = ({ path, entry }: DetailsProps): ReactElement => {
     entry.period == null ? "on change" : `every ${entry.period.toString()}`;
   return (
     <Form.Sections className={CSS.B("bus-details")}>
+      <MessageErrors path={path} />
       <Form.Section title="Fields">
         <Text.Text level="small" color={8}>
           {`Sent ${period}. A field that is not checked is sent as zero.`}

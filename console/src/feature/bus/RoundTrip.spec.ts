@@ -7,14 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { can, type library, serial, type task, tcp, udp } from "@synnaxlabs/client";
+import {
+  arinc429,
+  can,
+  type library,
+  mil1553,
+  serial,
+  type task,
+  tcp,
+  udp,
+} from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type record, TimeSpan } from "@synnaxlabs/x";
 import { screen } from "@testing-library/react";
 import { type FC } from "react";
 import { describe, expect, it } from "vitest";
 
+import { ARINC429 } from "@/feature/arinc429";
 import {
+  createAvionicsLibrary,
   createBusDevice,
   createBusLibrary,
   createBusTask,
@@ -22,6 +33,7 @@ import {
   renderBusTask,
 } from "@/feature/bus/testutil";
 import { CAN } from "@/feature/can";
+import { MIL1553 } from "@/feature/mil1553";
 import { Serial } from "@/feature/serial";
 import { TCP } from "@/feature/tcp";
 import { UDP } from "@/feature/udp";
@@ -272,6 +284,95 @@ describe("bus config round trip", () => {
         messages: [messageOf(lib.status)],
       }),
       field: "Volts",
+    });
+    expect(config.device).toBe(dev.key);
+    expectMessage(config.messages, lib.status);
+  });
+
+  it("should keep an ARINC 429 read config", async () => {
+    const lib = await createAvionicsLibrary(client);
+    const dev = await createBusDevice(
+      client,
+      ARINC429.Device.MAKE,
+      arinc429.propertiesZ.parse({ card: 1, channel: 2, speed: "low" }),
+    );
+    const { config } = await deploy({
+      Form: ARINC429.Task.Read,
+      type: ARINC429.Task.READ_TYPE,
+      schemas: ARINC429.Task.READ_SCHEMAS,
+      config: ARINC429.Task.READ_SCHEMAS.config.parse({
+        library: lib.library.key,
+        device: dev.key,
+        messages: [messageOf(lib.airspeed)],
+      }),
+      field: "Speed",
+    });
+    expect(config.library).toBe(lib.library.key);
+    expect(config.device).toBe(dev.key);
+    expectMessage(config.messages, lib.airspeed);
+  });
+
+  it("should keep an ARINC 429 write config", async () => {
+    const lib = await createAvionicsLibrary(client);
+    const dev = await createBusDevice(
+      client,
+      ARINC429.Device.MAKE,
+      arinc429.propertiesZ.parse({}),
+    );
+    const { config } = await deploy({
+      Form: ARINC429.Task.Write,
+      type: ARINC429.Task.WRITE_TYPE,
+      schemas: ARINC429.Task.WRITE_SCHEMAS,
+      config: ARINC429.Task.WRITE_SCHEMAS.config.parse({
+        library: lib.library.key,
+        device: dev.key,
+        messages: [messageOf(lib.airspeed)],
+      }),
+      field: "Speed",
+    });
+    expect(config.device).toBe(dev.key);
+    expectMessage(config.messages, lib.airspeed);
+  });
+
+  it("should keep a MIL-STD-1553 bus controller read config", async () => {
+    const lib = await createAvionicsLibrary(client);
+    const dev = await createBusDevice(
+      client,
+      MIL1553.Device.MAKE,
+      mil1553.propertiesZ.parse({ role: "bus_controller" }),
+    );
+    const { config } = await deploy({
+      Form: MIL1553.Task.Read,
+      type: MIL1553.Task.READ_TYPE,
+      schemas: MIL1553.Task.READ_SCHEMAS,
+      config: MIL1553.Task.READ_SCHEMAS.config.parse({
+        library: lib.library.key,
+        device: dev.key,
+        messages: [messageOf(lib.attitude)],
+      }),
+      field: "Pitch",
+    });
+    expect(config.device).toBe(dev.key);
+    expectMessage(config.messages, lib.attitude);
+  });
+
+  it("should keep a MIL-STD-1553 remote terminal write config", async () => {
+    const lib = await createAvionicsLibrary(client);
+    const dev = await createBusDevice(
+      client,
+      MIL1553.Device.MAKE,
+      mil1553.propertiesZ.parse({ role: "remote_terminal", terminals: [5] }),
+    );
+    const { config } = await deploy({
+      Form: MIL1553.Task.Write,
+      type: MIL1553.Task.WRITE_TYPE,
+      schemas: MIL1553.Task.WRITE_SCHEMAS,
+      config: MIL1553.Task.WRITE_SCHEMAS.config.parse({
+        library: lib.library.key,
+        device: dev.key,
+        messages: [messageOf(lib.status)],
+      }),
+      field: "Mode",
     });
     expect(config.device).toBe(dev.key);
     expectMessage(config.messages, lib.status);

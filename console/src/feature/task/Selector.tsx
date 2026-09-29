@@ -12,10 +12,12 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
+import { ARINC429 } from "@/feature/arinc429";
 import { CAN } from "@/feature/can";
 import { EtherCAT } from "@/feature/ethercat";
 import { HTTP } from "@/feature/http";
 import { LabJack } from "@/feature/labjack";
+import { MIL1553 } from "@/feature/mil1553";
 import { Modbus } from "@/feature/modbus";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
@@ -51,6 +53,8 @@ export const SELECTABLES: Base.Selectable[] = [
         ...Serial.Task.SELECTABLES,
         ...TCP.Task.SELECTABLES,
         ...UDP.Task.SELECTABLES,
+        ...ARINC429.Task.SELECTABLES,
+        ...MIL1553.Task.SELECTABLES,
       ]
     : []),
 ].map(withTaskVisibility);

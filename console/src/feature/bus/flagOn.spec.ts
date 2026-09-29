@@ -32,5 +32,7 @@ describe("bus integration flag on", () => {
       expect.arrayContaining(BUS_CONNECT_COMMANDS),
     );
     expect(Task.parseType("can_read")).toBe("CAN read task");
+    expect(Task.parseType("arinc429_read")).toBe("ARINC 429 read task");
+    expect(Task.parseType("mil1553_write")).toBe("MIL-STD-1553 write task");
   });
 });

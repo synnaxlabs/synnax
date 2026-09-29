@@ -30,6 +30,7 @@ describe("bus integration flag off", () => {
       expect(commands).not.toContain(key),
     );
     expect(Task.parseType("can_read")).toBe("Can read task");
+    expect(Task.parseType("mil1553_write")).toBe("Mil1553 write task");
     expect(Object.keys(Task.FORMS)).toContain("modbus_read");
   });
 });
