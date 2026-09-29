@@ -143,8 +143,21 @@ TEST_F(PtyTest, ReportsTheDeviceAsUnreachableWhenThePeerCloses) {
 
 TEST_F(PtyTest, FailsToReadAfterClose) {
     const auto port = ASSERT_NIL_P(Port::open(this->props()));
-    port->close();
+    port->close(x::telem::SECOND);
     ASSERT_OCCURRED_AS_P(port->read(x::telem::SECOND), transport::UNREACHABLE_ERROR);
+}
+
+TEST_F(PtyTest, SendsWrittenBytesBeforeClosing) {
+    const auto port = ASSERT_NIL_P(Port::open(this->props()));
+    ASSERT_NIL(port->write(bytes("bye"), x::telem::SECOND));
+    std::string got;
+    std::thread peer([&] {
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        got = this->peer_read(3);
+    });
+    port->close(x::telem::SECOND);
+    peer.join();
+    EXPECT_EQ(got, "bye");
 }
 
 TEST(Port, FailsToOpenAMissingPort) {

@@ -62,6 +62,14 @@ std::error_code set_mark_space_parity(const Handle handle, const bool mark) {
 std::error_code enable_rs485(const Handle handle) {
     return edit_dcb(handle, [](DCB &dcb) { dcb.fRtsControl = RTS_CONTROL_TOGGLE; });
 }
+
+std::pair<std::size_t, std::error_code> queued_output(const Handle handle) {
+    DWORD errors = 0;
+    COMSTAT stat{};
+    if (!::ClearCommError(reinterpret_cast<HANDLE>(handle), &errors, &stat))
+        return {0, last_error()};
+    return {stat.cbOutQue, {}};
+}
 }
 
 namespace {

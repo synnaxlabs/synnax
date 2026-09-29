@@ -81,6 +81,7 @@ cc_test(
         "//driver/bus",
         "//driver/bus/testutil",
         "//driver/can/loopback",
+        "//driver/can/slcan",
         "//driver/pipeline/mock",
         "//x/cpp/test",
         "@googletest//:gtest_main",

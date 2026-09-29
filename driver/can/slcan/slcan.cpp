@@ -10,7 +10,6 @@
 #include "absl/log/log.h"
 
 #include "driver/can/slcan/slcan.h"
-#include "driver/serial/scan.h"
 
 namespace driver::can::slcan {
 namespace {
@@ -195,22 +194,12 @@ x::errors::Error Bus::close() {
         if (err) break;
         err = this->port->write(bytes(line), WRITE_TIMEOUT);
     }
-    this->port->close();
+    this->port->close(WRITE_TIMEOUT);
     return err;
 }
 
 std::pair<std::vector<Channel>, x::errors::Error> Backend::scan() {
-    auto [ports, err] = serial::scan();
-    if (err) return {{}, err};
-    std::vector<Channel> channels;
-    channels.reserve(ports.size());
-    for (const auto &port: ports)
-        channels.push_back({
-            .backend = synnax::can::BACKEND_SLCAN,
-            .name = port.path,
-            .description = port.name,
-        });
-    return {channels, x::errors::NIL};
+    return {{}, x::errors::NIL};
 }
 
 std::pair<std::unique_ptr<can::Bus>, x::errors::Error>

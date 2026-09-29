@@ -45,6 +45,13 @@ std::error_code set_mark_space_parity(Handle, bool) {
 std::error_code enable_rs485(Handle) {
     return std::make_error_code(std::errc::not_supported);
 }
+
+std::pair<std::size_t, std::error_code> queued_output(const Handle handle) {
+    int queued = 0;
+    if (::ioctl(static_cast<int>(handle), TIOCOUTQ, &queued) != 0)
+        return {0, {errno, std::generic_category()}};
+    return {static_cast<std::size_t>(queued), {}};
+}
 }
 
 std::pair<std::vector<Info>, x::errors::Error> scan(const std::filesystem::path &root) {

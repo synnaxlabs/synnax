@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <chrono>
 #include <optional>
 #include <string>
 #include <system_error>
+#include <thread>
 #include <type_traits>
 
 #include "asio/buffer.hpp"
@@ -207,7 +209,16 @@ x::errors::Error Port::write(
     return x::errors::NIL;
 }
 
-void Port::close() {
+void Port::close(const x::telem::TimeSpan timeout) {
+    if (!this->device.is_open()) return;
+    // Closing a port discards the output that it has not yet sent.
+    const auto handle = to_native(this->device.native_handle());
+    const auto deadline = x::telem::TimeStamp::now() + timeout;
+    while (x::telem::TimeStamp::now() < deadline) {
+        const auto [queued, ec] = native::queued_output(handle);
+        if (ec || queued == 0) break;
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
     std::error_code ignored;
     this->device.close(ignored);
 }

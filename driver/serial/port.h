@@ -54,7 +54,8 @@ public:
     x::errors::Error
     write(std::span<const std::uint8_t> data, x::telem::TimeSpan timeout);
 
-    /// @brief closes the port. Reads and writes after close fail.
-    void close();
+    /// @brief waits up to timeout for written bytes to leave the port, then closes it.
+    /// Reads and writes after close fail.
+    void close(x::telem::TimeSpan timeout);
 };
 }

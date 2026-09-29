@@ -29,6 +29,7 @@
 #include "driver/can/loopback/loopback.h"
 #include "driver/can/read.h"
 #include "driver/can/scan_task.h"
+#include "driver/can/slcan/slcan.h"
 #include "driver/can/write.h"
 #include "driver/pipeline/mock/pipeline.h"
 #include "driver/task/task.h"
@@ -577,5 +578,15 @@ TEST(CANScanner, ReportsEveryChannelAndKeepsTrackedDevices) {
     EXPECT_EQ(devs[1].properties.at("backend"), loopback::BACKEND);
     EXPECT_EQ(devs[1].properties.at("channel"), "can 1");
     EXPECT_EQ(devs[1].status->variant, synnax::status::VARIANT_SUCCESS);
+}
+
+TEST(CANScanner, CreatesNoDeviceForASerialPort) {
+    Backends backends{
+        {synnax::can::BACKEND_SLCAN, std::make_shared<slcan::Backend>()},
+    };
+    synnax::task::Task task{.key = x::uuid::create(), .name = "scan"};
+    Scanner scanner(task, std::make_shared<const Backends>(std::move(backends)));
+    const std::unordered_map<std::string, synnax::device::Device> devices;
+    EXPECT_TRUE(ASSERT_NIL_P(scanner.scan({.devices = &devices})).empty());
 }
 }

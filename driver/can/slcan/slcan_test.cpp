@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <atomic>
+#include <cerrno>
 #include <chrono>
 #include <cstdlib>
 #include <mutex>
@@ -54,8 +55,7 @@ class Adapter {
                     std::lock_guard lock(this->mu);
                     this->lines.push_back(line);
                 }
-                if (!this->silent)
-                    this->write(this->rejected.contains(line) ? "\a" : "\r");
+                if (!this->silent) this->reply(this->rejected.contains(line));
                 line.clear();
             }
         }
@@ -86,6 +86,13 @@ public:
 
     void start() {
         this->thread = std::thread([this] { this->run(); });
+    }
+
+    /// @brief answers a command. The host may close its end before the answer, as it
+    /// does after sending the close command.
+    void reply(const bool rejected) const {
+        const char answer = rejected ? '\a' : '\r';
+        if (::write(this->controller, &answer, 1) != 1) { EXPECT_EQ(errno, EIO); }
     }
 
     void write(const std::string &data) const {
@@ -271,6 +278,10 @@ TEST_F(SlcanTest, ClosesTheAdapter) {
     ASSERT_NIL(bus->close());
     ASSERT_NIL(bus->close());
     EXPECT_EQ(this->adapter.received(4).back(), "C");
+}
+
+TEST_F(SlcanTest, ListsNoChannelsWhileASerialPortIsPresent) {
+    EXPECT_TRUE(ASSERT_NIL_P(this->backend.scan()).empty());
 }
 
 TEST_F(SlcanTest, ReportsAnUnpluggedAdapter) {
