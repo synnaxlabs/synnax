@@ -10,68 +10,15 @@
 #pragma once
 
 #include <atomic>
-#include <deque>
-#include <mutex>
 #include <vector>
 
 #include "client/cpp/synnax.h"
+#include "x/cpp/sync/list.h"
 
 #include "driver/pipeline/acquisition.h"
 #include "driver/pipeline/control.h"
 
 namespace driver::pipeline::mock {
-/// @brief a list that a mock appends to on the pipeline thread while a test reads it
-/// from another. All methods are thread-safe.
-template<typename T>
-class Recording {
-    /// @brief guards items.
-    mutable std::mutex mu;
-    /// @brief the recorded items. A deque keeps references stable across push_back.
-    std::deque<T> items;
-
-public:
-    /// @brief appends item.
-    void push_back(T item) {
-        std::lock_guard lock(this->mu);
-        this->items.push_back(std::move(item));
-    }
-
-    /// @returns the number of recorded items.
-    [[nodiscard]] size_t size() const {
-        std::lock_guard lock(this->mu);
-        return this->items.size();
-    }
-
-    /// @returns true if nothing was recorded.
-    [[nodiscard]] bool empty() const { return this->size() == 0; }
-
-    /// @returns the item at index i. The reference stays valid until clear().
-    /// @throws std::out_of_range if i is not less than size().
-    [[nodiscard]] const T &at(const size_t i) const {
-        std::lock_guard lock(this->mu);
-        return this->items.at(i);
-    }
-
-    /// @brief removes every recorded item.
-    void clear() {
-        std::lock_guard lock(this->mu);
-        this->items.clear();
-    }
-
-    /// @returns a copy of every recorded item, in order.
-    [[nodiscard]] std::vector<T> snapshot() const {
-        std::lock_guard lock(this->mu);
-        std::vector<T> out;
-        out.reserve(this->items.size());
-        for (const auto &item: this->items)
-            if constexpr (requires { item.deep_copy(); })
-                out.push_back(item.deep_copy());
-            else
-                out.push_back(item);
-        return out;
-    }
-};
-
 // Configuration for a mock Streamer that allows controlling its behavior in tests.
 struct StreamerConfig {
     // A sequence of frames that the Streamer will return on each read() call.
@@ -189,13 +136,13 @@ enum class OpType { Write, SetAuthority };
 class Writer final : public pipeline::Writer {
 public:
     /// Stores all frames written through this writer.
-    std::shared_ptr<Recording<x::telem::Frame>> writes;
+    std::shared_ptr<x::sync::List<x::telem::Frame>> writes;
 
     /// Stores all authority changes forwarded to this writer.
-    std::shared_ptr<Recording<pipeline::Authorities>> authority_changes;
+    std::shared_ptr<x::sync::List<pipeline::Authorities>> authority_changes;
 
     /// Tracks the order of write() and set_authority() calls.
-    std::shared_ptr<Recording<OpType>> ops;
+    std::shared_ptr<x::sync::List<OpType>> ops;
 
     /// Error to return when close() is called.
     x::errors::Error close_err;
@@ -208,12 +155,13 @@ public:
     int return_false_ok_on;
 
     explicit Writer(
-        std::shared_ptr<Recording<x::telem::Frame>> writes,
+        std::shared_ptr<x::sync::List<x::telem::Frame>> writes,
         const x::errors::Error &close_err = x::errors::NIL,
         const int return_false_ok_on = -1,
-        std::shared_ptr<Recording<pipeline::Authorities>> authority_changes =
-            std::make_shared<Recording<pipeline::Authorities>>(),
-        std::shared_ptr<Recording<OpType>> ops = std::make_shared<Recording<OpType>>(),
+        std::shared_ptr<x::sync::List<pipeline::Authorities>> authority_changes =
+            std::make_shared<x::sync::List<pipeline::Authorities>>(),
+        std::shared_ptr<x::sync::List<OpType>> ops =
+            std::make_shared<x::sync::List<OpType>>(),
         const x::errors::Error &set_authority_err = x::errors::NIL
     ):
         writes(std::move(writes)),
@@ -244,13 +192,13 @@ public:
 class WriterFactory final : public pipeline::WriterFactory {
 public:
     /// Stores all frames written through this factory's writers.
-    std::shared_ptr<Recording<x::telem::Frame>> writes;
+    std::shared_ptr<x::sync::List<x::telem::Frame>> writes;
 
     /// Stores all authority changes forwarded through this factory's writers.
-    std::shared_ptr<Recording<pipeline::Authorities>> authority_changes;
+    std::shared_ptr<x::sync::List<pipeline::Authorities>> authority_changes;
 
     /// Tracks the order of write() and set_authority() calls across all writers.
-    std::shared_ptr<Recording<OpType>> ops;
+    std::shared_ptr<x::sync::List<OpType>> ops;
 
     /// A queue of errors to return when opening writers.
     std::vector<x::errors::Error> open_errors;
@@ -273,16 +221,16 @@ public:
     std::atomic<size_t> writer_opens;
 
     explicit WriterFactory(
-        std::shared_ptr<Recording<x::telem::Frame>> writes =
-            std::make_shared<Recording<x::telem::Frame>>(),
+        std::shared_ptr<x::sync::List<x::telem::Frame>> writes =
+            std::make_shared<x::sync::List<x::telem::Frame>>(),
         std::vector<x::errors::Error> open_errors = {},
         std::vector<x::errors::Error> close_errors = {},
         std::vector<int> return_false_ok_on = {},
         std::vector<x::errors::Error> set_authority_errors = {}
     ):
         writes(std::move(writes)),
-        authority_changes(std::make_shared<Recording<pipeline::Authorities>>()),
-        ops(std::make_shared<Recording<OpType>>()),
+        authority_changes(std::make_shared<x::sync::List<pipeline::Authorities>>()),
+        ops(std::make_shared<x::sync::List<OpType>>()),
         open_errors(std::move(open_errors)),
         close_errors(std::move(close_errors)),
         set_authority_errors(std::move(set_authority_errors)),
@@ -328,7 +276,7 @@ public:
 /// the way the integration suite derives a running task's rate. Returns 0 when fewer
 /// than two samples were written.
 inline double measured_rate(
-    const Recording<x::telem::Frame> &writes,
+    const x::sync::List<x::telem::Frame> &writes,
     const synnax::channel::Key index_key
 ) {
     std::vector<x::telem::TimeStamp> stamps;
@@ -348,7 +296,7 @@ inline double measured_rate(
 class Sink : public pipeline::Sink {
 public:
     // Stores all frames written through this sink
-    std::shared_ptr<Recording<x::telem::Frame>> writes;
+    std::shared_ptr<x::sync::List<x::telem::Frame>> writes;
 
     // Sequence of errors to return for write operations
     // Each write consumes the next error in the sequence
@@ -358,11 +306,11 @@ public:
     x::errors::Error stop_err;
 
     Sink():
-        writes(std::make_shared<Recording<x::telem::Frame>>()),
+        writes(std::make_shared<x::sync::List<x::telem::Frame>>()),
         write_errors(std::make_shared<std::vector<x::errors::Error>>()) {}
 
     Sink(
-        const std::shared_ptr<Recording<x::telem::Frame>> &writes,
+        const std::shared_ptr<x::sync::List<x::telem::Frame>> &writes,
         const std::shared_ptr<std::vector<x::errors::Error>> &write_errors
     ):
         writes(writes), write_errors(write_errors) {}

@@ -10,6 +10,7 @@
 #include "gtest/gtest.h"
 
 #include "freighter/cpp/freighter.h"
+#include "x/cpp/sync/list.h"
 #include "x/cpp/test/test.h"
 
 #include "driver/bypass/pipeline/writer.h"
@@ -83,7 +84,7 @@ TEST(WriterTest, PropagatesOpenError) {
     auto bus = std::make_shared<Bus>();
     auto states = std::make_shared<control::States>();
     auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>(
-        std::make_shared<::driver::pipeline::mock::Recording<x::telem::Frame>>(),
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
         std::vector<x::errors::Error>{x::errors::VALIDATION}
     );
     WriterFactory factory(mock_factory, bus, states, 0);
@@ -308,7 +309,7 @@ TEST(WriterTest, WriteErrorPropagatesFromCore) {
     auto states = std::make_shared<control::States>();
     auto sub = bus->subscribe({1});
     auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>(
-        std::make_shared<::driver::pipeline::mock::Recording<x::telem::Frame>>(),
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
         std::vector<x::errors::Error>{},
         std::vector<x::errors::Error>{},
         std::vector<int>{0}
@@ -327,7 +328,7 @@ TEST(WriterTest, CloseErrorPropagatesFromCore) {
     auto bus = std::make_shared<Bus>();
     auto states = std::make_shared<control::States>();
     auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>(
-        std::make_shared<::driver::pipeline::mock::Recording<x::telem::Frame>>(),
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
         std::vector<x::errors::Error>{},
         std::vector<x::errors::Error>{freighter::UNREACHABLE}
     );
@@ -340,7 +341,7 @@ TEST(WriterTest, SetAuthorityErrorPropagatesFromCore) {
     auto bus = std::make_shared<Bus>();
     auto states = std::make_shared<control::States>();
     auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>(
-        std::make_shared<::driver::pipeline::mock::Recording<x::telem::Frame>>(),
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
         std::vector<x::errors::Error>{},
         std::vector<x::errors::Error>{},
         std::vector<int>{},

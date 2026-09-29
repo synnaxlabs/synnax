@@ -42,6 +42,7 @@ cc_test(
     deps = [
         "//driver/pipeline",
         "//driver/pipeline/mock",
+        "//x/cpp/sync",
         "//x/cpp/test",
         "@abseil-cpp//absl/log",
         "@googletest//:gtest_main",

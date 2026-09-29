@@ -12,6 +12,8 @@
 
 #include "benchmark/benchmark.h"
 
+#include "x/cpp/sync/list.h"
+
 #include "driver/bypass/bypass.h"
 #include "driver/bypass/pipeline/writer.h"
 #include "driver/control/state.h"
@@ -319,8 +321,7 @@ static void BM_EndToEnd(benchmark::State &state) {
     for (uint32_t i = 0; i < w.channels; i++)
         keys[i] = i + 1;
 
-    auto mock_writes = std::make_shared<
-        driver::pipeline::mock::Recording<x::telem::Frame>>();
+    auto mock_writes = std::make_shared<x::sync::List<x::telem::Frame>>();
     auto mock_writer_factory = std::make_shared<driver::pipeline::mock::WriterFactory>(
         mock_writes
     );

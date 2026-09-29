@@ -9,6 +9,7 @@
 
 #include "gtest/gtest.h"
 
+#include "x/cpp/sync/list.h"
 #include "x/cpp/test/test.h"
 #include "x/cpp/uuid/uuid.h"
 
@@ -29,8 +30,7 @@ public:
         const std::vector<synnax::channel::Channel> &state_channels,
         const std::vector<synnax::channel::Key> &cmd_channels,
         const bool data_saving_disabled,
-        const std::shared_ptr<driver::pipeline::mock::Recording<x::telem::Frame>>
-            &writes,
+        const std::shared_ptr<x::sync::List<x::telem::Frame>> &writes,
         const std::shared_ptr<std::vector<x::errors::Error>> &errors
     ):
         common::Sink(
@@ -76,7 +76,7 @@ TEST(TestCommonWriteTask, testSetStateUsesLastSample) {
     state.data_type = x::telem::UINT8_T;
     state.index = 2;
 
-    auto writes = std::make_shared<pipeline::mock::Recording<x::telem::Frame>>();
+    auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
     auto errors = std::make_shared<std::vector<x::errors::Error>>();
 
     auto sink = std::make_unique<MockSink>(
@@ -156,7 +156,7 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     state.data_type = x::telem::UINT8_T;
     state.index = 2;
 
-    auto writes = std::make_shared<pipeline::mock::Recording<x::telem::Frame>>();
+    auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
     auto errors = std::make_shared<std::vector<x::errors::Error>>();
 
     auto sink = std::make_unique<MockSink>(
@@ -260,7 +260,7 @@ TEST(TestCommonWriteTask, testStartWhileRunningAcks) {
     state.key = 3;
     state.data_type = x::telem::UINT8_T;
     state.index = 2;
-    auto writes = std::make_shared<pipeline::mock::Recording<x::telem::Frame>>();
+    auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
     auto errors = std::make_shared<std::vector<x::errors::Error>>();
     auto sink = std::make_unique<MockSink>(
         x::telem::HERTZ * 10,
@@ -317,7 +317,7 @@ TEST(TestCommonWriteTask, testStopReleasesSinkWithoutStateChannels) {
         std::vector<synnax::channel::Channel>{},
         std::vector<synnax::channel::Key>{1},
         false,
-        std::make_shared<pipeline::mock::Recording<x::telem::Frame>>(),
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
         std::make_shared<std::vector<x::errors::Error>>()
     );
     auto *raw_sink = sink.get();

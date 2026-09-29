@@ -11,6 +11,7 @@
 
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/defer/defer.h"
+#include "x/cpp/sync/list.h"
 #include "x/cpp/test/test.h"
 
 #include "arc/cpp/runtime/errors/errors.h"
@@ -2629,7 +2630,7 @@ TEST(ArcErrorHandling, WriterFailurePropagatesErrorStatus) {
     // Configure mock writer factory to fail when opening the writer.
     // Writer open errors are propagated through stopped_with_err.
     auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>(
-        std::make_shared<pipeline::mock::Recording<x::telem::Frame>>(),
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
         std::vector<x::errors::Error>{x::errors::VALIDATION}
     );
 
