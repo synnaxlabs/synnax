@@ -45,8 +45,6 @@ mapfile -t CORE_PATHS < <(build_paths core_build)
 
 UNION_PATHS=("${DRIVER_PATHS[@]}" "${CONSOLE_PATHS[@]}" "${CORE_PATHS[@]}")
 
-WORKFLOW_FILES=("ci.yaml" "test.integration.yaml" "build.synnax.yaml")
-
 # Flags of the build this run is about to do. A candidate must have used the same
 # ones, or its binaries are not interchangeable with the ones this build would make.
 DEBUG=${DEBUG:-false}
@@ -75,6 +73,7 @@ declare -A TOOLCHAIN=(
     [core]="actions/setup-go"
 )
 WORKFLOW=.github/workflows/build.synnax.yaml
+declare -A ARTIFACT_RUNS
 
 CACHE_DIR=$(mktemp -d)
 trap 'rm -rf "${CACHE_DIR}"' EXIT
@@ -124,36 +123,28 @@ paths_clean() {
     git diff --quiet "${sha}" "${COMPARE_REF}" -- "${specs[@]}" 2> /dev/null
 }
 
-runs_for_sha() {
-    local sha=$1
-    local file="${CACHE_DIR}/runs-${sha}"
-    if [ ! -f "${file}" ]; then
-        local wf
-        for wf in "${WORKFLOW_FILES[@]}"; do
-            gh api "repos/:owner/:repo/actions/workflows/${wf}/runs?head_sha=${sha}&per_page=20" \
-                --jq '.workflow_runs[].id' 2> /dev/null || true
-        done | sort -rn > "${file}"
-    fi
-    cat "${file}"
+# Prints run_id:sha for every live artifact of the name, newest first.
+# Expired artifacts still appear in the API listing but cannot be downloaded.
+artifact_rows() {
+    gh api --paginate "repos/:owner/:repo/actions/artifacts?name=$1&per_page=100" \
+        --jq '.artifacts[] | select(.expired == false)
+            | "\(.workflow_run.id):\(.workflow_run.head_sha)"' 2> /dev/null || true
 }
 
-# Expired artifacts still appear in the API listing but cannot be downloaded.
+runs_at_sha() {
+    awk -F: -v s="$1" '$2 == s { print $1 }' <<< "${RECENT_RUNS}"
+}
+
+# True when the run holds a live artifact for every name.
 run_has_artifacts() {
     local run_id=$1
     local names=$2
-    local file="${CACHE_DIR}/artifacts-${run_id}.json"
-    if [ ! -f "${file}" ]; then
-        gh api "repos/:owner/:repo/actions/runs/${run_id}/artifacts?per_page=100" \
-            > "${file}" 2> /dev/null || echo '{}' > "${file}"
-    fi
     local name
     for name in ${names}; do
-        local found=$(jq -r --arg name "${name}" \
-            '.artifacts[]? | select(.name == $name and .expired == false) | .name' \
-            "${file}" | head -1)
-        if [ -z "${found}" ]; then
-            return 1
-        fi
+        case " ${ARTIFACT_RUNS[${name}]} " in
+            *" ${run_id} "*) ;;
+            *) return 1 ;;
+        esac
     done
     return 0
 }
@@ -345,7 +336,7 @@ find_reusable_run() {
         if ! paths_clean "${sha}" "$@"; then
             continue
         fi
-        for run_id in $(runs_for_sha "${sha}"); do
+        for run_id in $(runs_at_sha "${sha}"); do
             if [ "${run_id}" = "${GITHUB_RUN_ID:-}" ]; then
                 continue
             fi
@@ -362,17 +353,13 @@ find_reusable_run() {
     for row in ${RECENT_RUNS}; do
         run_id="${row%%:*}"
         sha="${row#*:}"
-        if [ "${run_id}" = "${GITHUB_RUN_ID:-}" ]; then
+        if [ "${run_id}" = "${GITHUB_RUN_ID:-}" ] \
+            || ! run_has_artifacts "${run_id}" "${artifact_names}" \
+            || ! ensure_commit "${sha}" \
+            || ! paths_clean "${sha}" "$@"; then
             continue
         fi
-        if ! ensure_commit "${sha}"; then
-            continue
-        fi
-        if ! paths_clean "${sha}" "$@"; then
-            continue
-        fi
-        if run_has_artifacts "${run_id}" "${artifact_names}" \
-            && run_build_matches "${run_id}" "${component}" "${os_list}"; then
+        if run_build_matches "${run_id}" "${component}" "${os_list}"; then
             log "${label}: reusing run ${run_id} (${sha:0:8}, clean diff)"
             echo "${run_id}"
             return 0
@@ -400,10 +387,23 @@ main() {
     # Candidates older than the 7-day artifact retention cannot hit.
     CANDIDATE_SHAS=$(git rev-list --since=7.days --max-count=30 "${COMPARE_REF}" \
         2> /dev/null || true)
-    RECENT_RUNS=$(for wf in "${WORKFLOW_FILES[@]}"; do
-        gh run list --workflow="${wf}" --limit=25 \
-            --json databaseId,headSha --jq '.[] | "\(.databaseId):\(.headSha)"'
-    done | sort -t: -k1 -rn)
+
+    local os name rows
+    RECENT_RUNS=""
+    for os in "${OS_NAMES[@]}"; do
+        for name in "synnax-core-${os}" "synnax-driver-${os}" \
+            "synnax-console-assets-${os}"; do
+            rows=$(artifact_rows "${name}")
+            ARTIFACT_RUNS[${name}]=$(cut -d: -f1 <<< "${rows}" | tr '\n' ' ')
+            RECENT_RUNS+="${rows}"$'\n'
+        done
+    done
+    RECENT_RUNS=$(sed '/^$/d' <<< "${RECENT_RUNS}" | sort -t: -k1,1 -rnu)
+
+    # One fetch covers every candidate commit the checkout lacks.
+    cut -d: -f2 <<< "${RECENT_RUNS}" | sort -u \
+        | git cat-file --batch-check 2> /dev/null | awk '$2 == "missing" { print $1 }' \
+        | xargs -r git fetch --quiet --depth=1 origin 2> /dev/null || true
 
     local full_run
     full_run=$(find_reusable_run "full" "${FULL_ARTIFACTS[*]}" all "${OS_NAMES[*]}" \
@@ -417,7 +417,7 @@ main() {
 
     # Each platform resolves on its own, so a windows-only run can serve the windows
     # half of a build that also does Ubuntu.
-    local driver_ids="{}" console_ids="{}" core_ids="{}" os run
+    local driver_ids="{}" console_ids="{}" core_ids="{}" run
     for os in "${OS_NAMES[@]}"; do
         run=$(find_reusable_run "driver ${os}" "synnax-driver-${os}" driver "${os}" \
             "${DRIVER_PATHS[@]}")
