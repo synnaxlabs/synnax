@@ -15,22 +15,10 @@ import { Releases } from "@/util/releases";
 // function. `DOCS_GITHUB_TOKEN` raises the GitHub API rate limit when set.
 const releases = new Releases({ token: process.env.DOCS_GITHUB_TOKEN });
 
-// Every visitor gets the same page, so Vercel's CDN serves it and refreshes it in the
-// background after the release listing TTL. The browser minute lets a click reuse the
-// page its hover prefetched.
-const PAGE_CACHE_CONTROL =
-  "public, max-age=60, s-maxage=300, stale-while-revalidate=86400";
-
 export const onRequest: MiddlewareHandler = async (context, next) => {
   context.locals.releases = releases;
   const response = await next();
   if (import.meta.env.DEV) return response;
-
-  if (
-    response.status === 200 &&
-    response.headers.get("Content-Type")?.startsWith("text/html") === true
-  )
-    response.headers.set("Cache-Control", PAGE_CACHE_CONTROL);
 
   response.headers.set(
     "Content-Security-Policy",
