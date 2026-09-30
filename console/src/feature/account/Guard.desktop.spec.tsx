@@ -7,44 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  connection,
-  type license,
-  MissingLicenseError,
-  type Synnax as Client,
-} from "@synnaxlabs/client";
+import { connection, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Synnax } from "@synnaxlabs/pluto";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import { type ReactElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Account } from "@/feature/account";
 import { License } from "@/platform/license";
 import { findButton } from "@/platform/modals/testutil";
 import { Session } from "@/session";
-import { createConsoleWrapper, type TestStore } from "@/testutil";
-
-const MESSAGE = "No license is active on this Core";
-
-const UNLICENSED: connection.Status = {
-  ...connection.DEFAULT_STATUS,
-  variant: "error",
-  message: MESSAGE,
-  details: {
-    ...connection.DEFAULT_STATUS.details,
-    authenticated: true,
-    reason: "unlicensed",
-    error: new MissingLicenseError(MESSAGE),
-  },
-};
-
-const MISSING: license.Info = {
-  state: "missing",
-  warning: "",
-  fingerprint: ["aa", "bb"],
-  license: undefined,
-};
+import {
+  createConsoleWrapper,
+  createStatusConsoleWrapper,
+  type TestStore,
+  UNLICENSED_STATUS,
+} from "@/testutil";
 
 interface RenderOptions {
   status?: connection.Status;
@@ -56,25 +35,17 @@ const renderGuard = async ({ status, account }: RenderOptions = {}): Promise<{
   store: TestStore;
 }> => {
   const client = createTestClient();
-  vi.spyOn(client.license, "retrieve").mockResolvedValue(MISSING);
-  const { wrapper: Console, store } = await createConsoleWrapper({
-    client: null,
+  const { wrapper, store } = await createStatusConsoleWrapper({
+    client,
+    status,
     preloadedState:
       account == null ? undefined : { [Session.Account.SLICE_NAME]: account },
   });
-  const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
-    <Console>
-      <Synnax.TestProvider client={client} status={status}>
-        {children}
-      </Synnax.TestProvider>
-    </Console>
-  );
-  Wrapper.displayName = "GuardWrapper";
   render(
     <Account.Guard>
       <span>licensed content</span>
     </Account.Guard>,
-    { wrapper: Wrapper },
+    { wrapper },
   );
   return { client, store };
 };
@@ -88,14 +59,31 @@ describe("Account.Guard", () => {
   });
 
   it("should ask for a login while the Core is unlicensed", async () => {
-    await renderGuard({ status: UNLICENSED });
+    await renderGuard({ status: UNLICENSED_STATUS });
     expect(screen.getByText("Log in to continue")).toBeTruthy();
     expect(screen.queryByText("licensed content")).toBeNull();
   });
 
+  it("should render children once the Core is licensed", async () => {
+    const client = createTestClient();
+    const { wrapper } = await createConsoleWrapper({ client: null });
+    const ui = (status: connection.Status): ReactElement => (
+      <Synnax.TestProvider client={client} status={status}>
+        <Account.Guard>
+          <span>licensed content</span>
+        </Account.Guard>
+      </Synnax.TestProvider>
+    );
+    const { rerender } = render(ui(UNLICENSED_STATUS), { wrapper });
+    expect(screen.getByText("Log in to continue")).toBeTruthy();
+    rerender(ui(connection.DEFAULT_STATUS));
+    expect(await screen.findByText("licensed content")).toBeTruthy();
+    expect(screen.queryByText("Log in to continue")).toBeNull();
+  });
+
   it("should say the login lapsed on a machine that was linked", async () => {
     await renderGuard({
-      status: UNLICENSED,
+      status: UNLICENSED_STATUS,
       account: { version: 0, email: "someone@example.com" },
     });
     expect(screen.getByText("Your login has lapsed")).toBeTruthy();
@@ -104,14 +92,15 @@ describe("Account.Guard", () => {
 
   it("should open the hub with the state it minted", async () => {
     const open = vi.spyOn(window, "open").mockReturnValue(null);
-    const { store } = await renderGuard({ status: UNLICENSED });
+    const { client, store } = await renderGuard({ status: UNLICENSED_STATUS });
     const login = findButton("Log in");
     await waitFor(() => expect(login.getAttribute("aria-disabled")).toBeNull());
     fireEvent.click(login);
     await waitFor(() => expect(open).toHaveBeenCalled());
     const url = new URL(String(open.mock.calls[0][0]));
     expect(url.origin + url.pathname).toBe(License.LOGIN_URL);
-    expect(url.searchParams.get("fp")).toBe("aa, bb");
+    const { fingerprint } = await client.license.retrieve();
+    expect(url.searchParams.get("fp")).toBe(License.joinFingerprint(fingerprint));
     expect(url.searchParams.get("name")).toBe(Account.DEFAULT_MACHINE_NAME);
     expect(url.searchParams.get("state")).toBe(
       Session.Account.selectPending(store.getState()),
@@ -121,14 +110,14 @@ describe("Account.Guard", () => {
 
   it("should ask to try again while the machine is offline", async () => {
     vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
-    await renderGuard({ status: UNLICENSED });
+    await renderGuard({ status: UNLICENSED_STATUS });
     expect(screen.getByText("You are offline")).toBeTruthy();
     expect(findButton("Try again")).toBeTruthy();
     expect(screen.queryByText("Log in")).toBeNull();
   });
 
   it("should offer the license file screen and a way back", async () => {
-    await renderGuard({ status: UNLICENSED });
+    await renderGuard({ status: UNLICENSED_STATUS });
     fireEvent.click(findButton("Use a license file"));
     expect(screen.getByPlaceholderText("Paste the license key")).toBeTruthy();
     expect(screen.queryByText("Log out")).toBeNull();
