@@ -33,10 +33,10 @@ at once.
 
 ## Opening an iterator
 
-To open an iterator, use the <Client.Var client:load py="open_iterator"
-ts="openIterator" /> method with a time range and channel specification.
+To open an iterator, use the <Client.Var py="open_iterator" ts="openIterator" /> method
+with a time range and channel specification.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -62,10 +62,10 @@ const iterator = await client.openIterator({ start, end }, ["temperature", "humi
 ### Chunk size option
 
 By default, Synnax uses a chunk size of 100,000 samples. To configure a custom chunk
-size, use the <Client.Var client:load py="chunk_size" ts="chunkSize" /> parameter with
-the desired number of samples per iteration.
+size, use the <Client.Var py="chunk_size" ts="chunkSize" /> parameter with the desired
+number of samples per iteration.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -100,10 +100,10 @@ Larger chunk sizes can improve throughput but require more memory.
 
 ## Iterating through data
 
-Use a <Client.Var client:load py="for" ts="for await" /> loop to iterate through data in
-chunks. Each iteration yields a frame containing a portion of the data.
+Use a <Client.Var py="for" ts="for await" /> loop to iterate through data in chunks.
+Each iteration yields a frame containing a portion of the data.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -132,7 +132,7 @@ for await (const frame of iterator) {
 After you're done iterating, it's essential to close the iterator to release the network
 connection and other related resources.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -154,7 +154,7 @@ iterator.close();
 Using structured cleanup patterns ensures the iterator is always closed, even if an
 exception is thrown.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 

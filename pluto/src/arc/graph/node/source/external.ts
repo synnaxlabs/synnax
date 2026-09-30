@@ -14,7 +14,7 @@ import { type Spec } from "@/arc/graph/node/types/spec";
 
 export { configZ } from "@/arc/graph/node/source/config";
 
-export const SPEC: Spec<"on", Config> = {
+const SPEC: Spec<"on", Config> = {
   key: "on",
   name: "Telemetry source",
   Form,

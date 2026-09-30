@@ -9,3 +9,6 @@ pnpm-workspace.yaml
 *.mod
 *.rs
 *.lock
+
+# Generated background patterns, kept minified.
+site/docs/src/**/*.svg

@@ -42,17 +42,17 @@ channel changed from `chan * 3` to `chan * 10` shows `chan * 10` for its whole h
 
 ### Operation parameters
 
-| Parameter                                                       | Type       | Default  | Description                                                                                                       |
-| --------------------------------------------------------------- | ---------- | -------- | ----------------------------------------------------------------------------------------------------------------- |
-| `type`                                                          | string     | Required | Options include `min`, `max`, `avg` for [running aggregations](#operations), and `derivative` for rate of change. |
-| `duration`                                                      | `TimeSpan` | `0`      | How long the window runs before the operation state resets. Set to 0 for no timed reset.                          |
-| <Client.Var client:load py="reset_channel" ts="resetChannel" /> | number     | `0`      | A `boolean` [channel that triggers operation reset](#reset-channels) when its value is `true`.                    |
+| Parameter                                           | Type       | Default  | Description                                                                                                       |
+| --------------------------------------------------- | ---------- | -------- | ----------------------------------------------------------------------------------------------------------------- |
+| `type`                                              | string     | Required | Options include `min`, `max`, `avg` for [running aggregations](#operations), and `derivative` for rate of change. |
+| `duration`                                          | `TimeSpan` | `0`      | How long the window runs before the operation state resets. Set to 0 for no timed reset.                          |
+| <Client.Var py="reset_channel" ts="resetChannel" /> | number     | `0`      | A `boolean` [channel that triggers operation reset](#reset-channels) when its value is `true`.                    |
 
 <Divider.Divider x />
 
 ## Create and edit a calculated channel
 
-<Client.Tabs client:load exclude={["cpp"]}>
+<Client.Tabs exclude={["cpp"]}>
 
   <Fragment slot="console">
 
@@ -61,7 +61,7 @@ Create a calculated channel with the "Create calculated channel" command in the
 calculated channel, right-click it in the channels toolbar and select "Edit calculation"
 from the context menu.
 
-<Video client:only="react" id="client/calculated-channels/create-and-edit" />
+<Video id="client/calculated-channels/create-and-edit" />
 
   </Fragment>
 
@@ -187,12 +187,12 @@ The operation keeps state across executions and outputs a single aggregated valu
 
 ### Example configurations
 
-| Use case                   | `type`       | `duration` | <Client.Var client:load py="reset_channel" ts="resetChannel" /> |
-| -------------------------- | ------------ | ---------- | --------------------------------------------------------------- |
-| Rolling 10-second average  | `avg`        | `10s`      | none                                                            |
-| Maximum until manual reset | `max`        | `0s`       | `manual_reset_btn`                                              |
-| Minimum, time or signal    | `min`        | `60s`      | `cycle_complete`                                                |
-| Rate of change             | `derivative` | n/a        | n/a                                                             |
+| Use case                   | `type`       | `duration` | <Client.Var py="reset_channel" ts="resetChannel" /> |
+| -------------------------- | ------------ | ---------- | --------------------------------------------------- |
+| Rolling 10-second average  | `avg`        | `10s`      | none                                                |
+| Maximum until manual reset | `max`        | `0s`       | `manual_reset_btn`                                  |
+| Minimum, time or signal    | `min`        | `60s`      | `cycle_complete`                                    |
+| Rate of change             | `derivative` | n/a        | n/a                                                 |
 
 ### Reset channels
 

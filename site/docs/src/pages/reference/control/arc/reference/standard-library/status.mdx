@@ -9,7 +9,7 @@ nextURL: "/reference/control/arc/reference/standard-library/time"
 ---
 
 import { Note } from "@synnaxlabs/lyra/note";
-import { Arc } from "@/components";
+import { Arc } from "@/components/arc";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import Params from "@/components/params/Params.astro";
 
@@ -56,7 +56,7 @@ addressing it by name or by key, and outputs the resolved status key.
   the automation keeps running.
 </Note.Note>
 
-<Arc.Tabs client:load>
+<Arc.Tabs>
 
 <Fragment slot="flow">
 
