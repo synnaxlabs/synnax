@@ -59,14 +59,7 @@ const Row = ({ name, value }: RowProps): ReactElement => (
 const GrantedDetails = (): ReactElement | null => {
   const result = License.useResult({});
   if (result.variant === "error")
-    return (
-      <Status.Summary
-        variant="error"
-        level="small"
-        message="Failed to read the license"
-        description={result.status.details.error.message}
-      />
-    );
+    return <Status.Summary level="small" status={result.status} />;
   if (result.data == null) return null;
   const { state, warning, license: lic } = result.data;
   return (

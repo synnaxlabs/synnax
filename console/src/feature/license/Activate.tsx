@@ -151,12 +151,7 @@ export const Activate = (): ReactElement => {
             <Flex.Box className={CSS.BE("license-activate", "status")}>
               {error != null && <Status.Summary status={error} level="small" />}
               {error == null && result.variant === "error" && (
-                <Status.Summary
-                  variant="error"
-                  level="small"
-                  message="Failed to read the host fingerprint"
-                  description={result.status.details.error.message}
-                />
+                <Status.Summary level="small" status={result.status} />
               )}
             </Flex.Box>
           </Flex.Box>
