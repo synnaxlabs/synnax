@@ -66,6 +66,7 @@ jobs:
       media: ${{ steps.filter.outputs.media }}
       oracle: ${{ steps.filter.outputs.oracle }}
       oracle_check: ${{ steps.filter.outputs.oracle_check }}
+      oracle_language: ${{ steps.filter.outputs.oracle_language }}
       pluto: ${{ steps.filter.outputs.pluto }}
       protobuf: ${{ steps.filter.outputs.protobuf }}
       scripts: ${{ steps.filter.outputs.scripts }}
@@ -420,6 +421,16 @@ jobs:
     uses: ./.github/workflows/check.oracle.yaml
     secrets: inherit
 
+  oracle-language:
+    needs: changes
+    if: needs.changes.outputs.oracle_language == 'true'
+    uses: ./.github/workflows/test.ts.yaml
+    with:
+      directory: oracle/lsp/extensions/vscode
+      lint: false
+      package: oracle-language
+    secrets: inherit
+
   pluto:
     needs: [changes, core-image]
     if: needs.changes.outputs.pluto == 'true' || needs.changes.outputs.core == 'true'
@@ -558,6 +569,7 @@ jobs:
       - media
       - oracle
       - oracle-check
+      - oracle-language
       - pluto
       - protobuf
       - scripts
