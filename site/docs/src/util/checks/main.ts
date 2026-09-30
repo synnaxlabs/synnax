@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Crawls every page of the static check build in dist/ and runs each registered
-// check over the results. Set DOCS_URL to check an already-running server instead.
+// Crawls every page of the static check build in dist/ and runs each registered check
+// over the results. Set DOCS_URL to check an already-running server instead.
 //
 // usage: check-site [check ...] [--route prefix ...]
 //   pnpm check-site:build                        build dist/ for checking
@@ -76,8 +76,8 @@ if (prefixes.length > 0) {
   }
 }
 
-// Failures stream as they are found; the end of the run prints per-check totals. In
-// a terminal each failure first clears any in-place progress line.
+// Failures stream as they are found; the end of the run prints per-check totals. In a
+// terminal each failure first clears any in-place progress line.
 const counts = new Map<string, number>();
 const record = (check: string, messages: string[]): void => {
   if (messages.length === 0) return;
@@ -88,8 +88,15 @@ const record = (check: string, messages: string[]): void => {
   }
 };
 
-// In-place counter for a finish hook; a newline finishes the line so the next
-// output starts fresh. CI logs skip it.
+// An outage on an outside host proves nothing about the link, so it warns instead of
+// failing the run.
+const warnUnverified = (message: string): void => {
+  if (process.stdout.isTTY) process.stdout.write("\r\x1b[2K");
+  console.warn(`${styleText(["yellow", "bold"], "unverified")} ${message}`);
+};
+
+// In-place counter for a finish hook; a newline finishes the line so the next output
+// starts fresh. CI logs skip it.
 const progressFor =
   (check: string) =>
   (done: number, total: number): void => {
@@ -115,10 +122,14 @@ try {
     baseURL = `http://localhost:${server.port}`;
     console.log(styleText("dim", `serving dist/ at ${baseURL}`));
   }
+  let warnings = 0;
   const ctx: Context = {
     routes: new Set(routes.map(normalizeRoute)),
     baseURL,
-    fetchOk: createFetcher(baseURL),
+    fetchOk: createFetcher(baseURL, (message) => {
+      warnings += 1;
+      warnUnverified(message);
+    }),
   };
   console.log(styleText("dim", `crawling ${routes.length} routes...`));
   const { pages, failures } = await crawlPages(baseURL, routes);
@@ -130,6 +141,10 @@ try {
       ctx,
       (message) => record(check.name, [message]),
       progressFor(check.name),
+    );
+  if (warnings > 0)
+    console.warn(
+      styleText("yellow", `${warnings} external links could not be verified`),
     );
   if (counts.size > 0) {
     const totals = [...counts].map(([check, n]) => `${check}: ${n}`).join(", ");
