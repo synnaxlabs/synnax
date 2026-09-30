@@ -14,7 +14,7 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/oracle/parser"
-	xlsp "github.com/synnaxlabs/x/lsp"
+	"github.com/synnaxlabs/x/lsp"
 	"github.com/synnaxlabs/x/set"
 	"go.lsp.dev/protocol"
 )
@@ -71,28 +71,44 @@ func extractSemanticTokens(content string) []uint32 {
 	stream.Fill()
 	allTokens := stream.GetAllTokens()
 
-	var tokens []xlsp.Token
-	prevWasAt := false
+	var tokens []lsp.Token
+	// prev is the type of the previous token that is not a comment, or -1 at the start.
+	prev := -1
 	for _, t := range allTokens {
-		if t.GetTokenType() == antlr.TokenEOF {
+		typ := t.GetTokenType()
+		if typ == antlr.TokenEOF {
 			continue
 		}
-		tokenType := mapTokenType(t.GetTokenType(), t.GetText(), prevWasAt)
-		prevWasAt = t.GetTokenType() == parser.OracleLexerAT
+		nameStart := prev == -1 ||
+			prev == parser.OracleLexerNEWLINE ||
+			prev == parser.OracleLexerLBRACE
+		tokenType := mapTokenType(
+			typ,
+			t.GetText(),
+			prev == parser.OracleLexerAT,
+			nameStart,
+		)
+		if typ != parser.OracleLexerLINE_COMMENT &&
+			typ != parser.OracleLexerBLOCK_COMMENT {
+			prev = typ
+		}
 		if tokenType == nil {
 			continue
 		}
-		tokens = append(tokens, xlsp.Token{
+		tokens = append(tokens, lsp.Token{
 			Line:      uint32(t.GetLine() - 1),
 			StartChar: uint32(t.GetColumn()),
 			Length:    uint32(len(t.GetText())),
 			TokenType: *tokenType,
 		})
 	}
-	return xlsp.EncodeSemanticTokens(tokens)
+	return lsp.EncodeSemanticTokens(tokens)
 }
 
-func mapTokenType(antlrType int, text string, prevWasAt bool) *uint32 {
+// mapTokenType returns the semantic token type for a lexer token, or nil when the token
+// is not highlighted. An identifier at nameStart (after a newline or an opening brace)
+// is a name, so it is never a primitive type.
+func mapTokenType(antlrType int, text string, prevWasAt, nameStart bool) *uint32 {
 	var tokenType uint32
 	switch antlrType {
 	case parser.OracleLexerSTRUCT, parser.OracleLexerENUM, parser.OracleLexerIMPORT,
@@ -111,7 +127,7 @@ func mapTokenType(antlrType int, text string, prevWasAt bool) *uint32 {
 	case parser.OracleLexerIDENT:
 		if prevWasAt {
 			tokenType = SemanticTokenTypeFunction
-		} else if primitiveTypes.Contains(text) {
+		} else if !nameStart && primitiveTypes.Contains(text) {
 			tokenType = SemanticTokenTypeType
 		} else {
 			tokenType = SemanticTokenTypeProperty

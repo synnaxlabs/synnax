@@ -61,7 +61,7 @@ const posting = {
         >
             <slot />
         </Article>
-        <OnThisPage headings={headings} url={Astro.url} hideFeedback>
+        <OnThisPage headings={headings} outline={frontmatter.outline} hideFeedback>
             <div class="blog-human-note">
                 All of our blog posts were written and edited carefully by humans
             </div>

@@ -9,13 +9,13 @@ next: "Read task"
 nextURL: "/reference/driver/ethercat/read-task"
 ---
 
-import { Text as TextComponent } from "@/components";
+import { Text as TextComponent } from "@/components/text";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Note } from "@synnaxlabs/lyra/note";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Image, Video } from "@/components/media/Media";
-import { Details } from "@/components";
+import { Details } from "@/components/details";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Client } from "@/components/client";
 import { Fragment } from "react";
@@ -132,7 +132,7 @@ When you disable a device:
 
 ### Disabling a device
 
-<Client.Tabs client:load exclude={["cpp"]}>
+<Client.Tabs exclude={["cpp"]}>
   <Fragment slot="console">
 
 To disable an EtherCAT device:
@@ -186,7 +186,7 @@ await client.devices.create(device);
 
 ### Re-enabling a device
 
-<Client.Tabs client:load exclude={["cpp"]}>
+<Client.Tabs exclude={["cpp"]}>
   <Fragment slot="console">
 
 To re-enable a disabled EtherCAT device:
@@ -239,17 +239,14 @@ await client.devices.create(device);
 
 ## How-to
 
-<Client.Tabs client:load exclude={["cpp"]}>
+<Client.Tabs exclude={["cpp"]}>
   <Fragment slot="console">
 
 Synnax automatically discovers EtherCAT devices when they are connected to the network.
 To view discovered devices, open the devices toolbar by clicking the device icon
 (<Icon.Device />) on the left side of the screen.
 
-<Video
-  client:only="react"
-  id="device-drivers/ethercat/configure-device/ethercat-configure"
-/>
+<Video id="device-drivers/ethercat/configure-device/ethercat-configure" />
 
   </Fragment>
   <Fragment slot="python">

@@ -14,7 +14,7 @@ import { Divider } from "@synnaxlabs/lyra/divider";
 import { Note } from "@synnaxlabs/lyra/note";
 import Diagram from "@/components/diagram/Diagram.astro";
 import Rule from "@/components/rule/Rule.astro";
-import { Table } from "@/components";
+import { Table } from "@/components/table";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -47,12 +47,7 @@ sensor values from a device. Another writer can send control commands to a devic
 actuators connected to it.
 
 <Diagram>
-  <Image
-    client:only="react"
-    id="concepts/writes/writer"
-    extension="svg"
-    themed={false}
-  />
+  <Image id="concepts/writes/writer" extension="svg" themed={false} />
 </Diagram>
 
 Internally, [schematics](/reference/console/schematics) within the Synnax

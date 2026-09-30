@@ -35,7 +35,7 @@ Before starting, ensure you have:
 - **Arduino IDE** ([download](https://www.arduino.cc/en/software)) - any Arduino board
   works (this guide uses an Arduino Mega 2560)
 
-<Client.Tabs client:load exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console", "cpp"]}>
   <Fragment slot="python">
     - **Python 3.12+** with the Synnax client: `pip install synnax` - **pyserial**
     package: `pip install pyserial`
@@ -47,7 +47,6 @@ Before starting, ensure you have:
 </Client.Tabs>
 
 <Image
-  client:only="react"
   id="guides/software/arduino-splashscreen"
   themed={false}
   style={{ maxWidth: 500 }}
@@ -84,7 +83,7 @@ void loop() {
 Create a driver file. Find your Arduino's port in the Arduino IDE (top-right corner when
 connected via USB).
 
-<Client.Tabs client:load exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console", "cpp"]}>
 
   <Fragment slot="python">
 
@@ -124,7 +123,7 @@ port.on("open", () => console.log("Serial connection established"));
 
 Read values in a loop.
 
-<Client.Tabs client:load exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console", "cpp"]}>
 
   <Fragment slot="python">
 
@@ -154,7 +153,7 @@ parser.on("data", (line: string) => {
 Create a client and two channels - an **index channel** for timestamps and a **data
 channel** for values.
 
-<Client.Tabs client:load exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console", "cpp"]}>
 
   <Fragment slot="python">
 
@@ -220,7 +219,7 @@ const dataChannel = await client.channels.create({
 
 Open a writer and stream data.
 
-<Client.Tabs client:load exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console", "cpp"]}>
 
   <Fragment slot="python">
 
@@ -268,7 +267,7 @@ process.on("SIGINT", async () => {
 
 </Client.Tabs>
 
-<Client.Tabs client:load exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console", "cpp"]}>
 
   <Fragment slot="python">
 <Details open>
@@ -389,7 +388,7 @@ process.on("SIGINT", async () => {
 
 With the script running, set up a line plot in the Console:
 
-<Video client:only="react" id="client/resources/build-device-driver/line-plot" />
+<Video id="client/resources/build-device-driver/line-plot" />
 
 <Divider.Divider x />
 
@@ -430,7 +429,7 @@ void loop() {
 Create a **virtual** command channel. Virtual channels do not store historical values.
 As a consequence, an index channel is not needed.
 
-<Client.Tabs client:load exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console", "cpp"]}>
 
   <Fragment slot="python">
 
@@ -464,7 +463,7 @@ const commandChannel = await client.channels.create({
 
 Open a streamer to receive commands and write them to serial.
 
-<Client.Tabs client:load exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console", "cpp"]}>
 
   <Fragment slot="python">
 
@@ -492,7 +491,7 @@ for await (const frame of streamer) {
 
 </Client.Tabs>
 
-<Client.Tabs client:load exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console", "cpp"]}>
 
   <Fragment slot="python">
 <Details open>
@@ -580,7 +579,7 @@ for await (const frame of streamer) {
 
 Set up a switch on a [schematic](/reference/console/schematics).
 
-<Video client:only="react" id="client/resources/build-device-driver/schematic" />
+<Video id="client/resources/build-device-driver/schematic" />
 
 <Divider.Divider x />
 
@@ -631,7 +630,7 @@ void loop() {
 
 Create four channels: command, time, state, and value.
 
-<Client.Tabs client:load exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console", "cpp"]}>
 
   <Fragment slot="python">
 
@@ -707,7 +706,7 @@ const arduinoValue = await client.channels.create({
 
 Stream commands while writing state and values.
 
-<Client.Tabs client:load exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console", "cpp"]}>
 
   <Fragment slot="python">
 
@@ -776,7 +775,7 @@ process.on("SIGINT", async () => {
 
 </Client.Tabs>
 
-<Client.Tabs client:load exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console", "cpp"]}>
 
   <Fragment slot="python">
 <Details open>
@@ -954,7 +953,7 @@ Now configure the switch with separate channels:
 
 Add a line plot for `arduino_value` to see the analog input.
 
-<Video client:only="react" id="client/resources/build-device-driver/console-setup" />
+<Video id="client/resources/build-device-driver/console-setup" />
 
 <Divider.Divider x />
 

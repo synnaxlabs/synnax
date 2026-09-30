@@ -14,9 +14,6 @@ import { type ReactElement } from "react";
 
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
-export interface PolygonFormProps {
-  numSides: number;
-}
 
 const ROTATION_INPUT_PROPS: Partial<Input.NumericProps> = {
   dragScale: { x: 0.5, y: 2 },
@@ -86,5 +83,3 @@ export const PolygonForm = (): ReactElement => {
     </Base.Sections>
   );
 };
-
-export const CommonPolygonForm = PolygonForm;

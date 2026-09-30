@@ -30,7 +30,7 @@ many capabilities, including
 
 ## Installation
 
-<Client.Tabs client:load exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console", "cpp"]}>
 
   <Fragment slot="python">
 
@@ -65,7 +65,7 @@ To
 [authenticate with a Synnax Core](/reference/client/authentication#authentication-methods),
 simply instantiate a new client with your connection parameters and credentials:
 
-<Client.Tabs client:load exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console", "cpp"]}>
 
   <Fragment slot="python">
     ```python
@@ -108,7 +108,7 @@ simply instantiate a new client with your connection parameters and credentials:
 `channels.create` client method. First create an "index" channel to
 [store timestamps for your data channel](/reference/concepts/channels#index-channels).
 
-<Client.Tabs client:load exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console", "cpp"]}>
 
   <Fragment slot="python">
     ```python
@@ -158,7 +158,7 @@ simply instantiate a new client with your connection parameters and credentials:
 [Write data](/reference/client/write-data) to the time and temperature channels. The
 index channel must be written to before writing to the data channel.
 
-<Client.Tabs client:load exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console", "cpp"]}>
   <Fragment slot="python">
       ```python
       start = sy.TimeStamp.now()
@@ -217,7 +217,7 @@ make sense to have a temperature reading without an associated timestamp.
 The simplest way to read data from Synnax is to use the `read` method on a `Channel`
 object:
 
-<Client.Tabs client:load exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console", "cpp"]}>
 
   <Fragment slot="python">
     ```python

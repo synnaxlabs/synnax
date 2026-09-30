@@ -12,7 +12,7 @@ import Root from "@/layouts/Root.astro";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Releases as ReleasesComponents } from "@/components";
+import { Releases as ReleasesComponents } from "@/components/releases";
 const { headings, frontmatter } = Astro.props;
 ---
 
@@ -46,7 +46,7 @@ const { headings, frontmatter } = Astro.props;
             </Flex.Box>
             <slot />
         </Flex.Box>
-        <ReleasesComponents.List headings={headings} url={Astro.url} />
+        <ReleasesComponents.List headings={headings} />
     </section>
 </Root>
 

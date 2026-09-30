@@ -81,9 +81,11 @@ release that removes it. A flag past that release is a bug: promote or delete.
 
 ## Issue priority
 
-| Priority | Feature                                        | Bug                                                                                    |
-| -------- | ---------------------------------------------- | -------------------------------------------------------------------------------------- |
-| Urgent   | Blocks an upcoming pilot or current customer.  | Stops the user and costs significant time or resources; a core element fails outright. |
-| High     | Requested by users and important to their use. | Degrades the experience enough to outrank most feature work; slows or repeats work.    |
-| Medium   | Some interest, or a clear improvement.         | Noticeable, targeted for the next release, or has a workaround today.                  |
-| Low      | Not critical to users or the product.          | Low impact; can wait for a later release.                                              |
+Priority means when we act.
+
+| Priority | Meaning                                                               |
+| -------- | --------------------------------------------------------------------- |
+| Urgent   | Within hours: a blocked customer or release, broken production or CI. |
+| High     | This cycle or next.                                                   |
+| Medium   | This quarter. The floor for customer requests.                        |
+| Low      | Someday. Never cancel for age.                                        |

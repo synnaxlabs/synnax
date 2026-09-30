@@ -7,22 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Component } from "@synnaxlabs/lyra/component";
+// Imported as a file, since a bare import of the side-effect-free tree module is
+// dropped with its styles.
+import "@synnaxlabs/lyra/dist/tree/Item.css";
+
+import { Button } from "@synnaxlabs/lyra/button";
+import { Caret } from "@synnaxlabs/lyra/caret";
 import { type CSS } from "@synnaxlabs/lyra/css";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Tree } from "@synnaxlabs/lyra/tree";
-import { Logo } from "@synnaxlabs/media";
-import { type ReactElement, useEffect, useState } from "react";
+import { type ReactElement } from "react";
 
 import { InlineCode } from "@/components/text/InlineCode";
 import { type Flag } from "@/flags";
-import { REFERENCE_PAGES } from "@/pages/_nav";
-
-interface InternalTreeProps {
-  currentPage: string;
-}
+import { normalizeRoute } from "@/util/route";
 
 const SECTION_ICONS: Record<string, ReactElement> = {
   concepts: <Icon.Reference />,
@@ -34,207 +32,147 @@ const SECTION_ICONS: Record<string, ReactElement> = {
   pluto: <Icon.Visualize />,
 };
 
-export type PageNavNode = Omit<Tree.Node<string>, "children"> & {
+export interface PageNavNode {
+  key: string;
   name: string;
   href?: string;
   icon?: string;
   /** Hides the node and its children while the flag is off. */
   flag?: Flag;
   children?: PageNavNode[];
-};
-
-export interface TOCProps {
-  currentPage?: string;
 }
 
-const useCurrentPage = (initialPage?: string): string => {
-  const [currentPage, setCurrentPage] = useState(
-    () =>
-      initialPage ?? (typeof window !== "undefined" ? window.location.pathname : "/"),
-  );
+const ITEM_CLASS = "pluto-tree__item pluto--margin pluto-list__item";
+const SELECTED_CLASS = "pluto--selected";
 
-  useEffect(() => {
-    const update = () => setCurrentPage(window.location.pathname);
-    window.addEventListener("popstate", update);
-    document.addEventListener("astro:after-swap", update);
-    return () => {
-      window.removeEventListener("popstate", update);
-      document.removeEventListener("astro:after-swap", update);
-    };
-  }, []);
+interface Row {
+  node: PageNavNode;
+  depth: number;
+  expanded: boolean;
+  hidden: boolean;
+}
 
-  return currentPage;
+// Lists every node in reading order, as Lyra's tree does, so a collapsed node's
+// descendants follow it and hide with it.
+const rows = (
+  nodes: PageNavNode[],
+  open: Set<string>,
+  depth = 0,
+  hidden = false,
+): Row[] =>
+  nodes.flatMap((node) => {
+    const expanded = depth === 0 || open.has(node.key);
+    return [
+      { node, depth, expanded, hidden },
+      ...rows(node.children ?? [], open, depth + 1, hidden || !expanded),
+    ];
+  });
+
+const caret = (expanded: boolean): ReactElement => (
+  <Caret.Animated
+    className="pluto-tree__expansion-indicator"
+    enabled={expanded}
+    enabledLoc="bottom"
+    disabledLoc="right"
+  />
+);
+
+const SECTION_STYLE: CSS.VarProperties = {
+  "--pluto-tree-item-offset": "1.5rem",
+  textDecoration: "none",
+  paddingLeft: "0.5rem",
+  paddingRight: "0.5rem",
 };
 
-const Item = ({ translate: _, ...props }: Tree.ItemRenderProps<string>) => {
-  const { itemKey, index } = props;
-  const item = List.useItem<string, PageNavNode>(itemKey);
-  const { depth, hasChildren } = Tree.useContext("Item").nodes[index];
-  if (item == null) return null;
+const Section = ({ node }: Row): ReactElement => (
+  <Button.Button
+    el="div"
+    variant="text"
+    className={`${ITEM_CLASS} page-nav-section-header`}
+    role="treeitem"
+    aria-level={1}
+    aria-expanded
+    align="center"
+    gap={1.5}
+    preventClick
+    style={SECTION_STYLE}
+  >
+    {caret(true)}
+    {SECTION_ICONS[node.key]}
+    <Text.Text level="p" weight={500}>
+      <InlineCode text={node.name} />
+    </Text.Text>
+  </Button.Button>
+);
 
-  const isSection = depth === 0 && hasChildren;
-
-  if (isSection)
-    return (
-      <Tree.Item<string, "div">
-        {...props}
-        className="page-nav-section-header"
-        style={{
-          textDecoration: "none",
-          paddingLeft: "0.5rem",
-          paddingRight: "0.5rem",
-        }}
-        offsetMultiplier={0}
-        el="div"
-        useMargin
-        gap={1.5}
-        preventClick
-      >
-        {SECTION_ICONS[itemKey]}
-        <Text.Text level="p" weight={500}>
-          <InlineCode text={item.name} />
-        </Text.Text>
-      </Tree.Item>
-    );
-
-  const offset = depth * 1.5 + 1.5;
+const Item = ({
+  node,
+  depth,
+  expanded,
+  hidden,
+  currentPage,
+}: Row & PageProps): ReactElement => {
   const style: CSS.VarProperties = {
     textDecoration: "none",
     paddingLeft: "2.5rem",
     paddingRight: "0.5rem",
-    "--pluto-tree-item-offset": `${offset}rem`,
+    "--pluto-tree-item-offset": `${depth * 1.5 + 1.5}rem`,
   };
-
+  const parent = node.children != null;
+  const selected = node.href != null && normalizeRoute(node.href) === currentPage;
   return (
-    <Tree.Item<string, "a">
-      {...props}
-      style={style}
+    <Button.Button
       el="a"
-      href={item.href}
-      useMargin
-      propagateClick
+      variant="text"
+      href={node.href}
+      className={`${ITEM_CLASS} ${depth !== 0 ? "pluto--show-rules" : ""} ${selected ? SELECTED_CLASS : ""}`}
+      role="treeitem"
+      aria-level={depth + 1}
+      aria-expanded={parent ? expanded : undefined}
+      aria-selected={selected}
+      align="center"
+      gap="small"
+      hidden={hidden}
+      style={style}
     >
+      {parent && caret(expanded)}
       <Text.Text weight={450}>
-        <InlineCode text={item.name} />
+        <InlineCode text={node.name} />
       </Text.Text>
-    </Tree.Item>
+    </Button.Button>
   );
 };
 
-const item = Component.renderProp(Item);
+export interface PageProps {
+  currentPage: string;
+}
 
-const flatten = (nodes: PageNavNode[]): PageNavNode[] => {
-  const flattened: PageNavNode[] = [];
-  nodes.forEach((node) => {
-    flattened.push(node);
-    if (node.children != null) flattened.push(...flatten(node.children));
-  });
-  return flattened;
-};
+export interface TreeProps extends PageProps {
+  nodes: PageNavNode[];
+}
 
-const REFERENCE_SECTION_KEYS = REFERENCE_PAGES.filter((p) => p.children != null).map(
-  (p) => p.key,
-);
-
-const Reference = ({ currentPage }: InternalTreeProps): ReactElement => {
-  let parts = currentPage.split("/").filter((part) => part !== "");
-  if (parts.length <= 1) parts = REFERENCE_PAGES.map((p) => p.key);
-  const referenceData = flatten(REFERENCE_PAGES);
-  const nodesStore = List.useMapData({ initialData: referenceData });
-  const treeProps = Tree.use({
-    nodes: REFERENCE_PAGES,
-    initialExpanded: [...parts, ...REFERENCE_SECTION_KEYS],
-    onExpand: ({ action, clicked }) => {
-      if (action === "contract" && REFERENCE_SECTION_KEYS.includes(clicked))
-        treeProps.expand(clicked);
-    },
-  });
+/**
+ * Renders the reference tree on the server with the sections and the current page's
+ * ancestors expanded. The script in `@/components/nav/sidebar` expands nodes and
+ * follows page swaps, so the tree never hydrates.
+ */
+export const Page = ({ nodes, currentPage: path }: TreeProps): ReactElement => {
+  const currentPage = normalizeRoute(path);
+  const open = new Set(currentPage.split("/").filter((part) => part !== ""));
   return (
-    <Tree.Tree
-      {...treeProps}
-      className="tree reference-tree styled-scrollbar"
-      virtual={false}
-      selected={[currentPage]}
-      getItem={nodesStore.getItem}
-      subscribe={nodesStore.subscribe}
+    <div
+      className="pluto-tree tree reference-tree styled-scrollbar pluto-list__scroll pluto-flex pluto--full-y"
+      role="tree"
     >
-      {item}
-    </Tree.Tree>
-  );
-};
-
-export const Page = ({ currentPage: initialPage }: TOCProps): ReactElement | null => {
-  const currentPage = useCurrentPage(initialPage);
-  return <Reference currentPage={currentPage} />;
-};
-
-export const PageMobile = ({ currentPage: initialPage }: TOCProps): ReactElement => {
-  const currentPage = useCurrentPage(initialPage);
-  const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    if (open) document.body.classList.add("mobile-menu-open");
-    else document.body.classList.remove("mobile-menu-open");
-    return () => document.body.classList.remove("mobile-menu-open");
-  }, [open]);
-
-  return (
-    <>
-      <button
-        className="mobile-menu-btn"
-        aria-label="Open menu"
-        onClick={() => setOpen(true)}
-      >
-        <span className="mobile-menu-icon" />
-      </button>
-      {open && (
-        <div
-          className="mobile-overlay mobile-overlay--open"
-          onClick={() => setOpen(false)}
-        />
-      )}
-      <nav className={`mobile-drawer ${open ? "mobile-drawer--open" : ""}`}>
-        <div className="mobile-drawer-header">
-          <a href="https://synnaxlabs.com" className="logo-link">
-            <Logo variant="title" />
-          </a>
-          <button
-            className="mobile-close-btn"
-            aria-label="Close menu"
-            onClick={() => setOpen(false)}
-          >
-            <span className="mobile-close-icon" />
-          </button>
-        </div>
-        <div className="mobile-drawer-links">
-          <a
-            href="/reference/"
-            className="mobile-drawer-link"
-            onClick={() => setOpen(false)}
-          >
-            Reference
-          </a>
-          <a
-            href="/blog/"
-            className="mobile-drawer-link"
-            onClick={() => setOpen(false)}
-          >
-            Blog
-          </a>
-          <a
-            href="/releases/"
-            className="mobile-drawer-link"
-            onClick={() => setOpen(false)}
-          >
-            Releases
-          </a>
-          <div className="mobile-drawer-divider" />
-          <span className="mobile-drawer-section-label">Reference</span>
-        </div>
-        <div className="mobile-drawer-tree">
-          <Reference currentPage={currentPage} />
-        </div>
-      </nav>
-    </>
+      <div className="pluto-list__virtualizer">
+        {rows(nodes, open).map((row) =>
+          row.depth === 0 && row.node.children != null ? (
+            <Section key={row.node.key} {...row} />
+          ) : (
+            <Item key={row.node.key} {...row} currentPage={currentPage} />
+          ),
+        )}
+      </div>
+    </div>
   );
 };

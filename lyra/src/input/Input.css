@@ -36,9 +36,11 @@
     &:focus-within:not(.pluto-btn--text):not(.pluto--status-warning):not(
             .pluto--status-error
         ):not(.pluto--flush) {
-        --pluto-border-color: rgb(var(--pluto-btn-color, var(--pluto-primary-z-rgb)));
-        border-color: var(--pluto-border-color);
-        box-shadow: inset 0 0 0 var(--pluto-border-width) var(--pluto-border-color);
+        --pluto-btn-border-color: rgb(
+            var(--pluto-btn-color, var(--pluto-primary-z-rgb))
+        );
+        border-color: var(--pluto-btn-border-color);
+        box-shadow: inset 0 0 0 var(--pluto-border-width) var(--pluto-btn-border-color);
     }
 
     /* A flush input is its surface's sole keystroke target: no focus ring, at least

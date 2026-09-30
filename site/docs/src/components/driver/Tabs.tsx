@@ -9,10 +9,11 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { type Platform, PLATFORMS } from "@/components/platform/Platform";
+import { type Platform } from "@/components/platform/choice";
+import { INFO } from "@/components/platform/Platform";
 import { Tabs as Base, type TabsProps as BaseProps } from "@/components/tabs/Tabs";
 
-const TABS = PLATFORMS.filter(
+const TABS = INFO.filter(
   ({ key }) => key === "Linux" || key === "Windows" || key === "macOS",
 ).map(({ key, ...p }) => ({
   ...p,

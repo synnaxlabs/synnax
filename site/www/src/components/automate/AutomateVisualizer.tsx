@@ -16,7 +16,7 @@ import {
   EXAMPLES,
   ZERO_DIAGRAM_STATE,
 } from "@/components/automate/timeline";
-import { CodePanel } from "@/components/shared/CodePanel";
+import { CodePanel } from "@/components/common/CodePanel";
 import type { CalcDiagramState } from "@/components/stream/calcTimeline";
 import { AUTOMATE_ALARM_DIAGRAM, Diagram } from "@/components/stream/diagrams";
 

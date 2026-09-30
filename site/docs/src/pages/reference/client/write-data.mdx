@@ -39,10 +39,10 @@ transactions and how writes work in Synnax, see the
 
 ### Opening a writer
 
-To open a writer, use the <Client.Var client:load py="open_writer" ts="openWriter" />
-method with a starting timestamp and a list of channels to write to.
+To open a writer, use the <Client.Var py="open_writer" ts="openWriter" /> method with a
+starting timestamp and a list of channels to write to.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -103,12 +103,12 @@ the `mode` argument when opening the writer. The available modes are:
 
 - `persist` - Only persist data to the database (no streaming to subscribers)
 - `stream` - Only stream data to subscribers (no persistence)
-- <Client.Var client:load py="persist_stream" ts="persistStream" /> - Both persist and
-  stream (default)
+- <Client.Var py="persist_stream" ts="persistStream" /> - Both persist and stream
+  (default)
 
 For example, to open a writer that only persists data:
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -140,7 +140,7 @@ const writer = await client.openWriter({
 The `write` method accepts several argument formats. Use the one that best fits your use
 case.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -235,7 +235,7 @@ await writer.write(
 Strings, JSON, and bytes are written through the same writer API as fixed-width samples.
 The channel's data type determines how the writer encodes each value.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -285,7 +285,7 @@ After you're done writing, it's essential to close the writer to release network
 connections and other resources. If a writer is not closed, other writers may not be
 able to write to the same channels.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -307,7 +307,7 @@ await writer.close();
 Using structured cleanup patterns ensures the writer is always closed, even if an
 exception is thrown.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -370,7 +370,7 @@ data at specific timestamps that have already passed.
 
 ### Writing to a channel
 
-<Client.Tabs client:load exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console", "cpp"]}>
 
   <Fragment slot="python">
 
@@ -439,7 +439,7 @@ timestamps.
 When writing a single sample to multiple channels at the same instant, use a dictionary
 with scalar values.
 
-<Client.Tabs client:load exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console", "cpp"]}>
 
   <Fragment slot="python">
 
@@ -480,7 +480,7 @@ await client.write(now, {
 When writing multiple samples over time, use arrays for both the timestamps and data
 values.
 
-<Client.Tabs client:load exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console", "cpp"]}>
 
   <Fragment slot="python">
 
@@ -556,7 +556,7 @@ transactions has a dramatic impact on performance.
 <span style={{ color: "red" }}>**Avoid this pattern**</span> - Writing directly to
 channels in a loop:
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -590,7 +590,7 @@ for (let i = 0; i < 100; i++) {
 <span style={{ color: "red" }}>**Also avoid this pattern**</span> - Opening and closing
 a writer for every write:
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -632,7 +632,7 @@ for (let i = 0; i < 100; i++) {
 <span style={{ color: "green" }}>**Recommended approach**</span> - Repeatedly call
 `write` on a single writer:
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 

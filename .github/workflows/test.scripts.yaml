@@ -12,6 +12,10 @@ name: Test - Scripts
 on:
   workflow_call:
   workflow_dispatch:
+concurrency:
+  group: scripts-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: Test

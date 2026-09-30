@@ -74,6 +74,21 @@ describe("Swatch", () => {
       );
     });
 
+    it("should show the auto icon while the value is absent", () => {
+      const c = render(<Color.Swatch fallback={RED} onChange={vi.fn()} />, {
+        wrapper: Wrapper,
+      });
+      expect(swatchOf(c).querySelector(`.${CSS.B("icon")}`)).not.toBeNull();
+    });
+
+    it("should hide the auto icon on a tiny swatch", () => {
+      const c = render(<Color.Swatch fallback={RED} onChange={vi.fn()} size="tiny" />, {
+        wrapper: Wrapper,
+      });
+      expect(swatchOf(c).className).toContain(CSS.M("auto"));
+      expect(swatchOf(c).querySelector(`.${CSS.B("icon")}`)).toBeNull();
+    });
+
     it("should not mark a picked value as auto", () => {
       const c = render(
         <Color.Swatch value={`#${BLUE}`} fallback={RED} onChange={vi.fn()} />,

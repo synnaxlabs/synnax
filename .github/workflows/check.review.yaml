@@ -48,10 +48,13 @@ permissions:
   pull-requests: read
   statuses: write
 
+# A skipped run still cancels its group, so other check runs get their own.
 concurrency:
   group:
-    ${{ github.workflow }}-${{ github.event.pull_request.number ||
-    github.event.check_run.pull_requests[0].number || inputs.pr || github.ref }}
+    ${{ github.workflow }}-${{ (github.event_name == 'check_run' &&
+    github.event.check_run.name != 'Greptile Review' && github.run_id) ||
+    github.event.pull_request.number || github.event.check_run.pull_requests[0].number
+    || inputs.pr || github.ref }}
   cancel-in-progress: true
 
 jobs:

@@ -31,6 +31,7 @@ import { framer } from "@/framer";
 import { group } from "@/group";
 import { imex } from "@/imex";
 import { label } from "@/label";
+import { license } from "@/license";
 import { lineplot } from "@/lineplot";
 import { log } from "@/log";
 import { ontology } from "@/ontology";
@@ -94,6 +95,7 @@ export default class Synnax extends framer.Client {
   readonly ontology: ontology.Client;
   readonly projects: project.Client;
   readonly labels: label.Client;
+  readonly license: license.Client;
   readonly statuses: status.Client;
   readonly tasks: task.Client;
   readonly racks: rack.Client;
@@ -201,6 +203,7 @@ export default class Synnax extends framer.Client {
     this.transport = transport;
     const unary = this.transport.unary;
     this.ontology = new ontology.Client({ unary, cache });
+    this.license = new license.Client({ unary, connection: this.conn });
     this.labels = new label.Client({ unary, cache, ontology: this.ontology });
     this.statuses = new status.Client({
       unary,

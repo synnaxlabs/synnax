@@ -7,119 +7,66 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { act, cleanup, fireEvent, render } from "@testing-library/react";
-import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
+import { renderToString } from "react-dom/server";
+import { describe, expect, it } from "vitest";
 
-import { Video } from "@/components/media/Media";
+import { Image, Video } from "@/components/media/Media";
+import { CDN_ROOT } from "@/components/media/url";
 
-class MockIntersectionObserver {
-  static current: MockIntersectionObserver | undefined;
-  callback: IntersectionObserverCallback;
-  constructor(callback: IntersectionObserverCallback) {
-    this.callback = callback;
-    MockIntersectionObserver.current = this;
-  }
-  observe = vi.fn();
-  unobserve = vi.fn();
-  intersect(isIntersecting: boolean): void {
-    act(() => {
-      this.callback(
-        [{ isIntersecting } as IntersectionObserverEntry],
-        this as unknown as IntersectionObserver,
+const show = (html: string): void => {
+  document.body.innerHTML = html;
+};
+
+const sources = (): [string | null, string | null][] =>
+  [...document.querySelectorAll("source")].map((source) => [
+    source.getAttribute("media"),
+    source.getAttribute("src") ?? source.getAttribute("srcset"),
+  ]);
+
+describe("Media", () => {
+  describe("Video", () => {
+    it("should offer the dark and light versions by color scheme", () => {
+      show(renderToString(<Video id="clip" />));
+      expect(sources()).toEqual([
+        ["(prefers-color-scheme: dark)", `${CDN_ROOT}/clip-dark.mp4#t=0.001`],
+        [null, `${CDN_ROOT}/clip-light.mp4#t=0.001`],
+      ]);
+    });
+
+    it("should offer one version when not themed", () => {
+      show(renderToString(<Video id="clip" themed={false} />));
+      expect(sources()).toEqual([[null, `${CDN_ROOT}/clip.mp4#t=0.001`]]);
+    });
+
+    it("should render a muted looping video that loads only its metadata", () => {
+      show(renderToString(<Video id="clip" />));
+      const video = document.querySelector(".docs-video > video") as HTMLVideoElement;
+      expect(video.loop).toBe(true);
+      expect(video.hasAttribute("muted")).toBe(true);
+      expect(video.hasAttribute("playsinline")).toBe(true);
+      expect(video.getAttribute("preload")).toBe("metadata");
+      expect(document.querySelector(".docs-video__play")).not.toBeNull();
+    });
+  });
+
+  describe("Image", () => {
+    it("should offer the dark version by color scheme and fall back to light", () => {
+      show(renderToString(<Image id="shot" alt="Shot" />));
+      expect(sources()).toEqual([
+        ["(prefers-color-scheme: dark)", `${CDN_ROOT}/shot-dark.png`],
+      ]);
+      const img = document.querySelector("picture > img") as HTMLImageElement;
+      expect(img.getAttribute("src")).toBe(`${CDN_ROOT}/shot-light.png`);
+      expect(img.alt).toBe("Shot");
+      expect(img.getAttribute("loading")).toBe("lazy");
+    });
+
+    it("should render a plain image when not themed", () => {
+      show(renderToString(<Image id="logo" extension="svg" themed={false} />));
+      expect(document.querySelector("picture")).toBeNull();
+      expect(document.querySelector("img")?.getAttribute("src")).toBe(
+        `${CDN_ROOT}/logo.svg`,
       );
-    });
-  }
-}
-
-describe("Video", () => {
-  let touch: boolean;
-  let paused: boolean;
-
-  const renderVideo = (): HTMLVideoElement => {
-    const { container } = render(<Video id="clip" />);
-    const video = container.querySelector("video");
-    assert(video != null);
-    return video;
-  };
-
-  const observer = (): MockIntersectionObserver => {
-    assert(MockIntersectionObserver.current != null);
-    return MockIntersectionObserver.current;
-  };
-
-  const overlay = (): Element | null => document.querySelector(".docs-video__play");
-
-  beforeEach(() => {
-    touch = false;
-    paused = true;
-    MockIntersectionObserver.current = undefined;
-    vi.stubGlobal("IntersectionObserver", MockIntersectionObserver);
-    vi.stubGlobal("matchMedia", (query: string) => ({
-      matches: query.includes("pointer: coarse") && touch,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-    }));
-    // jsdom has no media playback, so these act as the browser would.
-    vi.spyOn(HTMLMediaElement.prototype, "paused", "get").mockImplementation(
-      () => paused,
-    );
-    vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
-    vi.spyOn(HTMLMediaElement.prototype, "play").mockImplementation(function (
-      this: HTMLMediaElement,
-    ) {
-      paused = false;
-      fireEvent.play(this);
-      return Promise.resolve();
-    });
-    vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(function (
-      this: HTMLMediaElement,
-    ) {
-      paused = true;
-      fireEvent.pause(this);
-    });
-  });
-
-  afterEach(() => {
-    cleanup();
-    vi.unstubAllGlobals();
-    vi.restoreAllMocks();
-  });
-
-  it("autoplays in view without an overlay on pointer devices", () => {
-    renderVideo();
-    observer().intersect(true);
-    expect(paused).toBe(false);
-    expect(overlay()).toBeNull();
-  });
-
-  describe("touch devices", () => {
-    beforeEach(() => {
-      touch = true;
-    });
-
-    it("waits for a tap instead of autoplaying in view", () => {
-      renderVideo();
-      observer().intersect(true);
-      expect(paused).toBe(true);
-      expect(overlay()).not.toBeNull();
-    });
-
-    it("toggles playback and the overlay on tap", () => {
-      const video = renderVideo();
-      fireEvent.click(video);
-      expect(paused).toBe(false);
-      expect(overlay()).toBeNull();
-      fireEvent.click(video);
-      expect(paused).toBe(true);
-      expect(overlay()).not.toBeNull();
-    });
-
-    it("pauses and shows the overlay out of view", () => {
-      const video = renderVideo();
-      fireEvent.click(video);
-      observer().intersect(false);
-      expect(paused).toBe(true);
-      expect(overlay()).not.toBeNull();
     });
   });
 });

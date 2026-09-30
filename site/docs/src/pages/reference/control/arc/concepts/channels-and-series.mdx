@@ -12,7 +12,7 @@ nextURL: "/reference/control/arc/how-to/data-processing"
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Note } from "@synnaxlabs/lyra/note";
-import { Arc } from "@/components";
+import { Arc } from "@/components/arc";
 import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
@@ -52,7 +52,7 @@ channels in the Console's resources panel before writing code.
 Channels behave differently depending on whether you're in a **reactive context** (flow
 statements) or an **imperative context** (inside a function body).
 
-<Arc.Tabs client:load>
+<Arc.Tabs>
 
 <Fragment slot="flow">
 
@@ -112,7 +112,7 @@ This lets you write reusable functions that work with different channels.
 Write to a channel by making it the final target of a flow statement, or with assignment
 syntax inside a function.
 
-<Arc.Tabs client:load>
+<Arc.Tabs>
 
 <Fragment slot="flow">
 

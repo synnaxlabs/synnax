@@ -32,7 +32,7 @@ export interface InputShowcaseNumericProps extends optional.Optional<
   "value" | "onChange"
 > {}
 
-export const InputShowcaseNumeric = (props: InputShowcaseNumericProps) => {
+const InputShowcaseNumeric = (props: InputShowcaseNumericProps) => {
   const [value, setValue] = useState(0);
   return <Input.Numeric {...props} value={value} onChange={setValue} />;
 };
@@ -42,7 +42,7 @@ export interface InputShowcaseSwitchProps extends optional.Optional<
   "value" | "onChange"
 > {}
 
-export const InputShowcaseSwitch = (props: InputShowcaseSwitchProps) => {
+const InputShowcaseSwitch = (props: InputShowcaseSwitchProps) => {
   const [value, setValue] = useState(props.value ?? false);
   return <Input.Switch {...props} value={value} onChange={setValue} />;
 };
@@ -52,7 +52,7 @@ export interface InputShowcaseCheckboxProps extends optional.Optional<
   "value" | "onChange"
 > {}
 
-export const InputShowcaseCheckbox = (props: InputShowcaseCheckboxProps) => {
+const InputShowcaseCheckbox = (props: InputShowcaseCheckboxProps) => {
   const [value, setValue] = useState(props.value ?? false);
   return <Input.Checkbox {...props} value={value} onChange={setValue} />;
 };
@@ -62,7 +62,7 @@ export interface InputShowcaseDateTimeProps extends optional.Optional<
   "value" | "onChange"
 > {}
 
-export const InputShowcaseDateTime = (props: InputShowcaseDateTimeProps) => {
+const InputShowcaseDateTime = (props: InputShowcaseDateTimeProps) => {
   const [value, setValue] = useState(Number(TimeStamp.now().valueOf()));
   return <Input.DateTime {...props} value={value} onChange={setValue} />;
 };
@@ -73,16 +73,6 @@ const INPUT_PLACEHOLDER = (
     Catalyst
   </>
 );
-
-export interface InputShowcaseTextAreaProps extends optional.Optional<
-  Input.TextProps,
-  "value" | "onChange"
-> {}
-
-export const InputShowcaseTextArea = (props: InputShowcaseTextAreaProps) => {
-  const [value, setValue] = useState("");
-  return <Input.Text {...props} value={value} onChange={setValue} area />;
-};
 
 export const InputShowcase = () => (
   <Flex.Box y pack empty>

@@ -46,10 +46,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-build-bot, windows-build-bot]
+        os: [ubuntu-test-bot, windows-test-bot]
         exclude:
-          - os: ${{ !inputs.ubuntu && 'ubuntu-build-bot' }}
-          - os: ${{ !inputs.windows && 'windows-build-bot' }}
+          - os: ${{ !inputs.ubuntu && 'ubuntu-test-bot' }}
+          - os: ${{ !inputs.windows && 'windows-test-bot' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -95,6 +95,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
+          SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
           PYTHONUNBUFFERED: "1"
           PYTHONIOENCODING: utf-8
         run: >-

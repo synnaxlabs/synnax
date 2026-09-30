@@ -13,6 +13,10 @@ on:
   workflow_call:
   workflow_dispatch:
 
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   site:
     name: Check site
@@ -36,4 +40,6 @@ jobs:
       - name: Check site
         timeout-minutes: 15
         working-directory: site/docs
+        env:
+          DOCS_GITHUB_TOKEN: ${{ github.token }}
         run: pnpm check-site:build && pnpm check-site

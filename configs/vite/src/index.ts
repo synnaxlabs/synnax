@@ -15,6 +15,7 @@ import { declarations } from "./declarations.js";
 import { checkEntries } from "./entries.js";
 import { checkExports, discoverModules, moduleEntries } from "./modules.js";
 
+export { type Layer, layers } from "./layers.js";
 export { discoverModules, moduleExports } from "./modules.js";
 
 export interface Options {

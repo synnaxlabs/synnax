@@ -9,7 +9,7 @@
 
 import { type ReactElement, useCallback, useEffect, useRef, useState } from "react";
 
-import { CodePanel } from "@/components/shared/CodePanel";
+import { CodePanel } from "@/components/common/CodePanel";
 import { CALC_EXAMPLES, ZERO_CALC_STATE } from "@/components/stream/calcTimeline";
 import { Diagram } from "@/components/stream/diagrams";
 
