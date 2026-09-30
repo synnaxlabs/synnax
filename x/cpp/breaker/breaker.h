@@ -13,7 +13,6 @@
 #include <cassert>
 #include <condition_variable>
 #include <format>
-#include <iomanip>
 
 #include "absl/log/log.h"
 
@@ -57,22 +56,37 @@ struct Config {
 class Breaker {
     /// @brief configuration parameters for the breaker.
     Config config;
-    /// @brief current retry interval.
+    /// @brief current retry interval. Guarded by mu.
     telem::TimeSpan interval;
-    /// @brief the current number of retries.
+    /// @brief the current number of retries. Guarded by mu.
     size_t retries;
     /// @brief a flag to indicate if the breaker is currently running.
     std::atomic<bool> is_running;
     /// @brief a condition variable used to notify the breaker to shut down immediately.
     std::condition_variable shutdown_cv;
-    /// @brief used to protect the condition variable.
-    std::mutex mu;
+    /// @brief protects the retry state and the condition variable.
+    mutable std::mutex mu;
 
-    [[nodiscard]] std::string retry_fraction(const size_t retry) const {
-        const auto max = this->config.max_retries == RETRY_INFINITELY
-                           ? std::string("∞")
-                           : std::to_string(this->config.max_retries);
-        return std::to_string(retry) + "/" + max;
+    /// @brief requires mu to be held. @see next_retry().
+    [[nodiscard]] std::string next_retry_locked() const {
+        const auto next = this->retries + 1;
+        if (this->config.max_retries != RETRY_INFINITELY &&
+            next > static_cast<size_t>(this->config.max_retries))
+            return "";
+        return std::format(
+            "retry {}/{} in {:.1f} s",
+            next,
+            this->config.max_retries == RETRY_INFINITELY
+                ? std::string("∞")
+                : std::to_string(this->config.max_retries),
+            this->interval.seconds()
+        );
+    }
+
+    /// @brief requires mu to be held. @see reset().
+    void reset_locked() {
+        this->retries = 0;
+        this->interval = this->config.base_interval;
     }
 
 public:
@@ -117,30 +131,28 @@ public:
     /// @param message a message to inject additional information into the logs about
     /// what error occurred to trigger the breaker.
     bool wait(const std::string &message) {
+        std::unique_lock lock(this->mu);
         if (!this->running()) {
             LOG(ERROR) << "[" << this->config.name << "] breaker not started. Exiting.";
             return false;
         }
-        this->retries++;
-        if (this->config.max_retries != -1 &&
-            this->retries > static_cast<size_t>(this->config.max_retries)) {
+        const auto next = this->next_retry_locked();
+        if (next.empty()) {
             LOG(ERROR) << "[" << this->config.name
                        << "] exceeded the maximum retry count of "
-                       << this->config.max_retries << ". Exiting."
-                       << "Error: " << message << ".";
-            reset();
+                       << this->config.max_retries << ". Exiting. Error: " << message
+                       << ".";
+            this->reset_locked();
             return false;
         }
-
-        LOG(ERROR) << "[" << this->config.name << "] failed "
-                   << this->retry_fraction(this->retries) << " times. "
-                   << "Retrying in " << std::fixed << std::setprecision(1)
-                   << this->interval.seconds() << " seconds. " << "Error: " << message;
-        std::unique_lock lock(this->mu);
-        shutdown_cv.wait_for(lock, this->interval.chrono());
-        if (!this->running()) {
+        this->retries++;
+        LOG(ERROR) << "[" << this->config.name << "] " << next
+                   << ". Error: " << message;
+        if (this->shutdown_cv.wait_for(lock, this->interval.chrono(), [this] {
+                return !this->running();
+            })) {
             LOG(INFO) << "[" << this->config.name << "] is shutting down. Exiting.";
-            reset();
+            this->reset_locked();
             return false;
         }
         this->interval = this->interval * this->config.scale;
@@ -184,27 +196,17 @@ public:
         return true;
     }
 
-    /// @brief returns the current retry cont of the breaker, which is the number of
-    /// times wait() has been called. Note that accessing this field is not thread-safe,
-    /// and should only be treated as a rough estimate of the number of retries.
-    [[nodiscard]]
-    size_t retry_count() const {
+    /// @brief returns the number of times wait() has been called since the last reset.
+    [[nodiscard]] size_t retry_count() const {
+        std::lock_guard lock(this->mu);
         return this->retries;
     }
 
     /// @brief describes the next call to wait(), such as "retry 3/50 in 1.2 s". Returns
-    /// an empty string when that call exceeds the maximum retry count. Not thread-safe
-    /// with concurrent calls to wait() or reset().
+    /// an empty string when that call exceeds the maximum retry count.
     [[nodiscard]] std::string next_retry() const {
-        const auto next = this->retries + 1;
-        if (this->config.max_retries != RETRY_INFINITELY &&
-            next > static_cast<size_t>(this->config.max_retries))
-            return "";
-        return std::format(
-            "retry {} in {:.1f} s",
-            this->retry_fraction(next),
-            this->interval.seconds()
-        );
+        std::lock_guard lock(this->mu);
+        return this->next_retry_locked();
     }
 
     /// @brief returns true if the breaker is currently running (i.e. start() has been
@@ -215,8 +217,8 @@ public:
     /// to be re-used. It's typically to call this method after the breaker has been
     /// triggered, but the request has succeeded.
     void reset() {
-        this->retries = 0;
-        this->interval = this->config.base_interval;
+        std::lock_guard lock(this->mu);
+        this->reset_locked();
     }
 };
 

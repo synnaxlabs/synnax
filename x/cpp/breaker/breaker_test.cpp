@@ -134,4 +134,21 @@ TEST(BreakerTest, testNextRetryInfinite) {
     auto b = Breaker(Config{"my-breaker", telem::SECOND, RETRY_INFINITELY, 1});
     EXPECT_EQ(b.next_retry(), "retry 1/∞ in 1.0 s");
 }
+
+/// @brief it should allow reads and resets of the retry state while another thread
+/// waits on the breaker.
+TEST(BreakerTest, testConcurrentRetryState) {
+    auto b = Breaker(
+        Config{"my-breaker", telem::TimeSpan::ZERO(), RETRY_INFINITELY, 1}
+    );
+    EXPECT_TRUE(b.start());
+    std::thread t(&helper, std::ref(b));
+    for (int i = 0; i < 1000; i++) {
+        EXPECT_TRUE(b.next_retry().starts_with("retry "));
+        static_cast<void>(b.retry_count());
+        b.reset();
+    }
+    EXPECT_TRUE(b.stop());
+    t.join();
+}
 }
