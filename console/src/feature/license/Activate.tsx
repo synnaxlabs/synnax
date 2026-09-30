@@ -9,93 +9,36 @@
 
 import "@/feature/license/Activate.css";
 
-import { status } from "@synnaxlabs/client";
+import { ExpiredLicenseError, status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
+import { type Triggers } from "@synnaxlabs/lyra/triggers";
 import { Synnax } from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
 
 import { Shell } from "@/feature/shell";
-import { Clipboard } from "@/platform/clipboard";
-import { Connection } from "@/platform/connection";
 import { CSS } from "@/platform/css";
 import { License } from "@/platform/license";
 import { Runtime } from "@/platform/runtime";
+import { Shell as PlatformShell } from "@/platform/shell";
 import { Session } from "@/session";
 
 const KEY_FILE_EXTENSION = "lic";
 
+const ACTIVATE_TRIGGER: Triggers.Trigger = ["Enter"];
+
 const decoder = new TextDecoder();
 
-interface FingerprintProps {
-  info: License.InfoResult;
-}
-
-const Fingerprint = ({ info: { info, error } }: FingerprintProps): ReactElement => {
-  const copy = Clipboard.useCopy();
-  const fingerprint = info?.fingerprint ?? [];
-  const copyFingerprint = (): void =>
-    copy(License.joinFingerprint(fingerprint), "host fingerprint");
-  return (
-    <Flex.Box y gap="small" full="x">
-      <Flex.Box x align="center" justify="between">
-        <Text.Text level="small" weight={500} color={10}>
-          Host fingerprint
-        </Text.Text>
-        <Button.Button
-          variant="text"
-          size="small"
-          disabled={fingerprint.length === 0}
-          onClick={copyFingerprint}
-        >
-          <Icon.Copy />
-          Copy
-        </Button.Button>
-      </Flex.Box>
-      {fingerprint.length > 0 && (
-        <Flex.Box y gap="tiny" className={CSS.BE("license-activate", "hashes")}>
-          {fingerprint.map((hash) => (
-            <Text.Text
-              key={hash}
-              variant="code"
-              level="small"
-              overflow="ellipsis"
-              className={CSS.BE("license-activate", "hash")}
-            >
-              {hash}
-            </Text.Text>
-          ))}
-        </Flex.Box>
-      )}
-      {info != null && fingerprint.length === 0 && (
-        <Text.Text level="small" color={9}>
-          This Core reports no network hardware. Ask for a floating license.
-        </Text.Text>
-      )}
-      {error != null && (
-        <Status.Summary
-          variant="error"
-          level="small"
-          message="Failed to read the host fingerprint"
-          description={error.message}
-        />
-      )}
-      <Button.Button
-        variant="text"
-        size="small"
-        href={License.ACTIVATE_URL}
-        target="_blank"
-        className={CSS.BE("license-activate", "account")}
-      >
-        <Icon.OpenExternal />
-        Get a license key from your account
-      </Button.Button>
-    </Flex.Box>
-  );
+const portalURL = (fingerprint: string[]): string => {
+  if (fingerprint.length === 0) return License.ACTIVATE_URL;
+  const params = new URLSearchParams({
+    fingerprint: License.joinFingerprint(fingerprint),
+  });
+  return `${License.ACTIVATE_URL}?${params.toString()}`;
 };
 
 export interface ActivateProps {
@@ -105,18 +48,22 @@ export interface ActivateProps {
 
 /**
  * Full-screen activation surface for a Core that refuses requests until a license
- * applies.
+ * applies. The connection check keeps polling, so the screen leaves on its own once a
+ * license applies from anywhere.
  */
 export const Activate = ({ onBack }: ActivateProps): ReactElement => {
   const client = Synnax.use();
-  const connection = Synnax.useConnectionStatus();
+  const { details } = Synnax.useConnectionStatus();
   const target = Session.Core.useSelectSelected();
   const logout = Session.useLogout();
   const handleError = Status.useErrorHandler();
-  const info = License.useInfo();
+  const { info, error: infoError } = License.useInfo();
   const [key, setKey] = useState("");
   const [activating, setActivating] = useState(false);
   const [error, setError] = useState<status.Status | null>(null);
+  const fingerprint = info?.fingerprint ?? [];
+  const expired = ExpiredLicenseError.matches(details.error);
+  const noHardware = info != null && fingerprint.length === 0;
 
   const pickFile = (): void =>
     handleError(async () => {
@@ -130,7 +77,7 @@ export const Activate = ({ onBack }: ActivateProps): ReactElement => {
     }, "Failed to read the license file");
 
   const activate = async (): Promise<void> => {
-    if (client == null) return;
+    if (client == null || key.trim() === "") return;
     setActivating(true);
     setError(null);
     try {
@@ -142,65 +89,107 @@ export const Activate = ({ onBack }: ActivateProps): ReactElement => {
     }
   };
 
+  let description = "Get a key from your Synnax account, then paste it here.";
+  if (noHardware)
+    description = "This Core reports no network hardware. Ask for a floating license.";
+  else if (expired) description = "Get a new key from your Synnax account.";
+
   return (
     <Shell.Frame
       className={CSS.B("license-activate")}
       connection={Session.Runtime.CORE_EMBEDDED ? null : target}
     >
-      <Flex.Box y gap="large" className={CSS.BE("license-activate", "body")}>
-        <Status.Summary
-          variant="warning"
-          level="h4"
-          message={connection.message}
-          description={info.info?.warning}
-        />
-        <Fingerprint info={info} />
-        <Flex.Box y gap="small" full="x">
-          <Input.Item label="License key">
+      <Flex.Box y align="center" className={CSS.BE("license-activate", "body")}>
+        <Flex.Box y align="center" justify="center" gap="huge" full="x" grow>
+          <PlatformShell.Mark />
+          <Flex.Box y align="center" gap="small" full="x">
+            <Text.Text level="h4" weight={500} color={11}>
+              {expired
+                ? "This Core's license has expired"
+                : "This Core needs a license"}
+            </Text.Text>
+            <Text.Text
+              level="p"
+              color={9}
+              className={CSS.BE("license-activate", "description")}
+            >
+              {description}
+            </Text.Text>
+          </Flex.Box>
+          <Flex.Box y gap="small" full="x">
             <Input.Text
-              area
+              size="large"
               value={key}
               onChange={setKey}
-              placeholder="Paste the license key"
-              className={CSS.BE("license-activate", "key")}
-            />
-          </Input.Item>
-          <Flex.Box x gap="small" className={CSS.BE("license-activate", "actions")}>
-            <Button.Button
-              variant="outlined"
-              grow
-              justify="center"
-              onClick={pickFile}
+              placeholder="Paste a license key"
+              aria-label="License key"
+              full="x"
               disabled={activating}
             >
-              <Icon.Attachment />
-              Select file
-            </Button.Button>
+              <Button.Button
+                size="large"
+                variant="outlined"
+                onClick={pickFile}
+                disabled={activating}
+                tooltip="Load a license file"
+                aria-label="Load a license file"
+              >
+                <Icon.Attachment />
+              </Button.Button>
+            </Input.Text>
             <Button.Button
               variant="filled"
-              grow
+              size="large"
+              full="x"
               justify="center"
+              trigger={ACTIVATE_TRIGGER}
               onClick={() => void activate()}
-              disabled={activating || key.trim() === ""}
+              status={activating ? "loading" : undefined}
+              disabled={key.trim() === ""}
             >
               Activate
+              <Icon.Arrow.Right />
             </Button.Button>
+            <Flex.Box className={CSS.BE("license-activate", "status")}>
+              {error != null && <Status.Summary status={error} level="small" />}
+              {error == null && infoError != null && (
+                <Status.Summary
+                  variant="error"
+                  level="small"
+                  message="Failed to read the host fingerprint"
+                  description={infoError.message}
+                />
+              )}
+            </Flex.Box>
           </Flex.Box>
-          {error != null && <Status.Summary status={error} level="small" />}
         </Flex.Box>
-        <Flex.Box x gap="small" className={CSS.BE("license-activate", "actions")}>
-          <Connection.Retry variant="outlined" grow justify="center">
-            Check again
-          </Connection.Retry>
+        <Flex.Box x align="center" justify="center" gap="small">
+          <Button.Button
+            variant="text"
+            size="small"
+            textColor={9}
+            href={portalURL(fingerprint)}
+            target="_blank"
+          >
+            Get a key
+            <Icon.OpenExternal />
+          </Button.Button>
+          <Button.Copy
+            variant="text"
+            size="small"
+            textColor={9}
+            disabled={fingerprint.length === 0}
+            text={() => License.joinFingerprint(fingerprint)}
+          >
+            Copy fingerprint
+          </Button.Copy>
           {!Session.Runtime.CORE_EMBEDDED && (
-            <Button.Button variant="outlined" grow justify="center" onClick={logout}>
-              <Icon.Logout />
+            <Button.Button variant="text" size="small" textColor={9} onClick={logout}>
               Log out
             </Button.Button>
           )}
           {onBack != null && (
-            <Button.Button variant="outlined" grow justify="center" onClick={onBack}>
-              <Icon.Arrow.Left />
+            <Button.Button variant="text" size="small" textColor={9} onClick={onBack}>
               Back
             </Button.Button>
           )}

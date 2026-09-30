@@ -16,7 +16,7 @@ import { UNLICENSED_STATUS } from "@/testutil";
 describe("License.Guard", () => {
   it("should offer no log out action", async () => {
     await renderGuard(null, UNLICENSED_STATUS);
-    expect(screen.getByText(UNLICENSED_STATUS.message)).toBeTruthy();
+    expect(screen.getByText("This Core needs a license")).toBeTruthy();
     expect(screen.queryByText("Log out")).toBeNull();
   });
 });

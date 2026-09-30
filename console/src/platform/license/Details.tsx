@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/platform/license/Details.css";
-
 import { license } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
+import { Description } from "@synnaxlabs/lyra/description";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
+import { Access } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
@@ -23,8 +23,7 @@ import { ACCOUNT_URL } from "@/platform/license/urls";
 import { useInfo } from "@/platform/license/useInfo";
 import { Session } from "@/session";
 
-/** The license on two lines for the Core badge: what applies, and any warning. */
-export const Summary = (): ReactElement | null => {
+const GrantedSummary = (): ReactElement | null => {
   const { info } = useInfo();
   if (info == null) return null;
   const { state, warning, license: lic } = info;
@@ -56,22 +55,16 @@ interface RowProps {
 }
 
 const Row = ({ name, value }: RowProps): ReactElement => (
-  <Flex.Box x justify="between" gap="large" className={CSS.BE("license", "row")}>
-    <Text.Text level="small" color={9}>
-      {name}
-    </Text.Text>
-    <Text.Text level="small" color={10} overflow="ellipsis">
-      {value}
-    </Text.Text>
-  </Flex.Box>
+  <Description.Item>
+    <Description.Label>{name}</Description.Label>
+    <Description.Value overflow="ellipsis">{value}</Description.Value>
+  </Description.Item>
 );
 
-/** The license in full for the version info modal. */
-export const Details = (): ReactElement => {
+const GrantedDetails = (): ReactElement | null => {
   const { info, error } = useInfo();
-  let body: ReactElement | null = null;
   if (error != null)
-    body = (
+    return (
       <Status.Summary
         variant="error"
         level="small"
@@ -79,36 +72,29 @@ export const Details = (): ReactElement => {
         description={error.message}
       />
     );
-  else if (info != null) {
-    const { state, warning, license: lic } = info;
-    body = (
-      <>
-        {lic == null || state !== "ok" ? (
-          <Status.Summary
-            variant="warning"
-            level="small"
-            message={license.STATE_MESSAGES[state]}
-          />
-        ) : (
-          <>
-            <Row name="Edition" value={editionLabel(lic)} />
-            <Row name="Organization" value={lic.organization} />
-            <Row name="Term" value={describeTerm(lic)} />
-            <Row name="Machines" value={String(lic.machines)} />
-            <Row name="Channels" value={describeChannels(lic)} />
-          </>
-        )}
-        {warning !== "" && (
-          <Status.Summary variant="warning" level="small" message={warning} />
-        )}
-      </>
-    );
-  }
+  if (info == null) return null;
+  const { state, warning, license: lic } = info;
   return (
-    <Flex.Box y gap="small" className={CSS.B("license")}>
-      <Account />
-      {body}
-    </Flex.Box>
+    <>
+      {lic == null || state !== "ok" ? (
+        <Status.Summary
+          variant="warning"
+          level="small"
+          message={license.STATE_MESSAGES[state]}
+        />
+      ) : (
+        <Description.List level="small" justify="between">
+          <Row name="Edition" value={editionLabel(lic)} />
+          <Row name="Organization" value={lic.organization} />
+          <Row name="Term" value={describeTerm(lic)} />
+          <Row name="Machines" value={String(lic.machines)} />
+          <Row name="Channels" value={describeChannels(lic)} />
+        </Description.List>
+      )}
+      {warning !== "" && (
+        <Status.Summary variant="warning" level="small" message={warning} />
+      )}
+    </>
   );
 };
 
@@ -117,13 +103,7 @@ const Account = (): ReactElement | null => {
   const email = Session.Account.useSelectEmail();
   if (email == null) return null;
   return (
-    <Flex.Box
-      x
-      justify="between"
-      align="center"
-      gap="large"
-      className={CSS.BE("license", "row")}
-    >
+    <Flex.Box x justify="between" align="center" gap="large">
       <Text.Text level="small" color={10} overflow="ellipsis">
         Logged in as {email}
       </Text.Text>
@@ -131,6 +111,27 @@ const Account = (): ReactElement | null => {
         <Icon.OpenExternal />
         Manage in your account
       </Button.Button>
+    </Flex.Box>
+  );
+};
+
+/**
+ * The license on two lines for the Core badge: what applies, and any warning. Renders
+ * nothing when the user may not read the license.
+ */
+export const Summary = (): ReactElement | null =>
+  Access.useRetrieveGranted(license.ONTOLOGY_ID) ? <GrantedSummary /> : null;
+
+/**
+ * The account the machine is linked to, and the license in full, for the version info
+ * modal. The license shows only when the user may read it.
+ */
+export const Details = (): ReactElement => {
+  const granted = Access.useRetrieveGranted(license.ONTOLOGY_ID);
+  return (
+    <Flex.Box y gap="small" className={CSS.B("license")}>
+      <Account />
+      {granted && <GrantedDetails />}
     </Flex.Box>
   );
 };
