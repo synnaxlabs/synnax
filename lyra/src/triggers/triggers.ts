@@ -206,7 +206,10 @@ export interface Event {
 /** A callback that is fired when a trigger is activated. */
 export type Callback = (e: Event) => void;
 
-/** Parses the TriggerKey from the provided KeyboardEvent or MouseEvent. */
+/**
+ * Parses the TriggerKey from the provided KeyboardEvent or MouseEvent.
+ * @returns null for a key event that names no physical key.
+ */
 export const eventKey = (
   e:
     | KeyboardEvent
@@ -215,7 +218,7 @@ export const eventKey = (
     | React.KeyboardEvent
     | React.MouseEvent
     | React.PointerEvent,
-): Key => {
+): Key | null => {
   if (e.type.includes("key")) return keyboardKey(e as KeyboardEvent);
   return mouseKey((e as MouseEvent).button);
 };
@@ -226,13 +229,13 @@ export const MODIFIER_KEYS: Key[] = ["Control", "Alt", "Shift"];
 
 /**
  * Parses the TriggerKey from the provided KeyboardEvent.
- * @returns the TriggerKey.
+ * @returns null when the event has no code. Browser autofill dispatches such events,
+ * and they name no physical key.
  */
 export const keyboardKey = (
   e: KeyboardEvent | React.KeyboardEvent<HTMLElement>,
-): Key => {
-  // Autofill and IME composition dispatch key events with no code.
-  if (e.code == null || e.code === "") return (e.key ?? "") as Key;
+): Key | null => {
+  if (e.code == null || e.code === "") return null;
   if (["Digit", "Key"].some((k) => e.code.startsWith(k)))
     return e.code.slice(-1) as Key;
   if (e.code.includes("Meta")) return "Control";
@@ -289,7 +292,8 @@ export const matchCallback =
     callback: (e: E) => void,
   ): ((e: E) => void) =>
   (e) => {
-    if (match(expect, [[eventKey(e)]])) return callback(e);
+    const key = eventKey(e);
+    if (key != null && match(expect, [[key]])) return callback(e);
   };
 
 /**
