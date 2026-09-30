@@ -25,7 +25,7 @@ describe("respond", () => {
       expect(res.status).toBe(200);
       expect(res.headers.get("content-type")).toBe("text/plain; charset=utf-8");
       expect(res.headers.get("content-disposition")).toBe(
-        'attachment; filename="Test-rig.license"',
+        'attachment; filename="Test-rig.lic"',
       );
       expect(await res.text()).toBe("header.payload.signature");
     });
@@ -107,10 +107,10 @@ describe("respond", () => {
     it("should read a posted form", async () => {
       const data = new FormData();
       data.set("name", "Test stand");
-      data.set("file", new File(["x"], "key.license"));
+      data.set("file", new File(["x"], "key.lic"));
       expect(await form(createAPIContext(PORTAL, { body: data }))).toEqual({
         name: "Test stand",
-        file: "key.license",
+        file: "key.lic",
       });
     });
   });

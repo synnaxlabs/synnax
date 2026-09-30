@@ -22,7 +22,7 @@ import { Tile } from "@/ui/Tile";
 import { useAction } from "@/ui/useAction";
 
 /** KEY_FILE is the license key's file name when the browser cannot open the app. */
-const KEY_FILE = "synnax-desktop.license";
+const KEY_FILE = "synnax-desktop.lic";
 
 export interface LinkProps extends Query {
   email: string;

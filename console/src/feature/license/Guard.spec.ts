@@ -7,8 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { AuthError, connection } from "@synnaxlabs/client";
+import {
+  AuthError,
+  connection,
+  ExpiredLicenseError,
+  license,
+} from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -18,7 +24,6 @@ import { Session } from "@/session";
 import {
   fakePickedFile,
   interceptFilePicker,
-  stubClipboardWriteText,
   uniqueName,
   UNLICENSED_STATUS,
 } from "@/testutil";
@@ -33,6 +38,20 @@ const AUTH_FAILED_STATUS: connection.Status = {
     error: new AuthError("Invalid credentials"),
   },
 };
+
+const EXPIRED_STATUS: connection.Status = {
+  ...connection.DEFAULT_STATUS,
+  variant: "error",
+  message: license.STATE_MESSAGES.expired,
+  details: {
+    ...connection.DEFAULT_STATUS.details,
+    authenticated: true,
+    reason: "unlicensed",
+    error: new ExpiredLicenseError(license.STATE_MESSAGES.expired),
+  },
+};
+
+const MISSING_TITLE = "This Core needs a license";
 
 const getKeyField = (): HTMLElement =>
   screen.getByRole("textbox", { name: "License key" });
@@ -52,8 +71,19 @@ describe("License.Guard", () => {
 
   it("should render the activation screen while the Core is unlicensed", async () => {
     await renderGuard(null, UNLICENSED_STATUS);
-    expect(screen.getByText(UNLICENSED_STATUS.message)).toBeTruthy();
+    expect(screen.getByText(MISSING_TITLE)).toBeTruthy();
     expect(screen.queryByText(GUARDED_CONTENT)).toBeNull();
+  });
+
+  it("should say when the license on the Core has expired", async () => {
+    await renderGuard(null, EXPIRED_STATUS);
+    expect(screen.getByText("This Core's license has expired")).toBeTruthy();
+    expect(screen.getByText("Get a new key from your Synnax account.")).toBeTruthy();
+  });
+
+  it("should offer no way to check the connection again", async () => {
+    await renderGuard(null, UNLICENSED_STATUS);
+    expect(screen.queryByText("Check again")).toBeNull();
   });
 
   it("should render children once a license applies", async () => {
@@ -88,21 +118,26 @@ describe("License.Guard", () => {
   it("should read the license key from a picked file", async () => {
     const picker = interceptFilePicker();
     await renderGuard(null, UNLICENSED_STATUS);
-    fireEvent.click(findButton("Select file"));
-    picker.selectFiles([fakePickedFile("synnax.license", "abc.def.ghi\n")]);
+    fireEvent.click(screen.getByRole("button", { name: "Load a license file" }));
+    picker.selectFiles([fakePickedFile("synnax.lic", "abc.def.ghi\n")]);
     await waitFor(() => {
       const input = getKeyField();
-      if (!(input instanceof HTMLTextAreaElement)) throw new Error("not a textarea");
+      if (!(input instanceof HTMLInputElement)) throw new Error("not an input");
       expect(input.value).toBe("abc.def.ghi");
     });
   });
 
-  it("should show the host fingerprint the Core reports", async () => {
+  it("should link to the account page with the host fingerprint", async () => {
     const client = createTestClient();
     const { fingerprint } = await client.license.retrieve();
     expect(fingerprint.length).toBeGreaterThan(0);
     await renderGuard(client, UNLICENSED_STATUS);
-    for (const hash of fingerprint) expect(await screen.findByText(hash)).toBeTruthy();
+    await waitFor(() => {
+      const href = screen.getByText("Get a key").closest("a")?.getAttribute("href");
+      expect(new URL(href ?? "").searchParams.get("fingerprint")).toBe(
+        fingerprint.join(", "),
+      );
+    });
   });
 
   it("should copy the host fingerprint", async () => {
@@ -111,8 +146,9 @@ describe("License.Guard", () => {
     const { fingerprint } = await client.license.retrieve();
     expect(fingerprint.length).toBeGreaterThan(0);
     await renderGuard(client, UNLICENSED_STATUS);
-    await screen.findByText(fingerprint[0]);
-    fireEvent.click(findButton("Copy"));
+    const copy = findButton("Copy fingerprint");
+    await waitFor(() => expect(copy.getAttribute("aria-disabled")).toBeNull());
+    fireEvent.click(copy);
     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
     expect(writeText).toHaveBeenCalledWith(fingerprint.join(", "));
   });
@@ -127,6 +163,6 @@ describe("License.Guard", () => {
     expect(
       screen.getByText("a license key has three parts: invalid license: license error"),
     ).toBeTruthy();
-    expect(screen.getByText(UNLICENSED_STATUS.message)).toBeTruthy();
+    expect(screen.getByText(MISSING_TITLE)).toBeTruthy();
   });
 });

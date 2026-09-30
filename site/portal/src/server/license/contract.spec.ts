@@ -24,7 +24,7 @@ const TESTDATA = path.resolve(
   "../../../../../core/pkg/service/license/testdata",
 );
 const PUBLIC_KEY = path.join(TESTDATA, "portal.pub");
-const KEY = path.join(TESTDATA, "portal.license");
+const KEY = path.join(TESTDATA, "portal.lic");
 const KID = "contract";
 const RAW_PUBLIC_KEY_LENGTH = 1312;
 

@@ -12,6 +12,7 @@ import { z } from "zod";
 
 import { type connection } from "@/connection";
 import { type Info, infoZ, type State } from "@/license/types.gen";
+import { type ontology } from "@/ontology";
 
 export const STATE_MESSAGES: Record<State, string> = {
   ok: "Licensed",
@@ -20,6 +21,9 @@ export const STATE_MESSAGES: Record<State, string> = {
 };
 
 const activateReqZ = z.object({ key: z.string() });
+
+/** The license as an access control object. Reading it takes a retrieve grant. */
+export const ONTOLOGY_ID: ontology.ID = { type: "builtin", key: "license" };
 
 export const RETRIEVE_ENDPOINT = "/license/retrieve";
 export const ACTIVATE_ENDPOINT = "/license/activate";

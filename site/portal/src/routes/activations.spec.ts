@@ -140,7 +140,7 @@ describe("activation routes", () => {
       expect(res.status).toBe(200);
       expect(res.headers.get("content-type")).toBe("text/plain; charset=utf-8");
       expect(res.headers.get("content-disposition")).toBe(
-        'attachment; filename="Test-rig.license"',
+        'attachment; filename="Test-rig.lic"',
       );
       expect(readKey(await res.text())).toMatchObject({
         jti: lic.key,
