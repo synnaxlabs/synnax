@@ -1,0 +1,30 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import Portal from "@/layouts/Portal.astro";
+import { loadScoped } from "@/page";
+import { Devices } from "@/ui/devices/Devices";
+import { machinesFor } from "@/server/license/desktop";
+
+const loaded = await loadScoped(Astro, "personal");
+if (loaded instanceof Response) return loaded;
+const { portal, session, organizations, scope } = loaded;
+const machines = await machinesFor(portal.store.query, scope.key);
+---
+
+<Portal
+    title="Devices"
+    session={session}
+    organizations={organizations}
+    scope={scope}
+    tab="devices"
+>
+    <Devices client:load machines={machines} now={portal.now()} />
+</Portal>

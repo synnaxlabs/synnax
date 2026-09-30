@@ -67,6 +67,7 @@ jobs:
       oracle: ${{ steps.filter.outputs.oracle }}
       oracle_check: ${{ steps.filter.outputs.oracle_check }}
       pluto: ${{ steps.filter.outputs.pluto }}
+      portal: ${{ steps.filter.outputs.portal }}
       protobuf: ${{ steps.filter.outputs.protobuf }}
       scripts: ${{ steps.filter.outputs.scripts }}
       soem: ${{ steps.filter.outputs.soem }}
@@ -433,6 +434,16 @@ jobs:
       test_args: -- --no-file-parallelism
     secrets: inherit
 
+  portal:
+    needs: changes
+    if: needs.changes.outputs.portal == 'true'
+    uses: ./.github/workflows/test.ts.yaml
+    with:
+      coverage_flag: portal
+      directory: site/portal
+      package: portal
+    secrets: inherit
+
   protobuf:
     needs: changes
     if: needs.changes.outputs.protobuf == 'true'
@@ -559,6 +570,7 @@ jobs:
       - oracle
       - oracle-check
       - pluto
+      - portal
       - protobuf
       - scripts
       - soem

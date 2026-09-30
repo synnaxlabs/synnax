@@ -1,0 +1,80 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { Button } from "@synnaxlabs/lyra/button";
+import { Logo } from "@synnaxlabs/media";
+
+import Root from "@/layouts/Root.astro";
+import { scoped, type Tab, tabs } from "@/shell";
+import { Account } from "@/ui/shell/Account";
+import { Scope } from "@/ui/shell/Scope";
+import type { Organization } from "@/server/db/schema";
+import type { Session } from "@/server/session";
+import "@/styles/portal.css";
+
+interface Props {
+    title: string;
+    session: Session;
+    organizations: Organization[];
+    /** scope is the organization the page acts for. */
+    scope: Organization;
+    /** tab is the active tab, or null for a page outside the tab row. */
+    tab: Tab | null;
+}
+
+const { title, session, organizations, scope, tab } = Astro.props;
+const option = (o: Organization) => ({
+    key: o.key,
+    name: o.kind === "personal" ? session.name : o.name,
+    personal: o.kind === "personal",
+});
+---
+
+<Root title={title}>
+    <header class="portal-bar">
+        <div class="portal-bar__start">
+            <a class="portal-bar__logo" href={scoped("/", scope)} aria-label="Synnax">
+                <Logo variant="icon" />
+            </a>
+            <span class="portal-bar__separator" aria-hidden="true">
+                /
+            </span>
+            <Scope
+                client:load
+                options={organizations.map(option)}
+                selected={option(scope)}
+            />
+        </div>
+        <div class="portal-bar__actions">
+            <a class="portal-bar__link" href="https://docs.synnaxlabs.com">
+                Docs
+            </a>
+            <Account client:load />
+        </div>
+    </header>
+    <nav class="portal-tabs">
+        {tabs(scope, session.staff).map((link) => (
+            <Button.Button
+                variant="text"
+                weight={link.tab === tab ? 500 : 400}
+                className="portal-tab"
+                href={link.href}
+                aria-current={link.tab === tab ? "page" : undefined}
+            >
+                {link.label}
+            </Button.Button>
+        ))}
+    </nav>
+    <main>
+        <section class="portal">
+            <slot />
+        </section>
+    </main>
+</Root>

@@ -33,10 +33,12 @@ import {
   type Event,
   type Handle,
   type Info,
+  isSelfHealing,
   reduce,
   type Status,
 } from "@/connection/status";
 import { AccessDeniedError, DisconnectedError, errorsMiddleware } from "@/errors";
+import { license } from "@/license";
 import { Transport } from "@/transport";
 
 const CHECK_ENDPOINT = "/connectivity/check";
@@ -45,6 +47,7 @@ const checkResZ = z.object({
   clusterKey: z.string(),
   nodeVersion: z.string(),
   nodeTime: TimeStamp.z,
+  license: license.stateZ.default("ok"),
 });
 
 /**
@@ -63,6 +66,7 @@ export const sendCheck = async (unary: UnaryClient): Promise<Info> => {
     clusterKey: res.clusterKey,
     nodeVersion: res.nodeVersion,
     clockSkew: skew.skew,
+    license: res.license,
   };
 };
 
@@ -115,9 +119,7 @@ export const modeFor = ({ variant, details }: Status): Mode => {
     case "disabled":
       return "idle";
     case "error":
-      // unreachable keeps checking beneath the error and self-heals; auth and
-      // incompatibility rest until the user acts
-      return details.reason === "unreachable" ? "checking" : "idle";
+      return isSelfHealing(details.reason) ? "checking" : "idle";
     default:
       return "checking";
   }
@@ -302,20 +304,27 @@ export class Client implements Handle {
   }
 
   /**
-   * Rejects unary requests instantly while the cluster is known unreachable,
-   * instead of burning the transport's retry budget per call. The check and
-   * login targets are exempt so the connection can heal.
+   * Rejects unary requests instantly while the cluster is known unreachable or
+   * unlicensed, instead of burning the transport's retry budget per call. The
+   * check, login, and license targets are exempt so the connection can heal.
    */
   middleware(): Middleware {
-    const EXEMPT = [CHECK_ENDPOINT, auth.LOGIN_ENDPOINT];
+    const EXEMPT = [
+      CHECK_ENDPOINT,
+      auth.LOGIN_ENDPOINT,
+      license.RETRIEVE_ENDPOINT,
+      license.ACTIVATE_ENDPOINT,
+    ];
     return async (ctx, next) => {
       const { variant, details } = this.current;
       if (
         variant === "error" &&
-        details.reason === "unreachable" &&
         !EXEMPT.some((target) => ctx.target.endsWith(target))
-      )
-        throw new DisconnectedError(`Cannot reach cluster at ${this.address}`);
+      ) {
+        if (details.reason === "unreachable")
+          throw new DisconnectedError(`Cannot reach cluster at ${this.address}`);
+        if (details.reason === "unlicensed") throw details.error;
+      }
       return await next(ctx);
     };
   }
@@ -356,7 +365,8 @@ export class Client implements Handle {
   /** Drops everything cached from the replaced cluster, then brings the stream up. */
   private async resetStream(): Promise<void> {
     await this.stream?.reset();
-    await this.stream?.ensure();
+    // an unlicensed Core refuses the stream; the check after activation brings it up
+    if (this.current.details.license === "ok") await this.stream?.ensure();
   }
 
   /** Discards in-flight checks and wakes the loop for an immediate check. */
@@ -406,9 +416,11 @@ export class Client implements Handle {
       this.warn(this.current.details);
       const replaced = prevKey !== "" && info.clusterKey !== prevKey;
       // reachable but the stream is still dark: re-demand it, in case its own
-      // retry budget was exhausted. Replacement already brings it up.
+      // retry budget was exhausted. Replacement already brings it up, and an
+      // unlicensed Core refuses it.
       if (
         !replaced &&
+        info.license === "ok" &&
         this.config.requiresStream &&
         !this.current.details.streamLive &&
         this.takeStreamProbe()

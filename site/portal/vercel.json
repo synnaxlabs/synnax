@@ -1,0 +1,10 @@
+{
+  "installCommand": "npx --yes pnpm@12.8.1 install --frozen-lockfile",
+  "buildCommand": "npm run db:migrate && npm run build",
+  "crons": [
+    {
+      "path": "/api/cron/expiry",
+      "schedule": "0 9 * * *"
+    }
+  ]
+}
