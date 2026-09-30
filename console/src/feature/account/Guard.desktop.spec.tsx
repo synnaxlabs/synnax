@@ -144,7 +144,7 @@ describe("Account.Guard", () => {
   it("should offer the license file screen and a way back", async () => {
     await renderGuard({ status: UNLICENSED_STATUS });
     fireEvent.click(findButton("Use a license file"));
-    expect(screen.getByPlaceholderText("Paste the license key")).toBeTruthy();
+    expect(screen.getByPlaceholderText("Paste a license key")).toBeTruthy();
     expect(screen.queryByText("Log out")).toBeNull();
     fireEvent.click(findButton("Back"));
     expect(screen.getByText("Log in to continue")).toBeTruthy();
