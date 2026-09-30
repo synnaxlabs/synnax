@@ -21,6 +21,7 @@
     "stylelint": "stylelint \"src/**/*.css\""
   },
   "dependencies": {
+    "@astrojs/markdown-satteri": "catalog:",
     "@astrojs/mdx": "catalog:",
     "@astrojs/react": "catalog:",
     "@astrojs/vercel": "catalog:",
@@ -45,6 +46,7 @@
     "@synnaxlabs/eslint-config": "catalog:",
     "@synnaxlabs/stylelint-config": "catalog:",
     "@synnaxlabs/tsconfig": "catalog:",
+    "@synnaxlabs/vite-plugin": "catalog:",
     "@testing-library/react": "catalog:",
     "@types/hast": "catalog:",
     "@types/html-escaper": "catalog:",
@@ -60,6 +62,7 @@
     "jsdom": "catalog:",
     "remark": "catalog:",
     "remark-gfm": "catalog:",
+    "satteri": "catalog:",
     "strip-markdown": "catalog:",
     "stylelint": "catalog:",
     "tsx": "catalog:",

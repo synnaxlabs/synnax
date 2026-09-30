@@ -12,7 +12,7 @@ nextURL: "/reference/console/projects"
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Image, Video } from "@/components/media/Media";
-import { Table } from "@/components";
+import { Table } from "@/components/table";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -73,7 +73,7 @@ The Synnax documentation can be opened from within the Console by clicking the
 
 {/* prettier-ignore-end */}
 
-<Video client:only="react" id="console/ui-overview/documentation" />
+<Video id="console/ui-overview/documentation" />
 
 <Divider.Divider x />
 
@@ -93,4 +93,4 @@ commands.
 
 {/* prettier-ignore-end */}
 
-<Video client:only="react" id="console/ui-overview/palette-search" />
+<Video id="console/ui-overview/palette-search" />
