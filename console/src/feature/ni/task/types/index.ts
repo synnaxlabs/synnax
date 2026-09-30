@@ -129,7 +129,7 @@ export const AI_CHANNEL_TYPE_NAMES: Record<AIChannelType, string> = {
   ai_velocity_iepe: "Velocity IEPE",
   ai_voltage: "Voltage",
   ai_voltage_rms: "Voltage RMS",
-  ai_voltage_with_excit: "Voltage with Excitation",
+  ai_voltage_with_excit: "Voltage with excitation",
 };
 
 // Types without a dedicated icon reuse their measurement category's icon.
