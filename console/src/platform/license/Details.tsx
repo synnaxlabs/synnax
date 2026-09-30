@@ -7,20 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/platform/license/Details.css";
-
 import { license } from "@synnaxlabs/client";
+import { Description } from "@synnaxlabs/lyra/description";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
+import { Access } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { describeChannels, describeTerm, editionLabel } from "@/platform/license/term";
 import { useInfo } from "@/platform/license/useInfo";
 
-/** The license on two lines for the Core badge: what applies, and any warning. */
-export const Summary = (): ReactElement | null => {
+const GrantedSummary = (): ReactElement | null => {
   const { info } = useInfo();
   if (info == null) return null;
   const { state, warning, license: lic } = info;
@@ -52,18 +51,13 @@ interface RowProps {
 }
 
 const Row = ({ name, value }: RowProps): ReactElement => (
-  <Flex.Box x justify="between" gap="large" className={CSS.BE("license", "row")}>
-    <Text.Text level="small" color={9}>
-      {name}
-    </Text.Text>
-    <Text.Text level="small" color={10} overflow="ellipsis">
-      {value}
-    </Text.Text>
-  </Flex.Box>
+  <Description.Item>
+    <Description.Label>{name}</Description.Label>
+    <Description.Value overflow="ellipsis">{value}</Description.Value>
+  </Description.Item>
 );
 
-/** The license in full for the version info modal. */
-export const Details = (): ReactElement | null => {
+const GrantedDetails = (): ReactElement | null => {
   const { info, error } = useInfo();
   if (error != null)
     return (
@@ -85,13 +79,13 @@ export const Details = (): ReactElement | null => {
           message={license.STATE_MESSAGES[state]}
         />
       ) : (
-        <>
+        <Description.List level="small" justify="between">
           <Row name="Edition" value={editionLabel(lic)} />
           <Row name="Organization" value={lic.organization} />
           <Row name="Term" value={describeTerm(lic)} />
           <Row name="Machines" value={String(lic.machines)} />
           <Row name="Channels" value={describeChannels(lic)} />
-        </>
+        </Description.List>
       )}
       {warning !== "" && (
         <Status.Summary variant="warning" level="small" message={warning} />
@@ -99,3 +93,17 @@ export const Details = (): ReactElement | null => {
     </Flex.Box>
   );
 };
+
+/**
+ * The license on two lines for the Core badge: what applies, and any warning. Renders
+ * nothing when the user may not read the license.
+ */
+export const Summary = (): ReactElement | null =>
+  Access.useRetrieveGranted(license.ONTOLOGY_ID) ? <GrantedSummary /> : null;
+
+/**
+ * The license in full for the version info modal. Renders nothing when the user may not
+ * read the license.
+ */
+export const Details = (): ReactElement | null =>
+  Access.useRetrieveGranted(license.ONTOLOGY_ID) ? <GrantedDetails /> : null;

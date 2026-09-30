@@ -9,8 +9,10 @@
 
 import { describe, expect, it } from "vitest";
 
-import { InvalidLicenseError } from "@/errors";
-import { createTestClient } from "@/testutil";
+import { AccessDeniedError, InvalidLicenseError } from "@/errors";
+import { license } from "@/license";
+import { ontology } from "@/ontology";
+import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
 const client = createTestClient();
 
@@ -25,5 +27,25 @@ describe("license", () => {
     await expect(client.license.activate("not-a-license-key")).rejects.toThrow(
       InvalidLicenseError,
     );
+  });
+
+  describe("access", () => {
+    it("should read the license with a retrieve grant on its ID", async () => {
+      const granted = await createTestClientWithPolicy(client, {
+        name: "test",
+        objects: [license.ONTOLOGY_ID],
+        actions: ["retrieve"],
+      });
+      await expect(granted.license.retrieve()).resolves.toBeDefined();
+    });
+
+    it("should deny the license without a grant on its ID", async () => {
+      const denied = await createTestClientWithPolicy(client, {
+        name: "test",
+        objects: [ontology.ROOT_ID],
+        actions: ["retrieve"],
+      });
+      await expect(denied.license.retrieve()).rejects.toThrow(AccessDeniedError);
+    });
   });
 });

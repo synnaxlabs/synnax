@@ -66,3 +66,27 @@ describe("License.editionLabel", () => {
     expect(License.editionLabel({ ...BASE, edition: "d" })).toBe("Desktop");
   });
 });
+
+describe("License.joinFingerprint", () => {
+  it("should join the host hashes with commas", () => {
+    expect(License.joinFingerprint(["a", "b"])).toBe("a, b");
+  });
+});
+
+describe("License.resolveBinding", () => {
+  it("should call a license with no fingerprints floating", () => {
+    expect(License.resolveBinding(BASE, ["a"])).toBe("floating");
+  });
+
+  it("should recognize a license that shares a hash with the host", () => {
+    expect(
+      License.resolveBinding({ ...BASE, fingerprints: ["b", "c"] }, ["a", "c"]),
+    ).toBe("host");
+  });
+
+  it("should flag a license bound to other hashes", () => {
+    expect(License.resolveBinding({ ...BASE, fingerprints: ["b"] }, ["a"])).toBe(
+      "other",
+    );
+  });
+});
