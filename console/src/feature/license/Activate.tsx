@@ -27,7 +27,7 @@ import { License } from "@/platform/license";
 import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
 
-const KEY_FILE_EXTENSION = "license";
+const KEY_FILE_EXTENSION = "lic";
 
 const decoder = new TextDecoder();
 
