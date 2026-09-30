@@ -11,6 +11,7 @@ package iterator
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
@@ -20,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/telem"
 )
 
 type calculationTransform struct {
@@ -99,16 +101,21 @@ func (t *calculationTransform) processBufferedFrames(
 		t.Out.Inlet() <- ackRes
 		return
 	}
-	mergedFrame := frame.Merge(t.pendingFrames)
-	var err error
-	for _, c := range t.calculators {
-		mergedFrame, _, err = c.Next(ctx, mergedFrame, mergedFrame)
-		if err != nil {
-			t.accumulatedError = err
-			continue
+	var (
+		err     error
+		outputs []framer.Frame
+	)
+	for _, round := range splitByStart(frame.Merge(t.pendingFrames)) {
+		for _, c := range t.calculators {
+			round, _, err = c.Next(ctx, round, round)
+			if err != nil {
+				t.accumulatedError = err
+				continue
+			}
 		}
+		outputs = append(outputs, round.KeepKeys(t.keepKeys))
 	}
-	mergedFrame = mergedFrame.KeepKeys(t.keepKeys)
+	mergedFrame := frame.Merge(outputs)
 	if mergedFrame.Count() > 0 {
 		t.Out.Inlet() <- Response{
 			Variant: ResponseVariantData,
@@ -121,4 +128,27 @@ func (t *calculationTransform) processBufferedFrames(
 		ackRes.Ack = false
 	}
 	t.Out.Inlet() <- ackRes
+}
+
+// splitByStart groups a frame's series by start time, in time order, so a channel
+// with a missing write does not shift against the others.
+func splitByStart(fr framer.Frame) []framer.Frame {
+	byStart := make(map[telem.TimeStamp]framer.Frame)
+	for i, key := range fr.RawKeys() {
+		if fr.ShouldExcludeRaw(i) {
+			continue
+		}
+		s := fr.RawSeriesAt(i)
+		byStart[s.TimeRange.Start] = byStart[s.TimeRange.Start].Append(key, s)
+	}
+	starts := make([]telem.TimeStamp, 0, len(byStart))
+	for start := range byStart {
+		starts = append(starts, start)
+	}
+	slices.Sort(starts)
+	rounds := make([]framer.Frame, len(starts))
+	for i, start := range starts {
+		rounds[i] = byStart[start]
+	}
+	return rounds
 }
