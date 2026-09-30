@@ -9,6 +9,8 @@
 
 import {
   bounds,
+  box,
+  color,
   type CrudeTimeRange,
   DataType,
   MultiSeries,
@@ -18,13 +20,23 @@ import {
   TimeSpan,
 } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
+import { aether } from "@/aether/aether";
+import { type telem } from "@/telem/aether";
+import { telemTest } from "@/telem/aether/test";
+import { renderAether } from "@/testutil/renderAether";
 import {
   bridgeVertices,
   buildDrawOperations,
+  Context,
   type DrawOperation,
+  Line,
+  type LineProps,
   nearestVertex,
 } from "@/vis/line/aether/line";
+import { render } from "@/vis/render";
+import { canvasTest } from "@/vis/render/test";
 
 describe("line", () => {
   describe("buildDrawOperations", () => {
@@ -497,6 +509,173 @@ describe("line", () => {
 
     it("should return the first sample of an op too short to draw", () => {
       expect(nearestVertex(op(6, 4), 5)).toBe(0);
+    });
+  });
+
+  describe("Line", () => {
+    const GL_ENUMS = {
+      ARRAY_BUFFER: 1,
+      FLOAT: 2,
+      UNSIGNED_BYTE: 3,
+      STATIC_DRAW: 4,
+      DYNAMIC_DRAW: 5,
+      LINE_STRIP: 6,
+      LINES: 7,
+      VERTEX_SHADER: 8,
+      FRAGMENT_SHADER: 9,
+      COMPILE_STATUS: 10,
+    };
+
+    interface GLCall {
+      op: string;
+      args: unknown[];
+    }
+
+    /** Records every GL call. Calls that return a handle hand back a stub instead. */
+    const createGL = (): { gl: WebGL2RenderingContext; calls: GLCall[] } => {
+      const calls: GLCall[] = [];
+      const target: Record<string, unknown> = {
+        ...GL_ENUMS,
+        createProgram: () => ({}),
+        createShader: () => ({}),
+        createBuffer: () => ({}),
+        getShaderParameter: () => true,
+        getAttribLocation: () => 0,
+        getUniformLocation: () => ({}),
+      };
+      const handler: ProxyHandler<Record<string, unknown>> = {
+        get(t, prop) {
+          if (typeof prop !== "string") return undefined;
+          t[prop] ??= (...args: unknown[]): void => {
+            calls.push({ op: prop, args });
+          };
+          return t[prop];
+        },
+      };
+      return {
+        gl: new Proxy(target, handler) as unknown as WebGL2RenderingContext,
+        calls,
+      };
+    };
+
+    /** Supplies the line GL context and the render requestor, as the canvas and the
+     * plot do in production. */
+    class Host extends aether.Composite<typeof Host.stateZ> {
+      static readonly TYPE = "line-test-host";
+      static readonly stateZ = z.object({});
+      schema = Host.stateZ;
+
+      afterUpdate(ctx: aether.Context): void {
+        Context.create(ctx, render.Context.use(ctx));
+        render.control(ctx, () => {});
+      }
+    }
+
+    const series = (
+      data: number[],
+      alignment: bigint,
+      timeRange: CrudeTimeRange,
+    ): Series =>
+      new Series({
+        data: new Float32Array(data),
+        dataType: DataType.FLOAT32,
+        alignment,
+        timeRange: new TimeRange(timeRange.start, timeRange.end),
+      });
+
+    const sourceSpec = (data: Series[]): telem.SeriesSourceSpec => ({
+      type: telemTest.TestSource.TYPE,
+      props: {
+        testId: telemTest.source([
+          bounds.max(data.map((s) => s.bounds)),
+          new MultiSeries(data),
+        ]).id,
+      },
+      variant: "source",
+      valueType: "series",
+    });
+
+    const PROPS: LineProps = {
+      region: box.construct(0, 0, 800, 600),
+      dataToDecimalScale: scale.XY.IDENTITY,
+      exposure: 0,
+    };
+
+    const mount = (x: Series[], y: Series[], downsample = 1) => {
+      const { gl, calls } = createGL();
+      const recorder = canvasTest.record();
+      (recorder as { gl: unknown }).gl = gl;
+      recorder.resize(PROPS.region, 1);
+      const h = renderAether(Host, {
+        state: {},
+        render: recorder,
+        registry: { [Line.TYPE]: Line },
+        children: {
+          line: {
+            type: Line.TYPE,
+            state: {
+              x: sourceSpec(x),
+              y: sourceSpec(y),
+              color: color.construct("#ff0000"),
+              downsample,
+            },
+          },
+        },
+      });
+      const draws = (): [number, number][] =>
+        calls
+          .filter((c) => c.op === "drawArraysInstanced")
+          .map((c) => [c.args[0] as number, c.args[2] as number]);
+      return { line: h.child<Line>("line"), calls, draws };
+    };
+
+    const X1 = series([0, 1, 2], 0n, { start: 0, end: 100 });
+    const Y1 = series([10, 20, 30], 0n, { start: 0, end: 100 });
+    const X2 = series([5, 6], 10n, { start: 200, end: 300 });
+    const Y2 = series([40, 50], 10n, { start: 200, end: 300 });
+
+    describe("render", () => {
+      it("should draw one strip per domain and no bridge for a single domain", () => {
+        const m = mount([X1], [Y1]);
+        m.line.render(PROPS);
+        expect(m.draws()).toEqual([[GL_ENUMS.LINE_STRIP, 3]]);
+      });
+
+      it("should draw a bridge between the strips of two domains", () => {
+        const m = mount([X1, X2], [Y1, Y2]);
+        m.line.render(PROPS);
+        expect(m.draws()).toEqual([
+          [GL_ENUMS.LINE_STRIP, 3],
+          [GL_ENUMS.LINE_STRIP, 2],
+          [GL_ENUMS.LINES, 2],
+        ]);
+        const upload = m.calls.filter((c) => c.op === "bufferData").at(-1);
+        expect(Array.from(upload?.args[1] as Float32Array)).toEqual([2, 30, 5, 40]);
+      });
+    });
+
+    describe("findByXValue", () => {
+      const X = series(
+        Array.from({ length: 30 }, (_, i) => i),
+        0n,
+        { start: 0, end: 100 },
+      );
+      const Y = series(
+        Array.from({ length: 30 }, (_, i) => i * 10),
+        0n,
+        { start: 0, end: 100 },
+      );
+
+      it("should return the sample under the target when nothing is decimated", () => {
+        const m = mount([X], [Y]);
+        expect(m.line.findByXValue(PROPS, 3).value).toEqual({ x: 3, y: 30 });
+      });
+
+      it("should snap to the nearest vertex a decimated line draws", () => {
+        const m = mount([X], [Y], 4);
+        expect(m.line.findByXValue(PROPS, 3).value).toEqual({ x: 4, y: 40 });
+        expect(m.line.findByXValue(PROPS, 29).value).toEqual({ x: 24, y: 240 });
+      });
     });
   });
 });
