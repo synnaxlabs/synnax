@@ -160,9 +160,9 @@ func parseKeyFromOntologyIDString(s status.Key) (Key, error) {
 	return KeyFromOntologyID(id)
 }
 
-// openMonitor starts watching the health of every stored rack. A rack that sends no
-// status within the health check interval of startup is marked as not running, even if
-// its stored status is healthy.
+// openMonitor watches the health of every stored rack. A rack that sends no status
+// within one health check interval is marked as not running, even when its stored
+// status is healthy.
 func openMonitor(
 	ctx context.Context,
 	ins alamos.Instrumentation,

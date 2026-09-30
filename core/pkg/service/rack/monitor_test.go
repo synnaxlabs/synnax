@@ -28,13 +28,14 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// openRackService opens a rack service and its dependencies on db, as a Core start
-// does. Closing the returned closer shuts all of them down.
-func openRackService(
+// openService opens a rack service and its dependencies on db, as a Core start does.
+// Closing the returned closer shuts all of them down.
+func openService(
 	ctx context.Context,
 	db *gorp.DB,
 	healthCheckInterval telem.TimeSpan,
 ) (*rack.Service, xio.MultiCloser) {
+	GinkgoHelper()
 	otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
 	searchIdx := MustSucceed(search.OpenIndex())
 	g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
@@ -72,7 +73,7 @@ var _ = Describe("Monitor", func() {
 		"Should mark a stored healthy rack as dead when it is silent after a restart",
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
-			svc, closer := openRackService(ctx, db, telem.Hour)
+			svc, closer := openService(ctx, db, telem.Hour)
 			r := rack.Rack{
 				Name: "restarted rack",
 				Status: &rack.Status{
@@ -84,7 +85,7 @@ var _ = Describe("Monitor", func() {
 			Expect(svc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
 			Expect(closer.Close()).To(Succeed())
 
-			svc, closer = openRackService(ctx, db, 10*telem.Millisecond)
+			svc, closer = openService(ctx, db, 10*telem.Millisecond)
 			DeferClose(closer)
 			Eventually(func(g Gomega) {
 				s := MustSucceed(svc.RetrieveStatus(ctx, r.Key))
