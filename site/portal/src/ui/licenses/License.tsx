@@ -292,7 +292,7 @@ const StaffActions = ({ license: lic, now }: StaffActionsProps): ReactElement =>
       )}
       {lic.revokedAt == null && (
         <Modal.Frame
-          name={`${lic.label || "License"}.Revoke`}
+          name={`${lic.label}.Revoke`}
           icon={<Icon.Delete />}
           trigger={
             <Dialog.Trigger variant="outlined" status="error" hideCaret>

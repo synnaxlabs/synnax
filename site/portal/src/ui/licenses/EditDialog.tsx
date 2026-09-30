@@ -27,7 +27,7 @@ export interface EditDialogProps {
 /** EditDialog changes the terms of a license already issued. Staff only. */
 export const EditDialog = ({ license }: EditDialogProps): ReactElement => (
   <Modal.Frame
-    name={`${license.label || "License"}.Edit`}
+    name={`${license.label}.Edit`}
     icon={<Icon.Edit />}
     trigger={
       <Dialog.Trigger variant="outlined" hideCaret>

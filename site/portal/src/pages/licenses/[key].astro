@@ -38,7 +38,7 @@ try {
 ---
 
 <Portal
-    title={view?.license.label || "License"}
+    title={view?.license.label ?? "License"}
     session={session}
     organizations={organizations}
     scope={view?.organization ?? scope}

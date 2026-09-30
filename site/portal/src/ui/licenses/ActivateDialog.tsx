@@ -100,7 +100,7 @@ export const ActivateDialog = ({
   label,
 }: ActivateDialogProps): ReactElement => (
   <Modal.Frame
-    name={`${label || "License"}.Activate a machine`}
+    name={`${label}.Activate a machine`}
     icon={<Icon.Add />}
     trigger={
       <Dialog.Trigger variant="filled" hideCaret>
