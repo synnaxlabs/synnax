@@ -322,7 +322,7 @@ export class Client implements Handle {
         !EXEMPT.some((target) => ctx.target.endsWith(target))
       ) {
         if (details.reason === "unreachable")
-          throw new DisconnectedError(`Cannot reach cluster at ${this.address}`);
+          throw new DisconnectedError(`Cannot reach Core at ${this.address}`);
         if (details.reason === "unlicensed") throw details.error;
       }
       return await next(ctx);
