@@ -1316,6 +1316,25 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					)
 				}
 
+				writeLastAlone := func(ctx SpecContext, c chain) {
+					GinkgoHelper()
+					write(
+						ctx,
+						c.index,
+						[]int64{1, 2, 3},
+						[]*channel.Channel{c.a, c.b},
+						[]float32{10, 20, 30},
+						[]float32{1, 2, 3},
+					)
+					write(
+						ctx,
+						c.index,
+						[]int64{4},
+						[]*channel.Channel{c.a},
+						[]float32{40},
+					)
+				}
+
 				It("Should hold the last value across a missing first stamp", func(
 					ctx SpecContext,
 				) {
@@ -1330,7 +1349,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					))
 				})
 
-				PIt("Should hold the last value across a missing middle stamp", func(
+				It("Should hold the last value across a missing middle stamp", func(
 					ctx SpecContext,
 				) {
 					c := newChain(ctx, "middle")
@@ -1366,17 +1385,68 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					))
 				})
 
-				PIt("Should hold the last value across a missing last stamp", func(
+				It("Should hold the last value across a missing last stamp", func(
 					ctx SpecContext,
 				) {
 					c := newChain(ctx, "last")
+					writeLastAlone(ctx, c)
+					out := read(ctx, iterator.AutoSpan, c.sum.Key(), c.sum.Index())
+					Expect(flatten[float32](out[c.sum.Key()])).To(Equal(
+						[]float32{11, 22, 33, 43},
+					))
+					Expect(flatten[telem.TimeStamp](out[c.sum.Index()])).To(Equal(
+						seconds(1, 2, 3, 4),
+					))
+				})
+
+				It("Should return a requested omitted channel intact", func(
+					ctx SpecContext,
+				) {
+					c := newChain(ctx, "omitted")
+					writeLastAlone(ctx, c)
+					out := read(
+						ctx, iterator.AutoSpan, c.sum.Key(), c.sum.Index(), c.b.Key(),
+					)
+					Expect(flatten[float32](out[c.b.Key()])).To(Equal(
+						[]float32{1, 2, 3},
+					))
+					Expect(flatten[float32](out[c.sum.Key()])).To(Equal(
+						[]float32{11, 22, 33, 43},
+					))
+				})
+
+				It("Should hold the last value across iterator spans", func(
+					ctx SpecContext,
+				) {
+					c := newChain(ctx, "hold_spans")
+					writeLastAlone(ctx, c)
+					out := read(ctx, telem.Second, c.sum.Key(), c.sum.Index())
+					Expect(flatten[float32](out[c.sum.Key()])).To(Equal(
+						[]float32{11, 22, 33, 43},
+					))
+					Expect(flatten[telem.TimeStamp](out[c.sum.Index()])).To(Equal(
+						seconds(1, 2, 3, 4),
+					))
+				})
+
+				It("Should hold the last value across two omitted writes", func(
+					ctx SpecContext,
+				) {
+					c := newChain(ctx, "twice")
 					write(
 						ctx,
 						c.index,
-						[]int64{1, 2, 3},
+						[]int64{1, 2},
 						[]*channel.Channel{c.a, c.b},
-						[]float32{10, 20, 30},
-						[]float32{1, 2, 3},
+						[]float32{10, 20},
+						[]float32{1, 2},
+					)
+					write(
+						ctx,
+						c.index,
+						[]int64{3},
+						[]*channel.Channel{c.a},
+						[]float32{30},
 					)
 					write(
 						ctx,
@@ -1385,11 +1455,39 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						[]*channel.Channel{c.a},
 						[]float32{40},
 					)
+					write(
+						ctx,
+						c.index,
+						[]int64{5},
+						[]*channel.Channel{c.a, c.b},
+						[]float32{50},
+						[]float32{5},
+					)
 					out := read(ctx, iterator.AutoSpan, c.sum.Key(), c.sum.Index())
 					Expect(flatten[float32](out[c.sum.Key()])).To(Equal(
-						[]float32{11, 22, 33, 43},
+						[]float32{11, 22, 32, 42, 55},
 					))
 					Expect(flatten[telem.TimeStamp](out[c.sum.Index()])).To(Equal(
+						seconds(1, 2, 3, 4, 5),
+					))
+				})
+
+				It("Should hold the last value through a nested chain", func(
+					ctx SpecContext,
+				) {
+					c := newChain(ctx, "nested_last")
+					nested := &channel.Channel{
+						Name:       "uneven_nested_last",
+						DataType:   telem.Float32T,
+						Expression: "return " + c.sum.Name + " + " + c.a.Name,
+					}
+					Expect(channelWriter.Create(ctx, nested)).To(Succeed())
+					writeLastAlone(ctx, c)
+					out := read(ctx, iterator.AutoSpan, nested.Key(), nested.Index())
+					Expect(flatten[float32](out[nested.Key()])).To(Equal(
+						[]float32{21, 42, 63, 83},
+					))
+					Expect(flatten[telem.TimeStamp](out[nested.Index()])).To(Equal(
 						seconds(1, 2, 3, 4),
 					))
 				})
