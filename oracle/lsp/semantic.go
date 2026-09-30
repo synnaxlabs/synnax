@@ -14,7 +14,7 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/oracle/parser"
-	xlsp "github.com/synnaxlabs/x/lsp"
+	"github.com/synnaxlabs/x/lsp"
 	"github.com/synnaxlabs/x/set"
 	"go.lsp.dev/protocol"
 )
@@ -71,7 +71,7 @@ func extractSemanticTokens(content string) []uint32 {
 	stream.Fill()
 	allTokens := stream.GetAllTokens()
 
-	var tokens []xlsp.Token
+	var tokens []lsp.Token
 	// prev is the type of the previous token that is not a comment, or -1 at the start.
 	prev := -1
 	for _, t := range allTokens {
@@ -95,14 +95,14 @@ func extractSemanticTokens(content string) []uint32 {
 		if tokenType == nil {
 			continue
 		}
-		tokens = append(tokens, xlsp.Token{
+		tokens = append(tokens, lsp.Token{
 			Line:      uint32(t.GetLine() - 1),
 			StartChar: uint32(t.GetColumn()),
 			Length:    uint32(len(t.GetText())),
 			TokenType: *tokenType,
 		})
 	}
-	return xlsp.EncodeSemanticTokens(tokens)
+	return lsp.EncodeSemanticTokens(tokens)
 }
 
 // mapTokenType returns the semantic token type for a lexer token, or nil when the token
