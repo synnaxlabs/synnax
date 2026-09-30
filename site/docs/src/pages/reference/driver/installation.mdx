@@ -235,9 +235,9 @@ environment instead. On Linux and NI Linux Real-Time, add the line to the
 GRPC_DEFAULT_SSL_ROOTS_FILE_PATH=/path/to/ca.crt
 ```
 
-Every `synnax-driver` command reads that file, so the setting applies to the login
-check, to the service, and to a foreground `start --standalone`. On Windows and macOS
-there is no environment file, so export the variable in the shell that runs
+The service and `login` read that file, so the setting applies to the login check and
+to the service. For a foreground `start --standalone`, and on Windows and macOS where
+there is no environment file, export the variable in the shell that runs
 `synnax-driver`.
 
 <Divider.Divider x />
