@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { z } from "zod";
+
 import { type Analytics } from "@/platform/analytics";
 
 /**
@@ -35,6 +37,18 @@ const DENYLIST = [
   "$initial_pathname",
   "$initial_host",
 ];
+
+/**
+ * Monaco rejects a task it cancels with an error whose name and message are both
+ * `Canceled`, and nothing awaits the rejection. It is not a failure, and VS Code drops
+ * it too.
+ */
+const monacoCancellationZ = z
+  .array(z.object({ type: z.literal("Canceled"), value: z.literal("Canceled") }))
+  .nonempty();
+
+const isMonacoCancellation = (exceptions: unknown): boolean =>
+  monacoCancellationZ.safeParse(exceptions).success;
 
 /** The group type that holds each machine and what it has built. */
 const INSTALL_GROUP = "install";
@@ -78,18 +92,11 @@ const init = async (installID: string) => {
     capture_dead_clicks: false,
     capture_performance: false,
     property_denylist: DENYLIST,
-    // An exception message names the channel or the device that failed, so only the
-    // type and the stack leave the machine.
-    before_send: (event) => {
-      if (event == null || event.event !== "$exception") return event;
-      delete event.properties.$exception_message;
-      const list: unknown = event.properties.$exception_list;
-      if (Array.isArray(list))
-        list.forEach((exc) => {
-          if (exc != null && typeof exc === "object") delete exc.value;
-        });
-      return event;
-    },
+    before_send: (event) =>
+      event?.event === "$exception" &&
+      isMonacoCancellation(event.properties.$exception_list)
+        ? null
+        : event,
   });
   attach(posthog, installID);
   return posthog;
