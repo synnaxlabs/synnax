@@ -14,7 +14,6 @@
     --content-padding: clamp(2rem, 1rem + 2vw, 7rem);
     --pluto-gray-l8: #7c7c7c;
 
-    /* Fluid spacing scale */
     --space-sm: clamp(2rem, 1rem + 1vw, 4rem);
     --space-md: clamp(3rem, 1.5rem + 2vw, 6rem);
     --space-lg: clamp(5rem, 2rem + 3vw, 10rem);

@@ -69,6 +69,7 @@ jobs:
       pluto: ${{ steps.filter.outputs.pluto }}
       protobuf: ${{ steps.filter.outputs.protobuf }}
       scripts: ${{ steps.filter.outputs.scripts }}
+      site_common: ${{ steps.filter.outputs.site_common }}
       soem: ${{ steps.filter.outputs.soem }}
       vite_plugin: ${{ steps.filter.outputs.vite_plugin }}
       www: ${{ steps.filter.outputs.www }}
@@ -445,6 +446,17 @@ jobs:
     uses: ./.github/workflows/test.scripts.yaml
     secrets: inherit
 
+  site-common:
+    needs: changes
+    if: needs.changes.outputs.site_common == 'true'
+    uses: ./.github/workflows/test.ts.yaml
+    with:
+      directory: site/common
+      knip: true
+      package: site-common
+      test: false
+    secrets: inherit
+
   soem:
     needs: changes
     if: needs.changes.outputs.soem == 'true'
@@ -561,6 +573,7 @@ jobs:
       - pluto
       - protobuf
       - scripts
+      - site-common
       - soem
       - versions
       - vite-plugin
