@@ -3,12 +3,15 @@
   "type": "module",
   "private": true,
   "exports": {
+    "./Drawer.astro": "./src/Drawer.astro",
     "./Footer.astro": "./src/Footer.astro",
-    "./drawer.css": "./src/drawer.css",
+    "./MenuButton.astro": "./src/MenuButton.astro",
     "./tokens.css": "./src/tokens.css"
   },
   "scripts": {
     "check-types": "astro check",
+    "test": "vitest",
+    "cov": "vitest --coverage",
     "lint": "eslint",
     "fix": "eslint --fix",
     "format": "prettier --write .",
@@ -26,8 +29,11 @@
     "@synnaxlabs/stylelint-config": "catalog:",
     "@synnaxlabs/tsconfig": "catalog:",
     "@types/react": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
+    "jsdom": "catalog:",
     "stylelint": "catalog:",
-    "typescript": "catalog:ts6"
+    "typescript": "catalog:ts6",
+    "vitest": "catalog:"
   }
 }

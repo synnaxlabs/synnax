@@ -9,9 +9,9 @@
 
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { start } from "@/components/nav/mobile";
+import { start } from "./drawer";
 
-// Mirrors the mobile menu markup in Header.astro.
+// Mirrors the markup of MenuButton.astro and Drawer.astro.
 const HEADER = `
   <button class="mobile-menu-btn" data-mobile-open><span></span></button>
   <div class="mobile-overlay" data-mobile-close></div>

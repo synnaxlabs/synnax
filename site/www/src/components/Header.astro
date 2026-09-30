@@ -12,7 +12,8 @@ import { Logo } from "@synnaxlabs/media";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Nav } from "@/components/Nav";
-import "@synnaxlabs/site-common/drawer.css";
+import Drawer from "@synnaxlabs/site-common/Drawer.astro";
+import MenuButton from "@synnaxlabs/site-common/MenuButton.astro";
 ---
 
 <Flex.Box className="header" el="header" justify="center" align="center" empty>
@@ -27,24 +28,12 @@ import "@synnaxlabs/site-common/drawer.css";
             <Button.Button variant="filled" href="/#contact">
                 Book a Demo
             </Button.Button>
-            <button class="mobile-menu-btn" aria-label="Open menu">
-                <span class="mobile-menu-icon"></span>
-            </button>
+            <MenuButton />
         </Flex.Box>
     </Flex.Box>
 </Flex.Box>
 
-<!-- Mobile drawer -->
-<div class="mobile-overlay"></div>
-<nav class="mobile-drawer">
-    <div class="mobile-drawer-header">
-        <a href="/" class="logo-link">
-            <Logo variant="title" />
-        </a>
-        <button class="mobile-close-btn" aria-label="Close menu">
-            <span class="mobile-close-icon"></span>
-        </button>
-    </div>
+<Drawer home="/">
     <div class="mobile-drawer-links">
         <span class="mobile-drawer-section-label">Product</span>
         <a href="/#visualize" class="mobile-drawer-link mobile-product-link">
@@ -77,7 +66,7 @@ import "@synnaxlabs/site-common/drawer.css";
             Book a Demo
         </a>
     </div>
-</nav>
+</Drawer>
 
 <style is:global>
     .header {
@@ -321,28 +310,4 @@ import "@synnaxlabs/site-common/drawer.css";
     };
     updateHeader();
     window.addEventListener("scroll", updateHeader, { passive: true });
-
-    // Mobile drawer
-    const menuBtn = document.querySelector(".mobile-menu-btn");
-    const closeBtn = document.querySelector(".mobile-close-btn");
-    const overlay = document.querySelector(".mobile-overlay");
-    const drawer = document.querySelector(".mobile-drawer");
-    const drawerLinks = drawer?.querySelectorAll("a");
-
-    const openDrawer = () => {
-        drawer?.classList.add("mobile-drawer--open");
-        overlay?.classList.add("mobile-overlay--open");
-        document.body.classList.add("mobile-menu-open");
-    };
-
-    const closeDrawer = () => {
-        drawer?.classList.remove("mobile-drawer--open");
-        overlay?.classList.remove("mobile-overlay--open");
-        document.body.classList.remove("mobile-menu-open");
-    };
-
-    menuBtn?.addEventListener("click", openDrawer);
-    closeBtn?.addEventListener("click", closeDrawer);
-    overlay?.addEventListener("click", closeDrawer);
-    drawerLinks?.forEach((link) => link.addEventListener("click", closeDrawer));
 </script>

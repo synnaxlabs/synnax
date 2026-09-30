@@ -454,7 +454,6 @@ jobs:
       directory: site/common
       knip: true
       package: site-common
-      test: false
     secrets: inherit
 
   soem:
