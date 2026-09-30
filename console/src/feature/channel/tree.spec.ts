@@ -107,7 +107,6 @@ describe("channel/ontology", () => {
       const ch = await createChannel();
       const proj = await client.projects.create({
         name: uniqueName("proj"),
-        layout: {},
       });
       const root = await createChannelGroup(ch);
       const { store } = await renderChannelTree(root);
@@ -125,7 +124,6 @@ describe("channel/ontology", () => {
       const ch = await createChannel();
       const proj = await client.projects.create({
         name: uniqueName("proj"),
-        layout: {},
       });
       const plot = await client.lineplots.create(proj.key, {
         name: uniqueName("plot"),
@@ -167,7 +165,6 @@ describe("channel/ontology", () => {
       const virtualCh = await createChannel({ isIndex: false, virtual: true });
       const proj = await client.projects.create({
         name: uniqueName("proj"),
-        layout: {},
       });
       const root = await createChannelGroup(virtualCh);
       const { store } = await renderChannelTree(root);

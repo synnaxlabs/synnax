@@ -391,7 +391,7 @@ describe("Panel.Mosaic overlay", () => {
       variant: "leaf",
       tabs: [tabA, tabB],
     });
-    const proj = await client.projects.create({ name: uniqueName("proj"), layout: {} });
+    const proj = await client.projects.create({ name: uniqueName("proj") });
     const { wrapper, store } = await setup(withSelectedProject(proj.key));
     render(<Mosaic onCreateTab={createTab} onFileDrop={noopFileDrop} />, { wrapper });
 

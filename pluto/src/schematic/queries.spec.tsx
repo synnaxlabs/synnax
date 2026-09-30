@@ -69,7 +69,7 @@ describe("schematic queries", () => {
   beforeAll(async () => {
     [Wrapper, proj] = await Promise.all([
       createAsyncSynnaxWrapper({ client }),
-      client.projects.create({ name: `project_${uuid.create()}`, layout: {} }),
+      client.projects.create({ name: `project_${uuid.create()}` }),
     ]);
   });
 

@@ -47,8 +47,7 @@ let projectKey: string | undefined;
 
 /** Returns the key of the shared test project every created schematic lives under. */
 export const testProjectKey = async (): Promise<string> =>
-  (projectKey ??= (await client.projects.create({ name: id.create(), layout: {} }))
-    .key);
+  (projectKey ??= (await client.projects.create({ name: id.create() })).key);
 
 /** Creates a schematic on the test Core under a shared test project. */
 export const createSchematic = async (
@@ -153,7 +152,7 @@ export const renderSchematic = async (
  * tree root, and the backing Redux store.
  */
 export const renderSchematicTree = async (overrides: Partial<schematic.New> = {}) => {
-  const proj = await client.projects.create({ name: id.create(), layout: {} });
+  const proj = await client.projects.create({ name: id.create() });
   const created = await client.schematics.create(proj.key, {
     name: uniqueName("schematic"),
     ...overrides,
