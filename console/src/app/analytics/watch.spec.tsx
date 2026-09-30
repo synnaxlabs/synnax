@@ -10,6 +10,7 @@
 import { type Synnax } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { act, render } from "@testing-library/react";
+import { type FC } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Analytics } from "@/app/analytics";
@@ -29,9 +30,14 @@ const createSink = () => ({
 interface RenderWatchParams {
   client?: Synnax | null;
   account?: Partial<Session.Account.SliceState>;
+  Watcher?: FC;
 }
 
-const renderWatch = async ({ client = null, account = {} }: RenderWatchParams = {}) => {
+const renderWatch = async ({
+  client = null,
+  account = {},
+  Watcher = Analytics.Watch,
+}: RenderWatchParams = {}) => {
   const sink = createSink();
   const { wrapper: Wrapper, store } = await createConsoleWrapper({
     client,
@@ -42,7 +48,7 @@ const renderWatch = async ({ client = null, account = {} }: RenderWatchParams = 
   render(
     <Wrapper>
       <Sink.Provider sink={sink}>
-        <Analytics.Watch />
+        <Watcher />
       </Sink.Provider>
     </Wrapper>,
   );
@@ -98,80 +104,80 @@ describe("Analytics.Watch", () => {
       );
     });
   });
+});
 
-  describe("workspace", () => {
-    const client = createTestClient();
+describe("Analytics.WatchWorkspace", () => {
+  const client = createTestClient();
 
-    // Testing Library's waitFor polls with setInterval, which these specs fake, so they
-    // wait with vi.waitFor instead.
-    beforeEach(() => {
-      vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+  // Testing Library's waitFor polls with setInterval, which these specs fake, so they
+  // wait with vi.waitFor instead.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const renderBaseline = async () => {
+    const rendered = await renderWatch({ client, Watcher: Analytics.WatchWorkspace });
+    await vi.waitFor(() => expect(rendered.sink.describe).toHaveBeenCalledTimes(1));
+    const [baseline] = rendered.sink.describe.mock.calls[0];
+    return { ...rendered, baseline };
+  };
+
+  const poll = async (): Promise<void> => {
+    await act(async () => {
+      vi.advanceTimersToNextTimer();
     });
+  };
 
-    afterEach(() => {
-      vi.useRealTimers();
+  it("should report a channel another client creates, and count it", async () => {
+    const { sink, baseline } = await renderBaseline();
+    await createTestClient().channels.create({
+      name: uniqueName("analytics"),
+      dataType: "float32",
+      virtual: true,
     });
+    await poll();
+    await vi.waitFor(() =>
+      expect(sink.capture).toHaveBeenCalledWith("resource_created", {
+        resource: "channel",
+      }),
+    );
+    const [latest] = sink.describe.mock.calls[sink.describe.mock.calls.length - 1];
+    expect(latest.channel_count).toBeGreaterThan(baseline.channel_count);
+  });
 
-    const renderBaseline = async () => {
-      const rendered = await renderWatch({ client });
-      await vi.waitFor(() => expect(rendered.sink.describe).toHaveBeenCalledTimes(1));
-      const [baseline] = rendered.sink.describe.mock.calls[0];
-      return { ...rendered, baseline };
-    };
-
-    const poll = async (): Promise<void> => {
-      await act(async () => {
-        vi.advanceTimersToNextTimer();
-      });
-    };
-
-    it("should report a channel another client creates, and count it", async () => {
-      const { sink, baseline } = await renderBaseline();
-      await createTestClient().channels.create({
-        name: uniqueName("analytics"),
-        dataType: "float32",
-        virtual: true,
-      });
-      await poll();
-      await vi.waitFor(() =>
-        expect(sink.capture).toHaveBeenCalledWith("resource_created", {
-          resource: "channel",
-        }),
-      );
-      const [latest] = sink.describe.mock.calls[sink.describe.mock.calls.length - 1];
-      expect(latest.channel_count).toBeGreaterThan(baseline.channel_count);
+  it("should report a task once a running instance reports its config", async () => {
+    const { sink } = await renderBaseline();
+    const draft = await client.tasks.create({
+      name: uniqueName("analytics"),
+      type: "opc_read",
+      config: { device: "", channels: [] },
     });
-
-    it("should report a task once a running instance reports its config", async () => {
-      const { sink } = await renderBaseline();
-      const draft = await client.tasks.create({
-        name: uniqueName("analytics"),
-        type: "opc_read",
-        config: { device: "", channels: [] },
-      });
-      // A channel created in the same interval proves the count ran, so the draft's
-      // absence is not a count that has yet to happen.
-      await client.channels.create({
-        name: uniqueName("analytics"),
-        dataType: "float32",
-        virtual: true,
-      });
-      await poll();
-      await vi.waitFor(() =>
-        expect(sink.capture).toHaveBeenCalledWith("resource_created", {
-          resource: "channel",
-        }),
-      );
-      expect(sink.capture).not.toHaveBeenCalledWith("resource_created", {
+    // A channel created in the same interval proves the count ran, so the draft's
+    // absence is not a count that has yet to happen.
+    await client.channels.create({
+      name: uniqueName("analytics"),
+      dataType: "float32",
+      virtual: true,
+    });
+    await poll();
+    await vi.waitFor(() =>
+      expect(sink.capture).toHaveBeenCalledWith("resource_created", {
+        resource: "channel",
+      }),
+    );
+    expect(sink.capture).not.toHaveBeenCalledWith("resource_created", {
+      resource: "task",
+    });
+    await reportTaskStopped(client, draft.payload);
+    await poll();
+    await vi.waitFor(() =>
+      expect(sink.capture).toHaveBeenCalledWith("resource_created", {
         resource: "task",
-      });
-      await reportTaskStopped(client, draft.payload);
-      await poll();
-      await vi.waitFor(() =>
-        expect(sink.capture).toHaveBeenCalledWith("resource_created", {
-          resource: "task",
-        }),
-      );
-    });
+      }),
+    );
   });
 });

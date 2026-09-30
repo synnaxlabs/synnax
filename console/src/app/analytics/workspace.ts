@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology, type Synnax as Client } from "@synnaxlabs/client";
+import { Synnax } from "@synnaxlabs/pluto";
 import { type destructor } from "@synnaxlabs/x";
+import { useEffect } from "react";
 
 import { HEARTBEAT } from "@/app/analytics/start";
 import { Analytics } from "@/platform/analytics";
@@ -94,10 +96,7 @@ interface WatchParams {
  * that gained a key, whichever client created it, and describes the install whenever
  * a count changed.
  */
-export const watchWorkspace = ({
-  client,
-  sink,
-}: WatchParams): destructor.Destructor => {
+const watchWorkspace = ({ client, sink }: WatchParams): destructor.Destructor => {
   let known: Keys | null = null;
   let described: string | null = null;
   let stopped = false;
@@ -127,4 +126,18 @@ export const watchWorkspace = ({
     stopped = true;
     clearInterval(interval);
   };
+};
+
+/**
+ * Watches what the user has built. It counts from its first successful poll, so it
+ * mounts only where the Core already accepts requests.
+ */
+export const WatchWorkspace = (): null => {
+  const sink = Analytics.use();
+  const client = Synnax.use();
+  useEffect(() => {
+    if (client == null) return;
+    return watchWorkspace({ client, sink });
+  }, [client, sink]);
+  return null;
 };

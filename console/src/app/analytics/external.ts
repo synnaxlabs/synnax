@@ -9,3 +9,4 @@
 
 export { Provider } from "@/app/analytics/Provider";
 export { Watch } from "@/app/analytics/watch";
+export { WatchWorkspace } from "@/app/analytics/workspace";

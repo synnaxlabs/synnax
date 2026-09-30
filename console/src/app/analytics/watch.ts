@@ -12,13 +12,12 @@ import { useEffect } from "react";
 
 import { watchAccount } from "@/app/analytics/account";
 import { watchScreens } from "@/app/analytics/screen";
-import { watchWorkspace } from "@/app/analytics/workspace";
 import { Analytics } from "@/platform/analytics";
 import { Session } from "@/session";
 
 /**
- * Follows the account, the focused tab, and, in the main window, what the user has
- * built. Every window follows the account, since each carries its own posthog.
+ * Follows the account and the focused tab. Every window follows the account, since each
+ * carries its own posthog.
  */
 export const Watch = (): null => {
   const sink = Analytics.use();
@@ -29,9 +28,5 @@ export const Watch = (): null => {
     if (client == null) return;
     return watchScreens({ store, client, screen: sink.screen });
   }, [store, client, sink]);
-  useEffect(() => {
-    if (client == null || !Session.Runtime.isMainWindow()) return;
-    return watchWorkspace({ client, sink });
-  }, [client, sink]);
   return null;
 };
