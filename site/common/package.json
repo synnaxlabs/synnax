@@ -5,6 +5,8 @@
   "exports": {
     "./Footer.astro": "./src/Footer.astro",
     "./drawer.css": "./src/drawer.css",
+    "./integration": "./src/integration.ts",
+    "./sitemap": "./src/sitemap.ts",
     "./tokens.css": "./src/tokens.css"
   },
   "scripts": {

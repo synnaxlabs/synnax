@@ -12,6 +12,7 @@ import mdx from "@astrojs/mdx";
 import react from "@astrojs/react";
 import vercel from "@astrojs/vercel";
 import { grammar as arcGrammar } from "@synnaxlabs/arc";
+import { integration as common } from "@synnaxlabs/site-common/integration";
 import { layers } from "@synnaxlabs/vite-plugin";
 import { defineConfig, envField } from "astro/config";
 
@@ -20,7 +21,7 @@ import { symbols, theme } from "./src/util/shiki";
 
 // https://astro.build/config
 export default defineConfig({
-  integrations: [react(), mdx()],
+  integrations: [common(), react(), mdx()],
   output: "server",
   env: {
     schema: {
