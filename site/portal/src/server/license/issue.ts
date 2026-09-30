@@ -19,8 +19,9 @@ import {
   type Term,
 } from "@/server/db/schema";
 import { badRequest, notFound } from "@/server/errors";
-import { DENIAL_MESSAGES, deny } from "@/server/license/activate";
+import { requireEnterprise } from "@/server/license/activate";
 import { build } from "@/server/license/claims";
+import { DENIAL_MESSAGES, deny } from "@/server/license/deny";
 import { VERSION_PATTERN } from "@/server/license/limits";
 import { sign, type Signer } from "@/server/license/sign";
 
@@ -43,8 +44,25 @@ export interface IssueArgs extends Terms {
   now: Date;
 }
 
+/** readTerms reads the terms a staff form posts. {@link validate} checks them. */
+export const readTerms = (body: Record<string, string>): Terms => {
+  const term = body.term === "perpetual" ? "perpetual" : "subscription";
+  return {
+    term,
+    nodes: Number(body.nodes),
+    channels: Number(body.channels || "0"),
+    label: (body.label ?? "").trim(),
+    expiresAt:
+      term === "subscription" && body.expiresAt
+        ? new Date(`${body.expiresAt}T00:00:00Z`)
+        : undefined,
+    maxVersion: body.maxVersion?.trim() || undefined,
+  };
+};
+
 /** validate checks the term rules a license must satisfy and throws a 400 if not. */
 export const validate = (args: Terms & { now: Date }): void => {
+  if (args.label === "") throw badRequest("Give the license a label");
   if (!Number.isInteger(args.nodes) || args.nodes < 1)
     throw badRequest("Nodes must be a whole number of at least 1");
   if (!Number.isInteger(args.channels) || args.channels < 0)
@@ -142,6 +160,7 @@ export const amend = async (
       .where(eq(license.key, licenseKey))
       .for("update");
     if (before == null) throw notFound("License");
+    requireEnterprise(before);
     if (before.revokedAt != null)
       throw badRequest("A revoked license cannot be changed");
     const held = await tx
@@ -235,6 +254,7 @@ export const floating = async (
     .from(license)
     .where(eq(license.key, licenseKey));
   if (row == null) throw notFound("License");
+  requireEnterprise(row);
   const denial = deny(row, now);
   if (denial != null) throw badRequest(DENIAL_MESSAGES[denial]);
   await store.query.insert(event).values({

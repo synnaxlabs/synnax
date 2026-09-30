@@ -12,7 +12,7 @@ import Portal from "@/layouts/Portal.astro";
 import { requireStaff } from "@/access";
 import { failure, loadScoped } from "@/page";
 import { Page } from "@/ui/Page";
-import { Licenses } from "@/ui/admin/Licenses";
+import { Admin } from "@/ui/admin";
 import { type Owned, listAll } from "@/server/license/list";
 import { type Listed } from "@/server/directory";
 
@@ -44,6 +44,6 @@ try {
     {error != null ? (
         <Page title="All licenses" error={error} />
     ) : (
-        <Licenses client:load teams={teams} licenses={licenses} now={portal.now()} />
+        <Admin.Admin client:load teams={teams} licenses={licenses} now={portal.now()} />
     )}
 </Portal>

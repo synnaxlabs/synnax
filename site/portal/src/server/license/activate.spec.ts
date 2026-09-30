@@ -12,7 +12,7 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { activation, event, type Organization } from "@/server/db/schema";
 import { type Memory, openMemory } from "@/server/db/testutil";
-import { activate, decide, deny, reissue, release } from "@/server/license/activate";
+import { activate, decide, reissue, release } from "@/server/license/activate";
 import { type Signer } from "@/server/license/sign";
 import {
   activationOf,
@@ -93,30 +93,10 @@ describe("activate.decide", () => {
   });
 });
 
-describe("activate.deny", () => {
-  it("should allow a license inside its term", () => {
-    expect(deny(LICENSE, NOW)).toBeUndefined();
-  });
-
-  it("should refuse a revoked license", () => {
-    expect(deny({ ...LICENSE, revokedAt: NOW }, NOW)).toBe("revoked");
-  });
-
-  it("should refuse an expired subscription without a fallback", () => {
-    expect(deny({ ...LICENSE, expiresAt: new Date(NOW.getTime() - 1) }, NOW)).toBe(
-      "expired",
-    );
-  });
-
-  it("should allow an expired subscription that has a fallback", () => {
-    expect(
-      deny(
-        { ...LICENSE, expiresAt: new Date(NOW.getTime() - 1), maxVersion: "0.60" },
-        NOW,
-      ),
-    ).toBeUndefined();
-  });
-});
+const DESKTOP_REFUSED = {
+  status: 400,
+  message: "A Synnax Desktop license is managed from the Desktop app",
+};
 
 describe("activate", () => {
   let store: Memory;
@@ -135,6 +115,22 @@ describe("activate", () => {
   const activations = async () => await store.query.select().from(activation);
 
   describe("activate", () => {
+    it("should refuse a Synnax Desktop license", async () => {
+      const lic = await createLicense(store, {
+        organization: org.key,
+        edition: "desktop",
+      });
+      await expect(
+        activate(store, signer, {
+          licenseKey: lic.key,
+          fingerprint: [HASH_A],
+          name: "Server",
+          actor: "user_a",
+          now: NOW,
+        }),
+      ).rejects.toMatchObject(DESKTOP_REFUSED);
+    });
+
     it("should grant a new machine a seat and sign its license key", async () => {
       const lic = await createLicense(store, { organization: org.key });
       const result = await activate(store, signer, {
@@ -383,6 +379,20 @@ describe("activate", () => {
   });
 
   describe("reissue", () => {
+    it("should refuse a machine on a Synnax Desktop license", async () => {
+      const lic = await createLicense(store, {
+        organization: org.key,
+        edition: "desktop",
+      });
+      const held = await createActivation(store, {
+        license: lic.key,
+        fingerprint: [HASH_A],
+      });
+      await expect(
+        reissue(store, signer, { activationKey: held.key, actor: "user_a", now: NOW }),
+      ).rejects.toMatchObject(DESKTOP_REFUSED);
+    });
+
     it("should sign a fresh key for a held seat and record the download", async () => {
       const lic = await createLicense(store, { organization: org.key });
       const held = await createActivation(store, {
@@ -477,6 +487,25 @@ describe("activate", () => {
   });
 
   describe("release", () => {
+    it("should refuse a machine on a Synnax Desktop license and keep its seat", async () => {
+      const lic = await createLicense(store, {
+        organization: org.key,
+        edition: "desktop",
+      });
+      const held = await createActivation(store, {
+        license: lic.key,
+        fingerprint: [HASH_A],
+      });
+      await expect(
+        release(store, { activationKey: held.key, actor: "user_a", now: NOW }),
+      ).rejects.toMatchObject(DESKTOP_REFUSED);
+      const [row] = await store.query
+        .select()
+        .from(activation)
+        .where(eq(activation.key, held.key));
+      expect(row.releasedAt).toBeNull();
+    });
+
     it("should free the seat and record the release", async () => {
       const lic = await createLicense(store, { organization: org.key });
       const held = await createActivation(store, {

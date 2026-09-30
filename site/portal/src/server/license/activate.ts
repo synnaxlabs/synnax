@@ -19,33 +19,20 @@ import {
 } from "@/server/db/schema";
 import { badRequest, notFound } from "@/server/errors";
 import { build } from "@/server/license/claims";
+import { type Denial, DENIAL_MESSAGES, deny } from "@/server/license/deny";
 import { sign, type Signer } from "@/server/license/sign";
 
-export type Denial = "revoked" | "expired" | "no_seats";
-
-export const DENIAL_MESSAGES: Record<Denial, string> = {
-  revoked: "This license has been revoked.",
-  expired: "This license has expired.",
-  no_seats: "Every seat on this license is taken. Release a machine to free one.",
+/**
+ * requireEnterprise throws a 400 when `lic` is a Synnax Desktop license. Only the
+ * Desktop app activates, renews, and releases those.
+ */
+export const requireEnterprise = (lic: License): void => {
+  if (lic.edition === "desktop")
+    throw badRequest("A Synnax Desktop license is managed from the Desktop app");
 };
 
 export type Decision =
   { ok: true; existing?: Activation } | { ok: false; reason: Denial };
-
-/**
- * deny returns why a license can no longer issue a license key at `now`, or undefined
- * when it can. An expired subscription with a fallback version still issues.
- */
-export const deny = (license: License, now: Date): Denial | undefined => {
-  if (license.revokedAt != null) return "revoked";
-  if (
-    license.expiresAt != null &&
-    license.expiresAt <= now &&
-    license.maxVersion == null
-  )
-    return "expired";
-  return undefined;
-};
 
 export interface DecideArgs {
   license: License;
@@ -104,6 +91,7 @@ export const activate = async (
       .where(eq(license.key, licenseKey))
       .for("update");
     if (lic == null) throw notFound("License");
+    requireEnterprise(lic);
     const activations = await tx
       .select()
       .from(activation)
@@ -172,6 +160,7 @@ export const reissue = async (
     .innerJoin(license, eq(activation.license, license.key))
     .where(eq(activation.key, activationKey));
   if (row == null || row.activation.releasedAt != null) throw notFound("Activation");
+  requireEnterprise(row.license);
   const decision = decide({
     license: row.license,
     activations: [row.activation],
@@ -216,6 +205,7 @@ export const release = async (
     .innerJoin(license, eq(activation.license, license.key))
     .where(eq(activation.key, activationKey));
   if (row == null) throw notFound("Activation");
+  requireEnterprise(row.license);
   if (row.activation.releasedAt != null) return;
   await store.query
     .update(activation)

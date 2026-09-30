@@ -10,9 +10,9 @@
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { navigate } from "astro:transitions/client";
 import { type ReactElement, useEffect, useState } from "react";
 
+import { navigate } from "@/ui/api";
 import { Card } from "@/ui/auth/Card";
 import { withTarget } from "@/ui/auth/redirect";
 import { errorMessage, useClerk } from "@/ui/clerk";
@@ -34,7 +34,7 @@ export const SSOCallback = ({ target }: SSOCallbackProps): ReactElement => {
           signInFallbackRedirectUrl: target,
           signUpFallbackRedirectUrl: target,
         },
-        (to) => navigate(to),
+        async (to) => navigate(to),
       )
       .catch((err: unknown) => setError(errorMessage(err)));
   }, [clerk, target]);

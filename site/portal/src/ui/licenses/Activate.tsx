@@ -14,18 +14,21 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { navigate } from "astro:transitions/client";
 import { type ReactElement, useState } from "react";
 
 import { type Owned } from "@/server/license/list";
+import { navigate } from "@/ui/api";
 import {
-  ActivateButton,
+  activate,
+  ACTIVATE_LABEL,
   ActivateFields,
-  type ActivateSchema,
-  useActivate,
+  activateSchema,
+  ZERO_ACTIVATE,
 } from "@/ui/licenses/ActivateDialog";
 import { Empty, Page } from "@/ui/Page";
 import { Panel } from "@/ui/Panel";
+import { Submit } from "@/ui/Submit";
+import { useAction } from "@/ui/useAction";
 
 export interface ActivateProps {
   choices: Owned[];
@@ -56,7 +59,7 @@ export const Activate = ({ choices, selected }: ActivateProps): ReactElement => 
             <Select.Simple<string> resourceName="License" value={key} onChange={setKey}>
               {choices.map(({ license, organization }) => (
                 <Select.Item key={license.key} itemKey={license.key}>
-                  {`${license.label || "Untitled license"} (${organization.name})`}
+                  {`${license.label} (${organization.name})`}
                 </Select.Item>
               ))}
             </Select.Simple>
@@ -69,11 +72,14 @@ export const Activate = ({ choices, selected }: ActivateProps): ReactElement => 
 };
 
 const Inline = ({ licenseKey }: { licenseKey: string }): ReactElement => {
-  const { methods, action } = useActivate(licenseKey, async () => {
-    await navigate(`/licenses/${licenseKey}`);
+  const methods = Form.use({ values: ZERO_ACTIVATE, schema: activateSchema });
+  const action = useAction(async () => {
+    if (!methods.validate()) return;
+    await activate(licenseKey, methods.value());
+    navigate(`/licenses/${licenseKey}`);
   });
   return (
-    <Form.Form<ActivateSchema> {...methods}>
+    <Form.Form<typeof activateSchema> {...methods}>
       <Flex.Box y gap="medium">
         <ActivateFields />
         <Flex.Box x justify="between" align="center" gap="medium">
@@ -86,7 +92,7 @@ const Inline = ({ licenseKey }: { licenseKey: string }): ReactElement => {
             <Button.Button variant="outlined" href="/">
               Cancel
             </Button.Button>
-            <ActivateButton action={action} />
+            <Submit action={action}>{ACTIVATE_LABEL}</Submit>
           </Flex.Box>
         </Flex.Box>
       </Flex.Box>

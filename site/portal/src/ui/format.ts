@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Event, type License } from "@/server/db/schema";
-import { type Denial } from "@/server/license/activate";
+import { type Denial, deny } from "@/server/license/deny";
 
 export const date = (d: Date | null): string =>
   d == null ? "" : d.toISOString().slice(0, 10);
@@ -52,10 +52,6 @@ export const statusOf = (lic: License, now: Date): LicenseStatus => {
   return "expiring";
 };
 
-/** usable is true while a license in `status` can still grant a seat. */
-export const usable = (status: LicenseStatus): boolean =>
-  status === "active" || status === "expiring";
-
 export interface Standing {
   /** active counts the licenses that can still grant a seat. */
   active: number;
@@ -70,7 +66,7 @@ export const standing = (
   licenses: { license: License; seats: number }[],
   now: Date,
 ): Standing => {
-  const live = licenses.filter(({ license }) => usable(statusOf(license, now)));
+  const live = licenses.filter(({ license }) => deny(license, now) == null);
   const expiries = live.flatMap(({ license }) =>
     license.expiresAt == null ? [] : [license.expiresAt.getTime()],
   );

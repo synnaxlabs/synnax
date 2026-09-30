@@ -14,10 +14,10 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
 import { type Machine } from "@/server/license/desktop";
-import { LogOutDialog } from "@/ui/devices/LogOutDialog";
+import { Devices } from "@/ui/devices";
 import { Enterprise } from "@/ui/Enterprise";
 import { date, machineName, statusOf } from "@/ui/format";
-import { StatusTag } from "@/ui/licenses/StatusTag";
+import { Licenses } from "@/ui/licenses";
 import { DOWNLOAD_URL } from "@/ui/links";
 import { Page, Section } from "@/ui/Page";
 import { Panel } from "@/ui/Panel";
@@ -120,13 +120,13 @@ const Recent = ({ machines, devices, now }: RecentProps): ReactElement => (
             {machineName(a)}
           </Text.Text>
           <Flex.Box>
-            <StatusTag status={statusOf(lic, now)} />
+            <Licenses.StatusTag status={statusOf(lic, now)} />
           </Flex.Box>
           <Text.Text level="p" color={9}>
             {date(a.lastSeen)}
           </Text.Text>
           <Flex.Box justify="end">
-            <LogOutDialog activation={a} />
+            <Devices.LogOutDialog activation={a} />
           </Flex.Box>
         </Row>
       ))}

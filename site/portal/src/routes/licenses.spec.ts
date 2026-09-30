@@ -40,7 +40,7 @@ import {
   readKey,
   STAFF_ORG_ID,
 } from "@/testutil";
-import { termsOf, ZERO_TERMS } from "@/ui/licenses/Terms";
+import { Licenses } from "@/ui/licenses";
 
 const STAFF = "user_staff";
 const MEMBER = "user_member";
@@ -144,6 +144,14 @@ describe("license routes", () => {
           await post({ ...SUBSCRIPTION, channels: "-1" }),
           400,
           "Channels must be a whole number, 0 for unlimited",
+        );
+      });
+
+      it("should require a label", async () => {
+        await expectError(
+          await post({ ...SUBSCRIPTION, label: "   " }),
+          400,
+          "Give the license a label",
         );
       });
 
@@ -279,7 +287,7 @@ describe("license routes", () => {
 
       it("should issue from the values the issue dialog posts", async () => {
         const values = {
-          ...ZERO_TERMS,
+          ...Licenses.ZERO_TERMS,
           organization: ACME,
           label: "Test stand",
           nodes: 3,
@@ -358,6 +366,24 @@ describe("license routes", () => {
       );
     });
 
+    it("should require a label", async () => {
+      h.signIn(STAFF);
+      await expectError(
+        await post({ ...TERMS, label: "" }),
+        400,
+        "Give the license a label",
+      );
+    });
+
+    it("should reject a maximum version that is not major.minor", async () => {
+      h.signIn(STAFF);
+      await expectError(
+        await post({ ...TERMS, maxVersion: "0.62.1" }),
+        400,
+        'Maximum version must look like "0.62"',
+      );
+    });
+
     it("should reject a negative channel cap", async () => {
       h.signIn(STAFF);
       await expectError(
@@ -417,7 +443,7 @@ describe("license routes", () => {
       for (const unchanged of [subscription, perpetual]) {
         const res = await call(amendRoute, {
           params: { key: unchanged.key },
-          body: termsOf(unchanged),
+          body: Licenses.termsOf(unchanged),
         });
         expect(res.status).toBe(204);
       }

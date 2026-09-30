@@ -57,5 +57,8 @@ export const emails = async (
     return email === "" ? [] : [email];
   }
   if (org.clerkOrgID == null) return [];
-  return await directory.admins(org.clerkOrgID);
+  const roster = await directory.roster(org.clerkOrgID);
+  return roster
+    .filter((m) => m.role === ADMIN_ROLE && m.email !== "")
+    .map((m) => m.email);
 };

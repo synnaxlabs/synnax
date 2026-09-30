@@ -7,14 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button } from "@synnaxlabs/lyra/button";
-import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Menu } from "@synnaxlabs/lyra/menu";
-import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement, useState } from "react";
+import { type ReactElement } from "react";
 
 import {
   type Activation,
@@ -22,8 +18,7 @@ import {
   type License as LicenseRecord,
   type Organization,
 } from "@/server/db/schema";
-import { filename } from "@/server/license/limits";
-import { post, postFile, reload, save } from "@/ui/api";
+import { deny } from "@/server/license/deny";
 import { Fact, Facts } from "@/ui/Facts";
 import {
   channels,
@@ -31,20 +26,16 @@ import {
   dateTime,
   describeEvent,
   edition,
-  type LicenseStatus,
   machineName,
   statusOf,
   term,
-  usable,
 } from "@/ui/format";
 import { ActivateDialog } from "@/ui/licenses/ActivateDialog";
-import { EditDialog } from "@/ui/licenses/EditDialog";
-import { RenameDialog } from "@/ui/licenses/RenameDialog";
+import { MachineMenu } from "@/ui/licenses/MachineMenu";
+import { StaffActions } from "@/ui/licenses/StaffActions";
 import { StatusTag } from "@/ui/licenses/StatusTag";
-import * as Modal from "@/ui/Modal";
 import { Empty, Page, Section } from "@/ui/Page";
 import { Row, Table } from "@/ui/Table";
-import { useAction } from "@/ui/useAction";
 
 export interface LicenseProps {
   license: LicenseRecord;
@@ -75,7 +66,7 @@ export const License = ({
   const machines = Object.fromEntries(activations.map((a) => [a.key, machineName(a)]));
   return (
     <Page
-      title={lic.label || "Untitled license"}
+      title={lic.label}
       subtitle={
         <Flex.Box x align="center" gap="small">
           <StatusTag status={status} />
@@ -86,8 +77,10 @@ export const License = ({
       }
       actions={
         <>
-          {staff && <StaffActions license={lic} status={status} />}
-          {usable(status) && <ActivateDialog licenseKey={lic.key} label={lic.label} />}
+          {staff && <StaffActions license={lic} now={now} />}
+          {deny(lic, now) == null && (
+            <ActivateDialog licenseKey={lic.key} label={lic.label} />
+          )}
         </>
       }
     >
@@ -187,179 +180,3 @@ const LicenseFacts = ({
     <Fact label="Key" value={lic.key} code />
   </Facts>
 );
-
-interface MachineMenuProps {
-  activation: Activation;
-  label: string;
-}
-
-const MachineMenu = ({ activation, label }: MachineMenuProps): ReactElement => {
-  const [releasing, setReleasing] = useState(false);
-  const [renaming, setRenaming] = useState(false);
-  const download = useAction(async () => {
-    const blob = await postFile(`/api/activations/${activation.key}/download`);
-    save(blob, filename(label));
-  });
-  const release = (): void => setReleasing(true);
-  const rename = (): void => setRenaming(true);
-  return (
-    <>
-      {download.error != null && (
-        <Status.Summary variant="error" level="small" message={download.error} />
-      )}
-      <Dialog.Frame variant="floating" location={{ x: "right", y: "bottom" }}>
-        <Dialog.Trigger
-          variant="text"
-          size="small"
-          hideCaret
-          aria-label="Machine actions"
-        >
-          <Icon.KebabMenu />
-        </Dialog.Trigger>
-        <Dialog.Dialog bordered rounded background={1} className="portal-machine-menu">
-          <Menu.Menu
-            level="small"
-            onChange={{ download: download.run, rename, release }}
-          >
-            <Menu.Item itemKey="download">
-              <Icon.Download />
-              Download license key
-            </Menu.Item>
-            <Menu.Item itemKey="rename">
-              <Icon.Rename />
-              Rename
-            </Menu.Item>
-            <Menu.Item itemKey="release" status="error">
-              <Icon.Release />
-              Release seat
-            </Menu.Item>
-          </Menu.Menu>
-        </Dialog.Dialog>
-      </Dialog.Frame>
-      <Modal.Frame
-        name="Release this seat"
-        icon={<Icon.Release />}
-        visible={releasing}
-        onVisibleChange={setReleasing}
-      >
-        <ReleaseContent activation={activation} />
-      </Modal.Frame>
-      <RenameDialog
-        activation={activation}
-        visible={renaming}
-        onVisibleChange={setRenaming}
-      />
-    </>
-  );
-};
-
-const ReleaseContent = ({ activation }: { activation: Activation }): ReactElement => {
-  const { close } = Dialog.useContext();
-  const action = useAction(async () => {
-    await post(`/api/activations/${activation.key}/release`);
-    close();
-    reload();
-  });
-  return (
-    <>
-      <Modal.Body gap="small">
-        <Text.Text level="h4" weight={450}>
-          Release the seat held by {machineName(activation)}?
-        </Text.Text>
-        <Text.Text level="p" color={9}>
-          The Core on that machine loses its license at its next check. Activate it
-          again to give it a new license key.
-        </Text.Text>
-      </Modal.Body>
-      <Modal.Footer error={action.error} hint="Press and hold Release to confirm">
-        <Modal.Cancel />
-        <Button.Button
-          variant="filled"
-          status={action.loading ? "loading" : "error"}
-          onClick={action.run}
-          onClickDelay={1000}
-        >
-          Release
-        </Button.Button>
-      </Modal.Footer>
-    </>
-  );
-};
-
-interface StaffActionsProps {
-  license: LicenseRecord;
-  status: LicenseStatus;
-}
-
-const StaffActions = ({ license: lic, status }: StaffActionsProps): ReactElement => {
-  const floating = useAction(async () => {
-    const blob = await postFile(`/api/licenses/${lic.key}/floating`);
-    save(blob, filename(lic.label));
-  });
-  return (
-    <>
-      {floating.error != null && (
-        <Status.Summary variant="error" level="small" message={floating.error} />
-      )}
-      {status !== "revoked" && <EditDialog license={lic} />}
-      {usable(status) && (
-        <Button.Button
-          variant="outlined"
-          onClick={floating.run}
-          status={floating.loading ? "loading" : undefined}
-          tooltip="Download a license key bound to no machine, for CI runners"
-        >
-          <Icon.Download />
-          Floating license key
-        </Button.Button>
-      )}
-      {status !== "revoked" && (
-        <Modal.Frame
-          name={`${lic.label || "License"}.Revoke`}
-          icon={<Icon.Delete />}
-          trigger={
-            <Dialog.Trigger variant="outlined" status="error" hideCaret>
-              <Icon.Delete />
-              Revoke
-            </Dialog.Trigger>
-          }
-        >
-          <RevokeContent license={lic} />
-        </Modal.Frame>
-      )}
-    </>
-  );
-};
-
-const RevokeContent = ({ license: lic }: { license: LicenseRecord }): ReactElement => {
-  const { close } = Dialog.useContext();
-  const action = useAction(async () => {
-    await post(`/api/licenses/${lic.key}/revoke`);
-    close();
-    reload();
-  });
-  return (
-    <>
-      <Modal.Body gap="small">
-        <Text.Text level="h4" weight={450}>
-          Revoke "{lic.label}"?
-        </Text.Text>
-        <Text.Text level="p" color={9}>
-          Every Core running under it loses its license at its next check. The
-          organization's admins are emailed. There is no undo.
-        </Text.Text>
-      </Modal.Body>
-      <Modal.Footer error={action.error} hint="Press and hold Revoke to confirm">
-        <Modal.Cancel />
-        <Button.Button
-          variant="filled"
-          status={action.loading ? "loading" : "error"}
-          onClick={action.run}
-          onClickDelay={1500}
-        >
-          Revoke
-        </Button.Button>
-      </Modal.Footer>
-    </>
-  );
-};

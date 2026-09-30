@@ -7,20 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type license, type Synnax as Client } from "@synnaxlabs/client";
+import { type license } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Status } from "@synnaxlabs/lyra/status";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { waitFor } from "@testing-library/react";
-import {
-  afterEach,
-  describe,
-  expect,
-  it,
-  type Mock,
-  type MockInstance,
-  vi,
-} from "vitest";
+import { describe, expect, it, type Mock, vi } from "vitest";
 
 import { Account } from "@/feature/account";
 import { Session } from "@/session";
@@ -60,8 +52,8 @@ const infoOf = (lic: license.License | undefined): license.Info => ({
 });
 
 interface Harness {
-  retrieve: MockInstance<Client["license"]["retrieve"]>;
-  activate: MockInstance<Client["license"]["activate"]>;
+  retrieve: Mock<Account.RenewDeps["license"]["retrieve"]>;
+  activate: Mock<Account.RenewDeps["license"]["activate"]>;
   store: TestStore;
   renew: Mock<(secret: string) => Promise<Account.RenewResult>>;
   statuses: () => Status.NotificationSpec[];
@@ -71,30 +63,37 @@ interface SetupOptions {
   license?: license.License;
   result?: Account.RenewResult;
   account?: Session.Account.SliceState;
+  interval?: TimeSpan;
 }
 
 const setup = async ({
   license: lic,
   result = { variant: "renewed", key: "x.y.z" },
   account = LINKED,
+  interval,
 }: SetupOptions = {}): Promise<Harness> => {
-  const client = createTestClient();
-  const retrieve = vi.spyOn(client.license, "retrieve").mockResolvedValue(infoOf(lic));
-  const activate = vi.spyOn(client.license, "activate").mockResolvedValue(infoOf(lic));
+  const retrieve = vi.fn(async () => infoOf(lic));
+  const activate = vi.fn(async () => infoOf(lic));
   const renew = vi.fn(async () => result);
+  const deps: Partial<Account.RenewDeps> = {
+    renew,
+    interval,
+    license: { retrieve, activate },
+  };
   const { result: rendered, store } = await renderHookWithConsole(
     () => {
-      Account.useRenew({ renew });
+      Account.useRenew(deps);
       return Status.useNotifications().statuses;
     },
-    { client, preloadedState: { [Session.Account.SLICE_NAME]: account } },
+    {
+      client: createTestClient(),
+      preloadedState: { [Session.Account.SLICE_NAME]: account },
+    },
   );
   return { retrieve, activate, store, renew, statuses: () => rendered.current };
 };
 
 describe("Account.useRenew", () => {
-  afterEach(() => vi.restoreAllMocks());
-
   it("should renew and apply the license key once the license nears its expiry", async () => {
     const h = await setup({ license: expiringIn(TimeSpan.days(3)) });
     await waitFor(() => expect(h.activate).toHaveBeenCalledWith("x.y.z"));
@@ -110,6 +109,14 @@ describe("Account.useRenew", () => {
     const h = await setup({ license: expiringIn(TimeSpan.days(20)) });
     await waitFor(() => expect(h.retrieve).toHaveBeenCalled());
     expect(h.renew).not.toHaveBeenCalled();
+  });
+
+  it("should check the license again on each interval", async () => {
+    const h = await setup({
+      license: expiringIn(TimeSpan.days(20)),
+      interval: TimeSpan.milliseconds(20),
+    });
+    await waitFor(() => expect(h.retrieve.mock.calls.length).toBeGreaterThan(1));
   });
 
   it("should leave a perpetual license alone", async () => {

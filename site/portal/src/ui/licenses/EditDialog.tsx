@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button } from "@synnaxlabs/lyra/button";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -17,8 +16,7 @@ import { type ReactElement } from "react";
 import { type License } from "@/server/db/schema";
 import { post, reload } from "@/ui/api";
 import { checkTerms, TermsFields, termsOf, termsSchema } from "@/ui/licenses/Terms";
-import * as Modal from "@/ui/Modal";
-import { useAction } from "@/ui/useAction";
+import { Modal } from "@/ui/modal";
 
 const schema = termsSchema.check(checkTerms);
 
@@ -29,7 +27,7 @@ export interface EditDialogProps {
 /** EditDialog changes the terms of a license already issued. Staff only. */
 export const EditDialog = ({ license }: EditDialogProps): ReactElement => (
   <Modal.Frame
-    name={`${license.label || "License"}.Edit`}
+    name={`${license.label}.Edit`}
     icon={<Icon.Edit />}
     trigger={
       <Dialog.Trigger variant="outlined" hideCaret>
@@ -43,35 +41,21 @@ export const EditDialog = ({ license }: EditDialogProps): ReactElement => (
 );
 
 const Content = ({ license }: EditDialogProps): ReactElement => {
-  const { close } = Dialog.useContext();
   const methods = Form.use({ values: termsOf(license), schema });
-  const action = useAction(async () => {
-    if (!methods.validate()) return;
-    await post(`/api/licenses/${license.key}`, methods.value());
-    close();
-    reload();
-  });
   return (
-    <Form.Form<typeof schema> {...methods}>
-      <Modal.Body gap="medium">
-        <TermsFields />
-        <Text.Text level="small" color={9}>
-          Machines already holding a seat keep their current license key. Download a new
-          one for each to give it the changed terms.
-        </Text.Text>
-      </Modal.Body>
-      <Modal.Footer error={action.error}>
-        <Modal.Cancel />
-        <Button.Button
-          variant="filled"
-          onClick={action.run}
-          status={action.loading ? "loading" : undefined}
-          trigger={["Control", "Enter"]}
-          triggerIndicator
-        >
-          Save
-        </Button.Button>
-      </Modal.Footer>
-    </Form.Form>
+    <Modal.Form
+      methods={methods}
+      submit="Save"
+      onSubmit={async (terms) => {
+        await post(`/api/licenses/${license.key}`, terms);
+        reload();
+      }}
+    >
+      <TermsFields />
+      <Text.Text level="small" color={9}>
+        Machines already holding a seat keep their current license key. Download a new
+        one for each to give it the changed terms.
+      </Text.Text>
+    </Modal.Form>
   );
 };

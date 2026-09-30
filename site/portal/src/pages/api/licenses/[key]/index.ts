@@ -11,8 +11,7 @@ import { type APIRoute } from "astro";
 
 import { licenseFor, requireStaff } from "@/access";
 import { form, handle } from "@/respond";
-import { badRequest } from "@/server/errors";
-import { amend } from "@/server/license/issue";
+import { amend, readTerms } from "@/server/license/issue";
 
 /** POST changes the terms of a license already issued. Staff only. */
 export const POST: APIRoute = async (context) =>
@@ -23,24 +22,9 @@ export const POST: APIRoute = async (context) =>
     requireStaff(session);
     await licenseFor(portal, session, key);
     const body = await form(context);
-    const term = body.term === "perpetual" ? "perpetual" : "subscription";
-    const nodes = Number(body.nodes);
-    if (!Number.isInteger(nodes) || nodes < 1)
-      throw badRequest("Nodes must be a whole number of at least 1");
-    const channels = Number(body.channels || "0");
-    if (!Number.isInteger(channels) || channels < 0)
-      throw badRequest("Channels must be a whole number, 0 for unlimited");
     await amend(portal.store, {
       licenseKey: key,
-      term,
-      nodes,
-      channels,
-      label: (body.label ?? "").trim(),
-      expiresAt:
-        term === "subscription" && body.expiresAt
-          ? new Date(`${body.expiresAt}T00:00:00Z`)
-          : undefined,
-      maxVersion: body.maxVersion?.trim() || undefined,
+      ...readTerms(body),
       actor: session.userID,
       now: portal.now(),
     });

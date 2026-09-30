@@ -32,6 +32,8 @@ const covered = (license: license.License | undefined, now: TimeStamp): boolean 
 export interface RenewDeps {
   renew: (secret: string) => Promise<RenewResult>;
   interval: TimeSpan;
+  /** The Core's license API. Defaults to the connected client's. */
+  license: Pick<license.Client, "retrieve" | "activate">;
 }
 
 /**
@@ -42,18 +44,20 @@ export interface RenewDeps {
 export const useRenew = ({
   renew: renewKey = renew,
   interval = CHECK_INTERVAL,
+  license: injected,
 }: Partial<RenewDeps> = {}): void => {
   const client = Synnax.use();
+  const api = injected ?? client?.license;
   const secret = Session.Account.useSelectSecret();
   const dispatch = Session.useDispatch();
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
   useEffect(() => {
-    if (client == null || secret == null) return;
+    if (api == null || secret == null) return;
     const controller = new AbortController();
     const check = (): void =>
       handleError(async () => {
-        const { license } = await client.license.retrieve();
+        const { license } = await api.retrieve();
         if (controller.signal.aborted || covered(license, TimeStamp.now())) return;
         const result = await renewKey(secret);
         if (controller.signal.aborted) return;
@@ -68,7 +72,7 @@ export const useRenew = ({
           );
           return;
         }
-        await client.license.activate(result.key);
+        await api.activate(result.key);
       }, "Failed to renew the license");
     check();
     const timer = setInterval(check, interval.milliseconds);
@@ -76,5 +80,5 @@ export const useRenew = ({
       controller.abort();
       clearInterval(timer);
     };
-  }, [client, secret, renewKey, interval, dispatch, addStatus, handleError]);
+  }, [api, secret, renewKey, interval, dispatch, addStatus, handleError]);
 };

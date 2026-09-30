@@ -13,8 +13,7 @@ import { Logo } from "@synnaxlabs/media";
 
 import Root from "@/layouts/Root.astro";
 import { scoped, type Tab, tabs } from "@/shell";
-import { Account } from "@/ui/shell/Account";
-import { Scope } from "@/ui/shell/Scope";
+import { Shell } from "@/ui/shell";
 import type { Organization } from "@/server/db/schema";
 import type { Session } from "@/server/session";
 import "@/styles/portal.css";
@@ -45,7 +44,7 @@ const option = (o: Organization) => ({
             <span class="portal-bar__separator" aria-hidden="true">
                 /
             </span>
-            <Scope
+            <Shell.Scope
                 client:load
                 options={organizations.map(option)}
                 selected={option(scope)}
@@ -55,7 +54,7 @@ const option = (o: Organization) => ({
             <a class="portal-bar__link" href="https://docs.synnaxlabs.com">
                 Docs
             </a>
-            <Account client:load />
+            <Shell.Account client:load />
         </div>
     </header>
     <nav class="portal-tabs">

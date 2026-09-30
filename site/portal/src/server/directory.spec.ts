@@ -48,7 +48,15 @@ const range = <T>(n: number, f: (i: number) => T): T[] =>
 interface FakeArgs {
   users?: FakeUser[];
   memberships?: { organization: { id: string; name: string }; role: string }[];
-  members?: { role: string; publicUserData?: { identifier: string } | null }[];
+  members?: {
+    role: string;
+    publicUserData?: {
+      userId: string;
+      identifier: string;
+      firstName: string | null;
+      lastName: string | null;
+    } | null;
+  }[];
   organizations?: { id: string; name: string }[];
   listed?: { id: string; fullName: string | null; primaryEmailAddress: unknown }[];
   /** unavailable are organization ids Clerk fails to read with a 500. */
@@ -142,9 +150,13 @@ describe("directory", () => {
       expect(await directory.memberships("user_x")).toEqual([]);
     });
 
-    it("should list the addresses of a team's admins", async () => {
-      expect(await directory.admins("org_acme")).toEqual(["ada@example.com"]);
-      expect(await directory.admins("org_other")).toEqual([]);
+    it("should list a team's members, or none", async () => {
+      expect(await directory.roster("org_acme")).toEqual([
+        { userID: "user_a", name: "Ada", email: "ada@example.com", role: ADMIN_ROLE },
+        { userID: "user_b", name: "Bob", email: "bob@example.com", role: "org:member" },
+        { userID: "user_c", name: "Cy", email: "", role: ADMIN_ROLE },
+      ]);
+      expect(await directory.roster("org_other")).toEqual([]);
     });
 
     it("should list and find organizations", async () => {
@@ -254,23 +266,63 @@ describe("directory", () => {
       });
     });
 
-    describe("admins", () => {
-      it("should list the identifiers of admins across every page", async () => {
+    describe("roster", () => {
+      const data = (
+        userId: string,
+        identifier: string,
+        firstName: string | null = null,
+        lastName: string | null = null,
+      ) => ({ userId, identifier, firstName, lastName });
+
+      it("should list the members of a team across every page", async () => {
         const { directory, calls } = createClient({
-          members: [
-            ...range(120, () => ({
-              role: "org:member",
-              publicUserData: { identifier: "member@example.com" },
-            })),
-            { role: ADMIN_ROLE, publicUserData: { identifier: "ada@example.com" } },
-            { role: ADMIN_ROLE, publicUserData: { identifier: "" } },
-            { role: ADMIN_ROLE, publicUserData: null },
-          ],
+          members: range(120, (i) => ({
+            role: "org:member",
+            publicUserData: data(`user_${i}`, `m${i}@example.com`),
+          })),
         });
-        expect(await directory.admins("org_acme")).toEqual(["ada@example.com"]);
+        const roster = await directory.roster("org_acme");
+        expect(roster).toHaveLength(120);
+        expect(roster[119]).toEqual({
+          userID: "user_119",
+          name: "m119@example.com",
+          email: "m119@example.com",
+          role: "org:member",
+        });
         expect(calls.members).toEqual([
           { organizationId: "org_acme", limit: 100, offset: 0 },
           { organizationId: "org_acme", limit: 100, offset: 100 },
+        ]);
+      });
+
+      it("should name a member by their full name", async () => {
+        const { directory } = createClient({
+          members: [
+            {
+              role: ADMIN_ROLE,
+              publicUserData: data("user_a", "ada@example.com", "Ada", "Lovelace"),
+            },
+            {
+              role: ADMIN_ROLE,
+              publicUserData: data("user_b", "bob@example.com", "Bob"),
+            },
+          ],
+        });
+        expect((await directory.roster("org_acme")).map((m) => m.name)).toEqual([
+          "Ada Lovelace",
+          "Bob",
+        ]);
+      });
+
+      it("should leave out a membership without a user", async () => {
+        const { directory } = createClient({
+          members: [
+            { role: ADMIN_ROLE, publicUserData: data("user_a", "ada@example.com") },
+            { role: ADMIN_ROLE, publicUserData: null },
+          ],
+        });
+        expect((await directory.roster("org_acme")).map((m) => m.userID)).toEqual([
+          "user_a",
         ]);
       });
     });

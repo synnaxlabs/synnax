@@ -203,7 +203,7 @@ export type Event =
 
 const CONNECTING = "Connecting";
 const RECONNECTING = "Reconnecting";
-const UNREACHABLE = "Cannot reach cluster";
+const UNREACHABLE = "Cannot reach Core";
 const STREAM_DENIED =
   "Live updates are unavailable. This user cannot read the change channels.";
 

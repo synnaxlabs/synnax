@@ -131,6 +131,11 @@ describe("list", () => {
       ]);
     });
 
+    it("should leave out a Synnax Desktop license", async () => {
+      await createLicense(store, { organization: acme.key, edition: "desktop" });
+      expect(await listActivatable(store.query, [acme.key], NOW)).toEqual([]);
+    });
+
     it("should list nothing for no organizations", async () => {
       await createLicense(store, { organization: acme.key });
       expect(await listActivatable(store.query, [], NOW)).toEqual([]);

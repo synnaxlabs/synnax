@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 
 import { type Event, type License } from "@/server/db/schema";
 import { LICENSE, NOW } from "@/server/license/testutil";
-import { describeEvent, standing, statusOf, usable } from "@/ui/format";
+import { describeEvent, standing, statusOf } from "@/ui/format";
 
 const licenseOf = (overrides: Partial<License>): License => ({
   ...LICENSE,
@@ -64,6 +64,16 @@ describe("format.standing", () => {
     });
   });
 
+  it("should count an expired subscription that has a fallback version", () => {
+    const lic = licenseOf({ nodes: 4, expiresAt: days(-1), maxVersion: "0.60" });
+    expect(standing([{ license: lic, seats: 2 }], NOW)).toEqual({
+      active: 1,
+      seats: 2,
+      capacity: 4,
+      nextExpiry: days(-1),
+    });
+  });
+
   it("should report no next expiry when every usable license is perpetual", () => {
     const held = [{ license: licenseOf({ expiresAt: null }), seats: 1 }];
     expect(standing(held, NOW).nextExpiry).toBeNull();
@@ -76,18 +86,6 @@ describe("format.standing", () => {
       capacity: 0,
       nextExpiry: null,
     });
-  });
-});
-
-describe("format.usable", () => {
-  it("should grant a seat while active or expiring", () => {
-    expect(usable("active")).toBe(true);
-    expect(usable("expiring")).toBe(true);
-  });
-
-  it("should refuse a seat once expired or revoked", () => {
-    expect(usable("expired")).toBe(false);
-    expect(usable("revoked")).toBe(false);
   });
 });
 

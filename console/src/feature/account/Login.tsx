@@ -14,6 +14,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
+import { Synnax } from "@synnaxlabs/pluto";
 import { type ReactElement, useEffect, useState } from "react";
 
 import { loginURL, mintState } from "@/feature/account/handoff";
@@ -62,18 +63,19 @@ const Handoff = ({ stage, onStage }: HandoffProps): ReactElement => {
   const email = Session.Account.useSelectEmail();
   const dispatch = Session.useDispatch();
   const handleError = Status.useErrorHandler();
-  const { info } = License.useInfo();
+  const client = Synnax.use();
   const version = Session.Version.use();
   const online = useOnline();
 
   const start = (): void =>
     handleError(async () => {
-      if (info == null) return;
+      if (client == null) return;
+      const { fingerprint } = await client.license.retrieve();
       const state = mintState();
       dispatch(Session.Account.beginLogin(state));
       const url = loginURL({
         state,
-        fingerprint: info.fingerprint,
+        fingerprint,
         name: await readMachineName(),
         version,
       });
@@ -95,7 +97,7 @@ const Handoff = ({ stage, onStage }: HandoffProps): ReactElement => {
         justify="center"
         variant="filled"
         onClick={start}
-        disabled={info == null}
+        disabled={client == null}
       >
         <Icon.Refresh />
         Try again
@@ -128,7 +130,7 @@ const Handoff = ({ stage, onStage }: HandoffProps): ReactElement => {
         justify="center"
         variant="filled"
         onClick={start}
-        disabled={info == null}
+        disabled={client == null}
       >
         Log in
         <Icon.OpenExternal />

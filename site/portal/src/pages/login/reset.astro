@@ -11,12 +11,12 @@
 import Guest from "@/layouts/Guest.astro";
 import { guest } from "@/page";
 import { landing } from "@/shell";
-import { Reset } from "@/ui/auth/Reset";
+import { Auth } from "@/ui/auth";
 
 const away = guest(Astro);
 if (away != null) return away;
 ---
 
 <Guest title="Reset your password">
-    <Reset client:load target={landing(Astro.url.searchParams)} />
+    <Auth.Reset client:load target={landing(Astro.url.searchParams)} />
 </Guest>

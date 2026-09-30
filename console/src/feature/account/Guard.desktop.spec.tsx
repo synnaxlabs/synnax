@@ -9,6 +9,7 @@
 
 import { connection, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { type Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
@@ -19,6 +20,7 @@ import { License } from "@/platform/license";
 import { findButton } from "@/platform/modals/testutil";
 import { Session } from "@/session";
 import {
+  CaptureStatuses,
   createConsoleWrapper,
   createStatusConsoleWrapper,
   type TestStore,
@@ -106,6 +108,29 @@ describe("Account.Guard", () => {
       Session.Account.selectPending(store.getState()),
     );
     expect(await screen.findByText("Finish in your browser")).toBeTruthy();
+  });
+
+  it("should let the user retry a log in whose fingerprint read failed", async () => {
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    let statuses: Status.NotificationSpec[] = [];
+    const { wrapper } = await createConsoleWrapper({ client: null });
+    const ui = (client: Client): ReactElement => (
+      <Synnax.TestProvider client={client} status={UNLICENSED_STATUS}>
+        <CaptureStatuses onStatuses={(next) => (statuses = next)} />
+        <Account.Guard>
+          <span>licensed content</span>
+        </Account.Guard>
+      </Synnax.TestProvider>
+    );
+    const { rerender } = render(ui(createTestClient({ port: 1 })), { wrapper });
+    fireEvent.click(findButton("Log in"));
+    await waitFor(() =>
+      expect(statuses.map((s) => s.message)).toContain("Failed to open the login page"),
+    );
+    expect(open).not.toHaveBeenCalled();
+    rerender(ui(createTestClient()));
+    fireEvent.click(findButton("Log in"));
+    await waitFor(() => expect(open).toHaveBeenCalledOnce());
   });
 
   it("should ask to try again while the machine is offline", async () => {
