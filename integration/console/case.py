@@ -143,11 +143,10 @@ class ConsoleCase(TestCase):
 
     def _bootstrap_project(self) -> None:
         # Each test runs in its own project so tests never inherit one another's
-        # open tabs (a project's layout persists server-side). The project is
+        # open tabs (a project's panels persist server-side). The project is
         # provisioned through the client rather than the UI: create/delete are
         # then fast and independent of the browser's auth state (user tests log
-        # out or drop permissions, which would hang a UI-driven teardown). An
-        # empty layout backfills to the console's zero layout when selected.
+        # out or drop permissions, which would hang a UI-driven teardown).
         #
         # The name is a random token, not the test name: the active project is
         # shown in the nav selector, so a name containing a UI word (e.g. a
