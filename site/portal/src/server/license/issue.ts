@@ -19,6 +19,7 @@ import {
   type Term,
 } from "@/server/db/schema";
 import { badRequest, notFound } from "@/server/errors";
+import { requireEnterprise } from "@/server/license/activate";
 import { build } from "@/server/license/claims";
 import { DENIAL_MESSAGES, deny } from "@/server/license/deny";
 import { VERSION_PATTERN } from "@/server/license/limits";
@@ -159,6 +160,7 @@ export const amend = async (
       .where(eq(license.key, licenseKey))
       .for("update");
     if (before == null) throw notFound("License");
+    requireEnterprise(before);
     if (before.revokedAt != null)
       throw badRequest("A revoked license cannot be changed");
     const held = await tx
@@ -252,6 +254,7 @@ export const floating = async (
     .from(license)
     .where(eq(license.key, licenseKey));
   if (row == null) throw notFound("License");
+  requireEnterprise(row);
   const denial = deny(row, now);
   if (denial != null) throw badRequest(DENIAL_MESSAGES[denial]);
   await store.query.insert(event).values({

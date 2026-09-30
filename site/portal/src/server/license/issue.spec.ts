@@ -43,6 +43,11 @@ const base: IssueArgs = {
   now: NOW,
 };
 
+const DESKTOP_REFUSED = {
+  status: 400,
+  message: "A Synnax Desktop license is managed from the Desktop app",
+};
+
 describe("issue.validate", () => {
   it("should accept a subscription with an expiry", () => {
     expect(() => validate(base)).not.toThrow();
@@ -208,6 +213,25 @@ describe("issue", () => {
   });
 
   describe("amend", () => {
+    it("should refuse a Synnax Desktop license", async () => {
+      const lic = await createLicense(store, {
+        organization: org.key,
+        edition: "desktop",
+      });
+      await expect(
+        amend(store, {
+          licenseKey: lic.key,
+          term: "subscription",
+          nodes: 5,
+          channels: 0,
+          label: "Server",
+          expiresAt: new Date("2028-01-01T00:00:00Z"),
+          actor: "user_staff",
+          now: NOW,
+        }),
+      ).rejects.toMatchObject(DESKTOP_REFUSED);
+    });
+
     it("should change the terms, keep the key, and record what changed", async () => {
       const lic = await createLicense(store, { organization: org.key });
       const later = new Date("2028-01-01T00:00:00Z");
@@ -426,6 +450,16 @@ describe("issue", () => {
   });
 
   describe("floating", () => {
+    it("should refuse a Synnax Desktop license", async () => {
+      const lic = await createLicense(store, {
+        organization: org.key,
+        edition: "desktop",
+      });
+      await expect(
+        floating(store, signer, { licenseKey: lic.key, actor: "user_staff", now: NOW }),
+      ).rejects.toMatchObject(DESKTOP_REFUSED);
+    });
+
     it("should sign a key bound to no machine and hold no seat", async () => {
       const lic = await createLicense(store, { organization: org.key });
       const key = await floating(store, signer, {

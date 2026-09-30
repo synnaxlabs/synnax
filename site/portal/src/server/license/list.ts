@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { and, count, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNull, ne } from "drizzle-orm";
 
 import { type Reader } from "@/server/db/db";
 import {
@@ -66,7 +66,13 @@ export const listActivatable = async (
     .select({ license, organization })
     .from(license)
     .innerJoin(organization, eq(license.organization, organization.key))
-    .where(and(inArray(license.organization, orgs), isNull(license.revokedAt)))
+    .where(
+      and(
+        inArray(license.organization, orgs),
+        isNull(license.revokedAt),
+        ne(license.edition, "desktop"),
+      ),
+    )
     .orderBy(desc(license.issuedAt));
   return rows.filter((r) => deny(r.license, now) == null);
 };
