@@ -38,7 +38,7 @@ const publishedLabel =
     });
 ---
 
-<article transition:animate="none">
+<article>
     {showBreadcrumb && url.split("/").length > 2 && (
         <Breadcrumb url={url} title={title} />
     )}
@@ -219,9 +219,7 @@ const publishedLabel =
             --note-padding-inline: 2rem;
         }
 
-        /* Astro delivers tab slots inside a layout-transparent astro-slot. */
-        :is(.pluto-tabs__content, .pluto-tabs__content > astro-slot)
-            > .pluto-note:first-child {
+        .pluto-tabs__content > .pluto-note:first-child {
             margin-top: 0;
         }
 

@@ -31,7 +31,7 @@ the number of nanoseconds elapsed since the Unix epoch (January 1, 1970).
 
 There are several easy ways to construct a `TimeStamp`:
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
   <Fragment slot="python">
 
 ```python
@@ -87,16 +87,16 @@ const ts = TimeStamp.now().sub(TimeSpan.seconds(1));
 
 Any of these formats can be passed to common methods used throughout the Synnax client.
 The union of these formats is called a `CrudeTimeStamp`. Examples include `read`,
-`write`, <Client.Var client:load py="open_iterator" ts="openIterator" />, <Client.Var
-client:load py="open_streamer" ts="openStreamer" />, and
+`write`, <Client.Var py="open_iterator" ts="openIterator" />, <Client.Var
+py="open_streamer" ts="openStreamer" />, and
 
-<Client.Var client:load py="open_writer" ts="openWriter" />.
+<Client.Var py="open_writer" ts="openWriter" />.
 
 ### Converting to a date/datetime
 
 You can convert a `TimeStamp` to a native date object:
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
   <Fragment slot="python">
 
 ```python
@@ -129,7 +129,7 @@ const dateStr = date.toLocaleString("en-US", { timeZone: "America/New_York" });
 
 You can perform arithmetic on `TimeStamp` objects:
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
   <Fragment slot="python">
 
 ```python
@@ -163,7 +163,7 @@ const diff = ts2.span(ts1);
 
 You can compare `TimeStamp` objects:
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
   <Fragment slot="python">
 
 ```python
@@ -191,7 +191,7 @@ const isBeforeEq = ts1.beforeEq(ts2);
 
 You can access the underlying nanosecond value:
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
   <Fragment slot="python">
 
 ```python
@@ -223,7 +223,7 @@ duration as nanoseconds and provides utility methods for working with time inter
 You can construct a `TimeSpan` directly from a number of nanoseconds, but it's generally
 easier to use the utility constants or functions:
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
   <Fragment slot="python">
 
 ```python
@@ -273,7 +273,7 @@ const span = TimeSpan.seconds(1).mult(5);
 
 You can perform arithmetic on `TimeSpan` objects:
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
   <Fragment slot="python">
 
 ```python
@@ -307,7 +307,7 @@ const span3 = TimeSpan.seconds(1).mult(5);
 
 You can access the underlying nanosecond value:
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
   <Fragment slot="python">
 
 ```python
@@ -347,7 +347,7 @@ The `TimeRange` class represents a range of time marked by a `start` and `end`
 You can construct a `TimeRange` from two timestamps in any of the formats that
 `TimeStamp` supports:
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
   <Fragment slot="python">
 
 ```python
@@ -402,7 +402,7 @@ const range = new TimeRange(TimeSpan.hours(1), TimeSpan.hours(2));
 You can check if a `TimeStamp` is contained in a `TimeRange` using the `contains`
 method:
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
   <Fragment slot="python">
 
 ```python
@@ -436,7 +436,7 @@ console.log(isIn); // true
 
 You can check if two `TimeRange` objects overlap using the `overlapsWith` method:
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
   <Fragment slot="python">
 
 ```python
@@ -476,7 +476,7 @@ console.log(doesOverlap); // true
 
 You can get the `TimeSpan` of a `TimeRange` using the `span` property:
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
   <Fragment slot="python">
 
 ```python
@@ -513,7 +513,7 @@ elapsed since the Unix epoch in UTC. The client libraries use specialized types 
 preserve this precision, but there are limitations to be aware of when converting to
 native types.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 

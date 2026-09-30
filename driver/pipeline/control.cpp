@@ -9,6 +9,8 @@
 
 #include <utility>
 
+#include "client/cpp/errors/errors.h"
+
 #include "driver/errors/errors.h"
 #include "driver/pipeline/control.h"
 
@@ -50,7 +52,7 @@ void Control::run() {
     auto [s, open_err] = this->factory->open_streamer(this->config);
     this->streamer = std::move(s);
     if (open_err) {
-        if (open_err.matches(freighter::UNREACHABLE) &&
+        if (synnax::errors::is_temporarily_unavailable(open_err) &&
             breaker.wait(open_err.message()))
             return this->run();
         return this->sink->stopped_with_err(open_err);
@@ -69,7 +71,8 @@ void Control::run() {
         this->breaker.reset();
     }
     const auto close_err = this->streamer->close();
-    if (close_err.matches(freighter::UNREACHABLE) && breaker.wait()) return this->run();
+    if (synnax::errors::is_temporarily_unavailable(close_err) && breaker.wait())
+        return this->run();
     if (sink_err)
         this->sink->stopped_with_err(sink_err);
     else if (close_err)
