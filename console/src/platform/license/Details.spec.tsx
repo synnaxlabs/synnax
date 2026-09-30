@@ -7,18 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { license, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { type FC } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { License } from "@/platform/license";
-import { createConsoleWrapper } from "@/testutil";
+import { createConsoleWrapper, createTestClientWithGrants } from "@/testutil";
 
 const client = createTestClient();
 
-const renderLicense = async (Component: FC): Promise<void> => {
-  const { wrapper } = await createConsoleWrapper({ client });
+const renderLicense = async (Component: FC, as: Client = client): Promise<void> => {
+  const { wrapper } = await createConsoleWrapper({ client: as });
   render(<Component />, { wrapper });
 };
 
@@ -45,6 +46,40 @@ describe("License", () => {
       expect(
         await screen.findByText(`${License.editionLabel(lic)} license, ${term}`),
       ).toBeTruthy();
+    });
+  });
+
+  describe.each([
+    ["Details", License.Details],
+    ["Summary", License.Summary],
+  ])("%s access", (_, Component) => {
+    it("should show the license with a retrieve grant on it", async () => {
+      const granted = await createTestClientWithGrants(client, {
+        retrieve: [license.ONTOLOGY_ID],
+      });
+      const { license: lic } = await client.license.retrieve();
+      if (lic == null) throw new Error("test Core has no license");
+      await renderLicense(Component, granted);
+      expect(
+        await screen.findByText(License.editionLabel(lic), { exact: false }),
+      ).toBeTruthy();
+    });
+
+    it("should neither read nor show the license without a grant on it", async () => {
+      const denied = await createTestClientWithGrants(client);
+      const retrieve = vi.spyOn(denied.license, "retrieve");
+      const { wrapper } = await createConsoleWrapper({ client: denied });
+      const { container } = render(
+        <>
+          <Component />
+          mounted
+        </>,
+        { wrapper },
+      );
+      await screen.findByText("mounted");
+      await act(async () => {});
+      expect(container.textContent).toBe("mounted");
+      expect(retrieve).not.toHaveBeenCalled();
     });
   });
 });

@@ -25,3 +25,20 @@ export const describeTerm = ({ exp, maxVersion }: license.License): string => {
 
 export const describeChannels = ({ channels }: license.License): string =>
   channels === 0 ? "Unlimited" : `Up to ${channels}`;
+
+/** Joins host hashes the way the portal reads them. */
+export const joinFingerprint = (fingerprint: string[]): string =>
+  fingerprint.join(", ");
+
+/** Where a license runs: on any machine, on the host, or on another machine only. */
+export type Binding = "floating" | "host" | "other";
+
+/** Judges where the license runs against the host's fingerprint. */
+export const resolveBinding = (
+  { fingerprints }: license.License,
+  fingerprint: string[],
+): Binding => {
+  if (fingerprints.length === 0) return "floating";
+  const host = new Set(fingerprint);
+  return fingerprints.some((hash) => host.has(hash)) ? "host" : "other";
+};
