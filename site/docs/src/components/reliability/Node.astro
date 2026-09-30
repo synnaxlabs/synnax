@@ -1,0 +1,50 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Text } from "@synnaxlabs/lyra/text";
+import { type CSSProperties } from "react";
+
+interface Props {
+    name: string;
+    count: number;
+    note?: string;
+    /** Fraction of the product's largest subsystem, from 0 to 1. Sets the tint. */
+    share: number;
+}
+
+const { name, count, note, share } = Astro.props;
+---
+
+<Flex.Box
+    x
+    justify="between"
+    align="center"
+    gap="large"
+    bordered
+    rounded
+    background={2}
+    className="reliability-node"
+    style={{ "--share": share } as CSSProperties}
+>
+    <Flex.Box y gap="tiny">
+        <Text.Text level="p" weight={500}>
+            {name}
+        </Text.Text>
+        {note != null && (
+            <Text.Text level="small" color={8}>
+                {note}
+            </Text.Text>
+        )}
+    </Flex.Box>
+    <Text.Text level="h4" variant="code">
+        {count.toLocaleString("en-US")}
+    </Text.Text>
+</Flex.Box>
