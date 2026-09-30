@@ -84,8 +84,7 @@ const TILES: Record<string, Tile> = {
     clients: {
         icon: Icon.Terminal,
         span: 3,
-        protects:
-            "Breaking changes in the Python, TypeScript, and C++ libraries that your scripts and apps use.",
+        protects: "Tests the client libraries that your scripts and apps use.",
     },
     driver: {
         icon: Icon.Hardware,
@@ -336,7 +335,7 @@ const skipped = Object.entries(
     .reliability-bento {
         display: grid;
         grid-template-columns: repeat(12, 1fr);
-        gap: 2rem;
+        gap: 3rem;
     }
 
     /* One accent per product, stepped for light and dark surfaces. Yellow and red are
