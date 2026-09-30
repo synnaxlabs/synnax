@@ -1399,6 +1399,35 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					))
 				})
 
+				It("Should not pad from a later write of one channel alone", func(
+					ctx SpecContext,
+				) {
+					c := newChain(ctx, "alone")
+					write(
+						ctx,
+						c.index,
+						[]int64{1, 2, 3},
+						[]*channel.Channel{c.a},
+						[]float32{10, 20, 30},
+					)
+					w := MustSucceed(node.Framer.OpenWriter(ctx, framer.WriterConfig{
+						Start:            telem.SecondTS * 2,
+						Keys:             []channel.Key{c.b.Key()},
+						EnableAutoCommit: new(true),
+					}))
+					Expect(w.Write(frame.NewUnary(
+						c.b.Key(), telem.NewSeriesV[float32](2),
+					))).To(BeTrue())
+					Expect(w.Close()).To(Succeed())
+					out := read(ctx, iterator.AutoSpan, c.sum.Key(), c.sum.Index())
+					Expect(flatten[float32](out[c.sum.Key()])).To(Equal(
+						[]float32{12, 22, 32},
+					))
+					Expect(flatten[telem.TimeStamp](out[c.sum.Index()])).To(Equal(
+						seconds(1, 2, 3),
+					))
+				})
+
 				It("Should return a requested omitted channel intact", func(
 					ctx SpecContext,
 				) {
