@@ -113,7 +113,7 @@
     "cycles:lyra": "knip --workspace lyra --cycles",
     "cycles:pluto": "knip --workspace pluto --cycles",
     "cycles:portal": "knip --workspace site/portal --cycles",
-    "cycles:vite-plugin": "knip --workspace configs/vite --cycles",
+    "cycles:vite-plugin": "turbo build --filter @synnaxlabs/vite-plugin && knip --workspace configs/vite --cycles",
     "cycles:www": "knip --workspace site/www --cycles",
     "cycles:x": "knip --workspace x/ts --cycles",
     "stylelint": "turbo stylelint --continue",
