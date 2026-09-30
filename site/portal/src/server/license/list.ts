@@ -17,7 +17,7 @@ import {
   type Organization,
   organization,
 } from "@/server/db/schema";
-import { deny } from "@/server/license/activate";
+import { deny } from "@/server/license/deny";
 
 /** Held is a license beside the number of machines holding one of its seats. */
 export interface Held {

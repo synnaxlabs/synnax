@@ -19,8 +19,8 @@ import {
   type Term,
 } from "@/server/db/schema";
 import { badRequest, notFound } from "@/server/errors";
-import { DENIAL_MESSAGES, deny } from "@/server/license/activate";
 import { build } from "@/server/license/claims";
+import { DENIAL_MESSAGES, deny } from "@/server/license/deny";
 import { VERSION_PATTERN } from "@/server/license/limits";
 import { sign, type Signer } from "@/server/license/sign";
 

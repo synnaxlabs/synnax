@@ -13,8 +13,9 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
 import { type Organization } from "@/server/db/schema";
+import { deny } from "@/server/license/deny";
 import { type Held } from "@/server/license/list";
-import { channels, date, edition, statusOf, term, usable } from "@/ui/format";
+import { channels, date, edition, statusOf, term } from "@/ui/format";
 import { ActivateDialog } from "@/ui/licenses/ActivateDialog";
 import { StatusTag } from "@/ui/licenses/StatusTag";
 import { Empty, Page } from "@/ui/Page";
@@ -34,7 +35,7 @@ export const Licenses = ({
   licenses,
   now,
 }: LicensesProps): ReactElement => {
-  const activatable = licenses.filter((l) => usable(statusOf(l.license, now)));
+  const activatable = licenses.filter((l) => deny(l.license, now) == null);
   return (
     <Page
       title="Licenses"

@@ -19,33 +19,11 @@ import {
 } from "@/server/db/schema";
 import { badRequest, notFound } from "@/server/errors";
 import { build } from "@/server/license/claims";
+import { type Denial, DENIAL_MESSAGES, deny } from "@/server/license/deny";
 import { sign, type Signer } from "@/server/license/sign";
-
-export type Denial = "revoked" | "expired" | "no_seats";
-
-export const DENIAL_MESSAGES: Record<Denial, string> = {
-  revoked: "This license has been revoked.",
-  expired: "This license has expired.",
-  no_seats: "Every seat on this license is taken. Release a machine to free one.",
-};
 
 export type Decision =
   { ok: true; existing?: Activation } | { ok: false; reason: Denial };
-
-/**
- * deny returns why a license can no longer issue a license key at `now`, or undefined
- * when it can. An expired subscription with a fallback version still issues.
- */
-export const deny = (license: License, now: Date): Denial | undefined => {
-  if (license.revokedAt != null) return "revoked";
-  if (
-    license.expiresAt != null &&
-    license.expiresAt <= now &&
-    license.maxVersion == null
-  )
-    return "expired";
-  return undefined;
-};
 
 export interface DecideArgs {
   license: License;

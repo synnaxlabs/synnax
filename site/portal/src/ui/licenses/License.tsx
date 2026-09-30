@@ -22,6 +22,7 @@ import {
   type License as LicenseRecord,
   type Organization,
 } from "@/server/db/schema";
+import { deny } from "@/server/license/deny";
 import { filename } from "@/server/license/limits";
 import { post, postFile, reload, save } from "@/ui/api";
 import { Fact, Facts } from "@/ui/Facts";
@@ -31,11 +32,9 @@ import {
   dateTime,
   describeEvent,
   edition,
-  type LicenseStatus,
   machineName,
   statusOf,
   term,
-  usable,
 } from "@/ui/format";
 import { ActivateDialog } from "@/ui/licenses/ActivateDialog";
 import { EditDialog } from "@/ui/licenses/EditDialog";
@@ -86,8 +85,10 @@ export const License = ({
       }
       actions={
         <>
-          {staff && <StaffActions license={lic} status={status} />}
-          {usable(status) && <ActivateDialog licenseKey={lic.key} label={lic.label} />}
+          {staff && <StaffActions license={lic} now={now} />}
+          {deny(lic, now) == null && (
+            <ActivateDialog licenseKey={lic.key} label={lic.label} />
+          )}
         </>
       }
     >
@@ -288,10 +289,10 @@ const ReleaseContent = ({ activation }: { activation: Activation }): ReactElemen
 
 interface StaffActionsProps {
   license: LicenseRecord;
-  status: LicenseStatus;
+  now: Date;
 }
 
-const StaffActions = ({ license: lic, status }: StaffActionsProps): ReactElement => {
+const StaffActions = ({ license: lic, now }: StaffActionsProps): ReactElement => {
   const floating = useAction(async () => {
     const blob = await postFile(`/api/licenses/${lic.key}/floating`);
     save(blob, filename(lic.label));
@@ -301,8 +302,8 @@ const StaffActions = ({ license: lic, status }: StaffActionsProps): ReactElement
       {floating.error != null && (
         <Status.Summary variant="error" level="small" message={floating.error} />
       )}
-      {status !== "revoked" && <EditDialog license={lic} />}
-      {usable(status) && (
+      {lic.revokedAt == null && <EditDialog license={lic} />}
+      {deny(lic, now) == null && (
         <Button.Button
           variant="outlined"
           onClick={floating.run}
@@ -313,7 +314,7 @@ const StaffActions = ({ license: lic, status }: StaffActionsProps): ReactElement
           Floating license key
         </Button.Button>
       )}
-      {status !== "revoked" && (
+      {lic.revokedAt == null && (
         <Modal.Frame
           name={`${lic.label || "License"}.Revoke`}
           icon={<Icon.Delete />}
