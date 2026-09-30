@@ -14,7 +14,7 @@ import { type ReactElement } from "react";
 import { CSS } from "@/css";
 import { Nav } from "@/nav";
 
-export interface FooterProps extends Nav.BarProps {}
+export interface FooterProps extends Omit<Nav.BarProps, "location" | "size"> {}
 
 /** Footer is a modal's bottom action bar. Put the primary action in
  * `Nav.Bar.End`. */

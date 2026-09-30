@@ -26,7 +26,7 @@ export interface HeaderProps extends Omit<
   /** Dotted breadcrumb name, or pre-split segments for names that may contain dots. */
   children: string | string[];
   icon?: Icon.ReactElement;
-  hideClose?: boolean;
+  closeHidden?: boolean;
 }
 
 const CLOSE_TOOLTIP = <Triggers.Text trigger={Triggers.ESCAPE} level="small" />;
@@ -39,7 +39,7 @@ export const Header = ({
   icon,
   children,
   className,
-  hideClose = false,
+  closeHidden = false,
   ...rest
 }: HeaderProps): ReactElement => {
   const { close } = Dialog.useContext();
@@ -62,7 +62,7 @@ export const Header = ({
           ))}
         </Breadcrumb.Breadcrumb>
       </Nav.Bar.Start>
-      {!hideClose && (
+      {!closeHidden && (
         <Nav.Bar.End>
           <Button.Button
             aria-label="Close"
