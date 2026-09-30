@@ -146,6 +146,21 @@ beforeAll(() => {
         });
       },
     });
+  // jsdom does not implement matchMedia; Lyra's Nebula listens for OS scheme changes.
+  // Every query reports no match and never changes.
+  if (typeof window.matchMedia !== "function")
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      writable: true,
+      value: (media: string): MediaQueryList =>
+        Object.assign(new EventTarget(), {
+          media,
+          matches: false,
+          onchange: null,
+          addListener: () => {},
+          removeListener: () => {},
+        }),
+    });
   // jsdom does not implement scrollIntoView; pluto's Tabs.Selector calls it to reveal
   // the selected tab.
   if (typeof Element.prototype.scrollIntoView !== "function")
