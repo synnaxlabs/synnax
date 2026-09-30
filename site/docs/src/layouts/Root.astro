@@ -12,7 +12,6 @@ import Header from "@/components/layout/Header.astro";
 import "@/styles/main.css";
 import PostHog from "@/components/analytics/PostHog.astro";
 import { ClientRouter } from "astro:transitions";
-import favicon from "@synnaxlabs/media/static/logo/icon-white-favicon.svg";
 import { SEO } from "astro-seo";
 import Footer from "@/components/layout/Footer.astro";
 import { enabled } from "@/flags";
@@ -71,10 +70,8 @@ const fullTitle = pageTitle ? `${pageTitle} | Synnax` : "Synnax";
             }}
             extend={{
                 link: [
-                    {
-                        rel: "icon",
-                        href: favicon.src,
-                    },
+                    { rel: "icon", href: "/favicon.ico", sizes: "48x48" },
+                    { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
                     {
                         rel: "alternate",
                         type: "application/rss+xml",

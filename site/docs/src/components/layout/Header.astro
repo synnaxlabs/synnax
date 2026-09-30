@@ -54,6 +54,13 @@ const label = version?.split(".").slice(0, -1).join(".");
                     >
                         Releases
                     </Button.Button>
+                    <Button.Button
+                        variant="text"
+                        className={`nav-link ${url.includes("reliability") ? "nav-link--active" : ""}`}
+                        href="/reliability/"
+                    >
+                        Reliability
+                    </Button.Button>
                 </Flex.Box>
             </Flex.Box>
             <Flex.Box direction="x" align="center" gap="small">
@@ -99,6 +106,9 @@ const label = version?.split(".").slice(0, -1).join(".");
                         </a>
                         <a href="/releases/" class="mobile-drawer-link">
                             Releases
+                        </a>
+                        <a href="/reliability/" class="mobile-drawer-link">
+                            Reliability
                         </a>
                         <div class="mobile-drawer-divider"></div>
                         <span class="mobile-drawer-section-label">Reference</span>

@@ -16,7 +16,7 @@ import { type ReactElement } from "react";
 
 import { type InternalControlsProps } from "@/os/Controls/types";
 
-export const Icon = {
+const Icon = {
   Close: (
     <svg
       width="124"

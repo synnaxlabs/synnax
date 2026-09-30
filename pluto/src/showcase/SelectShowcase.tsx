@@ -99,7 +99,7 @@ export const SelectShowcase = () => (
   </Flex.Box>
 );
 
-export const SelectIconShowcase = () => {
+const SelectIconShowcase = () => {
   const [value, setValue] = useState<string>("");
   return (
     <Select.Simple<string>

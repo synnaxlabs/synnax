@@ -13,7 +13,7 @@ import { type Spec } from "@/arc/graph/node/types/spec";
 
 export { configZ } from "@/arc/graph/node/select/config";
 
-export const SPEC: Spec<"select", Config> = {
+const SPEC: Spec<"select", Config> = {
   key: "select",
   name: "Select",
   Form: () => null,

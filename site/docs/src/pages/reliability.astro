@@ -1,0 +1,556 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
+
+import Stat from "@/components/reliability/Stat.astro";
+import Subsystems from "@/components/reliability/Subsystems.astro";
+import Wall from "@/components/reliability/Wall.astro";
+import Root from "@/layouts/Root.astro";
+import { ordered, products, run, type State, totals } from "@/util/reliability";
+
+export const prerender = true;
+
+const fmt = (n: number) => n.toLocaleString("en-US");
+const minutes = Math.round(
+    (Date.parse(run.ended_at) - Date.parse(run.started_at)) / 60000,
+);
+const date = new Date(run.started_at).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+});
+const REPO = "https://github.com/synnaxlabs/synnax";
+
+interface StatProps {
+    label: string;
+    value: string;
+    status?: "success" | "warning" | "error";
+}
+
+const RESULTS: StatProps[] = [
+    { label: "Passed", value: fmt(totals.passed), status: "success" },
+    {
+        label: "Flaky",
+        value: fmt(totals.flaky),
+        status: totals.flaky > 0 ? "warning" : undefined,
+    },
+    { label: "Failed", value: fmt(totals.failed), status: "error" },
+    { label: "Skipped", value: fmt(totals.skipped) },
+];
+
+const SCOPE: StatProps[] = [
+    { label: "Test suites", value: fmt(new Set(ordered.map((t) => t.suite)).size) },
+    { label: "CI jobs", value: fmt(run.jobs) },
+    { label: "Run time", value: `${minutes} min` },
+];
+
+interface Tile {
+    icon: typeof Icon.Core;
+    /** Width on the 12-column bento grid. */
+    span: number;
+    protects: string;
+}
+
+const TILES: Record<string, Tile> = {
+    core: {
+        icon: Icon.Core,
+        span: 7,
+        protects:
+            "Lost writes, corrupt reads, and servers that disagree about your data. Covers storage, replication, and every service the Core runs.",
+    },
+    console: {
+        icon: Icon.Visualize,
+        span: 5,
+        protects:
+            "Broken workflows in the app operators use to configure hardware, watch live data, and run control sequences.",
+    },
+    arc: {
+        icon: Icon.Arc,
+        span: 12,
+        protects:
+            "Control logic that compiles wrong, runs out of order, or keeps acting after a sequence stops.",
+    },
+    clients: {
+        icon: Icon.Terminal,
+        span: 3,
+        protects: "Tests the client libraries that your scripts and apps use.",
+    },
+    driver: {
+        icon: Icon.Hardware,
+        span: 6,
+        protects:
+            "Missed samples, stuck tasks, and wrong commands sent to NI, Modbus, OPC UA, EtherCAT, and HTTP devices.",
+    },
+    toolchain: {
+        icon: Icon.Sync,
+        span: 3,
+        protects:
+            "Broken builds, and generated code that differs from one language to the next.",
+    },
+};
+
+const tiles = products.map((product) => {
+    const tile = TILES[product.key];
+    if (tile == null) throw new Error(`no reliability tile for ${product.key}`);
+    return { product, ...tile };
+});
+
+const footer = ({ suites, counts }: (typeof products)[number]): string =>
+    [
+        `${suites.length} ${suites.length === 1 ? "suite" : "suites"}`,
+        counts.flaky > 0 && `${counts.flaky} flaky`,
+        counts.skipped > 0 && `${counts.skipped} skipped`,
+    ]
+        .filter(Boolean)
+        .join(" · ");
+
+const STATUS: Record<State, "warning" | "error" | "disabled" | undefined> = {
+    passed: undefined,
+    flaky: "warning",
+    failed: "error",
+    skipped: "disabled",
+    unknown: "disabled",
+};
+
+const LABELS: Record<State, string> = {
+    passed: "Passed",
+    flaky: "Flaky",
+    failed: "Failed",
+    skipped: "Skipped",
+    unknown: "Unknown",
+};
+
+const RANK: Record<State, number> = {
+    failed: 0,
+    flaky: 1,
+    unknown: 2,
+    skipped: 3,
+    passed: 4,
+};
+
+const unclean = ordered
+    .filter((t) => t.state !== "passed" && t.state !== "skipped")
+    .sort((a, b) => RANK[a.state] - RANK[b.state]);
+
+// Skip reason -> the tests skipped for it, when they were all run by hand and passed.
+const byHand = Object.entries(
+    Object.groupBy(
+        ordered.filter((t) => t.passedByHand),
+        (t) => t.message!,
+    ),
+);
+
+const where = (tests: typeof ordered) =>
+    tests.every((t) => t.tags.includes("windows-only")) ? " on Windows" : "";
+
+const skipped = Object.entries(
+    Object.groupBy(
+        ordered.filter((t) => t.state === "skipped"),
+        (t) => t.message ?? "No reason given",
+    ),
+);
+---
+
+<Root
+    frontmatter={{
+        title: "Reliability",
+        description:
+            "Every test we ran on the latest Synnax release, failures included.",
+    }}
+>
+    <section>
+        <Flex.Box y className="reliability" grow>
+            <Flex.Box y gap="large" className="reliability-hero">
+                <Text.Text level="h1" color={9} className="reliability-title">
+                    <span class="reliability-total">{fmt(ordered.length)}</span> tests
+                    run for v{run.version}
+                </Text.Text>
+                <Text.Text level="p" color={9} className="reliability-prose">
+                    <span>
+                        Each square below is one test we ran on Synnax v{run.version}{" "}
+                        (commit{" "}
+                        <a href={`${REPO}/commit/${run.sha}`}>
+                            <code>{run.sha.slice(0, 7)}</code>
+                        </a>
+                        ). Flaky and skipped tests are marked, and listed at the end of
+                        the page with the reason. Hover over a square to see its test,
+                        and click it to read the code.
+                    </span>
+                </Text.Text>
+                <Flex.Box x wrap gap="huge" className="reliability-stats">
+                    {RESULTS.map((stat) => (
+                        <Stat {...stat} />
+                    ))}
+                    <Divider.Divider y />
+                    {SCOPE.map((stat) => (
+                        <Stat {...stat} />
+                    ))}
+                </Flex.Box>
+                {byHand.map(([, tests]) => (
+                    <Flex.Box y gap="tiny" className="reliability-note">
+                        <Text.Text level="small" x gap="small" align="center">
+                            <Icon.Check className="reliability-hand" />
+                            <strong>
+                                {`${tests!.length} skipped tests passed manually${where(tests!)}.`}
+                            </strong>
+                        </Text.Text>
+                        <Text.Text
+                            level="small"
+                            color={8}
+                            className="reliability-note-detail"
+                        >
+                            {run.manual_note}
+                        </Text.Text>
+                    </Flex.Box>
+                ))}
+                <Text.Text level="small" color={8} className="reliability-prose">
+                    <span>
+                        Tested {date} in CI run <a href={run.url}>#{run.id}</a>
+                    </span>
+                </Text.Text>
+            </Flex.Box>
+
+            <Wall products={products} />
+
+            <Divider.Divider x />
+            <Text.Text level="h2" className="reliability-heading">
+                What the tests cover
+            </Text.Text>
+            <div class="reliability-bento">
+                {tiles.map(({ product: p, icon: TileIcon, span, protects }) => (
+                    <Flex.Box
+                        y
+                        gap="large"
+                        bordered
+                        rounded
+                        background={1}
+                        className={`reliability-tile reliability-tile--${p.key}`}
+                        style={{ gridColumn: `span ${span}` }}
+                    >
+                        <Flex.Box x justify="between" align="center">
+                            <Text.Text level="h4" x gap="medium" align="center">
+                                <span class="reliability-badge">
+                                    <TileIcon />
+                                </span>
+                                {p.name}
+                            </Text.Text>
+                            <Text.Text level="h3" variant="code">
+                                {fmt(p.tests.length)}
+                            </Text.Text>
+                        </Flex.Box>
+                        <Text.Text level="p" color={9}>
+                            {protects}
+                        </Text.Text>
+                        <Subsystems product={p} />
+                        <Text.Text
+                            level="small"
+                            color={8}
+                            className="reliability-footer"
+                        >
+                            {footer(p)}
+                        </Text.Text>
+                    </Flex.Box>
+                ))}
+            </div>
+
+            <Divider.Divider x />
+            <Text.Text level="h2" className="reliability-heading">
+                Tests that did not pass cleanly
+            </Text.Text>
+            <Text.Text level="p" color={9}>
+                A flaky test failed once, then passed when we ran it again. We list them
+                because a retry can hide a real bug. A skipped test could not run on our
+                CI machines.
+            </Text.Text>
+            <Flex.Box y className="reliability-unclean">
+                {unclean.map((t) => (
+                    <div class="reliability-unclean-item">
+                        <Text.Text level="small" weight={500} status={STATUS[t.state]}>
+                            {LABELS[t.state]}
+                        </Text.Text>
+                        <Text.Text level="small" variant="code" href={t.source}>
+                            {t.name}
+                        </Text.Text>
+                        <Text.Text level="small" color={9}>
+                            {t.message ?? "Passed on retry"}
+                        </Text.Text>
+                        <Text.Text level="small" variant="code" href={t.suite.url}>
+                            {t.suite.job} · {t.suite.os}
+                        </Text.Text>
+                    </div>
+                ))}
+                {skipped.map(([reason, tests]) => (
+                    <details class="reliability-skipped">
+                        <summary class="reliability-unclean-item">
+                            <Text.Text level="small" weight={500} status="disabled">
+                                Skipped
+                            </Text.Text>
+                            <Text.Text level="small" color={9}>
+                                {`${tests!.length} tests: ${reason}`}
+                            </Text.Text>
+                            {tests!.every((t) => t.passedByHand) && (
+                                <Text.Text
+                                    level="small"
+                                    x
+                                    gap="small"
+                                    align="center"
+                                    className="reliability-hand"
+                                >
+                                    <Icon.Check />
+                                    {`All passed manually${where(tests!)}`}
+                                </Text.Text>
+                            )}
+                        </summary>
+                        <Flex.Box y gap="small" className="reliability-skipped-list">
+                            {tests!.map((t) => (
+                                <Flex.Box x justify="between" gap="large">
+                                    <Text.Text
+                                        level="small"
+                                        variant="code"
+                                        href={t.source}
+                                    >
+                                        {t.name}
+                                    </Text.Text>
+                                    <Text.Text
+                                        level="small"
+                                        variant="code"
+                                        href={t.suite.url}
+                                    >
+                                        {t.suite.job} · {t.suite.os}
+                                    </Text.Text>
+                                </Flex.Box>
+                            ))}
+                        </Flex.Box>
+                    </details>
+                ))}
+            </Flex.Box>
+        </Flex.Box>
+    </section>
+</Root>
+
+<style is:global>
+    main > section:has(.reliability) {
+        max-width: 1240px;
+    }
+
+    .reliability {
+        min-width: 0;
+        gap: 4rem;
+        padding: 8rem 6rem 20rem;
+    }
+
+    .reliability-hero {
+        max-width: 150rem;
+        margin-bottom: 4rem;
+    }
+
+    /* Text is a flex box; the title flows as one line of text instead. */
+    .reliability-title {
+        display: block;
+    }
+
+    .reliability-total {
+        color: var(--pluto-gray-l11);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .reliability-prose > span {
+        display: block;
+    }
+
+    .pluto-text.reliability-hand,
+    svg.reliability-hand {
+        color: var(--pluto-success-z);
+    }
+
+    .reliability-note {
+        align-self: flex-start;
+        padding: 1rem 2rem;
+        border-radius: var(--pluto-border-radius-medium);
+        background: color-mix(in srgb, var(--pluto-success-z) 8%, transparent);
+        box-shadow: inset 0 0 0 1px
+            color-mix(in srgb, var(--pluto-success-z) 25%, transparent);
+
+        strong {
+            font-weight: 500;
+            color: var(--pluto-gray-l11);
+        }
+
+        /* Lines up with the text after the check icon. */
+        .reliability-note-detail {
+            padding-left: calc(var(--pluto-small-size) + 1rem);
+            font-size: calc(var(--pluto-small-size) * 0.85);
+        }
+    }
+
+    .reliability-heading {
+        margin-top: 4rem;
+    }
+
+    .reliability-bento {
+        display: grid;
+        grid-template-columns: repeat(12, 1fr);
+        gap: 3rem;
+    }
+
+    /* One accent per product, stepped for light and dark surfaces. Yellow and red are
+       left out because they mean flaky and failed. */
+    .reliability-tile {
+        --reliability-accent: var(--reliability-light);
+        padding: 4rem;
+        border-radius: var(--pluto-border-radius-large);
+        background-image: radial-gradient(
+            120% 90% at 100% 0%,
+            color-mix(in srgb, var(--reliability-accent) 16%, transparent),
+            transparent 65%
+        );
+        border-color: color-mix(in srgb, var(--reliability-accent) 30%, transparent);
+    }
+
+    .reliability-tile--core {
+        --reliability-light: #2a78d6;
+        --reliability-dark: #3987e5;
+    }
+
+    .reliability-tile--console {
+        --reliability-light: #e87ba4;
+        --reliability-dark: #d55181;
+    }
+
+    .reliability-tile--arc {
+        --reliability-light: #1baf7a;
+        --reliability-dark: #199e70;
+    }
+
+    .reliability-tile--clients {
+        --reliability-light: #4a3aa7;
+        --reliability-dark: #9085e9;
+    }
+
+    .reliability-tile--driver {
+        --reliability-light: #eb6834;
+        --reliability-dark: #d95926;
+    }
+
+    .reliability-tile--toolchain {
+        --reliability-light: #008300;
+        --reliability-dark: #3fa33f;
+    }
+
+    @media (prefers-color-scheme: dark) {
+        .reliability-tile {
+            --reliability-accent: var(--reliability-dark);
+        }
+    }
+
+    .reliability-footer {
+        margin-top: auto;
+        align-self: flex-end;
+    }
+
+    .reliability-badge {
+        display: grid;
+        flex-shrink: 0;
+        place-items: center;
+        width: 5.5rem;
+        height: 5.5rem;
+        border-radius: var(--pluto-border-radius-medium);
+        color: var(--reliability-accent);
+        background: color-mix(in srgb, var(--reliability-accent) 16%, transparent);
+        box-shadow: inset 0 0 0 1px
+            color-mix(in srgb, var(--reliability-accent) 35%, transparent);
+
+        svg {
+            width: 3rem;
+            height: 3rem;
+            color: inherit;
+        }
+    }
+
+    .reliability-unclean-item {
+        display: grid;
+        grid-template-columns: 12rem minmax(0, 1fr) 36rem 32rem;
+        gap: 3rem;
+        align-items: baseline;
+        padding: 2rem 0;
+        border-bottom: var(--pluto-border);
+        word-break: break-word;
+    }
+
+    .reliability-unclean-item:not(summary) > :last-child,
+    .reliability-skipped-list a:last-child {
+        justify-self: end;
+        white-space: nowrap;
+        color: var(--pluto-gray-l8);
+    }
+
+    .reliability-skipped {
+        width: 100%;
+
+        summary {
+            width: 100%;
+            cursor: pointer;
+            list-style: none;
+            grid-template-columns: 12rem 1fr auto;
+        }
+
+        &[open] summary {
+            border-bottom: none;
+        }
+    }
+
+    .reliability-skipped-list {
+        padding: 0 0 2rem 15rem;
+        border-bottom: var(--pluto-border);
+    }
+
+    @media (max-width: 900px) {
+        .reliability {
+            padding: 5rem 3rem 12rem;
+        }
+
+        .reliability-tile {
+            grid-column: span 12 !important;
+            padding: 3rem;
+        }
+
+        .reliability-stats {
+            gap: 4rem 6rem;
+        }
+
+        .reliability-stats > .pluto-divider {
+            display: none;
+        }
+
+        .reliability-unclean-item,
+        .reliability-skipped summary {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+
+        .reliability-unclean-item:not(summary) > :last-child,
+        .reliability-skipped-list a:last-child {
+            justify-self: start;
+        }
+
+        .reliability-skipped-list > * {
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .reliability-skipped-list {
+            padding-left: 0;
+        }
+    }
+</style>

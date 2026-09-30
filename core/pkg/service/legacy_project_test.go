@@ -13,10 +13,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/security"
-	secmock "github.com/synnaxlabs/synnax/pkg/security/mock"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
+	svcmock "github.com/synnaxlabs/synnax/pkg/service/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
@@ -32,15 +31,7 @@ var _ = Describe("Legacy project bundles", func() {
 	openLayer := func(ctx SpecContext) (*service.Layer, *gorp.DB) {
 		GinkgoHelper()
 		node := mock.NewNode(ctx)
-		sec := MustSucceed(security.NewProvider(security.ProviderConfig{
-			Insecure: new(true),
-			KeySize:  secmock.SmallKeySize,
-		}))
-		return MustOpen(service.OpenLayer(ctx, service.LayerConfig{
-			Distribution: node.Layer,
-			Security:     sec,
-			Storage:      node.Storage,
-		})), node.DB
+		return MustOpen(svcmock.OpenLayer(ctx, node)), node.DB
 	}
 
 	// importBundle imports the bundle directory at path and returns the layer it landed

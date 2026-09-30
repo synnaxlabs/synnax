@@ -142,7 +142,14 @@ the stored password is different, the Core changes it to match on the next start
 
 <Field.Item name="--license-key" type="string" env="SYNNAX_LICENSE_KEY">
 
-The license key that lets you use Synnax outside of demo mode.
+The license key to activate at start. See
+[Licensing](/reference/enterprise/production#licensing).
+
+</Field.Item>
+
+<Field.Item name="--license-file" type="path" env="SYNNAX_LICENSE_FILE">
+
+A file that holds the license key to activate at start.
 
 </Field.Item>
 
@@ -292,7 +299,7 @@ Here are example configuration files in various formats:
   "node-key": "node.key",
   "username": "synnax",
   "password": "seldon",
-  "license-key": "000000-00000000-0000000000",
+  "license-file": "/usr/local/synnax/synnax.license",
   "debug": false,
   "slow-consumer-timeout": "2.5s",
   "no-driver": false,
@@ -330,7 +337,7 @@ node-cert: node.crt
 node-key: node.key
 username: synnax
 password: seldon
-license-key: 000000-00000000-0000000000
+license-file: /usr/local/synnax/synnax.license
 no-driver: false
 disable-integrations: []
 enable-integrations: []
@@ -363,7 +370,7 @@ node-cert = "node.crt"
 node-key = "node.key"
 username = "synnax"
 password = "seldon"
-license-key = "000000-00000000-0000000000"
+license-file = "/usr/local/synnax/synnax.license"
 no-driver = false
 disable-integrations = []
 enable-integrations = []

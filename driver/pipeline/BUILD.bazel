@@ -24,6 +24,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp:synnax",
+        "//client/cpp/errors",
         "//driver/errors",
         "//driver/task",
         "//x/cpp/breaker",
@@ -40,6 +41,7 @@ cc_test(
         "control_test.cpp",
     ],
     deps = [
+        "//client/cpp/errors",
         "//driver/pipeline",
         "//driver/pipeline/mock",
         "//x/cpp/test",

@@ -44,8 +44,6 @@ export const baseAxisStateZ = axis.axisStateZ
   })
   .partial({ color: true, font: true, gridColor: true });
 
-export type BaseAxisState = z.infer<typeof baseAxisStateZ>;
-
 const AXIS_SIZE_UPDATE_UPPER_THRESHOLD = 2; // px;
 const AXIS_SIZE_UPDATE_LOWER_THRESHOLD = 7; // px;
 
@@ -58,7 +56,7 @@ export const withinSizeThreshold = (prev: number, next: number): boolean =>
     next,
   );
 
-export const EMPTY_LINEAR_BOUNDS = bounds.DECIMAL;
+const EMPTY_LINEAR_BOUNDS = bounds.DECIMAL;
 
 // Computed per call so an empty time axis tracks the present instead of app start.
 export const emptyBounds = (type: TickType): bounds.Bounds => {

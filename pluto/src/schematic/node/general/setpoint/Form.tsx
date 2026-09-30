@@ -22,7 +22,7 @@ import { Orientation } from "@/schematic/node/common/orientation";
 import { type FormProps } from "@/schematic/node/spec";
 import { Properties } from "@/vis/properties";
 
-export const SetpointTelemForm = ({ path }: { path: string }): ReactElement => {
+const SetpointTelemForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } =
     Base.useField<
       Pick<schematic.SetpointNodeConfig, "commandChannel" | "control" | "disabled">

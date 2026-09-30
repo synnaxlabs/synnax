@@ -71,14 +71,6 @@ export interface FindResult {
   bounds: bounds.Bounds;
 }
 
-export const ZERO_FIND_RESULT: FindResult = {
-  key: "",
-  position: xy.NAN,
-  value: xy.NAN,
-  color: color.ZERO,
-  bounds: bounds.ZERO,
-};
-
 export interface LineProps {
   /**
    * A box in pixel space representing the region of the display that the line should be

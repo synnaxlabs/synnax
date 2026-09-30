@@ -43,6 +43,11 @@ Neither script touches `.oracle` schema files.
   stable `core/v*` tag or the next one (the train rule). Needs tags fetched.
 - `bump_versions.sh <version>` — sets a new semver (`X.Y.Z`) across those manifests.
   Release tooling; don't run ad hoc against a dirty tree.
+- `uv run reliability.py <run-url> --version <X.Y.Z>`: builds the docs reliability page
+  data from a CI run and uploads it to DigitalOcean Spaces. Redeploy the docs to publish
+  it. Needs `gh` auth, `DO_SPACES_KEY`, and `DO_SPACES_SECRET`.
+  `--manual-pass <skip reason>` notes that the tests skipped for that reason were run by
+  hand and passed; `--manual-note <text>` says why, on the page.
 
 ## Workflow-only scripts (`.github/scripts/`)
 
