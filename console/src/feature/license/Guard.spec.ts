@@ -89,7 +89,7 @@ describe("License.Guard", () => {
     const picker = interceptFilePicker();
     await renderGuard(null, UNLICENSED_STATUS);
     fireEvent.click(findButton("Select file"));
-    picker.selectFiles([fakePickedFile("synnax.license", "abc.def.ghi\n")]);
+    picker.selectFiles([fakePickedFile("synnax.lic", "abc.def.ghi\n")]);
     await waitFor(() => {
       const input = getKeyField();
       if (!(input instanceof HTMLTextAreaElement)) throw new Error("not a textarea");

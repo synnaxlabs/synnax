@@ -30,7 +30,7 @@ import { Session } from "@/session";
 /** The portal page that issues a license key for a host fingerprint. */
 const PORTAL_ACTIVATE_URL = "https://portal.synnaxlabs.com/licenses/activate";
 
-const KEY_FILE_EXTENSION = "license";
+const KEY_FILE_EXTENSION = "lic";
 
 const decoder = new TextDecoder();
 
