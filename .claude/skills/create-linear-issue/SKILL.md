@@ -38,17 +38,10 @@ One Type, one Package, zero or one Area.
   control, Statuses, Nodes and clusters. Use the integration (NI), not Tasks, for an
   integration-specific issue.
 
-## Priority: when we act
+## Priority
 
-| Priority | Meaning                                                               |
-| -------- | --------------------------------------------------------------------- |
-| Urgent   | Within hours: a blocked customer or release, broken production or CI. |
-| High     | This cycle or next.                                                   |
-| Medium   | This quarter. The floor for customer requests.                        |
-| Low      | Someday. Never cancel for age.                                        |
-
-For a customer request, link the request (for example the Plain thread). Never write a
-customer's name in the repo.
+Use the table in `CONTRIBUTING.md` under "Issue priority". For a customer request, link
+the request (for example the Plain thread). Never write a customer's name in the repo.
 
 ## Estimate: human attention, not coding time
 
@@ -79,6 +72,6 @@ to fill" instead of guessing. Title an unconfirmed, possibly fixed bug "Verify â
 ## After saving
 
 - `save_issue` can report success without applying. Check the returned `updatedAt` and
-  title; save again if either is stale.
+  every field you changed; save again if any is stale.
 - Marking an issue Done adds it to the current cycle. Clear it with `cycle: null` when
   the work was not done this cycle.
