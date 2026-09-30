@@ -249,7 +249,7 @@ func (c *Calculator) Next(
 	input,
 	output framer.Frame,
 ) (framer.Frame, bool, error) {
-	c.state.channel.Ingest(c.pad(input).ToStorage())
+	c.state.channel.Ingest(input.ToStorage())
 	var (
 		ofr         = output.ToStorage()
 		currChanged bool
@@ -284,43 +284,6 @@ func (c *Calculator) Next(
 		return output, false, nil
 	}
 	return frame.NewFromStorage(ofr), true, nil
-}
-
-// pad appends the last buffered sample of every read channel input omits while its
-// index is present, aligned to that index. Delete once SY-5002 lands in the runtime.
-func (c *Calculator) pad(input framer.Frame) framer.Frame {
-	var pads framer.Frame
-	for _, d := range c.deps.ChannelDigests {
-		key := channel.Key(d.Key)
-		if d.Index == 0 || !c.deps.Reads.Contains(key) || input.Get(key).Len() > 0 {
-			continue
-		}
-		index := input.Get(channel.Key(d.Index))
-		if index.Len() == 0 {
-			continue
-		}
-		last, ok := c.state.channel.ReadValue(d.Key)
-		if !ok {
-			continue
-		}
-		pad := lastSample(last)
-		pad.Alignment = index.Series[0].Alignment
-		pad.TimeRange = index.Series[0].TimeRange
-		pads = pads.Append(key, pad)
-	}
-	if pads.Count() == 0 {
-		return input
-	}
-	return input.ShallowCopy().Extend(pads)
-}
-
-// lastSample returns a one-sample series holding the last sample of s.
-func lastSample(s telem.Series) telem.Series {
-	data := s.At(-1)
-	if s.DataType.IsVariable() {
-		data = telem.NewSeriesV(string(data)).Data
-	}
-	return telem.Series{DataType: s.DataType, Data: data}
 }
 
 func (c *Calculator) Close() error {

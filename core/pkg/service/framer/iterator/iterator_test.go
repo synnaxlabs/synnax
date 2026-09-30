@@ -76,23 +76,10 @@ func openServices(
 	return iteratorSvc, channelSvc
 }
 
-// flatten concatenates the values of every series.
-func flatten[T telem.FixedSample](series []telem.Series) []T {
-	var out []T
-	for _, s := range series {
-		for i := range int(s.Len()) {
-			out = append(out, s.ValueAt[T](i))
-		}
-	}
-	return out
-}
-
-func seconds(values ...int64) []telem.TimeStamp {
-	out := make([]telem.TimeStamp, len(values))
-	for i, v := range values {
-		out[i] = telem.SecondTS * telem.TimeStamp(v)
-	}
-	return out
+// merged concatenates every series into one.
+func merged(series []telem.Series) telem.Series {
+	ms := telem.MultiSeries{Series: series}
+	return telem.Series{DataType: ms.DataType(), Data: ms.Data()}
 }
 
 var _ = Describe("StreamIterator", Ordered, func() {
@@ -1255,21 +1242,20 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				write := func(
 					ctx SpecContext,
 					index *channel.Channel,
-					stamps []int64,
+					stamps []telem.TimeStamp,
 					channels []*channel.Channel,
 					values ...[]float32,
 				) {
 					GinkgoHelper()
+					start := telem.SecondTS * stamps[0]
 					keys := []channel.Key{index.Key()}
-					series := []telem.Series{
-						telem.NewSeriesV[telem.TimeStamp](seconds(stamps...)...),
-					}
+					series := []telem.Series{telem.NewSeriesSecondsTSV(stamps...)}
 					for i, ch := range channels {
 						keys = append(keys, ch.Key())
 						series = append(series, telem.NewSeriesV[float32](values[i]...))
 					}
 					w := MustSucceed(node.Framer.OpenWriter(ctx, framer.WriterConfig{
-						Start:            telem.SecondTS * telem.TimeStamp(stamps[0]),
+						Start:            start,
 						Keys:             keys,
 						EnableAutoCommit: new(true),
 					}))
@@ -1302,14 +1288,14 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					write(
 						ctx,
 						c.index,
-						[]int64{1},
+						[]telem.TimeStamp{1},
 						[]*channel.Channel{c.a},
 						[]float32{10},
 					)
 					write(
 						ctx,
 						c.index,
-						[]int64{2, 3, 4},
+						[]telem.TimeStamp{2, 3, 4},
 						[]*channel.Channel{c.a, c.b},
 						[]float32{20, 30, 40},
 						[]float32{2, 3, 4},
@@ -1321,7 +1307,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					write(
 						ctx,
 						c.index,
-						[]int64{1, 2, 3},
+						[]telem.TimeStamp{1, 2, 3},
 						[]*channel.Channel{c.a, c.b},
 						[]float32{10, 20, 30},
 						[]float32{1, 2, 3},
@@ -1329,7 +1315,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					write(
 						ctx,
 						c.index,
-						[]int64{4},
+						[]telem.TimeStamp{4},
 						[]*channel.Channel{c.a},
 						[]float32{40},
 					)
@@ -1341,11 +1327,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					c := newChain(ctx, "first")
 					writeFirstAlone(ctx, c)
 					out := read(ctx, iterator.AutoSpan, c.sum.Key(), c.sum.Index())
-					Expect(flatten[float32](out[c.sum.Key()])).To(Equal(
-						[]float32{22, 33, 44},
-					))
-					Expect(flatten[telem.TimeStamp](out[c.sum.Index()])).To(Equal(
-						seconds(2, 3, 4),
+					Expect(merged(out[c.sum.Key()])).To(
+						telem.MatchSeriesDataV[float32](22, 33, 44),
+					)
+					Expect(merged(out[c.sum.Index()])).To(telem.MatchSeriesData(
+						telem.NewSeriesSecondsTSV(2, 3, 4),
 					))
 				})
 
@@ -1356,7 +1342,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					write(
 						ctx,
 						c.index,
-						[]int64{1, 2},
+						[]telem.TimeStamp{1, 2},
 						[]*channel.Channel{c.a, c.b},
 						[]float32{10, 20},
 						[]float32{1, 2},
@@ -1364,24 +1350,24 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					write(
 						ctx,
 						c.index,
-						[]int64{3},
+						[]telem.TimeStamp{3},
 						[]*channel.Channel{c.a},
 						[]float32{30},
 					)
 					write(
 						ctx,
 						c.index,
-						[]int64{4, 5},
+						[]telem.TimeStamp{4, 5},
 						[]*channel.Channel{c.a, c.b},
 						[]float32{40, 50},
 						[]float32{4, 5},
 					)
 					out := read(ctx, iterator.AutoSpan, c.sum.Key(), c.sum.Index())
-					Expect(flatten[float32](out[c.sum.Key()])).To(Equal(
-						[]float32{11, 22, 32, 44, 55},
-					))
-					Expect(flatten[telem.TimeStamp](out[c.sum.Index()])).To(Equal(
-						seconds(1, 2, 3, 4, 5),
+					Expect(merged(out[c.sum.Key()])).To(
+						telem.MatchSeriesDataV[float32](11, 22, 32, 44, 55),
+					)
+					Expect(merged(out[c.sum.Index()])).To(telem.MatchSeriesData(
+						telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5),
 					))
 				})
 
@@ -1391,11 +1377,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					c := newChain(ctx, "last")
 					writeLastAlone(ctx, c)
 					out := read(ctx, iterator.AutoSpan, c.sum.Key(), c.sum.Index())
-					Expect(flatten[float32](out[c.sum.Key()])).To(Equal(
-						[]float32{11, 22, 33, 43},
-					))
-					Expect(flatten[telem.TimeStamp](out[c.sum.Index()])).To(Equal(
-						seconds(1, 2, 3, 4),
+					Expect(merged(out[c.sum.Key()])).To(
+						telem.MatchSeriesDataV[float32](11, 22, 33, 43),
+					)
+					Expect(merged(out[c.sum.Index()])).To(telem.MatchSeriesData(
+						telem.NewSeriesSecondsTSV(1, 2, 3, 4),
 					))
 				})
 
@@ -1406,7 +1392,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					write(
 						ctx,
 						c.index,
-						[]int64{1, 2, 3},
+						[]telem.TimeStamp{1, 2, 3},
 						[]*channel.Channel{c.a},
 						[]float32{10, 20, 30},
 					)
@@ -1420,11 +1406,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					))).To(BeTrue())
 					Expect(w.Close()).To(Succeed())
 					out := read(ctx, iterator.AutoSpan, c.sum.Key(), c.sum.Index())
-					Expect(flatten[float32](out[c.sum.Key()])).To(Equal(
-						[]float32{12, 22, 32},
-					))
-					Expect(flatten[telem.TimeStamp](out[c.sum.Index()])).To(Equal(
-						seconds(1, 2, 3),
+					Expect(merged(out[c.sum.Key()])).To(
+						telem.MatchSeriesDataV[float32](12, 22, 32),
+					)
+					Expect(merged(out[c.sum.Index()])).To(telem.MatchSeriesData(
+						telem.NewSeriesSecondsTSV(1, 2, 3),
 					))
 				})
 
@@ -1436,12 +1422,12 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					out := read(
 						ctx, iterator.AutoSpan, c.sum.Key(), c.sum.Index(), c.b.Key(),
 					)
-					Expect(flatten[float32](out[c.b.Key()])).To(Equal(
-						[]float32{1, 2, 3},
-					))
-					Expect(flatten[float32](out[c.sum.Key()])).To(Equal(
-						[]float32{11, 22, 33, 43},
-					))
+					Expect(merged(out[c.b.Key()])).To(
+						telem.MatchSeriesDataV[float32](1, 2, 3),
+					)
+					Expect(merged(out[c.sum.Key()])).To(
+						telem.MatchSeriesDataV[float32](11, 22, 33, 43),
+					)
 				})
 
 				It("Should hold the last value across iterator spans", func(
@@ -1450,11 +1436,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					c := newChain(ctx, "hold_spans")
 					writeLastAlone(ctx, c)
 					out := read(ctx, telem.Second, c.sum.Key(), c.sum.Index())
-					Expect(flatten[float32](out[c.sum.Key()])).To(Equal(
-						[]float32{11, 22, 33, 43},
-					))
-					Expect(flatten[telem.TimeStamp](out[c.sum.Index()])).To(Equal(
-						seconds(1, 2, 3, 4),
+					Expect(merged(out[c.sum.Key()])).To(
+						telem.MatchSeriesDataV[float32](11, 22, 33, 43),
+					)
+					Expect(merged(out[c.sum.Index()])).To(telem.MatchSeriesData(
+						telem.NewSeriesSecondsTSV(1, 2, 3, 4),
 					))
 				})
 
@@ -1465,7 +1451,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					write(
 						ctx,
 						c.index,
-						[]int64{1, 2},
+						[]telem.TimeStamp{1, 2},
 						[]*channel.Channel{c.a, c.b},
 						[]float32{10, 20},
 						[]float32{1, 2},
@@ -1473,31 +1459,31 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					write(
 						ctx,
 						c.index,
-						[]int64{3},
+						[]telem.TimeStamp{3},
 						[]*channel.Channel{c.a},
 						[]float32{30},
 					)
 					write(
 						ctx,
 						c.index,
-						[]int64{4},
+						[]telem.TimeStamp{4},
 						[]*channel.Channel{c.a},
 						[]float32{40},
 					)
 					write(
 						ctx,
 						c.index,
-						[]int64{5},
+						[]telem.TimeStamp{5},
 						[]*channel.Channel{c.a, c.b},
 						[]float32{50},
 						[]float32{5},
 					)
 					out := read(ctx, iterator.AutoSpan, c.sum.Key(), c.sum.Index())
-					Expect(flatten[float32](out[c.sum.Key()])).To(Equal(
-						[]float32{11, 22, 32, 42, 55},
-					))
-					Expect(flatten[telem.TimeStamp](out[c.sum.Index()])).To(Equal(
-						seconds(1, 2, 3, 4, 5),
+					Expect(merged(out[c.sum.Key()])).To(
+						telem.MatchSeriesDataV[float32](11, 22, 32, 42, 55),
+					)
+					Expect(merged(out[c.sum.Index()])).To(telem.MatchSeriesData(
+						telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5),
 					))
 				})
 
@@ -1513,11 +1499,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expect(channelWriter.Create(ctx, nested)).To(Succeed())
 					writeLastAlone(ctx, c)
 					out := read(ctx, iterator.AutoSpan, nested.Key(), nested.Index())
-					Expect(flatten[float32](out[nested.Key()])).To(Equal(
-						[]float32{21, 42, 63, 83},
-					))
-					Expect(flatten[telem.TimeStamp](out[nested.Index()])).To(Equal(
-						seconds(1, 2, 3, 4),
+					Expect(merged(out[nested.Key()])).To(
+						telem.MatchSeriesDataV[float32](21, 42, 63, 83),
+					)
+					Expect(merged(out[nested.Index()])).To(telem.MatchSeriesData(
+						telem.NewSeriesSecondsTSV(1, 2, 3, 4),
 					))
 				})
 
@@ -1533,11 +1519,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expect(channelWriter.Create(ctx, nested)).To(Succeed())
 					writeFirstAlone(ctx, c)
 					out := read(ctx, iterator.AutoSpan, nested.Key(), nested.Index())
-					Expect(flatten[float32](out[nested.Key()])).To(Equal(
-						[]float32{42, 63, 84},
-					))
-					Expect(flatten[telem.TimeStamp](out[nested.Index()])).To(Equal(
-						seconds(2, 3, 4),
+					Expect(merged(out[nested.Key()])).To(
+						telem.MatchSeriesDataV[float32](42, 63, 84),
+					)
+					Expect(merged(out[nested.Index()])).To(telem.MatchSeriesData(
+						telem.NewSeriesSecondsTSV(2, 3, 4),
 					))
 				})
 
@@ -1545,11 +1531,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					c := newChain(ctx, "spans")
 					writeFirstAlone(ctx, c)
 					out := read(ctx, telem.Second, c.sum.Key(), c.sum.Index())
-					Expect(flatten[float32](out[c.sum.Key()])).To(Equal(
-						[]float32{22, 33, 44},
-					))
-					Expect(flatten[telem.TimeStamp](out[c.sum.Index()])).To(Equal(
-						seconds(2, 3, 4),
+					Expect(merged(out[c.sum.Key()])).To(
+						telem.MatchSeriesDataV[float32](22, 33, 44),
+					)
+					Expect(merged(out[c.sum.Index()])).To(telem.MatchSeriesData(
+						telem.NewSeriesSecondsTSV(2, 3, 4),
 					))
 				})
 
@@ -1561,12 +1547,12 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					out := read(
 						ctx, iterator.AutoSpan, c.sum.Key(), c.sum.Index(), c.a.Key(),
 					)
-					Expect(flatten[float32](out[c.a.Key()])).To(Equal(
-						[]float32{10, 20, 30, 40},
-					))
-					Expect(flatten[float32](out[c.sum.Key()])).To(Equal(
-						[]float32{22, 33, 44},
-					))
+					Expect(merged(out[c.a.Key()])).To(
+						telem.MatchSeriesDataV[float32](10, 20, 30, 40),
+					)
+					Expect(merged(out[c.sum.Key()])).To(
+						telem.MatchSeriesDataV[float32](22, 33, 44),
+					)
 				})
 
 				PIt("Should align inputs on different indexes by time", func(
@@ -1594,18 +1580,30 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					write(
 						ctx,
 						c.index,
-						[]int64{1, 2, 3, 4},
+						[]telem.TimeStamp{1, 2, 3, 4},
 						[]*channel.Channel{c.a},
 						[]float32{10, 20, 30, 40},
 					)
-					write(ctx, index2, []int64{1}, []*channel.Channel{b2}, []float32{1})
-					write(ctx, index2, []int64{3}, []*channel.Channel{b2}, []float32{3})
+					write(
+						ctx,
+						index2,
+						[]telem.TimeStamp{1},
+						[]*channel.Channel{b2},
+						[]float32{1},
+					)
+					write(
+						ctx,
+						index2,
+						[]telem.TimeStamp{3},
+						[]*channel.Channel{b2},
+						[]float32{3},
+					)
 					out := read(ctx, iterator.AutoSpan, mixed.Key(), mixed.Index())
-					Expect(flatten[float32](out[mixed.Key()])).To(Equal(
-						[]float32{11, 21, 33, 43},
-					))
-					Expect(flatten[telem.TimeStamp](out[mixed.Index()])).To(Equal(
-						seconds(1, 2, 3, 4),
+					Expect(merged(out[mixed.Key()])).To(
+						telem.MatchSeriesDataV[float32](11, 21, 33, 43),
+					)
+					Expect(merged(out[mixed.Index()])).To(telem.MatchSeriesData(
+						telem.NewSeriesSecondsTSV(1, 2, 3, 4),
 					))
 				})
 			})
