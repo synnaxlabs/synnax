@@ -62,7 +62,7 @@ export const SelectForm = ({ tab, onTabChange }: FormProps): ReactElement => (
           <Label.Form path="label" />
         </Base.Section>
         <Base.Section title="Appearance">
-          <Form.FillField />
+          <Form.FillField fallback={Form.primaryFallback} />
           <Form.SizeField />
           <Base.NumericField
             path="inlineSize"

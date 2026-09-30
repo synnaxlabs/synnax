@@ -87,6 +87,9 @@ const generateRoundedPolygonPath = (
   return path.join(" ");
 };
 
+/** @returns the fill a polygon paints while its fill color is absent. */
+export const fillFallback = (theme: Theming.Theme): color.Color => theme.colors.gray.l1;
+
 export const Polygon = ({
   numSides,
   sideLength,
@@ -119,7 +122,7 @@ export const Polygon = ({
       >
         <Primitive.Path
           d={path}
-          fill={color.cssString(fillColor ?? theme.colors.gray.l1)}
+          fill={color.cssString(fillColor ?? fillFallback(theme))}
           strokeWidth={strokeWidth ?? 2}
         />
       </Primitive.SVG>

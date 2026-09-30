@@ -15,6 +15,8 @@ import { type z } from "zod";
 import { Aether } from "@/aether";
 import { gauge } from "@/vis/gauge/aether";
 
+export const colorFallback = gauge.colorFallback;
+
 export const basePropsZ = gauge.Gauge.z
   .partial({ color: true })
   .extend({ level: text.levelZ.optional() });

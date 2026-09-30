@@ -521,6 +521,9 @@ func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {
 		if err := v.LabeledConfig.EncodeOrc(w); err != nil {
 			return err
 		}
+		if err := v.ScaledConfig.EncodeOrc(w); err != nil {
+			return err
+		}
 		if err := v.StalenessConfig.EncodeOrc(w); err != nil {
 			return err
 		}
@@ -572,10 +575,9 @@ func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {
 		w.Float64(float64(v.StrokeWidth))
 	case OffPageReferenceElementConfig:
 		w.String("off_page_reference")
-		if err := v.Label.EncodeOrc(w); err != nil {
+		if err := v.LabeledConfig.EncodeOrc(w); err != nil {
 			return err
 		}
-		w.String(string(v.Orientation))
 		if v.FillColor != nil {
 			w.Bool(true)
 			if err := v.FillColor.EncodeOrc(w); err != nil {
@@ -1157,6 +1159,9 @@ func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {
 		if err := v.LabeledConfig.EncodeOrc(w); err != nil {
 			return err
 		}
+		if err := v.ScaledConfig.EncodeOrc(w); err != nil {
+			return err
+		}
 		if err := v.Dimensions.EncodeOrc(w); err != nil {
 			return err
 		}
@@ -1290,6 +1295,9 @@ func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {
 	case CustomStaticElementConfig:
 		w.String("custom_static")
 		if err := v.LabeledConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.ScaledConfig.EncodeOrc(w); err != nil {
 			return err
 		}
 		w.String(v.SpecKey)
@@ -1812,6 +1820,9 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 		if err := v.LabeledConfig.DecodeOrc(r); err != nil {
 			return err
 		}
+		if err := v.ScaledConfig.DecodeOrc(r); err != nil {
+			return err
+		}
 		if err := v.StalenessConfig.DecodeOrc(r); err != nil {
 			return err
 		}
@@ -1902,15 +1913,8 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 		ec.Variant = v
 	case "off_page_reference":
 		var v OffPageReferenceElementConfig
-		if err = v.Label.DecodeOrc(r); err != nil {
+		if err := v.LabeledConfig.DecodeOrc(r); err != nil {
 			return err
-		}
-		{
-			rawV, err := r.String()
-			if err != nil {
-				return err
-			}
-			v.Orientation = spatial.OuterLocation(rawV)
 		}
 		{
 			present, err := r.Bool()
@@ -2815,6 +2819,9 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 		if err := v.LabeledConfig.DecodeOrc(r); err != nil {
 			return err
 		}
+		if err := v.ScaledConfig.DecodeOrc(r); err != nil {
+			return err
+		}
 		if err = v.Dimensions.DecodeOrc(r); err != nil {
 			return err
 		}
@@ -3068,6 +3075,9 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 		if err := v.LabeledConfig.DecodeOrc(r); err != nil {
 			return err
 		}
+		if err := v.ScaledConfig.DecodeOrc(r); err != nil {
+			return err
+		}
 		if v.SpecKey, err = r.String(); err != nil {
 			return err
 		}
@@ -3219,7 +3229,6 @@ func (lc LabeledConfig) EncodeOrc(w *orc.Writer) error {
 		return err
 	}
 	w.String(string(lc.Orientation))
-	w.Float64(float64(lc.Scale))
 	return nil
 }
 
@@ -3235,9 +3244,6 @@ func (lc *LabeledConfig) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		lc.Orientation = spatial.OuterLocation(rawV)
-	}
-	if lc.Scale, err = r.Float64(); err != nil {
-		return err
 	}
 	return nil
 }
@@ -3533,6 +3539,9 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 		if err := v.LabeledConfig.EncodeOrc(w); err != nil {
 			return err
 		}
+		if err := v.ScaledConfig.EncodeOrc(w); err != nil {
+			return err
+		}
 		if err := v.StalenessConfig.EncodeOrc(w); err != nil {
 			return err
 		}
@@ -3584,10 +3593,9 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 		w.Float64(float64(v.StrokeWidth))
 	case OffPageReferenceNodeConfig:
 		w.String("off_page_reference")
-		if err := v.Label.EncodeOrc(w); err != nil {
+		if err := v.LabeledConfig.EncodeOrc(w); err != nil {
 			return err
 		}
-		w.String(string(v.Orientation))
 		if v.FillColor != nil {
 			w.Bool(true)
 			if err := v.FillColor.EncodeOrc(w); err != nil {
@@ -4169,6 +4177,9 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 		if err := v.LabeledConfig.EncodeOrc(w); err != nil {
 			return err
 		}
+		if err := v.ScaledConfig.EncodeOrc(w); err != nil {
+			return err
+		}
 		if err := v.Dimensions.EncodeOrc(w); err != nil {
 			return err
 		}
@@ -4302,6 +4313,9 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 	case CustomStaticNodeConfig:
 		w.String("custom_static")
 		if err := v.LabeledConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.ScaledConfig.EncodeOrc(w); err != nil {
 			return err
 		}
 		w.String(v.SpecKey)
@@ -4789,6 +4803,9 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 		if err := v.LabeledConfig.DecodeOrc(r); err != nil {
 			return err
 		}
+		if err := v.ScaledConfig.DecodeOrc(r); err != nil {
+			return err
+		}
 		if err := v.StalenessConfig.DecodeOrc(r); err != nil {
 			return err
 		}
@@ -4879,15 +4896,8 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 		nc.Variant = v
 	case "off_page_reference":
 		var v OffPageReferenceNodeConfig
-		if err = v.Label.DecodeOrc(r); err != nil {
+		if err := v.LabeledConfig.DecodeOrc(r); err != nil {
 			return err
-		}
-		{
-			rawV, err := r.String()
-			if err != nil {
-				return err
-			}
-			v.Orientation = spatial.OuterLocation(rawV)
 		}
 		{
 			present, err := r.Bool()
@@ -5792,6 +5802,9 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 		if err := v.LabeledConfig.DecodeOrc(r); err != nil {
 			return err
 		}
+		if err := v.ScaledConfig.DecodeOrc(r); err != nil {
+			return err
+		}
 		if err = v.Dimensions.DecodeOrc(r); err != nil {
 			return err
 		}
@@ -6043,6 +6056,9 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 	case "custom_static":
 		var v CustomStaticNodeConfig
 		if err := v.LabeledConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err := v.ScaledConfig.DecodeOrc(r); err != nil {
 			return err
 		}
 		if v.SpecKey, err = r.String(); err != nil {
@@ -6382,6 +6398,21 @@ func (sic *ScaleIndicatorConfig) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		sic.Level = text.Level(rawV)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (sc ScaledConfig) EncodeOrc(w *orc.Writer) error {
+	w.Float64(float64(sc.Scale))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (sc *ScaledConfig) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if sc.Scale, err = r.Float64(); err != nil {
+		return err
 	}
 	return nil
 }

@@ -143,7 +143,7 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
         </Base.Field>
       </Base.Section>
       <Base.Section title="Appearance">
-        <Form.FillField />
+        <Form.FillField fallback={Form.defaultFallback} />
       </Base.Section>
       <Orientation.Section path="" hideOuter />
     </Base.Sections>

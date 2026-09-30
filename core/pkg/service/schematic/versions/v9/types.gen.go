@@ -445,17 +445,12 @@ type LabeledConfig struct {
 	Label LabelConfig `json:"label" msgpack:"label"`
 	// Orientation is the orientation of the symbol's primitive within the diagram.
 	Orientation spatial.OuterLocation `json:"orientation" msgpack:"orientation"`
-	// Scale is the rendered scale multiplier of the symbol.
-	Scale float64 `json:"scale" msgpack:"scale"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (l *LabeledConfig) ApplyDefaults() {
 	if l.Orientation == "" {
 		l.Orientation = spatial.OuterLocationLeft
-	}
-	if l.Scale == 0 {
-		l.Scale = 1
 	}
 	l.Label.ApplyDefaults()
 }
@@ -504,6 +499,7 @@ func (c ControlStateConfig) Validate() error {
 // telemetry pair.
 type ToggleConfig struct {
 	LabeledConfig
+	ScaledConfig
 	StalenessConfig
 	// StateChannel is the channel whose value drives the symbol's active state.
 	StateChannel *channel.Key `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
@@ -518,6 +514,7 @@ type ToggleConfig struct {
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (t *ToggleConfig) ApplyDefaults() {
 	t.LabeledConfig.ApplyDefaults()
+	t.ScaledConfig.ApplyDefaults()
 	t.StalenessConfig.ApplyDefaults()
 	if t.Control != nil {
 		t.Control.ApplyDefaults()
@@ -538,6 +535,7 @@ func (t ToggleConfig) Validate() error {
 // StaticSymbolConfig is the configuration for non-interactive labeled symbols.
 type StaticSymbolConfig struct {
 	LabeledConfig
+	ScaledConfig
 	// StrokeColor is the stroke color of the symbol.
 	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 }
@@ -545,6 +543,7 @@ type StaticSymbolConfig struct {
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *StaticSymbolConfig) ApplyDefaults() {
 	s.LabeledConfig.ApplyDefaults()
+	s.ScaledConfig.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -580,6 +579,7 @@ func (t ToggleSymbolConfig) Validate() error {
 // from local state without binding to telemetry.
 type DummyToggleSymbolConfig struct {
 	LabeledConfig
+	ScaledConfig
 	// Enabled indicates whether the symbol renders in its active state.
 	Enabled bool `json:"enabled" msgpack:"enabled"`
 	// Clickable indicates whether clicking the symbol toggles its state.
@@ -592,6 +592,7 @@ type DummyToggleSymbolConfig struct {
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (d *DummyToggleSymbolConfig) ApplyDefaults() {
 	d.LabeledConfig.ApplyDefaults()
+	d.ScaledConfig.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1432,6 +1433,7 @@ func (i InputNodeConfig) Validate() error {
 // LightNodeConfig is the configuration for indicator light symbols.
 type LightNodeConfig struct {
 	LabeledConfig
+	ScaledConfig
 	StalenessConfig
 	// Channel is the channel whose value drives the light's on state.
 	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
@@ -1448,6 +1450,7 @@ func (LightNodeConfig) isNodeConfigVariant() {}
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (l *LightNodeConfig) ApplyDefaults() {
 	l.LabeledConfig.ApplyDefaults()
+	l.ScaledConfig.ApplyDefaults()
 	l.StalenessConfig.ApplyDefaults()
 }
 
@@ -1485,10 +1488,7 @@ func (l *LineNodeConfig) ApplyDefaults() {
 
 // OffPageReferenceNodeConfig is the configuration for off-page reference symbols.
 type OffPageReferenceNodeConfig struct {
-	// Label is the symbol's label configuration.
-	Label LabelConfig `json:"label" msgpack:"label"`
-	// Orientation is the direction the reference arrow points.
-	Orientation spatial.OuterLocation `json:"orientation" msgpack:"orientation"`
+	LabeledConfig
 	// FillColor is the fill color of a linked reference. An unlinked reference draws
 	// its outline in this color.
 	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
@@ -1505,7 +1505,7 @@ func (o *OffPageReferenceNodeConfig) ApplyDefaults() {
 	if o.Orientation == "" {
 		o.Orientation = spatial.OuterLocationRight
 	}
-	o.Label.ApplyDefaults()
+	o.LabeledConfig.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1513,7 +1513,7 @@ func (o *OffPageReferenceNodeConfig) ApplyDefaults() {
 func (o OffPageReferenceNodeConfig) Validate() error {
 	v := validate.New("OffPageReferenceNodeConfig")
 	v.Ternaryf("orientation", !o.Orientation.IsValid(), "invalid orientation: %v", o.Orientation)
-	v.Exec(func() error { return validate.PathedError(o.Label.Validate(), "label") })
+	v.Exec(o.LabeledConfig.Validate)
 	if o.Page != nil {
 		v.Exec(func() error { return validate.PathedError(o.Page.Validate(), "page") })
 	}
@@ -2977,6 +2977,7 @@ func (c CrossJunctionNodeConfig) Validate() error {
 // CylinderNodeConfig is the configuration for cylinder vessel symbols.
 type CylinderNodeConfig struct {
 	LabeledConfig
+	ScaledConfig
 	// Dimensions is the rendered size of the cylinder in pixels.
 	Dimensions spatial.Dimensions `json:"dimensions" msgpack:"dimensions"`
 	// BorderRadius is the corner radius of the cylinder.
@@ -2998,6 +2999,7 @@ func (c *CylinderNodeConfig) ApplyDefaults() {
 		c.Dimensions.Height = 181
 	}
 	c.LabeledConfig.ApplyDefaults()
+	c.ScaledConfig.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -3174,6 +3176,7 @@ func (c CustomActuatorNodeConfig) Validate() error {
 // CustomStaticNodeConfig is the configuration for user-defined static symbols.
 type CustomStaticNodeConfig struct {
 	LabeledConfig
+	ScaledConfig
 	// SpecKey is the key of the custom symbol spec this instance renders.
 	SpecKey string `json:"spec_key" msgpack:"spec_key"`
 	// StateOverrides contains per-instance overrides of the spec's visual states,
@@ -3186,6 +3189,7 @@ func (CustomStaticNodeConfig) isNodeConfigVariant() {}
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CustomStaticNodeConfig) ApplyDefaults() {
 	c.LabeledConfig.ApplyDefaults()
+	c.ScaledConfig.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -5744,6 +5748,7 @@ func (i InputElementConfig) Validate() error {
 // LightElementConfig is the configuration for indicator light symbols.
 type LightElementConfig struct {
 	LabeledConfig
+	ScaledConfig
 	StalenessConfig
 	// Channel is the channel whose value drives the light's on state.
 	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
@@ -5760,6 +5765,7 @@ func (LightElementConfig) isElementConfigVariant() {}
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (l *LightElementConfig) ApplyDefaults() {
 	l.LabeledConfig.ApplyDefaults()
+	l.ScaledConfig.ApplyDefaults()
 	l.StalenessConfig.ApplyDefaults()
 }
 
@@ -5797,10 +5803,7 @@ func (l *LineElementConfig) ApplyDefaults() {
 
 // OffPageReferenceElementConfig is the configuration for off-page reference symbols.
 type OffPageReferenceElementConfig struct {
-	// Label is the symbol's label configuration.
-	Label LabelConfig `json:"label" msgpack:"label"`
-	// Orientation is the direction the reference arrow points.
-	Orientation spatial.OuterLocation `json:"orientation" msgpack:"orientation"`
+	LabeledConfig
 	// FillColor is the fill color of a linked reference. An unlinked reference draws
 	// its outline in this color.
 	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
@@ -5817,7 +5820,7 @@ func (o *OffPageReferenceElementConfig) ApplyDefaults() {
 	if o.Orientation == "" {
 		o.Orientation = spatial.OuterLocationRight
 	}
-	o.Label.ApplyDefaults()
+	o.LabeledConfig.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -5825,7 +5828,7 @@ func (o *OffPageReferenceElementConfig) ApplyDefaults() {
 func (o OffPageReferenceElementConfig) Validate() error {
 	v := validate.New("OffPageReferenceElementConfig")
 	v.Ternaryf("orientation", !o.Orientation.IsValid(), "invalid orientation: %v", o.Orientation)
-	v.Exec(func() error { return validate.PathedError(o.Label.Validate(), "label") })
+	v.Exec(o.LabeledConfig.Validate)
 	if o.Page != nil {
 		v.Exec(func() error { return validate.PathedError(o.Page.Validate(), "page") })
 	}
@@ -7289,6 +7292,7 @@ func (c CrossJunctionElementConfig) Validate() error {
 // CylinderElementConfig is the configuration for cylinder vessel symbols.
 type CylinderElementConfig struct {
 	LabeledConfig
+	ScaledConfig
 	// Dimensions is the rendered size of the cylinder in pixels.
 	Dimensions spatial.Dimensions `json:"dimensions" msgpack:"dimensions"`
 	// BorderRadius is the corner radius of the cylinder.
@@ -7310,6 +7314,7 @@ func (c *CylinderElementConfig) ApplyDefaults() {
 		c.Dimensions.Height = 181
 	}
 	c.LabeledConfig.ApplyDefaults()
+	c.ScaledConfig.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7486,6 +7491,7 @@ func (c CustomActuatorElementConfig) Validate() error {
 // CustomStaticElementConfig is the configuration for user-defined static symbols.
 type CustomStaticElementConfig struct {
 	LabeledConfig
+	ScaledConfig
 	// SpecKey is the key of the custom symbol spec this instance renders.
 	SpecKey string `json:"spec_key" msgpack:"spec_key"`
 	// StateOverrides contains per-instance overrides of the spec's visual states,
@@ -7498,6 +7504,7 @@ func (CustomStaticElementConfig) isElementConfigVariant() {}
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CustomStaticElementConfig) ApplyDefaults() {
 	c.LabeledConfig.ApplyDefaults()
+	c.ScaledConfig.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -9600,4 +9607,17 @@ func (n NumericTelemConfig) Validate() error {
 	v := validate.New("NumericTelemConfig")
 	v.Ternaryf("notation", !n.Notation.IsValid(), "invalid notation: %v", n.Notation)
 	return v.Error()
+}
+
+// ScaledConfig is the base configuration for any symbol drawn at a scale multiplier.
+type ScaledConfig struct {
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale float64 `json:"scale" msgpack:"scale"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (s *ScaledConfig) ApplyDefaults() {
+	if s.Scale == 0 {
+		s.Scale = 1
+	}
 }

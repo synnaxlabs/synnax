@@ -12,7 +12,6 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
-import { Theming } from "@synnaxlabs/lyra/theming";
 import {
   caseconv,
   type direction,
@@ -27,6 +26,7 @@ import { Channel } from "@/channel";
 import { Notation } from "@/notation";
 import { Form as NodeForm } from "@/schematic/node/common/form";
 import { type Config } from "@/schematic/node/common/scale/config";
+import { Scale as VisScale } from "@/vis/scale";
 import { Staleness } from "@/vis/staleness";
 
 const PRECISION_INPUT_PROPS: Partial<Input.NumericProps> = {
@@ -150,29 +150,21 @@ export const DisplayFields = ({
   </>
 );
 
-/** Colors of the level, the scale, and its labels, and the text size. */
-export const StyleFields = (): ReactElement => {
-  const theme = Theming.use();
-  return (
-    <>
-      <NodeForm.ColorField
-        path="levelColor"
-        label="Level"
-        fallback={theme.colors.visualization.palettes.default[0]}
-      />
-      <NodeForm.ColorField
-        path="strokeColor"
-        label="Stroke"
-        fallback={theme.colors.gray.l8}
-      />
-      <NodeForm.ColorField
-        path="textColor"
-        label="Text"
-        fallback={theme.colors.gray.l10}
-      />
-      <Base.Field<text.Level> path="level" label="Text size" padHelpText={false}>
-        {NodeForm.SelectTextLevel}
-      </Base.Field>
-    </>
-  );
-};
+/** Colors of the level and the labels, and the text size. */
+export const StyleFields = (): ReactElement => (
+  <>
+    <NodeForm.ColorField
+      path="levelColor"
+      label="Level"
+      fallback={VisScale.levelColorFallback}
+    />
+    <NodeForm.ColorField
+      path="textColor"
+      label="Text"
+      fallback={VisScale.textColorFallback}
+    />
+    <Base.Field<text.Level> path="level" label="Text size" padHelpText={false}>
+      {NodeForm.SelectTextLevel}
+    </Base.Field>
+  </>
+);

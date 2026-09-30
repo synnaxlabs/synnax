@@ -13,6 +13,7 @@ import { type ReactElement } from "react";
 
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
+import { fillFallback } from "@/schematic/node/general/polygon/Primitive";
 export interface PolygonFormProps {
   numSides: number;
 }
@@ -69,7 +70,7 @@ export const PolygonForm = (): ReactElement => (
     </Base.Section>
     <Base.Section title="Appearance">
       <Form.ColorField path="strokeColor" label="Stroke" />
-      <Form.FillField />
+      <Form.FillField fallback={fillFallback} />
       <Base.NumericField
         path="strokeWidth"
         label="Border width"

@@ -13,6 +13,7 @@ import { ScaleForm } from "@/schematic/node/general/scale/Form";
 import { Scale } from "@/schematic/node/general/scale/Primitive";
 import { Symbol } from "@/schematic/node/general/scale/Symbol";
 import { type Spec } from "@/schematic/node/spec";
+import { Scale as VisScale } from "@/vis/scale";
 
 export const spec: Spec<"scale", schematic.ScaleNodeConfig> = {
   key: "scale",
@@ -22,4 +23,8 @@ export const spec: Spec<"scale", schematic.ScaleNodeConfig> = {
   Preview: Scale,
   zIndex: 4,
   needsPosition: true,
+  colorFallbacks: {
+    strokeColor: VisScale.axisColorFallback,
+    textColor: VisScale.textColorFallback,
+  },
 };

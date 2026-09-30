@@ -11,6 +11,7 @@ import { type schematic } from "@synnaxlabs/client";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { type ReactElement } from "react";
 
+import { Form } from "@/schematic/node/common/form";
 import { SelectForm } from "@/schematic/node/general/select/Form";
 import { Select } from "@/schematic/node/general/select/Primitive";
 import { Symbol } from "@/schematic/node/general/select/Symbol";
@@ -33,4 +34,5 @@ export const spec: Spec<"select", schematic.SelectNodeConfig> = {
   Node: Symbol,
   Preview,
   zIndex: 4,
+  colorFallbacks: { fillColor: Form.primaryFallback },
 };

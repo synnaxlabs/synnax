@@ -46,6 +46,10 @@ const gaugeState = staleness.configZ.extend({
   barWidth: z.number().default(12), // Width of the gauge bar in pixels
 });
 
+/** @returns the stroke color a gauge paints while its color is absent. */
+export const colorFallback = (theme: theme.Theme): color.Color =>
+  theme.colors.visualization.palettes.default[0];
+
 const CANVAS_VARIANTS: render.Canvas2DVariant[] = ["upper2d", "lower2d"];
 
 export interface GaugeProps {
@@ -110,7 +114,7 @@ export class Gauge
     i.requestRender = render.useOptionalRequestor(ctx);
 
     i.strokeColor = color.isZero(this.state.color)
-      ? i.theme.colors.visualization.palettes.default[0]
+      ? colorFallback(i.theme)
       : this.state.color;
 
     const b = this.state.box;

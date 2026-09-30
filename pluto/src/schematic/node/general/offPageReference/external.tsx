@@ -10,6 +10,7 @@
 import { type schematic } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
+import { Form } from "@/schematic/node/common/form";
 import { OffPageReferenceForm } from "@/schematic/node/general/offPageReference/Form";
 import { OffPageReference } from "@/schematic/node/general/offPageReference/Primitive";
 import { Symbol } from "@/schematic/node/general/offPageReference/Symbol";
@@ -29,4 +30,5 @@ export const spec: Spec<"off_page_reference", schematic.OffPageReferenceNodeConf
   Node: Symbol,
   Preview,
   zIndex: 4,
+  colorFallbacks: { fillColor: Form.defaultFallback },
 };

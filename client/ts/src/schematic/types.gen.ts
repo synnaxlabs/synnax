@@ -171,6 +171,15 @@ export const numericTelemConfigZ = z.object({
 });
 export interface NumericTelemConfig extends z.infer<typeof numericTelemConfigZ> {}
 
+/**
+ * ScaledConfig is the base configuration for any symbol drawn at a scale multiplier.
+ */
+export const scaledConfigZ = z.object({
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().default(1),
+});
+export interface ScaledConfig extends z.infer<typeof scaledConfigZ> {}
+
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
@@ -203,8 +212,6 @@ export const labeledConfigZ = z.object({
   label: labelConfigZ.prefault({}),
   /** orientation is the orientation of the symbol's primitive within the diagram. */
   orientation: spatial.outerLocationZ.default("left"),
-  /** scale is the rendered scale multiplier of the symbol. */
-  scale: z.number().default(1),
 });
 export interface LabeledConfig extends z.infer<typeof labeledConfigZ> {}
 
@@ -306,24 +313,29 @@ export const EDGE_CONFIG_SCHEMAS: {
   data: dataEdgeConfigZ,
 };
 
-export const toggleConfigZ = labeledConfigZ.extend(stalenessConfigZ.shape).extend({
-  stateChannel: channel.keyZ.optional(),
-  commandChannel: channel.keyZ.optional(),
-  control: controlStateConfigZ.optional(),
-  onClickDelay: z.number().default(0),
-});
+export const toggleConfigZ = labeledConfigZ
+  .extend(scaledConfigZ.shape)
+  .extend(stalenessConfigZ.shape)
+  .extend({
+    stateChannel: channel.keyZ.optional(),
+    commandChannel: channel.keyZ.optional(),
+    control: controlStateConfigZ.optional(),
+    onClickDelay: z.number().default(0),
+  });
 export interface ToggleConfig extends z.infer<typeof toggleConfigZ> {}
 
-export const staticSymbolConfigZ = labeledConfigZ.extend({
+export const staticSymbolConfigZ = labeledConfigZ.extend(scaledConfigZ.shape).extend({
   strokeColor: color.colorZ.optional(),
 });
 export interface StaticSymbolConfig extends z.infer<typeof staticSymbolConfigZ> {}
 
-export const dummyToggleSymbolConfigZ = labeledConfigZ.extend({
-  enabled: z.boolean().default(false),
-  clickable: z.boolean().default(false),
-  strokeColor: color.colorZ.optional(),
-});
+export const dummyToggleSymbolConfigZ = labeledConfigZ
+  .extend(scaledConfigZ.shape)
+  .extend({
+    enabled: z.boolean().default(false),
+    clickable: z.boolean().default(false),
+    strokeColor: color.colorZ.optional(),
+  });
 export interface DummyToggleSymbolConfig extends z.infer<
   typeof dummyToggleSymbolConfigZ
 > {}
@@ -584,17 +596,20 @@ export const inputNodeConfigZ = labeledConfigZ.extend({
 export interface InputNodeConfig extends z.infer<typeof inputNodeConfigZ> {}
 
 /** LightNodeConfig is the configuration for indicator light symbols. */
-export const lightNodeConfigZ = labeledConfigZ.extend(stalenessConfigZ.shape).extend({
-  variant: z.literal("light"),
-  /** channel is the channel whose value drives the light's on state. */
-  channel: channel.keyZ.optional(),
-  /** threshold is the value range within which the light is considered on. */
-  threshold: spatial.boundsZ().optional(),
-  /** strokeColor is the outline color of the light. */
-  strokeColor: color.colorZ.optional(),
-  /** onColor is the fill color of the light while it is on. */
-  onColor: color.colorZ.optional(),
-});
+export const lightNodeConfigZ = labeledConfigZ
+  .extend(scaledConfigZ.shape)
+  .extend(stalenessConfigZ.shape)
+  .extend({
+    variant: z.literal("light"),
+    /** channel is the channel whose value drives the light's on state. */
+    channel: channel.keyZ.optional(),
+    /** threshold is the value range within which the light is considered on. */
+    threshold: spatial.boundsZ().optional(),
+    /** strokeColor is the outline color of the light. */
+    strokeColor: color.colorZ.optional(),
+    /** onColor is the fill color of the light while it is on. */
+    onColor: color.colorZ.optional(),
+  });
 export interface LightNodeConfig extends z.infer<typeof lightNodeConfigZ> {}
 
 /** LineNodeConfig is the configuration for straight line symbols. */
@@ -612,7 +627,7 @@ export const lineNodeConfigZ = z.object({
 export interface LineNodeConfig extends z.infer<typeof lineNodeConfigZ> {}
 
 /** OffPageReferenceNodeConfig is the configuration for off-page reference symbols. */
-export const offPageReferenceNodeConfigZ = labeledConfigZ.omit({ scale: true }).extend({
+export const offPageReferenceNodeConfigZ = labeledConfigZ.extend({
   variant: z.literal("off_page_reference"),
   /** orientation is the direction the reference arrow points. */
   orientation: spatial.outerLocationZ.default("right"),
@@ -1181,7 +1196,7 @@ export interface CrossJunctionNodeConfig extends z.infer<
 > {}
 
 /** CylinderNodeConfig is the configuration for cylinder vessel symbols. */
-export const cylinderNodeConfigZ = labeledConfigZ.extend({
+export const cylinderNodeConfigZ = labeledConfigZ.extend(scaledConfigZ.shape).extend({
   variant: z.literal("cylinder"),
   /** dimensions is the rendered size of the cylinder in pixels. */
   dimensions: spatial.dimensionsZ.prefault({ width: 66, height: 181 }),
@@ -1242,16 +1257,18 @@ export interface CustomActuatorNodeConfig extends z.infer<
 > {}
 
 /** CustomStaticNodeConfig is the configuration for user-defined static symbols. */
-export const customStaticNodeConfigZ = labeledConfigZ.extend({
-  variant: z.literal("custom_static"),
-  /** specKey is the key of the custom symbol spec this instance renders. */
-  specKey: z.string(),
-  /**
-   * stateOverrides contains per-instance overrides of the spec's visual states, matched
-   * to the spec's states by key.
-   */
-  stateOverrides: symbol.stateZ.array().default(() => []),
-});
+export const customStaticNodeConfigZ = labeledConfigZ
+  .extend(scaledConfigZ.shape)
+  .extend({
+    variant: z.literal("custom_static"),
+    /** specKey is the key of the custom symbol spec this instance renders. */
+    specKey: z.string(),
+    /**
+     * stateOverrides contains per-instance overrides of the spec's visual states, matched
+     * to the spec's states by key.
+     */
+    stateOverrides: symbol.stateZ.array().default(() => []),
+  });
 export interface CustomStaticNodeConfig extends z.infer<
   typeof customStaticNodeConfigZ
 > {}
@@ -1960,6 +1977,7 @@ export interface InputElementConfig extends z.infer<typeof inputElementConfigZ> 
 
 /** LightElementConfig is the configuration for indicator light symbols. */
 export const lightElementConfigZ = labeledConfigZ
+  .extend(scaledConfigZ.shape)
   .extend(stalenessConfigZ.shape)
   .extend({
     variant: z.literal("light"),
@@ -1991,22 +2009,20 @@ export interface LineElementConfig extends z.infer<typeof lineElementConfigZ> {}
 /**
  * OffPageReferenceElementConfig is the configuration for off-page reference symbols.
  */
-export const offPageReferenceElementConfigZ = labeledConfigZ
-  .omit({ scale: true })
-  .extend({
-    variant: z.literal("off_page_reference"),
-    /** orientation is the direction the reference arrow points. */
-    orientation: spatial.outerLocationZ.default("right"),
-    /**
-     * fillColor is the fill color of a linked reference. An unlinked reference draws its
-     * outline in this color.
-     */
-    fillColor: color.colorZ.optional(),
-    /** page is the page this reference links to. */
-    page: pageZ.optional(),
-    /** dblClickNavDisabled stops double-clicking from navigating to the linked page. */
-    dblClickNavDisabled: z.boolean().default(false),
-  });
+export const offPageReferenceElementConfigZ = labeledConfigZ.extend({
+  variant: z.literal("off_page_reference"),
+  /** orientation is the direction the reference arrow points. */
+  orientation: spatial.outerLocationZ.default("right"),
+  /**
+   * fillColor is the fill color of a linked reference. An unlinked reference draws its
+   * outline in this color.
+   */
+  fillColor: color.colorZ.optional(),
+  /** page is the page this reference links to. */
+  page: pageZ.optional(),
+  /** dblClickNavDisabled stops double-clicking from navigating to the linked page. */
+  dblClickNavDisabled: z.boolean().default(false),
+});
 export interface OffPageReferenceElementConfig extends z.infer<
   typeof offPageReferenceElementConfigZ
 > {}
@@ -2595,17 +2611,19 @@ export interface CrossJunctionElementConfig extends z.infer<
 > {}
 
 /** CylinderElementConfig is the configuration for cylinder vessel symbols. */
-export const cylinderElementConfigZ = labeledConfigZ.extend({
-  variant: z.literal("cylinder"),
-  /** dimensions is the rendered size of the cylinder in pixels. */
-  dimensions: spatial.dimensionsZ.prefault({ width: 66, height: 181 }),
-  /** borderRadius is the corner radius of the cylinder. */
-  borderRadius: border.radiusZ.optional(),
-  /** strokeColor is the border color of the cylinder. */
-  strokeColor: color.colorZ.optional(),
-  /** fillColor is the fill color of the cylinder. */
-  fillColor: color.colorZ.optional(),
-});
+export const cylinderElementConfigZ = labeledConfigZ
+  .extend(scaledConfigZ.shape)
+  .extend({
+    variant: z.literal("cylinder"),
+    /** dimensions is the rendered size of the cylinder in pixels. */
+    dimensions: spatial.dimensionsZ.prefault({ width: 66, height: 181 }),
+    /** borderRadius is the corner radius of the cylinder. */
+    borderRadius: border.radiusZ.optional(),
+    /** strokeColor is the border color of the cylinder. */
+    strokeColor: color.colorZ.optional(),
+    /** fillColor is the fill color of the cylinder. */
+    fillColor: color.colorZ.optional(),
+  });
 export interface CylinderElementConfig extends z.infer<typeof cylinderElementConfigZ> {}
 
 /** TankElementConfig is the configuration for tank vessel symbols. */
@@ -2660,16 +2678,18 @@ export interface CustomActuatorElementConfig extends z.infer<
 > {}
 
 /** CustomStaticElementConfig is the configuration for user-defined static symbols. */
-export const customStaticElementConfigZ = labeledConfigZ.extend({
-  variant: z.literal("custom_static"),
-  /** specKey is the key of the custom symbol spec this instance renders. */
-  specKey: z.string(),
-  /**
-   * stateOverrides contains per-instance overrides of the spec's visual states, matched
-   * to the spec's states by key.
-   */
-  stateOverrides: symbol.stateZ.array().default(() => []),
-});
+export const customStaticElementConfigZ = labeledConfigZ
+  .extend(scaledConfigZ.shape)
+  .extend({
+    variant: z.literal("custom_static"),
+    /** specKey is the key of the custom symbol spec this instance renders. */
+    specKey: z.string(),
+    /**
+     * stateOverrides contains per-instance overrides of the spec's visual states, matched
+     * to the spec's states by key.
+     */
+    stateOverrides: symbol.stateZ.array().default(() => []),
+  });
 export interface CustomStaticElementConfig extends z.infer<
   typeof customStaticElementConfigZ
 > {}

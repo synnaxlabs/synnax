@@ -102,7 +102,6 @@ var (
 			Align:         v9.FlexAlignment("start"),
 		},
 		Orientation: spatial.OuterLocation("top"),
-		Scale:       9.5,
 	}
 	fullyPopulatedNumericTelemConfig = v9.NumericTelemConfig{
 		Channel:        new(channel.Key(2)),
@@ -119,6 +118,7 @@ var (
 			A: 6.5,
 		}),
 	}
+	fullyPopulatedScaledConfig         = v9.ScaledConfig{Scale: 1.5}
 	fullyPopulatedScaleIndicatorConfig = v9.ScaleIndicatorConfig{
 		Channel:          new(channel.Key(2)),
 		RollingAverage:   new(int32(3)),
@@ -453,6 +453,7 @@ var _ = Describe("Codec", func() {
 			}}),
 			Entry("light variant", v9.ElementConfig{Variant: v9.LightElementConfig{
 				LabeledConfig:   fullyPopulatedLabeledConfig,
+				ScaledConfig:    fullyPopulatedScaledConfig,
 				StalenessConfig: fullyPopulatedStalenessConfig,
 				Channel:         new(channel.Key(2)),
 				Threshold:       new(spatial.Bounds{Lower: 3.5, Upper: 4.5}),
@@ -481,22 +482,14 @@ var _ = Describe("Codec", func() {
 				StrokeWidth: 12.5,
 			}}),
 			Entry("off_page_reference variant", v9.ElementConfig{Variant: v9.OffPageReferenceElementConfig{
-				Label: v9.LabelConfig{
-					Label:         "test_2",
-					Level:         text.Level("h1"),
-					Orientation:   spatial.Location("top"),
-					Direction:     spatial.Direction("x"),
-					MaxInlineSize: 6.5,
-					Align:         v9.FlexAlignment("start"),
-				},
-				Orientation: spatial.OuterLocation("top"),
+				LabeledConfig: fullyPopulatedLabeledConfig,
 				FillColor: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
+					R: 3,
+					G: 4,
+					B: 5,
+					A: 5.5,
 				}),
-				Page:                new(v9.Page{Type: v9.PageType("schematic"), Key: "test_16"}),
+				Page:                new(v9.Page{Type: v9.PageType("schematic"), Key: "test_8"}),
 				DblClickNavDisabled: true,
 			}}),
 			Entry("polygon variant", v9.ElementConfig{Variant: v9.PolygonElementConfig{
@@ -830,6 +823,7 @@ var _ = Describe("Codec", func() {
 			}}),
 			Entry("cylinder variant", v9.ElementConfig{Variant: v9.CylinderElementConfig{
 				LabeledConfig: fullyPopulatedLabeledConfig,
+				ScaledConfig:  fullyPopulatedScaledConfig,
 				Dimensions:    spatial.Dimensions{Width: 2.5, Height: 3.5},
 				BorderRadius: new(border.Radius{
 					TopLeft:     spatial.XY{X: 6.5, Y: 7.5},
@@ -926,6 +920,7 @@ var _ = Describe("Codec", func() {
 			}}),
 			Entry("custom_static variant", v9.ElementConfig{Variant: v9.CustomStaticElementConfig{
 				LabeledConfig: fullyPopulatedLabeledConfig,
+				ScaledConfig:  fullyPopulatedScaledConfig,
 				SpecKey:       "test_1",
 				StateOverrides: []symbol.State{
 					{
@@ -1010,7 +1005,6 @@ var _ = Describe("Codec", func() {
 					Align:         v9.FlexAlignment(""),
 				},
 				Orientation: spatial.OuterLocation(""),
-				Scale:       0,
 			}),
 		)
 	})
@@ -1175,6 +1169,7 @@ var _ = Describe("Codec", func() {
 			}}),
 			Entry("light variant", v9.NodeConfig{Variant: v9.LightNodeConfig{
 				LabeledConfig:   fullyPopulatedLabeledConfig,
+				ScaledConfig:    fullyPopulatedScaledConfig,
 				StalenessConfig: fullyPopulatedStalenessConfig,
 				Channel:         new(channel.Key(2)),
 				Threshold:       new(spatial.Bounds{Lower: 3.5, Upper: 4.5}),
@@ -1203,22 +1198,14 @@ var _ = Describe("Codec", func() {
 				StrokeWidth: 12.5,
 			}}),
 			Entry("off_page_reference variant", v9.NodeConfig{Variant: v9.OffPageReferenceNodeConfig{
-				Label: v9.LabelConfig{
-					Label:         "test_2",
-					Level:         text.Level("h1"),
-					Orientation:   spatial.Location("top"),
-					Direction:     spatial.Direction("x"),
-					MaxInlineSize: 6.5,
-					Align:         v9.FlexAlignment("start"),
-				},
-				Orientation: spatial.OuterLocation("top"),
+				LabeledConfig: fullyPopulatedLabeledConfig,
 				FillColor: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
+					R: 3,
+					G: 4,
+					B: 5,
+					A: 5.5,
 				}),
-				Page:                new(v9.Page{Type: v9.PageType("schematic"), Key: "test_16"}),
+				Page:                new(v9.Page{Type: v9.PageType("schematic"), Key: "test_8"}),
 				DblClickNavDisabled: true,
 			}}),
 			Entry("polygon variant", v9.NodeConfig{Variant: v9.PolygonNodeConfig{
@@ -1530,6 +1517,7 @@ var _ = Describe("Codec", func() {
 			Entry("cross_junction variant", v9.NodeConfig{Variant: v9.CrossJunctionNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}),
 			Entry("cylinder variant", v9.NodeConfig{Variant: v9.CylinderNodeConfig{
 				LabeledConfig: fullyPopulatedLabeledConfig,
+				ScaledConfig:  fullyPopulatedScaledConfig,
 				Dimensions:    spatial.Dimensions{Width: 2.5, Height: 3.5},
 				BorderRadius: new(border.Radius{
 					TopLeft:     spatial.XY{X: 6.5, Y: 7.5},
@@ -1626,6 +1614,7 @@ var _ = Describe("Codec", func() {
 			}}),
 			Entry("custom_static variant", v9.NodeConfig{Variant: v9.CustomStaticNodeConfig{
 				LabeledConfig: fullyPopulatedLabeledConfig,
+				ScaledConfig:  fullyPopulatedScaledConfig,
 				SpecKey:       "test_1",
 				StateOverrides: []symbol.State{
 					{
@@ -1712,6 +1701,21 @@ var _ = Describe("Codec", func() {
 				CaretSide:        spatial.OuterLocation(""),
 				Level:            text.Level(""),
 			}),
+		)
+	})
+	Describe("ScaledConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v9.ScaledConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v9.ScaledConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", fullyPopulatedScaledConfig),
+			Entry("zero values", v9.ScaledConfig{Scale: 0}),
 		)
 	})
 	Describe("Schematic", func() {
@@ -2117,6 +2121,23 @@ func BenchmarkEncodeDecodeScaleIndicatorConfig(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v9.ScaleIndicatorConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeScaledConfig(b *testing.B) {
+	seed := fullyPopulatedScaledConfig
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v9.ScaledConfig
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -2840,6 +2861,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	{
 		seed := v9.ElementConfig{Variant: v9.LightElementConfig{
 			LabeledConfig:   fullyPopulatedLabeledConfig,
+			ScaledConfig:    fullyPopulatedScaledConfig,
 			StalenessConfig: fullyPopulatedStalenessConfig,
 			Channel:         new(channel.Key(2)),
 			Threshold:       new(spatial.Bounds{Lower: 3.5, Upper: 4.5}),
@@ -2882,22 +2904,14 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := v9.ElementConfig{Variant: v9.OffPageReferenceElementConfig{
-			Label: v9.LabelConfig{
-				Label:         "test_2",
-				Level:         text.Level("h1"),
-				Orientation:   spatial.Location("top"),
-				Direction:     spatial.Direction("x"),
-				MaxInlineSize: 6.5,
-				Align:         v9.FlexAlignment("start"),
-			},
-			Orientation: spatial.OuterLocation("top"),
+			LabeledConfig: fullyPopulatedLabeledConfig,
 			FillColor: new(color.Color{
-				R: 11,
-				G: 12,
-				B: 13,
-				A: 13.5,
+				R: 3,
+				G: 4,
+				B: 5,
+				A: 5.5,
 			}),
-			Page:                new(v9.Page{Type: v9.PageType("schematic"), Key: "test_16"}),
+			Page:                new(v9.Page{Type: v9.PageType("schematic"), Key: "test_8"}),
 			DblClickNavDisabled: true,
 		}}
 		w := orc.NewWriter(0)
@@ -3693,6 +3707,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	{
 		seed := v9.ElementConfig{Variant: v9.CylinderElementConfig{
 			LabeledConfig: fullyPopulatedLabeledConfig,
+			ScaledConfig:  fullyPopulatedScaledConfig,
 			Dimensions:    spatial.Dimensions{Width: 2.5, Height: 3.5},
 			BorderRadius: new(border.Radius{
 				TopLeft:     spatial.XY{X: 6.5, Y: 7.5},
@@ -3817,6 +3832,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	{
 		seed := v9.ElementConfig{Variant: v9.CustomStaticElementConfig{
 			LabeledConfig: fullyPopulatedLabeledConfig,
+			ScaledConfig:  fullyPopulatedScaledConfig,
 			SpecKey:       "test_1",
 			StateOverrides: []symbol.State{
 				{
@@ -4005,7 +4021,6 @@ func FuzzDecodeLabeledConfig(f *testing.F) {
 				Align:         v9.FlexAlignment(""),
 			},
 			Orientation: spatial.OuterLocation(""),
-			Scale:       0,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -4397,6 +4412,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 	{
 		seed := v9.NodeConfig{Variant: v9.LightNodeConfig{
 			LabeledConfig:   fullyPopulatedLabeledConfig,
+			ScaledConfig:    fullyPopulatedScaledConfig,
 			StalenessConfig: fullyPopulatedStalenessConfig,
 			Channel:         new(channel.Key(2)),
 			Threshold:       new(spatial.Bounds{Lower: 3.5, Upper: 4.5}),
@@ -4439,22 +4455,14 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 	}
 	{
 		seed := v9.NodeConfig{Variant: v9.OffPageReferenceNodeConfig{
-			Label: v9.LabelConfig{
-				Label:         "test_2",
-				Level:         text.Level("h1"),
-				Orientation:   spatial.Location("top"),
-				Direction:     spatial.Direction("x"),
-				MaxInlineSize: 6.5,
-				Align:         v9.FlexAlignment("start"),
-			},
-			Orientation: spatial.OuterLocation("top"),
+			LabeledConfig: fullyPopulatedLabeledConfig,
 			FillColor: new(color.Color{
-				R: 11,
-				G: 12,
-				B: 13,
-				A: 13.5,
+				R: 3,
+				G: 4,
+				B: 5,
+				A: 5.5,
 			}),
-			Page:                new(v9.Page{Type: v9.PageType("schematic"), Key: "test_16"}),
+			Page:                new(v9.Page{Type: v9.PageType("schematic"), Key: "test_8"}),
 			DblClickNavDisabled: true,
 		}}
 		w := orc.NewWriter(0)
@@ -5228,6 +5236,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 	{
 		seed := v9.NodeConfig{Variant: v9.CylinderNodeConfig{
 			LabeledConfig: fullyPopulatedLabeledConfig,
+			ScaledConfig:  fullyPopulatedScaledConfig,
 			Dimensions:    spatial.Dimensions{Width: 2.5, Height: 3.5},
 			BorderRadius: new(border.Radius{
 				TopLeft:     spatial.XY{X: 6.5, Y: 7.5},
@@ -5352,6 +5361,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 	{
 		seed := v9.NodeConfig{Variant: v9.CustomStaticNodeConfig{
 			LabeledConfig: fullyPopulatedLabeledConfig,
+			ScaledConfig:  fullyPopulatedScaledConfig,
 			SpecKey:       "test_1",
 			StateOverrides: []symbol.State{
 				{
@@ -5535,6 +5545,45 @@ func FuzzDecodeScaleIndicatorConfig(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v9.ScaleIndicatorConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeScaledConfig(f *testing.F) {
+	{
+		seed := fullyPopulatedScaledConfig
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v9.ScaledConfig{Scale: 0}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v9.ScaledConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v9.ScaledConfig
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

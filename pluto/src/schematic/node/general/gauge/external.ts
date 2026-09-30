@@ -13,6 +13,7 @@ import { GaugeForm } from "@/schematic/node/general/gauge/Form";
 import { Gauge } from "@/schematic/node/general/gauge/Primitive";
 import { Symbol } from "@/schematic/node/general/gauge/Symbol";
 import { type Spec } from "@/schematic/node/spec";
+import { Gauge as VisGauge } from "@/vis/gauge";
 
 export const spec: Spec<"gauge", schematic.GaugeNodeConfig> = {
   key: "gauge",
@@ -22,4 +23,5 @@ export const spec: Spec<"gauge", schematic.GaugeNodeConfig> = {
   Preview: Gauge,
   zIndex: 4,
   needsPosition: true,
+  colorFallbacks: { strokeColor: VisGauge.colorFallback },
 };

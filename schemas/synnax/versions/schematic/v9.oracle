@@ -129,11 +129,17 @@ LabeledConfig struct {
     orientation spatial.OuterLocation = spatial.OuterLocationLeft {
         @doc value "is the orientation of the symbol's primitive within the diagram."
     }
-    scale       float64 = 1 {
+
+    @doc value  "is the base configuration for any symbol that carries a label."
+    @go marshal
+}
+
+ScaledConfig struct {
+    scale float64 = 1 {
         @doc value "is the rendered scale multiplier of the symbol."
     }
 
-    @doc value  "is the base configuration for any symbol that carries a label."
+    @doc value  "is the base configuration for any symbol drawn at a scale multiplier."
     @go marshal
 }
 
@@ -203,7 +209,7 @@ ControlStateConfig struct {
     @go marshal
 }
 
-ToggleConfig struct extends LabeledConfig, StalenessConfig {
+ToggleConfig struct extends LabeledConfig, ScaledConfig, StalenessConfig {
     state_channel   channel.Key?        {
         @doc value "is the channel whose value drives the symbol's active state."
     }
@@ -223,7 +229,7 @@ ToggleConfig struct extends LabeledConfig, StalenessConfig {
     @go marshal
 }
 
-StaticSymbolConfig struct extends LabeledConfig {
+StaticSymbolConfig struct extends LabeledConfig, ScaledConfig {
     stroke_color color.Color? {
         @doc value "is the stroke color of the symbol."
     }
@@ -243,7 +249,7 @@ ToggleSymbolConfig struct extends ToggleConfig {
     @go marshal
 }
 
-DummyToggleSymbolConfig struct extends LabeledConfig {
+DummyToggleSymbolConfig struct extends LabeledConfig, ScaledConfig {
     enabled      bool = false {
         @doc value "indicates whether the symbol renders in its active state."
     }
@@ -488,7 +494,7 @@ NodeConfig union on variant {
 
         @doc value "is the configuration for free-form input symbols."
     }
-    light extends LabeledConfig, StalenessConfig {
+    light extends LabeledConfig, ScaledConfig, StalenessConfig {
         channel      channel.Key?    {
             @doc value "is the channel whose value drives the light's on state."
         }
@@ -522,7 +528,6 @@ NodeConfig union on variant {
         @doc value "is the configuration for straight line symbols."
     }
     off_page_reference extends LabeledConfig {
-        -scale
         orientation            = spatial.OuterLocationRight {
             @doc value "is the direction the reference arrow points."
         }
@@ -816,7 +821,7 @@ NodeConfig union on variant {
     three_way_ball_valve               ToggleSymbolConfig
     valve                              ToggleSymbolConfig
     cross_junction                     StaticSymbolConfig
-    cylinder extends LabeledConfig {
+    cylinder extends LabeledConfig, ScaledConfig {
         dimensions    spatial.Dimensions = { width = 66, height = 181 } {
             @doc value "is the rendered size of the cylinder in pixels."
         }
@@ -878,7 +883,7 @@ NodeConfig union on variant {
 
         @doc value "is the configuration for user-defined actuator symbols."
     }
-    custom_static extends LabeledConfig {
+    custom_static extends LabeledConfig, ScaledConfig {
         spec_key        string         {
             @doc value "is the key of the custom symbol spec this instance renders."
         }

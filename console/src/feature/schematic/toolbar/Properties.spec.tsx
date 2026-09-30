@@ -491,6 +491,12 @@ describe("Schematic toolbar Properties", () => {
         )
         .toEqual([1.5, 1.5]);
     });
+
+    it("hides the symbol size group when no selected symbol has a scale", async () => {
+      await renderProperties({ nodeKeys: ["n1", "n2"], createConfig: createBoxConfig });
+      await screen.findByText("Colors");
+      expect(screen.queryByText("Symbol size")).toBeNull();
+    });
   });
 
   describe("multiple selection", () => {

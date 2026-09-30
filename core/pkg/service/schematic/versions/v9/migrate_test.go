@@ -45,7 +45,6 @@ var labeled = v9.LabeledConfig{
 		Align:         "center",
 	},
 	Orientation: "left",
-	Scale:       1,
 }
 
 var _ = Describe("Config typing", func() {
@@ -67,6 +66,7 @@ var _ = Describe("Config typing", func() {
 			"color":   "#ff0000",
 		})).To(Equal(v9.ValveElementConfig{
 			LabeledConfig:    labeled,
+			Scale:            1,
 			StalenessTimeout: 5,
 			StrokeColor:      new(MustSucceed(color.FromHex("#ff0000"))),
 		}))
@@ -538,6 +538,18 @@ var _ = Describe("Config typing", func() {
 		)
 	})
 
+	It("Should keep the scale of a symbol that draws one", func(ctx SpecContext) {
+		Expect(typed(ctx, msgpack.EncodedJSON{"variant": "valve", "scale": 2.0})).To(
+			HaveField("Scale", 2.0),
+		)
+	})
+
+	It("Should drop the scale of a symbol that never draws one", func(ctx SpecContext) {
+		Expect(typed(ctx, msgpack.EncodedJSON{"variant": "value", "scale": 2.0})).To(
+			Equal(typed(ctx, msgpack.EncodedJSON{"variant": "value"})),
+		)
+	})
+
 	It("Should type a custom symbol's state overrides", func(ctx SpecContext) {
 		Expect(typed(ctx, msgpack.EncodedJSON{
 			"variant": "customStatic",
@@ -555,6 +567,7 @@ var _ = Describe("Config typing", func() {
 			}},
 		})).To(Equal(v9.CustomStaticElementConfig{
 			LabeledConfig: labeled,
+			Scale:         1,
 			SpecKey:       "spec",
 			StateOverrides: []symbol.State{{
 				Key:  "on",
@@ -602,6 +615,7 @@ var _ = Describe("ImportSchematic", func() {
 				ToggleSymbolConfig: v9.ToggleSymbolConfig{
 					ToggleConfig: v9.ToggleConfig{
 						LabeledConfig:    labeled,
+						Scale:            1,
 						StalenessTimeout: 5,
 					},
 				},
@@ -777,6 +791,7 @@ var _ = Describe("Migration", func() {
 				ToggleSymbolConfig: v9.ToggleSymbolConfig{
 					ToggleConfig: v9.ToggleConfig{
 						LabeledConfig:    labeled,
+						Scale:            1,
 						StalenessTimeout: 5,
 					},
 				},

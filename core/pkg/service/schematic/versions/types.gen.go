@@ -737,3 +737,6 @@ type StalenessConfig = v9.StalenessConfig
 // NumericTelemConfig is the numeric read and formatting shared by symbols that display
 // a channel's value as a number.
 type NumericTelemConfig = v9.NumericTelemConfig
+
+// ScaledConfig is the base configuration for any symbol drawn at a scale multiplier.
+type ScaledConfig = v9.ScaledConfig

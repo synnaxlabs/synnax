@@ -79,7 +79,7 @@ const StyleForm = (): ReactElement => {
         <Form.ColorField
           path="onColor"
           label="On"
-          fallback={strokeColor ?? undefined}
+          fallback={(theme) => strokeColor ?? Form.defaultFallback(theme)}
         />
         <Form.ScaleField path="scale" />
       </Base.Section>

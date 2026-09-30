@@ -522,7 +522,9 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
           {hasStroke && (
             <MultiEdit.ColorField
               label="Stroke"
-              values={selection.colors("strokeColor", () => theme.colors.gray.l11)}
+              values={selection.colors("strokeColor", (c) =>
+                Schematic.colorFallback("strokeColor", c.variant, theme),
+              )}
               onChange={(c) => selection.set("strokeColor", c)}
             />
           )}
@@ -530,7 +532,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
             <MultiEdit.ColorField
               label="Fill"
               values={selection.colors("fillColor", (c) =>
-                Schematic.Node.Form.fillFallback(c.variant, theme),
+                Schematic.colorFallback("fillColor", c.variant, theme),
               )}
               onChange={(c) => selection.set("fillColor", c)}
             />
@@ -538,7 +540,9 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
           {hasText && (
             <MultiEdit.ColorField
               label="Text"
-              values={selection.colors("textColor", () => theme.colors.gray.l11)}
+              values={selection.colors("textColor", (c) =>
+                Schematic.colorFallback("textColor", c.variant, theme),
+              )}
               onChange={(c) => selection.set("textColor", c)}
             />
           )}
