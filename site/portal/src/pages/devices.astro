@@ -10,7 +10,7 @@
 
 import Portal from "@/layouts/Portal.astro";
 import { loadScoped } from "@/page";
-import { Devices } from "@/ui/devices/Devices";
+import { Devices } from "@/ui/devices";
 import { machinesFor } from "@/server/license/desktop";
 
 const loaded = await loadScoped(Astro, "personal");
@@ -26,5 +26,5 @@ const machines = await machinesFor(portal.store.query, scope.key);
     scope={scope}
     tab="devices"
 >
-    <Devices client:load machines={machines} now={portal.now()} />
+    <Devices.Devices client:load machines={machines} now={portal.now()} />
 </Portal>

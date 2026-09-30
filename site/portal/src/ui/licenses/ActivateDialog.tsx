@@ -17,7 +17,7 @@ import { z } from "zod";
 
 import { MAX_NAME_LENGTH } from "@/server/license/limits";
 import { post, reload, save } from "@/ui/api";
-import * as Modal from "@/ui/Modal";
+import { Modal } from "@/ui/modal";
 
 export const activateSchema = z.object({
   name: z

@@ -17,9 +17,8 @@ import { type Activation, type License } from "@/server/db/schema";
 import { type Machine } from "@/server/license/desktop";
 import { post, reload } from "@/ui/api";
 import { date, machineName, statusOf } from "@/ui/format";
-import { RenameDialog } from "@/ui/licenses/RenameDialog";
-import { StatusTag } from "@/ui/licenses/StatusTag";
-import * as Modal from "@/ui/Modal";
+import { Licenses } from "@/ui/licenses";
+import { Modal } from "@/ui/modal";
 import { Empty, Page } from "@/ui/Page";
 import { Row, Table } from "@/ui/Table";
 
@@ -61,7 +60,7 @@ export const Devices = ({ machines, now }: DevicesProps): ReactElement => (
               </Text.Text>
             </Flex.Box>
             <Flex.Box>
-              <StatusTag status={statusOf(lic, now)} />
+              <Licenses.StatusTag status={statusOf(lic, now)} />
             </Flex.Box>
             <Text.Text level="p" color={10}>
               {date(a.firstSeen)}
@@ -70,7 +69,7 @@ export const Devices = ({ machines, now }: DevicesProps): ReactElement => (
               {date(a.lastSeen)}
             </Text.Text>
             <Flex.Box x justify="end" gap="small">
-              <RenameDialog
+              <Licenses.RenameDialog
                 activation={a}
                 trigger={
                   <Dialog.Trigger variant="text" size="small" hideCaret>

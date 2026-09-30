@@ -10,7 +10,7 @@
 
 import Portal from "@/layouts/Portal.astro";
 import { loadScoped } from "@/page";
-import { Activate } from "@/ui/licenses/Activate";
+import { Licenses } from "@/ui/licenses";
 import { listActivatable } from "@/server/license/list";
 
 const loaded = await loadScoped(Astro);
@@ -31,7 +31,7 @@ const selected = Astro.url.searchParams.get("license");
     scope={scope}
     tab={scope.kind === "team" ? "licenses" : null}
 >
-    <Activate
+    <Licenses.Activate
         client:load
         choices={choices}
         selected={choices.some((c) => c.license.key === selected) ? selected : null}

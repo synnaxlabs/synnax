@@ -12,7 +12,7 @@ import Portal from "@/layouts/Portal.astro";
 import { licenseFor } from "@/access";
 import { failure, loadScoped } from "@/page";
 import { Page } from "@/ui/Page";
-import { License } from "@/ui/licenses/License";
+import { Licenses } from "@/ui/licenses";
 import { listForLicense } from "@/server/event";
 
 const loaded = await loadScoped(Astro);
@@ -47,7 +47,7 @@ try {
     {view == null ? (
         <Page title="License" error={error} />
     ) : (
-        <License
+        <Licenses.License
             client:load
             license={view.license}
             organization={view.organization}

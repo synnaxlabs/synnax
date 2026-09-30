@@ -16,12 +16,12 @@ import { z } from "zod";
 
 import { type Listed } from "@/server/directory";
 import { navigate, post } from "@/ui/api";
-import { checkTerms, TermsFields, termsSchema, ZERO_TERMS } from "@/ui/licenses/Terms";
-import * as Modal from "@/ui/Modal";
+import { Licenses } from "@/ui/licenses";
+import { Modal } from "@/ui/modal";
 
-const schema = termsSchema
+const schema = Licenses.termsSchema
   .extend({ organization: z.string().min(1, "Choose an organization") })
-  .check(checkTerms);
+  .check(Licenses.checkTerms);
 
 export interface IssueDialogProps {
   /** teams are the organizations in Clerk. Create one there first. */
@@ -45,7 +45,10 @@ export const IssueDialog = ({ teams }: IssueDialogProps): ReactElement => (
 );
 
 const Content = ({ teams }: IssueDialogProps): ReactElement => {
-  const methods = Form.use({ values: { ...ZERO_TERMS, organization: "" }, schema });
+  const methods = Form.use({
+    values: { ...Licenses.ZERO_TERMS, organization: "" },
+    schema,
+  });
   return (
     <Modal.Form
       methods={methods}
@@ -70,7 +73,7 @@ const Content = ({ teams }: IssueDialogProps): ReactElement => {
           </Select.Simple>
         )}
       </Form.Field>
-      <TermsFields />
+      <Licenses.TermsFields />
     </Modal.Form>
   );
 };

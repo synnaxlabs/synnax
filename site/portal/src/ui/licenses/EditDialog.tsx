@@ -16,7 +16,7 @@ import { type ReactElement } from "react";
 import { type License } from "@/server/db/schema";
 import { post, reload } from "@/ui/api";
 import { checkTerms, TermsFields, termsOf, termsSchema } from "@/ui/licenses/Terms";
-import * as Modal from "@/ui/Modal";
+import { Modal } from "@/ui/modal";
 
 const schema = termsSchema.check(checkTerms);
 

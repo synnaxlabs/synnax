@@ -16,7 +16,7 @@ import { type ReactElement } from "react";
 import { type Machine } from "@/server/license/desktop";
 import { Enterprise } from "@/ui/Enterprise";
 import { date, machineName, statusOf } from "@/ui/format";
-import { StatusTag } from "@/ui/licenses/StatusTag";
+import { Licenses } from "@/ui/licenses";
 import { Page, Section } from "@/ui/Page";
 import { Row, Table } from "@/ui/Table";
 
@@ -119,7 +119,7 @@ const Recent = ({ machines, devices, now }: RecentProps): ReactElement => (
             {machineName(a)}
           </Text.Text>
           <Flex.Box>
-            <StatusTag status={statusOf(lic, now)} />
+            <Licenses.StatusTag status={statusOf(lic, now)} />
           </Flex.Box>
           <Text.Text level="p" color={10}>
             {date(a.lastSeen)}

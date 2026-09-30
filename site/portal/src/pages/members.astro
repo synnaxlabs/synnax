@@ -10,7 +10,7 @@
 
 import Portal from "@/layouts/Portal.astro";
 import { loadScoped } from "@/page";
-import { Members } from "@/ui/members/Members";
+import { Members } from "@/ui/members";
 
 const loaded = await loadScoped(Astro, "team");
 if (loaded instanceof Response) return loaded;
@@ -27,7 +27,7 @@ const roster = await portal.directory.roster(scope.clerkOrgID);
     scope={scope}
     tab="members"
 >
-    <Members
+    <Members.Members
         client:load
         name={scope.name}
         clerkOrgID={scope.clerkOrgID}

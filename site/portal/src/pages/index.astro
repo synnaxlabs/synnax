@@ -11,8 +11,7 @@
 import Portal from "@/layouts/Portal.astro";
 import { loadScoped } from "@/page";
 import { scoped } from "@/shell";
-import { Personal } from "@/ui/overview/Personal";
-import { Team } from "@/ui/overview/Team";
+import { Overview } from "@/ui/overview";
 import { machinesFor } from "@/server/license/desktop";
 import { listForOrganization } from "@/server/license/list";
 
@@ -32,9 +31,14 @@ const machines = team ? [] : await machinesFor(portal.store.query, scope.key);
     tab="overview"
 >
     {team ? (
-        <Team client:load organization={scope} licenses={licenses} now={portal.now()} />
+        <Overview.Team
+            client:load
+            organization={scope}
+            licenses={licenses}
+            now={portal.now()}
+        />
     ) : (
-        <Personal
+        <Overview.Personal
             client:load
             machines={machines}
             devices={scoped("/devices", scope)}

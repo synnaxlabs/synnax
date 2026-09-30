@@ -18,7 +18,7 @@ import { filename } from "@/server/license/limits";
 import { post, postFile, reload, save } from "@/ui/api";
 import { machineName } from "@/ui/format";
 import { RenameDialog } from "@/ui/licenses/RenameDialog";
-import * as Modal from "@/ui/Modal";
+import { Modal } from "@/ui/modal";
 import { useAction } from "@/ui/useAction";
 
 export interface MachineMenuProps {

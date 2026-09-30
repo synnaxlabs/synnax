@@ -10,7 +10,7 @@
 
 import Root from "@/layouts/Root.astro";
 import { landing } from "@/shell";
-import { SignUp } from "@/ui/auth/SignUp";
+import { Auth } from "@/ui/auth";
 import "@/styles/portal.css";
 
 if (Astro.locals.auth().userId != null) return Astro.redirect("/", 303);
@@ -18,6 +18,6 @@ if (Astro.locals.auth().userId != null) return Astro.redirect("/", 303);
 
 <Root title="Create an account">
     <section class="portal-auth-page">
-        <SignUp client:load target={landing(Astro.url.searchParams)} />
+        <Auth.SignUp client:load target={landing(Astro.url.searchParams)} />
     </section>
 </Root>

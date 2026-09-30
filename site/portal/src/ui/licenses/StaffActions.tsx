@@ -18,7 +18,7 @@ import { deny } from "@/server/license/deny";
 import { filename } from "@/server/license/limits";
 import { post, postFile, reload, save } from "@/ui/api";
 import { EditDialog } from "@/ui/licenses/EditDialog";
-import * as Modal from "@/ui/Modal";
+import { Modal } from "@/ui/modal";
 import { useAction } from "@/ui/useAction";
 
 export interface StaffActionsProps {

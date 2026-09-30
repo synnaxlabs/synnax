@@ -16,7 +16,7 @@ import { z } from "zod";
 import { reload } from "@/ui/api";
 import { type User, useUser } from "@/ui/clerk";
 import { Fact, Facts } from "@/ui/Facts";
-import * as Modal from "@/ui/Modal";
+import { Modal } from "@/ui/modal";
 import { Page, Section } from "@/ui/Page";
 
 export interface SettingsProps {

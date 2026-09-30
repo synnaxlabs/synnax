@@ -16,7 +16,7 @@ import { type Activation } from "@/server/db/schema";
 import { MAX_NAME_LENGTH } from "@/server/license/limits";
 import { post, reload } from "@/ui/api";
 import { machineName } from "@/ui/format";
-import * as Modal from "@/ui/Modal";
+import { Modal } from "@/ui/modal";
 
 const schema = z.object({
   name: z.string().trim().min(1, "Name the machine").max(MAX_NAME_LENGTH, "Too long"),

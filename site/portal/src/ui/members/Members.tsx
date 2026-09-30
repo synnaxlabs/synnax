@@ -21,7 +21,7 @@ import { z } from "zod";
 import { ADMIN_ROLE, type Member, MEMBER_ROLE } from "@/server/directory";
 import { reload } from "@/ui/api";
 import { type Organization, useClerk } from "@/ui/clerk";
-import * as Modal from "@/ui/Modal";
+import { Modal } from "@/ui/modal";
 import { Page } from "@/ui/Page";
 import { Row, Table } from "@/ui/Table";
 import { useAction } from "@/ui/useAction";

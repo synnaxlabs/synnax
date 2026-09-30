@@ -1,4 +1,3 @@
----
 // Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
@@ -8,14 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import Root from "@/layouts/Root.astro";
-import { landing } from "@/shell";
-import { Auth } from "@/ui/auth";
-import "@/styles/portal.css";
----
-
-<Root title="Signing in">
-    <section class="portal-auth-page">
-        <Auth.SSOCallback client:load target={landing(Astro.url.searchParams)} />
-    </section>
-</Root>
+export * as Admin from "@/ui/admin/external";
