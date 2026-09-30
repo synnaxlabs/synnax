@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type license } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
 import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
 import { Status } from "@synnaxlabs/lyra/status";
@@ -19,18 +20,24 @@ import { Session } from "@/session";
 
 const FAILED_MESSAGE = "Failed to log in";
 
+export interface LinkDeps extends Link.Deps {
+  /** The Core's license API. Defaults to the connected client's. */
+  license?: Pick<license.Client, "activate">;
+}
+
 /**
  * Takes the login link the hub opens Synnax Desktop with: applies its license key to
  * the embedded Core and stores the link. A link whose state this app did not mint is
  * refused.
  */
-export const useLink = (deps: Link.Deps = Link.DEFAULT_DEPS): void => {
+export const useLink = (deps: LinkDeps = Link.DEFAULT_DEPS): void => {
   // The engine is fixed per runtime, so this early return never changes the hook order.
   if (deps.engine !== "tauri") return;
   const handleError = Status.useErrorHandler();
   const dispatch = Session.useDispatch();
   const store = Session.useStore();
   const client = Synnax.use();
+  const api = deps.license ?? client?.license;
   const [received, setReceived] = useState<Linked | null>(null);
 
   const receive = (urls: string[]): void => {
@@ -64,9 +71,9 @@ export const useLink = (deps: Link.Deps = Link.DEFAULT_DEPS): void => {
   // for a client.
   useAsyncEffect(
     async (signal) => {
-      if (client == null || received == null) return;
+      if (api == null || received == null) return;
       try {
-        await client.license.activate(received.key);
+        await api.activate(received.key);
         if (signal.aborted) return;
         const { activation, secret, email } = received;
         dispatch(Session.Account.link({ activation, secret, email }));
@@ -76,6 +83,6 @@ export const useLink = (deps: Link.Deps = Link.DEFAULT_DEPS): void => {
       }
       setReceived(null);
     },
-    [client, received],
+    [api, received],
   );
 };

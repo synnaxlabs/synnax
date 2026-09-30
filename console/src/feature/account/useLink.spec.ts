@@ -7,15 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type license, type Synnax as Client } from "@synnaxlabs/client";
+import { type license } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Status } from "@synnaxlabs/lyra/status";
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { act, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, type MockInstance, vi } from "vitest";
+import { describe, expect, it, type Mock, vi } from "vitest";
 
 import { Account } from "@/feature/account";
-import { type Link } from "@/platform/link";
 import { Session } from "@/session";
 import { renderHookWithConsole, type TestStore } from "@/testutil";
 
@@ -38,24 +37,24 @@ const ACTIVATED: license.Info = {
 };
 
 interface Harness {
-  activate: MockInstance<Client["license"]["activate"]>;
+  activate: Mock<NonNullable<Account.LinkDeps["license"]>["activate"]>;
   store: TestStore;
   openURL: (urls: string[]) => void;
   statuses: () => Status.NotificationSpec[];
 }
 
-const setup = async (overrides: Partial<Link.Deps> = {}): Promise<Harness> => {
-  const client = createTestClient();
-  const activate = vi.spyOn(client.license, "activate").mockResolvedValue(ACTIVATED);
+const setup = async (overrides: Partial<Account.LinkDeps> = {}): Promise<Harness> => {
+  const activate = vi.fn(async () => ACTIVATED);
   let openURL: (urls: string[]) => void = () => {};
   const onOpenURL = vi.fn(async (handler: typeof openURL): Promise<UnlistenFn> => {
     openURL = handler;
     return () => {};
   });
-  const deps: Link.Deps = {
+  const deps: Account.LinkDeps = {
     engine: "tauri",
     getCurrentURLs: async () => null,
     onOpenURL,
+    license: { activate },
     ...overrides,
   };
   const { result, store } = await renderHookWithConsole(
@@ -63,7 +62,7 @@ const setup = async (overrides: Partial<Link.Deps> = {}): Promise<Harness> => {
       Account.useLink(deps);
       return Status.useNotifications().statuses;
     },
-    { client },
+    { client: createTestClient() },
   );
   // The listener registers after the first render settles.
   await waitFor(() => expect(onOpenURL).toHaveBeenCalled());
@@ -79,8 +78,6 @@ const failed = (h: Harness): boolean =>
   h.statuses().some((s) => s.message === "Failed to log in");
 
 describe("Account.useLink", () => {
-  afterEach(() => vi.restoreAllMocks());
-
   it("should apply the license key and store the link the app asked for", async () => {
     const h = await setup();
     h.store.dispatch(Session.Account.beginLogin("minted"));
@@ -114,8 +111,8 @@ describe("Account.useLink", () => {
   });
 
   it("should keep the machine unlinked when the Core rejects the license key", async () => {
-    const h = await setup();
-    vi.mocked(h.activate).mockRejectedValue(new Error("bad license key"));
+    // Nothing injected, so the test Core answers, and it rejects the key "a.b.c".
+    const h = await setup({ license: undefined });
     h.store.dispatch(Session.Account.beginLogin("minted"));
     act(() => h.openURL([linkOf(LINKED)]));
     await waitFor(() => expect(failed(h)).toBe(true));
