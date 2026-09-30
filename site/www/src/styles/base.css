@@ -33,19 +33,12 @@
     --pluto-h5-weight: 350;
     --pluto-small-size: 2rem;
     --pluto-small-line-height: 115%;
-    --shiki-background: transparent;
-    --shiki-foreground: var(--pluto-text-color);
-    --shiki-token-comment: var(--pluto-gray-l7);
-    --shiki-token-string-expression: var(--pluto-secondary-m1);
-    --shiki-token-string: var(--pluto-secondary-m1);
-    --shiki-token-function: #556bf8;
-    --shiki-token-punctuation: var(--pluto-text-color);
-    --shiki-token-keyword: #cc255f;
-    --shiki-token-constant: var(--pluto-text-color);
+    --astro-code-background: transparent;
 }
 
 html {
     background: var(--pluto-gray-l0);
+    color-scheme: dark;
     scroll-behavior: smooth;
 }
 

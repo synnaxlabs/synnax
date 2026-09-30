@@ -8,7 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { type Token, tokens } from "@synnaxlabs/arc";
-import { createCssVariablesTheme, type ShikiTransformer, splitTokens } from "shiki";
+import {
+  type BundledLanguage,
+  createCssVariablesTheme,
+  createHighlighter,
+  type LanguageRegistration,
+  type ShikiTransformer,
+  splitTokens,
+} from "shiki";
 
 const color = ({ light, dark }: Token): string => `light-dark(${light}, ${dark})`;
 
@@ -63,4 +70,15 @@ export const symbols: ShikiTransformer = {
     );
     return split;
   },
+};
+
+/**
+ * Loads the given languages and returns a function that renders code in one of them as
+ * HTML in the Synnax theme.
+ */
+export const highlighter = async (
+  langs: (BundledLanguage | LanguageRegistration)[],
+): Promise<(code: string, lang: string) => string> => {
+  const h = await createHighlighter({ themes: [theme], langs });
+  return (code, lang) => h.codeToHtml(code, { lang, theme });
 };

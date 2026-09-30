@@ -47,13 +47,6 @@ html {
     /* Astro code block styling */
     --astro-code-color-text: var(--pluto-text-color);
     --astro-code-background: var(--pluto-gray-l1);
-    --astro-code-foreground: var(--pluto-text-color);
-    --astro-code-token-comment: var(--pluto-gray-l7);
-    --astro-code-token-string-expression: var(--pluto-secondary-m1);
-    --astro-code-token-function: light-dark(#3774d0, #556bf8);
-    --astro-code-token-punctuation: var(--pluto-text-color);
-    --astro-code-token-keyword: #cc255f;
-    --astro-code-token-constant: var(--pluto-text-color);
 
     /* Pluto typography overrides */
     --pluto-schematic-element-stroke-width: 2px;

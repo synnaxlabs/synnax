@@ -5,6 +5,7 @@
   "exports": {
     "./Footer.astro": "./src/Footer.astro",
     "./drawer.css": "./src/drawer.css",
+    "./shiki": "./src/shiki.ts",
     "./tokens.css": "./src/tokens.css"
   },
   "scripts": {
@@ -16,9 +17,11 @@
     "stylelint": "stylelint \"src/**/*.css\""
   },
   "dependencies": {
+    "@synnaxlabs/arc": "catalog:",
     "@synnaxlabs/lyra": "catalog:",
     "@synnaxlabs/media": "catalog:",
-    "astro": "catalog:"
+    "astro": "catalog:",
+    "shiki": "catalog:"
   },
   "devDependencies": {
     "@astrojs/check": "catalog:",
