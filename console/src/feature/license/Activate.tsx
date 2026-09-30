@@ -55,13 +55,13 @@ export const Activate = (): ReactElement => {
   const target = Session.Core.useSelectSelected();
   const logout = Session.useLogout();
   const handleError = Status.useErrorHandler();
-  const info = PLicense.useResult({});
+  const result = PLicense.useResult({});
   const [key, setKey] = useState("");
   const [activating, setActivating] = useState(false);
   const [error, setError] = useState<status.Status | null>(null);
-  const fingerprint = info.data?.fingerprint ?? [];
+  const fingerprint = result.data?.fingerprint ?? [];
   const expired = ExpiredLicenseError.matches(details.error);
-  const noHardware = info.data != null && fingerprint.length === 0;
+  const noHardware = result.data != null && fingerprint.length === 0;
 
   const pickFile = (): void =>
     handleError(async () => {
@@ -150,12 +150,12 @@ export const Activate = (): ReactElement => {
             </Button.Button>
             <Flex.Box className={CSS.BE("license-activate", "status")}>
               {error != null && <Status.Summary status={error} level="small" />}
-              {error == null && info.variant === "error" && (
+              {error == null && result.variant === "error" && (
                 <Status.Summary
                   variant="error"
                   level="small"
                   message="Failed to read the host fingerprint"
-                  description={info.status.details.error.message}
+                  description={result.status.details.error.message}
                 />
               )}
             </Flex.Box>

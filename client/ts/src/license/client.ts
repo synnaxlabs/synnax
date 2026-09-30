@@ -42,10 +42,6 @@ interface Entry extends Info {
   key: typeof KEY;
 }
 
-type Params = Record<string, never>;
-
-const PARAMS: Params = {};
-
 export interface ClientParams {
   unary: UnaryClient;
   connection: connection.Handle;
@@ -56,7 +52,7 @@ export class Client {
   private readonly unary: UnaryClient;
   private readonly connection: connection.Handle;
   private readonly table: query.Table<typeof KEY, Entry>;
-  private readonly space: query.Retrieves<Params, Info>;
+  private readonly space: query.Retrieves<typeof KEY, Info>;
 
   constructor({ unary, connection, cache }: ClientParams) {
     this.unary = unary;
@@ -67,7 +63,7 @@ export class Client {
       listen: [query.createFetchListener(SET_CHANNEL_NAME, z.literal(KEY))],
     });
     this.table = table;
-    this.space = cache.queries<Params, Info, typeof KEY, Entry>({
+    this.space = cache.queries<typeof KEY, Info, typeof KEY, Entry>({
       name: "license",
       table,
       fetch: async () => {
@@ -75,7 +71,7 @@ export class Client {
         return [KEY];
       },
       compose: ([{ key: _, ...info }]) => info,
-      keyOf: () => KEY,
+      keyOf: (key) => key,
       single: true,
     });
   }
@@ -85,7 +81,7 @@ export class Client {
    * @throws {AccessDeniedError} if the caller lacks permission to read the license.
    */
   async retrieve(): Promise<Info> {
-    return await this.space.retrieve(PARAMS);
+    return await this.space.retrieve(KEY);
   }
 
   /**
@@ -93,12 +89,12 @@ export class Client {
    * until the returned destructor runs.
    */
   onChange(handler: query.ChangeHandler<Info>): destructor.Destructor {
-    return this.space.onChange(PARAMS, handler);
+    return this.space.onChange(KEY, handler);
   }
 
   /** @returns The cached license state, or undefined when none is cached. */
   getCached(): query.Cached<Info> | undefined {
-    return this.space.getCached(PARAMS);
+    return this.space.getCached(KEY);
   }
 
   /**

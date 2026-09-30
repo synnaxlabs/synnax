@@ -13,7 +13,7 @@ import { Flux } from "@/flux";
 
 export type RetrieveQuery = Record<string, never>;
 
-export const { use, useResult } = Flux.createRetrieve<RetrieveQuery, license.Info>({
+export const { useResult } = Flux.createRetrieve<RetrieveQuery, license.Info>({
   name: "license",
   retrieve: async ({ client }) => await client.license.retrieve(),
   onChange: ({ client }, handler) => client.license.onChange(handler),
