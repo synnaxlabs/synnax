@@ -33,10 +33,10 @@
     "@synnaxlabs/eslint-config": "catalog:",
     "@synnaxlabs/stylelint-config": "catalog:",
     "@synnaxlabs/tsconfig": "catalog:",
+    "@synnaxlabs/vite-plugin": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "eslint": "catalog:",
-    "postcss": "catalog:",
     "stylelint": "catalog:",
     "typescript": "catalog:ts6"
   }

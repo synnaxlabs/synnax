@@ -10,7 +10,7 @@
 import { type CrudeTimeStamp, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 
 /** Tick step sizes, from 1 nanosecond to 1 second in 1-2-5 increments. */
-export const TIME_SCALE_STEPS: TimeSpan[] = [
+const TIME_SCALE_STEPS: TimeSpan[] = [
   TimeSpan.NANOSECOND,
   TimeSpan.nanoseconds(2),
   TimeSpan.nanoseconds(5),
@@ -42,13 +42,6 @@ export const TIME_SCALE_STEPS: TimeSpan[] = [
 ];
 
 const MICROSECOND_FORMAT_THRESHOLD = TimeSpan.microseconds(50);
-
-export interface PreciseTimeScaleProps {
-  /** The domain of the time scale as [start, end] timestamps */
-  domain: [CrudeTimeStamp, CrudeTimeStamp];
-  /** The range of the scale as [start, end] numbers for visual representation */
-  range: [number, number];
-}
 
 /**
  * Maps a time domain onto a numeric range, holding nanosecond precision in BigInt
