@@ -416,9 +416,11 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
         std::move(requests)
     );
 
+    // About one day of backoff before the task stops.
     auto breaker_cfg = x::breaker::Config{
         .name = task.name,
-        .max_retries = x::breaker::RETRY_INFINITELY,
+        .max_retries = 761,
+        .max_interval = 2 * x::telem::MINUTE,
     };
 
     auto read_task = std::make_unique<common::ReadTask>(
