@@ -11,16 +11,17 @@ package domain
 
 import (
 	"context"
+	"io"
 
-	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/telem"
 )
 
 // Reader is a readable domain of telemetry within the DB implementing the io.ReaderAt
 // and io.Closer interfaces.
 type Reader struct {
-	io.ReaderAtCloser
-	ptr pointer
+	section  io.SectionReader
+	internal *controlledReader
+	ptr      pointer
 }
 
 func (db *DB) newReader(ctx context.Context, ptr pointer) (*Reader, error) {
@@ -28,9 +29,18 @@ func (db *DB) newReader(ctx context.Context, ptr pointer) (*Reader, error) {
 	if err != nil {
 		return nil, err
 	}
-	reader := io.NewSectionReaderAtCloser(internal, int64(ptr.offset), int64(ptr.size))
-	return &Reader{ptr: ptr, ReaderAtCloser: reader}, nil
+	r := &Reader{internal: internal, ptr: ptr}
+	r.section = *io.NewSectionReader(internal, int64(ptr.offset), int64(ptr.size))
+	return r, nil
 }
+
+// ReadAt reads len(p) bytes of the domain starting at offset off.
+func (r *Reader) ReadAt(p []byte, off int64) (int, error) {
+	return r.section.ReadAt(p, off)
+}
+
+// Close releases the reader's file handle back to the DB.
+func (r *Reader) Close() error { return r.internal.Close() }
 
 // Size returns the number of bytes in the entire domain.
 func (r *Reader) Size() telem.Size { return telem.Size(r.ptr.size) }

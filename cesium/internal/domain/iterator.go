@@ -12,7 +12,6 @@ package domain
 import (
 	"context"
 
-	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -44,13 +43,8 @@ func IterRange(tr telem.TimeRange) IteratorConfig { return IteratorConfig{Bounds
 // lifetime. This means that the position of an iterator may shift unexpectedly. There
 // are plans to implement MVCC in the future, but until then you have been warned.
 type Iterator struct {
-	// idx is the index that the iterator is iterating over.
-	idx *index
-	// readerFactory gets a new reader for the given domain pointer.
-	readerFactory func(ctx context.Context, ptr pointer) (*Reader, error)
-	// onClose is called when the iterator is closed.
-	onClose func()
-	alamos.Instrumentation
+	// db is the DB that the iterator is iterating over.
+	db *DB
 	IteratorConfig
 	// position stores the current position of the iterator in the idx. NOTE: At the
 	// moment, this position may not hold a consistent reference to the same domain if
@@ -69,12 +63,7 @@ type Iterator struct {
 // seeking call is required before it can be used.
 func (db *DB) OpenIterator(cfg IteratorConfig) *Iterator {
 	db.resourceCount.Add(1)
-	i := &Iterator{
-		Instrumentation: db.cfg.Child("iterator"),
-		idx:             db.idx,
-		readerFactory:   db.newReader,
-		onClose:         func() { db.resourceCount.Add(-1) },
-	}
+	i := &Iterator{db: db}
 	i.SetBounds(cfg.Bounds)
 	return i
 }
@@ -137,7 +126,7 @@ func (i *Iterator) SeekLE(ctx context.Context, stamp telem.TimeStamp) bool {
 		return false
 	}
 	i.valid = true
-	i.position = i.idx.searchLE(ctx, stamp)
+	i.position = i.db.idx.searchLE(ctx, stamp)
 	return i.reload()
 }
 
@@ -149,7 +138,7 @@ func (i *Iterator) SeekGE(ctx context.Context, stamp telem.TimeStamp) bool {
 		return false
 	}
 	i.valid = true
-	i.position = i.idx.searchGE(ctx, stamp)
+	i.position = i.db.idx.searchGE(ctx, stamp)
 	return i.reload()
 }
 
@@ -201,7 +190,7 @@ func (i *Iterator) OpenReader(ctx context.Context) (*Reader, error) {
 	if i.closed {
 		return nil, ErrIteratorClosed
 	}
-	return i.readerFactory(ctx, i.currPtr)
+	return i.db.newReader(ctx, i.currPtr)
 }
 
 // Size returns the number of bytes occupied by the telemetry in the current domain.
@@ -211,7 +200,7 @@ func (i *Iterator) Size() telem.Size { return telem.Size(i.currPtr.size) }
 func (i *Iterator) Close() error {
 	i.closed = true
 	i.valid = false
-	i.onClose()
+	i.db.resourceCount.Add(-1)
 	return nil
 }
 
@@ -220,7 +209,7 @@ func (i *Iterator) reload() bool {
 		i.valid = false
 		return i.valid
 	}
-	ptr, ok := i.idx.get(i.position)
+	ptr, ok := i.db.idx.get(i.position)
 	if !ok || !ptr.OverlapsWith(i.Bounds) {
 		i.valid = false
 		// it's important that we return here, so we don't clear the current current

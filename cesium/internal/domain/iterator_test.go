@@ -10,10 +10,13 @@
 package domain_test
 
 import (
+	"testing"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium/internal/domain"
+	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
@@ -428,6 +431,23 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Expect(i.Close()).To(Succeed())
 					},
 				)
+				It(
+					"Should allocate at most the reader and its file handle",
+					func(ctx SpecContext) {
+						i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
+						Expect(i.SeekFirst(ctx)).To(BeTrue())
+						var err error
+						allocs := testing.AllocsPerRun(100, func() {
+							var r *domain.Reader
+							if r, err = i.OpenReader(ctx); err == nil {
+								err = r.Close()
+							}
+						})
+						Expect(err).ToNot(HaveOccurred())
+						Expect(allocs).To(BeNumerically("<=", 2))
+						Expect(i.Close()).To(Succeed())
+					},
+				)
 			})
 
 			Describe("Close", func() {
@@ -467,6 +487,28 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Expect(r.Close()).To(Succeed())
 					},
 				)
+
+				It("Should keep the db open until the iterator closes", func() {
+					fs := openFS()
+					db := MustSucceed(domain.Open(domain.Config{
+						FS:              fs,
+						Instrumentation: PanicLogger(),
+					}))
+					i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
+					Expect(db.Close()).To(MatchError(resource.ErrOpen))
+					Expect(i.Close()).To(Succeed())
+					Expect(db.Close()).To(Succeed())
+				})
+
+				It("Should allocate at most the iterator", func() {
+					var err error
+					allocs := testing.AllocsPerRun(100, func() {
+						i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
+						err = i.Close()
+					})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(allocs).To(BeNumerically("<=", 1))
+				})
 			})
 		})
 	}
