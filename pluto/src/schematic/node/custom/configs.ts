@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { schematic } from "@synnaxlabs/client";
+import { type schematic } from "@synnaxlabs/client";
 import { type z } from "zod";
 
 import { Form } from "@/schematic/node/common/form";
@@ -19,8 +19,9 @@ import { type Spec } from "@/schematic/node/spec";
 
 export const CUSTOM_ACTUATOR_VARIANT = "custom_actuator";
 
-export const customActuatorConfigZ = schematic.customActuatorNodeConfigZ;
-export interface CustomActuatorConfig extends z.infer<typeof customActuatorConfigZ> {}
+export interface CustomActuatorConfig extends z.infer<
+  typeof schematic.customActuatorNodeConfigZ
+> {}
 
 export const customActuatorSpec: Spec<
   typeof CUSTOM_ACTUATOR_VARIANT,
@@ -36,8 +37,9 @@ export const customActuatorSpec: Spec<
 
 export const CUSTOM_STATIC_VARIANT = "custom_static";
 
-export const customStaticConfigZ = schematic.customStaticNodeConfigZ;
-export interface CustomStaticConfig extends z.infer<typeof customStaticConfigZ> {}
+export interface CustomStaticConfig extends z.infer<
+  typeof schematic.customStaticNodeConfigZ
+> {}
 
 export const customStaticSpec: Spec<typeof CUSTOM_STATIC_VARIANT, CustomStaticConfig> =
   {
