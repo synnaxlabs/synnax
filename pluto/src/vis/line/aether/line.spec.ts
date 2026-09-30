@@ -12,13 +12,19 @@ import {
   type CrudeTimeRange,
   DataType,
   MultiSeries,
+  scale,
   Series,
   TimeRange,
   TimeSpan,
 } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { buildDrawOperations, type DrawOperation } from "@/vis/line/aether/line";
+import {
+  bridgeVertices,
+  buildDrawOperations,
+  type DrawOperation,
+  nearestVertex,
+} from "@/vis/line/aether/line";
 
 describe("line", () => {
   describe("buildDrawOperations", () => {
@@ -362,6 +368,135 @@ describe("line", () => {
           expect(drawOperation.count).toBe(expected[i].count);
         });
       });
+    });
+  });
+
+  describe("bridgeVertices", () => {
+    const op = (
+      x: Series,
+      y: Series,
+      count: number,
+      offset = 0,
+      downsample = 1,
+    ): DrawOperation => ({ x, y, xOffset: offset, yOffset: offset, count, downsample });
+    const f32 = (...data: number[]): Series => new Series(new Float32Array(data));
+    const shifted = (sampleOffset: bigint, ...data: number[]): Series =>
+      new Series({ data: new Float32Array(data), sampleOffset });
+    const vertices = (ops: DrawOperation[]): number[] =>
+      Array.from(bridgeVertices(ops, scale.XY.IDENTITY));
+
+    it("should return no vertices for a single op", () => {
+      expect(vertices([op(f32(0, 1), f32(2, 3), 2)])).toEqual([]);
+    });
+
+    it("should join the last vertex of an op to the first vertex of the next", () => {
+      const a = op(f32(0, 1), f32(2, 3), 2);
+      const b = op(f32(5, 6), f32(7, 4), 2);
+      expect(vertices([a, b])).toEqual([1, 3, 5, 7]);
+    });
+
+    it("should apply the x sample offset of each op", () => {
+      const a = op(shifted(100n, 0, 1, 2), f32(7, 8, 9), 3);
+      const b = op(shifted(110n, 5, 6), f32(3, 4), 2);
+      expect(vertices([a, b])).toEqual([102, 9, 115, 3]);
+    });
+
+    it("should apply the y sample offset of each op", () => {
+      const a = op(f32(0, 1), shifted(50n, 0, 4), 2);
+      const b = op(f32(2, 3), shifted(60n, 0, 1), 2);
+      expect(vertices([a, b])).toEqual([1, 54, 2, 60]);
+    });
+
+    it("should bridge through an op with one sample", () => {
+      const a = op(f32(0, 1), f32(2, 3), 2);
+      const lone = op(f32(5), f32(7), 1);
+      const c = op(f32(8, 9), f32(4, 6), 2);
+      expect(vertices([a, lone, c])).toEqual([1, 3, 5, 7, 5, 7, 8, 4]);
+    });
+
+    it("should chain bridges through many consecutive ops with one sample each", () => {
+      const ys = [2, 9, 4, 7, 1, 8];
+      const ops = ys.map((y, x) => op(f32(x), f32(y), 1));
+      const expected = ys.slice(1).flatMap((y, i) => [i, ys[i], i + 1, y]);
+      expect(vertices(ops)).toEqual(expected);
+    });
+
+    describe("decimated ops", () => {
+      const ax = f32(0, 1, 2, 3, 4, 5, 6);
+      const ay = f32(10, 11, 12, 13, 14, 15, 16);
+      const b = op(f32(9), f32(1), 1);
+
+      it("should start at the last vertex the strip draws", () => {
+        expect(vertices([op(ax, ay, 7, 0, 3), b])).toEqual([3, 13, 9, 1]);
+      });
+
+      it("should start at the first sample of an op too short to draw", () => {
+        expect(vertices([op(ax, ay, 5, 0, 3), b])).toEqual([0, 10, 9, 1]);
+      });
+    });
+
+    it("should respect the op offsets and a uint8 y", () => {
+      const a = op(f32(0, 1, 2, 3), new Series(new Uint8Array([0, 1, 1, 0])), 2, 1);
+      const b = op(f32(4, 5, 6), new Series(new Uint8Array([1, 0, 0])), 2, 1);
+      expect(vertices([a, b])).toEqual([2, 1, 5, 0]);
+    });
+
+    it("should map each vertex through the scale", () => {
+      const s = new scale.XY(
+        scale.Scale.scale<number>(100, 200).scale(1),
+        scale.Scale.scale<number>(0, 10).scale(1),
+      );
+      const a = op(f32(100, 150), f32(0, 5), 2);
+      const b = op(f32(175), f32(10), 1);
+      const v = bridgeVertices([a, b], s);
+      [0.5, 0.5, 0.75, 1].forEach((e, i) => expect(v[i]).toBeCloseTo(e));
+    });
+
+    it("should keep a vertex in view precise when the next op is a day away", () => {
+      const start = 1_760_000_000_000_000_000n;
+      const day = 86_400_000_000_000n;
+      const a = op(shifted(start, 0, 1e6, 2e6), f32(1, 2, 3), 3);
+      const b = op(shifted(start + day, 0), f32(7), 1);
+      const view = 100e6;
+      const lower = Number(start) + 2e6 - view / 2;
+      const s = new scale.XY(scale.Scale.scale<number>(lower, lower + view).scale(1));
+      const [x] = bridgeVertices([a, b], s);
+      expect(x).toBeCloseTo(0.5, 5);
+    });
+  });
+
+  describe("nearestVertex", () => {
+    const EMPTY = new Series(new Float32Array());
+    const op = (count: number, downsample: number, xOffset = 0): DrawOperation => ({
+      x: EMPTY,
+      y: EMPTY,
+      xOffset,
+      yOffset: 0,
+      count,
+      downsample,
+    });
+
+    it("should return the index itself when nothing is decimated", () => {
+      expect(nearestVertex(op(30, 1), 17)).toBe(17);
+    });
+
+    it("should round to the nearest drawn vertex", () => {
+      expect(nearestVertex(op(30, 4), 1)).toBe(0);
+      expect(nearestVertex(op(30, 4), 3)).toBe(4);
+      expect(nearestVertex(op(30, 4), 14)).toBe(16);
+    });
+
+    it("should not pass the last vertex the strip draws", () => {
+      expect(nearestVertex(op(30, 4), 29)).toBe(24);
+    });
+
+    it("should measure from the op's x offset", () => {
+      expect(nearestVertex(op(30, 4, 2), 5)).toBe(6);
+      expect(nearestVertex(op(30, 4, 2), 3)).toBe(2);
+    });
+
+    it("should return the first sample of an op too short to draw", () => {
+      expect(nearestVertex(op(6, 4), 5)).toBe(0);
     });
   });
 });
