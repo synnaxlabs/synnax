@@ -7,13 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { satteri } from "@astrojs/markdown-satteri";
 import mdx from "@astrojs/mdx";
 import react from "@astrojs/react";
 import vercel from "@astrojs/vercel";
 import { grammar as arcGrammar } from "@synnaxlabs/arc";
-import { layer } from "@synnaxlabs/site-common/layer";
+import { layers } from "@synnaxlabs/vite-plugin";
 import { defineConfig, envField } from "astro/config";
 
+import { outline } from "./src/util/outline";
 import { symbols, theme } from "./src/util/shiki";
 
 // https://astro.build/config
@@ -30,13 +32,26 @@ export default defineConfig({
       }),
     },
   },
-  adapter: vercel(),
+  adapter: vercel({
+    // Misses read Vercel's shared page cache, not the function, and pages refresh
+    // with the release listing. The updater feeds stay uncached so a failed lookup
+    // never sticks.
+    isr: { expiration: 300, exclude: [/^\/releases\/[^/]+\/(latest|next)\.json$/] },
+  }),
   vite: {
     // These ship ESM with CSS imports, which Node cannot load; Vite bundles them for SSR.
     ssr: { noExternal: ["@synnaxlabs/lyra", "@synnaxlabs/site-common"] },
-    css: { postcss: { plugins: [layer(/[\\/]lyra[\\/]/, "pluto")] } },
+    css: {
+      postcss: { plugins: [layers([{ name: "pluto", files: /[\\/]lyra[\\/]/ }])] },
+    },
+    // An inlined font ships in the render-blocking stylesheet whether or not a page
+    // needs its characters.
+    build: {
+      assetsInlineLimit: (file) => (/\.woff2?$/.test(file) ? false : undefined),
+    },
   },
   markdown: {
+    processor: satteri({ hastPlugins: [outline] }),
     shikiConfig: {
       theme,
       langs: [arcGrammar],

@@ -8,7 +8,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import favicon from "@synnaxlabs/media/static/logo/icon-white-favicon.svg";
 import { SEO } from "astro-seo";
 import "@/styles/main.css";
 import Header from "@/components/Header.astro";
@@ -44,6 +43,7 @@ const FOOTER_COLUMNS = [
         title: "Resources",
         links: [
             { label: "Documentation", href: "https://docs.synnaxlabs.com/reference" },
+            { label: "Reliability", href: "https://docs.synnaxlabs.com/reliability/" },
             { label: "Sponsorships", href: "/sponsorships" },
         ],
     },
@@ -84,7 +84,8 @@ const FOOTER_COLUMNS = [
                 image: IMAGE,
             }}
         />
-        <link rel="icon" type="image/svg+xml" href={favicon.src} />
+        <link rel="icon" href="/favicon.ico" sizes="48x48" />
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
         <slot name="head" />
     </head>
     <body>

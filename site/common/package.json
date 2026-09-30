@@ -5,7 +5,6 @@
   "exports": {
     "./Footer.astro": "./src/Footer.astro",
     "./drawer.css": "./src/drawer.css",
-    "./layer": "./src/layer.ts",
     "./tokens.css": "./src/tokens.css"
   },
   "scripts": {
@@ -19,8 +18,7 @@
   "dependencies": {
     "@synnaxlabs/lyra": "catalog:",
     "@synnaxlabs/media": "catalog:",
-    "astro": "catalog:",
-    "postcss": "catalog:"
+    "astro": "catalog:"
   },
   "devDependencies": {
     "@astrojs/check": "catalog:",
