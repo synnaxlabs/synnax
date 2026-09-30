@@ -837,14 +837,6 @@ func (p *Plugin) processStruct(
 				baseTSName := domain.GetName(base, "ts")
 				schemaName := camelCase(baseTSName) + "Z"
 				importLocalHand(base, schemaName, data)
-				if base.Namespace != data.Namespace {
-					ns := importNamespace(
-						base.Namespace,
-						output.GetPath(base, "ts"),
-						data,
-					)
-					schemaName = ns + "." + schemaName
-				}
 				sd.ExtendsName = schemaName
 				for _, f := range form.OmittedFields {
 					sd.OmittedFields = append(sd.OmittedFields, fieldCamel(f))
