@@ -91,6 +91,10 @@ describe("issue.validate", () => {
     expect(() => validate({ ...base, nodes: 0 })).toThrow("Nodes must be");
     expect(() => validate({ ...base, channels: -1 })).toThrow("Channels must be");
   });
+
+  it("should require a label", () => {
+    expect(() => validate({ ...base, label: "" })).toThrow("Give the license a label");
+  });
 });
 
 describe("issue.changes", () => {

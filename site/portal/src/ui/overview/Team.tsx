@@ -87,7 +87,7 @@ export const Team = ({ organization, licenses, now }: TeamProps): ReactElement =
             {licenses.slice(0, RECENT).map(({ license: lic, seats: held }) => (
               <Row key={lic.key} columns={COLUMNS} href={`/licenses/${lic.key}`}>
                 <Text.Text level="p" weight={500} overflow="ellipsis">
-                  {lic.label || "Untitled license"}
+                  {lic.label}
                 </Text.Text>
                 <Flex.Box>
                   <StatusTag status={statusOf(lic, now)} />

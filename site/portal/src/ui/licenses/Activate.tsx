@@ -56,7 +56,7 @@ export const Activate = ({ choices, selected }: ActivateProps): ReactElement => 
             <Select.Simple<string> resourceName="License" value={key} onChange={setKey}>
               {choices.map(({ license, organization }) => (
                 <Select.Item key={license.key} itemKey={license.key}>
-                  {`${license.label || "Untitled license"} (${organization.name})`}
+                  {`${license.label} (${organization.name})`}
                 </Select.Item>
               ))}
             </Select.Simple>

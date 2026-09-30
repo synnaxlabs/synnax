@@ -108,7 +108,7 @@ export const Licenses = ({ teams, licenses, now }: LicensesProps): ReactElement 
               {shown.map(({ license: lic, organization: org }) => (
                 <Row key={lic.key} columns={COLUMNS} href={`/licenses/${lic.key}`}>
                   <Text.Text level="p" weight={500} overflow="ellipsis">
-                    {lic.label || "Untitled license"}
+                    {lic.label}
                   </Text.Text>
                   <Text.Text level="p" color={9} overflow="ellipsis">
                     {org.name}
