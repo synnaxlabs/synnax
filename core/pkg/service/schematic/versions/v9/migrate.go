@@ -105,9 +105,10 @@ type configLoss struct {
 // typeConfigs decodes v8's opaque config entries into the element config union. The
 // entries reach here in the camelCase form the Console wrote verbatim and never
 // validated, so each is normalized to the snake_case wire form and has its stored
-// telem pipelines, legacy page keys, and zero colors rewritten into the typed shape
-// first. An entry the union rejects is replaced by its variant's zero config when the
-// variant is known and left out otherwise; both are reported in the returned losses.
+// telem pipelines, legacy page keys, legacy redlines, and zero colors rewritten into
+// the typed shape first. An entry the union rejects is replaced by its variant's zero
+// config when the variant is known and left out otherwise; both are reported in the
+// returned losses.
 func typeConfigs(
 	raw map[string]msgpack.EncodedJSON,
 ) (map[string]ElementConfig, map[string]configLoss) {
@@ -116,13 +117,20 @@ func typeConfigs(
 		losses map[string]configLoss
 	)
 	for k, entry := range raw {
-		normalized := NormalizeConfigKeys(entry)
+		var (
+			normalized = NormalizeConfigKeys(entry)
+			cfg        ElementConfig
+			err        error
+		)
 		if normalized != nil {
 			extractTelemArgs(normalized)
 			normalizePage(normalized)
+			err = bandRedline(normalized)
 			stripZeroColors(map[string]any(normalized))
 		}
-		cfg, err := DecodeElementConfig(normalized)
+		if err == nil {
+			cfg, err = DecodeElementConfig(normalized)
+		}
 		if err == nil {
 			out[k] = cfg
 			continue

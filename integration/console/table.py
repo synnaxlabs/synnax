@@ -139,37 +139,45 @@ class Table(ConsolePage):
         letter = chr(ord("A") + col)
         self.ctx_menu.action(cell, f"Delete column {letter}")
 
-    def set_redline(self, row: int, col: int, lower: float, upper: float) -> None:
-        """Configure redline bounds on a value cell.
+    def add_redline_band(self, row: int, col: int, threshold: float) -> None:
+        """Add a threshold band to the redline of a value cell.
 
         The cell must already be set to "Value" variant with a channel configured.
 
         Args:
             row: Row index (0-based)
             col: Column index (0-based)
-            lower: Lower redline bound
-            upper: Upper redline bound
+            threshold: Lowest value the band paints. It must exceed every existing
+                threshold, since a new band is added at the bottom of the list.
         """
-        self._select_cell(row, col)
-        self.page.get_by_role("tab", name="Redline", exact=True).click()
-        self.layout.fill_input_field("Lower", str(lower))
-        self.layout.fill_input_field("Upper", str(upper))
+        bands = self._open_redline_bands(row, col)
+        self.page.locator(".pluto-redline-form").get_by_text(
+            "Add band", exact=True
+        ).click()
+        threshold_input = bands.locator(".pluto-list__item input").last
+        threshold_input.fill(str(threshold))
+        threshold_input.press("Enter")
 
-    def get_redline(self, row: int, col: int) -> tuple[str, str]:
-        """Get the current redline bounds from a value cell.
+    def get_redline_thresholds(self, row: int, col: int) -> list[str]:
+        """Get the band thresholds of a value cell's redline, lowest first.
 
         Args:
             row: Row index (0-based)
             col: Column index (0-based)
 
         Returns:
-            Tuple of (lower_bound, upper_bound) as strings
+            The threshold of each band as shown in its input
         """
+        inputs = self._open_redline_bands(row, col).locator(".pluto-list__item input")
+        return [inputs.nth(i).input_value() for i in range(inputs.count())]
+
+    def _open_redline_bands(self, row: int, col: int) -> Locator:
+        """Open the redline tab of a cell and return its band list."""
         self._select_cell(row, col)
         self.page.get_by_role("tab", name="Redline", exact=True).click()
-        lower = self.layout.get_input_field("Lower")
-        upper = self.layout.get_input_field("Upper")
-        return (lower, upper)
+        bands = self.page.locator(".pluto-redline-form__bands")
+        bands.wait_for(state="visible", timeout=5000)
+        return bands
 
     def _select_cell(self, row: int, col: int) -> None:
         """Focus the tab, click a cell, and open the visualization toolbar."""
@@ -320,16 +328,17 @@ class Table(ConsolePage):
     SIZE_LABELS = ("XL", "L", "M", "S", "XS")
 
     def set_toolbar_variant(self, variant: str) -> None:
-        """Open the toolbar's Variant dropdown and pick the named option."""
+        """Open the toolbar header's cell type picker and pick the named option."""
         self.layout.show_visualization_toolbar()
-        self.layout.click_btn("Variant")
+        self.page.get_by_role("button", name="Change cell type", exact=True).click()
         self.layout.select_from_dropdown(variant)
 
     def get_toolbar_variant(self) -> str:
-        """Read the toolbar's Variant dropdown value. Empty string when the
-        selected cells disagree on variant."""
+        """Read the cell type from the toolbar header. "Mixed" when the selected
+        cells disagree on type."""
         self.layout.show_visualization_toolbar()
-        return self.layout.get_dropdown_value("Variant")
+        identity = self.page.locator(".console-table__variant > .pluto-text")
+        return identity.inner_text().strip()
 
     def set_toolbar_size(self, label: str) -> None:
         """Click one of the toolbar's Size buttons (XL/L/M/S/XS)."""

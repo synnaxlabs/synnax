@@ -9,7 +9,7 @@
 
 import { TimeSpan } from "@synnaxlabs/x";
 import { allocSuiteAsync } from "@synnaxlabs/x/bench";
-import { bench, describe } from "vitest";
+import { test } from "vitest";
 
 import { type channel } from "@/channel";
 import { createKeys, createSequence } from "@/framer/benchutil";
@@ -86,30 +86,26 @@ const runIngest = async (
 
 const BENCH_OPTS = { warmupIterations: 1, iterations: 3, time: 0 };
 
-describe("ingest", () => {
-  {
-    const keys = createKeys(100);
-    const frames = createSequence(keys, 10, 500);
+test("ingest", async ({ bench }) => {
+  const narrowKeys = createKeys(100);
+  const narrowFrames = createSequence(narrowKeys, 10, 500);
+  const wideKeys = createKeys(1000);
+  const wideFrames = createSequence(wideKeys, 1, 100);
+  await bench.compare(
     bench(
       "500fr x 100ch x 10smp, 1 handler",
-      async () => await runIngest(frames, keys, 1),
-      BENCH_OPTS,
-    );
+      async () => await runIngest(narrowFrames, narrowKeys, 1),
+    ),
     bench(
       "500fr x 100ch x 10smp, 10 handlers",
-      async () => await runIngest(frames, keys, 10),
-      BENCH_OPTS,
-    );
-  }
-  {
-    const keys = createKeys(1000);
-    const frames = createSequence(keys, 1, 100);
+      async () => await runIngest(narrowFrames, narrowKeys, 10),
+    ),
     bench(
       "100fr x 1000ch x 1smp, 1 handler",
-      async () => await runIngest(frames, keys, 1),
-      BENCH_OPTS,
-    );
-  }
+      async () => await runIngest(wideFrames, wideKeys, 1),
+    ),
+    BENCH_OPTS,
+  );
 });
 
 {

@@ -11,6 +11,7 @@ import { type channel, type schematic } from "@synnaxlabs/client";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
@@ -18,8 +19,10 @@ import { Control } from "@/schematic/node/common/control";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
+import { type FormProps } from "@/schematic/node/spec";
+import { Properties } from "@/vis/properties";
 
-export const SetpointTelemForm = ({ path }: { path: string }): ReactElement => {
+const SetpointTelemForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } =
     Base.useField<
       Pick<schematic.SetpointNodeConfig, "commandChannel" | "control" | "disabled">
@@ -50,23 +53,26 @@ export const SetpointTelemForm = ({ path }: { path: string }): ReactElement => {
   );
 };
 
-export const SetpointForm = (): ReactElement => (
-  <Form.Tabs tabs={["style", "control"]}>
-    <Tabs.Content itemKey="style">
-      <Base.Sections x>
-        <Base.Section title="Label">
-          <Label.Form path="label" />
-        </Base.Section>
-        <Base.Section title="Appearance">
-          <Form.ColorField path="color" />
-          <Form.SizeField />
-          <Form.UnitsField />
-        </Base.Section>
-        <Orientation.Section path="" hideInner />
-      </Base.Sections>
-    </Tabs.Content>
-    <Tabs.Content itemKey="control">
-      <SetpointTelemForm path="" />
-    </Tabs.Content>
-  </Form.Tabs>
-);
+export const SetpointForm = ({ tab, onTabChange }: FormProps): ReactElement => {
+  const theme = Theming.use();
+  return (
+    <Properties.Tabs tabs={["control", "style"]} tab={tab} onTabChange={onTabChange}>
+      <Tabs.Content itemKey="style">
+        <Base.Sections x>
+          <Base.Section title="Label">
+            <Label.Form path="label" />
+          </Base.Section>
+          <Base.Section title="Appearance">
+            <Form.ColorField path="color" fallback={theme.colors.primary.z} />
+            <Form.SizeField />
+            <Form.UnitsField />
+          </Base.Section>
+          <Orientation.Section path="" hideInner />
+        </Base.Sections>
+      </Tabs.Content>
+      <Tabs.Content itemKey="control">
+        <SetpointTelemForm path="" />
+      </Tabs.Content>
+    </Properties.Tabs>
+  );
+};

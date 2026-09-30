@@ -16,11 +16,7 @@ on:
     paths:
       - alamos/ts/package.json
       - client/ts/package.json
-      - drift/package.json
       - freighter/ts/package.json
-      - lyra/package.json
-      - pluto/package.json
-      - x/media/package.json
       - x/ts/package.json
   workflow_dispatch:
 
@@ -45,7 +41,7 @@ jobs:
           cache: true
 
       - name: Build
-        run: pnpm build:publish-ts
+        run: pnpm build:client
 
       - name: Publish
         run: pnpm publish -r

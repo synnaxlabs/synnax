@@ -8,5 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/table/cells/Cells";
+export * from "@/table/cells/ChangeVariant";
 export * from "@/table/cells/Forms";
 export * from "@/table/cells/registry";

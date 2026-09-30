@@ -3,7 +3,7 @@
 How a change gets into `main`. Setup lives in the package guides
 ([Core](core/CONTRIBUTING.md), [Console](console/CONTRIBUTING.md),
 [Pluto](pluto/CONTRIBUTING.md), [TypeScript client](client/ts/CONTRIBUTING.md),
-[Python client](client/py/CONTRIBUTING.md), [docs site](docs/site/CONTRIBUTING.md)),
+[Python client](client/py/CONTRIBUTING.md), [docs site](site/docs/CONTRIBUTING.md)),
 design in the [RFCs](docs/tech/rfc), and code style in [CLAUDE.md](CLAUDE.md).
 
 ## Branches and pull requests
@@ -66,7 +66,7 @@ failure to avoid is a branch that grows for days and lands as one PR nobody can 
 
 Synnax Desktop is the free edition, where a feature ships first. The Console is the
 enterprise edition and gets it once it has proved itself. A static flag in
-`console/src/flags.ts` (or `docs/site/src/flags.ts`) is on in dev and Desktop builds and
+`console/src/flags.ts` (or `site/docs/src/flags.ts`) is on in dev and Desktop builds and
 off in the Console build; its entry names the owner, the Linear umbrella issue, and the
 release that removes it. A flag past that release is a bug: promote or delete.
 

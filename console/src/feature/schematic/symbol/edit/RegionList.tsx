@@ -11,6 +11,7 @@ import "@/feature/schematic/symbol/edit/Edit.css";
 
 import { type schematic } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
+import { Color } from "@synnaxlabs/lyra/color";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Header } from "@synnaxlabs/lyra/header";
@@ -20,8 +21,7 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
-import { Color } from "@synnaxlabs/pluto";
-import { type color } from "@synnaxlabs/x";
+import { color } from "@synnaxlabs/x";
 
 import { CSS } from "@/platform/css";
 
@@ -64,16 +64,20 @@ export const RegionListItem = ({ selectedState, ...props }: RegionListItemProps)
         <Text.Text level="small" color={9}>
           {region?.selectors?.length || 0} elements
         </Text.Text>
-        <Form.Field<color.Color> path={`${path}.strokeColor`} showLabel={false}>
-          {({ onChange, value }) => (
-            <Color.Swatch value={value} onChange={onChange} size="small" />
-          )}
-        </Form.Field>
-        <Form.Field<color.Color> path={`${path}.fillColor`} showLabel={false}>
-          {({ onChange, value }) => (
-            <Color.Swatch value={value} onChange={onChange} size="small" />
-          )}
-        </Form.Field>
+        <Color.Field
+          path={`${path}.strokeColor`}
+          fallback={color.ZERO}
+          showLabel={false}
+          padHelpText
+          size="small"
+        />
+        <Color.Field
+          path={`${path}.fillColor`}
+          fallback={color.ZERO}
+          showLabel={false}
+          padHelpText
+          size="small"
+        />
         <Button.Button
           onClick={() => remove(itemKey)}
           size="small"

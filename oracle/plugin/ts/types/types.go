@@ -297,14 +297,15 @@ func (p *Plugin) generateFile(
 	req *plugin.Request,
 ) ([]byte, error) {
 	data := &templateData{
-		Namespace:     namespace,
-		OutputPath:    outputPath,
-		Request:       req,
-		Enums:         make([]enumData, 0, len(enums)),
-		TypeDefs:      make([]typeDefData, 0, len(typeDefs)),
-		SortedDecls:   make([]sortedDeclData, 0),
-		GenerateTypes: p.Options.GenerateTypes,
-		Manager:       imports.NewManager(),
+		Namespace:       namespace,
+		OutputPath:      outputPath,
+		Request:         req,
+		Enums:           make([]enumData, 0, len(enums)),
+		TypeDefs:        make([]typeDefData, 0, len(typeDefs)),
+		SortedDecls:     make([]sortedDeclData, 0),
+		GenerateTypes:   p.Options.GenerateTypes,
+		Manager:         imports.NewManager(),
+		missingIncludes: make(set.Set[string]),
 	}
 	skip := func(s resolution.Type) bool { return omit.IsSkipped(s, "ts") }
 	rawKeyFields := key.Collect(structs, req.Resolutions, skip)
@@ -401,6 +402,15 @@ func (p *Plugin) generateFile(
 	var buf bytes.Buffer
 	if err := fileTemplate.Execute(&buf, data); err != nil {
 		return nil, err
+	}
+	if len(data.missingIncludes) > 0 {
+		missing := data.missingIncludes.Slice()
+		slices.Sort(missing)
+		return nil, errors.Newf(
+			"types with no generated TypeScript declaration need a @ts include "+
+				"module: %s",
+			strings.Join(missing, ", "),
+		)
 	}
 	return buf.Bytes(), nil
 }
@@ -826,6 +836,7 @@ func (p *Plugin) processStruct(
 				sd.BaseIsUnion = true
 				baseTSName := domain.GetName(base, "ts")
 				schemaName := camelCase(baseTSName) + "Z"
+				importLocalHand(base, schemaName, data)
 				if base.Namespace != data.Namespace {
 					ns := base.Namespace
 					targetOutputPath := output.GetPath(base, "ts")
@@ -902,6 +913,7 @@ func (p *Plugin) processStruct(
 
 			parentTSName := domain.GetName(parentType, "ts")
 			schemaName := camelCase(parentTSName) + "Z"
+			importLocalHand(parentType, schemaName, data)
 
 			if parentType.Namespace != data.Namespace {
 				ns := parentType.Namespace
@@ -1337,6 +1349,7 @@ func parentSchemaName(
 		return "", false
 	}
 	name := camelCase(domain.GetName(parent, "ts")) + "Z"
+	importLocalHand(parent, name, data)
 	if parent.Namespace != data.Namespace {
 		ns := parent.Namespace
 		targetOutputPath := output.GetPath(parent, "ts")
@@ -1439,6 +1452,7 @@ func (p *Plugin) detailsSchemaRef(
 	if !isStruct {
 		return "", false
 	}
+	importLocalHand(resolved, camelCase(domain.GetName(resolved, "ts"))+"Z", data)
 	prefix := ""
 	if resolved.Namespace != data.Namespace {
 		ns := resolved.Namespace
@@ -1997,6 +2011,10 @@ func (p *Plugin) typeRefToZodInternal(
 	if !ok {
 		return "z.unknown()"
 	}
+	if alias, isAlias := resolved.Form.(resolution.AliasForm); !isAlias ||
+		!alias.IsGeneric() {
+		importLocalHand(resolved, camelCase(domain.GetName(resolved, "ts"))+"Z", data)
+	}
 
 	switch form := resolved.Form.(type) {
 	case resolution.StructForm:
@@ -2525,6 +2543,21 @@ func isInXPackage(outputPath string) bool {
 	return strings.HasPrefix(outputPath, xPathPrefix)
 }
 
+// importLocalHand imports ident from typ's `@ts include` module when typ is
+// hand-written or omitted in the namespace being generated, since the generated file
+// declares no such type. A missing module is recorded so generation fails.
+func importLocalHand(typ resolution.Type, ident string, data *templateData) {
+	if typ.Namespace != data.Namespace || !omit.IsSkipped(typ, "ts") {
+		return
+	}
+	module := domain.GetStringFromType(typ, "ts", "include")
+	if module == "" {
+		data.missingIncludes.Add(typ.QualifiedName)
+		return
+	}
+	data.AddImport(paths.CalculateImport(data.OutputPath, module), ident)
+}
+
 func addXImport(data *templateData, imp xImport) {
 	if isInXPackage(data.OutputPath) {
 		data.AddImport("@/"+imp.submodule, imp.name)
@@ -2951,6 +2984,9 @@ type templateData struct {
 	SortedDecls      []sortedDeclData
 	CurrentDeclIndex int
 	GenerateTypes    bool
+	// missingIncludes holds the hand-written types referenced in this namespace that
+	// declare no `@ts include` module.
+	missingIncludes set.Set[string]
 }
 
 type sortedDeclData struct {

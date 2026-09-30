@@ -62,6 +62,9 @@ ts: &ts
   - pnpm-workspace.yaml
   - turbo.json
 
+vite_plugin:
+  - *ts
+
 alamos_go: &alamos_go
   - *go
   - alamos/go/**
@@ -193,7 +196,14 @@ docs:
   - *ts
   - *x_ts
   - .github/workflows/test.docs.yaml
-  - docs/site/**
+  - site/docs/**
+
+www:
+  - *arc_ts
+  - *lyra
+  - *media
+  - *ts
+  - site/www/**
 
 alamos_py: &alamos_py
   - *py
@@ -308,15 +318,13 @@ scripts:
 
 console_build: &console_build
   - *console
-  - .github/workflows/build.synnax.yaml
 
 core_build: &core_build
   - *core
-  - .github/workflows/build.synnax.yaml
 
 driver_build: &driver_build
   - *driver
-  - .github/workflows/build.synnax.yaml
+  - scripts/run_bazel.sh
 
 integration:
   - *client_py
@@ -326,6 +334,7 @@ integration:
   - *py
   - *x_py
   - .github/scripts/check_artifact_cache.sh
+  - .github/workflows/build.synnax.yaml
   - .github/workflows/test.integration.worker.yaml
   - .github/workflows/test.integration.yaml
   - .github/workflows/test.migration.yaml

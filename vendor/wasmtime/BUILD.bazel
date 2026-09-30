@@ -11,7 +11,10 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
 genrule(
     name = "build_wasmtime",
-    srcs = glob(["wasmtime/**"]),
+    srcs = glob(
+        ["wasmtime/**"],
+        allow_empty = True,
+    ),
     outs = [
         "lib/wasmtime.lib",
         "lib/libwasmtime.a",
@@ -319,6 +322,9 @@ cc_library(
         ],
         "//conditions:default": [],
     }),
+    # Consumers see the headers through -isystem, so warnings in wasmtime's own inline
+    # code never fail a -Werror build.
+    features = ["system_include_paths"],
     includes = ["include"],
     linkopts = select({
         "@platforms//os:windows": [

@@ -1,0 +1,72 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { Icon } from "@synnaxlabs/lyra/icon";
+import FeatureSection from "@/components/common/FeatureSection.astro";
+import PanelTab from "@/components/common/PanelTab.astro";
+import { cdn } from "@/cdn";
+---
+
+<FeatureSection label="5.2 -> Alarms">
+    <Fragment slot="title">
+        Define alarms visually, monitor everything at a glance
+    </Fragment>
+    <Fragment slot="description">
+        Build alarm logic with a visual node editor. Wire sources, conditions, and
+        actions together without writing code. A unified status bar surfaces every
+        alarm, device, and system health indicator in one place.
+    </Fragment>
+    <div class="alarm-showcase">
+        <div class="alarm-flow-container">
+            <PanelTab label="Alarm Editor">
+                <Icon.Arc slot="icon" className="panel-tab-icon" />
+            </PanelTab>
+            <img
+                class="alarm-flow"
+                src={cdn("images/alarm-flow.png")}
+                alt="Visual Arc alarm editor showing a node graph with source, constant, comparison, stable-for, and change-status nodes"
+            />
+        </div>
+    </div>
+</FeatureSection>
+
+<style is:global>
+    .alarm-showcase {
+        display: flex;
+        flex-direction: column;
+        gap: 3rem;
+        margin-top: var(--space-lg);
+    }
+
+    .alarm-flow-container {
+        padding: 0;
+        background:
+            radial-gradient(
+                circle,
+                rgba(255, 255, 255, 0.15) 0.75px,
+                transparent 0.75px
+            ),
+            color-mix(in srgb, var(--pluto-gray-l0) 50%, var(--pluto-gray-l2));
+        background-size:
+            20px 20px,
+            100% 100%;
+        border-radius: 2rem;
+        border: var(--pluto-border);
+        overflow: hidden;
+    }
+
+    .alarm-flow {
+        width: clamp(80%, 50% + 15vw, 65%);
+        height: auto;
+        display: block;
+        margin: 0 auto;
+        padding: clamp(8rem, 4rem + 8vw, 24rem) 0 clamp(8rem, 4rem + 6vw, 20rem);
+    }
+</style>

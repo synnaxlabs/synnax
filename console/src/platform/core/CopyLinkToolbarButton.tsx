@@ -13,6 +13,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { type ReactElement, useCallback } from "react";
 
 import { useCopyLinkToClipboard } from "@/platform/core/useCopyLinkToClipboard";
+import { Session } from "@/session";
 
 export interface CopyLinkToolbarButtonProps extends Omit<
   Button.ButtonProps,
@@ -26,12 +27,13 @@ export const CopyLinkToolbarButton = ({
   name,
   ontologyID,
   ...rest
-}: CopyLinkToolbarButtonProps): ReactElement => {
+}: CopyLinkToolbarButtonProps): ReactElement | null => {
   const copyLink = useCopyLinkToClipboard();
   const handleClick = useCallback(
     () => copyLink({ name, ontologyID }),
     [copyLink, name, ontologyID],
   );
+  if (Session.Runtime.LINKS_DISABLED) return null;
   return (
     <Button.Button
       tooltip="Copy link"

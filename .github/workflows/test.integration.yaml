@@ -14,18 +14,20 @@ run-name:
   }}
 
 on:
+  # Windows is the default because it is more prevalent in the wild than Ubuntu.
+  # It also frees the saturated Ubuntu build bots while the Windows ones sit idle.
   workflow_call:
     inputs:
       ubuntu:
         description: Whether to build and test on Ubuntu
         required: false
         type: boolean
-        default: true
+        default: false
       windows:
         description: Whether to build and test on Windows
         required: false
         type: boolean
-        default: false
+        default: true
 
   workflow_dispatch:
     inputs:
@@ -60,23 +62,32 @@ on:
         description: Whether to build and test on Ubuntu
         required: false
         type: boolean
-        default: true
+        default: false
       windows:
         description: Whether to build and test on Windows
         required: false
         type: boolean
-        default: false
+        default: true
+
+concurrency:
+  group: integration-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   setup:
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
     outputs:
       VERSION: ${{ steps.version.outputs.VERSION }}
       SKIP_BUILD: ${{ steps.check-cache.outputs.SKIP_BUILD }}
       REF_RUN_ID: ${{ steps.check-cache.outputs.REF_RUN_ID }}
       DRIVER_REF_RUN_ID: ${{ steps.check-cache.outputs.DRIVER_REF_RUN_ID }}
       CONSOLE_REF_RUN_ID: ${{ steps.check-cache.outputs.CONSOLE_REF_RUN_ID }}
+      CORE_REF_RUN_ID: ${{ steps.check-cache.outputs.CORE_REF_RUN_ID }}
       FLAGS: ${{ steps.set-outputs.outputs.FLAGS }}
+      BINARY_CHECK_MATRIX: ${{ steps.binary-check-matrix.outputs.MATRIX }}
       TEST_MATRIX:
         ${{ steps.set-outputs.outputs.CUSTOM_MATRIX ||
         steps.test-matrix.outputs.TEST_MATRIX }}
@@ -107,12 +118,31 @@ jobs:
           GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           SKIP_BUILD: ${{ github.event.inputs.SKIP_BUILD || 'false' }}
           REF_RUN_ID: ${{ github.event.inputs.REF_RUN_ID || '' }}
-        run: .github/scripts/check_artifact_cache.sh all
+          PLATFORMS:
+            ${{ inputs.ubuntu && inputs.windows && 'all' || inputs.windows && 'windows'
+            || 'linux' }}
+        run: .github/scripts/check_artifact_cache.sh "${PLATFORMS}"
 
       - name: Validate test coverage
         if: ${{ steps.set-outputs.outputs.FLAGS == '' }}
         id: test-matrix
         run: integration/scripts/validate_test_coverage.sh
+
+      # A matrix exclude only filters keys of the base matrix, so an include-only matrix
+      # cannot drop a platform that way.
+      - name: Generate binary check matrix
+        id: binary-check-matrix
+        env:
+          UBUNTU: ${{ inputs.ubuntu }}
+          WINDOWS: ${{ inputs.windows }}
+        run: |
+          MATRIX=$(jq -nc --argjson ubuntu "$UBUNTU" --argjson windows "$WINDOWS" '[
+            if $ubuntu then {os: "ubuntu-24.04", "os-name": "linux", display: "ubuntu",
+              executable: ""} else empty end,
+            if $windows then {os: "windows-2025", "os-name": "windows",
+              display: "windows", executable: ".exe"} else empty end
+          ]')
+          echo "MATRIX=${MATRIX}" >> $GITHUB_OUTPUT
 
   build:
     needs: setup
@@ -133,6 +163,7 @@ jobs:
       version: ${{ needs.setup.outputs.VERSION }}
       driver_ref_run_id: ${{ needs.setup.outputs.DRIVER_REF_RUN_ID }}
       console_ref_run_id: ${{ needs.setup.outputs.CONSOLE_REF_RUN_ID }}
+      core_ref_run_id: ${{ needs.setup.outputs.CORE_REF_RUN_ID }}
     secrets: inherit
 
   test-windows:
@@ -145,7 +176,7 @@ jobs:
     with:
       test_matrix: ${{ needs.setup.outputs.TEST_MATRIX }}
       ref_run_id: ${{ needs.setup.outputs.REF_RUN_ID }}
-      os: windows-build-bot
+      os: windows-test-bot
       flags: ${{ needs.setup.outputs.FLAGS }}
     secrets: inherit
 
@@ -159,7 +190,7 @@ jobs:
     with:
       test_matrix: ${{ needs.setup.outputs.TEST_MATRIX }}
       ref_run_id: ${{ needs.setup.outputs.REF_RUN_ID }}
-      os: ubuntu-build-bot
+      os: ubuntu-test-bot
       flags: ${{ needs.setup.outputs.FLAGS }}
     secrets: inherit
 
@@ -168,24 +199,14 @@ jobs:
     needs: [setup, build]
     if:
       ${{ !cancelled() && needs.setup.result == 'success' && (needs.build.result ==
-      'success' || needs.build.result == 'skipped') }}
+      'success' || needs.build.result == 'skipped') &&
+      needs.setup.outputs.BINARY_CHECK_MATRIX != '[]' }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - os: ubuntu-24.04
-            os-name: linux
-            display: ubuntu
-            executable: ""
-          - os: windows-2025
-            os-name: windows
-            display: windows
-            executable: .exe
-        exclude:
-          - os: ${{ !inputs.ubuntu && 'ubuntu-24.04' }}
-          - os: ${{ !inputs.windows && 'windows-2025' }}
+        include: ${{ fromJSON(needs.setup.outputs.BINARY_CHECK_MATRIX) }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -226,14 +247,14 @@ jobs:
         timeout-minutes: 3
         shell: powershell
         env:
-          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
         run: integration/scripts/CheckDriverTLS.ps1
 
       - name: Check Driver TLS (Ubuntu)
         if: runner.os == 'Linux'
         timeout-minutes: 3
         env:
-          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
         run: integration/scripts/check_driver_tls.sh
 
       - name: Check Driver external cert (Windows)
@@ -241,14 +262,14 @@ jobs:
         timeout-minutes: 3
         shell: powershell
         env:
-          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
         run: integration/scripts/CheckDriverExternalCert.ps1
 
       - name: Check Driver external cert (Ubuntu)
         if: runner.os == 'Linux'
         timeout-minutes: 3
         env:
-          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
         run: integration/scripts/check_driver_external_cert.sh
 
       - name: Check unverifiable advertised cert (Windows)
@@ -256,14 +277,14 @@ jobs:
         timeout-minutes: 3
         shell: powershell
         env:
-          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
         run: integration/scripts/CheckDriverUnverifiableCert.ps1
 
       - name: Check unverifiable advertised cert (Ubuntu)
         if: runner.os == 'Linux'
         timeout-minutes: 3
         env:
-          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
         run: integration/scripts/check_driver_unverifiable_cert.sh
 
       - name: Check auto-cert refresh (Windows)
@@ -271,14 +292,14 @@ jobs:
         timeout-minutes: 4
         shell: powershell
         env:
-          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
         run: integration/scripts/CheckAutoCertRefresh.ps1
 
       - name: Check auto-cert refresh (Ubuntu)
         if: runner.os == 'Linux'
         timeout-minutes: 4
         env:
-          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
         run: integration/scripts/check_auto_cert_refresh.sh
 
       - name: Check Driver service lifecycle (Windows)
@@ -286,14 +307,14 @@ jobs:
         timeout-minutes: 4
         shell: powershell
         env:
-          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
         run: integration/scripts/CheckDriverService.ps1
 
       - name: Check Driver service lifecycle (Ubuntu)
         if: runner.os == 'Linux'
         timeout-minutes: 4
         env:
-          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
         run: integration/scripts/check_driver_service.sh
 
       - name: Upload check logs

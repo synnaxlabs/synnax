@@ -17,7 +17,7 @@ import { deep } from "@synnaxlabs/x";
 export interface SelectVariantProps extends Input.Control<string> {}
 
 const SelectVariant = ({ value, onChange }: SelectVariantProps) => (
-  <Select.Simple<string> onChange={onChange} value={value} resourceName="variant">
+  <Select.Buttons<string> onChange={onChange} value={value}>
     <Select.Item itemKey="static">
       <Icon.Auto />
       Static
@@ -26,7 +26,7 @@ const SelectVariant = ({ value, onChange }: SelectVariantProps) => (
       <Icon.Channel />
       Actuator
     </Select.Item>
-  </Select.Simple>
+  </Select.Buttons>
 );
 
 export interface SelectVariantFieldProps {
