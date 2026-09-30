@@ -94,6 +94,11 @@ export interface TableParams<
   /** Overrides the deep-equality default used to silence redundant sets. */
   equal?: (a: Value, b: Value, key: Key) => boolean;
   /**
+   * Reports whether an incoming record is older than the cached one. Fetches and set
+   * listeners skip older records; a direct {@link Table.set} always writes.
+   */
+  older?: (incoming: Value, cached: Value) => boolean;
+  /**
    * Fetches the current records for the given keys from the cluster, returning only the
    * entries that still exist. Powers {@link Table.retrieve}, key-announce listeners,
    * and reconciliation. Omit for tables with no server backing (they are skipped by all
@@ -167,6 +172,7 @@ export class Table<
   private batching: TableEvent<Key, Value>[] | null = null;
   private readonly onError: (error: Error) => void;
   private readonly equal: (a: Value, b: Value, key: Key) => boolean;
+  private readonly older?: (incoming: Value, cached: Value) => boolean;
   private readonly fetchEntries?: (keys: Key[]) => Promise<Array<Keyed<Key, Value>>>;
   private readonly hydrateMode: HydrateMode;
   private readonly fetchBatcher: debounce.Batcher<
@@ -183,6 +189,7 @@ export class Table<
   constructor({
     onError,
     equal = deep.equal,
+    older,
     fetch,
     hydrate = "set",
     fetchDebounce = DEFAULT_FETCH_DEBOUNCE,
@@ -190,6 +197,7 @@ export class Table<
   }: TableParams<Key, Value>) {
     this.onError = onError;
     this.equal = equal;
+    this.older = older;
     this.fetchEntries = fetch;
     this.hydrateMode = hydrate;
     this.indexes = [...indexes];
@@ -323,6 +331,12 @@ export class Table<
     return (this.writeStamps.get(key) ?? 0) > since;
   }
 
+  /** Reports whether value is older than the entry for key, under the table's order. */
+  stale(key: Key, value: Value): boolean {
+    const cached = this.entries.get(key);
+    return cached != null && this.older != null && this.older(value, cached);
+  }
+
   /**
    * Marks the current point in the table's write history. A fetch takes one before it
    * starts and hands it to {@link ingest} so that writes landing while the fetch is in
@@ -348,7 +362,8 @@ export class Table<
    * Writes fetched records into the table under its declared hydrate mode, or the given
    * one: "set" overwrites entries, "if-absent" leaves existing entries untouched. A
    * tombstoned key is skipped, as is a key written after the given stamp: the fetch may
-   * predate the delete or the write, and only a {@link set} revives a deleted record.
+   * predate the delete or the write, and only a {@link set} revives a deleted record. A
+   * record older than its cached entry is skipped too.
    * @returns A rollback that undoes the entries this call wrote.
    */
   ingest(
@@ -358,9 +373,10 @@ export class Table<
     const arr = array
       .toArray(values)
       .filter(
-        ({ key }) =>
-          !this.tombstones.has(key) &&
-          (since == null || !this.writtenSince(key, since)),
+        (value) =>
+          !this.tombstones.has(value.key) &&
+          (since == null || !this.writtenSince(value.key, since)) &&
+          !this.stale(value.key, value),
       );
     if (mode === "if-absent") return this.setIfAbsent(arr);
     return this.setMany(arr);
@@ -660,7 +676,8 @@ export interface ListenerSpec<
  * Declares that the channel broadcasts records to mirror into the table. By default the
  * parsed record keys itself (`changed.key`) and is stored as-is; `key` derives the
  * entry key, `value` transforms the record and may merge with the previous entry
- * (return null/undefined to skip the write).
+ * (return null/undefined to skip the write). A record older than its cached entry is
+ * skipped.
  */
 export const createSetListener = <
   Z extends z.ZodType,
@@ -685,7 +702,10 @@ export const createSetListener = <
       onChange: (changed) => {
         table.batch(() =>
           changed.forEach((c) =>
-            table.set(key(c), (prev) => value(c, prev) ?? undefined),
+            table.set(key(c), (prev) => {
+              const next = value(c, prev);
+              return next == null || table.stale(key(c), next) ? undefined : next;
+            }),
           ),
         );
       },

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, id, TimeStamp, uuid } from "@synnaxlabs/x";
+import { color, id, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import z from "zod";
 
@@ -16,7 +16,7 @@ import { group } from "@/group";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { status } from "@/status";
-import { createTestClient, expectLive, spyOnSend } from "@/testutil";
+import { createTestClient, expectLive, spyOnSend, waitForStreamLive } from "@/testutil";
 
 const client = createTestClient();
 
@@ -416,6 +416,44 @@ describe("Status", () => {
       expect(retrieved.details).toBeDefined();
       expect(retrieved.details.name).toBe(s.details.name);
       expect(retrieved.details.key).toBe(s.details.key);
+    });
+  });
+
+  describe("order", () => {
+    const createNewer = async (reader: typeof client) => {
+      const older = await client.statuses.set({
+        key: `order-${id.create()}`,
+        name: "Order Test",
+        variant: "disabled",
+        message: "older",
+        time: TimeStamp.now().sub(TimeSpan.minutes(1)),
+      });
+      const newer = { ...older, variant: "loading" as const, message: "newer" };
+      newer.time = TimeStamp.now();
+      reader.statuses.store.set(newer);
+      return { older, newer };
+    };
+
+    it("should keep a cached status newer than a refetched one", async () => {
+      const { newer } = await createNewer(client);
+      await client.statuses.store.retrieve([newer.key], { refresh: true });
+      expect(client.statuses.store.get(newer.key)).toEqual(newer);
+    });
+
+    it("should keep a cached status newer than a streamed one", async () => {
+      const reader = createTestClient();
+      await waitForStreamLive(reader.connection);
+      const { older, newer } = await createNewer(reader);
+      await client.statuses.set({ ...older, message: "older echo" });
+      // Statuses on one channel arrive in write order, so the marker lands last.
+      const marker = await client.statuses.set({
+        key: `order-marker-${id.create()}`,
+        name: "Order Marker",
+        variant: "info",
+        message: "marker",
+      });
+      await expect.poll(() => reader.statuses.getCached(marker.key)).toBeDefined();
+      expect(reader.statuses.store.get(newer.key)).toEqual(newer);
     });
   });
 

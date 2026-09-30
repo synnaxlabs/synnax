@@ -9,6 +9,7 @@
 
 import { type record, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
+import z from "zod";
 
 import { NotFoundError } from "@/errors";
 import { query } from "@/query";
@@ -1733,5 +1734,48 @@ describe("reset", () => {
     table.reset();
     table.set("k1", { key: "k1", name: "b" });
     expect(table.get("k1")).toEqual({ key: "k1", name: "b" });
+  });
+});
+
+describe("older", () => {
+  interface Doc extends record.Keyed<string> {
+    key: string;
+    time: number;
+  }
+  const newTable = () =>
+    new query.Table<string, Doc>({
+      onError: noopError,
+      older: (incoming, cached) => incoming.time < cached.time,
+    });
+
+  it("should skip an ingested record older than the cached one", () => {
+    const table = newTable();
+    table.set("k1", { key: "k1", time: 2 });
+    table.ingest([
+      { key: "k1", time: 1 },
+      { key: "k2", time: 1 },
+    ]);
+    expect(table.get("k1")).toEqual({ key: "k1", time: 2 });
+    expect(table.get("k2")).toEqual({ key: "k2", time: 1 });
+  });
+
+  it("should skip a listened record older than the cached one", async () => {
+    const table = newTable();
+    table.set("k1", { key: "k1", time: 2 });
+    const schema = z.object({ key: z.string(), time: z.number() });
+    const listener = query
+      .createSetListener<typeof schema, string, Doc>("docs", schema)
+      .bind(table);
+    await listener.onChange([{ key: "k1", time: 1 }]);
+    expect(table.get("k1")).toEqual({ key: "k1", time: 2 });
+    await listener.onChange([{ key: "k1", time: 3 }]);
+    expect(table.get("k1")).toEqual({ key: "k1", time: 3 });
+  });
+
+  it("should write an older record on a direct set", () => {
+    const table = newTable();
+    table.set("k1", { key: "k1", time: 2 });
+    table.set("k1", { key: "k1", time: 1 });
+    expect(table.get("k1")).toEqual({ key: "k1", time: 1 });
   });
 });

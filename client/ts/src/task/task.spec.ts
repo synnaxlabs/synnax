@@ -998,9 +998,9 @@ describe("Task", async () => {
         expect(placeholder.variant).toBe("disabled");
         await client.tasks.executeCommand({ task: t.key, type: "start" });
         await loading;
-        // The creation placeholder echoes back over the stream at its own pace; a stale
-        // echo landing after the command must not cancel the deadline.
-        client.statuses.store.set(key, { ...placeholder });
+        // The creation placeholder can arrive late from the stream or a refetch; the
+        // status table drops it as older than the command's status.
+        client.statuses.store.ingest({ ...placeholder });
         await vi.advanceTimersByTimeAsync(COMMAND_DEADLINE.milliseconds);
         expect(client.statuses.store.get(key)).toMatchObject({
           variant: "warning",
