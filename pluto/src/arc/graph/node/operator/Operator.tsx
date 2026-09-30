@@ -16,7 +16,7 @@ import { type FC } from "react";
 
 import { Minimal } from "@/arc/graph/node/Base";
 
-export const createOperator = (
+const createOperator = (
   operator: string,
   single: boolean = false,
   inputIcon: Icon.FC = Icon.Value,
