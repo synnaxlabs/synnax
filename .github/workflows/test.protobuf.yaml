@@ -12,6 +12,10 @@ name: Test - Protobuf
 on:
   workflow_call:
   workflow_dispatch:
+concurrency:
+  group: protobuf-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: Test

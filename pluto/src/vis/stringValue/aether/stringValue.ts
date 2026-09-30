@@ -23,8 +23,6 @@ export const stateZ = staleness.stateZ.extend({
   value: z.string().default(""),
 });
 
-export interface State extends z.input<typeof stateZ> {}
-
 interface InternalState {
   source: telem.StringSource;
   stopListening: destructor.Destructor;

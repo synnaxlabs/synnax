@@ -32,7 +32,8 @@
     },
     "pluto": {
       "entry": ["src/index.ts", "src/ether.ts", "src/testutil/index.ts"],
-      "project": ["src/**/*.{ts,tsx}"]
+      "project": ["src/**/*.{ts,tsx}"],
+      "ignoreDependencies": ["vscode"]
     },
     "x/media": {
       "entry": ["src/index.ts"],
@@ -66,8 +67,8 @@
       "project": ["*.json"]
     },
     "configs/vite": {
-      "entry": ["lib.ts"],
-      "project": ["*.ts"],
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"],
       "ignoreDependencies": ["vite-*"]
     },
     "configs/stylelint": {
