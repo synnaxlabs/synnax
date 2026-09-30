@@ -36,14 +36,16 @@ const DENYLIST = [
   "$initial_host",
 ];
 
+/** The group type that holds each machine and what it has built. */
+const INSTALL_GROUP = "install";
+
 export interface Params {
   /** Identifies the install across launches and across a webview data wipe. */
   installID: string;
 }
 
-const init = async (params: Promise<Params>) => {
-  const [{ installID }, { default: posthog }] = await Promise.all([
-    params,
+const init = async (installID: string) => {
+  const [{ default: posthog }] = await Promise.all([
     import("posthog-js/dist/module.no-external"),
     // Static bundles, because remote script loading stays off. Both must load before
     // `posthog.init`; this bundle carries no loader to fetch them later. The recorder
@@ -59,10 +61,9 @@ const init = async (params: Promise<Params>) => {
     debug: IS_DEV,
     disable_external_dependency_loading: true,
     persistence: "localStorage",
-    // The bootstrap identifies the install, so the default `identified_only` still
-    // earns person properties. Forcing profiles on would only buy a paying profile per
-    // random id whenever the install id is missing.
-    bootstrap: { distinctID: installID, isIdentifiedID: true },
+    // The install starts anonymous. Signing in identifies the account, which merges the
+    // events before it into the account's person.
+    bootstrap: { distinctID: installID },
     // Element text is channel, device, and schematic names, so autocapture keeps the
     // shape of an interaction and drops every string in it.
     autocapture: true,
@@ -90,13 +91,24 @@ const init = async (params: Promise<Params>) => {
       return event;
     },
   });
-  // A dev run reports as an ordinary install otherwise, so every count needs this to
-  // separate the two.
-  posthog.register({ environment: IS_DEV ? "development" : "production" });
+  attach(posthog, installID);
   return posthog;
 };
 
 type PostHog = Awaited<ReturnType<typeof init>>;
+
+/** Tags every later event with the environment and the install. A reset clears both. */
+const attach = (posthog: PostHog, installID: string): void => {
+  // A dev run reports as an ordinary install otherwise, so every count needs this to
+  // separate the two.
+  posthog.register({ environment: IS_DEV ? "development" : "production" });
+  posthog.group(INSTALL_GROUP, installID);
+};
+
+interface Loaded {
+  posthog: PostHog;
+  installID: string;
+}
 
 /**
  * Returns a transport over posthog right away and loads posthog behind it. Calls made
@@ -105,14 +117,15 @@ type PostHog = Awaited<ReturnType<typeof init>>;
  * unreachable, carries no analytics code at all.
  */
 export const create = (params: Promise<Params>): Analytics.Transport => {
-  let loaded: PostHog | null = null;
+  let loaded: Loaded | null = null;
   let failed = false;
-  let waiting: Array<(posthog: PostHog) => void> = [];
+  let waiting: Array<(loaded: Loaded) => void> = [];
   const load = async (): Promise<void> => {
     try {
-      const posthog = await init(params);
-      loaded = posthog;
-      waiting.forEach((run) => run(posthog));
+      const { installID } = await params;
+      const next = { posthog: await init(installID), installID };
+      loaded = next;
+      waiting.forEach((run) => run(next));
     } catch (err) {
       failed = true;
       console.error("failed to load analytics", err);
@@ -121,12 +134,22 @@ export const create = (params: Promise<Params>): Analytics.Transport => {
     }
   };
   void load();
-  const run = (call: (posthog: PostHog) => void): void => {
+  const run = (call: (loaded: Loaded) => void): void => {
     if (loaded != null) call(loaded);
     else if (!failed) waiting.push(call);
   };
   return {
-    capture: (event, properties) => run((p) => p.capture(event, properties)),
-    describe: (properties) => run((p) => p.setPersonProperties(properties)),
+    capture: (event, properties) =>
+      run(({ posthog }) => posthog.capture(event, properties)),
+    identify: ({ id, email }) => run(({ posthog }) => posthog.identify(id, { email })),
+    reset: () =>
+      run(({ posthog, installID }) => {
+        posthog.reset();
+        attach(posthog, installID);
+      }),
+    describe: (properties) =>
+      run(({ posthog, installID }) =>
+        posthog.group(INSTALL_GROUP, installID, properties),
+      ),
   };
 };

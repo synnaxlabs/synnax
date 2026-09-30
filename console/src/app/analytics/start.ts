@@ -17,7 +17,7 @@ import { Analytics } from "@/platform/analytics";
 import { Session } from "@/session";
 
 /** How often an open window reports that it is still there. */
-const HEARTBEAT = TimeSpan.minutes(5);
+export const HEARTBEAT = TimeSpan.minutes(5);
 
 /**
  * Starts analytics for this window and returns the sink the app reports through. The
@@ -43,7 +43,10 @@ const identify = async (install: Promise<Install>): Promise<Params> => ({
   installID: (await install).id,
 });
 
-/** Reports the launch once the install and the version of the app are known. */
+/**
+ * Reports the launch, and a reset that ran before it, once the install and the version
+ * of the app are known.
+ */
 const open = async (sink: Analytics.Sink, install: Promise<Install>): Promise<void> => {
   try {
     const [record, version] = await Promise.all([install, getVersion()]);
@@ -54,6 +57,9 @@ const open = async (sink: Analytics.Sink, install: Promise<Install>): Promise<vo
       first_launch: record.firstLaunch,
       hours_since_last_launch: record.hoursSinceLastLaunch,
     });
+    // A reset restarts the app before posthog can send, so the launch after it reports.
+    if (record.erasedBytes != null)
+      sink.capture("core_reset", { data_size_bytes: record.erasedBytes });
   } catch (err) {
     console.error("failed to report the launch", err);
   }

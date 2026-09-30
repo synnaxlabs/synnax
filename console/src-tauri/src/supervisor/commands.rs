@@ -127,7 +127,15 @@ pub async fn supervisor_stop(supervisor: State<'_, Supervisor>) -> Result<(), ()
 pub async fn supervisor_reset<R: Runtime>(
     app: AppHandle<R>,
     supervisor: State<'_, Supervisor>,
+    paths: State<'_, Paths>,
 ) -> Result<(), String> {
+    let data_dir = paths.data_dir.clone();
+    let data_size = blocking(move || diagnostics::dir_size(&data_dir)).await?;
+    let local = app
+        .path()
+        .app_local_data_dir()
+        .map_err(|err| err.to_string())?;
+    install::record_reset(&local, data_size).map_err(|err| err.to_string())?;
     supervisor.reset().await.map_err(|err| err.to_string())?;
     app.restart()
 }

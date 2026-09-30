@@ -30,7 +30,12 @@ describe("account selectors", () => {
       expect(result.current.email).toBeUndefined();
       act(() => {
         store.dispatch(
-          Account.link({ activation: "a", secret: "s", email: "e@example.com" }),
+          Account.link({
+            activation: "a",
+            secret: "s",
+            email: "e@example.com",
+            user: "user_a",
+          }),
         );
       });
       expect(result.current.email).toBe("e@example.com");

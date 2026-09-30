@@ -68,8 +68,8 @@ export const useLink = (deps: Link.Deps = Link.DEFAULT_DEPS): void => {
       try {
         await client.license.activate(received.key);
         if (signal.aborted) return;
-        const { activation, secret, email } = received;
-        dispatch(Session.Account.link({ activation, secret, email }));
+        const { activation, secret, email, user } = received;
+        dispatch(Session.Account.link({ activation, secret, email, user }));
       } catch (e) {
         if (signal.aborted) return;
         handleError(e, FAILED_MESSAGE);

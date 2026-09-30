@@ -15,6 +15,7 @@ const LINKED: Account.LinkPayload = {
   activation: "act",
   secret: "secret",
   email: "someone@example.com",
+  user: "user_a",
 };
 
 describe("account slice", () => {

@@ -56,5 +56,6 @@ export const POST: APIRoute = async (context) =>
       secret: linked.secret,
       activation: linked.activation.key,
       email: session.email,
+      user: session.userID,
     });
   });

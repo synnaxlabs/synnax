@@ -34,6 +34,7 @@ interface Linked {
   secret: string;
   activation: string;
   email: string;
+  user: string;
 }
 
 describe("desktop routes", () => {
@@ -79,9 +80,10 @@ describe("desktop routes", () => {
       expect(await body(res)).toEqual({ error: "Log in first" });
     });
 
-    it("should answer the key, the secret, the activation, and the email", async () => {
+    it("should answer the key, the secret, the activation, the email, and the user", async () => {
       const linked = await linkAs("user_a");
       expect(linked.email).toBe("ada@example.com");
+      expect(linked.user).toBe("user_a");
       const [act] = await store.query
         .select()
         .from(activation)

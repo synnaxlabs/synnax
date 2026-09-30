@@ -9,6 +9,22 @@
 
 import { z } from "zod";
 
+/** The kinds of resource the app counts. */
+export const resourceZ = z.enum([
+  "channel",
+  "device",
+  "rack",
+  "task",
+  "range",
+  "schematic",
+  "lineplot",
+  "log",
+  "table",
+  "arc",
+]);
+
+export type Resource = z.infer<typeof resourceZ>;
+
 /**
  * The properties of every event, keyed by event name. The schemas are strict, so a
  * property that is not declared here never reaches the sink. Values stay numbers,
@@ -28,7 +44,7 @@ export const schemas = {
     interacted: z.boolean(),
   }),
   command_run: z.strictObject({ command: z.string() }),
-  resource_created: z.strictObject({ resource: z.string() }),
+  resource_created: z.strictObject({ resource: resourceZ }),
   core_ready: z.strictObject({
     time_to_ready_ms: z.number(),
     starts: z.number(),
@@ -39,15 +55,20 @@ export const schemas = {
   }),
   core_restart_exhausted: z.strictObject({ attempts: z.number() }),
   core_reset: z.strictObject({ data_size_bytes: z.number() }),
-  update_installed: z.strictObject({
-    from_version: z.string(),
-    to_version: z.string(),
-  }),
 } as const;
 
 export type Name = keyof typeof schemas;
 
 export type Properties<N extends Name> = z.infer<(typeof schemas)[N]>;
+
+/** The Synnax account the app is signed in to, which is the person events belong to. */
+export const accountZ = z.strictObject({
+  /** The Clerk ID of the account. */
+  id: z.string().min(1),
+  email: z.email(),
+});
+
+export interface Account extends z.infer<typeof accountZ> {}
 
 /**
  * What the user has built, recorded against the install rather than as an event. It

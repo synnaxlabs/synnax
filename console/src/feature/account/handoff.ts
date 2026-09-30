@@ -52,6 +52,7 @@ export interface Linked {
   secret: string;
   activation: string;
   email: string;
+  user: string;
 }
 
 /**
@@ -79,6 +80,7 @@ export const parseLink = (url: string): Linked => {
     secret: read("secret"),
     activation: read("activation"),
     email: read("email"),
+    user: read("user"),
   };
 };
 

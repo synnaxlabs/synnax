@@ -31,6 +31,7 @@ const LINKED: Session.Account.SliceState = {
   activation: "act",
   secret: "shh",
   email: "someone@example.com",
+  user: "user_a",
 };
 
 const DESKTOP_LICENSE: license.License = {

@@ -29,6 +29,9 @@ struct Stored {
     id: String,
     /// The time of the launch that wrote the file, in seconds since the Unix epoch.
     launched_at: u64,
+    /// The bytes a reset erased since the last launch, which the next launch reports.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    erased_bytes: Option<u64>,
 }
 
 /// What this install is, and what this launch knows about the one before it.
@@ -41,6 +44,8 @@ pub struct Info {
     pub first_launch: bool,
     /// The hours between this launch and the one before it. None on a first launch.
     pub hours_since_last_launch: Option<f64>,
+    /// The bytes a reset erased before this launch. None when no reset ran.
+    pub erased_bytes: Option<u64>,
     pub os: &'static str,
     pub arch: &'static str,
 }
@@ -58,13 +63,23 @@ pub fn install_info(info: State<'_, Info>) -> Info {
     info.inner().clone()
 }
 
+/// Records that a reset is about to erase `bytes`, for the next launch to report.
+pub fn record_reset(dir: &Path, bytes: u64) -> io::Result<()> {
+    let mut stored = read(dir).ok_or_else(|| io::Error::other("no install record"))?;
+    stored.erased_bytes = Some(bytes);
+    write(dir, &stored)
+}
+
+fn read(dir: &Path) -> Option<Stored> {
+    let bytes = std::fs::read(dir.join(FILE)).ok()?;
+    serde_json::from_slice(&bytes).ok()
+}
+
 /// Returns the record in `dir`, then writes it back with `now` as the launch time. A
 /// file that does not parse is replaced, which reads as a new install.
 fn open(dir: &Path, now: u64) -> io::Result<Info> {
     std::fs::create_dir_all(dir)?;
-    let stored = std::fs::read(dir.join(FILE))
-        .ok()
-        .and_then(|bytes| serde_json::from_slice::<Stored>(&bytes).ok());
+    let stored = read(dir);
     let info = Info {
         id: match &stored {
             Some(stored) => stored.id.clone(),
@@ -72,7 +87,9 @@ fn open(dir: &Path, now: u64) -> io::Result<Info> {
         },
         first_launch: stored.is_none(),
         hours_since_last_launch: stored
+            .as_ref()
             .map(|stored| now.saturating_sub(stored.launched_at) as f64 / HOUR),
+        erased_bytes: stored.and_then(|stored| stored.erased_bytes),
         os: std::env::consts::OS,
         arch: std::env::consts::ARCH,
     };
@@ -81,6 +98,7 @@ fn open(dir: &Path, now: u64) -> io::Result<Info> {
         &Stored {
             id: info.id.clone(),
             launched_at: now,
+            erased_bytes: None,
         },
     )?;
     Ok(info)
@@ -138,6 +156,18 @@ mod tests {
         let info = open(root.path(), 1_000).unwrap();
         assert!(info.first_launch);
         assert_eq!(open(root.path(), 2_000).unwrap().id, info.id);
+    }
+
+    #[test]
+    fn reports_a_reset_on_the_next_launch_only() {
+        let root = tempfile::tempdir().unwrap();
+        let first = open(root.path(), 1_000).unwrap();
+        assert_eq!(first.erased_bytes, None);
+        record_reset(root.path(), 4_096).unwrap();
+        let second = open(root.path(), 2_000).unwrap();
+        assert_eq!(second.id, first.id);
+        assert_eq!(second.erased_bytes, Some(4_096));
+        assert_eq!(open(root.path(), 3_000).unwrap().erased_bytes, None);
     }
 
     #[test]

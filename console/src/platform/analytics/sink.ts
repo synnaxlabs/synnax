@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import {
+  type Account,
+  accountZ,
   type Name,
   type Properties,
   schemas,
@@ -32,6 +34,8 @@ const TYPE = /^[A-Za-z0-9_]+$/;
 /** What a vendor supplies. Every argument has already been checked. */
 export interface Transport {
   capture: (event: string, properties: Record<string, unknown>) => void;
+  identify: (account: Account) => void;
+  reset: () => void;
   describe: (properties: Record<string, unknown>) => void;
 }
 
@@ -40,6 +44,10 @@ export interface Sink {
   capture: <N extends Name>(event: N, properties: Properties<N>) => void;
   /** Records a view of the given tab type as a screen. */
   screen: (tab: string) => void;
+  /** Attributes this and every later event to the account. */
+  identify: (account: Account) => void;
+  /** Forgets the account, so later events belong to no one until the next identify. */
+  reset: () => void;
   /** Merges what the user has built onto the install's record. */
   describe: (workspace: Workspace) => void;
 }
@@ -48,6 +56,8 @@ export interface Sink {
 export const NOOP: Sink = {
   capture: () => {},
   screen: () => {},
+  identify: () => {},
+  reset: () => {},
   describe: () => {},
 };
 
@@ -78,6 +88,15 @@ export const createSink = (transport: Transport): Sink => ({
       $pathname: `/${tab}`,
     });
   },
+  identify: (account) => {
+    const parsed = accountZ.safeParse(account);
+    if (!parsed.success) {
+      console.error("dropped the account", parsed.error);
+      return;
+    }
+    transport.identify(parsed.data);
+  },
+  reset: () => transport.reset(),
   describe: (workspace) => {
     const parsed = workspaceZ.safeParse(workspace);
     if (!parsed.success) {

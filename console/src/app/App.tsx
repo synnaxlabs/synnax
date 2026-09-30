@@ -56,7 +56,7 @@ export const App = ({ workerURL }: AppProps): ReactElement => (
       <BuildContext>
         <Session.Context>
           <Pluto.Context workerURL={workerURL}>
-            {DESKTOP && <Analytics.Screen />}
+            {DESKTOP && <Analytics.Watch />}
             <Session.SettledProvider>
               <Errors.OverlayWithStore>
                 <Panel.Context>

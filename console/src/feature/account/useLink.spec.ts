@@ -25,6 +25,7 @@ const LINKED: Account.Linked = {
   secret: "shh",
   activation: "act",
   email: "someone@example.com",
+  user: "user_a",
 };
 
 const linkOf = (linked: Account.Linked): string =>
@@ -92,6 +93,7 @@ describe("Account.useLink", () => {
         activation: "act",
         secret: "shh",
         email: "someone@example.com",
+        user: "user_a",
       });
     });
     expect(failed(h)).toBe(false);

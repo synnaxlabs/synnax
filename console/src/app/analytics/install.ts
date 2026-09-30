@@ -16,6 +16,8 @@ export const installZ = z.object({
   id: z.string(),
   firstLaunch: z.boolean(),
   hoursSinceLastLaunch: z.number().nullable(),
+  /** The bytes a reset erased before this launch. Null when no reset ran. */
+  erasedBytes: z.number().nullable(),
   os: z.string(),
   arch: z.string(),
 });

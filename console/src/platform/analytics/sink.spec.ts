@@ -13,6 +13,8 @@ import { Analytics } from "@/platform/analytics";
 
 const createTransport = (): Analytics.Transport => ({
   capture: vi.fn(),
+  identify: vi.fn(),
+  reset: vi.fn(),
   describe: vi.fn(),
 });
 
@@ -46,6 +48,25 @@ describe("Analytics.createSink", () => {
       $host: "desktop.synnaxlabs.com",
       $pathname: "/schematic",
     });
+  });
+
+  it("should identify the account", () => {
+    const transport = createTransport();
+    Analytics.createSink(transport).identify({ id: "user_a", email: "a@example.com" });
+    expect(transport.identify).toHaveBeenCalledWith({
+      id: "user_a",
+      email: "a@example.com",
+    });
+  });
+
+  it("should drop an account without an ID", () => {
+    // A machine linked before the link carried the ID has none. Identifying it as the
+    // empty string would merge every such machine into one person.
+    const transport = createTransport();
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    Analytics.createSink(transport).identify({ id: "", email: "a@example.com" });
+    expect(transport.identify).not.toHaveBeenCalled();
+    expect(log).toHaveBeenCalled();
   });
 
   it("should drop a screen whose tab is not an identifier", () => {

@@ -23,6 +23,8 @@ export const sliceStateZ = z.object({
   secret: z.string().optional(),
   /** The address of the account this machine is linked to. */
   email: z.string().optional(),
+  /** The Clerk ID of the account this machine is linked to. */
+  user: z.string().optional(),
 });
 export interface SliceState extends z.infer<typeof sliceStateZ> {}
 
@@ -36,6 +38,7 @@ export interface LinkPayload {
   activation: string;
   secret: string;
   email: string;
+  user: string;
 }
 
 const { actions, reducer } = createSlice({
@@ -50,6 +53,7 @@ const { actions, reducer } = createSlice({
       state.activation = payload.activation;
       state.secret = payload.secret;
       state.email = payload.email;
+      state.user = payload.user;
     },
     clear: () => ZERO_SLICE_STATE,
   },

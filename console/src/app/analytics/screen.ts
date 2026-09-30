@@ -8,11 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { panel, query, type Synnax as Client } from "@synnaxlabs/client";
-import { Synnax } from "@synnaxlabs/pluto";
 import { type destructor } from "@synnaxlabs/x";
-import { useEffect } from "react";
 
-import { Analytics } from "@/platform/analytics";
+import { type Analytics } from "@/platform/analytics";
 import { Session } from "@/session";
 
 interface WatchParams {
@@ -26,7 +24,11 @@ interface WatchParams {
  * called. The focused tab comes from the store and its type from the panel the mosaic
  * has already retrieved, so nothing here renders or fetches.
  */
-const watch = ({ store, client, screen }: WatchParams): destructor.Destructor => {
+export const watchScreens = ({
+  store,
+  client,
+  screen,
+}: WatchParams): destructor.Destructor => {
   let key: panel.Key | undefined;
   let tabKey: panel.TabKey | undefined;
   let reported: string | undefined;
@@ -64,16 +66,4 @@ const watch = ({ store, client, screen }: WatchParams): destructor.Destructor =>
     unwatchStore();
     unwatchPanel?.();
   };
-};
-
-/** Mounts the screen watcher for this window. */
-export const Screen = (): null => {
-  const { screen } = Analytics.use();
-  const store = Session.useStore();
-  const client = Synnax.use();
-  useEffect(() => {
-    if (client == null) return;
-    return watch({ store, client, screen });
-  }, [store, client, screen]);
-  return null;
 };
