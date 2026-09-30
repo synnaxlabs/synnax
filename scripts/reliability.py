@@ -7,9 +7,17 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Builds the reliability page data from a CI workflow run.
+# /// script
+# dependencies = ["boto3"]
+# ///
 
-Usage: python3 scripts/reliability.py <run-url> --version 0.59.0 [--out path]
+"""Builds the reliability page data from a CI workflow run and uploads it.
+
+Usage: uv run scripts/reliability.py <run-url> --version 0.59.0 [--out path]
+
+The data goes to DigitalOcean Spaces, where the docs build reads it; redeploy the docs
+to publish it. --out writes it to a local file instead. Uploading needs DO_SPACES_KEY and
+DO_SPACES_SECRET in the environment.
 
 Integration results come from the run's `test-results-*` artifacts. Unit suites write no
 per-test report yet, so their tests are enumerated from source at the run's commit and
@@ -18,6 +26,7 @@ take their job's conclusion.
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -26,7 +35,9 @@ from pathlib import Path
 
 REPO = "synnaxlabs/synnax"
 ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_OUT = ROOT / "site/docs/src/util/reliability.json"
+SPACES_ENDPOINT = "https://nyc3.digitaloceanspaces.com"
+SPACES_BUCKET = "synnax"
+SPACES_KEY = "docs/reliability/run.json"
 
 PRODUCTS = [
     ("core", "Core"),
@@ -106,9 +117,9 @@ def gh(*args: str) -> str:
 
 
 def os_of(runner: str) -> str:
-    for os in ("ubuntu", "windows", "macos"):
-        if runner.startswith(os):
-            return os
+    for name in ("ubuntu", "windows", "macos"):
+        if runner.startswith(name):
+            return name
     raise ValueError(f"unknown runner: {runner}")
 
 
@@ -180,11 +191,36 @@ def tc_source(root: Path, sha: str, test: dict) -> str:
     return f"{path}#L{lines[0].split(':')[2]}" if lines else path
 
 
+def upload(body: str) -> None:
+    key = os.environ.get("DO_SPACES_KEY")
+    secret = os.environ.get("DO_SPACES_SECRET")
+    if key is None or secret is None:
+        sys.exit("DO_SPACES_KEY and DO_SPACES_SECRET must be set")
+    # Imported here so the tests, which never upload, run without boto3.
+    import boto3
+
+    boto3.client(
+        "s3",
+        endpoint_url=SPACES_ENDPOINT,
+        region_name="us-east-1",
+        aws_access_key_id=key,
+        aws_secret_access_key=secret,
+    ).put_object(
+        Bucket=SPACES_BUCKET,
+        Key=SPACES_KEY,
+        Body=body.encode(),
+        ACL="public-read",
+        ContentType="application/json",
+        # The docs build must read the newest upload, never a cached copy.
+        CacheControl="no-cache",
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("run_url")
     parser.add_argument("--version", required=True, help="release the run tested")
-    parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
+    parser.add_argument("--out", type=Path, help="write here instead of uploading")
     args = parser.parse_args()
     run_id = re.search(r"/runs/(\d+)", args.run_url)
     if run_id is None:
@@ -270,19 +306,19 @@ def main() -> None:
         for art in sorted(Path(tmp).iterdir()):
             # test-results-<runner>-<target>, e.g. test-results-ubuntu-build-bot-arc
             target = art.name.rsplit("-", 1)[1]
-            os = os_of(art.name.removeprefix("test-results-"))
+            runner_os = os_of(art.name.removeprefix("test-results-"))
             summaries = sorted(art.glob("run-*/summary.json"))
             if not summaries:
                 continue
             summary = json.loads(summaries[-1].read_text())
-            job = tc_jobs[(os, target)]
+            job = tc_jobs[(runner_os, target)]
             suites.append(
                 {
                     "job": f"integration-{target}",
                     "product": TARGETS[target],
                     "lang": "py",
                     "kind": "system",
-                    "os": os,
+                    "os": runner_os,
                     "conclusion": job["conclusion"],
                     "url": job["html_url"],
                     "count": len(summary["tests"]),
@@ -293,7 +329,7 @@ def main() -> None:
                 state = TC_STATES[t["status"]]
                 message = t.get("error_message")
                 # tc reports auto-passed NI cases as PASSED; they need Windows DAQmx.
-                if os != "windows" and re.search(r"/(ni_|driver_ni)", t["case"]):
+                if runner_os != "windows" and re.search(r"/(ni_|driver_ni)", t["case"]):
                     state, message = "skipped", "Requires Windows NI-DAQmx drivers"
                 tests.append(
                     [
@@ -324,12 +360,17 @@ def main() -> None:
         "suites": suites,
         "tests": tests,
     }
-    args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(json.dumps(data, separators=(",", ":")))
+    body = json.dumps(data, separators=(",", ":"))
+    if args.out is not None:
+        args.out.write_text(body)
+        dest = str(args.out)
+    else:
+        upload(body)
+        dest = f"s3://{SPACES_BUCKET}/{SPACES_KEY}"
     counts: dict[str, int] = {}
     for t in tests:
         counts[t[2]] = counts.get(t[2], 0) + 1
-    print(f"{len(tests)} tests from {len(suites)} suites -> {args.out}: {counts}")
+    print(f"{len(tests)} tests from {len(suites)} suites -> {dest}: {counts}")
 
 
 if __name__ == "__main__":

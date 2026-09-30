@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import raw from "@/util/reliability.json";
 
 export type State = "passed" | "flaky" | "failed" | "skipped" | "unknown";
 
@@ -66,7 +65,13 @@ interface Raw {
   tests: [number, string, State, string | null, number | null, string][];
 }
 
-const data = raw as unknown as Raw;
+// `scripts/reliability.py` uploads the data. Pages that read it are prerendered, so
+// only the docs build fetches it. The origin URL skips the CDN's cached copy.
+const DATA_URL = "https://synnax.nyc3.digitaloceanspaces.com/docs/reliability/run.json";
+
+const res = await fetch(DATA_URL);
+if (!res.ok) throw new Error(`fetch ${DATA_URL}: ${res.status} ${res.statusText}`);
+const data = (await res.json()) as Raw;
 
 export const run = data.run;
 
