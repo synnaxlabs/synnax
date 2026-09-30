@@ -1188,6 +1188,121 @@ describe("Answers", () => {
     });
   });
 
+  describe("limited queries (rule 2)", () => {
+    type LimitQ = { min: number; limit?: number; offset?: number };
+    const limitSpace = (
+      table: query.Table<string, Rec>,
+      fetch: (query: LimitQ) => Promise<string[]>,
+    ) =>
+      new Space<LimitQ, Rec[], string, Rec>({
+        name: "things",
+        table,
+        fetch,
+        compose: (records) => records,
+        matches: (r, q) => r.value >= q.min,
+        serverFields: ["limit", "offset"],
+      });
+    const fetchOf = (table: query.Table<string, Rec>, members: Rec[]) =>
+      vi.fn(async () => {
+        table.set(members);
+        return members.map(({ key }) => key);
+      });
+
+    it("admits a match below the limit without refetching", async () => {
+      const table = newTable();
+      const fetch = fetchOf(table, [rec("a", 5)]);
+      const answers = limitSpace(table, fetch);
+      const handler = vi.fn();
+      answers.onChange({ min: 3, limit: 2 }, handler);
+      await answers.retrieve({ min: 3, limit: 2 });
+      table.set("b", rec("b", 4));
+      expect(handler).toHaveBeenLastCalledWith([rec("a", 5), rec("b", 4)]);
+      await wait(150);
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("admits matches only up to the limit", async () => {
+      const table = newTable();
+      const fetch = fetchOf(table, [rec("a", 5)]);
+      const answers = limitSpace(table, fetch);
+      answers.onChange({ min: 3, limit: 2 }, vi.fn());
+      await answers.retrieve({ min: 3, limit: 2 });
+      table.set([rec("b", 4), rec("c", 6)]);
+      expect(answers.getCached({ min: 3, limit: 2 })).toEqual([
+        rec("a", 5),
+        rec("b", 4),
+      ]);
+    });
+
+    it("ignores a new match once the answer is full", async () => {
+      const table = newTable();
+      const fetch = fetchOf(table, [rec("a", 5), rec("b", 4)]);
+      const answers = limitSpace(table, fetch);
+      const handler = vi.fn();
+      answers.onChange({ min: 3, limit: 2 }, handler);
+      await answers.retrieve({ min: 3, limit: 2 });
+      handler.mockClear();
+      table.set("c", rec("c", 6));
+      await wait(150);
+      expect(handler).not.toHaveBeenCalled();
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("evicts a member below the limit without refetching", async () => {
+      const table = newTable();
+      const fetch = fetchOf(table, [rec("a", 5), rec("b", 4)]);
+      const answers = limitSpace(table, fetch);
+      const handler = vi.fn();
+      answers.onChange({ min: 3, limit: 3 }, handler);
+      await answers.retrieve({ min: 3, limit: 3 });
+      table.set("a", rec("a", 1));
+      expect(handler).toHaveBeenLastCalledWith([rec("b", 4)]);
+      await wait(150);
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("refetches when a full answer loses a member", async () => {
+      const table = newTable();
+      const fetch = fetchOf(table, [rec("a", 5), rec("b", 4)]);
+      const answers = limitSpace(table, fetch);
+      answers.onChange({ min: 3, limit: 2 }, vi.fn());
+      await answers.retrieve({ min: 3, limit: 2 });
+      table.set("a", rec("a", 1));
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+    });
+
+    it("ignores a change to a record that never matched", async () => {
+      const table = newTable();
+      const fetch = fetchOf(table, [rec("a", 5), rec("b", 4)]);
+      const answers = limitSpace(table, fetch);
+      answers.onChange({ min: 3, limit: 2 }, vi.fn());
+      await answers.retrieve({ min: 3, limit: 2 });
+      table.set("z", rec("z", 1));
+      await wait(150);
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("refetches wholesale when the limit is not positive", async () => {
+      const table = newTable();
+      const fetch = fetchOf(table, [rec("a", 5)]);
+      const answers = limitSpace(table, fetch);
+      answers.onChange({ min: 3, limit: 0 }, vi.fn());
+      await answers.retrieve({ min: 3, limit: 0 });
+      table.set("z", rec("z", 1));
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+    });
+
+    it("refetches wholesale when another server field is set", async () => {
+      const table = newTable();
+      const fetch = fetchOf(table, [rec("a", 5)]);
+      const answers = limitSpace(table, fetch);
+      answers.onChange({ min: 3, limit: 2, offset: 1 }, vi.fn());
+      await answers.retrieve({ min: 3, limit: 2, offset: 1 });
+      table.set("z", rec("z", 1));
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+    });
+  });
+
   describe("server-computed queries (rule 3)", () => {
     type SearchQ = { searchTerm?: string };
     const searchSpace = (

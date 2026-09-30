@@ -841,6 +841,84 @@ describe("cached reads", () => {
     });
   });
 
+  describe("filtered answer links", () => {
+    // A remote range's parent and label links often arrive before the range itself.
+    // Fetching the range to recheck it would send a request per remote create.
+    it("does not fetch an unseen range when its links arrive first", async () => {
+      const past = TimeStamp.now().sub(TimeSpan.days(3650));
+      const barrier = await createRange(remote, {
+        timeRange: new TimeRange(past, past.add(TimeSpan.seconds(1))),
+      });
+      const local = createTestClient();
+      await local.connect();
+      const parent = await createRange(local);
+      const lbl = await local.labels.create({
+        name: `qry-lbl-${id.create()}`,
+        color: "#FF0000",
+      });
+      const params = { overlapsWith: parent.timeRange, limit: 100 };
+      const off = local.ranges.onChange(params, vi.fn());
+      try {
+        await local.ranges.retrieve(params);
+        const send = spyOnSend(local);
+        const unseen = uuid.create();
+        const links: ontology.Relationship[] = [
+          {
+            from: ranger.ontologyID(parent.key),
+            type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+            to: ranger.ontologyID(unseen),
+          },
+          {
+            from: ranger.ontologyID(unseen),
+            type: label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
+            to: label.ontologyID(lbl.key),
+          },
+        ];
+        links.forEach((rel) =>
+          local.ontology.cache.relationships.set(
+            ontology.relationshipToString(rel),
+            rel,
+          ),
+        );
+        local.labels.store.set(lbl.key, { ...lbl, name: `${lbl.name}-renamed` });
+        // Rides the same fetch batch as any recheck fetch, so those have been sent.
+        await local.ranges.retrieve(barrier.key);
+        const fetched = send.mock.calls.flatMap(([target, req]) =>
+          target === "/range/retrieve"
+            ? ((req as ranger.RetrieveRequest).keys ?? [])
+            : [],
+        );
+        expect(fetched).toEqual([barrier.key]);
+      } finally {
+        off();
+      }
+    });
+
+    it("fetches an unseen range when a label adds it to a label query", async () => {
+      const lbl = await remote.labels.create({
+        name: `qry-lbl-${id.create()}`,
+        color: "#FF0000",
+      });
+      const rng = await createRange(remote);
+      const local = createTestClient();
+      await local.connect();
+      const params = { hasLabels: [lbl.key] };
+      const off = local.ranges.onChange(params, vi.fn());
+      try {
+        expect(await local.ranges.retrieve(params)).toEqual([]);
+        await remote.labels.label(ranger.ontologyID(rng.key), [lbl.key]);
+        await expect
+          .poll(() => {
+            const cached = local.ranges.getCached(params);
+            return query.isLive(cached) && cached.map((r) => r.key);
+          })
+          .toEqual([rng.key]);
+      } finally {
+        off();
+      }
+    });
+  });
+
   describe("kv", () => {
     it("retrieves a range's pairs and delivers remote sets to a subscription", async () => {
       const rng = await createRange();

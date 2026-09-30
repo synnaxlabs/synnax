@@ -146,9 +146,12 @@ export const watch = <
  * 1. exact-key — `keyOf` returns a key: track that entry; deletion flips the
  *    answer to deleted.
  * 2. client-checkable — `matches` compares a record against the query:
- *    admit/evict exactly, no network.
- * 3. server-computed — any field named in `serverFields` is set on the query
- *    (or neither `keyOf` nor `matches` applies): debounced wholesale refetch.
+ *    admit/evict exactly, no network. A positive `limit` keeps rule 2: below the
+ *    limit the answer holds every match; at the limit it holds some `limit` of
+ *    them, not necessarily the server's first. Only losing a member of a full
+ *    answer refetches.
+ * 3. server-computed — any other field named in `serverFields` is set on the
+ *    query (or neither `keyOf` nor `matches` applies): debounced wholesale refetch.
  */
 export interface SpaceConfig<
   P extends Params,
@@ -180,7 +183,8 @@ export interface SpaceConfig<
   matches?: (record: V, params: P) => boolean;
   /**
    * Query fields only the server can evaluate (searchTerm, limit, offset).
-   * A query instance with any of them set is maintained by rule 3.
+   * A query instance with any of them set is maintained by rule 3, except a
+   * positive `limit` alone (see rule 2).
    */
   serverFields?: readonly string[];
   /** Foreign tables whose events affect this space's answers. */
@@ -687,9 +691,21 @@ export class Space<
     const { serverFields } = this.config;
     if (serverFields == null || serverFields.length === 0) return false;
     if (typeof params !== "object" || params === null) return false;
+    const limited = this.limitOf(params) != null;
     return Object.entries(params).some(
-      ([field, value]) => value != null && serverFields.includes(field),
+      ([field, value]) =>
+        value != null &&
+        serverFields.includes(field) &&
+        !(limited && field === "limit"),
     );
+  }
+
+  /** The query's positive `limit`, when the space evaluates `limit` on the server. */
+  private limitOf(params: P): number | null {
+    if (this.config.serverFields?.includes("limit") !== true) return null;
+    if (typeof params !== "object" || params === null) return null;
+    if (!("limit" in params) || typeof params.limit !== "number") return null;
+    return params.limit > 0 ? params.limit : null;
   }
 
   private maintain(query: Query<P, K, D, V>): void {
@@ -811,9 +827,10 @@ export class Space<
 
   /**
    * Applies membership rechecks for the given keys against the table's current entries,
-   * without notifying. Admissions append in iteration order; evicting a single space's
-   * last member flips the query to deleted or unfetched. Returns whether the answer
-   * changed: membership moved, or a member's content was touched.
+   * without notifying. Admissions append in iteration order up to the query's limit;
+   * evicting a single space's last member flips the query to deleted or unfetched.
+   * Returns whether the answer changed: membership moved, or a member's content was
+   * touched.
    */
   private applyRechecks(query: Query<P, K, D, V>, keys: Iterable<K>): boolean {
     if (query.state.variant === "loading") {
@@ -843,7 +860,16 @@ export class Space<
       }
     }
     if (admitted.length === 0 && lastEvicted == null) return touched;
-    const next = [...query.state.keys.filter((k) => memberSet.has(k)), ...admitted];
+    const limit = this.limitOf(query.params);
+    // A full answer may leave out matches, so only the server can fill a lost member.
+    if (limit != null && lastEvicted != null && query.state.keys.length >= limit) {
+      this.scheduleRefetch(query);
+      return touched;
+    }
+    const kept = query.state.keys.filter((k) => memberSet.has(k));
+    const room = limit == null ? admitted.length : limit - kept.length;
+    if (lastEvicted == null && room <= 0) return touched;
+    const next = [...kept, ...admitted.slice(0, room)];
     if (single === true && next.length === 0 && lastEvicted != null)
       query.state =
         table.status(lastEvicted) === "tombstoned"

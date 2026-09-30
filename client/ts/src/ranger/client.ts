@@ -355,6 +355,38 @@ const watchRelationships = <Q extends query.Params>(
     affectedRangeKeys(relOfEvent(event)),
   );
 
+/** The keys the ranges table has seen, or null when there are none. */
+const seenKeys = (
+  ranges: query.Table<Key, Range>,
+  keys: Key[] | null,
+): Key[] | null => {
+  const seen = keys?.filter((key) => ranges.status(key) !== "unknown") ?? [];
+  return seen.length === 0 ? null : seen;
+};
+
+/**
+ * Projects relationship events onto the range keys a filtered query must recheck. Only
+ * a label under `hasLabels` can add an unseen range to the answer, so every other
+ * event skips unseen ranges instead of fetching them.
+ */
+const watchRequestRelationships = (
+  relationships: query.Table<string, ontology.Relationship>,
+  ranges: query.Table<Key, Range>,
+): query.Watch<RetrieveRequest, Key> =>
+  query.watch<RetrieveRequest, Key, string, ontology.Relationship>(
+    relationships,
+    (event, req) => {
+      const rel = relOfEvent(event);
+      const keys = affectedRangeKeys(rel);
+      if (
+        primitive.isNonZero(req.hasLabels) &&
+        rel.type === label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE
+      )
+        return keys;
+      return seenKeys(ranges, keys);
+    },
+  );
+
 const rangesWithLabel = (cache: ontology.Cache, key: label.Key): Key[] | null => {
   const keys = cache
     .relationshipsTo(label.ontologyID(key))
@@ -367,13 +399,17 @@ const rangesWithLabel = (cache: ontology.Cache, key: label.Key): Key[] | null =>
   return keys.length === 0 ? null : keys;
 };
 
-/** Projects label content changes onto the ranges they label. */
-const watchLabels = <Q extends query.Params>(
+/**
+ * Projects label content changes onto the seen ranges they label. Label content never
+ * changes which ranges a query holds, so unseen ranges are skipped.
+ */
+const watchLabels = (
   labels: query.Table<label.Key, label.Label>,
   cache: ontology.Cache,
-): query.Watch<Q, Key> =>
-  query.watch<Q, Key, label.Key, label.Label>(labels, (event) =>
-    rangesWithLabel(cache, event.key),
+  ranges: query.Table<Key, Range>,
+): query.Watch<RetrieveRequest, Key> =>
+  query.watch<RetrieveRequest, Key, label.Key, label.Label>(labels, (event) =>
+    seenKeys(ranges, rangesWithLabel(cache, event.key)),
   );
 
 /** Config for {@link Client}. */
@@ -456,8 +492,8 @@ export class Client extends query.Retriever<
         fetch: async (query) => await this.fetchRequest(query),
         matches: (r, query) => this.requestMatches(r, query),
         watch: [
-          watchRelationships<RetrieveRequest>(relationships),
-          watchLabels<RetrieveRequest>(labels, ontologyClient.cache),
+          watchRequestRelationships(relationships, ranges),
+          watchLabels(labels, ontologyClient.cache, ranges),
         ],
       },
       compose: (r) => this.composeOne(r),
