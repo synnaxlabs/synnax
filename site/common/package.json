@@ -4,6 +4,7 @@
   "private": true,
   "exports": {
     "./Footer.astro": "./src/Footer.astro",
+    "./PrivacyPolicy.astro": "./src/PrivacyPolicy.astro",
     "./drawer.css": "./src/drawer.css",
     "./tokens.css": "./src/tokens.css"
   },
