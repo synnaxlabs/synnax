@@ -18,6 +18,13 @@ import { z } from "zod";
 import { Card } from "@/ui/auth/Card";
 import { OAuth } from "@/ui/auth/OAuth";
 import { withTarget } from "@/ui/auth/redirect";
+import {
+  backupCode,
+  choose,
+  type CodeFactor,
+  prepare,
+  prompt,
+} from "@/ui/auth/secondFactor";
 import { type Clerk, useClerk } from "@/ui/clerk";
 import { useAction } from "@/ui/useAction";
 
@@ -27,8 +34,6 @@ const schema = z.object({
 });
 
 const codeSchema = z.object({ code: z.string().trim().min(1, "Enter the code") });
-
-type Step = "credentials" | "second-factor";
 
 const finish = async (
   clerk: Clerk,
@@ -48,7 +53,9 @@ export interface LoginProps {
 /** Login logs a user in with email and password, Google, or Microsoft. */
 export const Login = ({ target }: LoginProps): ReactElement => {
   const clerk = useClerk();
-  const [step, setStep] = useState<Step>("credentials");
+  // factor is the second step Clerk asked for, or null while on the password step.
+  const [factor, setFactor] = useState<CodeFactor | null>(null);
+  const [backup, setBackup] = useState<CodeFactor | null>(null);
   const [oauthError, setOAuthError] = useState<string | null>(null);
   const methods = Form.use({ values: { email: "", password: "" }, schema });
   const codeMethods = Form.use({ values: { code: "" }, schema: codeSchema });
@@ -59,17 +66,22 @@ export const Login = ({ target }: LoginProps): ReactElement => {
     const res = await clerk.client.signIn.create({ identifier: email, password });
     if (res.status === "complete")
       return await finish(clerk, target, res.createdSessionId);
-    if (res.status === "needs_second_factor") {
-      setStep("second-factor");
+    if (res.status === "needs_second_factor" || res.status === "needs_client_trust") {
+      const next = choose(res.supportedSecondFactors);
+      if (next == null)
+        throw new Error("This account needs a step the portal cannot do");
+      await prepare(res, next);
+      setFactor(next);
+      setBackup(backupCode(res.supportedSecondFactors));
       return;
     }
     throw new Error(`Login needs ${res.status ?? "another step"}`);
   });
 
   const verify = useAction(async () => {
-    if (clerk?.client == null || !codeMethods.validate()) return;
+    if (clerk?.client == null || factor == null || !codeMethods.validate()) return;
     const res = await clerk.client.signIn.attemptSecondFactor({
-      strategy: "totp",
+      strategy: factor.strategy,
       code: codeMethods.value().code,
     });
     if (res.status === "complete")
@@ -77,12 +89,25 @@ export const Login = ({ target }: LoginProps): ReactElement => {
     throw new Error("That code did not work");
   });
 
-  if (step === "second-factor")
+  if (factor != null)
     return (
       <Card
         title="Two-step verification"
-        description="Enter the code from your authenticator app"
+        description={prompt(factor)}
         error={verify.error}
+        footer={
+          backup != null &&
+          factor !== backup && (
+            <Text.Text
+              el="button"
+              level="small"
+              variant="link"
+              onClick={() => setFactor(backup)}
+            >
+              Use a backup code
+            </Text.Text>
+          )
+        }
       >
         <Form.Form<typeof codeSchema> {...codeMethods}>
           <Form.TextField
