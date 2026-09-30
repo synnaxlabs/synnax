@@ -416,7 +416,10 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
         std::move(requests)
     );
 
-    auto breaker_cfg = x::breaker::Config{.name = task.name};
+    auto breaker_cfg = x::breaker::Config{
+        .name = task.name,
+        .max_retries = x::breaker::RETRY_INFINITELY,
+    };
 
     auto read_task = std::make_unique<common::ReadTask>(
         task,
