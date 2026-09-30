@@ -16,6 +16,7 @@ export interface Suite {
   product: string;
   lang: string;
   kind: "unit" | "system";
+  tags: string[];
   os: string;
   conclusion: string | null;
   url: string;
@@ -32,6 +33,8 @@ export interface Test {
   path: string;
   /** GitHub URL of the test's source at the run's commit. */
   source: string;
+  /** What kind of test it is and what it needs, as in "playwright" or "no-driver". */
+  tags: string[];
 }
 
 export interface Subsystem {
@@ -61,7 +64,15 @@ interface Raw {
   };
   products: { key: string; name: string }[];
   suites: Suite[];
-  tests: [number, string, State, string | null, number | null, string][];
+  tests: [
+    number,
+    string,
+    State,
+    string | null,
+    number | null,
+    string,
+    tags?: string[],
+  ][];
 }
 
 // `scripts/reliability.py` uploads the data. Pages that read it are prerendered, so
@@ -80,15 +91,18 @@ export const blob = `https://github.com/synnaxlabs/synnax/blob/${data.run.sha}/`
 const emptyCounts = (): Record<State, number> =>
   Object.fromEntries(STATES.map((s) => [s, 0])) as Record<State, number>;
 
-const tests: Test[] = data.tests.map(([s, name, state, message, duration, source]) => ({
-  suite: data.suites[s],
-  name,
-  state,
-  message,
-  duration,
-  path: source.split("#")[0],
-  source: blob + source,
-}));
+const tests: Test[] = data.tests.map(
+  ([s, name, state, message, duration, source, tags = []]) => ({
+    suite: data.suites[s],
+    name,
+    state,
+    message,
+    duration,
+    path: source.split("#")[0],
+    source: blob + source,
+    tags: [...data.suites[s].tags, ...tags],
+  }),
+);
 
 // Unit test path -> subsystem, per product. The first match wins, and every path must
 // match one. System tests are always "e2e".

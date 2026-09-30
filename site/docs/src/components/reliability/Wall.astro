@@ -94,6 +94,7 @@ const LEGEND = [
     </Flex.Box>
     <div class="pluto-tooltip reliability-card" aria-live="polite" hidden>
         <Text.Text level="small" variant="code" className="reliability-card-name" />
+        <Flex.Box x wrap gap="tiny" className="reliability-card-tags" />
         <Text.Text level="small" color={8} className="reliability-card-meta" />
     </div>
 </Flex.Box>
@@ -102,7 +103,8 @@ const LEGEND = [
     type Detail = {
         blob: string;
         suites: { job: string; os: string }[];
-        tests: [number, string, number | null, string][];
+        tags: string[][];
+        tests: [number, string, number | null, string, number][];
     };
 
     const STATE_NAMES: Record<string, string> = {
@@ -143,6 +145,7 @@ const LEGEND = [
         const card = document.querySelector<HTMLElement>(".reliability-card")!;
         const cardName = card.querySelector(".reliability-card-name")!;
         const cardMeta = card.querySelector(".reliability-card-meta")!;
+        const cardTags = card.querySelector(".reliability-card-tags")!;
         let detail: Promise<Detail> | null = null;
         const load = () =>
             (detail ??= fetch(wall.dataset.src!).then(
@@ -284,10 +287,18 @@ const LEGEND = [
             ) => {
                 const d = await load();
                 if (!active()) return;
-                const [suite, name, duration] =
+                const [suite, name, duration, , tags] =
                     d.tests[Number(canvas.dataset.offset) + i];
                 const s = d.suites[suite];
                 cardName.textContent = name;
+                cardTags.replaceChildren(
+                    ...d.tags[tags].map((t) => {
+                        const tag = document.createElement("span");
+                        tag.className = "reliability-tag";
+                        tag.textContent = t;
+                        return tag;
+                    }),
+                );
                 cardMeta.textContent = [
                     STATE_NAMES[canvas.dataset.cells![i]],
                     `${s.job} on ${s.os}`,
@@ -296,8 +307,10 @@ const LEGEND = [
                 ]
                     .filter(Boolean)
                     .join(" · ");
-                card.style.transform = `translate(${Math.min(x + 14, innerWidth - card.offsetWidth - 8)}px, ${y + 18}px)`;
                 card.hidden = false;
+                // The translate property, since the tooltip's entry animation owns
+                // transform.
+                card.style.translate = `${Math.min(x + 14, innerWidth - card.offsetWidth - 8)}px ${y + 18}px`;
             };
             const focusCell = (i: number) => {
                 canvas.dataset.focus = String(i);
@@ -436,6 +449,20 @@ const LEGEND = [
 
         .reliability-card-name {
             word-break: break-word;
+        }
+
+        .reliability-card-tags {
+            margin: 0.5rem 0;
+        }
+
+        .reliability-tag {
+            padding: 0 1rem;
+            border: var(--pluto-border);
+            border-radius: var(--pluto-border-radius);
+            font-family: var(--pluto-code-font-family);
+            font-size: calc(var(--pluto-small-size) * 0.75);
+            line-height: 1.6;
+            color: var(--pluto-gray-l10);
         }
     }
 

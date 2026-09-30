@@ -11,7 +11,14 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from reliability import JOB_NAME, enumerate_tests, os_of, tc_source
+
+from reliability import (
+    JOB_NAME,
+    Cases,
+    enumerate_tests,
+    integration_sources,
+    os_of,
+)
 
 FILES = {
     "core/frame_test.go": (
@@ -110,18 +117,89 @@ class TestEnumerateTests:
         assert enumerate_tests(root, sha, "go", ["console"]) == []
 
 
-class TestTcSource:
-    """Source links for integration cases."""
+class TestIntegrationSources:
+    """Integration sources read at a commit."""
 
-    def test_should_link_the_class_line(self, repo: Repo) -> None:
+    def test_should_key_python_files_by_their_path_in_integration(
+        self, repo: Repo
+    ) -> None:
         root, sha = repo
-        case = {"case": "console/plot", "name": "Plot"}
-        assert tc_source(root, sha, case) == "integration/tests/console/plot.py#L4"
+        assert integration_sources(root, sha) == {
+            "tests/console/plot.py": FILES["integration/tests/console/plot.py"],
+        }
 
-    def test_should_link_the_file_when_the_class_is_missing(self, repo: Repo) -> None:
-        root, sha = repo
-        case = {"case": "console/plot", "name": "Missing"}
-        assert tc_source(root, sha, case) == "integration/tests/console/plot.py"
+
+CASES = {
+    "framework/test_case.py": "class TestCase:\n    pass\n",
+    "console/case.py": (
+        "from framework.test_case import TestCase\n\n\n"
+        "class ConsoleCase(TestCase):\n    pass\n"
+    ),
+    "tests/driver/simulator_case.py": (
+        "from framework.test_case import TestCase\n\n\n"
+        "class SimulatorCase(TestCase):\n    pass\n"
+    ),
+    "tests/driver/task.py": (
+        "from framework.test_case import TestCase\n\n\n"
+        "class TaskCase(TestCase):\n"
+        "    def run(self):\n"
+        "        self.client.tasks.configure(self.tsk)\n"
+    ),
+    "tests/console/plot.py": (
+        "from console.case import ConsoleCase\n\n\n"
+        "class _Helper:\n    pass\n\n\n"
+        "class Plot(ConsoleCase):\n    pass\n"
+    ),
+    "tests/console/modbus.py": (
+        "from console.case import ConsoleCase\n"
+        "from tests.driver.simulator_case import SimulatorCase\n\n\n"
+        "class ModbusRead(SimulatorCase, ConsoleCase):\n    pass\n"
+    ),
+    "tests/driver/ni.py": (
+        "import platform\n\n"
+        "from tests.driver.task import TaskCase\n\n\n"
+        "class NIRead(TaskCase):\n"
+        "    def setup(self):\n"
+        '        if platform.system().lower() != "windows":\n'
+        '            self.auto_pass(msg="Windows DAQmx drivers required")\n\n\n'
+        "class NIMissing(TaskCase):\n"
+        "    def setup(self):\n"
+        '        if platform.system().lower() == "windows":\n'
+        '            self.auto_pass(msg="DAQmx is installed")\n'
+    ),
+}
+
+
+class TestCases:
+    """Integration cases resolved to their classes and tagged."""
+
+    def test_should_resolve_a_module_named_case_to_its_one_test_class(self) -> None:
+        case = Cases(CASES).resolve("console/plot", "plot")
+        assert case.source == "integration/tests/console/plot.py#L8"
+        assert case.tags == ["playwright", "no-driver"]
+        assert case.skipped == {}
+
+    def test_should_tag_a_simulator_case_as_using_the_driver(self) -> None:
+        case = Cases(CASES).resolve("console/modbus", "modbus")
+        assert case.tags == ["playwright", "driver"]
+
+    def test_should_skip_a_windows_only_case_on_other_platforms(self) -> None:
+        case = Cases(CASES).resolve("driver/ni", "NIRead")
+        assert case.source == "integration/tests/driver/ni.py#L6"
+        assert case.tags == ["headless", "driver", "windows-only"]
+        assert case.skipped == {
+            "ubuntu": "Windows DAQmx drivers required",
+            "macos": "Windows DAQmx drivers required",
+        }
+
+    def test_should_skip_a_not_windows_case_on_windows(self) -> None:
+        case = Cases(CASES).resolve("driver/ni", "NIMissing")
+        assert case.tags == ["headless", "driver", "not-windows"]
+        assert case.skipped == {"windows": "DAQmx is installed"}
+
+    def test_should_reject_a_name_matching_no_class(self) -> None:
+        with pytest.raises(ValueError, match="no class for driver/ni › ni"):
+            Cases(CASES).resolve("driver/ni", "ni")
 
 
 class TestOsOf:

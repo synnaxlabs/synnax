@@ -25,12 +25,14 @@ take their job's conclusion.
 """
 
 import argparse
+import ast
 import json
 import os
 import re
 import subprocess
 import sys
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 
 REPO = "synnaxlabs/synnax"
@@ -97,6 +99,13 @@ LANGS = {
 }
 
 FIRST_STRING = re.compile(r"[\"'`]((?:[^\"'`\\]|\\.)+)[\"'`]")
+
+# language -> the framework its unit tests run on.
+FRAMEWORKS = {"go": "ginkgo", "ts": "vitest", "cpp": "gtest", "py": "pytest"}
+
+
+# Runner OS -> what platform.system().lower() returns on it.
+PLATFORMS = {"ubuntu": "linux", "windows": "windows", "macos": "darwin"}
 
 TC_STATES = {
     "PASSED": "passed",
@@ -177,20 +186,159 @@ def enumerate_tests(
     return tests
 
 
-def tc_source(root: Path, sha: str, test: dict) -> str:
-    """Links an integration case to its file, at the class named for the test."""
-    path = f"integration/tests/{test['case']}.py"
+def integration_sources(root: Path, sha: str) -> dict[str, str]:
+    """Maps each Python file under integration/ at sha, by its path there, to its
+    source."""
+    paths = [
+        p
+        for p in subprocess.run(
+            ["git", "ls-tree", "-r", "--name-only", sha, "--", "integration"],
+            cwd=root,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.splitlines()
+        if p.endswith(".py")
+    ]
     out = subprocess.run(
-        ["git", "grep", "-n", "-P", rf"^class {test['name']}\b", sha, "--", path],
+        ["git", "cat-file", "--batch"],
         cwd=root,
+        input="".join(f"{sha}:{p}\n" for p in paths).encode(),
+        check=True,
         capture_output=True,
-        text=True,
-        check=False,
-    )
-    if out.returncode not in (0, 1):
-        raise RuntimeError(out.stderr)
-    lines = out.stdout.splitlines()
-    return f"{path}#L{lines[0].split(':')[2]}" if lines else path
+    ).stdout
+    sources = {}
+    for path in paths:
+        header, out = out.split(b"\n", 1)
+        size = int(header.split()[2])
+        sources[path.removeprefix("integration/")] = out[:size].decode()
+        out = out[size + 1 :]
+    return sources
+
+
+@dataclass
+class Case:
+    """An integration case's class, as read from source."""
+
+    source: str
+    tags: list[str]
+    # Runner OS -> why the case auto-passes there instead of running.
+    skipped: dict[str, str]
+
+
+class Cases:
+    """Resolves integration cases to their classes and tags them by ancestry."""
+
+    def __init__(self, sources: dict[str, str]) -> None:
+        self.trees = {path: ast.parse(src) for path, src in sources.items()}
+        self.configures = {
+            p for p, src in sources.items() if ".tasks.configure(" in src
+        }
+
+    def _module(self, name: str) -> str | None:
+        base = name.replace(".", "/")
+        for path in (f"{base}.py", f"{base}/__init__.py"):
+            if path in self.trees:
+                return path
+        return None
+
+    def _find(self, path: str, name: str) -> tuple[str, ast.ClassDef] | None:
+        """Finds the class a name refers to in a module, following imports. None
+        means a class from outside integration/, such as ABC."""
+        body = self.trees[path].body
+        for node in body:
+            if isinstance(node, ast.ClassDef) and node.name == name:
+                return path, node
+        for node in body:
+            if isinstance(node, ast.ImportFrom) and node.module is not None:
+                for alias in node.names:
+                    if (alias.asname or alias.name) == name:
+                        module = self._module(node.module)
+                        return (
+                            None if module is None else self._find(module, alias.name)
+                        )
+        return None
+
+    def _ancestry(self, path: str, cls: ast.ClassDef) -> list[tuple[str, ast.ClassDef]]:
+        chain = [(path, cls)]
+        for base in cls.bases:
+            if isinstance(base, ast.Name):
+                hit = self._find(path, base.id)
+                if hit is not None:
+                    chain += self._ancestry(*hit)
+        return chain
+
+    def _class(self, case: str, name: str) -> tuple[str, ast.ClassDef]:
+        path = f"tests/{case}.py"
+        classes = [n for n in self.trees[path].body if isinstance(n, ast.ClassDef)]
+        for cls in classes:
+            if cls.name == name:
+                return path, cls
+        # A module holding one test class names its case after the module or the
+        # sequence entry, not the class.
+        tests = [
+            c
+            for c in classes
+            if not c.name.startswith("_")
+            and "TestCase" in {a.name for _, a in self._ancestry(path, c)}
+        ]
+        if len(tests) != 1:
+            raise ValueError(f"no class for {case} › {name}")
+        return path, tests[0]
+
+    def resolve(self, case: str, name: str) -> Case:
+        path, cls = self._class(case, name)
+        chain = self._ancestry(path, cls)
+        names = {c.name for _, c in chain}
+        skipped = {}
+        for _, c in chain:
+            for node in ast.walk(c):
+                if isinstance(node, ast.If):
+                    for os_name, system in PLATFORMS.items():
+                        reason = auto_pass(node, system)
+                        if reason is not None:
+                            skipped.setdefault(os_name, reason)
+        tags = [
+            "playwright" if "ConsoleCase" in names else "headless",
+            # Simulated devices connect through the Driver, and a configured task
+            # runs on it.
+            "driver"
+            if "SimulatorCase" in names or any(p in self.configures for p, _ in chain)
+            else "no-driver",
+        ]
+        runs = set(PLATFORMS) - set(skipped)
+        if runs == {"windows"}:
+            tags.append("windows-only")
+        elif "windows" not in runs:
+            tags.append("not-windows")
+        return Case(f"integration/{path}#L{cls.lineno}", tags, skipped)
+
+
+def auto_pass(node: ast.If, system: str) -> str | None:
+    """Returns the auto_pass message when node gates an auto_pass on the platform
+    and the gate holds for system, as in
+    `if platform.system().lower() != "windows": self.auto_pass(msg=...)`."""
+    test = node.test
+    if not (
+        isinstance(test, ast.Compare)
+        and len(test.ops) == 1
+        and isinstance(test.ops[0], (ast.Eq, ast.NotEq))
+        and isinstance(test.comparators[0], ast.Constant)
+        and "system" in ast.unparse(test.left)
+    ):
+        return None
+    if (system == test.comparators[0].value) != isinstance(test.ops[0], ast.Eq):
+        return None
+    for stmt in node.body:
+        for call in ast.walk(stmt):
+            if (
+                isinstance(call, ast.Call)
+                and isinstance(call.func, ast.Attribute)
+                and call.func.attr == "auto_pass"
+            ):
+                msg = call.keywords[0].value if call.keywords else call.args[0]
+                return msg.value if isinstance(msg, ast.Constant) else "Auto-passed"
+    return None
 
 
 def upload(body: str) -> None:
@@ -263,6 +411,7 @@ def main() -> None:
                 "product": product,
                 "lang": lang,
                 "kind": "unit",
+                "tags": ["unit", FRAMEWORKS[lang]],
                 "os": os_of(job["labels"][0]),
                 "conclusion": conclusion,
                 "url": job["html_url"],
@@ -289,6 +438,7 @@ def main() -> None:
         if m:
             tc_jobs[(m.group(1), m.group(2))] = job
 
+    cases = Cases(integration_sources(ROOT, sha))
     with tempfile.TemporaryDirectory() as tmp:
         subprocess.run(
             [
@@ -320,6 +470,7 @@ def main() -> None:
                     "product": TARGETS[target],
                     "lang": "py",
                     "kind": "system",
+                    "tags": ["e2e"],
                     "os": runner_os,
                     "conclusion": job["conclusion"],
                     "url": job["html_url"],
@@ -328,11 +479,12 @@ def main() -> None:
             )
             s = len(suites) - 1
             for t in summary["tests"]:
+                case = cases.resolve(t["case"], t["name"])
                 state = TC_STATES[t["status"]]
                 message = t.get("error_message")
-                # tc reports auto-passed NI cases as PASSED; they need Windows DAQmx.
-                if runner_os != "windows" and re.search(r"/(ni_|driver_ni)", t["case"]):
-                    state, message = "skipped", "Requires Windows NI-DAQmx drivers"
+                # tc reports an auto-passed case as PASSED.
+                if runner_os in case.skipped:
+                    state, message = "skipped", case.skipped[runner_os]
                 tests.append(
                     [
                         s,
@@ -340,7 +492,8 @@ def main() -> None:
                         state,
                         message,
                         t.get("duration_s"),
-                        tc_source(ROOT, sha, t),
+                        case.source,
+                        case.tags,
                     ]
                 )
 
