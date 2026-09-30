@@ -384,6 +384,10 @@ section.portal-auth-page {
     }
 }
 
+.portal-summary__text {
+    min-width: 0;
+}
+
 .portal-auth__islands {
     position: absolute;
     top: 2rem;

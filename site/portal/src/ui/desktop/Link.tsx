@@ -11,12 +11,12 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement, useCallback, useState } from "react";
+import { type ReactElement, useState } from "react";
 
-import { post, save } from "@/ui/api";
+import { post, reload, save } from "@/ui/api";
 import { Card } from "@/ui/auth/Card";
 import { useClerk } from "@/ui/clerk";
-import { activateURL, type Linked } from "@/ui/desktop/url";
+import { activateURL, type Linked, type Query } from "@/ui/desktop/url";
 import { Panel } from "@/ui/Panel";
 import { Tile } from "@/ui/Tile";
 import { useAction } from "@/ui/useAction";
@@ -24,14 +24,8 @@ import { useAction } from "@/ui/useAction";
 /** KEY_FILE is the license key's file name when the browser cannot open the app. */
 const KEY_FILE = "synnax-desktop.license";
 
-export interface LinkProps {
-  state: string;
-  fingerprint: string[];
-  /** name is the hostname the app reported. */
-  name: string;
+export interface LinkProps extends Query {
   email: string;
-  /** problem is why the page cannot link, when the query did not come from the app. */
-  problem: string | null;
 }
 
 /**
@@ -47,26 +41,18 @@ export const Link = ({
 }: LinkProps): ReactElement => {
   const clerk = useClerk();
   const [linked, setLinked] = useState<Linked | null>(null);
-  const [url, setURL] = useState<string | null>(null);
-  const action = useAction(
-    useCallback(async () => {
-      const res = await post<Linked>("/api/desktop/link", {
-        fingerprint,
-        name,
-      });
-      const target = activateURL(state, res);
-      setLinked(res);
-      setURL(target);
-      window.location.assign(target);
-    }, [state, fingerprint, name]),
-  );
+  const action = useAction(async () => {
+    const res = await post<Linked>("/api/desktop/link", { fingerprint, name });
+    setLinked(res);
+    window.location.assign(activateURL(state, res));
+  });
   // Reloading after the log out sends the visitor through the login page and back.
-  const logOut = useCallback(() => {
+  const logOut = (): void => {
     void clerk?.signOut(() => {
-      window.location.reload();
+      reload();
       return Promise.resolve();
     });
-  }, [clerk]);
+  };
   if (problem != null)
     return (
       <Card
@@ -80,7 +66,7 @@ export const Link = ({
         error={problem}
       />
     );
-  if (linked != null && url != null)
+  if (linked != null)
     return (
       <Card
         icon={
@@ -114,7 +100,7 @@ export const Link = ({
           size="large"
           full="x"
           justify="center"
-          onClick={() => window.location.assign(url)}
+          onClick={() => window.location.assign(activateURL(state, linked))}
         >
           Open Synnax Desktop
           <Icon.Arrow.Right />
@@ -156,6 +142,7 @@ export const Link = ({
         full="x"
         justify="center"
         onClick={logOut}
+        disabled={clerk == null}
       >
         Not you? Log out
       </Button.Button>
@@ -185,7 +172,7 @@ interface EntryProps {
 const Entry = ({ icon, label, value }: EntryProps): ReactElement => (
   <Flex.Box x align="center" gap="medium">
     {icon}
-    <Flex.Box y gap={0.25} style={{ minWidth: 0 }}>
+    <Flex.Box y gap={0.25} className="portal-summary__text">
       <Text.Text level="small" color={9}>
         {label}
       </Text.Text>

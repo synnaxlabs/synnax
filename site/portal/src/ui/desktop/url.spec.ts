@@ -9,7 +9,15 @@
 
 import { describe, expect, it } from "vitest";
 
-import { activateURL, SCHEME, STATE } from "@/ui/desktop/url";
+import { MAX_NAME_LENGTH } from "@/server/license/limits";
+import { activateURL, read, SCHEME, STATE } from "@/ui/desktop/url";
+
+const STATE_VALUE = "s".repeat(16);
+const HASH = "a".repeat(64);
+const NOT_FROM_APP = "This link did not come from the Synnax Desktop app.";
+
+const query = (fields: Record<string, string>): URLSearchParams =>
+  new URLSearchParams({ state: STATE_VALUE, name: "bench", fp: HASH, ...fields });
 
 describe("desktop link", () => {
   describe("STATE", () => {
@@ -36,6 +44,34 @@ describe("desktop link", () => {
       expect(url.searchParams.get("secret")).toBe("sec ret");
       expect(url.searchParams.get("activation")).toBe("act");
       expect(url.searchParams.get("email")).toBe("a@b.c");
+    });
+  });
+  describe("read", () => {
+    it("should read a query the app sent", () => {
+      expect(read(query({ name: "  bench  ", fp: `${HASH}, ${HASH}` }))).toEqual({
+        state: STATE_VALUE,
+        name: "bench",
+        fingerprint: [HASH],
+        problem: null,
+      });
+    });
+    it("should trim the name to its bound", () => {
+      const { name } = read(query({ name: "n".repeat(MAX_NAME_LENGTH + 10) }));
+      expect(name).toHaveLength(MAX_NAME_LENGTH);
+    });
+    it("should refuse a malformed state", () => {
+      expect(read(query({ state: "short" })).problem).toBe(NOT_FROM_APP);
+    });
+    it("should refuse a blank name", () => {
+      expect(read(query({ name: "  " })).problem).toBe(NOT_FROM_APP);
+    });
+    it("should refuse a fingerprint that is not host hashes", () => {
+      const { fingerprint, problem } = read(query({ fp: "nope" }));
+      expect(fingerprint).toEqual([]);
+      expect(problem).toBe(NOT_FROM_APP);
+    });
+    it("should refuse an empty query", () => {
+      expect(read(new URLSearchParams()).problem).toBe(NOT_FROM_APP);
     });
   });
 });

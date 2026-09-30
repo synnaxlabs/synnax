@@ -11,7 +11,7 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { type Activation } from "@/server/db/schema";
 import { post, reload } from "@/ui/api";
@@ -40,13 +40,11 @@ export const LogOutDialog = ({
 
 const LogOutContent = ({ activation }: { activation: Activation }): ReactElement => {
   const { close } = Dialog.useContext();
-  const action = useAction(
-    useCallback(async () => {
-      await post(`/api/activations/${activation.key}/unlink`);
-      close();
-      reload();
-    }, [activation.key, close]),
-  );
+  const action = useAction(async () => {
+    await post(`/api/activations/${activation.key}/unlink`);
+    close();
+    reload();
+  });
   return (
     <>
       <Modal.Body gap="small">

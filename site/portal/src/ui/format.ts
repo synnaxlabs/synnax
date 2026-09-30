@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Event, type License } from "@/server/db/schema";
+import { type Denial } from "@/server/license/activate";
 
 export const date = (d: Date | null): string =>
   d == null ? "" : d.toISOString().slice(0, 10);
@@ -107,6 +108,13 @@ const EVENT_LABELS: Record<Event["kind"], string> = {
   unlink: "Machine logged out",
 };
 
+const REASON_LABELS: Partial<Record<string, string>> = {
+  revoked: "revoked",
+  expired: "expired",
+  no_seats: "no free seat",
+  superseded: "logged in again",
+} satisfies Record<Denial | "superseded", string>;
+
 interface Narrator {
   /** machines is the name each activation key reads as. */
   machines: Record<string, string>;
@@ -120,7 +128,10 @@ export const describeEvent = (e: Event, { machines, actors }: Narrator): string 
   // A machine renewing itself is its own actor, so it is only named once.
   const by = actors[e.actor] ?? machines[e.actor];
   const detail = e.detail as Record<string, unknown>;
-  const reason = typeof detail.reason === "string" ? ` (${detail.reason})` : "";
+  const reason =
+    typeof detail.reason === "string"
+      ? ` (${REASON_LABELS[detail.reason] ?? detail.reason})`
+      : "";
   const subject = on == null ? "" : `: ${on}`;
   const actor = by == null || by === on ? "" : ` by ${by}`;
   return `${EVENT_LABELS[e.kind]}${subject}${actor}${reason}`;
