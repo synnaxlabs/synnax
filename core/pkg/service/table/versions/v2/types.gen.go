@@ -18,10 +18,9 @@ import (
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v1"
-	color "github.com/synnaxlabs/x/color/versions/v0"
+	color "github.com/synnaxlabs/x/color/versions/v1"
 	"github.com/synnaxlabs/x/errors"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
-	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	text "github.com/synnaxlabs/x/text/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -48,14 +47,6 @@ func (f FlexAlignment) IsValid() bool {
 	default:
 		return false
 	}
-}
-
-// Redline maps a numeric range to a color gradient for limit visualization.
-type Redline struct {
-	// Bounds is the numeric range mapped onto the gradient.
-	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
-	// Gradient is the color gradient applied across the bounds.
-	Gradient []color.Stop `json:"gradient" msgpack:"gradient"`
 }
 
 type CellConfigType string
@@ -121,9 +112,11 @@ type ValueCellConfig struct {
 	Precision *int32 `json:"precision,omitzero" msgpack:"precision,omitempty"`
 	// Notation is the numeric notation used to format the value.
 	Notation notation.Notation `json:"notation" msgpack:"notation"`
-	// Redline is the bounds-to-gradient mapping applied to the background. When absent
-	// the cell paints no redline.
-	Redline *Redline `json:"redline,omitzero" msgpack:"redline,omitempty"`
+	// Redline is the threshold band mapping applied to the background.
+	Redline color.Scale `json:"redline" msgpack:"redline"`
+	// BackgroundColor is the fill behind the value where no redline band paints. When
+	// absent the cell paints no fill.
+	BackgroundColor *color.Color `json:"background_color,omitzero" msgpack:"background_color,omitempty"`
 	// Level is the typography level of the displayed value.
 	Level text.Level `json:"level" msgpack:"level"`
 	// Color is the color of the displayed text. When absent the value renders with a

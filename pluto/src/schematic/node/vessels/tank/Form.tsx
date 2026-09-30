@@ -9,6 +9,8 @@
 
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
+import { Theming } from "@synnaxlabs/lyra/theming";
+import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Form } from "@/schematic/node/common/form";
@@ -16,6 +18,7 @@ import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { Scale } from "@/schematic/node/common/scale";
 import { type FormProps as NodeFormProps } from "@/schematic/node/spec";
+import { Properties } from "@/vis/properties";
 
 export interface TankFormProps extends NodeFormProps {
   showBorderRadius?: boolean;
@@ -27,6 +30,7 @@ const FillForm = (): ReactElement => {
   const channel = Base.useFieldValue<Scale.Config["channel"]>("fill.channel", {
     optional: true,
   });
+  const theme = Theming.use();
   return (
     <Base.Sections x>
       <Scale.TelemForm path="fill" allowNone />
@@ -36,7 +40,11 @@ const FillForm = (): ReactElement => {
             <Scale.DisplayFields path="fill" />
           </Base.Section>
           <Base.Section title="Appearance">
-            <Form.ColorField path="fill.color" label="Fill color" />
+            <Form.ColorField
+              path="fill.color"
+              label="Fill color"
+              fallback={theme.colors.visualization.palettes.default[0]}
+            />
             <Scale.StyleFields path="fill" />
           </Base.Section>
         </>
@@ -46,6 +54,8 @@ const FillForm = (): ReactElement => {
 };
 
 export const TankForm = ({
+  tab,
+  onTabChange,
   showBorderRadius = false,
   showStrokeWidth = false,
   showFillTab = false,
@@ -58,7 +68,11 @@ export const TankForm = ({
       </Base.Section>
       <Base.Section title="Appearance">
         <Form.ColorField path="color" />
-        <Form.ColorField path="backgroundColor" label="Background color" />
+        <Form.ColorField
+          path="backgroundColor"
+          label="Background color"
+          fallback={color.ZERO}
+        />
         <Form.RadiusFields path="borderRadius" />
         {showBorderRadius && (
           <Base.NumericField
@@ -95,11 +109,11 @@ export const TankForm = ({
   );
   if (!showFillTab) return style;
   return (
-    <Form.Tabs tabs={["style", "fill"]}>
+    <Properties.Tabs tabs={["style", "fill"]} tab={tab} onTabChange={onTabChange}>
       <Tabs.Content itemKey="style">{style}</Tabs.Content>
       <Tabs.Content itemKey="fill">
         <FillForm />
       </Tabs.Content>
-    </Form.Tabs>
+    </Properties.Tabs>
   );
 };

@@ -9,13 +9,11 @@
 
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { type Input } from "@synnaxlabs/lyra/input";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { type ReactElement } from "react";
 
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
-export interface PolygonFormProps {
-  numSides: number;
-}
 
 const ROTATION_INPUT_PROPS: Partial<Input.NumericProps> = {
   dragScale: { x: 0.5, y: 2 },
@@ -40,43 +38,48 @@ const CORNER_ROUNDING_INPUT_PROPS: Partial<Input.NumericProps> = {
   endContent: "px",
 };
 
-export const PolygonForm = (): ReactElement => (
-  <Base.Sections x>
-    <Base.Section title="Label">
-      <Label.Form path="label" />
-    </Base.Section>
-    <Base.Section title="Shape">
-      <Base.NumericField
-        path="numSides"
-        label="Sides"
-        inputProps={NUM_SIDES_INPUT_PROPS}
-      />
-      <Base.NumericField
-        path="sideLength"
-        label="Side length"
-        inputProps={SIDE_LENGTH_INPUT_PROPS}
-      />
-      <Base.NumericField
-        path="rotation"
-        label="Rotation"
-        inputProps={ROTATION_INPUT_PROPS}
-      />
-      <Base.NumericField
-        path="cornerRounding"
-        label="Corner rounding"
-        inputProps={CORNER_ROUNDING_INPUT_PROPS}
-      />
-    </Base.Section>
-    <Base.Section title="Appearance">
-      <Form.ColorField path="color" />
-      <Form.ColorField path="backgroundColor" label="Background color" />
-      <Base.NumericField
-        path="strokeWidth"
-        label="Border width"
-        inputProps={Form.STROKE_WIDTH_INPUT_PROPS}
-      />
-    </Base.Section>
-  </Base.Sections>
-);
-
-export const CommonPolygonForm = PolygonForm;
+export const PolygonForm = (): ReactElement => {
+  const theme = Theming.use();
+  return (
+    <Base.Sections x>
+      <Base.Section title="Label">
+        <Label.Form path="label" />
+      </Base.Section>
+      <Base.Section title="Shape">
+        <Base.NumericField
+          path="numSides"
+          label="Sides"
+          inputProps={NUM_SIDES_INPUT_PROPS}
+        />
+        <Base.NumericField
+          path="sideLength"
+          label="Side length"
+          inputProps={SIDE_LENGTH_INPUT_PROPS}
+        />
+        <Base.NumericField
+          path="rotation"
+          label="Rotation"
+          inputProps={ROTATION_INPUT_PROPS}
+        />
+        <Base.NumericField
+          path="cornerRounding"
+          label="Corner rounding"
+          inputProps={CORNER_ROUNDING_INPUT_PROPS}
+        />
+      </Base.Section>
+      <Base.Section title="Appearance">
+        <Form.ColorField path="color" />
+        <Form.ColorField
+          path="backgroundColor"
+          label="Background color"
+          fallback={theme.colors.gray.l1}
+        />
+        <Base.NumericField
+          path="strokeWidth"
+          label="Border width"
+          inputProps={Form.STROKE_WIDTH_INPUT_PROPS}
+        />
+      </Base.Section>
+    </Base.Sections>
+  );
+};

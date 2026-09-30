@@ -20,8 +20,8 @@ export interface SectionsProps extends Flex.BoxProps {}
 /**
  * Lays out sections. Stacked (the default), every label in every section shares one
  * column sized to the widest label and every control fills the rest. Side by side
- * (`x`), each section is as wide as its content: fields fill the rows the height
- * affords, then continue in a further label and control column pair.
+ * (`x`), each section is as wide as its content: fields fill three rows, then
+ * continue in a further label and control column pair.
  */
 export const Sections = ({
   className,

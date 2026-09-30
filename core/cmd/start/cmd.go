@@ -10,10 +10,10 @@
 package start
 
 import (
-	"bufio"
 	"context"
 	"os"
 	"os/signal"
+	"strings"
 
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/cmd/cert"
 	"github.com/synnaxlabs/synnax/cmd/instrumentation"
 	"github.com/synnaxlabs/synnax/cmd/listener"
+	"github.com/synnaxlabs/synnax/cmd/start/internal/stdin"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
@@ -42,15 +43,6 @@ var Cmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, _ []string) { start(cmd) },
 }
 
-func scanForStopKeyword(interruptC chan os.Signal) {
-	scanner := bufio.NewScanner(os.Stdin)
-	for scanner.Scan() {
-		if scanner.Text() == "stop" {
-			interruptC <- os.Interrupt
-		}
-	}
-}
-
 // start is the entrypoint for starting a Synnax Core. It handles signal interrupts and
 // delegates to startServer for the actual startup.
 func start(cmd *cobra.Command) {
@@ -66,7 +58,12 @@ func start(cmd *cobra.Command) {
 
 	// Listen for a custom stop keyword that can be used in place of a Ctrl+C signal.
 	// It's fine to let this get garbage collected.
-	go scanForStopKeyword(interruptC)
+	go stdin.Watch(os.Stdin, viper.GetBool(FlagStopOnStdinClose), func() {
+		select {
+		case interruptC <- os.Interrupt:
+		default:
+		}
+	})
 
 	cfg, err := GetCoreConfigFromViper(ins)
 	if err != nil {
@@ -99,6 +96,23 @@ func start(cmd *cobra.Command) {
 
 func init() { AddFlags(Cmd) }
 
+// readLicenseKey returns the trimmed license key from the key flag, or the trimmed
+// contents of the file the path flag names when the key flag is empty.
+func readLicenseKey() (string, error) {
+	if v := strings.TrimSpace(viper.GetString(FlagLicenseKey)); v != "" {
+		return v, nil
+	}
+	path := viper.GetString(FlagLicenseFile)
+	if path == "" {
+		return "", nil
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to read the --%s file", FlagLicenseFile)
+	}
+	return strings.TrimSpace(string(b)), nil
+}
+
 // GetCoreConfigFromViper builds a CoreConfig from the current viper configuration.
 // This is used by the Windows service to start the Core with the config loaded from
 // a YAML file.
@@ -120,12 +134,16 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 			return l.Address
 		},
 	)
+	licenseKey, err := readLicenseKey()
+	if err != nil {
+		return CoreConfig{}, err
+	}
 	return CoreConfig{
 		Instrumentation:     ins,
 		insecure:            new(viper.GetBool(FlagInsecure)),
 		debug:               new(viper.GetBool(instrumentation.FlagDebug)),
 		autoCert:            new(viper.GetBool(cert.FlagAutoCert)),
-		verifier:            viper.GetString(FlagDecoded),
+		licenseKey:          licenseKey,
 		memBacked:           new(viper.GetBool(FlagMem)),
 		listeners:           listeners,
 		peers:               peers,

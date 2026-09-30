@@ -20,7 +20,7 @@ import (
 	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
 	v8 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v8"
 	border "github.com/synnaxlabs/x/border/versions/v0"
-	color "github.com/synnaxlabs/x/color/versions/v0"
+	color "github.com/synnaxlabs/x/color/versions/v1"
 	"github.com/synnaxlabs/x/errors"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
@@ -610,14 +610,6 @@ type StateMapping struct {
 	Value float64 `json:"value" msgpack:"value"`
 	// Color is the display color associated with this state.
 	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
-}
-
-// Redline maps a numeric range to a color gradient for limit visualization.
-type Redline struct {
-	// Bounds is the numeric range mapped onto the gradient.
-	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
-	// Gradient is the color gradient applied across the bounds.
-	Gradient []color.Stop `json:"gradient" msgpack:"gradient"`
 }
 
 type NodeConfigType string
@@ -1858,14 +1850,17 @@ type ValueNodeConfig struct {
 	StalenessConfig
 	// Position is the offset of the value contents within the symbol.
 	Position *spatial.XY `json:"position,omitzero" msgpack:"position,omitempty"`
-	// Color is the background color of the value.
+	// Color is the color of the value's border and units.
 	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// TextColor is the color of the displayed text.
 	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
+	// BackgroundColor is the fill behind the value where no redline band paints. When
+	// absent the value paints no fill.
+	BackgroundColor *color.Color `json:"background_color,omitzero" msgpack:"background_color,omitempty"`
 	// Tooltip is the list of tooltip lines shown on hover.
 	Tooltip []string `json:"tooltip" msgpack:"tooltip"`
-	// Redline is the bounds-to-gradient mapping applied to the background.
-	Redline Redline `json:"redline" msgpack:"redline"`
+	// Redline is the threshold band mapping applied to the background.
+	Redline color.Scale `json:"redline" msgpack:"redline"`
 	// Units is the unit suffix displayed after the value.
 	Units string `json:"units" msgpack:"units"`
 	// InlineSize is the inline size of the value in pixels.
@@ -1880,9 +1875,6 @@ func (ValueNodeConfig) isNodeConfigVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (va *ValueNodeConfig) ApplyDefaults() {
-	if va.Redline.Bounds.Upper == 0 {
-		va.Redline.Bounds.Upper = 1
-	}
 	if va.Units == "" {
 		va.Units = "psi"
 	}
@@ -6124,14 +6116,17 @@ type ValueElementConfig struct {
 	StalenessConfig
 	// Position is the offset of the value contents within the symbol.
 	Position *spatial.XY `json:"position,omitzero" msgpack:"position,omitempty"`
-	// Color is the background color of the value.
+	// Color is the color of the value's border and units.
 	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// TextColor is the color of the displayed text.
 	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
+	// BackgroundColor is the fill behind the value where no redline band paints. When
+	// absent the value paints no fill.
+	BackgroundColor *color.Color `json:"background_color,omitzero" msgpack:"background_color,omitempty"`
 	// Tooltip is the list of tooltip lines shown on hover.
 	Tooltip []string `json:"tooltip" msgpack:"tooltip"`
-	// Redline is the bounds-to-gradient mapping applied to the background.
-	Redline Redline `json:"redline" msgpack:"redline"`
+	// Redline is the threshold band mapping applied to the background.
+	Redline color.Scale `json:"redline" msgpack:"redline"`
 	// Units is the unit suffix displayed after the value.
 	Units string `json:"units" msgpack:"units"`
 	// InlineSize is the inline size of the value in pixels.
@@ -6146,9 +6141,6 @@ func (ValueElementConfig) isElementConfigVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (va *ValueElementConfig) ApplyDefaults() {
-	if va.Redline.Bounds.Upper == 0 {
-		va.Redline.Bounds.Upper = 1
-	}
 	if va.Units == "" {
 		va.Units = "psi"
 	}

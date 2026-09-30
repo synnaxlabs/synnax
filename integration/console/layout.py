@@ -481,11 +481,12 @@ class LayoutClient:
 
         :param text: Visible text of the item to select.
         :param placeholder: Search input placeholder to filter with before selecting.
-        :param exact: Require an exact text match instead of a substring match.
+        :param exact: Match the whole item text, ignoring case, instead of a substring.
         :param reopen: Re-opens the dropdown. Called before a retry when the dialog
             closed before the item was found (e.g. a re-render dismissed it).
         """
-        target = self.dialog.get_by_role("option", name=text, exact=exact)
+        name = re.compile(rf"^{re.escape(text)}$", re.IGNORECASE) if exact else text
+        target = self.dialog.get_by_role("option", name=name)
         generic = self.dialog.locator("input[placeholder*='Search']")
         specific = (
             self.dialog.locator(f"input[placeholder*='{placeholder}']")
