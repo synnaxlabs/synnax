@@ -50,9 +50,9 @@ const RESULTS: StatProps[] = [
 ];
 
 const SCOPE: StatProps[] = [
-    { label: "Suites", value: fmt(new Set(ordered.map((t) => t.suite)).size) },
+    { label: "Test suites", value: fmt(new Set(ordered.map((t) => t.suite)).size) },
     { label: "CI jobs", value: fmt(run.jobs) },
-    { label: "Wall time", value: `${minutes} min` },
+    { label: "Run time", value: `${minutes} min` },
 ];
 
 interface Tile {
@@ -67,7 +67,7 @@ const TILES: Record<string, Tile> = {
         icon: Icon.Core,
         span: 7,
         protects:
-            "Lost writes, corrupt reads, and nodes that disagree. Covers the Cesium storage engine, the Aspen key-value store, and every Core service.",
+            "Lost writes, corrupt reads, and servers that disagree about your data. Covers storage, replication, and every service the Core runs.",
     },
     console: {
         icon: Icon.Visualize,
@@ -96,7 +96,7 @@ const TILES: Record<string, Tile> = {
         icon: Icon.Sync,
         span: 3,
         protects:
-            "Drift between data schemas and the code generated from them in each language.",
+            "Broken builds, and generated code that differs from one language to the next.",
     },
 };
 
@@ -143,6 +143,17 @@ const unclean = ordered
     .filter((t) => t.state !== "passed" && t.state !== "skipped")
     .sort((a, b) => RANK[a.state] - RANK[b.state]);
 
+// Skip reason -> the tests skipped for it, when they were all run by hand and passed.
+const byHand = Object.entries(
+    Object.groupBy(
+        ordered.filter((t) => t.passedByHand),
+        (t) => t.message!,
+    ),
+);
+
+const where = (tests: typeof ordered) =>
+    tests.every((t) => t.tags.includes("windows-only")) ? " on Windows" : "";
+
 const skipped = Object.entries(
     Object.groupBy(
         ordered.filter((t) => t.state === "skipped"),
@@ -155,7 +166,7 @@ const skipped = Object.entries(
     frontmatter={{
         title: "Reliability",
         description:
-            "Every test Synnax runs against a build, from one CI run, failures included.",
+            "Every test we ran on the latest Synnax release, failures included.",
     }}
 >
     <section>
@@ -167,13 +178,14 @@ const skipped = Object.entries(
                 </Text.Text>
                 <Text.Text level="p" color={9} className="reliability-prose">
                     <span>
-                        Every square below is one test run in CI against commit{" "}
+                        Each square below is one test we ran on Synnax v{run.version}{" "}
+                        (commit{" "}
                         <a href={`${REPO}/commit/${run.sha}`}>
                             <code>{run.sha.slice(0, 7)}</code>
-                        </a>{" "}
-                        of Synnax. Tests that were flaky or skipped are marked and
-                        listed with the reason. Hover over any square to see the test,
-                        and click it to see its source.
+                        </a>
+                        ). Flaky and skipped tests are marked, and listed at the end of
+                        the page with the reason. Hover over a square to see its test,
+                        and click it to read the code.
                     </span>
                 </Text.Text>
                 <Flex.Box x wrap gap="huge" className="reliability-stats">
@@ -185,10 +197,26 @@ const skipped = Object.entries(
                         <Stat {...stat} />
                     ))}
                 </Flex.Box>
+                {byHand.map(([, tests]) => (
+                    <Flex.Box y gap="tiny" className="reliability-note">
+                        <Text.Text level="small" x gap="small" align="center">
+                            <Icon.Check className="reliability-hand" />
+                            <strong>
+                                {`${tests!.length} skipped tests passed manually${where(tests!)}.`}
+                            </strong>
+                        </Text.Text>
+                        <Text.Text
+                            level="small"
+                            color={8}
+                            className="reliability-note-detail"
+                        >
+                            {run.manual_note}
+                        </Text.Text>
+                    </Flex.Box>
+                ))}
                 <Text.Text level="small" color={8} className="reliability-prose">
                     <span>
-                        Run <a href={run.url}>#{run.id}</a> on <code>{run.branch}</code>{" "}
-                        · {date}
+                        Tested {date} in CI run <a href={run.url}>#{run.id}</a>
                     </span>
                 </Text.Text>
             </Flex.Box>
@@ -241,8 +269,9 @@ const skipped = Object.entries(
                 Tests that did not pass cleanly
             </Text.Text>
             <Text.Text level="p" color={9}>
-                A flaky test failed once and passed when run again. We list them because
-                a retry can hide a real bug.
+                A flaky test failed once, then passed when we ran it again. We list them
+                because a retry can hide a real bug. A skipped test could not run on our
+                CI machines.
             </Text.Text>
             <Flex.Box y className="reliability-unclean">
                 {unclean.map((t) => (
@@ -270,6 +299,18 @@ const skipped = Object.entries(
                             <Text.Text level="small" color={9}>
                                 {`${tests!.length} tests: ${reason}`}
                             </Text.Text>
+                            {tests!.every((t) => t.passedByHand) && (
+                                <Text.Text
+                                    level="small"
+                                    x
+                                    gap="small"
+                                    align="center"
+                                    className="reliability-hand"
+                                >
+                                    <Icon.Check />
+                                    {`All passed manually${where(tests!)}`}
+                                </Text.Text>
+                            )}
                         </summary>
                         <Flex.Box y gap="small" className="reliability-skipped-list">
                             {tests!.map((t) => (
@@ -326,6 +367,31 @@ const skipped = Object.entries(
 
     .reliability-prose > span {
         display: block;
+    }
+
+    .pluto-text.reliability-hand,
+    svg.reliability-hand {
+        color: var(--pluto-success-z);
+    }
+
+    .reliability-note {
+        align-self: flex-start;
+        padding: 1rem 2rem;
+        border-radius: var(--pluto-border-radius-medium);
+        background: color-mix(in srgb, var(--pluto-success-z) 8%, transparent);
+        box-shadow: inset 0 0 0 1px
+            color-mix(in srgb, var(--pluto-success-z) 25%, transparent);
+
+        strong {
+            font-weight: 500;
+            color: var(--pluto-gray-l11);
+        }
+
+        /* Lines up with the text after the check icon. */
+        .reliability-note-detail {
+            padding-left: calc(var(--pluto-small-size) + 1rem);
+            font-size: calc(var(--pluto-small-size) * 0.85);
+        }
     }
 
     .reliability-heading {
@@ -435,7 +501,7 @@ const skipped = Object.entries(
             width: 100%;
             cursor: pointer;
             list-style: none;
-            grid-template-columns: 12rem 1fr;
+            grid-template-columns: 12rem 1fr auto;
         }
 
         &[open] summary {

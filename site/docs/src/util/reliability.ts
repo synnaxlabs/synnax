@@ -35,6 +35,8 @@ export interface Test {
   source: string;
   /** What kind of test it is and what it needs, as in "playwright" or "no-driver". */
   tags: string[];
+  /** Skipped in CI, then run by hand for the release, and passed. */
+  passedByHand: boolean;
 }
 
 export interface Subsystem {
@@ -61,6 +63,10 @@ interface Raw {
     started_at: string;
     ended_at: string;
     jobs: number;
+    /** Skip reasons whose tests were run by hand, and all passed. */
+    manual_passes: string[];
+    /** Why the manual_passes tests were run by hand. */
+    manual_note: string | null;
   };
   products: { key: string; name: string }[];
   suites: Suite[];
@@ -88,19 +94,32 @@ export const run = data.run;
 /** GitHub URL prefix for a repository path at the run's commit. */
 export const blob = `https://github.com/synnaxlabs/synnax/blob/${data.run.sha}/`;
 
+const OS_NAMES: Record<string, string> = {
+  ubuntu: "Ubuntu",
+  windows: "Windows",
+  macos: "macOS",
+};
+
+const allSuites: Suite[] = data.suites.map((s) => {
+  const os = OS_NAMES[s.os];
+  if (os == null) throw new Error(`unknown OS ${s.os}`);
+  return { ...s, os };
+});
+
 const emptyCounts = (): Record<State, number> =>
   Object.fromEntries(STATES.map((s) => [s, 0])) as Record<State, number>;
 
 const tests: Test[] = data.tests.map(
   ([s, name, state, message, duration, source, tags = []]) => ({
-    suite: data.suites[s],
+    suite: allSuites[s],
     name,
     state,
     message,
     duration,
     path: source.split("#")[0],
     source: blob + source,
-    tags: [...data.suites[s].tags, ...tags],
+    tags: [...allSuites[s].tags, ...tags],
+    passedByHand: state === "skipped" && data.run.manual_passes.includes(message!),
   }),
 );
 
@@ -192,7 +211,7 @@ const ORDER = ["core", "console", "arc", "clients", "driver", "toolchain"];
  */
 export const products: Product[] = data.products
   .map(({ key, name }) => {
-    const suites = data.suites
+    const suites = allSuites
       .filter((s) => s.product === key && s.count > 0)
       .sort((a, b) =>
         a.kind !== b.kind ? (a.kind === "system" ? -1 : 1) : b.count - a.count,

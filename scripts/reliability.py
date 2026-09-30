@@ -14,6 +14,7 @@
 """Builds the reliability page data from a CI workflow run and uploads it.
 
 Usage: uv run scripts/reliability.py <run-url> --version 0.59.0 [--out path]
+    [--manual-pass <skip reason>]... [--manual-note <why they were run by hand>]
 
 The data goes to DigitalOcean Spaces, where the docs build reads it; redeploy the docs
 to publish it. --out writes it to a local file instead. Uploading needs DO_SPACES_KEY and
@@ -371,6 +372,17 @@ def main() -> None:
     parser.add_argument("run_url")
     parser.add_argument("--version", required=True, help="release the run tested")
     parser.add_argument("--out", type=Path, help="write here instead of uploading")
+    parser.add_argument(
+        "--manual-pass",
+        action="append",
+        default=[],
+        metavar="REASON",
+        help="skip reason whose tests someone ran by hand, and all passed",
+    )
+    parser.add_argument(
+        "--manual-note",
+        help="why the --manual-pass tests were run by hand, shown on the page",
+    )
     args = parser.parse_args()
     run_id = re.search(r"/runs/(\d+)", args.run_url)
     if run_id is None:
@@ -497,6 +509,13 @@ def main() -> None:
                     ]
                 )
 
+    if bool(args.manual_pass) != (args.manual_note is not None):
+        sys.exit("--manual-pass and --manual-note go together")
+    reasons = {t[3] for t in tests if t[2] == "skipped"}
+    for reason in args.manual_pass:
+        if reason not in reasons:
+            sys.exit(f"no skipped tests with reason {reason!r}: {sorted(reasons)}")
+
     data = {
         "version": 1,
         "run": {
@@ -509,6 +528,8 @@ def main() -> None:
             "started_at": run["created_at"],
             "ended_at": run["updated_at"],
             "conclusion": run["conclusion"],
+            "manual_passes": args.manual_pass,
+            "manual_note": args.manual_note,
             "jobs": len(jobs),
         },
         "products": [{"key": k, "name": n} for k, n in PRODUCTS],

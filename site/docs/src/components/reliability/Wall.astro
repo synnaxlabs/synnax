@@ -11,6 +11,7 @@
 import "@synnaxlabs/lyra/dist/tooltip/Frame.css";
 
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 
 import { type Product } from "@/util/reliability";
@@ -34,7 +35,10 @@ const encode = ({ tests }: Product): string => {
             shade = !shade;
             last = t.suite;
         }
-        out += t.state === "passed" ? (shade ? "b" : "a") : CODES[t.state];
+        if (t.state === "passed") out += shade ? "b" : "a";
+        // Draws as skipped. The hover card says it passed by hand.
+        else if (t.passedByHand) out += "h";
+        else out += CODES[t.state];
     }
     return out;
 };
@@ -87,7 +91,7 @@ const LEGEND = [
                     data-offset={offset}
                     role="img"
                     tabindex="0"
-                    aria-label={`${product.name}: ${product.counts.passed} passed, ${product.counts.flaky} flaky, ${product.counts.failed} failed, ${product.counts.skipped} skipped. Use the arrow keys to move between tests and Enter to open a test's source.`}
+                    aria-label={`${product.name}: ${product.counts.passed} passed, ${product.counts.flaky} flaky, ${product.counts.failed} failed, ${product.counts.skipped} skipped. Use the arrow keys to move between tests, and Enter to read a test's code.`}
                 />
             </Flex.Box>
         ))}
@@ -95,6 +99,16 @@ const LEGEND = [
     <div class="pluto-tooltip reliability-card" aria-live="polite" hidden>
         <Text.Text level="small" variant="code" className="reliability-card-name" />
         <Flex.Box x wrap gap="tiny" className="reliability-card-tags" />
+        <Text.Text
+            level="small"
+            x
+            gap="small"
+            align="center"
+            className="reliability-card-hand reliability-hand"
+        >
+            <Icon.Check />
+            <span />
+        </Text.Text>
         <Text.Text level="small" color={8} className="reliability-card-meta" />
     </div>
 </Flex.Box>
@@ -113,6 +127,7 @@ const LEGEND = [
         f: "Flaky",
         x: "Failed",
         s: "Skipped",
+        h: "Skipped in CI",
         u: "Unknown",
     };
 
@@ -123,6 +138,7 @@ const LEGEND = [
         f: "--reliability-flaky",
         x: "--reliability-failed",
         s: "--reliability-skipped",
+        h: "--reliability-skipped",
         u: "--reliability-unknown",
         focus: "--reliability-focus",
     };
@@ -146,6 +162,7 @@ const LEGEND = [
         const cardName = card.querySelector(".reliability-card-name")!;
         const cardMeta = card.querySelector(".reliability-card-meta")!;
         const cardTags = card.querySelector(".reliability-card-tags")!;
+        const cardHand = card.querySelector<HTMLElement>(".reliability-card-hand")!;
         let detail: Promise<Detail> | null = null;
         const load = () =>
             (detail ??= fetch(wall.dataset.src!).then(
@@ -299,6 +316,14 @@ const LEGEND = [
                         return tag;
                     }),
                 );
+                const hand = canvas.dataset.cells![i] === "h";
+                cardHand.hidden = !hand;
+                if (hand)
+                    cardHand.lastElementChild!.textContent = d.tags[tags].includes(
+                        "windows-only",
+                    )
+                        ? "Passed manually on Windows"
+                        : "Passed manually";
                 cardMeta.textContent = [
                     STATE_NAMES[canvas.dataset.cells![i]],
                     `${s.job} on ${s.os}`,
@@ -321,7 +346,7 @@ const LEGEND = [
                     i,
                     rect.left + g.pad + (i % g.cols) * g.pitch,
                     rect.top + g.pad + Math.floor(i / g.cols) * g.pitch,
-                    "Enter to view source",
+                    "Enter to read the code",
                     () => document.activeElement === canvas,
                 );
             };
@@ -338,7 +363,7 @@ const LEGEND = [
                     card.hidden = true;
                     return;
                 }
-                void show(i, e.clientX, e.clientY, "Click to view source", () =>
+                void show(i, e.clientX, e.clientY, "Click to read the code", () =>
                     canvas.matches(":hover"),
                 );
             });
@@ -453,6 +478,14 @@ const LEGEND = [
 
         .reliability-card-tags {
             margin: 0.5rem 0;
+        }
+
+        .reliability-card-hand {
+            margin-bottom: 0.5rem;
+
+            &[hidden] {
+                display: none;
+            }
         }
 
         .reliability-tag {

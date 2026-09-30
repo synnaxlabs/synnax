@@ -33,7 +33,7 @@ const CORE: [key: string, note: string][][] = [
     [["services", "Channels, ranges, users, access control, devices, and tasks"]],
     [["distribution", "Routes reads and writes across the nodes of a cluster"]],
     [
-        ["aspen", "Gossip-replicated key-value store"],
+        ["aspen", "Keeps metadata in sync across nodes"],
         ["cesium", "Time-series storage engine"],
     ],
     [
@@ -43,9 +43,9 @@ const CORE: [key: string, note: string][][] = [
 ];
 
 const ARC: [key: string, note: string][] = [
-    ["parser", "Source text to syntax tree"],
-    ["analyzer", "Symbols, scopes, and types"],
-    ["compiler", "Dataflow graph to WebAssembly"],
+    ["parser", "Reads Arc source code"],
+    ["analyzer", "Checks names and types"],
+    ["compiler", "Turns programs into WebAssembly"],
 ];
 
 const RUNTIMES: [key: string, note: string][] = [
