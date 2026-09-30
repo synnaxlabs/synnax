@@ -7,20 +7,37 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# The Console-only release for the 0.58 train, whose branch predates the dispatched
-# release workflow on main. The Core and Driver stay on 0.58.2.
+# The Console and Core releases for the 0.58 train, whose branch predates the dispatched
+# release workflow on main. The Driver stays on 0.58.2. The Core embeds released
+# Console and Driver builds instead of building them, and stamps its version the way
+# the 0.58 source reads it.
 name: Release
 
 run-name:
-  ${{ format('Release Console patch{0}', inputs.prerelease && ' candidate' || '') }}
+  ${{ format('Release{0}{1} patch{2}', inputs.console && ' Console' || '', inputs.core
+  && ' Core' || '', inputs.prerelease && ' candidate' || '') }}
 
 on:
   workflow_dispatch:
     inputs:
+      console:
+        description: Release the Console
+        type: boolean
+        default: true
+      core:
+        description: Release the Core
+        type: boolean
+        default: true
       prerelease:
-        description: Tag a release candidate (-rc.N)
+        description: Tag release candidates (-rc.N)
         type: boolean
         default: false
+      console_version:
+        description:
+          "Console release the Core embeds (default: this run's, else the newest on the
+          minor)"
+        type: string
+        default: ""
 
 concurrency:
   group: release
@@ -37,13 +54,25 @@ env:
 
 jobs:
   resolve:
-    name: Resolve version
+    name: Resolve versions
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ steps.console.outputs.version }}
-      tag: ${{ steps.console.outputs.tag }}
-      previous_tag: ${{ steps.console.outputs.previous_tag }}
+      console_version: ${{ steps.console.outputs.version }}
+      console_tag: ${{ steps.console.outputs.tag }}
+      console_previous_tag: ${{ steps.console.outputs.previous_tag }}
+      core_version: ${{ steps.core.outputs.version }}
+      core_tag: ${{ steps.core.outputs.tag }}
+      core_previous_tag: ${{ steps.core.outputs.previous_tag }}
+      core_latest: ${{ steps.core.outputs.latest }}
+      core_console_version: ${{ steps.embed.outputs.console_version }}
+      core_driver_version: ${{ steps.embed.outputs.driver_version }}
     steps:
+      - name: Require a product
+        if: ${{ !inputs.console && !inputs.core }}
+        run: |
+          echo "no product selected" >&2
+          exit 1
+
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
@@ -51,15 +80,54 @@ jobs:
 
       - name: Resolve Console version
         id: console
+        if: inputs.console
         uses: ./.github/actions/resolve-version
         with:
           product: console
           bump: patch
           prerelease: ${{ inputs.prerelease }}
 
-  draft:
+      - name: Resolve Core version
+        id: core
+        if: inputs.core
+        uses: ./.github/actions/resolve-version
+        with:
+          product: core
+          bump: patch
+          prerelease: ${{ inputs.prerelease }}
+
+      - name: Resolve embedded versions
+        id: embed
+        if: inputs.core
+        env:
+          MINOR: ${{ steps.core.outputs.minor }}
+          PRERELEASE: ${{ inputs.prerelease }}
+          CONSOLE: ${{ inputs.console_version || steps.console.outputs.version }}
+        run: |
+          latest() { .github/scripts/latest_version.sh "$1" "$MINOR" "$PRERELEASE"; }
+          CONSOLE=${CONSOLE:-$(latest console)}
+          DRIVER=$(latest driver)
+          for pair in "console=$CONSOLE" "driver=$DRIVER"; do
+            product=${pair%%=*}
+            version=${pair#*=}
+            if [ -z "$version" ]; then
+              echo "no $product release exists on train $MINOR" >&2
+              exit 1
+            fi
+            case "$version" in
+              "$MINOR".*) ;;
+              *)
+                echo "train rule: $product $version is not on train $MINOR" >&2
+                exit 1
+                ;;
+            esac
+            echo "${product}_version=$version" >> "$GITHUB_OUTPUT"
+          done
+
+  draft-console:
     name: Draft Console
     needs: resolve
+    if: inputs.console
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -68,19 +136,19 @@ jobs:
       - name: Draft release
         uses: ./.github/actions/draft-release
         with:
-          tag: ${{ needs.resolve.outputs.tag }}
-          title: Console v${{ needs.resolve.outputs.version }}
-          previous_tag: ${{ needs.resolve.outputs.previous_tag }}
+          tag: ${{ needs.resolve.outputs.console_tag }}
+          title: Console v${{ needs.resolve.outputs.console_version }}
+          previous_tag: ${{ needs.resolve.outputs.console_previous_tag }}
           prerelease: ${{ inputs.prerelease }}
 
   # A Core release embeds the Console through this bundle.
-  build-web:
+  build-console-web:
     name: Build Console web bundle
-    needs: [resolve, draft]
+    needs: [resolve, draft-console]
     runs-on: ubuntu-latest
     env:
-      TAG: ${{ needs.resolve.outputs.tag }}
-      VERSION: ${{ needs.resolve.outputs.version }}
+      TAG: ${{ needs.resolve.outputs.console_tag }}
+      VERSION: ${{ needs.resolve.outputs.console_version }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -100,9 +168,9 @@ jobs:
           tar -czf "console-web-v${VERSION}.tar.gz" -C console/dist .
           gh release upload --clobber "$TAG" "console-web-v${VERSION}.tar.gz"
 
-  build-app:
+  build-console-app:
     name: Build Console app
-    needs: [resolve, draft]
+    needs: [resolve, draft-console]
     uses: ./.github/workflows/build.tauri.yaml
     permissions:
       actions: read
@@ -110,19 +178,19 @@ jobs:
       packages: write
     with:
       os: '["macos-latest", "windows-latest"]'
-      app_version: ${{ needs.resolve.outputs.version }}
+      app_version: ${{ needs.resolve.outputs.console_version }}
       sign_binaries: true
-      release_tag: ${{ needs.resolve.outputs.tag }}
+      release_tag: ${{ needs.resolve.outputs.console_tag }}
       use_simple_artifact_names: true
       updater_channel: ${{ inputs.prerelease && 'next' || 'stable' }}
     secrets: inherit
 
-  publish:
+  publish-console:
     name: Publish Console
-    needs: [resolve, build-web, build-app]
+    needs: [resolve, build-console-web, build-console-app]
     runs-on: ubuntu-latest
     env:
-      TAG: ${{ needs.resolve.outputs.tag }}
+      TAG: ${{ needs.resolve.outputs.console_tag }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -130,9 +198,321 @@ jobs:
       - name: Publish updater manifest
         uses: ./.github/actions/publish-updater-manifest
         with:
-          tag: ${{ needs.resolve.outputs.tag }}
-          version: ${{ needs.resolve.outputs.version }}
+          tag: ${{ needs.resolve.outputs.console_tag }}
+          version: ${{ needs.resolve.outputs.console_version }}
           app: Synnax
 
+      - name: Publish release
+        run: gh release edit "$TAG" --draft=false
+
+  # The Core embeds the Console, so it waits for the one this run releases and never
+  # runs after it fails.
+  draft-core:
+    name: Draft Core
+    needs: [resolve, publish-console]
+    if: >-
+      !cancelled() && inputs.core && needs.resolve.result == 'success' &&
+      (!inputs.console || needs.publish-console.result == 'success')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Draft release
+        uses: ./.github/actions/draft-release
+        with:
+          tag: ${{ needs.resolve.outputs.core_tag }}
+          title: Core v${{ needs.resolve.outputs.core_version }}
+          previous_tag: ${{ needs.resolve.outputs.core_previous_tag }}
+          notes:
+            Embeds Console v${{ needs.resolve.outputs.core_console_version }} and Driver
+            v${{ needs.resolve.outputs.core_driver_version }}.
+          prerelease: ${{ inputs.prerelease }}
+
+  build-core:
+    name: Build Core (${{ matrix.os-name }})
+    needs: [resolve, draft-core]
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-build-bot, os-name: windows, executable: .exe }
+          - { os: macos-latest, os-name: macos, executable: "" }
+          - { os: ubuntu-build-bot, os-name: linux, executable: "" }
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      TAG: ${{ needs.resolve.outputs.core_tag }}
+      VERSION: ${{ needs.resolve.outputs.core_version }}
+      BINARY: synnax-v${{ needs.resolve.outputs.core_version }}${{ matrix.executable }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Import Apple Developer Certificate
+        if: startsWith(matrix.os, 'macos')
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          KEYCHAIN_NAME: build-${{ runner.name }}.keychain
+        run: scripts/import_apple_certificate.sh
+
+      - name: Download Driver release
+        env:
+          DRIVER: driver/v${{ needs.resolve.outputs.core_driver_version }}
+          PATTERN: synnax-driver-v*-${{ matrix.os-name }}${{ matrix.executable }}
+        run: |
+          gh release download "$DRIVER" --pattern "$PATTERN" \
+            --output "core/pkg/driver/assets/driver${{ matrix.executable }}"
+          chmod +x "core/pkg/driver/assets/driver${{ matrix.executable }}"
+
+      - name: Download Console release
+        env:
+          CONSOLE: console/v${{ needs.resolve.outputs.core_console_version }}
+        run: |
+          gh release download "$CONSOLE" --pattern "console-web-*.tar.gz" \
+            --output "$RUNNER_TEMP/console-web.tar.gz"
+          tar -xzf "$RUNNER_TEMP/console-web.tar.gz" -C core/pkg/console/dist
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: core/go.mod
+          cache: false
+
+      - name: Build Core
+        working-directory: core
+        run: |
+          go build -tags console,driver \
+            -ldflags="-w -s \
+              -X github.com/synnaxlabs/synnax/pkg/version.Version=${VERSION} \
+              -X github.com/synnaxlabs/synnax/pkg/version.GitCommit=${GITHUB_SHA} \
+              -X github.com/synnaxlabs/synnax/pkg/version.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            -o "$BINARY"
+
+      - name: Sign macOS Core binary
+        if: startsWith(matrix.os, 'macos')
+        working-directory: core
+        env:
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          cat > server-entitlements.plist << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>com.apple.security.cs.allow-jit</key>
+              <true/>
+              <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+              <true/>
+          </dict>
+          </plist>
+          EOF
+          CERT_INFO=$(security find-identity -v -p codesigning "$KEYCHAIN_NAME" | grep "Developer ID Application")
+          CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
+          codesign --force --options runtime --timestamp \
+            --entitlements server-entitlements.plist \
+            --sign "$CERT_ID" "./$BINARY"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_NAME"
+          codesign --verify --verbose "./$BINARY"
+
+      - name: Notarize macOS Core binary
+        if: startsWith(matrix.os, 'macos')
+        working-directory: core
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          zip -j server-notarize.zip "./$BINARY"
+          for attempt in 1 2 3; do
+            if xcrun notarytool submit server-notarize.zip \
+              --apple-id "$APPLE_ID" \
+              --password "$APPLE_PASSWORD" \
+              --team-id "$APPLE_TEAM_ID" \
+              --wait; then
+              break
+            elif [ $attempt -lt 3 ]; then
+              sleep 10
+            else
+              echo "notarization failed after 3 attempts" >&2
+              exit 1
+            fi
+          done
+          rm server-notarize.zip
+
+      - name: Install trusted-signing-cli
+        if: matrix.os-name == 'windows'
+        run: cargo install trusted-signing-cli
+
+      - name: Sign Windows Core binary
+        if: matrix.os-name == 'windows'
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        run:
+          trusted-signing-cli -e https://wcus.codesigning.azure.net -a
+          CodeSigningAccountName -c CodeSigningCertificateProfile -d "Synnax Core"
+          "core/$BINARY"
+
+      - name: Upload Core binary as artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: synnax-core-${{ matrix.os-name }}
+          path: core/${{ env.BINARY }}
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Upload Core to release
+        env:
+          ASSET:
+            synnax-v${{ env.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }}
+        run: |
+          cp "core/$BINARY" "core/$ASSET"
+          gh release upload --clobber "$TAG" "core/$ASSET"
+
+  build-core-image:
+    name: Build Core Docker image
+    needs: [resolve, draft-core]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      VERSION: ${{ needs.resolve.outputs.core_version }}
+      CHANNEL:
+        ${{ inputs.prerelease && 'next' || needs.resolve.outputs.core_latest == 'true'
+        && 'latest' || '' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Update submodules
+        run: git submodule update --init --recursive
+
+      - name: Download Driver release
+        env:
+          DRIVER: driver/v${{ needs.resolve.outputs.core_driver_version }}
+        run: |
+          gh release download "$DRIVER" --pattern "synnax-driver-v*-linux" \
+            --output core/pkg/driver/assets/driver
+          chmod +x core/pkg/driver/assets/driver
+
+      - name: Download Console release
+        env:
+          CONSOLE: console/v${{ needs.resolve.outputs.core_console_version }}
+        run: |
+          gh release download "$CONSOLE" --pattern "console-web-*.tar.gz" \
+            --output "$RUNNER_TEMP/console-web.tar.gz"
+          tar -xzf "$RUNNER_TEMP/console-web.tar.gz" -C core/pkg/console/dist
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Extract Go version
+        id: go-version
+        run:
+          echo "GO_VERSION=$(grep '^go ' core/go.mod | awk '{print $2}')" >>
+          $GITHUB_OUTPUT
+
+      - name: Build and push Docker images
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./core/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ghcr.io/synnaxlabs/synnax:${{ env.VERSION }}
+            synnaxlabs/synnax:${{ env.VERSION }}
+            ${{ env.CHANNEL != '' && format('ghcr.io/synnaxlabs/synnax:{0}', env.CHANNEL) || '' }}
+            ${{ env.CHANNEL != '' && format('synnaxlabs/synnax:{0}', env.CHANNEL) || '' }}
+          sbom: true
+          provenance: mode=max
+          build-args: |
+            DRIVER_ENABLED=true
+            CONSOLE_ENABLED=true
+            VERSION=${{ env.VERSION }}
+            GIT_COMMIT=${{ github.sha }}
+            BUILD_DATE=${{ github.event.repository.updated_at }}
+            GO_VERSION=${{ steps.go-version.outputs.GO_VERSION }}
+
+  build-core-installer:
+    name: Build Windows installer
+    needs: [resolve, build-core]
+    runs-on: windows-latest
+    env:
+      TAG: ${{ needs.resolve.outputs.core_tag }}
+      VERSION: ${{ needs.resolve.outputs.core_version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Download Core binary
+        uses: actions/download-artifact@v8
+        with:
+          name: synnax-core-windows
+          path: scripts/
+
+      - name: Rename binary for installer
+        shell: powershell
+        run:
+          Move-Item -Force scripts/synnax-v${{ env.VERSION }}.exe
+          scripts/synnax-server.exe
+
+      - name: Install Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v2
+
+      - name: Install trusted-signing-cli
+        run: cargo install trusted-signing-cli
+
+      - name: Build Windows installer
+        shell: powershell
+        run: |
+          choco install nsis -y --no-progress
+          $nsisDir = "${env:ProgramFiles(x86)}\NSIS"
+          $env:Path = "$nsisDir;$env:Path"
+          Copy-Item -Force .\scripts\EnVar.dll "$nsisDir\Plugins\x86-unicode\EnVar.dll"
+          makensis /DVERSION=${{ env.VERSION }} .\scripts\windows_installer.nsi
+
+      - name: Sign Windows installer
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        run:
+          trusted-signing-cli -e https://wcus.codesigning.azure.net -a
+          CodeSigningAccountName -c CodeSigningCertificateProfile -d "Synnax Core
+          Installer" .\scripts\synnax-setup-v${{ env.VERSION }}.exe
+
+      - name: Upload Windows installer
+        run: |
+          gh release upload --clobber "${env:TAG}" .\scripts\synnax-setup-v${env:VERSION}.exe
+
+  publish-core:
+    name: Publish Core
+    needs: [resolve, build-core, build-core-image, build-core-installer]
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ needs.resolve.outputs.core_tag }}
+    steps:
       - name: Publish release
         run: gh release edit "$TAG" --draft=false
