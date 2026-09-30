@@ -737,6 +737,8 @@ const createMiddleware = <S extends object>(
         store.dispatch(storeUnavailable());
       }
       const type = (action as Action | undefined)?.type;
+      // A failed save dispatches this, so saving on it would retry the failure forever.
+      if (type === storeUnavailable.type) return result;
       const state = store.getState() as S;
       if (type === revertState.type)
         engine
