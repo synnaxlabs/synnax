@@ -17,11 +17,7 @@ export const components = mdxOverrides;
     title="Schematic, table, and Arc improvements"
 >
 
-<Video
-  client:only="react"
-  id="releases/0-56-0/schematic-collaborative-editing"
-  themed={false}
-/>
+<Video id="releases/0-56-0/schematic-collaborative-editing" themed={false} />
 
 Synnax v0.56 brings real-time collaborative editing to schematics and tables, a set of
 improvements to the Arc programming language, and a collection of bug fixes and
@@ -142,7 +138,7 @@ that are not included in a write call. This is useful if you do not care about t
 precise timestamp of each sample, or you want a single-source-of-truth when several
 clients are writing to the same channel (e.g., actuating valves on a schematic).
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 

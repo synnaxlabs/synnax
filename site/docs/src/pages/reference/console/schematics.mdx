@@ -23,7 +23,6 @@ export const components = mdxOverrides;
 
 <Diagram style="height: 400px" preview>
   <Image
-    client:only="react"
     id="console/schematics/example"
     style={{
       height: "450px",
@@ -104,7 +103,7 @@ control.
 
 The color of the bar and legend indicate what has control over the channel.
 
-<Video client:only="react" id="console/schematics/valve" />
+<Video id="console/schematics/valve" />
 
 <Divider.Divider x />
 
@@ -245,7 +244,7 @@ stream and display its live data.
   symbol registers as stale only after data arrives and then stops.
 </Note.Note>
 
-<Video client:only="react" id="console/schematics/value" />
+<Video id="console/schematics/value" />
 
 ### Control tab
 
@@ -308,7 +307,7 @@ background from the `Style` tab. By default, the background paints nothing.
 Attachment points appear when you hover over a symbol. To draw a connection line, click
 an attachment point and drag to another symbol:
 
-<Video client:only="react" id="console/schematics/connections" />
+<Video id="console/schematics/connections" />
 
 ### Selecting multiple elements
 
@@ -324,13 +323,13 @@ or remove it again. Dragging a box on the canvas selects everything inside it.
 
 Select the elements to align, then use the vertical or horizontal alignment buttons:
 
-<Video client:only="react" id="console/schematics/align-items" />
+<Video id="console/schematics/align-items" />
 
 ### Changing colors
 
 You can also change the color of multiple symbols together in the same manner:
 
-<Video client:only="react" id="console/schematics/change-color" />
+<Video id="console/schematics/change-color" />
 
 <Divider.Divider x />
 
@@ -339,7 +338,7 @@ You can also change the color of multiple symbols together in the same manner:
 Snapshot a schematic to a range to preserve exactly how it looked at that point in time.
 Right-click the schematic in the projects toolbar and snapshot it to a range.
 
-<Video client:only="react" id="console/schematics/snapshot" />
+<Video id="console/schematics/snapshot" />
 
 <Divider.Divider x />
 
@@ -352,13 +351,13 @@ actuate channels like the built-in symbols.
 
 Create a new symbol group in the schematic symbols browser.
 
-<Video client:only="react" id="console/schematics/symbol-create-group" />
+<Video id="console/schematics/symbol-create-group" />
 
 ### Opening the editing dialog
 
 Once you've created a group, open the create symbol dialog and import an SVG file.
 
-<Video client:only="react" id="console/schematics/symbol-import-svg" />
+<Video id="console/schematics/symbol-import-svg" />
 
 ### Static symbols vs. actuators
 
@@ -374,11 +373,7 @@ valves and switches. They have two states: `base`, shown when the connected chan
 Each actuator state has its own color palette.
 
 <Flex.Box x justify="center">
-  <Image
-    client:only="react"
-    id="console/schematics/symbol-color-regions"
-    style={{ width: 250 }}
-  />
+  <Image id="console/schematics/symbol-color-regions" style={{ width: 250 }} />
 </Flex.Box>
 
 Synnax identifies regions of the imported SVG by color. Click a region's color swatch to

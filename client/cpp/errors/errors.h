@@ -9,9 +9,26 @@
 
 #pragma once
 
+#include "freighter/cpp/freighter.h"
 #include "x/cpp/errors/errors.h"
 
 namespace synnax::errors {
+/// @brief the base of every license error the Core returns.
+const x::errors::Error LICENSE = x::errors::SY.sub("license");
+/// @brief the Core refuses requests because no license is activated on it.
+const x::errors::Error LICENSE_MISSING = LICENSE.sub("missing");
+/// @brief the Core refuses requests because its license has expired.
+const x::errors::Error LICENSE_EXPIRED = LICENSE.sub("expired");
+
+/// @brief whether the Core is unreachable or refuses requests until a license is
+/// activated. Both clear without a restart, so the caller can wait and retry.
+/// @param err the error a request to the Core returned.
+/// @returns true if the caller should wait and retry, false if the error is permanent.
+inline bool is_temporarily_unavailable(const x::errors::Error &err) {
+    return err.matches(freighter::UNREACHABLE) || err.matches(LICENSE_MISSING) ||
+           err.matches(LICENSE_EXPIRED);
+}
+
 inline x::errors::Error unexpected_missing_error(const std::string &name) {
     return x::errors::Error(
         x::errors::UNEXPECTED,
