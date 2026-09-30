@@ -45,9 +45,11 @@ env:
   GH_TOKEN: ${{ github.token }}
 
 jobs:
-  nightly:
-    name: Nightly
-    uses: ./.github/workflows/nightly.yaml
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yaml
+    with:
+      full: true
     secrets: inherit
 
   resolve:
@@ -80,7 +82,7 @@ jobs:
 
   draft:
     name: Draft Desktop
-    needs: [resolve, nightly]
+    needs: [resolve, ci]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
