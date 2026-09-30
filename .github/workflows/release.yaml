@@ -1,0 +1,138 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# The Console-only release for the 0.58 train, whose branch predates the dispatched
+# release workflow on main. The Core and Driver stay on 0.58.2.
+name: Release
+
+run-name:
+  ${{ format('Release Console patch{0}', inputs.prerelease && ' candidate' || '') }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      prerelease:
+        description: Tag a release candidate (-rc.N)
+        type: boolean
+        default: false
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  actions: read
+  contents: write
+  packages: write
+
+env:
+  GH_REPO: ${{ github.repository }}
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  resolve:
+    name: Resolve version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.console.outputs.version }}
+      tag: ${{ steps.console.outputs.tag }}
+      previous_tag: ${{ steps.console.outputs.previous_tag }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Resolve Console version
+        id: console
+        uses: ./.github/actions/resolve-version
+        with:
+          product: console
+          bump: patch
+          prerelease: ${{ inputs.prerelease }}
+
+  draft:
+    name: Draft Console
+    needs: resolve
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Draft release
+        uses: ./.github/actions/draft-release
+        with:
+          tag: ${{ needs.resolve.outputs.tag }}
+          title: Console v${{ needs.resolve.outputs.version }}
+          previous_tag: ${{ needs.resolve.outputs.previous_tag }}
+          prerelease: ${{ inputs.prerelease }}
+
+  # A Core release embeds the Console through this bundle.
+  build-web:
+    name: Build Console web bundle
+    needs: [resolve, draft]
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ needs.resolve.outputs.tag }}
+      VERSION: ${{ needs.resolve.outputs.version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm and Node.js
+        uses: pnpm/setup@v3
+        with:
+          cache: true
+
+      - name: Build Console web assets
+        env:
+          NODE_OPTIONS: --max_old_space_size=8192
+        run: pnpm build:console-vite
+
+      - name: Upload Console web bundle to release
+        run: |
+          tar -czf "console-web-v${VERSION}.tar.gz" -C console/dist .
+          gh release upload --clobber "$TAG" "console-web-v${VERSION}.tar.gz"
+
+  build-app:
+    name: Build Console app
+    needs: [resolve, draft]
+    uses: ./.github/workflows/build.tauri.yaml
+    permissions:
+      actions: read
+      contents: write
+      packages: write
+    with:
+      os: '["macos-latest", "windows-latest"]'
+      app_version: ${{ needs.resolve.outputs.version }}
+      sign_binaries: true
+      release_tag: ${{ needs.resolve.outputs.tag }}
+      use_simple_artifact_names: true
+      updater_channel: ${{ inputs.prerelease && 'next' || 'stable' }}
+    secrets: inherit
+
+  publish:
+    name: Publish Console
+    needs: [resolve, build-web, build-app]
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ needs.resolve.outputs.tag }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Publish updater manifest
+        uses: ./.github/actions/publish-updater-manifest
+        with:
+          tag: ${{ needs.resolve.outputs.tag }}
+          version: ${{ needs.resolve.outputs.version }}
+          app: Synnax
+
+      - name: Publish release
+        run: gh release edit "$TAG" --draft=false
