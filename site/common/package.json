@@ -4,6 +4,7 @@
   "private": true,
   "exports": {
     "./Footer.astro": "./src/Footer.astro",
+    "./Head.astro": "./src/Head.astro",
     "./drawer.css": "./src/drawer.css",
     "./tokens.css": "./src/tokens.css"
   },
@@ -18,7 +19,8 @@
   "dependencies": {
     "@synnaxlabs/lyra": "catalog:",
     "@synnaxlabs/media": "catalog:",
-    "astro": "catalog:"
+    "astro": "catalog:",
+    "astro-seo": "catalog:"
   },
   "devDependencies": {
     "@astrojs/check": "catalog:",
