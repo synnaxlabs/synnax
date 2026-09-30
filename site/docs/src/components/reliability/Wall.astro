@@ -86,12 +86,13 @@ const LEGEND = [
                     data-cells={cells}
                     data-offset={offset}
                     role="img"
-                    aria-label={`${product.name}: ${product.counts.passed} passed, ${product.counts.flaky} flaky, ${product.counts.failed} failed, ${product.counts.skipped} skipped`}
+                    tabindex="0"
+                    aria-label={`${product.name}: ${product.counts.passed} passed, ${product.counts.flaky} flaky, ${product.counts.failed} failed, ${product.counts.skipped} skipped. Use the arrow keys to move between tests and Enter to open a test's source.`}
                 />
             </Flex.Box>
         ))}
     </Flex.Box>
-    <div class="pluto-tooltip reliability-card" hidden>
+    <div class="pluto-tooltip reliability-card" aria-live="polite" hidden>
         <Text.Text level="small" variant="code" className="reliability-card-name" />
         <Text.Text level="small" color={8} className="reliability-card-meta" />
     </div>
@@ -121,6 +122,17 @@ const LEGEND = [
         x: "--reliability-failed",
         s: "--reliability-skipped",
         u: "--reliability-unknown",
+        focus: "--reliability-focus",
+    };
+
+    // Keys that move the keyboard cursor, as a step in cells given the column count.
+    const STEPS: Record<string, (cols: number, n: number, i: number) => number> = {
+        ArrowRight: (_, __, i) => i + 1,
+        ArrowLeft: (_, __, i) => i - 1,
+        ArrowDown: (cols, __, i) => i + cols,
+        ArrowUp: (cols, __, i) => i - cols,
+        Home: () => 0,
+        End: (_, n) => n - 1,
     };
 
     const start = () => {
@@ -211,6 +223,22 @@ const LEGEND = [
                 ctx.stroke();
                 ctx.globalAlpha = 1;
             }
+            const focus = canvas.dataset.focus;
+            if (focus != null && document.activeElement === canvas) {
+                const i = Number(focus);
+                const gap = g.pitch / 2 + 0.5;
+                ctx.strokeStyle = c.focus;
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.roundRect(
+                    (i % g.cols) * g.pitch - gap,
+                    Math.floor(i / g.cols) * g.pitch - gap,
+                    g.cell + gap * 2,
+                    g.cell + gap * 2,
+                    4,
+                );
+                ctx.stroke();
+            }
         };
 
         const drawAll = () => canvases.forEach((c) => draw(c, Infinity));
@@ -238,24 +266,24 @@ const LEGEND = [
                 const i = row * g.cols + col;
                 return col < 0 || row < 0 || col >= g.cols || i >= g.n ? null : i;
             };
-            canvas.addEventListener("pointerenter", load);
-            canvas.addEventListener("pointerleave", () => (card.hidden = true));
-            canvas.addEventListener("click", async (e) => {
-                const i = hit(e);
-                if (i == null) return;
+            const open = async (i: number) => {
                 const d = await load();
                 window.open(
                     d.blob + d.tests[Number(canvas.dataset.offset) + i][3],
                     "_blank",
                 );
-            });
-            canvas.addEventListener("pointermove", async (e) => {
-                const i = hit(e);
-                if (i == null) {
-                    card.hidden = true;
-                    return;
-                }
+            };
+            // Shows cell i in the card at a viewport point. active reports whether
+            // the pointer or focus is still on the wall once the details load.
+            const show = async (
+                i: number,
+                x: number,
+                y: number,
+                hint: string,
+                active: () => boolean,
+            ) => {
                 const d = await load();
+                if (!active()) return;
                 const [suite, name, duration] =
                     d.tests[Number(canvas.dataset.offset) + i];
                 const s = d.suites[suite];
@@ -264,12 +292,61 @@ const LEGEND = [
                     STATE_NAMES[canvas.dataset.cells![i]],
                     `${s.job} on ${s.os}`,
                     duration != null ? `${duration.toFixed(1)} s` : null,
-                    "Click to view source",
+                    hint,
                 ]
                     .filter(Boolean)
                     .join(" · ");
-                card.style.transform = `translate(${Math.min(e.clientX + 14, innerWidth - card.offsetWidth - 8)}px, ${e.clientY + 18}px)`;
+                card.style.transform = `translate(${Math.min(x + 14, innerWidth - card.offsetWidth - 8)}px, ${y + 18}px)`;
                 card.hidden = false;
+            };
+            const focusCell = (i: number) => {
+                canvas.dataset.focus = String(i);
+                draw(canvas, Infinity);
+                const g = geometry(canvas);
+                const rect = canvas.getBoundingClientRect();
+                void show(
+                    i,
+                    rect.left + g.pad + (i % g.cols) * g.pitch,
+                    rect.top + g.pad + Math.floor(i / g.cols) * g.pitch,
+                    "Enter to view source",
+                    () => document.activeElement === canvas,
+                );
+            };
+
+            canvas.addEventListener("pointerenter", load);
+            canvas.addEventListener("pointerleave", () => (card.hidden = true));
+            canvas.addEventListener("click", (e) => {
+                const i = hit(e);
+                if (i != null) void open(i);
+            });
+            canvas.addEventListener("pointermove", (e) => {
+                const i = hit(e);
+                if (i == null) {
+                    card.hidden = true;
+                    return;
+                }
+                void show(i, e.clientX, e.clientY, "Click to view source", () =>
+                    canvas.matches(":hover"),
+                );
+            });
+            canvas.addEventListener("focus", () =>
+                focusCell(Number(canvas.dataset.focus ?? 0)),
+            );
+            canvas.addEventListener("blur", () => {
+                card.hidden = true;
+                draw(canvas, Infinity);
+            });
+            canvas.addEventListener("keydown", (e) => {
+                const i = Number(canvas.dataset.focus ?? 0);
+                if (e.key === "Enter") {
+                    void open(i);
+                    return;
+                }
+                const step = STEPS[e.key];
+                if (step == null) return;
+                e.preventDefault();
+                const g = geometry(canvas);
+                focusCell(Math.min(g.n - 1, Math.max(0, step(g.cols, g.n, i))));
             });
         }
     };
@@ -287,6 +364,7 @@ const LEGEND = [
         --reliability-failed: var(--pluto-error-z);
         --reliability-skipped: var(--pluto-text-disabled);
         --reliability-unknown: var(--pluto-gray-l6);
+        --reliability-focus: var(--pluto-gray-l11);
     }
 
     .reliability-wall-blocks {
@@ -297,6 +375,7 @@ const LEGEND = [
         canvas {
             display: block;
             cursor: pointer;
+            outline: none;
         }
     }
 

@@ -148,6 +148,9 @@ const SUBSYSTEMS: Record<string, [key: string, name: string, match: RegExp][]> =
       /^oracle\/(analyzer|resolution|domain|check|parser|paths|versions)\//,
     ],
     ["tools", "Language tools", /^oracle\//],
+    ["scripts", "Repo scripts", /^(scripts|\.github\/scripts)\//],
+    ["docs", "Docs site", /^site\/docs\//],
+    ["vite", "Vite plugin", /^configs\/vite\//],
   ],
 };
 

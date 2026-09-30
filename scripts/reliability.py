@@ -106,7 +106,9 @@ TC_STATES = {
     "KILLED": "failed",
 }
 
-JOB_NAME = re.compile(r"^([a-z0-9-]+) / Test \(([^)]+)\)$")
+# Matrix jobs append their runner, as in "core / Test (ubuntu-latest)"; single jobs do
+# not. The runner's OS comes from the job's labels either way.
+JOB_NAME = re.compile(r"^([a-z0-9-]+) / Test(?: \(.+\))?$")
 TC_JOB_NAME = re.compile(r"^integration / Test \((\w+)\) / (\w+)$")
 
 
@@ -237,7 +239,7 @@ def main() -> None:
             "--paginate",
             f"repos/{REPO}/actions/runs/{rid}/jobs?per_page=100",
             "-q",
-            ".jobs[]|{name,conclusion,html_url}|tojson",
+            ".jobs[]|{name,conclusion,html_url,labels}|tojson",
         ).splitlines()
     ]
 
@@ -248,7 +250,7 @@ def main() -> None:
         m = JOB_NAME.match(job["name"])
         if m is None or m.group(1) not in JOBS:
             continue
-        key, runner = m.groups()
+        key = m.group(1)
         product, lang, dirs = JOBS[key]
         conclusion = job["conclusion"]
         if conclusion == "skipped":
@@ -261,7 +263,7 @@ def main() -> None:
                 "product": product,
                 "lang": lang,
                 "kind": "unit",
-                "os": os_of(runner),
+                "os": os_of(job["labels"][0]),
                 "conclusion": conclusion,
                 "url": job["html_url"],
                 "count": len(found),
