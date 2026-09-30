@@ -136,6 +136,21 @@ describe("Schematic Slice", () => {
       expect(read(Schematic.useGetEditable)).toBe(false);
     });
 
+    it("should leave the properties tab when control clears the selection", () => {
+      store.dispatch(Schematic.create({ key: KEY }));
+      store.dispatch(Schematic.setSelected({ key: KEY, selected: ["a"] }));
+      store.dispatch(Schematic.setControlStatus({ key: KEY, status: "acquired" }));
+      expect(read(Schematic.useGetActiveToolbarTab)).toBe("symbols");
+    });
+
+    it("should keep a tab that does not depend on the selection", () => {
+      store.dispatch(Schematic.create({ key: KEY }));
+      store.dispatch(Schematic.setSelected({ key: KEY, selected: ["a"] }));
+      store.dispatch(Schematic.selectToolbarTab({ key: KEY, tab: "control" }));
+      store.dispatch(Schematic.setControlStatus({ key: KEY, status: "acquired" }));
+      expect(read(Schematic.useGetActiveToolbarTab)).toBe("control");
+    });
+
     it("should not touch selection or editing for non-acquired statuses", () => {
       store.dispatch(Schematic.create({ key: KEY }));
       store.dispatch(Schematic.setSelected({ key: KEY, selected: ["a"] }));
@@ -207,6 +222,13 @@ describe("Schematic Slice", () => {
       store.dispatch(Schematic.setSelected({ key: KEY, selected: ["a"] }));
       store.dispatch(Schematic.setEditable({ key: KEY, editable: false }));
       expect(read(Schematic.useGetSelected)).toEqual([]);
+    });
+
+    it("should leave the properties tab when disabling editing clears the selection", () => {
+      store.dispatch(Schematic.create({ key: KEY }));
+      store.dispatch(Schematic.setSelected({ key: KEY, selected: ["a"] }));
+      store.dispatch(Schematic.setEditable({ key: KEY, editable: false }));
+      expect(read(Schematic.useGetActiveToolbarTab)).toBe("symbols");
     });
   });
 
@@ -292,6 +314,14 @@ describe("Schematic Slice", () => {
     it("should clear the selection", () => {
       const state = Schematic.stateZ.parse({ selected: ["a", "b"] });
       expect(Schematic.purgeState(state).selected).toEqual([]);
+    });
+
+    it("should leave the properties tab with the selection", () => {
+      const state = Schematic.stateZ.parse({
+        selected: ["a"],
+        toolbar: { selectedTab: "properties" },
+      });
+      expect(Schematic.purgeState(state).toolbar.selectedTab).toBe("symbols");
     });
 
     it("should leave other fields untouched", () => {

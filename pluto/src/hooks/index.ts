@@ -12,4 +12,5 @@ export * from "@/hooks/useAsyncEffect";
 export * from "@/hooks/useDebouncedCallback";
 export * from "@/hooks/useDestructors";
 export * from "@/hooks/useEffectCompare";
+export * from "@/hooks/useHold";
 export * from "@/hooks/useResize";

@@ -21,7 +21,17 @@ export const Symbol = ({
   nodeKey,
   onConfigChange,
   selected,
-  config: { label, orientation = "left", control, units, sink, color, size, disabled },
+  config: {
+    label,
+    orientation = "left",
+    control,
+    units,
+    sink,
+    color,
+    size,
+    disabled,
+    onClickDelay,
+  },
 }: NodeProps<Config>): ReactElement => {
   const { set } = BaseSetpoint.use({ aetherKey: nodeKey, sink });
   return (
@@ -35,6 +45,7 @@ export const Symbol = ({
         orientation={orientation}
         disabled={disabled}
         size={size}
+        onClickDelay={onClickDelay}
       />
     </Grid.Grid>
   );

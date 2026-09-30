@@ -31,6 +31,7 @@ export const Symbol = ({
     size,
     disabled,
     inlineSize,
+    onClickDelay,
   },
 }: NodeProps<Config>): ReactElement => {
   const { set } = BaseSetpoint.use({ aetherKey: nodeKey, sink });
@@ -57,6 +58,7 @@ export const Symbol = ({
         options={options}
         size={size}
         inlineSize={inlineSize}
+        onClickDelay={onClickDelay}
       />
     </Grid.Grid>
   );

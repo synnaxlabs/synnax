@@ -18,7 +18,6 @@ import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { LEVEL_SIZES } from "@/schematic/node/common/size";
 import { type Config } from "@/schematic/node/general/stringDisplay/config";
-import { symbolColorVar } from "@/schematic/symbolColor";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { Staleness } from "@/vis/staleness";
@@ -40,13 +39,14 @@ export const StringDisplay = ({
   value,
   stale = false,
 }: RenderProps): ReactElement => {
+  const symbolColor = color.rgbaString(colorVal);
   const style = useMemo<CSSProperties>(
     () => ({
-      [CSS.variable("symbol-color")]: symbolColorVar(colorVal),
+      [CSS.variable("symbol-color")]: symbolColor,
       width: inlineSize,
       height: HEIGHTS[LEVEL_SIZES[level]],
     }),
-    [colorVal, inlineSize, level],
+    [symbolColor, inlineSize, level],
   );
   const theme = Theming.use();
   const resolvedTextColor = stale
