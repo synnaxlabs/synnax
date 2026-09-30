@@ -1,15 +1,16 @@
 ---
-name: quick-review
+name: eb-review
 description:
   Process and hard rules for a fast software quality audit of work this session just
   produced, or of a solution being proposed before it is built. Use when asked to go
   back and review your changes, to check whether an approach holds up, or to audit a
   plan before implementing it. Runs nine fixed lenses: complexity cost, naming,
   anti-patterns, hackiness, structural avoidance, performance, new patterns, test
-  pinning, and robustness. Not a correctness review; `code-review` owns that.
+  pinning, and robustness, plus area lenses for the code touched (React). Not a
+  correctness review; `code-review` owns that.
 ---
 
-# Quick Review
+# EB review
 
 Quick review asks whether this is good software, not whether it works. The subject is
 one small, self-contained piece of work: the fix or feature this session just wrote, or
@@ -65,6 +66,16 @@ Run every one, in order.
 9. **Robustness.** Is this the production grade path, and why? What alternatives were
    considered and rejected, and is the chosen one actually the best of them?
 
+## Area lenses
+
+Some areas have their own lenses in `areas/<area>.md`, next to this file. When the work
+touches an area, read its file and run every lens in it after the nine base lenses. The
+same fix authority and report rules apply.
+
+| Area  | Touches                                     | File             |
+| ----- | ------------------------------------------- | ---------------- |
+| React | Any `.tsx` component or `use*` hook changed | `areas/react.md` |
+
 ## Fix authority
 
 The dividing line is how many right answers there are.
@@ -112,7 +123,8 @@ wall of text.
 - **Two groups only.** What was fixed, and what needs a decision. No severity tiers.
 - **The complexity numbers always appear**, even when nothing is wrong: LOC added and
   removed from the actual diff, and the count of exported symbols added. That is the
-  price of the change, and the user sees it whether or not it is a problem.
+  price of the change, and the user sees it whether or not it is a problem. When React
+  lenses ran, add the hook count before and after for each touched component.
 - **Detail only for lenses that fired.** Close with one short line naming the ones that
   came back clean, so a skipped lens cannot hide as a quiet one.
 - **Every finding is concrete.** file:line, what is wrong, and what to do instead.
@@ -123,6 +135,7 @@ wall of text.
 | --------------------------------- | ------------------------------------------------------- |
 | Deciding whether to run this      | Subject is small and this session's; else `code-review` |
 | Running the review                | All nine lenses, every time                             |
+| Work touches an area with a file  | Run every lens in `areas/<area>.md` too                 |
 | Simple, local problem found       | Fix it; report the fix at file:line                     |
 | Shape problem found in code       | Do not touch it; report with a recommendation           |
 | Shape problem found in a proposal | Revise the proposal directly; show what changed         |
