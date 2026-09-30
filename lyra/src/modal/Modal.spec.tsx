@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Dialog } from "@/dialog";
+import { Icon } from "@/icon";
 import { Modal } from "@/modal";
+import { Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
 
 const renderModal = (ui: ReactNode, onVisibleChange = vi.fn()) => ({
@@ -52,6 +54,33 @@ describe("Modal", () => {
     it("should keep pre-split segments whole even when they contain dots", () => {
       renderModal(<Modal.Header>{["Role", "Assign", "user.name"]}</Modal.Header>);
       expect(screen.getByText("user.name")).toBeTruthy();
+    });
+
+    it("should render a leading icon segment only when an icon is provided", () => {
+      const withIcon = renderModal(
+        <Modal.Header icon={<Icon.Add className="test-icon" />}>Title</Modal.Header>,
+      );
+      expect(withIcon.baseElement.querySelector(".test-icon")).not.toBeNull();
+      withIcon.unmount();
+      const withoutIcon = renderModal(<Modal.Header>Title</Modal.Header>);
+      expect(withoutIcon.baseElement.querySelector(".test-icon")).toBeNull();
+    });
+
+    it("should advertise escape on the close button", async () => {
+      renderModal(
+        <Tooltip.Config delay={0}>
+          <Modal.Header>Title</Modal.Header>
+        </Tooltip.Config>,
+      );
+      const close = screen.getByLabelText("Close");
+      close.getBoundingClientRect = () => new DOMRect(100, 100, 24, 24);
+      fireEvent.pointerOver(close, { pointerType: "mouse" });
+      const tip = await waitFor(() => {
+        const el = document.querySelector<HTMLElement>(".pluto-tooltip");
+        if (el == null) throw new Error("tooltip did not open");
+        return el;
+      });
+      expect(tip.textContent?.toLowerCase()).toContain("esc");
     });
 
     it("should close the enclosing dialog from the close button", () => {
