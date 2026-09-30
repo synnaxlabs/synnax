@@ -1,0 +1,373 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "@synnaxlabs/lyra/dist/tooltip/Frame.css";
+
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Text } from "@synnaxlabs/lyra/text";
+
+import { type Product } from "@/util/reliability";
+
+interface Props {
+    products: Product[];
+}
+
+const { products } = Astro.props;
+
+const CODES = { flaky: "f", failed: "x", skipped: "s", unknown: "u" } as const;
+
+// One character per cell. Passed cells alternate between two shades by suite so suite
+// boundaries show in the wall.
+const encode = ({ tests }: Product): string => {
+    let out = "";
+    let shade = false;
+    let last = tests[0]?.suite;
+    for (const t of tests) {
+        if (t.suite !== last) {
+            shade = !shade;
+            last = t.suite;
+        }
+        out += t.state === "passed" ? (shade ? "b" : "a") : CODES[t.state];
+    }
+    return out;
+};
+
+let offset = 0;
+const blocks = products.map((p) => {
+    const block = { product: p, offset, cells: encode(p) };
+    offset += p.tests.length;
+    return block;
+});
+
+const LEGEND = [
+    { key: "passed", label: "Passed" },
+    { key: "flaky", label: "Flaky: failed, then passed on retry" },
+    { key: "failed", label: "Failed" },
+    { key: "skipped", label: "Skipped" },
+];
+---
+
+<Flex.Box y gap="small" className="reliability-wall">
+    <Flex.Box
+        y
+        gap="large"
+        bordered
+        rounded
+        background={1}
+        className="reliability-wall-blocks"
+        data-src="/reliability/tests.json"
+    >
+        <Flex.Box x wrap gap="large" aria-hidden="true" className="reliability-legend">
+            {LEGEND.map(({ key, label }) => (
+                <Text.Text level="small" variant="code" color={9} x gap="small">
+                    <i class={`reliability-swatch reliability-swatch--${key}`} />
+                    {label}
+                </Text.Text>
+            ))}
+        </Flex.Box>
+        {blocks.map(({ product, offset, cells }) => (
+            <Flex.Box y gap="small">
+                <Flex.Box x gap="small" align="center">
+                    <Text.Text level="p" weight={500}>
+                        {product.name}
+                    </Text.Text>
+                    <Text.Text level="small" variant="code" color={8}>
+                        {product.tests.length.toLocaleString("en-US")}
+                    </Text.Text>
+                </Flex.Box>
+                <canvas
+                    data-cells={cells}
+                    data-offset={offset}
+                    role="img"
+                    aria-label={`${product.name}: ${product.counts.passed} passed, ${product.counts.flaky} flaky, ${product.counts.failed} failed, ${product.counts.skipped} skipped`}
+                />
+            </Flex.Box>
+        ))}
+    </Flex.Box>
+    <div class="pluto-tooltip reliability-card" hidden>
+        <Text.Text level="small" variant="code" className="reliability-card-name" />
+        <Text.Text level="small" color={8} className="reliability-card-meta" />
+    </div>
+</Flex.Box>
+
+<script>
+    type Detail = {
+        blob: string;
+        suites: { job: string; os: string }[];
+        tests: [number, string, number | null, string][];
+    };
+
+    const STATE_NAMES: Record<string, string> = {
+        a: "Passed",
+        b: "Passed",
+        f: "Flaky",
+        x: "Failed",
+        s: "Skipped",
+        u: "Unknown",
+    };
+
+    // Canvas fills read the theme tokens the stylesheet maps to each state.
+    const TOKENS: Record<string, string> = {
+        a: "--reliability-passed",
+        b: "--reliability-passed-alt",
+        f: "--reliability-flaky",
+        x: "--reliability-failed",
+        s: "--reliability-skipped",
+        u: "--reliability-unknown",
+    };
+
+    const start = () => {
+        const wall = document.querySelector<HTMLElement>(".reliability-wall-blocks");
+        if (wall == null || wall.dataset.ready != null) return;
+        wall.dataset.ready = "";
+        const canvases = [...wall.querySelectorAll<HTMLCanvasElement>("canvas")];
+        const card = document.querySelector<HTMLElement>(".reliability-card")!;
+        const cardName = card.querySelector(".reliability-card-name")!;
+        const cardMeta = card.querySelector(".reliability-card-meta")!;
+        let detail: Promise<Detail> | null = null;
+        const load = () =>
+            (detail ??= fetch(wall.dataset.src!).then(
+                (r) => r.json() as Promise<Detail>,
+            ));
+
+        const colors = (): Record<string, string> => {
+            const css = getComputedStyle(wall);
+            return Object.fromEntries(
+                Object.entries(TOKENS).map(([k, v]) => [
+                    k,
+                    css.getPropertyValue(v).trim(),
+                ]),
+            );
+        };
+
+        const geometry = (canvas: HTMLCanvasElement) => {
+            const inner = canvas.parentElement!.clientWidth;
+            const pitch = inner < 600 ? 4 : 6;
+            // Room on every side for the rings around cells on the edge. The canvas
+            // bleeds into the container padding by this much, so cells line up with the
+            // labels above them.
+            const pad = pitch;
+            const width = inner + pad * 2;
+            const cols = Math.floor(inner / pitch);
+            const n = canvas.dataset.cells!.length;
+            return {
+                width,
+                pitch,
+                pad,
+                cell: pitch - 1,
+                cols,
+                rows: Math.ceil(n / cols),
+                n,
+            };
+        };
+
+        const draw = (canvas: HTMLCanvasElement, upTo: number) => {
+            const g = geometry(canvas);
+            const dpr = devicePixelRatio || 1;
+            const height = g.rows * g.pitch + g.pad * 2;
+            if (canvas.width !== Math.round(g.width * dpr)) {
+                canvas.width = Math.round(g.width * dpr);
+                canvas.height = Math.round(height * dpr);
+                canvas.style.width = `${g.width}px`;
+                canvas.style.height = `${height}px`;
+                canvas.style.margin = `-${g.pad}px`;
+            }
+            const ctx = canvas.getContext("2d")!;
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.clearRect(0, 0, g.width, height);
+            ctx.translate(g.pad, g.pad);
+            const c = colors();
+            const cells = canvas.dataset.cells!;
+            const marks: [number, number, string][] = [];
+            for (let i = 0; i < Math.min(upTo, g.n); i++) {
+                const ch = cells[i];
+                const x = (i % g.cols) * g.pitch;
+                const y = Math.floor(i / g.cols) * g.pitch;
+                if (ch === "a" || ch === "b") {
+                    ctx.fillStyle = c[ch];
+                    ctx.fillRect(x, y, g.cell, g.cell);
+                } else marks.push([x, y, ch]);
+            }
+            // Cells that did not pass cleanly draw last as a solid core in a faint
+            // track, like Status.Indicator, so they read at a glance among tens of
+            // thousands of passes.
+            ctx.lineWidth = 1;
+            for (const [x, y, ch] of marks) {
+                ctx.fillStyle = ctx.strokeStyle = c[ch];
+                ctx.beginPath();
+                ctx.roundRect(x, y, g.cell, g.cell, 1);
+                ctx.fill();
+                const gap = g.pitch / 2 + 0.5;
+                ctx.globalAlpha = 0.45;
+                ctx.beginPath();
+                ctx.roundRect(x - gap, y - gap, g.cell + gap * 2, g.cell + gap * 2, 4);
+                ctx.stroke();
+                ctx.globalAlpha = 1;
+            }
+        };
+
+        const drawAll = () => canvases.forEach((c) => draw(c, Infinity));
+
+        if (matchMedia("(prefers-reduced-motion: reduce)").matches) drawAll();
+        else {
+            const begin = performance.now();
+            const frame = (now: number) => {
+                const t = Math.min(1, (now - begin) / 1400);
+                const eased = 1 - Math.pow(1 - t, 3);
+                canvases.forEach((c) => draw(c, eased * c.dataset.cells!.length));
+                if (t < 1) requestAnimationFrame(frame);
+            };
+            requestAnimationFrame(frame);
+        }
+        new ResizeObserver(drawAll).observe(wall);
+        matchMedia("(prefers-color-scheme: dark)").addEventListener("change", drawAll);
+
+        for (const canvas of canvases) {
+            const hit = (e: MouseEvent): number | null => {
+                const g = geometry(canvas);
+                const rect = canvas.getBoundingClientRect();
+                const col = Math.floor((e.clientX - rect.left - g.pad) / g.pitch);
+                const row = Math.floor((e.clientY - rect.top - g.pad) / g.pitch);
+                const i = row * g.cols + col;
+                return col < 0 || row < 0 || col >= g.cols || i >= g.n ? null : i;
+            };
+            canvas.addEventListener("pointerenter", load);
+            canvas.addEventListener("pointerleave", () => (card.hidden = true));
+            canvas.addEventListener("click", async (e) => {
+                const i = hit(e);
+                if (i == null) return;
+                const d = await load();
+                window.open(
+                    d.blob + d.tests[Number(canvas.dataset.offset) + i][3],
+                    "_blank",
+                );
+            });
+            canvas.addEventListener("pointermove", async (e) => {
+                const i = hit(e);
+                if (i == null) {
+                    card.hidden = true;
+                    return;
+                }
+                const d = await load();
+                const [suite, name, duration] =
+                    d.tests[Number(canvas.dataset.offset) + i];
+                const s = d.suites[suite];
+                cardName.textContent = name;
+                cardMeta.textContent = [
+                    STATE_NAMES[canvas.dataset.cells![i]],
+                    `${s.job} on ${s.os}`,
+                    duration != null ? `${duration.toFixed(1)} s` : null,
+                    "Click to view source",
+                ]
+                    .filter(Boolean)
+                    .join(" · ");
+                card.style.transform = `translate(${Math.min(e.clientX + 14, innerWidth - card.offsetWidth - 8)}px, ${e.clientY + 18}px)`;
+                card.hidden = false;
+            });
+        }
+    };
+
+    start();
+    document.addEventListener("astro:page-load", start);
+</script>
+
+<style is:global>
+    .reliability-wall {
+        /* States take the colors Status.Indicator gives the same variants. */
+        --reliability-passed: var(--pluto-primary-z);
+        --reliability-passed-alt: var(--pluto-primary-z-75);
+        --reliability-flaky: var(--pluto-warning-m1);
+        --reliability-failed: var(--pluto-error-z);
+        --reliability-skipped: var(--pluto-text-disabled);
+        --reliability-unknown: var(--pluto-gray-l6);
+    }
+
+    .reliability-wall-blocks {
+        position: relative;
+        border-radius: var(--pluto-border-radius-large);
+        padding: 5rem;
+
+        canvas {
+            display: block;
+            cursor: pointer;
+        }
+    }
+
+    /* Mirrors a wall cell: the same core and track geometry, at the same scale. */
+    .reliability-swatch {
+        width: 5px;
+        height: 5px;
+        margin: 0 4px;
+        border-radius: 1px;
+        background: var(--reliability-passed);
+
+        &:not(.reliability-swatch--passed) {
+            outline: 1px solid;
+            outline-offset: 3px;
+        }
+
+        &.reliability-swatch--flaky {
+            background: var(--reliability-flaky);
+            outline-color: color-mix(
+                in srgb,
+                var(--reliability-flaky) 45%,
+                transparent
+            );
+        }
+
+        &.reliability-swatch--failed {
+            background: var(--reliability-failed);
+            outline-color: color-mix(
+                in srgb,
+                var(--reliability-failed) 45%,
+                transparent
+            );
+        }
+
+        &.reliability-swatch--skipped {
+            background: var(--reliability-skipped);
+            outline-color: color-mix(
+                in srgb,
+                var(--reliability-skipped) 45%,
+                transparent
+            );
+        }
+    }
+
+    .reliability-card {
+        width: 45rem;
+
+        &[hidden] {
+            display: none;
+        }
+
+        /* The docs enlarge the small step for prose, so the card steps back down to
+           the size Lyra tooltips use in the Console. */
+        .pluto-text {
+            font-size: calc(var(--pluto-small-size) * 0.8);
+            line-height: 1.5;
+        }
+
+        .reliability-card-name {
+            word-break: break-word;
+        }
+    }
+
+    @media (max-width: 900px) {
+        .reliability-wall-blocks {
+            padding: 3rem 1.5rem;
+        }
+
+        .reliability-legend {
+            row-gap: 1rem;
+            padding: 0 1.5rem;
+        }
+    }
+</style>

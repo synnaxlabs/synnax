@@ -43,6 +43,8 @@ Neither script touches `.oracle` schema files.
   stable `core/v*` tag or the next one (the train rule). Needs tags fetched.
 - `bump_versions.sh <version>` — sets a new semver (`X.Y.Z`) across those manifests.
   Release tooling; don't run ad hoc against a dirty tree.
+- `reliability.py <run-url> --version <X.Y.Z>`: rebuilds the docs reliability page data
+  (`site/docs/src/util/reliability.json`) from a CI run. Needs `gh` auth.
 
 ## Workflow-only scripts (`.github/scripts/`)
 

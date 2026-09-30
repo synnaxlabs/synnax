@@ -12,3 +12,6 @@ pnpm-workspace.yaml
 
 # Generated background patterns, kept minified.
 site/docs/src/**/*.svg
+
+# Generated reliability page data, kept minified.
+site/docs/src/util/reliability.json

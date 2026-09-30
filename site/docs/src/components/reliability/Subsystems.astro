@@ -1,0 +1,248 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Text } from "@synnaxlabs/lyra/text";
+import { type CSSProperties } from "react";
+
+import Node from "@/components/reliability/Node.astro";
+import { type Product } from "@/util/reliability";
+
+interface Props {
+    product: Product;
+}
+
+const { product } = Astro.props;
+
+const get = (key: string) => {
+    const s = product.subsystems[key];
+    if (s == null) throw new Error(`${product.key} has no subsystem ${key}`);
+    return s;
+};
+
+// Core layers from the API down to the libraries every layer shares.
+const CORE: [key: string, note: string][][] = [
+    [["api", "HTTP and WebSocket endpoints every client talks to"]],
+    [["services", "Channels, ranges, users, access control, devices, and tasks"]],
+    [["distribution", "Routes reads and writes across the nodes of a cluster"]],
+    [
+        ["aspen", "Gossip-replicated key-value store"],
+        ["cesium", "Time-series storage engine"],
+    ],
+    [
+        ["freighter", "Network transport"],
+        ["x", "Shared libraries"],
+    ],
+];
+
+const ARC: [key: string, note: string][] = [
+    ["parser", "Source text to syntax tree"],
+    ["analyzer", "Symbols, scopes, and types"],
+    ["compiler", "Dataflow graph to WebAssembly"],
+];
+
+const RUNTIMES: [key: string, note: string][] = [
+    ["runtime-go", "Runs Arc in the Core"],
+    ["runtime-cpp", "Runs Arc in the Driver"],
+];
+
+const ARC_AROUND = ["programs", "tools", "e2e"];
+
+// Flat lists read largest first, with end-to-end tests last.
+const flat = Object.entries(product.subsystems)
+    .filter(([key]) => key !== "e2e")
+    .sort((a, b) => b[1].count - a[1].count)
+    .map(([key]) => key)
+    .concat(product.subsystems.e2e != null ? ["e2e"] : []);
+
+const fmt = (n: number) => n.toLocaleString("en-US");
+const max = Math.max(...Object.values(product.subsystems).map((s) => s.count));
+// Square root, so small subsystems still take a visible tint.
+const share = (n: number) => Math.round(Math.min(1, Math.sqrt(n / max)) * 100) / 100;
+---
+
+{product.key === "core" ? (
+    <Flex.Box y gap="small" className="reliability-stack">
+        {CORE.map((layer) => (
+            <Flex.Box x gap="small" className="reliability-layer">
+                {layer.map(([key, note]) => (
+                    <Node {...get(key)} note={note} share={share(get(key).count)} />
+                ))}
+            </Flex.Box>
+        ))}
+    </Flex.Box>
+) : product.key === "arc" ? (
+    <Flex.Box y gap="huge">
+        <div class="reliability-pipeline">
+            {ARC.map(([key, note]) => (
+                <>
+                    <Node {...get(key)} note={note} share={share(get(key).count)} />
+                    <span class="reliability-arrow" aria-hidden="true" />
+                </>
+            ))}
+            <Flex.Box y gap="small">
+                {RUNTIMES.map(([key, note]) => (
+                    <Node {...get(key)} note={note} share={share(get(key).count)} />
+                ))}
+                <Node
+                    name="Standard library"
+                    count={get("stl-go").count + get("stl-cpp").count}
+                    share={share(get("stl-go").count + get("stl-cpp").count)}
+                    note={`${fmt(get("stl-go").count)} Go · ${fmt(get("stl-cpp").count)} C++`}
+                />
+            </Flex.Box>
+        </div>
+        <div class="reliability-grid reliability-grid--around">
+            {ARC_AROUND.map((key) => (
+                <Flex.Box
+                    y
+                    gap="tiny"
+                    className="reliability-cell"
+                    style={{ "--share": share(get(key).count) } as CSSProperties}
+                >
+                    <Text.Text level="h4" variant="code">
+                        {fmt(get(key).count)}
+                    </Text.Text>
+                    <Text.Text level="small" color={9}>
+                        {get(key).name}
+                    </Text.Text>
+                </Flex.Box>
+            ))}
+        </div>
+    </Flex.Box>
+) : (
+    <div class="reliability-grid">
+        {flat.map((key) => (
+            <Flex.Box
+                y
+                gap="tiny"
+                className="reliability-cell"
+                style={{ "--share": share(get(key).count) } as CSSProperties}
+            >
+                <Text.Text level="h4" variant="code">
+                    {fmt(get(key).count)}
+                </Text.Text>
+                <Text.Text level="small" color={9}>
+                    {get(key).name}
+                </Text.Text>
+            </Flex.Box>
+        ))}
+    </div>
+)}
+
+<style is:global>
+    .reliability-node {
+        flex: 1 1 0;
+        min-width: 0;
+        padding: 2rem 3rem;
+        background: color-mix(
+            in srgb,
+            var(--reliability-accent) calc(4% + var(--share) * 20%),
+            var(--pluto-gray-l1)
+        );
+        border-color: color-mix(
+            in srgb,
+            var(--reliability-accent) calc(20% + var(--share) * 45%),
+            transparent
+        );
+    }
+
+    .reliability-pipeline {
+        display: grid;
+        grid-template-columns: 1fr 4rem 1fr 4rem 1fr 4rem 1.2fr;
+        align-items: center;
+
+        > .reliability-node {
+            height: 100%;
+            flex-direction: column;
+            align-items: flex-start;
+            justify-content: space-between;
+        }
+    }
+
+    .reliability-arrow {
+        position: relative;
+        height: 1px;
+        margin: 0 0.5rem;
+        background: var(--reliability-accent);
+
+        &::after {
+            content: "";
+            position: absolute;
+            right: -1px;
+            top: -3px;
+            border: 3.5px solid transparent;
+            border-right: none;
+            border-left: 5px solid var(--reliability-accent);
+        }
+    }
+
+    .reliability-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+        gap: 3rem 4rem;
+    }
+
+    .reliability-grid--around {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    .reliability-cell {
+        padding-top: 2rem;
+        border-top: 2px solid
+            color-mix(
+                in srgb,
+                var(--reliability-accent) calc(30% + var(--share) * 70%),
+                transparent
+            );
+    }
+
+    @media (max-width: 600px) {
+        .reliability-layer {
+            flex-direction: column;
+        }
+
+        .reliability-grid--around {
+            grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+        }
+    }
+
+    @media (max-width: 900px) {
+        .reliability-node {
+            padding: 2rem;
+        }
+
+        .reliability-pipeline {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+
+            > .reliability-node {
+                flex-direction: row;
+                align-items: center;
+            }
+        }
+
+        .reliability-arrow {
+            justify-self: center;
+            width: 1px;
+            height: 3rem;
+            margin: 0;
+
+            &::after {
+                top: auto;
+                right: -3px;
+                bottom: -1px;
+                border: 3.5px solid transparent;
+                border-bottom: none;
+                border-top: 5px solid var(--reliability-accent);
+            }
+        }
+    }
+</style>
