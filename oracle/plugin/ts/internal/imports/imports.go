@@ -19,10 +19,14 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-// NamedImport groups a sorted list of names imported from a single path.
+// NamedImport groups a sorted list of names imported from a single path, or binds
+// the whole module at that path to one namespace identifier.
 type NamedImport struct {
 	// Path is the module specifier the names are imported from.
 	Path string
+	// Namespace, when set, renders the import as `import * as Namespace from Path`,
+	// and Names is empty.
+	Namespace string
 	// Names is the sorted set of names imported from Path.
 	Names []string
 }
@@ -30,11 +34,17 @@ type NamedImport struct {
 // Manager accumulates named TypeScript imports keyed by module path. The zero
 // value is not usable; construct with NewManager.
 type Manager struct {
-	specs map[string]set.Set[string]
+	specs      map[string]set.Set[string]
+	namespaces map[string]string
 }
 
 // NewManager returns a Manager ready to accept AddImport calls.
-func NewManager() *Manager { return &Manager{specs: make(map[string]set.Set[string])} }
+func NewManager() *Manager {
+	return &Manager{
+		specs:      make(map[string]set.Set[string]),
+		namespaces: make(map[string]string),
+	}
+}
 
 // AddImport records that name is imported from path. Duplicate calls are
 // no-ops.
@@ -46,6 +56,9 @@ func (m *Manager) AddImport(path, name string) {
 	}
 	s.Add(name)
 }
+
+// AddNamespaceImport records that the whole module at path is imported as ident.
+func (m *Manager) AddNamespaceImport(path, ident string) { m.namespaces[path] = ident }
 
 // SynnaxImports returns Synnax workspace imports (paths starting with @synnaxlabs/),
 // sorted by path with each NamedImport's names sorted alphabetically.
@@ -79,6 +92,11 @@ func (m *Manager) filter(keep func(string) bool) []NamedImport {
 		}
 		sort.Strings(names)
 		out = append(out, NamedImport{Path: path, Names: names})
+	}
+	for path, ident := range m.namespaces {
+		if keep(path) {
+			out = append(out, NamedImport{Path: path, Namespace: ident})
+		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Path < out[j].Path })
 	return out
