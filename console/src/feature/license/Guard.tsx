@@ -12,14 +12,12 @@ import { type PropsWithChildren, type ReactNode } from "react";
 
 import { Activate } from "@/feature/license/Activate";
 
-export interface GuardProps extends PropsWithChildren {}
-
 /**
  * Renders the activation screen instead of its children while the active Core refuses
  * requests for want of a license. The connection check keeps polling, so the screen
  * dismisses on its own once a license applies.
  */
-export const Guard = ({ children }: GuardProps): ReactNode => {
+export const Guard = ({ children }: PropsWithChildren): ReactNode => {
   const status = Synnax.useConnectionStatus();
   if (status.variant === "error" && status.details.reason === "unlicensed")
     return <Activate />;
