@@ -49,14 +49,6 @@ Neither script touches `.oracle` schema files.
   `--manual-pass <skip reason>` notes that the tests skipped for that reason were run by
   hand and passed; `--manual-note <text>` says why, on the page.
 
-## Workflow-only scripts (`.github/scripts/`)
-
-Scripts only GitHub Actions runs live beside the workflows, each documented in its
-header: `resolve_version.sh` and `latest_version.sh` behind the release actions (pytest
-coverage beside them), `check_artifact_cache.sh`, `generate_os_matrix.sh`,
-`verify_build_config.sh`, `import_apple_certificate.sh`, `pin_internal_deps.sh`,
-`prune_published.py`, and the Windows installer inputs.
-
 ## Bazel
 
 - `run_bazel.sh <bazel arguments...>` — runs Bazel, and recovers once from an external
