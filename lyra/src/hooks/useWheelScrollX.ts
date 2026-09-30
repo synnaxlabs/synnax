@@ -11,6 +11,17 @@ import { type RefCallback, useCallback, useRef } from "react";
 
 const LINE_HEIGHT = 16;
 
+const deltaPixels = (e: WheelEvent, pageSize: number): number => {
+  switch (e.deltaMode) {
+    case WheelEvent.DOM_DELTA_LINE:
+      return e.deltaY * LINE_HEIGHT;
+    case WheelEvent.DOM_DELTA_PAGE:
+      return e.deltaY * pageSize;
+    default:
+      return e.deltaY;
+  }
+};
+
 const scrollsY = (el: Element, delta: number): boolean => {
   const { overflowY } = getComputedStyle(el);
   if (overflowY !== "auto" && overflowY !== "scroll") return false;
@@ -20,8 +31,9 @@ const scrollsY = (el: Element, delta: number): boolean => {
 
 /**
  * Makes a vertical mouse wheel scroll an element horizontally. The wheel passes
- * through when the gesture is already horizontal, when a scroller inside the element
- * can still move vertically, or when the element is at its edge.
+ * through when Ctrl or Cmd is held, when the gesture is already horizontal, when a
+ * scroller inside the element can still move vertically, or when the element is at
+ * its edge.
  *
  * @returns a ref callback to attach to the horizontally scrolling element.
  */
@@ -32,9 +44,8 @@ export const useWheelScrollX = <E extends HTMLElement>(): RefCallback<E> => {
     detachRef.current = null;
     if (el == null) return;
     const handleWheel = (e: WheelEvent): void => {
-      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
-      const delta =
-        e.deltaMode === WheelEvent.DOM_DELTA_PIXEL ? e.deltaY : e.deltaY * LINE_HEIGHT;
+      if (e.ctrlKey || e.metaKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+      const delta = deltaPixels(e, el.clientWidth);
       for (
         let node = e.target instanceof Element ? e.target : null;
         node != null && node !== el;

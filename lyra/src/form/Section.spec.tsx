@@ -45,8 +45,12 @@ describe("Form.Sections", () => {
       );
     };
 
-    const wheel = (target: HTMLElement, deltaY: number): Event => {
-      const event = createEvent.wheel(target, { cancelable: true, deltaY });
+    const wheel = (
+      target: HTMLElement,
+      deltaY: number,
+      init: WheelEventInit = {},
+    ): Event => {
+      const event = createEvent.wheel(target, { cancelable: true, deltaY, ...init });
       fireEvent(target, event);
       return event;
     };
@@ -58,6 +62,17 @@ describe("Form.Sections", () => {
       const event = wheel(strip, 100);
       expect(strip.scrollLeft).toEqual(100);
       expect(event.defaultPrevented).toBe(true);
+    });
+
+    it("should leave a Ctrl or Cmd wheel to the browser zoom", () => {
+      const c = render(<Form.Sections x data-testid="sections" />);
+      const strip = c.getByTestId("sections");
+      stubScroll(strip, { scrollWidth: 500, clientWidth: 200 });
+      const ctrl = wheel(strip, 100, { ctrlKey: true });
+      const meta = wheel(strip, 100, { metaKey: true });
+      expect(strip.scrollLeft).toEqual(0);
+      expect(ctrl.defaultPrevented).toBe(false);
+      expect(meta.defaultPrevented).toBe(false);
     });
 
     it("should leave the wheel to a stacked layout", () => {
