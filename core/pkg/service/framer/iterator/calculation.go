@@ -11,6 +11,7 @@ package iterator
 
 import (
 	"context"
+	"maps"
 	"slices"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
@@ -103,9 +104,10 @@ func (t *calculationTransform) processBufferedFrames(
 	}
 	var (
 		err     error
-		outputs []framer.Frame
+		rounds  = splitByStart(frame.Merge(t.pendingFrames))
+		outputs = make([]framer.Frame, 0, len(rounds))
 	)
-	for _, round := range splitByStart(frame.Merge(t.pendingFrames)) {
+	for _, round := range rounds {
 		for _, c := range t.calculators {
 			round, _, err = c.Next(ctx, round, round)
 			if err != nil {
@@ -133,22 +135,26 @@ func (t *calculationTransform) processBufferedFrames(
 // splitByStart groups a frame's series by start time, in time order, so a channel
 // with a missing write does not shift against the others.
 func splitByStart(fr framer.Frame) []framer.Frame {
-	byStart := make(map[telem.TimeStamp]framer.Frame)
+	counts := make(map[telem.TimeStamp]int)
+	for i := range fr.RawKeys() {
+		if !fr.ShouldExcludeRaw(i) {
+			counts[fr.RawSeriesAt(i).TimeRange.Start]++
+		}
+	}
+	starts := slices.Sorted(maps.Keys(counts))
+	rounds := make([]framer.Frame, len(starts))
+	positions := make(map[telem.TimeStamp]int, len(starts))
+	for i, start := range starts {
+		rounds[i] = frame.Alloc(counts[start])
+		positions[start] = i
+	}
 	for i, key := range fr.RawKeys() {
 		if fr.ShouldExcludeRaw(i) {
 			continue
 		}
 		s := fr.RawSeriesAt(i)
-		byStart[s.TimeRange.Start] = byStart[s.TimeRange.Start].Append(key, s)
-	}
-	starts := make([]telem.TimeStamp, 0, len(byStart))
-	for start := range byStart {
-		starts = append(starts, start)
-	}
-	slices.Sort(starts)
-	rounds := make([]framer.Frame, len(starts))
-	for i, start := range starts {
-		rounds[i] = byStart[start]
+		pos := positions[s.TimeRange.Start]
+		rounds[pos] = rounds[pos].Append(key, s)
 	}
 	return rounds
 }
