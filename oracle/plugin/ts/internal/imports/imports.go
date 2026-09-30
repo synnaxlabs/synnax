@@ -19,20 +19,20 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-// NamedImport groups a sorted list of names imported from a single path, or binds
-// the whole module at that path to one namespace identifier.
+// NamedImport groups a sorted list of names imported from a single path, or binds the
+// whole module at that path to one namespace identifier.
 type NamedImport struct {
 	// Path is the module specifier the names are imported from.
 	Path string
-	// Namespace, when set, renders the import as `import * as Namespace from Path`,
-	// and Names is empty.
+	// Namespace, when set, renders the import as `import * as Namespace from Path`, and
+	// Names is empty.
 	Namespace string
 	// Names is the sorted set of names imported from Path.
 	Names []string
 }
 
-// Manager accumulates named TypeScript imports keyed by module path. The zero
-// value is not usable; construct with NewManager.
+// Manager accumulates named TypeScript imports keyed by module path. The zero value is
+// not usable; construct with NewManager.
 type Manager struct {
 	specs      map[string]set.Set[string]
 	namespaces map[string]string
@@ -46,8 +46,7 @@ func NewManager() *Manager {
 	}
 }
 
-// AddImport records that name is imported from path. Duplicate calls are
-// no-ops.
+// AddImport records that name is imported from path. Duplicate calls are no-ops.
 func (m *Manager) AddImport(path, name string) {
 	s, ok := m.specs[path]
 	if !ok {
@@ -66,16 +65,16 @@ func (m *Manager) SynnaxImports() []NamedImport {
 	return m.filter(func(p string) bool { return strings.HasPrefix(p, "@synnaxlabs/") })
 }
 
-// ExternalNamedImports returns third-party imports — paths that are
-// neither @synnaxlabs/* nor @/* — sorted by path.
+// ExternalNamedImports returns third-party imports — paths that are neither
+// @synnaxlabs/* nor @/* — sorted by path.
 func (m *Manager) ExternalNamedImports() []NamedImport {
 	return m.filter(func(p string) bool {
 		return !strings.HasPrefix(p, "@/") && !strings.HasPrefix(p, "@synnaxlabs/")
 	})
 }
 
-// InternalNamedImports returns alias-rooted imports (paths starting with @/),
-// sorted by path.
+// InternalNamedImports returns alias-rooted imports (paths starting with @/), sorted by
+// path.
 func (m *Manager) InternalNamedImports() []NamedImport {
 	return m.filter(func(p string) bool { return strings.HasPrefix(p, "@/") })
 }
