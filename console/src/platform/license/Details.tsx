@@ -14,19 +14,18 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access } from "@synnaxlabs/pluto";
+import { Access, License } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { describeChannels, describeTerm, editionLabel } from "@/platform/license/term";
 import { ACCOUNT_URL } from "@/platform/license/urls";
-import { useInfo } from "@/platform/license/useInfo";
 import { Session } from "@/session";
 
 const GrantedSummary = (): ReactElement | null => {
-  const { info } = useInfo();
-  if (info == null) return null;
-  const { state, warning, license: lic } = info;
+  const { data } = License.useResult({});
+  if (data == null) return null;
+  const { state, warning, license: lic } = data;
   const label =
     lic == null || state !== "ok"
       ? license.STATE_MESSAGES[state]
@@ -62,18 +61,11 @@ const Row = ({ name, value }: RowProps): ReactElement => (
 );
 
 const GrantedDetails = (): ReactElement | null => {
-  const { info, error } = useInfo();
-  if (error != null)
-    return (
-      <Status.Summary
-        variant="error"
-        level="small"
-        message="Failed to read the license"
-        description={error.message}
-      />
-    );
-  if (info == null) return null;
-  const { state, warning, license: lic } = info;
+  const result = License.useResult({});
+  if (result.variant === "error")
+    return <Status.Summary level="small" status={result.status} />;
+  if (result.data == null) return null;
+  const { state, warning, license: lic } = result.data;
   return (
     <>
       {lic == null || state !== "ok" ? (

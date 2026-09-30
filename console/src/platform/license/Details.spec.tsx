@@ -36,6 +36,18 @@ describe("License", () => {
       expect(screen.getByText(String(lic.machines))).toBeTruthy();
       expect(screen.getByText(License.describeChannels(lic))).toBeTruthy();
     });
+
+    it("should show why the license could not be read", async () => {
+      const failing = createTestClient();
+      vi.spyOn(failing.license, "retrieve").mockRejectedValue(
+        new Error("license store unavailable"),
+      );
+      await renderLicense(License.Details, failing);
+      expect(await screen.findByText("Failed to retrieve license")).toBeTruthy();
+      expect(
+        screen.getByText("Failed to retrieve license: license store unavailable"),
+      ).toBeTruthy();
+    });
   });
 
   describe("Details account", () => {

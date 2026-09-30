@@ -17,7 +17,7 @@ import { Modal } from "@synnaxlabs/lyra/modal";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Tag } from "@synnaxlabs/lyra/tag";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Synnax } from "@synnaxlabs/pluto";
+import { License as PLicense, Synnax } from "@synnaxlabs/pluto";
 import { caseconv, TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
@@ -141,7 +141,8 @@ const Headline = ({ info }: HeadlineProps): ReactElement => {
  * license's claims, the host fingerprint, and the Core and Console versions.
  */
 export const useInfoModal = Modals.create(() => {
-  const { info, error } = License.useInfo();
+  const result = PLicense.useResult({});
+  const info = result.data;
   const { details } = Synnax.useConnectionStatus();
   const core = Session.Core.useSelectSelected();
   const consoleVersion = Session.Version.use();
@@ -166,13 +167,8 @@ export const useInfoModal = Modals.create(() => {
     <Modal.Frame className={CSS.B("license-info")}>
       <Modal.Header icon={<Icon.License />}>License</Modal.Header>
       <Modal.Body className={CSS.BE("license-info", "body")} gap="huge">
-        {error != null ? (
-          <Status.Summary
-            variant="error"
-            level="h4"
-            message="Failed to read the license"
-            description={error.message}
-          />
+        {result.variant === "error" ? (
+          <Status.Summary level="h4" status={result.status} />
         ) : (
           info != null && (
             <Flex.Box y gap="large">
