@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button } from "@synnaxlabs/lyra/button";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -19,9 +18,8 @@ import { z } from "zod";
 import { MAX_NAME_LENGTH } from "@/server/license/limits";
 import { post, reload, save } from "@/ui/api";
 import * as Modal from "@/ui/Modal";
-import { type Action, useAction } from "@/ui/useAction";
 
-const schema = z.object({
+export const activateSchema = z.object({
   name: z
     .string()
     .trim()
@@ -29,7 +27,11 @@ const schema = z.object({
     .max(MAX_NAME_LENGTH, "Use a shorter name"),
   fingerprint: z.string().trim().min(1, "Paste the host hashes the Core printed"),
 });
-export type ActivateSchema = typeof schema;
+
+export const ZERO_ACTIVATE: z.infer<typeof activateSchema> = {
+  name: "",
+  fingerprint: "",
+};
 
 interface Activated {
   key: string;
@@ -37,37 +39,19 @@ interface Activated {
   filename: string;
 }
 
-interface UseActivateReturn {
-  methods: Form.UseReturn<typeof schema>;
-  action: Action;
-}
-
-/**
- * useActivate builds the form and the action that grant a seat from pasted host
- * hashes and download the machine's license key. `onDone` runs after the download.
- */
-export const useActivate = (
+/** activate grants a seat to a machine and downloads its license key. */
+export const activate = async (
   licenseKey: string,
-  onDone: () => Promise<void>,
-): UseActivateReturn => {
-  const methods = Form.use({ values: { name: "", fingerprint: "" }, schema });
-  const action = useAction(async () => {
-    if (!methods.validate()) return;
-    const { name, fingerprint } = methods.value();
-    const res = await post<Activated>(`/api/licenses/${licenseKey}/activate`, {
-      name,
-      fingerprint,
-    });
-    save(new Blob([res.key], { type: "text/plain" }), res.filename);
-    await onDone();
-  });
-  return { methods, action };
+  value: z.infer<typeof activateSchema>,
+): Promise<void> => {
+  const res = await post<Activated>(`/api/licenses/${licenseKey}/activate`, value);
+  save(new Blob([res.key], { type: "text/plain" }), res.filename);
 };
 
-/** ActivateFields renders the instructions and the inputs of the activation form. */
 // Inline, because Lyra's size classes outrank a class on min-height.
 const HASHES_STYLE: CSSProperties = { minHeight: "14rem" };
 
+/** ActivateFields renders the instructions and the inputs of the activation form. */
 export const ActivateFields = (): ReactElement => (
   <>
     <Text.Text level="p" color={10}>
@@ -94,17 +78,12 @@ export const ActivateFields = (): ReactElement => (
   </>
 );
 
-export const ActivateButton = ({ action }: { action: Action }): ReactElement => (
-  <Button.Button
-    variant="filled"
-    onClick={action.run}
-    status={action.loading ? "loading" : undefined}
-    trigger={["Control", "Enter"]}
-    triggerIndicator
-  >
+/** ACTIVATE_LABEL is the content of the button that submits the activation form. */
+export const ACTIVATE_LABEL = (
+  <>
     <Icon.Download />
     Activate and download license key
-  </Button.Button>
+  </>
 );
 
 export interface ActivateDialogProps {
@@ -135,20 +114,17 @@ export const ActivateDialog = ({
 );
 
 const Content = ({ licenseKey }: { licenseKey: string }): ReactElement => {
-  const { close } = Dialog.useContext();
-  const { methods, action } = useActivate(licenseKey, async () => {
-    close();
-    reload();
-  });
+  const methods = Form.use({ values: ZERO_ACTIVATE, schema: activateSchema });
   return (
-    <Form.Form<ActivateSchema> {...methods}>
-      <Modal.Body gap="medium">
-        <ActivateFields />
-      </Modal.Body>
-      <Modal.Footer error={action.error}>
-        <Modal.Cancel />
-        <ActivateButton action={action} />
-      </Modal.Footer>
-    </Form.Form>
+    <Modal.Form
+      methods={methods}
+      submit={ACTIVATE_LABEL}
+      onSubmit={async (value) => {
+        await activate(licenseKey, value);
+        reload();
+      }}
+    >
+      <ActivateFields />
+    </Modal.Form>
   );
 };

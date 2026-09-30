@@ -211,54 +211,39 @@ const InviteDialog = ({ organization, onDone }: InviteDialogProps): ReactElement
 );
 
 const InviteContent = ({ organization, onDone }: InviteDialogProps): ReactElement => {
-  const { close } = Dialog.useContext();
   const methods = Form.use({
     values: { email: "", role: MEMBER_ROLE },
     schema: inviteSchema,
   });
-  const action = useAction(async () => {
-    if (!methods.validate()) return;
-    const { email, role } = methods.value();
-    await organization.inviteMember({ emailAddress: email, role });
-    close();
-    await onDone();
-  });
   return (
-    <Form.Form<typeof inviteSchema> {...methods}>
-      <Modal.Body gap="medium">
-        <Text.Text level="p" color={10}>
-          They get an email with a link to join. Admins manage the team; members use its
-          licenses.
-        </Text.Text>
-        <Form.Field<string> path="email" label="Email">
-          {(p) => (
-            <Input.Text {...p} type="email" autoFocus placeholder="name@company.com" />
-          )}
-        </Form.Field>
-        <Form.Field<string> path="role" label="Role">
-          {(p) => (
-            <Select.Simple<string> {...p} resourceName="Role">
-              {ROLES.map(({ key, name }) => (
-                <Select.Item key={key} itemKey={key}>
-                  {name}
-                </Select.Item>
-              ))}
-            </Select.Simple>
-          )}
-        </Form.Field>
-      </Modal.Body>
-      <Modal.Footer error={action.error}>
-        <Modal.Cancel />
-        <Button.Button
-          variant="filled"
-          onClick={action.run}
-          status={action.loading ? "loading" : undefined}
-          trigger={["Control", "Enter"]}
-          triggerIndicator
-        >
-          Send invite
-        </Button.Button>
-      </Modal.Footer>
-    </Form.Form>
+    <Modal.Form
+      methods={methods}
+      submit="Send invite"
+      onSubmit={async ({ email, role }) => {
+        await organization.inviteMember({ emailAddress: email, role });
+        await onDone();
+      }}
+    >
+      <Text.Text level="p" color={10}>
+        They get an email with a link to join. Admins manage the team; members use its
+        licenses.
+      </Text.Text>
+      <Form.Field<string> path="email" label="Email">
+        {(p) => (
+          <Input.Text {...p} type="email" autoFocus placeholder="name@company.com" />
+        )}
+      </Form.Field>
+      <Form.Field<string> path="role" label="Role">
+        {(p) => (
+          <Select.Simple<string> {...p} resourceName="Role">
+            {ROLES.map(({ key, name }) => (
+              <Select.Item key={key} itemKey={key}>
+                {name}
+              </Select.Item>
+            ))}
+          </Select.Simple>
+        )}
+      </Form.Field>
+    </Modal.Form>
   );
 };

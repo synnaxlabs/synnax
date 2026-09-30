@@ -18,12 +18,15 @@ import { type ReactElement, useState } from "react";
 
 import { type Owned } from "@/server/license/list";
 import {
-  ActivateButton,
+  activate,
+  ACTIVATE_LABEL,
   ActivateFields,
-  type ActivateSchema,
-  useActivate,
+  activateSchema,
+  ZERO_ACTIVATE,
 } from "@/ui/licenses/ActivateDialog";
 import { Empty, Page } from "@/ui/Page";
+import { Submit } from "@/ui/Submit";
+import { useAction } from "@/ui/useAction";
 
 export interface ActivateProps {
   choices: Owned[];
@@ -73,11 +76,14 @@ export const Activate = ({ choices, selected }: ActivateProps): ReactElement => 
 };
 
 const Inline = ({ licenseKey }: { licenseKey: string }): ReactElement => {
-  const { methods, action } = useActivate(licenseKey, async () => {
+  const methods = Form.use({ values: ZERO_ACTIVATE, schema: activateSchema });
+  const action = useAction(async () => {
+    if (!methods.validate()) return;
+    await activate(licenseKey, methods.value());
     await navigate(`/licenses/${licenseKey}`);
   });
   return (
-    <Form.Form<ActivateSchema> {...methods}>
+    <Form.Form<typeof activateSchema> {...methods}>
       <Flex.Box y gap="medium">
         <ActivateFields />
         <Flex.Box x justify="between" align="center" gap="medium">
@@ -90,7 +96,7 @@ const Inline = ({ licenseKey }: { licenseKey: string }): ReactElement => {
             <Button.Button variant="outlined" href="/">
               Cancel
             </Button.Button>
-            <ActivateButton action={action} />
+            <Submit action={action}>{ACTIVATE_LABEL}</Submit>
           </Flex.Box>
         </Flex.Box>
       </Flex.Box>

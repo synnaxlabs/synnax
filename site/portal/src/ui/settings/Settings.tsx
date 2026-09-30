@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button } from "@synnaxlabs/lyra/button";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -15,11 +14,10 @@ import { type ReactElement } from "react";
 import { z } from "zod";
 
 import { reload } from "@/ui/api";
-import { useUser } from "@/ui/clerk";
+import { type User, useUser } from "@/ui/clerk";
 import { Fact, Facts } from "@/ui/Facts";
 import * as Modal from "@/ui/Modal";
 import { Page, Section } from "@/ui/Page";
-import { useAction } from "@/ui/useAction";
 
 export interface SettingsProps {
   name: string;
@@ -31,7 +29,10 @@ export const Settings = ({ name, email }: SettingsProps): ReactElement => {
   const user = useUser();
   return (
     <Page title="Settings" subtitle={email}>
-      <Section title="Profile" actions={user != null && <EditProfileDialog />}>
+      <Section
+        title="Profile"
+        actions={user != null && <EditProfileDialog user={user} />}
+      >
         <Facts>
           <Fact label="Name" value={name} />
           <Fact label="Email" value={email} />
@@ -46,7 +47,11 @@ const profileSchema = z.object({
   lastName: z.string().trim().min(1, "Enter your last name"),
 });
 
-const EditProfileDialog = (): ReactElement => (
+interface EditProfileDialogProps {
+  user: User;
+}
+
+const EditProfileDialog = ({ user }: EditProfileDialogProps): ReactElement => (
   <Modal.Frame
     name="Edit profile"
     icon={<Icon.User />}
@@ -57,45 +62,30 @@ const EditProfileDialog = (): ReactElement => (
       </Dialog.Trigger>
     }
   >
-    <EditProfileContent />
+    <EditProfileContent user={user} />
   </Modal.Frame>
 );
 
-const EditProfileContent = (): ReactElement => {
-  const user = useUser();
-  const { close } = Dialog.useContext();
+const EditProfileContent = ({ user }: EditProfileDialogProps): ReactElement => {
   const methods = Form.use({
-    values: { firstName: user?.firstName ?? "", lastName: user?.lastName ?? "" },
+    values: { firstName: user.firstName ?? "", lastName: user.lastName ?? "" },
     schema: profileSchema,
   });
-  const action = useAction(async () => {
-    if (user == null || !methods.validate()) return;
-    await user.update(methods.value());
-    close();
-    reload();
-  });
   return (
-    <Form.Form<typeof profileSchema> {...methods}>
-      <Modal.Body gap="medium">
-        <Form.TextField
-          path="firstName"
-          label="First name"
-          inputProps={{ autoFocus: true }}
-        />
-        <Form.TextField path="lastName" label="Last name" />
-      </Modal.Body>
-      <Modal.Footer error={action.error}>
-        <Modal.Cancel />
-        <Button.Button
-          variant="filled"
-          onClick={action.run}
-          status={action.loading ? "loading" : undefined}
-          trigger={["Control", "Enter"]}
-          triggerIndicator
-        >
-          Save
-        </Button.Button>
-      </Modal.Footer>
-    </Form.Form>
+    <Modal.Form
+      methods={methods}
+      submit="Save"
+      onSubmit={async (profile) => {
+        await user.update(profile);
+        reload();
+      }}
+    >
+      <Form.TextField
+        path="firstName"
+        label="First name"
+        inputProps={{ autoFocus: true }}
+      />
+      <Form.TextField path="lastName" label="Last name" />
+    </Modal.Form>
   );
 };

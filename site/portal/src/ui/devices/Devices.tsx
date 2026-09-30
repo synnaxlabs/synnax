@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button } from "@synnaxlabs/lyra/button";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -23,7 +22,6 @@ import { StatusTag } from "@/ui/licenses/StatusTag";
 import * as Modal from "@/ui/Modal";
 import { Empty, Page } from "@/ui/Page";
 import { Row, Table } from "@/ui/Table";
-import { useAction } from "@/ui/useAction";
 
 export interface DevicesProps {
   /** machines are the machines signed in from the Desktop app that hold a seat. */
@@ -99,39 +97,16 @@ const UnlinkDialog = ({ activation }: { activation: Activation }): ReactElement 
       </Dialog.Trigger>
     }
   >
-    <UnlinkContent activation={activation} />
+    <Modal.Confirm
+      question={`Unlink ${machineName(activation)}?`}
+      confirm="Unlink"
+      onConfirm={async () => {
+        await post(`/api/activations/${activation.key}/release`);
+        reload();
+      }}
+    >
+      The Desktop app on that machine stops renewing its license and asks you to sign in
+      again.
+    </Modal.Confirm>
   </Modal.Frame>
 );
-
-const UnlinkContent = ({ activation }: { activation: Activation }): ReactElement => {
-  const { close } = Dialog.useContext();
-  const action = useAction(async () => {
-    await post(`/api/activations/${activation.key}/release`);
-    close();
-    reload();
-  });
-  return (
-    <>
-      <Modal.Body gap="small">
-        <Text.Text level="h4" weight={450}>
-          Unlink {machineName(activation)}?
-        </Text.Text>
-        <Text.Text level="p" color={10}>
-          The Desktop app on that machine stops renewing its license and asks you to
-          sign in again.
-        </Text.Text>
-      </Modal.Body>
-      <Modal.Footer error={action.error}>
-        <Modal.Cancel />
-        <Button.Button
-          variant="filled"
-          status={action.loading ? "loading" : "error"}
-          onClick={action.run}
-          onClickDelay={1000}
-        >
-          Unlink
-        </Button.Button>
-      </Modal.Footer>
-    </>
-  );
-};

@@ -242,46 +242,23 @@ const MachineMenu = ({ activation, label }: MachineMenuProps): ReactElement => {
         visible={releasing}
         onVisibleChange={setReleasing}
       >
-        <ReleaseContent activation={activation} />
+        <Modal.Confirm
+          question={`Release the seat held by ${machineName(activation)}?`}
+          confirm="Release"
+          onConfirm={async () => {
+            await post(`/api/activations/${activation.key}/release`);
+            reload();
+          }}
+        >
+          The Core on that machine loses its license at its next check. Activate it
+          again to give it a new license key.
+        </Modal.Confirm>
       </Modal.Frame>
       <RenameDialog
         activation={activation}
         visible={renaming}
         onVisibleChange={setRenaming}
       />
-    </>
-  );
-};
-
-const ReleaseContent = ({ activation }: { activation: Activation }): ReactElement => {
-  const { close } = Dialog.useContext();
-  const action = useAction(async () => {
-    await post(`/api/activations/${activation.key}/release`);
-    close();
-    reload();
-  });
-  return (
-    <>
-      <Modal.Body gap="small">
-        <Text.Text level="h4" weight={450}>
-          Release the seat held by {machineName(activation)}?
-        </Text.Text>
-        <Text.Text level="p" color={10}>
-          The Core on that machine loses its license at its next check. Activate it
-          again to give it a new license key.
-        </Text.Text>
-      </Modal.Body>
-      <Modal.Footer error={action.error}>
-        <Modal.Cancel />
-        <Button.Button
-          variant="filled"
-          status={action.loading ? "loading" : "error"}
-          onClick={action.run}
-          onClickDelay={1000}
-        >
-          Release
-        </Button.Button>
-      </Modal.Footer>
     </>
   );
 };
@@ -324,42 +301,20 @@ const StaffActions = ({ license: lic, now }: StaffActionsProps): ReactElement =>
             </Dialog.Trigger>
           }
         >
-          <RevokeContent license={lic} />
+          <Modal.Confirm
+            question={`Revoke "${lic.label}"?`}
+            confirm="Hold to revoke"
+            delay={1500}
+            onConfirm={async () => {
+              await post(`/api/licenses/${lic.key}/revoke`);
+              reload();
+            }}
+          >
+            Every Core running under it loses its license at its next check. The
+            organization's admins are emailed. There is no undo.
+          </Modal.Confirm>
         </Modal.Frame>
       )}
-    </>
-  );
-};
-
-const RevokeContent = ({ license: lic }: { license: LicenseRecord }): ReactElement => {
-  const { close } = Dialog.useContext();
-  const action = useAction(async () => {
-    await post(`/api/licenses/${lic.key}/revoke`);
-    close();
-    reload();
-  });
-  return (
-    <>
-      <Modal.Body gap="small">
-        <Text.Text level="h4" weight={450}>
-          Revoke "{lic.label}"?
-        </Text.Text>
-        <Text.Text level="p" color={10}>
-          Every Core running under it loses its license at its next check. The
-          organization's admins are emailed. There is no undo.
-        </Text.Text>
-      </Modal.Body>
-      <Modal.Footer error={action.error}>
-        <Modal.Cancel />
-        <Button.Button
-          variant="filled"
-          status={action.loading ? "loading" : "error"}
-          onClick={action.run}
-          onClickDelay={1500}
-        >
-          Hold to revoke
-        </Button.Button>
-      </Modal.Footer>
     </>
   );
 };
