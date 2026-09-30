@@ -42,8 +42,10 @@ describe("License", () => {
         new Error("license store unavailable"),
       );
       await renderLicense(License.Details, failing);
-      expect(await screen.findByText("Failed to read the license")).toBeTruthy();
-      expect(screen.getByText("license store unavailable")).toBeTruthy();
+      expect(await screen.findByText("Failed to retrieve license")).toBeTruthy();
+      expect(
+        screen.getByText("Failed to retrieve license: license store unavailable"),
+      ).toBeTruthy();
     });
   });
 

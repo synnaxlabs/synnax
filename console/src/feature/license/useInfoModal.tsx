@@ -168,12 +168,7 @@ export const useInfoModal = Modals.create(() => {
       <Modal.Header icon={<Icon.License />}>License</Modal.Header>
       <Modal.Body className={CSS.BE("license-info", "body")} gap="huge">
         {result.variant === "error" ? (
-          <Status.Summary
-            variant="error"
-            level="h4"
-            message="Failed to read the license"
-            description={result.status.details.error.message}
-          />
+          <Status.Summary level="h4" status={result.status} />
         ) : (
           info != null && (
             <Flex.Box y gap="large">
