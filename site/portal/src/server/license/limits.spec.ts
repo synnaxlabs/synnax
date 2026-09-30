@@ -14,16 +14,16 @@ import { filename } from "@/server/license/limits";
 describe("limits", () => {
   describe("filename", () => {
     it("should turn the license label into a file name", () => {
-      expect(filename("Test rig")).toBe("Test-rig.license");
+      expect(filename("Test rig")).toBe("Test-rig.lic");
     });
 
     it("should collapse and trim runs of other characters", () => {
-      expect(filename("  Acme / Rig #2!  ")).toBe("Acme-Rig-2.license");
+      expect(filename("  Acme / Rig #2!  ")).toBe("Acme-Rig-2.lic");
     });
 
     it("should fall back to synnax for a label with nothing usable", () => {
-      expect(filename("")).toBe("synnax.license");
-      expect(filename("///")).toBe("synnax.license");
+      expect(filename("")).toBe("synnax.lic");
+      expect(filename("///")).toBe("synnax.lic");
     });
   });
 });

@@ -16,7 +16,7 @@ export const MAX_NAME_LENGTH = 64;
 export const VERSION_PATTERN = /^\d+\.\d+$/;
 
 /** KEY_FILE_EXTENSION is what the Console's file picker filters on. */
-export const KEY_FILE_EXTENSION = "license";
+export const KEY_FILE_EXTENSION = "lic";
 
 /** filename is the name a license key downloads as, derived from its license label. */
 export const filename = (label: string): string => {

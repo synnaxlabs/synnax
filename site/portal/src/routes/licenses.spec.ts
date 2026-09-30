@@ -551,7 +551,7 @@ describe("license routes", () => {
       );
       const [act] = await store.query.select().from(activation);
       expect(answer.activation).toBe(act.key);
-      expect(answer.filename).toBe("Test-rig.license");
+      expect(answer.filename).toBe("Test-rig.lic");
       expect(readKey(answer.key)).toEqual({
         jti: lic.key,
         iat: seconds(NOW),
@@ -723,7 +723,7 @@ describe("license routes", () => {
       expect(res.status).toBe(200);
       expect(res.headers.get("content-type")).toBe("text/plain; charset=utf-8");
       expect(res.headers.get("content-disposition")).toBe(
-        'attachment; filename="Test-rig.license"',
+        'attachment; filename="Test-rig.lic"',
       );
       const claims = readKey(await res.text());
       expect(claims).toMatchObject({ jti: lic.key, fingerprints: [], machines: 2 });

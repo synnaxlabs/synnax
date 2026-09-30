@@ -23,7 +23,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// The portal's contract spec signs testdata/portal.license with its real claim builder
+// The portal's contract spec signs testdata/portal.lic with its real claim builder
 // and regenerates both fixtures.
 var _ = Describe("Portal license key", func() {
 	var (
@@ -40,7 +40,7 @@ var _ = Describe("Portal license key", func() {
 			"contract": MustSucceed(mldsa.NewPublicKey(mldsa.MLDSA44(), pub)),
 		}
 		key = strings.TrimSpace(string(MustSucceed(os.ReadFile(
-			"testdata/portal.license",
+			"testdata/portal.lic",
 		))))
 	})
 
