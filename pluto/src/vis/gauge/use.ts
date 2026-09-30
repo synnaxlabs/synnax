@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
-import { text } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { type z } from "zod";
 
@@ -17,11 +16,9 @@ import { gauge } from "@/vis/gauge/aether";
 
 export const colorFallback = gauge.colorFallback;
 
-export const basePropsZ = gauge.Gauge.z
-  .partial({ color: true })
-  .extend({ level: text.levelZ.optional() });
+type State = z.input<typeof gauge.Gauge.z>;
 
-export interface UseProps extends z.input<typeof basePropsZ> {
+export interface UseProps extends Omit<State, "color">, Partial<Pick<State, "color">> {
   aetherKey: string;
 }
 

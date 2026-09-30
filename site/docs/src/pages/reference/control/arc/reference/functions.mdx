@@ -12,7 +12,7 @@ nextURL: "/reference/control/arc/reference/statements"
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Note } from "@synnaxlabs/lyra/note";
-import { Arc } from "@/components";
+import { Arc } from "@/components/arc";
 import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
@@ -161,7 +161,7 @@ sensor -> split{} -> {
 Arc has two calling conventions depending on context: parentheses inside function
 bodies, and braces to instantiate a function in a flow statement.
 
-<Arc.Tabs client:load>
+<Arc.Tabs>
 
 <Fragment slot="flow">
 

@@ -15,8 +15,6 @@ import { type ReactElement, useMemo } from "react";
 
 import { Primitive } from "@/schematic/node/common/primitive";
 
-export const DEFAULT_POLYGON_SIDE_LENGTH = 20;
-
 interface RenderProps extends Omit<
   schematic.PolygonNodeConfig,
   "variant" | "label" | "scale"

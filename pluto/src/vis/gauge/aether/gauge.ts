@@ -19,16 +19,6 @@ import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
 import { staleness } from "@/vis/staleness/aether";
 
-export const GAUGE_SIZES = {
-  small: 80,
-  medium: 120,
-  large: 160,
-  huge: 200,
-} as const;
-
-export type GaugeSize = keyof typeof GAUGE_SIZES;
-export const gaugeSizeZ = z.enum(["small", "medium", "large", "huge"]);
-
 const gaugeState = staleness.configZ.extend({
   box: box.box,
   telem: telem.stringSourceSpecZ.default(telem.noopStringSourceSpec),
@@ -51,10 +41,6 @@ export const colorFallback = (theme: theme.Theme): color.Color =>
   theme.colors.visualization.palettes.default[0];
 
 const CANVAS_VARIANTS: render.Canvas2DVariant[] = ["upper2d", "lower2d"];
-
-export interface GaugeProps {
-  scale?: scale.XY;
-}
 
 interface InternalState {
   theme: theme.Theme;

@@ -49,8 +49,8 @@ interface OptionalValueProps extends BaseProps {
   onChange?: (value?: color.Color) => void;
   /**
    * The color the theme paints while the value is absent. Setting it makes the value
-   * optional: the picker offers an Auto button that clears it, and the swatch marks
-   * when it shows the fallback.
+   * optional: the picker offers an Auto button that clears it, and a swatch larger
+   * than tiny marks when it shows the fallback.
    */
   fallback: color.Crude;
 }
@@ -74,6 +74,7 @@ export const Swatch = ({
   fallback,
   visible: propsVisible,
   className,
+  size,
   ...rest
 }: SwatchProps): ReactElement => {
   // Only an OptionalValueProps caller sets a fallback, and only then does the picker
@@ -123,9 +124,10 @@ export const Swatch = ({
         shownMixed && CSS.M("mixed"),
         className,
       )}
+      size={size}
       {...rest}
     >
-      {auto && <Icon.Auto />}
+      {auto && size !== "tiny" && <Icon.Auto />}
     </BaseSwatch>
   );
   if (onChange == null) return swatch;

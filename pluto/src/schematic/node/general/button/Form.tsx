@@ -26,7 +26,7 @@ type ButtonTelemFormT = Pick<
   "commandChannel" | "control" | "mode"
 >;
 
-export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
+const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } = Base.useField<ButtonTelemFormT>(path);
   const handleSinkChange = (v: channel.Key): void =>
     onChange({

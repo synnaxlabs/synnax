@@ -7,17 +7,69 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { NotFoundError, schematic } from "@synnaxlabs/client";
 import { describe, expect, it } from "vitest";
 
 import { GroupBox } from "@/schematic/node/groupBox";
 import {
   createConfig,
   CUSTOM_VARIANTS,
+  isConfig,
+  isCustomConfig,
   isCustomVariant,
   REGISTRY,
   resolveSpec,
   STATIC_SPECS,
 } from "@/schematic/node/registry";
+
+describe("Schematic.Node.resolveSpec", () => {
+  it("should return the registered spec for a variant", () => {
+    expect(resolveSpec("tank")).toBe(REGISTRY.tank);
+  });
+
+  it("should throw NotFoundError for an unknown variant", () => {
+    expect(() => resolveSpec("not-a-symbol")).toThrow(NotFoundError);
+  });
+});
+
+describe("Schematic.Node.isConfig", () => {
+  it("should accept a node config", () => {
+    expect(isConfig(createConfig({ variant: "tank" }))).toBe(true);
+  });
+
+  it("should accept a group box config", () => {
+    expect(isConfig(createConfig({ variant: GroupBox.VARIANT }))).toBe(true);
+  });
+
+  it("should reject an edge config", () => {
+    expect(isConfig(schematic.pipeEdgeConfigZ.parse({ variant: "pipe" }))).toBe(false);
+  });
+});
+
+describe("Schematic.Node.isCustomVariant", () => {
+  it("should accept every custom variant", () => {
+    for (const variant of CUSTOM_VARIANTS) expect(isCustomVariant(variant)).toBe(true);
+  });
+
+  it("should reject a built-in variant", () => {
+    expect(isCustomVariant("tank")).toBe(false);
+  });
+
+  it("should reject an unset variant", () => {
+    expect(isCustomVariant(undefined)).toBe(false);
+  });
+});
+
+describe("Schematic.Node.isCustomConfig", () => {
+  it("should accept a custom symbol config", () => {
+    const config = createConfig({ variant: "custom_static", specKey: "spec-1" });
+    expect(isCustomConfig(config)).toBe(true);
+  });
+
+  it("should reject a built-in symbol config", () => {
+    expect(isCustomConfig(createConfig({ variant: "tank" }))).toBe(false);
+  });
+});
 
 describe("Schematic.Node.STATIC_SPECS", () => {
   it("should not include custom variants", () => {
