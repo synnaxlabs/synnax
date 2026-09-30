@@ -7,22 +7,22 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-name: Test - Copyright headers
+name: Nightly
 
 on:
-  workflow_call:
+  schedule:
+    - cron: "0 4 * * *" # 4am UTC
   workflow_dispatch:
 
-concurrency:
-  group: copyright-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+permissions:
+  actions: read
+  contents: write
+  packages: write
 
 jobs:
-  test:
-    name: Check copyright headers
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Check copyright headers
-        run: ./scripts/check_copyrights.sh
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yaml
+    with:
+      full: true
+    secrets: inherit
