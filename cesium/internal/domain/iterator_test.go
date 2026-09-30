@@ -500,6 +500,21 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					Expect(db.Close()).To(Succeed())
 				})
 
+				It("Should release the db only once when closed twice", func() {
+					fs := openFS()
+					db := MustSucceed(domain.Open(domain.Config{
+						FS:              fs,
+						Instrumentation: PanicLogger(),
+					}))
+					first := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
+					second := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
+					Expect(first.Close()).To(Succeed())
+					Expect(first.Close()).To(Succeed())
+					Expect(db.Close()).To(MatchError(resource.ErrOpen))
+					Expect(second.Close()).To(Succeed())
+					Expect(db.Close()).To(Succeed())
+				})
+
 				It("Should allocate at most the iterator", func() {
 					var err error
 					allocs := testing.AllocsPerRun(100, func() {

@@ -196,8 +196,11 @@ func (i *Iterator) OpenReader(ctx context.Context) (*Reader, error) {
 // Size returns the number of bytes occupied by the telemetry in the current domain.
 func (i *Iterator) Size() telem.Size { return telem.Size(i.currPtr.size) }
 
-// Close closes the iterator.
+// Close closes the iterator. Close is idempotent.
 func (i *Iterator) Close() error {
+	if i.closed {
+		return nil
+	}
 	i.closed = true
 	i.valid = false
 	i.db.resourceCount.Add(-1)
