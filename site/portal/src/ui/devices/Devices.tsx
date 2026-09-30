@@ -27,73 +27,70 @@ import { Row, Table } from "@/ui/Table";
 export interface DevicesProps {
   /** machines are the machines logged in from the Desktop app that hold a seat. */
   machines: Machine[];
-  now: Date | string;
+  now: Date;
 }
 
 const COLUMNS = "minmax(0, 2fr) 14rem 16rem 16rem 18rem";
 
 /** validity says how much longer a machine keeps working. */
-const validity = (lic: License, at: Date): string =>
-  statusOf(lic, at) === "expired"
+const validity = (lic: License, now: Date): string =>
+  statusOf(lic, now) === "expired"
     ? `Expired ${date(lic.expiresAt)}. Open the app on that machine to renew.`
     : `Valid until ${date(lic.expiresAt)}`;
 
 /** Devices lists the machines a personal user logged in from Synnax Desktop. */
-export const Devices = ({ machines, now }: DevicesProps): ReactElement => {
-  const at = new Date(now);
-  return (
-    <Page title="Devices" subtitle="Machines logged in from Synnax Desktop">
-      {machines.length === 0 ? (
-        <Empty
-          icon={<Icon.Computer />}
-          message="No machines yet"
-          description="Log in from the Synnax Desktop app and the machine appears here"
-          action={
-            <Button.Button variant="filled" href={DOWNLOAD_URL}>
-              <Icon.Download />
-              Download Synnax Desktop
-            </Button.Button>
-          }
-        />
-      ) : (
-        <Table
-          columns={COLUMNS}
-          head={["Machine", "Status", "First seen", "Last renewal", ""]}
-        >
-          {machines.map(({ activation: a, license: lic }) => (
-            <Row key={a.key} columns={COLUMNS}>
-              <Flex.Box y gap="tiny" style={{ minWidth: 0 }}>
-                <Text.Text level="p" overflow="ellipsis">
-                  {machineName(a)}
-                </Text.Text>
-                <Text.Text level="small" color={9} overflow="ellipsis">
-                  {validity(lic, at)}
-                </Text.Text>
-              </Flex.Box>
-              <Flex.Box>
-                <StatusTag status={statusOf(lic, at)} />
-              </Flex.Box>
-              <Text.Text level="p" color={9}>
-                {date(a.firstSeen)}
+export const Devices = ({ machines, now }: DevicesProps): ReactElement => (
+  <Page title="Devices" subtitle="Machines logged in from Synnax Desktop">
+    {machines.length === 0 ? (
+      <Empty
+        icon={<Icon.Computer />}
+        message="No machines yet"
+        description="Log in from the Synnax Desktop app and the machine appears here"
+        action={
+          <Button.Button variant="filled" href={DOWNLOAD_URL}>
+            <Icon.Download />
+            Download Synnax Desktop
+          </Button.Button>
+        }
+      />
+    ) : (
+      <Table
+        columns={COLUMNS}
+        head={["Machine", "Status", "First seen", "Last renewal", ""]}
+      >
+        {machines.map(({ activation: a, license: lic }) => (
+          <Row key={a.key} columns={COLUMNS}>
+            <Flex.Box y gap="tiny" className="portal-list__stack">
+              <Text.Text level="p" overflow="ellipsis">
+                {machineName(a)}
               </Text.Text>
-              <Text.Text level="p" color={9}>
-                {date(a.lastSeen)}
+              <Text.Text level="small" color={9} overflow="ellipsis">
+                {validity(lic, now)}
               </Text.Text>
-              <Flex.Box x justify="end" gap="small">
-                <RenameDialog
-                  activation={a}
-                  trigger={
-                    <Dialog.Trigger variant="text" size="small" hideCaret>
-                      Rename
-                    </Dialog.Trigger>
-                  }
-                />
-                <LogOutDialog activation={a} />
-              </Flex.Box>
-            </Row>
-          ))}
-        </Table>
-      )}
-    </Page>
-  );
-};
+            </Flex.Box>
+            <Flex.Box>
+              <StatusTag status={statusOf(lic, now)} />
+            </Flex.Box>
+            <Text.Text level="p" color={9}>
+              {date(a.firstSeen)}
+            </Text.Text>
+            <Text.Text level="p" color={9}>
+              {date(a.lastSeen)}
+            </Text.Text>
+            <Flex.Box x justify="end" gap="small">
+              <RenameDialog
+                activation={a}
+                trigger={
+                  <Dialog.Trigger variant="text" size="small" hideCaret>
+                    Rename
+                  </Dialog.Trigger>
+                }
+              />
+              <LogOutDialog activation={a} />
+            </Flex.Box>
+          </Row>
+        ))}
+      </Table>
+    )}
+  </Page>
+);

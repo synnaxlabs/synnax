@@ -12,7 +12,7 @@ import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { useClerk, useUser } from "@/ui/clerk";
 
@@ -20,13 +20,13 @@ import { useClerk, useUser } from "@/ui/clerk";
 export const Account = (): ReactElement | null => {
   const clerk = useClerk();
   const user = useUser();
-  const logout = useCallback(() => {
+  const logout = (): void => {
     if (clerk == null) return;
     void clerk.signOut(() => {
       window.location.assign("/");
       return Promise.resolve();
     });
-  }, [clerk]);
+  };
   if (user == null) return null;
   const name = user.fullName ?? user.primaryEmailAddress?.emailAddress ?? "";
   return (
@@ -39,14 +39,8 @@ export const Account = (): ReactElement | null => {
       >
         <Avatar.Avatar name={name} image={user.hasImage ? user.imageUrl : undefined} />
       </Dialog.Trigger>
-      <Dialog.Dialog
-        bordered
-        rounded
-        background={1}
-        className="portal-menu"
-        style={{ padding: "1rem", minWidth: "24rem" }}
-      >
-        <Text.Text level="small" color={9} style={{ padding: "1rem 2rem" }}>
+      <Dialog.Dialog bordered rounded background={1} className="portal-menu">
+        <Text.Text level="small" color={9} className="portal-menu__name">
           {name}
         </Text.Text>
         <Menu.Menu

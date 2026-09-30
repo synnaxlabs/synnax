@@ -12,8 +12,9 @@ import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement, useCallback, useState } from "react";
+import { type ReactElement, useState } from "react";
 
 import {
   type Activation,
@@ -21,6 +22,7 @@ import {
   type License as LicenseRecord,
   type Organization,
 } from "@/server/db/schema";
+import { filename } from "@/server/license/limits";
 import { post, postFile, reload, save } from "@/ui/api";
 import { Fact, Facts } from "@/ui/Facts";
 import {
@@ -52,7 +54,7 @@ export interface LicenseProps {
   /** actors is the name each Clerk user id in `events` reads as. */
   actors: Record<string, string>;
   staff: boolean;
-  now: Date | string;
+  now: Date;
 }
 
 const MACHINE_COLUMNS = "minmax(0, 2fr) 12rem 12rem 6rem";
@@ -67,8 +69,7 @@ export const License = ({
   staff,
   now,
 }: LicenseProps): ReactElement => {
-  const at = new Date(now);
-  const status = statusOf(lic, at);
+  const status = statusOf(lic, now);
   const held = activations.filter((a) => a.releasedAt == null);
   const released = activations.filter((a) => a.releasedAt != null);
   const machines = Object.fromEntries(activations.map((a) => [a.key, machineName(a)]));
@@ -154,7 +155,7 @@ export const License = ({
           <Flex.Box y gap="small">
             {events.map((e) => (
               <Flex.Box key={e.key} x gap="medium" align="start">
-                <Text.Text level="small" color={9} style={{ minWidth: "18rem" }}>
+                <Text.Text level="small" color={9} className="portal-activity__time">
                   {dateTime(e.at)}
                 </Text.Text>
                 <Text.Text level="small" color={10}>
@@ -195,16 +196,17 @@ interface MachineMenuProps {
 const MachineMenu = ({ activation, label }: MachineMenuProps): ReactElement => {
   const [releasing, setReleasing] = useState(false);
   const [renaming, setRenaming] = useState(false);
-  const download = useAction(
-    useCallback(async () => {
-      const blob = await postFile(`/api/activations/${activation.key}/download`);
-      save(blob, `${label || "synnax"}.license`);
-    }, [activation.key, label]),
-  );
-  const release = useCallback(() => setReleasing(true), []);
-  const rename = useCallback(() => setRenaming(true), []);
+  const download = useAction(async () => {
+    const blob = await postFile(`/api/activations/${activation.key}/download`);
+    save(blob, filename(label));
+  });
+  const release = (): void => setReleasing(true);
+  const rename = (): void => setRenaming(true);
   return (
     <>
+      {download.error != null && (
+        <Status.Summary variant="error" level="small" message={download.error} />
+      )}
       <Dialog.Frame variant="floating" location={{ x: "right", y: "bottom" }}>
         <Dialog.Trigger
           variant="text"
@@ -214,7 +216,7 @@ const MachineMenu = ({ activation, label }: MachineMenuProps): ReactElement => {
         >
           <Icon.KebabMenu />
         </Dialog.Trigger>
-        <Dialog.Dialog bordered rounded background={1} style={{ padding: "1rem" }}>
+        <Dialog.Dialog bordered rounded background={1} className="portal-machine-menu">
           <Menu.Menu
             level="small"
             onChange={{ download: download.run, rename, release }}
@@ -253,13 +255,11 @@ const MachineMenu = ({ activation, label }: MachineMenuProps): ReactElement => {
 
 const ReleaseContent = ({ activation }: { activation: Activation }): ReactElement => {
   const { close } = Dialog.useContext();
-  const action = useAction(
-    useCallback(async () => {
-      await post(`/api/activations/${activation.key}/release`);
-      close();
-      await reload();
-    }, [activation.key, close]),
-  );
+  const action = useAction(async () => {
+    await post(`/api/activations/${activation.key}/release`);
+    close();
+    reload();
+  });
   return (
     <>
       <Modal.Body gap="small">
@@ -292,14 +292,15 @@ interface StaffActionsProps {
 }
 
 const StaffActions = ({ license: lic, status }: StaffActionsProps): ReactElement => {
-  const floating = useAction(
-    useCallback(async () => {
-      const blob = await postFile(`/api/licenses/${lic.key}/floating`);
-      save(blob, `${lic.label || "synnax"}.license`);
-    }, [lic.key, lic.label]),
-  );
+  const floating = useAction(async () => {
+    const blob = await postFile(`/api/licenses/${lic.key}/floating`);
+    save(blob, filename(lic.label));
+  });
   return (
     <>
+      {floating.error != null && (
+        <Status.Summary variant="error" level="small" message={floating.error} />
+      )}
       {status !== "revoked" && <EditDialog license={lic} />}
       {usable(status) && (
         <Button.Button
@@ -332,13 +333,11 @@ const StaffActions = ({ license: lic, status }: StaffActionsProps): ReactElement
 
 const RevokeContent = ({ license: lic }: { license: LicenseRecord }): ReactElement => {
   const { close } = Dialog.useContext();
-  const action = useAction(
-    useCallback(async () => {
-      await post(`/api/licenses/${lic.key}/revoke`);
-      close();
-      await reload();
-    }, [lic.key, close]),
-  );
+  const action = useAction(async () => {
+    await post(`/api/licenses/${lic.key}/revoke`);
+    close();
+    reload();
+  });
   return (
     <>
       <Modal.Body gap="small">

@@ -7,28 +7,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback, useState } from "react";
+import { useState } from "react";
 
-import { message } from "@/ui/api";
+import { errorMessage } from "@/ui/clerk";
 
-export interface Action {
-  run: () => void;
+export interface Action<A extends unknown[] = []> {
+  run: (...args: A) => void;
   loading: boolean;
   error: string | null;
-  clear: () => void;
 }
 
 /** useAction runs an async handler, tracking its loading state and last error. */
-export const useAction = (handler: () => Promise<void>): Action => {
+export const useAction = <A extends unknown[] = []>(
+  handler: (...args: A) => Promise<void>,
+): Action<A> => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const run = useCallback(() => {
+  const run = (...args: A): void => {
     setLoading(true);
     setError(null);
-    handler()
-      .catch((err: unknown) => setError(message(err)))
+    handler(...args)
+      .catch((err: unknown) => setError(errorMessage(err)))
       .finally(() => setLoading(false));
-  }, [handler]);
-  const clear = useCallback(() => setError(null), []);
-  return { run, loading, error, clear };
+  };
+  return { run, loading, error };
 };

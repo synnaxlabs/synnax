@@ -9,26 +9,25 @@
 
 import { Button } from "@synnaxlabs/lyra/button";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
-import { Modal as PModal } from "@synnaxlabs/lyra/modal";
+import { Modal as Base } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { type PropsWithChildren, type ReactElement, type ReactNode } from "react";
 
-export interface FrameProps extends PropsWithChildren {
+export interface FrameProps
+  extends PropsWithChildren, Pick<Dialog.FrameProps, "visible" | "onVisibleChange"> {
   /** trigger opens the modal. Leave it out to control visibility from outside. */
   trigger?: ReactNode;
-  visible?: boolean;
-  onVisibleChange?: Dialog.FrameProps["onVisibleChange"];
   /** name is the modal's title. Dots split it into breadcrumb segments. */
   name: string;
-  icon?: PModal.HeaderProps["icon"];
+  icon?: Base.HeaderProps["icon"];
   className?: string;
 }
 
 /**
- * Frame is a portal modal: the Pluto modal anatomy under the portal's density scope,
+ * Frame is a portal modal: the Lyra modal anatomy under the portal's density scope,
  * opened by `trigger`. Children render inside the dialog and read
  * `Dialog.useContext().close` to dismiss it.
  */
@@ -43,14 +42,14 @@ export const Frame = ({
 }: FrameProps): ReactElement => (
   <Dialog.Frame variant="modal" visible={visible} onVisibleChange={onVisibleChange}>
     {trigger}
-    <PModal.Frame className={`portal-modal ${className ?? ""}`}>
-      <PModal.Header icon={icon}>{name}</PModal.Header>
+    <Base.Frame className={`portal-modal ${className ?? ""}`}>
+      <Base.Header icon={icon}>{name}</Base.Header>
       {children}
-    </PModal.Frame>
+    </Base.Frame>
   </Dialog.Frame>
 );
 
-export const Body = PModal.Body;
+export const Body = Base.Body;
 
 export interface FooterProps {
   /** error reads at the start of the footer when set. */
@@ -63,7 +62,7 @@ export interface FooterProps {
 
 /** Footer is the modal's action bar. Put the primary action last. */
 export const Footer = ({ error, hint, children }: FooterProps): ReactElement => (
-  <PModal.Footer>
+  <Base.Footer>
     {error != null ? (
       <Nav.Bar.Start>
         <Status.Summary variant="error" level="small" message={error} />
@@ -80,7 +79,7 @@ export const Footer = ({ error, hint, children }: FooterProps): ReactElement => 
     <Nav.Bar.End x align="center" gap="small">
       {children}
     </Nav.Bar.End>
-  </PModal.Footer>
+  </Base.Footer>
 );
 
 /** Cancel closes the enclosing modal. */

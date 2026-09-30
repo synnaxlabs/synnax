@@ -125,6 +125,17 @@ describe("format.describeEvent", () => {
     expect(describeEvent(e, NAMES)).toBe("License renewed: Test stand");
   });
 
+  it("should read a denial reason in words", () => {
+    const e = eventOf({
+      kind: "activate_denied",
+      activation: MACHINE,
+      detail: { reason: "no_seats" },
+    });
+    expect(describeEvent(e, NAMES)).toBe(
+      "Activation denied: Test stand by Ada (no free seat)",
+    );
+  });
+
   it("should leave out an actor no name is known for", () => {
     const e = eventOf({ kind: "expiry_notice", actor: "cron" });
     expect(describeEvent(e, NAMES)).toBe("Expiry notice sent");
@@ -137,7 +148,7 @@ describe("format.describeEvent", () => {
       detail: { reason: "superseded" },
     });
     expect(describeEvent(e, NAMES)).toBe(
-      "Machine logged out: Test stand by Ada (superseded)",
+      "Machine logged out: Test stand by Ada (logged in again)",
     );
   });
 });

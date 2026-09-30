@@ -10,15 +10,14 @@
 import { Button } from "@synnaxlabs/lyra/button";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Input } from "@synnaxlabs/lyra/input";
 import { Text } from "@synnaxlabs/lyra/text";
 import { navigate } from "astro:transitions/client";
-import { type ReactElement, useCallback, useState } from "react";
+import { type ReactElement, useState } from "react";
 import { z } from "zod";
 
 import { Card } from "@/ui/auth/Card";
-import { target, withTarget } from "@/ui/auth/redirect";
-import { errorMessage, useClerk } from "@/ui/clerk";
+import { withTarget } from "@/ui/auth/redirect";
+import { useClerk } from "@/ui/clerk";
 import { useAction } from "@/ui/useAction";
 
 const emailSchema = z.object({ email: z.email("Enter your email address") });
@@ -30,8 +29,13 @@ const resetSchema = z.object({
 
 type Step = "email" | "reset";
 
+export interface ResetProps {
+  /** target is where to land after setting the new password. */
+  target: string;
+}
+
 /** Reset lets a user set a new password with a code sent to their email. */
-export const Reset = (): ReactElement => {
+export const Reset = ({ target }: ResetProps): ReactElement => {
   const clerk = useClerk();
   const [step, setStep] = useState<Step>("email");
   const emailMethods = Form.use({ values: { email: "" }, schema: emailSchema });
@@ -40,51 +44,39 @@ export const Reset = (): ReactElement => {
     schema: resetSchema,
   });
 
-  const send = useAction(
-    useCallback(async () => {
-      if (clerk?.client == null || !emailMethods.validate()) return;
-      try {
-        const res = await clerk.client.signIn.create({
-          identifier: emailMethods.value().email,
-        });
-        const factor = res.supportedFirstFactors?.find(
-          (f) => f.strategy === "reset_password_email_code",
-        );
-        if (factor == null || factor.strategy !== "reset_password_email_code")
-          throw new Error("This account cannot reset its password by email");
-        await res.prepareFirstFactor({
-          strategy: "reset_password_email_code",
-          emailAddressId: factor.emailAddressId,
-        });
-        setStep("reset");
-      } catch (err) {
-        throw new Error(errorMessage(err), { cause: err });
-      }
-    }, [clerk, emailMethods]),
-  );
+  const send = useAction(async () => {
+    if (clerk?.client == null || !emailMethods.validate()) return;
+    const res = await clerk.client.signIn.create({
+      identifier: emailMethods.value().email,
+    });
+    const factor = res.supportedFirstFactors?.find(
+      (f) => f.strategy === "reset_password_email_code",
+    );
+    if (factor?.strategy !== "reset_password_email_code")
+      throw new Error("This account cannot reset its password by email");
+    await res.prepareFirstFactor({
+      strategy: "reset_password_email_code",
+      emailAddressId: factor.emailAddressId,
+    });
+    setStep("reset");
+  });
 
-  const reset = useAction(
-    useCallback(async () => {
-      if (clerk?.client == null || !resetMethods.validate()) return;
-      const { code, password } = resetMethods.value();
-      try {
-        const res = await clerk.client.signIn.attemptFirstFactor({
-          strategy: "reset_password_email_code",
-          code,
-          password,
-        });
-        if (res.status !== "complete" || res.createdSessionId == null)
-          throw new Error("That code did not work");
-        await clerk.setActive({ session: res.createdSessionId });
-        await navigate(target());
-      } catch (err) {
-        throw new Error(errorMessage(err), { cause: err });
-      }
-    }, [clerk, resetMethods]),
-  );
+  const reset = useAction(async () => {
+    if (clerk?.client == null || !resetMethods.validate()) return;
+    const { code, password } = resetMethods.value();
+    const res = await clerk.client.signIn.attemptFirstFactor({
+      strategy: "reset_password_email_code",
+      code,
+      password,
+    });
+    if (res.status !== "complete" || res.createdSessionId == null)
+      throw new Error("That code did not work");
+    await clerk.setActive({ session: res.createdSessionId });
+    await navigate(target);
+  });
 
   const footer = (
-    <Text.Text el="a" level="small" variant="link" href={withTarget("/login")}>
+    <Text.Text el="a" level="small" variant="link" href={withTarget("/login", target)}>
       Back to log in
     </Text.Text>
   );
@@ -105,14 +97,13 @@ export const Reset = (): ReactElement => {
             padHelpText={false}
             inputProps={{ autoFocus: true, autoComplete: "one-time-code" }}
           />
-          <Form.Field<string>
+          <Form.TextField
             path="password"
             label="New password"
             required={false}
             padHelpText={false}
-          >
-            {(p) => <Input.Text {...p} type="password" autoComplete="new-password" />}
-          </Form.Field>
+            inputProps={{ type: "password", autoComplete: "new-password" }}
+          />
           <Button.Button
             variant="filled"
             size="large"
@@ -136,14 +127,13 @@ export const Reset = (): ReactElement => {
       footer={footer}
     >
       <Form.Form<typeof emailSchema> {...emailMethods}>
-        <Form.Field<string>
+        <Form.TextField
           path="email"
           label="Email"
           required={false}
           padHelpText={false}
-        >
-          {(p) => <Input.Text {...p} type="email" autoComplete="email" autoFocus />}
-        </Form.Field>
+          inputProps={{ type: "email", autoComplete: "email", autoFocus: true }}
+        />
         <Button.Button
           variant="filled"
           size="large"

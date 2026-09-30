@@ -12,22 +12,18 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
-import { type License, type Organization } from "@/server/db/schema";
+import { type Organization } from "@/server/db/schema";
+import { type Held } from "@/server/license/list";
 import { channels, date, edition, statusOf, term, usable } from "@/ui/format";
 import { ActivateDialog } from "@/ui/licenses/ActivateDialog";
 import { StatusTag } from "@/ui/licenses/StatusTag";
 import { Empty, Page } from "@/ui/Page";
 import { Row, Table } from "@/ui/Table";
 
-export interface LicenseRow {
-  license: License;
-  seats: number;
-}
-
 export interface LicensesProps {
   organization: Organization;
-  licenses: LicenseRow[];
-  now: Date | string;
+  licenses: Held[];
+  now: Date;
 }
 
 const COLUMNS = "minmax(0, 2fr) 14rem 10rem minmax(0, 1.4fr) 10rem 3rem";
@@ -38,8 +34,7 @@ export const Licenses = ({
   licenses,
   now,
 }: LicensesProps): ReactElement => {
-  const at = new Date(now);
-  const activatable = licenses.filter((l) => usable(statusOf(l.license, at)));
+  const activatable = licenses.filter((l) => usable(statusOf(l.license, now)));
   return (
     <Page
       title="Licenses"
@@ -66,7 +61,7 @@ export const Licenses = ({
         >
           {licenses.map(({ license: lic, seats }) => (
             <Row key={lic.key} columns={COLUMNS} href={`/licenses/${lic.key}`}>
-              <Flex.Box y gap="tiny" style={{ minWidth: 0 }}>
+              <Flex.Box y gap="tiny" className="portal-list__stack">
                 <Text.Text level="p" weight={500} overflow="ellipsis">
                   {lic.label || "Untitled license"}
                 </Text.Text>
@@ -75,7 +70,7 @@ export const Licenses = ({
                 </Text.Text>
               </Flex.Box>
               <Flex.Box>
-                <StatusTag status={statusOf(lic, at)} />
+                <StatusTag status={statusOf(lic, now)} />
               </Flex.Box>
               <Text.Text level="p" color={9}>
                 {seats} of {lic.nodes}

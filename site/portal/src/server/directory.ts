@@ -29,6 +29,7 @@ export interface Team extends Listed {
 
 /** ADMIN_ROLE is Clerk's role for members who manage a team. */
 export const ADMIN_ROLE = "org:admin";
+export const MEMBER_ROLE = "org:member";
 
 /** Directory reads the people and organizations Clerk holds. */
 export interface Directory {

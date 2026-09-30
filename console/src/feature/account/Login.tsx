@@ -43,9 +43,9 @@ const useOnline = (): boolean => {
 type Stage = "idle" | "waiting" | "file";
 
 /**
- * Full-screen login surface for Synnax Desktop. Sends the person to the hub in
- * their browser and waits for the link the hub opens the app with; a license file
- * is the fallback.
+ * Full-screen login surface for Synnax Desktop. Sends the person to the hub in their
+ * browser and waits for the link the hub opens the app with; a license file is the
+ * fallback.
  */
 export const Login = (): ReactElement => {
   const [stage, setStage] = useState<Stage>("idle");
@@ -59,7 +59,7 @@ interface HandoffProps {
 }
 
 const Handoff = ({ stage, onStage }: HandoffProps): ReactElement => {
-  const { email } = Session.Account.useSelect();
+  const email = Session.Account.useSelectEmail();
   const dispatch = Session.useDispatch();
   const handleError = Status.useErrorHandler();
   const { info } = License.useInfo();

@@ -34,19 +34,17 @@ export interface RenewDeps {
   interval: TimeSpan;
 }
 
-const DEFAULT_DEPS: RenewDeps = { renew, interval: CHECK_INTERVAL };
-
 /**
- * Keeps a linked machine licensed: on launch and on an interval, renews through the
- * hub once the license is within a week of its expiry, or missing. A machine the
- * hub has unlinked forgets its account.
+ * Keeps a linked machine licensed: on launch and on an interval, renews through the hub
+ * once the license is within a week of its expiry, or missing. A machine the hub has
+ * unlinked forgets its account.
  */
 export const useRenew = ({
-  renew: renewKey = DEFAULT_DEPS.renew,
-  interval = DEFAULT_DEPS.interval,
+  renew: renewKey = renew,
+  interval = CHECK_INTERVAL,
 }: Partial<RenewDeps> = {}): void => {
   const client = Synnax.use();
-  const { secret } = Session.Account.useSelect();
+  const secret = Session.Account.useSelectSecret();
   const dispatch = Session.useDispatch();
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();

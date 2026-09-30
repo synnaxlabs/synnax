@@ -10,16 +10,15 @@
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
-import { Input } from "@synnaxlabs/lyra/input";
 import { Text } from "@synnaxlabs/lyra/text";
 import { navigate } from "astro:transitions/client";
-import { type ReactElement, useCallback, useState } from "react";
+import { type ReactElement, useState } from "react";
 import { z } from "zod";
 
 import { Card } from "@/ui/auth/Card";
 import { OAuth } from "@/ui/auth/OAuth";
-import { target, withTarget } from "@/ui/auth/redirect";
-import { errorMessage, useClerk } from "@/ui/clerk";
+import { withTarget } from "@/ui/auth/redirect";
+import { useClerk } from "@/ui/clerk";
 import { useAction } from "@/ui/useAction";
 
 const schema = z.object({
@@ -33,8 +32,13 @@ const codeSchema = z.object({ code: z.string().trim().min(1, "Enter the code") }
 
 type Step = "details" | "verify";
 
+export interface SignUpProps {
+  /** target is where to land after signing up. */
+  target: string;
+}
+
 /** SignUp creates an account with email and password, Google, or Microsoft. */
-export const SignUp = (): ReactElement => {
+export const SignUp = ({ target }: SignUpProps): ReactElement => {
   const clerk = useClerk();
   const [step, setStep] = useState<Step>("details");
   const [oauthError, setOAuthError] = useState<string | null>(null);
@@ -44,43 +48,31 @@ export const SignUp = (): ReactElement => {
   });
   const codeMethods = Form.use({ values: { code: "" }, schema: codeSchema });
 
-  const create = useAction(
-    useCallback(async () => {
-      if (clerk?.client == null || !methods.validate()) return;
-      const { firstName, lastName, email, password } = methods.value();
-      try {
-        await clerk.client.signUp.create({
-          firstName,
-          lastName,
-          emailAddress: email,
-          password,
-        });
-        await clerk.client.signUp.prepareEmailAddressVerification({
-          strategy: "email_code",
-        });
-        setStep("verify");
-      } catch (err) {
-        throw new Error(errorMessage(err), { cause: err });
-      }
-    }, [clerk, methods]),
-  );
+  const create = useAction(async () => {
+    if (clerk?.client == null || !methods.validate()) return;
+    const { firstName, lastName, email, password } = methods.value();
+    await clerk.client.signUp.create({
+      firstName,
+      lastName,
+      emailAddress: email,
+      password,
+    });
+    await clerk.client.signUp.prepareEmailAddressVerification({
+      strategy: "email_code",
+    });
+    setStep("verify");
+  });
 
-  const verify = useAction(
-    useCallback(async () => {
-      if (clerk?.client == null || !codeMethods.validate()) return;
-      try {
-        const res = await clerk.client.signUp.attemptEmailAddressVerification({
-          code: codeMethods.value().code,
-        });
-        if (res.status !== "complete" || res.createdSessionId == null)
-          throw new Error("That code did not work");
-        await clerk.setActive({ session: res.createdSessionId });
-        await navigate(target());
-      } catch (err) {
-        throw new Error(errorMessage(err), { cause: err });
-      }
-    }, [clerk, codeMethods]),
-  );
+  const verify = useAction(async () => {
+    if (clerk?.client == null || !codeMethods.validate()) return;
+    const res = await clerk.client.signUp.attemptEmailAddressVerification({
+      code: codeMethods.value().code,
+    });
+    if (res.status !== "complete" || res.createdSessionId == null)
+      throw new Error("That code did not work");
+    await clerk.setActive({ session: res.createdSessionId });
+    await navigate(target);
+  });
 
   if (step === "verify")
     return (
@@ -120,13 +112,18 @@ export const SignUp = (): ReactElement => {
       footer={
         <Text.Text level="small" color={9}>
           Already have an account?{" "}
-          <Text.Text el="a" level="small" variant="link" href={withTarget("/login")}>
+          <Text.Text
+            el="a"
+            level="small"
+            variant="link"
+            href={withTarget("/login", target)}
+          >
             Log in
           </Text.Text>
         </Text.Text>
       }
     >
-      <OAuth mode="sign-up" onError={setOAuthError} />
+      <OAuth mode="sign-up" target={target} onError={setOAuthError} />
       <Form.Form<typeof schema> {...methods}>
         <Flex.Box x gap="medium">
           <Form.TextField
@@ -146,22 +143,20 @@ export const SignUp = (): ReactElement => {
             inputProps={{ autoComplete: "family-name" }}
           />
         </Flex.Box>
-        <Form.Field<string>
+        <Form.TextField
           path="email"
           label="Email"
           required={false}
           padHelpText={false}
-        >
-          {(p) => <Input.Text {...p} type="email" autoComplete="email" />}
-        </Form.Field>
-        <Form.Field<string>
+          inputProps={{ type: "email", autoComplete: "email" }}
+        />
+        <Form.TextField
           path="password"
           label="Password"
           required={false}
           padHelpText={false}
-        >
-          {(p) => <Input.Text {...p} type="password" autoComplete="new-password" />}
-        </Form.Field>
+          inputProps={{ type: "password", autoComplete: "new-password" }}
+        />
         <div id="clerk-captcha" />
         <Button.Button
           variant="filled"

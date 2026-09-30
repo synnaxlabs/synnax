@@ -7,11 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Guard } from "@/app/window/Guard";
-import { renderWithConsole } from "@/testutil";
+import {
+  createStatusConsoleWrapper,
+  renderWithConsole,
+  UNLICENSED_STATUS,
+} from "@/testutil";
 
 const renderGuard = async (): Promise<void> => {
   await renderWithConsole(
@@ -26,6 +30,21 @@ describe("app/window/Guard in Synnax Desktop", () => {
     await renderGuard();
     expect(await screen.findByText("Starting Synnax...")).toBeTruthy();
     expect(screen.queryByText("Log in")).toBeNull();
+    expect(screen.queryByText("workspace")).toBeNull();
+  });
+
+  it("should ask for a login when the embedded Core is unlicensed", async () => {
+    const { wrapper } = await createStatusConsoleWrapper({
+      client: null,
+      status: UNLICENSED_STATUS,
+    });
+    render(
+      <Guard>
+        <span>workspace</span>
+      </Guard>,
+      { wrapper },
+    );
+    expect(screen.getByText("Log in to continue")).toBeTruthy();
     expect(screen.queryByText("workspace")).toBeNull();
   });
 });

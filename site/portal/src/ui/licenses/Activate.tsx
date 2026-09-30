@@ -15,9 +15,9 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { navigate } from "astro:transitions/client";
-import { type ReactElement, useCallback, useState } from "react";
+import { type ReactElement, useState } from "react";
 
-import { type License, type Organization } from "@/server/db/schema";
+import { type Owned } from "@/server/license/list";
 import {
   ActivateButton,
   ActivateFields,
@@ -27,20 +27,10 @@ import {
 import { Empty, Page } from "@/ui/Page";
 import { Panel } from "@/ui/Panel";
 
-export interface ActivateChoice {
-  license: License;
-  organization: Organization;
-}
-
 export interface ActivateProps {
-  choices: ActivateChoice[];
+  choices: Owned[];
   /** selected is the license the page opened on, when the URL named one. */
   selected: string | null;
-}
-
-interface Entry {
-  key: string;
-  name: string;
 }
 
 /**
@@ -48,11 +38,7 @@ interface Entry {
  * download the license key.
  */
 export const Activate = ({ choices, selected }: ActivateProps): ReactElement => {
-  const entries: Entry[] = choices.map(({ license, organization }) => ({
-    key: license.key,
-    name: `${license.label || "Untitled license"} (${organization.name})`,
-  }));
-  const [key, setKey] = useState<string>(selected ?? entries[0]?.key ?? "");
+  const [key, setKey] = useState<string>(selected ?? choices[0]?.license.key ?? "");
   return (
     <Page title="Activate a machine" subtitle="Give a Core its license key">
       {choices.length === 0 ? (
@@ -62,20 +48,20 @@ export const Activate = ({ choices, selected }: ActivateProps): ReactElement => 
           description="Synnax Labs issues licenses. Contact us to ask for one."
         />
       ) : (
-        <Panel gap="large" style={{ padding: "4rem" }}>
+        <Panel gap="large" className="portal-activate">
           <Flex.Box y gap="small">
             <Text.Text level="small" color={9}>
               License
             </Text.Text>
             <Select.Simple<string> resourceName="License" value={key} onChange={setKey}>
-              {entries.map(({ key, name }) => (
-                <Select.Item key={key} itemKey={key}>
-                  {name}
+              {choices.map(({ license, organization }) => (
+                <Select.Item key={license.key} itemKey={license.key}>
+                  {`${license.label || "Untitled license"} (${organization.name})`}
                 </Select.Item>
               ))}
             </Select.Simple>
           </Flex.Box>
-          {key !== "" && <Inline key={key} licenseKey={key} />}
+          {key !== "" && <Inline licenseKey={key} />}
         </Panel>
       )}
     </Page>
@@ -83,12 +69,9 @@ export const Activate = ({ choices, selected }: ActivateProps): ReactElement => 
 };
 
 const Inline = ({ licenseKey }: { licenseKey: string }): ReactElement => {
-  const { methods, action } = useActivate(
-    licenseKey,
-    useCallback(async () => {
-      await navigate(`/licenses/${licenseKey}`);
-    }, [licenseKey]),
-  );
+  const { methods, action } = useActivate(licenseKey, async () => {
+    await navigate(`/licenses/${licenseKey}`);
+  });
   return (
     <Form.Form<ActivateSchema> {...methods}>
       <Flex.Box y gap="medium">

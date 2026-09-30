@@ -13,7 +13,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement, useCallback } from "react";
+import { type CSSProperties, type ReactElement } from "react";
 import { z } from "zod";
 
 import { MAX_NAME_LENGTH } from "@/server/license/limits";
@@ -37,7 +37,7 @@ interface Activated {
   filename: string;
 }
 
-interface Activate {
+interface UseActivateReturn {
   methods: Form.UseReturn<typeof schema>;
   action: Action;
 }
@@ -49,24 +49,25 @@ interface Activate {
 export const useActivate = (
   licenseKey: string,
   onDone: () => Promise<void>,
-): Activate => {
+): UseActivateReturn => {
   const methods = Form.use({ values: { name: "", fingerprint: "" }, schema });
-  const action = useAction(
-    useCallback(async () => {
-      if (!methods.validate()) return;
-      const { name, fingerprint } = methods.value();
-      const res = await post<Activated>(`/api/licenses/${licenseKey}/activate`, {
-        name,
-        fingerprint,
-      });
-      save(new Blob([res.key], { type: "text/plain" }), res.filename);
-      await onDone();
-    }, [methods, licenseKey, onDone]),
-  );
+  const action = useAction(async () => {
+    if (!methods.validate()) return;
+    const { name, fingerprint } = methods.value();
+    const res = await post<Activated>(`/api/licenses/${licenseKey}/activate`, {
+      name,
+      fingerprint,
+    });
+    save(new Blob([res.key], { type: "text/plain" }), res.filename);
+    await onDone();
+  });
   return { methods, action };
 };
 
 /** ActivateFields renders the instructions and the inputs of the activation form. */
+// Inline, because Lyra's size classes outrank a class on min-height.
+const HASHES_STYLE: CSSProperties = { minHeight: "14rem" };
+
 export const ActivateFields = (): ReactElement => (
   <>
     <Text.Text level="p" color={10}>
@@ -86,7 +87,7 @@ export const ActivateFields = (): ReactElement => (
           area
           spellCheck={false}
           placeholder="One hash per line, or separated by commas"
-          style={{ minHeight: "14rem" }}
+          style={HASHES_STYLE}
         />
       )}
     </Form.Field>
@@ -135,13 +136,10 @@ export const ActivateDialog = ({
 
 const Content = ({ licenseKey }: { licenseKey: string }): ReactElement => {
   const { close } = Dialog.useContext();
-  const { methods, action } = useActivate(
-    licenseKey,
-    useCallback(async () => {
-      close();
-      await reload();
-    }, [close]),
-  );
+  const { methods, action } = useActivate(licenseKey, async () => {
+    close();
+    reload();
+  });
   return (
     <Form.Form<ActivateSchema> {...methods}>
       <Modal.Body gap="medium">

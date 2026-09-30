@@ -10,6 +10,13 @@
 import { SLICE_NAME, type SliceState, type StoreState } from "@/session/account/slice";
 import { Select } from "@/session/select";
 
-export const select = (state: StoreState): SliceState => state[SLICE_NAME];
+export const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
 
-export const useSelect = (): SliceState => Select.useMemo(select, []);
+export const selectPending = (state: StoreState): string | undefined =>
+  selectSliceState(state).pending;
+
+export const useSelectEmail = (): string | undefined =>
+  Select.useMemo((state: StoreState) => selectSliceState(state).email, []);
+
+export const useSelectSecret = (): string | undefined =>
+  Select.useMemo((state: StoreState) => selectSliceState(state).secret, []);
