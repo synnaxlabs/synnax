@@ -545,7 +545,11 @@ jobs:
           run="repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           url="$run/attempts/$GITHUB_RUN_ATTEMPT/jobs?per_page=100"
           while true; do
-            jobs=$(gh api --paginate "$url" --jq '.jobs[]' | jq -s .)
+            # The next poll retries a failed API call.
+            if ! jobs=$(gh api --paginate "$url" --jq '.jobs[]' | jq -s .); then
+              sleep 30
+              continue
+            fi
             failed=$(jq -r '.[] | select(.conclusion == "failure"
               or .conclusion == "timed_out") | .name' <<< "$jobs")
             if [ -n "$failed" ]; then
