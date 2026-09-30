@@ -19,9 +19,12 @@ import (
 // Reader is a readable domain of telemetry within the DB implementing the io.ReaderAt
 // and io.Closer interfaces.
 type Reader struct {
-	section  io.SectionReader
+	// section limits reads to the domain's bytes in the file.
+	section io.SectionReader
+	// internal is the file handle, returned to the DB on Close.
 	internal *controlledReader
-	ptr      pointer
+	// ptr locates the domain in its file.
+	ptr pointer
 }
 
 func (db *DB) newReader(ctx context.Context, ptr pointer) (*Reader, error) {

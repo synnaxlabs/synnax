@@ -17,6 +17,7 @@ import (
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/resource"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
@@ -438,10 +439,12 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Expect(i.SeekFirst(ctx)).To(BeTrue())
 						var err error
 						allocs := testing.AllocsPerRun(100, func() {
-							var r *domain.Reader
-							if r, err = i.OpenReader(ctx); err == nil {
-								err = r.Close()
+							r, openErr := i.OpenReader(ctx)
+							if openErr != nil {
+								err = errors.Join(err, openErr)
+								return
 							}
+							err = errors.Join(err, r.Close())
 						})
 						Expect(err).ToNot(HaveOccurred())
 						Expect(allocs).To(BeNumerically("<=", 2))
@@ -519,7 +522,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					var err error
 					allocs := testing.AllocsPerRun(100, func() {
 						i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
-						err = i.Close()
+						err = errors.Join(err, i.Close())
 					})
 					Expect(err).ToNot(HaveOccurred())
 					Expect(allocs).To(BeNumerically("<=", 1))
