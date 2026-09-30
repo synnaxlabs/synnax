@@ -40,10 +40,12 @@ const option = (o: Organization) => ({
 <Root title={title}>
     <header class="portal-bar">
         <div class="portal-bar__start">
-            <a class="portal-bar__logo" href={scoped("/", scope)} aria-label="Synnax"
-                ><Logo variant="icon" /></a
-            >
-            <span class="portal-bar__separator" aria-hidden="true">/</span>
+            <a class="portal-bar__logo" href={scoped("/", scope)} aria-label="Synnax">
+                <Logo variant="icon" />
+            </a>
+            <span class="portal-bar__separator" aria-hidden="true">
+                /
+            </span>
             <Scope
                 client:load
                 options={organizations.map(option)}
@@ -51,24 +53,24 @@ const option = (o: Organization) => ({
             />
         </div>
         <div class="portal-bar__actions">
-            <a class="portal-bar__link" href="https://docs.synnaxlabs.com">Docs</a>
+            <a class="portal-bar__link" href="https://docs.synnaxlabs.com">
+                Docs
+            </a>
             <Account client:load />
         </div>
     </header>
     <nav class="portal-tabs">
-        {
-            tabs(scope, session.staff).map((link) => (
-                <Button.Button
-                    variant="text"
-                    weight={link.tab === tab ? 500 : 400}
-                    className="portal-tab"
-                    href={link.href}
-                    aria-current={link.tab === tab ? "page" : undefined}
-                >
-                    {link.label}
-                </Button.Button>
-            ))
-        }
+        {tabs(scope, session.staff).map((link) => (
+            <Button.Button
+                variant="text"
+                weight={link.tab === tab ? 500 : 400}
+                className="portal-tab"
+                href={link.href}
+                aria-current={link.tab === tab ? "page" : undefined}
+            >
+                {link.label}
+            </Button.Button>
+        ))}
     </nav>
     <main>
         <section class="portal">
