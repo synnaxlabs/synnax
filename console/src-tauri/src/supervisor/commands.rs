@@ -169,7 +169,7 @@ pub async fn supervisor_export_diagnostics(
     path: PathBuf,
     supervisor: State<'_, Supervisor>,
     paths: State<'_, Paths>,
-    install: State<'_, install::Info>,
+    install: State<'_, install::Record>,
 ) -> Result<(), String> {
     let (status, history) = (supervisor.status(), supervisor.history());
     let (version, data_dir, log_dir) = (
@@ -177,9 +177,17 @@ pub async fn supervisor_export_diagnostics(
         paths.data_dir.clone(),
         paths.log_dir.clone(),
     );
-    let id = install.id.clone();
+    let id = install.0.as_ref().ok().map(|info| info.id.clone());
     blocking(move || {
-        diagnostics::export(&path, &version, &id, &status, &history, &data_dir, &log_dir)
+        diagnostics::export(
+            &path,
+            &version,
+            id.as_deref(),
+            &status,
+            &history,
+            &data_dir,
+            &log_dir,
+        )
     })
     .await
 }

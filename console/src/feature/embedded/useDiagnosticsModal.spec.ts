@@ -27,6 +27,8 @@ const DIAGNOSTICS = {
   history: {
     starts: 2,
     exits: 1,
+    failures: 0,
+    readies: 2,
     readyAt: 1790014509000,
     timeToReadyMs: 420,
     lastExit: { reason: "crashed", message: "exited with 3", uptimeSeconds: 12 },

@@ -50,17 +50,29 @@ pub struct Info {
     pub arch: &'static str,
 }
 
+/// The record of this launch, or why it could not be read or written.
+pub struct Record(pub Result<Info, String>);
+
 /// Reads the record of this install, mints one on a first launch, and records this
-/// launch. Manages the result as app state, so every window reports the same launch.
-pub fn init<R: Runtime>(app: &AppHandle<R>) -> Result<(), Box<dyn std::error::Error>> {
-    let dir = app.path().app_local_data_dir()?;
-    app.manage(open(&dir, now()?)?);
-    Ok(())
+/// launch. Manages the result as app state, so every window reports the same launch. A
+/// launch without a record still runs; only `install_info` fails.
+pub fn init<R: Runtime>(app: &AppHandle<R>) {
+    let dir = app
+        .path()
+        .app_local_data_dir()
+        .map_err(|err| err.to_string());
+    app.manage(Record(dir.and_then(|dir| load(&dir))));
 }
 
 #[tauri::command]
-pub fn install_info(info: State<'_, Info>) -> Info {
-    info.inner().clone()
+pub fn install_info(record: State<'_, Record>) -> Result<Info, String> {
+    record.0.clone()
+}
+
+fn load(dir: &Path) -> Result<Info, String> {
+    now()
+        .and_then(|now| open(dir, now))
+        .map_err(|err| format!("failed to record the install: {err}"))
 }
 
 /// Records that a reset is about to erase `bytes`, for the next launch to report.
@@ -168,6 +180,15 @@ mod tests {
         assert_eq!(second.id, first.id);
         assert_eq!(second.erased_bytes, Some(4_096));
         assert_eq!(open(root.path(), 3_000).unwrap().erased_bytes, None);
+    }
+
+    #[test]
+    fn reports_why_a_record_cannot_be_written() {
+        let root = tempfile::tempdir().unwrap();
+        let file = root.path().join("file");
+        std::fs::write(&file, "").unwrap();
+        let err = load(&file.join("install")).err().unwrap();
+        assert!(err.starts_with("failed to record the install: "), "{err}");
     }
 
     #[test]

@@ -150,9 +150,13 @@ pub struct History {
     pub starts: u32,
     /// The number of Cores that exited without a stop request.
     pub exits: u32,
+    /// The number of times the restart policy gave up on the Core.
+    pub failures: u32,
+    /// The number of Cores that became ready.
+    pub readies: u32,
     /// When the current Core became ready, in milliseconds since the Unix epoch.
     pub ready_at: Option<u64>,
-    /// How long the current Core took to become ready.
+    /// How long the last Core that became ready took to do so.
     pub time_to_ready_ms: Option<u64>,
     /// How the last Core exited without a stop request.
     pub last_exit: Option<Exit>,
@@ -300,6 +304,7 @@ impl Task {
                         }
                     }
                     restart::Decision::GiveUp => {
+                        self.history.send_modify(|h| h.failures += 1);
                         self.status.send_replace(Status::Failed { message });
                     }
                 },
@@ -378,10 +383,7 @@ impl Task {
                 h.last_exit = Some(exit);
             });
         }
-        self.history.send_modify(|h| {
-            h.ready_at = None;
-            h.time_to_ready_ms = None;
-        });
+        self.history.send_modify(|h| h.ready_at = None);
         outcome
     }
 
@@ -477,6 +479,7 @@ impl Task {
                         );
                         let elapsed = started.elapsed().as_millis() as u64;
                         self.history.send_modify(|h| {
+                            h.readies += 1;
                             h.ready_at = Some(now_millis());
                             h.time_to_ready_ms = Some(elapsed);
                         });
@@ -718,9 +721,10 @@ while true; do sleep 1; done
         assert_eq!(connection.username, "synnax");
         assert_eq!(connection.password.len(), 64);
         assert_ne!(connection.port, 0);
+        assert_eq!(sup.history().readies, 1);
         assert!(sup.history().time_to_ready_ms.is_some());
         sup.stop().await;
-        assert_eq!(sup.history().time_to_ready_ms, None);
+        assert!(sup.history().time_to_ready_ms.is_some());
     }
 
     #[tokio::test]
@@ -759,6 +763,22 @@ while true; do sleep 1; done
         wait_for(&sup, |s| matches!(s, Status::Starting)).await;
         wait_for(&sup, |s| matches!(s, Status::Failed { .. })).await;
         assert_eq!(f.runs(), 6);
+    }
+
+    #[tokio::test]
+    async fn counts_each_give_up_on_a_core_that_never_spawns() {
+        let mut f = Fixture::new(CRASHING, always(false));
+        f.cfg.program = f.dir.path().join("missing");
+        let sup = Supervisor::open(f.cfg.clone()).unwrap();
+        wait_for(&sup, |s| matches!(s, Status::Failed { .. })).await;
+        let first = sup.history();
+        assert_eq!(first.starts, 0);
+        assert_eq!(first.failures, 1);
+        assert_eq!(first.last_exit.unwrap().reason, Reason::FailedToStart);
+        sup.restart().await;
+        wait_for(&sup, |s| matches!(s, Status::Starting)).await;
+        wait_for(&sup, |s| matches!(s, Status::Failed { .. })).await;
+        assert_eq!(sup.history().failures, 2);
     }
 
     #[tokio::test]
@@ -877,6 +897,7 @@ while true; do sleep 1; done
         wait_for(&sup, |s| matches!(s, Status::Running { .. })).await;
         let second = sup.history();
         assert_eq!(second.starts, 2);
+        assert_eq!(second.readies, 2);
         let exit = second.last_exit.unwrap();
         assert_eq!(exit.reason, Reason::Crashed);
         assert!(exit.message.contains("signal"));

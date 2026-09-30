@@ -81,8 +81,6 @@ const count = (keys: Keys): Analytics.Workspace => ({
   log_count: keys.log.size,
   table_count: keys.table.size,
   arc_count: keys.arc.size,
-  has_hardware: keys.device.size > 0,
-  uses_arc: keys.arc.size > 0,
 });
 
 interface WatchParams {

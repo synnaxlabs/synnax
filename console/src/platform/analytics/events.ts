@@ -25,6 +25,8 @@ export const resourceZ = z.enum([
 
 export type Resource = z.infer<typeof resourceZ>;
 
+const exitReasonZ = z.enum(["failed_to_start", "crashed", "not_ready", "unresponsive"]);
+
 /**
  * The properties of every event, keyed by event name. The schemas are strict, so a
  * property that is not declared here never reaches the sink. Values stay numbers,
@@ -50,10 +52,11 @@ export const schemas = {
     starts: z.number(),
   }),
   core_exited: z.strictObject({
-    reason: z.enum(["failed_to_start", "crashed", "not_ready", "unresponsive"]),
+    reason: exitReasonZ,
     uptime_seconds: z.number(),
   }),
-  core_restart_exhausted: z.strictObject({ attempts: z.number() }),
+  /** The reason is that of the last exit before the app gave up. */
+  core_restart_exhausted: z.strictObject({ reason: exitReasonZ }),
   core_reset: z.strictObject({ data_size_bytes: z.number() }),
 } as const;
 
@@ -86,8 +89,6 @@ export const workspaceZ = z.strictObject({
   log_count: z.number(),
   table_count: z.number(),
   arc_count: z.number(),
-  has_hardware: z.boolean(),
-  uses_arc: z.boolean(),
 });
 
 export interface Workspace extends z.infer<typeof workspaceZ> {}

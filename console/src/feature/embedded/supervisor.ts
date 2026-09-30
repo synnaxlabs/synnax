@@ -81,9 +81,13 @@ export const historyZ = z.object({
   starts: z.number(),
   /** The number of Cores that exited without a stop request. */
   exits: z.number(),
+  /** The number of times the restart policy gave up on the Core. */
+  failures: z.number(),
+  /** The number of Cores that became ready. */
+  readies: z.number(),
   /** When the current Core became ready, in milliseconds since the Unix epoch. */
   readyAt: z.number().nullable(),
-  /** How long the current Core took to become ready. */
+  /** How long the last Core that became ready took to do so. */
   timeToReadyMs: z.number().nullable(),
   /** How the last Core exited without a stop request. */
   lastExit: z

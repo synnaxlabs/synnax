@@ -140,7 +140,7 @@ fn main() {
         .plugin(tauri_plugin_process::init())
         .setup(|app| {
             #[cfg(feature = "desktop")]
-            install::init(app.handle())?;
+            install::init(app.handle());
             #[cfg(feature = "desktop")]
             supervisor::commands::init(app.handle())?;
             #[cfg(desktop)]

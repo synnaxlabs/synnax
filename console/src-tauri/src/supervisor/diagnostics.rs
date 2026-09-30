@@ -71,8 +71,9 @@ pub fn log_tail(log_dir: &Path) -> io::Result<String> {
 #[serde(rename_all = "camelCase")]
 struct Summary<'a> {
     version: &'a str,
-    /// Joins the archive to what this install reported to analytics.
-    install_id: &'a str,
+    /// Joins the archive to what this install reported to analytics. None when the
+    /// launch could not record the install.
+    install_id: Option<&'a str>,
     os: &'static str,
     arch: &'static str,
     state: serde_json::Value,
@@ -85,7 +86,7 @@ struct Summary<'a> {
 pub fn export(
     dest: &Path,
     version: &str,
-    install_id: &str,
+    install_id: Option<&str>,
     status: &Status,
     history: &History,
     data_dir: &Path,
@@ -178,6 +179,8 @@ mod tests {
         let history = History {
             starts: 2,
             exits: 1,
+            failures: 0,
+            readies: 2,
             ready_at: Some(5),
             time_to_ready_ms: Some(400),
             last_exit: Some(Exit {
@@ -190,7 +193,7 @@ mod tests {
         export(
             &dest,
             "0.58.0",
-            "5f3c",
+            Some("5f3c"),
             &status,
             &history,
             &dir.path().join("data"),
