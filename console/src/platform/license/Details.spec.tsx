@@ -14,6 +14,7 @@ import { type FC } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { License } from "@/platform/license";
+import { Session } from "@/session";
 import { createConsoleWrapper, createTestClientWithGrants } from "@/testutil";
 
 const client = createTestClient();
@@ -34,6 +35,29 @@ describe("License", () => {
       expect(screen.getByText(License.describeTerm(lic))).toBeTruthy();
       expect(screen.getByText(String(lic.machines))).toBeTruthy();
       expect(screen.getByText(License.describeChannels(lic))).toBeTruthy();
+    });
+  });
+
+  describe("Details account", () => {
+    it("should name the linked account even without a grant on the license", async () => {
+      const denied = await createTestClientWithGrants(client);
+      const retrieve = vi.spyOn(denied.license, "retrieve");
+      const { wrapper } = await createConsoleWrapper({
+        client: denied,
+        preloadedState: {
+          [Session.Account.SLICE_NAME]: {
+            ...Session.Account.ZERO_SLICE_STATE,
+            email: "someone@example.com",
+          },
+        },
+      });
+      render(<License.Details />, { wrapper });
+      expect(await screen.findByText("Logged in as someone@example.com")).toBeTruthy();
+      expect(screen.getByText("Manage in your account").closest("a")?.href).toBe(
+        License.ACCOUNT_URL,
+      );
+      await act(async () => {});
+      expect(retrieve).not.toHaveBeenCalled();
     });
   });
 
