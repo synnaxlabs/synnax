@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -14,7 +15,7 @@ import { Core } from "@/platform/core";
 import { getCoreRow, renderCoreUI } from "@/platform/core/testutil";
 import { Session } from "@/session";
 import { createCore, createCoreState } from "@/session/core/testutil";
-import { getBySelector, getIconButton, stubClipboardWriteText } from "@/testutil";
+import { getBySelector, getIconButton } from "@/testutil";
 
 const ALPHA = createCore("Alpha", { clusterKey: "cluster-alpha" });
 const BRAVO = createCore("Bravo", { port: 9099, clusterKey: undefined });

@@ -9,6 +9,7 @@
 
 import { AuthError, connection } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -18,7 +19,6 @@ import { Session } from "@/session";
 import {
   fakePickedFile,
   interceptFilePicker,
-  stubClipboardWriteText,
   uniqueName,
   UNLICENSED_STATUS,
 } from "@/testutil";

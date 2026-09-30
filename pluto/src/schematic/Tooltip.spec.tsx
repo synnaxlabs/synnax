@@ -214,9 +214,9 @@ describe("Schematic.Tooltip", () => {
     ])("should show the %s rows in order", async (variant, labels) => {
       renderTooltip(Node.createConfig({ variant }));
       const tooltip = await findTooltip();
-      const rendered = Array.from(
-        tooltip.querySelectorAll(".pluto-schematic-tooltip__field > :first-child"),
-      ).map((el) => el.textContent);
+      const rendered = within(tooltip)
+        .getAllByRole("term")
+        .map((el) => el.textContent);
       expect(rendered).toEqual(labels);
     });
 
