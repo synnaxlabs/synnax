@@ -25,11 +25,11 @@ import {
   statusOf,
   term,
 } from "@/ui/format";
-import { StatusTag } from "@/ui/licenses/StatusTag";
+import { Licenses } from "@/ui/licenses";
 import { Empty, Page } from "@/ui/Page";
 import { Row, Table } from "@/ui/Table";
 
-export interface LicensesProps {
+export interface AdminProps {
   /** teams are the organizations in Clerk a license can be issued to. */
   teams: Listed[];
   licenses: Owned[];
@@ -42,8 +42,8 @@ const COLUMNS =
 const expiry = ({ license: lic }: Owned): number =>
   lic.expiresAt == null ? Infinity : lic.expiresAt.getTime();
 
-/** Licenses lists every license and issues new ones. Staff only. */
-export const Licenses = ({ teams, licenses, now }: LicensesProps): ReactElement => {
+/** Admin lists every license and issues new ones. Staff only. */
+export const Admin = ({ teams, licenses, now }: AdminProps): ReactElement => {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<LicenseStatus | null>(null);
   const query = search.trim().toLowerCase();
@@ -114,7 +114,7 @@ export const Licenses = ({ teams, licenses, now }: LicensesProps): ReactElement 
                     {org.name}
                   </Text.Text>
                   <Flex.Box>
-                    <StatusTag status={statusOf(lic, now)} />
+                    <Licenses.StatusTag status={statusOf(lic, now)} />
                   </Flex.Box>
                   <Text.Text level="p" color={9} overflow="ellipsis">
                     {term(lic)}

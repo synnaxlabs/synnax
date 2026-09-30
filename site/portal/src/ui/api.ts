@@ -64,3 +64,6 @@ export const save = (blob: Blob, filename: string): void => {
 
 /** reload re-renders the current page from the server, keeping the URL. */
 export const reload = (): void => window.location.reload();
+
+/** navigate loads another page of the portal. */
+export const navigate = (url: string): void => window.location.assign(url);

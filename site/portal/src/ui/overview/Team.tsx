@@ -18,7 +18,7 @@ import { type Held } from "@/server/license/list";
 import { scoped } from "@/shell";
 import { Fact, Facts } from "@/ui/Facts";
 import { date, standing, statusOf } from "@/ui/format";
-import { StatusTag } from "@/ui/licenses/StatusTag";
+import { Licenses } from "@/ui/licenses";
 import { Empty, Page, Section } from "@/ui/Page";
 import { Row, Table } from "@/ui/Table";
 
@@ -90,7 +90,7 @@ export const Team = ({ organization, licenses, now }: TeamProps): ReactElement =
                   {lic.label}
                 </Text.Text>
                 <Flex.Box>
-                  <StatusTag status={statusOf(lic, now)} />
+                  <Licenses.StatusTag status={statusOf(lic, now)} />
                 </Flex.Box>
                 <Text.Text level="p" color={9}>
                   {held} of {lic.nodes}

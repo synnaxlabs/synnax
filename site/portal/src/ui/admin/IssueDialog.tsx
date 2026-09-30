@@ -7,24 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button } from "@synnaxlabs/lyra/button";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
-import { navigate } from "astro:transitions/client";
 import { type ReactElement } from "react";
 import { z } from "zod";
 
 import { type Listed } from "@/server/directory";
-import { post } from "@/ui/api";
-import { checkTerms, TermsFields, termsSchema, ZERO_TERMS } from "@/ui/licenses/Terms";
-import * as Modal from "@/ui/Modal";
-import { useAction } from "@/ui/useAction";
+import { navigate, post } from "@/ui/api";
+import { Licenses } from "@/ui/licenses";
+import { Modal } from "@/ui/modal";
 
-const schema = termsSchema
+const schema = Licenses.termsSchema
   .extend({ organization: z.string().min(1, "Choose an organization") })
-  .check(checkTerms);
+  .check(Licenses.checkTerms);
 
 export interface IssueDialogProps {
   /** teams are the organizations in Clerk. Create one there first. */
@@ -48,44 +45,35 @@ export const IssueDialog = ({ teams }: IssueDialogProps): ReactElement => (
 );
 
 const Content = ({ teams }: IssueDialogProps): ReactElement => {
-  const methods = Form.use({ values: { ...ZERO_TERMS, organization: "" }, schema });
-  const action = useAction(async () => {
-    if (!methods.validate()) return;
-    const { key } = await post<{ key: string }>("/api/licenses", methods.value());
-    await navigate(`/licenses/${key}`);
+  const methods = Form.use({
+    values: { ...Licenses.ZERO_TERMS, organization: "" },
+    schema,
   });
   return (
-    <Form.Form<typeof schema> {...methods}>
-      <Modal.Body gap="medium">
-        <Form.Field<string>
-          path="organization"
-          label="Organization"
-          helpText="Organizations and their admins are created in the Clerk dashboard."
-        >
-          {(p) => (
-            <Select.Simple<string> {...p} resourceName="Organization">
-              {teams.map(({ clerkOrgID, name }) => (
-                <Select.Item key={clerkOrgID} itemKey={clerkOrgID}>
-                  {name}
-                </Select.Item>
-              ))}
-            </Select.Simple>
-          )}
-        </Form.Field>
-        <TermsFields />
-      </Modal.Body>
-      <Modal.Footer error={action.error}>
-        <Modal.Cancel />
-        <Button.Button
-          variant="filled"
-          onClick={action.run}
-          status={action.loading ? "loading" : undefined}
-          trigger={["Control", "Enter"]}
-          triggerIndicator
-        >
-          Issue
-        </Button.Button>
-      </Modal.Footer>
-    </Form.Form>
+    <Modal.Form
+      methods={methods}
+      submit="Issue"
+      onSubmit={async (value) => {
+        const { key } = await post<{ key: string }>("/api/licenses", value);
+        navigate(`/licenses/${key}`);
+      }}
+    >
+      <Form.Field<string>
+        path="organization"
+        label="Organization"
+        helpText="Organizations and their admins are created in the Clerk dashboard."
+      >
+        {(p) => (
+          <Select.Simple<string> {...p} resourceName="Organization">
+            {teams.map(({ clerkOrgID, name }) => (
+              <Select.Item key={clerkOrgID} itemKey={clerkOrgID}>
+                {name}
+              </Select.Item>
+            ))}
+          </Select.Simple>
+        )}
+      </Form.Field>
+      <Licenses.TermsFields />
+    </Modal.Form>
   );
 };

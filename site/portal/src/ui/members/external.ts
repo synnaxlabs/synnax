@@ -1,4 +1,3 @@
----
 // Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
@@ -8,15 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import Guest from "@/layouts/Guest.astro";
-import { guest } from "@/page";
-import { landing } from "@/shell";
-import { Auth } from "@/ui/auth";
-
-const away = guest(Astro);
-if (away != null) return away;
----
-
-<Guest title="Reset your password">
-    <Auth.Reset client:load target={landing(Astro.url.searchParams)} />
-</Guest>
+export * from "@/ui/members/Members";

@@ -10,12 +10,12 @@
 
 import Root from "@/layouts/Root.astro";
 import { landing } from "@/shell";
-import { SSOCallback } from "@/ui/auth/SSOCallback";
+import { Auth } from "@/ui/auth";
 import "@/styles/portal.css";
 ---
 
 <Root title="Logging in">
     <section class="portal-auth-page">
-        <SSOCallback client:load target={landing(Astro.url.searchParams)} />
+        <Auth.SSOCallback client:load target={landing(Astro.url.searchParams)} />
     </section>
 </Root>

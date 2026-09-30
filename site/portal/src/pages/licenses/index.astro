@@ -10,7 +10,7 @@
 
 import Portal from "@/layouts/Portal.astro";
 import { loadScoped } from "@/page";
-import { Licenses } from "@/ui/licenses/Licenses";
+import { Licenses } from "@/ui/licenses";
 import { listForOrganization } from "@/server/license/list";
 
 const loaded = await loadScoped(Astro, "team");
@@ -26,5 +26,10 @@ const licenses = await listForOrganization(portal.store.query, scope.key);
     scope={scope}
     tab="licenses"
 >
-    <Licenses client:load organization={scope} licenses={licenses} now={portal.now()} />
+    <Licenses.Licenses
+        client:load
+        organization={scope}
+        licenses={licenses}
+        now={portal.now()}
+    />
 </Portal>

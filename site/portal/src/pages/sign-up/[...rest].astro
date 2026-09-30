@@ -11,12 +11,12 @@
 import Guest from "@/layouts/Guest.astro";
 import { guest } from "@/page";
 import { landing } from "@/shell";
-import { SignUp } from "@/ui/auth/SignUp";
+import { Auth } from "@/ui/auth";
 
 const away = guest(Astro);
 if (away != null) return away;
 ---
 
 <Guest title="Create an account">
-    <SignUp client:load target={landing(Astro.url.searchParams)} />
+    <Auth.SignUp client:load target={landing(Astro.url.searchParams)} />
 </Guest>

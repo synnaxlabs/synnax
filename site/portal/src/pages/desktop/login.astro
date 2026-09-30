@@ -10,19 +10,18 @@
 
 import Root from "@/layouts/Root.astro";
 import { load } from "@/page";
-import { Link } from "@/ui/desktop/Link";
-import { read } from "@/ui/desktop/url";
+import { Desktop } from "@/ui/desktop";
 import "@/styles/portal.css";
 
 const loaded = await load(Astro);
 if (loaded instanceof Response) return loaded;
 const { session } = loaded;
 
-const query = read(Astro.url.searchParams);
+const query = Desktop.read(Astro.url.searchParams);
 ---
 
 <Root title="Log in to Synnax Desktop">
     <section class="portal-auth-page">
-        <Link client:load {...query} email={session.email} />
+        <Desktop.Link client:load {...query} email={session.email} />
     </section>
 </Root>

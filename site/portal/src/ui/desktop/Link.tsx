@@ -14,7 +14,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useState } from "react";
 
 import { post, reload, save } from "@/ui/api";
-import { Card } from "@/ui/auth/Card";
+import { Auth } from "@/ui/auth";
 import { useClerk } from "@/ui/clerk";
 import { activateURL, type Linked, type Query } from "@/ui/desktop/url";
 import { Panel } from "@/ui/Panel";
@@ -55,7 +55,7 @@ export const Link = ({
   };
   if (problem != null)
     return (
-      <Card
+      <Auth.Card
         icon={
           <Tile status="error">
             <Icon.Warning />
@@ -68,7 +68,7 @@ export const Link = ({
     );
   if (linked != null)
     return (
-      <Card
+      <Auth.Card
         icon={
           <Tile status="success">
             <Icon.Check />
@@ -105,10 +105,10 @@ export const Link = ({
           Open Synnax Desktop
           <Icon.Arrow.Right />
         </Button.Button>
-      </Card>
+      </Auth.Card>
     );
   return (
-    <Card
+    <Auth.Card
       icon={
         <Tile>
           <Icon.Computer />
@@ -146,7 +146,7 @@ export const Link = ({
       >
         Not you? Log out
       </Button.Button>
-    </Card>
+    </Auth.Card>
   );
 };
 

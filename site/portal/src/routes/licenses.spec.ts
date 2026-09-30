@@ -40,7 +40,7 @@ import {
   readKey,
   STAFF_ORG_ID,
 } from "@/testutil";
-import { termsOf, ZERO_TERMS } from "@/ui/licenses/Terms";
+import { Licenses } from "@/ui/licenses";
 
 const STAFF = "user_staff";
 const MEMBER = "user_member";
@@ -287,7 +287,7 @@ describe("license routes", () => {
 
       it("should issue from the values the issue dialog posts", async () => {
         const values = {
-          ...ZERO_TERMS,
+          ...Licenses.ZERO_TERMS,
           organization: ACME,
           label: "Test stand",
           nodes: 3,
@@ -443,7 +443,7 @@ describe("license routes", () => {
       for (const unchanged of [subscription, perpetual]) {
         const res = await call(amendRoute, {
           params: { key: unchanged.key },
-          body: termsOf(unchanged),
+          body: Licenses.termsOf(unchanged),
         });
         expect(res.status).toBe(204);
       }

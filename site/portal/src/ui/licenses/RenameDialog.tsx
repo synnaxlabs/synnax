@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button } from "@synnaxlabs/lyra/button";
-import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { type ReactElement } from "react";
@@ -18,8 +16,7 @@ import { type Activation } from "@/server/db/schema";
 import { MAX_NAME_LENGTH } from "@/server/license/limits";
 import { post, reload } from "@/ui/api";
 import { machineName } from "@/ui/format";
-import * as Modal from "@/ui/Modal";
-import { useAction } from "@/ui/useAction";
+import { Modal } from "@/ui/modal";
 
 const schema = z.object({
   name: z.string().trim().min(1, "Name the machine").max(MAX_NAME_LENGTH, "Too long"),
@@ -52,35 +49,21 @@ export const RenameDialog = ({
 );
 
 const Content = ({ activation }: { activation: Activation }): ReactElement => {
-  const { close } = Dialog.useContext();
   const methods = Form.use({ values: { name: machineName(activation) }, schema });
-  const action = useAction(async () => {
-    if (!methods.validate()) return;
-    await post(`/api/activations/${activation.key}/name`, methods.value());
-    close();
-    reload();
-  });
   return (
-    <Form.Form<typeof schema> {...methods}>
-      <Modal.Body gap="medium">
-        <Form.TextField
-          path="name"
-          label="Name"
-          inputProps={{ autoFocus: true, placeholder: "Test stand, site B" }}
-        />
-      </Modal.Body>
-      <Modal.Footer error={action.error}>
-        <Modal.Cancel />
-        <Button.Button
-          variant="filled"
-          onClick={action.run}
-          status={action.loading ? "loading" : undefined}
-          trigger={["Control", "Enter"]}
-          triggerIndicator
-        >
-          Rename
-        </Button.Button>
-      </Modal.Footer>
-    </Form.Form>
+    <Modal.Form
+      methods={methods}
+      submit="Rename"
+      onSubmit={async (value) => {
+        await post(`/api/activations/${activation.key}/name`, value);
+        reload();
+      }}
+    >
+      <Form.TextField
+        path="name"
+        label="Name"
+        inputProps={{ autoFocus: true, placeholder: "Test stand, site B" }}
+      />
+    </Modal.Form>
   );
 };
