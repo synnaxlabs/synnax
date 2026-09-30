@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 
 import { type Organization } from "@/server/db/schema";
 import { pick } from "@/server/organization";
-import { scoped, tabs } from "@/shell";
+import { HOME, landing, scoped, tabs } from "@/shell";
 
 const organization = (key: string, kind: Organization["kind"]): Organization => ({
   key,
@@ -27,6 +27,30 @@ const ACME = organization("acme", "team");
 const GLOBEX = organization("globex", "team");
 
 describe("shell", () => {
+  describe("landing", () => {
+    const land = (search: string): string => landing(new URLSearchParams(search));
+    it("should land on the page that sent the visitor", () => {
+      expect(land("redirect_url=%2Fdesktop%2Flogin%3Fstate%3Dabc")).toBe(
+        "/desktop/login?state=abc",
+      );
+    });
+    it("should land home without a redirect", () => {
+      expect(land("")).toBe(HOME);
+    });
+    it("should land home for another site", () => {
+      expect(land("redirect_url=https%3A%2F%2Fevil.example")).toBe(HOME);
+    });
+    it("should land home for a protocol-relative path", () => {
+      expect(land("redirect_url=%2F%2Fevil.example")).toBe(HOME);
+    });
+    it("should land home for a path the browser reads as protocol-relative", () => {
+      expect(land("redirect_url=%2F%5Cevil.example")).toBe(HOME);
+      expect(land("redirect_url=%2F%09%2Fevil.example")).toBe(HOME);
+    });
+    it("should land home for a script URL", () => {
+      expect(land("redirect_url=javascript%3Aalert(1)")).toBe(HOME);
+    });
+  });
   describe("tabs", () => {
     it("should give a personal scope its overview and devices", () => {
       expect(tabs(PERSONAL, false)).toEqual([

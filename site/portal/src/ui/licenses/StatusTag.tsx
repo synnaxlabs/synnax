@@ -11,7 +11,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Tag } from "@synnaxlabs/lyra/tag";
 import { type ReactElement } from "react";
 
-import { type LicenseStatus } from "@/ui/format";
+import { type LicenseStatus, STATUS_LABELS } from "@/ui/format";
 
 const VARIANTS: Record<LicenseStatus, "success" | "warning" | "error"> = {
   active: "success",
@@ -20,15 +20,8 @@ const VARIANTS: Record<LicenseStatus, "success" | "warning" | "error"> = {
   revoked: "error",
 };
 
-const LABELS: Record<LicenseStatus, string> = {
-  active: "Active",
-  expiring: "Expiring",
-  expired: "Expired",
-  revoked: "Revoked",
-};
-
 export const StatusTag = ({ status }: { status: LicenseStatus }): ReactElement => (
   <Tag.Tag icon={<Status.Indicator variant={VARIANTS[status]} />} size="small">
-    {LABELS[status]}
+    {STATUS_LABELS[status]}
   </Tag.Tag>
 );

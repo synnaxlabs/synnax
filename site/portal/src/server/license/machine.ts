@@ -12,8 +12,7 @@ import { eq } from "drizzle-orm";
 import { type Store } from "@/server/db/db";
 import { activation, event, license } from "@/server/db/schema";
 import { badRequest, notFound } from "@/server/errors";
-
-export const MAX_NAME_LENGTH = 64;
+import { MAX_NAME_LENGTH } from "@/server/license/limits";
 
 /**
  * readName trims a posted machine name to its bound.

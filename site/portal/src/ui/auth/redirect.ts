@@ -7,18 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-const DEFAULT = "/";
-
-/** target reads where to land after signing in: the page that sent us, or the portal. */
-export const target = (): string => {
-  const raw = new URLSearchParams(window.location.search).get("redirect_url");
-  if (raw == null || !raw.startsWith("/") || raw.startsWith("//")) return DEFAULT;
-  return raw;
-};
+import { HOME } from "@/shell";
 
 /** withTarget carries the redirect target from this page onto another auth page. */
-export const withTarget = (path: string): string => {
-  if (typeof window === "undefined") return path;
-  const t = target();
-  return t === DEFAULT ? path : `${path}?redirect_url=${encodeURIComponent(t)}`;
-};
+export const withTarget = (path: string, target: string): string =>
+  target === HOME ? path : `${path}?redirect_url=${encodeURIComponent(target)}`;

@@ -32,7 +32,7 @@ export interface PersonalProps {
   machines: Machine[];
   /** devices is the URL of the Devices tab. */
   devices: string;
-  now: Date | string;
+  now: Date;
 }
 
 /**
@@ -44,7 +44,7 @@ export const Personal = ({ machines, devices, now }: PersonalProps): ReactElemen
     {machines.length === 0 ? (
       <GetStarted />
     ) : (
-      <Recent machines={machines} devices={devices} now={new Date(now)} />
+      <Recent machines={machines} devices={devices} now={now} />
     )}
     <Enterprise />
   </Page>
@@ -62,7 +62,7 @@ const Step = ({ step, title, description, action }: StepProps): ReactElement => 
     <Text.Text level="h5" color={9} className="portal-step__number">
       {step}
     </Text.Text>
-    <Flex.Box y gap="tiny" style={{ flex: "1 1 30rem" }}>
+    <Flex.Box y gap="tiny" className="portal-step__text">
       <Text.Text level="p" weight={500}>
         {title}
       </Text.Text>

@@ -12,7 +12,8 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { activation, event } from "@/server/db/schema";
 import { type Memory, openMemory } from "@/server/db/testutil";
-import { MAX_NAME_LENGTH, readName, rename } from "@/server/license/machine";
+import { MAX_NAME_LENGTH } from "@/server/license/limits";
+import { readName, rename } from "@/server/license/machine";
 import { HASH_A, NOW } from "@/server/license/testutil";
 import { createActivation, createLicense, createOrganization } from "@/testutil";
 

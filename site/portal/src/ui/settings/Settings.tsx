@@ -11,11 +11,11 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 import { z } from "zod";
 
 import { reload } from "@/ui/api";
-import { errorMessage, useUser } from "@/ui/clerk";
+import { useUser } from "@/ui/clerk";
 import { Fact, Facts } from "@/ui/Facts";
 import * as Modal from "@/ui/Modal";
 import { Page, Section } from "@/ui/Page";
@@ -33,7 +33,7 @@ export const Settings = ({ name, email }: SettingsProps): ReactElement => {
     <Page title="Settings" subtitle={email}>
       <Section title="Profile" actions={user != null && <EditProfileDialog />}>
         <Facts>
-          <Fact label="Name" value={user?.fullName ?? name} />
+          <Fact label="Name" value={name} />
           <Fact label="Email" value={email} />
         </Facts>
       </Section>
@@ -68,18 +68,12 @@ const EditProfileContent = (): ReactElement => {
     values: { firstName: user?.firstName ?? "", lastName: user?.lastName ?? "" },
     schema: profileSchema,
   });
-  const action = useAction(
-    useCallback(async () => {
-      if (user == null || !methods.validate()) return;
-      try {
-        await user.update(methods.value());
-      } catch (err) {
-        throw new Error(errorMessage(err), { cause: err });
-      }
-      close();
-      await reload();
-    }, [user, methods, close]),
-  );
+  const action = useAction(async () => {
+    if (user == null || !methods.validate()) return;
+    await user.update(methods.value());
+    close();
+    reload();
+  });
   return (
     <Form.Form<typeof profileSchema> {...methods}>
       <Modal.Body gap="medium">

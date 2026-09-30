@@ -48,7 +48,3 @@ export const errorMessage = (err: unknown): string => {
   }
   return err instanceof Error ? err.message : String(err);
 };
-
-/** ADMIN_ROLE is Clerk's role for members who manage a team. */
-export const ADMIN_ROLE = "org:admin";
-export const MEMBER_ROLE = "org:member";

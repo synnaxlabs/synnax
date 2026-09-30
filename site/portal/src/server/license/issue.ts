@@ -21,9 +21,8 @@ import {
 import { badRequest, notFound } from "@/server/errors";
 import { DENIAL_MESSAGES, deny } from "@/server/license/activate";
 import { build } from "@/server/license/claims";
+import { VERSION_PATTERN } from "@/server/license/limits";
 import { sign, type Signer } from "@/server/license/sign";
-
-const MINOR_VERSION = /^\d+\.\d+$/;
 
 /** Terms are the fields staff set when issuing a license and may change later. */
 export interface Terms {
@@ -50,7 +49,7 @@ export const validate = (args: Terms & { now: Date }): void => {
     throw badRequest("Nodes must be a whole number of at least 1");
   if (!Number.isInteger(args.channels) || args.channels < 0)
     throw badRequest("Channels must be a whole number, 0 for unlimited");
-  if (args.maxVersion != null && !MINOR_VERSION.test(args.maxVersion))
+  if (args.maxVersion != null && !VERSION_PATTERN.test(args.maxVersion))
     throw badRequest('Maximum version must look like "0.62"');
   if (args.term === "subscription") {
     if (args.expiresAt == null) throw badRequest("A subscription needs an expiry");

@@ -10,7 +10,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { type Portal } from "@/portal";
-import { download, filename, form, handle } from "@/respond";
+import { download, form, handle } from "@/respond";
 import { badRequest, HTTPError, toResponse } from "@/server/errors";
 import { body, createAPIContext } from "@/testutil";
 
@@ -18,21 +18,6 @@ const PORTAL = {} as Portal;
 
 describe("respond", () => {
   afterEach(() => vi.restoreAllMocks());
-
-  describe("filename", () => {
-    it("should turn the license label into a file name", () => {
-      expect(filename("Test rig")).toBe("Test-rig.license");
-    });
-
-    it("should collapse and trim runs of other characters", () => {
-      expect(filename("  Acme / Rig #2!  ")).toBe("Acme-Rig-2.license");
-    });
-
-    it("should fall back to synnax for a label with nothing usable", () => {
-      expect(filename("")).toBe("synnax.license");
-      expect(filename("///")).toBe("synnax.license");
-    });
-  });
 
   describe("download", () => {
     it("should answer with the key as an attachment", async () => {

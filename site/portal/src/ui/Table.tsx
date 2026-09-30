@@ -40,16 +40,16 @@ export interface RowProps extends PropsWithChildren {
   columns: string;
   /** href makes the row a link, with a caret at its end. */
   href?: string;
-  style?: CSSProperties;
 }
 
+// Inline, because Lyra's size classes outrank a class on height.
 const ROW_STYLE: CSSProperties = { height: "auto", padding: "2rem" };
 
-export const Row = ({ columns, href, style, children }: RowProps): ReactElement =>
+export const Row = ({ columns, href, children }: RowProps): ReactElement =>
   href == null ? (
     <Flex.Box
       className="portal-list__row"
-      style={{ ...ROW_STYLE, gridTemplateColumns: columns, ...style }}
+      style={{ ...ROW_STYLE, gridTemplateColumns: columns }}
     >
       {children}
     </Flex.Box>
@@ -58,7 +58,7 @@ export const Row = ({ columns, href, style, children }: RowProps): ReactElement 
       href={href}
       variant="text"
       className="portal-list__row"
-      style={{ ...ROW_STYLE, gridTemplateColumns: columns, ...style }}
+      style={{ ...ROW_STYLE, gridTemplateColumns: columns }}
     >
       {children}
       <Icon.Caret.Right color={8} className="portal-list__caret" />

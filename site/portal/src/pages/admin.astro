@@ -42,7 +42,7 @@ try {
     tab="admin"
 >
     {error != null ? (
-        <Page client:load title="All licenses" error={error} />
+        <Page title="All licenses" error={error} />
     ) : (
         <Licenses client:load teams={teams} licenses={licenses} now={portal.now()} />
     )}

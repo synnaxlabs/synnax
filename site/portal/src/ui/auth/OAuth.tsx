@@ -11,9 +11,9 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement, useCallback, useState } from "react";
+import { type ReactElement, useState } from "react";
 
-import { target } from "@/ui/auth/redirect";
+import { withTarget } from "@/ui/auth/redirect";
 import { errorMessage, useClerk } from "@/ui/clerk";
 
 type Strategy = "oauth_google" | "oauth_microsoft";
@@ -56,33 +56,32 @@ const PROVIDERS: { strategy: Strategy; name: string; mark: ReactElement }[] = [
 export interface OAuthProps {
   /** mode picks whether the redirect starts a sign-in or a sign-up. */
   mode: "sign-in" | "sign-up";
+  /** target is where to land once the provider signs the user in. */
+  target: string;
   onError: (message: string) => void;
 }
 
 /** OAuth renders the Google and Microsoft buttons and a divider under them. */
-export const OAuth = ({ mode, onError }: OAuthProps): ReactElement => {
+export const OAuth = ({ mode, target, onError }: OAuthProps): ReactElement => {
   const clerk = useClerk();
   const [pending, setPending] = useState<Strategy | null>(null);
-  const start = useCallback(
-    (strategy: Strategy) => {
-      if (clerk?.client == null) return;
-      setPending(strategy);
-      const params = {
-        strategy,
-        redirectUrl: "/sso-callback",
-        redirectUrlComplete: target(),
-      };
-      const flow =
-        mode === "sign-in"
-          ? clerk.client.signIn.authenticateWithRedirect(params)
-          : clerk.client.signUp.authenticateWithRedirect(params);
-      flow.catch((err: unknown) => {
-        setPending(null);
-        onError(errorMessage(err));
-      });
-    },
-    [clerk, mode, onError],
-  );
+  const start = (strategy: Strategy): void => {
+    if (clerk?.client == null) return;
+    setPending(strategy);
+    const params = {
+      strategy,
+      redirectUrl: withTarget("/sso-callback", target),
+      redirectUrlComplete: target,
+    };
+    const flow =
+      mode === "sign-in"
+        ? clerk.client.signIn.authenticateWithRedirect(params)
+        : clerk.client.signUp.authenticateWithRedirect(params);
+    flow.catch((err: unknown) => {
+      setPending(null);
+      onError(errorMessage(err));
+    });
+  };
   return (
     <>
       <Flex.Box y gap="small">

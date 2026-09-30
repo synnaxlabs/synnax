@@ -9,16 +9,15 @@
 
 import { Button } from "@synnaxlabs/lyra/button";
 import { Form } from "@synnaxlabs/lyra/form";
-import { Input } from "@synnaxlabs/lyra/input";
 import { Text } from "@synnaxlabs/lyra/text";
 import { navigate } from "astro:transitions/client";
-import { type ReactElement, useCallback, useState } from "react";
+import { type ReactElement, useState } from "react";
 import { z } from "zod";
 
 import { Card } from "@/ui/auth/Card";
 import { OAuth } from "@/ui/auth/OAuth";
-import { target, withTarget } from "@/ui/auth/redirect";
-import { errorMessage, useClerk } from "@/ui/clerk";
+import { withTarget } from "@/ui/auth/redirect";
+import { type Clerk, useClerk } from "@/ui/clerk";
 import { useAction } from "@/ui/useAction";
 
 const schema = z.object({
@@ -30,59 +29,52 @@ const codeSchema = z.object({ code: z.string().trim().min(1, "Enter the code") }
 
 type Step = "credentials" | "second-factor";
 
+const finish = async (
+  clerk: Clerk,
+  target: string,
+  sessionId: string | null,
+): Promise<void> => {
+  if (sessionId == null) throw new Error("Login did not start a session");
+  await clerk.setActive({ session: sessionId });
+  await navigate(target);
+};
+
+export interface SignInProps {
+  /** target is where to land after signing in. */
+  target: string;
+}
+
 /** SignIn signs a user in with email and password, Google, or Microsoft. */
-export const SignIn = (): ReactElement => {
+export const SignIn = ({ target }: SignInProps): ReactElement => {
   const clerk = useClerk();
   const [step, setStep] = useState<Step>("credentials");
   const [oauthError, setOAuthError] = useState<string | null>(null);
   const methods = Form.use({ values: { email: "", password: "" }, schema });
   const codeMethods = Form.use({ values: { code: "" }, schema: codeSchema });
 
-  const finish = useCallback(
-    async (sessionId: string | null) => {
-      if (clerk == null || sessionId == null) return;
-      await clerk.setActive({ session: sessionId });
-      await navigate(target());
-    },
-    [clerk],
-  );
+  const signIn = useAction(async () => {
+    if (clerk?.client == null || !methods.validate()) return;
+    const { email, password } = methods.value();
+    const res = await clerk.client.signIn.create({ identifier: email, password });
+    if (res.status === "complete")
+      return await finish(clerk, target, res.createdSessionId);
+    if (res.status === "needs_second_factor") {
+      setStep("second-factor");
+      return;
+    }
+    throw new Error(`Sign-in needs ${res.status ?? "another step"}`);
+  });
 
-  const signIn = useAction(
-    useCallback(async () => {
-      if (clerk?.client == null || !methods.validate()) return;
-      const { email, password } = methods.value();
-      try {
-        const res = await clerk.client.signIn.create({
-          identifier: email,
-          password,
-        });
-        if (res.status === "complete") return await finish(res.createdSessionId);
-        if (res.status === "needs_second_factor") {
-          setStep("second-factor");
-          return;
-        }
-        throw new Error(`Sign-in needs ${res.status ?? "another step"}`);
-      } catch (err) {
-        throw new Error(errorMessage(err), { cause: err });
-      }
-    }, [clerk, methods, finish]),
-  );
-
-  const verify = useAction(
-    useCallback(async () => {
-      if (clerk?.client == null || !codeMethods.validate()) return;
-      try {
-        const res = await clerk.client.signIn.attemptSecondFactor({
-          strategy: "totp",
-          code: codeMethods.value().code,
-        });
-        if (res.status === "complete") return await finish(res.createdSessionId);
-        throw new Error("That code did not work");
-      } catch (err) {
-        throw new Error(errorMessage(err), { cause: err });
-      }
-    }, [clerk, codeMethods, finish]),
-  );
+  const verify = useAction(async () => {
+    if (clerk?.client == null || !codeMethods.validate()) return;
+    const res = await clerk.client.signIn.attemptSecondFactor({
+      strategy: "totp",
+      code: codeMethods.value().code,
+    });
+    if (res.status === "complete")
+      return await finish(clerk, target, res.createdSessionId);
+    throw new Error("That code did not work");
+  });
 
   if (step === "second-factor")
     return (
@@ -120,20 +112,29 @@ export const SignIn = (): ReactElement => {
       footer={
         <Text.Text level="small" color={9}>
           New to Synnax?{" "}
-          <Text.Text el="a" level="small" variant="link" href={withTarget("/sign-up")}>
+          <Text.Text
+            el="a"
+            level="small"
+            variant="link"
+            href={withTarget("/sign-up", target)}
+          >
             Create an account
           </Text.Text>
         </Text.Text>
       }
     >
-      <OAuth mode="sign-in" onError={setOAuthError} />
+      <OAuth mode="sign-in" target={target} onError={setOAuthError} />
       <Form.Form<typeof schema> {...methods}>
-        <Form.Field<string> path="email" label="Email">
-          {(p) => <Input.Text {...p} type="email" autoComplete="email" autoFocus />}
-        </Form.Field>
-        <Form.Field<string> path="password" label="Password">
-          {(p) => <Input.Text {...p} type="password" autoComplete="current-password" />}
-        </Form.Field>
+        <Form.TextField
+          path="email"
+          label="Email"
+          inputProps={{ type: "email", autoComplete: "email", autoFocus: true }}
+        />
+        <Form.TextField
+          path="password"
+          label="Password"
+          inputProps={{ type: "password", autoComplete: "current-password" }}
+        />
         <Button.Button
           variant="filled"
           size="large"
@@ -150,8 +151,8 @@ export const SignIn = (): ReactElement => {
           el="a"
           level="small"
           variant="link"
-          href={withTarget("/sign-in/reset")}
-          style={{ alignSelf: "center" }}
+          href={withTarget("/sign-in/reset", target)}
+          className="portal-auth__reset"
         >
           Forgot your password?
         </Text.Text>

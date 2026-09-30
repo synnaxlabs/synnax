@@ -9,13 +9,13 @@
 
 import { type Event, type License } from "@/server/db/schema";
 
-export const date = (d: Date | string | null | undefined): string =>
-  d == null ? "" : new Date(d).toISOString().slice(0, 10);
+export const date = (d: Date | null): string =>
+  d == null ? "" : d.toISOString().slice(0, 10);
 
-export const dateTime = (d: Date | string): string =>
-  `${new Date(d).toISOString().slice(0, 16).replace("T", " ")} UTC`;
+export const dateTime = (d: Date): string =>
+  `${d.toISOString().slice(0, 16).replace("T", " ")} UTC`;
 
-export const shortHash = (hashes: string[]): string =>
+const shortHash = (hashes: string[]): string =>
   hashes.length === 0
     ? "Floating"
     : `${hashes[0].slice(0, 12)}${hashes.length > 1 ? ` +${hashes.length - 1}` : ""}`;
@@ -28,6 +28,15 @@ export const machineName = (a: {
 
 export type LicenseStatus = "active" | "expiring" | "expired" | "revoked";
 
+export const STATUSES: LicenseStatus[] = ["active", "expiring", "expired", "revoked"];
+
+export const STATUS_LABELS: Record<LicenseStatus, string> = {
+  active: "Active",
+  expiring: "Expiring",
+  expired: "Expired",
+  revoked: "Revoked",
+};
+
 /** EXPIRING is how long before its expiry a license starts asking to be renewed. */
 const EXPIRING = 30 * 24 * 60 * 60 * 1000;
 
@@ -35,7 +44,7 @@ const EXPIRING = 30 * 24 * 60 * 60 * 1000;
 export const statusOf = (lic: License, now: Date): LicenseStatus => {
   if (lic.revokedAt != null) return "revoked";
   if (lic.expiresAt == null) return "active";
-  const left = new Date(lic.expiresAt).getTime() - now.getTime();
+  const left = lic.expiresAt.getTime() - now.getTime();
   if (left <= 0) return "expired";
   return left > EXPIRING ? "active" : "expiring";
 };
@@ -60,7 +69,7 @@ export const standing = (
 ): Standing => {
   const live = licenses.filter(({ license }) => usable(statusOf(license, now)));
   const expiries = live.flatMap(({ license }) =>
-    license.expiresAt == null ? [] : [new Date(license.expiresAt).getTime()],
+    license.expiresAt == null ? [] : [license.expiresAt.getTime()],
   );
   return {
     active: live.length,

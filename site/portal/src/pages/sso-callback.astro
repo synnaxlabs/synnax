@@ -9,12 +9,13 @@
 // included in the file licenses/APL.txt.
 
 import Root from "@/layouts/Root.astro";
+import { landing } from "@/shell";
 import { SSOCallback } from "@/ui/auth/SSOCallback";
 import "@/styles/portal.css";
 ---
 
 <Root title="Signing in">
     <section class="portal-auth-page">
-        <SSOCallback client:load />
+        <SSOCallback client:load target={landing(Astro.url.searchParams)} />
     </section>
 </Root>

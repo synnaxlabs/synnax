@@ -146,6 +146,17 @@
 
 .portal-menu {
     --pluto-shadow-v1: var(--pluto-shadow-overlay);
+
+    min-width: 24rem;
+    padding: 1rem;
+}
+
+.portal-menu__name {
+    padding: 1rem 2rem;
+}
+
+.portal-machine-menu {
+    padding: 1rem;
 }
 
 main {
@@ -202,10 +213,42 @@ section.portal {
     border-radius: var(--pluto-border-radius);
 }
 
+.portal-list__stack {
+    min-width: 0;
+}
+
+.portal-search {
+    max-width: 40rem;
+}
+
+.portal-activity__time {
+    min-width: 18rem;
+}
+
 .portal-facts {
+    padding: 3rem 4rem;
+}
+
+.portal-facts__grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(24rem, 1fr));
     gap: 3rem 4rem;
+}
+
+.portal-fact {
+    min-width: 0;
+}
+
+.portal-enterprise {
+    padding: 3rem 4rem;
+}
+
+.portal-enterprise__text {
+    flex: 1 1 40rem;
+}
+
+.portal-activate {
+    padding: 4rem;
 }
 
 section.portal-auth-page {
@@ -221,12 +264,24 @@ section.portal-auth-page {
     margin: 8rem auto 12rem;
 }
 
+.portal-auth__reset {
+    align-self: center;
+}
+
+.portal-auth__pending {
+    padding: 2rem;
+}
+
 .portal-step {
     padding: 3rem 4rem;
 
     & + & {
         border-top: var(--pluto-border);
     }
+}
+
+.portal-step__text {
+    flex: 1 1 30rem;
 }
 
 .portal-step__number {
@@ -264,7 +319,6 @@ section.portal-auth-page {
     .portal-list__row {
         grid-template-columns: 1fr !important;
         gap: 0.5rem;
-        padding: 1.5rem 0;
     }
 
     .portal-list__head {

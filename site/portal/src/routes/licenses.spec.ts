@@ -40,6 +40,7 @@ import {
   readKey,
   STAFF_ORG_ID,
 } from "@/testutil";
+import { termsOf, ZERO_TERMS } from "@/ui/licenses/Terms";
 
 const STAFF = "user_staff";
 const MEMBER = "user_member";
@@ -276,6 +277,30 @@ describe("license routes", () => {
         expect((await licenses())[0].organization).toBe(org.key);
       });
 
+      it("should issue from the values the issue dialog posts", async () => {
+        const values = {
+          ...ZERO_TERMS,
+          organization: ACME,
+          label: "Test stand",
+          nodes: 3,
+          channels: 500,
+          expiresAt: "2027-01-01",
+        };
+        const res = await call(issueRoute, { body: values });
+        expect(res.status).toBe(200);
+        expect(await licenses()).toEqual([
+          expect.objectContaining({
+            organization: acme.key,
+            term: "subscription",
+            nodes: 3,
+            channels: 500,
+            label: "Test stand",
+            expiresAt: new Date("2027-01-01T00:00:00Z"),
+            maxVersion: null,
+          }),
+        ]);
+      });
+
       it("should accept a posted form", async () => {
         const form = new FormData();
         for (const [k, v] of Object.entries(SUBSCRIPTION)) form.set(k, v);
@@ -374,6 +399,38 @@ describe("license routes", () => {
           label: "Renamed rig",
           expiresAt: new Date("2027-06-01T00:00:00Z"),
         }),
+      ]);
+    });
+
+    it("should post a license back to the amend route unchanged", async () => {
+      h.signIn(STAFF);
+      const subscription = await createLicense(store, {
+        organization: acme.key,
+        maxVersion: "0.62",
+      });
+      const perpetual = await createLicense(store, {
+        organization: acme.key,
+        term: "perpetual",
+        expiresAt: null,
+        maxVersion: "0.62",
+      });
+      for (const unchanged of [subscription, perpetual]) {
+        const res = await call(amendRoute, {
+          params: { key: unchanged.key },
+          body: termsOf(unchanged),
+        });
+        expect(res.status).toBe(204);
+      }
+      expect(await licenses()).toEqual(
+        expect.arrayContaining([subscription, perpetual]),
+      );
+      expect(await events()).toEqual([
+        expect.objectContaining({
+          kind: "amend",
+          license: subscription.key,
+          detail: {},
+        }),
+        expect.objectContaining({ kind: "amend", license: perpetual.key, detail: {} }),
       ]);
     });
 

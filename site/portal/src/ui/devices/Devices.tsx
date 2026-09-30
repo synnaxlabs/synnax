@@ -12,7 +12,7 @@ import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { type Activation, type License } from "@/server/db/schema";
 import { type Machine } from "@/server/license/desktop";
@@ -28,69 +28,66 @@ import { useAction } from "@/ui/useAction";
 export interface DevicesProps {
   /** machines are the machines signed in from the Desktop app that hold a seat. */
   machines: Machine[];
-  now: Date | string;
+  now: Date;
 }
 
 const COLUMNS = "minmax(0, 2fr) 14rem 16rem 16rem 18rem";
 
 /** validity says how much longer a machine keeps working. */
-const validity = (lic: License, at: Date): string =>
-  statusOf(lic, at) === "expired"
+const validity = (lic: License, now: Date): string =>
+  statusOf(lic, now) === "expired"
     ? `Expired ${date(lic.expiresAt)}. Open the app on that machine to renew.`
     : `Valid until ${date(lic.expiresAt)}`;
 
 /** Devices lists the machines a personal user signed in from Synnax Desktop. */
-export const Devices = ({ machines, now }: DevicesProps): ReactElement => {
-  const at = new Date(now);
-  return (
-    <Page title="Devices" subtitle="Machines signed in from Synnax Desktop">
-      {machines.length === 0 ? (
-        <Empty
-          message="No machines yet"
-          description="Sign in from the Synnax Desktop app and this machine appears here."
-        />
-      ) : (
-        <Table
-          columns={COLUMNS}
-          head={["Machine", "Status", "First seen", "Last renewal", ""]}
-        >
-          {machines.map(({ activation: a, license: lic }) => (
-            <Row key={a.key} columns={COLUMNS}>
-              <Flex.Box y gap="tiny" style={{ minWidth: 0 }}>
-                <Text.Text level="p" overflow="ellipsis">
-                  {machineName(a)}
-                </Text.Text>
-                <Text.Text level="small" color={9} overflow="ellipsis">
-                  {validity(lic, at)}
-                </Text.Text>
-              </Flex.Box>
-              <Flex.Box>
-                <StatusTag status={statusOf(lic, at)} />
-              </Flex.Box>
-              <Text.Text level="p" color={10}>
-                {date(a.firstSeen)}
+export const Devices = ({ machines, now }: DevicesProps): ReactElement => (
+  <Page title="Devices" subtitle="Machines signed in from Synnax Desktop">
+    {machines.length === 0 ? (
+      <Empty
+        message="No machines yet"
+        description="Sign in from the Synnax Desktop app and this machine appears here."
+      />
+    ) : (
+      <Table
+        columns={COLUMNS}
+        head={["Machine", "Status", "First seen", "Last renewal", ""]}
+      >
+        {machines.map(({ activation: a, license: lic }) => (
+          <Row key={a.key} columns={COLUMNS}>
+            <Flex.Box y gap="tiny" className="portal-list__stack">
+              <Text.Text level="p" overflow="ellipsis">
+                {machineName(a)}
               </Text.Text>
-              <Text.Text level="p" color={10}>
-                {date(a.lastSeen)}
+              <Text.Text level="small" color={9} overflow="ellipsis">
+                {validity(lic, now)}
               </Text.Text>
-              <Flex.Box x justify="end" gap="small">
-                <RenameDialog
-                  activation={a}
-                  trigger={
-                    <Dialog.Trigger variant="text" size="small" hideCaret>
-                      Rename
-                    </Dialog.Trigger>
-                  }
-                />
-                <UnlinkDialog activation={a} />
-              </Flex.Box>
-            </Row>
-          ))}
-        </Table>
-      )}
-    </Page>
-  );
-};
+            </Flex.Box>
+            <Flex.Box>
+              <StatusTag status={statusOf(lic, now)} />
+            </Flex.Box>
+            <Text.Text level="p" color={10}>
+              {date(a.firstSeen)}
+            </Text.Text>
+            <Text.Text level="p" color={10}>
+              {date(a.lastSeen)}
+            </Text.Text>
+            <Flex.Box x justify="end" gap="small">
+              <RenameDialog
+                activation={a}
+                trigger={
+                  <Dialog.Trigger variant="text" size="small" hideCaret>
+                    Rename
+                  </Dialog.Trigger>
+                }
+              />
+              <UnlinkDialog activation={a} />
+            </Flex.Box>
+          </Row>
+        ))}
+      </Table>
+    )}
+  </Page>
+);
 
 const UnlinkDialog = ({ activation }: { activation: Activation }): ReactElement => (
   <Modal.Frame
@@ -108,13 +105,11 @@ const UnlinkDialog = ({ activation }: { activation: Activation }): ReactElement 
 
 const UnlinkContent = ({ activation }: { activation: Activation }): ReactElement => {
   const { close } = Dialog.useContext();
-  const action = useAction(
-    useCallback(async () => {
-      await post(`/api/activations/${activation.key}/release`);
-      close();
-      await reload();
-    }, [activation.key, close]),
-  );
+  const action = useAction(async () => {
+    await post(`/api/activations/${activation.key}/release`);
+    close();
+    reload();
+  });
   return (
     <>
       <Modal.Body gap="small">

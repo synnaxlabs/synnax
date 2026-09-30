@@ -27,9 +27,8 @@ export const Enterprise = (): ReactElement => (
     rounded
     background={1}
     className="portal-enterprise"
-    style={{ padding: "3rem 4rem" }}
   >
-    <Flex.Box y gap="small" style={{ flex: "1 1 40rem" }}>
+    <Flex.Box y gap="small" className="portal-enterprise__text">
       <Text.Text level="h5">Synnax Enterprise</Text.Text>
       <Text.Text level="p" color={10}>
         A standalone Core on your own hardware, licensed machines, and a team that

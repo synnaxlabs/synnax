@@ -31,7 +31,7 @@ export interface TeamProps {
   organization: Organization;
   /** licenses are the team's licenses, newest first. */
   licenses: Held[];
-  now: Date | string;
+  now: Date;
 }
 
 /**
@@ -39,8 +39,7 @@ export interface TeamProps {
  * way to its members.
  */
 export const Team = ({ organization, licenses, now }: TeamProps): ReactElement => {
-  const at = new Date(now);
-  const { active, seats, capacity, nextExpiry } = standing(licenses, at);
+  const { active, seats, capacity, nextExpiry } = standing(licenses, now);
   return (
     <Page
       title={organization.name}
@@ -90,7 +89,7 @@ export const Team = ({ organization, licenses, now }: TeamProps): ReactElement =
                   {lic.label || "Untitled license"}
                 </Text.Text>
                 <Flex.Box>
-                  <StatusTag status={statusOf(lic, at)} />
+                  <StatusTag status={statusOf(lic, now)} />
                 </Flex.Box>
                 <Text.Text level="p" color={10}>
                   {held} of {lic.nodes}
