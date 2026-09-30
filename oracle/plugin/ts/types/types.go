@@ -838,7 +838,11 @@ func (p *Plugin) processStruct(
 				schemaName := camelCase(baseTSName) + "Z"
 				importLocalHand(base, schemaName, data)
 				if base.Namespace != data.Namespace {
-					ns := importNamespace(base.Namespace, output.GetPath(base, "ts"), data)
+					ns := importNamespace(
+						base.Namespace,
+						output.GetPath(base, "ts"),
+						data,
+					)
 					schemaName = ns + "." + schemaName
 				}
 				sd.ExtendsName = schemaName
@@ -907,7 +911,11 @@ func (p *Plugin) processStruct(
 			importLocalHand(parentType, schemaName, data)
 
 			if parentType.Namespace != data.Namespace {
-				ns := importNamespace(parentType.Namespace, output.GetPath(parentType, "ts"), data)
+				ns := importNamespace(
+					parentType.Namespace,
+					output.GetPath(parentType, "ts"),
+					data,
+				)
 				schemaName = ns + "." + schemaName
 			}
 
@@ -2032,7 +2040,11 @@ func (p *Plugin) typeRefToZodInternal(
 			}
 		}
 		if resolved.Namespace != data.Namespace {
-			ns := importNamespace(resolved.Namespace, output.GetPath(resolved, "ts"), data)
+			ns := importNamespace(
+				resolved.Namespace,
+				output.GetPath(resolved, "ts"),
+				data,
+			)
 			return fmt.Sprintf("%s.%s", ns, schemaName)
 		}
 		return schemaName
@@ -2052,7 +2064,11 @@ func (p *Plugin) typeRefToZodInternal(
 	case resolution.DistinctForm:
 		schemaName := camelCase(domain.GetName(resolved, "ts")) + "Z"
 		if resolved.Namespace != data.Namespace {
-			ns := importNamespace(resolved.Namespace, output.GetPath(resolved, "ts"), data)
+			ns := importNamespace(
+				resolved.Namespace,
+				output.GetPath(resolved, "ts"),
+				data,
+			)
 			return fmt.Sprintf("%s.%s", ns, schemaName)
 		}
 		return schemaName
@@ -2061,7 +2077,11 @@ func (p *Plugin) typeRefToZodInternal(
 		if !form.IsGeneric() {
 			schemaName := camelCase(domain.GetName(resolved, "ts")) + "Z"
 			if resolved.Namespace != data.Namespace {
-				ns := importNamespace(resolved.Namespace, output.GetPath(resolved, "ts"), data)
+				ns := importNamespace(
+					resolved.Namespace,
+					output.GetPath(resolved, "ts"),
+					data,
+				)
 				return fmt.Sprintf("%s.%s", ns, schemaName)
 			}
 			return schemaName
@@ -2081,7 +2101,11 @@ func (p *Plugin) typeRefToZodInternal(
 	case resolution.UnionForm:
 		schemaName := camelCase(domain.GetName(resolved, "ts")) + "Z"
 		if resolved.Namespace != data.Namespace {
-			ns := importNamespace(resolved.Namespace, output.GetPath(resolved, "ts"), data)
+			ns := importNamespace(
+				resolved.Namespace,
+				output.GetPath(resolved, "ts"),
+				data,
+			)
 			return fmt.Sprintf("%s.%s", ns, schemaName)
 		}
 		return schemaName
@@ -2200,7 +2224,11 @@ func (p *Plugin) typeRefToTSInternal(
 	case resolution.DistinctForm:
 		distinctName := domain.GetName(resolved, "ts")
 		if resolved.Namespace != data.Namespace {
-			ns := importNamespace(resolved.Namespace, output.GetPath(resolved, "ts"), data)
+			ns := importNamespace(
+				resolved.Namespace,
+				output.GetPath(resolved, "ts"),
+				data,
+			)
 			return fmt.Sprintf("%s.%s", ns, distinctName)
 		}
 		return distinctName
