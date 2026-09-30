@@ -33,6 +33,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -641,6 +642,259 @@ var _ = Describe("Calculation", Ordered, func() {
 					).To(telem.MatchSeriesDataV[int64](4, 8))
 				},
 			)
+		})
+
+		Describe("Disjoint Base Sets", func() {
+			var (
+				bases []channel.Channel
+				calcs []channel.Channel
+			)
+			drain := func(out <-chan streamer.Response) {
+				for {
+					select {
+					case <-out:
+					default:
+						return
+					}
+				}
+			}
+			writeAll := func(w *framer.Writer, values ...int64) {
+				GinkgoHelper()
+				series := make([]telem.Series, len(values))
+				for i, v := range values {
+					series[i] = telem.NewSeriesV[int64](v)
+				}
+				Expect(w.Write(frame.NewMulti(
+					channel.KeysFromChannels(bases), series,
+				))).To(BeTrue())
+			}
+			// A group subscribes to the relay after the request returns, so the first
+			// write after a group opens can be lost. writeHeard retries it.
+			writeHeard := func(
+				w *framer.Writer,
+				out <-chan streamer.Response,
+				values ...int64,
+			) (res framer.StreamerResponse) {
+				GinkgoHelper()
+				Eventually(func(g Gomega) {
+					drain(out)
+					writeAll(w, values...)
+					g.Eventually(out, 300*time.Millisecond).Should(Receive(&res))
+				}, 5*time.Second).Should(Succeed())
+				return res
+			}
+			// writeSplit writes until every key arrives in a response of its own,
+			// which shows separate groups compute them.
+			writeSplit := func(
+				w *framer.Writer,
+				out <-chan streamer.Response,
+				keys ...channel.Key,
+			) {
+				GinkgoHelper()
+				Eventually(func(g Gomega) {
+					drain(out)
+					writeAll(w, 1, 2, 3, 4)
+					seen := make(set.Set[channel.Key])
+					count := 0
+					deadline := time.After(300 * time.Millisecond)
+					for len(seen) < len(keys) {
+						select {
+						case res := <-out:
+							seen.Add(res.Frame.KeysSlice()...)
+							count++
+						case <-deadline:
+							g.Expect(seen.Slice()).To(ConsistOf(keys))
+						}
+					}
+					g.Expect(count).To(Equal(len(keys)))
+				}, 5*time.Second).Should(Succeed())
+			}
+			openStreamer := func(
+				ctx context.Context,
+				keys channel.Keys,
+			) (confluence.Outlet[streamer.Response], context.CancelFunc) {
+				GinkgoHelper()
+				sCtx, cancel := signal.Isolated()
+				strm := MustSucceed(dist.Framer.NewStreamer(framer.StreamerConfig{
+					Keys:        keys,
+					SendOpenAck: new(true),
+				}))
+				_, sOutlet := confluence.Attach(strm, 1, 1)
+				strm.Flow(sCtx)
+				Eventually(sOutlet.Outlet()).Should(Receive())
+				return sOutlet, cancel
+			}
+			BeforeEach(func(ctx SpecContext) {
+				bases = make([]channel.Channel, 4)
+				for i := range bases {
+					bases[i] = channel.Channel{
+						Name:     UniqueChannelName(),
+						DataType: telem.Int64T,
+						Virtual:  true,
+					}
+				}
+				sumA, sumB := UniqueChannelName(), UniqueChannelName()
+				calcs = []channel.Channel{{
+					Name:        sumA,
+					DataType:    telem.Int64T,
+					Virtual:     true,
+					Leaseholder: node.KeyFree,
+					Expression: fmt.Sprintf(
+						"return %s + %s", bases[0].Name, bases[1].Name,
+					),
+				}, {
+					Name:        sumB,
+					DataType:    telem.Int64T,
+					Virtual:     true,
+					Leaseholder: node.KeyFree,
+					Expression: fmt.Sprintf(
+						"return %s + %s", bases[2].Name, bases[3].Name,
+					),
+				}, {
+					Name:        UniqueChannelName(),
+					DataType:    telem.Int64T,
+					Virtual:     true,
+					Leaseholder: node.KeyFree,
+					Expression:  fmt.Sprintf("return %s + %s", sumA, sumB),
+				}}
+			})
+			Specify("One Sample per Write", func(ctx SpecContext) {
+				w, sOutlet, cancel := open(
+					ctx,
+					nil,
+					&bases,
+					&calcs,
+					func(calcs []channel.Channel) channel.Keys {
+						return []channel.Key{calcs[2].Key()}
+					},
+				)
+				defer cancel()
+				est := calcs[2]
+				out := sOutlet.Outlet()
+				res := writeHeard(w, out, 1, 2, 3, 4)
+				Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{est.Key()}))
+				Expect(res.Frame.Get(est.Key()).Series[0]).To(
+					telem.MatchSeriesDataV[int64](10),
+				)
+				Consistently(out, 100*time.Millisecond).ShouldNot(Receive())
+				writeAll(w, 10, 20, 30, 40)
+				Eventually(out, 1*time.Second).Should(Receive(&res))
+				Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{est.Key()}))
+				Expect(res.Frame.Get(est.Key()).Series[0]).To(
+					telem.MatchSeriesDataV[int64](100),
+				)
+				Consistently(out, 100*time.Millisecond).ShouldNot(Receive())
+			})
+
+			Specify("Writes to One Side Only", func(ctx SpecContext) {
+				w, sOutlet, cancel := open(
+					ctx,
+					nil,
+					&bases,
+					&calcs,
+					func(calcs []channel.Channel) channel.Keys {
+						return []channel.Key{calcs[2].Key()}
+					},
+				)
+				defer cancel()
+				est := calcs[2]
+				out := sOutlet.Outlet()
+				res := writeHeard(w, out, 1, 2, 3, 4)
+				Expect(res.Frame.Get(est.Key()).Series[0]).To(
+					telem.MatchSeriesDataV[int64](10),
+				)
+				Expect(w.Write(frame.NewMulti(
+					channel.Keys{bases[0].Key(), bases[1].Key()},
+					[]telem.Series{
+						telem.NewSeriesV[int64](100),
+						telem.NewSeriesV[int64](200),
+					},
+				))).To(BeTrue())
+				Eventually(out, 1*time.Second).Should(Receive(&res))
+				Expect(res.Frame.Get(est.Key()).Series[0]).To(
+					telem.MatchSeriesDataV[int64](307),
+				)
+				Consistently(out, 100*time.Millisecond).ShouldNot(Receive())
+			})
+
+			Specify("Requesting the Dependent Merges Groups", func(ctx SpecContext) {
+				pair := calcs[:2]
+				w, pairOutlet, cancel := open(
+					ctx,
+					nil,
+					&bases,
+					&pair,
+					channel.KeysFromChannels,
+				)
+				defer cancel()
+				sumA, sumB := pair[0], pair[1]
+				est := calcs[2]
+				Expect(channelWriter.Create(ctx, &est)).To(Succeed())
+				pairOut := pairOutlet.Outlet()
+				writeSplit(w, pairOut, sumA.Key(), sumB.Key())
+
+				rm := c.OpenRequestManager()
+				Expect(rm.Set(ctx, channel.Keys{est.Key()})).To(Succeed())
+				estOutlet, cancelEst := openStreamer(ctx, channel.Keys{est.Key()})
+				defer cancelEst()
+				estOut := estOutlet.Outlet()
+				var res framer.StreamerResponse
+				Eventually(func(g Gomega) {
+					drain(pairOut)
+					drain(estOut)
+					writeAll(w, 10, 20, 30, 40)
+					g.Eventually(pairOut, 200*time.Millisecond).Should(Receive(&res))
+					g.Expect(res.Frame.KeysSlice()).
+						To(ConsistOf(sumA.Key(), sumB.Key()))
+				}, 5*time.Second).Should(Succeed())
+				Eventually(estOut, 1*time.Second).Should(Receive(&res))
+				Expect(res.Frame.Get(est.Key()).Series[0]).To(
+					telem.MatchSeriesDataV[int64](100),
+				)
+				Consistently(pairOut, 100*time.Millisecond).ShouldNot(Receive())
+				Consistently(estOut, 100*time.Millisecond).ShouldNot(Receive())
+
+				Expect(rm.Close(ctx)).To(Succeed())
+				Eventually(func(g Gomega) {
+					drain(pairOut)
+					writeAll(w, 5, 6, 7, 8)
+					g.Eventually(pairOut, 200*time.Millisecond).Should(Receive(&res))
+					g.Expect(res.Frame.KeysSlice()).
+						To(ConsistOf(sumA.Key(), sumB.Key()))
+				}, 5*time.Second).Should(Succeed())
+				Consistently(estOut, 100*time.Millisecond).ShouldNot(Receive())
+			})
+
+			Specify("Updating an Expression Merges Groups", func(ctx SpecContext) {
+				pair := calcs[:2]
+				w, sOutlet, cancel := open(
+					ctx,
+					nil,
+					&bases,
+					&pair,
+					channel.KeysFromChannels,
+				)
+				defer cancel()
+				sumA, sumB := pair[0], pair[1]
+				out := sOutlet.Outlet()
+				writeSplit(w, out, sumA.Key(), sumB.Key())
+
+				sumB.Expression = fmt.Sprintf(
+					"return %s + %s", sumA.Name, bases[2].Name,
+				)
+				Expect(channelWriter.Create(ctx, &sumB)).To(Succeed())
+				var res framer.StreamerResponse
+				Eventually(func(g Gomega) {
+					drain(out)
+					writeAll(w, 1, 2, 3, 4)
+					g.Eventually(out, 200*time.Millisecond).Should(Receive(&res))
+					g.Expect(res.Frame.KeysSlice()).
+						To(ConsistOf(sumA.Key(), sumB.Key()))
+					g.Expect(res.Frame.Get(sumB.Key()).Series[0]).
+						To(telem.MatchSeriesDataV[int64](6))
+				}, 5*time.Second).Should(Succeed())
+				Consistently(out, 100*time.Millisecond).ShouldNot(Receive())
+			})
 		})
 
 		Describe("Reset Channels", func() {

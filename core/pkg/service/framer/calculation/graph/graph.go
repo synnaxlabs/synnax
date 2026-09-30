@@ -359,7 +359,7 @@ func (g *Graph) updateSingle(
 	}
 
 	// Assign to new group (may be same or different)
-	newGroupID := g.assignToGroup(baseDeps)
+	newGroupID := g.assignToGroup(baseDeps, newCalcDeps)
 
 	// Update channel info with new data while preserving reference counts
 	// Do this BEFORE recalculating group base deps so the new module is used
@@ -389,6 +389,8 @@ func (g *Graph) updateSingle(
 			}
 		}
 		g.groups[newGroupID].members.Add(ch.Key())
+		// Dependents must share the channel's group, so a move drags them along.
+		g.mergeGroups(append(g.collectDependentsTopological(ch.Key()), ch.Key()))
 	} else {
 		g.L.Debug("channel updated in same group",
 			zap.String("channel", ch.Key().String()),
@@ -582,7 +584,7 @@ func (g *Graph) addInternal(
 		return err
 	}
 
-	groupID := g.assignToGroup(baseDeps)
+	groupID := g.assignToGroup(baseDeps, calcDeps)
 
 	info.module = mod
 	info.groupID = groupID
@@ -677,9 +679,19 @@ func (g *Graph) resolveBaseDependencies(
 	return baseDeps, nil
 }
 
-// assignToGroup finds the best-fit existing group or creates a new one.
-// This implements the stable grouping strategy.
-func (g *Graph) assignToGroup(baseDeps set.Set[channel.Key]) int {
+// assignToGroup joins the merged group of the calculated dependencies, else the
+// best-fit group by base dependencies, else a new one.
+func (g *Graph) assignToGroup(
+	baseDeps set.Set[channel.Key],
+	calcDeps []channel.Key,
+) int {
+	if groupID, ok := g.mergeGroups(calcDeps); ok {
+		g.groups[groupID].baseDeps.Add(baseDeps.Slice()...)
+		g.L.Debug("channel assigned to the group of its calculated dependencies",
+			zap.Int("group_id", groupID),
+		)
+		return groupID
+	}
 	var (
 		bestGroup        int
 		bestGroupFound   bool
@@ -750,6 +762,35 @@ func (g *Graph) assignToGroup(baseDeps set.Set[channel.Key]) int {
 		zap.String("reason", "no suitable existing group found"),
 	)
 	return newGroupID
+}
+
+// mergeGroups merges the groups of the given channels into the lowest-numbered one
+// and returns it. Reports false when none of the channels is in a group.
+func (g *Graph) mergeGroups(keys []channel.Key) (int, bool) {
+	ids := make(set.Set[int])
+	for _, key := range keys {
+		if info := g.channels[key]; info != nil {
+			ids.Add(info.groupID)
+		}
+	}
+	if len(ids) == 0 {
+		return 0, false
+	}
+	target := slices.Min(ids.Slice())
+	for id := range ids {
+		if id == target {
+			continue
+		}
+		source := g.groups[id]
+		for member := range source.members {
+			g.channels[member].groupID = target
+			g.groups[target].members.Add(member)
+		}
+		g.groups[target].baseDeps.Add(source.baseDeps.Slice()...)
+		delete(g.groups, id)
+		g.L.Debug("group merged", zap.Int("source", id), zap.Int("target", target))
+	}
+	return target, true
 }
 
 // CalculateGrouped returns all modules grouped by their assigned group keys.

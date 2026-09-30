@@ -10,16 +10,20 @@
 package graph_test
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -218,6 +222,157 @@ var _ = Describe("Graph", func() {
 			Expect(g.Add(ctx, calcs[1])).To(Succeed())
 			grouped := g.CalculateGrouped()
 			Expect(grouped).To(HaveLen(1))
+		})
+	})
+
+	Describe("Dependency groups", func() {
+		var (
+			bases []channel.Channel
+			sumA  channel.Channel
+			sumB  channel.Channel
+			est   channel.Channel
+		)
+		createCalc := func(ctx SpecContext, expression string) channel.Channel {
+			GinkgoHelper()
+			ch := channel.Channel{
+				Name:       UniqueChannelName(),
+				DataType:   telem.Int64T,
+				Virtual:    true,
+				Expression: expression,
+			}
+			Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
+			return ch
+		}
+		BeforeEach(func(ctx SpecContext) {
+			bases = make([]channel.Channel, 5)
+			for i := range bases {
+				bases[i] = channel.Channel{
+					Name:     UniqueChannelName(),
+					DataType: telem.Int64T,
+					Virtual:  true,
+				}
+			}
+			Expect(channelWriter.CreateMany(ctx, &bases)).To(Succeed())
+			sumA = createCalc(ctx, fmt.Sprintf(
+				"return %s + %s", bases[0].Name, bases[1].Name,
+			))
+			sumB = createCalc(ctx, fmt.Sprintf(
+				"return %s + %s + %s", bases[2].Name, bases[3].Name, bases[4].Name,
+			))
+			est = createCalc(ctx, fmt.Sprintf("return %s + %s", sumA.Name, sumB.Name))
+		})
+
+		It("Should merge the groups of calculated dependencies", func(ctx SpecContext) {
+			Expect(g.Add(ctx, est)).To(Succeed())
+			grouped := g.CalculateGrouped()
+			Expect(grouped).To(HaveLen(1))
+			Expect(grouped).To(HaveKey(0))
+			Expect(grouped[0]).To(HaveLen(3))
+			Expect(grouped[0][2].Channel.Key()).To(Equal(est.Key()))
+		})
+
+		It("Should merge groups created before the dependent", func(ctx SpecContext) {
+			Expect(g.Add(ctx, sumA)).To(Succeed())
+			Expect(g.Add(ctx, sumB)).To(Succeed())
+			Expect(g.CalculateGrouped()).To(HaveLen(2))
+			Expect(g.Add(ctx, est)).To(Succeed())
+			grouped := g.CalculateGrouped()
+			Expect(grouped).To(HaveLen(1))
+			Expect(grouped).To(HaveKey(0))
+			Expect(grouped[0]).To(HaveLen(3))
+		})
+
+		It("Should join the group of a single dependency", func(ctx SpecContext) {
+			Expect(g.Add(ctx, sumA)).To(Succeed())
+			double := createCalc(ctx, fmt.Sprintf("return %s * 2", sumA.Name))
+			Expect(g.Add(ctx, double)).To(Succeed())
+			grouped := g.CalculateGrouped()
+			Expect(grouped).To(HaveLen(1))
+			Expect(grouped[0]).To(HaveLen(2))
+		})
+
+		It("Should union base dependencies when merging", func(ctx SpecContext) {
+			Expect(g.Add(ctx, est)).To(Succeed())
+			Expect(g.ConcreteBaseKeys()).To(Equal(
+				set.New(channel.KeysFromChannels(bases)...),
+			))
+			partial := createCalc(ctx, "return "+bases[2].Name)
+			Expect(g.Add(ctx, partial)).To(Succeed())
+			grouped := g.CalculateGrouped()
+			Expect(grouped).To(HaveLen(1))
+			Expect(grouped[0]).To(HaveLen(4))
+		})
+
+		It("Should keep unrelated channels in their own groups", func(ctx SpecContext) {
+			other := channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.Int64T,
+				Virtual:  true,
+			}
+			Expect(channelWriter.Create(ctx, &other)).To(Succeed())
+			lone := createCalc(ctx, "return "+other.Name)
+			Expect(g.Add(ctx, est)).To(Succeed())
+			Expect(g.Add(ctx, lone)).To(Succeed())
+			Expect(g.CalculateGrouped()).To(HaveLen(2))
+		})
+
+		It("Should keep partially overlapping bases apart", func(ctx SpecContext) {
+			Expect(g.Add(ctx, sumA)).To(Succeed())
+			overlap := createCalc(ctx, fmt.Sprintf(
+				"return %s + %s", bases[1].Name, bases[2].Name,
+			))
+			Expect(g.Add(ctx, overlap)).To(Succeed())
+			Expect(g.CalculateGrouped()).To(HaveLen(2))
+		})
+
+		It("Should merge on an update that adds a dependency", func(ctx SpecContext) {
+			Expect(g.Add(ctx, sumA)).To(Succeed())
+			Expect(g.Add(ctx, sumB)).To(Succeed())
+			Expect(g.CalculateGrouped()).To(HaveLen(2))
+			sumB.Expression = fmt.Sprintf("return %s + %s", sumA.Name, bases[2].Name)
+			Expect(channelWriter.Create(ctx, &sumB)).To(Succeed())
+			Expect(g.Update(ctx, sumB)).To(Succeed())
+			grouped := g.CalculateGrouped()
+			Expect(grouped).To(HaveLen(1))
+			Expect(grouped[0]).To(HaveLen(2))
+		})
+
+		It("Should leave independent siblings behind on update", func(ctx SpecContext) {
+			Expect(g.Add(ctx, sumA)).To(Succeed())
+			Expect(g.Add(ctx, sumB)).To(Succeed())
+			sibling := createCalc(ctx, "return "+bases[2].Name)
+			Expect(g.Add(ctx, sibling)).To(Succeed())
+			Expect(g.CalculateGrouped()).To(HaveLen(2))
+			sumB.Expression = fmt.Sprintf("return %s + %s", sumA.Name, bases[2].Name)
+			Expect(channelWriter.Create(ctx, &sumB)).To(Succeed())
+			Expect(g.Update(ctx, sumB)).To(Succeed())
+			grouped := g.CalculateGrouped()
+			Expect(grouped).To(HaveLen(2))
+			Expect(grouped[0]).To(HaveLen(2))
+			Expect(grouped[1]).To(HaveLen(1))
+			Expect(grouped[1][0].Channel.Key()).To(Equal(sibling.Key()))
+		})
+
+		It("Should move dependents along on update", func(ctx SpecContext) {
+			Expect(g.Add(ctx, sumA)).To(Succeed())
+			Expect(g.Add(ctx, sumB)).To(Succeed())
+			dependent := createCalc(ctx, fmt.Sprintf("return %s * 2", sumB.Name))
+			Expect(g.Add(ctx, dependent)).To(Succeed())
+			Expect(g.CalculateGrouped()).To(HaveLen(2))
+			sumB.Expression = fmt.Sprintf("return %s + %s", sumA.Name, bases[2].Name)
+			Expect(channelWriter.Create(ctx, &sumB)).To(Succeed())
+			Expect(g.Update(ctx, sumB)).To(Succeed())
+			grouped := g.CalculateGrouped()
+			Expect(grouped).To(HaveLen(1))
+			Expect(grouped[0]).To(HaveLen(3))
+			Expect(grouped[0][2].Channel.Key()).To(Equal(dependent.Key()))
+		})
+
+		It("Should remove members moved by a merge", func(ctx SpecContext) {
+			Expect(g.Add(ctx, est)).To(Succeed())
+			Expect(MustSucceed(g.Remove(est.Key()))).To(BeTrue())
+			Expect(g.CalculatedKeys()).To(BeEmpty())
+			Expect(g.CalculateGrouped()).To(BeEmpty())
 		})
 	})
 
