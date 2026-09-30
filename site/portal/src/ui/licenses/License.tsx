@@ -74,7 +74,7 @@ export const License = ({
   const machines = Object.fromEntries(activations.map((a) => [a.key, machineName(a)]));
   return (
     <Page
-      title={lic.label || "Untitled license"}
+      title={lic.label}
       subtitle={
         <Flex.Box x align="center" gap="small">
           <StatusTag status={status} />

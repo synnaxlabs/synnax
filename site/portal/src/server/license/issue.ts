@@ -43,8 +43,25 @@ export interface IssueArgs extends Terms {
   now: Date;
 }
 
+/** readTerms reads the terms a staff form posts. {@link validate} checks them. */
+export const readTerms = (body: Record<string, string>): Terms => {
+  const term = body.term === "perpetual" ? "perpetual" : "subscription";
+  return {
+    term,
+    nodes: Number(body.nodes),
+    channels: Number(body.channels || "0"),
+    label: (body.label ?? "").trim(),
+    expiresAt:
+      term === "subscription" && body.expiresAt
+        ? new Date(`${body.expiresAt}T00:00:00Z`)
+        : undefined,
+    maxVersion: body.maxVersion?.trim() || undefined,
+  };
+};
+
 /** validate checks the term rules a license must satisfy and throws a 400 if not. */
 export const validate = (args: Terms & { now: Date }): void => {
+  if (args.label === "") throw badRequest("Give the license a label");
   if (!Number.isInteger(args.nodes) || args.nodes < 1)
     throw badRequest("Nodes must be a whole number of at least 1");
   if (!Number.isInteger(args.channels) || args.channels < 0)

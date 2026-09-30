@@ -62,7 +62,7 @@ export const Licenses = ({
             <Row key={lic.key} columns={COLUMNS} href={`/licenses/${lic.key}`}>
               <Flex.Box y gap="tiny" className="portal-list__stack">
                 <Text.Text level="p" weight={500} overflow="ellipsis">
-                  {lic.label || "Untitled license"}
+                  {lic.label}
                 </Text.Text>
                 <Text.Text level="small" color={9}>
                   {edition(lic.edition)}, {channels(lic.channels)} channels

@@ -12,7 +12,7 @@ import { type APIRoute } from "astro";
 import { requireStaff } from "@/access";
 import { form, handle } from "@/respond";
 import { badRequest } from "@/server/errors";
-import { issue } from "@/server/license/issue";
+import { issue, readTerms } from "@/server/license/issue";
 import { adoptTeam } from "@/server/organization";
 
 /**
@@ -25,27 +25,12 @@ export const POST: APIRoute = async (context) =>
     const session = await portal.session();
     requireStaff(session);
     const body = await form(context);
-    const term = body.term === "perpetual" ? "perpetual" : "subscription";
-    const nodes = Number(body.nodes);
-    if (!Number.isInteger(nodes) || nodes < 1)
-      throw badRequest("Nodes must be a whole number of at least 1");
-    const channels = Number(body.channels || "0");
-    if (!Number.isInteger(channels) || channels < 0)
-      throw badRequest("Channels must be a whole number, 0 for unlimited");
     if (!body.organization) throw badRequest("Choose an organization");
     const team = await adoptTeam(portal.store, portal.directory, body.organization);
     const { key } = await issue(portal.store, {
       organization: team.key,
       edition: "enterprise",
-      term,
-      nodes,
-      channels,
-      label: (body.label ?? "").trim(),
-      expiresAt:
-        term === "subscription" && body.expiresAt
-          ? new Date(`${body.expiresAt}T00:00:00Z`)
-          : undefined,
-      maxVersion: body.maxVersion?.trim() || undefined,
+      ...readTerms(body),
       actor: session.userID,
       now: portal.now(),
     });

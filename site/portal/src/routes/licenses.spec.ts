@@ -147,6 +147,14 @@ describe("license routes", () => {
         );
       });
 
+      it("should require a label", async () => {
+        await expectError(
+          await post({ ...SUBSCRIPTION, label: "   " }),
+          400,
+          "Give the license a label",
+        );
+      });
+
       it("should require an organization", async () => {
         await expectError(
           await post({ ...SUBSCRIPTION, organization: "" }),
@@ -355,6 +363,24 @@ describe("license routes", () => {
         await post({ ...TERMS, nodes: "0" }),
         400,
         "Nodes must be a whole number of at least 1",
+      );
+    });
+
+    it("should require a label", async () => {
+      h.signIn(STAFF);
+      await expectError(
+        await post({ ...TERMS, label: "" }),
+        400,
+        "Give the license a label",
+      );
+    });
+
+    it("should reject a maximum version that is not major.minor", async () => {
+      h.signIn(STAFF);
+      await expectError(
+        await post({ ...TERMS, maxVersion: "0.62.1" }),
+        400,
+        'Maximum version must look like "0.62"',
       );
     });
 
