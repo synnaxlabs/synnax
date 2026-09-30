@@ -10,15 +10,7 @@
 import { type APIContext } from "astro";
 
 import { toResponse } from "@/server/errors";
-
-/** KEY_FILE_EXTENSION is what the Console's file picker filters on. */
-export const KEY_FILE_EXTENSION = "license";
-
-/** filename is the name a license key downloads as, derived from its license label. */
-export const filename = (label: string): string => {
-  const stem = label.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "") || "synnax";
-  return `${stem}.${KEY_FILE_EXTENSION}`;
-};
+import { filename } from "@/server/license/limits";
 
 /** download answers with the license key as a file the Console picker accepts. */
 export const download = (key: string, label: string): Response =>

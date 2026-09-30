@@ -12,12 +12,19 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement, useMemo, useState } from "react";
+import { type ReactElement, useState } from "react";
 
 import { type Listed } from "@/server/directory";
 import { type Owned } from "@/server/license/list";
 import { IssueDialog } from "@/ui/admin/IssueDialog";
-import { date, type LicenseStatus, statusOf, term } from "@/ui/format";
+import {
+  date,
+  type LicenseStatus,
+  STATUS_LABELS,
+  STATUSES,
+  statusOf,
+  term,
+} from "@/ui/format";
 import { StatusTag } from "@/ui/licenses/StatusTag";
 import { Empty, Page } from "@/ui/Page";
 import { Row, Table } from "@/ui/Table";
@@ -26,42 +33,29 @@ export interface LicensesProps {
   /** teams are the organizations in Clerk a license can be issued to. */
   teams: Listed[];
   licenses: Owned[];
-  now: Date | string;
+  now: Date;
 }
 
 const COLUMNS =
   "minmax(0, 2fr) minmax(0, 1.5fr) 14rem minmax(0, 1.4fr) 8rem 10rem 3rem";
 
-const STATUSES: LicenseStatus[] = ["active", "expiring", "expired", "revoked"];
-
-const STATUS_LABELS: Record<LicenseStatus, string> = {
-  active: "Active",
-  expiring: "Expiring",
-  expired: "Expired",
-  revoked: "Revoked",
-};
-
 const expiry = ({ license: lic }: Owned): number =>
-  lic.expiresAt == null ? Infinity : new Date(lic.expiresAt).getTime();
+  lic.expiresAt == null ? Infinity : lic.expiresAt.getTime();
 
 /** Licenses lists every license and issues new ones. Staff only. */
 export const Licenses = ({ teams, licenses, now }: LicensesProps): ReactElement => {
-  const at = useMemo(() => new Date(now), [now]);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<LicenseStatus | null>(null);
-  const shown = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    const matches = (row: Owned): boolean => {
-      const { license: lic, organization: org } = row;
-      if (status != null && statusOf(lic, at) !== status) return false;
-      if (query === "") return true;
-      return `${lic.label} ${org.name} ${lic.key}`.toLowerCase().includes(query);
-    };
-    const rows = licenses.filter(matches);
-    // Soonest first is the only order that answers what the Expiring filter asks.
-    if (status === "expiring") rows.sort((a, b) => expiry(a) - expiry(b));
-    return rows;
-  }, [licenses, search, status, at]);
+  const query = search.trim().toLowerCase();
+  const matches = (row: Owned): boolean => {
+    const { license: lic, organization: org } = row;
+    if (status != null && statusOf(lic, now) !== status) return false;
+    if (query === "") return true;
+    return `${lic.label} ${org.name} ${lic.key}`.toLowerCase().includes(query);
+  };
+  const shown = licenses.filter(matches);
+  // Soonest first is the only order that answers what the Expiring filter asks.
+  if (status === "expiring") shown.sort((a, b) => expiry(a) - expiry(b));
   return (
     <Page
       title="All licenses"
@@ -82,7 +76,7 @@ export const Licenses = ({ teams, licenses, now }: LicensesProps): ReactElement 
                   Label, organization, or key
                 </>
               }
-              style={{ maxWidth: "40rem" }}
+              className="portal-search"
             />
             <Select.Buttons<LicenseStatus>
               value={status ?? undefined}
@@ -120,7 +114,7 @@ export const Licenses = ({ teams, licenses, now }: LicensesProps): ReactElement 
                     {org.name}
                   </Text.Text>
                   <Flex.Box>
-                    <StatusTag status={statusOf(lic, at)} />
+                    <StatusTag status={statusOf(lic, now)} />
                   </Flex.Box>
                   <Text.Text level="p" color={9} overflow="ellipsis">
                     {term(lic)}

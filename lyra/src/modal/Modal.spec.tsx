@@ -61,7 +61,7 @@ describe("Modal", () => {
     });
 
     it("should omit the close button when hidden", () => {
-      renderModal(<Modal.Header hideClose>Title</Modal.Header>);
+      renderModal(<Modal.Header closeHidden>Title</Modal.Header>);
       expect(screen.queryByLabelText("Close")).toBeNull();
     });
   });

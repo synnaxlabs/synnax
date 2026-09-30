@@ -12,7 +12,7 @@ import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { type License } from "@/server/db/schema";
 import { post, reload } from "@/ui/api";
@@ -45,14 +45,12 @@ export const EditDialog = ({ license }: EditDialogProps): ReactElement => (
 const Content = ({ license }: EditDialogProps): ReactElement => {
   const { close } = Dialog.useContext();
   const methods = Form.use({ values: termsOf(license), schema });
-  const action = useAction(
-    useCallback(async () => {
-      if (!methods.validate()) return;
-      await post(`/api/licenses/${license.key}`, methods.value());
-      close();
-      await reload();
-    }, [methods, license.key, close]),
-  );
+  const action = useAction(async () => {
+    if (!methods.validate()) return;
+    await post(`/api/licenses/${license.key}`, methods.value());
+    close();
+    reload();
+  });
   return (
     <Form.Form<typeof schema> {...methods}>
       <Modal.Body gap="medium">

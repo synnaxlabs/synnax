@@ -56,8 +56,15 @@ describe("License.Guard", () => {
     expect(screen.queryByText(GUARDED_CONTENT)).toBeNull();
   });
 
+  it("should render children once a license applies", async () => {
+    const { setStatus } = await renderGuard(null, UNLICENSED_STATUS);
+    expect(screen.queryByText(GUARDED_CONTENT)).toBeNull();
+    setStatus(connection.DEFAULT_STATUS);
+    expect(screen.getByText(GUARDED_CONTENT)).toBeTruthy();
+  });
+
   it("should clear the selected Core on log out", async () => {
-    const store = await renderGuard(null, UNLICENSED_STATUS);
+    const { store } = await renderGuard(null, UNLICENSED_STATUS);
     act(() => {
       store.dispatch(Session.Core.select(Session.Core.LOCAL_KEY));
     });

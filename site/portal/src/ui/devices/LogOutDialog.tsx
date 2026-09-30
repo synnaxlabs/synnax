@@ -44,7 +44,7 @@ const LogOutContent = ({ activation }: { activation: Activation }): ReactElement
     useCallback(async () => {
       await post(`/api/activations/${activation.key}/unlink`);
       close();
-      await reload();
+      reload();
     }, [activation.key, close]),
   );
   return (

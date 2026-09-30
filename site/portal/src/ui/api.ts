@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { navigate } from "astro:transitions/client";
-
 /** RequestError carries the message a portal route answered a request with. */
 export class RequestError extends Error {
   constructor(
@@ -65,12 +63,4 @@ export const save = (blob: Blob, filename: string): void => {
 };
 
 /** reload re-renders the current page from the server, keeping the URL. */
-export const reload = async (): Promise<void> => {
-  await navigate(window.location.pathname + window.location.search, {
-    history: "replace",
-  });
-};
-
-/** message reads the text to show for a caught error. */
-export const message = (err: unknown): string =>
-  err instanceof Error ? err.message : String(err);
+export const reload = (): void => window.location.reload();

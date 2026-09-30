@@ -25,9 +25,9 @@ export const Enterprise = (): ReactElement => (
     align="center"
     gap="large"
     wrap
-    style={{ padding: "3.5rem 4rem" }}
+    className="portal-enterprise"
   >
-    <Flex.Box y gap="tiny" style={{ flex: "1 1 40rem" }}>
+    <Flex.Box y gap="tiny" className="portal-enterprise__text">
       <Text.Text level="h5" weight={500} color={11}>
         Synnax Enterprise
       </Text.Text>

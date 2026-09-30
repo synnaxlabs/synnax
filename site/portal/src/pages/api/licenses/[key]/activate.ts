@@ -10,10 +10,11 @@
 import { type APIRoute } from "astro";
 
 import { licenseFor } from "@/access";
-import { filename, form, handle } from "@/respond";
+import { form, handle } from "@/respond";
 import { badRequest } from "@/server/errors";
 import { activate, DENIAL_MESSAGES } from "@/server/license/activate";
 import { parse } from "@/server/license/fingerprint";
+import { filename } from "@/server/license/limits";
 import { readName } from "@/server/license/machine";
 import { check } from "@/server/ratelimit";
 

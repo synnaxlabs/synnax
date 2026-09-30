@@ -10,36 +10,36 @@
 import { type connection, type Synnax as Client } from "@synnaxlabs/client";
 import { Synnax } from "@synnaxlabs/pluto";
 import { render } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import { type ReactElement } from "react";
 
 import { Guard } from "@/feature/license/Guard";
 import { createConsoleWrapper, type TestStore } from "@/testutil";
 
 export const GUARDED_CONTENT = "licensed content";
 
+export interface GuardHarness {
+  store: TestStore;
+  /** Changes the connection status the Guard sees. */
+  setStatus: (status?: connection.Status) => void;
+}
+
 /**
  * Renders a {@link Guard} over {@link GUARDED_CONTENT} with the given client and
- * connection status, and returns the backing store. The client stays unconnected,
- * because an unlicensed Core never settles a connection.
+ * connection status. The client stays unconnected, because an unlicensed Core never
+ * settles a connection.
  */
 export const renderGuard = async (
   client: Client | null,
   status?: connection.Status,
-): Promise<TestStore> => {
-  const { wrapper: Console, store } = await createConsoleWrapper({ client: null });
-  const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
-    <Console>
-      <Synnax.TestProvider client={client} status={status}>
-        {children}
-      </Synnax.TestProvider>
-    </Console>
+): Promise<GuardHarness> => {
+  const { wrapper, store } = await createConsoleWrapper({ client: null });
+  const ui = (current?: connection.Status): ReactElement => (
+    <Synnax.TestProvider client={client} status={current}>
+      <Guard>
+        <span>{GUARDED_CONTENT}</span>
+      </Guard>
+    </Synnax.TestProvider>
   );
-  Wrapper.displayName = "GuardWrapper";
-  render(
-    <Guard>
-      <span>{GUARDED_CONTENT}</span>
-    </Guard>,
-    { wrapper: Wrapper },
-  );
-  return store;
+  const { rerender } = render(ui(status), { wrapper });
+  return { store, setStatus: (next) => rerender(ui(next)) };
 };

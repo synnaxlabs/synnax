@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Synnax } from "@synnaxlabs/pluto";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -16,7 +15,7 @@ import { Shell } from "@/platform/shell";
 import { CONNECTION_PARAMS } from "@/session/core/testutil";
 import {
   createConnectedConsoleWrapper,
-  createConsoleWrapper,
+  createStatusConsoleWrapper,
   UNLICENSED_STATUS,
 } from "@/testutil";
 
@@ -52,14 +51,11 @@ describe("Connection", () => {
   });
 
   it("should stay nominal when the Core refuses requests for want of a license", async () => {
-    const { wrapper: Console } = await createConsoleWrapper({ client: null });
-    render(
-      <Console>
-        <Synnax.TestProvider client={createTestClient()} status={UNLICENSED_STATUS}>
-          <Shell.Connection core={CORE} />
-        </Synnax.TestProvider>
-      </Console>,
-    );
+    const { wrapper } = await createStatusConsoleWrapper({
+      client: createTestClient(),
+      status: UNLICENSED_STATUS,
+    });
+    render(<Shell.Connection core={CORE} />, { wrapper });
     expect(await screen.findByText("Connected")).toBeTruthy();
     expect(screen.queryByText("Unreachable")).toBeNull();
   });

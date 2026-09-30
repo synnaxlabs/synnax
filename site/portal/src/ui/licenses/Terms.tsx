@@ -15,8 +15,7 @@ import { type ReactElement } from "react";
 import { z } from "zod";
 
 import { type License, type Term } from "@/server/db/schema";
-
-const VERSION_PATTERN = /^\d+\.\d+$/;
+import { VERSION_PATTERN } from "@/server/license/limits";
 
 /** termsSchema is the unrefined shape; apply checkTerms to get the term rules. */
 export const termsSchema = z.object({

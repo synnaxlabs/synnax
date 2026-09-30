@@ -11,7 +11,7 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 import { z } from "zod";
 
 import { type Activation } from "@/server/db/schema";
@@ -54,14 +54,12 @@ export const RenameDialog = ({
 const Content = ({ activation }: { activation: Activation }): ReactElement => {
   const { close } = Dialog.useContext();
   const methods = Form.use({ values: { name: machineName(activation) }, schema });
-  const action = useAction(
-    useCallback(async () => {
-      if (!methods.validate()) return;
-      await post(`/api/activations/${activation.key}/name`, methods.value());
-      close();
-      await reload();
-    }, [methods, activation.key, close]),
-  );
+  const action = useAction(async () => {
+    if (!methods.validate()) return;
+    await post(`/api/activations/${activation.key}/name`, methods.value());
+    close();
+    reload();
+  });
   return (
     <Form.Form<typeof schema> {...methods}>
       <Modal.Body gap="medium">

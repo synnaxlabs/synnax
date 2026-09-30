@@ -19,10 +19,9 @@ import { type ReactElement, useCallback, useEffect, useState } from "react";
 import { z } from "zod";
 
 import { type Organization } from "@/server/db/schema";
+import { ADMIN_ROLE, MEMBER_ROLE } from "@/server/directory";
 import {
-  ADMIN_ROLE,
   errorMessage,
-  MEMBER_ROLE,
   type Membership,
   type Organization as ClerkOrganization,
   useClerk,
@@ -43,6 +42,11 @@ const ROLES: { key: string; name: string }[] = [
 const roleName = (role: string): string =>
   ROLES.find((r) => r.key === role)?.name ?? role;
 
+interface Team {
+  organization: ClerkOrganization;
+  members: Membership[];
+}
+
 export interface MembersProps {
   organization: Organization;
 }
@@ -55,16 +59,15 @@ export const Members = ({ organization }: MembersProps): ReactElement => {
     (m) => m.organization.id === organization.clerkOrgID,
   );
   const admin = membership?.role === ADMIN_ROLE;
-  const [members, setMembers] = useState<Membership[] | null>(null);
+  const [team, setTeam] = useState<Team | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [org, setOrg] = useState<ClerkOrganization | null>(null);
   const refresh = useCallback(async () => {
     if (clerk == null || organization.clerkOrgID == null) return;
     try {
-      const o = await clerk.getOrganization(organization.clerkOrgID);
-      setOrg(o);
-      const page = await o.getMemberships({ pageSize: 100 });
-      setMembers(page.data);
+      const org = await clerk.getOrganization(organization.clerkOrgID);
+      const page = await org.getMemberships({ pageSize: 100 });
+      setTeam({ organization: org, members: page.data });
+      setError(null);
     } catch (err) {
       setError(errorMessage(err));
     }
@@ -81,17 +84,20 @@ export const Members = ({ organization }: MembersProps): ReactElement => {
           : `${organization.name}. You are ${roleName(membership.role).toLowerCase()}.`
       }
       actions={
-        admin && org != null && <InviteDialog organization={org} onDone={refresh} />
+        admin &&
+        team != null && (
+          <InviteDialog organization={team.organization} onDone={refresh} />
+        )
       }
       error={error}
     >
-      {members != null && (
+      {team != null && (
         <Table columns={MEMBER_COLUMNS} head={["Name", "Email", "Role", ""]}>
-          {members.map((m) => (
+          {team.members.map((m) => (
             <Member
               key={m.id}
               membership={m}
-              organization={org}
+              organization={team.organization}
               admin={admin}
               self={m.publicUserData?.userId === user?.id}
               onDone={refresh}
@@ -105,7 +111,7 @@ export const Members = ({ organization }: MembersProps): ReactElement => {
 
 interface MemberProps {
   membership: Membership;
-  organization: ClerkOrganization | null;
+  organization: ClerkOrganization;
   admin: boolean;
   self: boolean;
   onDone: () => Promise<void>;
@@ -124,30 +130,15 @@ const Member = ({
     data?.identifier ||
     "";
   const userId = data?.userId ?? "";
-  const changeRole = useAction(
-    useCallback(async () => {
-      if (organization == null) return;
-      const role = m.role === ADMIN_ROLE ? MEMBER_ROLE : ADMIN_ROLE;
-      try {
-        await organization.updateMember({ userId, role });
-      } catch (err) {
-        throw new Error(errorMessage(err), { cause: err });
-      }
-      await onDone();
-    }, [organization, m.role, userId, onDone]),
-  );
-  const remove = useAction(
-    useCallback(async () => {
-      if (organization == null) return;
-      try {
-        await organization.removeMember(userId);
-      } catch (err) {
-        throw new Error(errorMessage(err), { cause: err });
-      }
-      await onDone();
-    }, [organization, userId, onDone]),
-  );
-  const editable = admin && !self && organization != null;
+  const changeRole = useAction(async (role: string) => {
+    await organization.updateMember({ userId, role });
+    await onDone();
+  });
+  const remove = useAction(async () => {
+    await organization.removeMember(userId);
+    await onDone();
+  });
+  const editable = admin && !self;
   return (
     <Row columns={MEMBER_COLUMNS}>
       <Text.Text level="p" overflow="ellipsis">
@@ -225,19 +216,13 @@ const InviteContent = ({ organization, onDone }: InviteDialogProps): ReactElemen
     values: { email: "", role: MEMBER_ROLE },
     schema: inviteSchema,
   });
-  const action = useAction(
-    useCallback(async () => {
-      if (!methods.validate()) return;
-      const { email, role } = methods.value();
-      try {
-        await organization.inviteMember({ emailAddress: email, role });
-      } catch (err) {
-        throw new Error(errorMessage(err), { cause: err });
-      }
-      close();
-      await onDone();
-    }, [organization, methods, close, onDone]),
-  );
+  const action = useAction(async () => {
+    if (!methods.validate()) return;
+    const { email, role } = methods.value();
+    await organization.inviteMember({ emailAddress: email, role });
+    close();
+    await onDone();
+  });
   return (
     <Form.Form<typeof inviteSchema> {...methods}>
       <Modal.Body gap="medium">

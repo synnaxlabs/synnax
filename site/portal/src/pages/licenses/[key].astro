@@ -45,7 +45,7 @@ try {
     tab={view == null ? null : "licenses"}
 >
     {view == null ? (
-        <Page client:load title="License" error={error} />
+        <Page title="License" error={error} />
     ) : (
         <License
             client:load

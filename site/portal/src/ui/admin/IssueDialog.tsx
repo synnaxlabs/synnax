@@ -13,7 +13,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
 import { navigate } from "astro:transitions/client";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 import { z } from "zod";
 
 import { type Listed } from "@/server/directory";
@@ -47,27 +47,16 @@ export const IssueDialog = ({ teams }: IssueDialogProps): ReactElement => (
   </Modal.Frame>
 );
 
-interface OrganizationEntry {
-  key: string;
-  name: string;
-}
-
 const Content = ({ teams }: IssueDialogProps): ReactElement => {
-  const entries: OrganizationEntry[] = teams.map((t) => ({
-    key: t.clerkOrgID,
-    name: t.name,
-  }));
   const methods = Form.use({
-    values: { ...ZERO_TERMS, organization: entries[0]?.key ?? "" },
+    values: { ...ZERO_TERMS, organization: teams[0]?.clerkOrgID ?? "" },
     schema,
   });
-  const action = useAction(
-    useCallback(async () => {
-      if (!methods.validate()) return;
-      const { key } = await post<{ key: string }>("/api/licenses", methods.value());
-      await navigate(`/licenses/${key}`);
-    }, [methods]),
-  );
+  const action = useAction(async () => {
+    if (!methods.validate()) return;
+    const { key } = await post<{ key: string }>("/api/licenses", methods.value());
+    await navigate(`/licenses/${key}`);
+  });
   return (
     <Form.Form<typeof schema> {...methods}>
       <Modal.Body gap="medium">
@@ -78,8 +67,8 @@ const Content = ({ teams }: IssueDialogProps): ReactElement => {
         >
           {(p) => (
             <Select.Simple<string> {...p} resourceName="Organization">
-              {entries.map(({ key, name }) => (
-                <Select.Item key={key} itemKey={key}>
+              {teams.map(({ clerkOrgID, name }) => (
+                <Select.Item key={clerkOrgID} itemKey={clerkOrgID}>
                   {name}
                 </Select.Item>
               ))}

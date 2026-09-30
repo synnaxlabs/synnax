@@ -17,7 +17,6 @@ import { type ReactElement, useCallback } from "react";
 export interface ScopeOption {
   key: string;
   name: string;
-  personal: boolean;
 }
 
 export interface ScopeProps {
