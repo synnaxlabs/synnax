@@ -67,7 +67,7 @@ const Row = ({ name, value }: RowProps): ReactElement => (
 );
 
 /** The license in full for the version info modal. */
-export const Details = (): ReactElement | null => {
+export const Details = (): ReactElement => {
   const { info, error } = useInfo();
   let body: ReactElement | null = null;
   if (error != null)
@@ -114,7 +114,7 @@ export const Details = (): ReactElement | null => {
 
 /** The account a Synnax Desktop machine is linked to, with a way to the hub. */
 const Account = (): ReactElement | null => {
-  const { email } = Session.Account.useSelect();
+  const email = Session.Account.useSelectEmail();
   if (email == null) return null;
   return (
     <Flex.Box

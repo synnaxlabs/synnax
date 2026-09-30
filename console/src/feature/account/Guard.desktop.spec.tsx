@@ -114,7 +114,7 @@ describe("Account.Guard", () => {
     expect(url.searchParams.get("fp")).toBe("aa, bb");
     expect(url.searchParams.get("name")).toBe(Account.DEFAULT_MACHINE_NAME);
     expect(url.searchParams.get("state")).toBe(
-      Session.Account.select(store.getState()).pending,
+      Session.Account.selectPending(store.getState()),
     );
     expect(await screen.findByText("Finish in your browser")).toBeTruthy();
   });

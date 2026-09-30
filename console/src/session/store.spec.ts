@@ -112,6 +112,34 @@ describe("createStore", () => {
     );
   });
 
+  it("should keep the account link across launches", async () => {
+    const store = await createStore();
+    const link = { activation: "act", secret: "shh", email: "someone@example.com" };
+    store.dispatch(Session.Account.link(link));
+    await waitForPersisted(
+      db,
+      (p) => p.account?.secret === link.secret,
+      "Account link not persisted yet",
+    );
+    const reloaded = await createStore();
+    expect(Session.Account.selectSliceState(reloaded.getState())).toEqual({
+      version: 0,
+      ...link,
+    });
+  });
+
+  it("should keep a pending login across launches", async () => {
+    const store = await createStore();
+    store.dispatch(Session.Account.beginLogin("minted"));
+    await waitForPersisted(
+      db,
+      (p) => p.account?.pending === "minted",
+      "Pending login not persisted yet",
+    );
+    const reloaded = await createStore();
+    expect(Session.Account.selectPending(reloaded.getState())).toBe("minted");
+  });
+
   it("round-trips a Core saved before its first login", async () => {
     const key = "3c1d9b2e-5a47-4f08-9d16-7e2b8c4a1f53";
     const store = await createStore();

@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 /**
- * The portal's origin. `VITE_PORTAL_URL` points a development build at a local portal or
- * a preview deployment; a release build takes the default.
+ * The portal's origin. `VITE_PORTAL_URL` points a development build at a local portal
+ * or a preview deployment; a release build takes the default.
  */
 const PORTAL_URL = import.meta.env.VITE_PORTAL_URL ?? "https://portal.synnaxlabs.com";
 

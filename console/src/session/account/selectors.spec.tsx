@@ -19,21 +19,23 @@ const createStore = () =>
   configureStore({ reducer: { [Account.SLICE_NAME]: Account.reducer } });
 
 describe("account selectors", () => {
-  describe("useSelect", () => {
+  describe("useSelectEmail", () => {
     it("should follow the link", () => {
       const store = createStore();
       const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
         <Provider store={store}>{children}</Provider>
       );
       Wrapper.displayName = "Wrapper";
-      const { result } = renderHook(() => Account.useSelect(), { wrapper: Wrapper });
-      expect(result.current.email).toBeUndefined();
+      const { result } = renderHook(() => Account.useSelectEmail(), {
+        wrapper: Wrapper,
+      });
+      expect(result.current).toBeUndefined();
       act(() => {
         store.dispatch(
           Account.link({ activation: "a", secret: "s", email: "e@example.com" }),
         );
       });
-      expect(result.current.email).toBe("e@example.com");
+      expect(result.current).toBe("e@example.com");
     });
   });
 });

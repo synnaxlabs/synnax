@@ -32,10 +32,9 @@ export const Guard = ({ children }: PropsWithChildren): ReactElement => {
   );
 };
 
-// The login link and the renewal both apply license keys to the embedded Core, so they
-// mount with the gate that waits on it. Tauri hands a deep link to every webview, and
-// the license is one per app, so only the main window listens: a pre-render that
-// answered the link would focus itself into view.
+// Both hooks license the embedded Core, so they mount with the gate that waits on it.
+// Only the main window listens: Tauri hands a deep link to every webview, and a
+// pre-render that answered it would focus itself into view.
 const SideEffect = (): null => {
   useLink();
   useRenew();

@@ -38,7 +38,7 @@ export const useLink = (deps: Link.Deps = Link.DEFAULT_DEPS): void => {
       dispatch(Drift.focusWindow({}));
       if (urls.length === 0) throw new Error("The login link is empty");
       const linked = parseLink(urls[0]);
-      const { pending } = Session.Account.select(store.getState());
+      const pending = Session.Account.selectPending(store.getState());
       if (pending == null || linked.state !== pending)
         throw new Error("This login link was not requested by this app");
       setReceived(linked);

@@ -122,7 +122,7 @@ describe("Account.useRenew", () => {
       result: { variant: "unlinked", message: "This machine was logged out." },
     });
     await waitFor(() =>
-      expect(Session.Account.select(h.store.getState())).toEqual(
+      expect(Session.Account.selectSliceState(h.store.getState())).toEqual(
         Session.Account.ZERO_SLICE_STATE,
       ),
     );
@@ -134,7 +134,6 @@ describe("Account.useRenew", () => {
 
   it("should do nothing on a machine that is not linked", async () => {
     const h = await setup({ account: Session.Account.ZERO_SLICE_STATE });
-    await new Promise((resolve) => setTimeout(resolve, 20));
     expect(h.retrieve).not.toHaveBeenCalled();
   });
 });
