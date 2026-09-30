@@ -89,6 +89,7 @@ describe("session", () => {
       members: {
         user_a: [{ clerkOrgID: "org_acme", name: "Acme", role: ADMIN_ROLE }],
         user_b: [{ clerkOrgID: "org_acme", name: "Acme", role: "org:member" }],
+        user_c: [{ clerkOrgID: "org_acme", name: "Acme", role: ADMIN_ROLE }],
       },
     });
 
@@ -122,7 +123,7 @@ describe("session", () => {
       ).toEqual([]);
     });
 
-    it("should mail only the admins of a team", async () => {
+    it("should mail only the admins of a team that have an address", async () => {
       expect(
         await emails(directory, {
           kind: "team",

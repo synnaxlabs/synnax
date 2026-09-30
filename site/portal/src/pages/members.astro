@@ -14,7 +14,10 @@ import { Members } from "@/ui/members/Members";
 
 const loaded = await loadScoped(Astro, "team");
 if (loaded instanceof Response) return loaded;
-const { session, organizations, scope } = loaded;
+const { portal, session, organizations, scope } = loaded;
+if (scope.clerkOrgID == null)
+    throw new Error(`team ${scope.key} has no Clerk organization`);
+const roster = await portal.directory.roster(scope.clerkOrgID);
 ---
 
 <Portal
@@ -24,5 +27,11 @@ const { session, organizations, scope } = loaded;
     scope={scope}
     tab="members"
 >
-    <Members client:load organization={scope} />
+    <Members
+        client:load
+        name={scope.name}
+        clerkOrgID={scope.clerkOrgID}
+        roster={roster}
+        userID={session.userID}
+    />
 </Portal>

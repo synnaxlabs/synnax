@@ -27,6 +27,15 @@ export interface Team extends Listed {
   role: string;
 }
 
+/** Member is one person on a team. */
+export interface Member {
+  userID: string;
+  name: string;
+  /** email is empty when Clerk holds no address for the member. */
+  email: string;
+  role: string;
+}
+
 /** ADMIN_ROLE is Clerk's role for members who manage a team. */
 export const ADMIN_ROLE = "org:admin";
 export const MEMBER_ROLE = "org:member";
@@ -36,8 +45,8 @@ export interface Directory {
   /** person throws when Clerk does not know the user. */
   person: (userID: string) => Promise<Person>;
   memberships: (userID: string) => Promise<Team[]>;
-  /** admins returns the email addresses of a team's admins. */
-  admins: (clerkOrgID: string) => Promise<string[]>;
+  /** roster returns every member of a team. */
+  roster: (clerkOrgID: string) => Promise<Member[]>;
   /** teams returns every organization in Clerk, newest first. */
   teams: () => Promise<Listed[]>;
   /** team returns null when Clerk does not know the organization. */
@@ -95,7 +104,7 @@ export const clerk = (client: Client): Directory => ({
         role: m.role,
       }),
     ),
-  admins: async (clerkOrgID) => {
+  roster: async (clerkOrgID) => {
     const members = await paged(
       async (offset) =>
         await client.organizations.getOrganizationMembershipList({
@@ -103,12 +112,15 @@ export const clerk = (client: Client): Directory => ({
           limit: PAGE,
           offset,
         }),
-      (m) => m,
+      ({ publicUserData: data, role }) => {
+        const email = data?.identifier ?? "";
+        const name = [data?.firstName, data?.lastName]
+          .filter((p) => p != null && p !== "")
+          .join(" ");
+        return { userID: data?.userId ?? "", name: name || email, email, role };
+      },
     );
-    return members
-      .filter((m) => m.role === ADMIN_ROLE)
-      .map((m) => m.publicUserData?.identifier)
-      .filter((e): e is string => e != null && e !== "");
+    return members.filter((m) => m.userID !== "");
   },
   teams: async () =>
     await paged(
@@ -163,13 +175,13 @@ export const memory = ({
     return person;
   },
   memberships: async (userID) => members[userID] ?? [],
-  admins: async (clerkOrgID) =>
-    Object.entries(members)
-      .filter(([, teams]) =>
-        teams.some((t) => t.clerkOrgID === clerkOrgID && t.role === ADMIN_ROLE),
-      )
-      .map(([userID]) => people[userID]?.email ?? "")
-      .filter((email) => email !== ""),
+  roster: async (clerkOrgID) =>
+    Object.entries(members).flatMap(([userID, teams]) => {
+      const team = teams.find((t) => t.clerkOrgID === clerkOrgID);
+      if (team == null) return [];
+      const { name = "", email = "" } = people[userID] ?? {};
+      return [{ userID, name, email, role: team.role }];
+    }),
   teams: async () => organizations,
   team: async (clerkOrgID) =>
     organizations.find((o) => o.clerkOrgID === clerkOrgID) ?? null,
