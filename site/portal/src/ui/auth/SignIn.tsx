@@ -10,7 +10,6 @@
 import { Button } from "@synnaxlabs/lyra/button";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Text } from "@synnaxlabs/lyra/text";
-import { navigate } from "astro:transitions/client";
 import { type ReactElement, useState } from "react";
 import { z } from "zod";
 
@@ -24,7 +23,8 @@ import {
   prepare,
   prompt,
 } from "@/ui/auth/secondFactor";
-import { type Clerk, useClerk } from "@/ui/clerk";
+import { start } from "@/ui/auth/session";
+import { useClerk } from "@/ui/clerk";
 import { useAction } from "@/ui/useAction";
 
 const schema = z.object({
@@ -33,16 +33,6 @@ const schema = z.object({
 });
 
 const codeSchema = z.object({ code: z.string().trim().min(1, "Enter the code") });
-
-const finish = async (
-  clerk: Clerk,
-  target: string,
-  sessionId: string | null,
-): Promise<void> => {
-  if (sessionId == null) throw new Error("Login did not start a session");
-  await clerk.setActive({ session: sessionId });
-  await navigate(target);
-};
 
 export interface SignInProps {
   /** target is where to land after signing in. */
@@ -64,7 +54,7 @@ export const SignIn = ({ target }: SignInProps): ReactElement => {
     const { email, password } = methods.value();
     const res = await clerk.client.signIn.create({ identifier: email, password });
     if (res.status === "complete")
-      return await finish(clerk, target, res.createdSessionId);
+      return await start(clerk, res.createdSessionId, target);
     if (res.status === "needs_second_factor" || res.status === "needs_client_trust") {
       const next = choose(res.supportedSecondFactors);
       if (next == null)
@@ -84,7 +74,7 @@ export const SignIn = ({ target }: SignInProps): ReactElement => {
       code: codeMethods.value().code,
     });
     if (res.status === "complete")
-      return await finish(clerk, target, res.createdSessionId);
+      return await start(clerk, res.createdSessionId, target);
     throw new Error("That code did not work");
   });
 

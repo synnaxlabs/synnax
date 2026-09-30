@@ -11,13 +11,13 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Text } from "@synnaxlabs/lyra/text";
-import { navigate } from "astro:transitions/client";
 import { type ReactElement, useState } from "react";
 import { z } from "zod";
 
 import { Card } from "@/ui/auth/Card";
 import { OAuth } from "@/ui/auth/OAuth";
 import { withTarget } from "@/ui/auth/redirect";
+import { start } from "@/ui/auth/session";
 import { useClerk } from "@/ui/clerk";
 import { useAction } from "@/ui/useAction";
 
@@ -68,10 +68,8 @@ export const SignUp = ({ target }: SignUpProps): ReactElement => {
     const res = await clerk.client.signUp.attemptEmailAddressVerification({
       code: codeMethods.value().code,
     });
-    if (res.status !== "complete" || res.createdSessionId == null)
-      throw new Error("That code did not work");
-    await clerk.setActive({ session: res.createdSessionId });
-    await navigate(target);
+    if (res.status !== "complete") throw new Error("That code did not work");
+    await start(clerk, res.createdSessionId, target);
   });
 
   if (step === "verify")
