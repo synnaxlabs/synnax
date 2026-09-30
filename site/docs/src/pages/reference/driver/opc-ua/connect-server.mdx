@@ -9,7 +9,9 @@ next: "Read task"
 nextURL: "/reference/driver/opc-ua/read-task"
 ---
 
-import { Text as TextComponent, Client, Table } from "@/components";
+import { Text as TextComponent } from "@/components/text";
+import { Client } from "@/components/client";
+import { Table } from "@/components/table";
 import Details from "@/components/details/Details.astro";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -113,10 +115,10 @@ following:
 
 ## How-to
 
-<Client.Tabs client:load exclude={["typescript", "cpp"]}>
+<Client.Tabs exclude={["typescript", "cpp"]}>
   <Fragment slot="console">
 
-<Video client:only="react" id="device-drivers/opc-ua/connect-server/connect-server" />
+<Video id="device-drivers/opc-ua/connect-server/connect-server" />
 
   </Fragment>
   <Fragment slot="python">

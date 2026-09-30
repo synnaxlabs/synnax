@@ -10,7 +10,8 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Note } from "@synnaxlabs/lyra/note";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Text as TextComponent, Table } from "@/components";
+import { Text as TextComponent } from "@/components/text";
+import { Table } from "@/components/table";
 import Details from "@/components/details/Details.astro";
 import Diagram from "@/components/diagram/Diagram.astro";
 import { Image } from "@/components/media/Media";
@@ -342,11 +343,7 @@ We'll also measure the average memory and CPU usage of each database during the 
 ### Throughput
 
 <figure>
-  <Image
-    client:only="react"
-    id="guides/comparison/performance/batch-throughput"
-    themed={false}
-  />
+  <Image id="guides/comparison/performance/batch-throughput" themed={false} />
   {/* prettier-ignore */}
   <figcaption>Throughput Comparison: Synnax dramatically outperforms alternatives at large batch sizes.</figcaption>
 </figure>
@@ -428,7 +425,6 @@ the other two databases.
 
 <figure>
   <Image
-    client:only="react"
     id="guides/comparison/performance/batch-memory"
     themed={false}
   />
@@ -532,11 +528,7 @@ the other two databases.
 ### CPU usage
 
 <figure>
-  <Image
-    client:only="react"
-    id="guides/comparison/performance/batch-cpu"
-    themed={false}
-  />
+  <Image id="guides/comparison/performance/batch-cpu" themed={false} />
   {/* prettier-ignore */}
   <figcaption>CPU Usage: Synnax uses more CPU at small batch sizes, and comparable CPU at large batch sizes.</figcaption>
 </figure>
@@ -737,11 +729,7 @@ channels we insert data for.
 ### Throughput
 
 <figure>
-  <Image
-    client:only="react"
-    id="guides/comparison/performance/channel-throughput"
-    themed={false}
-  />
+  <Image id="guides/comparison/performance/channel-throughput" themed={false} />
   {/* prettier-ignore */}
   <figcaption>Throughput: Synnax outperforms alternatives at low channel counts, but starts to lose ground as the channel count increases.</figcaption>
 </figure>
@@ -851,11 +839,7 @@ and Influx remain relatively stable.
 ### Memory usage
 
 <figure>
-  <Image
-    client:only="react"
-    id="guides/comparison/performance/channel-memory"
-    themed={false}
-  />
+  <Image id="guides/comparison/performance/channel-memory" themed={false} />
   {/* prettier-ignore */}
   <figcaption>Memory Usage: Synnax uses more memory than alternatives.</figcaption>
 </figure>
@@ -962,11 +946,7 @@ and Influx remain relatively stable.
 ### CPU usage
 
 <figure>
-  <Image
-    client:only="react"
-    id="guides/comparison/performance/channel-cpu"
-    themed={false}
-  />
+  <Image id="guides/comparison/performance/channel-cpu" themed={false} />
   {/* prettier-ignore */}
   <figcaption>CPU Usage: Synnax consistently uses more CPU than alternatives.</figcaption>
 </figure>
@@ -1055,7 +1035,6 @@ data.
 
 <figure>
   <Image
-    client:only="react"
     id="guides/comparison/performance/one-billion-row-ingestion"
     themed={false}
     style={{ padding: "5rem", background: "var(--pluto-dark-gray-l0)" }}
