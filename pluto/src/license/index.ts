@@ -7,6 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/platform/license/Details";
-export * from "@/platform/license/term";
-export * from "@/platform/license/urls";
+export * as License from "@/license/external";
