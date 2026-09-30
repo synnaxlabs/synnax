@@ -106,6 +106,8 @@ interface Order<K extends record.Key> {
   /** Changes identity whenever the data changes. */
   getOrder: () => K[];
   scrollTo: (key: K, direction: location.Y) => void;
+  /** Clicks the option with the given key, as a mouse click would. */
+  click: (key: K) => void;
   /** Calls the listener whenever the fixed items change. */
   subscribe: (listener: () => void) => destructor.Destructor;
 }
@@ -115,6 +117,7 @@ const useOrder = <K extends record.Key>(): Order<K> => {
   const registry = useRegistryContext("Select.Frame");
   const { data } = List.useData<K>();
   const { scrollToIndex } = List.useScroller();
+  const clickRow = List.useClick();
   const getOrder = useCallback(() => registry.getOrder(data) as K[], [registry, data]);
   const scrollTo = useCallback(
     (key: K, direction: location.Y) => {
@@ -124,7 +127,14 @@ const useOrder = <K extends record.Key>(): Order<K> => {
     },
     [registry, data, scrollToIndex],
   );
-  return { getOrder, scrollTo, subscribe: registry.subscribe };
+  const click = useCallback(
+    (key: K) => {
+      if (registry.hasItem(key)) registry.getElement(key)?.click();
+      else clickRow(key);
+    },
+    [registry, clickRow],
+  );
+  return { getOrder, scrollTo, click, subscribe: registry.subscribe };
 };
 
 /**
@@ -142,7 +152,7 @@ export const useSingle = <K extends record.Key>({
 }: UseSingleProps<K>): UseReturn<K> => {
   const valueRef = useSyncedRef(value);
   const { close } = Dialog.useContext();
-  const { getOrder, scrollTo, subscribe } = useOrder<K>();
+  const { getOrder, scrollTo, click, subscribe } = useOrder<K>();
   useEffect(() => {
     if (!autoSelectOnNone) return;
     const select = (): void => {
@@ -178,10 +188,11 @@ export const useSingle = <K extends record.Key>({
     getOrder,
     subscribe,
     scrollTo,
-    onSelect: handleSelect,
+    click,
     initialHover,
     enableTriggers,
   });
+  List.usePin(hover.hover);
   return { onSelect: handleSelect, setSelected, clear, ...hover };
 };
 
@@ -205,7 +216,7 @@ export const useMultiple = <K extends record.Key>({
   const ctrl = Triggers.useHeldRef({ triggers: [["Control"]], loose: true });
   const { close } = Dialog.useContext();
   const valueRef = useSyncedRef(value);
-  const { getOrder, scrollTo, subscribe } = useOrder<K>();
+  const { getOrder, scrollTo, click, subscribe } = useOrder<K>();
   useEffect(() => {
     if (!autoSelectOnNone) return;
     const select = (): void => {
@@ -267,9 +278,10 @@ export const useMultiple = <K extends record.Key>({
     getOrder,
     subscribe,
     scrollTo,
-    onSelect,
+    click,
     initialHover,
     enableTriggers,
   });
+  List.usePin(hover.hover);
   return { onSelect, setSelected, clear, ...hover };
 };

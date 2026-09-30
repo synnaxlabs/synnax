@@ -1,0 +1,409 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { grammar as arcGrammar } from "@synnaxlabs/arc";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Text } from "@synnaxlabs/lyra/text";
+import { createCssVariablesTheme, createHighlighter } from "shiki";
+import { AutomateVisualizer } from "@/components/automate/AutomateVisualizer";
+import { ControlSystemGraphic } from "@/components/automate/ControlSystemGraphic";
+import { ControlHandoffGraphic } from "@/components/automate/ControlHandoffGraphic";
+import SectionHero from "@/components/common/SectionHero.astro";
+import FeatureSection from "@/components/common/FeatureSection.astro";
+
+const cssVarsTheme = createCssVariablesTheme({ name: "css-variables" });
+
+const highlighter = await createHighlighter({
+    themes: [cssVarsTheme],
+    langs: [arcGrammar],
+});
+
+const highlight = (code: string) =>
+    highlighter.codeToHtml(code, { lang: "arc", theme: "css-variables" });
+
+const pressureSequence = `sequence main {
+    stage press {
+        1 -> press_vlv_cmd,
+        press_pt > 500 => maintain
+    }
+    stage maintain {
+        0 -> press_vlv_cmd,
+        wait{duration=5s} => vent
+    }
+    stage vent {
+        1 -> vent_vlv_cmd,
+        press_pt < 10 => complete
+    }
+    stage complete {
+        0 -> vent_vlv_cmd,
+        0 -> press_vlv_cmd
+    }
+}`;
+
+const alarmMonitoring = `func check_pressure(p f64) u8 {
+    return p > 750.0
+}
+
+press_pt -> check_pressure{}
+    -> stable_for{duration=500ms}
+    -> select{} -> {
+        true: set_status{
+            status_key="press_alarm",
+            variant="warning",
+            message="Pressure exceeds 750 PSI"
+        },
+        false: set_status{
+            status_key="press_alarm",
+            variant="success",
+            message="Pressure nominal"
+        }
+    }`;
+
+const authorityControl = `authority (
+    200
+    press_vlv_cmd 100
+    vent_vlv_cmd 100
+)
+
+start_cmd => main
+
+sequence main {
+    stage normal {
+        1 -> press_vlv_cmd,
+        press_pt > 800 => emergency
+    }
+    stage emergency {
+        set_authority{value=255},
+        0 -> press_vlv_cmd,
+        1 -> vent_vlv_cmd,
+        press_pt < 50 => safed
+    }
+    stage safed {
+        0 -> press_vlv_cmd,
+        0 -> vent_vlv_cmd
+    }
+}`;
+
+const codeHtmls = [
+    highlight(pressureSequence),
+    highlight(alarmMonitoring),
+    highlight(authorityControl),
+];
+---
+
+<SectionHero id="automate" label="3 -> Automate & Control">
+    Close the loop on hardware automation
+    <Fragment slot="description">
+        Synnax unifies test automation and production control into a single platform.
+        Write reactive sequences, deploy to real-time hardware, and transition between
+        automated and manual operation seamlessly.
+    </Fragment>
+</SectionHero>
+
+<FeatureSection label="3.1 -> The Arc Language">
+    <Fragment slot="title"> Write sequences, not boilerplate </Fragment>
+    <Fragment slot="description">
+        Arc is a reactive programming language purpose-built for hardware automation.
+        Define control sequences, manage authority, and orchestrate your entire system
+        in a few lines of code.
+    </Fragment>
+    <Button.Button
+        slot="action"
+        variant="text"
+        href="https://docs.synnaxlabs.com/reference/control/arc/introduction"
+    >
+        Learn More →
+    </Button.Button>
+    <AutomateVisualizer client:visible codeHtmls={codeHtmls} />
+</FeatureSection>
+
+<FeatureSection label="3.2 -> Production Ready">
+    <Fragment slot="title"> Built for the Systems That Matter Most </Fragment>
+    <Fragment slot="description">
+        Arc eliminates the most common sources of automation failures. Develop on your
+        laptop, deploy to real-time hardware, and think in procedures, not programs.
+    </Fragment>
+    <div class="automate-bento">
+        <div class="automate-bento-card">
+            <Text.Text
+                level="h4"
+                weight={450}
+                color="var(--pluto-gray-l10)"
+                className="automate-bento-title"
+            >
+                Predictable Execution
+            </Text.Text>
+            <ControlSystemGraphic client:visible className="automate-bento-graphic" />
+            <Text.Text level="h5" weight={350} className="automate-bento-description">
+                Every cycle runs the same way, every time. Consistent behavior from
+                bench test to production at rates up to 5 kHz.
+            </Text.Text>
+        </div>
+        <div class="automate-bento-card">
+            <Text.Text
+                level="h4"
+                weight={450}
+                color="var(--pluto-gray-l10)"
+                className="automate-bento-title"
+            >
+                Seamless Control Handoff
+            </Text.Text>
+            <ControlHandoffGraphic client:visible className="handoff-graphic" />
+            <Text.Text level="h5" weight={350} className="automate-bento-description">
+                Operators take manual control without interrupting automation. Emergency
+                overrides take priority instantly.
+            </Text.Text>
+        </div>
+    </div>
+</FeatureSection>
+
+<style is:global>
+    .automate-diagram-svg {
+        width: 100%;
+        height: 100%;
+    }
+
+    .automate-diagram-svg path,
+    .automate-diagram-svg line,
+    .automate-diagram-svg rect,
+    .automate-diagram-svg circle,
+    .automate-diagram-svg polygon {
+        vector-effect: non-scaling-stroke;
+    }
+
+    .automate-diagram-svg .valve-shape {
+        transition: fill 0.3s ease;
+    }
+
+    .automate-diagram-svg .vessel-fill {
+        transition:
+            height 0.5s ease,
+            y 0.5s ease,
+            fill 0.3s ease;
+    }
+
+    .automate-diagram-svg .authority-fill {
+        transition:
+            width 0.4s ease,
+            fill 0.3s ease;
+    }
+
+    .automate-diagram-svg .diagram-node {
+        transition:
+            stroke 0.3s ease,
+            fill 0.3s ease,
+            fill-opacity 0.3s ease;
+    }
+
+    .automate-diagram-svg .diagram-label {
+        font-family: var(--pluto-code-font-family);
+        font-size: 10px;
+    }
+
+    .automate-diagram-svg .diagram-label-sm {
+        font-family: var(--pluto-code-font-family);
+        font-size: 9px;
+    }
+
+    .automate-diagram-svg .diagram-value {
+        font-family: var(--pluto-code-font-family);
+        font-size: 14px;
+        font-weight: 400;
+    }
+
+    .automate-diagram-svg .diagram-value-sm {
+        font-family: var(--pluto-code-font-family);
+        font-size: 11px;
+        font-weight: 500;
+    }
+
+    .automate-diagram-svg .diagram-badge {
+        font-family: var(--pluto-code-font-family);
+        font-size: 11px;
+        font-weight: 500;
+    }
+
+    .automate-diagram-svg .diagram-badge-sm {
+        font-family: var(--pluto-code-font-family);
+        font-size: 8px;
+        font-weight: 450;
+    }
+
+    .automate-diagram-svg .flow-line {
+        animation: flow-dash 0.8s linear infinite;
+    }
+
+    @keyframes flow-dash {
+        to {
+            stroke-dashoffset: -20;
+        }
+    }
+
+    .automate-diagram-svg .emergency-border {
+        animation: emergency-pulse 1s ease-in-out infinite;
+    }
+
+    @keyframes emergency-pulse {
+        0%,
+        100% {
+            opacity: 1;
+        }
+        50% {
+            opacity: 0.6;
+        }
+    }
+
+    /* Bento grid */
+    .automate-bento {
+        display: grid;
+        grid-template-columns: 2fr 3fr;
+        grid-template-rows: auto 1fr auto;
+        gap: clamp(2rem, 1rem + 1vw, 4rem);
+        margin-top: var(--space-sm);
+        width: 100%;
+    }
+
+    .automate-bento-card {
+        position: relative;
+        display: grid;
+        grid-template-rows: subgrid;
+        grid-row: span 3;
+        gap: 2rem;
+        padding: clamp(2rem, 1.5rem + 1vw, 3.5rem) clamp(2rem, 1.5rem + 1.5vw, 4rem)
+            clamp(2.5rem, 1.5rem + 1.5vw, 5rem);
+        background: var(--pluto-gray-l1);
+        border: var(--pluto-border);
+        border-radius: 2rem;
+        box-shadow:
+            inset 0 1px 0 0 rgba(255, 255, 255, 0.03),
+            0 4px 24px -4px rgba(0, 0, 0, 0.25);
+    }
+
+    .automate-bento-card .automate-bento-description {
+        display: flex;
+        align-items: flex-start;
+    }
+
+    .automate-bento-card:first-child {
+        position: relative;
+        background:
+            radial-gradient(
+                ellipse at 25% 30%,
+                var(--pluto-gray-l2) 0%,
+                transparent 55%
+            ),
+            radial-gradient(
+                ellipse at 80% 75%,
+                var(--pluto-gray-l2-75) 0%,
+                transparent 50%
+            ),
+            var(--pluto-gray-l0);
+    }
+
+    .automate-bento-card:last-child {
+        position: relative;
+        background:
+            radial-gradient(
+                ellipse at 90% 10%,
+                var(--pluto-gray-l1) 0%,
+                transparent 45%
+            ),
+            radial-gradient(
+                ellipse at 20% 85%,
+                var(--pluto-gray-l2-75) 0%,
+                transparent 55%
+            ),
+            var(--pluto-gray-l0);
+    }
+
+    .automate-bento-title {
+        display: block;
+        position: relative;
+        z-index: 1;
+    }
+
+    .automate-bento-description {
+        color: var(--pluto-gray-l9);
+        font-size: clamp(2rem, 1.5rem + 0.7vw, 2.7rem);
+        line-height: clamp(2.8rem, 1.8rem + 1vw, 3.8rem);
+        position: relative;
+        z-index: 1;
+    }
+
+    /* Handoff graphic */
+    .handoff-graphic {
+        position: relative;
+        width: 100%;
+        z-index: 1;
+        align-self: center;
+    }
+
+    .handoff-bar {
+        position: relative;
+        margin-top: 1.2rem;
+        margin-bottom: 2rem;
+        height: clamp(3rem, 2rem + 1.5vw, 4.4rem);
+        border-radius: 0.3rem;
+        border: var(--pluto-border);
+        display: flex;
+        align-items: center;
+        overflow: hidden;
+    }
+
+    .handoff-bar-highlight {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 6rem;
+        height: 100%;
+        transform: translateX(-50%);
+        pointer-events: none;
+    }
+
+    .handoff-bar-label {
+        flex: 1;
+        text-align: center;
+        color: var(--pluto-gray-l5);
+        font-size: clamp(1.4rem, 0.8rem + 0.8vw, 2rem);
+        font-weight: 500;
+        font-family: "Geist Mono", monospace;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        position: relative;
+        z-index: 1;
+        transition: color 0.3s;
+    }
+
+    .automate-bento-graphic {
+        width: 70%;
+        align-self: center;
+        justify-self: center;
+        position: relative;
+        z-index: 1;
+    }
+
+    @media (max-width: 900px) {
+        .automate-bento {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    @media (max-width: 600px) {
+        .automate-bento {
+            grid-template-columns: 1fr;
+            grid-template-rows: auto;
+        }
+
+        .automate-bento-card {
+            grid-template-rows: auto;
+            grid-row: span 1;
+        }
+    }
+</style>

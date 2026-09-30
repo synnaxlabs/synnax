@@ -40,22 +40,9 @@ describe("Command.create", () => {
     });
     await renderCommand(Cmd);
     await act(async () => {
-      fireEvent.click(screen.getByText("Hook Command"), { detail: 0 });
+      fireEvent.click(screen.getByText("Hook Command"));
     });
     expect(onSelect).toHaveBeenCalledTimes(1);
-  });
-
-  it("should not fire the callback for a real pointer click routed by the list", async () => {
-    const onSelect = vi.fn();
-    const Cmd = Command.create({
-      key: "cc",
-      name: "Hook Command",
-      icon: <Icon.Close />,
-      useOnSelect: () => onSelect,
-    });
-    await renderCommand(Cmd);
-    fireEvent.click(screen.getByText("Hook Command"), { detail: 1 });
-    expect(onSelect).not.toHaveBeenCalled();
   });
 
   it("should show the shortcut of a command that a global trigger also runs", async () => {

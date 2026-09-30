@@ -19,7 +19,7 @@ SIGN_BINARIES=$4
 OS_LIST=""
 
 if [ "$BUILD_WINDOWS" = "true" ]; then
-    OS_LIST="{\"os\":\"windows-build-bot\",\"os-name\":\"windows\",\"executable\":\".exe\"}"
+    OS_LIST='{"os":"windows-build-bot","os-name":"windows","executable":".exe"}'
 fi
 
 if [ "$BUILD_MACOS" = "true" ]; then

@@ -152,8 +152,8 @@ th,
     --pluto-fill-hover: var(--pluto-gray-l4);
     --pluto-fill-press: var(--pluto-gray-l5);
 
-    /* The three selection tiers. Every selected state speaks exactly one; never
-       hand-roll a selection fill. */
+    /* The selection tiers. Every selected state speaks exactly one; never hand-roll a
+       selection fill. */
     --pluto-selected-bg: color-mix(
         in srgb,
         var(--pluto-primary-z) 15%,
@@ -187,6 +187,19 @@ th,
         from var(--pluto-gray-l6) l calc(c + 0.025) h
     );
     --pluto-selected-list-border-color: transparent;
+
+    /* Ring tier: items whose fill is their content, such as color swatches. The gap
+       assumes a gray-l1 surface. */
+    --pluto-selected-ring:
+        0 0 0 var(--pluto-focus-ring-offset) var(--pluto-gray-l1),
+        0 0 0 calc(var(--pluto-focus-ring-offset) + 1.5px)
+            var(--pluto-selected-subtle-color);
+    /* Shows behind a translucent color. */
+    --pluto-checkerboard: repeating-conic-gradient(
+            var(--pluto-gray-l2) 0% 25%,
+            var(--pluto-gray-l5) 0% 50%
+        )
+        50% / 1rem 1rem;
     --pluto-border: var(--pluto-border-width) solid var(--pluto-border-color);
     --pluto-border-l6: var(--pluto-border-width) solid var(--pluto-gray-l6);
 }
@@ -233,13 +246,13 @@ th,
        undefined one computes to no shadow. Rings, inset fills, and glows are not
        elevation and stay off the ladder. */
     --pluto-shadow-lift:
-        lch(0% 0 0% / 4.4%) 0px 3px 9px, lch(0% 0 0% / 4.4%) 0px 1px 1px;
+        lch(0% 0 0deg / 4.4%) 0px 3px 9px, lch(0% 0 0deg / 4.4%) 0px 1px 1px;
     --pluto-shadow-overlay:
-        lch(0% 0 0% / 2%) 0px 1px 1px, lch(0% 0 0% / 10%) 0px 4px 8px -4px,
-        lch(0% 0 0% / 12%) 0px 16px 24px -8px;
+        lch(0% 0 0deg / 2%) 0px 1px 1px, lch(0% 0 0deg / 10%) 0px 4px 8px -4px,
+        lch(0% 0 0deg / 12%) 0px 16px 24px -8px;
     --pluto-shadow-modal:
-        lch(0% 0 0% / 8.8%) 0px 9px 48px, lch(0% 0 0% / 11%) 0px 6px 24px,
-        lch(0% 0 0% / 4.4%) 0px 1px 1px;
+        lch(0% 0 0deg / 8.8%) 0px 9px 48px, lch(0% 0 0deg / 11%) 0px 6px 24px,
+        lch(0% 0 0deg / 4.4%) 0px 1px 1px;
 }
 
 .pluto-theme-synnax-dark {
@@ -258,13 +271,13 @@ th,
     /* Restated at higher density: a shadow needs more weight to read against a dark
        surface. */
     --pluto-shadow-lift:
-        lch(0% 0 0% / 18.8%) 0px 2px 5px, lch(0% 0 0% / 18.8%) 0px 1px 1px;
+        lch(0% 0 0deg / 18.8%) 0px 2px 5px, lch(0% 0 0deg / 18.8%) 0px 1px 1px;
     --pluto-shadow-overlay:
-        lch(0% 0 0% / 18.8%) 0px 3px 8px, lch(0% 0 0% / 18.8%) 0px 2px 5px,
-        lch(0% 0 0% / 18.8%) 0px 1px 1px;
+        lch(0% 0 0deg / 18.8%) 0px 3px 8px, lch(0% 0 0deg / 18.8%) 0px 2px 5px,
+        lch(0% 0 0deg / 18.8%) 0px 1px 1px;
     --pluto-shadow-modal:
-        lch(0% 0 0% / 32%) 0px 9px 48px, lch(0% 0 0% / 28%) 0px 6px 24px,
-        lch(0% 0 0% / 18.8%) 0px 1px 1px;
+        lch(0% 0 0deg / 32%) 0px 9px 48px, lch(0% 0 0deg / 28%) 0px 6px 24px,
+        lch(0% 0 0deg / 18.8%) 0px 1px 1px;
 }
 
 /* Theme-correct display color: achromatic colors snap to the theme's hard extreme,

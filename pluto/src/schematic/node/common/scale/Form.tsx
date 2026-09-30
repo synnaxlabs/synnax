@@ -12,6 +12,7 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import {
   caseconv,
   type direction,
@@ -183,16 +184,27 @@ export const DisplayFields = ({
  * Colors of the scale and its labels, and the text size. The fill color is the symbol's
  * own, so the caller renders it against whichever path holds it.
  */
-export const StyleFields = ({ path }: FormProps): ReactElement => (
-  <>
-    <NodeForm.ColorField path={field(path, "axisColor")} label="Scale color" />
-    <NodeForm.ColorField path={field(path, "textColor")} label="Text color" />
-    <Base.Field<text.Level>
-      path={field(path, "level")}
-      label="Text size"
-      padHelpText={false}
-    >
-      {NodeForm.SelectTextLevel}
-    </Base.Field>
-  </>
-);
+export const StyleFields = ({ path }: FormProps): ReactElement => {
+  const theme = Theming.use();
+  return (
+    <>
+      <NodeForm.ColorField
+        path={field(path, "axisColor")}
+        label="Scale color"
+        fallback={theme.colors.gray.l8}
+      />
+      <NodeForm.ColorField
+        path={field(path, "textColor")}
+        label="Text color"
+        fallback={theme.colors.gray.l10}
+      />
+      <Base.Field<text.Level>
+        path={field(path, "level")}
+        label="Text size"
+        padHelpText={false}
+      >
+        {NodeForm.SelectTextLevel}
+      </Base.Field>
+    </>
+  );
+};

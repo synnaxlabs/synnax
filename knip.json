@@ -1,5 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
+  "rules": { "cycles": "error" },
   "workspaces": {
     ".": {
       "entry": ["package.json"],
@@ -30,13 +31,9 @@
       "project": ["src/**/*.{ts,tsx}"]
     },
     "pluto": {
-      "entry": [
-        "src/index.ts",
-        "src/ether.ts",
-        "src/testutil/index.ts",
-        "src/color/index.ts"
-      ],
-      "project": ["src/**/*.{ts,tsx}"]
+      "entry": ["src/index.ts", "src/ether.ts", "src/testutil/index.ts"],
+      "project": ["src/**/*.{ts,tsx}"],
+      "ignoreDependencies": ["vscode"]
     },
     "x/media": {
       "entry": ["src/index.ts"],
@@ -52,10 +49,13 @@
       "project": ["src/**/*.{ts,tsx}"],
       "ignore": ["src-tauri/**"]
     },
-    "docs/site": {
+    "site/docs": {
       "entry": ["src/**/*.astro", "src/**/*.tsx", "src/**/*.ts"],
-      "project": ["src/**/*.{ts,tsx,astro}"],
-      "ignoreDependencies": ["@astrojs/*"]
+      "project": ["src/**/*.{ts,tsx,astro,mdx}"]
+    },
+    "site/www": {
+      "entry": ["src/pages/**/*.astro"],
+      "project": ["src/**/*.{ts,tsx,astro}"]
     },
     "configs/eslint": {
       "entry": ["index.ts"],
@@ -67,8 +67,8 @@
       "project": ["*.json"]
     },
     "configs/vite": {
-      "entry": ["lib.ts"],
-      "project": ["*.ts"],
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"],
       "ignoreDependencies": ["vite-*"]
     },
     "configs/stylelint": {

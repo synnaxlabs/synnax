@@ -1,0 +1,45 @@
+{
+  "name": "Oxidizer",
+  "root": {
+    "variant": "split",
+    "direction": "x",
+    "size": 0.58,
+    "first": {
+      "variant": "leaf",
+      "tabs": [
+        {
+          "key": "ca1508be-508b-4d49-b068-2b6155f34718",
+          "variant": "resource",
+          "resource": "OX Pressures.json"
+        }
+      ]
+    },
+    "last": {
+      "variant": "split",
+      "direction": "y",
+      "size": 0.5,
+      "first": {
+        "variant": "leaf",
+        "tabs": [
+          {
+            "key": "b2609e5c-f068-483e-ab28-7b1a359a9478",
+            "variant": "resource",
+            "resource": "OX Temperatures.json"
+          }
+        ]
+      },
+      "last": {
+        "variant": "leaf",
+        "tabs": [
+          {
+            "key": "12bc79e4-762a-43c7-9704-58025f9a42e2",
+            "variant": "resource",
+            "resource": "OX Valves.json"
+          }
+        ]
+      }
+    }
+  },
+  "type": "panel",
+  "version": 0
+}

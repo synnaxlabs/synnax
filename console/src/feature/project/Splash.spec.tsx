@@ -60,6 +60,27 @@ describe("project/Splash", () => {
     });
   });
 
+  describe("session controls", () => {
+    it("should log out of the Core", async () => {
+      const { store } = await renderWithConsole(<Project.Splash />);
+      act(() => {
+        store.dispatch(Session.Core.select(Session.Core.LOCAL_KEY));
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Log out" }));
+      expect(Session.Core.selectSelected(store.getState())).toBeUndefined();
+    });
+
+    it("should name the selected Core in the connection island", async () => {
+      const { store } = await renderWithConsole(<Project.Splash />);
+      act(() => {
+        store.dispatch(Session.Core.select(Session.Core.LOCAL_KEY));
+      });
+      const name = Session.Core.selectSelected(store.getState())?.name;
+      if (name == null) throw new Error("no Core is selected");
+      expect(await screen.findByText(name)).toBeTruthy();
+    });
+  });
+
   describe("awaiting a deep link's project", () => {
     it("should show the notice only while a link waits on a selection", async () => {
       const { store } = await renderWithConsole(<Project.Splash />);

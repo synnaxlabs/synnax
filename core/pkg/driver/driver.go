@@ -40,6 +40,11 @@ import (
 // certificates it verifies the Core against.
 const trustAnchorFileName = "trust-anchors.pem"
 
+// stateFileName is the file in the Driver's working directory that holds its persisted
+// state. Without it, the Driver uses a machine-wide directory that the Core's user may
+// not be able to write and that other Drivers on the host share.
+const stateFileName = "state.json"
+
 // Config is the configuration for opening an embedded Driver.
 type Config struct {
 	// Insecure sets whether not to use TLS for communication. If insecure is set to
@@ -47,6 +52,9 @@ type Config struct {
 	Insecure *bool `json:"insecure"`
 	// Enabled is used to enable or disable the embedded Driver.
 	Enabled *bool `json:"enabled"`
+	// Detached makes Open return without waiting for the Driver to start. The Driver
+	// retries registration on its own.
+	Detached *bool `json:"-"`
 	// Debug sets whether to enable debug logging.
 	Debug *bool `json:"debug"`
 	// Instrumentation is used for logging, tracing, and metrics.
@@ -161,6 +169,7 @@ var (
 	DefaultConfig = Config{
 		Integrations:         []string{},
 		Enabled:              new(true),
+		Detached:             new(false),
 		Debug:                new(false),
 		StartTimeout:         time.Second * 10,
 		StopTimeout:          10 * time.Second,
@@ -177,6 +186,7 @@ var (
 // Override implements config.Config.
 func (c Config) Override(other Config) Config {
 	c.Enabled = override.Nil(c.Enabled, other.Enabled)
+	c.Detached = override.Nil(c.Detached, other.Detached)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Address = override.String(c.Address, other.Address)
 	c.RackKey = override.Numeric(c.RackKey, other.RackKey)
@@ -212,6 +222,7 @@ func (c Config) Override(other Config) Config {
 func (c Config) Validate() error {
 	v := validate.New("driver.embedded")
 	v.NotNil("enabled", c.Enabled)
+	v.NotNil("detached", c.Detached)
 	v.NotNil("insecure", c.Insecure)
 	if v.Error() != nil {
 		return v.Error()
@@ -324,6 +335,9 @@ func (d *Driver) start(ctx context.Context) error {
 		d.failed <- err
 		return err
 	})
+	if *d.cfg.Detached {
+		return nil
+	}
 	select {
 	case <-d.started:
 		return nil
@@ -520,7 +534,11 @@ func (d *Driver) setupCmd(
 	if *d.cfg.Debug {
 		flags = append(flags, "--debug")
 	}
-	flags = append(flags, "--config", cfgFile)
+	flags = append(
+		flags,
+		"--config", cfgFile,
+		"--state-file", filepath.Join(workDir, stateFileName),
+	)
 	cmd := exec.CommandContext(ctx, extractedBinary, flags...)
 	configureSysProcAttr(cmd)
 	stdin, err := cmd.StdinPipe()
