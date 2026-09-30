@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { $clerkStore, $isLoadedStore, $userStore } from "@clerk/astro/client";
-import { useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
 
 export type Clerk = NonNullable<ReturnType<typeof $clerkStore.get>>;
 export type User = NonNullable<ReturnType<typeof $userStore.get>>;
@@ -16,17 +16,20 @@ export type Organization = Awaited<ReturnType<Clerk["getOrganization"]>>;
 export type Membership = User["organizationMemberships"][number];
 
 interface Store<T> {
-  get: () => T;
   subscribe: (listener: (value: T) => void) => () => void;
 }
 
 /**
- * useStore subscribes to a Clerk store. The server snapshot is the store's unloaded
- * value, so hydration matches the server HTML and the loaded value applies right
- * after.
+ * useStore subscribes to a Clerk store. It returns the unloaded value until the
+ * subscription delivers the store's value after mount, so hydration matches the server
+ * HTML. It never reads the store during render: a read of a computed store can notify
+ * subscribers, and React rejects an update scheduled while a component renders.
  */
-const useStore = <T>(store: Store<T>, unloaded: T): T =>
-  useSyncExternalStore(store.subscribe, store.get, () => unloaded);
+const useStore = <T>(store: Store<T>, unloaded: T): T => {
+  const [value, setValue] = useState(unloaded);
+  useEffect(() => store.subscribe(setValue), [store]);
+  return value;
+};
 
 /** useClerk returns the loaded Clerk client, or null before clerk-js has loaded. */
 export const useClerk = (): Clerk | null => {
@@ -35,7 +38,7 @@ export const useClerk = (): Clerk | null => {
   return loaded ? clerk : null;
 };
 
-/** useUser returns the signed-in user, null when signed out, undefined while loading. */
+/** useUser returns the signed-in user, null when signed out, undefined when loading. */
 export const useUser = (): User | null | undefined => useStore($userStore, undefined);
 
 /** errorMessage reads the message to show for a failed Clerk call. */
