@@ -7,4 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/channel/aether/queries";
+import favicon from "@synnaxlabs/media/static/logo/icon-white-favicon.ico?inline";
+import { type APIRoute } from "astro";
+
+export const prerender = true;
+
+export const GET: APIRoute = async () => {
+  const icon = await fetch(favicon);
+  return new Response(icon.body, { headers: { "Content-Type": "image/x-icon" } });
+};

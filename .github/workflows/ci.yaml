@@ -428,6 +428,7 @@ jobs:
       core_image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
       coverage_flag: pluto
       directory: pluto
+      knip: true
       package: pluto
       test_args: -- --no-file-parallelism
     secrets: inherit

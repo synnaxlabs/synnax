@@ -14,18 +14,20 @@ run-name:
   }}
 
 on:
+  # Windows is the default because it is more prevalent in the wild than Ubuntu.
+  # It also frees the saturated Ubuntu build bots while the Windows ones sit idle.
   workflow_call:
     inputs:
       ubuntu:
         description: Whether to build and test on Ubuntu
         required: false
         type: boolean
-        default: true
+        default: false
       windows:
         description: Whether to build and test on Windows
         required: false
         type: boolean
-        default: false
+        default: true
 
   workflow_dispatch:
     inputs:
@@ -60,22 +62,30 @@ on:
         description: Whether to build and test on Ubuntu
         required: false
         type: boolean
-        default: true
+        default: false
       windows:
         description: Whether to build and test on Windows
         required: false
         type: boolean
-        default: false
+        default: true
+
+concurrency:
+  group: integration-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   setup:
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
     outputs:
       VERSION: ${{ steps.version.outputs.VERSION }}
       SKIP_BUILD: ${{ steps.check-cache.outputs.SKIP_BUILD }}
       REF_RUN_ID: ${{ steps.check-cache.outputs.REF_RUN_ID }}
       DRIVER_REF_RUN_ID: ${{ steps.check-cache.outputs.DRIVER_REF_RUN_ID }}
       CONSOLE_REF_RUN_ID: ${{ steps.check-cache.outputs.CONSOLE_REF_RUN_ID }}
+      CORE_REF_RUN_ID: ${{ steps.check-cache.outputs.CORE_REF_RUN_ID }}
       FLAGS: ${{ steps.set-outputs.outputs.FLAGS }}
       BINARY_CHECK_MATRIX: ${{ steps.binary-check-matrix.outputs.MATRIX }}
       TEST_MATRIX:
@@ -108,7 +118,10 @@ jobs:
           GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           SKIP_BUILD: ${{ github.event.inputs.SKIP_BUILD || 'false' }}
           REF_RUN_ID: ${{ github.event.inputs.REF_RUN_ID || '' }}
-        run: .github/scripts/check_artifact_cache.sh all
+          PLATFORMS:
+            ${{ inputs.ubuntu && inputs.windows && 'all' || inputs.windows && 'windows'
+            || 'linux' }}
+        run: .github/scripts/check_artifact_cache.sh "${PLATFORMS}"
 
       - name: Validate test coverage
         if: ${{ steps.set-outputs.outputs.FLAGS == '' }}
@@ -150,6 +163,7 @@ jobs:
       version: ${{ needs.setup.outputs.VERSION }}
       driver_ref_run_id: ${{ needs.setup.outputs.DRIVER_REF_RUN_ID }}
       console_ref_run_id: ${{ needs.setup.outputs.CONSOLE_REF_RUN_ID }}
+      core_ref_run_id: ${{ needs.setup.outputs.CORE_REF_RUN_ID }}
     secrets: inherit
 
   test-windows:
@@ -162,7 +176,7 @@ jobs:
     with:
       test_matrix: ${{ needs.setup.outputs.TEST_MATRIX }}
       ref_run_id: ${{ needs.setup.outputs.REF_RUN_ID }}
-      os: windows-build-bot
+      os: windows-test-bot
       flags: ${{ needs.setup.outputs.FLAGS }}
     secrets: inherit
 
@@ -176,7 +190,7 @@ jobs:
     with:
       test_matrix: ${{ needs.setup.outputs.TEST_MATRIX }}
       ref_run_id: ${{ needs.setup.outputs.REF_RUN_ID }}
-      os: ubuntu-build-bot
+      os: ubuntu-test-bot
       flags: ${{ needs.setup.outputs.FLAGS }}
     secrets: inherit
 
