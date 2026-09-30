@@ -8,11 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
+import { type destructor } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type connection } from "@/connection";
 import { type Info, infoZ, type State } from "@/license/types.gen";
 import { type ontology } from "@/ontology";
+import { query } from "@/query";
 
 export const STATE_MESSAGES: Record<State, string> = {
   ok: "Licensed",
@@ -22,24 +24,60 @@ export const STATE_MESSAGES: Record<State, string> = {
 
 const activateReqZ = z.object({ key: z.string() });
 
+const KEY = "license";
+
 /** The license as an access control object. Reading it takes a retrieve grant. */
-export const ONTOLOGY_ID: ontology.ID = { type: "builtin", key: "license" };
+export const ONTOLOGY_ID: ontology.ID = { type: "builtin", key: KEY };
 
 export const RETRIEVE_ENDPOINT = "/license/retrieve";
 export const ACTIVATE_ENDPOINT = "/license/activate";
 
+/**
+ * The channel the Core announces license changes on. A sample names the license, never
+ * carries it, so the client rereads it through the retrieve endpoint's permission check.
+ */
+export const SET_CHANNEL_NAME = "sy_license_set";
+
+interface Entry extends Info {
+  key: typeof KEY;
+}
+
+type Params = Record<string, never>;
+
+const PARAMS: Params = {};
+
 export interface ClientParams {
   unary: UnaryClient;
   connection: connection.Handle;
+  cache: query.Cache;
 }
 
 export class Client {
   private readonly unary: UnaryClient;
   private readonly connection: connection.Handle;
+  private readonly table: query.Table<typeof KEY, Entry>;
+  private readonly space: query.Retrieves<Params, Info>;
 
-  constructor({ unary, connection }: ClientParams) {
+  constructor({ unary, connection, cache }: ClientParams) {
     this.unary = unary;
     this.connection = connection;
+    const table = cache.createTable<typeof KEY, Entry>({
+      name: "license",
+      fetch: async () => [await this.fetch()],
+      listen: [query.createFetchListener(SET_CHANNEL_NAME, z.literal(KEY))],
+    });
+    this.table = table;
+    this.space = cache.queries<Params, Info, typeof KEY, Entry>({
+      name: "license",
+      table,
+      fetch: async () => {
+        table.ingest(await this.fetch());
+        return [KEY];
+      },
+      compose: ([{ key: _, ...info }]) => info,
+      keyOf: () => KEY,
+      single: true,
+    });
   }
 
   /**
@@ -47,7 +85,20 @@ export class Client {
    * @throws {AccessDeniedError} if the caller lacks permission to read the license.
    */
   async retrieve(): Promise<Info> {
-    return await this.unary.send(RETRIEVE_ENDPOINT, undefined, z.void(), infoZ);
+    return await this.space.retrieve(PARAMS);
+  }
+
+  /**
+   * Calls the handler each time the cached license state changes, and keeps it current
+   * until the returned destructor runs.
+   */
+  onChange(handler: query.ChangeHandler<Info>): destructor.Destructor {
+    return this.space.onChange(PARAMS, handler);
+  }
+
+  /** @returns The cached license state, or undefined when none is cached. */
+  getCached(): query.Cached<Info> | undefined {
+    return this.space.getCached(PARAMS);
   }
 
   /**
@@ -59,7 +110,13 @@ export class Client {
    */
   async activate(key: string): Promise<Info> {
     const info = await this.unary.send(ACTIVATE_ENDPOINT, { key }, activateReqZ, infoZ);
+    this.table.set(KEY, { key: KEY, ...info });
     this.connection.retryNow();
     return info;
+  }
+
+  private async fetch(): Promise<Entry> {
+    const info = await this.unary.send(RETRIEVE_ENDPOINT, undefined, z.void(), infoZ);
+    return { key: KEY, ...info };
   }
 }

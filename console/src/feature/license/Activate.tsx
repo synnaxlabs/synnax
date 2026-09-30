@@ -17,7 +17,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type Triggers } from "@synnaxlabs/lyra/triggers";
-import { Synnax } from "@synnaxlabs/pluto";
+import { License as PLicense, Synnax } from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
 
 import { Shell } from "@/feature/shell";
@@ -55,13 +55,13 @@ export const Activate = (): ReactElement => {
   const target = Session.Core.useSelectSelected();
   const logout = Session.useLogout();
   const handleError = Status.useErrorHandler();
-  const { info, error: infoError } = License.useInfo();
+  const info = PLicense.useResult({});
   const [key, setKey] = useState("");
   const [activating, setActivating] = useState(false);
   const [error, setError] = useState<status.Status | null>(null);
-  const fingerprint = info?.fingerprint ?? [];
+  const fingerprint = info.data?.fingerprint ?? [];
   const expired = ExpiredLicenseError.matches(details.error);
-  const noHardware = info != null && fingerprint.length === 0;
+  const noHardware = info.data != null && fingerprint.length === 0;
 
   const pickFile = (): void =>
     handleError(async () => {
@@ -150,12 +150,12 @@ export const Activate = (): ReactElement => {
             </Button.Button>
             <Flex.Box className={CSS.BE("license-activate", "status")}>
               {error != null && <Status.Summary status={error} level="small" />}
-              {error == null && infoError != null && (
+              {error == null && info.variant === "error" && (
                 <Status.Summary
                   variant="error"
                   level="small"
                   message="Failed to read the host fingerprint"
-                  description={infoError.message}
+                  description={info.status.details.error.message}
                 />
               )}
             </Flex.Box>
