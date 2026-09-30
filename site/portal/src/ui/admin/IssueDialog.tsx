@@ -48,10 +48,7 @@ export const IssueDialog = ({ teams }: IssueDialogProps): ReactElement => (
 );
 
 const Content = ({ teams }: IssueDialogProps): ReactElement => {
-  const methods = Form.use({
-    values: { ...ZERO_TERMS, organization: teams[0]?.clerkOrgID ?? "" },
-    schema,
-  });
+  const methods = Form.use({ values: { ...ZERO_TERMS, organization: "" }, schema });
   const action = useAction(async () => {
     if (!methods.validate()) return;
     const { key } = await post<{ key: string }>("/api/licenses", methods.value());
