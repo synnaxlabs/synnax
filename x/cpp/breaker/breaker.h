@@ -12,6 +12,7 @@
 #include <atomic>
 #include <cassert>
 #include <condition_variable>
+#include <format>
 #include <iomanip>
 
 #include "absl/log/log.h"
@@ -70,6 +71,13 @@ class Breaker {
     /// @brief used to protect the condition variable.
     std::mutex mu;
 
+    [[nodiscard]] std::string retry_fraction(const size_t retry) const {
+        const auto max = this->config.max_retries == RETRY_INFINITELY
+                           ? std::string("∞")
+                           : std::to_string(this->config.max_retries);
+        return std::to_string(retry) + "/" + max;
+    }
+
 public:
     explicit Breaker(const Config &config):
         config(config), interval(config.base_interval), retries(0), is_running(false) {}
@@ -127,15 +135,9 @@ public:
             return false;
         }
 
-        const std::string retry_count_msg = this->config.max_retries == -1
-                                              ? std::to_string(this->retries) + "/∞"
-                                              : std::to_string(this->retries) + "/" +
-                                                    std::to_string(
-                                                        this->config.max_retries
-                                                    );
-
-        LOG(ERROR) << "[" << this->config.name << "] failed " << retry_count_msg
-                   << " times. " << "Retrying in " << std::fixed << std::setprecision(1)
+        LOG(ERROR) << "[" << this->config.name << "] failed "
+                   << this->retry_fraction(this->retries) << " times. "
+                   << "Retrying in " << std::fixed << std::setprecision(1)
                    << this->interval.seconds() << " seconds. " << "Error: " << message;
         std::unique_lock lock(this->mu);
         shutdown_cv.wait_for(lock, this->interval.chrono());
@@ -193,6 +195,21 @@ public:
     [[nodiscard]]
     size_t retry_count() const {
         return this->retries;
+    }
+
+    /// @brief describes the next call to wait(), such as "retry 3/50 in 1.2 s". Returns
+    /// an empty string when that call exceeds the maximum retry count. Not thread-safe
+    /// with concurrent calls to wait() or reset().
+    [[nodiscard]] std::string next_retry() const {
+        const auto next = this->retries + 1;
+        if (this->config.max_retries != RETRY_INFINITELY &&
+            next > static_cast<size_t>(this->config.max_retries))
+            return "";
+        return std::format(
+            "retry {} in {:.1f} s",
+            this->retry_fraction(next),
+            this->interval.seconds()
+        );
     }
 
     /// @brief returns true if the breaker is currently running (i.e. start() has
