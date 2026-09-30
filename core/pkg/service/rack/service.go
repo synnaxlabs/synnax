@@ -172,7 +172,7 @@ func OpenService(
 	}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
-	if s.monitor, err = openMonitor(s.Child("monitor"), s); !ok(err, s.monitor) {
+	if s.monitor, err = openMonitor(ctx, s.Child("monitor"), s); !ok(err, s.monitor) {
 		return nil, err
 	}
 	return s, nil
