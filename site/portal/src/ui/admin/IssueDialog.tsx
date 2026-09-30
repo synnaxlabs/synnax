@@ -11,12 +11,11 @@ import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
-import { navigate } from "astro:transitions/client";
 import { type ReactElement } from "react";
 import { z } from "zod";
 
 import { type Listed } from "@/server/directory";
-import { post } from "@/ui/api";
+import { navigate, post } from "@/ui/api";
 import { checkTerms, TermsFields, termsSchema, ZERO_TERMS } from "@/ui/licenses/Terms";
 import * as Modal from "@/ui/Modal";
 
@@ -53,7 +52,7 @@ const Content = ({ teams }: IssueDialogProps): ReactElement => {
       submit="Issue"
       onSubmit={async (value) => {
         const { key } = await post<{ key: string }>("/api/licenses", value);
-        await navigate(`/licenses/${key}`);
+        navigate(`/licenses/${key}`);
       }}
     >
       <Form.Field<string>

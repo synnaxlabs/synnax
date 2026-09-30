@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { navigate } from "astro:transitions/client";
-
+import { navigate } from "@/ui/api";
 import { type Clerk } from "@/ui/clerk";
 
 /**
@@ -22,5 +21,5 @@ export const start = async (
 ): Promise<void> => {
   if (sessionID == null) throw new Error("Login did not start a session");
   await clerk.setActive({ session: sessionID });
-  await navigate(target);
+  navigate(target);
 };

@@ -13,10 +13,10 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { navigate } from "astro:transitions/client";
 import { type ReactElement, useState } from "react";
 
 import { type Owned } from "@/server/license/list";
+import { navigate } from "@/ui/api";
 import {
   activate,
   ACTIVATE_LABEL,
@@ -80,7 +80,7 @@ const Inline = ({ licenseKey }: { licenseKey: string }): ReactElement => {
   const action = useAction(async () => {
     if (!methods.validate()) return;
     await activate(licenseKey, methods.value());
-    await navigate(`/licenses/${licenseKey}`);
+    navigate(`/licenses/${licenseKey}`);
   });
   return (
     <Form.Form<typeof activateSchema> {...methods}>
