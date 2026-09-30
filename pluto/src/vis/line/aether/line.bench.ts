@@ -15,7 +15,7 @@ import {
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { afterAll, bench, type BenchOptions, describe } from "vitest";
+import { type BenchRunOptions, test } from "vitest";
 
 import { GL_TRANSFORM } from "@/telem/aether/convertSeries";
 import { windowBounds } from "@/vis/line/aether/bounds";
@@ -193,7 +193,7 @@ const drain = (chunks: Chunks, spec: Spec, rendering: boolean): Landed => {
 };
 
 // Weight approximates timestamp conversions, the dominant per-chunk fetch cost.
-const opts = (spec: Spec): BenchOptions | undefined => {
+const opts = (spec: Spec): BenchRunOptions | undefined => {
   const weight = chunkCount(spec) * (spec.sharedIndex ? 1 : spec.channels);
   if (weight > 300)
     return { time: 0, iterations: 1, warmupTime: 0, warmupIterations: 0 };
@@ -205,30 +205,27 @@ const opts = (spec: Spec): BenchOptions | undefined => {
 for (const spec of [...MATRIX, ...CHANNEL_SPECS]) {
   const chunks = buildChunks(spec);
   const o = opts(spec);
-  describe(`${spec.name} (${chunkCount(spec)} chunks)`, () => {
+  test(`${spec.name} (${chunkCount(spec)} chunks)`, async ({ bench }) => {
     // The drain benches keep their landed result so frame after load reuses it.
+    // bench.compare would interleave them, so they run in order.
     let landed: Landed | null = null;
-    afterAll(() => {
-      landed = null;
-    });
     const exec = (rendering: boolean): void => {
       landed = drain(chunks, spec, rendering);
     };
-    bench("fetch only", () => exec(false), o);
-    bench("fetch during render loop", () => exec(true), o);
+    await bench("fetch only", () => exec(false)).run(o);
+    await bench("fetch during render loop", () => exec(true)).run(o);
     // One frame over the landed back-fill, the recurring cost the plot pays after.
-    bench(
+    await bench(
       "frame after load",
+      {
+        beforeAll: () => {
+          landed ??= drain(chunks, spec, false);
+        },
+      },
       () => {
         if (landed == null) throw new Error("no landed back-fill");
         for (let ch = 0; ch < spec.channels; ch++) frame(landed.xs[ch], landed.ys[ch]);
       },
-      {
-        ...o,
-        setup: () => {
-          landed ??= drain(chunks, spec, false);
-        },
-      },
-    );
+    ).run(o);
   });
 }

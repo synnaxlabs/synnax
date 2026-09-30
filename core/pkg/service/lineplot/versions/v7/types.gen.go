@@ -15,7 +15,7 @@ import (
 	"strconv"
 
 	v6 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v6"
-	color "github.com/synnaxlabs/x/color/versions/v0"
+	color "github.com/synnaxlabs/x/color/versions/v1"
 	"github.com/synnaxlabs/x/validate"
 )
 

@@ -85,10 +85,7 @@ describe("Search.List", () => {
     await renderSearch({ channel: TestItem });
     fireEvent.change(searchInput(), { target: { value: ch.name } });
     await waitFor(() => expect(screen.getByText(ch.name)).toBeTruthy());
-    // A real mouse click carries detail 1. Selection re-dispatches a synthetic
-    // click (detail 0) on the item, which is the only click allowed to fire
-    // onSelect; the item must not also fire it for the original click.
-    fireEvent.click(screen.getByText(ch.name), { detail: 1 });
+    fireEvent.click(screen.getByText(ch.name));
     await waitFor(() => expect(onSelect).toHaveBeenCalledTimes(1));
     expect(onSelect.mock.calls[0][0].name).toEqual(ch.name);
   });

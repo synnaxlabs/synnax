@@ -7,6 +7,8 @@
     "dev": "tauri dev",
     "kill": "bash ~/Desktop/synnaxlabs/synnax/console/scripts/kill-dev.zsh",
     "build": "tsc --noEmit && tauri build",
+    "dev-desktop": "VITE_DESKTOP=true tauri dev --config src-tauri/tauri.desktop.conf.json",
+    "build-desktop": "tsc --noEmit && VITE_DESKTOP=true tauri build --config src-tauri/tauri.desktop.conf.json",
     "dev-vite": "VITE_IS_DEV=true vite --force",
     "build-vite": "vite build",
     "preview": "vite preview",
@@ -15,9 +17,7 @@
     "stylelint": "stylelint \"src/**/*.css\"",
     "test": "vitest",
     "cov": "vitest --coverage",
-    "madge": "madge --circular src",
-    "devtools": "pnpm react-devtools",
-    "react-devtools": "npx react-devtools"
+    "devtools": "pnpm dlx react-devtools"
   },
   "dependencies": {
     "@fontsource/inter": "catalog:",
@@ -37,8 +37,6 @@
     "@tauri-apps/plugin-shell": "catalog:",
     "@tauri-apps/plugin-store": "catalog:",
     "@tauri-apps/plugin-updater": "catalog:",
-    "compromise": "catalog:",
-    "compromise-dates": "catalog:",
     "fflate": "catalog:",
     "pluralize": "catalog:",
     "proxy-memoize": "catalog:",
@@ -50,9 +48,9 @@
   },
   "devDependencies": {
     "@synnaxlabs/eslint-config": "catalog:",
-    "@synnaxlabs/madge": "catalog:",
     "@synnaxlabs/stylelint-config": "catalog:",
     "@synnaxlabs/tsconfig": "catalog:",
+    "@synnaxlabs/vite-plugin": "catalog:",
     "@tauri-apps/cli": "catalog:",
     "@testing-library/react": "catalog:",
     "@types/node": "catalog:",

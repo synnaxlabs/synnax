@@ -9,13 +9,29 @@
 
 /// <reference types="vitest/config" />
 
+import { layers } from "@synnaxlabs/vite-plugin";
 import react from "@vitejs/plugin-react";
 import * as fs from "node:fs/promises";
 import * as path from "path";
 import { defineConfig, normalizePath, type Plugin } from "vite";
 
 const isDev = process.env.VITE_IS_DEV === "true";
+// Builds Synnax Desktop, the app that bundles and manages its own Core.
+const desktop = process.env.VITE_DESKTOP === "true";
 const repoRoot = path.resolve(import.meta.dirname, "..");
+const DESKTOP_SPECS = "src/**/*.desktop.spec.{ts,tsx}";
+
+const under = (dir: string): RegExp =>
+  new RegExp(`^${RegExp.escape(normalizePath(path.join(repoRoot, dir)))}/`);
+
+// Lyra styles bare elements, so third-party and media CSS sit above it. Pluto overrides
+// all three, and the Console's own CSS, left unlayered, overrides everything.
+const CSS_LAYERS = [
+  { name: "lyra", files: under("lyra") },
+  { name: "vendor", files: /\/node_modules\// },
+  { name: "media", files: under("x/media") },
+  { name: "pluto", files: under("pluto") },
+];
 
 // Rollup ignores the sourceMappingURL comment inside prebuilt workspace bundles, so
 // the Console's map would bottom out at pluto/dist/pluto.js and friends. Loading the
@@ -143,6 +159,7 @@ export default defineConfig({
       : {},
   },
   envPrefix: ["VITE_", "TAURI_"],
+  css: { postcss: { plugins: [layers(CSS_LAYERS)] } },
   plugins: [react(), workspaceSourcemaps(), stripSourcesContent(), plutoWorkers()],
   build: {
     target: process.env.TAURI_PLATFORM === "windows" ? "chrome111" : "safari16.4",
@@ -156,7 +173,7 @@ export default defineConfig({
     // to enforce the default Vite warning threshold.
     chunkSizeWarningLimit: 10000 /* kbs */,
   },
-  define: { IS_DEV: isDev },
+  define: { IS_DEV: isDev, DESKTOP: desktop },
   worker: {
     format: "es",
     // The worker is a separate build and does not inherit `plugins`, so aether frames
@@ -168,7 +185,21 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["src/testutil/setuptests.ts"],
     testTimeout: 15_000,
-    exclude: ["**/node_modules/**", "**/dist/**"],
+    // DESKTOP is a build constant, so the specs of each build run as their own project.
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "console",
+          exclude: ["**/node_modules/**", "**/dist/**", DESKTOP_SPECS],
+        },
+      },
+      {
+        extends: true,
+        define: { DESKTOP: true },
+        test: { name: "desktop", include: [DESKTOP_SPECS] },
+      },
+    ],
     coverage: {
       include: ["src/**/*.ts", "src/**/*.tsx"],
       exclude: ["src/**/*.spec.ts", "src/**/*.spec.tsx", "src/**/*.bench.ts"],

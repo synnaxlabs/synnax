@@ -12,3 +12,4 @@ export * from "@/fixtures/cluster";
 export * from "@/fixtures/control";
 export * from "@/fixtures/core";
 export * from "@/fixtures/telemetry";
+export * from "@/fixtures/world";

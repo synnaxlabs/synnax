@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { status } from "@synnaxlabs/client";
-import { bounds, color, type math, notation, scale } from "@synnaxlabs/x";
+import { bounds, color, type math, notation } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Factory } from "@/telem/aether/factory";
@@ -43,10 +43,8 @@ export class TransformerFactory implements Factory {
         return new StringifyNumber(spec.props);
       case RollingAverage.TYPE:
         return new RollingAverage(spec.props);
-      case ColorGradient.TYPE:
-        return new ColorGradient(spec.props);
-      case ScaleNumber.TYPE:
-        return new ScaleNumber(spec.props);
+      case BandColor.TYPE:
+        return new BandColor(spec.props);
     }
     return null;
   }
@@ -224,59 +222,68 @@ export const rollingAverage = (
   valueType: "number",
 });
 
-export const colorGradientProps = z.object({
-  gradient: color.gradientZ,
+export const bandColorProps = color.scaleZ.extend({
+  background: color.colorZ.optional(),
 });
 
-export class ColorGradient extends UnarySourceTransformer<
-  number,
-  color.Color,
-  typeof colorGradientProps
-> {
-  static readonly TYPE = "color-gradient";
-  static readonly propsZ = colorGradientProps;
-  schema = ColorGradient.propsZ;
+export type BandColorProps = z.input<typeof bandColorProps>;
 
-  protected transform(value: number): color.Color {
-    return color.fromGradient(this.props.gradient, value);
+/**
+ * Maps a number onto the color of its threshold band. Reads the number from the
+ * `source` input and, when a band flashes, a {@link clock} from the `phase` input. A
+ * band owns values at or above its threshold and below the next higher threshold.
+ * Values below every threshold take the background, or no color when it is absent.
+ * While the owning band flashes, odd clock ticks paint the background instead.
+ * Listeners hear only changes of color.
+ */
+export class BandColor extends MultiSourceTransformer<
+  math.Numeric | string,
+  color.Color,
+  typeof bandColorProps
+> {
+  static readonly TYPE = "band-color";
+  static readonly propsZ = bandColorProps;
+  schema = BandColor.propsZ;
+  private sorted?: color.Band[];
+  private notified: color.Color | null = null;
+
+  private get bands(): color.Band[] {
+    this.sorted ??= [...this.props.bands].sort((a, b) => a.threshold - b.threshold);
+    return this.sorted;
+  }
+
+  protected transform({
+    source,
+    phase = 0,
+  }: Record<string, math.Numeric | string>): color.Color {
+    const value = source === "" ? NaN : Number(source);
+    const background = this.props.background ?? color.ZERO;
+    const i = this.bands.findLastIndex(({ threshold }) => threshold <= value);
+    if (i === -1) return background;
+    const owner = this.bands[i];
+    if (owner.flashing && Number(phase) % 2 === 1) return background;
+    const next = this.bands.at(i + 1);
+    if (!this.props.smooth || next == null) return owner.color;
+    return color.fromGradient(
+      [
+        { key: "owner", position: owner.threshold, color: owner.color },
+        { key: "next", position: next.threshold, color: next.color },
+      ],
+      value,
+    );
+  }
+
+  protected shouldNotify(): boolean {
+    const next = this.value();
+    if (this.notified != null && color.equals(this.notified, next)) return false;
+    this.notified = next;
+    return true;
   }
 }
 
-export const colorGradient = (
-  props: z.input<typeof colorGradientProps>,
-): ColorSourceSpec => ({
+export const bandColor = (props: BandColorProps): ColorSourceSpec => ({
   props,
-  type: ColorGradient.TYPE,
+  type: BandColor.TYPE,
   variant: "source",
   valueType: "color",
-});
-
-export const scaleNumberProps = z.object({
-  scale: scale.transform,
-});
-
-export class ScaleNumber extends UnarySourceTransformer<
-  math.Numeric,
-  number,
-  typeof scaleNumberProps
-> {
-  static readonly TYPE = "scale-number";
-  static readonly propsZ = scaleNumberProps;
-  schema = ScaleNumber.propsZ;
-
-  protected transform(value: math.Numeric): number {
-    const num = Number(value);
-    if (isNaN(num)) return num;
-    const { offset, scale } = this.props.scale;
-    return num * scale + offset;
-  }
-}
-
-export const scaleNumber = (
-  props: z.input<typeof scaleNumberProps>,
-): NumberSourceSpec => ({
-  props,
-  type: ScaleNumber.TYPE,
-  variant: "source",
-  valueType: "number",
 });

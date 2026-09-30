@@ -9,6 +9,7 @@
 
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
@@ -16,11 +17,14 @@ import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { Scale } from "@/schematic/node/common/scale";
+import { type FormProps } from "@/schematic/node/spec";
+import { Properties } from "@/vis/properties";
 
-export const ScaleForm = (): ReactElement => {
+export const ScaleForm = ({ tab, onTabChange }: FormProps): ReactElement => {
   const { value: orientation } = Base.useField<location.Outer>("orientation");
+  const theme = Theming.use();
   return (
-    <Form.Tabs tabs={["style", "telemetry"]}>
+    <Properties.Tabs tabs={["telemetry", "style"]} tab={tab} onTabChange={onTabChange}>
       <Tabs.Content itemKey="style">
         <Base.Sections x>
           <Base.Section title="Label">
@@ -47,7 +51,11 @@ export const ScaleForm = (): ReactElement => {
             />
           </Base.Section>
           <Base.Section title="Appearance">
-            <Form.ColorField path="color" label="Fill color" />
+            <Form.ColorField
+              path="color"
+              label="Fill color"
+              fallback={theme.colors.visualization.palettes.default[0]}
+            />
             <Scale.StyleFields path="indicator" />
           </Base.Section>
           <Orientation.Section path="" hideInner />
@@ -58,6 +66,6 @@ export const ScaleForm = (): ReactElement => {
           <Scale.TelemForm path="indicator" />
         </Base.Sections>
       </Tabs.Content>
-    </Form.Tabs>
+    </Properties.Tabs>
   );
 };

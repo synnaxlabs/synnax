@@ -184,7 +184,7 @@ removes it:
 - **Console**: `console/src/flags.ts` builds `const FLAGS` from
   `import.meta.env.VITE_FLAG_*`, which Vite replaces statically, so production
   tree-shakes dark code. `IS_DEV` folds in.
-- **Docs site**: `docs/site/src/flags.ts` reads `FLAG_*` through `astro:env`. Pages opt
+- **Docs site**: `site/docs/src/flags.ts` reads `FLAG_*` through `astro:env`. Pages opt
   in with `flag` frontmatter (404 when off); `PageNavNode` gains `flag`. Preview deploys
   set every flag on.
 

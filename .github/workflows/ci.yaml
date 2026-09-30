@@ -70,6 +70,8 @@ jobs:
       protobuf: ${{ steps.filter.outputs.protobuf }}
       scripts: ${{ steps.filter.outputs.scripts }}
       soem: ${{ steps.filter.outputs.soem }}
+      vite_plugin: ${{ steps.filter.outputs.vite_plugin }}
+      www: ${{ steps.filter.outputs.www }}
       x_cpp: ${{ steps.filter.outputs.x_cpp }}
       x_go: ${{ steps.filter.outputs.x_go }}
       x_py: ${{ steps.filter.outputs.x_py }}
@@ -229,13 +231,37 @@ jobs:
       tag: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
     secrets: inherit
 
+  desktop-shell:
+    needs: changes
+    if: needs.changes.outputs.console == 'true'
+    # macOS compiles the Tauri shell with no extra system packages.
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v2
+        with:
+          cache-workspaces: console/src-tauri -> target
+          cache-shared-key: ${{ runner.os }}-desktop-test
+
+      - name: Create an empty frontend
+        # The Tauri context embeds the frontend directory, so it must exist.
+        run: mkdir -p console/dist && touch console/dist/index.html
+
+      - name: Test
+        working-directory: console/src-tauri
+        run: cargo test --features desktop
+
   docs:
     needs: changes
     if: needs.changes.outputs.docs == 'true'
     uses: ./.github/workflows/test.ts.yaml
     with:
       coverage_flag: docs
-      directory: docs/site
+      directory: site/docs
+      knip: true
       package: docs
     secrets: inherit
 
@@ -402,6 +428,7 @@ jobs:
       core_image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
       coverage_flag: pluto
       directory: pluto
+      knip: true
       package: pluto
       test_args: -- --no-file-parallelism
     secrets: inherit
@@ -431,6 +458,26 @@ jobs:
 
   versions:
     uses: ./.github/workflows/test.updates.yaml
+
+  vite-plugin:
+    needs: changes
+    if: needs.changes.outputs.vite_plugin == 'true'
+    uses: ./.github/workflows/test.ts.yaml
+    with:
+      directory: configs/vite
+      package: vite-plugin
+    secrets: inherit
+
+  www:
+    needs: changes
+    if: needs.changes.outputs.www == 'true'
+    uses: ./.github/workflows/test.ts.yaml
+    with:
+      directory: site/www
+      knip: true
+      package: www
+      test: false
+    secrets: inherit
 
   x-cpp:
     needs: changes
@@ -493,6 +540,7 @@ jobs:
       - copyright
       - core
       - core-image
+      - desktop-shell
       - docs
       - docs-site
       - drift
@@ -515,6 +563,8 @@ jobs:
       - scripts
       - soem
       - versions
+      - vite-plugin
+      - www
       - x-cpp
       - x-go
       - x-py

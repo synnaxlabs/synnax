@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
 import { TestSource } from "@/telem/aether/test/source";
 import {
+  BandColor,
+  type BandColorProps,
   RollingAverage,
-  ScaleNumber,
   StringifyNumber,
   WithinBounds,
 } from "@/telem/aether/transformers";
@@ -115,26 +117,6 @@ describe("RollingAverage", () => {
   });
 });
 
-describe("ScaleNumber", () => {
-  it("applies the scale and offset to a number value", () => {
-    const t = new ScaleNumber({ scale: { scale: 2, offset: 3 } });
-    t.setSources({ in: new TestSource(10) });
-    expect(t.value()).toBe(23);
-  });
-
-  it("coerces a bigint value to a number before scaling", () => {
-    const t = new ScaleNumber({ scale: { scale: 2, offset: 0 } });
-    t.setSources({ in: new TestSource(50n) });
-    expect(t.value()).toBe(100);
-  });
-
-  it("returns NaN when given NaN", () => {
-    const t = new ScaleNumber({ scale: { scale: 2, offset: 3 } });
-    t.setSources({ in: new TestSource(NaN) });
-    expect(Number.isNaN(t.value())).toBe(true);
-  });
-});
-
 describe("WithinBounds", () => {
   it("returns true for a value inside the bounds", () => {
     const t = new WithinBounds({ trueBound: { lower: 5, upper: 15 } });
@@ -159,5 +141,156 @@ describe("WithinBounds", () => {
     source.setValue(11);
     source.setValue(12);
     expect(handler).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("BandColor", () => {
+  const green = color.construct("#00ff00");
+  const yellow = color.construct("#ffff00");
+  const red = color.construct("#ff0000");
+  const blue = color.construct("#0000ff");
+  const BANDS: BandColorProps["bands"] = [
+    { key: "a", threshold: 100, color: red },
+    { key: "b", threshold: 50, color: yellow },
+  ];
+
+  const create = (
+    props: BandColorProps,
+    value: number | string,
+  ): [BandColor, TestSource<number | string>] => {
+    const t = new BandColor(props);
+    const source = new TestSource(value);
+    t.setSources({ source });
+    return [t, source];
+  };
+
+  describe("discrete", () => {
+    it("should paint the color of the band owning the value", () => {
+      expect(create({ bands: BANDS }, 75)[0].value()).toEqual(yellow);
+      expect(create({ bands: BANDS }, 150)[0].value()).toEqual(red);
+    });
+
+    it("should give a threshold to the band starting at it", () => {
+      expect(create({ bands: BANDS }, 100)[0].value()).toEqual(red);
+    });
+
+    it("should paint the background below every threshold", () => {
+      expect(create({ bands: BANDS, background: green }, 10)[0].value()).toEqual(green);
+    });
+
+    it("should paint no color below every threshold without a background", () => {
+      expect(create({ bands: BANDS }, 10)[0].value()).toEqual(color.ZERO);
+    });
+
+    it("should paint the background for a value that is not a number", () => {
+      const bands = [{ key: "c", threshold: 0, color: red }];
+      expect(create({ bands, background: green }, "abc")[0].value()).toEqual(green);
+    });
+
+    // The display stringifier renders a missing sample as an empty string.
+    it("should paint the background for a missing value", () => {
+      const bands = [{ key: "d", threshold: 0, color: red }];
+      expect(create({ bands, background: green }, "")[0].value()).toEqual(green);
+    });
+
+    it("should read a stringified value", () => {
+      expect(create({ bands: BANDS }, "1.2e2")[0].value()).toEqual(red);
+    });
+
+    it("should paint the background with no bands", () => {
+      expect(create({ bands: [], background: blue }, 10)[0].value()).toEqual(blue);
+    });
+  });
+
+  describe("smooth", () => {
+    it("should interpolate between the bands around the value", () => {
+      const [t] = create(
+        {
+          bands: [
+            { key: "e", threshold: 0, color: [0, 0, 0, 1] },
+            { key: "f", threshold: 100, color: [200, 100, 0, 1] },
+          ],
+          smooth: true,
+        },
+        25,
+      );
+      expect(t.value()).toEqual([50, 25, 0, 1]);
+    });
+
+    it("should hold the highest band's color above its threshold", () => {
+      expect(create({ bands: BANDS, smooth: true }, 500)[0].value()).toEqual(red);
+    });
+
+    it("should paint the same band as discrete mode at a shared threshold", () => {
+      const bands = [
+        { key: "g", threshold: 50, color: yellow },
+        { key: "h", threshold: 50, color: red },
+      ];
+      expect(create({ bands, smooth: true }, 50)[0].value()).toEqual(red);
+      expect(create({ bands }, 50)[0].value()).toEqual(red);
+    });
+
+    it("should paint the background below every threshold", () => {
+      expect(
+        create({ bands: BANDS, background: green, smooth: true }, 0)[0].value(),
+      ).toEqual(green);
+    });
+  });
+
+  describe("flashing", () => {
+    it("should alternate between the band color and the background on each tick", () => {
+      const [t] = create(
+        {
+          bands: [{ key: "i", threshold: 0, color: red, flashing: true }],
+          background: green,
+        },
+        10,
+      );
+      const phase = new TestSource(0);
+      t.setSources({ phase });
+      expect(t.value()).toEqual(red);
+      phase.setValue(1);
+      expect(t.value()).toEqual(green);
+      phase.setValue(2);
+      expect(t.value()).toEqual(red);
+    });
+
+    it("should hold the color of a band that does not flash", () => {
+      const [t] = create({ bands: BANDS, background: green }, 75);
+      const phase = new TestSource(1);
+      t.setSources({ phase });
+      expect(t.value()).toEqual(yellow);
+    });
+  });
+
+  describe("notifications", () => {
+    it("should notify only when the color changes", () => {
+      const [t, source] = create({ bands: BANDS }, 60);
+      const handler = vi.fn();
+      t.onChange(handler);
+      source.setValue(70);
+      source.setValue(80);
+      expect(handler).toHaveBeenCalledTimes(1);
+      source.setValue(120);
+      expect(handler).toHaveBeenCalledTimes(2);
+    });
+
+    it("should notify on every tick of a flashing band", () => {
+      const [t] = create(
+        {
+          bands: [{ key: "j", threshold: 0, color: red, flashing: true }],
+          background: green,
+        },
+        10,
+      );
+      const phase = new TestSource(0);
+      t.setSources({ phase });
+      const handler = vi.fn();
+      t.onChange(handler);
+      phase.setValue(1);
+      phase.setValue(2);
+      phase.setValue(3);
+      expect(handler).toHaveBeenCalledTimes(3);
+    });
   });
 });

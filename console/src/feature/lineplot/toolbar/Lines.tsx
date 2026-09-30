@@ -8,12 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { lineplot } from "@synnaxlabs/client";
+import { Color } from "@synnaxlabs/lyra/color";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
-import { Channel, Color, LinePlot } from "@synnaxlabs/pluto";
+import { Channel, LinePlot } from "@synnaxlabs/pluto";
 import { type bounds, type color, type xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
@@ -90,7 +91,7 @@ const Line = ({ itemKey, index }: LineProps): ReactElement | null => {
   const handleDetailChange = (detail: lineplot.Detail) =>
     dispatch(lineplot.setLineDetail({ key: itemKey, detail }));
 
-  const handleColorChange = (color: color.Color) =>
+  const handleColorChange = (color?: color.Color) =>
     dispatch(lineplot.setLineColor({ key: itemKey, color }));
 
   return (
@@ -116,7 +117,13 @@ const Line = ({ itemKey, index }: LineProps): ReactElement | null => {
       />
       <SelectAggregation value={line.aggregation} onChange={handleAggregationChange} />
       <SelectDetail value={line.detail} onChange={handleDetailChange} />
-      <Color.Swatch value={line.color} onChange={handleColorChange} size="small" />
+      <Color.Swatch
+        value={line.pickedColor}
+        fallback={line.autoColor}
+        onChange={handleColorChange}
+        size="small"
+        variant="text"
+      />
     </List.Item>
   );
 };

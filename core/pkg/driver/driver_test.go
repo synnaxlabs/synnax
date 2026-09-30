@@ -120,6 +120,24 @@ var _ = Describe("Open", func() {
 		)
 
 		It(
+			"Should return before the Driver starts when detached",
+			func(ctx SpecContext) {
+				Expect(os.Setenv("MOCK_DELAY_MS", "30000")).To(Succeed())
+				defer func() { Expect(os.Unsetenv("MOCK_DELAY_MS")).To(Succeed()) }()
+				logger, _ := newTestLogger()
+				start := time.Now()
+				d := openMockDriver(ctx, logger, driver.Config{
+					Detached:     new(true),
+					StartTimeout: 10 * time.Second,
+					StopTimeout:  500 * time.Millisecond,
+				})
+				// An attached open would block for the whole start timeout.
+				Expect(time.Since(start)).To(BeNumerically("<", 5*time.Second))
+				Expect(d.Close()).To(Succeed())
+			},
+		)
+
+		It(
 			"Should return timeout error when driver crashes on startup",
 			func(ctx SpecContext) {
 				Expect(os.Setenv("MOCK_FAIL_START", "1")).To(Succeed())
@@ -284,6 +302,16 @@ var _ = Describe("Open", func() {
 			conn := readDriverConnection(dir)
 			Expect(conn).To(HaveKeyWithValue("username", "root"))
 			Expect(conn).To(HaveKeyWithValue("password", "secret"))
+			Expect(d.Close()).To(Succeed())
+		})
+
+		It("Should keep the Driver's state inside its working directory", func(
+			ctx SpecContext,
+		) {
+			logger, _ := newTestLogger()
+			dir := GinkgoT().TempDir()
+			d := openMockDriver(ctx, logger, driver.Config{ParentDirname: dir})
+			Expect(filepath.Join(dir, "driver", "state.json")).To(BeAnExistingFile())
 			Expect(d.Close()).To(Succeed())
 		})
 

@@ -11,16 +11,16 @@ import "@/schematic/node/common/custom/Overrides.css";
 
 import { type schematic } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
+import { Color } from "@synnaxlabs/lyra/color";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { caseconv, type color, deep } from "@synnaxlabs/x";
+import { caseconv, color, deep } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
-import { Color } from "@/color";
 import { Symbol } from "@/schematic/symbol";
 
 interface RegionControlsProps {
@@ -101,20 +101,18 @@ const RegionControls = ({
         {caseconv.capitalize(name)}
       </Text.Text>
       <Flex.Box x align="stretch" key={path}>
-        <Form.Field<color.Color>
+        <Color.Field
           path={`${path}.strokeColor`}
+          fallback={color.ZERO}
           showLabel={false}
-          padHelpText={false}
-        >
-          {({ value, onChange }) => <Color.Swatch value={value} onChange={onChange} />}
-        </Form.Field>
-        <Form.Field<color.Color>
+          align="stretch"
+        />
+        <Color.Field
           path={`${path}.fillColor`}
+          fallback={color.ZERO}
           showLabel={false}
-          padHelpText={false}
-        >
-          {({ value, onChange }) => <Color.Swatch value={value} onChange={onChange} />}
-        </Form.Field>
+          align="stretch"
+        />
         <Button.Button
           onClick={() => onReset(path)}
           variant="text"

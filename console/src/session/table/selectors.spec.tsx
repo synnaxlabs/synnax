@@ -24,6 +24,7 @@ const customState = Table.stateZ.parse({
   lastSelected: "b",
   hideIndicators: true,
   centered: true,
+  propertiesTab: "style",
 });
 
 const storeWith = (slice: Table.SliceState) =>
@@ -103,6 +104,13 @@ describe("table selector hooks", () => {
       wrapper: wrapperFor(createCustomStore(), KEY),
     });
     expect(result.current).toBe(true);
+  });
+
+  it("should return the properties tab", () => {
+    const { result } = renderHook(() => Table.useSelectPropertiesTab(), {
+      wrapper: wrapperFor(createCustomStore(), KEY),
+    });
+    expect(result.current).toBe("style");
   });
 
   it("should return the selected cell keys", () => {

@@ -48,8 +48,6 @@ export interface NumericProps
   /** Clamps the committed value. */
   bounds?: bounds.Crude;
   onBlur?: () => void;
-  /** Unit suffix shown after the value, e.g. "Hz". */
-  units?: string;
   /// When set, a value equal to emptyValue renders as an empty input (showing the
   /// placeholder) and clearing the input on blur emits emptyValue via onChange. Useful
   /// for representing a sentinel "unset"/"auto" state without showing the raw number.
@@ -61,7 +59,7 @@ export interface NumericProps
  * type `2 * 60` or `1 kHz`, and it commits on blur or Enter rather than per keystroke.
  * A drag handle scrubs the value.
  *
- * @example <Input.Numeric value={rate} onChange={setRate} units="Hz" />
+ * @example <Input.Numeric value={rate} onChange={setRate} endContent="Hz" />
  */
 export const Numeric = ({
   ref,
@@ -80,7 +78,6 @@ export const Numeric = ({
   children,
   disabled,
   onBlur,
-  units,
   size,
   color,
   emptyValue,

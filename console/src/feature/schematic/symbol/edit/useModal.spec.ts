@@ -29,7 +29,6 @@ import {
 } from "@/platform/modals/testutil";
 import {
   fakePickedFile,
-  findDialogTrigger,
   getIconButton,
   interceptFilePicker,
   uniqueName,
@@ -224,7 +223,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     it("adds an active state when the variant switches to actuator", async () => {
       const { picker } = await openCreateModal();
       await loadSVG(picker);
-      fireEvent.click(await findDialogTrigger());
       fireEvent.click(await screen.findByText("Actuator"));
       expect(await screen.findByText("Base")).toBeDefined();
       expect(screen.getByText("Active")).toBeDefined();
