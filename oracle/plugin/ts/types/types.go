@@ -1279,12 +1279,6 @@ func computeCoalescedTypes(sd *structData) {
 	}
 }
 
-// camelCase converts a generated type or schema-const identifier to camelCase, keeping
-// known acronyms upper-cased after the first word ("BaseAOChannel" -> "baseAOChannel",
-// "AIVoltageRMSChannel" -> "aiVoltageRMSChannel"). It is the template helper behind
-// every "<name>Z" const, so const names stay consistent with their acronym-aware type
-// names. Wire field keys must NOT use this; they go through fieldCamel to match the
-// JSON codec's naive snake/camel conversion.
 // importNamespace imports the TS module generated for namespace at outputPath, or at
 // namespace when outputPath is empty, and returns the identifier that qualifies its
 // members.
@@ -1301,6 +1295,12 @@ func importNamespace(namespace, outputPath string, data *templateData) string {
 // exports ("task_config" -> "taskConfig").
 func tsNamespaceIdent(ns string) string { return camelCase(ns) }
 
+// camelCase converts a generated type or schema-const identifier to camelCase, keeping
+// known acronyms upper-cased after the first word ("BaseAOChannel" -> "baseAOChannel",
+// "AIVoltageRMSChannel" -> "aiVoltageRMSChannel"). It is the template helper behind
+// every "<name>Z" const, so const names stay consistent with their acronym-aware type
+// names. Wire field keys must NOT use this; they go through fieldCamel to match the
+// JSON codec's naive snake/camel conversion.
 func camelCase(s string) string { return casing.CamelAcronym(s) }
 
 // fieldCamel converts a field identifier to camelCase using the naive conversion the
