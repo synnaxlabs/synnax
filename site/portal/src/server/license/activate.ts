@@ -22,6 +22,15 @@ import { build } from "@/server/license/claims";
 import { type Denial, DENIAL_MESSAGES, deny } from "@/server/license/deny";
 import { sign, type Signer } from "@/server/license/sign";
 
+/**
+ * requireEnterprise throws a 400 when `lic` is a Synnax Desktop license. Only the
+ * Desktop app activates, renews, and releases those.
+ */
+export const requireEnterprise = (lic: License): void => {
+  if (lic.edition === "desktop")
+    throw badRequest("A Synnax Desktop license is managed from the Desktop app");
+};
+
 export type Decision =
   { ok: true; existing?: Activation } | { ok: false; reason: Denial };
 
@@ -82,6 +91,7 @@ export const activate = async (
       .where(eq(license.key, licenseKey))
       .for("update");
     if (lic == null) throw notFound("License");
+    requireEnterprise(lic);
     const activations = await tx
       .select()
       .from(activation)
@@ -150,6 +160,7 @@ export const reissue = async (
     .innerJoin(license, eq(activation.license, license.key))
     .where(eq(activation.key, activationKey));
   if (row == null || row.activation.releasedAt != null) throw notFound("Activation");
+  requireEnterprise(row.license);
   const decision = decide({
     license: row.license,
     activations: [row.activation],
@@ -194,6 +205,7 @@ export const release = async (
     .innerJoin(license, eq(activation.license, license.key))
     .where(eq(activation.key, activationKey));
   if (row == null) throw notFound("Activation");
+  requireEnterprise(row.license);
   if (row.activation.releasedAt != null) return;
   await store.query
     .update(activation)
