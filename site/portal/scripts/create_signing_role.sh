@@ -28,17 +28,17 @@ ISSUER="oidc.vercel.com/$VERCEL_TEAM"
 AUDIENCE="https://vercel.com/$VERCEL_TEAM"
 PROVIDER_ARN="arn:aws:iam::$ACCOUNT:oidc-provider/$ISSUER"
 KEY_ARN=$(
-  aws kms describe-key --key-id "$KEY_ALIAS" --query KeyMetadata.Arn --output text
+    aws kms describe-key --key-id "$KEY_ALIAS" --query KeyMetadata.Arn --output text
 )
 
 if ! aws iam get-open-id-connect-provider \
-  --open-id-connect-provider-arn "$PROVIDER_ARN" >/dev/null 2>&1; then
-  aws iam create-open-id-connect-provider \
-    --url "https://$ISSUER" --client-id-list "$AUDIENCE" >/dev/null
+    --open-id-connect-provider-arn "$PROVIDER_ARN" > /dev/null 2>&1; then
+    aws iam create-open-id-connect-provider \
+        --url "https://$ISSUER" --client-id-list "$AUDIENCE" > /dev/null
 fi
 
 TRUST=$(
-  cat <<EOF
+    cat << EOF
 {
   "Version": "2012-10-17",
   "Statement": [{
@@ -57,7 +57,7 @@ EOF
 )
 
 SIGN=$(
-  cat <<EOF
+    cat << EOF
 {
   "Version": "2012-10-17",
   "Statement": [{
@@ -69,14 +69,14 @@ SIGN=$(
 EOF
 )
 
-if aws iam get-role --role-name "$ROLE" >/dev/null 2>&1; then
-  aws iam update-assume-role-policy --role-name "$ROLE" --policy-document "$TRUST"
+if aws iam get-role --role-name "$ROLE" > /dev/null 2>&1; then
+    aws iam update-assume-role-policy --role-name "$ROLE" --policy-document "$TRUST"
 else
-  aws iam create-role --role-name "$ROLE" --assume-role-policy-document "$TRUST" \
-    >/dev/null
+    aws iam create-role --role-name "$ROLE" --assume-role-policy-document "$TRUST" \
+        > /dev/null
 fi
 aws iam put-role-policy --role-name "$ROLE" --policy-name sign-licenses \
-  --policy-document "$SIGN"
+    --policy-document "$SIGN"
 
 ROLE_ARN=$(aws iam get-role --role-name "$ROLE" --query Role.Arn --output text)
 echo "Set these on every environment of the $PROJECT Vercel project:"

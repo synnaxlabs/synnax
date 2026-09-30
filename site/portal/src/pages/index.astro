@@ -31,21 +31,14 @@ const machines = team ? [] : await machinesFor(portal.store.query, scope.key);
     scope={scope}
     tab="overview"
 >
-    {
-        team ? (
-            <Team
-                client:load
-                organization={scope}
-                licenses={licenses}
-                now={portal.now()}
-            />
-        ) : (
-            <Personal
-                client:load
-                machines={machines}
-                devices={scoped("/devices", scope)}
-                now={portal.now()}
-            />
-        )
-    }
+    {team ? (
+        <Team client:load organization={scope} licenses={licenses} now={portal.now()} />
+    ) : (
+        <Personal
+            client:load
+            machines={machines}
+            devices={scoped("/devices", scope)}
+            now={portal.now()}
+        />
+    )}
 </Portal>
