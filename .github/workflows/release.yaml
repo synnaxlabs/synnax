@@ -67,16 +67,10 @@ env:
   GH_TOKEN: ${{ github.token }}
 
 jobs:
-  ci:
-    name: CI
-    uses: ./.github/workflows/ci.yaml
-    with:
-      full: true
+  nightly:
+    name: Nightly
+    uses: ./.github/workflows/nightly.yaml
     secrets: inherit
-
-  fuzz:
-    name: Fuzz
-    uses: ./.github/workflows/fuzz.go.yaml
 
   resolve:
     name: Resolve versions
@@ -166,7 +160,7 @@ jobs:
 
   draft-console:
     name: Draft Console
-    needs: [resolve, ci, fuzz]
+    needs: [resolve, nightly]
     if: inputs.console
     runs-on: ubuntu-latest
     steps:
@@ -224,7 +218,7 @@ jobs:
 
   draft-driver:
     name: Draft Driver
-    needs: [resolve, ci, fuzz]
+    needs: [resolve, nightly]
     if: inputs.driver
     runs-on: ubuntu-latest
     steps:
@@ -273,11 +267,11 @@ jobs:
   # and never runs after one fails.
   draft-core:
     name: Draft Core
-    needs: [resolve, ci, fuzz, publish-console, publish-driver]
+    needs: [resolve, nightly, publish-console, publish-driver]
     if: >-
       !cancelled() && inputs.core && needs.resolve.result == 'success' &&
-      needs.ci.result == 'success' && needs.fuzz.result == 'success' && (!inputs.console
-      || needs.publish-console.result == 'success') && (!inputs.driver ||
+      needs.nightly.result == 'success' && (!inputs.console ||
+      needs.publish-console.result == 'success') && (!inputs.driver ||
       needs.publish-driver.result == 'success')
     runs-on: ubuntu-latest
     steps:
