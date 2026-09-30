@@ -444,18 +444,36 @@ var _ = Describe("SemanticTokensFull", func() {
 			uint32(2),
 			uint32(4),
 		),
+		Entry(
+			"inline field",
+			"Entry struct { timestamp timestamp }\n",
+			uint32(0),
+			uint32(15),
+		),
 		Entry("enum member", "Kind enum {\n    uuid = 1\n}\n", uint32(1), uint32(4)),
 	)
 
-	It("should color a primitive in type position as a type", func(ctx SpecContext) {
-		openDoc(
-			ctx,
-			"file:///types.oracle",
+	DescribeTable(
+		"should color a primitive in type position as a type",
+		func(ctx SpecContext, text string, line, char uint32) {
+			openDoc(ctx, "file:///types.oracle", text)
+			data := tokensFor(ctx, "file:///types.oracle").Data
+			Expect(tokenTypeAt(data, line, char)).
+				To(Equal(uint32(lsp.SemanticTokenTypeType)))
+		},
+		Entry(
+			"field",
 			"Entry struct {\n    timestamp timestamp\n}\n",
-		)
-		data := tokensFor(ctx, "file:///types.oracle").Data
-		Expect(tokenTypeAt(data, 1, 14)).To(Equal(uint32(lsp.SemanticTokenTypeType)))
-	})
+			uint32(1),
+			uint32(14),
+		),
+		Entry(
+			"inline field",
+			"Entry struct { timestamp timestamp }\n",
+			uint32(0),
+			uint32(25),
+		),
+	)
 })
 
 var _ = Describe("Formatting", func() {

@@ -49,8 +49,8 @@
     "names": {
       "patterns": [
         {
-          "comment": "The first lowercase identifier on a line names a field, enum member, or action parameter, even when it matches a primitive type.",
-          "match": "^\\s*(?!(?:struct|enum|union|import|extends|map|action|true|false)\\b)([a-z_][a-zA-Z0-9_]*)\\b",
+          "comment": "A name after a line start or an opening brace, even when it matches a primitive type.",
+          "match": "(?:^|(?<=\\{))\\s*(?!(?:struct|enum|union|import|extends|map|action|true|false)\\b)([a-z_][a-zA-Z0-9_]*)\\b",
           "captures": { "1": { "name": "variable.other.property.oracle" } }
         }
       ]
