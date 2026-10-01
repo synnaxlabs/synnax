@@ -7,16 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package io
+package v2_test
 
-import "io"
+import (
+	"testing"
 
-type SectionReaderAtCloser struct {
-	io.ReaderAt
-	io.Closer
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
+)
+
+func TestProjectV2(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Service Project v2 Suite")
 }
 
-func NewSectionReaderAtCloser(r ReaderAtCloser, off, n int64) *SectionReaderAtCloser {
-	sectionReader := io.NewSectionReader(r, off, n)
-	return &SectionReaderAtCloser{ReaderAt: sectionReader, Closer: r}
-}
+var _ = ShouldNotLeakGoroutinesPerSpec()

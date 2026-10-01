@@ -14,7 +14,7 @@ import { Panel } from "@/platform/panel";
 
 export { Explorer };
 
-export const TAB: Panel.Tab = {
+const TAB: Panel.Tab = {
   Icon: Ranger.ExplorerIcon,
   Name: Panel.createStaticTabName({
     name: "Range explorer",

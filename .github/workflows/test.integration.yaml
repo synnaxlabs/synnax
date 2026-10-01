@@ -80,7 +80,6 @@ jobs:
       actions: read
       contents: read
     outputs:
-      VERSION: ${{ steps.version.outputs.VERSION }}
       SKIP_BUILD: ${{ steps.check-cache.outputs.SKIP_BUILD }}
       REF_RUN_ID: ${{ steps.check-cache.outputs.REF_RUN_ID }}
       DRIVER_REF_RUN_ID: ${{ steps.check-cache.outputs.DRIVER_REF_RUN_ID }}
@@ -94,11 +93,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
-
-      - name: Get version
-        id: version
-        run: |
-          echo "VERSION=0.0.0-${GITHUB_SHA:0:7}" >> $GITHUB_OUTPUT
 
       - name: Set outputs
         id: set-outputs
@@ -160,7 +154,6 @@ jobs:
       console: true
       core: true
       use_simple_artifact_names: true
-      version: ${{ needs.setup.outputs.VERSION }}
       driver_ref_run_id: ${{ needs.setup.outputs.DRIVER_REF_RUN_ID }}
       console_ref_run_id: ${{ needs.setup.outputs.CONSOLE_REF_RUN_ID }}
       core_ref_run_id: ${{ needs.setup.outputs.CORE_REF_RUN_ID }}

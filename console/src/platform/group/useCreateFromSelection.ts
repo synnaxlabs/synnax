@@ -18,10 +18,6 @@ import { useCallback } from "react";
 import { getResourcesToGroup } from "@/platform/group/getResourcesToGroup";
 import { type Tree } from "@/platform/tree";
 
-export interface CreateFromSelection {
-  (props: Tree.ContextMenuProps): void;
-}
-
 interface CreateParams extends Tree.ContextMenuProps {
   group: group.Group;
   prevNodes?: PTree.Node<string>[];

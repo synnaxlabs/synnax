@@ -34,8 +34,7 @@ export const client = createTestClient();
 
 let projectKey: string | undefined;
 export const project = async (): Promise<string> =>
-  (projectKey ??= (await client.projects.create({ name: id.create(), layout: {} }))
-    .key);
+  (projectKey ??= (await client.projects.create({ name: id.create() })).key);
 
 // createCellGrid builds a two-cell text table body: cells "a" and "b" in one row.
 export const createCellGrid = (): Pick<table.New, "rows" | "columns" | "cells"> => ({
