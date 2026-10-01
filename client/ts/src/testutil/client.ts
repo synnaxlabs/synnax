@@ -8,9 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { TimeSpan } from "@synnaxlabs/x";
-import { afterAll, vi } from "vitest";
+import { afterAll, onTestFinished, vi } from "vitest";
 
 import Synnax, { type SynnaxParams } from "@/client";
+import { createSeverableProxy, type SeverableProxy } from "@/testutil/proxy";
 
 export const TEST_CLIENT_PARAMS: SynnaxParams = {
   host: "localhost",
@@ -49,6 +50,28 @@ export const createTestClient = (params?: Partial<SynnaxParams>): Synnax => {
   const client = new Synnax({ ...TEST_CLIENT_PARAMS, ...params });
   openClients.push(client);
   return client;
+};
+
+export interface ProxiedTestClient {
+  proxy: SeverableProxy;
+  client: Synnax;
+}
+
+/**
+ * Creates a client that reaches the local test cluster through a severable proxy. Call
+ * it inside a test: the proxy and the client close when that test finishes.
+ */
+export const createProxiedTestClient = async (
+  params?: Partial<SynnaxParams>,
+): Promise<ProxiedTestClient> => {
+  const proxy = await createSeverableProxy();
+  const client = new Synnax({ ...TEST_CLIENT_PARAMS, ...params, port: proxy.port });
+  onTestFinished(async () => {
+    // A blackholed stream never acknowledges a close, so the proxy goes first.
+    await proxy.close();
+    await client.close();
+  });
+  return { proxy, client };
 };
 
 /** Spies on the client's unary send so specs can count requests on the wire. */
