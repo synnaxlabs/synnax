@@ -34,8 +34,6 @@ export const identifierZ = z
     "Identifier must start with a letter and contain only letters, numbers, and underscores",
   );
 
-export type Identifier = z.infer<typeof identifierZ>;
-
 export const commandStatePairZ = z.object({
   command: channel.keyZ,
   state: channel.keyZ,

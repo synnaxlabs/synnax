@@ -203,7 +203,7 @@ export default class Synnax extends framer.Client {
     this.transport = transport;
     const unary = this.transport.unary;
     this.ontology = new ontology.Client({ unary, cache });
-    this.license = new license.Client({ unary, connection: this.conn });
+    this.license = new license.Client({ unary, connection: this.conn, cache });
     this.labels = new label.Client({ unary, cache, ontology: this.ontology });
     this.statuses = new status.Client({
       unary,

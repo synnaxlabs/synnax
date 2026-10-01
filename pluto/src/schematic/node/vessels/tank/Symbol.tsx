@@ -44,23 +44,31 @@ const cornerRadii = (
   };
 };
 
-interface FillProps extends Pick<schematic.TankNodeConfig, "borderRadius"> {
+interface FillProps {
   nodeKey: string;
   position?: xy.XY;
-  dimensions: dimensions.Dimensions;
-  fill: Scale.Config;
+  config: schematic.TankNodeConfig;
 }
 
-const Fill = ({
-  nodeKey,
-  position,
-  dimensions: dims,
-  fill,
-  borderRadius,
-}: FillProps): null => {
-  const telem = useMemo(() => Scale.source(fill), [fill]);
+const Fill = ({ nodeKey, position, config }: FillProps): null => {
+  const {
+    channel,
+    rollingAverage,
+    borderRadius,
+    caretVisible,
+    scaleVisible,
+    dimensions: dims = Border.DEFAULT_DIMENSIONS,
+  } = config;
+  const telem = useMemo(
+    () => Scale.source({ channel, rollingAverage }),
+    [channel, rollingAverage],
+  );
   VisScale.use({
-    ...Scale.visProps(fill),
+    ...Scale.visProps({
+      ...config,
+      caretHidden: !caretVisible,
+      scaleHidden: !scaleVisible,
+    }),
     telem,
     aetherKey: nodeKey,
     box: box.construct(xy.translate(position ?? xy.ZERO, OVERLAP), {
@@ -79,37 +87,34 @@ export const Symbol = ({
   position,
   onConfigChange,
   selected,
-  config: {
+  config,
+}: NodeProps<schematic.TankNodeConfig>): ReactElement => {
+  const {
     label,
-    backgroundColor,
-    color,
+    fillColor,
+    strokeColor,
     dimensions = Border.DEFAULT_DIMENSIONS,
     borderRadius,
-    fill,
-  },
-}: NodeProps<schematic.TankNodeConfig>): ReactElement => (
-  <Grid.Grid
-    allowCenter
-    allowRotate={false}
-    editable={selected}
-    nodeKey={nodeKey}
-    onResize={(dimensions) => onConfigChange({ dimensions })}
-  >
-    <Label.Label config={label} onChange={onConfigChange} />
-    {fill?.channel != null && (
-      <Fill
-        nodeKey={nodeKey}
-        position={position}
+    channel,
+  } = config;
+  return (
+    <Grid.Grid
+      allowCenter
+      allowRotate={false}
+      editable={selected}
+      nodeKey={nodeKey}
+      onResize={(dimensions) => onConfigChange({ dimensions })}
+    >
+      <Label.Label config={label} onChange={onConfigChange} />
+      {channel != null && (
+        <Fill nodeKey={nodeKey} position={position} config={config} />
+      )}
+      <Tank
+        strokeColor={strokeColor}
         dimensions={dimensions}
-        fill={fill}
         borderRadius={borderRadius}
+        fillColor={fillColor}
       />
-    )}
-    <Tank
-      color={color}
-      dimensions={dimensions}
-      borderRadius={borderRadius}
-      backgroundColor={backgroundColor}
-    />
-  </Grid.Grid>
-);
+    </Grid.Grid>
+  );
+};

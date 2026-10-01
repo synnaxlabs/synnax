@@ -18,6 +18,7 @@ import {
 } from "react";
 
 import { Button, type ButtonProps } from "@/button/Button";
+import { clipboard } from "@/clipboard";
 import { Icon } from "@/icon";
 import { useAdder, useErrorHandler } from "@/status/Aggregator";
 
@@ -36,7 +37,8 @@ export interface CopyProps extends ButtonProps {
 }
 
 /**
- * A button that copies text to the clipboard and shows a checkmark on success.
+ * A button that copies text to the clipboard and shows a checkmark on success. It
+ * falls back to the copy command where the clipboard API is absent, as on http.
  *
  * @example
  * <Button.Copy text="Hello, world!" tooltip="Copy greeting" />
@@ -66,7 +68,7 @@ export const Copy = ({
       onClick?.(e);
       handleError(async () => {
         const resolvedText = await (typeof text === "function" ? text() : text);
-        await navigator.clipboard.writeText(resolvedText);
+        await clipboard.writeText(resolvedText);
         onCopy?.();
         if (successMessage != null) {
           const message =

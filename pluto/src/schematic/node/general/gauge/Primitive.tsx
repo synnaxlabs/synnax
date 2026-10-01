@@ -22,7 +22,7 @@ interface RenderProps extends Omit<
   className?: string;
 }
 
-export const Gauge = ({ color: c, className }: RenderProps): ReactElement => {
+export const Gauge = ({ strokeColor, className }: RenderProps): ReactElement => {
   const radius = 27;
   const strokeWidth = 5;
   const centerX = 33.5;
@@ -44,8 +44,8 @@ export const Gauge = ({ color: c, className }: RenderProps): ReactElement => {
   `;
 
   const style = useMemo<CSSProperties>(
-    () => ({ [CSS.variable("symbol-color")]: color.rgbaString(c) }),
-    [c],
+    () => ({ [CSS.variable("symbol-color")]: color.rgbaString(strokeColor) }),
+    [strokeColor],
   );
 
   return (

@@ -36,7 +36,7 @@ export const Symbol = ({
   config: {
     label,
     level = "p",
-    color,
+    strokeColor,
     channel,
     rollingAverage,
     precision,
@@ -60,7 +60,7 @@ export const Symbol = ({
     aetherKey: nodeKey,
     box: box.construct(position ?? xy.ZERO, dims),
     telem,
-    color,
+    color: strokeColor,
     level,
     units,
     bounds,

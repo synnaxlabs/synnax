@@ -136,7 +136,6 @@ describe("task tab", () => {
 
     const project = await client.projects.create({
       name: uniqueName("proj"),
-      layout: {},
     });
     await restore({ client, project: project.key, resource: created.ontologyID });
 

@@ -20,9 +20,8 @@ import {
 
 export const client = createTestClient();
 
-export const ACTIVE_PROJECT = await client.projects.create({
+const ACTIVE_PROJECT = await client.projects.create({
   name: "Ops",
-  layout: {},
 });
 
 // withActiveProject seeds an active project, which the top bars require to render (in

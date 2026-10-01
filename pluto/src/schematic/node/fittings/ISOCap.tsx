@@ -20,7 +20,7 @@ const DIMENSIONS = { width: 36, height: 48 };
 export const ISOCap = ({
   className,
   orientation = "left",
-  color,
+  strokeColor,
   scale = 1,
   ...rest
 }: ISOCapProps): ReactElement => (
@@ -35,7 +35,7 @@ export const ISOCap = ({
       />
     </Handle.Boundary>
     <Primitive.SVG
-      color={color}
+      strokeColor={strokeColor}
       dimensions={DIMENSIONS}
       orientation={orientation}
       scale={scale * 0.6}

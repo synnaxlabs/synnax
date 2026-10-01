@@ -195,7 +195,7 @@ single machine with the following specifications:
     <td>
       <b>Processor</b>
     </td>
-    <td>12 Core Apple M2 Max</td>
+    <td>12-core Apple M2 Max</td>
   </tr>
   <tr>
     <td>
@@ -277,7 +277,7 @@ test:
     </tr>
     <tr>
       <td>
-        <b>Channel Count</b>
+        <b>Channel count</b>
       </td>
       <td>20</td>
       <td>20</td>
@@ -292,7 +292,7 @@ test:
     </tr>
     <tr>
       <td>
-        <b>Batch Size</b>
+        <b>Batch size</b>
       </td>
       <td>10</td>
       <td>50</td>
@@ -307,7 +307,7 @@ test:
     </tr>
     <tr>
       <td>
-        <b>Batch Count</b>
+        <b>Batch count</b>
       </td>
       <td>5k</td>
       <td>2k</td>
@@ -322,7 +322,7 @@ test:
     </tr>
     <tr>
       <td>
-        <b>Total Samples</b>
+        <b>Total samples</b>
       </td>
       <td>1M</td>
       <td>2M</td>
@@ -345,7 +345,7 @@ We'll also measure the average memory and CPU usage of each database during the 
 <figure>
   <Image id="guides/comparison/performance/batch-throughput" themed={false} />
   {/* prettier-ignore */}
-  <figcaption>Throughput Comparison: Synnax dramatically outperforms alternatives at large batch sizes.</figcaption>
+  <figcaption>Throughput comparison: Synnax dramatically outperforms alternatives at large batch sizes.</figcaption>
 </figure>
 
 <Details>
@@ -429,11 +429,11 @@ the other two databases.
     themed={false}
   />
   {/* prettier-ignore */}
-  <figcaption>Memory Comparison: Synnax uses more memory than alternatives. Timescale balloons in memory usage at large batch sizes.</figcaption>
+  <figcaption>Memory comparison: Synnax uses more memory than alternatives. Timescale balloons in memory usage at large batch sizes.</figcaption>
 </figure>
 <Details>
 <div slot="summary">
-<Text.Text level="small" size="medium" weight={500}><Icon.Table />Tabulated Data - Memory usage in GB</Text.Text>
+<Text.Text level="small" size="medium" weight={500}><Icon.Table />Tabulated data - Memory usage in GB</Text.Text>
 </div>
 <table>
   <tbody>
@@ -530,7 +530,7 @@ the other two databases.
 <figure>
   <Image id="guides/comparison/performance/batch-cpu" themed={false} />
   {/* prettier-ignore */}
-  <figcaption>CPU Usage: Synnax uses more CPU at small batch sizes, and comparable CPU at large batch sizes.</figcaption>
+  <figcaption>CPU usage: Synnax uses more CPU at small batch sizes, and comparable CPU at large batch sizes.</figcaption>
 </figure>
 
 <Details>
@@ -675,7 +675,7 @@ channels we insert data for.
 
     <tr>
       <td>
-        <b>Channel Count</b>
+        <b>Channel count</b>
       </td>
       <td>2</td>
       <td>5</td>
@@ -692,7 +692,7 @@ channels we insert data for.
 
     <tr>
       <td>
-        <b>Batch Size</b>
+        <b>Batch size</b>
         <td>1k</td>
         <td>1k</td>
         <td>1k</td>
@@ -708,7 +708,7 @@ channels we insert data for.
     </tr>
     <tr>
       <td>
-        <b>Batch Count</b>
+        <b>Batch count</b>
         <td>3k</td>
         <td>2.5k</td>
         <td>2k</td>
@@ -736,7 +736,7 @@ channels we insert data for.
 
 <Details>
   <div slot="summary">
-    <Text.Text level="small" size="medium" weight={500}><Icon.Table  />Tabulated Data - Throughput in Samples/s</Text.Text>
+    <Text.Text level="small" size="medium" weight={500}><Icon.Table  />Tabulated data - Throughput in samples/s</Text.Text>
   </div>
 <table>
   <tbody>
@@ -841,12 +841,12 @@ and Influx remain relatively stable.
 <figure>
   <Image id="guides/comparison/performance/channel-memory" themed={false} />
   {/* prettier-ignore */}
-  <figcaption>Memory Usage: Synnax uses more memory than alternatives.</figcaption>
+  <figcaption>Memory usage: Synnax uses more memory than alternatives.</figcaption>
 </figure>
 
 <Details>
   <div slot="summary">
-    <Text.Text level="small" size="medium" weight={500}><Icon.Table  />Tabulated Data - Memory Usage in GB</Text.Text>
+    <Text.Text level="small" size="medium" weight={500}><Icon.Table  />Tabulated data - Memory usage in GB</Text.Text>
   </div>
 <table>
   <tbody>
@@ -948,7 +948,7 @@ and Influx remain relatively stable.
 <figure>
   <Image id="guides/comparison/performance/channel-cpu" themed={false} />
   {/* prettier-ignore */}
-  <figcaption>CPU Usage: Synnax consistently uses more CPU than alternatives.</figcaption>
+  <figcaption>CPU usage: Synnax consistently uses more CPU than alternatives.</figcaption>
 </figure>
 
 <Details>
@@ -1080,7 +1080,7 @@ time-series values), pages struggle for a few reasons:
    incoming writes must be copied from the application to the page. Data within pages is
    frequently moved to maintain order within the page. This results in a large number of
    copy operations.
-3. **WAL Files** -> Modern OLTP databases are ACID compliant. The most common way to
+3. **WAL files** -> Modern OLTP databases are ACID compliant. The most common way to
    ensure ACID compliance is to use a write-ahead log (WAL). The WAL is a log of all the
    changes to the database. This means that I/O operations are repeated for each write.
 
@@ -1104,7 +1104,7 @@ files has a number of benefits:
    sensor data almost always arrives from a _single_ source, which means that there is
    limited contention for writes to the same channel.
 
-2. **No WAL Files** -> The file for each channel is already append-only, so there is no
+2. **No WAL files** -> The file for each channel is already append-only, so there is no
    need for a WAL file.
 
 3. **Extremely fast reads** -> The most common accessed pattern for a sensor-focused

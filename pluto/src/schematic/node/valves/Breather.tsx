@@ -18,7 +18,7 @@ export interface Props extends Toggle.ButtonProps, Primitive.SVGBasedProps {}
 const DIMENSIONS = { width: 99, height: 57 };
 
 export const Breather = ({
-  color: colorVal,
+  strokeColor: colorVal,
   className,
   orientation = "left",
   scale,
@@ -34,7 +34,7 @@ export const Breather = ({
     <Handle.Linear orientation={orientation} left={8.081} right={91.919} />
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={colorVal}
+      strokeColor={colorVal}
       orientation={orientation}
       scale={scale}
     >

@@ -11,10 +11,9 @@ import "@/schematic/Tooltip.css";
 
 import { channel } from "@synnaxlabs/client";
 import { CSS } from "@synnaxlabs/lyra/css";
+import { Description } from "@synnaxlabs/lyra/description";
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Text } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Tooltip as Base } from "@synnaxlabs/lyra/tooltip";
 import { caseconv, type color, type primitive, TimeSpan } from "@synnaxlabs/x";
@@ -58,17 +57,17 @@ const kindIcon = (ch: channel.Channel): Icon.FC | null => {
 interface RowProps {
   label: ReactNode;
   value: ReactNode;
-  color?: Theming.Shade | color.Crude;
-  className?: string;
+  labelColor?: Theming.Shade;
+  valueColor?: Theming.Shade | color.Crude;
 }
 
-const Row = ({ label, value, color, className }: RowProps): ReactElement => (
-  <Flex.Box x justify="between" gap="large" className={className}>
-    <Text.Text level="small">{label}</Text.Text>
-    <Text.Text level="small" variant="code" color={color}>
+const Row = ({ label, value, labelColor, valueColor }: RowProps): ReactElement => (
+  <Description.Item>
+    <Description.Label color={labelColor}>{label}</Description.Label>
+    <Description.Value variant="code" color={valueColor}>
       {value}
-    </Text.Text>
-  </Flex.Box>
+    </Description.Value>
+  </Description.Item>
 );
 
 /** Shows a symbol's configuration beside its element. */
@@ -100,6 +99,7 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
     return (
       <Row
         key={field}
+        labelColor={10}
         label={
           <>
             <RoleIcon />
@@ -125,10 +125,9 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
     return (
       <Row
         key={field}
-        className={CSS.BE("schematic-tooltip", "field")}
         label={caseconv.toSentence(field)}
         value={unit == null ? String(value) : `${String(value)} ${unit}`}
-        color={field === "stalenessTimeout" ? stalenessColor : undefined}
+        valueColor={field === "stalenessTimeout" ? stalenessColor : undefined}
       />
     );
   });
@@ -139,11 +138,19 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
       location={LOCATION}
       className={CSS.B("schematic-tooltip")}
     >
-      {channels}
+      {channels.length > 0 && (
+        <Description.List level="small" justify="between">
+          {channels}
+        </Description.List>
+      )}
       {channels.length > 0 && fields.length > 0 && (
         <Divider.Divider x className={CSS.BE("schematic-tooltip", "divider")} />
       )}
-      {fields}
+      {fields.length > 0 && (
+        <Description.List level="small" justify="between">
+          {fields}
+        </Description.List>
+      )}
     </Base.Frame>
   );
 };
