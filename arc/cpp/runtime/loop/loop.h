@@ -50,10 +50,11 @@ inline const x::telem::TimeSpan HIGH_RATE_THRESHOLD = x::telem::MILLISECOND;
 /// @brief Upper bound for preferring RT_EVENT on RT-capable systems. Intervals
 /// between HIGH_RATE_THRESHOLD and this value use RT_EVENT when RT scheduling
 /// is available, falling through to HYBRID otherwise.
-inline const x::telem::TimeSpan RT_EVENT_THRESHOLD = 250 * x::telem::MILLISECOND;
+inline const x::telem::TimeSpan RT_EVENT_THRESHOLD = 3 * x::telem::MILLISECOND;
 
-/// @brief Threshold below which HYBRID is selected over EVENT_DRIVEN.
-inline const x::telem::TimeSpan HYBRID_THRESHOLD = 500 * x::telem::MILLISECOND;
+/// @brief Threshold below which HYBRID mode is beneficial.
+/// Intervals between 1-5ms benefit from spin-then-block approach.
+inline const x::telem::TimeSpan HYBRID_THRESHOLD = 5 * x::telem::MILLISECOND;
 
 /// @brief Timeout for event-driven wait to periodically check breaker.running().
 inline const x::telem::TimeSpan EVENT_DRIVEN_TIMEOUT = 100 * x::telem::MILLISECOND;
@@ -122,19 +123,8 @@ inline std::ostream &operator<<(std::ostream &os, ExecutionMode mode) {
     }
 }
 
-/// @brief Auto-selects the execution mode from the timing interval and the platform.
-/// Never returns BUSY_WAIT or AUTO. A timer can fire early by the tolerance, which is
-/// never more than half the interval.
-///
-/// | Timing interval | Mode         | Tolerance | Max early error |
-/// |-----------------|--------------|-----------|-----------------|
-/// | none            | EVENT_DRIVEN | 100 us    | 1% at 10 ms     |
-/// | under 250 ms    | RT_EVENT     | 100 us    | 1% at 10 ms     |
-/// | 250 to 500 ms   | HYBRID       | 5 ms      | 2% at 250 ms    |
-/// | 500 ms and over | EVENT_DRIVEN | 5 ms      | 1% at 500 ms    |
-///
-/// Without real-time scheduling support, an interval under 1 ms selects HIGH_RATE
-/// with a 1 ms tolerance, and an interval from 1 ms to 500 ms selects HYBRID.
+/// @brief Auto-selects execution mode based on timing requirements and platform.
+/// Never returns BUSY_WAIT or AUTO.
 inline ExecutionMode
 select_mode(const x::telem::TimeSpan timing_interval, const bool has_intervals) {
     if (!has_intervals) return ExecutionMode::EVENT_DRIVEN;

@@ -80,17 +80,14 @@ public:
             );
         }
 
-        if (this->config_.interval.nanoseconds() > 0) {
-            if (this->config_.mode == ExecutionMode::HIGH_RATE) {
+        if (this->config_.mode == ExecutionMode::HIGH_RATE) {
+            if (this->config_.interval.nanoseconds() > 0)
                 this->timer_ = std::make_unique<::x::loop::Timer>(
                     this->config_.interval
                 );
-            } else {
-                if (auto err = this->create_waitable_timer()) {
-                    CloseHandle(this->wake_event_);
-                    return err;
-                }
-            }
+        } else if (auto err = this->create_waitable_timer()) {
+            CloseHandle(this->wake_event_);
+            return err;
         }
 
         if (!this->rt_handle_) {
@@ -163,7 +160,11 @@ private:
         return x::errors::NIL;
     }
 
-    bool arm_timer() const { return this->arm_timer(this->config_.interval); }
+    // A zero span fires the timer at once, so a loop with no interval skips the arm.
+    bool arm_timer() const {
+        return this->config_.interval.nanoseconds() <= 0 ||
+               this->arm_timer(this->config_.interval);
+    }
 
     bool arm_timer(const x::telem::TimeSpan span) const {
         LARGE_INTEGER due_time;
@@ -239,9 +240,7 @@ private:
                                          timing::HYBRID_BLOCK_TIMEOUT.milliseconds()
                                      );
         const DWORD timeout_ms = this->arm_deadline(max_timeout) ? INFINITE
-                               : max_timeout.nanoseconds() > 0
-                                   ? static_cast<DWORD>(max_timeout.milliseconds())
-                                   : default_ms;
+                                                                 : default_ms;
 
         const DWORD result = WaitForMultipleObjects(count, handles, FALSE, timeout_ms);
         if (result == WAIT_TIMEOUT) return WakeReason::Timeout;
@@ -278,9 +277,8 @@ private:
             }
         }
 
-        const DWORD timeout_ms = deadline ? INFINITE
-                               : max_timeout.nanoseconds() > 0
-                                   ? static_cast<DWORD>(max_timeout.milliseconds())
+        const DWORD timeout_ms = deadline
+                                   ? INFINITE
                                    : static_cast<DWORD>(
                                          timing::HYBRID_BLOCK_TIMEOUT.milliseconds()
                                      );
