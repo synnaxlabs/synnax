@@ -16,35 +16,35 @@ import { useRestart } from "@/feature/embedded/useRestart";
 import { useReveal } from "@/feature/embedded/useReveal";
 import { Command } from "@/platform/command";
 
-export const OpenDiagnosticsCommand = Command.create({
+const OpenDiagnosticsCommand = Command.create({
   key: "open-diagnostics",
   name: "Open diagnostics",
   icon: <Icon.Hardware />,
   useOnSelect: useDiagnosticsModal,
 });
 
-export const RestartCommand = Command.create({
+const RestartCommand = Command.create({
   key: "restart-synnax",
   name: "Restart Synnax",
   icon: <Icon.Refresh />,
   useOnSelect: useRestart,
 });
 
-export const ShowLogsCommand = Command.create({
+const ShowLogsCommand = Command.create({
   key: "show-logs",
   name: "Show logs",
   icon: <Icon.Log />,
   useOnSelect: () => useReveal(showLogs, "Failed to show the logs"),
 });
 
-export const ShowDataCommand = Command.create({
+const ShowDataCommand = Command.create({
   key: "show-data-folder",
   name: "Show data folder",
   icon: <Icon.Explore />,
   useOnSelect: () => useReveal(showData, "Failed to show the data folder"),
 });
 
-export const EraseDataCommand = Command.create({
+const EraseDataCommand = Command.create({
   key: "erase-all-data",
   name: "Erase all data",
   icon: <Icon.Delete />,

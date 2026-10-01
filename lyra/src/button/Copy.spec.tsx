@@ -9,12 +9,18 @@
 
 import { act, fireEvent, render } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import { Button } from "@/button";
 import { Icon } from "@/icon";
 import { Status } from "@/status";
 import { type NotificationSpec } from "@/status/Aggregator";
+import {
+  stubClipboardUnavailable,
+  stubClipboardWriteText,
+  stubCopyCommand,
+  stubCopyCommandUnavailable,
+} from "@/testutil";
 
 const StatusSpy = ({ onStatuses }: { onStatuses: (s: NotificationSpec[]) => void }) => {
   const { statuses } = Status.useNotifications();
@@ -27,19 +33,16 @@ const wrapper = ({ children }: PropsWithChildren) => (
 );
 
 describe("Copy", () => {
-  const writeText = vi.fn();
+  let writeText: Mock;
 
   beforeEach(() => {
     vi.useFakeTimers();
-    Object.assign(navigator, {
-      clipboard: { writeText },
-    });
-    writeText.mockResolvedValue(undefined);
+    writeText = stubClipboardWriteText();
+    stubCopyCommandUnavailable();
   });
 
   afterEach(() => {
     vi.useRealTimers();
-    writeText.mockReset();
   });
 
   describe("rendering", () => {
@@ -184,6 +187,17 @@ describe("Copy", () => {
       expect(onCopy).toHaveBeenCalledTimes(1);
     });
 
+    it("should copy through the command and show the check icon without the clipboard API", async () => {
+      stubClipboardUnavailable();
+      const copied = stubCopyCommand();
+      const c = render(<Button.Copy text="hello" />);
+      await act(async () => {
+        fireEvent.click(c.container.querySelector(".pluto-icon--copy")!);
+      });
+      expect(copied).toHaveBeenCalledWith("hello");
+      expect(c.container.querySelector(".pluto-icon--check")!).toBeTruthy();
+    });
+
     it("should not show the check icon when copying fails", async () => {
       writeText.mockRejectedValue(new Error("Failed"));
       const c = render(<Button.Copy text="hello" />, { wrapper });
@@ -274,7 +288,7 @@ describe("Copy", () => {
       const lastCall = spy.mock.lastCall?.[0] as NotificationSpec[];
       expect(lastCall).toHaveLength(1);
       expect(lastCall[0].variant).toBe("error");
-      expect(lastCall[0].message).toBe("Clipboard denied");
+      expect(lastCall[0].message).toBe("Failed to copy to the clipboard");
     });
 
     it("should push an error status when an async text function rejects", async () => {

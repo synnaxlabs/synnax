@@ -18,7 +18,7 @@ export interface StrainerProps extends Primitive.DivProps, Primitive.SVGBasedPro
 const DIMENSIONS = { width: 33, height: 69 };
 
 export const Strainer = ({
-  color,
+  strokeColor,
   className,
   orientation = "left",
   scale,
@@ -28,7 +28,7 @@ export const Strainer = ({
     <Handle.Linear orientation={orientation} left={6.06} right={93.04} />
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={color}
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
     >

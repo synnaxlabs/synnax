@@ -228,6 +228,91 @@ var _ = Describe("Retrieve", Ordered, func() {
 		)
 	})
 
+	Describe("MatchIndexes", func() {
+		createIndexed := func(ctx SpecContext, prefix string) (
+			channel.Channel, []channel.Channel,
+		) {
+			GinkgoHelper()
+			idx := channel.Channel{
+				Name: prefix + "_time", DataType: telem.TimestampT, IsIndex: true,
+			}
+			Expect(writer.Create(ctx, &idx)).To(Succeed())
+			data := []channel.Channel{
+				{
+					Name:       prefix + "_a",
+					DataType:   telem.Float32T,
+					LocalIndex: idx.LocalKey,
+				},
+				{
+					Name:       prefix + "_b",
+					DataType:   telem.Float32T,
+					LocalIndex: idx.LocalKey,
+				},
+			}
+			Expect(writer.CreateMany(ctx, &data)).To(Succeed())
+			return idx, data
+		}
+		retrieveKeys := func(ctx SpecContext, keys ...channel.Key) channel.Keys {
+			GinkgoHelper()
+			var results []channel.Channel
+			Expect(svc.NewRetrieve().
+				Where(channel.MatchIndexes(keys...)).
+				Entries(&results).
+				Exec(ctx, nil)).To(Succeed())
+			return channel.KeysFromChannels(results)
+		}
+
+		It("Should match every channel indexed by the key", func(ctx SpecContext) {
+			idx, data := createIndexed(ctx, "mi_stored")
+			Expect(retrieveKeys(ctx, idx.Key())).To(ConsistOf(
+				idx.Key(), data[0].Key(), data[1].Key(),
+			))
+		})
+
+		It("Should match a calculated channel and its index", func(ctx SpecContext) {
+			base := channel.Channel{
+				Name: "mi_base", DataType: telem.Float32T, Virtual: true,
+			}
+			calc := channel.Channel{
+				Name:       "mi_calc",
+				DataType:   telem.Float32T,
+				Expression: "return mi_base * 2",
+			}
+			Expect(writer.Create(ctx, &base)).To(Succeed())
+			Expect(writer.Create(ctx, &calc)).To(Succeed())
+			Expect(retrieveKeys(ctx, calc.Index())).To(ConsistOf(
+				calc.Index(), calc.Key(),
+			))
+		})
+
+		It("Should match across several index keys", func(ctx SpecContext) {
+			first, firstData := createIndexed(ctx, "mi_first")
+			second, secondData := createIndexed(ctx, "mi_second")
+			Expect(retrieveKeys(ctx, first.Key(), second.Key())).To(ConsistOf(
+				first.Key(), firstData[0].Key(), firstData[1].Key(),
+				second.Key(), secondData[0].Key(), secondData[1].Key(),
+			))
+		})
+
+		It("Should reject a same local index on another leaseholder", func(
+			ctx SpecContext,
+		) {
+			idx, _ := createIndexed(ctx, "mi_twin")
+			Expect(retrieveKeys(ctx, channel.NewKey(2, idx.LocalKey))).To(BeEmpty())
+		})
+
+		It("Should match nothing when given no keys", func(ctx SpecContext) {
+			createIndexed(ctx, "mi_none")
+			Expect(retrieveKeys(ctx)).To(BeEmpty())
+		})
+
+		It("Should stop matching a channel once it is deleted", func(ctx SpecContext) {
+			idx, data := createIndexed(ctx, "mi_deleted")
+			Expect(writer.Delete(ctx, data[0].Key(), false)).To(Succeed())
+			Expect(retrieveKeys(ctx, idx.Key())).To(ConsistOf(idx.Key(), data[1].Key()))
+		})
+	})
+
 	Describe("Exists", func() {
 		It("Should return true if a channel exists", func(ctx SpecContext) {
 			created := []channel.Channel{

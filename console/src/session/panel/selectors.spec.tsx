@@ -738,7 +738,6 @@ describe("panel selectors", () => {
       const client = createTestClient();
       const { key: projectKey } = await client.projects.create({
         name: uniqueName("project"),
-        layout: {},
       });
       const alpha = await createProjectPanel(client, projectKey);
       const bravo = await createProjectPanel(client, projectKey);
@@ -768,7 +767,6 @@ describe("panel selectors", () => {
       const client = createTestClient();
       const { key: projectKey } = await client.projects.create({
         name: uniqueName("project"),
-        layout: {},
       });
       // The membership answer arrives in key order, so the unreconciled panel takes
       // the lower key: a correct sort cannot pass by luck.

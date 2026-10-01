@@ -63,7 +63,8 @@ const StyleForm = (): ReactElement => (
       <Label.Form path="label" />
     </Base.Section>
     <Base.Section title="Appearance">
-      <Form.ColorField path="color" />
+      <Form.ColorField path="strokeColor" label="Stroke" />
+      <Form.ColorField path="textColor" label="Text" />
       <Form.LevelSizeField />
       <Base.NumericField
         path="inlineSize"

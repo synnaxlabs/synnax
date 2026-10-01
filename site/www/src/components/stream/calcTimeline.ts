@@ -102,7 +102,7 @@ export const CALC_EXAMPLES: CalcExample[] = [
   },
   {
     id: "mixture",
-    title: "Mixture Ratio",
+    title: "Mixture ratio",
     diagram: MIXTURE_DIAGRAM,
     steps: [
       {
@@ -237,7 +237,7 @@ export const CALC_EXAMPLES: CalcExample[] = [
   },
   {
     id: "massflow",
-    title: "Mass Flow",
+    title: "Mass flow",
     diagram: MASSFLOW_DIAGRAM,
     steps: [
       {
@@ -352,7 +352,7 @@ export const CALC_EXAMPLES: CalcExample[] = [
   },
   {
     id: "voting",
-    title: "Sensor Voting",
+    title: "Sensor voting",
     diagram: VOTING_DIAGRAM,
     steps: [
       {
@@ -480,7 +480,7 @@ export const CALC_EXAMPLES: CalcExample[] = [
   },
   {
     id: "fft",
-    title: "FFT Analysis",
+    title: "FFT analysis",
     diagram: FFT_DIAGRAM,
     steps: [
       {

@@ -41,8 +41,12 @@ const groupConfig = (
   extra: Partial<schematic.GroupBoxElementConfig> = {},
 ): schematic.ElementConfig => cfg({ variant: "group_box", members, ...extra });
 
-const tank = (label: string, color?: unknown): schematic.ElementConfig =>
-  cfg({ variant: "tank", label: { label }, ...(color != null && { color }) });
+const tank = (label: string, strokeColor?: unknown): schematic.ElementConfig =>
+  cfg({
+    variant: "tank",
+    label: { label },
+    ...(strokeColor != null && { strokeColor }),
+  });
 
 const apply = (
   state: schematic.Schematic,
@@ -114,7 +118,7 @@ describe("schematic reducer", () => {
         empty(),
         schematic.setNode({
           node: node("n1", 0, 0),
-          config: { variant: "tank", label: { label: "Pump" }, color: "#ff0000" },
+          config: { variant: "tank", label: { label: "Pump" }, strokeColor: "#ff0000" },
         }),
       );
       expect(out.configs).toEqual({ n1: tank("Pump", "#ff0000") });
@@ -969,7 +973,7 @@ describe("schematic reducer inverses", () => {
       const initial = empty({
         nodes: [node("n1", 0, 0)],
         configs: {
-          n1: cfg({ variant: "tank", label: { level: "p" }, color: "#ff0000" }),
+          n1: cfg({ variant: "tank", label: { level: "p" }, strokeColor: "#ff0000" }),
         },
       });
       // Each dispatch carries the FULL form values, matching IndividualConfig's
@@ -977,13 +981,13 @@ describe("schematic reducer inverses", () => {
       const r1 = schematic.reduceAll(initial, [
         schematic.setConfig({
           key: "n1",
-          config: { variant: "tank", label: { level: "h2" }, color: "#ff0000" },
+          config: { variant: "tank", label: { level: "h2" }, strokeColor: "#ff0000" },
         }),
       ]);
       const r2 = schematic.reduceAll(r1.next, [
         schematic.setConfig({
           key: "n1",
-          config: { variant: "tank", label: { level: "h3" }, color: "#ff0000" },
+          config: { variant: "tank", label: { level: "h3" }, strokeColor: "#ff0000" },
         }),
       ]);
       // Matches pushOnto's coalescing: inverse = [next.inverse, ...top.inverse]

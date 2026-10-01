@@ -36,7 +36,7 @@ export const useCreateModal = Modals.create(({ close }) => {
 
   const { form, save, variant } = Project.useForm({
     query: null,
-    initialValues: { name: "", layout: {} },
+    initialValues: { name: "" },
     afterSave: ({ value }) => {
       const { key } = value();
       if (key == null) throw new UnexpectedError("Project key is null");

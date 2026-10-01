@@ -45,7 +45,7 @@ export const SVG = ({
   orientation = "left",
   children,
   className,
-  color: colorVal,
+  strokeColor: colorVal,
   style,
   scale = 1,
   ...rest
