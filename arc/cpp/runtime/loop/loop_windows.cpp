@@ -163,12 +163,19 @@ private:
         return x::errors::NIL;
     }
 
-    bool arm_timer() const {
+    bool arm_timer() const { return this->arm_timer(this->config_.interval); }
+
+    bool arm_timer(const x::telem::TimeSpan span) const {
         LARGE_INTEGER due_time;
-        const int64_t interval_100ns = this->config_.interval.nanoseconds() /
-                                       timing::WINDOWS_TIMER_UNIT.nanoseconds();
-        due_time.QuadPart = -interval_100ns;
+        const int64_t span_100ns = span.nanoseconds() /
+                                   timing::WINDOWS_TIMER_UNIT.nanoseconds();
+        due_time.QuadPart = -span_100ns;
         return SetWaitableTimer(this->timer_event_, &due_time, 0, NULL, NULL, FALSE);
+    }
+
+    bool arm_deadline(const x::telem::TimeSpan max_timeout) const {
+        return this->timer_enabled_ && max_timeout.nanoseconds() > 0 &&
+               this->arm_timer(max_timeout);
     }
 
     void close_handles() {
@@ -231,7 +238,8 @@ private:
                                    : static_cast<DWORD>(
                                          timing::HYBRID_BLOCK_TIMEOUT.milliseconds()
                                      );
-        const DWORD timeout_ms = max_timeout.nanoseconds() > 0
+        const DWORD timeout_ms = this->arm_deadline(max_timeout) ? INFINITE
+                               : max_timeout.nanoseconds() > 0
                                    ? static_cast<DWORD>(max_timeout.milliseconds())
                                    : default_ms;
 
@@ -252,6 +260,7 @@ private:
         HANDLE handles[3];
         const DWORD count = this->build_handles(handles);
         if (count == 0) return WakeReason::Shutdown;
+        const bool deadline = this->arm_deadline(max_timeout);
 
         const auto spin_start = std::chrono::steady_clock::now();
         const auto spin_duration = std::chrono::nanoseconds(
@@ -269,7 +278,8 @@ private:
             }
         }
 
-        const DWORD timeout_ms = max_timeout.nanoseconds() > 0
+        const DWORD timeout_ms = deadline ? INFINITE
+                               : max_timeout.nanoseconds() > 0
                                    ? static_cast<DWORD>(max_timeout.milliseconds())
                                    : static_cast<DWORD>(
                                          timing::HYBRID_BLOCK_TIMEOUT.milliseconds()
