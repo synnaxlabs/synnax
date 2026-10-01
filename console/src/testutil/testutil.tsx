@@ -38,7 +38,11 @@ import { Provider } from "react-redux";
 import { assert } from "vitest";
 
 import { Session } from "@/session";
-import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
+import {
+  createAsyncSynnaxWrapper,
+  createSynnaxWrapper,
+  disableActEnvironment,
+} from "@/testutil/Synnax";
 
 /**
  * Generates a unique, Core-safe resource name: letters, digits, and underscores only,
@@ -357,6 +361,7 @@ export const createConnectedConsoleWrapper = async ({
   wrapper: FC<PropsWithChildren>;
   store: TestStore;
 }> => {
+  disableActEnvironment();
   const { wrapper: Console, store } = await createConsoleWrapper(args);
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Console>
@@ -380,6 +385,7 @@ SessionSynnaxProvider.displayName = "SessionSynnaxProvider";
 export const createSessionConsoleWrapper = async (
   args: CreateConsoleWrapperParams,
 ): Promise<{ wrapper: FC<PropsWithChildren>; store: TestStore }> => {
+  disableActEnvironment();
   const { wrapper: Console, store } = await createConsoleWrapper(args);
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Console>

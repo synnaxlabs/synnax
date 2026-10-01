@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, render } from "@testing-library/react";
+import { act, fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Setpoint } from "@/schematic/node/general/setpoint/Primitive";
@@ -36,7 +36,9 @@ describe("setpoint symbol", () => {
       fireEvent.mouseDown(btn);
       fireEvent.mouseUp(document);
       fireEvent.click(btn);
-      vi.advanceTimersByTime(1000);
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
       expect(onChange).not.toHaveBeenCalled();
     });
 
@@ -63,7 +65,9 @@ describe("setpoint symbol", () => {
       input.focus();
       fireEvent.change(input, { target: { value: "5" } });
       fireEvent.mouseDown(getByText("Set"));
-      vi.advanceTimersByTime(500);
+      act(() => {
+        vi.advanceTimersByTime(500);
+      });
       expect(onChange).toHaveBeenCalledExactlyOnceWith(5);
     });
 
@@ -71,7 +75,9 @@ describe("setpoint symbol", () => {
       const onChange = vi.fn();
       const { getByText } = render(<Setpoint onChange={onChange} onClickDelay={500} />);
       fireEvent.mouseDown(getByText("Set"));
-      vi.advanceTimersByTime(500);
+      act(() => {
+        vi.advanceTimersByTime(500);
+      });
       expect(onChange).toHaveBeenCalledWith(0);
     });
   });

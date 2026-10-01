@@ -18,7 +18,11 @@ import { expect, type Mock, vi } from "vitest";
 import { Embedded } from "@/feature/embedded";
 import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
-import { createConsoleWrapper, type TestStore } from "@/testutil";
+import {
+  createConsoleWrapper,
+  disableActEnvironment,
+  type TestStore,
+} from "@/testutil";
 
 export const RUNNING: Embedded.Status = {
   state: "running",
@@ -94,6 +98,7 @@ export const createDesktopWrapper = async (): Promise<{
   wrapper: FC<PropsWithChildren>;
   store: TestStore;
 }> => {
+  disableActEnvironment();
   const { wrapper: Console, store } = await createConsoleWrapper({ client: null });
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Embedded.Provider>

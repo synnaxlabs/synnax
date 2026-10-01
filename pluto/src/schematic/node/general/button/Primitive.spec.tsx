@@ -10,7 +10,7 @@
 import { schematic } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { color, deep } from "@synnaxlabs/x";
-import { fireEvent, render } from "@testing-library/react";
+import { act, fireEvent, render } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -138,7 +138,9 @@ describe("button symbol", () => {
         fireEvent.mouseDown(btn);
         fireEvent.mouseUp(document);
         fireEvent.click(btn);
-        vi.advanceTimersByTime(1000);
+        act(() => {
+          vi.advanceTimersByTime(1000);
+        });
         expect(onClick).not.toHaveBeenCalled();
       });
 
@@ -148,9 +150,13 @@ describe("button symbol", () => {
           <Button mode="fire" onClick={onClick} onClickDelay={500} />,
         );
         fireEvent.mouseDown(getButton(container));
-        vi.advanceTimersByTime(499);
+        act(() => {
+          vi.advanceTimersByTime(499);
+        });
         expect(onClick).not.toHaveBeenCalled();
-        vi.advanceTimersByTime(1);
+        act(() => {
+          vi.advanceTimersByTime(1);
+        });
         expect(onClick).toHaveBeenCalledTimes(1);
       });
 
@@ -162,7 +168,9 @@ describe("button symbol", () => {
         const btn = getButton(container);
         fireEvent.mouseDown(btn);
         expect(onMouseDown).not.toHaveBeenCalled();
-        vi.advanceTimersByTime(500);
+        act(() => {
+          vi.advanceTimersByTime(500);
+        });
         expect(onMouseDown).toHaveBeenCalledTimes(1);
       });
 
@@ -174,7 +182,9 @@ describe("button symbol", () => {
         const btn = getButton(container);
         fireEvent.mouseDown(btn);
         fireEvent.mouseUp(document);
-        vi.advanceTimersByTime(1000);
+        act(() => {
+          vi.advanceTimersByTime(1000);
+        });
         expect(onMouseDown).not.toHaveBeenCalled();
       });
 
@@ -184,7 +194,9 @@ describe("button symbol", () => {
           <Button mode="fire" onClick={onClick} onClickDelay={500} />,
         );
         fireEvent.mouseDown(getButton(container), { button: 2 });
-        vi.advanceTimersByTime(1000);
+        act(() => {
+          vi.advanceTimersByTime(1000);
+        });
         expect(onClick).not.toHaveBeenCalled();
       });
 
@@ -194,7 +206,9 @@ describe("button symbol", () => {
           <Button mode="pulse" onMouseDown={onMouseDown} onClickDelay={500} />,
         );
         fireEvent.mouseDown(getButton(container), { button: 2 });
-        vi.advanceTimersByTime(1000);
+        act(() => {
+          vi.advanceTimersByTime(1000);
+        });
         expect(onMouseDown).not.toHaveBeenCalled();
       });
 

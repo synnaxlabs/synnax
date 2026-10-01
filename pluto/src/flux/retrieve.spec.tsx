@@ -39,6 +39,7 @@ import { Status } from "@/status";
 import { status } from "@/status/aether";
 import { Synnax } from "@/synnax";
 import { synnax } from "@/synnax/aether";
+import { disableActEnvironment } from "@/testutil/act";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -53,6 +54,7 @@ beforeAll(async () => {
 
 /** Mounts the real provider against a live cluster reached through `port`. */
 const createLiveWrapper = (port: number): FC<PropsWithChildren> => {
+  disableActEnvironment();
   const AetherProvider = aetherTest.createProvider({
     ...synnax.REGISTRY,
     ...status.REGISTRY,

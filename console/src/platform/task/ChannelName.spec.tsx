@@ -12,8 +12,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Text } from "@synnaxlabs/lyra/text";
 import { TimeStamp } from "@synnaxlabs/x";
-import { screen, waitFor } from "@testing-library/react";
-import { act } from "react";
+import { act, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Task } from "@/platform/task";
@@ -63,7 +62,7 @@ describe("ChannelName", () => {
       <Task.ChannelName channel={0} namePath="config.name" id={editID} />,
       { values: { config: { name: "name_before" } } },
     );
-    Text.edit(editID);
+    act(() => Text.edit(editID));
     const el = await awaitTextEditing(editID);
     act(() => commitTextEdit(el, "name_after"));
     await waitFor(() =>
@@ -115,7 +114,7 @@ describe("ChannelName", () => {
         { client, values: { name: "" } },
       );
       await waitFor(() => expect(screen.getByText(ch.name)).toBeTruthy());
-      Text.edit(editID);
+      act(() => Text.edit(editID));
       const el = await awaitTextEditing(editID);
       const newName = uniqueName("renamed");
       act(() => commitTextEdit(el, newName));
