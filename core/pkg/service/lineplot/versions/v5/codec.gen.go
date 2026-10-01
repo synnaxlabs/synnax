@@ -12,7 +12,7 @@
 package v5
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	color "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"

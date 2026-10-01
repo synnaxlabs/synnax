@@ -213,9 +213,6 @@ func Bind(layer *api.Layer, router *http.Router) {
 		ProjectRename: router.NewUnaryServer[project.RenameRequest, struct{}](
 			"/api/v1/project/rename",
 		),
-		ProjectSetLayout: router.NewUnaryServer[project.SetLayoutRequest, struct{}](
-			"/api/v1/project/set-layout",
-		),
 		ProjectExport: router.NewUnaryServer[project.ExportRequest, project.ExportResponse](
 			"/api/v1/project/export",
 			http.WithResponseEncoders(zip.Codec),

@@ -41,7 +41,6 @@ describe("Status Commands", () => {
   it("should open the status explorer as a tab when the explorer command is selected", async () => {
     const proj = await client.projects.create({
       name: uniqueName("proj"),
-      layout: {},
     });
     const { store, openCommandPalette, selectCommand } = await renderPalette({
       commands: Status.COMMANDS,

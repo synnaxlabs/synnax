@@ -120,7 +120,8 @@ describe("StringDisplay", () => {
       const { getAllByText, getByText } = renderForm();
       fireEvent.click(getByText("Style"));
       expect(getAllByText("Label")).toHaveLength(2);
-      expect(getByText("Color")).toBeDefined();
+      expect(getByText("Stroke")).toBeDefined();
+      expect(getByText("Text")).toBeDefined();
       expect(getByText("Width")).toBeDefined();
       expect(getAllByText("Size")).toHaveLength(2);
     });

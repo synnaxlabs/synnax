@@ -20,9 +20,6 @@ import { Select } from "@/session/select";
 
 const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
 
-export const useSelectSliceState = (): SliceState =>
-  Select.useMemo((s: StoreState) => selectSliceState(s), []);
-
 export const useGetSliceState = (): (() => SliceState) => {
   const store = useStore<StoreState>();
   return useCallback(() => selectSliceState(store.getState()), [store]);

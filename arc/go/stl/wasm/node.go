@@ -157,7 +157,9 @@ func (n *nodeImpl) Next(ctx node.Context) {
 			continue
 		}
 		dataLen := n.Input(i).Len()
-		if dataLen > maxLength {
+		// A fresh input wins a tie, so stamps come from new data.
+		if dataLen > maxLength ||
+			(dataLen == maxLength && !n.InputStale(i) && n.InputStale(longestInputIdx)) {
 			maxLength = dataLen
 			longestInputIdx = i
 		}

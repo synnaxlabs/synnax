@@ -83,15 +83,30 @@ var _ = Describe("MigrateTable", func() {
 			ctx, "text", `{"value": "hi", "backgroundColor": "#112233"}`,
 		))
 		Expect(fields).To(HaveKeyWithValue("value", "hi"))
-		Expect(fields).To(HaveKey("background_color"))
+		Expect(fields).To(HaveKey("fill_color"))
 		Expect(fields).NotTo(HaveKey("backgroundColor"))
+	})
+
+	It("Should rename a value cell's text and background colors", func(
+		ctx SpecContext,
+	) {
+		cfg, ok := migrateCell(ctx, "value", `{
+			"color": "#112233",
+			"backgroundColor": "#445566"
+		}`).Variant.(v2.ValueCellConfig)
+		Expect(MustBeOk(cfg, ok).TextColor).To(HaveValue(
+			Equal(color.Color{R: 17, G: 34, B: 51, A: 1}),
+		))
+		Expect(cfg.FillColor).To(HaveValue(
+			Equal(color.Color{R: 68, G: 85, B: 102, A: 1}),
+		))
 	})
 
 	It("Should keep a chosen background color", func(ctx SpecContext) {
 		cfg, ok := migrateCell(
 			ctx, "text", `{"backgroundColor": "#112233"}`,
 		).Variant.(v2.TextCellConfig)
-		Expect(MustBeOk(cfg, ok).BackgroundColor).To(HaveValue(
+		Expect(MustBeOk(cfg, ok).FillColor).To(HaveValue(
 			Equal(color.Color{R: 17, G: 34, B: 51, A: 1}),
 		))
 	})
@@ -102,7 +117,7 @@ var _ = Describe("MigrateTable", func() {
 		cfg, ok := migrateCell(
 			ctx, "text", `{"backgroundColor": "#00000000"}`,
 		).Variant.(v2.TextCellConfig)
-		Expect(MustBeOk(cfg, ok).BackgroundColor).To(BeNil())
+		Expect(MustBeOk(cfg, ok).FillColor).To(BeNil())
 	})
 
 	It("Should drop every unchosen color on a value cell", func(ctx SpecContext) {
@@ -110,7 +125,7 @@ var _ = Describe("MigrateTable", func() {
 			"color": "#00000000",
 			"stalenessColor": {"r": 0, "g": 0, "b": 0, "a": 0}
 		}`).Variant.(v2.ValueCellConfig)
-		Expect(MustBeOk(cfg, ok).Color).To(BeNil())
+		Expect(MustBeOk(cfg, ok).TextColor).To(BeNil())
 		Expect(cfg.StalenessColor).To(BeNil())
 	})
 
@@ -148,7 +163,7 @@ var _ = Describe("MigrateTable", func() {
 				},
 				Smooth: true,
 			}))
-			Expect(cfg.BackgroundColor).To(HaveValue(Equal(green)))
+			Expect(cfg.FillColor).To(HaveValue(Equal(green)))
 		})
 
 		It("Should read reversed bounds in ascending order", func(ctx SpecContext) {
@@ -173,7 +188,7 @@ var _ = Describe("MigrateTable", func() {
 					{"key": "b", "color": "#ff0000", "position": 0.8},
 					{"key": "a", "color": "#ffff00", "position": 0.2}
 				]
-			}`).BackgroundColor).To(HaveValue(Equal(yellow)))
+			}`).FillColor).To(HaveValue(Equal(yellow)))
 		})
 
 		It("Should keep a transparent band and leave the background absent", func(
@@ -184,7 +199,7 @@ var _ = Describe("MigrateTable", func() {
 				"gradient": [{"key": "s", "color": "#00000000", "position": 0}]
 			}`)
 			Expect(cfg.Redline.Bands).To(Equal([]color.Band{{Key: "s"}}))
-			Expect(cfg.BackgroundColor).To(BeNil())
+			Expect(cfg.FillColor).To(BeNil())
 		})
 
 		It("Should convert an empty gradient into an empty redline", func(

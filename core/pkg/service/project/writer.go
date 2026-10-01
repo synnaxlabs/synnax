@@ -79,18 +79,6 @@ func (w Writer) Rename(
 		}).Exec(ctx, w.tx)
 }
 
-func (w Writer) SetLayout(
-	ctx context.Context,
-	key Key,
-	layout map[string]any,
-) error {
-	return w.table.NewUpdate().Where(gorp.MatchKeys[Key, Project](key)).
-		Change(func(_ gorp.Context, p Project) Project {
-			p.Layout = layout
-			return p
-		}).Exec(ctx, w.tx)
-}
-
 func (w Writer) Delete(
 	ctx context.Context,
 	keys ...Key,
