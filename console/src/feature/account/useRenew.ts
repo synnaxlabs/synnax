@@ -10,7 +10,7 @@
 import { type license, status } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
-import { TimeSpan } from "@synnaxlabs/x";
+import { errors, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { useEffect } from "react";
 
 import { renew, type RenewResult } from "@/feature/account/handoff";
@@ -22,6 +22,14 @@ import { Session } from "@/session";
  */
 const CHECK_INTERVAL = TimeSpan.hours(6);
 
+/** How close to its expiry a license must be before a failed renewal is shown. */
+const WARNING_WINDOW = TimeSpan.days(7);
+
+/** Whether the license still has more than the warning window to run. */
+const lasting = (license: license.License | undefined): boolean =>
+  license?.exp != null &&
+  TimeStamp.seconds(license.exp).after(TimeStamp.now().add(WARNING_WINDOW));
+
 export interface RenewDeps {
   renew: (secret: string) => Promise<RenewResult>;
   interval: TimeSpan;
@@ -31,8 +39,9 @@ export interface RenewDeps {
 
 /**
  * Keeps a linked machine licensed: on launch and on an interval, renews through the hub
- * unless a perpetual license applies. A machine the hub has unlinked removes its
- * Desktop license key and forgets its account.
+ * unless a perpetual license applies. A failed renewal shows only within a week of the
+ * license's expiry. A machine the hub has unlinked removes its Desktop license key and
+ * forgets its account.
  */
 export const useRenew = ({
   renew: renewKey = renew,
@@ -53,7 +62,14 @@ export const useRenew = ({
         const { license } = await api.retrieve();
         if (controller.signal.aborted || (license != null && license.exp == null))
           return;
-        const result = await renewKey(secret);
+        let result: RenewResult;
+        try {
+          result = await renewKey(secret);
+        } catch (e) {
+          if (!lasting(license)) throw errors.fromUnknown(e);
+          console.error("failed to renew the license", e);
+          return;
+        }
         if (controller.signal.aborted) return;
         if (result.variant === "unlinked") {
           if (license?.edition === "d") await api.deactivate(license.jti);

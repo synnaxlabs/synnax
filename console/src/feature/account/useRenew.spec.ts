@@ -65,6 +65,7 @@ interface SetupOptions {
   account?: Session.Account.SliceState;
   interval?: TimeSpan;
   deactivateError?: Error;
+  renewError?: Error;
 }
 
 const setup = async ({
@@ -73,6 +74,7 @@ const setup = async ({
   account = LINKED,
   interval,
   deactivateError,
+  renewError,
 }: SetupOptions = {}): Promise<Harness> => {
   const retrieve = vi.fn(async () => infoOf(lic));
   const activate = vi.fn(async () => infoOf(lic));
@@ -80,7 +82,10 @@ const setup = async ({
     if (deactivateError != null) throw deactivateError;
     return infoOf(undefined);
   });
-  const renew = vi.fn(async () => result);
+  const renew = vi.fn(async () => {
+    if (renewError != null) throw renewError;
+    return result;
+  });
   const deps: Partial<Account.RenewDeps> = {
     renew,
     interval,
@@ -124,6 +129,28 @@ describe("Account.useRenew", () => {
       interval: TimeSpan.milliseconds(20),
     });
     await waitFor(() => expect(h.renew.mock.calls.length).toBeGreaterThan(1));
+  });
+
+  it("should stay quiet when the hub is unreachable and weeks remain", async () => {
+    const h = await setup({
+      license: expiringIn(TimeSpan.days(20)),
+      renewError: new Error("Failed to fetch"),
+      interval: TimeSpan.milliseconds(20),
+    });
+    await waitFor(() => expect(h.renew.mock.calls.length).toBeGreaterThan(1));
+    expect(h.statuses()).toEqual([]);
+  });
+
+  it("should show a failed renewal within a week of the expiry", async () => {
+    const h = await setup({
+      license: expiringIn(TimeSpan.days(3)),
+      renewError: new Error("Failed to fetch"),
+    });
+    await waitFor(() =>
+      expect(
+        h.statuses().some((s) => s.message === "Failed to renew the license"),
+      ).toBe(true),
+    );
   });
 
   it("should leave a perpetual license alone", async () => {
