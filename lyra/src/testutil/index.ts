@@ -8,4 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/testutil/act";
+export * from "@/testutil/clipboard";
 export * from "@/testutil/dom";

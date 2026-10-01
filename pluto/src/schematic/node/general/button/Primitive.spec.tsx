@@ -28,7 +28,7 @@ describe("button symbol", () => {
   it("should carry the symbol-colored + symbol-button classes and set the source color", () => {
     // The bg/border/text vars are mapped to the display/contrast vars in button.css;
     // jsdom cannot compute them, so we assert the marker classes and the source var.
-    const { container } = render(<Button color="#ff0000" />);
+    const { container } = render(<Button fillColor="#ff0000" />);
     const btn = getButton(container);
     const cls = btn.getAttribute("class") ?? "";
     expect(cls).toContain("pluto-symbol-colored");
@@ -37,7 +37,7 @@ describe("button symbol", () => {
   });
 
   it("should not engage the base button's concrete-color JS path", () => {
-    const { container } = render(<Button color="#ff0000" />);
+    const { container } = render(<Button fillColor="#ff0000" />);
     const btn = getButton(container);
     // The color is not forwarded, so the base button never sets its own color var.
     expect(btn.getAttribute("class")).not.toContain("pluto-btn--custom-color");
@@ -45,14 +45,14 @@ describe("button symbol", () => {
   });
 
   it("should carry the alpha channel so a translucent button stays translucent", () => {
-    const { container } = render(<Button color={[255, 0, 0, 0.5]} />);
+    const { container } = render(<Button fillColor={[255, 0, 0, 0.5]} />);
     expect(getButton(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
       "255, 0, 0, 0.5",
     );
   });
 
   it("should pass a fully transparent color through as a choice", () => {
-    const { container } = render(<Button color={color.ZERO} />);
+    const { container } = render(<Button fillColor={color.ZERO} />);
     expect(getButton(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
       "0, 0, 0, 0",
     );

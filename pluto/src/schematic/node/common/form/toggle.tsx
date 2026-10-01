@@ -53,7 +53,7 @@ export const DummyToggleForm = (): ReactElement => (
       <Label.Form path="label" />
     </Form.Section>
     <Form.Section title="Appearance">
-      <ColorField path="color" />
+      <ColorField path="strokeColor" label="Stroke" />
       <ScaleField path="scale" />
       <Form.SwitchField path="clickable" label="Clickable" hideIfNull optional />
     </Form.Section>

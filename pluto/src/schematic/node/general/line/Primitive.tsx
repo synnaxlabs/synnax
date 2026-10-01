@@ -15,7 +15,7 @@ import { type ReactElement } from "react";
 
 export interface LineProps {
   className?: string;
-  color?: color.Crude;
+  strokeColor?: color.Crude;
   start?: xy.XY;
   end?: xy.XY;
   strokeWidth?: number;
@@ -23,7 +23,7 @@ export interface LineProps {
 
 export const Line = ({
   className,
-  color: colorVal,
+  strokeColor,
   start = { x: 0, y: 20 },
   end = { x: 40, y: 0 },
   strokeWidth = 2,
@@ -37,7 +37,7 @@ export const Line = ({
       className={CSS.cls(className, CSS.B("line"), CSS.B("symbol-colored"))}
       width={width}
       height={height}
-      style={{ [CSS.variable("symbol-color")]: color.rgbaString(colorVal) }}
+      style={{ [CSS.variable("symbol-color")]: color.rgbaString(strokeColor) }}
     >
       <line className={CSS.BE("line", "hit")} {...ends} />
       <line strokeWidth={strokeWidth} {...ends} />

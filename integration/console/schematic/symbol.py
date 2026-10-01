@@ -234,6 +234,11 @@ class Symbol(ABC):
             )
         return box
 
+    @property
+    def colored(self) -> Locator:
+        """The element that carries the symbol's `--pluto-symbol-color` style."""
+        return self.locator.locator(".pluto-symbol-colored").first
+
     def delete(self) -> None:
         self.click()
         self.layout.press_delete()
