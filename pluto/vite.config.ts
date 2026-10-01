@@ -68,7 +68,6 @@ export default defineConfig({
     testTimeout: 15_000,
     exclude: ["**/node_modules/**", "**/dist/**"],
     coverage: {
-      reporter: ["text-summary", "html", "clover", "json"],
       include: ["src/**/*.ts", "src/**/*.tsx"],
       exclude: ["src/**/*.spec.ts", "src/**/*.spec.tsx", "src/**/*.bench.ts"],
     },

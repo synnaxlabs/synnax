@@ -142,7 +142,9 @@ jobs:
 
       - name: Test
         if: inputs.test
-        run: pnpm cov:${{ inputs.package }} ${{ inputs.test_args }}
+        run: >-
+          pnpm cov:${{ inputs.package }} -- --coverage.reporter=text-summary
+          --coverage.reporter=clover --coverage.reporter=json ${{ inputs.test_args }}
 
       - name: Upload coverage
         if: inputs.test && inputs.coverage_flag != ''

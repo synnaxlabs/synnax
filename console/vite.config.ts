@@ -201,7 +201,6 @@ export default defineConfig({
       },
     ],
     coverage: {
-      reporter: ["text-summary", "html", "clover", "json"],
       include: ["src/**/*.ts", "src/**/*.tsx"],
       exclude: ["src/**/*.spec.ts", "src/**/*.spec.tsx", "src/**/*.bench.ts"],
     },

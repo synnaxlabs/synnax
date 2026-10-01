@@ -215,7 +215,7 @@ jobs:
       directory: console
       knip: true
       package: console
-      test_args: -- --no-file-parallelism
+      test_args: --no-file-parallelism
     secrets: inherit
 
   copyright:
@@ -451,7 +451,7 @@ jobs:
       directory: pluto
       knip: true
       package: pluto
-      test_args: -- --no-file-parallelism
+      test_args: --no-file-parallelism
     secrets: inherit
 
   protobuf:
