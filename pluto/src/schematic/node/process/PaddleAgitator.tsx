@@ -21,7 +21,7 @@ const DIMENSIONS = { width: 87, height: 87 };
 export const PaddleAgitator = ({
   className,
   orientation = "left",
-  color,
+  strokeColor,
   scale,
   ...rest
 }: Props): ReactElement => (
@@ -37,7 +37,7 @@ export const PaddleAgitator = ({
     </Handle.Boundary>
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={color}
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
     >

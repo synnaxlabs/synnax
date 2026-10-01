@@ -737,6 +737,29 @@ describe("Persist.open", () => {
       expect(announcements).toHaveLength(1);
       errorSpy.mockRestore();
     });
+
+    it("should try a failed save once instead of retrying it", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const { middleware } = await Persist.open<MockState>({
+        initial: ZERO_MOCK_STATE,
+        scopes: SCOPES,
+        getContext,
+        openKV: broken,
+        debounceInterval: TimeSpan.milliseconds(10),
+      });
+      // Dispatches from the middleware go back through it, as they do in redux.
+      const chain: (action: unknown) => unknown = middleware({
+        getState: () => ZERO_MOCK_STATE,
+        dispatch: (action: unknown) => chain(action),
+      } as never)((a) => a);
+      const failedSaves = () =>
+        errorSpy.mock.calls.filter(([msg]) => msg === "failed to persist state");
+      chain({ type: "work/edit" });
+      await vi.waitFor(() => expect(failedSaves()).toHaveLength(1));
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(failedSaves()).toHaveLength(1);
+      errorSpy.mockRestore();
+    });
   });
 
   describe("scope coverage", () => {

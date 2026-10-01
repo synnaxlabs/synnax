@@ -56,10 +56,12 @@ export const textCellConfigZ = z.object({
   /** align is the alignment of the cell text along the row axis. */
   align: flexAlignmentZ.default("center"),
   /**
-   * backgroundColor is the background color of the cell. When absent the theme picks
-   * the fill; a fully transparent value paints nothing.
+   * fillColor is the background color of the cell. When absent the theme picks the
+   * fill; a fully transparent value paints nothing.
    */
-  backgroundColor: color.colorZ.optional(),
+  fillColor: color.colorZ.optional(),
+  /** textColor is the color of the cell text. When absent the theme picks the color. */
+  textColor: color.colorZ.optional(),
 });
 export interface TextCellConfig extends z.infer<typeof textCellConfigZ> {}
 
@@ -80,17 +82,17 @@ export const valueCellConfigZ = z.object({
   /** redline is the threshold band mapping applied to the background. */
   redline: color.scaleZ.prefault({}),
   /**
-   * backgroundColor is the fill behind the value where no redline band paints. When
-   * absent the cell paints no fill.
+   * fillColor is the fill behind the value where no redline band paints. When absent
+   * the cell paints no fill.
    */
-  backgroundColor: color.colorZ.optional(),
+  fillColor: color.colorZ.optional(),
   /** level is the typography level of the displayed value. */
   level: text.levelZ.default("h5"),
   /**
-   * color is the color of the displayed text. When absent the value renders with a
+   * textColor is the color of the displayed text. When absent the value renders with a
    * theme-derived legible color.
    */
-  color: color.colorZ.optional(),
+  textColor: color.colorZ.optional(),
   /** units is the unit suffix displayed after the value. */
   units: z.string().default(""),
   /**

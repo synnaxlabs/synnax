@@ -9,7 +9,6 @@
 
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { type Input } from "@synnaxlabs/lyra/input";
-import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Form } from "@/schematic/node/common/form";
@@ -27,12 +26,8 @@ export const CircleForm = (): ReactElement => (
       <Label.Form path="label" />
     </Base.Section>
     <Base.Section title="Appearance">
-      <Form.ColorField path="color" />
-      <Form.ColorField
-        path="backgroundColor"
-        label="Background color"
-        fallback={color.ZERO}
-      />
+      <Form.ColorField path="strokeColor" label="Stroke" />
+      <Form.FillField />
       <Base.NumericField path="radius" label="Radius" inputProps={RADIUS_INPUT_PROPS} />
       <Base.NumericField
         path="strokeWidth"

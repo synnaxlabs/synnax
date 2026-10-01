@@ -14,7 +14,7 @@ export interface OrientableProps {
 }
 
 export interface SVGBasedProps extends OrientableProps {
-  color?: color.Crude;
+  strokeColor?: color.Crude;
   scale?: number;
 }
 
