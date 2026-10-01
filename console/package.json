@@ -20,7 +20,6 @@
     "devtools": "pnpm dlx react-devtools"
   },
   "dependencies": {
-    "@fontsource/inter": "catalog:",
     "@reduxjs/toolkit": "catalog:",
     "@synnaxlabs/client": "catalog:",
     "@synnaxlabs/drift": "catalog:",
@@ -44,7 +43,6 @@
     "proxy-memoize": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "react-icons": "catalog:",
     "react-redux": "catalog:",
     "zod": "catalog:"
   },

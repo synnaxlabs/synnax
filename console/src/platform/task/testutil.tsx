@@ -11,7 +11,6 @@ import {
   channel,
   device,
   type framer,
-  type ontology,
   panel,
   project,
   query,
@@ -150,7 +149,7 @@ export const createTaskStatus = (
  * empty channel list. Specs merge their own top-level fields and `config` over this.
  * The status mirrors what core writes for a task that has never been deployed.
  */
-export const DEFAULT_TASK_FORM_VALUES: TaskFormValues = {
+const DEFAULT_TASK_FORM_VALUES: TaskFormValues = {
   key: undefined,
   name: "Test Task",
   rack: 0,
@@ -198,17 +197,6 @@ export const createSelectedPanel = async (
     );
   });
   return { client, panelKey: doc.key, tabKeys: tabs.map((t) => t.key) };
-};
-
-/** Reads the resource ID of a tab from the cached panel doc, or null for none. */
-export const selectTabResource = (
-  { client, panelKey, tabKeys }: CreatedPanel,
-  tabKey: panel.TabKey = tabKeys[0],
-): ontology.ID | null => {
-  const cached = client.panels.getCached(panelKey);
-  if (!query.isLive(cached)) return null;
-  const tab = panel.findTab(cached.root, tabKey);
-  return tab?.variant === "resource" ? tab.resource : null;
 };
 
 /**

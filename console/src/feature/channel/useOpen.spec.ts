@@ -27,7 +27,7 @@ describe("useOpen", () => {
       dataType: DataType.TIMESTAMP,
       isIndex: true,
     });
-    const proj = await client.projects.create({ name: uniqueName("proj"), layout: {} });
+    const proj = await client.projects.create({ name: uniqueName("proj") });
     const { wrapper, store } = await createConsoleWrapper({ client });
     store.dispatch(Session.Project.select(proj.key));
     const analytics = createTestSink();

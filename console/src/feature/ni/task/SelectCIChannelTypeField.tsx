@@ -20,8 +20,6 @@ import {
   createCIChannel,
 } from "@/feature/ni/task/types";
 
-export type SelectCIChannelTypeFieldProps = Form.SelectFieldProps<CIChannelType>;
-
 export const SelectCIChannelTypeField = Form.buildSelectField<CIChannelType>({
   fieldKey: "type",
   fieldProps: {

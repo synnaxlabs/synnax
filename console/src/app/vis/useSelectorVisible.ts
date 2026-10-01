@@ -7,11 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/lyra/icon";
-
 import { Selector as AppSelector } from "@/app/selector";
 import { Panel } from "@/platform/panel";
-import { Selector as Base } from "@/platform/selector";
 
 export const useSelectorVisible = (): boolean => {
   // It's safe to call hooks in map since VIS_SELECTABLES is a module-level constant
@@ -21,10 +18,3 @@ export const useSelectorVisible = (): boolean => {
   ).some(Boolean);
   return Panel.useCanOpenTab() && anySelectable;
 };
-
-export const Selector = Base.create({
-  selectables: AppSelector.VIS_SELECTABLES,
-  icon: <Icon.Visualize />,
-  tabTitle: "Create visualization",
-  text: "Create visualization",
-});

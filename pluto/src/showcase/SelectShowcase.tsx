@@ -58,7 +58,7 @@ export const SelectShowcase = () => (
   <Flex.Box y pack empty>
     <Flex.Box x pack grow sharp>
       <SubcategorySection
-        title="Channel Selection"
+        title="Channel selection"
         description="Dropdown selectors for single and multiple channel selection with search capabilities"
       >
         <Flex.Box y gap="huge">
@@ -78,7 +78,7 @@ export const SelectShowcase = () => (
       </SubcategorySection>
 
       <SubcategorySection
-        title="Button Selection"
+        title="Button selection"
         description="Toggle button groups for selecting from predefined options with visual icons"
       >
         <Flex.Box y gap="small">
@@ -90,7 +90,7 @@ export const SelectShowcase = () => (
       </SubcategorySection>
 
       <SubcategorySection
-        title="Icon Selection"
+        title="Icon selection"
         description="Select from a list of icons"
       >
         <SelectIconShowcase />
