@@ -659,8 +659,8 @@ describe("Streamer", () => {
 
     it("should reject a silent read with Unreachable after the deadline", async () => {
       const proxy = await createSeverableProxy();
+      const proxied = createTestClient({ port: proxy.port });
       try {
-        const proxied = createTestClient({ port: proxy.port });
         const ch = await newVirtualChannel(client);
         const streamer = await proxied.openStreamer({
           channels: ch.key,
@@ -682,14 +682,16 @@ describe("Streamer", () => {
         );
         streamer.close();
       } finally {
+        // A blackholed stream never acknowledges a close, so the proxy goes first.
         await proxy.close();
+        await proxied.close();
       }
     }, 30_000);
 
     it("should reconnect and resume streaming after a silent death", async () => {
       const proxy = await createSeverableProxy();
+      const proxied = createTestClient({ port: proxy.port });
       try {
-        const proxied = createTestClient({ port: proxy.port });
         const ch = await newVirtualChannel(client);
         const onDrop = vi.fn();
         const onReopen = vi.fn();
@@ -717,14 +719,16 @@ describe("Streamer", () => {
           hardened.close();
         }
       } finally {
+        // A blackholed stream never acknowledges a close, so the proxy goes first.
         await proxy.close();
+        await proxied.close();
       }
     }, 30_000);
 
     it("should leave a silent read pending when keep-alive is disabled", async () => {
       const proxy = await createSeverableProxy();
+      const proxied = createTestClient({ port: proxy.port });
       try {
-        const proxied = createTestClient({ port: proxy.port });
         const ch = await newVirtualChannel(client);
         const streamer = await proxied.openStreamer({
           channels: ch.key,
@@ -743,7 +747,9 @@ describe("Streamer", () => {
         expect(result).toEqual("pending");
         streamer.close();
       } finally {
+        // A blackholed stream never acknowledges a close, so the proxy goes first.
         await proxy.close();
+        await proxied.close();
       }
     });
   });

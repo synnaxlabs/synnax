@@ -146,6 +146,9 @@ beforeAll(() => {
         });
       },
     });
+  // jsdom has no canvas backend. Its getContext already returns null, but it logs
+  // "Not implemented" on every call.
+  HTMLCanvasElement.prototype.getContext = () => null;
   // jsdom does not implement scrollIntoView; pluto's Tabs.Selector calls it to reveal
   // the selected tab.
   if (typeof Element.prototype.scrollIntoView !== "function")

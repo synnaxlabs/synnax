@@ -574,6 +574,7 @@ describe("cached reads", () => {
         const res = await local.channels.retrieve([ch.name]);
         expect(res.map((c) => c.key)).toEqual([ch.key]);
       } finally {
+        await local.close();
         await proxy.close();
       }
     }, 30000);
@@ -604,6 +605,7 @@ describe("cached reads", () => {
           )
           .toEqual([known.key, unknown.key].sort());
       } finally {
+        await local.close();
         await proxy.close();
       }
     }, 30000);
@@ -622,6 +624,7 @@ describe("cached reads", () => {
         // records the store has never seen, so it cannot be served locally.
         await expect(local.channels.retrieve([`${ch.name}.*`])).rejects.toThrow();
       } finally {
+        await local.close();
         await proxy.close();
       }
     }, 30000);
@@ -650,6 +653,7 @@ describe("cached reads", () => {
           )
           .toEqual([ch.key]);
       } finally {
+        await local.close();
         await proxy.close();
       }
     }, 30000);
@@ -670,6 +674,7 @@ describe("cached reads", () => {
           local.channels.retrieve({ names: [ch.name], virtual: true }),
         ).rejects.toThrow();
       } finally {
+        await local.close();
         await proxy.close();
       }
     }, 30000);
