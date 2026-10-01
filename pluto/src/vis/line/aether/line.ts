@@ -18,7 +18,7 @@ import {
   type direction,
   math,
   type MultiSeries,
-  type scale,
+  scale,
   type Series,
   type SeriesDigest,
   TimeSpan,
@@ -97,6 +97,7 @@ export class GLProgram extends render.GLProgram {
     string,
     TranslationBufferCacheEntry
   >();
+  private segmentBuffer?: WebGLBuffer;
 
   constructor(ctx: render.Context, vertShader: string, fragShader: string) {
     super(ctx, vertShader, fragShader);
@@ -128,14 +129,30 @@ export class GLProgram extends render.GLProgram {
     yDataType: DataType,
   ): void {
     const { gl } = this.renderCtx;
-    this.bindAttrBuffer("x", x.glBuffer, xOffset, xDataType);
-    this.bindAttrBuffer("y", y.glBuffer, yOffset, yDataType);
+    this.bindAttrBuffer("x", x.glBuffer, 1, xOffset, xDataType);
+    this.bindAttrBuffer("y", y.glBuffer, 1, yOffset, yDataType);
     gl.drawArraysInstanced(gl.LINE_STRIP, 0, count, instances);
   }
 
+  /** Draws one segment per pair of vertices, given as interleaved float32 x and y. */
+  segments(vertices: Float32Array, instances: number): void {
+    const { gl } = this.renderCtx;
+    this.segmentBuffer ??= gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.segmentBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
+    this.bindAttrBuffer("x", this.segmentBuffer, 2, 0, DataType.FLOAT32);
+    this.bindAttrBuffer("y", this.segmentBuffer, 2, 1, DataType.FLOAT32);
+    gl.drawArraysInstanced(gl.LINES, 0, vertices.length / 2, instances);
+  }
+
+  /**
+   * Binds buffer to the attribute of dir, reading one value every stride values from
+   * the value at alignment.
+   */
   private bindAttrBuffer(
     dir: direction.Crude,
     buffer: WebGLBuffer,
+    stride: number,
     alignment: number,
     dataType: DataType,
   ): void {
@@ -150,11 +167,18 @@ export class GLProgram extends render.GLProgram {
         aLoc,
         1,
         glDataType, // e.g., gl.UNSIGNED_BYTE
-        density,
+        density * stride,
         density * alignment,
       );
     else
-      gl.vertexAttribPointer(aLoc, 1, glDataType, false, density, density * alignment);
+      gl.vertexAttribPointer(
+        aLoc,
+        1,
+        glDataType,
+        false,
+        density * stride,
+        density * alignment,
+      );
 
     gl.enableVertexAttribArray(aLoc);
   }
@@ -372,6 +396,13 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       prog.draw(op, instances, xData.dataType, yData.dataType);
     });
     clearProg();
+    if (ops.length < 2) return;
+    const bridgeProg = ctx.getProgram(DataType.FLOAT32);
+    const clearBridgeProg = bridgeProg.setAsActive();
+    const bridgeInstances = bridgeProg.bindState(this.state);
+    bridgeProg.bindScale(scale.XY.IDENTITY.transform, regionTransform);
+    bridgeProg.segments(bridgeVertices(ops, dataToDecimalScale), bridgeInstances);
+    clearBridgeProg();
   }
 }
 
@@ -462,6 +493,22 @@ export const buildDrawOperations = (
     }),
   );
   return ops;
+};
+
+/** @returns interleaved decimal x and y of the segments joining each op to the next. */
+export const bridgeVertices = (ops: DrawOperation[], s: scale.XY): Float32Array => {
+  const vertices = new Float32Array((ops.length - 1) * 4);
+  for (let i = 1; i < ops.length; i++) {
+    const a = ops[i - 1];
+    const b = ops[i];
+    const last = Math.max(a.count - 1, 0);
+    const j = (i - 1) * 4;
+    vertices[j] = s.x.pos(Number(a.x.at(a.xOffset + last, true)));
+    vertices[j + 1] = s.y.pos(Number(a.y.at(a.yOffset + last, true)));
+    vertices[j + 2] = s.x.pos(Number(b.x.at(b.xOffset, true)));
+    vertices[j + 3] = s.y.pos(Number(b.y.at(b.yOffset, true)));
+  }
+  return vertices;
 };
 
 const digests = (ops: DrawOperation[]): DrawOperationDigest[] =>

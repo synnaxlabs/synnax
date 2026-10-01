@@ -11,14 +11,18 @@ package iterator
 
 import (
 	"context"
+	"maps"
+	"slices"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // calculationTransform runs calculations on each data response as it arrives, so a
@@ -86,11 +90,45 @@ func (t *calculationTransform) calculate(
 	ctx context.Context,
 	fr framer.Frame,
 ) framer.Frame {
-	var err error
-	for _, c := range t.calculators {
-		if fr, _, err = c.Next(ctx, fr, fr); err != nil {
-			t.accumulatedError = err
+	var (
+		err     error
+		rounds  = splitByStart(fr)
+		outputs = make([]framer.Frame, 0, len(rounds))
+	)
+	for _, round := range rounds {
+		for _, c := range t.calculators {
+			if round, _, err = c.Next(ctx, round, round); err != nil {
+				t.accumulatedError = err
+			}
+		}
+		outputs = append(outputs, round.KeepKeys(t.keepKeys))
+	}
+	return frame.Merge(outputs)
+}
+
+// splitByStart groups a frame's series by start time, in time order, so a channel
+// with a missing write does not shift against the others.
+func splitByStart(fr framer.Frame) []framer.Frame {
+	counts := make(map[telem.TimeStamp]int)
+	for i := range fr.RawKeys() {
+		if !fr.ShouldExcludeRaw(i) {
+			counts[fr.RawSeriesAt(i).TimeRange.Start]++
 		}
 	}
-	return fr.KeepKeys(t.keepKeys)
+	starts := slices.Sorted(maps.Keys(counts))
+	rounds := make([]framer.Frame, len(starts))
+	positions := make(map[telem.TimeStamp]int, len(starts))
+	for i, start := range starts {
+		rounds[i] = frame.Alloc(counts[start])
+		positions[start] = i
+	}
+	for i, key := range fr.RawKeys() {
+		if fr.ShouldExcludeRaw(i) {
+			continue
+		}
+		s := fr.RawSeriesAt(i)
+		pos := positions[s.TimeRange.Start]
+		rounds[pos] = rounds[pos].Append(key, s)
+	}
+	return rounds
 }

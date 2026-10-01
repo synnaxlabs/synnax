@@ -9,16 +9,33 @@
 
 import {
   bounds,
+  box,
+  color,
   type CrudeTimeRange,
   DataType,
   MultiSeries,
+  scale,
   Series,
   TimeRange,
   TimeSpan,
 } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
-import { buildDrawOperations, type DrawOperation } from "@/vis/line/aether/line";
+import { aether } from "@/aether/aether";
+import { type telem } from "@/telem/aether";
+import { telemTest } from "@/telem/aether/test";
+import { renderAether } from "@/testutil/renderAether";
+import {
+  bridgeVertices,
+  buildDrawOperations,
+  Context,
+  type DrawOperation,
+  Line,
+  type LineProps,
+} from "@/vis/line/aether/line";
+import { render } from "@/vis/render";
+import { canvasTest } from "@/vis/render/test";
 
 describe("line", () => {
   describe("buildDrawOperations", () => {
@@ -374,6 +391,245 @@ describe("line", () => {
           expect(drawOperation.yOffset).toBe(expected[i].yOffset);
           expect(drawOperation.count).toBe(expected[i].count);
         });
+      });
+    });
+  });
+
+  describe("bridgeVertices", () => {
+    const op = (x: Series, y: Series, count: number, offset = 0): DrawOperation => ({
+      x,
+      y,
+      xOffset: offset,
+      yOffset: offset,
+      count,
+    });
+    const f32 = (...data: number[]): Series => new Series(new Float32Array(data));
+    const shifted = (sampleOffset: bigint, ...data: number[]): Series =>
+      new Series({ data: new Float32Array(data), sampleOffset });
+    const vertices = (ops: DrawOperation[]): number[] =>
+      Array.from(bridgeVertices(ops, scale.XY.IDENTITY));
+
+    it("should return no vertices for a single op", () => {
+      expect(vertices([op(f32(0, 1), f32(2, 3), 2)])).toEqual([]);
+    });
+
+    it("should join the last vertex of an op to the first vertex of the next", () => {
+      const a = op(f32(0, 1), f32(2, 3), 2);
+      const b = op(f32(5, 6), f32(7, 4), 2);
+      expect(vertices([a, b])).toEqual([1, 3, 5, 7]);
+    });
+
+    it("should apply the x sample offset of each op", () => {
+      const a = op(shifted(100n, 0, 1, 2), f32(7, 8, 9), 3);
+      const b = op(shifted(110n, 5, 6), f32(3, 4), 2);
+      expect(vertices([a, b])).toEqual([102, 9, 115, 3]);
+    });
+
+    it("should apply the y sample offset of each op", () => {
+      const a = op(f32(0, 1), shifted(50n, 0, 4), 2);
+      const b = op(f32(2, 3), shifted(60n, 0, 1), 2);
+      expect(vertices([a, b])).toEqual([1, 54, 2, 60]);
+    });
+
+    it("should bridge through an op with one sample", () => {
+      const a = op(f32(0, 1), f32(2, 3), 2);
+      const lone = op(f32(5), f32(7), 1);
+      const c = op(f32(8, 9), f32(4, 6), 2);
+      expect(vertices([a, lone, c])).toEqual([1, 3, 5, 7, 5, 7, 8, 4]);
+    });
+
+    it("should chain bridges through many consecutive ops with one sample each", () => {
+      const ys = [2, 9, 4, 7, 1, 8];
+      const ops = ys.map((y, x) => op(f32(x), f32(y), 1));
+      const expected = ys.slice(1).flatMap((y, i) => [i, ys[i], i + 1, y]);
+      expect(vertices(ops)).toEqual(expected);
+    });
+
+    it("should respect the op offsets and a uint8 y", () => {
+      const a = op(f32(0, 1, 2, 3), new Series(new Uint8Array([0, 1, 1, 0])), 2, 1);
+      const b = op(f32(4, 5, 6), new Series(new Uint8Array([1, 0, 0])), 2, 1);
+      expect(vertices([a, b])).toEqual([2, 1, 5, 0]);
+    });
+
+    it("should map each vertex through the scale", () => {
+      const s = new scale.XY(
+        scale.Scale.scale<number>(100, 200).scale(1),
+        scale.Scale.scale<number>(0, 10).scale(1),
+      );
+      const a = op(f32(100, 150), f32(0, 5), 2);
+      const b = op(f32(175), f32(10), 1);
+      const v = bridgeVertices([a, b], s);
+      [0.5, 0.5, 0.75, 1].forEach((e, i) => expect(v[i]).toBeCloseTo(e));
+    });
+
+    it("should keep a vertex in view precise when the next op is a day away", () => {
+      const start = 1_760_000_000_000_000_000n;
+      const day = 86_400_000_000_000n;
+      const a = op(shifted(start, 0, 1e6, 2e6), f32(1, 2, 3), 3);
+      const b = op(shifted(start + day, 0), f32(7), 1);
+      const view = 100e6;
+      const lower = Number(start) + 2e6 - view / 2;
+      const s = new scale.XY(scale.Scale.scale<number>(lower, lower + view).scale(1));
+      const [x] = bridgeVertices([a, b], s);
+      expect(x).toBeCloseTo(0.5, 5);
+    });
+  });
+
+  describe("Line", () => {
+    const GL_ENUMS = {
+      ARRAY_BUFFER: 1,
+      FLOAT: 2,
+      UNSIGNED_BYTE: 3,
+      STATIC_DRAW: 4,
+      DYNAMIC_DRAW: 5,
+      LINE_STRIP: 6,
+      LINES: 7,
+      VERTEX_SHADER: 8,
+      FRAGMENT_SHADER: 9,
+      COMPILE_STATUS: 10,
+    };
+
+    interface GLCall {
+      op: string;
+      args: unknown[];
+    }
+
+    /** Records every GL call. Calls that return a handle hand back a stub instead. */
+    const createGL = (): { gl: WebGL2RenderingContext; calls: GLCall[] } => {
+      const calls: GLCall[] = [];
+      const target: Record<string, unknown> = {
+        ...GL_ENUMS,
+        createProgram: () => ({}),
+        createShader: () => ({}),
+        createBuffer: () => ({}),
+        getShaderParameter: () => true,
+        getAttribLocation: () => 0,
+        getUniformLocation: () => ({}),
+      };
+      const handler: ProxyHandler<Record<string, unknown>> = {
+        get(t, prop) {
+          if (typeof prop !== "string") return undefined;
+          t[prop] ??= (...args: unknown[]): void => {
+            calls.push({ op: prop, args });
+          };
+          return t[prop];
+        },
+      };
+      return {
+        gl: new Proxy(target, handler) as unknown as WebGL2RenderingContext,
+        calls,
+      };
+    };
+
+    /** Supplies the line GL context and the render requestor, as the canvas and the
+     * plot do in production. */
+    class Host extends aether.Composite<typeof Host.stateZ> {
+      static readonly TYPE = "line-test-host";
+      static readonly stateZ = z.object({});
+      schema = Host.stateZ;
+
+      afterUpdate(ctx: aether.Context): void {
+        Context.create(ctx, render.Context.use(ctx));
+        render.control(ctx, () => {});
+      }
+    }
+
+    const series = (
+      data: number[],
+      alignment: bigint,
+      timeRange: CrudeTimeRange,
+    ): Series =>
+      new Series({
+        data: new Float32Array(data),
+        dataType: DataType.FLOAT32,
+        alignment,
+        timeRange: new TimeRange(timeRange.start, timeRange.end),
+      });
+
+    const sourceSpec = (data: Series[]): telem.SeriesSourceSpec => ({
+      type: telemTest.TestSource.TYPE,
+      props: {
+        testId: telemTest.source([
+          bounds.max(data.map((s) => s.bounds)),
+          new MultiSeries(data),
+        ]).id,
+      },
+      variant: "source",
+      valueType: "series",
+    });
+
+    const PROPS: LineProps = {
+      region: box.construct(0, 0, 800, 600),
+      dataToDecimalScale: scale.XY.IDENTITY,
+    };
+
+    const mount = (x: Series[], y: Series[]) => {
+      const { gl, calls } = createGL();
+      const recorder = canvasTest.record();
+      (recorder as { gl: unknown }).gl = gl;
+      recorder.resize(PROPS.region, 1);
+      const h = renderAether(Host, {
+        state: {},
+        render: recorder,
+        registry: { [Line.TYPE]: Line },
+        children: {
+          line: {
+            type: Line.TYPE,
+            state: {
+              x: sourceSpec(x),
+              y: sourceSpec(y),
+              color: color.construct("#ff0000"),
+            },
+          },
+        },
+      });
+      const draws = (): [number, number][] =>
+        calls
+          .filter((c) => c.op === "drawArraysInstanced")
+          .map((c) => [c.args[0] as number, c.args[2] as number]);
+      return { line: h.child<Line>("line"), calls, draws };
+    };
+
+    const X1 = series([0, 1, 2], 0n, { start: 0, end: 100 });
+    const Y1 = series([10, 20, 30], 0n, { start: 0, end: 100 });
+    const X2 = series([5, 6], 10n, { start: 200, end: 300 });
+    const Y2 = series([40, 50], 10n, { start: 200, end: 300 });
+
+    describe("render", () => {
+      it("should draw one strip per domain and no bridge for a single domain", () => {
+        const m = mount([X1], [Y1]);
+        m.line.render(PROPS);
+        expect(m.draws()).toEqual([[GL_ENUMS.LINE_STRIP, 3]]);
+      });
+
+      it("should draw a bridge between the strips of two domains", () => {
+        const m = mount([X1, X2], [Y1, Y2]);
+        m.line.render(PROPS);
+        expect(m.draws()).toEqual([
+          [GL_ENUMS.LINE_STRIP, 3],
+          [GL_ENUMS.LINE_STRIP, 2],
+          [GL_ENUMS.LINES, 2],
+        ]);
+        const upload = m.calls.filter((c) => c.op === "bufferData").at(-1);
+        expect(Array.from(upload?.args[1] as Float32Array)).toEqual([2, 30, 5, 40]);
+      });
+    });
+
+    describe("findByXValue", () => {
+      const X = series(
+        Array.from({ length: 30 }, (_, i) => i),
+        0n,
+        { start: 0, end: 100 },
+      );
+      const Y = series(
+        Array.from({ length: 30 }, (_, i) => i * 10),
+        0n,
+        { start: 0, end: 100 },
+      );
+
+      it("should return the sample under the target", () => {
+        const m = mount([X], [Y]);
+        expect(m.line.findByXValue(PROPS, 3).value).toEqual({ x: 3, y: 30 });
       });
     });
   });

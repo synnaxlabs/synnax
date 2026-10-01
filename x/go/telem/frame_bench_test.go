@@ -10,6 +10,7 @@
 package telem_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/synnaxlabs/x/set"
@@ -102,6 +103,32 @@ func BenchmarkEncodeMsgpack(b *testing.B) {
 			for b.Loop() {
 				if _, err := msgpack.Marshal(masked); err != nil {
 					b.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
+// BenchmarkExtend extends an empty frame by a number of two-entry frames, one call per
+// frame, the shape of a loop that accumulates frames as they arrive.
+func BenchmarkExtend(b *testing.B) {
+	for _, count := range []int{10, 100, 1_000, 10_000} {
+		parts := make([]telem.Frame[int32], count)
+		for i := range parts {
+			parts[i] = telem.MultiFrame(
+				[]int32{int32(2 * i), int32(2*i + 1)},
+				[]telem.Series{
+					telem.NewSeriesV[float32](1),
+					telem.NewSeriesV[float32](2),
+				},
+			)
+		}
+		b.Run(fmt.Sprintf("frames=%d", count), func(b *testing.B) {
+			b.ReportAllocs()
+			for b.Loop() {
+				var fr telem.Frame[int32]
+				for _, part := range parts {
+					fr = fr.Extend(part)
 				}
 			}
 		})
