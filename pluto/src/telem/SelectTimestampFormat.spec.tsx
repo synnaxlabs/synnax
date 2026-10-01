@@ -43,7 +43,7 @@ describe("SelectTimestampFormat", () => {
     expect(c.getByText("Time")).toBeTruthy();
     expect(c.getByText("Precise time")).toBeTruthy();
     expect(c.getByText("Date")).toBeTruthy();
-    expect(c.getByText("Date + Time")).toBeTruthy();
+    expect(c.getByText("Date and time")).toBeTruthy();
     expect(c.getByText("Precise date")).toBeTruthy();
   });
 
