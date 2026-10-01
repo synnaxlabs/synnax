@@ -1554,58 +1554,6 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						telem.MatchSeriesDataV[float32](22, 33, 44),
 					)
 				})
-
-				PIt("Should align inputs on different indexes by time", func(
-					ctx SpecContext,
-				) {
-					c := newChain(ctx, "mixed")
-					index2 := &channel.Channel{
-						Name:     "uneven_time2_mixed",
-						DataType: telem.TimestampT,
-						IsIndex:  true,
-					}
-					Expect(channelWriter.Create(ctx, index2)).To(Succeed())
-					b2 := &channel.Channel{
-						Name:       "uneven_b2_mixed",
-						DataType:   telem.Float32T,
-						LocalIndex: index2.LocalKey,
-					}
-					Expect(channelWriter.Create(ctx, b2)).To(Succeed())
-					mixed := &channel.Channel{
-						Name:       "uneven_mixed",
-						DataType:   telem.Float32T,
-						Expression: "return " + c.a.Name + " + " + b2.Name,
-					}
-					Expect(channelWriter.Create(ctx, mixed)).To(Succeed())
-					write(
-						ctx,
-						c.index,
-						[]telem.TimeStamp{1, 2, 3, 4},
-						[]*channel.Channel{c.a},
-						[]float32{10, 20, 30, 40},
-					)
-					write(
-						ctx,
-						index2,
-						[]telem.TimeStamp{1},
-						[]*channel.Channel{b2},
-						[]float32{1},
-					)
-					write(
-						ctx,
-						index2,
-						[]telem.TimeStamp{3},
-						[]*channel.Channel{b2},
-						[]float32{3},
-					)
-					out := read(ctx, iterator.AutoSpan, mixed.Key(), mixed.Index())
-					Expect(merged(out[mixed.Key()])).To(
-						telem.MatchSeriesDataV[float32](11, 21, 33, 43),
-					)
-					Expect(merged(out[mixed.Index()])).To(telem.MatchSeriesData(
-						telem.NewSeriesSecondsTSV(1, 2, 3, 4),
-					))
-				})
 			})
 
 			Describe("Index Only Reads", func() {
