@@ -34,7 +34,7 @@ export interface RegionListItemProps extends List.ItemRenderProps<string> {
   selectedState: string;
 }
 
-export const RegionListItem = ({ selectedState, ...props }: RegionListItemProps) => {
+const RegionListItem = ({ selectedState, ...props }: RegionListItemProps) => {
   const { itemKey } = props;
   const path = `data.states.${selectedState}.regions.${itemKey}`;
   const region = Form.useFieldValue<schematic.symbol.Region>(path, { optional: true });

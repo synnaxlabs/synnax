@@ -135,7 +135,7 @@ export const selectTestProject = async (
   store: TestStore,
   client: Client,
 ): Promise<string> => {
-  const proj = await client.projects.create({ name: id.create(), layout: {} });
+  const proj = await client.projects.create({ name: id.create() });
   store.dispatch(Session.Project.select(proj.key));
   return proj.key;
 };

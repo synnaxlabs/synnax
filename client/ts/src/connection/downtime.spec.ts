@@ -59,7 +59,7 @@ describe("downtime", () => {
     try {
       await client.connect();
       const firstKey = client.connection.status.details.clusterKey;
-      const project = await client.projects.create({ name: "survivor", layout: {} });
+      const project = await client.projects.create({ name: "survivor" });
       await client.projects.retrieve({ keys: [project.key] });
       await proxy.sever();
       // The default 30s heartbeat cannot notice the outage this fast: reaching
@@ -73,14 +73,14 @@ describe("downtime", () => {
       const offline = await client.projects.retrieve({ keys: [project.key] });
       expect(offline).toHaveLength(1);
       // A write must reach the cluster, so it short-circuits instead of hanging.
-      await expect(
-        client.projects.create({ name: "unreachable", layout: {} }),
-      ).rejects.toThrow(DisconnectedError);
+      await expect(client.projects.create({ name: "unreachable" })).rejects.toThrow(
+        DisconnectedError,
+      );
       await proxy.restore();
       const status = await waitForStreamLive(client.connection);
       expect(status.details.clusterKey).toBe(firstKey);
       // A fresh write proves the unary path recovered, not just the check loop.
-      const recovered = await client.projects.create({ name: "recovered", layout: {} });
+      const recovered = await client.projects.create({ name: "recovered" });
       expect(recovered.name).toBe("recovered");
       expect(internal.map(chainOf)).toEqual([]);
     } finally {
@@ -95,9 +95,9 @@ describe("downtime", () => {
       await client.connect();
       await proxy.sever();
       // Still degraded, so the request reaches the wire and dies there.
-      await expect(
-        client.projects.create({ name: "on-the-wire", layout: {} }),
-      ).rejects.toSatisfy(isConnectionError);
+      await expect(client.projects.create({ name: "on-the-wire" })).rejects.toSatisfy(
+        isConnectionError,
+      );
       await waitForStatus(
         client.connection,
         ({ variant, details }) =>
@@ -105,7 +105,7 @@ describe("downtime", () => {
       );
       // Escalated, so the connection short circuits before the wire.
       await expect(
-        client.projects.create({ name: "short-circuited", layout: {} }),
+        client.projects.create({ name: "short-circuited" }),
       ).rejects.toSatisfy(isConnectionError);
       expect(internal.map(chainOf)).toEqual([]);
     } finally {
@@ -126,7 +126,7 @@ describe("downtime", () => {
       await proxy.sever();
       // A create cannot be served from cache, so the breaker must retry it
       // across the outage and land it once the link returns.
-      const inFlight = client.projects.create({ name: "blip", layout: {} });
+      const inFlight = client.projects.create({ name: "blip" });
       await sleep.sleep(TimeSpan.milliseconds(50));
       await proxy.restore();
       const created = await inFlight;

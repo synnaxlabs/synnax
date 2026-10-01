@@ -113,13 +113,12 @@ type Transport struct {
 	GroupRename   freighter.UnaryServer[group.RenameRequest, struct{}]
 	GroupRetrieve freighter.UnaryServer[group.RetrieveRequest, group.RetrieveResponse]
 	// PROJECT
-	ProjectCreate    freighter.UnaryServer[project.CreateRequest, project.CreateResponse]
-	ProjectRetrieve  freighter.UnaryServer[project.RetrieveRequest, project.RetrieveResponse]
-	ProjectDelete    freighter.UnaryServer[project.DeleteRequest, struct{}]
-	ProjectRename    freighter.UnaryServer[project.RenameRequest, struct{}]
-	ProjectSetLayout freighter.UnaryServer[project.SetLayoutRequest, struct{}]
-	ProjectExport    freighter.UnaryServer[project.ExportRequest, project.ExportResponse]
-	ProjectImport    freighter.UnaryServer[project.ImportRequest, project.ImportResponse]
+	ProjectCreate   freighter.UnaryServer[project.CreateRequest, project.CreateResponse]
+	ProjectRetrieve freighter.UnaryServer[project.RetrieveRequest, project.RetrieveResponse]
+	ProjectDelete   freighter.UnaryServer[project.DeleteRequest, struct{}]
+	ProjectRename   freighter.UnaryServer[project.RenameRequest, struct{}]
+	ProjectExport   freighter.UnaryServer[project.ExportRequest, project.ExportResponse]
+	ProjectImport   freighter.UnaryServer[project.ImportRequest, project.ImportResponse]
 	// SCHEMATIC
 	SchematicCreate   freighter.UnaryServer[schematic.CreateRequest, schematic.CreateResponse]
 	SchematicRetrieve freighter.UnaryServer[schematic.RetrieveRequest, schematic.RetrieveResponse]
@@ -330,7 +329,6 @@ func (l *Layer) BindTo(t Transport) {
 		t.ProjectCreate,
 		t.ProjectRetrieve,
 		t.ProjectRename,
-		t.ProjectSetLayout,
 		t.ProjectExport,
 		t.ProjectImport,
 
@@ -514,9 +512,6 @@ func (l *Layer) BindTo(t Transport) {
 	t.ProjectRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Project.Rename))
 	t.ProjectExport.BindHandler(l.Project.Export)
 	t.ProjectImport.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Project.Import))
-	t.ProjectSetLayout.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Project.SetLayout),
-	)
 
 	// SCHEMATIC
 	t.SchematicCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Schematic.Create))

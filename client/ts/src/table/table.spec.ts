@@ -32,7 +32,7 @@ const mkValue = (units?: string): table.CellConfig =>
 describe("Table", () => {
   describe("create", () => {
     test("create one", async () => {
-      const proj = await client.projects.create({ name: "Table", layout: { one: 1 } });
+      const proj = await client.projects.create({ name: "Table" });
       const t = await client.tables.create(proj.key, {
         name: "Table",
       });
@@ -45,7 +45,7 @@ describe("Table", () => {
 
   describe("rename", () => {
     test("rename one", async () => {
-      const proj = await client.projects.create({ name: "Table", layout: { one: 1 } });
+      const proj = await client.projects.create({ name: "Table" });
       const t = await client.tables.create(proj.key, {
         name: "Table",
       });
@@ -57,7 +57,7 @@ describe("Table", () => {
 
   describe("delete", () => {
     test("delete one", async () => {
-      const proj = await client.projects.create({ name: "Table", layout: { one: 1 } });
+      const proj = await client.projects.create({ name: "Table" });
       const t = await client.tables.create(proj.key, {
         name: "Table",
       });
@@ -68,7 +68,7 @@ describe("Table", () => {
 
   describe("cell config round-trip", () => {
     test("round-trips a fully-populated value cell config", async () => {
-      const proj = await client.projects.create({ name: "ConfigTest", layout: {} });
+      const proj = await client.projects.create({ name: "ConfigTest" });
       const t = await client.tables.create(proj.key, {
         name: "ConfigTest",
         cells: {
@@ -108,7 +108,7 @@ describe("Table", () => {
     });
 
     test("rejects a cell config that matches no variant", async () => {
-      const proj = await client.projects.create({ name: "BadConfig", layout: {} });
+      const proj = await client.projects.create({ name: "BadConfig" });
       await expect(
         client.tables.create(proj.key, {
           name: "BadConfig",
@@ -122,7 +122,7 @@ describe("Table", () => {
 
   describe("dispatch", () => {
     const createTable = async () => {
-      const proj = await client.projects.create({ name: "Dispatch", layout: {} });
+      const proj = await client.projects.create({ name: "Dispatch" });
       return await client.tables.create(proj.key, {
         name: "Dispatch",
         rows: [{ size: 30, cells: ["a", "b"] }],

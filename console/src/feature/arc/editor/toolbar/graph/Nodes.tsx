@@ -62,17 +62,14 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
   );
 };
 
-export const staticListItem = Component.renderProp(StaticListItem);
+const staticListItem = Component.renderProp(StaticListItem);
 
 export interface StateListProps {
   groupKey: string;
   onSelect: (key: string) => void;
 }
 
-export const StaticStageList = ({
-  groupKey,
-  onSelect,
-}: StateListProps): ReactElement => {
+const StaticStageList = ({ groupKey, onSelect }: StateListProps): ReactElement => {
   const stages = useMemo<Arc.Graph.Node.Spec[]>(() => {
     const g = Arc.Graph.Node.GROUPS.find((g) => g.key === groupKey);
     return Object.values(Arc.Graph.Node.REGISTRY).filter((s) =>

@@ -43,7 +43,6 @@ describe("Project.SYNCHRONIZERS", () => {
   it("clears the selection when the selected project is deleted while connected", async () => {
     const proj = await client.projects.create({
       name: uniqueName("project"),
-      layout: {},
     });
     const { store } = await renderHookWithConsole(
       () => Session.Synchronizer.use(Session.Project.SYNCHRONIZERS),
