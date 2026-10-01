@@ -44,6 +44,7 @@ export class HardenedStreamer implements Streamer {
   private readonly config: NormalizedStreamerConfig;
   private readonly onReopen?: () => void;
   private readonly onDrop?: (error: Error) => void;
+  private readonly onRetry: (error: Error) => void;
   private readonly closeNotifier = new sync.Notifier();
   // A stream that outlives this span proves the incident over; a shorter
   // life keeps the reconnect backoff escalating.
@@ -58,6 +59,7 @@ export class HardenedStreamer implements Streamer {
     breakerConfig: breaker.Config = {},
     onReopen?: () => void,
     onDrop?: (error: Error) => void,
+    onRetry: (error: Error) => void = console.error,
   ) {
     this.opener = opener;
     this.config = normalizeConfig(config);
@@ -85,6 +87,7 @@ export class HardenedStreamer implements Streamer {
     this.stableAfter = new TimeSpan(maxInterval);
     this.onReopen = onReopen;
     this.onDrop = onDrop;
+    this.onRetry = onRetry;
   }
 
   /**
@@ -94,6 +97,7 @@ export class HardenedStreamer implements Streamer {
    * @param onReopen - Called after every successful reconnect (not the initial open).
    * Frames may have been dropped between the failure and the reopen.
    * @param onDrop - Called when the stream fails and reconnection begins.
+   * @param onRetry - Receives each failed reconnect attempt. Defaults to console.error.
    * @returns A promise that resolves to a new hardened streamer
    */
   static async open(
@@ -102,8 +106,16 @@ export class HardenedStreamer implements Streamer {
     breakerConfig?: breaker.Config,
     onReopen?: () => void,
     onDrop?: (error: Error) => void,
+    onRetry?: (error: Error) => void,
   ): Promise<HardenedStreamer> {
-    const h = new HardenedStreamer(opener, config, breakerConfig, onReopen, onDrop);
+    const h = new HardenedStreamer(
+      opener,
+      config,
+      breakerConfig,
+      onReopen,
+      onDrop,
+      onRetry,
+    );
     await h.start();
     return h;
   }
@@ -157,7 +169,7 @@ export class HardenedStreamer implements Streamer {
         // close() interrupts the backoff above, so re-check: a retired
         // streamer's failed reconnect is expected, not a fault to report.
         if (this.closed) break;
-        console.error("failed to open streamer", e);
+        this.onRetry(new Error("failed to open streamer", { cause: e }));
       }
     throw new EOF();
   }

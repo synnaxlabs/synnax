@@ -173,6 +173,8 @@ export interface Config<S extends object> {
   migrate?: () => Promise<Partial<S>>;
   openKV?: KVOpener;
   debounceInterval?: CrudeTimeSpan;
+  /** Receives each storage failure the session recovers from. Defaults to console.error. */
+  onError?: (error: Error) => void;
 }
 
 export const revertState = createAction("persist/revertState");
@@ -254,17 +256,20 @@ class Partition<S extends object> {
   /** The slices last known to be in the ring, so an idle partition is left alone. */
   private committed: Partial<S> | null = null;
   private staged: Partial<S> | null = null;
+  private readonly onError: (error: Error) => void;
 
   constructor(
     db: SugaredKV,
     base: string,
     schemas: SliceSchemas<S>,
-    transform: SliceTransform<S> | null = null,
+    transform: SliceTransform<S> | null,
+    onError: (error: Error) => void,
   ) {
     this.db = db;
     this.base = base;
     this.schemas = schemas;
     this.transform = transform;
+    this.onError = onError;
   }
 
   /**
@@ -287,9 +292,10 @@ class Partition<S extends object> {
       committed[key] = raw;
       const parsed = this.schemas[key]?.safeParse(raw);
       if (parsed?.success !== true)
-        return console.error(
-          `discarding stored slice ${key}: it does not match its schema`,
-          parsed?.error,
+        return this.onError(
+          new Error(`discarding stored slice ${key}: it does not match its schema`, {
+            cause: parsed?.error,
+          }),
         );
       out[key] = parsed.data;
     });
@@ -389,6 +395,7 @@ class Engine<S extends object> {
   initialState: S;
   /** Whether composing state on open failed outright. */
   unreadable = false;
+  readonly onError: (error: Error) => void;
 
   private readonly db: SugaredKV;
   private readonly partitions = new Map<string, Partition<S>>();
@@ -422,6 +429,7 @@ class Engine<S extends object> {
     exclude = [],
     migrate,
     openKV = openSugaredKV,
+    onError = console.error,
   }: Config<S>) {
     this.initial = deep.copy(initial);
     this.scopes = scopes;
@@ -441,6 +449,7 @@ class Engine<S extends object> {
     }
     this.exclude = exclude;
     this.migrate = migrate;
+    this.onError = onError;
     this.db = openKV(STORE_NAME);
     this.initialState = deep.copy(initial);
     this.context = getContext(this.initialState);
@@ -566,7 +575,7 @@ class Engine<S extends object> {
       // A platform that refuses storage outright must not stop the app booting. The
       // session runs from its initial state; the middleware tells the user it will
       // not be saved.
-      console.error("failed to read the session store", err);
+      this.onError(new Error("failed to read the session store", { cause: err }));
       this.unreadable = true;
     }
     this.initialState = state;
@@ -581,7 +590,9 @@ class Engine<S extends object> {
       if ((await this.db.length()) > 0) return {};
       return await this.migrate();
     } catch (err) {
-      console.error("failed to carry the previous release's state over", err);
+      this.onError(
+        new Error("failed to carry the previous release's state over", { cause: err }),
+      );
       return {};
     }
   }
@@ -669,7 +680,7 @@ class Engine<S extends object> {
   ): Partition<S> {
     let partition = this.partitions.get(base);
     if (partition == null) {
-      partition = new Partition(this.db, base, schemas, transform);
+      partition = new Partition(this.db, base, schemas, transform, this.onError);
       this.partitions.set(base, partition);
     }
     return partition;
@@ -725,7 +736,7 @@ const createMiddleware = <S extends object>(
         try {
           await engine.persist(state, context);
         } catch (e) {
-          console.error("failed to persist state", e);
+          engine.onError(new Error("failed to persist state", { cause: e }));
           store.dispatch(storeUnavailable());
         }
       });
@@ -745,21 +756,23 @@ const createMiddleware = <S extends object>(
           .revert(current, state)
           .then(() => window.location.reload())
           .catch((err: unknown) => {
-            console.error("failed to revert state", err);
+            engine.onError(new Error("failed to revert state", { cause: err }));
           });
       else if (type === clearState.type)
         engine
           .clear()
           .then(() => window.location.reload())
           .catch((err: unknown) => {
-            console.error("failed to clear state", err);
+            engine.onError(new Error("failed to clear state", { cause: err }));
           });
       else if (type === purge.type) {
         const { payload } = action as PayloadAction<string>;
         queue = queue
           .then(async () => await engine.purge(payload))
           .catch((err: unknown) => {
-            console.error("failed to purge stored Core state", err);
+            engine.onError(
+              new Error("failed to purge stored Core state", { cause: err }),
+            );
           });
       } else if (type === hydrate.type) {
         current = getContext(state);
@@ -782,7 +795,9 @@ const createMiddleware = <S extends object>(
             })
             .catch((err: unknown) => {
               if (gen === swapGen) store.dispatch(endSwap());
-              console.error("failed to swap session context", err);
+              engine.onError(
+                new Error("failed to swap session context", { cause: err }),
+              );
             });
         } else debouncedPersist();
       }

@@ -25,6 +25,7 @@ import {
   createAsyncErrorHandler,
   createErrorHandler,
   type ErrorHandler,
+  type Log,
 } from "@/status/errorHandler";
 import { create, type Status } from "@/status/status";
 
@@ -39,10 +40,17 @@ const [AdderContext, useAdder] = context.create<Adder>({
 });
 export { useAdder };
 
+const [LogContext, useLog] = context.create<Log>({
+  defaultValue: console.error,
+  displayName: "Status.LogContext",
+});
+
 /** Props for {@link Aggregator}. */
 export interface AggregatorProps extends PropsWithChildren {
   /** Statuses kept before the oldest are dropped. Defaults to 500. */
   maxHistory?: number;
+  /** Prints each error reported through an error handler. Defaults to console.error. */
+  log?: Log;
 }
 
 const TRUNCATE_FACTOR = 0.9;
@@ -51,7 +59,11 @@ const TRUNCATE_FACTOR = 0.9;
  * Collects statuses from its subtree and hands them to {@link useNotifications} and
  * the status list. Mount one near the root of the app.
  */
-export const Aggregator = ({ children, maxHistory = 500 }: AggregatorProps) => {
+export const Aggregator = ({
+  children,
+  maxHistory = 500,
+  log = console.error,
+}: AggregatorProps) => {
   const [statuses, setStatuses] = useState<Status[]>([]);
   if (statuses.length > maxHistory)
     setStatuses(statuses.slice(0, Math.floor(maxHistory * TRUNCATE_FACTOR)));
@@ -61,7 +73,9 @@ export const Aggregator = ({ children, maxHistory = 500 }: AggregatorProps) => {
   }, []);
   return (
     <Context value={statuses}>
-      <AdderContext value={handleAdd}>{children}</AdderContext>
+      <AdderContext value={handleAdd}>
+        <LogContext value={log}>{children}</LogContext>
+      </AdderContext>
     </Context>
   );
 };
@@ -74,7 +88,8 @@ export const Aggregator = ({ children, maxHistory = 500 }: AggregatorProps) => {
  */
 export const useErrorHandler = (): ErrorHandler => {
   const add = useAdder();
-  return useMemo(() => createErrorHandler(add), [add]);
+  const log = useLog();
+  return useMemo(() => createErrorHandler(add, log), [add, log]);
 };
 
 /**
@@ -83,7 +98,8 @@ export const useErrorHandler = (): ErrorHandler => {
  */
 export const useAsyncErrorHandler = (): AsyncErrorHandler => {
   const add = useAdder();
-  return useMemo(() => createAsyncErrorHandler(add), [add]);
+  const log = useLog();
+  return useMemo(() => createAsyncErrorHandler(add, log), [add, log]);
 };
 
 /** A status shown as a notification, with how many identical ones it stands for. */
