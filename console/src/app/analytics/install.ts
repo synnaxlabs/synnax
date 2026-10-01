@@ -11,7 +11,7 @@ import { invoke } from "@tauri-apps/api/core";
 import z from "zod";
 
 /** What this install is, and what this launch knows about the one before it. */
-export const installZ = z.object({
+const installZ = z.object({
   /** Identifies the install across launches, and across a webview data wipe. */
   id: z.string(),
   firstLaunch: z.boolean(),

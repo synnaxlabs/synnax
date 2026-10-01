@@ -67,16 +67,10 @@ export const showLogs = async (): Promise<void> => await invoke("supervisor_show
 export const showData = async (): Promise<void> => await invoke("supervisor_show_data");
 
 /** Why a Core exited without a stop request. */
-export const reasonZ = z.enum([
-  "failed_to_start",
-  "crashed",
-  "not_ready",
-  "unresponsive",
-]);
-export type Reason = z.infer<typeof reasonZ>;
+const reasonZ = z.enum(["failed_to_start", "crashed", "not_ready", "unresponsive"]);
 
 /** What the embedded Cores of this launch have done. */
-export const historyZ = z.object({
+const historyZ = z.object({
   /** The number of Cores started in this launch. */
   starts: z.number(),
   /** The number of Cores that exited without a stop request. */

@@ -16,7 +16,6 @@ export {
   type History,
   onStatusChange,
   retrieveHistory,
-  retrieveStatus,
   type Status,
 } from "@/feature/embedded/supervisor";
 export { useConnParams } from "@/feature/embedded/useConnParams";
