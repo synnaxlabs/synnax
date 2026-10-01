@@ -1,5 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
+  "rules": { "cycles": "error" },
   "workspaces": {
     ".": {
       "entry": ["package.json"],
@@ -31,7 +32,8 @@
     },
     "pluto": {
       "entry": ["src/index.ts", "src/ether.ts", "src/testutil/index.ts"],
-      "project": ["src/**/*.{ts,tsx}"]
+      "project": ["src/**/*.{ts,tsx}"],
+      "ignoreDependencies": ["vscode"]
     },
     "x/media": {
       "entry": ["src/index.ts"],
@@ -43,9 +45,14 @@
       "ignoreDependencies": ["@vitest/coverage-v8"]
     },
     "console": {
-      "entry": ["src/main.tsx", "src-tauri/src/main.rs"],
+      "entry": ["src/flags.ts"],
       "project": ["src/**/*.{ts,tsx}"],
-      "ignore": ["src-tauri/**"]
+      "ignoreIssues": {
+        "src/app/nav/drawer/Bottom.tsx": ["exports"],
+        "src/feature/*/{explorer,overview}/external.tsx": ["exports"],
+        "src/platform/*/filter/{Chips,MenuItem}.tsx": ["exports"],
+        "src/platform/task/{fields,views}/*.tsx": ["exports"]
+      }
     },
     "site/docs": {
       "entry": ["src/**/*.astro", "src/**/*.tsx", "src/**/*.ts"],
@@ -65,8 +72,8 @@
       "project": ["*.json"]
     },
     "configs/vite": {
-      "entry": ["lib.ts"],
-      "project": ["*.ts"],
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"],
       "ignoreDependencies": ["vite-*"]
     },
     "configs/stylelint": {

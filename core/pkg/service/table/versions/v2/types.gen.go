@@ -70,9 +70,11 @@ type TextCellConfig struct {
 	Weight float64 `json:"weight" msgpack:"weight"`
 	// Align is the alignment of the cell text along the row axis.
 	Align FlexAlignment `json:"align" msgpack:"align"`
-	// BackgroundColor is the background color of the cell. When absent the theme picks
-	// the fill; a fully transparent value paints nothing.
-	BackgroundColor *color.Color `json:"background_color,omitzero" msgpack:"background_color,omitempty"`
+	// FillColor is the background color of the cell. When absent the theme picks the
+	// fill; a fully transparent value paints nothing.
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	// TextColor is the color of the cell text. When absent the theme picks the color.
+	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
 }
 
 func (TextCellConfig) isCellConfigVariant() {}
@@ -114,14 +116,14 @@ type ValueCellConfig struct {
 	Notation notation.Notation `json:"notation" msgpack:"notation"`
 	// Redline is the threshold band mapping applied to the background.
 	Redline color.Scale `json:"redline" msgpack:"redline"`
-	// BackgroundColor is the fill behind the value where no redline band paints. When
-	// absent the cell paints no fill.
-	BackgroundColor *color.Color `json:"background_color,omitzero" msgpack:"background_color,omitempty"`
+	// FillColor is the fill behind the value where no redline band paints. When absent
+	// the cell paints no fill.
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Level is the typography level of the displayed value.
 	Level text.Level `json:"level" msgpack:"level"`
-	// Color is the color of the displayed text. When absent the value renders with a
-	// theme-derived legible color.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
+	// TextColor is the color of the displayed text. When absent the value renders with
+	// a theme-derived legible color.
+	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
 	// Units is the unit suffix displayed after the value.
 	Units string `json:"units" msgpack:"units"`
 	// StalenessTimeout is the duration in seconds after which the value is considered

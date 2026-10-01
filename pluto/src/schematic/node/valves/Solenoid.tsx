@@ -23,7 +23,7 @@ const DIMENSIONS = { width: 87, height: 69 };
 
 export const Solenoid = ({
   className,
-  color,
+  strokeColor,
   orientation = "left",
   normallyOpen = false,
   scale,
@@ -77,7 +77,7 @@ export const Solenoid = ({
     </Handle.Boundary>
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={color}
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
     >

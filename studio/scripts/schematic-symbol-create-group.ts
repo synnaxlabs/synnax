@@ -44,6 +44,8 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     .filter({ hasText: "Test stand" })
     .first();
   await session.waitFor(group);
+  // The strip clips tabs past its end under the group actions.
+  await group.scrollIntoViewIfNeeded();
   await session.hold(800);
   await session.click(group, { text: true, zoom: false });
   await session.hold(600);

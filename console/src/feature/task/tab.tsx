@@ -24,7 +24,7 @@ import { getIcon } from "@/feature/task/types";
 import { Panel } from "@/platform/panel";
 import { type Task } from "@/platform/task";
 
-export const FORMS: Task.Forms = {
+const FORMS: Task.Forms = {
   ...EtherCAT.Task.FORMS,
   ...HTTP.Task.FORMS,
   ...LabJack.Task.FORMS,

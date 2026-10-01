@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
+	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
 	"github.com/synnaxlabs/synnax/pkg/api/ontology"
@@ -71,6 +72,10 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	// AUTH
 	t.AuthChangePassword = noop.UnaryServer[apiauth.ChangePasswordRequest, struct{}]{}
 
+	// LICENSE
+	t.LicenseRetrieve = noop.UnaryServer[license.RetrieveRequest, license.RetrieveResponse]{}
+	t.LicenseActivate = noop.UnaryServer[license.ActivateRequest, license.ActivateResponse]{}
+
 	// CHANNEL
 	t.ChannelRename = noop.UnaryServer[apichannel.RenameRequest, struct{}]{}
 	t.ChannelRetrieveGroup = noop.UnaryServer[apichannel.RetrieveGroupRequest, apichannel.RetrieveGroupResponse]{}
@@ -100,7 +105,6 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.ProjectRetrieve = noop.UnaryServer[project.RetrieveRequest, project.RetrieveResponse]{}
 	t.ProjectDelete = noop.UnaryServer[project.DeleteRequest, struct{}]{}
 	t.ProjectRename = noop.UnaryServer[project.RenameRequest, struct{}]{}
-	t.ProjectSetLayout = noop.UnaryServer[project.SetLayoutRequest, struct{}]{}
 	t.ProjectExport = noop.UnaryServer[project.ExportRequest, project.ExportResponse]{}
 	t.ProjectImport = noop.UnaryServer[project.ImportRequest, project.ImportResponse]{}
 

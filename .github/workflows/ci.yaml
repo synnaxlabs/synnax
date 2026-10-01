@@ -8,13 +8,17 @@
 # included in the file licenses/APL.txt.
 
 # Gates every merge. The ruleset requires only the OK context, so every check a pull
-# request or a merge group must pass runs from here.
+# request or a merge group must pass runs from here. A release branch has no merge
+# queue, so a push to one runs it too: a release verifies the checks on its own commit.
 
 name: CI
 
 on:
   pull_request:
   merge_group:
+  push:
+    branches:
+      - release/**
   workflow_dispatch:
     inputs:
       integration:
@@ -23,14 +27,17 @@ on:
         type: boolean
         default: false
 
-# A new push to a pull request cancels the run it replaces. Merge groups never cancel.
+# A new push to a pull request cancels the run it replaces. A merge group run is
+# cancelled only by cancel.merge-group.yaml, which uses the same key.
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.ref }}
+  group:
+    ci-${{ github.event.pull_request.number || github.event.merge_group.head_ref ||
+    github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # One output per key in .github/filters.yaml, true when the pull request or merge
-  # group touched one of its paths.
+  # One output per key in .github/filters.yaml, true when the pull request, merge group
+  # or push touched one of its paths.
   changes:
     runs-on: ubuntu-latest
     outputs:
@@ -66,10 +73,12 @@ jobs:
       media: ${{ steps.filter.outputs.media }}
       oracle: ${{ steps.filter.outputs.oracle }}
       oracle_check: ${{ steps.filter.outputs.oracle_check }}
+      oracle_language: ${{ steps.filter.outputs.oracle_language }}
       pluto: ${{ steps.filter.outputs.pluto }}
       protobuf: ${{ steps.filter.outputs.protobuf }}
       scripts: ${{ steps.filter.outputs.scripts }}
       soem: ${{ steps.filter.outputs.soem }}
+      vite_plugin: ${{ steps.filter.outputs.vite_plugin }}
       www: ${{ steps.filter.outputs.www }}
       x_cpp: ${{ steps.filter.outputs.x_cpp }}
       x_go: ${{ steps.filter.outputs.x_go }}
@@ -80,6 +89,8 @@ jobs:
       - uses: dorny/paths-filter@v4
         id: filter
         with:
+          # The pushed branch as base compares a push against the commit before it.
+          base: ${{ github.event_name == 'push' && github.ref_name || '' }}
           filters: .github/filters.yaml
 
   alamos-go:
@@ -202,6 +213,7 @@ jobs:
       core_image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
       coverage_flag: console
       directory: console
+      knip: true
       package: console
       test_args: -- --no-file-parallelism
     secrets: inherit
@@ -419,6 +431,16 @@ jobs:
     uses: ./.github/workflows/check.oracle.yaml
     secrets: inherit
 
+  oracle-language:
+    needs: changes
+    if: needs.changes.outputs.oracle_language == 'true'
+    uses: ./.github/workflows/test.ts.yaml
+    with:
+      directory: oracle/lsp/extensions/vscode
+      lint: false
+      package: oracle-language
+    secrets: inherit
+
   pluto:
     needs: [changes, core-image]
     if: needs.changes.outputs.pluto == 'true' || needs.changes.outputs.core == 'true'
@@ -427,6 +449,7 @@ jobs:
       core_image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
       coverage_flag: pluto
       directory: pluto
+      knip: true
       package: pluto
       test_args: -- --no-file-parallelism
     secrets: inherit
@@ -456,6 +479,15 @@ jobs:
 
   versions:
     uses: ./.github/workflows/test.updates.yaml
+
+  vite-plugin:
+    needs: changes
+    if: needs.changes.outputs.vite_plugin == 'true'
+    uses: ./.github/workflows/test.ts.yaml
+    with:
+      directory: configs/vite
+      package: vite-plugin
+    secrets: inherit
 
   www:
     needs: changes
@@ -507,6 +539,41 @@ jobs:
       package: x
     secrets: inherit
 
+  # A merge group cancels its run on the first failed job. The cancel frees the runners
+  # that the other jobs hold, and OK then fails at once, so the queue ejects the group.
+  fail-fast:
+    name: Fail fast
+    if: github.event_name == 'merge_group'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Cancel the run when a job fails
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          run="repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          url="$run/attempts/$GITHUB_RUN_ATTEMPT/jobs?per_page=100"
+          while true; do
+            # The next poll retries a failed API call.
+            if ! jobs=$(gh api --paginate "$url" --jq '.jobs[]' | jq -s .); then
+              sleep 30
+              continue
+            fi
+            failed=$(jq -r '.[] | select(.conclusion == "failure"
+              or .conclusion == "timed_out") | .name' <<< "$jobs")
+            if [ -n "$failed" ]; then
+              echo "$failed"
+              echo "::error::A job failed, so the run is cancelled."
+              gh run cancel "$GITHUB_RUN_ID" -R "$GITHUB_REPOSITORY"
+              exit 1
+            fi
+            # OK starts only after every other job finished.
+            jq -e '.[] | select(.name == "OK" and (.status == "in_progress"
+              or .status == "completed"))' <<< "$jobs" > /dev/null && exit 0
+            sleep 30
+          done
+
   # GitHub skips a job whose dependency failed or was skipped, so always() makes this
   # one run and report. A skipped job passed: the change map left it out on purpose.
   ok:
@@ -547,11 +614,13 @@ jobs:
       - media
       - oracle
       - oracle-check
+      - oracle-language
       - pluto
       - protobuf
       - scripts
       - soem
       - versions
+      - vite-plugin
       - www
       - x-cpp
       - x-go

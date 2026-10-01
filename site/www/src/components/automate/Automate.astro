@@ -15,8 +15,8 @@ import { createCssVariablesTheme, createHighlighter } from "shiki";
 import { AutomateVisualizer } from "@/components/automate/AutomateVisualizer";
 import { ControlSystemGraphic } from "@/components/automate/ControlSystemGraphic";
 import { ControlHandoffGraphic } from "@/components/automate/ControlHandoffGraphic";
-import SectionHero from "@/components/shared/SectionHero.astro";
-import FeatureSection from "@/components/shared/FeatureSection.astro";
+import SectionHero from "@/components/common/SectionHero.astro";
+import FeatureSection from "@/components/common/FeatureSection.astro";
 
 const cssVarsTheme = createCssVariablesTheme({ name: "css-variables" });
 
@@ -98,7 +98,7 @@ const codeHtmls = [
 ];
 ---
 
-<SectionHero id="automate" label="3 -> Automate & Control">
+<SectionHero id="automate" label="3 -> Automate and control">
     Close the loop on hardware automation
     <Fragment slot="description">
         Synnax unifies test automation and production control into a single platform.
@@ -107,7 +107,7 @@ const codeHtmls = [
     </Fragment>
 </SectionHero>
 
-<FeatureSection label="3.1 -> The Arc Language">
+<FeatureSection label="3.1 -> The Arc language">
     <Fragment slot="title"> Write sequences, not boilerplate </Fragment>
     <Fragment slot="description">
         Arc is a reactive programming language purpose-built for hardware automation.
@@ -119,13 +119,13 @@ const codeHtmls = [
         variant="text"
         href="https://docs.synnaxlabs.com/reference/control/arc/introduction"
     >
-        Learn More →
+        Learn more →
     </Button.Button>
     <AutomateVisualizer client:visible codeHtmls={codeHtmls} />
 </FeatureSection>
 
-<FeatureSection label="3.2 -> Production Ready">
-    <Fragment slot="title"> Built for the Systems That Matter Most </Fragment>
+<FeatureSection label="3.2 -> Production ready">
+    <Fragment slot="title"> Built for the systems that matter most </Fragment>
     <Fragment slot="description">
         Arc eliminates the most common sources of automation failures. Develop on your
         laptop, deploy to real-time hardware, and think in procedures, not programs.
@@ -138,7 +138,7 @@ const codeHtmls = [
                 color="var(--pluto-gray-l10)"
                 className="automate-bento-title"
             >
-                Predictable Execution
+                Predictable execution
             </Text.Text>
             <ControlSystemGraphic client:visible className="automate-bento-graphic" />
             <Text.Text level="h5" weight={350} className="automate-bento-description">
@@ -153,7 +153,7 @@ const codeHtmls = [
                 color="var(--pluto-gray-l10)"
                 className="automate-bento-title"
             >
-                Seamless Control Handoff
+                Seamless control handoff
             </Text.Text>
             <ControlHandoffGraphic client:visible className="handoff-graphic" />
             <Text.Text level="h5" weight={350} className="automate-bento-description">

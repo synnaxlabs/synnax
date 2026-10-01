@@ -740,6 +740,13 @@ describe("Tabs", () => {
       wheel(strip, { deltaY: 3, deltaMode: WheelEvent.DOM_DELTA_LINE });
       expect(strip.scrollLeft).toEqual(48);
     });
+
+    it("should move a page-mode wheel by the strip's visible width", () => {
+      render(<BasicTabs initialValue="a" />);
+      const strip = stubStrip(500, 200);
+      wheel(strip, { deltaY: 1, deltaMode: WheelEvent.DOM_DELTA_PAGE });
+      expect(strip.scrollLeft).toEqual(200);
+    });
   });
 
   describe("Selector drag-and-drop", () => {

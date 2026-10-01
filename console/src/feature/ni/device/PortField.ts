@@ -9,8 +9,6 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 
-export type PortFieldProps = Form.NumericFieldProps;
-
 export const PortField = Form.buildNumericField({
   fieldKey: "port",
   fieldProps: { label: "Port" },

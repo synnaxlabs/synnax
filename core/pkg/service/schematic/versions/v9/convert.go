@@ -374,3 +374,105 @@ func isZeroColor(v any) bool {
 	}
 	return c.IsZero()
 }
+
+// strokeAndFill renames the fields of a symbol with an outline and a body.
+var strokeAndFill = map[string][]string{
+	"color":            {"stroke_color"},
+	"background_color": {"fill_color"},
+}
+
+// colorRenames maps each variant's legacy color fields to the fields named for the part
+// they paint. A variant absent here keeps a legacy color as its stroke.
+var colorRenames = map[string]map[string][]string{
+	"box":                strokeAndFill,
+	"circle":             strokeAndFill,
+	"polygon":            strokeAndFill,
+	"cylinder":           strokeAndFill,
+	"tank":               strokeAndFill,
+	"value":              strokeAndFill,
+	"button":             {"color": {"fill_color"}},
+	"input":              {"color": {"fill_color"}},
+	"setpoint":           {"color": {"fill_color"}},
+	"select":             {"color": {"fill_color"}},
+	"off_page_reference": {"color": {"fill_color"}},
+	"text_box":           {"color": {"text_color"}},
+	"light":              {"color": {"stroke_color", "on_color"}},
+	"scale":              {"color": {"level_color"}},
+	"custom_actuator":    {"color": nil},
+	"custom_static":      {"color": nil},
+}
+
+// legacyIndicators names the field each variant nested its level indicator under.
+var legacyIndicators = map[string]string{"scale": "indicator", "tank": "fill"}
+
+// indicatorRenames maps a legacy nested indicator's color fields to the fields of the
+// symbol that now extends the indicator. The indicator's own color is dropped: a scale
+// painted its top-level color over it, and a tank's level takes the same name.
+var indicatorRenames = map[string]map[string]string{
+	"scale": {"color": "", "fill_hidden": "level_hidden"},
+	"tank":  {"color": "level_color", "fill_hidden": "level_hidden"},
+}
+
+// invertedIndicatorFlags maps a legacy nested indicator's hidden flags to the visible
+// flags of a symbol whose default is to hide them.
+var invertedIndicatorFlags = map[string]map[string]string{
+	"tank": {"caret_hidden": "caret_visible", "scale_hidden": "scale_visible"},
+}
+
+// renameColors rewrites a config's legacy color fields to the names of the parts they
+// paint, and lifts a scale's or tank's nested indicator to the top of the config, in
+// place on the normalized wire map. A legacy field that paints two parts is copied to
+// both, so the symbol renders as it did.
+func renameColors(cfg map[string]any) {
+	variant, _ := cfg["variant"].(string)
+	if nested, ok := legacyIndicators[variant]; ok {
+		liftIndicator(
+			cfg, nested, indicatorRenames[variant], invertedIndicatorFlags[variant],
+		)
+	}
+	renames, ok := colorRenames[variant]
+	if !ok {
+		renames = map[string][]string{"color": {"stroke_color"}}
+	}
+	for from, to := range renames {
+		val, ok := cfg[from]
+		if !ok {
+			continue
+		}
+		delete(cfg, from)
+		for _, name := range to {
+			cfg[name] = val
+		}
+	}
+}
+
+// liftIndicator moves the fields of the indicator nested under key to the top of cfg,
+// renaming or dropping the ones renames names and negating the ones inverted names. A
+// dropped field maps to "".
+func liftIndicator(
+	cfg map[string]any,
+	key string,
+	renames map[string]string,
+	inverted map[string]string,
+) {
+	indicator, ok := cfg[key].(map[string]any)
+	delete(cfg, key)
+	if !ok {
+		return
+	}
+	for k, val := range indicator {
+		if name, ok := inverted[k]; ok {
+			if hidden, ok := val.(bool); ok {
+				cfg[name] = !hidden
+			}
+			continue
+		}
+		if name, renamed := renames[k]; renamed {
+			if name == "" {
+				continue
+			}
+			k = name
+		}
+		cfg[k] = val
+	}
+}

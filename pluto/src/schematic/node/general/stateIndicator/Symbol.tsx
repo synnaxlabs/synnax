@@ -27,7 +27,7 @@ export const Symbol = ({
     label,
     channel,
     options,
-    color,
+    strokeColor,
     inlineSize,
     size,
     stalenessTimeout,
@@ -54,7 +54,7 @@ export const Symbol = ({
       <StateIndicator
         matchedOptionKey={optKey}
         options={options}
-        color={color}
+        strokeColor={strokeColor}
         inlineSize={inlineSize}
         size={size}
         staleColor={stale ? Staleness.resolveColor(stalenessColor, theme) : undefined}

@@ -11,6 +11,7 @@
 
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/defer/defer.h"
+#include "x/cpp/sync/list.h"
 #include "x/cpp/test/test.h"
 
 #include "arc/cpp/runtime/errors/errors.h"
@@ -347,7 +348,7 @@ TEST(ArcTests, testBasicSequence) {
 
     // Verify valve_cmd received the value 1
     bool found_valve_cmd = false;
-    for (const auto &output_fr: *mock_writer->writes) {
+    for (const auto &output_fr: mock_writer->writes->snapshot()) {
         if (output_fr.contains(valve_cmd_ch.key)) {
             auto output_val = output_fr.at<int64_t>(valve_cmd_ch.key, 0);
             EXPECT_EQ(output_val, 1);
@@ -487,7 +488,7 @@ TEST(ArcTests, testOneShotTruthiness) {
     // This confirms the sequence was triggered only by the truthy value (1),
     // not by the falsy value (0)
     bool found_valve_cmd = false;
-    for (const auto &output_fr: *mock_writer->writes) {
+    for (const auto &output_fr: mock_writer->writes->snapshot()) {
         if (output_fr.contains(valve_cmd_ch.key)) {
             auto output_val = output_fr.at<int64_t>(valve_cmd_ch.key, 0);
             EXPECT_EQ(output_val, 42);
@@ -686,7 +687,7 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
     bool found_pressurize_output = false;
     bool found_idle_output = false;
 
-    for (const auto &output_fr: *mock_writer->writes) {
+    for (const auto &output_fr: mock_writer->writes->snapshot()) {
         if (output_fr.contains(valve_cmd_ch.key)) {
             auto output_val = output_fr.at<int64_t>(valve_cmd_ch.key, 0);
             if (output_val == 1) {
@@ -953,7 +954,7 @@ TEST(ArcErrorHandling, RestartAfterWasmTrap) {
     ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
 
     bool found_output = false;
-    for (const auto &fr: *mock_writer->writes) {
+    for (const auto &fr: mock_writer->writes->snapshot()) {
         if (fr.contains(output_ch.key)) {
             auto val = fr.at<int32_t>(output_ch.key, 0);
             EXPECT_EQ(val, 10);
@@ -1064,7 +1065,7 @@ TEST(ArcErrorHandling, MultipleErrorRecoveryCycles) {
         ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
 
         bool found_output = false;
-        for (const auto &fr: *mock_writer->writes) {
+        for (const auto &fr: mock_writer->writes->snapshot()) {
             if (fr.contains(output_ch.key)) {
                 auto val = fr.at<float>(output_ch.key, 0);
                 EXPECT_FLOAT_EQ(val, static_cast<float>((cycle + 1) * 2));
@@ -1507,7 +1508,7 @@ TEST(ArcTests, testChannelConfigParam) {
     ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
 
     bool found_output = false;
-    for (const auto &output_fr: *mock_writer->writes) {
+    for (const auto &output_fr: mock_writer->writes->snapshot()) {
         if (output_fr.contains(output_ch.key)) {
             auto output_val = output_fr.at<float>(output_ch.key, 0);
             EXPECT_FLOAT_EQ(output_val, 42.5f)
@@ -1668,7 +1669,7 @@ TEST(ArcTests, testChannelConfigParamReadWrite) {
     // edge. But counter < read_val (0 < 100) → counter = 100.
     // This proves the config param channel read returned 100 (not 0).
     bool found_output = false;
-    for (const auto &output_fr: *mock_writer->writes) {
+    for (const auto &output_fr: mock_writer->writes->snapshot()) {
         if (output_fr.contains(counter_ch.key)) {
             auto output_val = output_fr.at<float>(counter_ch.key, 0);
             EXPECT_FLOAT_EQ(output_val, 100.0f)
@@ -2452,7 +2453,7 @@ TEST(ArcTests, testSetAuthorityWithCalcInTopLevelFlow) {
     ASSERT_EVENTUALLY_GE(mock_writer->authority_changes->size(), 1);
 
     bool found_output = false;
-    for (const auto &fr: *mock_writer->writes) {
+    for (const auto &fr: mock_writer->writes->snapshot()) {
         if (fr.contains(output_ch.key)) {
             EXPECT_EQ(fr.at<uint8_t>(output_ch.key, 0), 10);
             found_output = true;
@@ -2629,7 +2630,7 @@ TEST(ArcErrorHandling, WriterFailurePropagatesErrorStatus) {
     // Configure mock writer factory to fail when opening the writer.
     // Writer open errors are propagated through stopped_with_err.
     auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>(
-        std::make_shared<std::vector<x::telem::Frame>>(),
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
         std::vector<x::errors::Error>{x::errors::VALIDATION}
     );
 
