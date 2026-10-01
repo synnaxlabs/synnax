@@ -9,10 +9,10 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Creates the AWS role the portal signs license keys with. Only production deployments
-# of the Vercel project can assume it, through Vercel's OIDC tokens. Safe to rerun: it
-# updates the trust and signing policies in place. Needs an AWS CLI identity that can
-# manage IAM.
+# Creates the AWS role the portal signs license keys with. Production and preview
+# deployments of the Vercel project can assume it, through Vercel's OIDC tokens. Safe to
+# rerun: it updates the trust and signing policies in place. Needs an AWS CLI identity
+# that can manage IAM.
 #
 #   scripts/create_signing_role.sh
 
@@ -48,7 +48,10 @@ TRUST=$(
     "Condition": {
       "StringEquals": {
         "$ISSUER:aud": "$AUDIENCE",
-        "$ISSUER:sub": "owner:$VERCEL_TEAM:project:$PROJECT:environment:production"
+        "$ISSUER:sub": [
+          "owner:$VERCEL_TEAM:project:$PROJECT:environment:production",
+          "owner:$VERCEL_TEAM:project:$PROJECT:environment:preview"
+        ]
       }
     }
   }]
@@ -79,6 +82,6 @@ aws iam put-role-policy --role-name "$ROLE" --policy-name sign-licenses \
     --policy-document "$SIGN"
 
 ROLE_ARN=$(aws iam get-role --role-name "$ROLE" --query Role.Arn --output text)
-echo "Set these on the production environment of the $PROJECT Vercel project:"
+echo "Set these on the production and preview environments of the $PROJECT project:"
 echo "  AWS_ROLE_ARN=$ROLE_ARN"
 echo "  LICENSE_KMS_KEY_ARN=$KEY_ARN"
