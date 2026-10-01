@@ -10,10 +10,15 @@
 import { schematic } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { render, screen } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { createConfig, REGISTRY, type Variant } from "@/schematic/node/registry";
+import {
+  createConfig,
+  REGISTRY,
+  STATIC_SPECS,
+  type Variant,
+} from "@/schematic/node/registry";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 
 const SynnaxWrapper = createSynnaxWrapper({ client: null });
@@ -51,4 +56,19 @@ describe("symbol forms that wrap a shared form", () => {
     expect(screen.getByRole("tab", { name: "Style" }).ariaSelected).toBe("true");
     expect(screen.getByRole("button", { name: "Swap" })).toBeDefined();
   });
+});
+
+describe("symbol previews", () => {
+  it.each(STATIC_SPECS.map(({ key }) => key as Variant))(
+    "should render the %s preview from its default config",
+    (variant) => {
+      const Preview = REGISTRY[variant].Preview as FC<object>;
+      const { container } = render(
+        <SynnaxWrapper>
+          <Preview {...createConfig({ variant })} scale={0.75} />
+        </SynnaxWrapper>,
+      );
+      expect(container.firstChild).not.toBeNull();
+    },
+  );
 });

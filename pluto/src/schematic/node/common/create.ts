@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
+import { Component } from "@synnaxlabs/lyra/component";
 import { type FC } from "react";
 
 import { Form } from "@/schematic/node/common/form";
@@ -44,6 +45,18 @@ export interface DummyToggleConfig<V extends schematic.NodeConfigType>
   extends schematic.DummyToggleSymbolConfig {
   variant: V;
 }
+
+/// withoutToggleConfig renders a toggle symbol's primitive without the fields only a
+/// toggle node consumes, which would otherwise land on the DOM.
+export const withoutToggleConfig = <P extends object>(Primitive: FC<P>): FC<P> =>
+  Component.removeProps(Primitive, [
+    "stateChannel",
+    "commandChannel",
+    "control",
+    "onClickDelay",
+    "stalenessTimeout",
+    "stalenessColor",
+  ]);
 
 /// createStatic builds a non-interactive labeled symbol: a styled SVG with a label,
 /// color, and scale, edited via the shared StyleForm. This is the most common archetype
@@ -87,6 +100,7 @@ export const createToggle = <V extends schematic.NodeConfigType>({
   node = "toggle",
 }: ToggleParams<V>) => {
   type Config = ToggleSymbolConfig<V>;
+  const Static = withoutToggleConfig(Primitive);
   const spec: Spec<V, Config> = {
     key: variant,
     name,
@@ -94,9 +108,9 @@ export const createToggle = <V extends schematic.NodeConfigType>({
     Form: Form.ToggleForm,
     Node:
       node === "labeled"
-        ? Label.createLabeled<Config>(Primitive)
+        ? Label.createLabeled<Config>(Static)
         : Toggle.createToggle<Config>(Primitive),
-    Preview: Primitive,
+    Preview: Static,
     zIndex,
   };
   return { spec };
@@ -119,7 +133,7 @@ export const createDummyToggle = <V extends schematic.NodeConfigType>({
     label,
     Form: Form.DummyToggleForm,
     Node: Toggle.createDummyToggle<Config>(Primitive),
-    Preview: Primitive,
+    Preview: Component.removeProps(Primitive, ["clickable"]),
     zIndex,
   };
   return { spec };
