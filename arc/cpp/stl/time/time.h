@@ -36,7 +36,8 @@ inline x::telem::TimeSpan calculate_tolerance(
     const runtime::loop::ExecutionMode mode,
     const x::telem::TimeSpan base_interval
 ) {
-    if (base_interval == UNSET_BASE_INTERVAL) return 5 * x::telem::MILLISECOND;
+    // Variable durations leave the base unset, and their timers wake on a deadline.
+    if (base_interval == UNSET_BASE_INTERVAL) return 100 * x::telem::MICROSECOND;
     const auto half = base_interval / 2;
     switch (mode) {
         case runtime::loop::ExecutionMode::RT_EVENT:

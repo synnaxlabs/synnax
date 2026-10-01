@@ -128,7 +128,7 @@ inline std::ostream &operator<<(std::ostream &os, ExecutionMode mode) {
 ///
 /// | Timing interval | Mode         | Tolerance | Max early error |
 /// |-----------------|--------------|-----------|-----------------|
-/// | none            | EVENT_DRIVEN | 5 ms      | none            |
+/// | none            | EVENT_DRIVEN | 100 us    | 1% at 10 ms     |
 /// | under 250 ms    | RT_EVENT     | 100 us    | 1% at 10 ms     |
 /// | 250 to 500 ms   | HYBRID       | 5 ms      | 2% at 250 ms    |
 /// | 500 ms and over | EVENT_DRIVEN | 5 ms      | 1% at 500 ms    |
