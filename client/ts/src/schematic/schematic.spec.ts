@@ -16,7 +16,7 @@ import { schematic } from "@/schematic";
 import { createTestClient, expectDeleted } from "@/testutil";
 
 const newProjectSchematic = async (client: ReturnType<typeof createTestClient>) => {
-  const proj = await client.projects.create({ name: "dispatch", layout: {} });
+  const proj = await client.projects.create({ name: "dispatch" });
   const schem = await client.schematics.create(proj.key, {
     name: "dispatch",
   });
@@ -30,7 +30,6 @@ describe("Schematic", () => {
     test("create one", async () => {
       const proj = await client.projects.create({
         name: "Schematic",
-        layout: { one: 1 },
       });
       const schem = await client.schematics.create(proj.key, {
         name: "Schematic",
@@ -46,7 +45,6 @@ describe("Schematic", () => {
     test("rename one", async () => {
       const proj = await client.projects.create({
         name: "Schematic",
-        layout: { one: 1 },
       });
       const schem = await client.schematics.create(proj.key, {
         name: "Schematic",
@@ -61,7 +59,6 @@ describe("Schematic", () => {
     test("delete one", async () => {
       const proj = await client.projects.create({
         name: "Schematic",
-        layout: { one: 1 },
       });
       const schem = await client.schematics.create(proj.key, {
         name: "Schematic",
@@ -75,7 +72,7 @@ describe("Schematic", () => {
 
   describe("config case preservation", () => {
     test("preserves element key casing and round-trips telem args", async () => {
-      const proj = await client.projects.create({ name: "CaseTest", layout: {} });
+      const proj = await client.projects.create({ name: "CaseTest" });
       const schem = await client.schematics.create(proj.key, {
         name: "CaseTest",
         configs: {
@@ -96,7 +93,6 @@ describe("Schematic", () => {
     test("copy one", async () => {
       const proj = await client.projects.create({
         name: "Schematic",
-        layout: { one: 1 },
       });
       const schem = await client.schematics.create(proj.key, {
         name: "Schematic",
@@ -114,7 +110,6 @@ describe("Schematic", () => {
       it("should not allow the caller to edit the snapshot", async () => {
         const proj = await client.projects.create({
           name: "Schematic",
-          layout: { one: 1 },
         });
         const schem = await client.schematics.create(proj.key, {
           name: "Schematic",

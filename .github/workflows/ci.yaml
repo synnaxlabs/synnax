@@ -27,9 +27,12 @@ on:
         type: boolean
         default: false
 
-# A new push to a pull request cancels the run it replaces. Merge groups never cancel.
+# A new push to a pull request cancels the run it replaces. A merge group run is
+# cancelled only by cancel.merge-group.yaml, which uses the same key.
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.ref }}
+  group:
+    ci-${{ github.event.pull_request.number || github.event.merge_group.head_ref ||
+    github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -535,6 +538,41 @@ jobs:
       knip: true
       package: x
     secrets: inherit
+
+  # A merge group cancels its run on the first failed job. The cancel frees the runners
+  # that the other jobs hold, and OK then fails at once, so the queue ejects the group.
+  fail-fast:
+    name: Fail fast
+    if: github.event_name == 'merge_group'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Cancel the run when a job fails
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          run="repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          url="$run/attempts/$GITHUB_RUN_ATTEMPT/jobs?per_page=100"
+          while true; do
+            # The next poll retries a failed API call.
+            if ! jobs=$(gh api --paginate "$url" --jq '.jobs[]' | jq -s .); then
+              sleep 30
+              continue
+            fi
+            failed=$(jq -r '.[] | select(.conclusion == "failure"
+              or .conclusion == "timed_out") | .name' <<< "$jobs")
+            if [ -n "$failed" ]; then
+              echo "$failed"
+              echo "::error::A job failed, so the run is cancelled."
+              gh run cancel "$GITHUB_RUN_ID" -R "$GITHUB_REPOSITORY"
+              exit 1
+            fi
+            # OK starts only after every other job finished.
+            jq -e '.[] | select(.name == "OK" and (.status == "in_progress"
+              or .status == "completed"))' <<< "$jobs" > /dev/null && exit 0
+            sleep 30
+          done
 
   # GitHub skips a job whose dependency failed or was skipped, so always() makes this
   # one run and report. A skipped job passed: the change map left it out on purpose.

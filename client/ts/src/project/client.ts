@@ -12,14 +12,7 @@ import {
   type UnaryClient,
   type UploadBody,
 } from "@synnaxlabs/freighter";
-import {
-  array,
-  caseconv,
-  type destructor,
-  primitive,
-  record,
-  zod,
-} from "@synnaxlabs/x";
+import { array, type destructor, primitive, record, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { imex } from "@/imex";
@@ -48,10 +41,6 @@ const retrieveMultiParamsZ = retrieveReqZ.or(query.keyListZ(keyZ));
 export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 const createReqZ = z.object({ projects: projectZ.array() });
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
-const setLayoutReqZ = z.object({
-  key: keyZ,
-  layout: caseconv.preserveCase(record.unknownZ()),
-});
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const exportReqZ = z.object({ key: keyZ, encoding: imex.encodingZ });
 
@@ -70,8 +59,6 @@ export interface ImportOptions {
    */
   fileName: string;
 }
-
-export interface SetLayoutParams extends z.input<typeof setLayoutReqZ> {}
 
 /**
  * Client-side matching for a request: key sets. Server-computed shapes
@@ -161,25 +148,6 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pr
         ),
     });
     rename();
-  }
-
-  async setLayout(
-    key: Key,
-    layout: record.Unknown,
-    opts: query.WriteOptions = {},
-  ): Promise<void> {
-    await query.optimistic({
-      rollbacks: [query.partialUpdate(this.store, key, { layout })],
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.cfg.unary.send(
-          "/project/set-layout",
-          { key, layout },
-          setLayoutReqZ,
-          emptyResZ,
-        ),
-    });
-    this.mergeThrough(key, { layout });
   }
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {

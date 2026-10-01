@@ -14,7 +14,6 @@ package v1
 import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // Key is a unique identifier for a project, represented as a UUID.
@@ -31,12 +30,4 @@ type Project struct {
 	// Layout is the mosaic tree structure that defines how visualizations are arranged.
 	// Contains tab layout, split configurations, and window positions.
 	Layout msgpack.EncodedJSON `json:"layout" msgpack:"layout"`
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (p Project) Validate() error {
-	v := validate.New("Project")
-	v.NotEmptyString("name", p.Name)
-	return v.Error()
 }

@@ -259,10 +259,11 @@ Engineer holds retrieve. Owners therefore activate and Engineers read, with no n
 resource type.
 
 `--license-key` and `SYNNAX_LICENSE_KEY` take a license key, and `--license-file` reads
-one from a path, for systemd units and the Windows service. Both activate at start,
-which is how a provisioned server and CI run, and a license key the Core refuses stops
-the start. A running Core activates through the Console. There is no `synnax license`
-command: scripts call the retrieve endpoint with `curl`.
+one from a path, such as the `.lic` file the portal downloads, for systemd units and the
+Windows service. Both activate at start, which is how a provisioned server and CI run,
+and a license key the Core refuses stops the start. A running Core activates through the
+Console. There is no `synnax license` command: scripts call the retrieve endpoint with
+`curl`.
 
 An unlicensed Core starts its embedded Driver without waiting for it, because the Core
 refuses the Driver's rack until a license applies. The Driver retries on its own.
@@ -281,12 +282,12 @@ Console left open notices a Core activated by a start flag. A Core from before l
 sends no state and reads as `ok`.
 
 While the Core is unlicensed, the Console shows an activation screen in place of the
-workspace, behind login: the fingerprint with a copy button, a field and a file picker
-for the license key, and a link to the portal's activation page. On success the client
-checks again at once, the state flips, and the screen goes away. When licensed, the Core
-badge and the version modal show the edition, organization, term, machines, and channel
-cap, with any warning. The same screen serves the web Console the Core hosts, which is
-how a headless server activates.
+workspace, behind login: the fingerprint with a copy button, a field for the license key
+with a picker for `.lic` files, and a link to the portal's activation page. On success
+the client checks again at once, the state flips, and the screen goes away. When
+licensed, the Core badge and the version modal show the edition, organization, term,
+machines, and channel cap, with any warning. The same screen serves the web Console the
+Core hosts, which is how a headless server activates.
 
 In Desktop (RFC 0063), the gate sits outside the embedded Core guard, because an
 unlicensed Core never settles, and it shows the sign-in screen of §5.8 instead.
@@ -418,8 +419,9 @@ or Revoked. Its page shows the facts, the machines with Download license key, Re
 and Release, the released machines, and the activity from the event log. Staff also get
 Edit, which changes the terms in place so seats and history survive a renewal, Floating
 license key, and Revoke. Activate a machine is a dialog that takes a name and the
-fingerprint the Console copied, and downloads the license key.
-`/licenses/activate?license=` is the page the Console links.
+fingerprint the Console copied, and downloads the license key as a `.lic` file, the
+extension most license managers use. `/licenses/activate?license=` is the page the
+Console links.
 
 Routes sit at the root of the host: `/`, `/devices`, `/licenses`, `/licenses/<key>`,
 `/licenses/activate`, `/members`, `/settings`, `/admin`, and `/api/...`. The scope is

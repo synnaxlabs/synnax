@@ -169,7 +169,7 @@ describe("Panel.WINDOW_SYNCHRONIZERS", () => {
 });
 
 const createProject = async (): Promise<project.Project> =>
-  await client.projects.create({ name: uniqueName("project"), layout: {} });
+  await client.projects.create({ name: uniqueName("project") });
 
 interface ProjectPanelOverrides {
   key?: panel.Key;

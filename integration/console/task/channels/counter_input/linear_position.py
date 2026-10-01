@@ -62,7 +62,7 @@ class LinearPosition(Counter):
 
         self._configure_dropdown("Units", units)
         self._configure_input("Initial position", initial_pos)
-        self._configure_input("Distance / Pulse", dist_per_pulse)
+        self._configure_input("Distance / pulse", dist_per_pulse)
         self._configure_dropdown("Decoding type", decoding_type)
         self._configure_toggle("Z index enable", z_index_enabled)
         self._configure_input("Z index value", z_index_val)

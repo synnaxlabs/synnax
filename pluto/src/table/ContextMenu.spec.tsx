@@ -54,7 +54,7 @@ describe("table DefaultContextMenu", () => {
 
   beforeEach(async () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
-    const project = await client.projects.create({ name: "menu_project", layout: {} });
+    const project = await client.projects.create({ name: "menu_project" });
     const created = await client.tables.create(project.key, {
       name: "menu_table",
       rows: [{ size: 36, cells: ["a"] }],

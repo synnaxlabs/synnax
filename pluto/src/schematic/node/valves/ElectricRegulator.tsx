@@ -19,7 +19,7 @@ const DIMENSIONS = { width: 87, height: 69 };
 export const ElectricRegulator = ({
   className,
   orientation = "left",
-  color,
+  strokeColor,
   scale,
   ...rest
 }: Props): ReactElement => (
@@ -64,7 +64,7 @@ export const ElectricRegulator = ({
     <Primitive.SVG
       dimensions={DIMENSIONS}
       orientation={orientation}
-      color={color}
+      strokeColor={strokeColor}
       scale={scale}
     >
       <Primitive.Path d="M43.5 49L6.35453 30.2035C4.35901 29.1937 2 30.6438 2 32.8803V65.1197C2 67.3562 4.35901 68.8063 6.35453 67.7965L43.5 49ZM43.5 49L80.6455 30.2035C82.641 29.1937 85 30.6438 85 32.8803V65.1197C85 67.3562 82.641 68.8063 80.6455 67.7965L43.5 49Z" />

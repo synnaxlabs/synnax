@@ -30,7 +30,8 @@ export const Symbol = ({
     orientation = "left",
     stalenessTimeout,
     stalenessColor,
-    color,
+    strokeColor,
+    onColor,
     ...rest
   },
 }: NodeProps<schematic.LightNodeConfig>): ReactElement => {
@@ -57,7 +58,10 @@ export const Symbol = ({
       <Light
         enabled={enabled}
         orientation={orientation}
-        color={stale ? Staleness.resolveColor(stalenessColor, theme) : color}
+        strokeColor={
+          stale ? Staleness.resolveColor(stalenessColor, theme) : strokeColor
+        }
+        onColor={stale ? undefined : onColor}
         {...rest}
       />
     </Grid.Grid>

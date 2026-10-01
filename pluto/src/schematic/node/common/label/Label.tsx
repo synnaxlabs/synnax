@@ -102,7 +102,7 @@ export const createLabeled = <C extends LabeledConfig>(
     onConfigChange,
     selected,
     config,
-  }: NodeProps<LabeledConfig>): ReactElement => {
+  }: NodeProps<LabeledConfig & Partial<schematic.ScaledConfig>>): ReactElement => {
     const { label, orientation = "left", ...rest } = config;
     const scaleResize = Grid.useScaleResize(config, onConfigChange);
     // A custom onResize override (e.g. circle's radius) takes over; otherwise the symbol
