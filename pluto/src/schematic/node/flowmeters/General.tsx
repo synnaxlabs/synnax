@@ -21,7 +21,7 @@ export const General = ({
   id,
   className,
   orientation = "right",
-  color,
+  strokeColor,
   scale = 1,
   ...rest
 }: Props) => (
@@ -35,12 +35,12 @@ export const General = ({
     />
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={color}
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
     >
       <Primitive.Rect x="2" y="2" width="67" height="31" rx="2" />
-      <Label position={LABELS} color={color} />
+      <Label position={LABELS} strokeColor={strokeColor} />
     </Primitive.SVG>
   </Primitive.Div>
 );

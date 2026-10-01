@@ -14,7 +14,7 @@ package v5
 import (
 	"strconv"
 
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v0"
 	color "github.com/synnaxlabs/x/color/versions/v0"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"

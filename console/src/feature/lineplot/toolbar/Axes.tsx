@@ -67,9 +67,7 @@ const AutoBoundButton = ({ enabled, ...rest }: AutoBoundButtonProps): ReactEleme
 
 const AXES_BOUNDS_DRAG_SCALE = { x: 0.1, y: 0.1 };
 
-export const LinePlotAxisControls = ({
-  axisKey,
-}: LinePlotAxisControlsProps): ReactElement => {
+const LinePlotAxisControls = ({ axisKey }: LinePlotAxisControlsProps): ReactElement => {
   const dispatch = LinePlot.useSingleDispatch();
   const axis = LinePlot.useAxis({ axisKey });
 

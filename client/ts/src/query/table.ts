@@ -719,8 +719,9 @@ export const createDeleteListener = <
 };
 
 /**
- * Declares that the channel announces keys whose records changed. Announced keys are
- * refetched through the table's fetch and overwrite their entries.
+ * Declares that the channel announces keys whose records changed. Announced keys the
+ * table holds are refetched through the table's fetch and overwrite their entries. The
+ * rest are ignored, so a client never fetches a record it did not read.
  */
 export const createFetchListener = <
   Z extends z.ZodType<Key | Key[]>,
@@ -734,10 +735,8 @@ export const createFetchListener = <
     channel,
     schema,
     onChange: async (changed) => {
-      await table.retrieve(
-        changed.flatMap((c) => array.toArray(c)),
-        { refresh: true },
-      );
+      const held = changed.flatMap((c) => array.toArray(c)).filter((k) => table.has(k));
+      if (held.length > 0) await table.retrieve(held, { refresh: true });
     },
   }),
 });

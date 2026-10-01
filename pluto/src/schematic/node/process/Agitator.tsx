@@ -19,7 +19,7 @@ const DIMENSIONS = { width: 88, height: 86 };
 
 export const Agitator = ({
   orientation = "left",
-  color,
+  strokeColor,
   scale,
   ...rest
 }: Props): ReactElement => (
@@ -35,7 +35,7 @@ export const Agitator = ({
     </Handle.Boundary>
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={color}
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
     >

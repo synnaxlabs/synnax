@@ -44,7 +44,6 @@ const renderContextMenu = async () => {
   const { wrapper, store } = await createConsoleWrapper({ client });
   const proj = await client.projects.create({
     name: uniqueName("proj"),
-    layout: {},
   });
   store.dispatch(Session.Project.select(proj.key));
   const dev = await createTestDevice(client, { name: uniqueName("ni_dev") });

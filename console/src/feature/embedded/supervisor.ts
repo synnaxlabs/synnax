@@ -12,7 +12,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import z from "zod";
 
 /** How a client reaches the embedded Core for the length of one launch. */
-export const connectionZ = z.object({
+const connectionZ = z.object({
   host: z.string(),
   port: z.number(),
   username: z.string(),
@@ -67,7 +67,7 @@ export const showLogs = async (): Promise<void> => await invoke("supervisor_show
 export const showData = async (): Promise<void> => await invoke("supervisor_show_data");
 
 /** What the embedded Cores of this launch have done, and where their files are. */
-export const diagnosticsZ = z.object({
+const diagnosticsZ = z.object({
   version: z.string(),
   history: z.object({
     /** The number of Cores started in this launch. */

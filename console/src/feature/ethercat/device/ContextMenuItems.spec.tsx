@@ -46,7 +46,6 @@ const renderContextMenu = async (devices: EtherCAT.Device.SlaveDevice[]) => {
   const { wrapper, store } = await createConsoleWrapper({ client });
   const proj = await client.projects.create({
     name: uniqueName("proj"),
-    layout: {},
   });
   store.dispatch(Session.Project.select(proj.key));
   const keys = devices.map((d) => d.key);

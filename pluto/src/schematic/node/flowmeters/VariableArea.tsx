@@ -20,7 +20,7 @@ export const VariableArea = ({
   id,
   className,
   orientation = "right",
-  color,
+  strokeColor,
   scale = 1,
   ...rest
 }: Props) => (
@@ -37,7 +37,7 @@ export const VariableArea = ({
     />
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={color}
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
     >
@@ -46,7 +46,7 @@ export const VariableArea = ({
       <Primitive.Path d="M23 13V22" />
       <Primitive.Path d="M23 13L46 10" />
       <Primitive.Path d="M23 22L46 25" />
-      <Label color={color} />
+      <Label strokeColor={strokeColor} />
     </Primitive.SVG>
   </Primitive.Div>
 );

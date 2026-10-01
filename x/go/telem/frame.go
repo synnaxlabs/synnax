@@ -393,14 +393,8 @@ func (f Frame[K]) Extend(frames ...Frame[K]) Frame[K] {
 	for _, fr := range frames {
 		totalKeys += fr.Count()
 	}
-	if cap(f.keys) < totalKeys {
-		newKeys := make([]K, len(f.keys), totalKeys)
-		copy(newKeys, f.keys)
-		f.keys = newKeys
-		newSeries := make([]Series, len(f.series), totalKeys)
-		copy(newSeries, f.series)
-		f.series = newSeries
-	}
+	f.keys = slices.Grow(f.keys, totalKeys-len(f.keys))
+	f.series = slices.Grow(f.series, totalKeys-len(f.series))
 	for _, fr := range frames {
 		if !fr.mask.enabled {
 			f.keys = append(f.keys, fr.keys...)
