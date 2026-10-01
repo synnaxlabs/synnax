@@ -79,8 +79,10 @@ environment.
 
 In each instance:
 
-1. Organizations: enable them. Create the team organization "Synnax Labs" and give every
-   staff member the admin role. Its id is that environment's `STAFF_ORG_ID`.
+1. Organizations: enable them with membership optional. The portal creates a user's
+   personal organization after sign-in, so a required membership loops sign-in. Create
+   the team organization "Synnax Labs" and give every staff member the admin role. Its
+   id is that environment's `STAFF_ORG_ID`.
 2. Sign-in options: Google and Microsoft. Production needs its own OAuth credentials for
    both, with the redirect URLs the dashboard shows.
 
