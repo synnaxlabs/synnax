@@ -25,7 +25,7 @@ import { Frame } from "@/framer/frame";
 import { HardenedStreamer, ObservableStreamer } from "@/framer/hardened";
 import { type Streamer, streamerConfigZ } from "@/framer/streamer";
 import {
-  createSeverableProxy,
+  createProxiedTestClient,
   createTestClient,
   FAST_RETRY,
   newIndexedPair,
@@ -658,99 +658,78 @@ describe("Streamer", () => {
     });
 
     it("should reject a silent read with Unreachable after the deadline", async () => {
-      const proxy = await createSeverableProxy();
-      const proxied = createTestClient({ port: proxy.port });
-      try {
-        const ch = await newVirtualChannel(client);
-        const streamer = await proxied.openStreamer({
-          channels: ch.key,
-          keepAlive: KEEP_ALIVE,
-        });
-        // Receive at least one keep-alive so the deadline is armed.
-        await sleep.sleep(ARMED);
-        expect(proxy.blackholeStreams()).toBeGreaterThan(0);
-        const started = performance.now();
-        await expect(streamer.read()).rejects.toSatisfy(
-          (exc) =>
-            Unreachable.matches(exc) &&
-            exc.message === `streamer received no response for ${DEADLINE.toString()}`,
-        );
-        // The deadline must actually elapse: an instant rejection would mean the
-        // deadline armed wrong, not that silence was detected.
-        expect(performance.now() - started).toBeGreaterThanOrEqual(
-          DEADLINE.milliseconds - 50,
-        );
-        streamer.close();
-      } finally {
-        // A blackholed stream never acknowledges a close, so the proxy goes first.
-        await proxy.close();
-        await proxied.close();
-      }
+      const { proxy, client: proxied } = await createProxiedTestClient();
+      const ch = await newVirtualChannel(client);
+      const streamer = await proxied.openStreamer({
+        channels: ch.key,
+        keepAlive: KEEP_ALIVE,
+      });
+      // Receive at least one keep-alive so the deadline is armed.
+      await sleep.sleep(ARMED);
+      expect(proxy.blackholeStreams()).toBeGreaterThan(0);
+      const started = performance.now();
+      await expect(streamer.read()).rejects.toSatisfy(
+        (exc) =>
+          Unreachable.matches(exc) &&
+          exc.message === `streamer received no response for ${DEADLINE.toString()}`,
+      );
+      // The deadline must actually elapse: an instant rejection would mean the
+      // deadline armed wrong, not that silence was detected.
+      expect(performance.now() - started).toBeGreaterThanOrEqual(
+        DEADLINE.milliseconds - 50,
+      );
+      streamer.close();
     }, 30_000);
 
     it("should reconnect and resume streaming after a silent death", async () => {
-      const proxy = await createSeverableProxy();
-      const proxied = createTestClient({ port: proxy.port });
+      const { proxy, client: proxied } = await createProxiedTestClient();
+      const ch = await newVirtualChannel(client);
+      const onDrop = vi.fn();
+      const onReopen = vi.fn();
+      const hardened = await HardenedStreamer.open(
+        async (cfg) => await proxied.openStreamer(cfg),
+        { channels: ch.key, keepAlive: KEEP_ALIVE },
+        FAST_RETRY,
+        onReopen,
+        onDrop,
+      );
       try {
-        const ch = await newVirtualChannel(client);
-        const onDrop = vi.fn();
-        const onReopen = vi.fn();
-        const hardened = await HardenedStreamer.open(
-          async (cfg) => await proxied.openStreamer(cfg),
-          { channels: ch.key, keepAlive: KEEP_ALIVE },
-          FAST_RETRY,
-          onReopen,
-          onDrop,
-        );
-        try {
-          await write(ch, [1]);
-          expect(Array.from((await hardened.read()).get(ch.key))).toEqual([1]);
-          await sleep.sleep(ARMED);
-          expect(proxy.blackholeStreams()).toBeGreaterThan(0);
-          // The proxy still forwards new connections, so the deadline trip inside this
-          // read reconnects and the read stays pending for the next frame.
-          const pending = hardened.read();
-          await expect.poll(() => onDrop.mock.calls.length, POLL).toBe(1);
-          expect(Unreachable.matches(onDrop.mock.calls[0][0])).toBe(true);
-          await expect.poll(() => onReopen.mock.calls.length, POLL).toBe(1);
-          await write(ch, [2]);
-          expect(Array.from((await pending).get(ch.key))).toEqual([2]);
-        } finally {
-          hardened.close();
-        }
+        await write(ch, [1]);
+        expect(Array.from((await hardened.read()).get(ch.key))).toEqual([1]);
+        await sleep.sleep(ARMED);
+        expect(proxy.blackholeStreams()).toBeGreaterThan(0);
+        // The proxy still forwards new connections, so the deadline trip inside this
+        // read reconnects and the read stays pending for the next frame.
+        const pending = hardened.read();
+        await expect.poll(() => onDrop.mock.calls.length, POLL).toBe(1);
+        expect(Unreachable.matches(onDrop.mock.calls[0][0])).toBe(true);
+        await expect.poll(() => onReopen.mock.calls.length, POLL).toBe(1);
+        await write(ch, [2]);
+        expect(Array.from((await pending).get(ch.key))).toEqual([2]);
       } finally {
-        // A blackholed stream never acknowledges a close, so the proxy goes first.
-        await proxy.close();
-        await proxied.close();
+        hardened.close();
       }
     }, 30_000);
 
     it("should leave a silent read pending when keep-alive is disabled", async () => {
-      const proxy = await createSeverableProxy();
-      const proxied = createTestClient({ port: proxy.port });
-      try {
-        const ch = await newVirtualChannel(client);
-        const streamer = await proxied.openStreamer({
-          channels: ch.key,
-          keepAlive: TimeSpan.ZERO,
-        });
-        await sleep.sleep(TimeSpan.milliseconds(250));
-        expect(proxy.blackholeStreams()).toBeGreaterThan(0);
-        // Without keep-alives the deadline never arms, which is also how a client
-        // behaves against a Core that predates them: the read hangs, as before.
-        const pending = streamer.read();
-        pending.catch(() => {});
-        const result = await Promise.race([
-          pending.then(() => "settled"),
-          sleep.sleep(TimeSpan.seconds(1)).then(() => "pending"),
-        ]);
-        expect(result).toEqual("pending");
-        streamer.close();
-      } finally {
-        // A blackholed stream never acknowledges a close, so the proxy goes first.
-        await proxy.close();
-        await proxied.close();
-      }
+      const { proxy, client: proxied } = await createProxiedTestClient();
+      const ch = await newVirtualChannel(client);
+      const streamer = await proxied.openStreamer({
+        channels: ch.key,
+        keepAlive: TimeSpan.ZERO,
+      });
+      await sleep.sleep(TimeSpan.milliseconds(250));
+      expect(proxy.blackholeStreams()).toBeGreaterThan(0);
+      // Without keep-alives the deadline never arms, which is also how a client
+      // behaves against a Core that predates them: the read hangs, as before.
+      const pending = streamer.read();
+      pending.catch(() => {});
+      const result = await Promise.race([
+        pending.then(() => "settled"),
+        sleep.sleep(TimeSpan.seconds(1)).then(() => "pending"),
+      ]);
+      expect(result).toEqual("pending");
+      streamer.close();
     });
   });
 
