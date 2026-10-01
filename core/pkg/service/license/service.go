@@ -19,6 +19,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"uuid"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/config"
@@ -260,6 +261,20 @@ func (s *Service) Activate(ctx context.Context, key string) (Info, error) {
 	return s.Retrieve(), nil
 }
 
+// Deactivate removes the stored license key with the given ID and returns the
+// resulting state. Removing a key that is not stored changes nothing.
+func (s *Service) Deactivate(ctx context.Context, jti uuid.UUID) (Info, error) {
+	entry := append(append([]byte{}, prefix...), jti.String()...)
+	if err := s.cfg.Delete(ctx, entry); err != nil {
+		return Info{}, err
+	}
+	if err := s.load(ctx); err != nil {
+		return Info{}, err
+	}
+	s.logState()
+	return s.Retrieve(), nil
+}
+
 // CheckChannelLimit returns ErrTooMany when inUse external channels exceed the
 // license's cap, and nil while no license covers the Core.
 func (s *Service) CheckChannelLimit(inUse types.Uint20) error {
@@ -360,12 +375,13 @@ func (s *Service) load(ctx context.Context) error {
 	if err = iter.Close(); err != nil {
 		return err
 	}
-	if chosen != nil {
-		s.mu.Lock()
-		s.mu.info = *chosen
-		s.mu.Unlock()
-		s.changes.Notify(ctx, OntologyKey)
+	if chosen == nil {
+		chosen = &Info{State: StateMissing, Fingerprint: s.fingerprint}
 	}
+	s.mu.Lock()
+	s.mu.info = *chosen
+	s.mu.Unlock()
+	s.changes.Notify(ctx, OntologyKey)
 	return nil
 }
 

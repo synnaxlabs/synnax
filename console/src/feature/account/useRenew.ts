@@ -10,36 +10,29 @@
 import { type license, status } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
-import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { TimeSpan } from "@synnaxlabs/x";
 import { useEffect } from "react";
 
 import { renew, type RenewResult } from "@/feature/account/handoff";
 import { Session } from "@/session";
 
-/** How often a running app checks whether its license needs a renewal. */
+/**
+ * How often a running app renews its license. It bounds how long a revoked machine keeps
+ * its license while online.
+ */
 const CHECK_INTERVAL = TimeSpan.hours(6);
-
-/** How close to its expiry a license is renewed. */
-const RENEW_WINDOW = TimeSpan.days(7);
-
-/** Whether the license that applies still covers the machine for the renew window. */
-const covered = (license: license.License | undefined, now: TimeStamp): boolean => {
-  if (license == null) return false;
-  if (license.exp == null) return true;
-  return TimeStamp.seconds(license.exp).after(now.add(RENEW_WINDOW));
-};
 
 export interface RenewDeps {
   renew: (secret: string) => Promise<RenewResult>;
   interval: TimeSpan;
   /** The Core's license API. Defaults to the connected client's. */
-  license: Pick<license.Client, "retrieve" | "activate">;
+  license: Pick<license.Client, "retrieve" | "activate" | "deactivate">;
 }
 
 /**
  * Keeps a linked machine licensed: on launch and on an interval, renews through the hub
- * once the license is within a week of its expiry, or missing. A machine the hub has
- * unlinked forgets its account.
+ * unless a perpetual license applies. A machine the hub has unlinked removes its
+ * Desktop license key and forgets its account.
  */
 export const useRenew = ({
   renew: renewKey = renew,
@@ -58,10 +51,12 @@ export const useRenew = ({
     const check = (): void =>
       handleError(async () => {
         const { license } = await api.retrieve();
-        if (controller.signal.aborted || covered(license, TimeStamp.now())) return;
+        if (controller.signal.aborted || (license != null && license.exp == null))
+          return;
         const result = await renewKey(secret);
         if (controller.signal.aborted) return;
         if (result.variant === "unlinked") {
+          if (license?.edition === "d") await api.deactivate(license.jti);
           dispatch(Session.Account.clear());
           addStatus(
             status.create({

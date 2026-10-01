@@ -53,6 +53,7 @@ const infoOf = (lic: license.License | undefined): license.Info => ({
 interface Harness {
   retrieve: Mock<Account.RenewDeps["license"]["retrieve"]>;
   activate: Mock<Account.RenewDeps["license"]["activate"]>;
+  deactivate: Mock<Account.RenewDeps["license"]["deactivate"]>;
   store: TestStore;
   renew: Mock<(secret: string) => Promise<Account.RenewResult>>;
   statuses: () => Status.NotificationSpec[];
@@ -73,11 +74,12 @@ const setup = async ({
 }: SetupOptions = {}): Promise<Harness> => {
   const retrieve = vi.fn(async () => infoOf(lic));
   const activate = vi.fn(async () => infoOf(lic));
+  const deactivate = vi.fn(async () => infoOf(undefined));
   const renew = vi.fn(async () => result);
   const deps: Partial<Account.RenewDeps> = {
     renew,
     interval,
-    license: { retrieve, activate },
+    license: { retrieve, activate, deactivate },
   };
   const { result: rendered, store } = await renderHookWithConsole(
     () => {
@@ -89,12 +91,19 @@ const setup = async ({
       preloadedState: { [Session.Account.SLICE_NAME]: account },
     },
   );
-  return { retrieve, activate, store, renew, statuses: () => rendered.current };
+  return {
+    retrieve,
+    activate,
+    deactivate,
+    store,
+    renew,
+    statuses: () => rendered.current,
+  };
 };
 
 describe("Account.useRenew", () => {
-  it("should renew and apply the license key once the license nears its expiry", async () => {
-    const h = await setup({ license: expiringIn(TimeSpan.days(3)) });
+  it("should renew and apply the license key while the license has weeks to run", async () => {
+    const h = await setup({ license: expiringIn(TimeSpan.days(20)) });
     await waitFor(() => expect(h.activate).toHaveBeenCalledWith("x.y.z"));
     expect(h.renew).toHaveBeenCalledWith("shh");
   });
@@ -104,24 +113,40 @@ describe("Account.useRenew", () => {
     await waitFor(() => expect(h.activate).toHaveBeenCalledWith("x.y.z"));
   });
 
-  it("should leave a license alone while it has more than a week to run", async () => {
-    const h = await setup({ license: expiringIn(TimeSpan.days(20)) });
-    await waitFor(() => expect(h.retrieve).toHaveBeenCalled());
-    expect(h.renew).not.toHaveBeenCalled();
-  });
-
-  it("should check the license again on each interval", async () => {
+  it("should renew again on each interval", async () => {
     const h = await setup({
       license: expiringIn(TimeSpan.days(20)),
       interval: TimeSpan.milliseconds(20),
     });
-    await waitFor(() => expect(h.retrieve.mock.calls.length).toBeGreaterThan(1));
+    await waitFor(() => expect(h.renew.mock.calls.length).toBeGreaterThan(1));
   });
 
   it("should leave a perpetual license alone", async () => {
     const h = await setup({ license: DESKTOP_LICENSE });
     await waitFor(() => expect(h.retrieve).toHaveBeenCalled());
     expect(h.renew).not.toHaveBeenCalled();
+  });
+
+  it("should remove the license key once the hub has unlinked the machine", async () => {
+    const lic = expiringIn(TimeSpan.days(20));
+    const h = await setup({
+      license: lic,
+      result: { variant: "unlinked", message: "This machine was logged out." },
+    });
+    await waitFor(() => expect(h.deactivate).toHaveBeenCalledWith(lic.jti));
+  });
+
+  it("should leave an enterprise license when the hub unlinks the machine", async () => {
+    const h = await setup({
+      license: { ...expiringIn(TimeSpan.days(20)), edition: "e" },
+      result: { variant: "unlinked", message: "This machine was logged out." },
+    });
+    await waitFor(() =>
+      expect(Session.Account.selectSliceState(h.store.getState())).toEqual(
+        Session.Account.ZERO_SLICE_STATE,
+      ),
+    );
+    expect(h.deactivate).not.toHaveBeenCalled();
   });
 
   it("should forget the account once the hub has unlinked the machine", async () => {
