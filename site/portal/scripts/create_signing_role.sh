@@ -14,11 +14,11 @@
 # updates the trust and signing policies in place. Needs an AWS CLI identity that can
 # manage IAM.
 #
-#   VERCEL_TEAM=synnaxlabs scripts/create_signing_role.sh
+#   scripts/create_signing_role.sh
 
 set -euo pipefail
 
-: "${VERCEL_TEAM:?set VERCEL_TEAM to the Vercel team slug}"
+VERCEL_TEAM="${VERCEL_TEAM:-synnax}"
 PROJECT="${VERCEL_PROJECT:-portal}"
 KEY_ALIAS="${KEY_ALIAS:-alias/synnax-license-signing}"
 ROLE=portal-signer
@@ -79,7 +79,6 @@ aws iam put-role-policy --role-name "$ROLE" --policy-name sign-licenses \
     --policy-document "$SIGN"
 
 ROLE_ARN=$(aws iam get-role --role-name "$ROLE" --query Role.Arn --output text)
-echo "Set these on every environment of the $PROJECT Vercel project:"
+echo "Set these on the production environment of the $PROJECT Vercel project:"
 echo "  AWS_ROLE_ARN=$ROLE_ARN"
-echo "  AWS_REGION=$(echo "$KEY_ARN" | cut -d: -f4)"
 echo "  LICENSE_KMS_KEY_ARN=$KEY_ARN"

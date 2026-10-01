@@ -25,6 +25,7 @@ import {
   TERM_MS,
   unlink,
 } from "@/server/license/desktop";
+import { type Signer } from "@/server/license/sign";
 import {
   activationOf,
   HASH_A,
@@ -306,6 +307,25 @@ describe("desktop ledger", () => {
           detail: {},
         }),
       ]);
+    });
+
+    it("should record nothing when signing fails", async () => {
+      const linked = await linkMachine();
+      const machine = await resolve(store, linked.secret);
+      const failing: Signer = {
+        kid: "2",
+        sign: async () => {
+          throw new Error("KMS unavailable");
+        },
+      };
+      await expect(renew(store, failing, { machine, now: RENEWED })).rejects.toThrow(
+        "KMS unavailable",
+      );
+      expect((await licenseRow(linked.license.key)).expiresAt).toEqual(
+        linked.license.expiresAt,
+      );
+      expect((await activationRow(linked.activation.key)).lastSeen).toEqual(NOW);
+      expect(await eventsOf("renew")).toHaveLength(0);
     });
 
     it("should refuse a machine unlinked after it was resolved", async () => {

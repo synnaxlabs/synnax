@@ -21,12 +21,13 @@ import {
   MAIL_FROM,
   RESEND_API_KEY,
   STAFF_ORG_ID,
+  VERCEL_ENV,
 } from "astro:env/server";
 
 import { open as openStore, type Store } from "@/server/db/db";
 import { clerk, type Directory } from "@/server/directory";
 import { kms, type Signer } from "@/server/license/sign";
-import { type Mailer, resend } from "@/server/mail";
+import { log, type Mailer, resend } from "@/server/mail";
 import { resolve, type Session } from "@/server/session";
 
 /** Portal is the set of services a portal page or route works with. */
@@ -44,6 +45,14 @@ export interface Portal {
   now: () => Date;
 }
 
+/** mailer sends real mail only from production. Previews and local development log it. */
+const mailer = (): Mailer => {
+  if (VERCEL_ENV !== "production") return log();
+  if (RESEND_API_KEY == null)
+    throw new Error("RESEND_API_KEY is required in production");
+  return resend(RESEND_API_KEY, MAIL_FROM);
+};
+
 /**
  * open wires the portal for one request from the runtime environment. Nothing
  * connects until it is used, so a request that needs no service pays nothing.
@@ -56,6 +65,8 @@ export const open = (context: APIContext): Portal => {
       // A deployment assumes the signing role through Vercel OIDC. Local development
       // signs as the AWS CLI identity instead.
       client: new KMSClient({
+        // Vercel sets AWS_REGION to the function's region, so take the key's own.
+        region: LICENSE_KMS_KEY_ARN.split(":")[3],
         credentials:
           AWS_ROLE_ARN == null
             ? undefined
@@ -64,7 +75,7 @@ export const open = (context: APIContext): Portal => {
       keyID: LICENSE_KMS_KEY_ARN,
       kid: LICENSE_KID,
     }),
-    mail: resend(RESEND_API_KEY, MAIL_FROM),
+    mail: mailer(),
     staffOrgID: STAFF_ORG_ID,
     cronSecret: CRON_SECRET,
     webhookSecret: CLERK_WEBHOOK_SIGNING_SECRET,

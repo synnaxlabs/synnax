@@ -192,38 +192,40 @@ export interface RenewArgs {
 
 /**
  * renew slides the expiry of a machine's license and returns a fresh license key.
- * Throws a 403 when the machine was unlinked after `resolve` found it.
+ * Throws a 403 when the machine was unlinked after `resolve` found it. Nothing is
+ * stored when signing fails.
  */
 export const renew = async (
   store: Store,
   signer: Signer,
   { machine: row, now }: RenewArgs,
-): Promise<{ key: string; license: License }> => {
-  const [lic] = await store.query
-    .update(license)
-    .set({ expiresAt: expiryFrom(now) })
-    .where(and(eq(license.key, row.license.key), isNull(license.revokedAt)))
-    .returning();
-  if (lic == null) throw forbidden(LOGGED_OUT);
-  await store.query
-    .update(activation)
-    .set({ lastSeen: now })
-    .where(eq(activation.key, row.activation.key));
-  await store.query.insert(event).values({
-    at: now,
-    kind: "renew",
-    actor: row.activation.key,
-    organization: lic.organization,
-    license: lic.key,
-    activation: row.activation.key,
-    detail: {},
+): Promise<{ key: string; license: License }> =>
+  await store.transact(async (tx) => {
+    const [lic] = await tx
+      .update(license)
+      .set({ expiresAt: expiryFrom(now) })
+      .where(and(eq(license.key, row.license.key), isNull(license.revokedAt)))
+      .returning();
+    if (lic == null) throw forbidden(LOGGED_OUT);
+    await tx
+      .update(activation)
+      .set({ lastSeen: now })
+      .where(eq(activation.key, row.activation.key));
+    await tx.insert(event).values({
+      at: now,
+      kind: "renew",
+      actor: row.activation.key,
+      organization: lic.organization,
+      license: lic.key,
+      activation: row.activation.key,
+      detail: {},
+    });
+    const signed = await sign(
+      signer,
+      build({ license: lic, fingerprint: row.activation.fingerprint, now }),
+    );
+    return { key: signed, license: lic };
   });
-  const signed = await sign(
-    signer,
-    build({ license: lic, fingerprint: row.activation.fingerprint, now }),
-  );
-  return { key: signed, license: lic };
-};
 
 export interface UnlinkArgs {
   activationKey: string;
