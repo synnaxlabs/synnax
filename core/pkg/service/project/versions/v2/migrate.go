@@ -7,4 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/platform/mosaic/types";
+package v2
+
+import "github.com/synnaxlabs/x/gorp"
+
+// Migration lifts stored projects from v1 to v2, dropping the layout.
+var Migration = gorp.NewEntryMigration("v59_drop_layout", autoMigrateProject)

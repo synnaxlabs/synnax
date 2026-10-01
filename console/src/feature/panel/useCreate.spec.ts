@@ -23,7 +23,6 @@ describe("useCreate", () => {
   it("should create a panel under the selected project and select it", async () => {
     const proj = await client.projects.create({
       name: uniqueName("project"),
-      layout: {},
     });
     const { wrapper, store } = await createPanelWrapper({
       client,

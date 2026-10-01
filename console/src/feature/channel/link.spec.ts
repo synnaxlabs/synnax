@@ -20,9 +20,8 @@ const client = createTestClient();
 
 describe("Channel.useLink", () => {
   it("should create a line plot for the channel and open it as a tab", async () => {
-    const { layout: _, ...project } = await client.projects.create({
+    const project = await client.projects.create({
       name: id.create(),
-      layout: {},
     });
     const ch = await client.channels.create({
       name: channel.escapeInvalidName(`ch-${id.create()}`),

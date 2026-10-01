@@ -174,6 +174,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       # Dispatch inputs reach shell commands: reject a malformed tag or version before
       # any job interpolates one.
@@ -209,9 +211,13 @@ jobs:
             echo "VERSION=${{ inputs.version }}" >> $GITHUB_OUTPUT
             echo "PURE_VERSION=${PURE_VERSION}" >> $GITHUB_OUTPUT
           else
-            # A build without a resolved version is a dev build.
+            # A dev build stays 0.0 so clients pair with it, and names the newest
+            # stable Core release behind it.
+            BASE=$(git tag --list 'core/v*' --merged HEAD \
+              | sed -nE 's#^core/v([0-9]+\.[0-9]+\.[0-9]+)$#\1#p' \
+              | sort -t. -k1,1n -k2,2n -k3,3n | tail -1)
             echo "PURE_VERSION=0.0.0" >> $GITHUB_OUTPUT
-            echo "VERSION=0.0.0-${GITHUB_SHA:0:7}" >> $GITHUB_OUTPUT
+            echo "VERSION=0.0.0-dev${BASE:+.$BASE}.${GITHUB_SHA:0:7}" >> $GITHUB_OUTPUT
           fi
 
       - name: Generate OS matrix

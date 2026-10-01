@@ -27,7 +27,7 @@ const Base = Form.buildSelectField<ChannelMode>({
     children: (
       <>
         <Select.Item itemKey="automatic">Automatic (PDO)</Select.Item>
-        <Select.Item itemKey="manual">Manual (Address)</Select.Item>
+        <Select.Item itemKey="manual">Manual (address)</Select.Item>
       </>
     ),
   },

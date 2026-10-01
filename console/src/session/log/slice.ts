@@ -17,10 +17,9 @@ import { Window } from "@/session/window";
 export const toolbarTabZ = z.enum(["channels", "properties"]);
 export type ToolbarTab = z.infer<typeof toolbarTabZ>;
 
-export const toolbarStateZ = z.object({
+const toolbarStateZ = z.object({
   selectedTab: toolbarTabZ.default("channels"),
 });
-export interface ToolbarState extends z.infer<typeof toolbarStateZ> {}
 
 export const stateZ = z.object({
   hold: z.boolean().default(false),
@@ -31,7 +30,7 @@ export interface NewState extends z.input<typeof stateZ> {}
 
 export const ZERO_STATE = stateZ.parse({});
 
-export const windowStateZ = z.record(z.string(), stateZ).default({});
+const windowStateZ = z.record(z.string(), stateZ).default({});
 
 export const sliceStateZ = z.object({
   version: z.literal(0).default(0),

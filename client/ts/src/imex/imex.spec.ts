@@ -42,7 +42,6 @@ describe("Imex", () => {
   beforeAll(async () => {
     const proj = await client.projects.create({
       name: `imex-proj-${id.create()}`,
-      layout: {},
     });
     projectKey = proj.key;
   });
@@ -164,7 +163,6 @@ describe("Imex", () => {
     it("should parent the imported resource under the given parent", async () => {
       const proj = await client.projects.create({
         name: `imex-proj-${id.create()}`,
-        layout: {},
       });
       const name = `imex-${id.create()}`;
       const oid = await client.imex.import(toBlob(logEnvelope(name)), {
