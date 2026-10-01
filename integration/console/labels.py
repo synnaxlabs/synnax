@@ -13,6 +13,7 @@ from playwright.sync_api import Locator, expect
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from console.base import ResourceClient
+from console.color import pick as pick_color
 from x.color import Color
 
 _MODAL_SELECTOR = ".console-label__edit"
@@ -39,7 +40,7 @@ class LabelClient(ResourceClient):
 
         if color is not None:
             color_swatch = create_form.locator(".pluto-color-swatch").first
-            self._set_color_via_picker(color_swatch, color)
+            pick_color(self.layout.page, color_swatch, color)
 
         name_input = create_form.locator("input[placeholder='Name']")
         name_input.fill(name)
@@ -196,27 +197,8 @@ class LabelClient(ResourceClient):
             raise ValueError(f"Label '{name}' not found")
 
         color_swatch = label_item.locator(".pluto-color-swatch").first
-        self._set_color_via_picker(color_swatch, new_color)
+        pick_color(self.layout.page, color_swatch, new_color)
         self._close_edit_modal()
-
-    def _set_color_via_picker(self, swatch: Locator, hex_color: str) -> None:
-        """Set a color using the color picker.
-
-        Args:
-            swatch: The color swatch locator to click.
-            hex_color: The hex color code (e.g., "#FF0000").
-        """
-        swatch.click()
-        color_picker = self.layout.page.locator(".pluto-color-picker")
-        color_picker.wait_for(state="visible", timeout=2000)
-        hex_input = color_picker.get_by_label("Hex", exact=True)
-        hex_input.click()
-        hex_input.fill(hex_color.lstrip("#"))
-        self.layout.press_enter()
-        # Escape in a text box only leaves the box, so leave it first.
-        hex_input.blur()
-        self.layout.press_escape()
-        color_picker.wait_for(state="hidden", timeout=2000)
 
     def _open_edit_modal(self) -> None:
         self.layout.open_modal("Edit labels", _MODAL_SELECTOR)

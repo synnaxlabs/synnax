@@ -31,7 +31,7 @@ export const Setpoint = ({
   className,
   style,
   units,
-  color,
+  fillColor,
   onChange,
   size = "small",
   disabled,
@@ -83,7 +83,7 @@ export const Setpoint = ({
         showDragHandle={false}
         selectOnFocus
         endContent={units}
-        color={color}
+        color={fillColor}
         borderWidth={1}
         disabled={disabled}
       >
@@ -92,7 +92,7 @@ export const Setpoint = ({
           variant="filled"
           onClick={() => onChange(currValue)}
           onClickDelay={onClickDelay}
-          color={color}
+          color={fillColor}
           // WebKit leaves the input focused on a button press, so the typed value would
           // never commit. Blurring commits it before the click or hold sends.
           onMouseDown={() => inputRef.current?.blur()}

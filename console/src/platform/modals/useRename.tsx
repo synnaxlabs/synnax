@@ -14,7 +14,7 @@ import { Nav } from "@synnaxlabs/lyra/nav";
 import { useCallback, useState } from "react";
 
 import { Body } from "@/platform/modals/Body";
-import { createPrompt, type Prompt } from "@/platform/modals/factory";
+import { createPrompt } from "@/platform/modals/factory";
 import { Footer } from "@/platform/modals/Footer";
 import { Frame } from "@/platform/modals/Frame";
 import { Header } from "@/platform/modals/Header";
@@ -28,8 +28,6 @@ export interface RenameParams {
   title?: string;
   icon?: Icon.ReactElement;
 }
-
-export interface PromptRename extends Prompt<string, RenameParams> {}
 
 const Rename = ({
   allowEmpty = false,

@@ -1538,6 +1538,22 @@ public:
         });
     }
 
+    /// @brief returns a one-sample series holding the last sample. Throws when empty.
+    [[nodiscard]] Series last() const {
+        const auto v = this->at(-1);
+        Series out = this->data_type().is_variable()
+                       ? Series(std::get<std::string>(v), this->data_type())
+                       : Series(v);
+        out.data_type_ = this->data_type();
+        const auto offset = static_cast<std::uint32_t>(this->size() - 1);
+        out.alignment = Alignment(
+            this->alignment.domain_index(),
+            this->alignment.sample_index() + offset
+        );
+        out.time_range = this->time_range;
+        return out;
+    }
+
     /// @brief deep copies the series, including all of its data_. This function
     /// should be called explicitly (as opposed to an implicit copy constructor) to
     /// avoid accidental deep copies.

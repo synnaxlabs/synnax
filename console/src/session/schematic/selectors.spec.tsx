@@ -381,7 +381,7 @@ let projectKey: string;
 
 describe("useSelectEditable", () => {
   beforeAll(async () => {
-    projectKey = (await client.projects.create({ name: id.create(), layout: {} })).key;
+    projectKey = (await client.projects.create({ name: id.create() })).key;
   });
 
   it("permits editing when the user can update and edit mode is on", async () => {

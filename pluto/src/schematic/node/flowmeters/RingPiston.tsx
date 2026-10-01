@@ -22,7 +22,7 @@ export const RingPiston = ({
   id,
   className,
   orientation = "right",
-  color,
+  strokeColor,
   scale = 1,
   ...rest
 }: Props): ReactElement => (
@@ -62,14 +62,14 @@ export const RingPiston = ({
     </Handle.Boundary>
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={color}
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
     >
       <Primitive.Rect x="2" y="2" width="67" height="31" rx="2" />
       <Primitive.Circle cx="36.5" cy="17.5" r="10.5" strokeWidth="2" />
       <Primitive.Circle cx="36.5" cy="21.5" r="6.5" strokeWidth="2" />
-      <Label position={LABELS} color={color} />
+      <Label position={LABELS} strokeColor={strokeColor} />
     </Primitive.SVG>
   </Primitive.Div>
 );

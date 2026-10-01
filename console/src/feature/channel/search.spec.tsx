@@ -66,7 +66,6 @@ describe("channel/search", () => {
     const ch = await createChannel();
     const proj = await client.projects.create({
       name: uniqueName("proj"),
-      layout: {},
     });
     const store = await renderSearchItem(
       createResource(channelClient.ontologyID(ch.key), ch.name),
@@ -85,7 +84,6 @@ describe("channel/search", () => {
     const ch = await createChannel();
     const proj = await client.projects.create({
       name: uniqueName("proj"),
-      layout: {},
     });
     const plot = await client.lineplots.create(proj.key, { name: uniqueName("plot") });
     const store = await renderSearchItem(
@@ -122,7 +120,6 @@ describe("channel/search", () => {
     const ch = await createChannel({ isIndex: false, virtual: true });
     const proj = await client.projects.create({
       name: uniqueName("proj"),
-      layout: {},
     });
     const store = await renderSearchItem(
       createResource(channelClient.ontologyID(ch.key), ch.name, {
@@ -144,7 +141,6 @@ describe("channel/search", () => {
     const ch = await createChannel({ isIndex: false, virtual: true });
     const proj = await client.projects.create({
       name: uniqueName("proj"),
-      layout: {},
     });
     const doc = await client.logs.create(proj.key, { name: uniqueName("log") });
     const store = await renderSearchItem(
@@ -182,7 +178,6 @@ describe("channel/search", () => {
     const ch = await createChannel();
     const proj = await client.projects.create({
       name: uniqueName("proj"),
-      layout: {},
     });
     const store = await renderSearchItem(
       createResource(channelClient.ontologyID(ch.key), ch.name, {

@@ -18,6 +18,7 @@
 #include "x/cpp/test/test.h"
 
 #include "driver/http/device/device.h"
+#include "driver/http/errors/errors.h"
 #include "driver/http/mock/server.h"
 #include "driver/http/read_task.h"
 
@@ -1567,8 +1568,8 @@ mock::Route value_route(const std::string &path, const x::telem::TimeSpan &delay
 }
 
 /// @brief endpoints not sent because the device was unreachable should collapse into
-/// one warning.
-TEST(HTTPReadTask, SkippedEndpointsCollapseIntoOneWarning) {
+/// one line of the unreachable error.
+TEST(HTTPReadTask, SkippedEndpointsCollapseIntoOneLine) {
     mock::Server server(
         mock::ServerConfig{
             .routes = {
@@ -1593,12 +1594,12 @@ TEST(HTTPReadTask, SkippedEndpointsCollapseIntoOneWarning) {
     x::telem::Frame fr;
     auto res = source->read(breaker, fr);
     breaker.stop();
-    ASSERT_NIL(res.error);
+    ASSERT_OCCURRED_AS(res.error, errors::UNREACHABLE_ERROR);
     EXPECT_EQ(fr.size(), 0);
-    EXPECT_NE(res.warning.find("/slow"), std::string::npos);
-    EXPECT_NE(res.warning.find("2 requests not sent"), std::string::npos);
-    EXPECT_EQ(res.warning.find("/a"), std::string::npos);
-    EXPECT_EQ(res.warning.find("polled"), std::string::npos);
+    EXPECT_NE(res.error.data.find("/slow"), std::string::npos);
+    EXPECT_NE(res.error.data.find("2 requests not sent"), std::string::npos);
+    EXPECT_EQ(res.error.data.find("/a"), std::string::npos);
+    EXPECT_EQ(res.error.data.find("polled"), std::string::npos);
 }
 
 /// @brief more endpoints than slots overrunning the period should warn about the
@@ -2208,9 +2209,9 @@ TEST(HTTPReadTask, HTTPSPOSTWithBody) {
     EXPECT_NEAR(fr.at<double>(1, 0), 88.8, 0.001);
 }
 
-/// @brief a transport error (timeout) should produce a warning with the full URL and
-/// skip the endpoint, not kill the task.
-TEST(HTTPReadTask, TransportErrorTimeoutWarning) {
+/// @brief a timeout on every endpoint should return an unreachable error with the full
+/// URL, so the pipeline backs off.
+TEST(HTTPReadTask, TransportErrorTimeoutUnreachable) {
     mock::Server server(
         mock::ServerConfig{
             .routes = {{
@@ -2255,10 +2256,10 @@ TEST(HTTPReadTask, TransportErrorTimeoutWarning) {
     x::telem::Frame fr;
     auto res = source->read(breaker, fr);
     breaker.stop();
-    ASSERT_NIL(res.error);
-    EXPECT_NE(res.warning.find("GET"), std::string::npos);
-    EXPECT_NE(res.warning.find("/api/slow"), std::string::npos);
-    EXPECT_NE(res.warning.find("failed"), std::string::npos);
+    ASSERT_OCCURRED_AS(res.error, errors::UNREACHABLE_ERROR);
+    EXPECT_NE(res.error.data.find("GET"), std::string::npos);
+    EXPECT_NE(res.error.data.find("/api/slow"), std::string::npos);
+    EXPECT_NE(res.error.data.find("failed"), std::string::npos);
     EXPECT_EQ(fr.size(), 0);
 }
 

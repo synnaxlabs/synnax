@@ -1,0 +1,92 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { type license } from "@synnaxlabs/client";
+import { describe, expect, it } from "vitest";
+
+import { License } from "@/platform/license";
+
+const BASE: license.License = {
+  jti: "6d1f7a0e-1c3b-4e2a-9f7d-2a1b3c4d5e6f",
+  iat: 1_700_000_000,
+  claimsVersion: 1,
+  organization: "0f8fad5b-d9cb-469f-a165-70867728950e",
+  edition: "e",
+  fingerprints: [],
+  fingerprintScheme: 1,
+  machines: 2,
+  channels: 0,
+  required: [],
+};
+
+// 2027-03-01T00:00:00Z
+const EXP = 1_803_859_200;
+
+describe("License.describeTerm", () => {
+  it("should describe a subscription by its expiry", () => {
+    expect(License.describeTerm({ ...BASE, exp: EXP })).toBe("Expires 2027-03-01");
+  });
+
+  it("should describe a perpetual license by its version ceiling", () => {
+    expect(License.describeTerm({ ...BASE, maxVersion: "0.62" })).toBe(
+      "Perpetual, covers versions up to 0.62",
+    );
+  });
+
+  it("should describe a subscription with a version fallback", () => {
+    expect(License.describeTerm({ ...BASE, exp: EXP, maxVersion: "0.62" })).toBe(
+      "Subscription until 2027-03-01, then versions up to 0.62",
+    );
+  });
+
+  it("should call a license with neither bound perpetual", () => {
+    expect(License.describeTerm(BASE)).toBe("Perpetual");
+  });
+});
+
+describe("License.describeChannels", () => {
+  it("should treat a zero cap as unlimited", () => {
+    expect(License.describeChannels(BASE)).toBe("Unlimited");
+  });
+
+  it("should state the cap", () => {
+    expect(License.describeChannels({ ...BASE, channels: 500 })).toBe("Up to 500");
+  });
+});
+
+describe("License.editionLabel", () => {
+  it("should name each edition", () => {
+    expect(License.editionLabel(BASE)).toBe("Enterprise");
+    expect(License.editionLabel({ ...BASE, edition: "d" })).toBe("Desktop");
+  });
+});
+
+describe("License.joinFingerprint", () => {
+  it("should join the host hashes with commas", () => {
+    expect(License.joinFingerprint(["a", "b"])).toBe("a, b");
+  });
+});
+
+describe("License.resolveBinding", () => {
+  it("should call a license with no fingerprints floating", () => {
+    expect(License.resolveBinding(BASE, ["a"])).toBe("floating");
+  });
+
+  it("should recognize a license that shares a hash with the host", () => {
+    expect(
+      License.resolveBinding({ ...BASE, fingerprints: ["b", "c"] }, ["a", "c"]),
+    ).toBe("host");
+  });
+
+  it("should flag a license bound to other hashes", () => {
+    expect(License.resolveBinding({ ...BASE, fingerprints: ["b"] }, ["a"])).toBe(
+      "other",
+    );
+  });
+});

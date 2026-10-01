@@ -13,7 +13,6 @@ import { z } from "zod";
 import { Device } from "@/platform/device";
 
 export const MAKE = "NI";
-export type Make = typeof MAKE;
 export const makeZ = z.literal(MAKE);
 
 export const propertiesZ = z.object({

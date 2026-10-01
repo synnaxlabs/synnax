@@ -30,11 +30,61 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
+	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+// stack is a rack service and the services it depends on. Closing it closes all of
+// them.
+type stack struct {
+	xio.MultiCloser
+	rack   *rack.Service
+	status *status.Service
+	otg    *ontology.Ontology
+}
+
+// openStack opens a rack service and its dependencies on db, as a Core start does. It
+// fills every dependency in cfg.
+func openStack(ctx context.Context, db *gorp.DB, cfg rack.ServiceConfig) stack {
+	GinkgoHelper()
+	otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
+	searchIdx := MustSucceed(search.OpenIndex())
+	g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Search:   searchIdx,
+	}))
+	lbl := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Group:    g,
+		Search:   searchIdx,
+	}))
+	stat := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+		Ontology: otg,
+		DB:       db,
+		Group:    g,
+		Label:    lbl,
+		Search:   searchIdx,
+	}))
+	cfg.DB = db
+	cfg.Ontology = otg
+	cfg.Group = g
+	cfg.HostProvider = mock.NewStaticHostProvider(1)
+	cfg.Status = stat
+	cfg.Search = searchIdx
+	svc := MustSucceed(rack.OpenService(ctx, cfg))
+	Expect(searchIdx.Initialize(ctx)).To(Succeed())
+	return stack{
+		MultiCloser: xio.MultiCloser{otg, searchIdx, g, lbl, stat, svc},
+		rack:        svc,
+		status:      stat,
+		otg:         otg,
+	}
+}
 
 var _ = Describe("Rack", Ordered, func() {
 	var (
@@ -54,35 +104,8 @@ var _ = Describe("Rack", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustOpen(search.OpenIndex())
-		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Search:   searchIdx,
-		}))
-		label := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    g,
-			Search:   searchIdx,
-		}))
-		stat = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			Ontology: otg,
-			DB:       db,
-			Group:    g,
-			Label:    label,
-			Search:   searchIdx,
-		}))
-		svc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-			DB:           db,
-			Ontology:     otg,
-			Group:        g,
-			HostProvider: mock.NewStaticHostProvider(1),
-			Status:       stat,
-
+		s := DeferClose(openStack(ctx, db, rack.ServiceConfig{
 			HealthCheckInterval: 10 * telem.Millisecond,
-			Search:              searchIdx,
 			Now: func() telem.TimeStamp {
 				if t := frozenNow.Load(); t != 0 {
 					return telem.TimeStamp(t)
@@ -90,8 +113,8 @@ var _ = Describe("Rack", Ordered, func() {
 				return telem.Now()
 			},
 		}))
+		svc, stat, otg = s.rack, s.status, s.otg
 		noTxWriter = svc.NewWriter(nil)
-		Expect(searchIdx.Initialize(ctx)).To(Succeed())
 	})
 	BeforeEach(func(ctx SpecContext) {
 		frozenNow.Store(0)
@@ -887,6 +910,36 @@ var _ = Describe("Rack", Ordered, func() {
 					50*time.Millisecond,
 					5*time.Millisecond,
 				).Should(BeNumerically(">", countAfterRecovery))
+			},
+		)
+
+		It(
+			"Should mark a stored healthy rack as dead when it is silent after a restart",
+			func(ctx SpecContext) {
+				restartDB := DeferClose(gorp.Wrap(memkv.New()))
+				before := openStack(ctx, restartDB, rack.ServiceConfig{
+					HealthCheckInterval: telem.Hour,
+				})
+				r := rack.Rack{
+					Name: "restarted rack",
+					Status: &rack.Status{
+						Variant: status.VariantSuccess,
+						Message: "Driver is running",
+						Time:    telem.Now(),
+					},
+				}
+				Expect(before.rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+				Expect(before.Close()).To(Succeed())
+
+				after := DeferClose(openStack(ctx, restartDB, rack.ServiceConfig{
+					HealthCheckInterval: 10 * telem.Millisecond,
+				}))
+				Eventually(func(g Gomega) {
+					s := MustSucceed(after.rack.RetrieveStatus(ctx, r.Key))
+					g.Expect(s.Variant).To(Equal(status.VariantWarning))
+					g.Expect(s.Message).
+						To(Equal("Synnax Driver on restarted rack not running"))
+				}).Should(Succeed())
 			},
 		)
 	})
