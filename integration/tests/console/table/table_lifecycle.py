@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from playwright.sync_api import expect
+
 import synnax as sy
 from console.case import ConsoleCase
 from console.table import Table
@@ -593,7 +595,7 @@ class TableLifecycle(ConsoleCase):
 
     def test_multi_cell_color_grouping(self, table: Table) -> None:
         """Test that the multi-cell toolbar sets a fill on cells that store no color,
-        then lists the shared fill as one Selection colors swatch."""
+        then lists the shared fill as one Selection swatch."""
         self.log("Testing multi-cell color grouping")
         while table.get_row_count() < 1:
             table.add_row()
@@ -607,11 +609,12 @@ class TableLifecycle(ConsoleCase):
         assert table.get_toolbar_cell_count() == 2, (
             "Toolbar breadcrumb should report 2-cell selection before color check"
         )
-        assert table.get_color_swatch_count() == 0, (
-            "Cells with no stored color should list no selection colors"
-        )
-        table.set_toolbar_fill("ff0000")
-        table.wait_for_color_swatch_count(1)
+        table.layout.show_visualization_toolbar()
+        swatches = table.colors.selection_swatches()
+        expect(table.colors.field("Fill")).to_be_visible()
+        expect(swatches).to_have_count(0)
+        table.colors.set("Fill", "ff0000")
+        expect(swatches).to_have_count(1)
 
     def test_multi_cell_level_bulk_apply(self, table: Table) -> None:
         """Test that the toolbar's Size selector bulk-applies a level to
