@@ -125,15 +125,17 @@ export const createStreamer = ({
     const h = new HardenedStreamer(
       openStreamer,
       { channels },
-      breakerConfig,
-      // onLive first: onReopen's reconcile fetches must not hit a stale
-      // liveness short circuit
-      () => {
-        onLive?.();
-        onReopen?.();
+      {
+        breaker: breakerConfig,
+        // onLive first: onReopen's reconcile fetches must not hit a stale liveness short
+        // circuit
+        onReopen: () => {
+          onLive?.();
+          onReopen?.();
+        },
+        onDrop,
+        onRetry,
       },
-      onDrop,
-      onRetry,
     );
     // Held outside so close() can interrupt the retry loop while this call
     // is still waiting on a first successful open.

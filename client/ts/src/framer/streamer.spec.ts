@@ -700,10 +700,7 @@ describe("Streamer", () => {
         const hardened = await HardenedStreamer.open(
           async (cfg) => await proxied.openStreamer(cfg),
           { channels: ch.key, keepAlive: KEEP_ALIVE },
-          FAST_RETRY,
-          onReopen,
-          onDrop,
-          quiet,
+          { breaker: FAST_RETRY, onReopen, onDrop, onRetry: quiet },
         );
         try {
           await write(ch, [1]);
@@ -822,9 +819,7 @@ describe("Streamer", () => {
           return streamer2;
         },
         { channels: [1] },
-        undefined,
-        undefined,
-        onDrop,
+        { onDrop },
       );
       expect(await hardened.read()).toEqual(fr1);
       expect(await hardened.read()).toEqual(fr2);
@@ -841,7 +836,7 @@ describe("Streamer", () => {
           return new MockStreamer();
         },
         { channels: [1] },
-        { baseInterval: TimeSpan.milliseconds(30), jitter: 0 },
+        { breaker: { baseInterval: TimeSpan.milliseconds(30), jitter: 0 } },
       );
       const pending = hardened.read().catch((e: unknown) => e);
       await new Promise((resolve) => setTimeout(resolve, 150));
@@ -866,7 +861,7 @@ describe("Streamer", () => {
           throw new Unreachable({ message: "still down" });
         },
         { channels: [1] },
-        { baseInterval: TimeSpan.seconds(60) },
+        { breaker: { baseInterval: TimeSpan.seconds(60) } },
       );
       expect(await hardened.read()).toEqual(fr1);
       // drops, fails one reopen, then sleeps out the 60s backoff
@@ -897,10 +892,13 @@ describe("Streamer", () => {
           throw new Unreachable({ message: "still down" });
         },
         { channels: [1] },
-        { baseInterval: TimeSpan.seconds(60), maxInterval: TimeSpan.milliseconds(5) },
-        undefined,
-        undefined,
-        onRetry,
+        {
+          breaker: {
+            baseInterval: TimeSpan.seconds(60),
+            maxInterval: TimeSpan.milliseconds(5),
+          },
+          onRetry,
+        },
       );
       expect(await hardened.read()).toEqual(fr1);
       // maxInterval also sets stableAfter, so a stream older than it counts as
@@ -929,7 +927,7 @@ describe("Streamer", () => {
           throw new Unreachable({ message: "still down" });
         },
         { channels: [1] },
-        { baseInterval: TimeSpan.seconds(60) },
+        { breaker: { baseInterval: TimeSpan.seconds(60) } },
       );
       expect(await hardened.read()).toEqual(fr1);
       const pending = hardened.read().catch((e: unknown) => e);
@@ -993,10 +991,7 @@ describe("Streamer", () => {
           return streamer5;
         },
         { channels: [1] },
-        { baseInterval: TimeSpan.milliseconds(1) },
-        undefined,
-        undefined,
-        onRetry,
+        { breaker: { baseInterval: TimeSpan.milliseconds(1) }, onRetry },
       );
       const fr = await hardened.read();
       expect(fr).toEqual(fr1);
@@ -1019,10 +1014,10 @@ describe("Streamer", () => {
             throw new Unreachable({ message: "very unreachable" });
           },
           { channels: [1] },
-          { maxRetries: 3, baseInterval: TimeSpan.milliseconds(1) },
-          undefined,
-          undefined,
-          onRetry,
+          {
+            breaker: { maxRetries: 3, baseInterval: TimeSpan.milliseconds(1) },
+            onRetry,
+          },
         ),
       ).rejects.toThrow("very unreachable");
       expect(onRetry).toHaveBeenCalledTimes(3);
@@ -1038,10 +1033,10 @@ describe("Streamer", () => {
             throw new ExpiredTokenError("token expired");
           },
           { channels: [1] },
-          { maxRetries: 2, baseInterval: TimeSpan.milliseconds(1) },
-          undefined,
-          undefined,
-          onRetry,
+          {
+            breaker: { maxRetries: 2, baseInterval: TimeSpan.milliseconds(1) },
+            onRetry,
+          },
         ),
       ).rejects.toThrow(ExpiredTokenError);
       expect(openerMock.mock.calls.length).toBeGreaterThan(1);
@@ -1057,7 +1052,7 @@ describe("Streamer", () => {
             throw new AccessDeniedError("no permission to stream");
           },
           { channels: [1] },
-          { maxRetries: 3, baseInterval: TimeSpan.milliseconds(1) },
+          { breaker: { maxRetries: 3, baseInterval: TimeSpan.milliseconds(1) } },
         ),
       ).rejects.toThrow(AccessDeniedError);
       expect(openerMock).toHaveBeenCalledTimes(1);
@@ -1083,9 +1078,7 @@ describe("Streamer", () => {
           return streamer2;
         },
         { channels: [1] },
-        undefined,
-        onReopen,
-        onDrop,
+        { onReopen, onDrop },
       );
       expect(onDrop).not.toHaveBeenCalled();
       expect(onReopen).not.toHaveBeenCalled();
@@ -1142,9 +1135,7 @@ describe("Streamer", () => {
           return await new Promise<Streamer>((resolve) => pendingOpens.push(resolve));
         },
         { channels: [1] },
-        { maxInterval: TimeSpan.milliseconds(5), jitter: 0 },
-        undefined,
-        onDrop,
+        { breaker: { maxInterval: TimeSpan.milliseconds(5), jitter: 0 }, onDrop },
       );
       expect(await hardened.read()).toEqual(fr1);
       // Age the stream past stableAfter so the reconnect skips the backoff sleep.
@@ -1180,7 +1171,7 @@ describe("Streamer", () => {
           return await new Promise<Streamer>((_, reject) => pendingOpens.push(reject));
         },
         { channels: [1] },
-        { maxInterval: TimeSpan.milliseconds(5), jitter: 0 },
+        { breaker: { maxInterval: TimeSpan.milliseconds(5), jitter: 0 } },
       );
       expect(await hardened.read()).toEqual(fr1);
       await sleep.sleep(TimeSpan.milliseconds(10));

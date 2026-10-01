@@ -32,6 +32,24 @@ const normalizeConfig = (config: StreamerConfig): NormalizedStreamerConfig =>
     ? { ...config }
     : { channels: config };
 
+/** Options for {@link HardenedStreamer}. */
+export interface HardenedStreamerOptions {
+  /**
+   * Retry behavior for reconnect attempts. Defaults to retrying forever on capped,
+   * jittered exponential backoff.
+   */
+  breaker?: breaker.Config;
+  /**
+   * Called after every successful reconnect (not the initial open). Frames may have
+   * been dropped between the failure and the reopen.
+   */
+  onReopen?: () => void;
+  /** Called when the stream fails and reconnection begins. */
+  onDrop?: (error: Error) => void;
+  /** Receives each failed reconnect attempt. Defaults to console.error. */
+  onRetry?: (error: Error) => void;
+}
+
 /**
  * A hardened streamer that automatically reconnects on failure.
  * This streamer wraps a regular streamer and adds automatic reconnection
@@ -56,10 +74,12 @@ export class HardenedStreamer implements Streamer {
   constructor(
     opener: StreamOpener,
     config: StreamerConfig,
-    breakerConfig: breaker.Config = {},
-    onReopen?: () => void,
-    onDrop?: (error: Error) => void,
-    onRetry: (error: Error) => void = console.error,
+    {
+      breaker: breakerConfig = {},
+      onReopen,
+      onDrop,
+      onRetry = console.error,
+    }: HardenedStreamerOptions = {},
   ) {
     this.opener = opener;
     this.config = normalizeConfig(config);
@@ -71,7 +91,7 @@ export class HardenedStreamer implements Streamer {
       maxInterval = TimeSpan.seconds(5),
       scale = 2,
       jitter = 0.25,
-    } = breakerConfig ?? {};
+    } = breakerConfig;
     this.breaker = new breaker.Breaker({
       maxRetries,
       baseInterval,
@@ -92,30 +112,14 @@ export class HardenedStreamer implements Streamer {
 
   /**
    * Opens a new hardened streamer with the given configuration.
-   * @param breakerConfig - Retry behavior for reconnect attempts. Defaults to retrying
-   * forever on capped, jittered exponential backoff.
-   * @param onReopen - Called after every successful reconnect (not the initial open).
-   * Frames may have been dropped between the failure and the reopen.
-   * @param onDrop - Called when the stream fails and reconnection begins.
-   * @param onRetry - Receives each failed reconnect attempt. Defaults to console.error.
    * @returns A promise that resolves to a new hardened streamer
    */
   static async open(
     opener: StreamOpener,
     config: StreamerConfig,
-    breakerConfig?: breaker.Config,
-    onReopen?: () => void,
-    onDrop?: (error: Error) => void,
-    onRetry?: (error: Error) => void,
+    options?: HardenedStreamerOptions,
   ): Promise<HardenedStreamer> {
-    const h = new HardenedStreamer(
-      opener,
-      config,
-      breakerConfig,
-      onReopen,
-      onDrop,
-      onRetry,
-    );
+    const h = new HardenedStreamer(opener, config, options);
     await h.start();
     return h;
   }

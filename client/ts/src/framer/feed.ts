@@ -97,7 +97,11 @@ export class Feed {
     this.streamer = new MultiplexedStreamer({
       cache: this.cache,
       openStreamer: async (config, { onReopen, onDrop }) =>
-        await HardenedStreamer.open(openStreamer, config, breaker, onReopen, onDrop),
+        await HardenedStreamer.open(openStreamer, config, {
+          breaker,
+          onReopen,
+          onDrop,
+        }),
       removalDelay,
       breaker,
       instrumentation: instrumentation?.child("streamer"),
