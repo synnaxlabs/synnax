@@ -73,9 +73,7 @@ describe("Toggle.Button", () => {
       );
       fireEvent.mouseDown(getButton(container));
       expect(onClick).not.toHaveBeenCalled();
-      act(() => {
-        vi.advanceTimersByTime(499);
-      });
+      vi.advanceTimersByTime(499);
       expect(onClick).not.toHaveBeenCalled();
       act(() => {
         vi.advanceTimersByTime(1);
@@ -89,13 +87,9 @@ describe("Toggle.Button", () => {
         <Toggle.Button onClick={onClick} onClickDelay={TimeSpan.milliseconds(500)} />,
       );
       fireEvent.mouseDown(getButton(container));
-      act(() => {
-        vi.advanceTimersByTime(100);
-      });
+      vi.advanceTimersByTime(100);
       fireEvent.mouseUp(document);
-      act(() => {
-        vi.advanceTimersByTime(1000);
-      });
+      vi.advanceTimersByTime(1000);
       expect(onClick).not.toHaveBeenCalled();
     });
 
@@ -106,9 +100,7 @@ describe("Toggle.Button", () => {
       );
       fireEvent.mouseDown(getButton(c.container));
       c.unmount();
-      act(() => {
-        vi.advanceTimersByTime(1000);
-      });
+      vi.advanceTimersByTime(1000);
       expect(onClick).not.toHaveBeenCalled();
     });
 
@@ -125,9 +117,7 @@ describe("Toggle.Button", () => {
           disabled
         />,
       );
-      act(() => {
-        vi.advanceTimersByTime(1000);
-      });
+      vi.advanceTimersByTime(1000);
       expect(onClick).not.toHaveBeenCalled();
     });
 
@@ -137,9 +127,7 @@ describe("Toggle.Button", () => {
         <Toggle.Button onClick={onClick} onClickDelay={TimeSpan.milliseconds(500)} />,
       );
       fireEvent.mouseDown(getButton(container), { button: 2 });
-      act(() => {
-        vi.advanceTimersByTime(1000);
-      });
+      vi.advanceTimersByTime(1000);
       expect(onClick).not.toHaveBeenCalled();
     });
 
@@ -170,9 +158,7 @@ describe("Toggle.Button", () => {
       expect(onClick).toHaveBeenCalledTimes(1);
       // A trailing mouseup after the timer fires should not produce another call.
       fireEvent.mouseUp(document);
-      act(() => {
-        vi.advanceTimersByTime(1000);
-      });
+      vi.advanceTimersByTime(1000);
       expect(onClick).toHaveBeenCalledTimes(1);
     });
   });

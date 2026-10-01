@@ -36,9 +36,7 @@ describe("setpoint symbol", () => {
       fireEvent.mouseDown(btn);
       fireEvent.mouseUp(document);
       fireEvent.click(btn);
-      act(() => {
-        vi.advanceTimersByTime(1000);
-      });
+      vi.advanceTimersByTime(1000);
       expect(onChange).not.toHaveBeenCalled();
     });
 
