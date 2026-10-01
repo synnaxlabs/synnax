@@ -64,6 +64,7 @@ interface SetupOptions {
   result?: Account.RenewResult;
   account?: Session.Account.SliceState;
   interval?: TimeSpan;
+  deactivateError?: Error;
 }
 
 const setup = async ({
@@ -71,10 +72,14 @@ const setup = async ({
   result = { variant: "renewed", key: "x.y.z" },
   account = LINKED,
   interval,
+  deactivateError,
 }: SetupOptions = {}): Promise<Harness> => {
   const retrieve = vi.fn(async () => infoOf(lic));
   const activate = vi.fn(async () => infoOf(lic));
-  const deactivate = vi.fn(async () => infoOf(undefined));
+  const deactivate = vi.fn(async () => {
+    if (deactivateError != null) throw deactivateError;
+    return infoOf(undefined);
+  });
   const renew = vi.fn(async () => result);
   const deps: Partial<Account.RenewDeps> = {
     renew,
@@ -134,6 +139,16 @@ describe("Account.useRenew", () => {
       result: { variant: "unlinked", message: "This machine was logged out." },
     });
     await waitFor(() => expect(h.deactivate).toHaveBeenCalledWith(lic.jti));
+  });
+
+  it("should keep the account when the license key cannot be removed", async () => {
+    const h = await setup({
+      license: expiringIn(TimeSpan.days(20)),
+      result: { variant: "unlinked", message: "This machine was logged out." },
+      deactivateError: new Error("Core unavailable"),
+    });
+    await waitFor(() => expect(h.deactivate).toHaveBeenCalled());
+    expect(Session.Account.selectSliceState(h.store.getState())).toEqual(LINKED);
   });
 
   it("should leave an enterprise license when the hub unlinks the machine", async () => {

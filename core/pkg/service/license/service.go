@@ -139,6 +139,11 @@ var (
 	markKey = []byte("highWater")
 )
 
+// entryKey is where the license key with the given ID is stored.
+func entryKey(jti uuid.UUID) []byte {
+	return append(append([]byte{}, prefix...), jti.String()...)
+}
+
 // Service verifies the license a Core runs under.
 type Service struct {
 	cfg         ServiceConfig
@@ -250,8 +255,7 @@ func (s *Service) Activate(ctx context.Context, key string) (Info, error) {
 	if info.State != StateOk {
 		return Info{}, info.err()
 	}
-	entry := append(append([]byte{}, prefix...), lic.Jti.String()...)
-	if err = s.cfg.Set(ctx, entry, []byte(key)); err != nil {
+	if err = s.cfg.Set(ctx, entryKey(lic.Jti), []byte(key)); err != nil {
 		return Info{}, err
 	}
 	if err = s.load(ctx); err != nil {
@@ -264,8 +268,7 @@ func (s *Service) Activate(ctx context.Context, key string) (Info, error) {
 // Deactivate removes the stored license key with the given ID and returns the
 // resulting state. Removing a key that is not stored changes nothing.
 func (s *Service) Deactivate(ctx context.Context, jti uuid.UUID) (Info, error) {
-	entry := append(append([]byte{}, prefix...), jti.String()...)
-	if err := s.cfg.Delete(ctx, entry); err != nil {
+	if err := s.cfg.Delete(ctx, entryKey(jti)); err != nil {
 		return Info{}, err
 	}
 	if err := s.load(ctx); err != nil {
