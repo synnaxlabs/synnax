@@ -7,16 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package io
+package v2
 
-import "io"
+import "github.com/synnaxlabs/x/gorp"
 
-type SectionReaderAtCloser struct {
-	io.ReaderAt
-	io.Closer
-}
-
-func NewSectionReaderAtCloser(r ReaderAtCloser, off, n int64) *SectionReaderAtCloser {
-	sectionReader := io.NewSectionReader(r, off, n)
-	return &SectionReaderAtCloser{ReaderAt: sectionReader, Closer: r}
-}
+// Migration lifts stored projects from v1 to v2, dropping the layout.
+var Migration = gorp.NewEntryMigration("v59_drop_layout", autoMigrateProject)
