@@ -770,6 +770,9 @@ NodeConfig union on variant {
         position      spatial.XY?           {
             @doc value "is the offset of the tank contents within the symbol."
         }
+        stroke_color  color.Color?          {
+            @doc value "is the color of the tank's wall."
+        }
         fill_color    color.Color?          {
             @doc value "is the fill color of the tank body."
         }
@@ -963,8 +966,8 @@ ScaleIndicatorConfig struct extends NumericTelemConfig, StalenessConfig {
             is the color of the filled portion, the caret, and the value readout border.
         """
     }
-    stroke_color color.Color?          {
-        @doc value "is the outline color: the axis, its ticks, and a tank's wall."
+    axis_color   color.Color?          {
+        @doc value "is the color of the axis and its ticks."
     }
     text_color   color.Color?          {
         @doc value "is the color of the tick labels."

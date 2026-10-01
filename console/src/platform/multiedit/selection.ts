@@ -7,9 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type color, type record } from "@synnaxlabs/x";
+import { type color, deep, type record } from "@synnaxlabs/x";
 
-import { type ColorRef, groupByKey, patch } from "@/platform/multiedit/config";
+import { type ColorRef } from "@/platform/multiedit/config";
+
+/**
+ * @returns a copy of the config with each path set to its value. An undefined value
+ * removes the path, so the field reads as absent.
+ */
+const patch = <C>(config: C, entries: Array<[string, unknown]>): C => {
+  const next = deep.copy(config);
+  entries.forEach(([path, value]) => {
+    if (value === undefined) deep.remove(next, path);
+    else deep.set(next, path, value);
+  });
+  return next;
+};
 
 /** A top-level field that any variant of the config union declares. */
 export type Field<C> = C extends unknown ? keyof C & string : never;
@@ -107,17 +120,20 @@ export const selection = <C extends { variant: string }>({
     update,
     setColors: (refs, value) =>
       apply(
-        Array.from(groupByKey(refs), ([key, group]) => {
-          const config = configs.get(key);
-          if (config == null) throw new Error(`[multiedit] - no config for ${key}`);
-          return [
-            key,
-            patch(
-              config,
-              group.map((r) => [r.path, value]),
-            ),
-          ];
-        }),
+        Array.from(
+          Map.groupBy(refs, (r) => r.key),
+          ([key, group]) => {
+            const config = configs.get(key);
+            if (config == null) throw new Error(`[multiedit] - no config for ${key}`);
+            return [
+              key,
+              patch(
+                config,
+                group.map((r) => [r.path, value]),
+              ),
+            ];
+          },
+        ),
       ),
   };
 };

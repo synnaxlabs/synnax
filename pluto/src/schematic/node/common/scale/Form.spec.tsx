@@ -9,6 +9,7 @@
 
 import { schematic } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
+import { color } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { assert, describe, expect, it } from "vitest";
@@ -41,6 +42,16 @@ const checked = (el: HTMLElement): boolean => {
   return el.checked;
 };
 
+// The color the swatch of the field with the label shows.
+const swatchColor = (container: HTMLElement, label: string): string => {
+  const item = Array.from(container.querySelectorAll(".pluto-input__item")).find(
+    (el) => el.querySelector("label")?.textContent?.trim() === label,
+  );
+  const swatch = item?.querySelector<HTMLElement>(".pluto-color-swatch");
+  assert(swatch != null, `no color field labeled ${label}`);
+  return swatch.style.getPropertyValue("--pluto-swatch-color");
+};
+
 describe("scale display fields", () => {
   it("should show the scale's value and axis unless they are hidden", () => {
     const { getByRole, getByText } = render(
@@ -70,5 +81,25 @@ describe("scale display fields", () => {
     fireEvent.click(getByRole("tab", { name: "Fill" }));
     expect(checked(getByRole("checkbox", { name: "Value" }))).toBe(true);
     expect(checked(getByRole("checkbox", { name: "Scale" }))).toBe(false);
+  });
+});
+
+describe("tank colors", () => {
+  it("should edit the wall and the axis as separate colors", () => {
+    const { container, getByRole } = render(
+      <FormWrapper
+        values={{
+          ...Node.createConfig({ variant: "tank" }),
+          channel: 1,
+          strokeColor: color.construct("#ff0000"),
+          axisColor: color.construct("#00ff00"),
+        }}
+      >
+        <TankForm showFillTab />
+      </FormWrapper>,
+    );
+    expect(swatchColor(container, "Stroke")).toBe("rgba(255, 0, 0, 1)");
+    fireEvent.click(getByRole("tab", { name: "Fill" }));
+    expect(swatchColor(container, "Axis")).toBe("rgba(0, 255, 0, 1)");
   });
 });

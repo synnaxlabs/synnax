@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -30,40 +31,16 @@ describe("MultiEdit", () => {
     });
   });
 
-  describe("patch", () => {
-    it("should set nested paths on a copy", () => {
-      const config = { label: { level: "p" }, scale: 1 };
-      const next = MultiEdit.patch(config, [
-        ["label.level", "h5"],
-        ["scale", 2],
-      ]);
-      expect(next).toEqual({ label: { level: "h5" }, scale: 2 });
-      expect(config).toEqual({ label: { level: "p" }, scale: 1 });
-    });
-
-    it("should remove a path set to undefined", () => {
-      const next = MultiEdit.patch({ fillColor: "#ff0000", scale: 1 }, [
-        ["fillColor", undefined],
-      ]);
-      expect(next).toEqual({ scale: 1 });
-    });
-  });
-
-  describe("groupByColor", () => {
-    it("should group references by color in first-seen order", () => {
-      const refs = [
-        ...MultiEdit.colorRefs("a", { strokeColor: "#ff0000" }, ["strokeColor"]),
-        ...MultiEdit.colorRefs("b", { fillColor: "#00ff00" }, [
-          "strokeColor",
-          "fillColor",
-        ]),
-        ...MultiEdit.colorRefs("c", { textColor: "#ff0000" }, ["textColor"]),
-      ];
-      const groups = MultiEdit.groupByColor(refs);
-      expect(Array.from(groups.keys())).toEqual(["#ff0000", "#00ff00"]);
-      expect(groups.get("#ff0000")?.map((r) => `${r.key}.${r.path}`)).toEqual([
-        "a.strokeColor",
-        "c.textColor",
+  describe("colorRefs", () => {
+    it("should reference each color stored at the fields", () => {
+      const refs = MultiEdit.colorRefs(
+        "a",
+        { strokeColor: "#ff0000", fillColor: undefined, textColor: "#00ff00" },
+        ["strokeColor", "fillColor", "textColor"],
+      );
+      expect(refs.map((r) => [r.key, r.path, color.hex(r.value)])).toEqual([
+        ["a", "strokeColor", "#ff0000"],
+        ["a", "textColor", "#00ff00"],
       ]);
     });
   });

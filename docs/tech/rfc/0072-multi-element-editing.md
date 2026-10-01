@@ -77,6 +77,8 @@ There are exactly three roles. There is no accent role.
 - **Level** (`level_color`): the bar of a scale and the level of a tank. It says what is
   inside, such as blue for oxygen.
 - **On** (`on_color`): the lit fill of a light, such as a red alarm light.
+- **Axis** (`axis_color`): the axis and ticks of a scale or a tank's level. A tank's
+  wall is its stroke, so the axis keeps a field of its own.
 - **Staleness** (`staleness_color`): the color an element takes while its data is stale.
   It is a state, not a part.
 - **State options** (`options[].color` on a state indicator): the fill for each mapped
@@ -89,24 +91,24 @@ color marks the system it belongs to.
 
 Schematic nodes and edges:
 
-| Element                                         | Before                                    | After                                                      |
-| ----------------------------------------------- | ----------------------------------------- | ---------------------------------------------------------- |
-| Edges (all seven variants)                      | `color`                                   | `stroke_color`                                             |
-| Static symbols, including junctions, flowmeters | `color`                                   | `stroke_color`                                             |
-| Toggle symbols (valves, pumps, agitators)       | `color`                                   | `stroke_color`; the on fill follows it                     |
-| Dummy toggles, switch                           | `color`                                   | `stroke_color`                                             |
-| box, cylinder, circle, polygon                  | `color`, `background_color`               | `stroke_color`, `fill_color`                               |
-| tank                                            | `color`, `background_color`               | `stroke_color`, `fill_color`, `level_color` (see 4.3)      |
-| scale                                           | `color`, `indicator.*`                    | `level_color`, `stroke_color` (axis), `text_color` (ticks) |
-| line                                            | `color`                                   | `stroke_color`                                             |
-| text_box                                        | `color`                                   | `text_color`                                               |
-| button, input, setpoint, select                 | `color`                                   | `fill_color`; the border follows it                        |
-| off_page_reference                              | `color`                                   | `fill_color`; the unlinked outline follows it              |
-| gauge                                           | `color`                                   | `stroke_color` (the arc)                                   |
-| light                                           | `color`                                   | `stroke_color`, `on_color`                                 |
-| value                                           | `color`, `text_color`, `background_color` | `stroke_color`, `text_color`, `fill_color`                 |
-| string_display                                  | `color`, `text_color`                     | `stroke_color`, `text_color`                               |
-| state_indicator                                 | `color`                                   | `stroke_color`                                             |
+| Element                                         | Before                                    | After                                                     |
+| ----------------------------------------------- | ----------------------------------------- | --------------------------------------------------------- |
+| Edges (all seven variants)                      | `color`                                   | `stroke_color`                                            |
+| Static symbols, including junctions, flowmeters | `color`                                   | `stroke_color`                                            |
+| Toggle symbols (valves, pumps, agitators)       | `color`                                   | `stroke_color`; the on fill follows it                    |
+| Dummy toggles, switch                           | `color`                                   | `stroke_color`                                            |
+| box, cylinder, circle, polygon                  | `color`, `background_color`               | `stroke_color`, `fill_color`                              |
+| tank                                            | `color`, `background_color`               | `stroke_color`, `fill_color`, `level_color`, `axis_color` |
+| scale                                           | `color`, `indicator.*`                    | `level_color`, `axis_color`, `text_color` (ticks)         |
+| line                                            | `color`                                   | `stroke_color`                                            |
+| text_box                                        | `color`                                   | `text_color`                                              |
+| button, input, setpoint, select                 | `color`                                   | `fill_color`; the border follows it                       |
+| off_page_reference                              | `color`                                   | `fill_color`; the unlinked outline follows it             |
+| gauge                                           | `color`                                   | `stroke_color` (the arc)                                  |
+| light                                           | `color`                                   | `stroke_color`, `on_color`                                |
+| value                                           | `color`, `text_color`, `background_color` | `stroke_color`, `text_color`, `fill_color`                |
+| string_display                                  | `color`, `text_color`                     | `stroke_color`, `text_color`                              |
+| state_indicator                                 | `color`                                   | `stroke_color`                                            |
 
 Table cells:
 
@@ -136,11 +138,11 @@ becomes a struct that both `extends`, as `StalenessConfig` is today
 (`pluto/src/vis/scale/aether/scale.ts`) read from the top of the config instead of from
 a nested path. Their fields become:
 
-- **Scale**: `level_color` (bar), `stroke_color` (axis and ticks), `text_color` (tick
+- **Scale**: `level_color` (bar), `axis_color` (axis and ticks), `text_color` (tick
   labels), then the flattened indicator fields: channel, number format, staleness,
   bounds, units, and the show and side settings.
-- **Tank**: `stroke_color` (wall and scale axis), `fill_color` (body), `level_color`
-  (level), then the same flattened indicator fields.
+- **Tank**: `stroke_color` (wall), `fill_color` (body), `level_color` (level), then the
+  same flattened indicator fields.
 
 `fill_hidden` becomes `level_hidden`, since the level is the part it hides. A scale
 shows its caret and axis by default, but a tank hides them. A shared field has one
@@ -201,7 +203,7 @@ the swatch apart from the checkerboard that means transparent.
 The Colors section keeps the list of the colors that the selection uses. Each swatch
 stands for one stored color. A change to a swatch writes the new color to every field
 that held the old one, on every selected element. The list covers every stored color
-field, role or not: stroke, fill, text, level, on, staleness, and state options.
+field, role or not: stroke, fill, text, level, on, axis, staleness, and state options.
 
 The list shows stored colors only. An absent field is edited through its role control.
 An "Auto" swatch would stand for the absent stroke, fill, and text of every element at
@@ -221,9 +223,9 @@ redline floor label becomes "Fill".
 
 RFC 0061 §3.1 lists its roles by field name. After the rename, it reads:
 
-- **Symbol foreground**: `stroke_color`, `level_color`, `on_color`, and the `fill_color`
-  of button, input, setpoint, select, and off_page_reference. These paint through
-  `--pluto-symbol-color` today.
+- **Symbol foreground**: `stroke_color`, `level_color`, `on_color`, `axis_color`, and
+  the `fill_color` of button, input, setpoint, select, and off_page_reference. These
+  paint through `--pluto-symbol-color` today.
 - **Surface fill**: `fill_color` on every other element.
 - **Label text**: `text_color`.
 - **Status**: `staleness_color`.

@@ -18,8 +18,12 @@ import { Control } from "@/schematic/node/common/control";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
-import { type FormProps } from "@/schematic/node/spec";
+import { type ColorFallbacks, type FormProps } from "@/schematic/node/spec";
 import { Properties } from "@/vis/properties";
+
+export const colorFallbacks = {
+  fillColor: Form.primaryFallback,
+} satisfies ColorFallbacks;
 
 const SetpointTelemForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } =
@@ -60,7 +64,7 @@ export const SetpointForm = ({ tab, onTabChange }: FormProps): ReactElement => (
           <Label.Form path="label" />
         </Base.Section>
         <Base.Section title="Appearance">
-          <Form.FillField fallback={Form.primaryFallback} />
+          <Form.FillField fallback={colorFallbacks.fillColor} />
           <Form.SizeField />
           <Form.UnitsField />
         </Base.Section>

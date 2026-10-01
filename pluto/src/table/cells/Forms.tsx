@@ -24,6 +24,12 @@ import { Properties } from "@/vis/properties";
 import { Staleness } from "@/vis/staleness";
 import { Value } from "@/vis/value";
 
+/** The colors a cell paints while one of its colors is absent. */
+export const colorFallbacks = {
+  textColor: (theme: Theming.Theme): color.Color => theme.colors.gray.l11,
+  fillColor: (): color.Color => color.ZERO,
+};
+
 /** Props for a cell variant's form. */
 export interface FormProps extends Properties.SelectionProps {}
 
@@ -93,9 +99,13 @@ export const ValueForm = ({ tab, onTabChange }: FormProps) => {
             <Color.Field
               path="textColor"
               label="Text"
-              fallback={theme.colors.gray.l11}
+              fallback={colorFallbacks.textColor(theme)}
             />
-            <Color.Field path="fillColor" label="Fill" fallback={color.ZERO} />
+            <Color.Field
+              path="fillColor"
+              label="Fill"
+              fallback={colorFallbacks.fillColor()}
+            />
             <Form.Field<text.Level>
               path="level"
               label="Size"
@@ -146,8 +156,16 @@ export const TextForm = (): ReactElement => {
         </Form.Field>
       </Form.Section>
       <Form.Section title="Appearance">
-        <Color.Field path="textColor" label="Text" fallback={theme.colors.gray.l11} />
-        <Color.Field path="fillColor" label="Fill" fallback={color.ZERO} />
+        <Color.Field
+          path="textColor"
+          label="Text"
+          fallback={colorFallbacks.textColor(theme)}
+        />
+        <Color.Field
+          path="fillColor"
+          label="Fill"
+          fallback={colorFallbacks.fillColor()}
+        />
       </Form.Section>
     </Form.Sections>
   );

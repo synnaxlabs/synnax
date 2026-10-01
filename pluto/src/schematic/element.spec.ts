@@ -17,7 +17,9 @@ const THEME: theme.Theme = theme.themeZ.parse(theme.SYNNAX_DARK);
 
 describe("colorFallback", () => {
   it("should return the fallback the variant's spec declares", () => {
-    expect(colorFallback("strokeColor", "scale", THEME)).toEqual(THEME.colors.gray.l8);
+    expect(colorFallback("strokeColor", "gauge", THEME)).toEqual(
+      THEME.colors.visualization.palettes.default[0],
+    );
     expect(colorFallback("textColor", "tank", THEME)).toEqual(THEME.colors.gray.l10);
     expect(colorFallback("fillColor", "button", THEME)).toEqual(THEME.colors.primary.z);
   });

@@ -160,6 +160,7 @@ const COLOR_FIELDS = [
   "fillColor",
   "textColor",
   "levelColor",
+  "axisColor",
   "onColor",
   "stalenessColor",
 ] as const;

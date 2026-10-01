@@ -17,7 +17,7 @@ import { Channel } from "@/channel";
 import { Control } from "@/schematic/node/common/control";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
-import { type FormProps } from "@/schematic/node/spec";
+import { type ColorFallbacks, type FormProps } from "@/schematic/node/spec";
 import { Button as BaseButton } from "@/vis/button";
 import { Properties } from "@/vis/properties";
 
@@ -25,6 +25,10 @@ type ButtonTelemFormT = Pick<
   schematic.ButtonNodeConfig,
   "commandChannel" | "control" | "mode"
 >;
+
+export const colorFallbacks = {
+  fillColor: Form.primaryFallback,
+} satisfies ColorFallbacks;
 
 const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } = Base.useField<ButtonTelemFormT>(path);
@@ -71,7 +75,7 @@ export const ButtonForm = ({ tab, onTabChange }: FormProps): ReactElement => (
           />
         </Base.Section>
         <Base.Section title="Appearance">
-          <Form.FillField fallback={Form.primaryFallback} />
+          <Form.FillField fallback={colorFallbacks.fillColor} />
           <Form.SizeField />
         </Base.Section>
       </Base.Sections>

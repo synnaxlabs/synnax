@@ -1227,9 +1227,9 @@ func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {
 		} else {
 			w.Bool(false)
 		}
-		if v.StrokeColor != nil {
+		if v.AxisColor != nil {
 			w.Bool(true)
-			if err := v.StrokeColor.EncodeOrc(w); err != nil {
+			if err := v.AxisColor.EncodeOrc(w); err != nil {
 				return err
 			}
 		} else {
@@ -1250,6 +1250,14 @@ func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {
 		if v.Position != nil {
 			w.Bool(true)
 			if err := v.Position.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		if v.StrokeColor != nil {
+			w.Bool(true)
+			if err := v.StrokeColor.EncodeOrc(w); err != nil {
 				return err
 			}
 		} else {
@@ -2955,7 +2963,7 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
-				v.StrokeColor = &hv
+				v.AxisColor = &hv
 			}
 		}
 		{
@@ -3002,6 +3010,19 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 					return err
 				}
 				v.Position = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv color.Color
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.StrokeColor = &hv
 			}
 		}
 		{
@@ -4245,9 +4266,9 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 		} else {
 			w.Bool(false)
 		}
-		if v.StrokeColor != nil {
+		if v.AxisColor != nil {
 			w.Bool(true)
-			if err := v.StrokeColor.EncodeOrc(w); err != nil {
+			if err := v.AxisColor.EncodeOrc(w); err != nil {
 				return err
 			}
 		} else {
@@ -4268,6 +4289,14 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 		if v.Position != nil {
 			w.Bool(true)
 			if err := v.Position.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		if v.StrokeColor != nil {
+			w.Bool(true)
+			if err := v.StrokeColor.EncodeOrc(w); err != nil {
 				return err
 			}
 		} else {
@@ -5938,7 +5967,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
-				v.StrokeColor = &hv
+				v.AxisColor = &hv
 			}
 		}
 		{
@@ -5985,6 +6014,19 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 					return err
 				}
 				v.Position = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv color.Color
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.StrokeColor = &hv
 			}
 		}
 		{
@@ -6236,9 +6278,9 @@ func (sic ScaleIndicatorConfig) EncodeOrc(w *orc.Writer) error {
 	} else {
 		w.Bool(false)
 	}
-	if sic.StrokeColor != nil {
+	if sic.AxisColor != nil {
 		w.Bool(true)
-		if err := sic.StrokeColor.EncodeOrc(w); err != nil {
+		if err := sic.AxisColor.EncodeOrc(w); err != nil {
 			return err
 		}
 	} else {
@@ -6350,7 +6392,7 @@ func (sic *ScaleIndicatorConfig) DecodeOrc(r *orc.Reader) error {
 			if err = hv.DecodeOrc(r); err != nil {
 				return err
 			}
-			sic.StrokeColor = &hv
+			sic.AxisColor = &hv
 		}
 	}
 	{

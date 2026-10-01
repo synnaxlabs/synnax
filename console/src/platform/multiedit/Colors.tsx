@@ -13,7 +13,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { color, state } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
-import { type ColorRef, groupByColor } from "@/platform/multiedit/config";
+import { type ColorRef } from "@/platform/multiedit/config";
 import { type ColorValue } from "@/platform/multiedit/selection";
 
 export interface ColorFieldProps {
@@ -76,7 +76,8 @@ export const SelectionColors = ({
   const [held, setHeld] = useState<Held | null>(null);
   if (refs.length === 0) return null;
   const live = new Map(refs.map((r) => [refID(r), r]));
-  const groups = held?.groups ?? Array.from(groupByColor(refs).values());
+  const groups =
+    held?.groups ?? Array.from(Map.groupBy(refs, (r) => color.hex(r.value)).values());
   return (
     <Input.Item label="Selection" align="start" padHelpText={false}>
       <Flex.Box x wrap>

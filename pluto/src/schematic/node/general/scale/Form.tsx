@@ -18,7 +18,6 @@ import { Orientation } from "@/schematic/node/common/orientation";
 import { Scale } from "@/schematic/node/common/scale";
 import { type FormProps } from "@/schematic/node/spec";
 import { Properties } from "@/vis/properties";
-import { Scale as VisScale } from "@/vis/scale";
 
 export const ScaleForm = ({ tab, onTabChange }: FormProps): ReactElement => {
   const { value: orientation } = Base.useField<location.Outer>("orientation");
@@ -58,11 +57,6 @@ export const ScaleForm = ({ tab, onTabChange }: FormProps): ReactElement => {
             </Scale.DisplayFields>
           </Base.Section>
           <Base.Section title="Appearance">
-            <Form.ColorField
-              path="strokeColor"
-              label="Stroke"
-              fallback={VisScale.axisColorFallback}
-            />
             <Scale.StyleFields />
           </Base.Section>
           <Orientation.Section path="" hideInner />

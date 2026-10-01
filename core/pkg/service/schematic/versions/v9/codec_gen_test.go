@@ -138,7 +138,7 @@ var (
 			B: 18,
 			A: 18.5,
 		}),
-		StrokeColor: new(color.Color{
+		AxisColor: new(color.Color{
 			R: 21,
 			G: 22,
 			B: 23,
@@ -864,7 +864,7 @@ var _ = Describe("Codec", func() {
 					B: 18,
 					A: 18.5,
 				}),
-				StrokeColor: new(color.Color{
+				AxisColor: new(color.Color{
 					R: 21,
 					G: 22,
 					B: 23,
@@ -881,21 +881,27 @@ var _ = Describe("Codec", func() {
 				CaretSide:   spatial.OuterLocation("top"),
 				Level:       text.Level("h1"),
 				Position:    new(spatial.XY{X: 34.5, Y: 35.5}),
-				FillColor: new(color.Color{
+				StrokeColor: new(color.Color{
 					R: 38,
 					G: 39,
 					B: 40,
 					A: 40.5,
 				}),
-				Dimensions: spatial.Dimensions{Width: 42.5, Height: 43.5},
+				FillColor: new(color.Color{
+					R: 43,
+					G: 44,
+					B: 45,
+					A: 45.5,
+				}),
+				Dimensions: spatial.Dimensions{Width: 47.5, Height: 48.5},
 				BorderRadius: border.Radius{
-					TopLeft:     spatial.XY{X: 46.5, Y: 47.5},
-					TopRight:    spatial.XY{X: 49.5, Y: 50.5},
-					BottomLeft:  spatial.XY{X: 52.5, Y: 53.5},
-					BottomRight: spatial.XY{X: 55.5, Y: 56.5},
+					TopLeft:     spatial.XY{X: 51.5, Y: 52.5},
+					TopRight:    spatial.XY{X: 54.5, Y: 55.5},
+					BottomLeft:  spatial.XY{X: 57.5, Y: 58.5},
+					BottomRight: spatial.XY{X: 60.5, Y: 61.5},
 				},
-				CaretVisible: true,
-				ScaleVisible: false,
+				CaretVisible: false,
+				ScaleVisible: true,
 				Side:         spatial.OuterLocation("top"),
 			}}),
 			Entry("t_junction variant", v9.ElementConfig{Variant: v9.TJunctionElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}),
@@ -1558,7 +1564,7 @@ var _ = Describe("Codec", func() {
 					B: 18,
 					A: 18.5,
 				}),
-				StrokeColor: new(color.Color{
+				AxisColor: new(color.Color{
 					R: 21,
 					G: 22,
 					B: 23,
@@ -1575,21 +1581,27 @@ var _ = Describe("Codec", func() {
 				CaretSide:   spatial.OuterLocation("top"),
 				Level:       text.Level("h1"),
 				Position:    new(spatial.XY{X: 34.5, Y: 35.5}),
-				FillColor: new(color.Color{
+				StrokeColor: new(color.Color{
 					R: 38,
 					G: 39,
 					B: 40,
 					A: 40.5,
 				}),
-				Dimensions: spatial.Dimensions{Width: 42.5, Height: 43.5},
+				FillColor: new(color.Color{
+					R: 43,
+					G: 44,
+					B: 45,
+					A: 45.5,
+				}),
+				Dimensions: spatial.Dimensions{Width: 47.5, Height: 48.5},
 				BorderRadius: border.Radius{
-					TopLeft:     spatial.XY{X: 46.5, Y: 47.5},
-					TopRight:    spatial.XY{X: 49.5, Y: 50.5},
-					BottomLeft:  spatial.XY{X: 52.5, Y: 53.5},
-					BottomRight: spatial.XY{X: 55.5, Y: 56.5},
+					TopLeft:     spatial.XY{X: 51.5, Y: 52.5},
+					TopRight:    spatial.XY{X: 54.5, Y: 55.5},
+					BottomLeft:  spatial.XY{X: 57.5, Y: 58.5},
+					BottomRight: spatial.XY{X: 60.5, Y: 61.5},
 				},
-				CaretVisible: true,
-				ScaleVisible: false,
+				CaretVisible: false,
+				ScaleVisible: true,
 				Side:         spatial.OuterLocation("top"),
 			}}),
 			Entry("t_junction variant", v9.NodeConfig{Variant: v9.TJunctionNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}),
@@ -1691,7 +1703,7 @@ var _ = Describe("Codec", func() {
 				StalenessColor:   nil,
 				Bounds:           spatial.Bounds{Lower: 0, Upper: 0},
 				LevelColor:       nil,
-				StrokeColor:      nil,
+				AxisColor:        nil,
 				TextColor:        nil,
 				Units:            "",
 				LevelHidden:      false,
@@ -3755,7 +3767,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 				B: 18,
 				A: 18.5,
 			}),
-			StrokeColor: new(color.Color{
+			AxisColor: new(color.Color{
 				R: 21,
 				G: 22,
 				B: 23,
@@ -3772,21 +3784,27 @@ func FuzzDecodeElementConfig(f *testing.F) {
 			CaretSide:   spatial.OuterLocation("top"),
 			Level:       text.Level("h1"),
 			Position:    new(spatial.XY{X: 34.5, Y: 35.5}),
-			FillColor: new(color.Color{
+			StrokeColor: new(color.Color{
 				R: 38,
 				G: 39,
 				B: 40,
 				A: 40.5,
 			}),
-			Dimensions: spatial.Dimensions{Width: 42.5, Height: 43.5},
+			FillColor: new(color.Color{
+				R: 43,
+				G: 44,
+				B: 45,
+				A: 45.5,
+			}),
+			Dimensions: spatial.Dimensions{Width: 47.5, Height: 48.5},
 			BorderRadius: border.Radius{
-				TopLeft:     spatial.XY{X: 46.5, Y: 47.5},
-				TopRight:    spatial.XY{X: 49.5, Y: 50.5},
-				BottomLeft:  spatial.XY{X: 52.5, Y: 53.5},
-				BottomRight: spatial.XY{X: 55.5, Y: 56.5},
+				TopLeft:     spatial.XY{X: 51.5, Y: 52.5},
+				TopRight:    spatial.XY{X: 54.5, Y: 55.5},
+				BottomLeft:  spatial.XY{X: 57.5, Y: 58.5},
+				BottomRight: spatial.XY{X: 60.5, Y: 61.5},
 			},
-			CaretVisible: true,
-			ScaleVisible: false,
+			CaretVisible: false,
+			ScaleVisible: true,
 			Side:         spatial.OuterLocation("top"),
 		}}
 		w := orc.NewWriter(0)
@@ -5284,7 +5302,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 				B: 18,
 				A: 18.5,
 			}),
-			StrokeColor: new(color.Color{
+			AxisColor: new(color.Color{
 				R: 21,
 				G: 22,
 				B: 23,
@@ -5301,21 +5319,27 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			CaretSide:   spatial.OuterLocation("top"),
 			Level:       text.Level("h1"),
 			Position:    new(spatial.XY{X: 34.5, Y: 35.5}),
-			FillColor: new(color.Color{
+			StrokeColor: new(color.Color{
 				R: 38,
 				G: 39,
 				B: 40,
 				A: 40.5,
 			}),
-			Dimensions: spatial.Dimensions{Width: 42.5, Height: 43.5},
+			FillColor: new(color.Color{
+				R: 43,
+				G: 44,
+				B: 45,
+				A: 45.5,
+			}),
+			Dimensions: spatial.Dimensions{Width: 47.5, Height: 48.5},
 			BorderRadius: border.Radius{
-				TopLeft:     spatial.XY{X: 46.5, Y: 47.5},
-				TopRight:    spatial.XY{X: 49.5, Y: 50.5},
-				BottomLeft:  spatial.XY{X: 52.5, Y: 53.5},
-				BottomRight: spatial.XY{X: 55.5, Y: 56.5},
+				TopLeft:     spatial.XY{X: 51.5, Y: 52.5},
+				TopRight:    spatial.XY{X: 54.5, Y: 55.5},
+				BottomLeft:  spatial.XY{X: 57.5, Y: 58.5},
+				BottomRight: spatial.XY{X: 60.5, Y: 61.5},
 			},
-			CaretVisible: true,
-			ScaleVisible: false,
+			CaretVisible: false,
+			ScaleVisible: true,
 			Side:         spatial.OuterLocation("top"),
 		}}
 		w := orc.NewWriter(0)
@@ -5517,7 +5541,7 @@ func FuzzDecodeScaleIndicatorConfig(f *testing.F) {
 			StalenessColor:   nil,
 			Bounds:           spatial.Bounds{Lower: 0, Upper: 0},
 			LevelColor:       nil,
-			StrokeColor:      nil,
+			AxisColor:        nil,
 			TextColor:        nil,
 			Units:            "",
 			LevelHidden:      false,

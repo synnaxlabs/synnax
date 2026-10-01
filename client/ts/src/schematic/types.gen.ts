@@ -220,7 +220,7 @@ export const scaleIndicatorConfigZ = numericTelemConfigZ
   .extend({
     bounds: spatial.boundsZ().prefault({ lower: 0, upper: 100 }),
     levelColor: color.colorZ.optional(),
-    strokeColor: color.colorZ.optional(),
+    axisColor: color.colorZ.optional(),
     textColor: color.colorZ.optional(),
     units: z.string().default(""),
     levelHidden: z.boolean().default(false),
@@ -1216,6 +1216,8 @@ export const tankNodeConfigZ = labeledConfigZ
     variant: z.literal("tank"),
     /** position is the offset of the tank contents within the symbol. */
     position: spatial.xyZ.optional(),
+    /** strokeColor is the color of the tank's wall. */
+    strokeColor: color.colorZ.optional(),
     /** fillColor is the fill color of the tank body. */
     fillColor: color.colorZ.optional(),
     /** dimensions is the rendered size of the tank in pixels. */
@@ -2633,6 +2635,8 @@ export const tankElementConfigZ = labeledConfigZ
     variant: z.literal("tank"),
     /** position is the offset of the tank contents within the symbol. */
     position: spatial.xyZ.optional(),
+    /** strokeColor is the color of the tank's wall. */
+    strokeColor: color.colorZ.optional(),
     /** fillColor is the fill color of the tank body. */
     fillColor: color.colorZ.optional(),
     /** dimensions is the rendered size of the tank in pixels. */

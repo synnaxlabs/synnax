@@ -3031,8 +3031,8 @@ type TankNodeConfig struct {
 	// LevelColor is the color of the filled portion, the caret, and the value readout
 	// border.
 	LevelColor *color.Color `json:"level_color,omitzero" msgpack:"level_color,omitempty"`
-	// StrokeColor is the outline color: the axis, its ticks, and a tank's wall.
-	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// AxisColor is the color of the axis and its ticks.
+	AxisColor *color.Color `json:"axis_color,omitzero" msgpack:"axis_color,omitempty"`
 	// TextColor is the color of the tick labels.
 	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
 	// Units is the unit suffix displayed after each tick label.
@@ -3045,6 +3045,8 @@ type TankNodeConfig struct {
 	Level text.Level `json:"level" msgpack:"level"`
 	// Position is the offset of the tank contents within the symbol.
 	Position *spatial.XY `json:"position,omitzero" msgpack:"position,omitempty"`
+	// StrokeColor is the color of the tank's wall.
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// FillColor is the fill color of the tank body.
 	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Dimensions is the rendered size of the tank in pixels.
@@ -7346,8 +7348,8 @@ type TankElementConfig struct {
 	// LevelColor is the color of the filled portion, the caret, and the value readout
 	// border.
 	LevelColor *color.Color `json:"level_color,omitzero" msgpack:"level_color,omitempty"`
-	// StrokeColor is the outline color: the axis, its ticks, and a tank's wall.
-	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// AxisColor is the color of the axis and its ticks.
+	AxisColor *color.Color `json:"axis_color,omitzero" msgpack:"axis_color,omitempty"`
 	// TextColor is the color of the tick labels.
 	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
 	// Units is the unit suffix displayed after each tick label.
@@ -7360,6 +7362,8 @@ type TankElementConfig struct {
 	Level text.Level `json:"level" msgpack:"level"`
 	// Position is the offset of the tank contents within the symbol.
 	Position *spatial.XY `json:"position,omitzero" msgpack:"position,omitempty"`
+	// StrokeColor is the color of the tank's wall.
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// FillColor is the fill color of the tank body.
 	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Dimensions is the rendered size of the tank in pixels.
@@ -9475,8 +9479,8 @@ type ScaleIndicatorConfig struct {
 	// LevelColor is the color of the filled portion, the caret, and the value readout
 	// border.
 	LevelColor *color.Color `json:"level_color,omitzero" msgpack:"level_color,omitempty"`
-	// StrokeColor is the outline color: the axis, its ticks, and a tank's wall.
-	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// AxisColor is the color of the axis and its ticks.
+	AxisColor *color.Color `json:"axis_color,omitzero" msgpack:"axis_color,omitempty"`
 	// TextColor is the color of the tick labels.
 	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
 	// Units is the unit suffix displayed after each tick label.

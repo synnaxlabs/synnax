@@ -292,13 +292,14 @@ var _ = Describe("Config typing", func() {
 		Expect(ok).To(BeTrue())
 		Expect(cfg.TextColor).To(BeNil())
 		green := MustSucceed(color.FromHex("#00ff00"))
-		Expect(cfg.StrokeColor).To(HaveValue(Equal(green)))
+		Expect(cfg.AxisColor).To(HaveValue(Equal(green)))
 	})
 
 	Describe("Color names", func() {
 		var (
-			red  = MustSucceed(color.FromHex("#ff0000"))
-			blue = MustSucceed(color.FromHex("#0000ff"))
+			red   = MustSucceed(color.FromHex("#ff0000"))
+			green = MustSucceed(color.FromHex("#00ff00"))
+			blue  = MustSucceed(color.FromHex("#0000ff"))
 		)
 		// fields lifts a config and returns its wire fields, so one table covers every
 		// variant.
@@ -367,6 +368,7 @@ var _ = Describe("Config typing", func() {
 				"color":   "#ff0000",
 				"indicator": map[string]any{
 					"color":       "#0000ff",
+					"axisColor":   "#00ff00",
 					"textColor":   "#0000ff",
 					"units":       "psi",
 					"fillHidden":  true,
@@ -375,6 +377,7 @@ var _ = Describe("Config typing", func() {
 			}).(v9.ScaleElementConfig)
 			Expect(ok).To(BeTrue())
 			Expect(cfg.LevelColor).To(HaveValue(Equal(red)))
+			Expect(cfg.AxisColor).To(HaveValue(Equal(green)))
 			Expect(cfg.TextColor).To(HaveValue(Equal(blue)))
 			Expect(cfg.Units).To(Equal("psi"))
 			Expect(cfg.LevelHidden).To(BeTrue())
@@ -396,6 +399,7 @@ var _ = Describe("Config typing", func() {
 			Expect(ok).To(BeTrue())
 			Expect(cfg.StrokeColor).To(HaveValue(Equal(red)))
 			Expect(cfg.LevelColor).To(HaveValue(Equal(blue)))
+			Expect(cfg.AxisColor).To(HaveValue(Equal(green)))
 			Expect(cfg.Units).To(Equal("L"))
 			Expect(cfg.CaretVisible).To(BeTrue())
 			Expect(cfg.ScaleVisible).To(BeFalse())

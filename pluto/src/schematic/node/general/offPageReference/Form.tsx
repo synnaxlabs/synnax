@@ -22,8 +22,12 @@ import { Project } from "@/project";
 import { Form } from "@/schematic/node/common/form";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { PAGE_ICONS } from "@/schematic/node/general/offPageReference/config";
-import { type FormProps } from "@/schematic/node/spec";
+import { type ColorFallbacks, type FormProps } from "@/schematic/node/spec";
 import { Synnax } from "@/synnax";
+
+export const colorFallbacks = {
+  fillColor: Form.defaultFallback,
+} satisfies ColorFallbacks;
 
 const ClickModeSelect = Component.renderProp(
   ({
@@ -143,7 +147,7 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
         </Base.Field>
       </Base.Section>
       <Base.Section title="Appearance">
-        <Form.FillField fallback={Form.defaultFallback} />
+        <Form.FillField fallback={colorFallbacks.fillColor} />
       </Base.Section>
       <Orientation.Section path="" hideOuter />
     </Base.Sections>

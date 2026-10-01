@@ -26,8 +26,13 @@ import { Channel } from "@/channel";
 import { Notation } from "@/notation";
 import { Form as NodeForm } from "@/schematic/node/common/form";
 import { type Config } from "@/schematic/node/common/scale/config";
+import { type ColorFallbacks } from "@/schematic/node/spec";
 import { Scale as VisScale } from "@/vis/scale";
 import { Staleness } from "@/vis/staleness";
+
+export const colorFallbacks = {
+  textColor: VisScale.textColorFallback,
+} satisfies ColorFallbacks;
 
 const PRECISION_INPUT_PROPS: Partial<Input.NumericProps> = {
   bounds: { lower: 0, upper: 10 },
@@ -150,7 +155,7 @@ export const DisplayFields = ({
   </>
 );
 
-/** Colors of the level and the labels, and the text size. */
+/** Colors of the level, the axis, and the labels, and the text size. */
 export const StyleFields = (): ReactElement => (
   <>
     <NodeForm.ColorField
@@ -159,9 +164,14 @@ export const StyleFields = (): ReactElement => (
       fallback={VisScale.levelColorFallback}
     />
     <NodeForm.ColorField
+      path="axisColor"
+      label="Axis"
+      fallback={VisScale.axisColorFallback}
+    />
+    <NodeForm.ColorField
       path="textColor"
       label="Text"
-      fallback={VisScale.textColorFallback}
+      fallback={colorFallbacks.textColor}
     />
     <Base.Field<text.Level> path="level" label="Text size" padHelpText={false}>
       {NodeForm.SelectTextLevel}

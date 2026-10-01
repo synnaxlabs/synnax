@@ -11,8 +11,7 @@ import { type schematic } from "@synnaxlabs/client";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { type ReactElement } from "react";
 
-import { Form } from "@/schematic/node/common/form";
-import { InputForm } from "@/schematic/node/general/input/Form";
+import { colorFallbacks, InputForm } from "@/schematic/node/general/input/Form";
 import { Input } from "@/schematic/node/general/input/Primitive";
 import { Symbol } from "@/schematic/node/general/input/Symbol";
 import { type Spec } from "@/schematic/node/spec";
@@ -39,5 +38,5 @@ export const spec: Spec<"input", schematic.InputNodeConfig> = {
   Node: Symbol,
   Preview,
   zIndex: 4,
-  colorFallbacks: { fillColor: Form.primaryFallback },
+  colorFallbacks,
 };

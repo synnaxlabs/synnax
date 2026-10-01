@@ -99,6 +99,35 @@ describe("selection", () => {
     ]);
   });
 
+  it("should write every color an element holds in one update", () => {
+    const schema = z.object({
+      variant: z.literal("state"),
+      fillColor: color.colorZ,
+      options: z.array(z.object({ color: color.colorZ })),
+    });
+    const config: z.infer<typeof schema> = {
+      variant: "state",
+      fillColor: RED,
+      options: [{ color: RED }],
+    };
+    const updates: Array<Array<[string, z.infer<typeof schema>]>> = [];
+    MultiEdit.selection({
+      configs: new Map([["a", config]]),
+      fields: MultiEdit.fieldsByVariant({ state: schema }),
+      onChange: (u) => updates.push(u),
+    }).setColors(
+      [
+        { key: "a", path: "fillColor", value: RED },
+        { key: "a", path: "options.0.color", value: RED },
+      ],
+      BLUE,
+    );
+    expect(updates).toEqual([
+      [["a", { variant: "state", fillColor: BLUE, options: [{ color: BLUE }] }]],
+    ]);
+    expect(config.options[0].color).toEqual(RED);
+  });
+
   it("should not call onChange when no element declares the field", () => {
     const { selection: labels, updates: none } = create([
       ["b", { variant: "label", text: "hi" }],

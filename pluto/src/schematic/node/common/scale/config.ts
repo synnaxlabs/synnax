@@ -28,7 +28,7 @@ export type VisConfig = Pick<
   Config,
   | "bounds"
   | "levelColor"
-  | "strokeColor"
+  | "axisColor"
   | "textColor"
   | "units"
   | "stalenessColor"
@@ -46,7 +46,7 @@ export type VisConfig = Pick<
 /** visProps translates the stored indicator fields into the vis scale's props. */
 export const visProps = ({
   levelColor,
-  strokeColor,
+  axisColor,
   levelHidden,
   caretHidden,
   scaleHidden,
@@ -65,7 +65,7 @@ export const visProps = ({
 } => ({
   bounds,
   color: levelColor,
-  axisColor: strokeColor,
+  axisColor,
   textColor,
   units,
   stalenessColor,

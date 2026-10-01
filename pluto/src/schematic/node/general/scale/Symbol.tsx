@@ -25,7 +25,7 @@ export const Symbol = ({
   selected,
   config,
 }: NodeProps<schematic.ScaleNodeConfig>): ReactElement => {
-  const { label, dimensions: dims, orientation } = config;
+  const { label, dimensions: dims, orientation, channel, rollingAverage } = config;
   const dir = location.direction(orientation);
   // The configured dimensions are the bar's own. The ticks live beside it, so the
   // symbol takes the gutter on top of them.
@@ -35,7 +35,6 @@ export const Symbol = ({
     dir === "y"
       ? { width: dims.width + gutter, height: dims.height }
       : { width: dims.width, height: dims.height + gutter };
-  const { channel, rollingAverage } = config;
   const telem = useMemo(
     () => BaseScale.source({ channel, rollingAverage }),
     [channel, rollingAverage],

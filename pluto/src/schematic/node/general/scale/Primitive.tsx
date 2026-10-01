@@ -15,7 +15,7 @@ import { type CSSProperties, type ReactElement, useMemo } from "react";
 interface RenderProps extends Partial<
   Pick<
     schematic.ScaleNodeConfig,
-    "levelColor" | "strokeColor" | "levelHidden" | "caretHidden"
+    "levelColor" | "axisColor" | "levelHidden" | "caretHidden"
   >
 > {
   className?: string;
@@ -50,7 +50,7 @@ const AXIS_FALLBACK = "var(--pluto-gray-l8)";
 
 export const Scale = ({
   levelColor,
-  strokeColor,
+  axisColor,
   levelHidden,
   caretHidden,
   className,
@@ -62,7 +62,7 @@ export const Scale = ({
     }),
     [levelColor],
   );
-  const axis = strokeColor == null ? AXIS_FALLBACK : color.hex(strokeColor);
+  const axis = axisColor == null ? AXIS_FALLBACK : color.hex(axisColor);
   return (
     <div className={CSS.cls(CSS.B("symbol-colored"), className)} style={containerStyle}>
       <svg width={WIDTH} height={HEIGHT} style={{ position: "absolute" }}>

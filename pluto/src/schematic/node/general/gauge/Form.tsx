@@ -16,10 +16,14 @@ import { type ReactElement } from "react";
 
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
-import { type FormProps } from "@/schematic/node/spec";
+import { type ColorFallbacks, type FormProps } from "@/schematic/node/spec";
 import { Gauge as VisGauge } from "@/vis/gauge";
 import { Properties } from "@/vis/properties";
 import { Value } from "@/vis/value";
+
+export const colorFallbacks = {
+  strokeColor: VisGauge.colorFallback,
+} satisfies ColorFallbacks;
 
 const GAUGE_BAR_WIDTH_INPUT_PROPS: Partial<Input.NumericProps> = {
   min: 1,
@@ -47,7 +51,7 @@ export const GaugeForm = ({ tab, onTabChange }: FormProps): ReactElement => (
           <Form.ColorField
             path="strokeColor"
             label="Stroke"
-            fallback={VisGauge.colorFallback}
+            fallback={colorFallbacks.strokeColor}
           />
           <Base.Field<text.Level>
             path="level"

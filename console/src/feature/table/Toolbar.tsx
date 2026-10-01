@@ -25,7 +25,7 @@ import {
   Staleness,
   Table,
 } from "@synnaxlabs/pluto";
-import { color, deep, type text } from "@synnaxlabs/x";
+import { deep, type text } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 import { type z } from "zod";
 
@@ -258,12 +258,14 @@ const MultiCellForm = ({ cellKeys }: MultiCellFormProps): ReactElement => {
       <MultiEdit.ColorsSection>
         <MultiEdit.ColorField
           label="Text"
-          values={selection.colors("textColor", () => theme.colors.gray.l11)}
+          values={selection.colors("textColor", () =>
+            Table.Cell.colorFallbacks.textColor(theme),
+          )}
           onChange={(c) => selection.set("textColor", c)}
         />
         <MultiEdit.ColorField
           label="Fill"
-          values={selection.colors("fillColor", () => color.ZERO)}
+          values={selection.colors("fillColor", Table.Cell.colorFallbacks.fillColor)}
           onChange={(c) => selection.set("fillColor", c)}
         />
         <MultiEdit.SelectionColors

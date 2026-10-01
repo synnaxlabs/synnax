@@ -409,8 +409,8 @@ var legacyIndicators = map[string]string{"scale": "indicator", "tank": "fill"}
 // symbol that now extends the indicator. The indicator's own color is dropped: a scale
 // painted its top-level color over it, and a tank's level takes the same name.
 var indicatorRenames = map[string]map[string]string{
-	"scale": {"color": "", "axis_color": "stroke_color", "fill_hidden": "level_hidden"},
-	"tank":  {"color": "level_color", "axis_color": "", "fill_hidden": "level_hidden"},
+	"scale": {"color": "", "fill_hidden": "level_hidden"},
+	"tank":  {"color": "level_color", "fill_hidden": "level_hidden"},
 }
 
 // invertedIndicatorFlags maps a legacy nested indicator's hidden flags to the visible
