@@ -54,7 +54,7 @@ To make this more concrete, let's say we have a channel that is sampled at 10 Hz
 we're writing ten values to disk starting at timestamp 10 seconds. The data would
 resemble the following:
 
-| Root Index | Time Stamp | Value |
+| Root index | Time stamp | Value |
 | ---------- | ---------- | ----- |
 | 100        | 10s        | 0     |
 | 101        | 10.1s      | 1     |
@@ -70,7 +70,7 @@ resemble the following:
 If we were to write another five sample segment starting at timestamp 11.5s, the data
 would be appended as follows:
 
-| Root Index | Time Stamp | Value |
+| Root index | Time stamp | Value |
 | ---------- | ---------- | ----- |
 | 100        | 10s        | 0     |
 | 101        | 10.1s      | 1     |
@@ -101,7 +101,7 @@ channel, write timestamp values to it, and then write to the data channel.
 As an example, let's say we have a timestamp and temperature sensor channel that starts
 at timestamp 10s:
 
-| Root Index  | Time Stamp | Temperature |
+| Root index  | Time stamp | Temperature |
 | ----------- | ---------- | ----------- |
 | 10000000000 | 10s        | 0           |
 | 10000000001 | 13s        | 1           |

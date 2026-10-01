@@ -28,6 +28,7 @@ import (
 // registerState builds a variable node "v" with a value-carrying param and a
 // feeder node "f" edged into its second param.
 func registerState(ctx SpecContext) *node.ProgramState {
+	GinkgoHelper()
 	g := graph.Graph{
 		Functions: []ir.Function{
 			{
@@ -61,6 +62,7 @@ func registerState(ctx SpecContext) *node.ProgramState {
 // exprReadState builds a variable node "v" fed by a dispatcher stand-in "d" on
 // value, with sel fed from a register stand-in "selsrc".
 func exprReadState(ctx SpecContext) *node.ProgramState {
+	GinkgoHelper()
 	g := graph.Graph{
 		Functions: []ir.Function{
 			{
@@ -108,6 +110,7 @@ func exprReadState(ctx SpecContext) *node.ProgramState {
 func emit[T telem.Sample](n *node.State, value T, seconds telem.TimeStamp) {
 	*n.Output(0) = telem.NewSeriesV(value)
 	*n.OutputTime(0) = telem.NewSeriesSecondsTSV(seconds)
+	n.MarkFresh(0)
 }
 
 var _ = Describe("Variable", func() {
@@ -231,6 +234,7 @@ var _ = Describe("Variable", func() {
 			f *node.State
 		)
 		mk := func(nodeType string) node.Node {
+			GinkgoHelper()
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: nodeType,
@@ -297,7 +301,7 @@ var _ = Describe("Variable", func() {
 		Context("with a := variable", func() {
 			It("Should restore the initial value on Reset", func() {
 				n := mk("variable")
-				n.Reset()
+				n.Reset(node.Context{})
 				Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](42))
 				Expect(v.OutputTime(0).Len()).To(Equal(int64(1)))
 			})
@@ -306,7 +310,7 @@ var _ = Describe("Variable", func() {
 				"Should not double-emit the initial value on Next after Reset",
 				func() {
 					n := mk("variable")
-					n.Reset()
+					n.Reset(node.Context{})
 					n.Next(nodeCtx)
 					Expect(marked).To(BeEmpty())
 				},
@@ -317,7 +321,7 @@ var _ = Describe("Variable", func() {
 				func() {
 					n := mk("variable")
 					emit(f, int64(99), 10)
-					n.Reset()
+					n.Reset(node.Context{})
 					Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](42))
 					n.Next(nodeCtx)
 					Expect(marked).To(BeEmpty())
@@ -328,20 +332,20 @@ var _ = Describe("Variable", func() {
 				"Should restore the initial value on scope re-entry",
 				func() {
 					n := mk("variable")
-					n.Reset()
+					n.Reset(node.Context{})
 					emit(f, int64(7), 10)
 					n.Next(nodeCtx)
 					Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](7))
-					n.Reset()
+					n.Reset(node.Context{})
 					Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](42))
 				},
 			)
 
 			It("Should not alias the initial value on Reset", func() {
 				n := mk("variable")
-				n.Reset()
+				n.Reset(node.Context{})
 				v.Output(0).Data[0] = 9
-				n.Reset()
+				n.Reset(node.Context{})
 				Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](42))
 			})
 		})
@@ -359,7 +363,7 @@ var _ = Describe("Variable", func() {
 				emit(f, int64(7), 10)
 				n.Next(nodeCtx)
 				Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](7))
-				n.Reset()
+				n.Reset(node.Context{})
 				Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](7))
 			})
 
@@ -368,7 +372,7 @@ var _ = Describe("Variable", func() {
 				func() {
 					n := mk("stateful_variable")
 					emit(f, int64(7), 10)
-					n.Reset()
+					n.Reset(node.Context{})
 					n.Next(nodeCtx)
 					Expect(marked).To(ConsistOf(0))
 					Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](7))
@@ -429,13 +433,13 @@ var _ = Describe("Variable", func() {
 					State: sv,
 				}
 				n := MustSucceed(factory.Create(cfg))
-				n.Reset()
+				n.Reset(node.Context{})
 				Expect(*sv.Output(0)).To(telem.MatchSeriesDataV("hello"))
 				emit(sf, "world", 10)
 				n.Next(nodeCtx)
 				Expect(marked).To(ConsistOf(0))
 				Expect(*sv.Output(0)).To(telem.MatchSeriesDataV("world"))
-				n.Reset()
+				n.Reset(node.Context{})
 				Expect(*sv.Output(0)).To(telem.MatchSeriesDataV("hello"))
 			})
 		})
@@ -520,7 +524,7 @@ var _ = Describe("Variable", func() {
 				"Should fire the first value after a Reset-absorbed initial sel",
 				func() {
 					emit(selsrc, uint32(0), 5)
-					n.Reset()
+					n.Reset(node.Context{})
 					emit(d, int64(7), 10)
 					n.Next(nodeCtx)
 					Expect(marked).To(ConsistOf(0))
@@ -532,7 +536,7 @@ var _ = Describe("Variable", func() {
 				emit(d, int64(5), 10)
 				n.Next(nodeCtx)
 				Expect(marked).To(ConsistOf(0))
-				n.Reset()
+				n.Reset(node.Context{})
 				n.Next(nodeCtx)
 				Expect(marked).To(HaveLen(1))
 				emit(d, int64(6), 20)
@@ -546,7 +550,7 @@ var _ = Describe("Variable", func() {
 				emit(d, int64(9), 10)
 				n.Next(nodeCtx)
 				Expect(marked).To(BeEmpty())
-				n.Reset()
+				n.Reset(node.Context{})
 				emit(d, int64(11), 20)
 				// A replayed sel would count as a re-point and swallow the 11.
 				n.Next(nodeCtx)

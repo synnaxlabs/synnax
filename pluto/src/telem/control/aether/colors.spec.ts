@@ -9,16 +9,16 @@
 
 import { type channel, type framer } from "@synnaxlabs/client";
 import { createTestClient, TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
+import { theme } from "@synnaxlabs/lyra/theme";
 import { color, DataType, id, TimeStamp } from "@synnaxlabs/x";
 import { afterEach, assert, describe, expect, it, vi } from "vitest";
 
 import { Colors } from "@/telem/control/aether/colors";
 import { renderAether } from "@/testutil/renderAether";
-import { theming } from "@/theming/aether";
 
 const client = createTestClient();
 
-const THEME = theming.themeZ.parse(theming.SYNNAX_LIGHT);
+const THEME = theme.themeZ.parse(theme.SYNNAX_LIGHT);
 const PALETTE = THEME.colors.visualization.palettes.default;
 const DEFAULT_COLOR = THEME.colors.gray.l9;
 const POLL = { timeout: 5000 };

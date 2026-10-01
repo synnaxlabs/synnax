@@ -128,13 +128,14 @@ var _ = Describe("Translator", func() {
 
 		It("Should round-trip an iterator request", func(ctx SpecContext) {
 			original := iterator.Request{
-				Command:   iterator.CommandNext,
-				Span:      telem.TimeSpan(5000),
-				Bounds:    telem.TimeRange{Start: 100, End: 200},
-				Stamp:     telem.TimeStamp(150),
-				Keys:      channel.Keys{10, 20},
-				ChunkSize: 1024,
-				SeqNum:    7,
+				Command:          iterator.CommandNext,
+				Span:             telem.TimeSpan(5000),
+				Bounds:           telem.TimeRange{Start: 100, End: 200},
+				Stamp:            telem.TimeStamp(150),
+				Keys:             channel.Keys{10, 20},
+				ChunkSize:        1024,
+				SeqNum:           7,
+				DownsampleFactor: 4,
 			}
 			pb := MustSucceed(t.Forward(ctx, original))
 			result := MustSucceed(t.Backward(ctx, pb))
@@ -145,6 +146,7 @@ var _ = Describe("Translator", func() {
 			Expect(result.Keys).To(Equal(original.Keys))
 			Expect(result.ChunkSize).To(Equal(original.ChunkSize))
 			Expect(result.SeqNum).To(Equal(original.SeqNum))
+			Expect(result.DownsampleFactor).To(Equal(original.DownsampleFactor))
 		})
 
 		It("Should handle zero-value request", func(ctx SpecContext) {

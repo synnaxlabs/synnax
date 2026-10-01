@@ -11,9 +11,8 @@ package status
 
 import (
 	"context"
-	"go/types"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
@@ -49,7 +48,7 @@ type (
 	deleteServer = grpc.UnaryServer[
 		status.DeleteRequest,
 		*DeleteRequest,
-		types.Nil,
+		struct{},
 		*emptypb.Empty,
 	]
 	setByKeyOrNameServer = grpc.UnaryServer[

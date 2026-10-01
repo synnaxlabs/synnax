@@ -11,7 +11,6 @@ package access
 
 import (
 	"context"
-	"go/types"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
@@ -73,7 +72,7 @@ type RetrievePolicyRequest struct {
 }
 
 type RetrievePolicyResponse struct {
-	Policies []policy.Policy `json:"policies,omitzero" msgpack:"policies,omitzero"`
+	Policies []policy.Policy `json:"policies" msgpack:"policies"`
 }
 
 func (s *Service) RetrievePolicy(
@@ -124,15 +123,15 @@ func (s *Service) DeletePolicy(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeletePolicyRequest,
-) (types.Nil, error) {
+) (struct{}, error) {
 	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Objects: policy.OntologyIDs(req.Keys),
 		Action:  access.ActionDelete,
 	}); err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
-	return types.Nil{}, s.internal.Policy.NewWriter(tx, allowInternal).
+	return struct{}{}, s.internal.Policy.NewWriter(tx, allowInternal).
 		Delete(ctx, req.Keys...)
 }
 
@@ -173,7 +172,7 @@ type (
 		Offset     int        `json:"offset"      msgpack:"offset"`
 	}
 	RetrieveRoleResponse struct {
-		Roles []role.Role `json:"roles,omitzero" msgpack:"roles,omitzero"`
+		Roles []role.Role `json:"roles" msgpack:"roles"`
 	}
 )
 
@@ -219,7 +218,7 @@ func (s *Service) DeleteRole(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRoleRequest,
-) (types.Nil, error) {
+) (struct{}, error) {
 	roleIDs := make([]ontology.ID, len(req.Keys))
 	for i, key := range req.Keys {
 		roleIDs[i] = role.OntologyID(key)
@@ -229,15 +228,15 @@ func (s *Service) DeleteRole(
 		Objects: roleIDs,
 		Action:  access.ActionDelete,
 	}); err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
 	w := s.internal.Role.NewWriter(tx, allowInternal)
 	for _, key := range req.Keys {
 		if err := w.Delete(ctx, key); err != nil {
-			return types.Nil{}, err
+			return struct{}{}, err
 		}
 	}
-	return types.Nil{}, nil
+	return struct{}{}, nil
 }
 
 type AssignRoleRequest struct {
@@ -249,16 +248,16 @@ func (s *Service) AssignRole(
 	ctx context.Context,
 	tx gorp.Tx,
 	req AssignRoleRequest,
-) (types.Nil, error) {
+) (struct{}, error) {
 	userID := user.OntologyID(req.User)
 	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Objects: []ontology.ID{userID},
 		Action:  access.ActionUpdate,
 	}); err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
-	return types.Nil{}, s.internal.Role.NewWriter(tx, allowInternal).
+	return struct{}{}, s.internal.Role.NewWriter(tx, allowInternal).
 		AssignRole(ctx, userID, req.Role)
 }
 
@@ -271,15 +270,15 @@ func (s *Service) UnassignRole(
 	ctx context.Context,
 	tx gorp.Tx,
 	req UnassignRoleRequest,
-) (types.Nil, error) {
+) (struct{}, error) {
 	userID := user.OntologyID(req.User)
 	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Objects: []ontology.ID{userID},
 		Action:  access.ActionUpdate,
 	}); err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
-	return types.Nil{}, s.internal.Role.NewWriter(tx, allowInternal).
+	return struct{}{}, s.internal.Role.NewWriter(tx, allowInternal).
 		UnassignRole(ctx, userID, req.Role)
 }

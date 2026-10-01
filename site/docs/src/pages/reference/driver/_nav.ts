@@ -1,0 +1,47 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { type PageNavNode } from "@/components/nav/Page";
+import { ETHERCAT_NAV } from "@/pages/reference/driver/ethercat/_nav";
+import { HTTP_NAV } from "@/pages/reference/driver/http/_nav";
+import { LABJACK_NAV } from "@/pages/reference/driver/labjack/_nav";
+import { MODBUS_NAV } from "@/pages/reference/driver/modbus/_nav";
+import { NI_NAV } from "@/pages/reference/driver/ni/_nav";
+import { OPC_UA_NAV } from "@/pages/reference/driver/opc-ua/_nav";
+import { PAGERDUTY_NAV } from "@/pages/reference/driver/pagerduty/_nav";
+
+export const DRIVER_NAV: PageNavNode = {
+  key: "driver",
+  name: "Device drivers",
+  icon: "Device",
+  children: [
+    {
+      key: "/reference/driver/get-started",
+      href: "/reference/driver/get-started",
+      name: "Get started",
+    },
+    {
+      key: "/reference/driver/installation",
+      href: "/reference/driver/installation",
+      name: "Installation",
+    },
+    {
+      key: "/reference/driver/task-basics",
+      href: "/reference/driver/task-basics",
+      name: "Task basics",
+    },
+    ETHERCAT_NAV,
+    HTTP_NAV,
+    LABJACK_NAV,
+    MODBUS_NAV,
+    NI_NAV,
+    OPC_UA_NAV,
+    PAGERDUTY_NAV,
+  ],
+};

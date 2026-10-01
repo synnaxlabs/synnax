@@ -10,16 +10,14 @@
 import "@/feature/core/Badge.css";
 
 import { type connection, status as clientStatus } from "@synnaxlabs/client";
-import {
-  Button,
-  Dialog,
-  Divider,
-  Flex,
-  Icon,
-  Synnax,
-  Text,
-  Tooltip,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
+import { Synnax } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
@@ -27,6 +25,7 @@ import { Clipboard } from "@/platform/clipboard";
 import { Connection } from "@/platform/connection";
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
+import { License } from "@/platform/license";
 import { User } from "@/platform/user";
 import { Session } from "@/session";
 
@@ -131,6 +130,7 @@ const Content = (): ReactElement => {
             {`Incompatible with client v${details.clientVersion}`}
           </Text.Text>
         )}
+        {details.nodeVersion != null && <License.Summary />}
         {details.clockSkewExceeded && (
           <Text.Text level="small" status="warning">
             {`Clock is ${details.clockSkew.abs().toString()} ${skewDirection} the Core`}

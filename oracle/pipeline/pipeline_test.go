@@ -89,6 +89,7 @@ var _ = Describe("pipeline.Run", func() {
 	})
 
 	writeSchema := func(name, body string) string {
+		GinkgoHelper()
 		rel := "schemas/" + name + ".oracle"
 		Expect(
 			os.WriteFile(filepath.Join(repoRoot, rel), []byte(body), 0o644),
@@ -155,6 +156,7 @@ WithThing struct {
 
 	It("resolves imports across nested schema folders", func(ctx SpecContext) {
 		writeNested := func(rel, body string) {
+			GinkgoHelper()
 			abs := filepath.Join(repoRoot, rel)
 			Expect(os.MkdirAll(filepath.Dir(abs), 0o755)).To(Succeed())
 			Expect(os.WriteFile(abs, []byte(body), 0o644)).To(Succeed())
@@ -316,6 +318,7 @@ Thing struct {
 
 		BeforeEach(func() {
 			write = func(rel, content string) {
+				GinkgoHelper()
 				abs := filepath.Join(repoRoot, rel)
 				Expect(os.MkdirAll(filepath.Dir(abs), 0o755)).To(Succeed())
 				Expect(os.WriteFile(abs, []byte(content), 0o644)).To(Succeed())
@@ -462,6 +465,7 @@ var _ = Describe("pipeline.DiscoverSchemas", func() {
 			Expect(os.RemoveAll(repoRoot)).To(Succeed())
 		})
 		write := func(rel string) {
+			GinkgoHelper()
 			abs := filepath.Join(repoRoot, rel)
 			Expect(os.MkdirAll(filepath.Dir(abs), 0o755)).To(Succeed())
 			Expect(os.WriteFile(abs, []byte(""), 0o644)).To(Succeed())
@@ -483,6 +487,7 @@ var _ = Describe("pipeline.DiscoverSchemas", func() {
 			Expect(os.RemoveAll(repoRoot)).To(Succeed())
 		})
 		write := func(rel string) {
+			GinkgoHelper()
 			abs := filepath.Join(repoRoot, rel)
 			Expect(os.MkdirAll(filepath.Dir(abs), 0o755)).To(Succeed())
 			Expect(os.WriteFile(abs, []byte(""), 0o644)).To(Succeed())

@@ -45,7 +45,7 @@ type Config struct {
 	BaseInterval time.Duration
 	// Scale is the multiplicative growth of the backoff per consecutive unexpected
 	// exit. Must be >= 1.
-	Scale float32
+	Scale float64
 	// MaxRetries caps the number of consecutive restarts before Decide returns GiveUp.
 	// The counter resets after a process runs longer than HealthyUptime.
 	MaxRetries int

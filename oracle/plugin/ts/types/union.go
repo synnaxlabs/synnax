@@ -44,7 +44,14 @@ type unionData struct {
 	SchemasConst string
 	// Variants lists every variant in declaration order.
 	Variants []unionVariantData
+	// LazyVariants wraps each variant in z.lazy. See lazyVariantThreshold.
+	LazyVariants bool
 }
+
+// lazyVariantThreshold is the variant count at which a union wraps each variant in
+// z.lazy. zod/compile inlines a union's variants into the union and into every parent
+// schema; a lazy variant compiles once, on its own first parse.
+const lazyVariantThreshold = 16
 
 // unionVariantData is the template view of one variant of a discriminated union.
 type unionVariantData struct {
@@ -84,11 +91,11 @@ func (p *Plugin) processUnion(
 	screaming := strings.ToUpper(lo.SnakeCase(tsName))
 	ud := unionData{
 		TSName:         tsName,
-		SchemaName:     camelCase(tsName) + "Z",
+		SchemaName:     casing.CamelAcronym(tsName) + "Z",
 		Discriminator:  fieldCamel(form.Discriminator),
 		Doc:            doc.Get(entry.Domains),
 		TypesConst:     screaming + "_TYPES",
-		TypeSchemaName: camelCase(tsName) + "TypeZ",
+		TypeSchemaName: casing.CamelAcronym(tsName) + "TypeZ",
 		TypeName:       tsName + "Type",
 		SchemasConst:   screaming + "_SCHEMAS",
 	}
@@ -97,7 +104,7 @@ func (p *Plugin) processUnion(
 		vd := unionVariantData{
 			Value:      v.Name,
 			TypeName:   typeName,
-			SchemaName: camelCase(typeName) + "Z",
+			SchemaName: casing.CamelAcronym(typeName) + "Z",
 			Doc:        doc.Get(v.Domains),
 		}
 		omitted := variantOmissions(v, table)
@@ -132,6 +139,7 @@ func (p *Plugin) processUnion(
 		}
 		ud.Variants = append(ud.Variants, vd)
 	}
+	ud.LazyVariants = len(ud.Variants) >= lazyVariantThreshold
 	return ud
 }
 
@@ -168,7 +176,7 @@ func omitClause(
 	var keys []string
 	for _, f := range resolution.UnifiedFields(resolved, table) {
 		if omitted.Contains(f.Name) {
-			keys = append(keys, camelCase(f.Name)+": true")
+			keys = append(keys, casing.CamelAcronym(f.Name)+": true")
 		}
 	}
 	if len(keys) == 0 {

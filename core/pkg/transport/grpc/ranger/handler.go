@@ -11,9 +11,8 @@ package ranger
 
 import (
 	"context"
-	"go/types"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
@@ -39,19 +38,19 @@ type (
 	deleteServer = grpc.UnaryServer[
 		ranger.DeleteRequest,
 		*DeleteRequest,
-		types.Nil,
+		struct{},
 		*emptypb.Empty,
 	]
 	renameServer = grpc.UnaryServer[
 		ranger.RenameRequest,
 		*RenameRequest,
-		types.Nil,
+		struct{},
 		*emptypb.Empty,
 	]
 	setEndServer = grpc.UnaryServer[
 		ranger.SetEndRequest,
 		*SetEndRequest,
-		types.Nil,
+		struct{},
 		*emptypb.Empty,
 	]
 )

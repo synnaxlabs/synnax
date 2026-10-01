@@ -37,7 +37,11 @@ export const useClipboard = ({
   const key = useKey();
   const dispatch = useSingleDispatch();
   const client = Synnax.use();
-  const adapter: Diagram.ClipboardAdapter<schematic.Node, schematic.Edge> = {
+  const adapter: Diagram.ClipboardAdapter<
+    schematic.Node,
+    schematic.Edge,
+    schematic.ElementConfig
+  > = {
     mime: MIME,
     edgeKey: (edge) => edge.key,
     getSnapshot: () => {

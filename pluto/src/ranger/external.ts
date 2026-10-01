@@ -9,9 +9,11 @@
 
 export * from "@/ranger/Breadcrumb";
 export * from "@/ranger/Icons";
+export * from "@/ranger/move";
 export * from "@/ranger/queries";
 export * from "@/ranger/Select";
-export * from "@/ranger/SelectStage";
 export * from "@/ranger/stage";
 export * from "@/ranger/StageIcon";
+export * from "@/ranger/Timeline";
+export * from "@/ranger/TimelineEffect";
 export * from "@/ranger/types";

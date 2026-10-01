@@ -9,7 +9,7 @@
 
 import { type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { OPCUA } from "@/feature/opcua";
@@ -73,7 +73,7 @@ const ZERO_DRAFT: task.New<OPCUA.Task.ReadSchemas> = {
 const createDraft = async (client: Synnax, config: OPCUA.Task.ReadPayload["config"]) =>
   await client.tasks.create({ ...ZERO_DRAFT, config }, OPCUA.Task.READ_SCHEMAS);
 
-describe("OPCUA.Read", () => {
+describe("Read", () => {
   it("should create channels under a new index on deploy", async () => {
     const dev = await createOPCDevice(client);
     const chA = createReadChannel();
@@ -116,6 +116,33 @@ describe("OPCUA.Read", () => {
     );
   });
 
+  it("should bind a new entry to the channel the device already maps", async () => {
+    const dev = await createOPCDevice(client);
+    const ch = createReadChannel();
+    const firstDraft = await createDraft(client, createReadConfig(dev.key, [ch]));
+    const first = await renderRead({ client, taskKey: firstDraft.key });
+    const firstTask = await deployAndAwaitTask(
+      client,
+      first.container,
+      firstDraft.key,
+      OPCUA.Task.READ_SCHEMAS,
+    );
+    first.unmount();
+    const existing = await client.channels.retrieve(
+      firstTask.config.channels[0].channel,
+    );
+    const secondDraft = await createDraft(client, createReadConfig(dev.key, [ch]));
+    await renderRead({ client, taskKey: secondDraft.key });
+    await screen.findByText(existing.name);
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: secondDraft.key,
+        schemas: OPCUA.Task.READ_SCHEMAS,
+      });
+      expect(saved.config.channels[0].channel).toBe(existing.key);
+    });
+  });
+
   it("should use the flagged timestamp channel as the index and reuse it on redeploy", async () => {
     const dev = await createOPCDevice(client);
     const tsChannel = createReadChannel({ isIndex: true, dataType: "timestamp" });
@@ -126,7 +153,7 @@ describe("OPCUA.Read", () => {
     );
     const first = await renderRead({ client, taskKey: draft.key });
     await screen.findByText(new RegExp(tsChannel.nodeName));
-    expect(screen.getAllByText("Use as Index")).toHaveLength(1);
+    expect(screen.getAllByText("Use as index")).toHaveLength(1);
 
     const deployed = await deployAndAwaitTask(
       client,

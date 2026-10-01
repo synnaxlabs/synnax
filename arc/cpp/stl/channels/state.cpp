@@ -138,13 +138,51 @@ void State::write_series(
     this->write_value(key, data, time);
 }
 
-void State::flush_into(x::telem::Frame &out) {
+x::telem::TimeStamp State::stamp_indexes(const x::telem::TimeStamp now) {
+    auto highest = x::telem::TimeStamp(0);
+    // A later iteration can grow active_write_keys, so index by position.
+    const auto count = this->active_write_keys.size();
+    for (size_t k = 0; k < count; k++) {
+        const auto key = this->active_write_keys[k];
+        const auto idx_iter = this->indexes.find(key);
+        if (idx_iter == this->indexes.end() || idx_iter->second == 0) continue;
+        const auto idx = idx_iter->second;
+        if (const auto existing = this->writes.find(idx);
+            existing != this->writes.end() && existing->second != nullptr &&
+            !existing->second->empty())
+            continue;
+        const auto data_iter = this->writes.find(key);
+        if (data_iter == this->writes.end() || data_iter->second == nullptr ||
+            data_iter->second->empty())
+            continue;
+        const auto &data = data_iter->second;
+        const auto n = data->size();
+        const auto last = x::telem::TimeStamp(
+            now.nanoseconds() + static_cast<int64_t>(n) - 1
+        );
+        auto stamps = x::mem::make_local_shared<x::telem::Series>(
+            x::telem::TIMESTAMP_T,
+            n
+        );
+        stamps->write_linspace(now, last, n, true);
+        stamps->alignment = data->alignment;
+        stamps->time_range = data->time_range;
+        if (last > highest) highest = last;
+        this->writes[idx] = std::move(stamps);
+        this->active_write_keys.push_back(idx);
+    }
+    return highest;
+}
+
+x::telem::TimeStamp
+State::flush_into(x::telem::Frame &out, const x::telem::TimeStamp now) {
     for (auto &series_vec: this->reads | std::views::values) {
         if (series_vec.size() <= 1) continue;
         auto last = std::move(series_vec.back());
         series_vec.clear();
         series_vec.push_back(std::move(last));
     }
+    const auto highest = this->stamp_indexes(now);
     for (const auto key: this->active_write_keys) {
         auto it = this->writes.find(key);
         if (it == this->writes.end() || it->second == nullptr || it->second->empty())
@@ -155,6 +193,7 @@ void State::flush_into(x::telem::Frame &out) {
         it->second->alignment = x::telem::Alignment();
     }
     this->active_write_keys.clear();
+    return highest;
 }
 
 void State::reset() {

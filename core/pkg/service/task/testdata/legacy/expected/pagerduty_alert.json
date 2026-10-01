@@ -4,19 +4,19 @@
       "class": "fixture-class-overpressure",
       "component": "fixture-component-pump",
       "disabled": false,
+      "errors_critical": true,
       "group": "fixture-group-fluids",
       "key": "alert-overpressure",
-      "status": "fixture_status_channel_a",
-      "errors_critical": true
+      "status": "fixture_status_channel_a"
     },
     {
       "class": "fixture-class-leak",
       "component": "fixture-component-valve",
       "disabled": true,
+      "errors_critical": true,
       "group": "fixture-group-pneumatics",
       "key": "alert-secondary",
-      "status": "fixture_status_channel_b",
-      "errors_critical": true
+      "status": "fixture_status_channel_b"
     }
   ],
   "auto_start": true,

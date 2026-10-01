@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { CSS } from "@synnaxlabs/lyra/css";
 import { type ReactElement } from "react";
 
-import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 
@@ -20,14 +20,14 @@ const DIMENSIONS = { width: 22, height: 32 };
 export const Vent = ({
   className,
   orientation = "left",
-  color,
+  strokeColor,
   scale,
   ...rest
 }: VentProps): ReactElement => (
   <Primitive.Div className={CSS.cls(CSS.B("vent"), className)} {...rest}>
     <Handle.Linear orientation={orientation} left={22.7273} right={80} />
     <Primitive.SVG
-      color={color}
+      strokeColor={strokeColor}
       dimensions={DIMENSIONS}
       orientation={orientation}
       scale={scale}

@@ -14,7 +14,7 @@ cc_library(
     name = "synnax",
     srcs = [
         "transport.cpp",
-        "//core/pkg/version",
+        "//client/cpp/version",
     ],
     hdrs = [
         "synnax.h",

@@ -1,4 +1,4 @@
-# Freighter Python Implementation
+# Freighter Python implementation
 
 This is the Python implementation of the Freighter interface. It currently has unary
 implementations in HTTP and a streaming implementation using WebSockets.

@@ -12,8 +12,8 @@ package task
 import (
 	"context"
 	"fmt"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -91,7 +91,7 @@ func (w Writer) healStatus(ctx context.Context, stat *Status) (*Status, error) {
 // a "has not been deployed" placeholder, and an existing task keeps its reported
 // status (healed to "status unknown" if the row is missing).
 func (w Writer) Create(ctx context.Context, t *Task) error {
-	if t.Key == uuid.Nil {
+	if t.Key == uuid.Nil() {
 		t.Key = uuid.New()
 	}
 	store, ok := w.configs.Store(t.Type)

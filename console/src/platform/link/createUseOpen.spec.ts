@@ -22,7 +22,6 @@ describe("Link.createUseOpenResourceTab", () => {
   it("opens the linked key as a resource tab of the factory's type", async () => {
     const project = await client.projects.create({
       name: uniqueName("project"),
-      layout: {},
     });
     const created = await client.tables.create(project.key, {
       name: uniqueName("table"),

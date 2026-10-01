@@ -8,13 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { arc } from "@synnaxlabs/client";
-import { Access, Arc as PArc, Icon } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Access, Arc as PArc } from "@synnaxlabs/pluto";
 
 import { Explorer } from "@/feature/arc/explorer";
 import { Arc } from "@/platform/arc";
 import { Command } from "@/platform/command";
 
-export const CreateCommand = Command.create({
+const CreateCommand = Command.create({
   key: "create_arc",
   name: "Create Arc automation",
   icon: <Icon.Arc />,
@@ -22,7 +23,7 @@ export const CreateCommand = Command.create({
   useOnSelect: Arc.useCreate,
 });
 
-export const OpenExplorerCommand = Command.create({
+const OpenExplorerCommand = Command.create({
   key: "open_arc_explorer",
   name: "Open Arc explorer",
   icon: <PArc.ExplorerIcon />,

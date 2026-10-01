@@ -7,22 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
+import { CSS } from "@synnaxlabs/lyra/css";
 import { color } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
-import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
-import { type Config } from "@/schematic/node/general/circle/config";
 
-interface RenderProps extends Omit<Config, "variant"> {
+interface RenderProps extends Omit<
+  schematic.CircleNodeConfig,
+  "variant" | "label" | "scale"
+> {
   className?: string;
 }
 
 export const Circle = ({
   radius,
-  color: colorVal,
-  backgroundColor,
+  strokeColor,
+  fillColor,
   className,
   strokeWidth,
 }: RenderProps): ReactElement => {
@@ -63,13 +66,13 @@ export const Circle = ({
           id="4"
         />
       </Handle.Boundary>
-      <Primitive.SVG dimensions={dimensions} color={colorVal}>
+      <Primitive.SVG dimensions={dimensions} strokeColor={strokeColor}>
         <Primitive.Circle
           cx={width / 2}
           cy={height / 2}
           r={radius}
           strokeWidth={strokeWidth ?? 2}
-          fill={color.cssString(backgroundColor)}
+          fill={color.cssString(fillColor)}
         />
       </Primitive.SVG>
     </Primitive.Div>

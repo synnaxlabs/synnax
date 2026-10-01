@@ -26,11 +26,13 @@
     }
 
     .pluto-btn.pluto-dialog__trigger {
-        --pluto-border-color: var(--pluto-symbol-display);
-
         border-top-right-radius: 0;
         border-bottom-right-radius: 0;
         border-width: 1px;
+    }
+
+    .pluto-btn.pluto-dialog__trigger:not(.pluto--disabled) {
+        --pluto-border-color: var(--pluto-symbol-display);
     }
 
     svg.pluto-caret-animated {
@@ -41,4 +43,9 @@
     .pluto-handle__2 {
         z-index: 5;
     }
+}
+
+/* A connected dialog matches its trigger, which can be narrower than the search box. */
+.pluto-select-symbol__dialog {
+    min-width: 30rem;
 }

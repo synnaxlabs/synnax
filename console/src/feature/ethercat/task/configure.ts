@@ -100,10 +100,11 @@ export const findChannelsToCreate = async <C extends Channel>(
   client: Synnax,
   channels: C[],
   existingChannels: Record<string, number>,
+  keySuffix = "",
 ): Promise<C[]> => {
   const toCreate: C[] = [];
   for (const ch of channels) {
-    const mapKey = channelMapKey(ch);
+    const mapKey = `${channelMapKey(ch)}${keySuffix}`;
     const existing = getChannelByMapKey(existingChannels, mapKey);
     if (existing === 0) {
       toCreate.push(ch);

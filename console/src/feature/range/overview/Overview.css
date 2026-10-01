@@ -13,14 +13,6 @@
     .console-header {
         flex-direction: column-reverse !important;
     }
-    .console-time-range {
-        flex-direction: column !important;
-        align-items: start !important;
-        gap: 0;
-        .console-time-range-divider {
-            display: none;
-        }
-    }
 }
 
 .console-range__overview {

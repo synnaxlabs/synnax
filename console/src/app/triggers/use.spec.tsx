@@ -10,7 +10,8 @@
 import { type panel } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
-import { Text, Triggers as PTriggers } from "@synnaxlabs/pluto";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Triggers as PTriggers } from "@synnaxlabs/lyra/triggers";
 import { uuid } from "@synnaxlabs/x";
 import {
   act,
@@ -31,7 +32,7 @@ vi.mock("@/session/runtime/runtime", async (importOriginal) => {
 });
 
 import { Triggers } from "@/app/triggers";
-import { useSelectorVisible } from "@/app/vis/Selector";
+import { useSelectorVisible } from "@/app/vis/useSelectorVisible";
 import { Panel as PlatformPanel } from "@/platform/panel";
 import {
   createPanelWrapper,

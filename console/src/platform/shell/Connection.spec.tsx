@@ -7,12 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Shell } from "@/platform/shell";
 import { CONNECTION_PARAMS } from "@/session/core/testutil";
-import { createConnectedConsoleWrapper } from "@/testutil";
+import {
+  createConnectedConsoleWrapper,
+  createStatusConsoleWrapper,
+  UNLICENSED_STATUS,
+} from "@/testutil";
 
 const CORE = { name: "Local", ...CONNECTION_PARAMS };
 
@@ -39,6 +44,16 @@ describe("Connection", () => {
     const { wrapper } = await createConnectedConsoleWrapper({
       client: null,
       connParams: { ...CONNECTION_PARAMS, password: "not-seldon" },
+    });
+    render(<Shell.Connection core={CORE} />, { wrapper });
+    expect(await screen.findByText("Connected")).toBeTruthy();
+    expect(screen.queryByText("Unreachable")).toBeNull();
+  });
+
+  it("should stay nominal when the Core refuses requests for want of a license", async () => {
+    const { wrapper } = await createStatusConsoleWrapper({
+      client: createTestClient(),
+      status: UNLICENSED_STATUS,
     });
     render(<Shell.Connection core={CORE} />, { wrapper });
     expect(await screen.findByText("Connected")).toBeTruthy();

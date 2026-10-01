@@ -1,12 +1,12 @@
 # Contributing to Console
 
-## Development Environment
+## Development environment
 
 To get started contributing to Console, read the development environment setup guide for
 [macOS](../docs/tech/setup-macos.md) or [windows](../docs/tech/setup-windows.md).
 Console requires both a nodejs and a rust development environment.
 
-## Running the Development Server
+## Running the development server
 
 Before running the development server, you must build Console's upstream dependencies.
 To do this, run the following commands from the root of the repository:
@@ -40,7 +40,7 @@ Typically, you'll also want to run Console in conjunction with the Synnax
 etc. For information on how to start up a Synnax dev database, see the
 [contributing guide](../core/CONTRIBUTING.md).
 
-## Building the Application
+## Building the application
 
 There's typically no need to build the application, as the Synnax CI/CD servers handle
 the build and release process. If you do need to build the application, run the
@@ -54,7 +54,7 @@ Note, the build may fail at the very end after outputting a correctly compiled b
 This is because `tauri` is looking for an environment variable to sign the binary with.
 This is not necessary for local development, so you can ignore this error.
 
-## Data Persistence
+## Data persistence
 
 Console stores a snapshot of the application state on disk in order to re-open the
 application to the same state it was in when it was last closed. This snapshot is stored

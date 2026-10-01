@@ -49,6 +49,7 @@ Channel struct {
 `
 
 	analyzeLive := func(source string) *pipeline.Result {
+		GinkgoHelper()
 		table := resolution.NewTable()
 		diag := analyzer.AnalyzeSeeded(
 			GinkgoT().Context(), source,
@@ -71,7 +72,7 @@ Channel struct {
 	}
 
 	run := func(p *pipeline.Result) check.GateReport {
-		return check.VersionsGate{}.Run(
+		return check.NewVersionsGate().Run(
 			GinkgoT().Context(), p, check.Env{RepoRoot: root},
 		)
 	}
@@ -79,6 +80,7 @@ Channel struct {
 	BeforeEach(func() {
 		root = GinkgoT().TempDir()
 		write = func(rel, content string) {
+			GinkgoHelper()
 			full := filepath.Join(root, rel)
 			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
 			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
@@ -122,6 +124,7 @@ Channel struct {
 	})
 
 	mergeLive := func(source string) []byte {
+		GinkgoHelper()
 		chains := MustSucceed(versions.Discover(root))
 		resolver := versions.NewResolver(
 			chains, analyzer.NewStandardFileLoader(root),
@@ -168,7 +171,7 @@ Channel struct {
 		p.MergedSources = map[string][]byte{
 			"schemas/synnax/channel.oracle": mergeLive(liveV0),
 		}
-		report := check.VersionsGate{}.Run(
+		report := check.NewVersionsGate().Run(
 			GinkgoT().Context(), p,
 			check.Env{RepoRoot: root, IncludeDiffs: true},
 		)

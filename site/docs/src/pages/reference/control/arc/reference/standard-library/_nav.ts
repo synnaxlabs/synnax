@@ -1,0 +1,53 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { type PageNavNode } from "@/components/nav/Page";
+
+export const STANDARD_LIBRARY_NAV: PageNavNode = {
+  key: "standard-library",
+  href: "/reference/control/arc/reference/standard-library",
+  name: "Standard library",
+  children: [
+    {
+      key: "/reference/control/arc/reference/standard-library/control",
+      href: "/reference/control/arc/reference/standard-library/control",
+      name: "`control`",
+    },
+    {
+      key: "/reference/control/arc/reference/standard-library/math",
+      href: "/reference/control/arc/reference/standard-library/math",
+      name: "`math`",
+    },
+    {
+      key: "/reference/control/arc/reference/standard-library/ranges",
+      href: "/reference/control/arc/reference/standard-library/ranges",
+      name: "`ranges`",
+    },
+    {
+      key: "/reference/control/arc/reference/standard-library/select",
+      href: "/reference/control/arc/reference/standard-library/select",
+      name: "`select`",
+    },
+    {
+      key: "/reference/control/arc/reference/standard-library/stable",
+      href: "/reference/control/arc/reference/standard-library/stable",
+      name: "`stable`",
+    },
+    {
+      key: "/reference/control/arc/reference/standard-library/status",
+      href: "/reference/control/arc/reference/standard-library/status",
+      name: "`status`",
+    },
+    {
+      key: "/reference/control/arc/reference/standard-library/time",
+      href: "/reference/control/arc/reference/standard-library/time",
+      name: "`time`",
+    },
+  ],
+};

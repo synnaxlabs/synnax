@@ -12,12 +12,13 @@
 package v0
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 
 	xjson "github.com/synnaxlabs/x/encoding/json"
 	xmsgpack "github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
-	msgpack "github.com/vmihailenco/msgpack/v5"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 // EncodeOrc writes the value to w in the Orc binary format.
@@ -102,9 +103,9 @@ func (kv *Key) DecodeMsgpack(dec *msgpack.Decoder) error {
 	return nil
 }
 
-// UnmarshalJSON coerces JSON numbers or strings into Key.
-func (kv *Key) UnmarshalJSON(b []byte) error {
-	n, err := xjson.UnmarshalStringUint64(b)
+// UnmarshalJSONFrom coerces JSON numbers or strings into Key.
+func (kv *Key) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	n, err := xjson.UnmarshalStringUint64From(dec)
 	if err != nil {
 		return err
 	}

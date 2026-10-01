@@ -65,32 +65,21 @@ TEST(BreakerTests, testDestructorShuttingDown) {
     t.join();
 }
 
-/// @brief it should correctly handle infinite retries
+/// @brief it should retry past the default maximum retry count when the breaker is
+/// configured to retry infinitely.
 TEST(BreakerTests, testInfiniteRetries) {
     auto b = Breaker(
-        Config{
-            "my-breaker",
-            10 * telem::MICROSECOND,
-            RETRY_INFINITELY, // Set to infinite retries
-            1.1
-        }
+        Config{"my-breaker", telem::TimeSpan::ZERO(), RETRY_INFINITELY, 1}
     );
+    const auto past_default_max = static_cast<size_t>(Config{}.max_retries) + 10;
     EXPECT_TRUE(b.start());
     EXPECT_TRUE(b.running());
-    int retry_count = 0;
-    std::thread t([&b, &retry_count]() {
-        while (b.wait("testInfiniteRetries breaker")) {
-            retry_count++;
-            if (retry_count >= 100) break; // Safety break to prevent infinite test
-        }
-    });
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    size_t retries = 0;
+    while (retries < past_default_max && b.wait("testInfiniteRetries breaker"))
+        retries++;
+    EXPECT_EQ(retries, past_default_max);
     EXPECT_TRUE(b.stop());
     EXPECT_FALSE(b.running());
-    t.join();
-
-    // Verify that we got multiple retries and didn't stop at the default max (50)
-    ASSERT_GT(retry_count, 50);
 }
 
 /// @brief it should return false when attempting to start a breaker that was
@@ -124,5 +113,42 @@ TEST(BreakerTest, testRetryCount) {
     b.reset();
     EXPECT_EQ(b.retry_count(), 0);
     EXPECT_TRUE(b.stop());
+}
+
+/// @brief it should describe the retry number and interval of the next call to wait().
+TEST(BreakerTest, testNextRetry) {
+    auto b = Breaker(Config{"my-breaker", 100 * telem::MILLISECOND, 2, 2});
+    EXPECT_TRUE(b.start());
+    EXPECT_EQ(b.next_retry(), "retry 1/2 in 0.1 s");
+    EXPECT_TRUE(b.wait("first retry"));
+    EXPECT_EQ(b.next_retry(), "retry 2/2 in 0.2 s");
+    EXPECT_TRUE(b.wait("second retry"));
+    EXPECT_EQ(b.next_retry(), "");
+    b.reset();
+    EXPECT_EQ(b.next_retry(), "retry 1/2 in 0.1 s");
+    EXPECT_TRUE(b.stop());
+}
+
+/// @brief it should show an unbounded retry count when the breaker retries infinitely.
+TEST(BreakerTest, testNextRetryInfinite) {
+    auto b = Breaker(Config{"my-breaker", telem::SECOND, RETRY_INFINITELY, 1});
+    EXPECT_EQ(b.next_retry(), "retry 1/∞ in 1.0 s");
+}
+
+/// @brief it should allow reads and resets of the retry state while another thread
+/// waits on the breaker.
+TEST(BreakerTest, testConcurrentRetryState) {
+    auto b = Breaker(
+        Config{"my-breaker", telem::TimeSpan::ZERO(), RETRY_INFINITELY, 1}
+    );
+    EXPECT_TRUE(b.start());
+    std::thread t(&helper, std::ref(b));
+    for (int i = 0; i < 1000; i++) {
+        EXPECT_TRUE(b.next_retry().starts_with("retry "));
+        static_cast<void>(b.retry_count());
+        b.reset();
+    }
+    EXPECT_TRUE(b.stop());
+    t.join();
 }
 }

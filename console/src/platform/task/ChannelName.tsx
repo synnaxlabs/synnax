@@ -13,18 +13,12 @@ import {
   NotFoundError,
   type status,
 } from "@synnaxlabs/client";
-import {
-  Access,
-  Channel,
-  Errors,
-  Flex,
-  Flux,
-  Form,
-  Text,
-  Tooltip,
-  useSyncedRef,
-} from "@synnaxlabs/pluto";
-import { location, type optional, primitive } from "@synnaxlabs/x";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
+import { Access, Channel, Flux } from "@synnaxlabs/pluto";
+import { type optional, primitive } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
 import { CSS } from "@/platform/css";
@@ -36,6 +30,7 @@ export interface ChannelNameProps extends optional.Optional<
   "level"
 > {
   channel: channel.Key;
+  /** The name configure will give the channel; shown as a preview while it is 0. */
   defaultName?: string;
   namePath: string;
 }
@@ -84,12 +79,20 @@ const Unresolved = ({
   return <Name namePath={namePath} name={name} {...rest} />;
 };
 
-const Resolved = ({ channel, defaultName, namePath, ...rest }: ChannelNameProps) => {
+const Resolved = (props: ChannelNameProps) => {
+  const { channel, defaultName: _, ...rest } = props;
   const range = Session.Range.useSelectSelectedKey();
-  const query = { key: channel, rangeKey: range ?? undefined };
-  Channel.useEnsure(query);
-  const name = Channel.useAlias(query);
-  return <Name channel={channel} namePath={namePath} name={name} {...rest} />;
+  const result = Channel.useResultAlias({ key: channel, rangeKey: range ?? undefined });
+  if (result.variant === "success")
+    return <Name channel={channel} name={result.data} {...rest} />;
+  if (result.variant === "error")
+    return (
+      <Message variant="error" {...describe(result.status.details.error)}>
+        <Unresolved {...props} status="error" />
+      </Message>
+    );
+  const status = result.variant === "loading" ? "loading" : undefined;
+  return <Unresolved {...props} status={status} />;
 };
 
 interface MessageProps {
@@ -99,8 +102,10 @@ interface MessageProps {
   children: Tooltip.DialogProps["children"][1];
 }
 
+const TOOLTIP_LOCATION = { y: "center" } as const;
+
 const Message = ({ variant, message, description, children }: MessageProps) => (
-  <Tooltip.Dialog location={location.CENTER_RIGHT}>
+  <Tooltip.Dialog location={TOOLTIP_LOCATION}>
     <Flex.Box y gap="small" className={CSS.B("task-channel-name")}>
       <Text.Text status={variant} level="p" color={10} weight={500}>
         {message}
@@ -128,29 +133,18 @@ const describe = (error: Error): Pick<MessageProps, "message" | "description"> =
 };
 
 export const ChannelName = (props: ChannelNameProps): ReactElement => {
-  // Through a ref so the fallback keeps its identity: a new component every render
-  // would remount the name field and drop an edit in progress.
-  const propsRef = useSyncedRef(props);
-  const renderFallback = useCallback(
-    ({ error }: Errors.FallbackProps) => (
-      <Message variant="error" {...describe(error)}>
-        <Unresolved {...propsRef.current} status="error" />
-      </Message>
-    ),
-    [propsRef],
-  );
-  if (props.channel === 0)
+  if (props.channel === 0) {
+    if (props.defaultName != null)
+      return (
+        <Message variant="info" message="Created when the task is configured">
+          <Unresolved {...props} color={8} />
+        </Message>
+      );
     return (
       <Message variant="warning" message="No channel selected">
         <Unresolved {...props} status="warning" />
       </Message>
     );
-  return (
-    <Errors.SuspenseBoundary
-      loading={<Unresolved {...props} status="loading" />}
-      FallbackComponent={renderFallback}
-    >
-      <Resolved {...props} />
-    </Errors.SuspenseBoundary>
-  );
+  }
+  return <Resolved {...props} />;
 };

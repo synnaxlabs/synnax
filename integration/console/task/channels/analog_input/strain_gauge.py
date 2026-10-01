@@ -74,5 +74,5 @@ class StrainGauge(Analog):
         self._configure_input("Gage factor", gage_factor)
         self._configure_input("Initial bridge voltage", initial_bridge_voltage)
         self._configure_input("Nominal gage resistance", nominal_gage_resistance)
-        self._configure_input("Poisson's Ratio", poisson_ratio)
+        self._configure_input("Poisson's ratio", poisson_ratio)
         self._configure_input("Lead wire resistance", lead_wire_resistance)

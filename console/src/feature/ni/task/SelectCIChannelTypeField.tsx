@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Form } from "@synnaxlabs/pluto";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Select } from "@synnaxlabs/lyra/select";
 import { deep, record } from "@synnaxlabs/x";
 
 import {
@@ -19,11 +20,7 @@ import {
   createCIChannel,
 } from "@/feature/ni/task/types";
 
-export interface Entry extends record.KeyedNamed<CIChannelType> {}
-
-export type SelectCIChannelTypeFieldProps = Form.SelectFieldProps<CIChannelType, Entry>;
-
-export const SelectCIChannelTypeField = Form.buildSelectField<CIChannelType, Entry>({
+export const SelectCIChannelTypeField = Form.buildSelectField<CIChannelType>({
   fieldKey: "type",
   fieldProps: {
     label: "Channel type",
@@ -45,13 +42,14 @@ export const SelectCIChannelTypeField = Form.buildSelectField<CIChannelType, Ent
   },
   inputProps: {
     resourceName: "channel type",
-    data: record.keys(CI_CHANNEL_TYPE_NAMES).map((type) => {
+    children: record.keys(CI_CHANNEL_TYPE_NAMES).map((type) => {
       const Icon = CI_CHANNEL_TYPE_ICONS[type];
-      return {
-        key: type,
-        name: CI_CHANNEL_TYPE_NAMES[type],
-        icon: <Icon color={9} />,
-      };
+      return (
+        <Select.Item key={type} itemKey={type}>
+          <Icon color={9} />
+          {CI_CHANNEL_TYPE_NAMES[type]}
+        </Select.Item>
+      );
     }),
   },
 });

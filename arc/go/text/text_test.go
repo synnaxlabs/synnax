@@ -36,6 +36,7 @@ func findNodeByKey(nodes ir.Nodes, key string) ir.Node {
 
 // findNodeByType finds the first node by type and asserts it exists
 func findNodeByType(nodes ir.Nodes, nodeType string) ir.Node {
+	GinkgoHelper()
 	for _, n := range nodes {
 		if n.Type == nodeType {
 			return n
@@ -47,6 +48,7 @@ func findNodeByType(nodes ir.Nodes, nodeType string) ir.Node {
 
 // findEdgeBySourceParam finds an edge by source parameter name
 func findEdgeBySourceParam(edges []ir.Edge, param string) ir.Edge {
+	GinkgoHelper()
 	for _, e := range edges {
 		if e.Source.Param == param {
 			return e
@@ -71,6 +73,7 @@ func countNodesByType(nodes ir.Nodes, nodeType string) int {
 // Fails the spec if no such member exists. Top-level scopes are always
 // members of the root scope's first stratum.
 func findTopLevelScope(prog ir.IR, key string) ir.Scope {
+	GinkgoHelper()
 	for _, stratum := range prog.Root.Strata {
 		for _, m := range stratum {
 			if m.Scope != nil && m.Scope.Key == key {
@@ -86,6 +89,7 @@ func findTopLevelScope(prog ir.IR, key string) ir.Scope {
 // Searches both Steps (sequential scopes) and Strata (parallel scopes).
 // Fails the spec if no such member exists.
 func findMember(scope ir.Scope, key string) ir.Member {
+	GinkgoHelper()
 	for _, m := range scope.Steps {
 		if m.Key() == key {
 			return m
@@ -966,6 +970,7 @@ var _ = Describe("Text", func() {
 				return out
 			}
 			noEmptyEdgeTargets := func(inter ir.IR) {
+				GinkgoHelper()
 				for _, e := range inter.Edges {
 					Expect(e.Target.Node).ToNot(BeEmpty(),
 						"an edge must never target an empty node key")
@@ -1266,6 +1271,7 @@ var _ = Describe("Text", func() {
 				return false
 			}
 			analyze := func(ctx SpecContext, source string) ir.IR {
+				GinkgoHelper()
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(
 					ctx,
@@ -4841,7 +4847,7 @@ time.wait{duration=500ms} -> output`
 				    return ` + retValue + `
 				}
 
-				is_ready{} ` + op + ` select{} => {
+				is_ready{} ` + op + ` select{} -> {
 				    true: "ready" -> log,
 				    false: "not ready" -> log,
 				}`
@@ -4863,7 +4869,6 @@ time.wait{duration=500ms} -> output`
 					)
 				},
 				Entry("u8 via ->", "->", "u8", "1"),
-				Entry("u8 via =>", "=>", "u8", "1"),
 				Entry("u16", "->", "u16", "1"),
 				Entry("u32", "->", "u32", "1"),
 				Entry("u64", "->", "u64", "1"),
@@ -4888,7 +4893,7 @@ time.wait{duration=500ms} -> output`
 				    return true
 				}
 
-				is_ready{} -> select{} => {
+				is_ready{} -> select{} -> {
 				    true: "ready" -> log,
 				    false: "not ready" -> log,
 				}`

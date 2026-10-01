@@ -8,16 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { group, ontology } from "@synnaxlabs/client";
-import { Flux, Group, List, Text, Tree as PTree } from "@synnaxlabs/pluto";
+import { List } from "@synnaxlabs/lyra/list";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Tree as PTree } from "@synnaxlabs/lyra/tree";
+import { Flux, Group } from "@synnaxlabs/pluto";
 import { uuid, verbs } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { getResourcesToGroup } from "@/platform/group/getResourcesToGroup";
 import { type Tree } from "@/platform/tree";
-
-export interface CreateFromSelection {
-  (props: Tree.ContextMenuProps): void;
-}
 
 interface CreateParams extends Tree.ContextMenuProps {
   group: group.Group;

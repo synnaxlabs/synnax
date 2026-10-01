@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { allocSuite } from "@synnaxlabs/x/bench";
-import { bench, describe } from "vitest";
+import { test } from "vitest";
 
 import { createCodec, createKeys, createPayload } from "@/framer/benchutil";
 import { Frame } from "@/framer/frame";
@@ -25,58 +25,64 @@ const SHAPES: [number, number][] = [
 
 const label = ([c, s]: [number, number]): string => `${c}ch x ${s}smp`;
 
-describe("encode", () => {
-  for (const shape of SHAPES) {
-    const keys = createKeys(shape[0]);
-    const codec = createCodec(keys);
-    const payload = createPayload(keys, shape[1]);
-    bench(label(shape), () => {
-      codec.encode(payload);
-    });
-  }
+test("encode", async ({ bench }) => {
+  await bench.compare(
+    ...SHAPES.map((shape) => {
+      const keys = createKeys(shape[0]);
+      const codec = createCodec(keys);
+      const payload = createPayload(keys, shape[1]);
+      return bench(label(shape), () => {
+        codec.encode(payload);
+      });
+    }),
+  );
 });
 
 // The real writer path re-materializes the payload from a Frame on every write.
-describe("encode from frame", () => {
-  for (const shape of SHAPES) {
-    const keys = createKeys(shape[0]);
-    const codec = createCodec(keys);
-    const frame = new Frame(createPayload(keys, shape[1]));
-    bench(label(shape), () => {
-      codec.encode(frame);
-    });
-  }
+test("encode from frame", async ({ bench }) => {
+  await bench.compare(
+    ...SHAPES.map((shape) => {
+      const keys = createKeys(shape[0]);
+      const codec = createCodec(keys);
+      const frame = new Frame(createPayload(keys, shape[1]));
+      return bench(label(shape), () => {
+        codec.encode(frame);
+      });
+    }),
+  );
 });
 
-describe("encode varied", () => {
+test("encode varied", async ({ bench }) => {
   const shape: [number, number] = [100, 10];
   const keys = createKeys(shape[0]);
   const codec = createCodec(keys);
   const payload = createPayload(keys, shape[1], { varied: true });
-  bench(label(shape), () => {
+  await bench(label(shape), () => {
     codec.encode(payload);
-  });
+  }).run();
 });
 
-describe("decode", () => {
-  for (const shape of SHAPES) {
-    const keys = createKeys(shape[0]);
-    const codec = createCodec(keys);
-    const wire = codec.encode(createPayload(keys, shape[1]));
-    bench(label(shape), () => {
-      codec.decode(wire);
-    });
-  }
+test("decode", async ({ bench }) => {
+  await bench.compare(
+    ...SHAPES.map((shape) => {
+      const keys = createKeys(shape[0]);
+      const codec = createCodec(keys);
+      const wire = codec.encode(createPayload(keys, shape[1]));
+      return bench(label(shape), () => {
+        codec.decode(wire);
+      });
+    }),
+  );
 });
 
-describe("decode varied", () => {
+test("decode varied", async ({ bench }) => {
   const shape: [number, number] = [100, 10];
   const keys = createKeys(shape[0]);
   const codec = createCodec(keys);
   const wire = codec.encode(createPayload(keys, shape[1], { varied: true }));
-  bench(label(shape), () => {
+  await bench(label(shape), () => {
     codec.decode(wire);
-  });
+  }).run();
 });
 
 {

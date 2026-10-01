@@ -13,32 +13,34 @@ import (
 	"context"
 	"os"
 	"sort"
-	"time"
 
 	"github.com/synnaxlabs/oracle/formatter"
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/pipeline"
+	"github.com/synnaxlabs/x/telem"
 )
 
-// FormatGate fails when any schema's on-disk source bytes differ from its
-// canonical formatter output. Live schemas compare against the pipeline's
-// FormattedSources; version files, which the pipeline never loads as
-// schemas, are read from disk and formatted here.
-type FormatGate struct{}
+// FormatGate fails when any schema's on-disk source bytes differ from its canonical
+// formatter output. Live schemas compare against the pipeline's FormattedSources;
+// version files, which the pipeline never loads as schemas, are read from disk and
+// formatted here.
+type formatGate struct{}
 
-// NewFormatGate returns a Checker that asserts every schema is already
-// in canonical form.
-func NewFormatGate() *FormatGate { return &FormatGate{} }
+// NewFormatGate returns a Checker that asserts every schema is already in canonical
+// form.
+func NewFormatGate() Checker { return formatGate{} }
 
-func (FormatGate) Name() string { return "format" }
+func (formatGate) Name() string { return "format" }
 
-func (g FormatGate) Run(_ context.Context, p *pipeline.Result, env Env) GateReport {
-	start := time.Now()
+func (g formatGate) Run(_ context.Context, res *pipeline.Result, env Env) GateReport {
+	start := telem.Now()
 	r := GateReport{Gate: g.Name(), Status: StatusPass}
-	for _, rel := range p.Schemas {
-		g.compare(&r, env, rel, string(p.Sources[rel]), string(p.FormattedSources[rel]))
+	for _, rel := range res.Schemas {
+		compareFormat(
+			&r, env, rel, string(res.Sources[rel]), string(res.FormattedSources[rel]),
+		)
 	}
-	for _, rel := range versionFilePaths(p) {
+	for _, rel := range versionFilePaths(res) {
 		raw, err := os.ReadFile(paths.Resolve(rel, env.RepoRoot))
 		if err != nil {
 			r.Findings = append(r.Findings, Finding{
@@ -57,16 +59,16 @@ func (g FormatGate) Run(_ context.Context, p *pipeline.Result, env Env) GateRepo
 			})
 			continue
 		}
-		g.compare(&r, env, rel, string(raw), canonical)
+		compareFormat(&r, env, rel, string(raw), canonical)
 	}
 	if len(r.Findings) > 0 {
 		r.Status = StatusFail
 	}
-	r.Elapsed = time.Since(start)
+	r.Elapsed = telem.Since(start)
 	return r
 }
 
-func (FormatGate) compare(r *GateReport, env Env, rel, raw, canonical string) {
+func compareFormat(r *GateReport, env Env, rel, raw, canonical string) {
 	if raw == canonical {
 		return
 	}
@@ -82,11 +84,11 @@ func (FormatGate) compare(r *GateReport, env Env, rel, raw, canonical string) {
 	r.Findings = append(r.Findings, f)
 }
 
-// versionFilePaths lists every version file in the repository, repo-relative
-// and sorted.
-func versionFilePaths(p *pipeline.Result) []string {
+// versionFilePaths lists every version file in the repository, repo-relative and
+// sorted.
+func versionFilePaths(res *pipeline.Result) []string {
 	var rels []string
-	for _, chain := range p.Chains {
+	for _, chain := range res.Chains {
 		for _, n := range chain.Numbers {
 			rels = append(rels, paths.EnsureOracleExtension(chain.FilePath(n)))
 		}

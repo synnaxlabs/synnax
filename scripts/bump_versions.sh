@@ -17,7 +17,7 @@ SCRIPT_DIR="$(
 )"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." > /dev/null 2>&1 && pwd)"
 
-if [[ -z "${1:-}" ]]; then
+if [[ -z ${1:-} ]]; then
     echo "Usage: $0 <version>"
     echo "Example: $0 0.51.0"
     exit 1
@@ -25,7 +25,7 @@ fi
 
 VERSION="$1"
 
-if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+if ! [[ $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     echo "Error: Version must be in semver format (e.g., 0.51.0)"
     exit 1
 fi
@@ -33,15 +33,9 @@ fi
 echo "Bumping all versions to $VERSION"
 echo "================================"
 
-update_version_file() {
-    local version_file="$ROOT_DIR/core/pkg/version/VERSION"
-    echo "$VERSION" > "$version_file"
-    echo "✅ Updated VERSION file: $version_file"
-}
-
 update_python() {
     local pyproject="$1"
-    if [[ -f "$pyproject" ]]; then
+    if [[ -f $pyproject ]]; then
         sed -i '' "s/^version = \".*\"/version = \"$VERSION\"/" "$pyproject"
         echo "✅ Updated Python: $pyproject"
     else
@@ -52,7 +46,7 @@ update_python() {
 
 update_node() {
     local pkg_json="$1"
-    if [[ -f "$pkg_json" ]]; then
+    if [[ -f $pkg_json ]]; then
         sed -i '' "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" "$pkg_json"
         echo "✅ Updated Node: $pkg_json"
     else
@@ -60,21 +54,6 @@ update_node() {
         return 1
     fi
 }
-
-update_tauri() {
-    local tauri_conf="$1"
-    if [[ -f "$tauri_conf" ]]; then
-        sed -i '' "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" "$tauri_conf"
-        echo "✅ Updated Tauri: $tauri_conf"
-    else
-        echo "❌ File not found: $tauri_conf"
-        return 1
-    fi
-}
-
-echo ""
-echo "Updating VERSION file..."
-update_version_file
 
 echo ""
 echo "Updating Python packages..."
@@ -97,12 +76,8 @@ echo ""
 echo "Updating Node packages..."
 NODE_DIRS=(
     "$ROOT_DIR/alamos/ts"
-    "$ROOT_DIR/arc/ts"
     "$ROOT_DIR/client/ts"
-    "$ROOT_DIR/drift"
     "$ROOT_DIR/freighter/ts"
-    "$ROOT_DIR/pluto"
-    "$ROOT_DIR/x/media"
     "$ROOT_DIR/x/ts"
 )
 for d in "${NODE_DIRS[@]}"; do
@@ -110,8 +85,9 @@ for d in "${NODE_DIRS[@]}"; do
 done
 
 echo ""
-echo "Updating Tauri config..."
-update_tauri "$ROOT_DIR/console/src-tauri/tauri.conf.json"
+echo "Updating the C++ client..."
+printf '%s\n' "$VERSION" > "$ROOT_DIR/client/cpp/version/VERSION"
+echo "✅ Updated C++: $ROOT_DIR/client/cpp/version/VERSION"
 
 echo ""
 echo "================================"

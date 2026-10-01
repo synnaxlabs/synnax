@@ -18,9 +18,10 @@
 package imex
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"math"
 	"reflect"
 	"strconv"
 	"strings"
@@ -38,23 +39,30 @@ import (
 // exports wrote.
 type Version uint64
 
-// UnmarshalJSON decodes a Version from the numeric JSON form or a legacy "N.0.0" semver
-// string.
-func (v *Version) UnmarshalJSON(b []byte) error {
-	var n uint64
-	if err := json.Unmarshal(b, &n); err == nil {
-		*v = Version(n)
-		return nil
+// UnmarshalJSONFrom decodes a Version from the numeric JSON form or a legacy "N.0.0"
+// semver string.
+func (v *Version) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	kind := dec.PeekKind()
+	if kind != '0' && kind != '"' {
+		return errors.Newf("version must be a number or semver string, got %s", kind)
 	}
-	var s string
-	if err := json.Unmarshal(b, &s); err != nil {
-		return errors.Newf("version must be a number or semver string, got %s", b)
-	}
-	parsed, err := legacyToNumeric(s)
+	tok, err := dec.ReadToken()
 	if err != nil {
 		return err
 	}
-	*v = parsed
+	if kind == '"' {
+		parsed, err := legacyToNumeric(tok.String())
+		if err != nil {
+			return err
+		}
+		*v = parsed
+		return nil
+	}
+	n, err := tok.Uint()
+	if err != nil {
+		return errors.Wrapf(err, "invalid version number %q", tok.String())
+	}
+	*v = Version(n)
 	return nil
 }
 
@@ -100,40 +108,44 @@ type Envelope struct {
 	body  map[string]any
 }
 
-// MarshalJSON emits the body built by Encode. It returns an error when the envelope has
-// no body, so a service that returns an empty Envelope from Export fails loudly instead
-// of sending null. The body keeps <, >, and & literal: the encoder that embeds this
-// output can add escapes but never remove them, so the choice belongs to it.
-func (e Envelope) MarshalJSON() ([]byte, error) {
+// MarshalJSONTo writes the body built by Encode. It returns an error when the envelope
+// has no body, so a service that returns an empty Envelope from Export fails loudly
+// instead of sending null. Indentation, member ordering and escaping come from the
+// encoder: the codec an export writes through owns them, not this method.
+func (e Envelope) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if e.body == nil {
-		return nil, errors.New(
+		return errors.New(
 			"envelope has no body; build one with Encode before marshaling",
 		)
 	}
-	var buf bytes.Buffer
-	enc := json.NewEncoder(&buf)
-	enc.SetEscapeHTML(false)
-	if err := enc.Encode(e.body); err != nil {
-		return nil, err
-	}
-	return bytes.TrimRight(buf.Bytes(), "\n"), nil
+	return json.MarshalEncode(enc, e.body)
 }
 
-// UnmarshalJSON reads a flat JSON object, promoting the headers and retaining the bytes
-// for a later Decode. Numbers decode in UseNumber mode so the Version keeps full int64
-// precision.
-func (e *Envelope) UnmarshalJSON(b []byte) error {
-	dec := json.NewDecoder(bytes.NewReader(b))
-	dec.UseNumber()
+// UnmarshalJSONFrom reads a flat JSON object, promoting the headers and retaining the
+// bytes for a later Decode. A duplicate object name or invalid UTF-8 fails the read: an
+// import file comes from outside the Core, so a defect there is corruption, not a value
+// to guess.
+func (e *Envelope) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	raw, err := dec.ReadValue()
+	if err != nil {
+		var syntactic *jsontext.SyntacticError
+		if errors.As(err, &syntactic) {
+			return errors.Wrapf(validate.ErrValidation, "invalid JSON: %s", err)
+		}
+		return err
+	}
+	// ReadValue aliases the decoder's buffer, which the next read reuses. Decode hands
+	// these bytes back long after this call, so they must be copied.
+	raw = raw.Clone()
 	var m map[string]any
-	if err := dec.Decode(&m); err != nil {
+	if err := json.Unmarshal(raw, &m); err != nil {
 		return err
 	}
 	// A JSON null decodes to a nil map rather than an error.
 	if m == nil {
 		return errors.Wrap(validate.ErrValidation, "envelope must be a JSON object")
 	}
-	return e.unmarshal(m, b, xjson.Codec)
+	return e.unmarshal(m, raw, xjson.Codec)
 }
 
 // unmarshal promotes the {version, type, name} headers onto the receiver and stashes
@@ -252,17 +264,18 @@ func (env *Envelope) Encode[T any](data T) error {
 	return nil
 }
 
-// versionFromAny converts a generic Go value (as produced by a UseNumber-mode decode
-// into map[string]any) to a Version. Accepts json.Number (the JSON number form,
-// preserving full integer precision) and legacy "N.0.0" semver strings.
+// versionFromAny converts a generic Go value (as produced by a decode into
+// map[string]any) to a Version. Accepts a JSON number and legacy "N.0.0" semver
+// strings.
 func versionFromAny(v any) (Version, error) {
 	switch x := v.(type) {
-	case json.Number:
-		n, err := strconv.ParseUint(x.String(), 10, 64)
-		if err != nil {
-			return 0, errors.Wrapf(err, "invalid version number %q", x.String())
+	case float64:
+		if x < 0 || x != math.Trunc(x) {
+			return 0, errors.Newf(
+				"invalid version number %v: must be a non-negative integer", x,
+			)
 		}
-		return Version(n), nil
+		return Version(x), nil
 	case string:
 		n, err := legacyToNumeric(x)
 		if err != nil {

@@ -97,6 +97,7 @@ func openMath(
 	dt types.Type,
 	inputs types.Params,
 ) mathSetup {
+	GinkgoHelper()
 	g := makeMathGraph(nodeType, dt)
 	analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 	Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -117,6 +118,7 @@ func openMathWithReset(
 	dt types.Type,
 	inputs types.Params,
 ) mathSetup {
+	GinkgoHelper()
 	g := makeMathGraphWithReset(nodeType, dt, types.Bool())
 	analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 	Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -138,6 +140,7 @@ func nextChanged(ctx SpecContext, n node.Node) set.Set[int] {
 }
 
 func expectOutput[T telem.NumericSample](s *node.ProgramState, values ...T) {
+	GinkgoHelper()
 	result := *s.Node("math").Output(0)
 	Expect(result.Len()).To(Equal(int64(len(values))))
 	vals := result.Unmarshal[T]()
@@ -147,6 +150,7 @@ func expectOutput[T telem.NumericSample](s *node.ProgramState, values ...T) {
 }
 
 func expectOutputTime(s *node.ProgramState, timestamps ...telem.TimeStamp) {
+	GinkgoHelper()
 	result := *s.Node("math").OutputTime(0)
 	Expect(result.Len()).To(Equal(int64(len(timestamps))))
 	vals := result.Unmarshal[telem.TimeStamp]()
@@ -318,6 +322,7 @@ var _ = Describe("Math", func() {
 		var root *symbol.Symbol
 		BeforeEach(func() { root = symbol.NewRoot(nil, stlmath.NewSymbols()) })
 		math := func(ctx context.Context, member string) *symbol.Symbol {
+			GinkgoHelper()
 			mod := MustSucceed(root.Resolve(ctx, "math", symbol.IncludeInternal))
 			return MustSucceed(mod.Resolve(ctx, member, symbol.IncludeInternal))
 		}
@@ -392,6 +397,7 @@ var _ = Describe("Avg", func() {
 		s := openMath(ctx, "avg", types.F64(), nil)
 		*s.inputNode.Output(0) = telem.NewSeriesV(10.0, 20.0, 30.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
+		s.inputNode.MarkFresh(0)
 		changed := nextChanged(ctx, s.n)
 		Expect(changed.Contains(0)).To(BeTrue())
 		expectOutput(s.state, 20.0)
@@ -402,9 +408,11 @@ var _ = Describe("Avg", func() {
 		s := openMath(ctx, "avg", types.F64(), nil)
 		*s.inputNode.Output(0) = telem.NewSeriesV(10.0, 20.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2)
+		s.inputNode.MarkFresh(0)
 		nextChanged(ctx, s.n)
 		*s.inputNode.Output(0) = telem.NewSeriesV(40.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(3)
+		s.inputNode.MarkFresh(0)
 		nextChanged(ctx, s.n)
 		expectOutput(s.state, 23.333)
 		expectOutputTime(s.state, 3*telem.SecondTS)
@@ -416,12 +424,14 @@ var _ = Describe("Avg", func() {
 		})
 		*s.inputNode.Output(0) = telem.NewSeriesV(10.0, 20.0, 30.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
+		s.inputNode.MarkFresh(0)
 		nextChanged(ctx, s.n)
 		expectOutput(s.state, 20.0)
 		expectOutputTime(s.state, 3*telem.SecondTS)
 
 		*s.inputNode.Output(0) = telem.NewSeriesV(40.0, 50.0, 60.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(4, 5, 6)
+		s.inputNode.MarkFresh(0)
 		nextChanged(ctx, s.n)
 		expectOutput(s.state, 50.0)
 		expectOutputTime(s.state, 6*telem.SecondTS)
@@ -433,12 +443,14 @@ var _ = Describe("Avg", func() {
 		})
 		*s.inputNode.Output(0) = telem.NewSeriesV(10.0, 20.0, 30.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
+		s.inputNode.MarkFresh(0)
 		nextChanged(ctx, s.n)
 		expectOutput(s.state, 20.0)
 		expectOutputTime(s.state, 3*telem.SecondTS)
 
 		*s.inputNode.Output(0) = telem.NewSeriesV(100.0, 200.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(6, 7)
+		s.inputNode.MarkFresh(0)
 		nextChanged(ctx, s.n)
 		expectOutput(s.state, 150.0)
 		expectOutputTime(s.state, 7*telem.SecondTS)
@@ -449,19 +461,45 @@ var _ = Describe("Avg", func() {
 		resetNode := s.state.Node("reset_signal")
 		*s.inputNode.Output(0) = telem.NewSeriesV(10.0, 20.0, 30.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
+		s.inputNode.MarkFresh(0)
 		*resetNode.Output(0) = telem.NewSeriesV(false)
 		*resetNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+		resetNode.MarkFresh(0)
 		nextChanged(ctx, s.n)
 		expectOutput(s.state, 20.0)
 		expectOutputTime(s.state, 3*telem.SecondTS)
 
 		*s.inputNode.Output(0) = telem.NewSeriesV(100.0, 200.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(4, 5)
+		s.inputNode.MarkFresh(0)
 		*resetNode.Output(0) = telem.NewSeriesV(true)
 		*resetNode.OutputTime(0) = telem.NewSeriesSecondsTSV(4)
+		resetNode.MarkFresh(0)
 		nextChanged(ctx, s.n)
 		expectOutput(s.state, 150.0)
 		expectOutputTime(s.state, 5*telem.SecondTS)
+	})
+
+	It("Should stamp from the data, not a longer reset batch", func(ctx SpecContext) {
+		s := openMathWithReset(ctx, "avg", types.F64(), nil)
+		resetNode := s.state.Node("reset_signal")
+		*s.inputNode.Output(0) = telem.NewSeriesV(10.0)
+		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
+		s.inputNode.MarkFresh(0)
+		*resetNode.Output(0) = telem.NewSeriesV(false, false, false)
+		*resetNode.OutputTime(0) = telem.NewSeriesSecondsTSV(7, 8, 9)
+		resetNode.MarkFresh(0)
+		nextChanged(ctx, s.n)
+		expectOutputTime(s.state, 10*telem.SecondTS)
+
+		*s.inputNode.Output(0) = telem.NewSeriesV(20.0)
+		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(11)
+		s.inputNode.MarkFresh(0)
+		*resetNode.Output(0) = telem.NewSeriesV(false, false)
+		*resetNode.OutputTime(0) = telem.NewSeriesSecondsTSV(12, 13)
+		resetNode.MarkFresh(0)
+		nextChanged(ctx, s.n)
+		expectOutputTime(s.state, 11*telem.SecondTS)
 	})
 
 	It("Should not execute on empty input", func(ctx SpecContext) {
@@ -474,6 +512,7 @@ var _ = Describe("Avg", func() {
 		s := openMath(ctx, "avg", types.I32(), nil)
 		*s.inputNode.Output(0) = telem.NewSeriesV[int32](10, 20, 30)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
+		s.inputNode.MarkFresh(0)
 		changed := nextChanged(ctx, s.n)
 		Expect(changed.Contains(0)).To(BeTrue())
 		expectOutput[int32](s.state, 20)
@@ -486,6 +525,7 @@ var _ = Describe("Min", func() {
 		s := openMath(ctx, "min", types.I32(), nil)
 		*s.inputNode.Output(0) = telem.NewSeriesV[int32](50, 10, 70)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
+		s.inputNode.MarkFresh(0)
 		changed := nextChanged(ctx, s.n)
 		Expect(changed.Contains(0)).To(BeTrue())
 		expectOutput[int32](s.state, 10)
@@ -496,10 +536,12 @@ var _ = Describe("Min", func() {
 		s := openMath(ctx, "min", types.I32(), nil)
 		*s.inputNode.Output(0) = telem.NewSeriesV[int32](50, 30)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2)
+		s.inputNode.MarkFresh(0)
 		nextChanged(ctx, s.n)
 
 		*s.inputNode.Output(0) = telem.NewSeriesV[int32](40, 60)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(3, 4)
+		s.inputNode.MarkFresh(0)
 		nextChanged(ctx, s.n)
 		expectOutput[int32](s.state, 30)
 		expectOutputTime(s.state, 4*telem.SecondTS)
@@ -509,10 +551,12 @@ var _ = Describe("Min", func() {
 		s := openMath(ctx, "min", types.F64(), nil)
 		*s.inputNode.Output(0) = telem.NewSeriesV(5.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+		s.inputNode.MarkFresh(0)
 		nextChanged(ctx, s.n)
 
 		*s.inputNode.Output(0) = telem.NewSeriesV(10.0, 20.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(2, 3)
+		s.inputNode.MarkFresh(0)
 		nextChanged(ctx, s.n)
 		expectOutput(s.state, 5.0)
 		expectOutputTime(s.state, 3*telem.SecondTS)
@@ -524,12 +568,14 @@ var _ = Describe("Min", func() {
 		})
 		*s.inputNode.Output(0) = telem.NewSeriesV[int32](50, 10, 70)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
+		s.inputNode.MarkFresh(0)
 		nextChanged(ctx, s.n)
 		expectOutput[int32](s.state, 10)
 		expectOutputTime(s.state, 3*telem.SecondTS)
 
 		*s.inputNode.Output(0) = telem.NewSeriesV[int32](80, 40, 60)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(6, 7, 8)
+		s.inputNode.MarkFresh(0)
 		nextChanged(ctx, s.n)
 		expectOutput[int32](s.state, 40)
 		expectOutputTime(s.state, 8*telem.SecondTS)
@@ -541,12 +587,14 @@ var _ = Describe("Min", func() {
 		})
 		*s.inputNode.Output(0) = telem.NewSeriesV(5.0, 10.0, 15.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
+		s.inputNode.MarkFresh(0)
 		nextChanged(ctx, s.n)
 		expectOutput(s.state, 5.0)
 		expectOutputTime(s.state, 3*telem.SecondTS)
 
 		*s.inputNode.Output(0) = telem.NewSeriesV(50.0, 40.0, 30.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(4, 5, 6)
+		s.inputNode.MarkFresh(0)
 		nextChanged(ctx, s.n)
 		expectOutput(s.state, 30.0)
 		expectOutputTime(s.state, 6*telem.SecondTS)
@@ -557,16 +605,20 @@ var _ = Describe("Min", func() {
 		resetNode := s.state.Node("reset_signal")
 		*s.inputNode.Output(0) = telem.NewSeriesV[int32](50, 10, 70)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
+		s.inputNode.MarkFresh(0)
 		*resetNode.Output(0) = telem.NewSeriesV(false)
 		*resetNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+		resetNode.MarkFresh(0)
 		nextChanged(ctx, s.n)
 		expectOutput[int32](s.state, 10)
 		expectOutputTime(s.state, 3*telem.SecondTS)
 
 		*s.inputNode.Output(0) = telem.NewSeriesV[int32](80, 40, 60)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(4, 5, 6)
+		s.inputNode.MarkFresh(0)
 		*resetNode.Output(0) = telem.NewSeriesV(true)
 		*resetNode.OutputTime(0) = telem.NewSeriesSecondsTSV(4)
+		resetNode.MarkFresh(0)
 		nextChanged(ctx, s.n)
 		expectOutput[int32](s.state, 40)
 		expectOutputTime(s.state, 6*telem.SecondTS)
@@ -578,6 +630,7 @@ var _ = Describe("Max", func() {
 		s := openMath(ctx, "max", types.F64(), nil)
 		*s.inputNode.Output(0) = telem.NewSeriesV(10.0, 50.0, 30.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
+		s.inputNode.MarkFresh(0)
 		changed := nextChanged(ctx, s.n)
 		Expect(changed.Contains(0)).To(BeTrue())
 		expectOutput(s.state, 50.0)
@@ -588,10 +641,12 @@ var _ = Describe("Max", func() {
 		s := openMath(ctx, "max", types.F64(), nil)
 		*s.inputNode.Output(0) = telem.NewSeriesV(10.0, 50.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2)
+		s.inputNode.MarkFresh(0)
 		nextChanged(ctx, s.n)
 
 		*s.inputNode.Output(0) = telem.NewSeriesV(30.0, 20.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(3, 4)
+		s.inputNode.MarkFresh(0)
 		nextChanged(ctx, s.n)
 		expectOutput(s.state, 50.0)
 		expectOutputTime(s.state, 4*telem.SecondTS)
@@ -601,10 +656,12 @@ var _ = Describe("Max", func() {
 		s := openMath(ctx, "max", types.F64(), nil)
 		*s.inputNode.Output(0) = telem.NewSeriesV(10.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+		s.inputNode.MarkFresh(0)
 		nextChanged(ctx, s.n)
 
 		*s.inputNode.Output(0) = telem.NewSeriesV(50.0, 100.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(2, 3)
+		s.inputNode.MarkFresh(0)
 		nextChanged(ctx, s.n)
 		expectOutput(s.state, 100.0)
 		expectOutputTime(s.state, 3*telem.SecondTS)
@@ -616,12 +673,14 @@ var _ = Describe("Max", func() {
 		})
 		*s.inputNode.Output(0) = telem.NewSeriesV(10.0, 50.0, 30.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
+		s.inputNode.MarkFresh(0)
 		nextChanged(ctx, s.n)
 		expectOutput(s.state, 50.0)
 		expectOutputTime(s.state, 3*telem.SecondTS)
 
 		*s.inputNode.Output(0) = telem.NewSeriesV(5.0, 15.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(6, 7)
+		s.inputNode.MarkFresh(0)
 		nextChanged(ctx, s.n)
 		expectOutput(s.state, 15.0)
 		expectOutputTime(s.state, 7*telem.SecondTS)
@@ -633,12 +692,14 @@ var _ = Describe("Max", func() {
 		})
 		*s.inputNode.Output(0) = telem.NewSeriesV[int32](10, 50)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2)
+		s.inputNode.MarkFresh(0)
 		nextChanged(ctx, s.n)
 		expectOutput[int32](s.state, 50)
 		expectOutputTime(s.state, 2*telem.SecondTS)
 
 		*s.inputNode.Output(0) = telem.NewSeriesV[int32](5, 15)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(3, 4)
+		s.inputNode.MarkFresh(0)
 		nextChanged(ctx, s.n)
 		expectOutput[int32](s.state, 15)
 		expectOutputTime(s.state, 4*telem.SecondTS)
@@ -649,16 +710,20 @@ var _ = Describe("Max", func() {
 		resetNode := s.state.Node("reset_signal")
 		*s.inputNode.Output(0) = telem.NewSeriesV(10.0, 50.0, 30.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
+		s.inputNode.MarkFresh(0)
 		*resetNode.Output(0) = telem.NewSeriesV(false)
 		*resetNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+		resetNode.MarkFresh(0)
 		nextChanged(ctx, s.n)
 		expectOutput(s.state, 50.0)
 		expectOutputTime(s.state, 3*telem.SecondTS)
 
 		*s.inputNode.Output(0) = telem.NewSeriesV(25.0, 15.0, 70.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(4, 5, 6)
+		s.inputNode.MarkFresh(0)
 		*resetNode.Output(0) = telem.NewSeriesV(true)
 		*resetNode.OutputTime(0) = telem.NewSeriesSecondsTSV(4)
+		resetNode.MarkFresh(0)
 		nextChanged(ctx, s.n)
 		expectOutput(s.state, 70.0)
 		expectOutputTime(s.state, 6*telem.SecondTS)
@@ -668,6 +733,7 @@ var _ = Describe("Max", func() {
 		s := openMath(ctx, "max", types.F64(), nil)
 		*s.inputNode.Output(0) = telem.NewSeriesV(10.0, 50.0, 30.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
+		s.inputNode.MarkFresh(0)
 		changed := nextChanged(ctx, s.n)
 		Expect(changed.Contains(0)).To(BeTrue())
 		expectOutput(s.state, 50.0)
@@ -675,6 +741,7 @@ var _ = Describe("Max", func() {
 
 		*s.inputNode.Output(0) = telem.NewSeriesV(25.0, 80.0, 40.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(4, 5, 6)
+		s.inputNode.MarkFresh(0)
 		nextChanged(ctx, s.n)
 		expectOutput(s.state, 80.0)
 		expectOutputTime(s.state, 6*telem.SecondTS)
@@ -686,16 +753,20 @@ var _ = Describe("Max", func() {
 
 		*s.inputNode.Output(0) = telem.NewSeriesV[int64](10, 20, 30)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
+		s.inputNode.MarkFresh(0)
 		*resetNode.Output(0) = telem.NewSeriesV(false)
 		*resetNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+		resetNode.MarkFresh(0)
 		nextChanged(ctx, s.n)
 		expectOutput[int64](s.state, 20)
 		expectOutputTime(s.state, 3*telem.SecondTS)
 
 		*s.inputNode.Output(0) = telem.NewSeriesV[int64](40, 50, 60)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(4, 5, 6)
+		s.inputNode.MarkFresh(0)
 		*resetNode.Output(0) = telem.NewSeriesV(true, false)
 		*resetNode.OutputTime(0) = telem.NewSeriesSecondsTSV(4, 5)
+		resetNode.MarkFresh(0)
 		nextChanged(ctx, s.n)
 		expectOutput[int64](s.state, 50)
 		expectOutputTime(s.state, 6*telem.SecondTS)
@@ -719,6 +790,7 @@ var _ = Describe("Alignment", func() {
 		}
 		*s.inputNode.Output(0) = inputSeries
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(100, 200, 300)
+		s.inputNode.MarkFresh(0)
 		nextChanged(ctx, s.n)
 
 		result := *s.state.Node("math").Output(0)
@@ -742,6 +814,7 @@ var _ = Describe("Alignment", func() {
 		}
 		*s.inputNode.Output(0) = inputSeries
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(50, 100, 150)
+		s.inputNode.MarkFresh(0)
 
 		resetSeries := telem.NewSeriesV(false)
 		resetSeries.Alignment = 75
@@ -751,6 +824,7 @@ var _ = Describe("Alignment", func() {
 		}
 		*resetNode.Output(0) = resetSeries
 		*resetNode.OutputTime(0) = telem.NewSeriesSecondsTSV(25)
+		resetNode.MarkFresh(0)
 		nextChanged(ctx, s.n)
 
 		result := *s.state.Node("math").Output(0)
@@ -786,6 +860,7 @@ var _ = Describe("Derivative", func() {
 	}
 
 	openDeriv := func(ctx SpecContext, dt types.Type) mathSetup {
+		GinkgoHelper()
 		g := makeDerivGraph(dt)
 		analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 		Expect(diagnostics.Ok()).To(BeTrue())
@@ -800,6 +875,7 @@ var _ = Describe("Derivative", func() {
 	}
 
 	expectDerivOutput := func(s *node.ProgramState, values ...float64) {
+		GinkgoHelper()
 		result := *s.Node("deriv").Output(0)
 		Expect(result.Len()).To(Equal(int64(len(values))))
 		vals := result.Unmarshal[float64]()
@@ -812,6 +888,7 @@ var _ = Describe("Derivative", func() {
 		s := openDeriv(ctx, types.F64())
 		*s.inputNode.Output(0) = telem.NewSeriesV(10.0, 20.0, 40.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 4)
+		s.inputNode.MarkFresh(0)
 		changed := nextChanged(ctx, s.n)
 		Expect(changed.Contains(0)).To(BeTrue())
 		expectDerivOutput(s.state, 0.0, 10.0, 10.0)
@@ -821,10 +898,12 @@ var _ = Describe("Derivative", func() {
 		s := openDeriv(ctx, types.F64())
 		*s.inputNode.Output(0) = telem.NewSeriesV(0.0, 10.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2)
+		s.inputNode.MarkFresh(0)
 		nextChanged(ctx, s.n)
 
 		*s.inputNode.Output(0) = telem.NewSeriesV(30.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(4)
+		s.inputNode.MarkFresh(0)
 		nextChanged(ctx, s.n)
 		expectDerivOutput(s.state, 10.0)
 	})
@@ -833,6 +912,7 @@ var _ = Describe("Derivative", func() {
 		s := openDeriv(ctx, types.F64())
 		*s.inputNode.Output(0) = telem.NewSeriesV(5.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+		s.inputNode.MarkFresh(0)
 		changed := nextChanged(ctx, s.n)
 		Expect(changed.Contains(0)).To(BeTrue())
 		expectDerivOutput(s.state, 0.0)
@@ -842,12 +922,14 @@ var _ = Describe("Derivative", func() {
 		s := openDeriv(ctx, types.F64())
 		*s.inputNode.Output(0) = telem.NewSeriesV(10.0, 20.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2)
+		s.inputNode.MarkFresh(0)
 		nextChanged(ctx, s.n)
 
-		s.n.Reset()
+		s.n.Reset(node.Context{})
 
 		*s.inputNode.Output(0) = telem.NewSeriesV(100.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
+		s.inputNode.MarkFresh(0)
 		nextChanged(ctx, s.n)
 		expectDerivOutput(s.state, 0.0)
 	})
@@ -856,6 +938,7 @@ var _ = Describe("Derivative", func() {
 		s := openDeriv(ctx, types.F64())
 		*s.inputNode.Output(0) = telem.NewSeriesV(10.0, 20.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 1)
+		s.inputNode.MarkFresh(0)
 		nextChanged(ctx, s.n)
 		expectDerivOutput(s.state, 0.0, 0.0)
 	})
@@ -864,6 +947,7 @@ var _ = Describe("Derivative", func() {
 		s := openDeriv(ctx, types.I32())
 		*s.inputNode.Output(0) = telem.NewSeriesV[int32](0, 100, 300)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 4)
+		s.inputNode.MarkFresh(0)
 		nextChanged(ctx, s.n)
 		expectDerivOutput(s.state, 0.0, 100.0, 100.0)
 	})
@@ -872,6 +956,7 @@ var _ = Describe("Derivative", func() {
 		s := openDeriv(ctx, types.F64())
 		*s.inputNode.Output(0) = telem.NewSeriesV(100.0, 80.0, 50.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 4)
+		s.inputNode.MarkFresh(0)
 		nextChanged(ctx, s.n)
 		expectDerivOutput(s.state, 0.0, -20.0, -15.0)
 	})
@@ -886,6 +971,7 @@ var _ = Describe("Derivative", func() {
 		}
 		*s.inputNode.Output(0) = inputSeries
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(100, 200)
+		s.inputNode.MarkFresh(0)
 		nextChanged(ctx, s.n)
 
 		result := *s.state.Node("deriv").Output(0)
@@ -893,6 +979,38 @@ var _ = Describe("Derivative", func() {
 		Expect(result.TimeRange.Start).To(Equal(100 * telem.SecondTS))
 		Expect(result.TimeRange.End).To(Equal(200 * telem.SecondTS))
 	})
+})
+
+var _ = Describe("Literal inputs", func() {
+	DescribeTable("Should stamp the cycle when the input is a literal",
+		func(ctx SpecContext, nodeType string) {
+			prog := ir.IR{Nodes: ir.Nodes{{
+				Key:  "n",
+				Type: nodeType,
+				Inputs: types.Params{
+					{Name: ir.DefaultInputParam, Type: types.F64(), Value: 5.0},
+				},
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
+			}}}
+			s := node.New(prog)
+			m := MustSucceed(stlmath.NewHost(ctx, nil))
+			n := MustSucceed(m.Create(node.Config{
+				Node:  prog.Nodes[0],
+				State: s.Node("n"),
+			}))
+			n.Next(node.Context{
+				Context:     ctx,
+				Now:         1234 * telem.SecondTS,
+				MarkChanged: func(int) {},
+			})
+			Expect(*s.Node("n").OutputTime(0)).
+				To(telem.MatchSeries(telem.NewSeriesSecondsTSV(1234)))
+		},
+		Entry("avg", "avg"),
+		Entry("min", "min"),
+		Entry("max", "max"),
+		Entry("derivative", "derivative"),
+	)
 })
 
 var _ = Describe("Construction validation", func() {

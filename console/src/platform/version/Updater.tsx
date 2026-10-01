@@ -7,16 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  Button,
-  Status,
-  useAsyncEffect,
-  useCombinedStateAndRef,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { useAsyncEffect, useCombinedStateAndRef } from "@synnaxlabs/lyra/hooks";
+import { Status } from "@synnaxlabs/lyra/status";
 import { id, TimeSpan } from "@synnaxlabs/x";
 import { check } from "@tauri-apps/plugin-updater";
 
 import { Notifications } from "@/platform/notifications";
+import { isDevBuild } from "@/platform/version/build";
 import { useInfoModal } from "@/platform/version/useInfoModal";
 import { Session } from "@/session";
 
@@ -32,6 +30,7 @@ export const useCheckForUpdates = (): boolean => {
   const checkForUpdates = async () => {
     if (Session.Runtime.ENGINE !== "tauri" || availableRef.current) return;
     try {
+      if (await isDevBuild()) return;
       const update = await check();
       if (update == null) return;
       setAvailable(true);

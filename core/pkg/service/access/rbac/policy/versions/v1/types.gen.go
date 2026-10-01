@@ -32,9 +32,9 @@ type Policy struct {
 	// Name is a human-readable name for the policy.
 	Name string `json:"name" msgpack:"name"`
 	// Objects is the list of ontology resources this policy applies to.
-	Objects []ontology.ID `json:"objects,omitzero" msgpack:"objects,omitzero"`
+	Objects []ontology.ID `json:"objects" msgpack:"objects"`
 	// Actions is the list of actions this policy permits.
-	Actions []access.Action `json:"actions,omitzero" msgpack:"actions,omitzero"`
+	Actions []access.Action `json:"actions" msgpack:"actions"`
 	// Internal is true if this is a built-in system policy that cannot be deleted.
 	Internal bool `json:"internal" msgpack:"internal"`
 }

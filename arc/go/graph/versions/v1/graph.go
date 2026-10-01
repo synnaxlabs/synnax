@@ -11,8 +11,8 @@ package v1
 
 import (
 	"maps"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/arc/ir"
 	xmsgpack "github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/vmihailenco/msgpack/v5"
@@ -41,7 +41,7 @@ func (g *Graph) DecodeMsgpack(dec *msgpack.Decoder) error {
 		g.Functions = legacy.Functions
 		g.Edges = make(Edges, len(legacy.Edges))
 		for i, e := range legacy.Edges {
-			g.Edges[i] = Edge{Edge: e, Key: uuid.NewString()}
+			g.Edges[i] = Edge{Edge: e, Key: uuid.New().String()}
 		}
 		g.Nodes = legacy.Nodes
 	}

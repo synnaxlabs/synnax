@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@/icon";
+import { Icon } from "@synnaxlabs/lyra/icon";
+
 import { type Group } from "@/schematic/node/group";
 
 export const GROUP: Group = {
@@ -15,17 +16,17 @@ export const GROUP: Group = {
   name: "Flowmeters",
   Icon: Icon.Rule,
   symbols: [
-    "flowmeterGeneral",
-    "flowmeterElectromagnetic",
-    "flowmeterVariableArea",
-    "flowmeterCoriolis",
-    "flowmeterNozzle",
-    "flowmeterVenturi",
-    "flowmeterRingPiston",
-    "flowmeterPositiveDisplacement",
-    "flowmeterTurbine",
-    "flowmeterPulse",
-    "flowmeterFloatSensor",
-    "flowmeterOrifice",
+    "flowmeter_general",
+    "flowmeter_electromagnetic",
+    "flowmeter_variable_area",
+    "flowmeter_coriolis",
+    "flowmeter_nozzle",
+    "flowmeter_venturi",
+    "flowmeter_ring_piston",
+    "flowmeter_positive_displacement",
+    "flowmeter_turbine",
+    "flowmeter_pulse",
+    "flowmeter_float_sensor",
+    "flowmeter_orifice",
   ],
 };

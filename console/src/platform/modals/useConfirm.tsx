@@ -10,11 +10,15 @@
 import "@/platform/modals/useConfirm.css";
 
 import { type status } from "@synnaxlabs/client";
-import { Button, type Icon, Nav, Text, Triggers as PTriggers } from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { type Icon } from "@synnaxlabs/lyra/icon";
+import { Nav } from "@synnaxlabs/lyra/nav";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Triggers as PTriggers } from "@synnaxlabs/lyra/triggers";
 
 import { CSS } from "@/platform/css";
 import { Body } from "@/platform/modals/Body";
-import { createPrompt, type Prompt } from "@/platform/modals/factory";
+import { createPrompt } from "@/platform/modals/factory";
 import { Footer } from "@/platform/modals/Footer";
 import { Frame } from "@/platform/modals/Frame";
 import { Header } from "@/platform/modals/Header";
@@ -35,8 +39,6 @@ export interface ConfirmParams {
   title?: string;
   icon?: Icon.ReactElement;
 }
-
-export interface PromptConfirm extends Prompt<boolean, ConfirmParams> {}
 
 interface InternalButtonProps
   extends ButtonProps, Omit<Button.ButtonProps, "variant"> {}

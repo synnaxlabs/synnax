@@ -20,7 +20,27 @@ import (
 	v1 "github.com/synnaxlabs/freighter/grpc/v1"
 	. "github.com/synnaxlabs/x/testutil"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/stats"
 )
+
+// connRecorder records whether the server has begun serving a connection.
+type connRecorder struct{ began *atomic.Bool }
+
+func (connRecorder) TagRPC(ctx context.Context, _ *stats.RPCTagInfo) context.Context {
+	return ctx
+}
+
+func (connRecorder) HandleRPC(context.Context, stats.RPCStats) {}
+
+func (connRecorder) TagConn(ctx context.Context, _ *stats.ConnTagInfo) context.Context {
+	return ctx
+}
+
+func (r connRecorder) HandleConn(_ context.Context, s stats.ConnStats) {
+	if _, ok := s.(*stats.ConnBegin); ok {
+		r.began.Store(true)
+	}
+}
 
 type echoServer struct {
 	v1.UnimplementedTestUnaryServiceServer
@@ -95,4 +115,13 @@ var _ = Describe("StartServer", func() {
 			Expect(intercepted.Load()).To(BeTrue())
 		},
 	)
+
+	It("Should wait for the server to begin serving the connection", func() {
+		var began atomic.Bool
+		StartServer(
+			func(grpc.ServiceRegistrar, *fgrpc.Pool) {},
+			grpc.StatsHandler(connRecorder{began: &began}),
+		)
+		Expect(began.Load()).To(BeTrue())
+	})
 })

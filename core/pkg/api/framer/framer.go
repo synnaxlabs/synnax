@@ -11,7 +11,6 @@ package framer
 
 import (
 	"context"
-	"go/types"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
@@ -65,16 +64,16 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 }
 
 type DeleteRequest struct {
-	Keys   channel.Keys    `json:"keys"   msgpack:"keys"   validate:"required"`
-	Names  []string        `json:"names"  msgpack:"names"  validate:"names"`
-	Bounds telem.TimeRange `json:"bounds" msgpack:"bounds" validate:"bounds"`
+	Keys   channel.Keys    `json:"keys"   msgpack:"keys"`
+	Names  []string        `json:"names"  msgpack:"names"`
+	Bounds telem.TimeRange `json:"bounds" msgpack:"bounds"`
 }
 
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
-) (types.Nil, error) {
+) (struct{}, error) {
 	var (
 		resChannels []channel.Channel
 		q           = s.channel.NewRetrieve().Entries(&resChannels)
@@ -84,7 +83,7 @@ func (s *Service) Delete(
 	// Early return for safety if a caller passes nothing, that way there is no
 	// accidental deletion of all data.
 	if !hasKeys && !hasNames {
-		return types.Nil{}, nil
+		return struct{}{}, nil
 	}
 	if hasKeys {
 		q = q.Where(channel.MatchKeys(req.Keys...))
@@ -93,7 +92,7 @@ func (s *Service) Delete(
 		q = q.Where(channel.MatchNames(req.Names...))
 	}
 	if err := q.Exec(ctx, tx); err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
 	keys := channel.KeysFromChannels(resChannels)
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
@@ -101,9 +100,9 @@ func (s *Service) Delete(
 		Action:  access.ActionDelete,
 		Objects: framer.OntologyIDs(keys),
 	}); err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
-	return types.Nil{}, s.internal.DeleteTimeRange(ctx, keys, req.Bounds)
+	return struct{}{}, s.internal.DeleteTimeRange(ctx, keys, req.Bounds)
 }
 
 type (

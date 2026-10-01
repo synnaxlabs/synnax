@@ -11,6 +11,6 @@
 
 package invariants
 
-import "golang.org/x/sys/unix"
+import "syscall"
 
-const ErrAccessDenied = unix.EBADF
+const ErrAccessDenied = syscall.EBADF

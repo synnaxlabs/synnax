@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, overload
+from typing import overload
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -51,7 +51,7 @@ class _RetrieveResponse(BaseModel):
 class Client:
     """Client for creating, retrieving, and deleting projects on a Synnax cluster.
 
-    A project is a named, persistable container storing the layout of the Console
+    A project is a named, persistable container that groups the panels of the Console
     application.
     """
 
@@ -71,7 +71,6 @@ class Client:
         self,
         *,
         name: str,
-        layout: dict[str, Any] | None = None,
     ) -> Project: ...
 
     @overload
@@ -85,21 +84,18 @@ class Client:
         projects: Project | list[Project] | None = None,
         *,
         name: str = "",
-        layout: dict[str, Any] | None = None,
     ) -> Project | list[Project]:
         """Create one or more projects.
 
         :param projects: A single project or a list of them. When omitted, a
-            project is created from the ``name`` and ``layout`` keyword arguments.
+            project is created from the ``name`` keyword argument.
         :param name: The name of the project to create when ``projects`` is omitted.
-        :param layout: The initial layout of the project when ``projects`` is omitted.
-            Defaults to an empty layout.
         :returns: The created project, or a list of created projects when ``projects``
             is a list.
         """
         is_single = not isinstance(projects, list)
         if projects is None:
-            projects = [Project(name=name, layout=layout if layout is not None else {})]
+            projects = [Project(name=name)]
         req = _CreateRequest(projects=normalize(projects))
         res = self._client.send("/project/create", req, _CreateResponse)
         return res.projects[0] if is_single else res.projects

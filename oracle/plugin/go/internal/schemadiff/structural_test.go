@@ -20,6 +20,7 @@ import (
 
 var _ = Describe("StructurallyEqual", func() {
 	analyze := func(source string) *resolution.Table {
+		GinkgoHelper()
 		table := resolution.NewTable()
 		diag := analyzer.AnalyzeSeeded(
 			GinkgoT().Context(), source,
@@ -30,6 +31,7 @@ var _ = Describe("StructurallyEqual", func() {
 		return table
 	}
 	typeOf := func(t *resolution.Table, name string) resolution.Type {
+		GinkgoHelper()
 		typ, ok := t.Get("channel." + name)
 		Expect(ok).To(BeTrue())
 		return typ
@@ -60,6 +62,30 @@ var _ = Describe("StructurallyEqual", func() {
 		Expect(schemadiff.StructurallyEqual(
 			typeOf(a, "Channel"), typeOf(b, "Channel"), a, b,
 		)).To(BeFalse())
+	})
+
+	It("Should distinguish declarations by field default", func() {
+		a := analyze("Row struct {\n\tsize float64\n}\n")
+		b := analyze("Row struct {\n\tsize float64 = 36\n}\n")
+		Expect(schemadiff.StructurallyEqual(
+			typeOf(a, "Row"), typeOf(b, "Row"), a, b,
+		)).To(BeFalse())
+	})
+
+	It("Should distinguish declarations by default value", func() {
+		a := analyze("Row struct {\n\tsize float64 = 36\n}\n")
+		b := analyze("Row struct {\n\tsize float64 = 72\n}\n")
+		Expect(schemadiff.StructurallyEqual(
+			typeOf(a, "Row"), typeOf(b, "Row"), a, b,
+		)).To(BeFalse())
+	})
+
+	It("Should equate declarations with identical defaults", func() {
+		a := analyze("Row struct {\n\tsize float64 = 36\n}\n")
+		b := analyze("Row struct {\n\tsize float64 = 36\n}\n")
+		Expect(schemadiff.StructurallyEqual(
+			typeOf(a, "Row"), typeOf(b, "Row"), a, b,
+		)).To(BeTrue())
 	})
 
 	It("Should distinguish enums by member list", func() {

@@ -10,7 +10,8 @@
 package arc_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
@@ -26,7 +27,7 @@ var _ = Describe("Writer", func() {
 		It("Should create an Arc with generated key", func(ctx SpecContext) {
 			a := arc.Arc{Name: "test-arc", Mode: arc.ModeText}
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
-			Expect(a.Key).ToNot(Equal(uuid.Nil))
+			Expect(a.Key).ToNot(Equal(uuid.Nil()))
 		})
 
 		It(
@@ -50,8 +51,8 @@ var _ = Describe("Writer", func() {
 			a2 := arc.Arc{Name: "arc-2", Mode: arc.ModeText}
 			Expect(svc.NewWriter(tx).Create(ctx, &a1)).To(Succeed())
 			Expect(svc.NewWriter(tx).Create(ctx, &a2)).To(Succeed())
-			Expect(a1.Key).ToNot(Equal(uuid.Nil))
-			Expect(a2.Key).ToNot(Equal(uuid.Nil))
+			Expect(a1.Key).ToNot(Equal(uuid.Nil()))
+			Expect(a2.Key).ToNot(Equal(uuid.Nil()))
 			Expect(a1.Key).ToNot(Equal(a2.Key))
 		})
 	})

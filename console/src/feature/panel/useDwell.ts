@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type panel } from "@synnaxlabs/client";
-import { Haul } from "@synnaxlabs/pluto";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import { TimeSpan } from "@synnaxlabs/x";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useDispatch } from "react-redux";

@@ -1,4 +1,4 @@
-# OPC UA Examples
+# OPC UA examples
 
 This directory contains example scripts for working with OPC UA servers in Synnax.
 
@@ -11,13 +11,13 @@ This directory contains example scripts for working with OPC UA servers in Synna
    - For testing: OPC UA test server (included in `examples/opcua/server.py`)
 3. **Authentication**: Logged in to Synnax CLI (`uv run sy login`)
 
-## Quick Start Guide
+## Quick start guide
 
 **Important**: All commands in this guide should be run from the `client/py` directory.
 
 Follow these scripts in order:
 
-### 1. Start the Test Server (Optional)
+### 1. Start the test server (optional)
 
 If you don't have a real OPC UA server, start the included test server:
 
@@ -57,7 +57,7 @@ The server runs on `opc.tcp://127.0.0.1:4841/` by default (port 4842 with `--tls
 If you're connecting to the test servers manually from the Synnax Console (Server >
 Connect), use these settings:
 
-#### Plain (No Encryption)
+#### Plain (no encryption)
 
 | Field           | Value                       |
 | --------------- | --------------------------- |
@@ -68,7 +68,7 @@ Connect), use these settings:
 | Security Mode   | None                        |
 | Security Policy | None                        |
 
-#### TLS (Encryption Only)
+#### TLS (encryption only)
 
 | Field           | Value                       |
 | --------------- | --------------------------- |
@@ -86,7 +86,7 @@ starts. The driver needs these files to connect:
 - `client-certificate.der`
 - `client-private-key.pem`
 
-#### TLS + Username/Password
+#### TLS + username/password
 
 | Field           | Value                       |
 | --------------- | --------------------------- |
@@ -99,7 +99,7 @@ starts. The driver needs these files to connect:
 
 Uses the same auto-generated certificates as the TLS server above.
 
-### 3. Connect Your OPC UA Server (Script)
+### 3. Connect your OPC UA server (script)
 
 Register your OPC UA server with Synnax:
 
@@ -133,7 +133,7 @@ server:
 - `PLAIN_ENDPOINT` / `TLS_ENDPOINT` / `TLS_AUTH_ENDPOINT`: OPC UA endpoint URLs
 - `TLS_AUTH_USERNAME` / `TLS_AUTH_PASSWORD`: Credentials for username/password auth
 
-### 4. Read Float Data from OPC UA Nodes
+### 4. Read float data from OPC UA nodes
 
 Read scalar float values from the server:
 
@@ -155,7 +155,7 @@ This example:
 **Node IDs**: The example uses node IDs like `NS=2;I=8` to identify OPC UA variables.
 These IDs are printed by `server.py` on startup.
 
-### 5. Read Array Data from OPC UA Nodes
+### 5. Read array data from OPC UA nodes
 
 Read array data in high-performance array mode:
 
@@ -178,7 +178,7 @@ This example:
 **Array mode**: More efficient for high-rate data when the OPC UA server provides data
 in array format with consistent size.
 
-### 6. Read Boolean Data from OPC UA Nodes
+### 6. Read boolean data from OPC UA nodes
 
 Read boolean (digital) values from the server:
 
@@ -199,7 +199,7 @@ This example:
 
 **Note**: Boolean data is stored as UINT8 in Synnax (0 for False, 1 for True).
 
-### 7. Write Commands to OPC UA Nodes
+### 7. Write commands to OPC UA nodes
 
 Send commands to writable OPC UA nodes:
 
@@ -221,7 +221,7 @@ verify values were received.
 **Important**: Update the node IDs in `write_task.py` with the actual values printed by
 your server.
 
-### 8. Delete Server (Cleanup)
+### 8. Delete server (cleanup)
 
 When finished, remove the server registration:
 
@@ -233,7 +233,7 @@ uv run python examples/opcua/delete_server.py --tls-auth
 
 This will remove the server and all associated tasks from Synnax.
 
-## OPC UA Node Identification
+## OPC UA node identification
 
 ### Node IDs
 
@@ -247,7 +247,7 @@ OPC UA uses Node IDs to identify variables. Common formats:
 **Important**: Node IDs can change between server restarts. Use browsing/discovery to
 find current IDs.
 
-### Node Classes
+### Node classes
 
 - **Variable**: Data values (most common for I/O)
 - **Object**: Organizational structure
@@ -255,9 +255,9 @@ find current IDs.
 - **ObjectType**: Type definitions
 - **VariableType**: Variable type definitions
 
-## Channel Types
+## Channel types
 
-### Read Channels
+### Read channels
 
 - **InputChannel**: Generic read channel for any OPC UA variable
   - `channel`: Synnax channel key
@@ -265,18 +265,18 @@ find current IDs.
   - `data_type`: Synnax data type (e.g., `"float32"`, `"uint16"`, `"boolean"`)
   - Use for any readable OPC UA variable
 
-### Write Channels
+### Write channels
 
 - **OutputChannel**: Generic write channel for any writable OPC UA variable
   - `cmd_channel`: Synnax command channel key
   - `node_id`: OPC UA node identifier
   - Use for any writable OPC UA variable
 
-## Data Types
+## Data types
 
 OPC UA supports many data types. Common mappings to Synnax:
 
-| OPC UA Type | Synnax Type | Notes                   |
+| OPC UA type | Synnax type | Notes                   |
 | ----------- | ----------- | ----------------------- |
 | Float       | `float32`   | 32-bit floating point   |
 | Double      | `float64`   | 64-bit floating point   |
@@ -289,16 +289,16 @@ OPC UA supports many data types. Common mappings to Synnax:
 | Boolean     | `uint8`     | Stored as 0 or 1        |
 | Byte        | `uint8`     | 8-bit unsigned integer  |
 
-## Array Mode vs. Unary Mode
+## Array mode vs. unary mode
 
-### Unary Mode (Default)
+### Unary mode (default)
 
 - Reads scalar (single) values from OPC UA nodes
 - Each sample is one value per channel
 - Best for: Individual sensors, setpoints, status values
 - Example: `ReadTask(sample_rate=10*sy.Rate.HZ, ...)`
 
-### Array Mode
+### Array mode
 
 - Reads entire arrays from OPC UA nodes
 - Each sample contains multiple values (fixed array size)
@@ -319,7 +319,7 @@ OPC UA supports various security policies:
 - **Aes128-Sha256-RsaOaep**: High security
 - **Aes256-Sha256-RsaPss**: Highest security
 
-### TLS Test Server
+### TLS test server
 
 The included test server supports TLS encryption via the `OPCUATLSSim` class, which runs
 on port 4842 with `Basic256Sha256_SignAndEncrypt`. Self-signed certificates for both
@@ -333,7 +333,7 @@ sim.start()  # Starts TLS server on opc.tcp://127.0.0.1:4842/
 sim.stop()
 ```
 
-### TLS Test Server with Username/Password
+### TLS test server with username/password
 
 The `OPCUATLSAuthSim` class adds username/password authentication on top of TLS
 encryption. It runs on port 4843 with `Basic256Sha256_SignAndEncrypt` and requires
@@ -354,7 +354,7 @@ commands, timestamps).
 deployments, configure security mode, policy, and credentials when registering the
 device.
 
-## Sample Rates
+## Sample rates
 
 - **Typical rates**: 1-100 Hz for most OPC UA servers
 - **Fast servers**: Up to 1 kHz for high-performance servers
@@ -417,14 +417,14 @@ sampling, which is more efficient than polling.
 - Verify the server can handle the requested subscription rate
 - Some servers have connection limits - check concurrent sessions
 
-## Additional Resources
+## Additional resources
 
 - [OPC Foundation](https://opcfoundation.org/)
 - [OPC UA Specification](https://reference.opcfoundation.org/)
 - [Synnax OPC UA Driver Documentation](https://docs.synnaxlabs.com/reference/driver/opc-ua/)
 - [open62541 Documentation](https://www.open62541.org/)
 
-## Next Steps
+## Next steps
 
 After running these examples, you can:
 

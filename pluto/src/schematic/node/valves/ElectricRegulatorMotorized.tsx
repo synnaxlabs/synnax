@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { CSS } from "@synnaxlabs/lyra/css";
 import { type ReactElement } from "react";
 
-import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 export interface Props extends Primitive.DivProps, Primitive.SVGBasedProps {}
@@ -19,7 +19,7 @@ const DIMENSIONS = { width: 87, height: 102 };
 export const ElectricRegulatorMotorized = ({
   className,
   orientation = "left",
-  color,
+  strokeColor,
   scale,
   ...rest
 }: Props): ReactElement => (
@@ -82,7 +82,7 @@ export const ElectricRegulatorMotorized = ({
     <Primitive.SVG
       dimensions={DIMENSIONS}
       orientation={orientation}
-      color={color}
+      strokeColor={strokeColor}
       scale={scale}
     >
       <Primitive.Path d="M43.5 80.5L6.35453 61.7035C4.35901 60.6937 2 62.1438 2 64.3803V96.6197C2 98.8562 4.35901 100.306 6.35453 99.2965L43.5 80.5ZM43.5 80.5L80.6455 61.7035C82.641 60.6937 85 62.1438 85 64.3803V96.6197C85 98.8562 82.641 100.306 80.6455 99.2965L43.5 80.5Z" />

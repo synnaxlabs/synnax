@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package check is the read-only validation layer for oracle. It runs a set of named
+// Package check is the read-only validation layer for Oracle. It runs a set of named
 // gates - format drift, analyzer diagnostics, generated-output drift, persistence
 // violations, cache coherence, versions drift - against a pipeline Result and produces
 // a structured Report. It does not modify any file.
@@ -25,19 +25,18 @@ package check
 
 import (
 	"context"
-	"encoding/json"
 	"sort"
-	"time"
 
 	"github.com/synnaxlabs/oracle/pipeline"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // Checker is one validation gate. Name is a stable identifier used for flag selection
 // (`--gates=format,analyze`), exit codes, and JSON output.
 type Checker interface {
 	Name() string
-	Run(ctx context.Context, p *pipeline.Result, env Env) GateReport
+	Run(context.Context, *pipeline.Result, Env) GateReport
 }
 
 // Env carries everything a Checker needs that is not part of the pipeline Result.
@@ -76,23 +75,19 @@ func (s Severity) String() string {
 	}
 }
 
-// MarshalJSON serializes Severity as its lower-case string form so the JSON report is
+// MarshalText serializes Severity as its lower-case string form so the JSON report is
 // consumable without an out-of-band enum table.
-func (s Severity) MarshalJSON() ([]byte, error) {
-	return json.Marshal(s.String())
-}
+func (s Severity) MarshalText() ([]byte, error) { return []byte(s.String()), nil }
 
 // Status is the outcome of a single gate.
 type Status int
 
 const (
-	// StatusPass indicates the gate ran and produced no error-severity
-	// findings.
+	// StatusPass indicates the gate ran and produced no error-severity findings.
 	StatusPass Status = iota
 	// StatusFail indicates the gate produced one or more error findings.
 	StatusFail
-	// StatusSkipped indicates the gate did not run (e.g. excluded via
-	// --gates).
+	// StatusSkipped indicates the gate did not run (e.g. excluded via --gates).
 	StatusSkipped
 )
 
@@ -109,41 +104,39 @@ func (s Status) String() string {
 	}
 }
 
-// MarshalJSON serializes Status as its lower-case string form.
-func (s Status) MarshalJSON() ([]byte, error) {
-	return json.Marshal(s.String())
-}
+// MarshalText serializes Status as its lower-case string form.
+func (s Status) MarshalText() ([]byte, error) { return []byte(s.String()), nil }
 
 // Finding is one observation produced by a Checker. The driver renders findings; gates
 // do not print directly.
 type Finding struct {
-	Path     string   `json:"path,omitempty"`
-	Line     int      `json:"line,omitempty"`
-	Col      int      `json:"col,omitempty"`
+	Path     string   `json:"path"`
+	Line     int      `json:"line"`
+	Col      int      `json:"col"`
 	Severity Severity `json:"severity"`
 	Message  string   `json:"message"`
 	// FixHint is a one-line suggestion shown to the user (e.g. "run `oracle sync`").
-	FixHint string `json:"fix_hint,omitempty"`
+	FixHint string `json:"fix_hint"`
 	// Diff is an optional unified-diff body for drift findings. Only populated when
 	// Env.IncludeDiffs is true.
-	Diff string `json:"diff,omitempty"`
+	Diff string `json:"diff"`
 }
 
 // GateReport is the per-gate result, carried back to the driver.
 type GateReport struct {
-	Gate     string        `json:"gate"`
-	Status   Status        `json:"status"`
-	Findings []Finding     `json:"findings,omitempty"`
-	Elapsed  time.Duration `json:"elapsed_ns"`
+	Gate     string         `json:"gate"`
+	Status   Status         `json:"status"`
+	Findings []Finding      `json:"findings"`
+	Elapsed  telem.TimeSpan `json:"elapsed_ns"`
 }
 
 // Report aggregates every GateReport produced in one check run.
 type Report struct {
-	Gates       []GateReport  `json:"gates"`
-	TotalRun    int           `json:"total_run"`
-	TotalPassed int           `json:"total_passed"`
-	TotalFailed int           `json:"total_failed"`
-	Elapsed     time.Duration `json:"elapsed_ns"`
+	Gates       []GateReport   `json:"gates"`
+	TotalRun    int            `json:"total_run"`
+	TotalPassed int            `json:"total_passed"`
+	TotalFailed int            `json:"total_failed"`
+	Elapsed     telem.TimeSpan `json:"elapsed_ns"`
 }
 
 // FailureCodes is the per-gate exit-code contract. CI consumers can branch on these to
@@ -185,18 +178,18 @@ func (r *Report) FirstExitCode() int {
 // about each other.
 func Run(
 	ctx context.Context,
-	p *pipeline.Result,
+	res *pipeline.Result,
 	env Env,
 	checkers []Checker,
 	gates []string,
 ) *Report {
 	want := set.New(gates...)
 	report := &Report{}
-	start := time.Now()
+	start := telem.Now()
 	for _, c := range checkers {
 		gr := GateReport{Gate: c.Name(), Status: StatusSkipped}
 		if len(want) == 0 || want.Contains(c.Name()) {
-			gr = c.Run(ctx, p, env)
+			gr = c.Run(ctx, res, env)
 		}
 		sortFindings(gr.Findings)
 		report.Gates = append(report.Gates, gr)
@@ -209,7 +202,7 @@ func Run(
 			report.TotalFailed++
 		}
 	}
-	report.Elapsed = time.Since(start)
+	report.Elapsed = telem.Since(start)
 	return report
 }
 

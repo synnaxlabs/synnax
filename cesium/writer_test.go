@@ -12,7 +12,7 @@ package cesium_test
 import (
 	"encoding/binary"
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"os"
 	"strconv"
 	"sync"
@@ -882,7 +882,7 @@ var _ = Describe("Writer Behavior", func() {
 								)
 								defer shutdown()
 
-								rng := rand.New(rand.NewSource(alignmentSeed))
+								rng := rand.New(rand.NewPCG(alignmentSeed, 0))
 								ts := 10 * telem.SecondTS
 								for range 8 {
 									w := MustSucceed(
@@ -898,8 +898,8 @@ var _ = Describe("Writer Behavior", func() {
 											},
 										}),
 									)
-									for range rng.Intn(4) + 1 {
-										n := rng.Intn(5) + 1
+									for range rng.IntN(4) + 1 {
+										n := rng.IntN(5) + 1
 										stamps := make([]telem.TimeStamp, n)
 										ints := make([]int64, n)
 										floats := make([]float32, n)
@@ -997,6 +997,7 @@ var _ = Describe("Writer Behavior", func() {
 
 								ts := 10 * telem.SecondTS
 								write := func(w *cesium.Writer, data cesium.ChannelKey, n int) {
+									GinkgoHelper()
 									stamps := make([]telem.TimeStamp, n)
 									ints := make([]int64, n)
 									for j := range n {
@@ -2594,6 +2595,7 @@ var _ = Describe("Writer Behavior", func() {
 
 							ts := 10 * telem.SecondTS
 							write := func(w *cesium.Writer, n int) {
+								GinkgoHelper()
 								stamps := make([]telem.TimeStamp, n)
 								ints := make([]int64, n)
 								for j := range n {
@@ -4329,6 +4331,7 @@ func newAlignmentObserver() *alignmentObserver {
 // observe asserts that every channel in fr carries the same alignment and that no
 // channel regressed below what has already been streamed for it.
 func (o *alignmentObserver) observe(fr cesium.Frame) {
+	GinkgoHelper()
 	var (
 		shared    telem.Alignment
 		sharedSet bool
@@ -4343,10 +4346,10 @@ func (o *alignmentObserver) observe(fr cesium.Frame) {
 		} else {
 			shared, sharedSet = ser.Alignment, true
 		}
-		ExpectWithOffset(1, ser.Alignment).To(Equal(shared),
+		Expect(ser.Alignment).To(Equal(shared),
 			"channel %d streamed a different alignment than its frame siblings", key)
 		if prev, ok := o.upper[key]; ok {
-			ExpectWithOffset(1, ser.Alignment).To(BeNumerically(">=", prev),
+			Expect(ser.Alignment).To(BeNumerically(">=", prev),
 				"channel %d regressed from %v to %v", key, prev, ser.Alignment)
 		}
 		o.upper[key] = ser.AlignmentBounds().Upper
@@ -4355,8 +4358,9 @@ func (o *alignmentObserver) observe(fr cesium.Frame) {
 
 // drain reads exactly one relayed frame and hands it to observe.
 func (o *alignmentObserver) drain(out confluence.Outlet[cesium.StreamerResponse]) {
+	GinkgoHelper()
 	var res cesium.StreamerResponse
-	EventuallyWithOffset(1, out.Outlet()).Should(Receive(&res))
+	Eventually(out.Outlet()).Should(Receive(&res))
 	o.observe(res.Frame)
 }
 
@@ -4367,6 +4371,7 @@ func openObservedStreamer(
 	db *cesium.DB,
 	keys ...cesium.ChannelKey,
 ) (*alignmentObserver, confluence.Outlet[cesium.StreamerResponse], func()) {
+	GinkgoHelper()
 	s := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{Channels: keys}))
 	in, out := confluence.Attach(s, len(keys)*64)
 	sCtx, cancel := signal.WithCancel(ctx)

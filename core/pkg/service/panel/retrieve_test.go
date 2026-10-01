@@ -11,8 +11,8 @@ package panel_test
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
@@ -21,6 +21,7 @@ import (
 
 var _ = Describe("Retrieve", func() {
 	createN := func(ctx context.Context, n int) []panel.Key {
+		GinkgoHelper()
 		keys := make([]panel.Key, n)
 		for i := range keys {
 			p := panel.Panel{Name: "test", Root: leafNode(), Parent: &parentID}

@@ -11,12 +11,13 @@ package v7_test
 
 import (
 	"embed"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"os"
 	"path/filepath"
 	"strings"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy"
@@ -83,7 +84,9 @@ func stringOr(v any) string {
 // json.MarshalIndent (which sorts map keys) so diffs are deterministic.
 func assertMigrated(fixture string, got v7.Schematic) {
 	GinkgoHelper()
-	pretty := MustSucceed(json.MarshalIndent(got, "", "  "))
+	pretty := MustSucceed(
+		json.Marshal(got, jsontext.WithIndent("  "), json.Deterministic(true)),
+	)
 	pretty = append(pretty, '\n')
 	stem := strings.TrimSuffix(fixture, ".json")
 	p := filepath.Join("testdata", stem+".migrated.json")
@@ -173,10 +176,11 @@ var _ = Describe("MigrateSchematic", func() {
 	// Console contract. Keep one concern per spec so failures localize.
 	Describe("v5 reshape semantics", func() {
 		migrateV5 := func(ctx SpecContext, body string) v7.Schematic {
+			GinkgoHelper()
 			return migrateSeed(ctx, v0.Schematic{
 				Key: uuid.New(),
 				Data: jsonMap(
-					`{"version": "5.0.0", "nodes": [], "edges": [], "props": {}, ` + body + `}`,
+					`{"version": "5.0.0", "nodes": [], "edges": [], ` + body + `}`,
 				),
 			})
 		}

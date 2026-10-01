@@ -7,6 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import re
+from typing import Literal
+
 from playwright.sync_api import Locator, expect
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
@@ -66,7 +69,7 @@ class Overview(Surface):
 
     def wait_for(self, name: str) -> None:
         """Wait for the range overview to show a specific range."""
-        name_input = self.layout.page.locator("input[placeholder='Name']:visible").first
+        name_input = self.layout.page.locator("input[placeholder='Name']").visible.first
         name_input.wait_for(state="visible", timeout=5000)
         expect(name_input).to_have_value(name, timeout=5000)
 
@@ -76,7 +79,7 @@ class Overview(Surface):
         :param name: The name of the range to check for.
         :returns: True if the overview shows the range name in the header.
         """
-        header = self.layout.page.locator("input[placeholder='Name']:visible").first
+        header = self.layout.page.locator("input[placeholder='Name']").visible.first
         if not header.is_visible():
             return False
         return header.input_value() == name
@@ -96,105 +99,49 @@ class Overview(Surface):
     def set_start_time(
         self,
         year: int,
-        month: str,
+        month: int,
         day: int,
         hour: int = 0,
         minute: int = 0,
         second: int = 0,
     ) -> None:
-        """Set the start time in the range overview."""
-        self._set_time(0, year, month, day, hour, minute, second)
+        """Set the start time in the range overview, in local time."""
+        self._set_time("Start", year, month, day, hour, minute, second)
 
     def set_end_time(
         self,
         year: int,
-        month: str,
+        month: int,
         day: int,
         hour: int = 0,
         minute: int = 0,
         second: int = 0,
     ) -> None:
-        """Set the end time in the range overview."""
-        self._set_time(1, year, month, day, hour, minute, second)
+        """Set the end time in the range overview, in local time."""
+        self._set_time("End", year, month, day, hour, minute, second)
 
     def _set_time(
         self,
-        index: int,
+        bound: Literal["Start", "End"],
         year: int,
-        month: str,
+        month: int,
         day: int,
         hour: int = 0,
         minute: int = 0,
         second: int = 0,
     ) -> None:
-        """Set a time in the range overview by button index (0=start, 1=end)."""
-        time_range = self.layout.page.locator(".console-time-range")
-        btn = time_range.locator("button").nth(index)
-        btn.wait_for(state="visible", timeout=5000)
-        self._fill_datetime_picker(btn, year, month, day, hour, minute, second)
-
-    def _navigate_calendar_to_year(self, calendar: Locator, target_year: int) -> None:
-        """Navigate the calendar picker to the target year."""
-        year_row = calendar.locator("> .pluto-flex").nth(1)
-        while True:
-            current_year = int(year_row.locator("small").inner_text())
-            if current_year == target_year:
-                break
-            if current_year > target_year:
-                year_row.locator("button").first.click()
-            else:
-                year_row.locator("button").last.click()
-
-    def _navigate_calendar_to_month(self, calendar: Locator, target_month: str) -> None:
-        """Navigate the calendar picker to the target month."""
-        month_row = calendar.locator(".pluto-calendar-header")
-        while True:
-            current_month = month_row.locator(
-                ".pluto-calendar-header__month"
-            ).inner_text()
-            if current_month == target_month:
-                break
-            month_row.locator("button").first.click()
-
-    def _select_time_value(self, time_list: Locator, value: int) -> None:
-        """Select a value from a time list by clicking the item with matching
-        id."""
-        item = time_list.locator(f".pluto-list__item[id='{value}']")
-        item.scroll_into_view_if_needed()
-        item.click()
-
-    def _fill_datetime_picker(
-        self,
-        field: Locator,
-        year: int,
-        month: str,
-        day: int,
-        hour: int = 0,
-        minute: int = 0,
-        second: int = 0,
-    ) -> None:
-        """Fill a datetime input using the datetime picker modal."""
-        field.click()
-        modal = self.layout.page.locator(".pluto-datetime-modal")
-        modal.wait_for(state="visible", timeout=5000)
-
-        picker = modal.locator(".pluto-datetime-picker")
-        calendar = picker.locator(".pluto-calendar")
-
-        self._navigate_calendar_to_year(calendar, year)
-        self._navigate_calendar_to_month(calendar, month)
-
-        day_btn = calendar.get_by_role("button", name=str(day), exact=True)
-        day_btn.click()
-
-        time_lists = picker.locator(".pluto-time-list")
-        self._select_time_value(time_lists.nth(0), hour)
-        self._select_time_value(time_lists.nth(1), minute)
-        self._select_time_value(time_lists.nth(2), second)
-
-        done_btn = self.layout.page.get_by_role("button", name="Done")
-        done_btn.click()
-        modal.wait_for(state="hidden", timeout=5000)
+        """Set a time in the range overview through the cell named for its end
+        ("Start" or "End")."""
+        timeline = self.layout.page.locator(".pluto-range-timeline").visible
+        cell = timeline.get_by_role("button", name=re.compile(rf"^{bound}, "))
+        cell.click(timeout=5000)
+        editor = self.layout.page.locator(".pluto-time-editor__dialog input")
+        editor.fill(
+            f"{year:04d}-{month:02d}-{day:02d} {hour:02d}:{minute:02d}:{second:02d}",
+            timeout=5000,
+        )
+        editor.press("Enter")
+        editor.wait_for(state="hidden", timeout=5000)
 
     def set_stage(self, stage: str) -> None:
         """Set the stage in the range overview.
@@ -215,7 +162,9 @@ class Overview(Surface):
     def _open_labels_dropdown(self) -> Locator:
         """Open the labels dropdown in the range overview and return the
         dialog."""
-        labels_row = self.layout.page.get_by_text("Labels", exact=True).locator("..")
+        labels_row = self.layout.page.locator(
+            ".console-range-overview__labels-select"
+        ).visible
         # The add button only renders once a label is set. Before that, the
         # placeholder is the trigger.
         add_button = labels_row.locator("button").last
@@ -262,7 +211,9 @@ class Overview(Surface):
 
         :returns: A list of label names.
         """
-        labels_row = self.layout.page.get_by_text("Labels", exact=True).locator("..")
+        labels_row = self.layout.page.locator(
+            ".console-range-overview__labels-select"
+        ).visible
         label_chips = labels_row.locator(".pluto-tag")
         labels = []
         for i in range(label_chips.count()):
@@ -278,7 +229,7 @@ class Overview(Surface):
 
         :param new_name: The new name for the range.
         """
-        name_input = self.layout.page.locator("input[placeholder='Name']:visible").first
+        name_input = self.layout.page.locator("input[placeholder='Name']").visible.first
         name_input.wait_for(state="visible", timeout=5000)
         name_input.click()
         name_input.fill(new_name)

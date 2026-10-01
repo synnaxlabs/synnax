@@ -15,3 +15,12 @@ import "github.com/synnaxlabs/x/color/versions"
 
 // Color is an RGBA color with RGB as 0-255 and alpha as 0-1.
 type Color = versions.Color
+
+// Stop is a single color stop in a gradient.
+type Stop = versions.Stop
+
+// Band is a colored range of values starting at a threshold.
+type Band = versions.Band
+
+// Scale maps a value to a color through threshold bands.
+type Scale = versions.Scale

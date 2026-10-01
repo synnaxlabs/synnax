@@ -141,6 +141,10 @@ type IteratorConfig struct {
 	// AutoChunkSize sets the default chunk size to iterator over when sending a Next()
 	// or Prev() request it IteratorAutoSpan as the span.
 	AutoChunkSize int64
+	// DownsampleFactor keeps every n-th sample of each series the iterator reads. The
+	// read is strided at the source, so the discarded samples are never read into
+	// memory. Values below 2 keep every sample.
+	DownsampleFactor uint32
 }
 
 // Flow implements the confluence.Segment interface.
@@ -252,10 +256,9 @@ func (s *streamIterator) error() error {
 }
 
 func (s *streamIterator) close() error {
+	var err error
 	for _, i := range s.internal {
-		if err := i.Close(); err != nil {
-			return err
-		}
+		err = errors.Join(err, i.Close())
 	}
-	return nil
+	return err
 }

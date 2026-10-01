@@ -12,7 +12,7 @@ package driver_test
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -26,6 +26,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/driver"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	. "github.com/synnaxlabs/x/testutil"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -53,6 +54,7 @@ func (b *syncBuffer) String() string {
 }
 
 func newTestLogger() (*alamos.Logger, *syncBuffer) {
+	GinkgoHelper()
 	buffer := &syncBuffer{}
 	core := zapcore.NewCore(
 		zapcore.NewJSONEncoder(zap.NewDevelopmentEncoderConfig()),
@@ -70,6 +72,7 @@ func openMockDriver(
 	logger *alamos.Logger,
 	overrides ...driver.Config,
 ) *driver.Driver {
+	GinkgoHelper()
 	base := driver.Config{
 		Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
 		FS:              mockFS,
@@ -113,6 +116,24 @@ var _ = Describe("Open", func() {
 				// margin. With a 30s mock delay, exceeding 5s here would indicate
 				// the kill escalation is broken.
 				Expect(elapsed).To(BeNumerically("<", 5*time.Second))
+			},
+		)
+
+		It(
+			"Should return before the Driver starts when detached",
+			func(ctx SpecContext) {
+				Expect(os.Setenv("MOCK_DELAY_MS", "30000")).To(Succeed())
+				defer func() { Expect(os.Unsetenv("MOCK_DELAY_MS")).To(Succeed()) }()
+				logger, _ := newTestLogger()
+				start := time.Now()
+				d := openMockDriver(ctx, logger, driver.Config{
+					Detached:     new(true),
+					StartTimeout: 10 * time.Second,
+					StopTimeout:  500 * time.Millisecond,
+				})
+				// An attached open would block for the whole start timeout.
+				Expect(time.Since(start)).To(BeNumerically("<", 5*time.Second))
+				Expect(d.Close()).To(Succeed())
 			},
 		)
 
@@ -178,13 +199,13 @@ var _ = Describe("Open", func() {
 			func(ctx SpecContext) {
 				logger, _ := newTestLogger()
 				Expect(driver.Open(ctx, driver.Config{
-					Instrumentation:   alamos.New("test", alamos.WithLogger(logger)),
-					FS:                mockFS,
-					Insecure:          new(true),
-					Address:           "localhost:9090",
-					ParentDirname:     GinkgoT().TempDir(),
-					RestartMaxRetries: -1,
-				})).Error().To(MatchError(ContainSubstring("max_retries")))
+					Instrumentation:     alamos.New("test", alamos.WithLogger(logger)),
+					FS:                  mockFS,
+					Insecure:            new(true),
+					Address:             "localhost:9090",
+					ParentDirname:       GinkgoT().TempDir(),
+					RestartBaseInterval: -time.Second,
+				})).Error().To(MatchError(ContainSubstring("base_interval")))
 			},
 		)
 
@@ -266,6 +287,31 @@ var _ = Describe("Open", func() {
 			conn := readDriverConnection(dir)
 			Expect(conn).To(HaveKeyWithValue("ca_cert_file", Not(BeEmpty())))
 			Expect(os.ReadFile(conn["ca_cert_file"].(string))).To(Equal(anchors))
+			Expect(d.Close()).To(Succeed())
+		})
+
+		It("Should give the Driver its credentials under the keys it reads", func(
+			ctx SpecContext,
+		) {
+			logger, _ := newTestLogger()
+			dir := GinkgoT().TempDir()
+			d := openMockDriver(ctx, logger, driver.Config{
+				ParentDirname: dir,
+				Credentials:   auth.Credentials{Username: "root", Password: "secret"},
+			})
+			conn := readDriverConnection(dir)
+			Expect(conn).To(HaveKeyWithValue("username", "root"))
+			Expect(conn).To(HaveKeyWithValue("password", "secret"))
+			Expect(d.Close()).To(Succeed())
+		})
+
+		It("Should keep the Driver's state inside its working directory", func(
+			ctx SpecContext,
+		) {
+			logger, _ := newTestLogger()
+			dir := GinkgoT().TempDir()
+			d := openMockDriver(ctx, logger, driver.Config{ParentDirname: dir})
+			Expect(filepath.Join(dir, "driver", "state.json")).To(BeAnExistingFile())
 			Expect(d.Close()).To(Succeed())
 		})
 

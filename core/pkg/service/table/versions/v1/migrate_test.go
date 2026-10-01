@@ -11,12 +11,13 @@ package v1_test
 
 import (
 	"embed"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"os"
 	"path/filepath"
 	"strings"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v0"
@@ -32,6 +33,7 @@ import (
 var fixtures embed.FS
 
 func loadFixture(name string) msgpack.EncodedJSON {
+	GinkgoHelper()
 	raw := MustSucceed(fixtures.ReadFile("testdata/" + name))
 	var m map[string]any
 	Expect(json.Unmarshal(raw, &m)).To(Succeed())
@@ -39,6 +41,7 @@ func loadFixture(name string) msgpack.EncodedJSON {
 }
 
 func jsonMap(raw string) msgpack.EncodedJSON {
+	GinkgoHelper()
 	var m map[string]any
 	Expect(json.Unmarshal([]byte(raw), &m)).To(Succeed())
 	return m
@@ -46,6 +49,7 @@ func jsonMap(raw string) msgpack.EncodedJSON {
 
 // seedV1 stores a v1 wire-format table in a fresh gorp DB and returns the DB.
 func seedV1(ctx SpecContext, seed *v0.Table) *gorp.DB {
+	GinkgoHelper()
 	db := DeferClose(gorp.Wrap(memkv.New()))
 	MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, v0.Table]{DB: db}))
 	Expect(gorp.NewCreate[uuid.UUID, v0.Table]().Entry(seed).Exec(ctx, db)).
@@ -56,6 +60,7 @@ func seedV1(ctx SpecContext, seed *v0.Table) *gorp.DB {
 // migrateSeed runs the v2 migration chain over a seeded v1 table and returns the
 // migrated typed Table.
 func migrateSeed(ctx SpecContext, seed v0.Table) v1.Table {
+	GinkgoHelper()
 	db := seedV1(ctx, &seed)
 	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 		DB:         db,
@@ -73,7 +78,10 @@ func migrateSeed(ctx SpecContext, seed v0.Table) v1.Table {
 // rewrites it if UPDATE_MIGRATED=1 is set. Outputs are canonicalized via
 // json.MarshalIndent (which sorts map keys) so diffs are deterministic.
 func assertMigrated(fixture string, got v1.Table) {
-	pretty := MustSucceed(json.MarshalIndent(got, "", "  "))
+	GinkgoHelper()
+	pretty := MustSucceed(
+		json.Marshal(got, jsontext.WithIndent("  "), json.Deterministic(true)),
+	)
 	pretty = append(pretty, '\n')
 	stem := strings.TrimSuffix(fixture, ".json")
 	p := filepath.Join("testdata", stem+".migrated.json")
@@ -118,6 +126,7 @@ var _ = Describe("MigrateTable", func() {
 
 	Describe("v0 reshape semantics", func() {
 		migrateBody := func(ctx SpecContext, body string) v1.Table {
+			GinkgoHelper()
 			return migrateSeed(ctx, v0.Table{Key: uuid.New(), Data: jsonMap(body)})
 		}
 

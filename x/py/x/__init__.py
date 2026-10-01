@@ -18,7 +18,6 @@ from x.os import (
     get_platform,
 )
 from x.strings import random_name, validate_and_sanitize_name
-from x.version import get_synnax_version
 from x.websocket import (
     WEBSOCKET_ERROR_PATTERNS,
     WebSocketErrorFilter,
@@ -36,7 +35,6 @@ __all__ = [
     "get_memory_info",
     "get_platform",
     "random_name",
-    "get_synnax_version",
     "ignore_websocket_errors",
     "is_ci",
     "is_websocket_error",

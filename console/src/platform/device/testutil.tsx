@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { device, type ontology, type Synnax } from "@synnaxlabs/client";
-import { Form, Menu as PMenu } from "@synnaxlabs/pluto";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
 import { id } from "@synnaxlabs/x";
 import { render, type RenderResult } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
@@ -186,12 +187,12 @@ export const testPropertiesSchema = (
   const { testEmpty = true } = options;
   describe(`${name} propertiesZ`, () => {
     it("should parse ZERO_PROPERTIES", () => {
-      expect(schema.safeParse(zeroProperties).success).toBe(true);
+      expect(schema.validate(zeroProperties)).toBe(true);
     });
 
     if (testEmpty)
       it("should parse completely empty properties", () => {
-        expect(schema.safeParse({}).success).toBe(true);
+        expect(schema.validate({})).toBe(true);
       });
 
     if (testEmpty)
@@ -221,7 +222,7 @@ export const testPropertiesSchema = (
 
     for (const [label, input] of partialCases)
       it(`should parse ${label}`, () => {
-        expect(schema.safeParse(input).success).toBe(true);
+        expect(schema.validate(input)).toBe(true);
       });
   });
 };

@@ -1,9 +1,9 @@
 {
   "name": "@synnaxlabs/pluto",
-  "version": "0.58.0",
+  "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc --noEmit && vite build",
+    "build": "vite build",
     "check-types": "tsc --noEmit",
     "watch": "vite build --watch",
     "test": "vitest",
@@ -13,20 +13,17 @@
     "lint": "eslint",
     "fix": "eslint --fix",
     "preview": "vite preview",
-    "madge": "madge --circular src",
-    "stylelint": "stylelint \"src/**/*.css\"",
-    "generate-theme": "tsx src/theming/static/generate.ts"
+    "stylelint": "stylelint \"src/**/*.css\""
   },
   "dependencies": {
     "@codingame/monaco-vscode-editor-api": "catalog:",
     "@synnaxlabs/alamos": "catalog:",
     "@synnaxlabs/client": "catalog:",
-    "@synnaxlabs/freighter": "workspace:*",
-    "@synnaxlabs/media": "workspace:*",
+    "@synnaxlabs/freighter": "catalog:",
+    "@synnaxlabs/lyra": "catalog:",
+    "@synnaxlabs/media": "catalog:",
     "@synnaxlabs/x": "catalog:",
     "@xyflow/react": "catalog:",
-    "clsx": "catalog:",
-    "react-icons": "catalog:",
     "vscode-languageclient": "catalog:",
     "zod": "catalog:"
   },
@@ -57,37 +54,25 @@
     "@juggle/resize-observer": "catalog:",
     "@synnaxlabs/arc": "catalog:",
     "@synnaxlabs/eslint-config": "catalog:",
-    "@synnaxlabs/madge": "catalog:",
     "@synnaxlabs/stylelint-config": "catalog:",
     "@synnaxlabs/tsconfig": "catalog:",
     "@synnaxlabs/vite-plugin": "catalog:",
-    "@tanstack/react-virtual": "catalog:",
     "@testing-library/react": "catalog:",
-    "@testing-library/user-event": "catalog:",
     "@types/d3-scale": "catalog:",
     "@types/node": "catalog:",
     "@types/offscreencanvas": "catalog:",
-    "@types/pluralize": "catalog:",
     "@types/react": "catalog:",
-    "@types/react-color": "catalog:",
     "@types/react-dom": "catalog:",
     "@types/use-sync-external-store": "catalog:",
     "@types/webgl2": "catalog:",
     "@types/ws": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "@vitest/coverage-v8": "catalog:",
-    "async-mutex": "catalog:",
-    "compromise": "catalog:",
-    "compromise-dates": "catalog:",
     "d3-scale": "catalog:",
     "error-stack-parser": "catalog:",
     "eslint": "catalog:",
-    "fuse.js": "catalog:",
     "jsdom": "catalog:",
-    "mathjs": "catalog:",
-    "pluralize": "catalog:",
     "react": "catalog:",
-    "react-color": "catalog:",
     "react-dom": "catalog:",
     "source-map-js": "catalog:",
     "stylelint": "catalog:",
@@ -96,17 +81,10 @@
     "use-sync-external-store": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:",
-    "vscode": "npm:@codingame/monaco-vscode-extension-api@^36.2.7",
+    "vscode": "catalog:",
     "vscode-jsonrpc": "catalog:",
     "ws": "catalog:"
   },
-  "files": [
-    "dist",
-    "!dist/**/*.map",
-    "!**/*.spec.*",
-    "!**/*.bench.*",
-    "!dist/eslint.config.*"
-  ],
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",
@@ -120,76 +98,6 @@
       "types": "./dist/src/testutil/index.d.ts",
       "default": "./dist/testutil.js"
     },
-    "./flex": {
-      "types": "./dist/src/flex/index.d.ts",
-      "default": "./dist/flex.js"
-    },
-    "./button": {
-      "types": "./dist/src/button/index.d.ts",
-      "default": "./dist/button.js"
-    },
-    "./tabs": {
-      "types": "./dist/src/tabs/index.d.ts",
-      "default": "./dist/tabs.js"
-    },
-    "./theming": {
-      "types": "./dist/src/theming/index.d.ts",
-      "default": "./dist/theming.js"
-    },
-    "./menu": {
-      "types": "./dist/src/menu/index.d.ts",
-      "default": "./dist/menu.js"
-    },
-    "./header": {
-      "types": "./dist/src/header/index.d.ts",
-      "default": "./dist/header.js"
-    },
-    "./tree": {
-      "types": "./dist/src/tree/index.d.ts",
-      "default": "./dist/tree.js"
-    },
-    "./dropdown": {
-      "types": "./dist/src/dropdown/index.d.ts",
-      "default": "./dist/dropdown.js"
-    },
-    "./video": {
-      "types": "./dist/src/video/index.d.ts",
-      "default": "./dist/video.js"
-    },
-    "./text": {
-      "types": "./dist/src/text/index.d.ts",
-      "default": "./dist/text.js"
-    },
-    "./input": {
-      "types": "./dist/src/input/index.d.ts",
-      "default": "./dist/input.js"
-    },
-    "./triggers": {
-      "types": "./dist/src/triggers/index.d.ts",
-      "default": "./dist/triggers.js"
-    },
-    "./list": {
-      "types": "./dist/src/list/index.d.ts",
-      "default": "./dist/list.js"
-    },
-    "./color": {
-      "types": "./dist/src/color/index.d.ts",
-      "default": "./dist/color.js"
-    },
-    "./css": {
-      "types": "./dist/src/css/index.d.ts",
-      "default": "./dist/css.js"
-    },
     "./dist/*": "./dist/*"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/synnaxlabs/synnax.git",
-    "directory": "pluto"
-  },
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/synnaxlabs/synnax/issues"
-  },
-  "homepage": "https://github.com/synnaxlabs/synnax#readme"
+  }
 }

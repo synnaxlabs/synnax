@@ -1,6 +1,6 @@
 C++ development rules: @../docs/claude/toolchains/cpp.md
 
-# Driver System
+# Driver system
 
 C++ real-time hardware integration connecting industrial hardware (LabJack, NI, OPC UA,
 Modbus TCP/IP) to Synnax.
@@ -17,8 +17,9 @@ Modbus TCP/IP) to Synnax.
    Synnax client, state updates). Task types: read (acquisition), write (control), scan
    (discovery).
 3. **Pipelines** (`/driver/pipeline/`) — generic streaming: **Acquisition** (Source →
-   Writer → Synnax) and **Control** (Synnax → Streamer → Sink). Automatic retry on
-   `freighter::UNREACHABLE`, breaker pattern (exponential backoff), thread management.
+   Writer → Synnax) and **Control** (Synnax → Streamer → Sink). Automatic retry when
+   `synnax::errors::is_temporarily_unavailable` matches (unreachable or unlicensed
+   Core), breaker pattern (exponential backoff), thread management.
 4. **Device integrations** — each implements
    `Factory → {Read|Write|Scan}Task → Source/Sink → Device API`.
 
@@ -46,13 +47,13 @@ Shared task bases in `/driver/task/common/`: `sample_clock.h` (hardware/software
   shared clients; ReadTask modes for array vs scalar reads; NodeId-based writes;
   security policy support. Windows/Linux/macOS.
 
-## Plugin Pattern
+## Plugin pattern
 
 Every integration implements `task::Factory::configure_task` (return `{nullptr, false}`
 for unrecognized types) and `configure_initial_tasks`; registered in
 `rack/factories.cpp` gated by `config.integration_enabled(<name>)`.
 
-## Device Hierarchy
+## Device hierarchy
 
 Device create API takes optional `parent` ontology ID (e.g. `"device:SERIAL"`),
 atomically creating the device + `ParentOf` relationship; defaults to the rack when

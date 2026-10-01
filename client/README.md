@@ -1,4 +1,4 @@
-# Synnax Client
+# Synnax client
 
 The Synnax client is a set of programming libraries for interacting with the Synnax
 server. The clients can be used to connect to a server and read, write, and stream data.

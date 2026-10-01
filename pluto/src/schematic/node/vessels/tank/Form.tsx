@@ -7,17 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Form as Base } from "@synnaxlabs/lyra/form";
+import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { type ReactElement } from "react";
 
-import { Flex } from "@/flex";
-import { Form as Base } from "@/form";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { Scale } from "@/schematic/node/common/scale";
 import { type FormProps as NodeFormProps } from "@/schematic/node/spec";
-import { FILL_DEFAULTS } from "@/schematic/node/vessels/tank/config";
-import { Tabs } from "@/tabs";
+import { Properties } from "@/vis/properties";
 
 export interface TankFormProps extends NodeFormProps {
   showBorderRadius?: boolean;
@@ -26,99 +25,86 @@ export interface TankFormProps extends NodeFormProps {
 }
 
 const FillForm = (): ReactElement => {
-  const telem = Base.useFieldValue<Scale.Config["telem"]>("fill.telem", {
+  const channel = Base.useFieldValue<Scale.Config["channel"]>("channel", {
     optional: true,
   });
   return (
-    <Form.Wrapper y empty>
-      <Scale.TelemForm path="fill" defaults={FILL_DEFAULTS} allowNone />
-      {telem != null && (
-        <Flex.Box x>
-          <Scale.DisplayFields path="fill" />
-          <Form.ColorField path="fill.color" label="Fill color" />
-          <Scale.StyleFields path="fill" />
-        </Flex.Box>
+    <Base.Sections x>
+      <Scale.TelemForm allowNone />
+      {channel != null && (
+        <>
+          <Base.Section title="Display">
+            <Scale.DisplayFields>
+              <Base.SwitchField path="caretVisible" label="Value" padHelpText={false} />
+              <Base.SwitchField path="scaleVisible" label="Scale" padHelpText={false} />
+            </Scale.DisplayFields>
+          </Base.Section>
+          <Base.Section title="Appearance">
+            <Scale.StyleFields />
+          </Base.Section>
+        </>
       )}
-    </Form.Wrapper>
+    </Base.Sections>
   );
 };
 
 export const TankForm = ({
+  tab,
+  onTabChange,
   showBorderRadius = false,
   showStrokeWidth = false,
   showFillTab = false,
 }: TankFormProps): ReactElement => {
-  const properties = (
-    <Form.Wrapper x align="stretch">
-      <Flex.Box y grow>
+  const style = (
+    <Base.Sections x>
+      <Base.Section title="Label">
         <Label.Form path="label" />
-        <Flex.Box x>
-          <Form.ColorField path="color" />
-          <Form.ColorField path="backgroundColor" label="Background color" />
+        <Orientation.Field path="" hideInner showOuterCenter label="Location" />
+      </Base.Section>
+      <Base.Section title="Appearance">
+        <Form.ColorField path="strokeColor" label="Stroke" />
+        <Form.FillField />
+        <Form.RadiusFields path="borderRadius" />
+        {showBorderRadius && (
           <Base.NumericField
-            path="borderRadius.x"
+            path="borderRadius"
             hideIfNull
             optional
-            label="X border radius"
-            grow
-            inputProps={Form.PERCENT_BORDER_RADIUS_INPUT_PROPS}
+            label="Border radius"
+            inputProps={Form.DIMENSIONS_INPUT_PROPS}
           />
+        )}
+        {showStrokeWidth && (
           <Base.NumericField
-            path="borderRadius.y"
+            path="strokeWidth"
             hideIfNull
             optional
-            label="Y border radius"
-            grow
-            inputProps={Form.PERCENT_BORDER_RADIUS_INPUT_PROPS}
+            label="Border width"
+            inputProps={Form.STROKE_WIDTH_INPUT_PROPS}
           />
-          {showBorderRadius && (
-            <Base.NumericField
-              path="borderRadius"
-              hideIfNull
-              optional
-              label="Border radius"
-              grow
-              inputProps={Form.DIMENSIONS_INPUT_PROPS}
-            />
-          )}
-          {showStrokeWidth && (
-            <Base.NumericField
-              path="strokeWidth"
-              hideIfNull
-              optional
-              label="Border width"
-              grow
-              inputProps={Form.STROKE_WIDTH_INPUT_PROPS}
-            />
-          )}
-          <Base.NumericField
-            path="dimensions.width"
-            label="Width"
-            grow
-            inputProps={Form.DIMENSIONS_INPUT_PROPS}
-          />
-          <Base.NumericField
-            path="dimensions.height"
-            label="Height"
-            grow
-            inputProps={Form.DIMENSIONS_INPUT_PROPS}
-          />
-        </Flex.Box>
-      </Flex.Box>
-      <Orientation.Field path="" hideInner showOuterCenter label="Label location" />
-    </Form.Wrapper>
+        )}
+      </Base.Section>
+      <Base.Section title="Dimensions">
+        <Base.NumericField
+          path="dimensions.width"
+          label="Width"
+          inputProps={Form.DIMENSIONS_INPUT_PROPS}
+        />
+        <Base.NumericField
+          path="dimensions.height"
+          label="Height"
+          inputProps={Form.DIMENSIONS_INPUT_PROPS}
+        />
+      </Base.Section>
+    </Base.Sections>
   );
-  if (!showFillTab) return properties;
+  if (!showFillTab) return style;
   return (
-    <Tabs.Frame initialValue="properties">
-      <Tabs.Selector>
-        <Tabs.Tab itemKey="properties">Properties</Tabs.Tab>
-        <Tabs.Tab itemKey="fill">Fill</Tabs.Tab>
-      </Tabs.Selector>
-      <Tabs.Content itemKey="properties">{properties}</Tabs.Content>
+    <Properties.Tabs tabs={["style", "fill"]} tab={tab} onTabChange={onTabChange}>
+      <Tabs.Content itemKey="style">{style}</Tabs.Content>
       <Tabs.Content itemKey="fill">
         <FillForm />
       </Tabs.Content>
-    </Tabs.Frame>
+    </Properties.Tabs>
   );
 };

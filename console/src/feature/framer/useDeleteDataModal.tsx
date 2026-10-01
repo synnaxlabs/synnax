@@ -10,20 +10,17 @@
 import "@/feature/framer/DeleteModal.css";
 
 import { channel, DisconnectedError } from "@synnaxlabs/client";
-import {
-  Button,
-  Channel,
-  Component,
-  Flex,
-  Form,
-  Icon,
-  Input,
-  Nav,
-  type Select,
-  Status,
-  Synnax,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Nav } from "@synnaxlabs/lyra/nav";
+import { type Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Channel, Synnax } from "@synnaxlabs/pluto";
 import {
   type NumericTimeRange,
   numericTimeRangeZ,
@@ -131,13 +128,17 @@ const FormStep = ({ onNext }: FormStepProps): ReactElement => {
                 <Text.Text weight={450}>From beginning of time</Text.Text>
               </Flex.Box>
               {!isFromBeginning && (
-                <Form.Field<number>
+                <Form.DateTimeField
                   path="timeRange.start"
                   padHelpText={false}
                   label="From"
-                >
-                  {inputDateTimeRenderProp}
-                </Form.Field>
+                  inputProps={{
+                    level: "h4",
+                    variant: "text",
+                    bound: "start",
+                    anchors: { end },
+                  }}
+                />
               )}
             </Flex.Box>
             <Icon.Arrow.Right className={CSS.BE("delete-modal", "arrow")} color={9} />
@@ -159,9 +160,17 @@ const FormStep = ({ onNext }: FormStepProps): ReactElement => {
                 <Text.Text weight={450}>To end of time</Text.Text>
               </Flex.Box>
               {!isToEnd && (
-                <Form.Field<number> path="timeRange.end" padHelpText={false} label="To">
-                  {inputDateTimeRenderProp}
-                </Form.Field>
+                <Form.DateTimeField
+                  path="timeRange.end"
+                  padHelpText={false}
+                  label="To"
+                  inputProps={{
+                    level: "h4",
+                    variant: "text",
+                    bound: "end",
+                    anchors: { start },
+                  }}
+                />
               )}
             </Flex.Box>
           </Flex.Box>
@@ -181,10 +190,6 @@ const channelSelectRenderProp = Component.renderProp(
     />
   ),
 );
-
-const inputDateTimeRenderProp = Component.renderProp((p: Input.DateTimeProps) => (
-  <Input.DateTime level="h4" variant="text" onlyChangeOnBlur {...p} />
-));
 
 const formatTimeRange = (start: number, end: number): string => {
   const startStr =

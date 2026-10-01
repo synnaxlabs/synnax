@@ -711,8 +711,11 @@ export class Client extends query.Retriever<
       cmd.task,
       setTimeout(() => {
         this.commandDeadlines.delete(cmd.task);
-        // Any later write replaced the exact object this deadline was armed for.
-        if (statusStore.get(key) !== optimistic) return;
+        // A newer write answered the command. An older one, such as the creation
+        // placeholder echoing back over the stream, did not.
+        const current = statusStore.get(key);
+        if (current == null) return;
+        if (current !== optimistic && current.time.afterEq(optimistic.time)) return;
         statusStore.set(
           key,
           status.create<StatusDetailsZodObject>({

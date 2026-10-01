@@ -1,26 +1,15 @@
 {
   "name": "@synnaxlabs/drift",
-  "version": "0.58.0",
-  "description": "State synchronization and Redux state synchronization for Tauri Apps",
-  "repository": "https://github.com/synnaxlabs/synnax/tree/main/drift",
+  "private": true,
   "type": "module",
-  "license": "MIT",
-  "keywords": [
-    "synnax",
-    "tauri",
-    "redux",
-    "react",
-    "application level state"
-  ],
   "scripts": {
-    "build": "tsc --noEmit && vite build",
+    "build": "vite build",
     "check-types": "tsc --noEmit",
-    "watch": "tsc --noEmit && vite build --watch",
+    "watch": "vite build --watch",
     "test": "vitest",
     "cov": "vitest --coverage",
     "lint": "eslint",
-    "fix": "eslint --fix",
-    "madge": "madge --circular src"
+    "fix": "eslint --fix"
   },
   "dependencies": {
     "@synnaxlabs/x": "catalog:",
@@ -35,7 +24,6 @@
   "devDependencies": {
     "@reduxjs/toolkit": "catalog:",
     "@synnaxlabs/eslint-config": "catalog:",
-    "@synnaxlabs/madge": "catalog:",
     "@synnaxlabs/tsconfig": "catalog:",
     "@synnaxlabs/vite-plugin": "catalog:",
     "@testing-library/react": "catalog:",
@@ -53,13 +41,6 @@
     "vite": "catalog:",
     "vitest": "catalog:"
   },
-  "files": [
-    "dist",
-    "src",
-    "!**/*.spec.*",
-    "!**/*.bench.*",
-    "!dist/eslint.config.*"
-  ],
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",

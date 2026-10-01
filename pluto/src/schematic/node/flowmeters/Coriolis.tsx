@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { CSS } from "@synnaxlabs/lyra/css";
 import { type ReactElement } from "react";
 
-import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { Label } from "@/schematic/node/flowmeters/Label";
@@ -22,7 +22,7 @@ export const Coriolis = ({
   id,
   className,
   orientation = "right",
-  color,
+  strokeColor,
   scale = 1,
   ...rest
 }: Props): ReactElement => (
@@ -36,7 +36,7 @@ export const Coriolis = ({
     />
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={color}
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
     >
@@ -49,7 +49,7 @@ export const Coriolis = ({
       <Primitive.Path d="M26.75 14.1024L37.788 21.0265" strokeLinecap="round" />
       <Primitive.Path d="M43.5 17.6024L37.8427 21.0017" strokeLinecap="round" />
       <Primitive.Path d="M43.5 17.6024H69" strokeLinecap="round" />
-      <Label position={LABELS} color={color} />
+      <Label position={LABELS} strokeColor={strokeColor} />
     </Primitive.SVG>
   </Primitive.Div>
 );

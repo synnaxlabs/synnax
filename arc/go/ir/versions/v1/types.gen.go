@@ -43,9 +43,9 @@ type Function struct {
 	// Body is raw source code for user-defined functions.
 	Body Body `json:"body" msgpack:"body"`
 	// Inputs contains input parameter definitions.
-	Inputs types.Params `json:"inputs,omitzero" msgpack:"inputs,omitzero"`
+	Inputs types.Params `json:"inputs" msgpack:"inputs"`
 	// Outputs contains output parameter definitions.
-	Outputs types.Params `json:"outputs,omitzero" msgpack:"outputs,omitzero"`
+	Outputs types.Params `json:"outputs" msgpack:"outputs"`
 	// Channels contains channel read/write declarations.
 	Channels types.Channels `json:"channels" msgpack:"channels"`
 }

@@ -10,7 +10,8 @@
 package versions_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
@@ -105,7 +106,7 @@ var _ = Describe("Pre-v0.54 task key normalization", func() {
 				Where(task.MatchNames("Ancient Task")).
 				Entry(&migrated).
 				Exec(ctx, nil)).To(Succeed())
-			Expect(migrated.Key).ToNot(Equal(uuid.Nil))
+			Expect(migrated.Key).ToNot(Equal(uuid.Nil()))
 			Expect(migrated.Rack).To(Equal(testRack.Key))
 			Expect(migrated.Config).To(HaveKeyWithValue("routing_key", "rk-ancient"))
 

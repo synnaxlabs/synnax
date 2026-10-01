@@ -15,7 +15,8 @@ import {
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { type Flux, Icon, Schematic } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { type Flux, Schematic } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import {
   act,
@@ -103,7 +104,6 @@ describe("Panel tab", () => {
     it("swaps to the tombstone once the resource is deleted, and back on restore", async () => {
       const { key: project } = await client.projects.create({
         name: uniqueName("project"),
-        layout: {},
       });
       const schem = await client.schematics.create(project, { name: "Guarded" });
       const tabKey = uuid.create();
@@ -197,9 +197,7 @@ describe("Panel tab", () => {
         client: as,
         panelKey: existing.key,
         tabKey,
-        project: (
-          await client.projects.create({ name: uniqueName("proj"), layout: {} })
-        ).key,
+        project: (await client.projects.create({ name: uniqueName("proj") })).key,
       });
       await primePanel(Base, existing.key);
       const ensureRetrieved = vi.fn();

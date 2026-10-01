@@ -21,6 +21,7 @@ from freighter.transport import P
 from freighter.websocket import Message
 from synnax.framer.adapter import ReadFrameAdapter
 from synnax.framer.codec import LOW_PERF_SPECIAL_CHAR, WSFramerCodec
+from synnax.framer.common import validate_downsample_factor
 from synnax.framer.frame import Frame, FramePayload
 from synnax.telem import TimeRange, TimeSpan, TimeStamp
 
@@ -114,6 +115,7 @@ class Iterator:
         downsample_factor: int = 1,
         instrumentation: Instrumentation = NOOP,
     ) -> None:
+        validate_downsample_factor(downsample_factor)
         self.tr = tr
         self.instrumentation = instrumentation
         self._adapter = adapter
@@ -216,6 +218,8 @@ class Iterator:
         """Close closes the iterator. An iterator MUST be closed after use, and this method
         should probably be placed in a 'finally' block. If the iterator is not closed, it may
         leak resources and threads.
+
+        :raises Exception: the error that stopped the iterator, if a read failed.
         """
         self._stream.close_send()
         while True:

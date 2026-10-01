@@ -10,8 +10,6 @@
 package server_test
 
 import (
-	"time"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/server"
@@ -25,7 +23,6 @@ var _ = Describe("gRPC", func() {
 			Security:  server.SecurityConfig{Insecure: new(true)},
 			Branches:  []server.Branch{&server.GRPCBranch{}},
 		}))
-		time.Sleep(10 * time.Millisecond)
 		Expect(b.Close()).To(Succeed())
 	})
 })

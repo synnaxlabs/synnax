@@ -297,14 +297,15 @@ func (p *Plugin) generateFile(
 	req *plugin.Request,
 ) ([]byte, error) {
 	data := &templateData{
-		Namespace:     namespace,
-		OutputPath:    outputPath,
-		Request:       req,
-		Enums:         make([]enumData, 0, len(enums)),
-		TypeDefs:      make([]typeDefData, 0, len(typeDefs)),
-		SortedDecls:   make([]sortedDeclData, 0),
-		GenerateTypes: p.Options.GenerateTypes,
-		Manager:       imports.NewManager(),
+		Namespace:       namespace,
+		OutputPath:      outputPath,
+		Request:         req,
+		Enums:           make([]enumData, 0, len(enums)),
+		TypeDefs:        make([]typeDefData, 0, len(typeDefs)),
+		SortedDecls:     make([]sortedDeclData, 0),
+		GenerateTypes:   p.Options.GenerateTypes,
+		Manager:         imports.NewManager(),
+		missingIncludes: make(set.Set[string]),
 	}
 	skip := func(s resolution.Type) bool { return omit.IsSkipped(s, "ts") }
 	rawKeyFields := key.Collect(structs, req.Resolutions, skip)
@@ -401,6 +402,15 @@ func (p *Plugin) generateFile(
 	var buf bytes.Buffer
 	if err := fileTemplate.Execute(&buf, data); err != nil {
 		return nil, err
+	}
+	if len(data.missingIncludes) > 0 {
+		missing := data.missingIncludes.Slice()
+		slices.Sort(missing)
+		return nil, errors.Newf(
+			"types with no generated TypeScript declaration need a @ts include "+
+				"module: %s",
+			strings.Join(missing, ", "),
+		)
 	}
 	return buf.Bytes(), nil
 }
@@ -825,20 +835,8 @@ func (p *Plugin) processStruct(
 				sd.HasExtends = true
 				sd.BaseIsUnion = true
 				baseTSName := domain.GetName(base, "ts")
-				schemaName := camelCase(baseTSName) + "Z"
-				if base.Namespace != data.Namespace {
-					ns := base.Namespace
-					targetOutputPath := output.GetPath(base, "ts")
-					if targetOutputPath == "" {
-						targetOutputPath = ns
-					}
-					ns = tsNamespaceIdent(ns)
-					data.AddImport(
-						paths.CalculateImport(data.OutputPath, targetOutputPath),
-						ns,
-					)
-					schemaName = ns + "." + schemaName
-				}
+				schemaName := casing.CamelAcronym(baseTSName) + "Z"
+				importLocalHand(base, schemaName, data)
 				sd.ExtendsName = schemaName
 				for _, f := range form.OmittedFields {
 					sd.OmittedFields = append(sd.OmittedFields, fieldCamel(f))
@@ -901,18 +899,14 @@ func (p *Plugin) processStruct(
 			}
 
 			parentTSName := domain.GetName(parentType, "ts")
-			schemaName := camelCase(parentTSName) + "Z"
+			schemaName := casing.CamelAcronym(parentTSName) + "Z"
+			importLocalHand(parentType, schemaName, data)
 
 			if parentType.Namespace != data.Namespace {
-				ns := parentType.Namespace
-				targetOutputPath := output.GetPath(parentType, "ts")
-				if targetOutputPath == "" {
-					targetOutputPath = ns
-				}
-				ns = tsNamespaceIdent(ns)
-				data.AddImport(
-					paths.CalculateImport(data.OutputPath, targetOutputPath),
-					ns,
+				ns := importNamespace(
+					parentType.Namespace,
+					output.GetPath(parentType, "ts"),
+					data,
 				)
 				schemaName = ns + "." + schemaName
 			}
@@ -927,7 +921,7 @@ func (p *Plugin) processStruct(
 				for _, tp := range parentForm.TypeParams {
 					parentInfo.SchemaArgs = append(
 						parentInfo.SchemaArgs,
-						camelCase(tp.Name),
+						casing.CamelAcronym(tp.Name),
 					)
 				}
 			}
@@ -1277,17 +1271,17 @@ func computeCoalescedTypes(sd *structData) {
 	}
 }
 
-// camelCase converts a generated type or schema-const identifier to camelCase, keeping
-// known acronyms upper-cased after the first word ("BaseAOChannel" -> "baseAOChannel",
-// "AIVoltageRMSChannel" -> "aiVoltageRMSChannel"). It is the template helper behind
-// every "<name>Z" const, so const names stay consistent with their acronym-aware type
-// names. Wire field keys must NOT use this; they go through fieldCamel to match the
-// JSON codec's naive snake/camel conversion.
-// tsNamespaceIdent converts a schema namespace to the identifier its TS module
-// exports ("task_config" -> "taskConfig").
-func tsNamespaceIdent(ns string) string { return camelCase(ns) }
-
-func camelCase(s string) string { return casing.CamelAcronym(s) }
+// importNamespace imports the TS module generated for namespace at outputPath, or at
+// namespace when outputPath is empty, and returns the identifier that qualifies its
+// members.
+func importNamespace(namespace, outputPath string, data *templateData) string {
+	if outputPath == "" {
+		outputPath = namespace
+	}
+	ident := casing.CamelAcronym(namespace)
+	data.AddImport(paths.CalculateImport(data.OutputPath, outputPath), ident)
+	return ident
+}
 
 // fieldCamel converts a field identifier to camelCase using the naive conversion the
 // JSON codec's snake/camel round-trip relies on, preserving only a trailing acronym run
@@ -1336,15 +1330,10 @@ func parentSchemaName(
 	if _, isStruct := parent.Form.(resolution.StructForm); !isStruct {
 		return "", false
 	}
-	name := camelCase(domain.GetName(parent, "ts")) + "Z"
+	name := casing.CamelAcronym(domain.GetName(parent, "ts")) + "Z"
+	importLocalHand(parent, name, data)
 	if parent.Namespace != data.Namespace {
-		ns := parent.Namespace
-		targetOutputPath := output.GetPath(parent, "ts")
-		if targetOutputPath == "" {
-			targetOutputPath = ns
-		}
-		ns = tsNamespaceIdent(ns)
-		data.AddImport(paths.CalculateImport(data.OutputPath, targetOutputPath), ns)
+		ns := importNamespace(parent.Namespace, output.GetPath(parent, "ts"), data)
 		name = ns + "." + name
 	}
 	return name, true
@@ -1408,13 +1397,7 @@ func (p *Plugin) createNewRefForField(
 	}
 	newName := "New"
 	if resolved.Namespace != data.Namespace {
-		ns := resolved.Namespace
-		targetOutputPath := output.GetPath(resolved, "ts")
-		if targetOutputPath == "" {
-			targetOutputPath = ns
-		}
-		ns = tsNamespaceIdent(ns)
-		data.AddImport(paths.CalculateImport(data.OutputPath, targetOutputPath), ns)
+		ns := importNamespace(resolved.Namespace, output.GetPath(resolved, "ts"), data)
 		newName = ns + ".New"
 	}
 	return fmt.Sprintf("%s<%s>", newName, detailsSchema), true
@@ -1439,18 +1422,17 @@ func (p *Plugin) detailsSchemaRef(
 	if !isStruct {
 		return "", false
 	}
+	importLocalHand(
+		resolved,
+		casing.CamelAcronym(domain.GetName(resolved, "ts"))+"Z",
+		data,
+	)
 	prefix := ""
 	if resolved.Namespace != data.Namespace {
-		ns := resolved.Namespace
-		targetOutputPath := output.GetPath(resolved, "ts")
-		if targetOutputPath == "" {
-			targetOutputPath = ns
-		}
-		ns = tsNamespaceIdent(ns)
-		data.AddImport(paths.CalculateImport(data.OutputPath, targetOutputPath), ns)
+		ns := importNamespace(resolved.Namespace, output.GetPath(resolved, "ts"), data)
 		prefix = ns + "."
 	}
-	schema := prefix + camelCase(domain.GetName(resolved, "ts")) + "Z"
+	schema := prefix + casing.CamelAcronym(domain.GetName(resolved, "ts")) + "Z"
 	if form.IsGeneric() {
 		return fmt.Sprintf("ReturnType<typeof %s>", schema), true
 	}
@@ -1469,7 +1451,7 @@ func coalesceTSType(tsType string, typeParams []typeParamData) string {
 		// is a substring of a larger identifier (e.g. `Type` inside `ReturnType`)
 		// is left untouched.
 		re := regexp.MustCompile(`\b` + regexp.QuoteMeta(tp.Name) + `\b`)
-		result = re.ReplaceAllString(result, `S["`+camelCase(tp.Name)+`"]`)
+		result = re.ReplaceAllString(result, `S["`+casing.CamelAcronym(tp.Name)+`"]`)
 	}
 	return result
 }
@@ -1511,7 +1493,7 @@ func (p *Plugin) processTypeParam(
 		resolved, ok := tp.Default.Resolve(table)
 		if ok {
 			if _, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
-				enumZodName := camelCase(resolved.Name) + "Z"
+				enumZodName := casing.CamelAcronym(resolved.Name) + "Z"
 				tpd.Default = "typeof " + enumZodName
 				tpd.DefaultValue = enumZodName
 			} else {
@@ -1599,7 +1581,7 @@ func fallbackForConstraint(
 	resolved, ok := constraint.Resolve(table)
 	if ok {
 		if _, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
-			return camelCase(resolved.Name) + "Z"
+			return casing.CamelAcronym(resolved.Name) + "Z"
 		}
 	}
 	return defaultValueToTS(constraint.Name)
@@ -1615,7 +1597,7 @@ func fallbackSchemaTypeForConstraint(
 	resolved, ok := constraint.Resolve(table)
 	if ok {
 		if _, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
-			return "typeof " + camelCase(resolved.Name) + "Z"
+			return "typeof " + casing.CamelAcronym(resolved.Name) + "Z"
 		}
 	}
 	if m, ok := typeParamMappings[constraint.Name]; ok {
@@ -1945,7 +1927,7 @@ func (p *Plugin) typeRefToZodInternal(
 		return "z.unknown()"
 	}
 	if typeRef.IsTypeParam() && typeRef.TypeParam != nil {
-		paramName := camelCase(typeRef.TypeParam.Name)
+		paramName := casing.CamelAcronym(typeRef.TypeParam.Name)
 		if forStructArg {
 			return paramName
 		}
@@ -1997,10 +1979,18 @@ func (p *Plugin) typeRefToZodInternal(
 	if !ok {
 		return "z.unknown()"
 	}
+	if alias, isAlias := resolved.Form.(resolution.AliasForm); !isAlias ||
+		!alias.IsGeneric() {
+		importLocalHand(
+			resolved,
+			casing.CamelAcronym(domain.GetName(resolved, "ts"))+"Z",
+			data,
+		)
+	}
 
 	switch form := resolved.Form.(type) {
 	case resolution.StructForm:
-		schemaName := camelCase(domain.GetName(resolved, "ts")) + "Z"
+		schemaName := casing.CamelAcronym(domain.GetName(resolved, "ts")) + "Z"
 		if form.IsGeneric() {
 			nonNilArgs := make([]struct {
 				index int
@@ -2023,7 +2013,7 @@ func (p *Plugin) typeRefToZodInternal(
 					for i, arg := range nonNilArgs {
 						namedArgs[i] = fmt.Sprintf(
 							"%s: %s",
-							camelCase(form.TypeParams[arg.index].Name),
+							casing.CamelAcronym(form.TypeParams[arg.index].Name),
 							arg.value,
 						)
 					}
@@ -2038,58 +2028,47 @@ func (p *Plugin) typeRefToZodInternal(
 			}
 		}
 		if resolved.Namespace != data.Namespace {
-			ns := resolved.Namespace
-			targetOutputPath := output.GetPath(resolved, "ts")
-			if targetOutputPath == "" {
-				targetOutputPath = ns
-			}
-			ns = tsNamespaceIdent(ns)
-			data.AddImport(paths.CalculateImport(data.OutputPath, targetOutputPath), ns)
+			ns := importNamespace(
+				resolved.Namespace,
+				output.GetPath(resolved, "ts"),
+				data,
+			)
 			return fmt.Sprintf("%s.%s", ns, schemaName)
 		}
 		return schemaName
 
 	case resolution.EnumForm:
-		enumName := camelCase(domain.GetName(resolved, "ts")) + "Z"
+		enumName := casing.CamelAcronym(domain.GetName(resolved, "ts")) + "Z"
 		if resolved.Namespace != data.Namespace {
-			ns := resolved.Namespace
-			targetOutputPath := enum.FindOutputPath(resolved, table, "ts")
-			if targetOutputPath == "" {
-				targetOutputPath = ns
-			}
-			ns = tsNamespaceIdent(ns)
-			data.AddImport(paths.CalculateImport(data.OutputPath, targetOutputPath), ns)
+			ns := importNamespace(
+				resolved.Namespace,
+				enum.FindOutputPath(resolved, table, "ts"),
+				data,
+			)
 			return fmt.Sprintf("%s.%s", ns, enumName)
 		}
 		return enumName
 
 	case resolution.DistinctForm:
-		schemaName := camelCase(domain.GetName(resolved, "ts")) + "Z"
+		schemaName := casing.CamelAcronym(domain.GetName(resolved, "ts")) + "Z"
 		if resolved.Namespace != data.Namespace {
-			ns := resolved.Namespace
-			targetOutputPath := output.GetPath(resolved, "ts")
-			if targetOutputPath == "" {
-				targetOutputPath = ns
-			}
-			ns = tsNamespaceIdent(ns)
-			data.AddImport(paths.CalculateImport(data.OutputPath, targetOutputPath), ns)
+			ns := importNamespace(
+				resolved.Namespace,
+				output.GetPath(resolved, "ts"),
+				data,
+			)
 			return fmt.Sprintf("%s.%s", ns, schemaName)
 		}
 		return schemaName
 
 	case resolution.AliasForm:
 		if !form.IsGeneric() {
-			schemaName := camelCase(domain.GetName(resolved, "ts")) + "Z"
+			schemaName := casing.CamelAcronym(domain.GetName(resolved, "ts")) + "Z"
 			if resolved.Namespace != data.Namespace {
-				ns := resolved.Namespace
-				targetOutputPath := output.GetPath(resolved, "ts")
-				if targetOutputPath == "" {
-					targetOutputPath = ns
-				}
-				ns = tsNamespaceIdent(ns)
-				data.AddImport(
-					paths.CalculateImport(data.OutputPath, targetOutputPath),
-					ns,
+				ns := importNamespace(
+					resolved.Namespace,
+					output.GetPath(resolved, "ts"),
+					data,
 				)
 				return fmt.Sprintf("%s.%s", ns, schemaName)
 			}
@@ -2108,15 +2087,13 @@ func (p *Plugin) typeRefToZodInternal(
 		return p.typeRefToZodInternal(&target, table, data, forStructArg)
 
 	case resolution.UnionForm:
-		schemaName := camelCase(domain.GetName(resolved, "ts")) + "Z"
+		schemaName := casing.CamelAcronym(domain.GetName(resolved, "ts")) + "Z"
 		if resolved.Namespace != data.Namespace {
-			ns := resolved.Namespace
-			targetOutputPath := output.GetPath(resolved, "ts")
-			if targetOutputPath == "" {
-				targetOutputPath = ns
-			}
-			ns = tsNamespaceIdent(ns)
-			data.AddImport(paths.CalculateImport(data.OutputPath, targetOutputPath), ns)
+			ns := importNamespace(
+				resolved.Namespace,
+				output.GetPath(resolved, "ts"),
+				data,
+			)
 			return fmt.Sprintf("%s.%s", ns, schemaName)
 		}
 		return schemaName
@@ -2235,13 +2212,11 @@ func (p *Plugin) typeRefToTSInternal(
 	case resolution.DistinctForm:
 		distinctName := domain.GetName(resolved, "ts")
 		if resolved.Namespace != data.Namespace {
-			ns := resolved.Namespace
-			targetOutputPath := output.GetPath(resolved, "ts")
-			if targetOutputPath == "" {
-				targetOutputPath = ns
-			}
-			ns = tsNamespaceIdent(ns)
-			data.AddImport(paths.CalculateImport(data.OutputPath, targetOutputPath), ns)
+			ns := importNamespace(
+				resolved.Namespace,
+				output.GetPath(resolved, "ts"),
+				data,
+			)
 			return fmt.Sprintf("%s.%s", ns, distinctName)
 		}
 		return distinctName
@@ -2495,20 +2470,20 @@ func (p *Plugin) typeRefToZodSchemaType(
 			return fmt.Sprintf(
 				"ReturnType<typeof %s%sZ<%s>>",
 				prefix,
-				camelCase(tsName),
+				casing.CamelAcronym(tsName),
 				strings.Join(args, ", "),
 			)
 		}
-		return fmt.Sprintf("typeof %s%sZ", prefix, camelCase(tsName))
+		return fmt.Sprintf("typeof %s%sZ", prefix, casing.CamelAcronym(tsName))
 
 	case resolution.EnumForm:
-		return fmt.Sprintf("typeof %s%sZ", prefix, camelCase(tsName))
+		return fmt.Sprintf("typeof %s%sZ", prefix, casing.CamelAcronym(tsName))
 
 	case resolution.DistinctForm:
-		return fmt.Sprintf("typeof %s%sZ", prefix, camelCase(tsName))
+		return fmt.Sprintf("typeof %s%sZ", prefix, casing.CamelAcronym(tsName))
 
 	case resolution.AliasForm:
-		return fmt.Sprintf("typeof %s%sZ", prefix, camelCase(tsName))
+		return fmt.Sprintf("typeof %s%sZ", prefix, casing.CamelAcronym(tsName))
 
 	case resolution.UnionForm:
 		// A union schema's inferred type depends on every variant schema, so a
@@ -2523,6 +2498,21 @@ func (p *Plugin) typeRefToZodSchemaType(
 
 func isInXPackage(outputPath string) bool {
 	return strings.HasPrefix(outputPath, xPathPrefix)
+}
+
+// importLocalHand imports ident from typ's `@ts include` module when typ is
+// hand-written or omitted in the namespace being generated, since the generated file
+// declares no such type. A missing module is recorded so generation fails.
+func importLocalHand(typ resolution.Type, ident string, data *templateData) {
+	if typ.Namespace != data.Namespace || !omit.IsSkipped(typ, "ts") {
+		return
+	}
+	module := domain.GetStringFromType(typ, "ts", "include")
+	if module == "" {
+		data.missingIncludes.Add(typ.QualifiedName)
+		return
+	}
+	data.AddImport(paths.CalculateImport(data.OutputPath, module), ident)
 }
 
 func addXImport(data *templateData, imp xImport) {
@@ -2789,8 +2779,8 @@ func tsTelemNumericDefault(
 	typeRef resolution.TypeRef, data *templateData, literal string, isZero bool,
 ) (string, bool) {
 	name := typeRef.Name
-	if i := strings.LastIndex(name, "."); i >= 0 {
-		name = name[i+1:]
+	if _, bare, ok := strings.CutLast(name, "."); ok {
+		name = bare
 	}
 	switch name {
 	case "TimeStamp", "TimeSpan", "Rate":
@@ -2951,6 +2941,9 @@ type templateData struct {
 	SortedDecls      []sortedDeclData
 	CurrentDeclIndex int
 	GenerateTypes    bool
+	// missingIncludes holds the hand-written types referenced in this namespace that
+	// declare no `@ts include` module.
+	missingIncludes set.Set[string]
 }
 
 type sortedDeclData struct {
@@ -3095,7 +3088,7 @@ type enumValueData struct {
 }
 
 var templateFuncs = template.FuncMap{
-	"camelCase": camelCase,
+	"camelCase": casing.CamelAcronym,
 	"title":     lo.Capitalize,
 	"lower":     strings.ToLower,
 	"pluralUpper": func(name string) string {
@@ -3530,8 +3523,13 @@ export type {{ .TypeName }} = z.infer<typeof {{ .TypeSchemaName }}>;
 {{ formatDoc .TSName .Doc }}
 {{ end -}}
 export const {{ .SchemaName }} = z.discriminatedUnion("{{ .Discriminator }}", [
+{{- $lazy := .LazyVariants }}
 {{- range .Variants }}
+{{- if $lazy }}
+  z.lazy(() => {{ .SchemaName }}),
+{{- else }}
   {{ .SchemaName }},
+{{- end }}
 {{- end }}
 ]);
 {{- if $.GenerateTypes }}

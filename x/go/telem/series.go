@@ -10,7 +10,7 @@
 package telem
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"iter"
 	"slices"
@@ -113,7 +113,7 @@ func (s *Series) validateVariable() error {
 			)
 		}
 		sample := s.Data[offset : offset+length]
-		if s.DataType == JSONT && !json.Valid(sample) {
+		if s.DataType == JSONT && !jsontext.Value(sample).IsValid() {
 			return errors.Wrapf(
 				validate.ErrValidation,
 				"sample %q is not valid JSON",
@@ -243,6 +243,20 @@ func (s Series) SetValueAt[T FixedSample](i int, v T) {
 	data[i] = v
 }
 
+// Last returns a one-sample series holding the last sample of s. Panics when empty.
+func (s Series) Last() Series {
+	data := s.At(-1)
+	if s.DataType.IsVariable() {
+		data = NewSeriesV(string(data)).Data
+	}
+	return Series{
+		DataType:  s.DataType,
+		Data:      data,
+		Alignment: s.Alignment.AddSamples(uint32(s.Len() - 1)),
+		TimeRange: s.TimeRange,
+	}
+}
+
 // CopyValue copies the sample from src at the index srcIdx to the index srcIdx in src.
 // dst and src must have the same DataType, and that DataType cannot be of variable
 // density.
@@ -287,22 +301,23 @@ func (s Series) String() string {
 
 // Downsample returns a copy of the Series with the data down sampled by the given
 // factor, i.e., 1 out of every factor samples is kept.
-func (s Series) Downsample(factor int) Series {
+func (s Series) Downsample(factor uint32) Series {
 	if factor <= 1 || len(s.Data) == 0 {
 		return s
 	}
+	f := int(factor)
 	var oData []byte
 	if s.DataType.IsVariable() {
 		samples := unmarshalVariable[[]byte](s.Data)
-		downsampled := make([][]byte, 0, len(samples)/factor+1)
-		for i := 0; i < len(samples); i += factor {
+		downsampled := make([][]byte, 0, len(samples)/f+1)
+		for i := 0; i < len(samples); i += f {
 			downsampled = append(downsampled, samples[i])
 		}
 		oData = marshalVariable(downsampled)
 	} else {
-		seriesLength := len(s.Data) / factor
+		seriesLength := len(s.Data) / f
 		oData = make([]byte, 0, seriesLength)
-		for i := int64(0); i < s.Len(); i += int64(factor) {
+		for i := int64(0); i < s.Len(); i += int64(f) {
 			start := i * int64(s.DataType.Density())
 			end := start + int64(s.DataType.Density())
 			oData = append(oData, s.Data[start:end]...)

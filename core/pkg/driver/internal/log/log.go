@@ -58,8 +58,8 @@ func ParseLine(line, prevCaller string) ParsedLine {
 	secondClose := strings.IndexByte(line[firstClose+1:], ']')
 	if secondClose == -1 {
 		prefix := line[:firstClose]
-		if lastSpace := strings.LastIndexByte(prefix, ' '); lastSpace >= 0 {
-			p.Caller = prefix[lastSpace+1:]
+		if _, caller, ok := strings.CutLast(prefix, " "); ok {
+			p.Caller = caller
 		}
 		p.Message = strings.TrimSpace(line[firstClose+1:])
 		return p
@@ -67,8 +67,8 @@ func ParseLine(line, prevCaller string) ParsedLine {
 	secondClose += firstClose + 1
 
 	prefix := line[:firstClose]
-	if lastSpace := strings.LastIndexByte(prefix, ' '); lastSpace >= 0 {
-		p.Caller = strings.TrimPrefix(prefix[lastSpace+1:], "[")
+	if _, caller, ok := strings.CutLast(prefix, " "); ok {
+		p.Caller = strings.TrimPrefix(caller, "[")
 	}
 	p.Name = strings.TrimPrefix(strings.TrimSpace(line[firstClose+1:secondClose]), "[")
 	msg := line[secondClose+1:]

@@ -12,8 +12,8 @@ package task_test
 import (
 	"context"
 	"math"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
@@ -140,7 +140,7 @@ var _ = Describe("Task", Ordered, func() {
 				Name: "Test Task",
 			}
 			Expect(w.Create(ctx, m)).To(Succeed())
-			Expect(m.Key).ToNot(Equal(uuid.Nil))
+			Expect(m.Key).ToNot(Equal(uuid.Nil()))
 			Expect(m.Name).To(Equal("Test Task"))
 		})
 		It("Should preserve a client-provided key", func(ctx SpecContext) {
@@ -157,13 +157,14 @@ var _ = Describe("Task", Ordered, func() {
 		It("Should create a rackless draft", func(ctx SpecContext) {
 			m := &task.Task{Type: testType, Name: "Draft Task"}
 			Expect(w.Create(ctx, m)).To(Succeed())
-			Expect(m.Key).ToNot(Equal(uuid.Nil))
+			Expect(m.Key).ToNot(Equal(uuid.Nil()))
 			Expect(m.Rack.IsZero()).To(BeTrue())
 		})
 	})
 
 	Describe("ConfigHash", func() {
 		create := func(ctx context.Context, config msgpack.EncodedJSON) string {
+			GinkgoHelper()
 			t := &task.Task{
 				Type:   testType,
 				Rack:   testRack.Key,
@@ -190,6 +191,30 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(first).To(Equal(second))
 			},
 		)
+		// A row deleted and re-added carries a fresh key, which must not read as a
+		// config change and ask the user to redeploy.
+		It("Should ignore the keys of nested rows", func(ctx SpecContext) {
+			alert := func(key string) map[string]any {
+				return map[string]any{"key": key, "status": "st-1"}
+			}
+			first := create(ctx, msgpack.EncodedJSON{
+				"routing_key": "rk-1", "alerts": []any{alert("a-1")},
+			})
+			second := create(ctx, msgpack.EncodedJSON{
+				"routing_key": "rk-1", "alerts": []any{alert("a-2")},
+			})
+			Expect(first).To(Equal(second))
+		})
+		It("Should hash nested rows that differ in content differently", func(
+			ctx SpecContext,
+		) {
+			alert := func(status string) map[string]any {
+				return map[string]any{"key": "a-1", "status": status}
+			}
+			first := create(ctx, msgpack.EncodedJSON{"alerts": []any{alert("st-1")}})
+			second := create(ctx, msgpack.EncodedJSON{"alerts": []any{alert("st-2")}})
+			Expect(first).ToNot(Equal(second))
+		})
 		It("Should hash differing configs differently", func(ctx SpecContext) {
 			first := create(ctx, msgpack.EncodedJSON{"routing_key": "rk-1"})
 			second := create(ctx, msgpack.EncodedJSON{"routing_key": "rk-2"})
@@ -204,6 +229,7 @@ var _ = Describe("Task", Ordered, func() {
 			"Should hash integer and integral float values identically",
 			func(ctx SpecContext) {
 				createArc := func(config msgpack.EncodedJSON) string {
+					GinkgoHelper()
 					t := &task.Task{
 						Type:   arc.TaskType,
 						Rack:   testRack.Key,
@@ -493,7 +519,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(w.Create(ctx, m)).To(Succeed())
 			Expect(m.Name).To(Equal("Test Task"))
 			t := MustSucceed(w.Copy(ctx, m.Key, "Copied Task", false))
-			Expect(t.Key).ToNot(Equal(uuid.Nil))
+			Expect(t.Key).ToNot(Equal(uuid.Nil()))
 			Expect(t.Key).ToNot(Equal(m.Key))
 		})
 

@@ -20,7 +20,8 @@ import {
   RoleClients,
 } from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
-import { Icon, Menu } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
 import { uuid } from "@synnaxlabs/x";
 import {
   act,
@@ -296,9 +297,8 @@ describe("Panel.TabMenuItems", () => {
 
   describe("move to panel", () => {
     it("opens the picker on the tab the menu was opened on", async () => {
-      const projectKey = (
-        await client.projects.create({ name: uniqueName("project"), layout: {} })
-      ).key;
+      const projectKey = (await client.projects.create({ name: uniqueName("project") }))
+        .key;
       const parent = project.ontologyID(projectKey);
       const [front, moved] = [resourceTab(), resourceTab()];
       const source = await client.panels.create({
@@ -378,7 +378,6 @@ describe("Panel.TabMenuItems permissions", () => {
     const existing = await createServerPanel(client, { variant: "leaf", tabs: [tab] });
     const { key } = await client.projects.create({
       name: uniqueName("project"),
-      layout: {},
     });
     const { wrapper } = await createPanelWrapper({
       client: as,

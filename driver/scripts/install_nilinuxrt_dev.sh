@@ -7,8 +7,7 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-bazel-6.4.0 build --stamp //core/pkg/version:version --define=platform=nilinuxrt
-bazel-6.4.0 build //driver --define=platform=nilinuxrt
+bazel build //driver --define=platform=nilinuxrt
 ./bazel-bin/driver/driver stop
 sudo ./bazel-bin/driver/driver install
 ./bazel-bin/driver/driver start

@@ -10,6 +10,7 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type table } from "@synnaxlabs/client";
 import { type Drift } from "@synnaxlabs/drift";
+import { Properties } from "@synnaxlabs/pluto";
 import z from "zod";
 
 import { Window } from "@/session/window";
@@ -20,13 +21,15 @@ export const stateZ = z.object({
   lastSelected: z.string().nullable().default(null),
   hideIndicators: z.boolean().default(false),
   centered: z.boolean().default(false),
+  /** The last tab selected in a cell's properties form. */
+  propertiesTab: Properties.tabKeyZ.optional(),
 });
 export interface State extends z.infer<typeof stateZ> {}
 export interface NewState extends z.input<typeof stateZ> {}
 
 export const ZERO_STATE = stateZ.parse({});
 
-export const windowStateZ = z.record(z.string(), stateZ).default({});
+const windowStateZ = z.record(z.string(), stateZ).default({});
 
 export const sliceStateZ = z.object({
   version: z.literal(0).default(0),
@@ -66,6 +69,10 @@ export interface SetCenteredPayload extends KeyedPayload {
   centered?: boolean;
 }
 
+export interface SetPropertiesTabPayload extends KeyedPayload {
+  tab: Properties.TabKey;
+}
+
 export interface RemovePayload {
   keys: string[];
 }
@@ -103,6 +110,11 @@ export const { actions, reducer } = createSlice({
         state.centered = centered ?? !state.centered;
       },
     ),
+    setPropertiesTab: withSelectedState<SetPropertiesTabPayload, SliceState>(
+      (state, { payload: { tab } }) => {
+        state.propertiesTab = tab;
+      },
+    ),
     remove: (state, { payload }: PayloadAction<RemovePayload>) => {
       Window.removeDocuments(state, payload.keys);
     },
@@ -116,11 +128,11 @@ export const {
   setEditable,
   setHideIndicators,
   setCentered,
+  setPropertiesTab,
   remove,
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
-export type Payload = Action["payload"];
 
 export const purgeState = (state: State): State => {
   state.selectedCells = [];
@@ -128,7 +140,7 @@ export const purgeState = (state: State): State => {
   return state;
 };
 
-export const purgeSliceState = <S extends StoreState>(state: S): S => {
+const purgeSliceState = <S extends StoreState>(state: S): S => {
   Window.purgeDocuments(state[SLICE_NAME], purgeState);
   return state;
 };
@@ -142,5 +154,6 @@ export const MIDDLEWARE = [
     setEditable,
     setHideIndicators,
     setCentered,
+    setPropertiesTab,
   ]),
 ];

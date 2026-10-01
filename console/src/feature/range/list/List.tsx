@@ -10,18 +10,15 @@
 import "@/feature/range/list/List.css";
 
 import { ranger } from "@synnaxlabs/client";
-import {
-  Access,
-  Button,
-  Component,
-  Flex,
-  type Flux,
-  Icon,
-  Input,
-  List as PList,
-  Menu,
-  Select,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { List as PList } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Access, type Flux } from "@synnaxlabs/pluto";
 import { type state } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useCallback, useState } from "react";
 
@@ -152,22 +149,20 @@ export const List = ({
           </Flex.Box>
         )}
         <Menu.ContextMenu menu={contextMenu} {...menuProps} />
-        <PList.Items<string>
-          emptyContent={answered && emptyContent}
-          grow
-          onContextMenu={menuProps.open}
-        >
-          {({ key, ...rest }) => (
-            <Item
-              key={key}
-              {...rest}
-              showParent={showParent}
-              showLabels={showLabels}
-              showTimeRange={showTimeRange}
-              showFavorite={showFavorite}
-            />
-          )}
-        </PList.Items>
+        <PList.Scroll grow onContextMenu={menuProps.open}>
+          <PList.Items<string> emptyContent={answered && emptyContent}>
+            {({ key, ...rest }) => (
+              <Item
+                key={key}
+                {...rest}
+                showParent={showParent}
+                showLabels={showLabels}
+                showTimeRange={showTimeRange}
+                showFavorite={showFavorite}
+              />
+            )}
+          </PList.Items>
+        </PList.Scroll>
       </Select.Frame>
     </Flex.Box>
   );

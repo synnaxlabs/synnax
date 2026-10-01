@@ -1,0 +1,177 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { Button } from "@synnaxlabs/lyra/button";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import SectionHero from "@/components/common/SectionHero.astro";
+import FeatureSection from "@/components/common/FeatureSection.astro";
+import PanelTab from "@/components/common/PanelTab.astro";
+import { cdn } from "@/cdn";
+---
+
+<SectionHero id="visualize" label="2 -> Visualize and operate">
+    See everything, control anything
+    <Fragment slot="description">
+        Build real-time dashboards, plot live telemetry, and command your hardware from
+        a single, unified console.
+    </Fragment>
+</SectionHero>
+
+<FeatureSection label="2.1 -> Schematics">
+    <Fragment slot="title"> Your system, at a glance </Fragment>
+    <Fragment slot="description">
+        Build interactive schematics that reflect live system state. Drag valves,
+        sensors, and actuators onto a canvas and bind them directly to your hardware
+        channels. No programming required.
+    </Fragment>
+    <Button.Button
+        slot="action"
+        variant="text"
+        href="https://docs.synnaxlabs.com/reference/console/schematics"
+    >
+        Learn more →
+    </Button.Button>
+    <div class="visualize-video-clip">
+        <video class="visualize-video--schematic" autoplay muted loop playsinline>
+            <source src={cdn("schematic.mp4")} type="video/mp4" />
+        </video>
+    </div>
+</FeatureSection>
+
+<FeatureSection label="2.2 -> Line plots">
+    <Fragment slot="title"> Millions of points, zero lag </Fragment>
+    <Fragment slot="description">
+        Plot millions of points of live and historical telemetry with sub-millisecond
+        precision. Pan, zoom, and annotate without dropping a frame.
+    </Fragment>
+    <Button.Button
+        slot="action"
+        variant="text"
+        href="https://docs.synnaxlabs.com/reference/console/line-plots"
+    >
+        Learn more →
+    </Button.Button>
+    <div class="visualize-lineplot-showcase">
+        <div class="visualize-lineplot-video-container">
+            <PanelTab label="Line plot">
+                <Icon.Visualize slot="icon" className="panel-tab-icon" />
+            </PanelTab>
+            <video autoplay muted loop playsinline>
+                <source src={cdn("lineplot.mp4")} type="video/mp4" />
+            </video>
+        </div>
+        <div class="visualize-lineplot-detail-container">
+            <PanelTab label="Measure">
+                <Icon.Rule slot="icon" className="panel-tab-icon" />
+            </PanelTab>
+            <div class="visualize-lineplot-detail-image-area">
+                <img
+                    class="visualize-lineplot-detail"
+                    src={cdn("images/lineplot-detail.png")}
+                    alt="Line plot measurement detail showing slope, delta X, and delta Y"
+                />
+            </div>
+        </div>
+    </div>
+</FeatureSection>
+
+<style is:global>
+    .visualize-video-clip {
+        margin-top: var(--space-lg);
+        overflow: hidden;
+    }
+
+    .visualize-lineplot-showcase {
+        position: relative;
+        margin-top: var(--space-lg);
+        padding-bottom: var(--space-md);
+    }
+
+    .visualize-lineplot-showcase::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 40%;
+        z-index: 3;
+        background: linear-gradient(
+            to bottom,
+            transparent 0%,
+            var(--pluto-gray-l0) 70%
+        );
+        pointer-events: none;
+    }
+
+    .visualize-lineplot-video-container {
+        position: relative;
+        z-index: 1;
+        padding: 0;
+        background: color-mix(in srgb, var(--pluto-gray-l1) 50%, var(--pluto-gray-l2));
+        border-radius: 2rem;
+        border: var(--pluto-border);
+        overflow: hidden;
+    }
+
+    .visualize-lineplot-video-container video {
+        display: block;
+        width: 100%;
+        height: auto;
+        padding: clamp(1.5rem, 1rem + 1vw, 3rem);
+        mix-blend-mode: lighten;
+    }
+
+    .visualize-lineplot-detail-container {
+        position: absolute;
+        z-index: 4;
+        bottom: 3rem;
+        left: 6%;
+        width: 35%;
+        padding: 0;
+        border-radius: 1.6rem;
+        border: var(--pluto-border);
+        overflow: hidden;
+        background: color-mix(in srgb, var(--pluto-gray-l1) 50%, var(--pluto-gray-l2));
+        box-shadow:
+            0 2px 4px rgba(0, 0, 0, 0.3),
+            0 8px 24px rgba(0, 0, 0, 0.4),
+            0 24px 64px rgba(0, 0, 0, 0.5);
+    }
+
+    .visualize-lineplot-detail-image-area {
+        position: relative;
+        background-image:
+            linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+        background-size: 5rem 5rem;
+    }
+
+    .visualize-lineplot-detail {
+        position: relative;
+        width: 100%;
+        height: auto;
+        display: block;
+        mix-blend-mode: lighten;
+    }
+
+    .visualize-video--schematic {
+        display: block;
+        width: 100%;
+        height: auto;
+        margin-top: -7%;
+        margin-bottom: -7%;
+    }
+
+    @media (max-width: 900px) {
+        .visualize-lineplot-detail-container {
+            display: none;
+        }
+    }
+</style>

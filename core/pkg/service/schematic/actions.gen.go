@@ -12,7 +12,6 @@
 package schematic
 
 import (
-	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/union"
 )
@@ -46,11 +45,11 @@ type SetNodePositionPayload struct {
 }
 
 // SetNodePayload inserts the node if no node with the same key exists, otherwise
-// replaces the existing node in place. If config is non-empty it is stored under the
-// node's key in the schematic configs map.
+// replaces the existing node in place. A present config replaces the entry stored under
+// the node's key in the schematic configs map.
 type SetNodePayload struct {
-	Node   Node                `json:"node" msgpack:"node"`
-	Config msgpack.EncodedJSON `json:"config,omitempty" msgpack:"config,omitempty"`
+	Node   Node           `json:"node" msgpack:"node"`
+	Config *ElementConfig `json:"config,omitzero" msgpack:"config,omitempty"`
 }
 
 // RemoveNodePayload removes a node and any config stored under its key.
@@ -69,28 +68,24 @@ type RemoveEdgePayload struct {
 	Key string `json:"key" msgpack:"key"`
 }
 
-// SetConfigPayload merges the given config fields into the existing config entry for
-// the given node or edge key. Top-level fields present in the payload overwrite
-// existing fields; fields absent from the payload are preserved. When no entry exists
-// yet and the key matches an edge whose source node carries a color, the source color
-// overrides whatever color (if any) was in the payload.
+// SetConfigPayload replaces the config entry stored under the given node or edge key.
 type SetConfigPayload struct {
-	Key    string              `json:"key" msgpack:"key"`
-	Config msgpack.EncodedJSON `json:"config" msgpack:"config"`
+	Key    string        `json:"key" msgpack:"key"`
+	Config ElementConfig `json:"config" msgpack:"config"`
 }
 
 // Action is a discriminated union for all Schematic mutations. Type names
 // the variant; the matching pointer field carries the payload and others are nil.
 type Action struct {
 	Type            string                  `json:"type" msgpack:"type"`
-	Create          *CreatePayload          `json:"create,omitempty" msgpack:"create,omitempty"`
-	Rename          *RenamePayload          `json:"rename,omitempty" msgpack:"rename,omitempty"`
-	SetNodePosition *SetNodePositionPayload `json:"set_node_position,omitempty" msgpack:"set_node_position,omitempty"`
-	SetNode         *SetNodePayload         `json:"set_node,omitempty" msgpack:"set_node,omitempty"`
-	RemoveNode      *RemoveNodePayload      `json:"remove_node,omitempty" msgpack:"remove_node,omitempty"`
-	AddEdge         *AddEdgePayload         `json:"add_edge,omitempty" msgpack:"add_edge,omitempty"`
-	RemoveEdge      *RemoveEdgePayload      `json:"remove_edge,omitempty" msgpack:"remove_edge,omitempty"`
-	SetConfig       *SetConfigPayload       `json:"set_config,omitempty" msgpack:"set_config,omitempty"`
+	Create          *CreatePayload          `json:"create,omitzero" msgpack:"create,omitempty"`
+	Rename          *RenamePayload          `json:"rename,omitzero" msgpack:"rename,omitempty"`
+	SetNodePosition *SetNodePositionPayload `json:"set_node_position,omitzero" msgpack:"set_node_position,omitempty"`
+	SetNode         *SetNodePayload         `json:"set_node,omitzero" msgpack:"set_node,omitempty"`
+	RemoveNode      *RemoveNodePayload      `json:"remove_node,omitzero" msgpack:"remove_node,omitempty"`
+	AddEdge         *AddEdgePayload         `json:"add_edge,omitzero" msgpack:"add_edge,omitempty"`
+	RemoveEdge      *RemoveEdgePayload      `json:"remove_edge,omitzero" msgpack:"remove_edge,omitempty"`
+	SetConfig       *SetConfigPayload       `json:"set_config,omitzero" msgpack:"set_config,omitempty"`
 }
 
 // Reduce applies the given actions sequentially to state by dispatching on

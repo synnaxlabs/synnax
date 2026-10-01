@@ -19,6 +19,7 @@ from pydantic import BaseModel
 
 from freighter import UnaryClient
 from freighter.transport import Empty
+from synnax.license import State as LicenseState
 from synnax.util.send_required import send_required
 from x.telem import CrudeTimeSpan, TimeSpan, TimeStamp
 from x.telem.clock_skew import ClockSkewCalculator
@@ -39,28 +40,40 @@ class State:
     node_version: str = ""
     clock_skew: TimeSpan = dataclasses.field(default_factory=lambda: TimeSpan(0))
     clock_skew_exceeded: bool = False
+    license: LicenseState | None = None
 
 
 class CheckResponse(BaseModel):
     cluster_key: str = ""
     node_version: str = ""
     node_time: TimeStamp = TimeStamp(0)
+    license: LicenseState = "ok"
 
 
-def _parse_version(v: str) -> tuple[int, int]:
+def _parse_version(v: str) -> tuple[int, int] | None:
     try:
-        parts = v.split(".")
-        return int(parts[0]), int(parts[1])
+        major, minor = v.split(".")[:2]
+        return int(major), int(minor)
     except (IndexError, ValueError):
-        return 0, 0
+        return None
+
+
+_DEV = (0, 0)
 
 
 def _versions_compatible(v1: str, v2: str) -> bool:
-    return _parse_version(v1) == _parse_version(v2)
+    """A 0.0 major.minor marks a development build, which pairs with anything. A
+    version that does not parse pairs with nothing."""
+    first, second = _parse_version(v1), _parse_version(v2)
+    if first is None or second is None:
+        return False
+    return first == _DEV or second == _DEV or first == second
 
 
 def _client_is_newer(client_version: str, node_version: str) -> bool:
-    return _parse_version(client_version) > _parse_version(node_version)
+    return (_parse_version(client_version) or (0, 0)) > (
+        _parse_version(node_version) or (0, 0)
+    )
 
 
 _TROUBLESHOOTING_URL = (
@@ -121,6 +134,7 @@ class Checker:
         with self._lock:
             prev_status = self._state.status
             prev_skew_exceeded = self._state.clock_skew_exceeded
+            prev_license = self._state.license
 
         self._skew_calc.start()
         try:
@@ -176,11 +190,13 @@ class Checker:
                 self._state.message = f"Connected to {self._name or 'cluster'}"
                 self._state.cluster_key = res.cluster_key
                 self._state.node_version = res.node_version
+                self._state.license = res.license
                 state = dataclasses.replace(self._state)
 
         changed = (
             prev_status != state.status
             or prev_skew_exceeded != state.clock_skew_exceeded
+            or prev_license != state.license
         )
         if changed and self._on_change_handlers:
             for handler in self._on_change_handlers:

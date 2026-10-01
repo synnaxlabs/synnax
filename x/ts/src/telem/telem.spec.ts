@@ -862,6 +862,139 @@ describe("TimeStamp", () => {
     });
   });
 
+  describe("parse", () => {
+    it("should parse a date as midnight in the given time zone", () => {
+      expect(TimeStamp.parse("2026-08-23")?.equals(new TimeStamp([2026, 8, 23]))).toBe(
+        true,
+      );
+      expect(
+        TimeStamp.parse("2026-08-23", "local")?.equals(
+          new TimeStamp(new Date(2026, 7, 23)),
+        ),
+      ).toBe(true);
+    });
+
+    it("should parse a date-time with a space or a T", () => {
+      const expected = new TimeStamp(new Date(2026, 7, 23, 14, 5, 32));
+      expect(TimeStamp.parse("2026-08-23 14:05:32", "local")?.equals(expected)).toBe(
+        true,
+      );
+      expect(TimeStamp.parse("2026-08-23T14:05:32", "local")?.equals(expected)).toBe(
+        true,
+      );
+      expect(
+        TimeStamp.parse("2026-08-23 14:05")?.equals(
+          new TimeStamp(new Date(Date.UTC(2026, 7, 23, 14, 5))),
+        ),
+      ).toBe(true);
+    });
+
+    it("should keep a fraction down to the nanosecond, grouped or not", () => {
+      const expected = new TimeStamp(new Date(Date.UTC(2026, 7, 23, 14, 5, 0, 250)))
+        .add(TimeSpan.microseconds(137))
+        .add(TimeSpan.nanoseconds(4));
+      expect(TimeStamp.parse("2026-08-23 14:05:00.250137004")?.equals(expected)).toBe(
+        true,
+      );
+      expect(TimeStamp.parse("2026-08-23 14:05:00.250 137 004")?.equals(expected)).toBe(
+        true,
+      );
+    });
+
+    it("should read a twelve-hour time", () => {
+      const expected = new TimeStamp(new Date(Date.UTC(2026, 7, 23, 14, 5)));
+      expect(TimeStamp.parse("2026-08-23 2:05 pm")?.equals(expected)).toBe(true);
+      expect(
+        TimeStamp.parse("2026-08-23 12:05 am")?.equals(
+          new TimeStamp(new Date(Date.UTC(2026, 7, 23, 0, 5))),
+        ),
+      ).toBe(true);
+    });
+
+    it("should parse an ISO string with a zone whatever the time zone", () => {
+      const expected = new TimeStamp(new Date(Date.UTC(2026, 7, 23, 14, 5, 0, 250)));
+      expect(
+        TimeStamp.parse("2026-08-23T14:05:00.250Z", "local")?.equals(expected),
+      ).toBe(true);
+      expect(TimeStamp.parse("2026-08-23T16:05:00.250+02:00")?.equals(expected)).toBe(
+        true,
+      );
+    });
+
+    it("should return null for text that is not an instant", () => {
+      const invalid = [
+        "",
+        "soon",
+        "14:05",
+        "2026-02-31",
+        "2026-02-29 10:00",
+        "2026-13-01",
+        "2026-08-23 24:00",
+        "2026-08-23 14:60",
+        "2026-08-23 14:05:60",
+        "2026-08-23 13:00 pm",
+      ];
+      for (const text of invalid) expect(TimeStamp.parse(text), text).toBeNull();
+    });
+  });
+
+  describe("toPreciseString", () => {
+    const base = new TimeStamp(new Date(Date.UTC(2026, 7, 23, 14, 5, 0)));
+
+    it("should drop trailing zero groups of the fraction", () => {
+      expect(base.toPreciseString()).toBe("2026-08-23 14:05:00");
+      expect(base.add(TimeSpan.milliseconds(250)).toPreciseString()).toBe(
+        "2026-08-23 14:05:00.250",
+      );
+      expect(base.add(TimeSpan.nanoseconds(4)).toPreciseString()).toBe(
+        "2026-08-23 14:05:00.000 000 004",
+      );
+    });
+
+    it("should format in local time", () => {
+      const local = new TimeStamp(new Date(2026, 7, 23, 14, 5, 0));
+      expect(local.toPreciseString("local")).toBe("2026-08-23 14:05:00");
+    });
+
+    it("should round trip through parse", () => {
+      const ts = base.add(TimeSpan.microseconds(250137)).add(TimeSpan.nanoseconds(4));
+      expect(TimeStamp.parse(ts.toPreciseString())?.equals(ts)).toBe(true);
+      expect(TimeStamp.parse(ts.toPreciseString("local"), "local")?.equals(ts)).toBe(
+        true,
+      );
+    });
+  });
+
+  describe("isSameDay", () => {
+    it("should compare calendar days in the given time zone", () => {
+      const morning = new TimeStamp(new Date(2026, 7, 23, 0, 30));
+      const night = new TimeStamp(new Date(2026, 7, 23, 23, 30));
+      const next = new TimeStamp(new Date(2026, 7, 24, 0, 30));
+      expect(morning.isSameDay(night, "local")).toBe(true);
+      expect(night.isSameDay(next, "local")).toBe(false);
+      const utcNight = new TimeStamp(new Date(Date.UTC(2026, 7, 23, 23, 30)));
+      const utcNext = new TimeStamp(new Date(Date.UTC(2026, 7, 24, 0, 30)));
+      expect(utcNight.isSameDay(utcNext)).toBe(false);
+      expect(utcNight.isSameDay(utcNight.sub(TimeSpan.HOUR))).toBe(true);
+    });
+  });
+
+  describe("setters and sub-millisecond digits", () => {
+    it("should keep the digits below a millisecond", () => {
+      const ts = new TimeStamp(new Date(2026, 0, 31, 14, 5, 0, 250)).add(
+        TimeSpan.microseconds(137),
+      );
+      const sub = TimeSpan.microseconds(137);
+      expect(ts.setLocalMonth(5).remainder(TimeSpan.MILLISECOND).equals(sub)).toBe(
+        true,
+      );
+      expect(ts.setYear(2030).remainder(TimeSpan.MILLISECOND).equals(sub)).toBe(true);
+      expect(ts.setMillisecond(1).remainder(TimeSpan.MILLISECOND).equals(sub)).toBe(
+        true,
+      );
+    });
+  });
+
   describe("remainder", () => {
     test("day", () => {
       const expectedRemainder = TimeStamp.hours(12)
@@ -1310,6 +1443,39 @@ describe("TimeSpan", () => {
     test("toString with full format", () => {
       const ts = TimeSpan.hours(25).add(TimeSpan.minutes(30)).add(TimeSpan.seconds(15));
       expect(ts.toString("full")).toEqual("1d 1h 30m 15s");
+    });
+  });
+
+  describe("parse", () => {
+    it("should parse unit runs", () => {
+      const cases: [string, TimeSpan][] = [
+        ["30s", TimeSpan.seconds(30)],
+        ["2h 30m", TimeSpan.minutes(150)],
+        ["2h30m", TimeSpan.minutes(150)],
+        ["1.5h", TimeSpan.minutes(90)],
+        ["90min", TimeSpan.minutes(90)],
+        ["500ms", TimeSpan.milliseconds(500)],
+        ["250us", TimeSpan.microseconds(250)],
+        ["250µs", TimeSpan.microseconds(250)],
+        ["10ns", TimeSpan.nanoseconds(10)],
+        ["2D 3H", TimeSpan.days(2).add(TimeSpan.hours(3))],
+      ];
+      for (const [text, expected] of cases)
+        expect(TimeSpan.parse(text)?.equals(expected), text).toBe(true);
+    });
+
+    it("should round trip through toString", () => {
+      const span = TimeSpan.days(2)
+        .add(TimeSpan.hours(3))
+        .add(TimeSpan.milliseconds(500))
+        .add(TimeSpan.microseconds(7))
+        .add(TimeSpan.nanoseconds(9));
+      expect(TimeSpan.parse(span.toString())?.equals(span)).toBe(true);
+    });
+
+    it("should return null for text that is not a unit run", () => {
+      for (const text of ["", "soon", "5 parsecs", "1:30:00", "45", "2h and 5m"])
+        expect(TimeSpan.parse(text), text).toBeNull();
     });
   });
 

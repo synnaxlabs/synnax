@@ -10,6 +10,7 @@
 import { type EnhancedStore } from "@reduxjs/toolkit";
 import {
   type access,
+  type connection,
   type ontology,
   panel,
   type project,
@@ -17,7 +18,9 @@ import {
   type SynnaxParams,
 } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
-import { Access, Status, Synnax, Triggers } from "@synnaxlabs/pluto";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
+import { Access, Synnax } from "@synnaxlabs/pluto";
 import { type aether, eraser } from "@synnaxlabs/pluto/ether";
 import { deep, id } from "@synnaxlabs/x";
 import {
@@ -133,7 +136,7 @@ export const selectTestProject = async (
   store: TestStore,
   client: Client,
 ): Promise<string> => {
-  const proj = await client.projects.create({ name: id.create(), layout: {} });
+  const proj = await client.projects.create({ name: id.create() });
   store.dispatch(Session.Project.select(proj.key));
   return proj.key;
 };
@@ -361,6 +364,39 @@ export const createConnectedConsoleWrapper = async ({
       <Synnax.Provider connParams={connParams}>{children}</Synnax.Provider>
     </Console>
   );
+  return { wrapper: Wrapper, store };
+};
+
+export interface CreateStatusConsoleWrapperParams extends CreateConsoleWrapperParams {
+  /** Connection status the Synnax context reports. */
+  status?: connection.Status;
+}
+
+/**
+ * Like createConsoleWrapper, but the Synnax context reports the given client and status
+ * without connecting the client, the way the Console sees a Core that refuses the
+ * connection.
+ */
+export const createStatusConsoleWrapper = async ({
+  client,
+  status,
+  ...args
+}: CreateStatusConsoleWrapperParams): Promise<{
+  wrapper: FC<PropsWithChildren>;
+  store: TestStore;
+}> => {
+  const { wrapper: Console, store } = await createConsoleWrapper({
+    ...args,
+    client: null,
+  });
+  const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
+    <Console>
+      <Synnax.TestProvider client={client} status={status}>
+        {children}
+      </Synnax.TestProvider>
+    </Console>
+  );
+  Wrapper.displayName = "StatusConsoleWrapper";
   return { wrapper: Wrapper, store };
 };
 

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { theme as baseTheme } from "@synnaxlabs/lyra/theme";
 import {
   bounds,
   box,
@@ -20,7 +21,6 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { theming } from "@/theming/aether";
-import { fontString } from "@/theming/base/fontString";
 import { axis } from "@/vis/axis";
 import { type TickType } from "@/vis/axis/ticks";
 import { grid } from "@/vis/grid";
@@ -44,8 +44,6 @@ export const baseAxisStateZ = axis.axisStateZ
   })
   .partial({ color: true, font: true, gridColor: true });
 
-export type BaseAxisState = z.infer<typeof baseAxisStateZ>;
-
 const AXIS_SIZE_UPDATE_UPPER_THRESHOLD = 2; // px;
 const AXIS_SIZE_UPDATE_LOWER_THRESHOLD = 7; // px;
 
@@ -58,7 +56,7 @@ export const withinSizeThreshold = (prev: number, next: number): boolean =>
     next,
   );
 
-export const EMPTY_LINEAR_BOUNDS = bounds.DECIMAL;
+const EMPTY_LINEAR_BOUNDS = bounds.DECIMAL;
 
 // Computed per call so an empty time axis tracks the present instead of app start.
 export const emptyBounds = (type: TickType): bounds.Bounds => {
@@ -119,7 +117,7 @@ export class BaseAxis<
       dir === "x" ? DEFAULT_Y_BOUND_PADDING : DEFAULT_X_BOUND_PADDING;
     i.base = axis.newCanvas(location, i.render, {
       color: theme.colors.gray.l10,
-      font: fontString(theme, { level: "small", code: true }),
+      font: baseTheme.fontString(theme, { level: "small", code: true }),
       gridColor: theme.colors.gray.l1,
       ...this.state,
     });

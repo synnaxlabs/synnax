@@ -12,15 +12,14 @@
 package v0_test
 
 import (
-	"github.com/google/uuid"
 	"testing"
+	"uuid"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/user/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Codec", func() {
@@ -43,7 +42,7 @@ var _ = Describe("Codec", func() {
 				RootUser:  true,
 			}),
 			Entry("zero values", v0.User{
-				Key:       uuid.Nil,
+				Key:       uuid.Nil(),
 				Username:  "",
 				FirstName: "",
 				LastName:  "",
@@ -93,7 +92,7 @@ func FuzzDecodeUser(f *testing.F) {
 	}
 	{
 		seed := v0.User{
-			Key:       uuid.Nil,
+			Key:       uuid.Nil(),
 			Username:  "",
 			FirstName: "",
 			LastName:  "",
@@ -121,7 +120,7 @@ func FuzzDecodeUser(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})

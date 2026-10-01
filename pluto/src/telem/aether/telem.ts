@@ -14,6 +14,7 @@ import {
   type destructor,
   type MultiSeries,
   observe,
+  type TimeStamp,
   zod,
 } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -69,6 +70,7 @@ export interface Source<V> extends Telem, observe.Observable<void> {
   value: (props?: ValueProps) => V;
   /** @returns true while the source's initial read is in flight. */
   loading?: () => boolean;
+  sampleTime?: () => TimeStamp | null;
 }
 
 export interface Sink<V> extends Telem {
@@ -198,6 +200,10 @@ export abstract class UnarySourceTransformer<I, O, P extends z.ZodType>
     });
   }
 
+  sampleTime(): TimeStamp | null {
+    return this.source.sampleTime?.() ?? null;
+  }
+
   setSources(sources: Record<string, Source<I>>): void {
     this.source_ = Object.values(sources)[0];
   }
@@ -222,8 +228,21 @@ export abstract class MultiSourceTransformer<I, O, P extends z.ZodType>
     return this.transform(values);
   }
 
+  onChange(handler: () => void): destructor.Destructor {
+    const destructors = Object.values(this.sources).map((source) =>
+      source.onChange(() => {
+        if (this.shouldNotify()) handler();
+      }),
+    );
+    return () => destructors.forEach((d) => d());
+  }
+
   setSources(sources: Record<string, Source<I>>): void {
     this.sources = { ...this.sources, ...sources };
+  }
+
+  protected shouldNotify(): boolean {
+    return true;
   }
 
   protected abstract transform(_: Record<string, I>): O;

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ni, type task } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { z } from "zod";
 
 import { createPortValidator } from "@/feature/ni/task/types/validation";
@@ -38,7 +38,6 @@ export type StrainConfig = ni.StrainConfig;
 export type TerminalConfig = ni.TerminalConfig;
 export type ThermocoupleType = ni.ThermocoupleType;
 
-export const WAVE_TYPES = ni.WAVE_TYPES;
 export type WaveType = ni.WaveType;
 
 export type Scale = ni.Scale;
@@ -130,7 +129,7 @@ export const AI_CHANNEL_TYPE_NAMES: Record<AIChannelType, string> = {
   ai_velocity_iepe: "Velocity IEPE",
   ai_voltage: "Voltage",
   ai_voltage_rms: "Voltage RMS",
-  ai_voltage_with_excit: "Voltage with Excitation",
+  ai_voltage_with_excit: "Voltage with excitation",
 };
 
 // Types without a dedicated icon reuse their measurement category's icon.
@@ -179,7 +178,6 @@ export type CILinearVelocityUnits = ni.CILinearVelocityUnits;
 export type CIAngularVelocityUnits = ni.CIAngularVelocityUnits;
 export type CILinearPositionUnits = ni.CILinearPositionUnits;
 export type CIAngularPositionUnits = ni.CIAngularPositionUnits;
-export type ZIndexPhase = ni.ZIndexPhase;
 export type CIEdge = ni.CIEdge;
 export type CIMeasMethod = ni.CIMeasMethod;
 export type CICountDirection = ni.CICountDirection;
@@ -259,8 +257,6 @@ export const createDOChannel = (): DOChannel =>
   ni.doChannelZ.parse({ type: "digital_output" });
 
 export type DigitalChannel = DIChannel | DOChannel;
-
-export type Channel = AnalogChannel | DigitalChannel;
 
 const deployReadRateShape = {
   sampleRate: z.number().positive().max(1000000),

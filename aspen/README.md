@@ -29,7 +29,7 @@ Aspen leverages a 'lease' based methodology that allows a node to continue writi
 certain keys and reading all values even when completely separated frm the network,
 synchronizing changes when it rejoins the cluster.
 
-# Stability and Important Considerations
+# Stability and important considerations
 
 - Aspen is in active development and is not yet ready for production use. The key-value
   API is stable, but the cluster API will likely change.

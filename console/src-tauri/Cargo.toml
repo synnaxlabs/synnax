@@ -17,7 +17,7 @@ rust-version = "1.98"
 # https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [build-dependencies]
-tauri-build = { version = "2.6.3", features = [] }
+tauri-build = { version = "2.7.0", features = [] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6.4"
@@ -32,22 +32,38 @@ objc2-app-kit = { version = "0.3.2", features = [
 objc2-foundation = "0.3.2"
 
 [target."cfg(any(target_os = \"macos\", windows, target_os = \"linux\"))".dependencies]
-tauri-plugin-single-instance = { version = "2.4.3", features = ["deep-link"] }
+tauri-plugin-single-instance = { version = "2.5.0", features = ["deep-link"] }
 
 [dependencies]
 device_query = "4.0.1"
 serde = "1.0.229"
 serde_json = "1.0.151"
-tauri = { version = "2.11.5", features = ["devtools"] }
-tauri-plugin-store = "2.4.4"
-tauri-plugin-deep-link = "2.4.9"
-tauri-plugin-fs = "2.5.1"
-tauri-plugin-shell = "2.3.5"
-tauri-plugin-updater = "2.11.0"
-tauri-plugin-dialog = "2.7.2"
-tauri-plugin-process = "2.3.1"
-tauri-plugin-prevent-default = "5.0.2"
-window-shadows = "0.2.2"
+tauri = { version = "2.12.0", features = ["devtools"] }
+tauri-plugin-store = "2.5.0"
+tauri-plugin-deep-link = "2.5.0"
+tauri-plugin-fs = "2.6.0"
+tauri-plugin-shell = "2.4.0"
+tauri-plugin-updater = "2.13.0"
+tauri-plugin-dialog = "2.8.0"
+tauri-plugin-process = "2.4.0"
+tauri-plugin-prevent-default = "6.0.0"
+getrandom = { version = "0.4.3", optional = true }
+zip = { version = "8.6.0", optional = true, default-features = false, features = [
+    "deflate",
+] }
+tokio = { version = "1.53.1", optional = true, features = [
+    "io-util",
+    "macros",
+    "net",
+    "process",
+    "rt",
+    "sync",
+    "time",
+] }
+
+[dev-dependencies]
+tempfile = "3.27.0"
+tokio = { version = "1.53.1", features = ["rt-multi-thread"] }
 
 [features]
 # by default Tauri runs in production mode when `tauri dev` runs it is executed with
@@ -56,3 +72,5 @@ default = ["custom-protocol"]
 # this feature is used for production builds where `devPath` points to the filesystem DO
 # NOT remove this
 custom-protocol = ["tauri/custom-protocol"]
+# Synnax Desktop: the app bundles a Core and supervises it.
+desktop = ["dep:getrandom", "dep:tokio", "dep:zip"]

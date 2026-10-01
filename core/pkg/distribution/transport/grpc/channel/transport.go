@@ -11,7 +11,6 @@ package channel
 
 import (
 	"context"
-	"go/types"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
@@ -38,25 +37,25 @@ type (
 	deleteClient = fgrpc.UnaryClient[
 		channel.DeleteRequest,
 		*pb.DeleteRequest,
-		types.Nil,
+		struct{},
 		*emptypb.Empty,
 	]
 	deleteServer = fgrpc.UnaryServer[
 		channel.DeleteRequest,
 		*pb.DeleteRequest,
-		types.Nil,
+		struct{},
 		*emptypb.Empty,
 	]
 	renameClient = fgrpc.UnaryClient[
 		channel.RenameRequest,
 		*pb.RenameRequest,
-		types.Nil,
+		struct{},
 		*emptypb.Empty,
 	]
 	renameServer = fgrpc.UnaryServer[
 		channel.RenameRequest,
 		*pb.RenameRequest,
-		types.Nil,
+		struct{},
 		*emptypb.Empty,
 	]
 )

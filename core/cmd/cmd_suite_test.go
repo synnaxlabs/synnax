@@ -10,22 +10,12 @@
 package cmd_test
 
 import (
-	"os"
-	"strings"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/x/testutil"
 )
-
-var version string
-
-var _ = BeforeSuite(func() {
-	ShouldNotLeakGoroutines()
-	data := MustSucceed(os.ReadFile("../pkg/version/VERSION"))
-	version = "Synnax " + strings.ReplaceAll(string(data), "\r\n", "\n")
-})
 
 func TestCmd(t *testing.T) {
 	RegisterFailHandler(Fail)

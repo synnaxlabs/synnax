@@ -334,23 +334,17 @@ func (i *Domain) forwardStamp(
 	upperTSByteOffset := byteSize(endOffset)
 	lowerTSOffset := endOffset - startApprox.Span()
 	lowerTSByteOffset := byteSize(lowerTSOffset)
-	return i.approximateStamp(
-		ctx,
-		r,
-		iter,
-		endOffset,
-		effectiveDomainLen,
-		upperTSByteOffset,
-		lowerTSByteOffset,
-	)
+	return i.approximateStamp(ctx, r, iter, upperTSByteOffset, lowerTSByteOffset)
 }
 
+// approximateStamp brackets the stamp between the timestamps at upperTSByteOffset and
+// lowerTSByteOffset within the current domain. A negative lowerTSByteOffset places the
+// lower timestamp that many bytes before the domain, i.e. at the tail of the previous
+// one. approximateStamp leaves iter on that previous domain.
 func (i *Domain) approximateStamp(
 	ctx context.Context,
 	r *domain.Reader,
 	iter *domain.Iterator,
-	endOffset int64,
-	effectiveDomainLen int64,
 	upperTSByteOffset,
 	lowerTSByteOffset telem.Size,
 ) (TimeStampApproximation, error) {
@@ -360,26 +354,38 @@ func (i *Domain) approximateStamp(
 		return TimeStampApproximation{}, err
 	}
 	if lowerTSByteOffset >= 0 {
-		lowerTs, err := readStamp(r, lowerTSByteOffset)
-		return Between(lowerTs, upperTS), err
+		lowerTS, err := readStamp(r, lowerTSByteOffset)
+		return Between(lowerTS, upperTS), err
 	}
-	// Edge case: end timestamps are split between two different files, so we must go
-	// back to read the lower bound.
+	lowerTS, ok, err := i.previousDomainStamp(ctx, iter, -lowerTSByteOffset)
+	if err != nil {
+		return TimeStampApproximation{}, err
+	}
+	// Nothing precedes the first domain, so no sample bounds the stamp from below.
+	if !ok {
+		return Between(telem.TimeStampMin, upperTS), nil
+	}
+	return Between(lowerTS, upperTS), nil
+}
+
+// previousDomainStamp reads the timestamp sitting offset bytes before the end of the
+// domain preceding iter's current position, moving iter onto that domain. ok is false
+// when iter is already on the first domain.
+func (i *Domain) previousDomainStamp(
+	ctx context.Context,
+	iter *domain.Iterator,
+	offset telem.Size,
+) (ts telem.TimeStamp, ok bool, err error) {
 	if !iter.Prev() {
-		i.L.DPanic("iterator prev failed in stamp")
-		return TimeStampApproximation{}, NewDiscontinuousOffsetError(
-			endOffset,
-			effectiveDomainLen,
-		)
+		return 0, false, nil
 	}
-	if err = r.Close(); err != nil {
-		return TimeStampApproximation{}, err
+	r, err := iter.OpenReader(ctx)
+	if err != nil {
+		return 0, false, err
 	}
-	if r, err = iter.OpenReader(ctx); err != nil {
-		return TimeStampApproximation{}, err
-	}
-	lowerTS, err := readStamp(r, iter.Size()+lowerTSByteOffset)
-	return Between(lowerTS, upperTS), err
+	defer func() { err = errors.Combine(err, r.Close()) }()
+	ts, err = newStampReader()(r, iter.Size()-offset)
+	return ts, true, err
 }
 
 // BackwardStamp calculates an approximate starting timestamp for a range given a known
@@ -446,7 +452,9 @@ func (i *Domain) backwardStamp(
 	}
 
 	totalTraversed := domainLen
-	if endOffset >= domainLen {
+	// endOffset counts backwards from the end of the domain, so an offset of exactly
+	// domainLen still lands on the domain's first sample.
+	if endOffset > domainLen {
 		for {
 			if !iter.Prev() {
 				if continuous {
@@ -474,15 +482,7 @@ func (i *Domain) backwardStamp(
 
 	upperTSByteOffset := iter.Size() - byteSize(endOffset)
 	lowerTSByteOffset := iter.Size() - byteSize(endOffset+startApprox.Span())
-	return i.approximateStamp(
-		ctx,
-		r,
-		iter,
-		endOffset,
-		effectiveDomainLen,
-		upperTSByteOffset,
-		lowerTSByteOffset,
-	)
+	return i.approximateStamp(ctx, r, iter, upperTSByteOffset, lowerTSByteOffset)
 }
 
 // resolveForwardEffectiveDomainTR returns the TimeRange and length of the underlying

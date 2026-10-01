@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { DisconnectedError, query, schematic } from "@synnaxlabs/client";
-import { Icon, Schematic as Base } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Schematic as Base } from "@synnaxlabs/pluto";
 
 import { Schematic } from "@/feature/schematic/Schematic";
 import { Selectable } from "@/feature/schematic/Selectable";

@@ -9,7 +9,8 @@
 
 import { type ontology, project } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { List, Select } from "@synnaxlabs/pluto";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
@@ -25,7 +26,6 @@ describe("project/search", () => {
   it("selects the project when the search result is selected", async () => {
     const p = await client.projects.create({
       name: uniqueName("project"),
-      layout: {},
     });
     const resource = createResource(project.ontologyID(p.key), p.name);
     const SearchListItem = Project.SEARCH_LIST_ITEMS.project;

@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Input } from "@synnaxlabs/lyra/input";
+import { Select } from "@synnaxlabs/lyra/select";
 import { type text } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
-
-import { type Input } from "@/input";
-import { Select } from "@/select";
 
 export const SelectTextLevel = ({
   value,

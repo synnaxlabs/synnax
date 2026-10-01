@@ -10,7 +10,8 @@
 package v0_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v0"
@@ -30,8 +31,8 @@ var _ = Describe("Tab", func() {
 			Expect(v0.Tab{Variant: variant}.Key()).To(Equal(k))
 		})
 
-		It("Should return uuid.Nil for a tab with no variant", func() {
-			Expect(v0.Tab{}.Key()).To(Equal(uuid.Nil))
+		It("Should return uuid.Nil() for a tab with no variant", func() {
+			Expect(v0.Tab{}.Key()).To(Equal(uuid.Nil()))
 		})
 	})
 })

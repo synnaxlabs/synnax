@@ -12,7 +12,8 @@
 package pb
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
+
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	"google.golang.org/protobuf/encoding/protojson"

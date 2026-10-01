@@ -36,6 +36,7 @@ func openStreamer(ctx context.Context, db *cesium.DB, cfg cesium.StreamerConfig)
 	confluence.Outlet[cesium.StreamerResponse],
 	io.Closer,
 ) {
+	GinkgoHelper()
 	streamer := MustSucceed(db.NewStreamer(ctx, cfg))
 	requests := confluence.NewStream[cesium.StreamerRequest](1)
 	responses := confluence.NewStream[cesium.StreamerResponse](2)
