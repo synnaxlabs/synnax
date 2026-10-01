@@ -210,17 +210,18 @@ describe("Schematic.Tooltip", () => {
       ["button", ["Mode", "On click delay"]],
       ["setpoint", ["On click delay"]],
       ["value", ["Staleness timeout"]],
+      ["tank", ["Staleness timeout"]],
       ["manual_valve", ["Clickable"]],
     ])("should show the %s rows in order", async (variant, labels) => {
       renderTooltip(Node.createConfig({ variant }));
       const tooltip = await findTooltip();
-      const rendered = Array.from(
-        tooltip.querySelectorAll(".pluto-schematic-tooltip__field > :first-child"),
-      ).map((el) => el.textContent);
+      const rendered = within(tooltip)
+        .getAllByRole("term")
+        .map((el) => el.textContent);
       expect(rendered).toEqual(labels);
     });
 
-    it.each<Node.Variant>(["cap", "tank", "circle", "group_box"])(
+    it.each<Node.Variant>(["cap", "circle", "group_box"])(
       "should render nothing for a %s, which has no rows",
       async (variant) => {
         renderTooltip(Node.createConfig({ variant }));

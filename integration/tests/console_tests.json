@@ -43,6 +43,7 @@
         { "case": "console/schematic/set_output" },
         { "case": "console/schematic/hold_to_actuate" },
         { "case": "console/schematic/alignment" },
+        { "case": "console/schematic/multi_edit" },
         { "case": "console/schematic/edit_props" },
         { "case": "console/schematic/select_state_indicator" },
         { "case": "console/table/table_lifecycle" },

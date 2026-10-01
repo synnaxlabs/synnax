@@ -20,7 +20,7 @@ const DIMENSIONS = { width: 60, height: 42 };
 export const ISOFilter = ({
   className,
   orientation = "left",
-  color,
+  strokeColor,
   scale,
   ...rest
 }: ISOFilterProps): ReactElement => (
@@ -28,7 +28,7 @@ export const ISOFilter = ({
     <Handle.Linear orientation={orientation} left={5} right={95} />
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={color}
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
     >

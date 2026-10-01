@@ -21,7 +21,7 @@ const DIMENSIONS = { width: 39, height: 39 };
 export const CrossJunction = ({
   className,
   orientation = "left",
-  color: colorVal,
+  strokeColor: colorVal,
   scale,
   ...rest
 }: CrossJunctionProps): ReactElement => (
@@ -58,7 +58,7 @@ export const CrossJunction = ({
     </Handle.Boundary>
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={colorVal}
+      strokeColor={colorVal}
       orientation={orientation}
       scale={scale}
     >

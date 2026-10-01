@@ -10,6 +10,7 @@
 import { type EnhancedStore } from "@reduxjs/toolkit";
 import {
   type access,
+  type connection,
   type ontology,
   panel,
   type project,
@@ -373,6 +374,39 @@ export const createConnectedConsoleWrapper = async ({
       <Synnax.Provider connParams={connParams}>{children}</Synnax.Provider>
     </Console>
   );
+  return { wrapper: Wrapper, store };
+};
+
+export interface CreateStatusConsoleWrapperParams extends CreateConsoleWrapperParams {
+  /** Connection status the Synnax context reports. */
+  status?: connection.Status;
+}
+
+/**
+ * Like createConsoleWrapper, but the Synnax context reports the given client and status
+ * without connecting the client, the way the Console sees a Core that refuses the
+ * connection.
+ */
+export const createStatusConsoleWrapper = async ({
+  client,
+  status,
+  ...args
+}: CreateStatusConsoleWrapperParams): Promise<{
+  wrapper: FC<PropsWithChildren>;
+  store: TestStore;
+}> => {
+  const { wrapper: Console, store } = await createConsoleWrapper({
+    ...args,
+    client: null,
+  });
+  const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
+    <Console>
+      <Synnax.TestProvider client={client} status={status}>
+        {children}
+      </Synnax.TestProvider>
+    </Console>
+  );
+  Wrapper.displayName = "StatusConsoleWrapper";
   return { wrapper: Wrapper, store };
 };
 

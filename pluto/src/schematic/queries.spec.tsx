@@ -535,7 +535,7 @@ describe("schematic queries", () => {
     });
   });
 
-  describe("useDispatch — edge color preprocess", () => {
+  describe("useDispatch — edge stroke preprocess", () => {
     const EDGE: schematic.Edge = {
       key: "e2",
       source: { node: "n1", param: "out" },
@@ -569,11 +569,11 @@ describe("schematic queries", () => {
 
     afterEach(() => cleanup());
 
-    it("fills a new edge's color from its source symbol", async () => {
+    it("fills a new edge's stroke from its source symbol", async () => {
       await dispatch(
         schematic.setConfig({
           key: "n1",
-          config: { variant: "tank", color: "#00ff00" },
+          config: { variant: "tank", strokeColor: "#00ff00" },
         }),
       );
       await dispatch(
@@ -581,36 +581,42 @@ describe("schematic queries", () => {
         schematic.setConfig({ key: EDGE.key, config: { variant: "pipe" } }),
       );
       await waitFor(() =>
-        expect(getEdgeCfg()).toMatchObject({ variant: "pipe", color: [0, 255, 0, 1] }),
+        expect(getEdgeCfg()).toMatchObject({
+          variant: "pipe",
+          strokeColor: [0, 255, 0, 1],
+        }),
       );
     });
 
-    it("keeps the color a new edge's config chose", async () => {
+    it("keeps the stroke a new edge's config chose", async () => {
       await dispatch(
         schematic.setConfig({
           key: "n1",
-          config: { variant: "tank", color: "#00ff00" },
+          config: { variant: "tank", strokeColor: "#00ff00" },
         }),
       );
       await dispatch(
         schematic.addEdge({ edge: EDGE }),
         schematic.setConfig({
           key: EDGE.key,
-          config: { variant: "pipe", color: "#0000ff" },
+          config: { variant: "pipe", strokeColor: "#0000ff" },
         }),
       );
       await waitFor(() =>
-        expect(getEdgeCfg()).toMatchObject({ variant: "pipe", color: [0, 0, 255, 1] }),
+        expect(getEdgeCfg()).toMatchObject({
+          variant: "pipe",
+          strokeColor: [0, 0, 255, 1],
+        }),
       );
     });
 
-    it("leaves a new edge alone when its source symbol has no color", async () => {
+    it("leaves a new edge alone when its source symbol has no stroke", async () => {
       await dispatch(
         schematic.addEdge({ edge: EDGE }),
         schematic.setConfig({ key: EDGE.key, config: { variant: "pipe" } }),
       );
       await waitFor(() => expect(getEdgeCfg()).toMatchObject({ variant: "pipe" }));
-      expect(getEdgeCfg()).not.toHaveProperty("color");
+      expect(getEdgeCfg()).not.toHaveProperty("strokeColor");
     });
   });
 
@@ -623,7 +629,7 @@ describe("schematic queries", () => {
 
     interface EdgeCfg {
       variant?: string;
-      color?: string;
+      strokeColor?: string;
       segments?: Schematic.Edge.Segmented.Segment[];
     }
     const asEdgeCfg = (raw: unknown): EdgeCfg | undefined => raw as EdgeCfg | undefined;
@@ -730,13 +736,13 @@ describe("schematic queries", () => {
       await dispatch(
         schematic.setConfig({
           key: "e1",
-          config: { variant: "pipe", color: "#ff00ff", segments: SEGMENTS },
+          config: { variant: "pipe", strokeColor: "#ff00ff", segments: SEGMENTS },
         }),
       );
       await waitFor(() =>
         expect(getEdgeCfg()).toMatchObject({
           variant: "pipe",
-          color: [255, 0, 255, 1],
+          strokeColor: [255, 0, 255, 1],
           segments: SEGMENTS,
         }),
       );
@@ -747,7 +753,7 @@ describe("schematic queries", () => {
       await waitFor(() => {
         const cfg = getEdgeCfg();
         expect(cfg?.variant).toBe("pipe");
-        expect(cfg?.color).toEqual([255, 0, 255, 1]);
+        expect(cfg?.strokeColor).toEqual([255, 0, 255, 1]);
         expect(cfg?.segments?.[0]).toEqual({ direction: "x", length: 30 });
       });
     });
