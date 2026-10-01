@@ -221,27 +221,36 @@ package.
 
 ```
 Session struct {
-    key         Key          // UUID
-    token_hash  bytes
+    key         Key
+    hash        bytes        // SHA-256 of the token's secret
     subject     ontology.ID
     method      Method
     credential  uuid
+    address     string
     created     timestamp
     last_active timestamp
 }
 ```
 
 A session is a Gorp record, so it survives a restart and every node in a cluster sees
-it. The token is a random value, and the Core stores only its hash. JWTs and the signing
-key go away.
+it. JWTs and the signing key go away.
 
-A session token starts with `sys_` and an API key starts with `syk_`. The prefix lets a
-secret scanner recognize both, and lets the Core tell them apart.
+- `subject` is what the middleware reads on every request.
+- `method` and `credential` let a deleted or changed credential end its sessions, and
+  tell audit how the caller logged in.
+- `address` is the client's network address at login. With `created`, it lets an
+  administrator tell sessions apart before revoking one.
+- `last_active` drives the idle timeout.
 
-On each request the middleware hashes the token, finds the session through an in-memory
-index, and puts three values on the request: the subject, the credential, and the
-session key. Handlers and audit rely on the subject and the credential. The session key
-is optional, so a request that authenticates without a session can exist later (§7).
+A session token is `sys_`, the session key, and a random secret, the same layout as an
+API key with its `syk_` prefix. The Core finds the session by its key and compares the
+hash. The prefix lets a secret scanner recognize both kinds, and lets the Core tell them
+apart.
+
+On each request the middleware puts three values on the request: the subject, the
+credential, and the session key. Handlers and audit rely on the subject and the
+credential. The session key is optional, so a request that authenticates without a
+session can exist later (§7).
 
 A session ends in two ways:
 
@@ -254,8 +263,10 @@ A session ends in two ways:
 
 There is no absolute lifetime.
 
-Recording activity does not cost a write per request. Each node tracks it in memory and
-updates `last_active` a few times per timeout period.
+Activity does not cost a write per request. Each node tracks it in memory and writes
+`last_active` only when the stored value is older than a quarter of the timeout. That is
+at most four writes per session per timeout period, however busy the client is. An idle
+session causes none.
 
 **Revocation is not instant everywhere.** It is immediate on the node that receives the
 delete. Other nodes see it when Aspen replicates the delete. A node cut off from the
