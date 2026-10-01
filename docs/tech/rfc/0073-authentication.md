@@ -83,8 +83,10 @@ How other systems answer the questions in this RFC:
    else.
 4. **A person can interrupt a test, and a timer cannot**: Revocation closes a live
    stream. No clock does.
-5. **The Core stores nothing a client could log in with**: Secrets are hashed and shown
-   once.
+5. **Passwords are never saved to disk**: Not by the Core, a client, the Console, or the
+   Driver. The Core keeps only hashes. Everything else saves a session token or an API
+   key, which can each be revoked without touching the password. The one exception is
+   the root password in the Core start settings (§4.7).
 
 ## 4 Design
 
@@ -333,7 +335,9 @@ point at it.
 | `auth/credential/delete`   | Yes   | Delete credentials               |
 
 - **Client libraries** take one proof at construction and log in on the first request.
-  When a session ends, a client holding a password or API key logs in again by itself.
+  When a session ends, a client holding a password or API key logs in again by itself. A
+  client keeps a password in memory only. The Python CLI saves an API key to the keyring
+  instead of the password it saves today.
 - **The Console** stores the session token instead of the password. A dead session sends
   the user to the login page. User and rack pages gain a credentials list.
 - **The Driver** config replaces `username` and `password` with `api_key`.
