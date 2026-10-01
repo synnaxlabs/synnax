@@ -10,6 +10,7 @@
 package license_test
 
 import (
+	"context"
 	"crypto/mldsa"
 	"encoding/base64"
 	"encoding/binary"
@@ -90,6 +91,13 @@ var _ = Describe("License", func() {
 		GinkgoHelper()
 		key := append([]byte("license/"), lic.Jti.String()...)
 		Expect(db.Set(ctx, key, []byte(sign(lic)))).To(Succeed())
+	}
+	// announcements collects every key svc announces a change under.
+	announcements := func(svc *license.Service) <-chan string {
+		GinkgoHelper()
+		keys := make(chan string, 10)
+		DeferCleanup(svc.OnChange(func(_ context.Context, key string) { keys <- key }))
+		return keys
 	}
 	open := func(ctx SpecContext, cfgs ...license.ServiceConfig) *license.Service {
 		GinkgoHelper()
@@ -424,6 +432,18 @@ var _ = Describe("License", func() {
 				Expect(svc.Retrieve().Warning).To(BeEmpty())
 			},
 		)
+		It(
+			"should announce the license once a clock that was behind catches up",
+			func(ctx SpecContext) {
+				svc := open(ctx, license.ServiceConfig{Key: sign(newLicense())})
+				Expect(svc.Close()).To(Succeed())
+				clock.Store(now.Add(-2 * day).UnixNano())
+				svc = open(ctx, clocked)
+				keys := announcements(svc)
+				clock.Store(now.Add(time.Hour).UnixNano())
+				Eventually(keys).Should(Receive(Equal(license.OntologyKey)))
+			},
+		)
 		It("should never move the recorded time back", func(ctx SpecContext) {
 			svc := open(ctx, clocked, license.ServiceConfig{Key: sign(newLicense())})
 			Expect(mark(ctx)()).To(Equal(now.UnixNano()))
@@ -657,6 +677,17 @@ var _ = Describe("License", func() {
 		It("should reject an invalid license key", func(ctx SpecContext) {
 			Expect(svc.Activate(ctx, "nope")).Error().
 				To(MatchError(license.ErrInvalid))
+		})
+		It("should announce an activated license", func(ctx SpecContext) {
+			keys := announcements(svc)
+			MustSucceed(svc.Activate(ctx, sign(newLicense())))
+			Expect(keys).To(Receive(Equal(license.OntologyKey)))
+		})
+		It("should not announce a refused license key", func(ctx SpecContext) {
+			keys := announcements(svc)
+			Expect(svc.Activate(ctx, "nope")).Error().
+				To(MatchError(license.ErrInvalid))
+			Expect(keys).ToNot(Receive())
 		})
 		It("should enforce the channel cap", func(ctx SpecContext) {
 			lic := newLicense()
