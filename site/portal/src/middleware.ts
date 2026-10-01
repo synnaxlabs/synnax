@@ -13,7 +13,7 @@ import { sequence } from "astro:middleware";
 
 import { open } from "@/portal";
 
-const CLERK = "https://*.clerk.accounts.dev https://clerk.portal.synnaxlabs.com";
+const CLERK = "https://*.clerk.accounts.dev https://clerk.synnaxlabs.com";
 
 const CSP = [
   "default-src 'self'",

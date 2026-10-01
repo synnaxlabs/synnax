@@ -429,6 +429,31 @@ describe("activate", () => {
       ]);
     });
 
+    it("should record nothing when signing fails", async () => {
+      const lic = await createLicense(store, { organization: org.key });
+      const lastSeen = new Date("2026-09-01T00:00:00Z");
+      const held = await createActivation(store, {
+        license: lic.key,
+        fingerprint: [HASH_A],
+        lastSeen,
+      });
+      const failing: Signer = {
+        kid: "2",
+        sign: async () => {
+          throw new Error("KMS unavailable");
+        },
+      };
+      await expect(
+        reissue(store, failing, { activationKey: held.key, actor: "user_a", now: NOW }),
+      ).rejects.toThrow("KMS unavailable");
+      const [row] = await store.query
+        .select()
+        .from(activation)
+        .where(eq(activation.key, held.key));
+      expect(row.lastSeen).toEqual(lastSeen);
+      expect(await events()).toHaveLength(0);
+    });
+
     it("should throw a 404 for a released seat", async () => {
       const lic = await createLicense(store, { organization: org.key });
       const released = await createActivation(store, {

@@ -486,6 +486,24 @@ describe("issue", () => {
       ]);
     });
 
+    it("should record nothing when signing fails", async () => {
+      const lic = await createLicense(store, { organization: org.key });
+      const failing: Signer = {
+        kid: "2",
+        sign: async () => {
+          throw new Error("KMS unavailable");
+        },
+      };
+      await expect(
+        floating(store, failing, {
+          licenseKey: lic.key,
+          actor: "user_staff",
+          now: NOW,
+        }),
+      ).rejects.toThrow("KMS unavailable");
+      expect(await events()).toHaveLength(0);
+    });
+
     it("should sign for an expired subscription with a fallback", async () => {
       const lic = await createLicense(store, {
         organization: org.key,

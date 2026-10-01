@@ -30,6 +30,11 @@ export const resend = (apiKey: string, from: string): Mailer => {
   };
 };
 
+/** log prints messages instead of sending them, so a preview never mails real people. */
+export const log = (): Mailer => ({
+  send: async ({ to, subject }) => console.info("mail not sent", { to, subject }),
+});
+
 /** memory collects messages instead of sending them. For tests. */
 export const memory = (): Mailer & { sent: Message[] } => {
   const sent: Message[] = [];
