@@ -10,6 +10,7 @@
 import "zod/compile";
 
 import { ResizeObserver } from "@juggle/resize-observer";
+import { preloadTimeLanguage } from "@synnaxlabs/lyra/testutil";
 import { failOnConsoleOutput } from "@synnaxlabs/x/testutil";
 import { configure } from "@testing-library/react";
 import { afterAll, beforeAll, vi } from "vitest";
@@ -31,6 +32,8 @@ class MockIntersectionObserver {
 // Installed at module scope: an async describe body can open a socket at
 // collection time, before any beforeAll runs.
 installTestWebSocket();
+
+preloadTimeLanguage();
 
 beforeAll(() => {
   vi.stubGlobal("ResizeObserver", ResizeObserver);

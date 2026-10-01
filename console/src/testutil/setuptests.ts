@@ -10,6 +10,7 @@
 import "zod/compile";
 import "fake-indexeddb/auto";
 
+import { preloadTimeLanguage } from "@synnaxlabs/lyra/testutil";
 import { failOnConsoleOutput } from "@synnaxlabs/x/testutil";
 import { configure } from "@testing-library/react";
 import { afterAll, beforeAll, vi } from "vitest";
@@ -120,6 +121,8 @@ const cssEscape = (value: string): string => {
   }
   return result;
 };
+
+preloadTimeLanguage();
 
 beforeAll(() => {
   vi.stubGlobal("ResizeObserver", SizeFiringResizeObserver);
