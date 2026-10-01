@@ -51,4 +51,3 @@ export const propertiesMigration = migrate.createMigration<v0.Properties, Proper
 });
 
 export interface Device extends device.Device<typeof propertiesZ, typeof v0.makeZ> {}
-export interface New extends device.New<typeof propertiesZ, typeof v0.makeZ> {}

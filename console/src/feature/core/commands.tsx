@@ -12,7 +12,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Command } from "@/platform/command";
 import { Session } from "@/session";
 
-export const LogoutCommand = Command.create({
+const LogoutCommand = Command.create({
   key: "logout",
   name: "Log out",
   icon: <Icon.Logout />,

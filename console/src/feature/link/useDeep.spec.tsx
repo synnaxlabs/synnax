@@ -199,7 +199,6 @@ const setupSettled = async (
   };
   const proj = await client().projects.create({
     name: uniqueName("proj"),
-    layout: {},
   });
   const doc = panelSelected ? await createPanel(proj.key) : null;
   const { wrapper: Console, store } = await createSessionConsoleWrapper({

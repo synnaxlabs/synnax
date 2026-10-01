@@ -31,7 +31,7 @@ const roles = new RoleClients(client);
 const Item = Project.TREE_ITEMS.project;
 
 const createProject = async () =>
-  await client.projects.create({ name: uniqueName("project"), layout: {} });
+  await client.projects.create({ name: uniqueName("project") });
 
 const projectResource = (key: string, name: string) =>
   createResource(project.ontologyID(key), name);

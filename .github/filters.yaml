@@ -130,6 +130,10 @@ arc_ts: &arc_ts
   - *ts
   - arc/ts/**
 
+oracle_language:
+  - *ts
+  - oracle/lsp/extensions/vscode/**
+
 media: &media
   - *ts
   - x/media/**

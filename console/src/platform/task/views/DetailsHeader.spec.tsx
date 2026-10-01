@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Task } from "@/platform/task";
 import { renderInTaskForm } from "@/platform/task/testutil";
-import { getIconButton, stubClipboardWriteText } from "@/testutil";
+import { getIconButton } from "@/testutil";
 
 describe("layouts.DetailsHeader", () => {
   it("should copy the form value at the given path as JSON", async () => {

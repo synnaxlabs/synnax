@@ -33,7 +33,7 @@ type AnalogWriteChannel = Extract<WriteChannel, { type: "analog" }>;
 type DigitalWriteChannel = Extract<WriteChannel, { type: "digital" }>;
 
 /** Builds a Core-safe device identifier (2-12 chars, letter first). */
-export const createIdentifier = (): string =>
+const createIdentifier = (): string =>
   `l${id.create().replace(/[^a-zA-Z0-9]/g, "")}`.slice(0, 12);
 
 export interface CreateLabJackDeviceOptions {
