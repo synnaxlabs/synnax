@@ -72,7 +72,7 @@ export const synnaxParamsZ = z.object({
     .optional(),
   /**
    * Receives each failed attempt the client retries: a request to an unreachable Core,
-   * or a change-stream reconnect. Defaults to console logging.
+   * or a stream reconnect. Defaults to console.warn.
    */
   onRetry: z
     .function({ input: z.tuple([z.instanceof(Error)]), output: z.unknown() })
@@ -164,7 +164,12 @@ export default class Synnax extends framer.Client {
       );
       return result.map((ch) => ch.payload);
     };
-    super({ stream: transport.stream, unary: transport.unary, retrieveChannels });
+    super({
+      stream: transport.stream,
+      unary: transport.unary,
+      retrieveChannels,
+      onRetry: parsedParams.onRetry,
+    });
     const cache = new query.Cache({
       openStreamer: parsedParams.cache
         ? async (config) => await this.openStreamer(config)

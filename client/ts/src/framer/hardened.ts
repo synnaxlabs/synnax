@@ -46,7 +46,7 @@ export interface HardenedStreamerOptions {
   onReopen?: () => void;
   /** Called when the stream fails and reconnection begins. */
   onDrop?: (error: Error) => void;
-  /** Receives each failed reconnect attempt. Defaults to console.error. */
+  /** Receives each failed reconnect attempt. Defaults to console.warn. */
   onRetry?: (error: Error) => void;
 }
 
@@ -78,7 +78,7 @@ export class HardenedStreamer implements Streamer {
       breaker: breakerConfig = {},
       onReopen,
       onDrop,
-      onRetry = console.error,
+      onRetry = console.warn,
     }: HardenedStreamerOptions = {},
   ) {
     this.opener = opener;

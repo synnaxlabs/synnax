@@ -44,7 +44,7 @@ export interface CacheParams {
    */
   onStreamDenied?: (error: Error) => void;
   /**
-   * Receives each failed change-stream reconnect attempt. Defaults to console.error.
+   * Receives each failed change-stream reconnect attempt. Defaults to console.warn.
    */
   onStreamRetry?: (error: Error) => void;
   /**
