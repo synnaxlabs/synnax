@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type connection, type Synnax as Client } from "@synnaxlabs/client";
+import { disableActEnvironment } from "@synnaxlabs/lyra/testutil";
 import { theme } from "@synnaxlabs/lyra/theme";
 import { type FC, type PropsWithChildren, type ReactElement, Suspense } from "react";
 
@@ -22,7 +23,6 @@ import { Synnax } from "@/synnax";
 import { synnax } from "@/synnax/aether";
 import { Telem } from "@/telem";
 import { telem } from "@/telem/aether";
-import { disableActEnvironment } from "@/testutil/act";
 import { theming } from "@/theming/aether";
 import { canvasTest } from "@/vis/render/test";
 import { Staleness } from "@/vis/staleness";
