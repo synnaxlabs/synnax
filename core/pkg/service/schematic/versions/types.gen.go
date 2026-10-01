@@ -713,7 +713,7 @@ type DataElementConfig = v9.DataElementConfig
 // handles, and dynamic state visualization.
 type Schematic = v9.Schematic
 
-// ScaleIndicatorConfig is a live fill indicator driven by a channel, rendered by
+// ScaleIndicatorConfig is a live level indicator driven by a channel, extended by
 // symbols that show a level against a numeric range.
 type ScaleIndicatorConfig = v9.ScaleIndicatorConfig
 
@@ -737,3 +737,6 @@ type StalenessConfig = v9.StalenessConfig
 // NumericTelemConfig is the numeric read and formatting shared by symbols that display
 // a channel's value as a number.
 type NumericTelemConfig = v9.NumericTelemConfig
+
+// ScaledConfig is the base configuration for any symbol drawn at a scale multiplier.
+type ScaledConfig = v9.ScaledConfig

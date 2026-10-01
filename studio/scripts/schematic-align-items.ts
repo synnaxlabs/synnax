@@ -20,11 +20,12 @@ export default async (session: capture.CaptureSession): Promise<void> => {
 
   await capture.createComponent(session, "Schematic");
   await session.waitFor(page.locator(".pluto-diagram").first());
-  const gate = await capture.place(session, "Gate", { x: 420, y: 200 });
-  const ball = await capture.place(session, "Ball", { x: 730, y: 420 });
-  const needle = await capture.place(session, "Needle", { x: 1040, y: 260 });
-  await capture.deselect(session, { x: 200, y: 600 });
-  await session.moveTo({ x: 300, y: 620 });
+  // New symbols drop at the canvas center, so only the last one may sit there.
+  const gate = await capture.place(session, "Gate", { x: 200, y: 120 });
+  const ball = await capture.place(session, "Ball", { x: 830, y: 200 });
+  const needle = await capture.place(session, "Needle", { x: 515, y: 160 });
+  await capture.deselect(session, { x: 100, y: 290 });
+  await session.moveTo({ x: 150, y: 350 });
 
   session.startRecording();
   await session.hold(500);
@@ -39,6 +40,6 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.click(align, { zoom: false });
   await session.hold(800);
 
-  await session.moveTo({ x: 300, y: 620 });
+  await session.moveTo({ x: 150, y: 350 });
   await session.hold(500);
 };

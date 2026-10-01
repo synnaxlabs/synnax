@@ -26,7 +26,7 @@ export const Symbol = ({
     channel,
     stalenessTimeout,
     stalenessColor,
-    color,
+    strokeColor,
     textColor,
     level,
     inlineSize,
@@ -46,7 +46,7 @@ export const Symbol = ({
     <Grid.Grid editable={selected} nodeKey={nodeKey} allowRotate={false}>
       <Label.Label config={label} onChange={onConfigChange} />
       <StringDisplay
-        color={color}
+        strokeColor={strokeColor}
         textColor={textColor}
         stalenessColor={stalenessColor}
         level={level}

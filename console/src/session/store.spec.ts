@@ -226,6 +226,13 @@ describe("createStore", () => {
     );
     expect(rest).toStrictEqual(zero);
     expect(Session.Persist.selectStoreUnavailable(store.getState())).toBe(true);
+    // The first save fails after the spy is gone unless the spec waits for it.
+    await waitFor(() =>
+      expect(errorSpy).toHaveBeenCalledWith(
+        "failed to persist state",
+        expect.anything(),
+      ),
+    );
     errorSpy.mockRestore();
   });
 

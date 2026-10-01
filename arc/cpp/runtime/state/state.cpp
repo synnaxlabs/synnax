@@ -367,9 +367,11 @@ bool Node::refresh_inputs() {
     for (size_t i = 0; i < this->inputs.size(); i++) {
         if (this->is_reference[i]) continue;
         has_data_input = true;
+        bool refreshed = false;
         if (this->accumulated[i].source != NO_SOURCE) {
             const Value &src = this->state.values[this->accumulated[i].source];
-            if (src.rev > this->accumulated[i].last_rev) {
+            refreshed = src.rev > this->accumulated[i].last_rev;
+            if (refreshed) {
                 bool consumed = false;
                 if (this->rearm[i] == Rearm::OnReset)
                     consumed = this->accumulated[i].consumed;
@@ -379,6 +381,7 @@ bool Node::refresh_inputs() {
                 this->accumulated[i].consumed = consumed;
             }
         }
+        this->stale[i] = !refreshed && this->accumulated[i].consumed;
         if (this->accumulated[i].data == nullptr || this->accumulated[i].data->empty())
             return false;
         if (!this->accumulated[i].consumed) has_unconsumed = true;
@@ -387,8 +390,16 @@ bool Node::refresh_inputs() {
     if (!has_unconsumed) return false;
     for (size_t i = 0; i < this->inputs.size(); i++) {
         if (this->is_reference[i]) continue;
-        this->aligned_data[i] = this->accumulated[i].data;
-        this->aligned_time[i] = this->accumulated[i].time;
+        auto data = this->accumulated[i].data;
+        auto time = this->accumulated[i].time;
+        if (this->stale[i]) {
+            if (data->size() > 1)
+                data = x::mem::make_local_shared<x::telem::Series>(data->last());
+            if (time != nullptr && time->size() > 1)
+                time = x::mem::make_local_shared<x::telem::Series>(time->last());
+        }
+        this->aligned_data[i] = data;
+        this->aligned_time[i] = time;
         this->accumulated[i].consumed = true;
     }
     return true;
