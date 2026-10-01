@@ -12,12 +12,9 @@ import { describe, expect, it } from "vitest";
 import { disableActEnvironment } from "@/testutil/act";
 
 describe("disableActEnvironment", () => {
-  it("should turn the act environment off", () => {
-    disableActEnvironment();
-    expect(globalThis.IS_REACT_ACT_ENVIRONMENT).toBe(false);
-  });
+  disableActEnvironment();
 
-  it("should keep the act environment off for the rest of the file", () => {
+  it("should keep the act environment off after Testing Library turns it on", () => {
     expect(globalThis.IS_REACT_ACT_ENVIRONMENT).toBe(false);
   });
 });
