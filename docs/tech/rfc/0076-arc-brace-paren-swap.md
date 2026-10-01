@@ -88,7 +88,8 @@ sensor -> band(limit=50.0) -> {
 ```
 
 The values are all named or all positional, as in the brace form today
-(`ArcParser.g4:221`). Routing tables keep their braces.
+(`ArcParser.g4:221`). Routing tables keep their braces. A call that is an expression
+today, such as `len(channel) -> output`, does not change.
 
 ### 1.2 Rewrite of existing code
 
@@ -105,7 +106,6 @@ pair is added empty.
 | `func tick()`                                          | `func tick() {}`                                       |
 | `sensor -> scale{factor=2.0} -> out`                   | `sensor -> scale(factor=2.0) -> out`                   |
 | `sensor -> split{} -> {high: 1 -> hi, low: 1 -> lo}`   | `sensor -> split() -> {high: 1 -> hi, low: 1 -> lo}`   |
-| `add(1, 2) -> out`                                     | `add{1, 2} -> out`                                     |
 | `time.wait{2s}`                                        | `time.wait(2s)`                                        |
 
 ## 2 Parser notes
