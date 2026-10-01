@@ -15,7 +15,7 @@ import { z } from "zod";
  * A range the Core holds. Only the key is kept: the name and time range live on the
  * Core, so a copy here could only go stale.
  */
-export const persistedStateZ = z.object({
+const persistedStateZ = z.object({
   variant: z.literal("persisted"),
   key: z.string(),
 });
@@ -23,7 +23,7 @@ export const persistedStateZ = z.object({
 export interface PersistedState extends z.infer<typeof persistedStateZ> {}
 
 /** A fixed window the session owns, saved to the Core only on request. */
-export const staticStateZ = z.object({
+const staticStateZ = z.object({
   variant: z.literal("static"),
   key: z.string(),
   name: z.string(),
@@ -33,7 +33,7 @@ export const staticStateZ = z.object({
 export interface StaticState extends z.infer<typeof staticStateZ> {}
 
 /** A window of the given span ending now. The Core has no notion of one. */
-export const dynamicStateZ = z.object({
+const dynamicStateZ = z.object({
   variant: z.literal("dynamic"),
   key: z.string(),
   name: z.string(),

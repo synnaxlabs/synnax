@@ -18,8 +18,6 @@ export const READ_CHANNEL_TYPE_NAMES = {
   thermocouple: "Thermocouple",
 } as const satisfies Record<ReadChannelType, string>;
 
-export type SelectReadChannelTypeFieldProps = Form.SelectFieldProps<ReadChannelType>;
-
 export const SelectReadChannelTypeField = Form.buildSelectField<ReadChannelType>({
   fieldKey: "type",
   fieldProps: { label: "Channel type" },

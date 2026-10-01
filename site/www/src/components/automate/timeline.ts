@@ -42,7 +42,7 @@ export const ZERO_DIAGRAM_STATE: DiagramState = {
 export const EXAMPLES: Example[] = [
   {
     id: "pressure",
-    title: "Pressurization Sequence",
+    title: "Pressurization sequence",
     steps: [
       // seq main
       {
@@ -125,7 +125,7 @@ export const EXAMPLES: Example[] = [
   },
   {
     id: "alarm",
-    title: "Alarm Monitoring",
+    title: "Alarm monitoring",
     steps: [
       // func definition
       {
@@ -189,7 +189,7 @@ export const EXAMPLES: Example[] = [
   },
   {
     id: "abort",
-    title: "Abort Sequence",
+    title: "Abort sequence",
     steps: [
       // authority declaration
       {

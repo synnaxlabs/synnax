@@ -49,11 +49,6 @@ const CHANNEL_SELECT_TRIGGER_PROPS: Select.MultipleTriggerProps<channel.Key> = {
   placeholder: "Select channels to download",
 };
 
-export interface PromptDownloadCSV extends Modals.Prompt<
-  void,
-  DownloadCSVModalParams
-> {}
-
 export const useDownloadCSVModal = Modals.createPrompt<void, DownloadCSVModalParams>(
   ({ timeRange, channels, name, channelNames, icon, close }) => {
     const form = Form.use<typeof formSchema>({

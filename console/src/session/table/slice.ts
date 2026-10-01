@@ -29,7 +29,7 @@ export interface NewState extends z.input<typeof stateZ> {}
 
 export const ZERO_STATE = stateZ.parse({});
 
-export const windowStateZ = z.record(z.string(), stateZ).default({});
+const windowStateZ = z.record(z.string(), stateZ).default({});
 
 export const sliceStateZ = z.object({
   version: z.literal(0).default(0),
@@ -133,7 +133,6 @@ export const {
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
-export type Payload = Action["payload"];
 
 export const purgeState = (state: State): State => {
   state.selectedCells = [];
@@ -141,7 +140,7 @@ export const purgeState = (state: State): State => {
   return state;
 };
 
-export const purgeSliceState = <S extends StoreState>(state: S): S => {
+const purgeSliceState = <S extends StoreState>(state: S): S => {
   Window.purgeDocuments(state[SLICE_NAME], purgeState);
   return state;
 };

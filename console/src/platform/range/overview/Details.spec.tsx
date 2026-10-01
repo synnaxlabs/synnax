@@ -70,7 +70,6 @@ describe("Range.Details", () => {
     });
     const proj = await client.projects.create({
       name: uniqueName("proj"),
-      layout: {},
     });
     const { wrapper, store } = await createConsoleWrapper({
       client,

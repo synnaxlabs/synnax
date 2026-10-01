@@ -10,8 +10,10 @@
 #pragma once
 
 #include <atomic>
+#include <vector>
 
 #include "client/cpp/synnax.h"
+#include "x/cpp/sync/list.h"
 
 #include "driver/pipeline/acquisition.h"
 #include "driver/pipeline/control.h"
@@ -134,13 +136,13 @@ enum class OpType { Write, SetAuthority };
 class Writer final : public pipeline::Writer {
 public:
     /// Stores all frames written through this writer.
-    std::shared_ptr<std::vector<x::telem::Frame>> writes;
+    std::shared_ptr<x::sync::List<x::telem::Frame>> writes;
 
     /// Stores all authority changes forwarded to this writer.
-    std::shared_ptr<std::vector<pipeline::Authorities>> authority_changes;
+    std::shared_ptr<x::sync::List<pipeline::Authorities>> authority_changes;
 
     /// Tracks the order of write() and set_authority() calls.
-    std::shared_ptr<std::vector<OpType>> ops;
+    std::shared_ptr<x::sync::List<OpType>> ops;
 
     /// Error to return when close() is called.
     x::errors::Error close_err;
@@ -153,13 +155,13 @@ public:
     int return_false_ok_on;
 
     explicit Writer(
-        std::shared_ptr<std::vector<x::telem::Frame>> writes,
+        std::shared_ptr<x::sync::List<x::telem::Frame>> writes,
         const x::errors::Error &close_err = x::errors::NIL,
         const int return_false_ok_on = -1,
-        std::shared_ptr<std::vector<pipeline::Authorities>> authority_changes =
-            std::make_shared<std::vector<pipeline::Authorities>>(),
-        std::shared_ptr<std::vector<OpType>> ops =
-            std::make_shared<std::vector<OpType>>(),
+        std::shared_ptr<x::sync::List<pipeline::Authorities>> authority_changes =
+            std::make_shared<x::sync::List<pipeline::Authorities>>(),
+        std::shared_ptr<x::sync::List<OpType>> ops =
+            std::make_shared<x::sync::List<OpType>>(),
         const x::errors::Error &set_authority_err = x::errors::NIL
     ):
         writes(std::move(writes)),
@@ -190,13 +192,13 @@ public:
 class WriterFactory final : public pipeline::WriterFactory {
 public:
     /// Stores all frames written through this factory's writers.
-    std::shared_ptr<std::vector<x::telem::Frame>> writes;
+    std::shared_ptr<x::sync::List<x::telem::Frame>> writes;
 
     /// Stores all authority changes forwarded through this factory's writers.
-    std::shared_ptr<std::vector<pipeline::Authorities>> authority_changes;
+    std::shared_ptr<x::sync::List<pipeline::Authorities>> authority_changes;
 
     /// Tracks the order of write() and set_authority() calls across all writers.
-    std::shared_ptr<std::vector<OpType>> ops;
+    std::shared_ptr<x::sync::List<OpType>> ops;
 
     /// A queue of errors to return when opening writers.
     std::vector<x::errors::Error> open_errors;
@@ -219,16 +221,16 @@ public:
     std::atomic<size_t> writer_opens;
 
     explicit WriterFactory(
-        std::shared_ptr<std::vector<x::telem::Frame>> writes =
-            std::make_shared<std::vector<x::telem::Frame>>(),
+        std::shared_ptr<x::sync::List<x::telem::Frame>> writes =
+            std::make_shared<x::sync::List<x::telem::Frame>>(),
         std::vector<x::errors::Error> open_errors = {},
         std::vector<x::errors::Error> close_errors = {},
         std::vector<int> return_false_ok_on = {},
         std::vector<x::errors::Error> set_authority_errors = {}
     ):
         writes(std::move(writes)),
-        authority_changes(std::make_shared<std::vector<pipeline::Authorities>>()),
-        ops(std::make_shared<std::vector<OpType>>()),
+        authority_changes(std::make_shared<x::sync::List<pipeline::Authorities>>()),
+        ops(std::make_shared<x::sync::List<OpType>>()),
         open_errors(std::move(open_errors)),
         close_errors(std::move(close_errors)),
         set_authority_errors(std::move(set_authority_errors)),
@@ -274,11 +276,11 @@ public:
 /// the way the integration suite derives a running task's rate. Returns 0 when fewer
 /// than two samples were written.
 inline double measured_rate(
-    const std::vector<x::telem::Frame> &writes,
+    const x::sync::List<x::telem::Frame> &writes,
     const synnax::channel::Key index_key
 ) {
     std::vector<x::telem::TimeStamp> stamps;
-    for (const auto &fr: writes) {
+    for (const auto &fr: writes.snapshot()) {
         if (!fr.contains(index_key)) continue;
         for (size_t i = 0; i < fr.length(); i++)
             stamps.push_back(
@@ -294,7 +296,7 @@ inline double measured_rate(
 class Sink : public pipeline::Sink {
 public:
     // Stores all frames written through this sink
-    std::shared_ptr<std::vector<x::telem::Frame>> writes;
+    std::shared_ptr<x::sync::List<x::telem::Frame>> writes;
 
     // Sequence of errors to return for write operations
     // Each write consumes the next error in the sequence
@@ -304,18 +306,18 @@ public:
     x::errors::Error stop_err;
 
     Sink():
-        writes(std::make_shared<std::vector<x::telem::Frame>>()),
+        writes(std::make_shared<x::sync::List<x::telem::Frame>>()),
         write_errors(std::make_shared<std::vector<x::errors::Error>>()) {}
 
     Sink(
-        const std::shared_ptr<std::vector<x::telem::Frame>> &writes,
+        const std::shared_ptr<x::sync::List<x::telem::Frame>> &writes,
         const std::shared_ptr<std::vector<x::errors::Error>> &write_errors
     ):
         writes(writes), write_errors(write_errors) {}
 
     x::errors::Error write(x::telem::Frame &frame) override {
         if (frame.empty()) return x::errors::NIL;
-        this->writes->emplace_back(frame.deep_copy());
+        this->writes->push_back(frame.deep_copy());
         // try to grab and remove the first error. if not, freighter nil
         if (this->write_errors->empty()) return x::errors::NIL;
         auto err = this->write_errors->front();
