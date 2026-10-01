@@ -18,10 +18,8 @@ const disable = (): void => {
 };
 
 /**
- * Turns off React's act environment for the rest of the spec file, so React renders
- * updates as it does in production. Call it for a tree wired to a live Core, whose
- * updates arrive at any time and cannot be scoped to an act. Testing Library's renders
- * and events still run inside act.
+ * Turns off React's act environment for the rest of the spec file. Call it for a tree
+ * wired to a live Core, whose updates cannot be scoped to an act.
  */
 export const disableActEnvironment = (): void => {
   // Testing Library turns the environment on in a beforeAll, which runs after a call

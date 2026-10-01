@@ -114,7 +114,7 @@ describe("ChannelName", () => {
         { client, values: { name: "" } },
       );
       await waitFor(() => expect(screen.getByText(ch.name)).toBeTruthy());
-      act(() => Text.edit(editID));
+      Text.edit(editID);
       const el = await awaitTextEditing(editID);
       const newName = uniqueName("renamed");
       act(() => commitTextEdit(el, newName));

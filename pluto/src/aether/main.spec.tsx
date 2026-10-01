@@ -1712,9 +1712,9 @@ describe("Aether Main", () => {
       });
       // Local state is readable even though the worker knows nothing.
       expect(handle.getState()).toEqual({ x: 0 });
-      await vi.waitFor(() => expect(root.children).toHaveLength(0));
+      await waitFor(() => expect(root.children).toHaveLength(0));
       handle.setState({ x: 1 });
-      await vi.waitFor(() => expect(root.children).toHaveLength(0));
+      await waitFor(() => expect(root.children).toHaveLength(0));
     });
     it("should not create worker components for renders discarded by suspense", async () => {
       // A suspending tree renders three times: the render that suspends, the retry,

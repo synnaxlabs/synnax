@@ -138,9 +138,7 @@ describe("button symbol", () => {
         fireEvent.mouseDown(btn);
         fireEvent.mouseUp(document);
         fireEvent.click(btn);
-        act(() => {
-          vi.advanceTimersByTime(1000);
-        });
+        vi.advanceTimersByTime(1000);
         expect(onClick).not.toHaveBeenCalled();
       });
 
@@ -150,9 +148,7 @@ describe("button symbol", () => {
           <Button mode="fire" onClick={onClick} onClickDelay={500} />,
         );
         fireEvent.mouseDown(getButton(container));
-        act(() => {
-          vi.advanceTimersByTime(499);
-        });
+        vi.advanceTimersByTime(499);
         expect(onClick).not.toHaveBeenCalled();
         act(() => {
           vi.advanceTimersByTime(1);
@@ -182,9 +178,7 @@ describe("button symbol", () => {
         const btn = getButton(container);
         fireEvent.mouseDown(btn);
         fireEvent.mouseUp(document);
-        act(() => {
-          vi.advanceTimersByTime(1000);
-        });
+        vi.advanceTimersByTime(1000);
         expect(onMouseDown).not.toHaveBeenCalled();
       });
 
@@ -194,9 +188,7 @@ describe("button symbol", () => {
           <Button mode="fire" onClick={onClick} onClickDelay={500} />,
         );
         fireEvent.mouseDown(getButton(container), { button: 2 });
-        act(() => {
-          vi.advanceTimersByTime(1000);
-        });
+        vi.advanceTimersByTime(1000);
         expect(onClick).not.toHaveBeenCalled();
       });
 
@@ -206,9 +198,7 @@ describe("button symbol", () => {
           <Button mode="pulse" onMouseDown={onMouseDown} onClickDelay={500} />,
         );
         fireEvent.mouseDown(getButton(container), { button: 2 });
-        act(() => {
-          vi.advanceTimersByTime(1000);
-        });
+        vi.advanceTimersByTime(1000);
         expect(onMouseDown).not.toHaveBeenCalled();
       });
 
