@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, color, DataType, MultiSeries, Series } from "@synnaxlabs/x";
+import { bounds, color, DataType, MultiSeries, Series, TimeRange } from "@synnaxlabs/x";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { aetherTest } from "@/aether/test";
+import { XAxis } from "@/lineplot/aether/XAxis";
 import { YAxis } from "@/lineplot/aether/YAxis";
 import { type telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/test";
@@ -45,7 +46,11 @@ class Host extends aether.Composite<typeof Host.stateZ> {
 }
 
 const sourceSpec = (data: number[]): telem.SeriesSourceSpec => {
-  const s = new Series({ data: new Float32Array(data), dataType: DataType.FLOAT32 });
+  const s = new Series({
+    data: new Float32Array(data),
+    dataType: DataType.FLOAT32,
+    timeRange: new TimeRange(0, 100),
+  });
   return {
     type: telemTest.TestSource.TYPE,
     props: { testId: telemTest.source([s.bounds, new MultiSeries([s])]).id },
@@ -60,6 +65,7 @@ interface MountProps {
 }
 
 interface Mount {
+  xAxis: XAxis;
   axis: YAxis;
   setVisible: (line: string, visible: boolean) => void;
 }
@@ -75,19 +81,26 @@ describe("YAxis", () => {
     const recorder = canvasTest.record();
     (recorder as { gl: unknown }).gl = GL;
     const stack = buildStack({
-      registry: { [Host.TYPE]: Host, [YAxis.TYPE]: YAxis, [Line.TYPE]: Line },
+      registry: {
+        [Host.TYPE]: Host,
+        [XAxis.TYPE]: XAxis,
+        [YAxis.TYPE]: YAxis,
+        [Line.TYPE]: Line,
+      },
       render: recorder,
     });
-    const path = [...stack.basePath, "host", "y1"];
-    stack.driver.update(path.slice(0, -1), Host.TYPE, {});
+    const xPath = [...stack.basePath, "host", "x1"];
+    const path = [...xPath, "y1"];
+    stack.driver.update(xPath.slice(0, -1), Host.TYPE, {});
+    stack.driver.update(xPath, XAxis.TYPE, { location: "bottom", autoBoundPadding: 0 });
     stack.driver.update(path, YAxis.TYPE, {
       location: "left",
       autoBoundPadding: 0,
       ...axis,
     });
     const lines: Record<string, Record<string, unknown>> = {
-      nominal: { x: sourceSpec([0, 10]), y: sourceSpec([1, 2, 3]) },
-      railed: { x: sourceSpec([0, 50]), y: sourceSpec([1, 100]) },
+      nominal: { x: sourceSpec([0, 5, 10]), y: sourceSpec([1, 2, 3]) },
+      railed: { x: sourceSpec([0, 50]), y: sourceSpec([100, 1]) },
     };
     const setVisible = (line: string, visible: boolean): void =>
       stack.driver.update([...path, line], Line.TYPE, {
@@ -97,7 +110,11 @@ describe("YAxis", () => {
       });
     Object.keys(lines).forEach((line) => setVisible(line, !hidden.includes(line)));
     teardowns.push(() => stack.driver.delete([aetherTest.ROOT_KEY]));
-    return { axis: stack.driver.find<YAxis>(path), setVisible };
+    return {
+      xAxis: stack.driver.find<XAxis>(xPath),
+      axis: stack.driver.find<YAxis>(path),
+      setVisible,
+    };
   };
 
   describe("bounds", () => {
@@ -110,6 +127,30 @@ describe("YAxis", () => {
       const m = mount();
       m.setVisible("railed", false);
       expect(m.axis.bounds(false, bounds.INFINITE)).toEqual({ lower: 1, upper: 3 });
+    });
+
+    it("should exclude a hidden line inside a finite x window", () => {
+      const m = mount();
+      const xWindow = { lower: 0, upper: 5 };
+      expect(m.axis.bounds(false, xWindow)).toEqual({ lower: 1, upper: 100 });
+      m.setVisible("railed", false);
+      expect(m.axis.bounds(false, xWindow)).toEqual({ lower: 1, upper: 2 });
+    });
+
+    it("should exclude a hidden line when the x window clips out every sample", () => {
+      const m = mount();
+      const xWindow = { lower: 20, upper: 30 };
+      expect(m.axis.bounds(false, xWindow)).toEqual({ lower: 1, upper: 100 });
+      m.setVisible("railed", false);
+      expect(m.axis.bounds(false, xWindow)).toEqual({ lower: 1, upper: 3 });
+    });
+
+    it("should use the x axis bounds of the visible lines as its window", () => {
+      const m = mount();
+      m.setVisible("railed", false);
+      const xBounds = m.xAxis.bounds(false);
+      expect(xBounds).toEqual({ lower: 0, upper: 10 });
+      expect(m.axis.bounds(false, xBounds)).toEqual({ lower: 1, upper: 3 });
     });
 
     it("should include a line again when it is shown", () => {
