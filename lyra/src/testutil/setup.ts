@@ -10,10 +10,9 @@
 import "zod/compile";
 
 import { ResizeObserver } from "@juggle/resize-observer";
+import { failOnConsoleOutput } from "@synnaxlabs/x/testutil";
 import { configure } from "@testing-library/react";
 import { afterAll, beforeAll, vi } from "vitest";
-
-import { failOnConsoleOutput } from "@/testutil/console";
 
 configure({ asyncUtilTimeout: 5000 });
 

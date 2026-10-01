@@ -9,7 +9,8 @@
 
 import { type query, type ranger, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { type record, testutil, TimeRange, TimeSpan, uuid } from "@synnaxlabs/x";
+import { type record, TimeRange, TimeSpan, uuid } from "@synnaxlabs/x";
+import { expectAlways } from "@synnaxlabs/x/testutil";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { memo, type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -1208,7 +1209,7 @@ describe("list", () => {
       act(() => {
         result.current.getItem(1);
       });
-      await testutil.expectAlways(() => {
+      await expectAlways(() => {
         expect(onChangeByKey).toHaveBeenCalledTimes(1);
       });
     });
@@ -1237,7 +1238,7 @@ describe("list", () => {
       act(() => {
         result.current.getItem(1);
       });
-      await testutil.expectAlways(() => {
+      await expectAlways(() => {
         expect(subscribe).toHaveBeenCalledTimes(1);
         expect(onChangeByKey).not.toHaveBeenCalled();
       });
@@ -1337,7 +1338,7 @@ describe("list", () => {
         item = result.current.getItem(1);
       });
       expect(item).toEqual({ key: 1 });
-      await testutil.expectAlways(() => {
+      await expectAlways(() => {
         expect(retrieveByKey).not.toHaveBeenCalled();
       });
     });

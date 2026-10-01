@@ -10,7 +10,7 @@
 import "zod/compile";
 
 import { ResizeObserver } from "@juggle/resize-observer";
-import { failOnConsoleOutput } from "@synnaxlabs/lyra/testutil";
+import { failOnConsoleOutput } from "@synnaxlabs/x/testutil";
 import { configure } from "@testing-library/react";
 import { afterAll, beforeAll, vi } from "vitest";
 

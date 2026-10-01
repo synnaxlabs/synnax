@@ -12,9 +12,9 @@ import { beforeEach, onTestFinished } from "vitest";
 const METHODS = ["error", "warn"] as const;
 
 /**
- * Fails every test that writes to console.error or console.warn, which includes React's
- * act and prop warnings. A test that expects output mocks the method with vi.spyOn,
- * which replaces the recorder for that test. Call it once from a setup file.
+ * Fails every test that writes to console.error or console.warn. A test that expects
+ * output mocks the method with vi.spyOn, which replaces the recorder for that test. Call
+ * it once from a setup file.
  */
 export const failOnConsoleOutput = (): void => {
   const originals = { error: console.error, warn: console.warn };
