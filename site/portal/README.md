@@ -10,13 +10,13 @@ deployment serves on the new schema until the new one is promoted.
 | Environment | Database                 | Clerk                | Signs keys | Sends mail |
 | ----------- | ------------------------ | -------------------- | ---------- | ---------- |
 | Production  | Neon `portal`, `main`    | Production instance  | Yes        | Yes        |
-| Preview     | Neon `portal`, `preview` | Development instance | No         | No, logs   |
+| Preview     | Neon `portal`, `preview` | Development instance | Yes        | No, logs   |
 | Development | Neon `portal`, `preview` | Development instance | Yes        | No, logs   |
 
 Every preview shares the `preview` branch, so an unmerged migration never reaches
-production. A preview cannot sign, because only production deployments can assume the
-signing role: routes that return a license key fail there. Previews are visible only to
-members of the Vercel team.
+production. Previews sign with the production key, so a license key issued there works
+on any Core but is recorded only in the `preview` branch. Previews are visible only to
+members of the Vercel team, so the Desktop app cannot renew against one.
 
 ## Development
 
@@ -40,15 +40,15 @@ These steps run once. They create the Vercel project `portal` and the services i
 ### Signing
 
 The KMS key `alias/synnax-license-signing` signs every license key a Core accepts. The
-portal signs through an AWS role that only production deployments of the project can
-assume with Vercel's OIDC tokens, so no AWS secret is stored. With an AWS CLI identity
-that can manage IAM, run:
+portal signs through an AWS role that production and preview deployments of the project
+can assume with Vercel's OIDC tokens, so no AWS secret is stored. With an AWS CLI
+identity that can manage IAM, run:
 
 ```sh
 site/portal/scripts/create_signing_role.sh
 ```
 
-It prints `AWS_ROLE_ARN` and `LICENSE_KMS_KEY_ARN` for the production environment.
+It prints `AWS_ROLE_ARN` and `LICENSE_KMS_KEY_ARN` for production and preview.
 
 ### Neon
 
@@ -108,17 +108,17 @@ Create the project `portal` from the `synnaxlabs/synnax` repository with root di
 `site/portal`, production branch `main`, files outside the root directory included, and
 OIDC federation in team issuer mode. `vercel.json` sets the install, build, and cron.
 
-| Variable                       | Production      | Preview and development |
-| ------------------------------ | --------------- | ----------------------- |
-| `DATABASE_URL`                 | Neon `main`     | Neon `preview`          |
-| `PUBLIC_CLERK_PUBLISHABLE_KEY` | Production key  | Development key         |
-| `CLERK_SECRET_KEY`             | From Clerk      | From Clerk              |
-| `STAFF_ORG_ID`                 | Production org  | Development org         |
-| `CLERK_WEBHOOK_SIGNING_SECRET` | Webhook secret  | Random string           |
-| `LICENSE_KMS_KEY_ARN`          | From the script | From the script         |
-| `AWS_ROLE_ARN`                 | From the script | Unset                   |
-| `RESEND_API_KEY`               | Resend key      | Unset                   |
-| `CRON_SECRET`                  | Random string   | Random string           |
+| Variable                       | Production      | Preview and development  |
+| ------------------------------ | --------------- | ------------------------ |
+| `DATABASE_URL`                 | Neon `main`     | Neon `preview`           |
+| `PUBLIC_CLERK_PUBLISHABLE_KEY` | Production key  | Development key          |
+| `CLERK_SECRET_KEY`             | From Clerk      | From Clerk               |
+| `STAFF_ORG_ID`                 | Production org  | Development org          |
+| `CLERK_WEBHOOK_SIGNING_SECRET` | Webhook secret  | Random string            |
+| `LICENSE_KMS_KEY_ARN`          | From the script | From the script          |
+| `AWS_ROLE_ARN`                 | From the script | From the script, preview |
+| `RESEND_API_KEY`               | Resend key      | Unset                    |
+| `CRON_SECRET`                  | Random string   | Random string            |
 
 Add the domain `portal.synnaxlabs.com`, and point a `portal` CNAME at the value Vercel
 shows. Vercel Cron calls the daily expiry sweep on production with `CRON_SECRET`.
