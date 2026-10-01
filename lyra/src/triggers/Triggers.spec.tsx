@@ -980,7 +980,7 @@ describe("Triggers", () => {
           triggers: [["A"], ["Control", "B"]],
         });
         return (
-          <div data-testid="editable" contentEditable>
+          <div data-testid="editable" contentEditable suppressContentEditableWarning>
             Editable content
           </div>
         );

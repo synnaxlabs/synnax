@@ -178,6 +178,22 @@ describe("resolveStack", () => {
     );
   });
 
+  it("keeps file path frames raw without fetching or warning", async () => {
+    fetchMock.mockClear();
+    const error = new Error("boom");
+    error.stack = [
+      "Error: boom",
+      "    at fn (/repo/src/fn.ts:1:11)",
+      "    at gn (file:///repo/src/gn.ts:2:3)",
+    ].join("\n");
+    const result = await resolveStack(error, null);
+    expect(result.stack).toBe(
+      "  at fn (/repo/src/fn.ts:1:11)\n  at gn (file:///repo/src/gn.ts:2:3)",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
   it("keeps the raw stack and warns when the stack cannot be parsed", async () => {
     const error = new Error("boom");
     error.stack = "";

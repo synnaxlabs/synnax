@@ -108,9 +108,23 @@ const resolveFromComponentStack = async (componentStack: string): Promise<string
   return frames.join("\n");
 };
 
+// A frame from a Node runtime names a file path, which has no sourcemap to fetch.
+const isFetchable = (fileName: string): boolean => {
+  try {
+    return new URL(fileName).protocol !== "file:";
+  } catch {
+    return false;
+  }
+};
+
 const resolveFrame = async (frame: StackFrame): Promise<string> => {
   const { fileName, lineNumber, columnNumber } = frame;
-  if (fileName == null || lineNumber == null || columnNumber == null)
+  if (
+    fileName == null ||
+    lineNumber == null ||
+    columnNumber == null ||
+    !isFetchable(fileName)
+  )
     return formatRawFrame(frame);
   const consumer = await consumerFor(fileName);
   if (consumer == null) return formatRawFrame(frame);
