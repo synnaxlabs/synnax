@@ -17,8 +17,8 @@ revoked.
 This RFC splits authentication into three records:
 
 - A **subject** is whatever logs in: a user or a rack.
-- A **credential** ties one subject to one method: a password, an API key, or an account
-  at an OpenID Connect provider.
+- A **credential** ties one subject to one method: a password, an API key, or a link to
+  an account at an OpenID Connect provider. Each method stores its own.
 - A **session** is what a login creates. Every request carries its token.
 
 The authentication service only sees subjects as IDs, and it reaches each method through
@@ -54,9 +54,9 @@ How other systems answer the questions in this RFC:
 
 - **One interface per method**: Kubernetes and Grafana each run a set of authenticators
   that all return the same identity type. We do the same.
-- **Credentials as their own records**: Ory Kratos stores a type, an identifier, and
-  private data for each credential, and requires the identifier to be unique within its
-  type. We follow that shape.
+- **Credentials as their own records**: Ory Kratos and Vault store each credential apart
+  from the identity it belongs to, with an identifier that is unique within its method.
+  We do the same, with one table per method.
 - **Exchange or direct**: Vault, Teleport, and Microsoft Entra exchange every proof for
   one internal token. GitHub, Grafana, and Stripe also accept an API key directly on
   each request. We exchange.
@@ -106,48 +106,48 @@ Each subject type accepts a fixed set of methods. The set is a map built in
 
 ### 4.1 Credentials
 
-One table holds every credential. The method-specific data is an Oracle union, the same
-pattern as `Tab` in the panel schema, so Oracle generates the `Method` enum and a typed
-shape for each method.
+Each method has its own table and its own package. The three methods need different
+fields, so one shared table would carry fields that are empty for most rows.
 
 ```
-Data union on method {
-    password { hash bytes }
-    api_key  { hash bytes }
-    oidc     {}
+Password struct {
+    key      Key
+    subject  ontology.ID
+    username string        // indexed, unique
+    hash     bytes         // bcrypt
 }
 
-Credential struct {
-    key        Key          // UUID
-    subject    ontology.ID
-    identifier string
-    name       string
-    created    timestamp
-    last_used  timestamp
-    data       Data
+APIKey struct {
+    key       Key
+    subject   ontology.ID
+    hash      bytes        // SHA-256 of the secret
+    name      string
+    created   timestamp
+    last_used timestamp
+}
+
+OIDCLink struct {
+    key      Key
+    subject  ontology.ID
+    provider string
+    account  string        // indexed with provider, unique
 }
 ```
 
-- A credential belongs to exactly one subject. A subject can have any number.
-- The `identifier` is the public value used to find a credential. It is unique within a
-  method.
-- The table has two lookup indexes: one on method plus identifier, and one on subject.
-- `data` never leaves the Core. Clients see every other field.
-- Creating a credential with an existing key replaces it. That is how a password
-  changes.
+Every credential belongs to exactly one subject, through its `subject` field. A subject
+can hold one password, any number of API keys, and one link per provider.
 
-| Method     | Proof at login         | Identifier         | Stored data           |
-| ---------- | ---------------------- | ------------------ | --------------------- |
-| `password` | Username and password  | Username           | bcrypt hash           |
-| `api_key`  | The key                | Key ID             | SHA-256 of the secret |
-| `oidc`     | Code from the provider | Issuer and account | Nothing               |
+- **Password**: The username lives here, not on the user record, so a rename edits one
+  field. This replaces `SecureCredentials` and follows the direction of PR #3038.
+- **API key**: The key a client holds is `syk_`, the record key, and a random secret.
+  The Core finds the record by its key and compares the hash. The secret is random, so a
+  fast hash is safe. The Core returns the full key once, at creation. `name` is a label
+  such as "Terraform". `created` and `last_used` show which keys are old or unused. A
+  key has no permissions of its own. It acts as its subject.
+- **OIDC link**: `account` is the stable ID the provider gives the person (§4.2). The
+  Core stores no secret for it.
 
-An API key is random, so a fast hash is safe. The Core returns the key once, when it is
-created. A key has no permissions of its own. It acts as its subject.
-
-This table replaces `SecureCredentials` and the shape in PR #3038. The username moves
-from the user record to the identifier of the password credential, so a rename edits one
-field.
+A hash never leaves the Core. Clients see every other field.
 
 ### 4.2 OpenID Connect
 
@@ -172,35 +172,36 @@ Three rules cover how provider accounts become users:
 func (s *Service) Login(ctx context.Context, proof Proof) (Session, string, error)
 func (s *Service) Authenticate(ctx context.Context, token string) (Session, error)
 func (s *Service) Logout(ctx context.Context, keys ...SessionKey) error
-
-func (w Writer) Create(
-    ctx context.Context,
-    subject ontology.ID,
-    in Input,
-) (Credential, error)
-func (w Writer) Delete(ctx context.Context, keys ...Key) error
-func (w Writer) DeleteFor(ctx context.Context, subjects ...ontology.ID) error
 ```
 
 `Login` turns a proof into a session and its token. The middleware calls `Authenticate`
-on every request. The `Writer` manages credentials the same way for every subject and
-method.
+on every request. Neither names a subject type or a method.
 
 Each method implements one interface:
 
 ```go
 type Authenticator interface {
-    // Authenticate checks the proof and returns the credential it matches.
-    Authenticate(ctx context.Context, proof Proof, find Finder) (Credential, error)
-    // Create builds the identifier and stored data for a new credential.
-    Create(ctx context.Context, in Input) (string, Data, error)
+    // Authenticate checks the proof and returns the subject and the credential used.
+    Authenticate(ctx context.Context, proof Proof) (Identity, error)
+    // DeleteFor removes every credential of the given subjects.
+    DeleteFor(ctx context.Context, subjects ...ontology.ID) error
 }
 ```
 
-`Proof` and `Input` are unions on `Method`, like `Data`. `Finder` looks up a credential
-by identifier. The service takes a `map[Method]Authenticator` in its config. A proof for
-a method that is not in the map is a validation error. An unknown identifier and a wrong
-secret return the same error, so a caller cannot probe for usernames.
+`Proof` is an Oracle union on `Method`, the same pattern as `Tab` in the panel schema: a
+password proof holds a username and password, an API key proof holds the key, and an
+OIDC proof holds the provider's code. `Identity` is a subject, a method, and the key of
+the credential.
+
+The service takes a `map[Method]Authenticator` in its config, built in
+`core/pkg/service/layer.go`. A proof for a method that is not in the map is a validation
+error. An unknown username and a wrong password return the same error, so a caller
+cannot probe for usernames.
+
+Managing credentials is not part of the shared interface, because the operations differ:
+a person sets a password, creates a key, or links an account. Each method package has
+its own writer. When a user or rack is deleted, its service calls `DeleteFor` on every
+authenticator.
 
 This replaces today's `Service.Authenticate`, the four `Writer` methods, and the `token`
 package.
@@ -212,7 +213,8 @@ Session struct {
     key         Key          // UUID
     token_hash  bytes
     subject     ontology.ID
-    credential  credential.Key
+    method      Method
+    credential  uuid
     created     timestamp
     last_active timestamp
 }
@@ -326,22 +328,26 @@ to the username when both are empty. A first login through a provider fills `nam
 the provider's `name` claim. The Console shows the name, and the username from the
 password credential where one exists.
 
-The rack schema does not change. A rack's credentials live in the credential table and
-point at it.
+The rack schema does not change. A rack's API keys point at it.
 
 ### 4.10 API and clients
 
-| Endpoint                   | Token | Purpose                          |
-| -------------------------- | ----- | -------------------------------- |
-| `auth/methods`             | No    | Accepted methods and providers   |
-| `auth/oidc/authorize`      | No    | Login URL for a provider         |
-| `auth/session/create`      | No    | Log in with a proof              |
-| `auth/session/renew`       | Yes   | Report activity                  |
-| `auth/session/retrieve`    | Yes   | List sessions                    |
-| `auth/session/delete`      | Yes   | Log out or revoke                |
-| `auth/credential/create`   | Yes   | Create or replace a credential   |
-| `auth/credential/retrieve` | Yes   | List credentials, without `data` |
-| `auth/credential/delete`   | Yes   | Delete credentials               |
+| Endpoint                 | Token | Purpose                               |
+| ------------------------ | ----- | ------------------------------------- |
+| `auth/methods`           | No    | Accepted methods and providers        |
+| `auth/oidc/authorize`    | No    | Login URL for a provider              |
+| `auth/session/create`    | No    | Log in with a proof                   |
+| `auth/session/renew`     | Yes   | Report activity                       |
+| `auth/session/retrieve`  | Yes   | List sessions                         |
+| `auth/session/delete`    | Yes   | Log out or revoke                     |
+| `auth/password/set`      | Yes   | Set or change a password or username  |
+| `auth/password/retrieve` | Yes   | Usernames of subjects                 |
+| `auth/key/create`        | Yes   | Create an API key, returned once      |
+| `auth/key/retrieve`      | Yes   | List API keys, without hashes         |
+| `auth/key/delete`        | Yes   | Delete API keys                       |
+| `auth/oidc/link`         | Yes   | Link a provider account to the caller |
+| `auth/oidc/retrieve`     | Yes   | List provider links                   |
+| `auth/oidc/unlink`       | Yes   | Remove a provider link                |
 
 - **Client libraries** take one proof at construction and log in on the first request.
   When a session ends, a client holding a password or API key logs in again by itself. A
@@ -354,14 +360,15 @@ point at it.
 ### 4.11 Does it extend?
 
 **A service account.** A later RFC adds a `service_account` resource. That PR adds one
-row to the subject map with `api_key`. The Python client is constructed with a key, and
-its session names the service account. The authentication service does not change.
+row to the subject map with `api_key`, and calls `DeleteFor` when an account is deleted.
+The Python client is constructed with a key, and its session names the service account.
+The authentication service does not change.
 
 **A certificate.** A smart card without a provider, or a Core node calling a peer, would
-use a `certificate` method. The identifier is the certificate fingerprint, and the Core
-builds the proof from the TLS state Freighter already carries. That PR adds one union
-variant and one authenticator. It also needs the Core to request client certificates,
-which RFC 0045 §4.6 deferred.
+use a `certificate` method. Its record holds the certificate fingerprint, and the Core
+builds the proof from the TLS state Freighter already carries. That PR adds one package
+with a table and an authenticator, and one variant to `Proof`. It also needs the Core to
+request client certificates, which RFC 0045 §4.6 deferred.
 
 ## 5 What this RFC does not cover
 
@@ -376,8 +383,8 @@ which RFC 0045 §4.6 deferred.
 
 Each phase is one pull request into `main`.
 
-- **Phase 1: Credentials.** The credential table, the `Authenticator` interface, the
-  password authenticator, and the migration from `SecureCredentials`.
+- **Phase 1: Passwords.** The `Authenticator` interface, the password package and its
+  table, and the migration from `SecureCredentials`.
 - **Phase 2: Sessions.** The session table, `Login`, `Authenticate`, `Logout`, the idle
   sweep, and the middleware. Deletes the `token` package.
 - **Phase 3: Streams.** Streams close when their session ends and count as activity.
