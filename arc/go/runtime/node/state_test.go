@@ -164,6 +164,87 @@ var _ = Describe("ProgramState", func() {
 			},
 		)
 
+		It("Should hold a consumed input at its last sample", func(ctx SpecContext) {
+			g := graph.Graph{
+				Nodes: graph.Nodes{{Key: "a"}, {Key: "b"}, {Key: "target"}},
+				Inputs: map[string]msgpack.EncodedJSON{
+					"a":      {"type": "a"},
+					"b":      {"type": "b"},
+					"target": {"type": "target"},
+				},
+				Functions: []ir.Function{
+					{
+						Key: "a",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F32()},
+						},
+					},
+					{
+						Key: "b",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F32()},
+						},
+					},
+					{
+						Key: "target",
+						Inputs: types.Params{
+							{Name: "a", Type: types.F32()},
+							{Name: "b", Type: types.F32()},
+						},
+					},
+				},
+				Edges: graph.Edges{
+					{
+						Source: ir.Handle{Node: "a", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "target", Param: "a"},
+					},
+					{
+						Source: ir.Handle{Node: "b", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "target", Param: "b"},
+					},
+				},
+			}
+			ir, diagnostics := graph.Analyze(ctx, g, nil)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			s := node.New(ir)
+			a, b, target := s.Node("a"), s.Node("b"), s.Node("target")
+			emit := func(n *node.State, stamps ...telem.TimeStamp) {
+				GinkgoHelper()
+				values := make([]float32, len(stamps))
+				for i, stamp := range stamps {
+					values[i] = float32(stamp)
+				}
+				*n.Output(0) = telem.NewSeriesV[float32](values...)
+				*n.OutputTime(0) = telem.NewSeriesSecondsTSV(stamps...)
+				n.MarkFresh(0)
+			}
+			emit(a, 1, 2, 3)
+			emit(b, 10)
+			Expect(target.RefreshInputs()).To(BeTrue())
+			Expect(target.Input(0)).To(telem.MatchSeriesDataV[float32](1, 2, 3))
+			Expect(target.InputStale(0)).To(BeFalse())
+			Expect(target.InputStale(1)).To(BeFalse())
+
+			emit(b, 20)
+			Expect(target.RefreshInputs()).To(BeTrue())
+			Expect(target.Input(0)).To(telem.MatchSeriesDataV[float32](3))
+			Expect(target.InputTime(0)).To(telem.MatchSeriesData(
+				telem.NewSeriesSecondsTSV(3),
+			))
+			Expect(target.Input(1)).To(telem.MatchSeriesDataV[float32](20))
+			Expect(target.InputStale(0)).To(BeTrue())
+			Expect(target.InputStale(1)).To(BeFalse())
+
+			emit(a, 4, 5)
+			Expect(target.RefreshInputs()).To(BeTrue())
+			Expect(target.Input(0)).To(telem.MatchSeriesDataV[float32](4, 5))
+			Expect(target.Input(1)).To(telem.MatchSeriesDataV[float32](20))
+			Expect(target.InputStale(0)).To(BeFalse())
+			Expect(target.InputStale(1)).To(BeTrue())
+			Expect(target.InputStale(-1)).To(BeFalse())
+			Expect(target.InputStale(2)).To(BeFalse())
+		})
+
 		It("Should not trigger recalculation with empty output", func(ctx SpecContext) {
 			g := graph.Graph{
 				Functions: []ir.Function{
