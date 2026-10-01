@@ -14,7 +14,7 @@ import { Access } from "@synnaxlabs/pluto";
 import { useInfoModal } from "@/feature/license/useInfoModal";
 import { Command } from "@/platform/command";
 
-export const OpenInfoCommand = Command.create({
+const OpenInfoCommand = Command.create({
   key: "open_license_info",
   name: "Show license info",
   icon: <Icon.License />,
