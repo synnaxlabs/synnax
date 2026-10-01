@@ -43,14 +43,11 @@ Neither script touches `.oracle` schema files.
   stable `core/v*` tag or the next one (the train rule). Needs tags fetched.
 - `bump_versions.sh <version>` — sets a new semver (`X.Y.Z`) across those manifests.
   Release tooling; don't run ad hoc against a dirty tree.
-
-## Workflow-only scripts (`.github/scripts/`)
-
-Scripts only GitHub Actions runs live beside the workflows, each documented in its
-header: `resolve_version.sh`, `latest_version.sh`, and `verify_checks.sh` behind the
-release actions (pytest coverage beside them), `check_artifact_cache.sh`,
-`generate_os_matrix.sh`, `verify_build_config.sh`, `import_apple_certificate.sh`,
-`pin_internal_deps.sh`, `prune_published.py`, and the Windows installer inputs.
+- `uv run reliability.py <run-url> --version <X.Y.Z>`: builds the docs reliability page
+  data from a CI run and uploads it to DigitalOcean Spaces. Redeploy the docs to publish
+  it. Needs `gh` auth, `DO_SPACES_KEY`, and `DO_SPACES_SECRET`.
+  `--manual-pass <skip reason>` notes that the tests skipped for that reason were run by
+  hand and passed; `--manual-note <text>` says why, on the page.
 
 ## Bazel
 

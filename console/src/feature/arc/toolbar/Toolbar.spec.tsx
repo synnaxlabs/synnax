@@ -38,7 +38,6 @@ const createArc = async () =>
 const renderToolbar = async (): Promise<{ store: TestStore }> => {
   const proj = await client.projects.create({
     name: uniqueName("project"),
-    layout: {},
   });
   const { wrapper, store } = await createConsoleWrapper({
     client,

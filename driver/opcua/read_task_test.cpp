@@ -651,7 +651,7 @@ TEST_F(TestReadTask, testEmptyFramesNotWrittenInUnaryMode) {
 
     // If any frames were written, they should not be empty
     if (mock_factory->writes->size() > 0) {
-        for (const auto &fr: *mock_factory->writes) {
+        for (const auto &fr: mock_factory->writes->snapshot()) {
             EXPECT_GT(fr.length(), 0);
         }
     }
@@ -906,7 +906,7 @@ TEST_F(TestReadTask, testFrameClearedOnErrorInUnaryMode) {
     rt->stop("stop_cmd", true);
 
     if (mock_factory->writes->size() > 0) {
-        for (const auto &fr: *mock_factory->writes) {
+        for (const auto &fr: mock_factory->writes->snapshot()) {
             EXPECT_GT(fr.length(), 0);
         }
     }
@@ -983,7 +983,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
     // Verify that frames were cleared due to invalid data
     bool has_empty_frames = false;
     if (mock_factory->writes->size() > 0) {
-        for (const auto &fr: *mock_factory->writes) {
+        for (const auto &fr: mock_factory->writes->snapshot()) {
             if (fr.length() == 0) {
                 has_empty_frames = true;
                 break;
@@ -1064,7 +1064,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
     // Verify frames were cleared
     bool has_empty_frames = false;
     if (mock_factory->writes->size() > 0) {
-        for (const auto &fr: *mock_factory->writes) {
+        for (const auto &fr: mock_factory->writes->snapshot()) {
             if (fr.length() == 0) {
                 has_empty_frames = true;
                 break;
@@ -1146,7 +1146,7 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
     // Verify frames were cleared - tests read_task.h line 268
     bool has_empty_frames = false;
     if (mock_factory->writes->size() > 0) {
-        for (const auto &fr: *mock_factory->writes) {
+        for (const auto &fr: mock_factory->writes->snapshot()) {
             if (fr.length() == 0) {
                 has_empty_frames = true;
                 break;
@@ -1265,7 +1265,7 @@ TEST_F(TestReadTask, testArrayTimestampsTrailTheClock) {
     const auto stopped_at = x::telem::TimeStamp::now();
 
     std::vector<x::telem::TimeStamp> stamps;
-    for (const auto &fr: *this->mock_factory->writes) {
+    for (const auto &fr: this->mock_factory->writes->snapshot()) {
         if (!fr.contains(this->index_channel.key)) continue;
         for (size_t i = 0; i < fr.length(); i++)
             stamps.push_back(
