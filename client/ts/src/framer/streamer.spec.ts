@@ -883,7 +883,7 @@ describe("Streamer", () => {
         [fr1, new Unreachable({ message: "down" })],
       ];
       let opens = 0;
-      const onRetry = vi.fn();
+      const onRetry = vi.fn<(error: Error) => void>();
       const hardened = await HardenedStreamer.open(
         async () => {
           opens++;
@@ -976,7 +976,7 @@ describe("Streamer", () => {
       ];
       streamer5.responses = [[fr5, null]];
       const openerMock = vi.fn();
-      const onRetry = vi.fn();
+      const onRetry = vi.fn<(error: Error) => void>();
       let count = 0;
       const hardened = await HardenedStreamer.open(
         async () => {
@@ -1005,7 +1005,7 @@ describe("Streamer", () => {
       const fr = new Frame({ 1: new Series([1]) });
       streamer.responses = [[fr, null]];
       const openerMock = vi.fn();
-      const onRetry = vi.fn();
+      const onRetry = vi.fn<(error: Error) => void>();
       await expect(
         HardenedStreamer.open(
           async () => {
@@ -1024,7 +1024,7 @@ describe("Streamer", () => {
 
     it("should retry an open the auth middleware could not refresh", async () => {
       const openerMock = vi.fn();
-      const onRetry = vi.fn();
+      const onRetry = vi.fn<(error: Error) => void>();
       await expect(
         HardenedStreamer.open(
           async () => {

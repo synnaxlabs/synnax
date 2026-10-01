@@ -173,7 +173,9 @@ export interface Config<S extends object> {
   migrate?: () => Promise<Partial<S>>;
   openKV?: KVOpener;
   debounceInterval?: CrudeTimeSpan;
-  /** Receives each storage failure the session recovers from. Defaults to console.error. */
+  /**
+   * Receives each storage failure the session recovers from. Defaults to console.error.
+   */
   onError?: (error: Error) => void;
 }
 

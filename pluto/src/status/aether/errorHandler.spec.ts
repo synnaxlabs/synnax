@@ -306,7 +306,7 @@ describe("errorHandler", () => {
     });
   });
 
-  describe("parseException", () => {
+  describe("status creation", () => {
     it("should create status from exception", () => {
       const mockAdder: Adder = vi.fn();
       const handler = createErrorHandler(mockAdder, quiet);
