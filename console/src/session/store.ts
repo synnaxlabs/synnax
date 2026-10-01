@@ -213,7 +213,9 @@ export interface CreateStoreOptions extends Partial<
   enablePersistence?: boolean;
   /** Overrides the persistence KV store. Tests inject an in-memory KV. */
   openKV?: Persist.KVOpener;
-  /** Receives each storage failure persistence recovers from. Defaults to console.error. */
+  /**
+   * Receives each storage failure persistence recovers from. Defaults to console.error.
+   */
   onPersistError?: (error: Error) => void;
 }
 

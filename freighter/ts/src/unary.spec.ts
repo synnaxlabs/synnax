@@ -29,7 +29,7 @@ const send = async (client: UnaryClient): Promise<void> =>
 describe("unaryWithBreaker", () => {
   it("should retry an unreachable target until the retries run out", async () => {
     const unary = failingUnary(new Unreachable({ message: UNREACHABLE_MESSAGE }));
-    const onRetry = vi.fn();
+    const onRetry = vi.fn<(error: Error) => void>();
     const client = unaryWithBreaker(unary, { ...NO_SLEEP, maxRetries: 2 }, onRetry);
     await expect(send(client)).rejects.toThrow(UNREACHABLE_MESSAGE);
     expect(unary.send).toHaveBeenCalledTimes(3);
@@ -39,7 +39,7 @@ describe("unaryWithBreaker", () => {
 
   it("should not announce a retry it will not make", async () => {
     const unary = failingUnary(new Unreachable({ message: UNREACHABLE_MESSAGE }));
-    const onRetry = vi.fn();
+    const onRetry = vi.fn<(error: Error) => void>();
     const client = unaryWithBreaker(unary, { ...NO_SLEEP, maxRetries: 0 }, onRetry);
     await expect(send(client)).rejects.toThrow(UNREACHABLE_MESSAGE);
     expect(unary.send).toHaveBeenCalledTimes(1);
@@ -48,7 +48,7 @@ describe("unaryWithBreaker", () => {
 
   it("should rethrow an error that is not an unreachable target", async () => {
     const unary = failingUnary(new Error(FATAL_MESSAGE));
-    const onRetry = vi.fn();
+    const onRetry = vi.fn<(error: Error) => void>();
     const client = unaryWithBreaker(unary, { ...NO_SLEEP, maxRetries: 2 }, onRetry);
     await expect(send(client)).rejects.toThrow(FATAL_MESSAGE);
     expect(unary.send).toHaveBeenCalledTimes(1);

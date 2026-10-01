@@ -43,7 +43,9 @@ export interface CacheParams {
    * the mirrored channels. Only a policy change lifts a denial.
    */
   onStreamDenied?: (error: Error) => void;
-  /** Receives each failed change-stream reconnect attempt. Defaults to console.error. */
+  /**
+   * Receives each failed change-stream reconnect attempt. Defaults to console.error.
+   */
   onStreamRetry?: (error: Error) => void;
   /**
    * Receives errors that have no caller to throw to: listener fan-out, streamer frame
