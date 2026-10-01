@@ -158,6 +158,17 @@ Core exchanges it with the provider and validates the result, so the Core must b
 to reach the provider. An air-gapped site runs its own provider. A site with smart cards
 puts the card check in its provider.
 
+The provider answers with a signed ID token. The Core checks its signature, issuer,
+audience, expiry, and nonce, and then reads two claims:
+
+- `sub`, the provider's permanent ID for the person, becomes the link's `account`. It is
+  the only claim that is safe as an identity. An email can change or be unverified.
+- `name` fills the `name` of a user created at first login.
+
+The Core stores nothing else and discards every token the provider returns. So after
+login the Core never talks to the provider again, and a person whose provider account is
+disabled keeps their Synnax session until it is revoked or goes idle.
+
 Three rules cover how provider accounts become users:
 
 1. The first login creates a user with the built-in Viewer role. A provider setting can
@@ -373,6 +384,7 @@ request client certificates, which RFC 0045 §4.6 deferred.
 ## 5 What this RFC does not cover
 
 - Roles, policies, and scoped API keys.
+- Mapping a provider's `groups` claim to roles.
 - The audit log. Sessions record the subject and credential behind every request, so a
   later audit design has what it needs.
 - Authentication between Core nodes. Peer calls are unauthenticated today.
