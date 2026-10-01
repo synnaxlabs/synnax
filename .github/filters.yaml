@@ -182,6 +182,7 @@ pluto: &pluto
   - pluto/**
 
 portal:
+  - *client_ts
   - *lyra
   - *media
   - *ts

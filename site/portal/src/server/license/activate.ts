@@ -168,6 +168,10 @@ export const reissue = async (
     now,
   });
   if (!decision.ok) throw badRequest(DENIAL_MESSAGES[decision.reason]);
+  const signed = await sign(
+    signer,
+    build({ license: row.license, fingerprint: row.activation.fingerprint, now }),
+  );
   await store.query
     .update(activation)
     .set({ lastSeen: now })
@@ -181,10 +185,6 @@ export const reissue = async (
     activation: activationKey,
     detail: {},
   });
-  const signed = await sign(
-    signer,
-    build({ license: row.license, fingerprint: row.activation.fingerprint, now }),
-  );
   return { license: row.license, key: signed };
 };
 

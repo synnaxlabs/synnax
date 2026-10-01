@@ -257,6 +257,7 @@ export const floating = async (
   requireEnterprise(row);
   const denial = deny(row, now);
   if (denial != null) throw badRequest(DENIAL_MESSAGES[denial]);
+  const signed = await sign(signer, build({ license: row, fingerprint: [], now }));
   await store.query.insert(event).values({
     at: now,
     kind: "download",
@@ -265,5 +266,5 @@ export const floating = async (
     license: row.key,
     detail: { floating: true },
   });
-  return await sign(signer, build({ license: row, fingerprint: [], now }));
+  return signed;
 };
