@@ -36,7 +36,7 @@ export interface Transport {
   reset: () => void;
 }
 
-/** What the rest of the Console calls. */
+/** What the rest of the Console calls. No method throws. */
 export interface Sink {
   capture: <N extends Name>(event: N, properties: Properties<N>) => void;
   /** Records a view of the given tab type as a screen. */
@@ -56,6 +56,18 @@ export const NOOP: Sink = {
 };
 
 /**
+ * Runs a call into the vendor. Analytics must never fail the action that reported it,
+ * so a vendor that throws is logged instead.
+ */
+const send = (call: () => void): void => {
+  try {
+    call();
+  } catch (err) {
+    console.error("failed to send analytics", err);
+  }
+};
+
+/**
  * Wraps a transport in the event contract. Anything the schemas do not declare is
  * dropped and logged instead of sent, so an unreviewed property cannot reach a vendor
  * even if a caller type-asserts past the signature.
@@ -67,7 +79,7 @@ export const createSink = (transport: Transport): Sink => ({
       console.error(`dropped ${event}`, parsed.error);
       return;
     }
-    transport.capture(event, parsed.data);
+    send(() => transport.capture(event, parsed.data));
   },
   screen: (tab) => {
     if (!TYPE.test(tab)) {
@@ -76,11 +88,13 @@ export const createSink = (transport: Transport): Sink => ({
     }
     // All three are overridden together. Left alone they describe the `tauri://`
     // origin, which every screen shares.
-    transport.capture("$pageview", {
-      $current_url: `https://${HOST}/${tab}`,
-      $host: HOST,
-      $pathname: `/${tab}`,
-    });
+    send(() =>
+      transport.capture("$pageview", {
+        $current_url: `https://${HOST}/${tab}`,
+        $host: HOST,
+        $pathname: `/${tab}`,
+      }),
+    );
   },
   identify: (account) => {
     const parsed = accountZ.safeParse(account);
@@ -88,7 +102,7 @@ export const createSink = (transport: Transport): Sink => ({
       console.error("dropped the account", parsed.error);
       return;
     }
-    transport.identify(parsed.data);
+    send(() => transport.identify(parsed.data));
   },
-  reset: () => transport.reset(),
+  reset: () => send(() => transport.reset()),
 });

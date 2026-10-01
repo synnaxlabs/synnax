@@ -130,14 +130,22 @@ pub async fn supervisor_reset<R: Runtime>(
     paths: State<'_, Paths>,
 ) -> Result<(), String> {
     let data_dir = paths.data_dir.clone();
-    let data_size = blocking(move || diagnostics::dir_size(&data_dir)).await?;
     let local = app
         .path()
         .app_local_data_dir()
-        .map_err(|err| err.to_string())?;
-    install::record_reset(&local, data_size).map_err(|err| err.to_string())?;
+        .map_err(std::io::Error::other);
+    // The record only feeds analytics, so a failure costs the report and never the reset
+    // that recovers a broken Core.
+    if let Err(err) = blocking(move || record_reset(&local?, &data_dir)).await {
+        eprintln!("failed to record the reset: {err}");
+    }
     supervisor.reset().await.map_err(|err| err.to_string())?;
     app.restart()
+}
+
+/// Stores the size of the data a reset is about to erase, for the next launch to report.
+fn record_reset(local: &Path, data_dir: &Path) -> std::io::Result<()> {
+    install::record_reset(local, diagnostics::dir_size(data_dir)?)
 }
 
 #[tauri::command]
@@ -227,4 +235,34 @@ fn reveal(dir: &Path) -> Result<(), String> {
         .spawn()
         .map(|_| ())
         .map_err(|err| format!("failed to open {}: {err}", dir.display()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn records_the_size_of_the_data_a_reset_erases() {
+        let local = tempfile::tempdir().unwrap();
+        let data = tempfile::tempdir().unwrap();
+        std::fs::write(
+            local.path().join("install.json"),
+            r#"{"id":"abc","launched_at":1}"#,
+        )
+        .unwrap();
+        std::fs::write(data.path().join("segment"), [0u8; 10]).unwrap();
+        record_reset(local.path(), data.path()).unwrap();
+        let stored: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(local.path().join("install.json")).unwrap())
+                .unwrap();
+        assert_eq!(stored["erased_bytes"], 10);
+    }
+
+    #[test]
+    fn fails_to_record_a_reset_without_an_install_record() {
+        let local = tempfile::tempdir().unwrap();
+        let data = tempfile::tempdir().unwrap();
+        let err = record_reset(local.path(), data.path()).unwrap_err();
+        assert_eq!(err.to_string(), "no install record");
+    }
 }

@@ -26,6 +26,28 @@ describe("Analytics.createSink", () => {
     });
   });
 
+  it("should log a vendor that throws instead of throwing to the caller", () => {
+    // A capture runs inside the action it reports, such as a save, so a throw would
+    // fail an action that succeeded.
+    const failure = new Error("vendor failed");
+    const transport = createTransport();
+    const fail = () => {
+      throw failure;
+    };
+    vi.mocked(transport.capture).mockImplementation(fail);
+    vi.mocked(transport.identify).mockImplementation(fail);
+    vi.mocked(transport.reset).mockImplementation(fail);
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const sink = Analytics.createSink(transport);
+    sink.capture("plot_created", {});
+    sink.screen("schematic");
+    sink.identify({ id: "user_a", email: "a@example.com" });
+    sink.reset();
+    expect(log.mock.calls).toEqual(
+      Array(4).fill(["failed to send analytics", failure]),
+    );
+  });
+
   it("should drop an event whose number is not a real number", () => {
     // A duration read from a corrupt stored timestamp arrives as NaN. It satisfies the
     // signature, so only the schema stops it from reaching a vendor.

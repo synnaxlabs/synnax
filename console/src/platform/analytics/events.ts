@@ -14,7 +14,7 @@ const exitReasonZ = z.enum(["failed_to_start", "crashed", "not_ready", "unrespon
 /**
  * The properties of every event, keyed by event name. The schemas are strict, so a
  * property that is not declared here never reaches the sink. Values stay numbers,
- * booleans, and identifiers the code sets: no name a user typed ever leaves the machine.
+ * booleans, and identifiers the code sets, so no name a user typed reaches an event.
  */
 export const schemas = {
   app_opened: z.strictObject({

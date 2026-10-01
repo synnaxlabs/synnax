@@ -89,6 +89,8 @@ const init = async (installID: string) => {
     capture_dead_clicks: false,
     capture_performance: false,
     property_denylist: DENYLIST,
+    // Exception messages go out unchanged, since a crash report needs them. They can
+    // name a channel or a device.
     before_send: (event) =>
       event?.event === "$exception" &&
       isMonacoCancellation(event.properties.$exception_list)
