@@ -9,6 +9,7 @@
 
 import { status, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { xy } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, type Mock } from "vitest";
@@ -20,7 +21,6 @@ import { Session } from "@/session";
 import {
   createConsoleWrapper,
   renderSuspended,
-  stubClipboardWriteText,
   type TestStore,
   uniqueName,
 } from "@/testutil";

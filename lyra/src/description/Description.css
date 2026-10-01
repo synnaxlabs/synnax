@@ -1,0 +1,41 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.pluto-description {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 1rem 4rem;
+    margin: 0;
+
+    .pluto-description__item {
+        display: grid;
+        grid-column: 1 / -1;
+        grid-template-columns: subgrid;
+        align-items: baseline;
+    }
+
+    .pluto-description__label,
+    .pluto-description__value {
+        margin: 0;
+    }
+
+    .pluto-description__value {
+        min-width: 0;
+        overflow-wrap: anywhere;
+        user-select: text;
+    }
+
+    &.pluto-description--between .pluto-description__value {
+        justify-self: end;
+        justify-content: flex-end;
+        text-align: end;
+    }
+}

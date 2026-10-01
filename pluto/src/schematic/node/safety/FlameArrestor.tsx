@@ -18,7 +18,7 @@ export interface Props extends Primitive.DivProps, Primitive.SVGBasedProps {}
 const DIMENSIONS = { width: 33, height: 69 };
 
 export const FlameArrestor = ({
-  color,
+  strokeColor,
   className,
   orientation = "left",
   scale,
@@ -28,7 +28,7 @@ export const FlameArrestor = ({
     <Handle.Linear orientation={orientation} left={7.575} right={92.425} />
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={color}
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
     >

@@ -13,6 +13,9 @@ import { Aether } from "@/aether";
 import { scale } from "@/vis/scale/aether";
 
 export const gutter = scale.gutter;
+export const levelColorFallback = scale.levelColorFallback;
+export const axisColorFallback = scale.axisColorFallback;
+export const textColorFallback = scale.textColorFallback;
 
 export interface UseProps extends z.input<typeof scale.Scale.z> {
   aetherKey: string;

@@ -19,7 +19,7 @@ const client = createTestClient();
 describe("Log", () => {
   describe("create", () => {
     test("create one", async () => {
-      const proj = await client.projects.create({ name: "Log", layout: { one: 1 } });
+      const proj = await client.projects.create({ name: "Log" });
       const log = await client.logs.create(proj.key, { name: "Log" });
       expect(log.name).toEqual("Log");
       expect(log.key).not.toEqual(uuid.ZERO);
@@ -28,7 +28,7 @@ describe("Log", () => {
   });
   describe("rename", () => {
     test("rename one", async () => {
-      const proj = await client.projects.create({ name: "Log", layout: { one: 1 } });
+      const proj = await client.projects.create({ name: "Log" });
       const log = await client.logs.create(proj.key, { name: "Log" });
       await client.logs.rename(log.key, "Log2");
       const res = await client.logs.retrieve(log.key);
@@ -37,7 +37,7 @@ describe("Log", () => {
   });
   describe("delete", () => {
     test("delete one", async () => {
-      const proj = await client.projects.create({ name: "Log", layout: { one: 1 } });
+      const proj = await client.projects.create({ name: "Log" });
       const log = await client.logs.create(proj.key, { name: "Log" });
       await client.logs.delete(log.key);
       await expect(client.logs.retrieve(log.key)).rejects.toThrow(NotFoundError);

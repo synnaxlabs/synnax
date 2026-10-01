@@ -197,6 +197,25 @@ func (s *Service) newCalculationTransform(
 		return nil, err
 	}
 
+	// A free index has no expression, so add the calculated channel that writes it.
+	freeIndexes := lo.FilterMap(
+		channels,
+		func(ch channel.Channel, _ int) (channel.Key, bool) {
+			return ch.Key(), ch.IsIndex && ch.Key().Free()
+		},
+	)
+	if len(freeIndexes) > 0 {
+		var owners []channel.Channel
+		if err := s.cfg.Channel.NewRetrieve().
+			Where(channel.MatchCalculated()).
+			Where(channel.MatchIndexes(freeIndexes...)).
+			Entries(&owners).
+			Exec(ctx, nil); err != nil {
+			return nil, err
+		}
+		channels = append(channels, owners...)
+	}
+
 	// Add all calculated channels to the allocator
 	for _, ch := range channels {
 		if ch.IsCalculated() {

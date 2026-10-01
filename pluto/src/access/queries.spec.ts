@@ -184,7 +184,6 @@ describe("Access Queries", () => {
       // drop it: no re-evaluation, no re-render.
       const proj = await userClient.projects.create({
         name: id.create(),
-        layout: {},
       });
       // Wait until the link reaches the cache (event delivered)...
       await waitFor(() => {
