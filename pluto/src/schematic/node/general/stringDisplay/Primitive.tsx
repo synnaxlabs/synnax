@@ -25,7 +25,12 @@ import { Staleness } from "@/vis/staleness";
 interface RenderProps extends Partial<
   Pick<
     schematic.StringDisplayNodeConfig,
-    "color" | "textColor" | "stalenessColor" | "orientation" | "level" | "inlineSize"
+    | "strokeColor"
+    | "textColor"
+    | "stalenessColor"
+    | "orientation"
+    | "level"
+    | "inlineSize"
   >
 > {
   className?: string;
@@ -35,7 +40,7 @@ interface RenderProps extends Partial<
 
 export const StringDisplay = ({
   className,
-  color: colorVal,
+  strokeColor,
   textColor,
   stalenessColor,
   level = "p",
@@ -46,11 +51,11 @@ export const StringDisplay = ({
 }: RenderProps): ReactElement => {
   const style = useMemo<CSSProperties>(
     () => ({
-      [CSS.variable("symbol-color")]: color.rgbaString(colorVal),
+      [CSS.variable("symbol-color")]: color.rgbaString(strokeColor),
       width: inlineSize,
       height: Component.HEIGHTS[LEVEL_SIZES[level]],
     }),
-    [colorVal, inlineSize, level],
+    [strokeColor, inlineSize, level],
   );
   const theme = Theming.use();
   const resolvedTextColor = stale

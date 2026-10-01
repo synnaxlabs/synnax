@@ -172,3 +172,88 @@ Thing struct {
 		}
 	})
 })
+
+var _ = Describe("Frozen hand-written dependency", func() {
+	var req *plugin.Request
+
+	BeforeEach(func() {
+		root := GinkgoT().TempDir()
+		write := func(rel, content string) {
+			GinkgoHelper()
+			full := filepath.Join(root, rel)
+			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
+		}
+		write("schemas/synnax/versions/channel/v0.oracle", `
+Key uint32 {
+	@go hand
+}
+`)
+		write("schemas/synnax/channel.oracle", `
+@go output "core/pkg/service/channel"
+
+Key uint32 {
+	@go hand
+}
+`)
+		write("schemas/synnax/versions/log/v0.oracle", `
+import "schemas/synnax/versions/channel/v0"
+
+Log struct {
+	key uuid @key
+	channel channel.Key
+
+	@go marshal
+}
+`)
+		write("schemas/synnax/versions/log/v1.oracle", `
+import "schemas/synnax/versions/channel/v0"
+
+Log struct {
+	key uuid @key
+	channel channel.Key
+	name string
+
+	@go marshal
+}
+`)
+		write("schemas/synnax/log.oracle", `
+import "schemas/synnax/channel"
+
+@go output "core/pkg/service/log"
+
+Log struct {
+	key uuid @key
+	channel channel.Key
+	name string
+}
+`)
+		chains := MustSucceed(versions.Discover(root))
+		loader := analyzer.NewStandardFileLoader(root)
+		table, diag := analyzer.Analyze(
+			GinkgoT().Context(),
+			[]string{"schemas/synnax/channel", "schemas/synnax/log"},
+			loader,
+		)
+		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		req = &plugin.Request{
+			Resolutions: table,
+			RepoRoot:    root,
+			Versions:    versions.NewResolver(chains, loader),
+		}
+	})
+
+	// channel v0 holds its own hand-written Key, so a frozen package pinning v0 must
+	// import it there and not follow the live type.
+	It("Should import the pinned version directory of a hand-written type", func() {
+		resp := MustSucceed(gotypes.New(gotypes.DefaultOptions()).Generate(req))
+		var frozen string
+		for _, f := range resp.Files {
+			if f.Path == "core/pkg/service/log/versions/v0/types.gen.go" {
+				frozen = string(f.Content)
+			}
+		}
+		Expect(frozen).To(ContainSubstring(`service/channel/versions/v0"`))
+		Expect(frozen).ToNot(ContainSubstring(`service/channel"`))
+	})
+})

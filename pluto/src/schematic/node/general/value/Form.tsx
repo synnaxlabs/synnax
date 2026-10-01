@@ -9,7 +9,6 @@
 
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
-import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Form } from "@/schematic/node/common/form";
@@ -31,12 +30,9 @@ export const ValueForm = ({ tab, onTabChange }: FormProps): ReactElement => (
           <Label.Form path="label" />
         </Base.Section>
         <Base.Section title="Appearance">
-          <Form.ColorField path="color" />
-          <Form.ColorField
-            path="backgroundColor"
-            label="Background"
-            fallback={color.ZERO}
-          />
+          <Form.ColorField path="strokeColor" label="Stroke" />
+          <Form.FillField />
+          <Form.ColorField path="textColor" label="Text" />
           <Form.LevelSizeField />
           <Form.UnitsField />
           <Base.NumericField
