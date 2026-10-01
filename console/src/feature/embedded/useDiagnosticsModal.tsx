@@ -11,11 +11,11 @@ import "@/feature/embedded/useDiagnosticsModal.css";
 
 import { type status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
+import { Description } from "@synnaxlabs/lyra/description";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
-import { Text } from "@synnaxlabs/lyra/text";
 import { Size, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { save } from "@tauri-apps/plugin-dialog";
 import { type ReactElement, type ReactNode, useEffect, useRef, useState } from "react";
@@ -70,12 +70,10 @@ interface FieldProps {
 }
 
 const Field = ({ label, children }: FieldProps): ReactElement => (
-  <Flex.Box x gap="medium" align="start">
-    <Text.Text className={CSS.BE("diagnostics", "label")} color={9} weight={450}>
-      {label}
-    </Text.Text>
-    <Text.Text className={CSS.BE("diagnostics", "value")}>{children}</Text.Text>
-  </Flex.Box>
+  <Description.Item>
+    <Description.Label>{label}</Description.Label>
+    <Description.Value>{children}</Description.Value>
+  </Description.Item>
 );
 
 const useDiagnostics = (state: SupervisorStatus["state"]): Diagnostics | null => {
@@ -165,7 +163,7 @@ export const useDiagnosticsModal = Modals.create(() => {
             {STATE_MESSAGES[status.state]}
           </Status.Summary>
           {diagnostics != null && history != null && (
-            <>
+            <Description.List>
               <Field label="Version">{diagnostics.version}</Field>
               {history.readyAt != null && (
                 <Field label="Running since">
@@ -185,7 +183,7 @@ export const useDiagnosticsModal = Modals.create(() => {
               <Field label="Data">
                 {formatSize(diagnostics.dataSize)} in {diagnostics.dataDir}
               </Field>
-            </>
+            </Description.List>
           )}
         </Flex.Box>
         <Log />
