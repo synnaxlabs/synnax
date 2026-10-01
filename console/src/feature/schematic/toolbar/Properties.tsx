@@ -154,7 +154,7 @@ const CustomVariantForm = ({
 
 const FIELDS = MultiEdit.fieldsByVariant(schematic.ELEMENT_CONFIG_SCHEMAS);
 
-// Every stored color field, role or not, that Selection colors lists.
+// Every stored color field, role or not, that Selection lists.
 const COLOR_FIELDS = [
   "strokeColor",
   "fillColor",
@@ -518,7 +518,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
         </Input.Item>
       </Form.Section>
       {hasColors && (
-        <Form.Section title="Colors">
+        <MultiEdit.ColorsSection>
           {hasStroke && (
             <MultiEdit.ColorField
               label="Stroke"
@@ -550,7 +550,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
             refs={selectionRefs}
             onChange={selection.setColors}
           />
-        </Form.Section>
+        </MultiEdit.ColorsSection>
       )}
       {selection.has("label") && (
         <Form.Section title="Label">

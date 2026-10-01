@@ -133,7 +133,7 @@ describe("table/Toolbar", () => {
     const { key } = await renderToolbar({
       tableState: { selectedCells: ["a", "b"], lastSelected: "b" },
     });
-    await screen.findByText("Selection colors");
+    await screen.findByText("Selection");
     fireEvent.click(screen.getByLabelText("Change cell type"));
     fireEvent.click(await screen.findByText("Value"));
     await waitFor(async () => {
@@ -146,7 +146,7 @@ describe("table/Toolbar", () => {
     const { result } = await renderToolbar({
       tableState: { selectedCells: ["a", "b"], lastSelected: "b" },
     });
-    expect(await screen.findByText("Selection colors")).toBeDefined();
+    expect(await screen.findByText("Selection")).toBeDefined();
     expect(screen.getByText("Size")).toBeDefined();
     await waitFor(() => expect(result.container.textContent).toContain("2 cells"));
   });
@@ -183,7 +183,7 @@ describe("table/Toolbar", () => {
     });
     await screen.findByText("Colors");
     expect(roleInput("Fill").placeholder).toBe("Auto");
-    expect(screen.queryByText("Selection colors")).toBeNull();
+    expect(screen.queryByText("Selection")).toBeNull();
     fireEvent.change(roleInput("Fill"), { target: { value: "0000ff" } });
     await waitFor(async () => {
       const t = await client.tables.retrieve(key);
@@ -207,7 +207,7 @@ describe("table/Toolbar", () => {
     const { key } = await renderToolbar({
       tableState: { selectedCells: ["a", "b"], lastSelected: "b" },
     });
-    const label = await screen.findByText("Selection colors");
+    const label = await screen.findByText("Selection");
     const item = label.closest(".pluto-input__item");
     assertDefined(item);
     const swatches = item.querySelectorAll<HTMLElement>(".pluto-color-swatch");

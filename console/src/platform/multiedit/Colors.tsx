@@ -78,7 +78,7 @@ export const SelectionColors = ({
   const live = new Map(refs.map((r) => [refID(r), r]));
   const groups = held?.groups ?? Array.from(groupByColor(refs).values());
   return (
-    <Input.Item label="Selection colors" align="start" padHelpText={false}>
+    <Input.Item label="Selection" align="start" padHelpText={false}>
       <Flex.Box x wrap>
         {groups.map((group) => {
           const current = group.flatMap((r) => live.get(refID(r)) ?? []);

@@ -10,7 +10,7 @@
  */
 
 /* The lamp paints its lit fill from the on color but keeps the outline stroke. */
-.pluto-light .pluto-light__lamp {
+.pluto-light__lamp {
     stroke: inherit;
 }
 

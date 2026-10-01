@@ -7,14 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/platform/multiedit/Sections.css";
+
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Notation, Staleness } from "@synnaxlabs/pluto";
 import { type color, type notation } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type PropsWithChildren, type ReactElement } from "react";
 
+import { CSS } from "@/platform/css";
 import { ColorField } from "@/platform/multiedit/Colors";
 import { type ColorValue } from "@/platform/multiedit/selection";
+
+/**
+ * Holds the color controls of several elements. The label column keeps its width as
+ * the Selection control appears and leaves.
+ */
+export const ColorsSection = ({ children }: PropsWithChildren): ReactElement => (
+  <Form.Section title="Colors" className={CSS.B("multiedit-colors")}>
+    {children}
+  </Form.Section>
+);
 
 const STALENESS_TIMEOUT_BOUNDS = { lower: 1, upper: Infinity };
 const PRECISION_BOUNDS = { lower: 0, upper: 10 };

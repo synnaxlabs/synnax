@@ -96,7 +96,7 @@ const clearRoleColor = (label: string): void => {
 };
 
 const selectionSwatches = (): HTMLElement[] => {
-  const item = screen.getByText("Selection colors").closest(".pluto-input__item");
+  const item = screen.getByText("Selection").closest(".pluto-input__item");
   assertDefined(item);
   return Array.from(item.querySelectorAll<HTMLElement>(".pluto-color-swatch"));
 };
@@ -373,10 +373,10 @@ describe("Schematic toolbar Properties", () => {
       expect(screen.queryByLabelText("Text")).toBeNull();
     });
 
-    it("lists only stored colors in Selection colors", async () => {
+    it("lists only stored colors in Selection", async () => {
       await renderProperties({ nodeKeys: ["n1", "n2"] });
       await screen.findByText("Colors");
-      expect(screen.queryByText("Selection colors")).toBeNull();
+      expect(screen.queryByText("Selection")).toBeNull();
     });
 
     it("recolors every field that holds a selection color", async () => {
@@ -388,7 +388,7 @@ describe("Schematic toolbar Properties", () => {
           return { ...createBoxConfig(), fillColor: GREEN };
         },
       });
-      await screen.findByText("Selection colors");
+      await screen.findByText("Selection");
       const [red] = selectionSwatches();
       expect(selectionSwatches()).toHaveLength(2);
       fireEvent.click(red);
@@ -414,7 +414,7 @@ describe("Schematic toolbar Properties", () => {
             ? { ...createBoxConfig(), strokeColor: RED }
             : { ...createBoxConfig(), strokeColor: GREEN },
       });
-      await screen.findByText("Selection colors");
+      await screen.findByText("Selection");
       const [red] = selectionSwatches();
       const strokes = async (): Promise<Array<string | undefined>> =>
         await Promise.all(
@@ -430,7 +430,7 @@ describe("Schematic toolbar Properties", () => {
       await expect.poll(strokes).toEqual([BLUE, GREEN]);
     });
 
-    it("recolors a state option through Selection colors", async () => {
+    it("recolors a state option through Selection", async () => {
       const { key } = await renderProperties({
         nodeKeys: ["n1", "n2"],
         createConfig: (key) =>
@@ -441,7 +441,7 @@ describe("Schematic toolbar Properties", () => {
               }
             : createValveConfig(),
       });
-      await screen.findByText("Selection colors");
+      await screen.findByText("Selection");
       const [red] = selectionSwatches();
       fireEvent.click(red);
       fireEvent.change(screen.getByLabelText("Hex"), {

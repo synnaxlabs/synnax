@@ -222,7 +222,7 @@ const NotEditableContent = ({ name }: NotEditableContentProps): ReactElement => 
 
 const FIELDS = MultiEdit.fieldsByVariant(table.CELL_CONFIG_SCHEMAS);
 
-// Every stored color field that Selection colors lists.
+// Every stored color field that Selection lists.
 const COLOR_FIELDS = ["textColor", "fillColor", "stalenessColor"] as const;
 
 interface MultiCellFormProps {
@@ -255,7 +255,7 @@ const MultiCellForm = ({ cellKeys }: MultiCellFormProps): ReactElement => {
 
   return (
     <Form.Sections x>
-      <Form.Section title="Colors">
+      <MultiEdit.ColorsSection>
         <MultiEdit.ColorField
           label="Text"
           values={selection.colors("textColor", () => theme.colors.gray.l11)}
@@ -270,7 +270,7 @@ const MultiCellForm = ({ cellKeys }: MultiCellFormProps): ReactElement => {
           refs={selectionRefs}
           onChange={selection.setColors}
         />
-      </Form.Section>
+      </MultiEdit.ColorsSection>
       <Form.Section title="Text">
         <Input.Item label="Size" padHelpText={false}>
           <Select.Text.Level

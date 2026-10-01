@@ -77,10 +77,7 @@ export const Value = ({
         bottom={102}
       />
       <div className={CSS.cls(CSS.BE("value", "units"), CSS.M(unitsLevel))}>
-        <Text.Text
-          level={unitsLevel}
-          color={textColor == null ? undefined : color.cssString(textColor)}
-        >
+        <Text.Text level={unitsLevel} color={textColor ?? 11}>
           {units}
         </Text.Text>
       </div>
