@@ -409,7 +409,7 @@ describe("MultiplexedStreamer", () => {
       });
       const ins = new alamos.Instrumentation({
         key: "test",
-        logger: new alamos.Logger(),
+        logger: new alamos.Logger({ filters: [alamos.logThresholdFilter("error")] }),
       });
       const errorSpy = vi.spyOn(ins.L, "error").mockImplementation(() => {});
       const rejections: unknown[] = [];
@@ -510,9 +510,15 @@ describe("MultiplexedStreamer", () => {
           };
         });
       };
+      const ins = new alamos.Instrumentation({
+        key: "test",
+        logger: new alamos.Logger({ filters: [alamos.logThresholdFilter("error")] }),
+      });
+      const errorSpy = vi.spyOn(ins.L, "error").mockImplementation(() => {});
       const streamer = new MultiplexedStreamer({
         cache: new Cache(),
         openStreamer: opener,
+        instrumentation: ins,
       });
 
       let brokenCalls = 0;
@@ -531,12 +537,23 @@ describe("MultiplexedStreamer", () => {
       expect(brokenCalls).toBeGreaterThan(5);
       expect(responses.length).toBeGreaterThan(5);
       expect(openCalls).toBe(1);
+      expect(errorSpy).toHaveBeenCalledWith(
+        "stream handler failed",
+        { error: new Error("broken live handler") },
+        true,
+      );
     });
 
     it("should notify remaining status handlers when one throws", async () => {
+      const ins = new alamos.Instrumentation({
+        key: "test",
+        logger: new alamos.Logger({ filters: [alamos.logThresholdFilter("error")] }),
+      });
+      const errorSpy = vi.spyOn(ins.L, "error").mockImplementation(() => {});
       const streamer = new MultiplexedStreamer({
         cache: new Cache(),
         openStreamer: createStreamOpener([pendingStreamer([1])]),
+        instrumentation: ins,
       });
 
       const broken = streamer.stream(() => {}, [1]);
@@ -551,6 +568,11 @@ describe("MultiplexedStreamer", () => {
       good.close();
 
       expect(statuses).toContain("success");
+      expect(errorSpy).toHaveBeenCalledWith(
+        "status handler failed",
+        { error: new Error("broken status handler") },
+        true,
+      );
     });
   });
 
@@ -803,7 +825,7 @@ describe("MultiplexedStreamer", () => {
       });
       const ins = new alamos.Instrumentation({
         key: "test",
-        logger: new alamos.Logger(),
+        logger: new alamos.Logger({ filters: [alamos.logThresholdFilter("error")] }),
       });
       const errorSpy = vi.spyOn(ins.L, "error").mockImplementation(() => {});
 

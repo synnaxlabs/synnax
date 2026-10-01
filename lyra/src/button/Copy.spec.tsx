@@ -22,8 +22,10 @@ const StatusSpy = ({ onStatuses }: { onStatuses: (s: NotificationSpec[]) => void
   return null;
 };
 
+const quiet: Status.Log = () => {};
+
 const wrapper = ({ children }: PropsWithChildren) => (
-  <Status.Aggregator>{children}</Status.Aggregator>
+  <Status.Aggregator log={quiet}>{children}</Status.Aggregator>
 );
 
 describe("Copy", () => {
@@ -199,7 +201,7 @@ describe("Copy", () => {
     it("should push a success status when successMessage is provided", async () => {
       const spy = vi.fn();
       const c = render(
-        <Status.Aggregator>
+        <Status.Aggregator log={quiet}>
           <StatusSpy onStatuses={spy} />
           <Button.Copy text="hello" successMessage="Copied!" />
         </Status.Aggregator>,
@@ -217,7 +219,7 @@ describe("Copy", () => {
       const spy = vi.fn();
       let name = "Task A";
       const c = render(
-        <Status.Aggregator>
+        <Status.Aggregator log={quiet}>
           <StatusSpy onStatuses={spy} />
           <Button.Copy text="hello" successMessage={() => `Copied ${name}`} />
         </Status.Aggregator>,
@@ -233,7 +235,7 @@ describe("Copy", () => {
 
     it("should not show the check icon when successMessage is provided", async () => {
       const c = render(
-        <Status.Aggregator>
+        <Status.Aggregator log={quiet}>
           <Button.Copy text="hello" successMessage="Copied!" />
         </Status.Aggregator>,
       );
@@ -247,7 +249,7 @@ describe("Copy", () => {
     it("should not push a status when successMessage is not provided", async () => {
       const spy = vi.fn();
       const c = render(
-        <Status.Aggregator>
+        <Status.Aggregator log={quiet}>
           <StatusSpy onStatuses={spy} />
           <Button.Copy text="hello" />
         </Status.Aggregator>,
@@ -263,7 +265,7 @@ describe("Copy", () => {
       writeText.mockRejectedValue(new Error("Clipboard denied"));
       const spy = vi.fn();
       const c = render(
-        <Status.Aggregator>
+        <Status.Aggregator log={quiet}>
           <StatusSpy onStatuses={spy} />
           <Button.Copy text="hello" />
         </Status.Aggregator>,
@@ -281,7 +283,7 @@ describe("Copy", () => {
       const getText = vi.fn(() => Promise.reject(new Error("Failed to compute")));
       const spy = vi.fn();
       const c = render(
-        <Status.Aggregator>
+        <Status.Aggregator log={quiet}>
           <StatusSpy onStatuses={spy} />
           <Button.Copy text={getText} />
         </Status.Aggregator>,

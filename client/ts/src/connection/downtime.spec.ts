@@ -39,6 +39,7 @@ const createProxiedClient = async (
     password: TEST_CLIENT_PARAMS.password,
     retry,
     onInternalError: (error) => internal.push(error),
+    onRetry: () => {},
   });
   return { proxy, client, internal };
 };
