@@ -13,7 +13,11 @@ import { ResizeObserver } from "@juggle/resize-observer";
 import { configure } from "@testing-library/react";
 import { afterAll, beforeAll, vi } from "vitest";
 
+import { failOnConsoleOutput } from "@/testutil/console";
+
 configure({ asyncUtilTimeout: 5000 });
+
+failOnConsoleOutput();
 
 class MockIntersectionObserver {
   observe = vi.fn();

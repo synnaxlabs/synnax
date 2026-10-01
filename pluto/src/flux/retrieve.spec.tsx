@@ -203,6 +203,7 @@ describe("use", () => {
             <Display />
           </Errors.SuspenseBoundary>
         </Wrapper>,
+        { onCaughtError: quiet },
       );
     });
 
@@ -242,6 +243,7 @@ describe("use", () => {
             <Display />
           </Errors.SuspenseBoundary>
         </Wrapper>,
+        { onCaughtError: quiet },
       );
     });
 
@@ -619,6 +621,7 @@ describe("use", () => {
               <Display />
             </Errors.SuspenseBoundary>
           </Wrapper>,
+          { onCaughtError: quiet },
         );
       });
 
@@ -776,6 +779,7 @@ describe("use", () => {
               <Display />
             </Errors.SuspenseBoundary>
           </Wrapper>,
+          { onCaughtError: quiet },
         );
       });
       return { utils, retrieve };
@@ -880,6 +884,7 @@ describe("use", () => {
               <Display />
             </Errors.SuspenseBoundary>
           </Wrapper>,
+          { onCaughtError: quiet },
         );
       });
       return {
@@ -971,6 +976,7 @@ describe("use", () => {
                 <Display />
               </Errors.SuspenseBoundary>
             </Wrapper>,
+            { onCaughtError: quiet },
           );
         });
         await act(async () => {
@@ -1065,6 +1071,7 @@ describe("use", () => {
               <Display />
             </Errors.SuspenseBoundary>
           </Wrapper>,
+          { onCaughtError: quiet },
         );
       });
 
@@ -1103,6 +1110,7 @@ describe("use", () => {
               <Display />
             </Errors.SuspenseBoundary>
           </Wrapper>,
+          { onCaughtError: quiet },
         );
       });
 
@@ -1145,6 +1153,7 @@ describe("use", () => {
               <Display />
             </Errors.SuspenseBoundary>
           </Wrapper>,
+          { onCaughtError: quiet },
         );
       });
 
@@ -1189,13 +1198,16 @@ describe("use", () => {
 
       // The first read opens the change stream, which is what advances the epoch
       // once the connection returns.
-      const utils = render(tree(first.key));
+      let utils!: ReturnType<typeof render>;
+      await act(async () => {
+        utils = render(tree(first.key), { onCaughtError: quiet });
+      });
       mounted = utils;
       await waitFor(() => expect(utils.getByText(first.name)).toBeTruthy());
 
       // The second label was never read, so it cannot be served from the cache.
       await proxy.sever();
-      utils.rerender(tree(second.key));
+      await act(async () => utils.rerender(tree(second.key)));
       await waitFor(() => expect(utils.getByTestId("error")).toBeTruthy());
 
       await proxy.restore();
@@ -1269,6 +1281,7 @@ describe("useEnsure", () => {
             <Display />
           </Errors.SuspenseBoundary>
         </Wrapper>,
+        { onCaughtError: quiet },
       );
     });
 
@@ -1311,7 +1324,7 @@ describe("use connection changes", () => {
 
     let utils!: ReturnType<typeof render>;
     await act(async () => {
-      utils = render(<Harness connected />);
+      utils = render(<Harness connected />, { onCaughtError: quiet });
     });
     await waitFor(() =>
       expect(utils.queryByTestId("value")?.textContent).toBe("value-42"),
@@ -1424,6 +1437,7 @@ describe("createSelector", () => {
             <Display />
           </Errors.SuspenseBoundary>
         </Wrapper>,
+        { onCaughtError: quiet },
       );
     });
     expect(utils.queryByText("loading-select")).toBeNull();
@@ -1452,6 +1466,7 @@ describe("createSelector", () => {
             <Display />
           </Errors.SuspenseBoundary>
         </Wrapper>,
+        { onCaughtError: quiet },
       );
     });
     expect(utils.queryByTestId("error")?.textContent).toEqual("deleted");
@@ -1477,6 +1492,7 @@ describe("createSelector", () => {
             <Display />
           </Errors.SuspenseBoundary>
         </NullWrapper>,
+        { onCaughtError: quiet },
       );
     });
     expect(utils.queryByTestId("error")?.textContent).toEqual("disconnected");

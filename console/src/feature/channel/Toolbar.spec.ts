@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Channel } from "@/feature/channel";
@@ -51,8 +51,15 @@ describe("channel/Toolbar", () => {
   });
 
   it("opens the create calculated channel modal from the toolbar action", async () => {
-    await renderChannelToolbar();
-    fireEvent.click(await waitFor(() => getIconButton(document.body, "calculation")));
+    await renderToolbar(Channel.TOOLBAR.content, {
+      client,
+      items: Channel.TREE_ITEMS,
+      // Monaco cannot run in jsdom, so the expression editor's boundary catches.
+      onCaughtError: () => {},
+    });
+    await screen.findByText("Channels");
+    const button = await waitFor(() => getIconButton(document.body, "calculation"));
+    await act(async () => fireEvent.click(button));
     expect(await screen.findByPlaceholderText("Name")).toBeTruthy();
     expect(await screen.findByText("Derivative")).toBeTruthy();
   });

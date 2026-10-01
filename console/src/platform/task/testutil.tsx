@@ -11,6 +11,7 @@ import {
   channel,
   device,
   type framer,
+  group,
   panel,
   project,
   query,
@@ -27,6 +28,7 @@ import { id, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import {
   act,
   fireEvent,
+  type RenderOptions,
   type RenderResult,
   screen,
   waitFor,
@@ -68,6 +70,7 @@ export const createChannelReadOnlyClient = async (client: Client): Promise<Clien
       channel.TYPE_ONTOLOGY_ID,
       panel.TYPE_ONTOLOGY_ID,
       project.TYPE_ONTOLOGY_ID,
+      group.TYPE_ONTOLOGY_ID,
     ],
     update: [task.TYPE_ONTOLOGY_ID],
   });
@@ -333,7 +336,7 @@ export const renderInTaskFormWithClient = async (
   return { ...result, store: resolvedStore, form: formRef, tabKey, panelKey, wrapper };
 };
 
-export interface RenderTaskFormTabOptions {
+export interface RenderTaskFormTabOptions extends Pick<RenderOptions, "onCaughtError"> {
   /** Client backing the console wrapper; falls back to a shared test client. */
   client?: Client | null;
   /** Client the console renders as; the panel and task are created with `client`. */
@@ -363,7 +366,7 @@ export const renderTaskFormTab = async (
   Form: FC<FormTabProps>,
   options: RenderTaskFormTabOptions = {},
 ): Promise<RenderTaskFormTabResult> => {
-  const { onStatuses } = options;
+  const { onStatuses, onCaughtError } = options;
   const client = options.client ?? defaultClient;
   const as = options.as ?? client;
   const taskKey =
@@ -388,7 +391,7 @@ export const renderTaskFormTab = async (
       <Form taskKey={taskKey} />
       {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
     </PanelScopes>,
-    { wrapper },
+    { wrapper, onCaughtError },
   );
   return { ...result, ...created, store, tabKey: tab.key };
 };

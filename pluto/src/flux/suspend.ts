@@ -184,7 +184,12 @@ export const usePendingFetch = <Query extends query.Params, Data>(
  * conditional `use`.
  */
 export const readCached = <Data>(value: Data): Data =>
-  use(Object.assign(Promise.resolve(value), { status: "fulfilled", value }));
+  use(
+    Object.assign(new Promise<Data>((resolve) => resolve(value)), {
+      status: "fulfilled" as const,
+      value,
+    }),
+  );
 
 export const suspendOnFetch = <Query extends query.Params, Data>(
   params: RetrieveParams<Query>,

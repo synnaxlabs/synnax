@@ -11,7 +11,7 @@ import { Synnax } from "@synnaxlabs/pluto";
 import { scheduler } from "@synnaxlabs/x";
 import { emit } from "@tauri-apps/api/event";
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
-import { cleanup, waitFor } from "@testing-library/react";
+import { act, cleanup, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { expect, type Mock, vi } from "vitest";
 
@@ -71,7 +71,7 @@ export const mockSupervisor = (
     emitStatus: async (status) => {
       // The app asks for the status only after its listener is in place.
       await waitFor(() => expect(commands).toHaveBeenCalledWith("supervisor_status"));
-      await emit("supervisor://status", status);
+      await act(async () => await emit("supervisor://status", status));
     },
   };
 };

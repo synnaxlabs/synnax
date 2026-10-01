@@ -18,7 +18,7 @@ import {
 } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Channel } from "@/feature/channel";
@@ -268,9 +268,16 @@ describe("channel/ontology", () => {
         expression: "return 1",
       });
       const root = await createChannelGroup(calc);
-      await renderChannelTree(root);
+      await renderOntologyTree({
+        client,
+        root,
+        items: Channel.TREE_ITEMS,
+        // Monaco cannot run in jsdom, so the expression editor's boundary catches.
+        onCaughtError: () => {},
+      });
       await openTreeRowContextMenu(calc.name);
-      fireEvent.click(await screen.findByText("Edit calculation"));
+      const edit = await screen.findByText("Edit calculation");
+      await act(async () => fireEvent.click(edit));
       expect(await screen.findByDisplayValue(calc.name)).toBeTruthy();
     });
 

@@ -27,6 +27,8 @@ const openModal = async (
 ): Promise<ModalOpenerHandle<void>> => {
   const handle = await renderModalOpener(Channel.useCalculatedModal, [params ?? {}], {
     client,
+    // Monaco cannot run in jsdom, so the expression editor's boundary catches.
+    onCaughtError: () => {},
   });
   await screen.findByPlaceholderText("Name");
   return handle;

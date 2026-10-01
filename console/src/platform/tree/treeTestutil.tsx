@@ -14,6 +14,7 @@ import {
   act,
   fireEvent,
   render,
+  type RenderOptions,
   type RenderResult,
   screen,
 } from "@testing-library/react";
@@ -23,7 +24,10 @@ import { Modals } from "@/platform/modals";
 import { Tree } from "@/platform/tree";
 import { createConsoleWrapper, selectTestProject, type TestStore } from "@/testutil";
 
-export interface RenderOntologyTreeOptions {
+export interface RenderOntologyTreeOptions extends Pick<
+  RenderOptions,
+  "onCaughtError"
+> {
   client: Synnax;
   root: ontology.ID | null;
   /** Real item overrides; every other resource type falls back to Tree.DefaultItem. */
@@ -51,6 +55,7 @@ export const renderOntologyTree = async ({
   items = {},
   extra,
   projectClient = client,
+  onCaughtError,
 }: RenderOntologyTreeOptions): Promise<OntologyTreeHandle> => {
   const { wrapper, store } = await createConsoleWrapper({ client });
   await selectTestProject(store, projectClient);
@@ -64,7 +69,7 @@ export const renderOntologyTree = async ({
       </Haul.Provider>
       {extra}
     </Triggers.Provider>,
-    { wrapper },
+    { wrapper, onCaughtError },
   );
   return { ...rendered, store };
 };

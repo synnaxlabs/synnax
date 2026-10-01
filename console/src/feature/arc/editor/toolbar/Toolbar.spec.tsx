@@ -12,7 +12,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Suspense } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { Arc } from "@/feature/arc";
 import { createResourceTab } from "@/platform/panel/testutil";
@@ -131,9 +131,14 @@ describe("arc editor toolbar", () => {
     store.dispatch(Session.Arc.setSelected({ key: arc.key, selected: ["n1", "n2"] }));
     fireEvent.click(screen.getByText("Properties"));
     await screen.findByText("Align");
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
     fireEvent.click(getIconButton(document.body, "align-y-center"));
     fireEvent.click(getIconButton(document.body, "align-x-center"));
     expect(screen.getByText("Align")).toBeTruthy();
+    expect(consoleError).toHaveBeenCalledWith(
+      new Error("[diagram] - cannot find node with key: n1"),
+    );
+    consoleError.mockRestore();
   });
 
   it("offers to enable editing when the arc is not editable", async () => {

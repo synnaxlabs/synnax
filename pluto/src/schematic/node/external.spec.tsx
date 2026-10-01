@@ -10,7 +10,7 @@
 import { schematic } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { render, screen } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -59,13 +59,12 @@ describe("symbol forms that wrap a shared form", () => {
 });
 
 describe("symbol previews", () => {
-  it.each(STATIC_SPECS.map(({ key }) => key as Variant))(
-    "should render the %s preview from its default config",
-    (variant) => {
-      const Preview = REGISTRY[variant].Preview as FC<object>;
+  it.each(STATIC_SPECS)(
+    "should render the $key preview from its default config",
+    ({ key, Preview }) => {
       const { container } = render(
         <SynnaxWrapper>
-          <Preview {...createConfig({ variant })} scale={0.75} />
+          <Preview {...createConfig({ variant: key })} scale={0.75} />
         </SynnaxWrapper>,
       );
       expect(container.firstChild).not.toBeNull();

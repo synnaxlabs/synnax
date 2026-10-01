@@ -108,10 +108,13 @@ const resolveFromComponentStack = async (componentStack: string): Promise<string
   return frames.join("\n");
 };
 
-// A frame from a Node runtime names a file path, which has no sourcemap to fetch.
+// A frame from a Node runtime names a file path or a Node internal module, which has
+// no sourcemap to fetch.
+const UNFETCHABLE_PROTOCOLS = new Set(["file:", "node:"]);
+
 const isFetchable = (fileName: string): boolean => {
   try {
-    return new URL(fileName).protocol !== "file:";
+    return !UNFETCHABLE_PROTOCOLS.has(new URL(fileName).protocol);
   } catch {
     return false;
   }

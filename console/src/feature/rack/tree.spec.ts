@@ -101,7 +101,13 @@ describe("rack ontology service", () => {
 
   it("should delete the rack on the Core after confirmation", async () => {
     const r = await createRack();
-    await renderMenu([r]);
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
+      client,
+      resources: [rackResource(r.key, r.name)],
+      // The menu outlives the rack it deletes, and its items throw the deletion.
+      onCaughtError: () => {},
+    });
     fireEvent.click(await screen.findByText("Delete"));
     await screen.findByText(`Are you sure you want to delete ${r.name}?`);
     fireEvent.click(findModalButton("Delete"));

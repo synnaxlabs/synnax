@@ -178,17 +178,22 @@ describe("resolveStack", () => {
     );
   });
 
-  it("keeps file path frames raw without fetching or warning", async () => {
+  it("keeps Node runtime frames raw without fetching or warning", async () => {
     fetchMock.mockClear();
     const error = new Error("boom");
     error.stack = [
       "Error: boom",
       "    at fn (/repo/src/fn.ts:1:11)",
       "    at gn (file:///repo/src/gn.ts:2:3)",
+      "    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)",
     ].join("\n");
     const result = await resolveStack(error, null);
     expect(result.stack).toBe(
-      "  at fn (/repo/src/fn.ts:1:11)\n  at gn (file:///repo/src/gn.ts:2:3)",
+      [
+        "  at fn (/repo/src/fn.ts:1:11)",
+        "  at gn (file:///repo/src/gn.ts:2:3)",
+        "  at process.processTicksAndRejections (node:internal/process/task_queues:105:5)",
+      ].join("\n"),
     );
     expect(fetchMock).not.toHaveBeenCalled();
     expect(warnSpy).not.toHaveBeenCalled();

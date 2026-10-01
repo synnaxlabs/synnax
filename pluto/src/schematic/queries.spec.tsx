@@ -189,6 +189,7 @@ describe("schematic queries", () => {
 
       renderHook(() => Schematic.useName({ key: doomed.key }), {
         wrapper: BoundaryWrapper,
+        onCaughtError: () => {},
       });
       await waitFor(() => expect(caught.length).toBeGreaterThan(0));
       const error = caught[0];

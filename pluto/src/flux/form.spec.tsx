@@ -133,6 +133,7 @@ describe("useForm", () => {
               <Display />
             </Errors.SuspenseBoundary>
           </Wrapper>,
+          { onCaughtError: () => {} },
         );
       });
       await act(async () => {
