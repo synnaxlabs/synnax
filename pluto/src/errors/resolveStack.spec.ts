@@ -185,14 +185,14 @@ describe("resolveStack", () => {
       "Error: boom",
       "    at fn (/repo/src/fn.ts:1:11)",
       "    at gn (file:///repo/src/gn.ts:2:3)",
-      "    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)",
+      "    at tick (node:internal/process/task_queues:105:5)",
     ].join("\n");
     const result = await resolveStack(error, null);
     expect(result.stack).toBe(
       [
         "  at fn (/repo/src/fn.ts:1:11)",
         "  at gn (file:///repo/src/gn.ts:2:3)",
-        "  at process.processTicksAndRejections (node:internal/process/task_queues:105:5)",
+        "  at tick (node:internal/process/task_queues:105:5)",
       ].join("\n"),
     );
     expect(fetchMock).not.toHaveBeenCalled();

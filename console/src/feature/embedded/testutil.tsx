@@ -77,8 +77,7 @@ export const mockSupervisor = (
 };
 
 /**
- * Removes the mocked shell. The tree unmounts first, and its async effect destructors
- * run a task later, so the mocks stay until they have unlistened.
+ * Unmounts the tree, then removes the mocked shell once its async cleanups unlisten.
  */
 export const clearSupervisor = async (): Promise<void> => {
   cleanup();
