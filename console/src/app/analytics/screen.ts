@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { panel, query, type Synnax as Client } from "@synnaxlabs/client";
+import { panel, query, type Synnax } from "@synnaxlabs/client";
 import { type destructor } from "@synnaxlabs/x";
 
 import { type Analytics } from "@/platform/analytics";
@@ -15,7 +15,7 @@ import { Session } from "@/session";
 
 interface WatchParams {
   store: Session.Store;
-  client: Client;
+  client: Synnax;
   screen: Analytics.Sink["screen"];
 }
 
