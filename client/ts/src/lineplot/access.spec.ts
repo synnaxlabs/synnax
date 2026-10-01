@@ -23,7 +23,7 @@ describe("lineplot", () => {
         objects: [],
         actions: [],
       });
-      const proj = await client.projects.create({ name: "test", layout: {} });
+      const proj = await client.projects.create({ name: "test" });
       const randomLinePlot = await client.lineplots.create(proj.key, { name: "test" });
       await expect(userClient.lineplots.retrieve(randomLinePlot.key)).rejects.toSatisfy(
         AccessDeniedError.matches,
@@ -36,7 +36,7 @@ describe("lineplot", () => {
         objects: [lineplot.ontologyID("")],
         actions: ["retrieve"],
       });
-      const proj = await client.projects.create({ name: "test", layout: {} });
+      const proj = await client.projects.create({ name: "test" });
       const randomLinePlot = await client.lineplots.create(proj.key, { name: "test" });
       const retrieved = await userClient.lineplots.retrieve(randomLinePlot.key);
       expect(retrieved.key).toBe(randomLinePlot.key);
@@ -49,7 +49,7 @@ describe("lineplot", () => {
         objects: [lineplot.ontologyID("")],
         actions: ["create"],
       });
-      const proj = await client.projects.create({ name: "test", layout: {} });
+      const proj = await client.projects.create({ name: "test" });
       await userClient.lineplots.create(proj.key, { name: "test" });
     });
 
@@ -59,7 +59,7 @@ describe("lineplot", () => {
         objects: [lineplot.ontologyID("")],
         actions: [],
       });
-      const proj = await client.projects.create({ name: "test", layout: {} });
+      const proj = await client.projects.create({ name: "test" });
       await expect(
         userClient.lineplots.create(proj.key, { name: "test" }),
       ).rejects.toSatisfy(AccessDeniedError.matches);
@@ -71,7 +71,7 @@ describe("lineplot", () => {
         objects: [lineplot.ontologyID("")],
         actions: ["delete", "retrieve"],
       });
-      const proj = await client.projects.create({ name: "test", layout: {} });
+      const proj = await client.projects.create({ name: "test" });
       const randomLinePlot = await client.lineplots.create(proj.key, { name: "test" });
       await userClient.lineplots.delete(randomLinePlot.key);
       await expect(userClient.lineplots.retrieve(randomLinePlot.key)).rejects.toThrow(
@@ -85,7 +85,7 @@ describe("lineplot", () => {
         objects: [lineplot.ontologyID("")],
         actions: [],
       });
-      const proj = await client.projects.create({ name: "test", layout: {} });
+      const proj = await client.projects.create({ name: "test" });
       const randomLinePlot = await client.lineplots.create(proj.key, { name: "test" });
       await expect(userClient.lineplots.delete(randomLinePlot.key)).rejects.toSatisfy(
         AccessDeniedError.matches,

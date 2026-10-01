@@ -18,7 +18,7 @@ import { Triggers as PTriggers } from "@synnaxlabs/lyra/triggers";
 
 import { CSS } from "@/platform/css";
 import { Body } from "@/platform/modals/Body";
-import { createPrompt, type Prompt } from "@/platform/modals/factory";
+import { createPrompt } from "@/platform/modals/factory";
 import { Footer } from "@/platform/modals/Footer";
 import { Frame } from "@/platform/modals/Frame";
 import { Header } from "@/platform/modals/Header";
@@ -39,8 +39,6 @@ export interface ConfirmParams {
   title?: string;
   icon?: Icon.ReactElement;
 }
-
-export interface PromptConfirm extends Prompt<boolean, ConfirmParams> {}
 
 interface InternalButtonProps
   extends ButtonProps, Omit<Button.ButtonProps, "variant"> {}

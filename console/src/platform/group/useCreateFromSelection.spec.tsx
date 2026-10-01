@@ -61,6 +61,18 @@ const setup = async () => {
   return { parentID, a, b, editable };
 };
 
+// The move reaches the client cache before the Core commits it, so a parent that reads
+// as regrouped does not mean the new group holds its children yet.
+const expectGrouped = async (key: group.Key, members: group.Group[]): Promise<void> =>
+  await waitFor(async () => {
+    const grouped = await client.ontology.children.retrieve({
+      ids: group.ontologyID(key),
+    });
+    expect(grouped.map((c) => c.id.key).sort()).toEqual(
+      members.map((m) => m.key).sort(),
+    );
+  });
+
 describe("useCreateFromSelection", () => {
   it("should group the selected resources under a new group when the rename is committed", async () => {
     const { parentID, a, b, editable } = await setup();
@@ -78,10 +90,7 @@ describe("useCreateFromSelection", () => {
       expect(created).toBeDefined();
       newKey = created?.id.key ?? "";
     });
-    const grouped = await client.ontology.children.retrieve({
-      ids: group.ontologyID(newKey),
-    });
-    expect(grouped.map((c) => c.id.key).sort()).toEqual([a.key, b.key].sort());
+    await expectGrouped(newKey, [a, b]);
   });
 
   it("should group a nested selection under its non-root parent", async () => {
@@ -121,10 +130,7 @@ describe("useCreateFromSelection", () => {
       expect(subChildren[0].name).toBe(name);
       newKey = subChildren[0].id.key;
     });
-    const grouped = await client.ontology.children.retrieve({
-      ids: group.ontologyID(newKey),
-    });
-    expect(grouped.map((c) => c.id.key).sort()).toEqual([a.key, b.key].sort());
+    await expectGrouped(newKey, [a, b]);
   });
 
   it("should not create a group and should restore the tree when the rename is escaped", async () => {
