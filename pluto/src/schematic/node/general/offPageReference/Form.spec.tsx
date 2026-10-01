@@ -63,7 +63,7 @@ describe("OffPageReferenceForm", () => {
         <OffPageReferenceForm />
       </FormWrapper>,
     );
-    expect(getByText("Color")).toBeDefined();
+    expect(getByText("Fill")).toBeDefined();
   });
 
   it("should render label size field when level is provided", () => {
@@ -100,7 +100,7 @@ describe("OffPageReferenceForm", () => {
         values: CONFIG_Z.parse({
           variant: "off_page_reference",
           label: { label: "Test Label" },
-          color: initialColor,
+          fillColor: initialColor,
           page: initialPage(target.key),
         }),
         schema: CONFIG_Z,
@@ -120,7 +120,7 @@ describe("OffPageReferenceForm", () => {
       if (methods == null) throw new Error("form did not mount");
       return methods;
     };
-    const getColor = (): string => JSON.stringify(getMethods().get("color").value);
+    const getColor = (): string => JSON.stringify(getMethods().get("fillColor").value);
     return { ...rendered, target, targetName, getMethods, getColor };
   };
 

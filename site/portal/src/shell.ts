@@ -22,8 +22,8 @@ export const landing = (search: URLSearchParams): string => {
   const raw = search.get("redirect_url");
   if (raw == null) return HOME;
   // Resolving the way a browser does catches every form that escapes the origin.
-  const url = new URL(raw, PLACEHOLDER_ORIGIN);
-  if (url.origin !== PLACEHOLDER_ORIGIN) return HOME;
+  const url = URL.parse(raw, PLACEHOLDER_ORIGIN);
+  if (url?.origin !== PLACEHOLDER_ORIGIN) return HOME;
   return `${url.pathname}${url.search}${url.hash}`;
 };
 

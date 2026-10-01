@@ -50,6 +50,10 @@ describe("shell", () => {
     it("should land home for a script URL", () => {
       expect(land("redirect_url=javascript%3Aalert(1)")).toBe(HOME);
     });
+    it("should land home for a malformed URL", () => {
+      expect(land("redirect_url=http%3A%2F%2F%5B")).toBe(HOME);
+      expect(land("redirect_url=%2F%2F%5B")).toBe(HOME);
+    });
   });
   describe("tabs", () => {
     it("should give a personal scope its overview and devices", () => {

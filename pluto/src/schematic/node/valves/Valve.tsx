@@ -18,7 +18,7 @@ const DIMENSIONS = { width: 87, height: 42 };
 
 export const Valve = ({
   orientation = "left",
-  color,
+  strokeColor,
   scale,
   ...rest
 }: Props): ReactElement => (
@@ -26,7 +26,7 @@ export const Valve = ({
     <Handle.Linear orientation={orientation} left={2.2989} right={97.7701} />
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={color}
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
     >

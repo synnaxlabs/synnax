@@ -208,6 +208,7 @@ func (s *ProgramState) Node(key string) *State {
 	nd := &State{}
 	nd.ir.inputs = inputs
 	nd.rearm = rearm
+	nd.stale = make([]bool, len(inputs))
 	nd.inputIndex = inputIndex
 	nd.params = n.Inputs
 	nd.ir.outputs = lo.Map(n.Outputs, func(item types.Param, _ int) ir.Handle {
@@ -274,7 +275,10 @@ type State struct {
 	// literals of such a node consumed, so only fresh edge data re-runs it.
 	edgeFed bool
 	// rearm[i] selects when a consumed input i fires again.
-	rearm       []rearmRule
+	rearm []rearmRule
+	// stale[i] marks an input whose series an earlier run consumed. It holds only
+	// its last sample until new data arrives.
+	stale       []bool
 	accumulated []inputEntry
 	aligned     struct {
 		data []telem.Series
@@ -339,7 +343,9 @@ func (s *State) RefreshInputs() (recalculate bool) {
 		}
 		hasDataInput = true
 		src := s.inputSources[i]
-		if src != nil && src.rev > s.accumulated[i].lastRev {
+		refreshed := src != nil && src.rev > s.accumulated[i].lastRev
+		s.stale[i] = !refreshed && s.accumulated[i].consumed
+		if refreshed {
 			consumed := false
 			if s.rearm[i] == rearmOnReset {
 				consumed = s.accumulated[i].consumed
@@ -368,11 +374,25 @@ func (s *State) RefreshInputs() (recalculate bool) {
 		if s.isReference[i] {
 			continue
 		}
-		s.aligned.data[i] = s.accumulated[i].data
-		s.aligned.time[i] = s.accumulated[i].time
+		data, time := s.accumulated[i].data, s.accumulated[i].time
+		if s.stale[i] {
+			if data.Len() > 1 {
+				data = data.Last()
+			}
+			if time.Len() > 1 {
+				time = time.Last()
+			}
+		}
+		s.aligned.data[i] = data
+		s.aligned.time[i] = time
 		s.accumulated[i].consumed = true
 	}
 	return true
+}
+
+// InputStale reports whether the input at paramIndex was consumed by an earlier run.
+func (s *State) InputStale(paramIndex int) bool {
+	return paramIndex >= 0 && paramIndex < len(s.stale) && s.stale[paramIndex]
 }
 
 // RefSourced reports whether the reference input at paramIndex is edge-fed.

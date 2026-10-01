@@ -19,7 +19,7 @@ export interface CompressorProps extends Toggle.ButtonProps, Primitive.SVGBasedP
 const DIMENSIONS = { width: 66, height: 66 };
 
 export const Compressor = ({
-  color,
+  strokeColor,
   className,
   orientation = "left",
   scale,
@@ -39,7 +39,7 @@ export const Compressor = ({
     />
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={color}
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
     >
