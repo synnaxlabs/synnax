@@ -19,7 +19,7 @@ export interface CentrifugalProps extends Toggle.ButtonProps, Primitive.SVGBased
 const DIMENSIONS = { width: 66, height: 66 };
 
 export const Centrifugal = ({
-  color,
+  strokeColor,
   className,
   orientation = "left",
   scale,
@@ -39,7 +39,7 @@ export const Centrifugal = ({
     />
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={color}
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
     >
