@@ -13,7 +13,6 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { OS } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { Analytics } from "@/app/analytics";
 import { Link } from "@/app/link";
 import { Mosaic } from "@/app/mosaic";
 import { Nav } from "@/app/nav";
@@ -51,7 +50,6 @@ export const Primary = (): ReactElement => {
       <SideEffect />
       <Guard>
         <ProjectSideEffect />
-        {DESKTOP && <Analytics.WatchWorkspace />}
         <div
           className={CSS.cls(
             CSS.BE("main", "workspace"),

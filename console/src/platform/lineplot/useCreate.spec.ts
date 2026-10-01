@@ -18,6 +18,7 @@ import { id, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
+import { createTestSink, wrapWithSink } from "@/platform/analytics/testutil";
 import { LinePlot } from "@/platform/lineplot";
 import { Session } from "@/session";
 import { createConsoleWrapper, resolveFocusedTab } from "@/testutil";
@@ -156,6 +157,22 @@ describe("lineplot useCreate", () => {
       );
       expect(retrieved.key).toEqual(callerKey);
       expect(retrieved.name).toEqual("WithKey");
+    });
+  });
+
+  describe("analytics", () => {
+    it("reports the line plot it created", async () => {
+      const harness = await buildHarness({ activeProject: projectA });
+      const analytics = createTestSink();
+      const { result } = renderHook(() => LinePlot.useCreate(), {
+        wrapper: wrapWithSink(harness.wrapper, analytics),
+      });
+      await act(async () => {
+        result.current({ key: uuid.create(), name: "Reported" });
+      });
+      await waitFor(() =>
+        expect(analytics.capture).toHaveBeenCalledWith("plot_created", {}),
+      );
     });
   });
 });

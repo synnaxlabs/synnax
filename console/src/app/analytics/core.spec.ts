@@ -9,12 +9,13 @@
 
 import { emit } from "@tauri-apps/api/event";
 import { waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { follow } from "@/app/analytics/core";
 import { type Embedded } from "@/feature/embedded";
 import { clearSupervisor, mockSupervisor } from "@/feature/embedded/testutil";
 import { type Analytics } from "@/platform/analytics";
+import { createTestSink } from "@/platform/analytics/testutil";
 
 const FAILED: Embedded.Status = { state: "failed", message: "failed to start" };
 
@@ -38,17 +39,9 @@ const EXITED_AFTER_READY: Embedded.History = {
   lastExit: { reason: "crashed", message: "exited with 3", uptimeSeconds: 1 },
 };
 
-const createSink = () => ({
-  capture: vi.fn<Analytics.Sink["capture"]>(),
-  screen: vi.fn<Analytics.Sink["screen"]>(),
-  identify: vi.fn<Analytics.Sink["identify"]>(),
-  reset: vi.fn<Analytics.Sink["reset"]>(),
-  describe: vi.fn<Analytics.Sink["describe"]>(),
-});
-
 const followCore = async (initial: Embedded.History) => {
   let history = initial;
-  const sink = createSink();
+  const sink = createTestSink();
   const supervisor = mockSupervisor(() => FAILED, {
     supervisor_history: () => history,
   });

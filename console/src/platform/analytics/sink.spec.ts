@@ -15,15 +15,14 @@ const createTransport = (): Analytics.Transport => ({
   capture: vi.fn(),
   identify: vi.fn(),
   reset: vi.fn(),
-  describe: vi.fn(),
 });
 
 describe("Analytics.createSink", () => {
   it("should report a declared event with its properties", () => {
     const transport = createTransport();
-    Analytics.createSink(transport).capture("command_run", { command: "show_logs" });
-    expect(transport.capture).toHaveBeenCalledWith("command_run", {
-      command: "show_logs",
+    Analytics.createSink(transport).capture("task_started", { type: "opc_read" });
+    expect(transport.capture).toHaveBeenCalledWith("task_started", {
+      type: "opc_read",
     });
   });
 

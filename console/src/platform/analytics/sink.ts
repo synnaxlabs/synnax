@@ -13,8 +13,6 @@ import {
   type Name,
   type Properties,
   schemas,
-  type Workspace,
-  workspaceZ,
 } from "@/platform/analytics/events";
 
 /**
@@ -36,7 +34,6 @@ export interface Transport {
   capture: (event: string, properties: Record<string, unknown>) => void;
   identify: (account: Account) => void;
   reset: () => void;
-  describe: (properties: Record<string, unknown>) => void;
 }
 
 /** What the rest of the Console calls. */
@@ -48,8 +45,6 @@ export interface Sink {
   identify: (account: Account) => void;
   /** Forgets the account, so later events belong to no one until the next identify. */
   reset: () => void;
-  /** Merges what the user has built onto the install's record. */
-  describe: (workspace: Workspace) => void;
 }
 
 /** Discards everything. The Console build keeps it. */
@@ -58,7 +53,6 @@ export const NOOP: Sink = {
   screen: () => {},
   identify: () => {},
   reset: () => {},
-  describe: () => {},
 };
 
 /**
@@ -97,12 +91,4 @@ export const createSink = (transport: Transport): Sink => ({
     transport.identify(parsed.data);
   },
   reset: () => transport.reset(),
-  describe: (workspace) => {
-    const parsed = workspaceZ.safeParse(workspace);
-    if (!parsed.success) {
-      console.error("dropped the workspace properties", parsed.error);
-      return;
-    }
-    transport.describe(parsed.data);
-  },
 });

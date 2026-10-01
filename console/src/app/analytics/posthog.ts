@@ -50,9 +50,6 @@ const monacoCancellationZ = z
 const isMonacoCancellation = (exceptions: unknown): boolean =>
   monacoCancellationZ.safeParse(exceptions).success;
 
-/** The group type that holds each machine and what it has built. */
-const INSTALL_GROUP = "install";
-
 export interface Params {
   /** Identifies the install across launches and across a webview data wipe. */
   installID: string;
@@ -108,8 +105,10 @@ type PostHog = Awaited<ReturnType<typeof init>>;
 const attach = (posthog: PostHog, installID: string): void => {
   // A dev run reports as an ordinary install otherwise, so every count needs this to
   // separate the two.
-  posthog.register({ environment: IS_DEV ? "development" : "production" });
-  posthog.group(INSTALL_GROUP, installID);
+  posthog.register({
+    environment: IS_DEV ? "development" : "production",
+    install_id: installID,
+  });
 };
 
 interface Loaded {
@@ -154,9 +153,5 @@ export const create = (params: Promise<Params>): Analytics.Transport => {
         posthog.reset();
         attach(posthog, installID);
       }),
-    describe: (properties) =>
-      run(({ posthog, installID }) =>
-        posthog.group(INSTALL_GROUP, installID, properties),
-      ),
   };
 };
