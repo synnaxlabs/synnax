@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type compare, type record, type state as xstate, unique } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useMemo } from "react";
+import { type ReactElement, useCallback, useEffect, useMemo } from "react";
 
 import { type Component } from "@/component";
 import { CSS } from "@/css";
@@ -174,9 +174,27 @@ export interface TreeProps<K extends record.Key, E extends record.Keyed<K>>
   children: Component.RenderProp<ItemRenderProps<K>>;
   showRules?: boolean;
   shape: Shape<K>;
+  /** The key of a node to scroll into view when it enters the tree. */
+  revealed?: K;
 }
 
 const ITEM_HEIGHT = 27;
+
+interface RevealerProps<K extends record.Key> {
+  keys: K[];
+  revealed?: K;
+}
+
+const Revealer = <K extends record.Key>({ keys, revealed }: RevealerProps<K>): null => {
+  const { scrollToIndex } = List.useScroller();
+  const index = revealed == null ? -1 : keys.indexOf(revealed);
+  const indexRef = useSyncedRef(index);
+  const present = index !== -1;
+  useEffect(() => {
+    if (present) scrollToIndex(indexRef.current);
+  }, [revealed, present, scrollToIndex]);
+  return null;
+};
 
 export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
   shape,
@@ -201,6 +219,7 @@ export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
   allowNone,
   autoSelectOnNone,
   emptyContent,
+  revealed,
   ...rest
 }: TreeProps<K, E>): ReactElement => {
   const { keys, nodes } = shape;
@@ -228,6 +247,7 @@ export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
         allowNone={allowNone}
         autoSelectOnNone={autoSelectOnNone}
       >
+        <Revealer keys={keys} revealed={revealed} />
         <List.Scroll
           full="y"
           role="tree"

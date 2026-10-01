@@ -64,6 +64,17 @@ export const mockGeometry = (width: number, height: number): void => {
   });
 };
 
+/**
+ * Implements Element.scrollTo, which jsdom lacks. A virtualized list scrolls to an item
+ * through it.
+ */
+export const mockScrollTo = (): void => {
+  Element.prototype.scrollTo = function (this: Element, options?: ScrollToOptions) {
+    this.scrollTop = options?.top ?? 0;
+    fireEvent.scroll(this);
+  } as typeof Element.prototype.scrollTo;
+};
+
 export const mockBoundingClientRect = (
   top: number,
   left: number,

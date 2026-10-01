@@ -20,7 +20,6 @@ import { type Tree } from "@/platform/tree";
 
 interface CreateParams extends Tree.ContextMenuProps {
   group: group.Group;
-  prevNodes?: PTree.Node<string>[];
 }
 
 const base = Flux.createUpdate<CreateParams>({
@@ -43,7 +42,10 @@ const base = Flux.createUpdate<CreateParams>({
   },
 });
 
-const beforeUpdate = async ({ data }: Flux.BeforeUpdateParams<CreateParams>) => {
+const beforeUpdate = async ({
+  data,
+  rollbacks,
+}: Flux.BeforeUpdateParams<CreateParams>) => {
   const {
     selection,
     state: { nodes, setNodes, setSelection, shape, setResource },
@@ -53,6 +55,7 @@ const beforeUpdate = async ({ data }: Flux.BeforeUpdateParams<CreateParams>) => 
   const newIDString = ontology.idToString(newID);
   const resourcesToGroup = getResourcesToGroup(selection.ids, shape);
   const prevNodes = PTree.deepCopy(nodes);
+  rollbacks.push(() => setNodes(prevNodes));
   const res: ontology.Resource = { key: newIDString, id: newID, name: "" };
   setResource(res);
   const destination = ontology.idsEqual(selection.rootID, selection.parentID)
@@ -73,27 +76,12 @@ const beforeUpdate = async ({ data }: Flux.BeforeUpdateParams<CreateParams>) => 
   const [groupName, renamed] = await Text.asyncEdit(
     List.itemNameID(ontology.idToString(newID)),
   );
-  if (!renamed) {
-    setNodes(prevNodes);
-    return false;
-  }
-
-  return { ...data, prevNodes, group: { ...data.group, name: groupName } };
+  if (!renamed) return false;
+  return { ...data, group: { ...data.group, name: groupName } };
 };
 
-const afterFailure = async ({
-  status,
-  data: {
-    prevNodes,
-    addStatus,
-    state: { setNodes },
-  },
-}: Flux.AfterFailureParams<CreateParams>) => {
-  if (prevNodes != null) setNodes(prevNodes);
-  addStatus(status);
-};
 export const useCreateFromSelection = () => {
-  const { update } = base.useUpdate({ beforeUpdate, afterFailure });
+  const { update } = base.useUpdate({ beforeUpdate });
   return useCallback(
     (props: Tree.ContextMenuProps) =>
       update({ ...props, group: { key: uuid.create(), name: "" } }),

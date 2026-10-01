@@ -12,7 +12,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { type Haul } from "@/haul";
 import { List } from "@/list";
-import { mockGeometry } from "@/testutil/dom";
+import { mockGeometry, mockScrollTo } from "@/testutil/dom";
 import { type Node } from "@/tree/base";
 import { Item } from "@/tree/Item";
 import {
@@ -71,7 +71,10 @@ describe("tree haul utilities", () => {
 });
 
 describe("Tree", () => {
-  beforeAll(() => mockGeometry(100, 100));
+  beforeAll(() => {
+    mockGeometry(100, 100);
+    mockScrollTo();
+  });
 
   const NODES: Node[] = Array.from({ length: 200 }, (_, i) => ({
     key: `node-${String(i).padStart(3, "0")}`,
@@ -82,10 +85,15 @@ describe("Tree", () => {
     (keys: string[]) => keys.map((key) => ({ key, name: key })),
   );
 
-  const Component = () => {
-    const props = use({ nodes: NODES });
+  interface ComponentProps {
+    nodes?: Node[];
+    revealed?: string;
+  }
+
+  const Component = ({ nodes = NODES, revealed }: ComponentProps) => {
+    const props = use({ nodes });
     return (
-      <Tree {...props} getItem={getItem}>
+      <Tree {...props} getItem={getItem} revealed={revealed}>
         {({ key, ...rest }) => (
           <Item key={key} {...rest}>
             {key}
@@ -118,6 +126,19 @@ describe("Tree", () => {
       ".pluto-list__virtualizer",
     );
     expect(virtualizer?.style.minHeight).toBe(`${NODES.length * 27}px`);
+  });
+
+  it("should scroll a revealed node into view when it enters the tree", async () => {
+    const added = "added";
+    const { container, rerender } = render(<Component revealed={added} />);
+    const scroller = container.querySelector<HTMLElement>(".pluto-list__scroll");
+    if (scroller == null) throw new Error("list scroll container not found");
+    scroller.scrollTop = NODES.length * 27;
+    fireEvent.scroll(scroller);
+    await screen.findByText(NODES[NODES.length - 1].key);
+    expect(screen.queryByText(NODES[0].key)).toBeNull();
+    rerender(<Component nodes={[{ key: added }, ...NODES]} revealed={added} />);
+    expect(await screen.findByText(added)).toBeTruthy();
   });
 });
 

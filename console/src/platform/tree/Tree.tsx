@@ -207,6 +207,16 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   // inline rename) before the Core delivers the real resource.
   const placeholders = List.useMapData<string, ontology.Resource>();
 
+  // A placeholder awaits an inline rename, which needs its row mounted.
+  const [revealed, setRevealed] = useState<string>();
+  const setPlaceholder = useCallback(
+    (resource: ontology.Resource | ontology.Resource[]) => {
+      placeholders.setItem(resource);
+      setRevealed(array.toArray(resource).at(0)?.key);
+    },
+    [placeholders],
+  );
+
   const getResourceByKey = useCallback(
     (key: string): ontology.Resource | undefined =>
       client?.ontology.cache.resources.get(key) ?? placeholders.getItem(key),
@@ -403,11 +413,11 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       setNodes,
       expand,
       contract,
-      setResource: placeholders.setItem,
+      setResource: setPlaceholder,
       getResource,
       setSelection: setSelected,
     }),
-    [expand, contract, handleError, placeholders, nodesRef, setNodes],
+    [expand, contract, handleError, setPlaceholder, nodesRef, setNodes],
   );
 
   const openTab = Panel.useOpenTab();
@@ -568,6 +578,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         // the tree attempts to render it.
         getItem={getItem}
         emptyContent={answered ? emptyContent : null}
+        revealed={revealed}
         onContextMenu={menuProps.open}
       >
         {itemRenderProp}
