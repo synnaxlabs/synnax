@@ -307,15 +307,17 @@ This is the only access control change in this RFC.
 
 ```
 User struct {
-    key        Key
-    first_name string
-    last_name  string
-    root_user  bool = false
+    key       Key
+    name      string
+    root_user bool = false
 }
 ```
 
-`username` is gone. A user who only logs in through a provider has none. The Console
-shows the full name, and the username from the password credential where one exists.
+`username` is gone. A user who only logs in through a provider has none. One `name`
+field replaces `first_name` and `last_name`. A migration joins the two, and falls back
+to the username when both are empty. A first login through a provider fills `name` from
+the provider's `name` claim. The Console shows the name, and the username from the
+password credential where one exists.
 
 The rack schema does not change. A rack's credentials live in the credential table and
 point at it.
@@ -383,7 +385,8 @@ Each phase is one pull request into `main`.
 - **Phase 9: Accepted methods.** The start setting, `auth/methods`, and the login page.
 - **Phase 10: OpenID Connect.** Provider settings, the authenticator, the Console login
   flow, and first-login users.
-- **Phase 11: Username.** Removes `username` from the user record and the clients.
+- **Phase 11: User record.** Removes `username` and merges the two name fields into
+  `name`, in the user record and the clients.
 - **Phase 12: Cleanup.** Removes the old login endpoint.
 
 ### 6.0 Compatibility
