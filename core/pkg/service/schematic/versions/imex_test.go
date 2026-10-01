@@ -110,7 +110,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(sch.Nodes[0].ZIndex).To(Equal(int16(3)))
 		Expect(sch.Edges[0].Source).To(Equal(versions.Handle{Node: "n1", Param: "a"}))
 		Expect(sch.Edges[0].Target).To(Equal(versions.Handle{Node: "n2", Param: "b"}))
-		Expect(valveConfig(sch, "n1").Color).
+		Expect(valveConfig(sch, "n1").StrokeColor).
 			To(HaveValue(Equal(MustSucceed(color.FromHex("#ff0000")))))
 	})
 

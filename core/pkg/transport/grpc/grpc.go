@@ -104,7 +104,6 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.ProjectRetrieve = noop.UnaryServer[project.RetrieveRequest, project.RetrieveResponse]{}
 	t.ProjectDelete = noop.UnaryServer[project.DeleteRequest, struct{}]{}
 	t.ProjectRename = noop.UnaryServer[project.RenameRequest, struct{}]{}
-	t.ProjectSetLayout = noop.UnaryServer[project.SetLayoutRequest, struct{}]{}
 	t.ProjectExport = noop.UnaryServer[project.ExportRequest, project.ExportResponse]{}
 	t.ProjectImport = noop.UnaryServer[project.ImportRequest, project.ImportResponse]{}
 

@@ -7,16 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package io
-
-import "io"
-
-type SectionReaderAtCloser struct {
-	io.ReaderAt
-	io.Closer
-}
-
-func NewSectionReaderAtCloser(r ReaderAtCloser, off, n int64) *SectionReaderAtCloser {
-	sectionReader := io.NewSectionReader(r, off, n)
-	return &SectionReaderAtCloser{ReaderAt: sectionReader, Closer: r}
-}
+export * from "@/feature/license/commands";
+export * from "@/feature/license/Guard";
+export * from "@/feature/license/useInfoModal";
+export * from "@/platform/license/external";

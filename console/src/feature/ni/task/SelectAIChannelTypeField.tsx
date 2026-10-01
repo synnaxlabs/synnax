@@ -20,8 +20,6 @@ import {
   createAIChannel,
 } from "@/feature/ni/task/types";
 
-export type SelectAIChannelTypeFieldProps = Form.SelectFieldProps<AIChannelType>;
-
 export const SelectAIChannelTypeField = Form.buildSelectField<AIChannelType>({
   fieldKey: "type",
   fieldProps: {

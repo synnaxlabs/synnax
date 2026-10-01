@@ -20,7 +20,6 @@ import { project } from "@/project";
 export const createPanelParent = async (client: Synnax): Promise<ontology.ID> => {
   const proj = await client.projects.create({
     name: `project-${id.create()}`,
-    layout: {},
   });
   return project.ontologyID(proj.key);
 };
