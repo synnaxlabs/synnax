@@ -9,15 +9,17 @@
 
 import { arc } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { type Status } from "@synnaxlabs/lyra/status";
 import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Suspense } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/feature/arc";
 import { createResourceTab } from "@/platform/panel/testutil";
 import { Session } from "@/session";
 import {
+  CaptureStatuses,
   createConsoleWrapper,
   getIconButton,
   type TestStore,
@@ -33,8 +35,14 @@ const createGraphArc = async (graph: Partial<arc.Arc["graph"]> = {}) =>
     graph: { nodes: [], edges: [], ...graph },
   });
 
-const renderToolbar = async (arcKey: string): Promise<{ store: TestStore }> => {
+interface ToolbarHandle {
+  store: TestStore;
+  statuses: () => Status.NotificationSpec[];
+}
+
+const renderToolbar = async (arcKey: string): Promise<ToolbarHandle> => {
   const { wrapper, store } = await createConsoleWrapper({ client });
+  let statuses: Status.NotificationSpec[] = [];
   const { panelKey, tabKey } = await createResourceTab(client, arc.ontologyID(arcKey));
   await act(async () => {
     render(
@@ -43,12 +51,13 @@ const renderToolbar = async (arcKey: string): Promise<{ store: TestStore }> => {
           <Suspense fallback={null}>
             <Arc.Editor.Toolbar />
           </Suspense>
+          <CaptureStatuses onStatuses={(s) => (statuses = s)} />
         </PlutoPanel.TabScope.Provider>
       </PlutoPanel.Scope.Provider>,
       { wrapper },
     );
   });
-  return { store };
+  return { store, statuses: () => statuses };
 };
 
 describe("arc editor toolbar", () => {
@@ -126,19 +135,19 @@ describe("arc editor toolbar", () => {
         n2: { type: "constant", value: 2 },
       },
     });
-    const { store } = await renderToolbar(arc.key);
+    const { store, statuses } = await renderToolbar(arc.key);
     await screen.findByText("Basic");
     store.dispatch(Session.Arc.setSelected({ key: arc.key, selected: ["n1", "n2"] }));
     fireEvent.click(screen.getByText("Properties"));
     await screen.findByText("Align");
-    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
     fireEvent.click(getIconButton(document.body, "align-y-center"));
     fireEvent.click(getIconButton(document.body, "align-x-center"));
     expect(screen.getByText("Align")).toBeTruthy();
-    expect(consoleError).toHaveBeenCalledWith(
-      new Error("[diagram] - cannot find node with key: n1"),
+    await waitFor(() =>
+      expect(statuses().map(({ message }) => message)).toContain(
+        "failed to calculate Arc node layout",
+      ),
     );
-    consoleError.mockRestore();
   });
 
   it("offers to enable editing when the arc is not editable", async () => {
