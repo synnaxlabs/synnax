@@ -219,9 +219,16 @@ Session struct {
 ```
 
 A session is a Gorp record, so it survives a restart and every node in a cluster sees
-it. The token is a random value, and the Core stores only its hash. On each request the
-middleware hashes the token and finds the session through an in-memory index. JWTs and
-the signing key go away.
+it. The token is a random value, and the Core stores only its hash. JWTs and the signing
+key go away.
+
+A session token starts with `sys_` and an API key starts with `syk_`. The prefix lets a
+secret scanner recognize both, and lets the Core tell them apart.
+
+On each request the middleware hashes the token, finds the session through an in-memory
+index, and puts three values on the request: the subject, the credential, and the
+session key. Handlers and audit rely on the subject and the credential. The session key
+is optional, so a request that authenticates without a session can exist later (§7).
 
 A session ends in two ways:
 
@@ -401,9 +408,13 @@ Each phase is one pull request into `main`.
 
 ## 7 Resolved decisions
 
-1. **Exchange only, no API key on each request**: A direct key would make a plain `curl`
-   call one line instead of two. We gave that up for a single check on the request path
-   and one place for revocation. A direct key can be added later at that same check.
+1. **Exchange only, no API key on each request**: One kind of token on the request path
+   means one check and one thing for a stream to watch. The costs are real. A tool that
+   can only send a fixed header, such as a Grafana data source or a webhook, cannot
+   connect. Every plain HTTP caller needs a login call and a retry. A short script that
+   never logs out leaves a session behind until the idle timeout. A direct API key is a
+   small later addition: one more lookup in the middleware, chosen by the token prefix,
+   and a stream that watches its credential.
 2. **Stored sessions, not signed tokens**: A signed token needs no lookup and no
    replication. It also cannot be revoked, gives a stream nothing to watch, and needs a
    signing key shared by every node. The cost is one replicated write per login.
@@ -424,8 +435,7 @@ Each phase is one pull request into `main`.
 
 1. **Idle timeout**: The default. Something long, like 7 days, lets a Console user close
    a laptop for a weekend.
-2. **Token and key format**: A prefix that secret scanners can recognize, and the
-   lengths.
+2. **Token and key lengths**: The size of the random part of each.
 3. **Default root password**: Whether `synnax` and `seldon` stay as defaults.
 4. **Provider settings**: Start settings as written, or stored records the Console can
    edit without a restart.
