@@ -236,6 +236,35 @@ var _ = Describe("Frame", func() {
 			Expect(merged.Count()).To(Equal(5))
 			Expect(merged.KeysSlice()).To(Equal([]channel.Key{1, 2, 3, 4, 5}))
 		})
+		It("Should not write into the spare capacity of the first frame", func() {
+			first := frame.Alloc(4).Append(1, telem.NewSeriesV[int64](1))
+			merged := frame.Merge([]frame.Frame{
+				first,
+				frame.NewUnary(2, telem.NewSeriesV[int64](2)),
+			})
+			_ = first.Append(3, telem.NewSeriesV[int64](3))
+			Expect(merged.KeysSlice()).To(Equal([]channel.Key{1, 2}))
+		})
+		It("Should drop masked entries", func() {
+			masked := frame.NewMulti(
+				[]channel.Key{1, 2, 3},
+				[]telem.Series{
+					telem.NewSeriesV[int64](1),
+					telem.NewSeriesV[int64](2),
+					telem.NewSeriesV[int64](3),
+				},
+			).KeepKeys(set.New[channel.Key](1, 3))
+			merged := frame.Merge([]frame.Frame{
+				masked,
+				frame.NewUnary(4, telem.NewSeriesV[int64](4)),
+			})
+			Expect(merged.KeysSlice()).To(Equal([]channel.Key{1, 3, 4}))
+			Expect(merged.SeriesSlice()).To(Equal([]telem.Series{
+				telem.NewSeriesV[int64](1),
+				telem.NewSeriesV[int64](3),
+				telem.NewSeriesV[int64](4),
+			}))
+		})
 	})
 
 	Describe("ShallowCopy", func() {

@@ -39,7 +39,7 @@ export const FlexShowcase = () => (
   <Flex.Box y pack empty>
     <Flex.Box x pack grow sharp>
       <SubcategorySection
-        title="Basic Packed Layouts"
+        title="Basic packed layouts"
         description="Simple packed arrangements for 2-4 elements in horizontal and vertical directions"
       >
         <Flex.Box x gap="large" wrap>
@@ -127,7 +127,7 @@ export const FlexShowcase = () => (
       </SubcategorySection>
 
       <SubcategorySection
-        title="Grid Layouts"
+        title="Grid layouts"
         description="Complex grid arrangements using packed flex containers for uniform spacing"
       >
         <Flex.Box x gap="large">
@@ -186,7 +186,7 @@ export const FlexShowcase = () => (
 
     <Flex.Box x pack grow sharp>
       <SubcategorySection
-        title="Nested Layouts"
+        title="Nested layouts"
         description="Complex nested arrangements for advanced UI patterns and groupings"
       >
         <Flex.Box y gap="medium">
@@ -237,7 +237,7 @@ export const FlexShowcase = () => (
       </SubcategorySection>
 
       <SubcategorySection
-        title="Form Input Patterns"
+        title="Form input patterns"
         description="Common UI patterns combining inputs with buttons for search and form interactions"
       >
         <Flex.Box y gap="medium">
@@ -280,7 +280,7 @@ export const FlexShowcase = () => (
 
     <Flex.Box x pack grow sharp>
       <SubcategorySection
-        title="Non-Packed Layouts"
+        title="Non-packed layouts"
         description="Standard flexbox layouts without the pack optimization, using justify and align props"
       >
         <Flex.Box x gap="large" wrap>
@@ -400,7 +400,7 @@ export const FlexShowcase = () => (
       </SubcategorySection>
 
       <SubcategorySection
-        title="Styling Properties"
+        title="Styling properties"
         description="Visual styling options including backgrounds, borders, colors, and corner styles"
       >
         <Flex.Box x gap="large" wrap>
@@ -412,15 +412,15 @@ export const FlexShowcase = () => (
               <Flex.Box y gap="small">
                 <Flex.Box x pack background={1} style={{ padding: "0.5rem" }}>
                   <Button.Button>Background 1</Button.Button>
-                  <Button.Button variant="filled">Light Gray</Button.Button>
+                  <Button.Button variant="filled">Light gray</Button.Button>
                 </Flex.Box>
                 <Flex.Box x pack background={3} style={{ padding: "0.5rem" }}>
                   <Button.Button>Background 3</Button.Button>
-                  <Button.Button variant="filled">Medium Gray</Button.Button>
+                  <Button.Button variant="filled">Medium gray</Button.Button>
                 </Flex.Box>
                 <Flex.Box x pack background={6} style={{ padding: "0.5rem" }}>
                   <Button.Button>Background 6</Button.Button>
-                  <Button.Button variant="filled">Dark Gray</Button.Button>
+                  <Button.Button variant="filled">Dark gray</Button.Button>
                 </Flex.Box>
               </Flex.Box>
             </DemoContainer>
@@ -433,7 +433,7 @@ export const FlexShowcase = () => (
             <DemoContainer>
               <Flex.Box y gap="small">
                 <Flex.Box x pack bordered style={{ padding: "0.5rem" }}>
-                  <Button.Button>Default Border</Button.Button>
+                  <Button.Button>Default border</Button.Button>
                   <Button.Button variant="filled">Bordered</Button.Button>
                 </Flex.Box>
                 <Flex.Box
@@ -444,7 +444,7 @@ export const FlexShowcase = () => (
                   borderWidth={2}
                   style={{ padding: "0.5rem" }}
                 >
-                  <Button.Button>Custom Border</Button.Button>
+                  <Button.Button>Custom border</Button.Button>
                   <Button.Button variant="filled">Thick & Dark</Button.Button>
                 </Flex.Box>
                 <Flex.Box
@@ -454,7 +454,7 @@ export const FlexShowcase = () => (
                   borderColor="var(--pluto-primary-z)"
                   style={{ padding: "0.5rem" }}
                 >
-                  <Button.Button>Primary Border</Button.Button>
+                  <Button.Button>Primary border</Button.Button>
                   <Button.Button variant="filled">Colored</Button.Button>
                 </Flex.Box>
               </Flex.Box>
@@ -468,11 +468,11 @@ export const FlexShowcase = () => (
             <DemoContainer>
               <Flex.Box y gap="small">
                 <Flex.Box x pack background={2} style={{ padding: "0.5rem" }}>
-                  <Button.Button>Default Corners</Button.Button>
+                  <Button.Button>Default corners</Button.Button>
                   <Button.Button variant="filled">Normal</Button.Button>
                 </Flex.Box>
                 <Flex.Box x pack background={2} rounded style={{ padding: "0.5rem" }}>
-                  <Button.Button>Rounded Corners</Button.Button>
+                  <Button.Button>Rounded corners</Button.Button>
                   <Button.Button variant="filled">Rounded</Button.Button>
                 </Flex.Box>
                 <Flex.Box
@@ -482,12 +482,12 @@ export const FlexShowcase = () => (
                   rounded={1.5}
                   style={{ padding: "0.5rem" }}
                 >
-                  <Button.Button>Custom Radius</Button.Button>
+                  <Button.Button>Custom radius</Button.Button>
                   <Button.Button variant="filled">1.5rem</Button.Button>
                 </Flex.Box>
                 <Flex.Box x pack background={2} sharp style={{ padding: "0.5rem" }}>
-                  <Button.Button>Sharp Corners</Button.Button>
-                  <Button.Button variant="filled">No Radius</Button.Button>
+                  <Button.Button>Sharp corners</Button.Button>
+                  <Button.Button variant="filled">No radius</Button.Button>
                 </Flex.Box>
               </Flex.Box>
             </DemoContainer>
@@ -531,7 +531,7 @@ export const FlexShowcase = () => (
                   background={1}
                   style={{ padding: "0.5rem" }}
                 >
-                  <Button.Button size="small">Small Gap</Button.Button>
+                  <Button.Button size="small">Small gap</Button.Button>
                   <Button.Button size="small">Between</Button.Button>
                   <Button.Button size="small">Items</Button.Button>
                 </Flex.Box>
@@ -542,12 +542,12 @@ export const FlexShowcase = () => (
                   background={1}
                   style={{ padding: "0.5rem" }}
                 >
-                  <Button.Button>Large Gap</Button.Button>
+                  <Button.Button>Large gap</Button.Button>
                   <Button.Button>Between</Button.Button>
                   <Button.Button>Items</Button.Button>
                 </Flex.Box>
                 <Flex.Box x pack gap={2} background={1} style={{ padding: "0.5rem" }}>
-                  <Button.Button>Custom Gap</Button.Button>
+                  <Button.Button>Custom gap</Button.Button>
                   <Button.Button>2rem spacing</Button.Button>
                 </Flex.Box>
               </Flex.Box>
@@ -561,7 +561,7 @@ export const FlexShowcase = () => (
             <DemoContainer>
               <Flex.Box y gap="small">
                 <Flex.Box x pack full="x" background={1} style={{ padding: "0.5rem" }}>
-                  <Button.Button>Full Width</Button.Button>
+                  <Button.Button>Full width</Button.Button>
                   <Button.Button variant="filled">Container</Button.Button>
                 </Flex.Box>
                 <Flex.Box x justify="center">

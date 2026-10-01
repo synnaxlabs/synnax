@@ -45,7 +45,14 @@
       "project": ["src/**/*.ts"]
     },
     "console": {
-      "project": ["src/**/*.{ts,tsx}"]
+      "entry": ["src/flags.ts"],
+      "project": ["src/**/*.{ts,tsx}"],
+      "ignoreIssues": {
+        "src/app/nav/drawer/Bottom.tsx": ["exports"],
+        "src/feature/*/{explorer,overview}/external.tsx": ["exports"],
+        "src/platform/*/filter/{Chips,MenuItem}.tsx": ["exports"],
+        "src/platform/task/{fields,views}/*.tsx": ["exports"]
+      }
     },
     "oracle/lsp/extensions/vscode": {
       "project": ["src/**/*.ts"]

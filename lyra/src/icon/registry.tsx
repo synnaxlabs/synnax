@@ -86,6 +86,7 @@ import {
   IoTvOutline,
 } from "react-icons/io5";
 import {
+  LuFileBadge,
   LuLock,
   LuLockOpen,
   LuPipette,
@@ -363,6 +364,7 @@ export const Group = wrapSVGIcon(AiFillFolder, "group");
 export const Ungroup = wrapSVGIcon(LuUngroup, "ungroup");
 export const Lock = wrapSVGIcon(LuLock, "lock");
 export const Unlock = wrapSVGIcon(LuLockOpen, "unlock");
+export const License = wrapSVGIcon(LuFileBadge, "license");
 export const Project = wrapSVGIcon(MdWorkspacesFilled, "project");
 export const Box = wrapSVGIcon(AiOutlineBorder, "box");
 export const Boxes = wrapSVGIcon(VscChromeRestore, "boxes");

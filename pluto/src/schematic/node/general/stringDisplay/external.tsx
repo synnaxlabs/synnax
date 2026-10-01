@@ -15,8 +15,17 @@ import { StringDisplay } from "@/schematic/node/general/stringDisplay/Primitive"
 import { Symbol } from "@/schematic/node/general/stringDisplay/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 
-const Preview = ({ color, level }: schematic.StringDisplayNodeConfig): ReactElement => (
-  <StringDisplay color={color} level={level} value="Hello world!" />
+const Preview = ({
+  strokeColor,
+  textColor,
+  level,
+}: schematic.StringDisplayNodeConfig): ReactElement => (
+  <StringDisplay
+    strokeColor={strokeColor}
+    textColor={textColor}
+    level={level}
+    value="Hello world!"
+  />
 );
 
 export const spec: Spec<"string_display", schematic.StringDisplayNodeConfig> = {

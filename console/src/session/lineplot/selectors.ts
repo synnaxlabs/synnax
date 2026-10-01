@@ -70,7 +70,6 @@ const selectToolbar = (params: KeyedSelectorParams): ToolbarState =>
   selectState(params).toolbar;
 
 export const useSelectToolbar = createSelector(selectToolbar);
-export const useGetToolbar = createGetter(selectToolbar);
 
 export const selectActiveToolbarTab = (params: KeyedSelectorParams): ToolbarTab =>
   selectToolbar(params).activeTab;
@@ -103,7 +102,6 @@ const selectSelection = (params: KeyedSelectorParams): SelectionState =>
   selectState(params).selection;
 
 export const useSelectSelection = createSelector(selectSelection);
-export const useGetSelection = createGetter(selectSelection);
 
 export const selectSelectedRules = (params: KeyedSelectorParams): string[] =>
   selectState(params).selectedRules;

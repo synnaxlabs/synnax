@@ -19,7 +19,7 @@ const DIMENSIONS = { width: 36, height: 72 };
 
 export const IsoBurstDisc = ({
   className,
-  color,
+  strokeColor,
   orientation = "left",
   scale,
   ...rest
@@ -36,7 +36,7 @@ export const IsoBurstDisc = ({
     </Handle.Boundary>
     <Primitive.SVG
       dimensions={DIMENSIONS} // Reduced to ~2/3 of original size (50x108)
-      color={color}
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
     >

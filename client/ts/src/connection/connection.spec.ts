@@ -29,6 +29,7 @@ import {
   MissingLicenseError,
 } from "@/errors";
 import { license } from "@/license";
+import { query } from "@/query";
 import { TEST_CLIENT_PARAMS, waitForStatus } from "@/testutil";
 import { Transport } from "@/transport";
 
@@ -1139,6 +1140,7 @@ describe("connection", () => {
           use: vi.fn(),
         },
         connection: client,
+        cache: new query.Cache({ openStreamer: null }),
       });
       await licenses.activate("key");
       expect(retryNow).toHaveBeenCalledOnce();
