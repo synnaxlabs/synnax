@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from playwright.sync_api import expect
+
 import synnax as sy
 from console.case import ConsoleCase
 from console.table import Table
@@ -592,16 +594,13 @@ class TableLifecycle(ConsoleCase):
             table.delete_selected()
 
     def test_multi_cell_color_grouping(self, table: Table) -> None:
-        """Test that selecting 2+ text cells with the same backgroundColor
-        renders a single Color.Swatch in the toolbar's Selection colors
-        group (not one swatch per cell)."""
+        """Test that the multi-cell toolbar sets a fill on cells that store no color,
+        then lists the shared fill as one Selection swatch."""
         self.log("Testing multi-cell color grouping")
         while table.get_row_count() < 1:
             table.add_row()
         while table.get_column_count() < 2:
             table.add_column()
-        # Fresh text cells inherit the same default backgroundColor, so
-        # selecting two of them should collapse to one swatch.
         table.set_cell_text(0, 0, "group-a")
         table.set_cell_text(0, 1, "group-b")
 
@@ -610,10 +609,12 @@ class TableLifecycle(ConsoleCase):
         assert table.get_toolbar_cell_count() == 2, (
             "Toolbar breadcrumb should report 2-cell selection before color check"
         )
-        assert table.get_color_swatch_count() == 1, (
-            f"Expected one color swatch for two same-colored cells, "
-            f"got {table.get_color_swatch_count()}"
-        )
+        table.layout.show_visualization_toolbar()
+        swatches = table.colors.selection_swatches()
+        expect(table.colors.field("Fill")).to_be_visible()
+        expect(swatches).to_have_count(0)
+        table.colors.set("Fill", "ff0000")
+        expect(swatches).to_have_count(1)
 
     def test_multi_cell_level_bulk_apply(self, table: Table) -> None:
         """Test that the toolbar's Size selector bulk-applies a level to

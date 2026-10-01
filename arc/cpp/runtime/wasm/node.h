@@ -119,7 +119,10 @@ public:
                 continue;
             const auto inp = this->state.input(i);
             const auto data_len = static_cast<int64_t>(inp->size());
-            if (data_len > max_length) {
+            // A fresh input wins a tie, so stamps come from new data.
+            if (data_len > max_length ||
+                (data_len == max_length && !this->state.input_stale(i) &&
+                 this->state.input_stale(longest_input_idx))) {
                 max_length = data_len;
                 longest_input_idx = static_cast<int64_t>(i);
             }

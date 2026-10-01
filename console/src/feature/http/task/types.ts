@@ -31,9 +31,7 @@ export interface ReadEndpoint extends http.ReadEndpoint {}
 const readMethodZ = z.enum(["GET", "POST"]);
 export type ReadMethod = z.infer<typeof readMethodZ>;
 
-export const readConfigZ = http.readConfigZ;
-
-export interface ReadConfig extends http.ReadConfig {}
+const readConfigZ = http.readConfigZ;
 
 const deployReadFieldZ = http.readFieldZ.extend({
   pointer: json.pointerZ,
@@ -113,11 +111,9 @@ export const writeEndpointZ = http.writeEndpointZ.extend({
 
 export interface WriteEndpoint extends z.infer<typeof writeEndpointZ> {}
 
-export const writeConfigZ = http.writeConfigZ.extend({
+const writeConfigZ = http.writeConfigZ.extend({
   endpoints: writeEndpointZ.array().default(() => []),
 });
-
-export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 
 const validateWriteEndpoint = (ctx: z.core.ParsePayload<WriteEndpoint>) => {
   const { value } = ctx;

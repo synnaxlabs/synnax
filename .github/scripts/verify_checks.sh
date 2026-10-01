@@ -11,8 +11,8 @@
 
 # Fails unless the GitHub Actions checks on a commit passed. Usage: verify_checks.sh
 # <sha> <run_id>. Runs of the given workflow run are ignored, so a release can verify
-# its own commit. Every merged commit carries the CI merge-group run, so the commit's
-# own check runs are the whole verdict.
+# its own commit. Every merged commit carries a CI run, from the merge queue on main or
+# the push on a release branch, so the commit's own check runs are the whole verdict.
 
 set -euo pipefail
 

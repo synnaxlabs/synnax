@@ -211,7 +211,6 @@ describe("Import.useFileDrop", () => {
     });
     const switched = await client.projects.create({
       name: `switched-${uuid.create()}`,
-      layout: {},
     });
     const importBundle = vi.fn<Import.BundleImporter>(
       async (_name, _bundle, { store }) => {

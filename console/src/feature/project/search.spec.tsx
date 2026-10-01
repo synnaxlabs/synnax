@@ -26,7 +26,6 @@ describe("project/search", () => {
   it("selects the project when the search result is selected", async () => {
     const p = await client.projects.create({
       name: uniqueName("project"),
-      layout: {},
     });
     const resource = createResource(project.ontologyID(p.key), p.name);
     const SearchListItem = Project.SEARCH_LIST_ITEMS.project;
