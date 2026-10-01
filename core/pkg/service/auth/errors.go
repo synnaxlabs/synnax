@@ -22,6 +22,8 @@ var (
 	// ErrInvalidCredentials is returned when the supplied credentials do not
 	// match a registered entity.
 	ErrInvalidCredentials = errors.Wrap(ErrAuth, "invalid credentials")
+	// ErrRepeatedUsername is returned when another user already holds a username.
+	ErrRepeatedUsername = errors.Wrap(ErrAuth, "username already exists")
 	// ErrInvalidToken is returned when a bearer token fails validation.
 	ErrInvalidToken = errors.Wrap(ErrAuth, "invalid token")
 	// ErrExpiredToken is returned when a bearer token has expired.
@@ -36,6 +38,7 @@ const (
 	invalidCredentialsType = errorType + ".invalid-credentials"
 	invalidTokenType       = errorType + ".invalid_token"
 	expiredTokenType       = errorType + ".expired_token"
+	repeatedUsernameType   = errorType + ".repeated-username"
 	accessDeniedType       = errorType + ".access_denied"
 )
 
@@ -48,6 +51,9 @@ func encode(_ context.Context, err error) (errors.Payload, bool) {
 	}
 	if errors.CheapIs(err, ErrExpiredToken) {
 		return errors.Payload{Type: expiredTokenType, Data: err.Error()}, true
+	}
+	if errors.CheapIs(err, ErrRepeatedUsername) {
+		return errors.Payload{Type: repeatedUsernameType, Data: err.Error()}, true
 	}
 	if errors.CheapIs(err, ErrAccessDenied) {
 		return errors.Payload{Type: accessDeniedType, Data: err.Error()}, true
@@ -66,6 +72,8 @@ func decode(_ context.Context, p errors.Payload) (error, bool) {
 		return errors.Wrap(ErrInvalidToken, p.Data), true
 	case expiredTokenType:
 		return errors.Wrap(ErrExpiredToken, p.Data), true
+	case repeatedUsernameType:
+		return errors.Wrap(ErrRepeatedUsername, p.Data), true
 	case accessDeniedType:
 		return errors.Wrap(ErrAccessDenied, p.Data), true
 	}

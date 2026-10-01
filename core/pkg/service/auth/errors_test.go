@@ -24,6 +24,7 @@ var _ = Describe("Errors", func() {
 			Expect(errors.Decode(ctx, pld)).To(MatchError(err))
 		},
 		Entry("InvalidCredentials", auth.ErrInvalidCredentials),
+		Entry("RepeatedUsername", auth.ErrRepeatedUsername),
 		Entry("InvalidToken", auth.ErrInvalidToken),
 		Entry("ExpiredToken", auth.ErrExpiredToken),
 		Entry("AccessDenied", auth.ErrAccessDenied),

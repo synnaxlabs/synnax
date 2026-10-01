@@ -57,10 +57,10 @@ var _ = Describe("Writer", func() {
 			},
 		)
 		It(
-			"Should return ErrUniqueViolation when another user holds the username",
+			"Should return ErrRepeatedUsername when another user holds the username",
 			func(ctx SpecContext) {
 				Expect(writer.Register(ctx, uuid.New(), creds)).
-					To(MatchError(query.ErrUniqueViolation))
+					To(MatchError(auth.ErrRepeatedUsername))
 			},
 		)
 		It(
@@ -105,7 +105,7 @@ var _ = Describe("Writer", func() {
 			Expect(svc.Authenticate(ctx, nil, creds)).To(Equal(key))
 		})
 		It(
-			"Should return ErrUniqueViolation when another user holds the username",
+			"Should return ErrRepeatedUsername when another user holds the username",
 			func(ctx SpecContext) {
 				other := auth.Credentials{
 					Username: uuid.New().String(),
@@ -113,7 +113,7 @@ var _ = Describe("Writer", func() {
 				}
 				Expect(writer.Register(ctx, uuid.New(), other)).To(Succeed())
 				Expect(writer.ChangeUsername(ctx, key, other.Username)).
-					To(MatchError(query.ErrUniqueViolation))
+					To(MatchError(auth.ErrRepeatedUsername))
 				Expect(svc.Authenticate(ctx, nil, creds)).To(Equal(key))
 			},
 		)

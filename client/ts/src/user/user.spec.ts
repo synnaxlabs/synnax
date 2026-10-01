@@ -93,9 +93,12 @@ describe("User", () => {
         });
       });
       test("Repeated username", async () =>
-        await expect(client.users.create([userOne, userTwo])).rejects.toThrow(
-          AuthError,
-        ));
+        await expect(
+          client.users.create([
+            { username: userOne.username, password: "test" },
+            { username: userTwo.username, password: "test" },
+          ]),
+        ).rejects.toThrow(AuthError));
     });
   });
   describe("Retrieve", () => {

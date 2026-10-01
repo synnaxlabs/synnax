@@ -183,7 +183,7 @@ var _ = Describe("Service", func() {
 							Password: "three",
 							Key:      u.Key,
 						}},
-					})).Error().To(MatchError(query.ErrUniqueViolation))
+					})).Error().To(MatchError(auth.ErrRepeatedUsername))
 					Expect(authenticate(ctx, u.Key, "one")).To(Succeed())
 					Expect(authenticate(ctx, taken.Key, "two")).
 						To(Succeed())
@@ -208,7 +208,7 @@ var _ = Describe("Service", func() {
 			"Should roll back the auth row when user creation fails inside the tx",
 			func(ctx SpecContext) {
 				// Two users whose usernames collide: the first user and its password
-				// write, then the second create returns query.ErrUniqueViolation,
+				// write, then the second create returns auth.ErrRepeatedUsername,
 				// which must roll back the first.
 				username := "rollback-" + uuid.New().String()
 				tx := DeferClose(db.OpenTx())
@@ -223,7 +223,7 @@ var _ = Describe("Service", func() {
 							Password: "p",
 						},
 					},
-				})).Error().To(MatchError(query.ErrUniqueViolation))
+				})).Error().To(MatchError(auth.ErrRepeatedUsername))
 				Expect(usernameExists(ctx, username)).To(BeFalse())
 			},
 		)
@@ -405,7 +405,7 @@ var _ = Describe("Service", func() {
 			},
 		)
 		It(
-			"Should return query.ErrUniqueViolation when the target name is already taken",
+			"Should return auth.ErrRepeatedUsername when the target name is already taken",
 			func(ctx SpecContext) {
 				taken := createUser(ctx, "change-username-taken", "p").Username
 				target := createUser(ctx, "change-username-collide", "p")
@@ -419,7 +419,7 @@ var _ = Describe("Service", func() {
 						},
 					),
 				).Error().
-					To(MatchError(query.ErrUniqueViolation))
+					To(MatchError(auth.ErrRepeatedUsername))
 			},
 		)
 	})

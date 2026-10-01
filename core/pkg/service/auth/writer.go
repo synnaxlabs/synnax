@@ -14,7 +14,6 @@ import (
 
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -30,7 +29,7 @@ type Writer struct {
 }
 
 // Register sets the credentials of the user with the given key, replacing any stored
-// credentials. Returns [query.ErrUniqueViolation] if another user holds creds.Username,
+// credentials. Returns [ErrRepeatedUsername] if another user holds creds.Username,
 // or a validation error if creds has an empty username or password.
 func (w Writer) Register(ctx context.Context, key Key, creds Credentials) error {
 	if err := creds.Validate(); err != nil {
@@ -50,8 +49,8 @@ func (w Writer) Register(ctx context.Context, key Key, creds Credentials) error 
 
 // ChangeUsername replaces the stored username of the user with the given key. No
 // identity check; caller is responsible for authorization. Returns [query.ErrNotFound]
-// if the user has no stored credentials, [query.ErrUniqueViolation] if another user
-// holds username, or a validation error if username is empty.
+// if the user has no stored credentials, [ErrRepeatedUsername] if another user holds
+// username, or a validation error if username is empty.
 func (w Writer) ChangeUsername(ctx context.Context, key Key, username string) error {
 	v := validate.New("auth.credentials")
 	v.NotEmptyString("username", username)
@@ -109,11 +108,7 @@ func (w Writer) assertUsernameAvailable(
 		return err
 	}
 	if exists {
-		return errors.Wrapf(
-			query.ErrUniqueViolation,
-			"username %s already exists",
-			username,
-		)
+		return errors.Wrapf(ErrRepeatedUsername, "username %s already exists", username)
 	}
 	return nil
 }
