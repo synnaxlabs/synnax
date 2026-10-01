@@ -280,6 +280,34 @@ TEST(TestSeries, testAtVar) {
     ASSERT_EQ(v2, "world");
 }
 
+/// @brief it should return the last sample with its alignment advanced.
+TEST(TestSeries, testLastFixed) {
+    Series s{std::vector<int32_t>{1, 2, 3}};
+    s.alignment = Alignment(2, 5);
+    s.time_range = TimeRange(TimeStamp(10), TimeStamp(40));
+    const auto last = s.last();
+    ASSERT_EQ(last.data_type(), INT32_T);
+    ASSERT_EQ(last.size(), 1);
+    ASSERT_EQ(last.at<int32_t>(0), 3);
+    ASSERT_EQ(last.alignment, Alignment(2, 7));
+    ASSERT_EQ(last.time_range, s.time_range);
+}
+
+/// @brief it should return the last sample of a variable density series.
+TEST(TestSeries, testLastVar) {
+    const Series s{std::vector<std::string>{"a", "bc", "def"}};
+    const auto last = s.last();
+    ASSERT_EQ(last.data_type(), STRING_T);
+    ASSERT_EQ(last.size(), 1);
+    ASSERT_EQ(last.at<std::string>(0), "def");
+}
+
+/// @brief it should throw when the series is empty.
+TEST(TestSeries, testLastEmptyThrows) {
+    const Series s{INT32_T, 0};
+    ASSERT_THROW((void) s.last(), std::runtime_error);
+}
+
 /// @brief it should allocate a series with a fixed capacity.
 TEST(TestSeries, testAllocation) {
     const Series s{UINT32_T, 5};

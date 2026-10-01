@@ -50,7 +50,7 @@ type (
 
 // objectID names the license as a builtin singleton, so the built-in roles' builtin
 // grants control access to it.
-var objectID = ontology.ID{Type: ontology.ResourceTypeBuiltin, Key: "license"}
+var objectID = ontology.ID{Type: ontology.ResourceTypeBuiltin, Key: license.OntologyKey}
 
 // Retrieve returns the state of the Core's license, this machine's fingerprint, and the
 // license when one applies.

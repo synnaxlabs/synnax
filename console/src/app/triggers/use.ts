@@ -14,7 +14,7 @@ import { Panel as PPanel, TimeSpan } from "@synnaxlabs/pluto";
 import { useCallback, useRef } from "react";
 
 import { Palette } from "@/app/palette";
-import { useSelectorVisible } from "@/app/vis/Selector";
+import { useSelectorVisible } from "@/app/vis/useSelectorVisible";
 import { Panel } from "@/feature/panel";
 import { Panel as PlatformPanel } from "@/platform/panel";
 import { Selector } from "@/platform/selector";

@@ -13,12 +13,7 @@ import { SELECTABLES } from "@/app/selector/selectables";
 import { type Panel } from "@/platform/panel";
 import { Selector as Base } from "@/platform/selector";
 
-export const useVisible = (): boolean =>
-  // It's safe to call hooks in map since SELECTABLES is a module-level constant
-  // and never changes between renders, ensuring consistent hook order.
-  SELECTABLES.map((s) => s.useVisible?.() ?? true).some(Boolean);
-
-export const Selector = Base.create({
+const Selector = Base.create({
   selectables: SELECTABLES,
   icon: <Icon.Component />,
   tabTitle: "Create component",

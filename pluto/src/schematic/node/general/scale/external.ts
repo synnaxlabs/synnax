@@ -9,6 +9,7 @@
 
 import { type schematic } from "@synnaxlabs/client";
 
+import { Scale as BaseScale } from "@/schematic/node/common/scale";
 import { ScaleForm } from "@/schematic/node/general/scale/Form";
 import { Scale } from "@/schematic/node/general/scale/Primitive";
 import { Symbol } from "@/schematic/node/general/scale/Symbol";
@@ -22,4 +23,5 @@ export const spec: Spec<"scale", schematic.ScaleNodeConfig> = {
   Preview: Scale,
   zIndex: 4,
   needsPosition: true,
+  colorFallbacks: BaseScale.colorFallbacks,
 };

@@ -286,3 +286,22 @@ func segProp(spec any, segment, prop string) (any, bool) {
 	}
 	return v, true
 }
+
+// colorRenames maps each cell variant's legacy color fields to the fields named for the
+// part they paint.
+var colorRenames = map[string]map[string]string{
+	"text":  {"background_color": "fill_color"},
+	"value": {"background_color": "fill_color", "color": "text_color"},
+}
+
+// renameColors rewrites a cell's legacy color fields to the names of the parts they
+// paint, in place on the normalized wire map.
+func renameColors(cfg map[string]any) {
+	variant, _ := cfg["variant"].(string)
+	for from, to := range colorRenames[variant] {
+		if val, ok := cfg[from]; ok {
+			delete(cfg, from)
+			cfg[to] = val
+		}
+	}
+}

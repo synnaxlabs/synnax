@@ -122,7 +122,7 @@ export const Showcase = () => {
     },
     {
       key: "schematic",
-      title: "Schematic Styles",
+      title: "Schematic styles",
       description:
         "Competing schematic style philosophies rendered over one shared symbol set. Judge each on its specimens and on the composed fragment.",
       component: <SchematicStyleShowcase />,
@@ -192,7 +192,7 @@ export const Showcase = () => {
               opacity: 0.6,
             }}
           >
-            <Text.Text level="h3">No Components Selected</Text.Text>
+            <Text.Text level="h3">No components selected</Text.Text>
             <Text.Text level="p">
               Choose components from the selector above to view their showcases.
             </Text.Text>

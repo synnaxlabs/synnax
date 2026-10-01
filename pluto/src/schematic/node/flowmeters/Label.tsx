@@ -12,11 +12,11 @@ import { type ReactElement, useMemo } from "react";
 
 export interface LabelProps {
   position?: xy.XY;
-  color?: color.Crude;
+  strokeColor?: color.Crude;
 }
 
-export const Label = ({ position, color: colorVal }: LabelProps): ReactElement => {
-  const colorStr = color.cssString(colorVal);
+export const Label = ({ position, strokeColor }: LabelProps): ReactElement => {
+  const colorStr = color.cssString(strokeColor);
   const style = useMemo(() => ({ fill: colorStr }), [colorStr]);
   return (
     <text x={position?.x ?? 57} y={position?.y ?? 27} style={style} stroke="none">

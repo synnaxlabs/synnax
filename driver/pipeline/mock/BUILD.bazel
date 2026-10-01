@@ -17,5 +17,6 @@ cc_library(
         "//client/cpp:synnax",
         "//driver/pipeline",
         "//freighter/cpp:freighter",
+        "//x/cpp/sync",
     ],
 )

@@ -40,4 +40,3 @@ export const { setHauled } = actions;
 export { reducer };
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
-export type Payload = Action["payload"];
