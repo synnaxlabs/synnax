@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
@@ -119,6 +120,15 @@ var DefaultServiceConfig = ServiceConfig{
 	Rollback:      24 * time.Hour,
 }
 
+const (
+	// OntologyKey is the key of the license's ontology resource.
+	OntologyKey = "license"
+	// SetChannelName is the channel the Core announces license changes on. Each sample
+	// is OntologyKey, never the license itself, so a reader refetches it through the
+	// permission checks of the retrieve endpoint.
+	SetChannelName = "sy_license_set"
+)
+
 var (
 	// prefix keys the accepted license keys. The stored value is the license key.
 	prefix = []byte("license/")
@@ -133,6 +143,7 @@ type Service struct {
 	cfg         ServiceConfig
 	fingerprint Fingerprint
 	shutdown    io.Closer
+	changes     observe.Observer[string]
 	// clockBehind is set while the clock is more than Rollback behind the recorded
 	// mark.
 	clockBehind atomic.Bool
@@ -154,7 +165,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{cfg: cfg}
+	s := &Service{cfg: cfg, changes: observe.New[string]()}
 	if s.fingerprint, err = readFingerprint(); err != nil {
 		return nil, errors.Wrap(err, "failed to read the machine fingerprint")
 	}
@@ -187,6 +198,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 
 // Close should be called when the service is no longer needed.
 func (s *Service) Close() error { return s.shutdown.Close() }
+
+// OnChange calls handler with OntologyKey each time the value Retrieve returns may have
+// changed.
+func (s *Service) OnChange(handler func(context.Context, string)) observe.Disconnect {
+	return s.changes.OnChange(handler)
+}
 
 // Retrieve returns what the service knows about this Core's license.
 func (s *Service) Retrieve() Info {
@@ -347,6 +364,7 @@ func (s *Service) load(ctx context.Context) error {
 		s.mu.Lock()
 		s.mu.info = *chosen
 		s.mu.Unlock()
+		s.changes.Notify(ctx, OntologyKey)
 	}
 	return nil
 }
