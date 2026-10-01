@@ -37,6 +37,7 @@ import {
 import {
   type LocalCache,
   localFor,
+  readCached,
   type RetrieveParams,
   suspendOnFetch,
   useMemoQuery,
@@ -213,7 +214,8 @@ export const createForm = <
     // A replay resumes through the promise the suspended attempt holds. Reading the
     // answer from anywhere else would skip the `use` call React needs to find the
     // end of the recorded hook list, corrupting every hook below.
-    let retrieved = pending.promise == null ? cached : undefined;
+    let retrieved =
+      pending.promise == null && cached !== undefined ? readCached(cached) : undefined;
     if (retrieved == null && memoQuery != null && client != null && retrieve != null)
       retrieved = suspendOnFetch(
         { client, query: memoQuery },
