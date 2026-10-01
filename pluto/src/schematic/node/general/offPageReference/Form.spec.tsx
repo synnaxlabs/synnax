@@ -86,7 +86,7 @@ describe("OffPageReferenceForm", () => {
   }: PageFormFixtureArgs = {}) => {
     const client = createTestClient();
     const SynnaxWrapper = await createAsyncSynnaxWrapper({ client });
-    const proj = await client.projects.create({ name: "off_page_form", layout: {} });
+    const proj = await client.projects.create({ name: "off_page_form" });
     const source = await client.schematics.create(proj.key, { name: "source" });
     const targetName = `target_${uuid.create().slice(0, 8)}`;
     const target =

@@ -14,7 +14,7 @@ import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { useCallback, useState } from "react";
 
-import { createPrompt, type Prompt } from "@/platform/modals/factory";
+import { createPrompt } from "@/platform/modals/factory";
 import { Triggers } from "@/platform/triggers";
 import { type Session } from "@/session";
 
@@ -25,8 +25,6 @@ export interface RenameParams {
   title?: string;
   icon?: Icon.ReactElement;
 }
-
-export interface PromptRename extends Prompt<string, RenameParams> {}
 
 const Rename = ({
   allowEmpty = false,

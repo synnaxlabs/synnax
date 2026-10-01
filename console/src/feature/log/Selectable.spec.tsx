@@ -30,7 +30,6 @@ describe("log/Selectable", () => {
   it("creates a log in the active project and opens its tab when clicked", async () => {
     const proj = await client.projects.create({
       name: uniqueName("project"),
-      layout: {},
     });
     const { wrapper, store } = await createConsoleWrapper({
       client,

@@ -32,7 +32,7 @@ export type ChannelSchemas = typeof READ_CHANNEL_SCHEMAS | typeof WRITE_CHANNEL_
 
 export const READ_TYPE = `${PREFIX}_read`;
 
-export const readConfigZ = ethercat.readConfigZ;
+const readConfigZ = ethercat.readConfigZ;
 
 export const deployReadConfigZ = ethercat.readConfigZ
   .extend({
@@ -62,7 +62,7 @@ export interface ReadPayload extends task.Payload<ReadSchemas> {}
 
 export const WRITE_TYPE = `${PREFIX}_write`;
 
-export const writeConfigZ = ethercat.writeConfigZ;
+const writeConfigZ = ethercat.writeConfigZ;
 
 export const deployWriteConfigZ = ethercat.writeConfigZ.extend({
   stateRate: z.number().positive(),

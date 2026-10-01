@@ -21,8 +21,6 @@ import {
   createAOChannel,
 } from "@/feature/ni/task/types";
 
-export type SelectAOChannelTypeFieldProps = Form.SelectFieldProps<AOChannelType>;
-
 export const SelectAOChannelTypeField = Form.buildSelectField<AOChannelType>({
   fieldKey: "type",
   fieldProps: {

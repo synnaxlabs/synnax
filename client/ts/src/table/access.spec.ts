@@ -25,7 +25,6 @@ describe("table", () => {
       });
       const proj = await client.projects.create({
         name: "test",
-        layout: {},
       });
       const randomTable = await client.tables.create(proj.key, {
         name: "test",
@@ -43,7 +42,6 @@ describe("table", () => {
       });
       const proj = await client.projects.create({
         name: "test",
-        layout: {},
       });
       const randomTable = await client.tables.create(proj.key, {
         name: "test",
@@ -61,7 +59,6 @@ describe("table", () => {
       });
       const proj = await client.projects.create({
         name: "test",
-        layout: {},
       });
       await userClient.tables.create(proj.key, {
         name: "test",
@@ -76,7 +73,6 @@ describe("table", () => {
       });
       const proj = await client.projects.create({
         name: "test",
-        layout: {},
       });
       await expect(
         userClient.tables.create(proj.key, {
@@ -93,7 +89,6 @@ describe("table", () => {
       });
       const proj = await client.projects.create({
         name: "test",
-        layout: {},
       });
       const randomTable = await client.tables.create(proj.key, {
         name: "test",
@@ -112,7 +107,6 @@ describe("table", () => {
       });
       const proj = await client.projects.create({
         name: "test",
-        layout: {},
       });
       const randomTable = await client.tables.create(proj.key, {
         name: "test",

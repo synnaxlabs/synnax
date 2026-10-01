@@ -134,8 +134,11 @@ class ReadTask final : public driver::task::Task {
             // 3. We have a warning, in which case we communicate it and return nil.
             if (err) {
                 if (err.matches(errors::TEMPORARY_HARDWARE_ERROR)) {
-                    LOG(WARNING) << this->p.name() << ": " << err.message();
-                    this->p.state.send_warning(err.message());
+                    auto msg = err.message();
+                    if (const auto retry = breaker.next_retry(); !retry.empty())
+                        msg += " (" + retry + ")";
+                    LOG(WARNING) << this->p.name() << ": " << msg;
+                    this->p.state.send_warning(msg);
                 } else
                     LOG(ERROR) << this->p.name() << ": " << err.message();
                 return err;

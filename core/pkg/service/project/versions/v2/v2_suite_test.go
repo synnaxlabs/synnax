@@ -7,15 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology } from "@synnaxlabs/client";
-import { type location } from "@synnaxlabs/x";
+package v2_test
 
-export interface OnDropParams {
-  id: ontology.ID;
-  nodeKey: number;
-  location: location.Location;
+import (
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
+)
+
+func TestProjectV2(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Service Project v2 Suite")
 }
 
-export interface DropHandler {
-  (params: OnDropParams): void;
-}
+var _ = ShouldNotLeakGoroutinesPerSpec()
