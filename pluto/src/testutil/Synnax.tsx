@@ -22,6 +22,7 @@ import { Synnax } from "@/synnax";
 import { synnax } from "@/synnax/aether";
 import { Telem } from "@/telem";
 import { telem } from "@/telem/aether";
+import { disableActEnvironment } from "@/testutil/act";
 import { theming } from "@/theming/aether";
 import { canvasTest } from "@/vis/render/test";
 import { Staleness } from "@/vis/staleness";
@@ -84,6 +85,7 @@ export const createSynnaxWrapper = ({
   telemFactories,
   connectionStatus,
 }: CreateSynnaxWrapperParams): FC<PropsWithChildren> => {
+  if (client != null) disableActEnvironment();
   const AetherProvider = aetherTest.createProvider({
     ...synnax.REGISTRY,
     ...status.REGISTRY,

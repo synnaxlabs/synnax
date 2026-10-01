@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/aether/test";
+export * from "@/testutil/act";
 export * from "@/testutil/render";
 export * from "@/testutil/Synnax";
 export * from "@synnaxlabs/lyra/testutil";

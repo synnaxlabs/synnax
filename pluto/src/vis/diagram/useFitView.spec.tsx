@@ -200,7 +200,7 @@ describe("Diagram.useInitialFitView", () => {
   it("does not fit while disabled", async () => {
     const { result } = renderInitialFit(false);
     act(() => result.current.measure("a"));
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await act(async () => await new Promise((resolve) => setTimeout(resolve, 100)));
     expect(result.current.flow.getViewport()).toEqual({ x: 0, y: 0, zoom: 1 });
   });
 });

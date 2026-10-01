@@ -9,6 +9,7 @@
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { act } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Range } from "@/feature/range";
@@ -24,8 +25,10 @@ describe("Range.useLink", () => {
       timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
     });
     const { handler, store } = await renderLinkHook(Range.useLink);
-    await selectTestProject(store, client);
-    await handler({ client, key: range.key });
+    await act(async () => {
+      await selectTestProject(store, client);
+      await handler({ client, key: range.key });
+    });
     const state = store.getState();
     expect(Session.Range.selectSelectedKey(state)).toBe(range.key);
     expect(Session.Range.selectState(state, range.key)?.variant).toBe("persisted");

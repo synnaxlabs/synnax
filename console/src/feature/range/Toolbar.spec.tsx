@@ -20,7 +20,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Ranger } from "@synnaxlabs/pluto";
 import { TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
@@ -109,9 +109,11 @@ const renderToolbar = async ({
     </Haul.Provider>,
     { wrapper },
   );
-  if (ranges.length > 0) store.dispatch(Session.Range.add(ranges));
-  if (active != null) store.dispatch(Session.Range.select(active));
-  else store.dispatch(Session.Range.clearSelected());
+  act(() => {
+    if (ranges.length > 0) store.dispatch(Session.Range.add(ranges));
+    if (active != null) store.dispatch(Session.Range.select(active));
+    else store.dispatch(Session.Range.clearSelected());
+  });
   return { store };
 };
 

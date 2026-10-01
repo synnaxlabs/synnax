@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { errors, TimeSpan } from "@synnaxlabs/x";
-import { render, waitFor } from "@testing-library/react";
+import { act, render, waitFor } from "@testing-library/react";
 import {
   Component,
   type FC,
@@ -254,7 +254,7 @@ describe("Aether Main", () => {
           <ExampleLeafC />
         </Provider>,
       );
-      await expect.poll(async () => root.children.length === 1).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(1));
       const first = root.children[0] as ExampleLeaf;
       expect(first.type).toBe(ExampleLeaf.TYPE);
       expect(first.state).toEqual({ x: 0 });
@@ -279,7 +279,7 @@ describe("Aether Main", () => {
           <ExampleLeafC />
         </Provider>,
       );
-      await expect.poll(async () => root.children.length === 1).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(1));
       const first = root.children[0] as ExampleLeaf;
       expect(first.type).toBe(ExampleLeaf.TYPE);
       expect(first.state).toEqual({ x: 1 });
@@ -299,11 +299,11 @@ describe("Aether Main", () => {
           <ExampleLeafC />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 1).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(1));
       const leaf = root.children[0] as ExampleLeaf;
       expect(leaf.deletef).not.toHaveBeenCalled();
       unmount();
-      await expect.poll(() => leaf.deletef.mock.calls.length > 0).toBe(true);
+      await waitFor(() => expect(leaf.deletef).toHaveBeenCalled());
     });
   });
   describe("invoke", () => {
@@ -328,9 +328,9 @@ describe("Aether Main", () => {
           <InvokeLeafC />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 1).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(1));
       const leaf = root.children[0] as InvokeLeaf;
-      await expect.poll(() => leaf.fireAndForgetSpy.mock.calls.length > 0).toBe(true);
+      await waitFor(() => expect(leaf.fireAndForgetSpy).toHaveBeenCalled());
     });
     it("should resolve async invoke with worker return value", async () => {
       const [Provider, root] = await newProvider();
@@ -356,8 +356,8 @@ describe("Aether Main", () => {
           <InvokeLeafC />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 1).toBe(true);
-      await expect.poll(() => result !== null).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(1));
+      await waitFor(() => expect(result).not.toBeNull());
       expect(result).toBe(42);
     });
     it("should reject async invoke when worker method throws", async () => {
@@ -384,8 +384,8 @@ describe("Aether Main", () => {
           <InvokeLeafC />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 1).toBe(true);
-      await expect.poll(() => captured.error !== null).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(1));
+      await waitFor(() => expect(captured.error).not.toBeNull());
       expect(captured.error?.message).toContain("Test error");
     });
     it("should reject async invoke on timeout", async () => {
@@ -408,11 +408,11 @@ describe("Aether Main", () => {
         return null;
       };
       render(
-        <Provider invokeTimeout={TimeSpan.milliseconds(50)}>
+        <Provider invokeTimeout={TimeSpan.milliseconds(250)}>
           <InvokeLeafC />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 1).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(1));
       expect(captured.error).toBeNull();
       await waitFor(() => expect(captured.error).not.toBeNull());
       expect(captured.error?.name).toBe("TimeoutError");
@@ -441,10 +441,10 @@ describe("Aether Main", () => {
           <InvokeLeafC />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 1).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(1));
       expect(captured.error).toBeNull();
       unmount();
-      await expect.poll(() => captured.error !== null).toBe(true);
+      await waitFor(() => expect(captured.error).not.toBeNull());
       expect(captured.error?.message).toBe("Component deleted");
     });
     it("should forward multiple positional args spread to the worker handler", async () => {
@@ -469,11 +469,11 @@ describe("Aether Main", () => {
           <C />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 1).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(1));
       const leaf = root.children[0] as InvokeLeaf;
-      await expect.poll(() => leaf.echoSpy.mock.calls.length > 0).toBe(true);
+      await waitFor(() => expect(leaf.echoSpy).toHaveBeenCalled());
       expect(leaf.echoSpy.mock.calls[0]).toEqual([7, "hello"]);
-      await expect.poll(() => captured.result !== null).toBe(true);
+      await waitFor(() => expect(captured.result).not.toBeNull());
       expect(captured.result).toEqual([7, "hello"]);
     });
     it("should resolve multiple concurrent invokes to their own callers", async () => {
@@ -498,14 +498,14 @@ describe("Aether Main", () => {
           <C />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 1).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(1));
       const leaf = root.children[0] as InvokeLeaf;
-      await expect.poll(() => leaf.slowEchoResolvers.length === 3).toBe(true);
+      await waitFor(() => expect(leaf.slowEchoResolvers.length).toBe(3));
       // Resolve out of order to confirm correlation, not ordering, matters.
       leaf.slowEchoResolvers[2]();
       leaf.slowEchoResolvers[0]();
       leaf.slowEchoResolvers[1]();
-      await expect.poll(() => results.length === 3).toBe(true);
+      await waitFor(() => expect(results.length).toBe(3));
       expect(results.sort()).toEqual([1, 2, 3]);
     });
     it("should invoke fire-and-forget methods in submission order", async () => {
@@ -529,9 +529,9 @@ describe("Aether Main", () => {
           <C />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 1).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(1));
       const leaf = root.children[0] as InvokeLeaf;
-      await expect.poll(() => leaf.fireAndForgetSpy.mock.calls.length === 3).toBe(true);
+      await waitFor(() => expect(leaf.fireAndForgetSpy).toHaveBeenCalledTimes(3));
     });
   });
   describe("use hook", () => {
@@ -558,8 +558,8 @@ describe("Aether Main", () => {
           <InvokeLeafC />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 1).toBe(true);
-      await expect.poll(() => onAetherChange.mock.calls.length > 0).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(1));
+      await waitFor(() => expect(onAetherChange).toHaveBeenCalled());
       expect(onAetherChange).toHaveBeenCalledWith({ x: 99 });
     });
     it("should pass current state to functional setState", async () => {
@@ -582,9 +582,9 @@ describe("Aether Main", () => {
           <ExampleLeafC />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 1).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(1));
       const leaf = root.children[0] as ExampleLeaf;
-      await expect.poll(() => leaf.state.x === 15).toBe(true);
+      await waitFor(() => expect(leaf.state.x).toBe(15));
     });
     it("should propagate worker-pushed state to the main thread state", async () => {
       const [Provider] = await newProvider();
@@ -609,7 +609,7 @@ describe("Aether Main", () => {
           <C />
         </Provider>,
       );
-      await expect.poll(() => observed.x === 42).toBe(true);
+      await waitFor(() => expect(observed.x).toBe(42));
     });
     it("should propagate multiple sequential worker pushes in order", async () => {
       const [Provider] = await newProvider();
@@ -636,7 +636,7 @@ describe("Aether Main", () => {
           <C />
         </Provider>,
       );
-      await expect.poll(() => observed.x === 3).toBe(true);
+      await waitFor(() => expect(observed.x).toBe(3));
     });
     it("should keep setState identity stable across re-renders", async () => {
       const [Provider, root] = await newProvider();
@@ -655,7 +655,7 @@ describe("Aether Main", () => {
           <C trigger={1} />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 1).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(1));
       rerender(
         <Provider>
           <C trigger={2} />
@@ -687,7 +687,7 @@ describe("Aether Main", () => {
           <C trigger={1} />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 1).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(1));
       rerender(
         <Provider>
           <C trigger={2} />
@@ -719,7 +719,7 @@ describe("Aether Main", () => {
           <C trigger={1} />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 1).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(1));
       rerender(
         <Provider>
           <C trigger={2} />
@@ -748,7 +748,7 @@ describe("Aether Main", () => {
           <C x={1} />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 1).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(1));
       const leaf = root.children[0] as ExampleLeaf;
       expect(leaf.state.x).toBe(1);
       rerender(
@@ -779,7 +779,7 @@ describe("Aether Main", () => {
           <C type={ExampleLeaf.TYPE} />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 1).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(1));
       const original = root.children[0] as ExampleLeaf;
       expect(original.type).toBe(ExampleLeaf.TYPE);
       rerender(
@@ -809,7 +809,7 @@ describe("Aether Main", () => {
           <C k="first" />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 1).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(1));
       const original = root.children[0] as ExampleLeaf;
       expect(original.key).toBe("first");
       rerender(
@@ -842,7 +842,7 @@ describe("Aether Main", () => {
           </Provider>
         </ErrorBoundary>,
       );
-      await expect.poll(() => captured.current !== null).toBe(true);
+      await waitFor(() => expect(captured.current).not.toBeNull());
       expect(captured.current?.message).toMatch(/number/i);
       errorSpy.mockRestore();
     });
@@ -872,8 +872,8 @@ describe("Aether Main", () => {
           <C />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 1).toBe(true);
-      await expect.poll(() => captured.error !== null).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(1));
+      await waitFor(() => expect(captured.error).not.toBeNull());
       expect(captured.error?.message).toMatch(/number/i);
     });
     it("should remain functional under StrictMode", async () => {
@@ -899,8 +899,8 @@ describe("Aether Main", () => {
           </Provider>
         </StrictMode>,
       );
-      await expect.poll(() => observedX === 55).toBe(true);
-      await expect.poll(() => root.children.length === 1).toBe(true);
+      await waitFor(() => expect(observedX).toBe(55));
+      await waitFor(() => expect(root.children.length).toBe(1));
       expect((root.children[0] as InvokeLeaf).state.x).toBe(55);
     });
   });
@@ -920,7 +920,7 @@ describe("Aether Main", () => {
           <UnidirectionalLeaf x={1} />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 1).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(1));
       const leaf = root.children[0] as ExampleLeaf;
       expect(leaf.state.x).toBe(1);
       rerender(
@@ -928,7 +928,7 @@ describe("Aether Main", () => {
           <UnidirectionalLeaf x={42} />
         </Provider>,
       );
-      await expect.poll(() => leaf.state.x === 42).toBe(true);
+      await waitFor(() => expect(leaf.state.x).toBe(42));
     });
     it("should not re-send when state is deeply equal", async () => {
       const [Provider, root] = await newProvider();
@@ -945,9 +945,9 @@ describe("Aether Main", () => {
           <UnidirectionalLeaf x={5} />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 1).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(1));
       const leaf = root.children[0] as ExampleLeaf;
-      await expect.poll(() => leaf.updatef.mock.calls.length >= 1).toBe(true);
+      await waitFor(() => expect(leaf.updatef).toHaveBeenCalled());
       const initialCount = leaf.updatef.mock.calls.length;
       rerender(
         <Provider>
@@ -972,7 +972,7 @@ describe("Aether Main", () => {
           <C />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 1).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(1));
       expect((root.children[0] as ExampleLeaf).state).toEqual({ x: 123 });
     });
     it("should support method invocation through methods", async () => {
@@ -996,9 +996,9 @@ describe("Aether Main", () => {
           <C />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 1).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(1));
       const leaf = root.children[0] as InvokeLeaf;
-      await expect.poll(() => leaf.fireAndForgetSpy.mock.calls.length > 0).toBe(true);
+      await waitFor(() => expect(leaf.fireAndForgetSpy).toHaveBeenCalled());
     });
     it("should return a path that ends with the component's generated key", async () => {
       const [Provider, root] = await newProvider();
@@ -1018,7 +1018,7 @@ describe("Aether Main", () => {
           <C />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 1).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(1));
       expect(captured.path).toEqual(["root", "uni-key"]);
       expect((root.children[0] as ExampleLeaf).key).toBe("uni-key");
     });
@@ -1037,7 +1037,7 @@ describe("Aether Main", () => {
           <UnidirectionalLeaf x={0} />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 1).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(1));
       const leaf = root.children[0] as ExampleLeaf;
       for (let i = 1; i <= 5; i++)
         rerender(
@@ -1045,7 +1045,7 @@ describe("Aether Main", () => {
             <UnidirectionalLeaf x={i} />
           </Provider>,
         );
-      await expect.poll(() => leaf.state.x === 5).toBe(true);
+      await waitFor(() => expect(leaf.state.x).toBe(5));
     });
     it("should not internally re-render the consumer between prop changes", async () => {
       const [Provider, root] = await newProvider();
@@ -1064,7 +1064,7 @@ describe("Aether Main", () => {
           <C x={1} />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 1).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(1));
       await new Promise((r) => setTimeout(r, 75));
       const baseline = renderCount;
       await new Promise((r) => setTimeout(r, 75));
@@ -1087,11 +1087,11 @@ describe("Aether Main", () => {
           <LifecycleLeaf />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 1).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(1));
       const leaf = root.children[0] as ExampleLeaf;
       expect(leaf.deletef).not.toHaveBeenCalled();
       unmount();
-      await expect.poll(() => leaf.deletef.mock.calls.length > 0).toBe(true);
+      await waitFor(() => expect(leaf.deletef).toHaveBeenCalled());
     });
     it("should send the initialState as the worker's first state", async () => {
       const [Provider, root] = await newProvider();
@@ -1108,7 +1108,7 @@ describe("Aether Main", () => {
           <C />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 1).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(1));
       expect((root.children[0] as ExampleLeaf).state).toEqual({ x: 77 });
     });
     it("should expose a setState that updates the worker", async () => {
@@ -1130,11 +1130,9 @@ describe("Aether Main", () => {
           <C />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 1).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(1));
       captured.setState?.({ x: 31 });
-      await expect
-        .poll(() => (root.children[0] as ExampleLeaf).state.x === 31)
-        .toBe(true);
+      await waitFor(() => expect((root.children[0] as ExampleLeaf).state.x).toBe(31));
     });
     it("should expose methods bound to the worker component", async () => {
       const [Provider, root] = await newProvider();
@@ -1159,10 +1157,8 @@ describe("Aether Main", () => {
           <C />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 1).toBe(true);
-      await expect
-        .poll(() => (root.children[0] as InvokeLeaf).state.x === 82)
-        .toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(1));
+      await waitFor(() => expect((root.children[0] as InvokeLeaf).state.x).toBe(82));
     });
     it("should return a path of [...parentPath, generatedKey]", async () => {
       const [Provider, root] = await newProvider();
@@ -1182,7 +1178,7 @@ describe("Aether Main", () => {
           <C />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 1).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(1));
       expect(captured.path).toEqual(["root", "lifecycle-key"]);
     });
     it("should not re-render the consumer on worker state pushes", async () => {
@@ -1208,10 +1204,8 @@ describe("Aether Main", () => {
           <C />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 1).toBe(true);
-      await expect
-        .poll(() => (root.children[0] as InvokeLeaf).state.x === 33)
-        .toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(1));
+      await waitFor(() => expect((root.children[0] as InvokeLeaf).state.x).toBe(33));
       const settled = renderCount;
       await new Promise((r) => setTimeout(r, 75));
       expect(renderCount).toBe(settled);
@@ -1245,10 +1239,10 @@ describe("Aether Main", () => {
           <Parent />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 1).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(1));
       const composite = root.children[0] as ExampleComposite;
       expect(composite.type).toBe(ExampleComposite.TYPE);
-      await expect.poll(() => composite.children.length === 1).toBe(true);
+      await waitFor(() => expect(composite.children.length).toBe(1));
       const leaf = composite.children[0] as ExampleLeaf;
       expect(leaf.type).toBe(ExampleLeaf.TYPE);
       expect(leaf.state.x).toBe(2);
@@ -1282,9 +1276,9 @@ describe("Aether Main", () => {
           <Parent />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 1).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(1));
       const composite = root.children[0] as ExampleComposite;
-      await expect.poll(() => composite.children.length === 2).toBe(true);
+      await waitFor(() => expect(composite.children.length).toBe(2));
       const keys = composite.children.map((c) => c.key).sort();
       expect(keys).toEqual(["a", "b"]);
       const byKey = Object.fromEntries(
@@ -1335,13 +1329,13 @@ describe("Aether Main", () => {
           <Outer />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 1).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(1));
       const outer = root.children[0] as ExampleComposite;
       expect(outer.key).toBe("outer");
-      await expect.poll(() => outer.children.length === 1).toBe(true);
+      await waitFor(() => expect(outer.children.length).toBe(1));
       const inner = outer.children[0] as ExampleComposite;
       expect(inner.key).toBe("inner");
-      await expect.poll(() => inner.children.length === 1).toBe(true);
+      await waitFor(() => expect(inner.children.length).toBe(1));
       const leaf = inner.children[0] as ExampleLeaf;
       expect(leaf.key).toBe("leaf");
       expect(leaf.state.x).toBe(9);
@@ -1375,9 +1369,9 @@ describe("Aether Main", () => {
           <Parent trigger={1} />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 1).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(1));
       const composite = root.children[0] as ExampleComposite;
-      await expect.poll(() => composite.children.length === 1).toBe(true);
+      await waitFor(() => expect(composite.children.length).toBe(1));
       const originalLeaf = composite.children[0] as ExampleLeaf;
       rerender(
         <Provider>
@@ -1425,7 +1419,7 @@ describe("Aether Main", () => {
           <Parent trigger={1} />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 1).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(1));
       rerender(
         <Provider>
           <Parent trigger={2} />
@@ -1460,7 +1454,7 @@ describe("Aether Main", () => {
           </Provider>
         </ErrorBoundary>,
       );
-      await expect.poll(() => captured.current !== null).toBe(true);
+      await waitFor(() => expect(captured.current).not.toBeNull());
       expect(captured.current?.message).toMatch(
         /ErrorOnUpdateLeaf afterUpdate failure/,
       );
@@ -1492,7 +1486,7 @@ describe("Aether Main", () => {
           <B />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 2).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(2));
       const byKey = Object.fromEntries(root.children.map((c) => [c.key, c])) as Record<
         string,
         ExampleLeaf
@@ -1526,12 +1520,12 @@ describe("Aether Main", () => {
           <B />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 2).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(2));
       const leafA = root.children.find((c) => c.key === "cleanup-a") as ExampleLeaf;
       const leafB = root.children.find((c) => c.key === "cleanup-b") as ExampleLeaf;
       unmount();
-      await expect.poll(() => leafA.deletef.mock.calls.length > 0).toBe(true);
-      await expect.poll(() => leafB.deletef.mock.calls.length > 0).toBe(true);
+      await waitFor(() => expect(leafA.deletef).toHaveBeenCalled());
+      await waitFor(() => expect(leafB.deletef).toHaveBeenCalled());
     });
     it("should no-op when workerEnabled is false", async () => {
       const captured: CapturedError = { current: null };
@@ -1557,7 +1551,7 @@ describe("Aether Main", () => {
           </Aether.Provider>
         </ErrorBoundary>,
       );
-      await expect.poll(() => renderedFine).toBe(true);
+      await waitFor(() => expect(renderedFine).toBe(true));
       expect(captured.current).toBeNull();
     });
     it("should throw when constructed without a worker source", () => {
@@ -1696,7 +1690,7 @@ describe("Aether Main", () => {
           <C x={2} />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 1).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(1));
       const leaf = root.children[0] as ExampleLeaf;
       expect(leaf.key).toBe("duplicate");
       expect(leaf.state.x).toBe(2);
@@ -1783,7 +1777,7 @@ describe("Aether Main", () => {
       handle.methods.fireAndForget();
       handle.detach();
       handle.attach();
-      await expect.poll(() => root.children.length).toBe(1);
+      await waitFor(() => expect(root.children.length).toBe(1));
       const leaf = root.children[0] as InvokeLeaf;
       expect(leaf.fireAndForgetSpy).not.toHaveBeenCalled();
     });
@@ -1817,7 +1811,7 @@ describe("Aether Main", () => {
           <Leaf />
         </Aether.Provider>,
       );
-      await expect.poll(() => root.children.length).toBe(5);
+      await waitFor(() => expect(root.children.length).toBe(5));
       expect(sends).toHaveLength(1);
       expect(sends[0]).toHaveLength(5);
     });
@@ -1859,7 +1853,7 @@ describe("Aether Main", () => {
           <Nested />
         </Aether.Provider>,
       );
-      await expect.poll(() => root.children.length).toBe(1);
+      await waitFor(() => expect(root.children.length).toBe(1));
       const depths = sends.flat().map((m) => ("path" in m ? m.path.length : 0));
       expect(depths).toEqual([...depths].sort((a, b) => a - b));
     });
@@ -1922,7 +1916,7 @@ describe("Aether Main", () => {
       const second = stage("second");
       store.subscribe(["root", "first"], () => second.attach());
       first.attach();
-      await expect.poll(() => root.children.length).toBe(2);
+      await waitFor(() => expect(root.children.length).toBe(2));
     });
     it("should stop treating entries as live once the store disposes", async () => {
       // dispose clears the worker tree but leaves the handles with their owners. An
@@ -1945,11 +1939,11 @@ describe("Aether Main", () => {
       });
       parent.attach();
       child.attach();
-      await expect.poll(() => root.children.length).toBe(1);
+      await waitFor(() => expect(root.children.length).toBe(1));
       store.dispose();
       expect(root.children).toHaveLength(0);
       child.setState({ x: 1 });
-      await expect.poll(() => child.getState().x).toBe(1);
+      await waitFor(() => expect(child.getState().x).toBe(1));
       expect(store.getError()).toBeNull();
       expect(root.children).toHaveLength(0);
     });
@@ -2004,14 +1998,14 @@ describe("Aether Main", () => {
           <Plot aetherKey="plot-b" x={2} />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 2).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(2));
       const byKey = Object.fromEntries(
         root.children.map((c) => [c.key, c as ExampleComposite]),
       );
       const plotA = byKey["plot-a"];
       const plotB = byKey["plot-b"];
-      await expect.poll(() => plotA.children.length === 1).toBe(true);
-      await expect.poll(() => plotB.children.length === 1).toBe(true);
+      await waitFor(() => expect(plotA.children.length).toBe(1));
+      await waitFor(() => expect(plotB.children.length).toBe(1));
       const lineA = plotA.children[0] as ExampleLeaf;
       const lineB = plotB.children[0] as ExampleLeaf;
       expect(lineA.key).toBe("shared-line");
@@ -2019,7 +2013,8 @@ describe("Aether Main", () => {
       expect(lineA).not.toBe(lineB);
       expect(lineA.state.x).toBe(1);
       expect(lineB.state.x).toBe(2);
-      lineB.setState({ x: 99 });
+      // The worker pushes the new state to Line on the main thread.
+      await act(async () => lineB.setState({ x: 99 }));
       expect(lineA.state.x).toBe(1);
       expect(lineB.state.x).toBe(99);
     });
@@ -2039,16 +2034,16 @@ describe("Aether Main", () => {
           <C />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 1).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(1));
       const original = root.children[0] as ExampleLeaf;
       first.unmount();
-      await expect.poll(() => original.deletef.mock.calls.length > 0).toBe(true);
+      await waitFor(() => expect(original.deletef).toHaveBeenCalled());
       render(
         <Provider>
           <C />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 1).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(1));
       const fresh = root.children[0] as ExampleLeaf;
       expect(fresh).not.toBe(original);
       expect(fresh.state.x).toBe(5);
@@ -2097,9 +2092,9 @@ describe("Aether Main", () => {
           <C />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 1).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(1));
       const leaf = root.children[0] as EchoOnUpdateLeaf;
-      await expect.poll(() => leaf.state.x === 1).toBe(true);
+      await waitFor(() => expect(leaf.state.x).toBe(1));
       const hasMountWarning = errorSpy.mock.calls.some(([msg]) => {
         const s =
           typeof msg === "string"
@@ -2163,16 +2158,16 @@ describe("Aether Main", () => {
           <Rows rows={[["a1"], ["b2"]]} />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 1).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(1));
       result.rerender(
         <Provider>
           <Rows rows={[["b2"]]} />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 1).toBe(true);
+      await waitFor(() => expect(root.children.length).toBe(1));
       const leaf = root.children[0] as ExampleLeaf;
       leaf.setState({ x: 42 });
-      await expect.poll(() => observedX === 42).toBe(true);
+      await waitFor(() => expect(observedX).toBe(42));
     });
   });
 });
