@@ -17,7 +17,7 @@ import {
   task,
 } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, type RenderOptions, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
@@ -55,11 +55,13 @@ const rackResource = (key: number, name: string) =>
 const renderMenu = async (
   racks: { key: number; name: string }[],
   as: Client = client,
+  onCaughtError?: RenderOptions["onCaughtError"],
 ) => {
   assertDefined(Item.ContextMenu);
   return await renderTreeContextMenu(Item.ContextMenu, {
     client: as,
     resources: racks.map((r) => rackResource(r.key, r.name)),
+    onCaughtError,
   });
 };
 
@@ -101,13 +103,8 @@ describe("rack ontology service", () => {
 
   it("should delete the rack on the Core after confirmation", async () => {
     const r = await createRack();
-    assertDefined(Item.ContextMenu);
-    await renderTreeContextMenu(Item.ContextMenu, {
-      client,
-      resources: [rackResource(r.key, r.name)],
-      // The menu outlives the rack it deletes, and its items throw the deletion.
-      onCaughtError: () => {},
-    });
+    // The menu outlives the rack it deletes, and its items throw the deletion.
+    await renderMenu([r], client, () => {});
     fireEvent.click(await screen.findByText("Delete"));
     await screen.findByText(`Are you sure you want to delete ${r.name}?`);
     fireEvent.click(findModalButton("Delete"));

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
+import { schematic } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { type FC } from "react";
 
@@ -46,17 +46,14 @@ export interface DummyToggleConfig<V extends schematic.NodeConfigType>
   variant: V;
 }
 
+const TOGGLE_FIELDS = Object.keys(schematic.toggleSymbolConfigZ.shape).filter(
+  (key) => !(key in schematic.staticSymbolConfigZ.shape),
+);
+
 /// withoutToggleConfig renders a toggle symbol's primitive without the fields only a
 /// toggle node consumes, which would otherwise land on the DOM.
 export const withoutToggleConfig = <P extends object>(Primitive: FC<P>): FC<P> =>
-  Component.removeProps(Primitive, [
-    "stateChannel",
-    "commandChannel",
-    "control",
-    "onClickDelay",
-    "stalenessTimeout",
-    "stalenessColor",
-  ]);
+  Component.removeProps(Primitive, TOGGLE_FIELDS);
 
 /// createStatic builds a non-interactive labeled symbol: a styled SVG with a label,
 /// color, and scale, edited via the shared StyleForm. This is the most common archetype

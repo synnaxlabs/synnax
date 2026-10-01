@@ -41,6 +41,6 @@ describe("removeProps", () => {
     Keys.displayName = "Keys";
     const WrappedComponent = removeProps(Keys, ["unwantedProp"]);
     const c = render(<WrappedComponent {...{ unwantedProp: "a", anotherProp: "b" }} />);
-    expect(c.queryByText("anotherProp")).not.toBeNull();
+    expect(c.container.textContent).toBe("anotherProp");
   });
 });
