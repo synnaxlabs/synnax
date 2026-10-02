@@ -9,10 +9,9 @@
 
 import { group, ontology } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { mockScrollTo } from "@synnaxlabs/lyra/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
-import { beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { Group } from "@/platform/group";
 import { Tree } from "@/platform/tree";
@@ -75,8 +74,6 @@ const expectGrouped = async (key: group.Key, members: group.Group[]): Promise<vo
   });
 
 describe("useCreateFromSelection", () => {
-  beforeAll(mockScrollTo);
-
   it("should group the selected resources under a new group when the rename is committed", async () => {
     const { parentID, a, b, editable } = await setup();
     const name = uniqueName("grp");

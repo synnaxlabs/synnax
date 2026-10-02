@@ -22,8 +22,14 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Tree } from "@/platform/tree";
 import { expandTreeRow, getTreeRow } from "@/platform/tree/menuTestutil";
-import { renderOntologyTree } from "@/platform/tree/treeTestutil";
-import { createConsoleWrapper, uniqueName, withControlHeld } from "@/testutil";
+import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
+import {
+  awaitTextEditingElement,
+  awaitTextEditingExit,
+  createConsoleWrapper,
+  uniqueName,
+  withControlHeld,
+} from "@/testutil";
 
 const client = createTestClient();
 const roles = new RoleClients(client);
@@ -392,6 +398,21 @@ describe("Tree.Tree", () => {
         container.querySelectorAll<HTMLElement>(".pluto-tree__item"),
       ).map((row) => row.style.top);
       offsets.forEach((top, index) => expect(top).toBe(`${index * ITEM_HEIGHT}px`));
+    });
+
+    it("should scroll to a new group outside the window to start its rename", async () => {
+      const { container } = await renderTree(parentID);
+      await findTreeRow(names[CHILD_COUNT - 1]);
+      expect(screen.queryByText(names[0])).toBeNull();
+      const tree = container.querySelector(".pluto-tree");
+      if (tree == null) throw new Error("tree not found");
+      fireEvent.contextMenu(tree);
+      fireEvent.click(await screen.findByText("New group"));
+      const editable = await awaitTextEditingElement();
+      await act(async () => {
+        fireEvent.keyDown(editable, { key: "Escape" });
+      });
+      await awaitTextEditingExit();
     });
   });
 
