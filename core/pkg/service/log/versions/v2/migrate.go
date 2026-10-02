@@ -80,7 +80,6 @@ func parseColor(hex string) color.Color {
 	return c
 }
 
-// Migration lifts stored logs from the v0 blob layout to the typed v2 shape.
 // migrateStored is MigrateLog for the stored-data migration. It keeps a log whose body
 // does not decode with only its Key and Name, and logs the loss, so one corrupt log
 // cannot stop the Core from starting.
@@ -101,4 +100,5 @@ func migrateStored(
 	return autoMigrateLog(ctx, old)
 }
 
+// Migration lifts stored logs from the v0 blob layout to the typed v2 shape.
 var Migration = gorp.NewInstrumentedEntryMigration("v55_lift_typed_log", migrateStored)

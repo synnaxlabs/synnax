@@ -178,7 +178,7 @@ var _ = Describe("ImEx", func() {
 				Expect(env.Name).To(Equal("\uFFFD"))
 			})
 
-			It("Should still reject a duplicate object name", func(ctx SpecContext) {
+			It("Should reject a duplicate object name", func(ctx SpecContext) {
 				var env imex.Envelope
 				Expect(imex.Codec.Decode(
 					ctx, []byte(`{"version":1,"name":"a","name":"b"}`), &env,

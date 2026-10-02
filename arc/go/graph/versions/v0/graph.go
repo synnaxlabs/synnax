@@ -29,11 +29,12 @@ func (g *Graph) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	if err != nil {
 		return err
 	}
-	if err = vmsgpack.Unmarshal(raw, (*alias)(g)); err != nil {
+	var keys map[string]vmsgpack.RawMessage
+	if err = vmsgpack.Unmarshal(raw, &keys); err != nil {
 		return err
 	}
-	if g.Nodes != nil {
-		return nil
+	if _, isLegacy := keys["Nodes"]; !isLegacy {
+		return vmsgpack.Unmarshal(raw, (*alias)(g))
 	}
 	var legacy struct {
 		Viewport  Viewport
@@ -51,8 +52,8 @@ func (g *Graph) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	return nil
 }
 
-// DecodeMsgpack implements msgpack.CustomDecoder. It also reads nodes that Cores
-// before v0.54 stored under their uppercase Go field names.
+// DecodeMsgpack implements msgpack.CustomDecoder. It also reads nodes that Cores before
+// v0.54 stored under their uppercase Go field names.
 func (n *Node) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	type alias Node
 	raw, err := dec.DecodeRaw()

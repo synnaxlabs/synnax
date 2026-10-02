@@ -520,7 +520,7 @@ func decodeManifest(
 	fileName string,
 ) (imex.Manifest, error) {
 	var manifest imex.Manifest
-	if err := json.Codec.Decode(ctx, data, &manifest); err != nil {
+	if err := imex.Codec.Decode(ctx, data, &manifest); err != nil {
 		return imex.Manifest{}, errors.Wrap(err, fileName)
 	}
 	if manifest.Type != manifestType {

@@ -10,6 +10,7 @@
 package v0
 
 import (
+	"bytes"
 	"context"
 	"encoding/json/v2"
 	"uuid"
@@ -89,7 +90,7 @@ func AlreadyMigrated(ctx context.Context, tx gorp.Tx) (bool, error) {
 	if err != nil {
 		return false, errors.Skip(err, query.ErrNotFound)
 	}
-	migrated := string(performed) == string([]byte{1})
+	migrated := bytes.Equal(performed, []byte{1})
 	return migrated, closer.Close()
 }
 

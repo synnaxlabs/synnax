@@ -26,10 +26,9 @@ const LastVersion imex.Version = 1
 // AnalogRead converts both released analog read shapes.
 var AnalogRead = legacy.Rewrite{Post: analogRead}
 
-// CounterRead converts the released counter read shape: an optional task-level
-// device the schema no longer stores, the measurement method, count direction, and
-// velocity unit spellings the Python client wrote, and a frequency unit NI-DAQmx
-// rejects.
+// CounterRead converts the released counter read shape: an optional task-level device
+// the schema no longer stores, the measurement method, count direction, and velocity
+// unit spellings the Python client wrote, and a frequency unit NI-DAQmx rejects.
 var CounterRead = legacy.Rewrite{Post: func(config msgpack.EncodedJSON) {
 	pushDownDevice(config)
 	legacy.EachChild(config, "channels", func(ch msgpack.EncodedJSON) {

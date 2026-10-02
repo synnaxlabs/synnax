@@ -110,34 +110,30 @@ var _ = Describe("RecoverKVPairKeys", func() {
 		ctx SpecContext,
 		migrations ...migrate.Migration,
 	) *gorp.Table[string, v0.Pair] {
+		GinkgoHelper()
 		return MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, v0.Pair]{
 			DB:         db,
 			Migrations: migrations,
 		}))
 	}
 	retrieve := func(ctx SpecContext, table *gorp.Table[string, v0.Pair]) []v0.Pair {
+		GinkgoHelper()
 		var res []v0.Pair
 		Expect(table.NewRetrieve().Entries(&res).Exec(ctx, db)).To(Succeed())
 		return res
 	}
 	expectLegacyRowsDeleted := func(ctx SpecContext) {
+		GinkgoHelper()
 		for k := range kvPairRows {
 			Expect(kvDB.Get(ctx, MustSucceed(hex.DecodeString(k)))).Error().
 				To(MatchError(query.ErrNotFound))
 		}
 	}
-	It("Should recover the rows when upgrading from v0.51", func(ctx SpecContext) {
-		table := open(ctx, v0.NormalizeKeys, v0.Migration, v0.RecoverKVPairKeys)
-		Expect(retrieve(ctx, table)).To(ConsistOf(
-			v0.Pair{Range: kvPairRange, Key: "k", Value: "alpha"},
-			v0.Pair{Range: kvPairRange, Key: "empty", Value: ""},
-		))
-		expectLegacyRowsDeleted(ctx)
-	})
-	It(
-		"Should recover the rows when the store already ran the other migrations",
-		func(ctx SpecContext) {
-			open(ctx, v0.NormalizeKeys, v0.Migration)
+	DescribeTable("Should recover the rows a v0.51 Core stored",
+		func(ctx SpecContext, preMigrated bool) {
+			if preMigrated {
+				open(ctx, v0.NormalizeKeys, v0.Migration)
+			}
 			table := open(ctx, v0.NormalizeKeys, v0.Migration, v0.RecoverKVPairKeys)
 			Expect(retrieve(ctx, table)).To(ConsistOf(
 				v0.Pair{Range: kvPairRange, Key: "k", Value: "alpha"},
@@ -145,6 +141,8 @@ var _ = Describe("RecoverKVPairKeys", func() {
 			))
 			expectLegacyRowsDeleted(ctx)
 		},
+		Entry("when upgrading straight to the recovery", false),
+		Entry("when the store already ran the other migrations", true),
 	)
 	It("Should keep a newer value written under the same key", func(ctx SpecContext) {
 		table := open(ctx, v0.NormalizeKeys, v0.Migration)

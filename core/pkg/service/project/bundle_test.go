@@ -499,6 +499,16 @@ var _ = Describe("Import", func() {
 			Expect(importProject(ctx, bundle()).Name).To(Equal("Test Stand Alpha"))
 		})
 
+		It("Should replace a lone surrogate in the manifest with U+FFFD", func(
+			ctx SpecContext,
+		) {
+			Expect(importProject(ctx, zip.Files{
+				"manifest.json": []byte(
+					`{"version":1,"type":"project","name":"Tank \ud83d"}`,
+				),
+			}).Name).To(Equal("Tank \uFFFD"))
+		})
+
 		It("Should recreate the root members and the group directories", func(
 			ctx SpecContext,
 		) {

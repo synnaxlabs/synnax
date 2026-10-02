@@ -29,7 +29,6 @@ var _ = Describe("WorkspaceObjectsMigration", func() {
 		ctx SpecContext,
 	) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
-		MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v1.Key, v1.Policy]{DB: db}))
 		p := v1.Policy{
 			Key:  uuid.New(),
 			Name: "custom",

@@ -225,7 +225,7 @@ var _ = Describe("MigrateLog", func() {
 	})
 
 	It(
-		"Should round down a fractional precision typed in an older Console",
+		"Should truncate a fractional precision typed in an older Console",
 		func(ctx SpecContext) {
 			old := v0.Log{
 				Key:  uuid.New(),
@@ -323,7 +323,7 @@ var _ = Describe("MigrateLog", func() {
 			"Should re-encode and lift stored logs through the chain",
 			func(ctx SpecContext) {
 				db := DeferClose(gorp.Wrap(memkv.New()))
-				seed := v0.Log{
+				stored := v0.Log{
 					Key:  uuid.New(),
 					Name: "chain-log",
 					Data: map[string]any{
@@ -339,7 +339,7 @@ var _ = Describe("MigrateLog", func() {
 					gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Log]{DB: db}),
 				)
 				Expect(
-					gorp.NewCreate[v0.Key, v0.Log]().Entry(&seed).Exec(ctx, db),
+					gorp.NewCreate[v0.Key, v0.Log]().Entry(&stored).Exec(ctx, db),
 				).To(Succeed())
 
 				Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
@@ -350,9 +350,9 @@ var _ = Describe("MigrateLog", func() {
 
 				var got v2.Log
 				Expect(gorp.NewRetrieve[v2.Key, v2.Log]().
-					Where(gorp.MatchKeys[v2.Key, v2.Log](seed.Key)).
+					Where(gorp.MatchKeys[v2.Key, v2.Log](stored.Key)).
 					Entry(&got).Exec(ctx, db)).To(Succeed())
-				Expect(got.Key).To(Equal(seed.Key))
+				Expect(got.Key).To(Equal(stored.Key))
 				Expect(got.Name).To(Equal("chain-log"))
 				Expect(got.Channels).To(HaveLen(1))
 				Expect(got.Channels[0].Channel).To(BeEquivalentTo(42))
@@ -369,7 +369,7 @@ var _ = Describe("Migration", func() {
 		ctx SpecContext,
 	) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
-		seed := v0.Log{
+		stored := v0.Log{
 			Key:  uuid.New(),
 			Name: "unparseable",
 			Data: map[string]any{
@@ -378,7 +378,7 @@ var _ = Describe("Migration", func() {
 			},
 		}
 		MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Log]{DB: db}))
-		Expect(gorp.NewCreate[v0.Key, v0.Log]().Entry(&seed).Exec(ctx, db)).
+		Expect(gorp.NewCreate[v0.Key, v0.Log]().Entry(&stored).Exec(ctx, db)).
 			To(Succeed())
 		core, logs := observer.New(zapcore.WarnLevel)
 		logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
@@ -392,12 +392,12 @@ var _ = Describe("Migration", func() {
 		})).To(Succeed())
 		var got v2.Log
 		Expect(gorp.NewRetrieve[v2.Key, v2.Log]().
-			Where(gorp.MatchKeys[v2.Key, v2.Log](seed.Key)).
+			Where(gorp.MatchKeys[v2.Key, v2.Log](stored.Key)).
 			Entry(&got).Exec(ctx, db)).To(Succeed())
 		Expect(got.Name).To(Equal("unparseable"))
 		Expect(got.Channels).To(BeEmpty())
 		dropped := logs.FilterMessage("dropped a log body that does not decode").All()
 		Expect(dropped).To(HaveLen(1))
-		Expect(dropped[0].ContextMap()).To(HaveKeyWithValue("log", seed.Key.String()))
+		Expect(dropped[0].ContextMap()).To(HaveKeyWithValue("log", stored.Key.String()))
 	})
 })

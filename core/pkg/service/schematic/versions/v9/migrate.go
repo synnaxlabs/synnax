@@ -23,7 +23,8 @@ import (
 
 // MigrateSchematic lifts a v8 schematic into the v9 shape for an import, filling each
 // config's schema defaults. It keeps no partial result: it wraps validate.ErrValidation
-// naming every node whose config the union rejects.
+// naming every node whose config the union rejects. It restates old's v0.57 scales in
+// place.
 func MigrateSchematic(ctx context.Context, old v8.Schematic) (Schematic, error) {
 	v8.NormalizeScales(old)
 	out, losses, err := lift(ctx, old)
@@ -92,9 +93,9 @@ type configLoss struct {
 
 // typeConfigs decodes v8's opaque config entries into the element config union. The
 // entries reach here in the camelCase form the Console wrote verbatim and never
-// validated, so each is normalized to the snake_case wire form and has its stored
-// telem pipelines, legacy page keys, legacy redlines, legacy flags, legacy color names,
-// and zero colors rewritten into the typed shape first. Each entry fills the schema
+// validated, so each is normalized to the snake_case wire form and has its stored telem
+// pipelines, legacy page keys, legacy redlines, legacy flags, legacy color names, and
+// zero colors rewritten into the typed shape first. Each entry fills the schema
 // defaults of the fields it does not carry. An entry the union rejects is replaced by
 // its variant's defaults when the variant is known and left out otherwise; both are
 // reported in the returned losses.

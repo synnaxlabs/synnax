@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("DecodeImExEnvelope", func() {
@@ -194,7 +195,10 @@ var _ = Describe("DecodeImExEnvelope", func() {
 	) {
 		Expect(versions.DecodeImExEnvelope(
 			ctx, LoadEnvelope("testdata/import_v8_rejected.json"),
-		)).Error().To(MatchError(ContainSubstring("node n1")))
+		)).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("node n1")),
+		))
 	})
 
 	It("Should reject a version newer than Latest", func(ctx SpecContext) {

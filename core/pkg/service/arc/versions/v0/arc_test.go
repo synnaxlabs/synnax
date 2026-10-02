@@ -111,8 +111,8 @@ var _ = Describe("NormalizeKeys", func() {
 
 var _ = Describe("Graph", func() {
 	It("Should decode a graph stored by a v0.53 Core", func(ctx SpecContext) {
-		// A real v0.53.4 row: an "on" node wired to a "write" node.
-		row := MustSucceed(hex.DecodeString(
+		// An Arc as a v0.53.4 Core stored it: an "on" node wired to a "write" node.
+		stored := MustSucceed(hex.DecodeString(
 			"87a47465787482a3415354c0a3726177a0a776657273696f6ea0a46e616d65a96772" +
 				"61706820617263a46d6f6465a56772617068a770726f6772616d89a753796d626f6c" +
 				"73c0a7547970654d6170c0a946756e6374696f6e73c0a953657175656e636573c0a5" +
@@ -129,7 +129,7 @@ var _ = Describe("Graph", func() {
 				"00a45a6f6f6dca00000000a36b6579c41096e1d792008a4905a3bc5c9fc103cdda",
 		))
 		var a v0.Arc
-		Expect(xmsgpack.Codec.Decode(ctx, row, &a)).To(Succeed())
+		Expect(xmsgpack.Codec.Decode(ctx, stored, &a)).To(Succeed())
 		Expect(a.Name).To(Equal("graph arc"))
 		Expect(a.Graph.Nodes).To(HaveLen(2))
 		Expect(a.Graph.Nodes[0]).To(And(

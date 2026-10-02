@@ -19,6 +19,7 @@ import { findCellPosition, useDispatch } from "@/table/queries";
 // The "web " prefix is required: Chrome silently drops custom MIME types from
 // the clipboard without it.
 const MIME = "web application/synnax-table+json";
+// Version 1 payloads hold each cell as an untyped variant and props.
 const VERSION = 2;
 // The base sizes come from the schema, which declares the default size of a row and a
 // column.

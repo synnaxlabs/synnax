@@ -41,8 +41,8 @@ const (
 )
 
 // NormalizeScales restates each scale in s that states neither top nor right as a
-// vertical bar sized without its gutter, leaving the rest of the configs untouched.
-// It serves imports, where a v0.57 body and a v0.58 body share a version.
+// vertical bar sized without its gutter, leaving the rest of the configs untouched. It
+// serves imports, where a v0.57 body and a v0.58 body share a version.
 func NormalizeScales(s Schematic) {
 	for _, cfg := range s.Configs {
 		o, _ := cfg["orientation"].(string)

@@ -600,7 +600,10 @@ var _ = Describe("Config typing", func() {
 					"units":   "bar",
 					"redline": map[string]any{"gradient": "wide"},
 				}},
-			})).Error().To(MatchError(ContainSubstring("node n1")))
+			})).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("node n1: invalid redline")),
+			))
 		})
 	})
 
@@ -746,42 +749,40 @@ var _ = Describe("Config typing", func() {
 		)
 	})
 
-	It(
-		"Should type a custom symbol's state overrides and keep a transparent region",
-		func(
-			ctx SpecContext,
-		) {
-			Expect(typed(ctx, msgpack.EncodedJSON{
-				"variant": "customStatic",
-				"specKey": "spec",
-				"stateOverrides": []any{map[string]any{
-					"key":  "on",
-					"name": "On",
-					"regions": []any{map[string]any{
-						"key":         "body",
-						"name":        "Body",
-						"selectors":   []any{"#body"},
-						"strokeColor": "#ff0000",
-						"fillColor":   []any{0, 0, 0, 0},
-					}},
+	It("Should keep a transparent region in a custom symbol's state overrides", func(
+		ctx SpecContext,
+	) {
+		Expect(typed(ctx, msgpack.EncodedJSON{
+			"variant": "customStatic",
+			"specKey": "spec",
+			"stateOverrides": []any{map[string]any{
+				"key":  "on",
+				"name": "On",
+				"regions": []any{map[string]any{
+					"key":         "body",
+					"name":        "Body",
+					"selectors":   []any{"#body"},
+					"strokeColor": "#ff0000",
+					"fillColor":   []any{0, 0, 0, 0},
 				}},
-			})).To(Equal(v9.CustomStaticElementConfig{
-				LabeledConfig: labeled,
-				Scale:         1,
-				SpecKey:       "spec",
-				StateOverrides: []symbol.State{{
-					Key:  "on",
-					Name: "On",
-					Regions: []symbol.Region{{
-						Key:         "body",
-						Name:        "Body",
-						Selectors:   []string{"#body"},
-						StrokeColor: new(MustSucceed(color.FromHex("#ff0000"))),
-						FillColor:   new(color.Color{}),
-					}},
+			}},
+		})).To(Equal(v9.CustomStaticElementConfig{
+			LabeledConfig: labeled,
+			Scale:         1,
+			SpecKey:       "spec",
+			StateOverrides: []symbol.State{{
+				Key:  "on",
+				Name: "On",
+				Regions: []symbol.Region{{
+					Key:         "body",
+					Name:        "Body",
+					Selectors:   []string{"#body"},
+					StrokeColor: new(MustSucceed(color.FromHex("#ff0000"))),
+					FillColor:   new(color.Color{}),
 				}},
-			}))
-		},
+			}},
+		}))
+	},
 	)
 })
 
@@ -834,6 +835,26 @@ var _ = Describe("MigrateSchematic", func() {
 			MatchError(ContainSubstring("node n2")),
 		))
 	})
+
+	DescribeTable("Should reject a legacy enabling flag that is not a boolean",
+		func(ctx SpecContext, cfg msgpack.EncodedJSON) {
+			Expect(v9.MigrateSchematic(ctx, v8.Schematic{
+				Configs: map[string]msgpack.EncodedJSON{"n1": cfg},
+			})).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("node n1")),
+			))
+		},
+		Entry("text box", msgpack.EncodedJSON{"variant": "textBox", "autoFit": "no"}),
+		Entry("control", msgpack.EncodedJSON{
+			"variant": "valve",
+			"control": map[string]any{"showChip": "no"},
+		}),
+		Entry("tank indicator", msgpack.EncodedJSON{
+			"variant": "tank",
+			"fill":    map[string]any{"showFill": "no"},
+		}),
+	)
 
 	It("Should reject a config carrying a value the variant cannot decode", func(
 		ctx SpecContext,

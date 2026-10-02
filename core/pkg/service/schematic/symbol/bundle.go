@@ -113,7 +113,7 @@ func (s *Service) ImportGroup(
 		)
 	}
 	var manifest imex.Manifest
-	if err := json.Codec.Decode(ctx, manifestData, &manifest); err != nil {
+	if err := imex.Codec.Decode(ctx, manifestData, &manifest); err != nil {
 		return group.Group{}, errors.Wrap(err, manifestFileName)
 	}
 	if manifest.Type != manifestType {
@@ -179,7 +179,7 @@ func declaredMembers(
 	manifestFileName string,
 ) ([]string, error) {
 	var legacy legacyGroupManifest
-	if err := json.Codec.Decode(ctx, manifestData, &legacy); err != nil {
+	if err := imex.Codec.Decode(ctx, manifestData, &legacy); err != nil {
 		return nil, errors.Wrap(err, manifestFileName)
 	}
 	foldedManifest := filename.Fold(manifestFileName)

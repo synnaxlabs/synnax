@@ -362,23 +362,23 @@ func bandRedline(cfg map[string]any) error {
 	return nil
 }
 
-// zeroColorOpaqueFields names fields whose colors keep a zero value, alongside the
-// fields already excluded from normalization. Band colors are required. Released
-// Consoles painted a zero region color under state_overrides as transparent.
-var zeroColorOpaqueFields = set.New("bands", "state_overrides")
+// keptZeroColorFields names fields whose colors keep a zero value, alongside the fields
+// already excluded from normalization. Band colors are required. Released Consoles
+// painted a zero region color under state_overrides as transparent.
+var keptZeroColorFields = set.New("bands", "state_overrides")
 
-// polygonZeroColorOpaqueFields adds the polygon's fill, which released Consoles also
+// polygonKeptZeroColorFields adds the polygon's fill, which released Consoles also
 // painted as transparent when zero.
-var polygonZeroColorOpaqueFields = set.New("bands", "state_overrides", "fill_color")
+var polygonKeptZeroColorFields = set.New("bands", "state_overrides", "fill_color")
 
 // stripZeroColors deletes every color-valued field of cfg holding the zero color.
-// Consoles before v9 stored transparent black for an unchosen color; v9 stores
-// nothing, so the theme picks the color instead. Fields a release painted as
-// transparent keep their zero.
+// Consoles before v9 stored transparent black for an unchosen color; v9 stores nothing,
+// so the theme picks the color instead. Fields a release painted as transparent keep
+// their zero.
 func stripZeroColors(cfg map[string]any) {
-	kept := zeroColorOpaqueFields
+	kept := keptZeroColorFields
 	if cfg["variant"] == "polygon" {
-		kept = polygonZeroColorOpaqueFields
+		kept = polygonKeptZeroColorFields
 	}
 	stripZeroColorsExcept(cfg, kept)
 }
@@ -496,7 +496,8 @@ func invertLegacyFlags(cfg map[string]any) {
 }
 
 // invertFlags replaces each flag in m that flags names with its negation under the new
-// name. A flag that is not a boolean is dropped.
+// name. A flag that is not a boolean moves to the new name unchanged, so the typed
+// decode rejects it.
 func invertFlags(m map[string]any, flags map[string]string) {
 	for from, to := range flags {
 		val, ok := m[from]
@@ -505,8 +506,9 @@ func invertFlags(m map[string]any, flags map[string]string) {
 		}
 		delete(m, from)
 		if b, ok := val.(bool); ok {
-			m[to] = !b
+			val = !b
 		}
+		m[to] = val
 	}
 }
 

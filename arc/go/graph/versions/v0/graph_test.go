@@ -53,6 +53,16 @@ var _ = Describe("Graph", func() {
 			Expect(decoded).To(Equal(g))
 		})
 
+		It("Should keep the viewport of a graph stored with no nodes", func() {
+			g := v0.Graph{
+				Viewport: v0.Viewport{Position: spatial.XY{X: 5, Y: 6}, Zoom: 2},
+			}
+			var decoded v0.Graph
+			Expect(msgpack.Unmarshal(MustSucceed(msgpack.Marshal(g)), &decoded)).
+				To(Succeed())
+			Expect(decoded).To(Equal(g))
+		})
+
 		It("Should decode a graph stored under uppercase Go field names", func() {
 			legacy := struct {
 				Viewport legacyViewport

@@ -220,9 +220,7 @@ var _ = Describe("NormalizeKeys", func() {
 			Expect(db.Get(ctx, legacy)).Error().To(MatchError(query.ErrNotFound))
 		},
 	)
-})
 
-var _ = Describe("NormalizeKeys", func() {
 	It("Should decode a v0.51 range whose color is not hex as having no color", func(
 		ctx SpecContext,
 	) {
@@ -251,10 +249,10 @@ var _ = Describe("NormalizeKeys", func() {
 		var ranges []v0.Range
 		Expect(gorp.NewRetrieve[v0.Key, v0.Range]().Entries(&ranges).Exec(ctx, db)).
 			To(Succeed())
-		Expect(ranges).To(HaveLen(2))
-		for _, r := range ranges {
-			Expect(r.Name).To(BeElementOf("range_0", "range_1"))
-			Expect(r.Color).To(BeZero())
-		}
+		Expect(ranges).To(ConsistOf(
+			HaveField("Name", "range_0"),
+			HaveField("Name", "range_1"),
+		))
+		Expect(ranges).To(HaveEach(HaveField("Color", BeZero())))
 	})
 })

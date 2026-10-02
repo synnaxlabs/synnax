@@ -282,7 +282,7 @@ var _ = Describe("MigrateTable", func() {
 		Expect(fields).NotTo(HaveKey("telem"))
 	})
 
-	It("Should round a fractional legacy precision to a whole count", func(
+	It("Should truncate a fractional legacy precision to a whole count", func(
 		ctx SpecContext,
 	) {
 		cfg, ok := migrateCell(ctx, "value", `{
@@ -290,7 +290,7 @@ var _ = Describe("MigrateTable", func() {
 				"stringifier": {"props": {"precision": 2.6}}
 			}}}
 		}`).Variant.(v2.ValueCellConfig)
-		Expect(*MustBeOk(cfg, ok).Precision).To(Equal(int32(3)))
+		Expect(*MustBeOk(cfg, ok).Precision).To(Equal(int32(2)))
 	})
 
 	It("Should leave precision absent when the legacy spec carries none", func(
