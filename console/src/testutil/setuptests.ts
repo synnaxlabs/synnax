@@ -10,6 +10,7 @@
 import "zod/compile";
 import "fake-indexeddb/auto";
 
+import { preloadTimeLanguage } from "@synnaxlabs/lyra/testutil";
 import { configure } from "@testing-library/react";
 import { afterAll, beforeAll, vi } from "vitest";
 
@@ -118,6 +119,8 @@ const cssEscape = (value: string): string => {
   return result;
 };
 
+preloadTimeLanguage();
+
 beforeAll(() => {
   vi.stubGlobal("ResizeObserver", SizeFiringResizeObserver);
   vi.stubGlobal("IntersectionObserver", IntersectionObserverMock);
@@ -149,17 +152,21 @@ beforeAll(() => {
   // jsdom has no canvas backend. Its getContext already returns null, but it logs "Not
   // implemented" on every call.
   HTMLCanvasElement.prototype.getContext = () => null;
-  // jsdom does not implement matchMedia, which the system theme mode reads.
-  window.matchMedia = (media: string): MediaQueryList => ({
-    matches: false,
-    media,
-    onchange: null,
-    addListener: () => {},
-    removeListener: () => {},
-    addEventListener: () => {},
-    removeEventListener: () => {},
-    dispatchEvent: () => false,
-  });
+  // jsdom does not implement matchMedia; Lyra's Nebula listens for OS scheme changes.
+  // Every query reports no match and never changes.
+  if (typeof window.matchMedia !== "function")
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      writable: true,
+      value: (media: string): MediaQueryList =>
+        Object.assign(new EventTarget(), {
+          media,
+          matches: false,
+          onchange: null,
+          addListener: () => {},
+          removeListener: () => {},
+        }),
+    });
   // jsdom does not implement scrollIntoView; pluto's Tabs.Selector calls it to reveal
   // the selected tab.
   if (typeof Element.prototype.scrollIntoView !== "function")

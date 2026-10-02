@@ -12,6 +12,7 @@ import { Schematic } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
+import { Analytics } from "@/platform/analytics";
 import { Panel } from "@/platform/panel";
 import { useMaybeChange } from "@/platform/project/useMaybeChange";
 import { Session } from "@/session";
@@ -28,6 +29,7 @@ export const useCreate = ({ project, tabKey }: UseCreateProps = {}): ((
   const maybeChangeProject = useMaybeChange();
   const openTab = Panel.useOpenTab();
   const dispatch = useDispatch();
+  const { capture } = Analytics.use();
   const { update } = Schematic.useCreate({
     afterOptimistic: ({ data: { key } }) => {
       project ??= getActiveProject();
@@ -39,6 +41,7 @@ export const useCreate = ({ project, tabKey }: UseCreateProps = {}): ((
         key: tabKey,
       });
     },
+    afterSuccess: () => capture("schematic_created", {}),
   });
   return useCallback(
     (params = {}) =>

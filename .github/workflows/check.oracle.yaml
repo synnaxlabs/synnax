@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: oracle-${{ github.ref }}
+  group: oracle-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:

@@ -13,10 +13,14 @@
     --pluto-dialog-min-width: 0;
 
     width: 500px;
-    height: 325px;
+    min-height: 325px;
 
     .console-version-info__content {
-        padding-top: 6rem;
+        padding: 6rem 4rem 8rem;
+    }
+
+    .console-license {
+        width: 50rem;
     }
 
     .console-version-info__logo {

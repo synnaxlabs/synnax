@@ -10,7 +10,12 @@
 import { type record, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
-import { AccessDeniedError, NotFoundError } from "@/errors";
+import {
+  AccessDeniedError,
+  ExpiredLicenseError,
+  MissingLicenseError,
+  NotFoundError,
+} from "@/errors";
 import { query } from "@/query";
 import { Deleted } from "@/query/deleted";
 import { Space, type SpaceHooks } from "@/query/query";
@@ -369,6 +374,33 @@ describe("Answers", () => {
       await wait(5);
       expect(onError).not.toHaveBeenCalled();
     });
+
+    it.each([
+      ["missing", MissingLicenseError],
+      ["expired", ExpiredLicenseError],
+    ])(
+      "should stay silent when a Core with a %s license refuses the change stream",
+      async (_, LicenseError) => {
+        const table = newTable();
+        const onError = vi.fn();
+        const answers = singleSpace(
+          table,
+          async () => {
+            table.set("a", rec("a", 1));
+            return ["a"];
+          },
+          {
+            ensureStreaming: async () => {
+              throw new LicenseError("no license");
+            },
+            onError,
+          },
+        );
+        expect(await answers.retrieve(qA)).toEqual(1);
+        await wait(5);
+        expect(onError).not.toHaveBeenCalled();
+      },
+    );
   });
 
   describe("getCached", () => {

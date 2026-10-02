@@ -14,6 +14,7 @@ import "@synnaxlabs/pluto/dist/pluto.css";
 
 import { Fragment, type PropsWithChildren, type ReactElement } from "react";
 
+import { Analytics } from "@/app/analytics";
 import { Haul } from "@/app/haul";
 import { Panel } from "@/app/panel";
 import { Pluto } from "@/app/pluto";
@@ -37,11 +38,13 @@ const SideEffect = (): null => {
 };
 
 const DesktopContext = ({ children }: PropsWithChildren): ReactElement => (
-  <Embedded.Provider>
-    <Version.InstallProvider middleware={Embedded.installMiddleware}>
-      {children}
-    </Version.InstallProvider>
-  </Embedded.Provider>
+  <Analytics.Provider>
+    <Embedded.Provider>
+      <Version.InstallProvider middleware={Embedded.installMiddleware}>
+        {children}
+      </Version.InstallProvider>
+    </Embedded.Provider>
+  </Analytics.Provider>
 );
 
 const BuildContext = DESKTOP ? DesktopContext : Fragment;
@@ -53,6 +56,7 @@ export const App = ({ workerURL }: AppProps): ReactElement => (
       <BuildContext>
         <Session.Context>
           <Pluto.Context workerURL={workerURL}>
+            {DESKTOP && <Analytics.Watch />}
             <Session.SettledProvider>
               <Errors.OverlayWithStore>
                 <Panel.Context>
