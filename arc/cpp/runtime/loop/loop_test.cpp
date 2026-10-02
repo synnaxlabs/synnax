@@ -33,8 +33,10 @@
 
 namespace arc::runtime::loop {
 
-/// @brief Creates a loop and starts it, returning the started loop.
-std::pair<std::unique_ptr<Loop>, x::errors::Error> create_and_start(const Config &cfg) {
+/// @brief Creates a loop and starts it, returning the started loop. The loop does not
+/// pin the thread that starts it, so tests do not share one core.
+std::pair<std::unique_ptr<Loop>, x::errors::Error> create_and_start(Config cfg) {
+    cfg.cpu_affinity = CPU_AFFINITY_NONE;
     auto loop = create(cfg);
     if (auto start_err = loop->start(); start_err) return {nullptr, start_err};
     return {std::move(loop), x::errors::NIL};
@@ -1180,6 +1182,7 @@ protected:
     void SetUp() override {
         Config config;
         config.mode = this->GetParam();
+        config.cpu_affinity = CPU_AFFINITY_NONE;
         this->loop = std::make_unique<FailingArmLoop>(config);
         ASSERT_NIL(this->loop->start());
         this->notifier = x::notify::create();
