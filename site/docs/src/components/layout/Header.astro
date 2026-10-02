@@ -77,11 +77,11 @@ const label = version?.split(".").slice(0, -1).join(".");
                 </Button.Button>
                 {enabled("portal") && (
                     <Button.Button
-                        className="sign-in-button"
+                        className="login-button"
                         variant="filled"
-                        href="https://portal.synnaxlabs.com/sign-in"
+                        href="https://portal.synnaxlabs.com/login"
                     >
-                        Sign in
+                        Log in
                     </Button.Button>
                 )}
                 <button class="mobile-menu-btn" aria-label="Open menu" data-mobile-open>
@@ -174,7 +174,7 @@ const label = version?.split(".").slice(0, -1).join(".");
             color: var(--pluto-gray-l10);
         }
 
-        .sign-in-button {
+        .login-button {
             text-decoration: none;
             font-size: 2rem;
             font-weight: 500;

@@ -18,11 +18,11 @@ import { withTarget } from "@/ui/auth/redirect";
 import { errorMessage, useClerk } from "@/ui/clerk";
 
 export interface SSOCallbackProps {
-  /** target is where to land once the sign-in completes. */
+  /** target is where to land once the login completes. */
   target: string;
 }
 
-/** SSOCallback completes a Google or Microsoft sign-in and sends the user on. */
+/** SSOCallback completes a Google or Microsoft login and sends the user on. */
 export const SSOCallback = ({ target }: SSOCallbackProps): ReactElement => {
   const clerk = useClerk();
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +40,7 @@ export const SSOCallback = ({ target }: SSOCallbackProps): ReactElement => {
   }, [clerk, target]);
   return (
     <Card
-      title="Signing you in"
+      title="Logging you in"
       error={error}
       footer={
         error == null ? undefined : (
@@ -48,9 +48,9 @@ export const SSOCallback = ({ target }: SSOCallbackProps): ReactElement => {
             el="a"
             level="small"
             variant="link"
-            href={withTarget("/sign-in", target)}
+            href={withTarget("/login", target)}
           >
-            Back to sign in
+            Back to log in
           </Text.Text>
         )
       }

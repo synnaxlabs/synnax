@@ -55,15 +55,13 @@ const option = (o: Organization) => ({
             <a class="portal-bar__link" href="https://docs.synnaxlabs.com">
                 Docs
             </a>
-            <Shell.Account client:load />
+            <Shell.Account client:load name={session.name} image={session.image} />
         </div>
     </header>
     <nav class="portal-tabs">
         {tabs(scope, session.staff).map((link) => (
             <Button.Button
                 variant="text"
-                textColor={link.tab === tab ? 11 : 9}
-                background={link.tab === tab ? 2 : undefined}
                 weight={link.tab === tab ? 500 : 400}
                 className="portal-tab"
                 href={link.href}

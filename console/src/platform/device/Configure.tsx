@@ -17,11 +17,12 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Device as Base, Device } from "@synnaxlabs/pluto";
+import { Device as Base, Device, type Flux } from "@synnaxlabs/pluto";
 import { deep, type record, strings } from "@synnaxlabs/x";
 import { useCallback, useRef, useState } from "react";
 import { z } from "zod";
 
+import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { identifierZ, nameZ } from "@/platform/device/types";
 import { Triggers } from "@/platform/triggers";
@@ -60,6 +61,7 @@ const Internal = <
   const triggerAction = isNameStep ? "Next" : "Save";
   const [recommendedIds, setRecommendedIds] = useState<string[]>([]);
   const identifierRef = useRef<HTMLInputElement>(null);
+  const { capture } = Analytics.use();
   const deviceToCreate = () => ({
     ...device,
     configured: true,
@@ -85,7 +87,13 @@ const Internal = <
       if (!methods.validate("identifier")) return false;
       return deviceToCreate();
     }, [isNameStep, methods, setStep, setRecommendedIds, identifierRef]),
-    afterSuccess: useCallback(() => close(), [close]),
+    afterSuccess: useCallback(
+      ({ data }: Flux.AfterSuccessParams<device.Device>) => {
+        capture("device_configured", { make: data.make });
+        close();
+      },
+      [capture, close],
+    ),
   });
 
   return (

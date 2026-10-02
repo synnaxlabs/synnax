@@ -9,15 +9,19 @@
 // included in the file licenses/APL.txt.
 
 import Root from "@/layouts/Root.astro";
-import { landing } from "@/shell";
-import { Auth } from "@/ui/auth";
+import { load } from "@/page";
+import { Desktop } from "@/ui/desktop";
 import "@/styles/portal.css";
 
-if (Astro.locals.auth().userId != null) return Astro.redirect("/", 303);
+const loaded = await load(Astro);
+if (loaded instanceof Response) return loaded;
+const { session } = loaded;
+
+const query = Desktop.read(Astro.url.searchParams);
 ---
 
-<Root title="Sign in">
+<Root title="Log in to Synnax Desktop">
     <section class="portal-auth-page">
-        <Auth.SignIn client:load target={landing(Astro.url.searchParams)} />
+        <Desktop.Link client:load {...query} email={session.email} />
     </section>
 </Root>
