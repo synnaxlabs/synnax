@@ -387,18 +387,21 @@ struct DeadlineNode final : public node::Node {
     std::atomic<int64_t> deadline_ns;
     /// @brief how long each run takes.
     x::telem::TimeSpan work;
+    /// @brief the span of the timer that sets the deadline.
+    x::telem::TimeSpan span;
 
     explicit DeadlineNode(
         const x::telem::TimeSpan deadline,
-        const x::telem::TimeSpan work = x::telem::TimeSpan(0)
+        const x::telem::TimeSpan work,
+        const x::telem::TimeSpan span
     ):
-        deadline_ns(deadline.nanoseconds()), work(work) {}
+        deadline_ns(deadline.nanoseconds()), work(work), span(span) {}
 
     x::errors::Error next(node::Context &ctx) override {
         ctx.mark_self_changed();
         std::this_thread::sleep_for(this->work.chrono());
         const auto d = x::telem::TimeSpan(this->deadline_ns.load());
-        if (d != x::telem::TimeSpan::max()) ctx.set_deadline(d, d);
+        if (d != x::telem::TimeSpan::max()) ctx.set_deadline(d, this->span);
         return x::errors::NIL;
     }
 
@@ -415,12 +418,13 @@ struct DeadlineRuntimeFixture {
 
     static DeadlineRuntimeFixture create(
         const x::telem::TimeSpan deadline,
-        const x::telem::TimeSpan work = x::telem::TimeSpan(0)
+        const x::telem::TimeSpan work = x::telem::TimeSpan(0),
+        const x::telem::TimeSpan span = x::telem::SECOND
     ) {
         auto mock_loop = std::make_unique<testutil::MockLoop>();
         auto *loop_ptr = mock_loop.get();
 
-        auto deadline_node = std::make_unique<DeadlineNode>(deadline, work);
+        auto deadline_node = std::make_unique<DeadlineNode>(deadline, work, span);
         auto *node_ptr = deadline_node.get();
 
         auto prog = arc::ir::testutil::Builder()
@@ -556,7 +560,11 @@ TEST(RuntimeDeadlineTest, NoDeadlinePassesZeroTimeout) {
 
 /// @brief The runtime should pass the span of the timer that owns the deadline.
 TEST(RuntimeDeadlineTest, FutureDeadlinePassesItsSpan) {
-    auto [runtime, loop, node] = DeadlineRuntimeFixture::create(x::telem::SECOND * 10);
+    auto [runtime, loop, node] = DeadlineRuntimeFixture::create(
+        x::telem::SECOND * 10,
+        x::telem::TimeSpan(0),
+        x::telem::SECOND * 3
+    );
     ASSERT_TRUE(runtime->start());
     ASSERT_EVENTUALLY_GE(loop->wait_count.load(), 3);
     ASSERT_TRUE(runtime->stop());
@@ -564,7 +572,7 @@ TEST(RuntimeDeadlineTest, FutureDeadlinePassesItsSpan) {
     const auto spans = loop->get_spans();
     ASSERT_GE(spans.size(), 3);
     for (size_t i = 1; i < spans.size(); i++)
-        EXPECT_EQ(spans[i], x::telem::SECOND * 10);
+        EXPECT_EQ(spans[i], x::telem::SECOND * 3);
 }
 
 /// @brief The timeout should count from the end of the cycle, so that the work of the

@@ -46,7 +46,8 @@ inline const x::telem::TimeSpan HIGH_RATE_THRESHOLD = x::telem::MILLISECOND;
 /// is available, falling through to AUTO otherwise.
 inline const x::telem::TimeSpan RT_EVENT_THRESHOLD = 3 * x::telem::MILLISECOND;
 
-/// @brief Timer span below which AUTO spins before a deadline.
+/// @brief Timer span below which AUTO spins before a deadline on macOS and in the
+/// polling loop.
 inline const x::telem::TimeSpan HYBRID_THRESHOLD = 5 * x::telem::MILLISECOND;
 
 /// @brief Timer span below which AUTO spins before a deadline on Windows. Without the
@@ -55,9 +56,6 @@ inline const x::telem::TimeSpan WINDOWS_HYBRID_THRESHOLD = 50 * x::telem::MILLIS
 
 /// @brief Timeout for event-driven wait to periodically check breaker.running().
 inline const x::telem::TimeSpan EVENT_DRIVEN_TIMEOUT = 100 * x::telem::MILLISECOND;
-
-/// @brief Shorter timeout for non-blocking/polling checks.
-inline const x::telem::TimeSpan POLL_TIMEOUT = 10 * x::telem::MILLISECOND;
 
 /// @brief Windows WaitableTimer uses 100-nanosecond units.
 inline const x::telem::TimeSpan WINDOWS_TIMER_UNIT = 100 * x::telem::NANOSECOND;
@@ -209,9 +207,7 @@ struct Config {
 #ifdef SYNNAX_NILINUXRT
             const bool should_pin = cfg.mode == ExecutionMode::RT_EVENT ||
                                     cfg.mode == ExecutionMode::HIGH_RATE ||
-                                    cfg.mode == ExecutionMode::HYBRID ||
-                                    (cfg.mode == ExecutionMode::AUTO &&
-                                     auto_spins(shortest_span));
+                                    cfg.mode == ExecutionMode::HYBRID;
 #else
             const bool should_pin = cfg.mode == ExecutionMode::RT_EVENT;
 #endif

@@ -264,12 +264,11 @@ TEST(TimeModuleTest, ShortestSpanIsTheMinimumAcrossNodes) {
 TEST(TimeModuleTest, RejectsNonPositiveLiteralSpan) {
     TestSetup wait("wait", "duration", 0);
     Module factory;
-    ASSERT_OCCURRED_AS_P(
-        factory.create(
-            runtime::node::Config(wait.ir, wait.ir.nodes[0], wait.make_node())
-        ),
-        x::errors::VALIDATION
+    const auto result = factory.create(
+        runtime::node::Config(wait.ir, wait.ir.nodes[0], wait.make_node())
     );
+    EXPECT_TRUE(result.second.matches(x::errors::VALIDATION));
+    EXPECT_EQ(result.second.data, "duration must be positive, got 0ns");
     EXPECT_EQ(factory.shortest_span(), UNSET_SHORTEST_SPAN);
 }
 
@@ -1580,6 +1579,18 @@ TEST(IntervalVarTest, RestartsTheScheduleAfterAPause) {
     EXPECT_TRUE(late.fired);
     EXPECT_EQ(late.deadline, 45 * x::telem::MILLISECOND);
     EXPECT_FALSE(t.tick(40 * x::telem::MILLISECOND, tick).fired);
+}
+
+/// @brief A fire exactly one period behind should restart the schedule, so the next
+/// pass at the same time does not fire again.
+TEST(IntervalVarTest, RestartsTheScheduleExactlyOnePeriodBehind) {
+    VarConfig t("interval", "period", 10 * x::telem::MILLISECOND);
+    const auto tick = runtime::node::RunReason::TimerTick;
+    EXPECT_TRUE(t.tick(x::telem::TimeSpan(0), tick).fired);
+    const auto late = t.tick(20 * x::telem::MILLISECOND, tick);
+    EXPECT_TRUE(late.fired);
+    EXPECT_EQ(late.deadline, 30 * x::telem::MILLISECOND);
+    EXPECT_FALSE(t.tick(20 * x::telem::MILLISECOND, tick).fired);
 }
 
 TEST(IntervalVarTest, ReportsTheLivePeriodAsTheSpanOfTheDeadline) {

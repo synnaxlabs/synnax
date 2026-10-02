@@ -441,7 +441,10 @@ private:
     }
 
     void report_error(const x::errors::Error &e) const {
-        LOG(ERROR) << "[arc.scheduler] node encountered error: " << e;
+        if (e.matches(errors::WARNING))
+            LOG(WARNING) << "[arc.scheduler] node reported a warning: " << e;
+        else
+            LOG(ERROR) << "[arc.scheduler] node encountered error: " << e;
         this->error_handler(e);
     }
 

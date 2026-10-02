@@ -120,7 +120,9 @@ class Interval : public runtime::node::Node {
     runtime::state::Node state;
     /// @brief the elapsed time of the last scheduled fire. Valid only when started.
     x::telem::TimeSpan last_fired;
+    /// @brief true once the interval has anchored its schedule at a usable period.
     bool started = false;
+    /// @brief reports a non-positive period once.
     SpanGuard guard;
 
 public:
@@ -199,8 +201,11 @@ struct WaitInputs {
 /// @brief One-shot timer that fires once after a specified duration.
 class Wait : public runtime::node::Node {
     runtime::state::Node state;
+    /// @brief the elapsed time the wait started, or -1 before its first usable run.
     x::telem::TimeSpan start_time = x::telem::TimeSpan(-1);
+    /// @brief true once the wait has fired in the current activation.
     bool fired = false;
+    /// @brief reports a non-positive duration once.
     SpanGuard guard;
 
 public:
@@ -280,6 +285,7 @@ public:
 };
 
 class Module : public stl::Module {
+    /// @brief the shortest timer span of the program, or UNSET_SHORTEST_SPAN.
     x::telem::TimeSpan shortest = UNSET_SHORTEST_SPAN;
     /// @brief the current cycle's stamp, set by the runtime loop before each
     /// pass. The `now` WASM binding is called from guest code, which has no node

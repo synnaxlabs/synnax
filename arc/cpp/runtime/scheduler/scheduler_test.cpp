@@ -716,6 +716,26 @@ TEST_F(SchedulerTest, NextDeadlineKeepsShortestSpanOfEqualDeadlines) {
     EXPECT_EQ(s->next_deadline().span, 5 * x::telem::MILLISECOND);
 }
 
+TEST_F(SchedulerTest, NextDeadlineKeepsShortestSpanWhenItComesFirst) {
+    auto &a = mock("A");
+    auto &b = mock("B");
+    a.on_next = [](const node::Context &ctx) {
+        ctx.set_deadline(5 * x::telem::MILLISECOND, 5 * x::telem::MILLISECOND);
+    };
+    b.on_next = [](const node::Context &ctx) {
+        ctx.set_deadline(5 * x::telem::MILLISECOND, 20 * x::telem::MILLISECOND);
+    };
+    auto ir = program_of(
+        {ir_node("A"), ir_node("B")},
+        {},
+        root_scope({ir::node_member("A"), ir::node_member("B")})
+    );
+    const auto s = build(std::move(ir));
+    s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
+    EXPECT_EQ(s->next_deadline().at, 5 * x::telem::MILLISECOND);
+    EXPECT_EQ(s->next_deadline().span, 5 * x::telem::MILLISECOND);
+}
+
 TEST_F(SchedulerTest, NextDeadlineResetsBetweenCycles) {
     auto &a = mock("A");
     int call = 0;

@@ -168,10 +168,11 @@ public:
     }
 
 private:
-    // Prefers a high-resolution timer. Before Windows 10 1803, a standard timer fires
-    // on the system tick, which the loop raises to 1 ms only while a deadline is armed.
-    // Both use one-shot re-arming, as the periodic lPeriod parameter does not use the
-    // high-resolution mechanism.
+    /// @brief prefers a high-resolution timer. Before Windows 10 1803, a standard
+    /// timer fires on the system tick. The loop raises the tick to 1 ms when it arms a
+    /// deadline and lowers it when a wait has no deadline. Both timers re-arm once per
+    /// deadline, as the periodic lPeriod parameter does not use the high-resolution
+    /// mechanism.
     x::errors::Error create_waitable_timer() {
         this->timer_event_ = this->api_.create_high_resolution();
         if (this->timer_event_ != NULL) {
@@ -189,7 +190,7 @@ private:
         return x::errors::NIL;
     }
 
-    // Raises or lowers the system tick for a standard timer.
+    /// @brief raises or lowers the system tick for a standard timer.
     void set_tick_raised(const bool raised) {
         if (this->high_res_timer_ || this->tick_raised_ == raised) return;
         if (raised)
@@ -199,13 +200,14 @@ private:
         this->tick_raised_ = raised;
     }
 
-    // A cancel does not clear a fire, so the drain clears one left from an earlier arm.
+    /// @brief disarms the timer. A cancel does not clear a fire, so the drain clears
+    /// one left from an earlier arm.
     void disarm_timer() const {
         CancelWaitableTimer(this->timer_event_);
         WaitForSingleObject(this->timer_event_, 0);
     }
 
-    // Arms the timer to fire once after span.
+    /// @brief arms the timer to fire once after span.
     bool arm_timer(const x::telem::TimeSpan span) {
         this->disarm_timer();
         LARGE_INTEGER due_time;
@@ -217,7 +219,7 @@ private:
         return false;
     }
 
-    // Logs the first failed arm. The loop then spins to each deadline.
+    /// @brief logs the first failed arm. The loop then spins to each deadline.
     void report_arm_failure(const std::string &cause) {
         if (this->arm_failed_) return;
         this->arm_failed_ = true;
@@ -225,8 +227,9 @@ private:
                    << "deadline instead: " << cause;
     }
 
-    // A deadline inside the spin span has no time for a timer wake, which takes
-    // about 0.5 ms. The timer also cannot arm less than one WINDOWS_TIMER_UNIT ahead.
+    /// @brief returns true when a deadline is inside the spin span, which has no time
+    /// for a timer wake of about 0.5 ms. The timer also cannot arm less than one
+    /// WINDOWS_TIMER_UNIT ahead.
     bool inside_spin(
         const x::telem::TimeSpan max_timeout,
         const x::telem::TimeSpan spin
@@ -235,8 +238,8 @@ private:
                max_timeout < spin + timing::WINDOWS_TIMER_UNIT;
     }
 
-    // Arms the timer the spin span ahead of a deadline. With no deadline, it disarms
-    // the timer so that an earlier deadline does not wake the loop.
+    /// @brief arms the timer the spin span ahead of a deadline. With no deadline, it
+    /// disarms the timer so that an earlier deadline does not wake the loop.
     bool
     arm_deadline(const x::telem::TimeSpan max_timeout, const x::telem::TimeSpan spin) {
         if (!this->timer_enabled_) return false;
@@ -249,7 +252,8 @@ private:
         return this->arm_timer(max_timeout - spin);
     }
 
-    // Spins to the deadline after a timer wake. The timer handle is last and unwatched.
+    /// @brief spins to the deadline after a timer wake. The timer handle is last and
+    /// unwatched.
     WakeReason finish_timer_wake(
         const HANDLE *handles,
         const DWORD count,
@@ -266,8 +270,8 @@ private:
         return reason;
     }
 
-    // Closes the handles that start opened, so the destructor does not close them
-    // again.
+    /// @brief closes and clears the handles that start opened, so a later start opens
+    /// them again. Returns err.
     x::errors::Error fail_start(x::errors::Error err) {
         this->close_handles();
         return err;
@@ -319,7 +323,8 @@ private:
         return WakeReason::Timer;
     }
 
-    // Blocks until an event or the spin span ahead of the deadline, then spins to it.
+    /// @brief blocks until an event or the spin span ahead of the deadline, then spins
+    /// to it.
     WakeReason event_driven_wait(
         x::breaker::Breaker &breaker,
         const x::telem::TimeSpan max_timeout,

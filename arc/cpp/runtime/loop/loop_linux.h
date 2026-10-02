@@ -168,8 +168,8 @@ public:
     }
 
 private:
-    // Closes the descriptors that start opened, so the destructor does not close
-    // them again.
+    /// @brief closes and clears the descriptors that start opened, so a later start
+    /// opens them again. Returns err.
     x::errors::Error fail_start(x::errors::Error err) {
         this->close_fds();
         return err;
@@ -225,8 +225,9 @@ private:
         return WakeReason::Timer;
     }
 
-    // Arms the timer to fire once at the deadline and returns true. With no deadline,
-    // it disarms the timer, which also clears a fire from an earlier deadline.
+    /// @brief arms the timer to fire once at the deadline and returns true. With no
+    /// deadline, it disarms the timer, which also clears a fire from an earlier
+    /// deadline.
     bool arm_deadline(const x::telem::TimeSpan max_timeout) {
         if (!this->timer_enabled_) return false;
         const int64_t deadline = std::max<int64_t>(max_timeout.nanoseconds(), 0);
@@ -241,7 +242,7 @@ private:
         return deadline > 0;
     }
 
-    // Logs the first failed arm. The loop then spins to each deadline.
+    /// @brief logs the first failed arm. The loop then spins to each deadline.
     void report_arm_failure(const std::string &cause) {
         if (this->arm_failed_) return;
         this->arm_failed_ = true;

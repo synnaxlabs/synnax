@@ -4021,7 +4021,7 @@ var _ = Describe("Sequence", func() {
 				out, _ = h.Flush()
 				Expect(
 					out.Get(104).Series,
-				).To(BeEmpty(), "at 100ms wait must not have fired (below 250ms threshold)")
+				).To(BeEmpty(), "at 100ms wait must not have fired (below 499.9ms threshold)")
 
 				h.Ingest(101, telem.NewSeriesV[uint8](1))
 				tickTo(101 * telem.Millisecond)
@@ -4060,12 +4060,13 @@ var _ = Describe("Sequence", func() {
 		// Threshold math:
 		//   tolerance = MaxTolerance = 0.1ms
 		//   fire when = elapsed - lastFired >= period - tolerance = 99.9ms
-		//   lastFired = -period initially, so first tick fires immediately
+		//   the first usable run anchors lastFired = elapsed - period, so it fires
+		//   immediately
 		// The probe fires interval once at elapsed=50ms (lastFired becomes
 		// 50ms), detours to parked within 10ms, and re-enters at elapsed=60ms
 		// — only 10ms past the last fire, well below the 99.9ms threshold.
-		//   If interval reset on re-entry (lastFired = -period): elapsed
-		//   - lastFired = 160ms, fires immediately on the re-entry tick.
+		//   If interval reset on re-entry (started = false): it anchors again and
+		//   fires immediately on the re-entry tick.
 		//   If interval did NOT reset: lastFired = 50ms (stale), elapsed
 		//   - lastFired = 10ms < 99.9ms, no fire.
 		// The assertion on the re-entry tick distinguishes the two cases.
@@ -4107,7 +4108,7 @@ var _ = Describe("Sequence", func() {
 				tickTo(50 * telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 103)).To(Equal(uint8(1)),
-					"interval should fire on the first tick after stage a activates (lastFired=-period)")
+					"interval should fire on the first tick after stage a activates")
 
 				h.Ingest(101, telem.NewSeriesV[uint8](1))
 				tickTo(55 * telem.Millisecond)
@@ -4117,7 +4118,7 @@ var _ = Describe("Sequence", func() {
 				tickTo(60 * telem.Millisecond)
 				out, _ = h.Flush()
 				Expect(lastU8(out, 103)).To(Equal(uint8(1)),
-					"interval should fire immediately on stage re-entry (reset restores lastFired=-period); "+
+					"interval should fire immediately on stage re-entry (reset clears started); "+
 						"if it did not fire, lastFired is stale (10ms since last fire < 99.9ms threshold)")
 
 				tickTo(70 * telem.Millisecond)
@@ -7225,7 +7226,7 @@ var _ = Describe("Sequence", func() {
 		//   ShortestSpan = 50ms (only timer in the program)
 		//   tolerance    = min(ShortestSpan / 2, 0.1ms) = 0.1ms
 		//   fire when    = elapsed - lastFired >= period - tolerance = 49.9ms
-		//   lastFired    = -period initially, so activation fires immediately
+		//   the first usable run anchors the schedule, so activation fires immediately
 		// Fires land at ~1ms (activation), 60ms, 120ms, and 180ms; the 10ms tick
 		// is only 9ms past the last fire and stays below the threshold.
 		It(

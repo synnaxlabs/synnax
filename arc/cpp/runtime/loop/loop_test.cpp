@@ -317,7 +317,11 @@ TEST(ConfigTest, ApplyDefaultsResolvesAutoForSubMillisecondTimers) {
     const Config cfg;
     EXPECT_EQ(cfg.mode, ExecutionMode::AUTO);
     const auto resolved = cfg.apply_defaults(500 * x::telem::MICROSECOND);
-    EXPECT_NE(resolved.mode, ExecutionMode::AUTO);
+    EXPECT_EQ(
+        resolved.mode,
+        x::thread::rt::has_support() ? ExecutionMode::RT_EVENT
+                                     : ExecutionMode::HIGH_RATE
+    );
 }
 
 TEST(ConfigTest, ApplyDefaultsKeepsAutoForLongTimers) {

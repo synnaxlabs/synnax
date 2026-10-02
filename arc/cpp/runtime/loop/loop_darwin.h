@@ -134,8 +134,8 @@ public:
     }
 
 private:
-    // Closes the descriptors that start opened, so the destructor does not close
-    // them again.
+    /// @brief closes and clears the descriptors that start opened, so a later start
+    /// opens them again. Returns err.
     x::errors::Error fail_start(x::errors::Error err) {
         this->close_fds();
         return err;

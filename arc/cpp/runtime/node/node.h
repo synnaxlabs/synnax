@@ -52,6 +52,8 @@ struct Deadline {
 struct Context {
     /// @brief the timing of the scheduler pass the node runs in.
     Cycle cycle;
+    /// @brief how far before its deadline a timer may fire, when the wake of another
+    /// timer runs it.
     x::telem::TimeSpan tolerance;
     /// @brief records that one of the current node's outputs has a new
     /// value for the current cycle. The ordinal is the output's 0-based

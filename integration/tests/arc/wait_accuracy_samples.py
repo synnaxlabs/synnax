@@ -22,6 +22,7 @@ def create_source(waits_ms: list[int]) -> str:
     """Returns a sequence that writes a count to ``ws_cmd`` before and after each wait.
 
     :param waits_ms: The waits the sequence holds, in order.
+    :returns: The Arc source of the sequence.
     """
     steps = ["    1 -> ws_cmd"]
     for i, wait_ms in enumerate(waits_ms):

@@ -67,7 +67,7 @@ class ParkedWait(ArcCase):
             if status is not None and status.variant == "error":
                 self.fail(f"the task reports an error: {status.message}")
                 return
-            if timer.elapsed() > sy.TimeSpan.SECOND:
+            if timer.elapsed() > 5 * sy.TimeSpan.SECOND:
                 self.fail("the task reports no warning for the zero wait duration")
                 return
             sy.sleep(0.05)

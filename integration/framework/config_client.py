@@ -411,7 +411,8 @@ class ConfigClient:
                     or test_def.name.startswith(f"{cls.__name__}_")
                 ]
                 if matching:
-                    return [matching[0]]
+                    # The longest name is the most exact match.
+                    return [max(matching, key=lambda cls: len(cls.__name__))]
 
             return test_classes
 

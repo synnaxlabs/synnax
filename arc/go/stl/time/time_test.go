@@ -34,7 +34,7 @@ import (
 
 var _ = Describe("Time", func() {
 	Describe("NewModule", func() {
-		It("Should create module with max timing base", func(ctx SpecContext) {
+		It("Should create module with an unset shortest span", func(ctx SpecContext) {
 			factory := MustSucceed(
 				time.NewHost(
 					ctx,
@@ -207,7 +207,7 @@ var _ = Describe("Time", func() {
 			},
 		)
 		It(
-			"Should not fold a zero var-bound period into the timing base",
+			"Should not fold a zero var-bound period into the shortest span",
 			func() {
 				cfg := node.Config{
 					Node: ir.Node{
@@ -369,7 +369,7 @@ var _ = Describe("Time", func() {
 			Expect(outputTime.Len()).To(Equal(int64(1)))
 			Expect(outputTime.ValueAt[telem.TimeStamp](0)).To(Equal(now))
 		})
-		It("Should update timing base", func() {
+		It("Should update the shortest span", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "interval",
@@ -471,8 +471,7 @@ var _ = Describe("Time", func() {
 				// Reset the interval (simulates stage re-entry)
 				n.Reset(node.Context{})
 
-				// Third tick at 1.5s - should fire because Reset set lastFired =
-				// -period
+				// Third tick at 1.5s - should fire because Reset clears started
 				changedOutputs = nil
 				n.Next(node.Context{
 					Context: ctx,
@@ -1278,7 +1277,7 @@ var _ = Describe("Time", func() {
 			},
 		)
 	})
-	Describe("TimingBase", func() {
+	Describe("ShortestSpan", func() {
 		It("Should take the shortest of multiple intervals", func(ctx SpecContext) {
 			factory := MustSucceed(
 				time.NewHost(
@@ -1394,15 +1393,15 @@ var _ = Describe("Time", func() {
 		})
 	})
 	Describe("CalculateTolerance", func() {
-		It("Should return MaxTolerance for a 100ms base interval", func() {
+		It("Should return MaxTolerance for a 100ms shortest span", func() {
 			tolerance := time.CalculateTolerance(100 * telem.Millisecond)
 			Expect(tolerance).To(Equal(time.MaxTolerance))
 		})
-		It("Should return half of a base interval under twice MaxTolerance", func() {
+		It("Should return half of a shortest span under twice MaxTolerance", func() {
 			tolerance := time.CalculateTolerance(100 * telem.Microsecond)
 			Expect(tolerance).To(Equal(50 * telem.Microsecond))
 		})
-		It("Should return MaxTolerance for an unset base interval", func() {
+		It("Should return MaxTolerance for an unset shortest span", func() {
 			tolerance := time.CalculateTolerance(telem.TimeSpan(math.MaxInt64))
 			Expect(tolerance).To(Equal(time.MaxTolerance))
 		})
@@ -1918,6 +1917,42 @@ var _ = Describe("Time", func() {
 				tick(4 * period)
 				Expect(fired).To(Equal(2))
 			})
+			It(
+				"Should restart the schedule exactly one period behind",
+				func(ctx SpecContext) {
+					period := telem.Second
+					n := MustSucceed(factory.Create(node.Config{
+						Node: ir.Node{
+							Type: "interval",
+							Inputs: types.Params{
+								{Name: "period", Type: types.TimeSpan(), Value: period},
+							},
+						},
+						State: s.Node("interval_1"),
+					}))
+					intervalNode := s.Node("interval_1")
+					*intervalNode.Output(0) = telem.NewSeriesV[uint8]()
+					*intervalNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
+					var deadline telem.TimeSpan
+					fired := 0
+					tick := func(elapsed telem.TimeSpan) {
+						n.Next(node.Context{
+							Context:         ctx,
+							Elapsed:         elapsed,
+							Reason:          node.ReasonTimerTick,
+							MarkChanged:     func(int) { fired++ },
+							MarkSelfChanged: func() {},
+							SetDeadline:     func(d telem.TimeSpan) { deadline = d },
+						})
+					}
+					tick(0)
+					tick(2 * period)
+					Expect(fired).To(Equal(2))
+					Expect(deadline).To(Equal(3 * period))
+					tick(2 * period)
+					Expect(fired).To(Equal(2))
+				},
+			)
 			It("Should set deadline on channel input", func(ctx SpecContext) {
 				cfg := node.Config{
 					Node: ir.Node{
@@ -2221,7 +2256,7 @@ var _ = Describe("Time", func() {
 				Expect(n).ToNot(BeNil())
 			},
 		)
-		It("Should not update base interval", func() {
+		It("Should not update the shortest span", func() {
 			Expect(factory.ShortestSpan).To(Equal(telem.TimeSpanMax))
 			cfg := node.Config{
 				Node:  ir.Node{Type: "now"},
@@ -2346,6 +2381,7 @@ var _ = Describe("Time", func() {
 				MarkChanged:     func(int) { r.fired = true },
 				MarkSelfChanged: func() {},
 				SetDeadline:     func(d telem.TimeSpan) { r.deadline = d },
+				ReportError:     func(error) {},
 			})
 			return r
 		}
@@ -2363,6 +2399,18 @@ var _ = Describe("Time", func() {
 						To(BeFalse())
 					Expect(
 						tick(ctx, n, telem.Second, node.ReasonTimerTick).fired,
+					).To(BeTrue())
+				},
+			)
+			It(
+				"Should fire at once when a zero period turns positive",
+				func(ctx SpecContext) {
+					cfg, set := varConfig("interval", "period", 0)
+					n := MustSucceed(factory.Create(cfg))
+					Expect(tick(ctx, n, 0, node.ReasonTimerTick).fired).To(BeFalse())
+					set(telem.Second)
+					Expect(
+						tick(ctx, n, 100*telem.Millisecond, node.ReasonTimerTick).fired,
 					).To(BeTrue())
 				},
 			)
@@ -2432,7 +2480,7 @@ var _ = Describe("Time", func() {
 				},
 			)
 			It(
-				"Should seed the timing base from the declared value only",
+				"Should take the shortest span from the declared value only",
 				func(ctx SpecContext) {
 					cfg, set := varConfig("interval", "period", 100*telem.Millisecond)
 					n := MustSucceed(factory.Create(cfg))
