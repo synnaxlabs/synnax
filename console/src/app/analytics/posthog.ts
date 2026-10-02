@@ -58,11 +58,11 @@ export interface Params {
 const init = async (installID: string) => {
   const [{ default: posthog }] = await Promise.all([
     import("posthog-js/dist/module.no-external"),
-    // Static bundles, because remote script loading stays off. Both must load before
-    // `posthog.init`; this bundle carries no loader to fetch them later. The recorder
-    // is left out entirely, so no session replay code ships.
+    // Static bundles, because remote script loading stays off. All must load before
+    // `posthog.init`; this bundle carries no loader to fetch them later.
     import("posthog-js/dist/surveys"),
     import("posthog-js/dist/exception-autocapture"),
+    import("posthog-js/dist/posthog-recorder"),
   ]);
   posthog.init(KEY, {
     api_host: API_HOST,
@@ -83,7 +83,9 @@ const init = async (installID: string) => {
     // Screens are synthesized from the focused tab; there is no navigation to observe.
     capture_pageview: false,
     capture_pageleave: false,
-    disable_session_recording: true,
+    // Replays mask every string for the same reason as autocapture. Plots, logs, and
+    // values draw on canvases in a worker, which replays show blank.
+    session_recording: { maskAllInputs: true, maskTextSelector: "*" },
     capture_exceptions: true,
     capture_heatmaps: false,
     capture_dead_clicks: false,
