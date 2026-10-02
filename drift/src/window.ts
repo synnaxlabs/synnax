@@ -67,7 +67,7 @@ export const windowPropsZ = z.object({
 export interface WindowProps extends z.infer<typeof windowPropsZ> {}
 
 /** What drift tracks about a window on top of the properties it was created with. */
-export const windowStateExtensionPropsZ = z.object({
+const windowStateExtensionPropsZ = z.object({
   /** Lifecycle stage */
   stage: windowStageZ,
   /** Number of active processes */
