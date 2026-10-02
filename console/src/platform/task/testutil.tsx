@@ -25,13 +25,14 @@ import { type Status } from "@synnaxlabs/lyra/status";
 import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { id, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import {
+  act,
   fireEvent,
   type RenderResult,
   screen,
   waitFor,
   within,
 } from "@testing-library/react";
-import { act, type FC, type PropsWithChildren, type ReactElement } from "react";
+import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { onTestFinished } from "vitest";
 import { type z } from "zod";
 

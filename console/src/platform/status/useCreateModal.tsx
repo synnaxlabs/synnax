@@ -11,6 +11,7 @@ import { type status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Status } from "@synnaxlabs/pluto";
 import { TimeStamp } from "@synnaxlabs/x";
@@ -42,9 +43,9 @@ export const useCreateModal = Modals.create<CreateModalParams>(
     });
 
     return (
-      <Modals.Frame>
-        <Modals.Header icon={<Icon.Status />}>Status.Create</Modals.Header>
-        <Modals.Body>
+      <Modal.Frame>
+        <Modal.Header icon={<Icon.Status />}>Status.Create</Modal.Header>
+        <Modal.Body>
           <Form.Form<typeof Status.formSchema> {...form}>
             <Form.TextField
               path="name"
@@ -67,8 +68,8 @@ export const useCreateModal = Modals.create<CreateModalParams>(
               {(p) => <Label.SelectMultiple zIndex={100} {...p} />}
             </Form.Field>
           </Form.Form>
-        </Modals.Body>
-        <Modals.Footer>
+        </Modal.Body>
+        <Modal.Footer>
           <Triggers.SaveHelpText action="Create" />
           <Nav.Bar.End>
             <Button.Button
@@ -81,8 +82,8 @@ export const useCreateModal = Modals.create<CreateModalParams>(
               Create
             </Button.Button>
           </Nav.Bar.End>
-        </Modals.Footer>
-      </Modals.Frame>
+        </Modal.Footer>
+      </Modal.Frame>
     );
   },
 );
