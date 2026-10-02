@@ -14,7 +14,7 @@ import { Auth } from "@/ui/auth";
 import "@/styles/portal.css";
 ---
 
-<Root title="Signing in">
+<Root title="Logging in">
     <section class="portal-auth-page">
         <Auth.SSOCallback client:load target={landing(Astro.url.searchParams)} />
     </section>

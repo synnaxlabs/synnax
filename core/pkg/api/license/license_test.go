@@ -104,4 +104,35 @@ var _ = Describe("Service", Ordered, func() {
 		))
 		Expect(called).To(BeTrue())
 	})
+
+	It(
+		"Should refuse a deactivation without an update permission",
+		func(ctx SpecContext) {
+			reader := freshUser(ctx)
+			grantOn(
+				ctx,
+				reader.OntologyID(),
+				[]access.Action{access.ActionRetrieve},
+				object,
+			)
+			jti := licenseSvc.Retrieve().License.Jti
+			Expect(apiSvc.Deactivate(
+				AuthedCtx(ctx, reader),
+				apilicense.DeactivateRequest{Jti: jti},
+			)).Error().To(MatchError(access.ErrDenied))
+			Expect(licenseSvc.Retrieve().State).To(Equal(license.StateOk))
+		},
+	)
+
+	It("Should deactivate a license key for an owner", func(ctx SpecContext) {
+		owner := freshUser(ctx)
+		grantOn(ctx, owner.OntologyID(), []access.Action{access.ActionUpdate}, object)
+		jti := licenseSvc.Retrieve().License.Jti
+		info := MustSucceed(apiSvc.Deactivate(
+			AuthedCtx(ctx, owner),
+			apilicense.DeactivateRequest{Jti: jti},
+		))
+		Expect(info.State).To(Equal(license.StateMissing))
+		Expect(info.License).To(BeNil())
+	})
 })

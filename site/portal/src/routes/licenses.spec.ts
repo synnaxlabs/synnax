@@ -111,8 +111,8 @@ describe("license routes", () => {
       expiresAt: "2027-01-01",
     };
 
-    it("should reject a visitor who is not signed in", async () => {
-      await expectError(await post(SUBSCRIPTION), 401, "Sign in first");
+    it("should reject a visitor who is not logged in", async () => {
+      await expectError(await post(SUBSCRIPTION), 401, "Log in first");
     });
 
     it("should reject a user who is not staff", async () => {
@@ -339,8 +339,8 @@ describe("license routes", () => {
       key: string = lic.key,
     ): Promise<Response> => await call(amendRoute, { params: { key }, body: form });
 
-    it("should reject a visitor who is not signed in", async () => {
-      await expectError(await post(TERMS), 401, "Sign in first");
+    it("should reject a visitor who is not logged in", async () => {
+      await expectError(await post(TERMS), 401, "Log in first");
     });
 
     it("should reject a member who is not staff", async () => {
@@ -497,8 +497,8 @@ describe("license routes", () => {
 
     const MACHINE = { fingerprint: HASH_A, name: "Test stand" };
 
-    it("should reject a visitor who is not signed in", async () => {
-      await expectError(await post(MACHINE), 401, "Sign in first");
+    it("should reject a visitor who is not logged in", async () => {
+      await expectError(await post(MACHINE), 401, "Log in first");
     });
 
     it("should reject a user outside the owning organization", async () => {
@@ -694,8 +694,8 @@ describe("license routes", () => {
     const post = async (key: string = lic.key): Promise<Response> =>
       await call(floatingRoute, { params: { key } });
 
-    it("should reject a visitor who is not signed in", async () => {
-      await expectError(await post(), 401, "Sign in first");
+    it("should reject a visitor who is not logged in", async () => {
+      await expectError(await post(), 401, "Log in first");
     });
 
     it("should reject a member who is not staff", async () => {
@@ -755,8 +755,8 @@ describe("license routes", () => {
     const post = async (key: string = lic.key): Promise<Response> =>
       await call(revokeRoute, { params: { key } });
 
-    it("should reject a visitor who is not signed in", async () => {
-      await expectError(await post(), 401, "Sign in first");
+    it("should reject a visitor who is not logged in", async () => {
+      await expectError(await post(), 401, "Log in first");
     });
 
     it("should reject a member who is not staff", async () => {

@@ -7,15 +7,16 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Reports the Review gate commit status the main ruleset requires. The job itself
-# always succeeds: a pull request that still waits on a label, the Greptile review, or
-# an approval gets a pending status, not a failed run and its email. The check_run
-# trigger re-reports the gate when the Greptile review lands after the push. A merge
-# group gets success outright: its pull request passed the gate to enqueue, and the
-# queue needs the context on the merge commit too. Every trigger runs a workflow from
-# a branch of the repository, never from the pull request, and the base-ref checkout
-# takes the script from the base branch, so a pull request cannot edit the gate it is
-# judged by; no pull request code runs here.
+# Reports the Review gate commit status the main ruleset requires. The job itself always
+# succeeds: a pull request that still waits on a label, the Greptile review, or an
+# approval gets a pending status, not a failed run and its email. The check_run trigger
+# re-reports the gate when the Greptile review lands after the push, and the edited
+# trigger when Greptile writes its score into the description. A merge group gets
+# success outright: its pull request passed the gate to enqueue, and the queue needs the
+# context on the merge commit too. Every trigger runs a workflow from a branch of the
+# repository, never from the pull request, and the base-ref checkout takes the script
+# from the base branch, so a pull request cannot edit the gate it is judged by; no pull
+# request code runs here.
 
 name: Check - Review
 
@@ -25,6 +26,7 @@ on:
       - opened
       - reopened
       - synchronize
+      - edited
       - ready_for_review
       - labeled
       - unlabeled

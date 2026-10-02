@@ -40,6 +40,7 @@ export const activationOf = (
   license: LICENSE.key,
   fingerprint,
   name: null,
+  renewalSecretHash: null,
   firstSeen: NOW,
   lastSeen: NOW,
   releasedAt: null,

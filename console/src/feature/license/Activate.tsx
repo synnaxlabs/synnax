@@ -27,9 +27,6 @@ import { Runtime } from "@/platform/runtime";
 import { Shell as PlatformShell } from "@/platform/shell";
 import { Session } from "@/session";
 
-/** The portal page that issues a license key for a host fingerprint. */
-const PORTAL_ACTIVATE_URL = "https://portal.synnaxlabs.com/licenses/activate";
-
 const KEY_FILE_EXTENSION = "lic";
 
 const ACTIVATE_TRIGGER: Triggers.Trigger = ["Enter"];
@@ -37,19 +34,24 @@ const ACTIVATE_TRIGGER: Triggers.Trigger = ["Enter"];
 const decoder = new TextDecoder();
 
 const portalURL = (fingerprint: string[]): string => {
-  if (fingerprint.length === 0) return PORTAL_ACTIVATE_URL;
+  if (fingerprint.length === 0) return License.ACTIVATE_URL;
   const params = new URLSearchParams({
     fingerprint: License.joinFingerprint(fingerprint),
   });
-  return `${PORTAL_ACTIVATE_URL}?${params.toString()}`;
+  return `${License.ACTIVATE_URL}?${params.toString()}`;
 };
+
+export interface ActivateProps {
+  /** Offers a way back to the screen that led here. */
+  onBack?: () => void;
+}
 
 /**
  * Full-screen activation surface for a Core that refuses requests until a license
  * applies. The connection check keeps polling, so the screen leaves on its own once a
  * license applies from anywhere.
  */
-export const Activate = (): ReactElement => {
+export const Activate = ({ onBack }: ActivateProps): ReactElement => {
   const client = Synnax.use();
   const { details } = Synnax.useConnectionStatus();
   const target = Session.Core.useSelectSelected();
@@ -179,6 +181,11 @@ export const Activate = (): ReactElement => {
           {!Session.Runtime.CORE_EMBEDDED && (
             <Button.Button variant="text" size="small" textColor={9} onClick={logout}>
               Log out
+            </Button.Button>
+          )}
+          {onBack != null && (
+            <Button.Button variant="text" size="small" textColor={9} onClick={onBack}>
+              Back
             </Button.Button>
           )}
         </Flex.Box>

@@ -101,11 +101,11 @@ describe("activation routes", () => {
     route: APIRoute,
     args: Omit<ContextArgs, "params"> = {},
   ): void => {
-    it("should reject a visitor who is not signed in", async () => {
+    it("should reject a visitor who is not logged in", async () => {
       await expectError(
         await call(route, { ...args, params: { key: act.key } }),
         401,
-        "Sign in first",
+        "Log in first",
       );
     });
 

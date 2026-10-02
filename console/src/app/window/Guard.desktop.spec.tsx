@@ -33,7 +33,7 @@ describe("app/window/Guard in Synnax Desktop", () => {
     expect(screen.queryByText("workspace")).toBeNull();
   });
 
-  it("should show the activation screen when the embedded Core is unlicensed", async () => {
+  it("should ask for a login when the embedded Core is unlicensed", async () => {
     const { wrapper } = await createStatusConsoleWrapper({
       client: null,
       status: UNLICENSED_STATUS,
@@ -44,7 +44,7 @@ describe("app/window/Guard in Synnax Desktop", () => {
       </Guard>,
       { wrapper },
     );
-    expect(screen.getByRole("textbox", { name: "License key" })).toBeTruthy();
+    expect(screen.getByText("Log in to continue")).toBeTruthy();
     expect(screen.queryByText("workspace")).toBeNull();
   });
 });
