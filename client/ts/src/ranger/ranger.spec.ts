@@ -894,6 +894,43 @@ describe("cached reads", () => {
       }
     });
 
+    it("does not fetch an unseen range when a label query loses its link", async () => {
+      const past = TimeStamp.now().sub(TimeSpan.days(3650));
+      const barrier = await createRange(remote, {
+        timeRange: new TimeRange(past, past.add(TimeSpan.seconds(1))),
+      });
+      const local = createTestClient();
+      await local.connect();
+      const lbl = await local.labels.create({
+        name: `qry-lbl-${id.create()}`,
+        color: "#FF0000",
+      });
+      const rel: ontology.Relationship = {
+        from: ranger.ontologyID(uuid.create()),
+        type: label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
+        to: label.ontologyID(lbl.key),
+      };
+      const { relationships } = local.ontology.cache;
+      relationships.set(ontology.relationshipToString(rel), rel);
+      const params = { hasLabels: [lbl.key] };
+      const off = local.ranges.onChange(params, vi.fn());
+      try {
+        await local.ranges.retrieve(params);
+        const send = spyOnSend(local);
+        relationships.delete(ontology.relationshipToString(rel));
+        // Rides the same fetch batch as any recheck fetch, so those have been sent.
+        await local.ranges.retrieve(barrier.key);
+        const fetched = send.mock.calls.flatMap(([target, req]) =>
+          target === "/range/retrieve"
+            ? ((req as ranger.RetrieveRequest).keys ?? [])
+            : [],
+        );
+        expect(fetched).toEqual([barrier.key]);
+      } finally {
+        off();
+      }
+    });
+
     it("fetches an unseen range when a label adds it to a label query", async () => {
       const lbl = await remote.labels.create({
         name: `qry-lbl-${id.create()}`,

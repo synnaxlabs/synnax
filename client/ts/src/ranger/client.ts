@@ -288,7 +288,11 @@ const retrieveMultiParamsZ = retrieveRequestZ
 
 const retrieveResZ = z.object({ ranges: payloadZ.array().default(() => []) });
 
-/** Request addressing a page of a range's children, in relationship-key order. */
+/**
+ * Request addressing a range's children. With an `offset`, it addresses a page in
+ * relationship-key order. A `limit` alone addresses some `limit` children, not
+ * necessarily the first.
+ */
 export type ChildrenRequest = {
   key: Key;
   limit?: number;
@@ -366,7 +370,7 @@ const seenKeys = (
 
 /**
  * Projects relationship events onto the range keys a filtered query must recheck. Only
- * a label under `hasLabels` can add an unseen range to the answer, so every other
+ * a label added under `hasLabels` can add an unseen range to the answer, so every other
  * event skips unseen ranges instead of fetching them.
  */
 const watchRequestRelationships = (
@@ -379,6 +383,7 @@ const watchRequestRelationships = (
       const rel = relOfEvent(event);
       const keys = affectedRangeKeys(rel);
       if (
+        event.variant === "set" &&
         primitive.isNonZero(req.hasLabels) &&
         rel.type === label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE
       )

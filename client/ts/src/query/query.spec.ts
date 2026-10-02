@@ -1261,14 +1261,63 @@ describe("Answers", () => {
       expect(fetch).toHaveBeenCalledTimes(1);
     });
 
-    it("refetches when a full answer loses a member", async () => {
+    it("evicts a member of a full answer, then refetches to fill its slot", async () => {
+      const table = newTable();
+      const fetch = fetchOf(table, [rec("a", 5), rec("b", 4)]);
+      const answers = limitSpace(table, fetch);
+      const handler = vi.fn();
+      answers.onChange({ min: 3, limit: 2 }, handler);
+      await answers.retrieve({ min: 3, limit: 2 });
+      fetch.mockImplementation(async () => {
+        table.set("c", rec("c", 6));
+        return ["b", "c"];
+      });
+      table.set("a", rec("a", 1));
+      expect(handler).toHaveBeenLastCalledWith([rec("b", 4)]);
+      await expect
+        .poll(() => handler.mock.lastCall?.[0])
+        .toEqual([rec("b", 4), rec("c", 6)]);
+    });
+
+    it("does not refetch when a match fills a vacated slot", async () => {
       const table = newTable();
       const fetch = fetchOf(table, [rec("a", 5), rec("b", 4)]);
       const answers = limitSpace(table, fetch);
       answers.onChange({ min: 3, limit: 2 }, vi.fn());
       await answers.retrieve({ min: 3, limit: 2 });
+      table.set([rec("a", 1), rec("c", 6)]);
+      expect(answers.getCached({ min: 3, limit: 2 })).toEqual([
+        rec("b", 4),
+        rec("c", 6),
+      ]);
+      await wait(150);
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("refetches again when a vacated answer changes during its refetch", async () => {
+      const table = newTable();
+      const fetch = fetchOf(table, [rec("a", 5), rec("b", 4)]);
+      const answers = limitSpace(table, fetch);
+      answers.onChange({ min: 3, limit: 2 }, vi.fn());
+      await answers.retrieve({ min: 3, limit: 2 });
+      let release = (): void => {};
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      fetch.mockImplementationOnce(async () => {
+        await gate;
+        return ["b"];
+      });
       table.set("a", rec("a", 1));
       await expect.poll(() => fetch.mock.calls.length).toBe(2);
+      fetch.mockImplementation(async () => {
+        table.set([rec("c", 6), rec("d", 7)]);
+        return ["c", "d"];
+      });
+      table.set("b", rec("b", 1));
+      release();
+      await expect
+        .poll(() => answers.getCached({ min: 3, limit: 2 }))
+        .toEqual([rec("c", 6), rec("d", 7)]);
+      expect(fetch).toHaveBeenCalledTimes(3);
     });
 
     it("ignores a change to a record that never matched", async () => {

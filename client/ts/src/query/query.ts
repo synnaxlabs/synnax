@@ -148,8 +148,8 @@ export const watch = <
  * 2. client-checkable — `matches` compares a record against the query:
  *    admit/evict exactly, no network. A positive `limit` keeps rule 2: below the
  *    limit the answer holds every match; at the limit it holds some `limit` of
- *    them, not necessarily the server's first. Only losing a member of a full
- *    answer refetches.
+ *    them, not necessarily the server's first. A full answer that loses a member
+ *    refetches to fill the slot.
  * 3. server-computed — any other field named in `serverFields` is set on the
  *    query (or neither `keyOf` nor `matches` applies): debounced wholesale refetch.
  */
@@ -245,6 +245,9 @@ interface Query<
   unmaintained?: boolean;
   /** Keys whose membership a fetch in flight deferred; drained on settle. */
   pendingRechecks?: Set<K>;
+  /** Set when a full limited answer lost a member: it may leave out matches until a
+   *  server answer replaces it. */
+  vacated?: boolean;
   /** Set when a fetch in flight deferred a refetch; honored on settle. */
   refetchOnSettle?: boolean;
   refetchTimer?: ReturnType<typeof setTimeout>;
@@ -591,6 +594,7 @@ export class Space<
     // A late promise resolution must not clobber a maintenance update.
     if (query.state !== expected) return;
     query.state = next;
+    query.vacated = false;
     this.drainRechecks(query);
     if (next.variant === "error") {
       query.refetchOnSettle = false;
@@ -669,6 +673,7 @@ export class Space<
     // superseded this one.
     if (query.state !== before) return;
     query.state = { variant: "ready", keys };
+    query.vacated = false;
     this.touch(query);
   }
 
@@ -861,15 +866,19 @@ export class Space<
     }
     if (admitted.length === 0 && lastEvicted == null) return touched;
     const limit = this.limitOf(query.params);
-    // A full answer may leave out matches, so only the server can fill a lost member.
-    if (limit != null && lastEvicted != null && query.state.keys.length >= limit) {
-      this.scheduleRefetch(query);
-      return touched;
-    }
     const kept = query.state.keys.filter((k) => memberSet.has(k));
     const room = limit == null ? admitted.length : limit - kept.length;
     if (lastEvicted == null && room <= 0) return touched;
     const next = [...kept, ...admitted.slice(0, room)];
+    // A full answer may leave out matches, so only the server can fill a vacated slot.
+    if (
+      limit != null &&
+      next.length < limit &&
+      (query.vacated === true || query.state.keys.length >= limit)
+    ) {
+      query.vacated = true;
+      this.scheduleRefetch(query);
+    }
     if (single === true && next.length === 0 && lastEvicted != null)
       query.state =
         table.status(lastEvicted) === "tombstoned"
