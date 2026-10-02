@@ -19,6 +19,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"uuid"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/config"
@@ -138,6 +139,11 @@ var (
 	markKey = []byte("highWater")
 )
 
+// entryKey is where the license key with the given ID is stored.
+func entryKey(jti uuid.UUID) []byte {
+	return append(append([]byte{}, prefix...), jti.String()...)
+}
+
 // Service verifies the license a Core runs under.
 type Service struct {
 	cfg         ServiceConfig
@@ -249,11 +255,23 @@ func (s *Service) Activate(ctx context.Context, key string) (Info, error) {
 	if info.State != StateOk {
 		return Info{}, info.err()
 	}
-	entry := append(append([]byte{}, prefix...), lic.Jti.String()...)
-	if err = s.cfg.Set(ctx, entry, []byte(key)); err != nil {
+	if err = s.cfg.Set(ctx, entryKey(lic.Jti), []byte(key)); err != nil {
 		return Info{}, err
 	}
 	if err = s.load(ctx); err != nil {
+		return Info{}, err
+	}
+	s.logState()
+	return s.Retrieve(), nil
+}
+
+// Deactivate removes the stored license key with the given ID and returns the
+// resulting state. Removing a key that is not stored changes nothing.
+func (s *Service) Deactivate(ctx context.Context, jti uuid.UUID) (Info, error) {
+	if err := s.cfg.Delete(ctx, entryKey(jti)); err != nil {
+		return Info{}, err
+	}
+	if err := s.load(ctx); err != nil {
 		return Info{}, err
 	}
 	s.logState()
@@ -360,12 +378,13 @@ func (s *Service) load(ctx context.Context) error {
 	if err = iter.Close(); err != nil {
 		return err
 	}
-	if chosen != nil {
-		s.mu.Lock()
-		s.mu.info = *chosen
-		s.mu.Unlock()
-		s.changes.Notify(ctx, OntologyKey)
+	if chosen == nil {
+		chosen = &Info{State: StateMissing, Fingerprint: s.fingerprint}
 	}
+	s.mu.Lock()
+	s.mu.info = *chosen
+	s.mu.Unlock()
+	s.changes.Notify(ctx, OntologyKey)
 	return nil
 }
 

@@ -23,6 +23,7 @@ export const STATE_MESSAGES: Record<State, string> = {
 };
 
 const activateReqZ = z.object({ key: z.string() });
+const deactivateReqZ = z.object({ jti: z.uuid() });
 
 const KEY = "license";
 
@@ -31,6 +32,7 @@ export const ONTOLOGY_ID: ontology.ID = { type: "builtin", key: KEY };
 
 export const RETRIEVE_ENDPOINT = "/license/retrieve";
 export const ACTIVATE_ENDPOINT = "/license/activate";
+export const DEACTIVATE_ENDPOINT = "/license/deactivate";
 
 /**
  * The channel the Core announces license changes on. A sample names the license, never
@@ -106,6 +108,23 @@ export class Client {
    */
   async activate(key: string): Promise<Info> {
     const info = await this.unary.send(ACTIVATE_ENDPOINT, { key }, activateReqZ, infoZ);
+    this.table.set(KEY, { key: KEY, ...info });
+    this.connection.retryNow();
+    return info;
+  }
+
+  /**
+   * Removes the license key with the given ID from the Core and returns the resulting
+   * state. Removing a key the Core does not hold changes nothing.
+   * @throws {AccessDeniedError} if the caller lacks permission to deactivate a license.
+   */
+  async deactivate(jti: string): Promise<Info> {
+    const info = await this.unary.send(
+      DEACTIVATE_ENDPOINT,
+      { jti },
+      deactivateReqZ,
+      infoZ,
+    );
     this.table.set(KEY, { key: KEY, ...info });
     this.connection.retryNow();
     return info;

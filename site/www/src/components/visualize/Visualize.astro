@@ -39,7 +39,15 @@ import { cdn } from "@/cdn";
         Learn more →
     </Button.Button>
     <div class="visualize-video-clip">
-        <video class="visualize-video--schematic" autoplay muted loop playsinline>
+        <video
+            class="visualize-video--schematic"
+            width="3172"
+            height="2160"
+            autoplay
+            muted
+            loop
+            playsinline
+        >
             <source src={cdn("schematic.mp4")} type="video/mp4" />
         </video>
     </div>
@@ -63,7 +71,7 @@ import { cdn } from "@/cdn";
             <PanelTab label="Line plot">
                 <Icon.Visualize slot="icon" className="panel-tab-icon" />
             </PanelTab>
-            <video autoplay muted loop playsinline>
+            <video width="3840" height="2072" autoplay muted loop playsinline>
                 <source src={cdn("lineplot.mp4")} type="video/mp4" />
             </video>
         </div>
