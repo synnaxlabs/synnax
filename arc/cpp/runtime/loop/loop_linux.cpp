@@ -308,6 +308,8 @@ x::telem::TimeSpan min_timer_span() {
 }
 
 x::telem::TimeSpan hybrid_threshold() {
-    return timing::HYBRID_THRESHOLD;
+    // HYBRID does not spin before a deadline on Linux, and the timerfd alone wakes
+    // about 0.02 ms late.
+    return x::telem::TimeSpan(0);
 }
 }
