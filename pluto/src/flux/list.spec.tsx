@@ -10,8 +10,8 @@
 import { type query, type ranger, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type record, testutil, TimeRange, TimeSpan, uuid } from "@synnaxlabs/x";
-import { render, renderHook, waitFor } from "@testing-library/react";
-import { act, memo, type PropsWithChildren, type ReactElement } from "react";
+import { act, render, renderHook, waitFor } from "@testing-library/react";
+import { memo, type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { aetherTest } from "@/aether/test";

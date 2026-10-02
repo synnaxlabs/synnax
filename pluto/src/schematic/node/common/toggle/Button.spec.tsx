@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x";
-import { fireEvent, render } from "@testing-library/react";
+import { act, fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Primitive } from "@/schematic/node/common/primitive";
@@ -75,7 +75,9 @@ describe("Toggle.Button", () => {
       expect(onClick).not.toHaveBeenCalled();
       vi.advanceTimersByTime(499);
       expect(onClick).not.toHaveBeenCalled();
-      vi.advanceTimersByTime(1);
+      act(() => {
+        vi.advanceTimersByTime(1);
+      });
       expect(onClick).toHaveBeenCalledTimes(1);
     });
 
@@ -150,7 +152,9 @@ describe("Toggle.Button", () => {
         <Toggle.Button onClick={onClick} onClickDelay={TimeSpan.milliseconds(500)} />,
       );
       fireEvent.mouseDown(getButton(container));
-      vi.advanceTimersByTime(600);
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
       expect(onClick).toHaveBeenCalledTimes(1);
       // A trailing mouseup after the timer fires should not produce another call.
       fireEvent.mouseUp(document);
