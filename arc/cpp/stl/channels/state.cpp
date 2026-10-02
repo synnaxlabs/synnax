@@ -218,25 +218,25 @@ static void sort_by_time(Series &data, Series &times, std::vector<size_t> order)
         order.resize(n);
         std::iota(order.begin(), order.end(), 0);
     }
-    std::stable_sort(order.begin(), order.end(), [&times](size_t a, size_t b) {
-        return times->at<int64_t>(static_cast<int>(a)) <
-               times->at<int64_t>(static_cast<int>(b));
+    const auto stamps = times->values<int64_t>();
+    std::ranges::stable_sort(order, {}, [&stamps](const size_t i) {
+        return stamps.at(i);
     });
     if (std::ranges::is_sorted(order)) return;
     auto sorted_times = x::mem::make_local_shared<x::telem::Series>(times->deep_copy());
     for (size_t i = 0; i < n; i++)
         std::memcpy(
             sorted_times->data() + i * sizeof(int64_t),
-            times->data() + order[i] * sizeof(int64_t),
+            &stamps[order[i]],
             sizeof(int64_t)
         );
     times = std::move(sorted_times);
     if (data->data_type().is_variable()) {
-        const auto strings = data->strings();
+        auto strings = data->strings();
         std::vector<std::string> sorted_strings;
         sorted_strings.reserve(n);
         for (const auto i: order)
-            sorted_strings.push_back(strings[i]);
+            sorted_strings.push_back(std::move(strings[i]));
         auto sorted_data = x::mem::make_local_shared<x::telem::Series>(
             sorted_strings,
             data->data_type()

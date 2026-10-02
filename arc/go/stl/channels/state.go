@@ -259,13 +259,23 @@ func sortByTime(data, times *telem.Series, order []int) {
 		return
 	}
 	sortedStamps := make([]byte, 0, len(times.Data))
-	sortedData := make([]byte, 0, len(data.Data))
 	for _, i := range order {
 		sortedStamps = telem.ByteOrder.AppendUint64(sortedStamps, uint64(stamps[i]))
-		if data.DataType.IsVariable() {
-			sortedData = append(sortedData, telem.MarshalVariableSample(data.At(i))...)
-		} else {
-			sortedData = append(sortedData, data.At(i)...)
+	}
+	sortedData := make([]byte, 0, len(data.Data))
+	if data.DataType.IsVariable() {
+		samples := slices.AppendSeq(make([][]byte, 0, len(order)), data.Samples())
+		for _, i := range order {
+			sortedData = telem.ByteOrder.AppendUint32(
+				sortedData,
+				uint32(len(samples[i])),
+			)
+			sortedData = append(sortedData, samples[i]...)
+		}
+	} else {
+		den := int(data.DataType.Density())
+		for _, i := range order {
+			sortedData = append(sortedData, data.Data[i*den:(i+1)*den]...)
 		}
 	}
 	times.Data, data.Data = sortedStamps, sortedData
