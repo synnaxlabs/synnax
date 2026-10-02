@@ -12,6 +12,7 @@ import { Logo } from "@synnaxlabs/media";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Nav } from "@/components/Nav";
+import "@synnaxlabs/site-common/drawer.css";
 ---
 
 <Flex.Box className="header" el="header" justify="center" align="center" empty>
@@ -252,161 +253,11 @@ import { Nav } from "@/components/Nav";
         }
     }
 
-    /* ── Mobile menu button ──────────────────────────────────── */
-
-    .mobile-menu-btn {
-        display: none;
-        background: none;
-        border: none;
-        cursor: pointer;
-        padding: 0.8rem;
-        margin-right: -0.8rem;
-    }
-
-    .mobile-menu-icon,
-    .mobile-menu-icon::before,
-    .mobile-menu-icon::after {
-        display: block;
-        width: 2.2rem;
-        height: 2px;
-        background: var(--pluto-gray-l9);
-        border-radius: 1px;
-        transition: all 0.2s ease;
-    }
-
-    .mobile-menu-icon {
-        position: relative;
-    }
-
-    .mobile-menu-icon::before,
-    .mobile-menu-icon::after {
-        content: "";
-        position: absolute;
-        left: 0;
-    }
-
-    .mobile-menu-icon::before {
-        top: -0.7rem;
-    }
-
-    .mobile-menu-icon::after {
-        top: 0.7rem;
-    }
-
-    /* ── Mobile overlay ──────────────────────────────────────── */
-
-    .mobile-overlay {
-        display: none;
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.5);
-        z-index: 49;
-        opacity: 0;
-        transition: opacity 0.25s ease;
-    }
-
-    .mobile-overlay--open {
-        display: block;
-        opacity: 1;
-    }
-
     /* ── Mobile drawer ───────────────────────────────────────── */
 
+    .mobile-menu-btn,
     .mobile-drawer {
-        position: fixed;
-        inset: 0;
-        width: 100%;
-        height: 100dvh;
-        background: var(--pluto-gray-l1);
-        z-index: 50;
-        transform: translateX(100%);
-        transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         display: none;
-        flex-direction: column;
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
-    }
-
-    .mobile-drawer--open {
-        transform: translateX(0);
-    }
-
-    .mobile-drawer-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 0 2rem;
-        height: var(--nav-height);
-        border-bottom: var(--pluto-border);
-        flex-shrink: 0;
-    }
-
-    .mobile-drawer-header .logo-link .synnax-logo--title {
-        height: 3.5rem;
-    }
-
-    .mobile-close-btn {
-        background: none;
-        border: none;
-        cursor: pointer;
-        padding: 0.8rem;
-        margin-right: -0.8rem;
-    }
-
-    .mobile-close-icon {
-        display: block;
-        width: 2.2rem;
-        height: 2.2rem;
-        position: relative;
-    }
-
-    .mobile-close-icon::before,
-    .mobile-close-icon::after {
-        content: "";
-        position: absolute;
-        top: 50%;
-        left: 0;
-        width: 100%;
-        height: 2px;
-        background: var(--pluto-gray-l9);
-        border-radius: 1px;
-    }
-
-    .mobile-close-icon::before {
-        transform: rotate(45deg);
-    }
-
-    .mobile-close-icon::after {
-        transform: rotate(-45deg);
-    }
-
-    .mobile-drawer-links {
-        display: flex;
-        flex-direction: column;
-        padding: 1.5rem 0;
-    }
-
-    .mobile-drawer-section-label {
-        font-size: 1.4rem;
-        font-weight: 600;
-        color: var(--pluto-gray-l6);
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        padding: 1rem 2rem 0.5rem;
-    }
-
-    .mobile-drawer-link {
-        display: block;
-        padding: 1.2rem 2rem;
-        font-size: 1.8rem;
-        font-weight: 500;
-        color: var(--pluto-gray-l9);
-        text-decoration: none;
-
-        &:hover {
-            background: var(--pluto-gray-l2);
-            text-decoration: none;
-        }
     }
 
     .mobile-product-link {
@@ -418,12 +269,6 @@ import { Nav } from "@/components/Nav";
         color: var(--pluto-gray-l6);
         font-size: 1.5rem;
         margin-right: 0.5rem;
-    }
-
-    .mobile-drawer-divider {
-        height: 1px;
-        background: var(--pluto-gray-l3);
-        margin: 0.8rem 2rem;
     }
 
     .mobile-drawer-cta {
@@ -441,10 +286,6 @@ import { Nav } from "@/components/Nav";
         &:hover {
             text-decoration: none;
         }
-    }
-
-    body.mobile-menu-open {
-        overflow: hidden;
     }
 
     @media (max-width: 600px) {

@@ -89,6 +89,7 @@ jobs:
       portal: ${{ steps.filter.outputs.portal }}
       protobuf: ${{ steps.filter.outputs.protobuf }}
       scripts: ${{ steps.filter.outputs.scripts }}
+      site_common: ${{ steps.filter.outputs.site_common }}
       soem: ${{ steps.filter.outputs.soem }}
       vite_plugin: ${{ steps.filter.outputs.vite_plugin }}
       www: ${{ steps.filter.outputs.www }}
@@ -554,6 +555,18 @@ jobs:
     uses: ./.github/workflows/test.scripts.yaml
     secrets: inherit
 
+  site-common:
+    needs: changes
+    if: inputs.full || needs.changes.outputs.site_common == 'true'
+    uses: ./.github/workflows/test.ts.yaml
+    with:
+      coverage_flag: site-common
+      directory: site/common
+      macos: *full
+      package: site-common
+      windows: *full
+    secrets: inherit
+
   soem:
     needs: changes
     if: inputs.full || needs.changes.outputs.soem == 'true'
@@ -716,6 +729,7 @@ jobs:
       - portal
       - protobuf
       - scripts
+      - site-common
       - soem
       - versions
       - vite-plugin
