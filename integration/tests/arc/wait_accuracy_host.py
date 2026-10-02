@@ -113,6 +113,38 @@ if sys.platform == "win32":
     kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
     kernel32.GetCurrentThread.restype = wintypes.HANDLE
     kernel32.SetThreadPriority.argtypes = [wintypes.HANDLE, ctypes.c_int]
+    kernel32.GetCurrentProcess.restype = wintypes.HANDLE
+    kernel32.SetProcessInformation.argtypes = [
+        wintypes.HANDLE,
+        ctypes.c_int,
+        ctypes.c_void_p,
+        wintypes.DWORD,
+    ]
+
+    PROCESS_POWER_THROTTLING = 4
+    EXECUTION_SPEED = 0x1
+    IGNORE_TIMER_RESOLUTION = 0x4
+
+    class PowerThrottlingState(ctypes.Structure):
+        _fields_ = [
+            ("version", wintypes.ULONG),
+            ("control_mask", wintypes.ULONG),
+            ("state_mask", wintypes.ULONG),
+        ]
+
+    def stop_power_throttling() -> str:
+        """Tells Windows to honor the timer requests of this process at all times.
+        Windows can ignore them for a process with no visible window.
+        """
+        state = PowerThrottlingState(1, EXECUTION_SPEED | IGNORE_TIMER_RESOLUTION, 0)
+        if kernel32.SetProcessInformation(
+            kernel32.GetCurrentProcess(),
+            PROCESS_POWER_THROTTLING,
+            ctypes.byref(state),
+            ctypes.sizeof(state),
+        ):
+            return "with power throttling off"
+        return f"power throttling not set (error {ctypes.get_last_error()})"
 
     def timer_resolution() -> str:
         """Returns the current, best, and default timer resolution of Windows."""
@@ -149,16 +181,19 @@ if sys.platform == "win32":
         ]
 
     def measure_windows() -> list[str]:
-        """Returns the timer spreads as found, then with a 1 ms timer resolution, then
-        with a time-critical thread.
+        """Returns the timer spreads as found, then with each of these added in turn:
+        power throttling off, a 1 ms timer resolution, and a time-critical thread.
         """
         winmm = ctypes.WinDLL("winmm")
         thread = kernel32.GetCurrentThread()
         lines = measure_timers("as found")
+        label = stop_power_throttling()
+        lines += measure_timers(label)
         winmm.timeBeginPeriod(1)
-        lines += measure_timers("with timeBeginPeriod(1)")
+        label += ", timeBeginPeriod(1)"
+        lines += measure_timers(label)
         kernel32.SetThreadPriority(thread, THREAD_PRIORITY_TIME_CRITICAL)
-        lines += measure_timers("with timeBeginPeriod(1) and a time-critical thread")
+        lines += measure_timers(f"{label}, time-critical thread")
         kernel32.SetThreadPriority(thread, THREAD_PRIORITY_NORMAL)
         winmm.timeEndPeriod(1)
         return lines
