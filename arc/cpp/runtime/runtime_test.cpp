@@ -96,10 +96,10 @@ TEST(RuntimeTest, LoadRejectsAnActivationWithNoKind) {
     stage.activation = ir::Handle{"trigger", "output"};
     Config cfg{.program = {}};
     cfg.program.root.strata.push_back({ir::scope_member(std::move(stage))});
-    const auto [runtime, err] = load(cfg);
-    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "scope stage has an activation with no kind");
-    EXPECT_EQ(runtime, nullptr);
+    const auto result = load(cfg);
+    ASSERT_OCCURRED_AS_P(result, x::errors::VALIDATION);
+    EXPECT_EQ(result.second.data, "scope stage has an activation with no kind");
+    EXPECT_EQ(result.first, nullptr);
 }
 
 /// @brief Test that write() calls error handler with QUEUE_FULL_INPUT when queue is
