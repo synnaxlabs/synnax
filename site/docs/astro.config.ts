@@ -30,6 +30,11 @@ export default defineConfig({
         access: "public",
         optional: true,
       }),
+      FLAG_PORTAL: envField.boolean({
+        context: "client",
+        access: "public",
+        default: false,
+      }),
     },
   },
   adapter: vercel({

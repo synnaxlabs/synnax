@@ -3,8 +3,8 @@
   "rules": { "cycles": "error" },
   "workspaces": {
     ".": {
-      "entry": ["package.json"],
-      "project": ["package.json"]
+      "ignoreBinaries": ["algolia", "check-site"],
+      "ignoreDependencies": ["stylelint-config-standard"]
     },
     "alamos/ts": {
       "entry": ["src/index.ts", "src/dev/index.ts"],
@@ -28,7 +28,8 @@
     },
     "lyra": {
       "entry": ["src/*/index.ts"],
-      "project": ["src/**/*.{ts,tsx}"]
+      "project": ["src/**/*.{ts,tsx}"],
+      "ignoreDependencies": ["@fontsource/geist-mono", "@fontsource-variable/inter"]
     },
     "pluto": {
       "entry": ["src/index.ts", "src/ether.ts", "src/testutil/index.ts"],
@@ -41,8 +42,7 @@
     },
     "x/ts": {
       "entry": ["src/index.ts", "src/bench/index.ts"],
-      "project": ["src/**/*.ts"],
-      "ignoreDependencies": ["@vitest/coverage-v8"]
+      "project": ["src/**/*.ts"]
     },
     "console": {
       "entry": ["src/flags.ts"],
@@ -54,42 +54,37 @@
         "src/platform/task/{fields,views}/*.tsx": ["exports"]
       }
     },
+    "oracle/lsp/extensions/vscode": {
+      "project": ["src/**/*.ts"]
+    },
+    "studio": {
+      "entry": ["videos.ts", "scripts/*.ts", "films/*.ts", "src/remotion/entry.ts"],
+      "project": ["{src,scripts,films}/**/*.{ts,tsx}"]
+    },
     "site/docs": {
       "entry": ["src/**/*.astro", "src/**/*.tsx", "src/**/*.ts"],
       "project": ["src/**/*.{ts,tsx,astro,mdx}"]
+    },
+    "site/portal": {
+      "entry": ["src/**/*.astro", "src/**/*.tsx", "src/**/*.ts", "scripts/*.ts"],
+      "project": ["src/**/*.{ts,tsx,astro}", "scripts/*.ts"]
     },
     "site/www": {
       "entry": ["src/pages/**/*.astro"],
       "project": ["src/**/*.{ts,tsx,astro}"]
     },
     "configs/eslint": {
-      "entry": ["index.ts"],
-      "project": ["*.ts"],
-      "ignoreDependencies": ["eslint-*", "@eslint/*"]
+      "project": ["*.ts"]
     },
-    "configs/ts": {
-      "entry": ["base.json"],
-      "project": ["*.json"]
-    },
+    "configs/ts": {},
     "configs/vite": {
-      "entry": ["src/index.ts"],
-      "project": ["src/**/*.ts"],
-      "ignoreDependencies": ["vite-*"]
+      "project": ["src/**/*.ts"]
     },
     "configs/stylelint": {
-      "entry": ["index.cjs"],
-      "project": ["*.cjs"],
-      "ignoreDependencies": ["stylelint-*"]
+      "project": ["*.ts"],
+      "ignoreDependencies": ["stylelint-config-standard"]
     }
   },
-  "ignore": [
-    "**/examples/**",
-    "**/dist/**",
-    "**/node_modules/**",
-    "**/.turbo/**",
-    "**/coverage/**"
-  ],
-  "ignoreDependencies": ["@types/*"],
   "ignoreExportsUsedInFile": {
     "interface": true,
     "type": true
