@@ -1061,7 +1061,7 @@ describe("Streamer", () => {
             throw new MissingLicenseError("No license is active on this Core");
           },
           { channels: [1] },
-          { maxRetries: 3, baseInterval: TimeSpan.milliseconds(1) },
+          { breaker: { maxRetries: 3, baseInterval: TimeSpan.milliseconds(1) } },
         ),
       ).rejects.toThrow(MissingLicenseError);
       expect(openerMock).toHaveBeenCalledTimes(1);
