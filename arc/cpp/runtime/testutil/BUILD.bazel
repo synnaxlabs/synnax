@@ -14,7 +14,6 @@ cc_library(
     hdrs = [
         "mock_loop.h",
         "stamps.h",
-        # TODO Remove before merge. This header is for timing diagnosis only.
         "timing.h",
     ],
     visibility = ["//visibility:public"],

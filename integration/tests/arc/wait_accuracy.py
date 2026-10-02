@@ -14,11 +14,6 @@ from framework.utils import create_indexed_pair
 from tests.arc.arc import ArcCase
 from tests.arc.timing import Limits, limits, runtime
 
-# TODO Add a case with a variable wait duration to quantify its lag on Windows.
-# TODO Add error variance check
-
-# TODO needs more pressure, samples, etc
-
 # The waits in ms the sequence holds in order. The case skips each wait under the
 # minimum of the runtime.
 WAITS_MS = [30, 20, 10, 5, 1]
