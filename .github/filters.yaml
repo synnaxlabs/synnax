@@ -230,6 +230,7 @@ knip:
   - *console
   - *ts
   - oracle/lsp/extensions/vscode/**
+  - site/common/**
   - site/docs/**
   - site/portal/**
   - site/www/**

@@ -502,7 +502,6 @@ jobs:
     uses: ./.github/workflows/test.ts.yaml
     with:
       directory: site/common
-      knip: true
       package: site-common
       test: false
     secrets: inherit
