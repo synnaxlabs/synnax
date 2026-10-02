@@ -354,7 +354,7 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
     }
     const auto shortest_span = time_module->shortest_span();
     const auto loop_cfg = cfg.loop.apply_defaults(shortest_span);
-    const auto tolerance = stl::time::calculate_tolerance(loop_cfg.mode, shortest_span);
+    const auto tolerance = stl::time::calculate_tolerance(shortest_span);
     auto sched = std::make_unique<scheduler::Scheduler>(
         cfg.program,
         nodes,

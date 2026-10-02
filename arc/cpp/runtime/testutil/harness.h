@@ -26,7 +26,6 @@
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/program/program.h"
 #include "arc/cpp/runtime/errors/errors.h"
-#include "arc/cpp/runtime/loop/loop.h"
 #include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/scheduler/scheduler.h"
 #include "arc/cpp/runtime/state/state.h"
@@ -160,11 +159,7 @@ public:
         }
 
         const auto shortest_span = time_mod->shortest_span();
-        const auto loop_cfg = loop::Config{}.apply_defaults(shortest_span);
-        const auto tolerance = stl::time::calculate_tolerance(
-            loop_cfg.mode,
-            shortest_span
-        );
+        const auto tolerance = stl::time::calculate_tolerance(shortest_span);
         this->sched = std::make_unique<scheduler::Scheduler>(
             prog_ir,
             nodes,

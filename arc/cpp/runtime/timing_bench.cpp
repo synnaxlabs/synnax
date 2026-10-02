@@ -129,7 +129,7 @@ void measure_interval(const x::telem::TimeSpan period, std::int64_t &median_ns) 
     auto sched = std::make_unique<scheduler::Scheduler>(
         prog,
         nodes,
-        stl::time::calculate_tolerance(loop_cfg.mode, shortest_span)
+        stl::time::calculate_tolerance(shortest_span)
     );
     const Config cfg{
         .program = {},

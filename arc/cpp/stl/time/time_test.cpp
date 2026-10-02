@@ -16,7 +16,6 @@
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/errors/errors.h"
-#include "arc/cpp/runtime/loop/loop.h"
 #include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/runtime/testutil/compile.h"
@@ -873,69 +872,6 @@ TEST(WaitTest, ParksAndReportsOnceOnNonPositiveDuration) {
     EXPECT_EQ(reported[0].data, "wait duration must be positive, got 0ns");
 }
 
-/// @brief Test calculate_tolerance for RT_EVENT mode.
-TEST(CalculateToleranceTest, RTEventMode) {
-    const auto tolerance = calculate_tolerance(
-        runtime::loop::ExecutionMode::RT_EVENT,
-        100 * x::telem::MILLISECOND
-    );
-    EXPECT_EQ(tolerance, 100 * x::telem::MICROSECOND);
-}
-
-/// @brief Test calculate_tolerance for BUSY_WAIT mode.
-TEST(CalculateToleranceTest, BusyWaitMode) {
-    const auto tolerance = calculate_tolerance(
-        runtime::loop::ExecutionMode::BUSY_WAIT,
-        100 * x::telem::MILLISECOND
-    );
-    EXPECT_EQ(tolerance, 100 * x::telem::MICROSECOND);
-}
-
-/// @brief Test calculate_tolerance for HIGH_RATE mode.
-TEST(CalculateToleranceTest, HighRateMode) {
-    const auto tolerance = calculate_tolerance(
-        runtime::loop::ExecutionMode::HIGH_RATE,
-        100 * x::telem::MILLISECOND
-    );
-    EXPECT_EQ(tolerance, x::telem::MILLISECOND);
-}
-
-/// @brief Test calculate_tolerance for EVENT_DRIVEN mode.
-TEST(CalculateToleranceTest, EventDrivenMode) {
-    const auto tolerance = calculate_tolerance(
-        runtime::loop::ExecutionMode::EVENT_DRIVEN,
-        100 * x::telem::MILLISECOND
-    );
-    EXPECT_EQ(tolerance, 100 * x::telem::MICROSECOND);
-}
-
-/// @brief Test calculate_tolerance for HYBRID mode.
-TEST(CalculateToleranceTest, HybridMode) {
-    const auto tolerance = calculate_tolerance(
-        runtime::loop::ExecutionMode::HYBRID,
-        100 * x::telem::MILLISECOND
-    );
-    EXPECT_EQ(tolerance, 100 * x::telem::MICROSECOND);
-}
-
-/// @brief Test calculate_tolerance with an unset shortest span returns 100 us.
-TEST(CalculateToleranceTest, UnsetShortestSpan) {
-    const auto tolerance = calculate_tolerance(
-        runtime::loop::ExecutionMode::HIGH_RATE,
-        UNSET_SHORTEST_SPAN
-    );
-    EXPECT_EQ(tolerance, 100 * x::telem::MICROSECOND);
-}
-
-/// @brief Test calculate_tolerance for HIGH_RATE mode is capped at half the interval.
-TEST(CalculateToleranceTest, HighRateModeCapsAtHalf) {
-    const auto tolerance = calculate_tolerance(
-        runtime::loop::ExecutionMode::HIGH_RATE,
-        x::telem::MILLISECOND
-    );
-    EXPECT_EQ(tolerance, 500 * x::telem::MICROSECOND);
-}
-
 /// @brief Test that Interval fires within tolerance.
 TEST(IntervalToleranceTest, FiresWithinTolerance) {
     TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
@@ -1058,22 +994,40 @@ TEST(WaitToleranceTest, ZeroToleranceRequiresExactTime) {
     EXPECT_EQ(output->size(), 1);
 }
 
-/// @brief Test that tolerance is capped at half the interval for small intervals.
-TEST(CalculateToleranceTest, SmallIntervalCapsAtHalf) {
-    const auto tolerance = calculate_tolerance(
-        runtime::loop::ExecutionMode::RT_EVENT,
-        100 * x::telem::MICROSECOND
-    );
-    EXPECT_EQ(tolerance, 50 * x::telem::MICROSECOND);
+/// @brief calculate_tolerance should return MAX_TOLERANCE for a long shortest span.
+TEST(CalculateToleranceTest, ReturnsMaxToleranceForALongSpan) {
+    EXPECT_EQ(calculate_tolerance(100 * x::telem::MILLISECOND), MAX_TOLERANCE);
 }
 
-/// @brief Test calculate_tolerance for AUTO mode.
-TEST(CalculateToleranceTest, AutoMode) {
-    const auto tolerance = calculate_tolerance(
-        runtime::loop::ExecutionMode::AUTO,
-        100 * x::telem::MILLISECOND
+/// @brief calculate_tolerance should return half of a shortest span under twice
+/// MAX_TOLERANCE.
+TEST(CalculateToleranceTest, ReturnsHalfOfAShortSpan) {
+    EXPECT_EQ(
+        calculate_tolerance(100 * x::telem::MICROSECOND),
+        50 * x::telem::MICROSECOND
     );
-    EXPECT_EQ(tolerance, 100 * x::telem::MICROSECOND);
+}
+
+/// @brief calculate_tolerance should return MAX_TOLERANCE for an unset shortest span.
+TEST(CalculateToleranceTest, ReturnsMaxToleranceForAnUnsetSpan) {
+    EXPECT_EQ(calculate_tolerance(UNSET_SHORTEST_SPAN), MAX_TOLERANCE);
+}
+
+/// @brief A wait should not fire on the wake of another timer more than MAX_TOLERANCE
+/// before its deadline.
+TEST(WaitToleranceTest, DoesNotFireEarlyOnTheWakeOfAnotherTimer) {
+    TestSetup setup("wait", "duration", (20500 * x::telem::MICROSECOND).nanoseconds());
+    Wait node(setup.make_node());
+    const auto tolerance = calculate_tolerance(10 * x::telem::MILLISECOND);
+
+    auto start = make_context(x::telem::TimeSpan(0), tolerance);
+    ASSERT_NIL(node.next(start));
+    auto checker = setup.make_node();
+    const auto &output = checker.output(0);
+
+    auto other_wake = make_context(20 * x::telem::MILLISECOND, tolerance);
+    ASSERT_NIL(node.next(other_wake));
+    EXPECT_EQ(output->size(), 0);
 }
 
 TEST(IntervalDeadlineTest, SetsDeadlineToLastFiredPlusPeriod) {

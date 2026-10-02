@@ -19,7 +19,6 @@
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/errors/errors.h"
-#include "arc/cpp/runtime/loop/loop.h"
 #include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/stl/stl.h"
 #include "arc/cpp/types/types.h"
@@ -31,17 +30,14 @@ inline constexpr const char *MODULE_NAME = "time";
 /// @brief Sentinel value indicating shortest_span hasn't been set yet.
 inline const x::telem::TimeSpan UNSET_SHORTEST_SPAN = x::telem::TimeSpan::max();
 
-/// @brief Calculates the tolerance for timing comparisons based on execution mode.
-inline x::telem::TimeSpan calculate_tolerance(
-    const runtime::loop::ExecutionMode mode,
-    const x::telem::TimeSpan shortest_span
-) {
-    // Variable durations leave the span unset, and their timers wake on a deadline.
-    if (shortest_span == UNSET_SHORTEST_SPAN) return 100 * x::telem::MICROSECOND;
-    const auto half = shortest_span / 2;
-    if (mode == runtime::loop::ExecutionMode::HIGH_RATE)
-        return std::min(half, x::telem::MILLISECOND);
-    return std::min(half, 100 * x::telem::MICROSECOND);
+/// @brief the most a timer may fire before its deadline. The loop wakes on the earliest
+/// deadline, so a wider tolerance only fires a timer early on the wake of another.
+inline const x::telem::TimeSpan MAX_TOLERANCE = 100 * x::telem::MICROSECOND;
+
+/// @brief returns the timing tolerance for the given shortest span: half the span, and
+/// MAX_TOLERANCE at most.
+inline x::telem::TimeSpan calculate_tolerance(const x::telem::TimeSpan shortest_span) {
+    return std::min(shortest_span / 2, MAX_TOLERANCE);
 }
 
 /// @brief returns the named input's current span: the referenced variable's
