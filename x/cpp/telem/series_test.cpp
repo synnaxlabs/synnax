@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <array>
 #include <iostream>
 
 #include "gtest/gtest.h"
@@ -363,6 +364,23 @@ TEST(TestSeries, testWriteVector) {
     ASSERT_EQ(s.at<float>(1), 2.0);
     for (size_t i = 0; i < values.size(); i++)
         ASSERT_EQ(v[i], values[i]);
+}
+
+/// @brief it should append a vector after the existing values, up to the capacity.
+TEST(TestSeries, testWriteVectorAppends) {
+    Series s{UINT32_T, 4};
+    s.write(std::uint32_t{1});
+    ASSERT_EQ(s.write(std::vector<std::uint32_t>{2, 3, 4, 5}), 3);
+    ASSERT_EQ(s.values<std::uint32_t>(), (std::vector<std::uint32_t>{1, 2, 3, 4}));
+}
+
+/// @brief it should append an array after the existing values, up to the capacity.
+TEST(TestSeries, testWritePointerAppends) {
+    Series s{UINT32_T, 4};
+    s.write(std::uint32_t{1});
+    constexpr std::array<std::uint32_t, 4> data{2, 3, 4, 5};
+    ASSERT_EQ(s.write(data.data(), data.size()), 3);
+    ASSERT_EQ(s.values<std::uint32_t>(), (std::vector<std::uint32_t>{1, 2, 3, 4}));
 }
 
 /// @brief it should correctly print out the series.
