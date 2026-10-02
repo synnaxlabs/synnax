@@ -308,15 +308,61 @@ var _ = Describe("ProgramState", func() {
 			Entry("body write first", true),
 		)
 
-		It("Should stamp a body write after a supplied stamp later than now", func() {
+		It("Should put a body write before a supplied stamp later than now", func() {
 			later := flushNow + 5*telem.SecondTS
 			s.WriteChannel(1, telem.NewSeriesV[float32](1), telem.NewSeriesV(later))
 			s.WriteChannelF32(1, 2)
 			fr, highest, _ := s.Flush(telem.Frame[uint32]{}, flushNow)
-			Expect(fr.Get(2).Series[0]).To(
-				telem.MatchSeries(telem.NewSeriesV(later, later+1)),
+			Expect(fr.Get(1).Series[0]).To(
+				telem.MatchSeries(telem.NewSeriesV[float32](2, 1)),
 			)
-			Expect(highest).To(Equal(later + 1))
+			Expect(fr.Get(2).Series[0]).To(
+				telem.MatchSeries(telem.NewSeriesV(flushNow, later)),
+			)
+			Expect(highest).To(Equal(flushNow))
+		})
+
+		DescribeTable(
+			"Should keep the write order of a body write and a supplied write at now",
+			func(bodyFirst bool, values []float32) {
+				write := func() {
+					s.WriteChannel(
+						1,
+						telem.NewSeriesV[float32](0),
+						telem.NewSeriesV(flushNow),
+					)
+				}
+				if !bodyFirst {
+					write()
+				}
+				s.WriteChannelF32(1, 0.7)
+				if bodyFirst {
+					write()
+				}
+				fr, highest, _ := s.Flush(telem.Frame[uint32]{}, flushNow)
+				Expect(fr.Get(1).Series[0]).To(
+					telem.MatchSeries(telem.NewSeriesV(values...)),
+				)
+				Expect(fr.Get(2).Series[0]).To(
+					telem.MatchSeries(telem.NewSeriesV(flushNow, flushNow+1)),
+				)
+				Expect(highest).To(Equal(flushNow + 1))
+			},
+			Entry("body write first", true, []float32{0.7, 0}),
+			Entry("supplied write first", false, []float32{0, 0.7}),
+		)
+
+		It("Should move equal supplied stamps 1ns apart in write order", func() {
+			s.WriteChannel(1, telem.NewSeriesV[float32](1), telem.NewSeriesV(flushNow))
+			s.WriteChannel(1, telem.NewSeriesV[float32](2), telem.NewSeriesV(flushNow))
+			fr, highest, _ := s.Flush(telem.Frame[uint32]{}, flushNow)
+			Expect(fr.Get(1).Series[0]).To(
+				telem.MatchSeries(telem.NewSeriesV[float32](1, 2)),
+			)
+			Expect(fr.Get(2).Series[0]).To(
+				telem.MatchSeries(telem.NewSeriesV(flushNow, flushNow+1)),
+			)
+			Expect(highest).To(Equal(flushNow + 1))
 		})
 
 		It("Should order supplied stamps from separate writes by time", func() {
@@ -350,7 +396,7 @@ var _ = Describe("ProgramState", func() {
 			)
 		})
 
-		It("Should order the values of a string channel by time", func() {
+		It("Should order a string channel by time, then write order", func() {
 			str := channels.NewProgramState([]channels.Digest{
 				{Key: 7, DataType: telem.StringT, Index: 8},
 			})
@@ -365,23 +411,26 @@ var _ = Describe("ProgramState", func() {
 				telem.NewSeriesSecondsTSV(10),
 			)
 			str.WriteValue(7, telem.NewSeriesV("body"))
+			str.WriteChannel(7, telem.NewSeriesV("tie"), telem.NewSeriesV(flushNow))
 			fr, _, _ := str.Flush(telem.Frame[uint32]{}, flushNow)
 			Expect(fr.Get(7).Series[0]).To(
-				telem.MatchSeries(telem.NewSeriesV("early", "late", "body")),
+				telem.MatchSeries(telem.NewSeriesV("early", "late", "body", "tie")),
 			)
 			Expect(fr.Get(8).Series[0]).To(telem.MatchSeries(telem.NewSeriesV(
 				10*telem.SecondTS,
 				20*telem.SecondTS,
 				flushNow,
+				flushNow+1,
 			)))
 		})
 	})
 
 	Describe("Stamp invariants", func() {
-		// Each order mixes body writes (b) with supplied writes stamped behind now (l)
-		// and ahead of now (a). A second cycle, 1ns later, makes one body write.
+		// Each order mixes body writes (b) with supplied writes stamped behind now (l),
+		// at now (n), and ahead of now (a). A second cycle, 1ns later, makes one body
+		// write.
 		DescribeTable(
-			"Should keep the flushed index strictly increasing",
+			"Should order samples by time, then by write order",
 			func(order string) {
 				type sample struct {
 					stamp telem.TimeStamp
@@ -389,50 +438,65 @@ var _ = Describe("ProgramState", func() {
 				}
 				const now telem.TimeStamp = 1000
 				var (
-					supplied      []sample
-					body          []float64
+					written       []sample
+					synthesized   []bool
 					behind, ahead = now - 100, now + 100
 				)
 				for i, op := range order {
 					value := float64(i + 1)
-					if op == 'b' {
+					stamp := now
+					switch op {
+					case 'b':
 						s.WriteChannelF64(5, value)
-						body = append(body, value)
-						continue
+					case 'l':
+						stamp, behind = behind, behind+1
+					case 'a':
+						stamp, ahead = ahead, ahead+1
 					}
-					stamp := &behind
-					if op == 'a' {
-						stamp = &ahead
+					if op != 'b' {
+						s.WriteChannel(
+							5,
+							telem.NewSeriesV(value),
+							telem.NewSeriesV(stamp),
+						)
 					}
-					s.WriteChannel(5, telem.NewSeriesV(value), telem.NewSeriesV(*stamp))
-					supplied = append(supplied, sample{*stamp, value})
-					*stamp++
+					written = append(written, sample{stamp, value})
+					synthesized = append(synthesized, op == 'b')
 				}
-				slices.SortFunc(supplied, func(a, b sample) int {
-					return cmp.Compare(a.stamp, b.stamp)
+				positions := make([]int, len(written))
+				for i := range positions {
+					positions[i] = i
+				}
+				slices.SortStableFunc(positions, func(a, b int) int {
+					return cmp.Compare(written[a].stamp, written[b].stamp)
 				})
-				fr, highest, _ := s.Flush(telem.Frame[uint32]{}, now)
+				var (
+					expected []sample
+					highest  telem.TimeStamp
+				)
+				for i, p := range positions {
+					want := written[p]
+					if i > 0 && want.stamp <= expected[i-1].stamp {
+						want.stamp = expected[i-1].stamp + 1
+						synthesized[p] = true
+					}
+					if synthesized[p] {
+						highest = want.stamp
+					}
+					expected = append(expected, want)
+				}
+				fr, actualHighest, _ := s.Flush(telem.Frame[uint32]{}, now)
 				values, index := fr.Get(5).Series[0], fr.Get(6).Series[0]
 				Expect(index.Len()).To(BeEquivalentTo(len(order)))
 				Expect(values.Len()).To(Equal(index.Len()))
-				var last telem.TimeStamp
-				for i := range int(index.Len()) {
-					stamp := index.ValueAt[telem.TimeStamp](i)
-					value := values.ValueAt[float64](i)
-					Expect(stamp).To(BeNumerically(">", last))
-					last = stamp
-					if i < len(supplied) {
-						Expect(sample{stamp, value}).To(Equal(supplied[i]))
-						continue
-					}
-					Expect(value).To(Equal(body[i-len(supplied)]))
-					Expect(stamp).To(BeNumerically(">=", now))
+				for i, want := range expected {
+					Expect(sample{
+						index.ValueAt[telem.TimeStamp](i),
+						values.ValueAt[float64](i),
+					}).To(Equal(want))
 				}
-				if len(body) == 0 {
-					Expect(highest).To(BeZero())
-				} else {
-					Expect(highest).To(Equal(last))
-				}
+				Expect(actualHighest).To(Equal(highest))
+				last := expected[len(expected)-1].stamp
 				s.WriteChannelF64(5, 0)
 				fr, _, _ = s.Flush(telem.Frame[uint32]{}, now+1)
 				Expect(fr.Get(6).Series[0]).
@@ -675,7 +739,7 @@ var _ = Describe("ProgramState", func() {
 })
 
 // writeOrders returns an entry for every order of one to four writes. Each write is a
-// body write (b), a supplied write stamped behind now (l), or one stamped ahead (a).
+// body write (b) or a supplied write stamped behind now (l), at now (n), or ahead (a).
 func writeOrders() []TableEntry {
 	var (
 		entries []TableEntry
@@ -684,7 +748,7 @@ func writeOrders() []TableEntry {
 	for range 4 {
 		var next []string
 		for _, order := range orders {
-			for _, op := range "bla" {
+			for _, op := range "blna" {
 				next = append(next, order+string(op))
 			}
 		}

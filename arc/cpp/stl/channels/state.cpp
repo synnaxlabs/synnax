@@ -109,9 +109,39 @@ void State::write_value(
     const Series &data,
     const Series &time
 ) {
+    const auto idx = this->index_of(key);
+    if (idx != 0) this->mark_position(key, idx);
     this->append_write(this->writes, key, data);
-    if (const auto idx = this->index_of(key); idx != 0)
-        this->append_write(this->writes, idx, time);
+    if (idx != 0) this->append_write(this->writes, idx, time);
+}
+
+void State::mark_position(const types::ChannelKey key, const types::ChannelKey idx) {
+    if (!has_data(this->unstamped, key)) return;
+    const auto body = this->unstamped[key]->size();
+    auto &ps = this->positions[key];
+    if (!ps.empty() && ps.back().body == body) return;
+    const size_t stamped = has_data(this->writes, idx) ? this->writes[idx]->size() : 0;
+    ps.push_back({.body = body, .stamped = stamped});
+}
+
+std::vector<size_t> State::write_order(
+    const size_t stamped,
+    const size_t body,
+    const std::vector<Position> &positions
+) {
+    std::vector<size_t> order;
+    order.reserve(stamped + body);
+    size_t s = 0, b = 0;
+    const auto take = [&](const Position &p) {
+        for (; s < p.stamped; s++)
+            order.push_back(s);
+        for (; b < p.body; b++)
+            order.push_back(stamped + b);
+    };
+    for (const auto &p: positions)
+        take(p);
+    take({.body = body, .stamped = stamped});
+    return order;
 }
 
 void State::write_value(const types::ChannelKey key, const Series &data) {
@@ -174,21 +204,25 @@ void State::write_series(
 }
 
 /// @brief reorders the samples of data and times together so that times does not
-/// decrease. Keeps the order of samples with equal timestamps.
-static void sort_by_time(Series &data, Series &times) {
+/// decrease. Samples with equal timestamps keep their place in order, or their place in
+/// times when order is empty.
+static void sort_by_time(Series &data, Series &times, std::vector<size_t> order) {
     if (times == nullptr) return;
     const auto n = times->size();
-    bool sorted = true;
-    for (size_t i = 1; i < n && sorted; i++)
-        sorted = times->at<int64_t>(static_cast<int>(i - 1)) <=
-                 times->at<int64_t>(static_cast<int>(i));
-    if (sorted) return;
-    std::vector<size_t> order(n);
-    std::iota(order.begin(), order.end(), 0);
+    if (order.empty()) {
+        bool sorted = true;
+        for (size_t i = 1; i < n && sorted; i++)
+            sorted = times->at<int64_t>(static_cast<int>(i - 1)) <=
+                     times->at<int64_t>(static_cast<int>(i));
+        if (sorted) return;
+        order.resize(n);
+        std::iota(order.begin(), order.end(), 0);
+    }
     std::stable_sort(order.begin(), order.end(), [&times](size_t a, size_t b) {
         return times->at<int64_t>(static_cast<int>(a)) <
                times->at<int64_t>(static_cast<int>(b));
     });
+    if (std::ranges::is_sorted(order)) return;
     auto sorted_times = x::mem::make_local_shared<x::telem::Series>(times->deep_copy());
     for (size_t i = 0; i < n; i++)
         std::memcpy(
@@ -223,6 +257,20 @@ static void sort_by_time(Series &data, Series &times) {
     data = std::move(sorted_data);
 }
 
+/// @brief moves each timestamp that does not exceed the one before it to 1ns after that
+/// one.
+/// @returns the last timestamp it moved, or zero when it moved none.
+static x::telem::TimeStamp break_ties(x::telem::Series &times) {
+    auto last = x::telem::TimeStamp(0);
+    for (size_t i = 1; i < times.size(); i++) {
+        const auto prev = times.at<int64_t>(static_cast<int>(i - 1));
+        if (times.at<int64_t>(static_cast<int>(i)) > prev) continue;
+        last = x::telem::TimeStamp(prev + 1);
+        times.set(static_cast<int>(i), last);
+    }
+    return last;
+}
+
 x::telem::TimeStamp State::stamp_indexes(const x::telem::TimeStamp now) {
     this->writers.clear();
     for (const auto key: this->active_write_keys)
@@ -248,31 +296,36 @@ x::telem::TimeStamp State::stamp_alone(
 ) {
     auto &data = this->writes[key];
     auto &times = this->writes[idx];
-    sort_by_time(data, times);
-    auto &body = this->unstamped[key];
-    auto last = x::telem::TimeStamp(0);
-    if (body != nullptr && !body->empty()) {
-        auto start = std::max(now.nanoseconds(), this->last_stamps[idx] + 1);
-        if (times != nullptr && !times->empty())
-            start = std::max(start, times->at<int64_t>(-1) + 1);
-        else
-            this->active_write_keys.push_back(idx);
+    std::vector<size_t> order;
+    auto highest = x::telem::TimeStamp(0);
+    if (auto &body = this->unstamped[key]; body != nullptr && !body->empty()) {
+        if (times == nullptr || times->empty()) this->active_write_keys.push_back(idx);
+        const size_t stamped = times == nullptr ? 0 : times->size();
         const auto n = body->size();
-        last = x::telem::TimeStamp(start + static_cast<int64_t>(n) - 1);
+        highest = x::telem::TimeStamp(
+            std::max(now.nanoseconds(), this->last_stamps[idx] + 1)
+        );
         auto stamps = x::mem::make_local_shared<x::telem::Series>(
             x::telem::TIMESTAMP_T,
             n
         );
-        stamps->write_linspace(x::telem::TimeStamp(start), last, n, true);
+        for (size_t i = 0; i < n; i++)
+            stamps->write(highest);
         stamps->alignment = body->alignment;
         stamps->time_range = body->time_range;
         append_to_write_buffer(times, stamps);
         append_to_write_buffer(data, body);
         body = Series{};
+        if (auto &ps = this->positions[key]; !ps.empty()) {
+            order = write_order(stamped, n, ps);
+            ps.clear();
+        }
     }
-    if (times != nullptr && !times->empty())
-        this->last_stamps[idx] = times->at<int64_t>(-1);
-    return last;
+    sort_by_time(data, times, std::move(order));
+    if (times == nullptr || times->empty()) return highest;
+    highest = std::max(highest, break_ties(*times));
+    this->last_stamps[idx] = times->at<int64_t>(-1);
+    return highest;
 }
 
 x::telem::TimeStamp State::stamp_group(
@@ -285,6 +338,7 @@ x::telem::TimeStamp State::stamp_group(
         append_to_write_buffer(data, body);
         body = Series{};
     }
+    this->positions[key].clear();
     if (has_data(this->writes, idx) || data == nullptr || data->empty())
         return x::telem::TimeStamp(0);
     const auto n = data->size();
@@ -327,6 +381,7 @@ void State::reset() {
     this->reads.clear();
     this->writes.clear();
     this->unstamped.clear();
+    this->positions.clear();
     this->active_write_keys.clear();
     this->last_stamps.clear();
 }

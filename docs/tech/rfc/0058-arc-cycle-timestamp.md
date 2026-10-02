@@ -193,11 +193,13 @@ calculated channel inherits its source samples' timestamps, so cycle-stamping it
 misdate anything not arriving live. Text programs write through the WASM host functions,
 supply no time, and get cycle stamps.
 
-A channel alone on its index can get both kinds of write in one cycle. Flush sorts the
-upstream samples by stamp, then appends the body writes with stamps after the last
-upstream stamp, the cycle stamp, and the last stamp of the previous frame, whichever is
-latest. Every value keeps its own stamp, and the index increases. Integrations write the
-last value of a series to hardware, so the last value in time order wins.
+A channel alone on its index can get both kinds of write in one cycle. A body write
+takes the cycle stamp, or 1 ns after the last stamp of the previous frame when that is
+later. Flush sorts all samples by stamp. Samples with equal stamps keep the order the
+program wrote them in, and each moves 1 ns after the one before it. A literal flow and a
+body write in one cycle both carry the cycle stamp, so the one the program ran last
+stays last. Integrations write the last value of a series to hardware, so the last value
+in time order wins.
 
 Cesium does not check the order of stamps inside a frame, so an unsorted index is stored
 without an error. Arc must sort it.

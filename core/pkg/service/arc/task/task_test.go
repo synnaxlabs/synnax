@@ -3728,7 +3728,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		DescribeTable(
 			"Should store a body write and a flow write from one cycle in time order",
-			func(ctx SpecContext, indexedSource bool, program string) {
+			func(ctx SpecContext, indexedSource bool, program string, expected []uint8) {
 				outIdx, out := createIndexed(ctx, "mixed_out")
 				var src channel.Channel
 				if indexedSource {
@@ -3761,7 +3761,7 @@ var _ = Describe("Task", Ordered, func() {
 
 				Eventually(func(g Gomega) {
 					values, stamps := readStored(ctx, outIdx, out)
-					g.Expect(values).To(Equal([]uint8{1, 2}))
+					g.Expect(values).To(Equal(expected))
 					g.Expect(stamps).To(HaveLen(2))
 					g.Expect(stamps[1]).To(BeNumerically(">", stamps[0]))
 					if indexedSource {
@@ -3773,16 +3773,25 @@ var _ = Describe("Task", Ordered, func() {
 				"indexed source, func line first",
 				true,
 				"func vent() {\n    OUT = 2\n}\nSRC -> vent{}\nSRC -> OUT\n",
+				[]uint8{1, 2},
 			),
 			Entry(
 				"indexed source, flow line first",
 				true,
 				"func vent() {\n    OUT = 2\n}\nSRC -> OUT\nSRC -> vent{}\n",
+				[]uint8{1, 2},
 			),
 			Entry(
-				"virtual source",
+				"virtual source, func line first",
 				false,
 				"func vent() {\n    OUT = 2\n}\nSRC -> vent{}\nSRC -> OUT\n",
+				[]uint8{2, 1},
+			),
+			Entry(
+				"virtual source, flow line first",
+				false,
+				"func vent() {\n    OUT = 2\n}\nSRC -> OUT\nSRC -> vent{}\n",
+				[]uint8{1, 2},
 			),
 			Entry(
 				"literal flow in a stage",
@@ -3790,7 +3799,62 @@ var _ = Describe("Task", Ordered, func() {
 				"func vent() {\n    OUT = 2\n}\n"+
 					"sequence main {\n    stage a {\n        1 -> OUT\n    }\n}\n"+
 					"SRC -> vent{}\nSRC => main\n",
+				[]uint8{1, 2},
 			),
+		)
+
+		It(
+			"Should store a stage's literal after a body write from the stage it leaves",
+			func(ctx SpecContext) {
+				outIdx, out := createIndexed(ctx, "abort_out")
+				start := createVirtualCh(ctx, "abort_start", telem.Uint8T)
+				src := createVirtualCh(ctx, "abort_src", telem.Uint8T)
+				cmd := createVirtualCh(ctx, "abort_cmd", telem.Uint8T)
+				prog := arc.Text{Raw: strings.NewReplacer(
+					"OUT", out.Name,
+					"START", start.Name,
+					"SRC", src.Name,
+					"CMD", cmd.Name,
+				).Replace(`func guide() {
+    OUT = 2
+}
+sequence main {
+    stage fly {
+        SRC -> guide{}
+        CMD == 1 => abort
+    }
+    stage abort {
+        1 -> OUT
+    }
+}
+START => main
+`)}
+				t := newTask(ctx, newTextFactory(ctx, prog))
+				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+				time.Sleep(20 * time.Millisecond)
+				write := func(keys []channel.Key) {
+					series := make([]telem.Series, len(keys))
+					for i := range series {
+						series[i] = telem.NewSeriesV[uint8](1)
+					}
+					fw := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+						Keys:  keys,
+						Start: telem.Now(),
+					}))
+					Expect(fw.Write(frame.NewMulti(keys, series))).To(BeTrue())
+					Expect(fw.Close()).To(Succeed())
+				}
+				write([]channel.Key{start.Key()})
+				time.Sleep(20 * time.Millisecond)
+				write([]channel.Key{src.Key(), cmd.Key()})
+				Eventually(func(g Gomega) {
+					values, stamps := readStored(ctx, outIdx, out)
+					g.Expect(values).To(Equal([]uint8{2, 1}))
+					g.Expect(stamps).To(HaveLen(2))
+					g.Expect(stamps[1]).To(BeNumerically(">", stamps[0]))
+				}).Should(Succeed())
+			},
 		)
 	})
 })

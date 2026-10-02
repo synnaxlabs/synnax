@@ -30,7 +30,9 @@ type ProgramState struct {
 	// writes holds this cycle's samples, except body writes to indexed channels.
 	writes map[uint32]telem.Series
 	// unstamped holds body writes to indexed channels until Flush stamps them.
-	unstamped       map[uint32]telem.Series
+	unstamped map[uint32]telem.Series
+	// positions records where body writes fall among each channel's timestamped writes.
+	positions       map[uint32][]position
 	activeWriteKeys []uint32
 	indexes         map[uint32]uint32
 	// lastStamps holds the last timestamp flushed to each index.
@@ -45,6 +47,7 @@ func NewProgramState(digests []Digest) *ProgramState {
 		reads:      make(map[uint32]telem.MultiSeries),
 		writes:     make(map[uint32]telem.Series),
 		unstamped:  make(map[uint32]telem.Series),
+		positions:  make(map[uint32][]position),
 		indexes:    make(map[uint32]uint32),
 		lastStamps: make(map[uint32]telem.TimeStamp),
 		writers:    make(map[uint32]int),
@@ -66,9 +69,10 @@ func (cs *ProgramState) Ingest(fr telem.Frame[uint32]) {
 }
 
 // Flush extracts buffered channel writes into a frame and clears the write buffer. Only
-// channels written in the current cycle are flushed. A channel alone on its index keeps
-// its supplied timestamps, sorted by time. Its body writes follow, 1ns apart, starting
-// after the later of now and the last timestamp of the index. Channels that share an
+// channels written in the current cycle are flushed. A channel alone on its index gets
+// its samples in time order. Its body writes take the later of now and 1ns after the
+// last timestamp of the index. Samples with equal timestamps keep the order the program
+// wrote them in, and each moves 1ns after the one before it. Channels that share an
 // index are stamped from now, and only when none of them supplied timestamps. Flush
 // returns the highest stamp it synthesized, so the caller's clock can resume above it,
 // and reports whether anything was flushed. The highest stamp is zero when nothing was
@@ -123,22 +127,20 @@ func (cs *ProgramState) stampIndexes(now telem.TimeStamp) (highest telem.TimeSta
 	return highest
 }
 
-// stampAlone sorts the samples key wrote with timestamps into time order, then appends
-// its body writes with timestamps after them. It returns the last timestamp it
-// synthesized, or zero when key made no body writes.
+// stampAlone gives the body writes of key a timestamp and puts all of its samples in
+// time order. It returns the last timestamp it synthesized, or zero when it synthesized
+// none.
 func (cs *ProgramState) stampAlone(
 	key, idx uint32,
 	now telem.TimeStamp,
 ) telem.TimeStamp {
 	data, times := cs.writes[key], cs.writes[idx]
-	sortByTime(&data, &times)
-	body := cs.unstamped[key]
-	var last telem.TimeStamp
-	if n := int(body.Len()); n > 0 {
-		start := max(now, cs.lastStamps[idx]+1)
-		if times.Len() > 0 {
-			start = max(start, times.ValueAt[telem.TimeStamp](-1)+1)
-		} else {
+	var (
+		order   []int
+		highest telem.TimeStamp
+	)
+	if body := cs.unstamped[key]; len(body.Data) > 0 {
+		if len(times.Data) == 0 {
 			times = telem.Series{
 				DataType:  telem.TimestampT,
 				Data:      times.Data[:0],
@@ -147,21 +149,25 @@ func (cs *ProgramState) stampAlone(
 			}
 			cs.activeWriteKeys = append(cs.activeWriteKeys, idx)
 		}
+		stamped, n := int(times.Len()), int(body.Len())
+		highest = max(now, cs.lastStamps[idx]+1)
 		times.Data = slices.Grow(times.Data, n*int(telem.TimestampT.Density()))
-		for i := range n {
-			times.Data = telem.ByteOrder.AppendUint64(
-				times.Data,
-				uint64(start)+uint64(i),
-			)
+		for range n {
+			times.Data = telem.ByteOrder.AppendUint64(times.Data, uint64(highest))
 		}
-		last = start + telem.TimeStamp(n-1)
 		data = cs.appendBody(data, key)
+		if ps := cs.positions[key]; len(ps) > 0 {
+			order = writeOrder(stamped, n, ps)
+			cs.positions[key] = ps[:0]
+		}
 	}
+	sortByTime(&data, &times, order)
+	highest = max(highest, breakTies(times))
 	if times.Len() > 0 {
 		cs.lastStamps[idx] = times.ValueAt[telem.TimeStamp](-1)
 	}
 	cs.writes[key], cs.writes[idx] = data, times
-	return last
+	return highest
 }
 
 // stampGroup appends key's body writes to its timestamped samples. When the shared
@@ -173,6 +179,7 @@ func (cs *ProgramState) stampGroup(
 ) telem.TimeStamp {
 	data := cs.appendBody(cs.writes[key], key)
 	cs.writes[key] = data
+	cs.positions[key] = cs.positions[key][:0]
 	if len(cs.writes[idx].Data) > 0 {
 		return 0
 	}
@@ -207,20 +214,50 @@ func (cs *ProgramState) appendBody(data telem.Series, key uint32) telem.Series {
 	return data
 }
 
-// sortByTime reorders the samples of data and times together so that times does not
-// decrease. It keeps the order of samples with equal timestamps.
-func sortByTime(data, times *telem.Series) {
-	stamps := unsafe.CastSlice[byte, telem.TimeStamp](times.Data)
-	if slices.IsSorted(stamps) {
-		return
+// position holds the sample counts of a channel's body writes and timestamped writes
+// when a timestamped write arrives after a body write.
+type position struct{ body, stamped int }
+
+// writeOrder returns the order the program wrote a channel's samples in. Indexes below
+// stamped are timestamped samples, and the rest are body writes.
+func writeOrder(stamped, body int, positions []position) []int {
+	order := make([]int, 0, stamped+body)
+	var s, b int
+	take := func(p position) {
+		for ; s < p.stamped; s++ {
+			order = append(order, s)
+		}
+		for ; b < p.body; b++ {
+			order = append(order, stamped+b)
+		}
 	}
-	order := make([]int, len(stamps))
-	for i := range order {
-		order[i] = i
+	for _, p := range positions {
+		take(p)
+	}
+	take(position{body: body, stamped: stamped})
+	return order
+}
+
+// sortByTime reorders the samples of data and times together so that times does not
+// decrease. Samples with equal timestamps keep their place in order, or their place in
+// times when order is nil.
+func sortByTime(data, times *telem.Series, order []int) {
+	stamps := unsafe.CastSlice[byte, telem.TimeStamp](times.Data)
+	if order == nil {
+		if slices.IsSorted(stamps) {
+			return
+		}
+		order = make([]int, len(stamps))
+		for i := range order {
+			order[i] = i
+		}
 	}
 	slices.SortStableFunc(order, func(a, b int) int {
 		return cmp.Compare(stamps[a], stamps[b])
 	})
+	if slices.IsSorted(order) {
+		return
+	}
 	sortedStamps := make([]byte, 0, len(times.Data))
 	sortedData := make([]byte, 0, len(data.Data))
 	for _, i := range order {
@@ -232,6 +269,19 @@ func sortByTime(data, times *telem.Series) {
 		}
 	}
 	times.Data, data.Data = sortedStamps, sortedData
+}
+
+// breakTies moves each timestamp that does not exceed the one before it to 1ns after
+// that one. It returns the last timestamp it moved, or zero when it moved none.
+func breakTies(times telem.Series) (last telem.TimeStamp) {
+	stamps := unsafe.CastSlice[byte, telem.TimeStamp](times.Data)
+	for i := 1; i < len(stamps); i++ {
+		if stamps[i] <= stamps[i-1] {
+			stamps[i] = stamps[i-1] + 1
+			last = stamps[i]
+		}
+	}
+	return last
 }
 
 // clearReadsReallocThreshold is the backing array capacity above which
@@ -377,11 +427,30 @@ func (cs *ProgramState) readSeries(
 }
 
 func (cs *ProgramState) writeChannel(key uint32, data, time telem.Series) {
-	cs.appendWriteSeries(cs.writes, key, data)
 	idx := cs.indexes[key]
+	if idx != 0 {
+		cs.markPosition(key, idx)
+	}
+	cs.appendWriteSeries(cs.writes, key, data)
 	if idx != 0 {
 		cs.appendWriteSeries(cs.writes, idx, time)
 	}
+}
+
+// markPosition records how many body writes to key came before a timestamped write.
+func (cs *ProgramState) markPosition(key, idx uint32) {
+	body := int(cs.unstamped[key].Len())
+	if body == 0 {
+		return
+	}
+	ps := cs.positions[key]
+	if len(ps) > 0 && ps[len(ps)-1].body == body {
+		return
+	}
+	cs.positions[key] = append(ps, position{
+		body:    body,
+		stamped: int(cs.writes[idx].Len()),
+	})
 }
 
 func (cs *ProgramState) appendWriteSeries(
