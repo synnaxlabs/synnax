@@ -285,7 +285,7 @@ func (t *impl) open(ctx context.Context) (err error) {
 		),
 	)
 
-	drt.startTime = telem.Now()
+	drt.start = stdtime.Now()
 	drt.writeKeys = deps.Writes.Slice()
 
 	pipeline := plumber.New()
@@ -327,7 +327,7 @@ func (t *impl) open(ctx context.Context) (err error) {
 				Name: t.prog.Name,
 				Key:  t.task.Key.String(),
 			},
-			Start: drt.startTime,
+			Start: telem.NewTimeStamp(drt.start),
 			Keys:  writeKeys,
 		}
 		if authorities := buildAuthorities(
@@ -479,7 +479,8 @@ type state struct {
 
 type dataRuntime struct {
 	confluence.AbstractLinear[framer.StreamerResponse, framer.WriterRequest]
-	startTime telem.TimeStamp
+	// start keeps its monotonic reading, so a wall clock change does not move a timer.
+	start stdtime.Time
 	// clock stamps every cycle. It is the runtime's only clock: nodes and host
 	// functions read the stamp it produces instead of sampling their own.
 	clock     telem.MonoClock
@@ -499,7 +500,7 @@ func (d *dataRuntime) next(
 	d.state.channel.Ingest(res.Frame.ToStorage())
 	cycle := node.Cycle{
 		Now:     d.clock.Now(),
-		Elapsed: telem.Since(d.startTime),
+		Elapsed: d.elapsed(),
 		Reason:  reason,
 	}
 	d.timeMod.SetNow(cycle.Now)
@@ -522,6 +523,11 @@ func (d *dataRuntime) next(
 		return signal.SendUnderContext(ctx, d.Out.Inlet(), req)
 	}
 	return nil
+}
+
+// elapsed returns the time since the runtime started.
+func (d *dataRuntime) elapsed() telem.TimeSpan {
+	return telem.TimeSpan(stdtime.Since(d.start))
 }
 
 func (d *dataRuntime) flushAuthorityChanges(ctx context.Context) error {
@@ -587,7 +593,7 @@ func (r *tickerRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
 			}
 			timer.Stop()
 			deadline := r.scheduler.NextDeadline()
-			elapsed := telem.Since(r.startTime)
+			elapsed := r.elapsed()
 			if deadline == telem.TimeSpanMax {
 				// No active timers. Timer stays stopped, so we only wake on channel
 				// input.
