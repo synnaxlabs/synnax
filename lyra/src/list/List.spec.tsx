@@ -358,6 +358,13 @@ describe("List", () => {
         expect(texts(result)).not.toContain("250");
       });
 
+      it("should move the pin when the pinned key changes", () => {
+        const result = render(<Pinned pinned={["250"]} />);
+        result.rerender(<Pinned pinned={["300"]} />);
+        expect(texts(result)).toContain("300");
+        expect(texts(result)).not.toContain("250");
+      });
+
       it("should ignore a pinned key that is not in the data", () => {
         const unpinned = texts(render(<Pinned />));
         expect(texts(render(<Pinned pinned={["missing"]} />))).toEqual(unpinned);

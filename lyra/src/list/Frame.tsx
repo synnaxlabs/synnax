@@ -363,22 +363,21 @@ const VirtualFrame = <
   const refCallback = useFetchMoreRefCallback(ref, hasData, onFetchMore);
   const dataRef = useSyncedRef(data);
   const pinnedRef = useRef<record.Key | null>(null);
-  const pinnedPropRef = useSyncedRef(pinned);
   // The indexes of the rows that are mounted only because they are pinned.
   const pinnedOutsideRef = useRef<ReadonlySet<number>>(NO_INDEXES);
   const indexesRef = useRef<number[]>([]);
-  const extract = useCallback((range: Range) => {
+  const extract = useCallback((range: Range, pinned?: readonly record.Key[]) => {
     let indexes = defaultRangeExtractor(range);
     const keys: readonly record.Key[] = dataRef.current;
-    const outside = new Set<number>();
+    let outside: Set<number> | undefined;
     const addPinned = (key: record.Key): void => {
       const index = keys.indexOf(key);
-      if (index !== -1 && !indexes.includes(index)) outside.add(index);
+      if (index !== -1 && !indexes.includes(index)) (outside ??= new Set()).add(index);
     };
     if (pinnedRef.current != null) addPinned(pinnedRef.current);
-    pinnedPropRef.current?.forEach(addPinned);
-    if (outside.size > 0) indexes = [...indexes, ...outside].sort((a, b) => a - b);
-    pinnedOutsideRef.current = outside;
+    pinned?.forEach(addPinned);
+    if (outside != null) indexes = [...indexes, ...outside].sort((a, b) => a - b);
+    pinnedOutsideRef.current = outside ?? NO_INDEXES;
     indexesRef.current = indexes;
     return indexes;
   }, []);
@@ -386,7 +385,7 @@ const VirtualFrame = <
   // extractor mounts a pinned row that is out of view.
   const [pinExtractor, setRangeExtractor] = useState(() => extract);
   const rangeExtractor = useMemo(
-    () => (range: Range) => pinExtractor(range),
+    () => (range: Range) => pinExtractor(range, pinned),
     [pinExtractor, pinned],
   );
   const pin = useCallback(
@@ -396,7 +395,10 @@ const VirtualFrame = <
       const keys: readonly record.Key[] = dataRef.current;
       const index = keys.indexOf(key);
       if (index !== -1 && !indexesRef.current.includes(index))
-        setRangeExtractor(() => (range: Range) => extract(range));
+        setRangeExtractor(
+          () => (range: Range, pinned?: readonly record.Key[]) =>
+            extract(range, pinned),
+        );
     },
     [extract],
   );
