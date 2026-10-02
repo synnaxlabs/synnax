@@ -7,10 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Pair } from "@/ranger/kv/types.gen";
+import { beforeAll } from "vitest";
 
-export const SET_CHANNEL_NAME = "sy_range_kv_set";
-export const DELETE_CHANNEL_NAME = "sy_range_kv_delete";
+import { loadLanguage } from "@/input/time/suggest";
 
-export const createPairKey = ({ range, key }: Omit<Pair, "value">) =>
-  `${range}<--->${key}`;
+/**
+ * Loads the time inputs' phrase parser before each spec file. Otherwise the load can
+ * finish during a test and update every mounted time input outside act. Call it once
+ * from a setup file.
+ */
+export const preloadTimeLanguage = (): void => beforeAll(loadLanguage);
