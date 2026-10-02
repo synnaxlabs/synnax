@@ -71,78 +71,6 @@ var _ = Describe("DB Metadata Operations", func() {
 				Expect(dataDB.Close()).To(Succeed())
 			})
 
-			Describe("SetChannelKeyInMeta", func() {
-				It(
-					"Should change both key and index when channel is an index",
-					func(ctx SpecContext) {
-						newKey := GenerateChannelKey()
-						Expect(indexDB.SetChannelKeyInMeta(ctx, newKey)).To(Succeed())
-						ch := MustSucceed(meta.Read(ctx, indexDBfs, json.Codec))
-						Expect(ch.Key).To(Equal(newKey))
-						Expect(ch.Index).To(Equal(newKey))
-					},
-				)
-
-				It(
-					"Should change only the key when channel is not an index",
-					func(ctx SpecContext) {
-						newKey := GenerateChannelKey()
-						Expect(dataDB.SetChannelKeyInMeta(ctx, newKey)).To(Succeed())
-						ch := MustSucceed(meta.Read(ctx, dataDBfs, json.Codec))
-						Expect(ch.Key).To(Equal(newKey))
-						Expect(ch.Index).To(Equal(indexDBKey))
-					},
-				)
-			})
-
-			Describe("SetIndexKeyInMeta", func() {
-				AfterEach(func() {
-					Expect(indexDB.Close()).To(Succeed())
-					Expect(dataDB.Close()).To(Succeed())
-				})
-
-				Describe("Index Channel", func() {
-					It(
-						"Should set the index channel to a new key",
-						func(ctx SpecContext) {
-							newIndexKey := GenerateChannelKey()
-							Expect(indexDB.Channel().Key).ToNot(Equal(newIndexKey))
-							Expect(
-								indexDB.SetChannelKeyInMeta(ctx, newIndexKey),
-							).To(Succeed())
-							Expect(
-								indexDB.SetIndexKeyInMeta(ctx, newIndexKey),
-							).To(Succeed())
-							Expect(indexDB.Channel().Key).To(Equal(newIndexKey))
-							Expect(indexDB.Channel().Index).To(Equal(newIndexKey))
-						},
-					)
-
-					It(
-						"Should return an error when attempting to set an index key that is different than the channel key",
-						func(ctx SpecContext) {
-							newIndexKey := GenerateChannelKey()
-							Expect(
-								indexDB.SetIndexKeyInMeta(ctx, newIndexKey),
-							).To(MatchError(ContainSubstring("index: index channel cannot be indexed by another channel")))
-						},
-					)
-				})
-
-				Describe("Data Channel", func() {
-					It(
-						"Should set the data channel to a new key",
-						func(ctx SpecContext) {
-							newIndexKey := GenerateChannelKey()
-							Expect(
-								dataDB.SetIndexKeyInMeta(ctx, newIndexKey),
-							).To(Succeed())
-							Expect(dataDB.Channel().Index).To(Equal(newIndexKey))
-						},
-					)
-				})
-			})
-
 			Describe("RenameChannelInMeta", func() {
 				It("Should rename the channel and persist it", func(ctx SpecContext) {
 					Expect(dataDB.RenameChannelInMeta(ctx, "new_name")).To(Succeed())
@@ -224,15 +152,6 @@ var _ = Describe("DB Metadata Operations", func() {
 				Expect(db.Close()).To(Succeed())
 				Expect(
 					db.RenameChannelInMeta(ctx, "new_name"),
-				).To(MatchError(unary.ErrDBClosed))
-				Expect(
-					db.SetChannelKeyInMeta(ctx, GenerateChannelKey()),
-				).To(MatchError(unary.ErrDBClosed))
-				Expect(
-					db.SetIndexKeyInMeta(ctx, GenerateChannelKey()),
-				).To(MatchError(unary.ErrDBClosed))
-				Expect(
-					db.SetChannelKeyInMeta(ctx, GenerateChannelKey()),
 				).To(MatchError(unary.ErrDBClosed))
 				Expect(
 					db.Delete(ctx, telem.TimeRange{}),
