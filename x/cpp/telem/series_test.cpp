@@ -561,6 +561,20 @@ TEST(TestSeries, testDeepCopy) {
     ASSERT_EQ(s2.alignment.uint64(), s1.alignment.uint64());
 }
 
+/// @brief it should allocate the spare capacity of the source in a deep copy. The
+/// capacity is large so that an overflow crashes without a sanitizer.
+TEST(TestSeries, testDeepCopyWriteIntoSpareCapacity) {
+    constexpr size_t cap = 1 << 22;
+    Series s1{UINT32_T, cap};
+    s1.write(std::uint32_t{1});
+    Series s2 = s1.deep_copy();
+    ASSERT_EQ(s2.cap(), cap);
+    ASSERT_EQ(s2.write(Series(std::vector<std::uint32_t>(cap - 1, 7))), cap - 1);
+    ASSERT_EQ(s2.size(), cap);
+    ASSERT_EQ(s2.at<std::uint32_t>(0), 1);
+    ASSERT_EQ(s2.at<std::uint32_t>(-1), 7);
+}
+
 /// @brief it should deep copy a variable data type series.
 TEST(TestSeries, testDeepCopyVariableDataType) {
     Series s1{std::vector<std::string>{"hello", "world", "test"}};
