@@ -71,7 +71,7 @@ public:
             case ExecutionMode::BUSY_WAIT:
                 return this->busy_wait(breaker, max_timeout);
             case ExecutionMode::HIGH_RATE:
-                return this->high_rate_wait(max_timeout);
+                return this->high_rate_wait(breaker, max_timeout);
             case ExecutionMode::HYBRID:
             case ExecutionMode::RT_EVENT:
                 return this->hybrid_wait(breaker, max_timeout);
@@ -174,9 +174,14 @@ private:
     }
 
     /// @brief HIGH_RATE: Precise software sleep to the interval or the deadline,
-    /// whichever is first, then a non-blocking kqueue drain.
-    WakeReason high_rate_wait(const x::telem::TimeSpan max_timeout) {
-        this->sleeper_.precise_sleep(high_rate_span(this->config_, max_timeout));
+    /// whichever is first, or until the breaker stops. Then a non-blocking kqueue
+    /// drain.
+    WakeReason high_rate_wait(
+        const x::breaker::Breaker &breaker,
+        const x::telem::TimeSpan max_timeout
+    ) {
+        const auto span = high_rate_span(this->config_, max_timeout);
+        if (!this->sleeper_.precise_sleep(span, breaker)) return WakeReason::Shutdown;
         constexpr timespec timeout = {0, 0};
         struct kevent events[8];
         kevent(this->kqueue_fd_, nullptr, 0, events, 8, &timeout);

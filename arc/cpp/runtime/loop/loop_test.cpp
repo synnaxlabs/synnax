@@ -175,6 +175,7 @@ TEST(LoopTest, HighRateMode) {
     const auto loop = ASSERT_NIL_P(create_and_start(config));
 
     x::breaker::Breaker breaker;
+    breaker.start();
 
     const auto sw = x::telem::Stopwatch();
     loop->wait(breaker);
@@ -182,6 +183,7 @@ TEST(LoopTest, HighRateMode) {
     const auto elapsed = sw.elapsed();
     EXPECT_GE(elapsed, test_timing::TIMER_LOWER_BOUND);
     EXPECT_LE(elapsed, test_timing::TIMER_UPPER_BOUND);
+    breaker.stop();
 }
 
 /// @brief HIGH_RATE should wake on a deadline that comes before its interval.
@@ -193,6 +195,7 @@ TEST(LoopTest, HighRateMode_WakesOnDeadlineBeforeInterval) {
     const auto loop = ASSERT_NIL_P(create_and_start(config));
 
     x::breaker::Breaker breaker;
+    breaker.start();
 
     const auto sw = x::telem::Stopwatch();
     EXPECT_EQ(loop->wait(breaker, 10 * x::telem::MILLISECOND), WakeReason::Timer);
@@ -200,6 +203,7 @@ TEST(LoopTest, HighRateMode_WakesOnDeadlineBeforeInterval) {
     const auto elapsed = sw.elapsed();
     EXPECT_GE(elapsed, 10 * x::telem::MILLISECOND);
     EXPECT_LE(elapsed, test_timing::TIMER_UPPER_BOUND);
+    breaker.stop();
 }
 
 /// @brief BUSY_WAIT should wake on a deadline.
@@ -745,6 +749,30 @@ TEST(BreakerCancellationTest, BreakerStop_BusyWaitExits) {
     waiter.join();
 
     EXPECT_TRUE(woke_up.load());
+    EXPECT_LE(sw.elapsed(), test_timing::BREAKER_STOP_LATENCY);
+}
+
+/// @brief HIGH_RATE should exit when the breaker stops during a long sleep.
+TEST(BreakerCancellationTest, BreakerStop_HighRateModeExits) {
+    Config config;
+    config.mode = ExecutionMode::HIGH_RATE;
+    config.interval = 10 * x::telem::SECOND;
+
+    const auto loop = ASSERT_NIL_P(create_and_start(config));
+
+    WakeReason reason = WakeReason::Timer;
+    x::breaker::Breaker breaker;
+    breaker.start();
+
+    std::thread waiter([&] { reason = loop->wait(breaker, 10 * x::telem::SECOND); });
+
+    std::this_thread::sleep_for(test_timing::THREAD_STARTUP.chrono());
+
+    const auto sw = x::telem::Stopwatch();
+    breaker.stop();
+    waiter.join();
+
+    EXPECT_EQ(reason, WakeReason::Shutdown);
     EXPECT_LE(sw.elapsed(), test_timing::BREAKER_STOP_LATENCY);
 }
 

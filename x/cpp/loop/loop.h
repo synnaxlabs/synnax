@@ -87,8 +87,23 @@ public:
 
     /// @brief Fine-grained sleep using Welford's online algorithm for calibration.
     void precise_sleep(const telem::TimeSpan &dur) {
+        this->sleep_while(dur, [] { return true; });
+    }
+
+    /// @brief Fine-grained sleep that ends early when the breaker stops.
+    /// @returns false if the breaker stopped before or during the sleep.
+    bool precise_sleep(const telem::TimeSpan &dur, const breaker::Breaker &breaker) {
+        this->sleep_while(dur, [&breaker] { return breaker.running(); });
+        return breaker.running();
+    }
+
+private:
+    /// @brief sleeps precisely for dur, and ends early once running returns false.
+    template<typename Running>
+    void sleep_while(const telem::TimeSpan &dur, const Running &running) {
         const auto end = hs_clock::now() + dur.chrono();
         while (dur > sleep_estimate_) {
+            if (!running()) return;
             auto start = hs_clock::now();
             if (start >= end) break;
             std::this_thread::sleep_for(RESOLUTION.chrono());
@@ -103,10 +118,9 @@ public:
             sleep_count_++;
         }
         while (end > hs_clock::now())
-            ;
+            if (!running()) return;
     }
 
-private:
     [[nodiscard]] bool high_rate() const { return interval < HIGH_RES_THRESHOLD; }
 
     [[nodiscard]] bool medium_rate() const { return interval < MEDIUM_RES_THRESHOLD; }
