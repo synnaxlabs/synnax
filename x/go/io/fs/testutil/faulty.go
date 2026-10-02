@@ -31,6 +31,8 @@ const (
 	FaultOpReadAt FaultOp = "read_at"
 	// FaultOpWrite names File.Write.
 	FaultOpWrite FaultOp = "write"
+	// FaultOpSync names File.Sync.
+	FaultOpSync FaultOp = "sync"
 	// FaultOpRename names FS.Rename.
 	FaultOpRename FaultOp = "rename"
 	// FaultOpStat names FS.Stat.
@@ -83,6 +85,9 @@ func WithFailReadAt(names ...string) FaultyFSOption {
 func WithFailWrite(names ...string) FaultyFSOption {
 	return failOn(FaultOpWrite, names)
 }
+
+// WithFailSync fails Sync on each of the given paths. With no path, every Sync fails.
+func WithFailSync(names ...string) FaultyFSOption { return failOn(FaultOpSync, names) }
 
 // WithFailRename fails Rename on each of the given old paths. With no path, every
 // Rename fails.
@@ -167,8 +172,8 @@ func (fs *FaultyFS) Sub(name string) (xfs.FS, error) {
 }
 
 // Open opens the file, counting the handle it returns until that handle is closed.
-// Reads and writes through the handle fail as the options select. Open returns ErrFault
-// when WithFailOpen covers name.
+// Reads, writes and syncs through the handle fail as the options select. Open returns
+// ErrFault when WithFailOpen covers name.
 func (fs *FaultyFS) Open(name string, flag int) (xfs.File, error) {
 	if err := fs.fault(FaultOpOpen, name); err != nil {
 		return nil, err
@@ -231,6 +236,13 @@ func (f *faultyFile) Write(p []byte) (int, error) {
 		return 0, err
 	}
 	return f.File.Write(p)
+}
+
+func (f *faultyFile) Sync() error {
+	if err := f.fs.fault(FaultOpSync, f.name); err != nil {
+		return err
+	}
+	return f.File.Sync()
 }
 
 func (f *faultyFile) Close() error { f.fs.open.Add(-1); return f.File.Close() }
