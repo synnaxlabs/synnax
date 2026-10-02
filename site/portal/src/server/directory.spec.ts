@@ -18,6 +18,8 @@ interface FakeUser {
   username: string | null;
   primaryEmailAddressId: string | null;
   emailAddresses: { id: string; emailAddress: string }[];
+  hasImage: boolean;
+  imageUrl: string;
 }
 
 const user = (overrides: Partial<FakeUser> = {}): FakeUser => ({
@@ -30,6 +32,8 @@ const user = (overrides: Partial<FakeUser> = {}): FakeUser => ({
     { id: "email_1", emailAddress: "old@example.com" },
     { id: "email_2", emailAddress: "ada@example.com" },
   ],
+  hasImage: false,
+  imageUrl: "https://img.clerk.com/default",
   ...overrides,
 });
 
@@ -225,6 +229,20 @@ describe("directory", () => {
           users: [user({ firstName: null, lastName: null, username: null })],
         });
         expect((await directory.person("user_a")).name).toBe("ada@example.com");
+      });
+
+      it("should read the picture of a user who set one", async () => {
+        const { directory } = createClient({
+          users: [user({ hasImage: true, imageUrl: "https://img.clerk.com/ada" })],
+        });
+        expect((await directory.person("user_a")).image).toBe(
+          "https://img.clerk.com/ada",
+        );
+      });
+
+      it("should leave out the picture Clerk generates for a user", async () => {
+        const { directory } = createClient();
+        expect((await directory.person("user_a")).image).toBeUndefined();
       });
 
       it("should throw when Clerk does not know the user", async () => {

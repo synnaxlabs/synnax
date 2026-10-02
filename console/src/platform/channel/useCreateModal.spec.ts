@@ -12,6 +12,8 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { type Analytics } from "@/platform/analytics";
+import { createTestSink } from "@/platform/analytics/testutil";
 import { Channel } from "@/platform/channel";
 import { createTestIndexChannel, uniqueChannelName } from "@/platform/channel/testutil";
 import {
@@ -23,8 +25,13 @@ import {
 
 const client = createTestClient();
 
-const openModal = async (): Promise<ModalOpenerHandle<void>> => {
-  const handle = await renderModalOpener(Channel.useCreateModal, [], { client });
+const openModal = async (
+  analytics?: Analytics.Sink,
+): Promise<ModalOpenerHandle<void>> => {
+  const handle = await renderModalOpener(Channel.useCreateModal, [], {
+    client,
+    analytics,
+  });
   await screen.findByPlaceholderText("Name");
   return handle;
 };
@@ -100,6 +107,19 @@ describe("useCreateModal", () => {
         expect(created.virtual).toBe(true);
         expect(created.index).toEqual(0);
       });
+    });
+
+    it("should report the channel it created", async () => {
+      const analytics = createTestSink();
+      await openModal(analytics);
+      setName(uniqueChannelName("virt"));
+      fireEvent.click(getSwitch("Virtual"));
+      await clickCreate();
+      await waitFor(() =>
+        expect(analytics.capture).toHaveBeenCalledWith("channel_created", {
+          calculated: false,
+        }),
+      );
     });
 
     it("should keep the modal open and reset the form when create more is enabled", async () => {

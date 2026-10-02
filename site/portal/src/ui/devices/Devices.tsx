@@ -7,23 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Button } from "@synnaxlabs/lyra/button";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
-import { type Activation, type License } from "@/server/db/schema";
+import { type License } from "@/server/db/schema";
 import { type Machine } from "@/server/license/desktop";
-import { post, reload } from "@/ui/api";
+import { LogOutDialog } from "@/ui/devices/LogOutDialog";
 import { date, machineName, statusOf } from "@/ui/format";
 import { Licenses } from "@/ui/licenses";
-import { Modal } from "@/ui/modal";
+import { DOWNLOAD_URL } from "@/ui/links";
 import { Empty, Page } from "@/ui/Page";
 import { Row, Table } from "@/ui/Table";
 
 export interface DevicesProps {
-  /** machines are the machines signed in from the Desktop app that hold a seat. */
+  /** machines are the machines logged in from the Desktop app that hold a seat. */
   machines: Machine[];
   now: Date;
 }
@@ -36,13 +37,20 @@ const validity = (lic: License, now: Date): string =>
     ? `Expired ${date(lic.expiresAt)}. Open the app on that machine to renew.`
     : `Valid until ${date(lic.expiresAt)}`;
 
-/** Devices lists the machines a personal user signed in from Synnax Desktop. */
+/** Devices lists the machines a personal user logged in from Synnax Desktop. */
 export const Devices = ({ machines, now }: DevicesProps): ReactElement => (
-  <Page title="Devices" subtitle="Machines signed in from Synnax Desktop">
+  <Page title="Devices" subtitle="Machines logged in from Synnax Desktop">
     {machines.length === 0 ? (
       <Empty
+        icon={<Icon.Computer />}
         message="No machines yet"
-        description="Sign in from the Synnax Desktop app and this machine appears here."
+        description="Log in from the Synnax Desktop app and the machine appears here"
+        action={
+          <Button.Button variant="filled" href={DOWNLOAD_URL}>
+            <Icon.Download />
+            Download Synnax Desktop
+          </Button.Button>
+        }
       />
     ) : (
       <Table
@@ -62,10 +70,10 @@ export const Devices = ({ machines, now }: DevicesProps): ReactElement => (
             <Flex.Box>
               <Licenses.StatusTag status={statusOf(lic, now)} />
             </Flex.Box>
-            <Text.Text level="p" color={10}>
+            <Text.Text level="p" color={9}>
               {date(a.firstSeen)}
             </Text.Text>
-            <Text.Text level="p" color={10}>
+            <Text.Text level="p" color={9}>
               {date(a.lastSeen)}
             </Text.Text>
             <Flex.Box x justify="end" gap="small">
@@ -77,35 +85,11 @@ export const Devices = ({ machines, now }: DevicesProps): ReactElement => (
                   </Dialog.Trigger>
                 }
               />
-              <UnlinkDialog activation={a} />
+              <LogOutDialog activation={a} />
             </Flex.Box>
           </Row>
         ))}
       </Table>
     )}
   </Page>
-);
-
-const UnlinkDialog = ({ activation }: { activation: Activation }): ReactElement => (
-  <Modal.Frame
-    name="Unlink this device"
-    icon={<Icon.Disconnect />}
-    trigger={
-      <Dialog.Trigger variant="text" size="small" hideCaret status="error">
-        Unlink
-      </Dialog.Trigger>
-    }
-  >
-    <Modal.Confirm
-      question={`Unlink ${machineName(activation)}?`}
-      confirm="Unlink"
-      onConfirm={async () => {
-        await post(`/api/activations/${activation.key}/release`);
-        reload();
-      }}
-    >
-      The Desktop app on that machine stops renewing its license and asks you to sign in
-      again.
-    </Modal.Confirm>
-  </Modal.Frame>
 );

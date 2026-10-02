@@ -125,7 +125,7 @@ shows. Vercel Cron calls the daily expiry sweep on production with `CRON_SECRET`
 
 ### CI license
 
-Sign in to the portal as staff, open the Synnax Labs organization's licenses, issue a
+Log in to the portal as staff, open the Synnax Labs organization's licenses, issue a
 subscription of a few months with one node and no channel cap labelled "CI", and use
 "Floating license key" on it. Store it with
 `gh secret set SYNNAX_LICENSE_TOKEN < <file>`. Rotate it by issuing a new one before the

@@ -21,7 +21,7 @@ export const flag = (value: boolean): boolean => value || PREVIEW;
  * Vercel for the site and as a repository variable for the search index job.
  */
 export const FLAGS = {
-  // Portal team. Hides the header's Sign in button until the portal launches, which
+  // Portal team. Hides the header's Log in button until the portal launches, which
   // removes the flag.
   portal: flag(FLAG_PORTAL),
 } satisfies Record<string, boolean>;

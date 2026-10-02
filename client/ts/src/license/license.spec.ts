@@ -39,6 +39,14 @@ describe("license", () => {
     expect(info.license == null).toBe(info.state === "missing");
   });
 
+  it("should keep the license when deactivating a key the Core does not hold", async () => {
+    const before = await client.license.retrieve();
+    const after = await client.license.deactivate(
+      "8f0f3c52-4c6a-4d6c-9a33-2e4b6a1f7d10",
+    );
+    expect(after.state).toBe(before.state);
+  });
+
   it("should reject a license key that cannot be verified", async () => {
     await expect(client.license.activate("not-a-license-key")).rejects.toThrow(
       InvalidLicenseError,
@@ -61,6 +69,17 @@ describe("license", () => {
       const licenses = createClient(ACTIVATED);
       await licenses.activate("key");
       expect(licenses.getCached()).toEqual(ACTIVATED);
+    });
+
+    it("should cache the state a deactivation returns", async () => {
+      const missing: license.Info = {
+        state: "missing",
+        warning: "",
+        fingerprint: ["a"],
+      };
+      const licenses = createClient(missing);
+      await licenses.deactivate("8f0f3c52-4c6a-4d6c-9a33-2e4b6a1f7d10");
+      expect(licenses.getCached()).toEqual(missing);
     });
 
     it("should notify subscribers of an activated license", async () => {

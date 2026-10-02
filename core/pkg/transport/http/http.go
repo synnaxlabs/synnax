@@ -104,6 +104,9 @@ func Bind(layer *api.Layer, router *http.Router) {
 		LicenseActivate: router.NewUnaryServer[license.ActivateRequest, license.ActivateResponse](
 			"/api/v1/license/activate",
 		),
+		LicenseDeactivate: router.NewUnaryServer[license.DeactivateRequest, license.DeactivateResponse](
+			"/api/v1/license/deactivate",
+		),
 
 		// FRAME
 		FrameWriter: router.NewStreamServer[framer.WriterRequest, framer.WriterResponse](

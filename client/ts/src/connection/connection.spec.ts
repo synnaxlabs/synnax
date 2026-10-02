@@ -1168,7 +1168,8 @@ describe("connection", () => {
       const next = vi.fn(async (ctx: Context) => ctx);
       await mw(createUnaryContext(`/api/v1${license.RETRIEVE_ENDPOINT}`), next);
       await mw(createUnaryContext(`/api/v1${license.ACTIVATE_ENDPOINT}`), next);
-      expect(next).toHaveBeenCalledTimes(2);
+      await mw(createUnaryContext(`/api/v1${license.DEACTIVATE_ENDPOINT}`), next);
+      expect(next).toHaveBeenCalledTimes(3);
       await client.close();
     });
 

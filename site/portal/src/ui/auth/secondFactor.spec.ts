@@ -69,10 +69,10 @@ describe("secondFactor", () => {
 
   describe("prompt", () => {
     it("should say where each code comes from", () => {
-      expect(prompt(TOTP)).toBe("Enter the code from your authenticator app.");
-      expect(prompt(BACKUP)).toBe("Enter one of your backup codes.");
-      expect(prompt(EMAIL)).toBe("Enter the code we sent to a•••@acme.com.");
-      expect(prompt(PHONE)).toBe("Enter the code we sent to +1 •••• 42.");
+      expect(prompt(TOTP)).toBe("Enter the code from your authenticator app");
+      expect(prompt(BACKUP)).toBe("Enter one of your backup codes");
+      expect(prompt(EMAIL)).toBe("Enter the code we sent to a•••@acme.com");
+      expect(prompt(PHONE)).toBe("Enter the code we sent to +1 •••• 42");
     });
   });
 
