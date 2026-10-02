@@ -174,9 +174,30 @@ private:
         return SetWaitableTimer(this->timer_event_, &due_time, 0, NULL, NULL, FALSE);
     }
 
+    // A deadline past the spin span arms the timer that span early.
     bool arm_deadline(const x::telem::TimeSpan max_timeout) const {
-        return this->timer_enabled_ && max_timeout.nanoseconds() > 0 &&
-               this->arm_timer(max_timeout);
+        if (!this->timer_enabled_ || max_timeout.nanoseconds() <= 0) return false;
+        const auto spin = max_timeout > timing::WINDOWS_DEADLINE_SPIN
+                            ? timing::WINDOWS_DEADLINE_SPIN
+                            : x::telem::TimeSpan(0);
+        return this->arm_timer(max_timeout - spin);
+    }
+
+    // Spins to the deadline after a timer wake. The timer handle is last and unwatched.
+    WakeReason finish_timer_wake(
+        const HANDLE *handles,
+        const DWORD count,
+        const x::telem::Stopwatch &sw,
+        const x::telem::TimeSpan deadline
+    ) const {
+        auto reason = WakeReason::Timer;
+        while (reason == WakeReason::Timer && sw.elapsed() < deadline) {
+            const DWORD result = WaitForMultipleObjects(count - 1, handles, FALSE, 0);
+            if (result < WAIT_OBJECT_0 + count - 1)
+                reason = this->classify_result(result, handles);
+        }
+        this->arm_timer();
+        return reason;
     }
 
     void close_handles() {
@@ -239,8 +260,9 @@ private:
                                    : static_cast<DWORD>(
                                          timing::HYBRID_BLOCK_TIMEOUT.milliseconds()
                                      );
-        const DWORD timeout_ms = this->arm_deadline(max_timeout) ? INFINITE
-                                                                 : default_ms;
+        const auto sw = x::telem::Stopwatch();
+        const bool deadline = this->arm_deadline(max_timeout);
+        const DWORD timeout_ms = deadline ? INFINITE : default_ms;
 
         const DWORD result = WaitForMultipleObjects(count, handles, FALSE, timeout_ms);
         if (result == WAIT_TIMEOUT) return WakeReason::Timeout;
@@ -250,8 +272,13 @@ private:
             return WakeReason::Shutdown;
         }
         const auto reason = this->classify_result(result, handles);
-        if (reason == WakeReason::Timer) this->arm_timer();
-        return reason;
+        if (reason != WakeReason::Timer) return reason;
+        return this->finish_timer_wake(
+            handles,
+            count,
+            sw,
+            deadline ? max_timeout : x::telem::TimeSpan(0)
+        );
     }
 
     WakeReason
@@ -259,7 +286,9 @@ private:
         HANDLE handles[3];
         const DWORD count = this->build_handles(handles);
         if (count == 0) return WakeReason::Shutdown;
+        const auto sw = x::telem::Stopwatch();
         const bool deadline = this->arm_deadline(max_timeout);
+        const auto spin_until = deadline ? max_timeout : x::telem::TimeSpan(0);
 
         const auto spin_start = std::chrono::steady_clock::now();
         const auto spin_duration = std::chrono::nanoseconds(
@@ -272,8 +301,8 @@ private:
             const DWORD result = WaitForMultipleObjects(count, handles, FALSE, 0);
             if (result < WAIT_OBJECT_0 + count) {
                 const auto reason = this->classify_result(result, handles);
-                if (reason == WakeReason::Timer) this->arm_timer();
-                return reason;
+                if (reason != WakeReason::Timer) return reason;
+                return this->finish_timer_wake(handles, count, sw, spin_until);
             }
         }
 
@@ -286,8 +315,8 @@ private:
         if (result == WAIT_TIMEOUT) return WakeReason::Timeout;
         if (result < WAIT_OBJECT_0 + count) {
             const auto reason = this->classify_result(result, handles);
-            if (reason == WakeReason::Timer) this->arm_timer();
-            return reason;
+            if (reason != WakeReason::Timer) return reason;
+            return this->finish_timer_wake(handles, count, sw, spin_until);
         }
         return WakeReason::Shutdown;
     }
