@@ -9,22 +9,27 @@
 
 import { Avatar } from "@synnaxlabs/lyra/avatar";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
-import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tag } from "@synnaxlabs/lyra/tag";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useCallback } from "react";
 
+import { type OrganizationKind } from "@/server/db/schema";
+
 export interface ScopeOption {
   key: string;
   name: string;
-  /** personal is true for the user's own organization, which the switcher tags. */
-  personal: boolean;
+  kind: OrganizationKind;
 }
 
-const PersonalTag = (): ReactElement => (
-  <Tag.Tag size="small" className="portal-scope__tag">
-    Personal
+const KIND_LABELS: Record<OrganizationKind, string> = {
+  personal: "Personal",
+  team: "Enterprise",
+};
+
+const KindTag = ({ kind }: { kind: OrganizationKind }): ReactElement => (
+  <Tag.Tag size="small" className={`portal-scope__tag portal-scope__tag--${kind}`}>
+    {KIND_LABELS[kind]}
   </Tag.Tag>
 );
 
@@ -48,7 +53,7 @@ export const Scope = ({ options, selected }: ScopeProps): ReactElement => {
       <Text.Text level="p" weight={500} overflow="ellipsis">
         {selected.name}
       </Text.Text>
-      {selected.personal && <PersonalTag />}
+      <KindTag kind={selected.kind} />
     </>
   );
   if (options.length === 1) return <span className="portal-scope">{label}</span>;
@@ -58,12 +63,10 @@ export const Scope = ({ options, selected }: ScopeProps): ReactElement => {
         <Dialog.Trigger
           size="large"
           variant="text"
-          hideCaret
           className="portal-scope"
           aria-label="Switch scope"
         >
           {label}
-          <Icon.Caret.Down className="portal-scope__caret" />
         </Dialog.Trigger>
         <Select.Dialog className="portal-scope__dialog" background={1} rounded>
           <Select.List full="x">
@@ -73,7 +76,7 @@ export const Scope = ({ options, selected }: ScopeProps): ReactElement => {
                 <Text.Text level="p" overflow="ellipsis">
                   {o.name}
                 </Text.Text>
-                {o.personal && <PersonalTag />}
+                <KindTag kind={o.kind} />
               </Select.Item>
             ))}
           </Select.List>

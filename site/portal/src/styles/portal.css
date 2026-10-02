@@ -47,7 +47,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 3rem;
-    height: 8rem;
+    height: 10rem;
     padding: 0 4rem;
 }
 
@@ -105,29 +105,58 @@
 /* The left inset matches the space above and below the mark, so the hover fill rims it
    evenly. */
 .pluto-btn.portal-scope {
-    padding: 0 1.5rem 0 0.75rem;
+    padding: 1.5rem 2rem 1.5rem 1.5rem;
 }
 
-.portal-scope__caret {
-    width: 2rem;
-    height: 2rem;
-    color: var(--pluto-gray-l8);
+.portal-scope > .portal-scope__tag {
+    margin-left: 1rem;
 }
 
 .pluto-dialog__dialog.portal-scope__dialog {
-    min-width: 40rem;
+    /* Lyra's rounded rule ties this selector, so set the radius it reads. */
+    --pluto-border-radius: var(--pluto-border-radius-medium);
+
+    min-width: 48rem;
     padding: 0.5rem;
     border: var(--pluto-border);
     box-shadow: var(--pluto-shadow-overlay);
 }
 
-.portal-scope__item {
+/* Inset from the dialog's corner by its padding, so the corners stay concentric. */
+.pluto-list__item.portal-scope__item {
     gap: 1.5rem;
+    padding: 1.5rem 2rem;
+    border-radius: calc(var(--pluto-border-radius-medium) - 0.5rem);
+
+    .portal-scope__tag {
+        margin-left: auto;
+    }
+
+    & + .portal-scope__item {
+        margin-top: 0.5rem;
+    }
 }
 
-/* A long name truncates before the tag shrinks. */
-.portal-scope__tag {
+/* A long name truncates before the tag shrinks. Lyra's tag rule outranks a single
+   class. */
+.pluto-btn.pluto-tag.portal-scope__tag {
     flex-shrink: 0;
+    border-color: var(--portal-tag-z-50);
+    background: var(--portal-tag-z-20);
+    box-shadow: none;
+    color: var(--portal-tag-p1);
+}
+
+.portal-scope__tag--personal {
+    --portal-tag-z-50: var(--pluto-primary-z-50);
+    --portal-tag-z-20: var(--pluto-primary-z-20);
+    --portal-tag-p1: var(--pluto-primary-p1);
+}
+
+.portal-scope__tag--team {
+    --portal-tag-z-50: var(--pluto-secondary-z-50);
+    --portal-tag-z-20: var(--pluto-secondary-z-20);
+    --portal-tag-p1: var(--pluto-secondary-p1);
 }
 
 /* Phones scroll the tab row sideways instead of wrapping it. */
