@@ -18,7 +18,12 @@ import {
   TimeStamp,
 } from "@synnaxlabs/x";
 
-import { AccessDeniedError, NotFoundError } from "@/errors";
+import {
+  AccessDeniedError,
+  ExpiredLicenseError,
+  MissingLicenseError,
+  NotFoundError,
+} from "@/errors";
 import { Deleted } from "@/query/deleted";
 import { type Table, type TableEvent } from "@/query/table";
 import { type Data, type FetchOptions, type Params } from "@/query/types";
@@ -492,6 +497,9 @@ export class Space<
       await this.hooks.ensureStreaming?.();
     } catch (exc) {
       if (AccessDeniedError.matches(exc)) return;
+      // An unlicensed Core refuses the stream. The connection opens it once a license
+      // applies, and the epoch bump that follows refetches maintained answers.
+      if (MissingLicenseError.matches(exc) || ExpiredLicenseError.matches(exc)) return;
       this.report(exc);
     }
   }

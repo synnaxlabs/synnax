@@ -23,22 +23,25 @@ export const Symbol = ({
   position,
   onConfigChange,
   selected,
-  config: { label, color, dimensions: dims, orientation, indicator },
+  config,
 }: NodeProps<schematic.ScaleNodeConfig>): ReactElement => {
+  const { label, dimensions: dims, orientation, channel, rollingAverage } = config;
   const dir = location.direction(orientation);
   // The configured dimensions are the bar's own. The ticks live beside it, so the
   // symbol takes the gutter on top of them.
-  const vis = BaseScale.visProps(indicator);
+  const vis = BaseScale.visProps(config);
   const gutter = VisScale.gutter(vis);
   const outer: dimensions.Dimensions =
     dir === "y"
       ? { width: dims.width + gutter, height: dims.height }
       : { width: dims.width, height: dims.height + gutter };
-  const telem = useMemo(() => BaseScale.source(indicator), [indicator]);
+  const telem = useMemo(
+    () => BaseScale.source({ channel, rollingAverage }),
+    [channel, rollingAverage],
+  );
   VisScale.use({
     ...vis,
     telem,
-    color,
     aetherKey: nodeKey,
     box: box.construct(position ?? xy.ZERO, outer),
     direction: dir,
@@ -48,11 +51,8 @@ export const Symbol = ({
     onConfigChange({
       orientation: dir === "y" ? "right" : "top",
       dimensions: dimensions.swap(dims),
-      indicator: {
-        ...indicator,
-        side: location.swapAxis(indicator.side),
-        caretSide: location.swapAxis(indicator.caretSide),
-      },
+      side: location.swapAxis(config.side),
+      caretSide: location.swapAxis(config.caretSide),
     });
   const handleResize = ({ width, height }: dimensions.Dimensions): void =>
     onConfigChange({

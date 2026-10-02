@@ -19,13 +19,15 @@ import { type Spec } from "@/schematic/node/spec";
 const PREVIEW_DIMENSIONS = { width: 60, height: 25 };
 
 const Preview = ({
-  color,
+  strokeColor,
+  textColor,
   orientation,
   units,
   inlineSize,
 }: schematic.ValueNodeConfig): ReactElement => (
   <Value
-    color={color}
+    strokeColor={strokeColor}
+    textColor={textColor}
     orientation={orientation}
     units={units}
     inlineSize={inlineSize}

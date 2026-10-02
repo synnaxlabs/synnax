@@ -45,13 +45,23 @@
       "ignoreDependencies": ["@vitest/coverage-v8"]
     },
     "console": {
-      "entry": ["src/main.tsx", "src-tauri/src/main.rs"],
+      "entry": ["src/flags.ts"],
       "project": ["src/**/*.{ts,tsx}"],
-      "ignore": ["src-tauri/**"]
+      "ignoreIssues": {
+        "src/app/nav/drawer/Bottom.tsx": ["exports"],
+        "src/feature/*/{explorer,overview}/external.tsx": ["exports"],
+        "src/platform/*/filter/{Chips,MenuItem}.tsx": ["exports"],
+        "src/platform/task/{fields,views}/*.tsx": ["exports"]
+      }
     },
     "site/docs": {
       "entry": ["src/**/*.astro", "src/**/*.tsx", "src/**/*.ts"],
       "project": ["src/**/*.{ts,tsx,astro,mdx}"]
+    },
+    "site/portal": {
+      "entry": ["src/**/*.astro", "src/**/*.tsx", "src/**/*.ts", "scripts/*.ts"],
+      "project": ["src/**/*.{ts,tsx,astro}", "scripts/*.ts"],
+      "ignoreDependencies": ["@astrojs/*"]
     },
     "site/www": {
       "entry": ["src/pages/**/*.astro"],

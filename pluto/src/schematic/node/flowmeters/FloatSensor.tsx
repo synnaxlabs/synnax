@@ -21,7 +21,7 @@ export const FloatSensor = ({
   id,
   className,
   orientation = "right",
-  color,
+  strokeColor,
   scale = 1,
   ...rest
 }: Props): ReactElement => (
@@ -38,7 +38,7 @@ export const FloatSensor = ({
     />
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={color}
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
     >
@@ -47,7 +47,7 @@ export const FloatSensor = ({
       <Primitive.Path d="M31 27H40" strokeLinecap="round" />
       <Primitive.Path d="M31 27L25.046 8.11641" strokeLinecap="round" />
       <Primitive.Path d="M40 27L45.954 8.11641" strokeLinecap="round" />
-      <Label color={color} />
+      <Label strokeColor={strokeColor} />
     </Primitive.SVG>
   </Primitive.Div>
 );

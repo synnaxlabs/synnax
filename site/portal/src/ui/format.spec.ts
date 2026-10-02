@@ -1,0 +1,120 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { describe, expect, it } from "vitest";
+
+import { type Event, type License } from "@/server/db/schema";
+import { LICENSE, NOW } from "@/server/license/testutil";
+import { describeEvent, standing, statusOf } from "@/ui/format";
+
+const licenseOf = (overrides: Partial<License>): License => ({
+  ...LICENSE,
+  ...overrides,
+});
+
+const days = (n: number): Date => new Date(NOW.getTime() + n * 24 * 60 * 60 * 1000);
+
+describe("format.statusOf", () => {
+  it("should call a revoked license revoked whatever its expiry", () => {
+    const lic = licenseOf({ revokedAt: NOW, expiresAt: days(90) });
+    expect(statusOf(lic, NOW)).toBe("revoked");
+  });
+
+  it("should call a perpetual license active", () => {
+    expect(statusOf(licenseOf({ expiresAt: null }), NOW)).toBe("active");
+  });
+
+  it("should call a license past its expiry expired", () => {
+    expect(statusOf(licenseOf({ expiresAt: days(-1) }), NOW)).toBe("expired");
+  });
+
+  it("should call a license inside the renewal window expiring", () => {
+    expect(statusOf(licenseOf({ expiresAt: days(29) }), NOW)).toBe("expiring");
+  });
+
+  it("should call a license outside the renewal window active", () => {
+    expect(statusOf(licenseOf({ expiresAt: days(31) }), NOW)).toBe("active");
+  });
+});
+
+describe("format.standing", () => {
+  it("should sum seats and capacity over usable licenses only", () => {
+    const held = [
+      { license: licenseOf({ nodes: 5, expiresAt: days(90) }), seats: 2 },
+      { license: licenseOf({ nodes: 3, expiresAt: days(10) }), seats: 1 },
+      { license: licenseOf({ nodes: 9, revokedAt: NOW }), seats: 4 },
+      { license: licenseOf({ nodes: 9, expiresAt: days(-1) }), seats: 4 },
+    ];
+    expect(standing(held, NOW)).toEqual({
+      active: 2,
+      seats: 3,
+      capacity: 8,
+      nextExpiry: days(10),
+    });
+  });
+
+  it("should count an expired subscription that has a fallback version", () => {
+    const lic = licenseOf({ nodes: 4, expiresAt: days(-1), maxVersion: "0.60" });
+    expect(standing([{ license: lic, seats: 2 }], NOW)).toEqual({
+      active: 1,
+      seats: 2,
+      capacity: 4,
+      nextExpiry: days(-1),
+    });
+  });
+
+  it("should report no next expiry when every usable license is perpetual", () => {
+    const held = [{ license: licenseOf({ expiresAt: null }), seats: 1 }];
+    expect(standing(held, NOW).nextExpiry).toBeNull();
+  });
+
+  it("should report nothing active for no licenses", () => {
+    expect(standing([], NOW)).toEqual({
+      active: 0,
+      seats: 0,
+      capacity: 0,
+      nextExpiry: null,
+    });
+  });
+});
+
+const MACHINE = "9b0b5f3c-0d3f-4a4e-9f21-6a0b2f1c7a10";
+const USER = "user_2abc";
+
+const eventOf = (overrides: Partial<Event>): Event => ({
+  key: 1,
+  at: NOW,
+  kind: "release",
+  actor: USER,
+  organization: LICENSE.organization,
+  license: LICENSE.key,
+  activation: null,
+  detail: {},
+  ...overrides,
+});
+
+const NAMES = { machines: { [MACHINE]: "Test stand" }, actors: { [USER]: "Ada" } };
+
+describe("format.describeEvent", () => {
+  it("should name the machine an event concerns and the person who acted", () => {
+    const e = eventOf({ kind: "release", activation: MACHINE });
+    expect(describeEvent(e, NAMES)).toBe("Seat released: Test stand by Ada");
+  });
+
+  it("should leave out a machine the event does not name", () => {
+    expect(describeEvent(eventOf({ kind: "issue" }), NAMES)).toBe(
+      "License issued by Ada",
+    );
+  });
+
+  it("should leave out an actor no name is known for", () => {
+    const e = eventOf({ kind: "expiry_notice", actor: "cron" });
+    expect(describeEvent(e, NAMES)).toBe("Expiry notice sent");
+  });
+});

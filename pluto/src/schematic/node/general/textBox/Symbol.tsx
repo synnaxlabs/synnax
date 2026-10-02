@@ -17,14 +17,14 @@ import { type NodeProps } from "@/schematic/node/spec";
 export const Symbol = ({
   nodeKey,
   onConfigChange,
-  config: { color, width, align, autoFitDisabled, level, value, orientation },
+  config: { textColor, width, align, autoFitDisabled, level, value, orientation },
 }: NodeProps<schematic.TextBoxNodeConfig>): ReactElement => (
   <TextBox
     className={Grid.DRAG_HANDLE_CLASS}
     onChange={(value) => onConfigChange({ value })}
     value={value}
     level={level}
-    color={color}
+    textColor={textColor}
     key={nodeKey}
     width={width}
     align={align}

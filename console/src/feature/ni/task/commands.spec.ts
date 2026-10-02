@@ -39,7 +39,6 @@ describe("NI.Task Commands", () => {
   it("should create a draft task and open its resource tab when its command is selected", async () => {
     const proj = await client.projects.create({
       name: uniqueName("proj"),
-      layout: {},
     });
     const { store, openCommandPalette, selectCommand } = await renderPalette({
       commands: NI.Task.COMMANDS,

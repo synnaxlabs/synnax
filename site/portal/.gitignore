@@ -1,0 +1,4 @@
+.vercel
+dist
+.astro
+.env

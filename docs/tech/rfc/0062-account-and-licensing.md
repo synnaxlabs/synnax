@@ -89,8 +89,9 @@ never stops because of time, and the old key format is deleted.
    verifier, the organization model, and the activation ledger are ours.
 7. **Vendor ids never enter a stored format**: The license names the portal's own
    organization key. The Clerk id is replaceable without issuing anything again.
-8. **Infrastructure is code**: Every cloud resource the portal needs is declared in
-   Terraform under `infra/`. What a vendor cannot expose is a documented manual step.
+8. **No stored cloud secret**: The portal reaches AWS through a role that only its
+   production deployments can assume. Setup that runs once is a script or a documented
+   step.
 
 ## 4 Current mechanics
 
@@ -259,10 +260,11 @@ Engineer holds retrieve. Owners therefore activate and Engineers read, with no n
 resource type.
 
 `--license-key` and `SYNNAX_LICENSE_KEY` take a license key, and `--license-file` reads
-one from a path, for systemd units and the Windows service. Both activate at start,
-which is how a provisioned server and CI run, and a license key the Core refuses stops
-the start. A running Core activates through the Console. There is no `synnax license`
-command: scripts call the retrieve endpoint with `curl`.
+one from a path, such as the `.lic` file the portal downloads, for systemd units and the
+Windows service. Both activate at start, which is how a provisioned server and CI run,
+and a license key the Core refuses stops the start. A running Core activates through the
+Console. There is no `synnax license` command: scripts call the retrieve endpoint with
+`curl`.
 
 An unlicensed Core starts its embedded Driver without waiting for it, because the Core
 refuses the Driver's rack until a license applies. The Driver retries on its own.
@@ -281,12 +283,12 @@ Console left open notices a Core activated by a start flag. A Core from before l
 sends no state and reads as `ok`.
 
 While the Core is unlicensed, the Console shows an activation screen in place of the
-workspace, behind login: the fingerprint with a copy button, a field and a file picker
-for the license key, and a link to the portal's activation page. On success the client
-checks again at once, the state flips, and the screen goes away. When licensed, the Core
-badge and the version modal show the edition, organization, term, machines, and channel
-cap, with any warning. The same screen serves the web Console the Core hosts, which is
-how a headless server activates.
+workspace, behind login: the fingerprint with a copy button, a field for the license key
+with a picker for `.lic` files, and a link to the portal's activation page. On success
+the client checks again at once, the state flips, and the screen goes away. When
+licensed, the Core badge and the version modal show the edition, organization, term,
+machines, and channel cap, with any warning. The same screen serves the web Console the
+Core hosts, which is how a headless server activates.
 
 In Desktop (RFC 0063), the gate sits outside the embedded Core guard, because an
 unlicensed Core never settles, and it shows the sign-in screen of §5.8 instead.
@@ -319,11 +321,12 @@ Neon Postgres holds the portal's tables through Drizzle:
 Resend sends the mail Clerk does not: expiry warnings at 30, 7, and 1 days, and
 revocation notices. A daily Vercel Cron job runs the expiry sweep.
 
-`infra/portal/` declares in Terraform the KMS signing key, the IAM identity the Vercel
-runtime signs with, the portal's Vercel environment and domain, and the CI secret, with
-state in HCP Terraform. Neon and Clerk come through the Vercel Marketplace, which
-injects their variables. Their dashboard steps, and Resend, which has no provider, are
-documented in `infra/README.md`.
+The portal deploys like the docs site: Vercel's Git integration deploys `main` to
+production and each branch to a preview, and the build applies the Drizzle migrations
+first. The runtime signs through an AWS role that only production deployments can assume
+with Vercel's OIDC tokens, so no AWS secret is stored and a preview cannot sign. Neon
+and Clerk come through the Vercel Marketplace, which injects their variables.
+`site/portal/README.md` documents the setup that runs once.
 
 ### 5.7 Portal licenses and the activation ledger
 
@@ -418,8 +421,9 @@ or Revoked. Its page shows the facts, the machines with Download license key, Re
 and Release, the released machines, and the activity from the event log. Staff also get
 Edit, which changes the terms in place so seats and history survive a renewal, Floating
 license key, and Revoke. Activate a machine is a dialog that takes a name and the
-fingerprint the Console copied, and downloads the license key.
-`/licenses/activate?license=` is the page the Console links.
+fingerprint the Console copied, and downloads the license key as a `.lic` file, the
+extension most license managers use. `/licenses/activate?license=` is the page the
+Console links.
 
 Routes sit at the root of the host: `/`, `/devices`, `/licenses`, `/licenses/<key>`,
 `/licenses/activate`, `/members`, `/settings`, `/admin`, and `/api/...`. The scope is
@@ -454,12 +458,11 @@ The work ships as a stack of five pull requests into `main`.
   every client, the `unlicensed` connection reason, and the Driver retry.
 - **Phase 3: Console.** The activation screen and guard, the Core badge, and the version
   modal.
-- **Phase 4: Portal.** `site/portal/` and its Vercel project, `infra/portal/`, Clerk,
+- **Phase 4: Portal.** `site/portal/` and its Vercel project, the signing role, Clerk,
   Neon, and Resend, the four tables, KMS signing, the activation endpoint, the staff
   area with all three terms, the expiry cron, and every page of §5.10. The Console's
   activation link moves to the portal. Before it deploys, production Clerk needs the
-  name attribute, organizations, and the Microsoft connection, and Neon needs the
-  Drizzle migration, which neither the build nor the deploy runs.
+  name attribute, organizations, and the Microsoft connection.
 - **Phase 5: Desktop sign-in.** The `synnax-desktop` scheme, the sign-in page and its
   link route, the renew route, the Desktop sign-in screen and deep link handler, the
   account slice, and the renewal loop. Neon needs the migration that adds the two

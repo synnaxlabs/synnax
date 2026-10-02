@@ -363,6 +363,15 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, closer) {
 		return nil, err
 	}
+	if closer, err := l.Signals.PublishJSON(
+		ctx,
+		signals.JSONPublisherConfig[string]{
+			Observable: l.License,
+			SetName:    license.SetChannelName,
+		},
+	); !ok(err, closer) {
+		return nil, err
+	}
 	if closer, err := l.Signals.PublishFromGorp(
 		ctx,
 		signals.GorpPublisherConfigUUID(l.Group.Observe()),

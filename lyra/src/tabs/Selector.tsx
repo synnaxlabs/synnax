@@ -26,7 +26,7 @@ import { context } from "@/context";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Haul } from "@/haul";
-import { useCombinedRefs, useResize } from "@/hooks";
+import { useCombinedRefs, useResize, useWheelScrollX } from "@/hooks";
 import { Select } from "@/select";
 import { KEY_ATTRIBUTE, KEY_SELECTOR } from "@/tabs/Frame";
 import { Triggers } from "@/triggers";
@@ -196,8 +196,6 @@ const CLIPPED_END_CLASS = CSS.BEM("tabs", "selector", "clipped-end");
 const THUMB_DRAGGING_CLASS = CSS.BEM("tabs", "thumb", "dragging");
 
 const MIN_THUMB_WIDTH = 24;
-
-const LINE_SCROLL = 16;
 
 /**
  * applyReorderPreview shifts the strip's tabs to open a gap for a same-strip drag,
@@ -421,31 +419,13 @@ export const Selector = ({
     // continuous across the gap.
     thumb.style.top = `${offsetTop + offsetHeight + 1}px`;
   }, []);
-  // Native listeners: React registers wheel passively, so onWheel would drop the
-  // preventDefault.
   const attachStrip = useCallback(
     (el: HTMLDivElement | null): void => {
-      if (el == null) return;
-      el.addEventListener("scroll", updateOverflow, { passive: true });
-      el.addEventListener(
-        "wheel",
-        (e) => {
-          if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
-          const max = Math.max(el.scrollWidth - el.clientWidth, 0);
-          const delta =
-            e.deltaMode === WheelEvent.DOM_DELTA_PIXEL
-              ? e.deltaY
-              : e.deltaY * LINE_SCROLL;
-          const next = Math.min(Math.max(el.scrollLeft + delta, 0), max);
-          if (next === el.scrollLeft) return;
-          e.preventDefault();
-          el.scrollLeft = next;
-        },
-        { passive: false },
-      );
+      el?.addEventListener("scroll", updateOverflow, { passive: true });
     },
     [updateOverflow],
   );
+  const wheelRef = useWheelScrollX<HTMLDivElement>();
   // A preview shifting tabs toward the end grows the scrollable overflow, so a
   // measurement taken before the reset reads a strip that only the drag made
   // scrollable. Clearing and measuring together keeps the two in step wherever a
@@ -461,7 +441,13 @@ export const Selector = ({
   // Tabs mount, close, and rename without firing scroll or resize, so re-measure
   // after every render.
   useLayoutEffect(updateOverflow);
-  const combinedRef = useCombinedRefs(ref, internalRef, attachStrip, resizeRef);
+  const combinedRef = useCombinedRefs(
+    ref,
+    internalRef,
+    attachStrip,
+    wheelRef,
+    resizeRef,
+  );
   const dir: direction.Direction = Flex.parseDirection(direction, x, y) ?? "x";
   const horizontal = dir === "x";
 
@@ -507,7 +493,7 @@ export const Selector = ({
       const key = Triggers.eventKey(e);
       const next = horizontal ? "ArrowRight" : "ArrowDown";
       const prev = horizontal ? "ArrowLeft" : "ArrowUp";
-      if (![next, prev, "Home", "End"].includes(key)) return;
+      if (key == null || ![next, prev, "Home", "End"].includes(key)) return;
       // Only hover when a tab itself is focused: arrow keys pressed inside a tab's
       // children (an editable name, a close button) must keep their own meaning.
       if (!(e.target instanceof HTMLElement) || e.target.getAttribute("role") !== "tab")
