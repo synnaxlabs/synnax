@@ -3,5 +3,5 @@
   "compilerOptions": {
     "types": ["react"]
   },
-  "include": ["src/**/*", "eslint.config.ts", "stylelint.config.js"]
+  "include": ["src/**/*", "eslint.config.ts", "stylelint.config.js", "vitest.config.ts"]
 }
