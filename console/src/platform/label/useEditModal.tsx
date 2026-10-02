@@ -21,6 +21,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
+import { Modal } from "@synnaxlabs/lyra/modal";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, type Flux, Label } from "@synnaxlabs/pluto";
 import { color } from "@synnaxlabs/x";
@@ -160,8 +161,8 @@ export const useEditModal = Modals.create(() => {
   const [searchTerm, setSearchTerm] = useState("");
   const hasCreatePermission = Access.useCreateGranted(label.TYPE_ONTOLOGY_ID);
   return (
-    <Modals.Frame y className={CSS.BE("label", "edit")}>
-      <Modals.Header icon={<Icon.Label />}>Label.Edit</Modals.Header>
+    <Modal.Frame y className={CSS.BE("label", "edit")}>
+      <Modal.Header icon={<Icon.Label />}>Label.Edit</Modal.Header>
       <List.Frame<label.Key, label.Label>
         data={data}
         getItem={getItem}
@@ -207,6 +208,6 @@ export const useEditModal = Modals.create(() => {
           )}
         </Flex.Box>
       </List.Frame>
-    </Modals.Frame>
+    </Modal.Frame>
   );
 });

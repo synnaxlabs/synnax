@@ -1,0 +1,37 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import Portal from "@/layouts/Portal.astro";
+import { loadScoped } from "@/page";
+import { Members } from "@/ui/members";
+
+const loaded = await loadScoped(Astro, "team");
+if (loaded instanceof Response) return loaded;
+const { portal, session, organizations, scope } = loaded;
+if (scope.clerkOrgID == null)
+    throw new Error(`team ${scope.key} has no Clerk organization`);
+const roster = await portal.directory.roster(scope.clerkOrgID);
+---
+
+<Portal
+    title="Members"
+    session={session}
+    organizations={organizations}
+    scope={scope}
+    tab="members"
+>
+    <Members.Members
+        client:load
+        name={scope.name}
+        clerkOrgID={scope.clerkOrgID}
+        roster={roster}
+        userID={session.userID}
+    />
+</Portal>
