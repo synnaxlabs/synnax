@@ -31,7 +31,8 @@ class Limits:
 LIMITS: dict[str, dict[str, Limits]] = {
     "C++": {
         "Linux": Limits(min_wait_ms=1, max_error_percent=3.0, max_spread_ms=0.2),
-        "Darwin": Limits(min_wait_ms=1, max_error_percent=2.5, max_spread_ms=0.1),
+        # EVENT_DRIVEN does not spin on macOS. Its timer is rarely up to 1.2 ms late.
+        "Darwin": Limits(min_wait_ms=1, max_error_percent=2.5, max_spread_ms=1.5),
         "Windows": Limits(min_wait_ms=5, max_error_percent=0.5, max_spread_ms=0.1),
     },
     # SY-5052 A Go wake is 0.2 to 0.4 ms late, and 1 ms late on macOS. A spin to the
