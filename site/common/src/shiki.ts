@@ -75,6 +75,8 @@ export const symbols: ShikiTransformer = {
 /**
  * Loads the given languages and returns a function that renders code in one of them as
  * HTML in the Synnax theme.
+ *
+ * @throws {Error} if Shiki cannot load one of the languages.
  */
 export const highlighter = async (
   langs: (BundledLanguage | LanguageRegistration)[],
