@@ -2,10 +2,6 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "rules": { "cycles": "error" },
   "workspaces": {
-    ".": {
-      "ignoreBinaries": ["algolia", "check-site"],
-      "ignoreDependencies": ["stylelint-config-standard"]
-    },
     "alamos/ts": {
       "entry": ["src/index.ts", "src/dev/index.ts"],
       "project": ["src/**/*.ts"]

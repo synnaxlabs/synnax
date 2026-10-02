@@ -44,7 +44,8 @@ export default defineConfig({
     isr: { expiration: 300, exclude: [/^\/releases\/[^/]+\/(latest|next)\.json$/] },
   }),
   vite: {
-    // These ship ESM with CSS imports, which Node cannot load; Vite bundles them for SSR.
+    // These ship ESM with CSS imports, which Node cannot load; Vite bundles them for
+    // SSR.
     ssr: { noExternal: ["@synnaxlabs/lyra", "@synnaxlabs/site-common"] },
     css: {
       postcss: { plugins: [layers([{ name: "pluto", files: /[\\/]lyra[\\/]/ }])] },
