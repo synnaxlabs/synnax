@@ -18,6 +18,6 @@
     "updater": {
       "endpoints": ["https://docs.synnaxlabs.com/releases/desktop/latest.json"]
     },
-    "deep-link": { "mobile": [], "desktop": { "schemes": [] } }
+    "deep-link": { "mobile": [], "desktop": { "schemes": ["synnax-desktop"] } }
   }
 }

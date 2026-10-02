@@ -63,7 +63,7 @@ export const Admin = ({ teams, licenses, now }: AdminProps): ReactElement => {
       actions={<IssueDialog teams={teams} />}
     >
       {licenses.length === 0 ? (
-        <Empty message="No licenses issued yet" />
+        <Empty icon={<Icon.Access />} message="No licenses issued yet" />
       ) : (
         <>
           <Flex.Box x justify="between" align="center" gap="medium" full="x">
@@ -91,7 +91,7 @@ export const Admin = ({ teams, licenses, now }: AdminProps): ReactElement => {
             </Select.Buttons>
           </Flex.Box>
           {shown.length === 0 ? (
-            <Empty message="No licenses match" />
+            <Empty icon={<Icon.Search />} message="No licenses match" />
           ) : (
             <Table
               columns={COLUMNS}
@@ -110,19 +110,19 @@ export const Admin = ({ teams, licenses, now }: AdminProps): ReactElement => {
                   <Text.Text level="p" weight={500} overflow="ellipsis">
                     {lic.label}
                   </Text.Text>
-                  <Text.Text level="p" color={10} overflow="ellipsis">
+                  <Text.Text level="p" color={9} overflow="ellipsis">
                     {org.name}
                   </Text.Text>
                   <Flex.Box>
                     <Licenses.StatusTag status={statusOf(lic, now)} />
                   </Flex.Box>
-                  <Text.Text level="p" color={10} overflow="ellipsis">
+                  <Text.Text level="p" color={9} overflow="ellipsis">
                     {term(lic)}
                   </Text.Text>
-                  <Text.Text level="p" color={10}>
+                  <Text.Text level="p" color={9}>
                     {lic.nodes}
                   </Text.Text>
-                  <Text.Text level="p" color={10}>
+                  <Text.Text level="p" color={9}>
                     {date(lic.issuedAt)}
                   </Text.Text>
                 </Row>

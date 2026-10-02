@@ -40,12 +40,12 @@ export const backupCode = (factors: Factor[] | null): CodeFactor | null =>
 export const prompt = (factor: CodeFactor): string => {
   switch (factor.strategy) {
     case "totp":
-      return "Enter the code from your authenticator app.";
+      return "Enter the code from your authenticator app";
     case "backup_code":
-      return "Enter one of your backup codes.";
+      return "Enter one of your backup codes";
     case "phone_code":
     case "email_code":
-      return `Enter the code we sent to ${factor.safeIdentifier}.`;
+      return `Enter the code we sent to ${factor.safeIdentifier}`;
   }
 };
 

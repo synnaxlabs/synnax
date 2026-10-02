@@ -35,7 +35,7 @@ describe("page", () => {
   };
 
   describe("load", () => {
-    it("should return the portal and the signed-in session", async () => {
+    it("should return the portal and the logged-in session", async () => {
       harness.signIn("user_a");
       const loaded = await load(createAPIContext(harness.portal, { method: "GET" }));
       if (loaded instanceof Response) throw new Error("expected a session");
@@ -43,7 +43,7 @@ describe("page", () => {
       expect(loaded.session).toMatchObject({ userID: "user_a", name: "Ada" });
     });
 
-    it("should redirect a signed-out visitor to sign in and back", async () => {
+    it("should redirect a logged-out visitor to log in and back", async () => {
       const res = await load(
         createAPIContext(harness.portal, {
           method: "GET",
@@ -53,7 +53,7 @@ describe("page", () => {
       if (!(res instanceof Response)) throw new Error("expected a redirect");
       expect(res.status).toBe(303);
       expect(res.headers.get("location")).toBe(
-        "/sign-in?redirect_url=%2Flicenses%2Fabc%3Forg%3Dxyz",
+        "/login?redirect_url=%2Flicenses%2Fabc%3Forg%3Dxyz",
       );
     });
 
@@ -147,12 +147,12 @@ describe("page", () => {
       expect(loaded.scope.kind).toBe("team");
     });
 
-    it("should redirect a signed-out visitor to sign in", async () => {
+    it("should redirect a logged-out visitor to log in", async () => {
       const res = await loadScoped(
         createAPIContext(harness.portal, { method: "GET", path: "/members" }),
       );
       if (!(res instanceof Response)) throw new Error("expected a redirect");
-      expect(res.headers.get("location")).toBe("/sign-in?redirect_url=%2Fmembers");
+      expect(res.headers.get("location")).toBe("/login?redirect_url=%2Fmembers");
     });
   });
 

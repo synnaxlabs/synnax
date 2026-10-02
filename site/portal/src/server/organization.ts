@@ -22,7 +22,7 @@ export interface EnsurePersonalArgs {
 
 /**
  * ensurePersonal returns the user's personal organization, creating it on first
- * sight. The Clerk webhook creates it eagerly; this covers a user who signed in before
+ * sight. The Clerk webhook creates it eagerly; this covers a user who logged in before
  * the webhook fired.
  */
 export const ensurePersonal = async (

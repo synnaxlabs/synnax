@@ -11,9 +11,9 @@
 
 # Decides the Review gate commit status for a pull request. Usage: check_review.sh
 # <pr_number>. Prints "<state>\t<description>" where state is pending (waiting on a tier
-# label, the Greptile review, or a human approval), failure (more than one tier label),
-# or success. Exits non-zero only when the GitHub API fails. The tiers are documented in
-# CONTRIBUTING.md.
+# label, the Greptile review, or a human approval), failure (more than one tier label,
+# or a Greptile score below 5/5), or success. Exits non-zero only when the GitHub API
+# fails. The tiers are documented in CONTRIBUTING.md.
 
 set -euo pipefail
 
@@ -52,6 +52,32 @@ REVIEW=$(gh api "repos/${REPO}/commits/${HEAD}/check-runs?filter=latest&per_page
         | select(.name == "Greptile Review" and .conclusion == "success") | .id')
 if [ -z "$REVIEW" ]; then
     report pending "review/${TIER}: waiting for the Greptile review of the head"
+fi
+
+# The check run succeeds at any score. The score lives only in the description, which
+# the author can edit, so only the latest revision Greptile wrote counts, and only when
+# it names the head. Every score marker must be a 5: a commit title can quote one. The
+# diff field holds the whole description at that revision, not a delta.
+SCORE=$(gh api graphql \
+    -f query='query($owner: String!, $name: String!, $number: Int!) {
+        repository(owner: $owner, name: $name) {
+            pullRequest(number: $number) {
+                userContentEdits(first: 100) {
+                    nodes { editor { __typename login } diff }
+                }
+            }
+        }
+    }' \
+    -f owner="${REPO%/*}" -f name="${REPO#*/}" -F number="$PR" \
+    --jq '[.data.repository.pullRequest.userContentEdits.nodes[]
+            | select(.editor | .__typename == "Bot" and .login == "greptile-apps")]
+        | (.[0].diff // "")
+        | select(contains("/commit/'"$HEAD"')"))
+        | [scan("greptile_confidence_score:([0-9]+)")[]] | unique | join(" ")')
+if [ -z "$SCORE" ]; then
+    report pending "review/${TIER}: waiting for Greptile to score the head"
+elif [ "$SCORE" != 5 ]; then
+    report failure "review/${TIER}: Greptile scored the head ${SCORE}/5, not 5/5"
 fi
 
 if [ "$TIER" = bot ]; then report success "review/bot: no human approval required"; fi
