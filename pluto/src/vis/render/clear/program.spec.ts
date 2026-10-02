@@ -13,30 +13,80 @@ import { Program } from "@/vis/render/clear/program";
 import { type Context } from "@/vis/render/context";
 import { canvasTest } from "@/vis/render/test";
 
-const create = () => {
-  const { gl, calls } = canvasTest.createGL();
+const { GL_ENUMS } = canvasTest;
+const PROG = { name: "program" };
+const BUFFER = { name: "buffer" };
+const VAO = { name: "vao" };
+const POSITION_LOC = 3;
+
+const create = (returns: Record<string, () => unknown> = {}) => {
+  const { gl, calls } = canvasTest.createGL({
+    createProgram: () => PROG,
+    createBuffer: () => BUFFER,
+    createVertexArray: () => VAO,
+    getAttribLocation: () => POSITION_LOC,
+    ...returns,
+  });
   const prog = new Program({ gl } as unknown as Context);
-  const ops = (op: string) => calls.filter((c) => c.op === op);
-  return { prog, calls, ops };
+  return { prog, calls };
 };
 
 describe("clear.Program", () => {
-  it("should create one vertex array object across many draws", () => {
-    const { prog, ops } = create();
-    for (let i = 0; i < 100; i++) prog.exec();
-    expect(ops("createVertexArray")).toHaveLength(1);
-    expect(ops("drawArrays")).toHaveLength(100);
+  describe("constructor", () => {
+    it("should store the positions and attribute layout in its vertex array", () => {
+      const { calls } = create();
+      const setup = calls.slice(calls.findIndex((c) => c.op === "createBuffer"));
+      expect(setup).toEqual([
+        { op: "createBuffer", args: [] },
+        { op: "createVertexArray", args: [] },
+        { op: "bindVertexArray", args: [VAO] },
+        { op: "bindBuffer", args: [GL_ENUMS.ARRAY_BUFFER, BUFFER] },
+        {
+          op: "bufferData",
+          args: [GL_ENUMS.ARRAY_BUFFER, new Float32Array(6), GL_ENUMS.STATIC_DRAW],
+        },
+        { op: "getAttribLocation", args: [PROG, "a_position"] },
+        { op: "enableVertexAttribArray", args: [POSITION_LOC] },
+        {
+          op: "vertexAttribPointer",
+          args: [POSITION_LOC, 2, GL_ENUMS.FLOAT, false, 0, 0],
+        },
+        { op: "bindVertexArray", args: [null] },
+      ]);
+    });
+
+    it("should throw when the buffer cannot be created", () => {
+      expect(() => create({ createBuffer: () => null })).toThrow(
+        "failed to create buffer",
+      );
+    });
+
+    it("should throw when the vertex array cannot be created", () => {
+      expect(() => create({ createVertexArray: () => null })).toThrow(
+        "failed to create vertex array object",
+      );
+    });
   });
 
-  it("should restore the default vertex array after each draw", () => {
-    const { prog, calls } = create();
-    calls.length = 0;
-    prog.exec();
-    const seq = calls
-      .filter((c) => c.op === "bindVertexArray" || c.op === "drawArrays")
-      .map((c) =>
-        c.op === "drawArrays" ? "draw" : c.args[0] === null ? "unbind" : "bind",
-      );
-    expect(seq).toEqual(["bind", "draw", "unbind"]);
+  describe("exec", () => {
+    it("should draw one triangle from its vertex array and then unbind it", () => {
+      const { prog, calls } = create();
+      calls.length = 0;
+      prog.exec();
+      expect(calls).toEqual([
+        { op: "bindVertexArray", args: [VAO] },
+        { op: "useProgram", args: [PROG] },
+        { op: "drawArrays", args: [GL_ENUMS.TRIANGLES, 0, 3] },
+        { op: "bindVertexArray", args: [null] },
+      ]);
+    });
+
+    it("should not create a vertex array when drawing", () => {
+      const { prog, calls } = create();
+      calls.length = 0;
+      for (let i = 0; i < 100; i++) prog.exec();
+      expect(calls.filter((c) => c.op === "createVertexArray")).toHaveLength(0);
+      expect(calls.filter((c) => c.op === "drawArrays")).toHaveLength(100);
+    });
   });
 });

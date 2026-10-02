@@ -40,9 +40,12 @@ export interface RecordingGL {
   calls: Call[];
 }
 
-/** Creates a WebGL2 context that records every method call. Calls that return a handle
- * hand back a stub. */
-export const createGL = (): RecordingGL => {
+/**
+ * Creates a WebGL2 context that records every method call. Calls that return a handle
+ * hand back a stub.
+ * @param returns - Replaces the return value of the named methods.
+ */
+export const createGL = (returns: Record<string, () => unknown> = {}): RecordingGL => {
   const calls: Call[] = [];
   const target: Record<string, unknown> = { ...GL_ENUMS };
   const handler: ProxyHandler<Record<string, unknown>> = {
@@ -50,7 +53,7 @@ export const createGL = (): RecordingGL => {
       if (typeof prop !== "string") return undefined;
       t[prop] ??= (...args: unknown[]): unknown => {
         calls.push({ op: prop, args });
-        return RETURNS[prop]?.();
+        return (returns[prop] ?? RETURNS[prop])?.();
       };
       return t[prop];
     },
