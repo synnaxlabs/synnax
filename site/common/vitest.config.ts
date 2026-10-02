@@ -7,6 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { defineConfig } from "vitest/config";
+import react from "@astrojs/react";
+import { getViteConfig } from "astro/config";
+import { type ViteUserConfigFn } from "vitest/config";
 
-export default defineConfig({ test: { environment: "jsdom" } });
+const config: ViteUserConfigFn = getViteConfig(
+  { test: { environment: "node" } },
+  { root: import.meta.dirname, integrations: [react()] },
+);
+
+export default config;
