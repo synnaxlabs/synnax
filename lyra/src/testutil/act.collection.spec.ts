@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { binary, record } from "@synnaxlabs/x";
+import { describe, expect, it } from "vitest";
 
-export const decodeJSONString = (s: string): record.Unknown =>
-  s ? binary.JSON_CODEC.decodeString(s, record.unknownZ()) : {};
+import { disableActEnvironment } from "@/testutil/act";
+
+describe("disableActEnvironment", () => {
+  disableActEnvironment();
+
+  it("should keep the act environment off after Testing Library turns it on", () => {
+    expect(globalThis.IS_REACT_ACT_ENVIRONMENT).toBe(false);
+  });
+});

@@ -120,6 +120,7 @@ jobs:
     with:
       coverage_flag: alamos-ts
       directory: alamos/ts
+      knip: true
       package: alamos
     secrets: inherit
 
@@ -290,6 +291,7 @@ jobs:
     with:
       coverage_flag: drift
       directory: drift
+      knip: true
       package: drift
     secrets: inherit
 
@@ -372,6 +374,7 @@ jobs:
       coverage_flag: freighter-ts
       directory: freighter/ts
       freighter_image: ghcr.io/synnaxlabs/freighter-go-integration:${{ github.sha }}
+      knip: true
       package: freighter
     secrets: inherit
 
@@ -403,6 +406,7 @@ jobs:
     with:
       coverage_flag: lyra
       directory: lyra
+      knip: true
       package: lyra
     secrets: inherit
 
@@ -412,6 +416,7 @@ jobs:
     uses: ./.github/workflows/test.ts.yaml
     with:
       directory: x/media
+      knip: true
       package: media
       test: false
     secrets: inherit

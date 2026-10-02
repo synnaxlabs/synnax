@@ -338,9 +338,6 @@ catalogs:
     '@types/html-escaper':
       specifier: ^3.0.4
       version: 3.0.4
-    '@types/mdast':
-      specifier: ^4.0.4
-      version: 4.0.4
     '@types/node':
       specifier: ^24.19.0
       version: 24.19.0
@@ -613,7 +610,7 @@ importers:
         version: 3.0.2(prettier@3.9.9)
       stylelint-config-standard:
         specifier: 'catalog:'
-        version: 40.0.0(stylelint@17.15.0(supports-color@10.2.2)(typescript@7.0.2))
+        version: 40.0.0(stylelint@17.15.0(typescript@7.0.2))
       turbo:
         specifier: 'catalog:'
         version: 2.11.4
@@ -757,7 +754,7 @@ importers:
     dependencies:
       stylelint-config-standard:
         specifier: 'catalog:'
-        version: 40.0.0(stylelint@17.15.0(supports-color@10.2.2)(typescript@7.0.2))
+        version: 40.0.0(stylelint@17.15.0(typescript@7.0.2))
     devDependencies:
       '@synnaxlabs/eslint-config':
         specifier: 'catalog:'
@@ -983,9 +980,6 @@ importers:
       '@types/react':
         specifier: 'catalog:'
         version: 19.3.0
-      '@vitejs/plugin-react':
-        specifier: 'catalog:'
-        version: 6.1.1(vite@8.3.1(@types/node@24.19.0)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.0))
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 5.0.2(vitest@5.0.2)
@@ -1019,9 +1013,6 @@ importers:
 
   freighter/ts:
     dependencies:
-      '@synnaxlabs/alamos':
-        specifier: 'catalog:'
-        version: link:../../alamos/ts
       '@synnaxlabs/x':
         specifier: 'catalog:'
         version: link:../../x/ts
@@ -1429,9 +1420,6 @@ importers:
       '@types/html-escaper':
         specifier: 'catalog:'
         version: 3.0.4
-      '@types/mdast':
-        specifier: 'catalog:'
-        version: 4.0.4
       '@types/offscreencanvas':
         specifier: 'catalog:'
         version: 2019.7.3
@@ -1735,9 +1723,6 @@ importers:
       '@types/react':
         specifier: 'catalog:'
         version: 19.3.0
-      '@vitejs/plugin-react':
-        specifier: 'catalog:'
-        version: 6.1.1(vite@8.3.1(@types/node@24.19.0)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.0))
       clsx:
         specifier: 'catalog:'
         version: 2.1.1
@@ -1747,9 +1732,6 @@ importers:
       react:
         specifier: 'catalog:'
         version: 19.3.0
-      react-icons:
-        specifier: 'catalog:'
-        version: 5.7.0(react@19.3.0)
       stylelint:
         specifier: 'catalog:'
         version: 17.15.0(supports-color@10.2.2)(typescript@7.0.2)
@@ -16389,14 +16371,14 @@ snapshots:
       inline-style-parser: 0.2.7
     optional: true
 
-  stylelint-config-recommended@18.0.0(stylelint@17.15.0(supports-color@10.2.2)(typescript@7.0.2)):
+  stylelint-config-recommended@18.0.0(stylelint@17.15.0(typescript@7.0.2)):
     dependencies:
       stylelint: 17.15.0(supports-color@10.2.2)(typescript@7.0.2)
 
-  stylelint-config-standard@40.0.0(stylelint@17.15.0(supports-color@10.2.2)(typescript@7.0.2)):
+  stylelint-config-standard@40.0.0(stylelint@17.15.0(typescript@7.0.2)):
     dependencies:
       stylelint: 17.15.0(supports-color@10.2.2)(typescript@7.0.2)
-      stylelint-config-recommended: 18.0.0(stylelint@17.15.0(supports-color@10.2.2)(typescript@7.0.2))
+      stylelint-config-recommended: 18.0.0(stylelint@17.15.0(typescript@7.0.2))
 
   stylelint@17.15.0(supports-color@10.2.2)(typescript@6.0.3):
     dependencies:
