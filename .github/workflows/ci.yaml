@@ -68,6 +68,7 @@ jobs:
       freighter_py: ${{ steps.filter.outputs.freighter_py }}
       freighter_ts: ${{ steps.filter.outputs.freighter_ts }}
       integration: ${{ steps.filter.outputs.integration }}
+      knip: ${{ steps.filter.outputs.knip }}
       lint_integration: ${{ steps.filter.outputs.lint_integration }}
       lyra: ${{ steps.filter.outputs.lyra }}
       media: ${{ steps.filter.outputs.media }}
@@ -121,7 +122,6 @@ jobs:
     with:
       coverage_flag: alamos-ts
       directory: alamos/ts
-      knip: true
       package: alamos
     secrets: inherit
 
@@ -216,7 +216,6 @@ jobs:
       core_image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
       coverage_flag: console
       directory: console
-      knip: true
       package: console
       test_args: -- --no-file-parallelism
     secrets: inherit
@@ -275,7 +274,6 @@ jobs:
     with:
       coverage_flag: docs
       directory: site/docs
-      knip: true
       package: docs
     secrets: inherit
 
@@ -292,7 +290,6 @@ jobs:
     with:
       coverage_flag: drift
       directory: drift
-      knip: true
       package: drift
     secrets: inherit
 
@@ -375,7 +372,6 @@ jobs:
       coverage_flag: freighter-ts
       directory: freighter/ts
       freighter_image: ghcr.io/synnaxlabs/freighter-go-integration:${{ github.sha }}
-      knip: true
       package: freighter
     secrets: inherit
 
@@ -390,6 +386,26 @@ jobs:
       packages: write
     uses: ./.github/workflows/test.integration.yaml
     secrets: inherit
+
+  knip:
+    needs: changes
+    if: needs.changes.outputs.knip == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm and Node.js
+        uses: pnpm/setup@v3
+        with:
+          cache: true
+
+      - name: Build the Vite plugin
+        # Knip loads each Vite configuration, and they import the built plugin.
+        run: pnpm turbo build --filter @synnaxlabs/vite-plugin
+
+      - name: Check unused code
+        run: pnpm knip
 
   lint-integration:
     needs: changes
@@ -407,7 +423,6 @@ jobs:
     with:
       coverage_flag: lyra
       directory: lyra
-      knip: true
       package: lyra
     secrets: inherit
 
@@ -417,7 +432,6 @@ jobs:
     uses: ./.github/workflows/test.ts.yaml
     with:
       directory: x/media
-      knip: true
       package: media
       test: false
     secrets: inherit
@@ -456,7 +470,6 @@ jobs:
       core_image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
       coverage_flag: pluto
       directory: pluto
-      knip: true
       package: pluto
       test_args: -- --no-file-parallelism
     secrets: inherit
@@ -489,7 +502,6 @@ jobs:
     uses: ./.github/workflows/test.ts.yaml
     with:
       directory: site/common
-      knip: true
       package: site-common
     secrets: inherit
 
@@ -522,7 +534,6 @@ jobs:
     uses: ./.github/workflows/test.ts.yaml
     with:
       directory: site/www
-      knip: true
       package: www
       test: false
     secrets: inherit
@@ -562,7 +573,6 @@ jobs:
     with:
       coverage_flag: x-ts
       directory: x/ts
-      knip: true
       package: x
     secrets: inherit
 
@@ -636,6 +646,7 @@ jobs:
       - freighter-py
       - freighter-ts
       - integration
+      - knip
       - lint-integration
       - lyra
       - media

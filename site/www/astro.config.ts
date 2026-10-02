@@ -17,7 +17,8 @@ export default defineConfig({
   output: "server",
   adapter: vercel(),
   vite: {
-    // These ship ESM with CSS imports, which Node cannot load; Vite bundles them for SSR.
+    // These ship ESM with CSS imports, which Node cannot load; Vite bundles them for
+    // SSR.
     ssr: { noExternal: ["@synnaxlabs/lyra", "@synnaxlabs/site-common"] },
     css: {
       postcss: { plugins: [layers([{ name: "pluto", files: /[\\/]lyra[\\/]/ }])] },
