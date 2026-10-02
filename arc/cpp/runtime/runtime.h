@@ -149,9 +149,14 @@ public:
         }
         auto next_timeout = x::telem::TimeSpan(0);
         auto next_span = x::telem::TimeSpan::max();
+        // The first cycle runs at once as a timer tick, so that timers set their first
+        // deadlines without a wait for input.
+        bool started = false;
         while (this->breaker.running()) {
-            const auto wake_reason = this->loop
-                                         ->wait(this->breaker, next_timeout, next_span);
+            auto wake_reason = loop::WakeReason::Timer;
+            if (started)
+                wake_reason = this->loop->wait(this->breaker, next_timeout, next_span);
+            started = true;
             const bool is_timer =
                 (wake_reason == loop::WakeReason::Timer ||
                  wake_reason == loop::WakeReason::Timeout);

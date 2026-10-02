@@ -575,6 +575,20 @@ TEST(RuntimeDeadlineTest, FutureDeadlinePassesItsSpan) {
         EXPECT_EQ(spans[i], x::telem::SECOND * 3);
 }
 
+/// @brief The first cycle should run before the first wait, so the first wait already
+/// holds the deadline that the cycle set.
+TEST(RuntimeDeadlineTest, RunsTheFirstCycleBeforeTheFirstWait) {
+    auto [runtime, loop, node] = DeadlineRuntimeFixture::create(x::telem::SECOND * 10);
+    ASSERT_TRUE(runtime->start());
+    ASSERT_EVENTUALLY_GE(loop->wait_count.load(), 1);
+    ASSERT_TRUE(runtime->stop());
+
+    const auto timeouts = loop->get_max_timeouts();
+    ASSERT_GE(timeouts.size(), 1);
+    EXPECT_GT(timeouts[0], x::telem::TimeSpan(0));
+    EXPECT_LE(timeouts[0], x::telem::SECOND * 10);
+}
+
 /// @brief The timeout should count from the end of the cycle, so that the work of the
 /// cycle does not delay the wake.
 TEST(RuntimeDeadlineTest, TimeoutExcludesTheWorkOfTheCycle) {
