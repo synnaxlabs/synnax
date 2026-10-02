@@ -26,11 +26,13 @@
     }
 
     .pluto-btn.pluto-dialog__trigger {
-        --pluto-border-color: var(--pluto-symbol-display);
-
         border-top-right-radius: 0;
         border-bottom-right-radius: 0;
         border-width: 1px;
+    }
+
+    .pluto-btn.pluto-dialog__trigger:not(.pluto--disabled) {
+        --pluto-border-color: var(--pluto-symbol-display);
     }
 
     svg.pluto-caret-animated {

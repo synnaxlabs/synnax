@@ -10,7 +10,7 @@ nextURL: "/reference/control/arc/reference/errors"
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Arc } from "@/components";
+import { Arc } from "@/components/arc";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import Params from "@/components/params/Params.astro";
 
@@ -53,7 +53,7 @@ function call, so it can be wired into a chain or called inside a `func`.
   output={{ type: "i64 ns", description: "The current timestamp." }}
 />
 
-<Arc.Tabs client:load>
+<Arc.Tabs>
 
 <Fragment slot="flow">
 

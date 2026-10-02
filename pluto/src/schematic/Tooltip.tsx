@@ -11,16 +11,16 @@ import "@/schematic/Tooltip.css";
 
 import { channel } from "@synnaxlabs/client";
 import { CSS } from "@synnaxlabs/lyra/css";
+import { Description } from "@synnaxlabs/lyra/description";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Text } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Tooltip as Base } from "@synnaxlabs/lyra/tooltip";
 import { caseconv, type color, primitive, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useEffect, useState } from "react";
 
 import { Channel } from "@/channel";
-import { Node } from "@/schematic/node";
+import { type Node } from "@/schematic/node";
 import { Staleness } from "@/vis/staleness";
 
 export interface TooltipProps {
@@ -32,8 +32,6 @@ const LOCATION: Base.FrameProps["location"] = { x: "center", y: "bottom" };
 
 type KeysOf<C> = C extends object ? keyof C : never;
 type Field = KeysOf<Node.Config>;
-// Staleness keeps its color typed. Every other field is read by key.
-type Values = Partial<Record<Field, primitive.Value>> & Staleness.Config;
 
 const CHANNEL_ROWS: { field: Field; icon: Icon.FC }[] = [
   { field: "stateChannel", icon: Icon.Channel },
@@ -59,24 +57,17 @@ const kindIcon = (ch: channel.Channel): Icon.FC | null => {
 interface RowProps {
   label: ReactNode;
   value: ReactNode;
-  color?: Theming.Shade | color.Crude;
-  className?: string;
+  labelColor?: Theming.Shade;
+  valueColor?: Theming.Shade | color.Crude;
 }
 
-const Row = ({ label, value, color, className }: RowProps): ReactElement => (
-  <>
-    <Text.Text level="small" className={className}>
-      {label}
-    </Text.Text>
-    <Text.Text
-      level="small"
-      variant="code"
-      color={color}
-      className={CSS.BE("schematic-tooltip", "value")}
-    >
+const Row = ({ label, value, labelColor, valueColor }: RowProps): ReactElement => (
+  <Description.Item>
+    <Description.Label color={labelColor}>{label}</Description.Label>
+    <Description.Value variant="code" color={valueColor}>
       {value}
-    </Text.Text>
-  </>
+    </Description.Value>
+  </Description.Item>
 );
 
 /** Shows a symbol's configuration beside its element. */
@@ -93,8 +84,7 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
   }, []);
   useEffect(() => (visible ? markClosed : undefined), [visible]);
   const theme = Theming.use();
-  const spec = Node.resolveSpec(config.variant);
-  const values: Values = spec.tooltipConfig?.(config) ?? config;
+  const values: Partial<Record<Field, primitive.Value>> = config;
   const keys = CHANNEL_ROWS.flatMap(({ field }) => {
     const key = values[field];
     return typeof key === "number" && !primitive.isZero(key) ? key : [];
@@ -111,6 +101,7 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
     return (
       <Row
         key={field}
+        labelColor={10}
         label={
           <>
             <RoleIcon />
@@ -126,7 +117,10 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
       />
     );
   });
-  const stalenessColor = Staleness.resolveColor(values.stalenessColor, theme);
+  const stalenessColor = Staleness.resolveColor(
+    "stalenessColor" in config ? config.stalenessColor : undefined,
+    theme,
+  );
   const fields = FIELD_ROWS.flatMap(({ field, label, unit }) => {
     const value = values[field];
     if (value == null) return [];
@@ -139,10 +133,9 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
     return (
       <Row
         key={field}
-        className={CSS.BE("schematic-tooltip", "field")}
         label={label ?? caseconv.toSentence(field)}
         value={text}
-        color={field === "stalenessTimeout" ? stalenessColor : undefined}
+        valueColor={field === "stalenessTimeout" ? stalenessColor : undefined}
       />
     );
   });
@@ -153,11 +146,19 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
       location={LOCATION}
       className={CSS.B("schematic-tooltip")}
     >
-      {channels}
+      {channels.length > 0 && (
+        <Description.List level="small" justify="between">
+          {channels}
+        </Description.List>
+      )}
       {channels.length > 0 && fields.length > 0 && (
         <Divider.Divider x className={CSS.BE("schematic-tooltip", "divider")} />
       )}
-      {fields}
+      {fields.length > 0 && (
+        <Description.List level="small" justify="between">
+          {fields}
+        </Description.List>
+      )}
     </Base.Frame>
   );
 };

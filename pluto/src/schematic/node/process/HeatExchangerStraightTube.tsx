@@ -20,7 +20,7 @@ export const HeatExchangerStraightTube = ({
   id,
   className,
   orientation = "right",
-  color,
+  strokeColor,
   scale = 1,
   ...rest
 }: Props): ReactElement => (
@@ -71,7 +71,7 @@ export const HeatExchangerStraightTube = ({
     </Handle.Boundary>
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={color}
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
     >

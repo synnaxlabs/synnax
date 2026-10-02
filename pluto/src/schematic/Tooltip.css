@@ -9,22 +9,10 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-schematic-tooltip {
-    display: grid;
-    grid-template-columns: auto auto;
-    column-gap: 2rem;
-}
-
 .pluto-schematic-tooltip__divider {
-    grid-column: 1 / -1;
     margin: 1rem 0;
 }
 
-.pluto-schematic-tooltip__value {
-    justify-content: flex-end;
-}
-
-.pluto-schematic-tooltip__field,
 .pluto-schematic-tooltip .pluto-icon {
     color: var(--pluto-gray-l9);
 }

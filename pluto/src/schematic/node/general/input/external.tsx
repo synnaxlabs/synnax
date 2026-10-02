@@ -11,19 +11,19 @@ import { type schematic } from "@synnaxlabs/client";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { type ReactElement } from "react";
 
-import { InputForm } from "@/schematic/node/general/input/Form";
+import { colorFallbacks, InputForm } from "@/schematic/node/general/input/Form";
 import { Input } from "@/schematic/node/general/input/Primitive";
 import { Symbol } from "@/schematic/node/general/input/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 
 const Preview = ({
-  color,
+  fillColor,
   orientation,
   size,
 }: schematic.InputNodeConfig): ReactElement => (
   <Input
     initialValue="send message"
-    color={color}
+    fillColor={fillColor}
     orientation={orientation}
     size={size}
     disabled
@@ -38,4 +38,5 @@ export const spec: Spec<"input", schematic.InputNodeConfig> = {
   Node: Symbol,
   Preview,
   zIndex: 4,
+  colorFallbacks,
 };

@@ -10,7 +10,7 @@
 import { type schematic } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 
-import { CommonPolygonForm } from "@/schematic/node/general/polygon/Form";
+import { colorFallbacks, PolygonForm } from "@/schematic/node/general/polygon/Form";
 import { Polygon } from "@/schematic/node/general/polygon/Primitive";
 import { Symbol } from "@/schematic/node/general/polygon/Symbol";
 import { type Spec } from "@/schematic/node/spec";
@@ -18,8 +18,9 @@ import { type Spec } from "@/schematic/node/spec";
 export const spec: Spec<"polygon", schematic.PolygonNodeConfig> = {
   key: "polygon",
   name: "Polygon",
-  Form: CommonPolygonForm,
+  Form: PolygonForm,
   Node: Symbol,
   Preview: Component.removeProps(Polygon, ["clickable"]),
   zIndex: 2,
+  colorFallbacks,
 };

@@ -9,15 +9,23 @@
 // included in the file licenses/APL.txt.
 
 import { Page as P } from "@/components/nav/Page";
+import { REFERENCE_PAGES } from "@/pages/_nav";
 ---
 
 <nav class="page-nav" transition:persist>
-    <P client:load />
+    <P nodes={REFERENCE_PAGES} currentPage={Astro.url.pathname} />
 </nav>
+
+<style is:global>
+    /* Lyra's flex display would otherwise override the hidden attribute. */
+    .reference-tree [role="treeitem"][hidden] {
+        display: none;
+    }
+</style>
 
 <script>
     const SCROLL_KEY = "page-nav-scroll";
-    const tree = document.querySelector(".reference-tree");
+    const tree = document.querySelector(".page-nav .reference-tree");
     if (tree != null) {
         const saved = sessionStorage.getItem(SCROLL_KEY);
         if (saved != null) tree.scrollTop = parseFloat(saved);

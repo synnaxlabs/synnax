@@ -12,7 +12,7 @@ import { grammar as arcGrammar } from "@synnaxlabs/arc";
 import { Button } from "@synnaxlabs/lyra/button";
 import { createCssVariablesTheme, createHighlighter } from "shiki";
 import { CalcVisualizer } from "@/components/stream/CalcVisualizer";
-import FeatureSection from "@/components/shared/FeatureSection.astro";
+import FeatureSection from "@/components/common/FeatureSection.astro";
 
 const cssVarsTheme = createCssVariablesTheme({ name: "css-variables" });
 
@@ -74,7 +74,7 @@ const codeHtmls = [
 ];
 ---
 
-<FeatureSection label="5.1 -> Calculated Channels">
+<FeatureSection label="5.1 -> Calculated channels">
     <Fragment slot="title"> Sensor voting in 10 lines, not 10 services </Fragment>
     <Fragment slot="description">
         Attach Arc expressions to channels and Synnax evaluates them on every sample,
@@ -86,7 +86,7 @@ const codeHtmls = [
         variant="text"
         href="https://docs.synnaxlabs.com/reference/client/calculated-channels"
     >
-        Learn More →
+        Learn more →
     </Button.Button>
 
     <CalcVisualizer client:visible codeHtmls={codeHtmls} />

@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/lyra",
-  "version": "0.58.1",
+  "private": true,
   "type": "module",
   "sideEffects": [
     "**/*.css"
@@ -69,11 +69,6 @@
     "vite": "catalog:",
     "vitest": "catalog:"
   },
-  "files": [
-    "dist",
-    "!**/*.spec.*",
-    "!dist/eslint.config.*"
-  ],
   "exports": {
     "./avatar": {
       "types": "./dist/src/avatar/index.d.ts",
@@ -90,6 +85,10 @@
     "./caret": {
       "types": "./dist/src/caret/index.d.ts",
       "default": "./dist/caret.js"
+    },
+    "./clipboard": {
+      "types": "./dist/src/clipboard/index.d.ts",
+      "default": "./dist/clipboard.js"
     },
     "./color": {
       "types": "./dist/src/color/index.d.ts",
@@ -110,6 +109,10 @@
     "./cursor": {
       "types": "./dist/src/cursor/index.d.ts",
       "default": "./dist/cursor.js"
+    },
+    "./description": {
+      "types": "./dist/src/description/index.d.ts",
+      "default": "./dist/description.js"
     },
     "./dialog": {
       "types": "./dist/src/dialog/index.d.ts",
@@ -252,15 +255,5 @@
       "default": "./dist/video.js"
     },
     "./dist/*": "./dist/*"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/synnaxlabs/synnax.git",
-    "directory": "lyra"
-  },
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/synnaxlabs/synnax/issues"
-  },
-  "homepage": "https://github.com/synnaxlabs/synnax#readme"
+  }
 }

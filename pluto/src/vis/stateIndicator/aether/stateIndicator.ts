@@ -26,8 +26,6 @@ export const stateZ = staleness.stateZ.extend({
   source: telem.numberSourceSpecZ.default(telem.noopNumericSourceSpec),
 });
 
-export interface State extends z.input<typeof stateZ> {}
-
 interface InternalState {
   source: telem.NumberSource;
   stopListening: destructor.Destructor;

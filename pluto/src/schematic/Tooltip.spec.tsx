@@ -187,26 +187,6 @@ describe("Schematic.Tooltip", () => {
       const value = valueOf(labelOf(tooltip, virtual.name));
       expect(value.querySelector(".pluto-icon--virtual")).not.toBeNull();
     });
-
-    it("should read a scale's channel from its indicator", async () => {
-      const ch = await createChannel();
-      renderTooltip(
-        Node.createConfig({ variant: "scale", indicator: { channel: ch.key } }),
-      );
-      const tooltip = await findTooltip();
-      const label = labelOf(tooltip, ch.name);
-      expect(label.querySelector(".pluto-icon--channel")).not.toBeNull();
-      expect(within(tooltip).getByText("Stale timeout")).not.toBeNull();
-    });
-
-    it("should read a tank's channel from its fill", async () => {
-      const ch = await createChannel();
-      renderTooltip(Node.createConfig({ variant: "tank", fill: { channel: ch.key } }));
-      const tooltip = await findTooltip();
-      const label = labelOf(tooltip, ch.name);
-      expect(label.querySelector(".pluto-icon--channel")).not.toBeNull();
-      expect(within(tooltip).getByText("Stale timeout")).not.toBeNull();
-    });
   });
 
   describe("field rows", () => {
@@ -241,18 +221,6 @@ describe("Schematic.Tooltip", () => {
       expect(within(tooltip).getByText("true")).not.toBeNull();
     });
 
-    it("should tint the stale timeout with a nested stale color", async () => {
-      renderTooltip(
-        Node.createConfig({
-          variant: "scale",
-          indicator: { stalenessColor: "#ff0000" },
-        }),
-      );
-      const tooltip = await findTooltip();
-      const value = valueOf(labelOf(tooltip, "Stale timeout"));
-      expect(value.style.color).toContain("255, 0, 0");
-    });
-
     it.each<[Node.Variant, string[]]>([
       ["valve", ["Stale timeout"]],
       ["solenoid_valve", ["Normally open", "Stale timeout"]],
@@ -264,9 +232,9 @@ describe("Schematic.Tooltip", () => {
     ])("should show the %s rows in order", async (variant, labels) => {
       renderTooltip(Node.createConfig({ variant }));
       const tooltip = await findTooltip();
-      const rendered = Array.from(
-        tooltip.querySelectorAll(".pluto-schematic-tooltip__field"),
-      ).map((el) => el.textContent);
+      const rendered = within(tooltip)
+        .getAllByRole("term")
+        .map((el) => el.textContent);
       expect(rendered).toEqual(labels);
     });
 

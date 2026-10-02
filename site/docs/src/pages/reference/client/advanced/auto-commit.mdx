@@ -39,11 +39,11 @@ Disabling auto-commit may be beneficial in the following scenarios:
 
 ## Disabling auto-commit
 
-To disable auto-commit, set the <Client.Var client:load py="enable_auto_commit"
-ts="enableAutoCommit" /> option to <Client.Var client:load py="False" ts="false" /> when
-opening the writer.
+To disable auto-commit, set the <Client.Var py="enable_auto_commit"
+ts="enableAutoCommit" /> option to <Client.Var py="False" ts="false" /> when opening the
+writer.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -100,7 +100,7 @@ few seconds or use auto-commit (which is enabled by default).
 <span style={{ color: "red" }}>**Avoid this pattern**</span> - Committing on every
 write:
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -147,7 +147,7 @@ try {
 <span style={{ color: "green" }}>**Recommended approach**</span> - Use auto-commit
 (enabled by default):
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
