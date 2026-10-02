@@ -20,10 +20,7 @@ import { renderHookWithConsole, type TestStore } from "@/testutil";
 
 const LINKED: Session.Account.SliceState = {
   version: 0,
-  activation: "act",
-  secret: "shh",
-  email: "someone@example.com",
-  user: "user_a",
+  link: { secret: "shh", email: "someone@example.com", user: "user_a" },
 };
 
 const DESKTOP_LICENSE: license.License = {

@@ -11,8 +11,7 @@ import { describe, expect, it } from "vitest";
 
 import { Account } from "@/session/account";
 
-const LINKED: Account.LinkPayload = {
-  activation: "act",
+const LINKED: Account.Link = {
   secret: "secret",
   email: "someone@example.com",
   user: "user_a",
@@ -34,7 +33,7 @@ describe("account slice", () => {
     it("should store the link and drop the pending state", () => {
       const begun = Account.reducer(Account.ZERO_SLICE_STATE, Account.beginLogin("s"));
       const next = Account.reducer(begun, Account.link(LINKED));
-      expect(next).toEqual({ version: 0, ...LINKED });
+      expect(next).toEqual({ version: 0, link: LINKED });
     });
   });
 
@@ -48,9 +47,9 @@ describe("account slice", () => {
   });
 
   it("should read a stored link", () => {
-    expect(Account.sliceStateZ.parse({ version: 0, ...LINKED })).toEqual({
+    expect(Account.sliceStateZ.parse({ version: 0, link: LINKED })).toEqual({
       version: 0,
-      ...LINKED,
+      link: LINKED,
     });
   });
 });

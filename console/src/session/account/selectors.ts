@@ -16,7 +16,7 @@ export const selectPending = (state: StoreState): string | undefined =>
   selectSliceState(state).pending;
 
 export const useSelectEmail = (): string | undefined =>
-  Select.useMemo((state: StoreState) => selectSliceState(state).email, []);
+  Select.useMemo((state: StoreState) => selectSliceState(state).link?.email, []);
 
 export const useSelectSecret = (): string | undefined =>
-  Select.useMemo((state: StoreState) => selectSliceState(state).secret, []);
+  Select.useMemo((state: StoreState) => selectSliceState(state).link?.secret, []);

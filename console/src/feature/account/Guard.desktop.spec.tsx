@@ -86,7 +86,10 @@ describe("Account.Guard", () => {
   it("should say the login lapsed on a machine that was linked", async () => {
     await renderGuard({
       status: UNLICENSED_STATUS,
-      account: { version: 0, email: "someone@example.com" },
+      account: {
+        version: 0,
+        link: { secret: "shh", email: "someone@example.com", user: "user_a" },
+      },
     });
     expect(screen.getByText("Your login has lapsed")).toBeTruthy();
     expect(screen.getByText(/someone@example\.com/)).toBeTruthy();

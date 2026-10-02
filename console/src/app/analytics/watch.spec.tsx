@@ -34,7 +34,7 @@ const renderWatch = async (account: Partial<Session.Account.SliceState>) => {
   return { sink, store };
 };
 
-const ACCOUNT = { user: "user_a", email: "a@example.com" };
+const ACCOUNT = { link: { secret: "shh", email: "a@example.com", user: "user_a" } };
 
 describe("Analytics.Watch", () => {
   describe("account", () => {
@@ -44,11 +44,6 @@ describe("Analytics.Watch", () => {
         id: "user_a",
         email: "a@example.com",
       });
-    });
-
-    it("should leave a machine linked before links carried the user anonymous", async () => {
-      const { sink } = await renderWatch({ email: "a@example.com" });
-      expect(sink.identify).not.toHaveBeenCalled();
     });
 
     it("should reset when the machine unlinks", async () => {
@@ -66,7 +61,6 @@ describe("Analytics.Watch", () => {
       act(() => {
         store.dispatch(
           Session.Account.link({
-            activation: "act",
             secret: "shh",
             email: "b@example.com",
             user: "user_b",

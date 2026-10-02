@@ -25,11 +25,11 @@ interface WatchParams {
 export const watchAccount = ({ store, sink }: WatchParams): destructor.Destructor => {
   let current: string | undefined;
   const follow = (): void => {
-    const { user, email } = Session.Account.selectSliceState(store.getState());
-    if (user === current) return;
+    const { link } = Session.Account.selectSliceState(store.getState());
+    if (link?.user === current) return;
     if (current != null) sink.reset();
-    current = user;
-    if (user != null && email != null) sink.identify({ id: user, email });
+    current = link?.user;
+    if (link != null) sink.identify({ id: link.user, email: link.email });
   };
   const unwatch = store.subscribe(follow);
   follow();
