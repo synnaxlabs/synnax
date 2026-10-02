@@ -1,0 +1,57 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { type APIContext } from "astro";
+
+import { toResponse } from "@/server/errors";
+import { filename } from "@/server/license/limits";
+
+/** download answers with the license key as a file the Console picker accepts. */
+export const download = (key: string, label: string): Response =>
+  new Response(key, {
+    headers: {
+      "content-type": "text/plain; charset=utf-8",
+      "content-disposition": `attachment; filename="${filename(label)}"`,
+    },
+  });
+
+/** handle runs a route body and turns a thrown error into a JSON error response. */
+export const handle = async (body: () => Promise<Response>): Promise<Response> => {
+  try {
+    return await body();
+  } catch (err) {
+    return toResponse(err);
+  }
+};
+
+const flatten = (value: unknown): string => {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) return value.map(flatten).join(",");
+  return JSON.stringify(value) ?? "";
+};
+
+/** form reads a JSON body or a posted form into one flat record without null fields. */
+export const form = async ({
+  request,
+}: APIContext): Promise<Record<string, string>> => {
+  const type = request.headers.get("content-type") ?? "";
+  if (type.includes("application/json")) {
+    const body: unknown = await request.json();
+    if (body == null || typeof body !== "object" || Array.isArray(body)) return {};
+    return Object.fromEntries(
+      Object.entries(body)
+        .filter(([, v]) => v != null)
+        .map(([k, v]) => [k, flatten(v)]),
+    );
+  }
+  const data = await request.formData();
+  return Object.fromEntries(
+    [...data.entries()].map(([k, v]) => [k, typeof v === "string" ? v : v.name]),
+  );
+};

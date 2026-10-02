@@ -10,7 +10,7 @@
  */
 
 /* The list brings its own inset, so the body adds none. */
-.console-panel-move-picker .console-modal__body {
+.console-panel-move-picker .pluto-modal__body {
     padding: 0;
 }
 

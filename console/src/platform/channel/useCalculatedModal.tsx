@@ -15,6 +15,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
+import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
@@ -75,11 +76,11 @@ export const useCalculatedModal = Modals.create<CalculatedModalParams>(
       typeof Channel.calculatedFormSchema
     >("name", { ctx: form });
     return (
-      <Modals.Frame className={CSS.B("channel", "edit", "calculated")}>
-        <Modals.Header icon={<Icon.Channel />}>
+      <Modal.Frame className={CSS.B("channel", "edit", "calculated")}>
+        <Modal.Header icon={<Icon.Channel />}>
           {isEdit ? `${name}.Edit` : "Channel.Create.Calculated"}
-        </Modals.Header>
-        <Modals.Body justify="start" gap="large">
+        </Modal.Header>
+        <Modal.Body justify="start" gap="large">
           <Form.Form<typeof Channel.calculatedFormSchema> {...form}>
             <Form.TextField path="name" label="Name" inputProps={NAME_INPUT_PROPS} />
             <Form.Field<string> path="expression" grow>
@@ -148,8 +149,8 @@ export const useCalculatedModal = Modals.create<CalculatedModalParams>(
               )}
             </Flex.Box>
           </Form.Form>
-        </Modals.Body>
-        <Modals.Footer>
+        </Modal.Body>
+        <Modal.Footer>
           <Nav.Bar.Start>
             {variant == "success" ? (
               <Triggers.SaveHelpText action={isEdit ? "Save" : "Create"} />
@@ -175,8 +176,8 @@ export const useCalculatedModal = Modals.create<CalculatedModalParams>(
               </Button.Button>
             </Flex.Box>
           </Nav.Bar.End>
-        </Modals.Footer>
-      </Modals.Frame>
+        </Modal.Footer>
+      </Modal.Frame>
     );
   },
 );

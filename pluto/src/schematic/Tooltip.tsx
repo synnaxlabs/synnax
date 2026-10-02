@@ -16,7 +16,7 @@ import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Tooltip as Base } from "@synnaxlabs/lyra/tooltip";
-import { caseconv, type color, type primitive, TimeSpan } from "@synnaxlabs/x";
+import { caseconv, type color, primitive, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useEffect, useState } from "react";
 
 import { Channel } from "@/channel";
@@ -34,17 +34,17 @@ type KeysOf<C> = C extends object ? keyof C : never;
 type Field = KeysOf<Node.Config>;
 
 const CHANNEL_ROWS: { field: Field; icon: Icon.FC }[] = [
-  { field: "commandChannel", icon: Icon.Edit },
-  { field: "stateChannel", icon: Icon.Visible },
-  { field: "channel", icon: Icon.Visible },
+  { field: "stateChannel", icon: Icon.Channel },
+  { field: "channel", icon: Icon.Channel },
+  { field: "commandChannel", icon: Icon.Control },
 ];
 
-const FIELD_ROWS: { field: Field; unit?: string }[] = [
+const FIELD_ROWS: { field: Field; label?: string; unit?: string }[] = [
   { field: "mode" },
   { field: "normallyOpen" },
   { field: "clickable" },
   { field: "onClickDelay", unit: "ms" },
-  { field: "stalenessTimeout", unit: "s" },
+  { field: "stalenessTimeout", label: "Stale timeout" },
 ];
 
 const kindIcon = (ch: channel.Channel): Icon.FC | null => {
@@ -87,10 +87,12 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
   const values: Partial<Record<Field, primitive.Value>> = config;
   const keys = CHANNEL_ROWS.flatMap(({ field }) => {
     const key = values[field];
-    return typeof key === "number" ? key : [];
+    return typeof key === "number" && !primitive.isZero(key) ? key : [];
   });
   // A null query holds the fetch until the delay passes, so mouse sweeps fire nothing.
-  const { data } = Channel.useResultMultiple(visible ? { keys } : null);
+  const { data } = Channel.useResultMultiple(
+    visible && keys.length > 0 ? { keys } : null,
+  );
   if (!visible || (keys.length > 0 && data == null)) return null;
   const channels = CHANNEL_ROWS.flatMap(({ field, icon: RoleIcon }) => {
     const ch = data?.find((c) => c.key === values[field]);
@@ -119,14 +121,20 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
     "stalenessColor" in config ? config.stalenessColor : undefined,
     theme,
   );
-  const fields = FIELD_ROWS.flatMap(({ field, unit }) => {
+  const fields = FIELD_ROWS.flatMap(({ field, label, unit }) => {
     const value = values[field];
     if (value == null) return [];
+    // A zero click delay means none, so the row would only be noise.
+    if (field === "onClickDelay" && value === 0) return [];
+    const text =
+      field === "stalenessTimeout"
+        ? TimeSpan.seconds(Number(value)).toString("semantic")
+        : `${String(value)}${unit ?? ""}`;
     return (
       <Row
         key={field}
-        label={caseconv.toSentence(field)}
-        value={unit == null ? String(value) : `${String(value)} ${unit}`}
+        label={label ?? caseconv.toSentence(field)}
+        value={text}
         valueColor={field === "stalenessTimeout" ? stalenessColor : undefined}
       />
     );

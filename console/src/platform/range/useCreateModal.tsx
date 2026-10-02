@@ -15,6 +15,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
+import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Ranger, Synnax } from "@synnaxlabs/pluto";
 import { type NumericTimeRange, TimeRange, uuid } from "@synnaxlabs/x";
@@ -114,9 +115,9 @@ export const useCreateModal = Modals.create<CreateModalParams>(
     const saveName = "Save to Core";
 
     return (
-      <Modals.Frame className={CSS.B("range-create-layout")}>
-        <Modals.Header icon={<Icon.Range />}>Range.Create</Modals.Header>
-        <Modals.Body>
+      <Modal.Frame className={CSS.B("range-create-layout")}>
+        <Modal.Header icon={<Icon.Range />}>Range.Create</Modal.Header>
+        <Modal.Body>
           <Form.Form<typeof Ranger.formSchema> {...form}>
             <Flex.Box y gap="huge">
               <Form.Field<string> path="name" showLabel={false} padHelpText={false}>
@@ -166,8 +167,8 @@ export const useCreateModal = Modals.create<CreateModalParams>(
               </Flex.Box>
             </Flex.Box>
           </Form.Form>
-        </Modals.Body>
-        <Modals.Footer>
+        </Modal.Body>
+        <Modal.Footer>
           <Triggers.SaveHelpText action={saveName} />
           <Nav.Bar.End>
             <Button.Button onClick={() => saveLocal()} disabled={variant === "loading"}>
@@ -183,8 +184,8 @@ export const useCreateModal = Modals.create<CreateModalParams>(
               {saveName}
             </Button.Button>
           </Nav.Bar.End>
-        </Modals.Footer>
-      </Modals.Frame>
+        </Modal.Footer>
+      </Modal.Frame>
     );
   },
 );
