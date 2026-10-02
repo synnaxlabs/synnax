@@ -71,7 +71,7 @@ inline const x::telem::TimeSpan WINDOWS_TIMER_UNIT = 100 * x::telem::NANOSECOND;
 inline const x::telem::TimeSpan WINDOWS_DEADLINE_SPIN = x::telem::MILLISECOND;
 
 /// @brief Shortest timer span the Windows loop holds on time.
-inline const x::telem::TimeSpan WINDOWS_MIN_TIMER_SPAN = 5 * x::telem::MILLISECOND;
+inline const x::telem::TimeSpan WINDOWS_MIN_TIMER_SPAN = x::telem::MILLISECOND;
 }
 
 /// @brief Default RT priority for SCHED_FIFO on Linux (range 1-99).

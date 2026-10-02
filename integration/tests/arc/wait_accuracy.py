@@ -12,74 +12,83 @@ import numpy as np
 import synnax as sy
 from framework.utils import create_indexed_pair
 from tests.arc.arc import ArcCase
+from tests.arc.timing import min_wait_ms, runtime
 
 # TODO Add a case with a variable wait duration to quantify its lag on Windows.
 # TODO Add error variance check
 
 # TODO needs more pressure, samples, etc
-ARC_WAIT_ACCURACY_SOURCE = """
-import time
-authority 200
 
-sequence main {
-    
-    1 -> wa_cmd,
-    time.wait{30ms},
-    2 -> wa_cmd,
-    time.wait{20ms},
-    3 -> wa_cmd,
-    time.wait{10ms},
-    4 -> wa_cmd,
-    time.wait{5ms},
-    5 -> wa_cmd,
-    time.wait{1ms},
-    6 -> wa_cmd
-}
-
-wa_start_cmd => main
-"""
-
-# The values the sequence writes to wa_cmd in order.
-WRITES = [1, 2, 3, 4, 5, 6]
-# The wait in ms between each write and the next.
+# The waits in ms the sequence holds in order. The case skips each wait under the
+# minimum of the runtime.
 WAITS_MS = [30, 20, 10, 5, 1]
 MAX_ERROR_PERCENT = 10.0
 
 
+def create_source(waits_ms: list[int]) -> str:
+    """Returns a sequence that writes a count to ``wa_cmd`` before and after each wait.
+
+    :param waits_ms: The waits the sequence holds, in order.
+    """
+    steps = ["    1 -> wa_cmd"]
+    for i, wait_ms in enumerate(waits_ms):
+        steps.append(f"    time.wait{{{wait_ms}ms}}")
+        steps.append(f"    {i + 2} -> wa_cmd")
+    body = ",\n".join(steps)
+    return f"""
+import time
+authority 200
+
+sequence main {{
+{body}
+}}
+
+wa_start_cmd => main
+"""
+
+
 class WaitAccuracy(ArcCase):
-    """A sequence writes ``wa_cmd`` before and after 30, 20, 10, 5, and 1 ms waits. The
-    time between two writes is the wait the runtime held, read from the timestamps
-    the runtime stamped.
+    """A sequence writes ``wa_cmd`` before and after each wait of ``WAITS_MS`` that the
+    runtime supports. The time between two writes is the wait the runtime held, read
+    from the timestamps the runtime stamped.
     """
 
-    arc_source = ARC_WAIT_ACCURACY_SOURCE
     arc_name_prefix = "ArcWaitAccuracy"
     start_cmd_channel = "wa_start_cmd"
     subscribe_channels = ["wa_cmd"]
     start: sy.TimeStamp
+    waits_ms: list[int]
 
     def setup(self) -> None:
+        self._retrieve_rack()
+        assert self.rack is not None
+        min_ms = min_wait_ms(self.rack)
+        self.waits_ms = [w for w in WAITS_MS if w >= min_ms]
+        skipped = ", ".join(f"{w} ms" for w in WAITS_MS if w < min_ms) or "none"
+        self.log(f"{runtime(self.rack)} minimum wait: {min_ms} ms, skipped: {skipped}")
+        self.arc_source = create_source(self.waits_ms)
         create_indexed_pair(self.client, "wa_cmd", sy.DataType.UINT8)
         self.start = sy.TimeStamp.now()
         super().setup()
 
     def verify_sequence_execution(self) -> None:
+        writes = list(range(1, len(self.waits_ms) + 2))
         # Program init
-        self.wait_for_eq("wa_cmd", WRITES[0])
+        self.wait_for_eq("wa_cmd", writes[0])
         # Program done
-        self.wait_for_eq("wa_cmd", WRITES[-1])
+        self.wait_for_eq("wa_cmd", writes[-1])
         frame = self.client.read(
             sy.TimeRange(self.start, sy.TimeStamp.now()), ["wa_cmd_time", "wa_cmd"]
         )
         times = frame["wa_cmd_time"].to_numpy().astype(np.int64)
         values = frame["wa_cmd"].to_numpy().tolist()
-        if values != WRITES:
-            self.fail(f"wa_cmd holds {values}, expected {WRITES}")
+        if values != writes:
+            self.fail(f"wa_cmd holds {values}, expected {writes}")
             return
         held_ms = np.diff(times) / float(sy.TimeSpan.MILLISECOND)
         over: list[str] = []
         self.log(f"{'wait':<6}  {'held':>10}  {'error':>7}")
-        for held, wait_ms in zip(held_ms.tolist(), WAITS_MS):
+        for held, wait_ms in zip(held_ms.tolist(), self.waits_ms):
             error = (held - wait_ms) / wait_ms * 100
             flag = ""
             if abs(error) > MAX_ERROR_PERCENT:

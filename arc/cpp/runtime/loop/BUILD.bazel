@@ -67,8 +67,10 @@ cc_test(
     ],
 )
 
+# TODO Remove before merge. This target is for timing diagnosis only.
 cc_test(
     name = "timing_test",
+    timeout = "long",
     srcs = ["timing_test.cpp"],
     # Measures wait timing with every core busy, so it only runs when named.
     tags = [
@@ -77,8 +79,10 @@ cc_test(
     ],
     deps = [
         ":loop",
+        "//arc/cpp/runtime/testutil",
         "//x/cpp/breaker",
         "//x/cpp/errors",
+        "//x/cpp/queue",
         "//x/cpp/telem",
         "@googletest//:gtest_main",
     ],

@@ -7,12 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// TODO Remove before merge. This file is for timing diagnosis only.
+
 #include <algorithm>
 #include <atomic>
 #include <cstdint>
 #include <cstdlib>
 #include <iomanip>
 #include <iostream>
+#include <optional>
 #include <thread>
 #include <vector>
 
@@ -33,9 +36,11 @@
 
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/queue/spsc.h"
 #include "x/cpp/telem/telem.h"
 
 #include "arc/cpp/runtime/loop/loop.h"
+#include "arc/cpp/runtime/testutil/timing.h"
 
 namespace arc::runtime::loop {
 namespace {
@@ -45,12 +50,25 @@ const auto TOLERANCE = 100 * x::telem::MICROSECOND;
 const auto MEDIAN_BOUND = x::telem::MILLISECOND;
 /// @brief Time a thread spins to find the longest stall the scheduler gives it.
 const auto STALL_SPAN = 100 * x::telem::MILLISECOND;
-/// @brief Waits measured for each duration.
-constexpr int COUNT = 40;
+/// @brief Sleeps measured for the reference spread.
+constexpr int SLEEP_COUNT = 40;
+/// @brief Most waits measured for one duration.
+constexpr std::int64_t MAX_COUNT = 500;
+/// @brief Fewest waits measured for one duration.
+constexpr std::int64_t MIN_COUNT = 30;
+/// @brief Time the waits of one duration can take in total.
+const auto DURATION_BUDGET = 3 * x::telem::SECOND;
+/// @brief Capacity of the queue that stands in for the input queue of the runtime.
+constexpr size_t INPUT_CAPACITY = 1024;
 /// @brief Wait durations measured on each loop.
 const std::vector<x::telem::TimeSpan> DURATIONS = {
     x::telem::MILLISECOND,
+    2 * x::telem::MILLISECOND,
+    3 * x::telem::MILLISECOND,
+    4 * x::telem::MILLISECOND,
     5 * x::telem::MILLISECOND,
+    6 * x::telem::MILLISECOND,
+    8 * x::telem::MILLISECOND,
     10 * x::telem::MILLISECOND,
     20 * x::telem::MILLISECOND,
     30 * x::telem::MILLISECOND,
@@ -95,20 +113,6 @@ void log_timers() {
 #endif
 }
 
-/// @brief Prints the minimum, median, 90th percentile, and maximum of a set of spans.
-/// @param spans_ns the spans in nanoseconds.
-/// @returns the median in nanoseconds.
-std::int64_t print_spread(std::vector<std::int64_t> spans_ns) {
-    std::sort(spans_ns.begin(), spans_ns.end());
-    const auto at = [&spans_ns](const size_t percent) {
-        return spans_ns[(spans_ns.size() - 1) * percent / 100];
-    };
-    std::cout << std::fixed << std::setprecision(1) << "min " << at(0) / 1e3 << ", p50 "
-              << at(50) / 1e3 << ", p90 " << at(90) / 1e3 << ", max " << at(100) / 1e3
-              << " us";
-    return at(50);
-}
-
 /// @brief Spins for span and returns the longest gap between two clock reads. The gap
 /// is the longest time the scheduler held the calling thread off its core.
 x::telem::TimeSpan measure_stall(const x::telem::TimeSpan span) {
@@ -123,24 +127,62 @@ x::telem::TimeSpan measure_stall(const x::telem::TimeSpan span) {
     return longest;
 }
 
-/// @brief Holds COUNT waits of duration back to back and prints how late they fired.
-/// The clock skew is the largest gap between the stamp clock and the steady clock.
+/// @brief Pushes to a queue once each period until destroyed, as a streamer does.
+class Traffic {
+    std::atomic<bool> running{true};
+    std::thread thread;
+
+public:
+    Traffic(x::queue::SPSC<int> &queue, const x::telem::TimeSpan period):
+        thread([this, &queue, period] {
+            const auto sw = x::telem::Stopwatch();
+            auto due = period;
+            while (this->running.load(std::memory_order_relaxed)) {
+                if (sw.elapsed() < due) {
+                    std::this_thread::yield();
+                    continue;
+                }
+                queue.push(0);
+                due = due + period;
+            }
+        }) {}
+
+    ~Traffic() {
+        this->running.store(false);
+        this->thread.join();
+    }
+};
+
+/// @brief Returns how many waits of duration fit in the budget, inside the bounds.
+int wait_count(const x::telem::TimeSpan duration) {
+    const auto fit = DURATION_BUDGET.nanoseconds() / duration.nanoseconds();
+    return static_cast<int>(std::clamp(fit, MIN_COUNT, MAX_COUNT));
+}
+
+/// @brief Holds waits of duration back to back and prints how late they fired. It
+/// drains inputs after each wake, as the runtime does. The clock skew is the largest
+/// gap between the stamp clock and the steady clock.
 /// @returns the median fire error in nanoseconds.
 std::int64_t measure_waits(
     Loop &loop,
     x::breaker::Breaker &breaker,
+    x::queue::SPSC<int> &inputs,
     const x::telem::TimeSpan duration
 ) {
+    const auto count = wait_count(duration);
     std::vector<std::int64_t> errors_ns;
-    errors_ns.reserve(COUNT);
+    errors_ns.reserve(count);
     std::int64_t skew_ns = 0;
     int wakes = 0;
-    for (int i = 0; i < COUNT; i++) {
+    int input = 0;
+    for (int i = 0; i < count; i++) {
         const auto stamp = x::telem::TimeStamp::now();
         const auto sw = x::telem::Stopwatch();
         auto elapsed = x::telem::TimeSpan(0);
         while (elapsed < duration - TOLERANCE) {
             loop.wait(breaker, duration - elapsed);
+            while (inputs.try_pop(input))
+                continue;
             elapsed = sw.elapsed();
             wakes++;
         }
@@ -149,21 +191,24 @@ std::int64_t measure_waits(
         skew_ns = std::max(skew_ns, std::abs(stamped_ns - elapsed.nanoseconds()));
         errors_ns.push_back((elapsed - duration).nanoseconds());
     }
-    std::cout << "  wait " << duration << ": ";
-    const auto median_ns = print_spread(errors_ns);
-    std::cout << " late, " << wakes << " wakes, clock skew " << skew_ns / 1e3
-              << " us\n";
-    return median_ns;
+    const testutil::Spread spread(std::move(errors_ns));
+    std::cout << "  wait " << duration << " x" << count << ", late: " << spread << ", "
+              << wakes << " wakes, clock skew " << skew_ns / 1e3 << " us\n";
+    return spread.at(50);
 }
 
 /// @brief Measures every duration on the loop that AUTO selects for timing_interval.
 /// The loop runs on its own thread, as it does in the runtime.
 /// @param timing_interval the base interval, or the maximum span if there is none.
+/// @param input_period the time between two inputs to the loop, or zero for no input.
 /// @returns the median fire error of each duration in nanoseconds, or nothing if the
 /// loop did not start.
-std::vector<std::int64_t> sweep(const x::telem::TimeSpan timing_interval) {
+std::vector<std::int64_t> sweep(
+    const x::telem::TimeSpan timing_interval,
+    const x::telem::TimeSpan input_period = x::telem::TimeSpan(0)
+) {
     std::vector<std::int64_t> medians_ns;
-    std::thread thread([&medians_ns, timing_interval] {
+    std::thread thread([&medians_ns, timing_interval, input_period] {
         Config config;
         // The Driver does not pin the loop thread on Windows.
         config.cpu_affinity = CPU_AFFINITY_NONE;
@@ -173,42 +218,30 @@ std::vector<std::int64_t> sweep(const x::telem::TimeSpan timing_interval) {
             std::cout << "  start failed: " << err.message() << "\n";
             return;
         }
+        x::queue::SPSC<int> inputs(INPUT_CAPACITY);
+        if (!loop->watch(inputs.notifier())) {
+            std::cout << "  watch failed\n";
+            return;
+        }
         x::breaker::Breaker breaker;
         breaker.start();
-        std::cout << config.mode << ", interval " << config.interval << "\n";
+        std::cout << config.mode << ", interval " << config.interval;
+        if (input_period.nanoseconds() > 0)
+            std::cout << ", input every " << input_period;
+        std::cout << "\n";
         log_timers();
         std::cout << std::fixed << std::setprecision(1) << "  longest stall in a "
                   << STALL_SPAN << " spin: " << measure_stall(STALL_SPAN).microseconds()
                   << " us\n";
+        std::optional<Traffic> traffic;
+        if (input_period.nanoseconds() > 0) traffic.emplace(inputs, input_period);
         for (const auto &duration: DURATIONS)
-            medians_ns.push_back(measure_waits(*loop, breaker, duration));
+            medians_ns.push_back(measure_waits(*loop, breaker, inputs, duration));
         breaker.stop();
     });
     thread.join();
     return medians_ns;
 }
-
-/// @brief Spins one thread on each core until destroyed.
-class Load {
-    std::atomic<bool> running{true};
-    std::vector<std::thread> threads;
-
-public:
-    Load() {
-        const auto count = std::max(1u, std::thread::hardware_concurrency());
-        for (unsigned int i = 0; i < count; i++)
-            this->threads.emplace_back([this] {
-                while (this->running.load(std::memory_order_relaxed))
-                    continue;
-            });
-    }
-
-    ~Load() {
-        this->running.store(false);
-        for (auto &thread: this->threads)
-            thread.join();
-    }
-};
 }
 
 /// @brief The clock the runtime stamps its writes from should step finer than 1 ms.
@@ -237,17 +270,15 @@ TEST(SleepTest, HoldsItsDuration) {
     log_timers();
     const auto duration = 10 * x::telem::MILLISECOND;
     std::vector<std::int64_t> errors_ns;
-    errors_ns.reserve(COUNT);
-    for (int i = 0; i < COUNT; i++) {
+    errors_ns.reserve(SLEEP_COUNT);
+    for (int i = 0; i < SLEEP_COUNT; i++) {
         const auto sw = x::telem::Stopwatch();
         std::this_thread::sleep_for(duration.chrono());
         errors_ns.push_back((sw.elapsed() - duration).nanoseconds());
     }
-    std::cout << "sleep " << duration << ": ";
-    print_spread(errors_ns);
-    std::cout << " late\n";
-    const auto earliest_ns = *std::min_element(errors_ns.begin(), errors_ns.end());
-    EXPECT_GE(earliest_ns, -MEDIAN_BOUND.nanoseconds());
+    const testutil::Spread spread(std::move(errors_ns));
+    std::cout << "sleep " << duration << ", late: " << spread << "\n";
+    EXPECT_GE(spread.at(0), -MEDIAN_BOUND.nanoseconds());
 }
 
 /// @brief Wait timing of the loop that AUTO selects for one base interval.
@@ -264,8 +295,22 @@ TEST_P(WaitTimingTest, FiresOnDeadlineWhenIdle) {
 /// @brief With every core busy, each wait duration should still be measured. The
 /// printed spread shows what the scheduler adds.
 TEST_P(WaitTimingTest, MeasuresUnderLoad) {
-    const Load load;
+    const testutil::Load load;
     const auto medians_ns = sweep(this->GetParam());
+    ASSERT_EQ(medians_ns.size(), DURATIONS.size());
+}
+
+/// @brief With input at 100 Hz, each wait duration should still be measured. The
+/// printed spread shows what the input wakes add.
+TEST_P(WaitTimingTest, MeasuresWithInputAt100Hz) {
+    const auto medians_ns = sweep(this->GetParam(), 10 * x::telem::MILLISECOND);
+    ASSERT_EQ(medians_ns.size(), DURATIONS.size());
+}
+
+/// @brief With input at 1 kHz, each wait duration should still be measured. The
+/// printed spread shows what the input wakes add.
+TEST_P(WaitTimingTest, MeasuresWithInputAt1kHz) {
+    const auto medians_ns = sweep(this->GetParam(), x::telem::MILLISECOND);
     ASSERT_EQ(medians_ns.size(), DURATIONS.size());
 }
 

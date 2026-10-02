@@ -12,16 +12,27 @@ import numpy as np
 import synnax as sy
 from framework.utils import create_indexed_pair
 from tests.arc.arc import ArcCase
+from tests.arc.timing import min_wait_ms
 
 # The waits of each profile in ms. Their GCD selects the loop mode of the C++ runtime.
+# An only profile holds one wait alone in its program. The case skips each wait under
+# the minimum of the runtime.
 PROFILES: dict[str, list[int]] = {
     "event_driven": [10, 20, 30],
     "hybrid": [12, 20, 32],
     "rt_event": [10, 20, 31],
+    "all": [30, 20, 10, 5, 1],
+    "only_30": [30],
+    "only_20": [20],
+    "only_10": [10],
+    "only_5": [5],
+    "only_1": [1],
 }
 # How many times the sequence holds each wait of a profile.
 REPEATS = 20
 MAX_ERROR_PERCENT = 10.0
+# The limit in ms on the span from the shortest to the longest held time of a wait.
+MAX_SPREAD_MS = 1.0
 
 
 def create_source(waits_ms: list[int]) -> str:
@@ -48,8 +59,8 @@ ws_start_cmd => main
 
 class WaitAccuracySamples(ArcCase):
     """A sequence holds each wait of a profile ``REPEATS`` times and writes ``ws_cmd``
-    before and after each one. The case logs every held time and fails if the median
-    of a wait is over the limit.
+    before and after each one. The case fails if the median error of a wait or the
+    spread of its held times is over its limit.
     """
 
     arc_name_prefix = "ArcWaitAccuracySamples"
@@ -59,7 +70,11 @@ class WaitAccuracySamples(ArcCase):
     waits_ms: list[int]
 
     def setup(self) -> None:
-        self.waits_ms = PROFILES[self.params["profile"]] * REPEATS
+        self._retrieve_rack()
+        assert self.rack is not None
+        min_ms = min_wait_ms(self.rack)
+        profile = [w for w in PROFILES[self.params["profile"]] if w >= min_ms]
+        self.waits_ms = profile * REPEATS
         self.arc_source = create_source(self.waits_ms)
         create_indexed_pair(self.client, "ws_cmd", sy.DataType.UINT8)
         self.start = sy.TimeStamp.now()
@@ -79,23 +94,39 @@ class WaitAccuracySamples(ArcCase):
         held_ms = np.diff(times) / float(sy.TimeSpan.MILLISECOND)
         waits_ms = np.array(self.waits_ms)
         over: list[str] = []
+        wide: list[str] = []
         self.log(f"held time in ms, {REPEATS} samples per wait")
         self.log(
             f"{'wait':<6}  {'median':>7}  {'error':>7}"
-            f"  {'min':>7}  {'p90':>7}  {'max':>7}"
+            f"  {'min':>7}  {'p90':>7}  {'max':>7}  {'spread':>7}"
         )
         for wait_ms in sorted(set(self.waits_ms)):
             held = held_ms[waits_ms == wait_ms]
             median = float(np.median(held))
             error = (median - wait_ms) / wait_ms * 100
+            spread = float(held.max() - held.min())
             flag = ""
             if abs(error) > MAX_ERROR_PERCENT:
-                flag = "  over limit"
+                flag += "  error over limit"
                 over.append(f"{wait_ms} ms ({error:+.1f}%)")
+            if spread > MAX_SPREAD_MS:
+                flag += "  spread over limit"
+                wide.append(f"{wait_ms} ms ({spread:.3f} ms)")
             wait = f"{wait_ms} ms"
             self.log(
                 f"{wait:<6}  {median:>7.3f}  {error:>+6.1f}%  {held.min():>7.3f}"
-                f"  {np.percentile(held, 90):>7.3f}  {held.max():>7.3f}{flag}"
+                f"  {np.percentile(held, 90):>7.3f}  {held.max():>7.3f}"
+                f"  {spread:>7.3f}{flag}"
             )
+        failures: list[str] = []
         if over:
-            self.fail(f"over the {MAX_ERROR_PERCENT:g}% limit: " + ", ".join(over))
+            failures.append(
+                f"median error over the {MAX_ERROR_PERCENT:g}% limit: "
+                + ", ".join(over)
+            )
+        if wide:
+            failures.append(
+                f"spread over the {MAX_SPREAD_MS:g} ms limit: " + ", ".join(wide)
+            )
+        if failures:
+            self.fail("; ".join(failures))
