@@ -211,9 +211,14 @@ func (h *Host) Create(cfg node.Config) (node.Node, error) {
 		}
 		h.updateBaseInterval(period)
 		h.foldReassignedSpans(cfg, periodParam)
+		periodIdx, err := cfg.State.ResolveInput(periodInputParam)
+		if err != nil {
+			return nil, err
+		}
 		return &Interval{
 			State:     cfg.State,
 			lastFired: -period,
+			periodIdx: periodIdx,
 		}, nil
 
 	case waitSymbolName:
@@ -230,10 +235,15 @@ func (h *Host) Create(cfg node.Config) (node.Node, error) {
 		}
 		h.updateBaseInterval(duration)
 		h.foldReassignedSpans(cfg, durationParam)
+		durationIdx, err := cfg.State.ResolveInput(durationInputParam)
+		if err != nil {
+			return nil, err
+		}
 		return &Wait{
-			State:     cfg.State,
-			startTime: -1,
-			fired:     false,
+			State:       cfg.State,
+			startTime:   -1,
+			fired:       false,
+			durationIdx: durationIdx,
 		}, nil
 
 	case nowSymbolName:
@@ -327,10 +337,10 @@ func parseTime(v any, name string) (telem.TimeSpan, error) {
 	return span, nil
 }
 
-// liveSpan returns the named input's current span: the referenced variable's
-// latest value when var-bound, else the value stamped at compile time.
-func liveSpan(s *node.State, name string) telem.TimeSpan {
-	return telem.TimeSpan(s.NumericInput[int64](name))
+// liveSpan returns input i's current span: the referenced variable's latest
+// value when var-bound, else the value stamped at compile time.
+func liveSpan(s *node.State, i int) telem.TimeSpan {
+	return telem.TimeSpan(s.NumericInputAt[int64](i))
 }
 
 // spanGuard guards a live timer span against non-positive values. It reports
@@ -360,12 +370,13 @@ type Interval struct {
 	*node.State
 	lastFired telem.TimeSpan
 	guard     spanGuard
+	periodIdx int
 }
 
 func (i *Interval) Init(_ node.Context) {}
 
 func (i *Interval) Next(ctx node.Context) {
-	period := liveSpan(i.State, periodInputParam)
+	period := liveSpan(i.State, i.periodIdx)
 	// A non-positive period would keep the deadline permanently in the past,
 	// spinning the scheduler loop. Park without a deadline instead; a later
 	// reassignment to a positive value resumes the timer.
@@ -397,16 +408,17 @@ func (i *Interval) Next(ctx node.Context) {
 // Reset resets the interval so it fires immediately on the next timer tick.
 func (i *Interval) Reset(ctx node.Context) {
 	i.State.Reset(ctx)
-	i.lastFired = -liveSpan(i.State, periodInputParam)
+	i.lastFired = -liveSpan(i.State, i.periodIdx)
 	i.guard.reset()
 }
 
 // Wait is a one-shot timer that fires once after a specified duration.
 type Wait struct {
 	*node.State
-	startTime telem.TimeSpan
-	fired     bool
-	guard     spanGuard
+	startTime   telem.TimeSpan
+	fired       bool
+	guard       spanGuard
+	durationIdx int
 }
 
 func (w *Wait) Init(_ node.Context) {}
@@ -415,7 +427,7 @@ func (w *Wait) Next(ctx node.Context) {
 	if w.fired {
 		return
 	}
-	duration := liveSpan(w.State, durationInputParam)
+	duration := liveSpan(w.State, w.durationIdx)
 	// A non-positive duration is a configuration error, not an instant fire:
 	// park instead. Timing stays anchored to startTime, so recovery re-checks
 	// the live duration against the original activation.

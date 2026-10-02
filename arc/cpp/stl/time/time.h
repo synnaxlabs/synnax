@@ -49,11 +49,10 @@ inline x::telem::TimeSpan calculate_tolerance(
     }
 }
 
-/// @brief returns the named input's current span: the referenced variable's
-/// latest value when var-bound, else the value stamped at compile time.
-inline x::telem::TimeSpan
-live_span(const runtime::state::Node &s, const std::string &name) {
-    return x::telem::TimeSpan(s.numeric_input<int64_t>(name));
+/// @brief returns input idx's current span: the referenced variable's latest
+/// value when var-bound, else the value stamped at compile time.
+inline x::telem::TimeSpan live_span(const runtime::state::Node &s, const size_t idx) {
+    return x::telem::TimeSpan(s.numeric_input<int64_t>(idx));
 }
 
 /// @brief rejects a non-positive span stamped at compile time. Var-bound
@@ -125,13 +124,18 @@ class Interval : public runtime::node::Node {
     runtime::state::Node state;
     x::telem::TimeSpan last_fired;
     SpanGuard guard;
+    size_t period_idx;
 
 public:
-    explicit Interval(runtime::state::Node &&state, const x::telem::TimeSpan period):
-        state(std::move(state)), last_fired(-1 * period) {}
+    Interval(
+        runtime::state::Node &&state,
+        const x::telem::TimeSpan period,
+        const size_t period_idx
+    ):
+        state(std::move(state)), last_fired(-1 * period), period_idx(period_idx) {}
 
     x::errors::Error next(runtime::node::Context &ctx) override {
-        const auto period = live_span(this->state, "period");
+        const auto period = live_span(this->state, this->period_idx);
         // A non-positive period would keep the deadline permanently in the
         // past, spinning the scheduler loop. Park without a deadline instead;
         // a later reassignment to a positive value resumes the timer.
@@ -162,7 +166,7 @@ public:
     /// @brief resets the interval so it fires immediately on the next timer tick.
     void reset(runtime::node::Context &) override {
         this->state.reset();
-        this->last_fired = -1 * live_span(this->state, "period");
+        this->last_fired = -1 * live_span(this->state, this->period_idx);
         this->guard.reset();
     }
 
@@ -197,13 +201,15 @@ class Wait : public runtime::node::Node {
     x::telem::TimeSpan start_time = x::telem::TimeSpan(-1);
     bool fired = false;
     SpanGuard guard;
+    size_t duration_idx;
 
 public:
-    explicit Wait(runtime::state::Node &&state): state(std::move(state)) {}
+    Wait(runtime::state::Node &&state, const size_t duration_idx):
+        state(std::move(state)), duration_idx(duration_idx) {}
 
     x::errors::Error next(runtime::node::Context &ctx) override {
         if (this->fired) return x::errors::NIL;
-        const auto duration = live_span(this->state, "duration");
+        const auto duration = live_span(this->state, this->duration_idx);
         // A non-positive duration is a configuration error, not an instant
         // fire: park instead. Timing stays anchored to start_time, so recovery
         // re-checks the live duration against the original activation.
@@ -301,8 +307,10 @@ public:
             if (err) return {nullptr, err};
             this->update_base_interval(inputs.interval);
             this->fold_reassigned_spans(cfg, cfg.node.inputs["period"]);
+            const auto [idx, idx_err] = cfg.state.resolve_input("period");
+            if (idx_err) return {nullptr, idx_err};
             return {
-                std::make_unique<Interval>(std::move(cfg.state), inputs.interval),
+                std::make_unique<Interval>(std::move(cfg.state), inputs.interval, idx),
                 x::errors::NIL
             };
         }
@@ -311,7 +319,9 @@ public:
             if (err) return {nullptr, err};
             this->update_base_interval(inputs.duration);
             this->fold_reassigned_spans(cfg, cfg.node.inputs["duration"]);
-            return {std::make_unique<Wait>(std::move(cfg.state)), x::errors::NIL};
+            const auto [idx, idx_err] = cfg.state.resolve_input("duration");
+            if (idx_err) return {nullptr, idx_err};
+            return {std::make_unique<Wait>(std::move(cfg.state), idx), x::errors::NIL};
         }
         if (cfg.node.type == "now") {
             auto [inputs, err] = NowInputs::create(cfg.node.inputs);

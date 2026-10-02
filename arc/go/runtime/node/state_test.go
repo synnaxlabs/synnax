@@ -2806,6 +2806,51 @@ var _ = Describe("ProgramState", func() {
 			Expect(build().Node("c").NumericInput[uint8]("nope")).To(BeZero())
 		})
 	})
+
+	Describe("NumericInputAt", func() {
+		// build wires consumer c with a var-bound "gain" (variable node v) and a
+		// literal "offset".
+		build := func() *node.ProgramState {
+			v := ir.Node{Key: "v", Type: "variable", Outputs: types.Params{
+				{Name: ir.DefaultOutputParam, Type: types.U8()},
+			}}
+			c := ir.Node{Key: "c", Type: "consumer", Inputs: types.Params{
+				{Name: "gain", Type: types.VarRef(types.U8(), "v"), Value: uint8(5)},
+				{Name: "offset", Type: types.U8(), Value: uint8(9)},
+			}}
+			return node.New(ir.IR{Nodes: ir.Nodes{v, c}})
+		}
+
+		// at resolves name on c and reads it by index.
+		at := func(s *node.ProgramState, name string) uint8 {
+			GinkgoHelper()
+			return s.Node("c").NumericInputAt[uint8](MustSucceed(
+				s.Node("c").ResolveInput(name),
+			))
+		}
+
+		It("Should return the referenced variable's latest value", func() {
+			s := build()
+			*s.Node("v").Output(0) = telem.NewSeriesV[uint8](3, 7)
+			Expect(at(s, "gain")).To(Equal(uint8(7)))
+		})
+
+		It("Should read the declared initial before any write", func() {
+			Expect(at(build(), "gain")).To(Equal(uint8(5)))
+		})
+
+		It("Should return a literal param's configured value", func() {
+			Expect(at(build(), "offset")).To(Equal(uint8(9)))
+		})
+
+		It("Should match the by-name overload", func() {
+			s := build()
+			*s.Node("v").Output(0) = telem.NewSeriesV[uint8](3, 7)
+			Expect(at(s, "gain")).To(Equal(s.Node("c").NumericInput[uint8]("gain")))
+			Expect(at(s, "offset")).
+				To(Equal(s.Node("c").NumericInput[uint8]("offset")))
+		})
+	})
 })
 
 // newLinkedState builds src (i32 output) -> dst (i32 input) and returns the state.
