@@ -148,4 +148,12 @@ create(const Config &cfg, std::shared_ptr<x::thread::rt::Handle> rt_handle) {
     return std::make_unique<PollingLoop>(cfg);
 }
 
+x::telem::TimeSpan min_timer_span() {
+    return x::telem::TimeSpan(0);
+}
+
+std::string platform_name() {
+    return "this platform";
+}
+
 }

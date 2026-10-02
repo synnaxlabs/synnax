@@ -354,4 +354,12 @@ create(const Config &cfg, std::shared_ptr<x::thread::rt::Handle> rt_handle) {
     return std::make_unique<WindowsLoop>(cfg, std::move(rt_handle));
 }
 
+x::telem::TimeSpan min_timer_span() {
+    return timing::WINDOWS_MIN_TIMER_SPAN;
+}
+
+std::string platform_name() {
+    return "Windows";
+}
+
 }

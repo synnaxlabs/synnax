@@ -29,21 +29,25 @@ sequence main {
     time.wait{20ms},
     3 -> wa_cmd,
     time.wait{10ms},
-    4 -> wa_cmd
+    4 -> wa_cmd,
+    time.wait{5ms},
+    5 -> wa_cmd,
+    time.wait{1ms},
+    6 -> wa_cmd
 }
 
 wa_start_cmd => main
 """
 
 # The values the sequence writes to wa_cmd in order.
-WRITES = [1, 2, 3, 4]
+WRITES = [1, 2, 3, 4, 5, 6]
 # The wait in ms between each write and the next.
-WAITS_MS = [30, 20, 10]
+WAITS_MS = [30, 20, 10, 5, 1]
 MAX_ERROR_PERCENT = 10.0
 
 
 class WaitAccuracy(ArcCase):
-    """A sequence writes ``wa_cmd`` before and after 30, 20, and 10 ms waits. The
+    """A sequence writes ``wa_cmd`` before and after 30, 20, 10, 5, and 1 ms waits. The
     time between two writes is the wait the runtime held, read from the timestamps
     the runtime stamped.
     """
@@ -73,12 +77,15 @@ class WaitAccuracy(ArcCase):
             self.fail(f"wa_cmd holds {values}, expected {WRITES}")
             return
         held_ms = np.diff(times) / float(sy.TimeSpan.MILLISECOND)
-        failures: list[str] = []
+        over: list[str] = []
+        self.log(f"{'wait':<6}  {'held':>10}  {'error':>7}")
         for held, wait_ms in zip(held_ms.tolist(), WAITS_MS):
             error = (held - wait_ms) / wait_ms * 100
-            report = f"wait{{{wait_ms}ms}} held {held:.3f} ms, error {error:+.1f}%"
-            self.log(report)
+            flag = ""
             if abs(error) > MAX_ERROR_PERCENT:
-                failures.append(report)
-        if failures:
-            self.fail(f"over the {MAX_ERROR_PERCENT}% limit: " + "; ".join(failures))
+                flag = "  over limit"
+                over.append(f"{wait_ms} ms ({error:+.1f}%)")
+            wait = f"{wait_ms} ms"
+            self.log(f"{wait:<6}  {held:>7.3f} ms  {error:>+6.1f}%{flag}")
+        if over:
+            self.fail(f"over the {MAX_ERROR_PERCENT:g}% limit: " + ", ".join(over))

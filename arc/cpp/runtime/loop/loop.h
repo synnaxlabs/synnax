@@ -10,6 +10,7 @@
 #pragma once
 
 #include <memory>
+#include <string>
 #include <thread>
 
 #include "absl/log/log.h"
@@ -68,6 +69,9 @@ inline const x::telem::TimeSpan WINDOWS_TIMER_UNIT = 100 * x::telem::NANOSECOND;
 /// @brief Span the Windows loop spins ahead of a deadline. The timer alone fires up
 /// to 0.5 ms late.
 inline const x::telem::TimeSpan WINDOWS_DEADLINE_SPIN = x::telem::MILLISECOND;
+
+/// @brief Shortest timer span the Windows loop holds on time.
+inline const x::telem::TimeSpan WINDOWS_MIN_TIMER_SPAN = 5 * x::telem::MILLISECOND;
 }
 
 /// @brief Default RT priority for SCHED_FIFO on Linux (range 1-99).
@@ -301,4 +305,11 @@ struct Loop {
 /// handle's allocated core is used for CPU affinity.
 std::unique_ptr<Loop>
 create(const Config &cfg, std::shared_ptr<x::thread::rt::Handle> rt_handle = nullptr);
+
+/// @brief Returns the shortest timer span the loop of this platform holds on time. A
+/// zero span means there is no limit.
+x::telem::TimeSpan min_timer_span();
+
+/// @brief Returns the name of this platform for messages to the user.
+std::string platform_name();
 }

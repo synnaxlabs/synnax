@@ -78,20 +78,24 @@ class WaitAccuracySamples(ArcCase):
             return
         held_ms = np.diff(times) / float(sy.TimeSpan.MILLISECOND)
         waits_ms = np.array(self.waits_ms)
-        failures: list[str] = []
+        over: list[str] = []
+        self.log(f"held time in ms, {REPEATS} samples per wait")
+        self.log(
+            f"{'wait':<6}  {'median':>7}  {'error':>7}"
+            f"  {'min':>7}  {'p90':>7}  {'max':>7}"
+        )
         for wait_ms in sorted(set(self.waits_ms)):
             held = held_ms[waits_ms == wait_ms]
             median = float(np.median(held))
             error = (median - wait_ms) / wait_ms * 100
-            report = (
-                f"wait{{{wait_ms}ms}} held {median:.3f} ms median, error {error:+.1f}%,"
-                f" min {held.min():.3f}, p90 {np.percentile(held, 90):.3f},"
-                f" max {held.max():.3f}"
-            )
-            self.log(report)
-            samples = " ".join(f"{h:.3f}" for h in held.tolist())
-            self.log(f"wait{{{wait_ms}ms}} samples: {samples}")
+            flag = ""
             if abs(error) > MAX_ERROR_PERCENT:
-                failures.append(report)
-        if failures:
-            self.fail(f"over the {MAX_ERROR_PERCENT}% limit: " + "; ".join(failures))
+                flag = "  over limit"
+                over.append(f"{wait_ms} ms ({error:+.1f}%)")
+            wait = f"{wait_ms} ms"
+            self.log(
+                f"{wait:<6}  {median:>7.3f}  {error:>+6.1f}%  {held.min():>7.3f}"
+                f"  {np.percentile(held, 90):>7.3f}  {held.max():>7.3f}{flag}"
+            )
+        if over:
+            self.fail(f"over the {MAX_ERROR_PERCENT:g}% limit: " + ", ".join(over))
