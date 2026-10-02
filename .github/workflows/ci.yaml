@@ -514,12 +514,14 @@ jobs:
 
   portal:
     needs: changes
-    if: needs.changes.outputs.portal == 'true'
+    if: inputs.full || needs.changes.outputs.portal == 'true'
     uses: ./.github/workflows/test.ts.yaml
     with:
       coverage_flag: portal
       directory: site/portal
+      macos: *full
       package: portal
+      windows: *full
     secrets: inherit
 
   protobuf:
