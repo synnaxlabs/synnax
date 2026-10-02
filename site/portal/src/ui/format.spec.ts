@@ -41,6 +41,11 @@ describe("format.statusOf", () => {
   it("should call a license outside the renewal window active", () => {
     expect(statusOf(licenseOf({ expiresAt: days(31) }), NOW)).toBe("active");
   });
+
+  it("should not warn on a Desktop license, which renews itself", () => {
+    const lic = licenseOf({ edition: "desktop", expiresAt: days(2) });
+    expect(statusOf(lic, NOW)).toBe("active");
+  });
 });
 
 describe("format.standing", () => {
@@ -113,8 +118,35 @@ describe("format.describeEvent", () => {
     );
   });
 
+  it("should name a machine acting on itself once", () => {
+    const e = eventOf({ kind: "renew", actor: MACHINE, activation: MACHINE });
+    expect(describeEvent(e, NAMES)).toBe("License renewed: Test stand");
+  });
+
+  it("should read a denial reason in words", () => {
+    const e = eventOf({
+      kind: "activate_denied",
+      activation: MACHINE,
+      detail: { reason: "no_seats" },
+    });
+    expect(describeEvent(e, NAMES)).toBe(
+      "Activation denied: Test stand by Ada (no free seat)",
+    );
+  });
+
   it("should leave out an actor no name is known for", () => {
     const e = eventOf({ kind: "expiry_notice", actor: "cron" });
     expect(describeEvent(e, NAMES)).toBe("Expiry notice sent");
+  });
+
+  it("should carry the reason an event was given", () => {
+    const e = eventOf({
+      kind: "unlink",
+      activation: MACHINE,
+      detail: { reason: "superseded" },
+    });
+    expect(describeEvent(e, NAMES)).toBe(
+      "Machine logged out: Test stand by Ada (logged in again)",
+    );
   });
 });

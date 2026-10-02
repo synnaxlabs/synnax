@@ -14,18 +14,19 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
 import { type Machine } from "@/server/license/desktop";
+import { Devices } from "@/ui/devices";
 import { Enterprise } from "@/ui/Enterprise";
 import { date, machineName, statusOf } from "@/ui/format";
 import { Licenses } from "@/ui/licenses";
+import { DOWNLOAD_URL } from "@/ui/links";
 import { Page, Section } from "@/ui/Page";
+import { Panel } from "@/ui/Panel";
 import { Row, Table } from "@/ui/Table";
-
-const DOWNLOAD_URL = "https://docs.synnaxlabs.com/reference/desktop/get-started";
 
 /** RECENT is how many machines the overview shows before linking to Devices. */
 const RECENT = 3;
 
-const COLUMNS = "minmax(0, 2fr) 14rem 16rem";
+const COLUMNS = "minmax(0, 2fr) 14rem 16rem 10rem";
 
 export interface PersonalProps {
   /** machines are the user's linked machines, most recently renewed first. */
@@ -37,7 +38,7 @@ export interface PersonalProps {
 
 /**
  * Personal is the overview of a personal account: how to start with Synnax Desktop,
- * or the machines already signed in.
+ * or the machines already logged in.
  */
 export const Personal = ({ machines, devices, now }: PersonalProps): ReactElement => (
   <Page title="Synnax Desktop" subtitle="Free for personal use">
@@ -59,14 +60,14 @@ interface StepProps {
 
 const Step = ({ step, title, description, action }: StepProps): ReactElement => (
   <Flex.Box x align="center" gap="large" wrap className="portal-step">
-    <Text.Text level="h5" color={9} className="portal-step__number">
+    <Text.Text level="h5" color={10} className="portal-step__number">
       {step}
     </Text.Text>
     <Flex.Box y gap="tiny" className="portal-step__text">
-      <Text.Text level="p" weight={500}>
+      <Text.Text level="h5" weight={500} color={11}>
         {title}
       </Text.Text>
-      <Text.Text level="p" color={10}>
+      <Text.Text level="p" color={9}>
         {description}
       </Text.Text>
     </Flex.Box>
@@ -76,11 +77,11 @@ const Step = ({ step, title, description, action }: StepProps): ReactElement => 
 
 const GetStarted = (): ReactElement => (
   <Section title="Get started">
-    <Flex.Box y bordered rounded background={1} className="portal-steps">
+    <Panel>
       <Step
         step={1}
         title="Download Synnax Desktop"
-        description="Available for macOS and Windows."
+        description="Available for macOS and Windows"
         action={
           <Button.Button variant="filled" href={DOWNLOAD_URL}>
             <Icon.Download />
@@ -90,10 +91,10 @@ const GetStarted = (): ReactElement => (
       />
       <Step
         step={2}
-        title="Sign in from the app"
-        description="Open Synnax Desktop and choose Sign in. The machine then shows here."
+        title="Log in from the app"
+        description="Open Synnax Desktop and choose Log in. The machine then shows here"
       />
-    </Flex.Box>
+    </Panel>
   </Section>
 );
 
@@ -112,7 +113,7 @@ const Recent = ({ machines, devices, now }: RecentProps): ReactElement => (
       </Button.Button>
     }
   >
-    <Table columns={COLUMNS} head={["Machine", "Status", "Last renewal"]}>
+    <Table columns={COLUMNS} head={["Machine", "Status", "Last renewal", ""]}>
       {machines.slice(0, RECENT).map(({ activation: a, license: lic }) => (
         <Row key={a.key} columns={COLUMNS}>
           <Text.Text level="p" overflow="ellipsis">
@@ -121,9 +122,12 @@ const Recent = ({ machines, devices, now }: RecentProps): ReactElement => (
           <Flex.Box>
             <Licenses.StatusTag status={statusOf(lic, now)} />
           </Flex.Box>
-          <Text.Text level="p" color={10}>
+          <Text.Text level="p" color={9}>
             {date(a.lastSeen)}
           </Text.Text>
+          <Flex.Box justify="end">
+            <Devices.LogOutDialog activation={a} />
+          </Flex.Box>
         </Row>
       ))}
     </Table>

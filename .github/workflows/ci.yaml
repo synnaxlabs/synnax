@@ -8,19 +8,28 @@
 # included in the file licenses/APL.txt.
 
 # Gates every merge. The ruleset requires only the OK context, so every check a pull
-# request or a merge group must pass runs from here. A release branch has no merge
-# queue, so a push to one runs it too: a release verifies the checks on its own commit.
+# request or a merge group must pass runs from here. Nightly and Release call it with
+# full, which runs every job whatever changed, on every OS the job supports.
 
 name: CI
 
 on:
   pull_request:
   merge_group:
-  push:
-    branches:
-      - release/**
+  workflow_call:
+    inputs:
+      full:
+        description: Whether to run every job on every OS
+        required: false
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
+      full:
+        description: Whether to run every job on every OS
+        required: false
+        type: boolean
+        default: false
       integration:
         description: Whether to run the merge-queue tier too
         required: false
@@ -28,16 +37,17 @@ on:
         default: false
 
 # A new push to a pull request cancels the run it replaces. A merge group run is
-# cancelled only by cancel.merge-group.yaml, which uses the same key.
+# cancelled only by cancel.merge-group.yaml, which uses the same key. A called run takes
+# the caller's workflow name, so Nightly and Release never share a group.
 concurrency:
   group:
     ci-${{ github.event.pull_request.number || github.event.merge_group.head_ref ||
-    github.ref }}
+    format('{0}-{1}', github.workflow, github.ref) }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # One output per key in .github/filters.yaml, true when the pull request, merge group
-  # or push touched one of its paths.
+  # One output per key in .github/filters.yaml, true when the pull request or merge
+  # group touched one of its paths.
   changes:
     runs-on: ubuntu-latest
     outputs:
@@ -91,101 +101,119 @@ jobs:
       - uses: dorny/paths-filter@v4
         id: filter
         with:
-          # The pushed branch as base compares a push against the commit before it.
-          base: ${{ github.event_name == 'push' && github.ref_name || '' }}
           filters: .github/filters.yaml
 
   alamos-go:
     needs: changes
-    if: needs.changes.outputs.alamos_go == 'true'
+    if: inputs.full || needs.changes.outputs.alamos_go == 'true'
     uses: ./.github/workflows/test.go.yaml
     with:
       coverage_flag: alamos-go
       directory: alamos/go
+      macos: &full ${{ inputs.full == true }}
+      windows: *full
     secrets: inherit
 
   alamos-py:
     needs: changes
-    if: needs.changes.outputs.alamos_py == 'true'
+    if: inputs.full || needs.changes.outputs.alamos_py == 'true'
     uses: ./.github/workflows/test.py.yaml
     with:
       coverage_flag: alamos-py
       coverage_module: alamos
       directory: alamos/py
+      macos: *full
+      windows: *full
     secrets: inherit
 
   alamos-ts:
     needs: changes
-    if: needs.changes.outputs.alamos_ts == 'true'
+    if: inputs.full || needs.changes.outputs.alamos_ts == 'true'
     uses: ./.github/workflows/test.ts.yaml
     with:
       coverage_flag: alamos-ts
       directory: alamos/ts
+      macos: *full
       package: alamos
+      windows: *full
     secrets: inherit
 
   arc-cpp:
     needs: [changes, core-image]
-    if: needs.changes.outputs.arc_cpp == 'true' || needs.changes.outputs.core == 'true'
+    if:
+      inputs.full || needs.changes.outputs.arc_cpp == 'true' ||
+      needs.changes.outputs.core == 'true'
     uses: ./.github/workflows/test.cpp.yaml
     with:
       core_image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
       directories: arc/cpp
+      macos: *full
       rust: true
       targets: //arc/cpp/...
       test_flags: --spawn_strategy=local --jobs=1
+      windows: *full
     secrets: inherit
 
   arc-go:
     needs: changes
-    if: needs.changes.outputs.arc_go == 'true'
+    if: inputs.full || needs.changes.outputs.arc_go == 'true'
     uses: ./.github/workflows/test.go.yaml
     with:
       coverage_flag: arc-go
       directory: arc/go
       install_antlr4: true
+      macos: *full
+      windows: *full
     secrets: inherit
 
   aspen:
     needs: changes
-    if: needs.changes.outputs.aspen == 'true'
+    if: inputs.full || needs.changes.outputs.aspen == 'true'
     uses: ./.github/workflows/test.go.yaml
     with:
       coverage_flag: aspen
       directory: aspen
+      macos: *full
+      windows: *full
     secrets: inherit
 
   buildifier:
     needs: changes
-    if: needs.changes.outputs.buildifier == 'true'
+    if: inputs.full || needs.changes.outputs.buildifier == 'true'
     uses: ./.github/workflows/lint.buildifier.yaml
     secrets: inherit
 
   cesium:
     needs: changes
-    if: needs.changes.outputs.cesium == 'true'
+    if: inputs.full || needs.changes.outputs.cesium == 'true'
     uses: ./.github/workflows/test.go.yaml
     with:
       coverage_flag: cesium
       directory: cesium
+      macos: *full
+      windows: *full
     secrets: inherit
 
   client-cpp:
     needs: [changes, core-image]
     if:
-      needs.changes.outputs.client_cpp == 'true' || needs.changes.outputs.core == 'true'
+      inputs.full || needs.changes.outputs.client_cpp == 'true' ||
+      needs.changes.outputs.core == 'true'
     uses: ./.github/workflows/test.cpp.yaml
     with:
       core_image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
       directories: client/cpp client/clib
+      macos: *full
       targets: //client/cpp/... //client/clib/...
       test_flags: --nocache_test_results
+      windows: *full
     secrets: inherit
 
   client-py:
     needs: [changes, core-image]
     if:
-      needs.changes.outputs.client_py == 'true' || needs.changes.outputs.core == 'true'
+      inputs.full || needs.changes.outputs.client_py == 'true' ||
+      needs.changes.outputs.core == 'true'
     uses: ./.github/workflows/test.py.yaml
     with:
       core_image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
@@ -198,7 +226,8 @@ jobs:
   client-ts:
     needs: [changes, core-image]
     if:
-      needs.changes.outputs.client_ts == 'true' || needs.changes.outputs.core == 'true'
+      inputs.full || needs.changes.outputs.client_ts == 'true' ||
+      needs.changes.outputs.core == 'true'
     uses: ./.github/workflows/test.ts.yaml
     with:
       core_image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
@@ -209,7 +238,9 @@ jobs:
 
   console:
     needs: [changes, core-image]
-    if: needs.changes.outputs.console == 'true' || needs.changes.outputs.core == 'true'
+    if:
+      inputs.full || needs.changes.outputs.console == 'true' ||
+      needs.changes.outputs.core == 'true'
     uses: ./.github/workflows/test.ts.yaml
     with:
       core_image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
@@ -224,16 +255,18 @@ jobs:
 
   core:
     needs: changes
-    if: needs.changes.outputs.core == 'true'
+    if: inputs.full || needs.changes.outputs.core == 'true'
     uses: ./.github/workflows/test.go.yaml
     with:
       coverage_flag: core
       directory: core
+      macos: *full
+      windows: *full
     secrets: inherit
 
   core-image:
     needs: changes
-    if: needs.changes.outputs.core_image == 'true'
+    if: inputs.full || needs.changes.outputs.core_image == 'true'
     permissions:
       contents: read
       packages: write
@@ -245,7 +278,7 @@ jobs:
 
   desktop-shell:
     needs: changes
-    if: needs.changes.outputs.console == 'true'
+    if: inputs.full || needs.changes.outputs.console == 'true'
     # macOS compiles the Tauri shell with no extra system packages.
     runs-on: macos-latest
     steps:
@@ -268,42 +301,50 @@ jobs:
 
   docs:
     needs: changes
-    if: needs.changes.outputs.docs == 'true'
+    if: inputs.full || needs.changes.outputs.docs == 'true'
     uses: ./.github/workflows/test.ts.yaml
     with:
       coverage_flag: docs
       directory: site/docs
+      macos: *full
       package: docs
+      windows: *full
     secrets: inherit
 
   docs-site:
     needs: changes
-    if: needs.changes.outputs.docs == 'true'
+    if: inputs.full || needs.changes.outputs.docs == 'true'
     uses: ./.github/workflows/test.docs.yaml
     secrets: inherit
 
   drift:
     needs: changes
-    if: needs.changes.outputs.drift == 'true'
+    if: inputs.full || needs.changes.outputs.drift == 'true'
     uses: ./.github/workflows/test.ts.yaml
     with:
       coverage_flag: drift
       directory: drift
+      macos: *full
       package: drift
+      windows: *full
     secrets: inherit
 
   driver:
     needs: [changes, core-image]
-    if: needs.changes.outputs.driver == 'true' || needs.changes.outputs.core == 'true'
+    if:
+      inputs.full || needs.changes.outputs.driver == 'true' ||
+      needs.changes.outputs.core == 'true'
     uses: ./.github/workflows/test.cpp.yaml
     with:
       apt_packages: libsystemd-dev
       core_image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
       directories: driver
+      macos: *full
       rust: true
       targets: //driver/...
       test_flags: --spawn_strategy=local --local_test_jobs=1
       test_tags: -hardware
+      windows: *full
     secrets: inherit
 
   format:
@@ -311,25 +352,29 @@ jobs:
 
   freighter-cpp:
     needs: changes
-    if: needs.changes.outputs.freighter_cpp == 'true'
+    if: inputs.full || needs.changes.outputs.freighter_cpp == 'true'
     uses: ./.github/workflows/test.cpp.yaml
     with:
       directories: freighter/cpp
+      macos: *full
       targets: //freighter/cpp/...
+      windows: *full
     secrets: inherit
 
   freighter-go:
     needs: changes
-    if: needs.changes.outputs.freighter_go == 'true'
+    if: inputs.full || needs.changes.outputs.freighter_go == 'true'
     uses: ./.github/workflows/test.go.yaml
     with:
       coverage_flag: freighter-go
       directory: freighter/go
+      macos: *full
+      windows: *full
     secrets: inherit
 
   freighter-image:
     needs: changes
-    if: needs.changes.outputs.freighter_image == 'true'
+    if: inputs.full || needs.changes.outputs.freighter_image == 'true'
     permissions:
       contents: read
       packages: write
@@ -341,17 +386,19 @@ jobs:
 
   freighter-integration:
     needs: changes
-    if: needs.changes.outputs.freighter_integration == 'true'
+    if: inputs.full || needs.changes.outputs.freighter_integration == 'true'
     uses: ./.github/workflows/test.go.yaml
     with:
       coverage_flag: freighter-integration
       directory: freighter/integration
+      macos: *full
+      windows: *full
     secrets: inherit
 
   freighter-py:
     needs: [changes, freighter-image]
     if:
-      needs.changes.outputs.freighter_py == 'true' ||
+      inputs.full || needs.changes.outputs.freighter_py == 'true' ||
       needs.changes.outputs.freighter_integration == 'true'
     uses: ./.github/workflows/test.py.yaml
     with:
@@ -364,7 +411,7 @@ jobs:
   freighter-ts:
     needs: [changes, freighter-image]
     if:
-      needs.changes.outputs.freighter_ts == 'true' ||
+      inputs.full || needs.changes.outputs.freighter_ts == 'true' ||
       needs.changes.outputs.freighter_integration == 'true'
     uses: ./.github/workflows/test.ts.yaml
     with:
@@ -377,18 +424,20 @@ jobs:
   integration:
     needs: changes
     if:
-      (github.event_name == 'merge_group' || inputs.integration) &&
+      inputs.full || (github.event_name == 'merge_group' || inputs.integration) &&
       needs.changes.outputs.integration == 'true'
     permissions:
       actions: read
       contents: write
       packages: write
     uses: ./.github/workflows/test.integration.yaml
+    with:
+      ubuntu: *full
     secrets: inherit
 
   knip:
     needs: changes
-    if: needs.changes.outputs.knip == 'true'
+    if: inputs.full || needs.changes.outputs.knip == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -408,7 +457,7 @@ jobs:
 
   lint-integration:
     needs: changes
-    if: needs.changes.outputs.lint_integration == 'true'
+    if: inputs.full || needs.changes.outputs.lint_integration == 'true'
     uses: ./.github/workflows/test.py.yaml
     with:
       directory: integration
@@ -417,17 +466,19 @@ jobs:
 
   lyra:
     needs: changes
-    if: needs.changes.outputs.lyra == 'true'
+    if: inputs.full || needs.changes.outputs.lyra == 'true'
     uses: ./.github/workflows/test.ts.yaml
     with:
       coverage_flag: lyra
       directory: lyra
+      macos: *full
       package: lyra
+      windows: *full
     secrets: inherit
 
   media:
     needs: changes
-    if: needs.changes.outputs.media == 'true'
+    if: inputs.full || needs.changes.outputs.media == 'true'
     uses: ./.github/workflows/test.ts.yaml
     with:
       directory: x/media
@@ -437,33 +488,39 @@ jobs:
 
   oracle:
     needs: changes
-    if: needs.changes.outputs.oracle == 'true'
+    if: inputs.full || needs.changes.outputs.oracle == 'true'
     uses: ./.github/workflows/test.go.yaml
     with:
       coverage_flag: oracle
       directory: oracle
       install_antlr4: true
+      macos: *full
+      windows: *full
     secrets: inherit
 
   oracle-check:
     needs: changes
-    if: needs.changes.outputs.oracle_check == 'true'
+    if: inputs.full || needs.changes.outputs.oracle_check == 'true'
     uses: ./.github/workflows/check.oracle.yaml
     secrets: inherit
 
   oracle-language:
     needs: changes
-    if: needs.changes.outputs.oracle_language == 'true'
+    if: inputs.full || needs.changes.outputs.oracle_language == 'true'
     uses: ./.github/workflows/test.ts.yaml
     with:
       directory: oracle/lsp/extensions/vscode
       lint: false
+      macos: *full
       package: oracle-language
+      windows: *full
     secrets: inherit
 
   pluto:
     needs: [changes, core-image]
-    if: needs.changes.outputs.pluto == 'true' || needs.changes.outputs.core == 'true'
+    if:
+      inputs.full || needs.changes.outputs.pluto == 'true' || needs.changes.outputs.core
+      == 'true'
     uses: ./.github/workflows/test.ts.yaml
     with:
       core_image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
@@ -475,29 +532,31 @@ jobs:
 
   portal:
     needs: changes
-    if: needs.changes.outputs.portal == 'true'
+    if: inputs.full || needs.changes.outputs.portal == 'true'
     uses: ./.github/workflows/test.ts.yaml
     with:
       coverage_flag: portal
       directory: site/portal
+      macos: *full
       package: portal
+      windows: *full
     secrets: inherit
 
   protobuf:
     needs: changes
-    if: needs.changes.outputs.protobuf == 'true'
+    if: inputs.full || needs.changes.outputs.protobuf == 'true'
     uses: ./.github/workflows/test.protobuf.yaml
     secrets: inherit
 
   scripts:
     needs: changes
-    if: needs.changes.outputs.scripts == 'true'
+    if: inputs.full || needs.changes.outputs.scripts == 'true'
     uses: ./.github/workflows/test.scripts.yaml
     secrets: inherit
 
   soem:
     needs: changes
-    if: needs.changes.outputs.soem == 'true'
+    if: inputs.full || needs.changes.outputs.soem == 'true'
     uses: ./.github/workflows/test.cpp.yaml
     with:
       macos: true
@@ -511,16 +570,18 @@ jobs:
 
   vite-plugin:
     needs: changes
-    if: needs.changes.outputs.vite_plugin == 'true'
+    if: inputs.full || needs.changes.outputs.vite_plugin == 'true'
     uses: ./.github/workflows/test.ts.yaml
     with:
       directory: configs/vite
+      macos: *full
       package: vite-plugin
+      windows: *full
     secrets: inherit
 
   www:
     needs: changes
-    if: needs.changes.outputs.www == 'true'
+    if: inputs.full || needs.changes.outputs.www == 'true'
     uses: ./.github/workflows/test.ts.yaml
     with:
       coverage_flag: www
@@ -530,40 +591,48 @@ jobs:
 
   x-cpp:
     needs: changes
-    if: needs.changes.outputs.x_cpp == 'true'
+    if: inputs.full || needs.changes.outputs.x_cpp == 'true'
     uses: ./.github/workflows/test.cpp.yaml
     with:
       directories: x/cpp
+      macos: *full
       targets: //x/cpp/...
+      windows: *full
     secrets: inherit
 
   x-go:
     needs: changes
-    if: needs.changes.outputs.x_go == 'true'
+    if: inputs.full || needs.changes.outputs.x_go == 'true'
     uses: ./.github/workflows/test.go.yaml
     with:
       coverage_flag: x-go
       directory: x/go
+      macos: *full
+      windows: *full
     secrets: inherit
 
   x-py:
     needs: changes
-    if: needs.changes.outputs.x_py == 'true'
+    if: inputs.full || needs.changes.outputs.x_py == 'true'
     uses: ./.github/workflows/test.py.yaml
     with:
       coverage_flag: x-py
       coverage_module: x
       directory: x/py
+      macos: *full
+      windows: *full
     secrets: inherit
 
   x-ts:
     needs: changes
-    if: needs.changes.outputs.x_ts == 'true'
+    if: inputs.full || needs.changes.outputs.x_ts == 'true'
     uses: ./.github/workflows/test.ts.yaml
     with:
       coverage_flag: x-ts
       directory: x/ts
+      macos: *full
       package: x
+      windows: *full
     secrets: inherit
 
   # A merge group cancels its run on the first failed job. The cancel frees the runners

@@ -22,7 +22,7 @@ export const notFound = (what: string): HTTPError =>
   new HTTPError(404, `${what} not found`);
 export const forbidden = (message = "Forbidden"): HTTPError =>
   new HTTPError(403, message);
-export const unauthorized = (): HTTPError => new HTTPError(401, "Sign in first");
+export const unauthorized = (): HTTPError => new HTTPError(401, "Log in first");
 export const badRequest = (message: string): HTTPError => new HTTPError(400, message);
 export const tooMany = (): HTTPError =>
   new HTTPError(429, "Too many activations. Try again later.");

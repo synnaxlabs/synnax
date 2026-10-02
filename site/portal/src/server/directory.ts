@@ -14,6 +14,8 @@ import { errors } from "@synnaxlabs/x";
 export interface Person {
   email: string;
   name: string;
+  /** image is the URL of the user's picture, absent when they have not set one. */
+  image?: string;
 }
 
 /** Listed is one organization in the Clerk dashboard, keyed by its Clerk id. */
@@ -88,7 +90,11 @@ export const clerk = (client: Client): Directory => ({
         ?.emailAddress ??
       user.emailAddresses[0]?.emailAddress ??
       "";
-    return { email, name: displayName(user, email) };
+    return {
+      email,
+      name: displayName(user, email),
+      image: user.hasImage ? user.imageUrl : undefined,
+    };
   },
   memberships: async (userID) =>
     await paged(

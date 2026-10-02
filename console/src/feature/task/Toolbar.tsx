@@ -27,6 +27,7 @@ import { useCallback, useState } from "react";
 import { useOpenSelector } from "@/feature/task/Selector";
 import { useRangeSnapshot } from "@/feature/task/useRangeSnapshot";
 import { useSetDataSaving } from "@/feature/task/useSetDataSaving";
+import { Analytics } from "@/platform/analytics";
 import { ContextMenu as PlatformContextMenu } from "@/platform/context-menu";
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
@@ -91,7 +92,19 @@ const Content = () => {
     afterFailure: ({ status }) => addStatus(status),
   });
 
-  const { update: runCommand } = Task.useCommand();
+  const { capture } = Analytics.use();
+  const { update: runCommand } = Task.useCommand({
+    afterSuccess: useCallback(
+      ({ data }: Flux.AfterSuccessParams<Task.CommandParams>) =>
+        getItem(
+          array
+            .toArray(data)
+            .filter(({ type }) => type === "start")
+            .map(({ task }) => task),
+        ).forEach(({ type }) => capture("task_started", { type })),
+      [getItem, capture],
+    ),
+  });
   const handleCommand = useCallback(
     (keys: string[], type: string) => runCommand(keys.map((k) => ({ task: k, type }))),
     [runCommand],

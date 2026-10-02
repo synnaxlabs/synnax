@@ -65,7 +65,7 @@ export const StaffActions = ({
         >
           <Modal.Confirm
             question={`Revoke "${lic.label}"?`}
-            confirm="Hold to revoke"
+            confirm="Revoke"
             delay={1500}
             onConfirm={async () => {
               await post(`/api/licenses/${lic.key}/revoke`);
