@@ -372,7 +372,8 @@ A person dispatches `release.desktop.yaml` from `main` or from a `release/deskto
 branch, with a bump (`patch`, `minor`, or `major`) and an optional candidate flag. It
 reuses the parts of `release.yaml`:
 
-1. **Verify**: `verify-checks` requires green CI on the commit.
+1. **Test**: `ci.yaml` runs with `full`: every job on every OS it supports, plus
+   integration on Ubuntu and Windows.
 2. **Resolve**: `resolve_version.sh desktop` takes the base from the highest `desktop/`
    tag reachable from `HEAD`, skips the train rule, and bumps the first release from
    `0.0.0`. Candidates count up as for the other products.
