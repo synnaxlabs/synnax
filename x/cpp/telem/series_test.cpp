@@ -549,6 +549,7 @@ TEST(TestSeries, testDeepCopy) {
     s1.write(2);
     s1.write(3);
     s1.alignment = Alignment(5, 10);
+    s1.time_range = TimeRange(TimeStamp(10), TimeStamp(40));
 
     const Series s2 = s1.deep_copy();
     ASSERT_EQ(s2.size(), 3);
@@ -559,6 +560,28 @@ TEST(TestSeries, testDeepCopy) {
     ASSERT_EQ(s2.byte_size(), s1.byte_size());
     ASSERT_EQ(s2.cap(), s1.cap());
     ASSERT_EQ(s2.alignment.uint64(), s1.alignment.uint64());
+    ASSERT_EQ(s2.time_range, s1.time_range);
+}
+
+/// @brief it should allocate the spare capacity of the source in a deep copy. The
+/// capacity is large so that an overflow crashes without a sanitizer.
+TEST(TestSeries, testDeepCopyWriteIntoSpareCapacity) {
+    constexpr size_t cap = 1 << 22;
+    Series s1{UINT32_T, cap};
+    s1.write(std::uint32_t{1});
+    Series s2 = s1.deep_copy();
+    ASSERT_EQ(s2.cap(), cap);
+    ASSERT_EQ(s2.write(Series(std::vector<std::uint32_t>(cap - 1, 7))), cap - 1);
+    ASSERT_EQ(s2.size(), cap);
+    ASSERT_EQ(s2.at<std::uint32_t>(0), 1);
+    ASSERT_EQ(s2.at<std::uint32_t>(-1), 7);
+}
+
+/// @brief it should keep the spare byte capacity of a variable series in a deep copy.
+TEST(TestSeries, testDeepCopyVariableSpareCapacity) {
+    const Series s1{STRING_T, 64};
+    const Series s2 = s1.deep_copy();
+    ASSERT_EQ(s2.byte_cap(), 64);
 }
 
 /// @brief it should deep copy a variable data type series.

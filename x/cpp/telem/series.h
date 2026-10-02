@@ -155,8 +155,9 @@ private:
         data_type_(other.data_type_),
         cap_(other.cap_),
         cached_byte_size(other.cached_byte_size),
+        cached_byte_cap(other.cached_byte_cap),
         size_(other.size_),
-        data_(alloc(other.byte_size())),
+        data_(alloc(other.byte_cap())),
         time_range(other.time_range),
         alignment(other.alignment) {
         memcpy(data_.get(), other.data_.get(), other.byte_size());

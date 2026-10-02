@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strings"
 	"time"
 	"uuid"
 
@@ -3677,6 +3678,119 @@ var _ = Describe("Task", Ordered, func() {
 			Entry("with a single writer session", 0, false),
 			Entry("after index-less sessions on the trigger channel", 6, false),
 			Entry("with index-less sessions injected while watching", 6, true),
+		)
+	})
+
+	Describe("Mixed writes to one channel", func() {
+		createIndexed := func(ctx context.Context, prefix string) (idx, data channel.Channel) {
+			GinkgoHelper()
+			idx = channel.Channel{
+				Name:     prefix + "_time_" + uuid.New().String()[:8],
+				IsIndex:  true,
+				DataType: telem.TimestampT,
+			}
+			Expect(channelWriter.Create(ctx, &idx)).To(Succeed())
+			data = channel.Channel{
+				Name:       prefix + "_" + uuid.New().String()[:8],
+				LocalIndex: idx.LocalKey,
+				DataType:   telem.Uint8T,
+			}
+			Expect(channelWriter.Create(ctx, &data)).To(Succeed())
+			return idx, data
+		}
+
+		readStored := func(
+			ctx context.Context,
+			idx, data channel.Channel,
+		) (values []uint8, stamps []telem.TimeStamp) {
+			GinkgoHelper()
+			iter := MustOpen(framerSvc.OpenIterator(ctx, framer.IteratorConfig{
+				Keys:   []channel.Key{idx.Key(), data.Key()},
+				Bounds: telem.TimeRangeMax,
+			}))
+			if !iter.SeekFirst() {
+				return nil, nil
+			}
+			for iter.Next(iterator.AutoSpan) {
+				for _, ser := range iter.Value().Get(data.Key()).Series {
+					for i := range int(ser.Len()) {
+						values = append(values, ser.ValueAt[uint8](i))
+					}
+				}
+				for _, ser := range iter.Value().Get(idx.Key()).Series {
+					for i := range int(ser.Len()) {
+						stamps = append(stamps, ser.ValueAt[telem.TimeStamp](i))
+					}
+				}
+			}
+			return values, stamps
+		}
+
+		DescribeTable(
+			"Should store a body write and a flow write from one cycle in time order",
+			func(ctx SpecContext, indexedSource bool, program string) {
+				outIdx, out := createIndexed(ctx, "mixed_out")
+				var src channel.Channel
+				if indexedSource {
+					_, src = createIndexed(ctx, "mixed_src")
+				} else {
+					src = *createVirtualCh(ctx, "mixed_src", telem.Uint8T)
+				}
+				prog := arc.Text{Raw: strings.NewReplacer(
+					"OUT", out.Name,
+					"SRC", src.Name,
+				).Replace(program)}
+				t := newTask(ctx, newTextFactory(ctx, prog))
+				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+				time.Sleep(20 * time.Millisecond)
+
+				srcStamp := telem.Now()
+				keys := []channel.Key{src.Key()}
+				series := []telem.Series{telem.NewSeriesV[uint8](1)}
+				if indexedSource {
+					keys = append(keys, src.Index())
+					series = append(series, telem.NewSeriesV(srcStamp))
+				}
+				fw := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  keys,
+					Start: srcStamp,
+				}))
+				Expect(fw.Write(frame.NewMulti(keys, series))).To(BeTrue())
+				Expect(fw.Close()).To(Succeed())
+
+				Eventually(func(g Gomega) {
+					values, stamps := readStored(ctx, outIdx, out)
+					g.Expect(values).To(Equal([]uint8{1, 2}))
+					g.Expect(stamps).To(HaveLen(2))
+					g.Expect(stamps[1]).To(BeNumerically(">", stamps[0]))
+					if indexedSource {
+						g.Expect(stamps[0]).To(Equal(srcStamp))
+					}
+				}).Should(Succeed())
+			},
+			Entry(
+				"indexed source, func line first",
+				true,
+				"func vent() {\n    OUT = 2\n}\nSRC -> vent{}\nSRC -> OUT\n",
+			),
+			Entry(
+				"indexed source, flow line first",
+				true,
+				"func vent() {\n    OUT = 2\n}\nSRC -> OUT\nSRC -> vent{}\n",
+			),
+			Entry(
+				"virtual source",
+				false,
+				"func vent() {\n    OUT = 2\n}\nSRC -> vent{}\nSRC -> OUT\n",
+			),
+			Entry(
+				"literal flow in a stage",
+				false,
+				"func vent() {\n    OUT = 2\n}\n"+
+					"sequence main {\n    stage a {\n        1 -> OUT\n    }\n}\n"+
+					"SRC -> vent{}\nSRC => main\n",
+			),
 		)
 	})
 })
