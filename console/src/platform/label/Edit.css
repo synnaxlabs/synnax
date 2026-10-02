@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-modal.console-label__edit {
+.pluto-modal.console-label__edit {
     height: 80rem;
     max-height: 80vh;
 }

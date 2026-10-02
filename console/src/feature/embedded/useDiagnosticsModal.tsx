@@ -15,6 +15,7 @@ import { Description } from "@synnaxlabs/lyra/description";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Modal } from "@synnaxlabs/lyra/modal";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Size, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { save } from "@tauri-apps/plugin-dialog";
@@ -155,9 +156,9 @@ export const useDiagnosticsModal = Modals.create(() => {
     }, "Failed to export the diagnostics");
   const history = diagnostics?.history;
   return (
-    <Modals.Frame className={CSS.B("diagnostics")}>
-      <Modals.Header icon={<Icon.Hardware />}>Diagnostics</Modals.Header>
-      <Modals.Body className={CSS.BE("diagnostics", "body")} gap="large">
+    <Modal.Frame className={CSS.B("diagnostics")}>
+      <Modal.Header icon={<Icon.Hardware />}>Diagnostics</Modal.Header>
+      <Modal.Body className={CSS.BE("diagnostics", "body")} gap="large">
         <Flex.Box y gap="small">
           <Status.Summary variant={STATE_VARIANTS[status.state]} level="h4">
             {STATE_MESSAGES[status.state]}
@@ -187,8 +188,8 @@ export const useDiagnosticsModal = Modals.create(() => {
           )}
         </Flex.Box>
         <Log />
-      </Modals.Body>
-      <Modals.Footer>
+      </Modal.Body>
+      <Modal.Footer>
         <Flex.Box
           x
           gap="small"
@@ -221,7 +222,7 @@ export const useDiagnosticsModal = Modals.create(() => {
             Restart
           </Button.Button>
         </Flex.Box>
-      </Modals.Footer>
-    </Modals.Frame>
+      </Modal.Footer>
+    </Modal.Frame>
   );
 });

@@ -10,5 +10,6 @@
 export {
   createAsyncSynnaxWrapper,
   createSynnaxWrapper,
+  disableActEnvironment,
   renderHookSuspended,
 } from "@synnaxlabs/pluto/testutil";

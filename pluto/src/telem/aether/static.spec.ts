@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeSpan } from "@synnaxlabs/x";
+import { MultiSeries, TimeSpan } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Clock } from "@/telem/aether/static";
+import { Clock, fixedArray, StaticFactory } from "@/telem/aether/static";
+import { type SeriesSource } from "@/telem/aether/telem";
 
 describe("Clock", () => {
   const PERIOD = TimeSpan.milliseconds(500);
@@ -70,5 +71,18 @@ describe("Clock", () => {
     c.cleanup();
     vi.advanceTimersByTime(2000);
     expect(handler).not.toHaveBeenCalled();
+  });
+});
+
+describe("fixedArray", () => {
+  it("should provide its data as a multi-series with the data bounds", () => {
+    const spec = fixedArray({
+      data: [new Float32Array([1, 2, 3]), new Float32Array([-4, 5])],
+    });
+    const source = new StaticFactory().create(spec) as SeriesSource;
+    const [b, data] = source.value();
+    expect(b).toEqual({ lower: -4, upper: 5 });
+    expect(data).toBeInstanceOf(MultiSeries);
+    expect(Array.from(data)).toEqual([1, 2, 3, -4, 5]);
   });
 });
