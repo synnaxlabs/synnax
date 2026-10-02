@@ -138,77 +138,10 @@ TEST(IntervalInputsTest, AllowsZeroVarBoundPeriod) {
 /// @brief Minimum timer span of the specs that do not use the one of the platform.
 const auto MIN = 5 * x::telem::MILLISECOND;
 
-/// @brief Returns params that hold one span named name. A VarRef kind binds it to a
-/// variable.
-types::Params span_params(
-    const std::string &name,
-    const x::telem::TimeSpan span,
-    const types::Kind kind = types::Kind::I64
-) {
-    types::Param p;
-    p.name = name;
-    p.type = types::Type{.kind = kind};
-    if (kind == types::Kind::VarRef)
-        p.type.elem = x::mem::indirect<types::Type>(
-            types::Type{.kind = types::Kind::I64}
-        );
-    p.value = span.nanoseconds();
-    types::Params params;
-    params.push_back(p);
-    return params;
-}
-
-/// @brief Returns the message for a 1 ms span of param that is under MIN.
-std::string under_min_message(const std::string &param) {
-    return param + " must be at least 5ms (" + x::os::get() + "), got 1ms";
-}
-
-TEST(IntervalInputsTest, ReturnsErrorForPeriodUnderMinimum) {
-    const auto params = span_params("period", x::telem::MILLISECOND);
-    const auto err = IntervalInputs::create(params, MIN).second;
-    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, under_min_message("period"));
-}
-
-TEST(IntervalInputsTest, AllowsPeriodAtMinimum) {
-    const auto inputs = ASSERT_NIL_P(
-        IntervalInputs::create(span_params("period", MIN), MIN)
-    );
-    EXPECT_EQ(inputs.interval, MIN);
-}
-
-TEST(IntervalInputsTest, AllowsVarBoundPeriodUnderMinimum) {
-    const auto inputs = ASSERT_NIL_P(
-        IntervalInputs::create(
-            span_params("period", x::telem::MILLISECOND, types::Kind::VarRef),
-            MIN
-        )
-    );
-    EXPECT_EQ(inputs.interval, x::telem::MILLISECOND);
-}
-
-TEST(WaitInputsTest, ReturnsErrorForDurationUnderMinimum) {
-    const auto params = span_params("duration", x::telem::MILLISECOND);
-    const auto err = WaitInputs::create(params, MIN).second;
-    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, under_min_message("duration"));
-}
-
-TEST(WaitInputsTest, AllowsDurationAtMinimum) {
-    const auto inputs = ASSERT_NIL_P(
-        WaitInputs::create(span_params("duration", MIN), MIN)
-    );
-    EXPECT_EQ(inputs.duration, MIN);
-}
-
-TEST(WaitInputsTest, AllowsVarBoundDurationUnderMinimum) {
-    const auto inputs = ASSERT_NIL_P(
-        WaitInputs::create(
-            span_params("duration", x::telem::MILLISECOND, types::Kind::VarRef),
-            MIN
-        )
-    );
-    EXPECT_EQ(inputs.duration, x::telem::MILLISECOND);
+/// @brief Returns the warning for a 1 ms span named label that is under MIN.
+std::string under_min_message(const std::string &label) {
+    return label + " 1ms is under 5ms (" + x::os::get() +
+           "), so its timing may not be precise";
 }
 
 TEST(WaitInputsTest, CreatesInputsFromValidParams) {
@@ -337,21 +270,25 @@ TEST(TimeModuleTest, ShortestSpanIsTheMinimumAcrossNodes) {
     EXPECT_EQ(factory.shortest_span(), 400 * x::telem::MILLISECOND);
 }
 
-/// @brief Test that the module rejects a literal span under its minimum.
-TEST(TimeModuleTest, RejectsLiteralSpanUnderMinimum) {
+/// @brief Test that the module accepts a literal span under its minimum and holds it
+/// as the shortest span.
+TEST(TimeModuleTest, AcceptsLiteralSpanUnderMinimum) {
     TestSetup interval("interval", "period", x::telem::MILLISECOND.nanoseconds());
-    TestSetup wait("wait", "duration", x::telem::MILLISECOND.nanoseconds());
+    TestSetup wait("wait", "duration", (2 * x::telem::MILLISECOND).nanoseconds());
     Module factory(MIN);
-    ASSERT_OCCURRED_AS_P(
-        factory.create(
-            runtime::node::Config(
-                interval.ir,
-                interval.ir.nodes[0],
-                interval.make_node()
-            )
-        ),
-        x::errors::VALIDATION
-    );
+    ASSERT_NIL_P(factory.create(
+        runtime::node::Config(interval.ir, interval.ir.nodes[0], interval.make_node())
+    ));
+    ASSERT_NIL_P(factory.create(
+        runtime::node::Config(wait.ir, wait.ir.nodes[0], wait.make_node())
+    ));
+    EXPECT_EQ(factory.shortest_span(), x::telem::MILLISECOND);
+}
+
+/// @brief Test that the module rejects a non-positive literal span.
+TEST(TimeModuleTest, RejectsNonPositiveLiteralSpan) {
+    TestSetup wait("wait", "duration", 0);
+    Module factory(MIN);
     ASSERT_OCCURRED_AS_P(
         factory.create(
             runtime::node::Config(wait.ir, wait.ir.nodes[0], wait.make_node())
@@ -361,27 +298,9 @@ TEST(TimeModuleTest, RejectsLiteralSpanUnderMinimum) {
     EXPECT_EQ(factory.shortest_span(), UNSET_SHORTEST_SPAN);
 }
 
-/// @brief Test that the default minimum of the module is the one of the platform.
-TEST(TimeModuleTest, DefaultMinimumIsThePlatformMinimum) {
-    const auto min = runtime::loop::min_timer_span();
-    if (min.nanoseconds() <= 0) GTEST_SKIP() << "the platform has no minimum";
-    TestSetup under("wait", "duration", (min - x::telem::NANOSECOND).nanoseconds());
-    TestSetup at("wait", "duration", min.nanoseconds());
-    Module factory;
-    ASSERT_OCCURRED_AS_P(
-        factory.create(
-            runtime::node::Config(under.ir, under.ir.nodes[0], under.make_node())
-        ),
-        x::errors::VALIDATION
-    );
-    ASSERT_NIL_P(
-        factory.create(runtime::node::Config(at.ir, at.ir.nodes[0], at.make_node()))
-    );
-}
-
 /// @brief Test that a var-bound span under the minimum folds into the shortest span as
-/// the minimum.
-TEST(TimeModuleTest, ShortestSpanHoldsVarBoundSpanAtMinimum) {
+/// is.
+TEST(TimeModuleTest, ShortestSpanHoldsVarBoundSpanUnderMinimum) {
     TestSetup setup("interval", "period", x::telem::MILLISECOND.nanoseconds());
     auto ir_node = setup.ir.nodes[0];
     ir_node.inputs[0].type = types::Type{
@@ -392,14 +311,13 @@ TEST(TimeModuleTest, ShortestSpanHoldsVarBoundSpanAtMinimum) {
     ASSERT_NIL_P(
         factory.create(runtime::node::Config(setup.ir, ir_node, setup.make_node()))
     );
-    EXPECT_EQ(factory.shortest_span(), MIN);
+    EXPECT_EQ(factory.shortest_span(), x::telem::MILLISECOND);
 }
 
 /// @brief Test that Interval does not fire again before next interval elapses.
 TEST(IntervalTest, DoesNotFireBeforeNextIntervalElapses) {
     TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
-    const auto inputs = ASSERT_NIL_P(IntervalInputs::create(setup.ir.nodes[0].inputs));
-    Interval node(setup.make_node(), inputs.interval);
+    Interval node(setup.make_node());
 
     auto ctx1 = make_context(x::telem::TimeSpan(0));
     ASSERT_NIL(node.next(ctx1));
@@ -417,8 +335,7 @@ TEST(IntervalTest, DoesNotFireBeforeNextIntervalElapses) {
 /// @brief Test that Interval fires when the interval is reached.
 TEST(IntervalTest, FiresWhenIntervalReached) {
     TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
-    const auto inputs = ASSERT_NIL_P(IntervalInputs::create(setup.ir.nodes[0].inputs));
-    Interval node(setup.make_node(), inputs.interval);
+    Interval node(setup.make_node());
 
     auto ctx = make_context(x::telem::SECOND);
     ASSERT_NIL(node.next(ctx));
@@ -432,8 +349,7 @@ TEST(IntervalTest, FiresWhenIntervalReached) {
 /// @brief Test that Interval fires repeatedly at each interval.
 TEST(IntervalTest, FiresRepeatedly) {
     TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
-    const auto inputs = ASSERT_NIL_P(IntervalInputs::create(setup.ir.nodes[0].inputs));
-    Interval node(setup.make_node(), inputs.interval);
+    Interval node(setup.make_node());
 
     auto ctx1 = make_context(x::telem::SECOND);
     ASSERT_NIL(node.next(ctx1));
@@ -454,8 +370,7 @@ TEST(IntervalTest, FiresRepeatedly) {
 /// @brief Test that Interval stamps the cycle time when firing.
 TEST(IntervalTest, SetsTimestampOnFire) {
     TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
-    const auto inputs = ASSERT_NIL_P(IntervalInputs::create(setup.ir.nodes[0].inputs));
-    Interval node(setup.make_node(), inputs.interval);
+    Interval node(setup.make_node());
 
     auto ctx = make_context(x::telem::SECOND * 5);
     ctx.cycle.now = x::telem::TimeStamp(3 * x::telem::SECOND);
@@ -470,8 +385,7 @@ TEST(IntervalTest, SetsTimestampOnFire) {
 /// @brief Test that Interval calls mark_changed when firing.
 TEST(IntervalTest, CallsMarkChangedOnFire) {
     TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
-    const auto inputs = ASSERT_NIL_P(IntervalInputs::create(setup.ir.nodes[0].inputs));
-    Interval node(setup.make_node(), inputs.interval);
+    Interval node(setup.make_node());
 
     std::vector<size_t> marked;
     auto ctx = make_context(x::telem::SECOND);
@@ -485,8 +399,7 @@ TEST(IntervalTest, CallsMarkChangedOnFire) {
 /// @brief Test that Interval does not call mark_changed when not firing.
 TEST(IntervalTest, DoesNotCallMarkChangedWhenNotFiring) {
     TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
-    const auto inputs = ASSERT_NIL_P(IntervalInputs::create(setup.ir.nodes[0].inputs));
-    Interval node(setup.make_node(), inputs.interval);
+    Interval node(setup.make_node());
 
     auto ctx1 = make_context(x::telem::SECOND);
     node.next(ctx1);
@@ -502,8 +415,7 @@ TEST(IntervalTest, DoesNotCallMarkChangedWhenNotFiring) {
 /// @brief Test that Interval is_output_truthy delegates to state.
 TEST(IntervalTest, IsOutputTruthyDelegatesToState) {
     TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
-    const auto inputs = ASSERT_NIL_P(IntervalInputs::create(setup.ir.nodes[0].inputs));
-    Interval node(setup.make_node(), inputs.interval);
+    Interval node(setup.make_node());
 
     auto ctx = make_context(x::telem::SECOND);
     node.next(ctx);
@@ -514,8 +426,7 @@ TEST(IntervalTest, IsOutputTruthyDelegatesToState) {
 /// @brief Test that Interval is_output_truthy returns false before firing.
 TEST(IntervalTest, IsOutputTruthyFalseBeforeFiring) {
     TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
-    const auto inputs = ASSERT_NIL_P(IntervalInputs::create(setup.ir.nodes[0].inputs));
-    Interval node(setup.make_node(), inputs.interval);
+    Interval node(setup.make_node());
 
     EXPECT_FALSE(node.is_output_truthy(0));
 }
@@ -523,8 +434,7 @@ TEST(IntervalTest, IsOutputTruthyFalseBeforeFiring) {
 /// @brief Test that Interval is_output_truthy returns false for unknown param.
 TEST(IntervalTest, IsOutputTruthyFalseForUnknownParam) {
     TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
-    const auto inputs = ASSERT_NIL_P(IntervalInputs::create(setup.ir.nodes[0].inputs));
-    Interval node(setup.make_node(), inputs.interval);
+    Interval node(setup.make_node());
 
     auto ctx = make_context(x::telem::SECOND);
     node.next(ctx);
@@ -535,8 +445,7 @@ TEST(IntervalTest, IsOutputTruthyFalseForUnknownParam) {
 /// @brief Test that Interval reset allows it to fire immediately again.
 TEST(IntervalTest, ResetAllowsImmediateFiring) {
     TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
-    const auto inputs = ASSERT_NIL_P(IntervalInputs::create(setup.ir.nodes[0].inputs));
-    Interval node(setup.make_node(), inputs.interval);
+    Interval node(setup.make_node());
 
     auto ctx1 = make_context(x::telem::TimeSpan(0));
     node.next(ctx1);
@@ -559,8 +468,7 @@ TEST(IntervalTest, ResetAllowsImmediateFiring) {
 
 TEST(IntervalTest, OnlyFiresOnTimerTick) {
     TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
-    const auto inputs = ASSERT_NIL_P(IntervalInputs::create(setup.ir.nodes[0].inputs));
-    Interval node(setup.make_node(), inputs.interval);
+    Interval node(setup.make_node());
 
     bool changed_called = false;
     runtime::node::Context ctx;
@@ -592,7 +500,7 @@ TEST(IntervalTest, OnlyFiresOnTimerTick) {
 /// no deadline, and the error reports only once.
 TEST(IntervalTest, ParksAndReportsOnceOnNonPositivePeriod) {
     TestSetup setup("interval", "period", 0);
-    Interval node(setup.make_node(), x::telem::TimeSpan(0), MIN);
+    Interval node(setup.make_node(), MIN);
 
     std::vector<x::errors::Error> reported;
     int deadline_calls = 0;
@@ -617,7 +525,7 @@ TEST(IntervalTest, ParksAndReportsOnceOnNonPositivePeriod) {
 /// @brief Test that reset re-arms the non-positive period error report.
 TEST(IntervalTest, ReportsNonPositivePeriodAgainAfterReset) {
     TestSetup setup("interval", "period", 0);
-    Interval node(setup.make_node(), x::telem::TimeSpan(0), MIN);
+    Interval node(setup.make_node(), MIN);
 
     std::vector<x::errors::Error> reported;
     auto ctx = make_context(x::telem::TimeSpan(0));
@@ -630,11 +538,10 @@ TEST(IntervalTest, ReportsNonPositivePeriodAgainAfterReset) {
     EXPECT_EQ(reported.size(), 2);
 }
 
-/// @brief Test that a live period under the minimum is held at the minimum with one
-/// warning.
-TEST(IntervalTest, HoldsPeriodUnderMinimumAtMinimumAndWarnsOnce) {
+/// @brief Test that a live period under the minimum runs as is with one warning.
+TEST(IntervalTest, RunsPeriodUnderMinimumAndWarnsOnce) {
     TestSetup setup("interval", "period", x::telem::MILLISECOND.nanoseconds());
-    Interval node(setup.make_node(), x::telem::MILLISECOND, MIN);
+    Interval node(setup.make_node(), MIN);
 
     std::vector<x::errors::Error> reported;
     int fires = 0;
@@ -648,24 +555,21 @@ TEST(IntervalTest, HoldsPeriodUnderMinimumAtMinimumAndWarnsOnce) {
 
     ASSERT_NIL(node.next(ctx));
     EXPECT_EQ(fires, 1);
-    EXPECT_EQ(deadline, MIN);
+    EXPECT_EQ(deadline, x::telem::MILLISECOND);
     ctx.cycle.elapsed = x::telem::MILLISECOND;
     ASSERT_NIL(node.next(ctx));
-    EXPECT_EQ(fires, 1);
-    ctx.cycle.elapsed = MIN;
-    ASSERT_NIL(node.next(ctx));
     EXPECT_EQ(fires, 2);
-    EXPECT_EQ(deadline, 2 * MIN);
+    EXPECT_EQ(deadline, 2 * x::telem::MILLISECOND);
 
     ASSERT_EQ(reported.size(), 1);
     EXPECT_TRUE(reported[0].matches(runtime::errors::WARNING));
-    EXPECT_EQ(reported[0].data, under_min_message("period") + ", using 5ms");
+    EXPECT_EQ(reported[0].data, under_min_message("interval period"));
 }
 
 /// @brief Test that reset does not repeat the warning for a period under the minimum.
 TEST(IntervalTest, DoesNotWarnAgainAfterReset) {
     TestSetup setup("interval", "period", x::telem::MILLISECOND.nanoseconds());
-    Interval node(setup.make_node(), x::telem::MILLISECOND, MIN);
+    Interval node(setup.make_node(), MIN);
 
     std::vector<x::errors::Error> reported;
     auto ctx = make_context(x::telem::TimeSpan(0));
@@ -1053,9 +957,8 @@ TEST(WaitTest, ParksAndReportsOnceOnNonPositiveDuration) {
     EXPECT_TRUE(reported[0].matches(x::errors::VALIDATION));
 }
 
-/// @brief Test that a live duration under the minimum is held at the minimum with one
-/// warning.
-TEST(WaitTest, HoldsDurationUnderMinimumAtMinimumAndWarnsOnce) {
+/// @brief Test that a live duration under the minimum runs as is with one warning.
+TEST(WaitTest, RunsDurationUnderMinimumAndWarnsOnce) {
     TestSetup setup("wait", "duration", x::telem::MILLISECOND.nanoseconds());
     Wait node(setup.make_node(), MIN);
 
@@ -1070,17 +973,15 @@ TEST(WaitTest, HoldsDurationUnderMinimumAtMinimumAndWarnsOnce) {
     ctx.report_error = [&](const x::errors::Error &e) { reported.push_back(e); };
 
     ASSERT_NIL(node.next(ctx));
-    EXPECT_EQ(deadline, MIN);
-    ctx.cycle.elapsed = x::telem::MILLISECOND;
-    ASSERT_NIL(node.next(ctx));
     EXPECT_EQ(fires, 0);
-    ctx.cycle.elapsed = MIN;
+    EXPECT_EQ(deadline, x::telem::MILLISECOND);
+    ctx.cycle.elapsed = x::telem::MILLISECOND;
     ASSERT_NIL(node.next(ctx));
     EXPECT_EQ(fires, 1);
 
     ASSERT_EQ(reported.size(), 1);
     EXPECT_TRUE(reported[0].matches(runtime::errors::WARNING));
-    EXPECT_EQ(reported[0].data, under_min_message("duration") + ", using 5ms");
+    EXPECT_EQ(reported[0].data, under_min_message("wait duration"));
 }
 
 /// @brief Test that reset does not repeat the warning for a duration under the
@@ -1166,8 +1067,7 @@ TEST(CalculateToleranceTest, HighRateModeCapsAtHalf) {
 /// @brief Test that Interval fires within tolerance.
 TEST(IntervalToleranceTest, FiresWithinTolerance) {
     TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
-    const auto inputs = ASSERT_NIL_P(IntervalInputs::create(setup.ir.nodes[0].inputs));
-    Interval node(setup.make_node(), inputs.interval);
+    Interval node(setup.make_node());
 
     auto ctx1 = make_context(x::telem::TimeSpan(0));
     ASSERT_NIL(node.next(ctx1));
@@ -1187,8 +1087,7 @@ TEST(IntervalToleranceTest, FiresWithinTolerance) {
 /// @brief Test that Interval does not fire too early even with tolerance.
 TEST(IntervalToleranceTest, DoesNotFireTooEarly) {
     TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
-    const auto inputs = ASSERT_NIL_P(IntervalInputs::create(setup.ir.nodes[0].inputs));
-    Interval node(setup.make_node(), inputs.interval);
+    Interval node(setup.make_node());
 
     auto ctx1 = make_context(x::telem::TimeSpan(0));
     ASSERT_NIL(node.next(ctx1));
@@ -1242,8 +1141,7 @@ TEST(WaitToleranceTest, DoesNotFireTooEarly) {
 /// @brief Test that Interval fires correctly with zero tolerance (original behavior).
 TEST(IntervalToleranceTest, ZeroToleranceRequiresExactTime) {
     TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
-    const auto inputs = ASSERT_NIL_P(IntervalInputs::create(setup.ir.nodes[0].inputs));
-    Interval node(setup.make_node(), inputs.interval);
+    Interval node(setup.make_node());
 
     auto ctx1 = make_context(x::telem::TimeSpan(0));
     ASSERT_NIL(node.next(ctx1));
@@ -1308,10 +1206,7 @@ TEST(CalculateToleranceTest, AutoMode) {
 
 TEST(IntervalDeadlineTest, SetsDeadlineToLastFiredPlusPeriod) {
     TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
-    const auto inputs = ASSERT_NIL_P(
-        time::IntervalInputs::create(setup.ir.nodes[0].inputs)
-    );
-    time::Interval node(setup.make_node(), inputs.interval);
+    time::Interval node(setup.make_node());
 
     x::telem::TimeSpan reported_deadline(-1);
     auto ctx = make_context(x::telem::TimeSpan(0));
@@ -1324,10 +1219,7 @@ TEST(IntervalDeadlineTest, SetsDeadlineToLastFiredPlusPeriod) {
 
 TEST(IntervalDeadlineTest, SetsDeadlineOnNonTimerTick) {
     TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
-    const auto inputs = ASSERT_NIL_P(
-        time::IntervalInputs::create(setup.ir.nodes[0].inputs)
-    );
-    time::Interval node(setup.make_node(), inputs.interval);
+    time::Interval node(setup.make_node());
 
     auto ctx1 = make_context(x::telem::TimeSpan(0));
     ASSERT_NIL(node.next(ctx1));
@@ -1347,10 +1239,7 @@ TEST(IntervalDeadlineTest, SetsDeadlineOnNonTimerTick) {
 
 TEST(IntervalDeadlineTest, SetsDeadlineAfterFiring) {
     TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
-    const auto inputs = ASSERT_NIL_P(
-        time::IntervalInputs::create(setup.ir.nodes[0].inputs)
-    );
-    time::Interval node(setup.make_node(), inputs.interval);
+    time::Interval node(setup.make_node());
 
     auto ctx1 = make_context(x::telem::TimeSpan(0));
     ASSERT_NIL(node.next(ctx1));
@@ -1673,6 +1562,17 @@ TEST(IntervalVarTest, HonorsTheDeclaredInitialBeforeAnyWrite) {
         t.tick(500 * x::telem::MILLISECOND, runtime::node::RunReason::TimerTick).fired
     );
     EXPECT_TRUE(t.tick(x::telem::SECOND, runtime::node::RunReason::TimerTick).fired);
+}
+
+TEST(IntervalVarTest, FiresAtOnceWhenAZeroPeriodTurnsPositive) {
+    VarConfig t("interval", "period", x::telem::TimeSpan(0));
+    EXPECT_FALSE(
+        t.tick(x::telem::TimeSpan(0), runtime::node::RunReason::TimerTick).fired
+    );
+    t.set(x::telem::SECOND);
+    EXPECT_TRUE(
+        t.tick(100 * x::telem::MILLISECOND, runtime::node::RunReason::TimerTick).fired
+    );
 }
 
 TEST(IntervalVarTest, AdoptsAShortenedPeriodAtTheNextEvaluation) {

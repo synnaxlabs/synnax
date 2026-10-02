@@ -57,88 +57,63 @@ inline std::string describe_min(const x::telem::TimeSpan min) {
     return min.to_string() + " (" + x::os::get() + ")";
 }
 
-/// @brief rejects a span stamped at compile time that is non-positive or under
-/// min. Var-bound params are exempt: the runtime guard covers their live values.
-inline x::errors::Error validate_static_span(
-    const x::telem::TimeSpan span,
-    const types::Param &p,
-    const x::telem::TimeSpan min
-) {
-    if (p.type.kind == types::Kind::VarRef) return x::errors::NIL;
-    if (span.nanoseconds() <= 0)
-        return x::errors::Error(
-            x::errors::VALIDATION,
-            p.name + " must be positive, got " + span.to_string()
-        );
-    if (span < min)
-        return x::errors::Error(
-            x::errors::VALIDATION,
-            p.name + " must be at least " + describe_min(min) + ", got " +
-                span.to_string()
-        );
-    return x::errors::NIL;
+/// @brief rejects a non-positive span stamped at compile time. Var-bound params are
+/// exempt: the runtime guard covers their live values.
+inline x::errors::Error
+validate_static_span(const x::telem::TimeSpan span, const types::Param &p) {
+    if (p.type.kind == types::Kind::VarRef || span.nanoseconds() > 0)
+        return x::errors::NIL;
+    return x::errors::Error(
+        x::errors::VALIDATION,
+        p.name + " must be positive, got " + span.to_string()
+    );
 }
 
-/// @brief guards a live timer span against non-positive values and values under
-/// min. Reports the first offense only, so a node does not re-report on every pass.
+/// @brief guards a live timer span against non-positive values and warns about values
+/// under min. Reports the first offense only, so a node does not re-report on every
+/// pass.
 class SpanGuard {
     x::telem::TimeSpan min;
     bool reported = false;
-    bool raised = false;
+    bool warned = false;
 
 public:
     explicit SpanGuard(const x::telem::TimeSpan min): min(min) {}
 
     /// @brief returns true when span can drive a deadline. A non-positive span
-    /// reports a validation error naming label and returns false.
+    /// reports a validation error naming label and returns false. A span under min runs
+    /// as is, with a warning that its timing may not be precise.
     bool usable(
         runtime::node::Context &ctx,
         const x::telem::TimeSpan span,
         const std::string &label
     ) {
-        if (span.nanoseconds() > 0) {
-            this->reported = false;
+        if (span.nanoseconds() <= 0) {
+            if (!this->reported)
+                ctx.report_error(
+                    x::errors::Error(
+                        x::errors::VALIDATION,
+                        label + " must be positive, got " + span.to_string()
+                    )
+                );
+            this->reported = true;
+            return false;
+        }
+        this->reported = false;
+        if (span >= this->min) {
+            this->warned = false;
             return true;
         }
-        if (!this->reported) {
-            ctx.report_error(
-                x::errors::Error(
-                    x::errors::VALIDATION,
-                    label + " must be positive, got " + span.to_string()
-                )
-            );
-            this->reported = true;
-        }
-        return false;
-    }
-
-    /// @brief returns span, or min when span is shorter. A short span reports a
-    /// warning naming label.
-    x::telem::TimeSpan raise(
-        runtime::node::Context &ctx,
-        const x::telem::TimeSpan span,
-        const std::string &label
-    ) {
-        if (span >= this->min) {
-            this->raised = false;
-            return span;
-        }
-        if (!this->raised) {
+        if (!this->warned)
             ctx.report_error(
                 x::errors::Error(
                     runtime::errors::WARNING,
-                    label + " must be at least " + describe_min(this->min) + ", got " +
-                        span.to_string() + ", using " + this->min.to_string()
+                    label + " " + span.to_string() + " is under " +
+                        describe_min(this->min) + ", so its timing may not be precise"
                 )
             );
-            this->raised = true;
-        }
-        return this->min;
-    }
-
-    /// @brief returns span, or min when span is shorter, with no report.
-    [[nodiscard]] x::telem::TimeSpan floor(const x::telem::TimeSpan span) const {
-        return std::max(span, this->min);
+        this->warned = true;
+        return true;
     }
 
     /// @brief arms the validation report again. The warning stays reported, so a
@@ -149,10 +124,8 @@ public:
 struct IntervalInputs {
     x::telem::TimeSpan interval;
 
-    static std::pair<IntervalInputs, x::errors::Error> create(
-        const types::Params &params,
-        const x::telem::TimeSpan min = x::telem::TimeSpan(0)
-    ) {
+    static std::pair<IntervalInputs, x::errors::Error>
+    create(const types::Params &params) {
         const auto &param = params["period"];
         auto sv = types::to_sample_value(param.value, param.type);
         if (!sv.has_value())
@@ -164,30 +137,36 @@ struct IntervalInputs {
                 )
             };
         const auto period = x::telem::TimeSpan(x::telem::cast<std::int64_t>(*sv));
-        if (auto err = validate_static_span(period, param, min)) return {{}, err};
+        if (auto err = validate_static_span(period, param)) return {{}, err};
         return {{.interval = period}, x::errors::NIL};
     }
 };
 
 class Interval : public runtime::node::Node {
     runtime::state::Node state;
+    /// @brief the elapsed time of the last scheduled fire. Valid only when started.
     x::telem::TimeSpan last_fired;
+    bool started = false;
     SpanGuard guard;
 
 public:
     explicit Interval(
         runtime::state::Node &&state,
-        const x::telem::TimeSpan period,
         const x::telem::TimeSpan min = x::telem::TimeSpan(0)
     ):
-        state(std::move(state)), last_fired(-1 * std::max(period, min)), guard(min) {}
+        state(std::move(state)), guard(min) {}
 
     x::errors::Error next(runtime::node::Context &ctx) override {
-        const auto live = live_span(this->state, "period");
+        const auto period = live_span(this->state, "period");
         // A non-positive period is a configuration error. Park without a deadline; a
         // later reassignment to a positive value resumes the timer.
-        if (!this->guard.usable(ctx, live, "interval period")) return x::errors::NIL;
-        const auto period = this->guard.raise(ctx, live, "period");
+        if (!this->guard.usable(ctx, period, "interval period")) return x::errors::NIL;
+        // The first usable run puts the first fire at now, so the interval fires on its
+        // first timer tick.
+        if (!this->started) {
+            this->last_fired = ctx.cycle.elapsed - period;
+            this->started = true;
+        }
         if (ctx.cycle.reason != runtime::node::RunReason::TimerTick) {
             ctx.mark_self_changed();
             ctx.set_deadline(this->last_fired + period, period);
@@ -218,7 +197,7 @@ public:
     /// @brief resets the interval so it fires immediately on the next timer tick.
     void reset(runtime::node::Context &) override {
         this->state.reset();
-        this->last_fired = -1 * this->guard.floor(live_span(this->state, "period"));
+        this->started = false;
         this->guard.reset();
     }
 
@@ -230,10 +209,7 @@ public:
 struct WaitInputs {
     x::telem::TimeSpan duration;
 
-    static std::pair<WaitInputs, x::errors::Error> create(
-        const types::Params &params,
-        const x::telem::TimeSpan min = x::telem::TimeSpan(0)
-    ) {
+    static std::pair<WaitInputs, x::errors::Error> create(const types::Params &params) {
         const auto &param = params["duration"];
         auto sv = types::to_sample_value(param.value, param.type);
         if (!sv.has_value())
@@ -245,7 +221,7 @@ struct WaitInputs {
                 )
             };
         const auto duration = x::telem::TimeSpan(x::telem::cast<std::int64_t>(*sv));
-        if (auto err = validate_static_span(duration, param, min)) return {{}, err};
+        if (auto err = validate_static_span(duration, param)) return {{}, err};
         return {{.duration = duration}, x::errors::NIL};
     }
 };
@@ -266,12 +242,11 @@ public:
 
     x::errors::Error next(runtime::node::Context &ctx) override {
         if (this->fired) return x::errors::NIL;
-        const auto live = live_span(this->state, "duration");
+        const auto duration = live_span(this->state, "duration");
         // A non-positive duration is a configuration error, not an instant fire: park.
         // Timing stays anchored to start_time, so recovery re-checks the live duration
         // against the original activation.
-        if (!this->guard.usable(ctx, live, "wait duration")) return x::errors::NIL;
-        const auto duration = this->guard.raise(ctx, live, "duration");
+        if (!this->guard.usable(ctx, duration, "wait duration")) return x::errors::NIL;
         if (this->start_time.nanoseconds() < 0) this->start_time = ctx.cycle.elapsed;
         ctx.set_deadline(this->start_time + duration, duration);
         if (ctx.cycle.reason != runtime::node::RunReason::TimerTick) {
@@ -344,7 +319,7 @@ class Module : public stl::Module {
     /// pass. The `now` WASM binding is called from guest code, which has no node
     /// Context to read, so the value is pushed here instead.
     x::telem::TimeStamp now;
-    /// @brief the shortest literal timer span the module accepts.
+    /// @brief the span under which a timer warns that its timing may not be precise.
     const x::telem::TimeSpan min_span;
 
 public:
@@ -368,24 +343,17 @@ public:
     std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>
     create(runtime::node::Config &&cfg) override {
         if (cfg.node.type == "interval") {
-            auto [inputs, err] = IntervalInputs::create(
-                cfg.node.inputs,
-                this->min_span
-            );
+            auto [inputs, err] = IntervalInputs::create(cfg.node.inputs);
             if (err) return {nullptr, err};
             this->update_shortest_span(inputs.interval);
             this->fold_reassigned_spans(cfg, cfg.node.inputs["period"]);
             return {
-                std::make_unique<Interval>(
-                    std::move(cfg.state),
-                    inputs.interval,
-                    this->min_span
-                ),
+                std::make_unique<Interval>(std::move(cfg.state), this->min_span),
                 x::errors::NIL
             };
         }
         if (cfg.node.type == "wait") {
-            auto [inputs, err] = WaitInputs::create(cfg.node.inputs, this->min_span);
+            auto [inputs, err] = WaitInputs::create(cfg.node.inputs);
             if (err) return {nullptr, err};
             this->update_shortest_span(inputs.duration);
             this->fold_reassigned_spans(cfg, cfg.node.inputs["duration"]);
@@ -438,8 +406,7 @@ private:
     void update_shortest_span(const x::telem::TimeSpan raw) {
         // A non-positive span parks its timer, so it is not a period.
         if (raw.nanoseconds() <= 0) return;
-        // A timer holds a span under the minimum at the minimum.
-        this->shortest = std::min(this->shortest, std::max(raw, this->min_span));
+        this->shortest = std::min(this->shortest, raw);
     }
 };
 

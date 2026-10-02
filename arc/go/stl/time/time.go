@@ -179,7 +179,7 @@ type Host struct {
 	// ShortestSpan is the shortest known timer period, declared and literal
 	// reassignments. Its only use is deriving the timing tolerance.
 	ShortestSpan telem.TimeSpan
-	// minSpan is the shortest literal span Create accepts.
+	// minSpan is the span under which a timer warns that its timing may not be precise.
 	minSpan telem.TimeSpan
 	// now is the current cycle's stamp, set by the runtime loop before each pass.
 	// The `now` WASM binding is called from guest code, which has no node Context
@@ -192,8 +192,9 @@ type Host struct {
 func (h *Host) SetNow(now telem.TimeStamp) { h.now = now }
 
 // NewHost registers the time module's `now` WASM host binding with rt and
-// returns a Host handle that acts as the node factory for interval / wait. Create
-// rejects a literal span under minSpan, which must be positive.
+// returns a Host handle that acts as the node factory for interval / wait. A timer
+// with a span under minSpan warns that its timing may not be precise. minSpan must be
+// positive.
 func NewHost(
 	ctx context.Context,
 	rt wazero.Runtime,
@@ -230,16 +231,12 @@ func (h *Host) Create(cfg node.Config) (node.Node, error) {
 		if err != nil {
 			return nil, err
 		}
-		if err = validateStaticSpan(period, periodParam, h.minSpan); err != nil {
+		if err = validateStaticSpan(period, periodParam); err != nil {
 			return nil, err
 		}
 		h.updateShortestSpan(period)
 		h.foldReassignedSpans(cfg, periodParam)
-		return &Interval{
-			State:     cfg.State,
-			lastFired: -max(period, h.minSpan),
-			guard:     spanGuard{min: h.minSpan},
-		}, nil
+		return &Interval{State: cfg.State, guard: spanGuard{min: h.minSpan}}, nil
 
 	case waitSymbolName:
 		durationParam, ok := cfg.Node.Inputs.Get(durationInputParam)
@@ -250,7 +247,7 @@ func (h *Host) Create(cfg node.Config) (node.Node, error) {
 		if err != nil {
 			return nil, err
 		}
-		if err = validateStaticSpan(duration, durationParam, h.minSpan); err != nil {
+		if err = validateStaticSpan(duration, durationParam); err != nil {
 			return nil, err
 		}
 		h.updateShortestSpan(duration)
@@ -308,22 +305,14 @@ func (h *Host) updateShortestSpan(span telem.TimeSpan) {
 	h.ShortestSpan = min(h.ShortestSpan, span)
 }
 
-// validateStaticSpan rejects a span under minSpan stamped at compile time. Var-bound
+// validateStaticSpan rejects a non-positive span stamped at compile time. Var-bound
 // params are exempt: the runtime guard covers their live values.
-func validateStaticSpan(
-	span telem.TimeSpan,
-	p types.Param,
-	minSpan telem.TimeSpan,
-) error {
-	if p.Type.Kind == types.KindVarRef || span >= minSpan {
+func validateStaticSpan(span telem.TimeSpan, p types.Param) error {
+	if p.Type.Kind == types.KindVarRef || span > 0 {
 		return nil
 	}
 	return validate.PathedError(
-		errors.Wrapf(
-			validate.ErrValidation,
-			"must be at least %s (%s), got %s",
-			minSpan, xos.Name(), span,
-		),
+		errors.Wrapf(validate.ErrValidation, "must be positive, got %s", span),
 		p.Name,
 	)
 }
@@ -349,59 +338,54 @@ func liveSpan(s *node.State, name string) telem.TimeSpan {
 	return telem.TimeSpan(s.NumericInput[int64](name))
 }
 
-// spanGuard guards a live timer span against non-positive values and values under min.
-// It reports the first offense only, so a node does not re-report on every pass.
+// spanGuard guards a live timer span against non-positive values and warns about
+// values under min. It reports the first offense only, so a node does not re-report on
+// every pass.
 type spanGuard struct {
 	min      telem.TimeSpan
 	reported bool
-	raised   bool
+	warned   bool
 }
 
-// usable reports whether span can drive a deadline. A non-positive span
-// reports a validation error naming label and returns false.
+// usable reports whether span can drive a deadline. A non-positive span reports a
+// validation error naming label and returns false. A span under min runs as is, with a
+// warning that its timing may not be precise.
 func (g *spanGuard) usable(ctx node.Context, span telem.TimeSpan, label string) bool {
-	if span > 0 {
-		g.reported = false
+	if span <= 0 {
+		if !g.reported {
+			ctx.ReportError(errors.Wrapf(
+				validate.ErrValidation, "%s must be positive, got %s", label, span,
+			))
+		}
+		g.reported = true
+		return false
+	}
+	g.reported = false
+	if span >= g.min {
+		g.warned = false
 		return true
 	}
-	if !g.reported {
-		ctx.ReportError(errors.Wrapf(
-			validate.ErrValidation, "%s must be positive, got %s", label, span,
-		))
-		g.reported = true
-	}
-	return false
-}
-
-// raise returns span, or min when span is shorter. A short span reports an error naming
-// label.
-func (g *spanGuard) raise(
-	ctx node.Context,
-	span telem.TimeSpan,
-	label string,
-) telem.TimeSpan {
-	if span >= g.min {
-		g.raised = false
-		return span
-	}
-	if !g.raised {
+	if !g.warned {
 		ctx.ReportError(errors.Newf(
-			"%s must be at least %s (%s), got %s, using %s",
-			label, g.min, xos.Name(), span, g.min,
+			"%s %s is under %s (%s), so its timing may not be precise",
+			label, span, g.min, xos.Name(),
 		))
-		g.raised = true
 	}
-	return g.min
+	g.warned = true
+	return true
 }
 
-// reset arms the validation report again. The raise report stays reported, so a stage
-// that loops does not repeat it.
+// reset arms the validation report again. The warning stays reported, so a stage that
+// loops does not repeat it.
 func (g *spanGuard) reset() { g.reported = false }
 
 // Interval is a node that fires repeatedly at a specified period.
 type Interval struct {
 	*node.State
+	// lastFired is the elapsed time of the last scheduled fire. It is valid only when
+	// started is true.
 	lastFired telem.TimeSpan
+	started   bool
 	guard     spanGuard
 }
 
@@ -415,7 +399,12 @@ func (i *Interval) Next(ctx node.Context) {
 	if !i.guard.usable(ctx, period, "interval period") {
 		return
 	}
-	period = i.guard.raise(ctx, period, "period")
+	// The first usable run puts the first fire at now, so the interval fires on its
+	// first timer tick.
+	if !i.started {
+		i.lastFired = ctx.Elapsed - period
+		i.started = true
+	}
 	if ctx.Reason != node.ReasonTimerTick {
 		ctx.MarkSelfChanged()
 		ctx.SetDeadline(i.lastFired + period)
@@ -446,7 +435,7 @@ func (i *Interval) Next(ctx node.Context) {
 // Reset resets the interval so it fires immediately on the next timer tick.
 func (i *Interval) Reset(ctx node.Context) {
 	i.State.Reset(ctx)
-	i.lastFired = -max(liveSpan(i.State, periodInputParam), i.guard.min)
+	i.started = false
 	i.guard.reset()
 }
 
@@ -471,7 +460,6 @@ func (w *Wait) Next(ctx node.Context) {
 	if !w.guard.usable(ctx, duration, "wait duration") {
 		return
 	}
-	duration = w.guard.raise(ctx, duration, "duration")
 	if w.startTime < 0 {
 		w.startTime = ctx.Elapsed
 	}

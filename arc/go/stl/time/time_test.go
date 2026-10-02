@@ -165,7 +165,7 @@ var _ = Describe("Time", func() {
 				}
 				Expect(factory.Create(cfg)).Error().To(SatisfyAll(
 					BeAValidationPathError(),
-					MatchError(ContainSubstring("period: must be at least 1ns")),
+					MatchError(ContainSubstring("period: must be positive, got 0s")),
 				))
 			},
 		)
@@ -187,7 +187,7 @@ var _ = Describe("Time", func() {
 				}
 				Expect(factory.Create(cfg)).Error().To(SatisfyAll(
 					BeAValidationPathError(),
-					MatchError(ContainSubstring("period: must be at least 1ns")),
+					MatchError(ContainSubstring("period: must be positive, got - 1s")),
 				))
 			},
 		)
@@ -599,7 +599,7 @@ var _ = Describe("Time", func() {
 				}
 				Expect(factory.Create(cfg)).Error().To(SatisfyAll(
 					BeAValidationPathError(),
-					MatchError(ContainSubstring("duration: must be at least 1ns")),
+					MatchError(ContainSubstring("duration: must be positive, got 0s")),
 				))
 			},
 		)
@@ -1271,13 +1271,14 @@ var _ = Describe("Time", func() {
 			Expect(deadlines).To(BeEmpty())
 			Expect(reported).To(HaveLen(1))
 		})
-		underMinMessage := func(param string) string {
+		underMinMessage := func(label string) string {
 			return fmt.Sprintf(
-				"%s must be at least 10ms (%s), got 1ms, using 10ms", param, xos.Name(),
+				"%s 1ms is under 10ms (%s), so its timing may not be precise",
+				label, xos.Name(),
 			)
 		}
 		It(
-			"Should hold an interval period under the minimum at the minimum",
+			"Should run an interval period under the minimum and warn once",
 			func(ctx SpecContext) {
 				s := newState(
 					ctx, "interval_1", "interval", "period", int64(telem.Millisecond),
@@ -1285,31 +1286,28 @@ var _ = Describe("Time", func() {
 				n := newNode(ctx, s, "interval_1", "interval", "period")
 				tick(ctx, n, 0)
 				Expect(changed).To(HaveLen(1))
-				Expect(deadlines).To(HaveExactElements(minSpan))
+				Expect(deadlines).To(HaveExactElements(telem.Millisecond))
 				tick(ctx, n, telem.Millisecond)
-				Expect(changed).To(HaveLen(1))
-				tick(ctx, n, minSpan)
 				Expect(changed).To(HaveLen(2))
-				Expect(deadlines[len(deadlines)-1]).To(Equal(2 * minSpan))
+				Expect(deadlines[len(deadlines)-1]).To(Equal(2 * telem.Millisecond))
 				Expect(reported).To(HaveLen(1))
-				Expect(reported[0]).To(MatchError(underMinMessage("period")))
+				Expect(reported[0]).To(MatchError(underMinMessage("interval period")))
 			},
 		)
 		It(
-			"Should hold a wait duration under the minimum at the minimum",
+			"Should run a wait duration under the minimum and warn once",
 			func(ctx SpecContext) {
 				s := newState(
 					ctx, "wait_1", "wait", "duration", int64(telem.Millisecond),
 				)
 				n := newNode(ctx, s, "wait_1", "wait", "duration")
 				tick(ctx, n, 0)
-				Expect(deadlines).To(HaveExactElements(minSpan))
-				tick(ctx, n, telem.Millisecond)
 				Expect(changed).To(BeEmpty())
-				tick(ctx, n, minSpan)
+				Expect(deadlines).To(HaveExactElements(telem.Millisecond))
+				tick(ctx, n, telem.Millisecond)
 				Expect(changed).To(HaveLen(1))
 				Expect(reported).To(HaveLen(1))
-				Expect(reported[0]).To(MatchError(underMinMessage("duration")))
+				Expect(reported[0]).To(MatchError(underMinMessage("wait duration")))
 			},
 		)
 		It(
@@ -1376,25 +1374,11 @@ var _ = Describe("Time", func() {
 			state := node.New(ir.IR{Nodes: ir.Nodes{v, n}})
 			return node.Config{Node: n, State: state.Node("n")}
 		}
-		DescribeTable("Should reject a literal span under the minimum",
+		DescribeTable("Should accept a literal span under the minimum",
 			func(nodeType, param string) {
 				cfg := config(nodeType, param, types.TimeSpan(), telem.Millisecond)
-				Expect(factory.Create(cfg)).Error().To(SatisfyAll(
-					BeAValidationPathError(),
-					MatchError(ContainSubstring(fmt.Sprintf(
-						"%s: must be at least 10ms (%s), got 1ms", param, xos.Name(),
-					))),
-				))
-				Expect(factory.ShortestSpan).To(Equal(telem.TimeSpanMax))
-			},
-			Entry("interval", "interval", "period"),
-			Entry("wait", "wait", "duration"),
-		)
-		DescribeTable("Should accept a literal span at the minimum",
-			func(nodeType, param string) {
-				cfg := config(nodeType, param, types.TimeSpan(), minSpan)
 				Expect(MustSucceed(factory.Create(cfg))).ToNot(BeNil())
-				Expect(factory.ShortestSpan).To(Equal(minSpan))
+				Expect(factory.ShortestSpan).To(Equal(telem.Millisecond))
 			},
 			Entry("interval", "interval", "period"),
 			Entry("wait", "wait", "duration"),
