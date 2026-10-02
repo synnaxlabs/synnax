@@ -44,7 +44,7 @@ class _WaitSamples(ArcCase):
     """A sequence holds each wait of ``profile_ms`` ``REPEATS`` times and writes
     ``ws_cmd`` before and after each one. The case fails if the median error of a wait
     or the spread of its held times is over its limit. The case skips each wait under
-    the minimum of the runtime.
+    the shortest wait its limits cover.
     """
 
     #: The waits in ms. The shortest one selects the loop mode of the C++ runtime.

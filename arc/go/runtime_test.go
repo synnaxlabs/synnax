@@ -80,7 +80,7 @@ func newRuntimeHarness(
 
 	wasmRT := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
 
-	timeMod := MustSucceed(time.NewHost(ctx, wasmRT, telem.Nanosecond))
+	timeMod := MustSucceed(time.NewHost(ctx, wasmRT))
 	channelMod := MustSucceed(channels.NewHost(ctx, wasmRT, channelState, stringsState))
 	statefulMod := MustSucceed(stateful.NewHost(ctx, wasmRT, seriesState, stringsState))
 	MustSucceed(series.NewHost(ctx, wasmRT, seriesState))

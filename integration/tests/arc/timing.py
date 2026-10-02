@@ -19,7 +19,7 @@ import synnax as sy
 class Limits:
     """The timing limits of one Arc runtime on one OS."""
 
-    #: The shortest wait in ms the runtime supports.
+    #: The shortest wait in ms the limits cover.
     min_wait_ms: int
     #: The limit on the median error of a wait, in percent of the wait.
     max_error_percent: float

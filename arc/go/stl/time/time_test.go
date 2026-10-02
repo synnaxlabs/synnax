@@ -11,9 +11,7 @@ package time_test
 
 import (
 	"context"
-	"fmt"
 	"math"
-	"runtime"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -27,7 +25,6 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
-	xos "github.com/synnaxlabs/x/os"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -45,7 +42,6 @@ var _ = Describe("Time", func() {
 						ctx,
 						wazero.NewRuntimeConfigInterpreter(),
 					),
-					telem.Nanosecond,
 				),
 			)
 			Expect(factory).ToNot(BeNil())
@@ -63,7 +59,6 @@ var _ = Describe("Time", func() {
 						ctx,
 						wazero.NewRuntimeConfigInterpreter(),
 					),
-					telem.Nanosecond,
 				),
 			)
 			changedOutputs = nil
@@ -505,7 +500,6 @@ var _ = Describe("Time", func() {
 						ctx,
 						wazero.NewRuntimeConfigInterpreter(),
 					),
-					telem.Nanosecond,
 				),
 			)
 			changedOutputs = nil
@@ -1150,7 +1144,6 @@ var _ = Describe("Time", func() {
 		)
 	})
 	Describe("Live span guard", func() {
-		const minSpan = 10 * telem.Millisecond
 		var factory *time.Host
 		newState := func(
 			ctx context.Context,
@@ -1219,7 +1212,7 @@ var _ = Describe("Time", func() {
 			})
 		}
 		BeforeEach(func(ctx SpecContext) {
-			factory = MustSucceed(time.NewHost(ctx, nil, minSpan))
+			factory = MustSucceed(time.NewHost(ctx, nil))
 			reported, deadlines, changed = nil, nil, nil
 		})
 		It("Should park an interval and report the error once", func(ctx SpecContext) {
@@ -1271,14 +1264,8 @@ var _ = Describe("Time", func() {
 			Expect(deadlines).To(BeEmpty())
 			Expect(reported).To(HaveLen(1))
 		})
-		underMinMessage := func(label string) string {
-			return fmt.Sprintf(
-				"%s 1ms is under 10ms (%s), so its timing may not be precise",
-				label, xos.Name(),
-			)
-		}
 		It(
-			"Should run an interval period under the minimum and warn once",
+			"Should fire an interval on its first tick when its live period differs",
 			func(ctx SpecContext) {
 				s := newState(
 					ctx, "interval_1", "interval", "period", int64(telem.Millisecond),
@@ -1287,111 +1274,8 @@ var _ = Describe("Time", func() {
 				tick(ctx, n, 0)
 				Expect(changed).To(HaveLen(1))
 				Expect(deadlines).To(HaveExactElements(telem.Millisecond))
-				tick(ctx, n, telem.Millisecond)
-				Expect(changed).To(HaveLen(2))
-				Expect(deadlines[len(deadlines)-1]).To(Equal(2 * telem.Millisecond))
-				Expect(reported).To(HaveLen(1))
-				Expect(reported[0]).To(MatchError(underMinMessage("interval period")))
+				Expect(reported).To(BeEmpty())
 			},
-		)
-		It(
-			"Should run a wait duration under the minimum and warn once",
-			func(ctx SpecContext) {
-				s := newState(
-					ctx, "wait_1", "wait", "duration", int64(telem.Millisecond),
-				)
-				n := newNode(ctx, s, "wait_1", "wait", "duration")
-				tick(ctx, n, 0)
-				Expect(changed).To(BeEmpty())
-				Expect(deadlines).To(HaveExactElements(telem.Millisecond))
-				tick(ctx, n, telem.Millisecond)
-				Expect(changed).To(HaveLen(1))
-				Expect(reported).To(HaveLen(1))
-				Expect(reported[0]).To(MatchError(underMinMessage("wait duration")))
-			},
-		)
-		It(
-			"Should not report a span under the minimum again after a reset",
-			func(ctx SpecContext) {
-				s := newState(
-					ctx, "wait_1", "wait", "duration", int64(telem.Millisecond),
-				)
-				n := newNode(ctx, s, "wait_1", "wait", "duration")
-				tick(ctx, n, 0)
-				n.Reset(node.Context{})
-				tick(ctx, n, 0)
-				Expect(reported).To(HaveLen(1))
-			},
-		)
-	})
-	Describe("NewHost", func() {
-		DescribeTable("Should reject a minimum span that is not positive",
-			func(ctx SpecContext, minSpan telem.TimeSpan) {
-				Expect(time.NewHost(ctx, nil, minSpan)).Error().To(SatisfyAll(
-					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring(
-						fmt.Sprintf("min span must be positive, got %s", minSpan),
-					)),
-				))
-			},
-			Entry("zero", telem.TimeSpan(0)),
-			Entry("negative", -telem.Millisecond),
-		)
-	})
-	Describe("PlatformMinSpan", func() {
-		It("Should return the minimum span of the OS", func() {
-			expected := 10 * telem.Millisecond
-			if runtime.GOOS == "darwin" {
-				expected = 20 * telem.Millisecond
-			}
-			Expect(time.PlatformMinSpan()).To(Equal(expected))
-		})
-	})
-	Describe("Minimum span", func() {
-		const minSpan = 10 * telem.Millisecond
-		var factory *time.Host
-		BeforeEach(func(ctx SpecContext) {
-			factory = MustSucceed(time.NewHost(ctx, nil, minSpan))
-		})
-		config := func(
-			nodeType, param string, t types.Type, span telem.TimeSpan,
-		) node.Config {
-			v := ir.Node{
-				Key:  "v",
-				Type: "variable",
-				Outputs: types.Params{
-					{Name: ir.DefaultOutputParam, Type: types.I64()},
-				},
-			}
-			n := ir.Node{
-				Key:    "n",
-				Type:   nodeType,
-				Inputs: types.Params{{Name: param, Type: t, Value: span}},
-				Outputs: types.Params{
-					{Name: ir.DefaultOutputParam, Type: types.U8()},
-				},
-			}
-			state := node.New(ir.IR{Nodes: ir.Nodes{v, n}})
-			return node.Config{Node: n, State: state.Node("n")}
-		}
-		DescribeTable("Should accept a literal span under the minimum",
-			func(nodeType, param string) {
-				cfg := config(nodeType, param, types.TimeSpan(), telem.Millisecond)
-				Expect(MustSucceed(factory.Create(cfg))).ToNot(BeNil())
-				Expect(factory.ShortestSpan).To(Equal(telem.Millisecond))
-			},
-			Entry("interval", "interval", "period"),
-			Entry("wait", "wait", "duration"),
-		)
-		DescribeTable("Should accept a var-bound span under the minimum",
-			func(nodeType, param string) {
-				cfg := config(
-					nodeType, param, types.VarRef(types.I64(), "v"), telem.Millisecond,
-				)
-				Expect(MustSucceed(factory.Create(cfg))).ToNot(BeNil())
-			},
-			Entry("interval", "interval", "period"),
-			Entry("wait", "wait", "duration"),
 		)
 	})
 	Describe("TimingBase", func() {
@@ -1403,7 +1287,6 @@ var _ = Describe("Time", func() {
 						ctx,
 						wazero.NewRuntimeConfigInterpreter(),
 					),
-					telem.Nanosecond,
 				),
 			)
 			g := graph.Graph{
@@ -1530,7 +1413,7 @@ var _ = Describe("Time", func() {
 		It(
 			"Should not fire a wait on the tick of an interval before its deadline",
 			func(ctx SpecContext) {
-				host := MustSucceed(time.NewHost(ctx, nil, 10*telem.Millisecond))
+				host := MustSucceed(time.NewHost(ctx, nil))
 				param := func(name string, span telem.TimeSpan) types.Params {
 					return types.Params{
 						{Name: name, Type: types.TimeSpan(), Value: span},
@@ -1597,7 +1480,6 @@ var _ = Describe("Time", func() {
 						ctx,
 						wazero.NewRuntimeConfigInterpreter(),
 					),
-					telem.Nanosecond,
 				),
 			)
 			changedOutputs = nil
@@ -1858,7 +1740,6 @@ var _ = Describe("Time", func() {
 							ctx,
 							wazero.NewRuntimeConfigInterpreter(),
 						),
-						telem.Nanosecond,
 					),
 				)
 
@@ -1916,7 +1797,7 @@ var _ = Describe("Time", func() {
 			var factory *time.Host
 			var s *node.ProgramState
 			BeforeEach(func(ctx SpecContext) {
-				factory = MustSucceed(time.NewHost(ctx, nil, telem.Nanosecond))
+				factory = MustSucceed(time.NewHost(ctx, nil))
 				g := graph.Graph{
 					Nodes: []graph.Node{{Key: "interval_1"}},
 					Inputs: map[string]msgpack.EncodedJSON{
@@ -2081,7 +1962,7 @@ var _ = Describe("Time", func() {
 			var factory *time.Host
 			var s *node.ProgramState
 			BeforeEach(func(ctx SpecContext) {
-				factory = MustSucceed(time.NewHost(ctx, nil, telem.Nanosecond))
+				factory = MustSucceed(time.NewHost(ctx, nil))
 				g := graph.Graph{
 					Nodes: []graph.Node{{Key: "wait_1"}},
 					Inputs: map[string]msgpack.EncodedJSON{
@@ -2240,7 +2121,6 @@ var _ = Describe("Time", func() {
 						ctx,
 						wazero.NewRuntimeConfigInterpreter(),
 					),
-					telem.Nanosecond,
 				),
 			)
 			changedOutputs = nil
@@ -2416,7 +2296,7 @@ var _ = Describe("Time", func() {
 	Describe("Variable inputs", func() {
 		var factory *time.Host
 		BeforeEach(func(ctx SpecContext) {
-			factory = MustSucceed(time.NewHost(ctx, nil, telem.Nanosecond))
+			factory = MustSucceed(time.NewHost(ctx, nil))
 		})
 
 		// varConfig builds a config whose span input is var-bound: Value holds
@@ -2660,7 +2540,7 @@ var _ = Describe("ShortestSpan matrix", func() {
 		prog := MustSucceed(
 			arc.CompileText(ctx, arc.Text{Raw: "import time\n" + source}, root),
 		)
-		factory := MustSucceed(time.NewHost(ctx, nil, telem.Nanosecond))
+		factory := MustSucceed(time.NewHost(ctx, nil))
 		s := node.New(prog.IR)
 		f := node.CompoundFactory{factory}
 		for _, n := range prog.Nodes {

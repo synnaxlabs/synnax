@@ -1030,17 +1030,6 @@ INSTANTIATE_TEST_SUITE_P(
     )
 );
 
-/// @brief The minimum timer span should be the documented value of the platform.
-TEST(MinTimerSpanTest, ReturnsTheSpanOfThePlatform) {
-#if defined(_WIN32)
-    EXPECT_EQ(min_timer_span(), 5 * x::telem::MILLISECOND);
-#elif defined(__linux__) || defined(__APPLE__)
-    EXPECT_EQ(min_timer_span(), x::telem::MILLISECOND);
-#else
-    EXPECT_EQ(min_timer_span(), x::telem::TimeSpan(0));
-#endif
-}
-
 /// @brief The shortest timer span of a program and a wait duration. The shortest span
 /// resolves AUTO.
 using ShortDeadlineCase = std::tuple<x::telem::TimeSpan, x::telem::TimeSpan>;

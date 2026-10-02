@@ -16,13 +16,11 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//arc/cpp/ir",
-        "//arc/cpp/runtime/errors",
         "//arc/cpp/runtime/loop",
         "//arc/cpp/runtime/node",
         "//arc/cpp/runtime/state",
         "//arc/cpp/stl",
         "//x/cpp/errors",
-        "//x/cpp/os",
         "//x/cpp/telem",
     ],
 )
@@ -42,7 +40,6 @@ cc_test(
         "//client/cpp:synnax",
         "//client/cpp/testutil",
         "//x/cpp/mem",
-        "//x/cpp/os",
         "//x/cpp/test",
         "@googletest//:gtest_main",
     ],

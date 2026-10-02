@@ -12,7 +12,6 @@ package time
 import (
 	"context"
 	"reflect"
-	"runtime"
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/literal"
@@ -23,7 +22,6 @@ import (
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/lsp/doc"
-	xos "github.com/synnaxlabs/x/os"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -43,15 +41,6 @@ const (
 // earliest deadline, so a wider tolerance only fires a timer early on the wake of
 // another.
 const MaxTolerance = 100 * telem.Microsecond
-
-// PlatformMinSpan returns the shortest timer span the Go runtime holds on time. A
-// wake is 0.4 ms late, and 1 ms late on macOS.
-func PlatformMinSpan() telem.TimeSpan {
-	if runtime.GOOS == "darwin" {
-		return 20 * telem.Millisecond
-	}
-	return 10 * telem.Millisecond
-}
 
 // unsetShortestSpan is the sentinel value indicating ShortestSpan hasn't been set yet.
 const unsetShortestSpan = telem.TimeSpanMax
@@ -179,8 +168,6 @@ type Host struct {
 	// ShortestSpan is the shortest known timer period, declared and literal
 	// reassignments. Its only use is deriving the timing tolerance.
 	ShortestSpan telem.TimeSpan
-	// minSpan is the span under which a timer warns that its timing may not be precise.
-	minSpan telem.TimeSpan
 	// now is the current cycle's stamp, set by the runtime loop before each pass.
 	// The `now` WASM binding is called from guest code, which has no node Context
 	// to read, so the value is pushed here instead.
@@ -192,20 +179,9 @@ type Host struct {
 func (h *Host) SetNow(now telem.TimeStamp) { h.now = now }
 
 // NewHost registers the time module's `now` WASM host binding with rt and
-// returns a Host handle that acts as the node factory for interval / wait. A timer
-// with a span under minSpan warns that its timing may not be precise. minSpan must be
-// positive.
-func NewHost(
-	ctx context.Context,
-	rt wazero.Runtime,
-	minSpan telem.TimeSpan,
-) (*Host, error) {
-	if minSpan <= 0 {
-		return nil, errors.Wrapf(
-			validate.ErrValidation, "min span must be positive, got %s", minSpan,
-		)
-	}
-	h := &Host{ShortestSpan: unsetShortestSpan, minSpan: minSpan}
+// returns a Host handle that acts as the node factory for interval / wait.
+func NewHost(ctx context.Context, rt wazero.Runtime) (*Host, error) {
+	h := &Host{ShortestSpan: unsetShortestSpan}
 	if rt == nil {
 		return h, nil
 	}
@@ -236,7 +212,7 @@ func (h *Host) Create(cfg node.Config) (node.Node, error) {
 		}
 		h.updateShortestSpan(period)
 		h.foldReassignedSpans(cfg, periodParam)
-		return &Interval{State: cfg.State, guard: spanGuard{min: h.minSpan}}, nil
+		return &Interval{State: cfg.State}, nil
 
 	case waitSymbolName:
 		durationParam, ok := cfg.Node.Inputs.Get(durationInputParam)
@@ -256,7 +232,6 @@ func (h *Host) Create(cfg node.Config) (node.Node, error) {
 			State:     cfg.State,
 			startTime: -1,
 			fired:     false,
-			guard:     spanGuard{min: h.minSpan},
 		}, nil
 
 	case nowSymbolName:
@@ -338,45 +313,26 @@ func liveSpan(s *node.State, name string) telem.TimeSpan {
 	return telem.TimeSpan(s.NumericInput[int64](name))
 }
 
-// spanGuard guards a live timer span against non-positive values and warns about
-// values under min. It reports the first offense only, so a node does not re-report on
-// every pass.
-type spanGuard struct {
-	min      telem.TimeSpan
-	reported bool
-	warned   bool
-}
+// spanGuard guards a live timer span against non-positive values. It reports
+// the first offense only, so a parked node does not re-report on every pass.
+type spanGuard struct{ reported bool }
 
-// usable reports whether span can drive a deadline. A non-positive span reports a
-// validation error naming label and returns false. A span under min runs as is, with a
-// warning that its timing may not be precise.
+// usable reports whether span can drive a deadline. A non-positive span
+// reports a validation error naming label and returns false.
 func (g *spanGuard) usable(ctx node.Context, span telem.TimeSpan, label string) bool {
-	if span <= 0 {
-		if !g.reported {
-			ctx.ReportError(errors.Wrapf(
-				validate.ErrValidation, "%s must be positive, got %s", label, span,
-			))
-		}
-		g.reported = true
-		return false
-	}
-	g.reported = false
-	if span >= g.min {
-		g.warned = false
+	if span > 0 {
+		g.reported = false
 		return true
 	}
-	if !g.warned {
-		ctx.ReportError(errors.Newf(
-			"%s %s is under %s (%s), so its timing may not be precise",
-			label, span, g.min, xos.Name(),
+	if !g.reported {
+		ctx.ReportError(errors.Wrapf(
+			validate.ErrValidation, "%s must be positive, got %s", label, span,
 		))
+		g.reported = true
 	}
-	g.warned = true
-	return true
+	return false
 }
 
-// reset arms the validation report again. The warning stays reported, so a stage that
-// loops does not repeat it.
 func (g *spanGuard) reset() { g.reported = false }
 
 // Interval is a node that fires repeatedly at a specified period.

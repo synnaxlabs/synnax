@@ -70,11 +70,6 @@ inline const x::telem::TimeSpan WINDOWS_DEADLINE_SPIN = x::telem::MILLISECOND;
 /// alone fires up to 1 ms late.
 inline const x::telem::TimeSpan DARWIN_DEADLINE_SPIN = 1500 * x::telem::MICROSECOND;
 
-/// @brief Shortest timer span the Windows loop holds on time.
-///    1ms - 1.1% median err + ~8% of waits are 100%-200% late
-///    2ms - 0.8% median err (sweaty territory)
-///  * 5ms - 0.1% median err + grace to Windows scheduler
-inline const x::telem::TimeSpan WINDOWS_MIN_TIMER_SPAN = 5 * x::telem::MILLISECOND;
 }
 
 /// @brief Default RT priority for SCHED_FIFO on Linux (range 1-99).
@@ -328,8 +323,4 @@ struct Loop {
 /// handle's allocated core is used for CPU affinity.
 std::unique_ptr<Loop>
 create(const Config &cfg, std::shared_ptr<x::thread::rt::Handle> rt_handle = nullptr);
-
-/// @brief Returns the shortest timer span the loop of this platform holds on time. A
-/// zero span means there is no limit.
-x::telem::TimeSpan min_timer_span();
 }

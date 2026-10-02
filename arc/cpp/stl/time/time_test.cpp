@@ -12,7 +12,6 @@
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/mem/indirect.h"
-#include "x/cpp/os/os.h"
 #include "x/cpp/test/test.h"
 
 #include "arc/cpp/ir/ir.h"
@@ -133,15 +132,6 @@ TEST(IntervalInputsTest, AllowsZeroVarBoundPeriod) {
     params.push_back(period_param);
     const auto inputs = ASSERT_NIL_P(IntervalInputs::create(params));
     EXPECT_EQ(inputs.interval, x::telem::TimeSpan(0));
-}
-
-/// @brief Minimum timer span of the specs that do not use the one of the platform.
-const auto MIN = 5 * x::telem::MILLISECOND;
-
-/// @brief Returns the warning for a 1 ms span named label that is under MIN.
-std::string under_min_message(const std::string &label) {
-    return label + " 1ms is under 5ms (" + x::os::get() +
-           "), so its timing may not be precise";
 }
 
 TEST(WaitInputsTest, CreatesInputsFromValidParams) {
@@ -270,25 +260,10 @@ TEST(TimeModuleTest, ShortestSpanIsTheMinimumAcrossNodes) {
     EXPECT_EQ(factory.shortest_span(), 400 * x::telem::MILLISECOND);
 }
 
-/// @brief Test that the module accepts a literal span under its minimum and holds it
-/// as the shortest span.
-TEST(TimeModuleTest, AcceptsLiteralSpanUnderMinimum) {
-    TestSetup interval("interval", "period", x::telem::MILLISECOND.nanoseconds());
-    TestSetup wait("wait", "duration", (2 * x::telem::MILLISECOND).nanoseconds());
-    Module factory(MIN);
-    ASSERT_NIL_P(factory.create(
-        runtime::node::Config(interval.ir, interval.ir.nodes[0], interval.make_node())
-    ));
-    ASSERT_NIL_P(factory.create(
-        runtime::node::Config(wait.ir, wait.ir.nodes[0], wait.make_node())
-    ));
-    EXPECT_EQ(factory.shortest_span(), x::telem::MILLISECOND);
-}
-
 /// @brief Test that the module rejects a non-positive literal span.
 TEST(TimeModuleTest, RejectsNonPositiveLiteralSpan) {
     TestSetup wait("wait", "duration", 0);
-    Module factory(MIN);
+    Module factory;
     ASSERT_OCCURRED_AS_P(
         factory.create(
             runtime::node::Config(wait.ir, wait.ir.nodes[0], wait.make_node())
@@ -296,22 +271,6 @@ TEST(TimeModuleTest, RejectsNonPositiveLiteralSpan) {
         x::errors::VALIDATION
     );
     EXPECT_EQ(factory.shortest_span(), UNSET_SHORTEST_SPAN);
-}
-
-/// @brief Test that a var-bound span under the minimum folds into the shortest span as
-/// is.
-TEST(TimeModuleTest, ShortestSpanHoldsVarBoundSpanUnderMinimum) {
-    TestSetup setup("interval", "period", x::telem::MILLISECOND.nanoseconds());
-    auto ir_node = setup.ir.nodes[0];
-    ir_node.inputs[0].type = types::Type{
-        .kind = types::Kind::VarRef,
-        .elem = x::mem::indirect<types::Type>(types::Type{.kind = types::Kind::I64})
-    };
-    Module factory(MIN);
-    ASSERT_NIL_P(
-        factory.create(runtime::node::Config(setup.ir, ir_node, setup.make_node()))
-    );
-    EXPECT_EQ(factory.shortest_span(), x::telem::MILLISECOND);
 }
 
 /// @brief Test that Interval does not fire again before next interval elapses.
@@ -500,7 +459,7 @@ TEST(IntervalTest, OnlyFiresOnTimerTick) {
 /// no deadline, and the error reports only once.
 TEST(IntervalTest, ParksAndReportsOnceOnNonPositivePeriod) {
     TestSetup setup("interval", "period", 0);
-    Interval node(setup.make_node(), MIN);
+    Interval node(setup.make_node());
 
     std::vector<x::errors::Error> reported;
     int deadline_calls = 0;
@@ -525,7 +484,7 @@ TEST(IntervalTest, ParksAndReportsOnceOnNonPositivePeriod) {
 /// @brief Test that reset re-arms the non-positive period error report.
 TEST(IntervalTest, ReportsNonPositivePeriodAgainAfterReset) {
     TestSetup setup("interval", "period", 0);
-    Interval node(setup.make_node(), MIN);
+    Interval node(setup.make_node());
 
     std::vector<x::errors::Error> reported;
     auto ctx = make_context(x::telem::TimeSpan(0));
@@ -536,50 +495,6 @@ TEST(IntervalTest, ReportsNonPositivePeriodAgainAfterReset) {
     ASSERT_NIL(node.next(ctx));
 
     EXPECT_EQ(reported.size(), 2);
-}
-
-/// @brief Test that a live period under the minimum runs as is with one warning.
-TEST(IntervalTest, RunsPeriodUnderMinimumAndWarnsOnce) {
-    TestSetup setup("interval", "period", x::telem::MILLISECOND.nanoseconds());
-    Interval node(setup.make_node(), MIN);
-
-    std::vector<x::errors::Error> reported;
-    int fires = 0;
-    auto deadline = x::telem::TimeSpan(0);
-    auto ctx = make_context(x::telem::TimeSpan(0));
-    ctx.mark_changed = [&](size_t) { fires++; };
-    ctx.set_deadline = [&](const x::telem::TimeSpan d, x::telem::TimeSpan) {
-        deadline = d;
-    };
-    ctx.report_error = [&](const x::errors::Error &e) { reported.push_back(e); };
-
-    ASSERT_NIL(node.next(ctx));
-    EXPECT_EQ(fires, 1);
-    EXPECT_EQ(deadline, x::telem::MILLISECOND);
-    ctx.cycle.elapsed = x::telem::MILLISECOND;
-    ASSERT_NIL(node.next(ctx));
-    EXPECT_EQ(fires, 2);
-    EXPECT_EQ(deadline, 2 * x::telem::MILLISECOND);
-
-    ASSERT_EQ(reported.size(), 1);
-    EXPECT_TRUE(reported[0].matches(runtime::errors::WARNING));
-    EXPECT_EQ(reported[0].data, under_min_message("interval period"));
-}
-
-/// @brief Test that reset does not repeat the warning for a period under the minimum.
-TEST(IntervalTest, DoesNotWarnAgainAfterReset) {
-    TestSetup setup("interval", "period", x::telem::MILLISECOND.nanoseconds());
-    Interval node(setup.make_node(), MIN);
-
-    std::vector<x::errors::Error> reported;
-    auto ctx = make_context(x::telem::TimeSpan(0));
-    ctx.report_error = [&](const x::errors::Error &e) { reported.push_back(e); };
-
-    ASSERT_NIL(node.next(ctx));
-    node.reset(ctx);
-    ASSERT_NIL(node.next(ctx));
-
-    EXPECT_EQ(reported.size(), 1);
 }
 
 /// @brief Test that Wait does not fire before the duration elapses.
@@ -935,7 +850,7 @@ TEST(WaitTest, ResetRestartsTimingFromZero) {
 /// deadline, and the error reports only once.
 TEST(WaitTest, ParksAndReportsOnceOnNonPositiveDuration) {
     TestSetup setup("wait", "duration", 0);
-    Wait node(setup.make_node(), MIN);
+    Wait node(setup.make_node());
 
     std::vector<x::errors::Error> reported;
     int deadline_calls = 0;
@@ -955,50 +870,6 @@ TEST(WaitTest, ParksAndReportsOnceOnNonPositiveDuration) {
     EXPECT_EQ(deadline_calls, 0);
     ASSERT_EQ(reported.size(), 1);
     EXPECT_TRUE(reported[0].matches(x::errors::VALIDATION));
-}
-
-/// @brief Test that a live duration under the minimum runs as is with one warning.
-TEST(WaitTest, RunsDurationUnderMinimumAndWarnsOnce) {
-    TestSetup setup("wait", "duration", x::telem::MILLISECOND.nanoseconds());
-    Wait node(setup.make_node(), MIN);
-
-    std::vector<x::errors::Error> reported;
-    int fires = 0;
-    auto deadline = x::telem::TimeSpan(0);
-    auto ctx = make_context(x::telem::TimeSpan(0));
-    ctx.mark_changed = [&](size_t) { fires++; };
-    ctx.set_deadline = [&](const x::telem::TimeSpan d, x::telem::TimeSpan) {
-        deadline = d;
-    };
-    ctx.report_error = [&](const x::errors::Error &e) { reported.push_back(e); };
-
-    ASSERT_NIL(node.next(ctx));
-    EXPECT_EQ(fires, 0);
-    EXPECT_EQ(deadline, x::telem::MILLISECOND);
-    ctx.cycle.elapsed = x::telem::MILLISECOND;
-    ASSERT_NIL(node.next(ctx));
-    EXPECT_EQ(fires, 1);
-
-    ASSERT_EQ(reported.size(), 1);
-    EXPECT_TRUE(reported[0].matches(runtime::errors::WARNING));
-    EXPECT_EQ(reported[0].data, under_min_message("wait duration"));
-}
-
-/// @brief Test that reset does not repeat the warning for a duration under the
-/// minimum.
-TEST(WaitTest, DoesNotWarnAgainAfterReset) {
-    TestSetup setup("wait", "duration", x::telem::MILLISECOND.nanoseconds());
-    Wait node(setup.make_node(), MIN);
-
-    std::vector<x::errors::Error> reported;
-    auto ctx = make_context(x::telem::TimeSpan(0));
-    ctx.report_error = [&](const x::errors::Error &e) { reported.push_back(e); };
-
-    ASSERT_NIL(node.next(ctx));
-    node.reset(ctx);
-    ASSERT_NIL(node.next(ctx));
-
-    EXPECT_EQ(reported.size(), 1);
 }
 
 /// @brief Test calculate_tolerance for RT_EVENT mode.

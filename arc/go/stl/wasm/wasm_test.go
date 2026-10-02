@@ -112,7 +112,7 @@ func newHarness(
 	stringsMod := MustSucceed(stlstrings.NewHost(ctx, wasmRT, stringsState, nil))
 	mathMod := MustSucceed(stlmath.NewHost(ctx, wasmRT))
 	errorsMod := MustSucceed(stlerrors.NewHost(ctx, wasmRT, nil))
-	_, _ = stltime.NewHost(ctx, wasmRT, telem.Nanosecond)
+	_, _ = stltime.NewHost(ctx, wasmRT)
 	channelMod, _ := channels.NewHost(ctx, wasmRT, channelState, stringsState)
 
 	guest := MustSucceed(wasmRT.Instantiate(ctx, prog.WASM))
@@ -238,7 +238,7 @@ func newTextHarness(
 	stringsMod := MustSucceed(stlstrings.NewHost(ctx, wasmRT, stringsState, nil))
 	mathMod := MustSucceed(stlmath.NewHost(ctx, wasmRT))
 	errorsMod := MustSucceed(stlerrors.NewHost(ctx, wasmRT, nil))
-	_, _ = stltime.NewHost(ctx, wasmRT, telem.Nanosecond)
+	_, _ = stltime.NewHost(ctx, wasmRT)
 	channelMod, _ := channels.NewHost(ctx, wasmRT, channelState, stringsState)
 
 	guest := MustSucceed(wasmRT.Instantiate(ctx, prog.WASM))

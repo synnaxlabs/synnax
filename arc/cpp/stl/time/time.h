@@ -15,11 +15,9 @@
 #include "wasmtime.hh"
 
 #include "x/cpp/errors/errors.h"
-#include "x/cpp/os/os.h"
 #include "x/cpp/telem/telem.h"
 
 #include "arc/cpp/ir/ir.h"
-#include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/loop/loop.h"
 #include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/stl/stl.h"
@@ -52,11 +50,6 @@ live_span(const runtime::state::Node &s, const std::string &name) {
     return x::telem::TimeSpan(s.numeric_input<int64_t>(name));
 }
 
-/// @brief returns the minimum span and where it applies, for messages to the user.
-inline std::string describe_min(const x::telem::TimeSpan min) {
-    return min.to_string() + " (" + x::os::get() + ")";
-}
-
 /// @brief rejects a non-positive span stamped at compile time. Var-bound params are
 /// exempt: the runtime guard covers their live values.
 inline x::errors::Error
@@ -69,55 +62,35 @@ validate_static_span(const x::telem::TimeSpan span, const types::Param &p) {
     );
 }
 
-/// @brief guards a live timer span against non-positive values and warns about values
-/// under min. Reports the first offense only, so a node does not re-report on every
-/// pass.
+/// @brief guards a live timer span against non-positive values. Reports the
+/// first offense only, so a parked node does not re-report on every pass.
 class SpanGuard {
-    x::telem::TimeSpan min;
     bool reported = false;
-    bool warned = false;
 
 public:
-    explicit SpanGuard(const x::telem::TimeSpan min): min(min) {}
-
     /// @brief returns true when span can drive a deadline. A non-positive span
-    /// reports a validation error naming label and returns false. A span under min runs
-    /// as is, with a warning that its timing may not be precise.
+    /// reports a validation error naming label and returns false.
     bool usable(
         runtime::node::Context &ctx,
         const x::telem::TimeSpan span,
         const std::string &label
     ) {
-        if (span.nanoseconds() <= 0) {
-            if (!this->reported)
-                ctx.report_error(
-                    x::errors::Error(
-                        x::errors::VALIDATION,
-                        label + " must be positive, got " + span.to_string()
-                    )
-                );
-            this->reported = true;
-            return false;
-        }
-        this->reported = false;
-        if (span >= this->min) {
-            this->warned = false;
+        if (span.nanoseconds() > 0) {
+            this->reported = false;
             return true;
         }
-        if (!this->warned)
+        if (!this->reported) {
             ctx.report_error(
                 x::errors::Error(
-                    runtime::errors::WARNING,
-                    label + " " + span.to_string() + " is under " +
-                        describe_min(this->min) + ", so its timing may not be precise"
+                    x::errors::VALIDATION,
+                    label + " must be positive, got " + span.to_string()
                 )
             );
-        this->warned = true;
-        return true;
+            this->reported = true;
+        }
+        return false;
     }
 
-    /// @brief arms the validation report again. The warning stays reported, so a
-    /// stage that loops does not repeat it.
     void reset() { this->reported = false; }
 };
 
@@ -150,11 +123,7 @@ class Interval : public runtime::node::Node {
     SpanGuard guard;
 
 public:
-    explicit Interval(
-        runtime::state::Node &&state,
-        const x::telem::TimeSpan min = x::telem::TimeSpan(0)
-    ):
-        state(std::move(state)), guard(min) {}
+    explicit Interval(runtime::state::Node &&state): state(std::move(state)) {}
 
     x::errors::Error next(runtime::node::Context &ctx) override {
         const auto period = live_span(this->state, "period");
@@ -234,11 +203,7 @@ class Wait : public runtime::node::Node {
     SpanGuard guard;
 
 public:
-    explicit Wait(
-        runtime::state::Node &&state,
-        const x::telem::TimeSpan min = x::telem::TimeSpan(0)
-    ):
-        state(std::move(state)), guard(min) {}
+    explicit Wait(runtime::state::Node &&state): state(std::move(state)) {}
 
     x::errors::Error next(runtime::node::Context &ctx) override {
         if (this->fired) return x::errors::NIL;
@@ -319,15 +284,8 @@ class Module : public stl::Module {
     /// pass. The `now` WASM binding is called from guest code, which has no node
     /// Context to read, so the value is pushed here instead.
     x::telem::TimeStamp now;
-    /// @brief the span under which a timer warns that its timing may not be precise.
-    const x::telem::TimeSpan min_span;
 
 public:
-    explicit Module(
-        const x::telem::TimeSpan min_span = runtime::loop::min_timer_span()
-    ):
-        min_span(min_span) {}
-
     /// @brief binds the cycle stamp the `now` host function returns for the
     /// coming pass. The runtime loop calls it before every Scheduler::next.
     void set_now(const x::telem::TimeStamp now) { this->now = now; }
@@ -347,20 +305,14 @@ public:
             if (err) return {nullptr, err};
             this->update_shortest_span(inputs.interval);
             this->fold_reassigned_spans(cfg, cfg.node.inputs["period"]);
-            return {
-                std::make_unique<Interval>(std::move(cfg.state), this->min_span),
-                x::errors::NIL
-            };
+            return {std::make_unique<Interval>(std::move(cfg.state)), x::errors::NIL};
         }
         if (cfg.node.type == "wait") {
             auto [inputs, err] = WaitInputs::create(cfg.node.inputs);
             if (err) return {nullptr, err};
             this->update_shortest_span(inputs.duration);
             this->fold_reassigned_spans(cfg, cfg.node.inputs["duration"]);
-            return {
-                std::make_unique<Wait>(std::move(cfg.state), this->min_span),
-                x::errors::NIL
-            };
+            return {std::make_unique<Wait>(std::move(cfg.state)), x::errors::NIL};
         }
         if (cfg.node.type == "now") {
             auto [inputs, err] = NowInputs::create(cfg.node.inputs);
