@@ -1938,10 +1938,8 @@ TEST_F(SchedulerTest, ConditionalTransitionIgnoresAFalsyOutput) {
     mock("trigger", {true});
     mock("first_node").on_next = mark_on_next(0);
     const auto &second = mock("second_node");
-    build(two_step_seq(ir::EdgeKind::Conditional))
-        ->next(
-            {.elapsed = x::telem::MICROSECOND, .reason = node::RunReason::TimerTick}
-        );
+    const auto s = build(two_step_seq(ir::EdgeKind::Conditional));
+    s->next({.elapsed = x::telem::MICROSECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(second.next_called, 0);
 }
 
@@ -1949,30 +1947,24 @@ TEST_F(SchedulerTest, ContinuousTransitionFiresOnAFalsyOutput) {
     mock("trigger", {true});
     mock("first_node").on_next = mark_on_next(0);
     const auto &second = mock("second_node");
-    build(two_step_seq(ir::EdgeKind::Continuous))
-        ->next(
-            {.elapsed = x::telem::MICROSECOND, .reason = node::RunReason::TimerTick}
-        );
+    const auto s = build(two_step_seq(ir::EdgeKind::Continuous));
+    s->next({.elapsed = x::telem::MICROSECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(second.next_called, 1);
 }
 
 TEST_F(SchedulerTest, ConditionalActivationIgnoresAFalsyOutput) {
     mock("trigger").on_next = mark_on_next(0);
     const auto &stage = mock("stage_node");
-    build(gated_stage(ir::EdgeKind::Conditional))
-        ->next(
-            {.elapsed = x::telem::MICROSECOND, .reason = node::RunReason::TimerTick}
-        );
+    const auto s = build(gated_stage(ir::EdgeKind::Conditional));
+    s->next({.elapsed = x::telem::MICROSECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(stage.next_called, 0);
 }
 
 TEST_F(SchedulerTest, ContinuousActivationFiresOnAFalsyOutput) {
     mock("trigger").on_next = mark_on_next(0);
     const auto &stage = mock("stage_node");
-    build(gated_stage(ir::EdgeKind::Continuous))
-        ->next(
-            {.elapsed = x::telem::MICROSECOND, .reason = node::RunReason::TimerTick}
-        );
+    const auto s = build(gated_stage(ir::EdgeKind::Continuous));
+    s->next({.elapsed = x::telem::MICROSECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(stage.next_called, 1);
 }
 
