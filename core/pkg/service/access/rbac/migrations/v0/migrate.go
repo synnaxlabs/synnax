@@ -40,7 +40,7 @@ type MigrationConfig struct {
 // Migration (Phase 2) reads the persisted user-to-policy mapping from KV (written by
 // Phase 1 in the policy package), queries users for their RootUser flag, determines the
 // appropriate role for each user, and creates the ontology relationships. It does
-// nothing for a store whose users already hold roles.
+// nothing for a store that a v0.53 Core already migrated.
 func NewMigration(cfg MigrationConfig) migrate.Migration {
 	return gorp.NewMigration(
 		"v0.permission_assignment",

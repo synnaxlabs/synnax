@@ -949,6 +949,29 @@ var _ = Describe("Legacy import", func() {
 			map[string]any{"name": "Metrics"}),
 	)
 
+	DescribeTable("Should import a lone surrogate escape as U+FFFD",
+		func(ctx SpecContext, layout, member []byte, name string) {
+			proj := importLegacy(
+				ctx,
+				zip.Files{"LAYOUT.json": layout, "k1.json": member},
+			)
+			children := childrenOf(ctx, project.OntologyID(proj.Key))
+			Expect(children).To(HaveLen(1))
+			Expect(children[0].ID.Type).To(Equal(ontology.ResourceTypeLog))
+			Expect(children[0].Name).To(Equal(name))
+		},
+		Entry("in the layout file",
+			[]byte(`{"layouts":{"k1":{"key":"k1","type":"log","name":"Tank \ud83d"}}}`),
+			legacyLogState(nil),
+			"Tank \uFFFD",
+		),
+		Entry("in a member file",
+			legacyLayoutFile(logLayout),
+			[]byte(`{"version":"0.0.0","channels":[4],"name":"Tank \ud83d"}`),
+			"Tank \uFFFD",
+		),
+	)
+
 	It("Should skip layouts whose type is not a frozen legacy type", func(
 		ctx SpecContext,
 	) {
