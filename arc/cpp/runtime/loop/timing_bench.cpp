@@ -28,6 +28,8 @@
 #ifndef CREATE_WAITABLE_TIMER_HIGH_RESOLUTION
 #define CREATE_WAITABLE_TIMER_HIGH_RESOLUTION 0x00000002
 #endif
+#else
+#include <time.h>
 #endif
 
 #include "gtest/gtest.h"
@@ -133,6 +135,23 @@ x::telem::TimeSpan measure_stall(const x::telem::TimeSpan span) {
     return longest;
 }
 
+/// @brief Returns the CPU time the calling thread has used. Windows counts it in
+/// scheduler ticks, so a short span reads coarse there.
+x::telem::TimeSpan thread_cpu_time() {
+#ifdef _WIN32
+    FILETIME created, exited, kernel, user;
+    GetThreadTimes(GetCurrentThread(), &created, &exited, &kernel, &user);
+    const auto ticks = [](const FILETIME &t) {
+        return (static_cast<std::int64_t>(t.dwHighDateTime) << 32) | t.dwLowDateTime;
+    };
+    return x::telem::TimeSpan((ticks(kernel) + ticks(user)) * 100);
+#else
+    timespec ts{};
+    clock_gettime(CLOCK_THREAD_CPUTIME_ID, &ts);
+    return x::telem::TimeSpan(ts.tv_sec * 1'000'000'000LL + ts.tv_nsec);
+#endif
+}
+
 /// @brief Pushes to a queue once each period until destroyed, as a streamer does.
 class Traffic {
     std::atomic<bool> running{true};
@@ -167,7 +186,8 @@ int wait_count(const x::telem::TimeSpan duration) {
 
 /// @brief Holds waits of duration back to back and prints how late they fired. It
 /// drains inputs after each wake, as the runtime does. The clock skew is the largest
-/// gap between the stamp clock and the steady clock.
+/// gap between the stamp clock and the steady clock. The CPU share is the CPU time of
+/// the loop thread over the wall time of the waits.
 /// @returns the median fire error in nanoseconds.
 std::int64_t measure_waits(
     Loop &loop,
@@ -183,6 +203,8 @@ std::int64_t measure_waits(
     std::int64_t skew_ns = 0;
     int wakes = 0;
     int input = 0;
+    const auto cpu_start = thread_cpu_time();
+    const auto wall = x::telem::Stopwatch();
     for (int i = 0; i < count; i++) {
         const auto stamp = x::telem::TimeStamp::now();
         const auto sw = x::telem::Stopwatch();
@@ -199,9 +221,12 @@ std::int64_t measure_waits(
         skew_ns = std::max(skew_ns, std::abs(stamped_ns - elapsed.nanoseconds()));
         errors_ns.push_back((elapsed - duration).nanoseconds());
     }
+    const auto cpu_share = 100.0 * (thread_cpu_time() - cpu_start).nanoseconds() /
+                           wall.elapsed().nanoseconds();
     const testutil::Spread spread(std::move(errors_ns));
     std::cout << "  wait " << duration << " x" << count << ", late: " << spread << ", "
-              << wakes << " wakes, clock skew " << skew_ns / 1e3 << " us\n";
+              << wakes << " wakes, clock skew " << skew_ns / 1e3 << " us, cpu "
+              << cpu_share << "%\n";
     return spread.at(50);
 }
 
