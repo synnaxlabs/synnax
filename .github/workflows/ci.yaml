@@ -586,7 +586,9 @@ jobs:
     with:
       coverage_flag: www
       directory: site/www
+      macos: *full
       package: www
+      windows: *full
     secrets: inherit
 
   x-cpp:
