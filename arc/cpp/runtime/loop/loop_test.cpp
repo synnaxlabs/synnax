@@ -984,16 +984,34 @@ TEST(MaxTimeoutTest, Hybrid_MaxTimeoutConstrainsBlockPhase) {
     breaker.stop();
 }
 
-/// @brief Returns how far past its deadline one wait fires. Negative is early.
-x::telem::TimeSpan measure_fire_error(Loop &loop, x::breaker::Breaker &breaker) {
+/// @brief How far past its deadline one wait fires, and how many waits it took.
+struct Fire {
+    /// @brief how far past the deadline the last wait returned. Negative is early.
+    x::telem::TimeSpan error;
+    /// @brief how many waits returned before the deadline passed.
+    int waits = 0;
+};
+
+/// @brief Waits until a deadline passes, as the runtime does for a wait.
+Fire measure_fire(Loop &loop, x::breaker::Breaker &breaker) {
     const auto duration = test_timing::DEADLINE_DURATION;
     const auto sw = x::telem::Stopwatch();
     auto elapsed = x::telem::TimeSpan(0);
+    Fire fire;
     while (elapsed < duration - test_timing::FIRE_TOLERANCE) {
         loop.wait(breaker, duration - elapsed);
+        fire.waits++;
         elapsed = sw.elapsed();
     }
-    return elapsed - duration;
+    fire.error = elapsed - duration;
+    return fire;
+}
+
+/// @brief Returns the median of values.
+template<typename T>
+T median_of(std::vector<T> values) {
+    std::sort(values.begin(), values.end());
+    return values[values.size() / 2];
 }
 
 /// @brief EVENT_DRIVEN should fire a 10 ms wait on its deadline.
@@ -1005,9 +1023,12 @@ TEST(DeadlineTest, EventDriven_FiresOnDeadline) {
     x::breaker::Breaker breaker;
 
     std::vector<x::telem::TimeSpan> errors;
-    errors.reserve(COUNT);
-    for (int i = 0; i < COUNT; i++)
-        errors.push_back(measure_fire_error(*loop, breaker));
+    std::vector<int> waits;
+    for (int i = 0; i < COUNT; i++) {
+        const auto fire = measure_fire(*loop, breaker);
+        errors.push_back(fire.error);
+        waits.push_back(fire.waits);
+    }
     std::sort(errors.begin(), errors.end());
     const auto median = errors[COUNT / 2];
 
@@ -1016,6 +1037,7 @@ TEST(DeadlineTest, EventDriven_FiresOnDeadline) {
               << median.microseconds() << " us median, " << errors.back().microseconds()
               << " us max\n";
     EXPECT_LE(median, test_timing::FIRE_ERROR_BOUND);
+    EXPECT_EQ(median_of(waits), 1);
 }
 
 /// @brief A loop in the mode of the parameter.
@@ -1359,7 +1381,9 @@ protected:
     /// @brief Waits until the duration ends, as the runtime does for a wait of that
     /// duration, and returns how far past the deadline the last wait fired.
     /// @param inputs receives how many waits an input ended.
-    x::telem::TimeSpan fire_error(const x::telem::Stopwatch &sw, int &inputs) {
+    /// @param waits receives how many waits did not end on an input.
+    x::telem::TimeSpan
+    fire_error(const x::telem::Stopwatch &sw, int &inputs, int &waits) {
         const auto tolerance = std::min(
             this->duration / 2,
             test_timing::FIRE_TOLERANCE
@@ -1371,15 +1395,13 @@ protected:
                 this->duration - elapsed,
                 this->duration
             );
-            if (reason == WakeReason::Input) inputs++;
+            if (reason == WakeReason::Input)
+                inputs++;
+            else
+                waits++;
             elapsed = sw.elapsed();
         }
         return elapsed - this->duration;
-    }
-
-    static x::telem::TimeSpan median(std::vector<x::telem::TimeSpan> errors) {
-        std::sort(errors.begin(), errors.end());
-        return errors[errors.size() / 2];
     }
 };
 
@@ -1387,10 +1409,15 @@ protected:
 TEST_P(ShortDeadlineTest, FiresOnDeadline) {
     constexpr int COUNT = 20;
     std::vector<x::telem::TimeSpan> errors;
+    std::vector<int> waits;
     int inputs = 0;
-    for (int i = 0; i < COUNT; i++)
-        errors.push_back(this->fire_error(x::telem::Stopwatch(), inputs));
-    EXPECT_LE(median(errors), test_timing::SHORT_FIRE_ERROR_BOUND);
+    for (int i = 0; i < COUNT; i++) {
+        int fire_waits = 0;
+        errors.push_back(this->fire_error(x::telem::Stopwatch(), inputs, fire_waits));
+        waits.push_back(fire_waits);
+    }
+    EXPECT_LE(median_of(errors), test_timing::SHORT_FIRE_ERROR_BOUND);
+    EXPECT_EQ(median_of(waits), 1);
 }
 
 /// @brief A wait that an input ends close to its deadline should still fire on the
@@ -1404,19 +1431,23 @@ TEST_P(ShortDeadlineTest, FiresOnDeadlineAfterInput) {
     ASSERT_TRUE(this->loop->watch(*notifier));
     this->duration = total;
     std::vector<x::telem::TimeSpan> errors;
+    std::vector<int> waits;
     int inputs = 0;
     for (int i = 0; i < COUNT; i++) {
+        int fire_waits = 0;
         const auto sw = x::telem::Stopwatch();
         std::thread sender([&sw, &notifier, input_at] {
             while (sw.elapsed() < input_at)
                 continue;
             notifier->signal();
         });
-        errors.push_back(this->fire_error(sw, inputs));
+        errors.push_back(this->fire_error(sw, inputs, fire_waits));
+        waits.push_back(fire_waits);
         sender.join();
     }
     EXPECT_GT(inputs, 0);
-    EXPECT_LE(median(errors), test_timing::SHORT_FIRE_ERROR_BOUND);
+    EXPECT_LE(median_of(errors), test_timing::SHORT_FIRE_ERROR_BOUND);
+    EXPECT_EQ(median_of(waits), 1);
 }
 
 INSTANTIATE_TEST_SUITE_P(
