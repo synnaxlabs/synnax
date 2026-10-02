@@ -12,17 +12,21 @@ import { z } from "zod";
 
 export const SLICE_NAME = "account";
 
+/** The account this machine is linked to. */
+export const linkZ = z.object({
+  /** The secret that renews this machine's license. */
+  secret: z.string(),
+  /** The address of the account. */
+  email: z.string(),
+});
+export interface Link extends z.infer<typeof linkZ> {}
+
 /** The link between this machine and a Synnax account, held by Synnax Desktop. */
 export const sliceStateZ = z.object({
   version: z.literal(0).default(0),
   /** The state minted for a login the app started and has not finished. */
   pending: z.string().optional(),
-  /** The activation the hub issued for this machine. */
-  activation: z.string().optional(),
-  /** The secret that renews this machine's license. */
-  secret: z.string().optional(),
-  /** The address of the account this machine is linked to. */
-  email: z.string().optional(),
+  link: linkZ.optional(),
 });
 export interface SliceState extends z.infer<typeof sliceStateZ> {}
 
@@ -32,12 +36,6 @@ export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-export interface LinkPayload {
-  activation: string;
-  secret: string;
-  email: string;
-}
-
 const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
@@ -45,11 +43,9 @@ const { actions, reducer } = createSlice({
     beginLogin: (state, { payload }: PayloadAction<string>) => {
       state.pending = payload;
     },
-    link: (state, { payload }: PayloadAction<LinkPayload>) => {
+    link: (state, { payload }: PayloadAction<Link>) => {
       state.pending = undefined;
-      state.activation = payload.activation;
-      state.secret = payload.secret;
-      state.email = payload.email;
+      state.link = payload;
     },
     clear: () => ZERO_SLICE_STATE,
   },

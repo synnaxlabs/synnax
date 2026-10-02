@@ -114,17 +114,17 @@ describe("createStore", () => {
 
   it("should keep the account link across launches", async () => {
     const store = await createStore();
-    const link = { activation: "act", secret: "shh", email: "someone@example.com" };
+    const link = { secret: "shh", email: "someone@example.com" };
     store.dispatch(Session.Account.link(link));
     await waitForPersisted(
       db,
-      (p) => p.account?.secret === link.secret,
+      (p) => p.account?.link?.secret === link.secret,
       "Account link not persisted yet",
     );
     const reloaded = await createStore();
     expect(Session.Account.selectSliceState(reloaded.getState())).toEqual({
       version: 0,
-      ...link,
+      link,
     });
   });
 

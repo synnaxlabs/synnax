@@ -86,9 +86,7 @@ describe("Account.useLink", () => {
       expect(h.activate).toHaveBeenCalledWith("a.b.c");
       expect(Session.Account.selectSliceState(h.store.getState())).toEqual({
         version: 0,
-        activation: "act",
-        secret: "shh",
-        email: "someone@example.com",
+        link: { secret: "shh", email: "someone@example.com" },
       });
     });
     expect(failed(h)).toBe(false);
@@ -100,7 +98,7 @@ describe("Account.useLink", () => {
     act(() => h.openURL([linkOf(LINKED)]));
     await waitFor(() => expect(failed(h)).toBe(true));
     expect(h.activate).not.toHaveBeenCalled();
-    expect(Session.Account.selectSliceState(h.store.getState()).secret).toBeUndefined();
+    expect(Session.Account.selectSliceState(h.store.getState()).link).toBeUndefined();
   });
 
   it("should refuse a link when no login is pending", async () => {
@@ -116,7 +114,7 @@ describe("Account.useLink", () => {
     h.store.dispatch(Session.Account.beginLogin("minted"));
     act(() => h.openURL([linkOf(LINKED)]));
     await waitFor(() => expect(failed(h)).toBe(true));
-    expect(Session.Account.selectSliceState(h.store.getState()).secret).toBeUndefined();
+    expect(Session.Account.selectSliceState(h.store.getState()).link).toBeUndefined();
   });
 
   it("should take the link the app was launched with", async () => {
