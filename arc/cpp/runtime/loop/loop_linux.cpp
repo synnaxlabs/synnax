@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <chrono>
 #include <thread>
 
@@ -223,16 +224,21 @@ private:
         return WakeReason::Timer;
     }
 
+    // Arms the timer for a deadline and keeps the interval. With no deadline and no
+    // interval, it disarms the timer so that an earlier deadline does not wake the
+    // loop.
     bool arm_deadline(const x::telem::TimeSpan max_timeout) const {
-        if (!this->timer_enabled_ || max_timeout.nanoseconds() <= 0) return false;
-        const int64_t second = x::telem::SECOND.nanoseconds();
+        if (!this->timer_enabled_) return false;
         const int64_t interval = this->config_.interval.nanoseconds();
+        const int64_t deadline = std::max<int64_t>(max_timeout.nanoseconds(), 0);
+        if (deadline == 0 && interval > 0) return false;
+        const int64_t second = x::telem::SECOND.nanoseconds();
         struct itimerspec ts;
         ts.it_interval.tv_sec = interval / second;
         ts.it_interval.tv_nsec = interval % second;
-        ts.it_value.tv_sec = max_timeout.nanoseconds() / second;
-        ts.it_value.tv_nsec = max_timeout.nanoseconds() % second;
-        return timerfd_settime(this->timer_fd_, 0, &ts, nullptr) == 0;
+        ts.it_value.tv_sec = deadline / second;
+        ts.it_value.tv_nsec = deadline % second;
+        return timerfd_settime(this->timer_fd_, 0, &ts, nullptr) == 0 && deadline > 0;
     }
 
     WakeReason event_driven_wait(bool blocking, const x::telem::TimeSpan max_timeout) {
@@ -330,4 +336,7 @@ x::telem::TimeSpan min_timer_span() {
     return x::telem::MILLISECOND;
 }
 
+x::telem::TimeSpan hybrid_threshold() {
+    return timing::HYBRID_THRESHOLD;
+}
 }

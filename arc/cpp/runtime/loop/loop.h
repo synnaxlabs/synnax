@@ -57,6 +57,10 @@ inline const x::telem::TimeSpan RT_EVENT_THRESHOLD = 3 * x::telem::MILLISECOND;
 /// Intervals between 1-5ms benefit from spin-then-block approach.
 inline const x::telem::TimeSpan HYBRID_THRESHOLD = 5 * x::telem::MILLISECOND;
 
+/// @brief Threshold below which the Windows loop uses HYBRID. EVENT_DRIVEN does not
+/// spin, so its timer wakes about 0.5 ms late, which is 1% of 50 ms.
+inline const x::telem::TimeSpan WINDOWS_HYBRID_THRESHOLD = 50 * x::telem::MILLISECOND;
+
 /// @brief Timeout for event-driven wait to periodically check breaker.running().
 inline const x::telem::TimeSpan EVENT_DRIVEN_TIMEOUT = 100 * x::telem::MILLISECOND;
 
@@ -66,8 +70,8 @@ inline const x::telem::TimeSpan POLL_TIMEOUT = 10 * x::telem::MILLISECOND;
 /// @brief Windows WaitableTimer uses 100-nanosecond units.
 inline const x::telem::TimeSpan WINDOWS_TIMER_UNIT = 100 * x::telem::NANOSECOND;
 
-/// @brief Span the Windows loop spins ahead of a deadline. The timer alone fires up
-/// to 0.5 ms late.
+/// @brief Span the Windows loop spins ahead of a deadline in HYBRID and RT_EVENT. The
+/// timer alone fires about 0.5 ms late.
 inline const x::telem::TimeSpan WINDOWS_DEADLINE_SPIN = x::telem::MILLISECOND;
 
 /// @brief Span the macOS loop spins ahead of a deadline in HYBRID. A kqueue timeout
@@ -138,6 +142,9 @@ inline std::ostream &operator<<(std::ostream &os, ExecutionMode mode) {
     }
 }
 
+/// @brief Returns the base interval below which AUTO selects HYBRID on this platform.
+x::telem::TimeSpan hybrid_threshold();
+
 /// @brief Auto-selects execution mode based on timing requirements and platform.
 /// Never returns BUSY_WAIT or AUTO.
 inline ExecutionMode
@@ -148,7 +155,7 @@ select_mode(const x::telem::TimeSpan timing_interval, const bool has_intervals) 
                                             : ExecutionMode::HIGH_RATE;
     if (x::thread::rt::has_support() && timing_interval < timing::RT_EVENT_THRESHOLD)
         return ExecutionMode::RT_EVENT;
-    if (timing_interval < timing::HYBRID_THRESHOLD) return ExecutionMode::HYBRID;
+    if (timing_interval < hybrid_threshold()) return ExecutionMode::HYBRID;
     return ExecutionMode::EVENT_DRIVEN;
 }
 

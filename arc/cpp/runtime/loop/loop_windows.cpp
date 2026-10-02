@@ -98,6 +98,14 @@ public:
             this->rt_handle_->apply();
         }
 
+        // The thread config can take milliseconds, so the timer arms after it.
+        if (this->timer_enabled_ && !this->arm_timer()) {
+            const auto err = GetLastError();
+            this->close_handles();
+            return x::errors::Error(
+                "Failed to set waitable timer: " + std::to_string(err)
+            );
+        }
         return x::errors::NIL;
     }
 
@@ -147,26 +155,19 @@ private:
             VLOG(1) << "[arc.loop] using standard waitable timer with "
                     << "timeBeginPeriod(1) fallback";
         }
-
-        if (!this->arm_timer()) {
-            CloseHandle(this->timer_event_);
-            this->timer_event_ = NULL;
-            return x::errors::Error(
-                "Failed to set waitable timer: " + std::to_string(GetLastError())
-            );
-        }
-
         this->timer_enabled_ = true;
         return x::errors::NIL;
     }
 
-    // A zero span fires the timer at once, so a loop with no interval skips the arm.
-    bool arm_timer() const {
-        return this->config_.interval.nanoseconds() <= 0 ||
-               this->arm_timer(this->config_.interval);
-    }
+    bool arm_timer() const { return this->arm_timer(this->config_.interval); }
 
+    // Arms the timer to fire once after span, or leaves it disarmed for a non-positive
+    // span. A cancel does not clear a fire, so the drain clears one left from an
+    // earlier arm.
     bool arm_timer(const x::telem::TimeSpan span) const {
+        CancelWaitableTimer(this->timer_event_);
+        WaitForSingleObject(this->timer_event_, 0);
+        if (span.nanoseconds() <= 0) return true;
         LARGE_INTEGER due_time;
         const int64_t span_100ns = span.nanoseconds() /
                                    timing::WINDOWS_TIMER_UNIT.nanoseconds();
@@ -174,17 +175,32 @@ private:
         return SetWaitableTimer(this->timer_event_, &due_time, 0, NULL, NULL, FALSE);
     }
 
+    // Only HYBRID and RT_EVENT spin. Without the spin, the timer wakes about 0.5 ms
+    // late.
+    x::telem::TimeSpan deadline_spin() const {
+        if (this->config_.mode == ExecutionMode::HYBRID ||
+            this->config_.mode == ExecutionMode::RT_EVENT)
+            return timing::WINDOWS_DEADLINE_SPIN;
+        return x::telem::TimeSpan(0);
+    }
+
     // A deadline inside the spin span has no time for a timer wake, which takes
     // about 0.5 ms.
     bool inside_spin(const x::telem::TimeSpan max_timeout) const {
         return this->timer_enabled_ && max_timeout.nanoseconds() > 0 &&
-               max_timeout <= timing::WINDOWS_DEADLINE_SPIN;
+               max_timeout <= this->deadline_spin();
     }
 
-    // Arms the timer the spin span ahead of a deadline.
+    // Arms the timer the spin span ahead of a deadline. With no deadline and no
+    // interval, it disarms the timer so that an earlier deadline does not wake the
+    // loop.
     bool arm_deadline(const x::telem::TimeSpan max_timeout) const {
-        if (!this->timer_enabled_ || max_timeout.nanoseconds() <= 0) return false;
-        return this->arm_timer(max_timeout - timing::WINDOWS_DEADLINE_SPIN);
+        if (!this->timer_enabled_) return false;
+        if (max_timeout.nanoseconds() <= 0) {
+            if (this->config_.interval.nanoseconds() <= 0) this->arm_timer();
+            return false;
+        }
+        return this->arm_timer(max_timeout - this->deadline_spin());
     }
 
     // Spins to the deadline after a timer wake. The timer handle is last and unwatched.
@@ -364,6 +380,10 @@ create(const Config &cfg, std::shared_ptr<x::thread::rt::Handle> rt_handle) {
 
 x::telem::TimeSpan min_timer_span() {
     return timing::WINDOWS_MIN_TIMER_SPAN;
+}
+
+x::telem::TimeSpan hybrid_threshold() {
+    return timing::WINDOWS_HYBRID_THRESHOLD;
 }
 
 }

@@ -152,4 +152,7 @@ x::telem::TimeSpan min_timer_span() {
     return x::telem::TimeSpan(0);
 }
 
+x::telem::TimeSpan hybrid_threshold() {
+    return timing::HYBRID_THRESHOLD;
+}
 }

@@ -56,6 +56,11 @@ const auto FIRE_TOLERANCE = 100 * x::telem::MICROSECOND;
 const auto FIRE_ERROR_BOUND = x::telem::MILLISECOND;
 /// @brief Maximum median distance between a fire and a deadline under 10 ms.
 const auto SHORT_FIRE_ERROR_BOUND = 250 * x::telem::MICROSECOND;
+/// @brief SHORT_FIRE_ERROR_BOUND for Windows EVENT_DRIVEN, which does not spin. Its
+/// timer fires about 0.5 ms late.
+const auto WINDOWS_EVENT_DRIVEN_FIRE_ERROR_BOUND = 600 * x::telem::MICROSECOND;
+/// @brief Deadline of a wait that an input ends before the deadline.
+const auto STALE_DEADLINE = 20 * x::telem::MILLISECOND;
 }
 
 /// @brief Test that Loop can be created.
@@ -238,9 +243,29 @@ TEST(ModeSelectorTest, ModerateRate_SelectsHybrid) {
 
 TEST(ModeSelectorTest, LowRate_SelectsEventDriven) {
     EXPECT_EQ(
-        select_mode(10 * x::telem::MILLISECOND, true),
+        select_mode(100 * x::telem::MILLISECOND, true),
         ExecutionMode::EVENT_DRIVEN
     );
+}
+
+TEST(ModeSelectorTest, BelowHybridThreshold_SelectsHybrid) {
+    EXPECT_EQ(
+        select_mode(hybrid_threshold() - x::telem::MILLISECOND, true),
+        ExecutionMode::HYBRID
+    );
+}
+
+TEST(ModeSelectorTest, AtHybridThreshold_SelectsEventDriven) {
+    EXPECT_EQ(select_mode(hybrid_threshold(), true), ExecutionMode::EVENT_DRIVEN);
+}
+
+/// @brief The HYBRID threshold should be the documented value of the platform.
+TEST(ModeSelectorTest, HybridThresholdIsTheValueOfThePlatform) {
+#if defined(_WIN32)
+    EXPECT_EQ(hybrid_threshold(), 50 * x::telem::MILLISECOND);
+#else
+    EXPECT_EQ(hybrid_threshold(), 5 * x::telem::MILLISECOND);
+#endif
 }
 
 TEST(ModeSelectorTest, NeverAutoselectsBusyWait) {
@@ -252,13 +277,6 @@ TEST(ModeSelectorTest, Boundary_AtOneMs) {
     const auto expected = x::thread::rt::has_support() ? ExecutionMode::RT_EVENT
                                                        : ExecutionMode::HYBRID;
     EXPECT_EQ(select_mode(x::telem::MILLISECOND, true), expected);
-}
-
-TEST(ModeSelectorTest, Boundary_AtFiveMs_SelectsEventDriven) {
-    EXPECT_EQ(
-        select_mode(5 * x::telem::MILLISECOND, true),
-        ExecutionMode::EVENT_DRIVEN
-    );
 }
 
 TEST(ConfigTest, ApplyDefaultsResolvesAuto) {
@@ -939,8 +957,9 @@ x::telem::TimeSpan measure_fire_error(
 /// @brief EVENT_DRIVEN at a 10 ms period should fire a 10 ms wait on its deadline.
 TEST(DeadlineTest, EventDriven_FiresOnDeadline) {
     constexpr int COUNT = 50;
-    const auto config = Config().apply_defaults(test_timing::DEADLINE_INTERVAL);
-    ASSERT_EQ(config.mode, ExecutionMode::EVENT_DRIVEN);
+    Config config;
+    config.mode = ExecutionMode::EVENT_DRIVEN;
+    config.interval = test_timing::DEADLINE_INTERVAL;
     const auto loop = ASSERT_NIL_P(create_and_start(config));
     x::breaker::Breaker breaker;
 
@@ -959,6 +978,54 @@ TEST(DeadlineTest, EventDriven_FiresOnDeadline) {
               << " us max\n";
     EXPECT_LE(median, test_timing::FIRE_ERROR_BOUND);
 }
+
+/// @brief A loop with no interval, in the mode of the parameter.
+class StaleDeadlineTest : public testing::TestWithParam<ExecutionMode> {
+protected:
+    std::unique_ptr<Loop> loop;
+    std::unique_ptr<x::notify::Notifier> notifier;
+    x::breaker::Breaker breaker;
+
+    void SetUp() override {
+        Config config;
+        config.mode = this->GetParam();
+        config.interval = x::telem::TimeSpan(0);
+        this->loop = ASSERT_NIL_P(create_and_start(config));
+        this->notifier = x::notify::create();
+        ASSERT_TRUE(this->loop->watch(*this->notifier));
+        this->breaker.start();
+    }
+
+    void TearDown() override { this->breaker.stop(); }
+
+    /// @brief Runs a wait with a deadline that an input ends at once.
+    void end_deadline_with_input() {
+        this->notifier->signal();
+        ASSERT_EQ(
+            this->loop->wait(this->breaker, test_timing::STALE_DEADLINE),
+            WakeReason::Input
+        );
+    }
+};
+
+/// @brief A wait with no deadline should not wake on the deadline of an earlier wait.
+TEST_P(StaleDeadlineTest, PendingDeadlineDoesNotWakeTheNextWait) {
+    this->end_deadline_with_input();
+    EXPECT_EQ(this->loop->wait(this->breaker), WakeReason::Timeout);
+}
+
+/// @brief A wait with no deadline should not wake on a deadline that passed before it.
+TEST_P(StaleDeadlineTest, PassedDeadlineDoesNotWakeTheNextWait) {
+    this->end_deadline_with_input();
+    std::this_thread::sleep_for((2 * test_timing::STALE_DEADLINE).chrono());
+    EXPECT_EQ(this->loop->wait(this->breaker), WakeReason::Timeout);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    Modes,
+    StaleDeadlineTest,
+    testing::Values(ExecutionMode::EVENT_DRIVEN, ExecutionMode::HYBRID)
+);
 
 /// @brief The minimum timer span should be the documented value of the platform.
 TEST(MinTimerSpanTest, ReturnsTheSpanOfThePlatform) {
@@ -980,9 +1047,14 @@ protected:
     std::unique_ptr<Loop> loop;
     x::breaker::Breaker breaker;
     x::telem::TimeSpan duration;
+    x::telem::TimeSpan bound = test_timing::SHORT_FIRE_ERROR_BOUND;
 
     void SetUp() override {
         const auto config = Config().apply_defaults(std::get<0>(this->GetParam()));
+#if defined(_WIN32)
+        if (config.mode == ExecutionMode::EVENT_DRIVEN)
+            this->bound = test_timing::WINDOWS_EVENT_DRIVEN_FIRE_ERROR_BOUND;
+#endif
         this->duration = std::get<1>(this->GetParam());
         this->loop = ASSERT_NIL_P(create_and_start(config));
         this->breaker.start();
@@ -1023,7 +1095,7 @@ TEST_P(ShortDeadlineTest, FiresOnDeadline) {
     int inputs = 0;
     for (int i = 0; i < COUNT; i++)
         errors.push_back(this->fire_error(x::telem::Stopwatch(), inputs));
-    EXPECT_LE(median(errors), test_timing::SHORT_FIRE_ERROR_BOUND);
+    EXPECT_LE(median(errors), this->bound);
 }
 
 /// @brief A wait that an input ends close to its deadline should still fire on the
@@ -1049,7 +1121,7 @@ TEST_P(ShortDeadlineTest, FiresOnDeadlineAfterInput) {
         sender.join();
     }
     EXPECT_GT(inputs, 0);
-    EXPECT_LE(median(errors), test_timing::SHORT_FIRE_ERROR_BOUND);
+    EXPECT_LE(median(errors), this->bound);
 }
 
 INSTANTIATE_TEST_SUITE_P(
