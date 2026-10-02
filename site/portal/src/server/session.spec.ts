@@ -17,10 +17,10 @@ const ADA = { email: "ada@example.com", name: "Ada Lovelace" };
 
 describe("session", () => {
   describe("resolve", () => {
-    it("should throw a 401 when nobody is signed in", async () => {
+    it("should throw a 401 when nobody is logged in", async () => {
       await expect(resolve(memory(), null, STAFF_ORG_ID)).rejects.toMatchObject({
         status: 401,
-        message: "Sign in first",
+        message: "Log in first",
       });
     });
 

@@ -78,6 +78,7 @@ export const Team = ({ organization, licenses, now }: TeamProps): ReactElement =
       >
         {licenses.length === 0 ? (
           <Empty
+            icon={<Icon.Access />}
             message="No licenses yet"
             description="Synnax Labs issues licenses. Contact us to ask for one."
           />
@@ -91,7 +92,7 @@ export const Team = ({ organization, licenses, now }: TeamProps): ReactElement =
                 <Flex.Box>
                   <Licenses.StatusTag status={statusOf(lic, now)} />
                 </Flex.Box>
-                <Text.Text level="p" color={10}>
+                <Text.Text level="p" color={9}>
                   {held} of {lic.nodes}
                 </Text.Text>
               </Row>
@@ -111,7 +112,7 @@ export const Team = ({ organization, licenses, now }: TeamProps): ReactElement =
           </Button.Button>
         }
       >
-        <Text.Text level="p" color={10}>
+        <Text.Text level="p" color={9}>
           Every member can use the team's licenses. Admins invite members and change
           roles.
         </Text.Text>

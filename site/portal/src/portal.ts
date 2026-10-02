@@ -40,7 +40,7 @@ export interface Portal {
   /** cronSecret is the bearer token Vercel Cron calls the sweep with. */
   cronSecret: string;
   webhookSecret: string;
-  /** session resolves the signed-in user, throwing a 401 when there is none. */
+  /** session resolves the logged-in user, throwing a 401 when there is none. */
   session: () => Promise<Session>;
   now: () => Date;
 }

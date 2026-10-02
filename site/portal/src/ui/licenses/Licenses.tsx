@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
@@ -50,6 +51,7 @@ export const Licenses = ({
     >
       {licenses.length === 0 ? (
         <Empty
+          icon={<Icon.Access />}
           message="No licenses yet"
           description="Synnax Labs issues licenses. Contact us to ask for one."
         />
@@ -71,13 +73,13 @@ export const Licenses = ({
               <Flex.Box>
                 <StatusTag status={statusOf(lic, now)} />
               </Flex.Box>
-              <Text.Text level="p" color={10}>
+              <Text.Text level="p" color={9}>
                 {seats} of {lic.nodes}
               </Text.Text>
-              <Text.Text level="p" color={10} overflow="ellipsis">
+              <Text.Text level="p" color={9} overflow="ellipsis">
                 {term(lic)}
               </Text.Text>
-              <Text.Text level="p" color={10}>
+              <Text.Text level="p" color={9}>
                 {date(lic.issuedAt)}
               </Text.Text>
             </Row>

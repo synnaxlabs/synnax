@@ -285,8 +285,8 @@ and both are true in Desktop:
 
 - `Runtime.CORE_EMBEDDED`: The app runs its own Core, so it has no login and no Core to
   pick. The project splash shows no "Log out" action and no connection island.
-- `Runtime.LINKS_DISABLED`: The app registers no URL scheme, so a copied link can open
-  nothing. Every copy-link control hides itself.
+- `Runtime.LINKS_DISABLED`: The app opens no `synnax://` links, so a copied link can
+  open nothing. Every copy-link control hides itself.
 
 Behavior that only `app/` can reach is an input. `Version.InstallProvider` wraps the
 install of a downloaded update in a middleware. Desktop stops the Core before the
@@ -426,7 +426,7 @@ of `ci.yaml` on macOS, which compiles the Tauri shell with no extra system packa
 
 ## 7 What this RFC does not cover
 
-- Portal account sign-in and the license that Desktop runs under. RFC 0062 defines both.
+- Portal account login and the license that Desktop runs under. RFC 0062 defines both.
   The embedded Core refuses work until a license applies, and the license gate sits
   outside the embedded Core guard in `app/window/Guard.tsx`.
 - Access to the embedded Core from the Python client, an external Driver, or a browser.
