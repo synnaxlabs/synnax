@@ -85,11 +85,6 @@ public:
         return {telem::TimeSpan(elapsed), true};
     }
 
-private:
-    [[nodiscard]] bool high_rate() const { return interval < HIGH_RES_THRESHOLD; }
-
-    [[nodiscard]] bool medium_rate() const { return interval < MEDIUM_RES_THRESHOLD; }
-
     /// @brief Fine-grained sleep using Welford's online algorithm for calibration.
     void precise_sleep(const telem::TimeSpan &dur) {
         const auto end = hs_clock::now() + dur.chrono();
@@ -110,6 +105,11 @@ private:
         while (end > hs_clock::now())
             ;
     }
+
+private:
+    [[nodiscard]] bool high_rate() const { return interval < HIGH_RES_THRESHOLD; }
+
+    [[nodiscard]] bool medium_rate() const { return interval < MEDIUM_RES_THRESHOLD; }
 
     telem::TimeSpan interval{};
     bool last_set = false;

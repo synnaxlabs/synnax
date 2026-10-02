@@ -159,11 +159,11 @@ public:
             nodes[ir_node.key] = std::move(n);
         }
 
-        const auto base_interval = time_mod->base_interval();
-        const auto loop_cfg = loop::Config{}.apply_defaults(base_interval);
+        const auto shortest_span = time_mod->shortest_span();
+        const auto loop_cfg = loop::Config{}.apply_defaults(shortest_span);
         const auto tolerance = stl::time::calculate_tolerance(
             loop_cfg.mode,
-            base_interval
+            shortest_span
         );
         this->sched = std::make_unique<scheduler::Scheduler>(
             prog_ir,

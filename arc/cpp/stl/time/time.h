@@ -11,7 +11,6 @@
 
 #include <algorithm>
 #include <memory>
-#include <numeric>
 
 #include "wasmtime.hh"
 
@@ -30,17 +29,17 @@ namespace arc::stl::time {
 
 inline constexpr const char *MODULE_NAME = "time";
 
-/// @brief Sentinel value indicating base_interval hasn't been set yet.
-inline const x::telem::TimeSpan UNSET_BASE_INTERVAL = x::telem::TimeSpan::max();
+/// @brief Sentinel value indicating shortest_span hasn't been set yet.
+inline const x::telem::TimeSpan UNSET_SHORTEST_SPAN = x::telem::TimeSpan::max();
 
 /// @brief Calculates the tolerance for timing comparisons based on execution mode.
 inline x::telem::TimeSpan calculate_tolerance(
     const runtime::loop::ExecutionMode mode,
-    const x::telem::TimeSpan base_interval
+    const x::telem::TimeSpan shortest_span
 ) {
-    // Variable durations leave the base unset, and their timers wake on a deadline.
-    if (base_interval == UNSET_BASE_INTERVAL) return 100 * x::telem::MICROSECOND;
-    const auto half = base_interval / 2;
+    // Variable durations leave the span unset, and their timers wake on a deadline.
+    if (shortest_span == UNSET_SHORTEST_SPAN) return 100 * x::telem::MICROSECOND;
+    const auto half = shortest_span / 2;
     if (mode == runtime::loop::ExecutionMode::HIGH_RATE)
         return std::min(half, x::telem::MILLISECOND);
     return std::min(half, 100 * x::telem::MICROSECOND);
@@ -191,17 +190,17 @@ public:
         const auto period = this->guard.raise(ctx, live, "period");
         if (ctx.cycle.reason != runtime::node::RunReason::TimerTick) {
             ctx.mark_self_changed();
-            ctx.set_deadline(this->last_fired + period);
+            ctx.set_deadline(this->last_fired + period, period);
             return x::errors::NIL;
         }
         if (ctx.cycle.elapsed - this->last_fired < period - ctx.tolerance) {
             ctx.mark_self_changed();
-            ctx.set_deadline(this->last_fired + period);
+            ctx.set_deadline(this->last_fired + period, period);
             return x::errors::NIL;
         }
         this->last_fired = ctx.cycle.elapsed;
         ctx.mark_self_changed();
-        ctx.set_deadline(this->last_fired + period);
+        ctx.set_deadline(this->last_fired + period, period);
         const auto &o = this->state.output(0);
         const auto &o_time = this->state.output_time(0);
         o->resize(1);
@@ -270,7 +269,7 @@ public:
         if (!this->guard.usable(ctx, live, "wait duration")) return x::errors::NIL;
         const auto duration = this->guard.raise(ctx, live, "duration");
         if (this->start_time.nanoseconds() < 0) this->start_time = ctx.cycle.elapsed;
-        ctx.set_deadline(this->start_time + duration);
+        ctx.set_deadline(this->start_time + duration, duration);
         if (ctx.cycle.reason != runtime::node::RunReason::TimerTick) {
             ctx.mark_self_changed();
             return x::errors::NIL;
@@ -336,7 +335,7 @@ public:
 };
 
 class Module : public stl::Module {
-    x::telem::TimeSpan base = UNSET_BASE_INTERVAL;
+    x::telem::TimeSpan shortest = UNSET_SHORTEST_SPAN;
     /// @brief the current cycle's stamp, set by the runtime loop before each
     /// pass. The `now` WASM binding is called from guest code, which has no node
     /// Context to read, so the value is pushed here instead.
@@ -354,9 +353,9 @@ public:
     /// coming pass. The runtime loop calls it before every Scheduler::next.
     void set_now(const x::telem::TimeStamp now) { this->now = now; }
 
-    /// @brief Returns the GCD of all interval/wait durations seen during node
-    /// creation. Returns UNSET_BASE_INTERVAL if no time nodes were created.
-    [[nodiscard]] x::telem::TimeSpan base_interval() const { return this->base; }
+    /// @brief returns the shortest literal interval or wait span seen during node
+    /// creation, or UNSET_SHORTEST_SPAN if there is none.
+    [[nodiscard]] x::telem::TimeSpan shortest_span() const { return this->shortest; }
 
     bool handles(const std::string &node_type) const override {
         return node_type == "interval" || node_type == "wait" || node_type == "now";
@@ -370,7 +369,7 @@ public:
                 this->min_span
             );
             if (err) return {nullptr, err};
-            this->update_base_interval(inputs.interval);
+            this->update_shortest_span(inputs.interval);
             this->fold_reassigned_spans(cfg, cfg.node.inputs["period"]);
             return {
                 std::make_unique<Interval>(
@@ -384,7 +383,7 @@ public:
         if (cfg.node.type == "wait") {
             auto [inputs, err] = WaitInputs::create(cfg.node.inputs, this->min_span);
             if (err) return {nullptr, err};
-            this->update_base_interval(inputs.duration);
+            this->update_shortest_span(inputs.duration);
             this->fold_reassigned_spans(cfg, cfg.node.inputs["duration"]);
             return {
                 std::make_unique<Wait>(std::move(cfg.state), this->min_span),
@@ -414,7 +413,7 @@ public:
 
 private:
     /// @brief folds the literal reassignment values of a var-bound timer param
-    /// into base_interval, so tolerance tracks the fastest known period.
+    /// into shortest_span, so tolerance tracks the fastest known period.
     void
     fold_reassigned_spans(const runtime::node::Config &cfg, const types::Param &p) {
         if (p.type.kind != types::Kind::VarRef) return;
@@ -425,25 +424,18 @@ private:
             for (const auto &v: src->inputs) {
                 if (v.name != "value" || v.value.is_null()) continue;
                 if (const auto sv = types::to_sample_value(v.value, v.type))
-                    this->update_base_interval(
+                    this->update_shortest_span(
                         x::telem::TimeSpan(x::telem::cast<int64_t>(*sv))
                     );
             }
         }
     }
 
-    void update_base_interval(const x::telem::TimeSpan raw) {
-        // A non-positive span is not a real timer period. Folding it in would
-        // poison the GCD and drive the loop cadence off a parked timer.
+    void update_shortest_span(const x::telem::TimeSpan raw) {
+        // A non-positive span parks its timer, so it is not a period.
         if (raw.nanoseconds() <= 0) return;
         // A timer holds a span under the minimum at the minimum.
-        const auto span = std::max(raw, this->min_span);
-        if (this->base == UNSET_BASE_INTERVAL)
-            this->base = span;
-        else
-            this->base = x::telem::TimeSpan(
-                std::gcd(this->base.nanoseconds(), span.nanoseconds())
-            );
+        this->shortest = std::min(this->shortest, std::max(raw, this->min_span));
     }
 };
 

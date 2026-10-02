@@ -268,7 +268,7 @@ func (t *impl) open(ctx context.Context) (err error) {
 		nodes[irNode.Key] = n
 	}
 
-	tolerance := time.CalculateTolerance(timeMod.BaseInterval)
+	tolerance := time.CalculateTolerance(timeMod.ShortestSpan)
 	drt.scheduler = scheduler.New(t.prog.Program.IR, nodes, tolerance)
 	drt.timeMod = timeMod
 

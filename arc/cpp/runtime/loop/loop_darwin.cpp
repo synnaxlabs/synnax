@@ -26,8 +26,7 @@
 namespace arc::runtime::loop {
 
 static constexpr uintptr_t USER_EVENT_IDENT = 1;
-static constexpr uintptr_t TIMER_EVENT_IDENT = 2;
-static constexpr uintptr_t DEADLINE_EVENT_IDENT = 3;
+static constexpr uintptr_t DEADLINE_EVENT_IDENT = 2;
 
 /// @brief Unified Darwin loop implementation using kqueue for event multiplexing.
 /// Consolidates all execution modes into a single class following the Linux pattern.
@@ -46,18 +45,21 @@ public:
 
     WakeReason wait(
         x::breaker::Breaker &breaker,
-        x::telem::TimeSpan max_timeout = x::telem::TimeSpan(0)
+        x::telem::TimeSpan max_timeout = x::telem::TimeSpan(0),
+        x::telem::TimeSpan span = x::telem::TimeSpan::max()
     ) override {
         if (this->kqueue_fd_ == -1) return WakeReason::Shutdown;
 
         switch (this->config_.mode) {
             case ExecutionMode::AUTO:
+                if (auto_spins(span)) return this->hybrid_wait(breaker, max_timeout);
+                return this->event_driven_wait(max_timeout);
             case ExecutionMode::EVENT_DRIVEN:
                 return this->event_driven_wait(max_timeout);
             case ExecutionMode::BUSY_WAIT:
-                return this->busy_wait(breaker);
+                return this->busy_wait(breaker, max_timeout);
             case ExecutionMode::HIGH_RATE:
-                return this->high_rate_wait(breaker);
+                return this->high_rate_wait(max_timeout);
             case ExecutionMode::HYBRID:
             case ExecutionMode::RT_EVENT:
                 return this->hybrid_wait(breaker, max_timeout);
@@ -83,23 +85,6 @@ public:
             return x::errors::Error(
                 "Failed to register user event: " + std::string(strerror(errno))
             );
-        }
-
-        // Set up timer based on mode and interval
-        if (this->config_.interval.nanoseconds() > 0) {
-            const bool use_software_timer = this->config_.mode ==
-                                                ExecutionMode::HIGH_RATE ||
-                                            this->config_.interval <
-                                                timing::KQUEUE_TIMER_MIN;
-
-            // Use software timer for sub-millisecond precision
-            if (use_software_timer)
-                this->timer_ = std::make_unique<x::loop::Timer>(this->config_.interval);
-            // Use kqueue timer for EVENT_DRIVEN/HYBRID/BUSY_WAIT (ms precision OK)
-            else if (auto err = this->setup_kqueue_timer(); err) {
-                close(this->kqueue_fd_);
-                return err;
-            }
         }
 
         if (!this->rt_handle_) {
@@ -136,43 +121,18 @@ public:
 
 private:
     void close_fds() {
-        this->timer_.reset();
-
         if (this->kqueue_fd_ != -1) {
             close(this->kqueue_fd_);
             this->kqueue_fd_ = -1;
         }
-
-        this->kqueue_timer_enabled_ = false;
-    }
-
-    x::errors::Error setup_kqueue_timer() {
-        const uint64_t interval_ms = this->config_.interval.milliseconds();
-        if (interval_ms == 0)
-            LOG(WARNING) << "[arc.loop] Interval too small for kqueue timer "
-                         << "(<1ms), using 1ms";
-
-        struct kevent kev;
-        EV_SET(
-            &kev,
-            TIMER_EVENT_IDENT,
-            EVFILT_TIMER,
-            EV_ADD | EV_ENABLE,
-            0,
-            interval_ms > 0 ? interval_ms : timing::KQUEUE_TIMER_MIN.milliseconds(),
-            nullptr
-        );
-        if (kevent(this->kqueue_fd_, &kev, 1, nullptr, 0, nullptr) == -1)
-            return x::errors::Error(
-                "Failed to register timer event: " + std::string(strerror(errno))
-            );
-
-        this->kqueue_timer_enabled_ = true;
-        return x::errors::NIL;
     }
 
     /// @brief BUSY_WAIT: Non-blocking kqueue poll in tight loop.
-    WakeReason busy_wait(const x::breaker::Breaker &breaker) {
+    WakeReason busy_wait(
+        const x::breaker::Breaker &breaker,
+        const x::telem::TimeSpan max_timeout
+    ) {
+        const auto sw = x::telem::Stopwatch();
         constexpr timespec timeout = {0, 0};
         struct kevent events[8];
 
@@ -183,6 +143,8 @@ private:
                 LOG(ERROR) << "[arc.loop] kevent error: " << strerror(errno);
                 return WakeReason::Shutdown;
             }
+            if (max_timeout.nanoseconds() > 0 && sw.elapsed() >= max_timeout)
+                return WakeReason::Timer;
             // Prevent starvation of breaker-stopping threads. yield() over
             // sleep_for() to avoid adding ~50-100us of kernel timer overhead.
             std::this_thread::yield();
@@ -190,9 +152,10 @@ private:
         return WakeReason::Shutdown;
     }
 
-    /// @brief HIGH_RATE: Precise software timer + non-blocking kqueue drain.
-    WakeReason high_rate_wait(x::breaker::Breaker &breaker) const {
-        this->timer_->wait(breaker);
+    /// @brief HIGH_RATE: Precise software sleep to the interval or the deadline,
+    /// whichever is first, then a non-blocking kqueue drain.
+    WakeReason high_rate_wait(const x::telem::TimeSpan max_timeout) {
+        this->sleeper_.precise_sleep(high_rate_span(this->config_, max_timeout));
         constexpr timespec timeout = {0, 0};
         struct kevent events[8];
         kevent(this->kqueue_fd_, nullptr, 0, events, 8, &timeout);
@@ -321,9 +284,8 @@ private:
     Config config_;
     std::shared_ptr<x::thread::rt::Handle> rt_handle_;
     int kqueue_fd_ = -1;
-    bool kqueue_timer_enabled_ = false;
     bool deadline_armed_ = false;
-    std::unique_ptr<x::loop::Timer> timer_;
+    x::loop::Timer sleeper_;
 };
 
 std::unique_ptr<Loop>

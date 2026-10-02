@@ -37,22 +37,24 @@ public:
 
     WakeReason wait(
         x::breaker::Breaker &breaker,
-        x::telem::TimeSpan max_timeout = x::telem::TimeSpan(0)
+        x::telem::TimeSpan max_timeout = x::telem::TimeSpan(0),
+        x::telem::TimeSpan span = x::telem::TimeSpan::max()
     ) override {
         if (this->epoll_fd_ == -1) return WakeReason::Shutdown;
 
         switch (this->config_.mode) {
             case ExecutionMode::BUSY_WAIT:
-                return this->busy_wait(breaker);
+                return this->busy_wait(breaker, max_timeout);
             case ExecutionMode::HIGH_RATE:
-                return this->high_rate_wait(breaker);
-            case ExecutionMode::RT_EVENT:
-                return this->event_driven_wait(true, max_timeout);
+                return this->high_rate_wait(max_timeout);
             case ExecutionMode::HYBRID:
                 return this->hybrid_wait(breaker, max_timeout);
             case ExecutionMode::AUTO:
+                if (auto_spins(span)) return this->hybrid_wait(breaker, max_timeout);
+                return this->event_driven_wait(max_timeout);
+            case ExecutionMode::RT_EVENT:
             case ExecutionMode::EVENT_DRIVEN:
-                return this->event_driven_wait(true, max_timeout);
+                return this->event_driven_wait(max_timeout);
         }
         return WakeReason::Shutdown;
     }
@@ -85,53 +87,28 @@ public:
             );
         }
 
-        if (this->config_.interval.nanoseconds() > 0 ||
-            this->config_.mode != ExecutionMode::HIGH_RATE) {
-            if (this->config_.mode == ExecutionMode::HIGH_RATE)
-                this->timer_ = std::make_unique<::x::loop::Timer>(
-                    this->config_.interval
+        // HIGH_RATE and BUSY_WAIT check the deadline against the clock.
+        if (this->config_.mode != ExecutionMode::HIGH_RATE &&
+            this->config_.mode != ExecutionMode::BUSY_WAIT) {
+            this->timer_fd_ = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
+            if (this->timer_fd_ == -1) {
+                close(this->event_fd_);
+                close(this->epoll_fd_);
+                return x::errors::Error(
+                    "Failed to create timerfd: " + std::string(strerror(errno))
                 );
-            else {
-                this->timer_fd_ = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
-                if (this->timer_fd_ == -1) {
-                    close(this->event_fd_);
-                    close(this->epoll_fd_);
-                    return x::errors::Error(
-                        "Failed to create timerfd: " + std::string(strerror(errno))
-                    );
-                }
-
-                const uint64_t interval_ns = this->config_.interval.nanoseconds();
-                struct itimerspec ts;
-                ts.it_interval.tv_sec = interval_ns / x::telem::SECOND.nanoseconds();
-                ts.it_interval.tv_nsec = interval_ns % x::telem::SECOND.nanoseconds();
-                ts.it_value = ts.it_interval;
-
-                if (timerfd_settime(this->timer_fd_, 0, &ts, nullptr) == -1) {
-                    close(this->timer_fd_);
-                    close(this->event_fd_);
-                    close(this->epoll_fd_);
-                    return x::errors::Error(
-                        "Failed to set timerfd interval: " +
-                        std::string(strerror(errno))
-                    );
-                }
-
-                ev.events = EPOLLIN;
-                ev.data.fd = this->timer_fd_;
-                if (epoll_ctl(this->epoll_fd_, EPOLL_CTL_ADD, this->timer_fd_, &ev) ==
-                    -1) {
-                    close(this->timer_fd_);
-                    close(this->event_fd_);
-                    close(this->epoll_fd_);
-                    return x::errors::Error(
-                        "Failed to add timerfd to epoll: " +
-                        std::string(strerror(errno))
-                    );
-                }
-
-                this->timer_enabled_ = true;
             }
+            ev.events = EPOLLIN;
+            ev.data.fd = this->timer_fd_;
+            if (epoll_ctl(this->epoll_fd_, EPOLL_CTL_ADD, this->timer_fd_, &ev) == -1) {
+                close(this->timer_fd_);
+                close(this->event_fd_);
+                close(this->epoll_fd_);
+                return x::errors::Error(
+                    "Failed to add timerfd to epoll: " + std::string(strerror(errno))
+                );
+            }
+            this->timer_enabled_ = true;
         }
 
         if (!this->rt_handle_) {
@@ -179,8 +156,6 @@ public:
 
 private:
     void close_fds() {
-        this->timer_.reset();
-
         if (this->timer_fd_ != -1) {
             close(this->timer_fd_);
             this->timer_fd_ = -1;
@@ -199,7 +174,9 @@ private:
         this->timer_enabled_ = false;
     }
 
-    WakeReason busy_wait(x::breaker::Breaker &breaker) {
+    WakeReason
+    busy_wait(x::breaker::Breaker &breaker, const x::telem::TimeSpan max_timeout) {
+        const auto sw = x::telem::Stopwatch();
         struct epoll_event events[2];
 
         while (breaker.running()) {
@@ -209,6 +186,8 @@ private:
                 LOG(ERROR) << "[arc.loop] epoll_wait error: " << strerror(errno);
                 return WakeReason::Shutdown;
             }
+            if (max_timeout.nanoseconds() > 0 && sw.elapsed() >= max_timeout)
+                return WakeReason::Timer;
             // Prevent starvation of breaker-stopping threads. yield() over
             // sleep_for() to avoid adding ~50-100us of kernel timer overhead.
             std::this_thread::yield();
@@ -216,36 +195,33 @@ private:
         return WakeReason::Shutdown;
     }
 
-    WakeReason high_rate_wait(x::breaker::Breaker &breaker) {
-        this->timer_->wait(breaker);
+    /// @brief HIGH_RATE: Precise software sleep to the interval or the deadline,
+    /// whichever is first, then a non-blocking epoll drain.
+    WakeReason high_rate_wait(const x::telem::TimeSpan max_timeout) {
+        this->sleeper_.precise_sleep(high_rate_span(this->config_, max_timeout));
         struct epoll_event events[2];
         const int n = epoll_wait(this->epoll_fd_, events, 2, 0);
         if (n > 0) this->drain_events(events, n);
         return WakeReason::Timer;
     }
 
-    // Arms the timer for a deadline and keeps the interval. With no deadline and no
-    // interval, it disarms the timer so that an earlier deadline does not wake the
-    // loop.
+    // Arms the timer to fire once at the deadline. With no deadline, it disarms the
+    // timer, which also clears a fire from an earlier deadline.
     bool arm_deadline(const x::telem::TimeSpan max_timeout) const {
         if (!this->timer_enabled_) return false;
-        const int64_t interval = this->config_.interval.nanoseconds();
         const int64_t deadline = std::max<int64_t>(max_timeout.nanoseconds(), 0);
-        if (deadline == 0 && interval > 0) return false;
         const int64_t second = x::telem::SECOND.nanoseconds();
-        struct itimerspec ts;
-        ts.it_interval.tv_sec = interval / second;
-        ts.it_interval.tv_nsec = interval % second;
+        struct itimerspec ts{};
         ts.it_value.tv_sec = deadline / second;
         ts.it_value.tv_nsec = deadline % second;
         return timerfd_settime(this->timer_fd_, 0, &ts, nullptr) == 0 && deadline > 0;
     }
 
-    WakeReason event_driven_wait(bool blocking, const x::telem::TimeSpan max_timeout) {
+    WakeReason event_driven_wait(const x::telem::TimeSpan max_timeout) {
         struct epoll_event events[2];
-        const int default_ms = blocking ? timing::EVENT_DRIVEN_TIMEOUT.milliseconds()
-                                        : timing::POLL_TIMEOUT.milliseconds();
-        const int timeout_ms = this->arm_deadline(max_timeout) ? -1 : default_ms;
+        const int timeout_ms = this->arm_deadline(max_timeout)
+                                 ? -1
+                                 : timing::EVENT_DRIVEN_TIMEOUT.milliseconds();
         const int n = epoll_wait(this->epoll_fd_, events, 2, timeout_ms);
 
         if (n > 0) return this->consume_events(events, n);
@@ -289,14 +265,9 @@ private:
             uint64_t val;
             const ssize_t ret = read(events[i].data.fd, &val, sizeof(val));
             if (ret == sizeof(val)) {
-                if (events[i].data.fd == this->timer_fd_) {
+                if (events[i].data.fd == this->timer_fd_)
                     timer_fired = true;
-                    if (val > 1)
-                        LOG(WARNING) << "[arc.loop] timer drift detected: " << val
-                                     << " expirations in single read";
-                } else if (events[i].data.fd != this->event_fd_) {
-                    input_fired = true;
-                }
+                else if (events[i].data.fd != this->event_fd_) { input_fired = true; }
                 // event_fd_ fires when wake() is called - falls through to Shutdown
             }
         }
@@ -323,7 +294,7 @@ private:
     int event_fd_ = -1;
     int timer_fd_ = -1;
     bool timer_enabled_ = false;
-    std::unique_ptr<::x::loop::Timer> timer_;
+    ::x::loop::Timer sleeper_;
 };
 
 std::unique_ptr<Loop>

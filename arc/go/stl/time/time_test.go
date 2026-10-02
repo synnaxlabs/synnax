@@ -228,7 +228,7 @@ var _ = Describe("Time", func() {
 					State: s.Node("interval_1"),
 				}
 				MustSucceed(factory.Create(cfg))
-				Expect(factory.BaseInterval).To(Equal(telem.TimeSpanMax))
+				Expect(factory.ShortestSpan).To(Equal(telem.TimeSpanMax))
 			},
 		)
 		It("Should fire immediately on first tick", func(ctx SpecContext) {
@@ -389,7 +389,7 @@ var _ = Describe("Time", func() {
 				State: s.Node("interval_1"),
 			}
 			_, _ = factory.Create(cfg)
-			Expect(factory.BaseInterval).To(Equal(100 * telem.Millisecond))
+			Expect(factory.ShortestSpan).To(Equal(100 * telem.Millisecond))
 		})
 		It(
 			"Should not fire on channel input even when period elapsed",
@@ -1385,7 +1385,7 @@ var _ = Describe("Time", func() {
 						"%s: must be at least 10ms (%s), got 1ms", param, xos.Name(),
 					))),
 				))
-				Expect(factory.BaseInterval).To(Equal(telem.TimeSpanMax))
+				Expect(factory.ShortestSpan).To(Equal(telem.TimeSpanMax))
 			},
 			Entry("interval", "interval", "period"),
 			Entry("wait", "wait", "duration"),
@@ -1394,7 +1394,7 @@ var _ = Describe("Time", func() {
 			func(nodeType, param string) {
 				cfg := config(nodeType, param, types.TimeSpan(), minSpan)
 				Expect(MustSucceed(factory.Create(cfg))).ToNot(BeNil())
-				Expect(factory.BaseInterval).To(Equal(minSpan))
+				Expect(factory.ShortestSpan).To(Equal(minSpan))
 			},
 			Entry("interval", "interval", "period"),
 			Entry("wait", "wait", "duration"),
@@ -1411,7 +1411,7 @@ var _ = Describe("Time", func() {
 		)
 	})
 	Describe("TimingBase", func() {
-		It("Should compute GCD of multiple intervals", func(ctx SpecContext) {
+		It("Should take the shortest of multiple intervals", func(ctx SpecContext) {
 			factory := MustSucceed(
 				time.NewHost(
 					ctx,
@@ -1466,7 +1466,7 @@ var _ = Describe("Time", func() {
 				State: s.Node("interval_1"),
 			}
 			_, _ = factory.Create(cfg1)
-			Expect(factory.BaseInterval).To(Equal(100 * telem.Millisecond))
+			Expect(factory.ShortestSpan).To(Equal(100 * telem.Millisecond))
 
 			// Create second interval with 150ms period
 			cfg2 := node.Config{
@@ -1483,8 +1483,7 @@ var _ = Describe("Time", func() {
 				State: s.Node("interval_2"),
 			}
 			_, _ = factory.Create(cfg2)
-			// GCD(100ms, 150ms) = 50ms
-			Expect(factory.BaseInterval).To(Equal(50 * telem.Millisecond))
+			Expect(factory.ShortestSpan).To(Equal(100 * telem.Millisecond))
 		})
 	})
 	Describe("Symbols", func() {
@@ -1580,8 +1579,8 @@ var _ = Describe("Time", func() {
 				}))
 				*state.Node("wait_1").Output(0) = telem.NewSeriesV[uint8]()
 				*state.Node("wait_1").OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
-				Expect(host.BaseInterval).To(Equal(telem.Millisecond))
-				tolerance := time.CalculateTolerance(host.BaseInterval)
+				Expect(host.ShortestSpan).To(Equal(10 * telem.Millisecond))
+				tolerance := time.CalculateTolerance(host.ShortestSpan)
 				fired := 0
 				tick := func(elapsed telem.TimeSpan) {
 					w.Next(node.Context{
@@ -2291,13 +2290,13 @@ var _ = Describe("Time", func() {
 			},
 		)
 		It("Should not update base interval", func() {
-			Expect(factory.BaseInterval).To(Equal(telem.TimeSpanMax))
+			Expect(factory.ShortestSpan).To(Equal(telem.TimeSpanMax))
 			cfg := node.Config{
 				Node:  ir.Node{Type: "now"},
 				State: s.Node("now_1"),
 			}
 			MustSucceed(factory.Create(cfg))
-			Expect(factory.BaseInterval).To(Equal(telem.TimeSpanMax))
+			Expect(factory.ShortestSpan).To(Equal(telem.TimeSpanMax))
 		})
 		It("Should set matching output and output time", func(ctx SpecContext) {
 			cfg := node.Config{
@@ -2505,10 +2504,10 @@ var _ = Describe("Time", func() {
 				func(ctx SpecContext) {
 					cfg, set := varConfig("interval", "period", 100*telem.Millisecond)
 					n := MustSucceed(factory.Create(cfg))
-					Expect(factory.BaseInterval).To(Equal(100 * telem.Millisecond))
+					Expect(factory.ShortestSpan).To(Equal(100 * telem.Millisecond))
 					set(telem.Millisecond)
 					Expect(tick(ctx, n, 0, node.ReasonTimerTick).fired).To(BeTrue())
-					Expect(factory.BaseInterval).To(Equal(100 * telem.Millisecond))
+					Expect(factory.ShortestSpan).To(Equal(100 * telem.Millisecond))
 				},
 			)
 		})
@@ -2586,10 +2585,10 @@ var _ = Describe("Time", func() {
 	})
 })
 
-var _ = Describe("TimingBase GCD matrix", func() {
-	// compileBase compiles source and creates every timer node through a fresh
-	// time Host, returning the resulting BaseInterval.
-	compileBase := func(ctx context.Context, source string) telem.TimeSpan {
+var _ = Describe("ShortestSpan matrix", func() {
+	// compileShortest compiles source and creates every timer node through a fresh
+	// time Host, returning the resulting ShortestSpan.
+	compileShortest := func(ctx context.Context, source string) telem.TimeSpan {
 		GinkgoHelper()
 		root := NewRoot(
 			nil,
@@ -2619,17 +2618,17 @@ var _ = Describe("TimingBase GCD matrix", func() {
 				Fail("create " + n.Key + ": " + err.Error())
 			}
 		}
-		return factory.BaseInterval
+		return factory.ShortestSpan
 	}
 
-	DescribeTable("computes the GCD over declared and literal-reassigned spans",
+	DescribeTable("takes the shortest of the declared and literal-reassigned spans",
 		func(ctx SpecContext, source string, expected telem.TimeSpan) {
-			Expect(compileBase(ctx, source)).To(Equal(expected))
+			Expect(compileShortest(ctx, source)).To(Equal(expected))
 		},
 		Entry("two literal intervals", `
 time.interval{period=100ms} -> a
 time.interval{period=60ms} -> b
-`, 20*telem.Millisecond),
+`, 60*telem.Millisecond),
 		Entry("two intervals fed by vars, never reassigned", `
 sequence main {
     p := i64 ns(100ms)
@@ -2639,7 +2638,7 @@ sequence main {
         time.interval{period=q} -> b
     }
 }
-`, 20*telem.Millisecond),
+`, 60*telem.Millisecond),
 		Entry("two intervals fed by vars, each reassigned with a literal", `
 sequence main {
     p := i64 ns(100ms)
@@ -2654,7 +2653,7 @@ sequence main {
         q = i64 ns(45ms)
     }
 }
-`, 5*telem.Millisecond),
+`, 10*telem.Millisecond),
 		Entry("two intervals fed by vars, expression reassignments excluded", `
 sequence main {
     p := i64 ns(100ms)
@@ -2669,11 +2668,11 @@ sequence main {
         q = i64 ns(3 * 20ms)
     }
 }
-`, 20*telem.Millisecond),
+`, 60*telem.Millisecond),
 		Entry("two literal waits", `
 time.wait{duration=75ms} -> a
 time.wait{duration=50ms} -> b
-`, 25*telem.Millisecond),
+`, 50*telem.Millisecond),
 		Entry("two waits fed by vars, each reassigned with a literal", `
 sequence main {
     d := i64 ns(80ms)
@@ -2688,7 +2687,7 @@ sequence main {
         e = i64 ns(35ms)
     }
 }
-`, 5*telem.Millisecond),
+`, 30*telem.Millisecond),
 		Entry("interval + wait fed by vars, never reassigned", `
 sequence main {
     p := i64 ns(100ms)
@@ -2698,7 +2697,7 @@ sequence main {
         time.wait{duration=d} -> b
     }
 }
-`, 25*telem.Millisecond),
+`, 75*telem.Millisecond),
 		Entry("interval + wait fed by vars, each reassigned with a literal", `
 sequence main {
     p := i64 ns(100ms)
@@ -2713,7 +2712,7 @@ sequence main {
         d = i64 ns(30ms)
     }
 }
-`, 10*telem.Millisecond),
+`, 30*telem.Millisecond),
 		Entry("interval + wait fed by vars, expression reassignments excluded", `
 sequence main {
     p := i64 ns(100ms)
@@ -2728,7 +2727,7 @@ sequence main {
         d = i64 ns(3 * 15ms)
     }
 }
-`, 25*telem.Millisecond),
+`, 75*telem.Millisecond),
 		Entry("literal interval + reassigned var wait", `
 sequence main {
     d := i64 ns(60ms)
@@ -2741,7 +2740,7 @@ sequence main {
         d = i64 ns(45ms)
     }
 }
-`, 5*telem.Millisecond),
+`, 45*telem.Millisecond),
 		Entry("var interval, two reassignment sites", `
 sequence main {
     p := i64 ns(100ms)
@@ -2757,7 +2756,7 @@ sequence main {
         p = i64 ns(30ms)
     }
 }
-`, 10*telem.Millisecond),
+`, 30*telem.Millisecond),
 		Entry("same var feeding both timer kinds", `
 sequence main {
     p := i64 ns(40ms)
@@ -2770,7 +2769,7 @@ sequence main {
         p = i64 ns(30ms)
     }
 }
-`, 10*telem.Millisecond),
+`, 30*telem.Millisecond),
 		Entry("reassignment in an unreached stage still counts", `
 sequence main {
     p := i64 ns(100ms)
@@ -2781,6 +2780,6 @@ sequence main {
         p = i64 ns(30ms)
     }
 }
-`, 10*telem.Millisecond),
+`, 30*telem.Millisecond),
 	)
 })

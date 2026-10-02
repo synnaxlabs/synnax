@@ -53,8 +53,8 @@ func PlatformMinSpan() telem.TimeSpan {
 	return 10 * telem.Millisecond
 }
 
-// unsetBaseInterval is the sentinel value indicating BaseInterval hasn't been set yet.
-const unsetBaseInterval = telem.TimeSpanMax
+// unsetShortestSpan is the sentinel value indicating ShortestSpan hasn't been set yet.
+const unsetShortestSpan = telem.TimeSpanMax
 
 var (
 	intervalDoc = doc.New(
@@ -176,9 +176,9 @@ func rejectNonPositiveSpan(param string) symbol.ArgumentsHook {
 // the `now` WASM host function and acts as the node factory for interval
 // and wait.
 type Host struct {
-	// BaseInterval is the GCD of known timer periods, declared and literal
+	// ShortestSpan is the shortest known timer period, declared and literal
 	// reassignments. Its only use is deriving the timing tolerance.
-	BaseInterval telem.TimeSpan
+	ShortestSpan telem.TimeSpan
 	// minSpan is the shortest literal span Create accepts.
 	minSpan telem.TimeSpan
 	// now is the current cycle's stamp, set by the runtime loop before each pass.
@@ -204,7 +204,7 @@ func NewHost(
 			validate.ErrValidation, "min span must be positive, got %s", minSpan,
 		)
 	}
-	h := &Host{BaseInterval: unsetBaseInterval, minSpan: minSpan}
+	h := &Host{ShortestSpan: unsetShortestSpan, minSpan: minSpan}
 	if rt == nil {
 		return h, nil
 	}
@@ -233,7 +233,7 @@ func (h *Host) Create(cfg node.Config) (node.Node, error) {
 		if err = validateStaticSpan(period, periodParam, h.minSpan); err != nil {
 			return nil, err
 		}
-		h.updateBaseInterval(period)
+		h.updateShortestSpan(period)
 		h.foldReassignedSpans(cfg, periodParam)
 		return &Interval{
 			State:     cfg.State,
@@ -253,7 +253,7 @@ func (h *Host) Create(cfg node.Config) (node.Node, error) {
 		if err = validateStaticSpan(duration, durationParam, h.minSpan); err != nil {
 			return nil, err
 		}
-		h.updateBaseInterval(duration)
+		h.updateShortestSpan(duration)
 		h.foldReassignedSpans(cfg, durationParam)
 		return &Wait{
 			State:     cfg.State,
@@ -270,14 +270,14 @@ func (h *Host) Create(cfg node.Config) (node.Node, error) {
 	}
 }
 
-// CalculateTolerance returns the timing tolerance for the given base interval: half
-// the base interval, and MaxTolerance at most.
-func CalculateTolerance(baseInterval telem.TimeSpan) telem.TimeSpan {
-	return min(baseInterval/2, MaxTolerance)
+// CalculateTolerance returns the timing tolerance for the given shortest span: half the
+// span, and MaxTolerance at most.
+func CalculateTolerance(shortestSpan telem.TimeSpan) telem.TimeSpan {
+	return min(shortestSpan/2, MaxTolerance)
 }
 
 // foldReassignedSpans folds the literal reassignment values of a var-bound
-// timer param into BaseInterval, so tolerance tracks the fastest known period.
+// timer param into ShortestSpan, so tolerance tracks the fastest known period.
 func (h *Host) foldReassignedSpans(cfg node.Config, p types.Param) {
 	if p.Type.Kind != types.KindVarRef {
 		return
@@ -295,29 +295,17 @@ func (h *Host) foldReassignedSpans(cfg node.Config, p types.Param) {
 			continue
 		}
 		if span, err := parseTime(v.Value, v.Name); err == nil {
-			h.updateBaseInterval(span)
+			h.updateShortestSpan(span)
 		}
 	}
 }
 
-func (h *Host) updateBaseInterval(span telem.TimeSpan) {
-	// A non-positive span is not a real timer period. Folding it in would
-	// poison the GCD and drive the loop cadence off a parked timer.
+func (h *Host) updateShortestSpan(span telem.TimeSpan) {
+	// A non-positive span parks its timer, so it is not a period.
 	if span <= 0 {
 		return
 	}
-	if h.BaseInterval == unsetBaseInterval {
-		h.BaseInterval = span
-	} else {
-		h.BaseInterval = telem.TimeSpan(gcd(int64(h.BaseInterval), int64(span)))
-	}
-}
-
-func gcd(a, b int64) int64 {
-	for b != 0 {
-		a, b = b, a%b
-	}
-	return a
+	h.ShortestSpan = min(h.ShortestSpan, span)
 }
 
 // validateStaticSpan rejects a span under minSpan stamped at compile time. Var-bound

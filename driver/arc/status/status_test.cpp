@@ -36,7 +36,7 @@ namespace {
         .tolerance = x::telem::TimeSpan(0),
         .mark_changed = [](size_t) {},
         .mark_self_changed = [] {},
-        .set_deadline = [](x::telem::TimeSpan) {},
+        .set_deadline = [](x::telem::TimeSpan, x::telem::TimeSpan) {},
         .report_error = [](const x::errors::Error &) {},
     };
 }

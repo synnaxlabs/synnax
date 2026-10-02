@@ -94,6 +94,17 @@ class Runtime {
     x::queue::SPSC<x::telem::Frame> inputs;
     x::queue::SPSC<Output> outputs;
     std::chrono::steady_clock::time_point start_time_steady_;
+
+    /// @brief returns the time since run() started, on the steady clock.
+    [[nodiscard]] x::telem::TimeSpan elapsed() const {
+        return x::telem::TimeSpan(
+            std::chrono::duration_cast<std::chrono::nanoseconds>(
+                std::chrono::steady_clock::now() - this->start_time_steady_
+            )
+                .count()
+        );
+    }
+
     errors::Handler error_handler;
 
 public:
@@ -137,9 +148,10 @@ public:
             return;
         }
         auto next_timeout = x::telem::TimeSpan(0);
-        x::telem::TimeSpan elapsed;
+        auto next_span = x::telem::TimeSpan::max();
         while (this->breaker.running()) {
-            const auto wake_reason = this->loop->wait(this->breaker, next_timeout);
+            const auto wake_reason = this->loop
+                                         ->wait(this->breaker, next_timeout, next_span);
             const bool is_timer =
                 (wake_reason == loop::WakeReason::Timer ||
                  wake_reason == loop::WakeReason::Timeout);
@@ -150,16 +162,9 @@ public:
                                                         : node::RunReason::ChannelInput;
                 first = false;
                 this->state->ingest(frame);
-                const auto now_steady = std::chrono::steady_clock::now();
-                elapsed = x::telem::TimeSpan(
-                    std::chrono::duration_cast<std::chrono::nanoseconds>(
-                        now_steady - this->start_time_steady_
-                    )
-                        .count()
-                );
                 const node::Cycle cycle{
                     .now = this->clock.now(),
-                    .elapsed = elapsed,
+                    .elapsed = this->elapsed(),
                     .reason = reason
                 };
                 this->time_module->set_now(cycle.now);
@@ -174,11 +179,15 @@ public:
                     }
                 }
             }
+            // The timeout counts from now, so that the work of the cycle does not delay
+            // the wake.
             const auto deadline = this->scheduler->next_deadline();
-            if (deadline == x::telem::TimeSpan::max())
+            const auto elapsed = this->elapsed();
+            next_span = deadline.span;
+            if (deadline.at == x::telem::TimeSpan::max())
                 next_timeout = x::telem::TimeSpan(0);
-            else if (deadline > elapsed)
-                next_timeout = deadline - elapsed;
+            else if (deadline.at > elapsed)
+                next_timeout = deadline.at - elapsed;
             else
                 next_timeout = x::telem::TimeSpan(1);
         }
@@ -338,9 +347,9 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
         if (err) return {nullptr, err};
         nodes[mod_node.key] = std::move(node);
     }
-    const auto base_interval = time_module->base_interval();
-    const auto loop_cfg = cfg.loop.apply_defaults(base_interval);
-    const auto tolerance = stl::time::calculate_tolerance(loop_cfg.mode, base_interval);
+    const auto shortest_span = time_module->shortest_span();
+    const auto loop_cfg = cfg.loop.apply_defaults(shortest_span);
+    const auto tolerance = stl::time::calculate_tolerance(loop_cfg.mode, shortest_span);
     auto sched = std::make_unique<scheduler::Scheduler>(
         cfg.program,
         nodes,

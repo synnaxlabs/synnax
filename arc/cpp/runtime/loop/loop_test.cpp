@@ -48,19 +48,17 @@ const auto WAKE_LATENCY = 50 * x::telem::MILLISECOND;
 const auto BREAKER_STOP_LATENCY = 10 * x::telem::MILLISECOND;
 /// @brief Maximum time for event-driven timeout (100ms + margin).
 const auto EVENT_DRIVEN_BOUND = 150 * x::telem::MILLISECOND;
-/// @brief Tick period and wait duration of the deadline spec.
-const auto DEADLINE_INTERVAL = 10 * x::telem::MILLISECOND;
+/// @brief Wait duration of the deadline spec.
+const auto DEADLINE_DURATION = 10 * x::telem::MILLISECOND;
 /// @brief Earliest a wait may fire ahead of its deadline.
 const auto FIRE_TOLERANCE = 100 * x::telem::MICROSECOND;
 /// @brief Maximum median distance between a fire and its deadline.
 const auto FIRE_ERROR_BOUND = x::telem::MILLISECOND;
 /// @brief Maximum median distance between a fire and a deadline under 10 ms.
 const auto SHORT_FIRE_ERROR_BOUND = 250 * x::telem::MICROSECOND;
-/// @brief SHORT_FIRE_ERROR_BOUND for Windows EVENT_DRIVEN, which does not spin. Its
-/// timer fires about 0.5 ms late.
-const auto WINDOWS_EVENT_DRIVEN_FIRE_ERROR_BOUND = 600 * x::telem::MICROSECOND;
-/// @brief Deadline of a wait that an input ends before the deadline.
-const auto STALE_DEADLINE = 20 * x::telem::MILLISECOND;
+/// @brief Deadline of a wait that an input ends before the deadline. It is shorter than
+/// the block timeout of each mode, so that a stale timer fires inside the next wait.
+const auto STALE_DEADLINE = 5 * x::telem::MILLISECOND;
 }
 
 /// @brief Test that Loop can be created.
@@ -109,14 +107,13 @@ TEST(LoopTest, Wake_EventDriven) {
 TEST(LoopTest, TimerExpiration) {
     Config config;
     config.mode = ExecutionMode::EVENT_DRIVEN;
-    config.interval = 10 * x::telem::MILLISECOND;
 
     const auto loop = ASSERT_NIL_P(create_and_start(config));
 
     x::breaker::Breaker breaker;
 
     const auto sw = x::telem::Stopwatch();
-    loop->wait(breaker);
+    loop->wait(breaker, 10 * x::telem::MILLISECOND);
 
     const auto elapsed = sw.elapsed();
     EXPECT_GE(elapsed, test_timing::TIMER_LOWER_BOUND);
@@ -180,6 +177,43 @@ TEST(LoopTest, HighRateMode) {
     EXPECT_LE(elapsed, test_timing::TIMER_UPPER_BOUND);
 }
 
+/// @brief HIGH_RATE should wake on a deadline that comes before its interval.
+TEST(LoopTest, HighRateMode_WakesOnDeadlineBeforeInterval) {
+    Config config;
+    config.mode = ExecutionMode::HIGH_RATE;
+    config.interval = 100 * x::telem::MILLISECOND;
+
+    const auto loop = ASSERT_NIL_P(create_and_start(config));
+
+    x::breaker::Breaker breaker;
+
+    const auto sw = x::telem::Stopwatch();
+    EXPECT_EQ(loop->wait(breaker, 10 * x::telem::MILLISECOND), WakeReason::Timer);
+
+    const auto elapsed = sw.elapsed();
+    EXPECT_GE(elapsed, 10 * x::telem::MILLISECOND);
+    EXPECT_LE(elapsed, test_timing::TIMER_UPPER_BOUND);
+}
+
+/// @brief BUSY_WAIT should wake on a deadline.
+TEST(LoopTest, BusyWaitMode_WakesOnDeadline) {
+    Config config;
+    config.mode = ExecutionMode::BUSY_WAIT;
+
+    const auto loop = ASSERT_NIL_P(create_and_start(config));
+
+    x::breaker::Breaker breaker;
+    breaker.start();
+
+    const auto sw = x::telem::Stopwatch();
+    EXPECT_EQ(loop->wait(breaker, 10 * x::telem::MILLISECOND), WakeReason::Timer);
+
+    const auto elapsed = sw.elapsed();
+    EXPECT_GE(elapsed, 10 * x::telem::MILLISECOND);
+    EXPECT_LE(elapsed, test_timing::TIMER_UPPER_BOUND);
+    breaker.stop();
+}
+
 /// @brief Test HYBRID mode behavior.
 TEST(LoopTest, HybridMode) {
     Config config;
@@ -233,30 +267,19 @@ TEST(LoopTest, DifferentModes) {
     }
 }
 
-TEST(ModeSelectorTest, NoIntervals_SelectsEventDriven) {
-    EXPECT_EQ(select_mode(x::telem::TimeSpan(0), false), ExecutionMode::EVENT_DRIVEN);
+TEST(ModeSelectorTest, NoTimers_SelectsAuto) {
+    EXPECT_EQ(select_mode(x::telem::TimeSpan::max()), ExecutionMode::AUTO);
 }
 
-TEST(ModeSelectorTest, ModerateRate_SelectsHybrid) {
-    EXPECT_EQ(select_mode(3 * x::telem::MILLISECOND, true), ExecutionMode::HYBRID);
+TEST(ModeSelectorTest, AboveRtEventThreshold_SelectsAuto) {
+    EXPECT_EQ(select_mode(timing::RT_EVENT_THRESHOLD), ExecutionMode::AUTO);
+    EXPECT_EQ(select_mode(100 * x::telem::MILLISECOND), ExecutionMode::AUTO);
 }
 
-TEST(ModeSelectorTest, LowRate_SelectsEventDriven) {
-    EXPECT_EQ(
-        select_mode(100 * x::telem::MILLISECOND, true),
-        ExecutionMode::EVENT_DRIVEN
-    );
-}
-
-TEST(ModeSelectorTest, BelowHybridThreshold_SelectsHybrid) {
-    EXPECT_EQ(
-        select_mode(hybrid_threshold() - x::telem::MILLISECOND, true),
-        ExecutionMode::HYBRID
-    );
-}
-
-TEST(ModeSelectorTest, AtHybridThreshold_SelectsEventDriven) {
-    EXPECT_EQ(select_mode(hybrid_threshold(), true), ExecutionMode::EVENT_DRIVEN);
+TEST(ModeSelectorTest, AutoSpinsBelowHybridThreshold) {
+    EXPECT_TRUE(auto_spins(hybrid_threshold() - x::telem::MICROSECOND));
+    EXPECT_FALSE(auto_spins(hybrid_threshold()));
+    EXPECT_FALSE(auto_spins(x::telem::TimeSpan::max()));
 }
 
 /// @brief The HYBRID threshold should be the documented value of the platform.
@@ -269,21 +292,27 @@ TEST(ModeSelectorTest, HybridThresholdIsTheValueOfThePlatform) {
 }
 
 TEST(ModeSelectorTest, NeverAutoselectsBusyWait) {
-    EXPECT_NE(select_mode(10 * x::telem::MICROSECOND, true), ExecutionMode::BUSY_WAIT);
-    EXPECT_NE(select_mode(x::telem::TimeSpan(0), true), ExecutionMode::BUSY_WAIT);
+    EXPECT_NE(select_mode(10 * x::telem::MICROSECOND), ExecutionMode::BUSY_WAIT);
+    EXPECT_NE(select_mode(x::telem::TimeSpan(0)), ExecutionMode::BUSY_WAIT);
 }
 
 TEST(ModeSelectorTest, Boundary_AtOneMs) {
     const auto expected = x::thread::rt::has_support() ? ExecutionMode::RT_EVENT
-                                                       : ExecutionMode::HYBRID;
-    EXPECT_EQ(select_mode(x::telem::MILLISECOND, true), expected);
+                                                       : ExecutionMode::AUTO;
+    EXPECT_EQ(select_mode(x::telem::MILLISECOND), expected);
 }
 
-TEST(ConfigTest, ApplyDefaultsResolvesAuto) {
+TEST(ConfigTest, ApplyDefaultsResolvesAutoForSubMillisecondTimers) {
     const Config cfg;
     EXPECT_EQ(cfg.mode, ExecutionMode::AUTO);
-    const auto resolved = cfg.apply_defaults(10 * x::telem::MILLISECOND);
+    const auto resolved = cfg.apply_defaults(500 * x::telem::MICROSECOND);
     EXPECT_NE(resolved.mode, ExecutionMode::AUTO);
+}
+
+TEST(ConfigTest, ApplyDefaultsKeepsAutoForLongTimers) {
+    const Config cfg;
+    const auto resolved = cfg.apply_defaults(10 * x::telem::MILLISECOND);
+    EXPECT_EQ(resolved.mode, ExecutionMode::AUTO);
 }
 
 TEST(ConfigTest, ApplyDefaultsSetsInterval) {
@@ -519,7 +548,6 @@ TEST(WatchTest, WatchAndWake_BothWork) {
 TEST(WatchTest, WatchAndTimer_BothWork) {
     Config config;
     config.mode = ExecutionMode::EVENT_DRIVEN;
-    config.interval = 50 * x::telem::MILLISECOND;
 
     const auto loop = ASSERT_NIL_P(create_and_start(config));
 
@@ -529,7 +557,7 @@ TEST(WatchTest, WatchAndTimer_BothWork) {
     x::breaker::Breaker breaker;
 
     const auto sw = x::telem::Stopwatch();
-    loop->wait(breaker);
+    loop->wait(breaker, 50 * x::telem::MILLISECOND);
     const auto elapsed = sw.elapsed();
     EXPECT_GE(elapsed, 25 * x::telem::MILLISECOND);
     EXPECT_LE(elapsed, test_timing::EVENT_DRIVEN_BOUND);
@@ -779,14 +807,13 @@ TEST(WakeTest, Wake_UnblocksWait) {
 TEST(WakeReasonTest, ReturnsTimerOnTimerFire) {
     Config config;
     config.mode = ExecutionMode::EVENT_DRIVEN;
-    config.interval = 10 * x::telem::MILLISECOND;
 
     const auto loop = ASSERT_NIL_P(create_and_start(config));
 
     x::breaker::Breaker breaker;
     breaker.start();
 
-    const auto reason = loop->wait(breaker);
+    const auto reason = loop->wait(breaker, 10 * x::telem::MILLISECOND);
     ASSERT_EQ(reason, WakeReason::Timer);
 
     breaker.stop();
@@ -820,7 +847,7 @@ TEST(WakeReasonTest, ReturnsInputOnNotifierSignal) {
 TEST(WakeReasonTest, DistinguishesTimerFromInputWhenBothConfigured) {
     Config config;
     config.mode = ExecutionMode::EVENT_DRIVEN;
-    config.interval = 100 * x::telem::MILLISECOND;
+    const auto deadline = 100 * x::telem::MILLISECOND;
 
     const auto loop = ASSERT_NIL_P(create_and_start(config));
 
@@ -831,7 +858,7 @@ TEST(WakeReasonTest, DistinguishesTimerFromInputWhenBothConfigured) {
     breaker.start();
 
     std::atomic<WakeReason> reason{WakeReason::Shutdown};
-    std::thread waiter([&]() { reason.store(loop->wait(breaker)); });
+    std::thread waiter([&]() { reason.store(loop->wait(breaker, deadline)); });
 
     std::this_thread::sleep_for(test_timing::THREAD_STARTUP.chrono());
     notifier->signal();
@@ -840,7 +867,7 @@ TEST(WakeReasonTest, DistinguishesTimerFromInputWhenBothConfigured) {
     ASSERT_EQ(reason.load(), WakeReason::Input);
 
     reason.store(WakeReason::Shutdown);
-    const auto wait_reason = loop->wait(breaker);
+    const auto wait_reason = loop->wait(breaker, deadline);
     ASSERT_EQ(wait_reason, WakeReason::Timer);
 
     breaker.stop();
@@ -863,24 +890,6 @@ TEST(MaxTimeoutTest, EventDriven_WakesAfterMaxTimeout) {
     EXPECT_GE(elapsed, 15 * x::telem::MILLISECOND);
     EXPECT_LE(elapsed, test_timing::TIMER_UPPER_BOUND);
     EXPECT_EQ(reason, WakeReason::Timer);
-}
-
-/// @brief max_timeout should override a longer configured interval.
-TEST(MaxTimeoutTest, EventDriven_MaxTimeoutOverridesLongerInterval) {
-    Config config;
-    config.mode = ExecutionMode::EVENT_DRIVEN;
-    config.interval = 500 * x::telem::MILLISECOND;
-
-    const auto loop = ASSERT_NIL_P(create_and_start(config));
-
-    x::breaker::Breaker breaker;
-
-    const auto sw = x::telem::Stopwatch();
-    loop->wait(breaker, 20 * x::telem::MILLISECOND);
-
-    const auto elapsed = sw.elapsed();
-    EXPECT_GE(elapsed, 15 * x::telem::MILLISECOND);
-    EXPECT_LE(elapsed, test_timing::TIMER_UPPER_BOUND);
 }
 
 /// @brief Input arriving before max_timeout should wake immediately.
@@ -933,17 +942,8 @@ TEST(MaxTimeoutTest, Hybrid_MaxTimeoutConstrainsBlockPhase) {
 }
 
 /// @brief Returns how far past its deadline one wait fires. Negative is early.
-x::telem::TimeSpan measure_fire_error(
-    Loop &loop,
-    x::breaker::Breaker &breaker,
-    const x::telem::TimeSpan phase
-) {
-    // The first wait lands on a tick, so the spin sets the phase in the tick period.
-    loop.wait(breaker);
-    const auto phase_sw = x::telem::Stopwatch();
-    while (phase_sw.elapsed() < phase)
-        continue;
-    const auto duration = test_timing::DEADLINE_INTERVAL;
+x::telem::TimeSpan measure_fire_error(Loop &loop, x::breaker::Breaker &breaker) {
+    const auto duration = test_timing::DEADLINE_DURATION;
     const auto sw = x::telem::Stopwatch();
     auto elapsed = x::telem::TimeSpan(0);
     while (elapsed < duration - test_timing::FIRE_TOLERANCE) {
@@ -953,21 +953,18 @@ x::telem::TimeSpan measure_fire_error(
     return elapsed - duration;
 }
 
-/// @brief EVENT_DRIVEN at a 10 ms period should fire a 10 ms wait on its deadline.
+/// @brief EVENT_DRIVEN should fire a 10 ms wait on its deadline.
 TEST(DeadlineTest, EventDriven_FiresOnDeadline) {
     constexpr int COUNT = 50;
     Config config;
     config.mode = ExecutionMode::EVENT_DRIVEN;
-    config.interval = test_timing::DEADLINE_INTERVAL;
     const auto loop = ASSERT_NIL_P(create_and_start(config));
     x::breaker::Breaker breaker;
 
     std::vector<x::telem::TimeSpan> errors;
     errors.reserve(COUNT);
-    for (int i = 0; i < COUNT; i++) {
-        const auto phase = test_timing::DEADLINE_INTERVAL * i / COUNT;
-        errors.push_back(measure_fire_error(*loop, breaker, phase));
-    }
+    for (int i = 0; i < COUNT; i++)
+        errors.push_back(measure_fire_error(*loop, breaker));
     std::sort(errors.begin(), errors.end());
     const auto median = errors[COUNT / 2];
 
@@ -978,7 +975,7 @@ TEST(DeadlineTest, EventDriven_FiresOnDeadline) {
     EXPECT_LE(median, test_timing::FIRE_ERROR_BOUND);
 }
 
-/// @brief A loop with no interval, in the mode of the parameter.
+/// @brief A loop in the mode of the parameter.
 class StaleDeadlineTest : public testing::TestWithParam<ExecutionMode> {
 protected:
     std::unique_ptr<Loop> loop;
@@ -988,7 +985,6 @@ protected:
     void SetUp() override {
         Config config;
         config.mode = this->GetParam();
-        config.interval = x::telem::TimeSpan(0);
         this->loop = ASSERT_NIL_P(create_and_start(config));
         this->notifier = x::notify::create();
         ASSERT_TRUE(this->loop->watch(*this->notifier));
@@ -1023,7 +1019,11 @@ TEST_P(StaleDeadlineTest, PassedDeadlineDoesNotWakeTheNextWait) {
 INSTANTIATE_TEST_SUITE_P(
     Modes,
     StaleDeadlineTest,
-    testing::Values(ExecutionMode::EVENT_DRIVEN, ExecutionMode::HYBRID)
+    testing::Values(
+        ExecutionMode::AUTO,
+        ExecutionMode::EVENT_DRIVEN,
+        ExecutionMode::HYBRID
+    )
 );
 
 /// @brief The minimum timer span should be the documented value of the platform.
@@ -1037,7 +1037,8 @@ TEST(MinTimerSpanTest, ReturnsTheSpanOfThePlatform) {
 #endif
 }
 
-/// @brief A base interval and a wait duration. The base interval selects the loop mode.
+/// @brief The shortest timer span of a program and a wait duration. The shortest span
+/// resolves AUTO.
 using ShortDeadlineCase = std::tuple<x::telem::TimeSpan, x::telem::TimeSpan>;
 
 /// @brief Deadline timing of the loop that AUTO selects, for waits under 10 ms.
@@ -1046,14 +1047,9 @@ protected:
     std::unique_ptr<Loop> loop;
     x::breaker::Breaker breaker;
     x::telem::TimeSpan duration;
-    x::telem::TimeSpan bound = test_timing::SHORT_FIRE_ERROR_BOUND;
 
     void SetUp() override {
         const auto config = Config().apply_defaults(std::get<0>(this->GetParam()));
-#if defined(_WIN32)
-        if (config.mode == ExecutionMode::EVENT_DRIVEN)
-            this->bound = test_timing::WINDOWS_EVENT_DRIVEN_FIRE_ERROR_BOUND;
-#endif
         this->duration = std::get<1>(this->GetParam());
         this->loop = ASSERT_NIL_P(create_and_start(config));
         this->breaker.start();
@@ -1061,8 +1057,8 @@ protected:
 
     void TearDown() override { this->breaker.stop(); }
 
-    /// @brief Waits until the duration ends, as the runtime does, and returns how far
-    /// past the deadline the last wait fired.
+    /// @brief Waits until the duration ends, as the runtime does for a wait of that
+    /// duration, and returns how far past the deadline the last wait fired.
     /// @param inputs receives how many waits an input ended.
     x::telem::TimeSpan fire_error(const x::telem::Stopwatch &sw, int &inputs) {
         const auto tolerance = std::min(
@@ -1073,7 +1069,8 @@ protected:
         while (elapsed < this->duration - tolerance) {
             const auto reason = this->loop->wait(
                 this->breaker,
-                this->duration - elapsed
+                this->duration - elapsed,
+                this->duration
             );
             if (reason == WakeReason::Input) inputs++;
             elapsed = sw.elapsed();
@@ -1094,7 +1091,7 @@ TEST_P(ShortDeadlineTest, FiresOnDeadline) {
     int inputs = 0;
     for (int i = 0; i < COUNT; i++)
         errors.push_back(this->fire_error(x::telem::Stopwatch(), inputs));
-    EXPECT_LE(median(errors), this->bound);
+    EXPECT_LE(median(errors), test_timing::SHORT_FIRE_ERROR_BOUND);
 }
 
 /// @brief A wait that an input ends close to its deadline should still fire on the
@@ -1120,11 +1117,11 @@ TEST_P(ShortDeadlineTest, FiresOnDeadlineAfterInput) {
         sender.join();
     }
     EXPECT_GT(inputs, 0);
-    EXPECT_LE(median(errors), this->bound);
+    EXPECT_LE(median(errors), test_timing::SHORT_FIRE_ERROR_BOUND);
 }
 
 INSTANTIATE_TEST_SUITE_P(
-    BaseIntervalsAndDurations,
+    ShortestSpansAndDurations,
     ShortDeadlineTest,
     testing::Combine(
         testing::Values(

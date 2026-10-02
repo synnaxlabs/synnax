@@ -125,12 +125,12 @@ void measure_interval(const x::telem::TimeSpan period, std::int64_t &median_ns) 
     loop::Config loop_cfg;
     // The Driver does not pin the loop thread on Windows.
     loop_cfg.cpu_affinity = loop::CPU_AFFINITY_NONE;
-    const auto base_interval = time_module->base_interval();
-    loop_cfg = loop_cfg.apply_defaults(base_interval);
+    const auto shortest_span = time_module->shortest_span();
+    loop_cfg = loop_cfg.apply_defaults(shortest_span);
     auto sched = std::make_unique<scheduler::Scheduler>(
         prog,
         nodes,
-        stl::time::calculate_tolerance(loop_cfg.mode, base_interval)
+        stl::time::calculate_tolerance(loop_cfg.mode, shortest_span)
     );
     const Config cfg{
         .program = {},

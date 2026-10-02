@@ -210,7 +210,7 @@ std::int64_t measure_waits(
         const auto sw = x::telem::Stopwatch();
         auto elapsed = x::telem::TimeSpan(0);
         while (elapsed < duration - tolerance) {
-            loop.wait(breaker, duration - elapsed);
+            loop.wait(breaker, duration - elapsed, duration);
             while (inputs.try_pop(input))
                 continue;
             elapsed = sw.elapsed();
@@ -230,24 +230,24 @@ std::int64_t measure_waits(
     return spread.at(50);
 }
 
-/// @brief Measures each duration on the loop that AUTO selects for timing_interval.
+/// @brief Measures each duration on the loop that AUTO selects for shortest_span.
 /// The loop runs on its own thread, as it does in the runtime.
-/// @param timing_interval the base interval, or the maximum span if there is none.
+/// @param shortest_span the shortest timer span, or the maximum span if there is none.
 /// @param input_period the time between two inputs to the loop, or zero for no input.
 /// @param durations the wait durations to measure.
 /// @returns the median fire error of each duration in nanoseconds, or nothing if the
 /// loop did not start.
 std::vector<std::int64_t> sweep(
-    const x::telem::TimeSpan timing_interval,
+    const x::telem::TimeSpan shortest_span,
     const x::telem::TimeSpan input_period = x::telem::TimeSpan(0),
     const std::vector<x::telem::TimeSpan> &durations = DURATIONS
 ) {
     std::vector<std::int64_t> medians_ns;
-    std::thread thread([&medians_ns, timing_interval, input_period, &durations] {
+    std::thread thread([&medians_ns, shortest_span, input_period, &durations] {
         Config config;
         // The Driver does not pin the loop thread on Windows.
         config.cpu_affinity = CPU_AFFINITY_NONE;
-        config = config.apply_defaults(timing_interval);
+        config = config.apply_defaults(shortest_span);
         const auto loop = create(config);
         if (const auto err = loop->start()) {
             std::cout << "  start failed: " << err.message() << "\n";
@@ -316,7 +316,7 @@ TEST(SleepTest, HoldsItsDuration) {
     EXPECT_GE(spread.at(0), -MEDIAN_BOUND.nanoseconds());
 }
 
-/// @brief Wait timing of the loop that AUTO selects for one base interval.
+/// @brief Wait timing of the loop that AUTO selects for one shortest timer span.
 class WaitTimingTest : public testing::TestWithParam<x::telem::TimeSpan> {};
 
 /// @brief On an idle machine, each wait duration should fire on its deadline.
@@ -361,7 +361,7 @@ TEST_P(WaitTimingTest, MeasuresWithInputAt1kHz) {
 }
 
 INSTANTIATE_TEST_SUITE_P(
-    BaseIntervals,
+    ShortestSpans,
     WaitTimingTest,
     testing::Values(
         x::telem::TimeSpan::max(),

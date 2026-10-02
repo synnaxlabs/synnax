@@ -48,7 +48,8 @@ public:
 
     WakeReason wait(
         x::breaker::Breaker &breaker,
-        x::telem::TimeSpan max_timeout = x::telem::TimeSpan(0)
+        x::telem::TimeSpan max_timeout = x::telem::TimeSpan(0),
+        x::telem::TimeSpan span = x::telem::TimeSpan::max()
     ) override {
         if (!this->started_) return WakeReason::Shutdown;
 

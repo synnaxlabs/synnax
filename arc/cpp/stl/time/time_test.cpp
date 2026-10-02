@@ -34,7 +34,7 @@ runtime::node::Context make_context(
         .tolerance = tolerance,
         .mark_changed = [](size_t) {},
         .mark_self_changed = [] {},
-        .set_deadline = [](x::telem::TimeSpan) {},
+        .set_deadline = [](x::telem::TimeSpan, x::telem::TimeSpan) {},
         .report_error = [](const x::errors::Error &) {},
     };
 }
@@ -297,20 +297,18 @@ TEST(TimeModuleTest, CreatesWaitNodeQualifiedViaMultiFactory) {
     ASSERT_NE(node, nullptr);
 }
 
-/// @brief Test that base_interval is set to the first interval when uninitialized.
-TEST(TimeModuleTest, BaseIntervalSetToFirstInterval) {
+/// @brief Test that shortest_span is set to the first interval when uninitialized.
+TEST(TimeModuleTest, ShortestSpanSetToFirstInterval) {
     TestSetup setup("interval", "period", (500 * x::telem::MILLISECOND).nanoseconds());
     Module factory;
     ASSERT_NIL_P(factory.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
     ));
-    EXPECT_EQ(factory.base_interval(), 500 * x::telem::MILLISECOND);
+    EXPECT_EQ(factory.shortest_span(), 500 * x::telem::MILLISECOND);
 }
 
-/// @brief Test that base_interval computes GCD across multiple intervals.
-/// @brief Test that a zero var-bound period does not fold into the base
-/// interval, so a parked timer cannot drive the loop cadence.
-TEST(TimeModuleTest, BaseIntervalUnsetForZeroVarBoundPeriod) {
+/// @brief Test that a zero var-bound period does not fold into the shortest span.
+TEST(TimeModuleTest, ShortestSpanUnsetForZeroVarBoundPeriod) {
     TestSetup setup("interval", "period", 0);
     auto ir_node = setup.ir.nodes[0];
     ir_node.inputs[0].type = types::Type{
@@ -321,10 +319,11 @@ TEST(TimeModuleTest, BaseIntervalUnsetForZeroVarBoundPeriod) {
     ASSERT_NIL_P(
         factory.create(runtime::node::Config(setup.ir, ir_node, setup.make_node()))
     );
-    EXPECT_EQ(factory.base_interval(), UNSET_BASE_INTERVAL);
+    EXPECT_EQ(factory.shortest_span(), UNSET_SHORTEST_SPAN);
 }
 
-TEST(TimeModuleTest, BaseIntervalComputesGCDAcrossNodes) {
+/// @brief Test that shortest_span is the shortest span across nodes.
+TEST(TimeModuleTest, ShortestSpanIsTheMinimumAcrossNodes) {
     TestSetup setup1("interval", "period", (600 * x::telem::MILLISECOND).nanoseconds());
     TestSetup setup2("wait", "duration", (400 * x::telem::MILLISECOND).nanoseconds());
 
@@ -335,7 +334,7 @@ TEST(TimeModuleTest, BaseIntervalComputesGCDAcrossNodes) {
     ASSERT_NIL_P(factory.create(
         runtime::node::Config(setup2.ir, setup2.ir.nodes[0], setup2.make_node())
     ));
-    EXPECT_EQ(factory.base_interval(), 200 * x::telem::MILLISECOND);
+    EXPECT_EQ(factory.shortest_span(), 400 * x::telem::MILLISECOND);
 }
 
 /// @brief Test that the module rejects a literal span under its minimum.
@@ -359,7 +358,7 @@ TEST(TimeModuleTest, RejectsLiteralSpanUnderMinimum) {
         ),
         x::errors::VALIDATION
     );
-    EXPECT_EQ(factory.base_interval(), UNSET_BASE_INTERVAL);
+    EXPECT_EQ(factory.shortest_span(), UNSET_SHORTEST_SPAN);
 }
 
 /// @brief Test that the default minimum of the module is the one of the platform.
@@ -380,9 +379,9 @@ TEST(TimeModuleTest, DefaultMinimumIsThePlatformMinimum) {
     );
 }
 
-/// @brief Test that a var-bound span under the minimum folds into the base interval
-/// as the minimum.
-TEST(TimeModuleTest, BaseIntervalHoldsVarBoundSpanAtMinimum) {
+/// @brief Test that a var-bound span under the minimum folds into the shortest span as
+/// the minimum.
+TEST(TimeModuleTest, ShortestSpanHoldsVarBoundSpanAtMinimum) {
     TestSetup setup("interval", "period", x::telem::MILLISECOND.nanoseconds());
     auto ir_node = setup.ir.nodes[0];
     ir_node.inputs[0].type = types::Type{
@@ -393,7 +392,7 @@ TEST(TimeModuleTest, BaseIntervalHoldsVarBoundSpanAtMinimum) {
     ASSERT_NIL_P(
         factory.create(runtime::node::Config(setup.ir, ir_node, setup.make_node()))
     );
-    EXPECT_EQ(factory.base_interval(), MIN);
+    EXPECT_EQ(factory.shortest_span(), MIN);
 }
 
 /// @brief Test that Interval does not fire again before next interval elapses.
@@ -569,7 +568,7 @@ TEST(IntervalTest, OnlyFiresOnTimerTick) {
     ctx.tolerance = x::telem::TimeSpan(0);
     ctx.mark_changed = [&changed_called](size_t) { changed_called = true; };
     ctx.mark_self_changed = [] {};
-    ctx.set_deadline = [](x::telem::TimeSpan) {};
+    ctx.set_deadline = [](x::telem::TimeSpan, x::telem::TimeSpan) {};
     ctx.report_error = [](const x::errors::Error &) {};
 
     ctx.cycle.reason = runtime::node::RunReason::TimerTick;
@@ -600,7 +599,9 @@ TEST(IntervalTest, ParksAndReportsOnceOnNonPositivePeriod) {
     bool changed_called = false;
     auto ctx = make_context(x::telem::TimeSpan(0));
     ctx.mark_changed = [&](size_t) { changed_called = true; };
-    ctx.set_deadline = [&](x::telem::TimeSpan) { deadline_calls++; };
+    ctx.set_deadline = [&](x::telem::TimeSpan, x::telem::TimeSpan) {
+        deadline_calls++;
+    };
     ctx.report_error = [&](const x::errors::Error &e) { reported.push_back(e); };
 
     ASSERT_NIL(node.next(ctx));
@@ -640,7 +641,9 @@ TEST(IntervalTest, HoldsPeriodUnderMinimumAtMinimumAndWarnsOnce) {
     auto deadline = x::telem::TimeSpan(0);
     auto ctx = make_context(x::telem::TimeSpan(0));
     ctx.mark_changed = [&](size_t) { fires++; };
-    ctx.set_deadline = [&](const x::telem::TimeSpan d) { deadline = d; };
+    ctx.set_deadline = [&](const x::telem::TimeSpan d, x::telem::TimeSpan) {
+        deadline = d;
+    };
     ctx.report_error = [&](const x::errors::Error &e) { reported.push_back(e); };
 
     ASSERT_NIL(node.next(ctx));
@@ -766,7 +769,7 @@ TEST(WaitTest, OnlyFiresOnTimerTick) {
     ctx.tolerance = x::telem::TimeSpan(0);
     ctx.mark_changed = [&changed_called](size_t) { changed_called = true; };
     ctx.mark_self_changed = [] {};
-    ctx.set_deadline = [](x::telem::TimeSpan) {};
+    ctx.set_deadline = [](x::telem::TimeSpan, x::telem::TimeSpan) {};
     ctx.report_error = [](const x::errors::Error &) {};
 
     ctx.cycle.reason = runtime::node::RunReason::TimerTick;
@@ -1035,7 +1038,9 @@ TEST(WaitTest, ParksAndReportsOnceOnNonPositiveDuration) {
     bool changed_called = false;
     auto ctx = make_context(x::telem::TimeSpan(0));
     ctx.mark_changed = [&](size_t) { changed_called = true; };
-    ctx.set_deadline = [&](x::telem::TimeSpan) { deadline_calls++; };
+    ctx.set_deadline = [&](x::telem::TimeSpan, x::telem::TimeSpan) {
+        deadline_calls++;
+    };
     ctx.report_error = [&](const x::errors::Error &e) { reported.push_back(e); };
 
     ASSERT_NIL(node.next(ctx));
@@ -1059,7 +1064,9 @@ TEST(WaitTest, HoldsDurationUnderMinimumAtMinimumAndWarnsOnce) {
     auto deadline = x::telem::TimeSpan(0);
     auto ctx = make_context(x::telem::TimeSpan(0));
     ctx.mark_changed = [&](size_t) { fires++; };
-    ctx.set_deadline = [&](const x::telem::TimeSpan d) { deadline = d; };
+    ctx.set_deadline = [&](const x::telem::TimeSpan d, x::telem::TimeSpan) {
+        deadline = d;
+    };
     ctx.report_error = [&](const x::errors::Error &e) { reported.push_back(e); };
 
     ASSERT_NIL(node.next(ctx));
@@ -1138,11 +1145,11 @@ TEST(CalculateToleranceTest, HybridMode) {
     EXPECT_EQ(tolerance, 100 * x::telem::MICROSECOND);
 }
 
-/// @brief Test calculate_tolerance with an unset base interval returns 100 us.
-TEST(CalculateToleranceTest, UnsetBaseInterval) {
+/// @brief Test calculate_tolerance with an unset shortest span returns 100 us.
+TEST(CalculateToleranceTest, UnsetShortestSpan) {
     const auto tolerance = calculate_tolerance(
         runtime::loop::ExecutionMode::HIGH_RATE,
-        UNSET_BASE_INTERVAL
+        UNSET_SHORTEST_SPAN
     );
     EXPECT_EQ(tolerance, 100 * x::telem::MICROSECOND);
 }
@@ -1308,7 +1315,9 @@ TEST(IntervalDeadlineTest, SetsDeadlineToLastFiredPlusPeriod) {
 
     x::telem::TimeSpan reported_deadline(-1);
     auto ctx = make_context(x::telem::TimeSpan(0));
-    ctx.set_deadline = [&](x::telem::TimeSpan d) { reported_deadline = d; };
+    ctx.set_deadline = [&](x::telem::TimeSpan d, x::telem::TimeSpan) {
+        reported_deadline = d;
+    };
     ASSERT_NIL(node.next(ctx));
     EXPECT_EQ(reported_deadline, x::telem::SECOND);
 }
@@ -1329,7 +1338,9 @@ TEST(IntervalDeadlineTest, SetsDeadlineOnNonTimerTick) {
         x::telem::TimeSpan(0),
         runtime::node::RunReason::ChannelInput
     );
-    ctx2.set_deadline = [&](x::telem::TimeSpan d) { reported_deadline = d; };
+    ctx2.set_deadline = [&](x::telem::TimeSpan d, x::telem::TimeSpan) {
+        reported_deadline = d;
+    };
     ASSERT_NIL(node.next(ctx2));
     EXPECT_EQ(reported_deadline, x::telem::SECOND);
 }
@@ -1346,7 +1357,9 @@ TEST(IntervalDeadlineTest, SetsDeadlineAfterFiring) {
 
     x::telem::TimeSpan reported_deadline(-1);
     auto ctx2 = make_context(x::telem::SECOND);
-    ctx2.set_deadline = [&](x::telem::TimeSpan d) { reported_deadline = d; };
+    ctx2.set_deadline = [&](x::telem::TimeSpan d, x::telem::TimeSpan) {
+        reported_deadline = d;
+    };
     ASSERT_NIL(node.next(ctx2));
     EXPECT_EQ(reported_deadline, x::telem::SECOND * 2);
 }
@@ -1357,7 +1370,9 @@ TEST(WaitDeadlineTest, SetsDeadlineToStartTimePlusDuration) {
 
     x::telem::TimeSpan reported_deadline(-1);
     auto ctx = make_context(x::telem::SECOND * 5);
-    ctx.set_deadline = [&](x::telem::TimeSpan d) { reported_deadline = d; };
+    ctx.set_deadline = [&](x::telem::TimeSpan d, x::telem::TimeSpan) {
+        reported_deadline = d;
+    };
     ASSERT_NIL(node.next(ctx));
     EXPECT_EQ(reported_deadline, x::telem::SECOND * 6);
 }
@@ -1372,7 +1387,9 @@ TEST(WaitDeadlineTest, SetsDeadlineOnChannelInput) {
         x::telem::TimeSpan(0),
         runtime::node::RunReason::ChannelInput
     );
-    ctx.set_deadline = [&](x::telem::TimeSpan d) { reported_deadline = d; };
+    ctx.set_deadline = [&](x::telem::TimeSpan d, x::telem::TimeSpan) {
+        reported_deadline = d;
+    };
     ASSERT_NIL(node.next(ctx));
     EXPECT_EQ(reported_deadline, x::telem::SECOND * 3);
 }
@@ -1389,7 +1406,9 @@ TEST(WaitDeadlineTest, DoesNotSetDeadlineAfterFiring) {
 
     x::telem::TimeSpan reported_deadline(-1);
     auto ctx3 = make_context(x::telem::SECOND * 5);
-    ctx3.set_deadline = [&](x::telem::TimeSpan d) { reported_deadline = d; };
+    ctx3.set_deadline = [&](x::telem::TimeSpan d, x::telem::TimeSpan) {
+        reported_deadline = d;
+    };
     ASSERT_NIL(node.next(ctx3));
     EXPECT_EQ(reported_deadline, x::telem::TimeSpan(-1));
 }
@@ -1407,7 +1426,9 @@ TEST(WaitDeadlineTest, SetsCorrectDeadlineAfterReset) {
 
     x::telem::TimeSpan reported_deadline(-1);
     auto ctx3 = make_context(x::telem::SECOND * 10);
-    ctx3.set_deadline = [&](x::telem::TimeSpan d) { reported_deadline = d; };
+    ctx3.set_deadline = [&](x::telem::TimeSpan d, x::telem::TimeSpan) {
+        reported_deadline = d;
+    };
     ASSERT_NIL(node.next(ctx3));
     EXPECT_EQ(reported_deadline, x::telem::SECOND * 11);
 }
@@ -1535,19 +1556,20 @@ TEST(NowTest, IsOutputTruthyFalseForUnknownParam) {
     EXPECT_FALSE(node.is_output_truthy(999));
 }
 
-/// @brief Now node does not affect base_interval.
-TEST(TimeModuleTest, NowDoesNotAffectBaseInterval) {
+/// @brief Now node does not affect shortest_span.
+TEST(TimeModuleTest, NowDoesNotAffectShortestSpan) {
     NowTestSetup setup;
     Module factory;
     ASSERT_NIL_P(factory.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
     ));
-    EXPECT_EQ(factory.base_interval(), UNSET_BASE_INTERVAL);
+    EXPECT_EQ(factory.shortest_span(), UNSET_SHORTEST_SPAN);
 }
 
 struct TickResult {
     bool fired = false;
     x::telem::TimeSpan deadline{0};
+    x::telem::TimeSpan span{0};
 };
 
 /// @brief builds a config whose span input is var-bound: value holds the declared
@@ -1595,7 +1617,11 @@ public:
         TickResult r;
         auto ctx = make_context(elapsed, x::telem::TimeSpan(0), reason);
         ctx.mark_changed = [&r](size_t) { r.fired = true; };
-        ctx.set_deadline = [&r](const x::telem::TimeSpan d) { r.deadline = d; };
+        ctx.set_deadline =
+            [&r](const x::telem::TimeSpan d, const x::telem::TimeSpan s) {
+                r.deadline = d;
+                r.span = s;
+            };
         EXPECT_FALSE(this->node->next(ctx));
         return r;
     }
@@ -1701,14 +1727,14 @@ TEST(IntervalVarTest, FiresImmediatelyAfterResetUsingTheLivePeriod) {
     );
 }
 
-TEST(IntervalVarTest, SeedsTheTimingBaseFromTheDeclaredValueOnly) {
+TEST(IntervalVarTest, TakesTheShortestSpanFromTheDeclaredValueOnly) {
     VarConfig t("interval", "period", 100 * x::telem::MILLISECOND);
-    EXPECT_EQ(t.factory.base_interval(), 100 * x::telem::MILLISECOND);
+    EXPECT_EQ(t.factory.shortest_span(), 100 * x::telem::MILLISECOND);
     t.set(x::telem::MILLISECOND);
     EXPECT_TRUE(
         t.tick(x::telem::TimeSpan(0), runtime::node::RunReason::TimerTick).fired
     );
-    EXPECT_EQ(t.factory.base_interval(), 100 * x::telem::MILLISECOND);
+    EXPECT_EQ(t.factory.shortest_span(), 100 * x::telem::MILLISECOND);
 }
 
 TEST(WaitVarTest, HonorsTheDeclaredInitialBeforeAnyWrite) {
@@ -1756,6 +1782,22 @@ TEST(WaitVarTest, ReportsTheDeadlineFromTheLiveDuration) {
     );
     EXPECT_FALSE(r.fired);
     EXPECT_EQ(r.deadline, 3 * x::telem::SECOND);
+    EXPECT_EQ(r.span, 3 * x::telem::SECOND);
+}
+
+TEST(IntervalVarTest, ReportsTheLivePeriodAsTheSpanOfTheDeadline) {
+    VarConfig t("interval", "period", x::telem::SECOND);
+    EXPECT_EQ(
+        t.tick(x::telem::TimeSpan(0), runtime::node::RunReason::TimerTick).span,
+        x::telem::SECOND
+    );
+    t.set(2 * x::telem::SECOND);
+    const auto r = t.tick(
+        500 * x::telem::MILLISECOND,
+        runtime::node::RunReason::ChannelInput
+    );
+    EXPECT_EQ(r.deadline, 2 * x::telem::SECOND);
+    EXPECT_EQ(r.span, 2 * x::telem::SECOND);
 }
 
 TEST(WaitVarTest, StaysOneShotAfterAShorteningWrite) {
@@ -1771,10 +1813,10 @@ TEST(WaitVarTest, StaysOneShotAfterAShorteningWrite) {
 }
 
 /// @brief compiles source and creates every timer node through a fresh time Host,
-/// returning the resulting base_interval. The %a% and %b% placeholders stand in for
+/// returning the resulting shortest_span. The %a% and %b% placeholders stand in for
 /// the channels the sources write to.
 x::telem::TimeSpan
-compile_base(const synnax::Synnax &client, const std::string &source) {
+compile_shortest(const synnax::Synnax &client, const std::string &source) {
     const auto a = ASSERT_NIL_P(
         client.channels.create(make_unique_channel_name("a"), x::telem::UINT8_T, true)
     );
@@ -1802,38 +1844,38 @@ compile_base(const synnax::Synnax &client, const std::string &source) {
         if (err && !err.matches(x::errors::NOT_FOUND))
             ADD_FAILURE() << "create " << n.key << ": " << err.message();
     }
-    return factory->base_interval();
+    return factory->shortest_span();
 }
 
-struct GcdCase {
+struct ShortestCase {
     std::string name;
     std::string source;
     int64_t expected_ms;
 };
 
-class TimingBaseGcdTest : public testing::TestWithParam<GcdCase> {};
+class ShortestSpanTest : public testing::TestWithParam<ShortestCase> {};
 
-TEST_P(TimingBaseGcdTest, ComputesTheGcdOverDeclaredAndLiteralReassignedSpans) {
+TEST_P(ShortestSpanTest, IsTheShortestDeclaredOrLiteralReassignedSpan) {
     const auto client = new_test_client();
     EXPECT_EQ(
-        compile_base(client, GetParam().source),
+        compile_shortest(client, GetParam().source),
         GetParam().expected_ms * x::telem::MILLISECOND
     );
 }
 
 INSTANTIATE_TEST_SUITE_P(
     Sources,
-    TimingBaseGcdTest,
+    ShortestSpanTest,
     testing::Values(
-        GcdCase{
+        ShortestCase{
             "two_literal_intervals",
             R"(
 time.interval{period=100ms} -> %a%
 time.interval{period=60ms} -> %b%
 )",
-            20
+            60
         },
-        GcdCase{
+        ShortestCase{
             "two_intervals_fed_by_vars_never_reassigned",
             R"(
 sequence main {
@@ -1845,9 +1887,9 @@ sequence main {
     }
 }
 )",
-            20
+            60
         },
-        GcdCase{
+        ShortestCase{
             "two_intervals_fed_by_vars_each_reassigned_with_a_literal",
             R"(
 sequence main {
@@ -1864,9 +1906,9 @@ sequence main {
     }
 }
 )",
-            5
+            10
         },
-        GcdCase{
+        ShortestCase{
             "two_intervals_fed_by_vars_expression_reassignments_excluded",
             R"(
 sequence main {
@@ -1883,17 +1925,17 @@ sequence main {
     }
 }
 )",
-            20
+            60
         },
-        GcdCase{
+        ShortestCase{
             "two_literal_waits",
             R"(
 time.wait{duration=75ms} -> %a%
 time.wait{duration=50ms} -> %b%
 )",
-            25
+            50
         },
-        GcdCase{
+        ShortestCase{
             "two_waits_fed_by_vars_each_reassigned_with_a_literal",
             R"(
 sequence main {
@@ -1910,9 +1952,9 @@ sequence main {
     }
 }
 )",
-            5
+            30
         },
-        GcdCase{
+        ShortestCase{
             "interval_and_wait_fed_by_vars_never_reassigned",
             R"(
 sequence main {
@@ -1924,9 +1966,9 @@ sequence main {
     }
 }
 )",
-            25
+            75
         },
-        GcdCase{
+        ShortestCase{
             "interval_and_wait_fed_by_vars_each_reassigned_with_a_literal",
             R"(
 sequence main {
@@ -1943,9 +1985,9 @@ sequence main {
     }
 }
 )",
-            10
+            30
         },
-        GcdCase{
+        ShortestCase{
             "interval_and_wait_fed_by_vars_expression_reassignments_excluded",
             R"(
 sequence main {
@@ -1962,9 +2004,9 @@ sequence main {
     }
 }
 )",
-            25
+            75
         },
-        GcdCase{
+        ShortestCase{
             "literal_interval_and_reassigned_var_wait",
             R"(
 sequence main {
@@ -1979,9 +2021,9 @@ sequence main {
     }
 }
 )",
-            5
+            45
         },
-        GcdCase{
+        ShortestCase{
             "var_interval_two_reassignment_sites",
             R"(
 sequence main {
@@ -1999,9 +2041,9 @@ sequence main {
     }
 }
 )",
-            10
+            30
         },
-        GcdCase{
+        ShortestCase{
             "same_var_feeding_both_timer_kinds",
             R"(
 sequence main {
@@ -2016,9 +2058,9 @@ sequence main {
     }
 }
 )",
-            10
+            30
         },
-        GcdCase{
+        ShortestCase{
             "reassignment_in_an_unreached_stage_still_counts",
             R"(
 sequence main {
@@ -2031,9 +2073,9 @@ sequence main {
     }
 }
 )",
-            10
+            30
         }
     ),
-    [](const testing::TestParamInfo<GcdCase> &info) { return info.param.name; }
+    [](const testing::TestParamInfo<ShortestCase> &info) { return info.param.name; }
 );
 }

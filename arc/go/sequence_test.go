@@ -7222,9 +7222,9 @@ var _ = Describe("Sequence", func() {
 		)
 
 		// Threshold math for the interval beside the one-shot:
-		//   BaseInterval = 50ms (only timer in the program)
-		//   tolerance    = BaseInterval / 2 = 25ms
-		//   fire when    = elapsed - lastFired >= period - tolerance = 25ms
+		//   ShortestSpan = 50ms (only timer in the program)
+		//   tolerance    = min(ShortestSpan / 2, 0.1ms) = 0.1ms
+		//   fire when    = elapsed - lastFired >= period - tolerance = 49.9ms
 		//   lastFired    = -period initially, so activation fires immediately
 		// Fires land at ~1ms (activation), 60ms, 120ms, and 180ms; the 10ms tick
 		// is only 9ms past the last fire and stays below the threshold.
@@ -7270,9 +7270,9 @@ var _ = Describe("Sequence", func() {
 		)
 
 		// Threshold math for the wait:
-		//   BaseInterval = 100ms (only timer in the program)
-		//   tolerance    = BaseInterval / 2 = 50ms
-		//   fire when    = elapsed - startTime >= duration - tolerance = 50ms
+		//   ShortestSpan = 100ms (only timer in the program)
+		//   tolerance    = min(ShortestSpan / 2, 0.1ms) = 0.1ms
+		//   fire when    = elapsed - startTime >= duration - tolerance = 99.9ms
 		// startTime lands at ~1ms during activation, so 20ms is safely below the
 		// threshold and 160ms safely past it.
 		It(
