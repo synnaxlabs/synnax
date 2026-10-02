@@ -55,7 +55,7 @@ const option = (o: Organization) => ({
             <a class="portal-bar__link" href="https://docs.synnaxlabs.com">
                 Docs
             </a>
-            <Shell.Account client:load />
+            <Shell.Account client:load name={session.name} image={session.image} />
         </div>
     </header>
     <nav class="portal-tabs">
