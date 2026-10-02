@@ -7,5 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/testutil/act";
 export * from "@/testutil/clipboard";
 export * from "@/testutil/dom";
+export * from "@/testutil/time";

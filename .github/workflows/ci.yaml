@@ -75,6 +75,7 @@ jobs:
       oracle_check: ${{ steps.filter.outputs.oracle_check }}
       oracle_language: ${{ steps.filter.outputs.oracle_language }}
       pluto: ${{ steps.filter.outputs.pluto }}
+      portal: ${{ steps.filter.outputs.portal }}
       protobuf: ${{ steps.filter.outputs.protobuf }}
       scripts: ${{ steps.filter.outputs.scripts }}
       site_common: ${{ steps.filter.outputs.site_common }}
@@ -120,6 +121,7 @@ jobs:
     with:
       coverage_flag: alamos-ts
       directory: alamos/ts
+      knip: true
       package: alamos
     secrets: inherit
 
@@ -290,6 +292,7 @@ jobs:
     with:
       coverage_flag: drift
       directory: drift
+      knip: true
       package: drift
     secrets: inherit
 
@@ -372,6 +375,7 @@ jobs:
       coverage_flag: freighter-ts
       directory: freighter/ts
       freighter_image: ghcr.io/synnaxlabs/freighter-go-integration:${{ github.sha }}
+      knip: true
       package: freighter
     secrets: inherit
 
@@ -403,6 +407,7 @@ jobs:
     with:
       coverage_flag: lyra
       directory: lyra
+      knip: true
       package: lyra
     secrets: inherit
 
@@ -412,6 +417,7 @@ jobs:
     uses: ./.github/workflows/test.ts.yaml
     with:
       directory: x/media
+      knip: true
       package: media
       test: false
     secrets: inherit
@@ -453,6 +459,16 @@ jobs:
       knip: true
       package: pluto
       test_args: -- --no-file-parallelism
+    secrets: inherit
+
+  portal:
+    needs: changes
+    if: needs.changes.outputs.portal == 'true'
+    uses: ./.github/workflows/test.ts.yaml
+    with:
+      coverage_flag: portal
+      directory: site/portal
+      package: portal
     secrets: inherit
 
   protobuf:
@@ -627,6 +643,7 @@ jobs:
       - oracle-check
       - oracle-language
       - pluto
+      - portal
       - protobuf
       - scripts
       - site-common
