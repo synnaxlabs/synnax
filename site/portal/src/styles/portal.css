@@ -125,6 +125,11 @@
     gap: 1.5rem;
 }
 
+/* A long name truncates before the tag shrinks. */
+.portal-scope__tag {
+    flex-shrink: 0;
+}
+
 /* Phones scroll the tab row sideways instead of wrapping it. */
 .portal-tabs {
     display: flex;

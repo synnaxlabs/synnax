@@ -11,13 +11,22 @@ import { Avatar } from "@synnaxlabs/lyra/avatar";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
+import { Tag } from "@synnaxlabs/lyra/tag";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useCallback } from "react";
 
 export interface ScopeOption {
   key: string;
   name: string;
+  /** personal is true for the user's own organization, which the switcher tags. */
+  personal: boolean;
 }
+
+const PersonalTag = (): ReactElement => (
+  <Tag.Tag size="small" className="portal-scope__tag">
+    Personal
+  </Tag.Tag>
+);
 
 export interface ScopeProps {
   /** options are the scopes the user can act for, personal first. */
@@ -39,6 +48,7 @@ export const Scope = ({ options, selected }: ScopeProps): ReactElement => {
       <Text.Text level="p" weight={500} overflow="ellipsis">
         {selected.name}
       </Text.Text>
+      {selected.personal && <PersonalTag />}
     </>
   );
   if (options.length === 1) return <span className="portal-scope">{label}</span>;
@@ -63,6 +73,7 @@ export const Scope = ({ options, selected }: ScopeProps): ReactElement => {
                 <Text.Text level="p" overflow="ellipsis">
                   {o.name}
                 </Text.Text>
+                {o.personal && <PersonalTag />}
               </Select.Item>
             ))}
           </Select.List>

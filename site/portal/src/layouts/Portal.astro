@@ -32,6 +32,7 @@ const { title, session, organizations, scope, tab } = Astro.props;
 const option = (o: Organization) => ({
     key: o.key,
     name: o.kind === "personal" ? session.name : o.name,
+    personal: o.kind === "personal",
 });
 ---
 
