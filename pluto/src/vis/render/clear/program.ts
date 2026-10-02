@@ -18,10 +18,10 @@ const POSITIONS = new Float32Array([0, 0, 0, 0, 0, 0]);
 
 /**
  * You may be wondering, why does this program that draws a colorless, zero-footprint
- * triangle exist? It turns out that the WeBGL implementation on windows doesn't actually
- * clear a scissored region of the screen when you call `gl.clear`, you actually need
- * to make a draw call to replace what's currently in the framebuffer. This is a
- * workaround that does exactly that.
+ * triangle exist? It turns out that the WeBGL implementation on windows doesn't
+ * actually clear a scissored region of the screen when you call `gl.clear`, you
+ * actually need to make a draw call to replace what's currently in the framebuffer.
+ * This is a workaround that does exactly that.
  */
 export class Program extends GLProgram {
   private readonly vao: WebGLVertexArrayObject;
