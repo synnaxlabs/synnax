@@ -141,18 +141,12 @@ export class Feed {
 
   /**
    * Reads the latest stored sample of the given channel, in the representation the
-   * cache serves, batched per window and reused while streamed until a write or flush.
+   * cache serves. Reads within one batch window share a single request.
    * @throws {UnexpectedError} if the feed is closed while the read is pending.
    */
   async readLatest(key: channel.Key): Promise<MultiSeries> {
     if (this.closed) throw new UnexpectedError("telemetry feed is closed");
-    const entry = this.cache.get(key);
-    const stored = entry.latest;
-    if (stored != null) return stored;
-    const version = entry.version;
-    const latest = await this.latest.enqueue(key);
-    if (this.streamer.live(key)) entry.storeLatest(latest, version);
-    return latest;
+    return await this.latest.enqueue(key);
   }
 
   /** Closes the feed, releasing the stream and all cached buffers. */

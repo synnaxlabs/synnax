@@ -18,7 +18,6 @@ import {
   type Series,
   sync,
   TimeSpan,
-  type TimeStamp,
 } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
@@ -60,8 +59,6 @@ export interface Subscription {
   status: (key: channel.Key) => status.Status;
   /** Registers a handler for status transitions on the subscription's keys. */
   onStatusChange: (handler: StatusHandler) => destructor.Destructor;
-  /** @returns the end of the last stamped write streamed for the key, else null. */
-  lastWrite: (key: channel.Key) => TimeStamp | null;
 }
 
 interface Entry {
@@ -188,15 +185,7 @@ export class MultiplexedStreamer {
         entry.statusHandlers.add(statusHandler);
         return () => entry.statusHandlers.delete(statusHandler);
       },
-      lastWrite: (key) => cache.get(key).lastWrite,
     };
-  }
-
-  /** @returns whether the key is on a connected stream. */
-  live(key: channel.Key): boolean {
-    return (
-      this.sentKeys.has(key) && this.statuses.get(key)?.variant === STREAMING.variant
-    );
   }
 
   async close(): Promise<void> {

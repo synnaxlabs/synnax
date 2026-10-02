@@ -7,12 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  MultiSeries,
-  type Series,
-  type TimeRange,
-  type TimeStamp,
-} from "@synnaxlabs/x";
+import { MultiSeries, type Series, type TimeRange } from "@synnaxlabs/x";
 
 import { UnexpectedError } from "@/errors";
 import { Dynamic, type DynamicProps } from "@/framer/cache/dynamic";
@@ -35,8 +30,6 @@ export class Unary {
   private closed: boolean = false;
   private readonly static: Static;
   private readonly dynamic: Dynamic;
-  private version_ = 0;
-  private latestStored: MultiSeries | null = null;
 
   constructor(props: UnaryProps) {
     this.static = new Static(props);
@@ -49,7 +42,6 @@ export class Unary {
 
   writeDynamic(series: MultiSeries): MultiSeries {
     this.checkOpen("writeDynamic");
-    this.invalidate();
     const { flushed, allocated } = this.dynamic.write(series);
     // Flushed buffers stay streamed until a fetch replaces them.
     if (flushed.length > 0) this.static.write(flushed, true);
@@ -61,30 +53,6 @@ export class Unary {
     return this.dynamic.leadingBuffer;
   }
 
-  /** @returns the end of the last stamped write into the leading buffer, else null. */
-  get lastWrite(): TimeStamp | null {
-    this.checkOpen("lastWrite");
-    return this.dynamic.lastWrite;
-  }
-
-  /** @returns a number that changes on every live write and flush. */
-  get version(): number {
-    this.checkOpen("version");
-    return this.version_;
-  }
-
-  /** @returns the latest read stored since the last write or flush, else null. */
-  get latest(): MultiSeries | null {
-    this.checkOpen("latest");
-    return this.latestStored;
-  }
-
-  /** Stores the latest read unless version has changed. */
-  storeLatest(series: MultiSeries, version: number): void {
-    this.checkOpen("storeLatest");
-    if (version === this.version_) this.latestStored = series;
-  }
-
   /**
    * Flushes the live leading buffer into the static cache with its real end time,
    * so reads treat the span after it as a gap to fetch. Call when streaming for
@@ -92,7 +60,6 @@ export class Unary {
    */
   flushDynamic(): void {
     this.checkOpen("flushDynamic");
-    this.invalidate();
     const flushed = this.dynamic.flush();
     if (flushed != null && flushed.length > 0)
       this.static.write(new MultiSeries([flushed]), true);
@@ -139,12 +106,6 @@ export class Unary {
     this.closed = true;
     this.dynamic.close();
     this.static.close();
-  }
-
-  // Drops the stored read and moves the version past any read still in flight.
-  private invalidate(): void {
-    this.version_++;
-    this.latestStored = null;
   }
 
   private checkOpen(op: string): void {

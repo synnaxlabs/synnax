@@ -12,9 +12,7 @@ import "@/schematic/Tooltip.css";
 import { channel } from "@synnaxlabs/client";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Tooltip as Base } from "@synnaxlabs/lyra/tooltip";
@@ -23,7 +21,6 @@ import { type ReactElement, type ReactNode, useEffect, useState } from "react";
 
 import { Channel } from "@/channel";
 import { Node } from "@/schematic/node";
-import { LatestSample } from "@/vis/latestSample";
 import { Staleness } from "@/vis/staleness";
 
 export interface TooltipProps {
@@ -44,9 +41,6 @@ const CHANNEL_ROWS: { field: Field; icon: Icon.FC }[] = [
   { field: "commandChannel", icon: Icon.Control },
 ];
 
-// Channels the symbol already streams come first, so the row adds no subscription.
-const LAST_WRITE_ORDER: Field[] = ["stateChannel", "channel", "commandChannel"];
-
 const FIELD_ROWS: { field: Field; label?: string; unit?: string }[] = [
   { field: "mode" },
   { field: "normallyOpen" },
@@ -56,13 +50,11 @@ const FIELD_ROWS: { field: Field; label?: string; unit?: string }[] = [
 ];
 
 const kindIcon = (ch: channel.Channel): Icon.FC | null => {
+  if (ch.isIndex) return Icon.Time;
   if (channel.isCalculated(ch.payload)) return Icon.Calculation;
   if (ch.virtual) return Icon.Virtual;
   return null;
 };
-
-const hasLastWrite = (ch: channel.Channel): boolean =>
-  (ch.isIndex || !primitive.isZero(ch.index)) && !channel.isCalculated(ch.payload);
 
 interface RowProps {
   label: ReactNode;
@@ -86,32 +78,6 @@ const Row = ({ label, value, color, className }: RowProps): ReactElement => (
     </Text.Text>
   </>
 );
-
-interface LastWriteProps {
-  channel: channel.Key;
-}
-
-// Mounted only once the tooltip shows, so a mouse sweep creates no worker component.
-const LastWrite = ({ channel }: LastWriteProps): ReactElement => {
-  const time = LatestSample.use({ channel });
-  const since = Telem.Text.useTimeSpanSince(time ?? 0).toString("semantic");
-  // Two spaces stand in for the "< " prefix, so the width holds past the first second.
-  const age = since.startsWith("<") ? since : `\u00a0\u00a0${since}`;
-  return (
-    <Flex.Box x justify="between" className={CSS.BE("schematic-tooltip", "last-write")}>
-      <Row
-        className={CSS.BE("schematic-tooltip", "field")}
-        label={
-          <>
-            <Icon.TimeOutline />
-            Last sample
-          </>
-        }
-        value={time == null ? undefined : `${age} ago`}
-      />
-    </Flex.Box>
-  );
-};
 
 /** Shows a symbol's configuration beside its element. */
 export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null => {
@@ -137,9 +103,6 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
   const { data } = Channel.useResultMultiple(
     visible && keys.length > 0 ? { keys } : null,
   );
-  const followed = LAST_WRITE_ORDER.map((field) =>
-    data?.find((c) => c.key === values[field]),
-  ).find((c) => c != null && hasLastWrite(c));
   if (!visible || (keys.length > 0 && data == null)) return null;
   const channels = CHANNEL_ROWS.flatMap(({ field, icon: RoleIcon }) => {
     const ch = data?.find((c) => c.key === values[field]);
@@ -183,10 +146,7 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
       />
     );
   });
-  const divider = (
-    <Divider.Divider x className={CSS.BE("schematic-tooltip", "divider")} />
-  );
-  if (channels.length + fields.length === 0 && followed == null) return null;
+  if (channels.length + fields.length === 0) return null;
   return (
     <Base.Frame
       anchor={anchor}
@@ -194,14 +154,10 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
       className={CSS.B("schematic-tooltip")}
     >
       {channels}
-      {channels.length > 0 && fields.length > 0 && divider}
-      {fields}
-      {followed != null && (
-        <>
-          {channels.length + fields.length > 0 && divider}
-          <LastWrite key={followed.key} channel={followed.key} />
-        </>
+      {channels.length > 0 && fields.length > 0 && (
+        <Divider.Divider x className={CSS.BE("schematic-tooltip", "divider")} />
       )}
+      {fields}
     </Base.Frame>
   );
 };

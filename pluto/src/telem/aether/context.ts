@@ -106,10 +106,6 @@ export class MemoizedSource<V, S extends Source<V> = Source<V>> extends Memoized
     return this.wrapped.sampleTime?.() ?? null;
   }
 
-  lastWrite(): TimeStamp | null {
-    return this.wrapped.lastWrite?.() ?? null;
-  }
-
   cleanup(): void {
     this.wrapped.cleanup?.();
   }

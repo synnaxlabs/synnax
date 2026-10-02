@@ -15,10 +15,6 @@
     column-gap: 2rem;
 }
 
-.pluto-schematic-tooltip__last-write {
-    grid-column: 1 / -1;
-}
-
 .pluto-schematic-tooltip__divider {
     grid-column: 1 / -1;
     margin: 1rem 0;

@@ -493,66 +493,6 @@ describe("MultiplexedStreamer", () => {
     });
   });
 
-  describe("lastWrite", () => {
-    const stampedFrame = (): Frame =>
-      new Frame({
-        1: new Series({
-          data: new Float32Array([1]),
-          timeRange: TimeStamp.seconds(10).range(TimeStamp.seconds(11)),
-          alignment: 0n,
-        }),
-      });
-
-    it("should be null before any frame lands", async () => {
-      const streamer = new MultiplexedStreamer({
-        cache: new Cache(),
-        openStreamer: createStreamOpener([pendingStreamer([1])]),
-      });
-      const sub = streamer.stream(() => {}, [1]);
-      expect(sub.lastWrite(1)).toBeNull();
-      await streamer.close();
-    });
-
-    it("should be the end of the last stamped frame for the key", async () => {
-      const streamer = new MultiplexedStreamer({
-        cache: new Cache(),
-        openStreamer: createStreamOpener([oneFrameStreamer([1], stampedFrame())]),
-      });
-      const sub = streamer.stream(() => {}, [1]);
-      await vi.advanceTimersByTimeAsync(200);
-      expect(sub.lastWrite(1)).toEqual(TimeStamp.seconds(11));
-      await streamer.close();
-    });
-
-    it("should be null for a key whose frames carry no time range", async () => {
-      const frame = new Frame({ 1: new Series({ data: new Float32Array([1]) }) });
-      const streamer = new MultiplexedStreamer({
-        cache: new Cache(),
-        openStreamer: createStreamOpener([oneFrameStreamer([1], frame)]),
-      });
-      const sub = streamer.stream(() => {}, [1]);
-      await vi.advanceTimersByTimeAsync(200);
-      expect(sub.lastWrite(1)).toBeNull();
-      await streamer.close();
-    });
-
-    // A dropped stream flushes its buffers, so the stamp stops claiming a live write.
-    it("should be null again once the stream drops", async () => {
-      const dying = oneFrameStreamer([1], stampedFrame());
-      const streamer = new MultiplexedStreamer({
-        cache: new Cache(),
-        openStreamer: createStreamOpener([dying, pendingStreamer([1])]),
-      });
-      const sub = streamer.stream(() => {}, [1]);
-      await vi.advanceTimersByTimeAsync(200);
-      expect(sub.lastWrite(1)).not.toBeNull();
-      dying.close();
-      await vi.advanceTimersByTimeAsync(200);
-      expect(sub.lastWrite(1)).toBeNull();
-      await streamer.close();
-    });
-  });
-
   describe("subscriber isolation", () => {
     it("should keep the stream alive when a handler throws on live delivery", async () => {
       let i = 0;
@@ -645,64 +585,6 @@ describe("MultiplexedStreamer", () => {
       expect(sub.status(1).variant).toEqual("error");
       expect(sub.status(2).variant).toEqual("success");
       sub.close();
-    });
-  });
-
-  describe("live", () => {
-    it("should be false until the key is on the stream", async () => {
-      const streamer = new MultiplexedStreamer({
-        cache: new Cache(),
-        openStreamer: createStreamOpener([pendingStreamer([1])]),
-      });
-      const sub = streamer.stream(() => {}, [1]);
-      expect(streamer.live(1)).toBe(false);
-      await vi.advanceTimersByTimeAsync(200);
-      expect(streamer.live(1)).toBe(true);
-      sub.close();
-      await streamer.close();
-    });
-
-    it("should be false for a key nobody demands", async () => {
-      const streamer = new MultiplexedStreamer({
-        cache: new Cache(),
-        openStreamer: createStreamOpener([pendingStreamer([1])]),
-      });
-      const sub = streamer.stream(() => {}, [1]);
-      await vi.advanceTimersByTimeAsync(200);
-      expect(streamer.live(2)).toBe(false);
-      sub.close();
-      await streamer.close();
-    });
-
-    it("should be false while the stream is reconnecting", async () => {
-      const hooks: StreamHooks[] = [];
-      const streamer = new MultiplexedStreamer({
-        cache: new Cache(),
-        openStreamer: createStreamOpener([pendingStreamer([1])], hooks),
-      });
-      const sub = streamer.stream(() => {}, [1]);
-      await vi.advanceTimersByTimeAsync(200);
-      hooks[0].onDrop(new Error("conn lost"));
-      expect(streamer.live(1)).toBe(false);
-      hooks[0].onReopen();
-      expect(streamer.live(1)).toBe(true);
-      sub.close();
-      await streamer.close();
-    });
-
-    it("should be false once the key's demand ends", async () => {
-      const streamer = new MultiplexedStreamer({
-        cache: new Cache(),
-        openStreamer: createStreamOpener([pendingStreamer([1])]),
-        removalDelay: TimeSpan.milliseconds(50),
-      });
-      const sub = streamer.stream(() => {}, [1]);
-      await vi.advanceTimersByTimeAsync(200);
-      expect(streamer.live(1)).toBe(true);
-      sub.close();
-      await vi.advanceTimersByTimeAsync(300);
-      expect(streamer.live(1)).toBe(false);
-      await streamer.close();
     });
   });
 

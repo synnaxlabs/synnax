@@ -21,13 +21,11 @@ describe("MemoizedSource", () => {
   const stub = (
     loading?: () => boolean,
     sampleTime?: () => TimeStamp | null,
-    lastWrite?: () => TimeStamp | null,
   ): Source<number> => ({
     value: () => 1,
     onChange: () => () => {},
     loading,
     sampleTime,
-    lastWrite,
   });
 
   describe("sampleTime", () => {
@@ -44,23 +42,6 @@ describe("MemoizedSource", () => {
     it("should default to null when the wrapped source lacks sampleTime", () => {
       const source = new MemoizedSource(stub(), provider(), fixedNumber(1));
       expect(source.sampleTime()).toBeNull();
-    });
-  });
-
-  describe("lastWrite", () => {
-    it("should forward lastWrite from the wrapped source", () => {
-      const at = TimeStamp.seconds(5);
-      const source = new MemoizedSource(
-        stub(undefined, undefined, () => at),
-        provider(),
-        fixedNumber(1),
-      );
-      expect(source.lastWrite()).toBe(at);
-    });
-
-    it("should default to null when the wrapped source lacks lastWrite", () => {
-      const source = new MemoizedSource(stub(), provider(), fixedNumber(1));
-      expect(source.lastWrite()).toBeNull();
     });
   });
 
