@@ -113,7 +113,12 @@ func (s *Series) validateVariable() error {
 			)
 		}
 		sample := s.Data[offset : offset+length]
-		if s.DataType == JSONT && !jsontext.Value(sample).IsValid() {
+		// Cores up to v0.58 accepted lone surrogate escapes, which Python and
+		// JavaScript emit, invalid UTF-8, and duplicate names.
+		if s.DataType == JSONT && !jsontext.Value(sample).IsValid(
+			jsontext.AllowInvalidUTF8(true),
+			jsontext.AllowDuplicateNames(true),
+		) {
 			return errors.Wrapf(
 				validate.ErrValidation,
 				"sample %q is not valid JSON",

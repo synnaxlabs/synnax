@@ -583,6 +583,45 @@ var _ = Describe("Composition migrations", func() {
 		},
 	)
 
+	It(
+		"Should convert the Arc editor tabs of a v0.50 Console into Arc resource tabs",
+		func(ctx SpecContext) {
+			db := DeferClose(gorp.Wrap(memkv.New()))
+			arcKey := uuid.New().String()
+			seedResources(
+				ctx,
+				db,
+				ontology.ID{Type: ontology.ResourceTypeArc, Key: arcKey},
+			)
+			stageLayout(ctx, db, project.Project{
+				Key:  uuid.New(),
+				Name: "Ops",
+				Layout: msgpack.EncodedJSON{
+					"mosaics": map[string]any{
+						"main": map[string]any{
+							"root": map[string]any{
+								"key":  1,
+								"tabs": []any{mosaicTab(arcKey)},
+							},
+						},
+					},
+					"layouts": map[string]any{
+						arcKey: vizLayout(arcKey, "arc_editor"),
+					},
+				},
+			})
+			openPanelTable(ctx, db)
+			runComposition(ctx, db)
+			panels := collectPanels(ctx, db)
+			Expect(panels).To(HaveLen(1))
+			root := panels[0].Root
+			zeroTabKeys(&root)
+			Expect(root).To(Equal(
+				*leaf(resourceTab(ontology.ResourceTypeArc, arcKey)),
+			))
+		},
+	)
+
 	// Regression: app views (explorers, selectors) have no backing document but the
 	// current Console renders them as panel view tabs, so they must convert instead
 	// of being dropped.

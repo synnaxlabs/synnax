@@ -1,0 +1,46 @@
+{
+  "auto_start": false,
+  "channels": [
+    {
+      "channel": 3113,
+      "custom_scale": {
+        "type": "none"
+      },
+      "decoding_type": "X4",
+      "device": "fixture-ni-py-ctr-dev",
+      "disabled": false,
+      "dist_per_pulse": 0.04,
+      "key": "ch-py-ci-velocity-linear",
+      "max_val": 40,
+      "min_val": 0,
+      "name": "",
+      "port": 0,
+      "terminal_a": "/Dev1/PFI0",
+      "terminal_b": "/Dev1/PFI1",
+      "type": "ci_velocity_linear",
+      "units": "in/s"
+    },
+    {
+      "channel": 3114,
+      "custom_scale": {
+        "type": "none"
+      },
+      "decoding_type": "X2",
+      "device": "fixture-ni-py-ctr-dev",
+      "disabled": false,
+      "key": "ch-py-ci-velocity-angular",
+      "max_val": 3600,
+      "min_val": 0,
+      "name": "",
+      "port": 1,
+      "pulses_per_rev": 1024,
+      "terminal_a": "/Dev1/PFI2",
+      "terminal_b": "/Dev1/PFI3",
+      "type": "ci_velocity_angular",
+      "units": "Degrees/s"
+    }
+  ],
+  "data_saving_disabled": false,
+  "sample_rate": 50,
+  "stream_rate": 10
+}

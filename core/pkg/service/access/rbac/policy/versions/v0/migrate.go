@@ -38,7 +38,7 @@ type LegacyUserMapping struct {
 var Migration = gorp.NewMigration(
 	"v0.policy_conversion",
 	func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
-		migrated, err := alreadyMigrated(ctx, tx)
+		migrated, err := AlreadyMigrated(ctx, tx)
 		if migrated || err != nil {
 			return err
 		}
@@ -82,15 +82,15 @@ var Migration = gorp.NewMigration(
 	},
 )
 
-func alreadyMigrated(ctx context.Context, tx gorp.Tx) (bool, error) {
+// AlreadyMigrated reports whether a Core up to v0.53 already converted the store's
+// legacy permissions to roles.
+func AlreadyMigrated(ctx context.Context, tx gorp.Tx) (bool, error) {
 	performed, closer, err := tx.Get(ctx, []byte("sy_rbac_migration_performed"))
 	if err != nil {
 		return false, errors.Skip(err, query.ErrNotFound)
 	}
-	if err = closer.Close(); err != nil {
-		return false, err
-	}
-	return string(performed) == string([]byte{1}), nil
+	migrated := string(performed) == string([]byte{1})
+	return migrated, closer.Close()
 }
 
 func buildUserMappings(legacyPolicies []Policy) []LegacyUserMapping {
@@ -125,17 +125,15 @@ func ReadLegacyMappings(ctx context.Context, tx gorp.Tx) ([]LegacyUserMapping, e
 		}
 		return nil, err
 	}
-	if err = closer.Close(); err != nil {
-		return nil, err
-	}
 	if len(mappingBytes) == 0 {
-		return nil, nil
+		return nil, closer.Close()
 	}
 	var mappings []LegacyUserMapping
 	if err = json.Unmarshal(mappingBytes, &mappings); err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal legacy permission mapping")
+		err = errors.Wrap(err, "failed to unmarshal legacy permission mapping")
+		return nil, errors.Combine(err, closer.Close())
 	}
-	return mappings, nil
+	return mappings, closer.Close()
 }
 
 // DeleteLegacyMappings removes the persisted legacy permission mapping from KV.

@@ -117,6 +117,17 @@ var _ = Describe("Series", func() {
 				Expect(s.Validate()).Error().To(MatchError(validate.ErrValidation))
 			})
 
+			DescribeTable("Should accept the samples a v0.58 Core accepted",
+				func(sample []byte) {
+					data := telem.MarshalVariableSample(sample)
+					s := telem.Series{DataType: telem.JSONT, Data: data}
+					Expect(s.Validate()).To(Succeed())
+				},
+				Entry("a lone surrogate escape", []byte(`{"msg":"tank \ud83d"}`)),
+				Entry("invalid UTF-8", []byte("{\"msg\":\"\xff\"}")),
+				Entry("a duplicate name", []byte(`{"a":1,"a":2}`)),
+			)
+
 			It("Should accept valid JSON primitives", func() {
 				data := telem.MarshalVariableSample([]byte(`42`))
 				data = append(data, telem.MarshalVariableSample([]byte(`"hello"`))...)

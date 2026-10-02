@@ -16,6 +16,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v0"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v2"
 	"github.com/synnaxlabs/x/color"
@@ -25,6 +26,9 @@ import (
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 // loadV55 reads a stored log body fixture and wraps it in the v0 snapshot shape that
@@ -204,25 +208,47 @@ var _ = Describe("MigrateLog", func() {
 		},
 	)
 
+	It("Should reject a data blob it cannot decode", func(ctx SpecContext) {
+		old := v0.Log{
+			Key:  uuid.New(),
+			Name: "unparseable",
+			Data: map[string]any{
+				"version": "1.0.0",
+				"channels": []any{
+					map[string]any{"channel": "not-a-number"},
+				},
+			},
+		}
+		Expect(v2.MigrateLog(ctx, old)).Error().To(MatchError(ContainSubstring(
+			"cannot unmarshal JSON string into Go channel.Key",
+		)))
+	})
+
 	It(
-		"Should drop the body and keep Key+Name when the data blob is unparseable",
+		"Should round down a fractional precision typed in an older Console",
 		func(ctx SpecContext) {
-			// channel is required + must coerce to uint32; a string here can't recover
-			// via lenient enum parsing, so the catch-all in MigrateLog drops the body.
 			old := v0.Log{
 				Key:  uuid.New(),
-				Name: "unparseable",
+				Name: "fractional",
 				Data: map[string]any{
-					"version": "1.0.0",
+					"version":            "1.0.0",
+					"timestampPrecision": 2.5,
+					"showChannelNames":   false,
 					"channels": []any{
-						map[string]any{"channel": "not-a-number"},
+						map[string]any{
+							"channel":   4,
+							"alias":     "pres",
+							"precision": 2.5,
+						},
 					},
 				},
 			}
 			out := MustSucceed(v2.MigrateLog(ctx, old))
-			Expect(out.Key).To(Equal(old.Key))
-			Expect(out.Name).To(Equal("unparseable"))
-			Expect(out.Channels).To(BeEmpty())
+			Expect(out.Channels).To(HaveLen(1))
+			Expect(out.Channels[0].Alias).To(Equal("pres"))
+			Expect(out.Channels[0].Precision).To(BeEquivalentTo(2))
+			Expect(out.TimestampPrecision).To(BeEquivalentTo(2))
+			Expect(out.ChannelNamesHidden).To(BeTrue())
 		},
 	)
 
@@ -274,23 +300,20 @@ var _ = Describe("MigrateLog", func() {
 		)
 
 		DescribeTable(
-			"Should keep Key and Name but yield no channels for an undecodable body",
-			func(ctx SpecContext, path, name string) {
-				old := loadV55(path)
-				out := MustSucceed(v2.MigrateLog(ctx, old))
-				Expect(out.Key).To(Equal(old.Key))
-				Expect(out.Name).To(Equal(name))
-				Expect(out.Channels).To(BeEmpty())
+			"Should reject an undecodable body",
+			func(ctx SpecContext, path, msg string) {
+				Expect(v2.MigrateLog(ctx, loadV55(path))).Error().
+					To(MatchError(ContainSubstring(msg)))
 			},
 			Entry(
 				"channels stored as a non-array",
 				"../testdata/import_bad_data.json",
-				"Bad Data",
+				"cannot unmarshal JSON string into Go []v1.ChannelEntry",
 			),
 			Entry(
 				"unsupported version stamp",
 				"../testdata/import_bad_version.json",
-				"Bad Version",
+				"unknown log data version",
 			),
 		)
 	})
@@ -338,5 +361,43 @@ var _ = Describe("MigrateLog", func() {
 				Expect(got.ReceiptTimestampHidden).To(BeFalse())
 			},
 		)
+	})
+})
+
+var _ = Describe("Migration", func() {
+	It("Should keep a stored log with an undecodable body and log it", func(
+		ctx SpecContext,
+	) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		seed := v0.Log{
+			Key:  uuid.New(),
+			Name: "unparseable",
+			Data: map[string]any{
+				"version":  "1.0.0",
+				"channels": []any{map[string]any{"channel": "not-a-number"}},
+			},
+		}
+		MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Log]{DB: db}))
+		Expect(gorp.NewCreate[v0.Key, v0.Log]().Entry(&seed).Exec(ctx, db)).
+			To(Succeed())
+		core, logs := observer.New(zapcore.WarnLevel)
+		logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+			ZapLogger: zap.New(core),
+		}))
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+			DB:              db,
+			Namespace:       "Log",
+			Migrations:      []migrate.Migration{v0.Migration, v2.Migration},
+		})).To(Succeed())
+		var got v2.Log
+		Expect(gorp.NewRetrieve[v2.Key, v2.Log]().
+			Where(gorp.MatchKeys[v2.Key, v2.Log](seed.Key)).
+			Entry(&got).Exec(ctx, db)).To(Succeed())
+		Expect(got.Name).To(Equal("unparseable"))
+		Expect(got.Channels).To(BeEmpty())
+		dropped := logs.FilterMessage("dropped a log body that does not decode").All()
+		Expect(dropped).To(HaveLen(1))
+		Expect(dropped[0].ContextMap()).To(HaveKeyWithValue("log", seed.Key.String()))
 	})
 })

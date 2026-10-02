@@ -97,7 +97,7 @@ tsk = sy.ni.CounterReadTask(
             port=1,
             # Edge to count on (Rising or Falling)
             active_edge="Rising",
-            # Count direction (CountUp, CountDown, or ExtControlled)
+            # Count direction (CountUp, CountDown, or ExternallyControlled)
             count_direction="CountUp",
             # Initial count value
             initial_count=0,

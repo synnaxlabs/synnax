@@ -71,6 +71,7 @@ const makeAdapter = (
   snapshot: Snapshot<Node, Edge> | null,
 ): ClipboardAdapter<Node, Edge> => ({
   mime: MIME,
+  version: 1,
   edgeKey,
   getSnapshot: () => snapshot,
   apply: vi.fn(),

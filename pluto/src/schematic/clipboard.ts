@@ -20,6 +20,8 @@ import { Diagram } from "@/vis/diagram";
 // The "web " prefix is required: Chrome silently drops custom MIME types from
 // the clipboard without it.
 const MIME = "web application/synnax-schematic+json";
+// Version 1 payloads hold the untyped configs of a v0.58 Console.
+const VERSION = 2;
 
 export interface UseClipboardParams {
   selected?: string[];
@@ -43,6 +45,7 @@ export const useClipboard = ({
     schematic.ElementConfig
   > = {
     mime: MIME,
+    version: VERSION,
     edgeKey: (edge) => edge.key,
     getSnapshot: () => {
       const cached = client?.schematics.getCached(key);

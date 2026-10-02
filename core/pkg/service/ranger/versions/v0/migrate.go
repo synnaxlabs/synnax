@@ -40,6 +40,9 @@ func newMigration(cfg MigrationConfig) migrate.Migration {
 	return gorp.NewMigration(
 		"range_groups_1",
 		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) (err error) {
+			if migrated, err := alreadyMigrated(ctx, tx); err != nil || migrated {
+				return err
+			}
 			ins.L.Debug("swapping invalid time ranges")
 			var (
 				writer = gorp.WrapWriter[Key, Range](tx)
@@ -190,6 +193,16 @@ func newMigration(cfg MigrationConfig) migrate.Migration {
 			return nil
 		},
 	)
+}
+
+// alreadyMigrated reports whether a Core up to v0.53 already folded the store's legacy
+// range groups. A group named "Ranges" on such a store belongs to the user.
+func alreadyMigrated(ctx context.Context, tx gorp.Tx) (bool, error) {
+	_, closer, err := tx.Get(ctx, []byte("sy_ranger_migration_performed"))
+	if err != nil {
+		return false, errors.Skip(err, query.ErrNotFound)
+	}
+	return true, closer.Close()
 }
 
 // codecMigration re-encodes stored ranges from MessagePack to the Orc value-color

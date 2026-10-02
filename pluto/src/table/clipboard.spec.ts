@@ -114,7 +114,7 @@ describe("table clipboard", () => {
         version: number;
         cells: Array<{ row: number; col: number; config: table.CellConfig }>;
       };
-      expect(payload.version).toEqual(1);
+      expect(payload.version).toEqual(2);
       const positions = new Map(
         payload.cells.map((c) => [`${c.row},${c.col}`, c.config.variant]),
       );
@@ -150,7 +150,7 @@ describe("table clipboard", () => {
       const { result } = await loadAndUse(created.key, ["a"]);
       await waitFor(() => expect(result.current.retrieve).toBeDefined());
       const payload = {
-        version: 1,
+        version: 2,
         cells: [
           { row: 0, col: 0, config: valueCfg("X") },
           { row: 0, col: 1, config: valueCfg("Y") },
@@ -171,7 +171,7 @@ describe("table clipboard", () => {
       const { result } = await loadAndUse(created.key, ["c"]);
       await waitFor(() => expect(result.current.retrieve).toBeDefined());
       const payload = {
-        version: 1,
+        version: 2,
         cells: [
           { row: 0, col: 0, config: textCfg("P") },
           { row: 0, col: 1, config: textCfg("Q") },
@@ -191,7 +191,7 @@ describe("table clipboard", () => {
       const { result } = await loadAndUse(created.key, ["g"]);
       await waitFor(() => expect(result.current.retrieve).toBeDefined());
       const payload = {
-        version: 1,
+        version: 2,
         cells: [
           { row: 0, col: 0, config: textCfg("P") },
           { row: 1, col: 0, config: textCfg("Q") },
@@ -210,7 +210,7 @@ describe("table clipboard", () => {
       const { result } = await loadAndUse(created.key, ["i"]);
       await waitFor(() => expect(result.current.retrieve).toBeDefined());
       const payload = {
-        version: 1,
+        version: 2,
         cells: [
           { row: 0, col: 0, config: valueCfg("X") },
           { row: 1, col: 1, config: valueCfg("Y") },
@@ -229,7 +229,7 @@ describe("table clipboard", () => {
       const { result } = await loadAndUse(created.key, []);
       await waitFor(() => expect(result.current.retrieve).toBeDefined());
       const payload = {
-        version: 1,
+        version: 2,
         cells: [{ row: 0, col: 0, config: valueCfg("X") }],
       };
       const ev = makeClipboardEvent({ [MIME]: JSON.stringify(payload) });
@@ -245,6 +245,34 @@ describe("table clipboard", () => {
       const payload = {
         version: 99,
         cells: [{ row: 0, col: 0, config: valueCfg("X") }],
+      };
+      const ev = makeClipboardEvent({ [MIME]: JSON.stringify(payload) });
+      await act(async () => result.current.clipboard.onPaste(ev));
+      expect(ev.defaultPrevented).toBe(false);
+      expect(result.current.retrieve?.cells.a).toMatchObject(valueCfg("A"));
+    });
+
+    it("is a no-op for a payload copied by a v0.58 Console", async () => {
+      const created = await createTable();
+      const { result } = await loadAndUse(created.key, ["a"]);
+      await waitFor(() => expect(result.current.retrieve).toBeDefined());
+      const payload = {
+        version: 1,
+        cells: [
+          {
+            row: 0,
+            col: 0,
+            variant: "text",
+            props: {
+              value: "X",
+              level: "h5",
+              units: "",
+              weight: 400,
+              align: "center",
+              backgroundColor: "#00000000",
+            },
+          },
+        ],
       };
       const ev = makeClipboardEvent({ [MIME]: JSON.stringify(payload) });
       await act(async () => result.current.clipboard.onPaste(ev));
@@ -272,7 +300,7 @@ describe("table clipboard", () => {
         { wrapper },
       );
       const payload = {
-        version: 1,
+        version: 2,
         cells: [
           { row: 0, col: 0, config: valueCfg("X") },
           { row: 0, col: 1, config: valueCfg("Y") },

@@ -21,20 +21,11 @@ import (
 	"go.uber.org/zap"
 )
 
-// MigrateSchematic lifts a v8 schematic into the v9 shape, decoding its opaque configs
-// into the element config union and filling each one's schema defaults. A config the
-// union rejects is reset to its variant's defaults, or dropped when the variant is
-// unknown: the lift runs unattended over every stored schematic, so one bad entry must
-// not fail it. Prefer ImportSchematic wherever the caller can report the loss.
+// MigrateSchematic lifts a v8 schematic into the v9 shape for an import, filling each
+// config's schema defaults. It keeps no partial result: it wraps validate.ErrValidation
+// naming every node whose config the union rejects.
 func MigrateSchematic(ctx context.Context, old v8.Schematic) (Schematic, error) {
-	out, _, err := lift(ctx, old)
-	return out, err
-}
-
-// ImportSchematic lifts a v8 schematic into the v9 shape for an import, filling each
-// config's schema defaults. Unlike MigrateSchematic it keeps no partial result: it
-// wraps validate.ErrValidation naming every node whose config the union rejects.
-func ImportSchematic(ctx context.Context, old v8.Schematic) (Schematic, error) {
+	v8.NormalizeScales(old)
 	out, losses, err := lift(ctx, old)
 	if err != nil {
 		return Schematic{}, err
@@ -45,8 +36,9 @@ func ImportSchematic(ctx context.Context, old v8.Schematic) (Schematic, error) {
 	return out, nil
 }
 
-// migrateStored is MigrateSchematic for the stored-data migration, which logs every
-// config the lift reset or dropped so a vanished symbol can be traced to its cause.
+// migrateStored lifts a stored v8 schematic. A config the union rejects is reset to its
+// variant's defaults, or dropped when the variant is unknown, so one bad entry cannot
+// fail the upgrade. It logs each loss so a vanished symbol can be traced to its cause.
 func migrateStored(
 	ctx context.Context,
 	old v8.Schematic,
@@ -80,16 +72,12 @@ func lift(
 	ctx context.Context,
 	old v8.Schematic,
 ) (Schematic, map[string]configLoss, error) {
-	// Stored scales were restated by their own migration, but an imported v8 body may
-	// predate it. The restatement is idempotent, so every lift runs it.
-	v8.NormalizeScales(old)
 	out, err := autoMigrateSchematic(ctx, old)
 	if err != nil {
 		return Schematic{}, nil, err
 	}
 	var losses map[string]configLoss
 	out.Configs, losses = typeConfigs(old.Configs)
-	out.ApplyDefaults()
 	return out, losses, nil
 }
 
@@ -105,10 +93,11 @@ type configLoss struct {
 // typeConfigs decodes v8's opaque config entries into the element config union. The
 // entries reach here in the camelCase form the Console wrote verbatim and never
 // validated, so each is normalized to the snake_case wire form and has its stored
-// telem pipelines, legacy page keys, legacy redlines, legacy color names, and zero
-// colors rewritten into the typed shape first. An entry the union rejects is replaced
-// by its variant's zero config when the variant is known and left out otherwise; both
-// are reported in the returned losses.
+// telem pipelines, legacy page keys, legacy redlines, legacy flags, legacy color names,
+// and zero colors rewritten into the typed shape first. Each entry fills the schema
+// defaults of the fields it does not carry. An entry the union rejects is replaced by
+// its variant's defaults when the variant is known and left out otherwise; both are
+// reported in the returned losses.
 func typeConfigs(
 	raw map[string]msgpack.EncodedJSON,
 ) (map[string]ElementConfig, map[string]configLoss) {
@@ -126,11 +115,12 @@ func typeConfigs(
 			extractTelemArgs(normalized)
 			normalizePage(normalized)
 			err = bandRedline(normalized)
+			invertLegacyFlags(normalized)
 			renameColors(normalized)
 			stripZeroColors(map[string]any(normalized))
 		}
 		if err == nil {
-			cfg, err = DecodeElementConfig(normalized)
+			cfg, err = withDefaults(normalized)
 		}
 		if err == nil {
 			out[k] = cfg
@@ -141,9 +131,7 @@ func typeConfigs(
 		}
 		loss := configLoss{err: err}
 		if normalized != nil {
-			cfg, fallbackErr := DecodeElementConfig(
-				msgpack.EncodedJSON{"variant": normalized["variant"]},
-			)
+			cfg, fallbackErr := defaultConfig(normalized)
 			if fallbackErr == nil {
 				out[k] = cfg
 				loss.reset = true

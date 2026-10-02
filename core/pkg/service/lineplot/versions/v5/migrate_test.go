@@ -382,5 +382,23 @@ var _ = Describe("MigrateLinePlot", func() {
 			Expect(out.Lines).To(BeEmpty())
 			Expect(out.Rules).To(BeEmpty())
 		})
+
+		It(
+			"Should round a fractional downsample factor typed in an older Console",
+			func(ctx SpecContext) {
+				blob := loadFixture("v4_full.json")
+				lines := blob["lines"].([]any)
+				for i, factor := range []float64{2.5, 1.4, 7} {
+					lines[i].(map[string]any)["downsample"] = factor
+				}
+				out := migrateSeed(ctx, v0.LinePlot{
+					Key: uuid.New(), Name: "fractional", Data: blob,
+				})
+				Expect(out.Lines).To(HaveLen(3))
+				Expect(out.Lines[0].Downsample).To(BeEquivalentTo(3))
+				Expect(out.Lines[1].Downsample).To(BeEquivalentTo(1))
+				Expect(out.Lines[2].Downsample).To(BeEquivalentTo(7))
+			},
+		)
 	})
 })

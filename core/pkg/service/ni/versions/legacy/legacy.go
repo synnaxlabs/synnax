@@ -27,9 +27,9 @@ const LastVersion imex.Version = 1
 var AnalogRead = legacy.Rewrite{Post: analogRead}
 
 // CounterRead converts the released counter read shape: an optional task-level
-// device the schema no longer stores, a measurement method spelling the Python
-// client wrote on frequency and period channels that the Driver's own table never
-// knew, and a frequency unit NI-DAQmx rejects.
+// device the schema no longer stores, the measurement method, count direction, and
+// velocity unit spellings the Python client wrote, and a frequency unit NI-DAQmx
+// rejects.
 var CounterRead = legacy.Rewrite{Post: func(config msgpack.EncodedJSON) {
 	pushDownDevice(config)
 	legacy.EachChild(config, "channels", func(ch msgpack.EncodedJSON) {
@@ -42,9 +42,27 @@ var CounterRead = legacy.Rewrite{Post: func(config msgpack.EncodedJSON) {
 		if t == "ci_frequency" && ch["units"] == "Seconds" {
 			ch["units"] = "Hz"
 		}
+		// The Driver counted up on the unknown spelling, so the task keeps counting up.
+		if t == "ci_edge_count" && ch["count_direction"] == "ExtControlled" {
+			ch["count_direction"] = "CountUp"
+		}
+		if t == "ci_velocity_linear" {
+			legacy.RemapValue(ch, "units", linearVelocityUnits)
+		}
+		// NI-DAQmx has no plain degrees for an angular velocity. The Python client
+		// offered it where it meant degrees per second.
+		if t == "ci_velocity_angular" && ch["units"] == "Degrees" {
+			ch["units"] = "Degrees/s"
+		}
 		legacy.RenameKey(ch, "z_index_enable", "z_index_enabled")
 	})
 }}
+
+// linearVelocityUnits maps the Python client's linear velocity units onto the schema's.
+var linearVelocityUnits = map[string]string{
+	"MetersPerSecond": "m/s",
+	"InchesPerSecond": "in/s",
+}
 
 // AnalogWrite converts the released analog write shape: channels carried units the
 // schema no longer stores.

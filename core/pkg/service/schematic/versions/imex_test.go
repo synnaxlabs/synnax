@@ -189,6 +189,14 @@ var _ = Describe("DecodeImExEnvelope", func() {
 			To(Equal("Renamed"))
 	})
 
+	It("Should reject a v8 envelope holding a config the union rejects", func(
+		ctx SpecContext,
+	) {
+		Expect(versions.DecodeImExEnvelope(
+			ctx, LoadEnvelope("testdata/import_v8_rejected.json"),
+		)).Error().To(MatchError(ContainSubstring("node n1")))
+	})
+
 	It("Should reject a version newer than Latest", func(ctx SpecContext) {
 		Expect(versions.DecodeImExEnvelope(
 			ctx, LoadEnvelope("testdata/import_bad_version.json"),

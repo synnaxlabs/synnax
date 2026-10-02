@@ -40,7 +40,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/api/view"
 	"github.com/synnaxlabs/synnax/pkg/transport/http/framer"
-	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/zip"
 )
 
@@ -450,7 +449,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 		// IMPORT/EXPORT
 		ImExImport: router.NewUnaryServer[imex.ImportRequest, imex.ImportResponse](
 			"/api/v1/imex/import",
-			http.WithRequestDecoders(json.Codec),
+			http.WithRequestDecoders(imex.ImportCodec),
 		),
 		ImExExport: router.NewUnaryServer[imex.ExportRequest, imex.ExportResponse](
 			"/api/v1/imex/export",

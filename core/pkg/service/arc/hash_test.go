@@ -148,4 +148,38 @@ var _ = Describe("Hash", func() {
 		b := arc.Arc{Mode: arc.ModeGraph}
 		Expect(MustSucceed(arc.Hash(a))).ToNot(Equal(MustSucceed(arc.Hash(b))))
 	})
+
+	// A v0.58.2 Core stamped these hashes into the tasks of rack-bound Arcs. A hash
+	// that drifts from them rewrites every such task on its first edit, even a layout
+	// move.
+	Describe("v0.58.2 stamps", func() {
+		It("Should match the hash a v0.58.2 Core stamped for a graph Arc", func() {
+			a := arc.Arc{
+				Mode: arc.ModeGraph,
+				Graph: graph.Graph{
+					Functions: ir.Functions{},
+					Nodes: graph.Nodes{
+						{Key: "n_on", Position: spatial.XY{X: 10, Y: 20}},
+						{Key: "n_wr", Position: spatial.XY{X: 200, Y: 20}},
+					},
+					Edges: graph.Edges{{
+						Key:    "e1",
+						Source: ir.Handle{Node: "n_on", Param: "output"},
+						Target: ir.Handle{Node: "n_wr", Param: "input"},
+					}},
+					Inputs: map[string]msgpack.EncodedJSON{
+						"n_on": {"channel": 1048584.0, "type": "on"},
+						"n_wr": {"channel": 1048584.0, "type": "write"},
+					},
+				},
+			}
+			Expect(arc.Hash(a)).To(Equal("24d10faac3e8d276"))
+		})
+
+		It("Should match the hash a v0.58.2 Core stamped for a text Arc", func() {
+			Expect(arc.Hash(textArc(
+				"func f(x f32) u8 {\n  return x < 5 && x > 2\n}\n",
+			))).To(Equal("64624b63a2e74829"))
+		})
+	})
 })

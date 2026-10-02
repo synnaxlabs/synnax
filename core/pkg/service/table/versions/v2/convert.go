@@ -184,7 +184,7 @@ func isZeroColor(v any) bool {
 	if err := json.Unmarshal(b, &c); err != nil {
 		return false
 	}
-	return c.IsZero()
+	return c == color.Color{}
 }
 
 // legacyAligns maps the x-location alignment values the pre-typed text cell schema
@@ -215,7 +215,7 @@ func extractLegacyArgs(cfg map[string]any) {
 			cfg["channel"] = ch
 		}
 		if w, ok := segProp(cfg["telem"], "rollingAverage", "windowSize"); ok {
-			cfg["rolling_average"] = w
+			cfg["rolling_average"] = floorWindow(w)
 		}
 		if p, ok := segProp(cfg["telem"], "stringifier", "precision"); ok {
 			cfg["precision"] = truncPrecision(p)
@@ -247,6 +247,19 @@ func truncPrecision(v any) any {
 		return int64(math.Round(t))
 	case float32:
 		return int64(math.Round(float64(t)))
+	}
+	return v
+}
+
+// floorWindow rounds a stored averaging window down to a whole sample count. The
+// Console's numeric input stored a typed fraction unrounded, and its window held the
+// floor of that many samples.
+func floorWindow(v any) any {
+	switch t := v.(type) {
+	case float64:
+		return int64(math.Floor(t))
+	case float32:
+		return int64(math.Floor(float64(t)))
 	}
 	return v
 }

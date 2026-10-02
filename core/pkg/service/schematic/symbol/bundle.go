@@ -252,7 +252,7 @@ func (s *Service) importMember(
 	parent ontology.ID,
 ) error {
 	var env imex.Envelope
-	if err := json.Codec.Decode(ctx, data, &env); err != nil {
+	if err := imex.Codec.Decode(ctx, data, &env); err != nil {
 		return errors.Wrap(err, name)
 	}
 	typ, err := s.cfg.ImEx.ResolveType(env)

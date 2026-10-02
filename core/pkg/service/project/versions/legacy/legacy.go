@@ -77,7 +77,8 @@ var importableTypes = set.New(
 type Member struct {
 	// Path is the member file's path from the bundle root.
 	Path string
-	// Env is the member's decoded envelope, its type resolved to a registration type.
+	// Env is the member's decoded envelope. A typeless or nameless file takes the type
+	// and name of its layout record, which the Console rendered it with.
 	Env imex.Envelope
 	// LayoutKey is the key mosaic tabs reference the member by.
 	LayoutKey string
@@ -88,7 +89,6 @@ type Member struct {
 // validation error.
 func Members(
 	ctx context.Context,
-	svc *imex.Service,
 	layoutData []byte,
 	files zip.Files,
 ) ([]Member, error) {
@@ -110,11 +110,12 @@ func Members(
 		if err := json.Codec.Decode(ctx, files[path], &env); err != nil {
 			return nil, errors.Wrap(err, path)
 		}
-		typ, err := svc.ResolveType(env)
-		if err != nil {
-			return nil, errors.Wrap(err, path)
+		if env.Type == "" {
+			env.Type = l.Type
 		}
-		env.Type = typ
+		if env.Name == "" {
+			env.Name = l.Name
+		}
 		members = append(members, Member{Path: path, Env: env, LayoutKey: key})
 	}
 	return members, nil

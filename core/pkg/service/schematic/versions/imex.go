@@ -93,5 +93,5 @@ func importFromV7(ctx context.Context, old v7.Schematic) (Schematic, error) {
 	if err != nil {
 		return Schematic{}, err
 	}
-	return v9.ImportSchematic(ctx, s8)
+	return v9.MigrateSchematic(ctx, s8)
 }

@@ -931,8 +931,8 @@ var _ = Describe("Legacy import", func() {
 		Expect(childrenOf(ctx, project.OntologyID(proj.Key))).To(BeEmpty())
 	})
 
-	DescribeTable("Should locate a layout's component file",
-		func(ctx SpecContext, fileName string, extra map[string]any, logName string) {
+	DescribeTable("Should name a layout's component file after the layout",
+		func(ctx SpecContext, fileName string, extra map[string]any) {
 			proj := importLegacy(ctx, zip.Files{
 				"LAYOUT.json": legacyLayoutFile(logLayout),
 				fileName:      legacyLogState(extra),
@@ -940,14 +940,13 @@ var _ = Describe("Legacy import", func() {
 			children := childrenOf(ctx, project.OntologyID(proj.Key))
 			Expect(children).To(HaveLen(1))
 			Expect(children[0].ID.Type).To(Equal(ontology.ResourceTypeLog))
-			Expect(children[0].Name).To(Equal(logName))
+			Expect(children[0].Name).To(Equal("Metrics"))
 		},
-		Entry("named after the layout", "Metrics.json", nil, "Metrics"),
-		Entry("named after the layout key", "k1.json", nil, "k1"),
-		Entry("matched by its body key", "State.json",
-			map[string]any{"key": "k1"}, "State"),
+		Entry("named after the layout", "Metrics.json", nil),
+		Entry("named after the layout key", "k1.json", nil),
+		Entry("matched by its body key", "State.json", map[string]any{"key": "k1"}),
 		Entry("matched by its body name", "State.json",
-			map[string]any{"name": "Metrics"}, "Metrics"),
+			map[string]any{"name": "Metrics"}),
 	)
 
 	It("Should skip layouts whose type is not a frozen legacy type", func(

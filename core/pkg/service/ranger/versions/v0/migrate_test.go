@@ -11,6 +11,7 @@ package v0_test
 
 import (
 	"context"
+	"encoding/hex"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -169,6 +170,28 @@ var _ = Describe("Migration", func() {
 			))
 		},
 	)
+	It(
+		"Should keep a Ranges group on a store a v0.53 Core already migrated",
+		func(ctx SpecContext) {
+			Expect(db.Set(
+				ctx, []byte("sy_ranger_migration_performed"), []byte{1},
+			)).To(Succeed())
+			tx := db.OpenTx()
+			tlg := MustSucceed(
+				gSvc.NewWriter(tx).Create(ctx, "Ranges", ontology.RootID),
+			)
+			MustSucceed(gSvc.NewWriter(tx).Create(ctx, "Subgroup", tlg.OntologyID()))
+			Expect(tx.Commit(ctx)).To(Succeed())
+			Expect(tx.Close()).To(Succeed())
+			runMigration(ctx)
+			var groups []group.Group
+			Expect(gSvc.NewRetrieve().
+				Where(group.MatchNames("Ranges", "Subgroup")).
+				Entries(&groups).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(groups).To(HaveLen(2))
+		},
+	)
 })
 
 var _ = Describe("NormalizeKeys", func() {
@@ -197,4 +220,41 @@ var _ = Describe("NormalizeKeys", func() {
 			Expect(db.Get(ctx, legacy)).Error().To(MatchError(query.ErrNotFound))
 		},
 	)
+})
+
+var _ = Describe("NormalizeKeys", func() {
+	It("Should decode a v0.51 range whose color is not hex as having no color", func(
+		ctx SpecContext,
+	) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		// Ranges a v0.51.3 Python client created with the colors "red" and "#f00".
+		rows := map[string]string{
+			"a552616e6765c4107906433e134f4567b139a9fcfc171f3e": "84a46e616d65a772616e" +
+				"67655f31a5636f6c6f72a3726564aa74696d655f72616e676582a57374617274d3" +
+				"18da7a41f8adb900a3656e64d318da7a4234488300a36b6579c4107906433e134f" +
+				"4567b139a9fcfc171f3e",
+			"a552616e6765c410edba8bbad2cf4e3bb0157606dc9deebb": "84a46e616d65a772616e" +
+				"67655f30a5636f6c6f72a423663030aa74696d655f72616e676582a57374617274" +
+				"d318da7a41f8adb900a3656e64d318da7a4234488300a36b6579c410edba8bbad2" +
+				"cf4e3bb0157606dc9deebb",
+		}
+		for k, v := range rows {
+			Expect(db.Set(
+				ctx, MustSucceed(hex.DecodeString(k)), MustSucceed(hex.DecodeString(v)),
+			)).To(Succeed())
+		}
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  "Range",
+			Migrations: []migrate.Migration{v0.NormalizeKeys},
+		})).To(Succeed())
+		var ranges []v0.Range
+		Expect(gorp.NewRetrieve[v0.Key, v0.Range]().Entries(&ranges).Exec(ctx, db)).
+			To(Succeed())
+		Expect(ranges).To(HaveLen(2))
+		for _, r := range ranges {
+			Expect(r.Name).To(BeElementOf("range_0", "range_1"))
+			Expect(r.Color).To(BeZero())
+		}
+	})
 })

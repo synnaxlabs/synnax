@@ -409,7 +409,7 @@ func (s *Service) importLegacy(
 	files zip.Files,
 	fileName string,
 ) (Project, error) {
-	members, err := legacy.Members(ctx, s.cfg.ImEx, layoutData, files)
+	members, err := legacy.Members(ctx, layoutData, files)
 	if err != nil {
 		return Project{}, err
 	}
@@ -468,7 +468,7 @@ func (s *Service) ImportObjects(
 				validate.ErrValidation, "bundle holds no %s", manifestFileName,
 			)
 		}
-		legMembers, err := legacy.Members(ctx, s.cfg.ImEx, layoutData, files)
+		legMembers, err := legacy.Members(ctx, layoutData, files)
 		if err != nil {
 			return nil, err
 		}
@@ -569,7 +569,7 @@ func (s *Service) bundleMembers(
 	members := make([]importMember, 0, len(paths))
 	for _, path := range paths {
 		var env imex.Envelope
-		if err := json.Codec.Decode(ctx, files[path], &env); err != nil {
+		if err := imex.Codec.Decode(ctx, files[path], &env); err != nil {
 			return nil, errors.Wrap(err, path)
 		}
 		if env.Type != string(ontology.ResourceTypePanel) {

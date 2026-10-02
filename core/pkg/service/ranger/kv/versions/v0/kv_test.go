@@ -10,6 +10,7 @@
 package v0_test
 
 import (
+	"encoding/hex"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -18,6 +19,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	gorptestutil "github.com/synnaxlabs/x/gorp/testutil"
+	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/query"
@@ -72,4 +74,87 @@ var _ = Describe("NormalizeKeys", func() {
 			Expect(db.Get(ctx, legacy)).Error().To(MatchError(query.ErrNotFound))
 		},
 	)
+})
+
+// v0.51 and earlier stored pairs under the type name "KVPair". These are two rows a
+// v0.49.5 Core wrote for one range.
+var (
+	kvPairRange = uuid.MustParse("1e706952-94fe-48be-a8cd-fc8d2a61b7db")
+	kvPairRows  = map[string]string{
+		"a64b5650616972d92a31653730363935322d393466652d343862652d613863642d666338" +
+			"6432613631623764623c2d2d2d3e6b": "83a572616e6765c4101e70695294fe48bea8cd" +
+			"fc8d2a61b7dba36b6579a16ba576616c7565a5616c706861",
+		"a64b5650616972d92e31653730363935322d393466652d343862652d613863642d666338" +
+			"6432613631623764623c2d2d2d3e656d707479": "83a572616e6765c4101e70695294fe" +
+			"48bea8cdfc8d2a61b7dba36b6579a5656d707479a576616c7565a0",
+	}
+)
+
+var _ = Describe("RecoverKVPairKeys", func() {
+	var (
+		kvDB kv.DB
+		db   *gorp.DB
+	)
+	BeforeEach(func(ctx SpecContext) {
+		kvDB = memkv.New()
+		db = DeferClose(gorp.Wrap(kvDB))
+		for k, v := range kvPairRows {
+			Expect(kvDB.Set(
+				ctx,
+				MustSucceed(hex.DecodeString(k)),
+				MustSucceed(hex.DecodeString(v)),
+			)).To(Succeed())
+		}
+	})
+	open := func(
+		ctx SpecContext,
+		migrations ...migrate.Migration,
+	) *gorp.Table[string, v0.Pair] {
+		return MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, v0.Pair]{
+			DB:         db,
+			Migrations: migrations,
+		}))
+	}
+	retrieve := func(ctx SpecContext, table *gorp.Table[string, v0.Pair]) []v0.Pair {
+		var res []v0.Pair
+		Expect(table.NewRetrieve().Entries(&res).Exec(ctx, db)).To(Succeed())
+		return res
+	}
+	expectLegacyRowsDeleted := func(ctx SpecContext) {
+		for k := range kvPairRows {
+			Expect(kvDB.Get(ctx, MustSucceed(hex.DecodeString(k)))).Error().
+				To(MatchError(query.ErrNotFound))
+		}
+	}
+	It("Should recover the rows when upgrading from v0.51", func(ctx SpecContext) {
+		table := open(ctx, v0.NormalizeKeys, v0.Migration, v0.RecoverKVPairKeys)
+		Expect(retrieve(ctx, table)).To(ConsistOf(
+			v0.Pair{Range: kvPairRange, Key: "k", Value: "alpha"},
+			v0.Pair{Range: kvPairRange, Key: "empty", Value: ""},
+		))
+		expectLegacyRowsDeleted(ctx)
+	})
+	It(
+		"Should recover the rows when the store already ran the other migrations",
+		func(ctx SpecContext) {
+			open(ctx, v0.NormalizeKeys, v0.Migration)
+			table := open(ctx, v0.NormalizeKeys, v0.Migration, v0.RecoverKVPairKeys)
+			Expect(retrieve(ctx, table)).To(ConsistOf(
+				v0.Pair{Range: kvPairRange, Key: "k", Value: "alpha"},
+				v0.Pair{Range: kvPairRange, Key: "empty", Value: ""},
+			))
+			expectLegacyRowsDeleted(ctx)
+		},
+	)
+	It("Should keep a newer value written under the same key", func(ctx SpecContext) {
+		table := open(ctx, v0.NormalizeKeys, v0.Migration)
+		newer := v0.Pair{Range: kvPairRange, Key: "k", Value: "newer"}
+		Expect(table.NewCreate().Entry(&newer).Exec(ctx, db)).To(Succeed())
+		table = open(ctx, v0.NormalizeKeys, v0.Migration, v0.RecoverKVPairKeys)
+		Expect(retrieve(ctx, table)).To(ConsistOf(
+			newer,
+			v0.Pair{Range: kvPairRange, Key: "empty", Value: ""},
+		))
+		expectLegacyRowsDeleted(ctx)
+	})
 })
