@@ -15,9 +15,10 @@
 #include <thread>
 
 #include "x/cpp/breaker/breaker.h"
+#include "x/cpp/loop/sleeper.h"
 #include "x/cpp/telem/telem.h"
 
-using hs_clock = std::chrono::high_resolution_clock;
+using hs_clock = std::chrono::steady_clock;
 using nanos = std::chrono::nanoseconds;
 
 namespace x::loop {
@@ -25,7 +26,7 @@ namespace x::loop {
 const telem::TimeSpan HIGH_RES_THRESHOLD = telem::Rate(200).period();
 /// @brief Threshold below which medium-resolution timing is used.
 const telem::TimeSpan MEDIUM_RES_THRESHOLD = telem::Rate(20).period();
-/// @brief Base resolution for sleep calibration.
+/// @brief Span of one sleep step of a precise sleep.
 const telem::TimeSpan RESOLUTION = (100 * telem::MICROSECOND);
 
 class Timer {
@@ -33,12 +34,12 @@ public:
     Timer() = default;
 
     explicit Timer(const telem::TimeSpan &interval):
-        interval(interval), last(std::chrono::high_resolution_clock::now()) {}
+        interval(interval), last(hs_clock::now()) {}
 
     explicit Timer(const telem::Rate &rate):
-        interval(rate.period()), last(std::chrono::high_resolution_clock::now()) {}
+        interval(rate.period()), last(hs_clock::now()) {}
 
-    telem::TimeSpan elapsed(const std::chrono::high_resolution_clock::time_point now) {
+    telem::TimeSpan elapsed(const hs_clock::time_point now) {
         if (!last_set) {
             last_set = true;
             return telem::TimeSpan::ZERO();
@@ -102,11 +103,11 @@ private:
     template<typename Running>
     void sleep_while(const telem::TimeSpan &dur, const Running &running) {
         const auto end = hs_clock::now() + dur.chrono();
-        while (dur > sleep_estimate_) {
+        while (true) {
             if (!running()) return;
-            auto start = hs_clock::now();
-            if (start >= end) break;
-            std::this_thread::sleep_for(RESOLUTION.chrono());
+            const auto start = hs_clock::now();
+            if (telem::TimeSpan(end - start) <= sleep_estimate_) break;
+            this->sleeper_.sleep(RESOLUTION);
             const auto curr_end = hs_clock::now();
             const auto elapsed_ns = std::chrono::duration_cast<nanos>(curr_end - start)
                                         .count();
@@ -127,11 +128,13 @@ private:
 
     telem::TimeSpan interval{};
     bool last_set = false;
-    std::chrono::time_point<std::chrono::high_resolution_clock> last;
+    hs_clock::time_point last;
+    /// @brief sleeps each step of a precise sleep.
+    Sleeper sleeper_;
 
-    /// @brief Welford's algorithm state: estimated sleep overhead.
+    /// @brief Welford's algorithm state: the most one step is expected to take.
     telem::TimeSpan sleep_estimate_ = RESOLUTION * 10;
-    /// @brief Welford's algorithm state: running mean of sleep durations.
+    /// @brief Welford's algorithm state: running mean of step durations.
     telem::TimeSpan sleep_mean_ = RESOLUTION * 10;
     /// @brief Welford's algorithm state: sum of squared deviations.
     telem::TimeSpan sleep_M2_ = telem::TimeSpan::ZERO();

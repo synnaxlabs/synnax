@@ -201,6 +201,44 @@ TEST(LoopTest, testWaitBreakerEarlyWake) {
     EXPECT_LT(elapsed, telem::MILLISECOND * 700);
 }
 
+/// @brief it should block for at least its duration.
+TEST(SleeperTest, BlocksForAtLeastItsDuration) {
+    Sleeper sleeper;
+    for (const auto duration: {telem::MICROSECOND * 100, telem::MILLISECOND * 2}) {
+        const auto start = hs_clock::now();
+        sleeper.sleep(duration);
+        EXPECT_GE(telem::TimeSpan(hs_clock::now() - start), duration);
+    }
+}
+
+/// @brief it should still sleep after it is moved.
+TEST(SleeperTest, SleepsAfterAMove) {
+    Sleeper moved;
+    Sleeper sleeper(std::move(moved));
+    const auto start = hs_clock::now();
+    sleeper.sleep(telem::MILLISECOND * 2);
+    EXPECT_GE(telem::TimeSpan(hs_clock::now() - start), telem::MILLISECOND * 2);
+}
+
+/// @brief it should end a precise sleep on its deadline when the sleep is longer than
+/// one sleep of the operating system.
+TEST(LoopTest, testPreciseSleepEndsOnDeadline) {
+    constexpr int COUNT = 50;
+    Timer timer;
+    for (const auto duration: {telem::MILLISECOND * 2, telem::MILLISECOND * 5}) {
+        std::vector<telem::TimeSpan> late;
+        late.reserve(COUNT);
+        for (int i = 0; i < COUNT; i++) {
+            const auto start = hs_clock::now();
+            timer.precise_sleep(duration);
+            late.emplace_back(telem::TimeSpan(hs_clock::now() - start) - duration);
+        }
+        EXPECT_GE(*std::min_element(late.begin(), late.end()), telem::TimeSpan::ZERO())
+            << "at " << duration;
+        EXPECT_LT(median(late), telem::MICROSECOND * 20) << "at " << duration;
+    }
+}
+
 /// @brief it should re-anchor after an overrun instead of catching up on the missed
 /// periods.
 TEST(LoopTest, testWaitOverrunNoCatchUp) {

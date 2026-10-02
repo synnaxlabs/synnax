@@ -65,6 +65,9 @@ const auto FIRE_TOLERANCE = 100 * x::telem::MICROSECOND;
 const auto FIRE_ERROR_BOUND = x::telem::MILLISECOND;
 /// @brief Maximum median distance between a fire and a deadline under 10 ms.
 const auto SHORT_FIRE_ERROR_BOUND = 250 * x::telem::MICROSECOND;
+/// @brief Maximum median distance between a fire and its deadline in a mode that spins
+/// to the deadline.
+const auto SPIN_FIRE_ERROR_BOUND = 50 * x::telem::MICROSECOND;
 /// @brief Deadline of a wait that an input ends before the deadline. It is shorter than
 /// the block timeout of each mode, so that a stale timer fires inside the next wait.
 const auto STALE_DEADLINE = 5 * x::telem::MILLISECOND;
@@ -1039,6 +1042,29 @@ TEST(DeadlineTest, EventDriven_FiresOnDeadline) {
               << median.microseconds() << " us median, " << errors.back().microseconds()
               << " us max\n";
     EXPECT_LE(median, test_timing::FIRE_ERROR_BOUND);
+    EXPECT_EQ(median_of(waits), 1);
+}
+
+/// @brief HIGH_RATE should sleep to a deadline before its interval and fire on it.
+TEST(DeadlineTest, HighRate_FiresOnDeadline) {
+    constexpr int COUNT = 50;
+    Config config;
+    config.mode = ExecutionMode::HIGH_RATE;
+    config.interval = 100 * x::telem::MILLISECOND;
+    const auto loop = ASSERT_NIL_P(create_and_start(config));
+    x::breaker::Breaker breaker;
+    breaker.start();
+
+    std::vector<x::telem::TimeSpan> errors;
+    std::vector<int> waits;
+    for (int i = 0; i < COUNT; i++) {
+        const auto fire = measure_fire(*loop, breaker);
+        errors.push_back(fire.error);
+        waits.push_back(fire.waits);
+    }
+    breaker.stop();
+    EXPECT_GE(*std::min_element(errors.begin(), errors.end()), x::telem::TimeSpan(0));
+    EXPECT_LE(median_of(errors), test_timing::SPIN_FIRE_ERROR_BOUND);
     EXPECT_EQ(median_of(waits), 1);
 }
 
