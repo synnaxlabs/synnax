@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { fireEvent, render, screen } from "@testing-library/react";
+import { useState } from "react";
+import { flushSync } from "react-dom";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { type Haul } from "@/haul";
@@ -21,6 +23,7 @@ import {
   filterHaulItems,
   HAUL_TYPE,
   isHaulItem,
+  type ScrollTo,
   type ToggleOn,
   Tree,
   use,
@@ -85,15 +88,10 @@ describe("Tree", () => {
     (keys: string[]) => keys.map((key) => ({ key, name: key })),
   );
 
-  interface ComponentProps {
-    nodes?: Node[];
-    revealed?: string;
-  }
-
-  const Component = ({ nodes = NODES, revealed }: ComponentProps) => {
-    const props = use({ nodes });
+  const Component = () => {
+    const props = use({ nodes: NODES });
     return (
-      <Tree {...props} getItem={getItem} revealed={revealed}>
+      <Tree {...props} getItem={getItem}>
         {({ key, ...rest }) => (
           <Item key={key} {...rest}>
             {key}
@@ -128,17 +126,52 @@ describe("Tree", () => {
     expect(virtualizer?.style.minHeight).toBe(`${NODES.length * 27}px`);
   });
 
-  it("should scroll a revealed node into view when it enters the tree", async () => {
-    const added = "added";
-    const { container, rerender } = render(<Component revealed={added} />);
-    const scroller = container.querySelector<HTMLElement>(".pluto-list__scroll");
-    if (scroller == null) throw new Error("list scroll container not found");
-    scroller.scrollTop = NODES.length * 27;
-    fireEvent.scroll(scroller);
-    await screen.findByText(NODES[NODES.length - 1].key);
-    expect(screen.queryByText(NODES[0].key)).toBeNull();
-    rerender(<Component nodes={[{ key: added }, ...NODES]} revealed={added} />);
-    expect(await screen.findByText(added)).toBeTruthy();
+  describe("scrollTo", () => {
+    const ADDED = "added";
+
+    let scrollTo: ScrollTo;
+
+    const Growing = () => {
+      const [nodes, setNodes] = useState(NODES);
+      const props = use({ nodes });
+      ({ scrollTo } = props);
+      return (
+        <>
+          <button
+            onClick={() => {
+              flushSync(() => setNodes([{ key: ADDED }, ...NODES]));
+              scrollTo(ADDED);
+            }}
+          >
+            add
+          </button>
+          <Tree {...props} getItem={getItem}>
+            {({ key, ...rest }) => (
+              <Item key={key} {...rest}>
+                {key}
+              </Item>
+            )}
+          </Tree>
+        </>
+      );
+    };
+
+    it("should scroll to a node added outside the window", async () => {
+      const { container } = render(<Growing />);
+      const scroller = container.querySelector<HTMLElement>(".pluto-list__scroll");
+      if (scroller == null) throw new Error("list scroll container not found");
+      scroller.scrollTop = NODES.length * 27;
+      fireEvent.scroll(scroller);
+      await screen.findByText(NODES[NODES.length - 1].key);
+      expect(screen.queryByText(NODES[0].key)).toBeNull();
+      fireEvent.click(screen.getByText("add"));
+      expect(await screen.findByText(ADDED)).toBeTruthy();
+    });
+
+    it("should throw for a node that is not in the tree", () => {
+      render(<Growing />);
+      expect(() => scrollTo("missing")).toThrow("node missing is not in the tree");
+    });
   });
 });
 
