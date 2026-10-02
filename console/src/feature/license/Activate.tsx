@@ -28,7 +28,7 @@ import { Shell as PlatformShell } from "@/platform/shell";
 import { Session } from "@/session";
 
 /** The portal page that issues a license key for a host fingerprint. */
-const PORTAL_ACTIVATE_URL = "https://docs.synnaxlabs.com/licenses/activate";
+const PORTAL_ACTIVATE_URL = "https://portal.synnaxlabs.com/licenses/activate";
 
 const KEY_FILE_EXTENSION = "lic";
 
