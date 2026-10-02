@@ -501,9 +501,9 @@ jobs:
     if: needs.changes.outputs.site_common == 'true'
     uses: ./.github/workflows/test.ts.yaml
     with:
+      coverage_flag: site-common
       directory: site/common
       package: site-common
-      test: false
     secrets: inherit
 
   soem:
