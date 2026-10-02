@@ -34,6 +34,7 @@
     { "name": "pluto", "path": "../pluto" },
     { "name": "schemas", "path": "../schemas" },
     { "name": "site/docs", "path": "../site/docs" },
+    { "name": "site/portal", "path": "../site/portal" },
     { "name": "vendor", "path": "../vendor" },
     { "name": "x/cpp", "path": "../x/cpp" },
     { "name": "x/go", "path": "../x/go" },
