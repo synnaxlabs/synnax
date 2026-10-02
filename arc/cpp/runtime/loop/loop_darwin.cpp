@@ -27,6 +27,7 @@ namespace arc::runtime::loop {
 
 static constexpr uintptr_t USER_EVENT_IDENT = 1;
 static constexpr uintptr_t TIMER_EVENT_IDENT = 2;
+static constexpr uintptr_t DEADLINE_EVENT_IDENT = 3;
 
 /// @brief Unified Darwin loop implementation using kqueue for event multiplexing.
 /// Consolidates all execution modes into a single class following the Linux pattern.
@@ -177,7 +178,7 @@ private:
     }
 
     /// @brief BUSY_WAIT: Non-blocking kqueue poll in tight loop.
-    WakeReason busy_wait(const x::breaker::Breaker &breaker) const {
+    WakeReason busy_wait(const x::breaker::Breaker &breaker) {
         constexpr timespec timeout = {0, 0};
         struct kevent events[8];
 
@@ -208,7 +209,7 @@ private:
     WakeReason hybrid_wait(
         const x::breaker::Breaker &breaker,
         const x::telem::TimeSpan max_timeout
-    ) const {
+    ) {
         const auto sw = x::telem::Stopwatch();
         const auto spin_start = std::chrono::steady_clock::now();
         const auto spin_duration = this->config_.spin_duration.chrono();
@@ -226,27 +227,57 @@ private:
         return WakeReason::Timeout;
     }
 
-    /// @brief EVENT_DRIVEN: Block on kqueue events with timeout.
-    WakeReason event_driven_wait(const x::telem::TimeSpan max_timeout) const {
-        if (max_timeout.nanoseconds() > 0)
-            return this->deadline_wait(x::telem::Stopwatch(), max_timeout);
+    /// @brief EVENT_DRIVEN: blocks until an event or the deadline, with no spin.
+    WakeReason event_driven_wait(const x::telem::TimeSpan max_timeout) {
+        const bool deadline = this->arm_deadline(max_timeout);
+        const auto timeout_ns = max_timeout.nanoseconds() > 0
+                                  ? max_timeout.nanoseconds()
+                                  : timing::EVENT_DRIVEN_TIMEOUT.nanoseconds();
+        const auto timeout = ns_to_timespec(timeout_ns);
         struct kevent events[8];
-        const auto timeout = ns_to_timespec(timing::EVENT_DRIVEN_TIMEOUT.nanoseconds());
-        const int n = kevent(this->kqueue_fd_, nullptr, 0, events, 8, &timeout);
-
-        if (n > 0) return this->classify_events(events, n);
+        const int n = kevent(
+            this->kqueue_fd_,
+            nullptr,
+            0,
+            events,
+            8,
+            deadline ? nullptr : &timeout
+        );
         if (n == 0) return WakeReason::Timeout;
-        if (errno != EINTR)
-            LOG(ERROR) << "[arc.loop] kevent error: " << strerror(errno);
-        return WakeReason::Shutdown;
+        return this->wake_reason(events, n);
     }
 
-    /// @brief Blocks until the spin span ahead of deadline, then spins to it. The
-    /// deadline counts from the start of sw.
-    WakeReason deadline_wait(
-        const x::telem::Stopwatch &sw,
-        const x::telem::TimeSpan deadline
-    ) const {
+    /// @brief arms a one-shot timer for max_timeout and returns true. NOTE_CRITICAL
+    /// removes the slack that the kernel adds to group timers, which is up to 1 ms.
+    /// With no deadline, it deletes a pending timer so that it does not wake the loop,
+    /// and returns false. A re-arm drops a fire that was not read.
+    bool arm_deadline(const x::telem::TimeSpan max_timeout) {
+        const bool deadline = max_timeout.nanoseconds() > 0;
+        if (!deadline && !this->deadline_armed_) return false;
+        struct kevent kev;
+        EV_SET(
+            &kev,
+            DEADLINE_EVENT_IDENT,
+            EVFILT_TIMER,
+            deadline ? EV_ADD | EV_ONESHOT : EV_DELETE,
+            NOTE_NSECONDS | NOTE_CRITICAL,
+            deadline ? max_timeout.nanoseconds() : 0,
+            nullptr
+        );
+        if (kevent(this->kqueue_fd_, &kev, 1, nullptr, 0, nullptr) == -1) {
+            LOG(ERROR) << "[arc.loop] failed to set the deadline timer: "
+                       << strerror(errno);
+            this->deadline_armed_ = false;
+            return false;
+        }
+        this->deadline_armed_ = deadline;
+        return deadline;
+    }
+
+    /// @brief HYBRID: blocks until the spin span ahead of deadline, then spins to it.
+    /// The deadline counts from the start of sw.
+    WakeReason
+    deadline_wait(const x::telem::Stopwatch &sw, const x::telem::TimeSpan deadline) {
         struct kevent events[8];
         const auto block = deadline - sw.elapsed() - timing::DARWIN_DEADLINE_SPIN;
         if (block.nanoseconds() > 0) {
@@ -264,7 +295,7 @@ private:
 
     /// @brief returns the wake reason of a kevent call that returned n != 0. An
     /// error logs and returns Shutdown.
-    WakeReason wake_reason(struct kevent *events, const int n) const {
+    WakeReason wake_reason(struct kevent *events, const int n) {
         if (n > 0) return this->classify_events(events, n);
         if (errno != EINTR)
             LOG(ERROR) << "[arc.loop] kevent error: " << strerror(errno);
@@ -272,13 +303,19 @@ private:
     }
 
     /// @brief Classifies kqueue events to determine wake reason.
-    WakeReason classify_events(struct kevent *events, const int n) const {
+    WakeReason classify_events(struct kevent *events, const int n) {
+        bool timer_fired = false;
         bool input_fired = false;
         for (int i = 0; i < n; i++) {
-            if (events[i].ident == TIMER_EVENT_IDENT) return WakeReason::Timer;
-            if (events[i].ident != USER_EVENT_IDENT) input_fired = true;
-            // USER_EVENT_IDENT fires when wake() is called - falls through to Shutdown
+            if (events[i].filter == EVFILT_TIMER) {
+                timer_fired = true;
+                if (events[i].ident == DEADLINE_EVENT_IDENT)
+                    this->deadline_armed_ = false;
+            } else if (events[i].filter == EVFILT_READ)
+                input_fired = true;
+            // EVFILT_USER fires when wake() is called - falls through to Shutdown
         }
+        if (timer_fired) return WakeReason::Timer;
         if (input_fired) return WakeReason::Input;
         return WakeReason::Shutdown;
     }
@@ -291,6 +328,7 @@ private:
     std::shared_ptr<x::thread::rt::Handle> rt_handle_;
     int kqueue_fd_ = -1;
     bool kqueue_timer_enabled_ = false;
+    bool deadline_armed_ = false;
     std::unique_ptr<x::loop::Timer> timer_;
 };
 
