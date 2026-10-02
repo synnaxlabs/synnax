@@ -13,7 +13,7 @@ import { z } from "zod";
 export const SLICE_NAME = "account";
 
 /** The account this machine is linked to. */
-export const linkZ = z.object({
+const linkZ = z.object({
   /** The secret that renews this machine's license. */
   secret: z.string(),
   /** The address of the account. */
