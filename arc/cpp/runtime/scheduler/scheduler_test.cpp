@@ -1978,7 +1978,7 @@ TEST(ValidateTest, RejectsANestedTransitionWithNoKind) {
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     EXPECT_EQ(
         err.data,
-        "scope main has a transition with no kind: on first_node/output => second"
+        "scope main has a transition with no kind: on first_node/output ?> second"
     );
 }
 

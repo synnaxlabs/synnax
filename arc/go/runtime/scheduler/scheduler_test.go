@@ -3187,7 +3187,7 @@ var _ = Describe("Scheduler", func() {
 				"transition",
 				func() ir.IR { return twoStepSeq(ir.EdgeKindUnspecified) },
 				"scope main has a transition with no kind: "+
-					"on first_node/output => second",
+					"on first_node/output ?> second",
 			),
 			Entry(
 				"activation",
@@ -3213,7 +3213,7 @@ var _ = Describe("Scheduler", func() {
 					)
 				},
 				"scope inner has a transition with no kind: "+
-					"on leaf_node/output => exit",
+					"on leaf_node/output ?> exit",
 			),
 		)
 	})

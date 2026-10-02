@@ -13,13 +13,9 @@ import "fmt"
 
 // String returns a concise description of the transition.
 func (t Transition) String() string {
-	arrow := "=>"
-	if t.Kind == EdgeKindContinuous {
-		arrow = "->"
-	}
 	target := "exit"
 	if t.TargetKey != nil {
 		target = *t.TargetKey
 	}
-	return fmt.Sprintf("on %s/%s %s %s", t.On.Node, t.On.Param, arrow, target)
+	return fmt.Sprintf("on %s/%s %s %s", t.On.Node, t.On.Param, t.Kind.Arrow(), target)
 }
