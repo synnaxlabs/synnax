@@ -32,11 +32,6 @@ on:
         required: false
         type: string
         default: ""
-      knip:
-        description: Whether to check for unused code with Knip
-        required: false
-        type: boolean
-        default: false
       lint:
         description: Whether to check types, circular imports, and lint
         required: false
@@ -136,10 +131,6 @@ jobs:
       - name: Lint
         if: matrix.lint && inputs.lint
         run: pnpm lint:${{ inputs.package }}
-
-      - name: Check unused code
-        if: matrix.lint && inputs.knip
-        run: pnpm knip:${{ inputs.package }}
 
       - name: Test
         if: inputs.test
