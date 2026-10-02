@@ -27,7 +27,7 @@ class Limits:
     max_spread_ms: float
 
 
-# Each limit is the worst value measured at the minimum wait plus a margin.
+# Each limit is the worst value measured at the shortest wait plus a margin.
 LIMITS: dict[str, dict[str, Limits]] = {
     "C++": {
         "Linux": Limits(min_wait_ms=1, max_error_percent=3.0, max_spread_ms=0.2),
@@ -44,18 +44,18 @@ LIMITS: dict[str, dict[str, Limits]] = {
     },
 }
 
-# The limits of waits of 50 ms or more. On Windows, the C++ runtime does not spin
-# before these waits.
+# The limits of waits of 50 ms or more, measured the same way. On Windows, the C++
+# runtime does not spin before these waits, so its timer is up to 0.7 ms late.
 LONG_LIMITS: dict[str, dict[str, Limits]] = {
     "C++": {
-        "Linux": Limits(min_wait_ms=50, max_error_percent=5.0, max_spread_ms=5.0),
-        "Darwin": Limits(min_wait_ms=50, max_error_percent=5.0, max_spread_ms=5.0),
-        "Windows": Limits(min_wait_ms=50, max_error_percent=5.0, max_spread_ms=5.0),
+        "Linux": Limits(min_wait_ms=50, max_error_percent=0.5, max_spread_ms=0.1),
+        "Darwin": Limits(min_wait_ms=50, max_error_percent=0.5, max_spread_ms=1.5),
+        "Windows": Limits(min_wait_ms=50, max_error_percent=1.0, max_spread_ms=1.0),
     },
     "Go": {
-        "Linux": Limits(min_wait_ms=50, max_error_percent=5.0, max_spread_ms=5.0),
-        "Darwin": Limits(min_wait_ms=50, max_error_percent=5.0, max_spread_ms=5.0),
-        "Windows": Limits(min_wait_ms=50, max_error_percent=5.0, max_spread_ms=5.0),
+        "Linux": Limits(min_wait_ms=50, max_error_percent=1.5, max_spread_ms=1.5),
+        "Darwin": Limits(min_wait_ms=50, max_error_percent=3.0, max_spread_ms=2.0),
+        "Windows": Limits(min_wait_ms=50, max_error_percent=1.5, max_spread_ms=1.25),
     },
 }
 
