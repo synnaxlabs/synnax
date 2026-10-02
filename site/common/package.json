@@ -18,10 +18,10 @@
     "cov": "vitest --coverage"
   },
   "dependencies": {
+    "@astrojs/react": "catalog:",
     "@synnaxlabs/lyra": "catalog:",
     "@synnaxlabs/media": "catalog:",
-    "astro": "catalog:",
-    "@astrojs/react": "catalog:"
+    "astro": "catalog:"
   },
   "devDependencies": {
     "@astrojs/check": "catalog:",
