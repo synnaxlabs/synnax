@@ -597,9 +597,11 @@ jobs:
     if: inputs.full || needs.changes.outputs.www == 'true'
     uses: ./.github/workflows/test.ts.yaml
     with:
+      coverage_flag: www
       directory: site/www
+      macos: *full
       package: www
-      test: false
+      windows: *full
     secrets: inherit
 
   x-cpp:
