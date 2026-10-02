@@ -252,19 +252,23 @@ private:
         if (block.nanoseconds() > 0) {
             const auto timeout = ns_to_timespec(block.nanoseconds());
             const int n = kevent(this->kqueue_fd_, nullptr, 0, events, 8, &timeout);
-            if (n > 0) return this->classify_events(events, n);
-            if (n == -1) {
-                if (errno != EINTR)
-                    LOG(ERROR) << "[arc.loop] kevent error: " << strerror(errno);
-                return WakeReason::Shutdown;
-            }
+            if (n != 0) return this->wake_reason(events, n);
         }
         constexpr timespec poll = {0, 0};
         while (sw.elapsed() < deadline) {
             const int n = kevent(this->kqueue_fd_, nullptr, 0, events, 8, &poll);
-            if (n > 0) return this->classify_events(events, n);
+            if (n != 0) return this->wake_reason(events, n);
         }
         return WakeReason::Timeout;
+    }
+
+    /// @brief returns the wake reason of a kevent call that returned n != 0. An
+    /// error logs and returns Shutdown.
+    WakeReason wake_reason(struct kevent *events, const int n) const {
+        if (n > 0) return this->classify_events(events, n);
+        if (errno != EINTR)
+            LOG(ERROR) << "[arc.loop] kevent error: " << strerror(errno);
+        return WakeReason::Shutdown;
     }
 
     /// @brief Classifies kqueue events to determine wake reason.
