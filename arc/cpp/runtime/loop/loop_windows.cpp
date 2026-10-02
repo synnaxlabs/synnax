@@ -174,14 +174,17 @@ private:
         return SetWaitableTimer(this->timer_event_, &due_time, 0, NULL, NULL, FALSE);
     }
 
-    // Arms the timer the spin span ahead of a deadline. A deadline inside the span
-    // fires the timer at once, so the wake spins all the way to it.
+    // A deadline inside the spin span has no time for a timer wake, which takes
+    // about 0.5 ms.
+    bool inside_spin(const x::telem::TimeSpan max_timeout) const {
+        return this->timer_enabled_ && max_timeout.nanoseconds() > 0 &&
+               max_timeout <= timing::WINDOWS_DEADLINE_SPIN;
+    }
+
+    // Arms the timer the spin span ahead of a deadline.
     bool arm_deadline(const x::telem::TimeSpan max_timeout) const {
         if (!this->timer_enabled_ || max_timeout.nanoseconds() <= 0) return false;
-        const auto block = max_timeout > timing::WINDOWS_DEADLINE_SPIN
-                             ? max_timeout - timing::WINDOWS_DEADLINE_SPIN
-                             : x::telem::TimeSpan(0);
-        return this->arm_timer(block);
+        return this->arm_timer(max_timeout - timing::WINDOWS_DEADLINE_SPIN);
     }
 
     // Spins to the deadline after a timer wake. The timer handle is last and unwatched.
@@ -262,6 +265,8 @@ private:
                                          timing::HYBRID_BLOCK_TIMEOUT.milliseconds()
                                      );
         const auto sw = x::telem::Stopwatch();
+        if (this->inside_spin(max_timeout))
+            return this->finish_timer_wake(handles, count, sw, max_timeout);
         const bool deadline = this->arm_deadline(max_timeout);
         const DWORD timeout_ms = deadline ? INFINITE : default_ms;
 
@@ -288,6 +293,8 @@ private:
         const DWORD count = this->build_handles(handles);
         if (count == 0) return WakeReason::Shutdown;
         const auto sw = x::telem::Stopwatch();
+        if (this->inside_spin(max_timeout))
+            return this->finish_timer_wake(handles, count, sw, max_timeout);
         const bool deadline = this->arm_deadline(max_timeout);
         const auto spin_until = deadline ? max_timeout : x::telem::TimeSpan(0);
 

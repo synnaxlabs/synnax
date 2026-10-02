@@ -844,7 +844,8 @@ TEST(MaxTimeoutTest, EventDriven_WakesAfterMaxTimeout) {
     const auto elapsed = sw.elapsed();
     EXPECT_GE(elapsed, 15 * x::telem::MILLISECOND);
     EXPECT_LE(elapsed, test_timing::TIMER_UPPER_BOUND);
-    EXPECT_EQ(reason, WakeReason::Timeout);
+    // A deadline wake is a timer on Windows and Linux and a timeout on macOS.
+    EXPECT_TRUE(reason == WakeReason::Timer || reason == WakeReason::Timeout);
 }
 
 /// @brief max_timeout should override a longer configured interval.
@@ -908,7 +909,8 @@ TEST(MaxTimeoutTest, Hybrid_MaxTimeoutConstrainsBlockPhase) {
     const auto elapsed = sw.elapsed();
     EXPECT_GE(elapsed, 15 * x::telem::MILLISECOND);
     EXPECT_LE(elapsed, test_timing::TIMER_UPPER_BOUND);
-    EXPECT_EQ(reason, WakeReason::Timeout);
+    // A deadline wake is a timer on Windows and Linux and a timeout on macOS.
+    EXPECT_TRUE(reason == WakeReason::Timer || reason == WakeReason::Timeout);
 
     breaker.stop();
 }
