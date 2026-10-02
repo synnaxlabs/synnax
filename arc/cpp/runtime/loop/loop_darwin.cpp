@@ -59,18 +59,14 @@ public:
             case ExecutionMode::HIGH_RATE:
                 return this->high_rate_wait(breaker);
             case ExecutionMode::HYBRID:
-                return this->hybrid_wait(breaker, max_timeout);
             case ExecutionMode::RT_EVENT:
-                return this->high_rate_wait(breaker);
+                return this->hybrid_wait(breaker, max_timeout);
         }
         return WakeReason::Shutdown;
     }
 
     x::errors::Error start() override {
         if (this->kqueue_fd_ != -1) return x::errors::NIL;
-
-        if (this->config_.mode == ExecutionMode::RT_EVENT)
-            VLOG(1) << "[arc.loop] RT_EVENT on macOS uses software timer";
 
         // Create kqueue for event multiplexing
         this->kqueue_fd_ = kqueue();
@@ -93,8 +89,6 @@ public:
         if (this->config_.interval.nanoseconds() > 0) {
             const bool use_software_timer = this->config_.mode ==
                                                 ExecutionMode::HIGH_RATE ||
-                                            this->config_.mode ==
-                                                ExecutionMode::RT_EVENT ||
                                             this->config_.interval <
                                                 timing::KQUEUE_TIMER_MIN;
 
