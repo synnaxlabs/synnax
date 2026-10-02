@@ -202,7 +202,10 @@ func alreadyMigrated(ctx context.Context, tx gorp.Tx) (bool, error) {
 	if err != nil {
 		return false, errors.Skip(err, query.ErrNotFound)
 	}
-	return true, closer.Close()
+	if err = closer.Close(); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // codecMigration re-encodes stored ranges from MessagePack to the Orc value-color

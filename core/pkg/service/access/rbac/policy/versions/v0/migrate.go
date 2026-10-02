@@ -91,7 +91,10 @@ func AlreadyMigrated(ctx context.Context, tx gorp.Tx) (bool, error) {
 		return false, errors.Skip(err, query.ErrNotFound)
 	}
 	migrated := bytes.Equal(performed, []byte{1})
-	return migrated, closer.Close()
+	if err = closer.Close(); err != nil {
+		return false, err
+	}
+	return migrated, nil
 }
 
 func buildUserMappings(legacyPolicies []Policy) []LegacyUserMapping {
@@ -134,7 +137,10 @@ func ReadLegacyMappings(ctx context.Context, tx gorp.Tx) ([]LegacyUserMapping, e
 		err = errors.Wrap(err, "failed to unmarshal legacy permission mapping")
 		return nil, errors.Combine(err, closer.Close())
 	}
-	return mappings, closer.Close()
+	if err = closer.Close(); err != nil {
+		return nil, err
+	}
+	return mappings, nil
 }
 
 // DeleteLegacyMappings removes the persisted legacy permission mapping from KV.
