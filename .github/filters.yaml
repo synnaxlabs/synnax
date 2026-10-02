@@ -225,6 +225,17 @@ www:
   - *ts
   - site/www/**
 
+knip:
+  - *arc_ts
+  - *console
+  - *ts
+  - oracle/lsp/extensions/vscode/**
+  - site/common/**
+  - site/docs/**
+  - site/portal/**
+  - site/www/**
+  - studio/**
+
 alamos_py: &alamos_py
   - *py
   - alamos/py/**
