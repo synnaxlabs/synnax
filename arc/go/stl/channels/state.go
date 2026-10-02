@@ -27,12 +27,9 @@ type Digest struct {
 // ProgramState manages channel I/O buffers and index mapping.
 type ProgramState struct {
 	reads map[uint32]telem.MultiSeries
-	// writes holds each channel's samples for this cycle. For an indexed channel it
-	// holds only the samples that came with a timestamp, in the order of the timestamps
-	// in its index's buffer.
+	// writes holds this cycle's samples, except body writes to indexed channels.
 	writes map[uint32]telem.Series
-	// unstamped holds the samples body writes added to indexed channels this cycle.
-	// Flush gives them timestamps.
+	// unstamped holds body writes to indexed channels until Flush stamps them.
 	unstamped       map[uint32]telem.Series
 	activeWriteKeys []uint32
 	indexes         map[uint32]uint32

@@ -34,12 +34,9 @@ struct Digest {
 class State {
     std::unordered_map<types::ChannelKey, types::ChannelKey> indexes;
     std::unordered_map<types::ChannelKey, std::vector<Series>> reads;
-    /// @brief holds each channel's samples for this cycle. For an indexed channel it
-    /// holds only the samples that came with a timestamp, in the order of the
-    /// timestamps in its index's buffer.
+    /// @brief holds this cycle's samples, except body writes to indexed channels.
     std::unordered_map<types::ChannelKey, Series> writes;
-    /// @brief holds the samples body writes added to indexed channels this cycle.
-    /// flush_into gives them timestamps.
+    /// @brief holds body writes to indexed channels until flush_into stamps them.
     std::unordered_map<types::ChannelKey, Series> unstamped;
     std::vector<types::ChannelKey> active_write_keys;
     /// @brief holds the last timestamp flushed to each index.
