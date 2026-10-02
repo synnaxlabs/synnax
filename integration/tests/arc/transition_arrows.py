@@ -59,7 +59,8 @@ class TransitionArrows(ArcCase):
         self.writer.write("ta_start_cmd", 0)
         sy.sleep(2.0)
         state = self.read_tlm("ta_state")
-        if state is not None:
+        # The streamer reports 0 until the first write arrives; Arc writes only 1 or 2.
+        if state != 0:
             self.fail(f"ta_state={state} after ta_start_cmd=0; main started on false")
             return
 
