@@ -16,7 +16,7 @@ import { describe, expect, it } from "vitest";
 import { Group } from "@/platform/group";
 import { Tree } from "@/platform/tree";
 import { expandTreeRow, getTreeRow } from "@/platform/tree/menuTestutil";
-import { renderOntologyTree } from "@/platform/tree/treeTestutil";
+import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
 import {
   awaitTextEditingElement,
   awaitTextEditingExit,
@@ -131,6 +131,38 @@ describe("useCreateFromSelection", () => {
       newKey = subChildren[0].id.key;
     });
     await expectGrouped(newKey, [a, b]);
+  });
+
+  it("should start the rename when the selection sits below the window", async () => {
+    const parent = await client.groups.create({
+      parent: ontology.ROOT_ID,
+      name: uniqueName("parent"),
+    });
+    const parentID = group.ontologyID(parent.key);
+    const names = Array.from({ length: 150 }, (_, i) =>
+      uniqueName(`child-${String(i).padStart(3, "0")}`),
+    );
+    for (const name of names) await client.groups.create({ parent: parentID, name });
+    const items: Tree.Items = {
+      group: Tree.createItem({ type: "group", ContextMenu: GroupSelectionMenu }),
+    };
+    await renderOntologyTree({ client, root: parentID, items });
+    await screen.findByText(names[0]);
+    const [secondToLast, last] = names.slice(-2);
+    fireEvent.click(await findTreeRow(secondToLast));
+    withControlHeld(() => fireEvent.click(getTreeRow(last)));
+    fireEvent.contextMenu(getTreeRow(last));
+    fireEvent.click(await screen.findByText("group selection"));
+    const editable = await awaitTextEditingElement();
+    const name = uniqueName("grp");
+    await act(async () => {
+      commitTextEdit(editable, name);
+    });
+    await waitFor(async () => {
+      const children = await client.ontology.children.retrieve({ ids: parentID });
+      expect(children).toHaveLength(names.length - 1);
+      expect(children.some((c) => c.name === name)).toBe(true);
+    });
   });
 
   it("should not create a group and should restore the tree when the rename is escaped", async () => {
