@@ -55,8 +55,8 @@ func migrateV1toV2(state DBState) DBState {
 }
 
 // migrateV2toV3 clears the index flag on virtual channels, which store nothing and so
-// can never be an index. Validate rejects that pair, and it runs after this, so a
-// record carrying both stays readable.
+// can never be an index. Validate rejects that pair, and it runs after this, so a record
+// carrying both stays readable.
 func migrateV2toV3(state DBState) DBState {
 	state.Channel.Version = channel.Version3
 	if state.Channel.Virtual {
