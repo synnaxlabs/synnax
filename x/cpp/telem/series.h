@@ -894,7 +894,11 @@ public:
             );
             const size_t count = std::min(d.size(), this->cap() - this->size());
             if (count == 0) return 0;
-            memcpy(this->data_.get(), d.data(), count * this->data_type().density());
+            memcpy(
+                this->data_.get() + this->byte_size(),
+                d.data(),
+                count * this->data_type().density()
+            );
             this->size_ += count;
             return count;
         }
@@ -986,7 +990,11 @@ public:
         );
         this->ensure_exclusive();
         const size_t capped_count = std::min(count, this->cap() - this->size());
-        memcpy(this->data_.get(), d, capped_count * this->data_type().density());
+        memcpy(
+            this->data_.get() + this->byte_size(),
+            d,
+            capped_count * this->data_type().density()
+        );
         this->size_ += capped_count;
         return capped_count;
     }
