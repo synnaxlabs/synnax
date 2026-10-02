@@ -9,15 +9,29 @@
 
 import { Avatar } from "@synnaxlabs/lyra/avatar";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
-import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
+import { Tag } from "@synnaxlabs/lyra/tag";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useCallback } from "react";
+
+import { type OrganizationKind } from "@/server/db/schema";
 
 export interface ScopeOption {
   key: string;
   name: string;
+  kind: OrganizationKind;
 }
+
+const KIND_LABELS: Record<OrganizationKind, string> = {
+  personal: "Personal",
+  team: "Enterprise",
+};
+
+const KindTag = ({ kind }: { kind: OrganizationKind }): ReactElement => (
+  <Tag.Tag size="small" className={`portal-scope__tag portal-scope__tag--${kind}`}>
+    {KIND_LABELS[kind]}
+  </Tag.Tag>
+);
 
 export interface ScopeProps {
   /** options are the scopes the user can act for, personal first. */
@@ -39,6 +53,7 @@ export const Scope = ({ options, selected }: ScopeProps): ReactElement => {
       <Text.Text level="p" weight={500} overflow="ellipsis">
         {selected.name}
       </Text.Text>
+      <KindTag kind={selected.kind} />
     </>
   );
   if (options.length === 1) return <span className="portal-scope">{label}</span>;
@@ -48,12 +63,10 @@ export const Scope = ({ options, selected }: ScopeProps): ReactElement => {
         <Dialog.Trigger
           size="large"
           variant="text"
-          hideCaret
           className="portal-scope"
           aria-label="Switch scope"
         >
           {label}
-          <Icon.Caret.Down className="portal-scope__caret" />
         </Dialog.Trigger>
         <Select.Dialog className="portal-scope__dialog" background={1} rounded>
           <Select.List full="x">
@@ -63,6 +76,7 @@ export const Scope = ({ options, selected }: ScopeProps): ReactElement => {
                 <Text.Text level="p" overflow="ellipsis">
                   {o.name}
                 </Text.Text>
+                <KindTag kind={o.kind} />
               </Select.Item>
             ))}
           </Select.List>
