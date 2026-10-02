@@ -125,19 +125,17 @@ public:
         if (this->wake_event_ != NULL) return x::errors::NIL;
 
         this->wake_event_ = CreateEvent(NULL, FALSE, FALSE, NULL);
-        if (this->wake_event_ == NULL) {
-            return x::errors::Error(
-                "Failed to create wake event: " + std::to_string(GetLastError())
+        if (this->wake_event_ == NULL)
+            return this->fail_start(
+                x::errors::Error(
+                    "Failed to create wake event: " + std::to_string(GetLastError())
+                )
             );
-        }
 
         // HIGH_RATE and BUSY_WAIT check the deadline against the clock.
         if (this->config_.mode != ExecutionMode::HIGH_RATE &&
             this->config_.mode != ExecutionMode::BUSY_WAIT) {
-            if (auto err = this->create_waitable_timer()) {
-                CloseHandle(this->wake_event_);
-                return err;
-            }
+            if (auto err = this->create_waitable_timer()) return this->fail_start(err);
         }
 
         if (!this->rt_handle_) {
@@ -266,6 +264,13 @@ private:
         }
         this->disarm_timer();
         return reason;
+    }
+
+    // Closes the handles that start opened, so the destructor does not close them
+    // again.
+    x::errors::Error fail_start(x::errors::Error err) {
+        this->close_handles();
+        return err;
     }
 
     void close_handles() {

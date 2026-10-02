@@ -78,50 +78,49 @@ public:
 
         this->epoll_fd_ = epoll_create1(0);
         if (this->epoll_fd_ == -1)
-            return x::errors::Error(
-                "Failed to create epoll: " + std::string(strerror(errno))
+            return this->fail_start(
+                x::errors::Error(
+                    "Failed to create epoll: " + std::string(strerror(errno))
+                )
             );
 
         this->event_fd_ = eventfd(0, EFD_NONBLOCK);
-        if (this->event_fd_ == -1) {
-            close(this->epoll_fd_);
-            return x::errors::Error(
-                "Failed to create eventfd: " + std::string(strerror(errno))
+        if (this->event_fd_ == -1)
+            return this->fail_start(
+                x::errors::Error(
+                    "Failed to create eventfd: " + std::string(strerror(errno))
+                )
             );
-        }
 
         struct epoll_event ev;
         ev.events = EPOLLIN;
         ev.data.fd = this->event_fd_;
-        if (epoll_ctl(this->epoll_fd_, EPOLL_CTL_ADD, this->event_fd_, &ev) == -1) {
-            close(this->event_fd_);
-            close(this->epoll_fd_);
-            return x::errors::Error(
-                "Failed to add eventfd to epoll: " + std::string(strerror(errno))
+        if (epoll_ctl(this->epoll_fd_, EPOLL_CTL_ADD, this->event_fd_, &ev) == -1)
+            return this->fail_start(
+                x::errors::Error(
+                    "Failed to add eventfd to epoll: " + std::string(strerror(errno))
+                )
             );
-        }
 
         // HIGH_RATE and BUSY_WAIT check the deadline against the clock.
         if (this->config_.mode != ExecutionMode::HIGH_RATE &&
             this->config_.mode != ExecutionMode::BUSY_WAIT) {
             this->timer_fd_ = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
-            if (this->timer_fd_ == -1) {
-                close(this->event_fd_);
-                close(this->epoll_fd_);
-                return x::errors::Error(
-                    "Failed to create timerfd: " + std::string(strerror(errno))
+            if (this->timer_fd_ == -1)
+                return this->fail_start(
+                    x::errors::Error(
+                        "Failed to create timerfd: " + std::string(strerror(errno))
+                    )
                 );
-            }
             ev.events = EPOLLIN;
             ev.data.fd = this->timer_fd_;
-            if (epoll_ctl(this->epoll_fd_, EPOLL_CTL_ADD, this->timer_fd_, &ev) == -1) {
-                close(this->timer_fd_);
-                close(this->event_fd_);
-                close(this->epoll_fd_);
-                return x::errors::Error(
-                    "Failed to add timerfd to epoll: " + std::string(strerror(errno))
+            if (epoll_ctl(this->epoll_fd_, EPOLL_CTL_ADD, this->timer_fd_, &ev) == -1)
+                return this->fail_start(
+                    x::errors::Error(
+                        "Failed to add timerfd to epoll: " +
+                        std::string(strerror(errno))
+                    )
                 );
-            }
             this->timer_enabled_ = true;
         }
 
@@ -169,6 +168,13 @@ public:
     }
 
 private:
+    // Closes the descriptors that start opened, so the destructor does not close
+    // them again.
+    x::errors::Error fail_start(x::errors::Error err) {
+        this->close_fds();
+        return err;
+    }
+
     void close_fds() {
         if (this->timer_fd_ != -1) {
             close(this->timer_fd_);

@@ -1252,6 +1252,30 @@ TEST_P(StandardTimerTest, LowersTheTickOnClose) {
 
 INSTANTIATE_TEST_SUITE_P(ArmedModes, StandardTimerTest, testing::ValuesIn(ARMED_MODES));
 
+/// @brief Timer calls whose timer cannot be created.
+struct UncreatableTimerApi {
+    static HANDLE create_high_resolution() { return NULL; }
+    static HANDLE create() {
+        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+        return NULL;
+    }
+    static BOOL set(HANDLE, const LARGE_INTEGER &) { return FALSE; }
+    static void raise_tick() {}
+    static void lower_tick() {}
+};
+
+/// @brief A failed start should close what it opened, so that a second start fails
+/// again instead of reporting a loop with closed handles as started.
+TEST(FailedStartTest, FailsAgainOnASecondStart) {
+    Config config;
+    config.mode = ExecutionMode::EVENT_DRIVEN;
+    Windows<UncreatableTimerApi> loop(config);
+    const std::string message = "Failed to create waitable timer: " +
+                                std::to_string(ERROR_NOT_ENOUGH_MEMORY);
+    EXPECT_EQ(loop.start().type, message);
+    EXPECT_EQ(loop.start().type, message);
+}
+
 /// @brief A high-resolution timer should never change the system tick.
 TEST(HighResolutionTimerTest, NeverRaisesTheTick) {
     Ticks ticks;

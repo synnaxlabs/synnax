@@ -85,19 +85,21 @@ public:
         // Create kqueue for event multiplexing
         this->kqueue_fd_ = kqueue();
         if (this->kqueue_fd_ == -1)
-            return x::errors::Error(
-                "Failed to create kqueue: " + std::string(strerror(errno))
+            return this->fail_start(
+                x::errors::Error(
+                    "Failed to create kqueue: " + std::string(strerror(errno))
+                )
             );
 
         // Register user event filter for data notifications
         struct kevent kev;
         EV_SET(&kev, USER_EVENT_IDENT, EVFILT_USER, EV_ADD | EV_CLEAR, 0, 0, nullptr);
-        if (kevent(this->kqueue_fd_, &kev, 1, nullptr, 0, nullptr) == -1) {
-            close(this->kqueue_fd_);
-            return x::errors::Error(
-                "Failed to register user event: " + std::string(strerror(errno))
+        if (kevent(this->kqueue_fd_, &kev, 1, nullptr, 0, nullptr) == -1)
+            return this->fail_start(
+                x::errors::Error(
+                    "Failed to register user event: " + std::string(strerror(errno))
+                )
             );
-        }
 
         if (!this->rt_handle_) {
             x::thread::rt::apply_config(this->config_.rt());
@@ -132,6 +134,13 @@ public:
     }
 
 private:
+    // Closes the descriptors that start opened, so the destructor does not close
+    // them again.
+    x::errors::Error fail_start(x::errors::Error err) {
+        this->close_fds();
+        return err;
+    }
+
     void close_fds() {
         if (this->kqueue_fd_ != -1) {
             close(this->kqueue_fd_);
