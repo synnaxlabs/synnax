@@ -3,8 +3,9 @@
   "type": "module",
   "private": true,
   "exports": {
+    "./Drawer.astro": "./src/Drawer.astro",
     "./Footer.astro": "./src/Footer.astro",
-    "./drawer.css": "./src/drawer.css",
+    "./MenuButton.astro": "./src/MenuButton.astro",
     "./tokens.css": "./src/tokens.css"
   },
   "scripts": {
