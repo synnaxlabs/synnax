@@ -11,7 +11,7 @@ import "schemas/synnax/ranger"
 
 @go output "core/pkg/service/ranger/kv"
 @pb
-@ts output "client/ts/src/range/kv"
+@ts output "client/ts/src/ranger/kv"
 
 Pair struct {
     range ranger.Key {
