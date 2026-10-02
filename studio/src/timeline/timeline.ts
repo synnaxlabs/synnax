@@ -33,7 +33,7 @@ export const cursorKindZ = z.enum(["default", "pointer", "text"]);
 export type CursorKind = z.infer<typeof cursorKindZ>;
 
 /** Cursor travels to (x, y), arriving at `tick`, departing `tick - duration`. */
-export const moveEventZ = z.object({
+const moveEventZ = z.object({
   type: z.literal("move"),
   tick: z.int().nonnegative(),
   x: z.number(),
@@ -58,7 +58,7 @@ export const pointerDownEventZ = z.object({
   zoom: z.boolean().optional(),
 });
 
-export const pointerUpEventZ = z.object({
+const pointerUpEventZ = z.object({
   type: z.literal("pointerup"),
   tick: z.int().nonnegative(),
   x: z.number(),
@@ -66,7 +66,7 @@ export const pointerUpEventZ = z.object({
   button: z.enum(["left", "right", "middle"]).default("left"),
 });
 
-export const keyEventZ = z.object({
+const keyEventZ = z.object({
   type: z.literal("key"),
   tick: z.int().nonnegative(),
   key: z.string(),
@@ -76,7 +76,7 @@ export const keyEventZ = z.object({
  * Authored camera override: forces the camera to the given focus and amount for
  * [tick, endTick], suppressing auto-zoom segments that overlap it.
  */
-export const zoomOverrideEventZ = z
+const zoomOverrideEventZ = z
   .object({
     type: z.literal("zoom"),
     tick: z.int().nonnegative(),
