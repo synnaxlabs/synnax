@@ -8,9 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
-#include <array>
 #include <memory>
-#include <random>
 #include <string>
 #include <vector>
 
@@ -1452,77 +1450,62 @@ TEST(ChannelStateTest, MixedWrites_OrdersStringChannelByTime) {
     EXPECT_EQ(out.at<int64_t>(8, 2), FLUSH_NOW.nanoseconds());
 }
 
-/// @brief Each cycle mixes body writes with supplied writes from two sources.
-/// Supplied stamps rise within each source, never repeat across sources, and never
-/// fall below the previous frame. Every flushed index must strictly increase.
+/// @brief Every order of one to four writes mixes body writes (b) with supplied writes
+/// stamped behind now (l) and ahead of now (a). A second cycle, 1ns later, makes one
+/// body write. Every flushed index must strictly increase.
 TEST(ChannelStateTest, StampInvariants_IndexStrictlyIncreases) {
-    for (uint64_t run = 1; run <= 5; run++) {
-        SCOPED_TRACE("run " + std::to_string(run));
+    std::vector<std::string> orders{""}, all;
+    for (int len = 0; len < 4; len++) {
+        std::vector<std::string> next;
+        for (const auto &order: orders)
+            for (const char op: {'b', 'l', 'a'})
+                next.push_back(order + op);
+        orders = next;
+        all.insert(all.end(), orders.begin(), orders.end());
+    }
+    constexpr int64_t now = 1000;
+    for (const auto &order: all) {
+        SCOPED_TRACE(order);
         auto state = alone_on_index();
-        std::mt19937_64 rng(run);
-        const auto pick = [&rng](int64_t n) {
-            return static_cast<int64_t>(rng() % static_cast<uint64_t>(n));
-        };
-        int64_t now = 0, last_sent = 0;
-        std::array<int64_t, 2> source_last{0, 0};
-        float next_value = 0;
-        for (int cycle = 0; cycle < 300; cycle++) {
-            now += 1 + pick(1000);
-            std::vector<std::pair<float, int64_t>> supplied;
-            std::vector<float> body;
-            const auto ops = pick(5);
-            for (int64_t op = 0; op < ops; op++) {
-                next_value++;
-                if (pick(2) == 0) {
-                    state.write_channel_f32(1, next_value);
-                    body.push_back(next_value);
-                    continue;
-                }
-                const auto src = static_cast<size_t>(pick(2));
-                auto stamp = std::max(
-                                 {now - pick(500), source_last[src] + 1, last_sent + 1}
-                             ) +
-                             pick(500);
-                if (stamp % 2 != static_cast<int64_t>(src)) stamp++;
-                source_last[src] = stamp;
-                write_stamped(state, 1, next_value, stamp);
-                supplied.emplace_back(next_value, stamp);
-            }
-            x::telem::Frame out;
-            const auto highest = state.flush_into(out, x::telem::TimeStamp(now));
-            if (supplied.empty() && body.empty()) {
-                ASSERT_TRUE(out.empty());
+        std::vector<std::pair<int64_t, float>> supplied;
+        std::vector<float> body;
+        int64_t behind = now - 100, ahead = now + 100;
+        for (size_t i = 0; i < order.size(); i++) {
+            const auto value = static_cast<float>(i + 1);
+            if (order[i] == 'b') {
+                state.write_channel_f32(1, value);
+                body.push_back(value);
                 continue;
             }
-            const auto &values = series_of(out, 1);
-            const auto &index = series_of(out, 2);
-            ASSERT_EQ(values.size(), index.size());
-            for (size_t i = 0; i < index.size(); i++) {
-                const auto stamp = index.at<int64_t>(static_cast<int>(i));
-                ASSERT_GT(stamp, last_sent);
-                last_sent = stamp;
-                const auto value = values.at<float>(static_cast<int>(i));
-                if (i < supplied.size()) {
-                    ASSERT_NE(
-                        std::find(
-                            supplied.begin(),
-                            supplied.end(),
-                            std::make_pair(value, stamp)
-                        ),
-                        supplied.end()
-                    );
-                    continue;
-                }
-                ASSERT_EQ(value, body[i - supplied.size()]);
-                ASSERT_GE(stamp, now);
-            }
-            if (!body.empty()) {
-                ASSERT_EQ(highest.nanoseconds(), last_sent);
-                now = std::max(now, highest.nanoseconds());
-            } else {
-                ASSERT_EQ(highest.nanoseconds(), 0);
-            }
+            auto &stamp = order[i] == 'l' ? behind : ahead;
+            write_stamped(state, 1, value, stamp);
+            supplied.emplace_back(stamp++, value);
         }
+        std::sort(supplied.begin(), supplied.end());
+        x::telem::Frame out;
+        const auto highest = state.flush_into(out, x::telem::TimeStamp(now));
+        const auto &values = series_of(out, 1);
+        const auto &index = series_of(out, 2);
+        ASSERT_EQ(index.size(), order.size());
+        ASSERT_EQ(values.size(), index.size());
+        int64_t last = 0;
+        for (size_t i = 0; i < index.size(); i++) {
+            const auto stamp = index.at<int64_t>(static_cast<int>(i));
+            const auto value = values.at<float>(static_cast<int>(i));
+            ASSERT_GT(stamp, last);
+            last = stamp;
+            if (i < supplied.size()) {
+                ASSERT_EQ(std::make_pair(stamp, value), supplied[i]);
+                continue;
+            }
+            ASSERT_EQ(value, body[i - supplied.size()]);
+            ASSERT_GE(stamp, now);
+        }
+        ASSERT_EQ(highest.nanoseconds(), body.empty() ? 0 : last);
+        state.write_channel_f32(1, 0);
+        x::telem::Frame next;
+        state.flush_into(next, x::telem::TimeStamp(now + 1));
+        ASSERT_EQ(series_of(next, 2).at<int64_t>(0), std::max(now + 1, last + 1));
     }
 }
 
