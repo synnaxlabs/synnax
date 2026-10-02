@@ -31,8 +31,9 @@ var ErrIgnoreChannel = errors.New("channel should be ignored")
 
 // Open reads the metadata file for a database whose data is kept in fs and is encoded
 // by the provided encoder. If the file does not exist, it will be created. If the file
-// does exist, it will be read and returned. The provided channel should have all fields
-// required by the DB correctly set.
+// does exist, it will be read and migrated to the current version in memory. The file
+// keeps its stored version until the next Create. The provided channel should have all
+// fields required by the DB correctly set.
 func Open(
 	ctx context.Context,
 	fs fs.FS,
@@ -51,11 +52,6 @@ func Open(
 		state := migrate.Migrate(migrate.DBState{Channel: ch, FS: fs})
 		if state.ShouldIgnoreChannel {
 			return channel.Channel{}, ErrIgnoreChannel
-		}
-		if state.Channel.Version != ch.Version {
-			if err := Create(ctx, fs, codec, state.Channel); err != nil {
-				return channel.Channel{}, err
-			}
 		}
 		if err := state.Channel.Validate(); err != nil {
 			return channel.Channel{}, err

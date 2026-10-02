@@ -54,11 +54,10 @@ func migrateV1toV2(state DBState) DBState {
 	return state
 }
 
-// migrateV2toV3 restates is_index under the name the tag now carries: meta.Open
-// rewrites the file whenever the version moves, so the bump alone canonicalizes what
-// earlier versions wrote under the Go field name. It also clears the flag on virtual
-// channels, which store nothing and so can never be an index. Validate rejects that
-// pair, and it runs after this, so a record carrying both stays readable.
+// migrateV2toV3 clears the index flag on virtual channels, which store nothing and so
+// can never be an index. Validate rejects that pair, and it runs after this, so a
+// record
+// carrying both stays readable.
 func migrateV2toV3(state DBState) DBState {
 	state.Channel.Version = channel.Version3
 	if state.Channel.Virtual {
@@ -68,7 +67,8 @@ func migrateV2toV3(state DBState) DBState {
 }
 
 // Migrate runs all pending version migrations on the given DBState, starting from the
-// channel's current version up to the latest.
+// channel's current version up to the latest. It runs on every open of a channel whose
+// stored version is behind, so a migration must be idempotent and must not write.
 func Migrate(state DBState) DBState {
 	for i := int(state.Channel.Version); i < len(migrations); i++ {
 		state = migrations[i](state)

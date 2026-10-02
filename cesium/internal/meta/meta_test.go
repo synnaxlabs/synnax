@@ -94,32 +94,61 @@ var _ = Describe("Meta", func() {
 					Expect(ch.IsIndex).To(BeFalse())
 				})
 
-				Specify("Should rewrite a legacy file under the current names", func(
+				Specify("Should migrate a legacy file without rewriting it", func(
 					ctx SpecContext,
 				) {
 					key := GenerateChannelKey()
-					subFs := MustSucceed(fs.Sub(strconv.Itoa(int(key))))
-					f := MustSucceed(subFs.Open("meta.json", os.O_CREATE|os.O_WRONLY))
+					faulty := WrapFaultyFS(MustSucceed(fs.Sub(strconv.Itoa(int(key)))))
+					f := MustSucceed(faulty.Open("meta.json", os.O_CREATE|os.O_WRONLY))
 					legacy := []byte(`{"name":"Faraday","data_type":"timestamp",` +
 						`"key":` + strconv.Itoa(int(key)) +
 						`,"index":0,"IsIndex":true,"version":2}`)
 					Expect(f.Write(legacy)).To(Equal(len(legacy)))
 					Expect(f.Close()).To(Succeed())
 
+					faulty.SetOptions(WithFailWrite())
 					codec := json.NewCodec(jsonv2.MatchCaseInsensitiveNames(true))
 					ch := MustSucceed(meta.Open(
-						ctx, subFs, channel.Channel{Key: key}, codec,
+						ctx, faulty, channel.Channel{Key: key}, codec,
 					))
 					Expect(ch.IsIndex).To(BeTrue())
 					Expect(ch.Version).To(Equal(channel.VersionCurrent))
-
-					r := MustSucceed(subFs.Open("meta.json", os.O_RDONLY))
-					stored := make([]byte, 512)
-					n := MustSucceed(r.Read(stored))
-					Expect(r.Close()).To(Succeed())
-					Expect(string(stored[:n])).To(ContainSubstring(`"is_index":true`))
-					Expect(string(stored[:n])).NotTo(ContainSubstring(`"IsIndex"`))
+					Expect(faulty.Exists("meta.json.tmp")).To(BeFalse())
 				})
+
+				Specify(
+					"Should write a legacy file under the current names on Create",
+					func(
+						ctx SpecContext,
+					) {
+						key := GenerateChannelKey()
+						subFs := MustSucceed(fs.Sub(strconv.Itoa(int(key))))
+						f := MustSucceed(
+							subFs.Open("meta.json", os.O_CREATE|os.O_WRONLY),
+						)
+						legacy := []byte(`{"name":"Faraday","data_type":"timestamp",` +
+							`"key":` + strconv.Itoa(int(key)) +
+							`,"index":0,"IsIndex":true,"version":2}`)
+						Expect(f.Write(legacy)).To(Equal(len(legacy)))
+						Expect(f.Close()).To(Succeed())
+
+						codec := json.NewCodec(jsonv2.MatchCaseInsensitiveNames(true))
+						ch := MustSucceed(meta.Open(
+							ctx, subFs, channel.Channel{Key: key}, codec,
+						))
+						Expect(meta.Create(ctx, subFs, codec, ch)).To(Succeed())
+
+						r := MustSucceed(subFs.Open("meta.json", os.O_RDONLY))
+						stored := make([]byte, 512)
+						n := MustSucceed(r.Read(stored))
+						Expect(r.Close()).To(Succeed())
+						Expect(
+							string(stored[:n]),
+						).To(ContainSubstring(`"is_index":true`))
+						Expect(string(stored[:n])).To(ContainSubstring(`"version":3`))
+						Expect(string(stored[:n])).NotTo(ContainSubstring(`"IsIndex"`))
+					},
+				)
 
 				Specify("Should read a meta.json written under Go field names", func(
 					ctx SpecContext,
