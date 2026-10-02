@@ -25,7 +25,7 @@ import {
   windowStateZ,
 } from "@/window";
 
-export const configZ = z.object({
+const configZ = z.object({
   enablePrerender: z.boolean(),
   // Defaults apply to every window, so they must not carry a key of their own.
   defaultWindowProps: windowPropsZ.omit({ key: true }).partial(),
@@ -438,7 +438,7 @@ const reduceSetWindowProps = (
 
 interface InternalSetInitialPayload extends SetConfigPayload, SetWindowLabelPayload {}
 
-export const reduceInternalSetInitial = (
+const reduceInternalSetInitial = (
   s: SliceState,
   a: PayloadAction<InternalSetInitialPayload>,
 ): void => {
