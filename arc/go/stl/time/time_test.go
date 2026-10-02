@@ -42,6 +42,7 @@ var _ = Describe("Time", func() {
 						ctx,
 						wazero.NewRuntimeConfigInterpreter(),
 					),
+					telem.Nanosecond,
 				),
 			)
 			Expect(factory).ToNot(BeNil())
@@ -59,6 +60,7 @@ var _ = Describe("Time", func() {
 						ctx,
 						wazero.NewRuntimeConfigInterpreter(),
 					),
+					telem.Nanosecond,
 				),
 			)
 			changedOutputs = nil
@@ -160,7 +162,7 @@ var _ = Describe("Time", func() {
 				}
 				Expect(factory.Create(cfg)).Error().To(SatisfyAll(
 					BeAValidationPathError(),
-					MatchError(ContainSubstring("period: must be positive, got 0s")),
+					MatchError(ContainSubstring("period: must be at least 1ns")),
 				))
 			},
 		)
@@ -182,7 +184,7 @@ var _ = Describe("Time", func() {
 				}
 				Expect(factory.Create(cfg)).Error().To(SatisfyAll(
 					BeAValidationPathError(),
-					MatchError(ContainSubstring("period: must be positive, got")),
+					MatchError(ContainSubstring("period: must be at least 1ns")),
 				))
 			},
 		)
@@ -500,6 +502,7 @@ var _ = Describe("Time", func() {
 						ctx,
 						wazero.NewRuntimeConfigInterpreter(),
 					),
+					telem.Nanosecond,
 				),
 			)
 			changedOutputs = nil
@@ -593,7 +596,7 @@ var _ = Describe("Time", func() {
 				}
 				Expect(factory.Create(cfg)).Error().To(SatisfyAll(
 					BeAValidationPathError(),
-					MatchError(ContainSubstring("duration: must be positive, got 0s")),
+					MatchError(ContainSubstring("duration: must be at least 1ns")),
 				))
 			},
 		)
@@ -1212,7 +1215,7 @@ var _ = Describe("Time", func() {
 			})
 		}
 		BeforeEach(func(ctx SpecContext) {
-			factory = MustSucceed(time.NewHost(ctx, nil))
+			factory = MustSucceed(time.NewHost(ctx, nil, telem.Nanosecond))
 			reported, deadlines, changed = nil, nil, nil
 		})
 		It("Should park an interval and report the error once", func(ctx SpecContext) {
@@ -1274,6 +1277,7 @@ var _ = Describe("Time", func() {
 						ctx,
 						wazero.NewRuntimeConfigInterpreter(),
 					),
+					telem.Nanosecond,
 				),
 			)
 			g := graph.Graph{
@@ -1420,6 +1424,7 @@ var _ = Describe("Time", func() {
 						ctx,
 						wazero.NewRuntimeConfigInterpreter(),
 					),
+					telem.Nanosecond,
 				),
 			)
 			changedOutputs = nil
@@ -1665,6 +1670,7 @@ var _ = Describe("Time", func() {
 							ctx,
 							wazero.NewRuntimeConfigInterpreter(),
 						),
+						telem.Nanosecond,
 					),
 				)
 
@@ -1722,7 +1728,7 @@ var _ = Describe("Time", func() {
 			var factory *time.Host
 			var s *node.ProgramState
 			BeforeEach(func(ctx SpecContext) {
-				factory = MustSucceed(time.NewHost(ctx, nil))
+				factory = MustSucceed(time.NewHost(ctx, nil, telem.Nanosecond))
 				g := graph.Graph{
 					Nodes: []graph.Node{{Key: "interval_1"}},
 					Inputs: map[string]msgpack.EncodedJSON{
@@ -1819,7 +1825,7 @@ var _ = Describe("Time", func() {
 			var factory *time.Host
 			var s *node.ProgramState
 			BeforeEach(func(ctx SpecContext) {
-				factory = MustSucceed(time.NewHost(ctx, nil))
+				factory = MustSucceed(time.NewHost(ctx, nil, telem.Nanosecond))
 				g := graph.Graph{
 					Nodes: []graph.Node{{Key: "wait_1"}},
 					Inputs: map[string]msgpack.EncodedJSON{
@@ -1978,6 +1984,7 @@ var _ = Describe("Time", func() {
 						ctx,
 						wazero.NewRuntimeConfigInterpreter(),
 					),
+					telem.Nanosecond,
 				),
 			)
 			changedOutputs = nil
@@ -2153,7 +2160,7 @@ var _ = Describe("Time", func() {
 	Describe("Variable inputs", func() {
 		var factory *time.Host
 		BeforeEach(func(ctx SpecContext) {
-			factory = MustSucceed(time.NewHost(ctx, nil))
+			factory = MustSucceed(time.NewHost(ctx, nil, telem.Nanosecond))
 		})
 
 		// varConfig builds a config whose span input is var-bound: Value holds
@@ -2397,7 +2404,7 @@ var _ = Describe("TimingBase GCD matrix", func() {
 		prog := MustSucceed(
 			arc.CompileText(ctx, arc.Text{Raw: "import time\n" + source}, root),
 		)
-		factory := MustSucceed(time.NewHost(ctx, nil))
+		factory := MustSucceed(time.NewHost(ctx, nil, telem.Nanosecond))
 		s := node.New(prog.IR)
 		f := node.CompoundFactory{factory}
 		for _, n := range prog.Nodes {

@@ -165,7 +165,7 @@ func (t *impl) open(ctx context.Context) (err error) {
 		}))
 	}
 
-	timeMod, err := time.NewHost(ctx, wasmRT)
+	timeMod, err := time.NewHost(ctx, wasmRT, time.PlatformMinSpan())
 	if err != nil {
 		return err
 	}

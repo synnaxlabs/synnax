@@ -142,7 +142,7 @@ func bindDefaultModules(
 	stringsMod := MustSucceed(stlstrings.NewHost(ctx, r, stringsState, nil))
 	MustSucceed(stlmath.NewHost(ctx, r))
 	MustSucceed(stlerrors.NewHost(ctx, r, nil))
-	MustSucceed(stltime.NewHost(ctx, r)).SetNow(cycleNow)
+	MustSucceed(stltime.NewHost(ctx, r, telem.Nanosecond)).SetNow(cycleNow)
 	MustSucceed(stlchannels.NewHost(ctx, r, channelState, stringsState))
 	return s, stringsMod, stringsState, channelState
 }

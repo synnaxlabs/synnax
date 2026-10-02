@@ -12,6 +12,7 @@ package time
 import (
 	"context"
 	"reflect"
+	"runtime"
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/literal"
@@ -22,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/lsp/doc"
+	xos "github.com/synnaxlabs/x/os"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -40,6 +42,15 @@ const (
 // MinTolerance is the minimum tolerance for timing comparisons,
 // handling OS scheduling jitter even when BaseInterval is very small.
 const MinTolerance = 5 * telem.Millisecond
+
+// PlatformMinSpan returns the shortest timer span the Go runtime holds on time. A
+// wake is 0.4 ms late, and 1 ms late on macOS.
+func PlatformMinSpan() telem.TimeSpan {
+	if runtime.GOOS == "darwin" {
+		return 20 * telem.Millisecond
+	}
+	return 10 * telem.Millisecond
+}
 
 // unsetBaseInterval is the sentinel value indicating BaseInterval hasn't been set yet.
 const unsetBaseInterval = telem.TimeSpanMax
@@ -167,6 +178,8 @@ type Host struct {
 	// BaseInterval is the GCD of known timer periods, declared and literal
 	// reassignments. Its only use is deriving the timing tolerance.
 	BaseInterval telem.TimeSpan
+	// minSpan is the shortest literal span Create accepts.
+	minSpan telem.TimeSpan
 	// now is the current cycle's stamp, set by the runtime loop before each pass.
 	// The `now` WASM binding is called from guest code, which has no node Context
 	// to read, so the value is pushed here instead.
@@ -178,9 +191,19 @@ type Host struct {
 func (h *Host) SetNow(now telem.TimeStamp) { h.now = now }
 
 // NewHost registers the time module's `now` WASM host binding with rt and
-// returns a Host handle that acts as the node factory for interval / wait.
-func NewHost(ctx context.Context, rt wazero.Runtime) (*Host, error) {
-	h := &Host{BaseInterval: unsetBaseInterval}
+// returns a Host handle that acts as the node factory for interval / wait. Create
+// rejects a literal span under minSpan, which must be positive.
+func NewHost(
+	ctx context.Context,
+	rt wazero.Runtime,
+	minSpan telem.TimeSpan,
+) (*Host, error) {
+	if minSpan <= 0 {
+		return nil, errors.Wrapf(
+			validate.ErrValidation, "min span must be positive, got %s", minSpan,
+		)
+	}
+	h := &Host{BaseInterval: unsetBaseInterval, minSpan: minSpan}
 	if rt == nil {
 		return h, nil
 	}
@@ -206,7 +229,7 @@ func (h *Host) Create(cfg node.Config) (node.Node, error) {
 		if err != nil {
 			return nil, err
 		}
-		if err = validateStaticSpan(period, periodParam); err != nil {
+		if err = validateStaticSpan(period, periodParam, h.minSpan); err != nil {
 			return nil, err
 		}
 		h.updateBaseInterval(period)
@@ -225,7 +248,7 @@ func (h *Host) Create(cfg node.Config) (node.Node, error) {
 		if err != nil {
 			return nil, err
 		}
-		if err = validateStaticSpan(duration, durationParam); err != nil {
+		if err = validateStaticSpan(duration, durationParam, h.minSpan); err != nil {
 			return nil, err
 		}
 		h.updateBaseInterval(duration)
@@ -300,14 +323,22 @@ func gcd(a, b int64) int64 {
 	return a
 }
 
-// validateStaticSpan rejects a non-positive span stamped at compile time.
-// Var-bound params are exempt: the runtime guard covers their live values.
-func validateStaticSpan(span telem.TimeSpan, p types.Param) error {
-	if p.Type.Kind == types.KindVarRef || span > 0 {
+// validateStaticSpan rejects a span under minSpan stamped at compile time. Var-bound
+// params are exempt: the runtime guard covers their live values.
+func validateStaticSpan(
+	span telem.TimeSpan,
+	p types.Param,
+	minSpan telem.TimeSpan,
+) error {
+	if p.Type.Kind == types.KindVarRef || span >= minSpan {
 		return nil
 	}
 	return validate.PathedError(
-		errors.Wrapf(validate.ErrValidation, "must be positive, got %s", span),
+		errors.Wrapf(
+			validate.ErrValidation,
+			"must be at least %s (%s), got %s",
+			minSpan, xos.Name(), span,
+		),
 		p.Name,
 	)
 }
