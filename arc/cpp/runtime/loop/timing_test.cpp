@@ -50,6 +50,7 @@ constexpr int COUNT = 40;
 /// @brief Wait durations measured on each loop.
 const std::vector<x::telem::TimeSpan> DURATIONS = {
     x::telem::MILLISECOND,
+    5 * x::telem::MILLISECOND,
     10 * x::telem::MILLISECOND,
     20 * x::telem::MILLISECOND,
     30 * x::telem::MILLISECOND,
