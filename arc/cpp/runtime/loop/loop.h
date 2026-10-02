@@ -64,10 +64,6 @@ inline const x::telem::TimeSpan POLL_TIMEOUT = 10 * x::telem::MILLISECOND;
 
 /// @brief Windows WaitableTimer uses 100-nanosecond units.
 inline const x::telem::TimeSpan WINDOWS_TIMER_UNIT = 100 * x::telem::NANOSECOND;
-
-/// @brief Span the Windows loop spins ahead of a deadline. The timer alone fires up
-/// to 0.5 ms late.
-inline const x::telem::TimeSpan WINDOWS_DEADLINE_SPIN = x::telem::MILLISECOND;
 }
 
 /// @brief Default RT priority for SCHED_FIFO on Linux (range 1-99).

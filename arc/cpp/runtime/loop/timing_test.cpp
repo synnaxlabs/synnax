@@ -39,8 +39,18 @@
 
 namespace arc::runtime::loop {
 namespace {
-/// @brief Earliest a wait may fire ahead of its deadline, as the time module allows.
-const auto TOLERANCE = 100 * x::telem::MICROSECOND;
+/// @brief Earliest a wait may fire ahead of its deadline. This is the rule of the time
+/// module before the fix.
+x::telem::TimeSpan
+old_tolerance(const ExecutionMode mode, const x::telem::TimeSpan base) {
+    if (base == x::telem::TimeSpan::max()) return 5 * x::telem::MILLISECOND;
+    const auto half = base / 2;
+    if (mode == ExecutionMode::RT_EVENT)
+        return std::min(half, 100 * x::telem::MICROSECOND);
+    if (mode == ExecutionMode::HIGH_RATE) return std::min(half, x::telem::MILLISECOND);
+    return std::min(half, 5 * x::telem::MILLISECOND);
+}
+
 /// @brief Maximum median distance between a fire and its deadline on an idle machine.
 const auto MEDIAN_BOUND = x::telem::MILLISECOND;
 /// @brief Time a thread spins to find the longest stall the scheduler gives it.
@@ -129,7 +139,8 @@ x::telem::TimeSpan measure_stall(const x::telem::TimeSpan span) {
 std::int64_t measure_waits(
     Loop &loop,
     x::breaker::Breaker &breaker,
-    const x::telem::TimeSpan duration
+    const x::telem::TimeSpan duration,
+    const x::telem::TimeSpan tolerance
 ) {
     std::vector<std::int64_t> errors_ns;
     errors_ns.reserve(COUNT);
@@ -139,11 +150,12 @@ std::int64_t measure_waits(
         const auto stamp = x::telem::TimeStamp::now();
         const auto sw = x::telem::Stopwatch();
         auto elapsed = x::telem::TimeSpan(0);
-        while (elapsed < duration - TOLERANCE) {
+        // A wait node only fires on a cycle, so each wait takes one wake or more.
+        do {
             loop.wait(breaker, duration - elapsed);
             elapsed = sw.elapsed();
             wakes++;
-        }
+        } while (elapsed < duration - tolerance);
         const auto stamped_ns = x::telem::TimeStamp::now().nanoseconds() -
                                 stamp.nanoseconds();
         skew_ns = std::max(skew_ns, std::abs(stamped_ns - elapsed.nanoseconds()));
@@ -175,13 +187,15 @@ std::vector<std::int64_t> sweep(const x::telem::TimeSpan timing_interval) {
         }
         x::breaker::Breaker breaker;
         breaker.start();
-        std::cout << config.mode << ", interval " << config.interval << "\n";
+        const auto tolerance = old_tolerance(config.mode, timing_interval);
+        std::cout << config.mode << ", interval " << config.interval << ", tolerance "
+                  << tolerance << "\n";
         log_timers();
         std::cout << std::fixed << std::setprecision(1) << "  longest stall in a "
                   << STALL_SPAN << " spin: " << measure_stall(STALL_SPAN).microseconds()
                   << " us\n";
         for (const auto &duration: DURATIONS)
-            medians_ns.push_back(measure_waits(*loop, breaker, duration));
+            medians_ns.push_back(measure_waits(*loop, breaker, duration, tolerance));
         breaker.stop();
     });
     thread.join();

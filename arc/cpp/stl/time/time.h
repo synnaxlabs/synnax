@@ -36,12 +36,17 @@ inline x::telem::TimeSpan calculate_tolerance(
     const runtime::loop::ExecutionMode mode,
     const x::telem::TimeSpan base_interval
 ) {
-    // Variable durations leave the base unset, and their timers wake on a deadline.
-    if (base_interval == UNSET_BASE_INTERVAL) return 100 * x::telem::MICROSECOND;
+    if (base_interval == UNSET_BASE_INTERVAL) return 5 * x::telem::MILLISECOND;
     const auto half = base_interval / 2;
-    if (mode == runtime::loop::ExecutionMode::HIGH_RATE)
-        return std::min(half, x::telem::MILLISECOND);
-    return std::min(half, 100 * x::telem::MICROSECOND);
+    switch (mode) {
+        case runtime::loop::ExecutionMode::RT_EVENT:
+        case runtime::loop::ExecutionMode::BUSY_WAIT:
+            return std::min(half, 100 * x::telem::MICROSECOND);
+        case runtime::loop::ExecutionMode::HIGH_RATE:
+            return std::min(half, x::telem::MILLISECOND);
+        default:
+            return std::min(half, 5 * x::telem::MILLISECOND);
+    }
 }
 
 /// @brief returns the named input's current span: the referenced variable's

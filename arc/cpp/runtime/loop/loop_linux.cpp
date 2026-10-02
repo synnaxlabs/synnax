@@ -84,8 +84,7 @@ public:
             );
         }
 
-        if (this->config_.interval.nanoseconds() > 0 ||
-            this->config_.mode != ExecutionMode::HIGH_RATE) {
+        if (this->config_.interval.nanoseconds() > 0) {
             if (this->config_.mode == ExecutionMode::HIGH_RATE)
                 this->timer_ = std::make_unique<::x::loop::Timer>(
                     this->config_.interval
@@ -223,23 +222,13 @@ private:
         return WakeReason::Timer;
     }
 
-    bool arm_deadline(const x::telem::TimeSpan max_timeout) const {
-        if (!this->timer_enabled_ || max_timeout.nanoseconds() <= 0) return false;
-        const int64_t second = x::telem::SECOND.nanoseconds();
-        const int64_t interval = this->config_.interval.nanoseconds();
-        struct itimerspec ts;
-        ts.it_interval.tv_sec = interval / second;
-        ts.it_interval.tv_nsec = interval % second;
-        ts.it_value.tv_sec = max_timeout.nanoseconds() / second;
-        ts.it_value.tv_nsec = max_timeout.nanoseconds() % second;
-        return timerfd_settime(this->timer_fd_, 0, &ts, nullptr) == 0;
-    }
-
     WakeReason event_driven_wait(bool blocking, const x::telem::TimeSpan max_timeout) {
         struct epoll_event events[2];
         const int default_ms = blocking ? timing::EVENT_DRIVEN_TIMEOUT.milliseconds()
                                         : timing::POLL_TIMEOUT.milliseconds();
-        const int timeout_ms = this->arm_deadline(max_timeout) ? -1 : default_ms;
+        const int timeout_ms = max_timeout.nanoseconds() > 0
+                                 ? static_cast<int>(max_timeout.milliseconds())
+                                 : default_ms;
         const int n = epoll_wait(this->epoll_fd_, events, 2, timeout_ms);
 
         if (n > 0) return this->consume_events(events, n);
@@ -253,7 +242,6 @@ private:
         const x::breaker::Breaker &breaker,
         const x::telem::TimeSpan max_timeout
     ) {
-        const bool deadline = this->arm_deadline(max_timeout);
         const auto spin_start = std::chrono::steady_clock::now();
         const auto spin_duration = std::chrono::nanoseconds(
             this->config_.spin_duration.nanoseconds()
@@ -268,8 +256,9 @@ private:
             if (n > 0) return this->consume_events(events, n);
         }
 
-        const int timeout_ms = deadline ? -1
-                                        : timing::HYBRID_BLOCK_TIMEOUT.milliseconds();
+        const int timeout_ms = max_timeout.nanoseconds() > 0
+                                 ? static_cast<int>(max_timeout.milliseconds())
+                                 : timing::HYBRID_BLOCK_TIMEOUT.milliseconds();
         const int n = epoll_wait(this->epoll_fd_, events, 2, timeout_ms);
         if (n > 0) return this->consume_events(events, n);
         return WakeReason::Timeout;

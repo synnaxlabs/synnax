@@ -80,14 +80,17 @@ public:
             );
         }
 
-        if (this->config_.mode == ExecutionMode::HIGH_RATE) {
-            if (this->config_.interval.nanoseconds() > 0)
+        if (this->config_.interval.nanoseconds() > 0) {
+            if (this->config_.mode == ExecutionMode::HIGH_RATE) {
                 this->timer_ = std::make_unique<::x::loop::Timer>(
                     this->config_.interval
                 );
-        } else if (auto err = this->create_waitable_timer()) {
-            CloseHandle(this->wake_event_);
-            return err;
+            } else {
+                if (auto err = this->create_waitable_timer()) {
+                    CloseHandle(this->wake_event_);
+                    return err;
+                }
+            }
         }
 
         if (!this->rt_handle_) {
@@ -160,44 +163,12 @@ private:
         return x::errors::NIL;
     }
 
-    // A zero span fires the timer at once, so a loop with no interval skips the arm.
     bool arm_timer() const {
-        return this->config_.interval.nanoseconds() <= 0 ||
-               this->arm_timer(this->config_.interval);
-    }
-
-    bool arm_timer(const x::telem::TimeSpan span) const {
         LARGE_INTEGER due_time;
-        const int64_t span_100ns = span.nanoseconds() /
-                                   timing::WINDOWS_TIMER_UNIT.nanoseconds();
-        due_time.QuadPart = -span_100ns;
+        const int64_t interval_100ns = this->config_.interval.nanoseconds() /
+                                       timing::WINDOWS_TIMER_UNIT.nanoseconds();
+        due_time.QuadPart = -interval_100ns;
         return SetWaitableTimer(this->timer_event_, &due_time, 0, NULL, NULL, FALSE);
-    }
-
-    // A deadline past the spin span arms the timer that span early.
-    bool arm_deadline(const x::telem::TimeSpan max_timeout) const {
-        if (!this->timer_enabled_ || max_timeout.nanoseconds() <= 0) return false;
-        const auto spin = max_timeout > timing::WINDOWS_DEADLINE_SPIN
-                            ? timing::WINDOWS_DEADLINE_SPIN
-                            : x::telem::TimeSpan(0);
-        return this->arm_timer(max_timeout - spin);
-    }
-
-    // Spins to the deadline after a timer wake. The timer handle is last and unwatched.
-    WakeReason finish_timer_wake(
-        const HANDLE *handles,
-        const DWORD count,
-        const x::telem::Stopwatch &sw,
-        const x::telem::TimeSpan deadline
-    ) const {
-        auto reason = WakeReason::Timer;
-        while (reason == WakeReason::Timer && sw.elapsed() < deadline) {
-            const DWORD result = WaitForMultipleObjects(count - 1, handles, FALSE, 0);
-            if (result < WAIT_OBJECT_0 + count - 1)
-                reason = this->classify_result(result, handles);
-        }
-        this->arm_timer();
-        return reason;
     }
 
     void close_handles() {
@@ -260,9 +231,9 @@ private:
                                    : static_cast<DWORD>(
                                          timing::HYBRID_BLOCK_TIMEOUT.milliseconds()
                                      );
-        const auto sw = x::telem::Stopwatch();
-        const bool deadline = this->arm_deadline(max_timeout);
-        const DWORD timeout_ms = deadline ? INFINITE : default_ms;
+        const DWORD timeout_ms = max_timeout.nanoseconds() > 0
+                                   ? static_cast<DWORD>(max_timeout.milliseconds())
+                                   : default_ms;
 
         const DWORD result = WaitForMultipleObjects(count, handles, FALSE, timeout_ms);
         if (result == WAIT_TIMEOUT) return WakeReason::Timeout;
@@ -272,13 +243,8 @@ private:
             return WakeReason::Shutdown;
         }
         const auto reason = this->classify_result(result, handles);
-        if (reason != WakeReason::Timer) return reason;
-        return this->finish_timer_wake(
-            handles,
-            count,
-            sw,
-            deadline ? max_timeout : x::telem::TimeSpan(0)
-        );
+        if (reason == WakeReason::Timer) this->arm_timer();
+        return reason;
     }
 
     WakeReason
@@ -286,9 +252,6 @@ private:
         HANDLE handles[3];
         const DWORD count = this->build_handles(handles);
         if (count == 0) return WakeReason::Shutdown;
-        const auto sw = x::telem::Stopwatch();
-        const bool deadline = this->arm_deadline(max_timeout);
-        const auto spin_until = deadline ? max_timeout : x::telem::TimeSpan(0);
 
         const auto spin_start = std::chrono::steady_clock::now();
         const auto spin_duration = std::chrono::nanoseconds(
@@ -301,13 +264,13 @@ private:
             const DWORD result = WaitForMultipleObjects(count, handles, FALSE, 0);
             if (result < WAIT_OBJECT_0 + count) {
                 const auto reason = this->classify_result(result, handles);
-                if (reason != WakeReason::Timer) return reason;
-                return this->finish_timer_wake(handles, count, sw, spin_until);
+                if (reason == WakeReason::Timer) this->arm_timer();
+                return reason;
             }
         }
 
-        const DWORD timeout_ms = deadline
-                                   ? INFINITE
+        const DWORD timeout_ms = max_timeout.nanoseconds() > 0
+                                   ? static_cast<DWORD>(max_timeout.milliseconds())
                                    : static_cast<DWORD>(
                                          timing::HYBRID_BLOCK_TIMEOUT.milliseconds()
                                      );
@@ -315,8 +278,8 @@ private:
         if (result == WAIT_TIMEOUT) return WakeReason::Timeout;
         if (result < WAIT_OBJECT_0 + count) {
             const auto reason = this->classify_result(result, handles);
-            if (reason != WakeReason::Timer) return reason;
-            return this->finish_timer_wake(handles, count, sw, spin_until);
+            if (reason == WakeReason::Timer) this->arm_timer();
+            return reason;
         }
         return WakeReason::Shutdown;
     }
