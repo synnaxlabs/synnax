@@ -456,7 +456,7 @@ TEST(IntervalTest, OnlyFiresOnTimerTick) {
 }
 
 /// @brief Test that a non-positive live period parks the interval: no fire,
-/// no deadline, and the error reports only once.
+/// no deadline, and the warning reports only once.
 TEST(IntervalTest, ParksAndReportsOnceOnNonPositivePeriod) {
     TestSetup setup("interval", "period", 0);
     Interval node(setup.make_node());
@@ -478,10 +478,11 @@ TEST(IntervalTest, ParksAndReportsOnceOnNonPositivePeriod) {
     EXPECT_FALSE(changed_called);
     EXPECT_EQ(deadline_calls, 0);
     ASSERT_EQ(reported.size(), 1);
-    EXPECT_TRUE(reported[0].matches(x::errors::VALIDATION));
+    EXPECT_TRUE(reported[0].matches(runtime::errors::WARNING));
+    EXPECT_EQ(reported[0].data, "interval period must be positive, got 0ns");
 }
 
-/// @brief Test that reset re-arms the non-positive period error report.
+/// @brief Test that reset re-arms the non-positive period warning.
 TEST(IntervalTest, ReportsNonPositivePeriodAgainAfterReset) {
     TestSetup setup("interval", "period", 0);
     Interval node(setup.make_node());
@@ -847,7 +848,7 @@ TEST(WaitTest, ResetRestartsTimingFromZero) {
 }
 
 /// @brief Test that a non-positive live duration parks the wait: no fire, no
-/// deadline, and the error reports only once.
+/// deadline, and the warning reports only once.
 TEST(WaitTest, ParksAndReportsOnceOnNonPositiveDuration) {
     TestSetup setup("wait", "duration", 0);
     Wait node(setup.make_node());
@@ -869,7 +870,8 @@ TEST(WaitTest, ParksAndReportsOnceOnNonPositiveDuration) {
     EXPECT_FALSE(changed_called);
     EXPECT_EQ(deadline_calls, 0);
     ASSERT_EQ(reported.size(), 1);
-    EXPECT_TRUE(reported[0].matches(x::errors::VALIDATION));
+    EXPECT_TRUE(reported[0].matches(runtime::errors::WARNING));
+    EXPECT_EQ(reported[0].data, "wait duration must be positive, got 0ns");
 }
 
 /// @brief Test calculate_tolerance for RT_EVENT mode.

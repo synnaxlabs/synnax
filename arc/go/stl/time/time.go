@@ -350,8 +350,8 @@ func (i *Interval) Init(_ node.Context) {}
 func (i *Interval) Next(ctx node.Context) {
 	period := liveSpan(i.State, periodInputParam)
 	// A non-positive period would keep the deadline permanently in the past,
-	// spinning the scheduler loop. Park without a deadline instead; a later
-	// reassignment to a positive value resumes the timer.
+	// spinning the scheduler loop. Park without a deadline until the node runs
+	// again, such as when its stage is entered again.
 	if !i.guard.usable(ctx, period, "interval period") {
 		return
 	}
@@ -410,9 +410,9 @@ func (w *Wait) Next(ctx node.Context) {
 		return
 	}
 	duration := liveSpan(w.State, durationInputParam)
-	// A non-positive duration is a configuration error, not an instant fire:
-	// park instead. Timing stays anchored to startTime, so recovery re-checks
-	// the live duration against the original activation.
+	// A non-positive duration is a configuration error, not an instant fire.
+	// Park without a deadline until the node runs again, such as when its stage
+	// is entered again.
 	if !w.guard.usable(ctx, duration, "wait duration") {
 		return
 	}

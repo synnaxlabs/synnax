@@ -18,6 +18,7 @@
 #include "x/cpp/telem/telem.h"
 
 #include "arc/cpp/ir/ir.h"
+#include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/loop/loop.h"
 #include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/stl/stl.h"
@@ -69,7 +70,7 @@ class SpanGuard {
 
 public:
     /// @brief returns true when span can drive a deadline. A non-positive span
-    /// reports a validation error naming label and returns false.
+    /// reports a warning naming label and returns false.
     bool usable(
         runtime::node::Context &ctx,
         const x::telem::TimeSpan span,
@@ -82,7 +83,7 @@ public:
         if (!this->reported) {
             ctx.report_error(
                 x::errors::Error(
-                    x::errors::VALIDATION,
+                    runtime::errors::WARNING,
                     label + " must be positive, got " + span.to_string()
                 )
             );
@@ -127,8 +128,8 @@ public:
 
     x::errors::Error next(runtime::node::Context &ctx) override {
         const auto period = live_span(this->state, "period");
-        // A non-positive period is a configuration error. Park without a deadline; a
-        // later reassignment to a positive value resumes the timer.
+        // A non-positive period is a configuration error. Park without a deadline until
+        // the node runs again, such as when its stage is entered again.
         if (!this->guard.usable(ctx, period, "interval period")) return x::errors::NIL;
         // The first usable run puts the first fire at now, so the interval fires on its
         // first timer tick.
@@ -208,9 +209,9 @@ public:
     x::errors::Error next(runtime::node::Context &ctx) override {
         if (this->fired) return x::errors::NIL;
         const auto duration = live_span(this->state, "duration");
-        // A non-positive duration is a configuration error, not an instant fire: park.
-        // Timing stays anchored to start_time, so recovery re-checks the live duration
-        // against the original activation.
+        // A non-positive duration is a configuration error, not an instant fire. Park
+        // without a deadline until the node runs again, such as when its stage is
+        // entered again.
         if (!this->guard.usable(ctx, duration, "wait duration")) return x::errors::NIL;
         if (this->start_time.nanoseconds() < 0) this->start_time = ctx.cycle.elapsed;
         ctx.set_deadline(this->start_time + duration, duration);
