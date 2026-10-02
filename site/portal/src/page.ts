@@ -14,7 +14,7 @@ import { type Organization, type OrganizationKind } from "@/server/db/schema";
 import { HTTPError } from "@/server/errors";
 import { organizationsFor, pick } from "@/server/organization";
 import { type Session } from "@/server/session";
-import { scoped } from "@/shell";
+import { landing, scoped } from "@/shell";
 
 export interface Loaded {
   portal: Portal;
@@ -22,8 +22,8 @@ export interface Loaded {
 }
 
 /**
- * load opens the portal for a signed-in page. A signed-out visitor gets a redirect to
- * sign in that returns them here afterwards.
+ * load opens the portal for a logged-in page. A logged-out visitor gets a redirect to
+ * log in that returns them here afterwards.
  */
 export const load = async (context: APIContext): Promise<Loaded | Response> => {
   const { portal } = context.locals;
@@ -33,9 +33,18 @@ export const load = async (context: APIContext): Promise<Loaded | Response> => {
     if (!(err instanceof HTTPError) || err.status !== 401)
       throw err instanceof Error ? err : new Error(String(err));
     const back = context.url.pathname + context.url.search;
-    return context.redirect(`/sign-in?redirect_url=${encodeURIComponent(back)}`, 303);
+    return context.redirect(`/login?redirect_url=${encodeURIComponent(back)}`, 303);
   }
 };
+
+/**
+ * guest sends a visitor who is already logged in to where their login would have
+ * landed. Returns null for a logged-out visitor, who stays on the page.
+ */
+export const guest = (context: APIContext): Response | null =>
+  context.locals.auth().userId == null
+    ? null
+    : context.redirect(landing(context.url.searchParams), 303);
 
 export interface Scoped extends Loaded {
   /** organizations are every organization the user can act for, personal first. */
@@ -50,7 +59,7 @@ const SCOPE_COOKIE = "scope";
 const YEAR_SECONDS = 365 * 24 * 60 * 60;
 
 /**
- * loadScoped opens the portal for a signed-in page that acts for one organization.
+ * loadScoped opens the portal for a logged-in page that acts for one organization.
  * A page without `?org=` acts for the last scope the user chose. An `?org=` the user
  * is not a member of redirects to their default overview. A page that serves only one
  * `kind` of scope redirects any other to its overview.

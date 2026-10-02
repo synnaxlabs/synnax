@@ -1,0 +1,47 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+name: Nightly
+
+on:
+  schedule:
+    - cron: "0 4 * * *" # 4am UTC
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+  packages: write
+
+jobs:
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yaml
+    with:
+      full: true
+    secrets: inherit
+
+  notify:
+    name: Notify Slack
+    needs: ci
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Post the failure to Slack
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NIGHTLY_WEBHOOK_URL }}
+          RUN_URL:
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{
+            github.run_id }}
+        run: |
+          curl --fail --silent --show-error \
+            --header "Content-Type: application/json" \
+            --data "{\"text\": \"Nightly CI failed: $RUN_URL\"}" \
+            "$SLACK_WEBHOOK_URL"

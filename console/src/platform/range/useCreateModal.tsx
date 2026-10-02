@@ -22,6 +22,7 @@ import { type NumericTimeRange, TimeRange, uuid } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useRef } from "react";
 import { type z } from "zod";
 
+import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { Label } from "@/platform/label";
 import { Modals } from "@/platform/modals";
@@ -69,6 +70,7 @@ export const useCreateModal = Modals.create<CreateModalParams>(
   ({ close, rangeKey, ...params }) => {
     const now = useRef(Number(TimeStamp.now().valueOf())).current;
     const dispatch = Session.useDispatch();
+    const { capture } = Analytics.use();
 
     const client = Synnax.use();
     const clientExists = client != null;
@@ -84,6 +86,7 @@ export const useCreateModal = Modals.create<CreateModalParams>(
         ...params,
       },
       afterSave: (form) => {
+        if (rangeKey == null) capture("range_created", {});
         close();
         const { key } = form.value();
         if (key == null) return;

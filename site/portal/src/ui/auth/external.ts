@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/ui/auth/Card";
+export * from "@/ui/auth/Login";
 export * from "@/ui/auth/Reset";
-export * from "@/ui/auth/SignIn";
 export * from "@/ui/auth/SignUp";
 export * from "@/ui/auth/SSOCallback";

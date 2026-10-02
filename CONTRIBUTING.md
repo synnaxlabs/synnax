@@ -41,17 +41,19 @@ change carries a migration and a dark feature stays dark. **Tier 3**: Only Grept
 reads it. A fix that turns out to change behavior gets its tier raised.
 
 Two statuses gate a merge into `main` or a `release/**` branch. `Review gate` stays
-pending until the PR has one tier label, a successful Greptile review and, for Tier 1 or
-2, an approval from a human other than the author. A later request for changes or a
-dismissal retires an approval. Two tier labels fail it. `OK` is the CI workflow's last
-job: it fails when any check the PR's paths select failed. A merge into `main` goes
-through a merge queue, which reruns CI on the merged result with the integration suite
-added before the branch moves. GitHub refuses a queue on a wildcard branch pattern, so a
-`release/**` merge goes in directly, and CI runs again on the pushed commit. A release
-runs the integration suite itself. Admins bypass when Greptile is down. The gate script
-is `.github/scripts/check_review.sh`, the rulesets `.github/rulesets/main.json` and
-`.github/rulesets/release.json`. An admin applies a changed ruleset file by hand; the
-`Check - Rulesets` workflow fails each day until GitHub matches the files.
+pending until the PR has one tier label, a finished Greptile review of the head and, for
+Tier 1 or 2, an approval from a human other than the author. A later request for changes
+or a dismissal retires an approval. Two tier labels fail it, and so does a Greptile
+confidence score below 5/5: push a fix, or retrigger the review after answering the
+comments. `OK` is the CI workflow's last job: it fails when any check the PR's paths
+select failed. A merge into `main` goes through a merge queue, which reruns CI on the
+merged result with the integration suite added before the branch moves. GitHub refuses a
+queue on a wildcard branch pattern, so a `release/**` merge goes in directly, and CI
+runs again on the pushed commit. A release runs the integration suite itself. Admins
+bypass when Greptile is down. The gate script is `.github/scripts/check_review.sh`, the
+rulesets `.github/rulesets/main.json` and `.github/rulesets/release.json`. An admin
+applies a changed ruleset file by hand; the `Check - Rulesets` workflow fails each day
+until GitHub matches the files.
 
 ## Size
 

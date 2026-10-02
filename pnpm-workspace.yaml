@@ -106,6 +106,7 @@ catalog:
   '@tauri-apps/plugin-deep-link': ^2.5.0
   '@tauri-apps/plugin-dialog': ^2.8.0
   '@tauri-apps/plugin-fs': ^2.6.0
+  '@tauri-apps/plugin-os': ^2.4.0
   '@tauri-apps/plugin-process': ^2.4.0
   '@tauri-apps/plugin-shell': ^2.4.0
   '@tauri-apps/plugin-store': ^2.5.0
@@ -162,6 +163,9 @@ catalog:
   playwright: ^1.63.0
   pluralize: ^8.0.0
   postcss: ^8.5.26
+  # Pinned exactly. posthog-js publishes several times a day, so a range resolves to a
+  # release minutes old and trips the minimum release age gate.
+  posthog-js: 1.427.2
   prettier: ^3.9.9
   prettier-plugin-astro: ^1.1.0
   prettier-plugin-sh: ^0.20.2
