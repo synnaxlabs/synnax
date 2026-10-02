@@ -165,7 +165,7 @@ class ProjectClient(ResourceClient):
             ).click(timeout=5000)
 
         name_input = self.layout.page.locator(
-            ".console-modal input[placeholder='Name']"
+            ".pluto-modal input[placeholder='Name']"
         )
         name_input.wait_for(state="visible", timeout=5000)
         name_input.fill(name)
@@ -357,7 +357,7 @@ class ProjectClient(ResourceClient):
             ".console-project-splash button.console-create-list-item"
         ).click(timeout=5000)
         name_input = self.layout.page.locator(
-            ".console-modal input[placeholder='Name']"
+            ".pluto-modal input[placeholder='Name']"
         )
         name_input.wait_for(state="visible", timeout=5000)
         name_input.fill(name)
