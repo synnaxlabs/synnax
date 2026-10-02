@@ -593,7 +593,7 @@ TEST(IntervalTest, OnlyFiresOnTimerTick) {
 /// no deadline, and the error reports only once.
 TEST(IntervalTest, ParksAndReportsOnceOnNonPositivePeriod) {
     TestSetup setup("interval", "period", 0);
-    Interval node(setup.make_node(), x::telem::TimeSpan(0));
+    Interval node(setup.make_node(), x::telem::TimeSpan(0), MIN);
 
     std::vector<x::errors::Error> reported;
     int deadline_calls = 0;
@@ -616,7 +616,7 @@ TEST(IntervalTest, ParksAndReportsOnceOnNonPositivePeriod) {
 /// @brief Test that reset re-arms the non-positive period error report.
 TEST(IntervalTest, ReportsNonPositivePeriodAgainAfterReset) {
     TestSetup setup("interval", "period", 0);
-    Interval node(setup.make_node(), x::telem::TimeSpan(0));
+    Interval node(setup.make_node(), x::telem::TimeSpan(0), MIN);
 
     std::vector<x::errors::Error> reported;
     auto ctx = make_context(x::telem::TimeSpan(0));
@@ -657,23 +657,6 @@ TEST(IntervalTest, HoldsPeriodUnderMinimumAtMinimumAndWarnsOnce) {
     ASSERT_EQ(reported.size(), 1);
     EXPECT_TRUE(reported[0].matches(runtime::errors::WARNING));
     EXPECT_EQ(reported[0].data, under_min_message("period") + ", using 5ms");
-}
-
-/// @brief Test that a non-positive live period is held at the minimum with a warning.
-TEST(IntervalTest, HoldsNonPositivePeriodAtMinimum) {
-    TestSetup setup("interval", "period", 0);
-    Interval node(setup.make_node(), x::telem::TimeSpan(0), MIN);
-
-    std::vector<x::errors::Error> reported;
-    auto deadline = x::telem::TimeSpan(0);
-    auto ctx = make_context(x::telem::TimeSpan(0));
-    ctx.set_deadline = [&](const x::telem::TimeSpan d) { deadline = d; };
-    ctx.report_error = [&](const x::errors::Error &e) { reported.push_back(e); };
-
-    ASSERT_NIL(node.next(ctx));
-    EXPECT_EQ(deadline, MIN);
-    ASSERT_EQ(reported.size(), 1);
-    EXPECT_TRUE(reported[0].matches(runtime::errors::WARNING));
 }
 
 /// @brief Test that reset does not repeat the warning for a period under the minimum.
@@ -1045,7 +1028,7 @@ TEST(WaitTest, ResetRestartsTimingFromZero) {
 /// deadline, and the error reports only once.
 TEST(WaitTest, ParksAndReportsOnceOnNonPositiveDuration) {
     TestSetup setup("wait", "duration", 0);
-    Wait node(setup.make_node());
+    Wait node(setup.make_node(), MIN);
 
     std::vector<x::errors::Error> reported;
     int deadline_calls = 0;

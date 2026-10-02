@@ -1149,7 +1149,8 @@ var _ = Describe("Time", func() {
 			},
 		)
 	})
-	Describe("Non-positive live span guard", func() {
+	Describe("Live span guard", func() {
+		const minSpan = 10 * telem.Millisecond
 		var factory *time.Host
 		newState := func(
 			ctx context.Context,
@@ -1218,7 +1219,7 @@ var _ = Describe("Time", func() {
 			})
 		}
 		BeforeEach(func(ctx SpecContext) {
-			factory = MustSucceed(time.NewHost(ctx, nil, telem.Nanosecond))
+			factory = MustSucceed(time.NewHost(ctx, nil, minSpan))
 			reported, deadlines, changed = nil, nil, nil
 		})
 		It("Should park an interval and report the error once", func(ctx SpecContext) {
@@ -1270,6 +1271,60 @@ var _ = Describe("Time", func() {
 			Expect(deadlines).To(BeEmpty())
 			Expect(reported).To(HaveLen(1))
 		})
+		underMinMessage := func(param string) string {
+			return fmt.Sprintf(
+				"%s must be at least 10ms (%s), got 1ms, using 10ms", param, xos.Name(),
+			)
+		}
+		It(
+			"Should hold an interval period under the minimum at the minimum",
+			func(ctx SpecContext) {
+				s := newState(
+					ctx, "interval_1", "interval", "period", int64(telem.Millisecond),
+				)
+				n := newNode(ctx, s, "interval_1", "interval", "period")
+				tick(ctx, n, 0)
+				Expect(changed).To(HaveLen(1))
+				Expect(deadlines).To(HaveExactElements(minSpan))
+				tick(ctx, n, telem.Millisecond)
+				Expect(changed).To(HaveLen(1))
+				tick(ctx, n, minSpan)
+				Expect(changed).To(HaveLen(2))
+				Expect(deadlines[len(deadlines)-1]).To(Equal(2 * minSpan))
+				Expect(reported).To(HaveLen(1))
+				Expect(reported[0]).To(MatchError(underMinMessage("period")))
+			},
+		)
+		It(
+			"Should hold a wait duration under the minimum at the minimum",
+			func(ctx SpecContext) {
+				s := newState(
+					ctx, "wait_1", "wait", "duration", int64(telem.Millisecond),
+				)
+				n := newNode(ctx, s, "wait_1", "wait", "duration")
+				tick(ctx, n, 0)
+				Expect(deadlines).To(HaveExactElements(minSpan))
+				tick(ctx, n, telem.Millisecond)
+				Expect(changed).To(BeEmpty())
+				tick(ctx, n, minSpan)
+				Expect(changed).To(HaveLen(1))
+				Expect(reported).To(HaveLen(1))
+				Expect(reported[0]).To(MatchError(underMinMessage("duration")))
+			},
+		)
+		It(
+			"Should not report a span under the minimum again after a reset",
+			func(ctx SpecContext) {
+				s := newState(
+					ctx, "wait_1", "wait", "duration", int64(telem.Millisecond),
+				)
+				n := newNode(ctx, s, "wait_1", "wait", "duration")
+				tick(ctx, n, 0)
+				n.Reset(node.Context{})
+				tick(ctx, n, 0)
+				Expect(reported).To(HaveLen(1))
+			},
+		)
 	})
 	Describe("NewHost", func() {
 		DescribeTable("Should reject a minimum span that is not positive",
@@ -1473,29 +1528,77 @@ var _ = Describe("Time", func() {
 		})
 	})
 	Describe("CalculateTolerance", func() {
-		It("Should return half of base interval for 100ms", func() {
+		It("Should return MaxTolerance for a 100ms base interval", func() {
 			tolerance := time.CalculateTolerance(100 * telem.Millisecond)
-			Expect(tolerance).To(Equal(50 * telem.Millisecond))
+			Expect(tolerance).To(Equal(time.MaxTolerance))
+		})
+		It("Should return half of a base interval under twice MaxTolerance", func() {
+			tolerance := time.CalculateTolerance(100 * telem.Microsecond)
+			Expect(tolerance).To(Equal(50 * telem.Microsecond))
+		})
+		It("Should return MaxTolerance for an unset base interval", func() {
+			tolerance := time.CalculateTolerance(telem.TimeSpan(math.MaxInt64))
+			Expect(tolerance).To(Equal(time.MaxTolerance))
+		})
+		It("Should return MaxTolerance when half equals MaxTolerance", func() {
+			tolerance := time.CalculateTolerance(2 * time.MaxTolerance)
+			Expect(tolerance).To(Equal(time.MaxTolerance))
 		})
 		It(
-			"Should return MinTolerance when half interval is less than MinTolerance",
-			func() {
-				tolerance := time.CalculateTolerance(2 * telem.Millisecond)
-				Expect(tolerance).To(Equal(time.MinTolerance))
-			},
-		)
-		It(
-			"Should return MinTolerance for MaxInt64 base interval",
-			func() {
-				tolerance := time.CalculateTolerance(telem.TimeSpan(math.MaxInt64))
-				Expect(tolerance).To(Equal(time.MinTolerance))
-			},
-		)
-		It(
-			"Should return exactly MinTolerance when half equals MinTolerance",
-			func() {
-				tolerance := time.CalculateTolerance(2 * time.MinTolerance)
-				Expect(tolerance).To(Equal(time.MinTolerance))
+			"Should not fire a wait on the tick of an interval before its deadline",
+			func(ctx SpecContext) {
+				host := MustSucceed(time.NewHost(ctx, nil, 10*telem.Millisecond))
+				param := func(name string, span telem.TimeSpan) types.Params {
+					return types.Params{
+						{Name: name, Type: types.TimeSpan(), Value: span},
+					}
+				}
+				interval := ir.Node{
+					Key:    "interval_1",
+					Type:   "interval",
+					Inputs: param("period", 10*telem.Millisecond),
+					Outputs: types.Params{
+						{Name: ir.DefaultOutputParam, Type: types.U8()},
+					},
+				}
+				wait := ir.Node{
+					Key:    "wait_1",
+					Type:   "wait",
+					Inputs: param("duration", 13*telem.Millisecond),
+					Outputs: types.Params{
+						{Name: ir.DefaultOutputParam, Type: types.U8()},
+					},
+				}
+				state := node.New(ir.IR{Nodes: ir.Nodes{interval, wait}})
+				MustSucceed(host.Create(node.Config{
+					Node:  interval,
+					State: state.Node("interval_1"),
+				}))
+				w := MustSucceed(host.Create(node.Config{
+					Node:  wait,
+					State: state.Node("wait_1"),
+				}))
+				*state.Node("wait_1").Output(0) = telem.NewSeriesV[uint8]()
+				*state.Node("wait_1").OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
+				Expect(host.BaseInterval).To(Equal(telem.Millisecond))
+				tolerance := time.CalculateTolerance(host.BaseInterval)
+				fired := 0
+				tick := func(elapsed telem.TimeSpan) {
+					w.Next(node.Context{
+						Context:         ctx,
+						Elapsed:         elapsed,
+						Reason:          node.ReasonTimerTick,
+						Tolerance:       tolerance,
+						MarkChanged:     func(int) { fired++ },
+						MarkSelfChanged: func() {},
+						SetDeadline:     func(telem.TimeSpan) {},
+					})
+				}
+				tick(0)
+				tick(10 * telem.Millisecond)
+				Expect(fired).To(BeZero())
+				tick(13 * telem.Millisecond)
+				Expect(fired).To(Equal(1))
 			},
 		)
 	})
@@ -1679,53 +1782,68 @@ var _ = Describe("Time", func() {
 					Expect(fireCount).To(Equal(5))
 				},
 			)
-			It("Should use MinTolerance floor for OS jitter", func(ctx SpecContext) {
-				cfg := node.Config{
-					Node: ir.Node{
-						Type: "interval",
-						Inputs: types.Params{
-							{
-								Name:  "period",
-								Type:  types.TimeSpan(),
-								Value: 100 * telem.Millisecond,
+			It(
+				"Should not fire a tick more than MaxTolerance before the deadline",
+				func(ctx SpecContext) {
+					cfg := node.Config{
+						Node: ir.Node{
+							Type: "interval",
+							Inputs: types.Params{
+								{
+									Name:  "period",
+									Type:  types.TimeSpan(),
+									Value: 100 * telem.Millisecond,
+								},
 							},
 						},
-					},
-					State: s.Node("interval_1"),
-				}
-				n := MustSucceed(factory.Create(cfg))
-				intervalNode := s.Node("interval_1")
-				*intervalNode.Output(0) = telem.NewSeriesV[uint8]()
-				*intervalNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
+						State: s.Node("interval_1"),
+					}
+					n := MustSucceed(factory.Create(cfg))
+					intervalNode := s.Node("interval_1")
+					*intervalNode.Output(0) = telem.NewSeriesV[uint8]()
+					*intervalNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
 
-				tolerance := time.MinTolerance
-				n.Next(node.Context{
-					Context:   ctx,
-					Elapsed:   0,
-					Reason:    node.ReasonTimerTick,
-					Tolerance: tolerance,
-					MarkChanged: func(i int) {
-						changedOutputs = append(changedOutputs, i)
-					},
-					MarkSelfChanged: func() {},
-					SetDeadline:     func(_ telem.TimeSpan) {},
-				})
-				Expect(changedOutputs).To(HaveLen(1))
+					tolerance := time.MaxTolerance
+					n.Next(node.Context{
+						Context:   ctx,
+						Elapsed:   0,
+						Reason:    node.ReasonTimerTick,
+						Tolerance: tolerance,
+						MarkChanged: func(i int) {
+							changedOutputs = append(changedOutputs, i)
+						},
+						MarkSelfChanged: func() {},
+						SetDeadline:     func(_ telem.TimeSpan) {},
+					})
+					Expect(changedOutputs).To(HaveLen(1))
 
-				changedOutputs = nil
-				n.Next(node.Context{
-					Context:   ctx,
-					Elapsed:   96 * telem.Millisecond,
-					Reason:    node.ReasonTimerTick,
-					Tolerance: tolerance,
-					MarkChanged: func(i int) {
-						changedOutputs = append(changedOutputs, i)
-					},
-					MarkSelfChanged: func() {},
-					SetDeadline:     func(_ telem.TimeSpan) {},
-				})
-				Expect(changedOutputs).To(HaveLen(1))
-			})
+					changedOutputs = nil
+					n.Next(node.Context{
+						Context:   ctx,
+						Elapsed:   99800 * telem.Microsecond,
+						Reason:    node.ReasonTimerTick,
+						Tolerance: tolerance,
+						MarkChanged: func(i int) {
+							changedOutputs = append(changedOutputs, i)
+						},
+						MarkSelfChanged: func() {},
+						SetDeadline:     func(_ telem.TimeSpan) {},
+					})
+					Expect(changedOutputs).To(BeEmpty())
+					n.Next(node.Context{
+						Context:   ctx,
+						Elapsed:   99950 * telem.Microsecond,
+						Reason:    node.ReasonTimerTick,
+						Tolerance: tolerance,
+						MarkChanged: func(i int) {
+							changedOutputs = append(changedOutputs, i)
+						},
+						MarkSelfChanged: func() {},
+						SetDeadline:     func(_ telem.TimeSpan) {},
+					})
+					Expect(changedOutputs).To(HaveLen(1))
+				},
+			)
 		})
 		Describe("Wait with tolerance", func() {
 			It("Should fire early within tolerance", func(ctx SpecContext) {

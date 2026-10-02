@@ -39,9 +39,10 @@ const (
 	name               = "time"
 )
 
-// MinTolerance is the minimum tolerance for timing comparisons,
-// handling OS scheduling jitter even when BaseInterval is very small.
-const MinTolerance = 5 * telem.Millisecond
+// MaxTolerance is the most a timer may fire before its deadline. The loop wakes on the
+// earliest deadline, so a wider tolerance only fires a timer early on the wake of
+// another.
+const MaxTolerance = 100 * telem.Microsecond
 
 // PlatformMinSpan returns the shortest timer span the Go runtime holds on time. A
 // wake is 0.4 ms late, and 1 ms late on macOS.
@@ -236,7 +237,8 @@ func (h *Host) Create(cfg node.Config) (node.Node, error) {
 		h.foldReassignedSpans(cfg, periodParam)
 		return &Interval{
 			State:     cfg.State,
-			lastFired: -period,
+			lastFired: -max(period, h.minSpan),
+			guard:     spanGuard{min: h.minSpan},
 		}, nil
 
 	case waitSymbolName:
@@ -257,6 +259,7 @@ func (h *Host) Create(cfg node.Config) (node.Node, error) {
 			State:     cfg.State,
 			startTime: -1,
 			fired:     false,
+			guard:     spanGuard{min: h.minSpan},
 		}, nil
 
 	case nowSymbolName:
@@ -267,16 +270,10 @@ func (h *Host) Create(cfg node.Config) (node.Node, error) {
 	}
 }
 
-// CalculateTolerance returns the timing tolerance for the given base interval.
+// CalculateTolerance returns the timing tolerance for the given base interval: half
+// the base interval, and MaxTolerance at most.
 func CalculateTolerance(baseInterval telem.TimeSpan) telem.TimeSpan {
-	if baseInterval == unsetBaseInterval {
-		return MinTolerance
-	}
-	halfInterval := baseInterval / 2
-	if halfInterval < MinTolerance {
-		return MinTolerance
-	}
-	return halfInterval
+	return min(baseInterval/2, MaxTolerance)
 }
 
 // foldReassignedSpans folds the literal reassignment values of a var-bound
@@ -364,9 +361,13 @@ func liveSpan(s *node.State, name string) telem.TimeSpan {
 	return telem.TimeSpan(s.NumericInput[int64](name))
 }
 
-// spanGuard guards a live timer span against non-positive values. It reports
-// the first offense only, so a parked node does not re-report on every pass.
-type spanGuard struct{ reported bool }
+// spanGuard guards a live timer span against non-positive values and values under min.
+// It reports the first offense only, so a node does not re-report on every pass.
+type spanGuard struct {
+	min      telem.TimeSpan
+	reported bool
+	raised   bool
+}
 
 // usable reports whether span can drive a deadline. A non-positive span
 // reports a validation error naming label and returns false.
@@ -384,6 +385,29 @@ func (g *spanGuard) usable(ctx node.Context, span telem.TimeSpan, label string) 
 	return false
 }
 
+// raise returns span, or min when span is shorter. A short span reports an error naming
+// label.
+func (g *spanGuard) raise(
+	ctx node.Context,
+	span telem.TimeSpan,
+	label string,
+) telem.TimeSpan {
+	if span >= g.min {
+		g.raised = false
+		return span
+	}
+	if !g.raised {
+		ctx.ReportError(errors.Newf(
+			"%s must be at least %s (%s), got %s, using %s",
+			label, g.min, xos.Name(), span, g.min,
+		))
+		g.raised = true
+	}
+	return g.min
+}
+
+// reset arms the validation report again. The raise report stays reported, so a stage
+// that loops does not repeat it.
 func (g *spanGuard) reset() { g.reported = false }
 
 // Interval is a node that fires repeatedly at a specified period.
@@ -403,6 +427,7 @@ func (i *Interval) Next(ctx node.Context) {
 	if !i.guard.usable(ctx, period, "interval period") {
 		return
 	}
+	period = i.guard.raise(ctx, period, "period")
 	if ctx.Reason != node.ReasonTimerTick {
 		ctx.MarkSelfChanged()
 		ctx.SetDeadline(i.lastFired + period)
@@ -428,7 +453,7 @@ func (i *Interval) Next(ctx node.Context) {
 // Reset resets the interval so it fires immediately on the next timer tick.
 func (i *Interval) Reset(ctx node.Context) {
 	i.State.Reset(ctx)
-	i.lastFired = -liveSpan(i.State, periodInputParam)
+	i.lastFired = -max(liveSpan(i.State, periodInputParam), i.guard.min)
 	i.guard.reset()
 }
 
@@ -453,6 +478,7 @@ func (w *Wait) Next(ctx node.Context) {
 	if !w.guard.usable(ctx, duration, "wait duration") {
 		return
 	}
+	duration = w.guard.raise(ctx, duration, "duration")
 	if w.startTime < 0 {
 		w.startTime = ctx.Elapsed
 	}

@@ -91,14 +91,13 @@ public:
     explicit SpanGuard(const x::telem::TimeSpan min): min(min) {}
 
     /// @brief returns true when span can drive a deadline. A non-positive span
-    /// with no minimum to raise it to reports a validation error naming label and
-    /// returns false.
+    /// reports a validation error naming label and returns false.
     bool usable(
         runtime::node::Context &ctx,
         const x::telem::TimeSpan span,
         const std::string &label
     ) {
-        if (span.nanoseconds() > 0 || this->min.nanoseconds() > 0) {
+        if (span.nanoseconds() > 0) {
             this->reported = false;
             return true;
         }
@@ -186,7 +185,8 @@ public:
 
     x::errors::Error next(runtime::node::Context &ctx) override {
         const auto live = live_span(this->state, "period");
-        // With no minimum, a non-positive period would hold the deadline in the past.
+        // A non-positive period is a configuration error. Park without a deadline; a
+        // later reassignment to a positive value resumes the timer.
         if (!this->guard.usable(ctx, live, "interval period")) return x::errors::NIL;
         const auto period = this->guard.raise(ctx, live, "period");
         if (ctx.cycle.reason != runtime::node::RunReason::TimerTick) {
@@ -264,7 +264,9 @@ public:
     x::errors::Error next(runtime::node::Context &ctx) override {
         if (this->fired) return x::errors::NIL;
         const auto live = live_span(this->state, "duration");
-        // With no minimum, a non-positive duration would fire the wait at once.
+        // A non-positive duration is a configuration error, not an instant fire: park.
+        // Timing stays anchored to start_time, so recovery re-checks the live duration
+        // against the original activation.
         if (!this->guard.usable(ctx, live, "wait duration")) return x::errors::NIL;
         const auto duration = this->guard.raise(ctx, live, "duration");
         if (this->start_time.nanoseconds() < 0) this->start_time = ctx.cycle.elapsed;
