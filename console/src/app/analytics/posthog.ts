@@ -50,6 +50,23 @@ const monacoCancellationZ = z
 const isMonacoCancellation = (exceptions: unknown): boolean =>
   monacoCancellationZ.safeParse(exceptions).success;
 
+/**
+ * Attributes that hold readable text, such as a range name in an `aria-label`. Replays
+ * keep every other attribute, since classes and styles render the recording.
+ */
+const TEXT_ATTRIBUTES = new Set([
+  "aria-label",
+  "aria-description",
+  "aria-valuetext",
+  "aria-placeholder",
+  "title",
+  "alt",
+  "placeholder",
+]);
+
+const maskAttribute = (name: string, value: string): string =>
+  TEXT_ATTRIBUTES.has(name) ? "*".repeat(value.length) : value;
+
 export interface Params {
   /** Identifies the install across launches and across a webview data wipe. */
   installID: string;
@@ -85,7 +102,11 @@ const init = async (installID: string) => {
     capture_pageleave: false,
     // Replays mask every string for the same reason as autocapture. Plots, logs, and
     // values draw on canvases in a worker, which replays show blank.
-    session_recording: { maskAllInputs: true, maskTextSelector: "*" },
+    session_recording: {
+      maskAllInputs: true,
+      maskTextSelector: "*",
+      maskAttributeFn: maskAttribute,
+    },
     capture_exceptions: true,
     capture_heatmaps: false,
     capture_dead_clicks: false,
