@@ -27,6 +27,7 @@ import {
   SCAN_TYPE,
   TEST_CONNECTION_COMMAND_TYPE,
 } from "@/feature/modbus/task/types";
+import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { type Device as PlatformDevice } from "@/platform/device";
 import { Modals } from "@/platform/modals";
@@ -89,6 +90,7 @@ const beforeSave = async ({
 
 export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
   ({ deviceKey, close }) => {
+    const { capture } = Analytics.use();
     const {
       form,
       save,
@@ -99,7 +101,10 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
       initialValues: INITIAL_VALUES,
       beforeValidate,
       beforeSave,
-      afterSave: useCallback(() => close(), [close]),
+      afterSave: useCallback(() => {
+        if (deviceKey == null) capture("device_connected", { integration: "modbus" });
+        close();
+      }, [capture, close, deviceKey]),
     });
 
     return (

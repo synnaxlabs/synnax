@@ -13,7 +13,7 @@ on:
   workflow_call:
   workflow_dispatch:
 concurrency:
-  group: buildifier-${{ github.ref }}
+  group: buildifier-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
