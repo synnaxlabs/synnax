@@ -59,19 +59,6 @@ export interface LabelSpec {
   color: string;
 }
 
-/** createLabels creates labels on the cluster for label-selection shots. */
-export const createLabels = async (
-  specs: LabelSpec[],
-  opts: ConnectionOptions = {},
-): Promise<void> => {
-  const client = connect(opts);
-  try {
-    await client.labels.create(specs);
-  } finally {
-    await client.close();
-  }
-};
-
 /**
  * resetLabels leaves the cluster holding exactly the given labels: a listed
  * name is recolored to match, every other label and any duplicate is deleted,
@@ -203,30 +190,6 @@ export const removeChannels = async (
   try {
     const found = await client.channels.retrieve({ names });
     if (found.length > 0) await client.channels.delete(found.map((c) => c.key));
-  } finally {
-    await client.close();
-  }
-};
-
-export interface CalculatedSpec {
-  name: string;
-  /** Arc expression, e.g. `return demo_pressure * 2`. */
-  expression: string;
-}
-
-/**
- * createCalculatedChannels creates virtual calculated channels, for shots that
- * start from one that already exists.
- */
-export const createCalculatedChannels = async (
-  specs: CalculatedSpec[],
-  opts: ConnectionOptions = {},
-): Promise<void> => {
-  const client = connect(opts);
-  try {
-    await client.channels.create(
-      specs.map((spec) => ({ ...spec, virtual: true, dataType: "float32" })),
-    );
   } finally {
     await client.close();
   }

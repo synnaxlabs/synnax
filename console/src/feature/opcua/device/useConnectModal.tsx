@@ -16,6 +16,7 @@ import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Device as PDevice, type Flux, Rack } from "@synnaxlabs/pluto";
@@ -107,9 +108,9 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
         { ctx: form },
       ) != NO_SECURITY_MODE;
     return (
-      <Modals.Frame className={CSS.B("opc-connect")}>
-        <Modals.Header icon={<Icon.Logo.OPCUA />}>Server.Connect</Modals.Header>
-        <Modals.Body gap="small">
+      <Modal.Frame className={CSS.B("opc-connect")}>
+        <Modal.Header icon={<Icon.Logo.OPCUA />}>Server.Connect</Modal.Header>
+        <Modal.Body gap="small">
           <Form.Form<typeof PDevice.formSchema> {...form}>
             <Form.TextField inputProps={NAME_INPUT_PROPS} path="name" />
             <Form.Field<rack.Key> path="rack" label="Connect from" required>
@@ -174,8 +175,8 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
               </>
             )}
           </Form.Form>
-        </Modals.Body>
-        <Modals.Footer>
+        </Modal.Body>
+        <Modal.Footer>
           <Nav.Bar.Start gap="small">
             {variant == "success" ? (
               <Triggers.SaveHelpText action="Connect" noBar />
@@ -193,8 +194,8 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
               Connect
             </Button.Button>
           </Nav.Bar.End>
-        </Modals.Footer>
-      </Modals.Frame>
+        </Modal.Footer>
+      </Modal.Frame>
     );
   },
 );

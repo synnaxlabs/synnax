@@ -18,6 +18,7 @@ import { Header } from "@synnaxlabs/lyra/header";
 import { useCombinedStateAndRef } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
+import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Schematic } from "@synnaxlabs/pluto";
@@ -154,14 +155,14 @@ export const useModal = Modals.create<ModalParams>(
 
     return (
       <Form.Form<typeof Schematic.Symbol.formSchema> {...form}>
-        <Modals.Frame
+        <Modal.Frame
           className={CSS.BE("schematic", "symbol-create-layout")}
           background={1}
         >
-          <Modals.Header icon={<Icon.Schematic />}>
+          <Modal.Header icon={<Icon.Schematic />}>
             {isCreate ? "Schematic.Symbol.Create" : "Schematic.Symbol.Edit"}
-          </Modals.Header>
-          <Modals.Body full>
+          </Modal.Header>
+          <Modal.Body full>
             <Flex.Box x grow>
               {hasSVG && (
                 <Flex.Box
@@ -258,9 +259,9 @@ export const useModal = Modals.create<ModalParams>(
                 )}
               </Form.Field>
             </Flex.Box>
-          </Modals.Body>
+          </Modal.Body>
           {hasSVG && (
-            <Modals.Footer background={0}>
+            <Modal.Footer background={0}>
               <Triggers.SaveHelpText action={createSaveText} />
               <Nav.Bar.End>
                 <Button.Button
@@ -271,9 +272,9 @@ export const useModal = Modals.create<ModalParams>(
                   {createSaveText}
                 </Button.Button>
               </Nav.Bar.End>
-            </Modals.Footer>
+            </Modal.Footer>
           )}
-        </Modals.Frame>
+        </Modal.Frame>
       </Form.Form>
     );
   },

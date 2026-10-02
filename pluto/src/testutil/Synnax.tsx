@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type connection, type Synnax as Client } from "@synnaxlabs/client";
+import { disableActEnvironment } from "@synnaxlabs/lyra/testutil";
 import { theme } from "@synnaxlabs/lyra/theme";
 import { type FC, type PropsWithChildren, type ReactElement, Suspense } from "react";
 
@@ -84,6 +85,7 @@ export const createSynnaxWrapper = ({
   telemFactories,
   connectionStatus,
 }: CreateSynnaxWrapperParams): FC<PropsWithChildren> => {
+  if (client != null) disableActEnvironment();
   const AetherProvider = aetherTest.createProvider({
     ...synnax.REGISTRY,
     ...status.REGISTRY,
