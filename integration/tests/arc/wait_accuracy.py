@@ -13,6 +13,10 @@ import synnax as sy
 from framework.utils import create_indexed_pair
 from tests.arc.arc import ArcCase
 
+# TODO Add a case with a variable wait duration to quantify its lag on Windows.
+# TODO Add error variance check
+
+# TODO needs more pressure, samples, etc
 ARC_WAIT_ACCURACY_SOURCE = """
 import time
 authority 200
@@ -20,11 +24,11 @@ authority 200
 sequence main {
     
     1 -> wa_cmd,
-    time.wait{10ms},
+    time.wait{30ms},
     2 -> wa_cmd,
     time.wait{20ms},
     3 -> wa_cmd,
-    time.wait{30ms},
+    time.wait{10ms},
     4 -> wa_cmd
 }
 
@@ -34,12 +38,12 @@ wa_start_cmd => main
 # The values the sequence writes to wa_cmd in order.
 WRITES = [1, 2, 3, 4]
 # The wait in ms between each write and the next.
-WAITS_MS = [10, 20, 30]
+WAITS_MS = [30, 20, 10]
 MAX_ERROR_PERCENT = 10.0
 
 
 class WaitAccuracy(ArcCase):
-    """A sequence writes ``wa_cmd`` before and after 10, 20, and 30 ms waits. The
+    """A sequence writes ``wa_cmd`` before and after 30, 20, and 10 ms waits. The
     time between two writes is the wait the runtime held, read from the timestamps
     the runtime stamped.
     """

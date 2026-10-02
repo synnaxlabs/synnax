@@ -7,9 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <atomic>
+#include <iomanip>
+#include <iostream>
 #include <sstream>
 #include <thread>
+#include <vector>
 
 #include "gtest/gtest.h"
 
@@ -43,6 +47,12 @@ const auto WAKE_LATENCY = 50 * x::telem::MILLISECOND;
 const auto BREAKER_STOP_LATENCY = 10 * x::telem::MILLISECOND;
 /// @brief Maximum time for event-driven timeout (100ms + margin).
 const auto EVENT_DRIVEN_BOUND = 150 * x::telem::MILLISECOND;
+/// @brief Tick period and wait duration of the deadline spec.
+const auto DEADLINE_INTERVAL = 10 * x::telem::MILLISECOND;
+/// @brief Earliest a wait may fire ahead of its deadline.
+const auto FIRE_TOLERANCE = 100 * x::telem::MICROSECOND;
+/// @brief Maximum median distance between a fire and its deadline.
+const auto FIRE_ERROR_BOUND = x::telem::MILLISECOND;
 }
 
 /// @brief Test that Loop can be created.
@@ -898,5 +908,50 @@ TEST(MaxTimeoutTest, Hybrid_MaxTimeoutConstrainsBlockPhase) {
     EXPECT_EQ(reason, WakeReason::Timeout);
 
     breaker.stop();
+}
+
+/// @brief Returns how far past its deadline one wait fires. Negative is early.
+x::telem::TimeSpan measure_fire_error(
+    Loop &loop,
+    x::breaker::Breaker &breaker,
+    const x::telem::TimeSpan phase
+) {
+    // The first wait lands on a tick, so the spin sets the phase in the tick period.
+    loop.wait(breaker);
+    const auto phase_sw = x::telem::Stopwatch();
+    while (phase_sw.elapsed() < phase)
+        continue;
+    const auto duration = test_timing::DEADLINE_INTERVAL;
+    const auto sw = x::telem::Stopwatch();
+    auto elapsed = x::telem::TimeSpan(0);
+    while (elapsed < duration - test_timing::FIRE_TOLERANCE) {
+        loop.wait(breaker, duration - elapsed);
+        elapsed = sw.elapsed();
+    }
+    return elapsed - duration;
+}
+
+/// @brief EVENT_DRIVEN at a 10 ms period should fire a 10 ms wait on its deadline.
+TEST(DeadlineTest, EventDriven_FiresOnDeadline) {
+    constexpr int COUNT = 50;
+    const auto config = Config().apply_defaults(test_timing::DEADLINE_INTERVAL);
+    ASSERT_EQ(config.mode, ExecutionMode::EVENT_DRIVEN);
+    const auto loop = ASSERT_NIL_P(create_and_start(config));
+    x::breaker::Breaker breaker;
+
+    std::vector<x::telem::TimeSpan> errors;
+    errors.reserve(COUNT);
+    for (int i = 0; i < COUNT; i++) {
+        const auto phase = test_timing::DEADLINE_INTERVAL * i / COUNT;
+        errors.push_back(measure_fire_error(*loop, breaker, phase));
+    }
+    std::sort(errors.begin(), errors.end());
+    const auto median = errors[COUNT / 2];
+
+    std::cout << std::fixed << std::setprecision(1);
+    std::cout << "fire error: " << errors.front().microseconds() << " us min, "
+              << median.microseconds() << " us median, " << errors.back().microseconds()
+              << " us max\n";
+    EXPECT_LE(median, test_timing::FIRE_ERROR_BOUND);
 }
 }
