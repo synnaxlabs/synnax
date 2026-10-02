@@ -1785,6 +1785,30 @@ TEST(WaitVarTest, ReportsTheDeadlineFromTheLiveDuration) {
     EXPECT_EQ(r.span, 3 * x::telem::SECOND);
 }
 
+/// @brief A late fire should not delay the fires after it.
+TEST(IntervalVarTest, CountsTheNextFireFromTheSchedule) {
+    VarConfig t("interval", "period", 10 * x::telem::MILLISECOND);
+    const auto tick = runtime::node::RunReason::TimerTick;
+    EXPECT_TRUE(t.tick(x::telem::TimeSpan(0), tick).fired);
+    const auto first = t.tick(10500 * x::telem::MICROSECOND, tick);
+    EXPECT_TRUE(first.fired);
+    EXPECT_EQ(first.deadline, 20 * x::telem::MILLISECOND);
+    const auto second = t.tick(20500 * x::telem::MICROSECOND, tick);
+    EXPECT_TRUE(second.fired);
+    EXPECT_EQ(second.deadline, 30 * x::telem::MILLISECOND);
+}
+
+/// @brief A fire a full period behind should fire once and restart the schedule.
+TEST(IntervalVarTest, RestartsTheScheduleAfterAPause) {
+    VarConfig t("interval", "period", 10 * x::telem::MILLISECOND);
+    const auto tick = runtime::node::RunReason::TimerTick;
+    EXPECT_TRUE(t.tick(x::telem::TimeSpan(0), tick).fired);
+    const auto late = t.tick(35 * x::telem::MILLISECOND, tick);
+    EXPECT_TRUE(late.fired);
+    EXPECT_EQ(late.deadline, 45 * x::telem::MILLISECOND);
+    EXPECT_FALSE(t.tick(40 * x::telem::MILLISECOND, tick).fired);
+}
+
 TEST(IntervalVarTest, ReportsTheLivePeriodAsTheSpanOfTheDeadline) {
     VarConfig t("interval", "period", x::telem::SECOND);
     EXPECT_EQ(

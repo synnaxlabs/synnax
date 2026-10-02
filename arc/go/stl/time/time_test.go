@@ -1985,6 +1985,74 @@ var _ = Describe("Time", func() {
 				})
 				Expect(deadline).To(Equal(telem.Second))
 			})
+			It("Should count the next fire from the schedule", func(ctx SpecContext) {
+				period := telem.Second
+				late := 500 * telem.Microsecond
+				n := MustSucceed(factory.Create(node.Config{
+					Node: ir.Node{
+						Type: "interval",
+						Inputs: types.Params{
+							{Name: "period", Type: types.TimeSpan(), Value: period},
+						},
+					},
+					State: s.Node("interval_1"),
+				}))
+				intervalNode := s.Node("interval_1")
+				*intervalNode.Output(0) = telem.NewSeriesV[uint8]()
+				*intervalNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
+				var deadline telem.TimeSpan
+				fired := 0
+				tick := func(elapsed telem.TimeSpan) {
+					n.Next(node.Context{
+						Context:         ctx,
+						Elapsed:         elapsed,
+						Reason:          node.ReasonTimerTick,
+						MarkChanged:     func(int) { fired++ },
+						MarkSelfChanged: func() {},
+						SetDeadline:     func(d telem.TimeSpan) { deadline = d },
+					})
+				}
+				tick(0)
+				tick(period + late)
+				Expect(fired).To(Equal(2))
+				Expect(deadline).To(Equal(2 * period))
+				tick(2*period + late)
+				Expect(fired).To(Equal(3))
+				Expect(deadline).To(Equal(3 * period))
+			})
+			It("Should restart the schedule after a pause", func(ctx SpecContext) {
+				period := telem.Second
+				n := MustSucceed(factory.Create(node.Config{
+					Node: ir.Node{
+						Type: "interval",
+						Inputs: types.Params{
+							{Name: "period", Type: types.TimeSpan(), Value: period},
+						},
+					},
+					State: s.Node("interval_1"),
+				}))
+				intervalNode := s.Node("interval_1")
+				*intervalNode.Output(0) = telem.NewSeriesV[uint8]()
+				*intervalNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
+				var deadline telem.TimeSpan
+				fired := 0
+				tick := func(elapsed telem.TimeSpan) {
+					n.Next(node.Context{
+						Context:         ctx,
+						Elapsed:         elapsed,
+						Reason:          node.ReasonTimerTick,
+						MarkChanged:     func(int) { fired++ },
+						MarkSelfChanged: func() {},
+						SetDeadline:     func(d telem.TimeSpan) { deadline = d },
+					})
+				}
+				tick(0)
+				tick(3500 * telem.Millisecond)
+				Expect(fired).To(Equal(2))
+				Expect(deadline).To(Equal(4500 * telem.Millisecond))
+				tick(4 * period)
+				Expect(fired).To(Equal(2))
+			})
 			It("Should set deadline on channel input", func(ctx SpecContext) {
 				cfg := node.Config{
 					Node: ir.Node{

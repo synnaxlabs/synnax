@@ -426,7 +426,12 @@ func (i *Interval) Next(ctx node.Context) {
 		ctx.SetDeadline(i.lastFired + period)
 		return
 	}
-	i.lastFired = ctx.Elapsed
+	// Fires count from the schedule, so a late fire does not delay the fires after
+	// it. A fire a full period behind restarts the schedule from now.
+	i.lastFired += period
+	if ctx.Elapsed-i.lastFired >= period {
+		i.lastFired = ctx.Elapsed
+	}
 	ctx.MarkSelfChanged()
 	ctx.SetDeadline(i.lastFired + period)
 	i.Emit(ctx, 0)
