@@ -15,6 +15,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import Search from "@/components/search/Search.astro";
 import { Page } from "@/components/nav/Page";
 import { REFERENCE_PAGES } from "@/pages/_nav";
+import { enabled } from "@/flags";
 const url = Astro.url.pathname;
 const version = await Astro.locals.releases.latest("core").catch(() => null);
 const label = version?.split(".").slice(0, -1).join(".");
@@ -66,13 +67,6 @@ const label = version?.split(".").slice(0, -1).join(".");
             <Flex.Box direction="x" align="center" gap="small">
                 <Search />
                 <Button.Button
-                    className="demo-button"
-                    variant="filled"
-                    href="https://synnaxlabs.com/#contact"
-                >
-                    Book a demo
-                </Button.Button>
-                <Button.Button
                     className="version-button"
                     variant="outlined"
                     href="https://github.com/synnaxlabs/synnax"
@@ -80,6 +74,15 @@ const label = version?.split(".").slice(0, -1).join(".");
                     <p class="version">{label}</p>
                     <Icon.Logo.Github />
                 </Button.Button>
+                {enabled("portal") && (
+                    <Button.Button
+                        className="sign-in-button"
+                        variant="filled"
+                        href="https://portal.synnaxlabs.com/sign-in"
+                    >
+                        Sign in
+                    </Button.Button>
+                )}
                 <button class="mobile-menu-btn" aria-label="Open menu" data-mobile-open>
                     <span class="mobile-menu-icon"></span>
                 </button>
@@ -170,7 +173,7 @@ const label = version?.split(".").slice(0, -1).join(".");
             color: var(--pluto-gray-l10);
         }
 
-        .demo-button {
+        .sign-in-button {
             text-decoration: none;
             font-size: 2rem;
             font-weight: 500;
@@ -371,9 +374,6 @@ const label = version?.split(".").slice(0, -1).join(".");
                 padding: 0 3rem;
             }
             .header-nav {
-                display: none;
-            }
-            .demo-button {
                 display: none;
             }
             .version-button {

@@ -181,6 +181,14 @@ pluto: &pluto
   - *x_ts
   - pluto/**
 
+portal:
+  - *client_ts
+  - *lyra
+  - *media
+  - *ts
+  - *x_ts
+  - site/portal/**
+
 console: &console
   - *client_ts
   - *drift
