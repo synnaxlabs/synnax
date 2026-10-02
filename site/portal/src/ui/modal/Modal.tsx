@@ -59,16 +59,27 @@ export const Body = Base.Body;
 export interface FooterProps {
   /** error reads at the start of the footer when set. */
   error?: string | null;
+  /** hint reads at the start of the footer when there is no error, e.g. to say an
+   * action needs a press and hold. */
+  hint?: string;
   children: ReactNode;
 }
 
 /** Footer is the modal's action bar. Put the primary action last. */
-export const Footer = ({ error, children }: FooterProps): ReactElement => (
+export const Footer = ({ error, hint, children }: FooterProps): ReactElement => (
   <Base.Footer>
-    {error != null && (
+    {error != null ? (
       <Nav.Bar.Start>
         <Status.Summary variant="error" level="small" message={error} />
       </Nav.Bar.Start>
+    ) : (
+      hint != null && (
+        <Nav.Bar.Start>
+          <Text.Text level="small" color={9}>
+            {hint}
+          </Text.Text>
+        </Nav.Bar.Start>
+      )
     )}
     <Nav.Bar.End x align="center" gap="small">
       {children}
@@ -129,7 +140,7 @@ export interface ConfirmProps extends PropsWithChildren {
   /** question heads the modal, like "Revoke this license?". */
   question: ReactNode;
   /** confirm is the label of the button that must be held. */
-  confirm: ReactNode;
+  confirm: string;
   /** delay is how long the button must be held, in milliseconds. */
   delay?: number;
   /** onConfirm runs once the hold completes. The modal closes when it resolves. */
@@ -158,11 +169,11 @@ export const Confirm = ({
         <Text.Text level="h4" weight={450}>
           {question}
         </Text.Text>
-        <Text.Text level="p" color={10}>
+        <Text.Text level="p" color={9}>
           {children}
         </Text.Text>
       </Body>
-      <Footer error={action.error}>
+      <Footer error={action.error} hint={`Press and hold ${confirm} to confirm`}>
         <Cancel />
         <Button.Button
           variant="filled"

@@ -13,6 +13,7 @@ import { Synnax } from "@synnaxlabs/pluto";
 import { color } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
+import { Analytics } from "@/platform/analytics";
 import { LinePlot } from "@/platform/lineplot";
 import { Log } from "@/platform/log";
 import { Panel } from "@/platform/panel";
@@ -35,6 +36,7 @@ export const useOpen = (): ((resource: ontology.Resource) => void) => {
   const getSelectedRange = Session.Range.useGetSelectedKey();
   const store = Session.useStore();
   const handleError = Status.useErrorHandler();
+  const { capture } = Analytics.use();
   return useCallback(
     (resource) => {
       if (client == null) return;
@@ -76,6 +78,7 @@ export const useOpen = (): ((resource: ontology.Resource) => void) => {
             channels: { y1: [channelKey] },
             ranges: { x1: [selectedRange] },
           });
+          capture("plot_created", {});
           store.dispatch(Session.LinePlot.create({ key }));
           openTab({ variant: "resource", resource: lineplot.ontologyID(key) });
         },
@@ -91,6 +94,7 @@ export const useOpen = (): ((resource: ontology.Resource) => void) => {
       getSelectedRange,
       store,
       handleError,
+      capture,
     ],
   );
 };

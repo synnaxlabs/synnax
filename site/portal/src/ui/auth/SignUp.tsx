@@ -76,13 +76,15 @@ export const SignUp = ({ target }: SignUpProps): ReactElement => {
     return (
       <Card
         title="Check your email"
-        description={`We sent a code to ${methods.value().email}.`}
+        description={`We sent a code to ${methods.value().email}`}
         error={verify.error}
       >
         <Form.Form<typeof codeSchema> {...codeMethods}>
           <Form.TextField
             path="code"
             label="Code"
+            required={false}
+            padHelpText={false}
             inputProps={{ autoFocus: true, autoComplete: "one-time-code" }}
           />
           <Button.Button
@@ -103,7 +105,7 @@ export const SignUp = ({ target }: SignUpProps): ReactElement => {
   return (
     <Card
       title="Create an account"
-      description="Activate machines and manage licenses."
+      description="Activate machines and manage licenses"
       error={create.error ?? oauthError}
       footer={
         <Text.Text level="small" color={9}>
@@ -112,9 +114,9 @@ export const SignUp = ({ target }: SignUpProps): ReactElement => {
             el="a"
             level="small"
             variant="link"
-            href={withTarget("/sign-in", target)}
+            href={withTarget("/login", target)}
           >
-            Sign in
+            Log in
           </Text.Text>
         </Text.Text>
       }
@@ -125,12 +127,16 @@ export const SignUp = ({ target }: SignUpProps): ReactElement => {
           <Form.TextField
             path="firstName"
             label="First name"
+            required={false}
+            padHelpText={false}
             grow
             inputProps={{ autoComplete: "given-name", autoFocus: true }}
           />
           <Form.TextField
             path="lastName"
             label="Last name"
+            required={false}
+            padHelpText={false}
             grow
             inputProps={{ autoComplete: "family-name" }}
           />
@@ -138,11 +144,15 @@ export const SignUp = ({ target }: SignUpProps): ReactElement => {
         <Form.TextField
           path="email"
           label="Email"
+          required={false}
+          padHelpText={false}
           inputProps={{ type: "email", autoComplete: "email" }}
         />
         <Form.TextField
           path="password"
           label="Password"
+          required={false}
+          padHelpText={false}
           inputProps={{ type: "password", autoComplete: "new-password" }}
         />
         <div id="clerk-captcha" />

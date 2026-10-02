@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { errors } from "@synnaxlabs/x";
-import { and, eq, isNotNull, isNull } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, ne } from "drizzle-orm";
 
 import { type Query, type Store } from "@/server/db/db";
 import {
@@ -79,7 +79,14 @@ export const sweep = async ({
     .select({ license, organization })
     .from(license)
     .innerJoin(organization, eq(license.organization, organization.key))
-    .where(and(isNotNull(license.expiresAt), isNull(license.revokedAt)));
+    .where(
+      and(
+        isNotNull(license.expiresAt),
+        isNull(license.revokedAt),
+        // A desktop license renews itself while the app runs; nobody is warned.
+        ne(license.edition, "desktop"),
+      ),
+    );
   const sent: Sent[] = [];
   const failures: unknown[] = [];
   for (const { license: lic, organization: org } of rows) {

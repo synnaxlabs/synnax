@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
@@ -87,6 +88,7 @@ export const License = ({
       <Section title="Machines">
         {held.length === 0 ? (
           <Empty
+            icon={<Icon.Computer />}
             message="No machines hold a seat"
             description="Activate a machine to give a Core its license key."
           />
@@ -100,10 +102,10 @@ export const License = ({
                 <Text.Text level="p" overflow="ellipsis">
                   {machineName(a)}
                 </Text.Text>
-                <Text.Text level="p" color={10}>
+                <Text.Text level="p" color={9}>
                   {date(a.firstSeen)}
                 </Text.Text>
-                <Text.Text level="p" color={10}>
+                <Text.Text level="p" color={9}>
                   {date(a.lastSeen)}
                 </Text.Text>
                 <Flex.Box justify="end">
@@ -141,7 +143,7 @@ export const License = ({
       )}
       <Section title="Activity">
         {events.length === 0 ? (
-          <Empty message="Nothing yet" />
+          <Empty icon={<Icon.Log />} message="Nothing yet" />
         ) : (
           <Flex.Box y gap="small">
             {events.map((e) => (
