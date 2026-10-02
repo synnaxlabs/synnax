@@ -29,11 +29,6 @@ export interface TreeState {
   setSelection: (keys: string[]) => void;
   expand: (key: string) => void;
   contract: (key: string) => void;
-  /**
-   * Scrolls the node with the given key into view. A node added in the same handler
-   * must be flushed first.
-   */
-  scrollTo: (key: string) => void;
 }
 
 export interface BaseProps {

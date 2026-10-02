@@ -10,7 +10,7 @@
 import "zod/compile";
 import "fake-indexeddb/auto";
 
-import { mockScrollTo, preloadTimeLanguage } from "@synnaxlabs/lyra/testutil";
+import { preloadTimeLanguage } from "@synnaxlabs/lyra/testutil";
 import { configure } from "@testing-library/react";
 import { afterAll, beforeAll, vi } from "vitest";
 
@@ -153,8 +153,6 @@ beforeAll(() => {
   // the selected tab.
   if (typeof Element.prototype.scrollIntoView !== "function")
     Element.prototype.scrollIntoView = () => {};
-  // jsdom does not implement scrollTo; a virtualized list scrolls to a row through it.
-  if (typeof Element.prototype.scrollTo !== "function") mockScrollTo();
   // jsdom does not implement innerText; components that read/commit editable text
   // (pluto's Text.Editable) rely on it. Delegate to textContent.
   if (!Object.hasOwn(HTMLElement.prototype, "innerText"))

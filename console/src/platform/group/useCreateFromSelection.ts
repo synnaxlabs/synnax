@@ -14,7 +14,6 @@ import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { Flux, Group } from "@synnaxlabs/pluto";
 import { uuid, verbs } from "@synnaxlabs/x";
 import { useCallback } from "react";
-import { flushSync } from "react-dom";
 
 import { getResourcesToGroup } from "@/platform/group/getResourcesToGroup";
 import { type Tree } from "@/platform/tree";
@@ -49,7 +48,7 @@ const beforeUpdate = async ({
 }: Flux.BeforeUpdateParams<CreateParams>) => {
   const {
     selection,
-    state: { nodes, setNodes, setSelection, shape, setResource, scrollTo },
+    state: { nodes, setNodes, setSelection, shape, setResource },
     group: { key },
   } = data;
   const newID = group.ontologyID(key);
@@ -72,9 +71,7 @@ const beforeUpdate = async ({
     destination: newIDString,
     keys: resourcesToGroup.map((id) => ontology.idToString(id)),
   });
-  // The group sorts to the top of its parent, which may be outside the mounted rows.
-  flushSync(() => setNodes([...nextNodes]));
-  scrollTo(newIDString);
+  setNodes([...nextNodes]);
   setSelection([newIDString]);
   const [groupName, renamed] = await Text.asyncEdit(List.itemNameID(newIDString));
   if (!renamed) return false;

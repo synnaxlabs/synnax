@@ -8,13 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { fireEvent, render, screen } from "@testing-library/react";
-import { useState } from "react";
-import { flushSync } from "react-dom";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { type Haul } from "@/haul";
 import { List } from "@/list";
-import { mockGeometry, mockScrollTo } from "@/testutil/dom";
+import { mockGeometry } from "@/testutil/dom";
 import { type Node } from "@/tree/base";
 import { Item } from "@/tree/Item";
 import {
@@ -23,7 +21,6 @@ import {
   filterHaulItems,
   HAUL_TYPE,
   isHaulItem,
-  type ScrollTo,
   type ToggleOn,
   Tree,
   use,
@@ -74,10 +71,7 @@ describe("tree haul utilities", () => {
 });
 
 describe("Tree", () => {
-  beforeAll(() => {
-    mockGeometry(100, 100);
-    mockScrollTo();
-  });
+  beforeAll(() => mockGeometry(100, 100));
 
   const NODES: Node[] = Array.from({ length: 200 }, (_, i) => ({
     key: `node-${String(i).padStart(3, "0")}`,
@@ -88,10 +82,14 @@ describe("Tree", () => {
     (keys: string[]) => keys.map((key) => ({ key, name: key })),
   );
 
-  const Component = () => {
+  interface ComponentProps {
+    pinned?: string[];
+  }
+
+  const Component = ({ pinned }: ComponentProps) => {
     const props = use({ nodes: NODES });
     return (
-      <Tree {...props} getItem={getItem}>
+      <Tree {...props} getItem={getItem} pinned={pinned}>
         {({ key, ...rest }) => (
           <Item key={key} {...rest}>
             {key}
@@ -126,52 +124,14 @@ describe("Tree", () => {
     expect(virtualizer?.style.minHeight).toBe(`${NODES.length * 27}px`);
   });
 
-  describe("scrollTo", () => {
-    const ADDED = "added";
-
-    let scrollTo: ScrollTo;
-
-    const Growing = () => {
-      const [nodes, setNodes] = useState(NODES);
-      const props = use({ nodes });
-      ({ scrollTo } = props);
-      return (
-        <>
-          <button
-            onClick={() => {
-              flushSync(() => setNodes([{ key: ADDED }, ...NODES]));
-              scrollTo(ADDED);
-            }}
-          >
-            add
-          </button>
-          <Tree {...props} getItem={getItem}>
-            {({ key, ...rest }) => (
-              <Item key={key} {...rest}>
-                {key}
-              </Item>
-            )}
-          </Tree>
-        </>
-      );
-    };
-
-    it("should scroll to a node added outside the window", async () => {
-      const { container } = render(<Growing />);
-      const scroller = container.querySelector<HTMLElement>(".pluto-list__scroll");
-      if (scroller == null) throw new Error("list scroll container not found");
-      scroller.scrollTop = NODES.length * 27;
-      fireEvent.scroll(scroller);
-      await screen.findByText(NODES[NODES.length - 1].key);
-      expect(screen.queryByText(NODES[0].key)).toBeNull();
-      fireEvent.click(screen.getByText("add"));
-      expect(await screen.findByText(ADDED)).toBeTruthy();
-    });
-
-    it("should throw for a node that is not in the tree", () => {
-      render(<Growing />);
-      expect(() => scrollTo("missing")).toThrow("node missing is not in the tree");
-    });
+  it("should keep a pinned node mounted outside the window", () => {
+    const last = NODES[NODES.length - 1].key;
+    const { rerender } = render(<Component />);
+    expect(screen.queryByText(last)).toBeNull();
+    rerender(<Component pinned={[last]} />);
+    expect(screen.getByText(last)).toBeTruthy();
+    rerender(<Component />);
+    expect(screen.queryByText(last)).toBeNull();
   });
 });
 

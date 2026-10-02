@@ -8,14 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type compare, type record, type state as xstate, unique } from "@synnaxlabs/x";
-import {
-  type ReactElement,
-  type Ref,
-  useCallback,
-  useImperativeHandle,
-  useMemo,
-  useRef,
-} from "react";
+import { type ReactElement, useCallback, useMemo } from "react";
 
 import { type Component } from "@/component";
 import { CSS } from "@/css";
@@ -75,17 +68,7 @@ export interface UseReturn<K extends record.Key = string> {
   toggle: (key: K) => void;
   toggleOn: ToggleOn;
   shape: Shape<K>;
-  /**
-   * Scrolls the node with the given key into view. The tree must have rendered the node
-   * first.
-   * @throws {Error} if the node is not in the rendered tree.
-   */
-  scrollTo: ScrollTo<K>;
-  /** Connects scrollTo to the rendered {@link Tree}. */
-  scrollToRef: Ref<ScrollTo<K>>;
 }
-
-export type ScrollTo<K extends record.Key = string> = (key: K) => void;
 
 const SHIFT_TRIGGERS: Triggers.Trigger[] = [["Shift"]];
 
@@ -162,12 +145,6 @@ export const use = <K extends record.Key = string>({
 
   const clearExpanded = useCallback(() => setExpanded([]), [setExpanded]);
 
-  const scrollToRef = useRef<ScrollTo<K>>(null);
-  const scrollTo = useCallback((key: K): void => {
-    if (scrollToRef.current == null) throw new Error("the tree is not mounted");
-    scrollToRef.current(key);
-  }, []);
-
   return {
     selected,
     expanded,
@@ -178,8 +155,6 @@ export const use = <K extends record.Key = string>({
     toggleOn,
     shape,
     onSelect: handleSelect,
-    scrollTo,
-    scrollToRef,
   };
 };
 
@@ -202,25 +177,6 @@ export interface TreeProps<K extends record.Key, E extends record.Keyed<K>>
 }
 
 const ITEM_HEIGHT = 27;
-
-interface ScrollerProps<K extends record.Key> {
-  keys: K[];
-  ref: Ref<ScrollTo<K>>;
-}
-
-const Scroller = <K extends record.Key>({ keys, ref }: ScrollerProps<K>): null => {
-  const { scrollToIndex } = List.useScroller();
-  useImperativeHandle(
-    ref,
-    () => (key: K) => {
-      const index = keys.indexOf(key);
-      if (index === -1) throw new Error(`node ${String(key)} is not in the tree`);
-      scrollToIndex(index);
-    },
-    [keys, scrollToIndex],
-  );
-  return null;
-};
 
 export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
   shape,
@@ -245,8 +201,7 @@ export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
   allowNone,
   autoSelectOnNone,
   emptyContent,
-  scrollTo: ______,
-  scrollToRef,
+  pinned,
   ...rest
 }: TreeProps<K, E>): ReactElement => {
   const { keys, nodes } = shape;
@@ -271,10 +226,10 @@ export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
         overscan={overscan}
         onFetchMore={onFetchMore}
         virtual={virtual}
+        pinned={pinned}
         allowNone={allowNone}
         autoSelectOnNone={autoSelectOnNone}
       >
-        <Scroller keys={keys} ref={scrollToRef} />
         <List.Scroll
           full="y"
           role="tree"

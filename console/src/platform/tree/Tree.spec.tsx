@@ -400,7 +400,7 @@ describe("Tree.Tree", () => {
       offsets.forEach((top, index) => expect(top).toBe(`${index * ITEM_HEIGHT}px`));
     });
 
-    it("should scroll to a new group outside the window to start its rename", async () => {
+    it("should start the rename of a new group outside the window", async () => {
       const { container } = await renderTree(parentID);
       await findTreeRow(names[CHILD_COUNT - 1]);
       expect(screen.queryByText(names[0])).toBeNull();

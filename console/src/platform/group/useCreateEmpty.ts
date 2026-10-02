@@ -14,7 +14,6 @@ import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { type Flux, Group } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { useCallback } from "react";
-import { flushSync } from "react-dom";
 
 import { type Tree } from "@/platform/tree";
 
@@ -27,7 +26,7 @@ export interface UseCreateEmptyProps {
 export const useCreateEmpty = ({
   parent,
   root,
-  state: { nodes: tree, setNodes, setResource, expand, scrollTo },
+  state: { nodes: tree, setNodes, setResource, expand },
 }: UseCreateEmptyProps): (() => void) => {
   const { update } = Group.useCreate({
     beforeUpdate: useCallback(
@@ -40,13 +39,8 @@ export const useCreateEmpty = ({
         const destination = ontology.idsEqual(data.parent, root)
           ? null
           : ontology.idToString(data.parent);
-        // The group sorts to the top of its parent, which may be outside the mounted
-        // rows.
-        flushSync(() => {
-          if (destination != null) expand(destination);
-          setNodes([...PTree.setNode({ tree, destination, additions: node })]);
-        });
-        scrollTo(newIDString);
+        if (destination != null) expand(destination);
+        setNodes([...PTree.setNode({ tree, destination, additions: node })]);
         rollbacks.push(() =>
           setNodes([...PTree.removeNode({ tree, keys: newIDString })]),
         );
@@ -54,7 +48,7 @@ export const useCreateEmpty = ({
         if (!renamed || name === "") return false;
         return { ...data, key: newID.key, name };
       },
-      [tree, setNodes, setResource, expand, scrollTo],
+      [tree, setNodes, setResource, expand],
     ),
   });
   return useCallback(

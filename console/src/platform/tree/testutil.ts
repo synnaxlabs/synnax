@@ -42,7 +42,6 @@ export const createState = (
     setSelection: () => {},
     expand: () => {},
     contract: () => {},
-    scrollTo: () => {},
     ...overrides,
   };
 };

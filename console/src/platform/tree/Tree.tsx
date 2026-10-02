@@ -207,6 +207,16 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   // inline rename) before the Core delivers the real resource.
   const placeholders = List.useMapData<string, ontology.Resource>();
 
+  // A placeholder's row stays mounted, so its inline rename can start out of view.
+  const [pinned, setPinned] = useState<string[]>([]);
+  const setPlaceholder = useCallback(
+    (resource: ontology.Resource | ontology.Resource[]) => {
+      placeholders.setItem(resource);
+      setPinned((prev) => [...prev, ...array.toArray(resource).map(({ key }) => key)]);
+    },
+    [placeholders],
+  );
+
   const getResourceByKey = useCallback(
     (key: string): ontology.Resource | undefined =>
       client?.ontology.cache.resources.get(key) ?? placeholders.getItem(key),
@@ -222,7 +232,10 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       const settled = ontology
         .idToString(resources.map(({ id }) => id))
         .filter(placeholders.hasItem);
-      if (settled.length > 0) placeholders.deleteItem(settled);
+      if (settled.length > 0) {
+        placeholders.deleteItem(settled);
+        setPinned((prev) => prev.filter((key) => !settled.includes(key)));
+      }
       // The answer is the authority on its parent's membership. A node it omits
       // survives only while a placeholder backs it, since an optimistic row the Core
       // has not heard about yet cannot be in any answer.
@@ -393,7 +406,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     onSelectedChange: setSelected,
     sort,
   });
-  const { shape, expand, contract, scrollTo } = treeProps;
+  const { shape, expand, contract } = treeProps;
   const shapeRef = useSyncedRef(shape);
 
   const getState = useCallback(
@@ -403,12 +416,11 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       setNodes,
       expand,
       contract,
-      setResource: placeholders.setItem,
+      setResource: setPlaceholder,
       getResource,
       setSelection: setSelected,
-      scrollTo,
     }),
-    [expand, contract, handleError, placeholders, nodesRef, setNodes, scrollTo],
+    [expand, contract, handleError, setPlaceholder, nodesRef, setNodes],
   );
 
   const openTab = Panel.useOpenTab();
@@ -569,6 +581,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         // the tree attempts to render it.
         getItem={getItem}
         emptyContent={answered ? emptyContent : null}
+        pinned={pinned}
         onContextMenu={menuProps.open}
       >
         {itemRenderProp}
