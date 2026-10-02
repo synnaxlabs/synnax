@@ -10,13 +10,35 @@
 """The timing limits of the Arc runtimes."""
 
 import platform
+from dataclasses import dataclass
 
 import synnax as sy
 
-# The shortest wait in ms each runtime holds inside the error limit, by OS.
-MIN_WAIT_MS: dict[str, dict[str, int]] = {
-    "C++": {"Linux": 1, "Darwin": 1, "Windows": 5},
-    "Go": {"Linux": 1, "Darwin": 1, "Windows": 1},
+
+@dataclass(frozen=True)
+class Limits:
+    """The timing limits of one Arc runtime on one OS."""
+
+    #: The shortest wait in ms the runtime supports.
+    min_wait_ms: int
+    #: The limit on the median error of a wait, in percent of the wait.
+    max_error_percent: float
+    #: The limit in ms on the span from the shortest to the longest held time of a wait.
+    max_spread_ms: float
+
+
+# Each limit is the worst value measured at the minimum wait plus a margin.
+LIMITS: dict[str, dict[str, Limits]] = {
+    "C++": {
+        "Linux": Limits(min_wait_ms=1, max_error_percent=2.5, max_spread_ms=0.1),
+        "Darwin": Limits(min_wait_ms=1, max_error_percent=2.5, max_spread_ms=0.1),
+        "Windows": Limits(min_wait_ms=5, max_error_percent=0.5, max_spread_ms=0.1),
+    },
+    "Go": {
+        "Linux": Limits(min_wait_ms=1, max_error_percent=4.0, max_spread_ms=1.25),
+        "Darwin": Limits(min_wait_ms=1, max_error_percent=10.0, max_spread_ms=1.5),
+        "Windows": Limits(min_wait_ms=1, max_error_percent=5.0, max_spread_ms=1.25),
+    },
 }
 
 
@@ -31,10 +53,10 @@ def runtime(rack: sy.Rack) -> str:
     return "C++"
 
 
-def min_wait_ms(rack: sy.Rack) -> int:
-    """Returns the shortest wait in ms the runtime of ``rack`` supports. The OS is
-    that of the test host, which also runs the Core and its Driver.
+def limits(rack: sy.Rack) -> Limits:
+    """Returns the timing limits of the runtime of ``rack``. The OS is that of the test
+    host, which also runs the Core and its Driver.
 
     :param rack: The rack that holds the Arc task.
     """
-    return MIN_WAIT_MS[runtime(rack)][platform.system()]
+    return LIMITS[runtime(rack)][platform.system()]

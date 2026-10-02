@@ -12,7 +12,7 @@ import numpy as np
 import synnax as sy
 from framework.utils import create_indexed_pair
 from tests.arc.arc import ArcCase
-from tests.arc.timing import min_wait_ms, runtime
+from tests.arc.timing import Limits, limits, runtime
 
 # TODO Add a case with a variable wait duration to quantify its lag on Windows.
 # TODO Add error variance check
@@ -22,7 +22,6 @@ from tests.arc.timing import min_wait_ms, runtime
 # The waits in ms the sequence holds in order. The case skips each wait under the
 # minimum of the runtime.
 WAITS_MS = [30, 20, 10, 5, 1]
-MAX_ERROR_PERCENT = 10.0
 
 
 def create_source(waits_ms: list[int]) -> str:
@@ -58,11 +57,13 @@ class WaitAccuracy(ArcCase):
     subscribe_channels = ["wa_cmd"]
     start: sy.TimeStamp
     waits_ms: list[int]
+    limits: Limits
 
     def setup(self) -> None:
         self._retrieve_rack()
         assert self.rack is not None
-        min_ms = min_wait_ms(self.rack)
+        self.limits = limits(self.rack)
+        min_ms = self.limits.min_wait_ms
         self.waits_ms = [w for w in WAITS_MS if w >= min_ms]
         skipped = ", ".join(f"{w} ms" for w in WAITS_MS if w < min_ms) or "none"
         self.log(f"{runtime(self.rack)} minimum wait: {min_ms} ms, skipped: {skipped}")
@@ -90,11 +91,16 @@ class WaitAccuracy(ArcCase):
         self.log(f"{'wait':<6}  {'held':>10}  {'error':>7}")
         for held, wait_ms in zip(held_ms.tolist(), self.waits_ms):
             error = (held - wait_ms) / wait_ms * 100
+            # One sample can be off by the spread on top of the median error.
+            limit = (
+                self.limits.max_error_percent
+                + self.limits.max_spread_ms / wait_ms * 100
+            )
             flag = ""
-            if abs(error) > MAX_ERROR_PERCENT:
-                flag = "  over limit"
-                over.append(f"{wait_ms} ms ({error:+.1f}%)")
+            if abs(error) > limit:
+                flag = f"  over the {limit:.1f}% limit"
+                over.append(f"{wait_ms} ms ({error:+.1f}%, limit {limit:.1f}%)")
             wait = f"{wait_ms} ms"
             self.log(f"{wait:<6}  {held:>7.3f} ms  {error:>+6.1f}%{flag}")
         if over:
-            self.fail(f"over the {MAX_ERROR_PERCENT:g}% limit: " + ", ".join(over))
+            self.fail("over the limit: " + ", ".join(over))

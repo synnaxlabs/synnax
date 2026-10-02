@@ -100,3 +100,15 @@ Fires once after a fixed duration, then stops.
 ```arc bodies="done"
 time.wait{duration=500ms} -> done
 ```
+
+<Divider.Divider x />
+
+## Minimum period
+
+The minimum period depends on the OS and the runtime.
+
+| Operating system | C++ runtime | Go runtime |
+| ---------------- | ----------- | ---------- |
+| Linux            | 1 ms        | TODO       |
+| macOS            | 1 ms        | TODO       |
+| Windows          | 5 ms        | TODO       |

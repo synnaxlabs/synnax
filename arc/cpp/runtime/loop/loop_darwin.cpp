@@ -296,6 +296,7 @@ create(const Config &cfg, std::shared_ptr<x::thread::rt::Handle> rt_handle) {
 }
 
 x::telem::TimeSpan min_timer_span() {
+    // A wake is about 0.01 ms late, so 1 ms keeps the timing error near 1%.
     return x::telem::MILLISECOND;
 }
 

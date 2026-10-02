@@ -75,6 +75,9 @@ inline const x::telem::TimeSpan WINDOWS_DEADLINE_SPIN = x::telem::MILLISECOND;
 inline const x::telem::TimeSpan DARWIN_DEADLINE_SPIN = 1500 * x::telem::MICROSECOND;
 
 /// @brief Shortest timer span the Windows loop holds on time.
+///    1ms - 1.1% median err + ~8% of waits are 100%-200% late
+///    2ms - 0.8% median err (sweaty territory)
+///  * 5ms - 0.1% median err + grace to Windows scheduler
 inline const x::telem::TimeSpan WINDOWS_MIN_TIMER_SPAN = 5 * x::telem::MILLISECOND;
 }
 

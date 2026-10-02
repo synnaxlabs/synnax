@@ -12,7 +12,7 @@ import numpy as np
 import synnax as sy
 from framework.utils import create_indexed_pair
 from tests.arc.arc import ArcCase
-from tests.arc.timing import min_wait_ms
+from tests.arc.timing import Limits, limits
 
 # The waits of each profile in ms. Their GCD selects the loop mode of the C++ runtime.
 # An only profile holds one wait alone in its program. The case skips each wait under
@@ -30,9 +30,6 @@ PROFILES: dict[str, list[int]] = {
 }
 # How many times the sequence holds each wait of a profile.
 REPEATS = 20
-MAX_ERROR_PERCENT = 10.0
-# The limit in ms on the span from the shortest to the longest held time of a wait.
-MAX_SPREAD_MS = 1.0
 
 
 def create_source(waits_ms: list[int]) -> str:
@@ -68,12 +65,16 @@ class WaitAccuracySamples(ArcCase):
     subscribe_channels = ["ws_cmd"]
     start: sy.TimeStamp
     waits_ms: list[int]
+    limits: Limits
 
     def setup(self) -> None:
         self._retrieve_rack()
         assert self.rack is not None
-        min_ms = min_wait_ms(self.rack)
+        self.limits = limits(self.rack)
+        min_ms = self.limits.min_wait_ms
         profile = [w for w in PROFILES[self.params["profile"]] if w >= min_ms]
+        if not profile:
+            self.auto_pass(f"every wait of the profile is under {min_ms} ms")
         self.waits_ms = profile * REPEATS
         self.arc_source = create_source(self.waits_ms)
         create_indexed_pair(self.client, "ws_cmd", sy.DataType.UINT8)
@@ -106,10 +107,10 @@ class WaitAccuracySamples(ArcCase):
             error = (median - wait_ms) / wait_ms * 100
             spread = float(held.max() - held.min())
             flag = ""
-            if abs(error) > MAX_ERROR_PERCENT:
+            if abs(error) > self.limits.max_error_percent:
                 flag += "  error over limit"
                 over.append(f"{wait_ms} ms ({error:+.1f}%)")
-            if spread > MAX_SPREAD_MS:
+            if spread > self.limits.max_spread_ms:
                 flag += "  spread over limit"
                 wide.append(f"{wait_ms} ms ({spread:.3f} ms)")
             wait = f"{wait_ms} ms"
@@ -121,12 +122,13 @@ class WaitAccuracySamples(ArcCase):
         failures: list[str] = []
         if over:
             failures.append(
-                f"median error over the {MAX_ERROR_PERCENT:g}% limit: "
+                f"median error over the {self.limits.max_error_percent:g}% limit: "
                 + ", ".join(over)
             )
         if wide:
             failures.append(
-                f"spread over the {MAX_SPREAD_MS:g} ms limit: " + ", ".join(wide)
+                f"spread over the {self.limits.max_spread_ms:g} ms limit: "
+                + ", ".join(wide)
             )
         if failures:
             self.fail("; ".join(failures))
