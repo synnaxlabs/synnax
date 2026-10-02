@@ -1091,6 +1091,50 @@ INSTANTIATE_TEST_SUITE_P(
     )
 );
 
+/// @brief A loop in the mode of the parameter, with an interval shorter than any block
+/// timeout. The runtime sets the interval to the shortest timer span of a program.
+class IntervalTest : public testing::TestWithParam<ExecutionMode> {
+protected:
+    const x::telem::TimeSpan INTERVAL = 4 * x::telem::MILLISECOND;
+    std::unique_ptr<Loop> loop;
+    x::breaker::Breaker breaker;
+
+    void SetUp() override {
+        Config config;
+        config.mode = this->GetParam();
+        config.interval = this->INTERVAL;
+        this->loop = ASSERT_NIL_P(create_and_start(config));
+        this->breaker.start();
+    }
+
+    void TearDown() override { this->breaker.stop(); }
+};
+
+/// @brief A wait with no deadline should not wake on the interval.
+TEST_P(IntervalTest, WaitWithNoDeadlineDoesNotWakeOnTheInterval) {
+    const auto sw = x::telem::Stopwatch();
+    EXPECT_EQ(this->loop->wait(this->breaker), WakeReason::Timeout);
+    EXPECT_GE(sw.elapsed(), 2 * this->INTERVAL);
+}
+
+/// @brief A wait with a deadline past the interval should wake on the deadline.
+TEST_P(IntervalTest, WaitWakesOnTheDeadlineNotTheInterval) {
+    const auto deadline = 5 * this->INTERVAL;
+    const auto sw = x::telem::Stopwatch();
+    this->loop->wait(this->breaker, deadline);
+    EXPECT_GE(sw.elapsed(), deadline - test_timing::FIRE_TOLERANCE);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    Modes,
+    IntervalTest,
+    testing::Values(
+        ExecutionMode::AUTO,
+        ExecutionMode::EVENT_DRIVEN,
+        ExecutionMode::HYBRID
+    )
+);
+
 #if defined(__linux__) || defined(__APPLE__) || defined(_WIN32)
 /// @brief Timer calls whose arm fails the way the OS call does.
 struct FailingArm {
