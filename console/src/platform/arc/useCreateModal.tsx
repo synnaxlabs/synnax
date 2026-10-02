@@ -73,14 +73,15 @@ export const useCreateModal = Modals.createPrompt<CreateModalResult, CreateModal
                 <Select.Buttons
                   value={value}
                   onChange={onChange}
+                  variant="outlined"
                   pack={false}
+                  gap="tiny"
                   x
                   full="x"
                 >
                   <Select.Item
                     itemKey="text"
                     className={MODE_CLASS}
-                    variant="outlined"
                     y
                     grow
                     alignSelf="stretch"
@@ -96,7 +97,6 @@ export const useCreateModal = Modals.createPrompt<CreateModalResult, CreateModal
                   <Select.Item
                     itemKey="graph"
                     className={MODE_CLASS}
-                    variant="outlined"
                     y
                     grow
                     alignSelf="stretch"
