@@ -76,8 +76,8 @@ export interface UseReturn<K extends record.Key = string> {
   toggleOn: ToggleOn;
   shape: Shape<K>;
   /**
-   * Scrolls the node with the given key into view. The tree must have rendered the
-   * node first.
+   * Scrolls the node with the given key into view. The tree must have rendered the node
+   * first.
    * @throws {Error} if the node is not in the rendered tree.
    */
   scrollTo: ScrollTo<K>;
