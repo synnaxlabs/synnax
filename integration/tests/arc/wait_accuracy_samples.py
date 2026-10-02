@@ -47,7 +47,7 @@ class _WaitSamples(ArcCase):
     the minimum of the runtime.
     """
 
-    #: The waits in ms. Their GCD selects the loop mode of the C++ runtime.
+    #: The waits in ms. The shortest one selects the loop mode of the C++ runtime.
     profile_ms: list[int]
 
     arc_name_prefix = "ArcWaitAccuracySamples"
