@@ -176,16 +176,3 @@ func (db *DB) RenameChannel(ctx context.Context, newName string) error {
 	db.cfg.Channel.Name = newName
 	return meta.Create(ctx, db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)
 }
-
-// SetChannelKeyInMeta sets the key of the channel for this DB, and persists that change
-// to the DB's meta file in the underlying filesystem.
-func (db *DB) SetChannelKeyInMeta(ctx context.Context, key channel.Key) error {
-	if db.closed.Load() {
-		return ErrDBClosed
-	}
-	if db.cfg.Channel.Key == key {
-		return nil
-	}
-	db.cfg.Channel.Key = key
-	return meta.Create(ctx, db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)
-}
