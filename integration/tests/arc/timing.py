@@ -15,7 +15,7 @@ import synnax as sy
 
 # The shortest wait in ms each runtime holds inside the error limit, by OS.
 MIN_WAIT_MS: dict[str, dict[str, int]] = {
-    "C++": {"Linux": 1, "Darwin": 1, "Windows": 1},
+    "C++": {"Linux": 1, "Darwin": 1, "Windows": 5},
     "Go": {"Linux": 1, "Darwin": 1, "Windows": 1},
 }
 

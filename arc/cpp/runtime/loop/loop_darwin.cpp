@@ -209,6 +209,7 @@ private:
         const x::breaker::Breaker &breaker,
         const x::telem::TimeSpan max_timeout
     ) const {
+        const auto sw = x::telem::Stopwatch();
         const auto spin_start = std::chrono::steady_clock::now();
         const auto spin_duration = this->config_.spin_duration.chrono();
         struct timespec timeout = {0, 0};
@@ -218,10 +219,8 @@ private:
             const int n = kevent(this->kqueue_fd_, nullptr, 0, events, 8, &timeout);
             if (n > 0) return this->classify_events(events, n);
         }
-        const auto block_ns = max_timeout.nanoseconds() > 0
-                                ? max_timeout.nanoseconds()
-                                : timing::HYBRID_BLOCK_TIMEOUT.nanoseconds();
-        timeout = ns_to_timespec(block_ns);
+        if (max_timeout.nanoseconds() > 0) return this->deadline_wait(sw, max_timeout);
+        timeout = ns_to_timespec(timing::HYBRID_BLOCK_TIMEOUT.nanoseconds());
         const int n = kevent(this->kqueue_fd_, nullptr, 0, events, 8, &timeout);
         if (n > 0) return this->classify_events(events, n);
         return WakeReason::Timeout;
@@ -229,11 +228,10 @@ private:
 
     /// @brief EVENT_DRIVEN: Block on kqueue events with timeout.
     WakeReason event_driven_wait(const x::telem::TimeSpan max_timeout) const {
+        if (max_timeout.nanoseconds() > 0)
+            return this->deadline_wait(x::telem::Stopwatch(), max_timeout);
         struct kevent events[8];
-        const auto timeout_ns = max_timeout.nanoseconds() > 0
-                                  ? max_timeout.nanoseconds()
-                                  : timing::EVENT_DRIVEN_TIMEOUT.nanoseconds();
-        const auto timeout = ns_to_timespec(timeout_ns);
+        const auto timeout = ns_to_timespec(timing::EVENT_DRIVEN_TIMEOUT.nanoseconds());
         const int n = kevent(this->kqueue_fd_, nullptr, 0, events, 8, &timeout);
 
         if (n > 0) return this->classify_events(events, n);
@@ -241,6 +239,32 @@ private:
         if (errno != EINTR)
             LOG(ERROR) << "[arc.loop] kevent error: " << strerror(errno);
         return WakeReason::Shutdown;
+    }
+
+    /// @brief Blocks until the spin span ahead of deadline, then spins to it. The
+    /// deadline counts from the start of sw.
+    WakeReason deadline_wait(
+        const x::telem::Stopwatch &sw,
+        const x::telem::TimeSpan deadline
+    ) const {
+        struct kevent events[8];
+        const auto block = deadline - sw.elapsed() - timing::DARWIN_DEADLINE_SPIN;
+        if (block.nanoseconds() > 0) {
+            const auto timeout = ns_to_timespec(block.nanoseconds());
+            const int n = kevent(this->kqueue_fd_, nullptr, 0, events, 8, &timeout);
+            if (n > 0) return this->classify_events(events, n);
+            if (n == -1) {
+                if (errno != EINTR)
+                    LOG(ERROR) << "[arc.loop] kevent error: " << strerror(errno);
+                return WakeReason::Shutdown;
+            }
+        }
+        constexpr timespec poll = {0, 0};
+        while (sw.elapsed() < deadline) {
+            const int n = kevent(this->kqueue_fd_, nullptr, 0, events, 8, &poll);
+            if (n > 0) return this->classify_events(events, n);
+        }
+        return WakeReason::Timeout;
     }
 
     /// @brief Classifies kqueue events to determine wake reason.
@@ -272,7 +296,7 @@ create(const Config &cfg, std::shared_ptr<x::thread::rt::Handle> rt_handle) {
 }
 
 x::telem::TimeSpan min_timer_span() {
-    return x::telem::TimeSpan(0);
+    return x::telem::MILLISECOND;
 }
 
 std::string platform_name() {

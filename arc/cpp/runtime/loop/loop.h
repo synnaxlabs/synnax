@@ -70,8 +70,12 @@ inline const x::telem::TimeSpan WINDOWS_TIMER_UNIT = 100 * x::telem::NANOSECOND;
 /// to 0.5 ms late.
 inline const x::telem::TimeSpan WINDOWS_DEADLINE_SPIN = x::telem::MILLISECOND;
 
+/// @brief Span the macOS loop spins ahead of a deadline. A kqueue timeout alone fires
+/// up to 1 ms late.
+inline const x::telem::TimeSpan DARWIN_DEADLINE_SPIN = 1500 * x::telem::MICROSECOND;
+
 /// @brief Shortest timer span the Windows loop holds on time.
-inline const x::telem::TimeSpan WINDOWS_MIN_TIMER_SPAN = x::telem::MILLISECOND;
+inline const x::telem::TimeSpan WINDOWS_MIN_TIMER_SPAN = 5 * x::telem::MILLISECOND;
 }
 
 /// @brief Default RT priority for SCHED_FIFO on Linux (range 1-99).

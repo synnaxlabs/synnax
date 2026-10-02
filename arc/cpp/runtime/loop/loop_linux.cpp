@@ -326,7 +326,7 @@ create(const Config &cfg, std::shared_ptr<x::thread::rt::Handle> rt_handle) {
 }
 
 x::telem::TimeSpan min_timer_span() {
-    return x::telem::TimeSpan(0);
+    return x::telem::MILLISECOND;
 }
 
 std::string platform_name() {

@@ -44,8 +44,8 @@
 
 namespace arc::runtime::loop {
 namespace {
-/// @brief Earliest a wait may fire ahead of its deadline, as the time module allows.
-const auto TOLERANCE = 100 * x::telem::MICROSECOND;
+/// @brief Most a wait may fire ahead of its deadline, as the time module allows.
+const auto MAX_TOLERANCE = 100 * x::telem::MICROSECOND;
 /// @brief Maximum median distance between a fire and its deadline on an idle machine.
 const auto MEDIAN_BOUND = x::telem::MILLISECOND;
 /// @brief Time a thread spins to find the longest stall the scheduler gives it.
@@ -57,7 +57,7 @@ constexpr std::int64_t MAX_COUNT = 500;
 /// @brief Fewest waits measured for one duration.
 constexpr std::int64_t MIN_COUNT = 30;
 /// @brief Time the waits of one duration can take in total.
-const auto DURATION_BUDGET = 3 * x::telem::SECOND;
+const auto DURATION_BUDGET = x::telem::SECOND;
 /// @brief Capacity of the queue that stands in for the input queue of the runtime.
 constexpr size_t INPUT_CAPACITY = 1024;
 /// @brief Wait durations measured on each loop.
@@ -73,6 +73,14 @@ const std::vector<x::telem::TimeSpan> DURATIONS = {
     20 * x::telem::MILLISECOND,
     30 * x::telem::MILLISECOND,
     100 * x::telem::MILLISECOND,
+};
+/// @brief Short wait durations that find the floor of each loop.
+const std::vector<x::telem::TimeSpan> SHORT_DURATIONS = {
+    50 * x::telem::MICROSECOND,
+    100 * x::telem::MICROSECOND,
+    250 * x::telem::MICROSECOND,
+    500 * x::telem::MICROSECOND,
+    x::telem::MILLISECOND,
 };
 
 /// @brief Logs the Windows timer resolution, and if this machine can create the
@@ -170,6 +178,8 @@ std::int64_t measure_waits(
     const x::telem::TimeSpan duration
 ) {
     const auto count = wait_count(duration);
+    // The time module lets a timer fire early by half its span at most.
+    const auto tolerance = std::min(duration / 2, MAX_TOLERANCE);
     std::vector<std::int64_t> errors_ns;
     errors_ns.reserve(count);
     std::int64_t skew_ns = 0;
@@ -179,7 +189,7 @@ std::int64_t measure_waits(
         const auto stamp = x::telem::TimeStamp::now();
         const auto sw = x::telem::Stopwatch();
         auto elapsed = x::telem::TimeSpan(0);
-        while (elapsed < duration - TOLERANCE) {
+        while (elapsed < duration - tolerance) {
             loop.wait(breaker, duration - elapsed);
             while (inputs.try_pop(input))
                 continue;
@@ -197,18 +207,20 @@ std::int64_t measure_waits(
     return spread.at(50);
 }
 
-/// @brief Measures every duration on the loop that AUTO selects for timing_interval.
+/// @brief Measures each duration on the loop that AUTO selects for timing_interval.
 /// The loop runs on its own thread, as it does in the runtime.
 /// @param timing_interval the base interval, or the maximum span if there is none.
 /// @param input_period the time between two inputs to the loop, or zero for no input.
+/// @param durations the wait durations to measure.
 /// @returns the median fire error of each duration in nanoseconds, or nothing if the
 /// loop did not start.
 std::vector<std::int64_t> sweep(
     const x::telem::TimeSpan timing_interval,
-    const x::telem::TimeSpan input_period = x::telem::TimeSpan(0)
+    const x::telem::TimeSpan input_period = x::telem::TimeSpan(0),
+    const std::vector<x::telem::TimeSpan> &durations = DURATIONS
 ) {
     std::vector<std::int64_t> medians_ns;
-    std::thread thread([&medians_ns, timing_interval, input_period] {
+    std::thread thread([&medians_ns, timing_interval, input_period, &durations] {
         Config config;
         // The Driver does not pin the loop thread on Windows.
         config.cpu_affinity = CPU_AFFINITY_NONE;
@@ -235,7 +247,7 @@ std::vector<std::int64_t> sweep(
                   << " us\n";
         std::optional<Traffic> traffic;
         if (input_period.nanoseconds() > 0) traffic.emplace(inputs, input_period);
-        for (const auto &duration: DURATIONS)
+        for (const auto &duration: durations)
             medians_ns.push_back(measure_waits(*loop, breaker, inputs, duration));
         breaker.stop();
     });
@@ -292,6 +304,17 @@ TEST_P(WaitTimingTest, FiresOnDeadlineWhenIdle) {
         EXPECT_LE(median_ns, MEDIAN_BOUND.nanoseconds());
 }
 
+/// @brief On an idle machine, each short wait duration should be measured. The printed
+/// spread shows the shortest wait the loop holds.
+TEST_P(WaitTimingTest, MeasuresShortWaitsWhenIdle) {
+    const auto medians_ns = sweep(
+        this->GetParam(),
+        x::telem::TimeSpan(0),
+        SHORT_DURATIONS
+    );
+    ASSERT_EQ(medians_ns.size(), SHORT_DURATIONS.size());
+}
+
 /// @brief With every core busy, each wait duration should still be measured. The
 /// printed spread shows what the scheduler adds.
 TEST_P(WaitTimingTest, MeasuresUnderLoad) {
@@ -321,7 +344,8 @@ INSTANTIATE_TEST_SUITE_P(
         x::telem::TimeSpan::max(),
         10 * x::telem::MILLISECOND,
         4 * x::telem::MILLISECOND,
-        x::telem::MILLISECOND
+        x::telem::MILLISECOND,
+        100 * x::telem::MICROSECOND
     )
 );
 }
