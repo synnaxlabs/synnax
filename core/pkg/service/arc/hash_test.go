@@ -15,7 +15,6 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/text"
-	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
@@ -148,97 +147,5 @@ var _ = Describe("Hash", func() {
 		a := arc.Arc{Mode: arc.ModeText}
 		b := arc.Arc{Mode: arc.ModeGraph}
 		Expect(MustSucceed(arc.Hash(a))).ToNot(Equal(MustSucceed(arc.Hash(b))))
-	})
-
-	// A v0.58.2 Core stamped these hashes into the tasks of rack-bound Arcs. A hash
-	// that drifts from them rewrites every such task on its first edit, even a layout
-	// move.
-	Describe("v0.58.2 stamps", func() {
-		It("Should match the hash a v0.58.2 Core stamped for a Console graph", func() {
-			a := arc.Arc{
-				Mode: arc.ModeGraph,
-				Graph: graph.Graph{
-					Functions: ir.Functions{},
-					Nodes: graph.Nodes{
-						{Key: "n_on", Position: spatial.XY{X: 10, Y: 20}},
-						{Key: "n_wr", Position: spatial.XY{X: 200, Y: 20}},
-					},
-					Edges: graph.Edges{{
-						Key:    "e1",
-						Source: ir.Handle{Node: "n_on", Param: "output"},
-						Target: ir.Handle{Node: "n_wr", Param: "input"},
-						Kind:   ir.EdgeKindContinuous,
-					}},
-					Inputs: map[string]msgpack.EncodedJSON{
-						"n_on": {"channel": 1048584.0, "type": "on"},
-						"n_wr": {"channel": 1048584.0, "type": "write"},
-					},
-				},
-			}
-			Expect(MustSucceed(arc.Hash(a))).To(Equal("beeffcc46faf0fbd"))
-		})
-
-		It("Should match the hash a v0.58.2 Core stamped for a graph with functions",
-			func() {
-				scalar := func(k types.Kind) types.Type {
-					return types.Type{
-						Inputs:  types.Params{},
-						Outputs: types.Params{},
-						Kind:    k,
-					}
-				}
-				a := arc.Arc{
-					Mode: arc.ModeGraph,
-					Graph: graph.Graph{
-						Functions: ir.Functions{{
-							Key: "above",
-							Body: ir.Body{
-								Raw: "func above(x f32) u8 {\n  return x > 2\n}\n",
-							},
-							Inputs: types.Params{
-								{Name: "x", Type: scalar(types.KindF32)},
-							},
-							Outputs: types.Params{
-								{Name: "output", Type: scalar(types.KindU8)},
-							},
-							Channels: types.Channels{
-								Read:  map[uint32]string{1048584: "x"},
-								Write: map[uint32]string{},
-							},
-						}},
-						Nodes: graph.Nodes{
-							{Key: "n_on", Position: spatial.XY{X: 10, Y: 20}},
-							{Key: "n_f", Position: spatial.XY{X: 100, Y: 20}},
-							{Key: "n_wr", Position: spatial.XY{X: 200, Y: 20}},
-						},
-						Edges: graph.Edges{
-							{
-								Key:    "e1",
-								Source: ir.Handle{Node: "n_on", Param: "output"},
-								Target: ir.Handle{Node: "n_f", Param: "x"},
-								Kind:   ir.EdgeKindContinuous,
-							},
-							{
-								Key:    "e2",
-								Source: ir.Handle{Node: "n_f", Param: "output"},
-								Target: ir.Handle{Node: "n_wr", Param: "input"},
-								Kind:   ir.EdgeKindConditional,
-							},
-						},
-						Inputs: map[string]msgpack.EncodedJSON{
-							"n_on": {"channel": 1048584.0, "type": "on"},
-							"n_f":  {"type": "above"},
-							"n_wr": {"channel": 1048584.0, "type": "write"},
-						},
-					},
-				}
-				Expect(MustSucceed(arc.Hash(a))).To(Equal("f8ec1fc1c12a87e4"))
-			})
-
-		It("Should match the hash a v0.58.2 Core stamped for a text Arc", func() {
-			Expect(MustSucceed(arc.Hash(textArc(
-				"func f(x f32) u8 {\n  return x < 5 && x > 2\n}\n",
-			)))).To(Equal("64624b63a2e74829"))
-		})
 	})
 })

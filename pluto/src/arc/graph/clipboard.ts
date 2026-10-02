@@ -18,7 +18,6 @@ import { Diagram } from "@/vis/diagram";
 // The "web " prefix is required: Chrome silently drops custom MIME types from
 // the clipboard without it.
 const MIME = "web application/synnax-arc+json";
-const VERSION = 1;
 
 export interface UseClipboardParams {
   key: arc.Key;
@@ -39,7 +38,6 @@ export const useClipboard = ({
   const client = Synnax.use();
   const adapter: Diagram.ClipboardAdapter<arc.graph.Node, arc.graph.Edge> = {
     mime: MIME,
-    version: VERSION,
     edgeKey: (edge) => edge.key,
     getSnapshot: () => {
       const cached = client?.arcs.getCached(key);

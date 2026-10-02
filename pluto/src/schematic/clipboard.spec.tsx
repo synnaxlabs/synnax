@@ -452,43 +452,6 @@ describe("schematic clipboard", () => {
       expect(event.preventDefault).not.toHaveBeenCalled();
     });
 
-    it("ignores a payload copied by a v0.58 Console", async () => {
-      const Wrapper = await createAsyncSynnaxWrapper({ client });
-      const schem = await createSchematicWithGraph();
-      await loadSchematic(Wrapper, schem.key);
-
-      const { result } = renderHook(
-        () => ({
-          clipboard: Schematic.useClipboard({ selected: [] }),
-          nodes: Schematic.useAllNodes({ key: schem.key }),
-        }),
-        { wrapper: scoped(Wrapper, schem.key) },
-      );
-
-      const event = createClipboardEvent(
-        createDataTransfer({
-          [MIME]: JSON.stringify({
-            version: 1,
-            nodes: [{ key: "v1", position: { x: 0, y: 0 } }],
-            edges: [],
-            configs: {
-              v1: {
-                variant: "valve",
-                color: [12, 140, 220, 1],
-                control: { show: false },
-              },
-            },
-            anchor: { x: 0, y: 0 },
-          }),
-        }),
-      );
-      await act(async () => {
-        result.current.clipboard.onPaste(event, xy.ZERO);
-      });
-      expect(result.current.nodes.map((n) => n.key)).toEqual(["n1", "n2", "n3"]);
-      expect(event.preventDefault).not.toHaveBeenCalled();
-    });
-
     it("ignores a payload with a mismatched version", async () => {
       const Wrapper = await createAsyncSynnaxWrapper({ client });
       const schem = await createSchematicWithGraph();

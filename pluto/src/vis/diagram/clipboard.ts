@@ -13,6 +13,8 @@ import { type ClipboardEvent, type RefObject, useCallback, useRef } from "react"
 
 import { type ClipboardHandler } from "@/vis/diagram/Diagram";
 
+const VERSION = 1;
+
 interface Payload<N, E, C> {
   version: number;
   nodes: N[];
@@ -92,8 +94,6 @@ export interface ClipboardAdapter<
 > {
   /** mime is the clipboard MIME type used to read and write the payload. */
   mime: string;
-  /** version is the payload shape. Paste ignores a payload of any other version. */
-  version: number;
   /**
    * edgeKey returns an edge's identity, used for selection membership and for
    * associating an edge with its copied config.
@@ -164,7 +164,7 @@ export const useClipboard = <N extends ClipboardNode, E extends ClipboardEdge, C
       // Defer to the browser if the user has a real text selection.
       const text = window.getSelection()?.toString();
       if (text != null && text.length > 0) return null;
-      const { mime, version, edgeKey, getSnapshot } = adapterRef.current;
+      const { mime, edgeKey, getSnapshot } = adapterRef.current;
       const snapshot = getSnapshot();
       if (snapshot == null) return null;
       const sel = new Set(selectedRef.current);
@@ -182,7 +182,7 @@ export const useClipboard = <N extends ClipboardNode, E extends ClipboardEdge, C
         if (c != null) configs[k] = c;
       }
       const payload: Payload<N, E, C> = {
-        version,
+        version: VERSION,
         nodes,
         edges,
         configs,
@@ -263,7 +263,7 @@ export const useClipboard = <N extends ClipboardNode, E extends ClipboardEdge, C
   }, [exec, container]);
 
   const onPaste = useCallback<ClipboardHandler>((e, cursor) => {
-    const { mime, version, edgeKey, apply } = adapterRef.current;
+    const { mime, edgeKey, apply } = adapterRef.current;
     const raw = e.clipboardData.getData(mime);
     if (raw === "") return;
     let payload: Payload<N, E, C>;
@@ -272,7 +272,7 @@ export const useClipboard = <N extends ClipboardNode, E extends ClipboardEdge, C
     } catch {
       return;
     }
-    if (payload.version !== version) return;
+    if (payload.version !== VERSION) return;
     e.preventDefault();
     const offset = xy.translation(payload.anchor, cursor);
     const remap: Record<string, string> = {};
