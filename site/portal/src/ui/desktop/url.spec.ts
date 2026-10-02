@@ -35,6 +35,7 @@ describe("desktop link", () => {
           secret: "sec ret",
           activation: "act",
           email: "a@b.c",
+          user: "user_a",
         }),
       );
       expect(url.protocol).toBe(`${SCHEME}:`);
@@ -44,6 +45,7 @@ describe("desktop link", () => {
       expect(url.searchParams.get("secret")).toBe("sec ret");
       expect(url.searchParams.get("activation")).toBe("act");
       expect(url.searchParams.get("email")).toBe("a@b.c");
+      expect(url.searchParams.get("user")).toBe("user_a");
     });
   });
   describe("read", () => {

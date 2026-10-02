@@ -19,6 +19,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Channel, Telem } from "@synnaxlabs/pluto";
 import { useState } from "react";
 
+import { Analytics } from "@/platform/analytics";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
@@ -26,9 +27,11 @@ const INDEX_QUERY: Partial<Channel.RetrieveMultipleQuery> = { isIndex: true };
 
 export const useCreateModal = Modals.create(({ close }) => {
   const [createMore, setCreateMore] = useState(false);
+  const { capture } = Analytics.use();
   const { form, variant, save } = Channel.useForm({
     query: null,
     afterSave: ({ reset }) => {
+      capture("channel_created", { calculated: false });
       if (createMore) reset(Channel.ZERO_FORM_VALUES);
       else close();
     },

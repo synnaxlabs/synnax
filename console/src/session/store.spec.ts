@@ -114,7 +114,7 @@ describe("createStore", () => {
 
   it("should keep the account link across launches", async () => {
     const store = await createStore();
-    const link = { secret: "shh", email: "someone@example.com" };
+    const link = { secret: "shh", email: "someone@example.com", user: "user_a" };
     store.dispatch(Session.Account.link(link));
     await waitForPersisted(
       db,

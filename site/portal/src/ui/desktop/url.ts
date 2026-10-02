@@ -21,6 +21,8 @@ export interface Linked {
   secret: string;
   activation: string;
   email: string;
+  /** user is the Clerk ID of the account, which names it in product analytics. */
+  user: string;
 }
 
 /** activateURL builds the link that hands a linked machine its license key. */
@@ -31,6 +33,7 @@ export const activateURL = (state: string, linked: Linked): string => {
     secret: linked.secret,
     activation: linked.activation,
     email: linked.email,
+    user: linked.user,
   });
   return `${SCHEME}://activate?${params.toString()}`;
 };

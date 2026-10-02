@@ -59,7 +59,7 @@ describe("License", () => {
         preloadedState: {
           [Session.Account.SLICE_NAME]: {
             ...Session.Account.ZERO_SLICE_STATE,
-            link: { secret: "shh", email: "someone@example.com" },
+            link: { secret: "shh", email: "someone@example.com", user: "user_a" },
           },
         },
       });

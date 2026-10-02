@@ -24,6 +24,7 @@ const LINKED: Account.Linked = {
   secret: "shh",
   activation: "act",
   email: "someone@example.com",
+  user: "user_a",
 };
 
 const linkOf = (linked: Account.Linked): string =>
@@ -86,7 +87,7 @@ describe("Account.useLink", () => {
       expect(h.activate).toHaveBeenCalledWith("a.b.c");
       expect(Session.Account.selectSliceState(h.store.getState())).toEqual({
         version: 0,
-        link: { secret: "shh", email: "someone@example.com" },
+        link: { secret: "shh", email: "someone@example.com", user: "user_a" },
       });
     });
     expect(failed(h)).toBe(false);

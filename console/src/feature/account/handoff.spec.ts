@@ -18,6 +18,7 @@ const LINKED: Account.Linked = {
   secret: "shh",
   activation: "act",
   email: "someone@example.com",
+  user: "user_a",
 };
 
 const linkOf = (linked: Partial<Account.Linked>): string =>

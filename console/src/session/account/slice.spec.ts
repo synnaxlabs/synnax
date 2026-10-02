@@ -14,6 +14,7 @@ import { Account } from "@/session/account";
 const LINKED: Account.Link = {
   secret: "secret",
   email: "someone@example.com",
+  user: "user_a",
 };
 
 describe("account slice", () => {

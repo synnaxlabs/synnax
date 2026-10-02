@@ -18,6 +18,8 @@ extern crate objc2_app_kit;
 extern crate objc2_foundation;
 
 #[cfg(feature = "desktop")]
+mod install;
+#[cfg(feature = "desktop")]
 mod supervisor;
 
 #[cfg(target_os = "macos")]
@@ -89,6 +91,7 @@ fn main() {
     #[cfg(feature = "desktop")]
     let builder = builder.invoke_handler(tauri::generate_handler![
         supervisor::commands::supervisor_status,
+        supervisor::commands::supervisor_history,
         supervisor::commands::supervisor_restart,
         supervisor::commands::supervisor_stop,
         supervisor::commands::supervisor_reset,
@@ -97,6 +100,7 @@ fn main() {
         supervisor::commands::supervisor_diagnostics,
         supervisor::commands::supervisor_log_tail,
         supervisor::commands::supervisor_export_diagnostics,
+        install::install_info,
     ]);
     builder
         .on_page_load(|window, _| {
@@ -135,6 +139,8 @@ fn main() {
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_process::init())
         .setup(|app| {
+            #[cfg(feature = "desktop")]
+            install::init(app.handle());
             #[cfg(feature = "desktop")]
             supervisor::commands::init(app.handle())?;
             #[cfg(desktop)]

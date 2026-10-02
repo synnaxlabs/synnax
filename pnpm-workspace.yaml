@@ -160,6 +160,9 @@ catalog:
   playwright: ^1.63.0
   pluralize: ^8.0.0
   postcss: ^8.5.26
+  # Pinned exactly. posthog-js publishes several times a day, so a range resolves to a
+  # release minutes old and trips the minimum release age gate.
+  posthog-js: 1.427.2
   prettier: ^3.9.9
   prettier-plugin-astro: ^1.1.0
   prettier-plugin-sh: ^0.20.2

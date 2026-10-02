@@ -18,6 +18,8 @@ const linkZ = z.object({
   secret: z.string(),
   /** The address of the account. */
   email: z.string(),
+  /** The Clerk ID of the account. */
+  user: z.string(),
 });
 export interface Link extends z.infer<typeof linkZ> {}
 

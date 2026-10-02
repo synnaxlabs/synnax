@@ -31,7 +31,9 @@ describe("account selectors", () => {
       });
       expect(result.current).toBeUndefined();
       act(() => {
-        store.dispatch(Account.link({ secret: "s", email: "e@example.com" }));
+        store.dispatch(
+          Account.link({ secret: "s", email: "e@example.com", user: "user_a" }),
+        );
       });
       expect(result.current).toBe("e@example.com");
     });
