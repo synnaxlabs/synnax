@@ -58,7 +58,6 @@ export const useTimeline = <S extends Step>(examples: Example<S>[]): Timeline<S>
   const selectTab = useCallback(
     (index: number) => {
       if (index === activeTab) return;
-      setPaused(false);
       setActiveTab(index);
       setStepIndex(0);
     },

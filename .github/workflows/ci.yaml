@@ -510,10 +510,10 @@ jobs:
     if: needs.changes.outputs.www == 'true'
     uses: ./.github/workflows/test.ts.yaml
     with:
+      coverage_flag: www
       directory: site/www
       knip: true
       package: www
-      test: false
     secrets: inherit
 
   x-cpp:
