@@ -56,7 +56,8 @@ fi
 
 # The check run succeeds at any score. The score lives only in the description, which
 # the author can edit, so only the latest revision Greptile wrote counts, and only when
-# it names the head. Every score marker must be a 5: a commit title can quote one.
+# it names the head. Every score marker must be a 5: a commit title can quote one. The
+# diff field holds the whole description at that revision, not a delta.
 SCORE=$(gh api graphql \
     -f query='query($owner: String!, $name: String!, $number: Int!) {
         repository(owner: $owner, name: $name) {
