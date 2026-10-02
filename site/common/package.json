@@ -14,9 +14,12 @@
     "fix": "eslint --fix",
     "format": "prettier --write .",
     "format-check": "prettier --check .",
-    "stylelint": "stylelint \"src/**/*.css\""
+    "stylelint": "stylelint \"src/**/*.css\"",
+    "test": "vitest",
+    "cov": "vitest --coverage"
   },
   "dependencies": {
+    "@astrojs/react": "catalog:",
     "@synnaxlabs/lyra": "catalog:",
     "@synnaxlabs/media": "catalog:",
     "astro": "catalog:"
@@ -26,9 +29,15 @@
     "@synnaxlabs/eslint-config": "catalog:",
     "@synnaxlabs/stylelint-config": "catalog:",
     "@synnaxlabs/tsconfig": "catalog:",
+    "@types/jsdom": "catalog:",
     "@types/react": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
+    "jsdom": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
     "stylelint": "catalog:",
-    "typescript": "catalog:ts6"
+    "typescript": "catalog:ts6",
+    "vitest": "catalog:"
   }
 }
