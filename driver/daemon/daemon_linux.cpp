@@ -19,13 +19,12 @@
 
 #include "x/cpp/thread/thread.h"
 
+#include "driver/daemon/common.h"
 #include "driver/daemon/daemon.h"
 
 namespace fs = std::filesystem;
 
 namespace driver::daemon {
-const std::string BINARY_INSTALL_DIR = "/usr/local/bin";
-const std::string BINARY_NAME = "synnax-driver";
 const std::string SYSTEMD_SERVICE_PATH = "/etc/systemd/system/synnax-driver.service";
 
 auto SYSTEMD_SERVICE_TEMPLATE = R"([Unit]
@@ -41,6 +40,7 @@ Type=notify
 ExecStart=/usr/local/bin/synnax-driver internal-start --disable-stdin-stop
 User=synnax
 Group=synnax
+EnvironmentFile=-/etc/synnax/driver.env
 
 # Watchdog configuration
 WatchdogSec=30s
@@ -82,50 +82,6 @@ RestartSec=5s
 WantedBy=multi-user.target
 )";
 
-x::errors::Error create_system_user() {
-    LOG(INFO) << "Creating system user";
-    int result = system(
-        "id -u synnax >/dev/null 2>&1 || useradd -r -s /sbin/nologin synnax"
-    );
-    if (result != 0) { return x::errors::Error("Failed to create system user"); }
-    return {};
-}
-
-x::errors::Error install_binary() {
-    LOG(INFO) << "Moving binary to " << BINARY_INSTALL_DIR;
-    std::error_code ec;
-    const fs::path curr_bin_path = fs::read_symlink("/proc/self/exe", ec);
-    if (ec)
-        return x::errors::Error(
-            "Failed to get current executable path: " + ec.message()
-        );
-
-    fs::create_directories(BINARY_INSTALL_DIR, ec);
-    if (ec)
-        return x::errors::Error("Failed to create binary directory: " + ec.message());
-
-    const fs::path target_path = "/usr/local/bin/synnax-driver";
-    // An install run from the installed binary would copy the file onto itself, which
-    // copy_file rejects. Skip the copy: the binary is already in place.
-    const bool already_installed = fs::exists(target_path, ec) &&
-                                   fs::equivalent(curr_bin_path, target_path, ec);
-    if (!already_installed) {
-        fs::copy_file(
-            curr_bin_path,
-            target_path,
-            fs::copy_options::overwrite_existing,
-            ec
-        );
-        if (ec) return x::errors::Error("Failed to copy binary: " + ec.message());
-    }
-
-    if (chmod(target_path.c_str(), S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH) !=
-        0)
-        return x::errors::Error("Failed to set binary permissions");
-
-    return x::errors::NIL;
-}
-
 x::errors::Error install_service() {
     // Check if service exists and is running
     LOG(INFO) << "Checking for existing service";
@@ -140,6 +96,7 @@ x::errors::Error install_service() {
     }
 
     if (auto err = create_system_user()) return err;
+    if (auto err = create_env_file()) return err;
     if (auto err = install_binary()) return err;
 
     LOG(INFO) << "Creating service file at " << SYSTEMD_SERVICE_PATH;
