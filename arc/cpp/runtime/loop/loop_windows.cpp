@@ -174,13 +174,14 @@ private:
         return SetWaitableTimer(this->timer_event_, &due_time, 0, NULL, NULL, FALSE);
     }
 
-    // A deadline past the spin span arms the timer that span early.
+    // Arms the timer the spin span ahead of a deadline. A deadline inside the span
+    // fires the timer at once, so the wake spins all the way to it.
     bool arm_deadline(const x::telem::TimeSpan max_timeout) const {
         if (!this->timer_enabled_ || max_timeout.nanoseconds() <= 0) return false;
-        const auto spin = max_timeout > timing::WINDOWS_DEADLINE_SPIN
-                            ? timing::WINDOWS_DEADLINE_SPIN
-                            : x::telem::TimeSpan(0);
-        return this->arm_timer(max_timeout - spin);
+        const auto block = max_timeout > timing::WINDOWS_DEADLINE_SPIN
+                             ? max_timeout - timing::WINDOWS_DEADLINE_SPIN
+                             : x::telem::TimeSpan(0);
+        return this->arm_timer(block);
     }
 
     // Spins to the deadline after a timer wake. The timer handle is last and unwatched.

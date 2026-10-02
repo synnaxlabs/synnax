@@ -13,6 +13,7 @@
 #include <iostream>
 #include <sstream>
 #include <thread>
+#include <tuple>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -53,6 +54,8 @@ const auto DEADLINE_INTERVAL = 10 * x::telem::MILLISECOND;
 const auto FIRE_TOLERANCE = 100 * x::telem::MICROSECOND;
 /// @brief Maximum median distance between a fire and its deadline.
 const auto FIRE_ERROR_BOUND = x::telem::MILLISECOND;
+/// @brief Maximum median distance between a fire and a deadline under 10 ms.
+const auto SHORT_FIRE_ERROR_BOUND = 250 * x::telem::MICROSECOND;
 }
 
 /// @brief Test that Loop can be created.
@@ -954,4 +957,105 @@ TEST(DeadlineTest, EventDriven_FiresOnDeadline) {
               << " us max\n";
     EXPECT_LE(median, test_timing::FIRE_ERROR_BOUND);
 }
+
+/// @brief A base interval and a wait duration. The base interval selects the loop mode.
+using ShortDeadlineCase = std::tuple<x::telem::TimeSpan, x::telem::TimeSpan>;
+
+/// @brief Deadline timing of the loop that AUTO selects, for waits under 10 ms.
+class ShortDeadlineTest : public testing::TestWithParam<ShortDeadlineCase> {
+protected:
+    std::unique_ptr<Loop> loop;
+    x::breaker::Breaker breaker;
+    x::telem::TimeSpan duration;
+
+    void SetUp() override {
+        const auto config = Config().apply_defaults(std::get<0>(this->GetParam()));
+        this->duration = std::get<1>(this->GetParam());
+        this->loop = ASSERT_NIL_P(create_and_start(config));
+        this->breaker.start();
+    }
+
+    void TearDown() override { this->breaker.stop(); }
+
+    /// @brief Waits until the duration ends, as the runtime does, and returns how far
+    /// past the deadline the last wait fired.
+    /// @param inputs receives how many waits an input ended.
+    x::telem::TimeSpan fire_error(const x::telem::Stopwatch &sw, int &inputs) {
+        const auto tolerance = std::min(
+            this->duration / 2,
+            test_timing::FIRE_TOLERANCE
+        );
+        auto elapsed = sw.elapsed();
+        while (elapsed < this->duration - tolerance) {
+            const auto reason = this->loop->wait(
+                this->breaker,
+                this->duration - elapsed
+            );
+            if (reason == WakeReason::Input) inputs++;
+            elapsed = sw.elapsed();
+        }
+        return elapsed - this->duration;
+    }
+
+    static x::telem::TimeSpan median(std::vector<x::telem::TimeSpan> errors) {
+        std::sort(errors.begin(), errors.end());
+        return errors[errors.size() / 2];
+    }
+};
+
+/// @brief A short wait should fire on its deadline.
+TEST_P(ShortDeadlineTest, FiresOnDeadline) {
+    constexpr int COUNT = 20;
+    std::vector<x::telem::TimeSpan> errors;
+    int inputs = 0;
+    for (int i = 0; i < COUNT; i++)
+        errors.push_back(this->fire_error(x::telem::Stopwatch(), inputs));
+    EXPECT_LE(median(errors), test_timing::SHORT_FIRE_ERROR_BOUND);
+}
+
+/// @brief A wait that an input ends close to its deadline should still fire on the
+/// deadline.
+TEST_P(ShortDeadlineTest, FiresOnDeadlineAfterInput) {
+    constexpr int COUNT = 10;
+    const auto total = 5 * x::telem::MILLISECOND;
+    // The input arrives with the case duration left before the deadline.
+    const auto input_at = total - this->duration;
+    auto notifier = x::notify::create();
+    ASSERT_TRUE(this->loop->watch(*notifier));
+    this->duration = total;
+    std::vector<x::telem::TimeSpan> errors;
+    int inputs = 0;
+    for (int i = 0; i < COUNT; i++) {
+        const auto sw = x::telem::Stopwatch();
+        std::thread sender([&sw, &notifier, input_at] {
+            while (sw.elapsed() < input_at)
+                continue;
+            notifier->signal();
+        });
+        errors.push_back(this->fire_error(sw, inputs));
+        sender.join();
+    }
+    EXPECT_GT(inputs, 0);
+    EXPECT_LE(median(errors), test_timing::SHORT_FIRE_ERROR_BOUND);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    BaseIntervalsAndDurations,
+    ShortDeadlineTest,
+    testing::Combine(
+        testing::Values(
+            x::telem::TimeSpan::max(),
+            10 * x::telem::MILLISECOND,
+            4 * x::telem::MILLISECOND
+        ),
+        testing::Values(
+            200 * x::telem::MICROSECOND,
+            500 * x::telem::MICROSECOND,
+            900 * x::telem::MICROSECOND,
+            x::telem::MILLISECOND,
+            1500 * x::telem::MICROSECOND,
+            2 * x::telem::MILLISECOND
+        )
+    )
+);
 }
