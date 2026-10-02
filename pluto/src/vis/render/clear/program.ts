@@ -24,26 +24,32 @@ const POSITIONS = new Float32Array([0, 0, 0, 0, 0, 0]);
  * workaround that does exactly that.
  */
 export class Program extends GLProgram {
-  private readonly positionBuffer: WebGLBuffer;
+  private readonly vao: WebGLVertexArrayObject;
 
   constructor(ctx: Context) {
     super(ctx, VERT_SHADER, FRAG_SHADER);
-    const buffer = ctx.gl.createBuffer();
+    const { gl } = ctx;
+    const buffer = gl.createBuffer();
     if (buffer == null) throw new UnexpectedError(`webgl: failed to create buffer`);
-    this.positionBuffer = buffer;
-    ctx.gl.bindBuffer(ctx.gl.ARRAY_BUFFER, this.positionBuffer);
-    ctx.gl.bufferData(ctx.gl.ARRAY_BUFFER, POSITIONS, ctx.gl.STATIC_DRAW);
+    const vao = gl.createVertexArray();
+    if (vao == null)
+      throw new UnexpectedError(`webgl: failed to create vertex array object`);
+    this.vao = vao;
+    gl.bindVertexArray(this.vao);
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, POSITIONS, gl.STATIC_DRAW);
+    const positionAttr = gl.getAttribLocation(this.prog, "a_position");
+    gl.enableVertexAttribArray(positionAttr);
+    gl.vertexAttribPointer(positionAttr, 2, gl.FLOAT, false, 0, 0);
+    gl.bindVertexArray(null);
   }
 
   exec(): void {
     const { gl } = this.renderCtx;
-    const positionAttr = gl.getAttribLocation(this.prog, "a_position");
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
-    const vao = gl.createVertexArray();
-    gl.bindVertexArray(vao);
-    gl.enableVertexAttribArray(positionAttr);
-    gl.vertexAttribPointer(positionAttr, 2, gl.FLOAT, false, 0, 0);
+    gl.bindVertexArray(this.vao);
     this.setAsActive();
     gl.drawArrays(gl.TRIANGLES, 0, 3);
+    // Line programs set attributes on the default vertex array.
+    gl.bindVertexArray(null);
   }
 }
