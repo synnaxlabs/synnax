@@ -188,11 +188,14 @@ private:
         return WakeReason::Timer;
     }
 
-    /// @brief HYBRID: Spin for configured duration, then block with timeout.
+    /// @brief HYBRID: Spin for configured duration, then block with timeout. It deletes
+    /// a timer that an earlier event-driven wait armed, so that it does not wake this
+    /// wait.
     WakeReason hybrid_wait(
         const x::breaker::Breaker &breaker,
         const x::telem::TimeSpan max_timeout
     ) {
+        this->arm_deadline(x::telem::TimeSpan(0));
         const auto sw = x::telem::Stopwatch();
         const auto spin_start = std::chrono::steady_clock::now();
         const auto spin_duration = this->config_.spin_duration.chrono();

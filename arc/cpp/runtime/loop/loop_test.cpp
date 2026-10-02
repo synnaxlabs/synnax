@@ -1093,6 +1093,29 @@ INSTANTIATE_TEST_SUITE_P(
     )
 );
 
+/// @brief In AUTO, a deadline that an input ends should not wake a later wait that
+/// spins to its deadline.
+TEST(StaleDeadlineTest, PendingDeadlineDoesNotWakeASpinningWait) {
+    Config config;
+    config.mode = ExecutionMode::AUTO;
+    const auto loop = ASSERT_NIL_P(create_and_start(config));
+    const auto notifier = x::notify::create();
+    ASSERT_TRUE(loop->watch(*notifier));
+    x::breaker::Breaker breaker;
+    breaker.start();
+
+    notifier->signal();
+    ASSERT_EQ(
+        loop->wait(breaker, test_timing::STALE_DEADLINE, x::telem::TimeSpan::max()),
+        WakeReason::Input
+    );
+    const auto deadline = 4 * test_timing::STALE_DEADLINE;
+    const auto sw = x::telem::Stopwatch();
+    loop->wait(breaker, deadline, x::telem::MILLISECOND);
+    EXPECT_GE(sw.elapsed(), deadline - test_timing::FIRE_TOLERANCE);
+    breaker.stop();
+}
+
 /// @brief A loop in the mode of the parameter, with an interval shorter than any block
 /// timeout. The runtime sets the interval to the shortest timer span of a program.
 class IntervalTest : public testing::TestWithParam<ExecutionMode> {
