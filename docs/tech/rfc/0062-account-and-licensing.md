@@ -20,7 +20,7 @@ organizations and licenses in Neon Postgres. The Core gains one license primitiv
 signed with ML-DSA-44, a post-quantum signature, bound to a machine, and verified
 offline with public keys compiled into the binary. Two paths issue that license key. The
 free edition, Synnax Desktop, signs the user in through the system browser and receives
-a short-lived license that renews while signed in. The enterprise edition, the
+a short-lived license that renews while logged in. The enterprise edition, the
 standalone Core, activates through a start flag or the Console with a license that staff
 issued in the portal. Downloads stay public, the Core never phones home, a running Core
 never stops because of time, and the old key format is deleted.
@@ -70,7 +70,7 @@ never stops because of time, and the old key format is deleted.
 
 ## 3 Principles
 
-1. **One license primitive**: Desktop sign-in and enterprise activation produce the same
+1. **One license primitive**: Desktop login and enterprise activation produce the same
    license key, verified by the same code.
 2. **The running Core never phones home**: Verification is offline. Network calls happen
    in the Console or the portal, never in the Core. This continues RFC 0011 §4.4.0 and
@@ -83,14 +83,15 @@ never stops because of time, and the old key format is deleted.
    operator loses a test if a license lapses mid-run, and loses nothing if the Core
    refuses to start the next morning.
 5. **Enforcement lives in the license, not the download**: Every artifact stays public.
-   Desktop sign-in counts free users, and activation counts enterprise machines.
+   Desktop login counts free users, and activation counts enterprise machines.
 6. **Buy the standard parts, build the Synnax parts**: Identity, teams, email, and key
    custody come from Clerk, Resend, and AWS KMS. The license key, the fingerprint, the
    verifier, the organization model, and the activation ledger are ours.
 7. **Vendor ids never enter a stored format**: The license names the portal's own
    organization key. The Clerk id is replaceable without issuing anything again.
-8. **Infrastructure is code**: Every cloud resource the portal needs is declared in
-   Terraform under `infra/`. What a vendor cannot expose is a documented manual step.
+8. **No stored cloud secret**: The portal reaches AWS through a role that only its
+   production deployments can assume. Setup that runs once is a script or a documented
+   step.
 
 ## 4 Current mechanics
 
@@ -259,10 +260,11 @@ Engineer holds retrieve. Owners therefore activate and Engineers read, with no n
 resource type.
 
 `--license-key` and `SYNNAX_LICENSE_KEY` take a license key, and `--license-file` reads
-one from a path, for systemd units and the Windows service. Both activate at start,
-which is how a provisioned server and CI run, and a license key the Core refuses stops
-the start. A running Core activates through the Console. There is no `synnax license`
-command: scripts call the retrieve endpoint with `curl`.
+one from a path, such as the `.lic` file the portal downloads, for systemd units and the
+Windows service. Both activate at start, which is how a provisioned server and CI run,
+and a license key the Core refuses stops the start. A running Core activates through the
+Console. There is no `synnax license` command: scripts call the retrieve endpoint with
+`curl`.
 
 An unlicensed Core starts its embedded Driver without waiting for it, because the Core
 refuses the Driver's rack until a license applies. The Driver retries on its own.
@@ -281,19 +283,19 @@ Console left open notices a Core activated by a start flag. A Core from before l
 sends no state and reads as `ok`.
 
 While the Core is unlicensed, the Console shows an activation screen in place of the
-workspace, behind login: the fingerprint with a copy button, a field and a file picker
-for the license key, and a link to the portal's activation page. On success the client
-checks again at once, the state flips, and the screen goes away. When licensed, the Core
-badge and the version modal show the edition, organization, term, machines, and channel
-cap, with any warning. The same screen serves the web Console the Core hosts, which is
-how a headless server activates.
+workspace, behind login: the fingerprint with a copy button, a field for the license key
+with a picker for `.lic` files, and a link to the portal's activation page. On success
+the client checks again at once, the state flips, and the screen goes away. When
+licensed, the Core badge and the version modal show the edition, organization, term,
+machines, and channel cap, with any warning. The same screen serves the web Console the
+Core hosts, which is how a headless server activates.
 
 In Desktop (RFC 0063), the gate sits outside the embedded Core guard, because an
-unlicensed Core never settles, and it shows the sign-in screen of §5.8 instead.
+unlicensed Core never settles, and it shows the login screen of §5.8 instead.
 
 ### 5.6 Portal identity and organizations
 
-Clerk provides sign-up, sign-in, sessions, and, for teams, membership, invitations, and
+Clerk provides sign-up, login, sessions, and, for teams, membership, invitations, and
 roles, through `@clerk/astro`. The portal renders every screen itself on Clerk's client
 API (§5.10), and no Clerk widget appears. The portal's organization records follow Clerk
 where they are read: resolving a session stores a record for each of the user's teams,
@@ -319,11 +321,12 @@ Neon Postgres holds the portal's tables through Drizzle:
 Resend sends the mail Clerk does not: expiry warnings at 30, 7, and 1 days, and
 revocation notices. A daily Vercel Cron job runs the expiry sweep.
 
-`infra/portal/` declares in Terraform the KMS signing key, the IAM identity the Vercel
-runtime signs with, the portal's Vercel environment and domain, and the CI secret, with
-state in HCP Terraform. Neon and Clerk come through the Vercel Marketplace, which
-injects their variables. Their dashboard steps, and Resend, which has no provider, are
-documented in `infra/README.md`.
+The portal deploys like the docs site: Vercel's Git integration deploys `main` to
+production and each branch to a preview, and the build applies the Drizzle migrations
+first. The runtime signs through an AWS role that only production deployments can assume
+with Vercel's OIDC tokens, so no AWS secret is stored and a preview cannot sign. Neon
+and Clerk come through the Vercel Marketplace, which injects their variables.
+`site/portal/README.md` documents the setup that runs once.
 
 ### 5.7 Portal licenses and the activation ledger
 
@@ -345,15 +348,15 @@ channel cap, label, and term. A subscription takes an expiry and an optional fal
 version, and a perpetual license takes a maximum version. A trial is a short
 subscription. Nothing is self-serve, and nothing takes payment.
 
-### 5.8 Desktop sign-in
+### 5.8 Desktop login
 
 Desktop follows RFC 8252 with a custom scheme of its own, `synnax-desktop://`,
 registered in `tauri.desktop.conf.json`. The Console keeps `synnax://`, so the two apps
 never claim each other's links.
 
 The app reads the fingerprint from its embedded Core, creates a one-time `state` value,
-and opens `portal.synnaxlabs.com/desktop/sign-in?state=&fp=&name=&v=` in the system
-browser, where `name` is the hostname and `v` the app version. After the user signs in,
+and opens `portal.synnaxlabs.com/desktop/login?state=&fp=&name=&v=` in the system
+browser, where `name` is the hostname and `v` the app version. After the user logs in,
 the page calls `POST /api/desktop/link`, which issues a desktop license to the user's
 personal organization, records the activation, creates an opaque renewal secret, and
 returns the license key and the secret. The page opens
@@ -364,7 +367,7 @@ session. No code exchange exists: the license key binds to the host, so a captur
 licenses nothing else.
 
 Each machine holds its own desktop license: a subscription for one machine, with no
-channel cap and no maximum version. A machine that signs in again replaces its earlier
+channel cap and no maximum version. A machine that logs in again replaces its earlier
 link: the earlier activation with the same host hash is released and its license
 revoked. On launch and every six hours while online, the app renews a license that nears
 expiry: `POST /api/desktop/renew`, with the secret as a bearer token, extends the expiry
@@ -372,11 +375,11 @@ and returns a fresh license key that the app activates. Unlinking the machine in
 portal revokes the license, so the next renewal is refused and the license lapses at
 expiry plus the grace window. Expiry notices skip the desktop edition.
 
-In Desktop, the gate shows a sign-in screen in place of the enterprise activation
-screen: one line and a Sign in button, a waiting state while the browser is open, an
-offline state with Try again, and Use a license file, which opens the paste-and-file
-screen. Its messages use plain words ("Sign in to continue") per RFC 0063 §5.5. The app
-has no sign-out. Switching accounts is Unlink in the portal or Erase all data.
+In Desktop, the gate shows a login screen in place of the enterprise activation screen:
+one line and a Log in button, a waiting state while the browser is open, an offline
+state with Try again, and Use a license file, which opens the paste-and-file screen. Its
+messages use plain words ("Log in to continue") per RFC 0063 §5.5. The app has no
+logout. Switching accounts is Unlink in the portal or Erase all data.
 
 ### 5.9 Development, CI, and hosted Cores
 
@@ -397,15 +400,15 @@ organization:
 
 ### 5.10 Portal interface
 
-The portal is its own shell on its own host. The docs header carries one Sign in button
+The portal is its own shell on its own host. The docs header carries one Log in button
 to it.
 
 The shell puts the scope first. The top bar holds the logo, the scope, a Docs link, and
-an avatar menu with Settings and Sign out. A team member gets a scope switcher, and a
+an avatar menu with Settings and Log out. A team member gets a scope switcher, and a
 personal user sees only their name. A tab bar holds the scope's sections, and every
 scope opens on Overview:
 
-- **Personal**: Overview, with Download Synnax Desktop and Sign in from the app, the
+- **Personal**: Overview, with Download Synnax Desktop and Log in from the app, the
   recent machines, and one Enterprise panel with Talk to us. Devices, with each linked
   machine's license status, Rename, and Unlink.
 - **Team**: Overview, with usable licenses, seats in use, and the next expiry. Licenses,
@@ -418,8 +421,9 @@ or Revoked. Its page shows the facts, the machines with Download license key, Re
 and Release, the released machines, and the activity from the event log. Staff also get
 Edit, which changes the terms in place so seats and history survive a renewal, Floating
 license key, and Revoke. Activate a machine is a dialog that takes a name and the
-fingerprint the Console copied, and downloads the license key.
-`/licenses/activate?license=` is the page the Console links.
+fingerprint the Console copied, and downloads the license key as a `.lic` file, the
+extension most license managers use. `/licenses/activate?license=` is the page the
+Console links.
 
 Routes sit at the root of the host: `/`, `/devices`, `/licenses`, `/licenses/<key>`,
 `/licenses/activate`, `/members`, `/settings`, `/admin`, and `/api/...`. The scope is
@@ -427,7 +431,7 @@ the `?org=` query parameter, so a license URL survives an organization rename.
 
 Each page is an Astro page that loads its data on the server and renders one React
 island with it. Actions are Pluto `Modal` dialogs that post JSON to the `/api/...`
-routes, show a route error inline, and reload the page on success. Sign-in, sign-up,
+routes, show a route error inline, and reload the page on success. Login, sign-up,
 password reset, and the OAuth callback are custom pages on Clerk's client API: email and
 password with an email code, Google, and Microsoft. The theme follows the operating
 system, and below the mobile breakpoint the tab bar scrolls and tables become cards.
@@ -454,16 +458,14 @@ The work ships as a stack of five pull requests into `main`.
   every client, the `unlicensed` connection reason, and the Driver retry.
 - **Phase 3: Console.** The activation screen and guard, the Core badge, and the version
   modal.
-- **Phase 4: Portal.** `site/portal/` and its Vercel project, `infra/portal/`, Clerk,
+- **Phase 4: Portal.** `site/portal/` and its Vercel project, the signing role, Clerk,
   Neon, and Resend, the four tables, KMS signing, the activation endpoint, the staff
   area with all three terms, the expiry cron, and every page of §5.10. The Console's
   activation link moves to the portal. Before it deploys, production Clerk needs the
-  name attribute, organizations, and the Microsoft connection, and Neon needs the
-  Drizzle migration, which neither the build nor the deploy runs.
-- **Phase 5: Desktop sign-in.** The `synnax-desktop` scheme, the sign-in page and its
-  link route, the renew route, the Desktop sign-in screen and deep link handler, the
-  account slice, and the renewal loop. Neon needs the migration that adds the two
-  activation columns.
+  name attribute, organizations, and the Microsoft connection.
+- **Phase 5: Desktop login.** The `synnax-desktop` scheme, the login page and its link
+  route, the renew route, the Desktop login screen and deep link handler, the account
+  slice, and the renewal loop, with a migration that adds the renewal secret column.
 
 ### 7.0 Compatibility
 
@@ -496,7 +498,7 @@ unlicensed Core, and new clients decode it.
    `required`, and `claims_version` changes only for a break. An older Core keeps
    working on a newer license key and never honors less than the license key demands.
 5. **No download wall**: The Tauri updater, `pip`, and `docker pull` cannot be gated,
-   and sign-in and activation give the counts a wall would. The trade is real: nothing
+   and login and activation give the counts a wall would. The trade is real: nothing
    stops a direct GitHub link.
 6. **The standalone Core requires a license and starts without one**: Desktop is the
    free edition. Refusing to start would block activation through the Core's own web
@@ -547,9 +549,9 @@ unlicensed Core, and new clients decode it.
     an unlicensed Core would stop the Driver it starts.
 22. **The portal is its own package, deployment, and shell**: Served from the docs,
     every account change shipped with the docs, and the docs carried Clerk, Neon, and
-    KMS settings. Vercel, Linear, and GitHub all give the signed-in surface its own
+    KMS settings. Vercel, Linear, and GitHub all give the logged-in surface its own
     shell. The trade is real: two Vercel projects and a second layout.
-23. **Sign-in screens are ours, on Clerk's client API**: Clerk's components take an
+23. **Login screens are ours, on Clerk's client API**: Clerk's components take an
     appearance object, not a design. The trade is real: reset, verification, second
     factors, and OAuth callbacks are our pages to maintain.
 24. **Members act on licenses, admins act on the team**: The engineer at the test stand
@@ -563,7 +565,7 @@ unlicensed Core, and new clients decode it.
     Unlink do nothing for a year. One license per machine reuses issue, activate,
     revoke, and the ledger unchanged. The trade is real: the renewal secret sits on
     disk.
-27. **Desktop is unlimited and has no sign-out**: A channel cap would not sell the
+27. **Desktop is unlimited and has no logout**: A channel cap would not sell the
     enterprise edition (RFC 0063 §8) and would be the first wall an evaluator hits. The
-    Core has no operation to drop a license key, so a sign-out could only stop renewal,
+    Core has no operation to drop a license key, so a logout could only stop renewal,
     and Unlink and Erase all data already cover it.

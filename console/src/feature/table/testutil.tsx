@@ -41,8 +41,8 @@ export const createCellGrid = (): Pick<table.New, "rows" | "columns" | "cells"> 
   rows: [{ size: 36, cells: ["a", "b"] }],
   columns: [{ size: 72 }, { size: 72 }],
   cells: {
-    a: { variant: "text", value: "Cell A", level: "h5", backgroundColor: "#ff0000ff" },
-    b: { variant: "text", value: "Cell B", level: "h5", backgroundColor: "#00ff00ff" },
+    a: { variant: "text", value: "Cell A", level: "h5", fillColor: "#ff0000ff" },
+    b: { variant: "text", value: "Cell B", level: "h5", fillColor: "#00ff00ff" },
   },
 });
 

@@ -20,7 +20,7 @@ import {
 import { describe, expect, it, test, vi } from "vitest";
 
 import { type channel } from "@/channel";
-import { AccessDeniedError, ExpiredTokenError } from "@/errors";
+import { AccessDeniedError, ExpiredTokenError, MissingLicenseError } from "@/errors";
 import { Frame } from "@/framer/frame";
 import { HardenedStreamer, ObservableStreamer } from "@/framer/hardened";
 import { type Streamer, streamerConfigZ } from "@/framer/streamer";
@@ -1049,6 +1049,21 @@ describe("Streamer", () => {
           { breaker: { maxRetries: 3, baseInterval: TimeSpan.milliseconds(1) } },
         ),
       ).rejects.toThrow(AccessDeniedError);
+      expect(openerMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("should give up on the first license refusal instead of retrying", async () => {
+      const openerMock = vi.fn();
+      await expect(
+        HardenedStreamer.open(
+          async () => {
+            openerMock();
+            throw new MissingLicenseError("No license is active on this Core");
+          },
+          { channels: [1] },
+          { maxRetries: 3, baseInterval: TimeSpan.milliseconds(1) },
+        ),
+      ).rejects.toThrow(MissingLicenseError);
       expect(openerMock).toHaveBeenCalledTimes(1);
     });
 

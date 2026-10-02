@@ -161,6 +161,7 @@ describe("openStreamer", () => {
         keys.map((key) => ({ key, value: 1 })),
       );
       const table = new Table<string, Entry>({ onError: vi.fn(), fetch });
+      table.set(["k1", "k2", "k3"].map((key) => ({ key, value: 0 })));
       const listener = createFetchListener<z.ZodString, string, Entry>(
         "fetch_ch",
         z.string(),

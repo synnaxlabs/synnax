@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { TimeSpan } from "@synnaxlabs/x";
-import { act, render, renderHook } from "@testing-library/react";
+import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -90,9 +90,7 @@ describe("Aggregator", () => {
         });
       });
       expect(result.current.statuses.statuses).toHaveLength(1);
-      await expect
-        .poll(async () => result.current.statuses.statuses.length === 0)
-        .toBeTruthy();
+      await waitFor(() => expect(result.current.statuses.statuses).toHaveLength(0));
     });
   });
 

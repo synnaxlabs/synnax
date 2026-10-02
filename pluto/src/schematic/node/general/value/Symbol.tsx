@@ -31,7 +31,7 @@ export const Symbol = ({
     label,
     level = "p",
     textColor,
-    color,
+    strokeColor,
     channel,
     rollingAverage,
     precision,
@@ -42,7 +42,7 @@ export const Symbol = ({
     stalenessColor,
     stalenessTimeout,
     redline,
-    backgroundColor,
+    fillColor,
   },
 }: NodeProps<schematic.ValueNodeConfig>): ReactElement => {
   const valueBoxHeight = Component.HEIGHTS[LEVEL_SIZES[level]];
@@ -51,8 +51,8 @@ export const Symbol = ({
     [channel, rollingAverage, precision, notation],
   );
   const backgroundTelem = useMemo(
-    () => BaseValue.backgroundTelem(t, redline, backgroundColor),
-    [t, redline, backgroundColor],
+    () => BaseValue.backgroundTelem(t, redline, fillColor),
+    [t, redline, fillColor],
   );
   const { width: oWidth } = BaseValue.use({
     aetherKey: nodeKey,
@@ -77,7 +77,8 @@ export const Symbol = ({
     <Grid.Grid editable={selected} nodeKey={nodeKey} allowRotate={false}>
       <Label.Label config={label} onChange={onConfigChange} />
       <Value
-        color={color}
+        strokeColor={strokeColor}
+        textColor={textColor}
         orientation={orientation}
         dimensions={{ height: valueBoxHeight, width: oWidth }}
         inlineSize={inlineSize}

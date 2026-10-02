@@ -13,6 +13,7 @@ from playwright.sync_api import Locator
 
 import synnax as sy
 from console.layout import LayoutClient
+from console.multiedit import Colors
 from console.page import ConsolePage
 
 DATA_ROW_SELECTOR = ".pluto-table__row:not(.pluto-table__col-resizer)"
@@ -34,6 +35,7 @@ class Table(ConsolePage):
     ) -> None:
         """Initialize a Table page wrapper (see ConsolePage.__init__ for details)."""
         super().__init__(layout, client, page_name, pane_locator=pane_locator)
+        self.colors = Colors(self.page)
 
     def set_cell_channel(self, channel_name: str, row: int = 0, col: int = 0) -> None:
         """Set a cell to display a channel's telemetry value.
@@ -369,18 +371,3 @@ class Table(ConsolePage):
         if text.endswith("cells"):
             return int(text.split()[0])
         return 1
-
-    def get_color_swatch_count(self) -> int:
-        """Count the swatches in the toolbar's "Selection colors" group.
-
-        Each distinct color across the selection contributes one swatch,
-        so this is the number of color groups the multi-cell form is
-        rendering. Returns 0 when the group is absent (single cell or
-        no cells with a color prop).
-        """
-        self.layout.show_visualization_toolbar()
-        label = self.page.get_by_text("Selection colors", exact=True).first
-        if label.count() == 0:
-            return 0
-        group = label.locator("..")
-        return group.locator(".pluto-color-swatch").count()

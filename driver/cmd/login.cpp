@@ -20,12 +20,7 @@ int login(x::args::Parser &args) {
     synnax::Config config;
     config.host = x::cli::prompt("Host", "localhost");
     config.port = x::cli::prompt<uint16_t>("Port", static_cast<uint16_t>(9090));
-    if (x::cli::confirm("Secure", false)) {
-        config.secure = true;
-        config.ca_cert_file = x::cli::prompt("Path to CA certificate file", "");
-        config.client_cert_file = x::cli::prompt("Path to client certificate file", "");
-        config.client_key_file = x::cli::prompt("Path to client key file", "");
-    }
+    config.secure = x::cli::confirm("Secure", false);
     {
         const synnax::Synnax probe(config);
         const auto state = probe.connectivity->check();

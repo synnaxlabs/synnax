@@ -11,11 +11,12 @@ import "@/feature/embedded/useDiagnosticsModal.css";
 
 import { type status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
+import { Description } from "@synnaxlabs/lyra/description";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Modal } from "@synnaxlabs/lyra/modal";
 import { Status } from "@synnaxlabs/lyra/status";
-import { Text } from "@synnaxlabs/lyra/text";
 import { Size, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { save } from "@tauri-apps/plugin-dialog";
 import { type ReactElement, type ReactNode, useEffect, useRef, useState } from "react";
@@ -70,12 +71,10 @@ interface FieldProps {
 }
 
 const Field = ({ label, children }: FieldProps): ReactElement => (
-  <Flex.Box x gap="medium" align="start">
-    <Text.Text className={CSS.BE("diagnostics", "label")} color={9} weight={450}>
-      {label}
-    </Text.Text>
-    <Text.Text className={CSS.BE("diagnostics", "value")}>{children}</Text.Text>
-  </Flex.Box>
+  <Description.Item>
+    <Description.Label>{label}</Description.Label>
+    <Description.Value>{children}</Description.Value>
+  </Description.Item>
 );
 
 const useDiagnostics = (state: SupervisorStatus["state"]): Diagnostics | null => {
@@ -157,15 +156,15 @@ export const useDiagnosticsModal = Modals.create(() => {
     }, "Failed to export the diagnostics");
   const history = diagnostics?.history;
   return (
-    <Modals.Frame className={CSS.B("diagnostics")}>
-      <Modals.Header icon={<Icon.Hardware />}>Diagnostics</Modals.Header>
-      <Modals.Body className={CSS.BE("diagnostics", "body")} gap="large">
+    <Modal.Frame className={CSS.B("diagnostics")}>
+      <Modal.Header icon={<Icon.Hardware />}>Diagnostics</Modal.Header>
+      <Modal.Body className={CSS.BE("diagnostics", "body")} gap="large">
         <Flex.Box y gap="small">
           <Status.Summary variant={STATE_VARIANTS[status.state]} level="h4">
             {STATE_MESSAGES[status.state]}
           </Status.Summary>
           {diagnostics != null && history != null && (
-            <>
+            <Description.List>
               <Field label="Version">{diagnostics.version}</Field>
               {history.readyAt != null && (
                 <Field label="Running since">
@@ -177,7 +176,7 @@ export const useDiagnosticsModal = Modals.create(() => {
               )}
               <Field label="Starts">{history.starts} in this session</Field>
               {history.lastExit != null && (
-                <Field label="Last problem">{history.lastExit}</Field>
+                <Field label="Last problem">{history.lastExit.message}</Field>
               )}
               {status.state === "failed" && (
                 <Field label="Reason">{status.message}</Field>
@@ -185,12 +184,12 @@ export const useDiagnosticsModal = Modals.create(() => {
               <Field label="Data">
                 {formatSize(diagnostics.dataSize)} in {diagnostics.dataDir}
               </Field>
-            </>
+            </Description.List>
           )}
         </Flex.Box>
         <Log />
-      </Modals.Body>
-      <Modals.Footer>
+      </Modal.Body>
+      <Modal.Footer>
         <Flex.Box
           x
           gap="small"
@@ -223,7 +222,7 @@ export const useDiagnosticsModal = Modals.create(() => {
             Restart
           </Button.Button>
         </Flex.Box>
-      </Modals.Footer>
-    </Modals.Frame>
+      </Modal.Footer>
+    </Modal.Frame>
   );
 });
