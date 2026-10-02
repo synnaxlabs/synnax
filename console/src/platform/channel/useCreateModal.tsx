@@ -13,6 +13,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
+import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Channel, Telem } from "@synnaxlabs/pluto";
@@ -41,9 +42,9 @@ export const useCreateModal = Modals.create(({ close }) => {
     { ctx: form },
   );
   return (
-    <Modals.Frame>
-      <Modals.Header icon={<Icon.Channel />}>Channel.Create</Modals.Header>
-      <Modals.Body>
+    <Modal.Frame>
+      <Modal.Header icon={<Icon.Channel />}>Channel.Create</Modal.Header>
+      <Modal.Body>
         <Form.Form<typeof Channel.formSchema> {...form}>
           <Form.Field<string> path="name" label="Name">
             {(p) => (
@@ -96,8 +97,8 @@ export const useCreateModal = Modals.create(({ close }) => {
             )}
           </Form.Field>
         </Form.Form>
-      </Modals.Body>
-      <Modals.Footer>
+      </Modal.Body>
+      <Modal.Footer>
         <Triggers.SaveHelpText />
         <Nav.Bar.End align="center" gap="large">
           <Flex.Box x align="center" gap="small">
@@ -113,7 +114,7 @@ export const useCreateModal = Modals.create(({ close }) => {
             Create
           </Button.Button>
         </Nav.Bar.End>
-      </Modals.Footer>
-    </Modals.Frame>
+      </Modal.Footer>
+    </Modal.Frame>
   );
 });
