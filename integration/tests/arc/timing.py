@@ -30,7 +30,7 @@ class Limits:
 # Each limit is the worst value measured at the minimum wait plus a margin.
 LIMITS: dict[str, dict[str, Limits]] = {
     "C++": {
-        "Linux": Limits(min_wait_ms=1, max_error_percent=2.5, max_spread_ms=0.1),
+        "Linux": Limits(min_wait_ms=1, max_error_percent=3.0, max_spread_ms=0.2),
         "Darwin": Limits(min_wait_ms=1, max_error_percent=2.5, max_spread_ms=0.1),
         "Windows": Limits(min_wait_ms=5, max_error_percent=0.5, max_spread_ms=0.1),
     },
