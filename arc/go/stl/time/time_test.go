@@ -11,7 +11,9 @@ package time_test
 
 import (
 	"context"
+	"fmt"
 	"math"
+	"runtime"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -25,6 +27,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
+	xos "github.com/synnaxlabs/x/os"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -1267,6 +1270,90 @@ var _ = Describe("Time", func() {
 			Expect(deadlines).To(BeEmpty())
 			Expect(reported).To(HaveLen(1))
 		})
+	})
+	Describe("NewHost", func() {
+		DescribeTable("Should reject a minimum span that is not positive",
+			func(ctx SpecContext, minSpan telem.TimeSpan) {
+				Expect(time.NewHost(ctx, nil, minSpan)).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(
+						fmt.Sprintf("min span must be positive, got %s", minSpan),
+					)),
+				))
+			},
+			Entry("zero", telem.TimeSpan(0)),
+			Entry("negative", -telem.Millisecond),
+		)
+	})
+	Describe("PlatformMinSpan", func() {
+		It("Should return the minimum span of the OS", func() {
+			expected := 10 * telem.Millisecond
+			if runtime.GOOS == "darwin" {
+				expected = 20 * telem.Millisecond
+			}
+			Expect(time.PlatformMinSpan()).To(Equal(expected))
+		})
+	})
+	Describe("Minimum span", func() {
+		const minSpan = 10 * telem.Millisecond
+		var factory *time.Host
+		BeforeEach(func(ctx SpecContext) {
+			factory = MustSucceed(time.NewHost(ctx, nil, minSpan))
+		})
+		config := func(
+			nodeType, param string, t types.Type, span telem.TimeSpan,
+		) node.Config {
+			v := ir.Node{
+				Key:  "v",
+				Type: "variable",
+				Outputs: types.Params{
+					{Name: ir.DefaultOutputParam, Type: types.I64()},
+				},
+			}
+			n := ir.Node{
+				Key:    "n",
+				Type:   nodeType,
+				Inputs: types.Params{{Name: param, Type: t, Value: span}},
+				Outputs: types.Params{
+					{Name: ir.DefaultOutputParam, Type: types.U8()},
+				},
+			}
+			state := node.New(ir.IR{Nodes: ir.Nodes{v, n}})
+			return node.Config{Node: n, State: state.Node("n")}
+		}
+		DescribeTable("Should reject a literal span under the minimum",
+			func(nodeType, param string) {
+				cfg := config(nodeType, param, types.TimeSpan(), telem.Millisecond)
+				Expect(factory.Create(cfg)).Error().To(SatisfyAll(
+					BeAValidationPathError(),
+					MatchError(ContainSubstring(fmt.Sprintf(
+						"%s: must be at least 10ms (%s), got 1ms", param, xos.Name(),
+					))),
+				))
+				Expect(factory.BaseInterval).To(Equal(telem.TimeSpanMax))
+			},
+			Entry("interval", "interval", "period"),
+			Entry("wait", "wait", "duration"),
+		)
+		DescribeTable("Should accept a literal span at the minimum",
+			func(nodeType, param string) {
+				cfg := config(nodeType, param, types.TimeSpan(), minSpan)
+				Expect(MustSucceed(factory.Create(cfg))).ToNot(BeNil())
+				Expect(factory.BaseInterval).To(Equal(minSpan))
+			},
+			Entry("interval", "interval", "period"),
+			Entry("wait", "wait", "duration"),
+		)
+		DescribeTable("Should accept a var-bound span under the minimum",
+			func(nodeType, param string) {
+				cfg := config(
+					nodeType, param, types.VarRef(types.I64(), "v"), telem.Millisecond,
+				)
+				Expect(MustSucceed(factory.Create(cfg))).ToNot(BeNil())
+			},
+			Entry("interval", "interval", "period"),
+			Entry("wait", "wait", "duration"),
+		)
 	})
 	Describe("TimingBase", func() {
 		It("Should compute GCD of multiple intervals", func(ctx SpecContext) {

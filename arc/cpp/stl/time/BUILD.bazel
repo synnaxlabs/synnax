@@ -22,6 +22,7 @@ cc_library(
         "//arc/cpp/runtime/state",
         "//arc/cpp/stl",
         "//x/cpp/errors",
+        "//x/cpp/os",
         "//x/cpp/telem",
     ],
 )
@@ -41,6 +42,7 @@ cc_test(
         "//client/cpp:synnax",
         "//client/cpp/testutil",
         "//x/cpp/mem",
+        "//x/cpp/os",
         "//x/cpp/test",
         "@googletest//:gtest_main",
     ],

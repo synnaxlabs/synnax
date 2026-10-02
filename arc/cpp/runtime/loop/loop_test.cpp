@@ -960,6 +960,17 @@ TEST(DeadlineTest, EventDriven_FiresOnDeadline) {
     EXPECT_LE(median, test_timing::FIRE_ERROR_BOUND);
 }
 
+/// @brief The minimum timer span should be the documented value of the platform.
+TEST(MinTimerSpanTest, ReturnsTheSpanOfThePlatform) {
+#if defined(_WIN32)
+    EXPECT_EQ(min_timer_span(), 5 * x::telem::MILLISECOND);
+#elif defined(__linux__) || defined(__APPLE__)
+    EXPECT_EQ(min_timer_span(), x::telem::MILLISECOND);
+#else
+    EXPECT_EQ(min_timer_span(), x::telem::TimeSpan(0));
+#endif
+}
+
 /// @brief A base interval and a wait duration. The base interval selects the loop mode.
 using ShortDeadlineCase = std::tuple<x::telem::TimeSpan, x::telem::TimeSpan>;
 

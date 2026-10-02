@@ -366,8 +366,4 @@ x::telem::TimeSpan min_timer_span() {
     return timing::WINDOWS_MIN_TIMER_SPAN;
 }
 
-std::string platform_name() {
-    return "Windows";
-}
-
 }

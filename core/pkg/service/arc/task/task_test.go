@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
+	arctime "github.com/synnaxlabs/arc/stl/time"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
@@ -2248,8 +2249,8 @@ var _ = Describe("Task", Ordered, func() {
 					func tick() {
 						%s = 1
 					}
-					interval{period=10ms} -> tick{}
-				`, outputCh.Name),
+					interval{period=%s} -> tick{}
+				`, outputCh.Name, arctime.PlatformMinSpan()),
 			}
 
 			t := newTask(ctx, newTextFactory(ctx, prog))

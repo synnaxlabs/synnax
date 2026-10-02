@@ -16,6 +16,7 @@
 #include "wasmtime.hh"
 
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/os/os.h"
 #include "x/cpp/telem/telem.h"
 
 #include "arc/cpp/ir/ir.h"
@@ -54,7 +55,7 @@ live_span(const runtime::state::Node &s, const std::string &name) {
 
 /// @brief returns the minimum span and where it applies, for messages to the user.
 inline std::string describe_min(const x::telem::TimeSpan min) {
-    return min.to_string() + " (" + runtime::loop::platform_name() + ")";
+    return min.to_string() + " (" + x::os::get() + ")";
 }
 
 /// @brief rejects a span stamped at compile time that is non-positive or under
@@ -142,10 +143,9 @@ public:
         return std::max(span, this->min);
     }
 
-    void reset() {
-        this->reported = false;
-        this->raised = false;
-    }
+    /// @brief arms the validation report again. The warning stays reported, so a
+    /// stage that loops does not repeat it.
+    void reset() { this->reported = false; }
 };
 
 struct IntervalInputs {
@@ -186,9 +186,7 @@ public:
 
     x::errors::Error next(runtime::node::Context &ctx) override {
         const auto live = live_span(this->state, "period");
-        // A non-positive period would keep the deadline permanently in the
-        // past, spinning the scheduler loop. Park without a deadline instead;
-        // a later reassignment to a positive value resumes the timer.
+        // With no minimum, a non-positive period would hold the deadline in the past.
         if (!this->guard.usable(ctx, live, "interval period")) return x::errors::NIL;
         const auto period = this->guard.raise(ctx, live, "period");
         if (ctx.cycle.reason != runtime::node::RunReason::TimerTick) {
@@ -266,9 +264,7 @@ public:
     x::errors::Error next(runtime::node::Context &ctx) override {
         if (this->fired) return x::errors::NIL;
         const auto live = live_span(this->state, "duration");
-        // A non-positive duration is a configuration error, not an instant
-        // fire: park instead. Timing stays anchored to start_time, so recovery
-        // re-checks the live duration against the original activation.
+        // With no minimum, a non-positive duration would fire the wait at once.
         if (!this->guard.usable(ctx, live, "wait duration")) return x::errors::NIL;
         const auto duration = this->guard.raise(ctx, live, "duration");
         if (this->start_time.nanoseconds() < 0) this->start_time = ctx.cycle.elapsed;

@@ -152,8 +152,4 @@ x::telem::TimeSpan min_timer_span() {
     return x::telem::TimeSpan(0);
 }
 
-std::string platform_name() {
-    return "this platform";
-}
-
 }

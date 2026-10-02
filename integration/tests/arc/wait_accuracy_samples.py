@@ -14,21 +14,7 @@ from framework.utils import create_indexed_pair
 from tests.arc.arc import ArcCase
 from tests.arc.timing import Limits, limits
 
-# The waits of each profile in ms. Their GCD selects the loop mode of the C++ runtime.
-# An only profile holds one wait alone in its program. The case skips each wait under
-# the minimum of the runtime.
-PROFILES: dict[str, list[int]] = {
-    "event_driven": [10, 20, 30],
-    "hybrid": [12, 20, 32],
-    "rt_event": [10, 20, 31],
-    "all": [30, 20, 10, 5, 1],
-    "only_30": [30],
-    "only_20": [20],
-    "only_10": [10],
-    "only_5": [5],
-    "only_1": [1],
-}
-# How many times the sequence holds each wait of a profile.
+# How many times the sequence holds each wait of a case.
 REPEATS = 20
 
 
@@ -54,11 +40,15 @@ ws_start_cmd => main
 """
 
 
-class WaitAccuracySamples(ArcCase):
-    """A sequence holds each wait of a profile ``REPEATS`` times and writes ``ws_cmd``
-    before and after each one. The case fails if the median error of a wait or the
-    spread of its held times is over its limit.
+class _WaitSamples(ArcCase):
+    """A sequence holds each wait of ``profile_ms`` ``REPEATS`` times and writes
+    ``ws_cmd`` before and after each one. The case fails if the median error of a wait
+    or the spread of its held times is over its limit. The case skips each wait under
+    the minimum of the runtime.
     """
+
+    #: The waits in ms. Their GCD selects the loop mode of the C++ runtime.
+    profile_ms: list[int]
 
     arc_name_prefix = "ArcWaitAccuracySamples"
     start_cmd_channel = "ws_start_cmd"
@@ -72,9 +62,9 @@ class WaitAccuracySamples(ArcCase):
         assert self.rack is not None
         self.limits = limits(self.rack)
         min_ms = self.limits.min_wait_ms
-        profile = [w for w in PROFILES[self.params["profile"]] if w >= min_ms]
+        profile = [w for w in self.profile_ms if w >= min_ms]
         if not profile:
-            self.auto_pass(f"every wait of the profile is under {min_ms} ms")
+            self.auto_pass(f"every wait of the case is under {min_ms} ms")
         self.waits_ms = profile * REPEATS
         self.arc_source = create_source(self.waits_ms)
         create_indexed_pair(self.client, "ws_cmd", sy.DataType.UINT8)
@@ -132,3 +122,35 @@ class WaitAccuracySamples(ArcCase):
             )
         if failures:
             self.fail("; ".join(failures))
+
+
+class WaitSamplesEventDriven(_WaitSamples):
+    profile_ms = [10, 20, 30]
+
+
+class WaitSamplesHybrid(_WaitSamples):
+    profile_ms = [12, 20, 32]
+
+
+class WaitSamplesRTEvent(_WaitSamples):
+    profile_ms = [10, 20, 31]
+
+
+class WaitSamplesAll(_WaitSamples):
+    profile_ms = [30, 20, 10, 5, 1]
+
+
+class WaitSamplesOnly20(_WaitSamples):
+    profile_ms = [20]
+
+
+class WaitSamplesOnly10(_WaitSamples):
+    profile_ms = [10]
+
+
+class WaitSamplesOnly5(_WaitSamples):
+    profile_ms = [5]
+
+
+class WaitSamplesOnly1(_WaitSamples):
+    profile_ms = [1]

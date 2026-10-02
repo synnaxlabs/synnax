@@ -316,7 +316,4 @@ create(const Config &cfg, std::shared_ptr<x::thread::rt::Handle> rt_handle = nul
 /// @brief Returns the shortest timer span the loop of this platform holds on time. A
 /// zero span means there is no limit.
 x::telem::TimeSpan min_timer_span();
-
-/// @brief Returns the name of this platform for messages to the user.
-std::string platform_name();
 }

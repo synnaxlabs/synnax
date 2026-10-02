@@ -99,20 +99,7 @@
         { "case": "arc/wait_accuracy", "parameters": { "rack_key": [65537, 65538] } },
         {
           "case": "arc/wait_accuracy_samples",
-          "parameters": {
-            "rack_key": [65537, 65538],
-            "profile": [
-              "event_driven",
-              "hybrid",
-              "rt_event",
-              "all",
-              "only_30",
-              "only_20",
-              "only_10",
-              "only_5",
-              "only_1"
-            ]
-          }
+          "parameters": { "rack_key": [65537, 65538] }
         }
       ]
     }
