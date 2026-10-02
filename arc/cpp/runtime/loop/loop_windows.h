@@ -226,13 +226,13 @@ private:
     }
 
     // A deadline inside the spin span has no time for a timer wake, which takes
-    // about 0.5 ms.
+    // about 0.5 ms. The timer also cannot arm less than one WINDOWS_TIMER_UNIT ahead.
     bool inside_spin(
         const x::telem::TimeSpan max_timeout,
         const x::telem::TimeSpan spin
     ) const {
         return this->timer_enabled_ && max_timeout.nanoseconds() > 0 &&
-               max_timeout <= spin;
+               max_timeout < spin + timing::WINDOWS_TIMER_UNIT;
     }
 
     // Arms the timer the spin span ahead of a deadline. With no deadline, it disarms
