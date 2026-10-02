@@ -246,6 +246,15 @@ TEST(IRTest, testTransitionToStringExit) {
     ASSERT_NE(t.to_string().find("=> exit"), std::string::npos);
 }
 
+/// @brief it should format a continuous Transition with ->
+TEST(IRTest, testTransitionToStringContinuous) {
+    Transition t;
+    t.on = Handle("n", "out");
+    t.kind = EdgeKind::Continuous;
+    t.target_key = "next";
+    ASSERT_EQ(t.to_string(), "on n/out -> next");
+}
+
 /// @brief it should format a Member wrapping a leaf node-key
 TEST(IRTest, testMemberToStringLeafNode) {
     const auto m = node_member("A");

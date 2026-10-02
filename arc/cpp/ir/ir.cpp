@@ -68,11 +68,12 @@ const char *liveness_label(const Liveness l) {
 
 std::string Transition::to_string() const {
     std::ostringstream ss;
-    ss << "on " << this->on.node << "/" << this->on.param << " ";
+    ss << "on " << this->on.node << "/" << this->on.param << " "
+       << (this->kind == EdgeKind::Continuous ? "->" : "=>") << " ";
     if (this->target_key.has_value())
-        ss << "=> " << *this->target_key;
+        ss << *this->target_key;
     else
-        ss << "=> exit";
+        ss << "exit";
     return ss.str();
 }
 
@@ -270,7 +271,8 @@ namespace {
 bool scope_is_zero(const Scope &s) {
     return s.key.empty() && s.mode == ScopeMode::Unspecified &&
            s.liveness == Liveness::Unspecified && !s.activation.has_value() &&
-           s.strata.empty() && s.steps.empty() && s.transitions.empty();
+           s.activation_kind == EdgeKind::Unspecified && s.strata.empty() &&
+           s.steps.empty() && s.transitions.empty();
 }
 
 }

@@ -30,5 +30,15 @@ var _ = Describe("Transition", func() {
 			t := ir.Transition{On: ir.Handle{Node: "n", Param: "done"}}
 			Expect(t.String()).To(Equal("on n/done => exit"))
 		})
+
+		It("Should render a continuous transition with ->", func() {
+			target := "next"
+			t := ir.Transition{
+				On:        ir.Handle{Node: "n", Param: "done"},
+				Kind:      ir.EdgeKindContinuous,
+				TargetKey: &target,
+			}
+			Expect(t.String()).To(Equal("on n/done -> next"))
+		})
 	})
 })
