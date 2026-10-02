@@ -487,13 +487,17 @@ private:
 /// in any scope nested under it, has an unspecified kind. A Core that predates the
 /// kind field emits such an IR.
 inline x::errors::Error validate(const ir::Scope &scope) {
-    for (const auto &t: scope.transitions)
-        if (t.kind == ir::EdgeKind::Unspecified)
-            return x::errors::Error(
-                x::errors::VALIDATION,
-                "scope " + scope.key +
-                    " has a transition with no kind: " + t.to_string()
-            );
+    const auto unspecified = std::ranges::find(
+        scope.transitions,
+        ir::EdgeKind::Unspecified,
+        &ir::Transition::kind
+    );
+    if (unspecified != scope.transitions.end())
+        return x::errors::Error(
+            x::errors::VALIDATION,
+            "scope " + scope.key +
+                " has a transition with no kind: " + unspecified->to_string()
+        );
     if (scope.activation.has_value() &&
         scope.activation_kind == ir::EdgeKind::Unspecified)
         return x::errors::Error(
