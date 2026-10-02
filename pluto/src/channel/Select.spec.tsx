@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient } from "@synnaxlabs/client/testutil";
 import { render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -17,7 +16,7 @@ import { createSynnaxWrapper } from "@/testutil/Synnax";
 const TRIGGER_CLASS = "pluto-channel__trigger";
 
 describe("Channel select", () => {
-  const Wrapper = createSynnaxWrapper({ client: createTestClient() });
+  const Wrapper = createSynnaxWrapper({ client: null });
 
   it("should mark the single select's trigger so forms can widen it", () => {
     const c = render(<Channel.SelectSingle value={0} onChange={vi.fn()} />, {

@@ -14,6 +14,7 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Device as Base, Device } from "@synnaxlabs/pluto";
@@ -23,7 +24,6 @@ import { z } from "zod";
 
 import { CSS } from "@/platform/css";
 import { identifierZ, nameZ } from "@/platform/device/types";
-import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
 interface InternalProps<
@@ -89,10 +89,10 @@ const Internal = <
   });
 
   return (
-    <Modals.Frame className={CSS.B("configure")}>
-      <Modals.Header icon={icon}>{name ? [name] : "Device.Configure"}</Modals.Header>
+    <Modal.Frame className={CSS.B("configure")}>
+      <Modal.Header icon={icon}>{name ? [name] : "Device.Configure"}</Modal.Header>
       <Form.Form<typeof configurablePropertiesZ> {...methods}>
-        <Modals.Body align="stretch" gap="large">
+        <Modal.Body align="stretch" gap="large">
           {isNameStep ? (
             <>
               <Text.Text>
@@ -139,7 +139,7 @@ const Internal = <
               </Flex.Box>
             </>
           )}
-        </Modals.Body>
+        </Modal.Body>
       </Form.Form>
       <Nav.Bar location="bottom" size={48} bordered>
         <Triggers.SaveHelpText action={triggerAction} />
@@ -155,7 +155,7 @@ const Internal = <
           </Button.Button>
         </Nav.Bar.End>
       </Nav.Bar>
-    </Modals.Frame>
+    </Modal.Frame>
   );
 };
 

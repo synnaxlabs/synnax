@@ -34,7 +34,7 @@ export type Tilt = z.infer<typeof tiltZ>;
  * settle; by default it grows with the size of the move. `push` is the share the camera
  * zooms in per second while it holds on the beat.
  */
-export const beatZ = z.object({
+const beatZ = z.object({
   at: z.string().min(1),
   frame: z.string().min(1).optional(),
   wide: z.boolean().optional(),
@@ -42,7 +42,6 @@ export const beatZ = z.object({
   pace: z.number().positive().optional(),
   push: z.number().optional(),
 });
-export type Beat = z.infer<typeof beatZ>;
 
 /**
  * One continuous camera take on the real window, cut from the capture between two
@@ -106,14 +105,13 @@ export type Scope = z.infer<typeof scopeZ>;
  * beside it. It appears at mark `at` and holds for `seconds`. When `focused`, the rest
  * of the window blurs and dims while it shows.
  */
-export const calloutZ = z.object({
+const calloutZ = z.object({
   at: z.string().min(1),
   target: z.string().min(1),
   text: z.string().min(1),
   seconds: z.number().positive().optional(),
   focused: z.boolean().default(false),
 });
-export type Callout = z.infer<typeof calloutZ>;
 
 /** The layers a film draws over its shots. */
 export const overlaysZ = z.object({

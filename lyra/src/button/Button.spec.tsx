@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, render } from "@testing-library/react";
+import { act, fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Button } from "@/button";
@@ -266,7 +266,9 @@ describe("Button", () => {
       );
       fireEvent.mouseDown(c.getByText("Hello"));
       expect(onClick).not.toHaveBeenCalled();
-      vi.advanceTimersByTime(10000);
+      act(() => {
+        vi.advanceTimersByTime(10000);
+      });
       expect(onClick).toHaveBeenCalled();
     });
 
