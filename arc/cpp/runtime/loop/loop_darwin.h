@@ -10,6 +10,8 @@
 #pragma once
 
 #include <chrono>
+#include <cstring>
+#include <string>
 #include <thread>
 
 #include "absl/log/log.h"
@@ -30,7 +32,16 @@ namespace arc::runtime::loop {
 static constexpr uintptr_t USER_EVENT_IDENT = 1;
 static constexpr uintptr_t DEADLINE_EVENT_IDENT = 2;
 
-/// @brief the loop of macOS, built on kqueue.
+/// @brief applies a timer change to a kqueue with the OS call.
+struct KqueueArm {
+    /// @brief applies kev to the kqueue kq. Returns 0, or -1 with errno set.
+    static int set(const int kq, const struct kevent &kev) {
+        return kevent(kq, &kev, 1, nullptr, 0, nullptr);
+    }
+};
+
+/// @brief the loop of macOS, built on kqueue. Arm sets the deadline timer.
+template<typename Arm = KqueueArm>
 class Darwin final : public Loop {
 public:
     explicit Darwin(
@@ -54,9 +65,9 @@ public:
         switch (this->config_.mode) {
             case ExecutionMode::AUTO:
                 if (auto_spins(span)) return this->hybrid_wait(breaker, max_timeout);
-                return this->event_driven_wait(max_timeout);
+                return this->event_driven_wait(breaker, max_timeout);
             case ExecutionMode::EVENT_DRIVEN:
-                return this->event_driven_wait(max_timeout);
+                return this->event_driven_wait(breaker, max_timeout);
             case ExecutionMode::BUSY_WAIT:
                 return this->busy_wait(breaker, max_timeout);
             case ExecutionMode::HIGH_RATE:
@@ -186,12 +197,14 @@ private:
     }
 
     /// @brief EVENT_DRIVEN: blocks until an event or the deadline, with no spin.
-    WakeReason event_driven_wait(const x::telem::TimeSpan max_timeout) {
-        const bool deadline = this->arm_deadline(max_timeout);
-        const auto timeout_ns = max_timeout.nanoseconds() > 0
-                                  ? max_timeout.nanoseconds()
-                                  : timing::EVENT_DRIVEN_TIMEOUT.nanoseconds();
-        const auto timeout = ns_to_timespec(timeout_ns);
+    WakeReason event_driven_wait(
+        const x::breaker::Breaker &breaker,
+        const x::telem::TimeSpan max_timeout
+    ) {
+        const bool armed = this->arm_deadline(max_timeout);
+        if (!armed && max_timeout.nanoseconds() > 0)
+            return this->busy_wait(breaker, max_timeout);
+        const auto timeout = ns_to_timespec(timing::EVENT_DRIVEN_TIMEOUT.nanoseconds());
         struct kevent events[8];
         const int n = kevent(
             this->kqueue_fd_,
@@ -199,7 +212,7 @@ private:
             0,
             events,
             8,
-            deadline ? nullptr : &timeout
+            armed ? nullptr : &timeout
         );
         if (n == 0) return WakeReason::Timeout;
         return this->wake_reason(events, n);
@@ -222,14 +235,21 @@ private:
             deadline ? max_timeout.nanoseconds() : 0,
             nullptr
         );
-        if (kevent(this->kqueue_fd_, &kev, 1, nullptr, 0, nullptr) == -1) {
-            LOG(ERROR) << "[arc.loop] failed to set the deadline timer: "
-                       << strerror(errno);
+        if (Arm::set(this->kqueue_fd_, kev) == -1) {
+            this->report_arm_failure(strerror(errno));
             this->deadline_armed_ = false;
             return false;
         }
         this->deadline_armed_ = deadline;
         return deadline;
+    }
+
+    /// @brief logs the first failed arm. The loop then spins to each deadline.
+    void report_arm_failure(const std::string &cause) {
+        if (this->arm_failed_) return;
+        this->arm_failed_ = true;
+        LOG(ERROR) << "[arc.loop] failed to arm the deadline timer, spinning to each "
+                   << "deadline instead: " << cause;
     }
 
     /// @brief HYBRID: blocks until the spin span ahead of deadline, then spins to it.
@@ -286,6 +306,7 @@ private:
     std::shared_ptr<x::thread::rt::Handle> rt_handle_;
     int kqueue_fd_ = -1;
     bool deadline_armed_ = false;
+    bool arm_failed_ = false;
     x::loop::Timer sleeper_;
 };
 }

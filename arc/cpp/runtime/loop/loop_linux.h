@@ -11,6 +11,8 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstring>
+#include <string>
 #include <thread>
 
 #include "absl/log/log.h"
@@ -27,7 +29,16 @@
 
 namespace arc::runtime::loop {
 
-/// @brief the loop of Linux, built on epoll and a timerfd.
+/// @brief arms a timerfd with the OS call.
+struct TimerfdArm {
+    /// @brief sets the timer of fd to ts. Returns 0, or -1 with errno set.
+    static int set(const int fd, const itimerspec &ts) {
+        return timerfd_settime(fd, 0, &ts, nullptr);
+    }
+};
+
+/// @brief the loop of Linux, built on epoll and a timerfd. Arm sets the timerfd.
+template<typename Arm = TimerfdArm>
 class Linux final : public Loop {
 public:
     explicit Linux(
@@ -54,10 +65,10 @@ public:
                 return this->hybrid_wait(breaker, max_timeout);
             case ExecutionMode::AUTO:
                 if (auto_spins(span)) return this->hybrid_wait(breaker, max_timeout);
-                return this->event_driven_wait(max_timeout);
+                return this->event_driven_wait(breaker, max_timeout);
             case ExecutionMode::RT_EVENT:
             case ExecutionMode::EVENT_DRIVEN:
-                return this->event_driven_wait(max_timeout);
+                return this->event_driven_wait(breaker, max_timeout);
         }
         return WakeReason::Shutdown;
     }
@@ -208,23 +219,39 @@ private:
         return WakeReason::Timer;
     }
 
-    // Arms the timer to fire once at the deadline. With no deadline, it disarms the
-    // timer, which also clears a fire from an earlier deadline.
-    bool arm_deadline(const x::telem::TimeSpan max_timeout) const {
+    // Arms the timer to fire once at the deadline and returns true. With no deadline,
+    // it disarms the timer, which also clears a fire from an earlier deadline.
+    bool arm_deadline(const x::telem::TimeSpan max_timeout) {
         if (!this->timer_enabled_) return false;
         const int64_t deadline = std::max<int64_t>(max_timeout.nanoseconds(), 0);
         const int64_t second = x::telem::SECOND.nanoseconds();
         struct itimerspec ts{};
         ts.it_value.tv_sec = deadline / second;
         ts.it_value.tv_nsec = deadline % second;
-        return timerfd_settime(this->timer_fd_, 0, &ts, nullptr) == 0 && deadline > 0;
+        if (Arm::set(this->timer_fd_, ts) == -1) {
+            this->report_arm_failure(strerror(errno));
+            return false;
+        }
+        return deadline > 0;
     }
 
-    WakeReason event_driven_wait(const x::telem::TimeSpan max_timeout) {
+    // Logs the first failed arm. The loop then spins to each deadline.
+    void report_arm_failure(const std::string &cause) {
+        if (this->arm_failed_) return;
+        this->arm_failed_ = true;
+        LOG(ERROR) << "[arc.loop] failed to arm the deadline timer, spinning to each "
+                   << "deadline instead: " << cause;
+    }
+
+    WakeReason event_driven_wait(
+        x::breaker::Breaker &breaker,
+        const x::telem::TimeSpan max_timeout
+    ) {
+        const bool armed = this->arm_deadline(max_timeout);
+        if (!armed && max_timeout.nanoseconds() > 0)
+            return this->busy_wait(breaker, max_timeout);
         struct epoll_event events[2];
-        const int timeout_ms = this->arm_deadline(max_timeout)
-                                 ? -1
-                                 : timing::EVENT_DRIVEN_TIMEOUT.milliseconds();
+        const int timeout_ms = armed ? -1 : timing::EVENT_DRIVEN_TIMEOUT.milliseconds();
         const int n = epoll_wait(this->epoll_fd_, events, 2, timeout_ms);
 
         if (n > 0) return this->consume_events(events, n);
@@ -234,11 +261,11 @@ private:
         return WakeReason::Shutdown;
     }
 
-    WakeReason hybrid_wait(
-        const x::breaker::Breaker &breaker,
-        const x::telem::TimeSpan max_timeout
-    ) {
-        const bool deadline = this->arm_deadline(max_timeout);
+    WakeReason
+    hybrid_wait(x::breaker::Breaker &breaker, const x::telem::TimeSpan max_timeout) {
+        const bool armed = this->arm_deadline(max_timeout);
+        if (!armed && max_timeout.nanoseconds() > 0)
+            return this->busy_wait(breaker, max_timeout);
         const auto spin_start = std::chrono::steady_clock::now();
         const auto spin_duration = std::chrono::nanoseconds(
             this->config_.spin_duration.nanoseconds()
@@ -253,8 +280,7 @@ private:
             if (n > 0) return this->consume_events(events, n);
         }
 
-        const int timeout_ms = deadline ? -1
-                                        : timing::HYBRID_BLOCK_TIMEOUT.milliseconds();
+        const int timeout_ms = armed ? -1 : timing::HYBRID_BLOCK_TIMEOUT.milliseconds();
         const int n = epoll_wait(this->epoll_fd_, events, 2, timeout_ms);
         if (n > 0) return this->consume_events(events, n);
         return WakeReason::Timeout;
@@ -297,6 +323,7 @@ private:
     int event_fd_ = -1;
     int timer_fd_ = -1;
     bool timer_enabled_ = false;
+    bool arm_failed_ = false;
     ::x::loop::Timer sleeper_;
 };
 }

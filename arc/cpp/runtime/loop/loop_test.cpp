@@ -23,6 +23,13 @@
 #include "x/cpp/test/test.h"
 
 #include "arc/cpp/runtime/loop/loop.h"
+#if defined(__linux__)
+#include "arc/cpp/runtime/loop/loop_linux.h"
+#elif defined(__APPLE__)
+#include "arc/cpp/runtime/loop/loop_darwin.h"
+#elif defined(_WIN32)
+#include "arc/cpp/runtime/loop/loop_windows.h"
+#endif
 
 namespace arc::runtime::loop {
 
@@ -1029,6 +1036,122 @@ INSTANTIATE_TEST_SUITE_P(
         ExecutionMode::HYBRID
     )
 );
+
+#if defined(__linux__) || defined(__APPLE__) || defined(_WIN32)
+/// @brief An arm call that fails the way the OS call does.
+struct FailingArm {
+#if defined(__linux__)
+    static int set(int, const itimerspec &) {
+        errno = EBADF;
+        return -1;
+    }
+#elif defined(__APPLE__)
+    static int set(int, const struct kevent &) {
+        errno = ENOMEM;
+        return -1;
+    }
+#else
+    static BOOL set(HANDLE, const LARGE_INTEGER &) {
+        SetLastError(ERROR_INVALID_HANDLE);
+        return FALSE;
+    }
+#endif
+};
+
+#if defined(__linux__)
+using FailingArmLoop = Linux<FailingArm>;
+#elif defined(__APPLE__)
+using FailingArmLoop = Darwin<FailingArm>;
+#else
+using FailingArmLoop = Windows<FailingArm>;
+#endif
+
+/// @brief A loop whose timer never arms, in the mode of the parameter.
+class FailedArmTest : public testing::TestWithParam<ExecutionMode> {
+protected:
+    std::unique_ptr<FailingArmLoop> loop;
+    std::unique_ptr<x::notify::Notifier> notifier;
+    x::breaker::Breaker breaker;
+
+    void SetUp() override {
+        Config config;
+        config.mode = this->GetParam();
+        this->loop = std::make_unique<FailingArmLoop>(config);
+        ASSERT_NIL(this->loop->start());
+        this->notifier = x::notify::create();
+        ASSERT_TRUE(this->loop->watch(*this->notifier));
+        this->breaker.start();
+    }
+
+    void TearDown() override { this->breaker.stop(); }
+};
+
+/// @brief A wait should spin to its deadline when the timer does not arm.
+TEST_P(FailedArmTest, SpinsToTheDeadline) {
+    constexpr int COUNT = 20;
+    std::vector<x::telem::TimeSpan> errors;
+    errors.reserve(COUNT);
+    for (int i = 0; i < COUNT; i++) {
+        const auto sw = x::telem::Stopwatch();
+        ASSERT_EQ(
+            this->loop->wait(this->breaker, test_timing::DEADLINE_DURATION),
+            WakeReason::Timer
+        );
+        errors.push_back(sw.elapsed() - test_timing::DEADLINE_DURATION);
+    }
+    std::sort(errors.begin(), errors.end());
+    EXPECT_GE(errors.front(), x::telem::TimeSpan(0));
+    EXPECT_LE(errors[COUNT / 2], test_timing::FIRE_ERROR_BOUND);
+}
+
+/// @brief An input should end the spin to a deadline.
+TEST_P(FailedArmTest, ReturnsInputDuringTheSpin) {
+    WakeReason reason = WakeReason::Timeout;
+    std::thread waiter([&] {
+        reason = this->loop->wait(this->breaker, x::telem::SECOND);
+    });
+    std::this_thread::sleep_for(test_timing::THREAD_STARTUP.chrono());
+    const auto sw = x::telem::Stopwatch();
+    this->notifier->signal();
+    waiter.join();
+    EXPECT_EQ(reason, WakeReason::Input);
+    EXPECT_LE(sw.elapsed(), test_timing::WAKE_LATENCY);
+}
+
+/// @brief A breaker stop should end the spin to a deadline.
+TEST_P(FailedArmTest, ReturnsShutdownWhenTheBreakerStops) {
+    WakeReason reason = WakeReason::Timeout;
+    std::thread waiter([&] {
+        reason = this->loop->wait(this->breaker, x::telem::SECOND);
+    });
+    std::this_thread::sleep_for(test_timing::THREAD_STARTUP.chrono());
+    const auto sw = x::telem::Stopwatch();
+    this->breaker.stop();
+    waiter.join();
+    EXPECT_EQ(reason, WakeReason::Shutdown);
+    EXPECT_LE(sw.elapsed(), test_timing::BREAKER_STOP_LATENCY);
+}
+
+/// @brief A wait with no deadline should block until its timeout, not spin.
+TEST_P(FailedArmTest, TimesOutWithNoDeadline) {
+    EXPECT_EQ(this->loop->wait(this->breaker), WakeReason::Timeout);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    ArmedModes,
+    FailedArmTest,
+    testing::Values(
+        ExecutionMode::AUTO,
+        ExecutionMode::EVENT_DRIVEN
+#if !defined(__APPLE__)
+        // macOS HYBRID and RT_EVENT block on a kevent timeout, with no timer to arm.
+        ,
+        ExecutionMode::HYBRID,
+        ExecutionMode::RT_EVENT
+#endif
+    )
+);
+#endif
 
 /// @brief The shortest timer span of a program and a wait duration. The shortest span
 /// resolves AUTO.
