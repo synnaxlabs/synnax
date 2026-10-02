@@ -1128,6 +1128,27 @@ TEST(WaitDeadlineTest, DoesNotSetDeadlineAfterFiring) {
     EXPECT_EQ(reported_deadline, x::telem::TimeSpan(-1));
 }
 
+/// @brief The pass that fires a wait should report no deadline, since a fired wait
+/// needs no further wake.
+TEST(WaitDeadlineTest, DoesNotSetDeadlineOnTheFiringPass) {
+    TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
+    time::Wait node(setup.make_node());
+
+    auto ctx1 = make_context(x::telem::TimeSpan(0));
+    ASSERT_NIL(node.next(ctx1));
+
+    auto checker = setup.make_node();
+    const auto &output = checker.output(0);
+    x::telem::TimeSpan reported_deadline(-1);
+    auto ctx2 = make_context(x::telem::SECOND);
+    ctx2.set_deadline = [&](x::telem::TimeSpan d, x::telem::TimeSpan) {
+        reported_deadline = d;
+    };
+    ASSERT_NIL(node.next(ctx2));
+    EXPECT_EQ(output->size(), 1);
+    EXPECT_EQ(reported_deadline, x::telem::TimeSpan(-1));
+}
+
 TEST(WaitDeadlineTest, SetsCorrectDeadlineAfterReset) {
     TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
     time::Wait node(setup.make_node());

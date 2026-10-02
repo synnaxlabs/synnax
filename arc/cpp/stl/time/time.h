@@ -215,13 +215,10 @@ public:
         // entered again.
         if (!this->guard.usable(ctx, duration, "wait duration")) return x::errors::NIL;
         if (this->start_time.nanoseconds() < 0) this->start_time = ctx.cycle.elapsed;
-        ctx.set_deadline(this->start_time + duration, duration);
-        if (ctx.cycle.reason != runtime::node::RunReason::TimerTick) {
+        if (ctx.cycle.reason != runtime::node::RunReason::TimerTick ||
+            ctx.cycle.elapsed - this->start_time < duration - ctx.tolerance) {
             ctx.mark_self_changed();
-            return x::errors::NIL;
-        }
-        if (ctx.cycle.elapsed - this->start_time < duration - ctx.tolerance) {
-            ctx.mark_self_changed();
+            ctx.set_deadline(this->start_time + duration, duration);
             return x::errors::NIL;
         }
         this->fired = true;

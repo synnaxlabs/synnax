@@ -2094,6 +2094,48 @@ var _ = Describe("Time", func() {
 				})
 				Expect(deadlineCalled).To(BeFalse())
 			})
+			It(
+				"Should not set a deadline on the pass that fires",
+				func(ctx SpecContext) {
+					cfg := node.Config{
+						Node: ir.Node{
+							Type: "wait",
+							Inputs: types.Params{
+								{
+									Name:  "duration",
+									Type:  types.TimeSpan(),
+									Value: telem.Second,
+								},
+							},
+						},
+						State: s.Node("wait_1"),
+					}
+					n := MustSucceed(factory.Create(cfg))
+					waitNode := s.Node("wait_1")
+					*waitNode.Output(0) = telem.NewSeriesV[uint8]()
+					*waitNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
+
+					n.Next(node.Context{
+						Context:         ctx,
+						Elapsed:         0,
+						Reason:          node.ReasonTimerTick,
+						MarkChanged:     func(int) {},
+						MarkSelfChanged: func() {},
+						SetDeadline:     func(_ telem.TimeSpan) {},
+					})
+					deadlineCalled := false
+					n.Next(node.Context{
+						Context:         ctx,
+						Elapsed:         telem.Second,
+						Reason:          node.ReasonTimerTick,
+						MarkChanged:     func(int) {},
+						MarkSelfChanged: func() {},
+						SetDeadline:     func(_ telem.TimeSpan) { deadlineCalled = true },
+					})
+					Expect(waitNode.Output(0).Len()).To(Equal(int64(1)))
+					Expect(deadlineCalled).To(BeFalse())
+				},
+			)
 			It("Should set correct deadline after reset", func(ctx SpecContext) {
 				cfg := node.Config{
 					Node: ir.Node{

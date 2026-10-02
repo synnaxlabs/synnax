@@ -419,13 +419,10 @@ func (w *Wait) Next(ctx node.Context) {
 	if w.startTime < 0 {
 		w.startTime = ctx.Elapsed
 	}
-	ctx.SetDeadline(w.startTime + duration)
-	if ctx.Reason != node.ReasonTimerTick {
+	if ctx.Reason != node.ReasonTimerTick ||
+		ctx.Elapsed-w.startTime < duration-ctx.Tolerance {
 		ctx.MarkSelfChanged()
-		return
-	}
-	if ctx.Elapsed-w.startTime < duration-ctx.Tolerance {
-		ctx.MarkSelfChanged()
+		ctx.SetDeadline(w.startTime + duration)
 		return
 	}
 	w.fired = true
