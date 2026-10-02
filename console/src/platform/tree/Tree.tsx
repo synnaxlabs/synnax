@@ -207,16 +207,6 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   // inline rename) before the Core delivers the real resource.
   const placeholders = List.useMapData<string, ontology.Resource>();
 
-  // A placeholder's row stays mounted, so its inline rename can start out of view.
-  const [pinned, setPinned] = useState<string[]>([]);
-  const setPlaceholder = useCallback(
-    (resource: ontology.Resource | ontology.Resource[]) => {
-      placeholders.setItem(resource);
-      setPinned((prev) => [...prev, ...array.toArray(resource).map(({ key }) => key)]);
-    },
-    [placeholders],
-  );
-
   const getResourceByKey = useCallback(
     (key: string): ontology.Resource | undefined =>
       client?.ontology.cache.resources.get(key) ?? placeholders.getItem(key),
@@ -232,10 +222,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       const settled = ontology
         .idToString(resources.map(({ id }) => id))
         .filter(placeholders.hasItem);
-      if (settled.length > 0) {
-        placeholders.deleteItem(settled);
-        setPinned((prev) => prev.filter((key) => !settled.includes(key)));
-      }
+      if (settled.length > 0) placeholders.deleteItem(settled);
       // The answer is the authority on its parent's membership. A node it omits
       // survives only while a placeholder backs it, since an optimistic row the Core
       // has not heard about yet cannot be in any answer.
@@ -408,6 +395,11 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   });
   const { shape, expand, contract } = treeProps;
   const shapeRef = useSyncedRef(shape);
+  // A placeholder's row stays mounted, so its inline rename can start out of view.
+  const pinned = useMemo(
+    () => shape.keys.filter(placeholders.hasItem),
+    [shape.keys, placeholders],
+  );
 
   const getState = useCallback(
     (): TreeState => ({
@@ -416,11 +408,11 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       setNodes,
       expand,
       contract,
-      setResource: setPlaceholder,
+      setResource: placeholders.setItem,
       getResource,
       setSelection: setSelected,
     }),
-    [expand, contract, handleError, setPlaceholder, nodesRef, setNodes],
+    [expand, contract, handleError, placeholders, nodesRef, setNodes],
   );
 
   const openTab = Panel.useOpenTab();
