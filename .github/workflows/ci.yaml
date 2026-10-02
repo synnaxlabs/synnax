@@ -557,12 +557,14 @@ jobs:
 
   site-common:
     needs: changes
-    if: needs.changes.outputs.site_common == 'true'
+    if: inputs.full || needs.changes.outputs.site_common == 'true'
     uses: ./.github/workflows/test.ts.yaml
     with:
       coverage_flag: site-common
       directory: site/common
+      macos: *full
       package: site-common
+      windows: *full
     secrets: inherit
 
   soem:
