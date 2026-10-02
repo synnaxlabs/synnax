@@ -70,7 +70,7 @@ on:
         default: true
 
 concurrency:
-  group: integration-${{ github.ref }}
+  group: integration-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:

@@ -11,13 +11,11 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type PropsWithChildren, type ReactElement } from "react";
 
+import { Panel } from "@/ui/Panel";
+
 /** Facts is a panel of labeled values laid out on a grid. */
 export const Facts = ({ children }: PropsWithChildren): ReactElement => (
-  <Flex.Box bordered rounded background={1} className="portal-facts">
-    <Flex.Box className="portal-facts__grid" full="x">
-      {children}
-    </Flex.Box>
-  </Flex.Box>
+  <Panel className="portal-facts">{children}</Panel>
 );
 
 export interface FactProps {
@@ -33,8 +31,14 @@ export const Fact = ({ label, value, code = false }: FactProps): ReactElement =>
     <Text.Text level="small" color={9}>
       {label}
     </Text.Text>
-    <Text.Text level="p" variant={code ? "code" : "prose"} overflow="ellipsis">
-      {value}
-    </Text.Text>
+    {code ? (
+      <Text.Text level="p" variant="code" color={10} overflow="ellipsis">
+        {value}
+      </Text.Text>
+    ) : (
+      <Text.Text level="h5" weight={500} color={11} overflow="ellipsis">
+        {value}
+      </Text.Text>
+    )}
   </Flex.Box>
 );

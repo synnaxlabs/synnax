@@ -77,8 +77,9 @@ type Transport struct {
 	// CONNECTIVITY
 	ConnectivityCheck freighter.UnaryServer[struct{}, connectivity.CheckResponse]
 	// LICENSE
-	LicenseRetrieve freighter.UnaryServer[license.RetrieveRequest, license.RetrieveResponse]
-	LicenseActivate freighter.UnaryServer[license.ActivateRequest, license.ActivateResponse]
+	LicenseRetrieve   freighter.UnaryServer[license.RetrieveRequest, license.RetrieveResponse]
+	LicenseActivate   freighter.UnaryServer[license.ActivateRequest, license.ActivateResponse]
+	LicenseDeactivate freighter.UnaryServer[license.DeactivateRequest, license.DeactivateResponse]
 	// FRAME
 	FrameWriter   freighter.StreamServer[framer.WriterRequest, framer.WriterResponse]
 	FrameIterator freighter.StreamServer[framer.IteratorRequest, framer.IteratorResponse]
@@ -262,6 +263,7 @@ func (l *Layer) BindTo(t Transport) {
 		secureMiddleware,
 		t.LicenseRetrieve,
 		t.LicenseActivate,
+		t.LicenseDeactivate,
 	)
 
 	freighter.UseOnAll(
@@ -441,6 +443,7 @@ func (l *Layer) BindTo(t Transport) {
 	// LICENSE
 	t.LicenseRetrieve.BindHandler(l.License.Retrieve)
 	t.LicenseActivate.BindHandler(l.License.Activate)
+	t.LicenseDeactivate.BindHandler(l.License.Deactivate)
 
 	// USER
 	t.UserRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.User.Rename))

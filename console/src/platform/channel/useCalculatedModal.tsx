@@ -24,6 +24,7 @@ import { Arc, Channel, Code } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { useState } from "react";
 
+import { Analytics } from "@/platform/analytics";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
@@ -49,6 +50,7 @@ const EXTRA_MENU_ITEMS = <ContextMenu.ReloadConsoleItem />;
 export const useCalculatedModal = Modals.create<CalculatedModalParams>(
   ({ channelKey, close }) => {
     const isEdit = primitive.isNonZero(channelKey);
+    const { capture } = Analytics.use();
     const {
       form,
       variant,
@@ -57,6 +59,7 @@ export const useCalculatedModal = Modals.create<CalculatedModalParams>(
     } = Channel.useCalculatedForm({
       query: primitive.isZero(channelKey) ? null : { key: channelKey },
       afterSave: ({ reset }) => {
+        if (!isEdit) capture("channel_created", { calculated: true });
         if (createMore) reset();
         else close();
       },
