@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { observe, type record } from "@synnaxlabs/x";
-import { fireEvent, render } from "@testing-library/react";
-import { act, type ReactElement, useState } from "react";
+import { act, fireEvent, render } from "@testing-library/react";
+import { type ReactElement, useState } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Button } from "@/button";
@@ -192,9 +192,9 @@ describe("List", () => {
           };
           const result = render(<Component />);
           expect(fetchMore).toHaveBeenCalledTimes(1);
-          result.getByText("Toggle").click();
+          fireEvent.click(result.getByText("Toggle"));
           expect(fetchMore).toHaveBeenCalledTimes(1);
-          result.getByText("Toggle").click();
+          fireEvent.click(result.getByText("Toggle"));
           expect(fetchMore).toHaveBeenCalledTimes(1);
         });
       });
