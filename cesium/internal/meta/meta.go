@@ -118,11 +118,6 @@ func Create(
 		err = errors.Combine(err, tempMetaF.Close())
 		return err
 	}
-	// Without a sync, a power loss after the rename can leave an empty meta file.
-	if err = tempMetaF.Sync(); err != nil {
-		err = errors.Combine(err, tempMetaF.Close())
-		return err
-	}
 	if err = tempMetaF.Close(); err != nil {
 		return err
 	}

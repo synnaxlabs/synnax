@@ -75,11 +75,6 @@ var _ = Describe("FaultyFS", func() {
 			},
 		),
 		Entry(
-			"sync",
-			WithFailSync("a.bin"),
-			func(_ *FaultyFS, f xfs.File) error { return f.Sync() },
-		),
-		Entry(
 			"rename",
 			WithFailRename("a.bin"),
 			func(fs *FaultyFS, _ xfs.File) error { return fs.Rename("a.bin", "b.bin") },

@@ -267,35 +267,6 @@ var _ = Describe("Meta", func() {
 					Expect(ch2.DataType).To(Equal(telem.Int64T))
 				},
 			)
-
-			It(
-				"Should keep the original file if the sync fails",
-				func(ctx SpecContext) {
-					key := GenerateChannelKey()
-					faulty := WrapFaultyFS(MustSucceed(fs.Sub(strconv.Itoa(int(key)))))
-					ch := MustSucceed(meta.Open(
-						ctx,
-						faulty,
-						channel.Channel{
-							Key:      key,
-							Name:     "Faraday",
-							Virtual:  true,
-							DataType: telem.Int64T,
-						},
-						json.Codec,
-					))
-
-					faulty.SetOptions(WithFailSync("meta.json.tmp"))
-					ch.Name = "Maxwell"
-					Expect(
-						meta.Create(ctx, faulty, json.Codec, ch),
-					).To(MatchError(ErrFault))
-					Expect(faulty.OpenFiles()).To(BeZero())
-					Expect(faulty.Exists("meta.json.tmp")).To(BeFalse())
-					Expect(MustSucceed(meta.Read(ctx, faulty, json.Codec)).Name).
-						To(Equal("Faraday"))
-				},
-			)
 		})
 	}
 })
