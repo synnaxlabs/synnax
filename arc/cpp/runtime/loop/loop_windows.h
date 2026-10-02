@@ -40,26 +40,48 @@ namespace arc::runtime::loop {
 #define CREATE_WAITABLE_TIMER_HIGH_RESOLUTION 0x00000002
 #endif
 
-/// @brief sets a waitable timer with the OS call.
-struct WaitableTimerArm {
+/// @brief the OS calls of the waitable timer that the Windows loop uses.
+struct WaitableTimerApi {
+    /// @brief creates a high-resolution timer. Returns NULL before Windows 10 1803,
+    /// which has no such timer.
+    static HANDLE create_high_resolution() {
+        return CreateWaitableTimerExW(
+            NULL,
+            NULL,
+            CREATE_WAITABLE_TIMER_HIGH_RESOLUTION,
+            TIMER_ALL_ACCESS
+        );
+    }
+
+    /// @brief creates a timer that fires on the system tick. Returns NULL on failure.
+    static HANDLE create() { return CreateWaitableTimer(NULL, FALSE, NULL); }
+
     /// @brief sets timer to fire once at due. Returns FALSE on failure, with the cause
     /// in GetLastError.
     static BOOL set(const HANDLE timer, const LARGE_INTEGER &due) {
         return SetWaitableTimer(timer, &due, 0, NULL, NULL, FALSE);
     }
+
+    /// @brief raises the system tick to 1 ms. Before Windows 10 2004, the raise
+    /// applies to every process on the machine.
+    static void raise_tick() { timeBeginPeriod(1); }
+
+    /// @brief lowers the system tick that raise_tick raised.
+    static void lower_tick() { timeEndPeriod(1); }
 };
 
-/// @brief the loop of Windows, built on a waitable timer. Arm sets the timer.
-template<typename Arm = WaitableTimerArm>
+/// @brief the loop of Windows, built on a waitable timer. Api makes the timer calls.
+template<typename Api = WaitableTimerApi>
 class Windows final : public Loop {
     static constexpr DWORD MAX_HANDLES = MAXIMUM_WAIT_OBJECTS;
 
 public:
     explicit Windows(
         const Config &config,
-        std::shared_ptr<x::thread::rt::Handle> rt_handle = nullptr
+        std::shared_ptr<x::thread::rt::Handle> rt_handle = nullptr,
+        Api api = Api{}
     ):
-        config_(config), rt_handle_(std::move(rt_handle)) {
+        config_(config), rt_handle_(std::move(rt_handle)), api_(std::move(api)) {
         if (this->config_.memory_locked) {
             LOG(WARNING) << "[arc.loop] Memory locking on Windows requires "
                          << "VirtualLock API (not implemented)";
@@ -148,34 +170,35 @@ public:
     }
 
 private:
-    // Try CREATE_WAITABLE_TIMER_HIGH_RESOLUTION first for sub-millisecond precision
-    // without global side effects. Falls back to a standard timer with
-    // timeBeginPeriod(1) on pre-Windows 10 1803 systems. Both use one-shot re-arming
-    // instead of periodic mode because the periodic lPeriod parameter doesn't benefit
-    // from the high-resolution mechanism.
+    // Prefers a high-resolution timer. Before Windows 10 1803, a standard timer fires
+    // on the system tick, which the loop raises to 1 ms only while a deadline is armed.
+    // Both use one-shot re-arming, as the periodic lPeriod parameter does not use the
+    // high-resolution mechanism.
     x::errors::Error create_waitable_timer() {
-        this->timer_event_ = CreateWaitableTimerExW(
-            NULL,
-            NULL,
-            CREATE_WAITABLE_TIMER_HIGH_RESOLUTION,
-            TIMER_ALL_ACCESS
-        );
+        this->timer_event_ = this->api_.create_high_resolution();
         if (this->timer_event_ != NULL) {
             this->high_res_timer_ = true;
             VLOG(1) << "[arc.loop] using high-resolution waitable timer";
         } else {
-            this->timer_event_ = CreateWaitableTimer(NULL, FALSE, NULL);
+            this->timer_event_ = this->api_.create();
             if (this->timer_event_ == NULL)
                 return x::errors::Error(
                     "Failed to create waitable timer: " + std::to_string(GetLastError())
                 );
-            timeBeginPeriod(1);
-            this->used_time_begin_period_ = true;
-            VLOG(1) << "[arc.loop] using standard waitable timer with "
-                    << "timeBeginPeriod(1) fallback";
+            VLOG(1) << "[arc.loop] using standard waitable timer with a 1 ms tick";
         }
         this->timer_enabled_ = true;
         return x::errors::NIL;
+    }
+
+    // Raises or lowers the system tick for a standard timer.
+    void set_tick_raised(const bool raised) {
+        if (this->high_res_timer_ || this->tick_raised_ == raised) return;
+        if (raised)
+            this->api_.raise_tick();
+        else
+            this->api_.lower_tick();
+        this->tick_raised_ = raised;
     }
 
     // A cancel does not clear a fire, so the drain clears one left from an earlier arm.
@@ -191,7 +214,7 @@ private:
         const int64_t span_100ns = span.nanoseconds() /
                                    timing::WINDOWS_TIMER_UNIT.nanoseconds();
         due_time.QuadPart = -span_100ns;
-        if (Arm::set(this->timer_event_, due_time)) return true;
+        if (this->api_.set(this->timer_event_, due_time)) return true;
         this->report_arm_failure(std::to_string(GetLastError()));
         return false;
     }
@@ -221,8 +244,10 @@ private:
         if (!this->timer_enabled_) return false;
         if (max_timeout.nanoseconds() <= 0) {
             this->disarm_timer();
+            this->set_tick_raised(false);
             return false;
         }
+        this->set_tick_raised(true);
         return this->arm_timer(max_timeout - spin);
     }
 
@@ -250,10 +275,7 @@ private:
             this->timer_event_ = NULL;
         }
 
-        if (this->used_time_begin_period_) {
-            timeEndPeriod(1);
-            this->used_time_begin_period_ = false;
-        }
+        this->set_tick_raised(false);
 
         if (this->wake_event_ != NULL) {
             CloseHandle(this->wake_event_);
@@ -393,7 +415,8 @@ private:
     bool timer_enabled_ = false;
     bool arm_failed_ = false;
     bool high_res_timer_ = false;
-    bool used_time_begin_period_ = false;
+    bool tick_raised_ = false;
+    Api api_;
     ::x::loop::Timer sleeper_;
 };
 }

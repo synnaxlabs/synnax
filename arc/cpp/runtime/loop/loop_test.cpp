@@ -1038,7 +1038,7 @@ INSTANTIATE_TEST_SUITE_P(
 );
 
 #if defined(__linux__) || defined(__APPLE__) || defined(_WIN32)
-/// @brief An arm call that fails the way the OS call does.
+/// @brief Timer calls whose arm fails the way the OS call does.
 struct FailingArm {
 #if defined(__linux__)
     static int set(int, const itimerspec &) {
@@ -1051,10 +1051,16 @@ struct FailingArm {
         return -1;
     }
 #else
+    static HANDLE create_high_resolution() {
+        return WaitableTimerApi::create_high_resolution();
+    }
+    static HANDLE create() { return WaitableTimerApi::create(); }
     static BOOL set(HANDLE, const LARGE_INTEGER &) {
         SetLastError(ERROR_INVALID_HANDLE);
         return FALSE;
     }
+    static void raise_tick() {}
+    static void lower_tick() {}
 #endif
 };
 
@@ -1149,6 +1155,117 @@ const std::vector<ExecutionMode> ARMED_MODES = {
 };
 
 INSTANTIATE_TEST_SUITE_P(ArmedModes, FailedArmTest, testing::ValuesIn(ARMED_MODES));
+
+#if defined(_WIN32)
+/// @brief The raises and lowers of the system tick.
+struct Ticks {
+    int raises = 0;
+    int lowers = 0;
+};
+
+/// @brief Timer calls that count the system tick changes. A standard timer is the
+/// timer of Windows before 10 1803, which has no high-resolution timer.
+struct CountingTimerApi {
+    bool standard = false;
+    Ticks *ticks = nullptr;
+
+    HANDLE create_high_resolution() const {
+        if (this->standard) return NULL;
+        return WaitableTimerApi::create_high_resolution();
+    }
+    static HANDLE create() { return WaitableTimerApi::create(); }
+    static BOOL set(const HANDLE timer, const LARGE_INTEGER &due) {
+        return WaitableTimerApi::set(timer, due);
+    }
+    void raise_tick() const { this->ticks->raises++; }
+    void lower_tick() const { this->ticks->lowers++; }
+};
+
+/// @brief A deadline outside the spin span of every mode, so each mode arms it.
+const auto TICK_DEADLINE = 20 * x::telem::MILLISECOND;
+
+/// @brief A started loop on a standard timer, in the mode of the parameter.
+class StandardTimerTest : public testing::TestWithParam<ExecutionMode> {
+protected:
+    Ticks ticks;
+    std::unique_ptr<Windows<CountingTimerApi>> loop;
+    x::breaker::Breaker breaker;
+
+    void SetUp() override {
+        Config config;
+        config.mode = this->GetParam();
+        this->loop = std::make_unique<Windows<CountingTimerApi>>(
+            config,
+            nullptr,
+            CountingTimerApi{.standard = true, .ticks = &this->ticks}
+        );
+        ASSERT_NIL(this->loop->start());
+        this->breaker.start();
+    }
+
+    void TearDown() override { this->breaker.stop(); }
+
+    /// @brief returns at once from a wait with no deadline.
+    WakeReason wait_without_deadline() {
+        this->loop->wake();
+        return this->loop->wait(this->breaker);
+    }
+};
+
+/// @brief A wait with no deadline should leave the system tick alone.
+TEST_P(StandardTimerTest, LeavesTheTickAloneWithNoDeadline) {
+    this->wait_without_deadline();
+    EXPECT_EQ(this->ticks.raises, 0);
+    EXPECT_EQ(this->ticks.lowers, 0);
+}
+
+/// @brief A wait should reach its deadline on a standard timer.
+TEST_P(StandardTimerTest, ReachesTheDeadline) {
+    const auto sw = x::telem::Stopwatch();
+    EXPECT_EQ(this->loop->wait(this->breaker, TICK_DEADLINE), WakeReason::Timer);
+    EXPECT_GE(sw.elapsed(), TICK_DEADLINE);
+}
+
+/// @brief Waits with deadlines should raise the tick once and keep it raised.
+TEST_P(StandardTimerTest, RaisesTheTickOnceForDeadlines) {
+    this->loop->wait(this->breaker, TICK_DEADLINE);
+    this->loop->wait(this->breaker, TICK_DEADLINE);
+    EXPECT_EQ(this->ticks.raises, 1);
+    EXPECT_EQ(this->ticks.lowers, 0);
+}
+
+/// @brief A wait with no deadline should lower a raised tick.
+TEST_P(StandardTimerTest, LowersTheTickWithNoDeadline) {
+    this->loop->wait(this->breaker, TICK_DEADLINE);
+    this->wait_without_deadline();
+    EXPECT_EQ(this->ticks.raises, 1);
+    EXPECT_EQ(this->ticks.lowers, 1);
+}
+
+/// @brief Closing the loop should lower a raised tick.
+TEST_P(StandardTimerTest, LowersTheTickOnClose) {
+    this->loop->wait(this->breaker, TICK_DEADLINE);
+    this->loop.reset();
+    EXPECT_EQ(this->ticks.raises, 1);
+    EXPECT_EQ(this->ticks.lowers, 1);
+}
+
+INSTANTIATE_TEST_SUITE_P(ArmedModes, StandardTimerTest, testing::ValuesIn(ARMED_MODES));
+
+/// @brief A high-resolution timer should never change the system tick.
+TEST(HighResolutionTimerTest, NeverRaisesTheTick) {
+    Ticks ticks;
+    Config config;
+    config.mode = ExecutionMode::EVENT_DRIVEN;
+    Windows<CountingTimerApi> loop(config, nullptr, CountingTimerApi{.ticks = &ticks});
+    ASSERT_NIL(loop.start());
+    x::breaker::Breaker breaker;
+    breaker.start();
+    EXPECT_EQ(loop.wait(breaker, TICK_DEADLINE), WakeReason::Timer);
+    breaker.stop();
+    EXPECT_EQ(ticks.raises, 0);
+}
+#endif
 #endif
 
 /// @brief The shortest timer span of a program and a wait duration. The shortest span
