@@ -13,6 +13,7 @@ import (
 	"embed"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -383,22 +384,18 @@ var _ = Describe("MigrateLinePlot", func() {
 			Expect(out.Rules).To(BeEmpty())
 		})
 
-		It(
+		DescribeTable(
 			"Should round a fractional downsample factor typed in an older Console",
-			func(ctx SpecContext) {
-				blob := loadFixture("v4_full.json")
-				lines := blob["lines"].([]any)
-				for i, factor := range []float64{2.5, 1.4, 7} {
-					lines[i].(map[string]any)["downsample"] = factor
-				}
-				out := migrateSeed(ctx, v0.LinePlot{
-					Key: uuid.New(), Name: "fractional", Data: blob,
-				})
-				Expect(out.Lines).To(HaveLen(3))
-				Expect(out.Lines[0].Downsample).To(BeEquivalentTo(3))
-				Expect(out.Lines[1].Downsample).To(BeEquivalentTo(1))
-				Expect(out.Lines[2].Downsample).To(BeEquivalentTo(7))
+			func(ctx SpecContext, factor float64, expected uint32) {
+				out := migrateV4(ctx, fmt.Sprintf(`"lines": [
+				{"key": "l1", "color": "#ff0000", "strokeWidth": 1, "downsample": %g}
+			]`, factor))
+				Expect(out.Lines[0].Downsample).To(Equal(expected))
 			},
+			Entry("rounds half up", 2.5, uint32(3)),
+			Entry("rounds down", 1.4, uint32(1)),
+			Entry("keeps an integer factor", 7.0, uint32(7)),
+			Entry("clamps a sub-one factor to 1", 0.4, uint32(1)),
 		)
 	})
 })
