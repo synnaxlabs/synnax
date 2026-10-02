@@ -1137,20 +1137,18 @@ TEST_P(FailedArmTest, TimesOutWithNoDeadline) {
     EXPECT_EQ(this->loop->wait(this->breaker), WakeReason::Timeout);
 }
 
-INSTANTIATE_TEST_SUITE_P(
-    ArmedModes,
-    FailedArmTest,
-    testing::Values(
-        ExecutionMode::AUTO,
-        ExecutionMode::EVENT_DRIVEN
+/// @brief The modes that arm a timer for a deadline. macOS HYBRID and RT_EVENT block on
+/// a kevent timeout, with no timer to arm.
+const std::vector<ExecutionMode> ARMED_MODES = {
+    ExecutionMode::AUTO,
+    ExecutionMode::EVENT_DRIVEN,
 #if !defined(__APPLE__)
-        // macOS HYBRID and RT_EVENT block on a kevent timeout, with no timer to arm.
-        ,
-        ExecutionMode::HYBRID,
-        ExecutionMode::RT_EVENT
+    ExecutionMode::HYBRID,
+    ExecutionMode::RT_EVENT,
 #endif
-    )
-);
+};
+
+INSTANTIATE_TEST_SUITE_P(ArmedModes, FailedArmTest, testing::ValuesIn(ARMED_MODES));
 #endif
 
 /// @brief The shortest timer span of a program and a wait duration. The shortest span
