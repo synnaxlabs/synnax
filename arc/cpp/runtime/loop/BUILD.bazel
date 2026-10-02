@@ -23,7 +23,12 @@ cc_library(
         "@platforms//os:windows": ["loop_windows.cpp"],
         "//conditions:default": ["loop_polling.cpp"],
     }),
-    hdrs = ["loop.h"],
+    hdrs = ["loop.h"] + select({
+        "@platforms//os:linux": ["loop_linux.h"],
+        "@platforms//os:macos": ["loop_darwin.h"],
+        "@platforms//os:windows": ["loop_windows.h"],
+        "//conditions:default": [],
+    }),
     copts = select({
         "@platforms//os:windows": [
             "/D_WIN32_WINNT=0x0601",
