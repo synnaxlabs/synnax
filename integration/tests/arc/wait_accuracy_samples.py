@@ -12,7 +12,7 @@ import numpy as np
 import synnax as sy
 from framework.utils import create_indexed_pair
 from tests.arc.arc import ArcCase
-from tests.arc.timing import Limits, limits
+from tests.arc.timing import LIMITS, LONG_LIMITS, Limits, limits
 
 # How many times the sequence holds each wait of a case.
 REPEATS = 20
@@ -49,6 +49,8 @@ class _WaitSamples(ArcCase):
 
     #: The waits in ms. The shortest one selects the loop mode of the C++ runtime.
     profile_ms: list[int]
+    #: The limits of each runtime and OS that the waits of the case must hold.
+    limit_table: dict[str, dict[str, Limits]] = LIMITS
 
     arc_name_prefix = "ArcWaitAccuracySamples"
     start_cmd_channel = "ws_start_cmd"
@@ -60,7 +62,7 @@ class _WaitSamples(ArcCase):
     def setup(self) -> None:
         self._retrieve_rack()
         assert self.rack is not None
-        self.limits = limits(self.rack)
+        self.limits = limits(self.rack, self.limit_table)
         min_ms = self.limits.min_wait_ms
         profile = [w for w in self.profile_ms if w >= min_ms]
         if not profile:
@@ -124,18 +126,6 @@ class _WaitSamples(ArcCase):
             self.fail("; ".join(failures))
 
 
-class WaitSamplesEventDriven(_WaitSamples):
-    profile_ms = [10, 20, 30]
-
-
-class WaitSamplesHybrid(_WaitSamples):
-    profile_ms = [12, 20, 32]
-
-
-class WaitSamplesRTEvent(_WaitSamples):
-    profile_ms = [10, 20, 31]
-
-
 class WaitSamplesAll(_WaitSamples):
     profile_ms = [30, 20, 10, 5, 1]
 
@@ -154,3 +144,8 @@ class WaitSamplesOnly5(_WaitSamples):
 
 class WaitSamplesOnly1(_WaitSamples):
     profile_ms = [1]
+
+
+class WaitSamplesLong(_WaitSamples):
+    profile_ms = [50, 100, 200]
+    limit_table = LONG_LIMITS

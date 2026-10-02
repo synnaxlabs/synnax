@@ -44,6 +44,21 @@ LIMITS: dict[str, dict[str, Limits]] = {
     },
 }
 
+# The limits of waits of 50 ms or more. On Windows, the C++ runtime does not spin
+# before these waits.
+LONG_LIMITS: dict[str, dict[str, Limits]] = {
+    "C++": {
+        "Linux": Limits(min_wait_ms=50, max_error_percent=5.0, max_spread_ms=5.0),
+        "Darwin": Limits(min_wait_ms=50, max_error_percent=5.0, max_spread_ms=5.0),
+        "Windows": Limits(min_wait_ms=50, max_error_percent=5.0, max_spread_ms=5.0),
+    },
+    "Go": {
+        "Linux": Limits(min_wait_ms=50, max_error_percent=5.0, max_spread_ms=5.0),
+        "Darwin": Limits(min_wait_ms=50, max_error_percent=5.0, max_spread_ms=5.0),
+        "Windows": Limits(min_wait_ms=50, max_error_percent=5.0, max_spread_ms=5.0),
+    },
+}
+
 
 def runtime(rack: sy.Rack) -> str:
     """Returns the name of the Arc runtime that runs the tasks of ``rack``.
@@ -56,10 +71,11 @@ def runtime(rack: sy.Rack) -> str:
     return "C++"
 
 
-def limits(rack: sy.Rack) -> Limits:
+def limits(rack: sy.Rack, table: dict[str, dict[str, Limits]] = LIMITS) -> Limits:
     """Returns the timing limits of the runtime of ``rack``. The OS is that of the test
     host, which also runs the Core and its Driver.
 
     :param rack: The rack that holds the Arc task.
+    :param table: The limits of each runtime and OS.
     """
-    return LIMITS[runtime(rack)][platform.system()]
+    return table[runtime(rack)][platform.system()]
