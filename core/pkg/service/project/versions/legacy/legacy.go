@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
-	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -77,7 +76,8 @@ var importableTypes = set.New(
 type Member struct {
 	// Path is the member file's path from the bundle root.
 	Path string
-	// Env is the member's decoded envelope, its type resolved to a registration type.
+	// Env is the member's decoded envelope. A typeless or nameless file takes the type
+	// and name of its layout record, which the Console rendered it with.
 	Env imex.Envelope
 	// LayoutKey is the key mosaic tabs reference the member by.
 	LayoutKey string
@@ -88,12 +88,11 @@ type Member struct {
 // validation error.
 func Members(
 	ctx context.Context,
-	svc *imex.Service,
 	layoutData []byte,
 	files zip.Files,
 ) ([]Member, error) {
 	var slice layoutSlice
-	if err := json.Codec.Decode(ctx, layoutData, &slice); err != nil {
+	if err := imex.Codec.Decode(ctx, layoutData, &slice); err != nil {
 		return nil, errors.Wrap(err, LayoutFileName)
 	}
 	members := make([]Member, 0, len(slice.Layouts))
@@ -107,14 +106,15 @@ func Members(
 			return nil, err
 		}
 		var env imex.Envelope
-		if err := json.Codec.Decode(ctx, files[path], &env); err != nil {
+		if err := imex.Codec.Decode(ctx, files[path], &env); err != nil {
 			return nil, errors.Wrap(err, path)
 		}
-		typ, err := svc.ResolveType(env)
-		if err != nil {
-			return nil, errors.Wrap(err, path)
+		if env.Type == "" {
+			env.Type = l.Type
 		}
-		env.Type = typ
+		if env.Name == "" {
+			env.Name = l.Name
+		}
 		members = append(members, Member{Path: path, Env: env, LayoutKey: key})
 	}
 	return members, nil
@@ -140,7 +140,7 @@ func findComponent(
 			continue
 		}
 		var body map[string]any
-		if err := json.Codec.Decode(ctx, files[path], &body); err != nil {
+		if err := imex.Codec.Decode(ctx, files[path], &body); err != nil {
 			continue
 		}
 		if body["key"] == key || body["name"] == l.Name {
@@ -192,12 +192,12 @@ func CreatePanels(
 	refs map[string]ontology.ID,
 ) error {
 	var t tiling
-	if err := json.Codec.Decode(ctx, layoutData, &t); err != nil {
+	if err := imex.Codec.Decode(ctx, layoutData, &t); err != nil {
 		return nil
 	}
 	var slice layoutSlice
 	// The slice only names panels, so a failed decode falls back to window keys.
-	_ = json.Codec.Decode(ctx, layoutData, &slice)
+	_ = imex.Codec.Decode(ctx, layoutData, &slice)
 	writer := svc.NewWriter(tx)
 	for _, windowKey := range sortedWindowKeys(t.Mosaics) {
 		root := convertNode(t.Mosaics[windowKey].Root, refs)
@@ -286,7 +286,7 @@ func convertNode(n *mosaicNode, refs map[string]ontology.ID) *panel.Node {
 // callers can enforce access before any import work.
 func HasPanels(ctx context.Context, layoutData []byte, members []Member) bool {
 	var t tiling
-	if err := json.Codec.Decode(ctx, layoutData, &t); err != nil {
+	if err := imex.Codec.Decode(ctx, layoutData, &t); err != nil {
 		return false
 	}
 	refs := make(map[string]ontology.ID, len(members))

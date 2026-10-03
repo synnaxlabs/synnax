@@ -32,29 +32,34 @@ func MigrateNode(ctx context.Context, old v7.Node) (Node, error) {
 // Migration lifts stored schematics from v7 to v8.
 var Migration = gorp.NewEntryMigration("v57_drop_node_measured", MigrateSchematic)
 
-// A scale written before it could rotate stores "left" and sizes its bar together with
-// the tick gutter beside it.
+// A v0.57 scale draws as a vertical bar whatever orientation it stores, and sizes the
+// bar together with the tick gutter beside it.
 const (
 	verticalScale   = "top"
 	horizontalScale = "right"
 	scaleGutter     = 26
 )
 
-// NormalizeScales restates every stored scale in s as a vertical bar sized without its
-// gutter, leaving the rest of the configs untouched.
+// NormalizeScales restates each scale in s that states neither top nor right as a
+// vertical bar sized without its gutter, leaving the rest of the configs untouched. It
+// serves imports, where a v0.57 body and a v0.58 body share a version.
 func NormalizeScales(s Schematic) {
 	for _, cfg := range s.Configs {
-		variant, ok := cfg["variant"].(string)
-		if !ok || variant != "scale" {
-			continue
+		o, _ := cfg["orientation"].(string)
+		if isScale(cfg) && o != verticalScale && o != horizontalScale {
+			restateScale(cfg)
 		}
-		o, ok := cfg["orientation"].(string)
-		if ok && (o == verticalScale || o == horizontalScale) {
-			continue
-		}
-		cfg["orientation"] = verticalScale
-		narrowScaleBar(cfg)
 	}
+}
+
+func isScale(cfg msgpack.EncodedJSON) bool {
+	variant, _ := cfg["variant"].(string)
+	return variant == "scale"
+}
+
+func restateScale(cfg msgpack.EncodedJSON) {
+	cfg["orientation"] = verticalScale
+	narrowScaleBar(cfg)
 }
 
 // narrowScaleBar takes the gutter off cfg's width. Hidden ticks reserved none.
@@ -75,11 +80,15 @@ func narrowScaleBar(cfg msgpack.EncodedJSON) {
 	dims["width"] = math.Max(0, width-scaleGutter)
 }
 
-// ScaleMigration restates the axis and bar width of stored scales.
+// ScaleMigration restates the axis and bar width of every stored v0.57 scale.
 var ScaleMigration = gorp.NewEntryMigration(
 	"v58_scale_geometry",
 	func(_ context.Context, s Schematic) (Schematic, error) {
-		NormalizeScales(s)
+		for _, cfg := range s.Configs {
+			if isScale(cfg) {
+				restateScale(cfg)
+			}
+		}
 		return s, nil
 	},
 )
