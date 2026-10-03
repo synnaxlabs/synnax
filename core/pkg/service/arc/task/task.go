@@ -286,6 +286,7 @@ func (t *impl) open(ctx context.Context) (err error) {
 	)
 
 	drt.start = stdtime.Now()
+	drt.startReading = timer.Now()
 	drt.writeKeys = deps.Writes.Slice()
 
 	pipeline := plumber.New()
@@ -479,8 +480,11 @@ type state struct {
 
 type dataRuntime struct {
 	confluence.AbstractLinear[framer.StreamerResponse, framer.WriterRequest]
-	// start keeps its monotonic reading, so a wall clock change does not move a timer.
+	// start is the wall clock time the runtime started at.
 	start stdtime.Time
+	// startReading is the timer.Now reading the runtime started at. Every deadline
+	// counts from it.
+	startReading stdtime.Duration
 	// clock stamps every cycle. It is the runtime's only clock: nodes and host
 	// functions read the stamp it produces instead of sampling their own.
 	clock     telem.MonoClock
@@ -527,7 +531,7 @@ func (d *dataRuntime) next(
 
 // elapsed returns the time since the runtime started.
 func (d *dataRuntime) elapsed() telem.TimeSpan {
-	return telem.TimeSpan(stdtime.Since(d.start))
+	return telem.TimeSpan(timer.Now() - d.startReading)
 }
 
 func (d *dataRuntime) flushAuthorityChanges(ctx context.Context) error {
