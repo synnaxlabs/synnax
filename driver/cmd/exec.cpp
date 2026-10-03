@@ -18,6 +18,7 @@
 #include "x/cpp/log/log.h"
 
 #include "driver/cmd/cmd.h"
+#include "driver/daemon/daemon.h"
 
 namespace driver::cmd {
 // Subcommands are defined in sibling files, one per command.
@@ -72,6 +73,13 @@ int exec(const int argc, char *argv[]) {
         print_usage();
         return 1;
     }
+    // The service manager gives the service the environment file. login reads it
+    // itself, so its connection check sees the same variables as the service.
+    if (command == "login")
+        if (const auto err = daemon::load_env()) {
+            LOG(ERROR) << err << ". Run login with sudo.";
+            return 1;
+        }
     if (command == "start") {
         if (args.flag("--standalone", "-s")) return sub::start(args);
         return sub::service_start(args);

@@ -30,7 +30,7 @@ export const Input = ({
   className,
   initialValue = "",
   orientation = "left",
-  color,
+  fillColor,
   size,
   onSend,
   disabled,
@@ -55,14 +55,14 @@ export const Input = ({
         size={size}
         borderWidth={1}
         disabled={disabled}
-        color={color}
+        color={fillColor}
       >
         <BaseButton.Button
           size={size}
           variant="filled"
           onClick={() => onSend?.(value)}
           onClickDelay={onClickDelay}
-          color={color}
+          color={fillColor}
         >
           Send
         </BaseButton.Button>

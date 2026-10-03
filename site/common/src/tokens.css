@@ -1,0 +1,21 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+:root {
+    --nav-height: clamp(7rem, 5.5rem + 2vw, 9rem);
+    --content-padding: clamp(2rem, 1rem + 2vw, 7rem);
+    --space-sm: clamp(2rem, 1rem + 1vw, 4rem);
+    --space-md: clamp(3rem, 1.5rem + 2vw, 6rem);
+    --space-lg: clamp(5rem, 2rem + 3vw, 10rem);
+    --space-xl: clamp(6rem, 2rem + 4vw, 15rem);
+    --space-2xl: clamp(8rem, 3rem + 5vw, 20rem);
+    --space-3xl: clamp(10rem, 4rem + 6vw, 25rem);
+}

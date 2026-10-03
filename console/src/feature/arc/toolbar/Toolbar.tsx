@@ -164,11 +164,14 @@ const ArcListItem = ({ onRename, onEdit, ...rest }: ArcListItemProps) => {
     [onRename, itemKey],
   );
   const handleDoubleClick = useCallback(() => onEdit(itemKey), [onEdit, itemKey]);
+  const captureDeploy = PlatformArc.useCaptureDeploy();
   const {
     running,
     onStartStop,
     taskStatus: status,
-  } = Arc.useTaskControls(itemKey, arcItem?.name ?? "");
+  } = Arc.useTaskControls(itemKey, arcItem?.name ?? "", {
+    afterSuccess: captureDeploy,
+  });
   const drifted = Arc.useDrifted({ arcKey: itemKey });
   const isLoading = status.variant === "loading";
   let statusMessage = "Stopped";

@@ -314,6 +314,7 @@ export class Client implements Handle {
       auth.LOGIN_ENDPOINT,
       license.RETRIEVE_ENDPOINT,
       license.ACTIVATE_ENDPOINT,
+      license.DEACTIVATE_ENDPOINT,
     ];
     return async (ctx, next) => {
       const { variant, details } = this.current;

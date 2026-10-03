@@ -149,7 +149,7 @@ const FloorItem = ({ background, threshold, units }: FloorItemProps): ReactEleme
     </Text.Text>
     <Flex.Box x className={CSS.BE("redline-form", "actions")}>
       <Text.Text level="small" color={9}>
-        {background == null ? "No fill" : "Background"}
+        {background == null ? "No fill" : "Fill"}
       </Text.Text>
     </Flex.Box>
   </Flex.Box>
@@ -180,14 +180,14 @@ export interface RedlineFormProps {
 
 /**
  * Edits a redline as a list of threshold bands, lowest first. Rows sort by threshold
- * as thresholds change. Reads the value's units and background from the form root.
+ * as thresholds change. Reads the value's units and fill from the form root.
  */
 export const RedlineForm = ({ path }: RedlineFormProps): ReactElement => {
   const bandsPath = `${path}.bands`;
   const redline = Form.useFieldValue<color.Scale>(path);
   const units = Form.useFieldValue<string>("units", { optional: true }) ?? "";
   const background =
-    Form.useFieldValue<color.Color>("backgroundColor", { optional: true }) ?? undefined;
+    Form.useFieldValue<color.Color>("fillColor", { optional: true }) ?? undefined;
   const { push, remove } = Form.useFieldListUtils<string, color.Band>(bandsPath);
   const theme = Theming.use();
   // The form edits values in place, so values read here keep their identity across

@@ -181,6 +181,14 @@ pluto: &pluto
   - *x_ts
   - pluto/**
 
+portal:
+  - *client_ts
+  - *lyra
+  - *media
+  - *ts
+  - *x_ts
+  - site/portal/**
+
 console: &console
   - *client_ts
   - *drift
@@ -192,11 +200,18 @@ console: &console
   - *x_ts
   - console/**
 
+site_common: &site_common
+  - *lyra
+  - *media
+  - *ts
+  - site/common/**
+
 docs:
   - *arc_ts
   - *client_ts
   - *lyra
   - *media
+  - *site_common
   - *ts
   - *x_ts
   - .github/workflows/test.docs.yaml
@@ -206,8 +221,20 @@ www:
   - *arc_ts
   - *lyra
   - *media
+  - *site_common
   - *ts
   - site/www/**
+
+knip:
+  - *arc_ts
+  - *console
+  - *ts
+  - oracle/lsp/extensions/vscode/**
+  - site/common/**
+  - site/docs/**
+  - site/portal/**
+  - site/www/**
+  - studio/**
 
 alamos_py: &alamos_py
   - *py

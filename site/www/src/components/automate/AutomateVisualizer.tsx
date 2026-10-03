@@ -17,6 +17,7 @@ import {
   ZERO_DIAGRAM_STATE,
 } from "@/components/automate/timeline";
 import { CodePanel } from "@/components/common/CodePanel";
+import { VizTabs } from "@/components/common/VizTabs";
 import type { CalcDiagramState } from "@/components/stream/calcTimeline";
 import { AUTOMATE_ALARM_DIAGRAM, Diagram } from "@/components/stream/diagrams";
 
@@ -118,17 +119,11 @@ export const AutomateVisualizer = ({
 
   return (
     <div className="viz-container">
-      <div className="viz-tabs">
-        {EXAMPLES.map((ex, i) => (
-          <button
-            key={ex.id}
-            className={`viz-tab${i === activeTab ? " viz-tab--active" : ""}`}
-            onClick={() => handleTabClick(i)}
-          >
-            {ex.title}
-          </button>
-        ))}
-      </div>
+      <VizTabs
+        tabs={EXAMPLES.map(({ id, title }) => ({ key: id, title }))}
+        active={activeTab}
+        onSelect={handleTabClick}
+      />
       <div className="viz-content">
         <div className="viz-code">
           <CodePanel html={codeHtmls[activeTab]} activeLines={step.activeLines} />

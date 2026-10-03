@@ -47,6 +47,7 @@ func migrateCell(c v1.Cell) CellConfig {
 	}
 	fields["variant"] = c.Variant
 	err := bandRedline(fields)
+	renameColors(fields)
 	stripZeroColors(map[string]any(fields))
 	extractLegacyArgs(fields)
 	var cfg CellConfig

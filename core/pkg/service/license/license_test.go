@@ -716,4 +716,52 @@ var _ = Describe("License", func() {
 			Expect(svc.CheckChannelLimit(1 << 19)).To(Succeed())
 		})
 	})
+
+	Describe("Deactivate", func() {
+		var svc *license.Service
+		BeforeEach(func(ctx SpecContext) { svc = open(ctx) })
+
+		It("should leave the Core without a license", func(ctx SpecContext) {
+			lic := newLicense()
+			MustSucceed(svc.Activate(ctx, sign(lic)))
+			info := MustSucceed(svc.Deactivate(ctx, lic.Jti))
+			Expect(info.State).To(Equal(license.StateMissing))
+			Expect(info.License).To(BeNil())
+			Expect(svc.Check()).To(MatchError(license.ErrMissing))
+		})
+		It("should keep the license removed across a reopen", func(ctx SpecContext) {
+			lic := newLicense()
+			MustSucceed(svc.Activate(ctx, sign(lic)))
+			MustSucceed(svc.Deactivate(ctx, lic.Jti))
+			Expect(svc.Close()).To(Succeed())
+			Expect(open(ctx).Retrieve().State).To(Equal(license.StateMissing))
+		})
+		It("should fall back to another stored license", func(ctx SpecContext) {
+			older, newer := newLicense(), newLicense()
+			older.Channels, newer.Channels = 100, 500
+			newer.Iat = uint32(now.Unix())
+			MustSucceed(svc.Activate(ctx, sign(older)))
+			MustSucceed(svc.Activate(ctx, sign(newer)))
+			info := MustSucceed(svc.Deactivate(ctx, newer.Jti))
+			Expect(info.State).To(Equal(license.StateOk))
+			Expect(info.License.Channels).To(BeEquivalentTo(100))
+		})
+		It(
+			"should change nothing for a license that is not stored",
+			func(ctx SpecContext) {
+				lic := newLicense()
+				MustSucceed(svc.Activate(ctx, sign(lic)))
+				info := MustSucceed(svc.Deactivate(ctx, uuid.New()))
+				Expect(info.State).To(Equal(license.StateOk))
+				Expect(info.License.Jti).To(Equal(lic.Jti))
+			},
+		)
+		It("should announce a removed license", func(ctx SpecContext) {
+			lic := newLicense()
+			MustSucceed(svc.Activate(ctx, sign(lic)))
+			keys := announcements(svc)
+			MustSucceed(svc.Deactivate(ctx, lic.Jti))
+			Expect(keys).To(Receive(Equal(license.OntologyKey)))
+		})
+	})
 })
