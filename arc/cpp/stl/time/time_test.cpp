@@ -35,6 +35,30 @@ runtime::node::Context make_context(
     };
 }
 
+struct TickResult {
+    bool fired = false;
+    /// @brief the deadline the pass set, or -1 if it set none.
+    x::telem::TimeSpan deadline{-1};
+    x::telem::TimeSpan span{-1};
+};
+
+/// @brief runs one pass of node and returns whether it fired and the deadline it set.
+TickResult tick(
+    runtime::node::Node &node,
+    const x::telem::TimeSpan elapsed,
+    const runtime::node::RunReason reason = runtime::node::RunReason::TimerTick
+) {
+    TickResult r;
+    auto ctx = make_context(elapsed, reason);
+    ctx.mark_changed = [&r](size_t) { r.fired = true; };
+    ctx.set_deadline = [&r](const x::telem::TimeSpan d, const x::telem::TimeSpan s) {
+        r.deadline = d;
+        r.span = s;
+    };
+    EXPECT_FALSE(node.next(ctx));
+    return r;
+}
+
 struct TestSetup {
     ir::IR ir;
     runtime::state::State state;
@@ -239,7 +263,7 @@ TEST(TimeModuleTest, ShortestSpanUnsetForZeroVarBoundPeriod) {
     ASSERT_NIL_P(
         factory.create(runtime::node::Config(setup.ir, ir_node, setup.make_node()))
     );
-    EXPECT_EQ(factory.shortest_span(), UNSET_SHORTEST_SPAN);
+    EXPECT_EQ(factory.shortest_span(), x::telem::TimeSpan::max());
 }
 
 /// @brief Test that shortest_span is the shortest span across nodes.
@@ -266,25 +290,7 @@ TEST(TimeModuleTest, RejectsNonPositiveLiteralSpan) {
     );
     EXPECT_TRUE(result.second.matches(x::errors::VALIDATION));
     EXPECT_EQ(result.second.data, "duration must be positive, got 0ns");
-    EXPECT_EQ(factory.shortest_span(), UNSET_SHORTEST_SPAN);
-}
-
-/// @brief Test that Interval does not fire again before next interval elapses.
-TEST(IntervalTest, DoesNotFireBeforeNextIntervalElapses) {
-    TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
-    Interval node(setup.make_node());
-
-    auto ctx1 = make_context(x::telem::TimeSpan(0));
-    ASSERT_NIL(node.next(ctx1));
-
-    auto checker = setup.make_node();
-    const auto &output = checker.output(0);
-    EXPECT_EQ(output->size(), 1);
-    output->resize(0);
-
-    auto ctx2 = make_context(x::telem::MILLISECOND * 500);
-    ASSERT_NIL(node.next(ctx2));
-    EXPECT_EQ(output->size(), 0);
+    EXPECT_EQ(factory.shortest_span(), x::telem::TimeSpan::max());
 }
 
 /// @brief Test that Interval fires when the interval is reached.
@@ -506,7 +512,7 @@ TEST(WaitTest, DoesNotFireBeforeDurationElapses) {
     EXPECT_EQ(output->size(), 0);
 }
 
-/// @brief Test that Wait fires once after the duration elapses.
+/// @brief Test that Wait fires once on its deadline and not one nanosecond before it.
 TEST(WaitTest, FiresOnceAfterDuration) {
     TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
     Wait node(setup.make_node());
@@ -518,8 +524,12 @@ TEST(WaitTest, FiresOnceAfterDuration) {
     const auto &output = checker.output(0);
     EXPECT_EQ(output->size(), 0);
 
-    auto ctx2 = make_context(x::telem::SECOND);
+    auto ctx2 = make_context(x::telem::SECOND - x::telem::NANOSECOND);
     ASSERT_NIL(node.next(ctx2));
+    EXPECT_EQ(output->size(), 0);
+
+    auto ctx3 = make_context(x::telem::SECOND);
+    ASSERT_NIL(node.next(ctx3));
     EXPECT_EQ(output->size(), 1);
     EXPECT_EQ(output->at<uint8_t>(0), 1);
 }
@@ -875,28 +885,8 @@ TEST(IntervalTest, FiresOnItsDeadlineAndNotBefore) {
 
     auto checker = setup.make_node();
     const auto &output = checker.output(0);
-    output->resize(0);
-
-    auto ctx2 = make_context(x::telem::SECOND - x::telem::NANOSECOND);
-    ASSERT_NIL(node.next(ctx2));
-    EXPECT_EQ(output->size(), 0);
-
-    auto ctx3 = make_context(x::telem::SECOND);
-    ASSERT_NIL(node.next(ctx3));
     EXPECT_EQ(output->size(), 1);
-}
-
-/// @brief A wait should fire on its deadline and not one nanosecond before it.
-TEST(WaitTest, FiresOnItsDeadlineAndNotBefore) {
-    TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
-    Wait node(setup.make_node());
-
-    auto ctx1 = make_context(x::telem::TimeSpan(0));
-    ASSERT_NIL(node.next(ctx1));
-
-    auto checker = setup.make_node();
-    const auto &output = checker.output(0);
-    EXPECT_EQ(output->size(), 0);
+    output->resize(0);
 
     auto ctx2 = make_context(x::telem::SECOND - x::telem::NANOSECOND);
     ASSERT_NIL(node.next(ctx2));
@@ -925,97 +915,51 @@ TEST(WaitTest, DoesNotFireOnTheWakeOfAnEarlierTimer) {
 TEST(IntervalDeadlineTest, SetsDeadlineToLastFiredPlusPeriod) {
     TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
     time::Interval node(setup.make_node());
-
-    x::telem::TimeSpan reported_deadline(-1);
-    auto ctx = make_context(x::telem::TimeSpan(0));
-    ctx.set_deadline = [&](x::telem::TimeSpan d, x::telem::TimeSpan) {
-        reported_deadline = d;
-    };
-    ASSERT_NIL(node.next(ctx));
-    EXPECT_EQ(reported_deadline, x::telem::SECOND);
+    EXPECT_EQ(tick(node, x::telem::TimeSpan(0)).deadline, x::telem::SECOND);
 }
 
 TEST(IntervalDeadlineTest, SetsDeadlineOnNonTimerTick) {
     TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
     time::Interval node(setup.make_node());
-
-    auto ctx1 = make_context(x::telem::TimeSpan(0));
-    ASSERT_NIL(node.next(ctx1));
-
-    x::telem::TimeSpan reported_deadline(-1);
-    auto ctx2 = make_context(
+    tick(node, x::telem::TimeSpan(0));
+    const auto r = tick(
+        node,
         x::telem::MILLISECOND * 500,
         runtime::node::RunReason::ChannelInput
     );
-    ctx2.set_deadline = [&](x::telem::TimeSpan d, x::telem::TimeSpan) {
-        reported_deadline = d;
-    };
-    ASSERT_NIL(node.next(ctx2));
-    EXPECT_EQ(reported_deadline, x::telem::SECOND);
+    EXPECT_EQ(r.deadline, x::telem::SECOND);
 }
 
 TEST(IntervalDeadlineTest, SetsDeadlineAfterFiring) {
     TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
     time::Interval node(setup.make_node());
-
-    auto ctx1 = make_context(x::telem::TimeSpan(0));
-    ASSERT_NIL(node.next(ctx1));
-
-    x::telem::TimeSpan reported_deadline(-1);
-    auto ctx2 = make_context(x::telem::SECOND);
-    ctx2.set_deadline = [&](x::telem::TimeSpan d, x::telem::TimeSpan) {
-        reported_deadline = d;
-    };
-    ASSERT_NIL(node.next(ctx2));
-    EXPECT_EQ(reported_deadline, x::telem::SECOND * 2);
+    tick(node, x::telem::TimeSpan(0));
+    EXPECT_EQ(tick(node, x::telem::SECOND).deadline, x::telem::SECOND * 2);
 }
 
 TEST(WaitDeadlineTest, SetsDeadlineToStartTimePlusDuration) {
     TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
     time::Wait node(setup.make_node());
-
-    x::telem::TimeSpan reported_deadline(-1);
-    auto ctx = make_context(x::telem::SECOND * 5);
-    ctx.set_deadline = [&](x::telem::TimeSpan d, x::telem::TimeSpan) {
-        reported_deadline = d;
-    };
-    ASSERT_NIL(node.next(ctx));
-    EXPECT_EQ(reported_deadline, x::telem::SECOND * 6);
+    EXPECT_EQ(tick(node, x::telem::SECOND * 5).deadline, x::telem::SECOND * 6);
 }
 
 TEST(WaitDeadlineTest, SetsDeadlineOnChannelInput) {
     TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
     time::Wait node(setup.make_node());
-
-    x::telem::TimeSpan reported_deadline(-1);
-    auto ctx = make_context(
+    const auto r = tick(
+        node,
         x::telem::SECOND * 2,
         runtime::node::RunReason::ChannelInput
     );
-    ctx.set_deadline = [&](x::telem::TimeSpan d, x::telem::TimeSpan) {
-        reported_deadline = d;
-    };
-    ASSERT_NIL(node.next(ctx));
-    EXPECT_EQ(reported_deadline, x::telem::SECOND * 3);
+    EXPECT_EQ(r.deadline, x::telem::SECOND * 3);
 }
 
 TEST(WaitDeadlineTest, DoesNotSetDeadlineAfterFiring) {
     TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
     time::Wait node(setup.make_node());
-
-    auto ctx1 = make_context(x::telem::TimeSpan(0));
-    ASSERT_NIL(node.next(ctx1));
-
-    auto ctx2 = make_context(x::telem::SECOND);
-    ASSERT_NIL(node.next(ctx2));
-
-    x::telem::TimeSpan reported_deadline(-1);
-    auto ctx3 = make_context(x::telem::SECOND * 5);
-    ctx3.set_deadline = [&](x::telem::TimeSpan d, x::telem::TimeSpan) {
-        reported_deadline = d;
-    };
-    ASSERT_NIL(node.next(ctx3));
-    EXPECT_EQ(reported_deadline, x::telem::TimeSpan(-1));
+    tick(node, x::telem::TimeSpan(0));
+    tick(node, x::telem::SECOND);
+    EXPECT_EQ(tick(node, x::telem::SECOND * 5).deadline, x::telem::TimeSpan(-1));
 }
 
 /// @brief The pass that fires a wait should report no deadline, since a fired wait
@@ -1023,40 +967,22 @@ TEST(WaitDeadlineTest, DoesNotSetDeadlineAfterFiring) {
 TEST(WaitDeadlineTest, DoesNotSetDeadlineOnTheFiringPass) {
     TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
     time::Wait node(setup.make_node());
-
-    auto ctx1 = make_context(x::telem::TimeSpan(0));
-    ASSERT_NIL(node.next(ctx1));
-
+    tick(node, x::telem::TimeSpan(0));
     auto checker = setup.make_node();
     const auto &output = checker.output(0);
-    x::telem::TimeSpan reported_deadline(-1);
-    auto ctx2 = make_context(x::telem::SECOND);
-    ctx2.set_deadline = [&](x::telem::TimeSpan d, x::telem::TimeSpan) {
-        reported_deadline = d;
-    };
-    ASSERT_NIL(node.next(ctx2));
+    const auto r = tick(node, x::telem::SECOND);
     EXPECT_EQ(output->size(), 1);
-    EXPECT_EQ(reported_deadline, x::telem::TimeSpan(-1));
+    EXPECT_EQ(r.deadline, x::telem::TimeSpan(-1));
 }
 
 TEST(WaitDeadlineTest, SetsCorrectDeadlineAfterReset) {
     TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
     time::Wait node(setup.make_node());
-
-    auto ctx1 = make_context(x::telem::TimeSpan(0));
-    ASSERT_NIL(node.next(ctx1));
-    auto ctx2 = make_context(x::telem::SECOND);
-    ASSERT_NIL(node.next(ctx2));
-
-    node.reset(ctx2);
-
-    x::telem::TimeSpan reported_deadline(-1);
-    auto ctx3 = make_context(x::telem::SECOND * 10);
-    ctx3.set_deadline = [&](x::telem::TimeSpan d, x::telem::TimeSpan) {
-        reported_deadline = d;
-    };
-    ASSERT_NIL(node.next(ctx3));
-    EXPECT_EQ(reported_deadline, x::telem::SECOND * 11);
+    tick(node, x::telem::TimeSpan(0));
+    tick(node, x::telem::SECOND);
+    auto ctx = make_context(x::telem::SECOND);
+    node.reset(ctx);
+    EXPECT_EQ(tick(node, x::telem::SECOND * 10).deadline, x::telem::SECOND * 11);
 }
 
 /// @brief Helper to build IR for Now.
@@ -1188,14 +1114,8 @@ TEST(TimeModuleTest, NowDoesNotAffectShortestSpan) {
     ASSERT_NIL_P(factory.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
     ));
-    EXPECT_EQ(factory.shortest_span(), UNSET_SHORTEST_SPAN);
+    EXPECT_EQ(factory.shortest_span(), x::telem::TimeSpan::max());
 }
-
-struct TickResult {
-    bool fired = false;
-    x::telem::TimeSpan deadline{0};
-    x::telem::TimeSpan span{0};
-};
 
 /// @brief builds a config whose span input is var-bound: value holds the declared
 /// initial and set writes the variable's live slot. The IR and state outlive the node,
@@ -1233,22 +1153,6 @@ public:
     void set(const x::telem::TimeSpan span) {
         auto v = ASSERT_NIL_P(this->state.node("v"));
         *v.output(0) = x::telem::Series(span.nanoseconds());
-    }
-
-    TickResult tick(
-        const x::telem::TimeSpan elapsed,
-        const runtime::node::RunReason reason
-    ) const {
-        TickResult r;
-        auto ctx = make_context(elapsed, reason);
-        ctx.mark_changed = [&r](size_t) { r.fired = true; };
-        ctx.set_deadline =
-            [&r](const x::telem::TimeSpan d, const x::telem::TimeSpan s) {
-                r.deadline = d;
-                r.span = s;
-            };
-        EXPECT_FALSE(this->node->next(ctx));
-        return r;
     }
 
 private:
@@ -1291,128 +1195,95 @@ private:
 
 TEST(IntervalVarTest, HonorsTheDeclaredInitialBeforeAnyWrite) {
     const VarConfig t("interval", "period", x::telem::SECOND);
-    EXPECT_TRUE(
-        t.tick(x::telem::TimeSpan(0), runtime::node::RunReason::TimerTick).fired
-    );
-    EXPECT_FALSE(
-        t.tick(500 * x::telem::MILLISECOND, runtime::node::RunReason::TimerTick).fired
-    );
-    EXPECT_TRUE(t.tick(x::telem::SECOND, runtime::node::RunReason::TimerTick).fired);
+    EXPECT_TRUE(tick(*t.node, x::telem::TimeSpan(0)).fired);
+    EXPECT_FALSE(tick(*t.node, 500 * x::telem::MILLISECOND).fired);
+    EXPECT_TRUE(tick(*t.node, x::telem::SECOND).fired);
 }
 
 TEST(IntervalVarTest, FiresAtOnceWhenAZeroPeriodTurnsPositive) {
     VarConfig t("interval", "period", x::telem::TimeSpan(0));
-    EXPECT_FALSE(
-        t.tick(x::telem::TimeSpan(0), runtime::node::RunReason::TimerTick).fired
-    );
+    EXPECT_FALSE(tick(*t.node, x::telem::TimeSpan(0)).fired);
     t.set(x::telem::SECOND);
-    EXPECT_TRUE(
-        t.tick(100 * x::telem::MILLISECOND, runtime::node::RunReason::TimerTick).fired
-    );
+    EXPECT_TRUE(tick(*t.node, 100 * x::telem::MILLISECOND).fired);
 }
 
 TEST(IntervalVarTest, AdoptsAShortenedPeriodAtTheNextEvaluation) {
     VarConfig t("interval", "period", x::telem::SECOND);
-    EXPECT_TRUE(
-        t.tick(x::telem::TimeSpan(0), runtime::node::RunReason::TimerTick).fired
-    );
+    EXPECT_TRUE(tick(*t.node, x::telem::TimeSpan(0)).fired);
     t.set(100 * x::telem::MILLISECOND);
-    EXPECT_TRUE(
-        t.tick(100 * x::telem::MILLISECOND, runtime::node::RunReason::TimerTick).fired
-    );
+    EXPECT_TRUE(tick(*t.node, 100 * x::telem::MILLISECOND).fired);
 }
 
 TEST(IntervalVarTest, AdoptsALengthenedPeriodWithoutFiringEarly) {
     VarConfig t("interval", "period", 100 * x::telem::MILLISECOND);
-    EXPECT_TRUE(
-        t.tick(x::telem::TimeSpan(0), runtime::node::RunReason::TimerTick).fired
-    );
+    EXPECT_TRUE(tick(*t.node, x::telem::TimeSpan(0)).fired);
     t.set(x::telem::SECOND);
-    EXPECT_FALSE(
-        t.tick(100 * x::telem::MILLISECOND, runtime::node::RunReason::TimerTick).fired
-    );
-    EXPECT_TRUE(t.tick(x::telem::SECOND, runtime::node::RunReason::TimerTick).fired);
+    EXPECT_FALSE(tick(*t.node, 100 * x::telem::MILLISECOND).fired);
+    EXPECT_TRUE(tick(*t.node, x::telem::SECOND).fired);
 }
 
 TEST(IntervalVarTest, ReportsTheDeadlineFromTheLivePeriod) {
     VarConfig t("interval", "period", x::telem::SECOND);
-    EXPECT_EQ(
-        t.tick(x::telem::TimeSpan(0), runtime::node::RunReason::TimerTick).deadline,
-        x::telem::SECOND
-    );
+    const auto first = tick(*t.node, x::telem::TimeSpan(0));
+    EXPECT_EQ(first.deadline, x::telem::SECOND);
+    EXPECT_EQ(first.span, x::telem::SECOND);
     t.set(2 * x::telem::SECOND);
-    const auto r = t.tick(
+    const auto r = tick(
+        *t.node,
         500 * x::telem::MILLISECOND,
         runtime::node::RunReason::ChannelInput
     );
     EXPECT_FALSE(r.fired);
     EXPECT_EQ(r.deadline, 2 * x::telem::SECOND);
+    EXPECT_EQ(r.span, 2 * x::telem::SECOND);
 }
 
 TEST(IntervalVarTest, FiresImmediatelyAfterResetUsingTheLivePeriod) {
     VarConfig t("interval", "period", x::telem::SECOND);
-    EXPECT_TRUE(
-        t.tick(x::telem::TimeSpan(0), runtime::node::RunReason::TimerTick).fired
-    );
-    EXPECT_TRUE(t.tick(x::telem::SECOND, runtime::node::RunReason::TimerTick).fired);
+    EXPECT_TRUE(tick(*t.node, x::telem::TimeSpan(0)).fired);
+    EXPECT_TRUE(tick(*t.node, x::telem::SECOND).fired);
     t.set(5 * x::telem::SECOND);
     auto ctx = make_context(x::telem::SECOND);
     t.node->reset(ctx);
-    EXPECT_TRUE(
-        t.tick(1500 * x::telem::MILLISECOND, runtime::node::RunReason::TimerTick).fired
-    );
+    EXPECT_TRUE(tick(*t.node, 1500 * x::telem::MILLISECOND).fired);
 }
 
 TEST(IntervalVarTest, TakesTheShortestSpanFromTheDeclaredValueOnly) {
     VarConfig t("interval", "period", 100 * x::telem::MILLISECOND);
     EXPECT_EQ(t.factory.shortest_span(), 100 * x::telem::MILLISECOND);
     t.set(x::telem::MILLISECOND);
-    EXPECT_TRUE(
-        t.tick(x::telem::TimeSpan(0), runtime::node::RunReason::TimerTick).fired
-    );
+    EXPECT_TRUE(tick(*t.node, x::telem::TimeSpan(0)).fired);
     EXPECT_EQ(t.factory.shortest_span(), 100 * x::telem::MILLISECOND);
 }
 
 TEST(WaitVarTest, HonorsTheDeclaredInitialBeforeAnyWrite) {
     const VarConfig t("wait", "duration", x::telem::SECOND);
-    EXPECT_FALSE(
-        t.tick(x::telem::TimeSpan(0), runtime::node::RunReason::TimerTick).fired
-    );
-    EXPECT_FALSE(
-        t.tick(500 * x::telem::MILLISECOND, runtime::node::RunReason::TimerTick).fired
-    );
-    EXPECT_TRUE(t.tick(x::telem::SECOND, runtime::node::RunReason::TimerTick).fired);
+    EXPECT_FALSE(tick(*t.node, x::telem::TimeSpan(0)).fired);
+    EXPECT_FALSE(tick(*t.node, 500 * x::telem::MILLISECOND).fired);
+    EXPECT_TRUE(tick(*t.node, x::telem::SECOND).fired);
 }
 
 TEST(WaitVarTest, FiresEarlierWhenTheDurationIsShortenedMidWait) {
     VarConfig t("wait", "duration", 10 * x::telem::SECOND);
-    EXPECT_FALSE(
-        t.tick(x::telem::TimeSpan(0), runtime::node::RunReason::TimerTick).fired
-    );
+    EXPECT_FALSE(tick(*t.node, x::telem::TimeSpan(0)).fired);
     t.set(x::telem::SECOND);
-    EXPECT_TRUE(t.tick(x::telem::SECOND, runtime::node::RunReason::TimerTick).fired);
+    EXPECT_TRUE(tick(*t.node, x::telem::SECOND).fired);
 }
 
 TEST(WaitVarTest, FiresLaterWhenTheDurationIsLengthenedMidWait) {
     VarConfig t("wait", "duration", x::telem::SECOND);
-    EXPECT_FALSE(
-        t.tick(x::telem::TimeSpan(0), runtime::node::RunReason::TimerTick).fired
-    );
+    EXPECT_FALSE(tick(*t.node, x::telem::TimeSpan(0)).fired);
     t.set(5 * x::telem::SECOND);
-    EXPECT_FALSE(t.tick(x::telem::SECOND, runtime::node::RunReason::TimerTick).fired);
-    EXPECT_TRUE(
-        t.tick(5 * x::telem::SECOND, runtime::node::RunReason::TimerTick).fired
-    );
+    EXPECT_FALSE(tick(*t.node, x::telem::SECOND).fired);
+    EXPECT_TRUE(tick(*t.node, 5 * x::telem::SECOND).fired);
 }
 
 TEST(WaitVarTest, ReportsTheDeadlineFromTheLiveDuration) {
     VarConfig t("wait", "duration", x::telem::SECOND);
-    EXPECT_EQ(
-        t.tick(x::telem::TimeSpan(0), runtime::node::RunReason::TimerTick).deadline,
-        x::telem::SECOND
-    );
+    EXPECT_EQ(tick(*t.node, x::telem::TimeSpan(0)).deadline, x::telem::SECOND);
     t.set(3 * x::telem::SECOND);
-    const auto r = t.tick(
+    const auto r = tick(
+        *t.node,
         500 * x::telem::MILLISECOND,
         runtime::node::RunReason::ChannelInput
     );
@@ -1424,12 +1295,11 @@ TEST(WaitVarTest, ReportsTheDeadlineFromTheLiveDuration) {
 /// @brief A late fire should not delay the fires after it.
 TEST(IntervalVarTest, CountsTheNextFireFromTheSchedule) {
     VarConfig t("interval", "period", 10 * x::telem::MILLISECOND);
-    const auto tick = runtime::node::RunReason::TimerTick;
-    EXPECT_TRUE(t.tick(x::telem::TimeSpan(0), tick).fired);
-    const auto first = t.tick(10500 * x::telem::MICROSECOND, tick);
+    EXPECT_TRUE(tick(*t.node, x::telem::TimeSpan(0)).fired);
+    const auto first = tick(*t.node, 10500 * x::telem::MICROSECOND);
     EXPECT_TRUE(first.fired);
     EXPECT_EQ(first.deadline, 20 * x::telem::MILLISECOND);
-    const auto second = t.tick(20500 * x::telem::MICROSECOND, tick);
+    const auto second = tick(*t.node, 20500 * x::telem::MICROSECOND);
     EXPECT_TRUE(second.fired);
     EXPECT_EQ(second.deadline, 30 * x::telem::MILLISECOND);
 }
@@ -1438,52 +1308,31 @@ TEST(IntervalVarTest, CountsTheNextFireFromTheSchedule) {
 /// and keep the schedule.
 TEST(IntervalVarTest, SkipsTheMissedFiresAfterAPause) {
     VarConfig t("interval", "period", 10 * x::telem::MILLISECOND);
-    const auto tick = runtime::node::RunReason::TimerTick;
-    EXPECT_TRUE(t.tick(x::telem::TimeSpan(0), tick).fired);
-    const auto late = t.tick(35 * x::telem::MILLISECOND, tick);
+    EXPECT_TRUE(tick(*t.node, x::telem::TimeSpan(0)).fired);
+    const auto late = tick(*t.node, 35 * x::telem::MILLISECOND);
     EXPECT_TRUE(late.fired);
     EXPECT_EQ(late.deadline, 40 * x::telem::MILLISECOND);
-    EXPECT_FALSE(t.tick(39 * x::telem::MILLISECOND, tick).fired);
-    EXPECT_TRUE(t.tick(40 * x::telem::MILLISECOND, tick).fired);
+    EXPECT_FALSE(tick(*t.node, 39 * x::telem::MILLISECOND).fired);
+    EXPECT_TRUE(tick(*t.node, 40 * x::telem::MILLISECOND).fired);
 }
 
 /// @brief A fire exactly one period behind should skip the fire it missed, so the next
 /// pass at the same time does not fire again.
 TEST(IntervalVarTest, SkipsTheMissedFireExactlyOnePeriodBehind) {
     VarConfig t("interval", "period", 10 * x::telem::MILLISECOND);
-    const auto tick = runtime::node::RunReason::TimerTick;
-    EXPECT_TRUE(t.tick(x::telem::TimeSpan(0), tick).fired);
-    const auto late = t.tick(20 * x::telem::MILLISECOND, tick);
+    EXPECT_TRUE(tick(*t.node, x::telem::TimeSpan(0)).fired);
+    const auto late = tick(*t.node, 20 * x::telem::MILLISECOND);
     EXPECT_TRUE(late.fired);
     EXPECT_EQ(late.deadline, 30 * x::telem::MILLISECOND);
-    EXPECT_FALSE(t.tick(20 * x::telem::MILLISECOND, tick).fired);
-}
-
-TEST(IntervalVarTest, ReportsTheLivePeriodAsTheSpanOfTheDeadline) {
-    VarConfig t("interval", "period", x::telem::SECOND);
-    EXPECT_EQ(
-        t.tick(x::telem::TimeSpan(0), runtime::node::RunReason::TimerTick).span,
-        x::telem::SECOND
-    );
-    t.set(2 * x::telem::SECOND);
-    const auto r = t.tick(
-        500 * x::telem::MILLISECOND,
-        runtime::node::RunReason::ChannelInput
-    );
-    EXPECT_EQ(r.deadline, 2 * x::telem::SECOND);
-    EXPECT_EQ(r.span, 2 * x::telem::SECOND);
+    EXPECT_FALSE(tick(*t.node, 20 * x::telem::MILLISECOND).fired);
 }
 
 TEST(WaitVarTest, StaysOneShotAfterAShorteningWrite) {
     VarConfig t("wait", "duration", x::telem::SECOND);
-    EXPECT_FALSE(
-        t.tick(x::telem::TimeSpan(0), runtime::node::RunReason::TimerTick).fired
-    );
-    EXPECT_TRUE(t.tick(x::telem::SECOND, runtime::node::RunReason::TimerTick).fired);
+    EXPECT_FALSE(tick(*t.node, x::telem::TimeSpan(0)).fired);
+    EXPECT_TRUE(tick(*t.node, x::telem::SECOND).fired);
     t.set(100 * x::telem::MILLISECOND);
-    EXPECT_FALSE(
-        t.tick(2 * x::telem::SECOND, runtime::node::RunReason::TimerTick).fired
-    );
+    EXPECT_FALSE(tick(*t.node, 2 * x::telem::SECOND).fired);
 }
 
 /// @brief compiles source and creates every timer node through a fresh time Host,

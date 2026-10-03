@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include <chrono>
+#include <algorithm>
 #include <memory>
 #include <set>
 #include <utility>
@@ -93,18 +93,8 @@ class Runtime {
     x::telem::MonoClock clock;
     x::queue::SPSC<x::telem::Frame> inputs;
     x::queue::SPSC<Output> outputs;
-    std::chrono::steady_clock::time_point start_time_steady_;
-
-    /// @brief returns the time since run() started, on the steady clock.
-    [[nodiscard]] x::telem::TimeSpan elapsed() const {
-        return x::telem::TimeSpan(
-            std::chrono::duration_cast<std::chrono::nanoseconds>(
-                std::chrono::steady_clock::now() - this->start_time_steady_
-            )
-                .count()
-        );
-    }
-
+    /// @brief measures the elapsed time since run() started.
+    x::telem::Stopwatch stopwatch;
     errors::Handler error_handler;
 
 public:
@@ -135,7 +125,7 @@ public:
         write_channels(std::move(write_channels)) {}
 
     void run() {
-        this->start_time_steady_ = std::chrono::steady_clock::now();
+        this->stopwatch.reset();
         x::thread::set_name("runtime");
         if (auto err = this->loop->start(); err) {
             LOG(ERROR) << "[arc.runtime] failed to start loop: " << err.message();
@@ -147,16 +137,15 @@ public:
             this->error_handler(x::errors::Error("failed to watch input notifier"));
             return;
         }
-        auto next_timeout = x::telem::TimeSpan(0);
-        auto next_span = x::telem::TimeSpan::max();
-        auto deadline_at = x::telem::TimeSpan::max();
+        auto timeout = x::telem::TimeSpan(0);
+        node::Deadline deadline;
         // The first cycle runs at once as a timer tick, so that timers set their first
         // deadlines without a wait for input.
         bool started = false;
         while (this->breaker.running()) {
             auto wake_reason = loop::WakeReason::Timer;
             if (started)
-                wake_reason = this->loop->wait(this->breaker, next_timeout, next_span);
+                wake_reason = this->loop->wait(this->breaker, timeout, deadline.span);
             started = true;
             const bool is_timer =
                 (wake_reason == loop::WakeReason::Timer ||
@@ -164,9 +153,9 @@ public:
             x::telem::Frame frame;
             bool first = true;
             while (this->inputs.try_pop(frame) || first) {
-                const auto elapsed = this->elapsed();
+                const auto elapsed = this->stopwatch.elapsed();
                 // A due timer fires on any cycle, so steady input cannot starve it.
-                const bool timer_tick = (first && is_timer) || elapsed >= deadline_at;
+                const bool timer_tick = (first && is_timer) || elapsed >= deadline.at;
                 first = false;
                 this->state->ingest(frame);
                 const node::Cycle cycle{
@@ -177,7 +166,7 @@ public:
                 };
                 this->time_module->set_now(cycle.now);
                 this->clock.advance(this->scheduler->next(cycle));
-                deadline_at = this->scheduler->next_deadline().at;
+                deadline = this->scheduler->next_deadline();
                 Output out;
                 out.authority_changes = this->state->flush_authority_changes();
                 this->clock.advance(this->state->flush_into(out.frame, cycle.now));
@@ -190,15 +179,13 @@ public:
             }
             // The timeout counts from now, so that the work of the cycle does not delay
             // the wake.
-            const auto deadline = this->scheduler->next_deadline();
-            const auto elapsed = this->elapsed();
-            next_span = deadline.span;
             if (deadline.at == x::telem::TimeSpan::max())
-                next_timeout = x::telem::TimeSpan(0);
-            else if (deadline.at > elapsed)
-                next_timeout = deadline.at - elapsed;
+                timeout = x::telem::TimeSpan(0);
             else
-                next_timeout = x::telem::TimeSpan(1);
+                timeout = std::max(
+                    deadline.at - this->stopwatch.elapsed(),
+                    x::telem::TimeSpan(1)
+                );
         }
     }
 

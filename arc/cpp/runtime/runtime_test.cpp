@@ -618,22 +618,8 @@ TEST(RuntimeDeadlineTest, FutureDeadlinePassesItsSpan) {
 
     const auto spans = loop->get_spans();
     ASSERT_GE(spans.size(), 3);
-    for (size_t i = 1; i < spans.size(); i++)
-        EXPECT_EQ(spans[i], x::telem::SECOND * 3);
-}
-
-/// @brief The first cycle should run before the first wait, so the first wait already
-/// holds the deadline that the cycle set.
-TEST(RuntimeDeadlineTest, RunsTheFirstCycleBeforeTheFirstWait) {
-    auto [runtime, loop, node] = DeadlineRuntimeFixture::create(x::telem::SECOND * 10);
-    ASSERT_TRUE(runtime->start());
-    ASSERT_EVENTUALLY_GE(loop->wait_count.load(), 1);
-    ASSERT_TRUE(runtime->stop());
-
-    const auto timeouts = loop->get_max_timeouts();
-    ASSERT_GE(timeouts.size(), 1);
-    EXPECT_GT(timeouts[0], x::telem::TimeSpan(0));
-    EXPECT_LE(timeouts[0], x::telem::SECOND * 10);
+    for (const auto &s: spans)
+        EXPECT_EQ(s, x::telem::SECOND * 3);
 }
 
 /// @brief The timeout should count from the end of the cycle, so that the work of the
@@ -653,8 +639,9 @@ TEST(RuntimeDeadlineTest, TimeoutExcludesTheWorkOfTheCycle) {
     EXPECT_LE(timeouts[1], x::telem::SECOND * 10 - work);
 }
 
-/// @brief When a deadline is 10s in the future, runtime should pass a timeout close
-/// to 10s that decreases as elapsed time grows.
+/// @brief When a deadline is 10s in the future, runtime should pass a timeout close to
+/// 10s that decreases as elapsed time grows. The first cycle runs before the first
+/// wait, so the first wait already holds the deadline.
 TEST(RuntimeDeadlineTest, FutureDeadlinePassesDecreasingTimeout) {
     auto [runtime, loop, node] = DeadlineRuntimeFixture::create(x::telem::SECOND * 10);
     ASSERT_TRUE(runtime->start());
@@ -663,17 +650,14 @@ TEST(RuntimeDeadlineTest, FutureDeadlinePassesDecreasingTimeout) {
 
     const auto timeouts = loop->get_max_timeouts();
     ASSERT_GE(timeouts.size(), 3);
-    // First timeout after the initial cycle is close to 10s (minus small elapsed).
-    // Skip index 0 which is the initial 0-timeout seed.
+    EXPECT_LE(timeouts[0], x::telem::SECOND * 10);
     EXPECT_GT(timeouts[1], x::telem::SECOND * 9);
-    EXPECT_LE(timeouts[1], x::telem::SECOND * 10);
-    // Subsequent timeouts should be smaller as elapsed grows.
-    for (size_t i = 2; i < timeouts.size(); i++)
+    for (size_t i = 1; i < timeouts.size(); i++)
         EXPECT_LE(timeouts[i], timeouts[i - 1]);
 }
 
-/// @brief When the deadline is always in the past (1ns), runtime should pass 1ns
-/// on every cycle after the first.
+/// @brief When the deadline is always in the past (1ns), runtime should pass 1ns on
+/// every cycle.
 TEST(RuntimeDeadlineTest, PastDeadlinePassesMinimalTimeout) {
     auto [runtime, loop, node] = DeadlineRuntimeFixture::create(x::telem::TimeSpan(1));
     ASSERT_TRUE(runtime->start());
@@ -682,10 +666,8 @@ TEST(RuntimeDeadlineTest, PastDeadlinePassesMinimalTimeout) {
 
     const auto timeouts = loop->get_max_timeouts();
     ASSERT_GE(timeouts.size(), 3);
-    // After the initial seed cycle (index 0), every timeout should be 1ns
-    // because 1ns deadline is always < elapsed wall-clock time.
-    for (size_t i = 1; i < timeouts.size(); i++)
-        EXPECT_EQ(timeouts[i], x::telem::TimeSpan(1));
+    for (const auto &t: timeouts)
+        EXPECT_EQ(t, x::telem::TimeSpan(1));
 }
 
 TEST(MockLoopTest, WakeReasonIsConfigurable) {

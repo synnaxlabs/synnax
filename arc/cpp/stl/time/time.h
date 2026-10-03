@@ -27,9 +27,6 @@ namespace arc::stl::time {
 
 inline constexpr const char *MODULE_NAME = "time";
 
-/// @brief Sentinel value indicating shortest_span hasn't been set yet.
-inline const x::telem::TimeSpan UNSET_SHORTEST_SPAN = x::telem::TimeSpan::max();
-
 /// @brief returns the named input's current span: the referenced variable's
 /// latest value when var-bound, else the value stamped at compile time.
 inline x::telem::TimeSpan
@@ -56,7 +53,8 @@ class SpanGuard {
 
 public:
     /// @brief returns true when span can drive a deadline. A non-positive span
-    /// reports a warning naming label and returns false.
+    /// reports a warning naming label and returns false. The caller then parks without
+    /// a deadline until it runs again.
     bool usable(
         runtime::node::Context &ctx,
         const x::telem::TimeSpan span,
@@ -116,8 +114,6 @@ public:
 
     x::errors::Error next(runtime::node::Context &ctx) override {
         const auto period = live_span(this->state, "period");
-        // A non-positive period is a configuration error. Park without a deadline until
-        // the node runs again, such as when its stage is entered again.
         if (!this->guard.usable(ctx, period, "interval period")) return x::errors::NIL;
         // The first usable run puts the first fire at now, so the interval fires on its
         // first timer tick.
@@ -125,13 +121,9 @@ public:
             this->last_fired = ctx.cycle.elapsed - period;
             this->started = true;
         }
-        if (ctx.cycle.reason != runtime::node::RunReason::TimerTick) {
-            ctx.mark_self_changed();
-            ctx.set_deadline(this->last_fired + period, period);
-            return x::errors::NIL;
-        }
         // A timer never fires before its deadline. An early wake re-arms it.
-        if (ctx.cycle.elapsed - this->last_fired < period) {
+        if (ctx.cycle.reason != runtime::node::RunReason::TimerTick ||
+            ctx.cycle.elapsed - this->last_fired < period) {
             ctx.mark_self_changed();
             ctx.set_deadline(this->last_fired + period, period);
             return x::errors::NIL;
@@ -200,9 +192,6 @@ public:
     x::errors::Error next(runtime::node::Context &ctx) override {
         if (this->fired) return x::errors::NIL;
         const auto duration = live_span(this->state, "duration");
-        // A non-positive duration is a configuration error, not an instant fire. Park
-        // without a deadline until the node runs again, such as when its stage is
-        // entered again.
         if (!this->guard.usable(ctx, duration, "wait duration")) return x::errors::NIL;
         if (this->start_time.nanoseconds() < 0) this->start_time = ctx.cycle.elapsed;
         // A timer never fires before its deadline. An early wake re-arms it.
@@ -269,8 +258,8 @@ public:
 };
 
 class Module : public stl::Module {
-    /// @brief the shortest timer span of the program, or UNSET_SHORTEST_SPAN.
-    x::telem::TimeSpan shortest = UNSET_SHORTEST_SPAN;
+    /// @brief the shortest timer span of the program, or TimeSpan::max() if none.
+    x::telem::TimeSpan shortest = x::telem::TimeSpan::max();
     /// @brief the current cycle's stamp, set by the runtime loop before each
     /// pass. The `now` WASM binding is called from guest code, which has no node
     /// Context to read, so the value is pushed here instead.
@@ -282,7 +271,7 @@ public:
     void set_now(const x::telem::TimeStamp now) { this->now = now; }
 
     /// @brief returns the shortest literal interval or wait span seen during node
-    /// creation, or UNSET_SHORTEST_SPAN if there is none.
+    /// creation, or TimeSpan::max() if there is none.
     [[nodiscard]] x::telem::TimeSpan shortest_span() const { return this->shortest; }
 
     bool handles(const std::string &node_type) const override {
