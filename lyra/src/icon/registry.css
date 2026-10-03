@@ -79,6 +79,11 @@
     transform: translateY(1px) scale(1.25);
 }
 
+.pluto-icon--logo-mqtt {
+    --pluto-base-scale: 0.85;
+    transform: scale(var(--pluto-base-scale));
+}
+
 .pluto-icon--csv {
     transform: scale(1.25);
 }

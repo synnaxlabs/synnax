@@ -9,6 +9,7 @@
 
 import { HTTP } from "@/feature/http";
 import { Modbus } from "@/feature/modbus";
+import { MQTT } from "@/feature/mqtt";
 import { OPCUA } from "@/feature/opcua";
 import { type Command } from "@/platform/command";
 
@@ -22,5 +23,6 @@ export * from "@/platform/device/external";
 export const COMMANDS: Command.Command[] = [
   ...HTTP.Device.COMMANDS,
   ...Modbus.Device.COMMANDS,
+  ...MQTT.Device.COMMANDS,
   ...OPCUA.Device.COMMANDS,
 ];

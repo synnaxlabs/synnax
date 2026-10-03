@@ -30,7 +30,6 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 )
 
 // Type is the type identifier for Arc tasks.
@@ -123,26 +122,23 @@ func (f *factory) ConfigureTask(
 	}
 	var cfg Config
 	if err := t.Config.Unmarshal(&cfg); err != nil {
-		if cmdKey == driver.NoCommand {
-			f.cfg.L.Warn("failed to configure task",
-				zap.Stringer("task", t),
-				zap.Error(err),
-			)
-		} else {
-			f.setConfigStatus(ctx, t, cmdKey, status.VariantError, err.Error())
-		}
+		driver.ReportConfigError(
+			ctx, f.cfg.Instrumentation, f.cfg.DB, f.cfg.Status, t, cmdKey, false, err,
+		)
 		return nil, err
 	}
 	prog, err := f.cfg.GetProgram(ctx, cfg.ArcKey)
 	if err != nil {
-		if cmdKey == driver.NoCommand && !cfg.AutoStart {
-			f.cfg.L.Warn("failed to configure task",
-				zap.Stringer("task", t),
-				zap.Error(err),
-			)
-		} else {
-			f.setConfigStatus(ctx, t, cmdKey, status.VariantError, err.Error())
-		}
+		driver.ReportConfigError(
+			ctx,
+			f.cfg.Instrumentation,
+			f.cfg.DB,
+			f.cfg.Status,
+			t,
+			cmdKey,
+			cfg.AutoStart,
+			err,
+		)
 		return nil, err
 	}
 	arcTask := &impl{
@@ -162,33 +158,6 @@ func (f *factory) ConfigureTask(
 	return arcTask, nil
 }
 
-func (f *factory) setConfigStatus(
-	ctx context.Context,
-	t task.Task,
-	cmdKey string,
-	variant status.Variant,
-	message string,
-) {
-	details := task.NewStatusDetails(t, false)
-	details.Cmd = cmdKey
-	stat := task.Status{
-		Key:     t.OntologyID().String(),
-		Name:    t.Name,
-		Variant: variant,
-		Message: message,
-		Time:    telem.Now(),
-		Details: details,
-	}
-	if err := f.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		return f.cfg.Status.NewWriter(tx).Set(ctx, &stat)
-	}); err != nil {
-		f.cfg.L.Error(
-			"failed to set configuration status for task",
-			zap.Stringer("key", t.Key),
-			zap.String("name", t.Name),
-			zap.Error(err),
-		)
-	}
-}
+func (f *factory) InitialTasks() []task.Task { return nil }
 
 func (f *factory) Name() string { return "arc" }

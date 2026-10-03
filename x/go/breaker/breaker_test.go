@@ -54,6 +54,10 @@ var _ = Describe("Config", func() {
 				c.Clock = nil
 				return c
 			}, "clock: must be non-nil"),
+			Entry("max interval below base", func(c breaker.Config) breaker.Config {
+				c.MaxInterval = c.BaseInterval / 2
+				return c
+			}, "max_interval: must be zero or at least"),
 		)
 	})
 
@@ -185,5 +189,27 @@ var _ = Describe("Breaker", func() {
 			b.Reset()
 			wait(10 * time.Millisecond)
 		})
+	})
+
+	It("Should stop scaling the interval at the max interval", func(ctx SpecContext) {
+		clock := &xtime.Fake{}
+		b := MustSucceed(breaker.NewBreaker(ctx, breaker.Config{
+			BaseInterval: 10 * time.Millisecond,
+			Scale:        10,
+			MaxInterval:  20 * time.Millisecond,
+			MaxRetries:   10,
+			Clock:        clock,
+		}))
+		waited := make(chan bool, 4)
+		var wg sync.WaitGroup
+		wg.Go(func() {
+			for range 4 {
+				waited <- b.Wait()
+			}
+		})
+		for _, interval := range []time.Duration{10, 20, 20, 20} {
+			advanceTo(clock, waited, interval*time.Millisecond)
+		}
+		wg.Wait()
 	})
 })
