@@ -11,17 +11,13 @@ import { lineplot, query } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { LinePlot as Base } from "@synnaxlabs/pluto";
 
-import { LinePlot } from "@/feature/lineplot/LinePlot";
 import { Selectable } from "@/feature/lineplot/Selectable";
-import { Toolbar } from "@/feature/lineplot/toolbar";
 import { Panel } from "@/platform/panel";
 import { type Selector } from "@/platform/selector";
 
 export * from "@/feature/lineplot/commands";
-export * from "@/feature/lineplot/LinePlot";
 export * from "@/feature/lineplot/link";
 export * from "@/feature/lineplot/search";
-export * from "@/feature/lineplot/toolbar";
 export * from "@/feature/lineplot/tree";
 export * from "@/platform/lineplot/external";
 
@@ -30,15 +26,18 @@ const TAB_TYPE = lineplot.TYPE_ONTOLOGY_ID.type;
 export const SELECTABLES: Selector.Selectable[] = [Selectable];
 
 const TAB: Panel.Tab = {
-  Content: LinePlot,
-  Toolbar,
+  Content: Panel.lazyComponent(() => import("@/feature/lineplot/LinePlot"), "LinePlot"),
+  Toolbar: Panel.lazyComponent(() => import("@/feature/lineplot/toolbar"), "Toolbar"),
   Icon: Icon.LinePlot,
-  Name: Panel.createEditableTabName(Base, <Icon.LinePlot />),
+  Name: Panel.createEditableTabName(
+    { useEnsure: Base.useEnsure, useName: Base.useName, useRename: Base.useRename },
+    <Icon.LinePlot />,
+  ),
   restore: async ({ client, project, resource }) => {
     const corpse = query.requireCorpse(client.lineplots.getCached(resource.key));
     await client.lineplots.create(project, corpse);
   },
-  useTombstone: Panel.createTombstoneReader(Base),
+  useTombstone: Panel.createTombstoneReader({ useTombstone: Base.useTombstone }),
 };
 
 export const TABS: Panel.Tabs = {

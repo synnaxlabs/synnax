@@ -12,15 +12,12 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Table as Base } from "@synnaxlabs/pluto";
 
 import { Selectable } from "@/feature/table/Selectable";
-import { Table } from "@/feature/table/Table";
-import { Toolbar } from "@/feature/table/Toolbar";
 import { Panel } from "@/platform/panel";
 import { type Selector } from "@/platform/selector";
 
 export * from "@/feature/table/commands";
 export * from "@/feature/table/link";
 export * from "@/feature/table/search";
-export * from "@/feature/table/Toolbar";
 export * from "@/feature/table/tree";
 export * from "@/platform/table/external";
 
@@ -29,15 +26,18 @@ const TAB_TYPE = table.TYPE_ONTOLOGY_ID.type;
 export const SELECTABLES: Selector.Selectable[] = [Selectable];
 
 const TAB: Panel.Tab = {
-  Content: Table,
-  Toolbar,
+  Content: Panel.lazyComponent(() => import("@/feature/table/Table"), "Table"),
+  Toolbar: Panel.lazyComponent(() => import("@/feature/table/Toolbar"), "Toolbar"),
   Icon: Icon.Table,
-  Name: Panel.createEditableTabName(Base, <Icon.Table />),
+  Name: Panel.createEditableTabName(
+    { useEnsure: Base.useEnsure, useName: Base.useName, useRename: Base.useRename },
+    <Icon.Table />,
+  ),
   restore: async ({ client, project, resource }) => {
     const corpse = query.requireCorpse(client.tables.getCached(resource.key));
     await client.tables.create(project, corpse);
   },
-  useTombstone: Panel.createTombstoneReader(Base),
+  useTombstone: Panel.createTombstoneReader({ useTombstone: Base.useTombstone }),
 };
 
 export const TABS: Panel.Tabs = {

@@ -11,9 +11,7 @@ import { DisconnectedError, query, schematic } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Schematic as Base } from "@synnaxlabs/pluto";
 
-import { Schematic } from "@/feature/schematic/Schematic";
 import { Selectable } from "@/feature/schematic/Selectable";
-import { Toolbar } from "@/feature/schematic/toolbar/Toolbar";
 import { Panel } from "@/platform/panel";
 import { type Range } from "@/platform/range";
 import { type Selector } from "@/platform/selector";
@@ -22,7 +20,6 @@ export * from "@/feature/schematic/commands";
 export * from "@/feature/schematic/link";
 export * from "@/feature/schematic/search";
 export * from "@/feature/schematic/symbol";
-export * from "@/feature/schematic/toolbar/Toolbar";
 export * from "@/feature/schematic/tree";
 export * from "@/platform/schematic/external";
 
@@ -31,15 +28,24 @@ const TAB_TYPE = schematic.TYPE_ONTOLOGY_ID.type;
 export const SELECTABLES: Selector.Selectable[] = [Selectable];
 
 const TAB: Panel.Tab = {
-  Content: Schematic,
-  Toolbar,
+  Content: Panel.lazyComponent(
+    () => import("@/feature/schematic/Schematic"),
+    "Schematic",
+  ),
+  Toolbar: Panel.lazyComponent(
+    () => import("@/feature/schematic/toolbar/Toolbar"),
+    "Toolbar",
+  ),
   Icon: Icon.Schematic,
-  Name: Panel.createEditableTabName(Base, <Icon.Schematic />),
+  Name: Panel.createEditableTabName(
+    { useEnsure: Base.useEnsure, useName: Base.useName, useRename: Base.useRename },
+    <Icon.Schematic />,
+  ),
   restore: async ({ client, project, resource }) => {
     const corpse = query.requireCorpse(client.schematics.getCached(resource.key));
     await client.schematics.create(project, corpse);
   },
-  useTombstone: Panel.createTombstoneReader(Base),
+  useTombstone: Panel.createTombstoneReader({ useTombstone: Base.useTombstone }),
 };
 
 export const TABS: Panel.Tabs = {

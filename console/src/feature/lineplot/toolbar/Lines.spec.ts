@@ -11,12 +11,12 @@ import { type channel, DataType, lineplot } from "@synnaxlabs/client";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { LinePlot } from "@/feature/lineplot";
 import {
   client,
   createPreloadedState,
   renderLinePlot,
 } from "@/feature/lineplot/testutil";
+import { Toolbar } from "@/feature/lineplot/toolbar";
 import { findButton } from "@/platform/modals/testutil";
 import { Session } from "@/session";
 import { getIconButton, isPlutoDisabled, uniqueName } from "@/testutil";
@@ -38,7 +38,7 @@ const renderLinesTab = async () => {
     xChannel: 0,
     yChannel: ch.key,
   });
-  const handle = await renderLinePlot(LinePlot.Toolbar, {
+  const handle = await renderLinePlot(Toolbar, {
     linePlot: {
       name,
       channels: { y1: [ch.key] },
@@ -64,7 +64,7 @@ describe("lineplot download CSV with plotted lines", () => {
         xChannel: 0,
         yChannel: ch.key,
       });
-    const { result } = await renderLinePlot(LinePlot.Toolbar, {
+    const { result } = await renderLinePlot(Toolbar, {
       linePlot: {
         name,
         channels: { y1: [ch.key] },

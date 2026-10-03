@@ -11,23 +11,24 @@ import { arc, query } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Arc } from "@synnaxlabs/pluto";
 
-import { Editor } from "@/feature/arc/editor/Editor";
-import { Toolbar } from "@/feature/arc/editor/toolbar/Toolbar";
 import { Panel } from "@/platform/panel";
 
-export * from "@/feature/arc/editor/Editor";
-export * from "@/feature/arc/editor/toolbar/Toolbar";
-
 const TAB: Panel.Tab = {
-  Content: Editor,
-  Toolbar,
+  Content: Panel.lazyComponent(() => import("@/feature/arc/editor/Editor"), "Editor"),
+  Toolbar: Panel.lazyComponent(
+    () => import("@/feature/arc/editor/toolbar/Toolbar"),
+    "Toolbar",
+  ),
   Icon: Icon.Arc,
-  Name: Panel.createEditableTabName(Arc, <Icon.Arc />),
+  Name: Panel.createEditableTabName(
+    { useEnsure: Arc.useEnsure, useName: Arc.useName, useRename: Arc.useRename },
+    <Icon.Arc />,
+  ),
   restore: async ({ client, resource }) => {
     const corpse = query.requireCorpse(client.arcs.getCached(resource.key));
     await client.arcs.create(corpse);
   },
-  useTombstone: Panel.createTombstoneReader(Arc),
+  useTombstone: Panel.createTombstoneReader({ useTombstone: Arc.useTombstone }),
 };
 
 export const TABS: Panel.Tabs = {
