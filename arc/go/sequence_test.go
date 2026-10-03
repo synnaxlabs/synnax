@@ -372,6 +372,7 @@ var _ = Describe("Sequence", func() {
 			},
 		)
 
+
 		It(
 			"Advances past a nested sequence whose terminal step is an assignment",
 			func(ctx SpecContext) {
@@ -3960,13 +3961,11 @@ var _ = Describe("Sequence", func() {
 			},
 		)
 
-		// wait{} countdown restarts when its enclosing stage is re-entered
-		// via a => name transition from a sibling stage. Threshold math:
-		//   tolerance = MaxTolerance = 0.1ms
-		//   fire when = elapsed - startTime >= duration - tolerance = 499.9ms
-		// The probe enters a at 1ms, detours away, and re-enters a at 102ms. At 550ms a
-		// stale startTime (1ms) fires the wait, and a reset one (102ms) does not. A
-		// reset wait fires at 602ms.
+		// wait{} countdown restarts when its enclosing stage is re-entered via a =>
+		// name transition from a sibling stage. The wait fires when elapsed - startTime
+		// >= duration (500ms). The probe enters a at 1ms, detours away, and re-enters a
+		// at 102ms. At 550ms a stale startTime (1ms) fires the wait, and a reset one
+		// (102ms) does not. A reset wait fires at 602ms.
 		It(
 			"wait{} countdown restarts when its stage is re-entered",
 			func(ctx SpecContext) {
@@ -4058,8 +4057,7 @@ var _ = Describe("Sequence", func() {
 
 		// interval{} cadence restarts when its enclosing stage is re-entered.
 		// Threshold math:
-		//   tolerance = MaxTolerance = 0.1ms
-		//   fire when = elapsed - lastFired >= period - tolerance = 99.9ms
+		//   fire when = elapsed - lastFired >= period = 100ms
 		//   the first usable run anchors lastFired = elapsed - period, so it fires
 		//   immediately
 		// The probe fires interval once at elapsed=50ms (lastFired becomes
@@ -7223,9 +7221,7 @@ var _ = Describe("Sequence", func() {
 		)
 
 		// Threshold math for the interval beside the one-shot:
-		//   ShortestSpan = 50ms (only timer in the program)
-		//   tolerance    = min(ShortestSpan / 2, 0.1ms) = 0.1ms
-		//   fire when    = elapsed - lastFired >= period - tolerance = 49.9ms
+		//   fire when = elapsed - lastFired >= period = 50ms
 		//   the first usable run anchors the schedule, so activation fires immediately
 		// Fires land at ~1ms (activation), 60ms, 120ms, and 180ms; the 10ms tick
 		// is only 9ms past the last fire and stays below the threshold.
@@ -7271,9 +7267,7 @@ var _ = Describe("Sequence", func() {
 		)
 
 		// Threshold math for the wait:
-		//   ShortestSpan = 100ms (only timer in the program)
-		//   tolerance    = min(ShortestSpan / 2, 0.1ms) = 0.1ms
-		//   fire when    = elapsed - startTime >= duration - tolerance = 99.9ms
+		//   fire when = elapsed - startTime >= duration = 100ms
 		// startTime lands at ~1ms during activation, so 20ms is safely below the
 		// threshold and 160ms safely past it.
 		It(

@@ -133,8 +133,7 @@ func newRuntimeHarness(
 		nodes[irNode.Key] = n
 	}
 
-	tolerance := time.CalculateTolerance(timeMod.ShortestSpan)
-	h.scheduler = scheduler.New(prog.IR, nodes, tolerance)
+	h.scheduler = scheduler.New(prog.IR, nodes)
 	h.timeMod = timeMod
 
 	h.closers = append(h.closers, func(ctx context.Context) error {

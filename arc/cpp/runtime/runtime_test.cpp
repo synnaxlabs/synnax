@@ -58,11 +58,7 @@ create_lifecycle_runtime(std::unique_ptr<testutil::MockLoop> loop) {
     auto state = std::make_shared<state::State>(state_cfg);
 
     std::unordered_map<std::string, std::unique_ptr<node::Node>> node_impls;
-    auto scheduler = std::make_unique<scheduler::Scheduler>(
-        arc::ir::IR{},
-        node_impls,
-        x::telem::TimeSpan(0)
-    );
+    auto scheduler = std::make_unique<scheduler::Scheduler>(arc::ir::IR{}, node_impls);
 
     Config cfg{
         .program = {},
@@ -300,11 +296,7 @@ TEST(RuntimeLifecycleTest, LoopStartFailureCallsErrorHandler) {
     state::Config state_cfg{.ir = arc::ir::IR{}, .channels = {}};
     auto state = std::make_shared<state::State>(state_cfg);
     std::unordered_map<std::string, std::unique_ptr<node::Node>> node_impls;
-    auto scheduler = std::make_unique<scheduler::Scheduler>(
-        arc::ir::IR{},
-        node_impls,
-        x::telem::TimeSpan(0)
-    );
+    auto scheduler = std::make_unique<scheduler::Scheduler>(arc::ir::IR{}, node_impls);
 
     std::atomic<bool> error_called{false};
     x::errors::Error captured_error;
@@ -438,11 +430,7 @@ struct DeadlineRuntimeFixture {
         std::unordered_map<std::string, std::unique_ptr<node::Node>> node_impls;
         node_impls["deadline"] = std::move(deadline_node);
 
-        auto scheduler = std::make_unique<scheduler::Scheduler>(
-            prog,
-            node_impls,
-            x::telem::TimeSpan(0)
-        );
+        auto scheduler = std::make_unique<scheduler::Scheduler>(prog, node_impls);
 
         Config cfg{
             .program = {},
@@ -506,11 +494,7 @@ TEST(RuntimeClockTest, ResumesAboveReservedStamps) {
     );
     std::unordered_map<std::string, std::unique_ptr<node::Node>> node_impls;
     node_impls["reserve"] = std::move(reserve_node);
-    auto scheduler = std::make_unique<scheduler::Scheduler>(
-        prog,
-        node_impls,
-        x::telem::TimeSpan(0)
-    );
+    auto scheduler = std::make_unique<scheduler::Scheduler>(prog, node_impls);
     const auto start = x::telem::TimeStamp(10 * x::telem::SECOND);
     Config cfg{
         .program = {},

@@ -239,18 +239,13 @@ public:
     }
 
     std::unique_ptr<Scheduler> build(ir::IR ir) {
-        return std::make_unique<Scheduler>(
-            std::move(ir),
-            this->nodes,
-            x::telem::TimeSpan(0)
-        );
+        return std::make_unique<Scheduler>(std::move(ir), this->nodes);
     }
 
     std::unique_ptr<Scheduler> build_with_handler(ir::IR ir, errors::Handler handler) {
         return std::make_unique<Scheduler>(
             std::move(ir),
             this->nodes,
-            x::telem::TimeSpan(0),
             std::move(handler)
         );
     }

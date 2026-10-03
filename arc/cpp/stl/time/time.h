@@ -30,16 +30,6 @@ inline constexpr const char *MODULE_NAME = "time";
 /// @brief Sentinel value indicating shortest_span hasn't been set yet.
 inline const x::telem::TimeSpan UNSET_SHORTEST_SPAN = x::telem::TimeSpan::max();
 
-/// @brief the most a timer may fire before its deadline. The loop wakes on the earliest
-/// deadline, so a wider tolerance only fires a timer early on the wake of another.
-inline const x::telem::TimeSpan MAX_TOLERANCE = 100 * x::telem::MICROSECOND;
-
-/// @brief returns the timing tolerance for the given shortest span: half the span, and
-/// MAX_TOLERANCE at most.
-inline x::telem::TimeSpan calculate_tolerance(const x::telem::TimeSpan shortest_span) {
-    return std::min(shortest_span / 2, MAX_TOLERANCE);
-}
-
 /// @brief returns the named input's current span: the referenced variable's
 /// latest value when var-bound, else the value stamped at compile time.
 inline x::telem::TimeSpan
@@ -140,7 +130,8 @@ public:
             ctx.set_deadline(this->last_fired + period, period);
             return x::errors::NIL;
         }
-        if (ctx.cycle.elapsed - this->last_fired < period - ctx.tolerance) {
+        // A timer never fires before its deadline. An early wake re-arms it.
+        if (ctx.cycle.elapsed - this->last_fired < period) {
             ctx.mark_self_changed();
             ctx.set_deadline(this->last_fired + period, period);
             return x::errors::NIL;
@@ -215,8 +206,9 @@ public:
         // entered again.
         if (!this->guard.usable(ctx, duration, "wait duration")) return x::errors::NIL;
         if (this->start_time.nanoseconds() < 0) this->start_time = ctx.cycle.elapsed;
+        // A timer never fires before its deadline. An early wake re-arms it.
         if (ctx.cycle.reason != runtime::node::RunReason::TimerTick ||
-            ctx.cycle.elapsed - this->start_time < duration - ctx.tolerance) {
+            ctx.cycle.elapsed - this->start_time < duration) {
             ctx.mark_self_changed();
             ctx.set_deadline(this->start_time + duration, duration);
             return x::errors::NIL;
@@ -337,7 +329,7 @@ public:
 
 private:
     /// @brief folds the literal reassignment values of a var-bound timer param
-    /// into shortest_span, so tolerance tracks the fastest known period.
+    /// into shortest_span, so the loop mode tracks the fastest known period.
     void
     fold_reassigned_spans(const runtime::node::Config &cfg, const types::Param &p) {
         if (p.type.kind != types::Kind::VarRef) return;

@@ -44,8 +44,6 @@
 
 namespace arc::runtime::loop {
 namespace {
-/// @brief Most a wait may fire ahead of its deadline, as the time module allows.
-const auto MAX_TOLERANCE = 100 * x::telem::MICROSECOND;
 /// @brief Maximum median distance between a fire and its deadline on an idle machine.
 const auto MEDIAN_BOUND = x::telem::MILLISECOND;
 /// @brief Time a thread spins to find the longest stall the scheduler gives it.
@@ -196,8 +194,6 @@ std::int64_t measure_waits(
     const x::telem::TimeSpan duration
 ) {
     const auto count = wait_count(duration);
-    // The time module lets a timer fire early by half its span at most.
-    const auto tolerance = std::min(duration / 2, MAX_TOLERANCE);
     std::vector<std::int64_t> errors_ns;
     errors_ns.reserve(count);
     std::int64_t skew_ns = 0;
@@ -209,7 +205,7 @@ std::int64_t measure_waits(
         const auto stamp = x::telem::TimeStamp::now();
         const auto sw = x::telem::Stopwatch();
         auto elapsed = x::telem::TimeSpan(0);
-        while (elapsed < duration - tolerance) {
+        while (elapsed < duration) {
             loop.wait(breaker, duration - elapsed, duration);
             while (inputs.try_pop(input))
                 continue;

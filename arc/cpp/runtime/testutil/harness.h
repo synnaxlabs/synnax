@@ -158,12 +158,9 @@ public:
             nodes[ir_node.key] = std::move(n);
         }
 
-        const auto shortest_span = time_mod->shortest_span();
-        const auto tolerance = stl::time::calculate_tolerance(shortest_span);
         this->sched = std::make_unique<scheduler::Scheduler>(
             prog_ir,
             nodes,
-            tolerance,
             errors::noop_handler
         );
     }

@@ -352,13 +352,10 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
         if (err) return {nullptr, err};
         nodes[mod_node.key] = std::move(node);
     }
-    const auto shortest_span = time_module->shortest_span();
-    const auto loop_cfg = cfg.loop.apply_defaults(shortest_span);
-    const auto tolerance = stl::time::calculate_tolerance(shortest_span);
+    const auto loop_cfg = cfg.loop.apply_defaults(time_module->shortest_span());
     auto sched = std::make_unique<scheduler::Scheduler>(
         cfg.program,
         nodes,
-        tolerance,
         error_handler
     );
     auto loop = loop::create(loop_cfg, cfg.rt_handle);

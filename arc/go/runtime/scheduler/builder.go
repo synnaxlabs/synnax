@@ -12,7 +12,6 @@ package scheduler
 import (
 	"github.com/synnaxlabs/arc/ir"
 	rnode "github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/x/telem"
 )
 
 // builder assembles a Scheduler from a compiled IR. It owns every piece of
@@ -42,10 +41,9 @@ type builder struct {
 }
 
 // New creates a scheduler from a compiled IR and a set of runtime node
-// instances keyed by ir.Node.Key. tolerance controls how early timer-based
-// nodes may fire relative to their deadline.
-func New(prog ir.IR, nodes map[string]rnode.Node, tolerance telem.TimeSpan) *Scheduler {
-	return newBuilder(prog, nodes).build(prog, tolerance)
+// instances keyed by ir.Node.Key.
+func New(prog ir.IR, nodes map[string]rnode.Node) *Scheduler {
+	return newBuilder(prog, nodes).build(prog)
 }
 
 func newBuilder(prog ir.IR, runtimeNodes map[string]rnode.Node) *builder {
@@ -81,7 +79,7 @@ func newBuilder(prog ir.IR, runtimeNodes map[string]rnode.Node) *builder {
 // build wires edges, materializes the scope tree, and returns a fully
 // initialized Scheduler with its root scope activated and its node-context
 // callbacks bound. The receiver is no longer needed after this call.
-func (b *builder) build(prog ir.IR, tolerance telem.TimeSpan) *Scheduler {
+func (b *builder) build(prog ir.IR) *Scheduler {
 	for _, edge := range prog.Edges {
 		src, ok := b.nodes[edge.Source.Node]
 		if !ok {
@@ -105,7 +103,6 @@ func (b *builder) build(prog ir.IR, tolerance telem.TimeSpan) *Scheduler {
 		selfChangedFlags: make([]uint8, len(prog.Nodes)),
 		firedFlags:       make([]uint8, len(prog.Nodes)),
 		visitedFlags:     make([]uint8, len(prog.Nodes)),
-		tolerance:        tolerance,
 	}
 	// Build the scope state tree rooted at prog.Root. buildScopeState
 	// captures activation sources and assigns a dense index to every

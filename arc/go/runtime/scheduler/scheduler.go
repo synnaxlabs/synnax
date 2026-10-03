@@ -149,9 +149,6 @@ type Scheduler struct {
 	// settled is cleared when a change lands on a node that already ran
 	// this pass; Next keeps running settle passes until it stays true.
 	settled bool
-	// tolerance is how early a timer-based node may fire relative to its
-	// deadline.
-	tolerance telem.TimeSpan
 	// nextDeadline is the earliest deadline reported by any node during
 	// the previous Next; reset to TimeSpanMax at the start of each cycle.
 	nextDeadline telem.TimeSpan
@@ -194,7 +191,6 @@ func (s *Scheduler) Next(ctx context.Context, cycle rnode.Cycle) telem.TimeStamp
 	s.cycleNow, s.nextStamp = cycle.Now, cycle.Now
 	s.nodeCtx.Context = ctx
 	s.nodeCtx.Cycle = cycle
-	s.nodeCtx.Tolerance = s.tolerance
 	// Re-pass until no change lands on an already-run node, bounded against cycles.
 	for range len(s.changedFlags) + 1 {
 		s.settled = true

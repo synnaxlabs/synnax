@@ -59,8 +59,6 @@ const auto BREAKER_STOP_LATENCY = 10 * x::telem::MILLISECOND;
 const auto EVENT_DRIVEN_BOUND = 150 * x::telem::MILLISECOND;
 /// @brief Wait duration of the deadline spec.
 const auto DEADLINE_DURATION = 10 * x::telem::MILLISECOND;
-/// @brief Earliest a wait may fire ahead of its deadline.
-const auto FIRE_TOLERANCE = 100 * x::telem::MICROSECOND;
 /// @brief Maximum median distance between a fire and its deadline.
 const auto FIRE_ERROR_BOUND = x::telem::MILLISECOND;
 /// @brief Maximum median distance between a fire and a deadline under 10 ms.
@@ -991,7 +989,7 @@ TEST(MaxTimeoutTest, Hybrid_MaxTimeoutConstrainsBlockPhase) {
 
 /// @brief How far past its deadline one wait fires, and how many waits it took.
 struct Fire {
-    /// @brief how far past the deadline the last wait returned. Negative is early.
+    /// @brief how far past the deadline the last wait returned.
     x::telem::TimeSpan error;
     /// @brief how many waits returned before the deadline passed.
     int waits = 0;
@@ -1003,7 +1001,7 @@ Fire measure_fire(Loop &loop, x::breaker::Breaker &breaker) {
     const auto sw = x::telem::Stopwatch();
     auto elapsed = x::telem::TimeSpan(0);
     Fire fire;
-    while (elapsed < duration - test_timing::FIRE_TOLERANCE) {
+    while (elapsed < duration) {
         loop.wait(breaker, duration - elapsed);
         fire.waits++;
         elapsed = sw.elapsed();
@@ -1063,9 +1061,25 @@ TEST(DeadlineTest, HighRate_FiresOnDeadline) {
         waits.push_back(fire.waits);
     }
     breaker.stop();
-    EXPECT_GE(*std::min_element(errors.begin(), errors.end()), x::telem::TimeSpan(0));
     EXPECT_LE(median_of(errors), test_timing::SPIN_FIRE_ERROR_BOUND);
     EXPECT_EQ(median_of(waits), 1);
+}
+
+/// @brief HIGH_RATE should fire a 10 ms wait on its deadline with a 100 us interval.
+TEST(DeadlineTest, HighRate_ShortIntervalFiresOnDeadline) {
+    constexpr int COUNT = 50;
+    Config config;
+    config.mode = ExecutionMode::HIGH_RATE;
+    config.interval = timing::HIGH_RATE_POLL_INTERVAL;
+    const auto loop = ASSERT_NIL_P(create_and_start(config));
+    x::breaker::Breaker breaker;
+    breaker.start();
+
+    std::vector<x::telem::TimeSpan> errors;
+    for (int i = 0; i < COUNT; i++)
+        errors.push_back(measure_fire(*loop, breaker).error);
+    breaker.stop();
+    EXPECT_LE(median_of(errors), test_timing::SPIN_FIRE_ERROR_BOUND);
 }
 
 /// @brief A loop in the mode of the parameter.
@@ -1138,7 +1152,7 @@ TEST(StaleDeadlineTest, PendingDeadlineDoesNotWakeASpinningWait) {
     const auto deadline = 4 * test_timing::STALE_DEADLINE;
     const auto sw = x::telem::Stopwatch();
     loop->wait(breaker, deadline, x::telem::MILLISECOND);
-    EXPECT_GE(sw.elapsed(), deadline - test_timing::FIRE_TOLERANCE);
+    EXPECT_GE(sw.elapsed(), deadline);
     breaker.stop();
 }
 
@@ -1173,7 +1187,7 @@ TEST_P(IntervalTest, WaitWakesOnTheDeadlineNotTheInterval) {
     const auto deadline = 5 * this->INTERVAL;
     const auto sw = x::telem::Stopwatch();
     this->loop->wait(this->breaker, deadline);
-    EXPECT_GE(sw.elapsed(), deadline - test_timing::FIRE_TOLERANCE);
+    EXPECT_GE(sw.elapsed(), deadline);
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -1480,12 +1494,8 @@ protected:
     /// @param waits receives how many waits did not end on an input.
     x::telem::TimeSpan
     fire_error(const x::telem::Stopwatch &sw, int &inputs, int &waits) {
-        const auto tolerance = std::min(
-            this->duration / 2,
-            test_timing::FIRE_TOLERANCE
-        );
         auto elapsed = sw.elapsed();
-        while (elapsed < this->duration - tolerance) {
+        while (elapsed < this->duration) {
             const auto reason = this->loop->wait(
                 this->breaker,
                 this->duration - elapsed,

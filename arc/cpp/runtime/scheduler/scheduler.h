@@ -176,8 +176,6 @@ class Scheduler {
     /// @brief settled is cleared when a change lands on a node that already
     /// ran this pass; next keeps running settle passes until it stays true.
     bool settled = true;
-    /// @brief how early a timer-based node may fire relative to its deadline.
-    x::telem::TimeSpan tolerance;
     /// @brief receives errors raised by nodes via ctx.report_error.
     errors::Handler error_handler;
     /// @brief node::Context passed to every node's next; rebound per cycle
@@ -202,7 +200,6 @@ public:
     Scheduler(
         ir::IR prog,
         std::unordered_map<std::string, std::unique_ptr<node::Node>> &node_impls,
-        x::telem::TimeSpan tolerance,
         errors::Handler error_handler = errors::noop_handler
     );
 
@@ -240,7 +237,6 @@ public:
         this->cycle_now = cycle.now;
         this->next_stamp = cycle.now;
         this->ctx.cycle = cycle;
-        this->ctx.tolerance = this->tolerance;
 
         // Re-pass until no change lands on an already-run node, bounded
         // against cycles.
@@ -780,12 +776,9 @@ private:
 inline Scheduler::Scheduler(
     ir::IR prog,
     std::unordered_map<std::string, std::unique_ptr<node::Node>> &node_impls,
-    const x::telem::TimeSpan tolerance,
     errors::Handler error_handler
 ):
-    tolerance(tolerance),
-    error_handler(std::move(error_handler)),
-    prog(std::move(prog)) {
+    error_handler(std::move(error_handler)), prog(std::move(prog)) {
     this->ctx.mark_changed = std::bind_front(&Scheduler::mark_changed, this);
     this->ctx.mark_self_changed = std::bind_front(&Scheduler::mark_self_changed, this);
     this->ctx.set_deadline =

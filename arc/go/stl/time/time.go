@@ -37,14 +37,6 @@ const (
 	name               = "time"
 )
 
-// MaxTolerance is the most a timer may fire before its deadline. The loop wakes on the
-// earliest deadline, so a wider tolerance only fires a timer early on the wake of
-// another.
-const MaxTolerance = 100 * telem.Microsecond
-
-// unsetShortestSpan is the sentinel value indicating ShortestSpan hasn't been set yet.
-const unsetShortestSpan = telem.TimeSpanMax
-
 var (
 	intervalDoc = doc.New(
 		doc.Paragraph("Fires repeatedly at a specified period."),
@@ -165,9 +157,6 @@ func rejectNonPositiveSpan(param string) symbol.ArgumentsHook {
 // the `now` WASM host function and acts as the node factory for interval
 // and wait.
 type Host struct {
-	// ShortestSpan is the shortest known timer period, declared and literal
-	// reassignments. Its only use is deriving the timing tolerance.
-	ShortestSpan telem.TimeSpan
 	// now is the current cycle's stamp, set by the runtime loop before each pass.
 	// The `now` WASM binding is called from guest code, which has no node Context
 	// to read, so the value is pushed here instead.
@@ -181,7 +170,7 @@ func (h *Host) SetNow(now telem.TimeStamp) { h.now = now }
 // NewHost registers the time module's `now` WASM host binding with rt and
 // returns a Host handle that acts as the node factory for interval / wait.
 func NewHost(ctx context.Context, rt wazero.Runtime) (*Host, error) {
-	h := &Host{ShortestSpan: unsetShortestSpan}
+	h := &Host{}
 	if rt == nil {
 		return h, nil
 	}
@@ -210,8 +199,6 @@ func (h *Host) Create(cfg node.Config) (node.Node, error) {
 		if err = validateStaticSpan(period, periodParam); err != nil {
 			return nil, err
 		}
-		h.updateShortestSpan(period)
-		h.foldReassignedSpans(cfg, periodParam)
 		return &Interval{State: cfg.State}, nil
 
 	case waitSymbolName:
@@ -226,8 +213,6 @@ func (h *Host) Create(cfg node.Config) (node.Node, error) {
 		if err = validateStaticSpan(duration, durationParam); err != nil {
 			return nil, err
 		}
-		h.updateShortestSpan(duration)
-		h.foldReassignedSpans(cfg, durationParam)
 		return &Wait{
 			State:     cfg.State,
 			startTime: -1,
@@ -240,44 +225,6 @@ func (h *Host) Create(cfg node.Config) (node.Node, error) {
 	default:
 		return nil, query.ErrNotFound
 	}
-}
-
-// CalculateTolerance returns the timing tolerance for the given shortest span: half the
-// span, and MaxTolerance at most.
-func CalculateTolerance(shortestSpan telem.TimeSpan) telem.TimeSpan {
-	return min(shortestSpan/2, MaxTolerance)
-}
-
-// foldReassignedSpans folds the literal reassignment values of a var-bound
-// timer param into ShortestSpan, so tolerance tracks the fastest known period.
-func (h *Host) foldReassignedSpans(cfg node.Config, p types.Param) {
-	if p.Type.Kind != types.KindVarRef {
-		return
-	}
-	for _, e := range cfg.Program.Edges {
-		if e.Target.Node != p.Type.Name {
-			continue
-		}
-		src, ok := cfg.Program.Nodes.Find(e.Source.Node)
-		if !ok || src.Type != "constant" {
-			continue
-		}
-		v, ok := src.Inputs.Get("value")
-		if !ok || v.Value == nil {
-			continue
-		}
-		if span, err := parseTime(v.Value, v.Name); err == nil {
-			h.updateShortestSpan(span)
-		}
-	}
-}
-
-func (h *Host) updateShortestSpan(span telem.TimeSpan) {
-	// A non-positive span parks its timer, so it is not a period.
-	if span <= 0 {
-		return
-	}
-	h.ShortestSpan = min(h.ShortestSpan, span)
 }
 
 // validateStaticSpan rejects a non-positive span stamped at compile time. Var-bound
@@ -366,7 +313,8 @@ func (i *Interval) Next(ctx node.Context) {
 		ctx.SetDeadline(i.lastFired + period)
 		return
 	}
-	if ctx.Elapsed-i.lastFired < period-ctx.Tolerance {
+	// A timer never fires before its deadline. An early wake re-arms it.
+	if ctx.Elapsed-i.lastFired < period {
 		ctx.MarkSelfChanged()
 		ctx.SetDeadline(i.lastFired + period)
 		return
@@ -419,8 +367,9 @@ func (w *Wait) Next(ctx node.Context) {
 	if w.startTime < 0 {
 		w.startTime = ctx.Elapsed
 	}
+	// A timer never fires before its deadline. An early wake re-arms it.
 	if ctx.Reason != node.ReasonTimerTick ||
-		ctx.Elapsed-w.startTime < duration-ctx.Tolerance {
+		ctx.Elapsed-w.startTime < duration {
 		ctx.MarkSelfChanged()
 		ctx.SetDeadline(w.startTime + duration)
 		return

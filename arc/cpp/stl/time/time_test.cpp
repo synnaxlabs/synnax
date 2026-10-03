@@ -24,12 +24,10 @@
 namespace arc::stl::time {
 runtime::node::Context make_context(
     const x::telem::TimeSpan elapsed,
-    const x::telem::TimeSpan tolerance = x::telem::TimeSpan(0),
     const runtime::node::RunReason reason = runtime::node::RunReason::TimerTick
 ) {
     return runtime::node::Context{
         .cycle = {.elapsed = elapsed, .reason = reason},
-        .tolerance = tolerance,
         .mark_changed = [](size_t) {},
         .mark_self_changed = [] {},
         .set_deadline = [](x::telem::TimeSpan, x::telem::TimeSpan) {},
@@ -430,7 +428,6 @@ TEST(IntervalTest, OnlyFiresOnTimerTick) {
     bool changed_called = false;
     runtime::node::Context ctx;
     ctx.cycle.elapsed = x::telem::SECOND;
-    ctx.tolerance = x::telem::TimeSpan(0);
     ctx.mark_changed = [&changed_called](size_t) { changed_called = true; };
     ctx.mark_self_changed = [] {};
     ctx.set_deadline = [](x::telem::TimeSpan, x::telem::TimeSpan) {};
@@ -584,7 +581,6 @@ TEST(WaitTest, OnlyFiresOnTimerTick) {
     bool changed_called = false;
     runtime::node::Context ctx;
     ctx.cycle.elapsed = x::telem::TimeSpan(0);
-    ctx.tolerance = x::telem::TimeSpan(0);
     ctx.mark_changed = [&changed_called](size_t) { changed_called = true; };
     ctx.mark_self_changed = [] {};
     ctx.set_deadline = [](x::telem::TimeSpan, x::telem::TimeSpan) {};
@@ -636,7 +632,6 @@ TEST(WaitTest, StartsTimingFromChannelInputThatActivatesStage) {
 
     auto ctx1 = make_context(
         x::telem::SECOND * 5,
-        x::telem::TimeSpan(0),
         runtime::node::RunReason::ChannelInput
     );
     node.next(ctx1);
@@ -673,7 +668,6 @@ TEST(WaitTest, StartsTimingFromChannelInputAfterReset) {
 
     auto ctx3 = make_context(
         x::telem::SECOND * 2,
-        x::telem::TimeSpan(0),
         runtime::node::RunReason::ChannelInput
     );
     node.next(ctx3);
@@ -741,7 +735,6 @@ TEST(WaitTest, CallsMarkSelfChangedOnChannelInputToSurvive) {
     self_changed_calls = 0;
     auto ctx2 = make_context(
         x::telem::MILLISECOND * 200,
-        x::telem::TimeSpan(0),
         runtime::node::RunReason::ChannelInput
     );
     ctx2.mark_self_changed = [&]() { self_changed_calls++; };
@@ -872,8 +865,8 @@ TEST(WaitTest, ParksAndReportsOnceOnNonPositiveDuration) {
     EXPECT_EQ(reported[0].data, "wait duration must be positive, got 0ns");
 }
 
-/// @brief Test that Interval fires within tolerance.
-TEST(IntervalToleranceTest, FiresWithinTolerance) {
+/// @brief An interval should fire on its deadline and not one nanosecond before it.
+TEST(IntervalTest, FiresOnItsDeadlineAndNotBefore) {
     TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
     Interval node(setup.make_node());
 
@@ -884,148 +877,47 @@ TEST(IntervalToleranceTest, FiresWithinTolerance) {
     const auto &output = checker.output(0);
     output->resize(0);
 
-    auto ctx2 = make_context(
-        x::telem::SECOND * 2 - x::telem::MILLISECOND * 5,
-        50 * x::telem::MILLISECOND
-    );
-    ASSERT_NIL(node.next(ctx2));
-    EXPECT_EQ(output->size(), 1);
-}
-
-/// @brief Test that Interval does not fire too early even with tolerance.
-TEST(IntervalToleranceTest, DoesNotFireTooEarly) {
-    TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
-    Interval node(setup.make_node());
-
-    auto ctx1 = make_context(x::telem::TimeSpan(0));
-    ASSERT_NIL(node.next(ctx1));
-
-    auto checker = setup.make_node();
-    const auto &output = checker.output(0);
-    output->resize(0);
-
-    auto ctx2 = make_context(x::telem::MILLISECOND * 900, 50 * x::telem::MILLISECOND);
-    ASSERT_NIL(node.next(ctx2));
-    EXPECT_EQ(output->size(), 0);
-}
-
-/// @brief Test that Wait fires within tolerance.
-TEST(WaitToleranceTest, FiresWithinTolerance) {
-    TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
-    Wait node(setup.make_node());
-
-    auto ctx1 = make_context(x::telem::TimeSpan(0));
-    ASSERT_NIL(node.next(ctx1));
-
-    auto checker = setup.make_node();
-    const auto &output = checker.output(0);
-    EXPECT_EQ(output->size(), 0);
-
-    auto ctx2 = make_context(
-        x::telem::SECOND - x::telem::MILLISECOND * 5,
-        50 * x::telem::MILLISECOND
-    );
-    ASSERT_NIL(node.next(ctx2));
-    EXPECT_EQ(output->size(), 1);
-}
-
-/// @brief Test that Wait does not fire too early even with tolerance.
-TEST(WaitToleranceTest, DoesNotFireTooEarly) {
-    TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
-    Wait node(setup.make_node());
-
-    auto ctx1 = make_context(x::telem::TimeSpan(0));
-    ASSERT_NIL(node.next(ctx1));
-
-    auto checker = setup.make_node();
-    const auto &output = checker.output(0);
-    EXPECT_EQ(output->size(), 0);
-
-    auto ctx2 = make_context(x::telem::MILLISECOND * 900, 50 * x::telem::MILLISECOND);
-    ASSERT_NIL(node.next(ctx2));
-    EXPECT_EQ(output->size(), 0);
-}
-
-/// @brief Test that Interval fires correctly with zero tolerance (original behavior).
-TEST(IntervalToleranceTest, ZeroToleranceRequiresExactTime) {
-    TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
-    Interval node(setup.make_node());
-
-    auto ctx1 = make_context(x::telem::TimeSpan(0));
-    ASSERT_NIL(node.next(ctx1));
-
-    auto checker = setup.make_node();
-    const auto &output = checker.output(0);
-    output->resize(0);
-
-    auto ctx2 = make_context(
-        x::telem::SECOND - x::telem::NANOSECOND,
-        x::telem::TimeSpan(0)
-    );
+    auto ctx2 = make_context(x::telem::SECOND - x::telem::NANOSECOND);
     ASSERT_NIL(node.next(ctx2));
     EXPECT_EQ(output->size(), 0);
 
-    auto ctx3 = make_context(x::telem::SECOND, x::telem::TimeSpan(0));
+    auto ctx3 = make_context(x::telem::SECOND);
     ASSERT_NIL(node.next(ctx3));
     EXPECT_EQ(output->size(), 1);
 }
 
-/// @brief Test that Wait fires correctly with zero tolerance (original behavior).
-TEST(WaitToleranceTest, ZeroToleranceRequiresExactTime) {
+/// @brief A wait should fire on its deadline and not one nanosecond before it.
+TEST(WaitTest, FiresOnItsDeadlineAndNotBefore) {
     TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
     Wait node(setup.make_node());
 
-    auto ctx1 = make_context(x::telem::TimeSpan(0), x::telem::TimeSpan(0));
+    auto ctx1 = make_context(x::telem::TimeSpan(0));
     ASSERT_NIL(node.next(ctx1));
 
     auto checker = setup.make_node();
     const auto &output = checker.output(0);
     EXPECT_EQ(output->size(), 0);
 
-    auto ctx2 = make_context(
-        x::telem::SECOND - x::telem::NANOSECOND,
-        x::telem::TimeSpan(0)
-    );
+    auto ctx2 = make_context(x::telem::SECOND - x::telem::NANOSECOND);
     ASSERT_NIL(node.next(ctx2));
     EXPECT_EQ(output->size(), 0);
 
-    auto ctx3 = make_context(x::telem::SECOND, x::telem::TimeSpan(0));
+    auto ctx3 = make_context(x::telem::SECOND);
     ASSERT_NIL(node.next(ctx3));
     EXPECT_EQ(output->size(), 1);
 }
 
-/// @brief calculate_tolerance should return MAX_TOLERANCE for a long shortest span.
-TEST(CalculateToleranceTest, ReturnsMaxToleranceForALongSpan) {
-    EXPECT_EQ(calculate_tolerance(100 * x::telem::MILLISECOND), MAX_TOLERANCE);
-}
-
-/// @brief calculate_tolerance should return half of a shortest span under twice
-/// MAX_TOLERANCE.
-TEST(CalculateToleranceTest, ReturnsHalfOfAShortSpan) {
-    EXPECT_EQ(
-        calculate_tolerance(100 * x::telem::MICROSECOND),
-        50 * x::telem::MICROSECOND
-    );
-}
-
-/// @brief calculate_tolerance should return MAX_TOLERANCE for an unset shortest span.
-TEST(CalculateToleranceTest, ReturnsMaxToleranceForAnUnsetSpan) {
-    EXPECT_EQ(calculate_tolerance(UNSET_SHORTEST_SPAN), MAX_TOLERANCE);
-}
-
-/// @brief A wait should not fire on the wake of another timer more than MAX_TOLERANCE
-/// before its deadline.
-TEST(WaitToleranceTest, DoesNotFireEarlyOnTheWakeOfAnotherTimer) {
+/// @brief A wait should not fire on the wake of another timer before its deadline.
+TEST(WaitTest, DoesNotFireOnTheWakeOfAnEarlierTimer) {
     TestSetup setup("wait", "duration", (20500 * x::telem::MICROSECOND).nanoseconds());
     Wait node(setup.make_node());
-    const auto tolerance = calculate_tolerance(10 * x::telem::MILLISECOND);
 
-    auto start = make_context(x::telem::TimeSpan(0), tolerance);
+    auto start = make_context(x::telem::TimeSpan(0));
     ASSERT_NIL(node.next(start));
     auto checker = setup.make_node();
     const auto &output = checker.output(0);
 
-    auto other_wake = make_context(20 * x::telem::MILLISECOND, tolerance);
+    auto other_wake = make_context(20 * x::telem::MILLISECOND);
     ASSERT_NIL(node.next(other_wake));
     EXPECT_EQ(output->size(), 0);
 }
@@ -1053,7 +945,6 @@ TEST(IntervalDeadlineTest, SetsDeadlineOnNonTimerTick) {
     x::telem::TimeSpan reported_deadline(-1);
     auto ctx2 = make_context(
         x::telem::MILLISECOND * 500,
-        x::telem::TimeSpan(0),
         runtime::node::RunReason::ChannelInput
     );
     ctx2.set_deadline = [&](x::telem::TimeSpan d, x::telem::TimeSpan) {
@@ -1099,7 +990,6 @@ TEST(WaitDeadlineTest, SetsDeadlineOnChannelInput) {
     x::telem::TimeSpan reported_deadline(-1);
     auto ctx = make_context(
         x::telem::SECOND * 2,
-        x::telem::TimeSpan(0),
         runtime::node::RunReason::ChannelInput
     );
     ctx.set_deadline = [&](x::telem::TimeSpan d, x::telem::TimeSpan) {
@@ -1232,7 +1122,6 @@ TEST(NowTest, FiresOnChannelInput) {
     bool changed = false;
     auto ctx = make_context(
         x::telem::TimeSpan(0),
-        x::telem::TimeSpan(0),
         runtime::node::RunReason::ChannelInput
     );
     ctx.mark_changed = [&](size_t) { changed = true; };
@@ -1351,7 +1240,7 @@ public:
         const runtime::node::RunReason reason
     ) const {
         TickResult r;
-        auto ctx = make_context(elapsed, x::telem::TimeSpan(0), reason);
+        auto ctx = make_context(elapsed, reason);
         ctx.mark_changed = [&r](size_t) { r.fired = true; };
         ctx.set_deadline =
             [&r](const x::telem::TimeSpan d, const x::telem::TimeSpan s) {
