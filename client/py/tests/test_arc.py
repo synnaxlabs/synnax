@@ -253,3 +253,21 @@ class TestArcTask:
         arc_task = sy.arc.Task(internal=retrieved)
         assert arc_task.config.arc_key == str(arc.key)
         assert arc_task.config.auto_start is False
+
+    def test_performance_defaults_to_auto(self):
+        """Should default the performance level to auto."""
+        task = sy.arc.Task(name="Test", arc_key=uuid4())
+        assert task.to_payload().config["performance"] == "auto"
+
+    def test_keep_performance_through_retrieve(self, client: sy.Synnax):
+        """Should keep the performance level when a retrieved task is saved."""
+        arc = client.arcs.create(name=f"test-arc-task-perf-{uuid4()}", mode="text")
+        task = sy.arc.Task(
+            name=f"Test Arc Task {uuid4()}", arc_key=arc.key, performance="high"
+        )
+        created = client.tasks.create(
+            name=task.name, type="arc", config=task.to_payload().config
+        )
+        retrieved = sy.arc.Task(internal=client.tasks.retrieve(key=created.key))
+        assert retrieved.config.performance == "high"
+        assert retrieved.to_payload().config["performance"] == "high"
