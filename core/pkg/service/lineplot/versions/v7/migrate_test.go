@@ -102,21 +102,21 @@ var _ = Describe("MigrateLinePlot", func() {
 		Entry("rolling30d", "rolling30d", 30*telem.Day),
 	)
 
-	It("Should keep the first rolling key and drop the rest with their lines",
+	It("Should keep the widest rolling key and drop the rest with their lines",
 		func(ctx SpecContext) {
 			out := migrateLinePlot(ctx, v6.LinePlot{
-				Ranges: v6.Ranges{X1: []string{"rolling5m", "recent", "rolling1h"}},
-				Lines: linesOf(
-					"y1---x1---rolling5m---1---2",
-					"y1---x1---recent---1---2",
-					"y1---x1---rolling1h---1---2",
-				),
+				Ranges: v6.Ranges{X1: []string{"rolling5m", "rolling1h", "recent"}},
+				Lines: []v6.Line{
+					{Key: "y1---x1---rolling5m---1---2", StrokeWidth: 1},
+					{Key: "y1---x1---rolling1h---1---2", StrokeWidth: 2},
+					{Key: "y1---x1---recent---1---2", StrokeWidth: 3},
+				},
 			})
-			Expect(out.Ranges.X1.Rolling).To(Equal(new(5 * telem.Minute)))
+			Expect(out.Ranges.X1.Rolling).To(Equal(new(telem.Hour)))
 			Expect(out.Ranges.X1.Ranges).To(BeEmpty())
-			Expect(
-				lineKeysOf(out.Lines),
-			).To(Equal([]string{"y1---x1---rolling---1---2"}))
+			Expect(out.Lines).To(Equal([]v7.Line{
+				{Key: "y1---x1---rolling---1---2", StrokeWidth: 2},
+			}))
 		})
 
 	It("Should lift a dynamic custom window to the rolling window",
@@ -134,7 +134,7 @@ var _ = Describe("MigrateLinePlot", func() {
 			Expect(out.Lines).To(Equal(linesOf("y1---x1---rolling---1---2")))
 		})
 
-	It("Should drop a dynamic custom window when a built-in key came first",
+	It("Should keep a dynamic custom window wider than a built-in key",
 		func(ctx SpecContext) {
 			out := migrateLinePlot(ctx, v6.LinePlot{
 				Ranges: v6.Ranges{
@@ -143,15 +143,35 @@ var _ = Describe("MigrateLinePlot", func() {
 						Variant: v6.DynamicCustomRange{Span: 45 * telem.Minute},
 					},
 				},
-				Lines: linesOf(
-					"y1---x1---rolling1m---1---2",
-					"y1---x1---custom---1---2",
-				),
+				Lines: []v6.Line{
+					{Key: "y1---x1---rolling1m---1---2", StrokeWidth: 1},
+					{Key: "y1---x1---custom---1---2", StrokeWidth: 2},
+				},
 			})
-			Expect(out.Ranges.X1.Rolling).To(Equal(new(telem.Minute)))
-			Expect(
-				lineKeysOf(out.Lines),
-			).To(Equal([]string{"y1---x1---rolling---1---2"}))
+			Expect(out.Ranges.X1.Rolling).To(Equal(new(45 * telem.Minute)))
+			Expect(out.Lines).To(Equal([]v7.Line{
+				{Key: "y1---x1---rolling---1---2", StrokeWidth: 2},
+			}))
+		})
+
+	It("Should drop a dynamic custom window narrower than a built-in key",
+		func(ctx SpecContext) {
+			out := migrateLinePlot(ctx, v6.LinePlot{
+				Ranges: v6.Ranges{
+					X1: []string{"custom", "rolling1h"},
+					Custom: &v6.CustomRange{
+						Variant: v6.DynamicCustomRange{Span: 45 * telem.Minute},
+					},
+				},
+				Lines: []v6.Line{
+					{Key: "y1---x1---custom---1---2", StrokeWidth: 1},
+					{Key: "y1---x1---rolling1h---1---2", StrokeWidth: 2},
+				},
+			})
+			Expect(out.Ranges.X1.Rolling).To(Equal(new(telem.Hour)))
+			Expect(out.Lines).To(Equal([]v7.Line{
+				{Key: "y1---x1---rolling---1---2", StrokeWidth: 2},
+			}))
 		})
 
 	It("Should lift a static custom window to a static range with a fixed key",

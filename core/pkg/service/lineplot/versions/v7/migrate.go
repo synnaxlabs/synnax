@@ -82,24 +82,30 @@ func MigrateRanges(_ context.Context, old v6.Ranges) (Ranges, error) {
 }
 
 // migrateAxis converts one axis's v6 range keys. It also returns the line key range
-// part each surviving key becomes. The first rolling key wins the axis's one rolling
-// window, and keys that name nothing a v7 plot can hold are dropped.
+// part each surviving key becomes. The widest rolling key wins the axis's one rolling
+// window, since v6 drew every rolling window over the bounds of the widest. Keys that
+// name nothing a v7 plot can hold are dropped.
 func migrateAxis(
 	keys []string,
 	custom *v6.CustomRange,
 ) (XAxisRanges, map[string]string) {
 	axis := XAxisRanges{Ranges: []Range{}}
 	renames := make(map[string]string, len(keys))
+	var widest string
+	for _, k := range keys {
+		span, ok := rollingSpan(k, custom)
+		if ok && (axis.Rolling == nil || span > *axis.Rolling) {
+			axis.Rolling, widest = &span, k
+		}
+	}
+	if axis.Rolling != nil {
+		renames[widest] = rollingLineRange
+	}
 	for _, k := range keys {
 		if _, seen := renames[k]; seen {
 			continue
 		}
-		if span, ok := rollingSpan(k, custom); ok {
-			if axis.Rolling != nil {
-				continue
-			}
-			axis.Rolling = &span
-			renames[k] = rollingLineRange
+		if _, ok := rollingSpan(k, custom); ok {
 			continue
 		}
 		if k == customRangeKey {
