@@ -248,6 +248,7 @@ jobs:
       coverage_flag: console
       directory: console
       package: console
+      shards: 3
       test_args: --no-file-parallelism
     secrets: inherit
 
