@@ -35,6 +35,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/internal/taskreporter"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/internal/timer"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/ranges"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
@@ -565,21 +566,27 @@ func (r *tickerRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	if r.Out != nil {
 		o.AttachClosables(r.Out)
 	}
-	sCtx.Go(func(ctx context.Context) error {
+	sCtx.Go(func(ctx context.Context) (err error) {
+		t, err := timer.New()
+		if err != nil {
+			return err
+		}
+		defer func() { err = errors.Join(err, t.Close()) }()
+		// Fire right away, so timer nodes set their first deadline even when no
+		// streaming input is connected.
+		if err = t.Reset(0); err != nil {
+			return err
+		}
 		var (
 			runReason node.RunReason
-			// Fire immediately so timer nodes seed their first deadline
-			// even when no streaming input is connected.
-			timer = stdtime.NewTimer(0)
-			res   framer.StreamerResponse
-			ok    bool
+			res       framer.StreamerResponse
+			ok        bool
 		)
-		defer timer.Stop()
 		for {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
-			case <-timer.C:
+			case <-t.C:
 				runReason = node.ReasonTimerTick
 			case res, ok = <-r.In.Outlet():
 				if !ok {
@@ -591,19 +598,17 @@ func (r *tickerRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
 					runReason = node.ReasonTimerTick
 				}
 			}
-			if err := r.next(ctx, res, runReason); err != nil {
+			if err = r.next(ctx, res, runReason); err != nil {
 				return err
 			}
-			timer.Stop()
-			deadline := r.scheduler.NextDeadline()
-			elapsed := r.elapsed()
-			if deadline == telem.TimeSpanMax {
-				// No active timers. Timer stays stopped, so we only wake on channel
-				// input.
-			} else if deadline > elapsed {
-				timer.Reset((deadline - elapsed).Duration())
+			if deadline := r.scheduler.NextDeadline(); deadline == telem.TimeSpanMax {
+				// No active timers, so the loop wakes only on channel input.
+				err = t.Stop()
 			} else {
-				timer.Reset(0)
+				err = t.Reset((deadline - r.elapsed()).Duration())
+			}
+			if err != nil {
+				return err
 			}
 		}
 	}, o.Signal...)
