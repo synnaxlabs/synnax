@@ -100,6 +100,21 @@ var _ = Describe("Timer", func() {
 		Expect(t.C).ToNot(Receive())
 	})
 
+	It("Should not fire for a deadline that a Reset replaced", func() {
+		const span = 20 * time.Microsecond
+		for i := range 2000 {
+			Expect(t.Reset(span)).To(Succeed())
+			// The wait sweeps the wake of the first deadline, so its fire races the
+			// second Reset.
+			wait := span + time.Duration(i%100)*time.Microsecond
+			for start := timer.Now(); timer.Now()-start < wait; {
+			}
+			Expect(t.Reset(time.Hour)).To(Succeed())
+			time.Sleep(100 * time.Microsecond)
+			Expect(t.C).ToNot(Receive())
+		}
+	})
+
 	It("Should fire within half a millisecond of its deadline", func() {
 		const (
 			span  = 10 * time.Millisecond

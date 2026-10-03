@@ -11,7 +11,6 @@ package timer
 
 import (
 	"sync"
-	"sync/atomic"
 	"time"
 	"unsafe"
 
@@ -25,8 +24,6 @@ const (
 	spin = time.Millisecond
 	// createWaitableTimerHighResolution is CREATE_WAITABLE_TIMER_HIGH_RESOLUTION.
 	createWaitableTimerHighResolution = 0x2
-	// timerAllAccess is TIMER_ALL_ACCESS.
-	timerAllAccess = 0x1F0003
 )
 
 var (
@@ -70,7 +67,6 @@ func Wall() time.Time {
 // platform waits on a waitable timer that wakes spin before the deadline, then spins
 // to the deadline on Now.
 type platform struct {
-	waiter
 	// handle is the waitable timer.
 	handle windows.Handle
 	// closed is an event that Close signals to stop the wait goroutine.
@@ -78,8 +74,6 @@ type platform struct {
 	// tickRaised is true when open raised the system tick, because Windows before 10
 	// 1803 has no high resolution timer.
 	tickRaised bool
-	// deadline is the Now reading the timer fires at, or zero when it is stopped.
-	deadline atomic.Int64
 }
 
 func (t *Timer) open() error {
@@ -87,7 +81,7 @@ func (t *Timer) open() error {
 		0,
 		0,
 		createWaitableTimerHighResolution,
-		timerAllAccess,
+		windows.TIMER_ALL_ACCESS,
 	)
 	// Windows before 10 1803 has no high resolution timer.
 	if h == 0 {
@@ -96,7 +90,7 @@ func (t *Timer) open() error {
 			0,
 			0,
 			0,
-			timerAllAccess,
+			windows.TIMER_ALL_ACCESS,
 		); h == 0 {
 			return errors.Wrap(err, "failed to create waitable timer")
 		}
@@ -116,70 +110,42 @@ func (t *Timer) open() error {
 			t.release(),
 		)
 	}
-	t.done = make(chan struct{})
-	go t.wait()
 	return nil
 }
 
-func (t *Timer) wait() {
-	// The last fire wakes the receiver after done closes, so its next Reset or Stop
-	// returns err.
-	defer t.fire()
-	defer close(t.done)
+func (t *Timer) wait() error {
 	handles := []windows.Handle{t.handle, t.closed}
 	for {
 		event, err := windows.WaitForMultipleObjects(handles, false, windows.INFINITE)
 		if err != nil {
-			t.err = errors.Wrap(err, "failed to wait on waitable timer")
-			return
+			return errors.Wrap(err, "failed to wait on waitable timer")
 		}
 		if event == windows.WAIT_OBJECT_0+1 {
-			return
+			return nil
 		}
 		t.spinToDeadline()
+		if err = t.expire(); err != nil {
+			return err
+		}
 	}
 }
 
+// spinToDeadline spins until the deadline, unless the timer is stopped or the deadline
+// is more than two spins away.
 func (t *Timer) spinToDeadline() {
 	for {
-		deadline := t.deadline.Load()
-		if deadline == 0 {
-			return
-		}
-		remaining := time.Duration(deadline) - Now()
-		// The wake was early, or Reset moved the deadline later. A stale fire is safe:
-		// the receiver checks its clock and calls Reset, which sets the timer again.
-		if remaining > 2*spin {
-			t.fire()
-			return
-		}
-		if remaining <= 0 {
-			if t.deadline.CompareAndSwap(deadline, 0) {
-				t.fire()
-			}
+		t.mu.Lock()
+		deadline := t.deadline
+		t.mu.Unlock()
+		if left := deadline - Now(); deadline == 0 || left <= 0 || left > 2*spin {
 			return
 		}
 	}
 }
 
-// Reset stops the timer and starts it again, so it fires after d. A d of zero or less
-// fires right away.
-func (t *Timer) Reset(d time.Duration) error {
-	if d <= 0 {
-		err := t.Stop()
-		t.fire()
-		return err
-	}
-	if err := t.failure(); err != nil {
-		return err
-	}
-	t.deadline.Store(int64(Now() + d))
-	t.drain()
+func (t *Timer) arm(d time.Duration) error {
 	// A negative due time is relative, in 100 ns units.
-	due := -int64((d - spin) / 100)
-	if due >= 0 {
-		due = -1
-	}
+	due := min(-int64((d-spin)/100), -1)
 	r, _, err := procSetWaitableTimer.Call(
 		uintptr(t.handle),
 		uintptr(unsafe.Pointer(&due)),
@@ -194,21 +160,14 @@ func (t *Timer) Reset(d time.Duration) error {
 	return nil
 }
 
-// Stop stops the timer and drops a pending fire.
-func (t *Timer) Stop() error {
-	if err := t.failure(); err != nil {
-		return err
-	}
-	t.deadline.Store(0)
-	t.drain()
+func (t *Timer) disarm() error {
 	if r, _, err := procCancelWaitableTimer.Call(uintptr(t.handle)); r == 0 {
 		return errors.Wrap(err, "failed to cancel waitable timer")
 	}
 	return nil
 }
 
-// Close stops the timer and releases its handles.
-func (t *Timer) Close() error {
+func (t *Timer) close() error {
 	if err := windows.SetEvent(t.closed); err != nil {
 		return errors.Wrap(err, "failed to signal timer close event")
 	}

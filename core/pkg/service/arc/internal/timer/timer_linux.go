@@ -20,7 +20,6 @@ import (
 // platform reads a non-blocking timerfd through the Go netpoller. The netpoller wakes
 // on the fd at the timerfd's precision, not at its own 1 ms timeout precision.
 type platform struct {
-	waiter
 	// fd is the timerfd. It stays separate from file because File.Fd makes the fd
 	// blocking.
 	fd int
@@ -38,53 +37,24 @@ func (t *Timer) open() error {
 	}
 	t.fd = fd
 	t.file = os.NewFile(uintptr(fd), "timerfd")
-	t.done = make(chan struct{})
-	go t.read()
 	return nil
 }
 
-func (t *Timer) read() {
-	// The last fire wakes the receiver after done closes, so its next Reset or Stop
-	// returns err.
-	defer t.fire()
-	defer close(t.done)
+func (t *Timer) wait() error {
 	buf := make([]byte, 8)
 	for {
 		if _, err := t.file.Read(buf); err != nil {
-			if !errors.Is(err, os.ErrClosed) {
-				t.err = errors.Wrap(err, "failed to read timerfd")
+			if errors.Is(err, os.ErrClosed) {
+				return nil
 			}
-			return
+			return errors.Wrap(err, "failed to read timerfd")
 		}
-		t.fire()
+		if err := t.expire(); err != nil {
+			return err
+		}
 	}
 }
 
-// Reset stops the timer and starts it again, so it fires after d. A d of zero or less
-// fires right away.
-func (t *Timer) Reset(d time.Duration) error {
-	if d <= 0 {
-		err := t.Stop()
-		t.fire()
-		return err
-	}
-	if err := t.failure(); err != nil {
-		return err
-	}
-	t.drain()
-	return t.arm(d)
-}
-
-// Stop stops the timer and drops a pending fire.
-func (t *Timer) Stop() error {
-	if err := t.failure(); err != nil {
-		return err
-	}
-	t.drain()
-	return t.arm(0)
-}
-
-// arm starts the timerfd, or stops it when d is zero.
 func (t *Timer) arm(d time.Duration) error {
 	spec := unix.ItimerSpec{Value: unix.NsecToTimespec(d.Nanoseconds())}
 	return errors.Wrap(
@@ -93,8 +63,9 @@ func (t *Timer) arm(d time.Duration) error {
 	)
 }
 
-// Close stops the timer and releases the timerfd.
-func (t *Timer) Close() error {
+func (t *Timer) disarm() error { return t.arm(0) }
+
+func (t *Timer) close() error {
 	err := t.file.Close()
 	<-t.done
 	return errors.Join(err, t.err)

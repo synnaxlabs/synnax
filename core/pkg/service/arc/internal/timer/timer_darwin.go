@@ -20,7 +20,6 @@ import (
 // triggers. A kqueue cannot be non-blocking, so the wait goroutine blocks its thread in
 // kevent.
 type platform struct {
-	waiter
 	// kq is the kqueue.
 	kq int
 }
@@ -40,16 +39,10 @@ func (t *Timer) open() error {
 			unix.Close(kq),
 		)
 	}
-	t.done = make(chan struct{})
-	go t.wait()
 	return nil
 }
 
-func (t *Timer) wait() {
-	// The last fire wakes the receiver after done closes, so its next Reset or Stop
-	// returns err.
-	defer t.fire()
-	defer close(t.done)
+func (t *Timer) wait() error {
 	events := make([]unix.Kevent_t, 2)
 	for {
 		n, err := unix.Kevent(t.kq, nil, events, nil)
@@ -57,33 +50,22 @@ func (t *Timer) wait() {
 			continue
 		}
 		if err != nil {
-			t.err = errors.Wrap(err, "failed to wait on kqueue")
-			return
+			return errors.Wrap(err, "failed to wait on kqueue")
 		}
 		for _, e := range events[:n] {
 			if e.Filter == unix.EVFILT_USER {
-				return
+				return nil
 			}
 		}
-		t.fire()
+		if err = t.expire(); err != nil {
+			return err
+		}
 	}
 }
 
-// Reset stops the timer and starts it again, so it fires after d. A d of zero or less
-// fires right away.
-func (t *Timer) Reset(d time.Duration) error {
-	if d <= 0 {
-		err := t.Stop()
-		t.fire()
-		return err
-	}
-	if err := t.failure(); err != nil {
-		return err
-	}
-	t.drain()
-	// Adding the timer again replaces it and drops a fire that was not read.
-	// NOTE_CRITICAL removes the slack of up to 1 ms that the kernel adds to group
-	// timers, which a time.Timer cannot remove.
+func (t *Timer) arm(d time.Duration) error {
+	// Adding the timer again replaces it. NOTE_CRITICAL removes the slack of up to 1 ms
+	// that the kernel adds to group timers, which a time.Timer cannot remove.
 	return errors.Wrap(t.change(unix.Kevent_t{
 		Filter: unix.EVFILT_TIMER,
 		Flags:  unix.EV_ADD | unix.EV_ONESHOT,
@@ -92,12 +74,7 @@ func (t *Timer) Reset(d time.Duration) error {
 	}), "failed to arm kqueue timer")
 }
 
-// Stop stops the timer and drops a pending fire.
-func (t *Timer) Stop() error {
-	if err := t.failure(); err != nil {
-		return err
-	}
-	t.drain()
+func (t *Timer) disarm() error {
 	err := t.change(unix.Kevent_t{Filter: unix.EVFILT_TIMER, Flags: unix.EV_DELETE})
 	// ENOENT means no timer is set: it already fired, or was never set.
 	if errors.Is(err, unix.ENOENT) {
@@ -106,8 +83,7 @@ func (t *Timer) Stop() error {
 	return errors.Wrap(err, "failed to stop kqueue timer")
 }
 
-// Close stops the timer and releases its kqueue.
-func (t *Timer) Close() error {
+func (t *Timer) close() error {
 	if err := t.change(unix.Kevent_t{
 		Filter: unix.EVFILT_USER,
 		Fflags: unix.NOTE_TRIGGER,

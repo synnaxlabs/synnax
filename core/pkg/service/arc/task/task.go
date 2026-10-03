@@ -603,13 +603,6 @@ func (r *tickerRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
 			case <-ctx.Done():
 				return ctx.Err()
 			case <-t.C:
-				// A stale fire from an earlier Reset runs no cycle.
-				if r.elapsed() < r.scheduler.NextDeadline() {
-					if err = arm(); err != nil {
-						return err
-					}
-					continue
-				}
 				runReason = node.ReasonTimerTick
 			case res, ok = <-r.In.Outlet():
 				if !ok {
