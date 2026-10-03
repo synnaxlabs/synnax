@@ -21,6 +21,7 @@ interface Props {
 }
 
 const { wide, narrow, width, height, class: className } = Astro.props;
+const sources = [{ media: "(max-width: 900px)", src: cdn(narrow) }, { src: cdn(wide) }];
 ---
 
 <video
@@ -33,9 +34,34 @@ const { wide, narrow, width, height, class: className } = Astro.props;
     preload="none"
     data-lazy-video
 >
-    <source media="(max-width: 900px)" src={cdn(narrow)} type="video/mp4" />
-    <source src={cdn(wide)} type="video/mp4" />
+    {sources.map(({ media, src }) => (
+        <source media={media} src={src} type="video/mp4" />
+    ))}
 </video>
+<noscript>
+    <video
+        class={className}
+        width={width}
+        height={height}
+        muted
+        loop
+        playsinline
+        autoplay
+    >
+        {sources.map(({ media, src }) => (
+            <source media={media} src={src} type="video/mp4" />
+        ))}
+    </video>
+</noscript>
+
+<style is:global>
+    @media (scripting: none) {
+        /* Overrides the display rule each section sets on its video. */
+        video[data-lazy-video] {
+            display: none !important;
+        }
+    }
+</style>
 
 <script>
     // Defers each download until its video is within one viewport of the screen.
