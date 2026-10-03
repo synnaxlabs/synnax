@@ -26,6 +26,8 @@ var _ = Describe("Migration", func() {
 	DescribeTable("Should convert the loop mode to a performance level",
 		func(ctx SpecContext, mode v3.ExecutionMode, want v4.Performance) {
 			seed := v3.Config{
+				Key:           uuid.New(),
+				AutoStart:     true,
 				ArcKey:        uuid.New(),
 				Hash:          "abc123",
 				ExecutionMode: mode,
@@ -33,8 +35,6 @@ var _ = Describe("Migration", func() {
 				CPUAffinity:   3,
 				MemoryLocked:  true,
 			}
-			seed.Key = uuid.New()
-			seed.AutoStart = true
 			db := DeferClose(gorp.Wrap(memkv.New()))
 			MustSucceed(
 				gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, v3.Config]{DB: db}),
