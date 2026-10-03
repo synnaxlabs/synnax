@@ -321,6 +321,7 @@ oracle_check:
   - *oracle
   - .clang-format
   - .clang-format-ignore
+  - .github/actions/setup-pnpm/**
   - .github/workflows/check.oracle.yaml
   - .prettierignore
   - .prettierrc
