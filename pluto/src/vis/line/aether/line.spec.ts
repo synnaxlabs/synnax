@@ -314,6 +314,25 @@ describe("line", () => {
       ],
     };
 
+    const DIFFERENT_ALIGNMENT_MULTIPLES: Spec = {
+      name: "different alignment multiples",
+      x: [
+        {
+          timeRange: { start: 0, end: 100 },
+          alignmentBounds: { lower: 0n, upper: 64n },
+          alignmentMultiple: 8n,
+        },
+      ],
+      y: [
+        {
+          timeRange: { start: 0, end: 100 },
+          alignmentBounds: { lower: 0n, upper: 8n },
+          alignmentMultiple: 64n,
+        },
+      ],
+      expected: [],
+    };
+
     const REGRESSION_1: Spec = {
       name: "no alignment no overlap",
       x: [
@@ -356,6 +375,7 @@ describe("line", () => {
       ALIGN_MULTIPLE_GREATER__THAN_1_PERFECT_ALIGNMENT,
       ALIGNMENT_MULTIPLE_4_MISALIGNMENT,
       ALIGN_MULTIPLE_LESS_THAN_1_MISALIGNMENT_BAD_INTERVAL,
+      DIFFERENT_ALIGNMENT_MULTIPLES,
       REGRESSION_1,
     ];
 

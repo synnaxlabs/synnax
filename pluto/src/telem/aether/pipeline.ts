@@ -25,6 +25,7 @@ import {
   type SourceTransformer,
   type Spec,
   type Telem,
+  type ValueProps,
 } from "@/telem/aether/telem";
 
 export const connectionZ = z.object({
@@ -98,8 +99,16 @@ export class SourcePipeline<V>
     });
   }
 
-  value(): V {
-    return this.outlet.value();
+  value(props?: ValueProps): V {
+    return this.outlet.value(props);
+  }
+
+  loading(): boolean {
+    return this.outlet.loading?.() ?? false;
+  }
+
+  fetching(): boolean {
+    return this.outlet.fetching?.() ?? false;
   }
 
   onChange(handler: () => void): destructor.Destructor {

@@ -11,7 +11,7 @@ import { type Instrumentation } from "@synnaxlabs/alamos";
 import { UnexpectedError } from "@synnaxlabs/client";
 import {
   bounds,
-  type box,
+  box,
   color,
   DataType,
   type destructor,
@@ -317,6 +317,11 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     return (xTelem.loading?.() ?? false) || (yTelem.loading?.() ?? false);
   }
 
+  get fetching(): boolean {
+    const { xTelem, yTelem } = this.internal;
+    return (xTelem.fetching?.() ?? false) || (yTelem.fetching?.() ?? false);
+  }
+
   xBounds(): bounds.Bounds {
     return this.internal.xTelem.value()[0];
   }
@@ -337,7 +342,8 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
 
   findByXValue(props: LineProps, target: number): FindResult {
     const { xTelem, yTelem } = this.internal;
-    let [, xData] = xTelem.value();
+    const valueProps = { view: view(props) };
+    let [, xData] = xTelem.value(valueProps);
     xData = this.internal.xDownsampler.transform(xData);
     let [index, series] = [-1, -1];
     xData.series.find((x, i) => {
@@ -363,7 +369,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
 
     const xSeries = xData.series[series];
     result.value.x = safelyGetDataValue(series, index, xData);
-    let [, yData] = yTelem.value();
+    let [, yData] = yTelem.value(valueProps);
     yData = this.internal.yDownsampler.transform(yData);
     const ySeries = yData.series.find((ys) =>
       bounds.contains(ys.alignmentBounds, xSeries.alignment + BigInt(index)),
@@ -401,7 +407,8 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     const { xTelem, yTelem, lineCtx: ctx, xDownsampler, yDownsampler } = this.internal;
 
     const { dataToDecimalScale, exposure } = props;
-    let [[, xData], [, yData]] = [xTelem.value(), yTelem.value()];
+    const valueProps = { view: view(props) };
+    let [[, xData], [, yData]] = [xTelem.value(valueProps), yTelem.value(valueProps)];
     xData = xDownsampler.transform(xData);
     yData = yDownsampler.transform(yData);
     xData.updateGLBuffer(ctx.gl);
@@ -441,6 +448,15 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     clearBridgeProg();
   }
 }
+
+// view returns the part of the x range that the region shows.
+const view = ({ region, dataToDecimalScale }: LineProps): telem.View => {
+  const decimalToData = dataToDecimalScale.x.reverse();
+  return {
+    bounds: { lower: decimalToData.pos(0), upper: decimalToData.pos(1) },
+    width: box.width(region),
+  };
+};
 
 /** Just makes sure that the lines we draw to make stuff thick are really close together. */
 const THICKNESS_DIVISOR = 5000;
