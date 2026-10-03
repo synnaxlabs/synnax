@@ -18,6 +18,15 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+var _ = Describe("Now", func() {
+	It("Should advance at the rate of the system clock", func() {
+		start, wall := timer.Now(), time.Now()
+		time.Sleep(50 * time.Millisecond)
+		Expect(timer.Now() - start).
+			To(BeNumerically("~", time.Since(wall), time.Millisecond))
+	})
+})
+
 var _ = Describe("Timer", func() {
 	var t *timer.Timer
 	BeforeEach(func() { t = MustOpen(timer.New()) })
